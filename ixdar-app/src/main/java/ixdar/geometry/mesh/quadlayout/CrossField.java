@@ -41,8 +41,28 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
  * {@code mesh.vertexIdAt / faceIdAt / edgeIdAt}), not by raw entity id.
  */
 public class CrossField {
+    public static final float NUM_1e_20 = 1e-20f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_1e_9 = 1e-9f;
+    public static final double NUM_2_0 = 2.0;
+    public static final float NUM_0_9 = 0.9f;
+    public static final float NUM_0_25 = 0.25f;
+    public static final float NUM_1_001 = 1.001f;
+    public static final float NUM_1e_6 = 1e-6f;
+    public static final float NUM_4 = 4f;
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_1e_12 = 1e-12f;
+    public static final int NUM_8 = 8;
+    public static final int NUM_7 = 7;
+    public static final int NUM_32 = 32;
 
     public static volatile String lastDiagnostics = "[cross-field] no diagnostics recorded";
+
+    public static final int CURVATURE_INTERVAL_VALID = 0;
+    public static final int CURVATURE_INTERVAL_FAIL_EMPTY = 1;
+    public static final int CURVATURE_INTERVAL_FAIL_TAU = 2;
+    public static final int CURVATURE_INTERVAL_FAIL_MEAN = 3;
 
     public final HalfEdgeMesh mesh;
 
@@ -104,10 +124,20 @@ public class CrossField {
     public Map<Integer, Integer> faceIdToActive;
     public Map<Integer, Integer> edgeIdToActive;
 
+    /**
+     * TODO: document {@code CrossField}.
+     *
+     * @param mesh TODO: describe
+     */
     public CrossField(HalfEdgeMesh mesh) {
         this.mesh = mesh;
     }
 
+    /**
+     * TODO: document {@code build}.
+     *
+     * @return TODO: describe
+     */
     public CrossField build() {
         mesh.computeNormals();
 
@@ -156,7 +186,7 @@ public class CrossField {
             xAxis.y -= xDotN * n.y;
             xAxis.z -= xDotN * n.z;
             float xLen = xAxis.length();
-            if (xLen < 1e-20f) {
+            if (xLen < NUM_1e_20) {
                 arbitraryTangent(n, xAxis);
             } else {
                 xAxis.div(xLen);
@@ -186,7 +216,7 @@ public class CrossField {
         for (int eAi1 = 0; eAi1 < mesh.edgeCount(); eAi1++) {
             int eId1 = mesh.edgeIdAt(eAi1);
             if (mesh.isBoundaryEdge(eId1)) {
-                kappa[eAi1] = 0f;
+                kappa[eAi1] = NUM_0;
                 continue;
             }
             int he1 = mesh.edgeHalfEdge(eId1);
@@ -202,8 +232,8 @@ public class CrossField {
             mesh.vertexPosition(v1Id, v1);
             edgeDir.set(v1).sub(v0);
             float edgeLen = edgeDir.length();
-            if (edgeLen < 1e-20f) {
-                kappa[eAi1] = 0f;
+            if (edgeLen < NUM_1e_20) {
+                kappa[eAi1] = NUM_0;
                 continue;
             }
             edgeDir.div(edgeLen);
@@ -212,7 +242,7 @@ public class CrossField {
             mesh.faceNormal(fjId1, nj);
 
             // Signed dihedral: cos = ni·nj, sin = (ni × nj)·edgeDir.
-            float cosD = Math.max(-1f, Math.min(1f, ni.dot(nj)));
+            float cosD = Math.max(-NUM_1, Math.min(NUM_1, ni.dot(nj)));
             ni.cross(nj, cross);
             float sinD = cross.dot(edgeDir);
             float dihedral = (float) Math.atan2(sinD, cosD);
@@ -232,7 +262,7 @@ public class CrossField {
 
         float averageEdgeLength = computeAverageEdgeLength();
         float boundingSphereRadius = computeBoundingSphereRadius();
-        float curvatureK = curvatureScaleK / Math.max(boundingSphereRadius, 1e-9f);
+        float curvatureK = curvatureScaleK / Math.max(boundingSphereRadius, NUM_1e_9);
 
         int curvatureConstraints = applyCurvatureConstraints(
                 faceConstrained, faceConstraintAngle, averageEdgeLength, curvatureK);
@@ -271,7 +301,7 @@ public class CrossField {
             int fjAi = faceIdToActive.get(fjId);
             if (faceConstrained[fiAi] && faceConstrained[fjAi]) {
                 float diff = faceConstraintAngle[fjAi] - faceConstraintAngle[fiAi] - kappa[eAi];
-                int p = Math.round(diff / (float) (Math.PI / 2.0));
+                int p = Math.round(diff / (float) (Math.PI / NUM_2_0));
                 periodFixed[eAi] = true;
                 periodValue[eAi] = p;
                 constrainedPeriodFixes++;
@@ -295,11 +325,17 @@ public class CrossField {
         return this;
     }
 
+    /**
+     * TODO: document {@code arbitraryTangent}.
+     *
+     * @param n TODO: describe
+     * @param out TODO: describe
+     */
     public static void arbitraryTangent(Vector3f n, Vector3f out) {
-        if (Math.abs(n.x) < 0.9f)
-            out.set(1f, 0f, 0f);
+        if (Math.abs(n.x) < NUM_0_9)
+            out.set(NUM_1, NUM_0, NUM_0);
         else
-            out.set(0f, 1f, 0f);
+            out.set(NUM_0, NUM_1, NUM_0);
         float dotN = out.dot(n);
         out.x -= dotN * n.x;
         out.y -= dotN * n.y;
@@ -307,6 +343,9 @@ public class CrossField {
         out.normalize();
     }
 
+    /**
+     * TODO: document {@code buildTransportAngles}.
+     */
     public void buildTransportAngles() {
         Vector3f v0 = new Vector3f();
         Vector3f v1 = new Vector3f();
@@ -319,7 +358,7 @@ public class CrossField {
         for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
             int eId = mesh.edgeIdAt(eAi);
             if (mesh.isBoundaryEdge(eId)) {
-                kappa[eAi] = 0f;
+                kappa[eAi] = NUM_0;
                 continue;
             }
             int he = mesh.edgeHalfEdge(eId);
@@ -335,8 +374,8 @@ public class CrossField {
             mesh.vertexPosition(v1Id, v1);
             edgeDir.set(v1).sub(v0);
             float edgeLen = edgeDir.length();
-            if (edgeLen < 1e-20f) {
-                kappa[eAi] = 0f;
+            if (edgeLen < NUM_1e_20) {
+                kappa[eAi] = NUM_0;
                 continue;
             }
             edgeDir.div(edgeLen);
@@ -345,7 +384,7 @@ public class CrossField {
             mesh.faceNormal(fjId, nj);
 
             // Signed dihedral: cos = ni·nj, sin = (ni × nj)·edgeDir.
-            float cosD = Math.max(-1f, Math.min(1f, ni.dot(nj)));
+            float cosD = Math.max(-NUM_1, Math.min(NUM_1, ni.dot(nj)));
             ni.cross(nj, cross);
             float sinD = cross.dot(edgeDir);
             float dihedral = (float) Math.atan2(sinD, cosD);
@@ -359,14 +398,20 @@ public class CrossField {
         }
     }
 
-    /** Rodrigues rotation: rotate v about unit axis k by angle θ, in place. */
+    /**
+     * Rodrigues rotation: rotate v about unit axis k by angle θ, in place.
+     *
+     * @param v TODO: describe
+     * @param k TODO: describe
+     * @param theta TODO: describe
+     */
     public static void rotateAboutAxis(Vector3f v, Vector3f k, float theta) {
         float c = (float) Math.cos(theta);
         float s = (float) Math.sin(theta);
         Vector3f kCrossV = new Vector3f();
         k.cross(v, kCrossV);
         float kDotV = k.dot(v);
-        float oneMinusC = 1f - c;
+        float oneMinusC = NUM_1 - c;
         v.x = v.x * c + kCrossV.x * s + k.x * kDotV * oneMinusC;
         v.y = v.y * c + kCrossV.y * s + k.y * kDotV * oneMinusC;
         v.z = v.z * c + kCrossV.z * s + k.z * kDotV * oneMinusC;
@@ -374,11 +419,12 @@ public class CrossField {
 
     /**
      * A2. Directional constraints from principal curvature
-     * 
-     * @param faceConstrained
-     * @param faceConstraintAngle
-     * @param averageEdgeLength
-     * @param curvatureK
+     *
+     * @param faceConstrained TODO: describe
+     * @param faceConstraintAngle TODO: describe
+     * @param averageEdgeLength TODO: describe
+     * @param curvatureK TODO: describe
+     * @return TODO: describe
      */
 
     public int applyCurvatureConstraints(boolean[] faceConstrained,
@@ -392,15 +438,15 @@ public class CrossField {
         int addedConstraints = 0;
         CurvatureConstraintStats stats = new CurvatureConstraintStats();
         float h = resolvedTargetEdgeLength(averageEdgeLength);
-        float stabilityWindow = 0.25f * h;
+        float stabilityWindow = NUM_0_25 * h;
 
         // Geometric radius series.
         List<Float> radii = new ArrayList<>();
         float startRadius = radiusStartMul * averageEdgeLength;
-        if (radiusRatio <= 1.001f || h <= startRadius) {
+        if (radiusRatio <= NUM_1_001 || h <= startRadius) {
             radii.add(h);
         } else {
-            for (float r = startRadius; r <= h + 1e-6f; r *= radiusRatio) {
+            for (float r = startRadius; r <= h + NUM_1e_6; r *= radiusRatio) {
                 radii.add(r);
             }
         }
@@ -494,7 +540,7 @@ public class CrossField {
             // contributes one sparse face constraint, not a whole one-ring flood.
             int adj = mesh.vertexFaceCount(vId);
             int bestFaceAi = -1;
-            float bestProjectionLength = -1f;
+            float bestProjectionLength = -NUM_1;
             for (int i = 0; i < adj; i++) {
                 int fId = mesh.vertexFaceAt(vId, i);
                 int fAi = faceIdToActive.get(fId);
@@ -511,7 +557,7 @@ public class CrossField {
             if (bestFaceAi >= 0) {
                 float angleInFace = projectDirectionToFaceAngle(constraintDirWorld, bestFaceAi);
                 faceConstrained[bestFaceAi] = true;
-                faceConstraintAngle[bestFaceAi] = canonicalizeMod(angleInFace, (float) (Math.PI / 2.0));
+                faceConstraintAngle[bestFaceAi] = canonicalizeMod(angleInFace, (float) (Math.PI / NUM_2_0));
                 addedConstraints++;
             } else {
                 stats.allIncidentFacesConstrained++;
@@ -522,6 +568,13 @@ public class CrossField {
         return addedConstraints;
     }
 
+    /**
+     * TODO: document {@code projectedDirectionLength}.
+     *
+     * @param dirWorld TODO: describe
+     * @param fAi TODO: describe
+     * @return TODO: describe
+     */
     public float projectedDirectionLength(Vector3f dirWorld, int fAi) {
         Vector3f n = new Vector3f();
         mesh.faceNormal(mesh.faceIdAt(fAi), n);
@@ -532,14 +585,25 @@ public class CrossField {
         return (float) Math.sqrt(x * x + y * y + z * z);
     }
 
+    /**
+     * TODO: document {@code resolvedTargetEdgeLength}.
+     *
+     * @param averageEdgeLength TODO: describe
+     * @return TODO: describe
+     */
     public float resolvedTargetEdgeLength(float averageEdgeLength) {
         float target = targetEdgeLengthFractionOfBounds * computeBoundingBoxDiagonal();
-        return target > 0f ? target : averageEdgeLength;
+        return target > NUM_0 ? target : averageEdgeLength;
     }
 
+    /**
+     * TODO: document {@code computeBoundingBoxDiagonal}.
+     *
+     * @return TODO: describe
+     */
     public float computeBoundingBoxDiagonal() {
         if (mesh.vertexCount() == 0) {
-            return 0f;
+            return NUM_0;
         }
         Vector3f p = new Vector3f();
         float minX = Float.POSITIVE_INFINITY;
@@ -563,14 +627,13 @@ public class CrossField {
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
-    public static final int CURVATURE_INTERVAL_VALID = 0;
-    public static final int CURVATURE_INTERVAL_FAIL_EMPTY = 1;
-    public static final int CURVATURE_INTERVAL_FAIL_TAU = 2;
-    public static final int CURVATURE_INTERVAL_FAIL_MEAN = 3;
-
     /**
      * Project a 3D direction into a face's local (x, y) frame and return atan2(y,
      * x).
+     *
+     * @param dirWorld TODO: describe
+     * @param fAi TODO: describe
+     * @return TODO: describe
      */
     public float projectDirectionToFaceAngle(Vector3f dirWorld, int fAi) {
         Vector3f n = new Vector3f();
@@ -583,7 +646,13 @@ public class CrossField {
         return (float) Math.atan2(planar.dot(faceY[fAi]), planar.dot(faceX[fAi]));
     }
 
-    /** Build a tangent-frame (e1, e2) for normal n. */
+    /**
+     * Build a tangent-frame (e1, e2) for normal n.
+     *
+     * @param n TODO: describe
+     * @param e1 TODO: describe
+     * @param e2 TODO: describe
+     */
     public static void tangentFrame(Vector3f n, Vector3f e1, Vector3f e2) {
         arbitraryTangent(n, e1);
         n.cross(e1, e2).normalize();
@@ -592,6 +661,14 @@ public class CrossField {
     /**
      * Cohen-Steiner integrated curvature tensor over a geodesic disk. Returns [T00,
      * T01, T11] in basis (e1, e2), or null if the disk is empty.
+     *
+     * @param vId TODO: describe
+     * @param vPos TODO: describe
+     * @param vNormal TODO: describe
+     * @param e1 TODO: describe
+     * @param e2 TODO: describe
+     * @param radius TODO: describe
+     * @return TODO: describe
      */
     public float[] integrateCurvatureTensor(int vId, Vector3f vPos, Vector3f vNormal,
             Vector3f e1, Vector3f e2, float radius) {
@@ -621,13 +698,13 @@ public class CrossField {
         if (B.isEmpty())
             return null;
 
-        float A = 0f;
+        float A = NUM_0;
         for (int fId : B)
             A += faceArea(fId);
-        if (A < 1e-20f)
+        if (A < NUM_1e_20)
             return null;
 
-        float T00 = 0f, T01 = 0f, T11 = 0f;
+        float T00 = NUM_0, T01 = NUM_0, T11 = NUM_0;
         Vector3f p0 = new Vector3f();
         Vector3f p1 = new Vector3f();
         Vector3f edge = new Vector3f();
@@ -659,12 +736,12 @@ public class CrossField {
                 mesh.vertexPosition(v1Id, p1);
                 edge.set(p1).sub(p0);
                 float edgeLen = edge.length();
-                if (edgeLen < 1e-20f)
+                if (edgeLen < NUM_1e_20)
                     continue;
 
                 mesh.faceNormal(fiId, ni);
                 mesh.faceNormal(fjId, nj);
-                float cosD = Math.max(-1f, Math.min(1f, ni.dot(nj)));
+                float cosD = Math.max(-NUM_1, Math.min(NUM_1, ni.dot(nj)));
                 ni.cross(nj, cross);
                 float sinD = cross.dot(edge) / edgeLen;
                 float beta = (float) Math.atan2(sinD, cosD);
@@ -694,13 +771,18 @@ public class CrossField {
     /**
      * Eigendecomposition of [[t00, t01], [t01, t11]]. Returns [eigBig, eigSmall,
      * angleOfBigEigenvector]; eigenvalues sorted by absolute value.
+     *
+     * @param t00 TODO: describe
+     * @param t01 TODO: describe
+     * @param t11 TODO: describe
+     * @return TODO: describe
      */
     public static float[] eigSym2x2(float t00, float t01, float t11) {
         float trace = t00 + t11;
         float diff = t00 - t11;
-        float disc = (float) Math.sqrt(diff * diff + 4f * t01 * t01);
-        float lambda1 = 0.5f * (trace + disc);
-        float lambda2 = 0.5f * (trace - disc);
+        float disc = (float) Math.sqrt(diff * diff + NUM_4 * t01 * t01);
+        float lambda1 = NUM_0_5 * (trace + disc);
+        float lambda2 = NUM_0_5 * (trace - disc);
         float eigBig, eigSmall;
         if (Math.abs(lambda1) >= Math.abs(lambda2)) {
             eigBig = lambda1;
@@ -710,32 +792,38 @@ public class CrossField {
             eigSmall = lambda1;
         }
         float vx, vy;
-        if (Math.abs(t01) > 1e-20f) {
+        if (Math.abs(t01) > NUM_1e_20) {
             vx = eigBig - t11;
             vy = t01;
         } else if (Math.abs(eigBig - t00) < Math.abs(eigBig - t11)) {
-            vx = 1f;
-            vy = 0f;
+            vx = NUM_1;
+            vy = NUM_0;
         } else {
-            vx = 0f;
-            vy = 1f;
+            vx = NUM_0;
+            vy = NUM_1;
         }
         float angle = (float) Math.atan2(vy, vx);
         return new float[] { eigBig, eigSmall, angle };
     }
 
-    /** Dijkstra over the 1-skeleton from v, edge weights = Euclidean lengths. */
+    /**
+     * Dijkstra over the 1-skeleton from v, edge weights = Euclidean lengths.
+     *
+     * @param vId TODO: describe
+     * @param radius TODO: describe
+     * @return TODO: describe
+     */
     public Map<Integer, Float> dijkstraWithinRadius(int vId, float radius) {
         Map<Integer, Float> dist = new HashMap<>();
-        dist.put(vId, 0f);
+        dist.put(vId, NUM_0);
         PriorityQueue<DijkstraNode> pq = new PriorityQueue<>();
-        pq.offer(new DijkstraNode(0f, vId));
+        pq.offer(new DijkstraNode(NUM_0, vId));
         Vector3f a = new Vector3f();
         Vector3f b = new Vector3f();
         while (!pq.isEmpty()) {
             DijkstraNode node = pq.poll();
             Float bestD = dist.get(node.vertexOrFace);
-            if (bestD == null || node.distance > bestD + 1e-9f)
+            if (bestD == null || node.distance > bestD + NUM_1e_9)
                 continue;
             int outCount = mesh.vertexOutgoingHalfEdgeCount(node.vertexOrFace);
             mesh.vertexPosition(node.vertexOrFace, a);
@@ -760,42 +848,17 @@ public class CrossField {
         return dist;
     }
 
-    public static final class DijkstraNode implements Comparable<DijkstraNode> {
-        final float distance;
-        final int vertexOrFace;
-
-        DijkstraNode(float distance, int vertexOrFace) {
-            this.distance = distance;
-            this.vertexOrFace = vertexOrFace;
-        }
-
-        @Override
-        public int compareTo(DijkstraNode other) {
-            return Float.compare(this.distance, other.distance);
-        }
-    }
-
-    public static final class CurvatureConstraintStats {
-        int verticesVisited;
-        int boundaryVertices;
-        int noCurvatureSamples;
-        int failedAnisotropy;
-        int failedMeanCurvature;
-        int failedInterval;
-        int validIntervals;
-        int failedJitter;
-        int acceptedVertices;
-        int faceCollisionCandidates;
-        int allIncidentFacesConstrained;
-        int addedConstraints;
-        double jitterSum;
-        float maxJitter;
-
-        double averageJitter() {
-            return validIntervals > 0 ? jitterSum / validIntervals : 0.0;
-        }
-    }
-
+    /**
+     * TODO: document {@code curvatureIntervalStatus}.
+     *
+     * @param radii TODO: describe
+     * @param kappaMaxList TODO: describe
+     * @param kappaMinList TODO: describe
+     * @param k TODO: describe
+     * @param stabilityWindow TODO: describe
+     * @param curvatureK TODO: describe
+     * @return TODO: describe
+     */
     public int curvatureIntervalStatus(List<Float> radii,
             List<Float> kappaMaxList,
             List<Float> kappaMinList,
@@ -810,10 +873,10 @@ public class CrossField {
             hasSample = true;
             float kmax = kappaMaxList.get(j);
             float kmin = kappaMinList.get(j);
-            if (Math.abs(kmax) < 1e-12f)
+            if (Math.abs(kmax) < NUM_1e_12)
                 return CURVATURE_INTERVAL_FAIL_TAU;
             float tau = (Math.abs(kmax) - Math.abs(kmin)) / Math.abs(kmax);
-            float meanH = 0.5f * (kmax + kmin);
+            float meanH = NUM_0_5 * (kmax + kmin);
             if (tau <= tauMin || Math.abs(meanH) <= curvatureK)
                 return tau <= tauMin
                         ? CURVATURE_INTERVAL_FAIL_TAU
@@ -825,11 +888,17 @@ public class CrossField {
     /**
      * Direction jitter at index k: angular std deviation inside the BZK09 stability
      * interval, modulo π (κ_max direction is invariant under +π).
+     *
+     * @param angles TODO: describe
+     * @param radii TODO: describe
+     * @param k TODO: describe
+     * @param stabilityWindow TODO: describe
+     * @return TODO: describe
      */
     public static float directionJitter(List<Float> angles, List<Float> radii, int k, float stabilityWindow) {
         float ak = angles.get(k);
         float center = radii.get(k);
-        float sumSq = 0f;
+        float sumSq = NUM_0;
         int count = 0;
         for (int j = 0; j < angles.size(); j++) {
             if (j == k)
@@ -838,15 +907,22 @@ public class CrossField {
                 continue;
             float alpha = angles.get(j) - ak;
             /** Wrap an angle to (−π/2, π/2]. */
-            float diff = (float) (alpha - Math.PI * Math.floor((alpha + Math.PI / 2.0) / Math.PI));
+            float diff = (float) (alpha - Math.PI * Math.floor((alpha + Math.PI / NUM_2_0) / Math.PI));
             sumSq += diff * diff;
             count++;
         }
         if (count == 0)
-            return 0f;
+            return NUM_0;
         return (float) Math.sqrt(sumSq / count);
     }
 
+    /**
+     * TODO: document {@code applyBoundaryConstraints}.
+     *
+     * @param faceConstrained TODO: describe
+     * @param faceConstraintAngle TODO: describe
+     * @return TODO: describe
+     */
     public int applyBoundaryConstraints(boolean[] faceConstrained, float[] faceConstraintAngle) {
         Vector3f a = new Vector3f();
         Vector3f b = new Vector3f();
@@ -866,6 +942,15 @@ public class CrossField {
         return addedConstraints;
     }
 
+    /**
+     * TODO: document {@code constrainBothFacesOfEdge}.
+     *
+     * @param eId TODO: describe
+     * @param edgeDirWorld TODO: describe
+     * @param faceConstrained TODO: describe
+     * @param faceConstraintAngle TODO: describe
+     * @return TODO: describe
+     */
     public int constrainBothFacesOfEdge(int eId, Vector3f edgeDirWorld,
             boolean[] faceConstrained,
             float[] faceConstraintAngle) {
@@ -881,7 +966,7 @@ public class CrossField {
             if (!faceConstrained[fAi])
                 addedConstraints++;
             faceConstrained[fAi] = true;
-            faceConstraintAngle[fAi] = canonicalizeMod(angle, (float) (Math.PI / 2.0));
+            faceConstraintAngle[fAi] = canonicalizeMod(angle, (float) (Math.PI / NUM_2_0));
         }
         return addedConstraints;
     }
@@ -890,6 +975,12 @@ public class CrossField {
      * A3. Voronoi spanning forest in the dual graph
      */
 
+    /**
+     * TODO: document {@code buildVoronoiSpanningForest}.
+     *
+     * @param faceConstrained TODO: describe
+     * @return TODO: describe
+     */
     public Set<Integer> buildVoronoiSpanningForest(boolean[] faceConstrained) {
         int faceCount = mesh.faceCount();
         float[] dist = new float[faceCount];
@@ -900,8 +991,8 @@ public class CrossField {
         PriorityQueue<DijkstraNode> pq = new PriorityQueue<>();
         for (int fAi = 0; fAi < faceCount; fAi++) {
             if (faceConstrained[fAi]) {
-                dist[fAi] = 0f;
-                pq.offer(new DijkstraNode(0f, fAi));
+                dist[fAi] = NUM_0;
+                pq.offer(new DijkstraNode(NUM_0, fAi));
             }
         }
         Vector3f va = new Vector3f();
@@ -910,7 +1001,7 @@ public class CrossField {
         while (!pq.isEmpty()) {
             DijkstraNode node = pq.poll();
             int fAi = node.vertexOrFace;
-            if (node.distance > dist[fAi] + 1e-9f)
+            if (node.distance > dist[fAi] + NUM_1e_9)
                 continue;
             int fId = mesh.faceIdAt(fAi);
             int adj = mesh.faceHalfEdgeCount(fId);
@@ -951,6 +1042,393 @@ public class CrossField {
     }
 
     /*
+     * B. Singularities
+     *
+     * Walk the 1-ring of v. For each outgoing half-edge `he`, look up its edge eId.
+     * If `he` is the "natural" half-edge of eId (edgeHalfEdge(eId) == he),
+     * contribute +(κ_e, p_e); otherwise contribute −(κ_e, p_e).
+     *
+     * BZK09/Ray08: I(v) = 1/(2π) · (angleDefect(v) + signed κ-walk) + 1/4 · signed
+     * p-walk. We store 4·I as an integer.
+     */
+
+    /**
+     * TODO: document {@code extractSingularities}.
+     *
+     * @return TODO: describe
+     */
+    public List<Singularity> extractSingularities() {
+        int vertexCount = mesh.vertexCount();
+        singularityIndexQuarter = new int[vertexCount];
+        singularities.clear();
+        Vector3f vPos = new Vector3f();
+        Vector3f a = new Vector3f();
+        Vector3f b = new Vector3f();
+
+        for (int vAi = 0; vAi < vertexCount; vAi++) {
+            int vId = mesh.vertexIdAt(vAi);
+            if (mesh.isBoundaryVertex(vId))
+                continue;
+            mesh.vertexPosition(vId, vPos);
+
+            float angleSum = NUM_0;
+            int faces = mesh.vertexFaceCount(vId);
+            for (int i = 0; i < faces; i++) {
+                int fId = mesh.vertexFaceAt(vId, i);
+                angleSum += interiorAngleAtVertex(fId, vId, vPos, a, b);
+            }
+            float defect = (float) (NUM_2_0 * Math.PI) - angleSum;
+
+            float signedKappaSum = NUM_0;
+            int signedPeriodSum = 0;
+            int outCount = mesh.vertexOutgoingHalfEdgeCount(vId);
+            for (int i = 0; i < outCount; i++) {
+                int he = mesh.vertexOutgoingHalfEdgeAt(vId, i);
+                int eId = mesh.halfEdgeEdge(he);
+                if (mesh.isBoundaryEdge(eId))
+                    continue;
+                int eAi = edgeIdToActive.get(eId);
+                int sign = (he == mesh.edgeHalfEdge(eId)) ? 1 : -1;
+                signedKappaSum += sign * kappa[eAi];
+                signedPeriodSum += sign * periodJump[eAi];
+            }
+
+            float iTimes4 = (float) (((defect + signedKappaSum) * NUM_2_0) / Math.PI) + signedPeriodSum;
+            int iQuarter = Math.round(iTimes4);
+            singularityIndexQuarter[vAi] = iQuarter;
+            if (iQuarter != 0) {
+                singularities.add(new Singularity(vId, iQuarter));
+            }
+        }
+        return singularities;
+    }
+
+    /**
+     * TODO: document {@code interiorAngleAtVertex}.
+     *
+     * @param fId TODO: describe
+     * @param vId TODO: describe
+     * @param vPos TODO: describe
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @return TODO: describe
+     */
+    public float interiorAngleAtVertex(int fId, int vId, Vector3f vPos, Vector3f a, Vector3f b) {
+        int adj = mesh.faceHalfEdgeCount(fId);
+        for (int i = 0; i < adj; i++) {
+            int he = mesh.faceHalfEdgeAt(fId, i);
+            if (mesh.halfEdgeVertex(he) == vId) {
+                int prev = mesh.halfEdgePrev(he);
+                int prevStart = mesh.halfEdgeVertex(prev);
+                int nextEnd = mesh.halfEdgeEndVertex(he);
+                mesh.vertexPosition(prevStart, a);
+                mesh.vertexPosition(nextEnd, b);
+                a.sub(vPos);
+                b.sub(vPos);
+                float la = a.length();
+                float lb = b.length();
+                if (la < NUM_1e_20 || lb < NUM_1e_20)
+                    return NUM_0;
+                float c = a.dot(b) / (la * lb);
+                c = Math.max(-NUM_1, Math.min(NUM_1, c));
+                return (float) Math.acos(c);
+            }
+        }
+        return NUM_0;
+    }
+
+    /**
+     * TODO: document {@code printProblemDiagnostics}.
+     *
+     * @param averageEdgeLength TODO: describe
+     * @param boundingSphereRadius TODO: describe
+     * @param curvatureK TODO: describe
+     * @param curvatureConstraints TODO: describe
+     * @param boundaryConstraints TODO: describe
+     * @param totalConstraints TODO: describe
+     * @param forestEdgeCount TODO: describe
+     * @param boundaryPeriodFixes TODO: describe
+     * @param constrainedPeriodFixes TODO: describe
+     * @param initiallyFixedPeriods TODO: describe
+     * @param system TODO: describe
+     */
+    public void printProblemDiagnostics(float averageEdgeLength,
+            float boundingSphereRadius,
+            float curvatureK,
+            int curvatureConstraints,
+            int boundaryConstraints,
+            int totalConstraints,
+            int forestEdgeCount,
+            int boundaryPeriodFixes,
+            int constrainedPeriodFixes,
+            boolean[] initiallyFixedPeriods,
+            SmoothEnergySystem system) {
+        int freePeriods = initiallyFixedPeriods.length - countTrue(initiallyFixedPeriods);
+        int freeTheta = mesh.faceCount() - totalConstraints;
+        int fullDim = mesh.faceCount() + freePeriods;
+        int reducedDim = freeTheta + freePeriods;
+        int expectedForestEdges = mesh.faceCount() - totalConstraints;
+        System.out.printf(
+                "[cross-field] constraints curvature=%d boundary=%d totalFaces=%d/%d%n",
+                curvatureConstraints, boundaryConstraints, totalConstraints, mesh.faceCount());
+        CurvatureConstraintStats cs = lastCurvatureStats;
+        System.out.printf(
+                "[cross-field] curvatureStats vertices=%d boundary=%d noSamples=%d failTau=%d failMean=%d failInterval=%d valid=%d failJitter=%d acceptedVertices=%d addedFaces=%d faceCollisions=%d fullOneRings=%d avgJitter=%.6g maxJitter=%.6g%n",
+                cs.verticesVisited, cs.boundaryVertices, cs.noCurvatureSamples,
+                cs.failedAnisotropy, cs.failedMeanCurvature, cs.failedInterval,
+                cs.validIntervals, cs.failedJitter, cs.acceptedVertices,
+                cs.addedConstraints, cs.faceCollisionCandidates,
+                cs.allIncidentFacesConstrained, cs.averageJitter(), cs.maxJitter);
+        System.out.printf(
+                "[cross-field] bzk tauMin=%.3f K=%.6g avgEdge=%.6g targetH=%.6g bboxDiag=%.6g hFraction=%.3g boundingRadius=%.6g r0=%.6g r1=%.6g%n",
+                tauMin, curvatureK, averageEdgeLength, resolvedTargetEdgeLength(averageEdgeLength),
+                computeBoundingBoxDiagonal(), targetEdgeLengthFractionOfBounds,
+                boundingSphereRadius, radiusStartMul * averageEdgeLength,
+                resolvedTargetEdgeLength(averageEdgeLength));
+        System.out.printf(
+                "[cross-field] mip rows=%d fixedPeriods=%d freePeriods=%d forestEdges=%d%n",
+                system.rowCount, countTrue(initiallyFixedPeriods), freePeriods, forestEdgeCount);
+        System.out.printf(
+                "[cross-field] bzk reduction constrainedFaces=%d expectedForest=%d actualForest=%d constrainedEdgeFixes=%d boundaryFixes=%d%n",
+                totalConstraints, expectedForestEdges, forestEdgeCount,
+                constrainedPeriodFixes, boundaryPeriodFixes);
+        System.out.printf(
+                "[cross-field] solver localMaxIter=%d localTol=%.3g cgMaxIter=%d cgTol=%.3g directAllowed=%s bootstrapDirect=true directUsed=%d%n",
+                system.adaptiveOptions.localMaxIterations,
+                system.adaptiveOptions.localTolerance,
+                system.adaptiveOptions.cgMaxIterations,
+                system.adaptiveOptions.cgTolerance,
+                system.adaptiveOptions.useDirectFallback,
+                system.directFallbacks);
+        System.out.printf(
+                "[cross-field] rounding batchEnabled=%s batchSize=%d batchTol=%.3g%n",
+                system.batchRoundingEnabled, system.roundBatchSize, system.roundBatchTol);
+        System.out.printf(
+                "[cross-field] bzk09-rocker-target dim=32843 int=12064 is=385 ds=7 time=7.6s; ours fullDim=%d reducedDim=%d int=%d%n",
+                fullDim, reducedDim, freePeriods);
+    }
+
+    /**
+     * TODO: document {@code printSolutionDiagnostics}.
+     *
+     * @param system TODO: describe
+     */
+    public void printSolutionDiagnostics(SmoothEnergySystem system) {
+        SmoothnessStats stats = smoothnessStats();
+        double avgBatch = system.batchCount > 0
+                ? (double) system.totalBatchSize / system.batchCount
+                : 0.0;
+        double avgInitialQueue = system.batchCount > 0
+                ? (double) system.totalLocalInitialQueueSize / system.batchCount
+                : 0.0;
+        System.out.printf(
+                "[cross-field] adaptive localGS=%d cg=%d direct=%d failed=%d localIters=%d cgIters=%d localCapHits=%d capFace=%d capChord=%d maxCapResidual=%.6g avgSeedQueue=%.3f maxQueue=%d batches=%d avgBatch=%.3f maxBatch=%d rejectOverlap=%d rejectRoundoff=%d%n",
+                system.localGsConverged, system.cgConverged, system.directFallbacks,
+                system.failedSolves, system.totalLocalGsIterations, system.totalCgIterations,
+                system.localGsCapHits, system.localCapFaceRows, system.localCapChordRows,
+                system.maxLocalCapResidual, avgInitialQueue, system.maxLocalQueueSize,
+                system.batchCount, avgBatch, system.maxBatchSize,
+                system.batchRejectedByOverlap, system.batchRejectedByRoundoff);
+        System.out.printf(
+                "[cross-field] smoothEnergy=%.6g maxResidual=%.6g singularityHistogram=%s%n",
+                stats.energy, stats.maxResidual, singularityHistogram());
+    }
+
+    /**
+     * TODO: document {@code smoothnessStats}.
+     *
+     * @return TODO: describe
+     */
+    public SmoothnessStats smoothnessStats() {
+        float halfPi = (float) (Math.PI / NUM_2_0);
+        double energy = 0.0;
+        double maxResidual = 0.0;
+        int[] buckets = new int[NUM_8];
+        for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
+            int eId = mesh.edgeIdAt(eAi);
+            if (mesh.isBoundaryEdge(eId))
+                continue;
+            int he = mesh.edgeHalfEdge(eId);
+            int twin = mesh.halfEdgeTwin(he);
+            int fi = faceIdToActive.get(mesh.halfEdgeFace(he));
+            int fj = faceIdToActive.get(mesh.halfEdgeFace(twin));
+            double residual = theta[fi] + kappa[eAi] + halfPi * periodJump[eAi] - theta[fj];
+            energy += residual * residual;
+            maxResidual = Math.max(maxResidual, Math.abs(residual));
+            int b = Math.min(NUM_7, (int) (Math.abs(residual) / (Math.PI / NUM_32)));
+            buckets[b]++;
+        }
+        System.err.println("[res] " + Arrays.toString(buckets));
+        return new SmoothnessStats(energy, maxResidual);
+    }
+
+    /**
+     * TODO: document {@code singularityHistogram}.
+     *
+     * @return TODO: describe
+     */
+    public String singularityHistogram() {
+        Map<Integer, Integer> histogram = new HashMap<>();
+        for (Singularity s : singularities) {
+            histogram.merge(s.index4(), 1, Integer::sum);
+        }
+        return histogram.toString();
+    }
+
+    /**
+     * TODO: document {@code countTrue}.
+     *
+     * @param values TODO: describe
+     * @return TODO: describe
+     */
+    public static int countTrue(boolean[] values) {
+        int count = 0;
+        for (boolean value : values) {
+            if (value)
+                count++;
+        }
+        return count;
+    }
+
+    /**
+     * TODO: document {@code computeAverageEdgeLength}.
+     *
+     * @return TODO: describe
+     */
+    public float computeAverageEdgeLength() {
+        Vector3f a = new Vector3f();
+        Vector3f b = new Vector3f();
+        double sum = 0;
+        int count = 0;
+        for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
+            int eId = mesh.edgeIdAt(eAi);
+            int he = mesh.edgeHalfEdge(eId);
+            mesh.vertexPosition(mesh.halfEdgeVertex(he), a);
+            mesh.vertexPosition(mesh.halfEdgeEndVertex(he), b);
+            sum += Math.sqrt(
+                    (b.x - a.x) * (b.x - a.x) +
+                            (b.y - a.y) * (b.y - a.y) +
+                            (b.z - a.z) * (b.z - a.z));
+            count++;
+        }
+        return count == 0 ? NUM_1 : (float) (sum / count);
+    }
+
+    /**
+     * TODO: document {@code computeBoundingSphereRadius}.
+     *
+     * @return TODO: describe
+     */
+    public float computeBoundingSphereRadius() {
+        int vertexCount = mesh.vertexCount();
+        if (vertexCount == 0)
+            return NUM_1;
+        Vector3f p = new Vector3f();
+        mesh.vertexPosition(mesh.vertexIdAt(0), p);
+        float minX = p.x, minY = p.y, minZ = p.z;
+        float maxX = p.x, maxY = p.y, maxZ = p.z;
+        for (int vAi = 1; vAi < vertexCount; vAi++) {
+            mesh.vertexPosition(mesh.vertexIdAt(vAi), p);
+            if (p.x < minX)
+                minX = p.x;
+            if (p.y < minY)
+                minY = p.y;
+            if (p.z < minZ)
+                minZ = p.z;
+            if (p.x > maxX)
+                maxX = p.x;
+            if (p.y > maxY)
+                maxY = p.y;
+            if (p.z > maxZ)
+                maxZ = p.z;
+        }
+        float dx = maxX - minX;
+        float dy = maxY - minY;
+        float dz = maxZ - minZ;
+        return NUM_0_5 * (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    /**
+     * TODO: document {@code faceArea}.
+     *
+     * @param fId TODO: describe
+     * @return TODO: describe
+     */
+    public float faceArea(int fId) {
+        int he = mesh.faceHalfEdge(fId);
+        int v0 = mesh.halfEdgeVertex(he);
+        int v1 = mesh.halfEdgeEndVertex(he);
+        int v2 = mesh.halfEdgeEndVertex(mesh.halfEdgeNext(he));
+        Vector3f a = new Vector3f();
+        Vector3f b = new Vector3f();
+        Vector3f c = new Vector3f();
+        mesh.vertexPosition(v0, a);
+        mesh.vertexPosition(v1, b);
+        mesh.vertexPosition(v2, c);
+        b.sub(a);
+        c.sub(a);
+        Vector3f cross = new Vector3f();
+        b.cross(c, cross);
+        return NUM_0_5 * cross.length();
+    }
+
+    /**
+     * TODO: document {@code canonicalizeMod}.
+     *
+     * @param angle TODO: describe
+     * @param mod TODO: describe
+     * @return TODO: describe
+     */
+    public static float canonicalizeMod(float angle, float mod) {
+        float r = (float) (angle - mod * Math.floor(angle / mod));
+        if (r < 0)
+            r += mod;
+        return r;
+    }
+
+    public static final class DijkstraNode implements Comparable<DijkstraNode> {
+        final float distance;
+        final int vertexOrFace;
+
+        DijkstraNode(float distance, int vertexOrFace) {
+            this.distance = distance;
+            this.vertexOrFace = vertexOrFace;
+        }
+
+        /**
+         * TODO: document {@code compareTo}.
+         *
+         * @param other TODO: describe
+         * @return TODO: describe
+         */
+        @Override
+        public int compareTo(DijkstraNode other) {
+            return Float.compare(this.distance, other.distance);
+        }
+    }
+
+    public static final class CurvatureConstraintStats {
+        int verticesVisited;
+        int boundaryVertices;
+        int noCurvatureSamples;
+        int failedAnisotropy;
+        int failedMeanCurvature;
+        int failedInterval;
+        int validIntervals;
+        int failedJitter;
+        int acceptedVertices;
+        int faceCollisionCandidates;
+        int allIncidentFacesConstrained;
+        int addedConstraints;
+        double jitterSum;
+        float maxJitter;
+
+        double averageJitter() {
+            return validIntervals > 0 ? jitterSum / validIntervals : 0.0;
+        }
+    }
+
+    /*
      * A4. Smooth-energy MIP solver (greedy rounding of period jumps)
      *
      * Energy: E = Σ_e (θ_i + κ_ij + (π/2)·p_ij − θ_j)² non-boundary edges
@@ -967,6 +1445,12 @@ public class CrossField {
      */
 
     public final class SmoothEnergySystem {
+        public static final float NUM_0 = 0f;
+        public static final int NUM_5000 = 5000;
+        public static final double NUM_1e_6 = 1e-6;
+        public static final int NUM_100 = 100;
+        public static final double NUM_1e_7 = 1e-7;
+        public static final double NUM_1e_3 = 1e-3;
         final int faceCount;
         final int edgeCount;
         final boolean[] faceConstrained;
@@ -1074,12 +1558,12 @@ public class CrossField {
             solution = new double[faceCount + chordCount];
             fixedVariables = new boolean[faceCount + chordCount];
             for (int fAi = 0; fAi < faceCount; fAi++) {
-                solutionTheta[fAi] = faceConstrained[fAi] ? faceConstraintAngle[fAi] : 0f;
+                solutionTheta[fAi] = faceConstrained[fAi] ? faceConstraintAngle[fAi] : NUM_0;
                 solution[fAi] = solutionTheta[fAi];
                 fixedVariables[fAi] = faceConstrained[fAi];
             }
             for (int eAi = 0; eAi < edgeCount; eAi++) {
-                solutionPeriod[eAi] = periodFixed[eAi] ? periodValue[eAi] : 0f;
+                solutionPeriod[eAi] = periodFixed[eAi] ? periodValue[eAi] : NUM_0;
                 int chord = chordOfEdge[eAi];
                 if (chord >= 0) {
                     solution[faceCount + chord] = solutionPeriod[eAi];
@@ -1087,14 +1571,14 @@ public class CrossField {
             }
             normalMatrix = new NormalMatrix();
             adaptiveOptions = new AdaptiveSolver.Options();
-            adaptiveOptions.localMaxIterations = 5000;
-            adaptiveOptions.localTolerance = 1e-6;
-            adaptiveOptions.cgMaxIterations = 100;
-            adaptiveOptions.cgTolerance = 1e-7;
+            adaptiveOptions.localMaxIterations = NUM_5000;
+            adaptiveOptions.localTolerance = NUM_1e_6;
+            adaptiveOptions.cgMaxIterations = NUM_100;
+            adaptiveOptions.cgTolerance = NUM_1e_7;
             adaptiveOptions.useDirectFallback = true;
             batchRoundingEnabled = true;
             roundBatchSize = 1;
-            roundBatchTol = 1e-3;
+            roundBatchTol = NUM_1e_3;
         }
 
         void solveGreedyMIP() {
@@ -1144,6 +1628,12 @@ public class CrossField {
             updateLastDiagnostics();
         }
 
+        /**
+         * TODO: document {@code buildBatchCandidates}.
+         *
+         * @param candidates TODO: describe
+         * @return TODO: describe
+         */
         public int buildBatchCandidates(BatchCandidate[] candidates) {
             int candidateCount = 0;
             int rejectedByRoundoff = 0;
@@ -1185,6 +1675,18 @@ public class CrossField {
             return candidateCount;
         }
 
+        /**
+         * TODO: document {@code selectRoundingBatch}.
+         *
+         * @param candidates TODO: describe
+         * @param candidateCount TODO: describe
+         * @param roundedVariables TODO: describe
+         * @param roundedEdges TODO: describe
+         * @param candidatePatch TODO: describe
+         * @param selectedPatch TODO: describe
+         * @param candidateMarked TODO: describe
+         * @return TODO: describe
+         */
         public int selectRoundingBatch(BatchCandidate[] candidates,
                 int candidateCount,
                 int[] roundedVariables,
@@ -1226,6 +1728,8 @@ public class CrossField {
         /**
          * Continuous L2 solve with currently-fixed variables held constant. Uses the
          * BZK09 adaptive ladder: local GS, then CG, then direct fallback.
+         *
+         * @param roundedVariable TODO: describe
          */
         void solveRelaxed(int roundedVariable) {
             if (roundedVariable < 0) {
@@ -1278,6 +1782,9 @@ public class CrossField {
             }
         }
 
+        /**
+         * TODO: document {@code updateLastDiagnostics}.
+         */
         public void updateLastDiagnostics() {
             int remaining = 0;
             for (int eAi = 0; eAi < edgeCount; eAi++) {
@@ -1299,6 +1806,26 @@ public class CrossField {
                     lastAdaptiveMethod, lastAdaptiveResidual);
         }
 
+        void unpackInto(CrossField cf) {
+            cf.theta = solutionTheta.clone();
+            cf.periodJump = new int[edgeCount];
+            for (int eAi = 0; eAi < edgeCount; eAi++) {
+                int eId = mesh.edgeIdAt(eAi);
+                if (mesh.isBoundaryEdge(eId)) {
+                    cf.periodJump[eAi] = 0;
+                    continue;
+                }
+                int chord = chordOfEdge[eAi];
+                if (chord >= 0) {
+                    // Free chord: use the value we actually solved/rounded for
+                    cf.periodJump[eAi] = (int) Math.round(solutionPeriod[eAi]);
+                } else {
+                    // Pre-fixed (forest tree or constrained pair)
+                    cf.periodJump[eAi] = periodValue[eAi];
+                }
+            }
+        }
+
         public final class BatchCandidate {
             final int chord;
             final int edgeAi;
@@ -1312,6 +1839,7 @@ public class CrossField {
         }
 
         public final class NormalMatrix implements AdaptiveSolver.Matrix {
+            public static final double NUM_0_5 = 0.5;
             final int variableCount;
             final double[] diag;
             final double[] rhs;
@@ -1347,7 +1875,7 @@ public class CrossField {
                 rowCol = new int[rowStart[variableCount]];
                 rowVal = new double[rowStart[variableCount]];
                 int[] cursor = rowStart.clone();
-                double halfPi = Math.PI * 0.5;
+                double halfPi = Math.PI * NUM_0_5;
 
                 for (int r = 0; r < rowCount; r++) {
                     int fi = rowFaceI[r];
@@ -1378,260 +1906,85 @@ public class CrossField {
                 }
             }
 
+            /**
+             * TODO: document {@code addOffDiagonal}.
+             *
+             * @param cursor TODO: describe
+             * @param row TODO: describe
+             * @param col TODO: describe
+             * @param value TODO: describe
+             */
             public void addOffDiagonal(int[] cursor, int row, int col, double value) {
                 int i = cursor[row]++;
                 rowCol[i] = col;
                 rowVal[i] = value;
             }
 
+            /**
+             * TODO: document {@code size}.
+             *
+             * @return TODO: describe
+             */
             @Override
             public int size() {
                 return variableCount;
             }
 
+            /**
+             * TODO: document {@code diag}.
+             *
+             * @param row TODO: describe
+             * @return TODO: describe
+             */
             @Override
             public double diag(int row) {
                 return diag[row];
             }
 
+            /**
+             * TODO: document {@code rowStart}.
+             *
+             * @param row TODO: describe
+             * @return TODO: describe
+             */
             @Override
             public int rowStart(int row) {
                 return rowStart[row];
             }
 
+            /**
+             * TODO: document {@code rowEnd}.
+             *
+             * @param row TODO: describe
+             * @return TODO: describe
+             */
             @Override
             public int rowEnd(int row) {
                 return rowStart[row + 1];
             }
 
+            /**
+             * TODO: document {@code column}.
+             *
+             * @param cursor TODO: describe
+             * @return TODO: describe
+             */
             @Override
             public int column(int cursor) {
                 return rowCol[cursor];
             }
 
+            /**
+             * TODO: document {@code value}.
+             *
+             * @param cursor TODO: describe
+             * @return TODO: describe
+             */
             @Override
             public double value(int cursor) {
                 return rowVal[cursor];
             }
         }
-
-        void unpackInto(CrossField cf) {
-            cf.theta = solutionTheta.clone();
-            cf.periodJump = new int[edgeCount];
-            for (int eAi = 0; eAi < edgeCount; eAi++) {
-                int eId = mesh.edgeIdAt(eAi);
-                if (mesh.isBoundaryEdge(eId)) {
-                    cf.periodJump[eAi] = 0;
-                    continue;
-                }
-                int chord = chordOfEdge[eAi];
-                if (chord >= 0) {
-                    // Free chord: use the value we actually solved/rounded for
-                    cf.periodJump[eAi] = (int) Math.round(solutionPeriod[eAi]);
-                } else {
-                    // Pre-fixed (forest tree or constrained pair)
-                    cf.periodJump[eAi] = periodValue[eAi];
-                }
-            }
-        }
-    }
-
-    /*
-     * B. Singularities
-     *
-     * Walk the 1-ring of v. For each outgoing half-edge `he`, look up its edge eId.
-     * If `he` is the "natural" half-edge of eId (edgeHalfEdge(eId) == he),
-     * contribute +(κ_e, p_e); otherwise contribute −(κ_e, p_e).
-     *
-     * BZK09/Ray08: I(v) = 1/(2π) · (angleDefect(v) + signed κ-walk) + 1/4 · signed
-     * p-walk. We store 4·I as an integer.
-     */
-
-    public List<Singularity> extractSingularities() {
-        int vertexCount = mesh.vertexCount();
-        singularityIndexQuarter = new int[vertexCount];
-        singularities.clear();
-        Vector3f vPos = new Vector3f();
-        Vector3f a = new Vector3f();
-        Vector3f b = new Vector3f();
-
-        for (int vAi = 0; vAi < vertexCount; vAi++) {
-            int vId = mesh.vertexIdAt(vAi);
-            if (mesh.isBoundaryVertex(vId))
-                continue;
-            mesh.vertexPosition(vId, vPos);
-
-            float angleSum = 0f;
-            int faces = mesh.vertexFaceCount(vId);
-            for (int i = 0; i < faces; i++) {
-                int fId = mesh.vertexFaceAt(vId, i);
-                angleSum += interiorAngleAtVertex(fId, vId, vPos, a, b);
-            }
-            float defect = (float) (2.0 * Math.PI) - angleSum;
-
-            float signedKappaSum = 0f;
-            int signedPeriodSum = 0;
-            int outCount = mesh.vertexOutgoingHalfEdgeCount(vId);
-            for (int i = 0; i < outCount; i++) {
-                int he = mesh.vertexOutgoingHalfEdgeAt(vId, i);
-                int eId = mesh.halfEdgeEdge(he);
-                if (mesh.isBoundaryEdge(eId))
-                    continue;
-                int eAi = edgeIdToActive.get(eId);
-                int sign = (he == mesh.edgeHalfEdge(eId)) ? 1 : -1;
-                signedKappaSum += sign * kappa[eAi];
-                signedPeriodSum += sign * periodJump[eAi];
-            }
-
-            float iTimes4 = (float) (((defect + signedKappaSum) * 2.0) / Math.PI) + signedPeriodSum;
-            int iQuarter = Math.round(iTimes4);
-            singularityIndexQuarter[vAi] = iQuarter;
-            if (iQuarter != 0) {
-                singularities.add(new Singularity(vId, iQuarter));
-            }
-        }
-        return singularities;
-    }
-
-    public float interiorAngleAtVertex(int fId, int vId, Vector3f vPos, Vector3f a, Vector3f b) {
-        int adj = mesh.faceHalfEdgeCount(fId);
-        for (int i = 0; i < adj; i++) {
-            int he = mesh.faceHalfEdgeAt(fId, i);
-            if (mesh.halfEdgeVertex(he) == vId) {
-                int prev = mesh.halfEdgePrev(he);
-                int prevStart = mesh.halfEdgeVertex(prev);
-                int nextEnd = mesh.halfEdgeEndVertex(he);
-                mesh.vertexPosition(prevStart, a);
-                mesh.vertexPosition(nextEnd, b);
-                a.sub(vPos);
-                b.sub(vPos);
-                float la = a.length();
-                float lb = b.length();
-                if (la < 1e-20f || lb < 1e-20f)
-                    return 0f;
-                float c = a.dot(b) / (la * lb);
-                c = Math.max(-1f, Math.min(1f, c));
-                return (float) Math.acos(c);
-            }
-        }
-        return 0f;
-    }
-
-    public void printProblemDiagnostics(float averageEdgeLength,
-            float boundingSphereRadius,
-            float curvatureK,
-            int curvatureConstraints,
-            int boundaryConstraints,
-            int totalConstraints,
-            int forestEdgeCount,
-            int boundaryPeriodFixes,
-            int constrainedPeriodFixes,
-            boolean[] initiallyFixedPeriods,
-            SmoothEnergySystem system) {
-        int freePeriods = initiallyFixedPeriods.length - countTrue(initiallyFixedPeriods);
-        int freeTheta = mesh.faceCount() - totalConstraints;
-        int fullDim = mesh.faceCount() + freePeriods;
-        int reducedDim = freeTheta + freePeriods;
-        int expectedForestEdges = mesh.faceCount() - totalConstraints;
-        System.out.printf(
-                "[cross-field] constraints curvature=%d boundary=%d totalFaces=%d/%d%n",
-                curvatureConstraints, boundaryConstraints, totalConstraints, mesh.faceCount());
-        CurvatureConstraintStats cs = lastCurvatureStats;
-        System.out.printf(
-                "[cross-field] curvatureStats vertices=%d boundary=%d noSamples=%d failTau=%d failMean=%d failInterval=%d valid=%d failJitter=%d acceptedVertices=%d addedFaces=%d faceCollisions=%d fullOneRings=%d avgJitter=%.6g maxJitter=%.6g%n",
-                cs.verticesVisited, cs.boundaryVertices, cs.noCurvatureSamples,
-                cs.failedAnisotropy, cs.failedMeanCurvature, cs.failedInterval,
-                cs.validIntervals, cs.failedJitter, cs.acceptedVertices,
-                cs.addedConstraints, cs.faceCollisionCandidates,
-                cs.allIncidentFacesConstrained, cs.averageJitter(), cs.maxJitter);
-        System.out.printf(
-                "[cross-field] bzk tauMin=%.3f K=%.6g avgEdge=%.6g targetH=%.6g bboxDiag=%.6g hFraction=%.3g boundingRadius=%.6g r0=%.6g r1=%.6g%n",
-                tauMin, curvatureK, averageEdgeLength, resolvedTargetEdgeLength(averageEdgeLength),
-                computeBoundingBoxDiagonal(), targetEdgeLengthFractionOfBounds,
-                boundingSphereRadius, radiusStartMul * averageEdgeLength,
-                resolvedTargetEdgeLength(averageEdgeLength));
-        System.out.printf(
-                "[cross-field] mip rows=%d fixedPeriods=%d freePeriods=%d forestEdges=%d%n",
-                system.rowCount, countTrue(initiallyFixedPeriods), freePeriods, forestEdgeCount);
-        System.out.printf(
-                "[cross-field] bzk reduction constrainedFaces=%d expectedForest=%d actualForest=%d constrainedEdgeFixes=%d boundaryFixes=%d%n",
-                totalConstraints, expectedForestEdges, forestEdgeCount,
-                constrainedPeriodFixes, boundaryPeriodFixes);
-        System.out.printf(
-                "[cross-field] solver localMaxIter=%d localTol=%.3g cgMaxIter=%d cgTol=%.3g directAllowed=%s bootstrapDirect=true directUsed=%d%n",
-                system.adaptiveOptions.localMaxIterations,
-                system.adaptiveOptions.localTolerance,
-                system.adaptiveOptions.cgMaxIterations,
-                system.adaptiveOptions.cgTolerance,
-                system.adaptiveOptions.useDirectFallback,
-                system.directFallbacks);
-        System.out.printf(
-                "[cross-field] rounding batchEnabled=%s batchSize=%d batchTol=%.3g%n",
-                system.batchRoundingEnabled, system.roundBatchSize, system.roundBatchTol);
-        System.out.printf(
-                "[cross-field] bzk09-rocker-target dim=32843 int=12064 is=385 ds=7 time=7.6s; ours fullDim=%d reducedDim=%d int=%d%n",
-                fullDim, reducedDim, freePeriods);
-    }
-
-    public void printSolutionDiagnostics(SmoothEnergySystem system) {
-        SmoothnessStats stats = smoothnessStats();
-        double avgBatch = system.batchCount > 0
-                ? (double) system.totalBatchSize / system.batchCount
-                : 0.0;
-        double avgInitialQueue = system.batchCount > 0
-                ? (double) system.totalLocalInitialQueueSize / system.batchCount
-                : 0.0;
-        System.out.printf(
-                "[cross-field] adaptive localGS=%d cg=%d direct=%d failed=%d localIters=%d cgIters=%d localCapHits=%d capFace=%d capChord=%d maxCapResidual=%.6g avgSeedQueue=%.3f maxQueue=%d batches=%d avgBatch=%.3f maxBatch=%d rejectOverlap=%d rejectRoundoff=%d%n",
-                system.localGsConverged, system.cgConverged, system.directFallbacks,
-                system.failedSolves, system.totalLocalGsIterations, system.totalCgIterations,
-                system.localGsCapHits, system.localCapFaceRows, system.localCapChordRows,
-                system.maxLocalCapResidual, avgInitialQueue, system.maxLocalQueueSize,
-                system.batchCount, avgBatch, system.maxBatchSize,
-                system.batchRejectedByOverlap, system.batchRejectedByRoundoff);
-        System.out.printf(
-                "[cross-field] smoothEnergy=%.6g maxResidual=%.6g singularityHistogram=%s%n",
-                stats.energy, stats.maxResidual, singularityHistogram());
-    }
-
-    public SmoothnessStats smoothnessStats() {
-        float halfPi = (float) (Math.PI / 2.0);
-        double energy = 0.0;
-        double maxResidual = 0.0;
-        int[] buckets = new int[8];
-        for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
-            int eId = mesh.edgeIdAt(eAi);
-            if (mesh.isBoundaryEdge(eId))
-                continue;
-            int he = mesh.edgeHalfEdge(eId);
-            int twin = mesh.halfEdgeTwin(he);
-            int fi = faceIdToActive.get(mesh.halfEdgeFace(he));
-            int fj = faceIdToActive.get(mesh.halfEdgeFace(twin));
-            double residual = theta[fi] + kappa[eAi] + halfPi * periodJump[eAi] - theta[fj];
-            energy += residual * residual;
-            maxResidual = Math.max(maxResidual, Math.abs(residual));
-            int b = Math.min(7, (int) (Math.abs(residual) / (Math.PI / 32)));
-            buckets[b]++;
-        }
-        System.err.println("[res] " + Arrays.toString(buckets));
-        return new SmoothnessStats(energy, maxResidual);
-    }
-
-    public String singularityHistogram() {
-        Map<Integer, Integer> histogram = new HashMap<>();
-        for (Singularity s : singularities) {
-            histogram.merge(s.index4(), 1, Integer::sum);
-        }
-        return histogram.toString();
-    }
-
-    public static int countTrue(boolean[] values) {
-        int count = 0;
-        for (boolean value : values) {
-            if (value)
-                count++;
-        }
-        return count;
     }
 
     public static final class SmoothnessStats {
@@ -1643,78 +1996,5 @@ public class CrossField {
             this.energy = energy;
             this.maxResidual = maxResidual;
         }
-    }
-
-    public float computeAverageEdgeLength() {
-        Vector3f a = new Vector3f();
-        Vector3f b = new Vector3f();
-        double sum = 0;
-        int count = 0;
-        for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
-            int eId = mesh.edgeIdAt(eAi);
-            int he = mesh.edgeHalfEdge(eId);
-            mesh.vertexPosition(mesh.halfEdgeVertex(he), a);
-            mesh.vertexPosition(mesh.halfEdgeEndVertex(he), b);
-            sum += Math.sqrt(
-                    (b.x - a.x) * (b.x - a.x) +
-                            (b.y - a.y) * (b.y - a.y) +
-                            (b.z - a.z) * (b.z - a.z));
-            count++;
-        }
-        return count == 0 ? 1f : (float) (sum / count);
-    }
-
-    public float computeBoundingSphereRadius() {
-        int vertexCount = mesh.vertexCount();
-        if (vertexCount == 0)
-            return 1f;
-        Vector3f p = new Vector3f();
-        mesh.vertexPosition(mesh.vertexIdAt(0), p);
-        float minX = p.x, minY = p.y, minZ = p.z;
-        float maxX = p.x, maxY = p.y, maxZ = p.z;
-        for (int vAi = 1; vAi < vertexCount; vAi++) {
-            mesh.vertexPosition(mesh.vertexIdAt(vAi), p);
-            if (p.x < minX)
-                minX = p.x;
-            if (p.y < minY)
-                minY = p.y;
-            if (p.z < minZ)
-                minZ = p.z;
-            if (p.x > maxX)
-                maxX = p.x;
-            if (p.y > maxY)
-                maxY = p.y;
-            if (p.z > maxZ)
-                maxZ = p.z;
-        }
-        float dx = maxX - minX;
-        float dy = maxY - minY;
-        float dz = maxZ - minZ;
-        return 0.5f * (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
-    public float faceArea(int fId) {
-        int he = mesh.faceHalfEdge(fId);
-        int v0 = mesh.halfEdgeVertex(he);
-        int v1 = mesh.halfEdgeEndVertex(he);
-        int v2 = mesh.halfEdgeEndVertex(mesh.halfEdgeNext(he));
-        Vector3f a = new Vector3f();
-        Vector3f b = new Vector3f();
-        Vector3f c = new Vector3f();
-        mesh.vertexPosition(v0, a);
-        mesh.vertexPosition(v1, b);
-        mesh.vertexPosition(v2, c);
-        b.sub(a);
-        c.sub(a);
-        Vector3f cross = new Vector3f();
-        b.cross(c, cross);
-        return 0.5f * cross.length();
-    }
-
-    public static float canonicalizeMod(float angle, float mod) {
-        float r = (float) (angle - mod * Math.floor(angle / mod));
-        if (r < 0)
-            r += mod;
-        return r;
     }
 }

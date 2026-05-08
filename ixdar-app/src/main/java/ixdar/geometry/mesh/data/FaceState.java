@@ -12,6 +12,14 @@ public class FaceState {
     public final Quaternionf baseRot;
     public final Vector3f renderPos;
 
+    /**
+     * TODO: document {@code FaceState}.
+     *
+     * @param index TODO: describe
+     * @param normal TODO: describe
+     * @param idealRot TODO: describe
+     * @param idealPos TODO: describe
+     */
     public FaceState(int index, Vector3f normal, Quaternionf idealRot, Vector3f idealPos) {
         this.index = index;
         this.normal = normal;

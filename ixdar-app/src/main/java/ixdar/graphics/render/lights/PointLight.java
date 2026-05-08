@@ -5,13 +5,9 @@ import org.joml.Vector3f;
 import ixdar.graphics.render.shaders.ShaderProgram;
 
 public class PointLight {
-    public Vector3f position;
-    public Vector3f diffuse;
-    Vector3f ambient;
-    Vector3f specular;
-    float constant;
-    float linear;
-    float quadratic;
+    public static final String POINTLIGHTS = "pointLights[";
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
 
     public static float[] attenuationLookupTable = { 3250, 1.0f, 0.0014f, 0.000007f,
 
@@ -38,7 +34,21 @@ public class PointLight {
             7f, 1.0f, 0.7f, 1.8f,
 
             0f, 1.0f, 0.7f, 1.8f };
+    public Vector3f position;
+    public Vector3f diffuse;
+    Vector3f ambient;
+    Vector3f specular;
+    float constant;
+    float linear;
+    float quadratic;
 
+    /**
+     * TODO: document {@code PointLight}.
+     *
+     * @param position TODO: describe
+     * @param color TODO: describe
+     * @param distance TODO: describe
+     */
     public PointLight(Vector3f position, Vector3f color, float distance) {
         this.position = position;
         this.diffuse = new Vector3f(color);
@@ -47,24 +57,35 @@ public class PointLight {
         setAttenuation(distance);
     }
 
+    /**
+     * TODO: document {@code setAttenuation}.
+     *
+     * @param distance TODO: describe
+     */
     public void setAttenuation(float distance) {
-        int rows = attenuationLookupTable.length / 4;
+        int rows = attenuationLookupTable.length / NUM_4;
         for (int i = rows - 1; i >= 1; i--) {
-            if (distance >= attenuationLookupTable[4 * i] && distance < attenuationLookupTable[4 * (i - 1)]) {
-                this.constant = attenuationLookupTable[4 * i + 1];
-                this.linear = attenuationLookupTable[4 * i + 2];
-                this.quadratic = attenuationLookupTable[4 * i + 3];
+            if (distance >= attenuationLookupTable[NUM_4 * i] && distance < attenuationLookupTable[NUM_4 * (i - 1)]) {
+                this.constant = attenuationLookupTable[NUM_4 * i + 1];
+                this.linear = attenuationLookupTable[NUM_4 * i + 2];
+                this.quadratic = attenuationLookupTable[NUM_4 * i + NUM_3];
             }
         }
     }
 
+    /**
+     * TODO: document {@code setShaderInfo}.
+     *
+     * @param shader TODO: describe
+     * @param i TODO: describe
+     */
     public void setShaderInfo(ShaderProgram shader, int i) {
-        shader.setVec3("pointLights[" + i + "].position", position);
-        shader.setVec3("pointLights[" + i + "].ambient", ambient);
-        shader.setVec3("pointLights[" + i + "].diffuse", diffuse);
-        shader.setVec3("pointLights[" + i + "].specular", specular);
-        shader.setFloat("pointLights[" + i + "].constant", constant);
-        shader.setFloat("pointLights[" + i + "].linear", linear);
-        shader.setFloat("pointLights[" + i + "].quadratic", constant);
+        shader.setVec3(POINTLIGHTS + i + "].position", position);
+        shader.setVec3(POINTLIGHTS + i + "].ambient", ambient);
+        shader.setVec3(POINTLIGHTS + i + "].diffuse", diffuse);
+        shader.setVec3(POINTLIGHTS + i + "].specular", specular);
+        shader.setFloat(POINTLIGHTS + i + "].constant", constant);
+        shader.setFloat(POINTLIGHTS + i + "].linear", linear);
+        shader.setFloat(POINTLIGHTS + i + "].quadratic", constant);
     }
 }

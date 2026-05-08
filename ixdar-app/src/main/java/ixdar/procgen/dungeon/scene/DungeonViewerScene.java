@@ -45,6 +45,18 @@ import ixdar.scenes.Scene;
  */
 @SceneAnnotation(id = "dungeon-viewer")
 public class DungeonViewerScene extends Scene {
+    public static final String DSL = ".dsl";
+    public static final String PLAYER = "player";
+    public static final String FLY_CAM = "fly-cam";
+    public static final String STR = ",";
+    public static final float NUM_0_1 = 0.1f;
+    public static final float NUM_0_6 = 0.6f;
+    public static final float NUM_0_8 = 0.8f;
+    public static final float NUM_0_05 = 0.05f;
+    public static final float NUM_0_15 = 0.15f;
+    public static final float NUM_90 = 90f;
+    public static final float NUM_25 = 25f;
+    public static final double NUM_0_1_2 = 0.1;
 
     private static final String DSL_FOLDER = "dsl";
     private static final String DEFAULT_DSL_RESOURCE = "dungeon_2d.dsl";
@@ -63,19 +75,25 @@ public class DungeonViewerScene extends Scene {
     private RoomListValue3D playerRooms;
     private float playerCellSize = 1.0f;
     private PlayerController player;
-    private boolean playerMode = true; // default to player walking per ticket DoD
-
-    public enum ViewMode { FIRST_PERSON, THIRD_PERSON }
+    private boolean playerMode = true;
     private ViewMode viewMode = ViewMode.FIRST_PERSON;
     private ThirdPersonCamera thirdPersonCamera;
     private DebugCapsuleRuntime capsuleRuntime;
 
+    /**
+     * TODO: document {@code DungeonViewerScene}.
+     */
     public DungeonViewerScene() {
         String v = System.getProperty("ixdar.mesh.dsl");
         String pick = (v != null && !v.isEmpty()) ? v : DEFAULT_DSL_RESOURCE;
-        this.dslResource = pick.endsWith(".dsl") ? pick : pick + ".dsl";
+        this.dslResource = pick.endsWith(DSL) ? pick : pick + DSL;
     }
 
+    /**
+     * TODO: document {@code initGL}.
+     *
+     * @throws IllegalStateException TODO: describe
+     */
     @Override
     public void initGL() {
         super.initGL();
@@ -156,7 +174,7 @@ public class DungeonViewerScene extends Scene {
             spawnPlayerAtRoomZero();
         }
         Platforms.get().log("[dungeon-viewer] mesh ready verts=" + mesh.vertexCount()
-                + " faces=" + mesh.faceCount() + " mode=" + (playerMode ? "player" : "fly-cam"));
+                + " faces=" + mesh.faceCount() + " mode=" + (playerMode ? PLAYER : FLY_CAM));
     }
 
     /**
@@ -209,10 +227,10 @@ public class DungeonViewerScene extends Scene {
     private void positionCameraAboveDungeon() {
         if (mesh == null || mesh.vertexCount() == 0) return;
         Vector3f center = mesh.center(new Vector3f());
-        float radius = Math.max(0.1f, mesh.radius());
-        camera.position.set(center.x, center.y + radius * 0.6f, center.z + radius * 0.8f);
-        camera.setMovementSpeed(Math.max(0.05f, radius * 0.15f));
-        camera.setOrientation(-90f, -25f);
+        float radius = Math.max(NUM_0_1, mesh.radius());
+        camera.position.set(center.x, center.y + radius * NUM_0_6, center.z + radius * NUM_0_8);
+        camera.setMovementSpeed(Math.max(NUM_0_05, radius * NUM_0_15));
+        camera.setOrientation(-NUM_90, -NUM_25);
         camera.updateViewFirstPerson();
     }
 
@@ -234,7 +252,7 @@ public class DungeonViewerScene extends Scene {
         camera.setOrientation(sp.yawDegrees(), sp.pitchDegrees());
         camera.updateViewFirstPerson();
         Platforms.get().log("[dungeon-viewer] player spawned at room[0] world=("
-                + sp.position().x() + "," + sp.position().y() + "," + sp.position().z()
+                + sp.position().x() + STR + sp.position().y() + STR + sp.position().z()
                 + ") yaw=" + sp.yawDegrees());
     }
 
@@ -244,7 +262,7 @@ public class DungeonViewerScene extends Scene {
             return;
         }
         playerMode = !playerMode;
-        Platforms.get().log("[dungeon-viewer] mode -> " + (playerMode ? "player" : "fly-cam"));
+        Platforms.get().log("[dungeon-viewer] mode -> " + (playerMode ? PLAYER : FLY_CAM));
         applyCursorModeForCurrentMode();
         if (playerMode) {
             // Default back to first-person on (re-)entering player mode.
@@ -276,12 +294,15 @@ public class DungeonViewerScene extends Scene {
                 : Platform.CursorMode.NORMAL);
     }
 
+    /**
+     * TODO: document {@code drawScene}.
+     */
     @Override
     public void drawScene() {
         if (meshRuntime == null) return;
         // Run the player physics (in player mode) before refreshing the view matrix.
         if (playerMode && player != null) {
-            float dt = (float) Math.min(0.1, Clock.deltaTime()); // clamp to avoid huge dt on stalls
+            float dt = (float) Math.min(NUM_0_1_2, Clock.deltaTime()); // clamp to avoid huge dt on stalls
             if (viewMode == ViewMode.THIRD_PERSON && thirdPersonCamera != null) {
                 // Update camera FIRST so player.update sees the new yaw and WASD direction
                 // remains screen-relative.
@@ -304,6 +325,11 @@ public class DungeonViewerScene extends Scene {
         }
     }
 
+    /**
+     * TODO: document {@code activate}.
+     *
+     * @param state TODO: describe
+     */
     @Override
     public void activate(boolean state) {
         super.activate(state);
@@ -319,6 +345,9 @@ public class DungeonViewerScene extends Scene {
         }
     }
 
+    /**
+     * TODO: document {@code shutdown}.
+     */
     @Override
     public void shutdown() {
         if (meshRuntime != null) {
@@ -336,14 +365,29 @@ public class DungeonViewerScene extends Scene {
 
     // --- Accessors for tests / automation ------------------------------------
 
+    /**
+     * TODO: document {@code getMeshVertexCount}.
+     *
+     * @return TODO: describe
+     */
     public int getMeshVertexCount() {
         return mesh == null ? 0 : mesh.vertexCount();
     }
 
+    /**
+     * TODO: document {@code getMeshFaceCount}.
+     *
+     * @return TODO: describe
+     */
     public int getMeshFaceCount() {
         return mesh == null ? 0 : mesh.faceCount();
     }
 
+    /**
+     * TODO: document {@code isPlayerMode}.
+     *
+     * @return TODO: describe
+     */
     public boolean isPlayerMode() {
         return playerMode;
     }
@@ -358,5 +402,7 @@ public class DungeonViewerScene extends Scene {
         platform.setMouseButtonCallback((button, action, mods) -> mouse.mouseButton(button, action, mods));
         platform.setScrollCallback((xoff, yoff) -> mouse.scrollCallback(yoff));
         platform.setKeyCallback((key, scancode, action, mods) -> keys.keyCallback(0L, key, scancode, action, mods));
-    }
+    } // default to player walking per ticket DoD
+
+    public enum ViewMode { FIRST_PERSON, THIRD_PERSON }
 }

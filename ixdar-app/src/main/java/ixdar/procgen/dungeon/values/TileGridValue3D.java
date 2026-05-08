@@ -8,7 +8,14 @@ package ixdar.procgen.dungeon.values;
  * vazgriz. Floor index 0 is the bottom floor.
  */
 public record TileGridValue3D(int width, int height, int depth, CellType[] cells) {
+    public static final String STR = ",";
+    public static final String X = "x";
 
+    /**
+     * TODO: document {@code TileGridValue3D}.
+     *
+     * @throws IllegalArgumentException TODO: describe
+     */
     public TileGridValue3D {
         if (width < 0 || height < 0 || depth < 0) {
             throw new IllegalArgumentException("dimensions must be non-negative");
@@ -25,7 +32,7 @@ public record TileGridValue3D(int width, int height, int depth, CellType[] cells
     public CellType at(int x, int y, int z) {
         if (x < 0 || x >= width || y < 0 || y >= height || z < 0 || z >= depth) {
             throw new IndexOutOfBoundsException(
-                    "(" + x + "," + y + "," + z + ") outside " + width + "x" + height + "x" + depth);
+                    "(" + x + STR + y + STR + z + ") outside " + width + X + height + X + depth);
         }
         return cells[index(x, y, z)];
     }
@@ -35,6 +42,11 @@ public record TileGridValue3D(int width, int height, int depth, CellType[] cells
         return x + width * (z + depth * y);
     }
 
+    /**
+     * TODO: document {@code cellCount}.
+     *
+     * @return TODO: describe
+     */
     public int cellCount() {
         return cells.length;
     }

@@ -27,11 +27,18 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "select_by_distance")
 public class SelectByDistanceNode implements MeshNode {
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String POINT_2 = "point";
+    public static final String RADIUS_2 = "radius";
+    public static final String SELECTION_2 = "selection";
+    public static final float NUM_0 = 0f;
+    public static final float NUM_0_1 = 0.1f;
+    public static final float NUM_1 = 1f;
 
-    private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort POINT = new InputPort("point", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
-    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.1f, 0f, 100f);
-    private static final OutputPort SELECTION = new OutputPort("selection", PortType.BOOLEAN);
+    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort POINT = new InputPort(POINT_2, PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
+    private static final InputPort RADIUS = new InputPort(RADIUS_2, PortType.FLOAT, 0.1f, 0f, 100f);
+    private static final OutputPort SELECTION = new OutputPort(SELECTION_2, PortType.BOOLEAN);
 
     @Override
     public List<InputPort> inputs() {
@@ -51,25 +58,25 @@ public class SelectByDistanceNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "geometry", "Geometry bundle to test. Face centroids are computed from the current vertex positions.",
-                "point", "World-space center of the test sphere.",
-                "radius", "Selection radius. Faces with centroid distance ≤ radius from `point` are selected. Tune with care — too large overlaps adjacent features after topology modifications.",
-                "selection", "Per-face BOOLEAN mask. Feed into inset_faces / extrude_mesh selection."
+                GEOMETRY_2, "Geometry bundle to test. Face centroids are computed from the current vertex positions.",
+                POINT_2, "World-space center of the test sphere.",
+                RADIUS_2, "Selection radius. Faces with centroid distance ≤ radius from `point` are selected. Tune with care — too large overlaps adjacent features after topology modifications.",
+                SELECTION_2, "Per-face BOOLEAN mask. Feed into inset_faces / extrude_mesh selection."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
         Vector3Value pt = FieldBroadcast.vector3ValueOrDefault(
-                FieldBroadcast.getInputOrDefault(ctx, "point", POINT.defaultValue()),
-                new Vector3Value(0f, 0f, 0f));
+                FieldBroadcast.getInputOrDefault(ctx, POINT_2, POINT.defaultValue()),
+                new Vector3Value(NUM_0, NUM_0, NUM_0));
         float radius = FieldBroadcast.floatScalarOrDefault(
-                FieldBroadcast.getInputOrDefault(ctx, "radius", RADIUS.defaultValue()), 0.1f);
+                FieldBroadcast.getInputOrDefault(ctx, RADIUS_2, RADIUS.defaultValue()), NUM_0_1);
 
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.faceCount() == 0) {
-            ctx.setOutput("selection", new BoolField(new boolean[0]));
+            ctx.setOutput(SELECTION_2, new BoolField(new boolean[0]));
             return;
         }
 
@@ -82,17 +89,17 @@ public class SelectByDistanceNode implements MeshNode {
             int fid = mesh.faceIdAt(fi);
             int n = mesh.faceVertexCount(fid);
             if (n == 0) continue;
-            centroid.set(0f, 0f, 0f);
+            centroid.set(NUM_0, NUM_0, NUM_0);
             for (int k = 0; k < n; k++) {
                 mesh.vertexPosition(mesh.faceVertexAt(fid, k), vp);
                 centroid.add(vp);
             }
-            centroid.mul(1f / n);
+            centroid.mul(NUM_1 / n);
             float dx = centroid.x - pt.x();
             float dy = centroid.y - pt.y();
             float dz = centroid.z - pt.z();
             sel[fi] = (dx * dx + dy * dy + dz * dz) <= r2;
         }
-        ctx.setOutput("selection", new BoolField(sel));
+        ctx.setOutput(SELECTION_2, new BoolField(sel));
     }
 }

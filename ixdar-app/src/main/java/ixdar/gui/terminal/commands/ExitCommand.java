@@ -37,6 +37,6 @@ public class ExitCommand extends TerminalCommand {
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
         MainScene.tool.back();
-        return new String[] { "ex" };
+        return new String[] { cmd };
     }
 }

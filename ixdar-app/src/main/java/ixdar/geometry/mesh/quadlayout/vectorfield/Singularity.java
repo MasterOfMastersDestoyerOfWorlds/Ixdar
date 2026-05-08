@@ -9,5 +9,6 @@ package ixdar.geometry.mesh.quadlayout.vectorfield;
  * 4 x chi(M).
  */
 public record Singularity(int vertexId, int index4) {
-    public double index() { return index4 / 4.0; }
+    public static final double NUM_4_0 = 4.0;
+    public double index() { return index4 / NUM_4_0; }
 }

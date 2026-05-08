@@ -9,22 +9,28 @@ import ixdar.geometry.knot.Knot;
 import ixdar.geometry.knot.Segment;
 
 public class BalanceMap {
+    static int numCuts = 0;
+    static int callNumber;
     public Knot knot;
-    HashMap<Integer, Integer> balance;
     public ArrayList<Segment> cuts;
     public HashMap<Integer, Integer> externalBalance;
-    HashMap<Integer, Integer> externalGroups;
-    HashMap<Integer, Integer> externalGroupCount;
     public ArrayList<Segment> externalMatches;
     public ArrayList<Knot> externals;
     public SegmentBalanceException sbe;
-    static int numCuts = 0;
+    HashMap<Integer, Integer> balance;
+    HashMap<Integer, Integer> externalGroups;
+    HashMap<Integer, Integer> externalGroupCount;
     int numGroups = 0;
     int ID;
     Knot topExternal1;
     Knot topExternal2;
-    static int callNumber;
 
+    /**
+     * TODO: document {@code BalanceMap}.
+     *
+     * @param knot TODO: describe
+     * @param sbe TODO: describe
+     */
     @SuppressWarnings("static-access")
     public BalanceMap(Knot knot, SegmentBalanceException sbe) {
         this.knot = knot;
@@ -44,6 +50,13 @@ public class BalanceMap {
         this.numCuts++;
     }
 
+    /**
+     * TODO: document {@code BalanceMap}.
+     *
+     * @param bMap TODO: describe
+     * @param subKnot TODO: describe
+     * @param sbe TODO: describe
+     */
     public BalanceMap(BalanceMap bMap, Knot subKnot, SegmentBalanceException sbe) {
         knot = subKnot;
         balance = new HashMap<>();
@@ -70,10 +83,23 @@ public class BalanceMap {
         numCuts++;
     }
 
+    /**
+     * TODO: document {@code addDummyExternalMatch}.
+     *
+     * @param vp TODO: describe
+     */
     public void addDummyExternalMatch(Knot vp) {
 
     }
 
+    /**
+     * TODO: document {@code addExternalMatch}.
+     *
+     * @param vp TODO: describe
+     * @param external TODO: describe
+     * @param superKnot TODO: describe
+     * @throws BalancerException TODO: describe
+     */
     public void addExternalMatch(Knot vp, Knot external, Knot superKnot) throws BalancerException {
         callNumber++;
         int newBalance = externalBalance.get(vp.id) + 1;
@@ -158,6 +184,13 @@ public class BalanceMap {
         }
     }
 
+    /**
+     * TODO: document {@code addCut}.
+     *
+     * @param vp1 TODO: describe
+     * @param vp2 TODO: describe
+     * @throws BalancerException TODO: describe
+     */
     public void addCut(Knot vp1, Knot vp2) throws BalancerException {
         Segment newCut = vp1.getClosestSegment(vp2, null);
         if (!cuts.contains(newCut)) {
@@ -172,6 +205,13 @@ public class BalanceMap {
         }
     }
 
+    /**
+     * TODO: document {@code addInternalMatch}.
+     *
+     * @param vp1 TODO: describe
+     * @param vp2 TODO: describe
+     * @throws BalancerException TODO: describe
+     */
     public void addInternalMatch(Knot vp1, Knot vp2) throws BalancerException {
         int newBalance = balance.get(vp1.id) + 1;
         int newBalance2 = balance.get(vp2.id) + 1;
@@ -182,6 +222,12 @@ public class BalanceMap {
         balance.put(vp2.id, newBalance);
     }
 
+    /**
+     * TODO: document {@code canMatchTo}.
+     *
+     * @param vp TODO: describe
+     * @return TODO: describe
+     */
     public boolean canMatchTo(Knot vp) {
         if (externalBalance.get(vp.id) < 2) {
             return true;
@@ -189,6 +235,18 @@ public class BalanceMap {
         return false;
     }
 
+    /**
+     * TODO: document {@code canMatchTo}.
+     *
+     * @param vp TODO: describe
+     * @param ex1 TODO: describe
+     * @param matchSegment1 TODO: describe
+     * @param vp2 TODO: describe
+     * @param ex2 TODO: describe
+     * @param matchSegment2 TODO: describe
+     * @param miKnot TODO: describe
+     * @return TODO: describe
+     */
     public boolean canMatchTo(Knot vp, Knot ex1, Segment matchSegment1, Knot vp2,
             Knot ex2, Segment matchSegment2,
             Knot miKnot) {
@@ -249,11 +307,21 @@ public class BalanceMap {
         return false;
     }
 
+    /**
+     * TODO: document {@code toString}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String toString() {
         return "BalanceMap: [\nexts: " + externalBalance.toString() + "\n" + "bal:" + balance.toString() + "\n]";
     }
 
+    /**
+     * TODO: document {@code isBalanced}.
+     *
+     * @return TODO: describe
+     */
     public boolean isBalanced() {
         boolean balanced = true;
         for (Knot vp : knot.knotPointsFlattened) {
@@ -264,6 +332,15 @@ public class BalanceMap {
         return balanced;
     }
 
+    /**
+     * TODO: document {@code canCutSegments}.
+     *
+     * @param cutPoint1 TODO: describe
+     * @param cutSegment1 TODO: describe
+     * @param cutPoint2 TODO: describe
+     * @param cutSegment2 TODO: describe
+     * @return TODO: describe
+     */
     public boolean canCutSegments(Knot cutPoint1, Segment cutSegment1, Knot cutPoint2,
             Segment cutSegment2) {
         int nonLockedPoints = 0;
@@ -286,6 +363,24 @@ public class BalanceMap {
         return true;
     }
 
+    /**
+     * TODO: document {@code balancedOmega}.
+     *
+     * @param kp1 TODO: describe
+     * @param cp1 TODO: describe
+     * @param cutSegment1 TODO: describe
+     * @param external1 TODO: describe
+     * @param matchSegment1 TODO: describe
+     * @param kp2 TODO: describe
+     * @param cp2 TODO: describe
+     * @param cutSegment2 TODO: describe
+     * @param external2 TODO: describe
+     * @param matchSegment2 TODO: describe
+     * @param subKnot TODO: describe
+     * @param c TODO: describe
+     * @param wouldFormLoop TODO: describe
+     * @return TODO: describe
+     */
     public boolean balancedOmega(Knot kp1, Knot cp1, Segment cutSegment1, Knot external1,
             Segment matchSegment1,
             Knot kp2,
@@ -556,6 +651,18 @@ public class BalanceMap {
         return hasPossibleMatch2;
     }
 
+    /**
+     * TODO: document {@code balancedAlpha}.
+     *
+     * @param kp1 TODO: describe
+     * @param cp1 TODO: describe
+     * @param cutSegment1 TODO: describe
+     * @param external1 TODO: describe
+     * @param matchSegment1 TODO: describe
+     * @param subKnot TODO: describe
+     * @param c TODO: describe
+     * @return TODO: describe
+     */
     public boolean balancedAlpha(Knot kp1, Knot cp1, Segment cutSegment1, Knot external1,
             Segment matchSegment1, Knot subKnot, CutInfo c) {
         int externalsKp1 = (externalBalance.get(kp1.id) + 1);
@@ -605,6 +712,19 @@ public class BalanceMap {
         return hasPossibleMatch;
     }
 
+    /**
+     * TODO: document {@code balancedBeta}.
+     *
+     * @param kp1 TODO: describe
+     * @param cp1 TODO: describe
+     * @param cutSegment1 TODO: describe
+     * @param external1 TODO: describe
+     * @param matchSegment1 TODO: describe
+     * @param external2 TODO: describe
+     * @param subKnot TODO: describe
+     * @param c TODO: describe
+     * @return TODO: describe
+     */
     public boolean balancedBeta(Knot kp1, Knot cp1, Segment cutSegment1, Knot external1,
             Segment matchSegment1, Knot external2, Knot subKnot, CutInfo c) {
 
@@ -717,6 +837,13 @@ public class BalanceMap {
 
     }
 
+    /**
+     * TODO: document {@code getCutOutsideMinKnot}.
+     *
+     * @param minKnot TODO: describe
+     * @param k TODO: describe
+     * @return TODO: describe
+     */
     public Segment getCutOutsideMinKnot(Knot minKnot, Knot k) {
         for (Segment s : cuts) {
             boolean first = minKnot.contains(s.first), last = minKnot.contains(s.last);
@@ -729,6 +856,12 @@ public class BalanceMap {
         return null;
     }
 
+    /**
+     * TODO: document {@code getNumMatchesNeeded}.
+     *
+     * @param neighbor TODO: describe
+     * @return TODO: describe
+     */
     public int getNumMatchesNeeded(Knot neighbor) {
         return 2 - externalBalance.get(neighbor.id);
     }

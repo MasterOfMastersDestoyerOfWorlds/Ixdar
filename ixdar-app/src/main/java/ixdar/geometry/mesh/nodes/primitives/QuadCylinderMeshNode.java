@@ -21,14 +21,27 @@ import ixdar.geometry.mesh.data.HalfEdgeMesh;
  */
 @MeshNodeAnnotation(id = "quad_cylinder")
 public class QuadCylinderMeshNode implements MeshNode {
+    public static final String RADIUS_2 = "radius";
+    public static final String HEIGHT_2 = "height";
+    public static final String SEGMENTS_2 = "segments";
+    public static final String RINGS_2 = "rings";
+    public static final String CAP_RINGS_2 = "cap_rings";
+    public static final String MESH_2 = "mesh";
+    public static final String GEOMETRY_2 = "geometry";
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_2_0 = 2.0f;
+    public static final int NUM_3 = 3;
+    public static final int NUM_8 = 8;
+    public static final double NUM_2_0_2 = 2.0;
+    public static final float NUM_0_05 = 0.05f;
 
-    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.5f, 0.001f, 100f);
-    private static final InputPort HEIGHT = new InputPort("height", PortType.FLOAT, 2.0f, 0.001f, 100f);
-    private static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 8, (float) 3, (float) 128);
-    private static final InputPort RINGS = new InputPort("rings", PortType.INT, 1, (float) 1, (float) 64);
-    private static final InputPort CAP_RINGS = new InputPort("cap_rings", PortType.INT, 2, (float) 0, (float) 16);
-    private static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
-    private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort RADIUS = new InputPort(RADIUS_2, PortType.FLOAT, 0.5f, 0.001f, 100f);
+    private static final InputPort HEIGHT = new InputPort(HEIGHT_2, PortType.FLOAT, 2.0f, 0.001f, 100f);
+    private static final InputPort SEGMENTS = new InputPort(SEGMENTS_2, PortType.INT, 8, (float) 3, (float) 128);
+    private static final InputPort RINGS = new InputPort(RINGS_2, PortType.INT, 1, (float) 1, (float) 64);
+    private static final InputPort CAP_RINGS = new InputPort(CAP_RINGS_2, PortType.INT, 2, (float) 0, (float) 16);
+    private static final OutputPort MESH = new OutputPort(MESH_2, PortType.MESH);
+    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -48,42 +61,42 @@ public class QuadCylinderMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                "radius", "Distance from the central Y-axis to the side surface. Default 0.5 (diameter 1).",
-                "height", "Total Y-axis extent. quad_cylinder(height=h) spans y=±h/2.",
-                "segments", "Divisions around the circumference. Higher = smoother barrel. Default 8.",
-                "rings", "Number of quad rings along the barrel length (between the two caps). Default 1.",
-                "cap_rings", "Concentric quad rings per cap (converging toward the pole). 0 leaves the cap open; higher values give cleaner subdivision at the cap. Default 2.",
-                "mesh", "All-quad cylinder, Y-aligned, centered at origin.",
-                "geometry", "Same mesh as a GeometryBundle (slot-carrying)."
+                RADIUS_2, "Distance from the central Y-axis to the side surface. Default 0.5 (diameter 1).",
+                HEIGHT_2, "Total Y-axis extent. quad_cylinder(height=h) spans y=±h/2.",
+                SEGMENTS_2, "Divisions around the circumference. Higher = smoother barrel. Default 8.",
+                RINGS_2, "Number of quad rings along the barrel length (between the two caps). Default 1.",
+                CAP_RINGS_2, "Concentric quad rings per cap (converging toward the pole). 0 leaves the cap open; higher values give cleaner subdivision at the cap. Default 2.",
+                MESH_2, "All-quad cylinder, Y-aligned, centered at origin.",
+                GEOMETRY_2, "Same mesh as a GeometryBundle (slot-carrying)."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Number rIn = ctx.getInput("radius", Number.class);
-        float radius = rIn == null ? 0.5f : rIn.floatValue();
+        Number rIn = ctx.getInput(RADIUS_2, Number.class);
+        float radius = rIn == null ? NUM_0_5 : rIn.floatValue();
 
-        Number hIn = ctx.getInput("height", Number.class);
-        float height = hIn == null ? 2.0f : hIn.floatValue();
+        Number hIn = ctx.getInput(HEIGHT_2, Number.class);
+        float height = hIn == null ? NUM_2_0 : hIn.floatValue();
 
-        Number sIn = ctx.getInput("segments", Number.class);
-        int segments = Math.max(3, sIn == null ? 8 : sIn.intValue());
+        Number sIn = ctx.getInput(SEGMENTS_2, Number.class);
+        int segments = Math.max(NUM_3, sIn == null ? NUM_8 : sIn.intValue());
 
-        Number ringsIn = ctx.getInput("rings", Number.class);
+        Number ringsIn = ctx.getInput(RINGS_2, Number.class);
         int rings = Math.max(1, ringsIn == null ? 1 : ringsIn.intValue());
 
-        Number capIn = ctx.getInput("cap_rings", Number.class);
+        Number capIn = ctx.getInput(CAP_RINGS_2, Number.class);
         int capRings = Math.max(1, capIn == null ? 2 : capIn.intValue());
 
         HalfEdgeMesh mesh = buildQuadCylinder(radius, height, segments, rings, capRings);
         mesh.computeNormals();
-        ctx.setOutput("mesh", mesh);
-        ctx.setOutput("geometry", GeometryBundle.ofMesh(mesh));
+        ctx.setOutput(MESH_2, mesh);
+        ctx.setOutput(GEOMETRY_2, GeometryBundle.ofMesh(mesh));
     }
 
     private static HalfEdgeMesh buildQuadCylinder(float radius, float height, int segments, int rings, int capRings) {
         HalfEdgeMesh mesh = new HalfEdgeMesh();
-        float halfH = height * 0.5f;
+        float halfH = height * NUM_0_5;
 
         // Build barrel vertex rings: (rings + 1) rings of (segments) vertices
         int barrelRows = rings + 1;
@@ -92,7 +105,7 @@ public class QuadCylinderMeshNode implements MeshNode {
         for (int row = 0; row < barrelRows; row++) {
             float y = -halfH + height * ((float) row / rings);
             for (int seg = 0; seg < segments; seg++) {
-                float angle = (float) (2.0 * Math.PI * seg / segments);
+                float angle = (float) (NUM_2_0_2 * Math.PI * seg / segments);
                 float x = radius * (float) Math.cos(angle);
                 float z = radius * (float) Math.sin(angle);
                 barrelVerts[row][seg] = mesh.addVertex(x, y, z);
@@ -141,12 +154,12 @@ public class QuadCylinderMeshNode implements MeshNode {
             float r = radius * (1.0f - t);
             // Tiny offset to avoid degenerate zero-radius ring at center
             if (ring == capRings) {
-                r = radius * 0.05f;
+                r = radius * NUM_0_05;
             }
 
             int[] currentRing = new int[segments];
             for (int seg = 0; seg < segments; seg++) {
-                float angle = (float) (2.0 * Math.PI * seg / segments);
+                float angle = (float) (NUM_2_0_2 * Math.PI * seg / segments);
                 float x = r * (float) Math.cos(angle);
                 float z = r * (float) Math.sin(angle);
                 currentRing[seg] = mesh.addVertex(x, y, z);

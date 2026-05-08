@@ -50,11 +50,19 @@ import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.SceneInputFrameUpdater;
 
 public class MainScene {
+    public static final String KNOT_FINDING_TIME = "Knot-finding time: ";
+    public static final String STR = ".";
+    public static final String STR_2 = ":";
+    public static final float NUM_0_9 = 0.9f;
+    public static final float NUM_0_6 = 0.6f;
+    public static final float NUM_0 = 0f;
+    public static final int NUM_40 = 40;
+    public static final double NUM_1000_0 = 1000.0;
+    public static final float NUM_4 = 4f;
+    public static final float NUM_2 = 2f;
 
     public static TextFile file;
     public static TextFile tempFile;
-    static String fileName;
-    static String tempFileName;
 
     public static MainScene main;
     public static Camera2D camera;
@@ -73,7 +81,6 @@ public class MainScene {
     public static Knot manifoldKnot;
     public static int manifoldIdx = 0;
     public static int knotDrawLayer = -1;
-    static PriorityQueue<ShellPair> metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
     public static PriorityQueue<ShellPair> metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
     public static ArrayList<Knot> knotsDisplayed;
 
@@ -85,17 +92,10 @@ public class MainScene {
     public static boolean active;
     public static KeyGuy keys;
     public static MouseTrap mouse;
-    private static HyperString toolTip;
-    public SDFTexture logo;
-    public Font font;
-
-    final static int RIGHT_PANEL_SIZE = 195;
-    final static int BOTTOM_PANEL_SIZE = 195;
     public static int MAIN_VIEW_OFFSET_X;
     public static int MAIN_VIEW_OFFSET_Y;
     public static int MAIN_VIEW_WIDTH;
     public static int MAIN_VIEW_HEIGHT;
-    private static boolean showToolTip;
     public static Knot hoverKnot;
     public static boolean showHoverKnot;
     public static ColorLerp hoverKnotColor;
@@ -114,7 +114,25 @@ public class MainScene {
     public static final String VIEW_RIGHT_BOTTOM = "RIGHT_BOTTOM";
     public static final String VIEW_BOTTOM = "BOTTOM";
     public static final String VIEW_TOOLTIP = "TOOLTIP";
+    static String fileName;
+    static String tempFileName;
+    static PriorityQueue<ShellPair> metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
 
+    final static int RIGHT_PANEL_SIZE = 195;
+    final static int BOTTOM_PANEL_SIZE = 195;
+    private static HyperString toolTip;
+    private static boolean showToolTip;
+    public SDFTexture logo;
+    public Font font;
+
+    /**
+     * TODO: document {@code MainScene}.
+     *
+     * @param fileName TODO: describe
+     * @param canvas TODO: describe
+     * @throws TerminalParseException TODO: describe
+     * @throws IOException TODO: describe
+     */
     public MainScene(String fileName, Canvas3D canvas) throws TerminalParseException, IOException {
         metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
         metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
@@ -145,7 +163,7 @@ public class MainScene {
 
         int wWidth = (int) Platforms.get().getWindowWidth();
         int wHeight = (int) Platforms.get().getWindowHeight();
-        camera = new Camera2D(wWidth - RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE, 0.9f, 0, BOTTOM_PANEL_SIZE,
+        camera = new Camera2D(wWidth - RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE, NUM_0_9, 0, BOTTOM_PANEL_SIZE,
                 retTup.ps);
 
         Toggle.setPanelFocus(PaneTypes.KnotView);
@@ -154,9 +172,16 @@ public class MainScene {
         mouse = new MouseTrap(this, camera, canvas);
         activate(true);
         tool = new FreeTool();
-        logo = new SDFTexture("decal_sdf_small.png", Color.DARK_IXDAR, 0.6f, 0f, true);
+        logo = new SDFTexture("decal_sdf_small.png", Color.DARK_IXDAR, NUM_0_6, NUM_0, true);
     }
 
+    /**
+     * TODO: document {@code main}.
+     *
+     * @param args TODO: describe
+     * @throws TerminalParseException TODO: describe
+     * @throws IOException TODO: describe
+     */
     public static void main(String[] args) throws TerminalParseException, IOException {
         canvas = new Canvas3D();
         main = new MainScene(args[0], canvas);
@@ -239,7 +264,7 @@ public class MainScene {
         long startTimeKnotFinding = System.currentTimeMillis();
         if (Toggle.CalculateKnot.value) {
             try {
-                resultKnots = new ArrayList<>(shell.slowSolve(shell, d, 40));
+                resultKnots = new ArrayList<>(shell.slowSolve(shell, d, NUM_40));
             } catch (MultipleCyclesFoundException e) {
                 e.printStackTrace();
             }
@@ -248,7 +273,7 @@ public class MainScene {
         }
 
         long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
-        double knotFindingSeconds = ((double) endTimeKnotFinding) / 1000.0;
+        double knotFindingSeconds = ((double) endTimeKnotFinding) / NUM_1000_0;
 
         Collection<Knot> flatKnots = resultKnots;
         if (flatKnots.size() > 0) {
@@ -311,10 +336,10 @@ public class MainScene {
         Drawing.initDrawingSizes(shell, camera, d);
         tourLength = shell.getLength();
         System.out.println(resultKnots);
-        System.out.println("Knot-finding time: " + knotFindingSeconds);
+        System.out.println(KNOT_FINDING_TIME + knotFindingSeconds);
         System.out.println("N " + shell.size());
 
-        System.out.println("Knot-finding time: " + knotFindingSeconds);
+        System.out.println(KNOT_FINDING_TIME + knotFindingSeconds);
         System.out.println("Saved Answer Length: " + orgShell.getLength());
         System.out.println("Calculated Length: " + tourLength);
         System.out.println("===============================================");
@@ -324,6 +349,11 @@ public class MainScene {
 
     }
 
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param camera3D TODO: describe
+     */
     public void draw(Camera camera3D) {
         try {
             int wWidth = (int) Platforms.get().getWindowWidth();
@@ -385,11 +415,16 @@ public class MainScene {
 
         } catch (Exception e) {
             for (StackTraceElement ste : e.getStackTrace()) {
-                Platforms.get().log(ste.getFileName() + "." + ste.getMethodName() + ":" + ste.getLineNumber());
+                Platforms.get().log(ste.getFileName() + STR + ste.getMethodName() + STR_2 + ste.getLineNumber());
             }
         }
     }
 
+    /**
+     * TODO: document {@code drawDisplayedKnots}.
+     *
+     * @param camera TODO: describe
+     */
     public static void drawDisplayedKnots(Camera2D camera) {
         if (knotDrawLayer == totalLayers) {
             if (tool.canUseToggle(Toggle.DrawKnotGradient) && manifoldKnot != null) {
@@ -477,6 +512,12 @@ public class MainScene {
         return c;
     }
 
+    /**
+     * TODO: document {@code getKnotGradientColor}.
+     *
+     * @param displayPoint TODO: describe
+     * @return TODO: describe
+     */
     public static Color getKnotGradientColor(Knot displayPoint) {
         Knot smallestKnot = displayPoint;
         if (smallestKnot == null) {
@@ -485,6 +526,12 @@ public class MainScene {
         return knotGradientColors.get(colorLookup.get((long) smallestKnot.id));
     }
 
+    /**
+     * TODO: document {@code getKnotGradientColorFlatten}.
+     *
+     * @param k TODO: describe
+     * @return TODO: describe
+     */
     public static Color getKnotGradientColorFlatten(Knot k) {
         Knot smallestKnot = k;
         if (smallestKnot == null) {
@@ -493,6 +540,13 @@ public class MainScene {
         return knotGradientColors.get(colorLookup.get((long) smallestKnot.id));
     }
 
+    /**
+     * TODO: document {@code getMetroColor}.
+     *
+     * @param displayPoint TODO: describe
+     * @param k TODO: describe
+     * @return TODO: describe
+     */
     public static Color getMetroColor(Knot displayPoint, Knot k) {
         if (knotDrawLayer < 0) {
             Knot smallestKnot = k;
@@ -502,6 +556,12 @@ public class MainScene {
         }
     }
 
+    /**
+     * TODO: document {@code getMetroColorFlatten}.
+     *
+     * @param thickKnot TODO: describe
+     * @return TODO: describe
+     */
     public static Color getMetroColorFlatten(Knot thickKnot) {
         Knot smallestKnot = thickKnot;
         if (smallestKnot == null) {
@@ -514,6 +574,12 @@ public class MainScene {
         return metroColors.get(knotLayer);
     }
 
+    /**
+     * TODO: document {@code lookupPairs}.
+     *
+     * @param k TODO: describe
+     * @return TODO: describe
+     */
     public static ArrayList<Pair<Long, Long>> lookupPairs(Knot k) {
 
         ArrayList<Pair<Long, Long>> idTransform = new ArrayList<>();
@@ -526,6 +592,11 @@ public class MainScene {
         return idTransform;
     }
 
+    /**
+     * TODO: document {@code segmentBalanceExceptionHandler}.
+     *
+     * @param sbe TODO: describe
+     */
     public static void segmentBalanceExceptionHandler(SegmentBalanceException sbe) {
         Shell result = new Shell();
         if (sbe.topKnot != null) {
@@ -542,12 +613,15 @@ public class MainScene {
                 break;
             }
             System.out.println(
-                    "ErrorSource: " + ste.getMethodName() + " " + ste.getFileName() + ":" + ste.getLineNumber());
+                    "ErrorSource: " + ste.getMethodName() + " " + ste.getFileName() + STR_2 + ste.getLineNumber());
         }
         System.out.println();
         resultShell = result;
     }
 
+    /**
+     * TODO: document {@code updateKnotsDisplayed}.
+     */
     public static void updateKnotsDisplayed() {
         PriorityQueue<ShellPair> newQueue = new PriorityQueue<ShellPair>(new ShellComparator());
         PriorityQueue<ShellPair> metroPathsLayer = MainScene.metroPathsLayer;
@@ -563,6 +637,11 @@ public class MainScene {
         MainScene.metroPathsLayer = newQueue;
     }
 
+    /**
+     * TODO: document {@code activate}.
+     *
+     * @param state TODO: describe
+     */
     public static void activate(boolean state) {
         if (state) {
             Platform p = Platforms.get();
@@ -574,48 +653,90 @@ public class MainScene {
         keys.active = state;
     }
 
+    /**
+     * TODO: document {@code setTooltipText}.
+     *
+     * @param pointInfo TODO: describe
+     */
     public static void setTooltipText(HyperString pointInfo) {
         toolTip = pointInfo;
         showToolTip = true;
 
     }
 
+    /**
+     * TODO: document {@code clearTooltipText}.
+     */
     public static void clearTooltipText() {
         toolTip = null;
         showToolTip = false;
     }
 
+    /**
+     * TODO: document {@code getToolTip}.
+     *
+     * @return TODO: describe
+     */
     public static HyperString getToolTip() {
         return toolTip;
     }
 
+    /**
+     * TODO: document {@code isToolTipVisible}.
+     *
+     * @return TODO: describe
+     */
     public static boolean isToolTipVisible() {
         return showToolTip;
     }
 
+    /**
+     * TODO: document {@code setHoverSegment}.
+     *
+     * @param segment TODO: describe
+     * @param c TODO: describe
+     */
     public static void setHoverSegment(Segment segment, Color c) {
         hoverSegment = segment;
         showHoverSegment = true;
-        hoverSegmentColor = new ColorLerp(c, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, 4f);
+        hoverSegmentColor = new ColorLerp(c, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, NUM_4);
 
     }
 
+    /**
+     * TODO: document {@code clearHoverSegment}.
+     */
     public static void clearHoverSegment() {
         hoverSegment = null;
         showHoverSegment = false;
     }
 
+    /**
+     * TODO: document {@code setHoverKnot}.
+     *
+     * @param k TODO: describe
+     */
     public static void setHoverKnot(Knot k) {
         hoverKnot = k;
         showHoverKnot = true;
-        hoverKnotColor = new ColorLerp(getKnotColor(hoverKnot), Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, 2f);
+        hoverKnotColor = new ColorLerp(getKnotColor(hoverKnot), Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, NUM_2);
     }
 
+    /**
+     * TODO: document {@code clearHoverKnot}.
+     */
     public static void clearHoverKnot() {
         hoverKnot = null;
         showHoverKnot = false;
     }
 
+    /**
+     * TODO: document {@code inView}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     * @return TODO: describe
+     */
     public static PaneTypes inView(float x, float y) {
         boolean inMainViewRightBound = x < MainScene.MAIN_VIEW_WIDTH + MainScene.MAIN_VIEW_OFFSET_X;
         boolean inMainViewLeftBound = x > MainScene.MAIN_VIEW_OFFSET_X;
@@ -634,6 +755,11 @@ public class MainScene {
         return PaneTypes.None;
     }
 
+    /**
+     * TODO: document {@code setDrawLevelToKnot}.
+     *
+     * @param k TODO: describe
+     */
     public static void setDrawLevelToKnot(Knot k) {
         Knot smallestKnot = shell.pointMap.get(k.id);
         if (smallestKnot == null) {
@@ -644,6 +770,9 @@ public class MainScene {
         updateKnotsDisplayed();
     }
 
+    /**
+     * TODO: document {@code setDrawLevelMetro}.
+     */
     public static void setDrawLevelMetro() {
         if (MainScene.knotDrawLayer != -1) {
             MainScene.knotDrawLayer = -1;
@@ -653,6 +782,12 @@ public class MainScene {
         updateKnotsDisplayed();
     }
 
+    /**
+     * TODO: document {@code getKnotFlatten}.
+     *
+     * @param k TODO: describe
+     * @return TODO: describe
+     */
     public static Knot getKnotFlatten(Knot k) {
         Knot smallestKnot = k;
         if (smallestKnot == null) {
@@ -665,7 +800,7 @@ public class MainScene {
     private static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
         try {
             Class<?> binder = Class.forName(
-                    String.join(".", "ixdar", "platform", "automation", "AutomationInputBinder"));
+                    String.join(STR, "ixdar", "platform", "automation", "AutomationInputBinder"));
             Method bind = binder.getMethod("bind", Platform.class, KeyGuy.class, MouseTrap.class);
             bind.invoke(null, platform, keys, mouse);
         } catch (Throwable ignored) {

@@ -14,7 +14,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AssimpModelImporter {
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1 = 1f;
+    public static final int NUM_3 = 3;
+    public static final float NUM_0_5 = 0.5f;
+    public static final int NUM_8 = 8;
+    public static final float NUM_0_001 = 0.001f;
 
+    /**
+     * TODO: document {@code importFromFile}.
+     *
+     * @param absoluteModelPath TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public ImportedModelData importFromFile(String absoluteModelPath) throws IOException {
         int flags = Assimp.aiProcess_Triangulate
                 | Assimp.aiProcess_JoinIdenticalVertices
@@ -54,9 +67,9 @@ public class AssimpModelImporter {
                         vertexData.add(n.y());
                         vertexData.add(n.z());
                     } else {
-                        vertexData.add(0f);
-                        vertexData.add(0f);
-                        vertexData.add(1f);
+                        vertexData.add(NUM_0);
+                        vertexData.add(NUM_0);
+                        vertexData.add(NUM_1);
                     }
 
                     if (texCoords != null && i < texCoords.remaining()) {
@@ -65,8 +78,8 @@ public class AssimpModelImporter {
                         vertexData.add(t.y());
                         hasTexCoords = true;
                     } else {
-                        vertexData.add(0f);
-                        vertexData.add(0f);
+                        vertexData.add(NUM_0);
+                        vertexData.add(NUM_0);
                     }
 
                     min.min(v);
@@ -76,7 +89,7 @@ public class AssimpModelImporter {
                 for (int faceIndex = 0; faceIndex < mesh.mNumFaces(); faceIndex++) {
                     AIFace face = mesh.mFaces().get(faceIndex);
                     IntBuffer faceIndices = face.mIndices();
-                    if (faceIndices == null || faceIndices.remaining() < 3) {
+                    if (faceIndices == null || faceIndices.remaining() < NUM_3) {
                         continue;
                     }
                     indexData.add(baseVertex + faceIndices.get(0));
@@ -102,15 +115,15 @@ public class AssimpModelImporter {
             indices[i] = indexData.get(i);
         }
 
-        Vector3f center = new Vector3f(min).add(max).mul(0.5f);
-        float radius = 0f;
-        for (int i = 0; i < verts.length; i += 8) {
+        Vector3f center = new Vector3f(min).add(max).mul(NUM_0_5);
+        float radius = NUM_0;
+        for (int i = 0; i < verts.length; i += NUM_8) {
             radius = Math.max(radius, new Vector3f(verts[i], verts[i + 1], verts[i + 2]).sub(center).length());
         }
-        if (radius < 0.001f) {
-            radius = 1f;
+        if (radius < NUM_0_001) {
+            radius = NUM_1;
         }
 
-        return new ImportedModelData(verts, indices, verts.length / 8, hasTexCoords, center, radius);
+        return new ImportedModelData(verts, indices, verts.length / NUM_8, hasTexCoords, center, radius);
     }
 }

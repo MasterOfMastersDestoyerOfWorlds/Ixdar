@@ -31,47 +31,61 @@ import ixdar.geometry.mesh.quadlayout.tmesh.TPatch;
  * <p>Solver: ojAlgo's {@link IlpSolver} (branch-and-bound + Gomory cuts).
  */
 public final class Quantization {
+    public static final int NUM_1000 = 1000;
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
+    public static final long NUM_2 = 2L;
+    public static final double NUM_1e_12 = 1e-12;
 
-    /** Upper-bound padding above {@code ceil(r_c)}. The optimal q_c is
+    /**
+     * Upper-bound padding above {@code ceil(r_c)}. The optimal q_c is
      *  near r_c so a tight UB shrinks the B&B search tree, but PATCH-44's
      *  dense graph creates sub-arcs with tiny r_c that must sum-equal across
      *  asymmetric T-junction sides; UB needs headroom to admit those.
      *  PATCH-76 set this to 2; PATCH-44 bumped to a hard floor that accepts
-     *  the global max strip class size. */
+     */
     private static final int UB_PADDING = 2;
 
     /** Wall-clock time limit for ojAlgo's IntegerSolver (milliseconds). */
     private static final long ILP_TIMEOUT_MS = 10_000L;
 
-    /** Above this strip-class count, skip the ILP solve (it OOMs ojAlgo).
+    private Quantization() {}
+
+    /**
+     * Above this strip-class count, skip the ILP solve (it OOMs ojAlgo).
      *  Lyon paper rocker-arm gets {@code #Vars = 192}; if our strip-equivalence
      *  is Lyon-faithful, ILP always solves under this cap. The 2253-var mess
      *  we see today is itself the bug — to be fixed at the strip-equivalence
      *  level (see PATCH-92 plan), not by bumping the cap.
-     *  Override at runtime via {@code -Dixdar.lyon.ilpMaxVars=N}. */
+     *  Override at runtime via {@code -Dixdar.lyon.ilpMaxVars=N}.
+     *
+     * @return TODO: describe
+     */
     private static int ilpMaxVars() {
         String prop = System.getProperty("ixdar.lyon.ilpMaxVars");
-        return prop != null ? Integer.parseInt(prop) : 1000;
+        return prop != null ? Integer.parseInt(prop) : NUM_1000;
     }
-
-    private Quantization() {}
 
     /**
      * Independently verify that {@code q} satisfies every consistency constraint
      * implied by {@code tmesh}'s 4-cycle patches and the validity floor
      * {@code q_i ≥ 1}. Returns {@code true} iff valid.
+     *
+     * @param tmesh TODO: describe
+     * @param q TODO: describe
+     * @return TODO: describe
      */
     public static boolean verifyConsistency(TMesh tmesh, int[] q) {
         if (q.length != tmesh.arcs().size()) return false;
         for (int qi : q) if (qi < 1) return false;
         for (TPatch p : tmesh.patches()) {
             int[][] sides = p.arcsBySide();
-            if (sides == null || sides.length != 4) continue;
+            if (sides == null || sides.length != NUM_4) continue;
             int sum02a = sumSide(q, sides[0]);
             int sum02b = sumSide(q, sides[2]);
             if (sum02a != sum02b) return false;
             int sum13a = sumSide(q, sides[1]);
-            int sum13b = sumSide(q, sides[3]);
+            int sum13b = sumSide(q, sides[NUM_3]);
             if (sum13a != sum13b) return false;
         }
         return true;
@@ -83,19 +97,12 @@ public final class Quantization {
         return s;
     }
 
-    /** Result of a quantization solve. */
-    public record Result(int[] arcQuantization,
-                         double objectiveValue,
-                         boolean feasible,
-                         int variableCount) {
-        public Result(int[] arcQuantization, double objectiveValue, boolean feasible) {
-            this(arcQuantization, objectiveValue, feasible, arcQuantization.length);
-        }
-    }
-
     /**
      * Solve the quantization ILP for {@code tmesh}. Returns one integer per
      * arc, in {@link TMesh#arcs()} order.
+     *
+     * @param tmesh TODO: describe
+     * @return TODO: describe
      */
     public static Result solve(TMesh tmesh) {
         List<TArc> arcs = tmesh.arcs();
@@ -142,7 +149,7 @@ public final class Quantization {
         // one arc per trace to be ≥ 1; that constraint is added below.
         int[] qVar = new int[K];
         for (int c = 0; c < K; c++) {
-            long ub = Math.max(2L, (long) Math.ceil(rClass[c]) + UB_PADDING);
+            long ub = Math.max(NUM_2, (long) Math.ceil(rClass[c]) + UB_PADDING);
             qVar[c] = ilp.addIntegerVar("qc_" + c, 0L, ub);
         }
 
@@ -185,9 +192,9 @@ public final class Quantization {
         // T-junction patches contribute real constraints.
         for (TPatch p : patches) {
             int[][] sides = p.arcsBySide();
-            if (sides == null || sides.length != 4) continue;
+            if (sides == null || sides.length != NUM_4) continue;
             addOppositeSideConstraint(ilp, qVar, arcClass, sides[0], sides[2], N);
-            addOppositeSideConstraint(ilp, qVar, arcClass, sides[1], sides[3], N);
+            addOppositeSideConstraint(ilp, qVar, arcClass, sides[1], sides[NUM_3], N);
         }
 
         // Validity Eq.(3) — Lyon §4.2 lemma: for each motorcycle trace,
@@ -273,6 +280,13 @@ public final class Quantization {
      * <p>If the resulting row is identically 0 (every class on side A also
      * appears with equal multiplicity on side B — typical of within-strip
      * pairs that union-find already collapsed), the constraint is dropped.
+     *
+     * @param ilp TODO: describe
+     * @param qVar TODO: describe
+     * @param arcClass TODO: describe
+     * @param sideA TODO: describe
+     * @param sideB TODO: describe
+     * @param N TODO: describe
      */
     private static void addOppositeSideConstraint(IlpSolver ilp, int[] qVar,
                                                   int[] arcClass,
@@ -282,8 +296,25 @@ public final class Quantization {
         boolean nonZero = false;
         for (int a : sideA) row[qVar[arcClass[a]]] += 1.0;
         for (int b : sideB) row[qVar[arcClass[b]]] -= 1.0;
-        for (int i = 0; i < N; i++) if (Math.abs(row[i]) > 1e-12) { nonZero = true; break; }
+        for (int i = 0; i < N; i++) if (Math.abs(row[i]) > NUM_1e_12) { nonZero = true; break; }
         if (!nonZero) return;
         ilp.addLinearConstraint(row, IlpSolver.Op.EQ, 0.0);
+    }
+
+    /** Result of a quantization solve. */
+    public record Result(int[] arcQuantization,
+                         double objectiveValue,
+                         boolean feasible,
+                         int variableCount) {
+        /**
+         * TODO: document {@code Result}.
+         *
+         * @param arcQuantization TODO: describe
+         * @param objectiveValue TODO: describe
+         * @param feasible TODO: describe
+         */
+        public Result(int[] arcQuantization, double objectiveValue, boolean feasible) {
+            this(arcQuantization, objectiveValue, feasible, arcQuantization.length);
+        }
     }
 }

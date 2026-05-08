@@ -19,22 +19,50 @@ import ixdar.annotations.meshnode.OutputPort;
 import ixdar.geometry.mesh.nodes.math.RandomValueNode;
 
 public final class MeshNodeCatalog {
+    public static final String DESCRIPTION = "description";
+    public static final String OTHER = "Other";
+    public static final String NAME = "name";
+    public static final String PORTTYPE = "portType";
 
     private MeshNodeCatalog() {
     }
 
+    /**
+     * TODO: document {@code toJsonFromAnnotationRegistry}.
+     *
+     * @return TODO: describe
+     */
     public static String toJsonFromAnnotationRegistry() {
         return toJson(MeshNodeRegistry_MeshNodes.MAP, null);
     }
 
+    /**
+     * TODO: document {@code toJsonFromAnnotationRegistry}.
+     *
+     * @param scope TODO: describe
+     * @return TODO: describe
+     */
     public static String toJsonFromAnnotationRegistry(String scope) {
         return toJson(MeshNodeRegistry_MeshNodes.MAP, scope);
     }
 
+    /**
+     * TODO: document {@code toJson}.
+     *
+     * @param registry TODO: describe
+     * @return TODO: describe
+     */
     public static String toJson(Map<String, Supplier<? extends MeshNode>> registry) {
         return toJson(registry, null);
     }
 
+    /**
+     * TODO: document {@code toJson}.
+     *
+     * @param registry TODO: describe
+     * @param scope TODO: describe
+     * @return TODO: describe
+     */
     public static String toJson(Map<String, Supplier<? extends MeshNode>> registry, String scope) {
         List<Map<String, Object>> nodes = new ArrayList<>();
         for (Map.Entry<String, Supplier<? extends MeshNode>> e : registry.entrySet()) {
@@ -52,7 +80,7 @@ public final class MeshNodeCatalog {
             entry.put("outputs", serializeOutputs(schema.outputs(), schema.socketDocs()));
             String desc = n.description();
             if (desc != null && !desc.isEmpty()) {
-                entry.put("description", desc);
+                entry.put(DESCRIPTION, desc);
             }
             if (schema.destructive()) {
                 entry.put("destructive", true);
@@ -84,7 +112,7 @@ public final class MeshNodeCatalog {
     private static String categoryFromClass(Class<?> clazz) {
         String pkg = clazz.getPackageName();
         int lastDot = pkg.lastIndexOf('.');
-        if (lastDot < 0) return "Other";
+        if (lastDot < 0) return OTHER;
         String leaf = pkg.substring(lastDot + 1);
         return switch (leaf) {
             case "primitives" -> "Primitives";
@@ -98,7 +126,7 @@ public final class MeshNodeCatalog {
             case "patch" -> "Patch & Surface";
             case "selection" -> "Selection";
             case "transform" -> "Transform";
-            default -> "Other";
+            default -> OTHER;
         };
     }
 
@@ -107,11 +135,11 @@ public final class MeshNodeCatalog {
         List<Map<String, Object>> out = new ArrayList<>();
         for (InputPort p : inputs) {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("name", p.name());
-            m.put("portType", p.type().name());
+            m.put(NAME, p.name());
+            m.put(PORTTYPE, p.type().name());
             String doc = socketDocs.get(p.name());
             if (doc != null && !doc.isEmpty()) {
-                m.put("description", doc);
+                m.put(DESCRIPTION, doc);
             }
             m.put("defaultValue", p.defaultValue());
             ModeConstraint mc = p.modes();
@@ -130,11 +158,11 @@ public final class MeshNodeCatalog {
         List<Map<String, Object>> out = new ArrayList<>();
         for (OutputPort p : outputs) {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("name", p.name());
-            m.put("portType", p.type().name());
+            m.put(NAME, p.name());
+            m.put(PORTTYPE, p.type().name());
             String doc = socketDocs.get(p.name());
             if (doc != null && !doc.isEmpty()) {
-                m.put("description", doc);
+                m.put(DESCRIPTION, doc);
             }
             out.add(m);
         }

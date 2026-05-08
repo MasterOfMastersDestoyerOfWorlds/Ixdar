@@ -34,14 +34,16 @@ import ixdar.geometry.mesh.quadlayout.tmesh.TPatch;
  * Per-Tpatch cost is O(arcs1 × arcs2) traces.
  */
 public final class SplitArcTracer {
+    public static final int NUM_4 = 4;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1 = 1f;
+    public static final int NUM_3 = 3;
+    public static final double NUM_1000_0 = 1000.0;
 
     private static final double EPS = 1e-9;
     private static final int MAX_HOPS = 256;
 
     private SplitArcTracer() {}
-
-    /** A traced split arc: ordered list of per-face {@link SplitEdge}s. */
-    public record SplitArc(List<SplitEdge> edges) {}
 
     /**
      * Trace one iso-line from {@code from} on side {@code beginSide} of
@@ -51,6 +53,18 @@ public final class SplitArcTracer {
      * common pre-T-junction-extension case). Multi-arc-side callers should
      * use the {@link #traceFromArc} overload that takes the begin-side arc
      * and corner explicitly.
+     *
+     * @param tmesh TODO: describe
+     * @param mesh TODO: describe
+     * @param patch TODO: describe
+     * @param sideRSum TODO: describe
+     * @param uCorner TODO: describe
+     * @param vCorner TODO: describe
+     * @param trs TODO: describe
+     * @param beginSide TODO: describe
+     * @param from TODO: describe
+     * @param to TODO: describe
+     * @return TODO: describe
      */
     public static SplitArc trace(TMesh tmesh, ArrayMesh mesh,
                                   TPatch patch, double[] sideRSum,
@@ -77,6 +91,14 @@ public final class SplitArcTracer {
      *                           (sum of underlying TArc parametric lengths)
      * @param beginSide          0..3; only used to index {@code sideRSum} for
      *                           the mid/end side lookups
+     * @param tmesh TODO: describe
+     * @param mesh TODO: describe
+     * @param uCorner TODO: describe
+     * @param vCorner TODO: describe
+     * @param trs TODO: describe
+     * @param from TODO: describe
+     * @param to TODO: describe
+     * @return TODO: describe
      */
     public static SplitArc traceFromArc(TMesh tmesh, ArrayMesh mesh,
                                          TArc beginSideArc,
@@ -103,8 +125,8 @@ public final class SplitArcTracer {
         // diff_mid_side = total parametric length of side (beginSide+1)%4
         // diff_bgn_side = from.distance (along side beginSide)
         // diff_end_side = side(beginSide+2).totalLength - to.distance
-        int midSide = (beginSide + 1) % 4;
-        int endSide = (beginSide + 2) % 4;
+        int midSide = (beginSide + 1) % NUM_4;
+        int endSide = (beginSide + 2) % NUM_4;
         double diffBgn = from.distance();
         double diffMid = sideRSum[midSide];
         double diffEnd = sideRSum[endSide] - to.distance();
@@ -115,10 +137,10 @@ public final class SplitArcTracer {
         boolean canonical = beginSideArc.startNode() == beginSideCornerNodeId;
         // Edge direction = beginSideArc's net (uOut - uIn) over its first step.
         float[] firstStepUv = beginSideArc.stepUvs().isEmpty()
-                ? new float[]{0f, 0f, 1f, 0f}
+                ? new float[]{NUM_0, NUM_0, NUM_1, NUM_0}
                 : beginSideArc.stepUvs().get(0);
         double edgeDx = (canonical ? 1 : -1) * (firstStepUv[2] - firstStepUv[0]);
-        double edgeDy = (canonical ? 1 : -1) * (firstStepUv[3] - firstStepUv[1]);
+        double edgeDy = (canonical ? 1 : -1) * (firstStepUv[NUM_3] - firstStepUv[1]);
         double edgeLen = Math.hypot(edgeDx, edgeDy);
         if (edgeLen < EPS) {
             // Degenerate first step — try summing the whole arc.
@@ -139,8 +161,8 @@ public final class SplitArcTracer {
         double dirX = edgeDx * cosA - edgeDy * sinA;
         double dirY = edgeDx * sinA + edgeDy * cosA;
         // Long ray for intersection robustness (mirror metriko's "* 1000").
-        double rayDx = dirX * 1000.0;
-        double rayDy = dirY * 1000.0;
+        double rayDx = dirX * NUM_1000_0;
+        double rayDy = dirY * NUM_1000_0;
 
         // Walk faces. Start at fromFace.
         int curFace = fromFace;
@@ -152,13 +174,13 @@ public final class SplitArcTracer {
             int exitHe = -1;
             double exitT = Double.POSITIVE_INFINITY;
             double exitTSeg = 0;
-            for (int c = 0; c < 3; c++) {
-                int he = curFace * 3 + c;
+            for (int c = 0; c < NUM_3; c++) {
+                int he = curFace * NUM_3 + c;
                 if (he == entryHalfEdge) continue;
-                float aU = uCorner[curFace * 3 + c];
-                float aV = vCorner[curFace * 3 + c];
-                float bU = uCorner[curFace * 3 + (c + 1) % 3];
-                float bV = vCorner[curFace * 3 + (c + 1) % 3];
+                float aU = uCorner[curFace * NUM_3 + c];
+                float aV = vCorner[curFace * NUM_3 + c];
+                float bU = uCorner[curFace * NUM_3 + (c + 1) % NUM_3];
+                float bV = vCorner[curFace * NUM_3 + (c + 1) % NUM_3];
                 double[] rs = raySegmentIntersect(curU, curV, rayDx, rayDy,
                         aU, aV, bU, bV);
                 if (rs == null) continue;
@@ -169,11 +191,11 @@ public final class SplitArcTracer {
                 }
             }
             if (exitHe < 0) break;
-            int c = exitHe % 3;
-            float aU = uCorner[curFace * 3 + c];
-            float aV = vCorner[curFace * 3 + c];
-            float bU = uCorner[curFace * 3 + (c + 1) % 3];
-            float bV = vCorner[curFace * 3 + (c + 1) % 3];
+            int c = exitHe % NUM_3;
+            float aU = uCorner[curFace * NUM_3 + c];
+            float aV = vCorner[curFace * NUM_3 + c];
+            float bU = uCorner[curFace * NUM_3 + (c + 1) % NUM_3];
+            float bV = vCorner[curFace * NUM_3 + (c + 1) % NUM_3];
             double hitU = aU + exitTSeg * (bU - aU);
             double hitV = aV + exitTSeg * (bV - aV);
 
@@ -219,12 +241,24 @@ public final class SplitArcTracer {
     private static double sumStepDelta(TArc arc, boolean uAxis) {
         double s = 0;
         for (float[] step : arc.stepUvs()) {
-            s += uAxis ? (step[2] - step[0]) : (step[3] - step[1]);
+            s += uAxis ? (step[2] - step[0]) : (step[NUM_3] - step[1]);
         }
         return s;
     }
 
-    /** Standard 2D ray-segment intersection (same as QuadEdgeGenerator). */
+    /**
+     * Standard 2D ray-segment intersection (same as QuadEdgeGenerator).
+     *
+     * @param px TODO: describe
+     * @param py TODO: describe
+     * @param dx TODO: describe
+     * @param dy TODO: describe
+     * @param ax TODO: describe
+     * @param ay TODO: describe
+     * @param bx TODO: describe
+     * @param by TODO: describe
+     * @return TODO: describe
+     */
     private static double[] raySegmentIntersect(double px, double py,
                                                  double dx, double dy,
                                                  double ax, double ay,
@@ -239,4 +273,7 @@ public final class SplitArcTracer {
         if (tSeg < -EPS || tSeg > 1.0 + EPS) return null;
         return new double[]{tRay, tSeg};
     }
+
+    /** A traced split arc: ordered list of per-face {@link SplitEdge}s. */
+    public record SplitArc(List<SplitEdge> edges) {}
 }

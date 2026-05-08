@@ -7,10 +7,18 @@ public class LoadIxAction implements Action {
 
     private String fileName;
 
+    /**
+     * TODO: document {@code LoadIxAction}.
+     *
+     * @param fileName TODO: describe
+     */
     public LoadIxAction(String fileName) {
         this.fileName = fileName;
     }
 
+    /**
+     * TODO: document {@code perform}.
+     */
     @Override
     public void perform() {
         try {

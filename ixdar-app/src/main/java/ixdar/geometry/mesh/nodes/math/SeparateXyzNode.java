@@ -14,11 +14,15 @@ import ixdar.annotations.meshnode.Vector3Value;
 
 @MeshNodeAnnotation(id = "separate_xyz")
 public class SeparateXyzNode implements MeshNode {
+    public static final String VECTOR_2 = "vector";
+    public static final String X_2 = "x";
+    public static final String Y_2 = "y";
+    public static final String Z_2 = "z";
 
-    private static final InputPort VECTOR = new InputPort("vector", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
-    private static final OutputPort X = new OutputPort("x", PortType.FLOAT);
-    private static final OutputPort Y = new OutputPort("y", PortType.FLOAT);
-    private static final OutputPort Z = new OutputPort("z", PortType.FLOAT);
+    private static final InputPort VECTOR = new InputPort(VECTOR_2, PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
+    private static final OutputPort X = new OutputPort(X_2, PortType.FLOAT);
+    private static final OutputPort Y = new OutputPort(Y_2, PortType.FLOAT);
+    private static final OutputPort Z = new OutputPort(Z_2, PortType.FLOAT);
 
     @Override
     public String description() {
@@ -28,10 +32,10 @@ public class SeparateXyzNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "vector", "Input Vector3 or Vec3Field.",
-                "x", "X component (per-element).",
-                "y", "Y component.",
-                "z", "Z component."
+                VECTOR_2, "Input Vector3 or Vec3Field.",
+                X_2, "X component (per-element).",
+                Y_2, "Y component.",
+                Z_2, "Z component."
         );
     }
 
@@ -47,7 +51,7 @@ public class SeparateXyzNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Object vo = FieldBroadcast.getInputOrDefault(ctx, "vector", VECTOR.defaultValue());
+        Object vo = FieldBroadcast.getInputOrDefault(ctx, VECTOR_2, VECTOR.defaultValue());
         if (vo instanceof Vec3Field v) {
             int n = v.length();
             float[] x = new float[n];
@@ -58,14 +62,14 @@ public class SeparateXyzNode implements MeshNode {
                 y[i] = v.getY(i);
                 z[i] = v.getZ(i);
             }
-            ctx.setOutput("x", new FloatField(x));
-            ctx.setOutput("y", new FloatField(y));
-            ctx.setOutput("z", new FloatField(z));
+            ctx.setOutput(X_2, new FloatField(x));
+            ctx.setOutput(Y_2, new FloatField(y));
+            ctx.setOutput(Z_2, new FloatField(z));
             return;
         }
         Vector3Value vec = vo instanceof Vector3Value vv ? vv : new Vector3Value(0f, 0f, 0f);
-        ctx.setOutput("x", vec.x());
-        ctx.setOutput("y", vec.y());
-        ctx.setOutput("z", vec.z());
+        ctx.setOutput(X_2, vec.x());
+        ctx.setOutput(Y_2, vec.y());
+        ctx.setOutput(Z_2, vec.z());
     }
 }

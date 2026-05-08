@@ -31,6 +31,11 @@ import ixdar.geometry.mesh.data.SemanticPatchDecomposer.EdgeDihedrals;
  * stitch across them.
  */
 public final class SaddlePointDetector {
+    public static final int NUM_3 = 3;
+    public static final float NUM_1e_12 = 1e-12f;
+    public static final float NUM_0 = 0f;
+    public static final int NUM_32 = 32;
+    public static final long NUM_0xffffffff = 0xffffffffL;
 
     // Only fire at saddles whose magnitudes exceed these adaptive percentiles
     // of the per-vertex κ distributions. Keeps incidental skull saddles
@@ -52,17 +57,14 @@ public final class SaddlePointDetector {
 
     private SaddlePointDetector() {}
 
-    /** Separator edges + seed vertex ids for diagnostic overlay. */
-    public static final class SaddleSeparators {
-        public final Set<Long> separatorEdges;
-        public final int[] saddleVertices;
-
-        SaddleSeparators(Set<Long> separatorEdges, int[] saddleVertices) {
-            this.separatorEdges = separatorEdges;
-            this.saddleVertices = saddleVertices;
-        }
-    }
-
+    /**
+     * TODO: document {@code detect}.
+     *
+     * @param mesh TODO: describe
+     * @param ed TODO: describe
+     * @param pdf TODO: describe
+     * @return TODO: describe
+     */
     public static SaddleSeparators detect(ArrayMesh mesh, EdgeDihedrals ed, PrincipalDirectionField pdf) {
         int nv = mesh.vertexCount();
         float[] positions = mesh.copyPositions();
@@ -102,7 +104,7 @@ public final class SaddlePointDetector {
         }
 
         Set<Long> out = new HashSet<>();
-        float[] dir = new float[3];
+        float[] dir = new float[NUM_3];
         for (int seed : seeds) {
             pdf.dirMax(seed, dir);
             walk(seed, dir, +1, STEPS_PER_SIDE, ring, positions, out);
@@ -131,11 +133,11 @@ public final class SaddlePointDetector {
             int best = -1;
             float bestDot = MIN_DOT;
             for (int u : ring[v]) {
-                float ex = positions[u * 3]     - positions[v * 3];
-                float ey = positions[u * 3 + 1] - positions[v * 3 + 1];
-                float ez = positions[u * 3 + 2] - positions[v * 3 + 2];
+                float ex = positions[u * NUM_3]     - positions[v * NUM_3];
+                float ey = positions[u * NUM_3 + 1] - positions[v * NUM_3 + 1];
+                float ez = positions[u * NUM_3 + 2] - positions[v * NUM_3 + 2];
                 float elen = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
-                if (elen < 1e-12f) continue;
+                if (elen < NUM_1e_12) continue;
                 float dot = (ex * dx + ey * dy + ez * dz) / elen;
                 if (dot > bestDot) {
                     bestDot = dot;
@@ -144,11 +146,11 @@ public final class SaddlePointDetector {
             }
             if (best < 0) break;
             out.add(edgeKey(v, best));
-            float ex = positions[best * 3]     - positions[v * 3];
-            float ey = positions[best * 3 + 1] - positions[v * 3 + 1];
-            float ez = positions[best * 3 + 2] - positions[v * 3 + 2];
+            float ex = positions[best * NUM_3]     - positions[v * NUM_3];
+            float ey = positions[best * NUM_3 + 1] - positions[v * NUM_3 + 1];
+            float ez = positions[best * NUM_3 + 2] - positions[v * NUM_3 + 2];
             float elen = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
-            if (elen < 1e-12f) break;
+            if (elen < NUM_1e_12) break;
             dx = ex / elen;
             dy = ey / elen;
             dz = ez / elen;
@@ -160,7 +162,7 @@ public final class SaddlePointDetector {
         int nv = pdf.vertexCount();
         float[] samples = new float[nv];
         for (int v = 0; v < nv; v++) {
-            samples[v] = max ? Math.max(pdf.kappaMax(v), 0f) : Math.max(-pdf.kappaMin(v), 0f);
+            samples[v] = max ? Math.max(pdf.kappaMax(v), NUM_0) : Math.max(-pdf.kappaMin(v), NUM_0);
         }
         Arrays.sort(samples);
         int idx = Math.min(nv - 1, Math.max(0, Math.round((nv - 1) * pct)));
@@ -169,11 +171,11 @@ public final class SaddlePointDetector {
 
     private static int[][] buildOneRing(EdgeDihedrals ed, int nv) {
         List<List<Integer>> tmp = new ArrayList<>(nv);
-        for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(6));
+        for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(STEPS_PER_SIDE));
         for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
             long key = e.getKey();
-            int u = (int) (key >> 32);
-            int v = (int) (key & 0xffffffffL);
+            int u = (int) (key >> NUM_32);
+            int v = (int) (key & NUM_0xffffffff);
             tmp.get(u).add(v);
             tmp.get(v).add(u);
         }
@@ -188,6 +190,17 @@ public final class SaddlePointDetector {
     }
 
     private static long edgeKey(int u, int v) {
-        return u < v ? ((long) u << 32) | (v & 0xffffffffL) : ((long) v << 32) | (u & 0xffffffffL);
+        return u < v ? ((long) u << NUM_32) | (v & NUM_0xffffffff) : ((long) v << NUM_32) | (u & NUM_0xffffffff);
+    }
+
+    /** Separator edges + seed vertex ids for diagnostic overlay. */
+    public static final class SaddleSeparators {
+        public final Set<Long> separatorEdges;
+        public final int[] saddleVertices;
+
+        SaddleSeparators(Set<Long> separatorEdges, int[] saddleVertices) {
+            this.separatorEdges = separatorEdges;
+            this.saddleVertices = saddleVertices;
+        }
     }
 }

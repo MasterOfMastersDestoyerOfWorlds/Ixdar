@@ -15,11 +15,27 @@ public class MeshViewerKeyGuy extends KeyGuy {
 
     private final MeshNodeViewerScene meshScene;
 
+    /**
+     * TODO: document {@code MeshViewerKeyGuy}.
+     *
+     * @param meshScene TODO: describe
+     * @param camera TODO: describe
+     * @param canvas TODO: describe
+     */
     public MeshViewerKeyGuy(MeshNodeViewerScene meshScene, Camera camera, Canvas3D canvas) {
         super(camera, canvas);
         this.meshScene = meshScene;
     }
 
+    /**
+     * TODO: document {@code keyCallback}.
+     *
+     * @param window TODO: describe
+     * @param key TODO: describe
+     * @param scancode TODO: describe
+     * @param action TODO: describe
+     * @param mods TODO: describe
+     */
     @Override
     public void keyCallback(long window, int key, int scancode, int action, int mods) {
         Platforms.init(canvas.platform.getPlatformID());

@@ -13,6 +13,12 @@ import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
 import ixdar.gui.ui.Drawing;
 
 public class SDFLine extends ShaderDrawable {
+    public static final float NUM_0_1 = 0.1f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_0_02 = 0.02f;
+    public static final float NUM_0_35 = 0.35f;
+    public static final float NUM_3 = 3f;
+    public static final double NUM_0_1_2 = 0.1;
 
     private ShaderProgram lineShader;
     private ShaderProgram dashedLineShader;
@@ -40,6 +46,9 @@ public class SDFLine extends ShaderDrawable {
     private Vector2f pBTex;
     private boolean arrow;
 
+    /**
+     * TODO: document {@code SDFLine}.
+     */
     public SDFLine() {
         super();
         lineShader = ShaderType.LineSDF.getShader();
@@ -56,13 +65,21 @@ public class SDFLine extends ShaderDrawable {
         this.borderOffsetOuter = 0;
     }
 
+    /**
+     * TODO: document {@code SDFLine}.
+     *
+     * @param sdfShader TODO: describe
+     * @param borderColor TODO: describe
+     * @param borderDist TODO: describe
+     * @param borderOffset TODO: describe
+     */
     public SDFLine(SDFShader sdfShader, Color borderColor,
             float borderDist, float borderOffset) {
         lineShader = sdfShader;
         this.borderColor = borderColor;
-        this.borderInner = borderDist - 0.1f;
+        this.borderInner = borderDist - NUM_0_1;
         this.borderOuter = borderDist;
-        this.borderOffsetInner = borderOffset - 0.1f;
+        this.borderOffsetInner = borderOffset - NUM_0_1;
         this.borderOffsetOuter = borderOffset;
         setShader();
     }
@@ -72,10 +89,27 @@ public class SDFLine extends ShaderDrawable {
         return r.x * r.x + r.y * r.y;
     }
 
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param pA TODO: describe
+     * @param pB TODO: describe
+     * @param c TODO: describe
+     * @param camera TODO: describe
+     */
     public void draw(Vector2f pA, Vector2f pB, Color c, Camera camera) {
         draw(pA, pB, c, c, camera);
     }
 
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param pA TODO: describe
+     * @param pB TODO: describe
+     * @param c TODO: describe
+     * @param c2 TODO: describe
+     * @param camera TODO: describe
+     */
     public void draw(Vector2f pA, Vector2f pB, Color c, Color c2, Camera camera) {
         this.pA = pA;
         this.pB = pB;
@@ -85,6 +119,9 @@ public class SDFLine extends ShaderDrawable {
         draw(camera);
     }
 
+    /**
+     * TODO: document {@code setShader}.
+     */
     public void setShader() {
         shader = lineShader;
         if (dashed) {
@@ -99,46 +136,93 @@ public class SDFLine extends ShaderDrawable {
         }
     }
 
+    /**
+     * TODO: document {@code setBorderDist}.
+     *
+     * @param borderDist TODO: describe
+     */
     public void setBorderDist(float borderDist) {
-        this.borderInner = borderDist - 0.1f;
+        this.borderInner = borderDist - NUM_0_1;
         this.borderOuter = borderDist;
     }
 
+    /**
+     * TODO: document {@code setBorderColor}.
+     *
+     * @param borderColor TODO: describe
+     */
     public void setBorderColor(Color borderColor) {
         this.borderColor = borderColor;
     }
 
+    /**
+     * TODO: document {@code setBorderOffset}.
+     *
+     * @param borderOffset TODO: describe
+     */
     public void setBorderOffset(float borderOffset) {
-        this.borderOffsetInner = borderOffset - 0.1f;
+        this.borderOffsetInner = borderOffset - NUM_0_1;
         this.borderOffsetOuter = borderOffset;
     }
 
+    /**
+     * TODO: document {@code setBackgroundColor}.
+     *
+     * @param backgroundColor TODO: describe
+     */
     public void setBackgroundColor(Color backgroundColor) {
         this.backgroundColor = backgroundColor;
     }
 
+    /**
+     * TODO: document {@code setBorderBand}.
+     *
+     * @param borderWidth TODO: describe
+     */
     public void setBorderBand(float borderWidth) {
-        float clampedWidth = Math.max(0f, borderWidth);
-        float feather = 0.02f;
+        float clampedWidth = Math.max(NUM_0, borderWidth);
+        float feather = NUM_0_02;
         this.borderInner = edgeDist;
         this.borderOuter = edgeDist + clampedWidth;
         this.borderOffsetInner = this.borderOuter;
         this.borderOffsetOuter = this.borderOuter + feather;
     }
 
+    /**
+     * TODO: document {@code setStroke}.
+     *
+     * @param dashed TODO: describe
+     */
     public void setStroke(boolean dashed) {
         this.dashed = dashed;
-        edgeDist = 0.35f;
+        edgeDist = NUM_0_35;
         setShader();
     }
 
+    /**
+     * TODO: document {@code setStroke}.
+     *
+     * @param lineWidth TODO: describe
+     * @param dashed TODO: describe
+     */
     public void setStroke(float lineWidth, boolean dashed) {
-        this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS / 3f);
+        this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS / NUM_3);
         this.dashed = dashed;
-        edgeDist = 0.35f;
+        edgeDist = NUM_0_35;
         setShader();
     }
 
+    /**
+     * TODO: document {@code setStroke}.
+     *
+     * @param lineWidth TODO: describe
+     * @param dashed TODO: describe
+     * @param dashLength TODO: describe
+     * @param dashRate TODO: describe
+     * @param roundCaps TODO: describe
+     * @param endCaps TODO: describe
+     * @param arrow TODO: describe
+     */
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
             boolean endCaps, boolean arrow) {
         this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS);
@@ -148,10 +232,22 @@ public class SDFLine extends ShaderDrawable {
         this.roundCaps = roundCaps;
         this.endCaps = endCaps;
         this.arrow = arrow;
-        edgeDist = 0.35f;
+        edgeDist = NUM_0_35;
         setShader();
     }
 
+    /**
+     * TODO: document {@code setStroke}.
+     *
+     * @param lineWidth TODO: describe
+     * @param dashed TODO: describe
+     * @param dashLength TODO: describe
+     * @param dashRate TODO: describe
+     * @param roundCaps TODO: describe
+     * @param endCaps TODO: describe
+     * @param arrow TODO: describe
+     * @param camera2d TODO: describe
+     */
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
             boolean endCaps, boolean arrow, Camera2D camera2d) {
         this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS);
@@ -161,10 +257,13 @@ public class SDFLine extends ShaderDrawable {
         this.roundCaps = roundCaps;
         this.endCaps = endCaps;
         this.arrow = arrow;
-        edgeDist = 0.35f;
+        edgeDist = NUM_0_35;
         setShader();
     }
 
+    /**
+     * TODO: document {@code calculateQuad}.
+     */
     @Override
     public void calculateQuad() {
         culled = false;
@@ -264,9 +363,12 @@ public class SDFLine extends ShaderDrawable {
         pBTex = toScaledTextureSpace(pB);
     }
 
+    /**
+     * TODO: document {@code setUniforms}.
+     */
     @Override
     protected void setUniforms() {
-        shader.setFloat("edgeSharpness", (float) Math.min(1 / (lineWidth * 2), 0.1));
+        shader.setFloat("edgeSharpness", (float) Math.min(1 / (lineWidth * 2), NUM_0_1_2));
         shader.setFloat("dashPhase", Clock.spin(dashRate));
         float inverseLineLengthSq = 1 / lengthSq(pATex, pBTex);
         shader.setFloat("lineLengthSq", lengthSq(pATex, pBTex));
@@ -292,6 +394,12 @@ public class SDFLine extends ShaderDrawable {
     /**
      * Returns 1 if the lines intersect, otherwise 0. In addition, if the lines /*
      * intersect the intersection point may be stored in the floats i_x and i_y.
+     *
+     * @param pA TODO: describe
+     * @param pB TODO: describe
+     * @param pC TODO: describe
+     * @param pD TODO: describe
+     * @return TODO: describe
      */
     public Pair<Boolean, Vector2f> get_line_intersection(Vector2f pA, Vector2f pB, Vector2f pC, Vector2f pD) {
         float s1_x, s1_y, s2_x, s2_y;
@@ -311,12 +419,24 @@ public class SDFLine extends ShaderDrawable {
         return new Pair<Boolean, Vector2f>(false, null);
     }
 
+    /**
+     * TODO: document {@code setEndpoints}.
+     *
+     * @param camera2d TODO: describe
+     * @param pA TODO: describe
+     * @param pB TODO: describe
+     */
     public void setEndpoints(Camera2D camera2d, Vector2f pA, Vector2f pB) {
         this.camera = camera2d;
         this.pA = pA;
         this.pB = pB;
     }
 
+    /**
+     * TODO: document {@code setCulling}.
+     *
+     * @param b TODO: describe
+     */
     public void setCulling(boolean b) {
         culling = b;
     }

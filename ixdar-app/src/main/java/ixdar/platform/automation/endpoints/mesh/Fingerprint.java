@@ -14,6 +14,8 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "/mesh/fingerprint", method = APIMethod.GET)
 public class Fingerprint extends AutomationEndpoint implements AutomationRoute {
+    public static final String OK = "ok";
+    public static final String ERROR = "error";
 
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
@@ -22,18 +24,18 @@ public class Fingerprint extends AutomationEndpoint implements AutomationRoute {
                 JsonObject result = new JsonObject();
                 result.addProperty("algorithm", MeshCanonicalFingerprint.ALGORITHM_ID);
                 if (!(runtime.canvas instanceof MeshNodeViewerScene)) {
-                    result.addProperty("ok", false);
-                    result.addProperty("error", "MeshNodeViewerScene is not active");
+                    result.addProperty(OK, false);
+                    result.addProperty(ERROR, "MeshNodeViewerScene is not active");
                     return result;
                 }
                 MeshNodeViewerScene mvs = (MeshNodeViewerScene) runtime.canvas;
                 MeshTopology mesh = mvs.getMesh();
                 if (mesh == null) {
-                    result.addProperty("ok", false);
-                    result.addProperty("error", "Mesh not loaded yet");
+                    result.addProperty(OK, false);
+                    result.addProperty(ERROR, "Mesh not loaded yet");
                     return result;
                 }
-                result.addProperty("ok", true);
+                result.addProperty(OK, true);
                 result.addProperty("sha256", MeshCanonicalFingerprint.sha256Hex(mesh));
                 result.addProperty("vertexCount", mesh.vertexCount());
                 result.addProperty("faceCount", mesh.faceCount());
@@ -42,8 +44,8 @@ public class Fingerprint extends AutomationEndpoint implements AutomationRoute {
             });
         } catch (Exception e) {
             JsonObject err = new JsonObject();
-            err.addProperty("ok", false);
-            err.addProperty("error", e.getMessage() == null ? "" : e.getMessage());
+            err.addProperty(OK, false);
+            err.addProperty(ERROR, e.getMessage() == null ? "" : e.getMessage());
             return err;
         }
     }

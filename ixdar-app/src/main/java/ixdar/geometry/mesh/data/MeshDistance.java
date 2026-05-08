@@ -10,11 +10,20 @@ import org.joml.Vector3f;
  * Supports Hausdorff distance (worst-case) and Chamfer distance (average).
  */
 public final class MeshDistance {
+    public static final float NUM_0 = 0f;
+    public static final double NUM_2_0 = 2.0;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_100 = 100f;
+    public static final float NUM_1e_10 = 1e-10f;
+    public static final float NUM_2 = 2f;
+    public static final float NUM_0_2 = 0.2f;
+    public static final float NUM_1e_6 = 1e-6f;
+    public static final float NUM_0_05 = 0.05f;
+
+    private static final int FLOATS_PER_VERTEX = 3;
 
     private MeshDistance() {
     }
-
-    private static final int FLOATS_PER_VERTEX = 3;
 
     /**
      * Computes the Hausdorff distance between two meshes.
@@ -37,7 +46,7 @@ public final class MeshDistance {
         int vB = meshB.vertexCount();
 
         // Compute directed Hausdorff: max over A of min distance to B
-        float maxMinDistAtoB = 0f;
+        float maxMinDistAtoB = NUM_0;
         for (int i = 0; i < vA; i++) {
             int oA = i * FLOATS_PER_VERTEX;
             float xA = posA[oA];
@@ -60,7 +69,7 @@ public final class MeshDistance {
         }
 
         // Compute directed Hausdorff: max over B of min distance to A
-        float maxMinDistBtoA = 0f;
+        float maxMinDistBtoA = NUM_0;
         for (int j = 0; j < vB; j++) {
             int oB = j * FLOATS_PER_VERTEX;
             float xB = posB[oB];
@@ -152,7 +161,7 @@ public final class MeshDistance {
         double meanDistBtoA = sumMinDistBtoA / vB;
 
         // Symmetric Chamfer distance
-        return (float) ((meanDistAtoB + meanDistBtoA) / 2.0);
+        return (float) ((meanDistAtoB + meanDistBtoA) / NUM_2_0);
     }
 
     /**
@@ -171,10 +180,10 @@ public final class MeshDistance {
      */
     public static float similarityScore(ArrayMesh meshA, ArrayMesh meshB, DistanceType distanceType, float scale) {
         if (meshA == null || meshA.vertexCount() == 0 || meshB == null || meshB.vertexCount() == 0) {
-            return 0f;
+            return NUM_0;
         }
-        if (scale <= 0f) {
-            scale = 1f;
+        if (scale <= NUM_0) {
+            scale = NUM_1;
         }
 
         float distance;
@@ -185,17 +194,17 @@ public final class MeshDistance {
         }
 
         if (distance == Float.MAX_VALUE) {
-            return 0f;
+            return NUM_0;
         }
 
         // Exponential decay: score = 100 * exp(-distance / scale)
         // At distance = 0, score = 100
         // At distance = scale, score = 100 * exp(-1) ≈ 36.8
         // At distance = 3*scale, score = 100 * exp(-3) ≈ 5.0
-        float score = 100f * (float) Math.exp(-distance / scale);
+        float score = NUM_100 * (float) Math.exp(-distance / scale);
 
         // Clamp to [0, 100]
-        return Math.max(0f, Math.min(100f, score));
+        return Math.max(NUM_0, Math.min(NUM_100, score));
     }
 
     /**
@@ -231,21 +240,21 @@ public final class MeshDistance {
      */
     public static MeshMetrics computeAllMetrics(ArrayMesh meshA, ArrayMesh meshB, float scale) {
         if (meshA == null || meshB == null) {
-            return new MeshMetrics(Float.MAX_VALUE, Float.MAX_VALUE, 0f);
+            return new MeshMetrics(Float.MAX_VALUE, Float.MAX_VALUE, NUM_0);
         }
 
-        float hausdorff = 0f;
-        float chamfer = 0f;
+        float hausdorff = NUM_0;
+        float chamfer = NUM_0;
 
         if (meshA.vertexCount() > 0 && meshB.vertexCount() > 0) {
             hausdorff = hausdorffDistance(meshA, meshB);
             chamfer = chamferDistance(meshA, meshB);
         }
 
-        float score = 0f;
+        float score = NUM_0;
         if (hausdorff != Float.MAX_VALUE) {
-            score = 100f * (float) Math.exp(-hausdorff / Math.max(scale, 1e-10f));
-            score = Math.max(0f, Math.min(100f, score));
+            score = NUM_100 * (float) Math.exp(-hausdorff / Math.max(scale, NUM_1e_10));
+            score = Math.max(NUM_0, Math.min(NUM_100, score));
         }
 
         return new MeshMetrics(hausdorff, chamfer, score);
@@ -343,12 +352,147 @@ public final class MeshDistance {
     }
 
     /**
+     * Compare a generated mesh against a pre-processed reference using KD-trees.
+     * Auto-centers the generated mesh. Scale auto-computed as 20% of reference extent.
+     *
+     * @param genPos      flat XYZ positions of generated mesh
+     * @param genVerts    number of vertices in generated mesh
+     * @param ref         pre-processed reference (built once, reused)
+     * @return full comparison result
+     */
+    public static CompareResult compareFull(float[] genPos, int genVerts, PreparedReference ref) {
+        // Center generated mesh
+        float[] genCentroid = computeCentroid(genPos, genVerts);
+        float[] genC = new float[genVerts * FLOATS_PER_VERTEX];
+        for (int i = 0; i < genVerts; i++) {
+            int o = i * FLOATS_PER_VERTEX;
+            genC[o] = genPos[o] - genCentroid[0];
+            genC[o + 1] = genPos[o + 1] - genCentroid[1];
+            genC[o + 2] = genPos[o + 2] - genCentroid[2];
+        }
+
+        // Build KD-tree for centered generated mesh
+        KDTree3D genTree = new KDTree3D(genC, genVerts);
+
+        // Distances: generated → reference
+        float[] dGenToRef = new float[genVerts];
+        for (int i = 0; i < genVerts; i++) {
+            int o = i * FLOATS_PER_VERTEX;
+            dGenToRef[i] = (float) Math.sqrt(ref.tree.queryNearestSq(genC[o], genC[o + 1], genC[o + 2]));
+        }
+
+        // Distances: reference → generated
+        float[] dRefToGen = new float[ref.vertexCount];
+        for (int i = 0; i < ref.vertexCount; i++) {
+            int o = i * FLOATS_PER_VERTEX;
+            dRefToGen[i] = (float) Math.sqrt(genTree.queryNearestSq(
+                    ref.centeredPos[o], ref.centeredPos[o + 1], ref.centeredPos[o + 2]));
+        }
+
+        // Chamfer distance (symmetric mean of min-distances)
+        float chamfer = (mean(dGenToRef) + mean(dRefToGen)) / NUM_2;
+
+        // Hausdorff distance (symmetric max of min-distances)
+        float hausdorff = Math.max(max(dGenToRef), max(dRefToGen));
+
+        // Similarity score: exponential decay, scale = 20% of reference extent
+        float scale = ref.extent * NUM_0_2;
+        float similarity = NUM_100 * (float) Math.exp(-chamfer / Math.max(scale, NUM_1e_6));
+        similarity = Math.max(NUM_0, Math.min(NUM_100, similarity));
+
+        // Coverage: fraction of reference points within 5% of extent from generated
+        float threshold = ref.extent * NUM_0_05;
+        float coverage = fractionBelow(dRefToGen, threshold);
+
+        // Proximity: fraction of generated points within 5% of extent from reference
+        float proximity = fractionBelow(dGenToRef, threshold);
+
+        // Per-axis spans of generated mesh (from original positions)
+        float[] genMin = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
+        float[] genMax = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+        for (int i = 0; i < genVerts; i++) {
+            int o = i * FLOATS_PER_VERTEX;
+            for (int a = 0; a < FLOATS_PER_VERTEX; a++) {
+                float v = genPos[o + a];
+                if (v < genMin[a]) genMin[a] = v;
+                if (v > genMax[a]) genMax[a] = v;
+            }
+        }
+        float[] genSpans = {genMax[0] - genMin[0], genMax[1] - genMin[1], genMax[2] - genMin[2]};
+
+        // Centroid offset (gen - ref, before centering)
+        float[] centroidOffset = {
+                genCentroid[0] - ref.centroid[0],
+                genCentroid[1] - ref.centroid[1],
+                genCentroid[2] - ref.centroid[2]};
+
+        return new CompareResult(chamfer, hausdorff, similarity, coverage, proximity,
+                genSpans, ref.spans, centroidOffset);
+    }
+
+    /**
+     * Extract flat XYZ positions from a MeshTopology.
+     *
+     * @param mesh TODO: describe
+     * @return TODO: describe
+     */
+    public static float[] extractPositions(MeshTopology mesh) {
+        float[] pos = new float[mesh.vertexCount() * FLOATS_PER_VERTEX];
+        Vector3f p = new Vector3f();
+        for (int i = 0; i < mesh.vertexCount(); i++) {
+            int vid = mesh.vertexIdAt(i);
+            mesh.vertexPosition(vid, p);
+            int o = i * FLOATS_PER_VERTEX;
+            pos[o] = p.x;
+            pos[o + 1] = p.y;
+            pos[o + 2] = p.z;
+        }
+        return pos;
+    }
+
+    // ─── helpers ────────────────────────────────────────────────────
+
+    private static float[] computeCentroid(float[] pos, int vertexCount) {
+        double cx = 0, cy = 0, cz = 0;
+        for (int i = 0; i < vertexCount; i++) {
+            int o = i * FLOATS_PER_VERTEX;
+            cx += pos[o];
+            cy += pos[o + 1];
+            cz += pos[o + 2];
+        }
+        float n = vertexCount;
+        return new float[]{(float) (cx / n), (float) (cy / n), (float) (cz / n)};
+    }
+
+    private static float mean(float[] arr) {
+        double sum = 0;
+        for (float v : arr) sum += v;
+        return (float) (sum / arr.length);
+    }
+
+    private static float max(float[] arr) {
+        float m = arr[0];
+        for (int i = 1; i < arr.length; i++) {
+            if (arr[i] > m) m = arr[i];
+        }
+        return m;
+    }
+
+    private static float fractionBelow(float[] arr, float threshold) {
+        int count = 0;
+        for (float v : arr) {
+            if (v < threshold) count++;
+        }
+        return (float) count / arr.length;
+    }
+
+    /**
      * Type of distance metric to compute.
      */
     public enum DistanceType {
-        /** Hausdorff distance (worst-case, symmetric) */
+        /** Hausdorff distance (worst-case, symmetric). */
         HAUSDORFF,
-        /** Chamfer distance (average, bidirectional) */
+        /** Chamfer distance (average, bidirectional). */
         CHAMFER
     }
 
@@ -360,12 +504,24 @@ public final class MeshDistance {
         public final float chamferDistance;
         public final float similarityScore;
 
+        /**
+         * TODO: document {@code MeshMetrics}.
+         *
+         * @param hausdorffDistance TODO: describe
+         * @param chamferDistance TODO: describe
+         * @param similarityScore TODO: describe
+         */
         public MeshMetrics(float hausdorffDistance, float chamferDistance, float similarityScore) {
             this.hausdorffDistance = hausdorffDistance;
             this.chamferDistance = chamferDistance;
             this.similarityScore = similarityScore;
         }
 
+        /**
+         * TODO: document {@code toString}.
+         *
+         * @return TODO: describe
+         */
         @Override
         public String toString() {
             return String.format("MeshMetrics{hausdorff=%.4f, chamfer=%.4f, similarity=%.2f%%}",
@@ -398,6 +554,7 @@ public final class MeshDistance {
      * Thread-safe for queries after construction.
      */
     public static final class PreparedReference {
+        public static final int NUM_3 = 3;
         public final float[] centeredPos;
         public final int vertexCount;
         public final KDTree3D tree;
@@ -405,12 +562,18 @@ public final class MeshDistance {
         public final float[] spans; // X, Y, Z spans of original positions
         public final float[] centroid;
 
+        /**
+         * TODO: document {@code PreparedReference}.
+         *
+         * @param positions TODO: describe
+         * @param vertexCount TODO: describe
+         */
         public PreparedReference(float[] positions, int vertexCount) {
             this.vertexCount = vertexCount;
             this.centroid = computeCentroid(positions, vertexCount);
-            centeredPos = new float[vertexCount * 3];
+            centeredPos = new float[vertexCount * NUM_3];
             for (int i = 0; i < vertexCount; i++) {
-                int o = i * 3;
+                int o = i * NUM_3;
                 centeredPos[o] = positions[o] - centroid[0];
                 centeredPos[o + 1] = positions[o + 1] - centroid[1];
                 centeredPos[o + 2] = positions[o + 2] - centroid[2];
@@ -421,8 +584,8 @@ public final class MeshDistance {
             float[] min = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
             float[] max = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
             for (int i = 0; i < vertexCount; i++) {
-                int o = i * 3;
-                for (int a = 0; a < 3; a++) {
+                int o = i * NUM_3;
+                for (int a = 0; a < NUM_3; a++) {
                     float v = positions[o + a];
                     if (v < min[a]) min[a] = v;
                     if (v > max[a]) max[a] = v;
@@ -431,138 +594,6 @@ public final class MeshDistance {
             spans = new float[]{max[0] - min[0], max[1] - min[1], max[2] - min[2]};
             extent = Math.max(spans[0], Math.max(spans[1], spans[2]));
         }
-    }
-
-    /**
-     * Compare a generated mesh against a pre-processed reference using KD-trees.
-     * Auto-centers the generated mesh. Scale auto-computed as 20% of reference extent.
-     *
-     * @param genPos      flat XYZ positions of generated mesh
-     * @param genVerts    number of vertices in generated mesh
-     * @param ref         pre-processed reference (built once, reused)
-     * @return full comparison result
-     */
-    public static CompareResult compareFull(float[] genPos, int genVerts, PreparedReference ref) {
-        // Center generated mesh
-        float[] genCentroid = computeCentroid(genPos, genVerts);
-        float[] genC = new float[genVerts * 3];
-        for (int i = 0; i < genVerts; i++) {
-            int o = i * 3;
-            genC[o] = genPos[o] - genCentroid[0];
-            genC[o + 1] = genPos[o + 1] - genCentroid[1];
-            genC[o + 2] = genPos[o + 2] - genCentroid[2];
-        }
-
-        // Build KD-tree for centered generated mesh
-        KDTree3D genTree = new KDTree3D(genC, genVerts);
-
-        // Distances: generated → reference
-        float[] dGenToRef = new float[genVerts];
-        for (int i = 0; i < genVerts; i++) {
-            int o = i * 3;
-            dGenToRef[i] = (float) Math.sqrt(ref.tree.queryNearestSq(genC[o], genC[o + 1], genC[o + 2]));
-        }
-
-        // Distances: reference → generated
-        float[] dRefToGen = new float[ref.vertexCount];
-        for (int i = 0; i < ref.vertexCount; i++) {
-            int o = i * 3;
-            dRefToGen[i] = (float) Math.sqrt(genTree.queryNearestSq(
-                    ref.centeredPos[o], ref.centeredPos[o + 1], ref.centeredPos[o + 2]));
-        }
-
-        // Chamfer distance (symmetric mean of min-distances)
-        float chamfer = (mean(dGenToRef) + mean(dRefToGen)) / 2f;
-
-        // Hausdorff distance (symmetric max of min-distances)
-        float hausdorff = Math.max(max(dGenToRef), max(dRefToGen));
-
-        // Similarity score: exponential decay, scale = 20% of reference extent
-        float scale = ref.extent * 0.2f;
-        float similarity = 100f * (float) Math.exp(-chamfer / Math.max(scale, 1e-6f));
-        similarity = Math.max(0f, Math.min(100f, similarity));
-
-        // Coverage: fraction of reference points within 5% of extent from generated
-        float threshold = ref.extent * 0.05f;
-        float coverage = fractionBelow(dRefToGen, threshold);
-
-        // Proximity: fraction of generated points within 5% of extent from reference
-        float proximity = fractionBelow(dGenToRef, threshold);
-
-        // Per-axis spans of generated mesh (from original positions)
-        float[] genMin = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
-        float[] genMax = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
-        for (int i = 0; i < genVerts; i++) {
-            int o = i * 3;
-            for (int a = 0; a < 3; a++) {
-                float v = genPos[o + a];
-                if (v < genMin[a]) genMin[a] = v;
-                if (v > genMax[a]) genMax[a] = v;
-            }
-        }
-        float[] genSpans = {genMax[0] - genMin[0], genMax[1] - genMin[1], genMax[2] - genMin[2]};
-
-        // Centroid offset (gen - ref, before centering)
-        float[] centroidOffset = {
-                genCentroid[0] - ref.centroid[0],
-                genCentroid[1] - ref.centroid[1],
-                genCentroid[2] - ref.centroid[2]};
-
-        return new CompareResult(chamfer, hausdorff, similarity, coverage, proximity,
-                genSpans, ref.spans, centroidOffset);
-    }
-
-    /**
-     * Extract flat XYZ positions from a MeshTopology.
-     */
-    public static float[] extractPositions(MeshTopology mesh) {
-        float[] pos = new float[mesh.vertexCount() * 3];
-        Vector3f p = new Vector3f();
-        for (int i = 0; i < mesh.vertexCount(); i++) {
-            int vid = mesh.vertexIdAt(i);
-            mesh.vertexPosition(vid, p);
-            int o = i * 3;
-            pos[o] = p.x;
-            pos[o + 1] = p.y;
-            pos[o + 2] = p.z;
-        }
-        return pos;
-    }
-
-    // ─── helpers ────────────────────────────────────────────────────
-
-    private static float[] computeCentroid(float[] pos, int vertexCount) {
-        double cx = 0, cy = 0, cz = 0;
-        for (int i = 0; i < vertexCount; i++) {
-            int o = i * 3;
-            cx += pos[o];
-            cy += pos[o + 1];
-            cz += pos[o + 2];
-        }
-        float n = vertexCount;
-        return new float[]{(float) (cx / n), (float) (cy / n), (float) (cz / n)};
-    }
-
-    private static float mean(float[] arr) {
-        double sum = 0;
-        for (float v : arr) sum += v;
-        return (float) (sum / arr.length);
-    }
-
-    private static float max(float[] arr) {
-        float m = arr[0];
-        for (int i = 1; i < arr.length; i++) {
-            if (arr[i] > m) m = arr[i];
-        }
-        return m;
-    }
-
-    private static float fractionBelow(float[] arr, float threshold) {
-        int count = 0;
-        for (float v : arr) {
-            if (v < threshold) count++;
-        }
-        return (float) count / arr.length;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -574,6 +605,7 @@ public final class MeshDistance {
      * Uses array-of-struct layout for cache efficiency.
      */
     static final class KDTree3D {
+        public static final int NUM_3 = 3;
         private final float[] pos;          // original flat XYZ positions (shared ref)
         private final int[] nodeVertIdx;    // vertex index stored at tree node i
         private final byte[] nodeAxis;      // split axis at tree node i (0/1/2)
@@ -597,7 +629,7 @@ public final class MeshDistance {
 
         private int build(int[] idx, int lo, int hi, int depth) {
             if (lo >= hi) return -1;
-            int ax = depth % 3;
+            int ax = depth % NUM_3;
             int mid = (lo + hi) / 2;
             nthElement(idx, lo, hi, mid, ax);
 
@@ -611,6 +643,11 @@ public final class MeshDistance {
 
         /**
          * Returns squared distance to the nearest point in the tree.
+         *
+         * @param qx TODO: describe
+         * @param qy TODO: describe
+         * @param qz TODO: describe
+         * @return TODO: describe
          */
         float queryNearestSq(float qx, float qy, float qz) {
             if (nodeCount == 0) return Float.MAX_VALUE;
@@ -621,7 +658,7 @@ public final class MeshDistance {
             if (node < 0) return bestSq;
 
             int vi = nodeVertIdx[node];
-            int o = vi * 3;
+            int o = vi * NUM_3;
             float dx = qx - pos[o];
             float dy = qy - pos[o + 1];
             float dz = qz - pos[o + 2];
@@ -647,15 +684,21 @@ public final class MeshDistance {
         /**
          * Quickselect: rearrange idx[lo..hi) so that idx[k] holds the element
          * that would be at position k if sorted by positions on the given axis.
+         *
+         * @param idx TODO: describe
+         * @param lo TODO: describe
+         * @param hi TODO: describe
+         * @param k TODO: describe
+         * @param ax TODO: describe
          */
         private void nthElement(int[] idx, int lo, int hi, int k, int ax) {
             while (lo < hi - 1) {
                 int pivotPos = lo + (hi - lo) / 2;
-                float pivotVal = pos[idx[pivotPos] * 3 + ax];
+                float pivotVal = pos[idx[pivotPos] * NUM_3 + ax];
                 swap(idx, pivotPos, hi - 1);
                 int store = lo;
                 for (int i = lo; i < hi - 1; i++) {
-                    if (pos[idx[i] * 3 + ax] < pivotVal) {
+                    if (pos[idx[i] * NUM_3 + ax] < pivotVal) {
                         swap(idx, i, store++);
                     }
                 }

@@ -5,11 +5,15 @@ package ixdar.platform.gl;
  * macOS and typical GL core profiles compile desktop GLSL ({@code #version 330 core}), not ES.
  */
 public final class GlslSource {
+    public static final int NUM_16 = 16;
 
     private GlslSource() {}
 
     /**
      * Rewrite WebGL2-oriented sources for OpenGL 3.3 core: version line and ES-only precision.
+     *
+     * @param source TODO: describe
+     * @return TODO: describe
      */
     public static String adaptEs300SharedForDesktopCore330(String source) {
         if (source == null || source.isEmpty()) {
@@ -19,7 +23,7 @@ public final class GlslSource {
                 ? source.substring(0, source.length() - 1)
                 : source;
         String[] lines = normalized.split("\\r\\n|\\n|\\r", -1);
-        StringBuilder out = new StringBuilder(normalized.length() + 16);
+        StringBuilder out = new StringBuilder(normalized.length() + NUM_16);
         boolean replacedVersion = false;
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i];
@@ -43,6 +47,12 @@ public final class GlslSource {
         return out.toString();
     }
 
+    /**
+     * TODO: document {@code joinChunks}.
+     *
+     * @param parts TODO: describe
+     * @return TODO: describe
+     */
     public static String joinChunks(CharSequence[] parts) {
         if (parts == null || parts.length == 0) {
             return "";

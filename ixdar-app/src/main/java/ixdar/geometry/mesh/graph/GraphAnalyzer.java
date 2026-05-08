@@ -27,83 +27,9 @@ import ixdar.parsing.python.PythonParser;
  * GEOMETRY_BUNDLE output.
  */
 public final class GraphAnalyzer {
+    public static final int NUM_3 = 3;
 
     private GraphAnalyzer() {}
-
-    /** Edge from source node/port to consumer node/port. */
-    public static class Edge {
-        public final String sourceId;
-        public final String sourcePort;
-        public final String targetId;
-        public final String targetPort;
-
-        public Edge(String sourceId, String sourcePort, String targetId, String targetPort) {
-            this.sourceId = sourceId;
-            this.sourcePort = sourcePort;
-            this.targetId = targetId;
-            this.targetPort = targetPort;
-        }
-    }
-
-    /** Result of full graph analysis. */
-    public static class AnalysisResult {
-        public final List<Edge> edges;
-        /** nodeId -> list of predecessor nodeIds */
-        public final Map<String, List<String>> predecessors;
-        /** nodeId -> list of successor nodeIds */
-        public final Map<String, List<String>> successors;
-        /** nodeId -> immediate dominator nodeId (null for root) */
-        public final Map<String, String> idom;
-        /** Detected seam nodes with their upstream subgraphs. */
-        public final List<SeamNode> seams;
-
-        public AnalysisResult(List<Edge> edges, Map<String, List<String>> predecessors,
-                Map<String, List<String>> successors, Map<String, String> idom,
-                List<SeamNode> seams) {
-            this.edges = edges;
-            this.predecessors = predecessors;
-            this.successors = successors;
-            this.idom = idom;
-            this.seams = seams;
-        }
-    }
-
-    /** A seam node and its extractable upstream subgraph. */
-    public static class SeamNode {
-        public final String nodeId;
-        public final String nodeType;
-        /** Nodes in the upstream subgraph (topological order). */
-        public final List<String> subgraphNodeIds;
-        /** Output port types produced by this seam node. */
-        public final List<String> outputPortTypes;
-        /** Input ports consumed from outside the subgraph (the function parameters). */
-        public final List<ExternalInput> externalInputs;
-
-        public SeamNode(String nodeId, String nodeType, List<String> subgraphNodeIds,
-                List<String> outputPortTypes, List<ExternalInput> externalInputs) {
-            this.nodeId = nodeId;
-            this.nodeType = nodeType;
-            this.subgraphNodeIds = subgraphNodeIds;
-            this.outputPortTypes = outputPortTypes;
-            this.externalInputs = externalInputs;
-        }
-    }
-
-    /** An input that a subgraph consumes from outside its boundary. */
-    public static class ExternalInput {
-        public final String sourceNodeId;
-        public final String sourcePort;
-        public final String consumedByNodeId;
-        public final String consumedByPort;
-
-        public ExternalInput(String sourceNodeId, String sourcePort,
-                String consumedByNodeId, String consumedByPort) {
-            this.sourceNodeId = sourceNodeId;
-            this.sourcePort = sourcePort;
-            this.consumedByNodeId = consumedByNodeId;
-            this.consumedByPort = consumedByPort;
-        }
-    }
 
     /**
      * Analyze a parsed DSL graph: build adjacency, compute dominators, find seams.
@@ -111,6 +37,7 @@ public final class GraphAnalyzer {
      * @param parsed           parsed node list (topological order)
      * @param registry         node type registry (for port metadata)
      * @param minSubgraphSize  minimum upstream subgraph size for a seam (default 3)
+     * @return TODO: describe
      */
     public static AnalysisResult analyze(List<PythonParser.ParsedNode> parsed,
             Map<String, Class<? extends MeshNode>> registry, int minSubgraphSize) {
@@ -154,15 +81,25 @@ public final class GraphAnalyzer {
         return new AnalysisResult(edges, predecessors, successors, idom, seams);
     }
 
-    /** Overload with default minSubgraphSize = 3. */
+    /**
+     * Overload with default minSubgraphSize = 3.
+     *
+     * @param parsed TODO: describe
+     * @param registry TODO: describe
+     * @return TODO: describe
+     */
     public static AnalysisResult analyze(List<PythonParser.ParsedNode> parsed,
             Map<String, Class<? extends MeshNode>> registry) {
-        return analyze(parsed, registry, 3);
+        return analyze(parsed, registry, NUM_3);
     }
 
     /**
      * Iterative dominator computation (Cooper, Harvey, Kennedy algorithm).
      * Nodes are in topological order (index 0 = root-like, highest = sinks).
+     *
+     * @param nodeIds TODO: describe
+     * @param predecessors TODO: describe
+     * @return TODO: describe
      */
     private static Map<String, String> computeDominators(List<String> nodeIds,
             Map<String, List<String>> predecessors) {
@@ -229,7 +166,14 @@ public final class GraphAnalyzer {
         return result;
     }
 
-    /** Intersect two dominators using finger-walking up the dom tree. */
+    /**
+     * Intersect two dominators using finger-walking up the dom tree.
+     *
+     * @param idom TODO: describe
+     * @param b1 TODO: describe
+     * @param b2 TODO: describe
+     * @return TODO: describe
+     */
     private static int intersect(int[] idom, int b1, int b2) {
         while (b1 != b2) {
             while (b1 > b2) {
@@ -251,6 +195,16 @@ public final class GraphAnalyzer {
      * Practically: collect the set of nodes dominated by N (its dominator subtree).
      * N is a seam if no node in that subtree has an edge to a node outside the
      * subtree, except through N itself.
+     *
+     * @param parsed TODO: describe
+     * @param nodeIds TODO: describe
+     * @param idToIndex TODO: describe
+     * @param predecessors TODO: describe
+     * @param successors TODO: describe
+     * @param idom TODO: describe
+     * @param registry TODO: describe
+     * @param minSubgraphSize TODO: describe
+     * @return TODO: describe
      */
     private static List<SeamNode> findSeams(List<PythonParser.ParsedNode> parsed,
             List<String> nodeIds, Map<String, Integer> idToIndex,
@@ -337,7 +291,13 @@ public final class GraphAnalyzer {
         return seams;
     }
 
-    /** Recursively collect all nodes in the dominator subtree rooted at nodeId. */
+    /**
+     * Recursively collect all nodes in the dominator subtree rooted at nodeId.
+     *
+     * @param nodeId TODO: describe
+     * @param domChildren TODO: describe
+     * @param result TODO: describe
+     */
     private static void collectDomSubtree(String nodeId, Map<String, List<String>> domChildren,
             Set<String> result) {
         result.add(nodeId);
@@ -346,7 +306,13 @@ public final class GraphAnalyzer {
         }
     }
 
-    /** Get output port type names for a node type from the registry. */
+    /**
+     * Get output port type names for a node type from the registry.
+     *
+     * @param nodeType TODO: describe
+     * @param registry TODO: describe
+     * @return TODO: describe
+     */
     private static List<String> getOutputPortTypes(String nodeType,
             Map<String, Class<? extends MeshNode>> registry) {
         Class<? extends MeshNode> clazz = registry.get(nodeType);
@@ -361,6 +327,115 @@ public final class GraphAnalyzer {
             return types;
         } catch (ReflectiveOperationException e) {
             return List.of();
+        }
+    }
+
+    /** Edge from source node/port to consumer node/port. */
+    public static class Edge {
+        public final String sourceId;
+        public final String sourcePort;
+        public final String targetId;
+        public final String targetPort;
+
+        /**
+         * TODO: document {@code Edge}.
+         *
+         * @param sourceId TODO: describe
+         * @param sourcePort TODO: describe
+         * @param targetId TODO: describe
+         * @param targetPort TODO: describe
+         */
+        public Edge(String sourceId, String sourcePort, String targetId, String targetPort) {
+            this.sourceId = sourceId;
+            this.sourcePort = sourcePort;
+            this.targetId = targetId;
+            this.targetPort = targetPort;
+        }
+    }
+
+    /** Result of full graph analysis. */
+    public static class AnalysisResult {
+        public final List<Edge> edges;
+        /** nodeId -> list of predecessor nodeIds. */
+        public final Map<String, List<String>> predecessors;
+        /** nodeId -> list of successor nodeIds. */
+        public final Map<String, List<String>> successors;
+        /** nodeId -> immediate dominator nodeId (null for root). */
+        public final Map<String, String> idom;
+        /** Detected seam nodes with their upstream subgraphs. */
+        public final List<SeamNode> seams;
+
+        /**
+         * TODO: document {@code AnalysisResult}.
+         *
+         * @param edges TODO: describe
+         * @param predecessors TODO: describe
+         * @param successors TODO: describe
+         * @param idom TODO: describe
+         * @param seams TODO: describe
+         */
+        public AnalysisResult(List<Edge> edges, Map<String, List<String>> predecessors,
+                Map<String, List<String>> successors, Map<String, String> idom,
+                List<SeamNode> seams) {
+            this.edges = edges;
+            this.predecessors = predecessors;
+            this.successors = successors;
+            this.idom = idom;
+            this.seams = seams;
+        }
+    }
+
+    /** A seam node and its extractable upstream subgraph. */
+    public static class SeamNode {
+        public final String nodeId;
+        public final String nodeType;
+        /** Nodes in the upstream subgraph (topological order). */
+        public final List<String> subgraphNodeIds;
+        /** Output port types produced by this seam node. */
+        public final List<String> outputPortTypes;
+        /** Input ports consumed from outside the subgraph (the function parameters). */
+        public final List<ExternalInput> externalInputs;
+
+        /**
+         * TODO: document {@code SeamNode}.
+         *
+         * @param nodeId TODO: describe
+         * @param nodeType TODO: describe
+         * @param subgraphNodeIds TODO: describe
+         * @param outputPortTypes TODO: describe
+         * @param externalInputs TODO: describe
+         */
+        public SeamNode(String nodeId, String nodeType, List<String> subgraphNodeIds,
+                List<String> outputPortTypes, List<ExternalInput> externalInputs) {
+            this.nodeId = nodeId;
+            this.nodeType = nodeType;
+            this.subgraphNodeIds = subgraphNodeIds;
+            this.outputPortTypes = outputPortTypes;
+            this.externalInputs = externalInputs;
+        }
+    }
+
+    /** An input that a subgraph consumes from outside its boundary. */
+    public static class ExternalInput {
+        public final String sourceNodeId;
+        public final String sourcePort;
+        public final String consumedByNodeId;
+        public final String consumedByPort;
+
+        /**
+         * TODO: document {@code ExternalInput}.
+         *
+         * @param sourceNodeId TODO: describe
+         * @param sourcePort TODO: describe
+         * @param consumedByNodeId TODO: describe
+         * @param consumedByPort TODO: describe
+         */
+        public ExternalInput(String sourceNodeId, String sourcePort,
+                String consumedByNodeId, String consumedByPort) {
+            this.sourceNodeId = sourceNodeId;
+            this.sourcePort = sourcePort;
+            this.consumedByNodeId = consumedByNodeId;
+            this.consumedByPort = consumedByPort;
         }
     }
 }

@@ -26,14 +26,35 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "curve_to_mesh")
 public class CurveToMeshNode implements MeshNode {
+    public static final String CURVE_2 = "curve";
+    public static final String PROFILE_CURVE_2 = "profile_curve";
+    public static final String RADIUS_2 = "radius";
+    public static final String RESOLUTION_2 = "resolution";
+    public static final String FILL_CAPS_2 = "fill_caps";
+    public static final String RADIUS_CLOSURE_2 = "radius_closure";
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String CURVE_3 = "_curve";
+    public static final float NUM_0_1 = 0.1f;
+    public static final int NUM_12 = 12;
+    public static final int NUM_3 = 3;
+    public static final int NUM_128 = 128;
+    public static final float NUM_1e_5 = 1e-5f;
+    public static final float NUM_1e_4 = 1e-4f;
+    public static final double NUM_2_0 = 2.0;
+    public static final float NUM_1e_20 = 1e-20f;
+    public static final float NUM_1e_12 = 1e-12f;
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_0_9 = 0.9f;
+    public static final float NUM_1e_10 = 1e-10f;
+    public static final float NUM_1 = 1f;
 
-    private static final InputPort CURVE = new InputPort("curve", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort PROFILE_CURVE = new InputPort("profile_curve", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.1f, 0.001f, 100f);
-    private static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 12, 3f, 128f);
-    private static final InputPort FILL_CAPS = new InputPort("fill_caps", PortType.BOOLEAN, true);
-    private static final InputPort RADIUS_CLOSURE = new InputPort("radius_closure", PortType.CLOSURE, null);
-    private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort CURVE = new InputPort(CURVE_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort PROFILE_CURVE = new InputPort(PROFILE_CURVE_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort RADIUS = new InputPort(RADIUS_2, PortType.FLOAT, 0.1f, 0.001f, 100f);
+    private static final InputPort RESOLUTION = new InputPort(RESOLUTION_2, PortType.INT, 12, 3f, 128f);
+    private static final InputPort FILL_CAPS = new InputPort(FILL_CAPS_2, PortType.BOOLEAN, true);
+    private static final InputPort RADIUS_CLOSURE = new InputPort(RADIUS_CLOSURE_2, PortType.CLOSURE, null);
+    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -43,13 +64,13 @@ public class CurveToMeshNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "curve", "Path curve to sweep along.",
-                "profile_curve", "Optional custom cross-section curve. If null, a circle of `radius` and `resolution` is used.",
-                "radius", "Tube radius (ignored when profile_curve is set).",
-                "resolution", "Vertices around the circular cross-section (ignored when profile_curve is set).",
-                "fill_caps", "If true, close the two ends of the tube with a disc; if false, leave open.",
-                "radius_closure", "Optional float closure mapping t∈[0,1] along the path to a per-station radius multiplier. null = uniform.",
-                "geometry", "Tube mesh as a geometry bundle."
+                CURVE_2, "Path curve to sweep along.",
+                PROFILE_CURVE_2, "Optional custom cross-section curve. If null, a circle of `radius` and `resolution` is used.",
+                RADIUS_2, "Tube radius (ignored when profile_curve is set).",
+                RESOLUTION_2, "Vertices around the circular cross-section (ignored when profile_curve is set).",
+                FILL_CAPS_2, "If true, close the two ends of the tube with a disc; if false, leave open.",
+                RADIUS_CLOSURE_2, "Optional float closure mapping t∈[0,1] along the path to a per-station radius multiplier. null = uniform.",
+                GEOMETRY_2, "Tube mesh as a geometry bundle."
         );
     }
 
@@ -65,42 +86,42 @@ public class CurveToMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle curveGb = GeometryBundles.bundlePart(ctx.getInput("curve", Object.class));
+        GeometryBundle curveGb = GeometryBundles.bundlePart(ctx.getInput(CURVE_2, Object.class));
         if (curveGb == null) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
-        Object rawCurve = curveGb.slots().get("_curve");
+        Object rawCurve = curveGb.slots().get(CURVE_3);
         if (!(rawCurve instanceof CurveGeometry cg) || cg.curveCount() == 0) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
 
         float radius = FieldBroadcast.floatScalarOrDefault(
-                FieldBroadcast.getInputOrDefault(ctx, "radius", RADIUS.defaultValue()), 0.1f);
+                FieldBroadcast.getInputOrDefault(ctx, RADIUS_2, RADIUS.defaultValue()), NUM_0_1);
         int resolution = FieldBroadcast.intAt(
-                FieldBroadcast.getInputOrDefault(ctx, "resolution", RESOLUTION.defaultValue()), 0, 12);
-        resolution = Math.max(3, Math.min(128, resolution));
+                FieldBroadcast.getInputOrDefault(ctx, RESOLUTION_2, RESOLUTION.defaultValue()), 0, NUM_12);
+        resolution = Math.max(NUM_3, Math.min(NUM_128, resolution));
         boolean fillCaps = FieldBroadcast.boolAt(
-                FieldBroadcast.getInputOrDefault(ctx, "fill_caps", FILL_CAPS.defaultValue()), 0, true);
+                FieldBroadcast.getInputOrDefault(ctx, FILL_CAPS_2, FILL_CAPS.defaultValue()), 0, true);
 
-        Object closureObj = ctx.getInput("radius_closure", Object.class);
+        Object closureObj = ctx.getInput(RADIUS_CLOSURE_2, Object.class);
         FloatCurveKernel radiusClosure = (closureObj instanceof FloatCurveKernel k) ? k : null;
 
         // Determine cross-section: use profile curve if provided, otherwise circle
         float[] profileU;
         float[] profileV;
-        GeometryBundle profileGb = GeometryBundles.bundlePart(ctx.getInput("profile_curve", Object.class));
+        GeometryBundle profileGb = GeometryBundles.bundlePart(ctx.getInput(PROFILE_CURVE_2, Object.class));
         if (profileGb != null) {
-            Object rawProfile = profileGb.slots().get("_curve");
-            if (rawProfile instanceof CurveGeometry profileCg && profileCg.pointCount() >= 3) {
+            Object rawProfile = profileGb.slots().get(CURVE_3);
+            if (rawProfile instanceof CurveGeometry profileCg && profileCg.pointCount() >= NUM_3) {
                 int pn = profileCg.pointCount();
                 float[] ppos = profileCg.positions();
                 profileU = new float[pn];
                 profileV = new float[pn];
                 for (int i = 0; i < pn; i++) {
-                    profileU[i] = ppos[i * 3];      // X as U
-                    profileV[i] = ppos[i * 3 + 1];  // Y as V
+                    profileU[i] = ppos[i * NUM_3];      // X as U
+                    profileV[i] = ppos[i * NUM_3 + 1];  // Y as V
                 }
             } else {
                 profileU = circleU(resolution, radius);
@@ -123,16 +144,16 @@ public class CurveToMeshNode implements MeshNode {
 
             Vector3f[] pts = new Vector3f[nPts];
             for (int i = 0; i < nPts; i++) {
-                int b = 3 * (off0 + i);
+                int b = NUM_3 * (off0 + i);
                 pts[i] = new Vector3f(pos[b], pos[b + 1], pos[b + 2]);
             }
 
-            float closedEps = 1e-5f;
+            float closedEps = NUM_1e_5;
             if (nPts > 2) {
                 float diag = pts[0].distance(pts[nPts - 1]);
                 float pathLen = 0;
                 for (int i = 1; i < nPts; i++) pathLen += pts[i].distance(pts[i - 1]);
-                closedEps = Math.max(1e-5f, pathLen * 1e-4f);
+                closedEps = Math.max(NUM_1e_5, pathLen * NUM_1e_4);
             }
             boolean closed = nPts > 2 && pts[0].distance(pts[nPts - 1]) < closedEps;
 
@@ -144,13 +165,13 @@ public class CurveToMeshNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput("geometry", curveGb.withMesh(mesh));
+        ctx.setOutput(GEOMETRY_2, curveGb.withMesh(mesh));
     }
 
     private static float[] circleU(int n, float radius) {
         float[] u = new float[n];
         for (int i = 0; i < n; i++) {
-            double angle = 2.0 * Math.PI * i / n;
+            double angle = NUM_2_0 * Math.PI * i / n;
             u[i] = (float) (Math.cos(angle) * radius);
         }
         return u;
@@ -159,7 +180,7 @@ public class CurveToMeshNode implements MeshNode {
     private static float[] circleV(int n, float radius) {
         float[] v = new float[n];
         for (int i = 0; i < n; i++) {
-            double angle = 2.0 * Math.PI * i / n;
+            double angle = NUM_2_0 * Math.PI * i / n;
             v[i] = (float) (Math.sin(angle) * radius);
         }
         return v;
@@ -170,7 +191,7 @@ public class CurveToMeshNode implements MeshNode {
                                          int m, boolean fillCaps, FloatCurveKernel radiusClosure) {
         // Compute initial frame
         Vector3f w = tangent(pts, 0, nSamples, closed);
-        if (w.lengthSquared() < 1e-20f) return;
+        if (w.lengthSquared() < NUM_1e_20) return;
         w.normalize();
 
         Vector3f uDir = new Vector3f();
@@ -184,11 +205,11 @@ public class CurveToMeshNode implements MeshNode {
         for (int i = 0; i < nSamples; i++) {
             if (i > 0) {
                 w = tangent(pts, i, nSamples, closed);
-                if (w.lengthSquared() < 1e-20f) w.set(0, 1, 0);
+                if (w.lengthSquared() < NUM_1e_20) w.set(0, 1, 0);
                 w.normalize();
                 // Parallel transport: project uDir onto plane perpendicular to new tangent
                 uDir.fma(-w.dot(uDir), w);
-                if (uDir.lengthSquared() < 1e-12f) stablePerp(w, uDir);
+                if (uDir.lengthSquared() < NUM_1e_12) stablePerp(w, uDir);
                 else uDir.normalize();
                 vDir.set(w).cross(uDir).normalize();
                 uDir.set(vDir).cross(w).normalize();
@@ -197,7 +218,7 @@ public class CurveToMeshNode implements MeshNode {
             Vector3f p = pts[i];
             float scale = 1.0f;
             if (radiusClosure != null) {
-                float t = (nSamples > 1) ? (float) i / (nSamples - 1) : 0.5f;
+                float t = (nSamples > 1) ? (float) i / (nSamples - 1) : NUM_0_5;
                 scale = radiusClosure.evaluate(t);
             }
             for (int k = 0; k < m; k++) {
@@ -226,7 +247,7 @@ public class CurveToMeshNode implements MeshNode {
                     mesh.addFace(vid[i][j], vid[i][jn], vid[i + 1][jn], vid[i + 1][j]);
                 }
             }
-            if (fillCaps && m >= 3) {
+            if (fillCaps && m >= NUM_3) {
                 addCap(mesh, vid[0], m, false);
                 addCap(mesh, vid[nSamples - 1], m, true);
             }
@@ -246,9 +267,9 @@ public class CurveToMeshNode implements MeshNode {
 
     private static void stablePerp(Vector3f w, Vector3f out) {
         Vector3f ref = new Vector3f(1, 0, 0);
-        if (Math.abs(w.dot(ref)) > 0.9f) ref.set(0, 1, 0);
+        if (Math.abs(w.dot(ref)) > NUM_0_9) ref.set(0, 1, 0);
         out.set(ref).fma(-w.dot(ref), w);
-        if (out.lengthSquared() < 1e-10f) out.set(0, 0, 1).fma(-w.z, w);
+        if (out.lengthSquared() < NUM_1e_10) out.set(0, 0, 1).fma(-w.z, w);
         out.normalize();
     }
 
@@ -259,7 +280,7 @@ public class CurveToMeshNode implements MeshNode {
             mesh.vertexPosition(ring[k], tmp);
             centroid.add(tmp);
         }
-        centroid.mul(1f / m);
+        centroid.mul(NUM_1 / m);
         int cid = mesh.addVertex(centroid.x, centroid.y, centroid.z);
         for (int j = 0; j < m; j++) {
             int jn = (j + 1) % m;

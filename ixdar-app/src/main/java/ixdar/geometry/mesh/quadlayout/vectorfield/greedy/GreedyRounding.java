@@ -23,53 +23,24 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.solver.BzkSystem;
  * {@code CombedField} matching and {@code SingularityFinder} holonomy.
  */
 public final class GreedyRounding {
+    public static final double NUM_0_01 = 0.01;
+    public static final double NUM_0_05 = 0.05;
+    public static final double NUM_0_1 = 0.1;
+    public static final double NUM_0_2 = 0.2;
+    public static final double NUM_0_3 = 0.3;
+    public static final double NUM_0_5 = 0.5;
 
     private static final double PI_HALF = Math.PI * 0.5;
 
-    public static final class Result {
-        public final double[] theta;
-        public final int[] periodJump;
-        public final int chordCount;
-        public final int iterations;
-        public final int gsConverged;
-        public final int cgConverged;
-        public final int directFallbacks;
-        public final int totalCgIters;
-
-        Result(double[] theta, int[] periodJump, int chordCount, int iterations,
-               int gsConverged, int cgConverged, int directFallbacks, int totalCgIters) {
-            this.theta = theta;
-            this.periodJump = periodJump;
-            this.chordCount = chordCount;
-            this.iterations = iterations;
-            this.gsConverged = gsConverged;
-            this.cgConverged = cgConverged;
-            this.directFallbacks = directFallbacks;
-            this.totalCgIters = totalCgIters;
-        }
-    }
-
-    public static final class Options {
-        public final BzkAdaptiveSolver.Options solverOpts;
-        /** Optional per-face θ hard-constraint values (radians). May be null. */
-        public final double[] thetaConstraint;
-        /** Companion mask; constrained[f]=true means thetaConstraint[f] is active. May be null. */
-        public final boolean[] constrained;
-
-        public Options() {
-            this(new BzkAdaptiveSolver.Options(), null, null);
-        }
-
-        public Options(BzkAdaptiveSolver.Options solverOpts,
-                       double[] thetaConstraint, boolean[] constrained) {
-            this.solverOpts = solverOpts;
-            this.thetaConstraint = thetaConstraint;
-            this.constrained = constrained;
-        }
-    }
-
     private GreedyRounding() {}
 
+    /**
+     * TODO: document {@code solve}.
+     *
+     * @param sys TODO: describe
+     * @param opts TODO: describe
+     * @return TODO: describe
+     */
     public static Result solve(BzkSystem sys, Options opts) {
         int F = sys.faceCount();
         int E = sys.edgeCount();
@@ -115,7 +86,7 @@ public final class GreedyRounding {
         //   fracThresh starts very small (only commit chords already nearly
         //   integer) and grows geometrically: 0.01 → 0.05 → 0.1 → ...
         //   → 0.5 → infinity (commit everything else).
-        double[] fracThresholds = {0.01, 0.05, 0.1, 0.2, 0.3, 0.5, Double.POSITIVE_INFINITY};
+        double[] fracThresholds = {NUM_0_01, NUM_0_05, NUM_0_1, NUM_0_2, NUM_0_3, NUM_0_5, Double.POSITIVE_INFINITY};
         int iter = 0;
         for (double fracThresh : fracThresholds) {
             int committedThisRound = 0;
@@ -156,5 +127,57 @@ public final class GreedyRounding {
             periodJump[e] = (int) Math.round(-residual / PI_HALF);
         }
         return new Result(theta, periodJump, C, iter, gsConv, cgConv, direct, totalCg);
+    }
+
+    public static final class Result {
+        public final double[] theta;
+        public final int[] periodJump;
+        public final int chordCount;
+        public final int iterations;
+        public final int gsConverged;
+        public final int cgConverged;
+        public final int directFallbacks;
+        public final int totalCgIters;
+
+        Result(double[] theta, int[] periodJump, int chordCount, int iterations,
+               int gsConverged, int cgConverged, int directFallbacks, int totalCgIters) {
+            this.theta = theta;
+            this.periodJump = periodJump;
+            this.chordCount = chordCount;
+            this.iterations = iterations;
+            this.gsConverged = gsConverged;
+            this.cgConverged = cgConverged;
+            this.directFallbacks = directFallbacks;
+            this.totalCgIters = totalCgIters;
+        }
+    }
+
+    public static final class Options {
+        public final BzkAdaptiveSolver.Options solverOpts;
+        /** Optional per-face θ hard-constraint values (radians). May be null. */
+        public final double[] thetaConstraint;
+        /** Companion mask; constrained[f]=true means thetaConstraint[f] is active. May be null. */
+        public final boolean[] constrained;
+
+        /**
+         * TODO: document {@code Options}.
+         */
+        public Options() {
+            this(new BzkAdaptiveSolver.Options(), null, null);
+        }
+
+        /**
+         * TODO: document {@code Options}.
+         *
+         * @param solverOpts TODO: describe
+         * @param thetaConstraint TODO: describe
+         * @param constrained TODO: describe
+         */
+        public Options(BzkAdaptiveSolver.Options solverOpts,
+                       double[] thetaConstraint, boolean[] constrained) {
+            this.solverOpts = solverOpts;
+            this.thetaConstraint = thetaConstraint;
+            this.constrained = constrained;
+        }
     }
 }

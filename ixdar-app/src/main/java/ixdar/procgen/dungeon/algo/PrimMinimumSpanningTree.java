@@ -23,6 +23,7 @@ import ixdar.procgen.dungeon.values.RoomListValue3D;
  * (e.g. room placement).
  */
 public final class PrimMinimumSpanningTree {
+    public static final long NUM_0x9E3779B97F4A7C15 = 0x9E3779B97F4A7C15L;
 
     /** Default probability per non-MST Delaunay edge of being kept as an extra loop (vazgriz). */
     public static final double DEFAULT_EXTRA_EDGE_PROB = 0.125;
@@ -31,10 +32,13 @@ public final class PrimMinimumSpanningTree {
     }
 
     /**
+     * TODO: document.
+     *
      * @param delaunayEdges edges from {@link DelaunayTriangulation2D} (candidate set)
      * @param rooms         source rooms used to compute edge weights
      * @param extraEdgeProb probability [0, 1] of keeping each non-MST edge as a loop
      * @param seed          seed for the extra-edge RNG stream
+     * @return TODO: describe
      */
     public static EdgeGraphValue build(EdgeGraphValue delaunayEdges,
                                        RoomListValue rooms,
@@ -48,7 +52,15 @@ public final class PrimMinimumSpanningTree {
         return buildWithWeights(delaunayEdges, weights, extraEdgeProb, seed);
     }
 
-    /** 3D analog: weights are 3D Euclidean distances between {@link RoomListValue3D.Room} centers. */
+    /**
+     * 3D analog: weights are 3D Euclidean distances between {@link RoomListValue3D.Room} centers.
+     *
+     * @param delaunayEdges TODO: describe
+     * @param rooms TODO: describe
+     * @param extraEdgeProb TODO: describe
+     * @param seed TODO: describe
+     * @return TODO: describe
+     */
     public static EdgeGraphValue build3D(EdgeGraphValue delaunayEdges,
                                          RoomListValue3D rooms,
                                          double extraEdgeProb,
@@ -99,7 +111,7 @@ public final class PrimMinimumSpanningTree {
         }
 
         // Extra-edge pass on its own RNG stream.
-        Random extraRng = new Random(seed ^ 0x9E3779B97F4A7C15L);
+        Random extraRng = new Random(seed ^ NUM_0x9E3779B97F4A7C15);
         Set<Integer> finalEdges = new LinkedHashSet<>(mstEdgeIndices);
         for (int i = 0; i < delaunayEdges.edgeCount(); i++) {
             if (mstEdgeIndices.contains(i)) continue;

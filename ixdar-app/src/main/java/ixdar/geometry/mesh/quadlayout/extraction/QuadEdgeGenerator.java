@@ -26,23 +26,23 @@ import ixdar.geometry.mesh.data.ArrayMesh;
  * </ol>
  */
 public final class QuadEdgeGenerator {
+    public static final int NUM_12 = 12;
+    public static final double NUM_1000_0 = 1000.0;
+    public static final int NUM_3 = 3;
+    public static final int NUM_1000 = 1000;
 
     public static final double EPS = QuadVertexGenerator.EPS;
 
-    /** Match tolerance for the iso-line endpoint lookup. Looser than
+    /**
+     * Match tolerance for the iso-line endpoint lookup. Looser than
      *  {@link #EPS} so small float drift accumulated across TRS hops
-     *  doesn't reject legitimate same-target ports. */
+     */
     public static final double MATCH_EPS = 1e-3;
 
-    /** Max face hops before giving up on an iso-line. Iso-lines on a
-     *  30k-tri mesh routinely cross 30+ mesh edges between integer
-     *  points; cap stays generous so we never reject a legitimate match
-     *  on path length. */
-    private static final int MAX_HOPS = 256;
-
-    /** PATCH-61: per-trace outcome counters for diagnostics. Cleared on
+    /**
+     * PATCH-61: per-trace outcome counters for diagnostics. Cleared on
      *  every {@link #generate} call; readable via the {@code static} fields
-     *  for caller-side reporting. */
+     */
     public static int statTracesAttempted;
     public static int statSameFaceHits;
     public static int statCrossFaceHits;
@@ -50,15 +50,33 @@ public final class QuadEdgeGenerator {
     public static int statNoExitFound;
     public static int statBoundaryHit;
 
-    /** PATCH-61 debug: when set, the first {@code N} unconnected traces dump
+    /**
+     * Max face hops before giving up on an iso-line. Iso-lines on a
+     *  30k-tri mesh routinely cross 30+ mesh edges between integer
+     *  points; cap stays generous so we never reject a legitimate match
+     */
+    private static final int MAX_HOPS = 256;
+
+    /**
+     * PATCH-61 debug: when set, the first {@code N} unconnected traces dump
      *  per-hop state to stdout. Set via system property
-     *  {@code ixdar.quadlayout.qex.tracePorts=N}. */
+     */
     private static final int TRACE_PORTS = Integer.getInteger(
             "ixdar.quadlayout.qex.tracePorts", 0);
     private static int tracedSoFar;
 
     private QuadEdgeGenerator() {}
 
+    /**
+     * TODO: document {@code generate}.
+     *
+     * @param mesh TODO: describe
+     * @param ports TODO: describe
+     * @param uCorner TODO: describe
+     * @param vCorner TODO: describe
+     * @param trs TODO: describe
+     * @return TODO: describe
+     */
     public static List<QEdge> generate(ArrayMesh mesh,
                                        List<QPort> ports,
                                        float[] uCorner, float[] vCorner,
@@ -129,7 +147,7 @@ public final class QuadEdgeGenerator {
         for (int hop = 0; hop < MAX_HOPS; hop++) {
             // Target is the fixed iso-line endpoint in the current face's
             // frame, transformed forward by TRS at every face crossing.
-            if (trace && hop < 12) {
+            if (trace && hop < NUM_12) {
                 int nFacePortsHere = byFace.containsKey(curFace) ? byFace.get(curFace).size() : 0;
                 System.out.printf("  hop %d face=%d uv=(%.4f,%.4f) target=(%.4f,%.4f) dir=(%.2f,%.2f) facePorts=%d%n",
                         hop, curFace, curU, curV, targetU, targetV, dirU, dirV, nFacePortsHere);
@@ -166,8 +184,8 @@ public final class QuadEdgeGenerator {
 
             // Compute hit point in current face's UV frame, then transform
             // it (and direction) into the neighbour's frame via the TRS.
-            double hitU = curU + dirU * exit[1] / 1000.0;
-            double hitV = curV + dirV * exit[1] / 1000.0;
+            double hitU = curU + dirU * exit[1] / NUM_1000_0;
+            double hitV = curV + dirV * exit[1] / NUM_1000_0;
             // exit[1] is the t along the iso-ray that hits the face edge,
             // encoded as int (t * 1000) for rough storage; recompute it
             // properly using the float ratios returned via a re-call.
@@ -214,13 +232,13 @@ public final class QuadEdgeGenerator {
         // we don't immediately exit back the way we came.
         int bestHe = -1;
         double bestT = Double.POSITIVE_INFINITY;
-        for (int c = 0; c < 3; c++) {
-            int he = faceId * 3 + c;
+        for (int c = 0; c < NUM_3; c++) {
+            int he = faceId * NUM_3 + c;
             if (he == skipHalfEdge) continue;
-            float aU = uCorner[faceId * 3 + c];
-            float aV = vCorner[faceId * 3 + c];
-            float bU = uCorner[faceId * 3 + (c + 1) % 3];
-            float bV = vCorner[faceId * 3 + (c + 1) % 3];
+            float aU = uCorner[faceId * NUM_3 + c];
+            float aV = vCorner[faceId * NUM_3 + c];
+            float bU = uCorner[faceId * NUM_3 + (c + 1) % NUM_3];
+            float bV = vCorner[faceId * NUM_3 + (c + 1) % NUM_3];
             double[] rs = raySegmentIntersect(curU, curV, dirU, dirV,
                     aU, aV, bU, bV);
             if (rs == null) continue;
@@ -231,7 +249,7 @@ public final class QuadEdgeGenerator {
             }
         }
         if (bestHe < 0) return null;
-        return new int[]{bestHe, (int) Math.round(bestT * 1000)};
+        return new int[]{bestHe, (int) Math.round(bestT * NUM_1000)};
     }
 
     /** Recompute the actual UV hit point at the face boundary. */
@@ -239,11 +257,11 @@ public final class QuadEdgeGenerator {
                                             double dirU, double dirV,
                                             int hExit, int faceId,
                                             float[] uCorner, float[] vCorner) {
-        int c = hExit % 3;
-        float aU = uCorner[faceId * 3 + c];
-        float aV = vCorner[faceId * 3 + c];
-        float bU = uCorner[faceId * 3 + (c + 1) % 3];
-        float bV = vCorner[faceId * 3 + (c + 1) % 3];
+        int c = hExit % NUM_3;
+        float aU = uCorner[faceId * NUM_3 + c];
+        float aV = vCorner[faceId * NUM_3 + c];
+        float bU = uCorner[faceId * NUM_3 + (c + 1) % NUM_3];
+        float bV = vCorner[faceId * NUM_3 + (c + 1) % NUM_3];
         double[] rs = raySegmentIntersect(curU, curV, dirU, dirV, aU, aV, bU, bV);
         if (rs == null) return null;
         double t = rs[0];

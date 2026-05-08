@@ -6,7 +6,7 @@ import ixdar.geometry.knot.Knot;
 import ixdar.geometry.knot.Segment;
 
 /**
- * A class that represents the distances between all points in the pointset
+ * A class that represents the distances between all points in the pointset.
  */
 public class CutMatchDistanceMatrix {
 
@@ -16,9 +16,9 @@ public class CutMatchDistanceMatrix {
 
     /**
      * Creates a distance matrix that represents the distance between every point in
-     * the pointset
-     * 
-     * @param pointset
+     * the pointset.
+     *
+     * @param k TODO: describe
      */
     public CutMatchDistanceMatrix(Knot k) {
         int size = k.size();
@@ -67,14 +67,19 @@ public class CutMatchDistanceMatrix {
     }
 
     /**
-     * Gets the distance matrix
-     * 
+     * Gets the distance matrix.
+     *
      * @return the distance matrix
      */
     public double[][] getMatrix() {
         return matrix;
     }
 
+    /**
+     * TODO: document {@code size}.
+     *
+     * @return TODO: describe
+     */
     public int size() {
         return matrix.length;
     }

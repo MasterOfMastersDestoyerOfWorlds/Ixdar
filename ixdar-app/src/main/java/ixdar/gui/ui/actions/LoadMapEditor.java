@@ -9,9 +9,15 @@ public class LoadMapEditor implements Action {
 
     private String fileName = "";
 
+    /**
+     * TODO: document {@code LoadMapEditor}.
+     */
     public LoadMapEditor() {
     }
 
+    /**
+     * TODO: document {@code perform}.
+     */
     @Override
     public void perform() {
         try {

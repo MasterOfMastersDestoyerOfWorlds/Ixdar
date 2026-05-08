@@ -25,13 +25,21 @@ import ixdar.geometry.mesh.curve.MathExpressionEvaluator;
  */
 @MeshNodeAnnotation(id = "function_curve")
 public class FunctionCurveNode implements MeshNode {
+    public static final String EXPRESSION_2 = "expression";
+    public static final String SIN_X_PI = "sin(x * pi)";
+    public static final String RESOLUTION_2 = "resolution";
+    public static final String CLOSURE_2 = "closure";
+    public static final int NUM_32 = 32;
+    public static final int NUM_256 = 256;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1 = 1f;
 
     private static final InputPort EXPRESSION =
-            new InputPort("expression", PortType.STRING, "sin(x * pi)");
+            new InputPort(EXPRESSION_2, PortType.STRING, SIN_X_PI);
     private static final InputPort RESOLUTION =
-            new InputPort("resolution", PortType.INT, 32, 2f, 256f);
+            new InputPort(RESOLUTION_2, PortType.INT, 32, 2f, 256f);
     private static final OutputPort CLOSURE =
-            new OutputPort("closure", PortType.CLOSURE);
+            new OutputPort(CLOSURE_2, PortType.CLOSURE);
 
     @Override
     public List<InputPort> inputs() {
@@ -45,14 +53,14 @@ public class FunctionCurveNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        String expr = ctx.getInput("expression", String.class);
+        String expr = ctx.getInput(EXPRESSION_2, String.class);
         if (expr == null || expr.isBlank()) {
-            expr = "sin(x * pi)";
+            expr = SIN_X_PI;
         }
 
-        Number resNum = ctx.getInput("resolution", Number.class);
-        int resolution = resNum != null ? resNum.intValue() : 32;
-        resolution = Math.max(2, Math.min(256, resolution));
+        Number resNum = ctx.getInput(RESOLUTION_2, Number.class);
+        int resolution = resNum != null ? resNum.intValue() : NUM_32;
+        resolution = Math.max(2, Math.min(NUM_256, resolution));
 
         float[] xs = new float[resolution];
         float[] ys = new float[resolution];
@@ -74,11 +82,11 @@ public class FunctionCurveNode implements MeshNode {
             }
         } catch (IllegalArgumentException e) {
             // Malformed expression — fall back to identity curve
-            xs = new float[]{0f, 1f};
-            ys = new float[]{0f, 1f};
+            xs = new float[]{NUM_0, NUM_1};
+            ys = new float[]{NUM_0, NUM_1};
         }
 
-        ctx.setOutput("closure", new FloatCurveKernel(xs, ys));
+        ctx.setOutput(CLOSURE_2, new FloatCurveKernel(xs, ys));
     }
 
     @Override
@@ -98,9 +106,9 @@ public class FunctionCurveNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "expression", "Math expression in variable `x`. Supports trig, exp/log, clamp, smoothstep, ease_*, smin, pingpong, and more (see node description for the full list).",
-                "resolution", "Number of samples taken over x∈[0,1] when rendering the curve for display; does NOT limit evaluation precision at runtime.",
-                "closure", "Float closure wrapping the compiled expression. Sample at any x via evaluate_closure."
+                EXPRESSION_2, "Math expression in variable `x`. Supports trig, exp/log, clamp, smoothstep, ease_*, smin, pingpong, and more (see node description for the full list).",
+                RESOLUTION_2, "Number of samples taken over x∈[0,1] when rendering the curve for display; does NOT limit evaluation precision at runtime.",
+                CLOSURE_2, "Float closure wrapping the compiled expression. Sample at any x via evaluate_closure."
         );
     }
 }

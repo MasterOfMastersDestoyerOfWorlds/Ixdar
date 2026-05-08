@@ -13,6 +13,14 @@ import ixdar.platform.input.TradeMouseTrap;
 
 @AutomationRouteAnnotation(path = "input/hover/clear", method = APIMethod.POST)
 public class HoverClear extends AutomationEndpoint implements AutomationRoute {
+    public static final String OK = "ok";
+    /**
+     * TODO: document {@code endpointHandler}.
+     *
+     * @param body TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
             return runtime.runOnMainThread(() -> {
@@ -27,12 +35,12 @@ public class HoverClear extends AutomationEndpoint implements AutomationRoute {
                         tradeMouse.endAutomationInput();
                     }
                 }
-                result.addProperty("ok", true);
+                result.addProperty(OK, true);
                 return result;
             });
         } catch (Exception e) {
             JsonObject err = new JsonObject();
-            err.addProperty("ok", false);
+            err.addProperty(OK, false);
             err.addProperty("error", e.getMessage());
             return err;
         }

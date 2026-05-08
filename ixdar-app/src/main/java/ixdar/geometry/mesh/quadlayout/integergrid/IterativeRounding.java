@@ -36,29 +36,19 @@ import ixdar.geometry.mesh.data.ArrayMesh;
  * exactly the Bommes 2013 grain.
  */
 final class IterativeRounding {
+    public static final int NUM_3 = 3;
+    public static final float NUM_0_5 = 0.5f;
 
     /** Minimum signed area required for a triangle to count as "positively oriented". */
     private static final float POSITIVE_AREA_EPS = 1e-7f;
 
-    static final class Result {
-        final float[] uCorner;
-        final float[] vCorner;
-        final boolean[] uPinnedCV;
-        final boolean[] vPinnedCV;
-        final int iterationCount;
-        final boolean injective;
-
-        Result(float[] uCorner, float[] vCorner,
-               boolean[] uPinnedCV, boolean[] vPinnedCV,
-               int iterationCount, boolean injective) {
-            this.uCorner = uCorner;
-            this.vCorner = vCorner;
-            this.uPinnedCV = uPinnedCV;
-            this.vPinnedCV = vPinnedCV;
-            this.iterationCount = iterationCount;
-            this.injective = injective;
-        }
-    }
+    /**
+     * PATCH-110 adaptive-threshold batch pinning thresholds. Mirror of
+     *  PATCH-103 / GreedyRounding.solve(). Each pass commits all candidates
+     *  with frac < threshold simultaneously; on injectivity failure, falls
+     */
+    private static final double[] BATCH_FRAC_THRESHOLDS = {
+            0.01, 0.05, 0.10, 0.25, 0.50};
 
     private final IgmHessian H;
     private final ArrayMesh mesh;
@@ -78,8 +68,6 @@ final class IterativeRounding {
     private float[] uCornerCurrent;
     private float[] vCornerCurrent;
 
-    int numCV() { return numCV; }
-
     IterativeRounding(IgmHessian H) {
         this.H = H;
         this.mesh = H.mesh;
@@ -93,6 +81,8 @@ final class IterativeRounding {
         this.vBlacklist = new boolean[numCV];
     }
 
+    int numCV() { return numCV; }
+
     /**
      * Pre-pin every chart-vertex whose mesh vertex is in
      * {@code singularityVertices}. The seed value comes from the relaxed
@@ -105,13 +95,13 @@ final class IterativeRounding {
         for (int v : singularityVertices) singSet.add(v);
         boolean[] seeded = new boolean[numCV];
         for (int f = 0; f < F; f++) {
-            for (int c = 0; c < 3; c++) {
+            for (int c = 0; c < NUM_3; c++) {
                 int vid = mesh.faceVertexAt(f, c);
                 if (!singSet.contains(vid)) continue;
                 int cv = H.chart.chartVertexAt(f, c);
                 if (seeded[cv]) continue;
                 seeded[cv] = true;
-                int corner = f * 3 + c;
+                int corner = f * NUM_3 + c;
                 uPinned[cv] = true;
                 vPinned[cv] = true;
                 uPinVal[cv] = Math.round(uRelax[corner]);
@@ -123,20 +113,13 @@ final class IterativeRounding {
     private int countPositive(float[] u, float[] v) {
         int positive = 0;
         for (int f = 0; f < F; f++) {
-            int o = f * 3;
-            float a = 0.5f * ((u[o + 1] - u[o]) * (v[o + 2] - v[o])
+            int o = f * NUM_3;
+            float a = NUM_0_5 * ((u[o + 1] - u[o]) * (v[o + 2] - v[o])
                             - (u[o + 2] - u[o]) * (v[o + 1] - v[o]));
             if (a > POSITIVE_AREA_EPS) positive++;
         }
         return positive;
     }
-
-    /** PATCH-110 adaptive-threshold batch pinning thresholds. Mirror of
-     *  PATCH-103 / GreedyRounding.solve(). Each pass commits all candidates
-     *  with frac < threshold simultaneously; on injectivity failure, falls
-     *  back to per-pin reject-and-retry within just that batch's candidates. */
-    private static final double[] BATCH_FRAC_THRESHOLDS = {
-            0.01, 0.05, 0.10, 0.25, 0.50};
 
     Result run(int maxIterations) {
         // Initial solve with the singularity pins.
@@ -305,14 +288,14 @@ final class IterativeRounding {
             if (!Float.isFinite(uChart[cv]) || !Float.isFinite(vChart[cv])) return false;
         }
         // Project to per-corner for triangle-orientation checks + downstream API.
-        int totalCorners = F * 3;
+        int totalCorners = F * NUM_3;
         float[] uCorner = new float[totalCorners];
         float[] vCorner = new float[totalCorners];
         for (int f = 0; f < F; f++) {
-            for (int c = 0; c < 3; c++) {
+            for (int c = 0; c < NUM_3; c++) {
                 int cv = H.chart.chartVertexAt(f, c);
-                uCorner[f * 3 + c] = uChart[cv];
-                vCorner[f * 3 + c] = vChart[cv];
+                uCorner[f * NUM_3 + c] = uChart[cv];
+                vCorner[f * NUM_3 + c] = vChart[cv];
             }
         }
         uCV = uChart;
@@ -324,11 +307,11 @@ final class IterativeRounding {
 
     private boolean allPositiveOrient(float[] u, float[] v) {
         for (int f = 0; f < F; f++) {
-            int o = f * 3;
+            int o = f * NUM_3;
             float u0 = u[o], v0 = v[o];
             float u1 = u[o + 1], v1 = v[o + 1];
             float u2 = u[o + 2], v2 = v[o + 2];
-            float a = 0.5f * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
+            float a = NUM_0_5 * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
             if (a <= POSITIVE_AREA_EPS) return false;
         }
         return true;
@@ -337,5 +320,25 @@ final class IterativeRounding {
     private static double fracDist(double x) {
         double r = Math.round(x);
         return Math.abs(x - r);
+    }
+
+    static final class Result {
+        final float[] uCorner;
+        final float[] vCorner;
+        final boolean[] uPinnedCV;
+        final boolean[] vPinnedCV;
+        final int iterationCount;
+        final boolean injective;
+
+        Result(float[] uCorner, float[] vCorner,
+               boolean[] uPinnedCV, boolean[] vPinnedCV,
+               int iterationCount, boolean injective) {
+            this.uCorner = uCorner;
+            this.vCorner = vCorner;
+            this.uPinnedCV = uPinnedCV;
+            this.vPinnedCV = vPinnedCV;
+            this.iterationCount = iterationCount;
+            this.injective = injective;
+        }
     }
 }

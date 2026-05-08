@@ -45,6 +45,15 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.FaceRosyField;
  * regardless of preconditioner choice.
  */
 final class IgmHessian {
+    public static final int NUM_6 = 6;
+    public static final float NUM_0 = 0f;
+    public static final int NUM_3 = 3;
+    public static final int NUM_4 = 4;
+    public static final int NUM_5 = 5;
+    public static final float NUM_0_5 = 0.5f;
+    public static final double NUM_1e_30 = 1e-30;
+    public static final float NUM_1e_20 = 1e-20f;
+    public static final double NUM_2_0 = 2.0;
 
     // Penalty weights are chosen to keep the condition number reasonable.
     // ojAlgo's SparseLu handles ~1e8 cleanly; pushing higher costs accuracy
@@ -74,8 +83,9 @@ final class IgmHessian {
     final double[] vTarget;
     final double[] areaWeight;
 
-    /** PATCH-114: per-face stiffness multiplier on the energy weight, used by
-     *  BZK09 §5.4 LocalStiffening. Null = all 1.0. When set, baseH is rebuilt. */
+    /**
+     * PATCH-114: per-face stiffness multiplier on the energy weight, used by.
+     */
     private double[] perFaceStiffening;
 
     /** Cached symmetric Hessian without pins/gauge (rebuilt on solve via copy). */
@@ -113,7 +123,7 @@ final class IgmHessian {
         this.N = 2 * numCV + 2 * Es;
 
         int F = faceCount;
-        this.localQ = new float[F * 6];
+        this.localQ = new float[F * NUM_6];
         this.uTarget = new double[F * 2];
         this.vTarget = new double[F * 2];
         this.areaWeight = new double[F];
@@ -135,13 +145,13 @@ final class IgmHessian {
             e1.set(p2).sub(p0);
             float q1u = e0.dot(uF), q1v = e0.dot(vF);
             float q2u = e1.dot(uF), q2v = e1.dot(vF);
-            int o = f * 6;
-            localQ[o]     = 0f;   localQ[o + 1] = 0f;
-            localQ[o + 2] = q1u;  localQ[o + 3] = q1v;
-            localQ[o + 4] = q2u;  localQ[o + 5] = q2v;
-            float sa = 0.5f * (q1u * q2v - q2u * q1v);
+            int o = f * NUM_6;
+            localQ[o]     = NUM_0;   localQ[o + 1] = NUM_0;
+            localQ[o + 2] = q1u;  localQ[o + NUM_3] = q1v;
+            localQ[o + NUM_4] = q2u;  localQ[o + NUM_5] = q2v;
+            float sa = NUM_0_5 * (q1u * q2v - q2u * q1v);
             double area = Math.abs(sa);
-            areaWeight[f] = Math.sqrt(Math.max(area, 1e-30));
+            areaWeight[f] = Math.sqrt(Math.max(area, NUM_1e_30));
 
             double a = combed.combedAngle(f);
             double cu = Math.cos(a);
@@ -191,15 +201,15 @@ final class IgmHessian {
     private void addEnergyTerms(SparseMatrix H, double[] rhs) {
         int F = faceCount;
         for (int f = 0; f < F; f++) {
-            int o = f * 6;
+            int o = f * NUM_6;
             float q0u = localQ[o],     q0v = localQ[o + 1];
-            float q1u = localQ[o + 2], q1v = localQ[o + 3];
-            float q2u = localQ[o + 4], q2v = localQ[o + 5];
-            float sa = 0.5f * ((q1u - q0u) * (q2v - q0v) - (q2u - q0u) * (q1v - q0v));
-            if (Math.abs(sa) < 1e-20f) continue;
-            double inv2A = 1.0 / (2.0 * sa);
-            double[] bi = new double[3];
-            double[] ci = new double[3];
+            float q1u = localQ[o + 2], q1v = localQ[o + NUM_3];
+            float q2u = localQ[o + NUM_4], q2v = localQ[o + NUM_5];
+            float sa = NUM_0_5 * ((q1u - q0u) * (q2v - q0v) - (q2u - q0u) * (q1v - q0v));
+            if (Math.abs(sa) < NUM_1e_20) continue;
+            double inv2A = 1.0 / (NUM_2_0 * sa);
+            double[] bi = new double[NUM_3];
+            double[] ci = new double[NUM_3];
             bi[0] = (q1v - q2v) * inv2A; ci[0] = (q2u - q1u) * inv2A;
             bi[1] = (q2v - q0v) * inv2A; ci[1] = (q0u - q2u) * inv2A;
             bi[2] = (q0v - q1v) * inv2A; ci[2] = (q1u - q0u) * inv2A;
@@ -214,8 +224,8 @@ final class IgmHessian {
 
             double tx = uTarget[f * 2];
             double ty = uTarget[f * 2 + 1];
-            for (int i = 0; i < 3; i++) {
-                for (int j = 0; j < 3; j++) {
+            for (int i = 0; i < NUM_3; i++) {
+                for (int j = 0; j < NUM_3; j++) {
                     H.add(uCols[i], uCols[j], w * (bi[i] * bi[j] + ci[i] * ci[j]));
                 }
                 rhs[uCols[i]] += w * (bi[i] * tx + ci[i] * ty);
@@ -223,8 +233,8 @@ final class IgmHessian {
 
             double tvx = vTarget[f * 2];
             double tvy = vTarget[f * 2 + 1];
-            for (int i = 0; i < 3; i++) {
-                for (int j = 0; j < 3; j++) {
+            for (int i = 0; i < NUM_3; i++) {
+                for (int j = 0; j < NUM_3; j++) {
                     H.add(vCols[i], vCols[j], w * (bi[i] * bi[j] + ci[i] * ci[j]));
                 }
                 rhs[vCols[i]] += w * (bi[i] * tvx + ci[i] * tvy);
@@ -242,10 +252,10 @@ final class IgmHessian {
             int heA = halfEdgeOnFace(eMesh, fa);
             int heB = halfEdgeOnFace(eMesh, fb);
             if (heA < 0 || heB < 0) continue;
-            int cA0 = heA % 3;
-            int cA1 = mesh.halfEdgeNext(heA) % 3;
-            int cB0 = heB % 3;
-            int cB1 = mesh.halfEdgeNext(heB) % 3;
+            int cA0 = heA % NUM_3;
+            int cA1 = mesh.halfEdgeNext(heA) % NUM_3;
+            int cB0 = heB % NUM_3;
+            int cB1 = mesh.halfEdgeNext(heB) % NUM_3;
             int r = combed.matching(e);
             int slot = seamSlot[e];
             int jVar = jBase + slot;
@@ -270,7 +280,7 @@ final class IgmHessian {
                                          int uA, int vA, int uB, int vB,
                                          int jVar, int kVar, int r) {
         double rUuA, rUvA, rVuA, rVvA;
-        switch (r & 3) {
+        switch (r & NUM_3) {
             case 0:  rUuA = -1; rUvA =  0; rVuA =  0; rVvA = -1; break;
             case 1:  rUuA =  0; rUvA =  1; rVuA = -1; rVvA =  0; break;
             case 2:  rUuA =  1; rUvA =  0; rVuA =  0; rVvA =  1; break;
@@ -280,8 +290,8 @@ final class IgmHessian {
         double[] cs1 = new double[]{rUuA, rUvA, 1.0, -1.0};
         int[] cols2 = new int[]{uA, vA, vB, kVar};
         double[] cs2 = new double[]{rVuA, rVvA, 1.0, -1.0};
-        for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 4; j++) {
+        for (int i = 0; i < NUM_4; i++) {
+            for (int j = 0; j < NUM_4; j++) {
                 H.add(cols1[i], cols1[j], SEAM_WEIGHT * cs1[i] * cs1[j]);
                 H.add(cols2[i], cols2[j], SEAM_WEIGHT * cs2[i] * cs2[j]);
             }

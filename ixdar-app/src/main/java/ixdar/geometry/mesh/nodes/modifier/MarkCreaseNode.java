@@ -26,14 +26,18 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "mark_crease")
 public class MarkCreaseNode implements MeshNode {
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String SELECTION_2 = "selection";
+    public static final String WEIGHT_2 = "weight";
+    public static final String FACE_BOUNDARY_2 = "face_boundary";
 
     public static final String CREASE_WEIGHTS_SLOT = "_crease_weights";
 
-    private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
-    private static final InputPort WEIGHT = new InputPort("weight", PortType.FLOAT, 1.0f, 0f, 1f);
-    private static final InputPort FACE_BOUNDARY = new InputPort("face_boundary", PortType.BOOLEAN, false);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort SELECTION = new InputPort(SELECTION_2, PortType.BOOLEAN, true);
+    private static final InputPort WEIGHT = new InputPort(WEIGHT_2, PortType.FLOAT, 1.0f, 0f, 1f);
+    private static final InputPort FACE_BOUNDARY = new InputPort(FACE_BOUNDARY_2, PortType.BOOLEAN, false);
+    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -53,27 +57,27 @@ public class MarkCreaseNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "geometry", "Input/output. Output carries the crease weights in a slot read by subdivision_surface.",
-                "selection", "Per-face OR per-edge BOOLEAN mask. Determines which edges receive the crease weight.",
-                "weight", "Crease weight 0..infinity. 0 = no crease (fully smooth); higher = sharper; +infinity = perfectly sharp.",
-                "face_boundary", "If true, interpret `selection` as per-face and crease only the BOUNDARY edges of selected regions. If false, interpret `selection` as per-edge directly."
+                GEOMETRY_2, "Input/output. Output carries the crease weights in a slot read by subdivision_surface.",
+                SELECTION_2, "Per-face OR per-edge BOOLEAN mask. Determines which edges receive the crease weight.",
+                WEIGHT_2, "Crease weight 0..infinity. 0 = no crease (fully smooth); higher = sharper; +infinity = perfectly sharp.",
+                FACE_BOUNDARY_2, "If true, interpret `selection` as per-face and crease only the BOUNDARY edges of selected regions. If false, interpret `selection` as per-edge directly."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.edgeCount() == 0) {
-            ctx.setOutput("geometry", base);
+            ctx.setOutput(GEOMETRY_2, base);
             return;
         }
 
-        Object selObj = FieldBroadcast.getInputOrDefault(ctx, "selection", SELECTION.defaultValue());
-        Object weightObj = FieldBroadcast.getInputOrDefault(ctx, "weight", WEIGHT.defaultValue());
+        Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION_2, SELECTION.defaultValue());
+        Object weightObj = FieldBroadcast.getInputOrDefault(ctx, WEIGHT_2, WEIGHT.defaultValue());
         float weight = FieldBroadcast.floatScalarOrDefault(weightObj, 1.0f);
 
-        Object fbObj = FieldBroadcast.getInputOrDefault(ctx, "face_boundary", FACE_BOUNDARY.defaultValue());
+        Object fbObj = FieldBroadcast.getInputOrDefault(ctx, FACE_BOUNDARY_2, FACE_BOUNDARY.defaultValue());
         boolean faceBoundary = fbObj instanceof Boolean b && b;
 
         // Get or create crease weights array
@@ -117,6 +121,6 @@ public class MarkCreaseNode implements MeshNode {
             }
         }
 
-        ctx.setOutput("geometry", base.withSlot(CREASE_WEIGHTS_SLOT, weights));
+        ctx.setOutput(GEOMETRY_2, base.withSlot(CREASE_WEIGHTS_SLOT, weights));
     }
 }

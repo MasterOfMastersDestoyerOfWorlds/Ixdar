@@ -12,6 +12,9 @@ import ixdar.scenes.Scene;
 
 @SceneAnnotation(id = "bouncing-line-canvas")
 public class BouncingLineScene extends Scene {
+    public static final float NUM_1 = 1f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_0_001 = 0.001f;
 
     private float point1X = -0.8f;
     private float point1Y = -0.6f;
@@ -28,10 +31,16 @@ public class BouncingLineScene extends Scene {
     private Double point1;
     private Double point2;
 
+    /**
+     * TODO: document {@code BouncingLineScene}.
+     */
     public BouncingLineScene() {
         super();
     }
 
+    /**
+     * TODO: document {@code initPoints}.
+     */
     @Override
     public void initPoints() {
         super.initPoints();
@@ -41,6 +50,9 @@ public class BouncingLineScene extends Scene {
         shell.add(point2);
     }
 
+    /**
+     * TODO: document {@code initGL}.
+     */
     @Override
     public void initGL() {
         super.initGL();
@@ -50,11 +62,14 @@ public class BouncingLineScene extends Scene {
         initCodePane("Line SDF", ShaderType.LineSDF.getShader(), Drawing.getDrawing().sdfLine);
     }
 
+    /**
+     * TODO: document {@code drawScene}.
+     */
     @Override
     public void drawScene() {
         updateBouncingPoints();
         super.drawScene();
-        Drawing.getDrawing().sdfLine.setStroke(Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false, false);
+        Drawing.getDrawing().sdfLine.setStroke(Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, NUM_1, NUM_0, true, false, false);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);
@@ -68,16 +83,16 @@ public class BouncingLineScene extends Scene {
 
         float viewW = camera2D.getBounds().viewWidth;
         float viewH = camera2D.getBounds().viewHeight;
-        float worldLeft = camera2D.screenTransformX(0f);
+        float worldLeft = camera2D.screenTransformX(NUM_0);
         float worldRight = camera2D.screenTransformX(viewW);
         float minX = Math.min(worldLeft, worldRight);
         float maxX = Math.max(worldLeft, worldRight);
-        float worldTop = camera2D.screenTransformY(0f);
+        float worldTop = camera2D.screenTransformY(NUM_0);
         float worldBottom = camera2D.screenTransformY(viewH);
         float minY = Math.min(worldTop, worldBottom);
         float maxY = Math.max(worldTop, worldBottom);
-        float marginX = 0.001f * (maxX - minX);
-        float marginY = 0.001f * (maxY - minY);
+        float marginX = NUM_0_001 * (maxX - minX);
+        float marginY = NUM_0_001 * (maxY - minY);
         minX += marginX;
         maxX -= marginX;
         minY += marginY;

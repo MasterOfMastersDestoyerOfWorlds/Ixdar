@@ -16,6 +16,59 @@ import java.util.Set;
  * preprocessing runs.
  */
 public final class PatchRenderer {
+    public static final String SADDLE = "saddle";
+    public static final float NUM_0_3 = 0.3f;
+    public static final float NUM_0_8 = 0.8f;
+    public static final float NUM_0_5 = 0.5f;
+    public static final double NUM_0_6180339887498949 = 0.6180339887498949;
+    public static final float NUM_0_65 = 0.65f;
+    public static final float NUM_0_55 = 0.55f;
+    public static final int NUM_0xFFFFF = 0xFFFFFF;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_2 = 2f;
+    public static final float NUM_6 = 6f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_3 = 3f;
+    public static final float NUM_4 = 4f;
+    public static final float NUM_5 = 5f;
+    public static final float NUM_255 = 255f;
+    public static final int NUM_255_2 = 255;
+    public static final int NUM_16 = 16;
+    public static final int NUM_8 = 8;
+    public static final int NUM_3_2 = 3;
+    public static final int NUM_0xB0B0B0 = 0xB0B0B0;
+    public static final int NUM_4_2 = 4;
+    public static final int NUM_18 = 18;
+    public static final int NUM_180 = 180;
+    public static final float NUM_1e_20 = 1e-20f;
+    public static final float NUM_1e_6 = 1e-6f;
+    public static final float NUM_0_42 = 0.42f;
+    public static final float NUM_2_2 = 2.2f;
+    public static final float NUM_0_1 = 0.1f;
+    public static final float NUM_0_2 = 0.2f;
+    public static final int NUM_9 = 9;
+    public static final int NUM_32 = 32;
+    public static final long NUM_0xffffffff = 0xffffffffL;
+    public static final int NUM_10 = 10;
+    public static final int NUM_14 = 14;
+    public static final int NUM_20 = 20;
+    public static final int NUM_12 = 12;
+    public static final int NUM_28 = 28;
+    public static final int NUM_0xAAAAAA = 0xAAAAAA;
+    public static final int NUM_0x101018 = 0x101018;
+    public static final float NUM_0_05 = 0.05f;
+    public static final float NUM_0_20 = 0.20f;
+    public static final float NUM_0_15 = 0.15f;
+    public static final float NUM_0_95 = 0.95f;
+    public static final float NUM_0_45 = 0.45f;
+    public static final float NUM_1_00 = 1.00f;
+    public static final float NUM_0_70 = 0.70f;
+    public static final float NUM_0_33 = 0.33f;
+    public static final float NUM_0_66 = 0.66f;
+    public static final float NUM_0_34 = 0.34f;
+    public static final float NUM_1e_8 = 1e-8f;
+    public static final int NUM_0xf = 0xff;
+    public static final float NUM_0_35 = 0.35f;
 
     // 480 keeps the 4x2 composite at 1920x960 — under Claude's ~2000px image limit.
     private static final int CELL_W = 480;
@@ -37,104 +90,6 @@ public final class PatchRenderer {
     };
 
     private static final float[] LIGHT_DIR;
-    static {
-        float lx = -0.3f, ly = 0.8f, lz = 0.5f;
-        float len = (float) Math.sqrt(lx * lx + ly * ly + lz * lz);
-        LIGHT_DIR = new float[]{lx / len, ly / len, lz / len};
-    }
-
-    private PatchRenderer() {}
-
-    /**
-     * Composite plus the 8 individual per-view renders. Emitting the per-view
-     * images lets a caller read a specific view (e.g. Right) at native CELL_W
-     * × CELL_H without the 4-way horizontal compression of the composite,
-     * which matters when looking for fine detail like individual teeth.
-     */
-    public record MultiviewResult(BufferedImage composite, BufferedImage[] perView, String[] labels) {}
-
-    public static BufferedImage renderMultiview(ArrayMesh mesh, PatchDecomposition decomposition) {
-        return renderMultiview(mesh, decomposition, 1.0f);
-    }
-
-    public static BufferedImage renderMultiview(ArrayMesh mesh, PatchDecomposition decomposition, float zoom) {
-        return renderMultiviewImpl(mesh, decomposition, /*flat=*/ false, zoom).composite();
-    }
-
-    /**
-     * Flat-shaded render: every face is written with a globally-unique RGB
-     * derived from its patch id (golden-ratio hue), no Lambert shading.
-     * A VLM labeler can pixel-sample this image to determine which patch
-     * covers any (x, y) point exactly, without the ambiguity Lambert shading
-     * introduces when two palette colours look similar at grazing angles.
-     */
-    public static BufferedImage renderMultiviewFlat(ArrayMesh mesh, PatchDecomposition decomposition) {
-        return renderMultiviewFlat(mesh, decomposition, 1.0f);
-    }
-
-    public static BufferedImage renderMultiviewFlat(ArrayMesh mesh, PatchDecomposition decomposition, float zoom) {
-        return renderMultiviewImpl(mesh, decomposition, /*flat=*/ true, zoom).composite();
-    }
-
-    public static MultiviewResult renderMultiviewWithPerView(ArrayMesh mesh,
-                                                             PatchDecomposition decomposition,
-                                                             boolean flat) {
-        return renderMultiviewWithPerView(mesh, decomposition, flat, 1.0f);
-    }
-
-    public static MultiviewResult renderMultiviewWithPerView(ArrayMesh mesh,
-                                                             PatchDecomposition decomposition,
-                                                             boolean flat, float zoom) {
-        return renderMultiviewImpl(mesh, decomposition, flat, zoom);
-    }
-
-    /**
-     * Globally-unique RGB for a patch id, using golden-ratio hue progression
-     * for maximum pairwise hue separation across any two patch ids.
-     */
-    public static int uniquePatchColor(int pid) {
-        float h = (float) ((pid * 0.6180339887498949) % 1.0);
-        return hslToRgb(h, 0.65f, 0.55f);
-    }
-
-    /** Hex string (no leading #) of {@link #uniquePatchColor(int)}. */
-    public static String uniquePatchColorHex(int pid) {
-        int rgb = uniquePatchColor(pid);
-        return String.format("%06X", rgb & 0xFFFFFF);
-    }
-
-    private static int hslToRgb(float h, float s, float l) {
-        float c = (1f - Math.abs(2f * l - 1f)) * s;
-        float hp = h * 6f;
-        float x = c * (1f - Math.abs(hp % 2f - 1f));
-        float r1 = 0f, g1 = 0f, b1 = 0f;
-        if (hp < 1f)      { r1 = c; g1 = x; }
-        else if (hp < 2f) { r1 = x; g1 = c; }
-        else if (hp < 3f) { g1 = c; b1 = x; }
-        else if (hp < 4f) { g1 = x; b1 = c; }
-        else if (hp < 5f) { r1 = x; b1 = c; }
-        else              { r1 = c; b1 = x; }
-        float m = l - c * 0.5f;
-        int r = Math.round((r1 + m) * 255f);
-        int g = Math.round((g1 + m) * 255f);
-        int b = Math.round((b1 + m) * 255f);
-        r = Math.max(0, Math.min(255, r));
-        g = Math.max(0, Math.min(255, g));
-        b = Math.max(0, Math.min(255, b));
-        return (r << 16) | (g << 8) | b;
-    }
-
-    /**
-     * Feature-edge overlay diagnostic modes. {@link #STAGES} renders a
-     * grey Lambert-shaded mesh and overlays each per-source edge set in a
-     * distinct color, so you can see where dihedral / principal / crest
-     * each fire (or don't). {@link #PATCHES_VS_CREST} renders the flat
-     * patch decomposition and overlays crest edges vs. actual patch
-     * boundaries in three categories (crest only / boundary only / both),
-     * so you can see at a glance which crest signals were honored and
-     * which were overridden downstream.
-     */
-    public enum OverlayMode { STAGES, PATCHES_VS_CREST, MSC }
 
     // PATCH-22: Morse-Smale overlay colors.
     private static final int MSC_ARC_COLOR       = 0x000000; // black arcs
@@ -151,54 +106,201 @@ public final class PatchRenderer {
     private static final int EDGE_COLOR_BOUNDARY_ONLY = FeatureEdgeColors.BOUNDARY_ONLY;
     private static final int EDGE_COLOR_CREST_ONLY    = FeatureEdgeColors.CREST_IGNORED;
     private static final int EDGE_COLOR_ALIGNED       = FeatureEdgeColors.CREST_HONORED;
+    static {
+        float lx = -NUM_0_3, ly = NUM_0_8, lz = NUM_0_5;
+        float len = (float) Math.sqrt(lx * lx + ly * ly + lz * lz);
+        LIGHT_DIR = new float[]{lx / len, ly / len, lz / len};
+    }
 
+    private PatchRenderer() {}
+
+    /**
+     * TODO: document {@code renderMultiview}.
+     *
+     * @param mesh TODO: describe
+     * @param decomposition TODO: describe
+     * @return TODO: describe
+     */
+    public static BufferedImage renderMultiview(ArrayMesh mesh, PatchDecomposition decomposition) {
+        return renderMultiview(mesh, decomposition, 1.0f);
+    }
+
+    /**
+     * TODO: document {@code renderMultiview}.
+     *
+     * @param mesh TODO: describe
+     * @param decomposition TODO: describe
+     * @param zoom TODO: describe
+     * @return TODO: describe
+     */
+    public static BufferedImage renderMultiview(ArrayMesh mesh, PatchDecomposition decomposition, float zoom) {
+        return renderMultiviewImpl(mesh, decomposition, /*flat=*/ false, zoom).composite();
+    }
+
+    /**
+     * Flat-shaded render: every face is written with a globally-unique RGB
+     * derived from its patch id (golden-ratio hue), no Lambert shading.
+     * A VLM labeler can pixel-sample this image to determine which patch
+     * covers any (x, y) point exactly, without the ambiguity Lambert shading
+     * introduces when two palette colours look similar at grazing angles.
+     *
+     * @param mesh TODO: describe
+     * @param decomposition TODO: describe
+     * @return TODO: describe
+     */
+    public static BufferedImage renderMultiviewFlat(ArrayMesh mesh, PatchDecomposition decomposition) {
+        return renderMultiviewFlat(mesh, decomposition, 1.0f);
+    }
+
+    /**
+     * TODO: document {@code renderMultiviewFlat}.
+     *
+     * @param mesh TODO: describe
+     * @param decomposition TODO: describe
+     * @param zoom TODO: describe
+     * @return TODO: describe
+     */
+    public static BufferedImage renderMultiviewFlat(ArrayMesh mesh, PatchDecomposition decomposition, float zoom) {
+        return renderMultiviewImpl(mesh, decomposition, /*flat=*/ true, zoom).composite();
+    }
+
+    /**
+     * TODO: document {@code renderMultiviewWithPerView}.
+     *
+     * @param mesh TODO: describe
+     * @param decomposition TODO: describe
+     * @param flat TODO: describe
+     * @return TODO: describe
+     */
+    public static MultiviewResult renderMultiviewWithPerView(ArrayMesh mesh,
+                                                             PatchDecomposition decomposition,
+                                                             boolean flat) {
+        return renderMultiviewWithPerView(mesh, decomposition, flat, 1.0f);
+    }
+
+    /**
+     * TODO: document {@code renderMultiviewWithPerView}.
+     *
+     * @param mesh TODO: describe
+     * @param decomposition TODO: describe
+     * @param flat TODO: describe
+     * @param zoom TODO: describe
+     * @return TODO: describe
+     */
+    public static MultiviewResult renderMultiviewWithPerView(ArrayMesh mesh,
+                                                             PatchDecomposition decomposition,
+                                                             boolean flat, float zoom) {
+        return renderMultiviewImpl(mesh, decomposition, flat, zoom);
+    }
+
+    /**
+     * Globally-unique RGB for a patch id, using golden-ratio hue progression
+     * for maximum pairwise hue separation across any two patch ids.
+     *
+     * @param pid TODO: describe
+     * @return TODO: describe
+     */
+    public static int uniquePatchColor(int pid) {
+        float h = (float) ((pid * NUM_0_6180339887498949) % 1.0);
+        return hslToRgb(h, NUM_0_65, NUM_0_55);
+    }
+
+    /**
+     * Hex string (no leading #) of {@link #uniquePatchColor(int)}.
+     *
+     * @param pid TODO: describe
+     * @return TODO: describe
+     */
+    public static String uniquePatchColorHex(int pid) {
+        int rgb = uniquePatchColor(pid);
+        return String.format("%06X", rgb & NUM_0xFFFFF);
+    }
+
+    private static int hslToRgb(float h, float s, float l) {
+        float c = (NUM_1 - Math.abs(NUM_2 * l - NUM_1)) * s;
+        float hp = h * NUM_6;
+        float x = c * (NUM_1 - Math.abs(hp % NUM_2 - NUM_1));
+        float r1 = NUM_0, g1 = NUM_0, b1 = NUM_0;
+        if (hp < NUM_1)      { r1 = c; g1 = x; }
+        else if (hp < NUM_2) { r1 = x; g1 = c; }
+        else if (hp < NUM_3) { g1 = c; b1 = x; }
+        else if (hp < NUM_4) { g1 = x; b1 = c; }
+        else if (hp < NUM_5) { r1 = x; b1 = c; }
+        else              { r1 = c; b1 = x; }
+        float m = l - c * NUM_0_5;
+        int r = Math.round((r1 + m) * NUM_255);
+        int g = Math.round((g1 + m) * NUM_255);
+        int b = Math.round((b1 + m) * NUM_255);
+        r = Math.max(0, Math.min(NUM_255_2, r));
+        g = Math.max(0, Math.min(NUM_255_2, g));
+        b = Math.max(0, Math.min(NUM_255_2, b));
+        return (r << NUM_16) | (g << NUM_8) | b;
+    }
+
+    /**
+     * TODO: document {@code renderFeatureEdgeMultiview}.
+     *
+     * @param mesh TODO: describe
+     * @param diag TODO: describe
+     * @param mode TODO: describe
+     * @return TODO: describe
+     */
     public static MultiviewResult renderFeatureEdgeMultiview(ArrayMesh mesh,
                                                              SemanticPatchDecomposer.DecompositionDiagnostics diag,
                                                              OverlayMode mode) {
         return renderFeatureEdgeMultiview(mesh, diag, mode, 1.0f);
     }
 
+    /**
+     * TODO: document {@code renderFeatureEdgeMultiview}.
+     *
+     * @param mesh TODO: describe
+     * @param diag TODO: describe
+     * @param mode TODO: describe
+     * @param zoom TODO: describe
+     * @return TODO: describe
+     */
     public static MultiviewResult renderFeatureEdgeMultiview(ArrayMesh mesh,
                                                              SemanticPatchDecomposer.DecompositionDiagnostics diag,
                                                              OverlayMode mode,
                                                              float zoom) {
-        int faceCount = mesh.copyFaceIndices().length / 3;
+        int faceCount = mesh.copyFaceIndices().length / NUM_3_2;
         int[] facePatchColor;
         boolean flat;
         int bg;
         if (mode == OverlayMode.PATCHES_VS_CREST) {
             facePatchColor = buildFlatFaceColors(faceCount, diag.decomposition());
             flat = true;
-            bg = 0x000000;
+            bg = MSC_ARC_COLOR;
         } else {
             facePatchColor = new int[faceCount];
-            Arrays.fill(facePatchColor, 0xB0B0B0);
+            Arrays.fill(facePatchColor, NUM_0xB0B0B0);
             flat = false;
             bg = BG_RGB;
         }
 
         float[] vertexNormals = computeVertexNormals(mesh);
 
-        BufferedImage composite = new BufferedImage(4 * CELL_W, 2 * CELL_H, BufferedImage.TYPE_INT_RGB);
+        BufferedImage composite = new BufferedImage(NUM_4_2 * CELL_W, 2 * CELL_H, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = composite.createGraphics();
         g.setColor(new Color(bg));
         g.fillRect(0, 0, composite.getWidth(), composite.getHeight());
-        Font labelFont = new Font(Font.SANS_SERIF, Font.BOLD, 18);
+        Font labelFont = new Font(Font.SANS_SERIF, Font.BOLD, NUM_18);
         g.setFont(labelFont);
 
-        BufferedImage[] perView = new BufferedImage[8];
-        for (int i = 0; i < 8; i++) {
+        BufferedImage[] perView = new BufferedImage[NUM_8];
+        for (int i = 0; i < NUM_8; i++) {
             BufferedImage view = renderSingleView(mesh, facePatchColor, VIEWS[i][0], VIEWS[i][1], flat, bg, zoom);
             drawFeatureEdgeOverlay(view, mesh, vertexNormals, VIEWS[i][0], VIEWS[i][1], diag, mode, zoom);
             perView[i] = view;
-            int col = i % 4;
-            int row = i / 4;
+            int col = i % NUM_4_2;
+            int row = i / NUM_4_2;
             int dx = col * CELL_W;
             int dy = row * CELL_H;
             g.drawImage(view, dx, dy, null);
-            int tx = dx + 8;
-            int ty = dy + labelFont.getSize() + 4;
-            g.setColor(new Color(0, 0, 0, 180));
+            int tx = dx + NUM_8;
+            int ty = dy + labelFont.getSize() + NUM_4_2;
+            g.setColor(new Color(0, 0, 0, NUM_180));
             g.drawString(LABELS[i], tx + 1, ty + 1);
             g.setColor(Color.WHITE);
             g.drawString(LABELS[i], tx, ty);
@@ -212,12 +314,12 @@ public final class PatchRenderer {
         int[] faceIdx = mesh.copyFaceIndices();
         float[] positions = mesh.copyPositions();
         int nv = mesh.vertexCount();
-        int faceCount = faceIdx.length / 3;
-        float[] vn = new float[nv * 3];
+        int faceCount = faceIdx.length / NUM_3_2;
+        float[] vn = new float[nv * NUM_3_2];
         for (int f = 0; f < faceCount; f++) {
-            int a = faceIdx[f * 3] * 3;
-            int b = faceIdx[f * 3 + 1] * 3;
-            int c = faceIdx[f * 3 + 2] * 3;
+            int a = faceIdx[f * NUM_3_2] * NUM_3_2;
+            int b = faceIdx[f * NUM_3_2 + 1] * NUM_3_2;
+            int c = faceIdx[f * NUM_3_2 + 2] * NUM_3_2;
             float ex = positions[b]     - positions[a];
             float ey = positions[b + 1] - positions[a + 1];
             float ez = positions[b + 2] - positions[a + 2];
@@ -227,22 +329,22 @@ public final class PatchRenderer {
             float nx = ey * gz - ez * gy;
             float ny = ez * gx - ex * gz;
             float nz = ex * gy - ey * gx;
-            for (int k = 0; k < 3; k++) {
-                int v = faceIdx[f * 3 + k];
-                vn[v * 3]     += nx;
-                vn[v * 3 + 1] += ny;
-                vn[v * 3 + 2] += nz;
+            for (int k = 0; k < NUM_3_2; k++) {
+                int v = faceIdx[f * NUM_3_2 + k];
+                vn[v * NUM_3_2]     += nx;
+                vn[v * NUM_3_2 + 1] += ny;
+                vn[v * NUM_3_2 + 2] += nz;
             }
         }
         for (int v = 0; v < nv; v++) {
-            float nx = vn[v * 3];
-            float ny = vn[v * 3 + 1];
-            float nz = vn[v * 3 + 2];
+            float nx = vn[v * NUM_3_2];
+            float ny = vn[v * NUM_3_2 + 1];
+            float nz = vn[v * NUM_3_2 + 2];
             float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-            if (len > 1e-20f) {
-                vn[v * 3]     = nx / len;
-                vn[v * 3 + 1] = ny / len;
-                vn[v * 3 + 2] = nz / len;
+            if (len > NUM_1e_20) {
+                vn[v * NUM_3_2]     = nx / len;
+                vn[v * NUM_3_2 + 1] = ny / len;
+                vn[v * NUM_3_2 + 2] = nz / len;
             }
         }
         return vn;
@@ -257,11 +359,11 @@ public final class PatchRenderer {
         // onto the exact pixels their faces just rasterized onto. Any
         // refactor to extract this must stay in lockstep.
         float[] positions = mesh.copyPositions();
-        int nv = positions.length / 3;
+        int nv = positions.length / NUM_3_2;
 
         float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
         float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
-        for (int i = 0; i < positions.length; i += 3) {
+        for (int i = 0; i < positions.length; i += NUM_3_2) {
             if (positions[i] < minX) minX = positions[i];
             if (positions[i] > maxX) maxX = positions[i];
             if (positions[i + 1] < minY) minY = positions[i + 1];
@@ -269,58 +371,58 @@ public final class PatchRenderer {
             if (positions[i + 2] < minZ) minZ = positions[i + 2];
             if (positions[i + 2] > maxZ) maxZ = positions[i + 2];
         }
-        float cx = (minX + maxX) * 0.5f;
-        float cy = (minY + maxY) * 0.5f;
-        float cz = (minZ + maxZ) * 0.5f;
-        float radius = 0.5f * (float) Math.sqrt(
+        float cx = (minX + maxX) * NUM_0_5;
+        float cy = (minY + maxY) * NUM_0_5;
+        float cz = (minZ + maxZ) * NUM_0_5;
+        float radius = NUM_0_5 * (float) Math.sqrt(
                 (maxX - minX) * (maxX - minX)
               + (maxY - minY) * (maxY - minY)
               + (maxZ - minZ) * (maxZ - minZ));
-        if (radius < 1e-6f) radius = 1f;
+        if (radius < NUM_1e_6) radius = NUM_1;
 
         float cosA = (float) Math.cos(azimuth), sinA = (float) Math.sin(azimuth);
         float cosE = (float) Math.cos(elevation), sinE = (float) Math.sin(elevation);
         float fwdX = -sinA * cosE;
         float fwdY = -sinE;
         float fwdZ = -cosA * cosE;
-        float rx = -fwdZ, ry = 0f, rz = fwdX;
+        float rx = -fwdZ, ry = NUM_0, rz = fwdX;
         float rlen = (float) Math.sqrt(rx * rx + rz * rz);
-        if (rlen > 1e-6f) { rx /= rlen; rz /= rlen; } else { rx = 1f; rz = 0f; }
+        if (rlen > NUM_1e_6) { rx /= rlen; rz /= rlen; } else { rx = NUM_1; rz = NUM_0; }
         float ux = ry * fwdZ - rz * fwdY;
         float uy = rz * fwdX - rx * fwdZ;
         float uz = rx * fwdY - ry * fwdX;
-        float scale = (CELL_W * 0.42f * zoom) / radius;
-        float originX = CELL_W * 0.5f;
-        float originY = CELL_H * 0.5f;
+        float scale = (CELL_W * NUM_0_42 * zoom) / radius;
+        float originX = CELL_W * NUM_0_5;
+        float originY = CELL_H * NUM_0_5;
 
         float[] vx = new float[nv];
         float[] vy = new float[nv];
         for (int i = 0; i < nv; i++) {
-            float dx = positions[i * 3] - cx;
-            float dy = positions[i * 3 + 1] - cy;
-            float dz = positions[i * 3 + 2] - cz;
+            float dx = positions[i * NUM_3_2] - cx;
+            float dy = positions[i * NUM_3_2 + 1] - cy;
+            float dz = positions[i * NUM_3_2 + 2] - cz;
             vx[i] = originX + scale * (dx * rx + dy * ry + dz * rz);
             vy[i] = originY - scale * (dx * ux + dy * uy + dz * uz);
         }
 
         Graphics2D g = view.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setStroke(new BasicStroke(NUM_2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
 
         if (mode == OverlayMode.MSC) {
             MorseSmaleComplex.Result msc = diag.morseSmale();
             if (msc != null) {
                 // Arcs first so dots sit on top of their endpoints.
-                g.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g.setStroke(new BasicStroke(NUM_2_2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                 g.setColor(new Color(MSC_ARC_COLOR));
                 for (MorseSmaleComplex.Arc arc : msc.arcs()) {
                     int[] verts = arc.vertices();
                     for (int i = 0; i + 1 < verts.length; i++) {
                         int arcU = verts[i];
                         int arcV = verts[i + 1];
-                        float dotU = vertexNormals[arcU * 3] * fwdX + vertexNormals[arcU * 3 + 1] * fwdY + vertexNormals[arcU * 3 + 2] * fwdZ;
-                        float dotV = vertexNormals[arcV * 3] * fwdX + vertexNormals[arcV * 3 + 1] * fwdY + vertexNormals[arcV * 3 + 2] * fwdZ;
-                        if (dotU > 0.1f && dotV > 0.1f) continue;
+                        float dotU = vertexNormals[arcU * NUM_3_2] * fwdX + vertexNormals[arcU * NUM_3_2 + 1] * fwdY + vertexNormals[arcU * NUM_3_2 + 2] * fwdZ;
+                        float dotV = vertexNormals[arcV * NUM_3_2] * fwdX + vertexNormals[arcV * NUM_3_2 + 1] * fwdY + vertexNormals[arcV * NUM_3_2 + 2] * fwdZ;
+                        if (dotU > NUM_0_1 && dotV > NUM_0_1) continue;
                         g.drawLine(Math.round(vx[arcU]), Math.round(vy[arcU]),
                                 Math.round(vx[arcV]), Math.round(vy[arcV]));
                     }
@@ -328,8 +430,8 @@ public final class PatchRenderer {
                 // Dots last. Back-face cull using vertex normal.
                 for (MorseSmaleComplex.CriticalPoint cp : msc.critical()) {
                     int cpV = cp.vertex();
-                    float cpDot = vertexNormals[cpV * 3] * fwdX + vertexNormals[cpV * 3 + 1] * fwdY + vertexNormals[cpV * 3 + 2] * fwdZ;
-                    if (cpDot > 0.2f) continue;  // back-facing
+                    float cpDot = vertexNormals[cpV * NUM_3_2] * fwdX + vertexNormals[cpV * NUM_3_2 + 1] * fwdY + vertexNormals[cpV * NUM_3_2 + 2] * fwdZ;
+                    if (cpDot > NUM_0_2) continue;  // back-facing
                     int color = switch (cp.type()) {
                         case MAX    -> MSC_MAX_DOT_COLOR;
                         case MIN    -> MSC_MIN_DOT_COLOR;
@@ -338,9 +440,9 @@ public final class PatchRenderer {
                     g.setColor(new Color(color));
                     int dotX = Math.round(vx[cpV]);
                     int dotY = Math.round(vy[cpV]);
-                    g.fillOval(dotX - 4, dotY - 4, 9, 9);
+                    g.fillOval(dotX - NUM_4_2, dotY - NUM_4_2, NUM_9, NUM_9);
                     g.setColor(Color.BLACK);
-                    g.drawOval(dotX - 4, dotY - 4, 9, 9);  // outline for contrast
+                    g.drawOval(dotX - NUM_4_2, dotY - NUM_4_2, NUM_9, NUM_9);  // outline for contrast
                 }
             }
         } else if (mode == OverlayMode.STAGES) {
@@ -386,8 +488,6 @@ public final class PatchRenderer {
         g.dispose();
     }
 
-    private enum EdgeCategory { DIHEDRAL_ONLY, PRINCIPAL_ONLY, CREST_ONLY, MULTI }
-
     private static void drawEdgeCategory(Graphics2D g, Set<Long> all,
                                          Set<Long> dih, Set<Long> prin, Set<Long> crest,
                                          EdgeCategory cat,
@@ -418,30 +518,30 @@ public final class PatchRenderer {
     private static void drawEdge(Graphics2D g, long edgeKey, int rgb,
                                  float[] vx, float[] vy, float[] vertexNormals,
                                  float fwdX, float fwdY, float fwdZ) {
-        int u = (int) (edgeKey >> 32);
-        int v = (int) (edgeKey & 0xffffffffL);
-        float nu = vertexNormals[u * 3] * fwdX + vertexNormals[u * 3 + 1] * fwdY + vertexNormals[u * 3 + 2] * fwdZ;
-        float nv = vertexNormals[v * 3] * fwdX + vertexNormals[v * 3 + 1] * fwdY + vertexNormals[v * 3 + 2] * fwdZ;
-        if (nu > 0.1f && nv > 0.1f) return;
+        int u = (int) (edgeKey >> NUM_32);
+        int v = (int) (edgeKey & NUM_0xffffffff);
+        float nu = vertexNormals[u * NUM_3_2] * fwdX + vertexNormals[u * NUM_3_2 + 1] * fwdY + vertexNormals[u * NUM_3_2 + 2] * fwdZ;
+        float nv = vertexNormals[v * NUM_3_2] * fwdX + vertexNormals[v * NUM_3_2 + 1] * fwdY + vertexNormals[v * NUM_3_2 + 2] * fwdZ;
+        if (nu > NUM_0_1 && nv > NUM_0_1) return;
         g.setColor(new Color(rgb));
         g.drawLine(Math.round(vx[u]), Math.round(vy[u]),
                    Math.round(vx[v]), Math.round(vy[v]));
     }
 
     private static void drawLegend(Graphics2D g, OverlayMode mode, Font labelFont) {
-        int y = 2 * CELL_H - 18;
-        int x = 10;
+        int y = 2 * CELL_H - NUM_18;
+        int x = NUM_10;
         g.setFont(labelFont);
         if (mode == OverlayMode.STAGES) {
             x = drawSwatch(g, x, y, EDGE_COLOR_DIHEDRAL,  "dihedral");
             x = drawSwatch(g, x, y, EDGE_COLOR_PRINCIPAL, "principal");
             x = drawSwatch(g, x, y, EDGE_COLOR_CREST,     "crest");
-            x = drawSwatch(g, x, y, EDGE_COLOR_SADDLE,    "saddle");
+            x = drawSwatch(g, x, y, EDGE_COLOR_SADDLE,    SADDLE);
             x = drawSwatch(g, x, y, EDGE_COLOR_MULTI,     "multi-source");
         } else if (mode == OverlayMode.MSC) {
             x = drawSwatch(g, x, y, MSC_MAX_DOT_COLOR,    "max");
             x = drawSwatch(g, x, y, MSC_MIN_DOT_COLOR,    "min");
-            x = drawSwatch(g, x, y, MSC_SADDLE_DOT_COLOR, "saddle");
+            x = drawSwatch(g, x, y, MSC_SADDLE_DOT_COLOR, SADDLE);
             x = drawSwatch(g, x, y, MSC_ARC_COLOR,        "integral arc");
         } else {
             x = drawSwatch(g, x, y, EDGE_COLOR_BOUNDARY_ONLY, "boundary only");
@@ -452,16 +552,16 @@ public final class PatchRenderer {
 
     private static int drawSwatch(Graphics2D g, int x, int y, int rgb, String label) {
         g.setColor(new Color(rgb));
-        g.fillRect(x, y, 14, 14);
+        g.fillRect(x, y, NUM_14, NUM_14);
         g.setColor(Color.BLACK);
-        g.drawRect(x, y, 14, 14);
+        g.drawRect(x, y, NUM_14, NUM_14);
         g.setColor(Color.WHITE);
-        g.drawString(label, x + 20, y + 12);
-        return x + 28 + g.getFontMetrics().stringWidth(label);
+        g.drawString(label, x + NUM_20, y + NUM_12);
+        return x + NUM_28 + g.getFontMetrics().stringWidth(label);
     }
 
     private static MultiviewResult renderMultiviewImpl(ArrayMesh mesh, PatchDecomposition decomposition, boolean flat, float zoom) {
-        int faceCount = mesh.copyFaceIndices().length / 3;
+        int faceCount = mesh.copyFaceIndices().length / NUM_3_2;
         int[] facePatchColor = flat
                 ? buildFlatFaceColors(faceCount, decomposition)
                 : buildFaceColors(faceCount, decomposition);
@@ -469,26 +569,26 @@ public final class PatchRenderer {
         // Flat-mode background is pure black so the VLM labeler's pixel
         // sampler never confuses a patch colour with the backdrop — no
         // HSL(h, 0.65, 0.55) colour collides with 0x000000.
-        int bg = flat ? 0x000000 : BG_RGB;
-        BufferedImage composite = new BufferedImage(4 * CELL_W, 2 * CELL_H, BufferedImage.TYPE_INT_RGB);
+        int bg = flat ? MSC_ARC_COLOR : BG_RGB;
+        BufferedImage composite = new BufferedImage(NUM_4_2 * CELL_W, 2 * CELL_H, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = composite.createGraphics();
         g.setColor(new Color(bg));
         g.fillRect(0, 0, composite.getWidth(), composite.getHeight());
-        Font labelFont = new Font(Font.SANS_SERIF, Font.BOLD, 18);
+        Font labelFont = new Font(Font.SANS_SERIF, Font.BOLD, NUM_18);
         g.setFont(labelFont);
 
-        BufferedImage[] perView = new BufferedImage[8];
-        for (int i = 0; i < 8; i++) {
+        BufferedImage[] perView = new BufferedImage[NUM_8];
+        for (int i = 0; i < NUM_8; i++) {
             BufferedImage view = renderSingleView(mesh, facePatchColor, VIEWS[i][0], VIEWS[i][1], flat, bg, zoom);
             perView[i] = view;
-            int col = i % 4;
-            int row = i / 4;
+            int col = i % NUM_4_2;
+            int row = i / NUM_4_2;
             int dx = col * CELL_W;
             int dy = row * CELL_H;
             g.drawImage(view, dx, dy, null);
-            int tx = dx + 8;
-            int ty = dy + labelFont.getSize() + 4;
-            g.setColor(new Color(0, 0, 0, 180));
+            int tx = dx + NUM_8;
+            int ty = dy + labelFont.getSize() + NUM_4_2;
+            g.setColor(new Color(0, 0, 0, NUM_180));
             g.drawString(LABELS[i], tx + 1, ty + 1);
             g.setColor(Color.WHITE);
             g.drawString(LABELS[i], tx, ty);
@@ -499,9 +599,9 @@ public final class PatchRenderer {
 
     private static int[] buildFaceColors(int faceCount, PatchDecomposition decomposition) {
         int[] out = new int[faceCount];
-        Arrays.fill(out, 0xAAAAAA);
+        Arrays.fill(out, NUM_0xAAAAAA);
         for (Patch p : decomposition.patches()) {
-            int rgb = Integer.parseInt(p.color(), 16);
+            int rgb = Integer.parseInt(p.color(), NUM_16);
             for (int f : p.faceIndices()) {
                 if (f >= 0 && f < faceCount) out[f] = rgb;
             }
@@ -511,7 +611,7 @@ public final class PatchRenderer {
 
     private static int[] buildFlatFaceColors(int faceCount, PatchDecomposition decomposition) {
         int[] out = new int[faceCount];
-        Arrays.fill(out, 0xAAAAAA);
+        Arrays.fill(out, NUM_0xAAAAAA);
         for (Patch p : decomposition.patches()) {
             int rgb = uniquePatchColor(p.id());
             for (int f : p.faceIndices()) {
@@ -529,6 +629,14 @@ public final class PatchRenderer {
      * CPU PNG diagnostic pixel-congruent with the live viewer's SCALAR
      * mode. Pass {@code scalarMin == scalarMax == NaN} to autoscale
      * from the array.
+     *
+     * @param mesh TODO: describe
+     * @param vertexScalar TODO: describe
+     * @param scalarMin TODO: describe
+     * @param scalarMax TODO: describe
+     * @param zoom TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
      */
     public static MultiviewResult renderScalarMultiview(ArrayMesh mesh, float[] vertexScalar,
                                                         float scalarMin, float scalarMax, float zoom) {
@@ -545,33 +653,33 @@ public final class PatchRenderer {
             scalarMin = lo;
             scalarMax = hi;
         }
-        float range = Math.max(scalarMax - scalarMin, 1e-6f);
+        float range = Math.max(scalarMax - scalarMin, NUM_1e_6);
         int nv = mesh.vertexCount();
         int[] vertexRgb = new int[nv];
         for (int i = 0; i < nv; i++) {
             float v = (vertexScalar[i] - scalarMin) / range;
             vertexRgb[i] = scalarRampColor(v);
         }
-        BufferedImage composite = new BufferedImage(4 * CELL_W, 2 * CELL_H, BufferedImage.TYPE_INT_RGB);
+        BufferedImage composite = new BufferedImage(NUM_4_2 * CELL_W, 2 * CELL_H, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = composite.createGraphics();
-        g.setColor(new Color(0x101018));
+        g.setColor(new Color(NUM_0x101018));
         g.fillRect(0, 0, composite.getWidth(), composite.getHeight());
-        Font labelFont = new Font(Font.SANS_SERIF, Font.BOLD, 18);
+        Font labelFont = new Font(Font.SANS_SERIF, Font.BOLD, NUM_18);
         g.setFont(labelFont);
 
-        BufferedImage[] perView = new BufferedImage[8];
-        for (int i = 0; i < 8; i++) {
+        BufferedImage[] perView = new BufferedImage[NUM_8];
+        for (int i = 0; i < NUM_8; i++) {
             BufferedImage view = renderSingleViewScalar(mesh, vertexRgb,
-                    VIEWS[i][0], VIEWS[i][1], 0x101018, zoom);
+                    VIEWS[i][0], VIEWS[i][1], NUM_0x101018, zoom);
             perView[i] = view;
-            int col = i % 4;
-            int row = i / 4;
+            int col = i % NUM_4_2;
+            int row = i / NUM_4_2;
             int dx = col * CELL_W;
             int dy = row * CELL_H;
             g.drawImage(view, dx, dy, null);
-            int tx = dx + 8;
-            int ty = dy + labelFont.getSize() + 4;
-            g.setColor(new Color(0, 0, 0, 180));
+            int tx = dx + NUM_8;
+            int ty = dy + labelFont.getSize() + NUM_4_2;
+            g.setColor(new Color(0, 0, 0, NUM_180));
             g.drawString(LABELS[i], tx + 1, ty + 1);
             g.setColor(Color.WHITE);
             g.drawString(LABELS[i], tx, ty);
@@ -584,34 +692,37 @@ public final class PatchRenderer {
      * CPU-side thermal ramp. Mirrors the four-stop palette in
      * {@code mesh_scalar.fs} so offline PNG diagnostics match the live
      * GL view pixel-for-pixel (within floating-point rounding).
+     *
+     * @param v TODO: describe
+     * @return TODO: describe
      */
     public static int scalarRampColor(float v) {
-        if (v < 0f) v = 0f; else if (v > 1f) v = 1f;
+        if (v < NUM_0) v = NUM_0; else if (v > NUM_1) v = NUM_1;
         float r, g, b;
-        float c0r = 0.05f, c0g = 0.05f, c0b = 0.20f;  // deep indigo
-        float c1r = 0.55f, c1g = 0.05f, c1b = 0.15f;  // wine
-        float c2r = 0.95f, c2g = 0.45f, c2b = 0.05f;  // orange
-        float c3r = 1.00f, c3g = 0.95f, c3b = 0.70f;  // pale yellow
-        if (v < 0.33f) {
-            float t = v / 0.33f;
+        float c0r = NUM_0_05, c0g = NUM_0_05, c0b = NUM_0_20;  // deep indigo
+        float c1r = NUM_0_55, c1g = NUM_0_05, c1b = NUM_0_15;  // wine
+        float c2r = NUM_0_95, c2g = NUM_0_45, c2b = NUM_0_05;  // orange
+        float c3r = NUM_1_00, c3g = NUM_0_95, c3b = NUM_0_70;  // pale yellow
+        if (v < NUM_0_33) {
+            float t = v / NUM_0_33;
             r = c0r + (c1r - c0r) * t;
             g = c0g + (c1g - c0g) * t;
             b = c0b + (c1b - c0b) * t;
-        } else if (v < 0.66f) {
-            float t = (v - 0.33f) / 0.33f;
+        } else if (v < NUM_0_66) {
+            float t = (v - NUM_0_33) / NUM_0_33;
             r = c1r + (c2r - c1r) * t;
             g = c1g + (c2g - c1g) * t;
             b = c1b + (c2b - c1b) * t;
         } else {
-            float t = (v - 0.66f) / 0.34f;
+            float t = (v - NUM_0_66) / NUM_0_34;
             r = c2r + (c3r - c2r) * t;
             g = c2g + (c3g - c2g) * t;
             b = c2b + (c3b - c2b) * t;
         }
-        int ri = Math.round(r * 255f);
-        int gi = Math.round(g * 255f);
-        int bi = Math.round(b * 255f);
-        return (ri << 16) | (gi << 8) | bi;
+        int ri = Math.round(r * NUM_255);
+        int gi = Math.round(g * NUM_255);
+        int bi = Math.round(b * NUM_255);
+        return (ri << NUM_16) | (gi << NUM_8) | bi;
     }
 
     private static BufferedImage renderSingleViewScalar(ArrayMesh mesh, int[] vertexRgb,
@@ -619,12 +730,12 @@ public final class PatchRenderer {
                                                         int bg, float zoom) {
         float[] positions = mesh.copyPositions();
         int[] faceIdx = mesh.copyFaceIndices();
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3_2;
 
         // Centered bounding sphere.
         float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
         float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
-        for (int i = 0; i < positions.length; i += 3) {
+        for (int i = 0; i < positions.length; i += NUM_3_2) {
             if (positions[i] < minX) minX = positions[i];
             if (positions[i] > maxX) maxX = positions[i];
             if (positions[i + 1] < minY) minY = positions[i + 1];
@@ -632,38 +743,38 @@ public final class PatchRenderer {
             if (positions[i + 2] < minZ) minZ = positions[i + 2];
             if (positions[i + 2] > maxZ) maxZ = positions[i + 2];
         }
-        float cx = (minX + maxX) * 0.5f;
-        float cy = (minY + maxY) * 0.5f;
-        float cz = (minZ + maxZ) * 0.5f;
-        float radius = 0.5f * (float) Math.sqrt(
+        float cx = (minX + maxX) * NUM_0_5;
+        float cy = (minY + maxY) * NUM_0_5;
+        float cz = (minZ + maxZ) * NUM_0_5;
+        float radius = NUM_0_5 * (float) Math.sqrt(
                 (maxX - minX) * (maxX - minX)
               + (maxY - minY) * (maxY - minY)
               + (maxZ - minZ) * (maxZ - minZ));
-        if (radius < 1e-6f) radius = 1f;
+        if (radius < NUM_1e_6) radius = NUM_1;
 
         float cosA = (float) Math.cos(azimuth), sinA = (float) Math.sin(azimuth);
         float cosE = (float) Math.cos(elevation), sinE = (float) Math.sin(elevation);
         float fwdX = -sinA * cosE;
         float fwdY = -sinE;
         float fwdZ = -cosA * cosE;
-        float rx = -fwdZ, ry = 0f, rz = fwdX;
+        float rx = -fwdZ, ry = NUM_0, rz = fwdX;
         float rlen = (float) Math.sqrt(rx * rx + rz * rz);
-        if (rlen > 1e-6f) { rx /= rlen; rz /= rlen; } else { rx = 1f; rz = 0f; }
+        if (rlen > NUM_1e_6) { rx /= rlen; rz /= rlen; } else { rx = NUM_1; rz = NUM_0; }
         float ux = ry * fwdZ - rz * fwdY;
         float uy = rz * fwdX - rx * fwdZ;
         float uz = rx * fwdY - ry * fwdX;
-        float scale = (CELL_W * 0.42f * zoom) / radius;
-        float originX = CELL_W * 0.5f;
-        float originY = CELL_H * 0.5f;
+        float scale = (CELL_W * NUM_0_42 * zoom) / radius;
+        float originX = CELL_W * NUM_0_5;
+        float originY = CELL_H * NUM_0_5;
 
-        int nv = positions.length / 3;
+        int nv = positions.length / NUM_3_2;
         float[] vx = new float[nv];
         float[] vy = new float[nv];
         float[] vz = new float[nv];
         for (int i = 0; i < nv; i++) {
-            float dx = positions[i * 3] - cx;
-            float dy = positions[i * 3 + 1] - cy;
-            float dz = positions[i * 3 + 2] - cz;
+            float dx = positions[i * NUM_3_2] - cx;
+            float dy = positions[i * NUM_3_2 + 1] - cy;
+            float dz = positions[i * NUM_3_2 + 2] - cz;
             vx[i] = originX + scale * (dx * rx + dy * ry + dz * rz);
             vy[i] = originY - scale * (dx * ux + dy * uy + dz * uz);
             vz[i] = dx * fwdX + dy * fwdY + dz * fwdZ;
@@ -675,9 +786,9 @@ public final class PatchRenderer {
         Arrays.fill(depth, Float.POSITIVE_INFINITY);
 
         for (int f = 0; f < faceCount; f++) {
-            int a = faceIdx[f * 3];
-            int b = faceIdx[f * 3 + 1];
-            int c = faceIdx[f * 3 + 2];
+            int a = faceIdx[f * NUM_3_2];
+            int b = faceIdx[f * NUM_3_2 + 1];
+            int c = faceIdx[f * NUM_3_2 + 2];
             drawTriangleGouraud(pixels, depth,
                     vx[a], vy[a], vz[a], vertexRgb[a],
                     vx[b], vy[b], vz[b], vertexRgb[b],
@@ -693,7 +804,24 @@ public final class PatchRenderer {
         return img;
     }
 
-    /** Per-pixel barycentric color blend over a triangle — cheaper than a full shader dispatch. */
+    /**
+     * Per-pixel barycentric color blend over a triangle — cheaper than a full shader dispatch.
+     *
+     * @param pixels TODO: describe
+     * @param depth TODO: describe
+     * @param ax TODO: describe
+     * @param ay TODO: describe
+     * @param az TODO: describe
+     * @param ca TODO: describe
+     * @param bx TODO: describe
+     * @param by TODO: describe
+     * @param bz TODO: describe
+     * @param cb TODO: describe
+     * @param cxp TODO: describe
+     * @param cyp TODO: describe
+     * @param cz TODO: describe
+     * @param cc TODO: describe
+     */
     private static void drawTriangleGouraud(int[] pixels, float[] depth,
                                             float ax, float ay, float az, int ca,
                                             float bx, float by, float bz, int cb,
@@ -708,19 +836,19 @@ public final class PatchRenderer {
         int iy1 = Math.min(CELL_H - 1, (int) Math.ceil(maxY));
         if (ix0 > ix1 || iy0 > iy1) return;
         float denom = (by - cyp) * (ax - cxp) + (cxp - bx) * (ay - cyp);
-        if (Math.abs(denom) < 1e-8f) return;
-        float invDenom = 1f / denom;
-        int ra = (ca >> 16) & 0xff, ga = (ca >> 8) & 0xff, ba = ca & 0xff;
-        int rb = (cb >> 16) & 0xff, gb = (cb >> 8) & 0xff, bb = cb & 0xff;
-        int rc = (cc >> 16) & 0xff, gc = (cc >> 8) & 0xff, bc = cc & 0xff;
+        if (Math.abs(denom) < NUM_1e_8) return;
+        float invDenom = NUM_1 / denom;
+        int ra = (ca >> NUM_16) & NUM_0xf, ga = (ca >> NUM_8) & NUM_0xf, ba = ca & NUM_0xf;
+        int rb = (cb >> NUM_16) & NUM_0xf, gb = (cb >> NUM_8) & NUM_0xf, bb = cb & NUM_0xf;
+        int rc = (cc >> NUM_16) & NUM_0xf, gc = (cc >> NUM_8) & NUM_0xf, bc = cc & NUM_0xf;
         for (int y = iy0; y <= iy1; y++) {
             for (int x = ix0; x <= ix1; x++) {
-                float px = x + 0.5f;
-                float py = y + 0.5f;
+                float px = x + NUM_0_5;
+                float py = y + NUM_0_5;
                 float w1 = ((by - cyp) * (px - cxp) + (cxp - bx) * (py - cyp)) * invDenom;
                 float w2 = ((cyp - ay) * (px - cxp) + (ax - cxp) * (py - cyp)) * invDenom;
-                float w3 = 1f - w1 - w2;
-                if (w1 < 0f || w2 < 0f || w3 < 0f) continue;
+                float w3 = NUM_1 - w1 - w2;
+                if (w1 < NUM_0 || w2 < NUM_0 || w3 < NUM_0) continue;
                 float z = w1 * az + w2 * bz + w3 * cz;
                 int idx = y * CELL_W + x;
                 if (z < depth[idx]) {
@@ -728,7 +856,7 @@ public final class PatchRenderer {
                     int r = Math.round(w1 * ra + w2 * rb + w3 * rc);
                     int g = Math.round(w1 * ga + w2 * gb + w3 * gc);
                     int bl = Math.round(w1 * ba + w2 * bb + w3 * bc);
-                    pixels[idx] = (r << 16) | (g << 8) | bl;
+                    pixels[idx] = (r << NUM_16) | (g << NUM_8) | bl;
                 }
             }
         }
@@ -739,12 +867,12 @@ public final class PatchRenderer {
                                                   boolean flat, int bg, float zoom) {
         float[] positions = mesh.copyPositions();
         int[] faceIdx = mesh.copyFaceIndices();
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3_2;
 
         // Centered bounding sphere.
         float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
         float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
-        for (int i = 0; i < positions.length; i += 3) {
+        for (int i = 0; i < positions.length; i += NUM_3_2) {
             if (positions[i] < minX) minX = positions[i];
             if (positions[i] > maxX) maxX = positions[i];
             if (positions[i + 1] < minY) minY = positions[i + 1];
@@ -752,14 +880,14 @@ public final class PatchRenderer {
             if (positions[i + 2] < minZ) minZ = positions[i + 2];
             if (positions[i + 2] > maxZ) maxZ = positions[i + 2];
         }
-        float cx = (minX + maxX) * 0.5f;
-        float cy = (minY + maxY) * 0.5f;
-        float cz = (minZ + maxZ) * 0.5f;
-        float radius = 0.5f * (float) Math.sqrt(
+        float cx = (minX + maxX) * NUM_0_5;
+        float cy = (minY + maxY) * NUM_0_5;
+        float cz = (minZ + maxZ) * NUM_0_5;
+        float radius = NUM_0_5 * (float) Math.sqrt(
                 (maxX - minX) * (maxX - minX)
               + (maxY - minY) * (maxY - minY)
               + (maxZ - minZ) * (maxZ - minZ));
-        if (radius < 1e-6f) radius = 1f;
+        if (radius < NUM_1e_6) radius = NUM_1;
 
         // Camera basis vectors. Azimuth rotates around Y-up; elevation around the
         // azimuth-rotated X.
@@ -771,14 +899,14 @@ public final class PatchRenderer {
         float fwdZ = -cosA * cosE;
         // right = cross(forward, worldUp)
         float rx = -fwdZ;
-        float ry = 0f;
+        float ry = NUM_0;
         float rz = fwdX;
         float rlen = (float) Math.sqrt(rx * rx + rz * rz);
-        if (rlen > 1e-6f) {
+        if (rlen > NUM_1e_6) {
             rx /= rlen;
             rz /= rlen;
         } else {
-            rx = 1f; rz = 0f;
+            rx = NUM_1; rz = NUM_0;
         }
         // up = cross(right, forward)
         float ux = ry * fwdZ - rz * fwdY;
@@ -786,9 +914,9 @@ public final class PatchRenderer {
         float uz = rx * fwdY - ry * fwdX;
 
         // Orthographic projection: world point P → (dot(P-c, right), dot(P-c, up), dot(P-c, forward))
-        float scale = (CELL_W * 0.42f * zoom) / radius;
-        float originX = CELL_W * 0.5f;
-        float originY = CELL_H * 0.5f;
+        float scale = (CELL_W * NUM_0_42 * zoom) / radius;
+        float originX = CELL_W * NUM_0_5;
+        float originY = CELL_H * NUM_0_5;
 
         int[] pixels = new int[CELL_W * CELL_H];
         float[] depth = new float[CELL_W * CELL_H];
@@ -796,14 +924,14 @@ public final class PatchRenderer {
         Arrays.fill(depth, Float.POSITIVE_INFINITY);
 
         // Project vertices once.
-        int nv = positions.length / 3;
+        int nv = positions.length / NUM_3_2;
         float[] vx = new float[nv];
         float[] vy = new float[nv];
         float[] vz = new float[nv];
         for (int i = 0; i < nv; i++) {
-            float dx = positions[i * 3] - cx;
-            float dy = positions[i * 3 + 1] - cy;
-            float dz = positions[i * 3 + 2] - cz;
+            float dx = positions[i * NUM_3_2] - cx;
+            float dy = positions[i * NUM_3_2 + 1] - cy;
+            float dz = positions[i * NUM_3_2 + 2] - cz;
             vx[i] = originX + scale * (dx * rx + dy * ry + dz * rz);
             vy[i] = originY - scale * (dx * ux + dy * uy + dz * uz);
             vz[i] = dx * fwdX + dy * fwdY + dz * fwdZ;  // depth (smaller = closer)
@@ -811,20 +939,20 @@ public final class PatchRenderer {
 
         // Rasterize each triangle, flat shaded by face normal · light.
         for (int f = 0; f < faceCount; f++) {
-            int a = faceIdx[f * 3];
-            int b = faceIdx[f * 3 + 1];
-            int c = faceIdx[f * 3 + 2];
-            float ex = positions[b * 3] - positions[a * 3];
-            float ey = positions[b * 3 + 1] - positions[a * 3 + 1];
-            float ez = positions[b * 3 + 2] - positions[a * 3 + 2];
-            float gx = positions[c * 3] - positions[a * 3];
-            float gy = positions[c * 3 + 1] - positions[a * 3 + 1];
-            float gz = positions[c * 3 + 2] - positions[a * 3 + 2];
+            int a = faceIdx[f * NUM_3_2];
+            int b = faceIdx[f * NUM_3_2 + 1];
+            int c = faceIdx[f * NUM_3_2 + 2];
+            float ex = positions[b * NUM_3_2] - positions[a * NUM_3_2];
+            float ey = positions[b * NUM_3_2 + 1] - positions[a * NUM_3_2 + 1];
+            float ez = positions[b * NUM_3_2 + 2] - positions[a * NUM_3_2 + 2];
+            float gx = positions[c * NUM_3_2] - positions[a * NUM_3_2];
+            float gy = positions[c * NUM_3_2 + 1] - positions[a * NUM_3_2 + 1];
+            float gz = positions[c * NUM_3_2 + 2] - positions[a * NUM_3_2 + 2];
             float nx = ey * gz - ez * gy;
             float ny = ez * gx - ex * gz;
             float nz = ex * gy - ey * gx;
             float nlen = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-            if (nlen < 1e-20f) continue;
+            if (nlen < NUM_1e_20) continue;
             nx /= nlen; ny /= nlen; nz /= nlen;
             int base = facePatchColor[f];
             int shaded;
@@ -832,7 +960,7 @@ public final class PatchRenderer {
                 shaded = base;  // no Lambert — each face writes its exact patch colour
             } else {
                 float lambert = nx * LIGHT_DIR[0] + ny * LIGHT_DIR[1] + nz * LIGHT_DIR[2];
-                lambert = 0.5f + 0.5f * Math.abs(lambert);
+                lambert = NUM_0_5 + NUM_0_5 * Math.abs(lambert);
                 shaded = shade(base, lambert);
             }
 
@@ -853,14 +981,14 @@ public final class PatchRenderer {
     }
 
     private static int shade(int rgb, float lambert) {
-        int r = (rgb >> 16) & 0xff;
-        int g = (rgb >> 8) & 0xff;
-        int b = rgb & 0xff;
-        lambert = Math.max(0.35f, Math.min(1.0f, lambert));
+        int r = (rgb >> NUM_16) & NUM_0xf;
+        int g = (rgb >> NUM_8) & NUM_0xf;
+        int b = rgb & NUM_0xf;
+        lambert = Math.max(NUM_0_35, Math.min(1.0f, lambert));
         r = Math.round(r * lambert);
         g = Math.round(g * lambert);
         b = Math.round(b * lambert);
-        return (r << 16) | (g << 8) | b;
+        return (r << NUM_16) | (g << NUM_8) | b;
     }
 
     private static void drawTriangle(int[] pixels, float[] depth,
@@ -879,17 +1007,17 @@ public final class PatchRenderer {
         if (ix0 > ix1 || iy0 > iy1) return;
 
         float denom = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
-        if (Math.abs(denom) < 1e-8f) return;
-        float invDenom = 1f / denom;
+        if (Math.abs(denom) < NUM_1e_8) return;
+        float invDenom = NUM_1 / denom;
 
         for (int y = iy0; y <= iy1; y++) {
             for (int x = ix0; x <= ix1; x++) {
-                float px = x + 0.5f;
-                float py = y + 0.5f;
+                float px = x + NUM_0_5;
+                float py = y + NUM_0_5;
                 float w1 = ((by - cy) * (px - cx) + (cx - bx) * (py - cy)) * invDenom;
                 float w2 = ((cy - ay) * (px - cx) + (ax - cx) * (py - cy)) * invDenom;
-                float w3 = 1f - w1 - w2;
-                if (w1 < 0f || w2 < 0f || w3 < 0f) continue;
+                float w3 = NUM_1 - w1 - w2;
+                if (w1 < NUM_0 || w2 < NUM_0 || w3 < NUM_0) continue;
                 float z = w1 * az + w2 * bz + w3 * cz;
                 int idx = y * CELL_W + x;
                 if (z < depth[idx]) {
@@ -899,4 +1027,26 @@ public final class PatchRenderer {
             }
         }
     }
+
+    /**
+     * Composite plus the 8 individual per-view renders. Emitting the per-view
+     * images lets a caller read a specific view (e.g. Right) at native CELL_W
+     * × CELL_H without the 4-way horizontal compression of the composite,
+     * which matters when looking for fine detail like individual teeth.
+     */
+    public record MultiviewResult(BufferedImage composite, BufferedImage[] perView, String[] labels) {}
+
+    /**
+     * Feature-edge overlay diagnostic modes. {@link #STAGES} renders a
+     * grey Lambert-shaded mesh and overlays each per-source edge set in a
+     * distinct color, so you can see where dihedral / principal / crest
+     * each fire (or don't). {@link #PATCHES_VS_CREST} renders the flat
+     * patch decomposition and overlays crest edges vs. actual patch
+     * boundaries in three categories (crest only / boundary only / both),
+     * so you can see at a glance which crest signals were honored and
+     * which were overridden downstream.
+     */
+    public enum OverlayMode { STAGES, PATCHES_VS_CREST, MSC }
+
+    private enum EdgeCategory { DIHEDRAL_ONLY, PRINCIPAL_ONLY, CREST_ONLY, MULTI }
 }

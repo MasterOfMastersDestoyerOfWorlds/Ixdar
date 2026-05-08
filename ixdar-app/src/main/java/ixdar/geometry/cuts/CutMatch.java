@@ -10,24 +10,32 @@ import ixdar.geometry.knot.Segment;
 import ixdar.geometry.shell.Shell;
 
 public class CutMatch {
+    public static final String N = " \n";
     public ArrayList<Segment> cutSegments;
     public ArrayList<Segment> matchSegments;
     public Knot knot;
+    public double delta;
+    public Segment kpSegment;
+    public SegmentBalanceException sbe;
+    public CutInfo c;
     Knot kp1;
     Knot kp2;
     CutMatch diff;
-    public double delta;
     double deltaInternal;
     Knot superKnot;
-    public Segment kpSegment;
     Shell shell;
-    public SegmentBalanceException sbe;
 
     Segment[] originalCutSegments;
     Segment[] originalMatchSegments;
-    public CutInfo c;
     String cutType;
 
+    /**
+     * TODO: document {@code CutMatch}.
+     *
+     * @param cutType TODO: describe
+     * @param shell TODO: describe
+     * @param sbe TODO: describe
+     */
     public CutMatch(String cutType, Shell shell, SegmentBalanceException sbe) {
         cutSegments = new ArrayList<>();
         matchSegments = new ArrayList<>();
@@ -36,6 +44,9 @@ public class CutMatch {
         this.cutType = cutType;
     }
 
+    /**
+     * TODO: document {@code updateDelta}.
+     */
     public void updateDelta() {
         deltaInternal = 0;
         if (superKnot != null) {
@@ -61,6 +72,12 @@ public class CutMatch {
 
     }
 
+    /**
+     * TODO: document {@code checkValid}.
+     *
+     * @throws SegmentBalanceException TODO: describe
+     * @throws InvalidCutException TODO: describe
+     */
     public void checkValid() throws SegmentBalanceException {
         for (Segment s : cutSegments) {
             if (matchSegments.contains(s)) {
@@ -106,6 +123,11 @@ public class CutMatch {
         }
     }
 
+    /**
+     * TODO: document {@code toString}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String toString() {
         String id = "-1";
@@ -113,21 +135,26 @@ public class CutMatch {
             id = c.cutID + "";
         }
         String str = "CM[\n" +
-                "cutSegments: " + cutSegments + " \n" +
-                "matchSegments: " + matchSegments + " \n" +
-                "knot: " + knot + " \n" +
-                "super: " + superKnot + " \n" +
-                "diff: " + diff + " \n" +
-                "kpSegment: " + kpSegment + " \n" +
-                "delta: " + delta + " \n" +
-                "original cuts: " + Utils.printArray(originalCutSegments) + " \n" +
-                "original matches: " + Utils.printArray(originalMatchSegments) + " \n" +
-                "Cut ID:" + id + " \n" +
+                "cutSegments: " + cutSegments + N +
+                "matchSegments: " + matchSegments + N +
+                "knot: " + knot + N +
+                "super: " + superKnot + N +
+                "diff: " + diff + N +
+                "kpSegment: " + kpSegment + N +
+                "delta: " + delta + N +
+                "original cuts: " + Utils.printArray(originalCutSegments) + N +
+                "original matches: " + Utils.printArray(originalMatchSegments) + N +
+                "Cut ID:" + id + N +
                 "Cut Type: " + cutType + " \n]";
         return str;
 
     }
 
+    /**
+     * TODO: document {@code copy}.
+     *
+     * @return TODO: describe
+     */
     public CutMatch copy() {
         CutMatch copy = new CutMatch(cutType, shell, sbe);
         copy.knot = knot;

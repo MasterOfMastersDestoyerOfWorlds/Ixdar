@@ -13,6 +13,14 @@ import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
  * {@link HalfEdgeMeshRuntime} so the mesh follows the player without per-frame mesh rebuild.
  */
 public final class DebugCapsuleRuntime {
+    public static final float NUM_0_8 = 0.8f;
+    public static final float NUM_0_45 = 0.45f;
+    public static final float NUM_0_2 = 0.2f;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_1e_6 = 1e-6f;
+    public static final int NUM_3 = 3;
+    public static final float NUM_0 = 0f;
+    public static final double NUM_2_0 = 2.0;
 
     private static final int LON = 16;
     private static final int LAT = 6;
@@ -22,14 +30,24 @@ public final class DebugCapsuleRuntime {
     private float builtRadius = -1f;
     private float builtHalfHeight = -1f;
 
+    /**
+     * TODO: document {@code DebugCapsuleRuntime}.
+     *
+     * @throws Exception TODO: describe
+     */
     public DebugCapsuleRuntime() throws Exception {
         this.runtime = new HalfEdgeMeshRuntime();
-        this.runtime.setSolidColor(0.8f, 0.45f, 0.2f, 1f);
+        this.runtime.setSolidColor(NUM_0_8, NUM_0_45, NUM_0_2, NUM_1);
     }
 
-    /** Build (or rebuild) the capsule mesh at the given dimensions. Cheap; safe to call once. */
+    /**
+     * Build (or rebuild) the capsule mesh at the given dimensions. Cheap; safe to call once.
+     *
+     * @param radius TODO: describe
+     * @param halfHeight TODO: describe
+     */
     public void buildIfNeeded(float radius, float halfHeight) {
-        if (Math.abs(radius - builtRadius) < 1e-6f && Math.abs(halfHeight - builtHalfHeight) < 1e-6f) {
+        if (Math.abs(radius - builtRadius) < NUM_1e_6 && Math.abs(halfHeight - builtHalfHeight) < NUM_1e_6) {
             return;
         }
         ArrayMesh mesh = buildCapsuleMesh(radius, halfHeight);
@@ -39,6 +57,17 @@ public final class DebugCapsuleRuntime {
         builtHalfHeight = halfHeight;
     }
 
+    /**
+     * TODO: document {@code render}.
+     *
+     * @param camera TODO: describe
+     * @param px TODO: describe
+     * @param py TODO: describe
+     * @param pz TODO: describe
+     * @param yawRadians TODO: describe
+     * @param radius TODO: describe
+     * @param halfHeight TODO: describe
+     */
     public void render(Camera3D camera, float px, float py, float pz, float yawRadians,
                         float radius, float halfHeight) {
         buildIfNeeded(radius, halfHeight);
@@ -49,6 +78,9 @@ public final class DebugCapsuleRuntime {
         runtime.render(camera);
     }
 
+    /**
+     * TODO: document {@code dispose}.
+     */
     public void dispose() {
         runtime.dispose();
     }
@@ -60,46 +92,46 @@ public final class DebugCapsuleRuntime {
         //   1+LAT*LON .. 2*LAT*LON     : bottom hemisphere rings 0..LAT-1, each LON verts
         //   1+2*LAT*LON                : bottom pole      (0, -h-r, 0)
         int vertCount = 2 + 2 * LAT * LON;
-        float[] positions = new float[vertCount * 3];
+        float[] positions = new float[vertCount * NUM_3];
 
         int topPole = 0;
-        positions[topPole * 3 + 0] = 0f;
-        positions[topPole * 3 + 1] = h + r;
-        positions[topPole * 3 + 2] = 0f;
+        positions[topPole * NUM_3 + 0] = NUM_0;
+        positions[topPole * NUM_3 + 1] = h + r;
+        positions[topPole * NUM_3 + 2] = NUM_0;
 
         int topRingBase = 1;          // ring 1 starts here; ring i starts at topRingBase + (i-1)*LON
         int bottomRingBase = 1 + LAT * LON;  // bottom ring 0 starts here; ring i at bottomRingBase + i*LON
         int bottomPole = 1 + 2 * LAT * LON;
-        positions[bottomPole * 3 + 0] = 0f;
-        positions[bottomPole * 3 + 1] = -h - r;
-        positions[bottomPole * 3 + 2] = 0f;
+        positions[bottomPole * NUM_3 + 0] = NUM_0;
+        positions[bottomPole * NUM_3 + 1] = -h - r;
+        positions[bottomPole * NUM_3 + 2] = NUM_0;
 
         // Top hemisphere rings: theta from PI/(2*LAT) (just below pole) to PI/2 (cylinder top, inclusive).
         for (int i = 1; i <= LAT; i++) {
-            float theta = (float) (i * Math.PI / (2.0 * LAT));
+            float theta = (float) (i * Math.PI / (NUM_2_0 * LAT));
             float ringR = r * (float) Math.sin(theta);
             float ringY = h + r * (float) Math.cos(theta);
             int base = topRingBase + (i - 1) * LON;
             for (int j = 0; j < LON; j++) {
-                float phi = (float) (j * 2.0 * Math.PI / LON);
+                float phi = (float) (j * NUM_2_0 * Math.PI / LON);
                 int v = base + j;
-                positions[v * 3 + 0] = ringR * (float) Math.cos(phi);
-                positions[v * 3 + 1] = ringY;
-                positions[v * 3 + 2] = ringR * (float) Math.sin(phi);
+                positions[v * NUM_3 + 0] = ringR * (float) Math.cos(phi);
+                positions[v * NUM_3 + 1] = ringY;
+                positions[v * NUM_3 + 2] = ringR * (float) Math.sin(phi);
             }
         }
         // Bottom hemisphere rings: phi from 0 (cylinder bottom) up to (LAT-1)*PI/(2*LAT) (one before pole).
         for (int i = 0; i < LAT; i++) {
-            float phiLat = (float) (i * Math.PI / (2.0 * LAT));
+            float phiLat = (float) (i * Math.PI / (NUM_2_0 * LAT));
             float ringR = r * (float) Math.cos(phiLat);
             float ringY = -h - r * (float) Math.sin(phiLat);
             int base = bottomRingBase + i * LON;
             for (int j = 0; j < LON; j++) {
-                float lon = (float) (j * 2.0 * Math.PI / LON);
+                float lon = (float) (j * NUM_2_0 * Math.PI / LON);
                 int v = base + j;
-                positions[v * 3 + 0] = ringR * (float) Math.cos(lon);
-                positions[v * 3 + 1] = ringY;
-                positions[v * 3 + 2] = ringR * (float) Math.sin(lon);
+                positions[v * NUM_3 + 0] = ringR * (float) Math.cos(lon);
+                positions[v * NUM_3 + 1] = ringY;
+                positions[v * NUM_3 + 2] = ringR * (float) Math.sin(lon);
             }
         }
 
@@ -111,7 +143,7 @@ public final class DebugCapsuleRuntime {
         //   bottom hemisphere body              : (LAT-1) * 2 * LON
         //   bottom cap (ring LAT-1 + pole)      : LON
         int triCount = LON + (LAT - 1) * 2 * LON + 2 * LON + (LAT - 1) * 2 * LON + LON;
-        int[] indices = new int[triCount * 3];
+        int[] indices = new int[triCount * NUM_3];
         int cursor = 0;
 
         // Top cap: pole, ring1[j], ring1[j+1]
@@ -176,6 +208,6 @@ public final class DebugCapsuleRuntime {
             indices[cursor++] = botLastRing + j;
         }
 
-        return new ArrayMesh(positions, null, indices, 3);
+        return new ArrayMesh(positions, null, indices, NUM_3);
     }
 }

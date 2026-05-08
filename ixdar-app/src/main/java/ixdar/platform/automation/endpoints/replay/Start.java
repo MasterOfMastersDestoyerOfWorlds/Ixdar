@@ -12,21 +12,31 @@ import ixdar.platform.automation.AutomationReplayEngine;
 
 @AutomationRouteAnnotation(path = "replay/start", method = APIMethod.POST)
 public class Start extends AutomationEndpoint implements AutomationRoute {
+    public static final String FILE = "file";
+    public static final String MODE = "mode";
+    public static final String OK = "ok";
+    /**
+     * TODO: document {@code endpointHandler}.
+     *
+     * @param body TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
-            String file = body.has("file") ? body.get("file").getAsString() : "";
-            String mode = body.has("mode") ? body.get("mode").getAsString() : "abstract";
+            String file = body.has(FILE) ? body.get(FILE).getAsString() : "";
+            String mode = body.has(MODE) ? body.get(MODE).getAsString() : "abstract";
             AutomationReplayEngine.ReplayMode replayMode = "raw".equalsIgnoreCase(mode)
                     ? AutomationReplayEngine.ReplayMode.RAW
                     : AutomationReplayEngine.ReplayMode.ABSTRACT;
             boolean started = runtime.replayEngine().startReplay(file, replayMode);
             JsonObject result = new JsonObject();
-            result.addProperty("ok", started);
-            result.addProperty("mode", replayMode.name().toLowerCase());
+            result.addProperty(OK, started);
+            result.addProperty(MODE, replayMode.name().toLowerCase());
             return result;
         } catch (Exception e) {
             JsonObject err = new JsonObject();
-            err.addProperty("ok", false);
+            err.addProperty(OK, false);
             err.addProperty("error", e.getMessage());
             return err;
         }

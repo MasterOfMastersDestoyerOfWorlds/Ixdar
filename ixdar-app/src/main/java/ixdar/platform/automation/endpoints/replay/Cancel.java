@@ -11,6 +11,13 @@ import ixdar.platform.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "replay/cancel", method = APIMethod.POST)
 public class Cancel extends AutomationEndpoint implements AutomationRoute {
+    /**
+     * TODO: document {@code endpointHandler}.
+     *
+     * @param body TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject result = new JsonObject();
         runtime.replayEngine().cancel();

@@ -9,6 +9,11 @@ package ixdar.procgen.dungeon.values;
  */
 public record TileGridValue(int width, int height, CellType[] cells) {
 
+    /**
+     * TODO: document {@code TileGridValue}.
+     *
+     * @throws IllegalArgumentException TODO: describe
+     */
     public TileGridValue {
         if (width < 0 || height < 0) {
             throw new IllegalArgumentException("width and height must be non-negative");

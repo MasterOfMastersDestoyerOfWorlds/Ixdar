@@ -12,36 +12,49 @@ import ixdar.platform.input.KeyGuy;
 
 @AutomationRouteAnnotation(path = "input/key", method = APIMethod.POST)
 public class InjectKey extends AutomationEndpoint implements AutomationRoute {
+    public static final String KEY = "key";
+    public static final String ACTION = "action";
+    public static final String MODS = "mods";
+    public static final String SCANCODE = "scancode";
+    public static final String OK = "ok";
+    public static final String ERROR = "error";
+    /**
+     * TODO: document {@code endpointHandler}.
+     *
+     * @param body TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
-        int key = body.has("key") ? body.get("key").getAsInt() : 0;
-        int action = body.has("action") ? body.get("action").getAsInt() : 1;
-        int mods = body.has("mods") ? body.get("mods").getAsInt() : 0;
-        int scancode = body.has("scancode")
-                ? body.get("scancode").getAsInt()
+        int key = body.has(KEY) ? body.get(KEY).getAsInt() : 0;
+        int action = body.has(ACTION) ? body.get(ACTION).getAsInt() : 1;
+        int mods = body.has(MODS) ? body.get(MODS).getAsInt() : 0;
+        int scancode = body.has(SCANCODE)
+                ? body.get(SCANCODE).getAsInt()
                 : 0;
         try {
             return runtime.runOnMainThread(() -> {
                 KeyGuy keys = runtime.activeKeys();
                 JsonObject result = new JsonObject();
                 if (keys == null) {
-                    result.addProperty("ok", false);
-                    result.addProperty("error", "No active key handler");
+                    result.addProperty(OK, false);
+                    result.addProperty(ERROR, "No active key handler");
                     return result;
                 }
                 keys.keyCallback(0L, key, scancode, action, mods);
                 JsonObject payload = new JsonObject();
-                payload.addProperty("key", key);
-                payload.addProperty("action", action);
-                payload.addProperty("mods", mods);
-                payload.addProperty("scancode", scancode);
-                runtime.recorder.recordAbstract("key", payload);
-                result.addProperty("ok", true);
+                payload.addProperty(KEY, key);
+                payload.addProperty(ACTION, action);
+                payload.addProperty(MODS, mods);
+                payload.addProperty(SCANCODE, scancode);
+                runtime.recorder.recordAbstract(KEY, payload);
+                result.addProperty(OK, true);
                 return result;
             });
         } catch (Exception e) {
             JsonObject error = new JsonObject();
-            error.addProperty("ok", false);
-            error.addProperty("error", e.getMessage());
+            error.addProperty(OK, false);
+            error.addProperty(ERROR, e.getMessage());
             return error;
         }
     }

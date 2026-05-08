@@ -15,11 +15,15 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "capture_attribute")
 public class CaptureAttributeNode implements MeshNode {
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String NAME_2 = "name";
+    public static final String ATTR = "attr";
+    public static final String VALUE_2 = "value";
 
-    private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort NAME = new InputPort("name", PortType.STRING, "attr");
-    private static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.0f, -1000f, 1000f);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort NAME = new InputPort(NAME_2, PortType.STRING, ATTR);
+    private static final InputPort VALUE = new InputPort(VALUE_2, PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -29,9 +33,9 @@ public class CaptureAttributeNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "geometry", "Input/output bundle. The output carries a new slot named `name` holding `value`.",
-                "name", "Slot key (string) under which to store the attribute.",
-                "value", "Float scalar or FloatField to store. Downstream nodes read via this same name."
+                GEOMETRY_2, "Input/output bundle. The output carries a new slot named `name` holding `value`.",
+                NAME_2, "Slot key (string) under which to store the attribute.",
+                VALUE_2, "Float scalar or FloatField to store. Downstream nodes read via this same name."
         );
     }
 
@@ -47,18 +51,18 @@ public class CaptureAttributeNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
-        String name = ctx.getInput("name", String.class);
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
+        String name = ctx.getInput(NAME_2, String.class);
         if (name == null || name.isBlank()) {
-            name = "attr";
+            name = ATTR;
         }
-        Object vo = FieldBroadcast.getInputOrDefault(ctx, "value", VALUE.defaultValue());
+        Object vo = FieldBroadcast.getInputOrDefault(ctx, VALUE_2, VALUE.defaultValue());
         if (vo instanceof FloatField ff) {
-            ctx.setOutput("geometry", base.withSlot(name, ff));
+            ctx.setOutput(GEOMETRY_2, base.withSlot(name, ff));
             return;
         }
         float f = FieldBroadcast.floatScalarOrDefault(vo, 0f);
         int n = base.mesh() == null ? 0 : base.mesh().vertexCount();
-        ctx.setOutput("geometry", base.withSlot(name, FloatField.constant(f, Math.max(1, n))));
+        ctx.setOutput(GEOMETRY_2, base.withSlot(name, FloatField.constant(f, Math.max(1, n))));
     }
 }

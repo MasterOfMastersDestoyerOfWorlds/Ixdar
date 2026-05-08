@@ -28,16 +28,22 @@ import ixdar.geometry.mesh.quadlayout.tmesh.TPatch;
  * <p>Output: ArrayMesh with quad faces.
  */
 public final class QuadAssembler {
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
 
     private QuadAssembler() {}
 
-    /** Result of the assembly: the produced quad mesh + per-patch quad counts. */
-    public record Result(ArrayMesh quadMesh,
-                         int totalQuads,
-                         int totalVertices,
-                         int patchesProcessed,
-                         int patchesSkipped) {}
-
+    /**
+     * TODO: document {@code assemble}.
+     *
+     * @param tmesh TODO: describe
+     * @param splitsByArc TODO: describe
+     * @param mesh TODO: describe
+     * @param uCorner TODO: describe
+     * @param vCorner TODO: describe
+     * @param trs TODO: describe
+     * @return TODO: describe
+     */
     public static Result assemble(TMesh tmesh,
                                    List<List<SplitVert>> splitsByArc,
                                    ArrayMesh mesh,
@@ -48,7 +54,7 @@ public final class QuadAssembler {
         int processed = 0, skipped = 0;
 
         for (TPatch patch : tmesh.patches()) {
-            if (patch.arcIds().length != 4 || patch.cornerNodeIds().length != 4) {
+            if (patch.arcIds().length != NUM_4 || patch.cornerNodeIds().length != NUM_4) {
                 skipped++;
                 continue;
             }
@@ -59,8 +65,8 @@ public final class QuadAssembler {
                 continue;
             }
             // Per-side R sums (parametric length per side) — for Stage C arg calculation.
-            double[] sideR = new double[4];
-            for (int i = 0; i < 4; i++) {
+            double[] sideR = new double[NUM_4];
+            for (int i = 0; i < NUM_4; i++) {
                 sideR[i] = tmesh.arcs().get(patch.arcIds()[i]).parametricLength();
             }
 
@@ -68,7 +74,7 @@ public final class QuadAssembler {
             List<SplitElem> svs0 = table.side(0);
             List<SplitElem> svs2 = table.side(2);
             List<SplitElem> svs1 = table.side(1);
-            List<SplitElem> svs3 = table.side(3);
+            List<SplitElem> svs3 = table.side(NUM_3);
             if (svs0.size() != svs2.size() || svs1.size() != svs3.size()) {
                 // Side mismatch — quantization didn't satisfy patch consistency.
                 skipped++;
@@ -104,7 +110,7 @@ public final class QuadAssembler {
                 for (int j = 0; j < cols; j++) {
                     Vector3f p = it.positions()[i * cols + j];
                     if (p == null) continue;
-                    indexMap[i * cols + j] = outPositions.size() / 3;
+                    indexMap[i * cols + j] = outPositions.size() / NUM_3;
                     outPositions.add(p.x);
                     outPositions.add(p.y);
                     outPositions.add(p.z);
@@ -134,8 +140,15 @@ public final class QuadAssembler {
         float[] positions = new float[outPositions.size()];
         for (int i = 0; i < positions.length; i++) positions[i] = outPositions.get(i);
         int[] faceIndices = outFaces.stream().mapToInt(Integer::intValue).toArray();
-        ArrayMesh quad = new ArrayMesh(positions, null, faceIndices, 4);
-        return new Result(quad, faceIndices.length / 4, positions.length / 3,
+        ArrayMesh quad = new ArrayMesh(positions, null, faceIndices, NUM_4);
+        return new Result(quad, faceIndices.length / NUM_4, positions.length / NUM_3,
                 processed, skipped);
     }
+
+    /** Result of the assembly: the produced quad mesh + per-patch quad counts. */
+    public record Result(ArrayMesh quadMesh,
+                         int totalQuads,
+                         int totalVertices,
+                         int patchesProcessed,
+                         int patchesSkipped) {}
 }

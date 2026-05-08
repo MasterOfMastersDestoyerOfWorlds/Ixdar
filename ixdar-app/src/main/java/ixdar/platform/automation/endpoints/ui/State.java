@@ -27,6 +27,13 @@ import ixdar.scenes.trade.TradeScene;
 
 @AutomationRouteAnnotation(path = "ui/state", method = APIMethod.GET)
 public class State extends AutomationEndpoint implements AutomationRoute {
+    public static final String TRADE = "trade";
+    public static final String ACTIVE = "active";
+    public static final String XPX = "xPx";
+    public static final String YPX = "yPx";
+    public static final String EDGECOUNT = "edgeCount";
+    public static final String TOOLTIP = "TOOLTIP";
+    public static final String LABEL = "label";
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject root = new JsonObject();
@@ -46,12 +53,12 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 "sceneClass",
                 runtime.canvas == null ? "" : runtime.canvas.getClass().getSimpleName());
         String mode = TradeScene.active
-                ? "trade"
+                ? TRADE
                 : (MainScene.active ? "main" : "menu");
         root.addProperty("mode", mode);
         JsonObject trade = new JsonObject();
         if (TradeScene.active && TradeScene.instance != null) {
-            trade.addProperty("active", true);
+            trade.addProperty(ACTIVE, true);
             if (TradeScene.instance.activeTool != null) {
                 trade.addProperty(
                         "activeTool",
@@ -118,19 +125,19 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                     cityJson.addProperty("xWorld", city.getX());
                     cityJson.addProperty("yWorld", city.getY());
                     cityJson.addProperty(
-                            "xPx",
+                            XPX,
                             TradeScene.camera.pointTransformX(city.getX()));
                     cityJson.addProperty(
-                            "yPx",
+                            YPX,
                             TradeScene.camera.pointTransformY(city.getY()));
                     tradeCities.add(cityJson);
                 }
             }
             trade.add("cities", tradeCities);
         } else {
-            trade.addProperty("active", false);
+            trade.addProperty(ACTIVE, false);
         }
-        root.add("trade", trade);
+        root.add(TRADE, trade);
         if (runtime.canvas instanceof IrregularGridScene) {
             IrregularGridScene irregularScene = (IrregularGridScene) runtime.canvas;
             JsonObject irregular = new JsonObject();
@@ -145,7 +152,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             irregular.addProperty(
                     "dualPointCount",
                     irregularScene.getDualPointCount());
-            irregular.addProperty("edgeCount", irregularScene.getEdgeCount());
+            irregular.addProperty(EDGECOUNT, irregularScene.getEdgeCount());
             irregular.addProperty(
                     "horizontalEdgeMean",
                     irregularScene.getHorizontalEdgeMean());
@@ -165,7 +172,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             MeshNodeViewerScene meshScene = (MeshNodeViewerScene) runtime.canvas;
             JsonObject mesh = new JsonObject();
             mesh.addProperty("vertexCount", meshScene.getMeshVertexCount());
-            mesh.addProperty("edgeCount", meshScene.getMeshEdgeCount());
+            mesh.addProperty(EDGECOUNT, meshScene.getMeshEdgeCount());
             mesh.addProperty("faceCount", meshScene.getMeshFaceCount());
             mesh.addProperty(
                     "boundaryEdgeCount",
@@ -208,12 +215,12 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         HyperString tooltip = MainScene.getToolTip();
         if (tooltip != null && MainScene.isToolTipVisible()) {
             textElements.add(
-                    runtime.hyperStringElement("tooltip", "TOOLTIP", tooltip, 0));
+                    runtime.hyperStringElement("tooltip", TOOLTIP, tooltip, 0));
         }
         HyperString tradeTooltip = TradeScene.getToolTip();
         if (tradeTooltip != null && TradeScene.isToolTipVisible()) {
             textElements.add(
-                    runtime.hyperStringElement("trade_tooltip", "TOOLTIP", tradeTooltip, 0));
+                    runtime.hyperStringElement("trade_tooltip", TOOLTIP, tradeTooltip, 0));
         }
         root.add("textElements", textElements);
 
@@ -221,10 +228,10 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         if (runtime.canvas != null && runtime.canvas.menu != null) {
             for (MenuBox.MenuItemBounds itemBounds : runtime.canvas.menu.getMenuItemBounds()) {
                 JsonObject menuItem = new JsonObject();
-                menuItem.addProperty("label", itemBounds.label);
+                menuItem.addProperty(LABEL, itemBounds.label);
                 JsonObject bounds = new JsonObject();
-                bounds.addProperty("xPx", itemBounds.left);
-                bounds.addProperty("yPx", itemBounds.bottom);
+                bounds.addProperty(XPX, itemBounds.left);
+                bounds.addProperty(YPX, itemBounds.bottom);
                 bounds.addProperty("widthPx", itemBounds.width);
                 bounds.addProperty("heightPx", itemBounds.height);
                 bounds.addProperty("centerXPx", itemBounds.centerX);
@@ -235,7 +242,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         } else if (MenuBox.menuItems != null) {
             for (MenuItem item : MenuBox.menuItems) {
                 JsonObject menuItem = new JsonObject();
-                menuItem.addProperty("label", item.getHeading());
+                menuItem.addProperty(LABEL, item.getHeading());
                 menuItems.add(menuItem);
             }
         }

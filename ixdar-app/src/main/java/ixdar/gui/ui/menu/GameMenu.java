@@ -13,6 +13,11 @@ public class GameMenu implements Menu {
     public ArrayList<MenuItem> menuItems;
     private Menu debugMenu;
 
+    /**
+     * TODO: document {@code GameMenu}.
+     *
+     * @param debugMenu TODO: describe
+     */
     public GameMenu(Menu debugMenu) {
         this.debugMenu = debugMenu;
         initMenu();
@@ -26,11 +31,19 @@ public class GameMenu implements Menu {
         menuItems.add(new MenuItem("Debug Menu", new ixdar.gui.ui.actions.ChangeScreenAction(debugMenu)));
     }
 
+    /**
+     * TODO: document {@code loadMenu}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public ArrayList<MenuItem> loadMenu() {
         return menuItems;
     }
 
+    /**
+     * TODO: document {@code back}.
+     */
     @Override
     public void back() {
         // Return to debug menu

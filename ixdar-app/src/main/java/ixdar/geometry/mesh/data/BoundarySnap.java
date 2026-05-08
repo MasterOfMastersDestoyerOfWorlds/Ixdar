@@ -35,6 +35,10 @@ import java.util.Set;
  * plan would let us snap them too but isn't required for the skull.
  */
 public final class BoundarySnap {
+    public static final int NUM_3 = 3;
+    public static final int NUM_32 = 32;
+    public static final long NUM_0xffffffff = 0xffffffffL;
+    public static final float NUM_0 = 0f;
 
     private static final int   BAND_HOPS       = 8;
     private static final int   MIN_BAND_VERTS  = 6;
@@ -45,6 +49,17 @@ public final class BoundarySnap {
 
     private BoundarySnap() {}
 
+    /**
+     * TODO: document {@code snap}.
+     *
+     * @param mesh TODO: describe
+     * @param faceLabels TODO: describe
+     * @param highConfidenceEdges TODO: describe
+     * @param dihedralEdges TODO: describe
+     * @param principalEdges TODO: describe
+     * @param crestEdges TODO: describe
+     * @return TODO: describe
+     */
     public static int[] snap(ArrayMesh mesh,
                               int[] faceLabels,
                               Set<Long> highConfidenceEdges,
@@ -52,7 +67,7 @@ public final class BoundarySnap {
                               Set<Long> principalEdges,
                               Set<Long> crestEdges) {
         int[] faceIdx = mesh.copyFaceIndices();
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3;
         int nv = mesh.vertexCount();
         float[] positions = mesh.copyPositions();
 
@@ -64,7 +79,7 @@ public final class BoundarySnap {
         boolean[] isCorner = new boolean[nv];
         int cornerCount = 0;
         for (int v = 0; v < nv; v++) {
-            if (vertLabels[v].length >= 3) { isCorner[v] = true; cornerCount++; }
+            if (vertLabels[v].length >= NUM_3) { isCorner[v] = true; cornerCount++; }
         }
 
         Map<Long, List<Long>> edgesByPair = new HashMap<>();
@@ -82,8 +97,8 @@ public final class BoundarySnap {
         List<Curve> curves = new ArrayList<>();
         for (Map.Entry<Long, List<Long>> entry : edgesByPair.entrySet()) {
             long pairK = entry.getKey();
-            int labelA = (int)(pairK >>> 32);
-            int labelB = (int)(pairK & 0xffffffffL);
+            int labelA = (int)(pairK >>> NUM_32);
+            int labelB = (int)(pairK & NUM_0xffffffff);
             curves.addAll(buildCurves(entry.getValue(), isCorner, labelA, labelB));
         }
 
@@ -155,8 +170,8 @@ public final class BoundarySnap {
                                             int labelA, int labelB) {
         Map<Integer, List<Integer>> sub = new HashMap<>();
         for (long ek : pairEdges) {
-            int u = (int)(ek >>> 32);
-            int v = (int)(ek & 0xffffffffL);
+            int u = (int)(ek >>> NUM_32);
+            int v = (int)(ek & NUM_0xffffffff);
             sub.computeIfAbsent(u, k -> new ArrayList<>()).add(v);
             sub.computeIfAbsent(v, k -> new ArrayList<>()).add(u);
         }
@@ -255,10 +270,10 @@ public final class BoundarySnap {
         Arrays.fill(dist, Float.POSITIVE_INFINITY);
         int[] prev = new int[nv];
         Arrays.fill(prev, -1);
-        dist[s] = 0f;
+        dist[s] = NUM_0;
         PriorityQueue<DijkstraNode> pq = new PriorityQueue<>(
                 (x, y) -> Float.compare(x.dist, y.dist));
-        pq.add(new DijkstraNode(0f, s));
+        pq.add(new DijkstraNode(NUM_0, s));
         while (!pq.isEmpty()) {
             DijkstraNode head = pq.poll();
             if (head.dist > dist[head.v]) continue;
@@ -312,9 +327,9 @@ public final class BoundarySnap {
         else if (isHigh) mult = COST_HIGH;
         else if (isAny) mult = COST_FEATURE;
         else mult = COST_NONFEATURE;
-        float dx = positions[v*3]   - positions[u*3];
-        float dy = positions[v*3+1] - positions[u*3+1];
-        float dz = positions[v*3+2] - positions[u*3+2];
+        float dx = positions[v*NUM_3]   - positions[u*NUM_3];
+        float dy = positions[v*NUM_3+1] - positions[u*NUM_3+1];
+        float dz = positions[v*NUM_3+2] - positions[u*NUM_3+2];
         float len = (float) Math.sqrt(dx*dx + dy*dy + dz*dz);
         return mult * len;
     }
@@ -324,17 +339,17 @@ public final class BoundarySnap {
     private static int[] floodFillRelabel(int[] faceIdx, int[] faceLabels,
                                             Set<Long> finalBoundary,
                                             Map<Long, int[]> edgeFaces) {
-        int faceCount = faceIdx.length / 3;
-        int[] adj = new int[faceCount * 3];
+        int faceCount = faceIdx.length / NUM_3;
+        int[] adj = new int[faceCount * NUM_3];
         Arrays.fill(adj, -1);
         for (int f = 0; f < faceCount; f++) {
-            for (int e = 0; e < 3; e++) {
-                int u = faceIdx[f*3+e], v = faceIdx[f*3+(e+1)%3];
+            for (int e = 0; e < NUM_3; e++) {
+                int u = faceIdx[f*NUM_3+e], v = faceIdx[f*NUM_3+(e+1)%NUM_3];
                 long ek = edgeKey(u, v);
                 if (finalBoundary.contains(ek)) continue;
                 int[] pair = edgeFaces.get(ek);
                 if (pair == null || pair[1] < 0) continue;
-                adj[f*3+e] = (pair[0] == f) ? pair[1] : pair[0];
+                adj[f*NUM_3+e] = (pair[0] == f) ? pair[1] : pair[0];
             }
         }
         int[] component = new int[faceCount];
@@ -349,8 +364,8 @@ public final class BoundarySnap {
             while (!qq.isEmpty()) {
                 int g = qq.poll();
                 votes.merge(faceLabels[g], 1, Integer::sum);
-                for (int e = 0; e < 3; e++) {
-                    int nb = adj[g*3+e];
+                for (int e = 0; e < NUM_3; e++) {
+                    int nb = adj[g*NUM_3+e];
                     if (nb < 0 || component[nb] >= 0) continue;
                     component[nb] = comp;
                     qq.add(nb);
@@ -370,11 +385,11 @@ public final class BoundarySnap {
     // ---------------- helpers ----------------
 
     private static int[][] buildOneRing(int[] faceIdx, int nv) {
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3;
         List<HashSet<Integer>> tmp = new ArrayList<>(nv);
-        for (int i = 0; i < nv; i++) tmp.add(new HashSet<>(6));
+        for (int i = 0; i < nv; i++) tmp.add(new HashSet<>(MIN_BAND_VERTS));
         for (int f = 0; f < faceCount; f++) {
-            int a = faceIdx[f*3], b = faceIdx[f*3+1], c = faceIdx[f*3+2];
+            int a = faceIdx[f*NUM_3], b = faceIdx[f*NUM_3+1], c = faceIdx[f*NUM_3+2];
             tmp.get(a).add(b); tmp.get(a).add(c);
             tmp.get(b).add(a); tmp.get(b).add(c);
             tmp.get(c).add(a); tmp.get(c).add(b);
@@ -391,11 +406,11 @@ public final class BoundarySnap {
     }
 
     private static Map<Long, int[]> buildEdgeFaceMap(int[] faceIdx) {
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3;
         Map<Long, int[]> edgeFaces = new HashMap<>();
         for (int f = 0; f < faceCount; f++) {
-            for (int e = 0; e < 3; e++) {
-                int u = faceIdx[f*3+e], v = faceIdx[f*3+(e+1)%3];
+            for (int e = 0; e < NUM_3; e++) {
+                int u = faceIdx[f*NUM_3+e], v = faceIdx[f*NUM_3+(e+1)%NUM_3];
                 long ek = edgeKey(u, v);
                 int[] arr = edgeFaces.get(ek);
                 if (arr == null) edgeFaces.put(ek, new int[]{f, -1});
@@ -406,15 +421,15 @@ public final class BoundarySnap {
     }
 
     private static int[][] buildVertexFaces(int[] faceIdx, int nv) {
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3;
         int[] counts = new int[nv];
-        for (int i = 0; i < faceCount * 3; i++) counts[faceIdx[i]]++;
+        for (int i = 0; i < faceCount * NUM_3; i++) counts[faceIdx[i]]++;
         int[][] out = new int[nv][];
         for (int i = 0; i < nv; i++) out[i] = new int[counts[i]];
         int[] cursor = new int[nv];
         for (int f = 0; f < faceCount; f++) {
-            for (int e = 0; e < 3; e++) {
-                int v = faceIdx[f*3+e];
+            for (int e = 0; e < NUM_3; e++) {
+                int v = faceIdx[f*NUM_3+e];
                 out[v][cursor[v]++] = f;
             }
         }
@@ -436,13 +451,13 @@ public final class BoundarySnap {
     }
 
     private static long edgeKey(int u, int v) {
-        return u < v ? ((long) u << 32) | (v & 0xffffffffL)
-                     : ((long) v << 32) | (u & 0xffffffffL);
+        return u < v ? ((long) u << NUM_32) | (v & NUM_0xffffffff)
+                     : ((long) v << NUM_32) | (u & NUM_0xffffffff);
     }
 
     private static long pairKey(int a, int b) {
-        return a < b ? ((long) a << 32) | (b & 0xffffffffL)
-                     : ((long) b << 32) | (a & 0xffffffffL);
+        return a < b ? ((long) a << NUM_32) | (b & NUM_0xffffffff)
+                     : ((long) b << NUM_32) | (a & NUM_0xffffffff);
     }
 
     private static boolean pathEquals(List<Integer> a, List<Integer> b) {

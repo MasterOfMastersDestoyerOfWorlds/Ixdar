@@ -32,12 +32,20 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "apply_bone")
 public class ApplyBoneNode implements MeshNode {
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String BONE_NAME_2 = "bone_name";
+    public static final String BONE = "bone";
+    public static final String ROTATION_2 = "rotation";
+    public static final String PIVOT_2 = "pivot";
+    public static final float NUM_1e_7 = 1e-7f;
+    public static final float NUM_0 = 0f;
+    public static final int NUM_4 = 4;
 
-    private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort BONE_NAME = new InputPort("bone_name", PortType.STRING, "bone");
-    private static final InputPort ROTATION = new InputPort("rotation", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
-    private static final InputPort PIVOT = new InputPort("pivot", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
-    private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort BONE_NAME = new InputPort(BONE_NAME_2, PortType.STRING, BONE);
+    private static final InputPort ROTATION = new InputPort(ROTATION_2, PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
+    private static final InputPort PIVOT = new InputPort(PIVOT_2, PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
+    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -57,41 +65,41 @@ public class ApplyBoneNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "geometry", "Input/output. Vertices with nonzero weight for `bone_name` are rotated around `pivot`.",
-                "bone_name", "Name of the bone whose weights were written upstream by set_bone_weight.",
-                "rotation", "Euler rotation (radians) applied around the pivot.",
-                "pivot", "World-space point around which rotation is applied. Typically the bone's joint position."
+                GEOMETRY_2, "Input/output. Vertices with nonzero weight for `bone_name` are rotated around `pivot`.",
+                BONE_NAME_2, "Name of the bone whose weights were written upstream by set_bone_weight.",
+                ROTATION_2, "Euler rotation (radians) applied around the pivot.",
+                PIVOT_2, "World-space point around which rotation is applied. Typically the bone's joint position."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.vertexCount() == 0) {
-            ctx.setOutput("geometry", base);
+            ctx.setOutput(GEOMETRY_2, base);
             return;
         }
 
-        Object nameObj = FieldBroadcast.getInputOrDefault(ctx, "bone_name", BONE_NAME.defaultValue());
-        String boneName = nameObj instanceof String s ? s : "bone";
+        Object nameObj = FieldBroadcast.getInputOrDefault(ctx, BONE_NAME_2, BONE_NAME.defaultValue());
+        String boneName = nameObj instanceof String s ? s : BONE;
 
-        Object rotObj = FieldBroadcast.getInputOrDefault(ctx, "rotation", ROTATION.defaultValue());
+        Object rotObj = FieldBroadcast.getInputOrDefault(ctx, ROTATION_2, ROTATION.defaultValue());
         Vector3f rot = vec3(rotObj);
 
-        Object pivObj = FieldBroadcast.getInputOrDefault(ctx, "pivot", PIVOT.defaultValue());
+        Object pivObj = FieldBroadcast.getInputOrDefault(ctx, PIVOT_2, PIVOT.defaultValue());
         Vector3f pivot = vec3(pivObj);
 
         String slotKey = SetBoneWeightNode.BONE_WEIGHT_PREFIX + boneName;
         Object weightSlot = base.slots().get(slotKey);
         if (!(weightSlot instanceof float[] weights)) {
-            ctx.setOutput("geometry", base);
+            ctx.setOutput(GEOMETRY_2, base);
             return;
         }
 
         // Skip if rotation is effectively zero
-        if (Math.abs(rot.x) < 1e-7f && Math.abs(rot.y) < 1e-7f && Math.abs(rot.z) < 1e-7f) {
-            ctx.setOutput("geometry", base);
+        if (Math.abs(rot.x) < NUM_1e_7 && Math.abs(rot.y) < NUM_1e_7 && Math.abs(rot.z) < NUM_1e_7) {
+            ctx.setOutput(GEOMETRY_2, base);
             return;
         }
 
@@ -100,10 +108,10 @@ public class ApplyBoneNode implements MeshNode {
         boolean anyWeighted = false;
         for (int i = 0; i < n && !anyWeighted; i++) {
             int vid = mesh.vertexIdAt(i);
-            if (vid < weights.length && weights[vid] > 0f) anyWeighted = true;
+            if (vid < weights.length && weights[vid] > NUM_0) anyWeighted = true;
         }
         if (!anyWeighted) {
-            ctx.setOutput("geometry", base);
+            ctx.setOutput(GEOMETRY_2, base);
             return;
         }
 
@@ -117,15 +125,15 @@ public class ApplyBoneNode implements MeshNode {
         Vector3f transformed = new Vector3f();
 
         // Clone mesh with modified positions
-        HalfEdgeMesh out = new HalfEdgeMesh(n, 0, mesh.faceCount(), mesh.faceCount() * 4 * 2);
+        HalfEdgeMesh out = new HalfEdgeMesh(n, 0, mesh.faceCount(), mesh.faceCount() * NUM_4 * 2);
         HashMap<Integer, Integer> idMap = new HashMap<>(n * 2);
 
         for (int i = 0; i < n; i++) {
             int vid = mesh.vertexIdAt(i);
             mesh.vertexPosition(vid, pos);
 
-            float w = (vid < weights.length) ? weights[vid] : 0f;
-            if (w > 0f) {
+            float w = (vid < weights.length) ? weights[vid] : NUM_0;
+            if (w > NUM_0) {
                 boneMat.transformPosition(pos, transformed);
                 pos.lerp(transformed, w);
             }
@@ -145,7 +153,7 @@ public class ApplyBoneNode implements MeshNode {
         }
 
         out.computeNormals();
-        ctx.setOutput("geometry", base.withMesh(out));
+        ctx.setOutput(GEOMETRY_2, base.withMesh(out));
     }
 
     private static Vector3f vec3(Object obj) {

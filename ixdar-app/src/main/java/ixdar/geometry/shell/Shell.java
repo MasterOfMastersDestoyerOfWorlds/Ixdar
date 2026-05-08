@@ -30,8 +30,11 @@ import ixdar.graphics.render.text.HyperString;
  */
 
 public class Shell extends LinkedList<PointND> {
+    public static final String STR = ", ";
+    public static final String STR_2 = "]";
+    public static final int NUM_30 = 30;
+    public static final double NUM_0_0000001 = 0.0000001;
     public static int failed = 0;
-    private Shell child;
     public HashMap<Integer, Knot> pointMap = new HashMap<Integer, Knot>();
     public DistanceMatrix distanceMatrix;
     public String knotName;
@@ -39,19 +42,56 @@ public class Shell extends LinkedList<PointND> {
     public KnotEngine knotEngine = new KnotEngine(this);
 
     public StringBuff buff = new StringBuff();
+    public ArrayList<Segment> sortedSegments;
+    public HashMap<Long, Segment> segmentLookup;
+    public ArrayList<HyperString> hyperStrings = new ArrayList<>();
+
+    public Integer[][] smallestCommonKnotLookup;
+    public Integer[][] largestUncommonKnotLookup;
+    public Integer[] smallestKnotLookup;
 
     int breakCount = 0;
     int runCount = 0;
 
     boolean skipHalfKnotFlag = true;
-    public ArrayList<Segment> sortedSegments;
-    public HashMap<Long, Segment> segmentLookup;
-    public ArrayList<HyperString> hyperStrings = new ArrayList<>();
+    private Shell child;
 
+    /**
+     * TODO: document {@code Shell}.
+     */
     public Shell() {
         pointMap = new HashMap<>();
     }
 
+    /**
+     * Initializes a new shell with no parent or child; a blank slate.
+     *
+     * @param points TODO: describe
+     */
+
+    public Shell(PointND... points) {
+        for (int i = 0; i < points.length; i++) {
+            this.add(points[i]);
+        }
+    }
+
+
+    /**
+     * TODO: document {@code Shell}.
+     *
+     * @param points TODO: describe
+     */
+    public Shell(PointSet points) {
+        for (int i = 0; i < points.size(); i++) {
+            this.add(points.get(i));
+        }
+    }
+
+    /**
+     * TODO: document {@code initPoints}.
+     *
+     * @param distanceMatrix TODO: describe
+     */
     public void initPoints(DistanceMatrix distanceMatrix) {
         this.distanceMatrix = distanceMatrix;
         int numPoints = distanceMatrix.size();
@@ -74,6 +114,15 @@ public class Shell extends LinkedList<PointND> {
         }
     }
 
+    /**
+     * TODO: document {@code tspSolve}.
+     *
+     * @param A TODO: describe
+     * @param distanceMatrix TODO: describe
+     * @throws SegmentBalanceException TODO: describe
+     * @throws BalancerException TODO: describe
+     * @return TODO: describe
+     */
     @SuppressWarnings("unused")
     public Shell tspSolve(Shell A, DistanceMatrix distanceMatrix) throws SegmentBalanceException, BalancerException {
 
@@ -81,7 +130,7 @@ public class Shell extends LinkedList<PointND> {
         pointMap = new HashMap<>();
         initPoints(distanceMatrix);
         int idx = 0;
-        ArrayList<Knot> knots = knotEngine.createKnots(30, this.sortedSegments);
+        ArrayList<Knot> knots = knotEngine.createKnots(NUM_30, this.sortedSegments);
         if (knots.size() > 1) {
             System.out.println("Recursion Limit REACHED");
             float zero = 1 / 0;
@@ -96,6 +145,11 @@ public class Shell extends LinkedList<PointND> {
         return result;
     }
 
+    /**
+     * TODO: document {@code initShell}.
+     *
+     * @param distanceMatrix TODO: describe
+     */
     public void initShell(DistanceMatrix distanceMatrix) {
         this.distanceMatrix = distanceMatrix;
         pointMap = new HashMap<>();
@@ -125,6 +179,15 @@ public class Shell extends LinkedList<PointND> {
         sortedSegments.sort(null);
     }
 
+    /**
+     * TODO: document {@code slowSolve}.
+     *
+     * @param A TODO: describe
+     * @param distanceMatrix TODO: describe
+     * @param layers TODO: describe
+     * @throws MultipleCyclesFoundException TODO: describe
+     * @return TODO: describe
+     */
     public ArrayList<Knot> slowSolve(Shell A, DistanceMatrix distanceMatrix, int layers)
             throws MultipleCyclesFoundException {
         initShell(distanceMatrix);
@@ -132,10 +195,11 @@ public class Shell extends LinkedList<PointND> {
         return knots;
     }
 
-    public Integer[][] smallestCommonKnotLookup;
-    public Integer[][] largestUncommonKnotLookup;
-    public Integer[] smallestKnotLookup;
-
+    /**
+     * TODO: document {@code updateSmallestKnot}.
+     *
+     * @param knotNew TODO: describe
+     */
     public void updateSmallestKnot(Knot knotNew) {
 
         if (smallestKnotLookup == null) {
@@ -152,6 +216,11 @@ public class Shell extends LinkedList<PointND> {
         }
     }
 
+    /**
+     * TODO: document {@code updateSmallestCommonKnot}.
+     *
+     * @param knotNew TODO: describe
+     */
     public void updateSmallestCommonKnot(Knot knotNew) {
 
         if (smallestCommonKnotLookup == null) {
@@ -175,6 +244,17 @@ public class Shell extends LinkedList<PointND> {
         }
     }
 
+    /**
+     * TODO: document {@code solveBetweenEndpoints}.
+     *
+     * @param first TODO: describe
+     * @param last TODO: describe
+     * @param A TODO: describe
+     * @param d TODO: describe
+     * @throws SegmentBalanceException TODO: describe
+     * @throws BalancerException TODO: describe
+     * @return TODO: describe
+     */
     public Shell solveBetweenEndpoints(PointND first, PointND last, Shell A, DistanceMatrix d)
             throws SegmentBalanceException, BalancerException {
         PointSet ps = new PointSet();
@@ -210,27 +290,8 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * Initializes a new shell with no parent or child; a blank slate
-     * 
-     * @param points
-     */
-
-    public Shell(PointND... points) {
-        for (int i = 0; i < points.length; i++) {
-            this.add(points[i]);
-        }
-    }
-
-
-    public Shell(PointSet points) {
-        for (int i = 0; i < points.size(); i++) {
-            this.add(points.get(i));
-        }
-    }
-
-    /**
-     * Get the length of the shell
-     * 
+     * Get the length of the shell.
+     *
      * @return the length of the path between all points in the shell
      */
     public double getLength() {
@@ -253,6 +314,11 @@ public class Shell extends LinkedList<PointND> {
 
     }
 
+    /**
+     * TODO: document {@code getLengthEndpoints}.
+     *
+     * @return TODO: describe
+     */
     public double getLengthEndpoints() {
         PointND first = null, last = null;
         double length = 0.0;
@@ -270,10 +336,10 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * Gets the distance from a point to its neighboring points in the shell
-     * 
-     * @param p
-     * @param maxDist
+     * Gets the distance from a point to its neighboring points in the shell.
+     *
+     * @param p TODO: describe
+     * @param d TODO: describe
      * @return the sum of the distance from p to the prev point in the shell and the
      *         distance from p to the next point in the shell
      */
@@ -286,10 +352,10 @@ public class Shell extends LinkedList<PointND> {
 
     /**
      * Gets the distance from the point previous to p and the point after p in the
-     * shell
-     * 
-     * @param p
-     * @param maxDist
+     * shell.
+     *
+     * @param p TODO: describe
+     * @param d TODO: describe
      * @return the sum of the distance from the prev point in the shell to the next
      *         point in the shell
      */
@@ -301,8 +367,8 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * Finds the previous point in the shell
-     * 
+     * Finds the previous point in the shell.
+     *
      * @param p reference point
      * @return the point that comes before p in the shell
      */
@@ -317,8 +383,8 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * Finds the next point in the shell
-     * 
+     * Finds the next point in the shell.
+     *
      * @param p reference point
      * @return the point that comes after p in the shell
      */
@@ -332,6 +398,13 @@ public class Shell extends LinkedList<PointND> {
         return this.get(after);
     }
 
+    /**
+     * TODO: document {@code replaceByID}.
+     *
+     * @param A TODO: describe
+     * @param ps TODO: describe
+     * @return TODO: describe
+     */
     public static Shell replaceByID(Shell A, PointSet ps) {
         Shell result = new Shell();
         for (PointND p : A) {
@@ -340,6 +413,13 @@ public class Shell extends LinkedList<PointND> {
         return result;
     }
 
+    /**
+     * TODO: document {@code getIndexByID}.
+     *
+     * @param idTarget TODO: describe
+     * @throws IdDoesNotExistException TODO: describe
+     * @return TODO: describe
+     */
     public int getIndexByID(int idTarget) throws IdDoesNotExistException {
         int idx = 0;
         for (PointND p : this) {
@@ -351,11 +431,24 @@ public class Shell extends LinkedList<PointND> {
         throw new IdDoesNotExistException(idTarget);
     }
 
+    /**
+     * TODO: document {@code removeByID}.
+     *
+     * @param idTarget TODO: describe
+     * @throws IdDoesNotExistException TODO: describe
+     * @return TODO: describe
+     */
     public PointND removeByID(int idTarget) throws IdDoesNotExistException {
         int idx = getIndexByID(idTarget);
         return this.remove(idx);
     }
 
+    /**
+     * TODO: document {@code removeRotate}.
+     *
+     * @param ps TODO: describe
+     * @return TODO: describe
+     */
     public Shell removeRotate(PointSet ps) {
 
         Shell before = new Shell(), after = new Shell();
@@ -379,6 +472,12 @@ public class Shell extends LinkedList<PointND> {
         return after;
     }
 
+    /**
+     * TODO: document {@code rotateTo}.
+     *
+     * @param p1 TODO: describe
+     * @param p2 TODO: describe
+     */
     public void rotateTo(PointND p1, PointND p2) {
         Shell before = new Shell(), after = new Shell();
 
@@ -400,8 +499,8 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * Shallow copies a shell so that it does not point to any childern
-     * 
+     * Shallow copies a shell so that it does not point to any childern.
+     *
      * @return a copy of the current shell with no references to its children
      */
     public Shell copyShallow() {
@@ -414,8 +513,8 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * Turns a shell into a PointSet object
-     * 
+     * Turns a shell into a PointSet object.
+     *
      * @return all of the points in the Shell and its children
      */
     public PointSet toPointSet() {
@@ -433,8 +532,8 @@ public class Shell extends LinkedList<PointND> {
     }
 
     /**
-     * Determines equality of shells based on if they represent the same tsp path
-     * 
+     * Determines equality of shells based on if they represent the same tsp path.
+     *
      * @param o shell to compare to
      * @return true if the shells are equal and false if they are not
      */
@@ -468,6 +567,11 @@ public class Shell extends LinkedList<PointND> {
 
     }
 
+    /**
+     * TODO: document {@code reverse}.
+     *
+     * @return TODO: describe
+     */
     public Shell reverse() {
         Shell result = new Shell();
         for (PointND p : this) {
@@ -476,6 +580,11 @@ public class Shell extends LinkedList<PointND> {
         return result;
     }
 
+    /**
+     * TODO: document {@code toString}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String toString() {
         String str = "Shell[";
@@ -487,30 +596,43 @@ public class Shell extends LinkedList<PointND> {
                 str += p.toString();
             }
             if (i < this.size() - 1) {
-                str += ", ";
+                str += STR;
             }
         }
 
-        return str + "]";
+        return str + STR_2;
     }
 
+    /**
+     * TODO: document {@code compareTo}.
+     *
+     * @param A TODO: describe
+     * @param B TODO: describe
+     * @return TODO: describe
+     */
     public static String compareTo(Shell A, Shell B) {
         String str = "Shell A[";
         for (int i = 0; i < A.size() - 1; i++) {
-            str += (i) + ", ";
+            str += (i) + STR;
         }
-        str += A.size() - 1 + "]";
+        str += A.size() - 1 + STR_2;
 
         str += "\nShell B[";
         for (int i = 0; i < B.size() - 1; i++) {
-            str += (A.indexOf(B.get(i))) + ", ";
+            str += (A.indexOf(B.get(i))) + STR;
         }
-        str += (A.indexOf(B.get(B.size() - 1))) + "]";
+        str += (A.indexOf(B.get(B.size() - 1))) + STR_2;
 
         return str;
 
     }
 
+    /**
+     * TODO: document {@code add}.
+     *
+     * @param e TODO: describe
+     * @return TODO: describe
+     */
     @Override
     public boolean add(PointND e) {
         super.add(e);
@@ -518,12 +640,24 @@ public class Shell extends LinkedList<PointND> {
 
     }
 
+    /**
+     * TODO: document {@code addAll}.
+     *
+     * @param c TODO: describe
+     * @return TODO: describe
+     */
     @Override
     public boolean addAll(Collection<? extends PointND> c) {
         super.addAll(c);
         return true;
     }
 
+    /**
+     * TODO: document {@code addAllFirst}.
+     *
+     * @param c TODO: describe
+     * @return TODO: describe
+     */
     public boolean addAllFirst(Collection<? extends PointND> c) {
         Object[] points = c.toArray();
         for (int i = points.length - 1; i >= 0; i--) {
@@ -532,10 +666,22 @@ public class Shell extends LinkedList<PointND> {
         return true;
     }
 
+    /**
+     * TODO: document {@code addAfter}.
+     *
+     * @param contained TODO: describe
+     * @param insert TODO: describe
+     */
     public void addAfter(PointND contained, PointND insert) {
         super.add(this.indexOf(contained) + 1, insert);
     }
 
+    /**
+     * TODO: document {@code addOutside}.
+     *
+     * @param contained TODO: describe
+     * @param insert TODO: describe
+     */
     public void addOutside(PointND contained, PointND insert) {
         assert (this.getLast().equals(contained) || this.getFirst().equals(contained))
                 : insert.getID() + " " + contained.getID() + " " + this.toString();
@@ -547,6 +693,13 @@ public class Shell extends LinkedList<PointND> {
         }
     }
 
+    /**
+     * TODO: document {@code addAllAtSegment}.
+     *
+     * @param contained TODO: describe
+     * @param connector TODO: describe
+     * @param other TODO: describe
+     */
     public void addAllAtSegment(PointND contained, PointND connector, Shell other) {
         if (this.getLast().equals(contained)) {
             if (other.getLast().equals(connector)) {
@@ -565,6 +718,12 @@ public class Shell extends LinkedList<PointND> {
         }
     }
 
+    /**
+     * TODO: document {@code getOppositeOutside}.
+     *
+     * @param endpoint TODO: describe
+     * @return TODO: describe
+     */
     public PointND getOppositeOutside(PointND endpoint) {
         assert (this.getLast().equals(endpoint) || this.getFirst().equals(endpoint)) : endpoint.getID();
         if (this.getLast().equals(endpoint)) {
@@ -574,10 +733,22 @@ public class Shell extends LinkedList<PointND> {
         }
     }
 
+    /**
+     * TODO: document {@code isEndpoint}.
+     *
+     * @param p TODO: describe
+     * @return TODO: describe
+     */
     public boolean isEndpoint(PointND p) {
         return p.equals(this.getLast()) || p.equals(this.getFirst());
     }
 
+    /**
+     * TODO: document {@code containsID}.
+     *
+     * @param id TODO: describe
+     * @return TODO: describe
+     */
     public boolean containsID(int id) {
         for (PointND pointND : this) {
             if (pointND.getID() == id) {
@@ -587,6 +758,12 @@ public class Shell extends LinkedList<PointND> {
         return false;
     }
 
+    /**
+     * TODO: document {@code containsRange}.
+     *
+     * @param r TODO: describe
+     * @return TODO: describe
+     */
     public boolean containsRange(Range r) {
         boolean hasStart = false;
         boolean hasEnd = false;
@@ -602,6 +779,12 @@ public class Shell extends LinkedList<PointND> {
         return hasStart && hasEnd;
     }
 
+    /**
+     * TODO: document {@code getNext}.
+     *
+     * @param i TODO: describe
+     * @return TODO: describe
+     */
     public PointND getNext(int i) {
         if (i + 1 >= this.size()) {
             return this.get(0);
@@ -609,6 +792,12 @@ public class Shell extends LinkedList<PointND> {
         return this.get(i + 1);
     }
 
+    /**
+     * TODO: document {@code getPrev}.
+     *
+     * @param i TODO: describe
+     * @return TODO: describe
+     */
     public PointND getPrev(int i) {
         if (i - 1 < 0) {
             return this.get(this.size() - 1);
@@ -616,6 +805,13 @@ public class Shell extends LinkedList<PointND> {
         return this.get(i - 1);
     }
 
+    /**
+     * TODO: document {@code moveAfter}.
+     *
+     * @param idTarget TODO: describe
+     * @param idDest TODO: describe
+     * @throws IdDoesNotExistException TODO: describe
+     */
     public void moveAfter(Range idTarget, int idDest) throws IdDoesNotExistException {
         if (!containsRange(idTarget)) {
             throw new IdDoesNotExistException(idTarget);
@@ -633,6 +829,13 @@ public class Shell extends LinkedList<PointND> {
         }
     }
 
+    /**
+     * TODO: document {@code moveBefore}.
+     *
+     * @param idTarget TODO: describe
+     * @param idDest TODO: describe
+     * @throws IdDoesNotExistException TODO: describe
+     */
     public void moveBefore(Range idTarget, int idDest) throws IdDoesNotExistException {
         if (!containsRange(idTarget)) {
             throw new IdDoesNotExistException(idTarget);
@@ -645,6 +848,15 @@ public class Shell extends LinkedList<PointND> {
         this.addAll(idxDest, p);
     }
 
+    /**
+     * TODO: document {@code moveBetween}.
+     *
+     * @param idTarget TODO: describe
+     * @param idDest1 TODO: describe
+     * @param idDest2 TODO: describe
+     * @throws IdDoesNotExistException TODO: describe
+     * @throws IdsNotConcurrentException TODO: describe
+     */
     public void moveBetween(Range idTarget, int idDest1, int idDest2)
             throws IdDoesNotExistException, IdsNotConcurrentException {
         if (!containsRange(idTarget)) {
@@ -676,6 +888,12 @@ public class Shell extends LinkedList<PointND> {
         }
     }
 
+    /**
+     * TODO: document {@code hasPoint}.
+     *
+     * @param id TODO: describe
+     * @return TODO: describe
+     */
     public boolean hasPoint(int id) {
         for (PointND p : this) {
             if (p.getID() == id) {
@@ -685,6 +903,12 @@ public class Shell extends LinkedList<PointND> {
         return false;
     }
 
+    /**
+     * TODO: document {@code addAllInRange}.
+     *
+     * @param r TODO: describe
+     * @param orgShell TODO: describe
+     */
     public void addAllInRange(Range r, Shell orgShell) {
         for (PointND p : orgShell) {
             if (r.hasPoint(p)) {
@@ -693,6 +917,12 @@ public class Shell extends LinkedList<PointND> {
         }
     }
 
+    /**
+     * TODO: document {@code getAllInRange}.
+     *
+     * @param r TODO: describe
+     * @return TODO: describe
+     */
     public ArrayList<PointND> getAllInRange(Range r) {
         ArrayList<PointND> points = new ArrayList<>();
         for (PointND p : this) {
@@ -703,6 +933,12 @@ public class Shell extends LinkedList<PointND> {
         return points;
     }
 
+    /**
+     * TODO: document {@code removeAllInRange}.
+     *
+     * @param r TODO: describe
+     * @return TODO: describe
+     */
     public ArrayList<PointND> removeAllInRange(Range r) {
         ArrayList<PointND> points = new ArrayList<>();
         for (PointND p : this) {
@@ -714,6 +950,11 @@ public class Shell extends LinkedList<PointND> {
         return points;
     }
 
+    /**
+     * TODO: document {@code isLocalMinima}.
+     *
+     * @return TODO: describe
+     */
     public Pair<PointND, Pair<PointND, PointND>> isLocalMinima() {
         for (int i = 0; i < this.size(); i++) {
             PointND curr = this.get(i);
@@ -726,7 +967,7 @@ public class Shell extends LinkedList<PointND> {
                     PointND currD = this.get(j);
                     PointND nextD = this.get(nextJ);
                     double delta2 = delta - currD.distance(nextD) + currD.distance(curr) + nextD.distance(curr);
-                    if (delta2 < 0 && delta2 < -0.0000001) {
+                    if (delta2 < 0 && delta2 < -NUM_0_0000001) {
                         return new Pair<PointND, Pair<PointND, PointND>>(curr,
                                 new Pair<PointND, PointND>(currD, nextD));
                     }
@@ -736,6 +977,12 @@ public class Shell extends LinkedList<PointND> {
         return null;
     }
 
+    /**
+     * TODO: document {@code getHyperStrings}.
+     *
+     * @param c TODO: describe
+     * @return TODO: describe
+     */
     public ArrayList<HyperString> getHyperStrings(Color c) {
         if (hyperStrings.size() == this.size()) {
             return hyperStrings;

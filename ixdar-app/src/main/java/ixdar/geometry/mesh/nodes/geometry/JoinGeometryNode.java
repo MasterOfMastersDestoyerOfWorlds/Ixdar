@@ -19,11 +19,15 @@ import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 
 @MeshNodeAnnotation(id = "join_geometry")
 public class JoinGeometryNode implements MeshNode {
+    public static final String A_2 = "a";
+    public static final String B_2 = "b";
+    public static final String MERGE_DISTANCE_2 = "merge_distance";
+    public static final String GEOMETRY_2 = "geometry";
 
-    private static final InputPort A = new InputPort("a", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort B = new InputPort("b", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort MERGE_DISTANCE = new InputPort("merge_distance", PortType.FLOAT, 0f, 0f, 1f);
-    private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort A = new InputPort(A_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort B = new InputPort(B_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort MERGE_DISTANCE = new InputPort(MERGE_DISTANCE_2, PortType.FLOAT, 0f, 0f, 1f);
+    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -43,32 +47,32 @@ public class JoinGeometryNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "a", "First geometry bundle. Tags/weights from both are preserved in the output.",
-                "b", "Second geometry bundle.",
-                "merge_distance", "Weld threshold for seam vertices. 0 = no weld (a and b remain disjoint); typical 0.001 for light seam cleanup.",
-                "geometry", "Combined bundle."
+                A_2, "First geometry bundle. Tags/weights from both are preserved in the output.",
+                B_2, "Second geometry bundle.",
+                MERGE_DISTANCE_2, "Weld threshold for seam vertices. 0 = no weld (a and b remain disjoint); typical 0.001 for light seam cleanup.",
+                GEOMETRY_2, "Combined bundle."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle ga = GeometryBundles.bundlePart(ctx.getInput("a", Object.class));
-        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput("b", Object.class));
+        GeometryBundle ga = GeometryBundles.bundlePart(ctx.getInput(A_2, Object.class));
+        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput(B_2, Object.class));
         MeshTopology ma = ga == null ? null : ga.mesh();
         MeshTopology mb = gb == null ? null : gb.mesh();
         if (ma == null || ma.vertexCount() == 0) {
             if (gb != null) {
-                ctx.setOutput("geometry", gb);
+                ctx.setOutput(GEOMETRY_2, gb);
             } else {
-                ctx.setOutput("geometry", GeometryBundle.empty());
+                ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             }
             return;
         }
         if (mb == null || mb.vertexCount() == 0) {
-            ctx.setOutput("geometry", ga);
+            ctx.setOutput(GEOMETRY_2, ga);
             return;
         }
-        Number mergeDist = ctx.getInput("merge_distance", Number.class);
+        Number mergeDist = ctx.getInput(MERGE_DISTANCE_2, Number.class);
         float md = mergeDist == null ? 0f : mergeDist.floatValue();
 
         MeshTopology joined = MeshAppend.join(ma, mb);
@@ -137,6 +141,6 @@ public class JoinGeometryNode implements MeshNode {
             result = result.withSlot(entry.getKey(), entry.getValue());
         }
 
-        ctx.setOutput("geometry", result);
+        ctx.setOutput(GEOMETRY_2, result);
     }
 }

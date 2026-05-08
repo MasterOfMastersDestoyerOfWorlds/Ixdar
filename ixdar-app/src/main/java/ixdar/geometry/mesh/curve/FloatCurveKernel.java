@@ -9,10 +9,18 @@ import java.util.List;
  * Matches the common case of {@code _build_closure_with_curve} mapping samples.
  */
 public final class FloatCurveKernel {
+    public static final int NUM_4 = 4;
 
     private final float[] xs;
     private final float[] ys;
 
+    /**
+     * TODO: document {@code FloatCurveKernel}.
+     *
+     * @param xs TODO: describe
+     * @param ys TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     */
     public FloatCurveKernel(float[] xs, float[] ys) {
         if (xs == null || ys == null || xs.length != ys.length || xs.length < 2) {
             throw new IllegalArgumentException("Float curve needs at least two control points");
@@ -22,12 +30,19 @@ public final class FloatCurveKernel {
         sortByX();
     }
 
+    /**
+     * TODO: document {@code fromCommaSeparatedPairs}.
+     *
+     * @param raw TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public static FloatCurveKernel fromCommaSeparatedPairs(String raw) {
         if (raw == null || raw.isBlank()) {
             throw new IllegalArgumentException("Empty curve points");
         }
         String[] parts = raw.split(",");
-        if (parts.length < 4 || parts.length % 2 != 0) {
+        if (parts.length < NUM_4 || parts.length % 2 != 0) {
             throw new IllegalArgumentException("Expected comma-separated x,y pairs");
         }
         int n = parts.length / 2;
@@ -59,6 +74,9 @@ public final class FloatCurveKernel {
 
     /**
      * Map {@code factor} along curve x-axis to y (float curve evaluation at a given factor).
+     *
+     * @param factor TODO: describe
+     * @return TODO: describe
      */
     public float evaluate(float factor) {
         if (factor <= xs[0]) {

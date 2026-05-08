@@ -10,9 +10,11 @@ import ixdar.geometry.shell.DistanceMatrix;
 import ixdar.geometry.shell.Shell;
 
 /**
- * A set of all of the points in the current TSP problem
+ * A set of all of the points in the current TSP problem.
  */
 public class PointSet extends ArrayList<PointND> {
+    public static final String POINTSET = "PointSet[";
+    public static final String STR = "]";
     @SuppressWarnings("unused")
     private int getLargestDim() {
         int maxDim = 0;
@@ -24,6 +26,12 @@ public class PointSet extends ArrayList<PointND> {
         return maxDim;
     }
 
+    /**
+     * TODO: document {@code getByID}.
+     *
+     * @param ID TODO: describe
+     * @return TODO: describe
+     */
     public PointND getByID(int ID) {
         for (PointND p : this) {
             if (p.getID() == ID) {
@@ -33,6 +41,13 @@ public class PointSet extends ArrayList<PointND> {
         return null;
     }
 
+    /**
+     * TODO: document {@code SumDistancesToPoint}.
+     *
+     * @param p TODO: describe
+     * @param d TODO: describe
+     * @return TODO: describe
+     */
     public double SumDistancesToPoint(PointND p, DistanceMatrix d) {
         double sum = 0.0;
         for (PointND pt : this) {
@@ -66,10 +81,11 @@ public class PointSet extends ArrayList<PointND> {
     }
 
     /**
-     * Finds the anoid of the pointset ps
-     * 
-     * @param ps
-     * @param centroid
+     * Finds the anoid of the pointset ps.
+     *
+     * @param ps TODO: describe
+     * @param centroid TODO: describe
+     * @param d TODO: describe
      * @return the anoid
      */
     public static PointND findAnoid(PointSet ps, PointND centroid, DistanceMatrix d) {
@@ -86,9 +102,14 @@ public class PointSet extends ArrayList<PointND> {
         return anoid;
     }
 
+    /**
+     * TODO: document {@code toString}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String toString() {
-        String str = "PointSet[";
+        String str = POINTSET;
         for (int i = 0; i < this.size(); i++) {
             if (this.get(i).getID() != -1) {
                 str += this.get(i).getID();
@@ -100,13 +121,18 @@ public class PointSet extends ArrayList<PointND> {
             }
         }
 
-        str += "]";
+        str += STR;
 
         return str;
     }
 
+    /**
+     * TODO: document {@code toStringCoords}.
+     *
+     * @return TODO: describe
+     */
     public String toStringCoords() {
-        String str = "PointSet[";
+        String str = POINTSET;
         for (int i = 0; i < this.size(); i++) {
 
             str += this.get(i).toString();
@@ -115,11 +141,16 @@ public class PointSet extends ArrayList<PointND> {
             }
         }
 
-        str += "]";
+        str += STR;
 
         return str;
     }
 
+    /**
+     * TODO: document {@code getMaxDim}.
+     *
+     * @return TODO: describe
+     */
     public int getMaxDim() {
         int max = 0;
         for (PointND p : this) {
@@ -130,6 +161,12 @@ public class PointSet extends ArrayList<PointND> {
         return max;
     }
 
+    /**
+     * TODO: document {@code toArrayList}.
+     *
+     * @param shell TODO: describe
+     * @return TODO: describe
+     */
     public ArrayList<Knot> toArrayList(Shell shell) {
         ArrayList<Knot> list = new ArrayList<>();
         for (PointND p : this) {

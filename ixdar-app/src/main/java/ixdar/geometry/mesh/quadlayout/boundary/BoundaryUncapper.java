@@ -14,17 +14,29 @@ import ixdar.geometry.mesh.quadlayout.boundary.BoundaryCapper.CapResult;
  * re-emerge automatically as edges with a single incident face.
  */
 public final class BoundaryUncapper {
+    public static final int NUM_4 = 4;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1_25 = 1.25f;
+    public static final float NUM_0_5 = 0.5f;
 
     private static final int FLOATS_PER_VERTEX = 3;
 
     private BoundaryUncapper() {
     }
 
+    /**
+     * TODO: document {@code uncap}.
+     *
+     * @param quadMesh TODO: describe
+     * @param capResult TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public static ArrayMesh uncap(ArrayMesh quadMesh, CapResult capResult) {
         if (capResult.capVertexIds().length == 0) {
             return quadMesh;
         }
-        if (quadMesh.getVertsPerFace() != 4) {
+        if (quadMesh.getVertsPerFace() != NUM_4) {
             throw new IllegalArgumentException("BoundaryUncapper requires a quad mesh (vertsPerFace=4)");
         }
 
@@ -37,7 +49,7 @@ public final class BoundaryUncapper {
             int centroidVertex = capResult.capVertexIds()[li];
             centroids[li] = closed.vertexPosition(centroidVertex, new Vector3f());
             int[] loop = capResult.originalLoops().get(li);
-            float maxR = 0f;
+            float maxR = NUM_0;
             for (int v : loop) {
                 closed.vertexPosition(v, tmp);
                 float d = tmp.distance(centroids[li]);
@@ -49,7 +61,7 @@ public final class BoundaryUncapper {
             // are still classified as cap quads. Documented tolerance per
             // ticket: 0.5 * meshExtent / sqrt(faceCount), but the loop's own
             // radius is a much tighter and locally appropriate bound.
-            capRadii[li] = maxR * 1.25f;
+            capRadii[li] = maxR * NUM_1_25;
         }
 
         Vector3f extentMin = new Vector3f();
@@ -58,19 +70,19 @@ public final class BoundaryUncapper {
         quadMesh.boundsMax(extentMax);
         float meshExtent = extentMax.sub(extentMin).length();
         int faceCount = Math.max(1, quadMesh.faceCount());
-        float globalTol = 0.5f * meshExtent / (float) Math.sqrt(faceCount);
+        float globalTol = NUM_0_5 * meshExtent / (float) Math.sqrt(faceCount);
 
         float[] positions = quadMesh.copyPositions();
         int[] faceIndices = quadMesh.copyFaceIndices();
-        int faces = faceIndices.length / 4;
+        int faces = faceIndices.length / NUM_4;
 
         boolean[] isCapQuad = new boolean[faces];
         int capQuadCount = 0;
         Vector3f corner = new Vector3f();
         for (int f = 0; f < faces; f++) {
             int matchedLoop = -1;
-            for (int c = 0; c < 4; c++) {
-                int v = faceIndices[f * 4 + c];
+            for (int c = 0; c < NUM_4; c++) {
+                int v = faceIndices[f * NUM_4 + c];
                 int o = v * FLOATS_PER_VERTEX;
                 corner.set(positions[o], positions[o + 1], positions[o + 2]);
                 int hit = nearestCapLoop(corner, centroids, capRadii, globalTol);
@@ -96,20 +108,20 @@ public final class BoundaryUncapper {
         }
 
         int keptFaces = faces - capQuadCount;
-        int[] keptIndices = new int[keptFaces * 4];
+        int[] keptIndices = new int[keptFaces * NUM_4];
         int cursor = 0;
         for (int f = 0; f < faces; f++) {
             if (isCapQuad[f]) {
                 continue;
             }
-            int base = f * 4;
+            int base = f * NUM_4;
             keptIndices[cursor++] = faceIndices[base];
             keptIndices[cursor++] = faceIndices[base + 1];
             keptIndices[cursor++] = faceIndices[base + 2];
-            keptIndices[cursor++] = faceIndices[base + 3];
+            keptIndices[cursor++] = faceIndices[base + FLOATS_PER_VERTEX];
         }
 
-        return new ArrayMesh(positions, null, keptIndices, 4);
+        return new ArrayMesh(positions, null, keptIndices, NUM_4);
     }
 
     private static int nearestCapLoop(Vector3f point, Vector3f[] centroids, float[] capRadii, float globalTol) {

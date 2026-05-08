@@ -29,10 +29,25 @@ import ixdar.geometry.mesh.data.MeshTopology;
  */
 @MeshNodeAnnotation(id = "coons_patch")
 public class CoonsPatchNode implements MeshNode {
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String SUBDIVISIONS_2 = "subdivisions";
+    public static final int NUM_4 = 4;
+    public static final int NUM_6 = 6;
+    public static final int NUM_600_000 = 600_000;
+    public static final double NUM_600_000_0 = 600_000.0;
+    public static final int NUM_3 = 3;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_6_2 = 6f;
+    public static final float NUM_15 = 15f;
+    public static final float NUM_10 = 10f;
+    public static final double NUM_2_0 = 2.0;
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_3_2 = 3f;
 
-    private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort SUBDIVISIONS = new InputPort("subdivisions", PortType.INT, 4, 1f, 6f);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort SUBDIVISIONS = new InputPort(SUBDIVISIONS_2, PortType.INT, 4, 1f, 6f);
+    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -42,8 +57,8 @@ public class CoonsPatchNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "geometry", "Input cage (must carry bezier handle slots from assign_bezier_handles) / output smooth high-poly surface mesh. DESTRUCTIVE: consumes the handle slots. Always follow with merge_by_distance(distance=0.0001) to weld duplicated seam vertices.",
-                "subdivisions", "n×n samples per quad face. 4 = 16 quads per face (cheap); 8 = 64 (smooth). Capped internally so total output faces stay under 600k."
+                GEOMETRY_2, "Input cage (must carry bezier handle slots from assign_bezier_handles) / output smooth high-poly surface mesh. DESTRUCTIVE: consumes the handle slots. Always follow with merge_by_distance(distance=0.0001) to weld duplicated seam vertices.",
+                SUBDIVISIONS_2, "n×n samples per quad face. 4 = 16 quads per face (cheap); 8 = 64 (smooth). Capped internally so total output faces stay under 600k."
         );
     }
 
@@ -71,13 +86,13 @@ public class CoonsPatchNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
-        Number subNum = ctx.getInput("subdivisions", Number.class);
-        int n = subNum == null ? 4 : Math.max(1, Math.min(6, subNum.intValue()));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
+        Number subNum = ctx.getInput(SUBDIVISIONS_2, Number.class);
+        int n = subNum == null ? NUM_4 : Math.max(1, Math.min(NUM_6, subNum.intValue()));
 
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.faceCount() == 0) {
-            ctx.setOutput("geometry", base);
+            ctx.setOutput(GEOMETRY_2, base);
             return;
         }
 
@@ -85,8 +100,8 @@ public class CoonsPatchNode implements MeshNode {
         int inputFaces = mesh.faceCount();
         if (inputFaces > 0) {
             long estimated = (long) inputFaces * n * n;
-            if (estimated > 600_000) {
-                int safeN = Math.max(1, (int) Math.sqrt(600_000.0 / inputFaces));
+            if (estimated > NUM_600_000) {
+                int safeN = Math.max(1, (int) Math.sqrt(NUM_600_000_0 / inputFaces));
                 System.err.println("[coons_patch] Capped subdivisions from " + n + " to " + safeN
                         + " (" + inputFaces + " input faces × " + n + "² = " + estimated
                         + " would exceed 600k limit)");
@@ -132,23 +147,23 @@ public class CoonsPatchNode implements MeshNode {
         for (int fi = 0; fi < mesh.faceCount(); fi++) {
             int fid = mesh.faceIdAt(fi);
             int vpf = mesh.faceVertexCount(fid);
-            if (vpf == 4) {
+            if (vpf == NUM_4) {
                 // === Quad path: bilinear Coons patch, emitted as n² quads ===
                 int e0 = mesh.faceEdgeAt(fid, 0);
                 int e1 = mesh.faceEdgeAt(fid, 1);
                 int e2 = mesh.faceEdgeAt(fid, 2);
-                int e3 = mesh.faceEdgeAt(fid, 3);
+                int e3 = mesh.faceEdgeAt(fid, NUM_3);
                 int v0 = mesh.faceVertexAt(fid, 0);
                 int v1 = mesh.faceVertexAt(fid, 1);
-                int v3 = mesh.faceVertexAt(fid, 3);
+                int v3 = mesh.faceVertexAt(fid, NUM_3);
 
-                evalFaceEdge(mesh, hStart, hEnd, e0, v0, 0f, p00, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
-                evalFaceEdge(mesh, hStart, hEnd, e0, v0, 1f, p10, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
-                evalFaceEdge(mesh, hStart, hEnd, e2, v3, 0f, p01, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
-                evalFaceEdge(mesh, hStart, hEnd, e2, v3, 1f, p11, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
+                evalFaceEdge(mesh, hStart, hEnd, e0, v0, NUM_0, p00, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
+                evalFaceEdge(mesh, hStart, hEnd, e0, v0, NUM_1, p10, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
+                evalFaceEdge(mesh, hStart, hEnd, e2, v3, NUM_0, p01, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
+                evalFaceEdge(mesh, hStart, hEnd, e2, v3, NUM_1, p11, edgePosA, edgePosB, edgeOff0, edgeOff1, tmp0, tmp1, tmp2, tmp3);
 
                 int baseIdx = vertCountBox[0];
-                float invN = 1f / n;
+                float invN = NUM_1 / n;
                 for (int j = 0; j <= n; j++) {
                     float v = j * invN;
                     float vS = smootherStep(v);
@@ -184,10 +199,10 @@ public class CoonsPatchNode implements MeshNode {
                         faceIndicesList.add(i10);
                         faceIndicesList.add(i11);
                         faceIndicesList.add(i01);
-                        faceVertexCountsList.add(4);
+                        faceVertexCountsList.add(NUM_4);
                     }
                 }
-            } else if (vpf >= 3) {
+            } else if (vpf >= NUM_3) {
                 // === N-sided path: Charrot-Gregory patch, emitted as N·n tris ===
                 emitGregoryFan(mesh, hStart, hEnd, fid, vpf, n,
                         positionsList, faceIndicesList, faceVertexCountsList, vertCountBox);
@@ -197,7 +212,7 @@ public class CoonsPatchNode implements MeshNode {
 
         int vertCount = vertCountBox[0];
         if (vertCount == 0) {
-            ctx.setOutput("geometry", base);
+            ctx.setOutput(GEOMETRY_2, base);
             return;
         }
 
@@ -214,10 +229,10 @@ public class CoonsPatchNode implements MeshNode {
         MeshTopology outMesh;
         boolean allQuads = true;
         for (int c : faceVertexCounts) {
-            if (c != 4) { allQuads = false; break; }
+            if (c != NUM_4) { allQuads = false; break; }
         }
         if (allQuads) {
-            ArrayMesh am = new ArrayMesh(positions, null, faceIdxFlat, 4);
+            ArrayMesh am = new ArrayMesh(positions, null, faceIdxFlat, NUM_4);
             am.computeNormals();
             outMesh = am;
         } else {
@@ -230,7 +245,7 @@ public class CoonsPatchNode implements MeshNode {
         nextSlots.remove(AssignBezierHandlesNode.SLOT_HANDLES_START);
         nextSlots.remove(AssignBezierHandlesNode.SLOT_HANDLES_END);
         GeometryBundle outBundle = new GeometryBundle(outMesh, Map.copyOf(nextSlots));
-        ctx.setOutput("geometry", outBundle);
+        ctx.setOutput(GEOMETRY_2, outBundle);
     }
 
     private static float[] slotFloat3(GeometryBundle base, String name, MeshTopology mesh) {
@@ -239,7 +254,7 @@ public class CoonsPatchNode implements MeshNode {
             return zeroHandles(mesh);
         }
         int maxEdgeId = maxEdgeId(mesh);
-        int need = (maxEdgeId + 1) * 3;
+        int need = (maxEdgeId + 1) * NUM_3;
         if (arr.length < need) {
             float[] padded = new float[need];
             System.arraycopy(arr, 0, padded, 0, Math.min(arr.length, need));
@@ -250,7 +265,7 @@ public class CoonsPatchNode implements MeshNode {
 
     private static float[] zeroHandles(MeshTopology mesh) {
         int maxEdgeId = maxEdgeId(mesh);
-        return new float[(maxEdgeId + 1) * 3];
+        return new float[(maxEdgeId + 1) * NUM_3];
     }
 
     private static int maxEdgeId(MeshTopology mesh) {
@@ -262,7 +277,7 @@ public class CoonsPatchNode implements MeshNode {
     }
 
     private static float smootherStep(float t) {
-        return t * t * t * (t * (t * 6f - 15f) + 10f);
+        return t * t * t * (t * (t * NUM_6_2 - NUM_15) + NUM_10);
     }
 
     /**
@@ -300,12 +315,12 @@ public class CoonsPatchNode implements MeshNode {
 
         // Canonical n-gon vertices: on the unit circle at angles
         // (i + 0.5) · 2π/N + π — matches CharrotGregoryPatch.
-        float twoPi = (float) (2.0 * Math.PI);
+        float twoPi = (float) (NUM_2_0 * Math.PI);
         float pi = (float) Math.PI;
         float[] vertsU = new float[N];
         float[] vertsV = new float[N];
         for (int k = 0; k < N; k++) {
-            float theta = (k + 0.5f) * twoPi / N + pi;
+            float theta = (k + NUM_0_5) * twoPi / N + pi;
             vertsU[k] = (float) Math.cos(theta);
             vertsV[k] = (float) Math.sin(theta);
         }
@@ -315,7 +330,7 @@ public class CoonsPatchNode implements MeshNode {
         Vector3f sampled = new Vector3f();
 
         // Centroid (domain origin).
-        CharrotGregoryPatch.evaluate(curves, 0f, 0f, sampled);
+        CharrotGregoryPatch.evaluate(curves, NUM_0, NUM_0, sampled);
         positionsList.add(sampled.x);
         positionsList.add(sampled.y);
         positionsList.add(sampled.z);
@@ -350,7 +365,7 @@ public class CoonsPatchNode implements MeshNode {
                 faceIndicesList.add(centroidIdx);
                 faceIndicesList.add(a);
                 faceIndicesList.add(b);
-                faceVertexCountsList.add(3);
+                faceVertexCountsList.add(NUM_3);
             }
             // Wrap-around: last sample of edge k → first sample of edge (k+1).
             int a = boundarySampleIdx[k * n + (n - 1)];
@@ -358,7 +373,7 @@ public class CoonsPatchNode implements MeshNode {
             faceIndicesList.add(centroidIdx);
             faceIndicesList.add(a);
             faceIndicesList.add(b);
-            faceVertexCountsList.add(3);
+            faceVertexCountsList.add(NUM_3);
         }
     }
 
@@ -372,7 +387,7 @@ public class CoonsPatchNode implements MeshNode {
         int he = mesh.edgeHalfEdge(eid);
         int ca = mesh.halfEdgeVertex(he);
         int cb = mesh.halfEdgeEndVertex(he);
-        int o = eid * 3;
+        int o = eid * NUM_3;
         Vector3f p0 = new Vector3f();
         Vector3f p3 = new Vector3f();
         mesh.vertexPosition(startVid, p0);
@@ -380,10 +395,10 @@ public class CoonsPatchNode implements MeshNode {
 
         Vector3f offStart = new Vector3f();
         Vector3f offEnd = new Vector3f();
-        if (hStart != null && o + 3 <= hStart.length) {
+        if (hStart != null && o + NUM_3 <= hStart.length) {
             offStart.set(hStart[o], hStart[o + 1], hStart[o + 2]);
         }
-        if (hEnd != null && o + 3 <= hEnd.length) {
+        if (hEnd != null && o + NUM_3 <= hEnd.length) {
             offEnd.set(hEnd[o], hEnd[o + 1], hEnd[o + 2]);
         }
 
@@ -431,7 +446,7 @@ public class CoonsPatchNode implements MeshNode {
         int he = mesh.edgeHalfEdge(eid);
         int ca = mesh.halfEdgeVertex(he);
         int cb = mesh.halfEdgeEndVertex(he);
-        int o = eid * 3;
+        int o = eid * NUM_3;
         mesh.vertexPosition(ca, posCa);
         mesh.vertexPosition(cb, posCb);
         handle(hStart, o, offStart);
@@ -444,25 +459,25 @@ public class CoonsPatchNode implements MeshNode {
         p3.set(posCb);
 
         // Flip parameter when face winding reverses edge direction
-        float evalT = (expectedStartVertex == cb) ? 1f - t : t;
+        float evalT = (expectedStartVertex == cb) ? NUM_1 - t : t;
         cubicBezier(p0, p1, p2, p3, evalT, dest);
     }
 
     private static void handle(float[] arr, int o, Vector3f dest) {
-        if (arr == null || o + 3 > arr.length) {
-            dest.set(0f, 0f, 0f);
+        if (arr == null || o + NUM_3 > arr.length) {
+            dest.set(NUM_0, NUM_0, NUM_0);
             return;
         }
         dest.set(arr[o], arr[o + 1], arr[o + 2]);
     }
 
     private static void cubicBezier(Vector3f p0, Vector3f p1, Vector3f p2, Vector3f p3, float t, Vector3f dest) {
-        float u = 1f - t;
+        float u = NUM_1 - t;
         float uu = u * u;
         float tt = t * t;
         float c0 = uu * u;
-        float c1 = 3f * uu * t;
-        float c2 = 3f * u * tt;
+        float c1 = NUM_3_2 * uu * t;
+        float c2 = NUM_3_2 * u * tt;
         float c3 = t * tt;
         dest.x = c0 * p0.x + c1 * p1.x + c2 * p2.x + c3 * p3.x;
         dest.y = c0 * p0.y + c1 * p1.y + c2 * p2.y + c3 * p3.y;

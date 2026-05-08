@@ -21,9 +21,50 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class MouseTrap {
+    public static final float NUM_1 = 1f;
+    public static final int NUM_4 = 4;
+    public static final int NUM_60 = 60;
+    public static final float NUM_100 = 100f;
+    public static final int NUM_3 = 3;
+    public static ArrayList<HyperString> hyperStrings = new ArrayList<>();
 
     private static Object automationRuntime;
     private static boolean automationChecked;
+
+    private static final HashMap<Integer, List<ScrollSubscription>> scrollSubscriptionsByPlatform = new HashMap<>();
+
+    private static final HashMap<Integer, List<ClickSubscription>> clickSubscriptionsByPlatform = new HashMap<>();
+
+    public int queuedMouseWheelTicks = 0;
+    public int lastX = Integer.MIN_VALUE;
+    public int lastY = Integer.MIN_VALUE;
+    public Camera camera;
+    public boolean active = true;
+    public float normalizedPosX;
+    public float normalizedPosY;
+    MainScene main;
+    long timeLastScroll;
+    int width;
+    int height;
+    double startX;
+    double startY;
+
+    float leftMouseDown = -1;
+    Vector2f leftMouseDownPos;
+    private Canvas3D canvas;
+
+    /**
+     * TODO: document {@code MouseTrap}.
+     *
+     * @param main TODO: describe
+     * @param camera TODO: describe
+     * @param canvas TODO: describe
+     */
+    public MouseTrap(MainScene main, Camera camera, Canvas3D canvas) {
+        this.main = main;
+        this.camera = camera;
+        this.canvas = canvas;
+    }
 
     private static Object getAutomationRuntime() {
         if (!automationChecked) {
@@ -49,89 +90,63 @@ public class MouseTrap {
         } catch (Throwable ignored) {}
     }
 
-    public int queuedMouseWheelTicks = 0;
-    MainScene main;
-    long timeLastScroll;
-    public int lastX = Integer.MIN_VALUE;
-    public int lastY = Integer.MIN_VALUE;
-    int width;
-    int height;
-    public Camera camera;
-    public boolean active = true;
-    public static ArrayList<HyperString> hyperStrings = new ArrayList<>();
-    double startX;
-    double startY;
-    private Canvas3D canvas;
-    public float normalizedPosX;
-    public float normalizedPosY;
-
-    public interface ScrollHandler {
-        void onScroll(boolean scrollUp, double deltaSeconds);
-    }
-
-    @FunctionalInterface
-    public interface ClickHandler {
-        void onClick(int button);
-    }
-
-    public static class ScrollSubscription {
-        public Bounds bounds;
-        public ScrollHandler handler;
-
-        public ScrollSubscription(Bounds bounds, ScrollHandler handler) {
-            this.bounds = bounds;
-            this.handler = handler;
-        }
-    }
-
-    private static final HashMap<Integer, List<ScrollSubscription>> scrollSubscriptionsByPlatform = new HashMap<>();
-
     private static List<ScrollSubscription> getSubscriptionsForCurrentPlatform() {
         int id = Platforms.gl().getPlatformID();
         return scrollSubscriptionsByPlatform.computeIfAbsent(id, k -> new ArrayList<>());
     }
 
+    /**
+     * TODO: document {@code subscribeScrollRegion}.
+     *
+     * @param bounds TODO: describe
+     * @param handler TODO: describe
+     */
     public static void subscribeScrollRegion(Bounds bounds, ScrollHandler handler) {
         getSubscriptionsForCurrentPlatform().add(new ScrollSubscription(bounds, handler));
     }
 
+    /**
+     * TODO: document {@code unsubscribeScrollRegion}.
+     *
+     * @param handler TODO: describe
+     */
     public static void unsubscribeScrollRegion(ScrollHandler handler) {
         List<ScrollSubscription> list = getSubscriptionsForCurrentPlatform();
         list.removeIf(s -> s.handler == handler);
     }
-
-    public static class ClickSubscription {
-        public Bounds bounds;
-        public ClickHandler handler;
-
-        public ClickSubscription(Bounds bounds, ClickHandler handler) {
-            this.bounds = bounds;
-            this.handler = handler;
-        }
-    }
-
-    private static final HashMap<Integer, List<ClickSubscription>> clickSubscriptionsByPlatform = new HashMap<>();
 
     private static List<ClickSubscription> getClickSubscriptionsForCurrentPlatform() {
         int id = Platforms.gl().getPlatformID();
         return clickSubscriptionsByPlatform.computeIfAbsent(id, k -> new ArrayList<>());
     }
 
+    /**
+     * TODO: document {@code subscribeClickRegion}.
+     *
+     * @param bounds TODO: describe
+     * @param handler TODO: describe
+     */
     public static void subscribeClickRegion(Bounds bounds, ClickHandler handler) {
         getClickSubscriptionsForCurrentPlatform().add(new ClickSubscription(bounds, handler));
     }
 
+    /**
+     * TODO: document {@code unsubscribeClickRegion}.
+     *
+     * @param handler TODO: describe
+     */
     public static void unsubscribeClickRegion(ClickHandler handler) {
         List<ClickSubscription> list = getClickSubscriptionsForCurrentPlatform();
         list.removeIf(s -> s.handler == handler);
     }
 
-    public MouseTrap(MainScene main, Camera camera, Canvas3D canvas) {
-        this.main = main;
-        this.camera = camera;
-        this.canvas = canvas;
-    }
-
+    /**
+     * TODO: document {@code mouseClicked}.
+     *
+     * @param xPos TODO: describe
+     * @param yPos TODO: describe
+     * @param button TODO: describe
+     */
     public void mouseClicked(float xPos, float yPos, int button) {
         if (!active) {
             return;
@@ -147,8 +162,8 @@ public class MouseTrap {
                 "yPx", yPos,
                 "xCoord", normalizedPosX,
                 "yCoord", normalizedPosY,
-                "xNorm", xPos / Math.max(1f, Platforms.get().getWindowWidth()),
-                "yNorm", yPos / Math.max(1f, Platforms.get().getWindowHeight()));
+                "xNorm", xPos / Math.max(NUM_1, Platforms.get().getWindowWidth()),
+                "yNorm", yPos / Math.max(NUM_1, Platforms.get().getWindowHeight()));
         Toggle.setPanelFocus(inMainView);
         if (MainScene.manifoldKnot != null && MainScene.active) {
             if (inMainView == PaneTypes.KnotView) {
@@ -188,6 +203,12 @@ public class MouseTrap {
         }
     }
 
+    /**
+     * TODO: document {@code mousePressed}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     public void mousePressed(float x, float y) {
         normalizedPosX = camera.getNormalizePosX(x);
         normalizedPosY = camera.getNormalizePosY(y);
@@ -195,6 +216,12 @@ public class MouseTrap {
         startY = normalizedPosY;
     }
 
+    /**
+     * TODO: document {@code mouseDragged}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     public void mouseDragged(float x, float y) {
 
         normalizedPosX = camera.getNormalizePosX(x);
@@ -208,29 +235,54 @@ public class MouseTrap {
         }
     }
 
+    /**
+     * TODO: document {@code mouseReleased}.
+     */
     public void mouseReleased() {
     }
 
+    /**
+     * TODO: document {@code mouseEntered}.
+     */
     public void mouseEntered() {
     }
 
+    /**
+     * TODO: document {@code mouseExited}.
+     */
     public void mouseExited() {
         if (main != null) {
             MainScene.tool.clearHover();
         }
     }
 
+    /**
+     * TODO: document {@code scrollCallback}.
+     *
+     * @param y TODO: describe
+     */
     public void scrollCallback(double y) {
         Platforms.init(canvas.platform.getPlatformID());
-        queuedMouseWheelTicks += (int) (4 * y);
+        queuedMouseWheelTicks += (int) (NUM_4 * y);
         timeLastScroll = System.currentTimeMillis();
         recordAbstractAction("mouse_scroll", "delta", y);
     }
 
+    /**
+     * TODO: document {@code setCanvas}.
+     *
+     * @param canvas3d TODO: describe
+     */
     public void setCanvas(Canvas3D canvas3d) {
         this.canvas = canvas3d;
     }
 
+    /**
+     * TODO: document {@code mousePos}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     public void mousePos(float x, float y) {
         if (!active) {
             return;
@@ -259,8 +311,13 @@ public class MouseTrap {
         hyperStrings = new ArrayList<>();
     }
 
+    /**
+     * TODO: document {@code paintUpdate}.
+     *
+     * @param SHIFT_MOD TODO: describe
+     */
     public void paintUpdate(float SHIFT_MOD) {
-        if (System.currentTimeMillis() - timeLastScroll > 60) {
+        if (System.currentTimeMillis() - timeLastScroll > NUM_60) {
             queuedMouseWheelTicks = 0;
         }
         PaneTypes view = MainScene.inView(lastX, lastY);
@@ -280,7 +337,7 @@ public class MouseTrap {
                             && yFromBottom <= sub.bounds.offsetY + sub.bounds.viewHeight;
                     if (inside) {
                         boolean up = queuedMouseWheelTicks < 0;
-                        sub.handler.onScroll(up, Clock.deltaTime() * 100f);
+                        sub.handler.onScroll(up, Clock.deltaTime() * NUM_100);
                         return;
                     }
                 }
@@ -310,9 +367,13 @@ public class MouseTrap {
         }
     }
 
-    float leftMouseDown = -1;
-    Vector2f leftMouseDownPos;
-
+    /**
+     * TODO: document {@code mouseButton}.
+     *
+     * @param button TODO: describe
+     * @param action TODO: describe
+     * @param mods TODO: describe
+     */
     public void mouseButton(int button, int action, int mods) {
         Platforms.init(canvas.platform.getPlatformID());
         float x = lastX;
@@ -324,7 +385,7 @@ public class MouseTrap {
         } else if (action == ACTION_RELEASE) {
             if (leftMouseDownPos != null) {
                 Vector2f mouseReleasePos = new Vector2f(x, y);
-                if (mouseReleasePos.distance(leftMouseDownPos) < 3) {
+                if (mouseReleasePos.distance(leftMouseDownPos) < NUM_3) {
                     mouseClicked(x, y, button);
                 } else {
                     mouseReleased();
@@ -333,14 +394,73 @@ public class MouseTrap {
         }
     }
 
+    /**
+     * TODO: document {@code moveOrDrag}.
+     *
+     * @param window TODO: describe
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     public void moveOrDrag(long window, float x, float y) {
         Platforms.init(canvas.platform.getPlatformID());
         boolean leftDown = Platforms.gl().getMouseButton(window, MouseButtons.MOUSE_BUTTON_LEFT);
         Vector2f mouseReleasePos = new Vector2f((float) x, (float) y);
-        if (leftDown && leftMouseDownPos != null && mouseReleasePos.distance(leftMouseDownPos) > 3) {
+        if (leftDown && leftMouseDownPos != null && mouseReleasePos.distance(leftMouseDownPos) > NUM_3) {
             mouseDragged(x, y);
         } else {
             mousePos(x, y);
+        }
+    }
+
+    public interface ScrollHandler {
+        /**
+         * TODO: document {@code onScroll}.
+         *
+         * @param scrollUp TODO: describe
+         * @param deltaSeconds TODO: describe
+         */
+        void onScroll(boolean scrollUp, double deltaSeconds);
+    }
+
+    @FunctionalInterface
+    public interface ClickHandler {
+        /**
+         * TODO: document {@code onClick}.
+         *
+         * @param button TODO: describe
+         */
+        void onClick(int button);
+    }
+
+    public static class ScrollSubscription {
+        public Bounds bounds;
+        public ScrollHandler handler;
+
+        /**
+         * TODO: document {@code ScrollSubscription}.
+         *
+         * @param bounds TODO: describe
+         * @param handler TODO: describe
+         */
+        public ScrollSubscription(Bounds bounds, ScrollHandler handler) {
+            this.bounds = bounds;
+            this.handler = handler;
+        }
+    }
+
+    public static class ClickSubscription {
+        public Bounds bounds;
+        public ClickHandler handler;
+
+        /**
+         * TODO: document {@code ClickSubscription}.
+         *
+         * @param bounds TODO: describe
+         * @param handler TODO: describe
+         */
+        public ClickSubscription(Bounds bounds, ClickHandler handler) {
+            this.bounds = bounds;
+            this.handler = handler;
         }
     }
 

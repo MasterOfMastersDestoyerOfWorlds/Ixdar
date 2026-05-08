@@ -38,6 +38,10 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.FaceRosyField;
  * chart-vertex solution back to face corners.
  */
 public final class AlignedParameterization {
+    public static final int NUM_3 = 3;
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_1e_20 = 1e-20f;
+    public static final double NUM_2_0 = 2.0;
 
     private final ArrayMesh mesh;
     private final FaceRosyField field;
@@ -48,32 +52,62 @@ public final class AlignedParameterization {
     private final float[] vCorner;
     private double energy;
 
+    /**
+     * TODO: document {@code AlignedParameterization}.
+     *
+     * @param mesh TODO: describe
+     * @param field TODO: describe
+     * @param combed TODO: describe
+     */
     public AlignedParameterization(ArrayMesh mesh, FaceRosyField field, CombedField combed) {
         this.mesh = mesh;
         this.field = field;
         this.combed = combed;
         this.faceCount = mesh.faceCount();
-        this.uCorner = new float[faceCount * 3];
-        this.vCorner = new float[faceCount * 3];
+        this.uCorner = new float[faceCount * NUM_3];
+        this.vCorner = new float[faceCount * NUM_3];
         solve();
     }
 
+    /**
+     * TODO: document {@code u}.
+     *
+     * @param faceId TODO: describe
+     * @param cornerIdx TODO: describe
+     * @return TODO: describe
+     */
     public float u(int faceId, int cornerIdx) {
-        return uCorner[faceId * 3 + cornerIdx];
+        return uCorner[faceId * NUM_3 + cornerIdx];
     }
 
+    /**
+     * TODO: document {@code v}.
+     *
+     * @param faceId TODO: describe
+     * @param cornerIdx TODO: describe
+     * @return TODO: describe
+     */
     public float v(int faceId, int cornerIdx) {
-        return vCorner[faceId * 3 + cornerIdx];
+        return vCorner[faceId * NUM_3 + cornerIdx];
     }
 
+    /**
+     * TODO: document {@code energy}.
+     *
+     * @return TODO: describe
+     */
     public double energy() { return energy; }
 
-    /** Returns [uMin, uMax, vMin, vMax]. */
+    /**
+     * Returns [uMin, uMax, vMin, vMax].
+     *
+     * @return TODO: describe
+     */
     public float[] uvBoundingBox() {
         if (faceCount == 0) return new float[]{0, 0, 0, 0};
         float uMin = uCorner[0], uMax = uCorner[0];
         float vMin = vCorner[0], vMax = vCorner[0];
-        int n = faceCount * 3;
+        int n = faceCount * NUM_3;
         for (int i = 1; i < n; i++) {
             if (uCorner[i] < uMin) uMin = uCorner[i];
             if (uCorner[i] > uMax) uMax = uCorner[i];
@@ -83,13 +117,18 @@ public final class AlignedParameterization {
         return new float[]{uMin, uMax, vMin, vMax};
     }
 
-    /** Signed area in (u,v) of triangle f. Positive = correctly oriented. */
+    /**
+     * Signed area in (u,v) of triangle f. Positive = correctly oriented.
+     *
+     * @param faceId TODO: describe
+     * @return TODO: describe
+     */
     public float uvSignedArea(int faceId) {
-        int o = faceId * 3;
+        int o = faceId * NUM_3;
         float u0 = uCorner[o], v0 = vCorner[o];
         float u1 = uCorner[o + 1], v1 = vCorner[o + 1];
         float u2 = uCorner[o + 2], v2 = vCorner[o + 2];
-        return 0.5f * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
+        return NUM_0_5 * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
     }
 
     private void solve() {
@@ -98,10 +137,10 @@ public final class AlignedParameterization {
         double[] x = H.solveWithPins(null, null, null, null);
         // Project chart-vertex solution back to per-corner arrays.
         for (int f = 0; f < faceCount; f++) {
-            for (int c = 0; c < 3; c++) {
+            for (int c = 0; c < NUM_3; c++) {
                 int cv = H.chart.chartVertexAt(f, c);
-                uCorner[f * 3 + c] = (float) x[H.uBase + cv];
-                vCorner[f * 3 + c] = (float) x[H.vBase + cv];
+                uCorner[f * NUM_3 + c] = (float) x[H.uBase + cv];
+                vCorner[f * NUM_3 + c] = (float) x[H.vBase + cv];
             }
         }
         energy = computeEnergy(H);
@@ -126,14 +165,14 @@ public final class AlignedParameterization {
             e1.set(p2).sub(p0);
             float q1u = e0.dot(uF), q1v = e0.dot(vF);
             float q2u = e1.dot(uF), q2v = e1.dot(vF);
-            float sa = 0.5f * (q1u * q2v - q2u * q1v);
-            if (Math.abs(sa) < 1e-20f) continue;
-            double inv2A = 1.0 / (2.0 * sa);
+            float sa = NUM_0_5 * (q1u * q2v - q2u * q1v);
+            if (Math.abs(sa) < NUM_1e_20) continue;
+            double inv2A = 1.0 / (NUM_2_0 * sa);
             double b0 = (q1v - q2v) * inv2A, c0 = (q2u - q1u) * inv2A;
             double b1 = (q2v - 0)   * inv2A, c1 = (0   - q2u) * inv2A;
             double b2 = (0   - q1v) * inv2A, c2 = (q1u - 0)   * inv2A;
-            double U0 = uCorner[f * 3],     U1 = uCorner[f * 3 + 1], U2 = uCorner[f * 3 + 2];
-            double V0 = vCorner[f * 3],     V1 = vCorner[f * 3 + 1], V2 = vCorner[f * 3 + 2];
+            double U0 = uCorner[f * NUM_3],     U1 = uCorner[f * NUM_3 + 1], U2 = uCorner[f * NUM_3 + 2];
+            double V0 = vCorner[f * NUM_3],     V1 = vCorner[f * NUM_3 + 1], V2 = vCorner[f * NUM_3 + 2];
             double gux = U0 * b0 + U1 * b1 + U2 * b2;
             double guy = U0 * c0 + U1 * c1 + U2 * c2;
             double gvx = V0 * b0 + V1 * b1 + V2 * b2;

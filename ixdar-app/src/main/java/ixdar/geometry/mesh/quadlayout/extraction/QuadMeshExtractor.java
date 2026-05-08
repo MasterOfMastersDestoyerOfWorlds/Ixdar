@@ -27,23 +27,19 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.CombedField;
  * (e.g. a flat planar test mesh).
  */
 public final class QuadMeshExtractor {
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
 
     private QuadMeshExtractor() {}
 
-    /** Result of an extraction pass: full intermediate state + final quad mesh. */
-    public record Result(QuadVertexGenerator.Result qVerts,
-                         List<QPort> ports,
-                         List<QEdge> edges,
-                         List<QFace> faces,
-                         /** vertices[i*3..i*3+2] = position of quad vertex i. */
-                         float[] quadVertexPositions,
-                         /** faces[i*4..i*4+3] = the 4 quad-vertex ids of quad i (CCW). */
-                         int[] quadFaceIndices,
-                         /** Optional ArrayMesh ready for rendering. */
-                         ArrayMesh quadMesh) {
-    }
-
-    /** Convenience overload for matching-free inputs (planar tests). */
+    /**
+     * Convenience overload for matching-free inputs (planar tests).
+     *
+     * @param mesh TODO: describe
+     * @param uCorner TODO: describe
+     * @param vCorner TODO: describe
+     * @return TODO: describe
+     */
     public static Result extract(ArrayMesh mesh, float[] uCorner, float[] vCorner) {
         return extract(mesh, uCorner, vCorner, null);
     }
@@ -56,6 +52,7 @@ public final class QuadMeshExtractor {
      * @param vCorner per-corner v, length {@code 3 * F}
      * @param combed combed cross field providing per-edge matching; may be
      *               {@code null} for tests where matching is identically 0
+     * @return TODO: describe
      */
     public static Result extract(ArrayMesh mesh, float[] uCorner, float[] vCorner,
                                   CombedField combed) {
@@ -83,13 +80,13 @@ public final class QuadMeshExtractor {
         ArrayList<Integer> outFaces = new ArrayList<>();
         List<QVert> allQVerts = collectAllQVerts(qVerts);
         for (QFace f : faces) {
-            int[] outIdxs = new int[4];
-            for (int i = 0; i < 4; i++) {
+            int[] outIdxs = new int[NUM_4];
+            for (int i = 0; i < NUM_4; i++) {
                 int qvId = f.cornerQVerts()[i];
                 Integer existing = qVertToOutput.get(qvId);
                 if (existing == null) {
                     QVert qv = allQVerts.get(qvId);
-                    int newId = outPos.size() / 3;
+                    int newId = outPos.size() / NUM_3;
                     outPos.add(qv.position().x);
                     outPos.add(qv.position().y);
                     outPos.add(qv.position().z);
@@ -106,7 +103,7 @@ public final class QuadMeshExtractor {
         int[] faceArr = outFaces.stream().mapToInt(Integer::intValue).toArray();
 
         ArrayMesh quadMesh = posArr.length > 0 && faceArr.length > 0
-                ? new ArrayMesh(posArr, null, faceArr, 4)
+                ? new ArrayMesh(posArr, null, faceArr, NUM_4)
                 : null;
 
         return new Result(qVerts, portResult.ports(), edges, faces,
@@ -120,5 +117,18 @@ public final class QuadMeshExtractor {
         all.addAll(r.faceQVerts());
         all.sort((a, b) -> Integer.compare(a.id(), b.id()));
         return all;
+    }
+
+    /** Result of an extraction pass: full intermediate state + final quad mesh. */
+    public record Result(QuadVertexGenerator.Result qVerts,
+                         List<QPort> ports,
+                         List<QEdge> edges,
+                         List<QFace> faces,
+                         /** vertices[i*3..i*3+2] = position of quad vertex i. */
+                         float[] quadVertexPositions,
+                         /** faces[i*4..i*4+3] = the 4 quad-vertex ids of quad i (CCW). */
+                         int[] quadFaceIndices,
+                         /** Optional ArrayMesh ready for rendering. */
+                         ArrayMesh quadMesh) {
     }
 }

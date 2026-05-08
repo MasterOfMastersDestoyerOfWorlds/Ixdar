@@ -12,10 +12,16 @@ public class CircleScene extends Scene {
 
     private SDFCircleSimple circle;
 
+    /**
+     * TODO: document {@code CircleScene}.
+     */
     public CircleScene() {
         super();
     }
 
+    /**
+     * TODO: document {@code initGL}.
+     */
     @Override
     public void initGL() {
         super.initGL();
@@ -23,6 +29,9 @@ public class CircleScene extends Scene {
         initCodePane("Circle SDF", circle.getShader(), circle);
     }
 
+    /**
+     * TODO: document {@code drawScene}.
+     */
     @Override
     public void drawScene() {
         super.drawScene();

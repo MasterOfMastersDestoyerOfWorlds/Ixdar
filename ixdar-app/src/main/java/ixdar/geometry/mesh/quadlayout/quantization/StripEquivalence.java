@@ -34,26 +34,19 @@ import ixdar.geometry.mesh.quadlayout.tmesh.TPatch;
  * T-junction), the strip ends there — no unification is possible.
  */
 public final class StripEquivalence {
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
+    public static final int NUM_5 = 5;
+    public static final int NUM_10 = 10;
 
     private StripEquivalence() {}
 
-    /** Result: per-arc class id, plus class count. */
-    public record Result(int[] arcClass, int classCount) {
-
-        public int[][] arcsByClass() {
-            int[] sizes = new int[classCount];
-            for (int c : arcClass) sizes[c]++;
-            int[][] out = new int[classCount][];
-            for (int i = 0; i < classCount; i++) out[i] = new int[sizes[i]];
-            int[] idx = new int[classCount];
-            for (int a = 0; a < arcClass.length; a++) {
-                int c = arcClass[a];
-                out[c][idx[c]++] = a;
-            }
-            return out;
-        }
-    }
-
+    /**
+     * TODO: document {@code compute}.
+     *
+     * @param tmesh TODO: describe
+     * @return TODO: describe
+     */
     public static Result compute(TMesh tmesh) {
         int n = tmesh.arcs().size();
         int[] parent = new int[n];
@@ -73,9 +66,9 @@ public final class StripEquivalence {
         for (int pi = 0; pi < patches.size(); pi++) {
             TPatch p = patches.get(pi);
             int[][] sides = p.arcsBySide();
-            if (sides == null || sides.length != 4) continue;
+            if (sides == null || sides.length != NUM_4) continue;
             unionByReversedPosition(parent, sides[0], sides[2]);
-            unionByReversedPosition(parent, sides[1], sides[3]);
+            unionByReversedPosition(parent, sides[1], sides[NUM_3]);
         }
 
         // ====================================================================
@@ -103,8 +96,8 @@ public final class StripEquivalence {
         boolean[] inFourSidedPatch = new boolean[n];
         for (TPatch p : patches) {
             int[][] sides = p.arcsBySide();
-            if (sides == null || sides.length != 4) continue;
-            for (int s = 0; s < 4; s++) {
+            if (sides == null || sides.length != NUM_4) continue;
+            for (int s = 0; s < NUM_4; s++) {
                 for (int aId : sides[s]) {
                     if (aId >= 0 && aId < n) inFourSidedPatch[aId] = true;
                 }
@@ -124,11 +117,11 @@ public final class StripEquivalence {
             int dirS = arc.directionAtStart();
             int dirE = arc.directionAtEnd();
             if (sn >= 0 && sn < nodeCount) {
-                if (arcsAtNode[sn] == null) arcsAtNode[sn] = new ArrayList<>(4);
+                if (arcsAtNode[sn] == null) arcsAtNode[sn] = new ArrayList<>(NUM_4);
                 arcsAtNode[sn].add(new int[]{aId, dirS, 0});
             }
             if (en >= 0 && en < nodeCount) {
-                if (arcsAtNode[en] == null) arcsAtNode[en] = new ArrayList<>(4);
+                if (arcsAtNode[en] == null) arcsAtNode[en] = new ArrayList<>(NUM_4);
                 arcsAtNode[en].add(new int[]{aId, dirE, 1});
             }
         }
@@ -140,7 +133,7 @@ public final class StripEquivalence {
             int[] inArcAtCard  = {-1, -1, -1, -1};
             for (int[] e : incident) {
                 int aId = e[0], card = e[1], role = e[2];
-                if (card < 0 || card > 3) continue;
+                if (card < 0 || card > NUM_3) continue;
                 // Skip arcs already in a 4-sided patch — Pass 1 handled them.
                 if (inFourSidedPatch[aId]) continue;
                 if (role == 0) {
@@ -149,7 +142,7 @@ public final class StripEquivalence {
                     if (inArcAtCard[card] < 0) inArcAtCard[card] = aId;
                 }
             }
-            for (int x = 0; x < 4; x++) {
+            for (int x = 0; x < NUM_4; x++) {
                 int in = inArcAtCard[x];
                 int out = outArcAtCard[x];
                 if (in >= 0 && out >= 0) {
@@ -174,11 +167,17 @@ public final class StripEquivalence {
         return new Result(classOf, classCount);
     }
 
-    /** Pass 1 helper: union arc[k] on sideA with arc[N-1-k] on sideB
+    /**
+     * Pass 1 helper: union arc[k] on sideA with arc[N-1-k] on sideB
      *  when arc counts match. Opposite sides walk in reversed parametric
      *  direction so the i-th arc on side A pairs with the (N-1-i)-th on
      *  side B. Patch chaining via shared arcs propagates strip class
-     *  equivalence across patch boundaries. */
+     *  equivalence across patch boundaries.
+     *
+     * @param parent TODO: describe
+     * @param sideA TODO: describe
+     * @param sideB TODO: describe
+     */
     private static void unionByReversedPosition(int[] parent,
                                                   int[] sideA, int[] sideB) {
         if (sideA == null || sideB == null) return;
@@ -204,6 +203,13 @@ public final class StripEquivalence {
         if (ra != rb) parent[ra] = rb;
     }
 
+    /**
+     * TODO: document {@code aggregateTargets}.
+     *
+     * @param strips TODO: describe
+     * @param arcTargets TODO: describe
+     * @return TODO: describe
+     */
     public static double[] aggregateTargets(Result strips, double[] arcTargets) {
         double[] sumLen = new double[strips.classCount()];
         int[] count = new int[strips.classCount()];
@@ -219,6 +225,12 @@ public final class StripEquivalence {
         return out;
     }
 
+    /**
+     * TODO: document {@code classSizes}.
+     *
+     * @param strips TODO: describe
+     * @return TODO: describe
+     */
     public static List<int[]> classSizes(Result strips) {
         int[] sizes = new int[strips.classCount()];
         for (int c : strips.arcClass()) sizes[c]++;
@@ -227,33 +239,59 @@ public final class StripEquivalence {
         return out;
     }
 
-    /** D1 diagnostic: print class size histogram + top-10 sizes to stdout. */
+    /**
+     * D1 diagnostic: print class size histogram + top-10 sizes to stdout.
+     *
+     * @param strips TODO: describe
+     */
     public static void dumpStats(Result strips) {
         int[] sizes = new int[strips.classCount()];
         for (int c : strips.arcClass()) sizes[c]++;
         int totalArcs = 0;
         int max = 0;
         // bucket: 0=size1, 1=size2, 2=size3-5, 3=size6-10, 4=size>10
-        int[] buckets = new int[5];
+        int[] buckets = new int[NUM_5];
         for (int sz : sizes) {
             totalArcs += sz;
             if (sz > max) max = sz;
             if (sz == 1) buckets[0]++;
             else if (sz == 2) buckets[1]++;
-            else if (sz <= 5) buckets[2]++;
-            else if (sz <= 10) buckets[3]++;
-            else buckets[4]++;
+            else if (sz <= NUM_5) buckets[2]++;
+            else if (sz <= NUM_10) buckets[NUM_3]++;
+            else buckets[NUM_4]++;
         }
         int[] sorted = sizes.clone();
         java.util.Arrays.sort(sorted);
-        int[] top10 = new int[Math.min(10, sorted.length)];
+        int[] top10 = new int[Math.min(NUM_10, sorted.length)];
         for (int i = 0; i < top10.length; i++) {
             top10[i] = sorted[sorted.length - 1 - i];
         }
         System.out.printf("[strip-eq] %d classes / %d arcs; max=%d; "
                 + "buckets [size1=%d, size2=%d, 3-5=%d, 6-10=%d, >10=%d]; top10=%s%n",
                 strips.classCount(), totalArcs, max,
-                buckets[0], buckets[1], buckets[2], buckets[3], buckets[4],
+                buckets[0], buckets[1], buckets[2], buckets[NUM_3], buckets[NUM_4],
                 java.util.Arrays.toString(top10));
+    }
+
+    /** Result: per-arc class id, plus class count. */
+    public record Result(int[] arcClass, int classCount) {
+
+        /**
+         * TODO: document {@code arcsByClass}.
+         *
+         * @return TODO: describe
+         */
+        public int[][] arcsByClass() {
+            int[] sizes = new int[classCount];
+            for (int c : arcClass) sizes[c]++;
+            int[][] out = new int[classCount][];
+            for (int i = 0; i < classCount; i++) out[i] = new int[sizes[i]];
+            int[] idx = new int[classCount];
+            for (int a = 0; a < arcClass.length; a++) {
+                int c = arcClass[a];
+                out[c][idx[c]++] = a;
+            }
+            return out;
+        }
     }
 }

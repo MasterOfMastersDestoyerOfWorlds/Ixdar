@@ -28,6 +28,8 @@ import java.util.List;
  * </ul>
  */
 public final class CombedField {
+    public static final double NUM_0_5 = 0.5;
+    public static final int NUM_4 = 4;
 
     private final FaceRosyField field;
     private final int[] branch;
@@ -41,28 +43,82 @@ public final class CombedField {
         this.seamEdge = seamEdge;
     }
 
+    /**
+     * TODO: document {@code field}.
+     *
+     * @return TODO: describe
+     */
     public FaceRosyField field() { return field; }
 
+    /**
+     * TODO: document {@code branch}.
+     *
+     * @param faceId TODO: describe
+     * @return TODO: describe
+     */
     public int branch(int faceId) { return branch[faceId]; }
 
+    /**
+     * TODO: document {@code combedAngle}.
+     *
+     * @param faceId TODO: describe
+     * @return TODO: describe
+     */
     public double combedAngle(int faceId) {
-        return field.theta(faceId) + branch[faceId] * (Math.PI * 0.5);
+        return field.theta(faceId) + branch[faceId] * (Math.PI * NUM_0_5);
     }
 
+    /**
+     * TODO: document {@code matching}.
+     *
+     * @param interiorEdgeIndex TODO: describe
+     * @return TODO: describe
+     */
     public int matching(int interiorEdgeIndex) { return matching[interiorEdgeIndex]; }
 
+    /**
+     * TODO: document {@code isSeamEdge}.
+     *
+     * @param interiorEdgeIndex TODO: describe
+     * @return TODO: describe
+     */
     public boolean isSeamEdge(int interiorEdgeIndex) { return seamEdge[interiorEdgeIndex]; }
 
+    /**
+     * TODO: document {@code copyBranch}.
+     *
+     * @return TODO: describe
+     */
     public int[] copyBranch() { return Arrays.copyOf(branch, branch.length); }
+    /**
+     * TODO: document {@code copyMatching}.
+     *
+     * @return TODO: describe
+     */
     public int[] copyMatching() { return Arrays.copyOf(matching, matching.length); }
+    /**
+     * TODO: document {@code copySeamEdge}.
+     *
+     * @return TODO: describe
+     */
     public boolean[] copySeamEdge() { return Arrays.copyOf(seamEdge, seamEdge.length); }
 
+    /**
+     * TODO: document {@code seamEdgeIndices}.
+     *
+     * @return TODO: describe
+     */
     public List<Integer> seamEdgeIndices() {
         ArrayList<Integer> out = new ArrayList<>();
         for (int i = 0; i < seamEdge.length; i++) if (seamEdge[i]) out.add(i);
         return out;
     }
 
+    /**
+     * TODO: document {@code seamEdgeCount}.
+     *
+     * @return TODO: describe
+     */
     public int seamEdgeCount() {
         int c = 0;
         for (boolean b : seamEdge) if (b) c++;
@@ -77,6 +133,13 @@ public final class CombedField {
      * for arrays being length-consistent with the field
      * ({@code branch.length == field.faceCount()},
      * {@code matching.length == seamEdge.length == field.interiorEdgeCount()}).
+     *
+     * @param field TODO: describe
+     * @param branch TODO: describe
+     * @param matching TODO: describe
+     * @param seamEdge TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
      */
     public static CombedField fromExternal(FaceRosyField field, int[] branch,
                                            int[] matching, boolean[] seamEdge) {
@@ -97,6 +160,9 @@ public final class CombedField {
      * Comb the field by BFS from face 0 along dual spanning-tree edges,
      * propagating the branch choice. Non-tree edges retain the residual
      * matching as seam edges.
+     *
+     * @param field TODO: describe
+     * @return TODO: describe
      */
     public static CombedField comb(FaceRosyField field) {
         int F = field.faceCount();
@@ -144,7 +210,7 @@ public final class CombedField {
                     if (branch[nbr] >= 0) continue;
                     visitedFromTree[e] = true;
                     int r = matchingFor(field, e, branch[f], f);
-                    branch[nbr] = ((branch[f] + r) % 4 + 4) % 4;
+                    branch[nbr] = ((branch[f] + r) % NUM_4 + NUM_4) % NUM_4;
                     if (field.edgeFaceA(e) == f) {
                         // Going A->B: residual = (branch_B - branch_A - r_AB) mod 4
                         // We chose branch_B = branch_A + r so residual = 0.
@@ -163,7 +229,7 @@ public final class CombedField {
             // theta in A to theta in B as: theta_A - theta_B + kappa + m*pi/2 ~ 0.
             // After combing with branches b_A, b_B, the matching is
             //   r = ((m + b_A - b_B) mod 4)  in {0,1,2,3}.
-            int r = ((field.periodJump(e) + branch[fa] - branch[fb]) % 4 + 4) % 4;
+            int r = ((field.periodJump(e) + branch[fa] - branch[fb]) % NUM_4 + NUM_4) % NUM_4;
             matching[e] = r;
             seamEdge[e] = (r != 0);
         }
@@ -175,15 +241,21 @@ public final class CombedField {
      * Given an interior edge {@code e} and the currently-fixed branch {@code b}
      * on face {@code from} (which is one endpoint of the edge), return the
      * branch index for the OTHER face such that the matching residual is zero.
+     *
+     * @param field TODO: describe
+     * @param e TODO: describe
+     * @param b TODO: describe
+     * @param from TODO: describe
+     * @return TODO: describe
      */
     private static int matchingFor(FaceRosyField field, int e, int b, int from) {
         int m = field.periodJump(e);
         if (field.edgeFaceA(e) == from) {
             // theta_B = theta_A + kappa + m*pi/2; branch_B = branch_A + m  (mod 4)
-            return ((m % 4) + 4) % 4;
+            return ((m % NUM_4) + NUM_4) % NUM_4;
         } else {
             // Reversed traversal: from = B, going to A.
-            return (((-m) % 4) + 4) % 4;
+            return (((-m) % NUM_4) + NUM_4) % NUM_4;
         }
     }
 }

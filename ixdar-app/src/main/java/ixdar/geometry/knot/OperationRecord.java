@@ -18,7 +18,7 @@ public abstract class OperationRecord {
 
     /**
      * Get a human-readable description of this operation.
-     * 
+     *
      * @return description string for UI display
      */
     public abstract String getDescription();

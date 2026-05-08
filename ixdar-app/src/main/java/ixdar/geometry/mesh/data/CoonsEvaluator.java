@@ -26,6 +26,9 @@ import org.joml.Vector3f;
  * differing control points.
  */
 public final class CoonsEvaluator {
+    public static final int NUM_3 = 3;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_0_5 = 0.5f;
 
     private CoonsEvaluator() {}
 
@@ -33,17 +36,24 @@ public final class CoonsEvaluator {
      * Sample the Coons patch on a {@code samples × samples} UV grid.
      * Returns a flat {@code float[samples*samples*3]} packed row-major
      * as {@code (v_row, u_col)} → xyz.
+     *
+     * @param sideU0 TODO: describe
+     * @param sideU1 TODO: describe
+     * @param sideV0 TODO: describe
+     * @param sideV1 TODO: describe
+     * @param samples TODO: describe
+     * @return TODO: describe
      */
     public static float[] sampleGrid(Vector3f[] sideU0, Vector3f[] sideU1,
                                      Vector3f[] sideV0, Vector3f[] sideV1,
                                      int samples) {
         if (samples < 2) samples = 2;
         Vector3f c00 = averageCorners(sideU0[0], sideV0[0]);
-        Vector3f c10 = averageCorners(sideU0[3], sideV1[0]);
-        Vector3f c01 = averageCorners(sideU1[0], sideV0[3]);
-        Vector3f c11 = averageCorners(sideU1[3], sideV1[3]);
+        Vector3f c10 = averageCorners(sideU0[NUM_3], sideV1[0]);
+        Vector3f c01 = averageCorners(sideU1[0], sideV0[NUM_3]);
+        Vector3f c11 = averageCorners(sideU1[NUM_3], sideV1[NUM_3]);
 
-        float[] out = new float[samples * samples * 3];
+        float[] out = new float[samples * samples * NUM_3];
         Vector3f pu0 = new Vector3f();
         Vector3f pu1 = new Vector3f();
         Vector3f pv0 = new Vector3f();
@@ -57,22 +67,22 @@ public final class CoonsEvaluator {
                 BezierFit.eval(sideV0, v, pv0);
                 BezierFit.eval(sideV1, v, pv1);
 
-                float loftUx = (1f - v) * pu0.x + v * pu1.x;
-                float loftUy = (1f - v) * pu0.y + v * pu1.y;
-                float loftUz = (1f - v) * pu0.z + v * pu1.z;
+                float loftUx = (NUM_1 - v) * pu0.x + v * pu1.x;
+                float loftUy = (NUM_1 - v) * pu0.y + v * pu1.y;
+                float loftUz = (NUM_1 - v) * pu0.z + v * pu1.z;
 
-                float loftVx = (1f - u) * pv0.x + u * pv1.x;
-                float loftVy = (1f - u) * pv0.y + u * pv1.y;
-                float loftVz = (1f - u) * pv0.z + u * pv1.z;
+                float loftVx = (NUM_1 - u) * pv0.x + u * pv1.x;
+                float loftVy = (NUM_1 - u) * pv0.y + u * pv1.y;
+                float loftVz = (NUM_1 - u) * pv0.z + u * pv1.z;
 
-                float blX = (1f - u) * (1f - v) * c00.x + u * (1f - v) * c10.x
-                          + (1f - u) * v * c01.x + u * v * c11.x;
-                float blY = (1f - u) * (1f - v) * c00.y + u * (1f - v) * c10.y
-                          + (1f - u) * v * c01.y + u * v * c11.y;
-                float blZ = (1f - u) * (1f - v) * c00.z + u * (1f - v) * c10.z
-                          + (1f - u) * v * c01.z + u * v * c11.z;
+                float blX = (NUM_1 - u) * (NUM_1 - v) * c00.x + u * (NUM_1 - v) * c10.x
+                          + (NUM_1 - u) * v * c01.x + u * v * c11.x;
+                float blY = (NUM_1 - u) * (NUM_1 - v) * c00.y + u * (NUM_1 - v) * c10.y
+                          + (NUM_1 - u) * v * c01.y + u * v * c11.y;
+                float blZ = (NUM_1 - u) * (NUM_1 - v) * c00.z + u * (NUM_1 - v) * c10.z
+                          + (NUM_1 - u) * v * c01.z + u * v * c11.z;
 
-                int base = (j * samples + i) * 3;
+                int base = (j * samples + i) * NUM_3;
                 out[base]     = loftUx + loftVx - blX;
                 out[base + 1] = loftUy + loftVy - blY;
                 out[base + 2] = loftUz + loftVz - blZ;
@@ -86,10 +96,16 @@ public final class CoonsEvaluator {
      * in a grid produced by {@link #sampleGrid}. Linear scan — O(N²)
      * per query. Fine for the typical patch sizes we see (≤500 verts
      * × 256 grid points ≈ 128k distance evals per patch).
+     *
+     * @param grid TODO: describe
+     * @param px TODO: describe
+     * @param py TODO: describe
+     * @param pz TODO: describe
+     * @return TODO: describe
      */
     public static float nearestDistanceSquared(float[] grid, float px, float py, float pz) {
         float best = Float.POSITIVE_INFINITY;
-        for (int i = 0; i < grid.length; i += 3) {
+        for (int i = 0; i < grid.length; i += NUM_3) {
             float dx = grid[i] - px;
             float dy = grid[i + 1] - py;
             float dz = grid[i + 2] - pz;
@@ -101,8 +117,8 @@ public final class CoonsEvaluator {
 
     private static Vector3f averageCorners(Vector3f a, Vector3f b) {
         return new Vector3f(
-                (a.x + b.x) * 0.5f,
-                (a.y + b.y) * 0.5f,
-                (a.z + b.z) * 0.5f);
+                (a.x + b.x) * NUM_0_5,
+                (a.y + b.y) * NUM_0_5,
+                (a.z + b.z) * NUM_0_5);
     }
 }

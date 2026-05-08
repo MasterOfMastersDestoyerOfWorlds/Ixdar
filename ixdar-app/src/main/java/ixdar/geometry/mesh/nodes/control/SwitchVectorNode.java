@@ -15,13 +15,18 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "switch_vector")
 public class SwitchVectorNode implements MeshNode {
+    public static final String SWITCH_2 = "switch";
+    public static final String FALSE = "false";
+    public static final String TRUE = "true";
+    public static final String VECTOR_2 = "vector";
+    public static final int NUM_3 = 3;
 
     private static final Vector3Value ZERO = new Vector3Value(0f, 0f, 0f);
 
-    private static final InputPort SWITCH = new InputPort("switch", PortType.BOOLEAN, false);
-    private static final InputPort FALSE_VAL = new InputPort("false", PortType.VECTOR3, ZERO);
-    private static final InputPort TRUE_VAL = new InputPort("true", PortType.VECTOR3, ZERO);
-    private static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
+    private static final InputPort SWITCH = new InputPort(SWITCH_2, PortType.BOOLEAN, false);
+    private static final InputPort FALSE_VAL = new InputPort(FALSE, PortType.VECTOR3, ZERO);
+    private static final InputPort TRUE_VAL = new InputPort(TRUE, PortType.VECTOR3, ZERO);
+    private static final OutputPort VECTOR = new OutputPort(VECTOR_2, PortType.VECTOR3);
 
     @Override
     public List<InputPort> inputs() {
@@ -41,18 +46,18 @@ public class SwitchVectorNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "switch", "Per-element BOOLEAN selector.",
-                "false", "Vector used where switch is false.",
-                "true", "Vector used where switch is true.",
-                "vector", "Per-element Vector3: switch ? true : false."
+                SWITCH_2, "Per-element BOOLEAN selector.",
+                FALSE, "Vector used where switch is false.",
+                TRUE, "Vector used where switch is true.",
+                VECTOR_2, "Per-element Vector3: switch ? true : false."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Object so = FieldBroadcast.getInputOrDefault(ctx, "switch", SWITCH.defaultValue());
-        Object fa = FieldBroadcast.getInputOrDefault(ctx, "false", FALSE_VAL.defaultValue());
-        Object tr = FieldBroadcast.getInputOrDefault(ctx, "true", TRUE_VAL.defaultValue());
+        Object so = FieldBroadcast.getInputOrDefault(ctx, SWITCH_2, SWITCH.defaultValue());
+        Object fa = FieldBroadcast.getInputOrDefault(ctx, FALSE, FALSE_VAL.defaultValue());
+        Object tr = FieldBroadcast.getInputOrDefault(ctx, TRUE, TRUE_VAL.defaultValue());
 
         if (so instanceof BoolField || fa instanceof Vec3Field || tr instanceof Vec3Field) {
             int n = 0;
@@ -65,7 +70,7 @@ public class SwitchVectorNode implements MeshNode {
             if (tr instanceof Vec3Field vt) {
                 n = Math.max(n, vt.length());
             }
-            float[] out = new float[n * 3];
+            float[] out = new float[n * NUM_3];
             org.joml.Vector3f a = new org.joml.Vector3f();
             org.joml.Vector3f b = new org.joml.Vector3f();
             for (int i = 0; i < n; i++) {
@@ -73,17 +78,17 @@ public class SwitchVectorNode implements MeshNode {
                 FieldBroadcast.vec3At(fa, i, ZERO, a);
                 FieldBroadcast.vec3At(tr, i, ZERO, b);
                 org.joml.Vector3f pick = on ? b : a;
-                out[3 * i] = pick.x;
-                out[3 * i + 1] = pick.y;
-                out[3 * i + 2] = pick.z;
+                out[NUM_3 * i] = pick.x;
+                out[NUM_3 * i + 1] = pick.y;
+                out[NUM_3 * i + 2] = pick.z;
             }
-            ctx.setOutput("vector",new Vec3Field(out));
+            ctx.setOutput(VECTOR_2,new Vec3Field(out));
             return;
         }
 
         Vector3Value fvv = FieldBroadcast.vector3ValueOrDefault(fa, ZERO);
         Vector3Value tvv = FieldBroadcast.vector3ValueOrDefault(tr, ZERO);
         boolean on = so instanceof Boolean bb && bb;
-        ctx.setOutput("vector",on ? tvv : fvv);
+        ctx.setOutput(VECTOR_2,on ? tvv : fvv);
     }
 }

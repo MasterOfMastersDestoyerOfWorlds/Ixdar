@@ -12,12 +12,14 @@ import ixdar.platform.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "/mesh/dsl/validate", method = APIMethod.POST)
 public class Validate extends AutomationEndpoint implements AutomationRoute {
+    public static final String DSL = "dsl";
+    public static final String EXPORT = "export";
 
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
-        String dslSource = body.has("dsl") ? body.get("dsl").getAsString() : "";
-        String exportPath = body.has("export")
-                ? body.get("export").getAsString()
+        String dslSource = body.has(DSL) ? body.get(DSL).getAsString() : "";
+        String exportPath = body.has(EXPORT)
+                ? body.get(EXPORT).getAsString()
                 : null;
 
         if (dslSource.isEmpty()) {

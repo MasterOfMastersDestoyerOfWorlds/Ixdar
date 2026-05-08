@@ -29,22 +29,6 @@ import ixdar.platform.input.MouseTrap;
 import ixdar.scenes.main.MainScene;
 
 public class Terminal implements MouseTrap.ScrollHandler {
-    public HyperString history;
-    ArrayList<String> commandHistory;
-    String storedCommandLine;
-    int commandHistoryIdx;
-    String commandLine;
-    String commandLineInstruct;
-    ColorLerp instructColor = ColorLerp.flashColor(Color.BLUE_WHITE, 3);
-    String[] nextLogicalCommand;
-    private int nextLogicalCommandIdx;
-    public String directory;
-    private HyperString cachedInfo;
-
-    public float scrollOffsetY = 0;
-    public float SCROLL_SPEED = 300f;
-    boolean scrollToCommandLine;
-    public TextFile loadedFile;
 
     public static ArrayList<TerminalOption> commandList;
     public static HashMap<String, TerminalOption> commandMap = new HashMap<>();
@@ -83,7 +67,28 @@ public class Terminal implements MouseTrap.ScrollHandler {
             }
         }
     }
+    public HyperString history;
+    public String directory;
 
+    public float scrollOffsetY = 0;
+    public float SCROLL_SPEED = 300f;
+    public TextFile loadedFile;
+    ArrayList<String> commandHistory;
+    String storedCommandLine;
+    int commandHistoryIdx;
+    String commandLine;
+    String commandLineInstruct;
+    ColorLerp instructColor = ColorLerp.flashColor(Color.BLUE_WHITE, 3);
+    String[] nextLogicalCommand;
+    boolean scrollToCommandLine;
+    private int nextLogicalCommandIdx;
+    private HyperString cachedInfo;
+
+    /**
+     * TODO: document {@code Terminal}.
+     *
+     * @param file TODO: describe
+     */
     public Terminal(TextFile file) {
         storedCommandLine = "";
         commandLine = "";
@@ -99,6 +104,15 @@ public class Terminal implements MouseTrap.ScrollHandler {
 
     }
 
+    /**
+     * TODO: document {@code loadClassType}.
+     *
+     * @param <E> TODO: describe
+     * @param packageName TODO: describe
+     * @param list TODO: describe
+     * @param classMap TODO: describe
+     * @param type TODO: describe
+     */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public static <E> void loadClassType(String packageName, ArrayList<E> list, Map<Class<E>, E> classMap,
             Class<E> type) {
@@ -154,10 +168,23 @@ public class Terminal implements MouseTrap.ScrollHandler {
         return null;
     }
 
+    /**
+     * TODO: document {@code calculateClick}.
+     *
+     * @param normalizedPosX TODO: describe
+     * @param normalizedPosY TODO: describe
+     */
     public void calculateClick(float normalizedPosX, float normalizedPosY) {
 
     }
 
+    /**
+     * TODO: document {@code keyPress}.
+     *
+     * @param key TODO: describe
+     * @param mods TODO: describe
+     * @param controlMask TODO: describe
+     */
     public void keyPress(int key, int mods, boolean controlMask) {
         if (key == Keys.BACKSPACE) {
             if (controlMask) {
@@ -234,6 +261,11 @@ public class Terminal implements MouseTrap.ScrollHandler {
         }
     }
 
+    /**
+     * TODO: document {@code type}.
+     *
+     * @param typedCharacter TODO: describe
+     */
     public void type(String typedCharacter) {
         if (ixdar.common.utils.Compat.isBlank(typedCharacter)) {
             return;
@@ -242,6 +274,11 @@ public class Terminal implements MouseTrap.ScrollHandler {
         commandLine += typedCharacter;
     }
 
+    /**
+     * TODO: document {@code run}.
+     *
+     * @param commandLine TODO: describe
+     */
     public void run(String commandLine) {
         String[] args = commandLine.split(" +");
 
@@ -278,6 +315,11 @@ public class Terminal implements MouseTrap.ScrollHandler {
 
     }
 
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param camera TODO: describe
+     */
     public void draw(Camera2D camera) {
         int row = 0;
         float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
@@ -299,6 +341,12 @@ public class Terminal implements MouseTrap.ScrollHandler {
 
     }
 
+    /**
+     * TODO: document {@code onScroll}.
+     *
+     * @param scrollUp TODO: describe
+     * @param deltaSeconds TODO: describe
+     */
     @Override
     public void onScroll(boolean scrollUp, double deltaSeconds) {
         float menuBottom = cachedInfo != null ? cachedInfo.getLastWord().yScreenOffset : 0;
@@ -315,22 +363,46 @@ public class Terminal implements MouseTrap.ScrollHandler {
         }
     }
 
+    /**
+     * TODO: document {@code instruct}.
+     *
+     * @param instruction TODO: describe
+     */
     public void instruct(String instruction) {
         this.commandLineInstruct = instruction;
     }
 
+    /**
+     * TODO: document {@code clearInstruct}.
+     */
     public void clearInstruct() {
         this.commandLineInstruct = "";
     }
 
+    /**
+     * TODO: document {@code getCachedInfo}.
+     *
+     * @return TODO: describe
+     */
     public HyperString getCachedInfo() {
         return cachedInfo;
     }
 
+    /**
+     * TODO: document {@code error}.
+     *
+     * @param string TODO: describe
+     */
     public void error(String string) {
         this.history.addLine("EXCEPTION: " + string, Color.RED);
     }
 
+    /**
+     * TODO: document {@code runNoArgs}.
+     *
+     * @param <E> TODO: describe
+     * @param cmd TODO: describe
+     */
     public static <E extends TerminalCommand> void runNoArgs(Class<E> cmd) {
         TerminalCommand tc = (TerminalCommand) commandClassMap.get(cmd);
         if (tc.argLength() <= 0) {

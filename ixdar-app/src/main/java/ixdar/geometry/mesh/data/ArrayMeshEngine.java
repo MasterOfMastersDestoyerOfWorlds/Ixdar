@@ -13,19 +13,36 @@ import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
  * without building a {@link HalfEdgeMesh} intermediate.
  */
 public final class ArrayMeshEngine {
+    public static final int NUM_4 = 4;
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_0_25 = 0.25f;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_1e_9 = 1e-9f;
+    public static final int NUM_32 = 32;
+    public static final long NUM_0xffffffff = 0xffffffffL;
 
     private static final int FP = 3;
 
     private ArrayMeshEngine() {
     }
 
+    /**
+     * TODO: document {@code emptyQuads}.
+     *
+     * @return TODO: describe
+     */
     public static ArrayMesh emptyQuads() {
-        return new ArrayMesh(new float[0], null, new int[0], 4);
+        return new ArrayMesh(new float[0], null, new int[0], NUM_4);
     }
 
     /**
      * Packs a mesh with uniform face size into an {@link ArrayMesh}. Vertex
      * iteration order becomes contiguous indices {@code 0..vertexCount-1}.
+     *
+     * @param mesh TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
      */
     public static ArrayMesh fromUniformMeshTopology(MeshTopology mesh) {
         if (mesh == null || mesh.vertexCount() == 0) {
@@ -42,7 +59,7 @@ public final class ArrayMeshEngine {
             }
         }
         int n = mesh.vertexCount();
-        HashMap<Integer, Integer> idToIndex = new HashMap<>(n * 4 / 3 + 1);
+        HashMap<Integer, Integer> idToIndex = new HashMap<>(n * NUM_4 / FP + 1);
         for (int i = 0; i < n; i++) {
             idToIndex.put(mesh.vertexIdAt(i), i);
         }
@@ -68,6 +85,12 @@ public final class ArrayMeshEngine {
         return new ArrayMesh(pos, null, faceIdx, vpf);
     }
 
+    /**
+     * TODO: document {@code isUniformQuads}.
+     *
+     * @param mesh TODO: describe
+     * @return TODO: describe
+     */
     public static boolean isUniformQuads(MeshTopology mesh) {
         if (mesh == null || mesh.vertexCount() == 0) {
             return true;
@@ -77,7 +100,7 @@ public final class ArrayMeshEngine {
             return true;
         }
         for (int fi = 0; fi < nf; fi++) {
-            if (mesh.faceVertexCount(mesh.faceIdAt(fi)) != 4) {
+            if (mesh.faceVertexCount(mesh.faceIdAt(fi)) != NUM_4) {
                 return false;
             }
         }
@@ -88,6 +111,11 @@ public final class ArrayMeshEngine {
      * One level of linear quad subdivision (edge midpoints + face centroids),
      * matching {@link ixdar.geometry.mesh.nodes.modifier.SubdivideMeshNode} for
      * uniform quad meshes.
+     *
+     * @param src TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalStateException TODO: describe
+     * @return TODO: describe
      */
     public static ArrayMesh subdivideQuadsOnce(MeshTopology src) {
         if (src == null || src.vertexCount() == 0) {
@@ -100,13 +128,13 @@ public final class ArrayMeshEngine {
         int srcE = src.edgeCount();
         int srcF = src.faceCount();
         int outV = srcV + srcE + srcF;
-        int outF = srcF * 4;
+        int outF = srcF * NUM_4;
         float[] positions = new float[outV * FP];
-        int[] faceIndices = new int[outF * 4];
+        int[] faceIndices = new int[outF * NUM_4];
         Vector3f p = new Vector3f();
         Vector3f q = new Vector3f();
 
-        HashMap<Long, Integer> edgeMidMap = new HashMap<>(srcE * 4 / 3 + 1);
+        HashMap<Long, Integer> edgeMidMap = new HashMap<>(srcE * NUM_4 / FP + 1);
         for (int ei = 0; ei < srcE; ei++) {
             int eid = src.edgeIdAt(ei);
             int he = src.edgeHalfEdge(eid);
@@ -114,7 +142,7 @@ public final class ArrayMeshEngine {
             int vb = src.halfEdgeEndVertex(he);
             src.vertexPosition(va, p);
             src.vertexPosition(vb, q);
-            p.add(q).mul(0.5f);
+            p.add(q).mul(NUM_0_5);
             int midIdx = srcV + ei;
             int o = midIdx * FP;
             positions[o] = p.x;
@@ -125,14 +153,14 @@ public final class ArrayMeshEngine {
 
         for (int fi = 0; fi < srcF; fi++) {
             int fid = src.faceIdAt(fi);
-            p.set(0f, 0f, 0f);
-            int[] faceVerts = new int[4];
-            for (int k = 0; k < 4; k++) {
+            p.set(NUM_0, NUM_0, NUM_0);
+            int[] faceVerts = new int[NUM_4];
+            for (int k = 0; k < NUM_4; k++) {
                 faceVerts[k] = src.faceVertexAt(fid, k);
                 src.vertexPosition(faceVerts[k], q);
                 p.add(q);
             }
-            p.mul(0.25f);
+            p.mul(NUM_0_25);
             int centIdx = srcV + srcE + fi;
             int co = centIdx * FP;
             positions[co] = p.x;
@@ -151,29 +179,29 @@ public final class ArrayMeshEngine {
 
         for (int fi = 0; fi < srcF; fi++) {
             int fid = src.faceIdAt(fi);
-            int[] faceVerts = new int[4];
-            for (int k = 0; k < 4; k++) {
+            int[] faceVerts = new int[NUM_4];
+            for (int k = 0; k < NUM_4; k++) {
                 faceVerts[k] = src.faceVertexAt(fid, k);
             }
             int centroid = srcV + srcE + fi;
-            for (int k = 0; k < 4; k++) {
+            for (int k = 0; k < NUM_4; k++) {
                 int va = faceVerts[k];
-                int vb = faceVerts[(k + 1) % 4];
-                int vc = faceVerts[(k + 3) % 4];
+                int vb = faceVerts[(k + 1) % NUM_4];
+                int vc = faceVerts[(k + FP) % NUM_4];
                 int nva = va;
                 Integer midAB = edgeMidMap.get(edgeKey(va, vb));
                 Integer midCA = edgeMidMap.get(edgeKey(vc, va));
                 if (midAB == null || midCA == null) {
                     throw new IllegalStateException("missing edge midpoint");
                 }
-                int base = (fi * 4 + k) * 4;
+                int base = (fi * NUM_4 + k) * NUM_4;
                 faceIndices[base] = nva;
                 faceIndices[base + 1] = midAB;
                 faceIndices[base + 2] = centroid;
-                faceIndices[base + 3] = midCA;
+                faceIndices[base + FP] = midCA;
             }
         }
-        ArrayMesh out = new ArrayMesh(positions, null, faceIndices, 4);
+        ArrayMesh out = new ArrayMesh(positions, null, faceIndices, NUM_4);
         out.computeNormals();
         return out;
     }
@@ -182,13 +210,19 @@ public final class ArrayMeshEngine {
      * Gives an open quad sheet volumetric thickness by duplicating vertices along
      * <strong>inward</strong> vertex normals (topology must be uniform quads).
      * Adds reversed-orientation bottom faces and a side quad per boundary edge.
+     *
+     * @param mesh TODO: describe
+     * @param thickness TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalStateException TODO: describe
+     * @return TODO: describe
      */
     public static ArrayMesh solidifyUniformQuads(ArrayMesh mesh, float thickness) {
         if (mesh == null || mesh.vertexCount() == 0) {
             return emptyQuads();
         }
         float t = Math.abs(thickness);
-        if (t == 0f) {
+        if (t == NUM_0) {
             return new ArrayMesh(mesh.copyPositions(), mesh.copyNormals(), mesh.copyFaceIndices(), mesh.getVertsPerFace());
         }
         if (!isUniformQuads(mesh)) {
@@ -220,15 +254,15 @@ public final class ArrayMeshEngine {
 
         int[] srcFaces = mesh.copyFaceIndices();
         int quadCount = faceCount * 2 + boundaryEdges;
-        int[] faceIndices = new int[quadCount * 4];
-        System.arraycopy(srcFaces, 0, faceIndices, 0, faceCount * 4);
-        int w = faceCount * 4;
+        int[] faceIndices = new int[quadCount * NUM_4];
+        System.arraycopy(srcFaces, 0, faceIndices, 0, faceCount * NUM_4);
+        int w = faceCount * NUM_4;
         for (int fi = 0; fi < faceCount; fi++) {
-            int b = fi * 4;
+            int b = fi * NUM_4;
             int v0 = srcFaces[b];
             int v1 = srcFaces[b + 1];
             int v2 = srcFaces[b + 2];
-            int v3 = srcFaces[b + 3];
+            int v3 = srcFaces[b + FP];
             faceIndices[w++] = v0 + n;
             faceIndices[w++] = v3 + n;
             faceIndices[w++] = v2 + n;
@@ -249,11 +283,18 @@ public final class ArrayMeshEngine {
         if (w != faceIndices.length) {
             throw new IllegalStateException("solidifyUniformQuads index fill mismatch: w=" + w + " expected=" + faceIndices.length);
         }
-        ArrayMesh out = new ArrayMesh(positions, null, faceIndices, 4);
+        ArrayMesh out = new ArrayMesh(positions, null, faceIndices, NUM_4);
         out.computeNormals();
         return out;
     }
 
+    /**
+     * TODO: document {@code solidifyUniformMeshTopology}.
+     *
+     * @param mesh TODO: describe
+     * @param thickness TODO: describe
+     * @return TODO: describe
+     */
     public static MeshTopology solidifyUniformMeshTopology(MeshTopology mesh, float thickness) {
         if (mesh == null || mesh.vertexCount() == 0) {
             return emptyQuads();
@@ -262,6 +303,14 @@ public final class ArrayMeshEngine {
         return solidifyUniformQuads(am, thickness);
     }
 
+    /**
+     * TODO: document {@code deleteVertices}.
+     *
+     * @param mesh TODO: describe
+     * @param del TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public static ArrayMesh deleteVertices(ArrayMesh mesh, boolean[] del) {
         if (mesh == null || mesh.vertexCount() == 0) {
             return emptyQuads();
@@ -336,6 +385,13 @@ public final class ArrayMeshEngine {
         return out;
     }
 
+    /**
+     * TODO: document {@code deleteEdges}.
+     *
+     * @param mesh TODO: describe
+     * @param delEdge TODO: describe
+     * @return TODO: describe
+     */
     public static ArrayMesh deleteEdges(ArrayMesh mesh, boolean[] delEdge) {
         if (mesh == null || mesh.edgeCount() == 0) {
             return emptyQuads();
@@ -427,17 +483,32 @@ public final class ArrayMeshEngine {
         return out;
     }
 
+    /**
+     * TODO: document {@code mergeByDistance}.
+     *
+     * @param mesh TODO: describe
+     * @param distance TODO: describe
+     * @return TODO: describe
+     */
     public static ArrayMesh mergeByDistance(ArrayMesh mesh, float distance) {
         if (mesh == null || mesh.vertexCount() == 0) {
             return emptyQuads();
         }
-        if (distance <= 0f) {
+        if (distance <= NUM_0) {
             return new ArrayMesh(mesh.copyPositions(), mesh.copyNormals(), mesh.copyFaceIndices(),
                     mesh.getVertsPerFace());
         }
         return MeshMergeByDistance.mergeToArrayMesh(mesh, distance);
     }
 
+    /**
+     * TODO: document {@code join}.
+     *
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public static ArrayMesh join(ArrayMesh a, ArrayMesh b) {
         if (a == null || a.vertexCount() == 0) {
             return b == null ? emptyQuads()
@@ -475,6 +546,10 @@ public final class ArrayMeshEngine {
      * Faces with no aligned edges pass through unchanged.
      *
      * @param axisIndex 0=X, 1=Y, 2=Z
+     * @param src TODO: describe
+     * @param cuts TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
      */
     public static ArrayMesh loopCutAxis(ArrayMesh src, int cuts, int axisIndex) {
         if (src == null || src.vertexCount() == 0) return emptyQuads();
@@ -489,9 +564,9 @@ public final class ArrayMeshEngine {
         int srcF = src.faceCount();
         int srcE = src.edgeCount(); // triggers topology build
 
-        float ax = axisIndex == 0 ? 1f : 0f;
-        float ay = axisIndex == 1 ? 1f : 0f;
-        float az = axisIndex == 2 ? 1f : 0f;
+        float ax = axisIndex == 0 ? NUM_1 : NUM_0;
+        float ay = axisIndex == 1 ? NUM_1 : NUM_0;
+        float az = axisIndex == 2 ? NUM_1 : NUM_0;
 
         float[] srcPos = src.copyPositions();
         Vector3f pa = new Vector3f(), pb = new Vector3f(), dir = new Vector3f();
@@ -509,11 +584,11 @@ public final class ArrayMeshEngine {
             src.vertexPosition(vb, pb);
             dir.set(pb).sub(pa);
             float len = dir.length();
-            if (len < 1e-9f) continue;
+            if (len < NUM_1e_9) continue;
             dir.div(len);
 
             float alignment = Math.abs(dir.x * ax + dir.y * ay + dir.z * az);
-            if (alignment > 0.5f) {
+            if (alignment > NUM_0_5) {
                 long key = edgeKey(va, vb);
                 if (!splitMap.containsKey(key)) {
                     int[] mids = new int[cuts];
@@ -537,8 +612,8 @@ public final class ArrayMeshEngine {
         for (var entry : splitMap.entrySet()) {
             long key = entry.getKey();
             int[] mids = entry.getValue();
-            int lo = (int) (key >>> 32);
-            int hi = (int) (key & 0xffffffffL);
+            int lo = (int) (key >>> NUM_32);
+            int hi = (int) (key & NUM_0xffffffff);
             float x0 = srcPos[lo * FP], y0 = srcPos[lo * FP + 1], z0 = srcPos[lo * FP + 2];
             float x1 = srcPos[hi * FP], y1 = srcPos[hi * FP + 1], z1 = srcPos[hi * FP + 2];
             for (int c = 0; c < cuts; c++) {
@@ -554,8 +629,8 @@ public final class ArrayMeshEngine {
         int[] srcFaces = src.copyFaceIndices();
         int outF = 0;
         for (int fi = 0; fi < srcF; fi++) {
-            int b = fi * 4;
-            int v0 = srcFaces[b], v1 = srcFaces[b + 1], v2 = srcFaces[b + 2], v3 = srcFaces[b + 3];
+            int b = fi * NUM_4;
+            int v0 = srcFaces[b], v1 = srcFaces[b + 1], v2 = srcFaces[b + 2], v3 = srcFaces[b + FP];
             boolean e0 = splitMap.containsKey(edgeKey(v0, v1));
             boolean e1 = splitMap.containsKey(edgeKey(v1, v2));
             boolean e2 = splitMap.containsKey(edgeKey(v2, v3));
@@ -564,11 +639,11 @@ public final class ArrayMeshEngine {
         }
 
         // Build output faces
-        int[] faceIndices = new int[outF * 4];
+        int[] faceIndices = new int[outF * NUM_4];
         int w = 0;
         for (int fi = 0; fi < srcF; fi++) {
-            int b = fi * 4;
-            int v0 = srcFaces[b], v1 = srcFaces[b + 1], v2 = srcFaces[b + 2], v3 = srcFaces[b + 3];
+            int b = fi * NUM_4;
+            int v0 = srcFaces[b], v1 = srcFaces[b + 1], v2 = srcFaces[b + 2], v3 = srcFaces[b + FP];
             boolean e0 = splitMap.containsKey(edgeKey(v0, v1));
             boolean e1 = splitMap.containsKey(edgeKey(v1, v2));
             boolean e2 = splitMap.containsKey(edgeKey(v2, v3));
@@ -603,12 +678,19 @@ public final class ArrayMeshEngine {
             }
         }
 
-        ArrayMesh out = new ArrayMesh(positions, null, faceIndices, 4);
+        ArrayMesh out = new ArrayMesh(positions, null, faceIndices, NUM_4);
         out.computeNormals();
         return out;
     }
 
-    /** Returns midpoints of undirected edge (va,vb) in the direction from va toward vb. */
+    /**
+     * Returns midpoints of undirected edge (va,vb) in the direction from va toward vb.
+     *
+     * @param splitMap TODO: describe
+     * @param va TODO: describe
+     * @param vb TODO: describe
+     * @return TODO: describe
+     */
     private static int[] directedMids(HashMap<Long, int[]> splitMap, int va, int vb) {
         int[] mids = splitMap.get(edgeKey(va, vb));
         if (mids == null) return null;
@@ -622,6 +704,6 @@ public final class ArrayMeshEngine {
     private static long edgeKey(int a, int b) {
         int lo = Math.min(a, b);
         int hi = Math.max(a, b);
-        return ((long) lo << 32) | (hi & 0xffffffffL);
+        return ((long) lo << NUM_32) | (hi & NUM_0xffffffff);
     }
 }

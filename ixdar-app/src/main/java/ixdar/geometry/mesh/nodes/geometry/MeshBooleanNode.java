@@ -30,12 +30,31 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "mesh_boolean")
 public class MeshBooleanNode implements MeshNode {
+    public static final String MESH_A_2 = "mesh_a";
+    public static final String MESH_B_2 = "mesh_b";
+    public static final String OPERATION_2 = "operation";
+    public static final String DIFFERENCE = "DIFFERENCE";
+    public static final String UNION = "UNION";
+    public static final String INTERSECT = "INTERSECT";
+    public static final String GEOMETRY_2 = "geometry";
+    public static final int NUM_9 = 9;
+    public static final int NUM_3 = 3;
+    public static final int NUM_6 = 6;
+    public static final float NUM_3_2 = 3f;
+    public static final int NUM_4 = 4;
+    public static final int NUM_7 = 7;
+    public static final int NUM_5 = 5;
+    public static final int NUM_8 = 8;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1e_8 = 1e-8f;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_1e_6 = 1e-6f;
 
-    private static final InputPort MESH_A = new InputPort("mesh_a", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort MESH_B = new InputPort("mesh_b", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort OPERATION = new InputPort("operation", PortType.STRING, "DIFFERENCE",
-            new ModeConstraint("DIFFERENCE", List.of("UNION", "DIFFERENCE", "INTERSECT"), Map.of()));
-    private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort MESH_A = new InputPort(MESH_A_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort MESH_B = new InputPort(MESH_B_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort OPERATION = new InputPort(OPERATION_2, PortType.STRING, DIFFERENCE,
+            new ModeConstraint(DIFFERENCE, List.of(UNION, DIFFERENCE, INTERSECT), Map.of()));
+    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -55,29 +74,29 @@ public class MeshBooleanNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "mesh_a", "First operand (typically the base mesh).",
-                "mesh_b", "Second operand (typically the tool mesh).",
-                "operation", "CSG op: UNION (A ∪ B), DIFFERENCE (A − B), INTERSECT (A ∩ B).",
-                "geometry", "Result as a geometry bundle."
+                MESH_A_2, "First operand (typically the base mesh).",
+                MESH_B_2, "Second operand (typically the tool mesh).",
+                OPERATION_2, "CSG op: UNION (A ∪ B), DIFFERENCE (A − B), INTERSECT (A ∩ B).",
+                GEOMETRY_2, "Result as a geometry bundle."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle gbA = GeometryBundles.bundlePart(ctx.getInput("mesh_a", Object.class));
-        GeometryBundle gbB = GeometryBundles.bundlePart(ctx.getInput("mesh_b", Object.class));
+        GeometryBundle gbA = GeometryBundles.bundlePart(ctx.getInput(MESH_A_2, Object.class));
+        GeometryBundle gbB = GeometryBundles.bundlePart(ctx.getInput(MESH_B_2, Object.class));
 
         if (gbA == null || gbA.mesh() == null || gbA.mesh().vertexCount() == 0) {
-            ctx.setOutput("geometry", gbB != null ? gbB : GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY_2, gbB != null ? gbB : GeometryBundle.empty());
             return;
         }
         if (gbB == null || gbB.mesh() == null || gbB.mesh().vertexCount() == 0) {
-            ctx.setOutput("geometry", gbA);
+            ctx.setOutput(GEOMETRY_2, gbA);
             return;
         }
 
-        Object modeObj = FieldBroadcast.getInputOrDefault(ctx, "operation", OPERATION.defaultValue());
-        String mode = modeObj instanceof String s ? s : "DIFFERENCE";
+        Object modeObj = FieldBroadcast.getInputOrDefault(ctx, OPERATION_2, OPERATION.defaultValue());
+        String mode = modeObj instanceof String s ? s : DIFFERENCE;
 
         MeshTopology meshA = gbA.mesh();
         MeshTopology meshB = gbB.mesh();
@@ -89,17 +108,17 @@ public class MeshBooleanNode implements MeshNode {
         HalfEdgeMesh result = new HalfEdgeMesh();
 
         switch (mode.toUpperCase()) {
-            case "UNION" -> {
+            case UNION -> {
                 // Keep A faces outside B + B faces outside A
                 addClassifiedFaces(result, soupA, soupB, false, false);
                 addClassifiedFaces(result, soupB, soupA, false, false);
             }
-            case "DIFFERENCE" -> {
+            case DIFFERENCE -> {
                 // Keep A faces outside B + B faces inside A (flipped)
                 addClassifiedFaces(result, soupA, soupB, false, false);
                 addClassifiedFaces(result, soupB, soupA, true, true);
             }
-            case "INTERSECT" -> {
+            case INTERSECT -> {
                 // Keep A faces inside B + B faces inside A
                 addClassifiedFaces(result, soupA, soupB, true, false);
                 addClassifiedFaces(result, soupB, soupA, true, false);
@@ -107,7 +126,7 @@ public class MeshBooleanNode implements MeshNode {
         }
 
         result.computeNormals();
-        ctx.setOutput("geometry", gbA.withMesh(result));
+        ctx.setOutput(GEOMETRY_2, gbA.withMesh(result));
     }
 
     /**
@@ -123,11 +142,11 @@ public class MeshBooleanNode implements MeshNode {
 
         for (int ti = 0; ti < source.triCount; ti++) {
             // Compute triangle centroid
-            int b = ti * 9;
+            int b = ti * NUM_9;
             centroid.set(
-                    (source.positions[b] + source.positions[b + 3] + source.positions[b + 6]) / 3f,
-                    (source.positions[b + 1] + source.positions[b + 4] + source.positions[b + 7]) / 3f,
-                    (source.positions[b + 2] + source.positions[b + 5] + source.positions[b + 8]) / 3f
+                    (source.positions[b] + source.positions[b + NUM_3] + source.positions[b + NUM_6]) / NUM_3_2,
+                    (source.positions[b + 1] + source.positions[b + NUM_4] + source.positions[b + NUM_7]) / NUM_3_2,
+                    (source.positions[b + 2] + source.positions[b + NUM_5] + source.positions[b + NUM_8]) / NUM_3_2
             );
 
             boolean inside = isInsideMesh(centroid, classifier);
@@ -135,8 +154,8 @@ public class MeshBooleanNode implements MeshNode {
 
             // Add triangle vertices
             int v0 = out.addVertex(source.positions[b], source.positions[b + 1], source.positions[b + 2]);
-            int v1 = out.addVertex(source.positions[b + 3], source.positions[b + 4], source.positions[b + 5]);
-            int v2 = out.addVertex(source.positions[b + 6], source.positions[b + 7], source.positions[b + 8]);
+            int v1 = out.addVertex(source.positions[b + NUM_3], source.positions[b + NUM_4], source.positions[b + NUM_5]);
+            int v2 = out.addVertex(source.positions[b + NUM_6], source.positions[b + NUM_7], source.positions[b + NUM_8]);
 
             if (flip) {
                 out.addFace(v0, v2, v1);
@@ -156,11 +175,11 @@ public class MeshBooleanNode implements MeshNode {
         float ox = point.x, oy = point.y, oz = point.z;
 
         for (int ti = 0; ti < mesh.triCount; ti++) {
-            int b = ti * 9;
+            int b = ti * NUM_9;
             if (rayTriangleIntersectX(ox, oy, oz,
                     mesh.positions[b], mesh.positions[b + 1], mesh.positions[b + 2],
-                    mesh.positions[b + 3], mesh.positions[b + 4], mesh.positions[b + 5],
-                    mesh.positions[b + 6], mesh.positions[b + 7], mesh.positions[b + 8])) {
+                    mesh.positions[b + NUM_3], mesh.positions[b + NUM_4], mesh.positions[b + NUM_5],
+                    mesh.positions[b + NUM_6], mesh.positions[b + NUM_7], mesh.positions[b + NUM_8])) {
                 crossings++;
             }
         }
@@ -183,18 +202,18 @@ public class MeshBooleanNode implements MeshNode {
         float e2x = v2x - v0x, e2y = v2y - v0y, e2z = v2z - v0z;
 
         // h = dir × e2 = (1,0,0) × e2
-        float hx = 0f;
+        float hx = NUM_0;
         float hy = -e2z;
         float hz = e2y;
 
         float a = e1x * hx + e1y * hy + e1z * hz; // dot(e1, h)
-        if (a > -1e-8f && a < 1e-8f) return false; // Ray parallel to triangle
+        if (a > -NUM_1e_8 && a < NUM_1e_8) return false; // Ray parallel to triangle
 
-        float f = 1f / a;
+        float f = NUM_1 / a;
         float sx = ox - v0x, sy = oy - v0y, sz = oz - v0z;
 
         float u = f * (sx * hx + sy * hy + sz * hz);
-        if (u < 0f || u > 1f) return false;
+        if (u < NUM_0 || u > NUM_1) return false;
 
         // q = s × e1
         float qx = sy * e1z - sz * e1y;
@@ -202,10 +221,10 @@ public class MeshBooleanNode implements MeshNode {
         float qz = sx * e1y - sy * e1x;
 
         float v = f * qx; // f * dot(dir, q) = f * (1*qx + 0*qy + 0*qz)
-        if (v < 0f || u + v > 1f) return false;
+        if (v < NUM_0 || u + v > NUM_1) return false;
 
         float t = f * (e2x * qx + e2y * qy + e2z * qz);
-        return t > 1e-6f; // Intersection at positive t
+        return t > NUM_1e_6; // Intersection at positive t
     }
 
     /**
@@ -214,6 +233,8 @@ public class MeshBooleanNode implements MeshNode {
      * Positions stored as packed [x0,y0,z0, x1,y1,z1, x2,y2,z2, ...] per triangle.
      */
     private static final class TriangleSoup {
+        public static final int NUM_3 = 3;
+        public static final int NUM_9 = 9;
         final float[] positions;
         final int triCount;
 
@@ -228,17 +249,17 @@ public class MeshBooleanNode implements MeshNode {
             for (int fi = 0; fi < mesh.faceCount(); fi++) {
                 int fid = mesh.faceIdAt(fi);
                 int fc = mesh.faceVertexCount(fid);
-                if (fc >= 3) totalTris += fc - 2;
+                if (fc >= NUM_3) totalTris += fc - 2;
             }
 
-            float[] pos = new float[totalTris * 9];
+            float[] pos = new float[totalTris * NUM_9];
             Vector3f v = new Vector3f();
             int idx = 0;
 
             for (int fi = 0; fi < mesh.faceCount(); fi++) {
                 int fid = mesh.faceIdAt(fi);
                 int fc = mesh.faceVertexCount(fid);
-                if (fc < 3) continue;
+                if (fc < NUM_3) continue;
 
                 // Cache first vertex
                 mesh.vertexPosition(mesh.faceVertexAt(fid, 0), v);

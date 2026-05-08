@@ -21,10 +21,10 @@ import ixdar.platform.Toggle;
 import ixdar.scenes.main.MainScene;
 
 public class Knot extends SDFCircle {
-
-    public enum WindingOrder {
-        None, Clockwise, CounterClockwise
-    }
+    public static final String KNOT = "Knot[ ";
+    public static final String STR = "]";
+    public static final String GROW_REQUIRES_A_SINGLETON = "grow requires a singleton";
+    public static DisjointUnionSets unionSet = new DisjointUnionSets();
 
     public int minMatches;
     public int maxMatches;
@@ -39,7 +39,6 @@ public class Knot extends SDFCircle {
     public Knot topGroupKnot;
     public Shell shell;
     public ArrayList<Segment> manifoldSegments;
-    int height = -1;
     public int numKnots;
     public HashMap<Integer, Knot> pointToInternalKnot;
     public PointND p;
@@ -49,8 +48,78 @@ public class Knot extends SDFCircle {
     public Segment s2;
     public Knot m1;
     public Knot m2;
-    public static DisjointUnionSets unionSet = new DisjointUnionSets();
+    int height = -1;
 
+    /**
+     * TODO: document {@code Knot}.
+     *
+     * @param pnd TODO: describe
+     * @param shell TODO: describe
+     */
+    public Knot(PointND pnd, Shell shell) {
+        this.p = pnd;
+        simpleConstructor(shell, p.getID());
+        shell.knotEngine.unvisited.add(this);
+        knotPointsFlattened.add(this);
+        knotPoints.add(this);
+        minMatches = 2;
+        maxMatches = 2;
+        matchCount = 0;
+        unionSet.addSet(this);
+    }
+
+    /**
+     * TODO: document {@code Knot}.
+     *
+     * @param smallestMove TODO: describe
+     * @param k1 TODO: describe
+     * @param k2 TODO: describe
+     * @throws MultipleCyclesFoundException TODO: describe
+     */
+    public Knot(CutMatch smallestMove, Knot k1, Knot k2) throws MultipleCyclesFoundException {
+        simpleConstructor(k1.shell, k1.shell.pointMap.keySet().size());
+        minMatches = 2;
+        maxMatches = 2;
+        knotPoints.add(k1);
+        knotPoints.add(k2);
+        unionSet.addSet(this);
+        unionSet.union(this, k1);
+        unionSet.union(this, k2);
+        for (Segment cut : smallestMove.cutSegments) {
+            cut.first.removeMatch(cut.last);
+            cut.last.removeMatch(cut.first);
+        }
+
+        for (Segment match : smallestMove.matchSegments) {
+            match.first.setMatch(match.last, match);
+            match.last.setMatch(match.first, match);
+            sortedSegments.add(match);
+        }
+        sortedSegments.sort(null);
+
+        Knot vp = k1.knotPointsFlattened.get(0);
+        fixKnotPointsFlattened(vp);
+        createManifold();
+    }
+
+    /**
+     * Default constructor for creating empty knots.
+     */
+    public Knot() {
+        knotPoints = new ArrayList<>();
+        sortedSegments = new ArrayList<>();
+        knotPointsFlattened = new ArrayList<>();
+        segmentLookup = new HashMap<>();
+        manifoldSegments = new ArrayList<>();
+        matchList = new ArrayList<>();
+    }
+
+    /**
+     * TODO: document {@code setMatch}.
+     *
+     * @param matchPoint TODO: describe
+     * @param s TODO: describe
+     */
     public void setMatch(Knot matchPoint, Segment s) {
         matchList.add(matchPoint);
         if (s1 == null) {
@@ -63,6 +132,11 @@ public class Knot extends SDFCircle {
         matchCount++;
     }
 
+    /**
+     * TODO: document {@code removeMatch}.
+     *
+     * @param other TODO: describe
+     */
     public void removeMatch(Knot other) {
         if (other.equals(m1)) {
             m1 = null;
@@ -77,6 +151,12 @@ public class Knot extends SDFCircle {
         }
     }
 
+    /**
+     * TODO: document {@code getDeltaDistTo}.
+     *
+     * @param o TODO: describe
+     * @return TODO: describe
+     */
     public CutMatch getDeltaDistTo(Knot o) {
         boolean isSingle = this.isSingleton();
         boolean oSingle = o.isSingleton();
@@ -149,44 +229,6 @@ public class Knot extends SDFCircle {
         return cm;
     }
 
-    public Knot(PointND pnd, Shell shell) {
-        this.p = pnd;
-        simpleConstructor(shell, p.getID());
-        shell.knotEngine.unvisited.add(this);
-        knotPointsFlattened.add(this);
-        knotPoints.add(this);
-        minMatches = 2;
-        maxMatches = 2;
-        matchCount = 0;
-        unionSet.addSet(this);
-    }
-
-    public Knot(CutMatch smallestMove, Knot k1, Knot k2) throws MultipleCyclesFoundException {
-        simpleConstructor(k1.shell, k1.shell.pointMap.keySet().size());
-        minMatches = 2;
-        maxMatches = 2;
-        knotPoints.add(k1);
-        knotPoints.add(k2);
-        unionSet.addSet(this);
-        unionSet.union(this, k1);
-        unionSet.union(this, k2);
-        for (Segment cut : smallestMove.cutSegments) {
-            cut.first.removeMatch(cut.last);
-            cut.last.removeMatch(cut.first);
-        }
-
-        for (Segment match : smallestMove.matchSegments) {
-            match.first.setMatch(match.last, match);
-            match.last.setMatch(match.first, match);
-            sortedSegments.add(match);
-        }
-        sortedSegments.sort(null);
-
-        Knot vp = k1.knotPointsFlattened.get(0);
-        fixKnotPointsFlattened(vp);
-        createManifold();
-    }
-
     private void fixKnotPointsFlattened(Knot vp) throws MultipleCyclesFoundException {
         int expectedFlattenedKnotPoints = 0;
         for (Knot k : knotPoints) {
@@ -228,6 +270,13 @@ public class Knot extends SDFCircle {
         }
     }
 
+    /**
+     * TODO: document {@code growByPoint}.
+     *
+     * @param smallestMove TODO: describe
+     * @param p TODO: describe
+     * @throws MultipleCyclesFoundException TODO: describe
+     */
     public void growByPoint(CutMatch smallestMove, Knot p) throws MultipleCyclesFoundException {
         knotPoints.add(p);
         unionSet.union(this, p);
@@ -250,6 +299,12 @@ public class Knot extends SDFCircle {
 
     }
 
+    /**
+     * TODO: document {@code simpleConstructor}.
+     *
+     * @param shell TODO: describe
+     * @param id TODO: describe
+     */
     public void simpleConstructor(Shell shell, int id) {
 
         this.shell = shell;
@@ -264,6 +319,12 @@ public class Knot extends SDFCircle {
         matchList = new ArrayList<>();
     }
 
+    /**
+     * TODO: document {@code getPointer}.
+     *
+     * @param idx TODO: describe
+     * @return TODO: describe
+     */
     public Segment getPointer(int idx) {
         int count = idx;
         ArrayList<Segment> seenGroups = new ArrayList<Segment>();
@@ -293,6 +354,12 @@ public class Knot extends SDFCircle {
         return null;
     }
 
+    /**
+     * TODO: document {@code getNearestBasePoint}.
+     *
+     * @param vp TODO: describe
+     * @return TODO: describe
+     */
     public Knot getNearestBasePoint(Knot vp) {
         for (int i = 0; i < sortedSegments.size(); i++) {
             Segment s = sortedSegments.get(i);
@@ -312,24 +379,55 @@ public class Knot extends SDFCircle {
         return null;
     }
 
+    /**
+     * TODO: document {@code getPrev}.
+     *
+     * @param idx TODO: describe
+     * @return TODO: describe
+     */
     public Knot getPrev(int idx) {
         return knotPoints.get(idx - 1 < 0 ? knotPoints.size() - 1 : idx - 1);
     }
 
+    /**
+     * TODO: document {@code getPrev}.
+     *
+     * @param prev TODO: describe
+     * @return TODO: describe
+     */
     public Knot getPrev(Knot prev) {
         int idx = knotPointsFlattened.indexOf(prev);
         return knotPoints.get(idx - 1 < 0 ? knotPoints.size() - 1 : idx - 1);
     }
 
+    /**
+     * TODO: document {@code getNext}.
+     *
+     * @param idx TODO: describe
+     * @return TODO: describe
+     */
     public Knot getNext(int idx) {
         return knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
     }
 
+    /**
+     * TODO: document {@code getNext}.
+     *
+     * @param next TODO: describe
+     * @return TODO: describe
+     */
     public Knot getNext(Knot next) {
         int idx = knotPointsFlattened.indexOf(next);
         return knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
     }
 
+    /**
+     * TODO: document {@code getOtherNeighbor}.
+     *
+     * @param vp TODO: describe
+     * @param neighbor TODO: describe
+     * @return TODO: describe
+     */
     public Knot getOtherNeighbor(Knot vp, Knot neighbor) {
         int idx = knotPointsFlattened.indexOf(vp);
         Knot neighborNext = knotPoints.get(idx + 1 >= knotPoints.size() ? 0 : idx + 1);
@@ -339,14 +437,31 @@ public class Knot extends SDFCircle {
         return neighborNext;
     }
 
+    /**
+     * TODO: document {@code isSingleton}.
+     *
+     * @return TODO: describe
+     */
     public boolean isSingleton() {
         return this.size() == 1;
     }
 
+    /**
+     * TODO: document {@code size}.
+     *
+     * @return TODO: describe
+     */
     public int size() {
         return knotPointsFlattened.size();
     }
 
+    /**
+     * TODO: document {@code getSegment}.
+     *
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @return TODO: describe
+     */
     public Segment getSegment(Knot a, Knot b) {
 
         if (a.matchList.contains(b)) {
@@ -360,6 +475,13 @@ public class Knot extends SDFCircle {
         return null;
     }
 
+    /**
+     * TODO: document {@code getClosestSegment}.
+     *
+     * @param vp TODO: describe
+     * @param excludeSegment TODO: describe
+     * @return TODO: describe
+     */
     public Segment getClosestSegment(Knot vp, Segment excludeSegment) {
         Knot excludethis = excludeSegment == null ? null : excludeSegment.getKnotPoint(knotPointsFlattened);
         Knot excludeother = excludeSegment == null ? null : excludeSegment.getKnotPoint(vp.knotPointsFlattened);
@@ -379,6 +501,12 @@ public class Knot extends SDFCircle {
         return null;
     }
 
+    /**
+     * TODO: document {@code getSegment}.
+     *
+     * @param vp TODO: describe
+     * @return TODO: describe
+     */
     public Segment getSegment(Knot vp) {
         long a = this.id;
         long b = vp.id;
@@ -387,6 +515,12 @@ public class Knot extends SDFCircle {
         return look;
     }
 
+    /**
+     * TODO: document {@code contains}.
+     *
+     * @param vp TODO: describe
+     * @return TODO: describe
+     */
     public boolean contains(Knot vp) {
         if (this.equals(vp)) {
             return true;
@@ -397,6 +531,12 @@ public class Knot extends SDFCircle {
         return false;
     }
 
+    /**
+     * TODO: document {@code hasSegment}.
+     *
+     * @param cut TODO: describe
+     * @return TODO: describe
+     */
     public boolean hasSegment(Segment cut) {
         if (manifoldSegments.size() == 0) {
             for (int a = 0; a < knotPoints.size(); a++) {
@@ -414,6 +554,12 @@ public class Knot extends SDFCircle {
         return false;
     }
 
+    /**
+     * TODO: document {@code overlaps}.
+     *
+     * @param minKnot TODO: describe
+     * @return TODO: describe
+     */
     public boolean overlaps(Knot minKnot) {
         for (Knot vp : minKnot.knotPoints) {
             if (this.contains(vp)) {
@@ -423,6 +569,12 @@ public class Knot extends SDFCircle {
         return false;
     }
 
+    /**
+     * TODO: document {@code hasPoint}.
+     *
+     * @param i TODO: describe
+     * @return TODO: describe
+     */
     public boolean hasPoint(int i) {
         for (Knot vp : knotPointsFlattened) {
             if (vp.id == i) {
@@ -432,6 +584,13 @@ public class Knot extends SDFCircle {
         return false;
     }
 
+    /**
+     * TODO: document {@code getOtherSegment}.
+     *
+     * @param implicitCut TODO: describe
+     * @param vp TODO: describe
+     * @return TODO: describe
+     */
     public Segment getOtherSegment(Segment implicitCut, Knot vp) {
         for (int a = 0; a < knotPoints.size(); a++) {
 
@@ -450,6 +609,11 @@ public class Knot extends SDFCircle {
         return null;
     }
 
+    /**
+     * TODO: document {@code getLength}.
+     *
+     * @return TODO: describe
+     */
     public double getLength() {
         double d = 0.0;
         for (Segment s : manifoldSegments) {
@@ -458,6 +622,11 @@ public class Knot extends SDFCircle {
         return d;
     }
 
+    /**
+     * TODO: document {@code getHeight}.
+     *
+     * @return TODO: describe
+     */
     public int getHeight() {
         if (height == -1) {
             if (!this.isSingleton()) {
@@ -481,6 +650,12 @@ public class Knot extends SDFCircle {
         return height;
     }
 
+    /**
+     * TODO: document {@code getNextClockWise}.
+     *
+     * @param displayPoint TODO: describe
+     * @return TODO: describe
+     */
     public Knot getNextClockWise(Knot displayPoint) {
         if (order.equals(WindingOrder.None)) {
             order = DetermineWindingOrder();
@@ -492,6 +667,12 @@ public class Knot extends SDFCircle {
         }
     }
 
+    /**
+     * TODO: document {@code getNextCounterClockWise}.
+     *
+     * @param displayPoint TODO: describe
+     * @return TODO: describe
+     */
     public Knot getNextCounterClockWise(Knot displayPoint) {
         if (order.equals(WindingOrder.None)) {
             order = DetermineWindingOrder();
@@ -504,6 +685,11 @@ public class Knot extends SDFCircle {
     }
 
     // https://en.wikipedia.org/wiki/Curve_orientation#Orientation_of_a_simple_polygon
+    /**
+     * TODO: document {@code DetermineWindingOrder}.
+     *
+     * @return TODO: describe
+     */
     public WindingOrder DetermineWindingOrder() {
         int nVerts = knotPointsFlattened.size();
         // If vertices duplicates first as last to represent closed polygon,
@@ -563,22 +749,33 @@ public class Knot extends SDFCircle {
         return (i + n) % n;
     }
 
+    /**
+     * TODO: document {@code toString}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String toString() {
         if (this.isSingleton()) {
             return Integer.toString(id);
         }
-        String str = "Knot[ ";
+        String str = KNOT;
         for (Knot vp : knotPoints) {
             str += vp + " ";
         }
         str = Compat.stripTrailing(str);
-        str += "]";
+        str += STR;
         return str;
     }
 
+    /**
+     * TODO: document {@code beforeString}.
+     *
+     * @param id TODO: describe
+     * @return TODO: describe
+     */
     public String beforeString(int id) {
-        String str = "Knot[ ";
+        String str = KNOT;
         for (Knot vp : knotPoints) {
             if (vp.id == id) {
                 return str;
@@ -586,10 +783,16 @@ public class Knot extends SDFCircle {
             str += vp + " ";
         }
         str = Compat.stripTrailing(str);
-        str += "]";
+        str += STR;
         return str;
     }
 
+    /**
+     * TODO: document {@code afterString}.
+     *
+     * @param id TODO: describe
+     * @return TODO: describe
+     */
     public String afterString(int id) {
         String str = "Knot[";
         for (Knot vp : knotPoints) {
@@ -599,10 +802,15 @@ public class Knot extends SDFCircle {
             }
         }
         str = Compat.stripTrailing(str);
-        str += "]";
+        str += STR;
         return str;
     }
 
+    /**
+     * TODO: document {@code toHyperString}.
+     *
+     * @return TODO: describe
+     */
     public HyperString toHyperString() {
         HyperString h = new HyperString();
         Tool tool = MainScene.tool;
@@ -617,7 +825,7 @@ public class Knot extends SDFCircle {
             MainScene.camera.zoomToKnot(this);
         };
         Knot hoverKnot = MainScene.getKnotFlatten(this);
-        h.addHoverKnot("Knot[ ", c, hoverKnot, clickAction);
+        h.addHoverKnot(KNOT, c, hoverKnot, clickAction);
         for (Knot vp : knotPoints) {
             if (!vp.isSingleton()) {
                 h.addHyperString(((Knot) vp).toHyperString());
@@ -626,14 +834,25 @@ public class Knot extends SDFCircle {
             }
         }
 
-        h.addHoverKnot("]", c, hoverKnot, clickAction);
+        h.addHoverKnot(STR, c, hoverKnot, clickAction);
         return h;
     }
 
+    /**
+     * TODO: document {@code isFull}.
+     *
+     * @return TODO: describe
+     */
     public boolean isFull() {
         return matchList.size() == maxMatches;
     }
 
+    /**
+     * TODO: document {@code getRunList}.
+     *
+     * @param k2 TODO: describe
+     * @return TODO: describe
+     */
     public ArrayList<Knot> getRunList(Knot k2) {
         Knot next = this.m1;
         Knot curr = this;
@@ -653,6 +872,11 @@ public class Knot extends SDFCircle {
         return runList;
     }
 
+    /**
+     * TODO: document {@code getRunList}.
+     *
+     * @return TODO: describe
+     */
     public ArrayList<Knot> getRunList() {
         Knot next = this.m2;
         Knot curr = this;
@@ -672,38 +896,9 @@ public class Knot extends SDFCircle {
         return runList;
     }
 
-    // ==================== TRADE ROUTE OPERATIONS ====================
-
-    /**
-     * Type of edge in a knot hierarchy.
-     */
-    public enum EdgeType {
-        /** Edge within a child knot's original structure */
-        SUBKNOT_EDGE,
-        /** Edge created by a previous pipe operation (connects two children) */
-        PIPE_EDGE,
-        /** Edge type unknown or not applicable */
-        UNKNOWN
-    }
-
-    /**
-     * Information about an edge in the knot hierarchy.
-     */
-    public static class EdgeInfo {
-        public Segment edge;
-        public EdgeType type;
-        public Knot owningKnot;
-
-        public EdgeInfo(Segment edge, EdgeType type, Knot owningKnot) {
-            this.edge = edge;
-            this.type = type;
-            this.owningKnot = owningKnot;
-        }
-    }
-
     /**
      * Determine the type of an edge in this knot's hierarchy.
-     * 
+     *
      * @param edge the edge to classify
      * @return EdgeInfo with type and owning knot
      */
@@ -730,9 +925,10 @@ public class Knot extends SDFCircle {
     /**
      * Create a simple 2-point loop from two singletons. Used for initial trade
      * route creation.
-     * 
+     *
      * @param k1 first singleton (e.g., HQ)
      * @param k2 second singleton (destination)
+     * @throws IllegalArgumentException TODO: describe
      * @return PipeRecord for undo support
      */
     public static PipeRecord pipeSimple(Knot k1, Knot k2) {
@@ -796,7 +992,7 @@ public class Knot extends SDFCircle {
     /**
      * Pipe two knots together with user-specified edges. Handles all three cases:
      * singleton+singleton, N+singleton, N+M.
-     * 
+     *
      * @param a     first knot
      * @param b     second knot
      * @param edgeA edge to cut on knot A (null for singletons)
@@ -834,6 +1030,11 @@ public class Knot extends SDFCircle {
 
     /**
      * Add a singleton to an existing knot by cutting an edge.
+     *
+     * @param knot TODO: describe
+     * @param singleton TODO: describe
+     * @param cutEdge TODO: describe
+     * @return TODO: describe
      */
     private static PipeRecord pipeToExisting(Knot knot, Knot singleton, Segment cutEdge) {
         PipeRecord record = new PipeRecord();
@@ -895,6 +1096,12 @@ public class Knot extends SDFCircle {
 
     /**
      * Pipe two knots at the same hierarchy level.
+     *
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @param edgeA TODO: describe
+     * @param edgeB TODO: describe
+     * @return TODO: describe
      */
     private static PipeRecord pipeToSameLevel(Knot a, Knot b, Segment edgeA, Segment edgeB) {
         PipeRecord record = new PipeRecord();
@@ -967,6 +1174,12 @@ public class Knot extends SDFCircle {
 
     /**
      * Pipe two knots creating a new hierarchy level.
+     *
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @param edgeA TODO: describe
+     * @param edgeB TODO: describe
+     * @return TODO: describe
      */
     private static PipeRecord pipeToNewLevel(Knot a, Knot b, Segment edgeA, Segment edgeB) {
         PipeRecord record = new PipeRecord();
@@ -1055,7 +1268,7 @@ public class Knot extends SDFCircle {
     /**
      * Get the lowest-cost edge pair for piping two knots. Uses the existing
      * getDeltaDistTo logic.
-     * 
+     *
      * @param other the other knot to pipe with
      * @return array of [edgeOnThis, edgeOnOther], or null if not possible
      */
@@ -1078,22 +1291,13 @@ public class Knot extends SDFCircle {
     /**
      * Simple constructor that doesn't register with shell.pointMap. Used for
      * creating parent knots in trade routes.
+     *
+     * @param shell TODO: describe
+     * @param id TODO: describe
      */
     public void simpleConstructorNoRegister(Shell shell, int id) {
         this.shell = shell;
         this.id = id;
-        knotPoints = new ArrayList<>();
-        sortedSegments = new ArrayList<>();
-        knotPointsFlattened = new ArrayList<>();
-        segmentLookup = new HashMap<>();
-        manifoldSegments = new ArrayList<>();
-        matchList = new ArrayList<>();
-    }
-
-    /**
-     * Default constructor for creating empty knots.
-     */
-    public Knot() {
         knotPoints = new ArrayList<>();
         sortedSegments = new ArrayList<>();
         knotPointsFlattened = new ArrayList<>();
@@ -1107,14 +1311,15 @@ public class Knot extends SDFCircle {
     /**
      * Grow this knot by inserting a singleton into a specific edge. Does not change
      * hierarchy - modifies this knot in place.
-     * 
+     *
      * @param singleton the singleton point to insert
      * @param edge      the edge to split (must be in this knot's manifold)
+     * @throws IllegalArgumentException TODO: describe
      * @return GrowRecord for undo support
      */
     public GrowRecord grow(Knot singleton, Segment edge) {
         if (!singleton.isSingleton()) {
-            throw new IllegalArgumentException("grow requires a singleton");
+            throw new IllegalArgumentException(GROW_REQUIRES_A_SINGLETON);
         }
         if (edge == null || !manifoldSegments.contains(edge)) {
             throw new IllegalArgumentException("edge must be in this knot's manifold");
@@ -1179,13 +1384,15 @@ public class Knot extends SDFCircle {
 
     /**
      * Grow this knot by inserting a singleton at the lowest-cost edge.
-     * 
+     *
      * @param singleton the singleton point to insert
+     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalStateException TODO: describe
      * @return GrowRecord for undo support
      */
     public GrowRecord growAtLowestCost(Knot singleton) {
         if (!singleton.isSingleton()) {
-            throw new IllegalArgumentException("grow requires a singleton");
+            throw new IllegalArgumentException(GROW_REQUIRES_A_SINGLETON);
         }
 
         // Find the lowest-cost edge to split
@@ -1211,7 +1418,7 @@ public class Knot extends SDFCircle {
 
     /**
      * Get the lowest-cost edge for inserting a singleton.
-     * 
+     *
      * @param singleton the singleton to insert
      * @return the edge with lowest insertion cost
      */
@@ -1241,7 +1448,7 @@ public class Knot extends SDFCircle {
     /**
      * Find the two pipe segments connecting two child knots. Pipes have 2 segments
      * each connecting endpoints of cut edges.
-     * 
+     *
      * @param childA first child knot
      * @param childB second child knot
      * @return array of 2 segments forming the pipe, or null if not found
@@ -1271,7 +1478,7 @@ public class Knot extends SDFCircle {
 
     /**
      * Find the path of child knots between two children.
-     * 
+     *
      * @param startChild starting child knot
      * @param endChild   ending child knot
      * @return list of knots in the path, or null if not connected
@@ -1333,9 +1540,10 @@ public class Knot extends SDFCircle {
      * Collapse operation: Convert double-pipes to single-pipes with crossings. For
      * each pipe in the path, removes one segment and adds an internal crossing.
      * Also adds a direct connection between start and end.
-     * 
+     *
      * @param startChild the starting child knot
      * @param endChild   the ending child knot
+     * @throws IllegalArgumentException TODO: describe
      * @return CollapseRecord for undo support
      */
     public CollapseRecord collapse(Knot startChild, Knot endChild) {
@@ -1457,7 +1665,7 @@ public class Knot extends SDFCircle {
     /**
      * Get the default pipe segments to remove for a collapse operation. Returns the
      * higher-cost segment from each pipe.
-     * 
+     *
      * @param startChild the starting child knot
      * @param endChild   the ending child knot
      * @return list of segments that would be removed
@@ -1486,6 +1694,46 @@ public class Knot extends SDFCircle {
         }
 
         return result;
+    }
+
+    public enum WindingOrder {
+        None, Clockwise, CounterClockwise
+    }
+
+    // ==================== TRADE ROUTE OPERATIONS ====================
+
+    /**
+     * Type of edge in a knot hierarchy.
+     */
+    public enum EdgeType {
+        /** Edge within a child knot's original structure. */
+        SUBKNOT_EDGE,
+        /** Edge created by a previous pipe operation (connects two children). */
+        PIPE_EDGE,
+        /** Edge type unknown or not applicable. */
+        UNKNOWN
+    }
+
+    /**
+     * Information about an edge in the knot hierarchy.
+     */
+    public static class EdgeInfo {
+        public Segment edge;
+        public EdgeType type;
+        public Knot owningKnot;
+
+        /**
+         * TODO: document {@code EdgeInfo}.
+         *
+         * @param edge TODO: describe
+         * @param type TODO: describe
+         * @param owningKnot TODO: describe
+         */
+        public EdgeInfo(Segment edge, EdgeType type, Knot owningKnot) {
+            this.edge = edge;
+            this.type = type;
+            this.owningKnot = owningKnot;
+        }
     }
 
 }

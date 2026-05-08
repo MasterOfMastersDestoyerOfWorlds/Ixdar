@@ -13,9 +13,11 @@ import ixdar.geometry.mesh.data.MeshTopology;
 
 @MeshNodeAnnotation(id = "realize_instances")
 public class RealizeInstancesNode implements MeshNode {
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String MESH_2 = "mesh";
 
-    private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
+    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final OutputPort MESH = new OutputPort(MESH_2, PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
@@ -35,14 +37,14 @@ public class RealizeInstancesNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "geometry", "Input bundle (possibly with instances) to flatten into a single concrete mesh.",
-                "mesh", "Concrete mesh with all instances materialized into real vertices and faces."
+                GEOMETRY_2, "Input bundle (possibly with instances) to flatten into a single concrete mesh.",
+                MESH_2, "Concrete mesh with all instances materialized into real vertices and faces."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        MeshTopology m = GeometryBundles.meshPart(ctx.getInput("geometry", Object.class));
-        ctx.setOutput("mesh", m);
+        MeshTopology m = GeometryBundles.meshPart(ctx.getInput(GEOMETRY_2, Object.class));
+        ctx.setOutput(MESH_2, m);
     }
 }

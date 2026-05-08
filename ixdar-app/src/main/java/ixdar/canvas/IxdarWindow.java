@@ -57,12 +57,29 @@ import ixdar.platform.gl.lwjgl.LwjglGL;
 import ixdar.platform.gl.lwjgl.LwjglPlatform;
 
 public class IxdarWindow {
+    public static final String CANVAS3D_NOT_FOUND_FOR = "Canvas3D not found for ";
+    public static final int NUM_3 = 3;
+    public static final int NUM_750 = 750;
+    public static final int NUM_4 = 4;
+    public static final int NUM_20 = 20;
 
     public static JFrame frame;
-    private static Canvas3D canvas;
     public static float startTime;
-    private static String canvasId;
 
+    public static long window;
+    private static Canvas3D canvas;
+    private static String canvasId;
+    private static int windowWidth;
+    private static int windowHeight;
+
+    /**
+     * TODO: document {@code main}.
+     *
+     * @param args TODO: describe
+     * @throws UnsupportedEncodingException TODO: describe
+     * @throws IOException TODO: describe
+     * @throws InterruptedException TODO: describe
+     */
     public static void main(String[] args) throws UnsupportedEncodingException, IOException, InterruptedException {
         if (args.length == 0) {
             canvasId = "ixdar";
@@ -73,14 +90,22 @@ public class IxdarWindow {
         new IxdarWindow().runGLFW();
     }
 
+    /**
+     * TODO: document {@code getAspectRatio}.
+     *
+     * @return TODO: describe
+     */
     public static float getAspectRatio() {
         return ((float) frame.getWidth()) / ((float) frame.getHeight());
     }
 
-    public static long window;
-    private static int windowWidth;
-    private static int windowHeight;
-
+    /**
+     * TODO: document {@code runGLFW}.
+     *
+     * @throws UnsupportedEncodingException TODO: describe
+     * @throws IOException TODO: describe
+     * @throws InterruptedException TODO: describe
+     */
     public void runGLFW() throws UnsupportedEncodingException, IOException, InterruptedException {
 
         init();
@@ -103,12 +128,12 @@ public class IxdarWindow {
             throw new IllegalStateException("Unable to initialize GLFW");
         glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE); // the window will stay hidden after creation
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); // the window will be resizable
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, NUM_3);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, NUM_3);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
         System.out.println("glfw init Time: " + (Clock.time() - startTime));
-        window = glfwCreateWindow(750, 750, "Ixdar", 0, 0);
+        window = glfwCreateWindow(NUM_750, NUM_750, "Ixdar", 0, 0);
         if (window == 0)
             throw new RuntimeException("Failed to create the GLFW window");
 
@@ -131,7 +156,7 @@ public class IxdarWindow {
         IntBuffer channels = BufferUtils.createIntBuffer(1);
         File file = new File("src/main/resources/res/decalSmall.png");
         String filePath = file.getAbsolutePath();
-        ByteBuffer icon = STBImage.stbi_load(filePath, w, h, channels, 4);
+        ByteBuffer icon = STBImage.stbi_load(filePath, w, h, channels, NUM_4);
         GLFWImage.Buffer gb = null;
         if (icon != null && w.get(0) > 0 && h.get(0) > 0) {
             gb = GLFWImage.create(1);
@@ -171,8 +196,8 @@ public class IxdarWindow {
 
         Supplier<? extends SceneDrawable> cs = CanvasSceneMap.MAP.get(canvasId);
         if (cs == null) {
-            Platforms.get().log("Canvas3D not found for " + canvasId);
-            throw new RuntimeException("Canvas3D not found for " + canvasId);
+            Platforms.get().log(CANVAS3D_NOT_FOUND_FOR + canvasId);
+            throw new RuntimeException(CANVAS3D_NOT_FOUND_FOR + canvasId);
         }
         canvas = (Canvas3D) cs.get();
         canvas.initGL();
@@ -197,27 +222,50 @@ public class IxdarWindow {
         renderThread.start();
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
-            Thread.sleep(20);
+            Thread.sleep(NUM_20);
         }
         renderThread.join();
     }
 
+    /**
+     * TODO: document {@code getWidth}.
+     *
+     * @return TODO: describe
+     */
     public static float getWidth() {
         return windowWidth;
     }
 
+    /**
+     * TODO: document {@code getHeight}.
+     *
+     * @return TODO: describe
+     */
     public static float getHeight() {
         return windowHeight;
     }
 
+    /**
+     * TODO: document {@code getCanvasId}.
+     *
+     * @return TODO: describe
+     */
     public static String getCanvasId() {
         return canvasId;
     }
 
+    /**
+     * TODO: document {@code setTitle}.
+     *
+     * @param title TODO: describe
+     */
     public static void setTitle(String title) {
         glfwSetWindowTitle(window, title);
     }
 
+    /**
+     * TODO: document {@code requestClose}.
+     */
     public static void requestClose() {
         if (window != 0) {
             glfwSetWindowShouldClose(window, true);

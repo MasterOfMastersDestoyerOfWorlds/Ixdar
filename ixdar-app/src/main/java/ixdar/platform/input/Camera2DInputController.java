@@ -5,6 +5,14 @@ import java.util.Set;
 import ixdar.graphics.cameras.Camera;
 
 public class Camera2DInputController {
+    /**
+     * TODO: document {@code apply}.
+     *
+     * @param camera TODO: describe
+     * @param pressedKeys TODO: describe
+     * @param shiftMod TODO: describe
+     * @param zoomDeltaSeconds TODO: describe
+     */
     public static void apply(Camera camera, Set<Integer> pressedKeys, float shiftMod, double zoomDeltaSeconds) {
         if (camera == null || pressedKeys == null) {
             return;

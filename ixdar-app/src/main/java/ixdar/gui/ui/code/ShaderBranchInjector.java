@@ -12,11 +12,32 @@ import ixdar.parsing.glsl.GLSLExpressionParser;
  * interactive debugging.
  */
 public class ShaderBranchInjector {
+    public static final String N = "\n";
+    public static final String FLOAT = "), float(";
+    public static final String VEC4 = "vec4(";
+    public static final String STR = ", ";
+    public static final String STR_1_0 = ", 1.0)";
+    public static final String VEC4_0_0_0_0_0_0_1_0 = "vec4(0.0, 0.0, 0.0, 1.0)";
+    public static final String IF = "if";
+    public static final String ELSE = "else";
+    public static final String STR_2 = " =";
+    public static final String VEC4_0_0_0_0_0_0_1_0_2 = " = vec4(0.0, 0.0, 0.0, 1.0);";
+    public static final String STR_3 = " = ";
+    public static final String STR_4 = ";";
+    public static final String STR_5 = "}";
+    public static final int NUM_4 = 4;
+    String originalFragmentSource;
 
     private ShaderProgram targetShader;
-    String originalFragmentSource;
     private ShaderDrawable uniformProvider;
 
+    /**
+     * TODO: document {@code ShaderBranchInjector}.
+     *
+     * @param uniformProvider TODO: describe
+     * @param originalFragmentSource TODO: describe
+     * @param targetShader TODO: describe
+     */
     public ShaderBranchInjector(ShaderDrawable uniformProvider, String originalFragmentSource,
             ShaderProgram targetShader) {
         this.uniformProvider = uniformProvider;
@@ -24,11 +45,16 @@ public class ShaderBranchInjector {
         this.targetShader = targetShader;
     }
 
+    /**
+     * TODO: document {@code injectAndReload}.
+     *
+     * @param lineIndex TODO: describe
+     */
     public void injectAndReload(int lineIndex) {
         if (originalFragmentSource == null || originalFragmentSource.isEmpty()) {
             return;
         }
-        String[] lines = originalFragmentSource.split("\n", -1);
+        String[] lines = originalFragmentSource.split(N, -1);
         if (lineIndex < 0 || lineIndex >= lines.length) {
             return;
         }
@@ -85,22 +111,22 @@ public class ShaderBranchInjector {
         String expr;
         switch (type) {
         case "int":
-            expr = "vec4(float(" + var + "), float(" + var + "), float(" + var + "), 1.0)";
+            expr = "vec4(float(" + var + FLOAT + var + FLOAT + var + "), 1.0)";
             break;
         case "float":
-            expr = "vec4(" + var + ", " + var + ", " + var + ", 1.0)";
+            expr = VEC4 + var + STR + var + STR + var + STR_1_0;
             break;
         case "vec2":
-            expr = "vec4(" + var + ".x, " + var + ".y, 0.0, 1.0)";
+            expr = VEC4 + var + ".x, " + var + ".y, 0.0, 1.0)";
             break;
         case "vec3":
-            expr = "vec4(" + var + ", 1.0)";
+            expr = VEC4 + var + STR_1_0;
             break;
         case "vec4":
             expr = var;
             break;
         default:
-            expr = "vec4(0.0, 0.0, 0.0, 1.0)";
+            expr = VEC4_0_0_0_0_0_0_1_0;
         }
 
         int mainStart = -1;
@@ -139,7 +165,7 @@ public class ShaderBranchInjector {
         int ifHeader = -1;
         for (int i = lineIndex; i >= mainStart; i--) {
             String t = lines[i].trim();
-            if (t.startsWith("if")) {
+            if (t.startsWith(IF)) {
                 ifHeader = i;
                 break;
             }
@@ -171,7 +197,7 @@ public class ShaderBranchInjector {
                     else if (ch == '}')
                         localDepth--;
 
-                    if (k + 4 <= s.length() && s.substring(k, k + 4).equals("else")) {
+                    if (k + NUM_4 <= s.length() && s.substring(k, k + NUM_4).equals(ELSE)) {
 
                         if (localDepth == baseDepth - 1) {
                             elseHeader = i;
@@ -220,7 +246,7 @@ public class ShaderBranchInjector {
             {
                 int depthElse = 0;
                 String hdr = lines[elseHeader];
-                int posElse = hdr.toLowerCase().indexOf("else");
+                int posElse = hdr.toLowerCase().indexOf(ELSE);
                 if (posElse < 0)
 
                     for (int k = posElse; k < hdr.length(); k++) {
@@ -280,7 +306,7 @@ public class ShaderBranchInjector {
                     String t = s.trim().toLowerCase();
 
                     if (!seenThenOpen) {
-                        int posIf = s.toLowerCase().indexOf("if");
+                        int posIf = s.toLowerCase().indexOf(IF);
                         if (posIf >= 0) {
                             for (int k = posIf; k < s.length(); k++) {
                                 char ch = s.charAt(k);
@@ -308,9 +334,9 @@ public class ShaderBranchInjector {
                         thenCloseBrace = i;
                     }
 
-                    if (!seenElseOpen && t.contains("else")) {
+                    if (!seenElseOpen && t.contains(ELSE)) {
 
-                        int posElse = s.toLowerCase().indexOf("else");
+                        int posElse = s.toLowerCase().indexOf(ELSE);
                         for (int k = posElse; k < s.length(); k++) {
                             char ch = s.charAt(k);
                             if (ch == '{') {
@@ -341,8 +367,8 @@ public class ShaderBranchInjector {
 
             for (int i = 0; i < ifHeader; i++) {
                 String line = lines[i];
-                if (line.contains(outName + " =") && !line.trim().startsWith("//") && !line.trim().startsWith("out ")) {
-                    edited.add(indent + outName + " = vec4(0.0, 0.0, 0.0, 1.0);");
+                if (line.contains(outName + STR_2) && !line.trim().startsWith("//") && !line.trim().startsWith("out ")) {
+                    edited.add(indent + outName + VEC4_0_0_0_0_0_0_1_0_2);
                 } else {
                     edited.add(line);
                 }
@@ -354,10 +380,10 @@ public class ShaderBranchInjector {
                 edited.add(lines[i]);
             }
 
-            edited.add(inThen ? (indent + outName + " = " + expr + ";")
-                    : (indent + outName + " = vec4(0.0, 0.0, 0.0, 1.0);"));
+            edited.add(inThen ? (indent + outName + STR_3 + expr + STR_4)
+                    : (indent + outName + VEC4_0_0_0_0_0_0_1_0_2));
 
-            edited.add("}");
+            edited.add(STR_5);
 
             if (elseHeader >= 0) {
                 String hdr = lines[elseHeader];
@@ -372,22 +398,22 @@ public class ShaderBranchInjector {
                 edited.add(lines[i]);
             }
 
-            edited.add(inThen ? (indent + outName + " = vec4(0.0, 0.0, 0.0, 1.0);")
-                    : (indent + outName + " = " + expr + ";"));
+            edited.add(inThen ? (indent + outName + VEC4_0_0_0_0_0_0_1_0_2)
+                    : (indent + outName + STR_3 + expr + STR_4));
 
-            edited.add("}");
+            edited.add(STR_5);
 
             String elseLineContent = lines[elseHeader].trim();
-            boolean hasElseIf = elseLineContent.contains("else") && elseLineContent.contains("if");
+            boolean hasElseIf = elseLineContent.contains(ELSE) && elseLineContent.contains(IF);
             if (hasElseIf) {
 
                 edited.add(indent + "else {");
-                edited.add(indent + "    " + outName + " = vec4(0.0, 0.0, 0.0, 1.0);");
-                edited.add(indent + "}");
+                edited.add(indent + "    " + outName + VEC4_0_0_0_0_0_0_1_0_2);
+                edited.add(indent + STR_5);
             }
 
-            edited.add("}");
-            String newSrc = String.join("\n", edited);
+            edited.add(STR_5);
+            String newSrc = String.join(N, edited);
 
             targetShader.reloadWithFragmentSource(newSrc);
             return;
@@ -403,12 +429,12 @@ public class ShaderBranchInjector {
         java.util.List<String> newLines = new java.util.ArrayList<>();
         for (int i = 0; i <= lineIndex; i++)
             newLines.add(lines[i]);
-        boolean clickedAssignsOut = lines[lineIndex].contains(outName + " =");
+        boolean clickedAssignsOut = lines[lineIndex].contains(outName + STR_2);
         boolean wouldExec = (lineIndex >= 0 && lineIndex < execFlags.size()) ? execFlags.get(lineIndex).booleanValue()
                 : true;
         if (!clickedAssignsOut) {
-            String outExpr = wouldExec ? expr : "vec4(0.0, 0.0, 0.0, 1.0)";
-            newLines.add(indent + outName + " = " + outExpr + ";");
+            String outExpr = wouldExec ? expr : VEC4_0_0_0_0_0_0_1_0;
+            newLines.add(indent + outName + STR_3 + outExpr + STR_4);
         }
         int openDepthAtClicked = 0;
         {
@@ -426,13 +452,13 @@ public class ShaderBranchInjector {
             openDepthAtClicked = Math.max(0, d);
         }
         for (int i = 0; i < openDepthAtClicked; i++) {
-            newLines.add("}");
+            newLines.add(STR_5);
         }
         if (mainEnd >= 0) {
             for (int i = mainEnd + 1; i < lines.length; i++)
                 newLines.add(lines[i]);
         }
-        String newSrc = String.join("\n", newLines);
+        String newSrc = String.join(N, newLines);
 
         targetShader.reloadWithFragmentSource(newSrc);
     }

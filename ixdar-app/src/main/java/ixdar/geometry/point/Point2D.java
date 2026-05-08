@@ -37,184 +37,8 @@ package ixdar.geometry.point;
  * @since 1.2
  */
 public abstract class Point2D implements Cloneable {
-
-    /**
-     * The {@code Float} class defines a point specified in float precision.
-     * 
-     * @since 1.2
-     */
-    public static class Float extends Point2D {
-        /**
-         * The X coordinate of this {@code Point2D}.
-         * 
-         * @since 1.2
-         * @serial
-         */
-        public float x;
-
-        /**
-         * The Y coordinate of this {@code Point2D}.
-         * 
-         * @since 1.2
-         * @serial
-         */
-        public float y;
-
-        /**
-         * Constructs and initializes a {@code Point2D} with coordinates (0,&nbsp;0).
-         * 
-         * @since 1.2
-         */
-        public Float() {
-        }
-
-        /**
-         * Constructs and initializes a {@code Point2D} with the specified coordinates.
-         *
-         * @param x the X coordinate of the newly constructed {@code Point2D}
-         * @param y the Y coordinate of the newly constructed {@code Point2D}
-         * @since 1.2
-         */
-        public Float(float x, float y) {
-            this.x = x;
-            this.y = y;
-        }
-
-        /**
-         * {@inheritDoc}
-         * 
-         * @since 1.2
-         */
-        public double getX() {
-            return (double) x;
-        }
-
-        /**
-         * {@inheritDoc}
-         * 
-         * @since 1.2
-         */
-        public double getY() {
-            return (double) y;
-        }
-
-        /**
-         * {@inheritDoc}
-         * 
-         * @since 1.2
-         */
-        public void setLocation(double x, double y) {
-            this.x = (float) x;
-            this.y = (float) y;
-        }
-
-        /**
-         * Sets the location of this {@code Point2D} to the specified {@code float}
-         * coordinates.
-         *
-         * @param x the new X coordinate of this {@code Point2D}
-         * @param y the new Y coordinate of this {@code Point2D}
-         * @since 1.2
-         */
-        public void setLocation(float x, float y) {
-            this.x = x;
-            this.y = y;
-        }
-
-        /**
-         * Returns a {@code String} that represents the value of this {@code Point2D}.
-         * 
-         * @return a string representation of this {@code Point2D}.
-         * @since 1.2
-         */
-        public String toString() {
-            return "Point2D.Float[" + x + ", " + y + "]";
-        }
-
-    }
-
-    /**
-     * The {@code Double} class defines a point specified in {@code double}
-     * precision.
-     * 
-     * @since 1.2
-     */
-    public static class Double extends Point2D {
-        /**
-         * The X coordinate of this {@code Point2D}.
-         * 
-         * @since 1.2
-         * @serial
-         */
-        public double x;
-
-        /**
-         * The Y coordinate of this {@code Point2D}.
-         * 
-         * @since 1.2
-         * @serial
-         */
-        public double y;
-
-        /**
-         * Constructs and initializes a {@code Point2D} with coordinates (0,&nbsp;0).
-         * 
-         * @since 1.2
-         */
-        public Double() {
-        }
-
-        /**
-         * Constructs and initializes a {@code Point2D} with the specified coordinates.
-         *
-         * @param x the X coordinate of the newly constructed {@code Point2D}
-         * @param y the Y coordinate of the newly constructed {@code Point2D}
-         * @since 1.2
-         */
-        public Double(double x, double y) {
-            this.x = x;
-            this.y = y;
-        }
-
-        /**
-         * {@inheritDoc}
-         * 
-         * @since 1.2
-         */
-        public double getX() {
-            return x;
-        }
-
-        /**
-         * {@inheritDoc}
-         * 
-         * @since 1.2
-         */
-        public double getY() {
-            return y;
-        }
-
-        /**
-         * {@inheritDoc}
-         * 
-         * @since 1.2
-         */
-        public void setLocation(double x, double y) {
-            this.x = x;
-            this.y = y;
-        }
-
-        /**
-         * Returns a {@code String} that represents the value of this {@code Point2D}.
-         * 
-         * @return a string representation of this {@code Point2D}.
-         * @since 1.2
-         */
-        public String toString() {
-            return "Point2D.Double[" + x + ", " + y + "]";
-        }
-
-    }
+    public static final String STR = ", ";
+    public static final String STR_2 = "]";
 
     /**
      * This is an abstract class that cannot be instantiated directly. Type-specific
@@ -229,7 +53,7 @@ public abstract class Point2D implements Cloneable {
 
     /**
      * Returns the X coordinate of this {@code Point2D} in {@code double} precision.
-     * 
+     *
      * @return the X coordinate of this {@code Point2D}.
      * @since 1.2
      */
@@ -237,7 +61,7 @@ public abstract class Point2D implements Cloneable {
 
     /**
      * Returns the Y coordinate of this {@code Point2D} in {@code double} precision.
-     * 
+     *
      * @return the Y coordinate of this {@code Point2D}.
      * @since 1.2
      */
@@ -256,7 +80,7 @@ public abstract class Point2D implements Cloneable {
     /**
      * Sets the location of this {@code Point2D} to the same coordinates as the
      * specified {@code Point2D} object.
-     * 
+     *
      * @param p the specified {@code Point2D} to which to set this {@code Point2D}
      * @since 1.2
      */
@@ -366,9 +190,10 @@ public abstract class Point2D implements Cloneable {
     /**
      * Creates a new object of the same class and with the same contents as this
      * object.
-     * 
-     * @return a clone of this instance.
+     *
      * @throws OutOfMemoryError if there is not enough memory.
+     * @throws InternalError TODO: describe
+     * @return a clone of this instance.
      * @see java.lang.Cloneable
      * @since 1.2
      */
@@ -383,7 +208,7 @@ public abstract class Point2D implements Cloneable {
 
     /**
      * Returns the hashcode for this {@code Point2D}.
-     * 
+     *
      * @return a hash code for this {@code Point2D}.
      */
     public int hashCode() {
@@ -397,7 +222,7 @@ public abstract class Point2D implements Cloneable {
      * {@code Point2D} are equal if the values of their {@code x} and {@code y}
      * member fields, representing their position in the coordinate space, are the
      * same.
-     * 
+     *
      * @param obj an object to be compared with this {@code Point2D}
      * @return {@code true} if the object to be compared is an instance of
      *         {@code Point2D} and has the same values; {@code false} otherwise.
@@ -409,5 +234,191 @@ public abstract class Point2D implements Cloneable {
             return (getX() == p2d.getX()) && (getY() == p2d.getY());
         }
         return super.equals(obj);
+    }
+
+    /**
+     * The {@code Float} class defines a point specified in float precision.
+     *
+     * @since 1.2
+     */
+    public static class Float extends Point2D {
+        /**
+         * The X coordinate of this {@code Point2D}.
+         *
+         * @since 1.2
+         * @serial
+         */
+        public float x;
+
+        /**
+         * The Y coordinate of this {@code Point2D}.
+         *
+         * @since 1.2
+         * @serial
+         */
+        public float y;
+
+        /**
+         * Constructs and initializes a {@code Point2D} with coordinates (0,&nbsp;0).
+         *
+         * @since 1.2
+         */
+        public Float() {
+        }
+
+        /**
+         * Constructs and initializes a {@code Point2D} with the specified coordinates.
+         *
+         * @param x the X coordinate of the newly constructed {@code Point2D}
+         * @param y the Y coordinate of the newly constructed {@code Point2D}
+         * @since 1.2
+         */
+        public Float(float x, float y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        /**
+         * {@inheritDoc}.
+         *
+         * @return TODO: describe
+         * @since 1.2
+         */
+        public double getX() {
+            return (double) x;
+        }
+
+        /**
+         * {@inheritDoc}.
+         *
+         * @return TODO: describe
+         * @since 1.2
+         */
+        public double getY() {
+            return (double) y;
+        }
+
+        /**
+         * {@inheritDoc}.
+         *
+         * @param x TODO: describe
+         * @param y TODO: describe
+         * @since 1.2
+         */
+        public void setLocation(double x, double y) {
+            this.x = (float) x;
+            this.y = (float) y;
+        }
+
+        /**
+         * Sets the location of this {@code Point2D} to the specified {@code float}
+         * coordinates.
+         *
+         * @param x the new X coordinate of this {@code Point2D}
+         * @param y the new Y coordinate of this {@code Point2D}
+         * @since 1.2
+         */
+        public void setLocation(float x, float y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        /**
+         * Returns a {@code String} that represents the value of this {@code Point2D}.
+         *
+         * @return a string representation of this {@code Point2D}.
+         * @since 1.2
+         */
+        public String toString() {
+            return "Point2D.Float[" + x + STR + y + STR_2;
+        }
+
+    }
+
+    /**
+     * The {@code Double} class defines a point specified in {@code double}
+     * precision.
+     *
+     * @since 1.2
+     */
+    public static class Double extends Point2D {
+        /**
+         * The X coordinate of this {@code Point2D}.
+         *
+         * @since 1.2
+         * @serial
+         */
+        public double x;
+
+        /**
+         * The Y coordinate of this {@code Point2D}.
+         *
+         * @since 1.2
+         * @serial
+         */
+        public double y;
+
+        /**
+         * Constructs and initializes a {@code Point2D} with coordinates (0,&nbsp;0).
+         *
+         * @since 1.2
+         */
+        public Double() {
+        }
+
+        /**
+         * Constructs and initializes a {@code Point2D} with the specified coordinates.
+         *
+         * @param x the X coordinate of the newly constructed {@code Point2D}
+         * @param y the Y coordinate of the newly constructed {@code Point2D}
+         * @since 1.2
+         */
+        public Double(double x, double y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        /**
+         * {@inheritDoc}.
+         *
+         * @return TODO: describe
+         * @since 1.2
+         */
+        public double getX() {
+            return x;
+        }
+
+        /**
+         * {@inheritDoc}.
+         *
+         * @return TODO: describe
+         * @since 1.2
+         */
+        public double getY() {
+            return y;
+        }
+
+        /**
+         * {@inheritDoc}.
+         *
+         * @param x TODO: describe
+         * @param y TODO: describe
+         * @since 1.2
+         */
+        public void setLocation(double x, double y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        /**
+         * Returns a {@code String} that represents the value of this {@code Point2D}.
+         *
+         * @return a string representation of this {@code Point2D}.
+         * @since 1.2
+         */
+        public String toString() {
+            return "Point2D.Double[" + x + STR + y + STR_2;
+        }
+
     }
 }

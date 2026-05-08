@@ -11,6 +11,13 @@ import ixdar.platform.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "record/start", method = APIMethod.POST)
 public class Start extends AutomationEndpoint implements AutomationRoute {
+    /**
+     * TODO: document {@code endpointHandler}.
+     *
+     * @param body TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         runtime.recorder().start();
         JsonObject result = runtime.recorder().status();

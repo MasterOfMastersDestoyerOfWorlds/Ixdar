@@ -42,6 +42,11 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.solver.BzkSystem;
  * solver ladder).
  */
 public final class FaceRosyField extends BaseField {
+    public static final String SOLVE_NOT_CALLED = "solve() not called";
+    public static final String FALSE = "false";
+    public static final int NUM_3 = 3;
+    public static final float NUM_1e_30 = 1e-30f;
+    public static final float NUM_1 = 1f;
 
     private static final double PI_HALF = Math.PI * 0.5;
 
@@ -58,11 +63,18 @@ public final class FaceRosyField extends BaseField {
     private boolean solved;
     private GreedyRounding.Result lastResult;
 
+    /**
+     * TODO: document {@code FaceRosyField}.
+     *
+     * @param mesh TODO: describe
+     */
     public FaceRosyField(ArrayMesh mesh) {
         this(mesh, Double.POSITIVE_INFINITY);
     }
 
     /**
+     * TODO: document.
+     *
      * @param principalThreshold CIE*16 §3.2 ¶4 significance angle threshold,
      *     in degrees (default 70°). When finite, activates the CIE*16
      *     directional-constraint chain
@@ -75,6 +87,7 @@ public final class FaceRosyField extends BaseField {
      *     threshold τ_min ∈ [0,1] (PATCH-96, deleted). The constructor
      *     signature is preserved for backward compatibility but the value's
      *     meaning has changed.
+     * @param mesh TODO: describe
      */
     public FaceRosyField(ArrayMesh mesh, double principalThreshold) {
         super(mesh);
@@ -82,20 +95,65 @@ public final class FaceRosyField extends BaseField {
         buildEdgeStructure();
     }
 
+    /**
+     * TODO: document {@code interiorEdgeCount}.
+     *
+     * @return TODO: describe
+     */
     public int interiorEdgeCount() { return interiorEdgeCount; }
 
+    /**
+     * TODO: document {@code periodJump}.
+     *
+     * @param interiorEdgeIndex TODO: describe
+     * @throws IllegalStateException TODO: describe
+     * @return TODO: describe
+     */
     public int periodJump(int interiorEdgeIndex) {
-        if (!solved) throw new IllegalStateException("solve() not called");
+        if (!solved) throw new IllegalStateException(SOLVE_NOT_CALLED);
         return periodJump[interiorEdgeIndex];
     }
 
+    /**
+     * TODO: document {@code edgeFaceA}.
+     *
+     * @param interiorEdgeIndex TODO: describe
+     * @return TODO: describe
+     */
     public int edgeFaceA(int interiorEdgeIndex) { return edgeFaceA[interiorEdgeIndex]; }
+    /**
+     * TODO: document {@code edgeFaceB}.
+     *
+     * @param interiorEdgeIndex TODO: describe
+     * @return TODO: describe
+     */
     public int edgeFaceB(int interiorEdgeIndex) { return edgeFaceB[interiorEdgeIndex]; }
+    /**
+     * TODO: document {@code edgeMeshId}.
+     *
+     * @param interiorEdgeIndex TODO: describe
+     * @return TODO: describe
+     */
     public int edgeMeshId(int interiorEdgeIndex) { return edgeMeshId[interiorEdgeIndex]; }
+    /**
+     * TODO: document {@code kappa}.
+     *
+     * @param interiorEdgeIndex TODO: describe
+     * @return TODO: describe
+     */
     public double kappa(int interiorEdgeIndex) { return kappa[interiorEdgeIndex]; }
 
+    /**
+     * TODO: document {@code isTreeEdge}.
+     *
+     * @param interiorEdgeIndex TODO: describe
+     * @return TODO: describe
+     */
     public boolean isTreeEdge(int interiorEdgeIndex) { return isTreeEdge[interiorEdgeIndex]; }
 
+    /**
+     * TODO: document {@code solve}.
+     */
     public void solve() {
         int F = mesh.faceCount();
         int E = interiorEdgeCount;
@@ -165,8 +223,8 @@ public final class FaceRosyField extends BaseField {
     private static BzkAdaptiveSolver.Options readSolverOptions() {
         BzkAdaptiveSolver.Options o = new BzkAdaptiveSolver.Options();
         o.useGs = "true".equals(System.getProperty("ixdar.bzk09.useGs"));
-        o.useIcc = !"false".equals(System.getProperty("ixdar.bzk09.useIcc"));   // PATCH-103 default
-        o.useCg = !"false".equals(System.getProperty("ixdar.bzk09.useCg"));
+        o.useIcc = !FALSE.equals(System.getProperty("ixdar.bzk09.useIcc"));   // PATCH-103 default
+        o.useCg = !FALSE.equals(System.getProperty("ixdar.bzk09.useCg"));
         o.cgMaxIter = Integer.getInteger("ixdar.bzk09.cgMaxIter", o.cgMaxIter);
         o.cgTolerance = Double.parseDouble(
                 System.getProperty("ixdar.bzk09.cgTol", String.valueOf(o.cgTolerance)));
@@ -176,11 +234,19 @@ public final class FaceRosyField extends BaseField {
         return o;
     }
 
-    /** Solver convergence stats from the last {@link #solve()} call. Null
-     *  before solve(), or for the no-op F=0 case. Used by bench introspection. */
+    /**
+     * Solver convergence stats from the last {@link #solve()} call. Null
+     *  before solve(), or for the no-op F=0 case. Used by bench introspection.
+     *
+     * @return TODO: describe
+     */
     public GreedyRounding.Result lastResult() { return lastResult; }
 
-    /** Mesh bounding box diagonal — used by ACDLD03 §2.1 ¶3 default radius. */
+    /**
+     * Mesh bounding box diagonal — used by ACDLD03 §2.1 ¶3 default radius.
+     *
+     * @return TODO: describe
+     */
     private double boundingBoxDiagonal() {
         int V = mesh.vertexCount();
         if (V == 0) return 0.0;
@@ -229,7 +295,7 @@ public final class FaceRosyField extends BaseField {
         Vector3f tangentInB = new Vector3f();
         for (int e = 0; e < interiorEdgeCount; e++) {
             int[] r = interior.get(e);
-            int fA = r[0], fB = r[1], eId = r[2], he = r[3];
+            int fA = r[0], fB = r[1], eId = r[2], he = r[NUM_3];
             edgeFaceA[e] = fA;
             edgeFaceB[e] = fB;
             edgeMeshId[e] = eId;
@@ -240,7 +306,7 @@ public final class FaceRosyField extends BaseField {
             mesh.vertexPosition(v1, p1);
             edgeDir.set(p1).sub(p0);
             float el = edgeDir.length();
-            if (el > 1e-30f) edgeDir.mul(1f / el);
+            if (el > NUM_1e_30) edgeDir.mul(NUM_1 / el);
 
             frameU(fA, uA); frameV(fA, vA); frameN(fA, nA);
             frameU(fB, uB); frameV(fB, vB); frameN(fB, nB);
@@ -249,7 +315,7 @@ public final class FaceRosyField extends BaseField {
             double dn = edgeDir.dot(nB);
             tangentInB.set(edgeDir).sub(nB.x * (float) dn, nB.y * (float) dn, nB.z * (float) dn);
             float tl = tangentInB.length();
-            if (tl > 1e-30f) tangentInB.mul(1f / tl);
+            if (tl > NUM_1e_30) tangentInB.mul(NUM_1 / tl);
             double alphaB = Math.atan2(tangentInB.dot(vB), tangentInB.dot(uB));
 
             kappa[e] = alphaB - alphaA;
@@ -299,8 +365,14 @@ public final class FaceRosyField extends BaseField {
         return adj;
     }
 
+    /**
+     * TODO: document {@code smoothnessEnergy}.
+     *
+     * @throws IllegalStateException TODO: describe
+     * @return TODO: describe
+     */
     public double smoothnessEnergy() {
-        if (!solved) throw new IllegalStateException("solve() not called");
+        if (!solved) throw new IllegalStateException(SOLVE_NOT_CALLED);
         double E = 0.0;
         for (int e = 0; e < interiorEdgeCount; e++) {
             double r = theta[edgeFaceA[e]] - theta[edgeFaceB[e]] + kappa[e]
@@ -310,11 +382,22 @@ public final class FaceRosyField extends BaseField {
         return E;
     }
 
+    /**
+     * TODO: document {@code findSingularities}.
+     *
+     * @throws IllegalStateException TODO: describe
+     * @return TODO: describe
+     */
     public List<Singularity> findSingularities() {
-        if (!solved) throw new IllegalStateException("solve() not called");
+        if (!solved) throw new IllegalStateException(SOLVE_NOT_CALLED);
         return SingularityFinder.find(this);
     }
 
+    /**
+     * TODO: document {@code principalThreshold}.
+     *
+     * @return TODO: describe
+     */
     public double principalThreshold() { return principalThreshold; }
 
     /**
@@ -322,6 +405,12 @@ public final class FaceRosyField extends BaseField {
      * per-interior-edge integer periodJump. Used by
      * {@code ixdar.geometry.mesh.quadlayout.field.PrecomputedFieldImporter} to
      * load metriko's known-good stage1 cross field for downstream regression.
+     *
+     * @param mesh TODO: describe
+     * @param theta TODO: describe
+     * @param periodJump TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
      */
     public static FaceRosyField fromExternal(ArrayMesh mesh, double[] theta, int[] periodJump) {
         FaceRosyField f = new FaceRosyField(mesh);

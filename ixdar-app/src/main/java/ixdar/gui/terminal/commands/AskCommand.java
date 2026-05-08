@@ -15,12 +15,18 @@ import ixdar.scenes.main.MainScene;
 
 @CommandAnnotation(id = "ask")
 public class AskCommand extends TerminalCommand {
+    public static final String POINT_WITH_ID = "Point with id: ";
+    public static final String DOES_NOT_EXIST = " does not exist.";
+    public static final String STR = " || ";
+    public static final String THERE_ARE_NOT = "There are not ";
+    public static final String POINTS = " Points";
+    public static final int NUM_5 = 5;
 
     public static String cmd = "ask";
 
     @Override
     public String fullName() {
-        return "ask";
+        return cmd;
     }
 
     @Override
@@ -68,19 +74,19 @@ public class AskCommand extends TerminalCommand {
             }
         } else if (questionName.equals("closest")) {
             int id1 = Integer.parseInt(args[startIdx + 1]);
-            int numPrint = 5;
+            int numPrint = NUM_5;
             if (args.length - startIdx > 2) {
                 numPrint = Integer.parseInt(args[startIdx + 2]);
             }
             Knot vp = MainScene.shell.pointMap.get(id1);
             if (vp == null) {
-                terminal.error("Point with id: " + vp + " does not exist.");
+                terminal.error(POINT_WITH_ID + vp + DOES_NOT_EXIST);
             } else if (numPrint > vp.sortedSegments.size()) {
                 terminal.error("Point does not have " + numPrint + " segments to display");
             } else {
                 for (int i = 0; i < numPrint; i++) {
                     HyperString seg = vp.sortedSegments.get(i).toHyperString(Color.BLUE_WHITE, false, true);
-                    seg.addWord(" || ");
+                    seg.addWord(STR);
                     terminal.history.addHyperString(seg);
                 }
                 terminal.history.newLine();
@@ -91,7 +97,7 @@ public class AskCommand extends TerminalCommand {
                 numPrint = Integer.parseInt(args[startIdx + 1]);
             }
             if (numPrint > MainScene.shell.sortedSegments.size()) {
-                terminal.error("There are not " + numPrint + " Points");
+                terminal.error(THERE_ARE_NOT + numPrint + POINTS);
             } else {
                 int i = 0;
                 for (Segment s : MainScene.shell.sortedSegments) {
@@ -111,7 +117,7 @@ public class AskCommand extends TerminalCommand {
                 numPrint = Integer.parseInt(args[startIdx + 1]);
             }
             if (numPrint > MainScene.shell.pointMap.size()) {
-                terminal.error("There are not " + numPrint + " Points");
+                terminal.error(THERE_ARE_NOT + numPrint + POINTS);
             } else {
                 ArrayList<Segment> segements = new ArrayList<>();
                 for (int i = 0; i < numPrint; i++) {
@@ -139,7 +145,7 @@ public class AskCommand extends TerminalCommand {
             }
             Knot vp = MainScene.shell.pointMap.get(id1);
             if (vp == null) {
-                terminal.error("Point with id: " + vp + " does not exist.");
+                terminal.error(POINT_WITH_ID + vp + DOES_NOT_EXIST);
             }
             ArrayList<Long> seen = new ArrayList<>();
             ArrayList<Long> green = new ArrayList<>();
@@ -162,7 +168,7 @@ public class AskCommand extends TerminalCommand {
                     } else {
                         str = segment.toHyperString(Color.BLUE_WHITE, false, true);
                     }
-                    str.addWord(" || ");
+                    str.addWord(STR);
                     terminal.history.addHyperString(str);
                 }
                 terminal.history.newLine();

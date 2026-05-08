@@ -12,6 +12,14 @@ public class Edge {
     public Segment acrossSegment;
     public Segment cutSegment;
 
+    /**
+     * TODO: document {@code Edge}.
+     *
+     * @param idx TODO: describe
+     * @param isNext TODO: describe
+     * @param acrossSegment TODO: describe
+     * @param cutSegment TODO: describe
+     */
     public Edge(int idx, boolean isNext, Segment acrossSegment, Segment cutSegment) {
         this.idx = idx;
         if (isNext) {

@@ -21,12 +21,28 @@ import java.util.List;
  * </pre>
  */
 public final class MathExpressionEvaluator {
+    public static final String AT_POSITION = "' at position ";
+    public static final double NUM_2_0 = 2.0;
+    public static final double NUM_0_5 = 0.5;
+    public static final int NUM_3 = 3;
+    public static final double NUM_3_0 = 3.0;
+    public static final double NUM_6_0 = 6.0;
+    public static final double NUM_15_0 = 15.0;
+    public static final double NUM_10_0 = 10.0;
+    public static final int NUM_5 = 5;
+    public static final int NUM_4 = 4;
 
     private final String expression;
     private String s;
     private int pos;
     private double xValue;
 
+    /**
+     * TODO: document {@code MathExpressionEvaluator}.
+     *
+     * @param expression TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     */
     public MathExpressionEvaluator(String expression) {
         if (expression == null || expression.isBlank()) {
             throw new IllegalArgumentException("Expression must not be blank");
@@ -34,6 +50,13 @@ public final class MathExpressionEvaluator {
         this.expression = expression;
     }
 
+    /**
+     * TODO: document {@code evaluate}.
+     *
+     * @param x TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public double evaluate(double x) {
         this.s = expression;
         this.pos = 0;
@@ -42,7 +65,7 @@ public final class MathExpressionEvaluator {
         skipWs();
         if (pos < s.length()) {
             throw new IllegalArgumentException(
-                    "Unexpected character '" + s.charAt(pos) + "' at position " + pos);
+                    "Unexpected character '" + s.charAt(pos) + AT_POSITION + pos);
         }
         return result;
     }
@@ -158,7 +181,7 @@ public final class MathExpressionEvaluator {
             case "x" -> xValue;
             case "pi" -> Math.PI;
             case "e" -> Math.E;
-            case "tau" -> Math.PI * 2.0;
+            case "tau" -> Math.PI * NUM_2_0;
             default -> throw new IllegalArgumentException("Unknown variable: " + name);
         };
     }
@@ -188,7 +211,7 @@ public final class MathExpressionEvaluator {
             // 1-arg: exponential / logarithmic
             case "exp" -> { requireArgs(name, args, 1); yield Math.exp(args.get(0)); }
             case "log" -> { requireArgs(name, args, 1); yield Math.log(args.get(0)); }
-            case "log2" -> { requireArgs(name, args, 1); yield Math.log(args.get(0)) / Math.log(2.0); }
+            case "log2" -> { requireArgs(name, args, 1); yield Math.log(args.get(0)) / Math.log(NUM_2_0); }
             case "log10" -> { requireArgs(name, args, 1); yield Math.log10(args.get(0)); }
             case "sqrt" -> { requireArgs(name, args, 1); yield Math.sqrt(args.get(0)); }
             // 1-arg: easing (quadratic, defined over [0,1])
@@ -197,7 +220,7 @@ public final class MathExpressionEvaluator {
             case "ease_in_out" -> {
                 requireArgs(name, args, 1);
                 double t = args.get(0);
-                yield t < 0.5 ? 2.0 * t * t : 1.0 - 2.0 * (1.0 - t) * (1.0 - t);
+                yield t < NUM_0_5 ? NUM_2_0 * t * t : 1.0 - NUM_2_0 * (1.0 - t) * (1.0 - t);
             }
             // 2-arg
             case "pow" -> { requireArgs(name, args, 2); yield Math.pow(args.get(0), args.get(1)); }
@@ -214,55 +237,55 @@ public final class MathExpressionEvaluator {
                 double v = args.get(0);
                 double len = args.get(1);
                 if (len == 0.0) yield 0.0;
-                double t = v % (len * 2.0);
-                if (t < 0.0) t += len * 2.0;
+                double t = v % (len * NUM_2_0);
+                if (t < 0.0) t += len * NUM_2_0;
                 yield len - Math.abs(t - len);
             }
             // 3-arg: interpolation / easing
             case "clamp" -> {
-                requireArgs(name, args, 3);
+                requireArgs(name, args, NUM_3);
                 yield Math.max(args.get(1), Math.min(args.get(2), args.get(0)));
             }
             case "smoothstep" -> {
-                requireArgs(name, args, 3);
+                requireArgs(name, args, NUM_3);
                 double edge0 = args.get(0), edge1 = args.get(1), v = args.get(2);
                 if (edge0 == edge1) yield v < edge0 ? 0.0 : 1.0;
                 double t = (v - edge0) / (edge1 - edge0);
                 t = Math.max(0.0, Math.min(1.0, t));
-                yield t * t * (3.0 - 2.0 * t);
+                yield t * t * (NUM_3_0 - NUM_2_0 * t);
             }
             case "smootherstep" -> {
-                requireArgs(name, args, 3);
+                requireArgs(name, args, NUM_3);
                 double edge0 = args.get(0), edge1 = args.get(1), v = args.get(2);
                 if (edge0 == edge1) yield v < edge0 ? 0.0 : 1.0;
                 double t = (v - edge0) / (edge1 - edge0);
                 t = Math.max(0.0, Math.min(1.0, t));
-                yield t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+                yield t * t * t * (t * (t * NUM_6_0 - NUM_15_0) + NUM_10_0);
             }
             case "lerp" -> {
-                requireArgs(name, args, 3);
+                requireArgs(name, args, NUM_3);
                 double a = args.get(0), b = args.get(1), t = args.get(2);
                 yield a + (b - a) * t;
             }
             case "inverselerp" -> {
-                requireArgs(name, args, 3);
+                requireArgs(name, args, NUM_3);
                 double a = args.get(0), b = args.get(1), v = args.get(2);
                 if (a == b) yield 0.0;
                 yield (v - a) / (b - a);
             }
             case "smin" -> {
-                requireArgs(name, args, 3);
+                requireArgs(name, args, NUM_3);
                 double a = args.get(0), b = args.get(1), k = args.get(2);
                 if (k <= 0.0) yield Math.min(a, b);
-                double h = Math.max(0.0, Math.min(1.0, 0.5 + 0.5 * (b - a) / k));
+                double h = Math.max(0.0, Math.min(1.0, NUM_0_5 + NUM_0_5 * (b - a) / k));
                 yield a * h + b * (1.0 - h) - k * h * (1.0 - h);
             }
             // 5-arg
             case "remap" -> {
-                requireArgs(name, args, 5);
+                requireArgs(name, args, NUM_5);
                 double v = args.get(0);
                 double inLo = args.get(1), inHi = args.get(2);
-                double outLo = args.get(3), outHi = args.get(4);
+                double outLo = args.get(NUM_3), outHi = args.get(NUM_4);
                 if (inLo == inHi) yield outLo;
                 double t = (v - inLo) / (inHi - inLo);
                 yield outLo + (outHi - outLo) * t;
@@ -298,7 +321,7 @@ public final class MathExpressionEvaluator {
     private void expect(char c) {
         skipWs();
         if (pos >= s.length() || s.charAt(pos) != c) {
-            throw new IllegalArgumentException("Expected '" + c + "' at position " + pos);
+            throw new IllegalArgumentException("Expected '" + c + AT_POSITION + pos);
         }
         pos++;
     }

@@ -6,22 +6,22 @@ package ixdar.geometry.knot;
  */
 public class GrowRecord extends OperationRecord {
 
-    /** The knot that was grown */
+    /** The knot that was grown. */
     public Knot modifiedKnot;
 
-    /** The singleton point that was inserted */
+    /** The singleton point that was inserted. */
     public Knot insertedPoint;
 
-    /** The original edge that was split */
+    /** The original edge that was split. */
     public Segment originalEdge;
 
-    /** First new edge (from original edge's first point to inserted point) */
+    /** First new edge (from original edge's first point to inserted point). */
     public Segment newEdge1;
 
-    /** Second new edge (from inserted point to original edge's last point) */
+    /** Second new edge (from inserted point to original edge's last point). */
     public Segment newEdge2;
 
-    /** Index where the point was inserted in knotPointsFlattened */
+    /** Index where the point was inserted in knotPointsFlattened. */
     public int insertionIndex;
 
     @Override

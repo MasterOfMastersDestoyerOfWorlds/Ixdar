@@ -8,11 +8,16 @@ import ixdar.platform.input.MouseTrap;
 
 public class InfoPane implements MouseTrap.ScrollHandler {
 
-    private HyperString cachedInfo;
-
     public float scrollOffsetY = 0;
     public float SCROLL_SPEED = 4f;
 
+    private HyperString cachedInfo;
+
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param camera TODO: describe
+     */
     public void draw(Camera2D camera) {
         int row = 0;
         float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
@@ -34,6 +39,12 @@ public class InfoPane implements MouseTrap.ScrollHandler {
 
     }
 
+    /**
+     * TODO: document {@code onScroll}.
+     *
+     * @param scrollUp TODO: describe
+     * @param deltaSeconds TODO: describe
+     */
     @Override
     public void onScroll(boolean scrollUp, double deltaSeconds) {
         float menuBottom = cachedInfo != null ? cachedInfo.getLastWord().yScreenOffset : 0;
@@ -47,6 +58,11 @@ public class InfoPane implements MouseTrap.ScrollHandler {
         }
     }
 
+    /**
+     * TODO: document {@code getCachedInfo}.
+     *
+     * @return TODO: describe
+     */
     public HyperString getCachedInfo() {
         return cachedInfo;
     }

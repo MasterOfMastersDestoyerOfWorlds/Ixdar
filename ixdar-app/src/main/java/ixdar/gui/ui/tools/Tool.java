@@ -22,11 +22,27 @@ public abstract class Tool {
     public Segment selectedSegment;
     public Knot selectedKP;
     public Knot selectedCP;
+    public float ScreenOffsetY;
+    public float ScreenOffsetX;
 
+    Toggle[] disallowedToggles = new Toggle[] {};
+
+    private HyperString toolInfoHyperString;
+
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param camera TODO: describe
+     * @param lineThickness TODO: describe
+     * @throws UnsupportedOperationException TODO: describe
+     */
     public void draw(Camera2D camera, float lineThickness) {
         throw new UnsupportedOperationException("Unimplemented method 'draw'");
-    };
+    }
 
+    /**
+     * TODO: document {@code cycleLeft}.
+     */
     public void cycleLeft() {
         ArrayList<Knot> knotsDisplayed = MainScene.knotsDisplayed;
         if (displaySegment == null) {
@@ -53,6 +69,9 @@ public abstract class Tool {
         hoverChanged();
     }
 
+    /**
+     * TODO: document {@code cycleRight}.
+     */
     public void cycleRight() {
         if (displaySegment == null) {
             displaySegment = MainScene.manifoldKnot.manifoldSegments.get(0);
@@ -79,14 +98,31 @@ public abstract class Tool {
         hoverChanged();
     }
 
+    /**
+     * TODO: document {@code selectedKnot}.
+     *
+     * @return TODO: describe
+     */
     public Knot selectedKnot() {
         return null;
     }
 
+    /**
+     * TODO: document {@code confirm}.
+     *
+     * @throws UnsupportedOperationException TODO: describe
+     */
     public void confirm() {
         throw new UnsupportedOperationException("Unimplemented method 'confirm'");
-    };
+    }
 
+    /**
+     * TODO: document {@code click}.
+     *
+     * @param s TODO: describe
+     * @param kp TODO: describe
+     * @param cp TODO: describe
+     */
     public void click(Segment s, Knot kp, Knot cp) {
         selectedSegment = s;
         selectedKP = kp;
@@ -96,6 +132,9 @@ public abstract class Tool {
         displayCP = cp;
     }
 
+    /**
+     * TODO: document {@code reset}.
+     */
     public void reset() {
         selectedSegment = null;
         selectedKP = null;
@@ -106,17 +145,30 @@ public abstract class Tool {
         MainScene.terminal.clearInstruct();
     }
 
+    /**
+     * TODO: document {@code freeTool}.
+     */
     public void freeTool() {
         MainScene.tool = MainScene.freeTool;
         MainScene.freeTool.reset();
     }
 
+    /**
+     * TODO: document {@code clearHover}.
+     */
     public void clearHover() {
         displaySegment = selectedSegment;
         displayKP = selectedKP;
         displayCP = selectedCP;
     }
 
+    /**
+     * TODO: document {@code setHover}.
+     *
+     * @param s TODO: describe
+     * @param kp TODO: describe
+     * @param cp TODO: describe
+     */
     public void setHover(Segment s, Knot kp, Knot cp) {
         boolean changed = (kp != null && !kp.equals(displayKP)) || (cp != null && !cp.equals(displayCP));
         displaySegment = s;
@@ -127,13 +179,18 @@ public abstract class Tool {
         }
     }
 
+    /**
+     * TODO: document {@code hoverChanged}.
+     */
     public void hoverChanged() {
     }
 
-    Toggle[] disallowedToggles = new Toggle[] {};
-    public float ScreenOffsetY;
-    public float ScreenOffsetX;
-
+    /**
+     * TODO: document {@code canUseToggle}.
+     *
+     * @param toggle TODO: describe
+     * @return TODO: describe
+     */
     public boolean canUseToggle(Toggle toggle) {
         for (int i = 0; i < disallowedToggles.length; i++) {
             if (disallowedToggles[i].equals(toggle)) {
@@ -143,6 +200,12 @@ public abstract class Tool {
         return toggle.value;
     }
 
+    /**
+     * TODO: document {@code calculateHover}.
+     *
+     * @param normalizedPosX TODO: describe
+     * @param normalizedPosY TODO: describe
+     */
     public void calculateHover(float normalizedPosX, float normalizedPosY) {
 
         Tool tool = MainScene.tool;
@@ -185,6 +248,12 @@ public abstract class Tool {
         }
     }
 
+    /**
+     * TODO: document {@code calculateClick}.
+     *
+     * @param normalizedPosX TODO: describe
+     * @param normalizedPosY TODO: describe
+     */
     public void calculateClick(float normalizedPosX, float normalizedPosY) {
 
         Tool tool = MainScene.tool;
@@ -225,6 +294,12 @@ public abstract class Tool {
 
     }
 
+    /**
+     * TODO: document {@code lookupSegmentPairs}.
+     *
+     * @param k TODO: describe
+     * @return TODO: describe
+     */
     public static ArrayList<Pair<Long, Long>> lookupSegmentPairs(Knot k) {
 
         ArrayList<Pair<Long, Long>> idTransform = new ArrayList<>();
@@ -238,26 +313,40 @@ public abstract class Tool {
 
     }
 
+    /**
+     * TODO: document {@code toolType}.
+     *
+     * @return TODO: describe
+     */
     public Type toolType() {
         return Type.None;
     }
 
-    public enum Type {
-        Free, None
-    }
 
-
+    /**
+     * TODO: document {@code buildInfoText}.
+     *
+     * @return TODO: describe
+     */
     public abstract HyperString buildInfoText();
 
-    private HyperString toolInfoHyperString;
-
+    /**
+     * TODO: document {@code info}.
+     *
+     * @return TODO: describe
+     */
     public HyperString info() {
         if(toolInfoHyperString == null){
             toolInfoHyperString = buildInfoText();
         }
         return toolInfoHyperString;
-    };
+    }
 
+    /**
+     * TODO: document {@code toolGeneralInfo}.
+     *
+     * @return TODO: describe
+     */
     public HyperString toolGeneralInfo() {
         HyperString h = new HyperString();
         h.addWord("FPS:" + Clock.fps());
@@ -265,8 +354,11 @@ public abstract class Tool {
         h.addWord("Tool: " + this.displayName());
         h.wrap();
         return h;
-    };
+    }
 
+    /**
+     * TODO: document {@code back}.
+     */
     public void back() {
         if (MainScene.tool.toolType() == Tool.Type.Free) {
             MainScene.activate(false);
@@ -274,11 +366,19 @@ public abstract class Tool {
         MainScene.tool.freeTool();
     }
 
+    /**
+     * TODO: document {@code setScreenOffset}.
+     *
+     * @param camera TODO: describe
+     */
     public void setScreenOffset(Camera2D camera) {
         ScreenOffsetX = camera.ScreenOffsetX;
         ScreenOffsetY = camera.ScreenOffsetY;
     }
 
+    /**
+     * TODO: document {@code increaseViewLayer}.
+     */
     public void increaseViewLayer() {
         if (canUseToggle(Toggle.CanSwitchLayer)) {
 
@@ -296,6 +396,9 @@ public abstract class Tool {
         }
     }
 
+    /**
+     * TODO: document {@code decreaseViewLayer}.
+     */
     public void decreaseViewLayer() {
         if (canUseToggle(Toggle.CanSwitchLayer)) {
 
@@ -311,20 +414,50 @@ public abstract class Tool {
         }
     }
 
+    /**
+     * TODO: document {@code cycleToolLayerPrev}.
+     */
     public void cycleToolLayerPrev() {
         decreaseViewLayer();
     }
 
+    /**
+     * TODO: document {@code cycleToolLayerNext}.
+     */
     public void cycleToolLayerNext() {
         increaseViewLayer();
     }
 
+    /**
+     * TODO: document {@code displayName}.
+     *
+     * @return TODO: describe
+     */
     public abstract String displayName();
 
+    /**
+     * TODO: document {@code fullName}.
+     *
+     * @return TODO: describe
+     */
     public abstract String fullName();
 
+    /**
+     * TODO: document {@code shortName}.
+     *
+     * @return TODO: describe
+     */
     public abstract String shortName();
 
+    /**
+     * TODO: document {@code desc}.
+     *
+     * @return TODO: describe
+     */
     public abstract String desc();
+
+    public enum Type {
+        Free, None
+    };;;;
 
 }

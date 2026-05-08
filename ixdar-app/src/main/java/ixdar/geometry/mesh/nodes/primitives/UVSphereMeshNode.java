@@ -13,10 +13,18 @@ import ixdar.geometry.mesh.data.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "uv_sphere")
 public class UVSphereMeshNode implements MeshNode {
-    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 1.0f, 0.001f, 100f);
-    private static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 32, (float) 3, (float) 128);
-    private static final InputPort RINGS = new InputPort("rings", PortType.INT, 16, (float) 1, (float) 64);
-    private static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
+    public static final String RADIUS_2 = "radius";
+    public static final String SEGMENTS_2 = "segments";
+    public static final String RINGS_2 = "rings";
+    public static final String MESH_2 = "mesh";
+    public static final int NUM_32 = 32;
+    public static final int NUM_16 = 16;
+    public static final int NUM_3 = 3;
+    public static final float NUM_2_0 = 2.0f;
+    private static final InputPort RADIUS = new InputPort(RADIUS_2, PortType.FLOAT, 1.0f, 0.001f, 100f);
+    private static final InputPort SEGMENTS = new InputPort(SEGMENTS_2, PortType.INT, 32, (float) 3, (float) 128);
+    private static final InputPort RINGS = new InputPort(RINGS_2, PortType.INT, 16, (float) 1, (float) 64);
+    private static final OutputPort MESH = new OutputPort(MESH_2, PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
@@ -36,21 +44,21 @@ public class UVSphereMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                "radius", "Distance from center to surface. uv_sphere(radius=r) has extent 2r on each axis (vertices at ±r). For a reference of extent <X,Y,Z>, start with radius=1 and apply transform_geometry(scale=<X/2, Y/2, Z/2>).",
-                "segments", "Longitudinal divisions (meridians). Higher = smoother around the equator. Default 32.",
-                "rings", "Latitudinal bands between the two poles. Higher = smoother pole-to-pole. Default 16.",
-                "mesh", "Quad-banded sphere with triangle-fan poles, centered at origin."
+                RADIUS_2, "Distance from center to surface. uv_sphere(radius=r) has extent 2r on each axis (vertices at ±r). For a reference of extent <X,Y,Z>, start with radius=1 and apply transform_geometry(scale=<X/2, Y/2, Z/2>).",
+                SEGMENTS_2, "Longitudinal divisions (meridians). Higher = smoother around the equator. Default 32.",
+                RINGS_2, "Latitudinal bands between the two poles. Higher = smoother pole-to-pole. Default 16.",
+                MESH_2, "Quad-banded sphere with triangle-fan poles, centered at origin."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        float radius = ctx.getInput("radius", Number.class) != null ? ctx.getInput("radius", Number.class).floatValue() : 1.0f;
-        int segments = ctx.getInput("segments", Number.class) != null ? ctx.getInput("segments", Number.class).intValue() : 32;
-        int rings = ctx.getInput("rings", Number.class) != null ? ctx.getInput("rings", Number.class).intValue() : 16;
+        float radius = ctx.getInput(RADIUS_2, Number.class) != null ? ctx.getInput(RADIUS_2, Number.class).floatValue() : 1.0f;
+        int segments = ctx.getInput(SEGMENTS_2, Number.class) != null ? ctx.getInput(SEGMENTS_2, Number.class).intValue() : NUM_32;
+        int rings = ctx.getInput(RINGS_2, Number.class) != null ? ctx.getInput(RINGS_2, Number.class).intValue() : NUM_16;
 
         // Ensure minimum viable geometry
-        segments = Math.max(3, segments);
+        segments = Math.max(NUM_3, segments);
         rings = Math.max(2, rings);
 
         HalfEdgeMesh mesh = new HalfEdgeMesh();
@@ -69,7 +77,7 @@ public class UVSphereMeshNode implements MeshNode {
             float cosTheta = (float) Math.cos(theta);
 
             for (int j = 0; j < segments; j++) {
-                float phi = 2.0f * (float) Math.PI * j / segments;
+                float phi = NUM_2_0 * (float) Math.PI * j / segments;
                 float sinPhi = (float) Math.sin(phi);
                 float cosPhi = (float) Math.cos(phi);
 
@@ -104,6 +112,6 @@ public class UVSphereMeshNode implements MeshNode {
             mesh.addFace(bottomPole, ringVertices[rings - 2][nextJ], ringVertices[rings - 2][j]);
         }
         mesh.computeNormals();
-        ctx.setOutput("mesh", mesh);
+        ctx.setOutput(MESH_2, mesh);
     }
 }

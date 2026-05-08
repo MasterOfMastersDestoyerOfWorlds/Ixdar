@@ -28,16 +28,20 @@ import ixdar.platform.input.MouseTrap;
  */
 public class FlyCamMouseTrap extends MouseTrap {
 
-    @FunctionalInterface
-    public interface DeltaHandler {
-        void apply(float lastX, float lastY, float x, float y);
-    }
-
     private final DeltaHandler onDelta;
     private final IntConsumer onScroll;
     private final BooleanSupplier captureSupplier;
     private boolean leftDown = false;
 
+    /**
+     * TODO: document {@code FlyCamMouseTrap}.
+     *
+     * @param camera TODO: describe
+     * @param canvas TODO: describe
+     * @param captureSupplier TODO: describe
+     * @param onDelta TODO: describe
+     * @param onScroll TODO: describe
+     */
     public FlyCamMouseTrap(Camera camera, Canvas3D canvas,
                            BooleanSupplier captureSupplier,
                            DeltaHandler onDelta,
@@ -48,6 +52,13 @@ public class FlyCamMouseTrap extends MouseTrap {
         this.onScroll = onScroll;
     }
 
+    /**
+     * TODO: document {@code mouseButton}.
+     *
+     * @param button TODO: describe
+     * @param action TODO: describe
+     * @param mods TODO: describe
+     */
     @Override
     public void mouseButton(int button, int action, int mods) {
         Platforms.init(Platforms.get().getPlatformID());
@@ -61,6 +72,12 @@ public class FlyCamMouseTrap extends MouseTrap {
         }
     }
 
+    /**
+     * TODO: document {@code mousePos}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     @Override
     public void mousePos(float x, float y) {
         if (!active) return;
@@ -73,6 +90,12 @@ public class FlyCamMouseTrap extends MouseTrap {
         lastY = (int) y;
     }
 
+    /**
+     * TODO: document {@code mouseDragged}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     @Override
     public void mouseDragged(float x, float y) {
         if (!active || !leftDown) return;
@@ -85,6 +108,13 @@ public class FlyCamMouseTrap extends MouseTrap {
         lastY = (int) y;
     }
 
+    /**
+     * TODO: document {@code moveOrDrag}.
+     *
+     * @param window TODO: describe
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     @Override
     public void moveOrDrag(long window, float x, float y) {
         if (captureSupplier.getAsBoolean() || leftDown) {
@@ -98,6 +128,11 @@ public class FlyCamMouseTrap extends MouseTrap {
         }
     }
 
+    /**
+     * TODO: document {@code paintUpdate}.
+     *
+     * @param shiftMod TODO: describe
+     */
     @Override
     public void paintUpdate(float shiftMod) {
         if (queuedMouseWheelTicks != 0 && onScroll != null) {
@@ -107,5 +142,18 @@ public class FlyCamMouseTrap extends MouseTrap {
         } else {
             queuedMouseWheelTicks = 0;
         }
+    }
+
+    @FunctionalInterface
+    public interface DeltaHandler {
+        /**
+         * TODO: document {@code apply}.
+         *
+         * @param lastX TODO: describe
+         * @param lastY TODO: describe
+         * @param x TODO: describe
+         * @param y TODO: describe
+         */
+        void apply(float lastX, float lastY, float x, float y);
     }
 }

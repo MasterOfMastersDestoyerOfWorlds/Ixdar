@@ -9,34 +9,68 @@ import ixdar.geometry.knot.Knot;
 import ixdar.geometry.knot.Segment;
 
 public final class Utils {
+    public static final String STR = "[";
+    public static final String STR_2 = "]";
 
+    /**
+     * TODO: document {@code pairsToString}.
+     *
+     * @param <K> TODO: describe
+     * @param <V> TODO: describe
+     * @param pairs TODO: describe
+     * @return TODO: describe
+     */
     public static <K, V> String pairsToString(ArrayList<Pair<K, V>> pairs) {
-        String str = "[";
+        String str = STR;
         for (Pair<K, V> p : pairs) {
             str += Utils.pairToString(p) + ",";
         }
-        str += "]";
+        str += STR_2;
         return str;
 
     }
 
+    /**
+     * TODO: document {@code pairToString}.
+     *
+     * @param <K> TODO: describe
+     * @param <V> TODO: describe
+     * @param pair TODO: describe
+     * @return TODO: describe
+     */
     public static <K, V> String pairToString(Pair<K, V> pair) {
-        return "Pair[" + pair.getFirst() + " : " + pair.getSecond() + "]";
+        return "Pair[" + pair.getFirst() + " : " + pair.getSecond() + STR_2;
 
     }
 
+    /**
+     * TODO: document {@code printArray}.
+     *
+     * @param <K> TODO: describe
+     * @param array TODO: describe
+     * @return TODO: describe
+     */
     public static <K> String printArray(K[] array) {
         if (array == null) {
             return "null";
         }
-        String str = "[";
+        String str = STR;
         for (K entry : array) {
             str += entry + ", ";
         }
-        str += "]";
+        str += STR_2;
         return str;
     }
 
+    /**
+     * TODO: document {@code marchLookup}.
+     *
+     * @param knot TODO: describe
+     * @param kp2 TODO: describe
+     * @param vp2 TODO: describe
+     * @param potentialNeighbors TODO: describe
+     * @return TODO: describe
+     */
     public static Pair<Knot, Knot> marchLookup(Knot knot, Knot kp2, Knot vp2,
             ArrayList<Knot> potentialNeighbors) {
         int idx = knot.knotPoints.indexOf(vp2);
@@ -69,6 +103,16 @@ public final class Utils {
         }
     }
 
+    /**
+     * TODO: document {@code marchContains}.
+     *
+     * @param startPoint TODO: describe
+     * @param awaySegment TODO: describe
+     * @param target TODO: describe
+     * @param knot TODO: describe
+     * @param subKnot TODO: describe
+     * @return TODO: describe
+     */
     public static boolean marchContains(Knot startPoint, Segment awaySegment, Knot target, Knot knot,
             Knot subKnot) {
         int idx = knot.knotPoints.indexOf(startPoint);
@@ -105,6 +149,15 @@ public final class Utils {
         }
     }
 
+    /**
+     * TODO: document {@code marchLookup}.
+     *
+     * @param knot TODO: describe
+     * @param start TODO: describe
+     * @param away TODO: describe
+     * @param cutSegment2 TODO: describe
+     * @return TODO: describe
+     */
     public static Pair<Knot, Knot> marchLookup(Knot knot, Knot start, Knot away,
             Segment cutSegment2) {
         if (!knot.hasSegment(cutSegment2)) {
@@ -145,6 +198,16 @@ public final class Utils {
         }
     }
 
+    /**
+     * TODO: document {@code wouldOrphan}.
+     *
+     * @param cutp1 TODO: describe
+     * @param knotp1 TODO: describe
+     * @param cutp2 TODO: describe
+     * @param knotp2 TODO: describe
+     * @param knotList TODO: describe
+     * @return TODO: describe
+     */
     public static boolean wouldOrphan(Knot cutp1, Knot knotp1, Knot cutp2, Knot knotp2,
             ArrayList<Knot> knotList) {
         int cp1 = knotList.indexOf(cutp1);
@@ -170,6 +233,17 @@ public final class Utils {
         return false;
     }
 
+    /**
+     * TODO: document {@code marchUntilHasOneKnotPoint}.
+     *
+     * @param startPoint TODO: describe
+     * @param awaySegment TODO: describe
+     * @param untilSegment TODO: describe
+     * @param kp1 TODO: describe
+     * @param kp2 TODO: describe
+     * @param knot TODO: describe
+     * @return TODO: describe
+     */
     public static boolean marchUntilHasOneKnotPoint(Knot startPoint, Segment awaySegment,
             Segment untilSegment, Knot kp1, Knot kp2, Knot knot) {
         int idx = knot.knotPoints.indexOf(startPoint);
@@ -217,6 +291,12 @@ public final class Utils {
         }
     }
 
+    /**
+     * TODO: document {@code toSegmentArray}.
+     *
+     * @param first TODO: describe
+     * @return TODO: describe
+     */
     public static Segment[] toSegmentArray(ArrayList<Segment> first) {
         Segment[] array = new Segment[first.size()];
         for (int i = 0; i < first.size(); i++) {
@@ -225,6 +305,12 @@ public final class Utils {
         return array;
     }
 
+    /**
+     * TODO: document {@code toSegmentArray}.
+     *
+     * @param first TODO: describe
+     * @return TODO: describe
+     */
     public static Segment[] toSegmentArray(Set<Segment> first) {
         Segment[] array = new Segment[first.size()];
         int i = 0;
@@ -235,6 +321,13 @@ public final class Utils {
         return array;
     }
 
+    /**
+     * TODO: document {@code setContains}.
+     *
+     * @param matches TODO: describe
+     * @param matchSegmentAcrossFinal TODO: describe
+     * @return TODO: describe
+     */
     public static boolean setContains(Set<Segment> matches, Segment matchSegmentAcrossFinal) {
         for (Segment segment : matches) {
             if (segment.equals(matchSegmentAcrossFinal)) {
@@ -244,6 +337,12 @@ public final class Utils {
         return false;
     }
 
+    /**
+     * TODO: document {@code segmentListToPath}.
+     *
+     * @param segments TODO: describe
+     * @return TODO: describe
+     */
     public static ArrayList<Knot> segmentListToPath(ArrayList<Segment> segments) {
         ArrayList<Knot> result = new ArrayList<>();
         for (int i = 0; i < segments.size(); i++) {
@@ -256,6 +355,14 @@ public final class Utils {
         return result;
     }
 
+    /**
+     * TODO: document {@code getSegmentInSubKnot}.
+     *
+     * @param otherNeighborPoint TODO: describe
+     * @param knot TODO: describe
+     * @param superKnot TODO: describe
+     * @return TODO: describe
+     */
     public static Segment getSegmentInSubKnot(Knot otherNeighborPoint, Knot knot, Knot superKnot) {
         int idx = superKnot.knotPointsFlattened.indexOf(otherNeighborPoint);
         Knot prev = superKnot.getPrev(idx);
@@ -269,6 +376,13 @@ public final class Utils {
 
     }
 
+    /**
+     * TODO: document {@code hasKnot}.
+     *
+     * @param runList TODO: describe
+     * @param i TODO: describe
+     * @return TODO: describe
+     */
     public static boolean hasKnot(ArrayList<Knot> runList, int i) {
         for (Knot vp : runList) {
             if (vp.id == i) {

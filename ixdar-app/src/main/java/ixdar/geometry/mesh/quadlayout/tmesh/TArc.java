@@ -28,11 +28,14 @@ public record TArc(int id,
                    List<float[]> stepUvs,
                    int direction,
                    float parametricLength) {
+    public static final int NUM_3 = 3;
+    public static final float NUM_1e_9 = 1e-9f;
 
-    /** Test-friendly factory: defaults {@code stepUvs} to an empty list.
+    /**
+     * Test-friendly factory: defaults {@code stepUvs} to an empty list.
      *  Production code (TMesh.build) always populates stepUvs alongside
      *  meshFaceCrossings; tests that hand-construct synthetic T-meshes
-     *  don't need them. */
+     */
     public static TArc simple(int id, int startNode, int endNode,
                               List<int[]> meshFaceCrossings,
                               int direction, float parametricLength) {
@@ -49,7 +52,7 @@ public record TArc(int id,
     public int directionAtStart() {
         if (stepUvs == null || stepUvs.isEmpty()) return direction;
         float[] s = stepUvs.get(0);
-        return classifyCardinal(s[2] - s[0], s[3] - s[1], direction);
+        return classifyCardinal(s[2] - s[0], s[NUM_3] - s[1], direction);
     }
 
     /**
@@ -62,13 +65,13 @@ public record TArc(int id,
     public int directionAtEnd() {
         if (stepUvs == null || stepUvs.isEmpty()) return direction;
         float[] s = stepUvs.get(stepUvs.size() - 1);
-        return classifyCardinal(s[2] - s[0], s[3] - s[1], direction);
+        return classifyCardinal(s[2] - s[0], s[NUM_3] - s[1], direction);
     }
 
     /** Classify a UV delta into {0..3} = {+u, +v, -u, -v}. */
     private static int classifyCardinal(float du, float dv, int fallback) {
-        if (Math.abs(du) < 1e-9f && Math.abs(dv) < 1e-9f) return fallback;
+        if (Math.abs(du) < NUM_1e_9 && Math.abs(dv) < NUM_1e_9) return fallback;
         if (Math.abs(du) >= Math.abs(dv)) return du >= 0 ? 0 : 2;
-        return dv >= 0 ? 1 : 3;
+        return dv >= 0 ? 1 : NUM_3;
     }
 }

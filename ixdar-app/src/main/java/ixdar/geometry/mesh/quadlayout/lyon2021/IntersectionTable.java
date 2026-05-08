@@ -28,15 +28,14 @@ import ixdar.geometry.mesh.quadlayout.tmesh.TPatch;
  * quad faces, one per cell.
  */
 public final class IntersectionTable {
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_3_2 = 3f;
 
     private static final double EPS = 1e-9;
 
     private IntersectionTable() {}
-
-    /** Result: parallel arrays. {@code positions[i*cols + j]} = 3D point at
-     *  table cell (i, j). {@code rows} and {@code cols} give the table
-     *  dimensions. */
-    public record Result(int rows, int cols, Vector3f[] positions) {}
 
     /**
      * Build the intersection table for one Tpatch.
@@ -48,6 +47,7 @@ public final class IntersectionTable {
      * @param mesh     underlying triangle mesh
      * @param uCorner  per-corner u
      * @param vCorner  per-corner v
+     * @return TODO: describe
      */
     public static Result build(TMesh tmesh, TPatch patch,
                                 List<SplitArcTracer.SplitArc> arcs1,
@@ -59,7 +59,7 @@ public final class IntersectionTable {
         Vector3f[] positions = new Vector3f[rows * cols];
 
         // 4 corners — at the start of each Tpatch side.
-        for (int side = 0; side < 4; side++) {
+        for (int side = 0; side < NUM_4; side++) {
             int arcId = patch.arcIds()[side];
             var arc = tmesh.arcs().get(arcId);
             int cornerNodeId = patch.cornerNodeIds()[side];
@@ -73,7 +73,7 @@ public final class IntersectionTable {
             } else if (!arc.stepUvs().isEmpty()) {
                 int last = arc.stepUvs().size() - 1;
                 float[] s = arc.stepUvs().get(last);
-                u = s[2]; v = s[3];
+                u = s[2]; v = s[NUM_3];
                 faceId = arc.meshFaceCrossings().get(last)[0];
             } else {
                 continue;
@@ -83,7 +83,7 @@ public final class IntersectionTable {
                 case 0 -> { x = 0;        y = 0; }
                 case 1 -> { x = rows - 1; y = 0; }
                 case 2 -> { x = rows - 1; y = cols - 1; }
-                case 3 -> { x = 0;        y = cols - 1; }
+                case NUM_3 -> { x = 0;        y = cols - 1; }
             }
             positions[x * cols + y] = baryToWorld(mesh, faceId, uCorner, vCorner, u, v);
         }
@@ -124,8 +124,17 @@ public final class IntersectionTable {
         return new Result(rows, cols, positions);
     }
 
-    /** 3D point at the UV-space intersection of two SplitArcs (one of arc1's
-     *  edges and one of arc2's edges share a face and the segments cross). */
+    /**
+     * 3D point at the UV-space intersection of two SplitArcs (one of arc1's
+     *  edges and one of arc2's edges share a face and the segments cross).
+     *
+     * @param arc1 TODO: describe
+     * @param arc2 TODO: describe
+     * @param mesh TODO: describe
+     * @param uCorner TODO: describe
+     * @param vCorner TODO: describe
+     * @return TODO: describe
+     */
     private static Vector3f intersection3D(SplitArcTracer.SplitArc arc1,
                                             SplitArcTracer.SplitArc arc2,
                                             ArrayMesh mesh,
@@ -145,7 +154,19 @@ public final class IntersectionTable {
         return null;
     }
 
-    /** Strict segment-segment intersection: returns [tA, tB] both in (EPS, 1-EPS) or null. */
+    /**
+     * Strict segment-segment intersection: returns [tA, tB] both in (EPS, 1-EPS) or null.
+     *
+     * @param a1u TODO: describe
+     * @param a1v TODO: describe
+     * @param a2u TODO: describe
+     * @param a2v TODO: describe
+     * @param b1u TODO: describe
+     * @param b1v TODO: describe
+     * @param b2u TODO: describe
+     * @param b2v TODO: describe
+     * @return TODO: describe
+     */
     private static double[] strictIntersect(double a1u, double a1v,
                                              double a2u, double a2v,
                                              double b1u, double b1v,
@@ -164,12 +185,12 @@ public final class IntersectionTable {
     private static Vector3f baryToWorld(ArrayMesh mesh, int faceId,
                                         float[] uCorner, float[] vCorner,
                                         double u, double v) {
-        float u0 = uCorner[faceId * 3];
-        float v0 = vCorner[faceId * 3];
-        float u1 = uCorner[faceId * 3 + 1];
-        float v1 = vCorner[faceId * 3 + 1];
-        float u2 = uCorner[faceId * 3 + 2];
-        float v2 = vCorner[faceId * 3 + 2];
+        float u0 = uCorner[faceId * NUM_3];
+        float v0 = vCorner[faceId * NUM_3];
+        float u1 = uCorner[faceId * NUM_3 + 1];
+        float v1 = vCorner[faceId * NUM_3 + 1];
+        float u2 = uCorner[faceId * NUM_3 + 2];
+        float v2 = vCorner[faceId * NUM_3 + 2];
         double denom = (u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0);
         Vector3f p0 = new Vector3f();
         Vector3f p1 = new Vector3f();
@@ -177,7 +198,7 @@ public final class IntersectionTable {
         mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), p0);
         mesh.vertexPosition(mesh.faceVertexAt(faceId, 1), p1);
         mesh.vertexPosition(mesh.faceVertexAt(faceId, 2), p2);
-        if (Math.abs(denom) < EPS) return new Vector3f(p0).add(p1).add(p2).mul(1f / 3f);
+        if (Math.abs(denom) < EPS) return new Vector3f(p0).add(p1).add(p2).mul(NUM_1 / NUM_3_2);
         double l1 = ((u - u0) * (v2 - v0) - (v - v0) * (u2 - u0)) / denom;
         double l2 = ((u1 - u0) * (v - v0) - (v1 - v0) * (u - u0)) / denom;
         double l0 = 1.0 - l1 - l2;
@@ -186,4 +207,10 @@ public final class IntersectionTable {
                 (float) (l0 * p0.y + l1 * p1.y + l2 * p2.y),
                 (float) (l0 * p0.z + l1 * p1.z + l2 * p2.z));
     }
+
+    /**
+     * Result: parallel arrays. {@code positions[i*cols + j]} = 3D point at
+     *  table cell (i, j). {@code rows} and {@code cols} give the table
+     */
+    public record Result(int rows, int cols, Vector3f[] positions) {}
 }

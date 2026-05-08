@@ -18,6 +18,20 @@ import ixdar.scenes.trade.TradeScene;
  * MainScene-specific behavior with city interaction.
  */
 public class TradeMouseTrap extends MouseTrap {
+    public static final String TRADE_CITY_CLICK = "trade_city_click";
+    public static final String BUTTON = "button";
+    public static final String XPX = "xPx";
+    public static final String YPX = "yPx";
+    public static final String TOOL = "tool";
+    public static final String CITY = "city";
+    public static final String STR = ",";
+    public static final float NUM_2 = 2f;
+    public static final int NUM_5 = 5;
+    public static final float NUM_1 = 1f;
+    public static final int NUM_3 = 3;
+    public static final int NUM_4 = 4;
+    public static final int NUM_60 = 60;
+    public static final float NUM_100 = 100f;
 
     private TradeScene tradeScene;
     private Vector2f leftMouseDownPos;
@@ -26,19 +40,38 @@ public class TradeMouseTrap extends MouseTrap {
     private float automationHoverY = 0f;
     private boolean automationInputInProgress = false;
 
+    /**
+     * TODO: document {@code TradeMouseTrap}.
+     *
+     * @param tradeScene TODO: describe
+     * @param camera TODO: describe
+     * @param canvas TODO: describe
+     */
     public TradeMouseTrap(TradeScene tradeScene, Camera camera, Canvas3D canvas) {
         super(null, camera, canvas);
         this.tradeScene = tradeScene;
     }
 
+    /**
+     * TODO: document {@code beginAutomationInput}.
+     */
     public void beginAutomationInput() {
         automationInputInProgress = true;
     }
 
+    /**
+     * TODO: document {@code endAutomationInput}.
+     */
     public void endAutomationInput() {
         automationInputInProgress = false;
     }
 
+    /**
+     * TODO: document {@code setAutomationHoverLock}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     public void setAutomationHoverLock(float x, float y) {
         automationHoverLocked = true;
         automationHoverX = x;
@@ -46,6 +79,9 @@ public class TradeMouseTrap extends MouseTrap {
         applyHoverAt(x, y);
     }
 
+    /**
+     * TODO: document {@code clearAutomationHoverLock}.
+     */
     public void clearAutomationHoverLock() {
         automationHoverLocked = false;
     }
@@ -62,11 +98,18 @@ public class TradeMouseTrap extends MouseTrap {
         if (!automationHoverLocked || automationInputInProgress) {
             return;
         }
-        if (Math.abs(x - automationHoverX) > 2f || Math.abs(y - automationHoverY) > 2f) {
+        if (Math.abs(x - automationHoverX) > NUM_2 || Math.abs(y - automationHoverY) > NUM_2) {
             automationHoverLocked = false;
         }
     }
 
+    /**
+     * TODO: document {@code mouseButton}.
+     *
+     * @param button TODO: describe
+     * @param action TODO: describe
+     * @param mods TODO: describe
+     */
     @Override
     public void mouseButton(int button, int action, int mods) {
         Platforms.init(Platforms.get().getPlatformID());
@@ -82,7 +125,7 @@ public class TradeMouseTrap extends MouseTrap {
         } else if (action == ACTION_RELEASE) {
             if (leftMouseDownPos != null) {
                 Vector2f mouseReleasePos = new Vector2f(x, y);
-                if (mouseReleasePos.distance(leftMouseDownPos) < 5) {
+                if (mouseReleasePos.distance(leftMouseDownPos) < NUM_5) {
                     handleCityClick(x, y, button);
                 }
             }
@@ -97,12 +140,12 @@ public class TradeMouseTrap extends MouseTrap {
         if (tradeScene.activeTool instanceof RoutePlanningTool) {
             RoutePlanningTool routeTool = (RoutePlanningTool) tradeScene.activeTool;
             if (routeTool.onToolbarClick(x, y)) {
-                recordAbstractAction("trade_city_click",
-                        "button", button,
-                        "xPx", x,
-                        "yPx", y,
-                        "tool", tradeScene.activeTool.displayName(),
-                        "city", "",
+                recordAbstractAction(TRADE_CITY_CLICK,
+                        BUTTON, button,
+                        XPX, x,
+                        YPX, y,
+                        TOOL, tradeScene.activeTool.displayName(),
+                        CITY, "",
                         "target", "toolbar");
                 return;
             }
@@ -116,27 +159,34 @@ public class TradeMouseTrap extends MouseTrap {
         float worldY = TradeScene.camera.screenTransformY(normalizedPosY);
 
         System.out
-                .println("[TradeMouseTrap] Click at screen(" + x + "," + y + ") world(" + worldX + "," + worldY + ")");
+                .println("[TradeMouseTrap] Click at screen(" + x + STR + y + ") world(" + worldX + STR + worldY + ")");
 
         City clickedCity = tradeScene.getCityAt(worldX, worldY);
         System.out.println("[TradeMouseTrap] clickedCity: " + (clickedCity != null ? clickedCity.name : "null"));
         System.out.println("[TradeMouseTrap] activeTool: " + tradeScene.activeTool.displayName());
-        recordAbstractAction("trade_city_click",
-                "button", button,
-                "xPx", x,
-                "yPx", y,
+        recordAbstractAction(TRADE_CITY_CLICK,
+                BUTTON, button,
+                XPX, x,
+                YPX, y,
                 "xCoord", normalizedPosX,
                 "yCoord", normalizedPosY,
-                "xNorm", x / Math.max(1f, Platforms.get().getWindowWidth()),
-                "yNorm", y / Math.max(1f, Platforms.get().getWindowHeight()),
-                "tool", tradeScene.activeTool.displayName(),
-                "city", clickedCity == null ? "" : clickedCity.name);
+                "xNorm", x / Math.max(NUM_1, Platforms.get().getWindowWidth()),
+                "yNorm", y / Math.max(NUM_1, Platforms.get().getWindowHeight()),
+                TOOL, tradeScene.activeTool.displayName(),
+                CITY, clickedCity == null ? "" : clickedCity.name);
 
         if (clickedCity != null) {
             tradeScene.onCityClick(clickedCity);
         }
     }
 
+    /**
+     * TODO: document {@code moveOrDrag}.
+     *
+     * @param window TODO: describe
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     @Override
     public void moveOrDrag(long window, float x, float y) {
         Platforms.init(Platforms.get().getPlatformID());
@@ -153,7 +203,7 @@ public class TradeMouseTrap extends MouseTrap {
         boolean leftDown = Platforms.gl().getMouseButton(window, MouseButtons.MOUSE_BUTTON_LEFT);
         Vector2f currentPos = new Vector2f(x, y);
 
-        if (leftDown && leftMouseDownPos != null && currentPos.distance(leftMouseDownPos) > 3) {
+        if (leftDown && leftMouseDownPos != null && currentPos.distance(leftMouseDownPos) > NUM_3) {
             // Dragging - pan camera
             mouseDragged(x, y);
         } else {
@@ -162,6 +212,12 @@ public class TradeMouseTrap extends MouseTrap {
         }
     }
 
+    /**
+     * TODO: document {@code mousePos}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     @Override
     public void mousePos(float x, float y) {
         if (!active) {
@@ -172,6 +228,12 @@ public class TradeMouseTrap extends MouseTrap {
         updateCityHover();
     }
 
+    /**
+     * TODO: document {@code mouseDragged}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     @Override
     public void mouseDragged(float x, float y) {
         normalizedPosX = camera.getNormalizePosX(x);
@@ -193,28 +255,38 @@ public class TradeMouseTrap extends MouseTrap {
         tradeScene.updateHoveredToolbar(lastX, lastY);
     }
 
+    /**
+     * TODO: document {@code scrollCallback}.
+     *
+     * @param y TODO: describe
+     */
     @Override
     public void scrollCallback(double y) {
         Platforms.init(Platforms.get().getPlatformID());
         if (!active)
             return;
-        queuedMouseWheelTicks += (int) (4 * y);
+        queuedMouseWheelTicks += (int) (NUM_4 * y);
         timeLastScroll = System.currentTimeMillis();
     }
 
+    /**
+     * TODO: document {@code paintUpdate}.
+     *
+     * @param SHIFT_MOD TODO: describe
+     */
     @Override
     public void paintUpdate(float SHIFT_MOD) {
         if (!active)
             return;
 
         // Handle scroll for zooming
-        if (System.currentTimeMillis() - timeLastScroll > 60) {
+        if (System.currentTimeMillis() - timeLastScroll > NUM_60) {
             queuedMouseWheelTicks = 0;
         }
 
         if (queuedMouseWheelTicks != 0) {
             boolean zoomIn = queuedMouseWheelTicks < 0;
-            camera.onScroll(zoomIn, Clock.deltaTime() * 100f);
+            camera.onScroll(zoomIn, Clock.deltaTime() * NUM_100);
             queuedMouseWheelTicks = 0;
         }
 

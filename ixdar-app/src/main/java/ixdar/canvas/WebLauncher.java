@@ -20,9 +20,15 @@ import ixdar.platform.gl.web.WebPlatform;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 public final class WebLauncher {
-
-    private WebLauncher() {
-    }
+    public static final String PRECISION_MEDIUMP_FLOAT_N = "precision mediump float;\n";
+    public static final String VOID_MAIN_N = "void main(){\n";
+    public static final String STR = "}";
+    public static final int NUM_800 = 800;
+    public static final int NUM_400 = 400;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_0_5 = 0.5f;
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
 
     public static float startTime;
     public static boolean broken = false;
@@ -33,6 +39,22 @@ public final class WebLauncher {
     private static WebPlatform[] webPlatforms;
     private static WebGL[] webGLs;
 
+    private WebLauncher() {
+    }
+
+    /**
+     * TODO: document {@code main}.
+     *
+     * @param args TODO: describe
+     * @throws InstantiationException TODO: describe
+     * @throws IllegalAccessException TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @throws InvocationTargetException TODO: describe
+     * @throws NoSuchMethodException TODO: describe
+     * @throws SecurityException TODO: describe
+     * @throws UnsupportedEncodingException TODO: describe
+     * @throws IOException TODO: describe
+     */
     public static void main(String[] args)
             throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException,
             NoSuchMethodException, SecurityException, UnsupportedEncodingException, IOException {
@@ -59,10 +81,10 @@ public final class WebLauncher {
             int w = canvas.getClientWidth();
             int h = canvas.getClientHeight();
             if (w < 1) {
-                w = 800;
+                w = NUM_800;
             }
             if (h < 1) {
-                h = 400;
+                h = NUM_400;
             }
             canvas.setWidth(w);
             canvas.setHeight(h);
@@ -123,10 +145,10 @@ public final class WebLauncher {
             int w = canvas.getClientWidth();
             int h = canvas.getClientHeight();
             if (w < 1) {
-                w = 800;
+                w = NUM_800;
             }
             if (h < 1) {
-                h = 400;
+                h = NUM_400;
             }
             canvas.setWidth(w);
             canvas.setHeight(h);
@@ -142,20 +164,25 @@ public final class WebLauncher {
         Window.requestAnimationFrame(ts -> tick(i));
     }
 
+    /**
+     * TODO: document {@code setTitle}.
+     *
+     * @param string TODO: describe
+     */
     public static void setTitle(String string) {
         Window.current().getDocument().setTitle(string);
     }
 
     private static void drawFallbackTriangle(GL gl, int i) {
-        String vs = "precision mediump float;\n"
+        String vs = PRECISION_MEDIUMP_FLOAT_N
                 + "attribute vec2 a_pos;\n"
-                + "void main(){\n"
+                + VOID_MAIN_N
                 + "  gl_Position=vec4(a_pos,0.0,1.0);\n"
-                + "}";
-        String fs = "precision mediump float;\n"
-                + "void main(){\n"
+                + STR;
+        String fs = PRECISION_MEDIUMP_FLOAT_N
+                + VOID_MAIN_N
                 + "  gl_FragColor=vec4(1.0,0." + 2 * i + ",0.2,1.0);\n"
-                + "}";
+                + STR;
 
         int vsh = gl.createShader(gl.VERTEX_SHADER());
         gl.shaderSource(vsh, vs);
@@ -171,11 +198,11 @@ public final class WebLauncher {
 
         int buf = gl.genBuffer();
         gl.bindArrayBuffer(buf);
-        float[] verts = new float[] { 0f, 0.5f, -0.5f, -0.5f, 0.5f, -0.5f };
+        float[] verts = new float[] { NUM_0, NUM_0_5, -NUM_0_5, -NUM_0_5, NUM_0_5, -NUM_0_5 };
         gl.bufferDataArray(verts, gl.STATIC_DRAW());
         int loc = gl.getAttribLocation(prog, "a_pos");
         gl.enableVertexAttribArray(loc);
-        gl.vertexAttribPointer(loc, 2, gl.FLOAT(), false, 2 * 4, 0);
-        gl.drawArrays(gl.TRIANGLES(), 0, 3);
+        gl.vertexAttribPointer(loc, 2, gl.FLOAT(), false, 2 * NUM_4, 0);
+        gl.drawArrays(gl.TRIANGLES(), 0, NUM_3);
     }
 }

@@ -23,11 +23,22 @@ import ixdar.geometry.mesh.data.MeshTopology;
  */
 @MeshNodeAnnotation(id = "subdivide_mesh")
 public class SubdivideMeshNode implements MeshNode {
+    public static final String MESH = "mesh";
+    public static final String LEVELS_2 = "levels";
+    public static final String GEOMETRY_2 = "geometry";
+    public static final int NUM_4 = 4;
+    public static final int NUM_600_000 = 600_000;
+    public static final int NUM_3 = 3;
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1 = 1f;
+    public static final int NUM_32 = 32;
+    public static final long NUM_0xffffffff = 0xffffffffL;
 
-    private static final InputPort MESH_IN = new InputPort("mesh", PortType.MESH, null);
-    private static final InputPort LEVELS = new InputPort("levels", PortType.INT, 1, 0f, 6f);
-    private static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
-    private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort MESH_IN = new InputPort(MESH, PortType.MESH, null);
+    private static final InputPort LEVELS = new InputPort(LEVELS_2, PortType.INT, 1, 0f, 6f);
+    private static final OutputPort MESH_OUT = new OutputPort(MESH, PortType.MESH);
+    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -47,9 +58,9 @@ public class SubdivideMeshNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "mesh", "Input topology to subdivide. Each face becomes 4^levels faces.",
-                "levels", "Subdivision iterations, 0..N. Each level quadruples face count. DESTRUCTIVE: consumes bezier handle slots — use BEFORE assign_bezier_handles.",
-                "geometry", "Output geometry bundle wrapping the subdivided mesh (slots dropped per destructive contract)."
+                MESH, "Input topology to subdivide. Each face becomes 4^levels faces.",
+                LEVELS_2, "Subdivision iterations, 0..N. Each level quadruples face count. DESTRUCTIVE: consumes bezier handle slots — use BEFORE assign_bezier_handles.",
+                GEOMETRY_2, "Output geometry bundle wrapping the subdivided mesh (slots dropped per destructive contract)."
         );
     }
 
@@ -67,13 +78,13 @@ public class SubdivideMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        MeshTopology mesh = ctx.getInput("mesh", MeshTopology.class);
-        Number levelsInput = ctx.getInput("levels", Number.class);
+        MeshTopology mesh = ctx.getInput(MESH, MeshTopology.class);
+        Number levelsInput = ctx.getInput(LEVELS_2, Number.class);
         int levels = levelsInput == null ? 1 : Math.max(0, levelsInput.intValue());
 
         if (mesh == null) {
-            ctx.setOutput("mesh", null);
-            ctx.setOutput("geometry", GeometryBundle.empty());
+            ctx.setOutput(MESH, null);
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
 
@@ -83,21 +94,21 @@ public class SubdivideMeshNode implements MeshNode {
             long estimated = inputFaces;
             int safe = 0;
             for (int i = 0; i < levels; i++) {
-                estimated *= 4;
-                if (estimated > 600_000) break;
+                estimated *= NUM_4;
+                if (estimated > NUM_600_000) break;
                 safe++;
             }
             if (safe < levels) {
                 System.err.println("[subdivide_mesh] Capped levels from " + levels + " to " + safe
                         + " (" + inputFaces + " input faces × 4^" + levels + " = "
-                        + (inputFaces * (long) Math.pow(4, levels)) + " would exceed 600k limit)");
+                        + (inputFaces * (long) Math.pow(NUM_4, levels)) + " would exceed 600k limit)");
                 levels = safe;
             }
         }
 
         if (levels == 0) {
-            ctx.setOutput("mesh", mesh);
-            ctx.setOutput("geometry", GeometryBundle.ofMesh(mesh));
+            ctx.setOutput(MESH, mesh);
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.ofMesh(mesh));
             return;
         }
 
@@ -106,8 +117,8 @@ public class SubdivideMeshNode implements MeshNode {
             for (int l = 0; l < levels; l++) {
                 am = ArrayMeshEngine.subdivideQuadsOnce(am);
             }
-            ctx.setOutput("mesh", am);
-            ctx.setOutput("geometry", GeometryBundle.ofMesh(am));
+            ctx.setOutput(MESH, am);
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.ofMesh(am));
             return;
         }
 
@@ -116,8 +127,8 @@ public class SubdivideMeshNode implements MeshNode {
             current = subdivideOnce(current);
         }
         ((HalfEdgeMesh) current).computeNormals();
-        ctx.setOutput("mesh", current);
-        ctx.setOutput("geometry", GeometryBundle.ofMesh(current));
+        ctx.setOutput(MESH, current);
+        ctx.setOutput(GEOMETRY_2, GeometryBundle.ofMesh(current));
     }
 
     private static HalfEdgeMesh subdivideOnce(MeshTopology src) {
@@ -125,15 +136,15 @@ public class SubdivideMeshNode implements MeshNode {
         int srcE = src.edgeCount();
         int srcF = src.faceCount();
         int outV = srcV + srcE + srcF;
-        int outF = srcF * 4;
-        int outE = srcE * 2 + srcF * 4;
+        int outF = srcF * NUM_4;
+        int outE = srcE * 2 + srcF * NUM_4;
         int outHE = outE * 2;
 
         HalfEdgeMesh out = new HalfEdgeMesh(outV, outE, outF, outHE);
         Vector3f p = new Vector3f();
         Vector3f q = new Vector3f();
 
-        HashMap<Integer, Integer> vertMap = new HashMap<>(srcV * 4 / 3 + 1);
+        HashMap<Integer, Integer> vertMap = new HashMap<>(srcV * NUM_4 / NUM_3 + 1);
         for (int vi = 0; vi < src.vertexCount(); vi++) {
             int vid = src.vertexIdAt(vi);
             src.vertexPosition(vid, p);
@@ -141,7 +152,7 @@ public class SubdivideMeshNode implements MeshNode {
             vertMap.put(vid, nid);
         }
 
-        HashMap<Long, Integer> edgeMidMap = new HashMap<>(srcE * 4 / 3 + 1);
+        HashMap<Long, Integer> edgeMidMap = new HashMap<>(srcE * NUM_4 / NUM_3 + 1);
         for (int ei = 0; ei < src.edgeCount(); ei++) {
             int eid = src.edgeIdAt(ei);
             int he = src.edgeHalfEdge(eid);
@@ -149,7 +160,7 @@ public class SubdivideMeshNode implements MeshNode {
             int vb = src.halfEdgeEndVertex(he);
             src.vertexPosition(va, p);
             src.vertexPosition(vb, q);
-            p.add(q).mul(0.5f);
+            p.add(q).mul(NUM_0_5);
             int mid = out.addVertex(p);
             long key = edgeKey(va, vb);
             edgeMidMap.put(key, mid);
@@ -158,14 +169,14 @@ public class SubdivideMeshNode implements MeshNode {
         for (int fi = 0; fi < src.faceCount(); fi++) {
             int fid = src.faceIdAt(fi);
             int fc = src.faceVertexCount(fid);
-            p.set(0f, 0f, 0f);
+            p.set(NUM_0, NUM_0, NUM_0);
             int[] faceVerts = new int[fc];
             for (int k = 0; k < fc; k++) {
                 faceVerts[k] = src.faceVertexAt(fid, k);
                 src.vertexPosition(faceVerts[k], q);
                 p.add(q);
             }
-            p.mul(1f / fc);
+            p.mul(NUM_1 / fc);
             int centroid = out.addVertex(p);
 
             for (int k = 0; k < fc; k++) {
@@ -184,6 +195,6 @@ public class SubdivideMeshNode implements MeshNode {
     private static long edgeKey(int a, int b) {
         int lo = Math.min(a, b);
         int hi = Math.max(a, b);
-        return ((long) lo << 32) | (hi & 0xffffffffL);
+        return ((long) lo << NUM_32) | (hi & NUM_0xffffffff);
     }
 }

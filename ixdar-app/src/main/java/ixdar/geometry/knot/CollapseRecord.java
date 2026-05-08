@@ -6,28 +6,28 @@ import java.util.List;
 /**
  * Record of a Collapse operation for undo/redo support. Collapse converts
  * double-pipes to single-pipes with internal crossings.
- * 
+ *
  * Before collapse: Each pipe has 2 parallel segments After collapse: Each pipe
  * has 1 segment, plus internal crossing segments
  */
 public class CollapseRecord extends OperationRecord {
 
-    /** The knots in the path from start to end */
+    /** The knots in the path from start to end. */
     public List<Knot> pathKnots = new ArrayList<>();
 
-    /** Segments removed from pipes (one per pipe) */
+    /** Segments removed from pipes (one per pipe). */
     public List<Segment> removedPipeSegments = new ArrayList<>();
 
-    /** Internal crossing segments added to each knot */
+    /** Internal crossing segments added to each knot. */
     public List<Segment> addedCrossings = new ArrayList<>();
 
-    /** The direct connection segment added between start and end knots */
+    /** The direct connection segment added between start and end knots. */
     public Segment addedDirect;
 
-    /** Start knot of the collapse */
+    /** Start knot of the collapse. */
     public Knot startKnot;
 
-    /** End knot of the collapse */
+    /** End knot of the collapse. */
     public Knot endKnot;
 
     @Override
@@ -146,7 +146,7 @@ public class CollapseRecord extends OperationRecord {
 
     /**
      * Find the common parent knot containing both given knots.
-     * 
+     *
      * @param a first knot
      * @param b second knot
      * @return the common parent, or null if not found

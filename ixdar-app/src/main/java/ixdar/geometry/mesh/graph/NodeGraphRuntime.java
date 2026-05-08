@@ -14,6 +14,17 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.parsing.python.PythonParser;
 
 public class NodeGraphRuntime {
+    public static final String MESH = "mesh";
+    public static final String STR = ".";
+    public static final String WAS_REFERENCED_BEFORE_IT_WAS_EVALUATED = "' was referenced before it was evaluated!";
+    public static final String STR_2 = " (";
+    public static final String STR_3 = ")";
+    public static final String NO_MESH_NODE_SUPPLIER_FOR_TYPE = "No mesh node supplier for type: ";
+    public static final String GEOMETRY = "geometry";
+    public static final String RESULT = "result";
+    public static final String FUNCTION = "Function '";
+    public static final String IN_FUNCTION = "In function '";
+    public static final int NUM_1_000_000 = 1_000_000;
     private final Map<String, Class<? extends MeshNode>> nodeRegistry = new HashMap<>();
     private final Map<String, PythonParser.FunctionDef> functionDefs = new HashMap<>();
 
@@ -23,11 +34,20 @@ public class NodeGraphRuntime {
     private final java.util.LinkedHashMap<String, Long> lastTimingMs = new java.util.LinkedHashMap<>();
     private long lastTotalMs;
 
-    /** Returns per-node timing from the most recent {@code executeGraphResult} call. */
+    /**
+     * Returns per-node timing from the most recent {@code executeGraphResult} call.
+     *
+     * @return TODO: describe
+     */
     public java.util.LinkedHashMap<String, Long> lastTimingMs() {
         return lastTimingMs;
     }
 
+    /**
+     * TODO: document {@code lastTotalMs}.
+     *
+     * @return TODO: describe
+     */
     public long lastTotalMs() {
         return lastTotalMs;
     }
@@ -37,6 +57,10 @@ public class NodeGraphRuntime {
      * ran or the port doesn't exist. Used by viewer scenes that need to grab intermediate
      * values from the DSL graph (e.g. the dungeon viewer wiring the {@code TileGrid} produced
      * by {@code astar_corridors_3d} into the player controller's collision world).
+     *
+     * @param nodeId TODO: describe
+     * @param outputPortName TODO: describe
+     * @return TODO: describe
      */
     public Object getNodeOutput(String nodeId, String outputPortName) {
         GraphNodeContext ctx = evaluatedNodes.get(nodeId);
@@ -44,17 +68,29 @@ public class NodeGraphRuntime {
         return ctx.getOutput(outputPortName);
     }
 
+    /**
+     * TODO: document {@code registerNode}.
+     *
+     * @param type TODO: describe
+     * @param nodeClass TODO: describe
+     */
     public void registerNode(String type, Class<? extends MeshNode> nodeClass) {
         nodeRegistry.put(type, nodeClass);
     }
 
-    /** Register DSL function definitions (from parser or skill library). */
+    /**
+     * Register DSL function definitions (from parser or skill library).
+     *
+     * @param defs TODO: describe
+     */
     public void registerFunctionDefs(Map<String, PythonParser.FunctionDef> defs) {
         functionDefs.putAll(defs);
     }
 
     /**
      * Map of DSL id → node class from the generated {@code MeshNodeRegistry_MeshNodes.MAP}.
+     *
+     * @return TODO: describe
      */
     public static Map<String, Class<? extends MeshNode>> annotationRegistryClasses() {
         Map<String, java.util.function.Supplier<? extends MeshNode>> map = MeshNodeRegistry_MeshNodes.MAP;
@@ -78,6 +114,9 @@ public class NodeGraphRuntime {
 
     /**
      * User-editable inputs and curve parameters in a parsed graph (literal metadata for UI).
+     *
+     * @param parsedStatements TODO: describe
+     * @return TODO: describe
      */
     public static List<InputParameterDescriptor> collectInputParameters(List<PythonParser.ParsedNode> parsedStatements) {
         return InputParameterDescriptor.collect(parsedStatements);
@@ -85,13 +124,24 @@ public class NodeGraphRuntime {
 
     /**
      * Runs the graph and returns the final node's {@code mesh} output (backward compatible).
+     *
+     * @param parsedStatements TODO: describe
+     * @param finalOutputId TODO: describe
+     * @throws Exception TODO: describe
+     * @return TODO: describe
      */
     public MeshTopology executeGraph(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId) throws Exception {
-        return executeGraphToMesh(parsedStatements, finalOutputId, "mesh");
+        return executeGraphToMesh(parsedStatements, finalOutputId, MESH);
     }
 
     /**
      * Runs the graph and returns the final value on the given output port.
+     *
+     * @param parsedStatements TODO: describe
+     * @param finalOutputId TODO: describe
+     * @param outputPortName TODO: describe
+     * @throws Exception TODO: describe
+     * @return TODO: describe
      */
     public Object executeGraphResult(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
             String outputPortName) throws Exception {
@@ -106,6 +156,16 @@ public class NodeGraphRuntime {
      *   <li>{@code "nodeId.argName"} — overrides a literal argument on any node
      *   <li>{@code "nodeId.argName.x/y/z"} — overrides a single component of a Vector3Value argument
      * </ul>
+     *
+     * @param parsedStatements TODO: describe
+     * @param finalOutputId TODO: describe
+     * @param outputPortName TODO: describe
+     * @param overridesByNodeId TODO: describe
+     * @throws Exception TODO: describe
+     * @throws RuntimeException TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalStateException TODO: describe
+     * @return TODO: describe
      */
     public Object executeGraphResult(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
             String outputPortName, Map<String, Object> overridesByNodeId) throws Exception {
@@ -124,13 +184,13 @@ public class NodeGraphRuntime {
                 Object rawValue = arg.getValue();
 
                 // Check for dot-notation literal override (e.g. "thumb_attach.theta")
-                String literalKey = parsedData.id + "." + portName;
+                String literalKey = parsedData.id + STR + portName;
                 if (overrides.containsKey(literalKey)) {
                     resolvedArgs.put(portName, overrides.get(literalKey));
                 } else if (rawValue instanceof PythonParser.NodeReference ref) {
                     GraphNodeContext sourceContext = evaluatedNodes.get(ref.nodeId);
                     if (sourceContext == null) {
-                        throw new RuntimeException("Node '" + ref.nodeId + "' was referenced before it was evaluated!");
+                        throw new RuntimeException("Node '" + ref.nodeId + WAS_REFERENCED_BEFORE_IT_WAS_EVALUATED);
                     }
                     resolvedArgs.put(portName, sourceContext.getOutput(ref.portName));
                 } else {
@@ -142,7 +202,7 @@ public class NodeGraphRuntime {
             for (Map.Entry<String, Object> arg : parsedData.arguments.entrySet()) {
                 String portName = arg.getKey();
                 if (!(arg.getValue() instanceof Vector3Value v3)) continue;
-                String base = parsedData.id + "." + portName;
+                String base = parsedData.id + STR + portName;
                 Object oxObj = overrides.get(base + ".x");
                 Object oyObj = overrides.get(base + ".y");
                 Object ozObj = overrides.get(base + ".z");
@@ -159,8 +219,8 @@ public class NodeGraphRuntime {
                 // Function call: execute body with parameter binding
                 long nodeStart = System.nanoTime();
                 GraphNodeContext resultCtx = executeFunctionCall(funcDef, resolvedArgs, currentFieldContext, overrides);
-                long nodeMs = (System.nanoTime() - nodeStart) / 1_000_000;
-                lastTimingMs.put(parsedData.id + " (" + parsedData.type + ")", nodeMs);
+                long nodeMs = (System.nanoTime() - nodeStart) / NUM_1_000_000;
+                lastTimingMs.put(parsedData.id + STR_2 + parsedData.type + STR_3, nodeMs);
 
                 MeshTopology meshOut = meshFromNodeOutputs(resultCtx);
                 if (meshOut != null && meshOut.vertexCount() > 0) {
@@ -175,7 +235,7 @@ public class NodeGraphRuntime {
                 java.util.function.Supplier<? extends MeshNode> supplier =
                         MeshNodeRegistry_MeshNodes.MAP.get(parsedData.type);
                 if (supplier == null) {
-                    throw new IllegalStateException("No mesh node supplier for type: " + parsedData.type);
+                    throw new IllegalStateException(NO_MESH_NODE_SUPPLIER_FOR_TYPE + parsedData.type);
                 }
                 MeshNode activeNode = supplier.get();
 
@@ -194,8 +254,8 @@ public class NodeGraphRuntime {
                 long nodeStart = System.nanoTime();
                 activeNode.evaluate(context);
                 AutoTagHook.applyIfApplicable(activeNode, context, parsedData.id);
-                long nodeMs = (System.nanoTime() - nodeStart) / 1_000_000;
-                lastTimingMs.put(parsedData.id + " (" + parsedData.type + ")", nodeMs);
+                long nodeMs = (System.nanoTime() - nodeStart) / NUM_1_000_000;
+                lastTimingMs.put(parsedData.id + STR_2 + parsedData.type + STR_3, nodeMs);
 
                 MeshTopology meshOut = meshFromNodeOutputs(context);
                 if (meshOut != null && meshOut.vertexCount() > 0) {
@@ -205,7 +265,7 @@ public class NodeGraphRuntime {
             }
         }
 
-        lastTotalMs = (System.nanoTime() - graphStart) / 1_000_000;
+        lastTotalMs = (System.nanoTime() - graphStart) / NUM_1_000_000;
 
         GraphNodeContext finalContext = evaluatedNodes.get(finalOutputId);
         if (finalContext != null) {
@@ -217,7 +277,7 @@ public class NodeGraphRuntime {
 
         // Fallback: walk nodes in reverse order and probe common mesh port names.
         // This handles DSLs where the output node isn't named as expected.
-        String[] probeNames = { outputPortName, "mesh", "geometry", "result" };
+        String[] probeNames = { outputPortName, MESH, GEOMETRY, RESULT };
         for (int i = parsedStatements.size() - 1; i >= 0; i--) {
             GraphNodeContext ctx = evaluatedNodes.get(parsedStatements.get(i).id);
             if (ctx == null) {
@@ -237,6 +297,16 @@ public class NodeGraphRuntime {
      * Executes a function definition's body with the given arguments bound to parameters.
      * Parameters become synthetic nodes whose outputs carry the bound values.
      * Returns the context of the last node in the body (the function's return value).
+     *
+     * @param funcDef TODO: describe
+     * @param callArgs TODO: describe
+     * @param callerFieldContext TODO: describe
+     * @param overrides TODO: describe
+     * @throws Exception TODO: describe
+     * @throws RuntimeException TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalStateException TODO: describe
+     * @return TODO: describe
      */
     private GraphNodeContext executeFunctionCall(PythonParser.FunctionDef funcDef,
             Map<String, Object> callArgs, FieldContext callerFieldContext,
@@ -248,17 +318,17 @@ public class NodeGraphRuntime {
         for (PythonParser.FunctionParam param : funcDef.params) {
             Object value = callArgs.get(param.name);
             if (value == null) {
-                throw new RuntimeException("Function '" + funcDef.name + "' missing argument '" + param.name + "'");
+                throw new RuntimeException(FUNCTION + funcDef.name + "' missing argument '" + param.name + "'");
             }
             GraphNodeContext paramCtx = new GraphNodeContext();
             // Parameter nodes expose their value on a "result" port and also
             // on the conventional port name for their type (mesh, geometry, etc.)
-            paramCtx.setOutput("result", value);
+            paramCtx.setOutput(RESULT, value);
             if (value instanceof MeshTopology) {
-                paramCtx.setOutput("mesh", value);
+                paramCtx.setOutput(MESH, value);
             } else if (value instanceof GeometryBundle) {
-                paramCtx.setOutput("geometry", value);
-                paramCtx.setOutput("mesh", value);
+                paramCtx.setOutput(GEOMETRY, value);
+                paramCtx.setOutput(MESH, value);
             }
             localNodes.put(param.name, paramCtx);
         }
@@ -277,8 +347,8 @@ public class NodeGraphRuntime {
                         sourceContext = evaluatedNodes.get(ref.nodeId);
                     }
                     if (sourceContext == null) {
-                        throw new RuntimeException("In function '" + funcDef.name + "': node '"
-                                + ref.nodeId + "' was referenced before it was evaluated!");
+                        throw new RuntimeException(IN_FUNCTION + funcDef.name + "': node '"
+                                + ref.nodeId + WAS_REFERENCED_BEFORE_IT_WAS_EVALUATED);
                     }
                     resolvedArgs.put(arg.getKey(), sourceContext.getOutput(ref.portName));
                 } else if (rawValue instanceof String bareId) {
@@ -286,7 +356,7 @@ public class NodeGraphRuntime {
                     // or local node name (e.g., `cube(size=size)` where `size` is a param)
                     GraphNodeContext paramCtx = localNodes.get(bareId);
                     if (paramCtx != null) {
-                        resolvedArgs.put(arg.getKey(), paramCtx.getOutput("result"));
+                        resolvedArgs.put(arg.getKey(), paramCtx.getOutput(RESULT));
                     } else {
                         resolvedArgs.put(arg.getKey(), rawValue);
                     }
@@ -301,13 +371,13 @@ public class NodeGraphRuntime {
                 lastContext = executeFunctionCall(nestedFunc, resolvedArgs, localFieldContext, overrides);
             } else {
                 if (nodeRegistry.get(bodyNode.type) == null) {
-                    throw new IllegalArgumentException("In function '" + funcDef.name
+                    throw new IllegalArgumentException(IN_FUNCTION + funcDef.name
                             + "': unknown node type: " + bodyNode.type);
                 }
                 java.util.function.Supplier<? extends MeshNode> supplier =
                         MeshNodeRegistry_MeshNodes.MAP.get(bodyNode.type);
                 if (supplier == null) {
-                    throw new IllegalStateException("No mesh node supplier for type: " + bodyNode.type);
+                    throw new IllegalStateException(NO_MESH_NODE_SUPPLIER_FOR_TYPE + bodyNode.type);
                 }
                 MeshNode activeNode = supplier.get();
 
@@ -332,7 +402,7 @@ public class NodeGraphRuntime {
         }
 
         if (lastContext == null) {
-            throw new RuntimeException("Function '" + funcDef.name + "' has empty body");
+            throw new RuntimeException(FUNCTION + funcDef.name + "' has empty body");
         }
         return lastContext;
     }
@@ -363,12 +433,28 @@ public class NodeGraphRuntime {
 
     /**
      * Returns a {@link MeshTopology} from the final port, unwrapping {@link GeometryBundle} if needed.
+     *
+     * @param parsedStatements TODO: describe
+     * @param finalOutputId TODO: describe
+     * @param outputPortName TODO: describe
+     * @throws Exception TODO: describe
+     * @return TODO: describe
      */
     public MeshTopology executeGraphToMesh(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
             String outputPortName) throws Exception {
         return executeGraphToMesh(parsedStatements, finalOutputId, outputPortName, Map.of());
     }
 
+    /**
+     * TODO: document {@code executeGraphToMesh}.
+     *
+     * @param parsedStatements TODO: describe
+     * @param finalOutputId TODO: describe
+     * @param outputPortName TODO: describe
+     * @param overridesByNodeId TODO: describe
+     * @throws Exception TODO: describe
+     * @return TODO: describe
+     */
     public MeshTopology executeGraphToMesh(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
             String outputPortName, Map<String, Object> overridesByNodeId) throws Exception {
         Object result = executeGraphResult(parsedStatements, finalOutputId, outputPortName, overridesByNodeId);

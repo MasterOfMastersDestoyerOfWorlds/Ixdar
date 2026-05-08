@@ -26,10 +26,19 @@ import ixdar.procgen.dungeon.values.RoomListValue3D;
  * reading is consistent.
  */
 public final class DelaunayTriangulation3D {
+    public static final int NUM_4 = 4;
+    public static final int NUM_20 = 20;
+    public static final int NUM_3 = 3;
 
     private DelaunayTriangulation3D() {
     }
 
+    /**
+     * TODO: document {@code triangulate}.
+     *
+     * @param rooms TODO: describe
+     * @return TODO: describe
+     */
     public static EdgeGraphValue triangulate(RoomListValue3D rooms) {
         int n = rooms.size();
         if (n == 0) return new EdgeGraphValue(0, new int[0][]);
@@ -38,9 +47,9 @@ public final class DelaunayTriangulation3D {
 
         // Pack point coordinates into parallel arrays. Indices [n .. n+3] reserved for the
         // super-tetrahedron's vertices.
-        double[] xs = new double[n + 4];
-        double[] ys = new double[n + 4];
-        double[] zs = new double[n + 4];
+        double[] xs = new double[n + NUM_4];
+        double[] ys = new double[n + NUM_4];
+        double[] zs = new double[n + NUM_4];
         for (int i = 0; i < n; i++) {
             xs[i] = rooms.get(i).centerX();
             ys[i] = rooms.get(i).centerY();
@@ -59,14 +68,14 @@ public final class DelaunayTriangulation3D {
         double midY = (minY + maxY) / 2;
         double midZ = (minZ + maxZ) / 2;
         // Corner-style super-tetrahedron well outside the bounding sphere.
-        double R = 20 * dmax;
+        double R = NUM_20 * dmax;
         xs[n]   = midX - R; ys[n]   = midY - R; zs[n]   = midZ - R;
-        xs[n+1] = midX + 3*R; ys[n+1] = midY - R; zs[n+1] = midZ - R;
-        xs[n+2] = midX - R; ys[n+2] = midY + 3*R; zs[n+2] = midZ - R;
-        xs[n+3] = midX - R; ys[n+3] = midY - R; zs[n+3] = midZ + 3*R;
+        xs[n+1] = midX + NUM_3*R; ys[n+1] = midY - R; zs[n+1] = midZ - R;
+        xs[n+2] = midX - R; ys[n+2] = midY + NUM_3*R; zs[n+2] = midZ - R;
+        xs[n+NUM_3] = midX - R; ys[n+NUM_3] = midY - R; zs[n+NUM_3] = midZ + NUM_3*R;
 
         List<Tet> tets = new ArrayList<>();
-        tets.add(orient(n, n + 1, n + 2, n + 3, xs, ys, zs));
+        tets.add(orient(n, n + 1, n + 2, n + NUM_3, xs, ys, zs));
 
         for (int p = 0; p < n; p++) {
             List<Tet> bad = new ArrayList<>();
@@ -184,10 +193,10 @@ public final class DelaunayTriangulation3D {
     }
 
     record Edge(int a, int b) {
+        static final Comparator<Edge> COMPARATOR =
+                Comparator.comparingInt(Edge::a).thenComparingInt(Edge::b);
         Edge {
             if (a > b) { int t = a; a = b; b = t; }
         }
-        static final Comparator<Edge> COMPARATOR =
-                Comparator.comparingInt(Edge::a).thenComparingInt(Edge::b);
     }
 }

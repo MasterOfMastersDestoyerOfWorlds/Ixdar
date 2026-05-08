@@ -21,6 +21,12 @@ public record OptimizableParameter(
         float maxValue,
         boolean isLiteral) {
 
+    /**
+     * TODO: document {@code fromInput}.
+     *
+     * @param p TODO: describe
+     * @return TODO: describe
+     */
     public static OptimizableParameter fromInput(InputParameterDescriptor p) {
         float def, min, max;
         if (p.kind() == InputParameterDescriptor.InputParameterKind.INT) {
@@ -35,6 +41,12 @@ public record OptimizableParameter(
         return new OptimizableParameter(p.nodeId(), p.name(), def, min, max, false);
     }
 
+    /**
+     * TODO: document {@code fromLiteral}.
+     *
+     * @param p TODO: describe
+     * @return TODO: describe
+     */
     public static OptimizableParameter fromLiteral(LiteralParameterDescriptor p) {
         float min = p.minValue() != null ? p.minValue() : Float.NEGATIVE_INFINITY;
         float max = p.maxValue() != null ? p.maxValue() : Float.POSITIVE_INFINITY;

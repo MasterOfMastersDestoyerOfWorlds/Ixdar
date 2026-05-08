@@ -18,6 +18,10 @@ import ixdar.geometry.mesh.data.ArrayMesh;
  * as a v2 option if the cap-and-recut quality near holes proves insufficient.
  */
 public final class BoundaryCapper {
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1 = 1f;
+    public static final int NUM_32 = 32;
+    public static final long NUM_0xFFFFFFFF = 0xFFFFFFFFL;
 
     private static final int FLOATS_PER_VERTEX = 3;
     private static final int VERTS_PER_TRI = 3;
@@ -26,20 +30,12 @@ public final class BoundaryCapper {
     }
 
     /**
-     * Result of capping. {@code closedMesh} is the input mesh with all
-     * boundary loops fan-triangulated. {@code capFaceIds} are the indices of
-     * the newly added cap triangles in {@code closedMesh}; {@code capVertexIds}
-     * are the indices of the cap-centroid vertices (one per loop).
-     * {@code originalLoops} preserves the input loops in CCW (outward) order
-     * for downstream consumers.
+     * TODO: document {@code cap}.
+     *
+     * @param mesh TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
      */
-    public record CapResult(
-            ArrayMesh closedMesh,
-            int[] capFaceIds,
-            int[] capVertexIds,
-            List<int[]> originalLoops) {
-    }
-
     public static CapResult cap(ArrayMesh mesh) {
         if (mesh.getVertsPerFace() != VERTS_PER_TRI) {
             throw new IllegalArgumentException("BoundaryCapper requires a triangle mesh");
@@ -82,16 +78,16 @@ public final class BoundaryCapper {
             int[] loop = orientedLoops.get(loopIdx);
             int centroidVertex = vertexCount + loopIdx;
             capVertexIds[loopIdx] = centroidVertex;
-            float cx = 0f;
-            float cy = 0f;
-            float cz = 0f;
+            float cx = NUM_0;
+            float cy = NUM_0;
+            float cz = NUM_0;
             for (int v : loop) {
                 int o = v * FLOATS_PER_VERTEX;
                 cx += positions[o];
                 cy += positions[o + 1];
                 cz += positions[o + 2];
             }
-            float inv = 1f / loop.length;
+            float inv = NUM_1 / loop.length;
             int co = centroidVertex * FLOATS_PER_VERTEX;
             newPositions[co] = cx * inv;
             newPositions[co + 1] = cy * inv;
@@ -116,7 +112,7 @@ public final class BoundaryCapper {
     private static List<int[]> extractBoundaryLoops(int[] faceIndices, int triCount) {
         // Count occurrences per directed edge (a,b); a half-edge whose reverse
         // (b,a) does not appear is a boundary half-edge.
-        Map<Long, int[]> directed = new HashMap<>(triCount * 3);
+        Map<Long, int[]> directed = new HashMap<>(triCount * FLOATS_PER_VERTEX);
         for (int t = 0; t < triCount; t++) {
             int base = t * VERTS_PER_TRI;
             int v0 = faceIndices[base];
@@ -131,9 +127,9 @@ public final class BoundaryCapper {
         for (Map.Entry<Long, int[]> e : directed.entrySet()) {
             long key = e.getKey();
             int[] count = e.getValue();
-            int a = (int) (key >>> 32);
-            int b = (int) (key & 0xFFFFFFFFL);
-            long reverseKey = (((long) b) << 32) | (a & 0xFFFFFFFFL);
+            int a = (int) (key >>> NUM_32);
+            int b = (int) (key & NUM_0xFFFFFFFF);
+            long reverseKey = (((long) b) << NUM_32) | (a & NUM_0xFFFFFFFF);
             int[] reverseCount = directed.get(reverseKey);
             int reverse = reverseCount == null ? 0 : reverseCount[0];
             if (count[0] - reverse > 0) {
@@ -169,7 +165,7 @@ public final class BoundaryCapper {
                     break;
                 }
             }
-            if (loop.size() >= 3 && cur == start) {
+            if (loop.size() >= FLOATS_PER_VERTEX && cur == start) {
                 int[] arr = new int[loop.size()];
                 for (int i = 0; i < arr.length; i++) {
                     arr[i] = loop.get(i);
@@ -181,13 +177,28 @@ public final class BoundaryCapper {
     }
 
     private static void countDirected(Map<Long, int[]> map, int a, int b) {
-        long key = (((long) a) << 32) | (b & 0xFFFFFFFFL);
+        long key = (((long) a) << NUM_32) | (b & NUM_0xFFFFFFFF);
         int[] c = map.get(key);
         if (c == null) {
             map.put(key, new int[]{1});
         } else {
             c[0]++;
         }
+    }
+
+    /**
+     * Result of capping. {@code closedMesh} is the input mesh with all
+     * boundary loops fan-triangulated. {@code capFaceIds} are the indices of
+     * the newly added cap triangles in {@code closedMesh}; {@code capVertexIds}
+     * are the indices of the cap-centroid vertices (one per loop).
+     * {@code originalLoops} preserves the input loops in CCW (outward) order
+     * for downstream consumers.
+     */
+    public record CapResult(
+            ArrayMesh closedMesh,
+            int[] capFaceIds,
+            int[] capVertexIds,
+            List<int[]> originalLoops) {
     }
 
 }

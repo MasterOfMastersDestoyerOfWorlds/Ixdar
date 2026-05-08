@@ -36,6 +36,13 @@ import ixdar.geometry.mesh.data.ArrayMesh;
  * the QVert (mesh-CCW for FACE/EDGE, surface-CCW one-ring for VERT).
  */
 public final class QuadPortGenerator {
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
+    public static final float NUM_1e_20 = 1e-20f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_1e_9 = 1e-9f;
+    public static final float NUM_1e_5 = 1e-5f;
 
     /** Tolerance for orientation / collinearity tests. */
     private static final double EPS = QuadVertexGenerator.EPS;
@@ -46,11 +53,15 @@ public final class QuadPortGenerator {
 
     private QuadPortGenerator() {}
 
-    public record Result(List<QPort> ports,
-                         /** ports[i] indices grouped by QVert id. */
-                         HashMap<Integer, int[]> portsByQVert) {
-    }
-
+    /**
+     * TODO: document {@code generate}.
+     *
+     * @param mesh TODO: describe
+     * @param qVerts TODO: describe
+     * @param uCorner TODO: describe
+     * @param vCorner TODO: describe
+     * @return TODO: describe
+     */
     public static Result generate(ArrayMesh mesh,
                                   QuadVertexGenerator.Result qVerts,
                                   float[] uCorner, float[] vCorner) {
@@ -80,9 +91,9 @@ public final class QuadPortGenerator {
 
     /** FACE-source path: 4 cardinals all in the source face. */
     private static int[] emitFourCardinals(QVert qv, int faceId, List<QPort> ports) {
-        int[] ids = new int[4];
+        int[] ids = new int[NUM_4];
         int base = ports.size();
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < NUM_4; i++) {
             ids[i] = base + i;
             ports.add(new QPort(base + i, qv.id(), qv.source(), qv.sourceId(),
                     faceId, qv.u(), qv.v(),
@@ -119,17 +130,17 @@ public final class QuadPortGenerator {
             int faceId = mesh.halfEdgeFace(hSide);
             if (faceId < 0) continue;
             normalAccum.add(faceNormal(mesh, faceId));
-            int cTail = hSide % 3;
-            int cHead = mesh.halfEdgeNext(hSide) % 3;
-            float aU = uCorner[faceId * 3 + cTail];
-            float aV = vCorner[faceId * 3 + cTail];
-            float bU = uCorner[faceId * 3 + cHead];
-            float bV = vCorner[faceId * 3 + cHead];
+            int cTail = hSide % NUM_3;
+            int cHead = mesh.halfEdgeNext(hSide) % NUM_3;
+            float aU = uCorner[faceId * NUM_3 + cTail];
+            float aV = vCorner[faceId * NUM_3 + cTail];
+            float bU = uCorner[faceId * NUM_3 + cHead];
+            float bV = vCorner[faceId * NUM_3 + cHead];
 
             // For each cardinal direction d, check if (qv.uv + d) lies in
             // the face's wedge — i.e., on the LEFT of edge a→b (since the
             // face is on the LEFT of its CCW-ordered edges).
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < NUM_4; i++) {
                 double tu = qv.u() + DIR_U[i];
                 double tv = qv.v() + DIR_V[i];
                 double cross = (bU - aU) * (tv - aV) - (bV - aV) * (tu - aU);
@@ -171,20 +182,20 @@ public final class QuadPortGenerator {
             int faceId = mesh.halfEdgeFace(he);
             if (faceId < 0) continue;
             normalAccum.add(faceNormal(mesh, faceId));
-            int cV = he % 3;
-            int cN = mesh.halfEdgeNext(he) % 3;
-            int cP = mesh.halfEdgePrev(he) % 3;
-            float vU = uCorner[faceId * 3 + cV];
-            float vV = vCorner[faceId * 3 + cV];
-            float nU = uCorner[faceId * 3 + cN];
-            float nV = vCorner[faceId * 3 + cN];
-            float pU = uCorner[faceId * 3 + cP];
-            float pV = vCorner[faceId * 3 + cP];
+            int cV = he % NUM_3;
+            int cN = mesh.halfEdgeNext(he) % NUM_3;
+            int cP = mesh.halfEdgePrev(he) % NUM_3;
+            float vU = uCorner[faceId * NUM_3 + cV];
+            float vV = vCorner[faceId * NUM_3 + cV];
+            float nU = uCorner[faceId * NUM_3 + cN];
+            float nV = vCorner[faceId * NUM_3 + cN];
+            float pU = uCorner[faceId * NUM_3 + cP];
+            float pV = vCorner[faceId * NUM_3 + cP];
 
             double e1x = nU - vU, e1y = nV - vV;
             double e2x = pU - vU, e2y = pV - vV;
 
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < NUM_4; i++) {
                 double dx = DIR_U[i];
                 double dy = DIR_V[i];
                 if (!inWedgeCCW(e1x, e1y, e2x, e2y, dx, dy)) continue;
@@ -199,10 +210,6 @@ public final class QuadPortGenerator {
 
         return finalisePorts(qv, cands, normalAccum, ports);
     }
-
-    /** Internal record: one candidate port to emit, with its 3D direction
-     *  for polar-angle sorting. */
-    private record PortCandidate(int faceId, int dirIdx, Vector3f dir3D) {}
 
     /**
      * Finalise a list of {@link PortCandidate}s into actual {@link QPort}s
@@ -226,22 +233,22 @@ public final class QuadPortGenerator {
         // perpendicular to it; e2 = normal × e1. Polar angle of dir3D =
         // atan2(dir3D · e2, dir3D · e1).
         Vector3f normal = new Vector3f(normalAccum);
-        if (normal.lengthSquared() < 1e-20f) {
-            normal.set(0f, 0f, 1f);
+        if (normal.lengthSquared() < NUM_1e_20) {
+            normal.set(NUM_0, NUM_0, NUM_1);
         } else {
             normal.normalize();
         }
         Vector3f e1 = new Vector3f();
         if (Math.abs(normal.x) <= Math.abs(normal.y)
                 && Math.abs(normal.x) <= Math.abs(normal.z)) {
-            e1.set(1f, 0f, 0f);
+            e1.set(NUM_1, NUM_0, NUM_0);
         } else if (Math.abs(normal.y) <= Math.abs(normal.z)) {
-            e1.set(0f, 1f, 0f);
+            e1.set(NUM_0, NUM_1, NUM_0);
         } else {
-            e1.set(0f, 0f, 1f);
+            e1.set(NUM_0, NUM_0, NUM_1);
         }
         e1.sub(new Vector3f(normal).mul(normal.dot(e1)));
-        if (e1.lengthSquared() < 1e-20f) e1.set(1f, 0f, 0f);
+        if (e1.lengthSquared() < NUM_1e_20) e1.set(NUM_1, NUM_0, NUM_0);
         e1.normalize();
         Vector3f e2 = new Vector3f(normal).cross(e1).normalize();
 
@@ -280,7 +287,7 @@ public final class QuadPortGenerator {
         Vector3f e1 = new Vector3f(b).sub(a);
         Vector3f e2 = new Vector3f(c).sub(a);
         Vector3f n = new Vector3f(e1).cross(e2);
-        if (n.lengthSquared() < 1e-20f) return new Vector3f();
+        if (n.lengthSquared() < NUM_1e_20) return new Vector3f();
         return n.normalize();
     }
 
@@ -323,7 +330,7 @@ public final class QuadPortGenerator {
         if (p == null || q == null) return null;
         Vector3f d = q.sub(p);
         float len = d.length();
-        if (len < 1e-9f) return null;
+        if (len < NUM_1e_9) return null;
         d.div(len);
         return d;
     }
@@ -331,12 +338,12 @@ public final class QuadPortGenerator {
     private static Vector3f baryToWorld(ArrayMesh mesh, int faceId,
                                         float[] uCorner, float[] vCorner,
                                         double uvU, double uvV) {
-        float u0 = uCorner[faceId * 3];
-        float v0 = vCorner[faceId * 3];
-        float u1 = uCorner[faceId * 3 + 1];
-        float v1 = vCorner[faceId * 3 + 1];
-        float u2 = uCorner[faceId * 3 + 2];
-        float v2 = vCorner[faceId * 3 + 2];
+        float u0 = uCorner[faceId * NUM_3];
+        float v0 = vCorner[faceId * NUM_3];
+        float u1 = uCorner[faceId * NUM_3 + 1];
+        float v1 = vCorner[faceId * NUM_3 + 1];
+        float u2 = uCorner[faceId * NUM_3 + 2];
+        float v2 = vCorner[faceId * NUM_3 + 2];
         double denom = (u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0);
         if (Math.abs(denom) < EPS) return null;
         double l1 = ((uvU - u0) * (v2 - v0) - (uvV - v0) * (u2 - u0)) / denom;
@@ -356,9 +363,9 @@ public final class QuadPortGenerator {
 
     private static boolean already3D(List<Vector3f> seen, Vector3f d) {
         for (Vector3f s : seen) {
-            if (Math.abs(s.x - d.x) < 1e-5f
-                    && Math.abs(s.y - d.y) < 1e-5f
-                    && Math.abs(s.z - d.z) < 1e-5f) return true;
+            if (Math.abs(s.x - d.x) < NUM_1e_5
+                    && Math.abs(s.y - d.y) < NUM_1e_5
+                    && Math.abs(s.z - d.z) < NUM_1e_5) return true;
         }
         return false;
     }
@@ -376,4 +383,14 @@ public final class QuadPortGenerator {
     // Suppress unused warnings on legacy helper paths.
     @SuppressWarnings("unused")
     private static void hashSetMarker(HashSet<?> ignore) {}
+
+    public record Result(List<QPort> ports,
+                         /** ports[i] indices grouped by QVert id. */
+                         HashMap<Integer, int[]> portsByQVert) {
+    }
+
+    /**
+     * Internal record: one candidate port to emit, with its 3D direction.
+     */
+    private record PortCandidate(int faceId, int dirIdx, Vector3f dir3D) {}
 }

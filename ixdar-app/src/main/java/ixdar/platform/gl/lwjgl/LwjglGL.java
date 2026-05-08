@@ -93,6 +93,10 @@ import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.input.MouseButtons;
 
 public class LwjglGL implements GL {
+    public static final int NUM_4 = 4;
+    public static final int NUM_0xF = 0xFF;
+    public static final int NUM_16 = 16;
+    public static final int NUM_8 = 8;
 
     private static int staticId = 0;
     private int id = staticId++;
@@ -588,17 +592,17 @@ public class LwjglGL implements GL {
 
     @Override
     public int[] readPixels(int i, int j, int width, int height, int rgba, int unsigned_BYTE, int size) {
-        ByteBuffer frameBuffer = MemoryUtil.memAlloc(width * height * 4);
+        ByteBuffer frameBuffer = MemoryUtil.memAlloc(width * height * NUM_4);
         glReadPixels(i, j, width, height, rgba, unsigned_BYTE, frameBuffer);
         int[] pixels = new int[width * height];
         // convert RGB data in ByteBuffer to integer array
         int bindex;
         for (int k = 0; k < pixels.length; k++) {
-            bindex = k * 4;
-            int r = frameBuffer.get(bindex) & 0xFF;
-            int g = frameBuffer.get(bindex + 1) & 0xFF;
-            int b = frameBuffer.get(bindex + 2) & 0xFF;
-            pixels[k] = (r << 16) | (g << 8) | b;
+            bindex = k * NUM_4;
+            int r = frameBuffer.get(bindex) & NUM_0xF;
+            int g = frameBuffer.get(bindex + 1) & NUM_0xF;
+            int b = frameBuffer.get(bindex + 2) & NUM_0xF;
+            pixels[k] = (r << NUM_16) | (g << NUM_8) | b;
         }
         MemoryUtil.memFree(frameBuffer);
         return pixels;
@@ -616,7 +620,7 @@ public class LwjglGL implements GL {
             public void run() {
                 try (MemoryStack stack = MemoryStack.stackPush()) {
                     @SuppressWarnings("unused")
-                    FloatBuffer buffer = new Matrix4f().get(stack.mallocFloat(16));
+                    FloatBuffer buffer = new Matrix4f().get(stack.mallocFloat(NUM_16));
                 }
             }
         });

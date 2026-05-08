@@ -26,9 +26,47 @@ import ixdar.platform.Toggle;
 import ixdar.scenes.main.MainScene;
 
 public class KeyGuy extends Camera2DInputController{
+    public static final String KEY = "key";
 
     private static Object automationRuntime;
     private static boolean automationChecked;
+
+    public final Set<Integer> pressedKeys = new HashSet<>();
+    public MainScene main;
+    public Camera camera;
+    public boolean active = true;
+    public Canvas3D canvas;
+
+    boolean controlMask;
+    boolean shiftMask;
+
+    long REPRESS_TIME = 360;
+    long lastPressTime;
+
+    /**
+     * TODO: document {@code KeyGuy}.
+     *
+     * @param camera TODO: describe
+     * @param canvas TODO: describe
+     */
+    public KeyGuy(Camera camera, Canvas3D canvas) {
+        this.camera = camera;
+        this.canvas = canvas;
+    }
+
+    /**
+     * TODO: document {@code KeyGuy}.
+     *
+     * @param main TODO: describe
+     * @param fileName TODO: describe
+     * @param camera TODO: describe
+     * @param canvas2 TODO: describe
+     */
+    public KeyGuy(MainScene main, String fileName, Camera camera, Canvas3D canvas2) {
+        this.main = main;
+        this.camera = camera;
+        this.canvas = canvas2;
+    }
 
     private static Object getAutomationRuntime() {
         if (!automationChecked) {
@@ -54,31 +92,11 @@ public class KeyGuy extends Camera2DInputController{
         } catch (Throwable ignored) {}
     }
 
-    public final Set<Integer> pressedKeys = new HashSet<>();
-    public MainScene main;
-    public Camera camera;
-
-    boolean controlMask;
-    boolean shiftMask;
-    public boolean active = true;
-    public Canvas3D canvas;
-
-    public KeyGuy(Camera camera, Canvas3D canvas) {
-        this.camera = camera;
-        this.canvas = canvas;
-    }
-
-    public KeyGuy(MainScene main, String fileName, Camera camera, Canvas3D canvas2) {
-        this.main = main;
-        this.camera = camera;
-        this.canvas = canvas2;
-    }
-
     private void keyPressed(int key, int mods, boolean repeated) {
         if (!active) {
             return;
         }
-        recordAbstractAction("key_press", "key", key, "mods", mods, "repeated", String.valueOf(repeated));
+        recordAbstractAction("key_press", KEY, key, "mods", mods, "repeated", String.valueOf(repeated));
         boolean firstPress = !pressedKeys.contains(key);
         pressedKeys.add(key);
 
@@ -153,11 +171,17 @@ public class KeyGuy extends Camera2DInputController{
         }
     }
 
+    /**
+     * TODO: document {@code keyReleased}.
+     *
+     * @param key TODO: describe
+     * @param mask TODO: describe
+     */
     public void keyReleased(int key, int mask) {
         if (!active) {
             return;
         }
-        recordAbstractAction("key_release", "key", key, "mask", mask);
+        recordAbstractAction("key_release", KEY, key, "mask", mask);
         if (main != null && MainScene.active) {
 
         } else if (canvas.active) {
@@ -174,9 +198,11 @@ public class KeyGuy extends Camera2DInputController{
         pressedKeys.remove(key);
     }
 
-    long REPRESS_TIME = 360;
-    long lastPressTime;
-
+    /**
+     * TODO: document {@code paintUpdate}.
+     *
+     * @param SHIFT_MOD TODO: describe
+     */
     public void paintUpdate(float SHIFT_MOD) {
         if (!active || Toggle.IsTerminalFocused.value) {
             return;
@@ -197,6 +223,15 @@ public class KeyGuy extends Camera2DInputController{
         }
     }
 
+    /**
+     * TODO: document {@code keyCallback}.
+     *
+     * @param window TODO: describe
+     * @param key TODO: describe
+     * @param scancode TODO: describe
+     * @param action TODO: describe
+     * @param mods TODO: describe
+     */
     public void keyCallback(long window, int key, int scancode, int action, int mods) {
         Platforms.init(canvas.platform.getPlatformID());
         switch (action) {
@@ -214,6 +249,12 @@ public class KeyGuy extends Camera2DInputController{
         }
     }
 
+    /**
+     * TODO: document {@code charCallback}.
+     *
+     * @param window TODO: describe
+     * @param codepoint TODO: describe
+     */
     public void charCallback(long window, int codepoint) {
         Platforms.init(canvas.platform.getPlatformID());
         String currentText = "" + (char) codepoint;

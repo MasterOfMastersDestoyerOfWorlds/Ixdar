@@ -46,6 +46,21 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
  * {@link #injectiveOnAllTriangles}).
  */
 public final class SeamlessParameterization {
+    public static final int NUM_3 = 3;
+    public static final float NUM_0_5 = 0.5f;
+    public static final double NUM_100_0 = 100.0;
+    public static final double NUM_1e_12 = 1e-12;
+    public static final int NUM_6 = 6;
+    public static final int NUM_4 = 4;
+    public static final int NUM_5 = 5;
+    public static final int NUM_100 = 100;
+    public static final int NUM_12 = 12;
+    public static final double NUM_0_5_2 = 0.5;
+    public static final double NUM_2_0 = 2.0;
+    public static final long NUM_4_2 = 4L;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_1e_12_2 = 1e-12f;
+    public static final float NUM_3_0 = 3.0f;
 
     private final int faceCount;
     private final float[] uCorner;
@@ -56,6 +71,14 @@ public final class SeamlessParameterization {
     private final int iterationCount;
     private final boolean injective;
 
+    /**
+     * TODO: document {@code SeamlessParameterization}.
+     *
+     * @param mesh TODO: describe
+     * @param field TODO: describe
+     * @param combed TODO: describe
+     * @param singularities TODO: describe
+     */
     public SeamlessParameterization(ArrayMesh mesh,
                                     FaceRosyField field,
                                     CombedField combed,
@@ -64,30 +87,18 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * PATCH-59: build a SeamlessParameterization from externally-supplied
-     * per-corner UVs (e.g. metriko's {@code stage2_uv_corners.tsv}).
-     * Bypasses the IGM solve entirely and just stores the given UV map
-     * so downstream stages (motorcycle / T-mesh / QEx) can be exercised
-     * with a known-good input.
+     * Private "external" constructor — bypasses the IGM solve.
      *
-     * @param mesh underlying triangle mesh
-     * @param uCorner per-corner u, length {@code 3 * F}
-     * @param vCorner per-corner v, length {@code 3 * F}
-     * @param injective {@code true} if caller guarantees no flipped triangles
-     *                  in the input UVs (metriko stage2 is)
+     * @param faceCount TODO: describe
+     * @param uCorner TODO: describe
+     * @param vCorner TODO: describe
+     * @param injective TODO: describe
+     * @throws IllegalArgumentException TODO: describe
      */
-    public static SeamlessParameterization fromExternal(ArrayMesh mesh,
-                                                        float[] uCorner,
-                                                        float[] vCorner,
-                                                        boolean injective) {
-        return new SeamlessParameterization(mesh.faceCount(), uCorner, vCorner, injective);
-    }
-
-    /** Private "external" constructor — bypasses the IGM solve. */
     private SeamlessParameterization(int faceCount, float[] uCorner, float[] vCorner,
                                      boolean injective) {
         this.faceCount = faceCount;
-        int C = faceCount * 3;
+        int C = faceCount * NUM_3;
         if (uCorner.length != C || vCorner.length != C) {
             throw new IllegalArgumentException("UV corner arrays must be 3 * faceCount = " + C);
         }
@@ -107,6 +118,12 @@ public final class SeamlessParameterization {
      * (PATCH-53) and is too slow to run the natural {@code C*4} cap. Callers
      * that just want shape-compatibility (PrecomputedFieldImporter test) pass a small
      * cap; production solves leave it at {@link Integer#MAX_VALUE}.
+     *
+     * @param mesh TODO: describe
+     * @param field TODO: describe
+     * @param combed TODO: describe
+     * @param singularities TODO: describe
+     * @param maxRoundingIter TODO: describe
      */
     public SeamlessParameterization(ArrayMesh mesh,
                                     FaceRosyField field,
@@ -114,16 +131,16 @@ public final class SeamlessParameterization {
                                     List<Singularity> singularities,
                                     int maxRoundingIter) {
         this.faceCount = mesh.faceCount();
-        int C = faceCount * 3;
+        int C = faceCount * NUM_3;
         this.singularityCorner = new boolean[C];
 
         // Identify singularity-vertex set.
         HashSet<Integer> singVerts = new HashSet<>();
         for (Singularity s : singularities) singVerts.add(s.vertexId());
         for (int f = 0; f < faceCount; f++) {
-            for (int c = 0; c < 3; c++) {
+            for (int c = 0; c < NUM_3; c++) {
                 if (singVerts.contains(mesh.faceVertexAt(f, c))) {
-                    singularityCorner[f * 3 + c] = true;
+                    singularityCorner[f * NUM_3 + c] = true;
                 }
             }
         }
@@ -157,9 +174,9 @@ public final class SeamlessParameterization {
         // Project chart-vertex solution back to per-corner. PATCH-54: variable
         // layout is now indexed by chart-vertex id, not face*3+corner.
         for (int f = 0; f < faceCount; f++) {
-            for (int c = 0; c < 3; c++) {
+            for (int c = 0; c < NUM_3; c++) {
                 int cv = H.chart.chartVertexAt(f, c);
-                int corner = f * 3 + c;
+                int corner = f * NUM_3 + c;
                 uRelax[corner] = (float) xRelax[H.uBase + cv];
                 vRelax[corner] = (float) xRelax[H.vBase + cv];
             }
@@ -189,15 +206,15 @@ public final class SeamlessParameterization {
             HashSet<Integer> singVertSet = new HashSet<>();
             for (Singularity s : singularities) singVertSet.add(s.vertexId());
             for (int f = 0; f < faceCount; f++) {
-                int o = f * 3;
+                int o = f * NUM_3;
                 float u0 = uRelax[o], v0 = vRelax[o];
                 float u1 = uRelax[o + 1], v1 = vRelax[o + 1];
                 float u2 = uRelax[o + 2], v2 = vRelax[o + 2];
-                float sa = 0.5f * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
+                float sa = NUM_0_5 * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
                 if (sa > 0) continue;
                 flipCount++;
                 boolean nearSing = false;
-                for (int c = 0; c < 3; c++) {
+                for (int c = 0; c < NUM_3; c++) {
                     if (singVertSet.contains(mesh.faceVertexAt(f, c))) {
                         nearSing = true;
                         break;
@@ -205,7 +222,7 @@ public final class SeamlessParameterization {
                 }
                 boolean nearSeam = false;
                 int faceHe = mesh.faceHalfEdgeAt(f, 0);
-                for (int c = 0; c < 3; c++) {
+                for (int c = 0; c < NUM_3; c++) {
                     int he = mesh.faceHalfEdgeAt(f, c);
                     int meshEdge = mesh.halfEdgeEdge(he);
                     int Ei = field.interiorEdgeCount();
@@ -224,7 +241,7 @@ public final class SeamlessParameterization {
             }
             System.err.printf("[seamparam-diag] PATCH-127: flippedFaces=%d (%.1f%%): "
                     + "nearSing=%d nearSeam=%d nearBoth=%d farFromBoth=%d%n",
-                    flipCount, 100.0 * flipCount / faceCount,
+                    flipCount, NUM_100_0 * flipCount / faceCount,
                     flipNearSing, flipNearSeam, flipNearBoth, flipFarFromBoth);
 
             // PATCH-127 second diagnostic: distribution of UV signed area
@@ -235,11 +252,11 @@ public final class SeamlessParameterization {
             double[] flipAreas = new double[flipCount];
             int fi = 0;
             for (int f = 0; f < faceCount; f++) {
-                int o = f * 3;
+                int o = f * NUM_3;
                 float u0 = uRelax[o], v0 = vRelax[o];
                 float u1 = uRelax[o + 1], v1 = vRelax[o + 1];
                 float u2 = uRelax[o + 2], v2 = vRelax[o + 2];
-                float sa = 0.5f * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
+                float sa = NUM_0_5 * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
                 if (sa <= 0) flipAreas[fi++] = sa;
             }
             // Mean flipped-area, mean positive-area for comparison.
@@ -249,16 +266,16 @@ public final class SeamlessParameterization {
             double sumPos = 0;
             int posCount = 0;
             for (int f = 0; f < faceCount; f++) {
-                int o = f * 3;
+                int o = f * NUM_3;
                 float u0 = uRelax[o], v0 = vRelax[o];
                 float u1 = uRelax[o + 1], v1 = vRelax[o + 1];
                 float u2 = uRelax[o + 2], v2 = vRelax[o + 2];
-                float sa = 0.5f * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
+                float sa = NUM_0_5 * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
                 if (sa > 0) { sumPos += sa; posCount++; }
             }
             double meanPos = sumPos / Math.max(posCount, 1);
             System.err.printf("[seamparam-diag] PATCH-127 area dist: meanFlipArea=%.4f  meanPosArea=%.4f  ratio=%.3f%n",
-                    meanFlip, meanPos, Math.abs(meanFlip) / Math.max(meanPos, 1e-12));
+                    meanFlip, meanPos, Math.abs(meanFlip) / Math.max(meanPos, NUM_1e_12));
 
             // PATCH-127 third diagnostic: also check the SAME flipped-area
             // measure against the LOCAL-FRAME signed area (the 3D-to-2D
@@ -267,16 +284,16 @@ public final class SeamlessParameterization {
             int localPosUvFlip = 0;
             int localNegUvFlip = 0;
             for (int f = 0; f < faceCount; f++) {
-                int o = f * 3;
+                int o = f * NUM_3;
                 float u0 = uRelax[o], v0 = vRelax[o];
                 float u1 = uRelax[o + 1], v1 = vRelax[o + 1];
                 float u2 = uRelax[o + 2], v2 = vRelax[o + 2];
-                float uvSa = 0.5f * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
+                float uvSa = NUM_0_5 * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
                 if (uvSa > 0) continue;
-                int oQ = f * 6;
-                float q1u = H.localQ[oQ + 2], q1v = H.localQ[oQ + 3];
-                float q2u = H.localQ[oQ + 4], q2v = H.localQ[oQ + 5];
-                float localSa = 0.5f * (q1u * q2v - q2u * q1v);
+                int oQ = f * NUM_6;
+                float q1u = H.localQ[oQ + 2], q1v = H.localQ[oQ + NUM_3];
+                float q2u = H.localQ[oQ + NUM_4], q2v = H.localQ[oQ + NUM_5];
+                float localSa = NUM_0_5 * (q1u * q2v - q2u * q1v);
                 if (localSa > 0) localPosUvFlip++;
                 else localNegUvFlip++;
             }
@@ -302,7 +319,7 @@ public final class SeamlessParameterization {
             //   These should be small (near 0 or small integers); pathological
             //   large values suggest the relaxed solve is using them to absorb
             //   distortions.
-            if (faceCount <= 100 && H.seamEdgeCount > 0) {
+            if (faceCount <= NUM_100 && H.seamEdgeCount > 0) {
                 System.err.println("[seamparam-diag] PATCH-132 (j, k) post-solve values:");
                 int Ei = field.interiorEdgeCount();
                 for (int ie = 0; ie < Ei; ie++) {
@@ -321,11 +338,11 @@ public final class SeamlessParameterization {
 
             // PATCH-132: corner -> chart-vertex map for small meshes. Verify
             //   each mesh vertex maps to ONE chart-vertex within the same chart.
-            if (faceCount <= 12) {
+            if (faceCount <= NUM_12) {
                 System.err.println("[seamparam-diag] PATCH-132 corner -> chartVertex map:");
                 for (int f = 0; f < faceCount; f++) {
                     System.err.printf("  f=%d:", f);
-                    for (int c = 0; c < 3; c++) {
+                    for (int c = 0; c < NUM_3; c++) {
                         int meshV = mesh.faceVertexAt(f, c);
                         int cv = H.chart.chartVertexAt(f, c);
                         System.err.printf("  c%d:meshV=%d→cv=%d", c, meshV, cv);
@@ -336,15 +353,15 @@ public final class SeamlessParameterization {
 
             // PATCH-131: per-face Jacobian dump (only for small meshes — would
             //   spam the log on rocker-arm). Compares solved Jacobian vs target.
-            if (faceCount <= 100) {
+            if (faceCount <= NUM_100) {
                 System.err.printf("[seamparam-diag] PATCH-131 per-face dump (F=%d):%n", faceCount);
                 for (int f = 0; f < faceCount; f++) {
-                    int o = f * 3;
-                    int oQ = f * 6;
-                    float q1u = H.localQ[oQ + 2], q1v = H.localQ[oQ + 3];
-                    float q2u = H.localQ[oQ + 4], q2v = H.localQ[oQ + 5];
-                    double sa = 0.5 * (q1u * q2v - q2u * q1v);
-                    double inv2A = 1.0 / (2.0 * sa);
+                    int o = f * NUM_3;
+                    int oQ = f * NUM_6;
+                    float q1u = H.localQ[oQ + 2], q1v = H.localQ[oQ + NUM_3];
+                    float q2u = H.localQ[oQ + NUM_4], q2v = H.localQ[oQ + NUM_5];
+                    double sa = NUM_0_5_2 * (q1u * q2v - q2u * q1v);
+                    double inv2A = 1.0 / (NUM_2_0 * sa);
                     double b0 = (q1v - q2v) * inv2A, c0 = (q2u - q1u) * inv2A;
                     double b1 = (q2v - 0)   * inv2A, c1 = (0 - q2u)   * inv2A;
                     double b2 = (0 - q1v)   * inv2A, c2 = (q1u - 0)   * inv2A;
@@ -399,7 +416,7 @@ public final class SeamlessParameterization {
         // PATCH-54: each pin attempt is now a direct sparse LU on N ~ 2V+2Es
         // (~21k for rocker-arm, ~33k for Hand-30k). At those sizes we can let
         // the natural cap run; ojAlgo SparseLu handles each re-solve in <1s.
-        long naturalCap = (long) loop.numCV() * 4L;
+        long naturalCap = (long) loop.numCV() * NUM_4_2;
         int cap = (int) Math.min(naturalCap, maxRoundingIter);
         long ts3 = System.currentTimeMillis();
         IterativeRounding.Result result = loop.run(cap);
@@ -414,44 +431,102 @@ public final class SeamlessParameterization {
         this.injective = result.injective;
     }
 
+    /**
+     * PATCH-59: build a SeamlessParameterization from externally-supplied
+     * per-corner UVs (e.g. metriko's {@code stage2_uv_corners.tsv}).
+     * Bypasses the IGM solve entirely and just stores the given UV map
+     * so downstream stages (motorcycle / T-mesh / QEx) can be exercised
+     * with a known-good input.
+     *
+     * @param mesh underlying triangle mesh
+     * @param uCorner per-corner u, length {@code 3 * F}
+     * @param vCorner per-corner v, length {@code 3 * F}
+     * @param injective {@code true} if caller guarantees no flipped triangles
+     *                  in the input UVs (metriko stage2 is)
+     * @return TODO: describe
+     */
+    public static SeamlessParameterization fromExternal(ArrayMesh mesh,
+                                                        float[] uCorner,
+                                                        float[] vCorner,
+                                                        boolean injective) {
+        return new SeamlessParameterization(mesh.faceCount(), uCorner, vCorner, injective);
+    }
+
     //public SeamlessParameterization(HalfEdgeMesh mesh, CrossField crossField, List<Singularity> singularities) {
     //    //TODO Auto-generated constructor stub
     //}
 
-    /** Map chart-vertex pin flags back to per-corner array used by the public API. */
+    /**
+     * Map chart-vertex pin flags back to per-corner array used by the public API.
+     *
+     * @param pinnedCV TODO: describe
+     * @param H TODO: describe
+     * @return TODO: describe
+     */
     private static boolean[] projectPinsCV(boolean[] pinnedCV, IgmHessian H) {
         int F = H.faceCount;
-        boolean[] pinnedCorner = new boolean[F * 3];
+        boolean[] pinnedCorner = new boolean[F * NUM_3];
         for (int f = 0; f < F; f++) {
-            for (int c = 0; c < 3; c++) {
+            for (int c = 0; c < NUM_3; c++) {
                 int cv = H.chart.chartVertexAt(f, c);
-                pinnedCorner[f * 3 + c] = pinnedCV[cv];
+                pinnedCorner[f * NUM_3 + c] = pinnedCV[cv];
             }
         }
         return pinnedCorner;
     }
 
+    /**
+     * TODO: document {@code u}.
+     *
+     * @param faceId TODO: describe
+     * @param cornerIdx TODO: describe
+     * @return TODO: describe
+     */
     public float u(int faceId, int cornerIdx) {
-        return uCorner[faceId * 3 + cornerIdx];
+        return uCorner[faceId * NUM_3 + cornerIdx];
     }
 
+    /**
+     * TODO: document {@code v}.
+     *
+     * @param faceId TODO: describe
+     * @param cornerIdx TODO: describe
+     * @return TODO: describe
+     */
     public float v(int faceId, int cornerIdx) {
-        return vCorner[faceId * 3 + cornerIdx];
+        return vCorner[faceId * NUM_3 + cornerIdx];
     }
 
+    /**
+     * TODO: document {@code uvSignedArea}.
+     *
+     * @param faceId TODO: describe
+     * @return TODO: describe
+     */
     public float uvSignedArea(int faceId) {
-        int o = faceId * 3;
+        int o = faceId * NUM_3;
         float u0 = uCorner[o], v0 = vCorner[o];
         float u1 = uCorner[o + 1], v1 = vCorner[o + 1];
         float u2 = uCorner[o + 2], v2 = vCorner[o + 2];
-        return 0.5f * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
+        return NUM_0_5 * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
     }
 
+    /**
+     * TODO: document {@code isSingularityCorner}.
+     *
+     * @param faceId TODO: describe
+     * @param cornerIdx TODO: describe
+     * @return TODO: describe
+     */
     public boolean isSingularityCorner(int faceId, int cornerIdx) {
-        return singularityCorner[faceId * 3 + cornerIdx];
+        return singularityCorner[faceId * NUM_3 + cornerIdx];
     }
 
-    /** Returns flat array of corner ids (face*3 + cornerIdx) hard-pinned in BOTH u and v. */
+    /**
+     * Returns flat array of corner ids (face*3 + cornerIdx) hard-pinned in BOTH u and v.
+     *
+     * @return TODO: describe
+     */
     public int[] pinnedCorners() {
         ArrayList<Integer> out = new ArrayList<>();
         for (int c = 0; c < uPinned.length; c++) {
@@ -460,8 +535,18 @@ public final class SeamlessParameterization {
         return out.stream().mapToInt(Integer::intValue).toArray();
     }
 
+    /**
+     * TODO: document {@code iterationCount}.
+     *
+     * @return TODO: describe
+     */
     public int iterationCount() { return iterationCount; }
 
+    /**
+     * TODO: document {@code injectiveOnAllTriangles}.
+     *
+     * @return TODO: describe
+     */
     public boolean injectiveOnAllTriangles() { return injective; }
 
     /**
@@ -476,17 +561,22 @@ public final class SeamlessParameterization {
      * (cube, torus) the per-face span often comes out an order of magnitude
      * below the target unit. Without rescale the iterative-rounding step
      * collapses every singularity corner to the same integer (0, 0).
+     *
+     * @param mesh TODO: describe
+     * @param u TODO: describe
+     * @param v TODO: describe
+     * @return TODO: describe
      */
     private static float computeUvRescale(ArrayMesh mesh, float[] u, float[] v) {
         int F = mesh.faceCount();
-        if (F == 0) return 1f;
-        float[] lengths = new float[F * 3];
+        if (F == 0) return NUM_1;
+        float[] lengths = new float[F * NUM_3];
         int written = 0;
         for (int f = 0; f < F; f++) {
-            int o = f * 3;
-            for (int e = 0; e < 3; e++) {
+            int o = f * NUM_3;
+            for (int e = 0; e < NUM_3; e++) {
                 int a = e;
-                int b = (e + 1) % 3;
+                int b = (e + 1) % NUM_3;
                 float du = u[o + b] - u[o + a];
                 float dv = v[o + b] - v[o + a];
                 lengths[written++] = (float) Math.sqrt(du * du + dv * dv);
@@ -495,13 +585,13 @@ public final class SeamlessParameterization {
         java.util.Arrays.sort(lengths, 0, written);
         // 75th percentile rather than median — robust against the cluster of
         // tiny edges near collapsed-by-Tikhonov corners.
-        float q75 = lengths[(written * 3) / 4];
-        if (q75 < 1e-12f) return 1f;
+        float q75 = lengths[(written * NUM_3) / NUM_4];
+        if (q75 < NUM_1e_12_2) return NUM_1;
         // Target: per-triangle UV edge ~ TARGET_FACE_SPAN integer cells.
         // Closed-surface parametrizations under-shoot the relaxed scale, and
         // packing distinct singularities onto distinct integer grid cells
         // requires a span comfortably larger than 1.
-        final float TARGET_FACE_SPAN = 3.0f;
+        final float TARGET_FACE_SPAN = NUM_3_0;
         return TARGET_FACE_SPAN / q75;
     }
 
@@ -514,6 +604,9 @@ public final class SeamlessParameterization {
      * <p>Choice: {@code q = sqrt(mean_face_area)}. For unit-density layouts
      * this puts approximately one quad cell per triangle. Falls back to 1.0
      * for degenerate / empty meshes.
+     *
+     * @param mesh TODO: describe
+     * @return TODO: describe
      */
     private static double computeGlobalScale(ArrayMesh mesh) {
         int F = mesh.faceCount();
@@ -533,7 +626,7 @@ public final class SeamlessParameterization {
             e0.set(p1).sub(p0);
             e1.set(p2).sub(p0);
             e0.cross(e1, cross);
-            double area = 0.5 * cross.length();
+            double area = NUM_0_5_2 * cross.length();
             if (area > 0) {
                 total += area;
                 counted++;
@@ -542,16 +635,20 @@ public final class SeamlessParameterization {
         if (counted == 0) return 1.0;
         double mean = total / counted;
         double q = Math.sqrt(mean);
-        if (!(q > 1e-12)) return 1.0;
+        if (!(q > NUM_1e_12)) return 1.0;
         return q;
     }
 
-    /** Returns [uMin, uMax, vMin, vMax]. */
+    /**
+     * Returns [uMin, uMax, vMin, vMax].
+     *
+     * @return TODO: describe
+     */
     public float[] uvBoundingBox() {
         if (faceCount == 0) return new float[]{0, 0, 0, 0};
         float uMin = uCorner[0], uMax = uCorner[0];
         float vMin = vCorner[0], vMax = vCorner[0];
-        int n = faceCount * 3;
+        int n = faceCount * NUM_3;
         for (int i = 1; i < n; i++) {
             if (uCorner[i] < uMin) uMin = uCorner[i];
             if (uCorner[i] > uMax) uMax = uCorner[i];
@@ -561,11 +658,23 @@ public final class SeamlessParameterization {
         return new float[]{uMin, uMax, vMin, vMax};
     }
 
+    /**
+     * TODO: document {@code build}.
+     *
+     * @throws UnsupportedOperationException TODO: describe
+     * @return TODO: describe
+     */
     public SeamlessParameterization build() {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'build'");
     }
 
+    /**
+     * TODO: document {@code makeExactlySeamless}.
+     *
+     * @throws UnsupportedOperationException TODO: describe
+     * @return TODO: describe
+     */
     public SeamlessParameterization makeExactlySeamless() {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'makeExactlySeamless'");

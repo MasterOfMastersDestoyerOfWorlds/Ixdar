@@ -11,14 +11,28 @@ import java.util.List;
  */
 public record RoomListValue3D(List<Room> rooms) {
 
+    /**
+     * TODO: document {@code RoomListValue3D}.
+     */
     public RoomListValue3D {
         rooms = List.copyOf(rooms);
     }
 
+    /**
+     * TODO: document {@code size}.
+     *
+     * @return TODO: describe
+     */
     public int size() {
         return rooms.size();
     }
 
+    /**
+     * TODO: document {@code get}.
+     *
+     * @param index TODO: describe
+     * @return TODO: describe
+     */
     public Room get(int index) {
         return rooms.get(index);
     }
@@ -37,11 +51,41 @@ public record RoomListValue3D(List<Room> rooms) {
     public record Room(int id,
                        float centerX, float centerY, float centerZ,
                        float halfExtentX, float halfExtentY, float halfExtentZ) {
+        /**
+         * TODO: document {@code minX}.
+         *
+         * @return TODO: describe
+         */
         public float minX() { return centerX - halfExtentX; }
+        /**
+         * TODO: document {@code maxX}.
+         *
+         * @return TODO: describe
+         */
         public float maxX() { return centerX + halfExtentX; }
+        /**
+         * TODO: document {@code minY}.
+         *
+         * @return TODO: describe
+         */
         public float minY() { return centerY - halfExtentY; }
+        /**
+         * TODO: document {@code maxY}.
+         *
+         * @return TODO: describe
+         */
         public float maxY() { return centerY + halfExtentY; }
+        /**
+         * TODO: document {@code minZ}.
+         *
+         * @return TODO: describe
+         */
         public float minZ() { return centerZ - halfExtentZ; }
+        /**
+         * TODO: document {@code maxZ}.
+         *
+         * @return TODO: describe
+         */
         public float maxZ() { return centerZ + halfExtentZ; }
 
         /** True if this room's AABB intersects {@code other} (strict overlap, not edge-touching). */

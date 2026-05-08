@@ -18,18 +18,32 @@ import ixdar.procgen.dungeon.values.TileGridValue3D;
  * distinction by box height is dropped in favor of walkable interiors.
  */
 public final class GridToMesh3D {
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
+    public static final float NUM_0_5 = 0.5f;
+    public static final int NUM_8 = 8;
+    public static final int NUM_5 = 5;
+    public static final int NUM_6 = 6;
+    public static final int NUM_7 = 7;
 
     private GridToMesh3D() {
     }
 
+    /**
+     * TODO: document {@code emit}.
+     *
+     * @param grid TODO: describe
+     * @param cellSize TODO: describe
+     * @return TODO: describe
+     */
     public static ArrayMesh emit(TileGridValue3D grid, float cellSize) {
         // Each visible boundary emits TWO quads (inward + outward) — see GridToMesh2D for why.
         int faces = countFaces(grid) * 2;
-        float[] positions = new float[faces * 4 * 3];
-        int[] quads = new int[faces * 4];
-        float offsetX = -grid.width() * cellSize * 0.5f;
-        float offsetY = -grid.height() * cellSize * 0.5f;
-        float offsetZ = -grid.depth() * cellSize * 0.5f;
+        float[] positions = new float[faces * NUM_4 * NUM_3];
+        int[] quads = new int[faces * NUM_4];
+        float offsetX = -grid.width() * cellSize * NUM_0_5;
+        float offsetY = -grid.height() * cellSize * NUM_0_5;
+        float offsetZ = -grid.depth() * cellSize * NUM_0_5;
 
         int vIdx = 0;
         int qIdx = 0;
@@ -51,37 +65,37 @@ public final class GridToMesh3D {
                     if (y == 0 || grid.at(x, y - 1, z) == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 minX, minY, maxZ,  maxX, minY, maxZ,  maxX, minY, minZ,  minX, minY, minZ);
-                        vIdx += 8; qIdx += 8;
+                        vIdx += NUM_8; qIdx += NUM_8;
                     }
                     // +Y ceiling (omit if cell above is non-empty)
                     if (y == grid.height() - 1 || grid.at(x, y + 1, z) == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 maxX, maxY, minZ,  maxX, maxY, maxZ,  minX, maxY, maxZ,  minX, maxY, minZ);
-                        vIdx += 8; qIdx += 8;
+                        vIdx += NUM_8; qIdx += NUM_8;
                     }
                     // -X wall
                     if (x == 0 || grid.at(x - 1, y, z) == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 minX, maxY, minZ,  minX, maxY, maxZ,  minX, minY, maxZ,  minX, minY, minZ);
-                        vIdx += 8; qIdx += 8;
+                        vIdx += NUM_8; qIdx += NUM_8;
                     }
                     // +X wall
                     if (x == grid.width() - 1 || grid.at(x + 1, y, z) == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 maxX, minY, maxZ,  maxX, maxY, maxZ,  maxX, maxY, minZ,  maxX, minY, minZ);
-                        vIdx += 8; qIdx += 8;
+                        vIdx += NUM_8; qIdx += NUM_8;
                     }
                     // -Z wall
                     if (z == 0 || grid.at(x, y, z - 1) == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 maxX, minY, minZ,  maxX, maxY, minZ,  minX, maxY, minZ,  minX, minY, minZ);
-                        vIdx += 8; qIdx += 8;
+                        vIdx += NUM_8; qIdx += NUM_8;
                     }
                     // +Z wall
                     if (z == grid.depth() - 1 || grid.at(x, y, z + 1) == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 minX, maxY, maxZ,  maxX, maxY, maxZ,  maxX, minY, maxZ,  minX, minY, maxZ);
-                        vIdx += 8; qIdx += 8;
+                        vIdx += NUM_8; qIdx += NUM_8;
                     }
                 }
             }
@@ -123,15 +137,15 @@ public final class GridToMesh3D {
         quads[q]     = vBase;
         quads[q + 1] = vBase + 1;
         quads[q + 2] = vBase + 2;
-        quads[q + 3] = vBase + 3;
+        quads[q + NUM_3] = vBase + NUM_3;
         positions[p++] = ax; positions[p++] = ay; positions[p++] = az;
         positions[p++] = dx; positions[p++] = dy; positions[p++] = dz;
         positions[p++] = cx; positions[p++] = cy; positions[p++] = cz;
         positions[p++] = bx; positions[p++] = by; positions[p++] = bz;
-        quads[q + 4] = vBase + 4;
-        quads[q + 5] = vBase + 5;
-        quads[q + 6] = vBase + 6;
-        quads[q + 7] = vBase + 7;
+        quads[q + NUM_4] = vBase + NUM_4;
+        quads[q + NUM_5] = vBase + NUM_5;
+        quads[q + NUM_6] = vBase + NUM_6;
+        quads[q + NUM_7] = vBase + NUM_7;
         return p;
     }
 }

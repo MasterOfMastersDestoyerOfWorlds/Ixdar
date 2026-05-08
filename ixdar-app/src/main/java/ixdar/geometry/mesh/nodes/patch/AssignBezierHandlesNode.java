@@ -26,6 +26,13 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "assign_bezier_handles")
 public class AssignBezierHandlesNode implements MeshNode {
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String WEIGHT_2 = "weight";
+    public static final int NUM_3 = 3;
+    public static final float NUM_1e_20 = 1e-20f;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_1e_8 = 1e-8f;
+    public static final float NUM_0 = 0f;
 
     /**
      * {@code 4 * (sqrt(2) - 1) / 3} — cubic bezier control length for a quarter
@@ -42,9 +49,9 @@ public class AssignBezierHandlesNode implements MeshNode {
      */
     public static final String SLOT_WEIGHT = "_bezier_handle_weight";
 
-    private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort WEIGHT = new InputPort("weight", PortType.FLOAT, 1.0f, 0f, 10f);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort WEIGHT = new InputPort(WEIGHT_2, PortType.FLOAT, 1.0f, 0f, 10f);
+    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -54,8 +61,8 @@ public class AssignBezierHandlesNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "geometry", "Input cage / output bundle with _bezier_handles_start, _bezier_handles_end, _bezier_handle_weight slots populated.",
-                "weight", "Multiplier on the default quarter-circle tangent magnitude. 0 = straight edges (no rounding); 0.33 ≈ gentle; 1.0 ≈ bulging. Stored in the _bezier_handle_weight slot so downstream topology ops (loop_cut, inset, extrude) can rebuild handles consistently."
+                GEOMETRY_2, "Input cage / output bundle with _bezier_handles_start, _bezier_handles_end, _bezier_handle_weight slots populated.",
+                WEIGHT_2, "Multiplier on the default quarter-circle tangent magnitude. 0 = straight edges (no rounding); 0.33 ≈ gentle; 1.0 ≈ bulging. Stored in the _bezier_handle_weight slot so downstream topology ops (loop_cut, inset, extrude) can rebuild handles consistently."
         );
     }
 
@@ -71,10 +78,10 @@ public class AssignBezierHandlesNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
-        Object w = FieldBroadcast.getInputOrDefault(ctx, "weight", WEIGHT.defaultValue());
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
+        Object w = FieldBroadcast.getInputOrDefault(ctx, WEIGHT_2, WEIGHT.defaultValue());
         float weight = FieldBroadcast.floatScalarOrDefault(w, 1.0f);
-        ctx.setOutput("geometry", computeHandles(base, weight));
+        ctx.setOutput(GEOMETRY_2, computeHandles(base, weight));
     }
 
     /**
@@ -84,6 +91,10 @@ public class AssignBezierHandlesNode implements MeshNode {
      * dependence on prior slot state. Called directly by topology-modifying
      * nodes (extrude, inset) to rebuild globally consistent handles after they
      * change the mesh.
+     *
+     * @param base TODO: describe
+     * @param weight TODO: describe
+     * @return TODO: describe
      */
     public static GeometryBundle computeHandles(GeometryBundle base, float weight) {
         MeshTopology mesh = base.mesh();
@@ -95,7 +106,7 @@ public class AssignBezierHandlesNode implements MeshNode {
         for (int i = 0; i < mesh.edgeCount(); i++) {
             maxEdgeId = Math.max(maxEdgeId, mesh.edgeIdAt(i));
         }
-        int slotLen = (maxEdgeId + 1) * 3;
+        int slotLen = (maxEdgeId + 1) * NUM_3;
         float[] hStart = new float[slotLen];
         float[] hEnd = new float[slotLen];
 
@@ -113,12 +124,12 @@ public class AssignBezierHandlesNode implements MeshNode {
             mesh.vertexPosition(v1, vb);
             float edgeLen = va.distance(vb);
             float handleMag = edgeLen * QUARTER_CIRCLE_RATIO * weight;
-            if (edgeLen < 1e-20f || handleMag < 1e-20f) {
+            if (edgeLen < NUM_1e_20 || handleMag < NUM_1e_20) {
                 continue;
             }
 
             handleOffsetAtVertex(mesh, eid, v0, meshCenter, handleMag, outDir);
-            int o = eid * 3;
+            int o = eid * NUM_3;
             hStart[o] = outDir.x;
             hStart[o + 1] = outDir.y;
             hStart[o + 2] = outDir.z;
@@ -146,13 +157,20 @@ public class AssignBezierHandlesNode implements MeshNode {
             mesh.vertexPosition(mesh.vertexIdAt(i), p);
             acc.add(p);
         }
-        acc.mul(1f / n);
+        acc.mul(NUM_1 / n);
         return acc;
     }
 
     /**
      * Handle vector at {@code vert} for edge {@code eid} (offset from vertex),
      * length {@code handleMag}.
+     *
+     * @param mesh TODO: describe
+     * @param eid TODO: describe
+     * @param vert TODO: describe
+     * @param meshCenter TODO: describe
+     * @param handleMag TODO: describe
+     * @param dest TODO: describe
      */
     private static void handleOffsetAtVertex(
             MeshTopology mesh,
@@ -179,17 +197,17 @@ public class AssignBezierHandlesNode implements MeshNode {
             mesh.vertexPosition(otherVid, other);
             dir.set(other).sub(vertPos);
             float len = dir.length();
-            if (len < 1e-20f) {
+            if (len < NUM_1e_20) {
                 continue;
             }
-            dir.mul(1f / len);
+            dir.mul(NUM_1 / len);
             avg.add(dir);
             count++;
         }
 
         if (count > 0) {
-            avg.mul(1f / count);
-            if (avg.lengthSquared() > 1e-8f) {
+            avg.mul(NUM_1 / count);
+            if (avg.lengthSquared() > NUM_1e_8) {
                 avg.normalize().mul(-handleMag);
                 dest.set(avg);
                 return;
@@ -200,33 +218,33 @@ public class AssignBezierHandlesNode implements MeshNode {
         mesh.vertexPosition(otherVid, other);
         dir.set(other).sub(vertPos);
         float el = dir.length();
-        if (el < 1e-20f) {
-            dest.set(0f, 0f, handleMag);
+        if (el < NUM_1e_20) {
+            dest.set(NUM_0, NUM_0, handleMag);
             return;
         }
-        Vector3f edgeDir = new Vector3f(dir).mul(1f / el);
+        Vector3f edgeDir = new Vector3f(dir).mul(NUM_1 / el);
 
         Vector3f outward = new Vector3f(vertPos).sub(meshCenter);
-        if (outward.lengthSquared() < 1e-8f) {
-            outward.set(0f, 0f, 1f);
+        if (outward.lengthSquared() < NUM_1e_8) {
+            outward.set(NUM_0, NUM_0, NUM_1);
         } else {
             outward.normalize();
         }
         float along = outward.dot(edgeDir);
         Vector3f perp = new Vector3f(outward).sub(new Vector3f(edgeDir).mul(along));
-        if (perp.lengthSquared() > 1e-8f) {
+        if (perp.lengthSquared() > NUM_1e_8) {
             perp.normalize().mul(handleMag);
             dest.set(perp);
             return;
         }
 
         mesh.vertexNormal(vert, perp);
-        if (perp.lengthSquared() > 1e-8f) {
+        if (perp.lengthSquared() > NUM_1e_8) {
             perp.normalize().mul(handleMag);
             dest.set(perp);
             return;
         }
-        dest.set(0f, 0f, handleMag);
+        dest.set(NUM_0, NUM_0, handleMag);
     }
 
     private static int otherVertex(MeshTopology mesh, int eid, int vert) {

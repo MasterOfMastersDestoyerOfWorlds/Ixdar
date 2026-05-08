@@ -12,30 +12,40 @@ import ixdar.platform.input.MouseTrap;
 
 @AutomationRouteAnnotation(path = "input/scroll", method = APIMethod.POST)
 public class InjectScroll extends AutomationEndpoint implements AutomationRoute {
+    public static final String DELTA = "delta";
+    public static final String OK = "ok";
+    public static final String ERROR = "error";
+    /**
+     * TODO: document {@code endpointHandler}.
+     *
+     * @param body TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
-            double delta = body.has("delta")
-                    ? body.get("delta").getAsDouble()
+            double delta = body.has(DELTA)
+                    ? body.get(DELTA).getAsDouble()
                     : 0;
             return runtime.runOnMainThread(() -> {
                 MouseTrap mouse = runtime.activeMouse();
                 JsonObject result = new JsonObject();
                 if (mouse == null) {
-                    result.addProperty("ok", false);
-                    result.addProperty("error", "No active mouse handler");
+                    result.addProperty(OK, false);
+                    result.addProperty(ERROR, "No active mouse handler");
                     return result;
                 }
                 mouse.scrollCallback(delta);
                 JsonObject payload = new JsonObject();
-                payload.addProperty("delta", delta);
+                payload.addProperty(DELTA, delta);
                 runtime.recorder.recordAbstract("scroll", payload);
-                result.addProperty("ok", true);
+                result.addProperty(OK, true);
                 return result;
             });
         } catch (Exception e) {
             JsonObject error = new JsonObject();
-            error.addProperty("ok", false);
-            error.addProperty("error", e.getMessage());
+            error.addProperty(OK, false);
+            error.addProperty(ERROR, e.getMessage());
             return error;
         }
     }

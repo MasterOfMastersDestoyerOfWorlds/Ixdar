@@ -13,19 +13,37 @@ import ixdar.annotations.meshnode.Vector3Value;
  * Scalar vs {@link FloatField} / {@link Vec3Field} broadcasting for geometry-node math.
  */
 public final class FieldBroadcast {
+    public static final String VS = " vs ";
 
     private FieldBroadcast() {
     }
 
+    /**
+     * TODO: document {@code floatFieldLength}.
+     *
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public static int floatFieldLength(Object a, Object b) {
         int la = a instanceof FloatField fa ? fa.length() : 0;
         int lb = b instanceof FloatField fb ? fb.length() : 0;
         if (la > 0 && lb > 0 && la != lb) {
-            throw new IllegalArgumentException("Float field length mismatch: " + la + " vs " + lb);
+            throw new IllegalArgumentException("Float field length mismatch: " + la + VS + lb);
         }
         return Math.max(la, lb);
     }
 
+    /**
+     * TODO: document {@code floatFieldLength3}.
+     *
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @param c TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public static int floatFieldLength3(Object a, Object b, Object c) {
         int l = 0;
         l = Math.max(l, a instanceof FloatField fa ? fa.length() : 0);
@@ -46,6 +64,14 @@ public final class FieldBroadcast {
         return l;
     }
 
+    /**
+     * TODO: document {@code floatAt}.
+     *
+     * @param o TODO: describe
+     * @param i TODO: describe
+     * @param def TODO: describe
+     * @return TODO: describe
+     */
     public static float floatAt(Object o, int i, float def) {
         if (o == null) {
             return def;
@@ -59,6 +85,14 @@ public final class FieldBroadcast {
         return def;
     }
 
+    /**
+     * TODO: document {@code intAt}.
+     *
+     * @param o TODO: describe
+     * @param i TODO: describe
+     * @param def TODO: describe
+     * @return TODO: describe
+     */
     public static int intAt(Object o, int i, int def) {
         if (o == null) {
             return def;
@@ -72,6 +106,14 @@ public final class FieldBroadcast {
         return def;
     }
 
+    /**
+     * TODO: document {@code boolAt}.
+     *
+     * @param o TODO: describe
+     * @param i TODO: describe
+     * @param def TODO: describe
+     * @return TODO: describe
+     */
     public static boolean boolAt(Object o, int i, boolean def) {
         if (o == null) {
             return def;
@@ -85,6 +127,14 @@ public final class FieldBroadcast {
         return def;
     }
 
+    /**
+     * TODO: document {@code floatScalarOrDefault}.
+     *
+     * @param o TODO: describe
+     * @param def TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public static float floatScalarOrDefault(Object o, float def) {
         if (o == null) {
             return def;
@@ -98,6 +148,14 @@ public final class FieldBroadcast {
         return def;
     }
 
+    /**
+     * TODO: document {@code intScalarOrDefault}.
+     *
+     * @param o TODO: describe
+     * @param def TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public static int intScalarOrDefault(Object o, int def) {
         if (o == null) {
             return def;
@@ -111,19 +169,41 @@ public final class FieldBroadcast {
         return def;
     }
 
+    /**
+     * TODO: document {@code vec3Length}.
+     *
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public static int vec3Length(Object a, Object b) {
         int la = a instanceof Vec3Field va ? va.length() : 0;
         int lb = b instanceof Vec3Field vb ? vb.length() : 0;
         if (la > 0 && lb > 0 && la != lb) {
-            throw new IllegalArgumentException("Vec3 field length mismatch: " + la + " vs " + lb);
+            throw new IllegalArgumentException("Vec3 field length mismatch: " + la + VS + lb);
         }
         return Math.max(la, lb);
     }
 
+    /**
+     * TODO: document {@code vec3Length1}.
+     *
+     * @param a TODO: describe
+     * @return TODO: describe
+     */
     public static int vec3Length1(Object a) {
         return a instanceof Vec3Field va ? va.length() : 0;
     }
 
+    /**
+     * TODO: document {@code vec3At}.
+     *
+     * @param o TODO: describe
+     * @param i TODO: describe
+     * @param defaultV TODO: describe
+     * @param dest TODO: describe
+     */
     public static void vec3At(Object o, int i, Vector3Value defaultV, Vector3f dest) {
         if (o == null) {
             dest.set(defaultV.x(), defaultV.y(), defaultV.z());
@@ -140,6 +220,13 @@ public final class FieldBroadcast {
         dest.set(defaultV.x(), defaultV.y(), defaultV.z());
     }
 
+    /**
+     * TODO: document {@code vector3ValueOrDefault}.
+     *
+     * @param o TODO: describe
+     * @param def TODO: describe
+     * @return TODO: describe
+     */
     public static Vector3Value vector3ValueOrDefault(Object o, Vector3Value def) {
         if (o == null) {
             return def;
@@ -153,6 +240,14 @@ public final class FieldBroadcast {
         return def;
     }
 
+    /**
+     * TODO: document {@code getInputOrDefault}.
+     *
+     * @param ctx TODO: describe
+     * @param name TODO: describe
+     * @param schemaDefault TODO: describe
+     * @return TODO: describe
+     */
     public static Object getInputOrDefault(NodeContext ctx, String name, Object schemaDefault) {
         Object v = ctx.getInputValue(name);
         return v != null ? v : schemaDefault;

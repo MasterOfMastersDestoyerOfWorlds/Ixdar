@@ -13,20 +13,26 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "mesh/dsl", method = APIMethod.POST)
 public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
+    public static final String NAME = "name";
+    public static final String NODE = "node";
+    public static final String PORT = "port";
+    public static final String GEOMETRY = "geometry";
+    public static final String OK = "ok";
+    public static final String ERROR = "error";
 
     @Override
     public JsonObject endpointHandler(JsonObject body)
             throws IOException {
-        String dslName = body.has("name") ? body.get("name").getAsString() : "";
-        String node = body.has("node") ? body.get("node").getAsString() : "";
-        String port = body.has("port")
-                ? body.get("port").getAsString()
-                : "geometry";
+        String dslName = body.has(NAME) ? body.get(NAME).getAsString() : "";
+        String node = body.has(NODE) ? body.get(NODE).getAsString() : "";
+        String port = body.has(PORT)
+                ? body.get(PORT).getAsString()
+                : GEOMETRY;
 
         if (dslName.isEmpty()) {
             JsonObject err = new JsonObject();
-            err.addProperty("ok", false);
-            err.addProperty("error", "Missing required field: name");
+            err.addProperty(OK, false);
+            err.addProperty(ERROR, "Missing required field: name");
             return err;
 
         }
@@ -35,18 +41,18 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
             return runtime.runOnMainThread(() -> {
                 JsonObject result = new JsonObject();
                 if (!(runtime.canvas instanceof MeshNodeViewerScene)) {
-                    result.addProperty("ok", false);
+                    result.addProperty(OK, false);
                     result.addProperty(
-                            "error",
+                            ERROR,
                             "MeshNodeViewerScene is not active");
                     return result;
                 }
                 MeshNodeViewerScene mvs = (MeshNodeViewerScene) runtime.canvas;
                 mvs.loadDsl(dslName, node, port);
-                result.addProperty("ok", true);
+                result.addProperty(OK, true);
                 result.addProperty("dsl", dslName);
-                result.addProperty("node", node != null ? node : "");
-                result.addProperty("port", port != null ? port : "geometry");
+                result.addProperty(NODE, node != null ? node : "");
+                result.addProperty(PORT, port != null ? port : GEOMETRY);
                 result.addProperty("vertices", mvs.getMeshVertexCount());
                 result.addProperty("faces", mvs.getMeshFaceCount());
                 AutomationRuntime.appendTiming(mvs, result);
@@ -54,7 +60,7 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
             });
         } catch (Exception e) {
             JsonObject err = new JsonObject();
-            err.addProperty("ok", false);
+            err.addProperty(OK, false);
             StringBuilder msg = new StringBuilder();
             for (Throwable t = e; t != null; t = t.getCause()) {
                 if (msg.length() > 0)
@@ -64,7 +70,7 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
                         .append(": ")
                         .append(t.getMessage());
             }
-            err.addProperty("error", msg.toString());
+            err.addProperty(ERROR, msg.toString());
             return err;
         }
     }

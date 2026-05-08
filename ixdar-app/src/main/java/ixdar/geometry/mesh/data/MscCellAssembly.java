@@ -25,6 +25,12 @@ import java.util.Set;
  * quad-cell assembly is a future ticket.
  */
 public final class MscCellAssembly {
+    public static final int NUM_3 = 3;
+    public static final int NUM_0xFFFFF = 0xFFFFFF;
+    public static final float NUM_0 = 0f;
+    public static final int NUM_32 = 32;
+    public static final long NUM_0xffffffff = 0xffffffffL;
+    public static final int NUM_6 = 6;
 
     private static final int MAX_WALK_STEPS = 256;
 
@@ -40,6 +46,11 @@ public final class MscCellAssembly {
      * the critical-point set — the field used for classification must
      * be the field used for ascent, otherwise face-to-max assignments
      * may not align with the cell boundaries the user sees as MSC arcs.
+     *
+     * @param mesh TODO: describe
+     * @param scalar TODO: describe
+     * @param msc TODO: describe
+     * @return TODO: describe
      */
     public static int[] ascendingManifold(ArrayMesh mesh, float[] scalar,
                                           MorseSmaleComplex.Result msc) {
@@ -57,12 +68,18 @@ public final class MscCellAssembly {
      *
      * <p>If a vertex has no non-crossing uphill option, fall back to
      * the crossing one — better to terminate at a max than stall.
+     *
+     * @param mesh TODO: describe
+     * @param scalar TODO: describe
+     * @param msc TODO: describe
+     * @param highConfidenceEdges TODO: describe
+     * @return TODO: describe
      */
     public static int[] ascendingManifold(ArrayMesh mesh, float[] scalar,
                                           MorseSmaleComplex.Result msc,
                                           Set<Long> highConfidenceEdges) {
         int[] faceIdx = mesh.copyFaceIndices();
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3;
         int nv = mesh.vertexCount();
         float[] positions = mesh.copyPositions();
 
@@ -112,9 +129,9 @@ public final class MscCellAssembly {
         // Face pass: majority vote of the three vertex labels.
         int[] faceLabels = new int[faceCount];
         for (int f = 0; f < faceCount; f++) {
-            int a = vertexLabel[faceIdx[f * 3]];
-            int b = vertexLabel[faceIdx[f * 3 + 1]];
-            int c = vertexLabel[faceIdx[f * 3 + 2]];
+            int a = vertexLabel[faceIdx[f * NUM_3]];
+            int b = vertexLabel[faceIdx[f * NUM_3 + 1]];
+            int c = vertexLabel[faceIdx[f * NUM_3 + 2]];
             faceLabels[f] = majority(a, b, c, scalar, faceIdx, f);
         }
         return faceLabels;
@@ -124,12 +141,17 @@ public final class MscCellAssembly {
      * Collect ascending-manifold labels into a {@link PatchDecomposition}.
      * Each unique label becomes one Patch. Patch palette is the standard
      * golden-ratio-hue progression used elsewhere in the renderer.
+     *
+     * @param mesh TODO: describe
+     * @param faceLabels TODO: describe
+     * @param positions TODO: describe
+     * @return TODO: describe
      */
     public static PatchDecomposition toPatchDecomposition(ArrayMesh mesh,
                                                            int[] faceLabels,
                                                            float[] positions) {
         int[] faceIdx = mesh.copyFaceIndices();
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3;
         int nv = mesh.vertexCount();
         int maxLabel = 0;
         for (int l : faceLabels) if (l + 1 > maxLabel) maxLabel = l + 1;
@@ -146,18 +168,18 @@ public final class MscCellAssembly {
             if (faceList.isEmpty()) continue;
             boolean[] seen = new boolean[nv];
             int[] faces = new int[faceList.size()];
-            float[] centroid = new float[3];
+            float[] centroid = new float[NUM_3];
             int vertCount = 0;
             for (int i = 0; i < faces.length; i++) {
                 int f = faceList.get(i);
                 faces[i] = f;
-                for (int k = 0; k < 3; k++) {
-                    int v = faceIdx[f * 3 + k];
+                for (int k = 0; k < NUM_3; k++) {
+                    int v = faceIdx[f * NUM_3 + k];
                     if (!seen[v]) {
                         seen[v] = true;
-                        centroid[0] += positions[v * 3];
-                        centroid[1] += positions[v * 3 + 1];
-                        centroid[2] += positions[v * 3 + 2];
+                        centroid[0] += positions[v * NUM_3];
+                        centroid[1] += positions[v * NUM_3 + 1];
+                        centroid[2] += positions[v * NUM_3 + 2];
                         vertCount++;
                     }
                 }
@@ -170,9 +192,9 @@ public final class MscCellAssembly {
             centroid[1] /= vertCount;
             centroid[2] /= vertCount;
             String color = String.format("%06X",
-                    PatchRenderer.uniquePatchColor(patchId) & 0xFFFFFF);
+                    PatchRenderer.uniquePatchColor(patchId) & NUM_0xFFFFF);
             patches.add(new Patch(patchId++, verts, faces, /*branch=*/-1,
-                    centroid, /*meanCurvature=*/0f, color));
+                    centroid, /*meanCurvature=*/NUM_0, color));
         }
         return new PatchDecomposition(nv, patches);
     }
@@ -193,8 +215,8 @@ public final class MscCellAssembly {
             for (int u : ring[cur]) {
                 if (scalar[u] <= scalar[cur]) continue;
                 long key = u < cur
-                        ? ((long) u << 32) | (cur & 0xffffffffL)
-                        : ((long) cur << 32) | (u & 0xffffffffL);
+                        ? ((long) u << NUM_32) | (cur & NUM_0xffffffff)
+                        : ((long) cur << NUM_32) | (u & NUM_0xffffffff);
                 boolean crossing = highConfidenceEdges.contains(key);
                 if (crossing) {
                     if (scalar[u] > bestCrossVal) { bestCrossVal = scalar[u]; bestCross = u; }
@@ -212,14 +234,14 @@ public final class MscCellAssembly {
     private static int nearestMaxByPosition(int v, float[] positions, List<Integer> maxVerts) {
         int best = 0;
         float bestD = Float.MAX_VALUE;
-        float vx = positions[v * 3];
-        float vy = positions[v * 3 + 1];
-        float vz = positions[v * 3 + 2];
+        float vx = positions[v * NUM_3];
+        float vy = positions[v * NUM_3 + 1];
+        float vz = positions[v * NUM_3 + 2];
         for (int i = 0; i < maxVerts.size(); i++) {
             int m = maxVerts.get(i);
-            float dx = positions[m * 3] - vx;
-            float dy = positions[m * 3 + 1] - vy;
-            float dz = positions[m * 3 + 2] - vz;
+            float dx = positions[m * NUM_3] - vx;
+            float dy = positions[m * NUM_3 + 1] - vy;
+            float dz = positions[m * NUM_3 + 2] - vz;
             float d = dx * dx + dy * dy + dz * dz;
             if (d < bestD) { bestD = d; best = i; }
         }
@@ -230,6 +252,14 @@ public final class MscCellAssembly {
      * Majority vote across three vertex labels with a tie-break toward
      * the vertex with highest scalar value (closest to its target max,
      * so the most authoritative).
+     *
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @param c TODO: describe
+     * @param scalar TODO: describe
+     * @param faceIdx TODO: describe
+     * @param faceId TODO: describe
+     * @return TODO: describe
      */
     private static int majority(int a, int b, int c, float[] scalar, int[] faceIdx, int faceId) {
         if (a == b && b == c) return a;
@@ -239,22 +269,22 @@ public final class MscCellAssembly {
         // Three different labels — pick the vertex with the highest
         // scalar value, on the assumption it walked the shortest path
         // and is most reliable.
-        int va = faceIdx[faceId * 3];
-        int vb = faceIdx[faceId * 3 + 1];
-        int vc = faceIdx[faceId * 3 + 2];
+        int va = faceIdx[faceId * NUM_3];
+        int vb = faceIdx[faceId * NUM_3 + 1];
+        int vc = faceIdx[faceId * NUM_3 + 2];
         if (scalar[va] >= scalar[vb] && scalar[va] >= scalar[vc]) return a;
         if (scalar[vb] >= scalar[va] && scalar[vb] >= scalar[vc]) return b;
         return c;
     }
 
     private static int[][] buildOneRingFromFaces(int[] faceIdx, int nv) {
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3;
         List<java.util.HashSet<Integer>> tmp = new ArrayList<>(nv);
-        for (int i = 0; i < nv; i++) tmp.add(new java.util.HashSet<>(6));
+        for (int i = 0; i < nv; i++) tmp.add(new java.util.HashSet<>(NUM_6));
         for (int f = 0; f < faceCount; f++) {
-            int a = faceIdx[f * 3];
-            int b = faceIdx[f * 3 + 1];
-            int c = faceIdx[f * 3 + 2];
+            int a = faceIdx[f * NUM_3];
+            int b = faceIdx[f * NUM_3 + 1];
+            int c = faceIdx[f * NUM_3 + 2];
             tmp.get(a).add(b); tmp.get(a).add(c);
             tmp.get(b).add(a); tmp.get(b).add(c);
             tmp.get(c).add(a); tmp.get(c).add(b);

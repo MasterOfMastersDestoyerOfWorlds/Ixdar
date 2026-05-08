@@ -31,17 +31,15 @@ import ixdar.geometry.mesh.quadlayout.tmesh.TPatch;
  * {@code skippedPatchIds} pending PATCH-79.
  */
 public final class QuadLayoutExtractor {
+    public static final int NUM_3 = 3;
+    public static final int NUM_4 = 4;
+    public static final int NUM__2 = -2;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1 = 1f;
 
-    private QuadLayoutExtractor() {}
-
-    /** Extended result: the layout plus diagnostics. */
-    public record Result(QuadLayout layout,
-                         int tMeshPatches,
-                         int conformingPatches,
-                         List<Integer> skippedPatchIds) {}
-
-    /** PATCH-92 diagnostic: per-bail counters in {@link #extractImpl}.
-     *  Reset on each call, exposed for benchmark scripts. */
+    /**
+     * PATCH-92 diagnostic: per-bail counters in {@link #extractImpl}.
+     */
     public static int statTPatchesIn;
     public static int statAllSingleArcEmit;
     public static int statBailEmptySide;
@@ -50,13 +48,9 @@ public final class QuadLayoutExtractor {
     public static int statBailNoMatchNoSplit;
     public static int statBailDegenerateSplit;
     public static int statTJunctionExactMatch;     // PATCH-77 success path
-    public static int statTJunctionArcSplit;       // PATCH-80 success path
+    public static int statTJunctionArcSplit;
 
-    /** Worklist entry: a (possibly partially-resolved) patch under
-     *  consideration, in LayoutArc-id terms. */
-    private record WorkPatch(int sourceTPatchId,
-                              int[][] sides,
-                              int[] corners) {}
+    private QuadLayoutExtractor() {}
 
     /**
      * Build a conforming layout from {@code tmesh} and {@code q} (one int
@@ -66,6 +60,14 @@ public final class QuadLayoutExtractor {
      * per-corner UV arrays, and {@link TransitionMatrix} for tracing
      * INTERIOR layout arcs across face boundaries. Use this for real meshes
      * where T-junction extension may fire.
+     *
+     * @param tmesh TODO: describe
+     * @param q TODO: describe
+     * @param mesh TODO: describe
+     * @param uCorner TODO: describe
+     * @param vCorner TODO: describe
+     * @param trs TODO: describe
+     * @return TODO: describe
      */
     public static Result extract(TMesh tmesh, int[] q, ArrayMesh mesh,
                                   float[] uCorner, float[] vCorner,
@@ -77,6 +79,10 @@ public final class QuadLayoutExtractor {
      * Convenience overload for callers that don't have the mesh + TRS handy
      * (e.g. synthetic toy fixtures with no T-junctions). Throws if any
      * T-junction extension is actually attempted.
+     *
+     * @param tmesh TODO: describe
+     * @param q TODO: describe
+     * @return TODO: describe
      */
     public static Result extract(TMesh tmesh, int[] q) {
         return extractImpl(tmesh, q, null, null, null, null);
@@ -122,20 +128,20 @@ public final class QuadLayoutExtractor {
                 skipped.add(tp.id());
                 continue;
             }
-            if (tSides.length == 3) {
+            if (tSides.length == NUM_3) {
                 // PATCH-79 triangle wedge — emit directly, no extension needed.
-                int[][] triSides = new int[3][];
-                for (int s = 0; s < 3; s++) triSides[s] = tSides[s].clone();
+                int[][] triSides = new int[NUM_3][];
+                for (int s = 0; s < NUM_3; s++) triSides[s] = tSides[s].clone();
                 triangles.add(new TrianglePatch(triangles.size(), triSides,
                         tp.cornerNodeIds().clone()));
                 continue;
             }
-            if (tSides.length != 4) {
+            if (tSides.length != NUM_4) {
                 skipped.add(tp.id());
                 continue;
             }
-            int[][] sides = new int[4][];
-            for (int s = 0; s < 4; s++) sides[s] = tSides[s].clone();
+            int[][] sides = new int[NUM_4][];
+            for (int s = 0; s < NUM_4; s++) sides[s] = tSides[s].clone();
             work.push(new WorkPatch(tp.id(), sides, tp.cornerNodeIds().clone()));
             statTPatchesIn++;
         }
@@ -171,7 +177,7 @@ public final class QuadLayoutExtractor {
                 statBailNoMultiArcSide++;
                 continue;
             }
-            int opp = (s + 2) % 4;
+            int opp = (s + 2) % NUM_4;
             int sideLen = sumQ(p.sides[s], layoutArcQ);
             int oppLen = sumQ(p.sides[opp], layoutArcQ);
             if (sideLen != oppLen) {
@@ -194,7 +200,7 @@ public final class QuadLayoutExtractor {
             // reaching the matching node M (i.e. M is the END of arc
             // opp[matchIdx] when walking side opp FORWARD from corner opp).
             // Valid range: [0, oppCount-2]. matchIdx == -1 means no match.
-            int matchIdx = -2;  // sentinel: no exact match found
+            int matchIdx = NUM__2;  // sentinel: no exact match found
             int splitForwardIdx = -1;  // arc to split for PATCH-80 mid-arc case
             int splitSubDist = 0;       // q-portion to assign to the LEFT half
             int cum = 0;
@@ -275,10 +281,10 @@ public final class QuadLayoutExtractor {
                 int leftId = layoutArcs.size();
                 if (forward) {
                     leftArc = LayoutArc.derived(leftId, tarc,
-                            forwardWalkStart, newNodeId, 0f, tFraction);
+                            forwardWalkStart, newNodeId, NUM_0, tFraction);
                 } else {
                     leftArc = LayoutArc.derived(leftId, tarc,
-                            forwardWalkStart, newNodeId, 1f, 1f - tFraction);
+                            forwardWalkStart, newNodeId, NUM_1, NUM_1 - tFraction);
                 }
                 layoutArcs.add(leftArc);
                 layoutArcQ.add(leftQ);
@@ -286,10 +292,10 @@ public final class QuadLayoutExtractor {
                 int rightId = layoutArcs.size();
                 if (forward) {
                     rightArc = LayoutArc.derived(rightId, tarc,
-                            newNodeId, forwardWalkEnd, tFraction, 1f);
+                            newNodeId, forwardWalkEnd, tFraction, NUM_1);
                 } else {
                     rightArc = LayoutArc.derived(rightId, tarc,
-                            newNodeId, forwardWalkEnd, 1f - tFraction, 0f);
+                            newNodeId, forwardWalkEnd, NUM_1 - tFraction, NUM_0);
                 }
                 layoutArcs.add(rightArc);
                 layoutArcQ.add(rightQ);
@@ -329,7 +335,7 @@ public final class QuadLayoutExtractor {
             // Direction of the new INTERIOR arc is perpendicular to side s,
             // which == direction of side (s+1)%4 / (s+3)%4. Use side s+1's
             // first arc's direction as proxy.
-            int midSide = (s + 1) % 4;
+            int midSide = (s + 1) % NUM_4;
             if (p.sides[midSide].length > 0) {
                 direction = layoutArcs.get(p.sides[midSide][0]).direction();
             }
@@ -380,12 +386,21 @@ public final class QuadLayoutExtractor {
      * T-junction (end of first arc on side {@code s}) to the matching node
      * (end of arc {@code matchIdx} on side {@code opp} walked from corner
      * opp). See plan §B5 for the corner labelling.
+     *
+     * @param p TODO: describe
+     * @param s TODO: describe
+     * @param opp TODO: describe
+     * @param matchIdx TODO: describe
+     * @param interiorArcId TODO: describe
+     * @param tNodeId TODO: describe
+     * @param mNodeId TODO: describe
+     * @return TODO: describe
      */
     private static WorkPatch[] splitPatch(WorkPatch p, int s, int opp,
                                            int matchIdx, int interiorArcId,
                                            int tNodeId, int mNodeId) {
-        int sNext = (s + 1) % 4;
-        int sPrev = (s + 3) % 4;
+        int sNext = (s + 1) % NUM_4;
+        int sPrev = (s + NUM_3) % NUM_4;
 
         // Half A — contains corner `s`.
         // Walking CCW: corner s -> T (end of sides[s][0]) -> M (along interior)
@@ -395,7 +410,7 @@ public final class QuadLayoutExtractor {
         //  side 1: [interior]
         //  side 2: opp[matchIdx+1 .. end] reversed (M → corner sPrev)
         //  side 3: full sides[sPrev]
-        int[][] sidesA = new int[4][];
+        int[][] sidesA = new int[NUM_4][];
         sidesA[0] = new int[]{ p.sides[s][0] };
         sidesA[1] = new int[]{ interiorArcId };
         // side 2: walk corner sPrev → M means walk opp's tail reversed.
@@ -420,7 +435,7 @@ public final class QuadLayoutExtractor {
             sideA2[i] = p.sides[opp][matchIdx + 1 + i];
         }
         sidesA[2] = sideA2;
-        sidesA[3] = p.sides[sPrev].clone();
+        sidesA[NUM_3] = p.sides[sPrev].clone();
         // Corners A walking CCW: [corner s, T, M, corner sPrev].
         int[] cornersA = new int[]{
                 p.corners[s], tNodeId, mNodeId, p.corners[sPrev]
@@ -433,7 +448,7 @@ public final class QuadLayoutExtractor {
         //  side 1: full sides[sNext]
         //  side 2: opp[0..matchIdx]
         //  side 3: [interior]
-        int[][] sidesB = new int[4][];
+        int[][] sidesB = new int[NUM_4][];
         int sCount = p.sides[s].length;
         int[] sideB0 = new int[sCount - 1];
         for (int i = 0; i < sideB0.length; i++) sideB0[i] = p.sides[s][1 + i];
@@ -442,7 +457,7 @@ public final class QuadLayoutExtractor {
         int[] sideB2 = new int[matchIdx + 1];
         for (int i = 0; i < sideB2.length; i++) sideB2[i] = p.sides[opp][i];
         sidesB[2] = sideB2;
-        sidesB[3] = new int[]{ interiorArcId };
+        sidesB[NUM_3] = new int[]{ interiorArcId };
         int[] cornersB = new int[]{ tNodeId, p.corners[sNext], p.corners[opp], mNodeId };
 
         return new WorkPatch[]{
@@ -456,6 +471,21 @@ public final class QuadLayoutExtractor {
      * {@code firstArcOnS} on side {@code s} walked from corner {@code cornerS})
      * to the matching node M (end of arc {@code matchIdx} on side {@code opp}
      * walked from corner {@code cornerOpp}) using {@link SplitArcTracer}.
+     *
+     * @param tmesh TODO: describe
+     * @param mesh TODO: describe
+     * @param layoutArcs TODO: describe
+     * @param p TODO: describe
+     * @param s TODO: describe
+     * @param firstArcOnS TODO: describe
+     * @param cornerS TODO: describe
+     * @param opp TODO: describe
+     * @param matchIdx TODO: describe
+     * @param cornerOpp TODO: describe
+     * @param uCorner TODO: describe
+     * @param vCorner TODO: describe
+     * @param trs TODO: describe
+     * @return TODO: describe
      */
     private static List<SplitEdge> traceInterior(TMesh tmesh, ArrayMesh mesh,
                                                   List<LayoutArc> layoutArcs,
@@ -466,8 +496,8 @@ public final class QuadLayoutExtractor {
                                                   float[] uCorner, float[] vCorner,
                                                   TransitionMatrix trs) {
         // Build sideRSum from the underlying T-arcs of each side's LayoutArcs.
-        double[] sideRSum = new double[4];
-        for (int i = 0; i < 4; i++) {
+        double[] sideRSum = new double[NUM_4];
+        for (int i = 0; i < NUM_4; i++) {
             for (int laId : p.sides[i]) {
                 LayoutArc la = layoutArcs.get(laId);
                 sideRSum[i] += la.parametricLength();
@@ -482,7 +512,7 @@ public final class QuadLayoutExtractor {
         if (fromCanonical) {
             fromStepIdx = tArcFromS.stepUvs().size() - 1;
             float[] last = tArcFromS.stepUvs().get(fromStepIdx);
-            fromU = last[2]; fromV = last[3];
+            fromU = last[2]; fromV = last[NUM_3];
             fromFace = tArcFromS.meshFaceCrossings().get(fromStepIdx)[0];
         } else {
             fromStepIdx = 0;
@@ -512,7 +542,7 @@ public final class QuadLayoutExtractor {
         if (matchCanonical) {
             matchStepIdx = matchTArc.stepUvs().size() - 1;
             float[] last = matchTArc.stepUvs().get(matchStepIdx);
-            matchU = last[2]; matchV = last[3];
+            matchU = last[2]; matchV = last[NUM_3];
         } else {
             matchStepIdx = 0;
             float[] first = matchTArc.stepUvs().get(0);
@@ -541,8 +571,16 @@ public final class QuadLayoutExtractor {
         return traced.edges();
     }
 
-    /** Walk side from {@code cornerStart}, returning the node at the end of
-     *  arc index {@code arcIdx}. */
+    /**
+     * Walk side from {@code cornerStart}, returning the node at the end of
+     *  arc index {@code arcIdx}.
+     *
+     * @param layoutArcs TODO: describe
+     * @param sideArcs TODO: describe
+     * @param cornerStart TODO: describe
+     * @param arcIdx TODO: describe
+     * @return TODO: describe
+     */
     private static int walkSide(List<LayoutArc> layoutArcs, int[] sideArcs,
                                  int cornerStart, int arcIdx) {
         int cur = cornerStart;
@@ -552,28 +590,34 @@ public final class QuadLayoutExtractor {
         return cur;
     }
 
-    /** Given a LayoutArc and one of its endpoint TNode ids, return the other. */
+    /**
+     * Given a LayoutArc and one of its endpoint TNode ids, return the other.
+     *
+     * @param la TODO: describe
+     * @param fromNodeId TODO: describe
+     * @return TODO: describe
+     */
     private static int endNodeOf(LayoutArc la, int fromNodeId) {
         if (la.startNodeId() == fromNodeId) return la.endNodeId();
         return la.startNodeId();
     }
 
     private static boolean allSingleArc(int[][] sides) {
-        for (int s = 0; s < 4; s++) {
+        for (int s = 0; s < NUM_4; s++) {
             if (sides[s] == null || sides[s].length != 1) return false;
         }
         return true;
     }
 
     private static int firstMultiArcSide(int[][] sides) {
-        for (int s = 0; s < 4; s++) {
+        for (int s = 0; s < NUM_4; s++) {
             if (sides[s].length > 1) return s;
         }
         return -1;
     }
 
     private static boolean hasEmptySide(int[][] sides) {
-        for (int s = 0; s < 4; s++) {
+        for (int s = 0; s < NUM_4; s++) {
             if (sides[s] == null || sides[s].length == 0) return true;
         }
         return false;
@@ -590,4 +634,17 @@ public final class QuadLayoutExtractor {
         for (int i = 0; i < sides.length; i++) out[i] = sides[i].clone();
         return out;
     }
+
+    /** Extended result: the layout plus diagnostics. */
+    public record Result(QuadLayout layout,
+                         int tMeshPatches,
+                         int conformingPatches,
+                         List<Integer> skippedPatchIds) {}       // PATCH-80 success path
+
+    /**
+     * Worklist entry: a (possibly partially-resolved) patch under.
+     */
+    private record WorkPatch(int sourceTPatchId,
+                              int[][] sides,
+                              int[] corners) {}
 }

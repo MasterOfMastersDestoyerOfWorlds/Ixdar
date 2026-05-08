@@ -29,13 +29,18 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "loop_cut")
 public class LoopCutNode implements MeshNode {
+    public static final String MESH = "mesh";
+    public static final String GEOMETRY = "geometry";
+    public static final String CUTS_2 = "cuts";
+    public static final String AXIS_2 = "axis";
+    public static final String Z = "Z";
 
-    private static final InputPort MESH_IN = new InputPort("mesh", PortType.MESH, null);
-    private static final InputPort GEOMETRY_IN = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort CUTS = new InputPort("cuts", PortType.INT, 1, 1f, 32f);
-    private static final InputPort AXIS = new InputPort("axis", PortType.STRING, "Z");
-    private static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort MESH_IN = new InputPort(MESH, PortType.MESH, null);
+    private static final InputPort GEOMETRY_IN = new InputPort(GEOMETRY, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort CUTS = new InputPort(CUTS_2, PortType.INT, 1, 1f, 32f);
+    private static final InputPort AXIS = new InputPort(AXIS_2, PortType.STRING, Z);
+    private static final OutputPort MESH_OUT = new OutputPort(MESH, PortType.MESH);
+    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -55,10 +60,10 @@ public class LoopCutNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                "mesh", "Topology-only input (alternative to geometry). Used when no bundle slots need preservation.",
-                "geometry", "Geometry bundle input/output. If it carries bezier handles, de Casteljau subdivision is used and handles survive the cut.",
-                "cuts", "Number of new edge loops to insert, 1..32. Each cut subdivides aligned edges.",
-                "axis", "World-space axis the new loops run PERPENDICULAR to — i.e. cuts=1, axis=X inserts one loop across the X direction. Accepted: X, Y, Z."
+                MESH, "Topology-only input (alternative to geometry). Used when no bundle slots need preservation.",
+                GEOMETRY, "Geometry bundle input/output. If it carries bezier handles, de Casteljau subdivision is used and handles survive the cut.",
+                CUTS_2, "Number of new edge loops to insert, 1..32. Each cut subdivides aligned edges.",
+                AXIS_2, "World-space axis the new loops run PERPENDICULAR to — i.e. cuts=1, axis=X inserts one loop across the X direction. Accepted: X, Y, Z."
         );
     }
 
@@ -66,25 +71,25 @@ public class LoopCutNode implements MeshNode {
     public void evaluate(NodeContext ctx) {
         GeometryBundle bundle = null;
         MeshTopology mesh = null;
-        Object geoObj = ctx.getInputValue("geometry");
+        Object geoObj = ctx.getInputValue(GEOMETRY);
         if (geoObj != null) {
             bundle = GeometryBundles.requireBundle(geoObj);
             mesh = bundle.mesh();
         }
         if (mesh == null) {
-            mesh = ctx.getInput("mesh", MeshTopology.class);
+            mesh = ctx.getInput(MESH, MeshTopology.class);
         }
         if (mesh == null || mesh.vertexCount() == 0) {
-            ctx.setOutput("mesh", null);
-            ctx.setOutput("geometry", GeometryBundle.empty());
+            ctx.setOutput(MESH, null);
+            ctx.setOutput(GEOMETRY, GeometryBundle.empty());
             return;
         }
 
-        Object cutsObj = FieldBroadcast.getInputOrDefault(ctx, "cuts", CUTS.defaultValue());
+        Object cutsObj = FieldBroadcast.getInputOrDefault(ctx, CUTS_2, CUTS.defaultValue());
         int cuts = FieldBroadcast.intScalarOrDefault(cutsObj, 1);
 
-        String axisStr = String.valueOf(ctx.getInputValue("axis"));
-        if (axisStr == null || axisStr.isEmpty()) axisStr = "Z";
+        String axisStr = String.valueOf(ctx.getInputValue(AXIS_2));
+        if (axisStr == null || axisStr.isEmpty()) axisStr = Z;
 
         int axisIndex = switch (axisStr.toUpperCase()) {
             case "X" -> 0;
@@ -95,7 +100,7 @@ public class LoopCutNode implements MeshNode {
         ArrayMesh am = mesh instanceof ArrayMesh m ? m : ArrayMeshEngine.fromUniformMeshTopology(mesh);
         ArrayMesh result = ArrayMeshEngine.loopCutAxis(am, cuts, axisIndex);
 
-        ctx.setOutput("mesh", result);
-        ctx.setOutput("geometry", bundle != null ? bundle.withMesh(result) : GeometryBundle.ofMesh(result));
+        ctx.setOutput(MESH, result);
+        ctx.setOutput(GEOMETRY, bundle != null ? bundle.withMesh(result) : GeometryBundle.ofMesh(result));
     }
 }

@@ -12,6 +12,8 @@ import ixdar.graphics.cameras.Camera3D;
 import ixdar.platform.Platforms;
 
 public class OrbitMouseTrap extends MouseTrap {
+    public static final float NUM_3 = 3f;
+    public static final int NUM_60 = 60;
     private static final float DRAG_RADIANS_PER_PIXEL = 0.01f;
     private static final float MIN_ELEVATION = (float) Math.toRadians(-85.0);
     private static final float MAX_ELEVATION = (float) Math.toRadians(85.0);
@@ -27,17 +29,35 @@ public class OrbitMouseTrap extends MouseTrap {
     private float elevation = (float) Math.toRadians(20.0);
     private float distance = 3.5f;
 
+    /**
+     * TODO: document {@code OrbitMouseTrap}.
+     *
+     * @param camera TODO: describe
+     * @param canvas TODO: describe
+     */
     public OrbitMouseTrap(Camera3D camera, Canvas3D canvas) {
         super(null, camera, canvas);
         this.orbitCamera = camera;
         applyOrbit();
     }
 
+    /**
+     * TODO: document {@code setTarget}.
+     *
+     * @param target TODO: describe
+     */
     public void setTarget(Vector3f target) {
         orbitTarget.set(target);
         applyOrbit();
     }
 
+    /**
+     * TODO: document {@code setOrbit}.
+     *
+     * @param azimuthRadians TODO: describe
+     * @param elevationRadians TODO: describe
+     * @param orbitDistance TODO: describe
+     */
     public void setOrbit(float azimuthRadians, float elevationRadians, float orbitDistance) {
         azimuth = azimuthRadians;
         elevation = clamp(elevationRadians, MIN_ELEVATION, MAX_ELEVATION);
@@ -45,10 +65,32 @@ public class OrbitMouseTrap extends MouseTrap {
         applyOrbit();
     }
 
+    /**
+     * TODO: document {@code getAzimuth}.
+     *
+     * @return TODO: describe
+     */
     public float getAzimuth() { return azimuth; }
+    /**
+     * TODO: document {@code getElevation}.
+     *
+     * @return TODO: describe
+     */
     public float getElevation() { return elevation; }
+    /**
+     * TODO: document {@code getDistance}.
+     *
+     * @return TODO: describe
+     */
     public float getDistance() { return distance; }
 
+    /**
+     * TODO: document {@code mouseButton}.
+     *
+     * @param button TODO: describe
+     * @param action TODO: describe
+     * @param mods TODO: describe
+     */
     @Override
     public void mouseButton(int button, int action, int mods) {
         Platforms.init(Platforms.get().getPlatformID());
@@ -65,6 +107,13 @@ public class OrbitMouseTrap extends MouseTrap {
         }
     }
 
+    /**
+     * TODO: document {@code moveOrDrag}.
+     *
+     * @param window TODO: describe
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     @Override
     public void moveOrDrag(long window, float x, float y) {
         Platforms.init(Platforms.get().getPlatformID());
@@ -73,13 +122,19 @@ public class OrbitMouseTrap extends MouseTrap {
         }
         boolean leftDown = Platforms.gl().getMouseButton(window, MouseButtons.MOUSE_BUTTON_LEFT);
         Vector2f currentPos = new Vector2f(x, y);
-        if (leftDown && leftMouseDownPos != null && currentPos.distance(leftMouseDownPos) > 3f) {
+        if (leftDown && leftMouseDownPos != null && currentPos.distance(leftMouseDownPos) > NUM_3) {
             mouseDragged(x, y);
         } else {
             mousePos(x, y);
         }
     }
 
+    /**
+     * TODO: document {@code mousePos}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     @Override
     public void mousePos(float x, float y) {
         if (!active) {
@@ -91,6 +146,12 @@ public class OrbitMouseTrap extends MouseTrap {
         lastY = (int) y;
     }
 
+    /**
+     * TODO: document {@code mouseDragged}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     @Override
     public void mouseDragged(float x, float y) {
         if (!active) {
@@ -108,6 +169,11 @@ public class OrbitMouseTrap extends MouseTrap {
         applyOrbit();
     }
 
+    /**
+     * TODO: document {@code scrollCallback}.
+     *
+     * @param y TODO: describe
+     */
     @Override
     public void scrollCallback(double y) {
         if (!active) {
@@ -116,12 +182,17 @@ public class OrbitMouseTrap extends MouseTrap {
         super.scrollCallback(y);
     }
 
+    /**
+     * TODO: document {@code paintUpdate}.
+     *
+     * @param shiftMod TODO: describe
+     */
     @Override
     public void paintUpdate(float shiftMod) {
         if (!active) {
             return;
         }
-        if (System.currentTimeMillis() - timeLastScroll > 60) {
+        if (System.currentTimeMillis() - timeLastScroll > NUM_60) {
             queuedMouseWheelTicks = 0;
         }
         if (queuedMouseWheelTicks != 0) {

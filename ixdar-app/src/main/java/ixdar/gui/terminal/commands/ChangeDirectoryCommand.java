@@ -7,6 +7,7 @@ import ixdar.gui.terminal.Terminal;
 
 @CommandAnnotation(id = "cd")
 public class ChangeDirectoryCommand extends TerminalCommand {
+    public static final String LS = "ls";
 
     public static String cmd = "cd";
 
@@ -42,13 +43,13 @@ public class ChangeDirectoryCommand extends TerminalCommand {
             if (parent != null) {
                 terminal.directory = parent;
             }
-            return new String[] { "ls" };
+            return new String[] { LS };
         }
         String dirLoc = terminal.directory + "/" + args[startIdx];
         File newDir = new File(dirLoc);
         if (newDir.exists() && newDir.isDirectory()) {
             terminal.directory = dirLoc;
-            return new String[] { "ls" };
+            return new String[] { LS };
         }
         terminal.error("directory not found: " + dirLoc);
         return null;

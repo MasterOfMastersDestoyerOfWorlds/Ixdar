@@ -14,6 +14,11 @@ package ixdar.procgen.dungeon.physics;
 public record CapsuleShape(float centerX, float centerY, float centerZ,
                            float halfHeight, float radius) {
 
+    /**
+     * TODO: document {@code CapsuleShape}.
+     *
+     * @throws IllegalArgumentException TODO: describe
+     */
     public CapsuleShape {
         if (halfHeight < 0f) {
             throw new IllegalArgumentException("halfHeight must be >= 0, got " + halfHeight);
@@ -28,11 +33,26 @@ public record CapsuleShape(float centerX, float centerY, float centerZ,
         return new CapsuleShape(c.x(), c.y(), c.z(), halfHeight, radius);
     }
 
+    /**
+     * TODO: document {@code center}.
+     *
+     * @return TODO: describe
+     */
     public Vec3f center() {
         return new Vec3f(centerX, centerY, centerZ);
     }
 
+    /**
+     * TODO: document {@code segmentMinY}.
+     *
+     * @return TODO: describe
+     */
     public float segmentMinY() { return centerY - halfHeight; }
+    /**
+     * TODO: document {@code segmentMaxY}.
+     *
+     * @return TODO: describe
+     */
     public float segmentMaxY() { return centerY + halfHeight; }
 
     /** Total bounding-sphere radius around the capsule center: halfHeight + radius. */

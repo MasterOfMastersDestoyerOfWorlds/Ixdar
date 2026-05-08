@@ -35,10 +35,14 @@ import java.util.List;
  * fast for our 332-arc Hand-30k case.
  */
 public final class TPatchEnumerator {
-
-    /** Half-arc direction relative to its underlying TArc. */
-    private static final int FORWARD = 0;
-    private static final int REVERSE = 1;
+    public static final String TRUE = "true";
+    public static final String STR_3F = "%.3f";
+    public static final String STR = ",";
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
+    public static final int NUM_50 = 50;
+    public static final int NUM_16 = 16;
+    public static final int NUM_64 = 64;
 
     /** Debug counters; printed if {@code -Dixdar.quadlayout.tmesh.debug=true} is set. */
     public static int statHalfArcs;
@@ -51,63 +55,88 @@ public final class TPatchEnumerator {
 
     /** PATCH-70 dump: first N non-quad face cycles' cardinal sequences. */
     public static java.util.List<int[]> nonQuadCardinals = new java.util.ArrayList<>();
-    private static final int DUMP_NON_QUAD_LIMIT = 32;
 
     /** PATCH-91 D1: face-cycle length distribution (# half-arcs per cycle). */
     public static int[] statFaceLengthHist = new int[64];
-    /** PATCH-91 D2: arc-to-emitted-patch incidence histogram (in how many
-     *  patches each arc appears: 0, 1, 2, 3+). */
+    /**
+     * PATCH-91 D2: arc-to-emitted-patch incidence histogram (in how many.
+     */
     public static int[] statArcIncidenceHist = new int[8];
-    /** PATCH-91 F2: face-length cap. Cycles longer than this are DCEL
+    /**
+     * PATCH-91 F2: face-length cap. Cycles longer than this are DCEL
      *  outer-face walks around mesh holes / handles, NOT real layout patches.
-     *  Override at runtime via {@code -Dixdar.lyon.faceLengthCap=N}. */
+     */
     public static int statFacesOuterBoundary;
-    /** PATCH-89 diagnostic: of the dropped long cycles (n>faceLengthCap),
+    /**
+     * PATCH-89 diagnostic: of the dropped long cycles (n>faceLengthCap),
      *  how many had ≥1 BOUNDARY-kind corner node (bolt-hole / outer-mesh-edge
      *  cycle) vs how many had only INTERSECTION corners (handle / planar
      *  artifact). Decides whether boundary tracing (PATCH-89) is the right
-     *  fix for the long-cycle problem. */
+     */
     public static int statLongCyclesWithBoundaryCorner;
     public static int statLongCyclesAllIntersection;
     /** PATCH-89: lengths of dropped long cycles for inspection. */
     public static java.util.List<int[]> longCycleLengths = new java.util.ArrayList<>();
 
-    /** PATCH-92 angular-sort audit: per-node histogram of distinct mesh-face
+    /**
+     * PATCH-92 angular-sort audit: per-node histogram of distinct mesh-face
      *  frames among incident half-arcs. Index = (#distinct frames - 1), so
      *  bucket 0 = nodes with all incident arcs in one face frame (sort safe);
      *  bucket 1+ = nodes spanning multiple frames (sort potentially wrong
-     *  unless TRS-rotated to a common frame). */
+     */
     public static int[] statNodeFrameCountHist = new int[8];
     /** PATCH-92: total nodes with multi-frame incidents (sum of bucket 1+). */
     public static int statMultiFrameNodes;
     /** PATCH-92: number of nodes that actually got fan-based sort (vs angle). */
     public static int statFanSortedNodes;
 
-    /** PATCH-91 H2 diagnostic: of the dropped triangle face cycles, how many
-     *  have at least 1 SINGULARITY corner (real 3-valent wedge), vs how many
-     *  have only INTERSECTION corners (planar-walk artifact). */
+    /**
+     * PATCH-91 H2 diagnostic: of the dropped triangle face cycles, how many
+     *  have at least 1 SINGULARITY corner (real 3-valent wedge), vs how many.
+     */
     public static int statTrianglesWithSingularityCorner;
     public static int statTrianglesAllIntersection;
-    /** PATCH-91 H2: dump first N triangle details for inspection.
+    /**
+     * PATCH-91 H2: dump first N triangle details for inspection.
      *  Each entry: {cardinal_sequence, corner_node_ids, corner_kinds (0=sing, 1=intersection),
-     *  per-arc-id list, per-arc-direction list}. */
+     */
     public static java.util.List<String> triangleDumps = new java.util.ArrayList<>();
+
+    /** Half-arc direction relative to its underlying TArc. */
+    private static final int FORWARD = 0;
+    private static final int REVERSE = 1;
+    private static final int DUMP_NON_QUAD_LIMIT = 32;
     private static final int TRIANGLE_DUMP_LIMIT = 5;
 
     private TPatchEnumerator() {}
 
-    /** PATCH-92 fan-sort entry point. {@code mesh} and {@code singVertexToNode}
+    /**
+     * PATCH-92 fan-sort entry point. {@code mesh} and {@code singVertexToNode}
      *  enable mesh-fan-based sorting at multi-frame nodes (singularities)
      *  where outgoing half-arcs come from different mesh-face frames and
      *  raw parametric-angle sorting is not comparable across frames. Pass
      *  {@code null} for both to fall back to raw-angle sorting (legacy
-     *  behavior, used by tests and pure-T-mesh fixtures). */
+     *  behavior, used by tests and pure-T-mesh fixtures).
+     *
+     * @param nodes TODO: describe
+     * @param arcs TODO: describe
+     * @param mesh TODO: describe
+     * @param singVertexToNode TODO: describe
+     * @return TODO: describe
+     */
     public static List<TPatch> enumerate(List<TNode> nodes, List<TArc> arcs,
                                          ixdar.geometry.mesh.data.ArrayMesh mesh,
                                          java.util.Map<Integer, Integer> singVertexToNode) {
         return enumerateImpl(nodes, arcs, mesh, singVertexToNode);
     }
 
+    /**
+     * TODO: document {@code enumerate}.
+     *
+     * @param nodes TODO: describe
+     * @param arcs TODO: describe
+     * @return TODO: describe
+     */
     public static List<TPatch> enumerate(List<TNode> nodes, List<TArc> arcs) {
         return enumerateImpl(nodes, arcs, null, null);
     }
@@ -207,7 +236,7 @@ public final class TPatchEnumerator {
             // the actual root cause is upstream (abort-no-exit-edge fires
             // 65% of traces). Fan-sort is opt-in via system property; off
             // by default to preserve baseline behavior. See PATCH-92.
-            boolean enableFanSort = "true".equals(
+            boolean enableFanSort = TRUE.equals(
                     System.getProperty("ixdar.lyon.fanSort"));
             Integer vertexId = nodeIdToVertex.get(nodeId);
             if (enableFanSort && distinct > 1 && mesh != null && vertexId != null) {
@@ -263,7 +292,7 @@ public final class TPatchEnumerator {
             }
             if (cur != start) continue;
             statFacesWalked++;
-            if (cycle.size() < 4) {
+            if (cycle.size() < NUM_4) {
                 statFacesShortCycle++;
                 continue;
             }
@@ -310,8 +339,8 @@ public final class TPatchEnumerator {
                 } else {
                     // Reverse half-arc: heading OUT of arc.endNode and INTO
                     // arc.startNode, with cardinals flipped 180°.
-                    dirAtStart[i] = (arc.directionAtEnd() + 2) & 3;
-                    dirAtEnd[i] = (arc.directionAtStart() + 2) & 3;
+                    dirAtStart[i] = (arc.directionAtEnd() + 2) & NUM_3;
+                    dirAtEnd[i] = (arc.directionAtStart() + 2) & NUM_3;
                 }
             }
             // dirOf for backwards-compat with non-quad-cardinal dump.
@@ -329,7 +358,7 @@ public final class TPatchEnumerator {
             // cycles around mesh holes). These have very long face cycle
             // length — typically > 50 half-arcs on rocker-arm. They are
             // NOT real layout patches and must be excluded.
-            int faceLengthCap = parseIntProp("ixdar.lyon.faceLengthCap", 50);
+            int faceLengthCap = parseIntProp("ixdar.lyon.faceLengthCap", NUM_50);
             if (n > faceLengthCap) {
                 statFacesOuterBoundary++;
                 // PATCH-89 diagnostic: classify the dropped long cycle by
@@ -353,7 +382,7 @@ public final class TPatchEnumerator {
                 }
                 if (hasBoundaryCorner) statLongCyclesWithBoundaryCorner++;
                 else statLongCyclesAllIntersection++;
-                if (longCycleLengths.size() < 16) {
+                if (longCycleLengths.size() < NUM_16) {
                     longCycleLengths.add(new int[]{n, cIdxSize,
                             boundaryCornerCount, singCornerCount, intersectionCornerCount});
                 }
@@ -363,33 +392,33 @@ public final class TPatchEnumerator {
             // paper §3 specifies T-mesh patches as rectangular. Triangle
             // wedges around 3-valent singularities aren't part of Lyon's
             // formulation. Set -Dixdar.lyon.allowTriangles=true to enable.
-            boolean allowTriangles = "true".equals(
+            boolean allowTriangles = TRUE.equals(
                     System.getProperty("ixdar.lyon.allowTriangles"));
             // PATCH-91 F3: emit 5+ corner cells as multi-side patches so
             // their arcs are no longer orphan. Strip equivalence skips
             // non-4-side patches but their arcs participate in arcIncidence
             // and can chain via shared boundaries with adjacent quads.
-            int corCap = parseIntProp("ixdar.lyon.cornerCap", 64);
-            if (cIdxSize < 3 || cIdxSize > corCap) {
+            int corCap = parseIntProp("ixdar.lyon.cornerCap", NUM_64);
+            if (cIdxSize < NUM_3 || cIdxSize > corCap) {
                 statFacesNonQuad++;
                 if (nonQuadCardinals.size() < DUMP_NON_QUAD_LIMIT) {
                     nonQuadCardinals.add(dirOf.clone());
                 }
                 continue;
             }
-            if (cIdxSize == 3 && !allowTriangles) {
+            if (cIdxSize == NUM_3 && !allowTriangles) {
                 // H2 classification: does this triangle touch a singularity corner?
                 boolean hasSingCorner = false;
                 int[] cornerNodeIds = new int[cIdxSize];
                 String[] cornerKinds = new String[cIdxSize];
-                float[][] cornerUv = new float[cIdxSize][3];
+                float[][] cornerUv = new float[cIdxSize][NUM_3];
                 for (int s = 0; s < cIdxSize; s++) {
                     int from = cornerIdx.get(s);
                     int nodeId = startNodeOf[face[from]];
                     cornerNodeIds[s] = nodeId;
                     if (nodeId >= 0 && nodeId < nodes.size()) {
                         TNode tn = nodes.get(nodeId);
-                        cornerKinds[s] = tn.kind().toString().substring(0, Math.min(4, tn.kind().toString().length()));
+                        cornerKinds[s] = tn.kind().toString().substring(0, Math.min(NUM_4, tn.kind().toString().length()));
                         cornerUv[s][0] = tn.meshFaceId();
                         cornerUv[s][1] = tn.u();
                         cornerUv[s][2] = tn.v();
@@ -408,8 +437,8 @@ public final class TPatchEnumerator {
                             sb.append("[node=").append(cornerNodeIds[s])
                                     .append(" kind=").append(cornerKinds[s])
                                     .append(" face=").append((int) cornerUv[s][0])
-                                    .append(" uv=(").append(String.format("%.3f", cornerUv[s][1]))
-                                    .append(",").append(String.format("%.3f", cornerUv[s][2]))
+                                    .append(" uv=(").append(String.format(STR_3F, cornerUv[s][1]))
+                                    .append(STR).append(String.format(STR_3F, cornerUv[s][2]))
                                     .append(")] ");
                         }
                         sb.append("\n    arcs:");
@@ -421,7 +450,7 @@ public final class TPatchEnumerator {
                             sb.append(" side").append(s).append("=[");
                             for (int k = 0; k < len; k++) {
                                 int h = face[(from + k) % n];
-                                sb.append(h / 2).append((h & 1) == 0 ? "F" : "R").append(",");
+                                sb.append(h / 2).append((h & 1) == 0 ? "F" : "R").append(STR);
                             }
                             sb.append("]");
                         }
@@ -470,7 +499,8 @@ public final class TPatchEnumerator {
         return patches;
     }
 
-    /** PATCH-92: sort incident half-arcs at a multi-frame node by the
+    /**
+     * PATCH-92: sort incident half-arcs at a multi-frame node by the
      *  geometric CCW order of their launch faces around the mesh vertex,
      *  with raw parametric angle as the within-face tiebreaker.
      *
@@ -486,7 +516,14 @@ public final class TPatchEnumerator {
      *  vertex (from the half-edge structure's vertex one-ring) — IS a
      *  geometrically-valid CCW reference regardless of UV frame.
      *  Sorting by {@code (fan_position, within_face_angle)} matches the
-     *  planar walk's expectation of CCW-around-the-node ordering. */
+     *  planar walk's expectation of CCW-around-the-node ordering.
+     *
+     * @param halfArcs TODO: describe
+     * @param arcs TODO: describe
+     * @param startAngle TODO: describe
+     * @param mesh TODO: describe
+     * @param vertexId TODO: describe
+     */
     private static void sortByMeshFan(List<int[]> halfArcs, List<TArc> arcs,
                                       double[] startAngle,
                                       ixdar.geometry.mesh.data.ArrayMesh mesh,
@@ -499,7 +536,7 @@ public final class TPatchEnumerator {
         // PATCH-92: empirical — vertexOutgoingHalfEdgeAt walks one way; the
         // planar-dual face walk (next-CCW-after-inverse) expects the OTHER
         // way at multi-frame nodes. System property lets us A/B test.
-        boolean reverseFan = "true".equals(
+        boolean reverseFan = TRUE.equals(
                 System.getProperty("ixdar.lyon.reverseFanSort"));
         for (int k = 0; k < outCount; k++) {
             int he = mesh.vertexOutgoingHalfEdgeAt(vertexId, k);
@@ -527,16 +564,26 @@ public final class TPatchEnumerator {
         });
     }
 
-    /** PATCH-92: mesh face the arc's first step traverses (= face frame at
-     *  arc.startNode). Used to detect multi-frame angular-sort hazards. */
+    /**
+     * PATCH-92: mesh face the arc's first step traverses (= face frame at
+     *  arc.startNode). Used to detect multi-frame angular-sort hazards.
+     *
+     * @param arc TODO: describe
+     * @return TODO: describe
+     */
     private static int arc_first_face(TArc arc) {
         if (arc.meshFaceCrossings() == null || arc.meshFaceCrossings().isEmpty())
             return -1;
         return arc.meshFaceCrossings().get(0)[0];
     }
 
-    /** PATCH-92: mesh face the arc's last step traverses (= face frame at
-     *  arc.endNode). */
+    /**
+     * PATCH-92: mesh face the arc's last step traverses (= face frame at
+     *  arc.endNode).
+     *
+     * @param arc TODO: describe
+     * @return TODO: describe
+     */
     private static int arc_last_face(TArc arc) {
         if (arc.meshFaceCrossings() == null || arc.meshFaceCrossings().isEmpty())
             return -1;
@@ -544,20 +591,30 @@ public final class TPatchEnumerator {
                 arc.meshFaceCrossings().size() - 1)[0];
     }
 
-    /** Parametric angle of an arc's outgoing direction at its start. */
+    /**
+     * Parametric angle of an arc's outgoing direction at its start.
+     *
+     * @param arc TODO: describe
+     * @return TODO: describe
+     */
     private static double forwardStartAngle(TArc arc) {
         if (arc.stepUvs().isEmpty()) return cardinalAngle(arc.direction());
         float[] s = arc.stepUvs().get(0);
-        return Math.atan2(s[3] - s[1], s[2] - s[0]);
+        return Math.atan2(s[NUM_3] - s[1], s[2] - s[0]);
     }
 
-    /** Parametric angle of the arc's REVERSE outgoing direction (from its end). */
+    /**
+     * Parametric angle of the arc's REVERSE outgoing direction (from its end).
+     *
+     * @param arc TODO: describe
+     * @return TODO: describe
+     */
     private static double reverseStartAngle(TArc arc) {
-        if (arc.stepUvs().isEmpty()) return cardinalAngle((arc.direction() + 2) % 4);
+        if (arc.stepUvs().isEmpty()) return cardinalAngle((arc.direction() + 2) % NUM_4);
         int last = arc.stepUvs().size() - 1;
         float[] s = arc.stepUvs().get(last);
         // Reverse: from (uOut, vOut) towards (uIn, vIn), i.e. direction = -(out-in).
-        return Math.atan2(s[1] - s[3], s[0] - s[2]);
+        return Math.atan2(s[1] - s[NUM_3], s[0] - s[2]);
     }
 
     private static double cardinalAngle(int d) {

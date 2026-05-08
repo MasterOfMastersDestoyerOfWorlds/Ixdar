@@ -20,9 +20,71 @@ import ixdar.platform.file.FileManagement;
 import ixdar.platform.input.MouseTrap;
 
 public class MenuBox implements MouseTrap.ScrollHandler {
+    public static final float NUM_0_95 = 0.95f;
+    public static final float NUM_0_02 = 0.02f;
+    public static final int NUM_5 = 5;
+    public static final float NUM_0_9 = 0.9f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_0_91 = 0.91f;
+    public static final float NUM_1_5 = 1.5f;
+    public static final float NUM_0_075 = 0.075f;
+    public static final float NUM_2 = 2f;
+    public static ArrayList<MenuItem> menuItems;
+    public static Menu activeMenu;
+    public static float scrollOffsetY;
+    public static boolean menuVisible = true;
 
     private static Object automationRuntime;
     private static boolean automationChecked;
+
+    private static Menu debugMenu;
+    private static Menu gameMenu;
+    public float SCROLL_SPEED = 10f;
+    public SDFTexture logo;
+
+    SDFUnion menuOuterBorder;
+    int hoverItem = -1;
+    float scale = 2f;
+    float hoverX;
+    float hoverY;
+    float alpha;
+    Color outerColor;
+    Color outerFlash;
+    Color innerColor;
+    ColorBox boundingBox;
+    private float itemWidth;
+    private float itemHeight;
+    private Bounds scrollBounds;
+
+    /**
+     * TODO: document {@code MenuBox}.
+     */
+    public MenuBox() {
+        alpha = NUM_0_95;
+
+        innerColor = new ColorRGB(Color.NAVY, alpha);
+        outerColor = new ColorRGB(Color.BLUE_WHITE, alpha);
+        outerFlash = new ColorLerp(Color.BLUE_WHITE, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 });
+        menuOuterBorder = new SDFUnion("menu_inner.png", Color.NAVY, NUM_0_95, 0, -NUM_0_02, "menu_outer.png",
+                Color.BLUE_WHITE, alpha, NUM_5, 2);
+        logo = new SDFTexture("decal_sdf.png", Color.DARK_IXDAR, NUM_0_9, NUM_0, true);
+        boundingBox = new ColorBox();
+        String cachedFileName = FileManagement.getTestFileCache();
+
+        // Create both menus and link them
+        debugMenu = new Menu.MainMenu(cachedFileName);
+        gameMenu = new GameMenu(debugMenu);
+
+        // Select active menu based on GameMode toggle
+        if (Toggle.GameMode.value) {
+            activeMenu = gameMenu;
+        } else {
+            activeMenu = debugMenu;
+        }
+        menuItems = activeMenu.loadMenu();
+        scrollBounds = new Bounds(0, 0, 0, 0, "MENU_SCROLL");
+        MouseTrap.subscribeScrollRegion(scrollBounds, this);
+    }
 
     private static Object getAutomationRuntime() {
         if (!automationChecked) {
@@ -47,68 +109,9 @@ public class MenuBox implements MouseTrap.ScrollHandler {
             rt.getClass().getMethod("recordAbstractActionMap", String.class, java.util.Map.class).invoke(rt, action, payload);
         } catch (Throwable ignored) {}
     }
-    public static class MenuItemBounds {
-        public String label;
-        public float left;
-        public float bottom;
-        public float width;
-        public float height;
-        public float centerX;
-        public float centerY;
-    }
-
-    SDFUnion menuOuterBorder;
-    int hoverItem = -1;
-    float scale = 2f;
-    float hoverX;
-    float hoverY;
-    float alpha;
-    Color outerColor;
-    Color outerFlash;
-    Color innerColor;
-    ColorBox boundingBox;
-    private float itemWidth;
-    private float itemHeight;
-    public static ArrayList<MenuItem> menuItems;
-    public static Menu activeMenu;
-    public static float scrollOffsetY;
-    public float SCROLL_SPEED = 10f;
-    public static boolean menuVisible = true;
-    public SDFTexture logo;
-    private Bounds scrollBounds;
-
-    private static Menu debugMenu;
-    private static Menu gameMenu;
-
-    public MenuBox() {
-        alpha = 0.95f;
-
-        innerColor = new ColorRGB(Color.NAVY, alpha);
-        outerColor = new ColorRGB(Color.BLUE_WHITE, alpha);
-        outerFlash = new ColorLerp(Color.BLUE_WHITE, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 });
-        menuOuterBorder = new SDFUnion("menu_inner.png", Color.NAVY, 0.95f, 0, -0.02f, "menu_outer.png",
-                Color.BLUE_WHITE, alpha, 5, 2);
-        logo = new SDFTexture("decal_sdf.png", Color.DARK_IXDAR, 0.9f, 0f, true);
-        boundingBox = new ColorBox();
-        String cachedFileName = FileManagement.getTestFileCache();
-
-        // Create both menus and link them
-        debugMenu = new Menu.MainMenu(cachedFileName);
-        gameMenu = new GameMenu(debugMenu);
-
-        // Select active menu based on GameMode toggle
-        if (Toggle.GameMode.value) {
-            activeMenu = gameMenu;
-        } else {
-            activeMenu = debugMenu;
-        }
-        menuItems = activeMenu.loadMenu();
-        scrollBounds = new Bounds(0, 0, 0, 0, "MENU_SCROLL");
-        MouseTrap.subscribeScrollRegion(scrollBounds, this);
-    }
 
     /**
-     * Switch between debug and game menus based on Toggle.GameMode
+     * Switch between debug and game menus based on Toggle.GameMode.
      */
     public static void refreshMenuForMode() {
         if (Toggle.GameMode.value) {
@@ -122,6 +125,11 @@ public class MenuBox implements MouseTrap.ScrollHandler {
         }
     }
 
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param camera TODO: describe
+     */
     public void draw(Camera camera) {
         if (menuOuterBorder.outerTexture == null) {
             return;
@@ -138,7 +146,7 @@ public class MenuBox implements MouseTrap.ScrollHandler {
             return;
         }
         itemHeight = menuOuterBorder.outerTexture.height * scale / 2;
-        itemWidth = menuOuterBorder.outerTexture.width * scale * 0.91f;
+        itemWidth = menuOuterBorder.outerTexture.width * scale * NUM_0_91;
 
         // Track menu extents to update scroll bounds each frame
         float minLeft = Float.MAX_VALUE;
@@ -146,7 +154,7 @@ public class MenuBox implements MouseTrap.ScrollHandler {
         float minDown = Float.MAX_VALUE;
         float maxUp = Float.MIN_VALUE;
         for (int i = 0; i < menuItems.size(); i++) {
-            float itemCenterY = centerY - itemHeight - (itemHeight * i * 1.5f) - scrollOffsetY;
+            float itemCenterY = centerY - itemHeight - (itemHeight * i * NUM_1_5) - scrollOffsetY;
             float leftBoundX = centerX - itemWidth / 2;
             float rightBoundX = centerX + itemWidth / 2;
             float upBoundX = itemCenterY + itemHeight / 2;
@@ -166,7 +174,7 @@ public class MenuBox implements MouseTrap.ScrollHandler {
                 menuOuterBorder.drawCentered(centerX, itemCenterY, scale, innerColor, outerColor, camera);
 
             }
-            Drawing.getDrawing().font.drawHyperString(menuItems.get(i).itemString(), centerX, itemCenterY + itemHeight * 0.075f,
+            Drawing.getDrawing().font.drawHyperString(menuItems.get(i).itemString(), centerX, itemCenterY + itemHeight * NUM_0_075,
                     itemHeight / 2, (Camera2D) camera);
         }
         if (menuItems.size() > 0) {
@@ -178,11 +186,23 @@ public class MenuBox implements MouseTrap.ScrollHandler {
         }
     }
 
+    /**
+     * TODO: document {@code setHover}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     public void setHover(float x, float y) {
         hoverX = x;
         hoverY = y;
     }
 
+    /**
+     * TODO: document {@code click}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     public void click(float x, float y) {
         if (!menuVisible) {
             return;
@@ -190,7 +210,7 @@ public class MenuBox implements MouseTrap.ScrollHandler {
         MenuItem clickedItem = null;
         for (int i = 0; i < menuItems.size(); i++) {
             float centerX = Platforms.get().getFrameBufferWidth() / 2;
-            float centerY = Platforms.get().getFrameBufferHeight() / 2 - itemHeight - (itemHeight * i * 1.5f) - scrollOffsetY;
+            float centerY = Platforms.get().getFrameBufferHeight() / 2 - itemHeight - (itemHeight * i * NUM_1_5) - scrollOffsetY;
             float leftBoundX = centerX - itemWidth / 2;
             float rightBoundX = centerX + itemWidth / 2;
             float upBoundX = centerY + itemHeight / 2;
@@ -211,18 +231,32 @@ public class MenuBox implements MouseTrap.ScrollHandler {
         clickedItem.performAction();
     }
 
+    /**
+     * TODO: document {@code load}.
+     *
+     * @param parent TODO: describe
+     */
     public static void load(Menu parent) {
         scrollOffsetY = 0;
         activeMenu = parent;
         menuItems = parent.loadMenu();
     }
 
+    /**
+     * TODO: document {@code back}.
+     */
     public void back() {
         activeMenu.back();
     }
 
+    /**
+     * TODO: document {@code onScroll}.
+     *
+     * @param scrollUp TODO: describe
+     * @param deltaSeconds TODO: describe
+     */
     public void onScroll(boolean scrollUp, double deltaSeconds) {
-        float menuBottom = Platforms.get().getFrameBufferHeight() / 2 - (itemHeight * menuItems.size() * 1.5f);
+        float menuBottom = Platforms.get().getFrameBufferHeight() / 2 - (itemHeight * menuItems.size() * NUM_1_5);
 
         if (menuBottom > 0) {
             scrollOffsetY = 0;
@@ -245,7 +279,7 @@ public class MenuBox implements MouseTrap.ScrollHandler {
     /**
      * Get the calculated item height for menu buttons. Returns 0 if textures are
      * not yet loaded.
-     * 
+     *
      * @return the height of each menu item in pixels
      */
     public float getItemHeight() {
@@ -255,26 +289,31 @@ public class MenuBox implements MouseTrap.ScrollHandler {
     /**
      * Get the calculated item width for menu buttons. Returns 0 if textures are not
      * yet loaded.
-     * 
+     *
      * @return the width of each menu item in pixels
      */
     public float getItemWidth() {
         return itemWidth;
     }
 
+    /**
+     * TODO: document {@code getMenuItemBounds}.
+     *
+     * @return TODO: describe
+     */
     public List<MenuItemBounds> getMenuItemBounds() {
         ArrayList<MenuItemBounds> bounds = new ArrayList<>();
         if (menuItems == null || menuItems.isEmpty() || itemWidth <= 0 || itemHeight <= 0) {
             return bounds;
         }
-        float centerX = Platforms.get().getFrameBufferWidth() / 2f;
-        float centerY = Platforms.get().getFrameBufferHeight() / 2f;
+        float centerX = Platforms.get().getFrameBufferWidth() / NUM_2;
+        float centerY = Platforms.get().getFrameBufferHeight() / NUM_2;
         for (int i = 0; i < menuItems.size(); i++) {
-            float itemCenterY = centerY - itemHeight - (itemHeight * i * 1.5f) - scrollOffsetY;
+            float itemCenterY = centerY - itemHeight - (itemHeight * i * NUM_1_5) - scrollOffsetY;
             MenuItemBounds item = new MenuItemBounds();
             item.label = menuItems.get(i).getHeading();
-            item.left = centerX - itemWidth / 2f;
-            item.bottom = itemCenterY - itemHeight / 2f;
+            item.left = centerX - itemWidth / NUM_2;
+            item.bottom = itemCenterY - itemHeight / NUM_2;
             item.width = itemWidth;
             item.height = itemHeight;
             item.centerX = centerX;
@@ -282,6 +321,15 @@ public class MenuBox implements MouseTrap.ScrollHandler {
             bounds.add(item);
         }
         return bounds;
+    }
+    public static class MenuItemBounds {
+        public String label;
+        public float left;
+        public float bottom;
+        public float width;
+        public float height;
+        public float centerX;
+        public float centerY;
     }
 
 }

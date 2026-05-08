@@ -10,6 +10,16 @@ public class ImportedModelData {
     public final Vector3f center;
     public final float radius;
 
+    /**
+     * TODO: document {@code ImportedModelData}.
+     *
+     * @param vertices TODO: describe
+     * @param indices TODO: describe
+     * @param vertexCount TODO: describe
+     * @param hasTexCoords TODO: describe
+     * @param center TODO: describe
+     * @param radius TODO: describe
+     */
     public ImportedModelData(float[] vertices, int[] indices, int vertexCount, boolean hasTexCoords, Vector3f center, float radius) {
         this.vertices = vertices;
         this.indices = indices;

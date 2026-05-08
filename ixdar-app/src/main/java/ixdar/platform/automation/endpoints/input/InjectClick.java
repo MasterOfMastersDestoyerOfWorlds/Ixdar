@@ -16,19 +16,32 @@ import ixdar.platform.input.TradeMouseTrap;
 
 @AutomationRouteAnnotation(path = "input/click", method = APIMethod.POST)
 public class InjectClick extends AutomationEndpoint implements AutomationRoute {
+    public static final String X = "x";
+    public static final String Y = "y";
+    public static final String NORMALIZED = "normalized";
+    public static final String BUTTON = "button";
+    public static final String OK = "ok";
+    public static final String ERROR = "error";
 
+    /**
+     * TODO: document {@code endpointHandler}.
+     *
+     * @param body TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
-        float x = body.has("x") ? body.get("x").getAsFloat() : 0f;
-        float y = body.has("y") ? body.get("y").getAsFloat() : 0f;
-        boolean normalized = body.has("normalized") && body.get("normalized").getAsBoolean();
-        int button = body.has("button") ? body.get("button").getAsInt() : 0;
+        float x = body.has(X) ? body.get(X).getAsFloat() : 0f;
+        float y = body.has(Y) ? body.get(Y).getAsFloat() : 0f;
+        boolean normalized = body.has(NORMALIZED) && body.get(NORMALIZED).getAsBoolean();
+        int button = body.has(BUTTON) ? body.get(BUTTON).getAsInt() : 0;
         try {
             return runtime.runOnMainThread(() -> {
                 MouseTrap mouse = runtime.activeMouse();
                 JsonObject result = new JsonObject();
                 if (mouse == null) {
-                    result.addProperty("ok", false);
-                    result.addProperty("error", "No active mouse handler");
+                    result.addProperty(OK, false);
+                    result.addProperty(ERROR, "No active mouse handler");
                     return result;
                 }
                 float xPos = normalized ? denormalizeX(x) : x;
@@ -50,16 +63,16 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
                 payload.addProperty("yPx", yPos);
                 payload.addProperty("xNorm", normalizeX(xPos));
                 payload.addProperty("yNorm", normalizeY(yPos));
-                payload.addProperty("button", button);
+                payload.addProperty(BUTTON, button);
                 runtime.recordAbstractAction("click", payload);
-                result.addProperty("ok", true);
+                result.addProperty(OK, true);
                 result.add("event", payload);
                 return result;
             });
         } catch (Exception e) {
             JsonObject error = new JsonObject();
-            error.addProperty("ok", false);
-            error.addProperty("error", e.getMessage());
+            error.addProperty(OK, false);
+            error.addProperty(ERROR, e.getMessage());
             return error;
         }
     }

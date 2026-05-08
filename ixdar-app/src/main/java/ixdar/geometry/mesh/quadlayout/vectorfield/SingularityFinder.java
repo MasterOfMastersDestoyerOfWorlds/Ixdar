@@ -27,9 +27,18 @@ import ixdar.geometry.mesh.data.ArrayMesh;
  * before this stage runs in the QGP pipeline).
  */
 public final class SingularityFinder {
+    public static final double NUM_2_0 = 2.0;
+    public static final float NUM_1e_30 = 1e-30f;
+    public static final double NUM_0_5 = 0.5;
 
     private SingularityFinder() {}
 
+    /**
+     * TODO: document {@code find}.
+     *
+     * @param field TODO: describe
+     * @return TODO: describe
+     */
     public static List<Singularity> find(FaceRosyField field) {
         ArrayMesh mesh = field.mesh();
         int V = mesh.vertexCount();
@@ -51,7 +60,7 @@ public final class SingularityFinder {
         for (int v = 0; v < V; v++) {
             if (mesh.isBoundaryVertex(v)) continue;
 
-            double angleDefect = 2.0 * Math.PI;
+            double angleDefect = NUM_2_0 * Math.PI;
             double signedMSum = 0.0;
             double signedResidualSum = 0.0;
 
@@ -79,7 +88,7 @@ public final class SingularityFinder {
                 vb.set(b).sub(p);
                 float la = va.length();
                 float lb = vb.length();
-                if (la > 1e-30f && lb > 1e-30f) {
+                if (la > NUM_1e_30 && lb > NUM_1e_30) {
                     double cos = va.dot(vb) / (la * lb);
                     cos = Math.max(-1.0, Math.min(1.0, cos));
                     angleDefect -= Math.acos(cos);
@@ -104,7 +113,7 @@ public final class SingularityFinder {
                 double residual = field.theta(field.edgeFaceA(ie))
                         - field.theta(field.edgeFaceB(ie))
                         + field.kappa(ie)
-                        + m * (Math.PI * 0.5);
+                        + m * (Math.PI * NUM_0_5);
                 signedResidualSum += sign * residual;
             }
 
@@ -118,7 +127,7 @@ public final class SingularityFinder {
             double rawRadians = angleDefect + signedResidualSum;
             // For a regular vertex this is approximately zero; for a singular
             // vertex it is approximately k * pi/2 with k = index_4(v).
-            int index4 = (int) Math.round(rawRadians / (Math.PI * 0.5));
+            int index4 = (int) Math.round(rawRadians / (Math.PI * NUM_0_5));
             if (index4 != 0) {
                 out.add(new Singularity(v, index4));
             }

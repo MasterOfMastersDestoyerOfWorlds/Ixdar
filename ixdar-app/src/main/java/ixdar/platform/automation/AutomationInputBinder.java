@@ -11,6 +11,13 @@ public class AutomationInputBinder {
     private AutomationInputBinder() {
     }
 
+    /**
+     * TODO: document {@code bind}.
+     *
+     * @param platform TODO: describe
+     * @param keys TODO: describe
+     * @param mouse TODO: describe
+     */
     public static void bind(Platform platform, KeyGuy keys, MouseTrap mouse) {
         platform.setKeyCallback((key, scancode, action, mods) -> {
             AutomationRuntime.get().recordRawKey(key, scancode, action, mods);

@@ -19,13 +19,24 @@ import org.ejml.data.DMatrixRMaj;
  * pins one θ per connected component.
  */
 public final class SparseLu {
+    public static final double NUM_1e9 = 1e9;
 
     private LinearSolverSparse<DMatrixSparseCSC, DMatrixRMaj> solver;
     private int n;
 
+    /**
+     * TODO: document {@code SparseLu}.
+     */
     public SparseLu() {
     }
 
+    /**
+     * TODO: document {@code decompose}.
+     *
+     * @param m TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public boolean decompose(SparseMatrix m) {
         if (m.rows() != m.cols()) {
             throw new IllegalArgumentException("requires square matrix");
@@ -36,7 +47,7 @@ public final class SparseLu {
         long t0 = System.nanoTime();
         DMatrixSparseCSC ejml = toEjml(m);
         System.err.printf("[sparse-chol] convert done nnz=%d time=%.2fs%n",
-                ejml.nz_length, (System.nanoTime() - t0) / 1e9);
+                ejml.nz_length, (System.nanoTime() - t0) / NUM_1e9);
     
         System.err.println("[sparse-chol] factory start");
         solver = LinearSolverFactory_DSCC.cholesky(FillReducing.NONE);
@@ -46,20 +57,39 @@ public final class SparseLu {
         long t1 = System.nanoTime();
         boolean ok = solver.setA(ejml);
         System.err.printf("[sparse-chol] setA done ok=%s time=%.2fs%n",
-                ok, (System.nanoTime() - t1) / 1e9);
+                ok, (System.nanoTime() - t1) / NUM_1e9);
     
         return ok;
     }
 
 
+    /**
+     * TODO: document {@code refactor}.
+     *
+     * @param m TODO: describe
+     * @return TODO: describe
+     */
     public boolean refactor(SparseMatrix m) {
         return decompose(m);
     }
 
+    /**
+     * TODO: document {@code isSolvable}.
+     *
+     * @return TODO: describe
+     */
     public boolean isSolvable() {
         return solver != null;
     }
 
+    /**
+     * TODO: document {@code solve}.
+     *
+     * @param rhs TODO: describe
+     * @throws IllegalStateException TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public double[] solve(double[] rhs) {
         if (solver == null) {
             throw new IllegalStateException("decompose() not called");
@@ -73,6 +103,11 @@ public final class SparseLu {
         return x.getData().clone();
     }
 
+    /**
+     * TODO: document {@code dimension}.
+     *
+     * @return TODO: describe
+     */
     public int dimension() {
         return n;
     }

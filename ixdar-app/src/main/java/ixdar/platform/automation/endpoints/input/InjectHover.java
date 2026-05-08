@@ -13,20 +13,33 @@ import ixdar.platform.input.TradeMouseTrap;
 
 @AutomationRouteAnnotation(path = "input/hover", method = APIMethod.POST)
 public class InjectHover extends AutomationEndpoint implements AutomationRoute {
+    public static final String X = "x";
+    public static final String Y = "y";
+    public static final String NORMALIZED = "normalized";
+    public static final String PERSISTENT = "persistent";
+    public static final String OK = "ok";
+    public static final String ERROR = "error";
+    /**
+     * TODO: document {@code endpointHandler}.
+     *
+     * @param body TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
-            float x = body.has("x") ? body.get("x").getAsFloat() : 0f;
-            float y = body.has("y") ? body.get("y").getAsFloat() : 0f;
-            boolean normalized = body.has("normalized") && body.get("normalized").getAsBoolean();
-            boolean persistent = !body.has("persistent") ||
-                    body.get("persistent").getAsBoolean();
+            float x = body.has(X) ? body.get(X).getAsFloat() : 0f;
+            float y = body.has(Y) ? body.get(Y).getAsFloat() : 0f;
+            boolean normalized = body.has(NORMALIZED) && body.get(NORMALIZED).getAsBoolean();
+            boolean persistent = !body.has(PERSISTENT) ||
+                    body.get(PERSISTENT).getAsBoolean();
             try {
                 return runtime.runOnMainThread(() -> {
                     MouseTrap mouse = runtime.activeMouse();
                     JsonObject result = new JsonObject();
                     if (mouse == null) {
-                        result.addProperty("ok", false);
-                        result.addProperty("error", "No active mouse handler");
+                        result.addProperty(OK, false);
+                        result.addProperty(ERROR, "No active mouse handler");
                         return result;
                     }
                     float xPos = normalized ? denormalizeX(x) : x;
@@ -52,22 +65,22 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
                     payload.addProperty("yPx", yPos);
                     payload.addProperty("xNorm", normalizeX(xPos));
                     payload.addProperty("yNorm", normalizeY(yPos));
-                    payload.addProperty("persistent", persistent);
+                    payload.addProperty(PERSISTENT, persistent);
                     runtime.recorder.recordAbstract("hover", payload);
-                    result.addProperty("ok", true);
+                    result.addProperty(OK, true);
                     result.add("event", payload);
                     return result;
                 });
             } catch (Exception e) {
                 JsonObject error = new JsonObject();
-                error.addProperty("ok", false);
-                error.addProperty("error", e.getMessage());
+                error.addProperty(OK, false);
+                error.addProperty(ERROR, e.getMessage());
                 return error;
             }
         } catch (Exception e) {
             JsonObject error = new JsonObject();
-            error.addProperty("ok", false);
-            error.addProperty("error", e.getMessage());
+            error.addProperty(OK, false);
+            error.addProperty(ERROR, e.getMessage());
             return error;
         }
     }

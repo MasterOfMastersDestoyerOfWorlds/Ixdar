@@ -16,10 +16,13 @@ import ixdar.geometry.mesh.data.MeshTopology;
 
 @MeshNodeAnnotation(id = "bound_box")
 public class BoundBoxNode implements MeshNode {
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String MIN_2 = "min";
+    public static final String MAX_2 = "max";
 
-    private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final OutputPort MIN = new OutputPort("min", PortType.VECTOR3);
-    private static final OutputPort MAX = new OutputPort("max", PortType.VECTOR3);
+    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final OutputPort MIN = new OutputPort(MIN_2, PortType.VECTOR3);
+    private static final OutputPort MAX = new OutputPort(MAX_2, PortType.VECTOR3);
 
     @Override
     public String description() {
@@ -29,9 +32,9 @@ public class BoundBoxNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "geometry", "Input geometry bundle to measure.",
-                "min", "Lower corner: <min_x, min_y, min_z>.",
-                "max", "Upper corner: <max_x, max_y, max_z>. Extent = max - min."
+                GEOMETRY_2, "Input geometry bundle to measure.",
+                MIN_2, "Lower corner: <min_x, min_y, min_z>.",
+                MAX_2, "Upper corner: <max_x, max_y, max_z>. Extent = max - min."
         );
     }
 
@@ -47,15 +50,15 @@ public class BoundBoxNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        MeshTopology mesh = GeometryBundles.meshPart(ctx.getInput("geometry", Object.class));
+        MeshTopology mesh = GeometryBundles.meshPart(ctx.getInput(GEOMETRY_2, Object.class));
         if (mesh == null || mesh.vertexCount() == 0) {
-            ctx.setOutput("min", new Vector3Value(0f, 0f, 0f));
-            ctx.setOutput("max", new Vector3Value(0f, 0f, 0f));
+            ctx.setOutput(MIN_2, new Vector3Value(0f, 0f, 0f));
+            ctx.setOutput(MAX_2, new Vector3Value(0f, 0f, 0f));
             return;
         }
         Vector3f min = mesh.boundsMin(new Vector3f());
         Vector3f max = mesh.boundsMax(new Vector3f());
-        ctx.setOutput("min", new Vector3Value(min.x, min.y, min.z));
-        ctx.setOutput("max", new Vector3Value(max.x, max.y, max.z));
+        ctx.setOutput(MIN_2, new Vector3Value(min.x, min.y, min.z));
+        ctx.setOutput(MAX_2, new Vector3Value(max.x, max.y, max.z));
     }
 }

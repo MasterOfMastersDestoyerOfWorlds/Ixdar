@@ -40,31 +40,42 @@ import ixdar.geometry.mesh.quadlayout.tmesh.TMesh;
  * (PATCH-75); reported as {@code NaN} until that lands.
  */
 public final class LyonMetrics {
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
+    public static final double NUM_1e_9 = 1e-9;
+    public static final double NUM_1e_12 = 1e-12;
 
     private LyonMetrics() {}
 
-    public record Result(int patchCount,
-                         double dmeanDeg,
-                         double dmaxDeg,
-                         double msjAvg,
-                         int arcsMeasured,
-                         int stepsMeasured) {}
-
-    /** Compute dmean / dmax over every layout arc that participates in any
+    /**
+     * Compute dmean / dmax over every layout arc that participates in any
      *  conforming layout patch.
      *
      *  <p>Pre-PATCH-78 overload: assumes per-step deltas are already in the
      *  arc's primary frame. Correct only for arcs that don't traverse seam
      *  edges — on real meshes prefer the {@link #compute(QuadLayout, TMesh,
-     *  ArrayMesh, TransitionMatrix)} overload. */
+     *  ArrayMesh, TransitionMatrix)} overload.
+     *
+     * @param layout TODO: describe
+     * @param tmesh TODO: describe
+     * @return TODO: describe
+     */
     public static Result compute(QuadLayout layout, TMesh tmesh) {
         return computeImpl(layout, tmesh, null, null);
     }
 
-    /** Compute dmean / dmax with TRS rotation applied across seams (PATCH-78).
+    /**
+     * Compute dmean / dmax with TRS rotation applied across seams (PATCH-78).
      *  Each arc's prescribed direction is rotated when crossing seam half-edges
      *  using {@link TransitionMatrix#matching}, so per-step deviation is
-     *  measured against the locally-correct cardinal in each face's frame. */
+     *  measured against the locally-correct cardinal in each face's frame.
+     *
+     * @param layout TODO: describe
+     * @param tmesh TODO: describe
+     * @param mesh TODO: describe
+     * @param trs TODO: describe
+     * @return TODO: describe
+     */
     public static Result compute(QuadLayout layout, TMesh tmesh,
                                   ArrayMesh mesh, TransitionMatrix trs) {
         return computeImpl(layout, tmesh, mesh, trs);
@@ -75,12 +86,12 @@ public final class LyonMetrics {
         // Mark which LayoutArc IDs participate (both quads + triangles).
         boolean[] inLayout = new boolean[layout.layoutArcs().size()];
         for (QuadLayoutPatch p : layout.patches()) {
-            for (int s = 0; s < 4; s++) {
+            for (int s = 0; s < NUM_4; s++) {
                 for (int la : p.arcsBySide()[s]) inLayout[la] = true;
             }
         }
         for (TrianglePatch t : layout.triangles()) {
-            for (int s = 0; s < 3; s++) {
+            for (int s = 0; s < NUM_3; s++) {
                 for (int la : t.arcsBySide()[s]) inLayout[la] = true;
             }
         }
@@ -115,14 +126,14 @@ public final class LyonMetrics {
                         // currentDir.
                         int[] prev = crossings.get(i - 1);
                         if (prev[1] >= 0) {
-                            int h = prev[0] * 3 + prev[1];
-                            currentDir = (currentDir + trs.matching[h]) & 3;
+                            int h = prev[0] * NUM_3 + prev[1];
+                            currentDir = (currentDir + trs.matching[h]) & NUM_3;
                         }
                     }
                     float[] s = steps.get(i);
                     stepsMeasured++;
                     double du = s[2] - s[0];
-                    double dv = s[3] - s[1];
+                    double dv = s[NUM_3] - s[1];
                     double devRad = stepDeviation(du, dv, currentDir);
                     double len = Math.hypot(du, dv);
                     weightedSum += devRad * len;
@@ -159,16 +170,20 @@ public final class LyonMetrics {
      * non-degenerate step's UV delta. Falls back to {@code declared} if every
      * step has zero length. Used to recover from arc.direction() values that
      * were set in a different frame than the first-face's local frame.
+     *
+     * @param steps TODO: describe
+     * @param declared TODO: describe
+     * @return TODO: describe
      */
     private static int inferDirectionFromFirstStep(List<float[]> steps, int declared) {
         for (float[] s : steps) {
             double du = s[2] - s[0];
-            double dv = s[3] - s[1];
-            if (Math.hypot(du, dv) < 1e-9) continue;
+            double dv = s[NUM_3] - s[1];
+            if (Math.hypot(du, dv) < NUM_1e_9) continue;
             double absDu = Math.abs(du);
             double absDv = Math.abs(dv);
             if (absDu >= absDv) return du >= 0 ? 0 : 2;   // +u or -u
-            return dv >= 0 ? 1 : 3;                        // +v or -v
+            return dv >= 0 ? 1 : NUM_3;                        // +v or -v
         }
         return declared;
     }
@@ -180,6 +195,11 @@ public final class LyonMetrics {
      *   <li>{@code dir = 0 or 2} (u-axis): deviation = atan(|Δv| / |Δu|)</li>
      *   <li>{@code dir = 1 or 3} (v-axis): deviation = atan(|Δu| / |Δv|)</li>
      * </ul>
+     *
+     * @param du TODO: describe
+     * @param dv TODO: describe
+     * @param dir TODO: describe
+     * @return TODO: describe
      */
     private static double stepDeviation(double du, double dv, int dir) {
         double along, ortho;
@@ -190,7 +210,14 @@ public final class LyonMetrics {
             along = Math.abs(dv);
             ortho = Math.abs(du);
         }
-        if (along < 1e-12 && ortho < 1e-12) return 0;
+        if (along < NUM_1e_12 && ortho < NUM_1e_12) return 0;
         return Math.atan2(ortho, along);
     }
+
+    public record Result(int patchCount,
+                         double dmeanDeg,
+                         double dmaxDeg,
+                         double msjAvg,
+                         int arcsMeasured,
+                         int stepsMeasured) {}
 }

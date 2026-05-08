@@ -14,7 +14,7 @@ public class AddCommand extends TerminalCommand {
 
     @Override
     public String fullName() {
-        return "add";
+        return cmd;
     }
 
     @Override

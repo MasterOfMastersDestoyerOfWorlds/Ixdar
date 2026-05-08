@@ -25,11 +25,26 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "curve_sweep")
 public class CurveSweepMeshNode implements MeshNode {
+    public static final String CURVE_2 = "curve";
+    public static final String PROFILE_2 = "profile";
+    public static final String CAPS_2 = "caps";
+    public static final String GEOMETRY_2 = "geometry";
+    public static final int NUM_3 = 3;
+    public static final float NUM_1e_5 = 1e-5f;
+    public static final float NUM_1e_4 = 1e-4f;
+    public static final float NUM_1e_20 = 1e-20f;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_1e_6 = 1e-6f;
+    public static final float NUM_1e_14 = 1e-14f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_0_9 = 0.9f;
+    public static final float NUM_1e_10 = 1e-10f;
+    public static final float NUM_1e_12 = 1e-12f;
 
-    private static final InputPort CURVE = new InputPort("curve", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort PROFILE = new InputPort("profile", PortType.MESH, null);
-    private static final InputPort CAPS = new InputPort("caps", PortType.BOOLEAN, true);
-    private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort CURVE = new InputPort(CURVE_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort PROFILE = new InputPort(PROFILE_2, PortType.MESH, null);
+    private static final InputPort CAPS = new InputPort(CAPS_2, PortType.BOOLEAN, true);
+    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -39,10 +54,10 @@ public class CurveSweepMeshNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "curve", "Path curve to sweep along.",
-                "profile", "Mesh whose first face is swept along the curve. Vertex count determines segment resolution.",
-                "caps", "If true, cap the two ends of the sweep with the profile face; if false, leave the tube open.",
-                "geometry", "Swept surface as a geometry bundle."
+                CURVE_2, "Path curve to sweep along.",
+                PROFILE_2, "Mesh whose first face is swept along the curve. Vertex count determines segment resolution.",
+                CAPS_2, "If true, cap the two ends of the sweep with the profile face; if false, leave the tube open.",
+                GEOMETRY_2, "Swept surface as a geometry bundle."
         );
     }
 
@@ -58,18 +73,18 @@ public class CurveSweepMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle curveGb = GeometryBundles.bundlePart(ctx.getInput("curve", Object.class));
-        MeshTopology prof = ctx.getInput("profile", MeshTopology.class);
-        Object capObj = FieldBroadcast.getInputOrDefault(ctx, "caps", CAPS.defaultValue());
+        GeometryBundle curveGb = GeometryBundles.bundlePart(ctx.getInput(CURVE_2, Object.class));
+        MeshTopology prof = ctx.getInput(PROFILE_2, MeshTopology.class);
+        Object capObj = FieldBroadcast.getInputOrDefault(ctx, CAPS_2, CAPS.defaultValue());
         boolean addCaps = capObj instanceof Boolean ? (Boolean) capObj : true;
 
         if (curveGb == null || prof == null || prof.faceCount() == 0) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
         Object rawCurve = curveGb.slots().get("_curve");
         if (!(rawCurve instanceof CurveGeometry cg) || cg.curveCount() == 0) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
 
@@ -77,7 +92,7 @@ public class CurveSweepMeshNode implements MeshNode {
         int off1 = cg.curveOffsets()[1];
         int ptTotal = (off1 - off0);
         if (ptTotal < 2) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
 
@@ -86,12 +101,12 @@ public class CurveSweepMeshNode implements MeshNode {
         float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
         float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
         for (int i = 0; i < ptTotal; i++) {
-            int b = 3 * (off0 + i);
+            int b = NUM_3 * (off0 + i);
             float x = pos[b];
             float y = pos[b + 1];
             float z = pos[b + 2];
             if (!Float.isFinite(x) || !Float.isFinite(y) || !Float.isFinite(z)) {
-                ctx.setOutput("geometry", GeometryBundle.empty());
+                ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
                 return;
             }
             pts[i] = new Vector3f(x, y, z);
@@ -103,12 +118,12 @@ public class CurveSweepMeshNode implements MeshNode {
             maxZ = Math.max(maxZ, z);
         }
         float diag = new Vector3f(maxX - minX, maxY - minY, maxZ - minZ).length();
-        float closedEps = Math.max(1e-5f, diag * 1e-4f);
+        float closedEps = Math.max(NUM_1e_5, diag * NUM_1e_4);
         boolean closedCurve = pts[0].distance(pts[ptTotal - 1]) < closedEps;
 
         int nSamples = closedCurve ? ptTotal - 1 : ptTotal;
         if (nSamples < 2) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
 
@@ -119,8 +134,8 @@ public class CurveSweepMeshNode implements MeshNode {
 
         int fid = prof.faceIdAt(0);
         int m = prof.faceVertexCount(fid);
-        if (m < 3) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+        if (m < NUM_3) {
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
         int[] ring = new int[m];
@@ -137,8 +152,8 @@ public class CurveSweepMeshNode implements MeshNode {
         centroid.mul(1.0f / m);
 
         Vector3f nFace = prof.faceNormal(fid, new Vector3f());
-        if (nFace.lengthSquared() < 1e-20f) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+        if (nFace.lengthSquared() < NUM_1e_20) {
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
         nFace.normalize();
@@ -149,14 +164,14 @@ public class CurveSweepMeshNode implements MeshNode {
         prof.vertexPosition(ring[1], b);
         Vector3f uMesh = new Vector3f(b).sub(a);
         uMesh.fma(-nFace.dot(uMesh), nFace);
-        if (uMesh.lengthSquared() < 1e-20f) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+        if (uMesh.lengthSquared() < NUM_1e_20) {
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
         uMesh.normalize();
         Vector3f vMesh = nFace.cross(uMesh, new Vector3f());
-        if (vMesh.lengthSquared() < 1e-20f || !Float.isFinite(vMesh.lengthSquared())) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+        if (vMesh.lengthSquared() < NUM_1e_20 || !Float.isFinite(vMesh.lengthSquared())) {
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
         vMesh.normalize();
@@ -171,8 +186,8 @@ public class CurveSweepMeshNode implements MeshNode {
         }
 
         Vector3f w0 = curveTangent(samplePts, 0, closedCurve);
-        if (w0.lengthSquared() < 1e-20f) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+        if (w0.lengthSquared() < NUM_1e_20) {
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
         w0.normalize();
@@ -186,8 +201,8 @@ public class CurveSweepMeshNode implements MeshNode {
 
         for (int i = 0; i < nSamples; i++) {
             Vector3f w = curveTangent(samplePts, i, closedCurve);
-            if (w.lengthSquared() < 1e-20f || !Float.isFinite(w.lengthSquared())) {
-                ctx.setOutput("geometry", GeometryBundle.empty());
+            if (w.lengthSquared() < NUM_1e_20 || !Float.isFinite(w.lengthSquared())) {
+                ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
                 return;
             }
             w.normalize();
@@ -219,7 +234,7 @@ public class CurveSweepMeshNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput("geometry", curveGb.withMesh(mesh));
+        ctx.setOutput(GEOMETRY_2, curveGb.withMesh(mesh));
     }
 
     /**
@@ -229,9 +244,9 @@ public class CurveSweepMeshNode implements MeshNode {
     private static Vector3f alignProfileUToTangent(Vector3f nFace, Vector3f w0, Vector3f uMesh) {
         float d = nFace.dot(w0);
         Vector3f uDir = new Vector3f(uMesh);
-        if (Math.abs(Math.abs(d) - 1f) <= 1e-6f) {
+        if (Math.abs(Math.abs(d) - NUM_1) <= NUM_1e_6) {
             uDir.fma(-w0.dot(uDir), w0);
-            if (uDir.lengthSquared() < 1e-14f || !Float.isFinite(uDir.lengthSquared())) {
+            if (uDir.lengthSquared() < NUM_1e_14 || !Float.isFinite(uDir.lengthSquared())) {
                 fillStablePerpendicularTo(w0, uDir);
             } else {
                 uDir.normalize();
@@ -242,9 +257,9 @@ public class CurveSweepMeshNode implements MeshNode {
         if (!Float.isFinite(uDir.x) || !Float.isFinite(uDir.y) || !Float.isFinite(uDir.z)) {
             uDir.set(uMesh).fma(-w0.dot(uMesh), w0);
         }
-        if (uDir.lengthSquared() < 1e-20f || !Float.isFinite(uDir.lengthSquared())) {
+        if (uDir.lengthSquared() < NUM_1e_20 || !Float.isFinite(uDir.lengthSquared())) {
             uDir.set(uMesh).fma(-w0.dot(uMesh), w0);
-            if (uDir.lengthSquared() < 1e-14f) {
+            if (uDir.lengthSquared() < NUM_1e_14) {
                 fillStablePerpendicularTo(w0, uDir);
             } else {
                 uDir.normalize();
@@ -256,13 +271,13 @@ public class CurveSweepMeshNode implements MeshNode {
     }
 
     private static void fillStablePerpendicularTo(Vector3f w, Vector3f out) {
-        Vector3f ref = new Vector3f(1f, 0f, 0f);
-        if (Math.abs(w.dot(ref)) > 0.9f) {
-            ref.set(0f, 1f, 0f);
+        Vector3f ref = new Vector3f(NUM_1, NUM_0, NUM_0);
+        if (Math.abs(w.dot(ref)) > NUM_0_9) {
+            ref.set(NUM_0, NUM_1, NUM_0);
         }
         out.set(ref).fma(-w.dot(ref), w);
-        if (out.lengthSquared() < 1e-10f) {
-            out.set(0f, 0f, 1f).fma(-w.z, w);
+        if (out.lengthSquared() < NUM_1e_10) {
+            out.set(NUM_0, NUM_0, NUM_1).fma(-w.z, w);
         }
         out.normalize();
     }
@@ -275,21 +290,21 @@ public class CurveSweepMeshNode implements MeshNode {
         w.normalize();
         uAxis.fma(-w.dot(uAxis), w);
         float uLenSq = uAxis.lengthSquared();
-        if (uLenSq < 1e-12f) {
-            Vector3f ref = new Vector3f(1f, 0f, 0f);
-            if (Math.abs(w.dot(ref)) > 0.9f) {
-                ref.set(0f, 1f, 0f);
+        if (uLenSq < NUM_1e_12) {
+            Vector3f ref = new Vector3f(NUM_1, NUM_0, NUM_0);
+            if (Math.abs(w.dot(ref)) > NUM_0_9) {
+                ref.set(NUM_0, NUM_1, NUM_0);
             }
             uAxis.set(ref).fma(-w.dot(ref), w);
             uLenSq = uAxis.lengthSquared();
         }
-        if (uLenSq < 1e-20f) {
-            uAxis.set(0f, 0f, 1f).fma(-w.z, w);
+        if (uLenSq < NUM_1e_20) {
+            uAxis.set(NUM_0, NUM_0, NUM_1).fma(-w.z, w);
         }
         uAxis.normalize();
         vAxis.set(w).cross(uAxis);
         float vLenSq = vAxis.lengthSquared();
-        if (vLenSq < 1e-20f) {
+        if (vLenSq < NUM_1e_20) {
             vAxis.set(uAxis).cross(w);
         }
         vAxis.normalize();
@@ -321,7 +336,7 @@ public class CurveSweepMeshNode implements MeshNode {
 
     /** Fan from a new center vertex so ring edges stay at two faces (tube + cap) each. */
     private static void addDiscCap(HalfEdgeMesh mesh, int[] ring, int m, boolean flip) {
-        if (m < 3) {
+        if (m < NUM_3) {
             return;
         }
         Vector3f centroid = new Vector3f();

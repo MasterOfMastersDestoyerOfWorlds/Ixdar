@@ -29,13 +29,21 @@ import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
  */
 @MeshNodeAnnotation(id = "bridge_edge_loops")
 public class BridgeEdgeLoopsNode implements MeshNode {
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String LOOP_A_TAG_2 = "loop_a_tag";
+    public static final String LOOP_B_TAG_2 = "loop_b_tag";
+    public static final String SEGMENTS_2 = "segments";
+    public static final String TWIST_2 = "twist";
+    public static final String BRIDGE_EDGE_LOOPS_TAG = "bridge_edge_loops: tag '";
+    public static final String NOT_FOUND = "' not found";
+    public static final String STR = "=";
 
-    private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort LOOP_A_TAG = new InputPort("loop_a_tag", PortType.STRING, "");
-    private static final InputPort LOOP_B_TAG = new InputPort("loop_b_tag", PortType.STRING, "");
-    private static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 1, 1f, 32f);
-    private static final InputPort TWIST = new InputPort("twist", PortType.INT, 0, -32f, 32f);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort LOOP_A_TAG = new InputPort(LOOP_A_TAG_2, PortType.STRING, "");
+    private static final InputPort LOOP_B_TAG = new InputPort(LOOP_B_TAG_2, PortType.STRING, "");
+    private static final InputPort SEGMENTS = new InputPort(SEGMENTS_2, PortType.INT, 1, 1f, 32f);
+    private static final InputPort TWIST = new InputPort(TWIST_2, PortType.INT, 0, -32f, 32f);
+    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -55,33 +63,33 @@ public class BridgeEdgeLoopsNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "geometry", "Input/output. Two tagged boundary loops of EQUAL vertex count are bridged with quads. For unequal counts use adaptive_bridge_loops.",
-                "loop_a_tag", "Tag identifying the first boundary loop.",
-                "loop_b_tag", "Tag identifying the second boundary loop.",
-                "segments", "Number of intermediate interpolation rings. 0 = direct bridge; higher = smoother.",
-                "twist", "Rotation offset (radians) around the bridge axis when pairing vertices."
+                GEOMETRY_2, "Input/output. Two tagged boundary loops of EQUAL vertex count are bridged with quads. For unequal counts use adaptive_bridge_loops.",
+                LOOP_A_TAG_2, "Tag identifying the first boundary loop.",
+                LOOP_B_TAG_2, "Tag identifying the second boundary loop.",
+                SEGMENTS_2, "Number of intermediate interpolation rings. 0 = direct bridge; higher = smoother.",
+                TWIST_2, "Rotation offset (radians) around the bridge axis when pairing vertices."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
         MeshTopology meshTopo = base.mesh();
         if (meshTopo == null) {
-            ctx.setOutput("geometry", base);
+            ctx.setOutput(GEOMETRY_2, base);
             return;
         }
 
-        String tagA = ctx.getInput("loop_a_tag", String.class);
-        String tagB = ctx.getInput("loop_b_tag", String.class);
+        String tagA = ctx.getInput(LOOP_A_TAG_2, String.class);
+        String tagB = ctx.getInput(LOOP_B_TAG_2, String.class);
         if (tagA == null || tagA.isBlank() || tagB == null || tagB.isBlank()) {
             throw new IllegalArgumentException("bridge_edge_loops: both loop_a_tag and loop_b_tag are required");
         }
 
-        Number segIn = ctx.getInput("segments", Number.class);
+        Number segIn = ctx.getInput(SEGMENTS_2, Number.class);
         int segments = Math.max(1, segIn == null ? 1 : segIn.intValue());
 
-        Number twistIn = ctx.getInput("twist", Number.class);
+        Number twistIn = ctx.getInput(TWIST_2, Number.class);
         int twist = twistIn == null ? 0 : twistIn.intValue();
 
         Map<String, boolean[]> tags = TagGeometryNode.getTags(base);
@@ -91,10 +99,10 @@ public class BridgeEdgeLoopsNode implements MeshNode {
         boolean[] maskA = tags.get(tagA.strip());
         boolean[] maskB = tags.get(tagB.strip());
         if (maskA == null) {
-            throw new IllegalArgumentException("bridge_edge_loops: tag '" + tagA + "' not found");
+            throw new IllegalArgumentException(BRIDGE_EDGE_LOOPS_TAG + tagA + NOT_FOUND);
         }
         if (maskB == null) {
-            throw new IllegalArgumentException("bridge_edge_loops: tag '" + tagB + "' not found");
+            throw new IllegalArgumentException(BRIDGE_EDGE_LOOPS_TAG + tagB + NOT_FOUND);
         }
 
         // Convert to HalfEdgeMesh if needed for boundary walking
@@ -109,7 +117,7 @@ public class BridgeEdgeLoopsNode implements MeshNode {
 
         if (loopA.size() != loopB.size()) {
             throw new IllegalArgumentException("bridge_edge_loops: loops must have same vertex count. "
-                    + tagA + "=" + loopA.size() + ", " + tagB + "=" + loopB.size());
+                    + tagA + STR + loopA.size() + ", " + tagB + STR + loopB.size());
         }
 
         // Apply twist to loop B alignment
@@ -168,7 +176,7 @@ public class BridgeEdgeLoopsNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput("geometry", base.withMesh(mesh));
+        ctx.setOutput(GEOMETRY_2, base.withMesh(mesh));
     }
 
     /**

@@ -35,100 +35,50 @@ import java.util.Set;
  * [nv+ne, nv+ne+nt).
  */
 public final class DiscreteGradient {
-
-    public record Result(
-            int nv, int ne, int nt,
-            /** For each cell id, the partner cell in its gradient pair, or -1
-             *  if the cell is critical. */
-            int[] pair,
-            /** Cell dimension per id (0/1/2). */
-            int[] dim,
-            /** For each edge id (in [0, ne)), the 2 endpoint vertex ids. */
-            int[][] edgeEndpoints,
-            /** For each triangle id (in [0, nt)), the 3 vertex ids in input
-             *  order. */
-            int[][] triangleVerts,
-            /** For each triangle id (in [0, nt)), the 3 edge ids of its sides
-             *  (parallel to {@code triangleVerts}). */
-            int[][] triangleEdges,
-            /** Edge id by canonical-key {@code ((min<<32)|max)}. */
-            Map<Long, Integer> edgeIdByKey,
-            /** For each vertex id, list of incident triangle ids. */
-            int[][] trianglesByVertex,
-            /** For each vertex id, list of incident edge ids. */
-            int[][] edgesByVertex,
-            /** For each edge id, list of incident triangle ids (1 or 2). */
-            int[][] trianglesByEdge
-    ) {
-        public int cellId(int dimension, int idx) {
-            return switch (dimension) {
-                case 0 -> idx;
-                case 1 -> nv + idx;
-                case 2 -> nv + ne + idx;
-                default -> throw new IllegalArgumentException("dim " + dimension);
-            };
-        }
-
-        public int dimOf(int cellId) {
-            if (cellId < nv) return 0;
-            if (cellId < nv + ne) return 1;
-            return 2;
-        }
-
-        public int localIdx(int cellId) {
-            if (cellId < nv) return cellId;
-            if (cellId < nv + ne) return cellId - nv;
-            return cellId - nv - ne;
-        }
-
-        public boolean isCritical(int cellId) {
-            return pair[cellId] < 0;
-        }
-
-        public int[] criticalCells() {
-            int n = pair.length;
-            int count = 0;
-            for (int i = 0; i < n; i++) if (pair[i] < 0) count++;
-            int[] out = new int[count];
-            int o = 0;
-            for (int i = 0; i < n; i++) if (pair[i] < 0) out[o++] = i;
-            return out;
-        }
-    }
+    public static final int NUM_3 = 3;
+    public static final int NUM_32 = 32;
+    public static final long NUM_0xffffffff = 0xffffffffL;
 
     private DiscreteGradient() {}
 
+    /**
+     * TODO: document {@code compute}.
+     *
+     * @param mesh TODO: describe
+     * @param scalar TODO: describe
+     * @return TODO: describe
+     */
     public static Result compute(ArrayMesh mesh, float[] scalar) {
         int[] faceIdx = mesh.copyFaceIndices();
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3;
         int nv = mesh.vertexCount();
 
         // ----- Enumerate edges + build connectivity -----
         Map<Long, Integer> edgeIdByKey = new HashMap<>();
         List<int[]> edgeEndpointsList = new ArrayList<>();
         List<List<Integer>> trianglesByEdgeList = new ArrayList<>();
-        int[][] triangleEdges = new int[faceCount][3];
-        int[][] triangleVerts = new int[faceCount][3];
+        int[][] triangleEdges = new int[faceCount][NUM_3];
+        int[][] triangleVerts = new int[faceCount][NUM_3];
 
         for (int f = 0; f < faceCount; f++) {
-            int a = faceIdx[f * 3];
-            int b = faceIdx[f * 3 + 1];
-            int c = faceIdx[f * 3 + 2];
+            int a = faceIdx[f * NUM_3];
+            int b = faceIdx[f * NUM_3 + 1];
+            int c = faceIdx[f * NUM_3 + 2];
             triangleVerts[f] = new int[]{a, b, c};
             int[] verts = {a, b, c};
-            for (int e = 0; e < 3; e++) {
+            for (int e = 0; e < NUM_3; e++) {
                 int u = verts[e];
-                int v = verts[(e + 1) % 3];
+                int v = verts[(e + 1) % NUM_3];
                 long key = u < v
-                        ? ((long) u << 32) | (v & 0xffffffffL)
-                        : ((long) v << 32) | (u & 0xffffffffL);
+                        ? ((long) u << NUM_32) | (v & NUM_0xffffffff)
+                        : ((long) v << NUM_32) | (u & NUM_0xffffffff);
                 Integer eid = edgeIdByKey.get(key);
                 if (eid == null) {
                     eid = edgeEndpointsList.size();
                     edgeIdByKey.put(key, eid);
                     edgeEndpointsList.add(new int[]{
-                            (int)(key >>> 32),
-                            (int)(key & 0xffffffffL)
+                            (int)(key >>> NUM_32),
+                            (int)(key & NUM_0xffffffff)
                     });
                     trianglesByEdgeList.add(new ArrayList<>(2));
                 }
@@ -221,7 +171,7 @@ public final class DiscreteGradient {
         for (int tid : trianglesByVertex[v]) {
             int[] tv = triangleVerts[tid];
             int o1 = -1, o2 = -1;
-            for (int k = 0; k < 3; k++) {
+            for (int k = 0; k < NUM_3; k++) {
                 if (tv[k] != v) {
                     if (o1 < 0) o1 = tv[k];
                     else o2 = tv[k];
@@ -348,8 +298,9 @@ public final class DiscreteGradient {
         return triEdges[0] == eid || triEdges[1] == eid || triEdges[2] == eid;
     }
 
-    /** Count faces (= edges) of {@code tid} that are in the lower star of {@code v}
-     *  AND are not yet paired. */
+    /**
+     * Count faces (= edges) of {@code tid} that are in the lower star of {@code v}.
+     */
     private static int countUnpairedFacesInLowerStar(int tid, int v, float[] scalar,
                                                        int[][] triangleEdges,
                                                        int[][] edgeEndpoints,
@@ -366,8 +317,9 @@ public final class DiscreteGradient {
         return count;
     }
 
-    /** Return the edge-id of the unique unpaired face of {@code tid} in L(v),
-     *  or -1 if none/multiple. */
+    /**
+     * Return the edge-id of the unique unpaired face of {@code tid} in L(v),.
+     */
     private static int findFreeFaceInLowerStar(int tid, int v, float[] scalar,
                                                  int[][] triangleEdges,
                                                  int[][] edgeEndpoints,
@@ -413,5 +365,99 @@ public final class DiscreteGradient {
         float[] fs = new float[]{ scalar[t[0]], scalar[t[1]], scalar[t[2]] };
         Arrays.sort(fs);
         return new float[]{ fs[2], fs[1], fs[0] };
+    }
+
+    public record Result(
+            int nv, int ne, int nt,
+            /**
+             * For each cell id, the partner cell in its gradient pair, or -1.
+             */
+            int[] pair,
+            /** Cell dimension per id (0/1/2). */
+            int[] dim,
+            /** For each edge id (in [0, ne)), the 2 endpoint vertex ids. */
+            int[][] edgeEndpoints,
+            /**
+             * For each triangle id (in [0, nt)), the 3 vertex ids in input.
+             */
+            int[][] triangleVerts,
+            /**
+             * For each triangle id (in [0, nt)), the 3 edge ids of its sides.
+             */
+            int[][] triangleEdges,
+            /** Edge id by canonical-key {@code ((min<<32)|max)}. */
+            Map<Long, Integer> edgeIdByKey,
+            /** For each vertex id, list of incident triangle ids. */
+            int[][] trianglesByVertex,
+            /** For each vertex id, list of incident edge ids. */
+            int[][] edgesByVertex,
+            /** For each edge id, list of incident triangle ids (1 or 2). */
+            int[][] trianglesByEdge
+    ) {
+        /**
+         * TODO: document {@code cellId}.
+         *
+         * @param dimension TODO: describe
+         * @param idx TODO: describe
+         * @throws IllegalArgumentException TODO: describe
+         * @return TODO: describe
+         */
+        public int cellId(int dimension, int idx) {
+            return switch (dimension) {
+                case 0 -> idx;
+                case 1 -> nv + idx;
+                case 2 -> nv + ne + idx;
+                default -> throw new IllegalArgumentException("dim " + dimension);
+            };
+        }
+
+        /**
+         * TODO: document {@code dimOf}.
+         *
+         * @param cellId TODO: describe
+         * @return TODO: describe
+         */
+        public int dimOf(int cellId) {
+            if (cellId < nv) return 0;
+            if (cellId < nv + ne) return 1;
+            return 2;
+        }
+
+        /**
+         * TODO: document {@code localIdx}.
+         *
+         * @param cellId TODO: describe
+         * @return TODO: describe
+         */
+        public int localIdx(int cellId) {
+            if (cellId < nv) return cellId;
+            if (cellId < nv + ne) return cellId - nv;
+            return cellId - nv - ne;
+        }
+
+        /**
+         * TODO: document {@code isCritical}.
+         *
+         * @param cellId TODO: describe
+         * @return TODO: describe
+         */
+        public boolean isCritical(int cellId) {
+            return pair[cellId] < 0;
+        }
+
+        /**
+         * TODO: document {@code criticalCells}.
+         *
+         * @return TODO: describe
+         */
+        public int[] criticalCells() {
+            int n = pair.length;
+            int count = 0;
+            for (int i = 0; i < n; i++) if (pair[i] < 0) count++;
+            int[] out = new int[count];
+            int o = 0;
+            for (int i = 0; i < n; i++) if (pair[i] < 0) out[o++] = i;
+            return out;
+        }
     }
 }

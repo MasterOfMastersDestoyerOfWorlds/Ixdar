@@ -18,6 +18,14 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 
 public class Font {
+    public static final String RES = "res";
+    public static final String FONT_ATLAS_INIT_FAILED = "Font atlas init failed";
+    public static final float NUM_0 = 0f;
+    public static final float NUM_32 = 32f;
+    public static final float NUM_20 = 20f;
+    public static final int NUM_64 = 64;
+    public static final float NUM_0_25 = 0.25f;
+    public static final double NUM_0_0001 = 0.0001;
 
     private static final String ATLAS_JSON_PATH = "opensans.json";
     public Map<Character, Glyph> glyphs;
@@ -33,25 +41,28 @@ public class Font {
     private float descenderPx;
     private Map<Integer, Map<Integer, Float>> kerningEm;
 
+    /**
+     * TODO: document {@code Font}.
+     */
     public Font() {
-        String json = Platforms.get().trySyncLoadSource("res", ATLAS_JSON_PATH);
+        String json = Platforms.get().trySyncLoadSource(RES, ATLAS_JSON_PATH);
         if (json != null && !json.isEmpty()) {
             finishFromAtlasJson(json);
             return;
         }
         int platformId = Platforms.gl().getPlatformID();
-        Platforms.get().loadSourceAsync("res", ATLAS_JSON_PATH, platformId, this::finishFromAtlasJson);
+        Platforms.get().loadSourceAsync(RES, ATLAS_JSON_PATH, platformId, this::finishFromAtlasJson);
     }
 
     private void finishFromAtlasJson(String json) {
         try {
             if (json == null || json.isEmpty()) {
-                Platforms.get().log("Font atlas init failed");
+                Platforms.get().log(FONT_ATLAS_INIT_FAILED);
                 return;
             }
             FontAtlasDTO root = Platforms.get().parseFontAtlas(json);
             if (root == null || root.atlas == null || root.metrics == null) {
-                Platforms.get().log("Font atlas init failed");
+                Platforms.get().log(FONT_ATLAS_INIT_FAILED);
                 return;
             }
             FontAtlasData atlas = new FontAtlasData();
@@ -59,7 +70,7 @@ public class Font {
             atlas.height = root.atlas.height;
             atlas.sizePx = (float) root.atlas.size;
             float lineHeightEm = (float) root.metrics.lineHeight;
-            atlas.derivedLineHeight = (atlas.sizePx > 0f ? atlas.sizePx * lineHeightEm : 32f * lineHeightEm);
+            atlas.derivedLineHeight = (atlas.sizePx > NUM_0 ? atlas.sizePx * lineHeightEm : NUM_32 * lineHeightEm);
             this.glyphs = buildGlyphs(root);
             this.pxPerEm = atlas.sizePx;
             this.ascenderPx = (float) (atlas.sizePx * root.metrics.ascender);
@@ -73,21 +84,27 @@ public class Font {
                 this.shader = ShaderType.TextureSDF.getShader();
                 this.sdfTexture = new SDFTexture(this.texture);
                 this.sdfTexture.setSharpCorners(true);
-                this.sdfTexture.setBorderDist(20f);
+                this.sdfTexture.setBorderDist(NUM_20);
                 this.sdfTexture.setPxRange(distanceRange);
             });
-            this.maxTextWidth = 64;
+            this.maxTextWidth = NUM_64;
         } catch (Throwable e) {
-            Platforms.get().log("Font atlas init failed");
+            Platforms.get().log(FONT_ATLAS_INIT_FAILED);
         }
     }
 
+    /**
+     * TODO: document {@code getWidth}.
+     *
+     * @param text TODO: describe
+     * @return TODO: describe
+     */
     public float getWidth(CharSequence text) {
         if (glyphs == null) {
-            return 0f;
+            return NUM_0;
         }
-        float maxWidthPx = 0f;
-        float lineAdvanceEm = 0f;
+        float maxWidthPx = NUM_0;
+        float lineAdvanceEm = NUM_0;
         int prevCodePoint = -1;
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
@@ -95,7 +112,7 @@ public class Font {
                 float lineWidthPx = lineAdvanceEm * pxPerEm;
                 if (lineWidthPx > maxWidthPx)
                     maxWidthPx = lineWidthPx;
-                lineAdvanceEm = 0f;
+                lineAdvanceEm = NUM_0;
                 prevCodePoint = -1;
                 continue;
             }
@@ -117,6 +134,12 @@ public class Font {
         return maxWidthPx;
     }
 
+    /**
+     * TODO: document {@code getHeight}.
+     *
+     * @param text TODO: describe
+     * @return TODO: describe
+     */
     public int getHeight(CharSequence text) {
         if (glyphs == null) {
             return 0;
@@ -131,6 +154,16 @@ public class Font {
         return Math.round(lines * fontHeight);
     }
 
+    /**
+     * TODO: document {@code drawTextNoSetup}.
+     *
+     * @param text TODO: describe
+     * @param x TODO: describe
+     * @param y TODO: describe
+     * @param glyphHeight TODO: describe
+     * @param c TODO: describe
+     * @param camera TODO: describe
+     */
     public void drawTextNoSetup(ArrayList<HyperChar> text, float x, float y, float glyphHeight,
             Color c, Camera camera) {
         if (sdfTexture == null || glyphs == null) {
@@ -138,15 +171,15 @@ public class Font {
         }
         float scale = glyphHeight / fontHeight;
         float drawX = x;
-        float baselineY = y + (ascenderPx * scale) * 0.25f;
-        float penEm = 0f;
+        float baselineY = y + (ascenderPx * scale) * NUM_0_25;
+        float penEm = NUM_0;
         int prevCodePoint = -1;
 
         for (int i = 0; i < text.size(); i++) {
             char ch = text.get(i).c;
             if (ch == '\n') {
                 baselineY -= fontHeight * scale;
-                penEm = 0f;
+                penEm = NUM_0;
                 prevCodePoint = -1;
                 continue;
             }
@@ -178,10 +211,22 @@ public class Font {
         }
     }
 
+    /**
+     * TODO: document {@code dispose}.
+     */
     public void dispose() {
         texture.delete();
     }
 
+    /**
+     * TODO: document {@code drawHyperString}.
+     *
+     * @param hyperString TODO: describe
+     * @param x TODO: describe
+     * @param y TODO: describe
+     * @param height TODO: describe
+     * @param camera TODO: describe
+     */
     public void drawHyperString(HyperString hyperString, float x, float y, float height, Camera2D camera) {
         hyperString.setLineOffsetCentered(camera, x, y, this, 0);
         sdfTexture.setup(camera);
@@ -206,6 +251,14 @@ public class Font {
         sdfTexture.cleanup(camera);
     }
 
+    /**
+     * TODO: document {@code drawHyperStrings}.
+     *
+     * @param hyperStrings TODO: describe
+     * @param xLoc TODO: describe
+     * @param height TODO: describe
+     * @param camera TODO: describe
+     */
     public void drawHyperStrings(ArrayList<HyperString> hyperStrings, ArrayList<Vector2f> xLoc, float height,
             Camera2D camera) {
         sdfTexture.setup(camera);
@@ -235,6 +288,15 @@ public class Font {
         sdfTexture.cleanup(camera);
     }
 
+    /**
+     * TODO: document {@code drawHyperStringRows}.
+     *
+     * @param hyperString TODO: describe
+     * @param row TODO: describe
+     * @param scrollOffsetY TODO: describe
+     * @param height TODO: describe
+     * @param camera TODO: describe
+     */
     public void drawHyperStringRows(HyperString hyperString, int row, float scrollOffsetY, float height,
             Camera2D camera) {
         if (sdfTexture == null) {
@@ -270,13 +332,6 @@ public class Font {
         sdfTexture.cleanup(camera);
     }
 
-    private static class FontAtlasData {
-        int width;
-        int height;
-        float sizePx;
-        float derivedLineHeight;
-    }
-
     private static Map<Character, Glyph> buildGlyphs(FontAtlasDTO root) {
         HashMap<Character, Glyph> map = new HashMap<>();
         if (root.glyphs == null)
@@ -284,17 +339,17 @@ public class Font {
         for (FontAtlasDTO.GlyphEntry ge : root.glyphs) {
             if (ge.atlasBounds == null)
                 continue;
-            int x = (int) Math.floor(ge.atlasBounds.left + 0.0001);
-            int y = (int) Math.floor(ge.atlasBounds.bottom + 0.0001);
+            int x = (int) Math.floor(ge.atlasBounds.left + NUM_0_0001);
+            int y = (int) Math.floor(ge.atlasBounds.bottom + NUM_0_0001);
             int width = (int) Math.round(ge.atlasBounds.right - ge.atlasBounds.left);
             int height = (int) Math.round(ge.atlasBounds.top - ge.atlasBounds.bottom);
             if (width <= 0 || height <= 0)
                 continue;
             char ch = (char) ge.unicode;
-            float pl = ge.planeBounds != null ? (float) ge.planeBounds.left : 0f;
-            float pb = ge.planeBounds != null ? (float) ge.planeBounds.bottom : 0f;
-            float pr = ge.planeBounds != null ? (float) ge.planeBounds.right : 0f;
-            float pt = ge.planeBounds != null ? (float) ge.planeBounds.top : 0f;
+            float pl = ge.planeBounds != null ? (float) ge.planeBounds.left : NUM_0;
+            float pb = ge.planeBounds != null ? (float) ge.planeBounds.bottom : NUM_0;
+            float pr = ge.planeBounds != null ? (float) ge.planeBounds.right : NUM_0;
+            float pt = ge.planeBounds != null ? (float) ge.planeBounds.top : NUM_0;
             map.put(ch, new Glyph(width, height, x, y, (float) ge.advance, pl, pb, pr, pt));
         }
         for (SpecialGlyphs specialGlyph : SpecialGlyphs.values()) {
@@ -318,12 +373,19 @@ public class Font {
 
     private float getKerningEm(int prevCodePoint, int codePoint) {
         if (kerningEm == null)
-            return 0f;
+            return NUM_0;
         Map<Integer, Float> m = kerningEm.get(prevCodePoint);
         if (m == null)
-            return 0f;
+            return NUM_0;
         Float v = m.get(codePoint);
-        return v != null ? v.floatValue() : 0f;
+        return v != null ? v.floatValue() : NUM_0;
+    }
+
+    private static class FontAtlasData {
+        int width;
+        int height;
+        float sizePx;
+        float derivedLineHeight;
     }
 
 }

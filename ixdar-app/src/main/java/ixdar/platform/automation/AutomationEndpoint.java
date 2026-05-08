@@ -19,10 +19,18 @@ import ixdar.platform.Platforms;
 import ixdar.platform.automation.endpoints.AutomationRuntime;
 
 public class AutomationEndpoint {
-    
-    protected AutomationRuntime runtime;
+    public static final int NUM_200 = 200;
     public static final Gson GSON = new Gson();
     
+    protected AutomationRuntime runtime;
+    
+    /**
+     * TODO: document {@code readBodyJson}.
+     *
+     * @param exchange TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject readBodyJson(HttpExchange exchange) throws IOException {
         InputStream bodyStream = exchange.getRequestBody();
         if (bodyStream == null) {
@@ -38,6 +46,15 @@ public class AutomationEndpoint {
         return JsonParser.parseString(body).getAsJsonObject();
     }
 
+    /**
+     * TODO: document {@code writeError}.
+     *
+     * @param exchange TODO: describe
+     * @param statusCode TODO: describe
+     * @param message TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject writeError(
         HttpExchange exchange,
         int statusCode,
@@ -49,11 +66,28 @@ public class AutomationEndpoint {
         return writeJson(exchange, statusCode, error);
     }
 
+    /**
+     * TODO: document {@code writeJson}.
+     *
+     * @param exchange TODO: describe
+     * @param payload TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject writeJson(HttpExchange exchange, JsonObject payload)
         throws IOException {
-        return writeJson(exchange, 200, payload);
+        return writeJson(exchange, NUM_200, payload);
     }
 
+    /**
+     * TODO: document {@code writeJson}.
+     *
+     * @param exchange TODO: describe
+     * @param code TODO: describe
+     * @param payload TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject writeJson(HttpExchange exchange, int code, JsonObject payload)
         throws IOException {
         byte[] response = GSON.toJson(payload).getBytes(StandardCharsets.UTF_8);
@@ -66,30 +100,68 @@ public class AutomationEndpoint {
         return payload;
     }
     
+    /**
+     * TODO: document {@code normalizeX}.
+     *
+     * @param x TODO: describe
+     * @return TODO: describe
+     */
     public float normalizeX(float x) {
         int w = Math.max(1, Platforms.get().getWindowWidth());
         return x / w;
     }
 
+    /**
+     * TODO: document {@code normalizeY}.
+     *
+     * @param y TODO: describe
+     * @return TODO: describe
+     */
     public float normalizeY(float y) {
         int h = Math.max(1, Platforms.get().getWindowHeight());
         return y / h;
     }
 
+    /**
+     * TODO: document {@code denormalizeX}.
+     *
+     * @param x TODO: describe
+     * @return TODO: describe
+     */
     public float denormalizeX(float x) {
         return x * Platforms.get().getWindowWidth();
     }
 
+    /**
+     * TODO: document {@code denormalizeY}.
+     *
+     * @param y TODO: describe
+     * @return TODO: describe
+     */
     public float denormalizeY(float y) {
         return y * Platforms.get().getWindowHeight();
     }
 
+    /**
+     * TODO: document {@code imageBytes}.
+     *
+     * @param image TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public byte[] imageBytes(BufferedImage image) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(image, "PNG", baos);
         return baos.toByteArray();
     }
 
+    /**
+     * TODO: document {@code sha256}.
+     *
+     * @param bytes TODO: describe
+     * @throws Exception TODO: describe
+     * @return TODO: describe
+     */
     public String sha256(byte[] bytes) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         byte[] hash = digest.digest(bytes);
@@ -103,6 +175,12 @@ public class AutomationEndpoint {
     // ==================== Patch decomposition + segmentation (annotation-driven)
     // ====================
 
+    /**
+     * TODO: document {@code resolvePath}.
+     *
+     * @param path TODO: describe
+     * @return TODO: describe
+     */
     public File resolvePath(String path) {
         if (path == null || path.isBlank())
             return null;

@@ -12,39 +12,44 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "/mesh/overlay", method = APIMethod.POST)
 public class Overlay extends AutomationEndpoint implements AutomationRoute {
+    public static final String PATH = "path";
+    public static final String CLEAR = "clear";
+    public static final String OK = "ok";
+    public static final String ERROR = "error";
+    public static final String ACTION = "action";
 
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
-        String objPath = body.has("path") ? body.get("path").getAsString() : "";
-        boolean clear = body.has("clear") && body.get("clear").getAsBoolean();
+        String objPath = body.has(PATH) ? body.get(PATH).getAsString() : "";
+        boolean clear = body.has(CLEAR) && body.get(CLEAR).getAsBoolean();
         try {
             return runtime.runOnMainThread(() -> {
                 JsonObject result = new JsonObject();
                 if (!(runtime.canvas instanceof MeshNodeViewerScene)) {
-                    result.addProperty("ok", false);
+                    result.addProperty(OK, false);
                     result.addProperty(
-                            "error",
+                            ERROR,
                             "MeshNodeViewerScene is not active");
                     return result;
                 }
                 MeshNodeViewerScene mvs = (MeshNodeViewerScene) runtime.canvas;
                 if (clear) {
                     mvs.clearOverlay();
-                    result.addProperty("ok", true);
-                    result.addProperty("action", "cleared");
+                    result.addProperty(OK, true);
+                    result.addProperty(ACTION, "cleared");
                 } else {
                     mvs.loadOverlay(objPath);
-                    result.addProperty("ok", true);
-                    result.addProperty("action", "loaded");
-                    result.addProperty("path", objPath);
+                    result.addProperty(OK, true);
+                    result.addProperty(ACTION, "loaded");
+                    result.addProperty(PATH, objPath);
                 }
                 return result;
             });
         } catch (Exception e) {
             JsonObject err = new JsonObject();
-            err.addProperty("ok", false);
+            err.addProperty(OK, false);
             err.addProperty(
-                    "error",
+                    ERROR,
                     e.getMessage() == null ? "" : e.getMessage());
             return err;
         }

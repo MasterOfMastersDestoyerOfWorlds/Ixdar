@@ -29,6 +29,31 @@ import ixdar.scenes.Scene;
 
 @SceneAnnotation(id = "mesh-viewer")
 public class MeshNodeViewerScene extends Scene {
+    public static final String PATCHES = "  patches=";
+    public static final String DSL = ".dsl";
+    public static final String STR = ": ";
+    public static final String FAILED_TO_CREATE_MESH_GL_RUNTIME = "Failed to create mesh GL runtime";
+    public static final String VERTS = " verts=";
+    public static final String FACES = " faces=";
+    public static final String STR_2 = ")";
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1_5 = 1.5f;
+    public static final float NUM_2_5 = 2.5f;
+    public static final int NUM_3 = 3;
+    public static final float NUM_0_6 = 0.6f;
+    public static final float NUM_0_2 = 0.2f;
+    public static final float NUM_0_35 = 0.35f;
+    public static final float NUM_2 = 2f;
+    public static final float NUM_1e_6 = 1e-6f;
+    public static final int NUM_32 = 32;
+    public static final long NUM_0xffffffff = 0xffffffffL;
+    public static final int NUM_0x000000 = 0x000000;
+    public static final int NUM_128 = 128;
+    public static final int NUM_16 = 16;
+    public static final int NUM_0xf = 0xff;
+    public static final float NUM_255 = 255f;
+    public static final int NUM_8 = 8;
+    public static final float NUM_1 = 1f;
     private static final String DSL_FOLDER = "dsl";
     private static final String DEFAULT_DSL_RESOURCE = "skull.dsl";
     private static final String DEFAULT_DSL_FINAL_NODE = "";
@@ -62,14 +87,38 @@ public class MeshNodeViewerScene extends Scene {
     private String cachedDiagnosticsKey;
     private boolean patchOverlayEnabled = false;
     private HalfEdgeMeshRuntime.ShaderMode shaderMode = HalfEdgeMeshRuntime.ShaderMode.LAMBERT;
+    private DecomposerKind activeDecomposer = DecomposerKind.SEMANTIC;
 
     /**
-     * PATCH-26: which decomposer's output drives the patch overlay. Both
-     * pipelines coexist; D toggles. SEMANTIC defaults — the decomposer
-     * the project shipped before MSC.
+     * TODO: document {@code MeshNodeViewerScene}.
      */
-    public enum DecomposerKind { SEMANTIC, MORSE_SMALE }
-    private DecomposerKind activeDecomposer = DecomposerKind.SEMANTIC;
+    public MeshNodeViewerScene() {
+        this(
+                sysPropOrDefault("ixdar.mesh.dsl", DEFAULT_DSL_RESOURCE),
+                sysPropOrDefault("ixdar.mesh.node", DEFAULT_DSL_FINAL_NODE),
+                sysPropOrDefault("ixdar.mesh.port", DEFAULT_DSL_FINAL_PORT));
+    }
+
+    /**
+     * TODO: document {@code MeshNodeViewerScene}.
+     *
+     * @param dslResource TODO: describe
+     * @param dslFinalNode TODO: describe
+     * @param dslFinalPort TODO: describe
+     */
+    public MeshNodeViewerScene(String dslResource, String dslFinalNode, String dslFinalPort) {
+        this.dslResource = dslResource.endsWith(DSL) ? dslResource : dslResource + DSL;
+        this.dslFinalNode = dslFinalNode;
+        this.dslFinalPort = dslFinalPort;
+        this.objResource = null;
+    }
+
+    private MeshNodeViewerScene(String objFilename, boolean objMode) {
+        this.dslResource = null;
+        this.dslFinalNode = null;
+        this.dslFinalPort = null;
+        this.objResource = objFilename;
+    }
 
     /**
      * Log a full state string to the terminal whenever the viewer state
@@ -82,12 +131,12 @@ public class MeshNodeViewerScene extends Scene {
     private void logState() {
         StringBuilder sb = new StringBuilder("[mesh-viewer] STATE ");
         sb.append("model=").append(currentModelDisplayName);
-        sb.append("  patches=").append(patchOverlayEnabled ? "ON" : "OFF");
+        sb.append(PATCHES).append(patchOverlayEnabled ? "ON" : "OFF");
         if (patchOverlayEnabled) {
             sb.append("  mode=").append(shaderMode.name());
             sb.append("  decomposer=").append(activeDecomposer.name());
             if (cachedDiagnostics != null) {
-                sb.append("  patches=").append(cachedDiagnostics.decomposition().patches().size());
+                sb.append(PATCHES).append(cachedDiagnostics.decomposition().patches().size());
             }
         }
         if (modelCatalog != null && !modelCatalog.entries().isEmpty()) {
@@ -97,20 +146,22 @@ public class MeshNodeViewerScene extends Scene {
         Platforms.get().log(sb.toString());
     }
 
-    /** Returns the NodeGraphRuntime from the most recent DSL execution (for timing data). */
+    /**
+     * Returns the NodeGraphRuntime from the most recent DSL execution (for timing data).
+     *
+     * @return TODO: describe
+     */
     public NodeGraphRuntime getLastGraphRuntime() {
         return lastGraphRuntime;
     }
 
+    /**
+     * TODO: document {@code getOrbitMouse}.
+     *
+     * @return TODO: describe
+     */
     public OrbitMouseTrap getOrbitMouse() {
         return orbitMouse;
-    }
-
-    public MeshNodeViewerScene() {
-        this(
-                sysPropOrDefault("ixdar.mesh.dsl", DEFAULT_DSL_RESOURCE),
-                sysPropOrDefault("ixdar.mesh.node", DEFAULT_DSL_FINAL_NODE),
-                sysPropOrDefault("ixdar.mesh.port", DEFAULT_DSL_FINAL_PORT));
     }
 
     private static String sysPropOrDefault(String key, String fallback) {
@@ -118,25 +169,21 @@ public class MeshNodeViewerScene extends Scene {
         return (v != null && !v.isEmpty()) ? v : fallback;
     }
 
-    public MeshNodeViewerScene(String dslResource, String dslFinalNode, String dslFinalPort) {
-        this.dslResource = dslResource.endsWith(".dsl") ? dslResource : dslResource + ".dsl";
-        this.dslFinalNode = dslFinalNode;
-        this.dslFinalPort = dslFinalPort;
-        this.objResource = null;
-    }
-
-    /** Create an OBJ viewer (no DSL execution, just loads and displays an OBJ file). */
+    /**
+     * Create an OBJ viewer (no DSL execution, just loads and displays an OBJ file).
+     *
+     * @param objFilename TODO: describe
+     * @return TODO: describe
+     */
     public static MeshNodeViewerScene forObj(String objFilename) {
         return new MeshNodeViewerScene(objFilename, true);
     }
 
-    private MeshNodeViewerScene(String objFilename, boolean objMode) {
-        this.dslResource = null;
-        this.dslFinalNode = null;
-        this.dslFinalPort = null;
-        this.objResource = objFilename;
-    }
-
+    /**
+     * TODO: document {@code initGL}.
+     *
+     * @throws IllegalStateException TODO: describe
+     */
     @Override
     public void initGL() {
         super.initGL();
@@ -188,7 +235,7 @@ public class MeshNodeViewerScene extends Scene {
                     mesh = runtime.executeGraphToMesh(ast, resolvedNode, dslFinalPort);
                 } catch (Exception e) {
                     for (Throwable t = e; t != null; t = t.getCause()) {
-                        Platforms.get().log("[mesh-viewer] " + t.getClass().getName() + ": " + t.getMessage());
+                        Platforms.get().log("[mesh-viewer] " + t.getClass().getName() + STR + t.getMessage());
                     }
                     throw new IllegalStateException(
                             "Failed to execute graph: dsl=" + dslResource + " finalNode=" + dslFinalNode
@@ -199,13 +246,13 @@ public class MeshNodeViewerScene extends Scene {
                 try {
                     meshRuntime = new HalfEdgeMeshRuntime();
                 } catch (Exception e) {
-                    throw new IllegalStateException("Failed to create mesh GL runtime", e);
+                    throw new IllegalStateException(FAILED_TO_CREATE_MESH_GL_RUNTIME, e);
                 }
                 meshRuntime.upload(mesh);
                 meshRuntime.frameCamera(camera);
                 if (mesh != null) {
                     Platforms.get().log(
-                            "[mesh-viewer] mesh ready " + dslResource + " verts=" + mesh.vertexCount() + " faces="
+                            "[mesh-viewer] mesh ready " + dslResource + VERTS + mesh.vertexCount() + FACES
                                     + mesh.faceCount());
                 } else {
                     Platforms.get().log("[mesh-viewer] mesh is null for " + dslResource);
@@ -213,11 +260,11 @@ public class MeshNodeViewerScene extends Scene {
                 if (mesh != null) {
                     meshCenter.set(mesh.center(new Vector3f()));
                 } else {
-                    meshCenter.set(0f, 0f, 0f);
+                    meshCenter.set(NUM_0, NUM_0, NUM_0);
                 }
                 if (orbitMouse != null) {
                     orbitMouse.setTarget(meshCenter);
-                    float orbitDist = mesh != null ? Math.max(1.5f, mesh.radius() * 2.5f) : CAMERA_DISTANCE;
+                    float orbitDist = mesh != null ? Math.max(NUM_1_5, mesh.radius() * NUM_2_5) : CAMERA_DISTANCE;
                     orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, orbitDist);
                 }
             });
@@ -239,11 +286,11 @@ public class MeshNodeViewerScene extends Scene {
                 meshRuntime.upload(arrayMesh);
                 meshRuntime.frameCamera(camera);
                 Platforms.get().log("[mesh-viewer] OBJ loaded: " + objResource
-                        + " verts=" + arrayMesh.vertexCount() + " faces=" + arrayMesh.faceCount());
+                        + VERTS + arrayMesh.vertexCount() + FACES + arrayMesh.faceCount());
                 if (arrayMesh.vertexCount() > 0) {
                     meshCenter.set(arrayMesh.center(new Vector3f()));
                 } else {
-                    meshCenter.set(0f, 0f, 0f);
+                    meshCenter.set(NUM_0, NUM_0, NUM_0);
                 }
                 if (orbitMouse != null) {
                     orbitMouse.setTarget(meshCenter);
@@ -255,6 +302,9 @@ public class MeshNodeViewerScene extends Scene {
         }
     }
 
+    /**
+     * TODO: document {@code drawScene}.
+     */
     @Override
     public void drawScene() {
         if (meshRuntime == null) {
@@ -274,6 +324,11 @@ public class MeshNodeViewerScene extends Scene {
         }
     }
 
+    /**
+     * TODO: document {@code activate}.
+     *
+     * @param state TODO: describe
+     */
     @Override
     public void activate(boolean state) {
         super.activate(state);
@@ -282,6 +337,9 @@ public class MeshNodeViewerScene extends Scene {
         }
     }
 
+    /**
+     * TODO: document {@code shutdown}.
+     */
     @Override
     public void shutdown() {
         disposeMeshRuntime();
@@ -304,18 +362,38 @@ public class MeshNodeViewerScene extends Scene {
         Platforms.get().log(sb.toString());
     }
 
+    /**
+     * TODO: document {@code getMeshVertexCount}.
+     *
+     * @return TODO: describe
+     */
     public int getMeshVertexCount() {
         return mesh == null ? 0 : mesh.vertexCount();
     }
 
+    /**
+     * TODO: document {@code getMeshFaceCount}.
+     *
+     * @return TODO: describe
+     */
     public int getMeshFaceCount() {
         return mesh == null ? 0 : mesh.faceCount();
     }
 
+    /**
+     * TODO: document {@code getMeshEdgeCount}.
+     *
+     * @return TODO: describe
+     */
     public int getMeshEdgeCount() {
         return mesh == null ? 0 : mesh.edgeCount();
     }
 
+    /**
+     * TODO: document {@code getMeshBoundaryEdgeCount}.
+     *
+     * @return TODO: describe
+     */
     public int getMeshBoundaryEdgeCount() {
         if (mesh == null) {
             return 0;
@@ -329,14 +407,29 @@ public class MeshNodeViewerScene extends Scene {
         return boundaryEdgeCount;
     }
 
+    /**
+     * TODO: document {@code getMeshEulerCharacteristic}.
+     *
+     * @return TODO: describe
+     */
     public int getMeshEulerCharacteristic() {
         return mesh == null ? 0 : mesh.vertexCount() - mesh.edgeCount() + mesh.faceCount();
     }
 
+    /**
+     * TODO: document {@code isMeshClosed}.
+     *
+     * @return TODO: describe
+     */
     public boolean isMeshClosed() {
         return mesh != null && getMeshBoundaryEdgeCount() == 0;
     }
 
+    /**
+     * TODO: document {@code getMeshDegenerateFaceCount}.
+     *
+     * @return TODO: describe
+     */
     public int getMeshDegenerateFaceCount() {
         if (mesh == null) {
             return 0;
@@ -351,7 +444,7 @@ public class MeshNodeViewerScene extends Scene {
         Vector3f cross = new Vector3f();
         for (int i = 0; i < mesh.faceCount(); i++) {
             int faceId = mesh.faceIdAt(i);
-            if (mesh.faceVertexCount(faceId) < 3) {
+            if (mesh.faceVertexCount(faceId) < NUM_3) {
                 degenerateFaceCount++;
                 continue;
             }
@@ -361,39 +454,63 @@ public class MeshNodeViewerScene extends Scene {
             edgeA.set(p1).sub(p0);
             edgeB.set(p2).sub(p0);
             edgeA.cross(edgeB, cross);
-            if (cross.lengthSquared() == 0f) {
+            if (cross.lengthSquared() == NUM_0) {
                 degenerateFaceCount++;
             }
         }
         return degenerateFaceCount;
     }
 
+    /**
+     * TODO: document {@code getMeshRadius}.
+     *
+     * @return TODO: describe
+     */
     public float getMeshRadius() {
-        return mesh == null ? 0f : mesh.radius();
+        return mesh == null ? NUM_0 : mesh.radius();
     }
 
+    /**
+     * TODO: document {@code getMeshCenter}.
+     *
+     * @return TODO: describe
+     */
     public Vector3f getMeshCenter() {
         return mesh == null ? new Vector3f() : mesh.center(new Vector3f());
     }
 
+    /**
+     * TODO: document {@code getBoundingBoxMin}.
+     *
+     * @return TODO: describe
+     */
     public Vector3f getBoundingBoxMin() {
         return mesh == null ? new Vector3f(-HALF_EXTENT, -HALF_EXTENT, -HALF_EXTENT) : mesh.boundsMin(new Vector3f());
     }
 
+    /**
+     * TODO: document {@code getBoundingBoxMax}.
+     *
+     * @return TODO: describe
+     */
     public Vector3f getBoundingBoxMax() {
         return mesh == null ? new Vector3f(HALF_EXTENT, HALF_EXTENT, HALF_EXTENT) : mesh.boundsMax(new Vector3f());
     }
 
-    /** Load a reference OBJ file as a semi-transparent overlay. */
+    /**
+     * Load a reference OBJ file as a semi-transparent overlay.
+     *
+     * @param objPath TODO: describe
+     */
     public void loadOverlay(String objPath) {
         disposeOverlay();
         try {
             ArrayMesh refMesh = MeshLoader.load(objPath);
             overlayRuntime = new HalfEdgeMeshRuntime();
             overlayRuntime.upload(refMesh);
-            overlayRuntime.setSolidColor(1.0f, 0.6f, 0.2f, 0.35f);
+            overlayRuntime.setSolidColor(1.0f, NUM_0_6, NUM_0_2, NUM_0_35);
             Platforms.get().log("[mesh-viewer] overlay loaded: " + objPath
-                    + " verts=" + refMesh.vertexCount() + " faces=" + refMesh.faceCount());
+                    + VERTS + refMesh.vertexCount() + FACES + refMesh.faceCount());
         } catch (IOException e) {
             Platforms.get().log("[mesh-viewer] overlay load failed: " + e.getMessage());
         } catch (Exception e) {
@@ -421,11 +538,12 @@ public class MeshNodeViewerScene extends Scene {
      * @param dslName DSL filename without path (e.g. "test_finger.dsl" or "test_finger")
      * @param finalNode output node ID, or empty for last node in graph
      * @param finalPort output port name, or empty for "geometry"
+     * @throws IllegalStateException TODO: describe
      */
     public void loadDsl(String dslName, String finalNode, String finalPort) {
         // Normalize: append .dsl if missing
-        if (!dslName.endsWith(".dsl")) {
-            dslName = dslName + ".dsl";
+        if (!dslName.endsWith(DSL)) {
+            dslName = dslName + DSL;
         }
         if (finalPort == null || finalPort.isEmpty()) {
             finalPort = DEFAULT_DSL_FINAL_PORT;
@@ -459,49 +577,69 @@ public class MeshNodeViewerScene extends Scene {
             try {
                 meshRuntime = new HalfEdgeMeshRuntime();
             } catch (Exception e) {
-                throw new IllegalStateException("Failed to create mesh GL runtime", e);
+                throw new IllegalStateException(FAILED_TO_CREATE_MESH_GL_RUNTIME, e);
             }
             meshRuntime.upload(mesh);
             meshRuntime.frameCamera(camera);
 
             if (mesh != null) {
                 Platforms.get().log(
-                        "[mesh-viewer] dsl reloaded: " + resolvedDslName + " verts=" + mesh.vertexCount()
-                                + " faces=" + mesh.faceCount());
+                        "[mesh-viewer] dsl reloaded: " + resolvedDslName + VERTS + mesh.vertexCount()
+                                + FACES + mesh.faceCount());
                 meshCenter.set(mesh.center(new Vector3f()));
             } else {
                 Platforms.get().log("[mesh-viewer] dsl reload produced null mesh: " + resolvedDslName);
-                meshCenter.set(0f, 0f, 0f);
+                meshCenter.set(NUM_0, NUM_0, NUM_0);
             }
             if (orbitMouse != null) {
                 orbitMouse.setTarget(meshCenter);
-                float orbitDist = mesh != null ? Math.max(1.5f, mesh.radius() * 2.5f) : CAMERA_DISTANCE;
+                float orbitDist = mesh != null ? Math.max(NUM_1_5, mesh.radius() * NUM_2_5) : CAMERA_DISTANCE;
                 orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, orbitDist);
             }
         });
     }
 
-    /** Current mesh from the DSL graph, or null before async load completes. */
+    /**
+     * Current mesh from the DSL graph, or null before async load completes.
+     *
+     * @return TODO: describe
+     */
     public MeshTopology getMesh() {
         return mesh;
     }
 
     // ==================== VIEW-7 model switching + patch overlay ====================
 
+    /**
+     * TODO: document {@code getModelCatalog}.
+     *
+     * @return TODO: describe
+     */
     public ModelCatalog getModelCatalog() {
         return modelCatalog;
     }
 
+    /**
+     * TODO: document {@code nextModel}.
+     */
     public void nextModel() {
         if (modelCatalog == null || modelCatalog.entries().isEmpty()) return;
         loadModelEntry(modelCatalog.next());
     }
 
+    /**
+     * TODO: document {@code prevModel}.
+     */
     public void prevModel() {
         if (modelCatalog == null || modelCatalog.entries().isEmpty()) return;
         loadModelEntry(modelCatalog.prev());
     }
 
+    /**
+     * TODO: document {@code loadModelEntry}.
+     *
+     * @param entry TODO: describe
+     */
     public void loadModelEntry(ModelCatalog.ModelEntry entry) {
         if (entry == null) return;
         // Preserve current orbit across the reload so the user doesn't get
@@ -542,18 +680,18 @@ public class MeshNodeViewerScene extends Scene {
             meshRuntime.upload(mesh);
             meshRuntime.frameCamera(camera);
             if (mesh != null) {
-                Platforms.get().log("[mesh-viewer] dsl loaded: " + absolutePath + " verts=" + mesh.vertexCount()
-                        + " faces=" + mesh.faceCount());
+                Platforms.get().log("[mesh-viewer] dsl loaded: " + absolutePath + VERTS + mesh.vertexCount()
+                        + FACES + mesh.faceCount());
                 meshCenter.set(mesh.center(new Vector3f()));
             } else {
-                meshCenter.set(0f, 0f, 0f);
+                meshCenter.set(NUM_0, NUM_0, NUM_0);
             }
             if (orbitMouse != null) {
                 orbitMouse.setTarget(meshCenter);
                 orbitMouse.setOrbit(az, el, dist);
             }
         } catch (Exception e) {
-            Platforms.get().log("[mesh-viewer] DSL load failed for " + absolutePath + ": " + e.getMessage());
+            Platforms.get().log("[mesh-viewer] DSL load failed for " + absolutePath + STR + e.getMessage());
         }
     }
 
@@ -566,17 +704,20 @@ public class MeshNodeViewerScene extends Scene {
             meshRuntime.upload(arrayMesh);
             meshRuntime.frameCamera(camera);
             Platforms.get().log("[mesh-viewer] obj loaded: " + absolutePath
-                    + " verts=" + arrayMesh.vertexCount() + " faces=" + arrayMesh.faceCount());
+                    + VERTS + arrayMesh.vertexCount() + FACES + arrayMesh.faceCount());
             meshCenter.set(arrayMesh.center(new Vector3f()));
             if (orbitMouse != null) {
                 orbitMouse.setTarget(meshCenter);
                 orbitMouse.setOrbit(az, el, dist);
             }
         } catch (Exception e) {
-            Platforms.get().log("[mesh-viewer] OBJ load failed for " + absolutePath + ": " + e.getMessage());
+            Platforms.get().log("[mesh-viewer] OBJ load failed for " + absolutePath + STR + e.getMessage());
         }
     }
 
+    /**
+     * TODO: document {@code togglePatchOverlay}.
+     */
     public void togglePatchOverlay() {
         if (meshRuntime == null || mesh == null) {
             Platforms.get().log("[mesh-viewer] patch overlay: no mesh loaded");
@@ -602,7 +743,7 @@ public class MeshNodeViewerScene extends Scene {
         applyFeatureEdgeOverlay();
         applyScalarOverlay();
         Platforms.get().log("[mesh-viewer] patches: ON (" + cachedDiagnostics.decomposition().patches().size()
-                + " patches, mode=" + shaderMode + ")");
+                + " patches, mode=" + shaderMode + STR_2);
         logState();
     }
 
@@ -627,6 +768,9 @@ public class MeshNodeViewerScene extends Scene {
         logState();
     }
 
+    /**
+     * TODO: document {@code toggleShaderMode}.
+     */
     public void toggleShaderMode() {
         HalfEdgeMeshRuntime.ShaderMode[] cycle = HalfEdgeMeshRuntime.ShaderMode.values();
         shaderMode = cycle[(shaderMode.ordinal() + 1) % cycle.length];
@@ -660,8 +804,8 @@ public class MeshNodeViewerScene extends Scene {
             meshRuntime.clearPerVertexScalar();
             return;
         }
-        float rampMax = Math.max(2f * cachedDiagnostics.coonsErrorThreshold(), 1e-6f);
-        meshRuntime.setPerVertexScalar(errors, 0f, rampMax);
+        float rampMax = Math.max(NUM_2 * cachedDiagnostics.coonsErrorThreshold(), NUM_1e_6);
+        meshRuntime.setPerVertexScalar(errors, NUM_0, rampMax);
     }
 
     /**
@@ -741,13 +885,13 @@ public class MeshNodeViewerScene extends Scene {
                         int u = verts[i];
                         int v = verts[i + 1];
                         long key = u < v
-                                ? ((long) u << 32) | (v & 0xffffffffL)
-                                : ((long) v << 32) | (u & 0xffffffffL);
+                                ? ((long) u << NUM_32) | (v & NUM_0xffffffff)
+                                : ((long) v << NUM_32) | (u & NUM_0xffffffff);
                         arcEdges.add(key);
                     }
                 }
                 java.util.List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new java.util.ArrayList<>();
-                cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(0x000000, arcEdges));
+                cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(NUM_0x000000, arcEdges));
                 meshRuntime.setFeatureEdgeOverlay(cats);
             } else {
                 meshRuntime.clearFeatureEdgeOverlay();
@@ -759,7 +903,7 @@ public class MeshNodeViewerScene extends Scene {
 
     private void ensureDecomposition() {
         if (mesh == null) return;
-        String key = currentModelKey != null ? currentModelKey : "dsl";
+        String key = currentModelKey != null ? currentModelKey : DSL_FOLDER;
         if (cachedDiagnostics != null && key.equals(cachedDiagnosticsKey)) return;
         // TEMPORARY (MESH-49): until the node ecosystem canonicalizes output
         // to ArrayMesh, convert on the fly here so patch overlay works on
@@ -782,15 +926,15 @@ public class MeshNodeViewerScene extends Scene {
                 + " (" + am.vertexCount() + " verts)...");
         long start = System.currentTimeMillis();
         cachedDiagnostics = (activeDecomposer == DecomposerKind.MORSE_SMALE)
-                ? ixdar.geometry.mesh.data.MorseSmaleDecomposer.decomposeWithDiagnostics(am, 128)
-                : SemanticPatchDecomposer.decomposeWithDiagnostics(am, 128);
+                ? ixdar.geometry.mesh.data.MorseSmaleDecomposer.decomposeWithDiagnostics(am, NUM_128)
+                : SemanticPatchDecomposer.decomposeWithDiagnostics(am, NUM_128);
         cachedDiagnosticsKey = key;
         long elapsed = System.currentTimeMillis() - start;
         Platforms.get().log("[mesh-viewer] decomposed in " + elapsed + "ms: "
                 + cachedDiagnostics.decomposition().patches().size() + " patches"
                 + " (crest=" + cachedDiagnostics.crestEdges().size()
                 + " saddle=" + cachedDiagnostics.saddleSeparatorEdges().size()
-                + " boundary=" + cachedDiagnostics.patchBoundaryEdges().size() + ")");
+                + " boundary=" + cachedDiagnostics.patchBoundaryEdges().size() + STR_2);
     }
 
     private void applyCurrentOverlay() {
@@ -809,17 +953,17 @@ public class MeshNodeViewerScene extends Scene {
             if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.FLAT) {
                 int rgb = PatchRenderer.uniquePatchColor(p.id());
                 color = new Vector4f(
-                        ((rgb >> 16) & 0xff) / 255f,
-                        ((rgb >> 8) & 0xff) / 255f,
-                        (rgb & 0xff) / 255f,
-                        1f);
+                        ((rgb >> NUM_16) & NUM_0xf) / NUM_255,
+                        ((rgb >> NUM_8) & NUM_0xf) / NUM_255,
+                        (rgb & NUM_0xf) / NUM_255,
+                        NUM_1);
             } else {
-                int rgb = Integer.parseInt(p.color(), 16);
+                int rgb = Integer.parseInt(p.color(), NUM_16);
                 color = new Vector4f(
-                        ((rgb >> 16) & 0xff) / 255f,
-                        ((rgb >> 8) & 0xff) / 255f,
-                        (rgb & 0xff) / 255f,
-                        1f);
+                        ((rgb >> NUM_16) & NUM_0xf) / NUM_255,
+                        ((rgb >> NUM_8) & NUM_0xf) / NUM_255,
+                        (rgb & NUM_0xf) / NUM_255,
+                        NUM_1);
             }
             meshRuntime.setTagColor(name, color);
         }
@@ -827,6 +971,9 @@ public class MeshNodeViewerScene extends Scene {
         meshRuntime.setTags(tags);
     }
 
+    /**
+     * TODO: document {@code toggleMeshWireframe}.
+     */
     public void toggleMeshWireframe() {
         if (meshRuntime == null) {
             return;
@@ -835,12 +982,22 @@ public class MeshNodeViewerScene extends Scene {
         Platforms.get().log("[mesh-viewer] wireframe=" + meshRuntime.isWireframe());
     }
 
+    /**
+     * TODO: document {@code setOrthographic}.
+     *
+     * @param ortho TODO: describe
+     */
     public void setOrthographic(boolean ortho) {
         HalfEdgeMeshRuntime rt = meshRuntime;
         if (rt == null) return;
         rt.setOrthographic(ortho);
     }
 
+    /**
+     * TODO: document {@code isOrthographic}.
+     *
+     * @return TODO: describe
+     */
     public boolean isOrthographic() {
         HalfEdgeMeshRuntime rt = meshRuntime;
         return rt != null && rt.isOrthographic();
@@ -859,6 +1016,10 @@ public class MeshNodeViewerScene extends Scene {
      * Direct input binding that doesn't rely on reflection (works in TeaVM).
      * bindAutomationIfAvailable uses Class.forName which silently fails in
      * TeaVM, leaving all input callbacks null. This method wires them directly.
+     *
+     * @param platform TODO: describe
+     * @param keys TODO: describe
+     * @param mouse TODO: describe
      */
     private static void bindInputDirect(ixdar.platform.gl.Platform platform,
                                          ixdar.platform.input.KeyGuy keys,
@@ -876,5 +1037,12 @@ public class MeshNodeViewerScene extends Scene {
             keys.keyCallback(0L, key, scancode, action, mods);
         });
     }
+
+    /**
+     * PATCH-26: which decomposer's output drives the patch overlay. Both
+     * pipelines coexist; D toggles. SEMANTIC defaults — the decomposer
+     * the project shipped before MSC.
+     */
+    public enum DecomposerKind { SEMANTIC, MORSE_SMALE }
 
 }

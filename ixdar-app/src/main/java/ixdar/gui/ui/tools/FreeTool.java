@@ -13,6 +13,7 @@ import ixdar.platform.Toggle;
 import ixdar.scenes.main.MainScene;
 
 public class FreeTool extends Tool {
+    public static final String NONE_2 = "None";
 
     @Override
     public void draw(Camera2D camera, float minLineThickness) {
@@ -31,7 +32,7 @@ public class FreeTool extends Tool {
                 return;
             }
         }
-    };
+    }
 
     @Override
     public void cycleRight() {
@@ -43,7 +44,7 @@ public class FreeTool extends Tool {
                 return;
             }
         }
-    };
+    }
 
     @Override
     public void confirm() {
@@ -55,14 +56,14 @@ public class FreeTool extends Tool {
         HyperString pointInfo = new HyperString();
         h.addWord("Point: ");
         pointInfo.addDynamicWord(() -> {
-            final ColorText NONE = new ColorText("None");
+            final ColorText NONE = new ColorText(NONE_2);
             if (MainScene.tool.displayKP == null) {
                 return NONE;
             }
             return new ColorText(((MainScene.tool.displayKP).p).toString());
         });
         h.addDynamicTooltip(() -> {
-            final ColorText NONE = new ColorText("None");
+            final ColorText NONE = new ColorText(NONE_2);
             if (displayKP == null) {
                 return NONE;
             }
@@ -83,7 +84,7 @@ public class FreeTool extends Tool {
         h.newLine();
         h.addWord("Neighbors:");
         if (displayKP == null) {
-            h.addWord("None");
+            h.addWord(NONE_2);
         } else {
             for (Knot match : displayKP.matchList) {
                 h.addWord(match.id + "");
@@ -93,7 +94,7 @@ public class FreeTool extends Tool {
         h.newLine();
         h.addWord("Closest Points:");
         if (displayKP == null) {
-            h.addWord("None");
+            h.addWord(NONE_2);
         } else {
             h.addWord(displayKP.sortedSegments.get(0).getOther(displayKP).id + "");
             h.addWord(displayKP.sortedSegments.get(1).getOther(displayKP).id + "");
@@ -108,7 +109,7 @@ public class FreeTool extends Tool {
             }
         }
         if (containingKnot == null) {
-            h.addWord("None");
+            h.addWord(NONE_2);
         } else {
             Color c = MainScene.stickyColor;
             if (canUseToggle(Toggle.DrawKnotGradient)) {
@@ -182,5 +183,5 @@ public class FreeTool extends Tool {
     @Override
     public String desc() {
         return "The default tool. Gives the most information about knot structure and connections";
-    }
+    };;
 }

@@ -11,10 +11,21 @@ public class SDFCircleSimple extends ShaderDrawable {
     public Vector2f center;
     public float radius;
 
+    /**
+     * TODO: document {@code SDFCircleSimple}.
+     */
     public SDFCircleSimple() {
         shader = ShaderType.CircleSDFSimple.getShader();
     }
 
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param center TODO: describe
+     * @param radius TODO: describe
+     * @param c TODO: describe
+     * @param camera TODO: describe
+     */
     public void draw(Vector2f center, float radius, Color c, Camera camera) {
         this.radius = radius;
         this.center = center;
@@ -22,6 +33,9 @@ public class SDFCircleSimple extends ShaderDrawable {
         draw(camera);
     }
 
+    /**
+     * TODO: document {@code calculateQuad}.
+     */
     @Override
     public void calculateQuad() {
         topRight = new Vector2f(center).add(radius, radius);
@@ -30,6 +44,9 @@ public class SDFCircleSimple extends ShaderDrawable {
         bottomLeft = new Vector2f(center).add(-radius, -radius);
     }
 
+    /**
+     * TODO: document {@code setUniforms}.
+     */
     @Override
     protected void setUniforms() {
         float edgeDist = 1.0f;

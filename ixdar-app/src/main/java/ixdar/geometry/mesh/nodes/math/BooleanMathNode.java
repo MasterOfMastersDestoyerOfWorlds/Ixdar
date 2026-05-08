@@ -14,58 +14,77 @@ import ixdar.annotations.meshnode.PortType;
 
 @MeshNodeAnnotation(id = "boolean_math")
 public class BooleanMathNode implements MeshNode {
+    public static final String AND = "AND";
+    public static final String A_2 = "a";
+    public static final String B_2 = "b";
+    public static final String OPERATION_2 = "operation";
+    public static final String VALUE_2 = "value";
 
     public static final ModeConstraint MODE_CONSTRAINT = new ModeConstraint(
-            "AND",
-            List.of("AND", "OR", "NOT", "XOR"),
+            AND,
+            List.of(AND, "OR", "NOT", "XOR"),
             Map.of());
 
-    public enum Mode {
-        AND,
-        OR,
-        NOT,
-        XOR;
+    private static final InputPort A = new InputPort(A_2, PortType.BOOLEAN, false);
+    private static final InputPort B = new InputPort(B_2, PortType.BOOLEAN, false);
+    private static final InputPort OPERATION = new InputPort(OPERATION_2, PortType.STRING, AND, MODE_CONSTRAINT);
+    private static final OutputPort VALUE = new OutputPort(VALUE_2, PortType.BOOLEAN);
 
-        public static Mode parse(String raw) {
-            return Mode.valueOf(MODE_CONSTRAINT.normalize(raw));
-        }
-    }
-
-    private static final InputPort A = new InputPort("a", PortType.BOOLEAN, false);
-    private static final InputPort B = new InputPort("b", PortType.BOOLEAN, false);
-    private static final InputPort OPERATION = new InputPort("operation", PortType.STRING, "AND", MODE_CONSTRAINT);
-    private static final OutputPort VALUE = new OutputPort("value", PortType.BOOLEAN);
-
+    /**
+     * TODO: document {@code description}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String description() {
         return "Per-element boolean logic with modes AND, OR, NOT, XOR.";
     }
 
+    /**
+     * TODO: document {@code socketDocs}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "a", "Left operand (scalar bool or per-element BoolField).",
-                "b", "Right operand. Ignored for operation=NOT.",
-                "operation", "Operation: AND, OR, NOT (of a), XOR.",
-                "value", "Boolean result with broadcast shape of a/b."
+                A_2, "Left operand (scalar bool or per-element BoolField).",
+                B_2, "Right operand. Ignored for operation=NOT.",
+                OPERATION_2, "Operation: AND, OR, NOT (of a), XOR.",
+                VALUE_2, "Boolean result with broadcast shape of a/b."
         );
     }
 
+    /**
+     * TODO: document {@code inputs}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public List<InputPort> inputs() {
         return List.of(A, B, OPERATION);
     }
 
+    /**
+     * TODO: document {@code outputs}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public List<OutputPort> outputs() {
         return List.of(VALUE);
     }
 
+    /**
+     * TODO: document {@code evaluate}.
+     *
+     * @param ctx TODO: describe
+     */
     @Override
     public void evaluate(NodeContext ctx) {
-        Object aObj = FieldBroadcast.getInputOrDefault(ctx, "a", A.defaultValue());
-        Object bObj = FieldBroadcast.getInputOrDefault(ctx, "b", B.defaultValue());
-        String opStr = ctx.getInput("operation", String.class);
+        Object aObj = FieldBroadcast.getInputOrDefault(ctx, A_2, A.defaultValue());
+        Object bObj = FieldBroadcast.getInputOrDefault(ctx, B_2, B.defaultValue());
+        String opStr = ctx.getInput(OPERATION_2, String.class);
         Mode mode = Mode.parse(opStr);
 
         boolean hasField = aObj instanceof BoolField || bObj instanceof BoolField;
@@ -77,11 +96,11 @@ public class BooleanMathNode implements MeshNode {
                 boolean b = FieldBroadcast.boolAt(bObj, i, false);
                 out[i] = apply(mode, a, b);
             }
-            ctx.setOutput("value",new BoolField(out));
+            ctx.setOutput(VALUE_2,new BoolField(out));
         } else {
             boolean a = aObj instanceof Boolean ab ? ab : false;
             boolean b = bObj instanceof Boolean bb ? bb : false;
-            ctx.setOutput("value",apply(mode, a, b));
+            ctx.setOutput(VALUE_2,apply(mode, a, b));
         }
     }
 
@@ -101,5 +120,22 @@ public class BooleanMathNode implements MeshNode {
             throw new IllegalArgumentException("BoolField length mismatch: " + la + " vs " + lb);
         }
         return Math.max(la, lb);
+    }
+
+    public enum Mode {
+        AND,
+        OR,
+        NOT,
+        XOR;
+
+        /**
+         * TODO: document {@code parse}.
+         *
+         * @param raw TODO: describe
+         * @return TODO: describe
+         */
+        public static Mode parse(String raw) {
+            return Mode.valueOf(MODE_CONSTRAINT.normalize(raw));
+        }
     }
 }

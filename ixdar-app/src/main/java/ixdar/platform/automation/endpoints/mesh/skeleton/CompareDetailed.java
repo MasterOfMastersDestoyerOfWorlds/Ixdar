@@ -23,43 +23,50 @@ import ixdar.platform.automation.AutomationEndpoint;
  */
 @AutomationRouteAnnotation(path = "mesh/skeleton/compare-detailed", method = APIMethod.POST)
 public class CompareDetailed extends AutomationEndpoint implements AutomationRoute {
+    public static final String GENERATED = "generated";
+    public static final String REFERENCE = "reference";
+    public static final String RESOLUTION = "resolution";
+    public static final String OK = "ok";
+    public static final String ERROR = "error";
+    public static final String USER_DIR = "user.dir";
+    public static final int NUM_128 = 128;
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
-            String generatedPath = body.has("generated") ? body.get("generated").getAsString() : "";
-            String referencePath = body.has("reference") ? body.get("reference").getAsString() : "";
-            int resolution = body.has("resolution") ? body.get("resolution").getAsInt() : 128;
+            String generatedPath = body.has(GENERATED) ? body.get(GENERATED).getAsString() : "";
+            String referencePath = body.has(REFERENCE) ? body.get(REFERENCE).getAsString() : "";
+            int resolution = body.has(RESOLUTION) ? body.get(RESOLUTION).getAsInt() : NUM_128;
             if (generatedPath.isEmpty() || referencePath.isEmpty()) {
                 JsonObject err = new JsonObject();
-                err.addProperty("ok", false);
+                err.addProperty(OK, false);
                 err.addProperty(
-                        "error",
+                        ERROR,
                         "Provide 'generated' and 'reference' OBJ paths");
                 return err;
             }
             File genFile = new File(generatedPath);
             if (!genFile.isAbsolute())
                 genFile = new File(
-                        System.getProperty("user.dir"),
+                        System.getProperty(USER_DIR),
                         generatedPath);
             if (!genFile.exists()) {
                 JsonObject err = new JsonObject();
-                err.addProperty("ok", false);
+                err.addProperty(OK, false);
                 err.addProperty(
-                        "error",
+                        ERROR,
                         "Generated mesh not found: " + genFile.getAbsolutePath());
                 return err;
             }
             File refFile = new File(referencePath);
             if (!refFile.isAbsolute())
                 refFile = new File(
-                        System.getProperty("user.dir"),
+                        System.getProperty(USER_DIR),
                         referencePath);
             if (!refFile.exists()) {
                 JsonObject err = new JsonObject();
-                err.addProperty("ok", false);
+                err.addProperty(OK, false);
                 err.addProperty(
-                        "error",
+                        ERROR,
                         "Reference mesh not found: " + refFile.getAbsolutePath());
                 return err;
             }
@@ -76,16 +83,16 @@ public class CompareDetailed extends AutomationEndpoint implements AutomationRou
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
             JsonObject result = JsonParser.parseString(
                     gson.toJson(comparison)).getAsJsonObject();
-            result.addProperty("ok", true);
+            result.addProperty(OK, true);
             result.addProperty("generated_path", genFile.getAbsolutePath());
             result.addProperty("reference_path", refFile.getAbsolutePath());
-            result.addProperty("resolution", resolution);
+            result.addProperty(RESOLUTION, resolution);
 
             return result;
         } catch (Exception e) {
             JsonObject err = new JsonObject();
-            err.addProperty("ok", false);
-            err.addProperty("error", e.getMessage());
+            err.addProperty(OK, false);
+            err.addProperty(ERROR, e.getMessage());
             return err;
         }
     }

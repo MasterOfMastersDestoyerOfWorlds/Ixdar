@@ -1,8 +1,6 @@
 package ixdar.platform.input;
 
 public final class Keys {
-    private Keys() {
-    }
 
     // Actions
     public static final int ACTION_RELEASE = 0;
@@ -62,5 +60,7 @@ public final class Keys {
     public static final int MINUS = 45; // '-'
     public static final int EQUAL = 61; // '='
     public static final int LEFT_BRACKET = 91; // '['
-    public static final int RIGHT_BRACKET = 93; // ']'
+    public static final int RIGHT_BRACKET = 93;
+    private Keys() {
+    } // ']'
 }

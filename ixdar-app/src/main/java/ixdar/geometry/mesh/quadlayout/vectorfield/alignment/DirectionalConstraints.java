@@ -32,18 +32,6 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.BaseField;
  */
 public final class DirectionalConstraints {
 
-    public static final class Result {
-        /** Per-face θ constraint angle (radians, in face's local frame). */
-        public final double[] thetaConstraint;
-        /** {@code constrained[f]=true} ⇔ face f is in a kept smooth region. */
-        public final boolean[] constrained;
-
-        public Result(double[] thetaConstraint, boolean[] constrained) {
-            this.thetaConstraint = thetaConstraint;
-            this.constrained = constrained;
-        }
-    }
-
     private DirectionalConstraints() {}
 
     /**
@@ -55,6 +43,12 @@ public final class DirectionalConstraints {
      * sign propagation; pass {@code null} to fall back to the old per-face
      * {@code atan2} that ignores line-field sign and emits spurious
      * {@code m_e = ±2} on every region-internal sign flip.
+     *
+     * @param mesh TODO: describe
+     * @param frames TODO: describe
+     * @param pdf TODO: describe
+     * @param regionId TODO: describe
+     * @return TODO: describe
      */
     public static Result compute(ArrayMesh mesh,
                                   BaseField frames, PrincipalCurvatureField pdf,
@@ -104,6 +98,11 @@ public final class DirectionalConstraints {
      * so that {@code sign[f] · a_min(f)}, after Levi-Civita transport across
      * the entry edge, agrees in sign with the parent's signed {@code a_min}.
      * Faces outside any kept region get {@code sign[f] = +1} (unused).
+     *
+     * @param mesh TODO: describe
+     * @param pdf TODO: describe
+     * @param regionId TODO: describe
+     * @return TODO: describe
      */
     private static float[] buildPerFaceSign(ArrayMesh mesh, PrincipalCurvatureField pdf,
                                             int[] regionId) {
@@ -155,5 +154,23 @@ public final class DirectionalConstraints {
             }
         }
         return sign;
+    }
+
+    public static final class Result {
+        /** Per-face θ constraint angle (radians, in face's local frame). */
+        public final double[] thetaConstraint;
+        /** {@code constrained[f]=true} ⇔ face f is in a kept smooth region. */
+        public final boolean[] constrained;
+
+        /**
+         * TODO: document {@code Result}.
+         *
+         * @param thetaConstraint TODO: describe
+         * @param constrained TODO: describe
+         */
+        public Result(double[] thetaConstraint, boolean[] constrained) {
+            this.thetaConstraint = thetaConstraint;
+            this.constrained = constrained;
+        }
     }
 }

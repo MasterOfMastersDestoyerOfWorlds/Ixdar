@@ -5,8 +5,8 @@ public enum SpecialGlyphs {
             0.592f);
 
     private static final int PUA_START = 0xE000;
-    private final char value;
     public Glyph glyph;
+    private final char value;
 
     SpecialGlyphs(int width, int height, int x, int y, float advance,
             float planeLeft, float planeBottom, float planeRight, float planeTop) {
@@ -14,10 +14,20 @@ public enum SpecialGlyphs {
         this.glyph = new Glyph(width, height, x, y, (float) advance, planeLeft, planeBottom, planeRight, planeTop);
     }
 
+    /**
+     * TODO: document {@code getChar}.
+     *
+     * @return TODO: describe
+     */
     public char getChar() {
         return value;
     }
 
+    /**
+     * TODO: document {@code getCodePoint}.
+     *
+     * @return TODO: describe
+     */
     public int getCodePoint() {
         return value;
     }

@@ -11,6 +11,7 @@ import ixdar.scenes.main.MainScene;
 
 @CommandAnnotation(id = "mv")
 public class MoveCommand extends TerminalCommand {
+    public static final int NUM_3 = 3;
 
     public static String cmd = "mv";
 
@@ -36,7 +37,7 @@ public class MoveCommand extends TerminalCommand {
 
     @Override
     public int argLength() {
-        return 3;
+        return NUM_3;
     }
 
     @Override

@@ -12,6 +12,17 @@ public class Face {
     public final Quaternionf rotation;
     public final Vector3f normal;
 
+    /**
+     * TODO: document {@code Face}.
+     *
+     * @param index TODO: describe
+     * @param localV1 TODO: describe
+     * @param localV2 TODO: describe
+     * @param localV3 TODO: describe
+     * @param idealPos TODO: describe
+     * @param idealRot TODO: describe
+     * @param normal TODO: describe
+     */
     public Face(
             int index,
             Vector3f localV1,

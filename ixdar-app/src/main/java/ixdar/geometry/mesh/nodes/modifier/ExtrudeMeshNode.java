@@ -36,14 +36,25 @@ import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
  */
 @MeshNodeAnnotation(id = "extrude_mesh")
 public class ExtrudeMeshNode implements MeshNode {
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String OFFSET_2 = "offset";
+    public static final String SELECTION_2 = "selection";
+    public static final String REGION_2 = "region";
+    public static final String MESH = "mesh";
+    public static final String GENERATED = "generated";
+    public static final float NUM_0_1 = 0.1f;
+    public static final int NUM_3 = 3;
+    public static final float NUM_0 = 0f;
+    public static final int NUM_4 = 4;
+    public static final float NUM_1e_8 = 1e-8f;
 
-    private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort OFFSET = new InputPort("offset", PortType.FLOAT, 0.1f, -10f, 10f);
-    private static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
-    private static final InputPort REGION = new InputPort("region", PortType.BOOLEAN, false);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
-    private static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
-    private static final OutputPort GENERATED_OUT = new OutputPort("generated", PortType.BOOLEAN);
+    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort OFFSET = new InputPort(OFFSET_2, PortType.FLOAT, 0.1f, -10f, 10f);
+    private static final InputPort SELECTION = new InputPort(SELECTION_2, PortType.BOOLEAN, true);
+    private static final InputPort REGION = new InputPort(REGION_2, PortType.BOOLEAN, false);
+    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    private static final OutputPort MESH_OUT = new OutputPort(MESH, PortType.MESH);
+    private static final OutputPort GENERATED_OUT = new OutputPort(GENERATED, PortType.BOOLEAN);
 
     @Override
     public List<InputPort> inputs() {
@@ -63,31 +74,31 @@ public class ExtrudeMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                "geometry", "Input/output cage. Preserves bezier handle slots via rebuild when _bezier_handle_weight is set.",
-                "offset", "Distance to push extruded faces along the (averaged) face normal. Positive = outward, negative = inward.",
-                "selection", "Per-face BOOLEAN mask (or scalar). True = face gets extruded.",
-                "region", "If true, adjacent selected faces share extruded vertices — single extruded region. If false (default), each face extrudes independently (cheese-grater).",
-                "mesh", "Topology-only output.",
-                "generated", "Per-output-face BOOLEAN: true for the newly-created top face of each extrusion; false for pass-through and side walls. Thread into the selection of the next op to chain features."
+                GEOMETRY_2, "Input/output cage. Preserves bezier handle slots via rebuild when _bezier_handle_weight is set.",
+                OFFSET_2, "Distance to push extruded faces along the (averaged) face normal. Positive = outward, negative = inward.",
+                SELECTION_2, "Per-face BOOLEAN mask (or scalar). True = face gets extruded.",
+                REGION_2, "If true, adjacent selected faces share extruded vertices — single extruded region. If false (default), each face extrudes independently (cheese-grater).",
+                MESH, "Topology-only output.",
+                GENERATED, "Per-output-face BOOLEAN: true for the newly-created top face of each extrusion; false for pass-through and side walls. Thread into the selection of the next op to chain features."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
         MeshTopology in = base.mesh();
         if (in == null || in.vertexCount() == 0) {
-            ctx.setOutput("mesh", null);
-            ctx.setOutput("geometry", GeometryBundle.empty());
-            ctx.setOutput("generated", new BoolField(new boolean[0]));
+            ctx.setOutput(MESH, null);
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GENERATED, new BoolField(new boolean[0]));
             return;
         }
 
-        Object offObj = FieldBroadcast.getInputOrDefault(ctx, "offset", OFFSET.defaultValue());
-        float offset = FieldBroadcast.floatScalarOrDefault(offObj, 0.1f);
+        Object offObj = FieldBroadcast.getInputOrDefault(ctx, OFFSET_2, OFFSET.defaultValue());
+        float offset = FieldBroadcast.floatScalarOrDefault(offObj, NUM_0_1);
 
-        Object selObj = FieldBroadcast.getInputOrDefault(ctx, "selection", SELECTION.defaultValue());
-        Object regObj = FieldBroadcast.getInputOrDefault(ctx, "region", REGION.defaultValue());
+        Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION_2, SELECTION.defaultValue());
+        Object regObj = FieldBroadcast.getInputOrDefault(ctx, REGION_2, REGION.defaultValue());
         boolean region = FieldBroadcast.boolAt(regObj, 0, false);
 
         ArrayMesh am = in instanceof ArrayMesh m ? m : ArrayMeshEngine.fromUniformMeshTopology(in);
@@ -134,13 +145,10 @@ public class ExtrudeMeshNode implements MeshNode {
             }
         }
 
-        ctx.setOutput("mesh", out);
-        ctx.setOutput("geometry", outBundle);
-        ctx.setOutput("generated", new BoolField(genMask));
+        ctx.setOutput(MESH, out);
+        ctx.setOutput(GEOMETRY_2, outBundle);
+        ctx.setOutput(GENERATED, new BoolField(genMask));
     }
-
-    /** Result of an extrusion: mesh + metadata used for handle preservation and generated output. */
-    private record ExtrusionResult(MeshTopology mesh, boolean[] selected, int[] newToOrig) {}
 
     /**
      * For each output edge, classify it and stash the appropriate directed
@@ -161,7 +169,7 @@ public class ExtrudeMeshNode implements MeshNode {
             int he = inMesh.edgeHalfEdge(eid);
             int va = inMesh.halfEdgeVertex(he);
             int vb = inMesh.halfEdgeEndVertex(he);
-            int o = eid * 3;
+            int o = eid * NUM_3;
             inEdgeToStart.put(CoonsHandleBuilder.dirPack(va, vb),
                     new float[]{inHS[o], inHS[o + 1], inHS[o + 2]});
             inEdgeToEnd.put(CoonsHandleBuilder.dirPack(va, vb),
@@ -232,7 +240,7 @@ public class ExtrudeMeshNode implements MeshNode {
             if (sel) selectedCount++;
         }
 
-        if (selectedCount == 0 || offset == 0f) {
+        if (selectedCount == 0 || offset == NUM_0) {
             return new ExtrusionResult(new ArrayMesh(srcPos, null, srcFaces, vpf), selected, new int[0]);
         }
 
@@ -243,13 +251,13 @@ public class ExtrudeMeshNode implements MeshNode {
         int[] newToOrig = new int[newVertCount];
 
         // Fast path: quads only — output ArrayMesh with primitive arrays, no boxing.
-        if (vpf == 4) {
+        if (vpf == NUM_4) {
             int outV = vertCount + newVertCount;
             int outF = faceCount + sideFaceCount;
-            float[] outPos = new float[outV * 3];
-            int[] outFaces = new int[outF * 4];
+            float[] outPos = new float[outV * NUM_3];
+            int[] outFaces = new int[outF * NUM_4];
 
-            System.arraycopy(srcPos, 0, outPos, 0, vertCount * 3);
+            System.arraycopy(srcPos, 0, outPos, 0, vertCount * NUM_3);
 
             Vector3f faceNormal = new Vector3f();
             int[][] faceNewVerts = new int[faceCount][];
@@ -259,13 +267,13 @@ public class ExtrudeMeshNode implements MeshNode {
                     continue;
                 }
                 mesh.faceNormal(fi, faceNormal);
-                int[] newVerts = new int[4];
-                int fb = fi * 4;
-                for (int k = 0; k < 4; k++) {
+                int[] newVerts = new int[NUM_4];
+                int fb = fi * NUM_4;
+                for (int k = 0; k < NUM_4; k++) {
                     int origVid = srcFaces[fb + k];
-                    outPos[nextVert * 3] = srcPos[origVid * 3] - faceNormal.x * offset;
-                    outPos[nextVert * 3 + 1] = srcPos[origVid * 3 + 1] - faceNormal.y * offset;
-                    outPos[nextVert * 3 + 2] = srcPos[origVid * 3 + 2] - faceNormal.z * offset;
+                    outPos[nextVert * NUM_3] = srcPos[origVid * NUM_3] - faceNormal.x * offset;
+                    outPos[nextVert * NUM_3 + 1] = srcPos[origVid * NUM_3 + 1] - faceNormal.y * offset;
+                    outPos[nextVert * NUM_3 + 2] = srcPos[origVid * NUM_3 + 2] - faceNormal.z * offset;
                     newToOrig[nextVert - vertCount] = origVid;
                     newVerts[k] = nextVert++;
                 }
@@ -274,19 +282,19 @@ public class ExtrudeMeshNode implements MeshNode {
 
             int fWrite = 0;
             for (int fi = 0; fi < faceCount; fi++) {
-                int fo = fWrite * 4;
+                int fo = fWrite * NUM_4;
                 if (selected[fi]) {
                     int[] nv = faceNewVerts[fi];
                     outFaces[fo] = nv[0];
                     outFaces[fo + 1] = nv[1];
                     outFaces[fo + 2] = nv[2];
-                    outFaces[fo + 3] = nv[3];
+                    outFaces[fo + NUM_3] = nv[NUM_3];
                 } else {
-                    int fb = fi * 4;
+                    int fb = fi * NUM_4;
                     outFaces[fo] = srcFaces[fb];
                     outFaces[fo + 1] = srcFaces[fb + 1];
                     outFaces[fo + 2] = srcFaces[fb + 2];
-                    outFaces[fo + 3] = srcFaces[fb + 3];
+                    outFaces[fo + NUM_3] = srcFaces[fb + NUM_3];
                 }
                 fWrite++;
             }
@@ -296,19 +304,19 @@ public class ExtrudeMeshNode implements MeshNode {
                     continue;
                 }
                 int[] nv = faceNewVerts[fi];
-                int fb = fi * 4;
-                for (int k = 0; k < 4; k++) {
-                    int next = (k + 1) & 3;
-                    int fo = fWrite * 4;
+                int fb = fi * NUM_4;
+                for (int k = 0; k < NUM_4; k++) {
+                    int next = (k + 1) & NUM_3;
+                    int fo = fWrite * NUM_4;
                     outFaces[fo] = srcFaces[fb + k];
                     outFaces[fo + 1] = srcFaces[fb + next];
                     outFaces[fo + 2] = nv[next];
-                    outFaces[fo + 3] = nv[k];
+                    outFaces[fo + NUM_3] = nv[k];
                     fWrite++;
                 }
             }
 
-            ArrayMesh out = new ArrayMesh(outPos, null, outFaces, 4);
+            ArrayMesh out = new ArrayMesh(outPos, null, outFaces, NUM_4);
             out.computeNormals();
             return new ExtrusionResult(out, selected, newToOrig);
         }
@@ -320,7 +328,7 @@ public class ExtrudeMeshNode implements MeshNode {
                 (faceCount + sideFaceCount) * vpf * 2);
 
         for (int vi = 0; vi < vertCount; vi++) {
-            out.addVertex(srcPos[vi * 3], srcPos[vi * 3 + 1], srcPos[vi * 3 + 2]);
+            out.addVertex(srcPos[vi * NUM_3], srcPos[vi * NUM_3 + 1], srcPos[vi * NUM_3 + 2]);
         }
 
         Vector3f faceNormal = new Vector3f();
@@ -332,9 +340,9 @@ public class ExtrudeMeshNode implements MeshNode {
             int[] newVerts = new int[vpf];
             for (int k = 0; k < vpf; k++) {
                 int origVid = srcFaces[fi * vpf + k];
-                float nx = srcPos[origVid * 3] - faceNormal.x * offset;
-                float ny = srcPos[origVid * 3 + 1] - faceNormal.y * offset;
-                float nz = srcPos[origVid * 3 + 2] - faceNormal.z * offset;
+                float nx = srcPos[origVid * NUM_3] - faceNormal.x * offset;
+                float ny = srcPos[origVid * NUM_3 + 1] - faceNormal.y * offset;
+                float nz = srcPos[origVid * NUM_3 + 2] - faceNormal.z * offset;
                 int newVid = out.addVertex(nx, ny, nz);
                 newVerts[k] = newVid;
                 if (newVid - vertCount < newToOrig.length) {
@@ -393,7 +401,7 @@ public class ExtrudeMeshNode implements MeshNode {
             if (sel) selectedCount++;
         }
 
-        if (selectedCount == 0 || offset == 0f) {
+        if (selectedCount == 0 || offset == NUM_0) {
             return new ExtrusionResult(new ArrayMesh(srcPos, null, srcFaces, vpf), selected, new int[0]);
         }
 
@@ -409,7 +417,7 @@ public class ExtrudeMeshNode implements MeshNode {
         // Compute average normal of selected faces sharing each vertex
         // for smooth offset direction
         Vector3f faceNormal = new Vector3f();
-        float[] vertNormals = new float[vertCount * 3]; // accumulated
+        float[] vertNormals = new float[vertCount * NUM_3]; // accumulated
         int[] vertNormalCount = new int[vertCount];
 
         for (int fi = 0; fi < faceCount; fi++) {
@@ -417,9 +425,9 @@ public class ExtrudeMeshNode implements MeshNode {
             mesh.faceNormal(fi, faceNormal);
             for (int k = 0; k < vpf; k++) {
                 int vi = srcFaces[fi * vpf + k];
-                vertNormals[vi * 3] += faceNormal.x;
-                vertNormals[vi * 3 + 1] += faceNormal.y;
-                vertNormals[vi * 3 + 2] += faceNormal.z;
+                vertNormals[vi * NUM_3] += faceNormal.x;
+                vertNormals[vi * NUM_3 + 1] += faceNormal.y;
+                vertNormals[vi * NUM_3 + 2] += faceNormal.z;
                 vertNormalCount[vi]++;
             }
         }
@@ -427,14 +435,14 @@ public class ExtrudeMeshNode implements MeshNode {
         // Normalize vertex normals
         for (int vi = 0; vi < vertCount; vi++) {
             if (vertNormalCount[vi] == 0) continue;
-            float nx = vertNormals[vi * 3];
-            float ny = vertNormals[vi * 3 + 1];
-            float nz = vertNormals[vi * 3 + 2];
+            float nx = vertNormals[vi * NUM_3];
+            float ny = vertNormals[vi * NUM_3 + 1];
+            float nz = vertNormals[vi * NUM_3 + 2];
             float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-            if (len > 1e-8f) {
-                vertNormals[vi * 3] = nx / len;
-                vertNormals[vi * 3 + 1] = ny / len;
-                vertNormals[vi * 3 + 2] = nz / len;
+            if (len > NUM_1e_8) {
+                vertNormals[vi * NUM_3] = nx / len;
+                vertNormals[vi * NUM_3 + 1] = ny / len;
+                vertNormals[vi * NUM_3 + 2] = nz / len;
             }
         }
 
@@ -506,16 +514,16 @@ public class ExtrudeMeshNode implements MeshNode {
 
         // Copy all original vertices
         for (int vi = 0; vi < vertCount; vi++) {
-            out.addVertex(srcPos[vi * 3], srcPos[vi * 3 + 1], srcPos[vi * 3 + 2]);
+            out.addVertex(srcPos[vi * NUM_3], srcPos[vi * NUM_3 + 1], srcPos[vi * NUM_3 + 2]);
         }
 
         // Add new (extruded) vertices — offset along averaged normal
         // Negate normal for Ixdar's inward-facing normal convention
         for (int vi = 0; vi < vertCount; vi++) {
             if (!vertUsedBySelected[vi]) continue;
-            float nx = srcPos[vi * 3] - vertNormals[vi * 3] * offset;
-            float ny = srcPos[vi * 3 + 1] - vertNormals[vi * 3 + 1] * offset;
-            float nz = srcPos[vi * 3 + 2] - vertNormals[vi * 3 + 2] * offset;
+            float nx = srcPos[vi * NUM_3] - vertNormals[vi * NUM_3] * offset;
+            float ny = srcPos[vi * NUM_3 + 1] - vertNormals[vi * NUM_3 + 1] * offset;
+            float nz = srcPos[vi * NUM_3 + 2] - vertNormals[vi * NUM_3 + 2] * offset;
             out.addVertex(nx, ny, nz);
         }
 
@@ -554,4 +562,7 @@ public class ExtrudeMeshNode implements MeshNode {
         int b = Math.max(va, vb);
         return (long) a * vertCount + b;
     }
+
+    /** Result of an extrusion: mesh + metadata used for handle preservation and generated output. */
+    private record ExtrusionResult(MeshTopology mesh, boolean[] selected, int[] newToOrig) {}
 }

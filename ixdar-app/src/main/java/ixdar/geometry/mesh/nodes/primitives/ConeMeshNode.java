@@ -13,10 +13,17 @@ import ixdar.geometry.mesh.data.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "cone")
 public class ConeMeshNode implements MeshNode {
-    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 1.0f, 0.001f, 100f);
-    private static final InputPort HEIGHT = new InputPort("height", PortType.FLOAT, 1.0f, 0.001f, 100f);
-    private static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 16, (float) 3, (float) 128);
-    private static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
+    public static final String RADIUS_2 = "radius";
+    public static final String HEIGHT_2 = "height";
+    public static final String SEGMENTS_2 = "segments";
+    public static final String MESH_2 = "mesh";
+    public static final int NUM_16 = 16;
+    public static final int NUM_3 = 3;
+    public static final float NUM_2_0 = 2.0f;
+    private static final InputPort RADIUS = new InputPort(RADIUS_2, PortType.FLOAT, 1.0f, 0.001f, 100f);
+    private static final InputPort HEIGHT = new InputPort(HEIGHT_2, PortType.FLOAT, 1.0f, 0.001f, 100f);
+    private static final InputPort SEGMENTS = new InputPort(SEGMENTS_2, PortType.INT, 16, (float) 3, (float) 128);
+    private static final OutputPort MESH = new OutputPort(MESH_2, PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
@@ -36,23 +43,23 @@ public class ConeMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                "radius", "Base circle radius. cone(radius=r) base spans ±r in X and Z (extent 2r at the base).",
-                "height", "Total Y-axis extent from base to apex. cone(height=h) base at y=-h/2, apex at y=+h/2.",
-                "segments", "Number of divisions around the base circumference. Higher = smoother cone. Default 16.",
-                "mesh", "Cone aligned with Y-axis (apex up), centered at origin."
+                RADIUS_2, "Base circle radius. cone(radius=r) base spans ±r in X and Z (extent 2r at the base).",
+                HEIGHT_2, "Total Y-axis extent from base to apex. cone(height=h) base at y=-h/2, apex at y=+h/2.",
+                SEGMENTS_2, "Number of divisions around the base circumference. Higher = smoother cone. Default 16.",
+                MESH_2, "Cone aligned with Y-axis (apex up), centered at origin."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        float radius = ctx.getInput("radius", Number.class) != null ? ctx.getInput("radius", Number.class).floatValue()
+        float radius = ctx.getInput(RADIUS_2, Number.class) != null ? ctx.getInput(RADIUS_2, Number.class).floatValue()
                 : 1.0f;
-        float height = ctx.getInput("height", Number.class) != null ? ctx.getInput("height", Number.class).floatValue()
+        float height = ctx.getInput(HEIGHT_2, Number.class) != null ? ctx.getInput(HEIGHT_2, Number.class).floatValue()
                 : 1.0f;
-        int segments = ctx.getInput("segments", Number.class) != null
-                ? ctx.getInput("segments", Number.class).intValue()
-                : 16;
-        segments = Math.max(3, segments);
+        int segments = ctx.getInput(SEGMENTS_2, Number.class) != null
+                ? ctx.getInput(SEGMENTS_2, Number.class).intValue()
+                : NUM_16;
+        segments = Math.max(NUM_3, segments);
 
         HalfEdgeMesh mesh = new HalfEdgeMesh();
 
@@ -62,7 +69,7 @@ public class ConeMeshNode implements MeshNode {
         int[] bottomRingVertices = new int[segments];
 
         for (int j = 0; j < segments; j++) {
-            float phi = 2.0f * (float) Math.PI * j / segments;
+            float phi = NUM_2_0 * (float) Math.PI * j / segments;
             float sinPhi = (float) Math.sin(phi);
             float cosPhi = (float) Math.cos(phi);
 
@@ -78,6 +85,6 @@ public class ConeMeshNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput("mesh", mesh);
+        ctx.setOutput(MESH_2, mesh);
     }
 }

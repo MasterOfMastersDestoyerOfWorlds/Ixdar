@@ -21,11 +21,18 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "join_curves")
 public class JoinCurvesNode implements MeshNode {
+    public static final String CURVE_A_2 = "curve_a";
+    public static final String CURVE_B_2 = "curve_b";
+    public static final String DEDUPLICATE_2 = "deduplicate";
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String CURVE = "_curve";
+    public static final int NUM_3 = 3;
+    public static final float NUM_1e_10 = 1e-10f;
 
-    private static final InputPort CURVE_A = new InputPort("curve_a", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort CURVE_B = new InputPort("curve_b", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort DEDUPLICATE = new InputPort("deduplicate", PortType.BOOLEAN, true);
-    private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort CURVE_A = new InputPort(CURVE_A_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort CURVE_B = new InputPort(CURVE_B_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort DEDUPLICATE = new InputPort(DEDUPLICATE_2, PortType.BOOLEAN, true);
+    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -35,10 +42,10 @@ public class JoinCurvesNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "curve_a", "First curve polyline.",
-                "curve_b", "Second curve polyline, appended after a's end.",
-                "deduplicate", "If true (default), drop b's start vertex when it coincides with a's end, keeping the join clean.",
-                "geometry", "Combined curve."
+                CURVE_A_2, "First curve polyline.",
+                CURVE_B_2, "Second curve polyline, appended after a's end.",
+                DEDUPLICATE_2, "If true (default), drop b's start vertex when it coincides with a's end, keeping the join clean.",
+                GEOMETRY_2, "Combined curve."
         );
     }
 
@@ -54,27 +61,27 @@ public class JoinCurvesNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle gbA = GeometryBundles.bundlePart(ctx.getInput("curve_a", Object.class));
-        GeometryBundle gbB = GeometryBundles.bundlePart(ctx.getInput("curve_b", Object.class));
+        GeometryBundle gbA = GeometryBundles.bundlePart(ctx.getInput(CURVE_A_2, Object.class));
+        GeometryBundle gbB = GeometryBundles.bundlePart(ctx.getInput(CURVE_B_2, Object.class));
 
         CurveGeometry cgA = extractCurve(gbA);
         CurveGeometry cgB = extractCurve(gbB);
 
         if (cgA == null && cgB == null) {
-            ctx.setOutput("geometry",GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY_2,GeometryBundle.empty());
             return;
         }
         if (cgA == null) {
-            ctx.setOutput("geometry",GeometryBundle.empty().withSlot("_curve", cgB));
+            ctx.setOutput(GEOMETRY_2,GeometryBundle.empty().withSlot(CURVE, cgB));
             return;
         }
         if (cgB == null) {
-            ctx.setOutput("geometry",GeometryBundle.empty().withSlot("_curve", cgA));
+            ctx.setOutput(GEOMETRY_2,GeometryBundle.empty().withSlot(CURVE, cgA));
             return;
         }
 
         boolean dedup = true;
-        Object dedupObj = FieldBroadcast.getInputOrDefault(ctx, "deduplicate", DEDUPLICATE.defaultValue());
+        Object dedupObj = FieldBroadcast.getInputOrDefault(ctx, DEDUPLICATE_2, DEDUPLICATE.defaultValue());
         if (dedupObj instanceof Boolean b) dedup = b;
 
         // Extract first polyline from each
@@ -91,35 +98,35 @@ public class JoinCurvesNode implements MeshNode {
         // Check if endpoint of A matches startpoint of B
         int skipB = 0;
         if (dedup && nA > 0 && nB > 0) {
-            int lastA = 3 * (offA0 + nA - 1);
-            int firstB = 3 * offB0;
+            int lastA = NUM_3 * (offA0 + nA - 1);
+            int firstB = NUM_3 * offB0;
             float dx = posA[lastA] - posB[firstB];
             float dy = posA[lastA + 1] - posB[firstB + 1];
             float dz = posA[lastA + 2] - posB[firstB + 2];
-            if (dx * dx + dy * dy + dz * dz < 1e-10f) {
+            if (dx * dx + dy * dy + dz * dz < NUM_1e_10) {
                 skipB = 1;
             }
         }
 
         int totalPoints = nA + nB - skipB;
-        float[] combined = new float[totalPoints * 3];
+        float[] combined = new float[totalPoints * NUM_3];
 
         // Copy A points
-        System.arraycopy(posA, offA0 * 3, combined, 0, nA * 3);
+        System.arraycopy(posA, offA0 * NUM_3, combined, 0, nA * NUM_3);
 
         // Copy B points (skipping first if dedup matched)
-        int srcOffset = (offB0 + skipB) * 3;
-        int dstOffset = nA * 3;
-        int copyCount = (nB - skipB) * 3;
+        int srcOffset = (offB0 + skipB) * NUM_3;
+        int dstOffset = nA * NUM_3;
+        int copyCount = (nB - skipB) * NUM_3;
         System.arraycopy(posB, srcOffset, combined, dstOffset, copyCount);
 
         CurveGeometry joined = CurveGeometry.singlePolyline(combined);
-        ctx.setOutput("geometry",GeometryBundle.empty().withSlot("_curve", joined));
+        ctx.setOutput(GEOMETRY_2,GeometryBundle.empty().withSlot(CURVE, joined));
     }
 
     private static CurveGeometry extractCurve(GeometryBundle gb) {
         if (gb == null) return null;
-        Object raw = gb.slots().get("_curve");
+        Object raw = gb.slots().get(CURVE);
         if (raw instanceof CurveGeometry cg && cg.pointCount() >= 1) {
             return cg;
         }

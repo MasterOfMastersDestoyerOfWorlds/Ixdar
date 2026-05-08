@@ -12,39 +12,49 @@ import ixdar.platform.input.KeyGuy;
 
 @AutomationRouteAnnotation(path = "input/type", method = APIMethod.POST)
 public class InjectStringTyping extends AutomationEndpoint implements AutomationRoute {
+    public static final String TEXT = "text";
+    public static final String OK = "ok";
+    public static final String ERROR = "error";
+    /**
+     * TODO: document {@code endpointHandler}.
+     *
+     * @param body TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
-            String text = body.has("text")
-                    ? body.get("text").getAsString()
+            String text = body.has(TEXT)
+                    ? body.get(TEXT).getAsString()
                     : "";
             try {
                 return runtime.runOnMainThread(() -> {
                     KeyGuy keys = runtime.activeKeys();
                     JsonObject result = new JsonObject();
                     if (keys == null) {
-                        result.addProperty("ok", false);
-                        result.addProperty("error", "No active key handler");
+                        result.addProperty(OK, false);
+                        result.addProperty(ERROR, "No active key handler");
                         return result;
                     }
                     for (int i = 0; i < text.length(); i++) {
                         keys.charCallback(0L, text.charAt(i));
                     }
                     JsonObject payload = new JsonObject();
-                    payload.addProperty("text", text);
+                    payload.addProperty(TEXT, text);
                     runtime.recorder.recordAbstract("type", payload);
-                    result.addProperty("ok", true);
+                    result.addProperty(OK, true);
                     return result;
                 });
             } catch (Exception e) {
                 JsonObject error = new JsonObject();
-                error.addProperty("ok", false);
-                error.addProperty("error", e.getMessage());
+                error.addProperty(OK, false);
+                error.addProperty(ERROR, e.getMessage());
                 return error;
             }
         } catch (Exception e) {
             JsonObject error = new JsonObject();
-            error.addProperty("ok", false);
-            error.addProperty("error", e.getMessage());
+            error.addProperty(OK, false);
+            error.addProperty(ERROR, e.getMessage());
             return error;
         }
     }

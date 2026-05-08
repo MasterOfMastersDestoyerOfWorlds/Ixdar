@@ -14,11 +14,15 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "switch_float")
 public class SwitchFloatNode implements MeshNode {
+    public static final String SWITCH_2 = "switch";
+    public static final String FALSE = "false";
+    public static final String TRUE = "true";
+    public static final String RESULT_2 = "result";
 
-    private static final InputPort SWITCH = new InputPort("switch", PortType.BOOLEAN, false);
-    private static final InputPort FALSE_VAL = new InputPort("false", PortType.FLOAT, 0.0f, -1000f, 1000f);
-    private static final InputPort TRUE_VAL = new InputPort("true", PortType.FLOAT, 0.0f, -1000f, 1000f);
-    private static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
+    private static final InputPort SWITCH = new InputPort(SWITCH_2, PortType.BOOLEAN, false);
+    private static final InputPort FALSE_VAL = new InputPort(FALSE, PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final InputPort TRUE_VAL = new InputPort(TRUE, PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final OutputPort RESULT = new OutputPort(RESULT_2, PortType.FLOAT);
 
     @Override
     public List<InputPort> inputs() {
@@ -38,18 +42,18 @@ public class SwitchFloatNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "switch", "Per-element BOOLEAN selector.",
-                "false", "Value used where switch is false.",
-                "true", "Value used where switch is true.",
-                "result", "Per-element float: switch ? true : false."
+                SWITCH_2, "Per-element BOOLEAN selector.",
+                FALSE, "Value used where switch is false.",
+                TRUE, "Value used where switch is true.",
+                RESULT_2, "Per-element float: switch ? true : false."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Object so = FieldBroadcast.getInputOrDefault(ctx, "switch", SWITCH.defaultValue());
-        Object fa = FieldBroadcast.getInputOrDefault(ctx, "false", FALSE_VAL.defaultValue());
-        Object tr = FieldBroadcast.getInputOrDefault(ctx, "true", TRUE_VAL.defaultValue());
+        Object so = FieldBroadcast.getInputOrDefault(ctx, SWITCH_2, SWITCH.defaultValue());
+        Object fa = FieldBroadcast.getInputOrDefault(ctx, FALSE, FALSE_VAL.defaultValue());
+        Object tr = FieldBroadcast.getInputOrDefault(ctx, TRUE, TRUE_VAL.defaultValue());
 
         if (so instanceof BoolField || fa instanceof FloatField || tr instanceof FloatField) {
             int n = 0;
@@ -69,13 +73,13 @@ public class SwitchFloatNode implements MeshNode {
                 float t = FieldBroadcast.floatAt(tr, i, 0f);
                 out[i] = on ? t : f;
             }
-            ctx.setOutput("result", new FloatField(out));
+            ctx.setOutput(RESULT_2, new FloatField(out));
             return;
         }
 
         boolean on = so instanceof Boolean b && b;
         float f = FieldBroadcast.floatScalarOrDefault(fa, 0f);
         float t = FieldBroadcast.floatScalarOrDefault(tr, 0f);
-        ctx.setOutput("result", on ? t : f);
+        ctx.setOutput(RESULT_2, on ? t : f);
     }
 }

@@ -12,10 +12,14 @@ import ixdar.annotations.meshnode.Vector3Value;
 
 @MeshNodeAnnotation(id = "input_vector")
 public class InputVectorNode implements MeshNode {
-    private static final InputPort X = new InputPort("x", PortType.FLOAT, 0.0f);
-    private static final InputPort Y = new InputPort("y", PortType.FLOAT, 0.0f);
-    private static final InputPort Z = new InputPort("z", PortType.FLOAT, 0.0f);
-    private static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
+    public static final String X_2 = "x";
+    public static final String Y_2 = "y";
+    public static final String Z_2 = "z";
+    public static final String VECTOR_2 = "vector";
+    private static final InputPort X = new InputPort(X_2, PortType.FLOAT, 0.0f);
+    private static final InputPort Y = new InputPort(Y_2, PortType.FLOAT, 0.0f);
+    private static final InputPort Z = new InputPort(Z_2, PortType.FLOAT, 0.0f);
+    private static final OutputPort VECTOR = new OutputPort(VECTOR_2, PortType.VECTOR3);
 
     @Override
     public String description() {
@@ -25,10 +29,10 @@ public class InputVectorNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "x", "X component.",
-                "y", "Y component.",
-                "z", "Z component.",
-                "vector", "Vector3 formed from <x, y, z>."
+                X_2, "X component.",
+                Y_2, "Y component.",
+                Z_2, "Z component.",
+                VECTOR_2, "Vector3 formed from <x, y, z>."
         );
     }
 
@@ -44,12 +48,12 @@ public class InputVectorNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Number xn = ctx.getInput("x", Number.class);
-        Number yn = ctx.getInput("y", Number.class);
-        Number zn = ctx.getInput("z", Number.class);
+        Number xn = ctx.getInput(X_2, Number.class);
+        Number yn = ctx.getInput(Y_2, Number.class);
+        Number zn = ctx.getInput(Z_2, Number.class);
         float x = xn == null ? 0f : xn.floatValue();
         float y = yn == null ? 0f : yn.floatValue();
         float z = zn == null ? 0f : zn.floatValue();
-        ctx.setOutput("vector", new Vector3Value(x, y, z));
+        ctx.setOutput(VECTOR_2, new Vector3Value(x, y, z));
     }
 }

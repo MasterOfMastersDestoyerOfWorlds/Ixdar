@@ -12,14 +12,22 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "ui/projection", method = APIMethod.POST)
 public class ProjectionGet extends AutomationEndpoint implements AutomationRoute {
+    public static final String OK = "ok";
+    /**
+     * TODO: document {@code endpointHandler}.
+     *
+     * @param body TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject result = new JsonObject();
         if (!(runtime.canvas instanceof MeshNodeViewerScene mvs)) {
-            result.addProperty("ok", false);
+            result.addProperty(OK, false);
             result.addProperty("error", "MeshNodeViewerScene is not active");
             return result;
         }
-        result.addProperty("ok", true);
+        result.addProperty(OK, true);
         result.addProperty("orthographic", mvs.isOrthographic());
         return result;
     }

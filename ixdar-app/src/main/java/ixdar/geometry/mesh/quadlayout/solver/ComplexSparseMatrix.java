@@ -34,17 +34,33 @@ public final class ComplexSparseMatrix {
     private final int n;
     private final SparseMatrix lifted;
 
+    /**
+     * TODO: document {@code ComplexSparseMatrix}.
+     *
+     * @param n TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     */
     public ComplexSparseMatrix(int n) {
         if (n <= 0) throw new IllegalArgumentException("n must be positive");
         this.n = n;
         this.lifted = new SparseMatrix(2 * n, 2 * n);
     }
 
+    /**
+     * TODO: document {@code dimension}.
+     *
+     * @return TODO: describe
+     */
     public int dimension() { return n; }
 
     /**
      * Set complex entry {@code (i,j)} to {@code re + i*im}. Updates all four
      * blocks of the lifted matrix consistently.
+     *
+     * @param i TODO: describe
+     * @param j TODO: describe
+     * @param re TODO: describe
+     * @param im TODO: describe
      */
     public void set(int i, int j, double re, double im) {
         bounds(i, j);
@@ -54,6 +70,14 @@ public final class ComplexSparseMatrix {
         lifted.set(n + i, j, im);
     }
 
+    /**
+     * TODO: document {@code add}.
+     *
+     * @param i TODO: describe
+     * @param j TODO: describe
+     * @param re TODO: describe
+     * @param im TODO: describe
+     */
     public void add(int i, int j, double re, double im) {
         bounds(i, j);
         if (re != 0.0) {
@@ -66,11 +90,25 @@ public final class ComplexSparseMatrix {
         }
     }
 
+    /**
+     * TODO: document {@code getReal}.
+     *
+     * @param i TODO: describe
+     * @param j TODO: describe
+     * @return TODO: describe
+     */
     public double getReal(int i, int j) {
         bounds(i, j);
         return lifted.get(i, j);
     }
 
+    /**
+     * TODO: document {@code getImag}.
+     *
+     * @param i TODO: describe
+     * @param j TODO: describe
+     * @return TODO: describe
+     */
     public double getImag(int i, int j) {
         bounds(i, j);
         return lifted.get(n + i, j);
@@ -79,6 +117,8 @@ public final class ComplexSparseMatrix {
     /**
      * The 2N x 2N real block-lifted SparseMatrix. Pass this to
      * {@link SparseLu}/{@link SparseQDLDL}/{@link GeneralizedEigen}.
+     *
+     * @return TODO: describe
      */
     public SparseMatrix realBlockLift() {
         return lifted;
@@ -87,6 +127,11 @@ public final class ComplexSparseMatrix {
     /**
      * Assemble a real RHS of length 2n from a complex RHS {@code re + i*im}
      * (each of length n). Convention: {@code [re ; im]}.
+     *
+     * @param re TODO: describe
+     * @param im TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
      */
     public static double[] liftRhs(double[] re, double[] im) {
         if (re.length != im.length) throw new IllegalArgumentException("re/im length mismatch");
@@ -97,7 +142,13 @@ public final class ComplexSparseMatrix {
         return out;
     }
 
-    /** Inverse of {@link #liftRhs}: split a length-2n real solution into (re, im). */
+    /**
+     * Inverse of {@link #liftRhs}: split a length-2n real solution into (re, im).
+     *
+     * @param xLifted TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public static double[][] unliftSolution(double[] xLifted) {
         if ((xLifted.length & 1) != 0) throw new IllegalArgumentException("expected even length");
         int n = xLifted.length / 2;

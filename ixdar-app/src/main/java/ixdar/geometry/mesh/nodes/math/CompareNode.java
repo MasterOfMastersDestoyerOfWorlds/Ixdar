@@ -15,65 +15,90 @@ import ixdar.annotations.meshnode.PortType;
 
 @MeshNodeAnnotation(id = "compare")
 public class CompareNode implements MeshNode {
+    public static final String EQUAL = "EQUAL";
+    public static final String LESS = "LESS";
+    public static final String GREATER = "GREATER";
+    public static final String A_2 = "a";
+    public static final String B_2 = "b";
+    public static final String EPSILON_2 = "epsilon";
+    public static final String MODE_2 = "mode";
+    public static final String VALUE_2 = "value";
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1e_6 = 1e-6f;
 
     public static final ModeConstraint MODE_CONSTRAINT = new ModeConstraint(
-            "EQUAL",
-            List.of("EQUAL", "LESS", "GREATER"),
+            EQUAL,
+            List.of(EQUAL, LESS, GREATER),
             Map.of(
-                    "EQ", "EQUAL",
-                    "LT", "LESS",
-                    "GT", "GREATER",
-                    "LESS_THAN", "LESS",
-                    "GREATER_THAN", "GREATER"));
+                    "EQ", EQUAL,
+                    "LT", LESS,
+                    "GT", GREATER,
+                    "LESS_THAN", LESS,
+                    "GREATER_THAN", GREATER));
 
-    public enum Mode {
-        EQUAL,
-        LESS,
-        GREATER;
+    private static final InputPort A = new InputPort(A_2, PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final InputPort B = new InputPort(B_2, PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final InputPort EPSILON = new InputPort(EPSILON_2, PortType.FLOAT, 1e-6f, 1e-8f, 1f);
+    private static final InputPort MODE = new InputPort(MODE_2, PortType.STRING, EQUAL, MODE_CONSTRAINT);
+    private static final OutputPort VALUE = new OutputPort(VALUE_2, PortType.BOOLEAN);
 
-        public static Mode parse(String raw) {
-            return Mode.valueOf(MODE_CONSTRAINT.normalize(raw));
-        }
-    }
-
-    private static final InputPort A = new InputPort("a", PortType.FLOAT, 0.0f, -1000f, 1000f);
-    private static final InputPort B = new InputPort("b", PortType.FLOAT, 0.0f, -1000f, 1000f);
-    private static final InputPort EPSILON = new InputPort("epsilon", PortType.FLOAT, 1e-6f, 1e-8f, 1f);
-    private static final InputPort MODE = new InputPort("mode", PortType.STRING, "EQUAL", MODE_CONSTRAINT);
-    private static final OutputPort VALUE = new OutputPort("value", PortType.BOOLEAN);
-
+    /**
+     * TODO: document {@code description}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String description() {
         return "Compares two float values with an epsilon tolerance using modes EQUAL, LESS, GREATER.";
     }
 
+    /**
+     * TODO: document {@code socketDocs}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "a", "Left operand (scalar or per-vertex FloatField).",
-                "b", "Right operand.",
-                "epsilon", "Tolerance for EQUAL mode. EQUAL is |a - b| < epsilon; LESS/GREATER are strict when epsilon=0, otherwise include a tolerance band.",
-                "mode", "Comparison: EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL, NOT_EQUAL.",
-                "value", "Per-element BOOLEAN."
+                A_2, "Left operand (scalar or per-vertex FloatField).",
+                B_2, "Right operand.",
+                EPSILON_2, "Tolerance for EQUAL mode. EQUAL is |a - b| < epsilon; LESS/GREATER are strict when epsilon=0, otherwise include a tolerance band.",
+                MODE_2, "Comparison: EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL, NOT_EQUAL.",
+                VALUE_2, "Per-element BOOLEAN."
         );
     }
 
+    /**
+     * TODO: document {@code inputs}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public List<InputPort> inputs() {
         return List.of(A, B, EPSILON, MODE);
     }
 
+    /**
+     * TODO: document {@code outputs}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public List<OutputPort> outputs() {
         return List.of(VALUE);
     }
 
+    /**
+     * TODO: document {@code evaluate}.
+     *
+     * @param ctx TODO: describe
+     */
     @Override
     public void evaluate(NodeContext ctx) {
-        Object ao = FieldBroadcast.getInputOrDefault(ctx, "a", A.defaultValue());
-        Object bo = FieldBroadcast.getInputOrDefault(ctx, "b", B.defaultValue());
-        Object eo = FieldBroadcast.getInputOrDefault(ctx, "epsilon", EPSILON.defaultValue());
-        String modeStr = ctx.getInput("mode", String.class);
+        Object ao = FieldBroadcast.getInputOrDefault(ctx, A_2, A.defaultValue());
+        Object bo = FieldBroadcast.getInputOrDefault(ctx, B_2, B.defaultValue());
+        Object eo = FieldBroadcast.getInputOrDefault(ctx, EPSILON_2, EPSILON.defaultValue());
+        String modeStr = ctx.getInput(MODE_2, String.class);
         Mode mode = Mode.parse(modeStr);
 
         if (ao instanceof FloatField || bo instanceof FloatField || eo instanceof FloatField) {
@@ -83,19 +108,19 @@ public class CompareNode implements MeshNode {
             }
             boolean[] out = new boolean[n];
             for (int i = 0; i < n; i++) {
-                float a = FieldBroadcast.floatAt(ao, i, 0f);
-                float b = FieldBroadcast.floatAt(bo, i, 0f);
-                float epsilon = Math.abs(FieldBroadcast.floatAt(eo, i, 1e-6f));
+                float a = FieldBroadcast.floatAt(ao, i, NUM_0);
+                float b = FieldBroadcast.floatAt(bo, i, NUM_0);
+                float epsilon = Math.abs(FieldBroadcast.floatAt(eo, i, NUM_1e_6));
                 out[i] = evalMode(mode, a, b, epsilon);
             }
-            ctx.setOutput("value",new BoolField(out));
+            ctx.setOutput(VALUE_2,new BoolField(out));
             return;
         }
 
-        float a = FieldBroadcast.floatScalarOrDefault(ao, 0f);
-        float b = FieldBroadcast.floatScalarOrDefault(bo, 0f);
-        float epsilon = Math.abs(FieldBroadcast.floatScalarOrDefault(eo, 1e-6f));
-        ctx.setOutput("value",evalMode(mode, a, b, epsilon));
+        float a = FieldBroadcast.floatScalarOrDefault(ao, NUM_0);
+        float b = FieldBroadcast.floatScalarOrDefault(bo, NUM_0);
+        float epsilon = Math.abs(FieldBroadcast.floatScalarOrDefault(eo, NUM_1e_6));
+        ctx.setOutput(VALUE_2,evalMode(mode, a, b, epsilon));
     }
 
     private static boolean evalMode(Mode mode, float a, float b, float epsilon) {
@@ -104,5 +129,21 @@ public class CompareNode implements MeshNode {
             case GREATER -> a > b + epsilon;
             case EQUAL -> Math.abs(a - b) <= epsilon;
         };
+    }
+
+    public enum Mode {
+        EQUAL,
+        LESS,
+        GREATER;
+
+        /**
+         * TODO: document {@code parse}.
+         *
+         * @param raw TODO: describe
+         * @return TODO: describe
+         */
+        public static Mode parse(String raw) {
+            return Mode.valueOf(MODE_CONSTRAINT.normalize(raw));
+        }
     }
 }

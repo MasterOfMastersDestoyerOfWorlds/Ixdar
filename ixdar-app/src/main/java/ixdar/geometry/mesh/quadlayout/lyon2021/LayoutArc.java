@@ -41,15 +41,16 @@ public record LayoutArc(int id,
                         float underlyingT1,
                         List<SplitEdge> interiorPolyline,
                         float parametricLength) {
-
-    public enum Variant { INHERITED, DERIVED, INTERIOR }
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1 = 1f;
+    public static final int NUM_3 = 3;
 
     /** Factory: a layout arc that fully wraps a T-mesh arc. */
     public static LayoutArc inherited(int id, TArc tArc) {
         return new LayoutArc(id, Variant.INHERITED,
                 tArc.startNode(), tArc.endNode(),
                 tArc.direction(),
-                tArc.id(), 0f, 1f,
+                tArc.id(), NUM_0, NUM_1,
                 Collections.emptyList(),
                 tArc.parametricLength());
     }
@@ -67,9 +68,10 @@ public record LayoutArc(int id,
                 len);
     }
 
-    /** Factory: a brand-new arc traversing patch interior, traced by
+    /**
+     * Factory: a brand-new arc traversing patch interior, traced by
      *  {@link SplitArcTracer}. {@code parametricLength} is computed by
-     *  summing the polyline segment lengths in the seamless domain. */
+     */
     public static LayoutArc interior(int id,
                                       int startNodeId, int endNodeId,
                                       int direction,
@@ -83,7 +85,7 @@ public record LayoutArc(int id,
         return new LayoutArc(id, Variant.INTERIOR,
                 startNodeId, endNodeId,
                 direction,
-                -1, 0f, 0f,
+                -1, NUM_0, NUM_0,
                 List.copyOf(polyline),
                 (float) len);
     }
@@ -107,8 +109,10 @@ public record LayoutArc(int id,
         for (int i = 0; i < steps.size(); i++) {
             float[] s = steps.get(i);
             int faceId = crossings.get(i)[0];
-            out.add(new SplitEdge(faceId, s[0], s[1], s[2], s[3]));
+            out.add(new SplitEdge(faceId, s[0], s[1], s[2], s[NUM_3]));
         }
         return out;
     }
+
+    public enum Variant { INHERITED, DERIVED, INTERIOR }
 }

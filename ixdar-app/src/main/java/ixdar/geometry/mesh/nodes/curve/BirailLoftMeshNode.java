@@ -24,12 +24,26 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "birail_loft")
 public class BirailLoftMeshNode implements MeshNode {
+    public static final String RAIL_A_2 = "rail_a";
+    public static final String RAIL_B_2 = "rail_b";
+    public static final String U_SEGMENTS_2 = "u_segments";
+    public static final String V_SEGMENTS_2 = "v_segments";
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String CURVE = "_curve";
+    public static final int NUM_16 = 16;
+    public static final int NUM_8 = 8;
+    public static final int NUM_3 = 3;
+    public static final float NUM_1e_5 = 1e-5f;
+    public static final float NUM_1e_4 = 1e-4f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1e_20 = 1e-20f;
+    public static final float NUM_1e_8 = 1e-8f;
 
-    private static final InputPort RAIL_A = new InputPort("rail_a", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort RAIL_B = new InputPort("rail_b", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort U_SEGMENTS = new InputPort("u_segments", PortType.INT, 16, 2f, 512f);
-    private static final InputPort V_SEGMENTS = new InputPort("v_segments", PortType.INT, 8, 2f, 512f);
-    private static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort RAIL_A = new InputPort(RAIL_A_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort RAIL_B = new InputPort(RAIL_B_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort U_SEGMENTS = new InputPort(U_SEGMENTS_2, PortType.INT, 16, 2f, 512f);
+    private static final InputPort V_SEGMENTS = new InputPort(V_SEGMENTS_2, PortType.INT, 8, 2f, 512f);
+    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -39,11 +53,11 @@ public class BirailLoftMeshNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "rail_a", "First rail curve defining one surface boundary.",
-                "rail_b", "Second rail curve defining the opposing boundary.",
-                "u_segments", "Samples along the rails. Higher = smoother sweep.",
-                "v_segments", "Samples across (from rail_a to rail_b). Higher = smoother cross-section.",
-                "geometry", "Ruled surface as a geometry bundle."
+                RAIL_A_2, "First rail curve defining one surface boundary.",
+                RAIL_B_2, "Second rail curve defining the opposing boundary.",
+                U_SEGMENTS_2, "Samples along the rails. Higher = smoother sweep.",
+                V_SEGMENTS_2, "Samples across (from rail_a to rail_b). Higher = smoother cross-section.",
+                GEOMETRY_2, "Ruled surface as a geometry bundle."
         );
     }
 
@@ -59,39 +73,39 @@ public class BirailLoftMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle ga = GeometryBundles.bundlePart(ctx.getInput("rail_a", Object.class));
-        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput("rail_b", Object.class));
+        GeometryBundle ga = GeometryBundles.bundlePart(ctx.getInput(RAIL_A_2, Object.class));
+        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput(RAIL_B_2, Object.class));
         if (ga == null || gb == null) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
-        Object ca = ga.slots().get("_curve");
-        Object cb = gb.slots().get("_curve");
+        Object ca = ga.slots().get(CURVE);
+        Object cb = gb.slots().get(CURVE);
         if (!(ca instanceof CurveGeometry cga) || !(cb instanceof CurveGeometry cgb)) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
 
-        int uSeg = readInt(ctx, "u_segments", 16);
-        int vSeg = readInt(ctx, "v_segments", 8);
+        int uSeg = readInt(ctx, U_SEGMENTS_2, NUM_16);
+        int vSeg = readInt(ctx, V_SEGMENTS_2, NUM_8);
         uSeg = Math.max(2, uSeg);
         vSeg = Math.max(2, vSeg);
 
         Polyline pa = extractPolyline(cga);
         Polyline pb = extractPolyline(cgb);
         if (pa == null || pb == null) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
         if (pa.closed != pb.closed) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
 
         Vector3f[] aRes = resampleArcLength(pa.points, pa.closed, uSeg);
         Vector3f[] bRes = resampleArcLength(pb.points, pb.closed, uSeg);
         if (aRes == null || bRes == null) {
-            ctx.setOutput("geometry", GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
             return;
         }
 
@@ -125,7 +139,7 @@ public class BirailLoftMeshNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput("geometry", ga.withMesh(mesh));
+        ctx.setOutput(GEOMETRY_2, ga.withMesh(mesh));
     }
 
     private static int readInt(NodeContext ctx, String name, int fallback) {
@@ -134,16 +148,6 @@ public class BirailLoftMeshNode implements MeshNode {
             return Math.max(0, n.intValue());
         }
         return fallback;
-    }
-
-    private static final class Polyline {
-        final Vector3f[] points;
-        final boolean closed;
-
-        Polyline(Vector3f[] points, boolean closed) {
-            this.points = points;
-            this.closed = closed;
-        }
     }
 
     private static Polyline extractPolyline(CurveGeometry cg) {
@@ -158,7 +162,7 @@ public class BirailLoftMeshNode implements MeshNode {
         float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
         float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
         for (int i = 0; i < n; i++) {
-            int b = 3 * (off0 + i);
+            int b = NUM_3 * (off0 + i);
             float x = pos[b];
             float y = pos[b + 1];
             float z = pos[b + 2];
@@ -174,7 +178,7 @@ public class BirailLoftMeshNode implements MeshNode {
             maxZ = Math.max(maxZ, z);
         }
         float diag = new Vector3f(maxX - minX, maxY - minY, maxZ - minZ).length();
-        float eps = Math.max(1e-5f, diag * 1e-4f);
+        float eps = Math.max(NUM_1e_5, diag * NUM_1e_4);
         boolean closed = pts[0].distance(pts[n - 1]) < eps;
         return new Polyline(pts, closed);
     }
@@ -185,7 +189,7 @@ public class BirailLoftMeshNode implements MeshNode {
         }
         int segCount = closed ? src.length : src.length - 1;
         float[] lens = new float[segCount];
-        float total = 0f;
+        float total = NUM_0;
         int n = src.length;
         for (int i = 0; i < segCount; i++) {
             int j = closed ? (i + 1) % n : i + 1;
@@ -193,7 +197,7 @@ public class BirailLoftMeshNode implements MeshNode {
             lens[i] = L;
             total += L;
         }
-        if (total < 1e-20f) {
+        if (total < NUM_1e_20) {
             return null;
         }
 
@@ -213,23 +217,23 @@ public class BirailLoftMeshNode implements MeshNode {
             boolean closed,
             int n,
             int segCount) {
-        if (dist <= 0f) {
+        if (dist <= NUM_0) {
             return new Vector3f(src[0]);
         }
-        if (!closed && dist >= total - 1e-8f) {
+        if (!closed && dist >= total - NUM_1e_8) {
             return new Vector3f(src[n - 1]);
         }
         if (closed) {
             dist = dist % total;
-            if (dist < 1e-8f) {
+            if (dist < NUM_1e_8) {
                 return new Vector3f(src[0]);
             }
         }
-        float acc = 0f;
+        float acc = NUM_0;
         for (int i = 0; i < segCount; i++) {
             float L = lens[i];
-            if (acc + L >= dist - 1e-8f) {
-                float t = L > 1e-20f ? (dist - acc) / L : 0f;
+            if (acc + L >= dist - NUM_1e_8) {
+                float t = L > NUM_1e_20 ? (dist - acc) / L : NUM_0;
                 int i1 = closed ? (i + 1) % n : i + 1;
                 return new Vector3f(src[i1]).sub(src[i]).mul(t).add(src[i]);
             }
@@ -237,5 +241,15 @@ public class BirailLoftMeshNode implements MeshNode {
         }
         int last = closed ? 0 : n - 1;
         return new Vector3f(src[last]);
+    }
+
+    private static final class Polyline {
+        final Vector3f[] points;
+        final boolean closed;
+
+        Polyline(Vector3f[] points, boolean closed) {
+            this.points = points;
+            this.closed = closed;
+        }
     }
 }

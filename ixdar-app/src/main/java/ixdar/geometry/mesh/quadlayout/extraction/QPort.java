@@ -38,6 +38,20 @@ public final class QPort {
     public int connectedEdgeId = -1;
     public boolean connected = false;
 
+    /**
+     * TODO: document {@code QPort}.
+     *
+     * @param id TODO: describe
+     * @param qVertId TODO: describe
+     * @param source TODO: describe
+     * @param sourceId TODO: describe
+     * @param faceId TODO: describe
+     * @param uvU TODO: describe
+     * @param uvV TODO: describe
+     * @param dirU TODO: describe
+     * @param dirV TODO: describe
+     * @param position TODO: describe
+     */
     public QPort(int id, int qVertId, QVert.Source source, int sourceId,
                  int faceId, float uvU, float uvV, float dirU, float dirV,
                  Vector3f position) {

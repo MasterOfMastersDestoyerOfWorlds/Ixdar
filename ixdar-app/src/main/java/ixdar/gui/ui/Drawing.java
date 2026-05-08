@@ -31,6 +31,13 @@ import ixdar.platform.Toggle;
 import ixdar.scenes.main.MainScene;
 
 public class Drawing {
+    public static final float NUM_2_0 = 2.0f;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_0 = 0f;
+    public static final int NUM_20 = 20;
+    public static final int NUM_3 = 3;
+    public static final float NUM_60 = 60f;
+    public static final int NUM_4 = 4;
 
     public static final float MIN_THICKNESS_START = 2;
     public static final float FONT_HEIGHT_PIXELS_START = 30;
@@ -46,6 +53,9 @@ public class Drawing {
     public Font font;
     public int platformId;
 
+    /**
+     * TODO: document {@code Drawing}.
+     */
     public Drawing() {
         sdfLine = new SDFLine();
         circle = new SDFCircle();
@@ -54,6 +64,11 @@ public class Drawing {
         drawing.put(platformId, this);
     }
 
+    /**
+     * TODO: document {@code getDrawing}.
+     *
+     * @return TODO: describe
+     */
     public static Drawing getDrawing() {
         int id = Platforms.gl().getPlatformID();
         if (!drawing.containsKey(id)) {
@@ -62,6 +77,14 @@ public class Drawing {
         return drawing.get(id);
     }
 
+    /**
+     * TODO: document {@code initDrawingSizes}.
+     *
+     * @param shell TODO: describe
+     * @param camera TODO: describe
+     * @param d TODO: describe
+     * @throws IllegalStateException TODO: describe
+     */
     public static void initDrawingSizes(Shell shell, Camera2D camera, DistanceMatrix d) {
 
         double smallestLength = d.getSmallestSegmentLength();
@@ -82,12 +105,34 @@ public class Drawing {
         }
     }
 
+    /**
+     * TODO: document {@code drawCutMatch}.
+     *
+     * @param sbe TODO: describe
+     * @param lineThickness TODO: describe
+     * @param ps TODO: describe
+     * @param camera TODO: describe
+     */
     public static void drawCutMatch(SegmentBalanceException sbe, float lineThickness,
             PointSet ps, Camera2D camera) {
         drawCutMatch(sbe, sbe.cutMatchList, sbe.cut1, sbe.cut2, sbe.ex1, sbe.ex2, sbe.topKnot,
                 lineThickness, ps, camera);
     }
 
+    /**
+     * TODO: document {@code drawCutMatch}.
+     *
+     * @param sbe TODO: describe
+     * @param cml TODO: describe
+     * @param cut1 TODO: describe
+     * @param cut2 TODO: describe
+     * @param ex1 TODO: describe
+     * @param ex2 TODO: describe
+     * @param topKnot TODO: describe
+     * @param lineThickness TODO: describe
+     * @param ps TODO: describe
+     * @param camera TODO: describe
+     */
     public static void drawCutMatch(SegmentBalanceException sbe, CutMatchList cml,
             Segment cut1, Segment cut2, Segment ex1, Segment ex2, Knot topKnot, float lineThickness,
             PointSet ps, Camera2D camera) {
@@ -105,8 +150,8 @@ public class Drawing {
 
         lastCoords[0] = camera.pointTransformX((float) last.getX());
         lastCoords[1] = camera.pointTransformY((float) last.getY());
-        midCoords[0] = (firstCoords[0] + lastCoords[0]) / 2.0f;
-        midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0f;
+        midCoords[0] = (firstCoords[0] + lastCoords[0]) / NUM_2_0;
+        midCoords[1] = (firstCoords[1] + lastCoords[1]) / NUM_2_0;
         sbe.initDraw();
         d.font.drawHyperString(sbe.x1, midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, camera);
         // Draw x 2
@@ -118,8 +163,8 @@ public class Drawing {
 
         lastCoords[0] = camera.pointTransformX((float) last.getX());
         lastCoords[1] = camera.pointTransformY((float) last.getY());
-        midCoords[0] = (firstCoords[0] + lastCoords[0]) / 2.0f;
-        midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0f;
+        midCoords[0] = (firstCoords[0] + lastCoords[0]) / NUM_2_0;
+        midCoords[1] = (firstCoords[1] + lastCoords[1]) / NUM_2_0;
 
         d.font.drawHyperString(sbe.x2, midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, camera);
         // Draw external segment 1
@@ -132,7 +177,7 @@ public class Drawing {
 
         pND.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN, camera);
 
-        ex1.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+        ex1.setStroke(lineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
         drawSegment(ex1, Color.GREEN, camera);
 
         // Draw external segment 2
@@ -146,7 +191,7 @@ public class Drawing {
 
         pND2.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN,
                 camera);
-        ex2.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+        ex2.setStroke(lineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
         drawSegment(ex2, Color.GREEN, camera);
 
         // Draw Cuts and Matches
@@ -155,7 +200,7 @@ public class Drawing {
 
                 if (cutMatch.c != null) {
                     for (Segment s : cutMatch.matchSegments) {
-                        s.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+                        s.setStroke(lineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
                         if (s.id == cutMatch.c.lowerMatchSegment.id || s.id == cutMatch.c.upperMatchSegment.id) {
                             drawSegment(s, Color.GREEN, camera);
                         } else {
@@ -165,7 +210,7 @@ public class Drawing {
 
                     // Draw Cuts
                     for (Segment s : cutMatch.cutSegments) {
-                        s.setStroke(2 * lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+                        s.setStroke(2 * lineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
                         if (s.id == cutMatch.c.lowerCutSegment.id || s.id == cutMatch.c.upperCutSegment.id) {
                             drawSegment(s, Color.MAGENTA, camera);
                         } else {
@@ -184,18 +229,44 @@ public class Drawing {
 
     }
 
+    /**
+     * TODO: document {@code drawSegment}.
+     *
+     * @param segment TODO: describe
+     * @param c TODO: describe
+     * @param thickness TODO: describe
+     * @param camera TODO: describe
+     */
     public static void drawSegment(Segment segment, Color c, float thickness, Camera2D camera) {
-        segment.setStroke(thickness, false, 1f, 0f, true, false, false, camera);
+        segment.setStroke(thickness, false, NUM_1, NUM_0, true, false, false, camera);
         drawSegment(segment, c, camera);
     }
 
+    /**
+     * TODO: document {@code drawScaledSegment}.
+     *
+     * @param segment TODO: describe
+     * @param c TODO: describe
+     * @param thickness TODO: describe
+     * @param camera TODO: describe
+     */
     public static void drawScaledSegment(Segment segment, Color c, float thickness, Camera2D camera) {
-        segment.setStroke(thickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+        segment.setStroke(thickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
         drawSegment(segment, c, camera);
     }
 
+    /**
+     * TODO: document {@code drawScaledSegment}.
+     *
+     * @param s TODO: describe
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @param c TODO: describe
+     * @param thickness TODO: describe
+     * @param camera TODO: describe
+     */
     public static void drawScaledSegment(Segment s, Vector2f a, Vector2f b, Color c, float thickness, Camera2D camera) {
-        s.setStroke(thickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+        s.setStroke(thickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
         s.draw(a, b, c, camera);
     }
 
@@ -218,6 +289,13 @@ public class Drawing {
         ex1.draw(firstVec, lastVec, c, camera);
     }
 
+    /**
+     * TODO: document {@code drawDashedSegment}.
+     *
+     * @param ex1 TODO: describe
+     * @param c TODO: describe
+     * @param camera TODO: describe
+     */
     public static void drawDashedSegment(Segment ex1, Color c, Camera2D camera) {
         Point2D first;
         Point2D last;
@@ -234,11 +312,19 @@ public class Drawing {
 
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
-        ex1.setStroke(Drawing.MIN_THICKNESS * camera.ScaleFactor, true, 20 * camera.ScaleFactor, 1f, true,
+        ex1.setStroke(Drawing.MIN_THICKNESS * camera.ScaleFactor, true, NUM_20 * camera.ScaleFactor, NUM_1, true,
                 false, false, camera);
         ex1.draw(firstVec, lastVec, c, camera);
     }
 
+    /**
+     * TODO: document {@code drawGradientSegment}.
+     *
+     * @param s TODO: describe
+     * @param color1 TODO: describe
+     * @param color2 TODO: describe
+     * @param camera TODO: describe
+     */
     public static void drawGradientSegment(Segment s, Color color1, Color color2, Camera2D camera) {
         Point2D first;
         Point2D last;
@@ -267,12 +353,12 @@ public class Drawing {
      * segment with length being a value from zero to one indicating the distance
      * along that segment to draw. Calling this method with a length of 1 draws the
      * segment normally.
-     * 
-     * @param s
-     * @param color1
-     * @param color2
-     * @param length
-     * @param camera
+     *
+     * @param s TODO: describe
+     * @param color1 TODO: describe
+     * @param color2 TODO: describe
+     * @param length TODO: describe
+     * @param camera TODO: describe
      */
     public static void drawGradientSegmentPartial(Segment s, Color color1, Color color2, float length,
             Camera2D camera) {
@@ -298,13 +384,15 @@ public class Drawing {
     }
 
     /**
-     * Draws the Shell and its children if drawChildren is true
-     * 
-     * @param frame        where to draw the shell
-     * @param g2           graphics object for frame
+     * Draws the Shell and its children if drawChildren is true.
+     *
      * @param drawChildren whether or not to draw child shells
      * @param c            the color to draw the shell (set to null to get a random
      *                     color)
+     * @param shell TODO: describe
+     * @param lineThickness TODO: describe
+     * @param ps TODO: describe
+     * @param camera TODO: describe
      */
     public static void drawShell(Shell shell, boolean drawChildren, float lineThickness, Color c,
             PointSet ps, Camera2D camera) {
@@ -319,15 +407,17 @@ public class Drawing {
     }
 
     /**
-     * Draws the tsp path of the pointset ps
-     * 
-     * @param frame
-     * @param shell
-     * @param color
-     * @param ps
-     * @param drawLines
-     * @param drawCircles
-     * @param drawNumbers
+     * Draws the tsp path of the pointset ps.
+     *
+     * @param shell TODO: describe
+     * @param color TODO: describe
+     * @param ps TODO: describe
+     * @param drawLines TODO: describe
+     * @param drawCircles TODO: describe
+     * @param drawNumbers TODO: describe
+     * @param lineThickness TODO: describe
+     * @param dashed TODO: describe
+     * @param camera TODO: describe
      */
     public static void drawPath(Shell shell, float lineThickness, Color color,
             PointSet ps,
@@ -336,13 +426,13 @@ public class Drawing {
         Drawing d = getDrawing();
         float scale = camera.ScaleFactor;
         if (!Toggle.ScalePath.value) {
-            scale = 3;
+            scale = NUM_3;
         }
         if (shell.size() == 0) {
             return;
         }
         if (dashed) {
-            d.sdfLine.setStroke(lineThickness * scale, true, 60f, 1f, true, true, false);
+            d.sdfLine.setStroke(lineThickness * scale, true, NUM_60, NUM_1, true, true, false);
         } else {
             d.sdfLine.setStroke(lineThickness * scale, false);
         }
@@ -357,7 +447,7 @@ public class Drawing {
                 float x = camera.pointTransformX(p.getScreenX());
                 float y = camera.pointTransformY(p.getScreenY());
                 next = shell.getNext(count);
-                float numberPixelDistance = scale * FONT_HEIGHT_LABELS_PIXELS / 4;
+                float numberPixelDistance = scale * FONT_HEIGHT_LABELS_PIXELS / NUM_4;
                 Vector2f point = new Vector2f(x, y);
                 Vector2f lastVector = new Vector2f(camera.pointTransformX(last.getScreenX()),
                         camera.pointTransformY(last.getScreenY())).sub(point);
@@ -388,12 +478,22 @@ public class Drawing {
         }
     }
 
+    /**
+     * TODO: document {@code drawGradientPath}.
+     *
+     * @param k TODO: describe
+     * @param lookUpPairs TODO: describe
+     * @param colorLookup TODO: describe
+     * @param colors TODO: describe
+     * @param camera TODO: describe
+     * @param minLineThickness TODO: describe
+     */
     public static void drawGradientPath(Knot k,
             ArrayList<Pair<Long, Long>> lookUpPairs, HashMap<Long, Integer> colorLookup,
             ArrayList<Color> colors, Camera2D camera, float minLineThickness) {
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
-            s.setStroke(minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+            s.setStroke(minLineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
             if (lookUpPairs != null) {
                 Pair<Long, Long> lookUpPair = lookUpPairs.get(i);
 
@@ -413,12 +513,21 @@ public class Drawing {
 
     }
 
+    /**
+     * TODO: document {@code drawGradientPath}.
+     *
+     * @param k TODO: describe
+     * @param lookupPairs TODO: describe
+     * @param colorLookup TODO: describe
+     * @param camera TODO: describe
+     * @param minLineThickness TODO: describe
+     */
     public static void drawGradientPath(Knot k, ArrayList<Pair<Long, Long>> lookupPairs,
             HashMap<Long, Color> colorLookup, Camera2D camera, float minLineThickness) {
 
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
-            s.setStroke(minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+            s.setStroke(minLineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
             if (lookupPairs != null) {
                 Pair<Long, Long> lookUpPair = lookupPairs.get(i);
 
@@ -437,17 +546,35 @@ public class Drawing {
         }
     }
 
+    /**
+     * TODO: document {@code drawSingleCutMatch}.
+     *
+     * @param main TODO: describe
+     * @param matchSegment TODO: describe
+     * @param cutSegment TODO: describe
+     * @param lineThickness TODO: describe
+     * @param ps TODO: describe
+     * @param camera TODO: describe
+     */
     public static void drawSingleCutMatch(MainScene main, Segment matchSegment,
             Segment cutSegment, float lineThickness,
             PointSet ps, Camera2D camera) {
 
-        matchSegment.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+        matchSegment.setStroke(lineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
         Drawing.drawSegment(matchSegment, Color.CYAN, camera);
 
-        cutSegment.setStroke(2 * lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+        cutSegment.setStroke(2 * lineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
         Drawing.drawSegment(cutSegment, Color.ORANGE, camera);
     }
 
+    /**
+     * TODO: document {@code drawCircle}.
+     *
+     * @param displayPoint TODO: describe
+     * @param color TODO: describe
+     * @param camera TODO: describe
+     * @param lineThickness TODO: describe
+     */
     public static void drawCircle(Knot displayPoint, Color color, Camera2D camera,
             float lineThickness) {
         Drawing d = getDrawing();
@@ -458,6 +585,14 @@ public class Drawing {
         d.circle.draw(new Vector2f((float) xCoord, (float) yCoord), CIRCLE_RADIUS * camera.ScaleFactor, color, camera);
     }
 
+    /**
+     * TODO: document {@code drawCircle}.
+     *
+     * @param cameraPoint TODO: describe
+     * @param color TODO: describe
+     * @param camera TODO: describe
+     * @param lineThickness TODO: describe
+     */
     public static void drawCircle(Vector2f cameraPoint, Color color, Camera2D camera,
             float lineThickness) {
         Drawing d = getDrawing();
@@ -465,6 +600,14 @@ public class Drawing {
         d.circle.draw(new Vector2f(cameraPoint.x, cameraPoint.y), CIRCLE_RADIUS * camera.ScaleFactor, color, camera);
     }
 
+    /**
+     * TODO: document {@code drawCircle}.
+     *
+     * @param cameraPoint TODO: describe
+     * @param color TODO: describe
+     * @param camera TODO: describe
+     * @param lineThickness TODO: describe
+     */
     public static void drawCircle(Vector2f cameraPoint, Color color, Camera camera,
             float lineThickness) {
         Drawing d = getDrawing();
@@ -472,17 +615,30 @@ public class Drawing {
         d.circle.draw(new Vector2f(cameraPoint.x, cameraPoint.y), CIRCLE_RADIUS, color, camera);
     }
 
+    /**
+     * TODO: document {@code drawKnot}.
+     *
+     * @param k TODO: describe
+     * @param c TODO: describe
+     * @param lineThickness TODO: describe
+     * @param camera TODO: describe
+     */
     public static void drawKnot(Knot k, Color c, float lineThickness, Camera2D camera) {
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
-            s.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+            s.setStroke(lineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
             Drawing.drawSegment(s, c, camera);
         }
     }
 
+    /**
+     * TODO: document {@code setScaledStroke}.
+     *
+     * @param camera TODO: describe
+     */
     public static void setScaledStroke(Camera2D camera) {
         Drawing d = getDrawing();
-        d.sdfLine.setStroke(MIN_THICKNESS * camera.ScaleFactor, false, 1f, 0f, true, false, false);
+        d.sdfLine.setStroke(MIN_THICKNESS * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false);
     }
 
 }

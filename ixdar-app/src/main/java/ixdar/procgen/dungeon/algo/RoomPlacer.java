@@ -18,11 +18,15 @@ import ixdar.procgen.dungeon.values.RoomListValue.Room;
  * choosing low attempt caps should check the returned list size.
  */
 public final class RoomPlacer {
+    public static final float NUM_2 = 2f;
+    public static final float NUM_0_5 = 0.5f;
 
     private RoomPlacer() {
     }
 
     /**
+     * TODO: document.
+     *
      * @param seed          PRNG seed for reproducibility
      * @param gridW         grid width in units (rooms are placed so their AABBs fit in [0, gridW])
      * @param gridH         grid height in units
@@ -30,6 +34,8 @@ public final class RoomPlacer {
      * @param minSize       minimum room edge length in units (inclusive)
      * @param maxSize       maximum room edge length in units (inclusive)
      * @param maxAttempts   cap on total placement attempts; each attempt consumes RNG draws
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
      */
     public static RoomListValue place(long seed, int gridW, int gridH,
                                       int roomCount, int minSize, int maxSize,
@@ -53,8 +59,8 @@ public final class RoomPlacer {
             int y = rng.nextInt(gridH - h + 1);
             Room candidate = new Room(
                     placed.size(),
-                    x + w / 2f, y + h / 2f,
-                    w / 2f, h / 2f);
+                    x + w / NUM_2, y + h / NUM_2,
+                    w / NUM_2, h / NUM_2);
             if (!collidesAny(candidate, placed)) {
                 placed.add(candidate);
             }
@@ -62,9 +68,15 @@ public final class RoomPlacer {
         return new RoomListValue(placed);
     }
 
-    /** Two rooms collide if their AABBs (inflated by 0.5 units on each side) overlap. */
+    /**
+     * Two rooms collide if their AABBs (inflated by 0.5 units on each side) overlap.
+     *
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @return TODO: describe
+     */
     static boolean collidesWithBuffer(Room a, Room b) {
-        float buf = 0.5f;
+        float buf = NUM_0_5;
         return a.minX() - buf < b.maxX() + buf
                 && a.maxX() + buf > b.minX() - buf
                 && a.minY() - buf < b.maxY() + buf

@@ -13,6 +13,14 @@ public final class MeshScale {
     private MeshScale() {
     }
 
+    /**
+     * TODO: document {@code apply}.
+     *
+     * @param mesh TODO: describe
+     * @param scaleObj TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public static HalfEdgeMesh apply(MeshTopology mesh, Object scaleObj) {
         if (mesh == null || mesh.vertexCount() == 0) {
             return new HalfEdgeMesh();

@@ -17,34 +17,129 @@ public abstract class Grid {
 
     private static final Color gridColor = Color.LIGHT_GRAY;
 
-    public static class CartesianGrid extends Grid {
+    public boolean showGrid = false;
 
+    private static Segment getSegmentPool(ArrayList<Segment> segmentPool, Shell gridShell, int i, Vector2f left,
+            Vector2f right) {
+        if (segmentPool.size() < i + 1) {
+            segmentPool.add(new Segment(new Knot(new PointND.Double(left.x, left.y), gridShell),
+                    new Knot(new PointND.Double(right.x, right.y), gridShell), 0));
+        }
+        return segmentPool.get(i);
+    }
+
+    /**
+     * TODO: document {@code showGrid}.
+     */
+    public void showGrid() {
+        showGrid = true;
+    }
+
+    /**
+     * TODO: document {@code init}.
+     */
+    public void init() {
+        Toggle.DrawGridLines.value = showGrid;
+    }
+
+    /**
+     * TODO: document {@code toCoordString}.
+     *
+     * @return TODO: describe
+     */
+    public abstract String toCoordString();
+
+    /**
+     * TODO: document {@code allowsPoint}.
+     *
+     * @param pt TODO: describe
+     * @return TODO: describe
+     */
+    public abstract boolean allowsPoint(PointND pt);
+
+    /**
+     * TODO: document {@code allowableTypes}.
+     *
+     * @return TODO: describe
+     */
+    public abstract Class<? extends PointCollection>[] allowableTypes();
+
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param camera TODO: describe
+     * @param gridLineThickness TODO: describe
+     */
+    public abstract void draw(Camera2D camera, float gridLineThickness);
+
+    /**
+     * TODO: document {@code coordinateToNearestGridPoint}.
+     *
+     * @param mouseX TODO: describe
+     * @param mouseY TODO: describe
+     * @return TODO: describe
+     */
+    public abstract Vector2f coordinateToNearestGridPoint(float mouseX, float mouseY);
+
+    public static class CartesianGrid extends Grid {
+        public static final int NUM_1000 = 1000;
+        public static final int NUM_10 = 10;
+
+        ArrayList<Segment> segmentsY = new ArrayList<>();
+        ArrayList<Segment> segmentsX = new ArrayList<>();
+        Shell gridShell = new Shell();
+
+        /**
+         * TODO: document {@code coordinateToNearestGridPoint}.
+         *
+         * @param mouseX TODO: describe
+         * @param mouseY TODO: describe
+         * @return TODO: describe
+         */
         @Override
         public Vector2f coordinateToNearestGridPoint(float mouseX, float mouseY) {
             return new Vector2f(mouseX, mouseY);
         }
 
+        /**
+         * TODO: document {@code toCoordString}.
+         *
+         * @return TODO: describe
+         */
         @Override
         public String toCoordString() {
             return "X:" + (int) MainScene.camera.screenTransformX(MainScene.mouse.normalizedPosX - MainScene.MAIN_VIEW_OFFSET_X)
                     + " Y:" + (int) MainScene.camera.screenTransformY(MainScene.mouse.normalizedPosY - MainScene.MAIN_VIEW_OFFSET_Y);
         }
 
+        /**
+         * TODO: document {@code allowsPoint}.
+         *
+         * @param pt TODO: describe
+         * @return TODO: describe
+         */
         @Override
         public boolean allowsPoint(PointND pt) {
             return pt instanceof PointND.Double || pt instanceof PointND.Float;
         }
 
+        /**
+         * TODO: document {@code allowableTypes}.
+         *
+         * @return TODO: describe
+         */
         @SuppressWarnings("unchecked")
         @Override
         public Class<? extends PointCollection>[] allowableTypes() {
             return new Class[] { PointND.Double.class, PointND.Float.class };
         }
 
-        ArrayList<Segment> segmentsY = new ArrayList<>();
-        ArrayList<Segment> segmentsX = new ArrayList<>();
-        Shell gridShell = new Shell();
-
+        /**
+         * TODO: document {@code draw}.
+         *
+         * @param camera TODO: describe
+         * @param gridLineThickness TODO: describe
+         */
         @Override
         public void draw(Camera2D camera, float gridLineThickness) {
             double[] hexCoordsTopLeft = new double[] { MainScene.camera.screenTransformX(0),
@@ -54,10 +149,10 @@ public abstract class Grid {
                     MainScene.camera.screenTransformY(0) };
 
             double unitsPerPixel = Math.abs(hexCoordsTopLeft[0] - hexCoordsBotRight[0]) / camera.getWidth();
-            int gridBucketsLogLevel = (int) (Math.log10(unitsPerPixel * 1000)) - 1;
+            int gridBucketsLogLevel = (int) (Math.log10(unitsPerPixel * NUM_1000)) - 1;
             int mod = 1;
             if (gridBucketsLogLevel >= 0) {
-                mod = (int) Math.pow(10, gridBucketsLogLevel);
+                mod = (int) Math.pow(NUM_10, gridBucketsLogLevel);
             }
             int gridBucketsY = (int) Math.ceil(Math.abs(hexCoordsTopLeft[1] - hexCoordsBotRight[1])) / mod + 1;
             int gridBucketsX = (int) Math.ceil(Math.abs(hexCoordsTopLeft[0] - hexCoordsBotRight[0])) / mod + 1;
@@ -88,16 +183,19 @@ public abstract class Grid {
 
     }
 
-    private static Segment getSegmentPool(ArrayList<Segment> segmentPool, Shell gridShell, int i, Vector2f left,
-            Vector2f right) {
-        if (segmentPool.size() < i + 1) {
-            segmentPool.add(new Segment(new Knot(new PointND.Double(left.x, left.y), gridShell),
-                    new Knot(new PointND.Double(right.x, right.y), gridShell), 0));
-        }
-        return segmentPool.get(i);
-    }
-
     public static class HexGrid extends Grid {
+
+        ArrayList<Segment> segmentsQ = new ArrayList<>();
+        ArrayList<Segment> segmentsR = new ArrayList<>();
+        ArrayList<Segment> segmentsS = new ArrayList<>();
+        Shell gridShell = new Shell();
+        /**
+         * TODO: document {@code coordinateToNearestGridPoint}.
+         *
+         * @param x TODO: describe
+         * @param y TODO: describe
+         * @return TODO: describe
+         */
         @Override
         public Vector2f coordinateToNearestGridPoint(float x, float y) {
             double[] hexCoords = PointND.Hex.pixelToHexCoords(x, y);
@@ -107,6 +205,11 @@ public abstract class Grid {
             return PointND.Hex.hexCoordsToPixel(hexCoords);
         }
 
+        /**
+         * TODO: document {@code toCoordString}.
+         *
+         * @return TODO: describe
+         */
         @Override
         public String toCoordString() {
             double[] hexCoords = PointND.Hex.pixelToHexCoords(
@@ -115,22 +218,34 @@ public abstract class Grid {
             return "Q:" + (hexCoords[0]) + " R:" + (hexCoords[1]) + " S:" + (hexCoords[2]);
         }
 
+        /**
+         * TODO: document {@code allowsPoint}.
+         *
+         * @param pt TODO: describe
+         * @return TODO: describe
+         */
         @Override
         public boolean allowsPoint(PointND pt) {
             return pt instanceof PointND.Hex;
         }
 
+        /**
+         * TODO: document {@code allowableTypes}.
+         *
+         * @return TODO: describe
+         */
         @SuppressWarnings("unchecked")
         @Override
         public Class<? extends PointCollection>[] allowableTypes() {
             return new Class[] { PointND.Hex.class };
         }
 
-        ArrayList<Segment> segmentsQ = new ArrayList<>();
-        ArrayList<Segment> segmentsR = new ArrayList<>();
-        ArrayList<Segment> segmentsS = new ArrayList<>();
-        Shell gridShell = new Shell();
-
+        /**
+         * TODO: document {@code draw}.
+         *
+         * @param camera TODO: describe
+         * @param gridLineThickness TODO: describe
+         */
         @Override
         public void draw(Camera2D camera, float gridLineThickness) {
             double[] hexCoordsBotLeft = PointND.Hex.pixelToHexCoords(MainScene.camera.screenTransformX(0),
@@ -211,24 +326,4 @@ public abstract class Grid {
         }
 
     }
-
-    public boolean showGrid = false;
-
-    public void showGrid() {
-        showGrid = true;
-    }
-
-    public void init() {
-        Toggle.DrawGridLines.value = showGrid;
-    }
-
-    public abstract String toCoordString();
-
-    public abstract boolean allowsPoint(PointND pt);
-
-    public abstract Class<? extends PointCollection>[] allowableTypes();
-
-    public abstract void draw(Camera2D camera, float gridLineThickness);
-
-    public abstract Vector2f coordinateToNearestGridPoint(float mouseX, float mouseY);
 }

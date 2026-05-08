@@ -6,13 +6,18 @@ import java.util.HashMap;
 import ixdar.geometry.knot.Knot;
 
 public class DisjointUnionSets {
-    HashMap<Integer, Integer> rank;
     public HashMap<Integer, Integer> parent;
     public HashMap<Integer, Integer> unmatched;
     public int countGroups = 0;
     public int totalNumGroups = 0;
+    HashMap<Integer, Integer> rank;
 
     // Constructor
+    /**
+     * TODO: document {@code DisjointUnionSets}.
+     *
+     * @param knotPoints TODO: describe
+     */
     public DisjointUnionSets(ArrayList<Knot> knotPoints) {
         rank = new HashMap<>();
         parent = new HashMap<>();
@@ -28,23 +33,45 @@ public class DisjointUnionSets {
         }
     }
 
+    /**
+     * TODO: document {@code DisjointUnionSets}.
+     */
     public DisjointUnionSets() {
         rank = new HashMap<>();
         parent = new HashMap<>();
         unmatched = new HashMap<>();
     }
 
+    /**
+     * TODO: document {@code sameGroup}.
+     *
+     * @param k1 TODO: describe
+     * @param k2 TODO: describe
+     * @return TODO: describe
+     */
     public boolean sameGroup(Knot k1, Knot k2) {
         int k1Group = this.find(k1.id);
         int k2Group = this.find(k2.id);
         return k1Group == k2Group;
     }
 
+    /**
+     * TODO: document {@code find}.
+     *
+     * @param k TODO: describe
+     * @return TODO: describe
+     */
     public int find(Knot k) {
         return this.find(k.id);
     }
 
     // Returns representative of x's set
+    /**
+     * TODO: document {@code find}.
+     *
+     * @param x TODO: describe
+     * @return TODO: describe
+     */
     public int find(int x) {
         // Finds the representative of the set
         // that x is an element of
@@ -62,17 +89,37 @@ public class DisjointUnionSets {
         return parent.get(x);
     }
 
+    /**
+     * TODO: document {@code findUnmatched}.
+     *
+     * @param x TODO: describe
+     * @return TODO: describe
+     */
     public int findUnmatched(int x) {
         int xRoot = find(x);
         return unmatched.get(xRoot);
     }
 
+    /**
+     * TODO: document {@code union}.
+     *
+     * @param k1 TODO: describe
+     * @param k2 TODO: describe
+     * @return TODO: describe
+     */
     public int union(Knot k1, Knot k2) {
         return union(k1.id, k2.id);
     }
 
     // Unites the set that includes x and the set
     // that includes y
+    /**
+     * TODO: document {@code union}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     * @return TODO: describe
+     */
     public int union(int x, int y) {
         // Find representatives of two sets
         int xRoot = find(x), yRoot = find(y);
@@ -118,6 +165,11 @@ public class DisjointUnionSets {
         }
     }
 
+    /**
+     * TODO: document {@code addSet}.
+     *
+     * @param k TODO: describe
+     */
     public void addSet(Knot k) {
         parent.put(k.id, k.id);
         unmatched.put(k.id, 2);
@@ -125,10 +177,20 @@ public class DisjointUnionSets {
         totalNumGroups++;
     }
 
+    /**
+     * TODO: document {@code countGroups}.
+     *
+     * @return TODO: describe
+     */
     public int countGroups() {
         return countGroups;
     }
 
+    /**
+     * TODO: document {@code totalNumGroups}.
+     *
+     * @return TODO: describe
+     */
     public int totalNumGroups() {
         return totalNumGroups;
     }

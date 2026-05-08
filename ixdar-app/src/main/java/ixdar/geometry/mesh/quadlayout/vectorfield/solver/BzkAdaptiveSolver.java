@@ -24,36 +24,8 @@ import ixdar.geometry.mesh.quadlayout.solver.SparseMatrix;
  * Jacobi-preconditioned Conjugate Gradient → ojAlgo SparseLU fallback.
  */
 public final class BzkAdaptiveSolver {
-
-    /** Iteration / convergence stats for one solve(). */
-    public static final class Stats {
-        public boolean gsConverged;
-        public boolean cgConverged;
-        public boolean usedDirect;
-        public int gsIters;
-        public int cgIters;
-    }
-
-    public static final class Options {
-        public boolean useGs = false;            // BZK09 GS on small pins; default off
-        // PATCH-103: ICC default OFF — MTJ's ICC factorizes the entire
-        //   matrix per call, dominating runtime when called 10K times in
-        //   the greedy loop. Useful only for one-shot solves on big systems.
-        //   Enable via -Dixdar.bzk09.useIcc=true if amortized externally.
-        public boolean useIcc = false;
-        public boolean useCg = true;             // Jacobi-PCG (PATCH-101 default)
-        public int gsMaxIter = 5000;
-        public double gsTolerance = 1e-6;
-        // PATCH-103: cgMaxIter default bumped to 20000. With batch pinning,
-        //   we have only ~7 outer solves on a 20K-face mesh; the unconstrained
-        //   bootstrap solve genuinely needs ~5000-7000 iters of Jacobi-PCG
-        //   on the full subspace. 20000 gives safety margin without hurting
-        //   the constrained cases (which converge in <1000 iters anyway).
-        public int cgMaxIter = 20000;
-        public double cgTolerance = 1e-7;
-        public int iccMaxIter = 2000;
-        public double iccTolerance = 1e-7;
-    }
+    public static final double NUM_1e_30 = 1e-30;
+    public static final int NUM_100 = 100;
 
     private BzkAdaptiveSolver() {}
 
@@ -68,6 +40,7 @@ public final class BzkAdaptiveSolver {
      * @param pinVal  values for pinned variables
      * @param opts    solver knobs
      * @param stats   output stats (may be null)
+     * @return TODO: describe
      */
     public static double[] solve(BzkSystem sys, double[] x0,
                                  boolean[] pinned, double[] pinVal,
@@ -119,6 +92,14 @@ public final class BzkAdaptiveSolver {
      * <p>The MTJ matrix build cost is amortized by the dramatic iteration
      * reduction. Returns null if MTJ's solver doesn't converge to tolerance,
      * leaving the caller to fall back further.
+     *
+     * @param sys TODO: describe
+     * @param x TODO: describe
+     * @param pinned TODO: describe
+     * @param pinVal TODO: describe
+     * @param opts TODO: describe
+     * @param stats TODO: describe
+     * @return TODO: describe
      */
     private static double[] tryIccCg(BzkSystem sys, double[] x,
                                       boolean[] pinned, double[] pinVal,
@@ -169,8 +150,8 @@ public final class BzkAdaptiveSolver {
                 resSq += r * r;
                 bSq += rhs[u] * rhs[u];
             }
-            double relRes = Math.sqrt(resSq / Math.max(bSq, 1e-30));
-            if (relRes > opts.iccTolerance * 100) {
+            double relRes = Math.sqrt(resSq / Math.max(bSq, NUM_1e_30));
+            if (relRes > opts.iccTolerance * NUM_100) {
                 // Solver returned best-effort, didn't actually converge.
                 stats.cgIters = opts.iccMaxIter;
                 return null;
@@ -185,7 +166,16 @@ public final class BzkAdaptiveSolver {
         }
     }
 
-    /** Convenience: bootstrap solve (x0 = zeros). */
+    /**
+     * Convenience: bootstrap solve (x0 = zeros).
+     *
+     * @param sys TODO: describe
+     * @param pinned TODO: describe
+     * @param pinVal TODO: describe
+     * @param opts TODO: describe
+     * @param stats TODO: describe
+     * @return TODO: describe
+     */
     public static double[] bootstrap(BzkSystem sys,
                                      boolean[] pinned, double[] pinVal,
                                      Options opts, Stats stats) {
@@ -197,6 +187,14 @@ public final class BzkAdaptiveSolver {
      * BZK09 Algorithm 1: Local Gauss-Seidel. After a pin commits, propagate
      * residuals through dependent variables via single-variable updates.
      * Returns null if not converged within {@code gsMaxIter}.
+     *
+     * @param sys TODO: describe
+     * @param x TODO: describe
+     * @param pinned TODO: describe
+     * @param pinVal TODO: describe
+     * @param opts TODO: describe
+     * @param stats TODO: describe
+     * @return TODO: describe
      */
     private static double[] tryLocalGs(BzkSystem sys, double[] x,
                                        boolean[] pinned, double[] pinVal,
@@ -230,7 +228,7 @@ public final class BzkAdaptiveSolver {
             double rk = bEff - sum;
             if (Math.abs(rk) <= opts.gsTolerance) continue;
             double d = sys.diag(k);
-            if (Math.abs(d) < 1e-30) {
+            if (Math.abs(d) < NUM_1e_30) {
                 stats.gsIters = iter;
                 return null;
             }
@@ -262,6 +260,14 @@ public final class BzkAdaptiveSolver {
      *   each iter: α = (r·z)/(p·Ap); x += αp; r −= αAp; z = M⁻¹ r;
      *              β = (r·z)_new / (r·z)_old; p = z + βp.
      * </pre>
+     *
+     * @param sys TODO: describe
+     * @param x TODO: describe
+     * @param pinned TODO: describe
+     * @param pinVal TODO: describe
+     * @param opts TODO: describe
+     * @param stats TODO: describe
+     * @return TODO: describe
      */
     private static double[] tryPcg(BzkSystem sys, double[] x,
                                    boolean[] pinned, double[] pinVal,
@@ -274,7 +280,7 @@ public final class BzkAdaptiveSolver {
         for (int k = 0; k < N; k++) {
             if (pinned[k]) continue;
             double d = sys.diag(k);
-            mInv[k] = (Math.abs(d) > 1e-30) ? 1.0 / d : 1.0;
+            mInv[k] = (Math.abs(d) > NUM_1e_30) ? 1.0 / d : 1.0;
         }
 
         // r = b_eff − A x (unpinned only).
@@ -304,7 +310,7 @@ public final class BzkAdaptiveSolver {
             }
             double pAp = 0;
             for (int k = 0; k < N; k++) if (!pinned[k]) pAp += dir[k] * Ap[k];
-            if (Math.abs(pAp) < 1e-30) break;
+            if (Math.abs(pAp) < NUM_1e_30) break;
             double alpha = rzOld / pAp;
             double rNewNormSq = 0;
             for (int k = 0; k < N; k++) {
@@ -339,6 +345,11 @@ public final class BzkAdaptiveSolver {
      * {@link SparseMatrix} and calls {@code solveLeft}. Used only when both
      * GS and PCG fail to converge — typically a sign of an ill-conditioned
      * matrix near rank deficiency, not normal operation.
+     *
+     * @param sys TODO: describe
+     * @param pinned TODO: describe
+     * @param pinVal TODO: describe
+     * @return TODO: describe
      */
     private static double[] solveDirect(BzkSystem sys,
                                         boolean[] pinned, double[] pinVal) {
@@ -376,5 +387,35 @@ public final class BzkAdaptiveSolver {
         for (int k = 0; k < N; k++) x[k] = pinVal[k];
         for (int u = 0; u < U; u++) x[fromCompact[u]] = xCompact[u];
         return x;
+    }
+
+    /** Iteration / convergence stats for one solve(). */
+    public static final class Stats {
+        public boolean gsConverged;
+        public boolean cgConverged;
+        public boolean usedDirect;
+        public int gsIters;
+        public int cgIters;
+    }
+
+    public static final class Options {
+        public boolean useGs = false;            // BZK09 GS on small pins; default off
+        // PATCH-103: ICC default OFF — MTJ's ICC factorizes the entire
+        //   matrix per call, dominating runtime when called 10K times in
+        //   the greedy loop. Useful only for one-shot solves on big systems.
+        //   Enable via -Dixdar.bzk09.useIcc=true if amortized externally.
+        public boolean useIcc = false;
+        public boolean useCg = true;             // Jacobi-PCG (PATCH-101 default)
+        public int gsMaxIter = 5000;
+        public double gsTolerance = 1e-6;
+        // PATCH-103: cgMaxIter default bumped to 20000. With batch pinning,
+        //   we have only ~7 outer solves on a 20K-face mesh; the unconstrained
+        //   bootstrap solve genuinely needs ~5000-7000 iters of Jacobi-PCG
+        //   on the full subspace. 20000 gives safety margin without hurting
+        //   the constrained cases (which converge in <1000 iters anyway).
+        public int cgMaxIter = 20000;
+        public double cgTolerance = 1e-7;
+        public int iccMaxIter = 2000;
+        public double iccTolerance = 1e-7;
     }
 }

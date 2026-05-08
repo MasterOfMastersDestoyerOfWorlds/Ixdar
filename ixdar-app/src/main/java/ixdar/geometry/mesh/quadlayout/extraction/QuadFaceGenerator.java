@@ -24,9 +24,19 @@ import java.util.List;
  * </ol>
  */
 public final class QuadFaceGenerator {
+    public static final int NUM_4 = 4;
+    public static final long NUM_1000003 = 1000003L;
+    public static final long NUM_0xFFFFFFFF = 0xFFFFFFFFL;
 
     private QuadFaceGenerator() {}
 
+    /**
+     * TODO: document {@code generate}.
+     *
+     * @param ports TODO: describe
+     * @param edges TODO: describe
+     * @return TODO: describe
+     */
     public static List<QFace> generate(List<QPort> ports, List<QEdge> edges) {
         ArrayList<QFace> faces = new ArrayList<>();
         boolean[] visited = new boolean[edges.size() * 2];
@@ -43,9 +53,9 @@ public final class QuadFaceGenerator {
                 if (visited[eId * 2 + side]) continue;
                 int[] cycle = tryWalkFourCycle(ports, edges, visited, eId, side);
                 if (cycle == null) continue;
-                int[] cornerQVerts = new int[4];
-                int[] edgeIds = new int[4];
-                for (int i = 0; i < 4; i++) {
+                int[] cornerQVerts = new int[NUM_4];
+                int[] edgeIds = new int[NUM_4];
+                for (int i = 0; i < NUM_4; i++) {
                     int eHalfId = cycle[i];
                     edgeIds[i] = eHalfId / 2;
                     int sideI = eHalfId % 2;
@@ -61,13 +71,14 @@ public final class QuadFaceGenerator {
         return faces;
     }
 
-    /** 64-bit canonical hash of 4 corner ids (sorted). Quads that differ
-     *  only in cyclic rotation or orientation produce the same key. */
+    /**
+     * 64-bit canonical hash of 4 corner ids (sorted). Quads that differ
+     */
     private static long canonicalKey(int[] corners) {
         int[] sorted = corners.clone();
         Arrays.sort(sorted);
         long k = 0;
-        for (int c : sorted) k = k * 1000003L + (c & 0xFFFFFFFFL);
+        for (int c : sorted) k = k * NUM_1000003 + (c & NUM_0xFFFFFFFF);
         return k;
     }
 
@@ -78,11 +89,11 @@ public final class QuadFaceGenerator {
      */
     private static int[] tryWalkFourCycle(List<QPort> ports, List<QEdge> edges,
                                           boolean[] visited, int startEdge, int startSide) {
-        int[] cycle = new int[4];
+        int[] cycle = new int[NUM_4];
         HashSet<Integer> seenEdges = new HashSet<>();
         int curEdge = startEdge;
         int curSide = startSide;
-        for (int hop = 0; hop < 4; hop++) {
+        for (int hop = 0; hop < NUM_4; hop++) {
             if (!seenEdges.add(curEdge)) return null;
             cycle[hop] = curEdge * 2 + curSide;
 

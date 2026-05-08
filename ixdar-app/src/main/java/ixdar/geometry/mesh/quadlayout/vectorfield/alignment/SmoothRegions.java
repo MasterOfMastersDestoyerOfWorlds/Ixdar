@@ -28,6 +28,17 @@ import ixdar.geometry.mesh.data.ArrayMesh;
  * <p>Master citation index: {@code alignment/PAPERS.md}.
  */
 public final class SmoothRegions {
+    public static final double NUM_360_0 = 360.0;
+    public static final int NUM_2000 = 2000;
+    public static final int NUM_3 = 3;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_3_2 = 3f;
+    public static final float NUM_1e_20 = 1e-20f;
+    public static final double NUM_1e_9 = 1e-9;
+    public static final float NUM_0_9 = 0.9f;
+    public static final float NUM_0 = 0f;
+    public static final double NUM_1e_20_2 = 1e-20;
+    public static final double NUM_1e_6 = 1e-6;
 
     /** CIE*16 §3.2 ¶4 default. */
     public static final double DEFAULT_SIGNIFICANCE_DEG = 70.0;
@@ -39,6 +50,10 @@ public final class SmoothRegions {
      * region).
      *
      * @param significanceDegMin minimum ∠F (degrees) to keep a region. CIE*16 default 70°.
+     * @param mesh TODO: describe
+     * @param smoothFaces TODO: describe
+     * @param pdf TODO: describe
+     * @return TODO: describe
      */
     public static int[] detect(ArrayMesh mesh, boolean[] smoothFaces,
                                 PrincipalCurvatureField pdf,
@@ -100,7 +115,7 @@ public final class SmoothRegions {
         for (int rid = 0; rid < regionCount; rid++) {
             if (!hasBoundary[rid]) {
                 // CIE*16 §3.2 page 6 col 2: cyclic region — ∠F = 360°.
-                regionAngleDeg[rid] = 360.0;
+                regionAngleDeg[rid] = NUM_360_0;
             }
             kept[rid] = regionAngleDeg[rid] >= significanceDegMin;
         }
@@ -122,6 +137,12 @@ public final class SmoothRegions {
      * True if face {@code f} is on the boundary of region {@code rid}
      * (i.e. has at least one neighbour that is not in {@code rid}, including
      * mesh-boundary edges).
+     *
+     * @param mesh TODO: describe
+     * @param f TODO: describe
+     * @param tentativeRegion TODO: describe
+     * @param rid TODO: describe
+     * @return TODO: describe
      */
     private static boolean isRegionBoundary(ArrayMesh mesh, int f,
                                             int[] tentativeRegion, int rid) {
@@ -166,12 +187,19 @@ public final class SmoothRegions {
      * <p>This matches what CIE*16 §3.2 ¶4 implies (and what Tricoche 2002
      * canonically does for tensor-field streamline integration on a
      * parameterized surface — but applied directly on the 3D mesh here).
+     *
+     * @param mesh TODO: describe
+     * @param pdf TODO: describe
+     * @param tentativeRegion TODO: describe
+     * @param rid TODO: describe
+     * @param startFace TODO: describe
+     * @return TODO: describe
      */
     private static double traceStreamlineSignificanceDeg(ArrayMesh mesh,
                                                           PrincipalCurvatureField pdf,
                                                           int[] tentativeRegion,
                                                           int rid, int startFace) {
-        int MAX_STEPS = 2000;
+        int MAX_STEPS = NUM_2000;
         double sumBeta = 0.0;
         double maxSum = 0.0;
         double minSum = 0.0;
@@ -197,11 +225,11 @@ public final class SmoothRegions {
         // discrete proxy that avoids vertex-incidence ambiguity).
         Vector3f curP = new Vector3f();
         Vector3f tmp = new Vector3f();
-        for (int c = 0; c < 3; c++) {
+        for (int c = 0; c < NUM_3; c++) {
             mesh.vertexPosition(mesh.faceVertexAt(curFace, c), tmp);
             curP.add(tmp);
         }
-        curP.mul(1f / 3f);
+        curP.mul(NUM_1 / NUM_3_2);
 
         // The "previous edge" we entered through — start with -1 (no entry edge).
         int prevEdge = -1;
@@ -214,8 +242,8 @@ public final class SmoothRegions {
             curA.y -= dotN * curN.y;
             curA.z -= dotN * curN.z;
             float dirLen = (float) Math.sqrt(curA.x * curA.x + curA.y * curA.y + curA.z * curA.z);
-            if (dirLen < 1e-20f) break;
-            curA.mul(1f / dirLen);
+            if (dirLen < NUM_1e_20) break;
+            curA.mul(NUM_1 / dirLen);
 
             // Find exit edge: parametrically intersect ray (curP + t·curA)
             // with each of the face's edges (excluding prevEdge).
@@ -239,7 +267,7 @@ public final class SmoothRegions {
                 double ts = solveRayEdgeIntersection(curP, curA, vA, vB, curN);
                 if (ts == Double.POSITIVE_INFINITY) continue;
                 double t = ts;
-                if (t <= 1e-9 || t >= bestT) continue;
+                if (t <= NUM_1e_9 || t >= bestT) continue;
                 int twin = mesh.halfEdgeTwin(he);
                 int nbr = mesh.halfEdgeFace(twin);
                 bestT = t;
@@ -253,7 +281,7 @@ public final class SmoothRegions {
             if (bestNbr < 0) break;           // mesh boundary edge — region exit
             if (tentativeRegion[bestNbr] != rid) break;   // region boundary — done
             // CIE*16 page 6 col 2: cyclic streamline → ∠F = 360°.
-            if (visited.contains(bestNbr)) return 360.0;
+            if (visited.contains(bestNbr)) return NUM_360_0;
             visited.add(bestNbr);
 
             pdf.normal(bestNbr, nextN);
@@ -300,18 +328,25 @@ public final class SmoothRegions {
      *
      * <p>2D solution in the plane: choose two basis vectors orthogonal to
      * {@code n}, project everything onto them, solve a 2x2 linear system.
+     *
+     * @param P TODO: describe
+     * @param D TODO: describe
+     * @param A TODO: describe
+     * @param B TODO: describe
+     * @param n TODO: describe
+     * @return TODO: describe
      */
     private static double solveRayEdgeIntersection(Vector3f P, Vector3f D,
                                                     Vector3f A, Vector3f B, Vector3f n) {
         // Build 2D basis in the plane.
         // u = an arbitrary unit vector ⊥ n; v = n × u.
         float ux, uy, uz;
-        if (Math.abs(n.x) < 0.9f) { ux = 1f; uy = 0f; uz = 0f; }
-        else                       { ux = 0f; uy = 1f; uz = 0f; }
+        if (Math.abs(n.x) < NUM_0_9) { ux = NUM_1; uy = NUM_0; uz = NUM_0; }
+        else                       { ux = NUM_0; uy = NUM_1; uz = NUM_0; }
         float un = ux * n.x + uy * n.y + uz * n.z;
         ux -= un * n.x; uy -= un * n.y; uz -= un * n.z;
         float ulen = (float) Math.sqrt(ux * ux + uy * uy + uz * uz);
-        if (ulen < 1e-20f) return Double.POSITIVE_INFINITY;
+        if (ulen < NUM_1e_20) return Double.POSITIVE_INFINITY;
         ux /= ulen; uy /= ulen; uz /= ulen;
         float vx = n.y * uz - n.z * uy;
         float vy = n.z * ux - n.x * uz;
@@ -328,11 +363,11 @@ public final class SmoothRegions {
         // Solve  [dU, -eU]   [t]   [rU]
         //        [dV, -eV] * [s] = [rV]
         double det = dU * (-eV) - (-eU) * dV;
-        if (Math.abs(det) < 1e-20) return Double.POSITIVE_INFINITY;
+        if (Math.abs(det) < NUM_1e_20_2) return Double.POSITIVE_INFINITY;
         double t = (rU * (-eV) - (-eU) * rV) / det;
         double s = (dU * rV - dV * rU) / det;
-        if (s < -1e-6 || s > 1.0 + 1e-6) return Double.POSITIVE_INFINITY;
-        if (t <= 1e-9) return Double.POSITIVE_INFINITY;
+        if (s < -NUM_1e_6 || s > 1.0 + NUM_1e_6) return Double.POSITIVE_INFINITY;
+        if (t <= NUM_1e_9) return Double.POSITIVE_INFINITY;
         return t;
     }
 }

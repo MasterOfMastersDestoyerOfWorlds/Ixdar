@@ -53,26 +53,19 @@ import ixdar.geometry.mesh.quadlayout.solver.SparseMatrix;
  * use the unconstrained DVPSH path for production; use BZK09.
  */
 public final class DvpshCrossFieldSolver {
+    public static final double NUM_4_0 = 4.0;
+    public static final double NUM_2_0 = 2.0;
 
-    /** Penalty weight on Dirichlet pins. The Laplacian has small entries so
-     *  a moderate weight cleanly enforces the pins without conditioning issues. */
+    /**
+     * Penalty weight on Dirichlet pins. The Laplacian has small entries so
+     */
     private static final double PIN_WEIGHT = 1e6;
-
-    public static final class Result {
-        public final double[] theta;
-        public final int[] periodJump;
-        public final int constrainedFaceCount;
-
-        Result(double[] theta, int[] periodJump, int constrainedFaceCount) {
-            this.theta = theta;
-            this.periodJump = periodJump;
-            this.constrainedFaceCount = constrainedFaceCount;
-        }
-    }
 
     private DvpshCrossFieldSolver() {}
 
     /**
+     * TODO: document.
+     *
      * @param F                 face count
      * @param E                 interior edge count
      * @param edgeFaceA         per interior-edge: face on the A-side
@@ -80,6 +73,8 @@ public final class DvpshCrossFieldSolver {
      * @param kappa             per interior-edge: parallel-transport rotation (radians)
      * @param thetaConstraint   per face: target angle (radians) when constrained, else ignored
      * @param constrained       per face: true if thetaConstraint[f] is active
+     * @throws IllegalStateException TODO: describe
+     * @return TODO: describe
      */
     public static Result solve(int F, int E,
                                 int[] edgeFaceA, int[] edgeFaceB, double[] kappa,
@@ -107,8 +102,8 @@ public final class DvpshCrossFieldSolver {
             for (int f = 0; f < F; f++) {
                 if (constrained[f]) {
                     double t = thetaConstraint[f];
-                    xR[f] = -Math.cos(4.0 * t);
-                    xI[f] = -Math.sin(4.0 * t);
+                    xR[f] = -Math.cos(NUM_4_0 * t);
+                    xI[f] = -Math.sin(NUM_4_0 * t);
                 }
             }
         }
@@ -155,7 +150,7 @@ public final class DvpshCrossFieldSolver {
         for (int f = 0; f < F; f++) {
             double a = -solR[f];
             double b = -solI[f];
-            theta[f] = Math.atan2(b, a) / 4.0;
+            theta[f] = Math.atan2(b, a) / NUM_4_0;
         }
 
         // BFS-based θ unwrapping along the dual spanning tree (Lyon/BZK09
@@ -163,7 +158,7 @@ public final class DvpshCrossFieldSolver {
         // |θ_g + (π/2)·k − θ_f − κ_e|, so adjacent face θs are continuous in
         // the BZK09 4-RoSy sense. After unwrapping, tree-edge m_e = 0;
         // chord-edge m_e captures genuine field winding (genus / cones).
-        double piHalf = Math.PI / 2.0;
+        double piHalf = Math.PI / NUM_2_0;
         int[] periodJump = new int[E];
         boolean[] visited = new boolean[F];
         int[] queue = new int[F];
@@ -230,5 +225,17 @@ public final class DvpshCrossFieldSolver {
         }
 
         return new Result(theta, periodJump, constrainedFaceCount);
+    }
+
+    public static final class Result {
+        public final double[] theta;
+        public final int[] periodJump;
+        public final int constrainedFaceCount;
+
+        Result(double[] theta, int[] periodJump, int constrainedFaceCount) {
+            this.theta = theta;
+            this.periodJump = periodJump;
+            this.constrainedFaceCount = constrainedFaceCount;
+        }
     }
 }

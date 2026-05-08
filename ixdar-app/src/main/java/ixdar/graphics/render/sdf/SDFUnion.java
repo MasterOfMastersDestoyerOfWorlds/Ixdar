@@ -23,6 +23,20 @@ public class SDFUnion extends ShaderDrawable {
     public float numberPinStripes;
     public float showPin;
 
+    /**
+     * TODO: document {@code SDFUnion}.
+     *
+     * @param sdfInnerLocation TODO: describe
+     * @param innerColor TODO: describe
+     * @param innerScale TODO: describe
+     * @param innerOffsetX TODO: describe
+     * @param innerOffsetY TODO: describe
+     * @param sdfOuterLocation TODO: describe
+     * @param outerColor TODO: describe
+     * @param alpha TODO: describe
+     * @param numberPinStripes TODO: describe
+     * @param showPin TODO: describe
+     */
     public SDFUnion(String sdfInnerLocation, Color innerColor, float innerScale,
             float innerOffsetX, float innerOffsetY, String sdfOuterLocation, Color outerColor, float alpha,
             float numberPinStripes, float showPin) {
@@ -43,11 +57,34 @@ public class SDFUnion extends ShaderDrawable {
         this.showPin = showPin;
     }
 
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param drawX TODO: describe
+     * @param drawY TODO: describe
+     * @param width TODO: describe
+     * @param height TODO: describe
+     * @param innerColor TODO: describe
+     * @param outerColor TODO: describe
+     * @param camera TODO: describe
+     */
     public void draw(float drawX, float drawY, float width, float height, Color innerColor,
             Color outerColor, Camera camera) {
         draw(drawX, drawY, width, height, innerColor, outerColor, 0L, camera);
     }
 
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param drawX TODO: describe
+     * @param drawY TODO: describe
+     * @param width TODO: describe
+     * @param height TODO: describe
+     * @param innerColor TODO: describe
+     * @param outerColor TODO: describe
+     * @param id TODO: describe
+     * @param camera TODO: describe
+     */
     public void draw(float drawX, float drawY, float width, float height, Color innerColor,
             Color outerColor, long id, Camera camera) {
         this.outerColor = outerColor;
@@ -58,6 +95,9 @@ public class SDFUnion extends ShaderDrawable {
         cleanup(camera);
     }
 
+    /**
+     * TODO: document {@code setUniforms}.
+     */
     protected void setUniforms() {
         if (innerTexture == null || outerTexture == null) {
             return;
@@ -76,6 +116,16 @@ public class SDFUnion extends ShaderDrawable {
         shader.setFloat("showPin", (float) showPin);
     }
 
+    /**
+     * TODO: document {@code drawCentered}.
+     *
+     * @param drawX TODO: describe
+     * @param drawY TODO: describe
+     * @param scale TODO: describe
+     * @param innerColor TODO: describe
+     * @param outerColor TODO: describe
+     * @param camera TODO: describe
+     */
     public void drawCentered(float drawX, float drawY, float scale, Color innerColor, Color outerColor, Camera camera) {
         float width = (float) (outerTexture.width * scale);
         float height = (float) (outerTexture.height * scale);
@@ -83,6 +133,14 @@ public class SDFUnion extends ShaderDrawable {
 
     }
 
+    /**
+     * TODO: document {@code drawCentered}.
+     *
+     * @param drawX TODO: describe
+     * @param drawY TODO: describe
+     * @param scale TODO: describe
+     * @param camera TODO: describe
+     */
     public void drawCentered(float drawX, float drawY, float scale, Camera camera) {
         float width = (float) (outerTexture.width * scale);
         float height = (float) (outerTexture.height * scale);

@@ -3,11 +3,12 @@ package ixdar.geometry.mesh.data;
 import java.util.Arrays;
 
 final class IntIdList {
+    public static final int NUM_4 = 4;
     private int[] values;
     private int size;
 
     IntIdList() {
-        this(4);
+        this(NUM_4);
     }
 
     IntIdList(int initialCapacity) {

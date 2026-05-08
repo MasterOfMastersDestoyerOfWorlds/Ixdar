@@ -43,12 +43,25 @@ public final class QuadMeshTopologyHelper {
      * Returns the index of the next half-edge within the same face.
      * For half-edge {@code he} in a face of size {@code vpf}, this is the successor
      * vertex in the face winding.
+     *
+     * @param he TODO: describe
+     * @param vpf TODO: describe
+     * @return TODO: describe
      */
     public static int nextHalfEdge(int he, int vpf) {
         int base = he - he % vpf;
         return base + (he - base + 1) % vpf;
     }
 
+    /**
+     * TODO: document {@code build}.
+     *
+     * @param faceIndices TODO: describe
+     * @param vertsPerFace TODO: describe
+     * @param vertexCount TODO: describe
+     * @param faceCount TODO: describe
+     * @return TODO: describe
+     */
     public static QuadMeshTopologyHelper build(int[] faceIndices, int vertsPerFace, int vertexCount, int faceCount) {
         int HE = faceCount * vertsPerFace;
         if (HE == 0) {

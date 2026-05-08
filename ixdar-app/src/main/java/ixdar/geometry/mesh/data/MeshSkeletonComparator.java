@@ -17,45 +17,27 @@ import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonResult;
  * (both skeletons centered and scaled to unit bounding sphere).
  */
 public final class MeshSkeletonComparator {
-
-    // ─── Output records ───
-
-    public record BranchMatch(
-            int genBranchId, int refBranchId,
-            String label,
-            float genLength, float refLength, float lengthError,
-            float directionErrorDeg,
-            float genBaseRadius, float refBaseRadius,
-            float genTipRadius, float refTipRadius,
-            float jointPositionError
-    ) {}
-
-    public record ParameterRecommendation(String paramName, float currentImplied, float targetImplied, String reason) {}
-
-    public record ComparisonResult(
-            int genBranchCount, int refBranchCount, int matchedCount,
-            List<BranchMatch> matches,
-            List<ParameterRecommendation> recommendations,
-            float skeletonScore
-    ) {}
-
-    // ─── Detailed output records (for sensitivity analysis) ───
-
-    /** Per-joint 3D position delta between generated and reference skeleton. */
-    public record JointDelta(int jointIndex, float[] genPosition, float[] refPosition, float[] delta, float distance) {}
-
-    /** Branch match with full per-joint delta vectors (not just the average). */
-    public record DetailedBranchMatch(
-            BranchMatch summary,
-            List<JointDelta> jointDeltas,
-            int resampledJointCount
-    ) {}
-
-    /** Full comparison result including per-joint position deltas for sensitivity analysis. */
-    public record DetailedComparisonResult(
-            ComparisonResult summary,
-            List<DetailedBranchMatch> detailedMatches
-    ) {}
+    public static final String TRUNK = "trunk";
+    public static final String UNMATCHED_REF = "unmatched_ref";
+    public static final String THUMB = "thumb";
+    public static final String STR = ", ";
+    public static final float NUM_1e_8 = 1e-8f;
+    public static final float NUM_1e_6 = 1e-6f;
+    public static final int NUM_5 = 5;
+    public static final float NUM_0_05 = 0.05f;
+    public static final int NUM_100 = 100;
+    public static final float NUM_0_02 = 0.02f;
+    public static final float NUM_0_03 = 0.03f;
+    public static final float NUM_5_0 = 5.0f;
+    public static final int NUM_3 = 3;
+    public static final int NUM_4 = 4;
+    public static final float NUM_0_01 = 0.01f;
+    public static final float NUM_90_0 = 90.0f;
+    public static final double NUM_5_0_2 = 5.0;
+    public static final float NUM_0_4 = 0.4f;
+    public static final float NUM_0_3 = 0.3f;
+    public static final float NUM_100_0 = 100.0f;
+    public static final float NUM_0_5 = 0.5f;
 
     // ─── Finger identity ───
 
@@ -71,6 +53,13 @@ public final class MeshSkeletonComparator {
 
     // ─── Public entry point ───
 
+    /**
+     * TODO: document {@code compare}.
+     *
+     * @param gen TODO: describe
+     * @param ref TODO: describe
+     * @return TODO: describe
+     */
     public static ComparisonResult compare(SkeletonResult gen, SkeletonResult ref) {
         // Normalize both skeletons to the same coordinate frame
         NormalizedSkeleton nGen = normalize(gen);
@@ -98,7 +87,7 @@ public final class MeshSkeletonComparator {
 
         // Match trunk branches
         if (genTrunk != null && refTrunk != null) {
-            matches.add(matchBranches(genTrunk, refTrunk, "trunk"));
+            matches.add(matchBranches(genTrunk, refTrunk, TRUNK));
         }
 
         // Match finger branches by greedy nearest tip position
@@ -127,7 +116,7 @@ public final class MeshSkeletonComparator {
         for (int ri = 0; ri < refFingers.size(); ri++) {
             if (!refUsed[ri]) {
                 SkeletonBranch rb = refFingers.get(ri);
-                matches.add(new BranchMatch(-1, rb.id(), "unmatched_ref", 0, rb.length(), -rb.length(),
+                matches.add(new BranchMatch(-1, rb.id(), UNMATCHED_REF, 0, rb.length(), -rb.length(),
                         0, 0, avgRadius(rb), 0, avgRadius(rb), 0));
             }
         }
@@ -147,6 +136,10 @@ public final class MeshSkeletonComparator {
     /**
      * Detailed comparison that preserves per-joint 3D position deltas for each matched branch.
      * Used by {@link SkeletonSensitivityAnalyzer} for Jacobian computation.
+     *
+     * @param gen TODO: describe
+     * @param ref TODO: describe
+     * @return TODO: describe
      */
     public static DetailedComparisonResult compareDetailed(SkeletonResult gen, SkeletonResult ref) {
         NormalizedSkeleton nGen = normalize(gen);
@@ -173,7 +166,7 @@ public final class MeshSkeletonComparator {
 
         // Match trunk
         if (genTrunk != null && refTrunk != null) {
-            BranchMatch bm = matchBranches(genTrunk, refTrunk, "trunk");
+            BranchMatch bm = matchBranches(genTrunk, refTrunk, TRUNK);
             matches.add(bm);
             List<JointDelta> deltas = computeJointDeltas(genTrunk.joints(), refTrunk.joints());
             detailedMatches.add(new DetailedBranchMatch(bm, deltas, deltas.size()));
@@ -208,7 +201,7 @@ public final class MeshSkeletonComparator {
         for (int ri = 0; ri < refFingers.size(); ri++) {
             if (!refUsed[ri]) {
                 SkeletonBranch rb = refFingers.get(ri);
-                BranchMatch bm = new BranchMatch(-1, rb.id(), "unmatched_ref", 0, rb.length(), -rb.length(),
+                BranchMatch bm = new BranchMatch(-1, rb.id(), UNMATCHED_REF, 0, rb.length(), -rb.length(),
                         0, 0, avgRadius(rb), 0, avgRadius(rb), 0);
                 matches.add(bm);
                 detailedMatches.add(new DetailedBranchMatch(bm, List.of(), 0));
@@ -254,7 +247,13 @@ public final class MeshSkeletonComparator {
         return totalErr / deltas.size();
     }
 
-    /** Compute per-joint 3D position deltas between resampled generated and reference joint lists. */
+    /**
+     * Compute per-joint 3D position deltas between resampled generated and reference joint lists.
+     *
+     * @param genJoints TODO: describe
+     * @param refJoints TODO: describe
+     * @return TODO: describe
+     */
     static List<JointDelta> computeJointDeltas(List<SkeletonJoint> genJoints, List<SkeletonJoint> refJoints) {
         if (genJoints.isEmpty() || refJoints.isEmpty()) return List.of();
 
@@ -285,7 +284,7 @@ public final class MeshSkeletonComparator {
             arcLen[i] = arcLen[i - 1] + dist3(joints.get(i - 1).position(), joints.get(i).position());
         }
         float totalLen = arcLen[joints.size() - 1];
-        if (totalLen < 1e-8f) {
+        if (totalLen < NUM_1e_8) {
             float[][] result = new float[n][];
             Arrays.fill(result, joints.get(0).position());
             return result;
@@ -301,7 +300,7 @@ public final class MeshSkeletonComparator {
                 if (s == joints.size() - 1) seg = s - 1;
             }
             float segLen = arcLen[seg + 1] - arcLen[seg];
-            float t = segLen < 1e-8f ? 0 : (targetLen - arcLen[seg]) / segLen;
+            float t = segLen < NUM_1e_8 ? 0 : (targetLen - arcLen[seg]) / segLen;
             float[] a = joints.get(seg).position();
             float[] b = joints.get(seg + 1).position();
             result[i] = new float[]{
@@ -315,7 +314,13 @@ public final class MeshSkeletonComparator {
 
     // ─── Finger labeling ───
 
-    /** Label a finger branch by its Z-position among all finger branches. */
+    /**
+     * Label a finger branch by its Z-position among all finger branches.
+     *
+     * @param branch TODO: describe
+     * @param allFingers TODO: describe
+     * @return TODO: describe
+     */
     private static String labelFinger(SkeletonBranch branch, List<SkeletonBranch> allFingers) {
         float z = tipZ(branch);
         // Sort all fingers by tip Z
@@ -325,14 +330,14 @@ public final class MeshSkeletonComparator {
 
         int rank = 0;
         for (int i = 0; i < allZ.size(); i++) {
-            if (Math.abs(allZ.get(i) - z) < 1e-6f) { rank = i; break; }
+            if (Math.abs(allZ.get(i) - z) < NUM_1e_6) { rank = i; break; }
         }
 
         // Thumb detection: the finger with the most divergent direction from the trunk
         // (typically extends along a different axis). Use X-component of direction as heuristic.
         float xDir = Math.abs(branch.direction()[0]);
         boolean likelyThumb = false;
-        if (allFingers.size() >= 5) {
+        if (allFingers.size() >= NUM_5) {
             // If this branch has the highest |X direction| among all fingers, it's probably the thumb
             float maxXDir = 0;
             SkeletonBranch thumbCandidate = null;
@@ -343,7 +348,7 @@ public final class MeshSkeletonComparator {
             if (thumbCandidate == branch) likelyThumb = true;
         }
 
-        if (likelyThumb) return "thumb";
+        if (likelyThumb) return THUMB;
         // Remove thumb from ranking if identified
         if (rank < FINGER_LABELS.length) return FINGER_LABELS[rank];
         return "finger_" + rank;
@@ -357,18 +362,18 @@ public final class MeshSkeletonComparator {
         for (BranchMatch m : matches) {
             if (m.genBranchId < 0) continue; // unmatched ref branch
 
-            if (m.label.equals("trunk")) {
+            if (m.label.equals(TRUNK)) {
                 // Trunk length → forearm params
-                if (Math.abs(m.lengthError) > 0.05f) {
+                if (Math.abs(m.lengthError) > NUM_0_05) {
                     float ratio = m.refLength > 0 ? m.genLength / m.refLength : 1;
                     float scaleFactor = m.refLength > 0 ? m.refLength / m.genLength : 1;
                     recs.add(new ParameterRecommendation("forearm_1..4",
                             m.genLength, m.refLength,
                             String.format("trunk length %.2f vs %.2f (%.0f%%) — scale forearm params by %.2fx",
-                                    m.genLength, m.refLength, (ratio - 1) * 100, scaleFactor)));
+                                    m.genLength, m.refLength, (ratio - 1) * NUM_100, scaleFactor)));
                 }
                 // Trunk radius → palm dimensions
-                if (Math.abs(m.genBaseRadius - m.refBaseRadius) > 0.02f) {
+                if (Math.abs(m.genBaseRadius - m.refBaseRadius) > NUM_0_02) {
                     float radiusRatio = m.refBaseRadius > 0 ? m.refBaseRadius / m.genBaseRadius : 1;
                     recs.add(new ParameterRecommendation("palm_x, palm_z",
                             m.genBaseRadius, m.refBaseRadius,
@@ -383,26 +388,26 @@ public final class MeshSkeletonComparator {
             if (params == null) continue;
 
             // Length error → segment length params
-            if (Math.abs(m.lengthError) > 0.03f) {
+            if (Math.abs(m.lengthError) > NUM_0_03) {
                 float ratio = m.refLength > 0 ? m.genLength / m.refLength : 1;
                 recs.add(new ParameterRecommendation(
-                        params[0] + ", " + params[1] + ", " + params[2],
+                        params[0] + STR + params[1] + STR + params[2],
                         m.genLength, m.refLength,
                         String.format("%s length %.2f vs %.2f (%.0f%%) — distribute across segments",
-                                m.label, m.genLength, m.refLength, (ratio - 1) * 100)));
+                                m.label, m.genLength, m.refLength, (ratio - 1) * NUM_100)));
             }
 
             // Direction error → curl params
-            if (m.directionErrorDeg > 5.0f) {
+            if (m.directionErrorDeg > NUM_5_0) {
                 recs.add(new ParameterRecommendation(
-                        params[3] + ", " + params[4] + ", " + params[5],
+                        params[NUM_3] + STR + params[NUM_4] + STR + params[NUM_5],
                         m.directionErrorDeg, 0,
                         String.format("%s direction off by %.1f° — adjust curl params",
                                 m.label, m.directionErrorDeg)));
             }
 
             // Base radius error → finger_rx, finger_ry
-            if (Math.abs(m.genBaseRadius - m.refBaseRadius) > 0.01f) {
+            if (Math.abs(m.genBaseRadius - m.refBaseRadius) > NUM_0_01) {
                 float radiusRatio = m.refBaseRadius > 0 ? m.refBaseRadius / m.genBaseRadius : 1;
                 recs.add(new ParameterRecommendation("finger_rx, finger_ry",
                         m.genBaseRadius, m.refBaseRadius,
@@ -411,10 +416,10 @@ public final class MeshSkeletonComparator {
             }
 
             // Taper error → finger_taper, finger_tip_taper
-            if (m.genBaseRadius > 0.01f && m.refBaseRadius > 0.01f) {
+            if (m.genBaseRadius > NUM_0_01 && m.refBaseRadius > NUM_0_01) {
                 float genTaper = m.genTipRadius / m.genBaseRadius;
                 float refTaper = m.refTipRadius / m.refBaseRadius;
-                if (Math.abs(genTaper - refTaper) > 0.05f) {
+                if (Math.abs(genTaper - refTaper) > NUM_0_05) {
                     recs.add(new ParameterRecommendation("finger_taper, finger_tip_taper",
                             genTaper, refTaper,
                             String.format("%s taper ratio %.2f vs %.2f",
@@ -430,13 +435,18 @@ public final class MeshSkeletonComparator {
         for (int i = 0; i < FINGER_LABELS.length; i++) {
             if (FINGER_LABELS[i].equals(label)) return FINGER_PARAMS[i];
         }
-        if ("thumb".equals(label)) return THUMB_PARAMS;
+        if (THUMB.equals(label)) return THUMB_PARAMS;
         return null;
     }
 
     // ─── Scoring ───
 
-    /** Weighted skeleton similarity score (0-100). */
+    /**
+     * Weighted skeleton similarity score (0-100).
+     *
+     * @param matches TODO: describe
+     * @return TODO: describe
+     */
     private static float computeScore(List<BranchMatch> matches) {
         if (matches.isEmpty()) return 0;
 
@@ -458,64 +468,65 @@ public final class MeshSkeletonComparator {
             float lengthRatio = m.refLength > 0 ? Math.min(m.genLength, m.refLength) / Math.max(m.genLength, m.refLength) : 0;
 
             // Direction component (0-1): 1 when aligned, 0 at 90+°
-            float dirScore = Math.max(0, 1.0f - m.directionErrorDeg / 90.0f);
+            float dirScore = Math.max(0, 1.0f - m.directionErrorDeg / NUM_90_0);
 
             // Joint position component (0-1): exponential decay
-            float jointScore = (float) Math.exp(-m.jointPositionError * 5.0);
+            float jointScore = (float) Math.exp(-m.jointPositionError * NUM_5_0_2);
 
             // Combined per-branch score
-            float branchScore = 0.4f * lengthRatio + 0.3f * dirScore + 0.3f * jointScore;
+            float branchScore = NUM_0_4 * lengthRatio + NUM_0_3 * dirScore + NUM_0_3 * jointScore;
             weightedScore += branchScore * weight;
         }
 
-        return totalWeight > 0 ? 100.0f * weightedScore / totalWeight : 0;
+        return totalWeight > 0 ? NUM_100_0 * weightedScore / totalWeight : 0;
     }
 
-    // ─── Normalization ───
-
-    private record NormalizedSkeleton(List<SkeletonBranch> branches, float[] center, float scale) {}
-
-    /** Center and scale a skeleton so all joint positions are in [-0.5, 0.5]^3. */
+    /**
+     * Center and scale a skeleton so all joint positions are in [-0.5, 0.5]^3.
+     *
+     * @param skel TODO: describe
+     * @return TODO: describe
+     */
     private static NormalizedSkeleton normalize(SkeletonResult skel) {
         // Compute bounding box of all joints
         float[] min = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
         float[] max = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
         for (SkeletonBranch b : skel.branches()) {
             for (SkeletonJoint j : b.joints()) {
-                for (int i = 0; i < 3; i++) {
+                for (int i = 0; i < NUM_3; i++) {
                     min[i] = Math.min(min[i], j.position()[i]);
                     max[i] = Math.max(max[i], j.position()[i]);
                 }
             }
         }
-        if (min[0] == Float.MAX_VALUE) return new NormalizedSkeleton(skel.branches(), new float[3], 1);
+        if (min[0] == Float.MAX_VALUE) return new NormalizedSkeleton(skel.branches(), new float[NUM_3], 1);
 
-        float[] center = new float[3];
+        float[] center = new float[NUM_3];
         float maxExt = 0;
-        for (int i = 0; i < 3; i++) {
-            center[i] = (min[i] + max[i]) * 0.5f;
+        for (int i = 0; i < NUM_3; i++) {
+            center[i] = (min[i] + max[i]) * NUM_0_5;
             maxExt = Math.max(maxExt, max[i] - min[i]);
         }
-        float scale = maxExt > 1e-8f ? maxExt : 1.0f;
+        float scale = maxExt > NUM_1e_8 ? maxExt : 1.0f;
 
         // Transform all branches
         List<SkeletonBranch> normalized = new ArrayList<>();
         for (SkeletonBranch b : skel.branches()) {
             List<SkeletonJoint> normJoints = new ArrayList<>();
             for (SkeletonJoint j : b.joints()) {
-                float[] p = new float[3];
-                for (int i = 0; i < 3; i++) p[i] = (j.position()[i] - center[i]) / scale;
+                float[] p = new float[NUM_3];
+                for (int i = 0; i < NUM_3; i++) p[i] = (j.position()[i] - center[i]) / scale;
                 normJoints.add(new SkeletonJoint(p, j.radius() / scale));
             }
             // Recompute direction and length
-            float[] dir = new float[3];
+            float[] dir = new float[NUM_3];
             float length = 0;
             if (normJoints.size() >= 2) {
                 float[] first = normJoints.get(0).position();
                 float[] last = normJoints.get(normJoints.size() - 1).position();
                 float dx = last[0] - first[0], dy = last[1] - first[1], dz = last[2] - first[2];
                 float mag = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-                if (mag > 1e-8f) { dir[0] = dx / mag; dir[1] = dy / mag; dir[2] = dz / mag; }
+                if (mag > NUM_1e_8) { dir[0] = dx / mag; dir[1] = dy / mag; dir[2] = dz / mag; }
                 for (int j = 1; j < normJoints.size(); j++) {
                     length += dist3(normJoints.get(j - 1).position(), normJoints.get(j).position());
                 }
@@ -534,7 +545,7 @@ public final class MeshSkeletonComparator {
     }
 
     private static float[] tipPosition(SkeletonBranch b) {
-        if (b.joints().isEmpty()) return new float[3];
+        if (b.joints().isEmpty()) return new float[NUM_3];
         return b.joints().get(0).position();
     }
 
@@ -555,4 +566,47 @@ public final class MeshSkeletonComparator {
         float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
+
+    // ─── Output records ───
+
+    public record BranchMatch(
+            int genBranchId, int refBranchId,
+            String label,
+            float genLength, float refLength, float lengthError,
+            float directionErrorDeg,
+            float genBaseRadius, float refBaseRadius,
+            float genTipRadius, float refTipRadius,
+            float jointPositionError
+    ) {}
+
+    public record ParameterRecommendation(String paramName, float currentImplied, float targetImplied, String reason) {}
+
+    public record ComparisonResult(
+            int genBranchCount, int refBranchCount, int matchedCount,
+            List<BranchMatch> matches,
+            List<ParameterRecommendation> recommendations,
+            float skeletonScore
+    ) {}
+
+    // ─── Detailed output records (for sensitivity analysis) ───
+
+    /** Per-joint 3D position delta between generated and reference skeleton. */
+    public record JointDelta(int jointIndex, float[] genPosition, float[] refPosition, float[] delta, float distance) {}
+
+    /** Branch match with full per-joint delta vectors (not just the average). */
+    public record DetailedBranchMatch(
+            BranchMatch summary,
+            List<JointDelta> jointDeltas,
+            int resampledJointCount
+    ) {}
+
+    /** Full comparison result including per-joint position deltas for sensitivity analysis. */
+    public record DetailedComparisonResult(
+            ComparisonResult summary,
+            List<DetailedBranchMatch> detailedMatches
+    ) {}
+
+    // ─── Normalization ───
+
+    private record NormalizedSkeleton(List<SkeletonBranch> branches, float[] center, float scale) {}
 }

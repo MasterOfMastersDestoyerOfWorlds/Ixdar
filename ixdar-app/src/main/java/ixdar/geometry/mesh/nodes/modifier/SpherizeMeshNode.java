@@ -17,9 +17,13 @@ import ixdar.geometry.mesh.data.MeshTopology;
 
 @MeshNodeAnnotation(id = "spherize")
 public class SpherizeMeshNode implements MeshNode {
-    private static final InputPort MESH_IN = new InputPort("mesh", PortType.MESH, null);
-    private static final InputPort FACTOR = new InputPort("factor", PortType.FLOAT, 1.0f, 0f, 1f);
-    private static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
+    public static final String MESH = "mesh";
+    public static final String FACTOR_2 = "factor";
+    public static final float NUM_0 = 0f;
+    public static final float NUM_0_00001 = 0.00001f;
+    private static final InputPort MESH_IN = new InputPort(MESH, PortType.MESH, null);
+    private static final InputPort FACTOR = new InputPort(FACTOR_2, PortType.FLOAT, 1.0f, 0f, 1f);
+    private static final OutputPort MESH_OUT = new OutputPort(MESH, PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
@@ -39,27 +43,27 @@ public class SpherizeMeshNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "mesh", "Input/output mesh. Each vertex is lerped from its position toward a point on a sphere of the bounding radius centered at the centroid.",
-                "factor", "Blend amount in [0, 1]. 0 = no change; 1 = vertices fully projected onto the sphere."
+                MESH, "Input/output mesh. Each vertex is lerped from its position toward a point on a sphere of the bounding radius centered at the centroid.",
+                FACTOR_2, "Blend amount in [0, 1]. 0 = no change; 1 = vertices fully projected onto the sphere."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        MeshTopology inputMesh = ctx.getInput("mesh", MeshTopology.class);
-        Number factorInput = ctx.getInput("factor", Number.class);
+        MeshTopology inputMesh = ctx.getInput(MESH, MeshTopology.class);
+        Number factorInput = ctx.getInput(FACTOR_2, Number.class);
 
         // Clamp the factor strictly between 0.0 and 1.0
         float factor = factorInput == null ? 1.0f : Math.max(0.0f, Math.min(1.0f, factorInput.floatValue()));
 
         if (inputMesh == null || inputMesh.vertexCount() == 0) {
-            ctx.setOutput("mesh", null);
+            ctx.setOutput(MESH, null);
             return;
         }
 
         // 1. Calculate Center and Target Radius (Average Distance)
         Vector3f center = inputMesh.center(new Vector3f());
-        float totalDistance = 0f;
+        float totalDistance = NUM_0;
 
         for (int i = 0; i < inputMesh.vertexCount(); i++) {
             int vId = inputMesh.vertexIdAt(i);
@@ -79,13 +83,13 @@ public class SpherizeMeshNode implements MeshNode {
 
             Vector3f newPos = new Vector3f(originalPos);
 
-            if (factor > 0f) {
+            if (factor > NUM_0) {
                 // Get direction from center to vertex
                 Vector3f dir = new Vector3f(originalPos).sub(center);
                 float dist = dir.length();
 
                 // Prevent division by zero if a vertex is exactly at the center
-                if (dist > 0.00001f) {
+                if (dist > NUM_0_00001) {
                     dir.normalize();
                     // Calculate where this vertex would sit on a perfect sphere
                     Vector3f sphericalPos = new Vector3f(center).add(dir.mul(targetRadius));
@@ -112,6 +116,6 @@ public class SpherizeMeshNode implements MeshNode {
         }
 
         newMesh.computeNormals();
-        ctx.setOutput("mesh", newMesh);
+        ctx.setOutput(MESH, newMesh);
     }
 }

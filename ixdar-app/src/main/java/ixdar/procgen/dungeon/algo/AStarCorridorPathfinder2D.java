@@ -22,21 +22,26 @@ import ixdar.procgen.dungeon.values.TileGridValue;
  * sorted by Delaunay index).
  */
 public final class AStarCorridorPathfinder2D {
+    public static final int NUM_4 = 4;
 
     /** Sensible defaults: reuse is cheap, empty is moderate, through-room is steep. */
     public static final CostWeights DEFAULT_WEIGHTS = new CostWeights(1.0, 5.0, 50.0);
 
-    public record CostWeights(double hallwayReuseCost, double emptyCellCost, double throughRoomCost) { }
+    private static final int[] DX = { 1, -1, 0, 0 };
+    private static final int[] DY = { 0, 0, 1, -1 };
 
     private AStarCorridorPathfinder2D() {
     }
 
     /**
+     * TODO: document.
+     *
      * @param gridW    grid width in cells
      * @param gridH    grid height in cells
      * @param rooms    placed rooms (cells inside each room AABB are marked {@link CellType#ROOM})
      * @param mstEdges MST (+ extras) edges to carve into corridors
      * @param weights  per-cell-type entry costs
+     * @return TODO: describe
      */
     public static TileGridValue carve(int gridW, int gridH,
                                       RoomListValue rooms,
@@ -81,6 +86,16 @@ public final class AStarCorridorPathfinder2D {
     /**
      * 4-connected grid A* with Manhattan heuristic. Returns the full path as cell indices
      * (including start and end) or {@code null} if no path exists.
+     *
+     * @param cells TODO: describe
+     * @param gridW TODO: describe
+     * @param gridH TODO: describe
+     * @param sx TODO: describe
+     * @param sy TODO: describe
+     * @param tx TODO: describe
+     * @param ty TODO: describe
+     * @param weights TODO: describe
+     * @return TODO: describe
      */
     static int[] aStar(CellType[] cells, int gridW, int gridH,
                        int sx, int sy, int tx, int ty, CostWeights weights) {
@@ -104,7 +119,7 @@ public final class AStarCorridorPathfinder2D {
             if (cur.g > gScore[cur.idx]) continue; // outdated queue entry
             int cx = cur.idx % gridW;
             int cy = cur.idx / gridW;
-            for (int d = 0; d < 4; d++) {
+            for (int d = 0; d < NUM_4; d++) {
                 int nx = cx + DX[d];
                 int ny = cy + DY[d];
                 if (nx < 0 || nx >= gridW || ny < 0 || ny >= gridH) continue;
@@ -153,8 +168,7 @@ public final class AStarCorridorPathfinder2D {
         return v;
     }
 
-    private static final int[] DX = { 1, -1, 0, 0 };
-    private static final int[] DY = { 0, 0, 1, -1 };
+    public record CostWeights(double hallwayReuseCost, double emptyCellCost, double throughRoomCost) { }
 
     private record Entry(int idx, double g, double f) implements Comparable<Entry> {
         @Override

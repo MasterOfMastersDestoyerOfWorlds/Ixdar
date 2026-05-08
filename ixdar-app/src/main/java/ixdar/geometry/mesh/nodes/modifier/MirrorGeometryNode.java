@@ -29,11 +29,21 @@ import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
  */
 @MeshNodeAnnotation(id = "mirror_geometry")
 public class MirrorGeometryNode implements MeshNode {
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String AXIS_2 = "axis";
+    public static final String X = "X";
+    public static final String MERGE_DISTANCE_2 = "merge_distance";
+    public static final String Y = "Y";
+    public static final String Z = "Z";
+    public static final float NUM_0_0001 = 0.0001f;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_0 = 0f;
+    public static final int NUM_3 = 3;
 
-    private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort AXIS = new InputPort("axis", PortType.STRING, "X");
-    private static final InputPort MERGE_DISTANCE = new InputPort("merge_distance", PortType.FLOAT, 0.0001f, 0f, 1f);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort AXIS = new InputPort(AXIS_2, PortType.STRING, X);
+    private static final InputPort MERGE_DISTANCE = new InputPort(MERGE_DISTANCE_2, PortType.FLOAT, 0.0001f, 0f, 1f);
+    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -53,31 +63,31 @@ public class MirrorGeometryNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                "geometry", "Input/output. Output contains original + mirrored copy. Bezier handles are reflected across the mirror plane.",
-                "axis", "Symmetry plane: X (mirror across YZ plane), Y (across XZ), Z (across XY). Default X.",
-                "merge_distance", "Weld threshold for seam vertices on the symmetry plane. 0 = no weld (two disjoint halves); typical 0.0001."
+                GEOMETRY_2, "Input/output. Output contains original + mirrored copy. Bezier handles are reflected across the mirror plane.",
+                AXIS_2, "Symmetry plane: X (mirror across YZ plane), Y (across XZ), Z (across XY). Default X.",
+                MERGE_DISTANCE_2, "Weld threshold for seam vertices on the symmetry plane. 0 = no weld (two disjoint halves); typical 0.0001."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
-        String axis = ctx.getInput("axis", String.class);
-        if (axis == null) axis = "X";
-        Number mdNum = ctx.getInput("merge_distance", Number.class);
-        float md = mdNum == null ? 0.0001f : mdNum.floatValue();
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
+        String axis = ctx.getInput(AXIS_2, String.class);
+        if (axis == null) axis = X;
+        Number mdNum = ctx.getInput(MERGE_DISTANCE_2, Number.class);
+        float md = mdNum == null ? NUM_0_0001 : mdNum.floatValue();
 
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.vertexCount() == 0) {
-            ctx.setOutput("geometry", base);
+            ctx.setOutput(GEOMETRY_2, base);
             return;
         }
 
         // Build mirror transform: negate the chosen axis
         Matrix4f mirror = new Matrix4f();
         switch (axis.toUpperCase()) {
-            case "Y" -> mirror.scaling(1, -1, 1);
-            case "Z" -> mirror.scaling(1, 1, -1);
+            case Y -> mirror.scaling(1, -1, 1);
+            case Z -> mirror.scaling(1, 1, -1);
             default -> mirror.scaling(-1, 1, 1);
         }
 
@@ -90,7 +100,7 @@ public class MirrorGeometryNode implements MeshNode {
         for (int i = 0; i < n; i++) {
             int vid = mesh.vertexIdAt(i);
             mesh.vertexPosition(vid, p);
-            ph.set(p.x, p.y, p.z, 1f);
+            ph.set(p.x, p.y, p.z, NUM_1);
             mirror.transform(ph);
             int nid = mirrored.addVertex(ph.x, ph.y, ph.z);
             idMap.put(vid, nid);
@@ -115,7 +125,7 @@ public class MirrorGeometryNode implements MeshNode {
 
         // Weld seam vertices
         MeshTopology result;
-        if (md > 0f) {
+        if (md > NUM_0) {
             result = MeshMergeByDistance.merge(combined, md);
         } else {
             result = combined;
@@ -139,7 +149,7 @@ public class MirrorGeometryNode implements MeshNode {
             }
         }
 
-        ctx.setOutput("geometry", new GeometryBundle(result, Map.copyOf(nextSlots)));
+        ctx.setOutput(GEOMETRY_2, new GeometryBundle(result, Map.copyOf(nextSlots)));
     }
 
     /**
@@ -160,8 +170,8 @@ public class MirrorGeometryNode implements MeshNode {
                 AssignBezierHandlesNode.SLOT_HANDLES_END, origMesh);
 
         int axisIdx = switch (axis.toUpperCase()) {
-            case "Y" -> 1;
-            case "Z" -> 2;
+            case Y -> 1;
+            case Z -> 2;
             default -> 0;
         };
 
@@ -180,7 +190,7 @@ public class MirrorGeometryNode implements MeshNode {
             int he = origMesh.edgeHalfEdge(eid);
             int va = origMesh.halfEdgeVertex(he);
             int vb = origMesh.halfEdgeEndVertex(he);
-            int o = eid * 3;
+            int o = eid * NUM_3;
 
             int origVaCombined = origToMirroredVid.get(va);
             int origVbCombined = origToMirroredVid.get(vb);

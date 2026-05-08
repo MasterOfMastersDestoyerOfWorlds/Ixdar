@@ -18,9 +18,10 @@ import ixdar.geometry.point.PointND;
 import ixdar.geometry.point.PointSet;
 
 /**
- * A class that represents the distances between all points in the pointset
+ * A class that represents the distances between all points in the pointset.
  */
 public class DistanceMatrix {
+    public static final double NUM_0_0001 = 0.0001;
 
     private double[][] matrix;
     private ArrayList<PointND> points;
@@ -33,27 +34,11 @@ public class DistanceMatrix {
     private PointND.Double nSphereCenter;
     private double nSphereRadius = -1;
 
-    public PointND.Double getnSphereCenter() {
-        return nSphereCenter;
-    }
-
-    public void setnSphereCenter(PointND.Double nSphereCenter) {
-        this.nSphereCenter = nSphereCenter;
-    }
-
-    public double getnSphereRadius() {
-        return nSphereRadius;
-    }
-
-    public void setnSphereRadius(double nSphereRadius) {
-        this.nSphereRadius = nSphereRadius;
-    }
-
     /**
      * Creates a distance matrix that represents the distance between every point in
-     * the pointset
-     * 
-     * @param pointset
+     * the pointset.
+     *
+     * @param pointset TODO: describe
      */
     public DistanceMatrix(PointSet pointset) {
         matrix = new double[pointset.size()][pointset.size()];
@@ -76,6 +61,12 @@ public class DistanceMatrix {
         }
     }
 
+    /**
+     * TODO: document {@code DistanceMatrix}.
+     *
+     * @param ps TODO: describe
+     * @param d TODO: describe
+     */
     public DistanceMatrix(PointSet ps, DistanceMatrix d) {
         matrix = new double[ps.size()][ps.size()];
         points = new ArrayList<PointND>();
@@ -94,8 +85,44 @@ public class DistanceMatrix {
     }
 
     /**
-     * Gets the points stored in the distance matrix
-     * 
+     * TODO: document {@code getnSphereCenter}.
+     *
+     * @return TODO: describe
+     */
+    public PointND.Double getnSphereCenter() {
+        return nSphereCenter;
+    }
+
+    /**
+     * TODO: document {@code setnSphereCenter}.
+     *
+     * @param nSphereCenter TODO: describe
+     */
+    public void setnSphereCenter(PointND.Double nSphereCenter) {
+        this.nSphereCenter = nSphereCenter;
+    }
+
+    /**
+     * TODO: document {@code getnSphereRadius}.
+     *
+     * @return TODO: describe
+     */
+    public double getnSphereRadius() {
+        return nSphereRadius;
+    }
+
+    /**
+     * TODO: document {@code setnSphereRadius}.
+     *
+     * @param nSphereRadius TODO: describe
+     */
+    public void setnSphereRadius(double nSphereRadius) {
+        this.nSphereRadius = nSphereRadius;
+    }
+
+    /**
+     * Gets the points stored in the distance matrix.
+     *
      * @return the points stored in the distance matrix
      */
     public ArrayList<PointND> getPoints() {
@@ -103,14 +130,17 @@ public class DistanceMatrix {
     }
 
     /**
-     * Gets the maximum distance between any two points in the distance matrix
-     * 
+     * Gets the maximum distance between any two points in the distance matrix.
+     *
      * @return the maximum distance between any two points in the distance matrix
      */
     public double getMaxDist() {
         return maxDist;
     }
 
+    /**
+     * TODO: document {@code updateMaxDist}.
+     */
     public void updateMaxDist() {
         for (int i = 0; i < matrix.length; i++) {
             for (int j = 0; j < matrix.length; j++) {
@@ -126,8 +156,8 @@ public class DistanceMatrix {
     }
 
     /**
-     * Gets the distance matrix
-     * 
+     * Gets the distance matrix.
+     *
      * @return the distance matrix
      */
     public double[][] getMatrix() {
@@ -135,8 +165,10 @@ public class DistanceMatrix {
     }
 
     /**
-     * Gets the distance between i and j
-     * 
+     * Gets the distance between i and j.
+     *
+     * @param i TODO: describe
+     * @param j TODO: describe
      * @return the distance
      */
     public double getDistance(PointND i, PointND j) {
@@ -148,6 +180,12 @@ public class DistanceMatrix {
         return matrix[ai.intValue()][aj.intValue()];
     }
 
+    /**
+     * TODO: document {@code sumDistances}.
+     *
+     * @param p TODO: describe
+     * @return TODO: describe
+     */
     public double sumDistances(PointND p) {
         Integer idx = lookup.get(p.getID());
         if (idx == null) {
@@ -161,6 +199,12 @@ public class DistanceMatrix {
         return sum;
     }
 
+    /**
+     * TODO: document {@code sumAngles}.
+     *
+     * @param p TODO: describe
+     * @return TODO: describe
+     */
     public double sumAngles(PointND p) {
         Integer idx = lookup.get(p.getID());
         if (idx == null) {
@@ -178,10 +222,11 @@ public class DistanceMatrix {
 
     /**
      * Adds a dummy node to the matrix with infinite distance to all points except
-     * start and end which is zero distance away
-     * 
-     * @param start
-     * @param end
+     * start and end which is zero distance away.
+     *
+     * @param ID TODO: describe
+     * @param first TODO: describe
+     * @param last TODO: describe
      * @return A new distance matrix with the dummy node added on
      */
     public PointND addDummyNode(int ID, PointND first, PointND last) {
@@ -226,17 +271,22 @@ public class DistanceMatrix {
         return dummy;
     }
 
+    /**
+     * TODO: document {@code getEigenvalues}.
+     *
+     * @return TODO: describe
+     */
     public EigenDecomposition getEigenvalues() {
         RealMatrix E = new Array2DRowRealMatrix(matrix);
         return new EigenDecomposition(E);
     }
 
     /**
-     * 
+     *
      * Triangulates the distance matrix and returns a set of points that have at
      * least 2n dimensions to account for imaginary numbers where n is the number of
-     * points in the matrix
-     * 
+     * points in the matrix.
+     *
      * @return A Knot Set triangulated from the distance matrix that follows the
      *         triangle property
      */
@@ -313,7 +363,7 @@ public class DistanceMatrix {
                 if (!p.isCentroid() && !p.equals(p2)) {
                     double trueDist = this.getDistance(p, p2);
                     double converted = p.distance(p2);
-                    assert (Math.abs(converted - trueDist) < 0.0001)
+                    assert (Math.abs(converted - trueDist) < NUM_0_0001)
                             : "Expected: " + trueDist + " got: " + converted + "\n " + this;
                 }
             }
@@ -322,8 +372,8 @@ public class DistanceMatrix {
 
     /**
      * Transforms the DistanceMatrix to a PointSet and then averages over the
-     * cooridnates to find the centroid Adds the centroid to the distance matrix
-     * 
+     * cooridnates to find the centroid Adds the centroid to the distance matrix.
+     *
      * @return the centroid of the points represented in the distance matrix
      */
     public PointND findCentroid() {
@@ -332,6 +382,12 @@ public class DistanceMatrix {
         return findCentroid(ps);
     }
 
+    /**
+     * TODO: document {@code findCentroid}.
+     *
+     * @param ps TODO: describe
+     * @return TODO: describe
+     */
     public PointND findCentroid(PointSet ps) {
         this.centroid = new PointND.Double(ps);
         this.centroid.setCentroid();
@@ -350,12 +406,23 @@ public class DistanceMatrix {
         return centroid;
     }
 
+    /**
+     * TODO: document {@code findNSphereCenter}.
+     *
+     * @return TODO: describe
+     */
     public PointND findNSphereCenter() {
         PointSet ps = this.toPointSet();
         return findNSphereCenter(ps);
 
     }
 
+    /**
+     * TODO: document {@code findNSphereCenter}.
+     *
+     * @param ps TODO: describe
+     * @return TODO: describe
+     */
     public PointND findNSphereCenter(PointSet ps) {
         int numPoints = ps.size();
         int dim = ps.getMaxDim();
@@ -394,15 +461,15 @@ public class DistanceMatrix {
         this.nSphereRadius = this.nSphereCenter.distance(ps.get(0));
 
         for (PointND p : ps) {
-            assert Math.abs(p.distance(nSphereCenter) - nSphereRadius) < 0.0001;
+            assert Math.abs(p.distance(nSphereCenter) - nSphereRadius) < NUM_0_0001;
         }
 
         return this.nSphereCenter;
     }
 
     /**
-     * converts a RealMatrix to a FieldMatrix over the Complex Field
-     * 
+     * converts a RealMatrix to a FieldMatrix over the Complex Field.
+     *
      * @param M the real matrix to convert
      * @return M in the complex field
      */
@@ -418,8 +485,8 @@ public class DistanceMatrix {
     }
 
     /**
-     * Flips a matrix horizontally by multiplying by I flipped horizontally
-     * 
+     * Flips a matrix horizontally by multiplying by I flipped horizontally.
+     *
      * @param C the matrix to flip
      * @return the matrix flipped horizontally
      */
@@ -439,7 +506,7 @@ public class DistanceMatrix {
 
     /**
      * reverses an array of doubles so that element 0 is now last etc.
-     * 
+     *
      * @param array to reverse
      * @return the array reversed
      */
@@ -451,6 +518,11 @@ public class DistanceMatrix {
         return result;
     }
 
+    /**
+     * TODO: document {@code toString}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String toString() {
         String str = "DistanceMatrix[\n";
@@ -474,14 +546,29 @@ public class DistanceMatrix {
         return str;
     }
 
+    /**
+     * TODO: document {@code getZero}.
+     *
+     * @return TODO: describe
+     */
     public double getZero() {
         return this.zero;
     }
 
+    /**
+     * TODO: document {@code size}.
+     *
+     * @return TODO: describe
+     */
     public int size() {
         return matrix.length;
     }
 
+    /**
+     * TODO: document {@code getSmallestSegmentLength}.
+     *
+     * @return TODO: describe
+     */
     public double getSmallestSegmentLength() {
         double minLength = Double.MAX_VALUE;
         for (int i = 0; i < matrix.length; i++) {
@@ -498,6 +585,11 @@ public class DistanceMatrix {
 
     }
 
+    /**
+     * TODO: document {@code getLargestSegmentLength}.
+     *
+     * @return TODO: describe
+     */
     public double getLargestSegmentLength() {
         double maxLength = Double.MIN_VALUE;
         for (int i = 0; i < matrix.length; i++) {

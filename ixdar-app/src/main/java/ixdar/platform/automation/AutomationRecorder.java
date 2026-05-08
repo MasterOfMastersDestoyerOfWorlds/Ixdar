@@ -15,6 +15,11 @@ import com.google.gson.JsonObject;
 import ixdar.platform.Platforms;
 
 public class AutomationRecorder {
+    public static final String STARTEDATISO = "startedAtIso";
+    public static final String TIMESTAMPMS = "timestampMs";
+    public static final String TYPE = "type";
+    public static final String PAYLOAD = "payload";
+    public static final String SAVED = "saved";
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private boolean recording;
@@ -24,6 +29,9 @@ public class AutomationRecorder {
     private final List<JsonObject> abstractActions = new ArrayList<>();
     private String lastSavedFile = "";
 
+    /**
+     * TODO: document {@code start}.
+     */
     public synchronized void start() {
         recording = true;
         startMillis = System.currentTimeMillis();
@@ -33,46 +41,75 @@ public class AutomationRecorder {
         lastSavedFile = "";
     }
 
+    /**
+     * TODO: document {@code isRecording}.
+     *
+     * @return TODO: describe
+     */
     public synchronized boolean isRecording() {
         return recording;
     }
 
+    /**
+     * TODO: document {@code status}.
+     *
+     * @return TODO: describe
+     */
     public synchronized JsonObject status() {
         JsonObject status = new JsonObject();
         status.addProperty("recording", recording);
         status.addProperty("rawEventCount", rawEvents.size());
         status.addProperty("abstractActionCount", abstractActions.size());
-        status.addProperty("startedAtIso", startedAtIso == null ? "" : startedAtIso);
+        status.addProperty(STARTEDATISO, startedAtIso == null ? "" : startedAtIso);
         status.addProperty("lastSavedFile", lastSavedFile);
         return status;
     }
 
+    /**
+     * TODO: document {@code recordRaw}.
+     *
+     * @param type TODO: describe
+     * @param payload TODO: describe
+     */
     public synchronized void recordRaw(String type, JsonObject payload) {
         if (!recording) {
             return;
         }
         JsonObject item = new JsonObject();
-        item.addProperty("timestampMs", System.currentTimeMillis() - startMillis);
-        item.addProperty("type", type);
-        item.add("payload", payload);
+        item.addProperty(TIMESTAMPMS, System.currentTimeMillis() - startMillis);
+        item.addProperty(TYPE, type);
+        item.add(PAYLOAD, payload);
         rawEvents.add(item);
     }
 
+    /**
+     * TODO: document {@code recordAbstract}.
+     *
+     * @param type TODO: describe
+     * @param payload TODO: describe
+     */
     public synchronized void recordAbstract(String type, JsonObject payload) {
         if (!recording) {
             return;
         }
         JsonObject item = new JsonObject();
-        item.addProperty("timestampMs", System.currentTimeMillis() - startMillis);
-        item.addProperty("type", type);
-        item.add("payload", payload);
+        item.addProperty(TIMESTAMPMS, System.currentTimeMillis() - startMillis);
+        item.addProperty(TYPE, type);
+        item.add(PAYLOAD, payload);
         abstractActions.add(item);
     }
 
+    /**
+     * TODO: document {@code stop}.
+     *
+     * @param outputPath TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public synchronized JsonObject stop(String outputPath) throws IOException {
         if (!recording) {
             JsonObject status = status();
-            status.addProperty("saved", false);
+            status.addProperty(SAVED, false);
             return status;
         }
         recording = false;
@@ -91,7 +128,7 @@ public class AutomationRecorder {
 
         JsonObject root = new JsonObject();
         root.addProperty("version", 1);
-        root.addProperty("startedAtIso", startedAtIso);
+        root.addProperty(STARTEDATISO, startedAtIso);
         root.addProperty("savedAtIso", DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
         int windowWidth = 0;
         int windowHeight = 0;
@@ -117,7 +154,7 @@ public class AutomationRecorder {
         lastSavedFile = out.getAbsolutePath();
 
         JsonObject status = status();
-        status.addProperty("saved", true);
+        status.addProperty(SAVED, true);
         status.addProperty("file", lastSavedFile);
         return status;
     }

@@ -26,6 +26,13 @@ import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
 
 public class FileManagement {
+    public static final String IX = ".ix";
+    public static final String STR = "/";
+    public static final String EXPECTED_ALL_POINTS_TO_BE_IN = "Expected all points to be in: ";
+    public static final String BUT_FOUND_POINT_OF_TYPE = " but found point of type: ";
+    public static final String N = "\n";
+    public static final String ANS = "ANS ";
+    public static final String STR_2 = "// ";
 
     public static final String ASSET_REPO_ENV_VAR = "IXDAR_ASSET_REPO_ROOT";
     public static final String ASSET_REPO_PROP = "ixdar.asset.repo.root";
@@ -39,6 +46,11 @@ public class FileManagement {
 
     public static final String subGraphUnitTestFolder = "./test/unit/subgraphs/";
 
+    /**
+     * TODO: document {@code getAssetRepoRoot}.
+     *
+     * @return TODO: describe
+     */
     public static String getAssetRepoRoot() {
         String propRoot = System.getProperty(ASSET_REPO_PROP);
         if (!ixdar.common.utils.Compat.isBlank(propRoot)) {
@@ -51,6 +63,13 @@ public class FileManagement {
         return root;
     }
 
+    /**
+     * TODO: document {@code resolveAssetPath}.
+     *
+     * @param relativeAssetPath TODO: describe
+     * @throws IllegalStateException TODO: describe
+     * @return TODO: describe
+     */
     public static String resolveAssetPath(String relativeAssetPath) {
         String root = getAssetRepoRoot();
         if (ixdar.common.utils.Compat.isBlank(root)) {
@@ -62,28 +81,58 @@ public class FileManagement {
         return Path.of(root, relativeAssetPath).toString();
     }
 
+    /**
+     * TODO: document {@code loadAssetFile}.
+     *
+     * @param relativeAssetPath TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public static TextFile loadAssetFile(String relativeAssetPath) throws IOException {
         String absolutePath = resolveAssetPath(relativeAssetPath);
         return Platforms.get().loadExternalFile(absolutePath);
     }
 
+    /**
+     * TODO: document {@code getTestFile}.
+     *
+     * @param fileName TODO: describe
+     * @return TODO: describe
+     */
     public static String getTestFile(String fileName) {
         String[] parts = fileName.split("_");
-        if (fileName.contains(".ix")) {
-            return solutionsFolder + parts[0].replace(".ix", "") + "/" + fileName;
+        if (fileName.contains(IX)) {
+            return solutionsFolder + parts[0].replace(IX, "") + STR + fileName;
         }
-        return solutionsFolder + parts[0] + "/" + fileName + ".ix";
+        return solutionsFolder + parts[0] + STR + fileName + IX;
     }
 
+    /**
+     * TODO: document {@code getFile}.
+     *
+     * @param fileName TODO: describe
+     * @return TODO: describe
+     */
     public static TextFile getFile(String fileName) {
         String path = getTestFile(fileName);
         return new TextFile(path);
     }
 
+    /**
+     * TODO: document {@code getTempFile}.
+     *
+     * @param fileName TODO: describe
+     * @return TODO: describe
+     */
     public static TextFile getTempFile(String fileName) {
-        return new TextFile("temp", ".ix");
+        return new TextFile("temp", IX);
     }
 
+    /**
+     * TODO: document {@code getTestFileCache}.
+     *
+     * @return TODO: describe
+     */
     public static String getTestFileCache() {
         File cache = new File(testFileCacheLocation);
         try (BufferedReader br = new BufferedReader(new FileReader(cache))) {
@@ -96,6 +145,11 @@ public class FileManagement {
         return "";
     }
 
+    /**
+     * TODO: document {@code updateTestFileCache}.
+     *
+     * @param cachedLocation TODO: describe
+     */
     public static void updateTestFileCache(String cachedLocation) {
         if (!ixdar.common.utils.Compat.isBlank(cachedLocation)) {
             File cache = new File(testFileCacheLocation);
@@ -110,6 +164,14 @@ public class FileManagement {
         }
     }
 
+    /**
+     * TODO: document {@code importFromFile}.
+     *
+     * @param path TODO: describe
+     * @throws TerminalParseException TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public static PointSetPath importFromFile(String path) throws TerminalParseException, IOException {
 
         boolean fromResource = false;
@@ -235,10 +297,22 @@ public class FileManagement {
 
     // New APIs returning logical text files instead of java.io.File for
     // cross-platform
+    /**
+     * TODO: document {@code toTextFile}.
+     *
+     * @param logicalPath TODO: describe
+     * @return TODO: describe
+     */
     public static TextFile toTextFile(String logicalPath) {
         return new TextFile(logicalPath);
     }
 
+    /**
+     * TODO: document {@code rewriteSolutionFile}.
+     *
+     * @param path TODO: describe
+     * @param shell TODO: describe
+     */
     public static void rewriteSolutionFile(String path, Shell shell) {
         ArrayList<String> lines = new ArrayList<String>();
         for (int i = 0; i < shell.size(); i++) {
@@ -260,8 +334,8 @@ public class FileManagement {
             }
         } else {
             if (!fi.grid.allowsPoint(pt)) {
-                throw new TerminalParseException("Expected all points to be in: " + fi.grid.allowableTypes()
-                        + " but found point of type: " + pt.getClass());
+                throw new TerminalParseException(EXPECTED_ALL_POINTS_TO_BE_IN + fi.grid.allowableTypes()
+                        + BUT_FOUND_POINT_OF_TYPE + pt.getClass());
             }
         }
         if (fi.ps.contains(pt)) {
@@ -276,6 +350,13 @@ public class FileManagement {
         }
     }
 
+    /**
+     * TODO: document {@code addPoints}.
+     *
+     * @param points TODO: describe
+     * @param fi TODO: describe
+     * @throws TerminalParseException TODO: describe
+     */
     public static void addPoints(ArrayList<PointND> points, FileInfo fi) throws TerminalParseException {
         for (int i = 0; i < points.size(); i++) {
             PointND pt = points.get(i);
@@ -287,8 +368,8 @@ public class FileManagement {
                 }
             } else {
                 if (!fi.grid.allowsPoint(pt)) {
-                    throw new TerminalParseException("Expected all points to be in: " + fi.grid.allowableTypes()
-                            + " but found point of type: " + pt.getClass());
+                    throw new TerminalParseException(EXPECTED_ALL_POINTS_TO_BE_IN + fi.grid.allowableTypes()
+                            + BUT_FOUND_POINT_OF_TYPE + pt.getClass());
                 }
             }
             pt.setID(fi.index);
@@ -310,7 +391,7 @@ public class FileManagement {
             int lineNumber = 1;
             while ((line = br.readLine()) != null) {
                 if (!duplicatePointIndexes.contains(lineNumber)) {
-                    lines.add(line + "\n");
+                    lines.add(line + N);
                 }
                 lineNumber++;
             }
@@ -328,6 +409,12 @@ public class FileManagement {
         }
     }
 
+    /**
+     * TODO: document {@code copyFileContents}.
+     *
+     * @param src TODO: describe
+     * @param dest TODO: describe
+     */
     public static void copyFileContents(File src, File dest) {
 
         List<String> lines = new ArrayList<String>();
@@ -336,7 +423,7 @@ public class FileManagement {
             FileReader fr = new FileReader(src);
             BufferedReader br = new BufferedReader(fr);
             while ((line = br.readLine()) != null) {
-                lines.add(line + "\n");
+                lines.add(line + N);
             }
             fr.close();
             br.close();
@@ -352,26 +439,32 @@ public class FileManagement {
         }
     }
 
+    /**
+     * TODO: document {@code appendAns}.
+     *
+     * @param file TODO: describe
+     * @param ans TODO: describe
+     */
     public static void appendAns(TextFile file, Shell ans) {
 
         try {
             ArrayList<String> lines = new ArrayList<String>();
             String line = null;
             boolean foundAns = false;
-            String ansLine = "ANS ";
+            String ansLine = ANS;
             for (int i = 0; i < ans.size(); i++) {
                 ansLine += ans.get(i).getID() + " ";
             }
             for (int i = 0; i < file.size(); i++) {
                 line = file.getLines().get(i);
-                if (line.contains("ANS ")) {
+                if (line.contains(ANS)) {
                     line = ansLine;
                     foundAns = true;
                 }
-                lines.add(line + "\n");
+                lines.add(line + N);
             }
             if (!foundAns) {
-                lines.add(ansLine + "\n");
+                lines.add(ansLine + N);
             }
             new TextFile(file.path, lines);
             Platforms.get().writeTextFile(file, false);
@@ -380,24 +473,41 @@ public class FileManagement {
         }
     }
 
+    /**
+     * TODO: document {@code appendComment}.
+     *
+     * @param path TODO: describe
+     * @param comment TODO: describe
+     */
     public static void appendComment(TextFile path, String comment) {
         try {
-            path.getLines().add("// " + comment);
+            path.getLines().add(STR_2 + comment);
             Platforms.get().writeTextFile(path, true);
         } catch (Exception ex) {
             ex.printStackTrace();
         }
     }
 
+    /**
+     * TODO: document {@code appendLine}.
+     *
+     * @param path TODO: describe
+     * @param appLine TODO: describe
+     */
     public static void appendLine(TextFile path, String appLine) {
         try {
-            path.getLines().add("// " + appLine);
+            path.getLines().add(STR_2 + appLine);
             Platforms.get().writeTextFile(path, true);
         } catch (Exception ex) {
             ex.printStackTrace();
         }
     }
 
+    /**
+     * TODO: document {@code appendCutAns}.
+     *
+     * @param f TODO: describe
+     */
     public static void appendCutAns(File f) {
         List<String> lines = new ArrayList<String>();
         String line = null;
@@ -405,7 +515,7 @@ public class FileManagement {
             FileReader fr = new FileReader(f);
             BufferedReader br = new BufferedReader(fr);
             while ((line = br.readLine()) != null) {
-                lines.add(line + "\n");
+                lines.add(line + N);
             }
             fr.close();
             br.close();
@@ -423,6 +533,12 @@ public class FileManagement {
 
     // removed duplicate rewriteSolutionFile method
 
+    /**
+     * TODO: document {@code writeSubGraphTest}.
+     *
+     * @param fileName TODO: describe
+     * @param template TODO: describe
+     */
     public static void writeSubGraphTest(String fileName, String template) {
         File unitTest = new File(subGraphUnitTestFolder + fileName);
         try {
@@ -431,7 +547,7 @@ public class FileManagement {
             e.printStackTrace();
             return;
         }
-        String[] lines = template.split("\n");
+        String[] lines = template.split(N);
         FileWriter fw;
         try {
             fw = new FileWriter(unitTest);

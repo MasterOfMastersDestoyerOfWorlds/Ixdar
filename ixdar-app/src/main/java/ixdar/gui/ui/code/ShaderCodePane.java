@@ -29,6 +29,16 @@ import ixdar.platform.input.MouseTrap;
  * Owns its HyperString buffer and a scroll subscription bound.
  */
 public class ShaderCodePane implements MouseTrap.ScrollHandler {
+    public static final float NUM_2 = 2f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_8 = 8f;
+    public static final float NUM_20 = 20f;
+    public static final float NUM_1 = 1f;
+
+    // private ExpressionParser expressionParser;
+
+    public static final String DEFAULT_VIEW_RIGHT = "RIGHT_CODE";
+    public Bounds paneBounds;
 
     private final HyperString codeText;
     private float scrollOffsetY;
@@ -39,7 +49,6 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private float lastMouseY = Float.NaN;
     private final ShaderProgram targetShader;
     private final String title;
-    public Bounds paneBounds;
     private Bounds parentBounds;
     private boolean showCode;
     private HyperString showCodeButton;
@@ -57,10 +66,18 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private Vector2f crosshairScreenPos = null;
     private boolean loaded = false;
 
-    // private ExpressionParser expressionParser;
-
-    public static final String DEFAULT_VIEW_RIGHT = "RIGHT_CODE";
-
+    /**
+     * TODO: document {@code ShaderCodePane}.
+     *
+     * @param parentBounds TODO: describe
+     * @param webViews TODO: describe
+     * @param scrollSpeed TODO: describe
+     * @param shader TODO: describe
+     * @param title TODO: describe
+     * @param provider TODO: describe
+     * @param camera TODO: describe
+     * @param canvas TODO: describe
+     */
     public ShaderCodePane(Bounds parentBounds, Map<String, Bounds> webViews, float scrollSpeed, ShaderProgram shader,
             String title,
             ShaderDrawable provider, Camera2D camera, Canvas3D canvas) {
@@ -85,7 +102,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                 b -> b.update(
                         Platforms.get().getFrameBufferWidth() / 2,
                         0,
-                        showCode ? Platforms.get().getFrameBufferWidth() / 2f : 0f,
+                        showCode ? Platforms.get().getFrameBufferWidth() / NUM_2 : NUM_0,
                         Platforms.get().getFrameBufferHeight()),
                 DEFAULT_VIEW_RIGHT);
 
@@ -97,10 +114,10 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         }, Color.CYAN, () -> {
             showCode = !showCode;
             if (showCode) {
-                paneBounds.viewWidth = Platforms.get().getFrameBufferWidth() / 2f;
-                parentBounds.viewWidth = Platforms.get().getFrameBufferWidth() / 2f;
+                paneBounds.viewWidth = Platforms.get().getFrameBufferWidth() / NUM_2;
+                parentBounds.viewWidth = Platforms.get().getFrameBufferWidth() / NUM_2;
             } else {
-                paneBounds.viewWidth = 0f;
+                paneBounds.viewWidth = NUM_0;
                 parentBounds.viewWidth = Platforms.get().getFrameBufferWidth();
             }
             camera.updateView(paneBounds.id);
@@ -138,7 +155,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                             if (isClicked) {
                                 dyn.addWord(w, Color.YELLOW);
                             } else if (isHoverPulse) {
-                                dyn.addWord(w, ColorLerp.flashColor(Color.YELLOW, 8f));
+                                dyn.addWord(w, ColorLerp.flashColor(Color.YELLOW, NUM_8));
                             } else {
                                 dyn.addWord(w, t.color.get(Math.min(k, t.color.size() - 1)));
                             }
@@ -207,8 +224,8 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     }
 
     private GLSLParseText updateCacheIfMouseMoved() {
-        float mx = 0f;
-        float my = 0f;
+        float mx = NUM_0;
+        float my = NUM_0;
         if (crosshairLocked) {
             mx = lockedX;
             my = lockedY;
@@ -220,7 +237,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             return GLSLParseText.BLANK;
         }
         Map<String, GLSLParseText> env = uniformProvider.getUniformMap();
-        GLSLParseText.put(env, "pos", mx, my, 0f);
+        GLSLParseText.put(env, "pos", mx, my, NUM_0);
         Quad q = uniformProvider.getQuad();
         if (q != null) {
             Vector2f m = new Vector2f(mx, my);
@@ -257,7 +274,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     }
 
     private GLSLParseText mouseText() {
-        float mx = 0f, my = 0f;
+        float mx = NUM_0, my = NUM_0;
         if (canvas.mouse != null) {
             mx = canvas.mouse.normalizedPosX;
             my = canvas.mouse.normalizedPosY;
@@ -265,6 +282,11 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         return new GLSLParseText("mx=" + GLSLParseText.formatFixed(mx) + " my=" + GLSLParseText.formatFixed(my));
     }
 
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param camera TODO: describe
+     */
     public void draw(Camera2D camera) {
         if (!loaded) {
             loadCode(this.targetShader, this.title);
@@ -277,11 +299,11 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         d.font.drawHyperStringRows(showCodeButton, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera);
 
         if (crosshairLocked && crosshairScreenPos != null) {
-            float crosshairSize = 20f;
+            float crosshairSize = NUM_20;
             float cx = crosshairScreenPos.x;
             float cy = crosshairScreenPos.y;
 
-            d.sdfLine.setStroke(2f, false, 1f, 0f, false, false, false, camera);
+            d.sdfLine.setStroke(NUM_2, false, NUM_1, NUM_0, false, false, false, camera);
             d.sdfLine.draw(new Vector2f(cx - crosshairSize, cy), new Vector2f(cx + crosshairSize, cy), Color.CYAN,
                     camera);
             d.sdfLine.draw(new Vector2f(cx, cy - crosshairSize), new Vector2f(cx, cy + crosshairSize), Color.CYAN,
@@ -321,6 +343,12 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         clickedLineIndex = -1;
     }
 
+    /**
+     * TODO: document {@code onScroll}.
+     *
+     * @param scrollUp TODO: describe
+     * @param deltaSeconds TODO: describe
+     */
     @Override
     public void onScroll(boolean scrollUp, double deltaSeconds) {
         if (scrollUp) {
@@ -336,6 +364,11 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         }
     }
 
+    /**
+     * TODO: document {@code getBounds}.
+     *
+     * @return TODO: describe
+     */
     public Bounds getBounds() {
         return paneBounds;
     }

@@ -16,11 +16,17 @@ import ixdar.procgen.dungeon.values.RoomListValue3D.Room;
  * may contain fewer than {@code roomCount} rooms if {@code maxAttempts} is exhausted.
  */
 public final class RoomPlacer3D {
+    public static final String X = "x";
+    public static final int NUM_4 = 4;
+    public static final float NUM_2 = 2f;
+    public static final float NUM_0_5 = 0.5f;
 
     private RoomPlacer3D() {
     }
 
     /**
+     * TODO: document.
+     *
      * @param seed         PRNG seed
      * @param gridW        grid width (X) in cells
      * @param gridH        grid height (Y) in floors — typical 5 per vazgriz
@@ -29,6 +35,8 @@ public final class RoomPlacer3D {
      * @param minSize      minimum horizontal edge length (X and Z) inclusive
      * @param maxSize      maximum horizontal edge length (X and Z) inclusive
      * @param maxAttempts  cap on placement attempts
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
      */
     public static RoomListValue3D place(long seed,
                                         int gridW, int gridH, int gridD,
@@ -40,7 +48,7 @@ public final class RoomPlacer3D {
         }
         if (gridW < maxSize || gridD < maxSize) {
             throw new IllegalArgumentException(
-                    "grid " + gridW + "x" + gridH + "x" + gridD + " too small for maxSize " + maxSize);
+                    "grid " + gridW + X + gridH + X + gridD + " too small for maxSize " + maxSize);
         }
         if (gridH < 1) {
             throw new IllegalArgumentException("gridH must be at least 1");
@@ -51,7 +59,7 @@ public final class RoomPlacer3D {
         // is clamped to the requested [minSize, maxSize] but defaults to 4. After GridToMesh3D
         // centers the mesh at world origin, an even-sized centered start room straddles the
         // origin precisely — so the player can spawn at (0, 0, 0) and find walkable space.
-        int startSize = Math.max(minSize, Math.min(maxSize, 4));
+        int startSize = Math.max(minSize, Math.min(maxSize, NUM_4));
         if (startSize % 2 != 0) startSize = Math.max(minSize, startSize - 1); // prefer even
         if (startSize > maxSize) startSize = maxSize;
         int startX = Math.max(0, gridW / 2 - startSize / 2);
@@ -59,8 +67,8 @@ public final class RoomPlacer3D {
         int startFloor = gridH / 2;
         placed.add(new Room(
                 0,
-                startX + startSize / 2f, startFloor + 0.5f, startZ + startSize / 2f,
-                startSize / 2f, 0.5f, startSize / 2f));
+                startX + startSize / NUM_2, startFloor + NUM_0_5, startZ + startSize / NUM_2,
+                startSize / NUM_2, NUM_0_5, startSize / NUM_2));
 
         Random rng = new Random(seed);
         int attempts = 0;
@@ -73,8 +81,8 @@ public final class RoomPlacer3D {
             int z = rng.nextInt(gridD - d + 1);
             Room candidate = new Room(
                     placed.size(),
-                    x + w / 2f, floor + 0.5f, z + d / 2f,
-                    w / 2f, 0.5f, d / 2f);
+                    x + w / NUM_2, floor + NUM_0_5, z + d / NUM_2,
+                    w / NUM_2, NUM_0_5, d / NUM_2);
             if (!collidesAny(candidate, placed)) {
                 placed.add(candidate);
             }
@@ -82,9 +90,15 @@ public final class RoomPlacer3D {
         return new RoomListValue3D(placed);
     }
 
-    /** Two rooms collide if their AABBs (inflated by 0.5 on each axis) overlap. */
+    /**
+     * Two rooms collide if their AABBs (inflated by 0.5 on each axis) overlap.
+     *
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @return TODO: describe
+     */
     static boolean collidesWithBuffer(Room a, Room b) {
-        float buf = 0.5f;
+        float buf = NUM_0_5;
         return a.minX() - buf < b.maxX() + buf
                 && a.maxX() + buf > b.minX() - buf
                 && a.minY() - buf < b.maxY() + buf

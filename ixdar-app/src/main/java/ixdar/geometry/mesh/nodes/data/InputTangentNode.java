@@ -17,8 +17,13 @@ import org.joml.Vector3f;
 
 @MeshNodeAnnotation(id = "input_tangent")
 public class InputTangentNode implements MeshNode {
+    public static final String VECTOR_2 = "vector";
+    public static final float NUM_1 = 1f;
+    public static final float NUM_0 = 0f;
+    public static final int NUM_3 = 3;
+    public static final float NUM_1e_20 = 1e-20f;
 
-    private static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
+    private static final OutputPort VECTOR = new OutputPort(VECTOR_2, PortType.VECTOR3);
 
     @Override
     public String description() {
@@ -28,7 +33,7 @@ public class InputTangentNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "vector", "Per-vertex Vec3Field of unit tangents (direction along the first outgoing half-edge)."
+                VECTOR_2, "Per-vertex Vec3Field of unit tangents (direction along the first outgoing half-edge)."
         );
     }
 
@@ -46,16 +51,16 @@ public class InputTangentNode implements MeshNode {
     public void evaluate(NodeContext ctx) {
         var fc = ctx.fieldContext();
         if (fc == null || !(fc instanceof MeshFieldContext mfc)) {
-            ctx.setOutput("vector",new Vector3Value(1f, 0f, 0f));
+            ctx.setOutput(VECTOR_2,new Vector3Value(NUM_1, NUM_0, NUM_0));
             return;
         }
         MeshTopology mesh = mfc.mesh();
         if (mesh == null || mesh.vertexCount() == 0) {
-            ctx.setOutput("vector",new Vector3Value(1f, 0f, 0f));
+            ctx.setOutput(VECTOR_2,new Vector3Value(NUM_1, NUM_0, NUM_0));
             return;
         }
         int n = mesh.vertexCount();
-        float[] d = new float[n * 3];
+        float[] d = new float[n * NUM_3];
         Vector3f p0 = new Vector3f();
         Vector3f p1 = new Vector3f();
         Vector3f tan = new Vector3f();
@@ -67,15 +72,15 @@ public class InputTangentNode implements MeshNode {
             int ov = mesh.halfEdgeEndVertex(twin);
             mesh.vertexPosition(ov, p1);
             tan.set(p1).sub(p0);
-            if (tan.lengthSquared() < 1e-20f) {
-                tan.set(1f, 0f, 0f);
+            if (tan.lengthSquared() < NUM_1e_20) {
+                tan.set(NUM_1, NUM_0, NUM_0);
             } else {
                 tan.normalize();
             }
-            d[3 * vi] = tan.x;
-            d[3 * vi + 1] = tan.y;
-            d[3 * vi + 2] = tan.z;
+            d[NUM_3 * vi] = tan.x;
+            d[NUM_3 * vi + 1] = tan.y;
+            d[NUM_3 * vi + 2] = tan.z;
         }
-        ctx.setOutput("vector",new Vec3Field(d));
+        ctx.setOutput(VECTOR_2,new Vec3Field(d));
     }
 }

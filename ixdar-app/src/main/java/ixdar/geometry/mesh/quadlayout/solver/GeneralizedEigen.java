@@ -36,21 +36,21 @@ import no.uib.cipr.matrix.sparse.ArpackSym;
  */
 public final class GeneralizedEigen {
 
-    public static final class Result {
-        public final double[] eigenvalues;
-        public final double[][] eigenvectors;
-
-        public Result(double[] eigenvalues, double[][] eigenvectors) {
-            this.eigenvalues = eigenvalues;
-            this.eigenvectors = eigenvectors;
-        }
-    }
-
+    /**
+     * TODO: document {@code solve}.
+     *
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @param numEigenpairs TODO: describe
+     * @return TODO: describe
+     */
     public Result solve(SparseMatrix a, SparseMatrix b, int numEigenpairs) {
         return solve(a, b, numEigenpairs, ArpackSym.Ritz.LM);
     }
 
     /**
+     * TODO: document.
+     *
      * @param a              symmetric matrix
      * @param b              SPD matrix (regularized Laplacian etc.); may be null
      *                       to compute eigenpairs of A directly
@@ -61,6 +61,9 @@ public final class GeneralizedEigen {
      *                       at zero — but here we are computing eigenvalues of
      *                       B^{-1}A directly, so SA / LA / SM / LM apply to
      *                       those values
+     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalStateException TODO: describe
+     * @return TODO: describe
      */
     public Result solve(SparseMatrix a, SparseMatrix b, int numEigenpairs, ArpackSym.Ritz ritz) {
         if (a.rows() != a.cols()) {
@@ -101,6 +104,33 @@ public final class GeneralizedEigen {
         return new Result(vals, vecs);
     }
 
+    private static double[] vecToArray(Vector v) {
+        int n = v.size();
+        if (v instanceof DenseVector dv) {
+            double[] data = dv.getData();
+            return data.clone();
+        }
+        double[] out = new double[n];
+        for (int i = 0; i < n; i++) out[i] = v.get(i);
+        return out;
+    }
+
+    public static final class Result {
+        public final double[] eigenvalues;
+        public final double[][] eigenvectors;
+
+        /**
+         * TODO: document {@code Result}.
+         *
+         * @param eigenvalues TODO: describe
+         * @param eigenvectors TODO: describe
+         */
+        public Result(double[] eigenvalues, double[][] eigenvectors) {
+            this.eigenvalues = eigenvalues;
+            this.eigenvectors = eigenvectors;
+        }
+    }
+
     /**
      * Operator-only Matrix base class for ArpackSym. We override
      * {@link #iterator()} to return empty so the constructor's symmetry check
@@ -110,8 +140,20 @@ public final class GeneralizedEigen {
      */
     private static abstract class OperatorMatrix extends AbstractMatrix {
         OperatorMatrix(int n) { super(n, n); }
+        /**
+         * TODO: document {@code get}.
+         *
+         * @param row TODO: describe
+         * @param column TODO: describe
+         * @return TODO: describe
+         */
         @Override
         public double get(int row, int column) { return 0.0; }
+        /**
+         * TODO: document {@code iterator}.
+         *
+         * @return TODO: describe
+         */
         @Override
         public Iterator<MatrixEntry> iterator() {
             return Collections.<MatrixEntry>emptyList().iterator();
@@ -125,6 +167,13 @@ public final class GeneralizedEigen {
             super(a.rows());
             this.a = a;
         }
+        /**
+         * TODO: document {@code mult}.
+         *
+         * @param x TODO: describe
+         * @param y TODO: describe
+         * @return TODO: describe
+         */
         @Override
         public Vector mult(Vector x, Vector y) {
             double[] xa = vecToArray(x);
@@ -143,6 +192,13 @@ public final class GeneralizedEigen {
             this.a = a;
             this.bSolver = bSolver;
         }
+        /**
+         * TODO: document {@code mult}.
+         *
+         * @param x TODO: describe
+         * @param y TODO: describe
+         * @return TODO: describe
+         */
         @Override
         public Vector mult(Vector x, Vector y) {
             double[] xa = vecToArray(x);
@@ -151,16 +207,5 @@ public final class GeneralizedEigen {
             for (int i = 0; i < sol.length; i++) y.set(i, sol[i]);
             return y;
         }
-    }
-
-    private static double[] vecToArray(Vector v) {
-        int n = v.size();
-        if (v instanceof DenseVector dv) {
-            double[] data = dv.getData();
-            return data.clone();
-        }
-        double[] out = new double[n];
-        for (int i = 0; i < n; i++) out[i] = v.get(i);
-        return out;
     }
 }

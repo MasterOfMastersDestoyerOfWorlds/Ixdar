@@ -13,21 +13,30 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "mesh/dsl/timing", method = APIMethod.GET)
 public class Timing extends AutomationEndpoint implements AutomationRoute {
+    public static final String OK = "ok";
+    public static final String ERROR = "error";
 
+    /**
+     * TODO: document {@code endpointHandler}.
+     *
+     * @param body TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject result = new JsonObject();
         if (!(runtime.canvas instanceof MeshNodeViewerScene mvs)) {
-            result.addProperty("ok", false);
-            result.addProperty("error", "MeshNodeViewerScene is not active");
+            result.addProperty(OK, false);
+            result.addProperty(ERROR, "MeshNodeViewerScene is not active");
             return result;
         }
         var runtime = mvs.getLastGraphRuntime();
         if (runtime == null) {
-            result.addProperty("ok", false);
-            result.addProperty("error", "No DSL has been executed yet");
+            result.addProperty(OK, false);
+            result.addProperty(ERROR, "No DSL has been executed yet");
             return result;
         }
-        result.addProperty("ok", true);
+        result.addProperty(OK, true);
         result.addProperty("total_ms", runtime.lastTotalMs());
         JsonArray nodes = new JsonArray();
         for (var entry : runtime.lastTimingMs().entrySet()) {

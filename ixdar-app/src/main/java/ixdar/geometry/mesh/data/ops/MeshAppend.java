@@ -18,6 +18,14 @@ public final class MeshAppend {
     private MeshAppend() {
     }
 
+    /**
+     * TODO: document {@code append}.
+     *
+     * @param out TODO: describe
+     * @param src TODO: describe
+     * @param transform TODO: describe
+     * @return TODO: describe
+     */
     public static HalfEdgeMesh append(HalfEdgeMesh out, MeshTopology src, Matrix4f transform) {
         if (src == null || src.vertexCount() == 0) {
             return out;
@@ -47,6 +55,13 @@ public final class MeshAppend {
         return out;
     }
 
+    /**
+     * TODO: document {@code join}.
+     *
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @return TODO: describe
+     */
     public static MeshTopology join(MeshTopology a, MeshTopology b) {
         if (a instanceof ArrayMesh aa && b instanceof ArrayMesh ab && aa.getVertsPerFace() == ab.getVertsPerFace()) {
             return ArrayMeshEngine.join(aa, ab);

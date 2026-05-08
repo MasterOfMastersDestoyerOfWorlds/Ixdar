@@ -31,12 +31,23 @@ import ixdar.platform.gl.headless.HeadlessPlatform;
  * Uses LWJGL GLFW invisible window for real OpenGL 3.3 context.
  */
 public class RenderDsl {
+    public static final float NUM_0_12 = 0.12f;
+    public static final float NUM_0_14 = 0.14f;
+    public static final float NUM_1_5 = 1.5f;
+    public static final float NUM_2_5 = 2.5f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_45 = 45f;
 
     private static final int DEFAULT_WIDTH = 512;
     private static final int DEFAULT_HEIGHT = 512;
     private static final float CAMERA_AZIMUTH = (float) Math.toRadians(45.0);
     private static final float CAMERA_ELEVATION = (float) Math.toRadians(24.0);
 
+    /**
+     * TODO: document {@code main}.
+     *
+     * @param args TODO: describe
+     */
     public static void main(String[] args) {
         if (args.length < 2) {
             System.err.println("Usage: java -XstartOnFirstThread -cp ... ixdar.entrypoint.RenderDsl <file.dsl> <output.png> [options]");
@@ -126,19 +137,19 @@ public class RenderDsl {
 
             // Set viewport and clear
             gl.viewport(0, 0, width, height);
-            gl.clearColor(0.12f, 0.12f, 0.14f, 1.0f);
+            gl.clearColor(NUM_0_12, NUM_0_12, NUM_0_14, 1.0f);
             gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
 
             // Create camera with orbit position (matches MeshNodeViewerScene angles)
             Vector3f meshCenter = mesh.center(new Vector3f());
-            float distance = Math.max(1.5f, mesh.radius() * 2.5f);
+            float distance = Math.max(NUM_1_5, mesh.radius() * NUM_2_5);
             float camX = meshCenter.x + (float) (Math.sin(CAMERA_AZIMUTH) * Math.cos(CAMERA_ELEVATION) * distance);
             float camY = meshCenter.y + (float) (Math.sin(CAMERA_ELEVATION) * distance);
             float camZ = meshCenter.z + (float) (Math.cos(CAMERA_AZIMUTH) * Math.cos(CAMERA_ELEVATION) * distance);
 
-            Camera3D camera = new Camera3D(new Vector3f(camX, camY, camZ), 0f, 0f, null);
+            Camera3D camera = new Camera3D(new Vector3f(camX, camY, camZ), NUM_0, NUM_0, null);
             camera.target.set(meshCenter);
-            camera.fov = 45f;
+            camera.fov = NUM_45;
             camera.updateViewFirstPerson();
 
             platform.setFrameBufferSize(width, height);

@@ -30,104 +30,10 @@ import ixdar.geometry.mesh.quadlayout.solver.SparseMatrix;
  * parametrization step.
  */
 public final class AdaptiveSolver {
+    public static final double NUM_1e_30 = 1e-30;
+    public static final double NUM_1_7 = 1.7;
 
     private AdaptiveSolver() {
-    }
-
-    /**
-     * Sparse row-access interface used by {@link AdaptiveSolver}.
-     *
-     * <p>
-     * The matrix is expected to be symmetric for the CG/direct fallback to match
-     * BZK09's normal-equation systems. Diagonal entries are supplied through
-     * {@link #diag(int)}; the row-entry range is expected to contain off-diagonal
-     * entries only.
-     */
-    public interface Matrix {
-        /** @return number of rows and columns */
-        int size();
-
-        /** @return diagonal coefficient A[row,row] */
-        double diag(int row);
-
-        /** @return first row-entry cursor, inclusive */
-        int rowStart(int row);
-
-        /** @return last row-entry cursor, exclusive */
-        int rowEnd(int row);
-
-        /** @return column index for row-entry cursor */
-        int column(int cursor);
-
-        /** @return coefficient value for row-entry cursor */
-        double value(int cursor);
-    }
-
-    /**
-     * Solver tuning values. Defaults mirror BZK09's intent: cheap local updates
-     * first, global iterative solve second, direct solve only as a last resort.
-     */
-    public static final class Options {
-        /** Maximum local Gauss-Seidel row updates before falling back. */
-        public int localMaxIterations = 5_000;
-
-        /** Absolute per-row residual tolerance for local Gauss-Seidel. */
-        public double localTolerance = 1e-6;
-
-        /** Maximum conjugate-gradient iterations before direct fallback. */
-        public int cgMaxIterations = 20_000;
-
-        /** Relative residual tolerance for conjugate gradient. */
-        public double cgTolerance = 1e-7;
-
-        /** Whether to use the direct sparse fallback after CG failure. */
-        public boolean useDirectFallback = true;
-    }
-
-    /** Which rung of the adaptive ladder returned the final solution. */
-    public enum Method {
-        LOCAL_GAUSS_SEIDEL,
-        CONJUGATE_GRADIENT,
-        DIRECT,
-        FAILED
-    }
-
-    /**
-     * Solver statistics for one adaptive update.
-     *
-     * @param method           method that returned the solution
-     * @param converged        whether the returned solution met its method
-     *                         tolerance
-     * @param localIterations  local Gauss-Seidel updates performed
-     * @param cgIterations     conjugate-gradient iterations performed
-     * @param residualNorm     final Euclidean residual norm over free variables
-     * @param localHitCap      whether local Gauss-Seidel stopped at its iteration
-     *                         cap
-     * @param initialQueueSize variables seeded into the local queue
-     * @param maxQueueSize     maximum queue size reached during local GS
-     * @param capResidualNorm  largest absolute queued residual when local GS hit
-     *                         its iteration cap
-     * @param capResidualRow   row producing {@code capResidualNorm}, or -1
-     */
-    public record Stats(Method method,
-            boolean converged,
-            int localIterations,
-            int cgIterations,
-            double residualNorm,
-            boolean localHitCap,
-            int initialQueueSize,
-            int maxQueueSize,
-            double capResidualNorm,
-            int capResidualRow) {
-    }
-
-    /**
-     * Result of one adaptive solve.
-     *
-     * @param x     full solution vector, including fixed variables
-     * @param stats iteration and convergence data
-     */
-    public record Result(double[] x, Stats stats) {
     }
 
     /**
@@ -286,13 +192,13 @@ public final class AdaptiveSolver {
             }
 
             double diag = matrix.diag(row);
-            if (Math.abs(diag) < 1e-30) {
+            if (Math.abs(diag) < NUM_1e_30) {
                 return new LocalResult(x, iterations, false, false, initialQueueSize,
                         maxQueueSize, 0.0, -1);
             }
 
             double delta = residual / diag;
-            x[row] += 1.7 * delta;
+            x[row] += NUM_1_7 * delta;
             if (Math.abs(delta) > options.localTolerance) {
                 enqueueDependents(matrix, row, fixed, queue, inQueue);
             }
@@ -378,7 +284,7 @@ public final class AdaptiveSolver {
                 continue;
             }
             double diag = matrix.diag(i);
-            z[i] = Math.abs(diag) > 1e-30 ? r[i] / diag : r[i];
+            z[i] = Math.abs(diag) > NUM_1e_30 ? r[i] / diag : r[i];
             p[i] = z[i];
             rzOld += r[i] * z[i];
         }
@@ -404,7 +310,7 @@ public final class AdaptiveSolver {
                     pAp += p[i] * ap[i];
                 }
             }
-            if (Math.abs(pAp) < 1e-30) {
+            if (Math.abs(pAp) < NUM_1e_30) {
                 break;
             }
 
@@ -426,7 +332,7 @@ public final class AdaptiveSolver {
                     continue;
                 }
                 double diag = matrix.diag(i);
-                z[i] = Math.abs(diag) > 1e-30 ? r[i] / diag : r[i];
+                z[i] = Math.abs(diag) > NUM_1e_30 ? r[i] / diag : r[i];
                 rzNew += r[i] * z[i];
             }
             double beta = rzNew / rzOld;
@@ -521,7 +427,15 @@ public final class AdaptiveSolver {
         return x;
     }
 
-    /** Build adjacency list of the compact symmetric matrix (free vars only). */
+    /**
+     * Build adjacency list of the compact symmetric matrix (free vars only).
+     *
+     * @param matrix TODO: describe
+     * @param fixed TODO: describe
+     * @param compactOf TODO: describe
+     * @param freeCount TODO: describe
+     * @return TODO: describe
+     */
     private static int[][] buildAdjacency(Matrix matrix,
             boolean[] fixed,
             int[] compactOf,
@@ -558,7 +472,12 @@ public final class AdaptiveSolver {
         return adj;
     }
 
-    /** Reverse Cuthill-McKee ordering. Returns perm[newIndex] = oldIndex. */
+    /**
+     * Reverse Cuthill-McKee ordering. Returns perm[newIndex] = oldIndex.
+     *
+     * @param adj TODO: describe
+     * @return TODO: describe
+     */
     private static int[] reverseCuthillMcKee(int[][] adj) {
         int n = adj.length;
         int[] perm = new int[n];
@@ -703,6 +622,131 @@ public final class AdaptiveSolver {
         if (rhs.length != n || warmStart.length != n || fixed.length != n) {
             throw new IllegalArgumentException("matrix/vector size mismatch");
         }
+    }
+
+    /**
+     * Sparse row-access interface used by {@link AdaptiveSolver}.
+     *
+     * <p>
+     * The matrix is expected to be symmetric for the CG/direct fallback to match
+     * BZK09's normal-equation systems. Diagonal entries are supplied through
+     * {@link #diag(int)}; the row-entry range is expected to contain off-diagonal
+     * entries only.
+     */
+    public interface Matrix {
+        /**
+         * TODO: document.
+         *
+         * @return number of rows and columns
+         */
+        int size();
+
+        /**
+         * TODO: document.
+         *
+         * @param row TODO: describe
+         * @return diagonal coefficient A[row,row]
+         */
+        double diag(int row);
+
+        /**
+         * TODO: document.
+         *
+         * @param row TODO: describe
+         * @return first row-entry cursor, inclusive
+         */
+        int rowStart(int row);
+
+        /**
+         * TODO: document.
+         *
+         * @param row TODO: describe
+         * @return last row-entry cursor, exclusive
+         */
+        int rowEnd(int row);
+
+        /**
+         * TODO: document.
+         *
+         * @param cursor TODO: describe
+         * @return column index for row-entry cursor
+         */
+        int column(int cursor);
+
+        /**
+         * TODO: document.
+         *
+         * @param cursor TODO: describe
+         * @return coefficient value for row-entry cursor
+         */
+        double value(int cursor);
+    }
+
+    /**
+     * Solver tuning values. Defaults mirror BZK09's intent: cheap local updates
+     * first, global iterative solve second, direct solve only as a last resort.
+     */
+    public static final class Options {
+        /** Maximum local Gauss-Seidel row updates before falling back. */
+        public int localMaxIterations = 5_000;
+
+        /** Absolute per-row residual tolerance for local Gauss-Seidel. */
+        public double localTolerance = 1e-6;
+
+        /** Maximum conjugate-gradient iterations before direct fallback. */
+        public int cgMaxIterations = 20_000;
+
+        /** Relative residual tolerance for conjugate gradient. */
+        public double cgTolerance = 1e-7;
+
+        /** Whether to use the direct sparse fallback after CG failure. */
+        public boolean useDirectFallback = true;
+    }
+
+    /** Which rung of the adaptive ladder returned the final solution. */
+    public enum Method {
+        LOCAL_GAUSS_SEIDEL,
+        CONJUGATE_GRADIENT,
+        DIRECT,
+        FAILED
+    }
+
+    /**
+     * Solver statistics for one adaptive update.
+     *
+     * @param method           method that returned the solution
+     * @param converged        whether the returned solution met its method
+     *                         tolerance
+     * @param localIterations  local Gauss-Seidel updates performed
+     * @param cgIterations     conjugate-gradient iterations performed
+     * @param residualNorm     final Euclidean residual norm over free variables
+     * @param localHitCap      whether local Gauss-Seidel stopped at its iteration
+     *                         cap
+     * @param initialQueueSize variables seeded into the local queue
+     * @param maxQueueSize     maximum queue size reached during local GS
+     * @param capResidualNorm  largest absolute queued residual when local GS hit
+     *                         its iteration cap
+     * @param capResidualRow   row producing {@code capResidualNorm}, or -1
+     */
+    public record Stats(Method method,
+            boolean converged,
+            int localIterations,
+            int cgIterations,
+            double residualNorm,
+            boolean localHitCap,
+            int initialQueueSize,
+            int maxQueueSize,
+            double capResidualNorm,
+            int capResidualRow) {
+    }
+
+    /**
+     * Result of one adaptive solve.
+     *
+     * @param x     full solution vector, including fixed variables
+     * @param stats iteration and convergence data
+     */
+    public record Result(double[] x, Stats stats) {
     }
 
     private record LocalResult(double[] x,

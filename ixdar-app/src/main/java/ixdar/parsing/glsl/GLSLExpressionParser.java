@@ -16,12 +16,50 @@ import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.text.SpecialGlyphs;
 
 public class GLSLExpressionParser {
+    public static final String STR = "//";
+    public static final String STR_2 = ";";
+    public static final String IF = "if";
+    public static final String STR_3 = "==";
+    public static final String IN = "in ";
+    public static final String OUT = "out ";
+    public static final String UNIFORM = "uniform ";
+    public static final String PRECISION = "precision ";
+    public static final String VOID = "void ";
+    public static final String TRUE = "true";
+    public static final String FALSE = "false";
+    public static final String STR_4 = " = ";
+    public static final String STR_5 = "{";
+    public static final String ELSE = "else";
+    public static final String SKIP = "SKIP";
+    public static final String ELSE_2 = "else{";
+    public static final String ELSE_3 = "else {";
+    public static final String STR_6 = "}";
+    public static final String STR_7 = "!=";
+    public static final String STR_8 = ">=";
+    public static final String STR_9 = "<=";
+    public static final String STR_10 = ".";
+    public static final String QUARTERPI = "quarterPI";
+    public static final String PI = "pi";
+    public static final String HALFPI = "halfpi";
+    public static final String TAU = "TAU";
+    public static final String E = "e";
+    public static final String FRAGCOLOR = "FragColor";
+    public static final int NUM_4 = 4;
+    public static final double NUM_1e_6 = 1e-6;
+    public static final float NUM_4_2 = 4f;
+    public static final float NUM_2 = 2f;
+    public static final float NUM_2_0 = 2.0f;
+    public static final double NUM_0_5 = 0.5;
+    public static final float NUM_0 = 0f;
+    public static final double NUM_3_0 = 3.0;
+    public static final double NUM_2_0_2 = 2.0;
+    public static final int NUM_3 = 3;
+
+    public static final GLSLParseText MISSING = new GLSLParseText("?Missing?", Color.PINK, -1);
 
     private final String s;
     private int pos;
     private final Map<String, GLSLParseText> env;
-
-    public static final GLSLParseText MISSING = new GLSLParseText("?Missing?", Color.PINK, -1);
 
     GLSLExpressionParser(String s, Map<String, GLSLParseText> env) {
         this.s = s;
@@ -29,15 +67,22 @@ public class GLSLExpressionParser {
         this.pos = 0;
     }
 
+    /**
+     * TODO: document {@code evaluateAndAssign}.
+     *
+     * @param line TODO: describe
+     * @param env TODO: describe
+     * @return TODO: describe
+     */
     public static GLSLParseText evaluateAndAssign(String line, Map<String, GLSLParseText> env) {
 
         String s = line;
-        int cidx = s.indexOf("//");
+        int cidx = s.indexOf(STR);
         if (cidx >= 0) {
             s = s.substring(0, cidx);
         }
         s = s.trim();
-        if (s.endsWith(";")) {
+        if (s.endsWith(STR_2)) {
             s = s.substring(0, s.length() - 1);
         }
         if (s.isEmpty()) {
@@ -49,7 +94,7 @@ public class GLSLExpressionParser {
         // Both <then> and <else> can be expressions or assignments (optionally wrapped
         // in braces)
         String sTrimLower = s.trim().toLowerCase();
-        if (sTrimLower.startsWith("if")) {
+        if (sTrimLower.startsWith(IF)) {
             try {
                 return evaluateIfElse(s.trim(), env);
             } catch (Exception ignore) {
@@ -58,9 +103,9 @@ public class GLSLExpressionParser {
         }
 
         String sl = s.toLowerCase();
-        if (s.contains("==") || s.contains("?") || s.contains(":") || s.startsWith("#")
-                || sl.startsWith("in ") || sl.startsWith("out ") || sl.startsWith("uniform ")
-                || sl.startsWith("layout") || sl.startsWith("precision ") || sl.startsWith("void ")
+        if (s.contains(STR_3) || s.contains("?") || s.contains(":") || s.startsWith("#")
+                || sl.startsWith(IN) || sl.startsWith(OUT) || sl.startsWith(UNIFORM)
+                || sl.startsWith("layout") || sl.startsWith(PRECISION) || sl.startsWith(VOID)
                 || sl.startsWith("struct ") || sl.startsWith("attribute ") || sl.startsWith("varying ")) {
             return null;
         }
@@ -74,7 +119,7 @@ public class GLSLExpressionParser {
 
                 // Support assignment from an inline if-expression: var = if (cond) expr else
                 // expr
-                if (right.toLowerCase().startsWith("if")) {
+                if (right.toLowerCase().startsWith(IF)) {
                     GLSLParseText ifVal = evaluateIfElse(right, env);
                     if (ifVal != null && ifVal.data != null) {
                         env.put(var, ifVal);
@@ -128,6 +173,13 @@ public class GLSLExpressionParser {
     // Evaluate a whole set of code lines with control flow (if/else with braces)
     // and write per-line suffixes into cachedSuffixes. This avoids evaluating
     // assignments inside non-taken branches.
+    /**
+     * TODO: document {@code evaluateAndAssign}.
+     *
+     * @param lines TODO: describe
+     * @param env TODO: describe
+     * @param cachedSuffixes TODO: describe
+     */
     public static void evaluateAndAssign(List<String> lines, Map<String, GLSLParseText> env,
             List<GLSLParseText> cachedSuffixes) {
         if (lines == null || cachedSuffixes == null) {
@@ -151,7 +203,7 @@ public class GLSLExpressionParser {
             GLSLParseText out = GLSLParseText.BLANK;
 
             String s = original;
-            int cidx = s.indexOf("//");
+            int cidx = s.indexOf(STR);
             if (cidx >= 0)
                 s = s.substring(0, cidx);
             String decl = s.trim();
@@ -194,8 +246,8 @@ public class GLSLExpressionParser {
                 braceDepth++;
 
                 boolean doExecThen = parentExec && thenExec;
-                GLSLParseText boolVal = new GLSLParseText(doExecThen ? "true" : "false", Color.GLSL_BOOLEAN);
-                cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(" = ")).join(boolVal));
+                GLSLParseText boolVal = new GLSLParseText(doExecThen ? TRUE : FALSE, Color.GLSL_BOOLEAN);
+                cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(STR_4)).join(boolVal));
                 continue;
             }
 
@@ -216,8 +268,8 @@ public class GLSLExpressionParser {
                 if (doExec) {
                     awaitingElseExec = false; // else-if taken: no further else
                 }
-                GLSLParseText boolVal = new GLSLParseText(doExec ? "true" : "false", Color.GLSL_BOOLEAN);
-                cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(" = ")).join(boolVal));
+                GLSLParseText boolVal = new GLSLParseText(doExec ? TRUE : FALSE, Color.GLSL_BOOLEAN);
+                cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(STR_4)).join(boolVal));
                 continue;
             }
 
@@ -231,17 +283,17 @@ public class GLSLExpressionParser {
                 braceDepth++;
                 awaitingElseExec = false; // consumed
 
-                GLSLParseText boolVal = new GLSLParseText(doExec ? "true" : "false", Color.GLSL_BOOLEAN);
-                cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(" = ")).join(boolVal));
+                GLSLParseText boolVal = new GLSLParseText(doExec ? TRUE : FALSE, Color.GLSL_BOOLEAN);
+                cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(STR_4)).join(boolVal));
                 continue;
             }
 
             // else single-line: else <statement>
-            if (startsWithElse(decl) && !decl.endsWith("{")) {
+            if (startsWithElse(decl) && !decl.endsWith(STR_5)) {
                 boolean parentExec = execStack.get(execStack.size() - 1);
                 boolean doExec = awaitingElseExec && parentExec && (braceDepth == awaitingElseDepth);
-                String afterElse = decl.substring(decl.toLowerCase().indexOf("else") + 4).trim();
-                if (!afterElse.isEmpty() && afterElse.startsWith("if")) {
+                String afterElse = decl.substring(decl.toLowerCase().indexOf(ELSE) + NUM_4).trim();
+                if (!afterElse.isEmpty() && afterElse.startsWith(IF)) {
                     // else if (...) single-line
                     IfHeaderPos posHdr = parseIfHeaderWithPos(afterElse);
                     boolean condVal = false;
@@ -251,10 +303,10 @@ public class GLSLExpressionParser {
                     boolean runThen = doExec && condVal;
                     if (runThen && posHdr != null) {
                         String thenStmt = afterElse.substring(posHdr.closeIndex + 1).trim();
-                        if (!thenStmt.isEmpty() && !thenStmt.startsWith("{")) {
+                        if (!thenStmt.isEmpty() && !thenStmt.startsWith(STR_5)) {
                             GLSLParseText res = evaluateAndAssign(thenStmt, env);
                             if (res != null) {
-                                out = commentStart(res).join(new GLSLParseText(" = ")).join(res);
+                                out = commentStart(res).join(new GLSLParseText(STR_4)).join(res);
                             }
                         } else {
                             out = GLSLParseText.BLANK;
@@ -267,23 +319,23 @@ public class GLSLExpressionParser {
                         awaitingElseExec = false;
                     }
                     // Add boolean suffix for else-if decision
-                    GLSLParseText boolVal = new GLSLParseText(runThen ? "true" : "false", Color.GLSL_BOOLEAN);
+                    GLSLParseText boolVal = new GLSLParseText(runThen ? TRUE : FALSE, Color.GLSL_BOOLEAN);
                     if (!runThen) {
-                        GLSLParseText skip = new GLSLParseText("SKIP", Color.GLSL_SKIP);
-                        cachedSuffixes.set(i, commentStart(skip).join(new GLSLParseText(" = ")).join(skip));
+                        GLSLParseText skip = new GLSLParseText(SKIP, Color.GLSL_SKIP);
+                        cachedSuffixes.set(i, commentStart(skip).join(new GLSLParseText(STR_4)).join(skip));
                     } else {
-                        cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(" = ")).join(boolVal));
+                        cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(STR_4)).join(boolVal));
                     }
                     continue;
                 } else {
                     if (doExec && !afterElse.isEmpty()) {
                         GLSLParseText res = evaluateAndAssign(afterElse, env);
                         if (res != null) {
-                            out = commentStart(res).join(new GLSLParseText(" = ")).join(res);
+                            out = commentStart(res).join(new GLSLParseText(STR_4)).join(res);
                         }
                     } else if (!afterElse.isEmpty()) {
-                        GLSLParseText skip = new GLSLParseText("SKIP", Color.GLSL_SKIP);
-                        out = commentStart(skip).join(new GLSLParseText(" = ")).join(skip);
+                        GLSLParseText skip = new GLSLParseText(SKIP, Color.GLSL_SKIP);
+                        out = commentStart(skip).join(new GLSLParseText(STR_4)).join(skip);
                     } else {
                         out = GLSLParseText.BLANK;
                     }
@@ -301,18 +353,18 @@ public class GLSLExpressionParser {
                     if (name != null) {
                         GLSLParseText v = env.get(name);
                         if (v != null) {
-                            out = commentStart(v).join(new GLSLParseText(" = ")).join(v);
+                            out = commentStart(v).join(new GLSLParseText(STR_4)).join(v);
                         }
                     }
                 } else {
                     GLSLParseText res = evaluateAndAssign(decl, env);
                     if (res != null) {
-                        out = commentStart(res).join(new GLSLParseText(" = ")).join(res);
+                        out = commentStart(res).join(new GLSLParseText(STR_4)).join(res);
                     }
                 }
             } else if (!executing && !skipControlOnlyLine(decl)) {
-                GLSLParseText skip = new GLSLParseText("SKIP", Color.GLSL_SKIP);
-                out = commentStart(skip).join(new GLSLParseText(" = ")).join(skip);
+                GLSLParseText skip = new GLSLParseText(SKIP, Color.GLSL_SKIP);
+                out = commentStart(skip).join(new GLSLParseText(STR_4)).join(skip);
             } else {
                 out = GLSLParseText.BLANK;
             }
@@ -324,6 +376,10 @@ public class GLSLExpressionParser {
     /**
      * Compute, for each line, whether it would execute under the current env,
      * without mutating env or suffixes. Control-flow only (if/else/braces).
+     *
+     * @param lines TODO: describe
+     * @param envSnapshot TODO: describe
+     * @return TODO: describe
      */
     public static java.util.List<Boolean> wouldExecute(List<String> lines, Map<String, GLSLParseText> envSnapshot) {
         java.util.ArrayList<Boolean> execFlags = new java.util.ArrayList<>();
@@ -346,14 +402,14 @@ public class GLSLExpressionParser {
             }
             int closes = countChar(decl, '}');
             boolean doExec = execStack.get(execStack.size() - 1);
-            if (lower.startsWith("if")) {
+            if (lower.startsWith(IF)) {
                 String condStr = extractCondition(decl);
                 boolean cond = evaluateCondition(condStr, envSnapshot);
                 isIfStack.add(Boolean.TRUE);
                 elseShouldExecStack.add(Boolean.valueOf(!cond));
                 execStack.add(Boolean.valueOf(cond && doExec));
                 execFlags.add(Boolean.valueOf(cond && doExec));
-            } else if (lower.startsWith("else")) {
+            } else if (lower.startsWith(ELSE)) {
                 boolean wasIf = isIfStack.get(isIfStack.size() - 1);
                 if (wasIf) {
                     execStack.remove(execStack.size() - 1);
@@ -379,7 +435,7 @@ public class GLSLExpressionParser {
         if (s == null) {
             return "";
         }
-        int cidx = s.indexOf("//");
+        int cidx = s.indexOf(STR);
         if (cidx >= 0) {
             s = s.substring(0, cidx);
         }
@@ -413,37 +469,17 @@ public class GLSLExpressionParser {
 
     private static boolean isElseOpenBrace(String decl) {
         String t = decl.toLowerCase();
-        return t.equals("else{") || t.equals("else {");
+        return t.equals(ELSE_2) || t.equals(ELSE_3);
     }
 
     private static boolean startsWithElse(String decl) {
         String t = decl.toLowerCase();
-        return t.startsWith("else");
-    }
-
-    private static class IfHeader {
-        String condition;
-        boolean hasOpenBrace;
-
-        IfHeader(String condition, boolean hasOpenBrace) {
-            this.condition = condition;
-            this.hasOpenBrace = hasOpenBrace;
-        }
-    }
-
-    private static class IfHeaderPos {
-        String condition;
-        int closeIndex;
-
-        IfHeaderPos(String condition, boolean hasOpenBrace, int closeIndex) {
-            this.condition = condition;
-            this.closeIndex = closeIndex;
-        }
+        return t.startsWith(ELSE);
     }
 
     private static IfHeader parseIfHeader(String decl) {
         String t = decl.trim();
-        if (!t.startsWith("if"))
+        if (!t.startsWith(IF))
             return null;
         int i = 2;
         int n = t.length();
@@ -473,7 +509,7 @@ public class GLSLExpressionParser {
             return null;
         // normalize: remove leading 'else'
         String rest = decl.trim();
-        int idx = rest.toLowerCase().indexOf("if");
+        int idx = rest.toLowerCase().indexOf(IF);
         if (idx < 0)
             return null;
         String afterElse = rest.substring(idx);
@@ -482,7 +518,7 @@ public class GLSLExpressionParser {
 
     private static IfHeaderPos parseIfHeaderWithPos(String decl) {
         String t = decl.trim();
-        if (!t.startsWith("if"))
+        if (!t.startsWith(IF))
             return null;
         int i = 2;
         int n = t.length();
@@ -510,9 +546,9 @@ public class GLSLExpressionParser {
         String t = decl.trim();
         if (t.isEmpty())
             return true;
-        if (t.equals("{") || t.equals("}"))
+        if (t.equals(STR_5) || t.equals(STR_6))
             return true;
-        if (t.equalsIgnoreCase("else") || t.equalsIgnoreCase("else{") || t.equalsIgnoreCase("else {"))
+        if (t.equalsIgnoreCase(ELSE) || t.equalsIgnoreCase(ELSE_2) || t.equalsIgnoreCase(ELSE_3))
             return true;
         // lines like: if (cond) {
         IfHeader h = parseIfHeader(t);
@@ -522,11 +558,11 @@ public class GLSLExpressionParser {
     }
 
     private static GLSLParseText commentStart(GLSLParseText res) {
-        if (res.vectorLength == 4) {
+        if (res.vectorLength == NUM_4) {
             return new GLSLParseText(SpecialGlyphs.COLOR_TRACKER.getChar() + "",
                     new ColorRGB(res.data.x, res.data.y, res.data.z, res.data.w));
         } else {
-            return new GLSLParseText("//");
+            return new GLSLParseText(STR);
         }
     }
 
@@ -564,7 +600,7 @@ public class GLSLExpressionParser {
         String elsePart = null;
         if (elseIdx >= 0) {
             thenPart = s.substring(thenStart, elseIdx).trim();
-            elsePart = s.substring(elseIdx + 4).trim();
+            elsePart = s.substring(elseIdx + NUM_4).trim();
         } else {
             thenPart = s.substring(thenStart).trim();
         }
@@ -608,13 +644,13 @@ public class GLSLExpressionParser {
                 double l = lv.data.x;
                 double r = rv.data.x;
                 switch (op) {
-                case "==":
+                case STR_3:
                     return l == r;
-                case "!=":
+                case STR_7:
                     return l != r;
-                case ">=":
+                case STR_8:
                     return l >= r;
-                case "<=":
+                case STR_9:
                     return l <= r;
                 case ">":
                     return l > r;
@@ -626,7 +662,7 @@ public class GLSLExpressionParser {
             } else {
                 // No comparator: non-zero is true
                 GLSLParseText v = new GLSLExpressionParser(cond, env).parse();
-                return Math.abs(v.data.x) > 1e-6;
+                return Math.abs(v.data.x) > NUM_1e_6;
             }
         } catch (Exception ex) {
             return false;
@@ -665,7 +701,7 @@ public class GLSLExpressionParser {
                 continue;
             if (i + 1 < s.length()) {
                 String two = s.substring(i, i + 2);
-                if (two.equals("==") || two.equals("!=") || two.equals(">=") || two.equals("<=")) {
+                if (two.equals(STR_3) || two.equals(STR_7) || two.equals(STR_8) || two.equals(STR_9)) {
                     return new int[] { i, 2 };
                 }
             }
@@ -679,7 +715,7 @@ public class GLSLExpressionParser {
     private static int findTopLevelElse(String s, int start) {
         int depthParen = 0;
         int depthBrace = 0;
-        for (int i = start; i <= s.length() - 4; i++) {
+        for (int i = start; i <= s.length() - NUM_4; i++) {
             char c = s.charAt(i);
             if (c == '(')
                 depthParen++;
@@ -691,10 +727,10 @@ public class GLSLExpressionParser {
                 depthBrace--;
             if (depthParen == 0 && depthBrace == 0) {
                 // check "else" word at i
-                if ((s.charAt(i) == 'e' || s.charAt(i) == 'E') && s.regionMatches(true, i, "else", 0, 4)) {
+                if ((s.charAt(i) == 'e' || s.charAt(i) == 'E') && s.regionMatches(true, i, ELSE, 0, NUM_4)) {
                     // Ensure word boundary before and after
                     boolean beforeOk = (i == 0) || !Character.isLetterOrDigit(s.charAt(i - 1));
-                    int j = i + 4;
+                    int j = i + NUM_4;
                     boolean afterOk = (j >= s.length()) || !Character.isLetterOrDigit(s.charAt(j));
                     if (beforeOk && afterOk) {
                         return i;
@@ -709,10 +745,10 @@ public class GLSLExpressionParser {
         if (part == null)
             return null;
         String t = part.trim();
-        if (t.startsWith("{") && t.endsWith("}")) {
+        if (t.startsWith(STR_5) && t.endsWith(STR_6)) {
             t = t.substring(1, t.length() - 1).trim();
         }
-        if (t.endsWith(";")) {
+        if (t.endsWith(STR_2)) {
             t = t.substring(0, t.length() - 1).trim();
         }
         return t;
@@ -729,12 +765,18 @@ public class GLSLExpressionParser {
         return parts[parts.length - 1];
     }
 
+    /**
+     * TODO: document {@code extractAssignedVar}.
+     *
+     * @param line TODO: describe
+     * @return TODO: describe
+     */
     public static String extractAssignedVar(String line) {
         if (line == null) {
             return null;
         }
         String s = line;
-        int cidx = s.indexOf("//");
+        int cidx = s.indexOf(STR);
         if (cidx >= 0) {
             s = s.substring(0, cidx);
         }
@@ -835,7 +877,7 @@ public class GLSLExpressionParser {
                     }
                     String sw = sb.toString();
                     if (sw.length() >= 1) {
-                        String name = ident + "." + sw;
+                        String name = ident + STR_10 + sw;
                         return resolveVar(name);
                     }
                 }
@@ -879,23 +921,23 @@ public class GLSLExpressionParser {
     }
 
     private GLSLParseText resolveVar(String name) {
-        if ("quarterPI".equalsIgnoreCase(name))
-            return new GLSLParseText("quarterPI", (float) Math.PI / 4f);
-        if ("pi".equalsIgnoreCase(name))
-            return new GLSLParseText("pi", (float) Math.PI);
-        if ("halfpi".equalsIgnoreCase(name))
-            return new GLSLParseText("halfpi", (float) Math.PI / 2f);
-        if ("TAU".equalsIgnoreCase(name))
-            return new GLSLParseText("TAU", (float) (Math.PI * 2.0f));
-        if ("e".equalsIgnoreCase(name))
-            return new GLSLParseText("e", (float) Math.E);
+        if (QUARTERPI.equalsIgnoreCase(name))
+            return new GLSLParseText(QUARTERPI, (float) Math.PI / NUM_4_2);
+        if (PI.equalsIgnoreCase(name))
+            return new GLSLParseText(PI, (float) Math.PI);
+        if (HALFPI.equalsIgnoreCase(name))
+            return new GLSLParseText(HALFPI, (float) Math.PI / NUM_2);
+        if (TAU.equalsIgnoreCase(name))
+            return new GLSLParseText(TAU, (float) (Math.PI * NUM_2_0));
+        if (E.equalsIgnoreCase(name))
+            return new GLSLParseText(E, (float) Math.E);
 
         int dotIdx = name.indexOf('.');
         if (dotIdx > 0 && dotIdx == name.lastIndexOf('.')) {
             String base = name.substring(0, dotIdx);
             String sw = name.substring(dotIdx + 1);
             int vectorLength = sw.length();
-            float[] xyzw = new float[4];
+            float[] xyzw = new float[NUM_4];
             if (isValidSwizzle(sw)) {
                 Vector4f org = env.get(base).getData();
                 for (int i = 0; i < vectorLength; i++) {
@@ -941,7 +983,7 @@ public class GLSLExpressionParser {
                 return 0.0;
             }, a);
         case "round":
-            return applyOneArgFunc((x) -> x - (x.intValue()) < 0.5 ? Math.floor(x) : Math.ceil(x), a);
+            return applyOneArgFunc((x) -> x - (x.intValue()) < NUM_0_5 ? Math.floor(x) : Math.ceil(x), a);
         case "min":
             return applyTwoArgFunc(Math::min, a);
         case "mod":
@@ -959,7 +1001,7 @@ public class GLSLExpressionParser {
             // GLSL float(x): cast to float; we just forward the value (use first component)
             GLSLParseText arg = a.get(0);
             Vector4f v = arg.data;
-            Vector4f res = new Vector4f(v.x, 0f, 0f, 0f);
+            Vector4f res = new Vector4f(v.x, NUM_0, NUM_0, NUM_0);
             return new GLSLParseText(s, res, 1, "");
         }
         case "smoothstep": {
@@ -971,7 +1013,7 @@ public class GLSLExpressionParser {
                     t = 0.0;
                 if (t > 1.0)
                     t = 1.0;
-                return t * t * (3.0 - 2.0 * t);
+                return t * t * (NUM_3_0 - NUM_2_0_2 * t);
             }, a);
 
         }
@@ -981,16 +1023,16 @@ public class GLSLExpressionParser {
         case "vec2":
             return constructVecN(2, a);
         case "vec3":
-            return constructVecN(3, a);
+            return constructVecN(NUM_3, a);
         case "vec4":
-            return constructVecN(4, a);
+            return constructVecN(NUM_4, a);
         default:
             return GLSLParseText.BLANK;
         }
     }
 
     private GLSLParseText constructVecN(int n, List<GLSLParseText> args) {
-        float[] out = new float[4];
+        float[] out = new float[NUM_4];
         int filled = 0;
         for (int i = 0; i < args.size() && filled < n; i++) {
             GLSLParseText a = args.get(i);
@@ -1000,7 +1042,7 @@ public class GLSLExpressionParser {
             }
         }
         while (filled < n)
-            out[filled++] = 0f;
+            out[filled++] = NUM_0;
         Vector4f result = new Vector4f(out);
         return new GLSLParseText(s, result, n, "");
     }
@@ -1008,7 +1050,7 @@ public class GLSLExpressionParser {
     private GLSLParseText applyOneArgFunc(Function<Double, Double> func, List<GLSLParseText> a) {
         GLSLParseText arg = a.get(0);
         Vector4f data = arg.data;
-        float[] result = new float[4];
+        float[] result = new float[NUM_4];
         for (int i = 0; i < arg.vectorLength; i++) {
             result[i] = func.apply((double) data.get(i)).floatValue();
         }
@@ -1024,7 +1066,7 @@ public class GLSLExpressionParser {
         int len = Math.max(lhs.vectorLength, rhs.vectorLength);
         if (len < 1)
             len = 1;
-        float[] result = new float[4];
+        float[] result = new float[NUM_4];
         for (int i = 0; i < len; i++) {
             int li = Math.min(i, Math.max(0, lhs.vectorLength - 1));
             int ri = Math.min(i, Math.max(0, rhs.vectorLength - 1));
@@ -1040,13 +1082,13 @@ public class GLSLExpressionParser {
         Vector4f l = lhs.data;
         Vector4f r = rhs.data;
         int len = Math.max(lhs.vectorLength, rhs.vectorLength);
-        float sum = 0f;
+        float sum = NUM_0;
         for (int i = 0; i < len; i++) {
             int li = Math.min(i, Math.max(0, lhs.vectorLength - 1));
             int ri = Math.min(i, Math.max(0, rhs.vectorLength - 1));
             sum += func.apply((double) l.get(li), (double) r.get(ri)).floatValue();
         }
-        float[] result = new float[4];
+        float[] result = new float[NUM_4];
         result[0] = sum;
         Vector4f resultVec = new Vector4f(result);
         return new GLSLParseText(s, resultVec, 1, "");
@@ -1059,7 +1101,7 @@ public class GLSLExpressionParser {
         Vector4f data2 = arg2.data;
         GLSLParseText arg3 = a.get(2);
         Vector4f data3 = arg3.data;
-        float[] result = new float[4];
+        float[] result = new float[NUM_4];
         for (int i = 0; i < arg.vectorLength; i++) {
             result[i] = func.apply((double) data.get(i), (double) data2.get(i), (double) data3.get(i)).floatValue();
         }
@@ -1077,7 +1119,7 @@ public class GLSLExpressionParser {
         int len = Math.max(x.vectorLength, y.vectorLength);
         if (len < 1)
             len = 1;
-        float[] result = new float[4];
+        float[] result = new float[NUM_4];
         for (int i = 0; i < len; i++) {
             int xi = Math.min(i, Math.max(0, x.vectorLength - 1));
             int yi = Math.min(i, Math.max(0, y.vectorLength - 1));
@@ -1100,7 +1142,7 @@ public class GLSLExpressionParser {
             result += Math.pow(data.get(i) - data2.get(i), 2);
         }
 
-        Vector4f resultVec = new Vector4f((float) Math.sqrt(result), 0f, 0f, 0f);
+        Vector4f resultVec = new Vector4f((float) Math.sqrt(result), NUM_0, NUM_0, NUM_0);
         return new GLSLParseText(s, resultVec, 1, "");
     }
 
@@ -1144,7 +1186,7 @@ public class GLSLExpressionParser {
             int semi = decl.indexOf(';');
             String s = semi >= 0 ? decl.substring(0, semi) : decl;
             String[] parts = s.split("\\s+");
-            if (parts.length >= 3) {
+            if (parts.length >= NUM_3) {
                 String cand = parts[2];
 
                 cand = cand.replaceAll("[;,]", "");
@@ -1170,7 +1212,7 @@ public class GLSLExpressionParser {
                 String base = t.substring(0, dot).trim();
                 String sw = t.substring(dot + 1).trim();
                 for (int i = 0; i < sw.length(); i++) {
-                    expanded.add(base + "." + sw.charAt(i));
+                    expanded.add(base + STR_10 + sw.charAt(i));
                 }
             } else {
                 expanded.add(t);
@@ -1236,7 +1278,7 @@ public class GLSLExpressionParser {
     }
 
     private static boolean isValidSwizzle(String sw) {
-        if (sw == null || sw.isEmpty() || sw.length() > 4)
+        if (sw == null || sw.isEmpty() || sw.length() > NUM_4)
             return false;
         for (int i = 0; i < sw.length(); i++) {
             char c = sw.charAt(i);
@@ -1275,9 +1317,9 @@ public class GLSLExpressionParser {
             return 2;
         case 'w':
         case 'a':
-            return 3;
+            return NUM_3;
         default:
-            return 4;
+            return NUM_4;
         }
     }
 
@@ -1305,6 +1347,12 @@ public class GLSLExpressionParser {
         }
     }
 
+    /**
+     * TODO: document {@code isAssignmentLine}.
+     *
+     * @param line TODO: describe
+     * @return TODO: describe
+     */
     public static boolean isAssignmentLine(String line) {
         if (line == null) {
             return false;
@@ -1312,17 +1360,17 @@ public class GLSLExpressionParser {
         String s = line.trim();
         if (s.isEmpty())
             return false;
-        if (s.startsWith("//"))
+        if (s.startsWith(STR))
             return false;
-        if (s.startsWith("uniform "))
+        if (s.startsWith(UNIFORM))
             return false;
-        if (s.startsWith("out "))
+        if (s.startsWith(OUT))
             return false;
-        if (s.startsWith("in "))
+        if (s.startsWith(IN))
             return false;
-        if (s.startsWith("void "))
+        if (s.startsWith(VOID))
             return false;
-        if (s.startsWith("precision "))
+        if (s.startsWith(PRECISION))
             return false;
         if (s.startsWith("layout "))
             return false;
@@ -1333,11 +1381,17 @@ public class GLSLExpressionParser {
             return false;
         if (eq + 1 < s.length() && s.charAt(eq + 1) == '=')
             return false;
-        if (!s.endsWith(";"))
+        if (!s.endsWith(STR_2))
             return false;
         return true;
     }
 
+    /**
+     * TODO: document {@code detectOutName}.
+     *
+     * @param lines TODO: describe
+     * @return TODO: describe
+     */
     public static String detectOutName(String[] lines) {
         String outName = "fragColor";
         Pattern p = Pattern
@@ -1350,8 +1404,28 @@ public class GLSLExpressionParser {
             }
         }
         String src = String.join("\n", lines);
-        if (src.contains("FragColor"))
-            return "FragColor";
+        if (src.contains(FRAGCOLOR))
+            return FRAGCOLOR;
         return outName;
+    }
+
+    private static class IfHeader {
+        String condition;
+        boolean hasOpenBrace;
+
+        IfHeader(String condition, boolean hasOpenBrace) {
+            this.condition = condition;
+            this.hasOpenBrace = hasOpenBrace;
+        }
+    }
+
+    private static class IfHeaderPos {
+        String condition;
+        int closeIndex;
+
+        IfHeaderPos(String condition, boolean hasOpenBrace, int closeIndex) {
+            this.condition = condition;
+            this.closeIndex = closeIndex;
+        }
     }
 }

@@ -23,48 +23,47 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 
 public class HalfEdgeMeshRuntime {
-
-    /**
-     * Shading mode for the main mesh draw.
-     * <ul>
-     *   <li>{@link #LAMBERT} — default lit look.</li>
-     *   <li>{@link #FLAT} — unlit; every fragment writes its tag's exact color
-     *       so VLMs / pixel samplers can map (x,y) → patch deterministically.</li>
-     *   <li>{@link #STAGES} — LAMBERT base + feature-edge overlay showing
-     *       which detector fires where (dihedral / principal / crest /
-     *       saddle / multi-source).</li>
-     *   <li>{@link #CREST_VS_BOUNDARY} — FLAT base + overlay of patch
-     *       boundaries vs crest edges, categorized as boundary-only (not
-     *       crest-backed), crest-ignored, or crest-honored.</li>
-     *   <li>{@link #SCALAR} — per-vertex scalar value mapped to a thermal
-     *       ramp (deep indigo → orange → pale yellow). Value comes from
-     *       {@link #setPerVertexScalar(float[])} and is interpolated
-     *       across the triangle. Used for heat-map diagnostics such as
-     *       Coons reconstruction error or curvature magnitude.</li>
-     *   <li>{@link #MSC} — Morse-Smale complex overlay (PATCH-23): arcs
-     *       drawn as black polylines through the feature-edge overlay
-     *       infrastructure so they get PATCH-17 depth-aware occlusion.
-     *       Critical-point dots are still CPU-only for now.</li>
-     * </ul>
-     */
-    public enum ShaderMode { LAMBERT, FLAT, STAGES, CREST_VS_BOUNDARY, SCALAR, MSC }
-
-    /**
-     * A contiguous range inside the current EBO that all belongs to one tag.
-     * The render loop iterates these, setting {@code solidColor} per range.
-     */
-    public record TagRange(String tagName, Vector4f color, int indexStart, int indexCount) {}
-
-    /** One overlay line-draw pass: color + contiguous range in the feature-edge EBO. */
-    public record FeatureEdgeRange(Vector4f color, int indexStart, int indexCount) {}
-
-    /**
-     * One category of overlay edges: a color and the edge keys (packed {@code
-     * u<<32 | v}, low-endpoint in high bits) that should draw in that color.
-     * Categories are drawn in the order supplied, so later ones overpaint
-     * earlier ones where they share edges.
-     */
-    public record FeatureEdgeCategory(int colorRgb, java.util.Collection<Long> edgeKeys) {}
+    public static final String MODEL = "model";
+    public static final String VIEW = "view";
+    public static final String PROJECTION = "projection";
+    public static final String SOLIDCOLOR = "solidColor";
+    public static final String DEPTHBIAS = "depthBias";
+    public static final String PATCH = "patch_";
+    public static final float NUM_1_5 = 1.5f;
+    public static final float NUM_2_5 = 2.5f;
+    public static final float NUM_45 = 45f;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_1000 = 1000f;
+    public static final float NUM_20 = 20f;
+    public static final double NUM_2_0 = 2.0;
+    public static final float NUM_0_01 = 0.01f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_0_001 = 0.001f;
+    public static final float NUM_0_08 = 0.08f;
+    public static final float NUM_0_16 = 0.16f;
+    public static final int NUM_32 = 32;
+    public static final long NUM_0xffffffff = 0xffffffffL;
+    public static final int NUM_16 = 16;
+    public static final int NUM_0xf = 0xff;
+    public static final float NUM_255 = 255f;
+    public static final int NUM_8 = 8;
+    public static final int NUM_3 = 3;
+    public static final float NUM_0_0003 = 0.0003f;
+    public static final float NUM_2_0_2 = 2.0f;
+    public static final double NUM_0_6180339887498949 = 0.6180339887498949;
+    public static final int NUM_0x7FFFFFF = 0x7FFFFFFF;
+    public static final int NUM_10000 = 10000;
+    public static final float NUM_10000_2 = 10000f;
+    public static final float NUM_0_65 = 0.65f;
+    public static final float NUM_0_55 = 0.55f;
+    public static final int NUM_31 = 31;
+    public static final float NUM_2 = 2f;
+    public static final float NUM_6 = 6f;
+    public static final float NUM_3_2 = 3f;
+    public static final float NUM_4 = 4f;
+    public static final float NUM_5 = 5f;
+    public static final float NUM_0_5 = 0.5f;
+    public static final int NUM_6_2 = 6;
 
     private final ShaderProgram meshShader;
     private final ShaderProgram meshUnlitShader;
@@ -107,6 +106,11 @@ public class HalfEdgeMeshRuntime {
     private List<TagRange> tagRanges = List.of();
     private ShaderMode shaderMode = ShaderMode.LAMBERT;
 
+    /**
+     * TODO: document {@code HalfEdgeMeshRuntime}.
+     *
+     * @throws Exception TODO: describe
+     */
     public HalfEdgeMeshRuntime() throws Exception {
         this.meshShader = ShaderProgram.ShaderType.Mesh.getShader();
         this.meshUnlitShader = ShaderProgram.ShaderType.MeshUnlit.getShader();
@@ -122,6 +126,11 @@ public class HalfEdgeMeshRuntime {
         this.scalarVbo = Platforms.gl().genBuffers();
     }
 
+    /**
+     * TODO: document {@code upload}.
+     *
+     * @param mesh TODO: describe
+     */
     public void upload(MeshTopology mesh) {
         if (mesh == null) {
             compiledMesh = null;
@@ -137,6 +146,11 @@ public class HalfEdgeMeshRuntime {
         uploadEdgeData(mesh);
     }
 
+    /**
+     * TODO: document {@code reupload}.
+     *
+     * @param mesh TODO: describe
+     */
     public void reupload(MeshTopology mesh) {
         if (mesh == null) {
             compiledMesh = null;
@@ -165,17 +179,27 @@ public class HalfEdgeMeshRuntime {
         throw new IllegalArgumentException("Unsupported mesh for rendering: " + mesh.getClass().getName());
     }
 
+    /**
+     * TODO: document {@code frameCamera}.
+     *
+     * @param camera TODO: describe
+     */
     public void frameCamera(Camera3D camera) {
         if (compiledMesh == null) {
             return;
         }
-        float distance = Math.max(1.5f, compiledMesh.radius * 2.5f);
+        float distance = Math.max(NUM_1_5, compiledMesh.radius * NUM_2_5);
         camera.position.set(compiledMesh.center.x, compiledMesh.center.y, compiledMesh.center.z + distance);
         camera.target.set(compiledMesh.center);
-        camera.fov = 45f;
+        camera.fov = NUM_45;
         camera.updateViewFirstPerson();
     }
 
+    /**
+     * TODO: document {@code render}.
+     *
+     * @param camera TODO: describe
+     */
     public void render(Camera3D camera) {
         if (compiledMesh == null || compiledMesh.indices.length == 0) {
             return;
@@ -186,19 +210,19 @@ public class HalfEdgeMeshRuntime {
 
         int width = Platforms.get().getFrameBufferWidth();
         int height = Platforms.get().getFrameBufferHeight();
-        float aspect = width <= 0 || height <= 0 ? 1f : ((float) width / (float) height);
+        float aspect = width <= 0 || height <= 0 ? NUM_1 : ((float) width / (float) height);
 
-        float far = Math.max(1000f, compiledMesh.radius * 20f);
+        float far = Math.max(NUM_1000, compiledMesh.radius * NUM_20);
         if (orthographic) {
             float dist = camera.position.distance(camera.target);
-            float halfH = dist * (float) Math.tan(Math.toRadians(camera.fov / 2.0));
+            float halfH = dist * (float) Math.tan(Math.toRadians(camera.fov / NUM_2_0));
             float halfW = halfH * aspect;
-            projectionMatrix.identity().ortho(-halfW, halfW, -halfH, halfH, 0.01f, far);
+            projectionMatrix.identity().ortho(-halfW, halfW, -halfH, halfH, NUM_0_01, far);
         } else {
             projectionMatrix.identity().perspective(
                     (float) Math.toRadians((float) camera.fov),
                     aspect,
-                    0.01f,
+                    NUM_0_01,
                     far);
         }
 
@@ -217,13 +241,13 @@ public class HalfEdgeMeshRuntime {
             active.setFloat("scalarMin", scalarMin);
             active.setFloat("scalarMax", scalarMax);
         }
-        active.setMat4("model", modelMatrix);
-        active.setMat4("view", camera.view);
-        active.setMat4("projection", projectionMatrix);
-        active.setVec4("solidColor", solidColor);
+        active.setMat4(MODEL, modelMatrix);
+        active.setMat4(VIEW, camera.view);
+        active.setMat4(PROJECTION, projectionMatrix);
+        active.setVec4(SOLIDCOLOR, solidColor);
         // PATCH-17: faces always render at zero depth bias; only the
         // overlay pass in renderFeatureEdgeOverlay sets a positive bias.
-        active.setFloat("depthBias", 0f);
+        active.setFloat(DEPTHBIAS, NUM_0);
 
         if (shaderMode == ShaderMode.LAMBERT || shaderMode == ShaderMode.STAGES) {
             // Light follows camera so visible faces are always lit.
@@ -232,14 +256,14 @@ public class HalfEdgeMeshRuntime {
             float dy = camera.target.y - camera.position.y;
             float dz = camera.target.z - camera.position.z;
             float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (len > 0.001f) {
+            if (len > NUM_0_001) {
                 lightDir.set(dx / len, dy / len, dz / len);
             }
             active.setVec3("lightDir", lightDir);
             active.setBool("useTexture", false);
             active.setVec3("emissiveColor", emissiveColor);
-            active.setFloat("emissiveStrength", 0.08f);
-            active.setFloat("rimStrength", 0.16f);
+            active.setFloat("emissiveStrength", NUM_0_08);
+            active.setFloat("rimStrength", NUM_0_16);
         }
 
         meshVao.bind();
@@ -256,7 +280,7 @@ public class HalfEdgeMeshRuntime {
             // Per-tag draws: set solidColor per range, issue glDrawElements
             // with a byte offset into the EBO.
             for (TagRange range : tagRanges) {
-                active.setVec4("solidColor", range.color);
+                active.setVec4(SOLIDCOLOR, range.color);
                 Platforms.gl().drawElements(
                         Platforms.gl().TRIANGLES(),
                         range.indexCount,
@@ -274,6 +298,9 @@ public class HalfEdgeMeshRuntime {
         }
     }
 
+    /**
+     * TODO: document {@code dispose}.
+     */
     public void dispose() {
         if (ebo != 0) {
             Platforms.gl().deleteBuffers(ebo);
@@ -331,6 +358,8 @@ public class HalfEdgeMeshRuntime {
      * <p>Callers usually derive categories from {@code
      * SemanticPatchDecomposer.DecompositionDiagnostics} so the on-screen
      * colors match the offline PNG diagnostic pixel-for-pixel.
+     *
+     * @param categories TODO: describe
      */
     public void setFeatureEdgeOverlay(java.util.List<FeatureEdgeCategory> categories) {
         if (categories == null || categories.isEmpty() || compiledMesh == null) {
@@ -351,8 +380,8 @@ public class HalfEdgeMeshRuntime {
         for (FeatureEdgeCategory cat : categories) {
             int start = cursor;
             for (long key : cat.edgeKeys()) {
-                int u = (int) (key >> 32);
-                int v = (int) (key & 0xffffffffL);
+                int u = (int) (key >> NUM_32);
+                int v = (int) (key & NUM_0xffffffff);
                 indices[cursor++] = u;
                 indices[cursor++] = v;
             }
@@ -360,10 +389,10 @@ public class HalfEdgeMeshRuntime {
             if (count > 0) {
                 int rgb = cat.colorRgb();
                 Vector4f color = new Vector4f(
-                        ((rgb >> 16) & 0xff) / 255f,
-                        ((rgb >> 8) & 0xff) / 255f,
-                        (rgb & 0xff) / 255f,
-                        1f);
+                        ((rgb >> NUM_16) & NUM_0xf) / NUM_255,
+                        ((rgb >> NUM_8) & NUM_0xf) / NUM_255,
+                        (rgb & NUM_0xf) / NUM_255,
+                        NUM_1);
                 ranges.add(new FeatureEdgeRange(color, start, count));
             }
         }
@@ -394,6 +423,10 @@ public class HalfEdgeMeshRuntime {
      *
      * <p>Size must equal the current mesh vertex count; shorter arrays are
      * ignored with a no-op.
+     *
+     * @param values TODO: describe
+     * @param min TODO: describe
+     * @param max TODO: describe
      */
     public void setPerVertexScalar(float[] values, float min, float max) {
         if (values == null || compiledMesh == null || values.length < compiledMesh.vertexCount) {
@@ -424,8 +457,8 @@ public class HalfEdgeMeshRuntime {
             System.arraycopy(values, 0, copy, 0, compiledMesh.vertexCount);
         }
         gl.bufferData(gl.ARRAY_BUFFER(), copy, gl.STATIC_DRAW());
-        gl.vertexAttribPointer(3, 1, gl.FLOAT(), false, Float.BYTES, 0);
-        gl.enableVertexAttribArray(3);
+        gl.vertexAttribPointer(NUM_3, 1, gl.FLOAT(), false, Float.BYTES, 0);
+        gl.enableVertexAttribArray(NUM_3);
         scalarUploaded = true;
     }
 
@@ -434,87 +467,147 @@ public class HalfEdgeMeshRuntime {
         scalarUploaded = false;
     }
 
+    /**
+     * TODO: document {@code hasPerVertexScalar}.
+     *
+     * @return TODO: describe
+     */
     public boolean hasPerVertexScalar() { return scalarUploaded; }
+    /**
+     * TODO: document {@code getScalarMin}.
+     *
+     * @return TODO: describe
+     */
     public float getScalarMin() { return scalarMin; }
+    /**
+     * TODO: document {@code getScalarMax}.
+     *
+     * @return TODO: describe
+     */
     public float getScalarMax() { return scalarMax; }
 
     private void renderFeatureEdgeOverlay(Camera3D camera) {
         if (featureEdgeRanges.isEmpty() || meshUnlitShader.ID < 0) return;
         meshUnlitShader.use();
-        meshUnlitShader.setMat4("model", modelMatrix);
-        meshUnlitShader.setMat4("view", camera.view);
-        meshUnlitShader.setMat4("projection", projectionMatrix);
+        meshUnlitShader.setMat4(MODEL, modelMatrix);
+        meshUnlitShader.setMat4(VIEW, camera.view);
+        meshUnlitShader.setMat4(PROJECTION, projectionMatrix);
         // PATCH-17: leave depth test on so back-facing overlay edges get
         // occluded by front-facing faces. A small clip-space bias shifts
         // overlay vertices toward the camera just enough to beat z-fight
         // against the coplanar face triangles they sit on.
-        meshUnlitShader.setFloat("depthBias", 0.0003f);
+        meshUnlitShader.setFloat(DEPTHBIAS, NUM_0_0003);
         meshVao.bind();
         GL gl = Platforms.gl();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), featureEdgeEbo);
-        gl.lineWidth(2.5f);
+        gl.lineWidth(NUM_2_5);
         for (FeatureEdgeRange r : featureEdgeRanges) {
-            meshUnlitShader.setVec4("solidColor", r.color());
+            meshUnlitShader.setVec4(SOLIDCOLOR, r.color());
             gl.drawElements(gl.LINES(), r.indexCount(), gl.UNSIGNED_INT(),
                     r.indexStart() * Integer.BYTES);
         }
         // Reset so a subsequent face draw in the same frame doesn't
         // inherit the overlay bias.
-        meshUnlitShader.setFloat("depthBias", 0f);
+        meshUnlitShader.setFloat(DEPTHBIAS, NUM_0);
     }
 
+    /**
+     * TODO: document {@code renderEdges}.
+     *
+     * @param camera TODO: describe
+     */
     public void renderEdges(Camera3D camera) {
         if (meshUnlitShader.ID < 0 || edgeCount <= 0) {
             return;
         }
         meshUnlitShader.use();
-        meshUnlitShader.setMat4("model", modelMatrix);
-        meshUnlitShader.setMat4("view", camera.view);
-        meshUnlitShader.setMat4("projection", projectionMatrix);
+        meshUnlitShader.setMat4(MODEL, modelMatrix);
+        meshUnlitShader.setMat4(VIEW, camera.view);
+        meshUnlitShader.setMat4(PROJECTION, projectionMatrix);
         meshVao.bind();
-        meshUnlitShader.setVec4("solidColor", edgeFaintColor);
+        meshUnlitShader.setVec4(SOLIDCOLOR, edgeFaintColor);
         Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), edgeEbo);
         Platforms.gl().disable(Platforms.gl().DEPTH_TEST());
-        Platforms.gl().lineWidth(1.5f);
+        Platforms.gl().lineWidth(NUM_1_5);
         Platforms.gl().drawElements(Platforms.gl().LINES(), edgeCount, Platforms.gl().UNSIGNED_INT(), 0);
         Platforms.gl().enable(Platforms.gl().DEPTH_TEST());
 
-        meshUnlitShader.setVec4("solidColor", edgeColor);
-        Platforms.gl().lineWidth(2.0f);
+        meshUnlitShader.setVec4(SOLIDCOLOR, edgeColor);
+        Platforms.gl().lineWidth(NUM_2_0_2);
         Platforms.gl().drawElements(Platforms.gl().LINES(), edgeCount , Platforms.gl().UNSIGNED_INT(), 0);
         
 
     }
 
+    /**
+     * TODO: document {@code getVertexCount}.
+     *
+     * @return TODO: describe
+     */
     public int getVertexCount() {
         return compiledMesh == null ? 0 : compiledMesh.vertexCount;
     }
 
+    /**
+     * TODO: document {@code getFaceCount}.
+     *
+     * @return TODO: describe
+     */
     public int getFaceCount() {
         return compiledMesh == null ? 0 : compiledMesh.faceCount;
     }
 
+    /**
+     * TODO: document {@code getBoundingBoxMin}.
+     *
+     * @return TODO: describe
+     */
     public Vector3f getBoundingBoxMin() {
         return compiledMesh == null ? new Vector3f() : new Vector3f(minBounds);
     }
 
+    /**
+     * TODO: document {@code getBoundingBoxMax}.
+     *
+     * @return TODO: describe
+     */
     public Vector3f getBoundingBoxMax() {
         return compiledMesh == null ? new Vector3f() : new Vector3f(maxBounds);
     }
 
+    /**
+     * TODO: document {@code getCenter}.
+     *
+     * @return TODO: describe
+     */
     public Vector3f getCenter() {
         return compiledMesh == null ? new Vector3f() : new Vector3f(center);
     }
 
+    /**
+     * TODO: document {@code setSolidColor}.
+     *
+     * @param r TODO: describe
+     * @param g TODO: describe
+     * @param b TODO: describe
+     * @param a TODO: describe
+     */
     public void setSolidColor(float r, float g, float b, float a) {
         solidColor.set(r, g, b, a);
     }
 
-    /** Per-instance world transform applied to mesh vertices. Defaults to identity. */
+    /**
+     * Per-instance world transform applied to mesh vertices. Defaults to identity.
+     *
+     * @param m TODO: describe
+     */
     public void setModelMatrix(Matrix4f m) {
         modelMatrix.set(m);
     }
 
+    /**
+     * TODO: document {@code setModelIdentity}.
+     */
     public void setModelIdentity() {
         modelMatrix.identity();
     }
@@ -540,7 +633,7 @@ public class HalfEdgeMeshRuntime {
             return;
         }
         int[] originalIndices = compiledMesh.indices;
-        int triCount = originalIndices.length / 3;
+        int triCount = originalIndices.length / NUM_3;
         int vertexCount = compiledMesh.vertexCount;
         // Validate masks and sort tag names for deterministic priority.
         List<String> tagNames = new ArrayList<>(tags.keySet());
@@ -560,9 +653,9 @@ public class HalfEdgeMeshRuntime {
         // where all three vertices are members). Untagged triangles sort last.
         String[] triTag = new String[triCount];
         for (int t = 0; t < triCount; t++) {
-            int v0 = originalIndices[t * 3];
-            int v1 = originalIndices[t * 3 + 1];
-            int v2 = originalIndices[t * 3 + 2];
+            int v0 = originalIndices[t * NUM_3];
+            int v1 = originalIndices[t * NUM_3 + 1];
+            int v2 = originalIndices[t * NUM_3 + 2];
             for (String name : tagNames) {
                 boolean[] mask = maskByTag.get(name);
                 if (mask == null) continue;
@@ -592,9 +685,9 @@ public class HalfEdgeMeshRuntime {
             if (tris == null || tris.isEmpty()) continue;
             int start = cursor;
             for (int t : tris) {
-                newIndices[cursor++] = originalIndices[t * 3];
-                newIndices[cursor++] = originalIndices[t * 3 + 1];
-                newIndices[cursor++] = originalIndices[t * 3 + 2];
+                newIndices[cursor++] = originalIndices[t * NUM_3];
+                newIndices[cursor++] = originalIndices[t * NUM_3 + 1];
+                newIndices[cursor++] = originalIndices[t * NUM_3 + 2];
             }
             int count = cursor - start;
             ranges.add(new TagRange(name, resolveColor(name), start, count));
@@ -604,9 +697,9 @@ public class HalfEdgeMeshRuntime {
         if (!untagged.isEmpty()) {
             int start = cursor;
             for (int t : untagged) {
-                newIndices[cursor++] = originalIndices[t * 3];
-                newIndices[cursor++] = originalIndices[t * 3 + 1];
-                newIndices[cursor++] = originalIndices[t * 3 + 2];
+                newIndices[cursor++] = originalIndices[t * NUM_3];
+                newIndices[cursor++] = originalIndices[t * NUM_3 + 1];
+                newIndices[cursor++] = originalIndices[t * NUM_3 + 2];
             }
             int count = cursor - start;
             Vector4f untaggedColor = new Vector4f(solidColor);
@@ -620,6 +713,9 @@ public class HalfEdgeMeshRuntime {
      * Explicit colour override for a tag. Takes precedence over the
      * stable-hash fallback in {@link #resolveColor(String)}. Must be called
      * before {@link #setTags(Map)} to take effect in the computed ranges.
+     *
+     * @param tag TODO: describe
+     * @param rgba TODO: describe
      */
     public void setTagColor(String tag, Vector4f rgba) {
         tagColorOverrides.put(tag, new Vector4f(rgba));
@@ -638,10 +734,20 @@ public class HalfEdgeMeshRuntime {
         }
     }
 
+    /**
+     * TODO: document {@code getShaderMode}.
+     *
+     * @return TODO: describe
+     */
     public ShaderMode getShaderMode() {
         return shaderMode;
     }
 
+    /**
+     * TODO: document {@code setShaderMode}.
+     *
+     * @param mode TODO: describe
+     */
     public void setShaderMode(ShaderMode mode) {
         this.shaderMode = mode == null ? ShaderMode.LAMBERT : mode;
     }
@@ -657,45 +763,48 @@ public class HalfEdgeMeshRuntime {
      * {@code PatchRenderer.uniquePatchColor(pid)} for a tag named
      * {@code "patch_<pid>"}, so tags originating from the decomposer render
      * identically in the live viewer and the offline multiview PNGs.
+     *
+     * @param tagName TODO: describe
+     * @return TODO: describe
      */
     public static Vector4f stableTagColor(String tagName) {
         int pid = -1;
-        if (tagName != null && tagName.startsWith("patch_")) {
+        if (tagName != null && tagName.startsWith(PATCH)) {
             try {
-                pid = Integer.parseInt(tagName.substring("patch_".length()));
+                pid = Integer.parseInt(tagName.substring(PATCH.length()));
             } catch (NumberFormatException ignored) {}
         }
         float h;
         if (pid >= 0) {
-            h = (float) ((pid * 0.6180339887498949) % 1.0);
+            h = (float) ((pid * NUM_0_6180339887498949) % 1.0);
         } else {
             int hash = stableHash(tagName == null ? "" : tagName);
-            h = ((hash & 0x7FFFFFFF) % 10000) / 10000f;
+            h = ((hash & NUM_0x7FFFFFF) % NUM_10000) / NUM_10000_2;
         }
-        float[] rgb = hslToRgb(h, 0.65f, 0.55f);
-        return new Vector4f(rgb[0], rgb[1], rgb[2], 1f);
+        float[] rgb = hslToRgb(h, NUM_0_65, NUM_0_55);
+        return new Vector4f(rgb[0], rgb[1], rgb[2], NUM_1);
     }
 
     private static int stableHash(String s) {
         int h = 0;
         for (int i = 0; i < s.length(); i++) {
-            h = 31 * h + s.charAt(i);
+            h = NUM_31 * h + s.charAt(i);
         }
         return h;
     }
 
     private static float[] hslToRgb(float h, float s, float l) {
-        float c = (1f - Math.abs(2f * l - 1f)) * s;
-        float hp = h * 6f;
-        float x = c * (1f - Math.abs(hp % 2f - 1f));
-        float r1 = 0f, g1 = 0f, b1 = 0f;
-        if (hp < 1f)      { r1 = c; g1 = x; }
-        else if (hp < 2f) { r1 = x; g1 = c; }
-        else if (hp < 3f) { g1 = c; b1 = x; }
-        else if (hp < 4f) { g1 = x; b1 = c; }
-        else if (hp < 5f) { r1 = x; b1 = c; }
+        float c = (NUM_1 - Math.abs(NUM_2 * l - NUM_1)) * s;
+        float hp = h * NUM_6;
+        float x = c * (NUM_1 - Math.abs(hp % NUM_2 - NUM_1));
+        float r1 = NUM_0, g1 = NUM_0, b1 = NUM_0;
+        if (hp < NUM_1)      { r1 = c; g1 = x; }
+        else if (hp < NUM_2) { r1 = x; g1 = c; }
+        else if (hp < NUM_3_2) { g1 = c; b1 = x; }
+        else if (hp < NUM_4) { g1 = x; b1 = c; }
+        else if (hp < NUM_5) { r1 = x; b1 = c; }
         else              { r1 = c; b1 = x; }
-        float m = l - c * 0.5f;
+        float m = l - c * NUM_0_5;
         return new float[]{
                 Math.max(0, Math.min(1, r1 + m)),
                 Math.max(0, Math.min(1, g1 + m)),
@@ -713,18 +822,38 @@ public class HalfEdgeMeshRuntime {
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), uploadBuffer, usage);
     }
 
+    /**
+     * TODO: document {@code isWireframe}.
+     *
+     * @return TODO: describe
+     */
     public boolean isWireframe() {
         return wireframe;
     }
 
+    /**
+     * TODO: document {@code setWireframe}.
+     *
+     * @param wireframe TODO: describe
+     */
     public void setWireframe(boolean wireframe) {
         this.wireframe = wireframe;
     }
 
+    /**
+     * TODO: document {@code isOrthographic}.
+     *
+     * @return TODO: describe
+     */
     public boolean isOrthographic() {
         return orthographic;
     }
 
+    /**
+     * TODO: document {@code setOrthographic}.
+     *
+     * @param orthographic TODO: describe
+     */
     public void setOrthographic(boolean orthographic) {
         this.orthographic = orthographic;
     }
@@ -738,11 +867,11 @@ public class HalfEdgeMeshRuntime {
         meshVao.bind();
         meshVbo.bind(gl.ARRAY_BUFFER());
         meshVbo.uploadData(gl.ARRAY_BUFFER(), compiledMesh.vertices, usage);
-        gl.vertexAttribPointer(0, 3, gl.FLOAT(), false, 8 * Float.BYTES, 0);
+        gl.vertexAttribPointer(0, NUM_3, gl.FLOAT(), false, NUM_8 * Float.BYTES, 0);
         gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(1, 3, gl.FLOAT(), false, 8 * Float.BYTES, 3 * Float.BYTES);
+        gl.vertexAttribPointer(1, NUM_3, gl.FLOAT(), false, NUM_8 * Float.BYTES, NUM_3 * Float.BYTES);
         gl.enableVertexAttribArray(1);
-        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, 8 * Float.BYTES, 6 * Float.BYTES);
+        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, NUM_8 * Float.BYTES, NUM_6_2 * Float.BYTES);
         gl.enableVertexAttribArray(2);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), ebo);
@@ -762,4 +891,46 @@ public class HalfEdgeMeshRuntime {
         }
         return indexBuffer;
     }
+
+    /**
+     * Shading mode for the main mesh draw.
+     * <ul>
+     *   <li>{@link #LAMBERT} — default lit look.</li>
+     *   <li>{@link #FLAT} — unlit; every fragment writes its tag's exact color
+     *       so VLMs / pixel samplers can map (x,y) → patch deterministically.</li>
+     *   <li>{@link #STAGES} — LAMBERT base + feature-edge overlay showing
+     *       which detector fires where (dihedral / principal / crest /
+     *       saddle / multi-source).</li>
+     *   <li>{@link #CREST_VS_BOUNDARY} — FLAT base + overlay of patch
+     *       boundaries vs crest edges, categorized as boundary-only (not
+     *       crest-backed), crest-ignored, or crest-honored.</li>
+     *   <li>{@link #SCALAR} — per-vertex scalar value mapped to a thermal
+     *       ramp (deep indigo → orange → pale yellow). Value comes from
+     *       {@link #setPerVertexScalar(float[])} and is interpolated
+     *       across the triangle. Used for heat-map diagnostics such as
+     *       Coons reconstruction error or curvature magnitude.</li>
+     *   <li>{@link #MSC} — Morse-Smale complex overlay (PATCH-23): arcs
+     *       drawn as black polylines through the feature-edge overlay
+     *       infrastructure so they get PATCH-17 depth-aware occlusion.
+     *       Critical-point dots are still CPU-only for now.</li>
+     * </ul>
+     */
+    public enum ShaderMode { LAMBERT, FLAT, STAGES, CREST_VS_BOUNDARY, SCALAR, MSC }
+
+    /**
+     * A contiguous range inside the current EBO that all belongs to one tag.
+     * The render loop iterates these, setting {@code solidColor} per range.
+     */
+    public record TagRange(String tagName, Vector4f color, int indexStart, int indexCount) {}
+
+    /** One overlay line-draw pass: color + contiguous range in the feature-edge EBO. */
+    public record FeatureEdgeRange(Vector4f color, int indexStart, int indexCount) {}
+
+    /**
+     * One category of overlay edges: a color and the edge keys (packed {@code
+     * u<<32 | v}, low-endpoint in high bits) that should draw in that color.
+     * Categories are drawn in the order supplied, so later ones overpaint
+     * earlier ones where they share edges.
+     */
+    public record FeatureEdgeCategory(int colorRgb, java.util.Collection<Long> edgeKeys) {}
 }

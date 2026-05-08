@@ -16,10 +16,13 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "edge_paths_to_selection")
 public class EdgePathsToSelectionNode implements MeshNode {
+    public static final String START_2 = "start";
+    public static final String NEXT_VERTEX_2 = "next_vertex";
+    public static final String SELECTION_2 = "selection";
 
-    private static final InputPort START = new InputPort("start", PortType.BOOLEAN, false);
-    private static final InputPort NEXT_VERTEX = new InputPort("next_vertex", PortType.INT, 0, 0f, 1000000f);
-    private static final OutputPort SELECTION = new OutputPort("selection", PortType.BOOLEAN);
+    private static final InputPort START = new InputPort(START_2, PortType.BOOLEAN, false);
+    private static final InputPort NEXT_VERTEX = new InputPort(NEXT_VERTEX_2, PortType.INT, 0, 0f, 1000000f);
+    private static final OutputPort SELECTION = new OutputPort(SELECTION_2, PortType.BOOLEAN);
 
     @Override
     public List<InputPort> inputs() {
@@ -39,23 +42,23 @@ public class EdgePathsToSelectionNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "start", "Per-vertex BoolField marking path start vertices.",
-                "next_vertex", "Per-vertex IntField: next-hop vertex index for each vertex (from input_shortest_edge_paths).",
-                "selection", "Per-edge BoolField: true for edges that lie on any traced path."
+                START_2, "Per-vertex BoolField marking path start vertices.",
+                NEXT_VERTEX_2, "Per-vertex IntField: next-hop vertex index for each vertex (from input_shortest_edge_paths).",
+                SELECTION_2, "Per-edge BoolField: true for edges that lie on any traced path."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Object no = FieldBroadcast.getInputOrDefault(ctx, "next_vertex", NEXT_VERTEX.defaultValue());
+        Object no = FieldBroadcast.getInputOrDefault(ctx, NEXT_VERTEX_2, NEXT_VERTEX.defaultValue());
         var fc = ctx.fieldContext();
         if (fc == null || !(fc instanceof MeshFieldContext mfc) || !(no instanceof IntField next)) {
-            ctx.setOutput("selection", false);
+            ctx.setOutput(SELECTION_2, false);
             return;
         }
         MeshTopology mesh = mfc.mesh();
         if (mesh == null || next.length() != mesh.vertexCount()) {
-            ctx.setOutput("selection", false);
+            ctx.setOutput(SELECTION_2, false);
             return;
         }
 
@@ -76,7 +79,7 @@ public class EdgePathsToSelectionNode implements MeshNode {
             int nb = next.get(ib);
             sel[ei] = na == ib || nb == ia;
         }
-        ctx.setOutput("selection", new BoolField(sel));
+        ctx.setOutput(SELECTION_2, new BoolField(sel));
     }
 
     private static int vertexActiveIndex(MeshTopology mesh, int vertexId) {

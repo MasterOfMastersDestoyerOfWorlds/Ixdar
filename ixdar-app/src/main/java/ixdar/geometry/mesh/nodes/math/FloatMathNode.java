@@ -15,11 +15,16 @@ import ixdar.annotations.meshnode.PortType;
  */
 @MeshNodeAnnotation(id = "float_math")
 public class FloatMathNode implements MeshNode {
+    public static final String OPERATION_2 = "operation";
+    public static final String ADD = "ADD";
+    public static final String A_2 = "a";
+    public static final String B_2 = "b";
+    public static final String RESULT_2 = "result";
 
-    private static final InputPort OPERATION = new InputPort("operation", PortType.STRING, "ADD");
-    private static final InputPort A = new InputPort("a", PortType.FLOAT, 0.0f, -1000f, 1000f);
-    private static final InputPort B = new InputPort("b", PortType.FLOAT, 0.0f, -1000f, 1000f);
-    private static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
+    private static final InputPort OPERATION = new InputPort(OPERATION_2, PortType.STRING, ADD);
+    private static final InputPort A = new InputPort(A_2, PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final InputPort B = new InputPort(B_2, PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final OutputPort RESULT = new OutputPort(RESULT_2, PortType.FLOAT);
 
     @Override
     public String description() {
@@ -29,10 +34,10 @@ public class FloatMathNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "operation", "Op name: ADD, SUBTRACT, MULTIPLY, DIVIDE, POWER, MINIMUM, MAXIMUM, ABSOLUTE, FRACT, SIN, COS, SQRT, NEGATE, MODULO, ATAN2.",
-                "a", "Left operand (scalar or per-vertex FloatField).",
-                "b", "Right operand. Ignored for single-operand ops (ABSOLUTE, FRACT, SIN, COS, SQRT, NEGATE).",
-                "result", "Per-element float."
+                OPERATION_2, "Op name: ADD, SUBTRACT, MULTIPLY, DIVIDE, POWER, MINIMUM, MAXIMUM, ABSOLUTE, FRACT, SIN, COS, SQRT, NEGATE, MODULO, ATAN2.",
+                A_2, "Left operand (scalar or per-vertex FloatField).",
+                B_2, "Right operand. Ignored for single-operand ops (ABSOLUTE, FRACT, SIN, COS, SQRT, NEGATE).",
+                RESULT_2, "Per-element float."
         );
     }
 
@@ -48,14 +53,14 @@ public class FloatMathNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        String op = ctx.getInput("operation", String.class);
+        String op = ctx.getInput(OPERATION_2, String.class);
         if (op == null) {
-            op = "ADD";
+            op = ADD;
         } else {
             op = op.trim().toUpperCase();
         }
-        Object ao = FieldBroadcast.getInputOrDefault(ctx, "a", A.defaultValue());
-        Object bo = FieldBroadcast.getInputOrDefault(ctx, "b", B.defaultValue());
+        Object ao = FieldBroadcast.getInputOrDefault(ctx, A_2, A.defaultValue());
+        Object bo = FieldBroadcast.getInputOrDefault(ctx, B_2, B.defaultValue());
 
         if (ao instanceof FloatField || bo instanceof FloatField) {
             int n = FieldBroadcast.floatFieldLength(ao, bo);
@@ -65,18 +70,18 @@ public class FloatMathNode implements MeshNode {
                 float b = FieldBroadcast.floatAt(bo, i, 0f);
                 out[i] = evalOp(op, a, b);
             }
-            ctx.setOutput("result", new FloatField(out));
+            ctx.setOutput(RESULT_2, new FloatField(out));
             return;
         }
 
         float a = FieldBroadcast.floatScalarOrDefault(ao, 0f);
         float b = FieldBroadcast.floatScalarOrDefault(bo, 0f);
-        ctx.setOutput("result", evalOp(op, a, b));
+        ctx.setOutput(RESULT_2, evalOp(op, a, b));
     }
 
     private static float evalOp(String op, float a, float b) {
         return switch (op) {
-            case "ADD" -> a + b;
+            case ADD -> a + b;
             case "SUBTRACT" -> a - b;
             case "MULTIPLY" -> a * b;
             case "DIVIDE" -> b == 0f ? 0f : a / b;

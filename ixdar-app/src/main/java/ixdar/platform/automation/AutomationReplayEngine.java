@@ -14,10 +14,10 @@ import com.google.gson.JsonObject;
 import ixdar.platform.automation.endpoints.AutomationRuntime;
 
 public class AutomationReplayEngine {
-    public enum ReplayMode {
-        ABSTRACT,
-        RAW
-    }
+    public static final String RUNNING = "running";
+    public static final String TIMESTAMPMS = "timestampMs";
+    public static final String CANCELLED = "cancelled";
+    public static final int NUM_50 = 50;
 
     private static final Gson GSON = new Gson();
 
@@ -28,26 +28,58 @@ public class AutomationReplayEngine {
     private volatile String lastReplayStatus = "idle";
     private volatile String lastReplayFile = "";
 
+    /**
+     * TODO: document {@code AutomationReplayEngine}.
+     *
+     * @param runtime TODO: describe
+     */
     public AutomationReplayEngine(AutomationRuntime runtime) {
         this.runtime = runtime;
     }
 
+    /**
+     * TODO: document {@code isReplaying}.
+     *
+     * @return TODO: describe
+     */
     public boolean isReplaying() {
         return replaying;
     }
 
+    /**
+     * TODO: document {@code isPaused}.
+     *
+     * @return TODO: describe
+     */
     public boolean isPaused() {
         return paused;
     }
 
+    /**
+     * TODO: document {@code getLastReplayStatus}.
+     *
+     * @return TODO: describe
+     */
     public String getLastReplayStatus() {
         return lastReplayStatus;
     }
 
+    /**
+     * TODO: document {@code getLastReplayFile}.
+     *
+     * @return TODO: describe
+     */
     public String getLastReplayFile() {
         return lastReplayFile;
     }
 
+    /**
+     * TODO: document {@code startReplay}.
+     *
+     * @param filePath TODO: describe
+     * @param mode TODO: describe
+     * @return TODO: describe
+     */
     public synchronized boolean startReplay(String filePath, ReplayMode mode) {
         if (replaying) {
             return false;
@@ -55,7 +87,7 @@ public class AutomationReplayEngine {
         replaying = true;
         paused = false;
         cancelRequested = false;
-        lastReplayStatus = "running";
+        lastReplayStatus = RUNNING;
         lastReplayFile = filePath;
         Thread thread = new Thread(() -> runReplay(filePath, mode), "ixdar-automation-replay");
         thread.setDaemon(true);
@@ -76,21 +108,21 @@ public class AutomationReplayEngine {
             for (JsonElement element : source) {
                 events.add(element.getAsJsonObject());
             }
-            events.sort(Comparator.comparingLong(o -> o.get("timestampMs").getAsLong()));
+            events.sort(Comparator.comparingLong(o -> o.get(TIMESTAMPMS).getAsLong()));
             long previousTime = 0L;
             for (JsonObject event : events) {
                 if (cancelRequested) {
-                    lastReplayStatus = "cancelled";
+                    lastReplayStatus = CANCELLED;
                     return;
                 }
                 while (paused && !cancelRequested) {
-                    Thread.sleep(50);
+                    Thread.sleep(NUM_50);
                 }
                 if (cancelRequested) {
-                    lastReplayStatus = "cancelled";
+                    lastReplayStatus = CANCELLED;
                     return;
                 }
-                long currentTime = event.get("timestampMs").getAsLong();
+                long currentTime = event.get(TIMESTAMPMS).getAsLong();
                 long delay = Math.max(0, currentTime - previousTime);
                 if (delay > 0) {
                     Thread.sleep(delay);
@@ -108,6 +140,9 @@ public class AutomationReplayEngine {
         }
     }
 
+    /**
+     * TODO: document {@code pause}.
+     */
     public void pause() {
         if (replaying) {
             paused = true;
@@ -115,16 +150,26 @@ public class AutomationReplayEngine {
         }
     }
 
+    /**
+     * TODO: document {@code resume}.
+     */
     public void resume() {
         if (replaying) {
             paused = false;
-            lastReplayStatus = "running";
+            lastReplayStatus = RUNNING;
         }
     }
 
+    /**
+     * TODO: document {@code cancel}.
+     */
     public void cancel() {
         if (replaying) {
             cancelRequested = true;
         }
+    }
+    public enum ReplayMode {
+        ABSTRACT,
+        RAW
     }
 }

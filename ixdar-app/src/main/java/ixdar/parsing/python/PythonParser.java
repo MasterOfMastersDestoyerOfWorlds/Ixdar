@@ -10,45 +10,22 @@ import ixdar.parsing.python.PythonLexer.Token;
 import ixdar.parsing.python.PythonLexer.TokenType;
 
 public class PythonParser {
+    public static final String LINE = "Line ";
+    public static final String STR = "'";
+    public static final String TRUE = "true";
+    public static final String FALSE = "false";
+    public static final String EXPECTED_PORT_NAME_AFTER = "Expected port name after '.'";
     private final PythonLexer lexer;
     private Token current;
     private int inlineCounter = 0;
     private final List<ParsedNode> pendingInlineNodes = new ArrayList<>();
     private final Map<String, FunctionDef> functionDefs = new HashMap<>();
 
-    // Temporary AST structures to hold parsed data
-    public static class ParsedNode {
-        public String id;
-        public String type;
-        public int line;
-        public Map<String, Object> arguments = new HashMap<>();
-    }
-
-    public static class NodeReference {
-        public String nodeId;
-        public String portName;
-        public NodeReference(String n, String p) { nodeId = n; portName = p; }
-    }
-
-    public static class FunctionParam {
-        public String name;
-        public String type;
-        public FunctionParam(String name, String type) { this.name = name; this.type = type; }
-    }
-
-    public static class FunctionDef {
-        public String name;
-        public List<FunctionParam> params;
-        public String returnType;
-        public List<ParsedNode> body;
-        public FunctionDef(String name, List<FunctionParam> params, String returnType, List<ParsedNode> body) {
-            this.name = name;
-            this.params = params;
-            this.returnType = returnType;
-            this.body = body;
-        }
-    }
-
+    /**
+     * TODO: document {@code PythonParser}.
+     *
+     * @param lexer TODO: describe
+     */
     public PythonParser(PythonLexer lexer) {
         this.lexer = lexer;
         this.current = lexer.nextToken();
@@ -64,10 +41,15 @@ public class PythonParser {
             advance();
             return t;
         }
-        throw new RuntimeException("Line " + current.line + ": " + errorMessage + ". Found '" + current.value + "'");
+        throw new RuntimeException(LINE + current.line + ": " + errorMessage + ". Found '" + current.value + STR);
     }
 
     // Graph -> (FunctionDef | Statement)* EOF
+    /**
+     * TODO: document {@code parseGraph}.
+     *
+     * @return TODO: describe
+     */
     public List<ParsedNode> parseGraph() {
         List<ParsedNode> nodes = new ArrayList<>();
         while (current.type != TokenType.EOF) {
@@ -83,7 +65,11 @@ public class PythonParser {
         return nodes;
     }
 
-    /** Returns function definitions parsed from the graph. */
+    /**
+     * Returns function definitions parsed from the graph.
+     *
+     * @return TODO: describe
+     */
     public Map<String, FunctionDef> functionDefs() {
         return functionDefs;
     }
@@ -179,8 +165,8 @@ public class PythonParser {
             // so LLMs can write mode="EQUAL" or region="true" and it still works
             String val = current.value;
             advance();
-            if ("true".equalsIgnoreCase(val)) return Boolean.TRUE;
-            if ("false".equalsIgnoreCase(val)) return Boolean.FALSE;
+            if (TRUE.equalsIgnoreCase(val)) return Boolean.TRUE;
+            if (FALSE.equalsIgnoreCase(val)) return Boolean.FALSE;
             return val;
         } else if (current.type == TokenType.IDENTIFIER) {
             String id = consume(TokenType.IDENTIFIER, "Expected identifier").value;
@@ -189,18 +175,18 @@ public class PythonParser {
             }
             if (current.type == TokenType.DOT) {
                 advance();
-                String port = consume(TokenType.IDENTIFIER, "Expected port name after '.'").value;
+                String port = consume(TokenType.IDENTIFIER, EXPECTED_PORT_NAME_AFTER).value;
                 return new NodeReference(id, port);
             }
-            if ("true".equalsIgnoreCase(id)) {
+            if (TRUE.equalsIgnoreCase(id)) {
                 return Boolean.TRUE;
             }
-            if ("false".equalsIgnoreCase(id)) {
+            if (FALSE.equalsIgnoreCase(id)) {
                 return Boolean.FALSE;
             }
             return id;
         }
-        throw new RuntimeException("Line " + current.line + ": Expected Number, Vector, or Node Reference, found '" + current.value + "'");
+        throw new RuntimeException(LINE + current.line + ": Expected Number, Vector, or Node Reference, found '" + current.value + STR);
     }
 
     // InlineCall -> Identifier "(" Arguments ")" ("." Identifier)?
@@ -219,7 +205,7 @@ public class PythonParser {
         pendingInlineNodes.add(node);
         if (current.type == TokenType.DOT) {
             advance();
-            String port = consume(TokenType.IDENTIFIER, "Expected port name after '.'").value;
+            String port = consume(TokenType.IDENTIFIER, EXPECTED_PORT_NAME_AFTER).value;
             return new NodeReference(syntheticId, port);
         }
         return new NodeReference(syntheticId, "result");
@@ -253,5 +239,58 @@ public class PythonParser {
         node.arguments.put("z", zVal);
         pendingInlineNodes.add(node);
         return new NodeReference(syntheticId, "vector");
+    }
+
+    // Temporary AST structures to hold parsed data
+    public static class ParsedNode {
+        public String id;
+        public String type;
+        public int line;
+        public Map<String, Object> arguments = new HashMap<>();
+    }
+
+    public static class NodeReference {
+        public String nodeId;
+        public String portName;
+        /**
+         * TODO: document {@code NodeReference}.
+         *
+         * @param n TODO: describe
+         * @param p TODO: describe
+         */
+        public NodeReference(String n, String p) { nodeId = n; portName = p; }
+    }
+
+    public static class FunctionParam {
+        public String name;
+        public String type;
+        /**
+         * TODO: document {@code FunctionParam}.
+         *
+         * @param name TODO: describe
+         * @param type TODO: describe
+         */
+        public FunctionParam(String name, String type) { this.name = name; this.type = type; }
+    }
+
+    public static class FunctionDef {
+        public String name;
+        public List<FunctionParam> params;
+        public String returnType;
+        public List<ParsedNode> body;
+        /**
+         * TODO: document {@code FunctionDef}.
+         *
+         * @param name TODO: describe
+         * @param params TODO: describe
+         * @param returnType TODO: describe
+         * @param body TODO: describe
+         */
+        public FunctionDef(String name, List<FunctionParam> params, String returnType, List<ParsedNode> body) {
+            this.name = name;
+            this.params = params;
+            this.returnType = returnType;
+            this.body = body;
+        }
     }
 }

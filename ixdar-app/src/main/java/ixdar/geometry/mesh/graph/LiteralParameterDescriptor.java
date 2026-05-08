@@ -29,6 +29,7 @@ public record LiteralParameterDescriptor(
         float defaultValue,
         Float minValue,
         Float maxValue) {
+    public static final String STR = ".";
 
     private static final Set<String> INPUT_NODE_TYPES = Set.of(
             "input_float", "input_int", "input_boolean", "float_curve");
@@ -64,13 +65,13 @@ public record LiteralParameterDescriptor(
                 InputPort port = portMap.get(argName);
                 if (port == null) continue;
 
-                String blockKey = n.type + "." + argName;
+                String blockKey = n.type + STR + argName;
                 if (BLOCKLISTED_PORTS.contains(blockKey)) continue;
 
                 if (port.type() == PortType.FLOAT && value instanceof Number num) {
                     out.add(new LiteralParameterDescriptor(
                             n.id, n.type, argName,
-                            n.id + "." + argName,
+                            n.id + STR + argName,
                             num.floatValue(),
                             port.minValue(), port.maxValue()));
                 } else if (port.type() == PortType.VECTOR3 && value instanceof Vector3Value v3) {
@@ -78,15 +79,15 @@ public record LiteralParameterDescriptor(
                     Float max = port.maxValue();
                     out.add(new LiteralParameterDescriptor(
                             n.id, n.type, argName,
-                            n.id + "." + argName + ".x",
+                            n.id + STR + argName + ".x",
                             v3.x(), min, max));
                     out.add(new LiteralParameterDescriptor(
                             n.id, n.type, argName,
-                            n.id + "." + argName + ".y",
+                            n.id + STR + argName + ".y",
                             v3.y(), min, max));
                     out.add(new LiteralParameterDescriptor(
                             n.id, n.type, argName,
-                            n.id + "." + argName + ".z",
+                            n.id + STR + argName + ".z",
                             v3.z(), min, max));
                 }
                 // Skip INT, STRING, BOOLEAN, MESH, GEOMETRY_BUNDLE, CLOSURE, ROTATION

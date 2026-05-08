@@ -16,14 +16,17 @@ import ixdar.platform.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "/ui/screenshot", method = APIMethod.POST)
 public class Screenshot extends AutomationEndpoint implements AutomationRoute {
+    public static final String PATH = "path";
+    public static final String INLINE = "inline";
+    public static final int NUM_4 = 4;
 
     @Override
     public JsonObject endpointHandler(JsonObject body)
             throws Exception {
-        String outputPath = body.has("path")
-                ? body.get("path").getAsString()
+        String outputPath = body.has(PATH)
+                ? body.get(PATH).getAsString()
                 : "";
-        boolean inline = body.has("inline") && body.get("inline").getAsBoolean();
+        boolean inline = body.has(INLINE) && body.get(INLINE).getAsBoolean();
         return runtime.runOnMainThread(() -> {
             int width = Platforms.get().getFrameBufferWidth();
             int height = Platforms.get().getFrameBufferHeight();
@@ -34,7 +37,7 @@ public class Screenshot extends AutomationEndpoint implements AutomationRoute {
                     height,
                     Platforms.gl().RGBA(),
                     Platforms.gl().UNSIGNED_BYTE(),
-                    width * height * 4);
+                    width * height * NUM_4);
             BufferedImage image = new BufferedImage(
                     width,
                     height,
@@ -62,7 +65,7 @@ public class Screenshot extends AutomationEndpoint implements AutomationRoute {
             ImageIO.write(image, "PNG", out);
             byte[] pngBytes = imageBytes(image);
             JsonObject result = new JsonObject();
-            result.addProperty("path", out.getAbsolutePath());
+            result.addProperty(PATH, out.getAbsolutePath());
             result.addProperty("width", width);
             result.addProperty("height", height);
             result.addProperty("sha256", sha256(pngBytes));

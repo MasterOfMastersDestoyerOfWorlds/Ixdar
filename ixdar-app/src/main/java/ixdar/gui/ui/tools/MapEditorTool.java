@@ -22,21 +22,11 @@ import ixdar.scenes.main.MainScene;
 
 public class MapEditorTool extends Tool {
 
-    public enum States {
-        Add,
-        Delete,
-        Move,
-        Group,
-        UnGroup;
+    public static ArrayList<Color> colors;
+    public static Class<? extends PointCollection> currentCollectionType;
+    public static PointCollection currentCollection;
 
-        public boolean atOrAfter(States state) {
-            return this.ordinal() >= state.ordinal();
-        }
-
-        public boolean before(States state) {
-            return this.ordinal() < state.ordinal();
-        }
-    }
+    private static HashMap<Class<? extends Geometry>, PointCollection> pointCollectionClassMap;
 
     public States state = States.Add;
 
@@ -47,18 +37,18 @@ public class MapEditorTool extends Tool {
     public Vector2f hoverPoint;
     HashMap<Long, Integer> colorLookup;
 
-    public static ArrayList<Color> colors;
-
-    private static HashMap<Class<? extends Geometry>, PointCollection> pointCollectionClassMap;
-    public static Class<? extends PointCollection> currentCollectionType;
-    public static PointCollection currentCollection;
-
+    /**
+     * TODO: document {@code MapEditorTool}.
+     */
     public MapEditorTool() {
         disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.CanSwitchLayer,
                 Toggle.DrawKnotGradient, Toggle.DrawMetroDiagram, Toggle.DrawDisplayedKnots };
         pointCollectionClassMap = Terminal.pointCollectionClassMap;
     }
 
+    /**
+     * TODO: document {@code reset}.
+     */
     @Override
     public void reset() {
         super.reset();
@@ -74,6 +64,12 @@ public class MapEditorTool extends Tool {
         instruct();
     }
 
+    /**
+     * TODO: document {@code calculateHover}.
+     *
+     * @param mouseX TODO: describe
+     * @param mouseY TODO: describe
+     */
     @Override
     public void calculateHover(float mouseX, float mouseY) {
         mouseX = mouseX - ScreenOffsetX;
@@ -90,10 +86,19 @@ public class MapEditorTool extends Tool {
         }
     }
 
+    /**
+     * TODO: document {@code hoverChanged}.
+     */
     @Override
     public void hoverChanged() {
     }
 
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param camera TODO: describe
+     * @param minLineThickness TODO: describe
+     */
     @Override
     public void draw(Camera2D camera, float minLineThickness) {
         if (hoverPoint != null) {
@@ -101,20 +106,39 @@ public class MapEditorTool extends Tool {
         }
     }
 
+    /**
+     * TODO: document {@code calculateClick}.
+     *
+     * @param mouseX TODO: describe
+     * @param mouseY TODO: describe
+     */
     @Override
     public void calculateClick(float mouseX, float mouseY) {
 
     }
 
+    /**
+     * TODO: document {@code click}.
+     *
+     * @param s TODO: describe
+     * @param kp TODO: describe
+     * @param cp TODO: describe
+     */
     @Override
     public void click(Segment s, Knot kp, Knot cp) {
         confirm();
     }
 
+    /**
+     * TODO: document {@code confirm}.
+     */
     @Override
     public void confirm() {
     }
 
+    /**
+     * TODO: document {@code instruct}.
+     */
     public void instruct() {
         switch (state) {
         case Add:
@@ -138,12 +162,18 @@ public class MapEditorTool extends Tool {
         }
     }
 
+    /**
+     * TODO: document {@code increaseViewLayer}.
+     */
     @Override
     public void increaseViewLayer() {
         States[] states = States.values();
         state = state.ordinal() + 1 >= states.length ? states[0] : states[state.ordinal() + 1];
     }
 
+    /**
+     * TODO: document {@code decreaseViewLayer}.
+     */
     @Override
     public void decreaseViewLayer() {
         States[] states = States.values();
@@ -151,6 +181,11 @@ public class MapEditorTool extends Tool {
                 : states[state.ordinal() - 1];
     }
 
+    /**
+     * TODO: document {@code buildInfoText}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public HyperString buildInfoText() {
         HyperString h = new HyperString();
@@ -167,23 +202,71 @@ public class MapEditorTool extends Tool {
         return h;
     }
 
+    /**
+     * TODO: document {@code displayName}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String displayName() {
         return "Map Editor";
     }
 
+    /**
+     * TODO: document {@code fullName}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String fullName() {
         return "mapeditor";
     }
 
+    /**
+     * TODO: document {@code shortName}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String shortName() {
         return "me";
     }
 
+    /**
+     * TODO: document {@code desc}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String desc() {
         return "A tool that allows the user to add, move, or remove points in an ixdar file.";
+    }
+
+    public enum States {
+        Add,
+        Delete,
+        Move,
+        Group,
+        UnGroup;
+
+        /**
+         * TODO: document {@code atOrAfter}.
+         *
+         * @param state TODO: describe
+         * @return TODO: describe
+         */
+        public boolean atOrAfter(States state) {
+            return this.ordinal() >= state.ordinal();
+        }
+
+        /**
+         * TODO: document {@code before}.
+         *
+         * @param state TODO: describe
+         * @return TODO: describe
+         */
+        public boolean before(States state) {
+            return this.ordinal() < state.ordinal();
+        }
     }
 }

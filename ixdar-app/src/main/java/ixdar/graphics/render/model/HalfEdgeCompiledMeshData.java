@@ -12,6 +12,18 @@ public class HalfEdgeCompiledMeshData {
     public final Vector3f center;
     public final float radius;
 
+    /**
+     * TODO: document {@code HalfEdgeCompiledMeshData}.
+     *
+     * @param vertices TODO: describe
+     * @param indices TODO: describe
+     * @param vertexCount TODO: describe
+     * @param faceCount TODO: describe
+     * @param minBounds TODO: describe
+     * @param maxBounds TODO: describe
+     * @param center TODO: describe
+     * @param radius TODO: describe
+     */
     public HalfEdgeCompiledMeshData(
             float[] vertices,
             int[] indices,

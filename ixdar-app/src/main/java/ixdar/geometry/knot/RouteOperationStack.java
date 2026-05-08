@@ -8,13 +8,13 @@ import java.util.Stack;
  */
 public class RouteOperationStack {
 
-    /** Stack of operations that can be undone */
+    /** Stack of operations that can be undone. */
     private Stack<OperationRecord> undoStack;
 
-    /** Stack of operations that can be redone */
+    /** Stack of operations that can be redone. */
     private Stack<OperationRecord> redoStack;
 
-    /** Maximum size of undo history (0 = unlimited) */
+    /** Maximum size of undo history (0 = unlimited). */
     private int maxHistorySize;
 
     /**
@@ -26,7 +26,7 @@ public class RouteOperationStack {
 
     /**
      * Create a new operation stack with specified history limit.
-     * 
+     *
      * @param maxHistorySize maximum number of operations to keep (0 = unlimited)
      */
     public RouteOperationStack(int maxHistorySize) {
@@ -38,7 +38,7 @@ public class RouteOperationStack {
     /**
      * Push an operation record onto the undo stack. Clears the redo stack since
      * we've branched history.
-     * 
+     *
      * @param record the operation record to push
      */
     public void push(OperationRecord record) {
@@ -65,7 +65,7 @@ public class RouteOperationStack {
 
     /**
      * Undo the most recent operation.
-     * 
+     *
      * @return the operation that was undone, or null if nothing to undo
      */
     public OperationRecord undo() {
@@ -82,7 +82,7 @@ public class RouteOperationStack {
 
     /**
      * Redo the most recently undone operation.
-     * 
+     *
      * @return the operation that was redone, or null if nothing to redo
      */
     public OperationRecord redo() {
@@ -99,7 +99,7 @@ public class RouteOperationStack {
 
     /**
      * Check if there are operations that can be undone.
-     * 
+     *
      * @return true if undo is available
      */
     public boolean canUndo() {
@@ -108,7 +108,7 @@ public class RouteOperationStack {
 
     /**
      * Check if there are operations that can be redone.
-     * 
+     *
      * @return true if redo is available
      */
     public boolean canRedo() {
@@ -117,7 +117,7 @@ public class RouteOperationStack {
 
     /**
      * Get the description of the next operation to undo.
-     * 
+     *
      * @return description string, or null if nothing to undo
      */
     public String getUndoDescription() {
@@ -129,7 +129,7 @@ public class RouteOperationStack {
 
     /**
      * Get the description of the next operation to redo.
-     * 
+     *
      * @return description string, or null if nothing to redo
      */
     public String getRedoDescription() {
@@ -141,7 +141,7 @@ public class RouteOperationStack {
 
     /**
      * Get the number of operations that can be undone.
-     * 
+     *
      * @return undo stack size
      */
     public int getUndoCount() {
@@ -150,7 +150,7 @@ public class RouteOperationStack {
 
     /**
      * Get the number of operations that can be redone.
-     * 
+     *
      * @return redo stack size
      */
     public int getRedoCount() {
@@ -167,7 +167,7 @@ public class RouteOperationStack {
 
     /**
      * Peek at the most recent operation without removing it.
-     * 
+     *
      * @return the most recent operation, or null if empty
      */
     public OperationRecord peek() {

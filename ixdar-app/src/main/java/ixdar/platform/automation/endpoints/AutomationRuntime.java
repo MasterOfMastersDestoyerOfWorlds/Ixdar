@@ -56,6 +56,29 @@ import javax.imageio.ImageIO;
 import org.joml.Vector3f;
 
 public class AutomationRuntime {
+    public static final String KEY = "key";
+    public static final String SCANCODE = "scancode";
+    public static final String ACTION = "action";
+    public static final String MODS = "mods";
+    public static final String CODEPOINT = "codepoint";
+    public static final String CHAR = "char";
+    public static final String BUTTON = "button";
+    public static final String XPX = "xPx";
+    public static final String YPX = "yPx";
+    public static final String MOUSE_BUTTON = "mouse_button";
+    public static final String MOUSE_MOVE = "mouse_move";
+    public static final String YOFFSET = "yOffset";
+    public static final String SCROLL = "scroll";
+    public static final String ERROR = "error";
+    public static final String TYPE = "type";
+    public static final String X = "x";
+    public static final String Y = "y";
+    public static final String XNORM = "xNorm";
+    public static final String YNORM = "yNorm";
+    public static final int NUM_47832 = 47832;
+    public static final int NUM_3 = 3;
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_1e_8 = 1e-8f;
 
     public static final long MAIN_THREAD_WAIT_MS = 60000L;
     public static final AutomationRuntime INSTANCE = new AutomationRuntime();
@@ -68,18 +91,20 @@ public class AutomationRuntime {
     public Canvas3D canvas;
     public volatile long renderThreadId = -1;
 
-    private static class PendingMainThreadAction {
-
-        Callable<JsonObject> action;
-        CountDownLatch latch = new CountDownLatch(1);
-        JsonObject result;
-        Exception error;
-    }
-
+    /**
+     * TODO: document {@code get}.
+     *
+     * @return TODO: describe
+     */
     public static AutomationRuntime get() {
         return INSTANCE;
     }
 
+    /**
+     * TODO: document {@code start}.
+     *
+     * @param canvas3D TODO: describe
+     */
     public synchronized void start(Canvas3D canvas3D) {
         if (started) {
             if (canvas == null) {
@@ -88,7 +113,7 @@ public class AutomationRuntime {
             return;
         }
         this.canvas = canvas3D;
-        int port = Integer.getInteger("ixdar.automation.port", 47832);
+        int port = Integer.getInteger("ixdar.automation.port", NUM_47832);
         try {
             server = new AutomationApiServer(this, port);
             server.start();
@@ -101,6 +126,9 @@ public class AutomationRuntime {
         }
     }
 
+    /**
+     * TODO: document {@code stop}.
+     */
     public synchronized void stop() {
         if (!started) {
             return;
@@ -115,29 +143,61 @@ public class AutomationRuntime {
         renderThreadId = -1;
     }
 
+    /**
+     * TODO: document {@code recorder}.
+     *
+     * @return TODO: describe
+     */
     public AutomationRecorder recorder() {
         return recorder;
     }
 
+    /**
+     * TODO: document {@code replayEngine}.
+     *
+     * @return TODO: describe
+     */
     public AutomationReplayEngine replayEngine() {
         return replayEngine;
     }
 
+    /**
+     * TODO: document {@code recordRawKey}.
+     *
+     * @param key TODO: describe
+     * @param scancode TODO: describe
+     * @param action TODO: describe
+     * @param mods TODO: describe
+     */
     public void recordRawKey(int key, int scancode, int action, int mods) {
         JsonObject payload = new JsonObject();
-        payload.addProperty("key", key);
-        payload.addProperty("scancode", scancode);
-        payload.addProperty("action", action);
-        payload.addProperty("mods", mods);
-        recorder.recordRaw("key", payload);
+        payload.addProperty(KEY, key);
+        payload.addProperty(SCANCODE, scancode);
+        payload.addProperty(ACTION, action);
+        payload.addProperty(MODS, mods);
+        recorder.recordRaw(KEY, payload);
     }
 
+    /**
+     * TODO: document {@code recordRawChar}.
+     *
+     * @param codepoint TODO: describe
+     */
     public void recordRawChar(int codepoint) {
         JsonObject payload = new JsonObject();
-        payload.addProperty("codepoint", codepoint);
-        recorder.recordRaw("char", payload);
+        payload.addProperty(CODEPOINT, codepoint);
+        recorder.recordRaw(CHAR, payload);
     }
 
+    /**
+     * TODO: document {@code recordRawMouseButton}.
+     *
+     * @param button TODO: describe
+     * @param action TODO: describe
+     * @param mods TODO: describe
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     public void recordRawMouseButton(
             int button,
             int action,
@@ -145,31 +205,48 @@ public class AutomationRuntime {
             float x,
             float y) {
         JsonObject payload = new JsonObject();
-        payload.addProperty("button", button);
-        payload.addProperty("action", action);
-        payload.addProperty("mods", mods);
-        payload.addProperty("xPx", x);
-        payload.addProperty("yPx", y);
+        payload.addProperty(BUTTON, button);
+        payload.addProperty(ACTION, action);
+        payload.addProperty(MODS, mods);
+        payload.addProperty(XPX, x);
+        payload.addProperty(YPX, y);
         // payload.addProperty("xNorm", normalizeX(x));
         // payload.addProperty("yNorm", normalizeY(y));
-        recorder.recordRaw("mouse_button", payload);
+        recorder.recordRaw(MOUSE_BUTTON, payload);
     }
 
+    /**
+     * TODO: document {@code recordRawMouseMove}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     public void recordRawMouseMove(float x, float y) {
         JsonObject payload = new JsonObject();
-        payload.addProperty("xPx", x);
-        payload.addProperty("yPx", y);
+        payload.addProperty(XPX, x);
+        payload.addProperty(YPX, y);
         // payload.addProperty("xNorm", normalizeX(x));
         // payload.addProperty("yNorm", normalizeY(y));
-        recorder.recordRaw("mouse_move", payload);
+        recorder.recordRaw(MOUSE_MOVE, payload);
     }
 
+    /**
+     * TODO: document {@code recordRawScroll}.
+     *
+     * @param yOffset TODO: describe
+     */
     public void recordRawScroll(double yOffset) {
         JsonObject payload = new JsonObject();
-        payload.addProperty("yOffset", yOffset);
-        recorder.recordRaw("scroll", payload);
+        payload.addProperty(YOFFSET, yOffset);
+        recorder.recordRaw(SCROLL, payload);
     }
 
+    /**
+     * TODO: document {@code recordAbstractAction}.
+     *
+     * @param type TODO: describe
+     * @param payload TODO: describe
+     */
     public void recordAbstractAction(String type, JsonObject payload) {
         recorder.recordAbstract(type, payload);
     }
@@ -177,6 +254,9 @@ public class AutomationRuntime {
     /**
      * Map-based variant for callers that can't reference Gson directly (e.g.
      * TeaVM-compiled code).
+     *
+     * @param type TODO: describe
+     * @param payload TODO: describe
      */
     public void recordAbstractActionMap(
             String type,
@@ -198,6 +278,8 @@ public class AutomationRuntime {
     /**
      * Centers a mesh to the origin and scales it so its bounding box diagonal is
      * 1.0. Modifies vertex positions in place.
+     *
+     * @param mesh TODO: describe
      */
     public static void normalizeMeshPositions(
             ixdar.geometry.mesh.data.ArrayMesh mesh) {
@@ -214,7 +296,7 @@ public class AutomationRuntime {
                 maxZ = -Float.MAX_VALUE;
 
         for (int i = 0; i < n; i++) {
-            int o = i * 3;
+            int o = i * NUM_3;
             minX = Math.min(minX, pos[o]);
             maxX = Math.max(maxX, pos[o]);
             minY = Math.min(minY, pos[o + 1]);
@@ -223,25 +305,31 @@ public class AutomationRuntime {
             maxZ = Math.max(maxZ, pos[o + 2]);
         }
 
-        float cx = (minX + maxX) * 0.5f;
-        float cy = (minY + maxY) * 0.5f;
-        float cz = (minZ + maxZ) * 0.5f;
+        float cx = (minX + maxX) * NUM_0_5;
+        float cy = (minY + maxY) * NUM_0_5;
+        float cz = (minZ + maxZ) * NUM_0_5;
 
         float dx = maxX - minX,
                 dy = maxY - minY,
                 dz = maxZ - minZ;
         float diagonal = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        float invDiag = diagonal > 1e-8f ? 1.0f / diagonal : 1.0f;
+        float invDiag = diagonal > NUM_1e_8 ? 1.0f / diagonal : 1.0f;
 
         for (int i = 0; i < n; i++) {
             mesh.setVertexPosition(
                     i,
-                    (pos[i * 3] - cx) * invDiag,
-                    (pos[i * 3 + 1] - cy) * invDiag,
-                    (pos[i * 3 + 2] - cz) * invDiag);
+                    (pos[i * NUM_3] - cx) * invDiag,
+                    (pos[i * NUM_3 + 1] - cy) * invDiag,
+                    (pos[i * NUM_3 + 2] - cz) * invDiag);
         }
     }
 
+    /**
+     * TODO: document {@code appendTiming}.
+     *
+     * @param mvs TODO: describe
+     * @param result TODO: describe
+     */
     public static void appendTiming(
             ixdar.scenes.mesh.MeshNodeViewerScene mvs,
             JsonObject result) {
@@ -264,6 +352,12 @@ public class AutomationRuntime {
     }
 
 
+    /**
+     * TODO: document {@code parseDistanceType}.
+     *
+     * @param str TODO: describe
+     * @return TODO: describe
+     */
     public static MeshDistance.DistanceType parseDistanceType(
             String str) {
         try {
@@ -279,12 +373,17 @@ public class AutomationRuntime {
     /**
      * Extract skeleton from a mesh OBJ file via TEASAR algorithm. Pure CPU — no GL
      * context needed.
+     *
+     * @param meshPath TODO: describe
+     * @param resolution TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
      */
     public JsonObject meshSkeleton(String meshPath, int resolution)
             throws IOException {
         if (meshPath == null || meshPath.isBlank()) {
             JsonObject err = new JsonObject();
-            err.addProperty("error", "meshPath is required");
+            err.addProperty(ERROR, "meshPath is required");
             return err;
         }
         File f = new File(meshPath);
@@ -294,7 +393,7 @@ public class AutomationRuntime {
                     meshPath);
         if (!f.exists()) {
             JsonObject err = new JsonObject();
-            err.addProperty("error", "File not found: " + f.getAbsolutePath());
+            err.addProperty(ERROR, "File not found: " + f.getAbsolutePath());
             return err;
         }
 
@@ -307,13 +406,22 @@ public class AutomationRuntime {
         return JsonParser.parseString(json).getAsJsonObject();
     }
 
+    /**
+     * TODO: document {@code hyperStringElement}.
+     *
+     * @param type TODO: describe
+     * @param region TODO: describe
+     * @param value TODO: describe
+     * @param scrollOffsetY TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject hyperStringElement(
             String type,
             String region,
             HyperString value,
             float scrollOffsetY) {
         JsonObject element = new JsonObject();
-        element.addProperty("type", type);
+        element.addProperty(TYPE, type);
         element.addProperty("region", region);
         element.addProperty("scrollOffsetY", scrollOffsetY);
         JsonArray lines = new JsonArray();
@@ -328,8 +436,8 @@ public class AutomationRuntime {
                 }
                 JsonObject word = new JsonObject();
                 word.addProperty("text", w.toString());
-                word.addProperty("x", w.xScreenOffset);
-                word.addProperty("y", w.yScreenOffset);
+                word.addProperty(X, w.xScreenOffset);
+                word.addProperty(Y, w.yScreenOffset);
                 word.addProperty("width", w.width);
                 word.addProperty("height", w.rowHeight);
                 words.add(word);
@@ -340,6 +448,12 @@ public class AutomationRuntime {
         return element;
     }
 
+    /**
+     * TODO: document {@code hyperStringLines}.
+     *
+     * @param value TODO: describe
+     * @return TODO: describe
+     */
     public List<String> hyperStringLines(HyperString value) {
         List<String> lines = new ArrayList<>();
         for (int i = 0; i < value.lines; i++) {
@@ -355,6 +469,12 @@ public class AutomationRuntime {
         return lines;
     }
 
+    /**
+     * TODO: document {@code vector3Array}.
+     *
+     * @param value TODO: describe
+     * @return TODO: describe
+     */
     public JsonArray vector3Array(Vector3f value) {
         JsonArray array = new JsonArray();
         array.add(value.x);
@@ -363,54 +483,61 @@ public class AutomationRuntime {
         return array;
     }
 
+    /**
+     * TODO: document {@code executeReplayEvent}.
+     *
+     * @param mode TODO: describe
+     * @param type TODO: describe
+     * @param payload TODO: describe
+     */
     public void executeReplayEvent(
             AutomationReplayEngine.ReplayMode mode,
             String type,
             JsonObject payload) {
         if (mode == AutomationReplayEngine.ReplayMode.RAW) {
-            if ("mouse_move".equals(type)) {
-                float x = payload.has("xPx")
-                        ? payload.get("xPx").getAsFloat()
-                        : payload.get("x").getAsFloat();
-                float y = payload.has("yPx")
-                        ? payload.get("yPx").getAsFloat()
-                        : payload.get("y").getAsFloat();
+            if (MOUSE_MOVE.equals(type)) {
+                float x = payload.has(XPX)
+                        ? payload.get(XPX).getAsFloat()
+                        : payload.get(X).getAsFloat();
+                float y = payload.has(YPX)
+                        ? payload.get(YPX).getAsFloat()
+                        : payload.get(Y).getAsFloat();
                 activeMouse().moveOrDrag(0L, x, y);
-            } else if ("mouse_button".equals(type)) {
+            } else if (MOUSE_BUTTON.equals(type)) {
                 activeMouse().mouseButton(
-                        payload.get("button").getAsInt(),
-                        payload.get("action").getAsInt(),
-                        payload.get("mods").getAsInt());
-            } else if ("scroll".equals(type)) {
+                        payload.get(BUTTON).getAsInt(),
+                        payload.get(ACTION).getAsInt(),
+                        payload.get(MODS).getAsInt());
+            } else if (SCROLL.equals(type)) {
                 activeMouse().scrollCallback(
-                        payload.get("yOffset").getAsDouble());
-            } else if ("key".equals(type)) {
+                        payload.get(YOFFSET).getAsDouble());
+            } else if (KEY.equals(type)) {
                 activeKeys().keyCallback(
                         0L,
-                        payload.get("key").getAsInt(),
-                        payload.get("scancode").getAsInt(),
-                        payload.get("action").getAsInt(),
-                        payload.get("mods").getAsInt());
-            } else if ("char".equals(type)) {
+                        payload.get(KEY).getAsInt(),
+                        payload.get(SCANCODE).getAsInt(),
+                        payload.get(ACTION).getAsInt(),
+                        payload.get(MODS).getAsInt());
+            } else if (CHAR.equals(type)) {
                 activeKeys().charCallback(
                         0L,
-                        payload.get("codepoint").getAsInt());
+                        payload.get(CODEPOINT).getAsInt());
             }
             return;
         }
         if ("click".equals(type)) {
-            float xNorm = payload.has("xNorm")
-                    ? payload.get("xNorm").getAsFloat()
+            float xNorm = payload.has(XNORM)
+                    ? payload.get(XNORM).getAsFloat()
                     : payload.get("xNormalized").getAsFloat();
-            float yNorm = payload.has("yNorm")
-                    ? payload.get("yNorm").getAsFloat()
+            float yNorm = payload.has(YNORM)
+                    ? payload.get(YNORM).getAsFloat()
                     : payload.get("yNormalized").getAsFloat();
             // injectClick(xNorm, yNorm, true, payload.get("button").getAsInt());
-        } else if ("type".equals(type)) {
+        } else if (TYPE.equals(type)) {
             // injectType(payload.get("text").getAsString());
-        } else if ("scroll".equals(type)) {
+        } else if (SCROLL.equals(type)) {
             // injectScroll(payload.get("delta").getAsDouble());
-        } else if ("key".equals(type)) {
+        } else if (KEY.equals(type)) {
             // InjectKey.endpointHandler(
             //         payload.get("key").getAsInt(),
             //         payload.get("action").getAsInt(),
@@ -419,6 +546,11 @@ public class AutomationRuntime {
         }
     }
 
+    /**
+     * TODO: document {@code activeKeys}.
+     *
+     * @return TODO: describe
+     */
     public KeyGuy activeKeys() {
         if (TradeScene.active && TradeScene.instance != null) {
             return TradeScene.instance.getKeys();
@@ -429,6 +561,11 @@ public class AutomationRuntime {
         return canvas == null ? null : canvas.keys;
     }
 
+    /**
+     * TODO: document {@code activeMouse}.
+     *
+     * @return TODO: describe
+     */
     public MouseTrap activeMouse() {
         if (TradeScene.active && TradeScene.instance != null) {
             return TradeScene.instance.getMouse();
@@ -439,6 +576,9 @@ public class AutomationRuntime {
         return canvas == null ? null : canvas.mouse;
     }
 
+    /**
+     * TODO: document {@code processMainThreadCommands}.
+     */
     public void processMainThreadCommands() {
         if (renderThreadId == -1) {
             renderThreadId = Thread.currentThread().getId();
@@ -456,6 +596,14 @@ public class AutomationRuntime {
         }
     }
 
+    /**
+     * TODO: document {@code runOnMainThread}.
+     *
+     * @param action TODO: describe
+     * @throws Exception TODO: describe
+     * @throws IllegalStateException TODO: describe
+     * @return TODO: describe
+     */
     public JsonObject runOnMainThread(Callable<JsonObject> action)
             throws Exception {
         if (renderThreadId != -1 &&
@@ -475,5 +623,13 @@ public class AutomationRuntime {
             throw pending.error;
         }
         return pending.result == null ? new JsonObject() : pending.result;
+    }
+
+    private static class PendingMainThreadAction {
+
+        Callable<JsonObject> action;
+        CountDownLatch latch = new CountDownLatch(1);
+        JsonObject result;
+        Exception error;
     }
 }

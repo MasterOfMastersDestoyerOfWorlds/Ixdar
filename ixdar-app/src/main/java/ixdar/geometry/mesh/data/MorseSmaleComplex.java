@@ -35,45 +35,36 @@ import ixdar.geometry.mesh.data.SemanticPatchDecomposer.EdgeDihedrals;
  * foundation.
  */
 public final class MorseSmaleComplex {
+    public static final int NUM_50 = 50;
+    public static final int NUM_30 = 30;
+    public static final float NUM_0_05 = 0.05f;
+    public static final float NUM_0_95 = 0.95f;
+    public static final float NUM_1e_6 = 1e-6f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_0_10 = 0.10f;
+    public static final int NUM_3 = 3;
+    public static final float NUM_0_5 = 0.5f;
+    public static final int NUM_6 = 6;
+    public static final int NUM_32 = 32;
+    public static final long NUM_0xffffffff = 0xffffffffL;
 
     private static final int MAX_TRACE_STEPS = 512;
-
-    public enum CriticalType { MAX, MIN, SADDLE }
-
-    public record CriticalPoint(int vertex, CriticalType type, float value) {}
-
-    /**
-     * An integral curve from a saddle to either a maximum (ascending
-     * arc) or minimum (descending arc). {@code vertices[0]} is always
-     * the saddle; {@code vertices[length-1]} is the terminating
-     * extremum (or the last vertex reached before the step cap).
-     */
-    public record Arc(int saddle, int extremum, CriticalType extremumType, int[] vertices) {}
-
-    public record Result(List<CriticalPoint> critical, List<Arc> arcs,
-                         /** PATCH-24: the smoothed scalar field that produced
-                          *  the classification, exposed so cell-assembly
-                          *  algorithms ascend on the SAME field that was
-                          *  classified. Mismatched scalars produce face
-                          *  labels that don't align with the visible
-                          *  arcs. {@code null} if the computer didn't
-                          *  retain it. */
-                         float[] smoothedScalar) {}
 
     private MorseSmaleComplex() {}
 
     /**
+     * TODO: document.
+     *
      * @param mesh the input mesh
-     * @param scalar per-vertex Morse function values (length == mesh.vertexCount())
-     * @param gaussK per-vertex Gaussian curvature (angle defect / area);
-     *        negative values indicate saddle-shaped regions, used as a
-     *        secondary signal for saddle classification.
      * @param ed edge/dihedral map; we reuse its {@code edgeFaces} to build
      *        a 1-ring neighbour list cheaply.
      * @param prominenceFrac extrema kept only if their scalar value
      *        deviates from the mesh mean by at least this fraction of
      *        the scalar's p5..p95 range. 0.10 ≈ "top/bottom decile
      *        bumps only." Tune based on Phase A screenshots.
+     * @param scalarIn TODO: describe
+     * @param gaussKIn TODO: describe
+     * @return TODO: describe
      */
     public static Result compute(ArrayMesh mesh, float[] scalarIn, float[] gaussKIn,
                                  EdgeDihedrals ed, float prominenceFrac) {
@@ -88,6 +79,14 @@ public final class MorseSmaleComplex {
      * saddles). Defaults to B1 once it lands; the Phase A path stays
      * available behind the flag for A/B comparison and as a fallback on
      * meshes the B1 ordered-ring builder bails on (e.g. non-manifold).
+     *
+     * @param mesh TODO: describe
+     * @param scalarIn TODO: describe
+     * @param gaussKIn TODO: describe
+     * @param ed TODO: describe
+     * @param prominenceFrac TODO: describe
+     * @param useB1Classifier TODO: describe
+     * @return TODO: describe
      */
     public static Result compute(ArrayMesh mesh, float[] scalarIn, float[] gaussKIn,
                                  EdgeDihedrals ed, float prominenceFrac,
@@ -102,8 +101,8 @@ public final class MorseSmaleComplex {
         // 25 iterations empirically balances "removes triangulation
         // noise" vs "doesn't destroy anatomical features on a ~25k-vert
         // skull" — real features persist because they're broad-support.
-        float[] scalar = smoothScalar(scalarIn, ring, 50);
-        float[] gaussK = smoothScalar(gaussKIn, ring, 30);
+        float[] scalar = smoothScalar(scalarIn, ring, NUM_50);
+        float[] gaussK = smoothScalar(gaussKIn, ring, NUM_30);
 
         if (useB1Classifier) {
             int[][] orderedRing = buildOrderedOneRing(mesh, ed, nv);
@@ -113,10 +112,10 @@ public final class MorseSmaleComplex {
         // Scalar stats for the prominence filter.
         float[] sortedScalar = scalar.clone();
         Arrays.sort(sortedScalar);
-        float p5 = sortedScalar[(int) (nv * 0.05f)];
-        float p95 = sortedScalar[(int) (nv * 0.95f)];
-        float span = Math.max(p95 - p5, 1e-6f);
-        float meanVal = 0f;
+        float p5 = sortedScalar[(int) (nv * NUM_0_05)];
+        float p95 = sortedScalar[(int) (nv * NUM_0_95)];
+        float span = Math.max(p95 - p5, NUM_1e_6);
+        float meanVal = NUM_0;
         for (float v : scalar) meanVal += v;
         meanVal /= nv;
         float maxThreshold = meanVal + prominenceFrac * span;
@@ -128,13 +127,13 @@ public final class MorseSmaleComplex {
         // up (toward p25) if too many.
         float[] sortedK = gaussK.clone();
         Arrays.sort(sortedK);
-        float saddleGaussT = sortedK[Math.max(0, (int) (nv * 0.10f))];
+        float saddleGaussT = sortedK[Math.max(0, (int) (nv * NUM_0_10))];
 
         // Pass 1: raw classification via 1-ring comparison + Gaussian.
         CriticalType[] label = new CriticalType[nv];
         for (int v = 0; v < nv; v++) {
             int[] nbs = ring[v];
-            if (nbs == null || nbs.length < 3) continue;
+            if (nbs == null || nbs.length < NUM_3) continue;
             int higher = 0;
             int lower = 0;
             for (int u : nbs) {
@@ -218,6 +217,12 @@ public final class MorseSmaleComplex {
      * exists. The two seeds attempt to land on opposite arms of the
      * saddle by picking the highest/lowest, then the next-best whose
      * edge vector isn't parallel to the first seed's edge vector.
+     *
+     * @param ring TODO: describe
+     * @param scalar TODO: describe
+     * @param saddle TODO: describe
+     * @param ascending TODO: describe
+     * @return TODO: describe
      */
     private static int[] topTwoOnSide(int[] ring, float[] scalar, int saddle,
                                       boolean ascending) {
@@ -254,6 +259,15 @@ public final class MorseSmaleComplex {
      * Walk steepest-ascent (ascending=true) or steepest-descent (false)
      * from {@code seed} until hitting a critical point of the matching
      * extremum type, revisiting a ring vertex, or running out of steps.
+     *
+     * @param saddle TODO: describe
+     * @param seed TODO: describe
+     * @param scalar TODO: describe
+     * @param ring TODO: describe
+     * @param isMax TODO: describe
+     * @param isMin TODO: describe
+     * @param ascending TODO: describe
+     * @return TODO: describe
      */
     private static Arc traceArc(int saddle, int seed, float[] scalar, int[][] ring,
                                 boolean[] isMax, boolean[] isMin, boolean ascending) {
@@ -298,6 +312,11 @@ public final class MorseSmaleComplex {
      * @param wantHigher true for MAX (higher = stronger), false for MIN
      *        / SADDLE (lower = stronger, saddle uses negative K so "more
      *        negative" = deeper = stronger).
+     * @param label TODO: describe
+     * @param score TODO: describe
+     * @param ring TODO: describe
+     * @param type TODO: describe
+     * @return TODO: describe
      */
     private static CriticalType[] suppressWithin2Ring(CriticalType[] label, float[] score,
                                                        int[][] ring, CriticalType type,
@@ -337,6 +356,11 @@ public final class MorseSmaleComplex {
      * {@code v} and its 1-ring neighbours. Used as a noise filter before
      * critical-point classification — real anatomical extrema survive,
      * triangulation-noise bumps merge into the surrounding field.
+     *
+     * @param scalar TODO: describe
+     * @param ring TODO: describe
+     * @param iterations TODO: describe
+     * @return TODO: describe
      */
     private static float[] smoothScalar(float[] scalar, int[][] ring, int iterations) {
         int nv = scalar.length;
@@ -366,6 +390,13 @@ public final class MorseSmaleComplex {
      * (handles 1-saddles and detects multi-saddles), then traces arcs
      * via steepest descent like Phase A but with a correct critical
      * set so termination is reliable.
+     *
+     * @param mesh TODO: describe
+     * @param scalar TODO: describe
+     * @param ring TODO: describe
+     * @param orderedRing TODO: describe
+     * @param prominenceFrac TODO: describe
+     * @return TODO: describe
      */
     private static Result computeB1(ArrayMesh mesh, float[] scalar,
                                     int[][] ring, int[][] orderedRing,
@@ -376,15 +407,15 @@ public final class MorseSmaleComplex {
         // structural classifier to drop flat-plateau false positives.
         float[] sortedScalar = scalar.clone();
         Arrays.sort(sortedScalar);
-        float p5 = sortedScalar[(int) (nv * 0.05f)];
-        float p95 = sortedScalar[(int) (nv * 0.95f)];
-        float span = Math.max(p95 - p5, 1e-6f);
+        float p5 = sortedScalar[(int) (nv * NUM_0_05)];
+        float p95 = sortedScalar[(int) (nv * NUM_0_95)];
+        float span = Math.max(p95 - p5, NUM_1e_6);
 
         CriticalType[] label = new CriticalType[nv];
         int[] saddleMultiplicity = new int[nv];
         for (int v = 0; v < nv; v++) {
             int[] ord = orderedRing[v];
-            if (ord == null || ord.length < 3) continue;  // boundary or degenerate
+            if (ord == null || ord.length < NUM_3) continue;  // boundary or degenerate
             int lowerComponents = countLinkComponents(v, ord, scalar, /*lower=*/true);
             int upperComponents = countLinkComponents(v, ord, scalar, /*lower=*/false);
             if (lowerComponents == 0 && upperComponents > 0) {
@@ -423,13 +454,13 @@ public final class MorseSmaleComplex {
             if (label[v] == CriticalType.MAX) isMax[v] = true;
             if (label[v] == CriticalType.MIN) isMin[v] = true;
         }
-        float persistThresh = prominenceFrac * span * 0.5f;  // half of prominence-equivalent
+        float persistThresh = prominenceFrac * span * NUM_0_5;  // half of prominence-equivalent
         for (int v = 0; v < nv; v++) {
             if (label[v] != CriticalType.SADDLE) continue;
             int reachedMax = walkToExtremum(v, scalar, ring, isMax, true);
             int reachedMin = walkToExtremum(v, scalar, ring, isMin, false);
-            float persUp = reachedMax >= 0 ? Math.abs(scalar[reachedMax] - scalar[v]) : 0f;
-            float persDn = reachedMin >= 0 ? Math.abs(scalar[v] - scalar[reachedMin]) : 0f;
+            float persUp = reachedMax >= 0 ? Math.abs(scalar[reachedMax] - scalar[v]) : NUM_0;
+            float persDn = reachedMin >= 0 ? Math.abs(scalar[v] - scalar[reachedMin]) : NUM_0;
             if (persUp < persistThresh && persDn < persistThresh) {
                 label[v] = null;  // saddle has no significant persistence pair
             }
@@ -479,6 +510,12 @@ public final class MorseSmaleComplex {
      * (lower=true) or above (lower=false) {@code scalar[v]}; the cycle
      * wraps so the last and first runs may merge. Tie-breaking by
      * vertex index keeps classification deterministic on plateaus.
+     *
+     * @param v TODO: describe
+     * @param ord TODO: describe
+     * @param scalar TODO: describe
+     * @param lower TODO: describe
+     * @return TODO: describe
      */
     private static int countLinkComponents(int v, int[] ord, float[] scalar, boolean lower) {
         int n = ord.length;
@@ -509,6 +546,12 @@ public final class MorseSmaleComplex {
      * component — the vertex within each component with the highest
      * (or lowest, respectively) scalar value. Returns up to 4 seeds
      * (slots set to -1 if the component count is lower).
+     *
+     * @param ord TODO: describe
+     * @param scalar TODO: describe
+     * @param saddle TODO: describe
+     * @param upper TODO: describe
+     * @return TODO: describe
      */
     private static int[] bestSeedsPerLinkComponent(int[] ord, float[] scalar, int saddle, boolean upper) {
         int n = ord.length;
@@ -557,6 +600,13 @@ public final class MorseSmaleComplex {
      * of the matching extremum type, used by the persistence heuristic
      * during B1. Same pattern as {@link #traceArc} but returns just
      * the terminal vertex.
+     *
+     * @param from TODO: describe
+     * @param scalar TODO: describe
+     * @param ring TODO: describe
+     * @param isExtremum TODO: describe
+     * @param ascending TODO: describe
+     * @return TODO: describe
      */
     private static int walkToExtremum(int from, float[] scalar, int[][] ring,
                                        boolean[] isExtremum, boolean ascending) {
@@ -587,17 +637,22 @@ public final class MorseSmaleComplex {
      * v's incident faces don't form a clean cycle, e.g. boundary or
      * non-manifold). The ring is used by the lower-link component
      * classifier, which depends on the cyclic order.
+     *
+     * @param mesh TODO: describe
+     * @param ed TODO: describe
+     * @param nv TODO: describe
+     * @return TODO: describe
      */
     private static int[][] buildOrderedOneRing(ArrayMesh mesh, EdgeDihedrals ed, int nv) {
         int[] faceIdx = mesh.copyFaceIndices();
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3;
 
         // Vertex → list of (faceId, vPositionInFace) inverse index.
         java.util.List<int[]>[] vertFaces = new java.util.List[nv];
-        for (int i = 0; i < nv; i++) vertFaces[i] = new ArrayList<>(6);
+        for (int i = 0; i < nv; i++) vertFaces[i] = new ArrayList<>(NUM_6);
         for (int f = 0; f < faceCount; f++) {
-            for (int p = 0; p < 3; p++) {
-                int v = faceIdx[f * 3 + p];
+            for (int p = 0; p < NUM_3; p++) {
+                int v = faceIdx[f * NUM_3 + p];
                 if (v >= 0 && v < nv) vertFaces[v].add(new int[]{f, p});
             }
         }
@@ -620,8 +675,8 @@ public final class MorseSmaleComplex {
             while (safety++ < incident.size() + 2) {
                 if (visitedFaces.contains(curFace)) break;
                 visitedFaces.add(curFace);
-                int leftV  = faceIdx[curFace * 3 + (curPos + 2) % 3];
-                int rightV = faceIdx[curFace * 3 + (curPos + 1) % 3];
+                int leftV  = faceIdx[curFace * NUM_3 + (curPos + 2) % NUM_3];
+                int rightV = faceIdx[curFace * NUM_3 + (curPos + 1) % NUM_3];
                 if (firstNeighbour < 0) {
                     ringList.add(leftV);
                     firstNeighbour = leftV;
@@ -646,14 +701,14 @@ public final class MorseSmaleComplex {
                 }
                 // Find v's position in next face.
                 int nextPos = -1;
-                for (int p = 0; p < 3; p++) {
-                    if (faceIdx[nextFace * 3 + p] == v) { nextPos = p; break; }
+                for (int p = 0; p < NUM_3; p++) {
+                    if (faceIdx[nextFace * NUM_3 + p] == v) { nextPos = p; break; }
                 }
                 if (nextPos < 0) { out[v] = null; break; }
                 curFace = nextFace;
                 curPos = nextPos;
             }
-            if (out[v] == null && ringList.size() >= 3) {
+            if (out[v] == null && ringList.size() >= NUM_3) {
                 // Open fan or non-manifold; emit unclosed ring as best-effort.
                 int[] arr = new int[ringList.size()];
                 for (int i = 0; i < ringList.size(); i++) arr[i] = ringList.get(i);
@@ -664,17 +719,17 @@ public final class MorseSmaleComplex {
     }
 
     private static long edgeKey(int u, int v) {
-        return u < v ? ((long) u << 32) | (v & 0xffffffffL)
-                     : ((long) v << 32) | (u & 0xffffffffL);
+        return u < v ? ((long) u << NUM_32) | (v & NUM_0xffffffff)
+                     : ((long) v << NUM_32) | (u & NUM_0xffffffff);
     }
 
     private static int[][] buildOneRing(EdgeDihedrals ed, int nv) {
         List<List<Integer>> tmp = new ArrayList<>(nv);
-        for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(6));
+        for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(NUM_6));
         for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
             long key = e.getKey();
-            int u = (int) (key >> 32);
-            int v = (int) (key & 0xffffffffL);
+            int u = (int) (key >> NUM_32);
+            int v = (int) (key & NUM_0xffffffff);
             tmp.get(u).add(v);
             tmp.get(v).add(u);
         }
@@ -687,4 +742,27 @@ public final class MorseSmaleComplex {
         }
         return out;
     }
+
+    public enum CriticalType { MAX, MIN, SADDLE }
+
+    public record CriticalPoint(int vertex, CriticalType type, float value) {}
+
+    /**
+     * An integral curve from a saddle to either a maximum (ascending
+     * arc) or minimum (descending arc). {@code vertices[0]} is always
+     * the saddle; {@code vertices[length-1]} is the terminating
+     * extremum (or the last vertex reached before the step cap).
+     */
+    public record Arc(int saddle, int extremum, CriticalType extremumType, int[] vertices) {}
+
+    public record Result(List<CriticalPoint> critical, List<Arc> arcs,
+                         /**
+                          * PATCH-24: the smoothed scalar field that produced
+                          *  the classification, exposed so cell-assembly
+                          *  algorithms ascend on the SAME field that was
+                          *  classified. Mismatched scalars produce face
+                          *  labels that don't align with the visible
+                          *  arcs. {@code null} if the computer didn't
+                          */
+                         float[] smoothedScalar) {}
 }

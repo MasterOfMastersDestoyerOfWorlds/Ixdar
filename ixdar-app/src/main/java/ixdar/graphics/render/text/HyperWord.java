@@ -9,6 +9,7 @@ import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.actions.Action;
 
 public class HyperWord {
+    public static final String WORD_BOUNDS_ID = "WORD";
 
     public CharSequence charSequence;
     public ArrayList<HyperChar> text;
@@ -27,10 +28,19 @@ public class HyperWord {
     public float y;
     public Bounds viewBounds;
     public ArrayList<HyperWord> subWords;
-    private Font font;
-    public static final String WORD_BOUNDS_ID = "WORD";
     public boolean culled = false;
+    private Font font;
 
+    /**
+     * TODO: document {@code HyperWord}.
+     *
+     * @param word TODO: describe
+     * @param c TODO: describe
+     * @param hoverAction TODO: describe
+     * @param clearHover TODO: describe
+     * @param clickAction TODO: describe
+     * @param font TODO: describe
+     */
     public HyperWord(String word, Color c, Action hoverAction, Action clearHover, Action clickAction, Font font) {
         charSequence = word;
         this.font = font;
@@ -48,15 +58,12 @@ public class HyperWord {
         viewBounds = new Bounds(0, 0, 0, 0, WORD_BOUNDS_ID);
     }
 
-    private ArrayList<HyperChar> toHyperChars(String word) {
-        ArrayList<HyperChar> list = new ArrayList<>();
-        for (int i = 0; i < word.length(); i++) {
-            char c = word.charAt(i);
-            list.add(new HyperChar(font, c));
-        }
-        return list;
-    }
-
+    /**
+     * TODO: document {@code HyperWord}.
+     *
+     * @param b TODO: describe
+     * @param font TODO: describe
+     */
     public HyperWord(boolean b, Font font) {
         newLine = b;
         this.font = font;
@@ -66,6 +73,16 @@ public class HyperWord {
         viewBounds = new Bounds(0, 0, 0, 0, WORD_BOUNDS_ID);
     }
 
+    /**
+     * TODO: document {@code HyperWord}.
+     *
+     * @param wordAction TODO: describe
+     * @param c TODO: describe
+     * @param hoverAction TODO: describe
+     * @param clearHover TODO: describe
+     * @param clickAction TODO: describe
+     * @param font TODO: describe
+     */
     public HyperWord(Supplier<ColorText<?>> wordAction, Color c, Action hoverAction, Action clearHover,
             Action clickAction,
             Font font) {
@@ -87,6 +104,25 @@ public class HyperWord {
         isDynamic = true;
     }
 
+    private ArrayList<HyperChar> toHyperChars(String word) {
+        ArrayList<HyperChar> list = new ArrayList<>();
+        for (int i = 0; i < word.length(); i++) {
+            char c = word.charAt(i);
+            list.add(new HyperChar(font, c));
+        }
+        return list;
+    }
+
+    /**
+     * TODO: document {@code setBounds}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     * @param xScreen TODO: describe
+     * @param yScreen TODO: describe
+     * @param height TODO: describe
+     * @param viewBounds TODO: describe
+     */
     public void setBounds(float x, float y, float xScreen, float yScreen, float height, Bounds viewBounds) {
         this.x = x;
         this.y = y;
@@ -96,6 +132,11 @@ public class HyperWord {
         this.rowHeight = height;
     }
 
+    /**
+     * TODO: document {@code setFont}.
+     *
+     * @param font TODO: describe
+     */
     public void setFont(Font font) {
         this.font = font;
         if (isDynamic) {
@@ -103,14 +144,28 @@ public class HyperWord {
         }
     }
 
+    /**
+     * TODO: document {@code setWidth}.
+     *
+     * @param font TODO: describe
+     */
     public void setWidth(Font font) {
         this.width = font.getWidth(charSequence);
     }
 
+    /**
+     * TODO: document {@code setZeroWidth}.
+     */
     public void setZeroWidth() {
         this.width = 0;
     }
 
+    /**
+     * TODO: document {@code calculateClearHover}.
+     *
+     * @param normalizedPosX TODO: describe
+     * @param normalizedPosY TODO: describe
+     */
     public void calculateClearHover(float normalizedPosX, float normalizedPosY) {
         if (subWords != null && !subWords.isEmpty()) {
             boolean insideAny = false;
@@ -134,6 +189,12 @@ public class HyperWord {
         }
     }
 
+    /**
+     * TODO: document {@code calculateHover}.
+     *
+     * @param normalizedPosX TODO: describe
+     * @param normalizedPosY TODO: describe
+     */
     public void calculateHover(float normalizedPosX, float normalizedPosY) {
         if (subWords != null && !subWords.isEmpty()) {
             for (HyperWord child : subWords) {
@@ -147,11 +208,22 @@ public class HyperWord {
         }
     }
 
+    /**
+     * TODO: document {@code toString}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String toString() {
         return (String) charSequence;
     }
 
+    /**
+     * TODO: document {@code click}.
+     *
+     * @param normalizedPosX TODO: describe
+     * @param normalizedPosY TODO: describe
+     */
     public void click(float normalizedPosX, float normalizedPosY) {
         if (subWords != null && !subWords.isEmpty()) {
             for (HyperWord child : subWords) {
@@ -165,6 +237,11 @@ public class HyperWord {
         }
     }
 
+    /**
+     * TODO: document {@code subWords}.
+     *
+     * @return TODO: describe
+     */
     public ArrayList<HyperWord> subWords() {
         ColorText<?> colorText = wordAction.get();
         if (colorText.dirty) {

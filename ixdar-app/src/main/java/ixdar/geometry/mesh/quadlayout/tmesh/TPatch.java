@@ -21,19 +21,23 @@ public record TPatch(int id,
                      int[] arcIds,
                      int[][] arcsBySide,
                      int[] cornerNodeIds) {
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
 
-    /** Build a single-arc-per-side patch (synthetic test patches + legacy
-     *  4-cycle enumeration output). {@code arcIds} must be length 4. */
+    /**
+     * Build a single-arc-per-side patch (synthetic test patches + legacy.
+     */
     public static TPatch single(int id, int[] arcIds, int[] cornerNodeIds) {
-        int[][] sides = new int[4][];
-        for (int i = 0; i < 4; i++) {
+        int[][] sides = new int[NUM_4][];
+        for (int i = 0; i < NUM_4; i++) {
             sides[i] = new int[]{arcIds[i]};
         }
         return new TPatch(id, arcIds, sides, cornerNodeIds);
     }
 
-    /** Build a multi-arc-per-side patch (T-junction-aware). Supports both
-     *  4-sided quads and 3-sided triangle patches (3-valent singularity wedges). */
+    /**
+     * Build a multi-arc-per-side patch (T-junction-aware). Supports both
+     */
     public static TPatch multi(int id, int[][] arcsBySide, int[] cornerNodeIds) {
         int[] firstArcs = new int[arcsBySide.length];
         for (int i = 0; i < arcsBySide.length; i++) {
@@ -42,8 +46,9 @@ public record TPatch(int id,
         return new TPatch(id, firstArcs, arcsBySide, cornerNodeIds);
     }
 
-    /** True iff this patch has 4 sides (a quad). 3-sided patches are
-     *  triangle wedges around 3-valent singularities. */
-    public boolean isQuad() { return arcsBySide != null && arcsBySide.length == 4; }
-    public boolean isTriangle() { return arcsBySide != null && arcsBySide.length == 3; }
+    /**
+     * True iff this patch has 4 sides (a quad). 3-sided patches are
+     */
+    public boolean isQuad() { return arcsBySide != null && arcsBySide.length == NUM_4; }
+    public boolean isTriangle() { return arcsBySide != null && arcsBySide.length == NUM_3; }
 }

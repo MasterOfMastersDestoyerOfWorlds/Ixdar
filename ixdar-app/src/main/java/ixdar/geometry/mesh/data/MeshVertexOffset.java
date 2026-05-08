@@ -11,10 +11,20 @@ import ixdar.annotations.meshnode.Vector3Value;
  * {@link HalfEdgeMesh}).
  */
 public final class MeshVertexOffset {
+    public static final float NUM_0 = 0f;
+    public static final int NUM_3 = 3;
 
     private MeshVertexOffset() {
     }
 
+    /**
+     * TODO: document {@code apply}.
+     *
+     * @param mesh TODO: describe
+     * @param offsetObj TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public static MeshTopology apply(MeshTopology mesh, Object offsetObj) {
         if (mesh == null || mesh.vertexCount() == 0) {
             return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
@@ -31,13 +41,13 @@ public final class MeshVertexOffset {
         } else if (offsetObj instanceof Vector3Value vv) {
             uniform = vv;
         } else {
-            uniform = new Vector3Value(0f, 0f, 0f);
+            uniform = new Vector3Value(NUM_0, NUM_0, NUM_0);
         }
 
         if (mesh instanceof ArrayMesh am) {
             float[] pos = am.copyPositions();
             for (int i = 0; i < n; i++) {
-                int o = i * 3;
+                int o = i * NUM_3;
                 if (field != null) {
                     pos[o] += field.getX(i);
                     pos[o + 1] += field.getY(i);

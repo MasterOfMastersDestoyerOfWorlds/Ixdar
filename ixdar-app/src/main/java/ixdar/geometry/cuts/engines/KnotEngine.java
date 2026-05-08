@@ -10,19 +10,32 @@ import ixdar.geometry.knot.Segment;
 import ixdar.geometry.shell.Shell;
 
 public class KnotEngine {
-
-    private Shell shell;
     public ArrayList<Knot> unvisited;
+    public ArrayList<Knot> knots;
 
     int halfKnotCount = 0;
     int sameKnotPointCount = 0;
-    public ArrayList<Knot> knots;
 
+    private Shell shell;
+
+    /**
+     * TODO: document {@code KnotEngine}.
+     *
+     * @param shell TODO: describe
+     */
     public KnotEngine(Shell shell) {
         this.shell = shell;
         unvisited = new ArrayList<Knot>();
     }
 
+    /**
+     * TODO: document {@code createKnots}.
+     *
+     * @param layers TODO: describe
+     * @param sortedSegments TODO: describe
+     * @throws MultipleCyclesFoundException TODO: describe
+     * @return TODO: describe
+     */
     public ArrayList<Knot> createKnots(int layers, ArrayList<Segment> sortedSegments)
             throws MultipleCyclesFoundException {
 
@@ -36,6 +49,14 @@ public class KnotEngine {
         return unvisited;
     }
 
+    /**
+     * TODO: document {@code findKnots}.
+     *
+     * @param sortedSegments TODO: describe
+     * @param knots TODO: describe
+     * @throws MultipleCyclesFoundException TODO: describe
+     * @return TODO: describe
+     */
     public ArrayList<Knot> findKnots(ArrayList<Segment> sortedSegments, ArrayList<Knot> knots)
             throws MultipleCyclesFoundException {
 

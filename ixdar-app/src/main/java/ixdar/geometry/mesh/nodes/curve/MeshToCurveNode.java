@@ -20,10 +20,18 @@ import ixdar.geometry.mesh.data.MeshTopology;
 
 @MeshNodeAnnotation(id = "mesh_to_curve")
 public class MeshToCurveNode implements MeshNode {
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String SOURCE_2 = "source";
+    public static final String ALL_EDGES = "ALL_EDGES";
+    public static final String CURVE = "_curve";
+    public static final int NUM_6 = 6;
+    public static final int NUM_8 = 8;
+    public static final int NUM_16 = 16;
+    public static final int NUM_3 = 3;
 
-    private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort SOURCE = new InputPort("source", PortType.STRING, "ALL_EDGES");
-    private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort SOURCE = new InputPort(SOURCE_2, PortType.STRING, ALL_EDGES);
+    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -34,8 +42,8 @@ public class MeshToCurveNode implements MeshNode {
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
                 // Shared input+output key — input is the source mesh, output is the extracted curve bundle.
-                "geometry", "Input: source mesh to extract curves from. Output: extracted curve geometry bundle (polylines).",
-                "source", "Extraction mode: ALL_EDGES (every mesh edge as a 2-point segment) or BOUNDARY (ordered polyline around each open boundary)."
+                GEOMETRY_2, "Input: source mesh to extract curves from. Output: extracted curve geometry bundle (polylines).",
+                SOURCE_2, "Extraction mode: ALL_EDGES (every mesh edge as a 2-point segment) or BOUNDARY (ordered polyline around each open boundary)."
         );
     }
 
@@ -51,31 +59,31 @@ public class MeshToCurveNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput("geometry", Object.class));
+        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput(GEOMETRY_2, Object.class));
         if (gb == null) {
-            ctx.setOutput("geometry",GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY_2,GeometryBundle.empty());
             return;
         }
         MeshTopology mesh = gb.mesh();
         if (mesh == null || mesh.edgeCount() == 0) {
-            ctx.setOutput("geometry",gb.withSlot("_curve", CurveGeometry.singlePolyline(new float[0])));
+            ctx.setOutput(GEOMETRY_2,gb.withSlot(CURVE, CurveGeometry.singlePolyline(new float[0])));
             return;
         }
 
-        String source = ctx.getInput("source", String.class);
+        String source = ctx.getInput(SOURCE_2, String.class);
         if (source == null) {
-            source = "ALL_EDGES";
+            source = ALL_EDGES;
         }
         if ("BOUNDARY".equalsIgnoreCase(source.trim())) {
             CurveGeometry boundary = boundaryPolyline(mesh);
             if (boundary != null && boundary.pointCount() >= 2) {
-                ctx.setOutput("geometry",gb.withSlot("_curve", boundary));
+                ctx.setOutput(GEOMETRY_2,gb.withSlot(CURVE, boundary));
                 return;
             }
         }
 
         int nSeg = mesh.edgeCount();
-        ArrayList<Float> pts = new ArrayList<>(nSeg * 6);
+        ArrayList<Float> pts = new ArrayList<>(nSeg * NUM_6);
         Vector3f a = new Vector3f();
         Vector3f b = new Vector3f();
         for (int ei = 0; ei < nSeg; ei++) {
@@ -101,7 +109,7 @@ public class MeshToCurveNode implements MeshNode {
             off[i] = 2 * i;
         }
         CurveGeometry curve = new CurveGeometry(pos, off);
-        ctx.setOutput("geometry",gb.withSlot("_curve", curve));
+        ctx.setOutput(GEOMETRY_2,gb.withSlot(CURVE, curve));
     }
 
     /**
@@ -137,7 +145,7 @@ public class MeshToCurveNode implements MeshNode {
         int prev = MeshTopology.NONE;
         int cur = start;
         int guard = 0;
-        int maxGuard = mesh.vertexCount() * 8 + 16;
+        int maxGuard = mesh.vertexCount() * NUM_8 + NUM_16;
         while (true) {
             order.add(cur);
             ArrayList<Integer> nbs = adj.get(cur);
@@ -168,11 +176,11 @@ public class MeshToCurveNode implements MeshNode {
         if (order.size() < 2) {
             return null;
         }
-        float[] pos = new float[order.size() * 3];
+        float[] pos = new float[order.size() * NUM_3];
         Vector3f p = new Vector3f();
         for (int i = 0; i < order.size(); i++) {
             mesh.vertexPosition(order.get(i), p);
-            int b = 3 * i;
+            int b = NUM_3 * i;
             pos[b] = p.x;
             pos[b + 1] = p.y;
             pos[b + 2] = p.z;

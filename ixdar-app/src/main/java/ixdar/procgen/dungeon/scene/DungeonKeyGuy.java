@@ -29,6 +29,15 @@ public class DungeonKeyGuy extends KeyGuy {
     private boolean lastVState = false;
     private boolean lastEscState = false;
 
+    /**
+     * TODO: document {@code DungeonKeyGuy}.
+     *
+     * @param camera TODO: describe
+     * @param canvas TODO: describe
+     * @param inPlayerMode TODO: describe
+     * @param togglePlayerMode TODO: describe
+     * @param toggleViewMode TODO: describe
+     */
     public DungeonKeyGuy(Camera camera, Canvas3D canvas,
                          BooleanSupplier inPlayerMode,
                          Runnable togglePlayerMode,
@@ -39,6 +48,11 @@ public class DungeonKeyGuy extends KeyGuy {
         this.toggleViewMode = toggleViewMode;
     }
 
+    /**
+     * TODO: document {@code paintUpdate}.
+     *
+     * @param shiftMod TODO: describe
+     */
     @Override
     public void paintUpdate(float shiftMod) {
         boolean fNow = pressedKeys.contains(Keys.F);

@@ -8,10 +8,16 @@ import java.nio.file.Path;
  * CLI entry point that dumps the mesh-node catalog JSON to a file.
  * Used by Maven exec goal to generate documentation for Daud agent context.
  *
- * Usage: java ixdar.geometry.mesh.documentation.ExportMeshNodeCatalog <output-path>
+ * Usage: java ixdar.geometry.mesh.documentation.ExportMeshNodeCatalog {@code <output-path>}
  */
 public final class ExportMeshNodeCatalog {
 
+    /**
+     * TODO: document {@code main}.
+     *
+     * @param args TODO: describe
+     * @throws IOException TODO: describe
+     */
     public static void main(String[] args) throws IOException {
         if (args.length < 1) {
             System.err.println("Usage: ExportMeshNodeCatalog <output-path>");

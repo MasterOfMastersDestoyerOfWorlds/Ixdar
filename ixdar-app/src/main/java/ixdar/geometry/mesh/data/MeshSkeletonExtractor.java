@@ -19,6 +19,15 @@ import org.joml.Vector3f;
  * </ol>
  */
 public final class MeshSkeletonExtractor {
+    public static final int NUM_26 = 26;
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_1e_6 = 1e-6f;
+    public static final float NUM_1e_12 = 1e-12f;
+    public static final int NUM_15 = 15;
+    public static final float NUM_2_0 = 2.0f;
+    public static final float NUM_1e_8 = 1e-8f;
+    public static final int NUM_5 = 5;
+    public static final int NUM_128 = 128;
 
     private static final int MAX_BRANCHES = 50;
     private static final int MIN_PATH_LENGTH = 3;
@@ -29,9 +38,14 @@ public final class MeshSkeletonExtractor {
     // 26-connected neighbor offsets and distances
     private static final int[][] NBR;
     private static final float[] NBR_DIST;
+
+    // Voxel states
+    private static final byte EXTERIOR = 0;
+    private static final byte INTERIOR = 1;
+    private static final byte SURFACE = 2;
     static {
-        NBR = new int[26][3];
-        NBR_DIST = new float[26];
+        NBR = new int[NUM_26][MIN_PATH_LENGTH];
+        NBR_DIST = new float[NUM_26];
         int i = 0;
         for (int dx = -1; dx <= 1; dx++)
             for (int dy = -1; dy <= 1; dy++)
@@ -41,23 +55,6 @@ public final class MeshSkeletonExtractor {
                     NBR_DIST[i] = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
                     i++;
                 }
-    }
-
-    // Voxel states
-    private static final byte EXTERIOR = 0;
-    private static final byte INTERIOR = 1;
-    private static final byte SURFACE = 2;
-
-    // Output records
-    public record SkeletonJoint(float[] position, float radius) {}
-    public record SkeletonBranch(int id, String label, int parentBranch,
-                                 List<SkeletonJoint> joints, float[] direction, float length) {}
-    public record BranchPoint(float[] position, List<Integer> connectedBranches) {}
-    public record SkeletonResult(int resolution, float voxelSize, float[] root,
-                                 List<SkeletonBranch> branches, List<BranchPoint> branchPoints) {}
-
-    private record VDist(int index, float dist) implements Comparable<VDist> {
-        @Override public int compareTo(VDist o) { return Float.compare(dist, o.dist); }
     }
 
     private final int rx, ry, rz;
@@ -78,17 +75,24 @@ public final class MeshSkeletonExtractor {
     private int idx(int x, int y, int z) { return x + y * rx + z * rx * ry; }
     private boolean ok(int x, int y, int z) { return x >= 0 && x < rx && y >= 0 && y < ry && z >= 0 && z < rz; }
     private float[] toWorld(int x, int y, int z) {
-        return new float[]{ox + (x + 0.5f) * vs, oy + (y + 0.5f) * vs, oz + (z + 0.5f) * vs};
+        return new float[]{ox + (x + NUM_0_5) * vs, oy + (y + NUM_0_5) * vs, oz + (z + NUM_0_5) * vs};
     }
 
     // ───────── public entry point ─────────
 
+    /**
+     * TODO: document {@code extract}.
+     *
+     * @param mesh TODO: describe
+     * @param resolution TODO: describe
+     * @return TODO: describe
+     */
     public static SkeletonResult extract(ArrayMesh mesh, int resolution) {
         Vector3f bmin = mesh.boundsMin(new Vector3f());
         Vector3f bmax = mesh.boundsMax(new Vector3f());
         float extX = bmax.x - bmin.x, extY = bmax.y - bmin.y, extZ = bmax.z - bmin.z;
         float maxExt = Math.max(extX, Math.max(extY, extZ));
-        if (maxExt < 1e-6f) return empty(resolution);
+        if (maxExt < NUM_1e_6) return empty(resolution);
 
         float vs = maxExt / resolution;
         float pad = 2 * vs;
@@ -119,7 +123,7 @@ public final class MeshSkeletonExtractor {
         for (int f = 0; f < fi.length; f += vpf) {
             // Fan triangulation for quads/ngons
             for (int t = 1; t + 1 < vpf; t++) {
-                int i0 = fi[f] * 3, i1 = fi[f + t] * 3, i2 = fi[f + t + 1] * 3;
+                int i0 = fi[f] * MIN_PATH_LENGTH, i1 = fi[f + t] * MIN_PATH_LENGTH, i2 = fi[f + t + 1] * MIN_PATH_LENGTH;
                 float ay = pos[i0 + 1], az = pos[i0 + 2];
                 float by = pos[i1 + 1], bz = pos[i1 + 2];
                 float cy = pos[i2 + 1], cz = pos[i2 + 2];
@@ -134,13 +138,13 @@ public final class MeshSkeletonExtractor {
                 float e1y = by - ay, e1z = bz - az;
                 float e2y = cy - ay, e2z = cz - az;
                 float det = e1y * e2z - e1z * e2y;
-                if (Math.abs(det) < 1e-12f) continue;
+                if (Math.abs(det) < NUM_1e_12) continue;
                 float invDet = 1.0f / det;
 
                 for (int iy = iyMin; iy <= iyMax; iy++) {
-                    float rayY = oy + (iy + 0.5f) * vs;
+                    float rayY = oy + (iy + NUM_0_5) * vs;
                     for (int iz = izMin; iz <= izMax; iz++) {
-                        float rayZ = oz + (iz + 0.5f) * vs;
+                        float rayZ = oz + (iz + NUM_0_5) * vs;
                         float dy = rayY - ay, dz = rayZ - az;
                         float u = (dy * e2z - dz * e2y) * invDet;
                         float v = (e1y * dz - e1z * dy) * invDet;
@@ -163,8 +167,8 @@ public final class MeshSkeletonExtractor {
                 crossings[col].sort(Float::compare);
                 List<Float> cx = crossings[col];
                 for (int p = 0; p + 1 < cx.size(); p += 2) {
-                    int ixLo = Math.max(0, (int) Math.ceil((cx.get(p) - ox) / vs - 0.5f));
-                    int ixHi = Math.min(rx - 1, (int) Math.floor((cx.get(p + 1) - ox) / vs - 0.5f));
+                    int ixLo = Math.max(0, (int) Math.ceil((cx.get(p) - ox) / vs - NUM_0_5));
+                    int ixHi = Math.min(rx - 1, (int) Math.floor((cx.get(p + 1) - ox) / vs - NUM_0_5));
                     for (int ix = ixLo; ix <= ixHi; ix++) {
                         state[idx(ix, iy, iz)] = INTERIOR;
                     }
@@ -221,7 +225,7 @@ public final class MeshSkeletonExtractor {
             int ci = cur.index;
             int cx = ci % rx, cy = (ci / rx) % ry, cz = ci / (rx * ry);
 
-            for (int ni = 0; ni < 26; ni++) {
+            for (int ni = 0; ni < NUM_26; ni++) {
                 int nx = cx + NBR[ni][0], ny = cy + NBR[ni][1], nz = cz + NBR[ni][2];
                 if (!ok(nx, ny, nz)) continue;
                 int nIdx = idx(nx, ny, nz);
@@ -250,7 +254,7 @@ public final class MeshSkeletonExtractor {
                 root = i;
             }
         }
-        if (root < 0 || maxDfb < 1e-6f) return List.of();
+        if (root < 0 || maxDfb < NUM_1e_6) return List.of();
 
         // Penalized Dijkstra from root
         float[] dist = new float[n];
@@ -268,7 +272,7 @@ public final class MeshSkeletonExtractor {
             int ci = cur.index;
             int cx = ci % rx, cy = (ci / rx) % ry, cz = ci / (rx * ry);
 
-            for (int ni = 0; ni < 26; ni++) {
+            for (int ni = 0; ni < NUM_26; ni++) {
                 int nx = cx + NBR[ni][0], ny = cy + NBR[ni][1], nz = cz + NBR[ni][2];
                 if (!ok(nx, ny, nz)) continue;
                 int nIdx = idx(nx, ny, nz);
@@ -317,7 +321,7 @@ public final class MeshSkeletonExtractor {
             }
 
             if (path.size() < MIN_PATH_LENGTH) {
-                for (int[] p : path) processed[p[3]] = true;
+                for (int[] p : path) processed[p[MIN_PATH_LENGTH]] = true;
                 continue;
             }
 
@@ -325,9 +329,9 @@ public final class MeshSkeletonExtractor {
 
             // Invalidate neighborhood around path
             for (int[] p : path) {
-                processed[p[3]] = true;
+                processed[p[MIN_PATH_LENGTH]] = true;
                 float radius = Math.min(MAX_INVALIDATION_RADIUS,
-                        Math.max(1.0f, dfb[p[3]] * INVALIDATION_SCALE));
+                        Math.max(1.0f, dfb[p[MIN_PATH_LENGTH]] * INVALIDATION_SCALE));
                 int r = (int) Math.ceil(radius);
                 for (int dx = -r; dx <= r; dx++)
                     for (int dy = -r; dy <= r; dy++)
@@ -358,7 +362,7 @@ public final class MeshSkeletonExtractor {
         }
         float[] rootPos = rootIdx >= 0
                 ? toWorld(rootIdx % rx, (rootIdx / rx) % ry, rootIdx / (rx * ry))
-                : new float[3];
+                : new float[MIN_PATH_LENGTH];
 
         List<SkeletonBranch> branches = new ArrayList<>();
         List<List<int[]>> validBranches = new ArrayList<>();
@@ -374,15 +378,15 @@ public final class MeshSkeletonExtractor {
             // Compute raw path length and skip noise branches
             float rawLength = 0;
             for (int j = 1; j < worldPos.length; j++) rawLength += dist3(worldPos[j - 1], worldPos[j]);
-            if (rawLength < vs * 15) continue;  // skip branches shorter than ~15 voxels
+            if (rawLength < vs * NUM_15) continue;  // skip branches shorter than ~15 voxels
 
             // RDP simplification
-            List<Integer> kept = rdpSimplify(worldPos, vs * 2.0f);
+            List<Integer> kept = rdpSimplify(worldPos, vs * NUM_2_0);
 
             // Build joints
             List<SkeletonJoint> joints = new ArrayList<>();
             for (int k : kept) {
-                float r = dfb[path.get(k)[3]];
+                float r = dfb[path.get(k)[MIN_PATH_LENGTH]];
                 if (r == Float.MAX_VALUE) r = 0;
                 joints.add(new SkeletonJoint(worldPos[k], r * vs));
             }
@@ -395,7 +399,7 @@ public final class MeshSkeletonExtractor {
                 float[] last = joints.get(joints.size() - 1).position;
                 float dx = last[0] - first[0], dy = last[1] - first[1], dz = last[2] - first[2];
                 float mag = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-                if (mag > 1e-8f) { dir[0] = dx / mag; dir[1] = dy / mag; dir[2] = dz / mag; }
+                if (mag > NUM_1e_8) { dir[0] = dx / mag; dir[1] = dy / mag; dir[2] = dz / mag; }
                 for (int j = 1; j < joints.size(); j++) {
                     float[] a = joints.get(j - 1).position;
                     float[] b = joints.get(j).position;
@@ -416,7 +420,7 @@ public final class MeshSkeletonExtractor {
                         if (d < minD) { minD = d; parentBranch = pi; }
                     }
                 }
-                if (minD > vs * 5) parentBranch = -1;
+                if (minD > vs * NUM_5) parentBranch = -1;
             }
 
             int branchId = validBranches.size();
@@ -433,7 +437,7 @@ public final class MeshSkeletonExtractor {
                 // Check if a branch point already exists near here
                 boolean found = false;
                 for (BranchPoint bp : branchPoints) {
-                    if (dist3(bp.position, bpPos) < vs * 3) {
+                    if (dist3(bp.position, bpPos) < vs * MIN_PATH_LENGTH) {
                         bp.connectedBranches.add(bi);
                         found = true;
                         break;
@@ -480,7 +484,7 @@ public final class MeshSkeletonExtractor {
         int maxIdx = lo;
         for (int i = lo + 1; i < hi; i++) {
             float d;
-            if (abLen < 1e-8f) {
+            if (abLen < NUM_1e_8) {
                 float dx = pts[i][0] - a[0], dy = pts[i][1] - a[1], dz = pts[i][2] - a[2];
                 d = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
             } else {
@@ -507,13 +511,18 @@ public final class MeshSkeletonExtractor {
     }
 
     private static SkeletonResult empty(int resolution) {
-        return new SkeletonResult(resolution, 0, new float[3], List.of(), List.of());
+        return new SkeletonResult(resolution, 0, new float[MIN_PATH_LENGTH], List.of(), List.of());
     }
 
-    /** CLI test: java MeshSkeletonExtractor path/to/mesh.obj [resolution] */
+    /**
+     * CLI test: java MeshSkeletonExtractor path/to/mesh.obj [resolution].
+     *
+     * @param args TODO: describe
+     * @throws Exception TODO: describe
+     */
     public static void main(String[] args) throws Exception {
         if (args.length < 1) { System.err.println("Usage: MeshSkeletonExtractor <obj-path> [resolution]"); return; }
-        int res = args.length > 1 ? Integer.parseInt(args[1]) : 128;
+        int res = args.length > 1 ? Integer.parseInt(args[1]) : NUM_128;
         long t0 = System.currentTimeMillis();
         ArrayMesh mesh = MeshLoader.load(args[0]);
         System.err.printf("Loaded mesh: %d verts, %d faces%n", mesh.vertexCount(), mesh.faceCount());
@@ -521,5 +530,23 @@ public final class MeshSkeletonExtractor {
         long elapsed = System.currentTimeMillis() - t0;
         System.err.printf("Extracted %d branches in %dms%n", result.branches.size(), elapsed);
         System.out.println(new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(result));
+    }
+
+    // Output records
+    public record SkeletonJoint(float[] position, float radius) {}
+    public record SkeletonBranch(int id, String label, int parentBranch,
+                                 List<SkeletonJoint> joints, float[] direction, float length) {}
+    public record BranchPoint(float[] position, List<Integer> connectedBranches) {}
+    public record SkeletonResult(int resolution, float voxelSize, float[] root,
+                                 List<SkeletonBranch> branches, List<BranchPoint> branchPoints) {}
+
+    private record VDist(int index, float dist) implements Comparable<VDist> {
+        /**
+         * TODO: document {@code compareTo}.
+         *
+         * @param o TODO: describe
+         * @return TODO: describe
+         */
+        @Override public int compareTo(VDist o) { return Float.compare(dist, o.dist); }
     }
 }

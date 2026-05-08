@@ -18,23 +18,60 @@ import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
  * sort triangles — stable across vertex ordering.
  */
 public final class MeshCanonicalFingerprint {
+    public static final int NUM_3 = 3;
+    public static final int NUM_8 = 8;
+    public static final int NUM_4 = 4;
 
     public static final String ALGORITHM_ID = "ixdar-mesh-fingerprint-v1";
 
     /** Must match Python {@code quilt_mesh_fingerprint.py} (scale = 10^5). */
     public static final float POSITION_ROUND_SCALE = 1.0e5f;
 
+    private static final Comparator<float[]> CORNER_ORDER = (p, q) -> {
+        int c = Float.compare(p[0], q[0]);
+        if (c != 0) {
+            return c;
+        }
+        c = Float.compare(p[1], q[1]);
+        if (c != 0) {
+            return c;
+        }
+        return Float.compare(p[2], q[2]);
+    };
+
+    private static final Comparator<float[][]> TRIANGLE_ORDER = (a, b) -> {
+        for (int i = 0; i < NUM_3; i++) {
+            int c = CORNER_ORDER.compare(a[i], b[i]);
+            if (c != 0) {
+                return c;
+            }
+        }
+        return 0;
+    };
+
     private MeshCanonicalFingerprint() {
     }
 
+    /**
+     * TODO: document {@code triangleCount}.
+     *
+     * @param mesh TODO: describe
+     * @return TODO: describe
+     */
     public static int triangleCount(MeshTopology mesh) {
         if (mesh == null) {
             return 0;
         }
         HalfEdgeCompiledMeshData data = ((HalfEdgeMesh) mesh).compileSurfaceData();
-        return data.indices.length / 3;
+        return data.indices.length / NUM_3;
     }
 
+    /**
+     * TODO: document {@code sha256Hex}.
+     *
+     * @param mesh TODO: describe
+     * @return TODO: describe
+     */
     public static String sha256Hex(MeshTopology mesh) {
         if (mesh == null) {
             return sha256HexEmpty();
@@ -46,12 +83,12 @@ public final class MeshCanonicalFingerprint {
     static String sha256HexFromCompiled(HalfEdgeCompiledMeshData data) {
         float[] verts = data.vertices;
         int[] ind = data.indices;
-        int triCount = ind.length / 3;
+        int triCount = ind.length / NUM_3;
         List<float[][]> triangles = new ArrayList<>(triCount);
         for (int t = 0; t < triCount; t++) {
-            int i0 = ind[t * 3];
-            int i1 = ind[t * 3 + 1];
-            int i2 = ind[t * 3 + 2];
+            int i0 = ind[t * NUM_3];
+            int i1 = ind[t * NUM_3 + 1];
+            int i2 = ind[t * NUM_3 + 2];
             float[] c0 = corner(verts, i0);
             float[] c1 = corner(verts, i1);
             float[] c2 = corner(verts, i2);
@@ -64,7 +101,7 @@ public final class MeshCanonicalFingerprint {
     }
 
     private static float[] corner(float[] verts, int vertexIndex) {
-        int o = vertexIndex * 8;
+        int o = vertexIndex * NUM_8;
         return new float[] {
                 roundCoord(verts[o]),
                 roundCoord(verts[o + 1]),
@@ -82,31 +119,9 @@ public final class MeshCanonicalFingerprint {
         return t;
     }
 
-    private static final Comparator<float[]> CORNER_ORDER = (p, q) -> {
-        int c = Float.compare(p[0], q[0]);
-        if (c != 0) {
-            return c;
-        }
-        c = Float.compare(p[1], q[1]);
-        if (c != 0) {
-            return c;
-        }
-        return Float.compare(p[2], q[2]);
-    };
-
-    private static final Comparator<float[][]> TRIANGLE_ORDER = (a, b) -> {
-        for (int i = 0; i < 3; i++) {
-            int c = CORNER_ORDER.compare(a[i], b[i]);
-            if (c != 0) {
-                return c;
-            }
-        }
-        return 0;
-    };
-
     static byte[] encodeTriangles(List<float[][]> sortedTriangles) {
         int n = sortedTriangles.size();
-        ByteBuffer buf = ByteBuffer.allocate(n * 3 * 3 * 4);
+        ByteBuffer buf = ByteBuffer.allocate(n * NUM_3 * NUM_3 * NUM_4);
         buf.order(ByteOrder.BIG_ENDIAN);
         for (float[][] tri : sortedTriangles) {
             for (float[] corner : tri) {

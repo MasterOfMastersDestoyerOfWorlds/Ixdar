@@ -13,8 +13,9 @@ import ixdar.annotations.meshnode.Vector3Value;
 
 @MeshNodeAnnotation(id = "input_normal")
 public class InputNormalNode implements MeshNode {
+    public static final String VECTOR_2 = "vector";
 
-    private static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
+    private static final OutputPort VECTOR = new OutputPort(VECTOR_2, PortType.VECTOR3);
 
     @Override
     public String description() {
@@ -24,7 +25,7 @@ public class InputNormalNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "vector", "Per-vertex Vec3Field of unit outward normals. Requires a mesh field context."
+                VECTOR_2, "Per-vertex Vec3Field of unit outward normals. Requires a mesh field context."
         );
     }
 
@@ -42,9 +43,9 @@ public class InputNormalNode implements MeshNode {
     public void evaluate(NodeContext ctx) {
         FieldContext fc = ctx.fieldContext();
         if (fc == null || fc.elementCount() == 0) {
-            ctx.setOutput("vector", new Vector3Value(0f, 1f, 0f));
+            ctx.setOutput(VECTOR_2, new Vector3Value(0f, 1f, 0f));
             return;
         }
-        ctx.setOutput("vector", fc.normals());
+        ctx.setOutput(VECTOR_2, fc.normals());
     }
 }

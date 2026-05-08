@@ -11,12 +11,29 @@ import ixdar.graphics.render.Clock;
 import ixdar.platform.Platforms;
 
 public class Scene2DMousePanTrap extends MouseTrap {
+    public static final float NUM_3 = 3f;
+    public static final int NUM_4 = 4;
+    public static final int NUM_60 = 60;
+    public static final float NUM_100 = 100f;
     private Vector2f leftMouseDownPos;
 
+    /**
+     * TODO: document {@code Scene2DMousePanTrap}.
+     *
+     * @param camera TODO: describe
+     * @param canvas TODO: describe
+     */
     public Scene2DMousePanTrap(Camera camera, Canvas3D canvas) {
         super(null, camera, canvas);
     }
 
+    /**
+     * TODO: document {@code mouseButton}.
+     *
+     * @param button TODO: describe
+     * @param action TODO: describe
+     * @param mods TODO: describe
+     */
     @Override
     public void mouseButton(int button, int action, int mods) {
         Platforms.init(Platforms.get().getPlatformID());
@@ -33,6 +50,13 @@ public class Scene2DMousePanTrap extends MouseTrap {
         }
     }
 
+    /**
+     * TODO: document {@code moveOrDrag}.
+     *
+     * @param window TODO: describe
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     @Override
     public void moveOrDrag(long window, float x, float y) {
         Platforms.init(Platforms.get().getPlatformID());
@@ -45,13 +69,19 @@ public class Scene2DMousePanTrap extends MouseTrap {
         lastY = (int) y;
         boolean leftDown = Platforms.gl().getMouseButton(window, MouseButtons.MOUSE_BUTTON_LEFT);
         Vector2f currentPos = new Vector2f(x, y);
-        if (leftDown && leftMouseDownPos != null && currentPos.distance(leftMouseDownPos) > 3f) {
+        if (leftDown && leftMouseDownPos != null && currentPos.distance(leftMouseDownPos) > NUM_3) {
             mouseDragged(x, y);
         } else {
             mousePos(x, y);
         }
     }
 
+    /**
+     * TODO: document {@code mouseDragged}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     */
     @Override
     public void mouseDragged(float x, float y) {
         normalizedPosX = camera.getNormalizePosX(x);
@@ -61,27 +91,37 @@ public class Scene2DMousePanTrap extends MouseTrap {
         startY = normalizedPosY;
     }
 
+    /**
+     * TODO: document {@code scrollCallback}.
+     *
+     * @param y TODO: describe
+     */
     @Override
     public void scrollCallback(double y) {
         Platforms.init(Platforms.get().getPlatformID());
         if (!active) {
             return;
         }
-        queuedMouseWheelTicks += (int) (4 * y);
+        queuedMouseWheelTicks += (int) (NUM_4 * y);
         timeLastScroll = System.currentTimeMillis();
     }
 
+    /**
+     * TODO: document {@code paintUpdate}.
+     *
+     * @param shiftMod TODO: describe
+     */
     @Override
     public void paintUpdate(float shiftMod) {
         if (!active) {
             return;
         }
-        if (System.currentTimeMillis() - timeLastScroll > 60) {
+        if (System.currentTimeMillis() - timeLastScroll > NUM_60) {
             queuedMouseWheelTicks = 0;
         }
         if (queuedMouseWheelTicks != 0) {
             boolean zoomIn = queuedMouseWheelTicks < 0;
-            camera.onScroll(zoomIn, Clock.deltaTime() * 100f);
+            camera.onScroll(zoomIn, Clock.deltaTime() * NUM_100);
             queuedMouseWheelTicks = 0;
         }
     }

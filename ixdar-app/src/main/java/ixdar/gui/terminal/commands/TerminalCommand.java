@@ -9,6 +9,12 @@ import ixdar.platform.file.TextFile;
 
 public abstract class TerminalCommand implements TerminalOption {
 
+    /**
+     * TODO: document {@code help}.
+     *
+     * @param terminal TODO: describe
+     * @param command TODO: describe
+     */
     public static void help(Terminal terminal, TerminalOption command) {
         String commandName = command.fullName();
         String fileLoc = "./src/shell/terminal/help/" + commandName + ".help";
@@ -25,16 +31,34 @@ public abstract class TerminalCommand implements TerminalOption {
         terminal.history.addLine(command.usage(), Color.GREEN);
     }
 
+    /**
+     * TODO: document {@code minArgLength}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public int minArgLength() {
         return -1;
     }
 
+    /**
+     * TODO: document {@code options}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public OptionList options() {
         return null;
     }
 
+    /**
+     * TODO: document {@code run}.
+     *
+     * @param args TODO: describe
+     * @param startIdx TODO: describe
+     * @param terminal TODO: describe
+     * @return TODO: describe
+     */
     public abstract String[] run(String[] args, int startIdx, Terminal terminal);
 
 }

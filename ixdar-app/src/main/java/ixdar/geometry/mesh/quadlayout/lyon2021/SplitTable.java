@@ -23,14 +23,11 @@ import ixdar.geometry.mesh.quadlayout.tmesh.TPatch;
  * patches with per-side half-arc lists.
  */
 public final class SplitTable {
+    public static final int NUM_4 = 4;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1 = 1f;
 
     private SplitTable() {}
-
-    /** Output of {@link #generate}: 4 sides, each a list of split elements
-     *  in order from corner i to corner (i+1) mod 4. */
-    public record Result(List<List<SplitElem>> sides) {
-        public List<SplitElem> side(int i) { return sides.get(i); }
-    }
 
     /**
      * Build the split table for one Tpatch.
@@ -38,19 +35,20 @@ public final class SplitTable {
      * @param tmesh        T-mesh containing arcs
      * @param patch        the Tpatch to split
      * @param splitsByArc  per-arc split vertices (output of {@link SplitArcs})
+     * @return TODO: describe
      */
     public static Result generate(TMesh tmesh, TPatch patch,
                                    List<List<SplitVert>> splitsByArc) {
-        List<List<SplitElem>> sides = new ArrayList<>(4);
+        List<List<SplitElem>> sides = new ArrayList<>(NUM_4);
         int[] arcIds = patch.arcIds();
         int[] cornerNodeIds = patch.cornerNodeIds();
-        if (arcIds.length != 4 || cornerNodeIds.length != 4) {
+        if (arcIds.length != NUM_4 || cornerNodeIds.length != NUM_4) {
             // Defensive — non-4-cycle patch.
-            for (int i = 0; i < 4; i++) sides.add(new ArrayList<>());
+            for (int i = 0; i < NUM_4; i++) sides.add(new ArrayList<>());
             return new Result(sides);
         }
 
-        for (int side = 0; side < 4; side++) {
+        for (int side = 0; side < NUM_4; side++) {
             int arcId = arcIds[side];
             int sideStartNodeId = cornerNodeIds[side];
             TArc arc = tmesh.arcs().get(arcId);
@@ -76,10 +74,10 @@ public final class SplitTable {
                 SplitVert v = arcSplits.get(idx);
                 float distance;
                 if (n == 1) {
-                    distance = 0f;
+                    distance = NUM_0;
                 } else {
                     float t = (float) idx / (float) (n - 1);
-                    distance = forward ? t * totalLen : (1f - t) * totalLen;
+                    distance = forward ? t * totalLen : (NUM_1 - t) * totalLen;
                 }
                 elems.add(new SplitElem(v.arcId(), v.stepIndex(),
                         v.u(), v.v(), v.position(), distance));
@@ -87,5 +85,12 @@ public final class SplitTable {
             sides.add(elems);
         }
         return new Result(sides);
+    }
+
+    /**
+     * Output of {@link #generate}: 4 sides, each a list of split elements.
+     */
+    public record Result(List<List<SplitElem>> sides) {
+        public List<SplitElem> side(int i) { return sides.get(i); }
     }
 }

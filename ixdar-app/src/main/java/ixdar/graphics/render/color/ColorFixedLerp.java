@@ -6,6 +6,8 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 public class ColorFixedLerp implements Color {
+    public static final float NUM_0 = 0f;
+    public static final int NUM_3 = 3;
 
     static HashMap<Color, ColorLerp> flashColors = new HashMap<>();
 
@@ -18,11 +20,18 @@ public class ColorFixedLerp implements Color {
 
     private float offset;
 
+    /**
+     * TODO: document {@code ColorFixedLerp}.
+     *
+     * @param startColor TODO: describe
+     * @param endColor TODO: describe
+     * @param offset TODO: describe
+     */
     public ColorFixedLerp(Color startColor, Color endColor, float offset) {
         this.startColor = startColor;
         this.endColor = endColor;
         this.offset = offset;
-        this.radsPerSecond = 0f;
+        this.radsPerSecond = NUM_0;
         this.name = startColor.getName() + "-" + endColor.getName() + "-Lerp";
     }
 
@@ -54,11 +63,16 @@ public class ColorFixedLerp implements Color {
         lerp.x = ixdar.common.utils.Compat.fmaf(other.x() - lerp.x, offset * channelLerp[0], lerp.x);
         lerp.y = ixdar.common.utils.Compat.fmaf(other.y() - lerp.y, offset * channelLerp[1], lerp.y);
         lerp.z = ixdar.common.utils.Compat.fmaf(other.z() - lerp.z, offset * channelLerp[2], lerp.z);
-        lerp.w = ixdar.common.utils.Compat.fmaf(other.w() - lerp.w, offset * channelLerp[3], lerp.w);
+        lerp.w = ixdar.common.utils.Compat.fmaf(other.w() - lerp.w, offset * channelLerp[NUM_3], lerp.w);
 
         return lerp;
     }
 
+    /**
+     * TODO: document {@code getName}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String getName() {
         return name;

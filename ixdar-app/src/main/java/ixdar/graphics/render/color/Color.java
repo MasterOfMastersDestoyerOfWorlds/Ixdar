@@ -4,14 +4,21 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 public interface Color {
+    public static final String NAVY_2 = "Navy";
+    public static final float NUM_255_0 = 255.0f;
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_6_0 = 6.0f;
+    public static final int NUM_3 = 3;
+    public static final int NUM_4 = 4;
+    public static final int NUM_5 = 5;
     public static final Color WHITE = new ColorRGB(1f, 1f, 1f, "White");
     public static final Color BLACK = new ColorRGB(0f, 0f, 0f, "Black");
     public static final Color RED = new ColorRGB(1f, 0f, 0f, "Red");
     public static final Color RED_FAINT = new ColorRGB(0.25f, 0f, 0f, 0.1f, "Red Faint");
     public static final Color GREEN = new ColorRGB(0f, 1f, 0f, "Green");
     public static final Color BLUE = new ColorRGB(0f, 0f, 1f, "Blue");
-    public static final Color LIGHT_NAVY = new ColorRGB(15, 45, 135, "Navy");
-    public static final Color NAVY = new ColorRGB(5, 37, 53, "Navy");
+    public static final Color LIGHT_NAVY = new ColorRGB(15, 45, 135, NAVY_2);
+    public static final Color NAVY = new ColorRGB(5, 37, 53, NAVY_2);
     public static final Color BLUE_GRAY = new ColorRGB(32, 35, 70, "Blue Gray");
     public static final Color BLUE_WHITE = new ColorRGB(98, 142, 166, "Blue White");
     public static final Color CYAN = new ColorRGB(0, 255, 255, "Cyan");
@@ -49,59 +56,90 @@ public interface Color {
     public static final Color GLSL_BOOLEAN = new ColorRGB(0.70f, 0.90f, 0.60f, "GLSL Boolean");
     public static final Color GLSL_SKIP = new ColorRGB(0.98f, 0.96f, 0.70f, "GLSL Skip");
 
+    /**
+     * TODO: document {@code toVector3f}.
+     *
+     * @return TODO: describe
+     */
     public Vector3f toVector3f();
 
+    /**
+     * TODO: document {@code toVector4f}.
+     *
+     * @return TODO: describe
+     */
     public Vector4f toVector4f();
 
+    /**
+     * TODO: document {@code HSBtoRGB}.
+     *
+     * @param hue TODO: describe
+     * @param saturation TODO: describe
+     * @param brightness TODO: describe
+     * @return TODO: describe
+     */
     public static Color HSBtoRGB(float hue, float saturation, float brightness) {
         int r = 0, g = 0, b = 0;
         if (saturation == 0) {
-            r = g = b = (int) (brightness * 255.0f + 0.5f);
+            r = g = b = (int) (brightness * NUM_255_0 + NUM_0_5);
         } else {
-            float h = (hue - (float) Math.floor(hue)) * 6.0f;
+            float h = (hue - (float) Math.floor(hue)) * NUM_6_0;
             float f = h - (float) java.lang.Math.floor(h);
             float p = brightness * (1.0f - saturation);
             float q = brightness * (1.0f - saturation * f);
             float t = brightness * (1.0f - (saturation * (1.0f - f)));
             switch ((int) h) {
             case 0:
-                r = (int) (brightness * 255.0f + 0.5f);
-                g = (int) (t * 255.0f + 0.5f);
-                b = (int) (p * 255.0f + 0.5f);
+                r = (int) (brightness * NUM_255_0 + NUM_0_5);
+                g = (int) (t * NUM_255_0 + NUM_0_5);
+                b = (int) (p * NUM_255_0 + NUM_0_5);
                 break;
             case 1:
-                r = (int) (q * 255.0f + 0.5f);
-                g = (int) (brightness * 255.0f + 0.5f);
-                b = (int) (p * 255.0f + 0.5f);
+                r = (int) (q * NUM_255_0 + NUM_0_5);
+                g = (int) (brightness * NUM_255_0 + NUM_0_5);
+                b = (int) (p * NUM_255_0 + NUM_0_5);
                 break;
             case 2:
-                r = (int) (p * 255.0f + 0.5f);
-                g = (int) (brightness * 255.0f + 0.5f);
-                b = (int) (t * 255.0f + 0.5f);
+                r = (int) (p * NUM_255_0 + NUM_0_5);
+                g = (int) (brightness * NUM_255_0 + NUM_0_5);
+                b = (int) (t * NUM_255_0 + NUM_0_5);
                 break;
-            case 3:
-                r = (int) (p * 255.0f + 0.5f);
-                g = (int) (q * 255.0f + 0.5f);
-                b = (int) (brightness * 255.0f + 0.5f);
+            case NUM_3:
+                r = (int) (p * NUM_255_0 + NUM_0_5);
+                g = (int) (q * NUM_255_0 + NUM_0_5);
+                b = (int) (brightness * NUM_255_0 + NUM_0_5);
                 break;
-            case 4:
-                r = (int) (t * 255.0f + 0.5f);
-                g = (int) (p * 255.0f + 0.5f);
-                b = (int) (brightness * 255.0f + 0.5f);
+            case NUM_4:
+                r = (int) (t * NUM_255_0 + NUM_0_5);
+                g = (int) (p * NUM_255_0 + NUM_0_5);
+                b = (int) (brightness * NUM_255_0 + NUM_0_5);
                 break;
-            case 5:
-                r = (int) (brightness * 255.0f + 0.5f);
-                g = (int) (p * 255.0f + 0.5f);
-                b = (int) (q * 255.0f + 0.5f);
+            case NUM_5:
+                r = (int) (brightness * NUM_255_0 + NUM_0_5);
+                g = (int) (p * NUM_255_0 + NUM_0_5);
+                b = (int) (q * NUM_255_0 + NUM_0_5);
                 break;
             }
         }
         return new ColorRGB(r, g, b);
     }
 
+    /**
+     * TODO: document {@code getHSBColor}.
+     *
+     * @param h TODO: describe
+     * @param s TODO: describe
+     * @param b TODO: describe
+     * @return TODO: describe
+     */
     public static Color getHSBColor(float h, float s, float b) {
         return new ColorRGB(HSBtoRGB(h, s, b));
     }
 
+    /**
+     * TODO: document {@code getName}.
+     *
+     * @return TODO: describe
+     */
     public String getName();
 }

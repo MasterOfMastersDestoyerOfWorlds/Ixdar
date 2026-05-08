@@ -10,14 +10,28 @@ import java.util.List;
  */
 public record RoomListValue(List<Room> rooms) {
 
+    /**
+     * TODO: document {@code RoomListValue}.
+     */
     public RoomListValue {
         rooms = List.copyOf(rooms);
     }
 
+    /**
+     * TODO: document {@code size}.
+     *
+     * @return TODO: describe
+     */
     public int size() {
         return rooms.size();
     }
 
+    /**
+     * TODO: document {@code get}.
+     *
+     * @param index TODO: describe
+     * @return TODO: describe
+     */
     public Room get(int index) {
         return rooms.get(index);
     }
@@ -33,9 +47,29 @@ public record RoomListValue(List<Room> rooms) {
      * @param halfExtentY   half the room's height
      */
     public record Room(int id, float centerX, float centerY, float halfExtentX, float halfExtentY) {
+        /**
+         * TODO: document {@code minX}.
+         *
+         * @return TODO: describe
+         */
         public float minX() { return centerX - halfExtentX; }
+        /**
+         * TODO: document {@code maxX}.
+         *
+         * @return TODO: describe
+         */
         public float maxX() { return centerX + halfExtentX; }
+        /**
+         * TODO: document {@code minY}.
+         *
+         * @return TODO: describe
+         */
         public float minY() { return centerY - halfExtentY; }
+        /**
+         * TODO: document {@code maxY}.
+         *
+         * @return TODO: describe
+         */
         public float maxY() { return centerY + halfExtentY; }
 
         /** True if this room's AABB intersects {@code other}. */

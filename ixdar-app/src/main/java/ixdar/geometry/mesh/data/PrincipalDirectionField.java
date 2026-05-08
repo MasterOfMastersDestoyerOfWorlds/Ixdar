@@ -24,6 +24,16 @@ import ixdar.geometry.mesh.data.SemanticPatchDecomposer.EdgeDihedrals;
  * suppression and polyline tracing.
  */
 public final class PrincipalDirectionField {
+    public static final int NUM_3 = 3;
+    public static final float NUM_1e_20 = 1e-20f;
+    public static final float NUM_1e_12 = 1e-12f;
+    public static final float NUM_4 = 4f;
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_0 = 0f;
+    public static final int NUM_6 = 6;
+    public static final int NUM_32 = 32;
+    public static final long NUM_0xffffffff = 0xffffffffL;
 
     private final float[] kappaMax;
     private final float[] kappaMin;
@@ -41,60 +51,98 @@ public final class PrincipalDirectionField {
         this.vertexNormals = vertexNormals;
     }
 
+    /**
+     * TODO: document {@code kappaMax}.
+     *
+     * @param v TODO: describe
+     * @return TODO: describe
+     */
     public float kappaMax(int v) { return kappaMax[v]; }
+    /**
+     * TODO: document {@code kappaMin}.
+     *
+     * @param v TODO: describe
+     * @return TODO: describe
+     */
     public float kappaMin(int v) { return kappaMin[v]; }
 
-    /** Write {@code dirMax(v)} into {@code out} (indices 0..2). */
+    /**
+     * Write {@code dirMax(v)} into {@code out} (indices 0..2).
+     *
+     * @param v TODO: describe
+     * @param out TODO: describe
+     */
     public void dirMax(int v, float[] out) {
-        out[0] = dirMax[v * 3];
-        out[1] = dirMax[v * 3 + 1];
-        out[2] = dirMax[v * 3 + 2];
+        out[0] = dirMax[v * NUM_3];
+        out[1] = dirMax[v * NUM_3 + 1];
+        out[2] = dirMax[v * NUM_3 + 2];
     }
 
+    /**
+     * TODO: document {@code dirMin}.
+     *
+     * @param v TODO: describe
+     * @param out TODO: describe
+     */
     public void dirMin(int v, float[] out) {
-        out[0] = dirMin[v * 3];
-        out[1] = dirMin[v * 3 + 1];
-        out[2] = dirMin[v * 3 + 2];
+        out[0] = dirMin[v * NUM_3];
+        out[1] = dirMin[v * NUM_3 + 1];
+        out[2] = dirMin[v * NUM_3 + 2];
     }
 
+    /**
+     * TODO: document {@code vertexNormal}.
+     *
+     * @param v TODO: describe
+     * @param out TODO: describe
+     */
     public void vertexNormal(int v, float[] out) {
-        out[0] = vertexNormals[v * 3];
-        out[1] = vertexNormals[v * 3 + 1];
-        out[2] = vertexNormals[v * 3 + 2];
+        out[0] = vertexNormals[v * NUM_3];
+        out[1] = vertexNormals[v * NUM_3 + 1];
+        out[2] = vertexNormals[v * NUM_3 + 2];
     }
 
+    /**
+     * TODO: document {@code vertexCount}.
+     *
+     * @return TODO: describe
+     */
     public int vertexCount() { return kappaMax.length; }
 
     /**
      * Build the field for the given mesh. Reuses face normals from the
      * already-computed {@link EdgeDihedrals}.
+     *
+     * @param mesh TODO: describe
+     * @param ed TODO: describe
+     * @return TODO: describe
      */
     public static PrincipalDirectionField compute(ArrayMesh mesh, EdgeDihedrals ed) {
         int nv = mesh.vertexCount();
         int[] faceIdx = mesh.copyFaceIndices();
         float[] positions = mesh.copyPositions();
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3;
 
         // Per-vertex normal: area-weighted average of incident face normals.
-        float[] vertexNormals = new float[nv * 3];
+        float[] vertexNormals = new float[nv * NUM_3];
         float[] faceN = ed.faceNormals();
         for (int f = 0; f < faceCount; f++) {
-            for (int k = 0; k < 3; k++) {
-                int v = faceIdx[f * 3 + k];
-                vertexNormals[v * 3]     += faceN[f * 3];
-                vertexNormals[v * 3 + 1] += faceN[f * 3 + 1];
-                vertexNormals[v * 3 + 2] += faceN[f * 3 + 2];
+            for (int k = 0; k < NUM_3; k++) {
+                int v = faceIdx[f * NUM_3 + k];
+                vertexNormals[v * NUM_3]     += faceN[f * NUM_3];
+                vertexNormals[v * NUM_3 + 1] += faceN[f * NUM_3 + 1];
+                vertexNormals[v * NUM_3 + 2] += faceN[f * NUM_3 + 2];
             }
         }
         for (int v = 0; v < nv; v++) {
-            float nx = vertexNormals[v * 3];
-            float ny = vertexNormals[v * 3 + 1];
-            float nz = vertexNormals[v * 3 + 2];
+            float nx = vertexNormals[v * NUM_3];
+            float ny = vertexNormals[v * NUM_3 + 1];
+            float nz = vertexNormals[v * NUM_3 + 2];
             float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-            if (len > 1e-20f) {
-                vertexNormals[v * 3]     = nx / len;
-                vertexNormals[v * 3 + 1] = ny / len;
-                vertexNormals[v * 3 + 2] = nz / len;
+            if (len > NUM_1e_20) {
+                vertexNormals[v * NUM_3]     = nx / len;
+                vertexNormals[v * NUM_3 + 1] = ny / len;
+                vertexNormals[v * NUM_3 + 2] = nz / len;
             }
         }
 
@@ -103,21 +151,21 @@ public final class PrincipalDirectionField {
 
         float[] kappaMax = new float[nv];
         float[] kappaMin = new float[nv];
-        float[] dirMax = new float[nv * 3];
-        float[] dirMin = new float[nv * 3];
+        float[] dirMax = new float[nv * NUM_3];
+        float[] dirMin = new float[nv * NUM_3];
 
         // Temporary arrays reused across vertices.
-        float[] t1 = new float[3];
-        float[] t2 = new float[3];
-        float[] nv_ = new float[3];
+        float[] t1 = new float[NUM_3];
+        float[] t2 = new float[NUM_3];
+        float[] nv_ = new float[NUM_3];
 
         for (int v = 0; v < nv; v++) {
             int[] neighbours = ring[v];
             if (neighbours == null || neighbours.length < 2) continue;
 
-            nv_[0] = vertexNormals[v * 3];
-            nv_[1] = vertexNormals[v * 3 + 1];
-            nv_[2] = vertexNormals[v * 3 + 2];
+            nv_[0] = vertexNormals[v * NUM_3];
+            nv_[1] = vertexNormals[v * NUM_3 + 1];
+            nv_[2] = vertexNormals[v * NUM_3 + 2];
             buildTangentBasis(nv_, t1, t2);
 
             // Accumulate the 2x2 tangent-plane shape operator:
@@ -127,23 +175,23 @@ public final class PrincipalDirectionField {
             float m00 = 0, m01 = 0, m11 = 0;
             float wTotal = 0;
             for (int u : neighbours) {
-                float ex = positions[u * 3]     - positions[v * 3];
-                float ey = positions[u * 3 + 1] - positions[v * 3 + 1];
-                float ez = positions[u * 3 + 2] - positions[v * 3 + 2];
+                float ex = positions[u * NUM_3]     - positions[v * NUM_3];
+                float ey = positions[u * NUM_3 + 1] - positions[v * NUM_3 + 1];
+                float ez = positions[u * NUM_3 + 2] - positions[v * NUM_3 + 2];
                 float elen = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
-                if (elen < 1e-12f) continue;
+                if (elen < NUM_1e_12) continue;
                 // Tangential part of the edge (remove normal component).
                 float edn = ex * nv_[0] + ey * nv_[1] + ez * nv_[2];
                 float tx = ex - edn * nv_[0];
                 float ty = ey - edn * nv_[1];
                 float tz = ez - edn * nv_[2];
                 float tlen = (float) Math.sqrt(tx * tx + ty * ty + tz * tz);
-                if (tlen < 1e-12f) continue;
+                if (tlen < NUM_1e_12) continue;
                 tx /= tlen; ty /= tlen; tz /= tlen;
 
-                float nux = vertexNormals[u * 3]     - nv_[0];
-                float nuy = vertexNormals[u * 3 + 1] - nv_[1];
-                float nuz = vertexNormals[u * 3 + 2] - nv_[2];
+                float nux = vertexNormals[u * NUM_3]     - nv_[0];
+                float nuy = vertexNormals[u * NUM_3 + 1] - nv_[1];
+                float nuz = vertexNormals[u * NUM_3 + 2] - nv_[2];
                 // Normal curvature along this edge ≈ -(Δn · t) / elen.
                 float kEdge = -(nux * tx + nuy * ty + nuz * tz) / elen;
 
@@ -159,7 +207,7 @@ public final class PrincipalDirectionField {
                 m11 += w * b * b * kEdge;
                 wTotal += w;
             }
-            if (wTotal < 1e-12f) continue;
+            if (wTotal < NUM_1e_12) continue;
             m00 /= wTotal;
             m01 /= wTotal;
             m11 /= wTotal;
@@ -167,21 +215,21 @@ public final class PrincipalDirectionField {
             // Closed-form 2x2 symmetric eigendecomposition.
             float trace = m00 + m11;
             float diff = m00 - m11;
-            float disc = (float) Math.sqrt(diff * diff + 4f * m01 * m01);
-            float kA = 0.5f * (trace + disc);
-            float kB = 0.5f * (trace - disc);
+            float disc = (float) Math.sqrt(diff * diff + NUM_4 * m01 * m01);
+            float kA = NUM_0_5 * (trace + disc);
+            float kB = NUM_0_5 * (trace - disc);
             // Eigenvector of λ=kA: proportional to (m01, kA - m00) unless m01 ≈ 0.
             float eaX, eaY;
-            if (Math.abs(m01) > 1e-12f) {
+            if (Math.abs(m01) > NUM_1e_12) {
                 eaX = m01;
                 eaY = kA - m00;
             } else {
                 // Diagonal; pick axis-aligned eigenvector.
-                eaX = kA >= m11 ? 1f : 0f;
-                eaY = kA >= m11 ? 0f : 1f;
+                eaX = kA >= m11 ? NUM_1 : NUM_0;
+                eaY = kA >= m11 ? NUM_0 : NUM_1;
             }
             float elen = (float) Math.sqrt(eaX * eaX + eaY * eaY);
-            if (elen < 1e-20f) { eaX = 1; eaY = 0; elen = 1; }
+            if (elen < NUM_1e_20) { eaX = 1; eaY = 0; elen = 1; }
             eaX /= elen; eaY /= elen;
             // Orthogonal eigenvector in 2D.
             float ebX = -eaY;
@@ -202,18 +250,24 @@ public final class PrincipalDirectionField {
             kappaMin[v] = kmin;
 
             // Lift eigenvectors from (t1, t2) basis back to 3D.
-            dirMax[v * 3]     = maxAx * t1[0] + maxAy * t2[0];
-            dirMax[v * 3 + 1] = maxAx * t1[1] + maxAy * t2[1];
-            dirMax[v * 3 + 2] = maxAx * t1[2] + maxAy * t2[2];
-            dirMin[v * 3]     = minAx * t1[0] + minAy * t2[0];
-            dirMin[v * 3 + 1] = minAx * t1[1] + minAy * t2[1];
-            dirMin[v * 3 + 2] = minAx * t1[2] + minAy * t2[2];
+            dirMax[v * NUM_3]     = maxAx * t1[0] + maxAy * t2[0];
+            dirMax[v * NUM_3 + 1] = maxAx * t1[1] + maxAy * t2[1];
+            dirMax[v * NUM_3 + 2] = maxAx * t1[2] + maxAy * t2[2];
+            dirMin[v * NUM_3]     = minAx * t1[0] + minAy * t2[0];
+            dirMin[v * NUM_3 + 1] = minAx * t1[1] + minAy * t2[1];
+            dirMin[v * NUM_3 + 2] = minAx * t1[2] + minAy * t2[2];
         }
 
         return new PrincipalDirectionField(kappaMax, kappaMin, dirMax, dirMin, vertexNormals);
     }
 
-    /** Builds an orthonormal 2D tangent basis (t1, t2) perpendicular to n. */
+    /**
+     * Builds an orthonormal 2D tangent basis (t1, t2) perpendicular to n.
+     *
+     * @param n TODO: describe
+     * @param t1 TODO: describe
+     * @param t2 TODO: describe
+     */
     private static void buildTangentBasis(float[] n, float[] t1, float[] t2) {
         float ax = Math.abs(n[0]);
         float ay = Math.abs(n[1]);
@@ -227,7 +281,7 @@ public final class PrincipalDirectionField {
         t1[1] = helperZ * n[0] - helperX * n[2];
         t1[2] = helperX * n[1] - helperY * n[0];
         float l1 = (float) Math.sqrt(t1[0] * t1[0] + t1[1] * t1[1] + t1[2] * t1[2]);
-        if (l1 < 1e-20f) { t1[0] = 1; t1[1] = 0; t1[2] = 0; l1 = 1; }
+        if (l1 < NUM_1e_20) { t1[0] = 1; t1[1] = 0; t1[2] = 0; l1 = 1; }
         t1[0] /= l1; t1[1] /= l1; t1[2] /= l1;
         // t2 = n × t1 (already unit)
         t2[0] = n[1] * t1[2] - n[2] * t1[1];
@@ -237,11 +291,11 @@ public final class PrincipalDirectionField {
 
     private static int[][] buildOneRing(ArrayMesh mesh, EdgeDihedrals ed, int nv) {
         java.util.List<java.util.List<Integer>> tmp = new java.util.ArrayList<>(nv);
-        for (int i = 0; i < nv; i++) tmp.add(new java.util.ArrayList<>(6));
+        for (int i = 0; i < nv; i++) tmp.add(new java.util.ArrayList<>(NUM_6));
         for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
             long key = e.getKey();
-            int u = (int) (key >> 32);
-            int v = (int) (key & 0xffffffffL);
+            int u = (int) (key >> NUM_32);
+            int v = (int) (key & NUM_0xffffffff);
             tmp.get(u).add(v);
             tmp.get(v).add(u);
         }

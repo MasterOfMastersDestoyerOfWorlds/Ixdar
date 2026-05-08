@@ -31,6 +31,7 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.FaceRosyField;
  * assign chart-vertex ids in insertion order.
  */
 final class ChartVertexMap {
+    public static final int NUM_3 = 3;
 
     /** chart id per face, 0..chartCount-1. */
     final int[] faceChart;
@@ -107,7 +108,7 @@ final class ChartVertexMap {
         //    edges leave them in distinct wedges. This gives singular vertices
         //    multiple chart-vertices (one per cone wedge), which is the DOF
         //    the parametrization needs to encode the cone winding.
-        int C = F * 3;
+        int C = F * NUM_3;
         int[] cornerParent = new int[C];
         int[] cornerRank = new int[C];
         for (int i = 0; i < C; i++) cornerParent[i] = i;
@@ -123,8 +124,8 @@ final class ChartVertexMap {
             int cA1 = cornerOfVertex(mesh, fa, v1);
             int cB0 = cornerOfVertex(mesh, fb, v0);
             int cB1 = cornerOfVertex(mesh, fb, v1);
-            if (cA0 >= 0 && cB0 >= 0) unite(cornerParent, cornerRank, fa * 3 + cA0, fb * 3 + cB0);
-            if (cA1 >= 0 && cB1 >= 0) unite(cornerParent, cornerRank, fa * 3 + cA1, fb * 3 + cB1);
+            if (cA0 >= 0 && cB0 >= 0) unite(cornerParent, cornerRank, fa * NUM_3 + cA0, fb * NUM_3 + cB0);
+            if (cA1 >= 0 && cB1 >= 0) unite(cornerParent, cornerRank, fa * NUM_3 + cA1, fb * NUM_3 + cB1);
         }
         int[] cornerChartVertex = new int[C];
         int[] rootToCv = new int[C];
@@ -132,8 +133,8 @@ final class ChartVertexMap {
         java.util.ArrayList<Integer> cvMesh = new java.util.ArrayList<>(C);
         java.util.ArrayList<Integer> cvChart = new java.util.ArrayList<>(C);
         for (int f = 0; f < F; f++) {
-            for (int c = 0; c < 3; c++) {
-                int corner = f * 3 + c;
+            for (int c = 0; c < NUM_3; c++) {
+                int corner = f * NUM_3 + c;
                 int r = find(cornerParent, corner);
                 int cv = rootToCv[r];
                 if (cv < 0) {
@@ -157,10 +158,11 @@ final class ChartVertexMap {
                 chartVertexCount, chartVertexMesh, chartVertexChart);
     }
 
-    /** Find the corner index c in face f such that faceVertexAt(f, c) == v.
-     *  Returns -1 if the vertex is not a corner of the face. */
+    /**
+     * Find the corner index c in face f such that faceVertexAt(f, c) == v.
+     */
     private static int cornerOfVertex(ArrayMesh mesh, int f, int v) {
-        for (int c = 0; c < 3; c++) {
+        for (int c = 0; c < NUM_3; c++) {
             if (mesh.faceVertexAt(f, c) == v) return c;
         }
         return -1;
@@ -168,7 +170,7 @@ final class ChartVertexMap {
 
     /** Convenience: chart-vertex id at {@code corner} of face {@code f}. */
     int chartVertexAt(int faceId, int cornerIdx) {
-        return cornerChartVertex[faceId * 3 + cornerIdx];
+        return cornerChartVertex[faceId * NUM_3 + cornerIdx];
     }
 
     private static int find(int[] parent, int x) {

@@ -17,11 +17,15 @@ import ixdar.procgen.dungeon.values.RoomListValue3D.Room;
  * caller should pass to a {@link PlayerController} of the given capsule dimensions.
  */
 public final class PlayerSpawner {
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_0 = 0f;
 
     private PlayerSpawner() {
     }
 
     /**
+     * TODO: document.
+     *
      * @param rooms        result of {@code RoomPlacer3D.place} — must have at least one room
      * @param cellSize     world units per grid cell (used to position room floor against
      *                     {@code GridToMesh3D}'s origin-centered mesh layout)
@@ -30,6 +34,8 @@ public final class PlayerSpawner {
      * @param gridD        grid depth along Z
      * @param halfHeight   capsule body half-height
      * @param radius       capsule radius (sphere caps)
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
      */
     public static SpawnPoint pick(RoomListValue3D rooms,
                                   float cellSize,
@@ -40,9 +46,9 @@ public final class PlayerSpawner {
         }
         Room start = rooms.get(0);
         // World offsets — must mirror GridToMesh3D's centering.
-        float offsetX = -gridW * cellSize * 0.5f;
-        float offsetY = -gridH * cellSize * 0.5f;
-        float offsetZ = -gridD * cellSize * 0.5f;
+        float offsetX = -gridW * cellSize * NUM_0_5;
+        float offsetY = -gridH * cellSize * NUM_0_5;
+        float offsetZ = -gridD * cellSize * NUM_0_5;
         // Room center in grid units -> world.
         float wx = offsetX + start.centerX() * cellSize;
         float wz = offsetZ + start.centerZ() * cellSize;
@@ -50,7 +56,7 @@ public final class PlayerSpawner {
         float wy = floorY + (halfHeight + radius);
 
         // Yaw toward room[1] if there is one, otherwise face +X (yaw = 0).
-        float yawDeg = 0f;
+        float yawDeg = NUM_0;
         if (rooms.size() >= 2) {
             Room target = rooms.get(1);
             float tx = offsetX + target.centerX() * cellSize;
@@ -60,6 +66,6 @@ public final class PlayerSpawner {
             // Camera3D yaw convention: forward = (cos yaw, _, sin yaw). atan2(dz, dx) gives yaw in radians.
             yawDeg = (float) Math.toDegrees(Math.atan2(dz, dx));
         }
-        return new SpawnPoint(new Vec3f(wx, wy, wz), yawDeg, 0f);
+        return new SpawnPoint(new Vec3f(wx, wy, wz), yawDeg, NUM_0);
     }
 }

@@ -22,6 +22,11 @@ package ixdar.geometry.mesh.quadlayout.solver;
  * (rational-equivalent) recompute — no native libraries.
  */
 public final class Predicates {
+    public static final double NUM_0_5 = 0.5;
+    public static final double NUM_3_0 = 3.0;
+    public static final double NUM_16_0 = 16.0;
+    public static final double NUM_7_0 = 7.0;
+    public static final double NUM_56_0 = 56.0;
 
     private static final double EPSILON;
     private static final double O2D_ERR_BOUND_A;
@@ -30,11 +35,11 @@ public final class Predicates {
     static {
         // Shewchuk's machine epsilon: largest x with (1 + x) == 1 in round-to-nearest.
         double e = 1.0;
-        do { e *= 0.5; } while ((1.0 + e * 0.5) > 1.0);
+        do { e *= NUM_0_5; } while ((1.0 + e * NUM_0_5) > 1.0);
         EPSILON = e;
         // Shewchuk's static filter constants (paper Tables 1-2):
-        O2D_ERR_BOUND_A = (3.0 + 16.0 * e) * e;
-        O3D_ERR_BOUND_A = (7.0 + 56.0 * e) * e;
+        O2D_ERR_BOUND_A = (NUM_3_0 + NUM_16_0 * e) * e;
+        O3D_ERR_BOUND_A = (NUM_7_0 + NUM_56_0 * e) * e;
     }
 
     private Predicates() {}
@@ -44,7 +49,14 @@ public final class Predicates {
      * <pre>
      *  | a.x - c.x   a.y - c.y |
      *  | b.x - c.x   b.y - c.y |
-     * </pre>
+     * </pre>.
+     *
+     * @param ax TODO: describe
+     * @param ay TODO: describe
+     * @param bx TODO: describe
+     * @param by TODO: describe
+     * @param cx TODO: describe
+     * @param cy TODO: describe
      * @return +1 if (a, b, c) is counter-clockwise, −1 if clockwise, 0 if collinear.
      */
     public static int orient2d(double ax, double ay, double bx, double by, double cx, double cy) {
@@ -80,6 +92,20 @@ public final class Predicates {
      * Sign of the 3D orientation determinant of the tetrahedron (a,b,c,d).
      * Positive if d is on the negative side of the oriented plane through a,b,c
      * (matching Shewchuk's convention).
+     *
+     * @param ax TODO: describe
+     * @param ay TODO: describe
+     * @param az TODO: describe
+     * @param bx TODO: describe
+     * @param by TODO: describe
+     * @param bz TODO: describe
+     * @param cx TODO: describe
+     * @param cy TODO: describe
+     * @param cz TODO: describe
+     * @param dx TODO: describe
+     * @param dy TODO: describe
+     * @param dz TODO: describe
+     * @return TODO: describe
      */
     public static int orient3d(double ax, double ay, double az,
                                double bx, double by, double bz,
@@ -157,6 +183,10 @@ public final class Predicates {
         }
     }
 
-    /** Convenience: machine epsilon used by the static filters. Public for tests. */
+    /**
+     * Convenience: machine epsilon used by the static filters. Public for tests.
+     *
+     * @return TODO: describe
+     */
     public static double machineEpsilon() { return EPSILON; }
 }

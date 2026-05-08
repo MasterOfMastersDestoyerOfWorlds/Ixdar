@@ -26,6 +26,12 @@ import ixdar.geometry.mesh.quadlayout.tmesh.TMesh;
  * (see {@code QuadMeshAssembler}).
  */
 public final class SplitArcs {
+    public static final int NUM_3 = 3;
+    public static final double NUM_1e_9 = 1e-9;
+    public static final double NUM_1e_30 = 1e-30;
+    public static final double NUM_1e_20 = 1e-20;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_3_2 = 3f;
 
     private SplitArcs() {}
 
@@ -39,6 +45,7 @@ public final class SplitArcs {
      * @param vCorner per-corner v, length {@code 3 * F}
      * @param X       integer quantization vector indexed by arc id;
      *                {@code X.length == tmesh.arcs().size()}
+     * @throws IllegalArgumentException TODO: describe
      * @return per-arc list of split vertices
      */
     public static List<List<SplitVert>> generate(TMesh tmesh, ArrayMesh mesh,
@@ -59,6 +66,14 @@ public final class SplitArcs {
     /**
      * Subdivide one T-arc into {@code num + 1} split vertices.
      * If {@code num <= 0}, returns just the single endpoint vertex (start).
+     *
+     * @param arc TODO: describe
+     * @param arcId TODO: describe
+     * @param num TODO: describe
+     * @param mesh TODO: describe
+     * @param uCorner TODO: describe
+     * @param vCorner TODO: describe
+     * @return TODO: describe
      */
     static List<SplitVert> generateForArc(TArc arc, int arcId, int num,
                                           ArrayMesh mesh,
@@ -84,8 +99,8 @@ public final class SplitArcs {
             int last = stepUvs.size() - 1;
             float[] uvL = stepUvs.get(last);
             int faceId = faceCrossings.get(last)[0];
-            Vector3f pos = baryToWorld(mesh, faceId, uCorner, vCorner, uvL[2], uvL[3]);
-            out.add(new SplitVert(arcId, last, uvL[2], uvL[3], pos));
+            Vector3f pos = baryToWorld(mesh, faceId, uCorner, vCorner, uvL[2], uvL[NUM_3]);
+            out.add(new SplitVert(arcId, last, uvL[2], uvL[NUM_3], pos));
             return out;
         }
 
@@ -101,14 +116,14 @@ public final class SplitArcs {
         double total = 0.0;        // total length placed in split verts so far (excluding first)
         int count = 1;
         // Tiny initial bias to avoid double-emission at the start vertex.
-        accum = 1e-9;
+        accum = NUM_1e_9;
 
         while (count < num && curStep < stepUvs.size()) {
             float[] s = stepUvs.get(curStep);
             int faceId = faceCrossings.get(curStep)[0];
             // step end relative to (curU, curV)
             double dx = s[2] - curU;
-            double dy = s[3] - curV;
+            double dy = s[NUM_3] - curV;
             double stepRemainingLen = uAxis ? Math.abs(dx) : Math.abs(dy);
             if (accum + stepRemainingLen < div) {
                 accum += stepRemainingLen;
@@ -121,7 +136,7 @@ public final class SplitArcs {
                 // remaining part of this step.
                 double advance = div - accum;
                 double fullLen = uAxis ? Math.abs(dx) : Math.abs(dy);
-                double ratio = (fullLen > 1e-30) ? advance / fullLen : 0.0;
+                double ratio = (fullLen > NUM_1e_30) ? advance / fullLen : 0.0;
                 float newU = (float) (curU + ratio * dx);
                 float newV = (float) (curV + ratio * dy);
                 Vector3f pos = baryToWorld(mesh, faceId, uCorner, vCorner, newU, newV);
@@ -139,21 +154,31 @@ public final class SplitArcs {
         int last = stepUvs.size() - 1;
         float[] uvL = stepUvs.get(last);
         int faceId = faceCrossings.get(last)[0];
-        Vector3f endPos = baryToWorld(mesh, faceId, uCorner, vCorner, uvL[2], uvL[3]);
-        out.add(new SplitVert(arcId, last, uvL[2], uvL[3], endPos));
+        Vector3f endPos = baryToWorld(mesh, faceId, uCorner, vCorner, uvL[2], uvL[NUM_3]);
+        out.add(new SplitVert(arcId, last, uvL[2], uvL[NUM_3], endPos));
         return out;
     }
 
-    /** Barycentric inverse-image: given (u, v) in face's UV frame, compute 3D position. */
+    /**
+     * Barycentric inverse-image: given (u, v) in face's UV frame, compute 3D position.
+     *
+     * @param mesh TODO: describe
+     * @param faceId TODO: describe
+     * @param uCorner TODO: describe
+     * @param vCorner TODO: describe
+     * @param u TODO: describe
+     * @param v TODO: describe
+     * @return TODO: describe
+     */
     private static Vector3f baryToWorld(ArrayMesh mesh, int faceId,
                                         float[] uCorner, float[] vCorner,
                                         double u, double v) {
-        float u0 = uCorner[faceId * 3];
-        float v0 = vCorner[faceId * 3];
-        float u1 = uCorner[faceId * 3 + 1];
-        float v1 = vCorner[faceId * 3 + 1];
-        float u2 = uCorner[faceId * 3 + 2];
-        float v2 = vCorner[faceId * 3 + 2];
+        float u0 = uCorner[faceId * NUM_3];
+        float v0 = vCorner[faceId * NUM_3];
+        float u1 = uCorner[faceId * NUM_3 + 1];
+        float v1 = vCorner[faceId * NUM_3 + 1];
+        float u2 = uCorner[faceId * NUM_3 + 2];
+        float v2 = vCorner[faceId * NUM_3 + 2];
         double denom = (u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0);
         Vector3f p0 = new Vector3f();
         Vector3f p1 = new Vector3f();
@@ -161,8 +186,8 @@ public final class SplitArcs {
         mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), p0);
         mesh.vertexPosition(mesh.faceVertexAt(faceId, 1), p1);
         mesh.vertexPosition(mesh.faceVertexAt(faceId, 2), p2);
-        if (Math.abs(denom) < 1e-20) {
-            return new Vector3f(p0).add(p1).add(p2).mul(1f / 3f);
+        if (Math.abs(denom) < NUM_1e_20) {
+            return new Vector3f(p0).add(p1).add(p2).mul(NUM_1 / NUM_3_2);
         }
         double l1 = ((u - u0) * (v2 - v0) - (v - v0) * (u2 - u0)) / denom;
         double l2 = ((u1 - u0) * (v - v0) - (v1 - v0) * (u - u0)) / denom;

@@ -62,6 +62,13 @@ public final class QuadLayoutEngine {
                 return (L, Q)
             """;
 
+    /**
+     * TODO: document {@code pipeline}.
+     *
+     * @param mesh TODO: describe
+     * @param alpha TODO: describe
+     * @return TODO: describe
+     */
     public static CrossField pipeline(HalfEdgeMesh mesh, float alpha) {
         CrossField crossField = new CrossField(mesh).build();
 

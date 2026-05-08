@@ -22,13 +22,10 @@ public record InputParameterDescriptor(
         Integer maxInt,
         Boolean booleanDefault,
         String curvePointsDefault) {
-
-    public enum InputParameterKind {
-        FLOAT,
-        INT,
-        BOOLEAN,
-        CURVE
-    }
+    public static final String NAME = "name";
+    public static final String DEFAULT = "default";
+    public static final String MIN = "min";
+    public static final String MAX = "max";
 
     /**
      * Collects parameter descriptors from literal node arguments (for UI / validation). Port wiring
@@ -50,10 +47,10 @@ public record InputParameterDescriptor(
     }
 
     private static InputParameterDescriptor fromInputFloat(PythonParser.ParsedNode n) {
-        String name = stringArg(n, "name");
-        Float def = floatArg(n, "default");
-        Float min = floatArg(n, "min");
-        Float max = floatArg(n, "max");
+        String name = stringArg(n, NAME);
+        Float def = floatArg(n, DEFAULT);
+        Float min = floatArg(n, MIN);
+        Float max = floatArg(n, MAX);
         return new InputParameterDescriptor(
                 n.id,
                 n.type,
@@ -70,10 +67,10 @@ public record InputParameterDescriptor(
     }
 
     private static InputParameterDescriptor fromInputInt(PythonParser.ParsedNode n) {
-        String name = stringArg(n, "name");
-        Integer def = intArg(n, "default");
-        Integer min = intArg(n, "min");
-        Integer max = intArg(n, "max");
+        String name = stringArg(n, NAME);
+        Integer def = intArg(n, DEFAULT);
+        Integer min = intArg(n, MIN);
+        Integer max = intArg(n, MAX);
         return new InputParameterDescriptor(
                 n.id,
                 n.type,
@@ -90,8 +87,8 @@ public record InputParameterDescriptor(
     }
 
     private static InputParameterDescriptor fromInputBoolean(PythonParser.ParsedNode n) {
-        String name = stringArg(n, "name");
-        Boolean def = booleanArg(n, "default");
+        String name = stringArg(n, NAME);
+        Boolean def = booleanArg(n, DEFAULT);
         return new InputParameterDescriptor(
                 n.id,
                 n.type,
@@ -161,5 +158,12 @@ public record InputParameterDescriptor(
             return num.doubleValue() != 0.0;
         }
         return null;
+    }
+
+    public enum InputParameterKind {
+        FLOAT,
+        INT,
+        BOOLEAN,
+        CURVE
     }
 }

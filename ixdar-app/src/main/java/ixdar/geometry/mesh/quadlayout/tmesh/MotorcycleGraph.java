@@ -35,6 +35,100 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
  * cannot trace through reliably.
  */
 public final class MotorcycleGraph {
+    public static final String STEP = " step=";
+    public static final double NUM_15_0 = 15.0;
+    public static final double NUM_1e_20 = 1e-20;
+
+    /** PATCH-91 H1 diagnostic: per-singularity launch-count histogram (index = #motorcycles launched). */
+    public static int[] statSingLaunchCount = new int[16];
+    /** Total singularities scanned. */
+    public static int statSingTotal;
+    /**
+     * PATCH-110: singularities passed in vs successfully assigned a launch
+     *  TNode. statSingsInputCount = singularities.size() (whatever sing finder
+     *  produced). statSingsNoNode = sings whose vertex had no incident face
+     *  with uvSignedArea > 0 in the parametrization, so we couldn't pick a
+     *  launch face → no motorcycles launched from them. Drives understanding
+     */
+    public static int statSingsInputCount;
+    public static int statSingsNoNode;
+    /**
+     * Singularities where ≥1 face wedge had a cardinal exactly on its boundary.
+     */
+    public static int statSingBoundaryCardinals;
+    /**
+     * PATCH-89: number of boundary motorcycles synthesized + boundary nodes.
+     */
+    public static int statBoundaryMotorcycles;
+    public static int statBoundaryNodesCreated;
+    /**
+     * PATCH-89: synthetic-motorcycle marker. Boundary motorcycles store this
+     *  in their {@code singularityVertexId} field so consumers (TMesh.build,
+     */
+    public static final int BOUNDARY_MOTORCYCLE_VID = -2;
+
+    /**
+     * PATCH-92 abort-cause counters: where motorcycles terminated. Lyon's
+     *  framework expects traces to stop at α-bound survival or at proper
+     *  trace intersections. Aborts at degenerate parametrization triangles
+     *  or unmappable seam crossings indicate INPUT QUALITY issues that
+     */
+    public static int statAbortDegenStartFace;     // line 371: curFace<0 or uvSignedArea≤0
+    public static int statAbortBoundaryEdge;       // line 514: isBoundaryEdge or faceMeshEdge<0
+    public static int statAbortNoNeighborFace;     // line 520: nbrFace<0
+    public static int statAbortNoSharedCorners;    // sharedCorner lookup failed
+    public static int statAbortNoExitEdge;         // raycast couldn't find exit
+    public static int statTraceProperStop;         // Lyon survival or Eppstein normal stop
+    /**
+     * PATCH-94 diagnostic: how many trace launches hit MAX_STEPS without
+     *  triggering any stop condition (Lyon's both-sides α-hit, Eppstein.
+     */
+    public static int statAbortMaxSteps;
+    /**
+     * PATCH-94: count self-intersection events the current code SKIPS
+     *  ({@code priorId == motorcycleId}). On genus-positive surfaces a
+     *  motorcycle's iso-line can loop back to itself; today we ignore those
+     */
+    public static int statSelfCrashesSkipped;
+    /**
+     * PATCH-94 geometric self-crash detector: count steps where the ray
+     *  WOULD HIT an own segment (excluding the immediately-prior segment
+     *  in the same face) within positive {@code t > STEP_EPS}. Per EGKT08
+     *  the canonical Eppstein behavior is to STOP at such events
+     *  ("particle meets a vertex that has previously been traversed by
+     *  itself"). We currently skip them, which causes traces to run to
+     */
+    public static int statRealSelfCrashes;
+    /**
+     * PATCH-105: per-cause classification of MAX_STEPS aborts. After
+     *  trace() returns, count how many of the {@code statAbortMaxSteps}
+     */
+    public static int statMaxStepsZeroCrashes;        // never crashed at all (sanitization / predicate gap)
+    public static int statMaxStepsOneSidedAlpha;      // crashed but never both sides of α-cone
+    public static int statMaxStepsTwoSidedNeverFired; // had both sides AND in-α — but stop didn't trigger (shouldn't happen)
+    public static int statMaxStepsHitFlippedFace;     // entered ≥1 fold-over face along the way
+    public static int statMaxStepsUsedNudge;          // PATCH-93 recovery fired ≥1 time
+    /**
+     * PATCH-107 oscillation probe — uniqueFaces visited per max-stepped motorcycle.
+     *  Buckets [≤10, 11-50, 51-200, 201-1000, 1001-5000, 5001+]. If most aborts are
+     *  in low buckets, the motorcycle is oscillating (NOT genuinely traversing the
+     */
+    public static int[] statMaxStepsUniqueFacesHist = new int[6];
+    /** PATCH-94: motorcycles that experienced at least one real self-crash. */
+    public static int statMotorcyclesWithSelfCrash;
+    /**
+     * PATCH-95 H1 diagnostic: histogram of |α_ij| at every other-trace crash.
+     *  Buckets in degrees: 0-5°, 5-15° (Lyon's α=15° boundary), 15-30°, 30-45°,
+     *  45-60°, 60-75°, 75-90°. If most crashes are in 30-60° range, the
+     *  α-bound rarely qualifies them as Lyon stop hits, explaining why
+     */
+    public static int[] statAlphaIjHist = new int[8];
+    /**
+     * PATCH-94: per-motorcycle final outcome (PROPER_STOP / MAX_STEPS /.
+     */
+    public static java.util.List<String> motorcycleOutcomes = new java.util.ArrayList<>();
+    /** PATCH-93 diagnostic: dump first N no-exit-edge abort events. */
+    public static java.util.List<String> abortDumps = new java.util.ArrayList<>();
 
     /** Numerical tolerance for "ray exits triangle" intersection tests. */
     private static final float EPS = 1e-5f;
@@ -42,86 +136,118 @@ public final class MotorcycleGraph {
     private static final float STEP_EPS = 1e-4f;
     /** Hard cap on per-motorcycle step count — guards against infinite loops. */
     private static final int MAX_STEPS = 10_000;
-
-    /** PATCH-91 H1 diagnostic: per-singularity launch-count histogram (index = #motorcycles launched). */
-    public static int[] statSingLaunchCount = new int[16];
-    /** Total singularities scanned. */
-    public static int statSingTotal;
-    /** PATCH-110: singularities passed in vs successfully assigned a launch
-     *  TNode. statSingsInputCount = singularities.size() (whatever sing finder
-     *  produced). statSingsNoNode = sings whose vertex had no incident face
-     *  with uvSignedArea > 0 in the parametrization, so we couldn't pick a
-     *  launch face → no motorcycles launched from them. Drives understanding
-     *  of the trace-launch gap (Lyon 144 vs ours 128). */
-    public static int statSingsInputCount;
-    public static int statSingsNoNode;
-    /** Singularities where ≥1 face wedge had a cardinal exactly on its boundary
-     *  (the under-launch failure mode of cardinalInFaceWedge). */
-    public static int statSingBoundaryCardinals;
-    /** PATCH-89: number of boundary motorcycles synthesized + boundary nodes
-     *  created. Each boundary mesh edge becomes one synthetic α=0 motorcycle. */
-    public static int statBoundaryMotorcycles;
-    public static int statBoundaryNodesCreated;
-    /** PATCH-89: synthetic-motorcycle marker. Boundary motorcycles store this
-     *  in their {@code singularityVertexId} field so consumers (TMesh.build,
-     *  the survival rule in launch()) can identify them. */
-    public static final int BOUNDARY_MOTORCYCLE_VID = -2;
-
-    /** PATCH-92 abort-cause counters: where motorcycles terminated. Lyon's
-     *  framework expects traces to stop at α-bound survival or at proper
-     *  trace intersections. Aborts at degenerate parametrization triangles
-     *  or unmappable seam crossings indicate INPUT QUALITY issues that
-     *  cascade into giant DCEL cycles. */
-    public static int statAbortDegenStartFace;     // line 371: curFace<0 or uvSignedArea≤0
-    public static int statAbortBoundaryEdge;       // line 514: isBoundaryEdge or faceMeshEdge<0
-    public static int statAbortNoNeighborFace;     // line 520: nbrFace<0
-    public static int statAbortNoSharedCorners;    // sharedCorner lookup failed
-    public static int statAbortNoExitEdge;         // raycast couldn't find exit
-    public static int statTraceProperStop;         // Lyon survival or Eppstein normal stop
-    /** PATCH-94 diagnostic: how many trace launches hit MAX_STEPS without
-     *  triggering any stop condition (Lyon's both-sides α-hit, Eppstein
-     *  first-crash, boundary, or our raycast nudge-recovery's fallback abort). */
-    public static int statAbortMaxSteps;
-    /** PATCH-94: count self-intersection events the current code SKIPS
-     *  ({@code priorId == motorcycleId}). On genus-positive surfaces a
-     *  motorcycle's iso-line can loop back to itself; today we ignore those
-     *  events and the trace runs forever (well, until MAX_STEPS). */
-    public static int statSelfCrashesSkipped;
-    /** PATCH-94 geometric self-crash detector: count steps where the ray
-     *  WOULD HIT an own segment (excluding the immediately-prior segment
-     *  in the same face) within positive {@code t > STEP_EPS}. Per EGKT08
-     *  the canonical Eppstein behavior is to STOP at such events
-     *  ("particle meets a vertex that has previously been traversed by
-     *  itself"). We currently skip them, which causes traces to run to
-     *  MAX_STEPS on genus-positive surfaces. */
-    public static int statRealSelfCrashes;
-    /** PATCH-105: per-cause classification of MAX_STEPS aborts. After
-     *  trace() returns, count how many of the {@code statAbortMaxSteps}
-     *  motorcycles fall into each diagnostic bucket. */
-    public static int statMaxStepsZeroCrashes;        // never crashed at all (sanitization / predicate gap)
-    public static int statMaxStepsOneSidedAlpha;      // crashed but never both sides of α-cone
-    public static int statMaxStepsTwoSidedNeverFired; // had both sides AND in-α — but stop didn't trigger (shouldn't happen)
-    public static int statMaxStepsHitFlippedFace;     // entered ≥1 fold-over face along the way
-    public static int statMaxStepsUsedNudge;          // PATCH-93 recovery fired ≥1 time
-    /** PATCH-107 oscillation probe — uniqueFaces visited per max-stepped motorcycle.
-     *  Buckets [≤10, 11-50, 51-200, 201-1000, 1001-5000, 5001+]. If most aborts are
-     *  in low buckets, the motorcycle is oscillating (NOT genuinely traversing the
-     *  mesh) — implies our intersection detector misses the self-loop. */
-    public static int[] statMaxStepsUniqueFacesHist = new int[6];
-    /** PATCH-94: motorcycles that experienced at least one real self-crash. */
-    public static int statMotorcyclesWithSelfCrash;
-    /** PATCH-95 H1 diagnostic: histogram of |α_ij| at every other-trace crash.
-     *  Buckets in degrees: 0-5°, 5-15° (Lyon's α=15° boundary), 15-30°, 30-45°,
-     *  45-60°, 60-75°, 75-90°. If most crashes are in 30-60° range, the
-     *  α-bound rarely qualifies them as Lyon stop hits, explaining why
-     *  motorcycles run far without stopping. */
-    public static int[] statAlphaIjHist = new int[8];
-    /** PATCH-94: per-motorcycle final outcome (PROPER_STOP / MAX_STEPS /
-     *  ABORT_*). Index = motorcycle id. */
-    public static java.util.List<String> motorcycleOutcomes = new java.util.ArrayList<>();
-    /** PATCH-93 diagnostic: dump first N no-exit-edge abort events. */
-    public static java.util.List<String> abortDumps = new java.util.ArrayList<>();
     private static final int ABORT_DUMP_LIMIT = 8;
+
+    private MotorcycleGraph() {}
+
+    /**
+     * TODO: document {@code MotorcycleGraph}.
+     *
+     * @param mesh TODO: describe
+     * @param seamlessParameterization TODO: describe
+     * @param singularities TODO: describe
+     * @param alpha TODO: describe
+     */
+    public MotorcycleGraph(HalfEdgeMesh mesh, SeamlessParameterization seamlessParameterization,
+            List<Singularity> singularities, float alpha) {
+        //TODO Auto-generated constructor stub
+    }
+
+    /**
+     * Default α-bound (radians) for Lyon §3 stopping criterion when none
+     *  is specified. Lyon Table 1 uses α=15° for ROCKERARM (PATCH-104).
+     *  Override at runtime via {@code -Dixdar.lyon.alphaDeg=N}.
+     *
+     *  <p>Per Lyon §3 (page 308): tighter α forces motorcycles to extend
+     *  further before finding a valid stop pair (αik ∈ [0, α], αil ∈ [-α, 0])
+     *  → more arcs in the T-mesh. Bigger α = traces stop on any nearby crash
+     *  → fewer arcs. With our previous default 45°, ROCKERARM yielded 656
+     *  arcs vs Lyon paper's 2742.
+     *
+     * @return TODO: describe
+     */
+    public static double defaultAlpha() {
+        String prop = System.getProperty("ixdar.lyon.alphaDeg");
+        double deg = (prop != null) ? Double.parseDouble(prop) : NUM_15_0;
+        return Math.toRadians(deg);
+    }
+
+    /**
+     * TODO: document {@code trace}.
+     *
+     * @param param TODO: describe
+     * @param mesh TODO: describe
+     * @param field TODO: describe
+     * @param combed TODO: describe
+     * @param singularities TODO: describe
+     * @return TODO: describe
+     */
+    public static Result trace(SeamlessParameterization param,
+                               ArrayMesh mesh,
+                               FaceRosyField field,
+                               CombedField combed,
+                               List<Singularity> singularities) {
+        return trace(param, mesh, field, combed, singularities, defaultAlpha());
+    }
+
+    /**
+     * Trace with explicit α-bound (radians). {@code alpha = 0} reverts to
+     * Eppstein-classical "first crash stops". Lyon paper uses α ∈ [5°, 45°];
+     * smaller α = longer surviving traces = more arcs and patches.
+     *
+     * @param param TODO: describe
+     * @param mesh TODO: describe
+     * @param field TODO: describe
+     * @param combed TODO: describe
+     * @param singularities TODO: describe
+     * @param alpha TODO: describe
+     * @return TODO: describe
+     */
+    public static Result trace(SeamlessParameterization param,
+                               ArrayMesh mesh,
+                               FaceRosyField field,
+                               CombedField combed,
+                               List<Singularity> singularities,
+                               double alpha) {
+        Builder b = new Builder(param, mesh, field, combed, singularities, alpha);
+        return b.run();
+    }
+
+    /**
+     * Ray-segment intersection in 2D.  Returns {@code t > 0} for the smallest
+     * {@code t} such that {@code (origin + t * dir)} sits on segment AB
+     * (within the segment's endpoints), else {@code +Infinity}.
+     *
+     * @param ox TODO: describe
+     * @param oy TODO: describe
+     * @param dx TODO: describe
+     * @param dy TODO: describe
+     * @param ax TODO: describe
+     * @param ay TODO: describe
+     * @param bx TODO: describe
+     * @param by TODO: describe
+     * @return TODO: describe
+     */
+    static float raySegmentIntersect(float ox, float oy, float dx, float dy,
+                                     float ax, float ay, float bx, float by) {
+        // PATCH-107 probe: do the intersection in DOUBLE precision to absorb
+        //   per-step transition drift before resorting to QEx §3.2 sanitization.
+        //   The inputs are float (per-corner UVs from SeamlessParameterization),
+        //   but the cumulative trace position drifts after many seam crossings;
+        //   double arithmetic gives us ~7 more decimal digits of headroom and
+        //   eliminates the false-no-exit cases that drove PATCH-93 nudge-recovery.
+        double exd = (double) bx - ax;
+        double eyd = (double) by - ay;
+        double det = (double) dx * eyd - (double) dy * exd;
+        if (Math.abs(det) < NUM_1e_20) return Float.POSITIVE_INFINITY;
+        double rxd = (double) ax - ox;
+        double ryd = (double) ay - oy;
+        double t = (rxd * eyd - ryd * exd) / det;
+        double s = (rxd * dy - ryd * dx) / det;
+        if (t < -EPS) return Float.POSITIVE_INFINITY;
+        if (s < -EPS || s > 1.0 + EPS) return Float.POSITIVE_INFINITY;
+        return (float) t;
+    }
 
     /**
      * One crash event: motorcycle {@code crasher} terminated at the crash
@@ -149,64 +275,21 @@ public final class MotorcycleGraph {
     public record Result(List<Motorcycle> traces,
                          List<TNode> nodes,
                          List<Crash> crashes,
-                         /** PATCH-68: vertex id → SINGULARITY-kind TNode id.
+                         /**
+                          * PATCH-68: vertex id → SINGULARITY-kind TNode id.
                           *  Lets downstream code (TMesh.build) resolve a
                           *  motorcycle's start node without doing the
                           *  per-face uv-match dance, which fails for
-                          *  multi-port launches from different faces. */
+                          */
                          java.util.Map<Integer, Integer> singVertexToNode) {}
 
-    private MotorcycleGraph() {}
-
-    public MotorcycleGraph(HalfEdgeMesh mesh, SeamlessParameterization seamlessParameterization,
-            List<Singularity> singularities, float alpha) {
-        //TODO Auto-generated constructor stub
-    }
-
-    /** Default α-bound (radians) for Lyon §3 stopping criterion when none
-     *  is specified. Lyon Table 1 uses α=15° for ROCKERARM (PATCH-104).
-     *  Override at runtime via {@code -Dixdar.lyon.alphaDeg=N}.
-     *
-     *  <p>Per Lyon §3 (page 308): tighter α forces motorcycles to extend
-     *  further before finding a valid stop pair (αik ∈ [0, α], αil ∈ [-α, 0])
-     *  → more arcs in the T-mesh. Bigger α = traces stop on any nearby crash
-     *  → fewer arcs. With our previous default 45°, ROCKERARM yielded 656
-     *  arcs vs Lyon paper's 2742. */
-    public static double defaultAlpha() {
-        String prop = System.getProperty("ixdar.lyon.alphaDeg");
-        double deg = (prop != null) ? Double.parseDouble(prop) : 15.0;
-        return Math.toRadians(deg);
-    }
-
-    public static Result trace(SeamlessParameterization param,
-                               ArrayMesh mesh,
-                               FaceRosyField field,
-                               CombedField combed,
-                               List<Singularity> singularities) {
-        return trace(param, mesh, field, combed, singularities, defaultAlpha());
-    }
-
     /**
-     * Trace with explicit α-bound (radians). {@code alpha = 0} reverts to
-     * Eppstein-classical "first crash stops". Lyon paper uses α ∈ [5°, 45°];
-     * smaller α = longer surviving traces = more arcs and patches.
-     */
-    public static Result trace(SeamlessParameterization param,
-                               ArrayMesh mesh,
-                               FaceRosyField field,
-                               CombedField combed,
-                               List<Singularity> singularities,
-                               double alpha) {
-        Builder b = new Builder(param, mesh, field, combed, singularities, alpha);
-        return b.run();
-    }
-
-    /** PATCH-95: per-motorcycle state for round-robin (step-locked parallel)
+     * PATCH-95: per-motorcycle state for round-robin (step-locked parallel)
      *  propagation per EGKT08 §5 line 312 ("in a sequence of time steps,
      *  move each particle along the edge"). All motorcycles advance one
      *  triangle-step per round; each motorcycle becomes inactive when it
      *  satisfies a stop condition (Lyon §3 both-side α-bound, EGKT08 self-
-     *  intersection, mesh boundary, or our raycast no-exit-edge fallback). */
+     */
     private static final class MotorcycleState {
         final int motorcycleId;
         final int singVid;
@@ -230,12 +313,13 @@ public final class MotorcycleGraph {
         int enteredFlippedFace = 0;    // faces with uvSignedArea ≤ 0 visited
         int nudgeRecoveryFires = 0;    // PATCH-93 recovery firings
         java.util.HashSet<Integer> uniqueFaces = new java.util.HashSet<>();  // PATCH-107 oscillation probe
-        /** PATCH-107 cycle-detection: visited (face, dirInFace) tuples. EGKT08
+        /**
+         * PATCH-107 cycle-detection: visited (face, dirInFace) tuples. EGKT08
          *  spirit: motorcycle stops when "particle meets a vertex previously
          *  traversed by itself" — generalized here to "re-enters a face in
          *  the same direction as before". Catches oscillation that the
          *  segment-intersection self-stop misses (parallel cardinal traces
-         *  in the same face don't intersect). */
+         */
         java.util.HashSet<Long> visitedFaceDir = new java.util.HashSet<>();
 
         MotorcycleState(int motorcycleId, int singVid, int direction, int startNode,
@@ -253,6 +337,32 @@ public final class MotorcycleGraph {
 
     /** Mutable trace-building scratchpad. */
     private static final class Builder {
+        public static final int NUM_3 = 3;
+        public static final int NUM_4 = 4;
+        public static final double NUM_1e_7 = 1e-7;
+        public static final int NUM_10 = 10;
+        public static final int NUM_50 = 50;
+        public static final int NUM_200 = 200;
+        public static final int NUM_1000 = 1000;
+        public static final int NUM_5000 = 5000;
+        public static final int NUM_5 = 5;
+        public static final double NUM_1e_9 = 1e-9;
+        public static final int NUM_0x = 0xF;
+        public static final float NUM_1 = 1f;
+        public static final float NUM_0 = 0f;
+        public static final float NUM_1e_9_2 = 1e-9f;
+        public static final int NUM_15 = 15;
+        public static final int NUM_30 = 30;
+        public static final int NUM_45 = 45;
+        public static final int NUM_60 = 60;
+        public static final int NUM_75 = 75;
+        public static final int NUM_90 = 90;
+        public static final int NUM_6 = 6;
+        public static final int NUM_7 = 7;
+        public static final float NUM_3_2 = 3f;
+        public static final float NUM_0_01 = 0.01f;
+        public static final float NUM_1e_7_2 = 1e-7f;
+        public static final double NUM_1e_30 = 1e-30;
         final SeamlessParameterization param;
         final ArrayMesh mesh;
         final FaceRosyField field;
@@ -308,7 +418,7 @@ public final class MotorcycleGraph {
             int F = mesh.faceCount();
             for (int f = 0; f < F; f++) {
                 if (param.uvSignedArea(f) <= 0) continue;
-                for (int c = 0; c < 3; c++) {
+                for (int c = 0; c < NUM_3; c++) {
                     int vid = mesh.faceVertexAt(f, c);
                     if (singVerts.contains(vid) && !singVertexToFaceCorner.containsKey(vid)) {
                         singVertexToFaceCorner.put(vid, new int[]{f, c});
@@ -347,7 +457,7 @@ public final class MotorcycleGraph {
                 int startVid = mesh.halfEdgeVertex(he);
                 int endVid = mesh.halfEdgeEndVertex(he);
                 int cStart = -1, cEnd = -1;
-                for (int c = 0; c < 3; c++) {
+                for (int c = 0; c < NUM_3; c++) {
                     int vid = mesh.faceVertexAt(faceB, c);
                     if (vid == startVid) cStart = c;
                     else if (vid == endVid) cEnd = c;
@@ -376,7 +486,7 @@ public final class MotorcycleGraph {
                 double du = uOut - uIn, dv = vOut - vIn;
                 int dir;
                 if (Math.abs(du) >= Math.abs(dv)) dir = du >= 0 ? 0 : 2;
-                else dir = dv >= 0 ? 1 : 3;
+                else dir = dv >= 0 ? 1 : NUM_3;
 
                 int mId = motorcycles.size();
                 ArrayList<Motorcycle.Step> trace = new ArrayList<>();
@@ -462,9 +572,9 @@ public final class MotorcycleGraph {
                     int he = mesh.vertexOutgoingHalfEdgeAt(vId, oh);
                     int faceId = mesh.halfEdgeFace(he);
                     if (faceId < 0) continue;
-                    int cV = he % 3;
-                    int cN = mesh.halfEdgeNext(he) % 3;
-                    int cP = mesh.halfEdgePrev(he) % 3;
+                    int cV = he % NUM_3;
+                    int cN = mesh.halfEdgeNext(he) % NUM_3;
+                    int cP = mesh.halfEdgePrev(he) % NUM_3;
                     float vU = param.u(faceId, cV);
                     float vV = param.v(faceId, cV);
                     float nU = param.u(faceId, cN);
@@ -473,12 +583,12 @@ public final class MotorcycleGraph {
                     float pV = param.v(faceId, cP);
                     double e1x = nU - vU, e1y = nV - vV;
                     double e2x = pU - vU, e2y = pV - vV;
-                    for (int dir = 0; dir < 4; dir++) {
+                    for (int dir = 0; dir < NUM_4; dir++) {
                         double dx = (dir == 0) ? 1 : (dir == 2 ? -1 : 0);
-                        double dy = (dir == 1) ? 1 : (dir == 3 ? -1 : 0);
+                        double dy = (dir == 1) ? 1 : (dir == NUM_3 ? -1 : 0);
                         double c1 = e1x * dy - e1y * dx;
                         double c2 = dx * e2y - dy * e2x;
-                        if (Math.abs(c1) < 1e-7 || Math.abs(c2) < 1e-7) {
+                        if (Math.abs(c1) < NUM_1e_7 || Math.abs(c2) < NUM_1e_7) {
                             boundaryCardinal = true;
                         }
                         if (!cardinalInFaceWedge(e1x, e1y, e2x, e2y, dx, dy)) continue;
@@ -548,11 +658,11 @@ public final class MotorcycleGraph {
                     if (st.enteredFlippedFace > 0) statMaxStepsHitFlippedFace++;
                     if (st.nudgeRecoveryFires > 0) statMaxStepsUsedNudge++;
                     int uf = st.uniqueFaces.size();
-                    int b = (uf <= 10) ? 0
-                          : (uf <= 50) ? 1
-                          : (uf <= 200) ? 2
-                          : (uf <= 1000) ? 3
-                          : (uf <= 5000) ? 4 : 5;
+                    int b = (uf <= NUM_10) ? 0
+                          : (uf <= NUM_50) ? 1
+                          : (uf <= NUM_200) ? 2
+                          : (uf <= NUM_1000) ? NUM_3
+                          : (uf <= NUM_5000) ? NUM_4 : NUM_5;
                     statMaxStepsUniqueFacesHist[b]++;
                     // PATCH-107: use the INTERSECTION node we just created
                     //   (not a BOUNDARY node) so T-mesh treats it as a
@@ -566,8 +676,18 @@ public final class MotorcycleGraph {
             return new Result(motorcycles, nodes, crashes, singVertexToNode);
         }
 
-        /** Is cardinal {@code (dx, dy)} strictly inside the face wedge bounded
-         *  by {@code (e1x, e1y)} and {@code (e2x, e2y)} (CCW from e1 to e2)? */
+        /**
+         * Is cardinal {@code (dx, dy)} strictly inside the face wedge bounded
+         *  by {@code (e1x, e1y)} and {@code (e2x, e2y)} (CCW from e1 to e2)?.
+         *
+         * @param e1x TODO: describe
+         * @param e1y TODO: describe
+         * @param e2x TODO: describe
+         * @param e2y TODO: describe
+         * @param dx TODO: describe
+         * @param dy TODO: describe
+         * @return TODO: describe
+         */
         private static boolean cardinalInFaceWedge(double e1x, double e1y,
                                                     double e2x, double e2y,
                                                     double dx, double dy) {
@@ -575,7 +695,7 @@ public final class MotorcycleGraph {
             double cTotal = e1x * e2y - e1y * e2x;
             double c1 = e1x * dy - e1y * dx;
             double c2 = dx * e2y - dy * e2x;
-            double eps = 1e-9;
+            double eps = NUM_1e_9;
             if (cTotal > 0) {
                 return c1 > eps && c2 > eps;
             } else {
@@ -597,6 +717,9 @@ public final class MotorcycleGraph {
          * advances ONE step per round, so all motorcycles see the cumulative
          * trace state from prior rounds — the parallel propagation Lyon
          * implicitly assumes via the EGKT08 reference.
+         *
+         * @param st TODO: describe
+         * @return TODO: describe
          */
         boolean stepMotorcycle(MotorcycleState st) {
             int motorcycleId = st.motorcycleId;
@@ -627,11 +750,11 @@ public final class MotorcycleGraph {
                 //   trace can legitimately re-enter (face, dir) on a
                 //   different parametric path. Decision moved to MAX_STEPS
                 //   handler at end of run.
-                long faceDirKey = ((long) curFace << 4) | (dirInFace & 0xF);
+                long faceDirKey = ((long) curFace << NUM_4) | (dirInFace & NUM_0x);
                 st.visitedFaceDir.add(faceDirKey);
                 // Direction unit vector in face's UV frame.
-                float du = (dirInFace == 0) ? 1f : (dirInFace == 2 ? -1f : 0f);
-                float dv = (dirInFace == 1) ? 1f : (dirInFace == 3 ? -1f : 0f);
+                float du = (dirInFace == 0) ? NUM_1 : (dirInFace == 2 ? -NUM_1 : NUM_0);
+                float dv = (dirInFace == 1) ? NUM_1 : (dirInFace == NUM_3 ? -NUM_1 : NUM_0);
 
                 // Triangle corners of curFace.
                 float u0 = param.u(curFace, 0), v0 = param.v(curFace, 0);
@@ -654,7 +777,7 @@ public final class MotorcycleGraph {
                 for (float[] seg : facePaths[curFace]) {
                     int priorId = (int) seg[0];
                     float t = raySegmentIntersect(u, v, du, dv,
-                            seg[2], seg[3], seg[4], seg[5]);
+                            seg[2], seg[NUM_3], seg[NUM_4], seg[NUM_5]);
                     if (priorId == motorcycleId) {
                         statSelfCrashesSkipped++;
                         // For self-segments, only the IMMEDIATELY-PRIOR step
@@ -677,9 +800,9 @@ public final class MotorcycleGraph {
                     // Edges: edge i is between corner i and corner (i+1)%3.
                     // Pre-package corner UV.
                     float[][] cu = {{u0, v0}, {u1, v1}, {u2, v2}};
-                    for (int e = 0; e < 3; e++) {
+                    for (int e = 0; e < NUM_3; e++) {
                         float[] a = cu[e];
-                        float[] b = cu[(e + 1) % 3];
+                        float[] b = cu[(e + 1) % NUM_3];
                         float t = raySegmentIntersect(u, v, du, dv,
                                 a[0], a[1], b[0], b[1]);
                         if (t > STEP_EPS && t < exitT) {
@@ -716,7 +839,7 @@ public final class MotorcycleGraph {
                         statRealSelfCrashes++;
                         finalNode = selfNodeId;
                         motorcycleOutcomes.add("SELF_STOP id=" + motorcycleId
-                                + " step=" + step);
+                                + STEP + step);
                         break;
                     }
 
@@ -746,7 +869,7 @@ public final class MotorcycleGraph {
                     float lJi = cumulativeLengthToCrash(bestPriorMotorcycle,
                             bestPriorStep, crashU, crashV);
                     // |α_ij| = atan(l_ji / l_ij). Both sides positive parametric.
-                    double absAlphaIj = (lIj < 1e-9f)
+                    double absAlphaIj = (lIj < NUM_1e_9_2)
                             ? Math.PI / 2
                             : Math.atan((double) lJi / (double) lIj);
 
@@ -754,20 +877,20 @@ public final class MotorcycleGraph {
                     {
                         double degs = Math.toDegrees(absAlphaIj);
                         int bucket;
-                        if (degs < 5) bucket = 0;
-                        else if (degs < 15) bucket = 1;     // Lyon α=15° boundary
-                        else if (degs < 30) bucket = 2;
-                        else if (degs < 45) bucket = 3;
-                        else if (degs < 60) bucket = 4;
-                        else if (degs < 75) bucket = 5;
-                        else if (degs < 90) bucket = 6;
-                        else bucket = 7;
+                        if (degs < NUM_5) bucket = 0;
+                        else if (degs < NUM_15) bucket = 1;     // Lyon α=15° boundary
+                        else if (degs < NUM_30) bucket = 2;
+                        else if (degs < NUM_45) bucket = NUM_3;
+                        else if (degs < NUM_60) bucket = NUM_4;
+                        else if (degs < NUM_75) bucket = NUM_5;
+                        else if (degs < NUM_90) bucket = NUM_6;
+                        else bucket = NUM_7;
                         statAlphaIjHist[bucket]++;
                     }
 
                     // PATCH-105: per-motorcycle crash + sided-alpha counters.
                     st.crashesRecorded++;
-                    if (alpha > 1e-9 && absAlphaIj <= alpha + 1e-9) {
+                    if (alpha > NUM_1e_9 && absAlphaIj <= alpha + NUM_1e_9) {
                         if (cross < 0) {
                             leftHit = true;
                             st.crashesLeftAlpha++;
@@ -796,14 +919,14 @@ public final class MotorcycleGraph {
                     boolean priorIsBoundary = bestPriorMotorcycle < numBoundaryMotorcycles
                             && motorcycles.get(bestPriorMotorcycle).singularityVertexId() == BOUNDARY_MOTORCYCLE_VID;
 
-                    boolean stop = (alpha <= 1e-9)            // Eppstein mode
+                    boolean stop = (alpha <= NUM_1e_9)            // Eppstein mode
                             || (leftHit && rightHit)          // Lyon both-sides
                             || priorIsBoundary;                // PATCH-89
                     if (stop) {
                         finalNode = crashNodeId;
                         statTraceProperStop++;
                         motorcycleOutcomes.add("PROPER_STOP id=" + motorcycleId
-                                + " step=" + step);
+                                + STEP + step);
                         break;
                     }
 
@@ -842,19 +965,19 @@ public final class MotorcycleGraph {
                     // stop or a real intersection — dead-ends from precision
                     // are not a Lyon-paper concept and produce the giant
                     // DCEL artifact cycles we've been chasing.
-                    float cx = (u0 + u1 + u2) / 3f;
-                    float cy = (v0 + v1 + v2) / 3f;
+                    float cx = (u0 + u1 + u2) / NUM_3_2;
+                    float cy = (v0 + v1 + v2) / NUM_3_2;
                     // Bigger nudge (1% toward centroid) to escape tangent /
                     // on-edge cases; the nudge is geometrically tiny but
                     // larger than STEP_EPS so raycast finds an exit.
-                    float nudgeFrac = 0.01f;
+                    float nudgeFrac = NUM_0_01;
                     float uN = u + nudgeFrac * (cx - u);
                     float vN = v + nudgeFrac * (cy - v);
                     float[][] cuRetry = {{u0, v0}, {u1, v1}, {u2, v2}};
-                    final float STEP_EPS_RECOVERY = 1e-7f;
-                    for (int e = 0; e < 3; e++) {
+                    final float STEP_EPS_RECOVERY = NUM_1e_7_2;
+                    for (int e = 0; e < NUM_3; e++) {
                         float[] a = cuRetry[e];
-                        float[] b = cuRetry[(e + 1) % 3];
+                        float[] b = cuRetry[(e + 1) % NUM_3];
                         float t = raySegmentIntersect(uN, vN, du, dv,
                                 a[0], a[1], b[0], b[1]);
                         if (t > STEP_EPS_RECOVERY && t < exitT) {
@@ -918,9 +1041,9 @@ public final class MotorcycleGraph {
                 if (interiorEdge >= 0 && field.edgeFaceA(interiorEdge) == curFace) {
                     rotForward = r;
                 } else {
-                    rotForward = (4 - r) & 3;
+                    rotForward = (NUM_4 - r) & NUM_3;
                 }
-                int nbrDir = (dirInFace + rotForward) & 3;
+                int nbrDir = (dirInFace + rotForward) & NUM_3;
 
                 // Map exit point in curFace UV to entry point in nbrFace UV.
                 // The two faces share an edge (mesh edge id `faceMeshEdge`)
@@ -958,7 +1081,7 @@ public final class MotorcycleGraph {
                 double curBv = param.v(curFace, sharedCornerCur[1]);
                 double dxU = curBu - curAu, dxV = curBv - curAv;
                 double denom = dxU * dxU + dxV * dxV;
-                double frac = (denom > 1e-30)
+                double frac = (denom > NUM_1e_30)
                         ? ((exitU - curAu) * dxU + (exitV - curAv) * dxV) / denom
                         : 0.0;
                 if (frac < 0.0) frac = 0.0;
@@ -1011,9 +1134,18 @@ public final class MotorcycleGraph {
             return n.id();
         }
 
-        /** PATCH-89: get or create a BOUNDARY-kind TNode at a mesh boundary
+        /**
+         * PATCH-89: get or create a BOUNDARY-kind TNode at a mesh boundary
          *  vertex's parametric position in {@code face}. Reused across
-         *  multiple boundary-edge synthesis calls that share a vertex. */
+         *  multiple boundary-edge synthesis calls that share a vertex.
+         *
+         * @param map TODO: describe
+         * @param vid TODO: describe
+         * @param face TODO: describe
+         * @param u TODO: describe
+         * @param v TODO: describe
+         * @return TODO: describe
+         */
         int getOrCreateBoundaryNode(HashMap<Integer, Integer> map, int vid,
                                      int face, float u, float v) {
             Integer existing = map.get(vid);
@@ -1026,18 +1158,29 @@ public final class MotorcycleGraph {
             return bn.id();
         }
 
-        /** PATCH-95: resolve a (motorcycleId, stepIndex) to its Step, looking
+        /**
+         * PATCH-95: resolve a (motorcycleId, stepIndex) to its Step, looking
          *  in either {@code motorcycles} (synthetic boundaries, IDs &lt;
          *  {@code numBoundaryMotorcycles}) or {@code stateById} (regular
-         *  round-robin motorcycles, IDs ≥ {@code numBoundaryMotorcycles}). */
+         *  round-robin motorcycles, IDs ≥ {@code numBoundaryMotorcycles}).
+         *
+         * @param priorMotorcycleId TODO: describe
+         * @param stepIdx TODO: describe
+         * @return TODO: describe
+         */
         Motorcycle.Step lookupPriorStep(int priorMotorcycleId, int stepIdx) {
             List<Motorcycle.Step> trace = lookupPriorTrace(priorMotorcycleId);
             if (trace == null || stepIdx < 0 || stepIdx >= trace.size()) return null;
             return trace.get(stepIdx);
         }
 
-        /** PATCH-95: resolve a motorcycleId to its trace list (synthetic or
-         *  in-progress round-robin state). */
+        /**
+         * PATCH-95: resolve a motorcycleId to its trace list (synthetic or
+         *  in-progress round-robin state).
+         *
+         * @param priorMotorcycleId TODO: describe
+         * @return TODO: describe
+         */
         List<Motorcycle.Step> lookupPriorTrace(int priorMotorcycleId) {
             if (priorMotorcycleId < numBoundaryMotorcycles) {
                 if (priorMotorcycleId < 0 || priorMotorcycleId >= motorcycles.size())
@@ -1048,14 +1191,22 @@ public final class MotorcycleGraph {
             return s == null ? null : s.trace;
         }
 
-        /** Walk prior motorcycle's trace from its origin, summing per-step
+        /**
+         * Walk prior motorcycle's trace from its origin, summing per-step
          *  parametric lengths up to and into step {@code crashStepIdx}, where
-         *  the crash sits at {@code (crashU, crashV)} within that step. */
+         *  the crash sits at {@code (crashU, crashV)} within that step.
+         *
+         * @param priorMotorcycleId TODO: describe
+         * @param crashStepIdx TODO: describe
+         * @param crashU TODO: describe
+         * @param crashV TODO: describe
+         * @return TODO: describe
+         */
         float cumulativeLengthToCrash(int priorMotorcycleId, int crashStepIdx,
                                        float crashU, float crashV) {
             List<Motorcycle.Step> trace = lookupPriorTrace(priorMotorcycleId);
-            if (trace == null) return 0f;
-            float sum = 0f;
+            if (trace == null) return NUM_0;
+            float sum = NUM_0;
             for (int k = 0; k < crashStepIdx && k < trace.size(); k++) {
                 Motorcycle.Step s = trace.get(k);
                 float du = s.uOut() - s.uIn();
@@ -1095,41 +1246,19 @@ public final class MotorcycleGraph {
         /**
          * Return {cornerIdxA, cornerIdxB} — the two face-corner indices of the
          * shared mesh edge {@code meshEdgeId}, in that face's vertex order.
+         *
+         * @param faceId TODO: describe
+         * @param meshEdgeId TODO: describe
+         * @return TODO: describe
          */
         int[] sharedCornerIndices(int faceId, int meshEdgeId) {
-            for (int c = 0; c < 3; c++) {
+            for (int c = 0; c < NUM_3; c++) {
                 if (mesh.faceEdgeAt(faceId, c) == meshEdgeId) {
-                    return new int[]{c, (c + 1) % 3};
+                    return new int[]{c, (c + 1) % NUM_3};
                 }
             }
             return null;
         }
-    }
-
-    /**
-     * Ray-segment intersection in 2D.  Returns {@code t > 0} for the smallest
-     * {@code t} such that {@code (origin + t * dir)} sits on segment AB
-     * (within the segment's endpoints), else {@code +Infinity}.
-     */
-    static float raySegmentIntersect(float ox, float oy, float dx, float dy,
-                                     float ax, float ay, float bx, float by) {
-        // PATCH-107 probe: do the intersection in DOUBLE precision to absorb
-        //   per-step transition drift before resorting to QEx §3.2 sanitization.
-        //   The inputs are float (per-corner UVs from SeamlessParameterization),
-        //   but the cumulative trace position drifts after many seam crossings;
-        //   double arithmetic gives us ~7 more decimal digits of headroom and
-        //   eliminates the false-no-exit cases that drove PATCH-93 nudge-recovery.
-        double exd = (double) bx - ax;
-        double eyd = (double) by - ay;
-        double det = (double) dx * eyd - (double) dy * exd;
-        if (Math.abs(det) < 1e-20) return Float.POSITIVE_INFINITY;
-        double rxd = (double) ax - ox;
-        double ryd = (double) ay - oy;
-        double t = (rxd * eyd - ryd * exd) / det;
-        double s = (rxd * dy - ryd * dx) / det;
-        if (t < -EPS) return Float.POSITIVE_INFINITY;
-        if (s < -EPS || s > 1.0 + EPS) return Float.POSITIVE_INFINITY;
-        return (float) t;
     }
 
     //public MotorcycleGraph build() {

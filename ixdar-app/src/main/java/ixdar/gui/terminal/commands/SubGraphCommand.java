@@ -11,6 +11,9 @@ import ixdar.scenes.main.MainScene;
 
 @CommandAnnotation(id = "sg")
 public class SubGraphCommand extends TerminalCommand {
+    public static final String ARGUMENT = "argument ";
+    public static final String WAS_OUT_OF_BOUNDS = " was out of bounds";
+    public static final String STR = "\\";
 
     public static String cmd = "sg";
 
@@ -47,19 +50,19 @@ public class SubGraphCommand extends TerminalCommand {
             try {
                 Range r = Range.parse(arg);
                 if (!MainScene.orgShell.hasPoint(r.startIdx)) {
-                    terminal.error("argument " + arg + " was out of bounds");
+                    terminal.error(ARGUMENT + arg + WAS_OUT_OF_BOUNDS);
                 } else if (!MainScene.orgShell.hasPoint(r.endIdx)) {
-                    terminal.error("argument " + arg + " was out of bounds");
+                    terminal.error(ARGUMENT + arg + WAS_OUT_OF_BOUNDS);
                 }
                 ranges.add(r);
             } catch (Exception e) {
-                terminal.error("argument " + arg + " was could not be parsed: " + e.getMessage());
+                terminal.error(ARGUMENT + arg + " was could not be parsed: " + e.getMessage());
                 return null;
             }
 
         }
         String subGraphFileName = terminal.loadedFile.getName();
-        int extension = terminal.directory.lastIndexOf("\\") + 1;
+        int extension = terminal.directory.lastIndexOf(STR) + 1;
         if (extension == -1) {
             extension = 0;
         }
@@ -74,7 +77,7 @@ public class SubGraphCommand extends TerminalCommand {
         subGraphFileName += lastRange.toString();
 
         subGraphFileName += ".ix";
-        String newPath = terminal.directory + "\\" + subGraphFileName;
+        String newPath = terminal.directory + STR + subGraphFileName;
         Shell subGraph = new Shell();
         for (Range r : ranges) {
             subGraph.addAllInRange(r, MainScene.orgShell);

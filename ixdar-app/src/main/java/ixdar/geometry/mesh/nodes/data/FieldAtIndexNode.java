@@ -14,10 +14,13 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "field_at_index")
 public class FieldAtIndexNode implements MeshNode {
+    public static final String VALUE_2 = "value";
+    public static final String INDEX_2 = "index";
+    public static final String RESULT_2 = "result";
 
-    private static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.0f, -1000f, 1000f);
-    private static final InputPort INDEX = new InputPort("index", PortType.INT, 0, 0f, 1000000f);
-    private static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
+    private static final InputPort VALUE = new InputPort(VALUE_2, PortType.FLOAT, 0.0f, -1000f, 1000f);
+    private static final InputPort INDEX = new InputPort(INDEX_2, PortType.INT, 0, 0f, 1000000f);
+    private static final OutputPort RESULT = new OutputPort(RESULT_2, PortType.FLOAT);
 
     @Override
     public String description() {
@@ -27,9 +30,9 @@ public class FieldAtIndexNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "value", "Per-element FloatField to sample from.",
-                "index", "Indices into the field. Scalar or IntField.",
-                "result", "Sampled float(s) at the requested index/indices."
+                VALUE_2, "Per-element FloatField to sample from.",
+                INDEX_2, "Indices into the field. Scalar or IntField.",
+                RESULT_2, "Sampled float(s) at the requested index/indices."
         );
     }
 
@@ -45,8 +48,8 @@ public class FieldAtIndexNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Object vo = FieldBroadcast.getInputOrDefault(ctx, "value", VALUE.defaultValue());
-        Object io = FieldBroadcast.getInputOrDefault(ctx, "index", INDEX.defaultValue());
+        Object vo = FieldBroadcast.getInputOrDefault(ctx, VALUE_2, VALUE.defaultValue());
+        Object io = FieldBroadcast.getInputOrDefault(ctx, INDEX_2, INDEX.defaultValue());
 
         if (vo instanceof FloatField vf && io instanceof IntField idxf) {
             int n = idxf.length();
@@ -59,21 +62,21 @@ public class FieldAtIndexNode implements MeshNode {
                     out[i] = 0f;
                 }
             }
-            ctx.setOutput("result", new FloatField(out));
+            ctx.setOutput(RESULT_2, new FloatField(out));
             return;
         }
 
         if (vo instanceof FloatField vf) {
             int j = FieldBroadcast.intScalarOrDefault(io, 0);
             if (j >= 0 && j < vf.length()) {
-                ctx.setOutput("result", vf.get(j));
+                ctx.setOutput(RESULT_2, vf.get(j));
             } else {
-                ctx.setOutput("result", 0f);
+                ctx.setOutput(RESULT_2, 0f);
             }
             return;
         }
 
         float v = FieldBroadcast.floatScalarOrDefault(vo, 0f);
-        ctx.setOutput("result", v);
+        ctx.setOutput(RESULT_2, v);
     }
 }

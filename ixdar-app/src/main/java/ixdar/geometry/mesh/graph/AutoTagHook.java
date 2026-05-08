@@ -29,9 +29,18 @@ import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
  * pre-existing tags so chained features accumulate.
  */
 public final class AutoTagHook {
+    public static final String GENERATED = "generated";
+    public static final String GEOMETRY = "geometry";
 
     private AutoTagHook() {}
 
+    /**
+     * TODO: document {@code applyIfApplicable}.
+     *
+     * @param node TODO: describe
+     * @param ctx TODO: describe
+     * @param lhs TODO: describe
+     */
     public static void applyIfApplicable(MeshNode node, NodeContext ctx, String lhs) {
         if (lhs == null || lhs.isEmpty()) {
             return;
@@ -40,11 +49,11 @@ public final class AutoTagHook {
             return;
         }
 
-        BoolField generated = ctx.getOutput("generated", BoolField.class);
+        BoolField generated = ctx.getOutput(GENERATED, BoolField.class);
         if (generated == null || generated.length() == 0) {
             return;
         }
-        GeometryBundle outBundle = ctx.getOutput("geometry", GeometryBundle.class);
+        GeometryBundle outBundle = ctx.getOutput(GEOMETRY, GeometryBundle.class);
         if (outBundle == null) {
             return;
         }
@@ -66,16 +75,16 @@ public final class AutoTagHook {
 
         boolean[] vertexMask = faceToVertexMask(mesh, generated);
         Map<String, boolean[]> mergedTags = mergeTag(outBundle, lhs, vertexMask);
-        ctx.setOutput("geometry", outBundle.withSlot(TagGeometryNode.TAGS_SLOT, mergedTags));
+        ctx.setOutput(GEOMETRY, outBundle.withSlot(TagGeometryNode.TAGS_SLOT, mergedTags));
     }
 
     private static boolean hasGeneratedAndGeometryOutputs(MeshNode node) {
         boolean hasGenerated = false;
         boolean hasGeometry = false;
         for (OutputPort p : node.outputs()) {
-            if (p.type() == PortType.BOOLEAN && "generated".equals(p.name())) {
+            if (p.type() == PortType.BOOLEAN && GENERATED.equals(p.name())) {
                 hasGenerated = true;
-            } else if (p.type() == PortType.GEOMETRY_BUNDLE && "geometry".equals(p.name())) {
+            } else if (p.type() == PortType.GEOMETRY_BUNDLE && GEOMETRY.equals(p.name())) {
                 hasGeometry = true;
             }
         }

@@ -25,12 +25,20 @@ import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
  * </pre>
  */
 public final class BenchmarkRockerArmLyon {
+    public static final int NUM_124 = 124;
+    public static final float NUM_15 = 15f;
 
     private static final long TIMEOUT_MS = 300_000L;
 
     private BenchmarkRockerArmLyon() {
     }
 
+    /**
+     * TODO: document {@code main}.
+     *
+     * @param args TODO: describe
+     * @throws Exception TODO: describe
+     */
     public static void main(String[] args) throws Exception {
         AtomicBoolean finished = new AtomicBoolean(false);
         Thread watchdog = new Thread(() -> {
@@ -42,7 +50,7 @@ public final class BenchmarkRockerArmLyon {
             if (!finished.get()) {
                 System.err.printf("[bench-lyon] FAILED timeout=%dms%n", TIMEOUT_MS);
                 System.err.println(CrossField.lastDiagnostics);
-                System.exit(124);
+                System.exit(NUM_124);
             }
         }, "bench-lyon-timeout");
         watchdog.setDaemon(true);
@@ -60,7 +68,7 @@ public final class BenchmarkRockerArmLyon {
             long tLoad = System.currentTimeMillis() - t0;
             System.out.printf("[bench-lyon] mesh load=%dms %s%n",
                     tLoad, beforeTopology);
-            QuadLayoutEngine.pipeline(mesh, 15f);
+            QuadLayoutEngine.pipeline(mesh, NUM_15);
             TopologyStats afterTopology = TopologyStats.capture(mesh);
             if (!beforeTopology.equals(afterTopology)) {
                 System.err.printf("[bench-lyon] topology changed before=%s after=%s%n",
@@ -86,6 +94,11 @@ public final class BenchmarkRockerArmLyon {
                     mesh.halfEdgeCount(), boundaryEdges);
         }
 
+        /**
+         * TODO: document {@code toString}.
+         *
+         * @return TODO: describe
+         */
         @Override
         public String toString() {
             return String.format("F=%d E=%d V=%d HE=%d boundaryE=%d",

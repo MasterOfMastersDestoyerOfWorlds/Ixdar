@@ -10,20 +10,31 @@ import ixdar.platform.file.FileManagement;
 
 public interface Menu {
 
+    /**
+     * TODO: document {@code loadMenu}.
+     *
+     * @return TODO: describe
+     */
     public ArrayList<MenuItem> loadMenu();
 
+    /**
+     * TODO: document {@code back}.
+     */
     public void back();
 
     public class MainMenu implements Menu {
+        public ArrayList<MenuItem> menuItems;
 
         String cachedFileString;
-        public ArrayList<MenuItem> menuItems;
 
         MainMenu(String name) {
             this.cachedFileString = name;
             initMenu();
         }
 
+        /**
+         * TODO: document {@code initMenu}.
+         */
         public void initMenu() {
 
             menuItems = new ArrayList<>();
@@ -34,11 +45,19 @@ public interface Menu {
             menuItems.add(new MenuItem("Map Editor", new LoadMapEditor()));
         }
 
+        /**
+         * TODO: document {@code loadMenu}.
+         *
+         * @return TODO: describe
+         */
         @Override
         public ArrayList<MenuItem> loadMenu() {
             return menuItems;
         }
 
+        /**
+         * TODO: document {@code back}.
+         */
         @Override
         public void back() {
             ixdar.platform.Platforms.get().exit(0);
@@ -51,11 +70,22 @@ public interface Menu {
         public Menu parent;
         public ArrayList<MenuItem> menuItems;
 
+        /**
+         * TODO: document {@code LoadMenu}.
+         *
+         * @param folder TODO: describe
+         * @param parentMenu TODO: describe
+         */
         public LoadMenu(String folder, Menu parentMenu) {
             this.folder = folder;
             this.parent = parentMenu;
         }
 
+        /**
+         * TODO: document {@code loadMenu}.
+         *
+         * @return TODO: describe
+         */
         @Override
         public ArrayList<MenuItem> loadMenu() {
             if (menuItems == null) {
@@ -80,6 +110,9 @@ public interface Menu {
             return menuItems;
         }
 
+        /**
+         * TODO: document {@code back}.
+         */
         @Override
         public void back() {
             MenuBox.load(parent);

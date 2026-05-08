@@ -13,25 +13,32 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "ui/orbit", method = APIMethod.POST)
 public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
+    public static final String AZIMUTH = "azimuth";
+    public static final String ELEVATION = "elevation";
+    public static final String DISTANCE = "distance";
+    public static final String OK = "ok";
+    public static final String ERROR = "error";
+    public static final float NUM_0 = 0f;
+    public static final float NUM_3_5 = 3.5f;
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
-        float azimuth = body.has("azimuth")
-                ? body.get("azimuth").getAsFloat()
-                : 0f;
-        float elevation = body.has("elevation")
-                ? body.get("elevation").getAsFloat()
-                : 0f;
-        float distance = body.has("distance")
-                ? body.get("distance").getAsFloat()
-                : 3.5f;
+        float azimuth = body.has(AZIMUTH)
+                ? body.get(AZIMUTH).getAsFloat()
+                : NUM_0;
+        float elevation = body.has(ELEVATION)
+                ? body.get(ELEVATION).getAsFloat()
+                : NUM_0;
+        float distance = body.has(DISTANCE)
+                ? body.get(DISTANCE).getAsFloat()
+                : NUM_3_5;
         try {
             // First call: set orbit (runs at end of frame N)
             runtime.runOnMainThread(() -> {
                 if (!(runtime.canvas instanceof MeshNodeViewerScene mvs)) {
                     JsonObject err = new JsonObject();
-                    err.addProperty("ok", false);
+                    err.addProperty(OK, false);
                     err.addProperty(
-                            "error",
+                            ERROR,
                             "MeshNodeViewerScene is not active");
                     return err;
                 }
@@ -42,16 +49,16 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
             // Second call: just returns after the next frame renders with the new orbit
             return runtime.runOnMainThread(() -> {
                 JsonObject result = new JsonObject();
-                result.addProperty("ok", true);
-                result.addProperty("azimuth", azimuth);
-                result.addProperty("elevation", elevation);
-                result.addProperty("distance", distance);
+                result.addProperty(OK, true);
+                result.addProperty(AZIMUTH, azimuth);
+                result.addProperty(ELEVATION, elevation);
+                result.addProperty(DISTANCE, distance);
                 return result;
             });
         } catch (Exception e) {
             JsonObject err = new JsonObject();
-            err.addProperty("ok", false);
-            err.addProperty("error", e.getMessage());
+            err.addProperty(OK, false);
+            err.addProperty(ERROR, e.getMessage());
             return err;
         }
     }

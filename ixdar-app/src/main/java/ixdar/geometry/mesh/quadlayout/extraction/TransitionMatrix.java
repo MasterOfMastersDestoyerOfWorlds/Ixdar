@@ -30,6 +30,8 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.CombedField;
  * iso-line tracer should never advance past them.
  */
 public final class TransitionMatrix {
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
 
     public final int[] matching;     // [halfEdgeCount]
     public final int[] translateU;   // [halfEdgeCount]
@@ -52,6 +54,8 @@ public final class TransitionMatrix {
      * @param vCorner per-corner v, length {@code 3 * F}
      * @param combed combed cross field (matching values per interior edge);
      *               may be {@code null} for tests where matching is identically 0
+     * @throws AssertionError TODO: describe
+     * @return TODO: describe
      */
     public static TransitionMatrix compute(ArrayMesh mesh,
                                            float[] uCorner, float[] vCorner,
@@ -101,19 +105,19 @@ public final class TransitionMatrix {
             // half-edge id of the pair.
             boolean canonical = h < twin;
             int signed = canonical ? rawMatching : -rawMatching;
-            int rot = ((signed % 4) + 4) % 4;
+            int rot = ((signed % NUM_4) + NUM_4) % NUM_4;
             m[h] = rot;
 
             // UV at the SHARED vertex from each face's perspective:
             //   uv1 = uv at h's HEAD on face A (head = next corner of h within faceA)
             //   uv2 = uv at twin's TAIL on face B (twin's tail = same physical vertex)
-            int cornerA = h % 3;
-            int headCornerA = mesh.halfEdgeNext(h) % 3;
-            int twinCornerB = twin % 3;
-            float u1 = uCorner[faceA * 3 + headCornerA];
-            float v1 = vCorner[faceA * 3 + headCornerA];
-            float u2 = uCorner[faceB * 3 + twinCornerB];
-            float v2 = vCorner[faceB * 3 + twinCornerB];
+            int cornerA = h % NUM_3;
+            int headCornerA = mesh.halfEdgeNext(h) % NUM_3;
+            int twinCornerB = twin % NUM_3;
+            float u1 = uCorner[faceA * NUM_3 + headCornerA];
+            float v1 = vCorner[faceA * NUM_3 + headCornerA];
+            float u2 = uCorner[faceB * NUM_3 + twinCornerB];
+            float v2 = vCorner[faceB * NUM_3 + twinCornerB];
 
             // Rotate uv1 by rot * 90° CCW.
             double ru, rv;
@@ -131,14 +135,24 @@ public final class TransitionMatrix {
         return new TransitionMatrix(m, tx, ty, ie);
     }
 
-    /** Apply this half-edge's transition to a (u, v) point: returns rotated + translated point. */
+    /**
+     * Apply this half-edge's transition to a (u, v) point: returns rotated + translated point.
+     *
+     * @param h TODO: describe
+     * @param uv TODO: describe
+     */
     public void transformPoint(int h, float[] uv) {
         applyRotation(matching[h], uv);
         uv[0] += translateU[h];
         uv[1] += translateV[h];
     }
 
-    /** Apply this half-edge's rotation (no translation) to a direction vector. */
+    /**
+     * Apply this half-edge's rotation (no translation) to a direction vector.
+     *
+     * @param h TODO: describe
+     * @param dir TODO: describe
+     */
     public void transformDirection(int h, float[] dir) {
         applyRotation(matching[h], dir);
     }

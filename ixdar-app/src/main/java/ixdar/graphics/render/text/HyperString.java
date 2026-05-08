@@ -15,6 +15,7 @@ import ixdar.platform.input.MouseTrap;
 import ixdar.scenes.main.MainScene;
 
 public class HyperString {
+    public static final int NUM_30 = 30;
 
     public ArrayList<HyperWord> words;
     public HashMap<Integer, String> strMap;
@@ -30,6 +31,9 @@ public class HyperString {
     private int wrappedLines;
     private Font font;
 
+    /**
+     * TODO: document {@code HyperString}.
+     */
     public HyperString() {
         words = new ArrayList<>();
         strMap = new HashMap<>();
@@ -40,6 +44,11 @@ public class HyperString {
         font = Drawing.getDrawing().font;
     }
 
+    /**
+     * TODO: document {@code setFont}.
+     *
+     * @param font TODO: describe
+     */
     public void setFont(Font font) {
         this.font = font;
         for (HyperWord w : words) {
@@ -47,6 +56,11 @@ public class HyperString {
         }
     }
 
+    /**
+     * TODO: document {@code addWord}.
+     *
+     * @param word TODO: describe
+     */
     public void addWord(String word) {
         for (String w : word.split(" ")) {
             addWord(w + " ", defaultColor, () -> {
@@ -56,6 +70,12 @@ public class HyperString {
         }
     }
 
+    /**
+     * TODO: document {@code addWord}.
+     *
+     * @param word TODO: describe
+     * @param c TODO: describe
+     */
     public void addWord(String word, Color c) {
         for (String w : word.split(" ")) {
             addWord(w + " ", c, () -> {
@@ -65,6 +85,13 @@ public class HyperString {
         }
     }
 
+    /**
+     * TODO: document {@code addWordClick}.
+     *
+     * @param word TODO: describe
+     * @param c TODO: describe
+     * @param clickAction TODO: describe
+     */
     public void addWordClick(String word, Color c, Action clickAction) {
         for (String w : word.split(" ")) {
             addWord(w + " ", c, () -> {
@@ -73,12 +100,28 @@ public class HyperString {
         }
     }
 
+    /**
+     * TODO: document {@code addDynamicWordClick}.
+     *
+     * @param wordAction TODO: describe
+     * @param c TODO: describe
+     * @param clickAction TODO: describe
+     */
     public void addDynamicWordClick(Supplier<ColorText<?>> wordAction, Color c, Action clickAction) {
         words.add(new HyperWord(wordAction, c, () -> {
         }, () -> {
         }, clickAction, font));
     }
 
+    /**
+     * TODO: document {@code addWord}.
+     *
+     * @param word TODO: describe
+     * @param c TODO: describe
+     * @param hoverAction TODO: describe
+     * @param clearHover TODO: describe
+     * @param clickAction TODO: describe
+     */
     public void addWord(String word, Color c, Action hoverAction, Action clearHover, Action clickAction) {
         for (String w : word.split(" ")) {
             strMap.computeIfPresent(lines - 1, (key, val) -> val + w + " ");
@@ -86,6 +129,11 @@ public class HyperString {
         }
     }
 
+    /**
+     * TODO: document {@code addDynamicWord}.
+     *
+     * @param wordAction TODO: describe
+     */
     public void addDynamicWord(Supplier<ColorText<?>> wordAction) {
         words.add(new HyperWord(wordAction, defaultColor, () -> {
         }, () -> {
@@ -93,6 +141,12 @@ public class HyperString {
         }, font));
     }
 
+    /**
+     * TODO: document {@code addDynamicWord}.
+     *
+     * @param wordAction TODO: describe
+     * @param c TODO: describe
+     */
     public void addDynamicWord(Supplier<ColorText<?>> wordAction, Color c) {
         words.add(new HyperWord(wordAction, c, () -> {
         }, () -> {
@@ -100,21 +154,49 @@ public class HyperString {
         }, font));
     }
 
+    /**
+     * TODO: document {@code addDynamicWord}.
+     *
+     * @param wordAction TODO: describe
+     * @param c TODO: describe
+     * @param hoverAction TODO: describe
+     * @param clearHover TODO: describe
+     * @param clickAction TODO: describe
+     */
     public void addDynamicWord(Supplier<ColorText<?>> wordAction, Color c, Action hoverAction, Action clearHover,
             Action clickAction) {
         words.add(new HyperWord(wordAction, c, hoverAction, clearHover, clickAction, font));
     }
 
+    /**
+     * TODO: document {@code addLine}.
+     *
+     * @param word TODO: describe
+     * @param c TODO: describe
+     */
     public void addLine(String word, Color c) {
         addWord(word, c);
         this.newLine();
     }
 
+    /**
+     * TODO: document {@code addLine}.
+     *
+     * @param word TODO: describe
+     */
     public void addLine(String word) {
         addWord(word);
         this.newLine();
     }
 
+    /**
+     * TODO: document {@code addTooltip}.
+     *
+     * @param word TODO: describe
+     * @param c TODO: describe
+     * @param toolTipText TODO: describe
+     * @param clickAction TODO: describe
+     */
     public void addTooltip(String word, Color c, HyperString toolTipText, Action clickAction) {
         for (String w : word.split(" ")) {
             words.add(new HyperWord(w + " ", c, () -> MainScene.setTooltipText(toolTipText), () -> MainScene.clearTooltipText(),
@@ -122,17 +204,33 @@ public class HyperString {
         }
     }
 
+    /**
+     * TODO: document {@code addDynamicTooltip}.
+     *
+     * @param wordAction TODO: describe
+     * @param c TODO: describe
+     * @param toolTipText TODO: describe
+     * @param clickAction TODO: describe
+     */
     public void addDynamicTooltip(Supplier<ColorText<?>> wordAction, Color c, HyperString toolTipText,
             Action clickAction) {
         words.add(new HyperWord(wordAction, c, () -> MainScene.setTooltipText(toolTipText), () -> MainScene.clearTooltipText(),
                 clickAction, font));
     }
 
+    /**
+     * TODO: document {@code addHoverKnot}.
+     *
+     * @param word TODO: describe
+     * @param c TODO: describe
+     * @param hoverKnot TODO: describe
+     * @param clickAction TODO: describe
+     */
     public void addHoverKnot(String word, Color c, Knot hoverKnot, Action clickAction) {
         HyperString knotText = new HyperString();
         children.add(knotText);
         knotText.addWord(hoverKnot.toString() + " FlatID: " + hoverKnot.id, c);
-        knotText.setWrap(true, 30);
+        knotText.setWrap(true, NUM_30);
         words.add(new HyperWord(word, c, () -> {
             MainScene.setHoverKnot(hoverKnot);
             MainScene.setTooltipText(knotText);
@@ -142,6 +240,14 @@ public class HyperString {
         }, clickAction, font));
     }
 
+    /**
+     * TODO: document {@code addHoverSegment}.
+     *
+     * @param str TODO: describe
+     * @param c TODO: describe
+     * @param segment TODO: describe
+     * @param clickAction TODO: describe
+     */
     public void addHoverSegment(String str, Color c, Segment segment, Action clickAction) {
         HyperString segmentInfo = new HyperString();
         children.add(segmentInfo);
@@ -155,6 +261,12 @@ public class HyperString {
         }, clickAction, font));
     }
 
+    /**
+     * TODO: document {@code addDistance}.
+     *
+     * @param distance TODO: describe
+     * @param c TODO: describe
+     */
     public void addDistance(double distance, Color c) {
         addWord(String.format("%.2f", distance), c);
     }
@@ -164,16 +276,30 @@ public class HyperString {
         charWrap = i;
     }
 
+    /**
+     * TODO: document {@code getWord}.
+     *
+     * @param i TODO: describe
+     * @return TODO: describe
+     */
     public HyperWord getWord(int i) {
         HyperWord w = words.get(i);
         return w;
     }
 
+    /**
+     * TODO: document {@code getLastWord}.
+     *
+     * @return TODO: describe
+     */
     public HyperWord getLastWord() {
         HyperWord w = words.get(words.size() - 1);
         return w;
     }
 
+    /**
+     * TODO: document {@code newLine}.
+     */
     public void newLine() {
         lines++;
         words.add(new HyperWord(true, font));
@@ -181,6 +307,11 @@ public class HyperString {
         strMap.put(lines - 1, "");
     }
 
+    /**
+     * TODO: document {@code getWidthPixels}.
+     *
+     * @return TODO: describe
+     */
     public float getWidthPixels() {
 
         float max = 0;
@@ -210,10 +341,21 @@ public class HyperString {
         return max;
     }
 
+    /**
+     * TODO: document {@code getHeightPixels}.
+     *
+     * @return TODO: describe
+     */
     public int getHeightPixels() {
         return (int) Drawing.FONT_HEIGHT_PIXELS * (wrap ? (lines + wrappedLines) : lines);
     }
 
+    /**
+     * TODO: document {@code getLine}.
+     *
+     * @param i TODO: describe
+     * @return TODO: describe
+     */
     public ArrayList<HyperWord> getLine(int i) {
         ArrayList<HyperWord> line = new ArrayList<>();
         int idxStart = lineStartMap.get(i);
@@ -227,6 +369,12 @@ public class HyperString {
         return line;
     }
 
+    /**
+     * TODO: document {@code calculateClearHover}.
+     *
+     * @param normalizedPosX TODO: describe
+     * @param normalizedPosY TODO: describe
+     */
     public void calculateClearHover(float normalizedPosX, float normalizedPosY) {
         for (HyperWord w : words) {
             if (w.subWords != null) {
@@ -239,6 +387,12 @@ public class HyperString {
         }
     }
 
+    /**
+     * TODO: document {@code calculateHover}.
+     *
+     * @param normalizedPosX TODO: describe
+     * @param normalizedPosY TODO: describe
+     */
     public void calculateHover(float normalizedPosX, float normalizedPosY) {
         for (HyperWord w : words) {
             if (w.subWords != null) {
@@ -251,6 +405,12 @@ public class HyperString {
         }
     }
 
+    /**
+     * TODO: document {@code click}.
+     *
+     * @param normalizedPosX TODO: describe
+     * @param normalizedPosY TODO: describe
+     */
     public void click(float normalizedPosX, float normalizedPosY) {
         for (HyperWord w : words) {
             if (w.subWords != null) {
@@ -263,6 +423,15 @@ public class HyperString {
         }
     }
 
+    /**
+     * TODO: document {@code setLineOffsetFromTopRow}.
+     *
+     * @param camera TODO: describe
+     * @param row TODO: describe
+     * @param scrollOffsetY TODO: describe
+     * @param rowHeight TODO: describe
+     * @return TODO: describe
+     */
     public int setLineOffsetFromTopRow(Camera2D camera, int row, float scrollOffsetY, float rowHeight) {
         int startRow = row;
         for (int i = 0; i < lines; i++) {
@@ -271,6 +440,16 @@ public class HyperString {
         return row - startRow;
     }
 
+    /**
+     * TODO: document {@code setLineOffsetFromTopRow}.
+     *
+     * @param camera TODO: describe
+     * @param row TODO: describe
+     * @param scrollOffsetY TODO: describe
+     * @param rowHeight TODO: describe
+     * @param lineNumber TODO: describe
+     * @return TODO: describe
+     */
     public int setLineOffsetFromTopRow(Camera2D camera, int row, float scrollOffsetY, float rowHeight,
             int lineNumber) {
         int startRow = row;
@@ -318,6 +497,15 @@ public class HyperString {
         return row - startRow + 1;
     }
 
+    /**
+     * TODO: document {@code setLineOffsetCentered}.
+     *
+     * @param camera TODO: describe
+     * @param x TODO: describe
+     * @param y TODO: describe
+     * @param font TODO: describe
+     * @param lineNumber TODO: describe
+     */
     public void setLineOffsetCentered(Camera2D camera, float x, float y, Font font, int lineNumber) {
         String lineText = strMap.get(lineNumber);
         float centerX = Drawing.FONT_HEIGHT_PIXELS / font.fontHeight * font.getWidth(lineText) / 2;
@@ -350,11 +538,21 @@ public class HyperString {
         }
     }
 
+    /**
+     * TODO: document {@code toString}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String toString() {
         return words.toString();
     }
 
+    /**
+     * TODO: document {@code addHyperString}.
+     *
+     * @param h TODO: describe
+     */
     public void addHyperString(HyperString h) {
         for (HyperWord w : h.words) {
             this.addWord(w);
@@ -370,6 +568,11 @@ public class HyperString {
 
     }
 
+    /**
+     * TODO: document {@code getLines}.
+     *
+     * @return TODO: describe
+     */
     public int getLines() {
         if (!wrap) {
             return lines;
@@ -377,22 +580,46 @@ public class HyperString {
         return wrappedLines + lines;
     }
 
+    /**
+     * TODO: document {@code wrap}.
+     */
     public void wrap() {
         wrap = true;
     }
 
+    /**
+     * TODO: document {@code setData}.
+     *
+     * @param data TODO: describe
+     */
     public void setData(Object data) {
         this.data = data;
     }
 
+    /**
+     * TODO: document {@code getData}.
+     *
+     * @return TODO: describe
+     */
     public Object getData() {
         return data;
     }
 
+    /**
+     * TODO: document {@code draw}.
+     */
     public void draw() {
         MouseTrap.hyperStrings.add(this);
     }
 
+    /**
+     * TODO: document {@code addWordClick}.
+     *
+     * @param word TODO: describe
+     * @param cyan TODO: describe
+     * @param clickAction TODO: describe
+     * @throws UnsupportedOperationException TODO: describe
+     */
     public void addWordClick(Object word, Color cyan, Action clickAction) {
         throw new UnsupportedOperationException("Unimplemented method 'addWordClick'");
     }

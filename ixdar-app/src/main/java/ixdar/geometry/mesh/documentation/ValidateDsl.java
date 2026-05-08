@@ -28,10 +28,24 @@ import org.joml.Vector3f;
  * CLI entry point that validates a .dsl file against the mesh node registry.
  * Outputs JSON with parse errors, validation errors, and warnings.
  *
- * Usage: java ixdar.geometry.mesh.documentation.ValidateDsl <dsl-path>
+ * Usage: java ixdar.geometry.mesh.documentation.ValidateDsl {@code <dsl-path>}
  * Exit code 0 = valid, 1 = errors found, 2 = usage/IO error
  */
 public final class ValidateDsl {
+    public static final String VALID = "valid";
+    public static final String NODECOUNT = "nodeCount";
+    public static final String ERRORS = "errors";
+    public static final String WARNINGS = "warnings";
+    public static final String MESHPROBE = "meshProbe";
+    public static final String OK = "ok";
+    public static final String ATTEMPTED = "attempted";
+    public static final String OUTPUTPORT = "outputPort";
+    public static final String ERROR = "error";
+    public static final String FACECOUNT = "faceCount";
+    public static final String VERTEXCOUNT = "vertexCount";
+    public static final int NUM_1000 = 1000;
+    public static final int NUM_1_000_000 = 1_000_000;
+    public static final float NUM_1e_10 = 1e-10f;
 
     /**
      * Validate DSL source text and optionally export to OBJ.
@@ -39,6 +53,11 @@ public final class ValidateDsl {
      * This is the core validation logic, callable from both the CLI entry point
      * and the automation server endpoint. Returns a result map matching the
      * standard JSON schema (valid, nodeCount, errors, warnings, meshProbe, ...).
+     *
+     * @param source TODO: describe
+     * @param skillDir TODO: describe
+     * @param exportPath TODO: describe
+     * @return TODO: describe
      */
     public static Map<String, Object> validate(
         String source,
@@ -80,15 +99,15 @@ public final class ValidateDsl {
             }
         } catch (RuntimeException e) {
             return Map.of(
-                "valid",
+                VALID,
                 false,
-                "nodeCount",
+                NODECOUNT,
                 0,
                 "parseError",
                 e.getMessage(),
-                "errors",
+                ERRORS,
                 List.of(),
-                "warnings",
+                WARNINGS,
                 List.of()
             );
         }
@@ -106,10 +125,10 @@ public final class ValidateDsl {
 
         boolean valid = errors.isEmpty();
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("valid", valid);
-        result.put("nodeCount", parsed.size());
-        result.put("errors", errors);
-        result.put("warnings", warnings);
+        result.put(VALID, valid);
+        result.put(NODECOUNT, parsed.size());
+        result.put(ERRORS, errors);
+        result.put(WARNINGS, warnings);
 
         if (valid && !parsed.isEmpty()) {
             Map<String, Object> probe = runMeshProbe(
@@ -117,12 +136,12 @@ public final class ValidateDsl {
                 registry,
                 funcDefs
             );
-            result.put("meshProbe", probe);
+            result.put(MESHPROBE, probe);
 
             if (
                 exportPath != null &&
                 !exportPath.isEmpty() &&
-                Boolean.TRUE.equals(probe.get("ok"))
+                Boolean.TRUE.equals(probe.get(OK))
             ) {
                 try {
                     ExportResult er = executeForExport(
@@ -157,7 +176,7 @@ public final class ValidateDsl {
             }
         } else {
             result.put(
-                "meshProbe",
+                MESHPROBE,
                 meshProbeSkipped("graph has validation errors or is empty")
             );
         }
@@ -165,6 +184,12 @@ public final class ValidateDsl {
         return result;
     }
 
+    /**
+     * TODO: document {@code main}.
+     *
+     * @param args TODO: describe
+     * @throws IOException TODO: describe
+     */
     public static void main(String[] args) throws IOException {
         if (args.length < 1) {
             System.err.println("Usage: ValidateDsl <dsl-path>");
@@ -186,13 +211,13 @@ public final class ValidateDsl {
         System.out.println(
             new GsonBuilder().setPrettyPrinting().create().toJson(result)
         );
-        boolean valid = Boolean.TRUE.equals(result.get("valid"));
+        boolean valid = Boolean.TRUE.equals(result.get(VALID));
         System.exit(valid ? 0 : 1);
     }
 
     private static Map<String, Object> meshProbeSkipped(String reason) {
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("attempted", false);
+        m.put(ATTEMPTED, false);
         m.put("skipReason", reason);
         return m;
     }
@@ -237,7 +262,7 @@ public final class ValidateDsl {
         Map<String, PythonParser.FunctionDef> funcDefs
     ) {
         Map<String, Object> probe = new LinkedHashMap<>();
-        probe.put("attempted", true);
+        probe.put(ATTEMPTED, true);
 
         PythonParser.ParsedNode last = parsed.get(parsed.size() - 1);
         probe.put("outputNodeId", last.id);
@@ -254,10 +279,10 @@ public final class ValidateDsl {
             try {
                 mesh = runtime.executeGraphToMesh(parsed, last.id, port);
             } catch (Exception e) {
-                probe.put("ok", false);
-                probe.put("outputPort", port);
+                probe.put(OK, false);
+                probe.put(OUTPUTPORT, port);
                 probe.put(
-                    "error",
+                    ERROR,
                     "Execution failed on port " + port + ": " + e.getMessage()
                 );
                 return probe;
@@ -269,9 +294,9 @@ public final class ValidateDsl {
         }
 
         if (mesh == null || mesh.vertexCount() <= 0) {
-            probe.put("ok", false);
+            probe.put(OK, false);
             probe.put(
-                "error",
+                ERROR,
                 "Last node '" +
                     last.id +
                     "' produced no mesh with positive vertex count."
@@ -284,13 +309,13 @@ public final class ValidateDsl {
         probe.put("executionMs", executionMs);
 
         // Performance gate: reject DSLs that take too long to evaluate
-        final long MAX_EXECUTION_MS = 1000;
+        final long MAX_EXECUTION_MS = NUM_1000;
         if (executionMs > MAX_EXECUTION_MS) {
-            probe.put("ok", false);
-            probe.put("faceCount", mesh.faceCount());
-            probe.put("vertexCount", mesh.vertexCount());
+            probe.put(OK, false);
+            probe.put(FACECOUNT, mesh.faceCount());
+            probe.put(VERTEXCOUNT, mesh.vertexCount());
             probe.put(
-                "error",
+                ERROR,
                 "DSL execution took " +
                     executionMs +
                     "ms (limit " +
@@ -301,12 +326,12 @@ public final class ValidateDsl {
         }
 
         // Reject meshes over 1M faces
-        final int MAX_FACE_COUNT = 1_000_000;
+        final int MAX_FACE_COUNT = NUM_1_000_000;
         if (mesh.faceCount() > MAX_FACE_COUNT) {
-            probe.put("ok", false);
-            probe.put("faceCount", mesh.faceCount());
+            probe.put(OK, false);
+            probe.put(FACECOUNT, mesh.faceCount());
             probe.put(
-                "error",
+                ERROR,
                 "Mesh face count (" +
                     mesh.faceCount() +
                     ") exceeds limit of " +
@@ -315,9 +340,9 @@ public final class ValidateDsl {
             return probe;
         }
 
-        probe.put("outputPort", usedPort);
-        probe.put("vertexCount", mesh.vertexCount());
-        probe.put("faceCount", mesh.faceCount());
+        probe.put(OUTPUTPORT, usedPort);
+        probe.put(VERTEXCOUNT, mesh.vertexCount());
+        probe.put(FACECOUNT, mesh.faceCount());
         probe.put("edgeCount", mesh.edgeCount());
 
         int boundaryEdges = 0;
@@ -333,9 +358,9 @@ public final class ValidateDsl {
             System.getProperty("dsl.requireWatertight", "false")
         );
         if (requireWatertight && boundaryEdges > 0) {
-            probe.put("ok", false);
+            probe.put(OK, false);
             probe.put(
-                "error",
+                ERROR,
                 "Mesh has " + boundaryEdges + " boundary edges (not watertight)"
             );
             return probe;
@@ -353,11 +378,11 @@ public final class ValidateDsl {
         probe.put("radius", floatJson(rad));
 
         boolean positionsOk = vec3Finite(mn) && vec3Finite(mx);
-        boolean extentOk = Float.isFinite(extent) && extent > 1e-10f;
-        boolean radiusOk = Float.isFinite(rad) && rad > 1e-10f;
+        boolean extentOk = Float.isFinite(extent) && extent > NUM_1e_10;
+        boolean radiusOk = Float.isFinite(rad) && rad > NUM_1e_10;
 
         boolean ok = positionsOk && extentOk && radiusOk;
-        probe.put("ok", ok);
+        probe.put(OK, ok);
         if (!ok) {
             List<String> issues = new ArrayList<>();
             if (!positionsOk) {
@@ -369,7 +394,7 @@ public final class ValidateDsl {
             if (!radiusOk) {
                 issues.add("non-finite or zero radius");
             }
-            probe.put("error", String.join("; ", issues));
+            probe.put(ERROR, String.join("; ", issues));
         }
 
         return probe;
@@ -388,11 +413,6 @@ public final class ValidateDsl {
     private static Double floatJson(float f) {
         return Float.isFinite(f) ? Double.valueOf(f) : null;
     }
-
-    private record ExportResult(
-        MeshTopology mesh,
-        Map<String, boolean[]> tags
-    ) {}
 
     private static ExportResult executeForExport(
         List<PythonParser.ParsedNode> parsed,
@@ -488,4 +508,9 @@ public final class ValidateDsl {
             }
         }
     }
+
+    private record ExportResult(
+        MeshTopology mesh,
+        Map<String, boolean[]> tags
+    ) {}
 }

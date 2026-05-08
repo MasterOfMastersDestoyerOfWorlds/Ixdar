@@ -23,16 +23,19 @@ import java.util.Map;
  * clean simply-connected boundaries.
  */
 public final class DiscreteGradientCells {
-
-    public record Result(
-            int[] facePatchId,
-            int[] maxTriIdByLabel,
-            int[] minTriIdByLabel,
-            int orphanFaces
-    ) {}
+    public static final int NUM_32 = 32;
+    public static final long NUM_0xffffffff = 0xffffffffL;
+    public static final int NUM_16 = 16;
 
     private DiscreteGradientCells() {}
 
+    /**
+     * TODO: document {@code assemble}.
+     *
+     * @param mesh TODO: describe
+     * @param scalar TODO: describe
+     * @return TODO: describe
+     */
     public static Result assemble(ArrayMesh mesh, float[] scalar) {
         DiscreteGradient.Result asc = DiscreteGradient.compute(mesh, scalar);
         // Negate scalar with simulation-of-simplicity preservation.
@@ -77,7 +80,7 @@ public final class DiscreteGradientCells {
         for (int f = 0; f < faceCount; f++) {
             int a = ascMaxLabel[f], d = descMinLabel[f];
             if (a < 0 || d < 0) { facePatchId[f] = -1; orphanCount++; continue; }
-            long key = ((long) a << 32) | (d & 0xffffffffL);
+            long key = ((long) a << NUM_32) | (d & NUM_0xffffffff);
             facePatchId[f] = pairToCell.computeIfAbsent(key, k -> pairToCell.size());
         }
         int[] maxByLabel = maxList.stream().mapToInt(Integer::intValue).toArray();
@@ -93,7 +96,7 @@ public final class DiscreteGradientCells {
     private static int traceVPath(int startFace, DiscreteGradient.Result g,
                                     Map<Integer, Integer> criticalLabel) {
         int currentTri = startFace;
-        int safety = g.nt() * 2 + 16;  // V-paths in 2D are O(N) at most
+        int safety = g.nt() * 2 + NUM_16;  // V-paths in 2D are O(N) at most
         for (int step = 0; step < safety; step++) {
             int triCellId = g.cellId(2, currentTri);
             if (g.isCritical(triCellId)) {
@@ -114,4 +117,11 @@ public final class DiscreteGradientCells {
         }
         return -1;
     }
+
+    public record Result(
+            int[] facePatchId,
+            int[] maxTriIdByLabel,
+            int[] minTriIdByLabel,
+            int orphanFaces
+    ) {}
 }

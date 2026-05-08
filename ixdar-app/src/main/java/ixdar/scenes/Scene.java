@@ -16,10 +16,16 @@ public abstract class Scene extends Canvas3D {
     public ShaderCodePane codePane;
     public float SCROLL_SPEED = 10f;
 
+    /**
+     * TODO: document {@code Scene}.
+     */
     public Scene() {
         super();
     }
 
+    /**
+     * TODO: document {@code initGL}.
+     */
     @Override
     public void initGL() {
         super.initGL();
@@ -31,12 +37,22 @@ public abstract class Scene extends Canvas3D {
     }
 
 
+    /**
+     * TODO: document {@code initCodePane}.
+     *
+     * @param title TODO: describe
+     * @param shader TODO: describe
+     * @param provider TODO: describe
+     */
     public void initCodePane(String title, ShaderProgram shader, ShaderDrawable provider) {
         codePane = new ShaderCodePane(paneBounds, webViews, SCROLL_SPEED, shader, title, provider, camera2D, this);
         
         camera2D.initCamera(webViews, DEFAULT_VIEW);
     }
 
+    /**
+     * TODO: document {@code drawScene}.
+     */
     public void drawScene() {
         drawUI();
         camera2D.resetZIndex();
@@ -44,6 +60,9 @@ public abstract class Scene extends Canvas3D {
         camera2D.reset();
     }
 
+    /**
+     * TODO: document {@code drawUI}.
+     */
     public void drawUI() {
         if (codePane != null) {
             codePane.draw(camera2D);
@@ -53,6 +72,10 @@ public abstract class Scene extends Canvas3D {
     /**
      * Bind automation input via reflection to avoid pulling desktop-only classes
      * into the TeaVM compilation graph. On web, this silently does nothing.
+     *
+     * @param platform TODO: describe
+     * @param keys TODO: describe
+     * @param mouse TODO: describe
      */
     protected static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
         try {

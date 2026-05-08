@@ -48,6 +48,16 @@ public final class BzkSystem {
     private final double[] diag;
     private final double[] baseRhs;
 
+    /**
+     * TODO: document {@code BzkSystem}.
+     *
+     * @param F TODO: describe
+     * @param E TODO: describe
+     * @param edgeFaceA TODO: describe
+     * @param edgeFaceB TODO: describe
+     * @param kappa TODO: describe
+     * @param isTreeEdge TODO: describe
+     */
     public BzkSystem(int F, int E,
             int[] edgeFaceA, int[] edgeFaceB,
             double[] kappa, boolean[] isTreeEdge) {
@@ -138,66 +148,158 @@ public final class BzkSystem {
         }
     }
 
+    /**
+     * TODO: document {@code faceCount}.
+     *
+     * @return TODO: describe
+     */
     public int faceCount() {
         return F;
     }
 
+    /**
+     * TODO: document {@code edgeCount}.
+     *
+     * @return TODO: describe
+     */
     public int edgeCount() {
         return E;
     }
 
+    /**
+     * TODO: document {@code chordCount}.
+     *
+     * @return TODO: describe
+     */
     public int chordCount() {
         return C;
     }
 
+    /**
+     * TODO: document {@code variableCount}.
+     *
+     * @return TODO: describe
+     */
     public int variableCount() {
         return N;
     }
 
+    /**
+     * TODO: document {@code chordOfEdge}.
+     *
+     * @param e TODO: describe
+     * @return TODO: describe
+     */
     public int chordOfEdge(int e) {
         return chordOfEdge[e];
     }
 
+    /**
+     * TODO: document {@code edgeOfChord}.
+     *
+     * @param c TODO: describe
+     * @return TODO: describe
+     */
     public int edgeOfChord(int c) {
         return edgeOfChord[c];
     }
 
+    /**
+     * TODO: document {@code isTreeEdge}.
+     *
+     * @param e TODO: describe
+     * @return TODO: describe
+     */
     public boolean isTreeEdge(int e) {
         return isTreeEdge[e];
     }
 
+    /**
+     * TODO: document {@code edgeFaceA}.
+     *
+     * @param e TODO: describe
+     * @return TODO: describe
+     */
     public int edgeFaceA(int e) {
         return edgeFaceA[e];
     }
 
+    /**
+     * TODO: document {@code edgeFaceB}.
+     *
+     * @param e TODO: describe
+     * @return TODO: describe
+     */
     public int edgeFaceB(int e) {
         return edgeFaceB[e];
     }
 
+    /**
+     * TODO: document {@code kappa}.
+     *
+     * @param e TODO: describe
+     * @return TODO: describe
+     */
     public double kappa(int e) {
         return kappa[e];
     }
 
+    /**
+     * TODO: document {@code rowStart}.
+     *
+     * @param k TODO: describe
+     * @return TODO: describe
+     */
     public int rowStart(int k) {
         return rowStart[k];
     }
 
+    /**
+     * TODO: document {@code rowEnd}.
+     *
+     * @param k TODO: describe
+     * @return TODO: describe
+     */
     public int rowEnd(int k) {
         return rowStart[k + 1];
     }
 
+    /**
+     * TODO: document {@code rowCol}.
+     *
+     * @param p TODO: describe
+     * @return TODO: describe
+     */
     public int rowCol(int p) {
         return rowCol[p];
     }
 
+    /**
+     * TODO: document {@code rowVal}.
+     *
+     * @param p TODO: describe
+     * @return TODO: describe
+     */
     public double rowVal(int p) {
         return rowVal[p];
     }
 
+    /**
+     * TODO: document {@code diag}.
+     *
+     * @param k TODO: describe
+     * @return TODO: describe
+     */
     public double diag(int k) {
         return diag[k];
     }
 
+    /**
+     * TODO: document {@code baseRhs}.
+     *
+     * @param k TODO: describe
+     * @return TODO: describe
+     */
     public double baseRhs(int k) {
         return baseRhs[k];
     }
@@ -205,6 +307,11 @@ public final class BzkSystem {
     /**
      * Compute y = A·x for one row of A. Off-diagonals from CSR + diagonal
      * contribution. Pinned columns are excluded (treated as zero in x).
+     *
+     * @param k TODO: describe
+     * @param x TODO: describe
+     * @param pinned TODO: describe
+     * @return TODO: describe
      */
     public double rowDotUnpinned(int k, double[] x, boolean[] pinned) {
         double s = pinned[k] ? 0.0 : diag[k] * x[k];
@@ -220,7 +327,12 @@ public final class BzkSystem {
 
     /**
      * Effective RHS for unpinned variable k, eliminating pinned columns: b_eff[k] =
-     * baseRhs[k] − Σ_{j pinned} A[k,j] · pinVal[j]
+     * baseRhs[k] − Σ_{j pinned} A[k,j] · pinVal[j].
+     *
+     * @param k TODO: describe
+     * @param pinned TODO: describe
+     * @param pinVal TODO: describe
+     * @return TODO: describe
      */
     public double effectiveRhs(int k, boolean[] pinned, double[] pinVal) {
         double b = baseRhs[k];

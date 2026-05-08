@@ -13,11 +13,14 @@ import ixdar.platform.Toggle;
 import ixdar.scenes.main.MainScene;
 
 public class NeighborViewTool extends Tool {
+    public static ArrayList<Color> colors;
 
     public int layerCalculated;
     HashMap<Long, Integer> colorLookup;
-    public static ArrayList<Color> colors;
 
+    /**
+     * TODO: document {@code NeighborViewTool}.
+     */
     public NeighborViewTool() {
         disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.DrawKnotGradient,
                 Toggle.DrawMetroDiagram, Toggle.DrawDisplayedKnots };
@@ -26,12 +29,21 @@ public class NeighborViewTool extends Tool {
         colors.add(Color.YELLOW);
     }
 
+    /**
+     * TODO: document {@code reset}.
+     */
     @Override
     public void reset() {
         super.reset();
         initSegmentMap();
     }
 
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param camera TODO: describe
+     * @param minLineThickness TODO: describe
+     */
     @Override
     public void draw(Camera2D camera, float minLineThickness) {
         if (layerCalculated != MainScene.knotDrawLayer) {
@@ -44,6 +56,9 @@ public class NeighborViewTool extends Tool {
         }
     }
 
+    /**
+     * TODO: document {@code initSegmentMap}.
+     */
     public void initSegmentMap() {
         layerCalculated = MainScene.knotDrawLayer;
         ArrayList<Knot> knotsDisplayed = MainScene.knotsDisplayed;
@@ -58,6 +73,11 @@ public class NeighborViewTool extends Tool {
         }
     }
 
+    /**
+     * TODO: document {@code buildInfoText}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public HyperString buildInfoText() {
         HyperString h = new HyperString();
@@ -78,21 +98,41 @@ public class NeighborViewTool extends Tool {
         return h;
     }
 
+    /**
+     * TODO: document {@code displayName}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String displayName() {
         return "Neighbor View";
     }
 
+    /**
+     * TODO: document {@code shortName}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String shortName() {
         return "nbr";
     }
 
+    /**
+     * TODO: document {@code fullName}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String fullName() {
         return "neighborview";
     }
 
+    /**
+     * TODO: document {@code desc}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String desc() {
         return "A tool to view the neighbors of all of the points";

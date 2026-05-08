@@ -25,6 +25,9 @@ import ixdar.geometry.mesh.data.ArrayMesh;
  * <p>Master citation index: {@code alignment/PAPERS.md}.
  */
 public final class GeodesicCurvature {
+    public static final double NUM_1e_30 = 1e-30;
+    public static final int NUM_3 = 3;
+    public static final float NUM_3_2 = 3f;
 
     private GeodesicCurvature() {}
 
@@ -40,6 +43,10 @@ public final class GeodesicCurvature {
      * where {@code Π(·)} is Levi-Civita transport from f2's tangent plane to
      * f1's via a rotation about {@code n1 × n2} by {@code arccos(n1·n2)}, and
      * {@code d} is the barycenter distance between the adjacent faces.
+     *
+     * @param mesh TODO: describe
+     * @param pdf TODO: describe
+     * @return TODO: describe
      */
     public static double[] computePerEdge(ArrayMesh mesh, PrincipalCurvatureField pdf) {
         int E = mesh.edgeCount();
@@ -74,7 +81,7 @@ public final class GeodesicCurvature {
             faceCentroid(mesh, fB, c2);
             double dx = c2.x - c1.x, dy = c2.y - c1.y, dz = c2.z - c1.z;
             double d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (d < 1e-30) {
+            if (d < NUM_1e_30) {
                 kappaG[eId] = 0.0;
                 continue;
             }
@@ -114,13 +121,21 @@ public final class GeodesicCurvature {
      * n1 × n2 by arccos(n1·n2)".
      *
      * <p>Output written into {@code dest}.
+     *
+     * @param v TODO: describe
+     * @param n1 TODO: describe
+     * @param n2 TODO: describe
+     * @param n1DotN2 TODO: describe
+     * @param axisScratch TODO: describe
+     * @param dest TODO: describe
+     * @param tmpScratch TODO: describe
      */
     static void transportLineField(Vector3f v, Vector3f n1, Vector3f n2, double n1DotN2,
                                    Vector3f axisScratch, Vector3f dest, Vector3f tmpScratch) {
         // axis = n2 × n1   (transport from n2's frame TO n1's frame)
         axisScratch.set(n2).cross(n1);
         double axisLen = axisScratch.length();
-        if (axisLen < 1e-30) {
+        if (axisLen < NUM_1e_30) {
             // n1 ≈ ± n2: no rotation (or 180° flip — but for line field, equivalent).
             dest.set(v);
             return;
@@ -145,6 +160,11 @@ public final class GeodesicCurvature {
      * threshold (|κ_max(f)|) for any one of the three adjacent edges, the
      * triangle f is not part of a smooth region (non-smooth); otherwise, it
      * is (smooth)".
+     *
+     * @param mesh TODO: describe
+     * @param kappaG TODO: describe
+     * @param pdf TODO: describe
+     * @return TODO: describe
      */
     public static boolean[] computeSmoothFaces(ArrayMesh mesh, double[] kappaG,
                                                 PrincipalCurvatureField pdf) {
@@ -154,7 +174,7 @@ public final class GeodesicCurvature {
         for (int f = 0; f < F; f++) {
             double thresh = Math.abs(pdf.kappaMax(f));
             boolean isSmooth = true;
-            for (int c = 0; c < 3; c++) {
+            for (int c = 0; c < NUM_3; c++) {
                 int eId = faceEdgeId(mesh, f, c);
                 if (eId < 0) continue;             // shouldn't happen on triangle meshes
                 if (mesh.isBoundaryEdge(eId)) continue; // CIE*16 doesn't say; treat as smooth (no neighbor)
@@ -168,14 +188,21 @@ public final class GeodesicCurvature {
     private static void faceCentroid(ArrayMesh mesh, int f, Vector3f dest) {
         Vector3f p = new Vector3f();
         float x = 0, y = 0, z = 0;
-        for (int c = 0; c < 3; c++) {
+        for (int c = 0; c < NUM_3; c++) {
             mesh.vertexPosition(mesh.faceVertexAt(f, c), p);
             x += p.x; y += p.y; z += p.z;
         }
-        dest.set(x / 3f, y / 3f, z / 3f);
+        dest.set(x / NUM_3_2, y / NUM_3_2, z / NUM_3_2);
     }
 
-    /** Mesh-edge id for the c-th edge of face f (between corners c and c+1). */
+    /**
+     * Mesh-edge id for the c-th edge of face f (between corners c and c+1).
+     *
+     * @param mesh TODO: describe
+     * @param f TODO: describe
+     * @param c TODO: describe
+     * @return TODO: describe
+     */
     private static int faceEdgeId(ArrayMesh mesh, int f, int c) {
         int he = mesh.faceHalfEdgeAt(f, c);
         return mesh.halfEdgeEdge(he);

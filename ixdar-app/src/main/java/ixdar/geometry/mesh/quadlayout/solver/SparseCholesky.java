@@ -28,6 +28,9 @@ public final class SparseCholesky {
     private boolean usingLdl;
     private int n;
 
+    /**
+     * TODO: document {@code SparseCholesky}.
+     */
     public SparseCholesky() {
     }
 
@@ -35,6 +38,8 @@ public final class SparseCholesky {
      * Decompose the symmetric matrix {@code m}. Tries Cholesky first; if the
      * matrix is not positive definite, transparently falls back to LDLT.
      *
+     * @param m TODO: describe
+     * @throws IllegalArgumentException TODO: describe
      * @return true if either Cholesky or LDLT produced a usable factorization
      */
     public boolean decompose(SparseMatrix m) {
@@ -62,6 +67,10 @@ public final class SparseCholesky {
      * Re-decompose for the same nonzero pattern. ojAlgo doesn't expose a separate
      * symbolic/numeric phase; this re-decomposes from scratch but keeps the
      * factor object so per-solve allocations are reused.
+     *
+     * @param m TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
      */
     public boolean refactor(SparseMatrix m) {
         if (m.rows() != n || m.cols() != n) {
@@ -70,6 +79,11 @@ public final class SparseCholesky {
         return decompose(m);
     }
 
+    /**
+     * TODO: document {@code isSolvable}.
+     *
+     * @return TODO: describe
+     */
     public boolean isSolvable() {
         if (usingLdl) {
             return ldl != null && ldl.isSolvable();
@@ -77,6 +91,14 @@ public final class SparseCholesky {
         return cholesky != null && cholesky.isSolvable();
     }
 
+    /**
+     * TODO: document {@code solve}.
+     *
+     * @param rhs TODO: describe
+     * @throws IllegalStateException TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public double[] solve(double[] rhs) {
         if (cholesky == null && ldl == null) {
             throw new IllegalStateException("decompose() not called");
@@ -96,10 +118,20 @@ public final class SparseCholesky {
         return out;
     }
 
+    /**
+     * TODO: document {@code usingLdlFallback}.
+     *
+     * @return TODO: describe
+     */
     public boolean usingLdlFallback() {
         return usingLdl;
     }
 
+    /**
+     * TODO: document {@code dimension}.
+     *
+     * @return TODO: describe
+     */
     public int dimension() {
         return n;
     }

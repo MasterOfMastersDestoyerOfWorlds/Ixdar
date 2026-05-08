@@ -11,14 +11,20 @@ import ixdar.graphics.render.sdf.SDFLine;
  * Roads are the possible routes the player can use to build trade routes.
  */
 public class Road {
+
+    private static final Color ROAD_COLOR = Color.BLUE_WHITE;
+    private static final Color DISCOVERED_ROAD_COLOR = Color.LIGHT_GRAY;
     public City from;
     public City to;
     public double distance;
     public boolean discovered;
 
-    private static final Color ROAD_COLOR = Color.BLUE_WHITE;
-    private static final Color DISCOVERED_ROAD_COLOR = Color.LIGHT_GRAY;
-
+    /**
+     * TODO: document {@code Road}.
+     *
+     * @param from TODO: describe
+     * @param to TODO: describe
+     */
     public Road(City from, City to) {
         this.from = from;
         this.to = to;
@@ -27,7 +33,8 @@ public class Road {
     }
 
     /**
-     * Get the other city on this road
+     * Get the other city on this road.
+     *
      * @param city one of the cities on this road
      * @return the other city, or null if the given city is not on this road
      */
@@ -38,7 +45,8 @@ public class Road {
     }
 
     /**
-     * Draw this road
+     * Draw this road.
+     *
      * @param camera the camera for coordinate transformation
      * @param line the SDFLine to use for drawing
      */
@@ -53,6 +61,11 @@ public class Road {
         line.draw(new Vector2f(x1, y1), new Vector2f(x2, y2), color, camera);
     }
 
+    /**
+     * TODO: document {@code toString}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String toString() {
         return "Road[" + from.name + " <-> " + to.name + "]";

@@ -9,6 +9,7 @@ import org.joml.Vector4f;
 import ixdar.graphics.render.Clock;
 
 public class ColorLerp implements Color {
+    public static final int NUM_3 = 3;
 
     static HashMap<Color, ColorLerp> flashColors = new HashMap<>();
 
@@ -19,6 +20,13 @@ public class ColorLerp implements Color {
 
     private String name;
 
+    /**
+     * TODO: document {@code ColorLerp}.
+     *
+     * @param startColor TODO: describe
+     * @param endColor TODO: describe
+     * @param radsPerSecond TODO: describe
+     */
     public ColorLerp(Color startColor, Color endColor, float radsPerSecond) {
         this.startColor = startColor;
         this.endColor = endColor;
@@ -26,6 +34,14 @@ public class ColorLerp implements Color {
         lerpName(startColor, endColor);
     }
 
+    /**
+     * TODO: document {@code ColorLerp}.
+     *
+     * @param startColor TODO: describe
+     * @param endColor TODO: describe
+     * @param radsPerSecond TODO: describe
+     * @param alpha TODO: describe
+     */
     public ColorLerp(Color startColor, Color endColor, float radsPerSecond, float alpha) {
         this.startColor = new ColorRGB(startColor, alpha);
         this.endColor = new ColorRGB(endColor, alpha);
@@ -33,6 +49,13 @@ public class ColorLerp implements Color {
         lerpName(startColor, endColor);
     }
 
+    /**
+     * TODO: document {@code ColorLerp}.
+     *
+     * @param startColor TODO: describe
+     * @param endColor TODO: describe
+     * @param channelLerp TODO: describe
+     */
     public ColorLerp(Color startColor, Color endColor, byte[] channelLerp) {
         this.startColor = startColor;
         this.endColor = endColor;
@@ -40,6 +63,14 @@ public class ColorLerp implements Color {
         lerpName(startColor, endColor);
     }
 
+    /**
+     * TODO: document {@code ColorLerp}.
+     *
+     * @param startColor TODO: describe
+     * @param endColor TODO: describe
+     * @param channelLerp TODO: describe
+     * @param radsPerSecond TODO: describe
+     */
     public ColorLerp(Color startColor, Color endColor, byte[] channelLerp, float radsPerSecond) {
         this.startColor = startColor;
         this.endColor = endColor;
@@ -52,6 +83,13 @@ public class ColorLerp implements Color {
         this.name = startColor.getName() + "-" + endColor.getName() + "-Lerp";
     }
 
+    /**
+     * TODO: document {@code flashColor}.
+     *
+     * @param c TODO: describe
+     * @param radsPerSecond TODO: describe
+     * @return TODO: describe
+     */
     public static ColorLerp flashColor(Color c, float radsPerSecond) {
         flashColors.putIfAbsent(c, new ColorLerp(c, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, radsPerSecond));
         return flashColors.get(c);
@@ -87,11 +125,16 @@ public class ColorLerp implements Color {
         lerp.x = ixdar.common.utils.Compat.fmaf(other.x() - lerp.x, occ * channelLerp[0], lerp.x);
         lerp.y = ixdar.common.utils.Compat.fmaf(other.y() - lerp.y, occ * channelLerp[1], lerp.y);
         lerp.z = ixdar.common.utils.Compat.fmaf(other.z() - lerp.z, occ * channelLerp[2], lerp.z);
-        lerp.w = ixdar.common.utils.Compat.fmaf(other.w() - lerp.w, occ * channelLerp[3], lerp.w);
+        lerp.w = ixdar.common.utils.Compat.fmaf(other.w() - lerp.w, occ * channelLerp[NUM_3], lerp.w);
 
         return lerp;
     }
 
+    /**
+     * TODO: document {@code getName}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String getName() {
         return name;

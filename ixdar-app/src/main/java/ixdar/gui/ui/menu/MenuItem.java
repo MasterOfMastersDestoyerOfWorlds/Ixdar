@@ -12,6 +12,12 @@ public class MenuItem {
     Action action;
     HyperString label;
 
+    /**
+     * TODO: document {@code MenuItem}.
+     *
+     * @param string TODO: describe
+     * @param action TODO: describe
+     */
     public MenuItem(String string, Action action) {
         heading = string;
         subHeading = "";
@@ -21,14 +27,27 @@ public class MenuItem {
         this.action = action;
     }
 
+    /**
+     * TODO: document {@code itemString}.
+     *
+     * @return TODO: describe
+     */
     public HyperString itemString() {
         return label;
     }
 
+    /**
+     * TODO: document {@code performAction}.
+     */
     public void performAction() {
         action.perform();
     }
 
+    /**
+     * TODO: document {@code getHeading}.
+     *
+     * @return TODO: describe
+     */
     public String getHeading() {
         return heading;
     }

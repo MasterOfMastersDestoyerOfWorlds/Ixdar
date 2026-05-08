@@ -9,6 +9,7 @@ import ixdar.platform.file.FileManagement;
 
 @CommandAnnotation(id = "sv")
 public class SaveCommand extends TerminalCommand {
+    public static final String IX = ".ix";
 
     public static String cmd = "sv";
 
@@ -40,12 +41,12 @@ public class SaveCommand extends TerminalCommand {
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
         String newFileName = args[startIdx];
-        if (newFileName.contains(".ix")) {
-            newFileName = newFileName.split(".ix")[0];
+        if (newFileName.contains(IX)) {
+            newFileName = newFileName.split(IX)[0];
         }
         String firstPart = newFileName.split("_")[0];
         String dir = FileManagement.solutionsFolder + firstPart + "\\";
-        String fullPath = dir + newFileName + ".ix";
+        String fullPath = dir + newFileName + IX;
         File dirFile = new File(dir);
         if (!dirFile.exists()) {
             dirFile.mkdir();

@@ -19,18 +19,21 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "input_shortest_edge_paths")
 public class InputShortestEdgePathsNode implements MeshNode {
+    public static final String END_2 = "end";
+    public static final String EDGE_COST_2 = "edge_cost";
+    public static final String NEXT_VERTEX_2 = "next_vertex";
+    public static final String TOTAL_COST_2 = "total_cost";
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1e_20 = 1e-20f;
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_1 = 1f;
+    public static final int NUM_4 = 4;
+    public static final int NUM_1024 = 1024;
 
-    private static final InputPort END = new InputPort("end", PortType.BOOLEAN, false);
-    private static final InputPort EDGE_COST = new InputPort("edge_cost", PortType.FLOAT, 1.0f, 0.001f, 1000f);
-    private static final OutputPort NEXT_VERTEX = new OutputPort("next_vertex", PortType.INT);
-    private static final OutputPort TOTAL_COST = new OutputPort("total_cost", PortType.FLOAT);
-
-    private record Node(int vertex, float dist) implements Comparable<Node> {
-        @Override
-        public int compareTo(Node o) {
-            return Float.compare(dist, o.dist);
-        }
-    }
+    private static final InputPort END = new InputPort(END_2, PortType.BOOLEAN, false);
+    private static final InputPort EDGE_COST = new InputPort(EDGE_COST_2, PortType.FLOAT, 1.0f, 0.001f, 1000f);
+    private static final OutputPort NEXT_VERTEX = new OutputPort(NEXT_VERTEX_2, PortType.INT);
+    private static final OutputPort TOTAL_COST = new OutputPort(TOTAL_COST_2, PortType.FLOAT);
 
     @Override
     public String description() {
@@ -40,10 +43,10 @@ public class InputShortestEdgePathsNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "end", "Per-vertex BoolField marking source (start) vertices. Paths are computed FROM these TO every other vertex.",
-                "edge_cost", "Per-edge FloatField of edge traversal costs. Scalar = uniform graph distance.",
-                "next_vertex", "Per-vertex IntField: the next hop toward the nearest source.",
-                "total_cost", "Per-vertex FloatField: accumulated path cost to the nearest source."
+                END_2, "Per-vertex BoolField marking source (start) vertices. Paths are computed FROM these TO every other vertex.",
+                EDGE_COST_2, "Per-edge FloatField of edge traversal costs. Scalar = uniform graph distance.",
+                NEXT_VERTEX_2, "Per-vertex IntField: the next hop toward the nearest source.",
+                TOTAL_COST_2, "Per-vertex FloatField: accumulated path cost to the nearest source."
         );
     }
 
@@ -61,19 +64,19 @@ public class InputShortestEdgePathsNode implements MeshNode {
     public void evaluate(NodeContext ctx) {
         var fc = ctx.fieldContext();
         if (fc == null || !(fc instanceof MeshFieldContext mfc)) {
-            ctx.setOutput("next_vertex", 0);
-            ctx.setOutput("total_cost", 0f);
+            ctx.setOutput(NEXT_VERTEX_2, 0);
+            ctx.setOutput(TOTAL_COST_2, NUM_0);
             return;
         }
         MeshTopology mesh = mfc.mesh();
         if (mesh == null || mesh.vertexCount() == 0) {
-            ctx.setOutput("next_vertex", 0);
-            ctx.setOutput("total_cost", 0f);
+            ctx.setOutput(NEXT_VERTEX_2, 0);
+            ctx.setOutput(TOTAL_COST_2, NUM_0);
             return;
         }
 
-        Object endObj = FieldBroadcast.getInputOrDefault(ctx, "end", END.defaultValue());
-        Object costObj = FieldBroadcast.getInputOrDefault(ctx, "edge_cost", EDGE_COST.defaultValue());
+        Object endObj = FieldBroadcast.getInputOrDefault(ctx, END_2, END.defaultValue());
+        Object costObj = FieldBroadcast.getInputOrDefault(ctx, EDGE_COST_2, EDGE_COST.defaultValue());
 
         int n = mesh.vertexCount();
         float[] dist = new float[n];
@@ -115,11 +118,11 @@ public class InputShortestEdgePathsNode implements MeshNode {
         int[] nextIdx = new int[n];
         float[] tot = new float[n];
         for (int i = 0; i < n; i++) {
-            tot[i] = Float.isFinite(dist[i]) ? dist[i] : 0f;
+            tot[i] = Float.isFinite(dist[i]) ? dist[i] : NUM_0;
             nextIdx[i] = parent[i] < 0 ? 0 : parent[i];
         }
-        ctx.setOutput("next_vertex", new IntField(nextIdx));
-        ctx.setOutput("total_cost", new FloatField(tot));
+        ctx.setOutput(NEXT_VERTEX_2, new IntField(nextIdx));
+        ctx.setOutput(TOTAL_COST_2, new FloatField(tot));
     }
 
     private static void seedSources(MeshTopology mesh, Object endObj, int n,
@@ -130,15 +133,15 @@ public class InputShortestEdgePathsNode implements MeshNode {
             for (int i = 0; i < len; i++) {
                 if (bf.get(i)) {
                     any = true;
-                    dist[i] = 0f;
+                    dist[i] = NUM_0;
                     parent[i] = i;
-                    pq.add(new Node(i, 0f));
+                    pq.add(new Node(i, NUM_0));
                 }
             }
             if (!any) {
-                dist[0] = 0f;
+                dist[0] = NUM_0;
                 parent[0] = 0;
-                pq.add(new Node(0, 0f));
+                pq.add(new Node(0, NUM_0));
             }
         } else if (Boolean.TRUE.equals(endObj)) {
             boolean anyBoundary = false;
@@ -146,20 +149,20 @@ public class InputShortestEdgePathsNode implements MeshNode {
                 int vid = mesh.vertexIdAt(i);
                 if (mesh.isBoundaryVertex(vid)) {
                     anyBoundary = true;
-                    dist[i] = 0f;
+                    dist[i] = NUM_0;
                     parent[i] = i;
-                    pq.add(new Node(i, 0f));
+                    pq.add(new Node(i, NUM_0));
                 }
             }
             if (!anyBoundary) {
-                dist[0] = 0f;
+                dist[0] = NUM_0;
                 parent[0] = 0;
-                pq.add(new Node(0, 0f));
+                pq.add(new Node(0, NUM_0));
             }
         } else {
-            dist[0] = 0f;
+            dist[0] = NUM_0;
             parent[0] = 0;
-            pq.add(new Node(0, 0f));
+            pq.add(new Node(0, NUM_0));
         }
     }
 
@@ -171,12 +174,12 @@ public class InputShortestEdgePathsNode implements MeshNode {
         if (costObj instanceof FloatField ff) {
             float cu = ff.get(u);
             float cv = ff.get(v);
-            return Math.max(1e-20f, (cu + cv) * 0.5f);
+            return Math.max(NUM_1e_20, (cu + cv) * NUM_0_5);
         }
         if (costObj instanceof Number num) {
-            return Math.max(1e-20f, num.floatValue());
+            return Math.max(NUM_1e_20, num.floatValue());
         }
-        return 1f;
+        return NUM_1;
     }
 
     private static int indexOfVertexId(MeshTopology mesh, int vertexId) {
@@ -194,7 +197,7 @@ public class InputShortestEdgePathsNode implements MeshNode {
         for (int i = 0; i < n; i++) {
             maxId = Math.max(maxId, mesh.vertexIdAt(i));
         }
-        if (maxId > n * 4 + 1024) {
+        if (maxId > n * NUM_4 + NUM_1024) {
             return null;
         }
         int[] idx = new int[maxId + 1];
@@ -203,5 +206,12 @@ public class InputShortestEdgePathsNode implements MeshNode {
             idx[mesh.vertexIdAt(i)] = i;
         }
         return idx;
+    }
+
+    private record Node(int vertex, float dist) implements Comparable<Node> {
+        @Override
+        public int compareTo(Node o) {
+            return Float.compare(dist, o.dist);
+        }
     }
 }

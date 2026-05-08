@@ -1,31 +1,25 @@
 package ixdar.parsing.python;
 
 public class PythonLexer {
-    public enum TokenType {
-        IDENTIFIER, NUMBER, STRING, EQUALS, LPAREN, RPAREN, COMMA, DOT, LANGLE, RANGLE,
-        COLON, ARROW, EOF
-    }
-
-    public static class Token {
-        public final TokenType type;
-        public final String value;
-        public final int line;
-
-        public Token(TokenType type, String value, int line) {
-            this.type = type;
-            this.value = value;
-            this.line = line;
-        }
-    }
 
     private final String input;
     private int pos = 0;
     private int line = 1;
 
+    /**
+     * TODO: document {@code PythonLexer}.
+     *
+     * @param input TODO: describe
+     */
     public PythonLexer(String input) {
         this.input = input;
     }
 
+    /**
+     * TODO: document {@code nextToken}.
+     *
+     * @return TODO: describe
+     */
     public Token nextToken() {
         skipWhitespace();
         if (pos >= input.length())
@@ -134,6 +128,29 @@ public class PythonLexer {
             pos++;
         }
         throw new RuntimeException("Line " + tokenLine + ": Unterminated string literal");
+    }
+    public enum TokenType {
+        IDENTIFIER, NUMBER, STRING, EQUALS, LPAREN, RPAREN, COMMA, DOT, LANGLE, RANGLE,
+        COLON, ARROW, EOF
+    }
+
+    public static class Token {
+        public final TokenType type;
+        public final String value;
+        public final int line;
+
+        /**
+         * TODO: document {@code Token}.
+         *
+         * @param type TODO: describe
+         * @param value TODO: describe
+         * @param line TODO: describe
+         */
+        public Token(TokenType type, String value, int line) {
+            this.type = type;
+            this.value = value;
+            this.line = line;
+        }
     }
 
 }

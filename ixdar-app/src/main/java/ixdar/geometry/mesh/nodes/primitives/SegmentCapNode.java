@@ -29,11 +29,18 @@ import ixdar.geometry.mesh.data.HalfEdgeMesh;
  */
 @MeshNodeAnnotation(id = "segment_cap")
 public class SegmentCapNode implements MeshNode {
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String SEGMENTS_2 = "segments";
+    public static final String CAP_RINGS_2 = "cap_rings";
+    public static final int NUM_3 = 3;
+    public static final int NUM_12 = 12;
+    public static final float NUM_0_001 = 0.001f;
+    public static final float NUM_0_05 = 0.05f;
 
-    private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 12, (float) 3, (float) 128);
-    private static final InputPort CAP_RINGS = new InputPort("cap_rings", PortType.INT, 2, (float) 0, (float) 16);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort SEGMENTS = new InputPort(SEGMENTS_2, PortType.INT, 12, (float) 3, (float) 128);
+    private static final InputPort CAP_RINGS = new InputPort(CAP_RINGS_2, PortType.INT, 2, (float) 0, (float) 16);
+    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -43,9 +50,9 @@ public class SegmentCapNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                "geometry", "Input/output geometry bundle. The cap is added at the maximum-Y boundary ring of the input; output contains the capped mesh.",
-                "segments", "Number of vertices in the boundary ring (must match upstream segment's segments). Default 12.",
-                "cap_rings", "Concentric quad rings spiraling inward from the boundary. Higher = smoother cap after subdivision. Default 2."
+                GEOMETRY_2, "Input/output geometry bundle. The cap is added at the maximum-Y boundary ring of the input; output contains the capped mesh.",
+                SEGMENTS_2, "Number of vertices in the boundary ring (must match upstream segment's segments). Default 12.",
+                CAP_RINGS_2, "Concentric quad rings spiraling inward from the boundary. Higher = smoother cap after subdivision. Default 2."
         );
     }
 
@@ -61,19 +68,19 @@ public class SegmentCapNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
         HalfEdgeMesh mesh = base.mesh() instanceof HalfEdgeMesh h ? h : null;
         if (mesh == null || mesh.vertexCount() == 0) {
-            ctx.setOutput("geometry", base);
+            ctx.setOutput(GEOMETRY_2, base);
             return;
         }
 
-        int segments = Math.max(3, intInput(ctx, "segments", 12));
-        int capRings = Math.max(1, intInput(ctx, "cap_rings", 2));
+        int segments = Math.max(NUM_3, intInput(ctx, SEGMENTS_2, NUM_12));
+        int capRings = Math.max(1, intInput(ctx, CAP_RINGS_2, 2));
 
         int totalVerts = mesh.vertexCount();
         if (totalVerts < segments) {
-            ctx.setOutput("geometry", base);
+            ctx.setOutput(GEOMETRY_2, base);
             return;
         }
 
@@ -88,7 +95,7 @@ public class SegmentCapNode implements MeshNode {
         int[] outerRing = new int[segments * 2]; // oversize buffer
         float[] ringAngles = new float[outerRing.length];
         int found = 0;
-        float tolerance = 0.001f;
+        float tolerance = NUM_0_001;
 
         for (int v = 0; v < totalVerts && found < outerRing.length; v++) {
             mesh.vertexPosition(v, pos);
@@ -98,8 +105,8 @@ public class SegmentCapNode implements MeshNode {
             }
         }
 
-        if (found < 3) {
-            ctx.setOutput("geometry", base);
+        if (found < NUM_3) {
+            ctx.setOutput(GEOMETRY_2, base);
             return;
         }
 
@@ -135,7 +142,7 @@ public class SegmentCapNode implements MeshNode {
             // Smoothstep easing for nicer distribution
             float scale = 1.0f - t;
             if (ring == capRings) {
-                scale = 0.05f; // innermost ring: tiny but non-zero to avoid degeneracy
+                scale = NUM_0_05; // innermost ring: tiny but non-zero to avoid degeneracy
             }
 
             int[] currentRing = new int[found];
@@ -164,7 +171,7 @@ public class SegmentCapNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput("geometry", base.withMesh(mesh));
+        ctx.setOutput(GEOMETRY_2, base.withMesh(mesh));
     }
 
     private static void sortByAngle(int[] ids, float[] angles, int count) {

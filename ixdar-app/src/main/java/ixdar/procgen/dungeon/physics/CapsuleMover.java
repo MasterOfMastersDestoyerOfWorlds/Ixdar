@@ -27,6 +27,10 @@ import ixdar.procgen.dungeon.values.TileGridValue3D;
  * {@code offsetX = -gridW * cs / 2} (and analogously for Y, Z).
  */
 public final class CapsuleMover {
+    public static final float NUM_0 = 0f;
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_1e_10 = 1e-10f;
 
     /** Maximum collision-resolution iterations per sub-step. */
     public static final int MAX_RESOLVE_ITERATIONS = 4;
@@ -35,25 +39,28 @@ public final class CapsuleMover {
     }
 
     /**
+     * TODO: document.
+     *
      * @param capsuleAtStart capsule at its starting position (its center is the start point)
      * @param delta          desired motion of the capsule's center
      * @param grid           static obstacle grid; EMPTY cells are solid
      * @param cellSize       world units per cell (matches {@code GridToMesh3D}'s cellSize)
+     * @throws IllegalArgumentException TODO: describe
      * @return the resolved end position of the capsule's center
      */
     public static Vec3f moveAndSlide(CapsuleShape capsuleAtStart,
                                      Vec3f delta,
                                      TileGridValue3D grid,
                                      float cellSize) {
-        if (cellSize <= 0f) {
+        if (cellSize <= NUM_0) {
             throw new IllegalArgumentException("cellSize must be > 0, got " + cellSize);
         }
         // Sub-stepping based on the smaller of the capsule's body height and radius keeps the
         // capsule from tunneling through thin walls within one frame at high speed.
         float deltaLen = delta.length();
-        float maxStep = capsuleAtStart.radius() * 0.5f;
+        float maxStep = capsuleAtStart.radius() * NUM_0_5;
         int substeps = Math.max(1, (int) Math.ceil(deltaLen / maxStep));
-        Vec3f stepDelta = delta.scale(1f / substeps);
+        Vec3f stepDelta = delta.scale(NUM_1 / substeps);
 
         Vec3f pos = capsuleAtStart.center();
         for (int s = 0; s < substeps; s++) {
@@ -63,11 +70,19 @@ public final class CapsuleMover {
         return pos;
     }
 
-    /** Iterative MTV accumulation — pushes the capsule out of any obstacle cells it overlaps. */
+    /**
+     * Iterative MTV accumulation — pushes the capsule out of any obstacle cells it overlaps.
+     *
+     * @param proto TODO: describe
+     * @param pos TODO: describe
+     * @param grid TODO: describe
+     * @param cellSize TODO: describe
+     * @return TODO: describe
+     */
     private static Vec3f resolve(CapsuleShape proto, Vec3f pos, TileGridValue3D grid, float cellSize) {
-        float offsetX = -grid.width() * cellSize * 0.5f;
-        float offsetY = -grid.height() * cellSize * 0.5f;
-        float offsetZ = -grid.depth() * cellSize * 0.5f;
+        float offsetX = -grid.width() * cellSize * NUM_0_5;
+        float offsetY = -grid.height() * cellSize * NUM_0_5;
+        float offsetZ = -grid.depth() * cellSize * NUM_0_5;
 
         for (int iter = 0; iter < MAX_RESOLVE_ITERATIONS; iter++) {
             CapsuleShape c = proto.atCenter(pos);
@@ -79,7 +94,7 @@ public final class CapsuleMover {
             int yHi = (int) Math.floor((c.segmentMaxY() + bound - offsetY) / cellSize);
             int zLo = (int) Math.floor((pos.z() - bound - offsetZ) / cellSize);
             int zHi = (int) Math.floor((pos.z() + bound - offsetZ) / cellSize);
-            float totalPushSq = 0f;
+            float totalPushSq = NUM_0;
 
             for (int gy = yLo; gy <= yHi; gy++) {
                 for (int gz = zLo; gz <= zHi; gz++) {
@@ -93,14 +108,14 @@ public final class CapsuleMover {
                                 offsetY + (gy + 1) * cellSize,
                                 offsetZ + (gz + 1) * cellSize);
                         Vec3f mtv = CapsuleAabbTest.penetration(c, cell);
-                        if (mtv.lengthSquared() == 0f) continue;
+                        if (mtv.lengthSquared() == NUM_0) continue;
                         pos = pos.add(mtv);
                         c = proto.atCenter(pos);
                         totalPushSq += mtv.lengthSquared();
                     }
                 }
             }
-            if (totalPushSq < 1e-10f) break;
+            if (totalPushSq < NUM_1e_10) break;
         }
         return pos;
     }
@@ -108,6 +123,12 @@ public final class CapsuleMover {
     /**
      * EMPTY in-grid cells AND out-of-grid cells are obstacles. Out-of-grid handling means the
      * dungeon's outer wall is solid even when the geometry happens to abut the grid boundary.
+     *
+     * @param grid TODO: describe
+     * @param x TODO: describe
+     * @param y TODO: describe
+     * @param z TODO: describe
+     * @return TODO: describe
      */
     private static boolean isObstacle(TileGridValue3D grid, int x, int y, int z) {
         if (x < 0 || x >= grid.width()) return true;

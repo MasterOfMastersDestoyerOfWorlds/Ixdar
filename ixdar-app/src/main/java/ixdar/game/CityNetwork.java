@@ -19,6 +19,7 @@ import ixdar.graphics.render.sdf.SDFLine;
  * player.
  */
 public class CityNetwork {
+    public static final float NUM_50 = 50f;
 
     public ArrayList<City> cities;
     public ArrayList<Road> roads;
@@ -34,8 +35,8 @@ public class CityNetwork {
     private boolean tradeInitialized = false;
 
     /**
-     * Create an empty city network with the given grid type
-     * 
+     * Create an empty city network with the given grid type.
+     *
      * @param grid the grid for city placement (CartesianGrid or HexGrid)
      */
     public CityNetwork(Grid grid) {
@@ -46,8 +47,8 @@ public class CityNetwork {
     }
 
     /**
-     * Create a city network with existing cities
-     * 
+     * Create a city network with existing cities.
+     *
      * @param cities list of cities
      * @param grid   the grid for city placement
      */
@@ -62,8 +63,8 @@ public class CityNetwork {
     }
 
     /**
-     * Add a city to the network
-     * 
+     * Add a city to the network.
+     *
      * @param city the city to add
      */
     public void addCity(City city) {
@@ -72,8 +73,8 @@ public class CityNetwork {
     }
 
     /**
-     * Get a city by its ID
-     * 
+     * Get a city by its ID.
+     *
      * @param id the city ID
      * @return the city, or null if not found
      */
@@ -82,8 +83,8 @@ public class CityNetwork {
     }
 
     /**
-     * Find which city is at the given world coordinates
-     * 
+     * Find which city is at the given world coordinates.
+     *
      * @param worldX x coordinate in world space
      * @param worldY y coordinate in world space
      * @param radius click radius threshold
@@ -99,8 +100,8 @@ public class CityNetwork {
     }
 
     /**
-     * Add a road between two cities
-     * 
+     * Add a road between two cities.
+     *
      * @param from the first city
      * @param to   the second city
      */
@@ -111,8 +112,8 @@ public class CityNetwork {
     }
 
     /**
-     * Get the road between two cities
-     * 
+     * Get the road between two cities.
+     *
      * @param a first city
      * @param b second city
      * @return the road, or null if no direct road exists
@@ -127,8 +128,8 @@ public class CityNetwork {
     }
 
     /**
-     * Check if two cities are connected by a road
-     * 
+     * Check if two cities are connected by a road.
+     *
      * @param a first city
      * @param b second city
      * @return true if a road exists between them
@@ -138,8 +139,8 @@ public class CityNetwork {
     }
 
     /**
-     * Get all cities connected to a given city by roads
-     * 
+     * Get all cities connected to a given city by roads.
+     *
      * @param from the city to find connections for
      * @return list of connected cities
      */
@@ -156,8 +157,8 @@ public class CityNetwork {
     }
 
     /**
-     * Generate roads between cities based on proximity
-     * 
+     * Generate roads between cities based on proximity.
+     *
      * @param maxDistance maximum distance for automatic road creation
      */
     public void generateRoadsFromProximity(float maxDistance) {
@@ -174,8 +175,8 @@ public class CityNetwork {
     }
 
     /**
-     * Draw the entire network (cities and roads)
-     * 
+     * Draw the entire network (cities and roads).
+     *
      * @param camera      the camera for coordinate transformation
      * @param hoveredCity the currently hovered city, or null
      */
@@ -191,8 +192,8 @@ public class CityNetwork {
     }
 
     /**
-     * Set the headquarters city
-     * 
+     * Set the headquarters city.
+     *
      * @param city the city to set as headquarters
      */
     public void setHeadquarters(City city) {
@@ -243,7 +244,7 @@ public class CityNetwork {
 
     /**
      * Get the Knot wrapper for a city.
-     * 
+     *
      * @param city the city
      * @return the Knot for this city, or null if not initialized
      */
@@ -256,7 +257,7 @@ public class CityNetwork {
 
     /**
      * Get the trade Shell.
-     * 
+     *
      * @return the Shell used for trade routes
      */
     public Shell getTradeShell() {
@@ -268,7 +269,7 @@ public class CityNetwork {
 
     /**
      * Check if trade routes have been initialized.
-     * 
+     *
      * @return true if initialized
      */
     public boolean isTradeInitialized() {
@@ -276,8 +277,8 @@ public class CityNetwork {
     }
 
     /**
-     * Create a PointSet from all cities for camera bounds calculation
-     * 
+     * Create a PointSet from all cities for camera bounds calculation.
+     *
      * @return PointSet containing all city locations
      */
     public PointSet toPointSet() {
@@ -294,7 +295,7 @@ public class CityNetwork {
                 maxX = Math.max(maxX, city.getX());
                 maxY = Math.max(maxY, city.getY());
             }
-            float margin = 50f;
+            float margin = NUM_50;
             shell.add(new PointND.Float(minX - margin, minY - margin));
             shell.add(new PointND.Float(maxX + margin, maxY + margin));
         }

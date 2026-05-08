@@ -20,15 +20,16 @@ import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.gl.Platform;
 
 public abstract class ShaderDrawable {
+    public static final float NUM_4 = 4f;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_0_00001 = 0.00001f;
+    public static final int NUM_9 = 9;
+    public static final int NUM_7 = 7;
+
+    private static final HashMap<Class<?>, Long> counters = new HashMap<>();
 
     public ShaderProgram shader;
-
-    protected GL gl = Platforms.gl();
-    protected Platform platform = Platforms.get();
-    protected Camera camera;
-
-    protected float drawX;
-    protected float drawY;
     public float width;
     public float height;
     public Vector2f bottomLeft;
@@ -36,28 +37,6 @@ public abstract class ShaderDrawable {
     public Vector2f topRight;
     public Vector2f topLeft;
     public Vector2f center;
-    protected Color c = Color.PINK;
-
-    private ShaderProgram.Allocation allocation;
-    private boolean geometryDirty = true;
-    private boolean colorDirty = true;
-    protected boolean culled = false;
-
-    private final Map<Long, ShaderProgram.Allocation> allocationById = new HashMap<>();
-    private final Map<Long, Quad> prevQuadById = new HashMap<>();
-
-    /** Reusable buffer for geometry uploads — avoids per-draw ByteBuffer.allocateDirect(). */
-    private IxBuffer geometryBuf;
-
-    private static final HashMap<Class<?>, Long> counters = new HashMap<>();
-
-    protected static long nextId(Class<?> clazz) {
-        long id = counters.computeIfAbsent(clazz, c -> 0L);
-        counters.put(clazz, id + 1);
-        return id++;
-    }
-
-    protected final long drawingId;
 
     public float widthToHeightRatio;
 
@@ -65,37 +44,64 @@ public abstract class ShaderDrawable {
 
     public float texWidth;
 
+    protected GL gl = Platforms.gl();
+    protected Platform platform = Platforms.get();
+    protected Camera camera;
+
+    protected float drawX;
+    protected float drawY;
+    protected Color c = Color.PINK;
+    protected boolean culled = false;
+
+    protected final long drawingId;
+
     protected Vector2f uAxis;
 
     protected Vector2f vAxis;
 
+    private ShaderProgram.Allocation allocation;
+    private boolean geometryDirty = true;
+    private boolean colorDirty = true;
+
+    private final Map<Long, ShaderProgram.Allocation> allocationById = new HashMap<>();
+    private final Map<Long, Quad> prevQuadById = new HashMap<>();
+
+    /** Reusable buffer for geometry uploads — avoids per-draw ByteBuffer.allocateDirect(). */
+    private IxBuffer geometryBuf;
+
+    /**
+     * TODO: document {@code ShaderDrawable}.
+     */
     protected ShaderDrawable() {
         this.drawingId = nextId(getClass());
     }
 
+    /**
+     * TODO: document {@code nextId}.
+     *
+     * @param clazz TODO: describe
+     * @return TODO: describe
+     */
+    protected static long nextId(Class<?> clazz) {
+        long id = counters.computeIfAbsent(clazz, c -> 0L);
+        counters.put(clazz, id + 1);
+        return id++;
+    }
+
+    /**
+     * TODO: document {@code getDrawingId}.
+     *
+     * @return TODO: describe
+     */
     public long getDrawingId() {
         return drawingId;
     }
 
-    public static final class Quad {
-        public final Vector2f bottomLeft, bottomRight, topRight, topLeft;
-        public float widthToHeightRatio;
-        public float texWidth;
-        public float texHeight;
-        public final static int VERTEX_COUNT = 6;
-
-        Quad(Vector2f bl, Vector2f br, Vector2f tr, Vector2f tl, float texWidth, float texHeight,
-                float widthToHeightRatio) {
-            this.bottomLeft = new Vector2f(bl);
-            this.bottomRight = new Vector2f(br);
-            this.topRight = new Vector2f(tr);
-            this.topLeft = new Vector2f(tl);
-            this.texWidth = texWidth;
-            this.texHeight = texHeight;
-            this.widthToHeightRatio = widthToHeightRatio;
-        }
-    }
-
+    /**
+     * TODO: document {@code setup}.
+     *
+     * @param camera TODO: describe
+     */
     public void setup(Camera camera) {
         this.camera = camera;
         shader.use();
@@ -115,7 +121,7 @@ public abstract class ShaderDrawable {
                 .add(bottomRight)
                 .add(topRight)
                 .add(topLeft)
-                .div(4f);
+                .div(NUM_4);
 
         shader.setFloat("widthToHeightRatio", widthToHeightRatio);
         setUniforms();
@@ -136,20 +142,40 @@ public abstract class ShaderDrawable {
         }
     }
 
+    /**
+     * TODO: document {@code cleanup}.
+     *
+     * @param c TODO: describe
+     */
     public void cleanup(Camera c) {
         shader.end();
         c.incZIndex();
     }
 
+    /**
+     * TODO: document {@code cleanupFar}.
+     *
+     * @param c TODO: describe
+     */
     public void cleanupFar(Camera c) {
         shader.end();
         c.decFarZIndex();
     }
 
+    /**
+     * TODO: document {@code setUniforms}.
+     *
+     * @throws UnsupportedOperationException TODO: describe
+     */
     protected void setUniforms() {
         throw new UnsupportedOperationException("Unimplemented method");
     }
 
+    /**
+     * TODO: document {@code getUniformMap}.
+     *
+     * @return TODO: describe
+     */
     public Map<String, GLSLParseText> getUniformMap() {
         Map<String, GLSLParseText> map = new HashMap<>();
         Map<String, Object> uniformMap = shader.uniformMap;
@@ -162,7 +188,7 @@ public abstract class ShaderDrawable {
                 Boolean b = (Boolean) value;
 
                 map.put(key, new GLSLParseText(b ? "tru" : "false", ixdar.graphics.render.color.Color.GLSL_BOOLEAN,
-                        new Vector4f(b ? 1f : 0f, 0f, 0f, 0f), 1, key));
+                        new Vector4f(b ? NUM_1 : NUM_0, NUM_0, NUM_0, NUM_0), 1, key));
             } else if (value instanceof Vector2f) {
                 Vector2f vec2 = (Vector2f) value;
                 GLSLParseText.put(map, key, vec2.x, vec2.y);
@@ -185,6 +211,16 @@ public abstract class ShaderDrawable {
         return map;
     }
 
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param drawX TODO: describe
+     * @param drawY TODO: describe
+     * @param width TODO: describe
+     * @param height TODO: describe
+     * @param c TODO: describe
+     * @param camera TODO: describe
+     */
     public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {
         if (c != null) {
             this.c = c;
@@ -196,6 +232,12 @@ public abstract class ShaderDrawable {
         draw(camera);
     }
 
+    /**
+     * TODO: document {@code draw}.
+     *
+     * @param camera TODO: describe
+     * @throws NullPointerException TODO: describe
+     */
     public void draw(Camera camera) {
         if (shader == null) {
             platform.log("Shader is null");
@@ -218,6 +260,12 @@ public abstract class ShaderDrawable {
         cleanup(camera);
     }
 
+    /**
+     * TODO: document {@code drawFar}.
+     *
+     * @param camera TODO: describe
+     * @param id TODO: describe
+     */
     public void drawFar(Camera camera, Long id) {
         this.camera = camera;
         setup(camera);
@@ -228,11 +276,19 @@ public abstract class ShaderDrawable {
         cleanupFar(camera);
     }
 
+    /**
+     * TODO: document {@code calculateQuad}.
+     *
+     * @param camera2d TODO: describe
+     */
     public void calculateQuad(Camera camera2d) {
         this.camera = camera2d;
         calculateQuad();
     }
 
+    /**
+     * TODO: document {@code calculateQuad}.
+     */
     public void calculateQuad() {
         bottomLeft = new Vector2f(drawX, drawY);
         bottomRight = new Vector2f(bottomLeft).add(width, 0);
@@ -242,10 +298,30 @@ public abstract class ShaderDrawable {
         vAxis = new Vector2f(topLeft).sub(bottomLeft);
     }
 
+    /**
+     * TODO: document {@code drawCentered}.
+     *
+     * @param drawX TODO: describe
+     * @param drawY TODO: describe
+     * @param width TODO: describe
+     * @param height TODO: describe
+     * @param c TODO: describe
+     * @param camera TODO: describe
+     */
     public void drawCentered(float drawX, float drawY, float width, float height, Color c, Camera camera) {
         draw(drawX - (width / 2), drawY - (height / 2), width, height, c, camera);
     }
 
+    /**
+     * TODO: document {@code drawRightBound}.
+     *
+     * @param drawX TODO: describe
+     * @param drawY TODO: describe
+     * @param width TODO: describe
+     * @param height TODO: describe
+     * @param c TODO: describe
+     * @param camera TODO: describe
+     */
     public void drawRightBound(float drawX, float drawY, float width, float height, Color c, Camera camera) {
         draw(drawX - width, drawY, width, height, c, camera);
     }
@@ -269,12 +345,17 @@ public abstract class ShaderDrawable {
         return changed;
     }
 
+    /**
+     * TODO: document {@code getQuad}.
+     *
+     * @return TODO: describe
+     */
     public Quad getQuad() {
         return prevQuadById.get(drawingId);
     }
 
     private static boolean sameQuad(Quad a, Quad b) {
-        float eps = 0.00001f;
+        float eps = NUM_0_00001;
         return a.bottomLeft.distance(b.bottomLeft) <= eps && a.bottomRight.distance(b.bottomRight) <= eps
                 && a.topRight.distance(b.topRight) <= eps
                 && a.topLeft.distance(b.topLeft) <= eps;
@@ -284,7 +365,7 @@ public abstract class ShaderDrawable {
 
         int stride = shader.getStrideFloats();
         if (stride <= 0)
-            stride = 9;
+            stride = NUM_9;
         int floatsNeeded = stride * Quad.VERTEX_COUNT;
         if (geometryBuf == null || geometryBuf.capacity() < floatsNeeded) {
             geometryBuf = platform.allocateFloats(floatsNeeded);
@@ -295,18 +376,18 @@ public abstract class ShaderDrawable {
         Vector4f color = c.toVector4f();
         shader.uniformMap.put("vertexColor", color);
         float r = color.x, g = color.y, b = color.z, a = color.w;
-        float z = camera != null ? camera.getZIndex() : 0f;
+        float z = camera != null ? camera.getZIndex() : NUM_0;
 
-        if (stride == 9) {
+        if (stride == NUM_9) {
 
-            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(0f);
-            buf.put(topLeft.x).put(topLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(1f);
-            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(1f);
+            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(NUM_0).put(NUM_0);
+            buf.put(topLeft.x).put(topLeft.y).put(z).put(r).put(g).put(b).put(a).put(NUM_0).put(NUM_1);
+            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(NUM_1).put(NUM_1);
 
-            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(0f);
-            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(1f);
-            buf.put(bottomRight.x).put(bottomRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(0f);
-        } else if (stride == 7) {
+            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(NUM_0).put(NUM_0);
+            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(NUM_1).put(NUM_1);
+            buf.put(bottomRight.x).put(bottomRight.y).put(z).put(r).put(g).put(b).put(a).put(NUM_1).put(NUM_0);
+        } else if (stride == NUM_7) {
 
             buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a);
             buf.put(topLeft.x).put(topLeft.y).put(z).put(r).put(g).put(b).put(a);
@@ -321,6 +402,12 @@ public abstract class ShaderDrawable {
         shader.uploadAllocation(target, buf, Quad.VERTEX_COUNT);
     }
 
+    /**
+     * TODO: document {@code toTextureSpace}.
+     *
+     * @param p TODO: describe
+     * @return TODO: describe
+     */
     public Vector2f toTextureSpace(Vector2f p) {
         if (uAxis == null) {
             uAxis = new Vector2f(bottomRight).sub(bottomLeft);
@@ -332,6 +419,12 @@ public abstract class ShaderDrawable {
         return new Vector2f(u, v);
     }
 
+    /**
+     * TODO: document {@code toScaledTextureSpace}.
+     *
+     * @param p TODO: describe
+     * @return TODO: describe
+     */
     public Vector2f toScaledTextureSpace(Vector2f p) {
         if (uAxis == null) {
             uAxis = new Vector2f(bottomRight).sub(bottomLeft);
@@ -345,16 +438,50 @@ public abstract class ShaderDrawable {
         return new Vector2f(u * texWidth, v * texHeight);
     }
 
+    /**
+     * TODO: document {@code getShader}.
+     *
+     * @return TODO: describe
+     */
     public ShaderProgram getShader() {
         return shader;
     }
 
+    /**
+     * TODO: document {@code getUAxis}.
+     *
+     * @return TODO: describe
+     */
     public Vector2f getUAxis() {
         return uAxis;
     }
 
+    /**
+     * TODO: document {@code getVAxis}.
+     *
+     * @return TODO: describe
+     */
     public Vector2f getVAxis() {
         return vAxis;
+    }
+
+    public static final class Quad {
+        public final static int VERTEX_COUNT = 6;
+        public final Vector2f bottomLeft, bottomRight, topRight, topLeft;
+        public float widthToHeightRatio;
+        public float texWidth;
+        public float texHeight;
+
+        Quad(Vector2f bl, Vector2f br, Vector2f tr, Vector2f tl, float texWidth, float texHeight,
+                float widthToHeightRatio) {
+            this.bottomLeft = new Vector2f(bl);
+            this.bottomRight = new Vector2f(br);
+            this.topRight = new Vector2f(tr);
+            this.topLeft = new Vector2f(tl);
+            this.texWidth = texWidth;
+            this.texHeight = texHeight;
+            this.widthToHeightRatio = widthToHeightRatio;
+        }
     }
 
 }

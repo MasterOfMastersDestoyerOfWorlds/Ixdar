@@ -27,9 +27,8 @@ import ixdar.procgen.dungeon.values.TileGridValue3D;
  * transitions. No diagonal moves.
  */
 public final class AStarCorridorPathfinder3D {
-
-    private AStarCorridorPathfinder3D() {
-    }
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
 
     /**
      * Stair build cost — a stair carve consumes 3 cell-traversals (two intermediates plus the
@@ -37,6 +36,23 @@ public final class AStarCorridorPathfinder3D {
      */
     public static final double STAIR_BUILD_PREMIUM = 2.0;
 
+    private static final int[] DX = { 1, -1, 0, 0 };
+    private static final int[] DZ = { 0, 0, 1, -1 };
+
+    private AStarCorridorPathfinder3D() {
+    }
+
+    /**
+     * TODO: document {@code carve}.
+     *
+     * @param gridW TODO: describe
+     * @param gridH TODO: describe
+     * @param gridD TODO: describe
+     * @param rooms TODO: describe
+     * @param mstEdges TODO: describe
+     * @param weights TODO: describe
+     * @return TODO: describe
+     */
     public static TileGridValue3D carve(int gridW, int gridH, int gridD,
                                         RoomListValue3D rooms,
                                         EdgeGraphValue mstEdges,
@@ -110,7 +126,7 @@ public final class AStarCorridorPathfinder3D {
             int cz = rest % gridD;
             int cy = rest / gridD;
             // Horizontal cardinal moves.
-            for (int d = 0; d < 4; d++) {
+            for (int d = 0; d < NUM_4; d++) {
                 int nx = cx + DX[d];
                 int nz = cz + DZ[d];
                 if (nx < 0 || nx >= gridW || nz < 0 || nz >= gridD) continue;
@@ -120,7 +136,7 @@ public final class AStarCorridorPathfinder3D {
                         nx, cy, nz, tx, ty, tz, hUnit);
             }
             // Stair moves: up one floor, two cells horizontal.
-            for (int d = 0; d < 4; d++) {
+            for (int d = 0; d < NUM_4; d++) {
                 int dx = DX[d], dz = DZ[d];
                 if (cy + 1 < gridH) trySairStep(cells, gridW, gridH, gridD,
                         open, g, parent, kindIn, cur, weights,
@@ -193,7 +209,7 @@ public final class AStarCorridorPathfinder3D {
 
     private static void applyPath(CellType[] cells, int gridW, int gridD, int[][] path) {
         for (int i = 0; i < path.length; i++) {
-            int x = path[i][0], y = path[i][1], z = path[i][2], kind = path[i][3];
+            int x = path[i][0], y = path[i][1], z = path[i][2], kind = path[i][NUM_3];
             int dIdx = idx(x, y, z, gridW, gridD);
             if (kind == 1 && i > 0) {
                 // Stair destination — derive intermediates from the previous step.
@@ -230,10 +246,13 @@ public final class AStarCorridorPathfinder3D {
         return v;
     }
 
-    private static final int[] DX = { 1, -1, 0, 0 };
-    private static final int[] DZ = { 0, 0, 1, -1 };
-
     private record Entry(int idx, double gScore, double f) implements Comparable<Entry> {
+        /**
+         * TODO: document {@code compareTo}.
+         *
+         * @param o TODO: describe
+         * @return TODO: describe
+         */
         @Override
         public int compareTo(Entry o) {
             int c = Double.compare(f, o.f);

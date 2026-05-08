@@ -21,12 +21,24 @@ import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 
 public class AutomationApiServer {
+    public static final String CONTENT_TYPE = "Content-Type";
+    public static final String APPLICATION_JSON = "application/json";
+    public static final int NUM_405 = 405;
+    public static final int NUM_500 = 500;
+    public static final int NUM_200 = 200;
 
     private final AutomationRuntime runtime;
     private final int port;
     private final HttpServer server;
     private final ExecutorService executor;
 
+    /**
+     * TODO: document {@code AutomationApiServer}.
+     *
+     * @param runtime TODO: describe
+     * @param port TODO: describe
+     * @throws IOException TODO: describe
+     */
     public AutomationApiServer(AutomationRuntime runtime, int port)
             throws IOException {
         this.runtime = runtime;
@@ -39,14 +51,25 @@ public class AutomationApiServer {
         registerAll(server, runtime);
     }
 
+    /**
+     * TODO: document {@code port}.
+     *
+     * @return TODO: describe
+     */
     public int port() {
         return port;
     }
 
+    /**
+     * TODO: document {@code start}.
+     */
     public void start() {
         server.start();
     }
 
+    /**
+     * TODO: document {@code stop}.
+     */
     public void stop() {
         server.stop(0);
         executor.shutdownNow();
@@ -84,7 +107,7 @@ public class AutomationApiServer {
         String want = method.name().toUpperCase();
         String got = exchange.getRequestMethod().toUpperCase();
         if (!want.equals(got)) {
-            writeError(exchange, 405, "Method not allowed; expected " + want);
+            writeError(exchange, NUM_405, "Method not allowed; expected " + want);
             return;
         }
         try {
@@ -93,14 +116,14 @@ public class AutomationApiServer {
             writeJson(exchange, result);
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            writeError(exchange, 500, cause.getClass().getSimpleName() + ": " + cause.getMessage());
+            writeError(exchange, NUM_500, cause.getClass().getSimpleName() + ": " + cause.getMessage());
         }
     }
 
     private static void writeJson(HttpExchange exchange, JsonObject body) throws IOException {
         byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().add("Content-Type", "application/json");
-        exchange.sendResponseHeaders(200, bytes.length);
+        exchange.getResponseHeaders().add(CONTENT_TYPE, APPLICATION_JSON);
+        exchange.sendResponseHeaders(NUM_200, bytes.length);
         exchange.getResponseBody().write(bytes);
         exchange.getResponseBody().close();
     }
@@ -109,7 +132,7 @@ public class AutomationApiServer {
         JsonObject err = new JsonObject();
         err.addProperty("error", msg);
         byte[] bytes = err.toString().getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().add("Content-Type", "application/json");
+        exchange.getResponseHeaders().add(CONTENT_TYPE, APPLICATION_JSON);
         exchange.sendResponseHeaders(status, bytes.length);
         exchange.getResponseBody().write(bytes);
         exchange.getResponseBody().close();

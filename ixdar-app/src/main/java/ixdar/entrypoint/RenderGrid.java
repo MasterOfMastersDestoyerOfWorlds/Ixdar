@@ -43,6 +43,25 @@ import ixdar.platform.gl.headless.HeadlessPlatform;
  *   --labels &lt;a,b,c&gt;     Comma-separated labels (default: 1,2,3...)
  */
 public class RenderGrid {
+    public static final String DSL = ".dsl";
+    public static final String X = "x";
+    public static final int NUM_60 = 60;
+    public static final int NUM_20 = 20;
+    public static final int NUM_180 = 180;
+    public static final int NUM_80 = 80;
+    public static final int NUM_11 = 11;
+    public static final int NUM_10 = 10;
+    public static final int NUM_14 = 14;
+    public static final float NUM_0_12 = 0.12f;
+    public static final float NUM_0_14 = 0.14f;
+    public static final float NUM_1_5 = 1.5f;
+    public static final float NUM_2_5 = 2.5f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_45 = 45f;
+    public static final int NUM_24 = 24;
+    public static final int NUM_0xF = 0xFF;
+    public static final int NUM_16 = 16;
+    public static final int NUM_8 = 8;
 
     private static final int DEFAULT_COLS = 4;
     private static final int DEFAULT_CELL_SIZE = 256;
@@ -54,6 +73,11 @@ public class RenderGrid {
     private static final Color LABEL_FG = new Color(220, 220, 220);
     private static final Color REF_LABEL_FG = new Color(255, 180, 60);
 
+    /**
+     * TODO: document {@code main}.
+     *
+     * @param args TODO: describe
+     */
     public static void main(String[] args) {
         String inputDir = null;
         String outputPath = null;
@@ -91,7 +115,7 @@ public class RenderGrid {
         // Collect DSL files
         List<Path> dslFiles = new ArrayList<>();
         try (var stream = Files.list(Paths.get(inputDir))) {
-            stream.filter(p -> p.toString().endsWith(".dsl"))
+            stream.filter(p -> p.toString().endsWith(DSL))
                     .sorted()
                     .forEach(dslFiles::add);
         } catch (IOException e) {
@@ -123,8 +147,8 @@ public class RenderGrid {
         int gridWidth = cols * cellSize;
         int gridHeight = rows * (cellSize + LABEL_HEIGHT);
 
-        System.out.println("[RenderGrid] " + totalCells + " entries, " + cols + "x" + rows
-                + " grid, " + gridWidth + "x" + gridHeight + "px");
+        System.out.println("[RenderGrid] " + totalCells + " entries, " + cols + X + rows
+                + " grid, " + gridWidth + X + gridHeight + "px");
 
         // Initialize headless GL once
         HeadlessPlatform platform = new HeadlessPlatform(cellSize, cellSize);
@@ -155,18 +179,18 @@ public class RenderGrid {
                     g2d.drawImage(cellImage, cellX, cellY, null);
                 } else {
                     // Draw error placeholder
-                    g2d.setColor(new Color(60, 20, 20));
+                    g2d.setColor(new Color(NUM_60, NUM_20, NUM_20));
                     g2d.fillRect(cellX, cellY, cellSize, cellSize);
-                    g2d.setColor(new Color(180, 80, 80));
-                    g2d.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
-                    g2d.drawString("ERROR", cellX + 10, cellY + cellSize / 2);
+                    g2d.setColor(new Color(NUM_180, NUM_80, NUM_80));
+                    g2d.setFont(new Font(Font.MONOSPACED, Font.PLAIN, NUM_11));
+                    g2d.drawString("ERROR", cellX + NUM_10, cellY + cellSize / 2);
                 }
 
                 // Draw label bar below cell
                 g2d.setColor(LABEL_BG);
                 g2d.fillRect(cellX, cellY + cellSize, cellSize, LABEL_HEIGHT);
 
-                Font labelFont = new Font(Font.SANS_SERIF, Font.BOLD, 14);
+                Font labelFont = new Font(Font.SANS_SERIF, Font.BOLD, NUM_14);
                 g2d.setFont(labelFont);
                 g2d.setColor(entry.isReference ? REF_LABEL_FG : LABEL_FG);
                 FontMetrics fm = g2d.getFontMetrics();
@@ -174,8 +198,8 @@ public class RenderGrid {
                 if (!entry.isReference) {
                     // Show filename without extension for candidates
                     String filename = entry.path.getFileName().toString();
-                    if (filename.endsWith(".dsl")) {
-                        filename = filename.substring(0, filename.length() - 4);
+                    if (filename.endsWith(DSL)) {
+                        filename = filename.substring(0, filename.length() - DEFAULT_COLS);
                     }
                     displayLabel = entry.label + ": " + filename;
                 }
@@ -242,19 +266,19 @@ public class RenderGrid {
             // Set viewport and clear
             platform.setFrameBufferSize(cellSize, cellSize);
             gl.viewport(0, 0, cellSize, cellSize);
-            gl.clearColor(0.12f, 0.12f, 0.14f, 1.0f);
+            gl.clearColor(NUM_0_12, NUM_0_12, NUM_0_14, 1.0f);
             gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
 
             // Camera setup (same angles as RenderDsl)
             Vector3f meshCenter = mesh.center(new Vector3f());
-            float distance = Math.max(1.5f, mesh.radius() * 2.5f);
+            float distance = Math.max(NUM_1_5, mesh.radius() * NUM_2_5);
             float camX = meshCenter.x + (float) (Math.sin(CAMERA_AZIMUTH) * Math.cos(CAMERA_ELEVATION) * distance);
             float camY = meshCenter.y + (float) (Math.sin(CAMERA_ELEVATION) * distance);
             float camZ = meshCenter.z + (float) (Math.cos(CAMERA_AZIMUTH) * Math.cos(CAMERA_ELEVATION) * distance);
 
-            Camera3D camera = new Camera3D(new Vector3f(camX, camY, camZ), 0f, 0f, null);
+            Camera3D camera = new Camera3D(new Vector3f(camX, camY, camZ), NUM_0, NUM_0, null);
             camera.target.set(meshCenter);
-            camera.fov = 45f;
+            camera.fov = NUM_45;
             camera.updateViewFirstPerson();
 
             // Render
@@ -270,11 +294,11 @@ public class RenderGrid {
             for (int y = 0; y < cellSize; y++) {
                 for (int x = 0; x < cellSize; x++) {
                     int pixel = pixels[y * cellSize + x];
-                    int a = (pixel >> 24) & 0xFF;
-                    int r = (pixel >> 16) & 0xFF;
-                    int g = (pixel >> 8) & 0xFF;
-                    int b = pixel & 0xFF;
-                    int awtPixel = (a << 24) | (r << 16) | (g << 8) | b;
+                    int a = (pixel >> NUM_24) & NUM_0xF;
+                    int r = (pixel >> NUM_16) & NUM_0xF;
+                    int g = (pixel >> NUM_8) & NUM_0xF;
+                    int b = pixel & NUM_0xF;
+                    int awtPixel = (a << NUM_24) | (r << NUM_16) | (g << NUM_8) | b;
                     image.setRGB(x, cellSize - 1 - y, awtPixel);
                 }
             }

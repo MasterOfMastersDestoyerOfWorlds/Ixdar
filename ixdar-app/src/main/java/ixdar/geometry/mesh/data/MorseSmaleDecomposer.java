@@ -39,6 +39,11 @@ import java.util.Set;
  * is a future cleanup ticket.
  */
 public final class MorseSmaleDecomposer {
+    public static final int NUM_3 = 3;
+    public static final int NUM_8 = 8;
+    public static final int NUM_6 = 6;
+    public static final int NUM_32 = 32;
+    public static final long NUM_0xffffffff = 0xffffffffL;
 
     // PATCH-26 B4c: same threshold as PATCH-16's SemanticPatchDecomposer
     // for consistency. Expressed as fraction of mesh bounding-sphere
@@ -49,6 +54,13 @@ public final class MorseSmaleDecomposer {
 
     private MorseSmaleDecomposer() {}
 
+    /**
+     * TODO: document {@code decomposeWithDiagnostics}.
+     *
+     * @param mesh TODO: describe
+     * @param resolution TODO: describe
+     * @return TODO: describe
+     */
     public static SemanticPatchDecomposer.DecompositionDiagnostics decomposeWithDiagnostics(
             ArrayMesh mesh, int resolution) {
         // Borrow the existing decomposer's diagnostics for feature edges
@@ -142,7 +154,7 @@ public final class MorseSmaleDecomposer {
                                                int[][] adj, Set<Long> highConf,
                                                float meshExtent) {
         int[] faceIdx = mesh.copyFaceIndices();
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3;
         float[] positions = mesh.copyPositions();
         int nv = mesh.vertexCount();
         float threshold = T_COONS_ERROR_FRAC * meshExtent;
@@ -162,7 +174,7 @@ public final class MorseSmaleDecomposer {
             for (Map.Entry<Integer, List<Integer>> entry : byLabel.entrySet()) {
                 int label = entry.getKey();
                 List<Integer> faces = entry.getValue();
-                if (faces.size() < 8) continue;  // too small to bother fitting
+                if (faces.size() < NUM_8) continue;  // too small to bother fitting
                 CoonsReconstructionError.PatchError err =
                         CoonsReconstructionError.compute(
                                 faces, label, current, faceIdx, adj, positions, nv,
@@ -194,7 +206,7 @@ public final class MorseSmaleDecomposer {
         float[] faceErr = new float[n];
         for (int i = 0; i < n; i++) {
             int f = faces.get(i);
-            int a = faceIdx[f * 3], b = faceIdx[f * 3 + 1], c = faceIdx[f * 3 + 2];
+            int a = faceIdx[f * NUM_3], b = faceIdx[f * NUM_3 + 1], c = faceIdx[f * NUM_3 + 2];
             faceErr[i] = Math.max(vertexError[a],
                           Math.max(vertexError[b], vertexError[c]));
         }
@@ -204,7 +216,7 @@ public final class MorseSmaleDecomposer {
         int seed1 = faces.get(order[0]);
         // Second seed: stride into the sorted head so seeds aren't both
         // in the same hot spot.
-        int strideIdx = Math.min(n - 1, Math.max(1, n / 6));
+        int strideIdx = Math.min(n - 1, Math.max(1, n / NUM_6));
         int seed2 = faces.get(order[strideIdx]);
         return new int[]{seed1, seed2};
     }
@@ -259,7 +271,7 @@ public final class MorseSmaleDecomposer {
     private static float computeMeshExtent(float[] positions) {
         float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
         float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
-        for (int i = 0; i < positions.length; i += 3) {
+        for (int i = 0; i < positions.length; i += NUM_3) {
             if (positions[i] < minX) minX = positions[i];
             if (positions[i] > maxX) maxX = positions[i];
             if (positions[i + 1] < minY) minY = positions[i + 1];
@@ -277,16 +289,16 @@ public final class MorseSmaleDecomposer {
      * semantic decomposer but doesn't depend on EdgeDihedrals.
      */
     private static int[][] buildFaceAdjacency(int[] faceIdx, Set<Long> highConf) {
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3;
         // First pass: edge → up to 2 incident faces.
         Map<Long, int[]> edgeFaces = new HashMap<>();
         for (int f = 0; f < faceCount; f++) {
-            for (int e = 0; e < 3; e++) {
-                int u = faceIdx[f * 3 + e];
-                int v = faceIdx[f * 3 + (e + 1) % 3];
+            for (int e = 0; e < NUM_3; e++) {
+                int u = faceIdx[f * NUM_3 + e];
+                int v = faceIdx[f * NUM_3 + (e + 1) % NUM_3];
                 long key = u < v
-                        ? ((long) u << 32) | (v & 0xffffffffL)
-                        : ((long) v << 32) | (u & 0xffffffffL);
+                        ? ((long) u << NUM_32) | (v & NUM_0xffffffff)
+                        : ((long) v << NUM_32) | (u & NUM_0xffffffff);
                 int[] arr = edgeFaces.get(key);
                 if (arr == null) {
                     edgeFaces.put(key, new int[]{f, -1});
@@ -295,14 +307,14 @@ public final class MorseSmaleDecomposer {
                 }
             }
         }
-        int[][] adj = new int[faceCount][3];
+        int[][] adj = new int[faceCount][NUM_3];
         for (int f = 0; f < faceCount; f++) {
-            for (int e = 0; e < 3; e++) {
-                int u = faceIdx[f * 3 + e];
-                int v = faceIdx[f * 3 + (e + 1) % 3];
+            for (int e = 0; e < NUM_3; e++) {
+                int u = faceIdx[f * NUM_3 + e];
+                int v = faceIdx[f * NUM_3 + (e + 1) % NUM_3];
                 long key = u < v
-                        ? ((long) u << 32) | (v & 0xffffffffL)
-                        : ((long) v << 32) | (u & 0xffffffffL);
+                        ? ((long) u << NUM_32) | (v & NUM_0xffffffff)
+                        : ((long) v << NUM_32) | (u & NUM_0xffffffff);
                 int[] pair = edgeFaces.get(key);
                 int other = -1;
                 if (pair != null) other = (pair[0] == f) ? pair[1] : pair[0];
@@ -313,15 +325,15 @@ public final class MorseSmaleDecomposer {
     }
 
     private static Set<Long> computePatchBoundaryEdges(int[] faceIdx, int[] labels) {
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3;
         Map<Long, int[]> edgeFaces = new HashMap<>();
         for (int f = 0; f < faceCount; f++) {
-            for (int e = 0; e < 3; e++) {
-                int u = faceIdx[f * 3 + e];
-                int v = faceIdx[f * 3 + (e + 1) % 3];
+            for (int e = 0; e < NUM_3; e++) {
+                int u = faceIdx[f * NUM_3 + e];
+                int v = faceIdx[f * NUM_3 + (e + 1) % NUM_3];
                 long key = u < v
-                        ? ((long) u << 32) | (v & 0xffffffffL)
-                        : ((long) v << 32) | (u & 0xffffffffL);
+                        ? ((long) u << NUM_32) | (v & NUM_0xffffffff)
+                        : ((long) v << NUM_32) | (u & NUM_0xffffffff);
                 int[] arr = edgeFaces.get(key);
                 if (arr == null) edgeFaces.put(key, new int[]{f, -1});
                 else if (arr[1] == -1) arr[1] = f;
@@ -343,7 +355,7 @@ public final class MorseSmaleDecomposer {
      */
     private static float[] recomputeCoonsError(ArrayMesh mesh, int[] labels, int[][] adj) {
         int[] faceIdx = mesh.copyFaceIndices();
-        int faceCount = faceIdx.length / 3;
+        int faceCount = faceIdx.length / NUM_3;
         int nv = mesh.vertexCount();
         float[] positions = mesh.copyPositions();
         int maxLabel = 0;

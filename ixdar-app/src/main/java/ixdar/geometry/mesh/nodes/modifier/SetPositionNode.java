@@ -17,10 +17,12 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "set_position")
 public class SetPositionNode implements MeshNode {
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String OFFSET_2 = "offset";
 
-    private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort OFFSET = new InputPort("offset", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
-    private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort OFFSET = new InputPort(OFFSET_2, PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
+    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -40,21 +42,21 @@ public class SetPositionNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "geometry", "Input/output. Every vertex position is shifted by `offset`.",
-                "offset", "World-space translation added to every vertex. <0,0,0> = identity. For selective displacement, use a Vec3Field."
+                GEOMETRY_2, "Input/output. Every vertex position is shifted by `offset`.",
+                OFFSET_2, "World-space translation added to every vertex. <0,0,0> = identity. For selective displacement, use a Vec3Field."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
-        Object off = FieldBroadcast.getInputOrDefault(ctx, "offset", OFFSET.defaultValue());
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
+        Object off = FieldBroadcast.getInputOrDefault(ctx, OFFSET_2, OFFSET.defaultValue());
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.vertexCount() == 0) {
-            ctx.setOutput("geometry", base);
+            ctx.setOutput(GEOMETRY_2, base);
             return;
         }
         var outMesh = MeshVertexOffset.apply(mesh, off);
-        ctx.setOutput("geometry", base.withMesh(outMesh));
+        ctx.setOutput(GEOMETRY_2, base.withMesh(outMesh));
     }
 }

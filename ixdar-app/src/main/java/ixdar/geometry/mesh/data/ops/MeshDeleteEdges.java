@@ -22,6 +22,13 @@ public final class MeshDeleteEdges {
     private MeshDeleteEdges() {
     }
 
+    /**
+     * TODO: document {@code delete}.
+     *
+     * @param mesh TODO: describe
+     * @param selectionObj TODO: describe
+     * @return TODO: describe
+     */
     public static MeshTopology delete(MeshTopology mesh, Object selectionObj) {
         if (mesh == null || mesh.edgeCount() == 0) {
             return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();

@@ -35,10 +35,23 @@ import ixdar.platform.input.TradeMouseTrap;
  * and player interactions.
  */
 public class TradeScene {
+    public static final String STR = ".";
+    public static final float NUM_0_9 = 0.9f;
+    public static final float NUM_2 = 2f;
+    public static final float NUM_200 = 200f;
 
     public static TradeScene instance;
     public static Camera2D camera;
     public static boolean active = false;
+
+    // View constants
+    public static final String VIEW_MAIN = "MAIN";
+    public static final String VIEW_TOOLTIP = "TOOLTIP";
+    public static final int TOP_BAR_HEIGHT = 40;
+
+    // Tooltip state
+    private static HyperString toolTip;
+    private static boolean showToolTip = false;
 
     // Game state
     public CityNetwork network;
@@ -50,15 +63,6 @@ public class TradeScene {
     public RoutePlanningTool routePlanningTool;
     public Tool activeTool;
 
-    // View constants
-    public static final String VIEW_MAIN = "MAIN";
-    public static final String VIEW_TOOLTIP = "TOOLTIP";
-    public static final int TOP_BAR_HEIGHT = 40;
-
-    // Tooltip state
-    private static HyperString toolTip;
-    private static boolean showToolTip = false;
-
     // Rendering
     private Canvas3D canvas;
     private PointSet pointSet;
@@ -67,6 +71,12 @@ public class TradeScene {
     private TradeKeyGuy keys;
     private TradeMouseTrap mouse;
 
+    /**
+     * TODO: document {@code TradeScene}.
+     *
+     * @param network TODO: describe
+     * @param canvas TODO: describe
+     */
     public TradeScene(CityNetwork network, Canvas3D canvas) {
         this.network = network;
         this.canvas = canvas;
@@ -78,7 +88,7 @@ public class TradeScene {
         int wWidth = (int) Platforms.get().getWindowWidth();
         int wHeight = (int) Platforms.get().getWindowHeight();
 
-        camera = new Camera2D(wWidth, wHeight - TOP_BAR_HEIGHT, 0.9f, 0, 0, pointSet);
+        camera = new Camera2D(wWidth, wHeight - TOP_BAR_HEIGHT, NUM_0_9, 0, 0, pointSet);
 
         // Create tools
         hqPickerTool = new HeadquartersPickerTool(this, network);
@@ -93,7 +103,7 @@ public class TradeScene {
     }
 
     /**
-     * Initialize the camera views
+     * Initialize the camera views.
      */
     public void initViews() {
         int wWidth = (int) Platforms.get().getWindowWidth();
@@ -130,7 +140,9 @@ public class TradeScene {
     }
 
     /**
-     * Activate or deactivate this scene's input handlers
+     * Activate or deactivate this scene's input handlers.
+     *
+     * @param state TODO: describe
      */
     public void activate(boolean state) {
         if (state) {
@@ -146,7 +158,9 @@ public class TradeScene {
     }
 
     /**
-     * Main draw loop
+     * Main draw loop.
+     *
+     * @param camera3D TODO: describe
      */
     public void draw(Camera camera3D) {
         try {
@@ -167,7 +181,7 @@ public class TradeScene {
 
             // Draw active tool overlay
             if (activeTool != null) {
-                activeTool.draw(camera, 2f);
+                activeTool.draw(camera, NUM_2);
             }
 
             drawTopBar(wWidth, wHeight);
@@ -185,21 +199,24 @@ public class TradeScene {
 
         } catch (Exception e) {
             for (StackTraceElement ste : e.getStackTrace()) {
-                Platforms.get().log(ste.getFileName() + "." + ste.getMethodName() + ":" + ste.getLineNumber());
+                Platforms.get().log(ste.getFileName() + STR + ste.getMethodName() + ":" + ste.getLineNumber());
             }
         }
     }
 
     /**
-     * Draw the top bar HUD (placeholder for TRADE-11)
+     * Draw the top bar HUD (placeholder for TRADE-11).
+     *
+     * @param wWidth TODO: describe
+     * @param wHeight TODO: describe
      */
     private void drawTopBar(int wWidth, int wHeight) {
         // TODO: Implement in TRADE-11
     }
 
     /**
-     * Find which city is at the given world coordinates
-     * 
+     * Find which city is at the given world coordinates.
+     *
      * @param worldX x coordinate in world space
      * @param worldY y coordinate in world space
      * @return the city at that location, or null if none
@@ -209,8 +226,8 @@ public class TradeScene {
     }
 
     /**
-     * Handle city click - delegates to the active tool
-     * 
+     * Handle city click - delegates to the active tool.
+     *
      * @param city the city that was clicked
      */
     public void onCityClick(City city) {
@@ -226,7 +243,7 @@ public class TradeScene {
     }
 
     /**
-     * Activate the route planning tool (called after HQ is placed)
+     * Activate the route planning tool (called after HQ is placed).
      */
     public void activateRoutePlanningTool() {
         activeTool = routePlanningTool;
@@ -234,17 +251,27 @@ public class TradeScene {
         System.out.println("Route planning tool activated");
     }
 
+    /**
+     * TODO: document {@code getKeys}.
+     *
+     * @return TODO: describe
+     */
     public TradeKeyGuy getKeys() {
         return keys;
     }
 
+    /**
+     * TODO: document {@code getMouse}.
+     *
+     * @return TODO: describe
+     */
     public TradeMouseTrap getMouse() {
         return mouse;
     }
 
     /**
-     * Get the headquarters city
-     * 
+     * Get the headquarters city.
+     *
      * @return the headquarters city, or null if not set
      */
     public City getHeadquartersCity() {
@@ -252,8 +279,8 @@ public class TradeScene {
     }
 
     /**
-     * Update the currently hovered city and tooltip
-     * 
+     * Update the currently hovered city and tooltip.
+     *
      * @param city the city being hovered, or null if none
      */
     public void updateHoveredCity(City city) {
@@ -298,7 +325,7 @@ public class TradeScene {
     }
 
     /**
-     * Return to the game menu
+     * Return to the game menu.
      */
     public void returnToMenu() {
         active = false;
@@ -313,27 +340,45 @@ public class TradeScene {
 
     // Static tooltip methods
 
+    /**
+     * TODO: document {@code setTooltipText}.
+     *
+     * @param tip TODO: describe
+     */
     public static void setTooltipText(HyperString tip) {
         toolTip = tip;
         showToolTip = true;
     }
 
+    /**
+     * TODO: document {@code clearTooltipText}.
+     */
     public static void clearTooltipText() {
         toolTip = null;
         showToolTip = false;
     }
 
+    /**
+     * TODO: document {@code getToolTip}.
+     *
+     * @return TODO: describe
+     */
     public static HyperString getToolTip() {
         return toolTip;
     }
 
+    /**
+     * TODO: document {@code isToolTipVisible}.
+     *
+     * @return TODO: describe
+     */
     public static boolean isToolTipVisible() {
         return showToolTip;
     }
 
     /**
-     * Start a new trade game with the given city network
-     * 
+     * Start a new trade game with the given city network.
+     *
      * @param network the city network containing cities and roads
      * @param canvas  the 3D canvas
      * @return the created TradeScene
@@ -350,7 +395,7 @@ public class TradeScene {
     /**
      * Start a new trade game with the given cities (convenience method) Creates a
      * CityNetwork from the cities with proximity-based roads.
-     * 
+     *
      * @param cities list of cities
      * @param canvas the 3D canvas
      * @return the created TradeScene
@@ -358,14 +403,14 @@ public class TradeScene {
     public static TradeScene startNewGame(ArrayList<City> cities, Canvas3D canvas) {
         CityNetwork network = new CityNetwork(cities, new CartesianGrid());
         // Generate roads based on proximity - cities within 200 units get connected
-        network.generateRoadsFromProximity(200f);
+        network.generateRoadsFromProximity(NUM_200);
         return startNewGame(network, canvas);
     }
 
     private static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
         try {
             Class<?> binder = Class.forName(
-                    String.join(".", "ixdar", "platform", "automation", "AutomationInputBinder"));
+                    String.join(STR, "ixdar", "platform", "automation", "AutomationInputBinder"));
             Method bind = binder.getMethod("bind", Platform.class, KeyGuy.class, MouseTrap.class);
             bind.invoke(null, platform, keys, mouse);
         } catch (Throwable ignored) {

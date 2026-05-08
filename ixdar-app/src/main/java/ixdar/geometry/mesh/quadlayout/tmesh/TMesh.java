@@ -24,14 +24,9 @@ import ixdar.geometry.mesh.quadlayout.integergrid.SeamlessParameterization;
  * upstream PATCH-48 ticket.
  */
 public final class TMesh {
-
-    /**
-     * Lyon §4.3 Eq.(4) layout-deviation constraint. For an offending crash
-     * (|α_ij| &gt; α), the constraint says: sum of q over arcs in {@code arcs}
-     * must be ≥ 1, where {@code arcs} is the S_ij arc set — arcs of the
-     * crasher motorcycle from its singularity start to the intersection node.
-     */
-    public record LayoutConstraint(int[] arcIds, double absAlphaIj) {}
+    public static final float NUM_0 = 0f;
+    public static final double NUM_1e_9 = 1e-9;
+    public static final float NUM_1e_3 = 1e-3f;
 
     private final List<TNode> nodes;
     private final List<TArc> arcs;
@@ -46,26 +41,67 @@ public final class TMesh {
         this.layoutConstraints = layoutConstraints;
     }
 
+    /**
+     * TODO: document {@code nodes}.
+     *
+     * @return TODO: describe
+     */
     public List<TNode> nodes() { return nodes; }
+    /**
+     * TODO: document {@code arcs}.
+     *
+     * @return TODO: describe
+     */
     public List<TArc> arcs() { return arcs; }
+    /**
+     * TODO: document {@code patches}.
+     *
+     * @return TODO: describe
+     */
     public List<TPatch> patches() { return patches; }
+    /**
+     * TODO: document {@code layoutConstraints}.
+     *
+     * @return TODO: describe
+     */
     public List<LayoutConstraint> layoutConstraints() { return layoutConstraints; }
 
-    /** Test-only factory: assemble a TMesh from explicit component lists. */
+    /**
+     * Test-only factory: assemble a TMesh from explicit component lists.
+     *
+     * @param nodes TODO: describe
+     * @param arcs TODO: describe
+     * @param patches TODO: describe
+     * @return TODO: describe
+     */
     public static TMesh fromComponents(List<TNode> nodes, List<TArc> arcs,
                                         List<TPatch> patches) {
         return new TMesh(nodes, arcs, patches, java.util.Collections.emptyList());
     }
 
-    /** PATCH-92: mesh-aware overload — passes mesh and singVertexToNode
+    /**
+     * PATCH-92: mesh-aware overload — passes mesh and singVertexToNode
      *  through to {@link TPatchEnumerator} so the planar-dual face walk
-     *  uses fan-based sorting at multi-frame nodes (singularities). */
+     *  uses fan-based sorting at multi-frame nodes (singularities).
+     *
+     * @param graph TODO: describe
+     * @param param TODO: describe
+     * @param mesh TODO: describe
+     * @return TODO: describe
+     */
     public static TMesh build(MotorcycleGraph.Result graph,
                               SeamlessParameterization param,
                               ixdar.geometry.mesh.data.ArrayMesh mesh) {
         return buildImpl(graph, param, mesh);
     }
 
+    /**
+     * TODO: document {@code build}.
+     *
+     * @param graph TODO: describe
+     * @param param TODO: describe
+     * @return TODO: describe
+     */
     public static TMesh build(MotorcycleGraph.Result graph,
                               SeamlessParameterization param) {
         return buildImpl(graph, param, null);
@@ -132,7 +168,7 @@ public final class TMesh {
             if (myCrashes == null || myCrashes.isEmpty()) {
                 ArrayList<int[]> faceCrossings = new ArrayList<>();
                 ArrayList<float[]> stepUvs = new ArrayList<>();
-                float parametricLength = 0f;
+                float parametricLength = NUM_0;
                 for (Motorcycle.Step s : m.trace()) {
                     faceCrossings.add(new int[]{s.meshFaceId(), s.exitEdgeIndex()});
                     stepUvs.add(new float[]{s.uIn(), s.vIn(), s.uOut(), s.vOut()});
@@ -168,7 +204,7 @@ public final class TMesh {
             int crashIdx = 0;
             ArrayList<int[]> faceCrossings = new ArrayList<>();
             ArrayList<float[]> stepUvs = new ArrayList<>();
-            float parametricLength = 0f;
+            float parametricLength = NUM_0;
             int totalSteps = m.trace().size();
             for (int stepIdx = 0; stepIdx < totalSteps; stepIdx++) {
                 Motorcycle.Step step = m.trace().get(stepIdx);
@@ -193,7 +229,7 @@ public final class TMesh {
                     startNodeForArc = c.intersectionNodeId();
                     faceCrossings = new ArrayList<>();
                     stepUvs = new ArrayList<>();
-                    parametricLength = 0f;
+                    parametricLength = NUM_0;
                     stepStartU = c.victimCrashU();
                     stepStartV = c.victimCrashV();
                     crashIdx++;
@@ -221,7 +257,7 @@ public final class TMesh {
         ArrayList<LayoutConstraint> layoutConstraints = new ArrayList<>();
         double layoutAlpha = MotorcycleGraph.defaultAlpha();
         for (MotorcycleGraph.Crash c : graph.crashes()) {
-            if (c.absAlphaIj() <= layoutAlpha + 1e-9) continue;   // not offending
+            if (c.absAlphaIj() <= layoutAlpha + NUM_1e_9) continue;   // not offending
             if (c.crasherMotorcycleId() < 0) continue;
             java.util.ArrayList<Integer> mArcs = arcsByMotorcycle.get(c.crasherMotorcycleId());
             java.util.ArrayList<Integer> mEnds = endNodesByMotorcycle.get(c.crasherMotorcycleId());
@@ -251,9 +287,15 @@ public final class TMesh {
         return new TMesh(nodes, arcs, patches, layoutConstraints);
     }
 
-    /** PATCH-89: locate the BOUNDARY-kind start node for a synthetic
+    /**
+     * PATCH-89: locate the BOUNDARY-kind start node for a synthetic
      *  boundary motorcycle by matching its first-step (uIn, vIn) within
-     *  the same face. */
+     *  the same face.
+     *
+     * @param nodes TODO: describe
+     * @param m TODO: describe
+     * @return TODO: describe
+     */
     private static int findBoundaryStartNode(List<TNode> nodes, Motorcycle m) {
         if (m.trace().isEmpty()) return -1;
         Motorcycle.Step first = m.trace().get(0);
@@ -261,8 +303,8 @@ public final class TMesh {
             if (n.kind() != TNode.NodeKind.BOUNDARY
                     && n.kind() != TNode.NodeKind.SINGULARITY) continue;
             if (n.meshFaceId() != first.meshFaceId()) continue;
-            if (Math.abs(n.u() - first.uIn()) >= 1e-3f) continue;
-            if (Math.abs(n.v() - first.vIn()) >= 1e-3f) continue;
+            if (Math.abs(n.u() - first.uIn()) >= NUM_1e_3) continue;
+            if (Math.abs(n.v() - first.vIn()) >= NUM_1e_3) continue;
             return n.id();
         }
         return -1;
@@ -276,16 +318,30 @@ public final class TMesh {
         for (TNode n : nodes) {
             if (n.kind() == TNode.NodeKind.SINGULARITY
                     && n.meshFaceId() == first.meshFaceId()
-                    && Math.abs(n.u() - first.uIn()) < 1e-3f
-                    && Math.abs(n.v() - first.vIn()) < 1e-3f) {
+                    && Math.abs(n.u() - first.uIn()) < NUM_1e_3
+                    && Math.abs(n.v() - first.vIn()) < NUM_1e_3) {
                 return n.id();
             }
         }
         return -1;
     }
 
-    /** Return TPatches via planar-graph face enumeration (PATCH-68). */
+    /**
+     * Return TPatches via planar-graph face enumeration (PATCH-68).
+     *
+     * @param nodes TODO: describe
+     * @param arcs TODO: describe
+     * @return TODO: describe
+     */
     private static List<TPatch> enumerateFourCycles(List<TNode> nodes, List<TArc> arcs) {
         return TPatchEnumerator.enumerate(nodes, arcs);
     }
+
+    /**
+     * Lyon §4.3 Eq.(4) layout-deviation constraint. For an offending crash
+     * (|α_ij| &gt; α), the constraint says: sum of q over arcs in {@code arcs}
+     * must be ≥ 1, where {@code arcs} is the S_ij arc set — arcs of the
+     * crasher motorcycle from its singularity start to the intersection node.
+     */
+    public record LayoutConstraint(int[] arcIds, double absAlphaIj) {}
 }

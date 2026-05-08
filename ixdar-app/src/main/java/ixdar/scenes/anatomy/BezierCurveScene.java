@@ -10,27 +10,42 @@ import ixdar.scenes.Scene;
 
 @SceneAnnotation(id = "bezier-curve-canvas")
 public class BezierCurveScene extends Scene {
-
-    SDFBezier bezier;
+    public static final double NUM_0_7 = 0.7;
+    public static final double NUM_0_2 = 0.2;
+    public static final double NUM_0_35 = 0.35;
+    public static final double NUM_0_5 = 0.5;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_0 = 0f;
     public PointND point2;
     public PointND point1;
     public PointND control;
 
+    SDFBezier bezier;
+
+    /**
+     * TODO: document {@code BezierCurveScene}.
+     */
     public BezierCurveScene() {
         super();
     }
 
+    /**
+     * TODO: document {@code initPoints}.
+     */
     @Override
     public void initPoints() {
         super.initPoints();
-        point1 = new PointND.Double(-0.7, 0.2);
-        point2 = new PointND.Double(0.7, -0.2);
-        control = new PointND.Double(-0.35, -0.5);
+        point1 = new PointND.Double(-NUM_0_7, NUM_0_2);
+        point2 = new PointND.Double(NUM_0_7, -NUM_0_2);
+        control = new PointND.Double(-NUM_0_35, -NUM_0_5);
         shell.add(point1);
         shell.add(point2);
         shell.add(control);
     }
 
+    /**
+     * TODO: document {@code initGL}.
+     */
     @Override
     public void initGL() {
         super.initGL();
@@ -38,6 +53,9 @@ public class BezierCurveScene extends Scene {
         initCodePane("Bezier SDF", bezier.bezierShader, bezier);
     }
 
+    /**
+     * TODO: document {@code drawScene}.
+     */
     @Override
     public void drawScene() {
         super.drawScene();
@@ -48,9 +66,9 @@ public class BezierCurveScene extends Scene {
         bezier.pA = screenSpaceVectors[0];
         bezier.pControl = screenSpaceVectors[1];
         bezier.pB = screenSpaceVectors[2];
-        bezier.lineWidth = 1f;
+        bezier.lineWidth = NUM_1;
         bezier.c2 = Color.GREEN;
-        bezier.draw(0f, 0f, cx, cy, Color.RED, camera2D);
+        bezier.draw(NUM_0, NUM_0, cx, cy, Color.RED, camera2D);
     }
 
 }

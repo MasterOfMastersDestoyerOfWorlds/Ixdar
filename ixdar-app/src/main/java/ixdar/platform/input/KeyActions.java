@@ -40,6 +40,8 @@ public enum KeyActions {
     ControlMask(LEFT_CONTROL, RIGHT_CONTROL),
     ShiftMask(LEFT_SHIFT, RIGHT_SHIFT);
 
+    public final String keyBindingsFileLocation = "./src/main/resources/res/keyBindings.txt";
+
     Integer[] keys;
     boolean controlMask;
 
@@ -53,8 +55,12 @@ public enum KeyActions {
         keys = defaultKeyPresses;
     }
 
-    public final String keyBindingsFileLocation = "./src/main/resources/res/keyBindings.txt";
-
+    /**
+     * TODO: document {@code keyPressed}.
+     *
+     * @param pressedKeys TODO: describe
+     * @return TODO: describe
+     */
     public boolean keyPressed(Set<Integer> pressedKeys) {
         if (controlMask) {
             if (KeyActions.ControlMask.keyPressed(pressedKeys)) {
@@ -84,14 +90,26 @@ public enum KeyActions {
         }
     }
 
+    /**
+     * TODO: document {@code loadKeyBindingsFile}.
+     */
     public static void loadKeyBindingsFile() {
 
     }
 
+    /**
+     * TODO: document {@code updateKeyBindingsFile}.
+     */
     public static void updateKeyBindingsFile() {
 
     }
 
+    /**
+     * TODO: document {@code extraNames}.
+     *
+     * @param keyCode TODO: describe
+     * @return TODO: describe
+     */
     public static String extraNames(int keyCode) {
         switch (keyCode) {
         case ESCAPE:
@@ -117,6 +135,11 @@ public enum KeyActions {
         }
     }
 
+    /**
+     * TODO: document {@code toString}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String toString() {
 

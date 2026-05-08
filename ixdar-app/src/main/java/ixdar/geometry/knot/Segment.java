@@ -16,11 +16,22 @@ import ixdar.gui.ui.actions.Action;
 import ixdar.scenes.main.MainScene;
 
 public class Segment extends SDFLine implements Comparable<Segment> {
+    public static final String STR = ":";
+    public static final String STR_2 = "]";
+    public static final String STR_3 = "[";
+    public static final double NUM_0_2 = 0.2;
     public Knot first;
     public Knot last;
     public double distance;
     public long id;
 
+    /**
+     * TODO: document {@code Segment}.
+     *
+     * @param first TODO: describe
+     * @param last TODO: describe
+     * @param distance TODO: describe
+     */
     public Segment(Knot first, Knot last, double distance) {
         this.first = first;
         this.last = last;
@@ -30,6 +41,13 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         id = idTransform(a, b);
     }
 
+    /**
+     * TODO: document {@code Segment}.
+     *
+     * @param knot1 TODO: describe
+     * @param knot2 TODO: describe
+     * @param distanceMatrix TODO: describe
+     */
     public Segment(Knot knot1, Knot knot2, DistanceMatrix distanceMatrix) {
         this.first = knot1;
         this.last = knot2;
@@ -39,6 +57,12 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         id = idTransform(a, b);
     }
 
+    /**
+     * TODO: document {@code getOther}.
+     *
+     * @param vp TODO: describe
+     * @return TODO: describe
+     */
     public Knot getOther(Knot vp) {
         if (vp.equals(first)) {
             return last;
@@ -49,6 +73,12 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         return null;
     }
 
+    /**
+     * TODO: document {@code getOtherKnot}.
+     *
+     * @param vp TODO: describe
+     * @return TODO: describe
+     */
     public Knot getOtherKnot(Knot vp) {
         if (!vp.isSingleton()) {
             Knot knot = (Knot) vp;
@@ -59,10 +89,22 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         }
     }
 
+    /**
+     * TODO: document {@code contains}.
+     *
+     * @param vp TODO: describe
+     * @return TODO: describe
+     */
     public boolean contains(Knot vp) {
         return first.equals(vp) || last.equals(vp);
     }
 
+    /**
+     * TODO: document {@code contains}.
+     *
+     * @param vp TODO: describe
+     * @return TODO: describe
+     */
     public boolean contains(Knot[] vp) {
         boolean contains = false;
         for (int i = 0; i < vp.length; i++) {
@@ -73,6 +115,12 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         return contains;
     }
 
+    /**
+     * TODO: document {@code getKnotPoint}.
+     *
+     * @param knotPointsFlattened TODO: describe
+     * @return TODO: describe
+     */
     public Knot getKnotPoint(ArrayList<Knot> knotPointsFlattened) {
         if (knotPointsFlattened.contains(first)) {
             return first;
@@ -83,6 +131,12 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         return null;
     }
 
+    /**
+     * TODO: document {@code compareTo}.
+     *
+     * @param o TODO: describe
+     * @return TODO: describe
+     */
     @Override
     public int compareTo(Segment o) {
         if (o.getClass() == Segment.class) {
@@ -103,6 +157,12 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         return -1;
     }
 
+    /**
+     * TODO: document {@code equals}.
+     *
+     * @param obj TODO: describe
+     * @return TODO: describe
+     */
     @Override
     public boolean equals(Object obj) {
         if (obj == null) {
@@ -118,6 +178,12 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         }
     }
 
+    /**
+     * TODO: document {@code partialOverlaps}.
+     *
+     * @param cutSegment2 TODO: describe
+     * @return TODO: describe
+     */
     public boolean partialOverlaps(Segment cutSegment2) {
         if ((cutSegment2.contains(first) && !cutSegment2.contains(last))
                 || (cutSegment2.contains(last) && !cutSegment2.contains(first))) {
@@ -126,6 +192,12 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         return false;
     }
 
+    /**
+     * TODO: document {@code intersects}.
+     *
+     * @param cutSegment2 TODO: describe
+     * @return TODO: describe
+     */
     public boolean intersects(Segment cutSegment2) {
         if (cutSegment2.contains(first) || cutSegment2.contains(last)) {
             return true;
@@ -133,6 +205,12 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         return false;
     }
 
+    /**
+     * TODO: document {@code getOverlap}.
+     *
+     * @param other TODO: describe
+     * @return TODO: describe
+     */
     public Knot getOverlap(Segment other) {
         if (other.contains(first)) {
             return first;
@@ -142,6 +220,12 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         return null;
     }
 
+    /**
+     * TODO: document {@code containsAny}.
+     *
+     * @param neighbors TODO: describe
+     * @return TODO: describe
+     */
     public Knot containsAny(ArrayList<Knot> neighbors) {
         for (Knot vp : neighbors) {
             if (this.contains(vp)) {
@@ -151,10 +235,22 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         return null;
     }
 
+    /**
+     * TODO: document {@code isDegenerate}.
+     *
+     * @return TODO: describe
+     */
     public boolean isDegenerate() {
         return first.equals(last);
     }
 
+    /**
+     * TODO: document {@code hasPoints}.
+     *
+     * @param i TODO: describe
+     * @param j TODO: describe
+     * @return TODO: describe
+     */
     public boolean hasPoints(int i, int j) {
         if (first.id == i || first.id == j) {
             if (last.id == i || last.id == j) {
@@ -164,28 +260,65 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         return false;
     }
 
+    /**
+     * TODO: document {@code getFirstOrderId}.
+     *
+     * @param firstInnerNeighbor TODO: describe
+     * @param k2 TODO: describe
+     * @return TODO: describe
+     */
     public static int getFirstOrderId(Knot firstInnerNeighbor, Knot k2) {
         int first = firstInnerNeighbor.id < k2.id ? firstInnerNeighbor.id : k2.id;
         return first;
     }
 
+    /**
+     * TODO: document {@code getLastOrderId}.
+     *
+     * @param firstInnerNeighbor TODO: describe
+     * @param k2 TODO: describe
+     * @return TODO: describe
+     */
     public static int getLastOrderId(Knot firstInnerNeighbor, Knot k2) {
         return firstInnerNeighbor.id < k2.id ? k2.id : firstInnerNeighbor.id;
     }
 
+    /**
+     * TODO: document {@code getFirstOrderId}.
+     *
+     * @param s TODO: describe
+     * @return TODO: describe
+     */
     public static int getFirstOrderId(Segment s) {
         return getFirstOrderId(s.first, s.last);
     }
 
+    /**
+     * TODO: document {@code getLastOrderId}.
+     *
+     * @param s TODO: describe
+     * @return TODO: describe
+     */
     public static int getLastOrderId(Segment s) {
         return getLastOrderId(s.first, s.last);
     }
 
+    /**
+     * TODO: document {@code hashCode}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public int hashCode() {
         return first.id * last.id; // or any other constant
     }
 
+    /**
+     * TODO: document {@code hasPoint}.
+     *
+     * @param i TODO: describe
+     * @return TODO: describe
+     */
     public boolean hasPoint(Integer i) {
         if (first.id == i || last.id == i) {
             return true;
@@ -193,6 +326,12 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         return false;
     }
 
+    /**
+     * TODO: document {@code getPoint}.
+     *
+     * @param i TODO: describe
+     * @return TODO: describe
+     */
     public Knot getPoint(Integer i) {
         if (first.id == i) {
             return first;
@@ -203,22 +342,48 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         return null;
     }
 
+    /**
+     * TODO: document {@code idTransform}.
+     *
+     * @param s TODO: describe
+     * @return TODO: describe
+     */
     public static long idTransform(Segment s) {
         long a = s.first.id;
         long b = s.last.id;
         return a >= b ? a * a + a + b : b + a + b * b;
     }
 
+    /**
+     * TODO: document {@code idTransform}.
+     *
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @return TODO: describe
+     */
     public static long idTransform(long a, long b) {
         return a >= b ? a * a + a + b : b + a + b * b;
     }
 
+    /**
+     * TODO: document {@code idTransformOrdered}.
+     *
+     * @param s TODO: describe
+     * @return TODO: describe
+     */
     public static long idTransformOrdered(Segment s) {
         long a = s.first.id;
         long b = s.last.id;
         return (a + b) * (a + b + 1) / 2 + b;
     }
 
+    /**
+     * TODO: document {@code idTransformOrdered}.
+     *
+     * @param cutSegment TODO: describe
+     * @param knotPoint TODO: describe
+     * @return TODO: describe
+     */
     public static long idTransformOrdered(Segment cutSegment, Knot knotPoint) {
         Knot cutPoint = cutSegment.getOther(knotPoint);
         long a = cutPoint.id;
@@ -226,10 +391,24 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         return (a + b) * (a + b + 1) / 2 + b;
     }
 
+    /**
+     * TODO: document {@code idTransformOrdered}.
+     *
+     * @param a TODO: describe
+     * @param b TODO: describe
+     * @return TODO: describe
+     */
     public static long idTransformOrdered(long a, long b) {
         return (a + b) * (a + b + 1) / 2 + b;
     }
 
+    /**
+     * TODO: document {@code boundContains}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     * @return TODO: describe
+     */
     public double boundContains(double x, double y) {
         PointND p1 = (first).p;
         PointND p2 = (last).p;
@@ -244,7 +423,7 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         Vector2D firstVec = new Vector2D(x1, y1);
         Vector2D lastVec = new Vector2D(x2, y2);
         Vector2D normalUnitVector = new Vector2D(normalX, normalY);
-        normalUnitVector = normalUnitVector.normalize().scalarMultiply(distance).scalarMultiply(0.2);
+        normalUnitVector = normalUnitVector.normalize().scalarMultiply(distance).scalarMultiply(NUM_0_2);
         Vector2D tL = normalUnitVector.add(firstVec);
         Vector2D bL = firstVec.subtract(normalUnitVector);
         Vector2D tR = normalUnitVector.add(lastVec);
@@ -263,6 +442,13 @@ public class Segment extends SDFLine implements Comparable<Segment> {
 
     }
 
+    /**
+     * TODO: document {@code closestPoint}.
+     *
+     * @param x TODO: describe
+     * @param y TODO: describe
+     * @return TODO: describe
+     */
     public Knot closestPoint(double x, double y) {
         PointND p1 = (first).p;
         PointND p2 = (last).p;
@@ -280,19 +466,44 @@ public class Segment extends SDFLine implements Comparable<Segment> {
 
     }
 
+    /**
+     * TODO: document {@code toString}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String toString() {
-        return "Segment[" + first.id + ":" + last.id + "]";
+        return "Segment[" + first.id + STR + last.id + STR_2;
     }
 
+    /**
+     * TODO: document {@code toStringNoLabel}.
+     *
+     * @return TODO: describe
+     */
     public String toStringNoLabel() {
-        return "[" + first.id + ":" + last.id + "]";
+        return STR_3 + first.id + STR + last.id + STR_2;
     }
 
+    /**
+     * TODO: document {@code toHyperString}.
+     *
+     * @param color TODO: describe
+     * @param labelAsSegment TODO: describe
+     * @return TODO: describe
+     */
     public HyperString toHyperString(Color color, boolean labelAsSegment) {
         return toHyperString(color, labelAsSegment, false);
     }
 
+    /**
+     * TODO: document {@code toHyperString}.
+     *
+     * @param color TODO: describe
+     * @param labelAsSegment TODO: describe
+     * @param labelDistance TODO: describe
+     * @return TODO: describe
+     */
     public HyperString toHyperString(Color color, boolean labelAsSegment, boolean labelDistance) {
         HyperString h = new HyperString();
         Action clickAction = () -> {
@@ -303,7 +514,7 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         if (labelAsSegment) {
             str += "Segment";
         }
-        str += "[" + first.id + ":" + last.id + "]";
+        str += STR_3 + first.id + STR + last.id + STR_2;
         if (labelDistance) {
             str += ", " + String.format("%.2f", this.distance);
         }
@@ -311,15 +522,33 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         return h;
     }
 
+    /**
+     * TODO: document {@code getScreenSpaceVector}.
+     *
+     * @param k1 TODO: describe
+     * @return TODO: describe
+     */
     public Vector2f getScreenSpaceVector(Knot k1) {
         Vector2f psV = getPointSpaceVector(k1);
         return new Vector2f(camera.pointTransformX(psV.x), camera.pointTransformY(psV.y));
     }
 
+    /**
+     * TODO: document {@code toScreenSpace}.
+     *
+     * @param pointSpaceVector TODO: describe
+     * @return TODO: describe
+     */
     public Vector2f toScreenSpace(Vector2f pointSpaceVector) {
         return new Vector2f(camera.pointTransformX(pointSpaceVector.x), camera.pointTransformY(pointSpaceVector.y));
     }
 
+    /**
+     * TODO: document {@code getPointSpaceVector}.
+     *
+     * @param k1 TODO: describe
+     * @return TODO: describe
+     */
     public Vector2f getPointSpaceVector(Knot k1) {
         Point2D p1;
         float[] firstCoords = new float[2];
@@ -334,6 +563,18 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         return new Vector2f(firstCoords);
     }
 
+    /**
+     * TODO: document {@code setStroke}.
+     *
+     * @param lineWidth TODO: describe
+     * @param dashed TODO: describe
+     * @param dashLength TODO: describe
+     * @param dashRate TODO: describe
+     * @param roundCaps TODO: describe
+     * @param endCaps TODO: describe
+     * @param arrow TODO: describe
+     * @param camera2d TODO: describe
+     */
     @Override
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
             boolean endCaps, boolean arrow, Camera2D camera2d) {

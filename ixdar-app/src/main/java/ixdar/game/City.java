@@ -20,6 +20,10 @@ import ixdar.gui.ui.Drawing;
  * routes.
  */
 public class City {
+    public static final String STR = ", ";
+    public static final String STR_2 = " (";
+    public static final String STR_3 = ")";
+    public static final int NUM_20 = 20;
     public static final float CITY_RADIUS = 20f;
     public static final float CLICK_RADIUS = 20f;
 
@@ -37,8 +41,8 @@ public class City {
     private Knot knot; // Trade route Knot wrapper for this city
 
     /**
-     * Create a city with the given properties
-     * 
+     * Create a city with the given properties.
+     *
      * @param id         unique identifier for the city
      * @param name       display name of the city
      * @param x          x coordinate on the map
@@ -57,8 +61,8 @@ public class City {
     }
 
     /**
-     * Create a city from JSON-like data
-     * 
+     * Create a city from JSON-like data.
+     *
      * @param id         unique identifier
      * @param name       display name
      * @param x          x coordinate
@@ -82,8 +86,8 @@ public class City {
     }
 
     /**
-     * Get the x coordinate of the city
-     * 
+     * Get the x coordinate of the city.
+     *
      * @return x coordinate
      */
     public float getX() {
@@ -91,8 +95,8 @@ public class City {
     }
 
     /**
-     * Get the y coordinate of the city
-     * 
+     * Get the y coordinate of the city.
+     *
      * @return y coordinate
      */
     public float getY() {
@@ -100,8 +104,8 @@ public class City {
     }
 
     /**
-     * Check if a point is within click distance of this city
-     * 
+     * Check if a point is within click distance of this city.
+     *
      * @param x      x coordinate to check
      * @param y      y coordinate to check
      * @param radius click radius threshold
@@ -114,14 +118,14 @@ public class City {
     }
 
     /**
-     * Set this city as having the player's headquarters
+     * Set this city as having the player's headquarters.
      */
     public void placeHeadquarters() {
         this.hasHeadquarters = true;
     }
 
     /**
-     * Remove headquarters from this city
+     * Remove headquarters from this city.
      */
     public void removeHeadquarters() {
         this.hasHeadquarters = false;
@@ -129,7 +133,7 @@ public class City {
 
     /**
      * Set the Knot wrapper for this city (used by trade routes).
-     * 
+     *
      * @param knot the Knot to associate with this city
      */
     public void setKnot(Knot knot) {
@@ -138,7 +142,7 @@ public class City {
 
     /**
      * Get the Knot wrapper for this city.
-     * 
+     *
      * @return the Knot, or null if trade routes not initialized
      */
     public Knot getKnot() {
@@ -146,8 +150,8 @@ public class City {
     }
 
     /**
-     * Add a resource that this city produces
-     * 
+     * Add a resource that this city produces.
+     *
      * @param resource resource type
      * @param quantity quantity produced per turn
      */
@@ -159,8 +163,8 @@ public class City {
     }
 
     /**
-     * Add a resource that this city consumes
-     * 
+     * Add a resource that this city consumes.
+     *
      * @param resource resource type
      * @param quantity quantity consumed per turn
      */
@@ -169,8 +173,8 @@ public class City {
     }
 
     /**
-     * Get the cached name label for rendering
-     * 
+     * Get the cached name label for rendering.
+     *
      * @return HyperString containing the city name
      */
     public HyperString getNameLabel() {
@@ -182,8 +186,8 @@ public class City {
     }
 
     /**
-     * Calculate the distance from this city to another
-     * 
+     * Calculate the distance from this city to another.
+     *
      * @param other the other city
      * @return euclidean distance between the two cities
      */
@@ -194,8 +198,8 @@ public class City {
     }
 
     /**
-     * Draw this city on the screen
-     * 
+     * Draw this city on the screen.
+     *
      * @param camera    the camera for coordinate transformation
      * @param isHQ      true if this city is the headquarters
      * @param isHovered true if this city is currently hovered
@@ -214,14 +218,14 @@ public class City {
 
         cityCircle.draw(screenPos, CITY_RADIUS, cityColor, camera);
 
-        float labelScreenY = screenY - CITY_RADIUS - 20;
+        float labelScreenY = screenY - CITY_RADIUS - NUM_20;
         Drawing.getDrawing().font.drawHyperString(getNameLabel(), screenX, labelScreenY, Drawing.FONT_HEIGHT_PIXELS,
                 camera);
     }
 
     /**
-     * Build a tooltip HyperString with city information
-     * 
+     * Build a tooltip HyperString with city information.
+     *
      * @param headquartersCity the player's headquarters city, or null if not set
      * @return HyperString containing city tooltip information
      */
@@ -240,7 +244,7 @@ public class City {
                 String resource = resources.get(i);
                 tip.addWord(resource, Color.CYAN);
                 if (i < resources.size() - 1) {
-                    tip.addWord(", ", Color.LIGHT_GRAY);
+                    tip.addWord(STR, Color.LIGHT_GRAY);
                 }
             }
             tip.newLine();
@@ -251,9 +255,9 @@ public class City {
             boolean first = true;
             for (Map.Entry<String, Integer> entry : produces.entrySet()) {
                 if (!first) {
-                    tip.addWord(", ", Color.LIGHT_GRAY);
+                    tip.addWord(STR, Color.LIGHT_GRAY);
                 }
-                tip.addWord(entry.getKey() + " (" + entry.getValue() + ")", Color.GREEN);
+                tip.addWord(entry.getKey() + STR_2 + entry.getValue() + STR_3, Color.GREEN);
                 first = false;
             }
             tip.newLine();
@@ -264,9 +268,9 @@ public class City {
             boolean first = true;
             for (Map.Entry<String, Integer> entry : consumes.entrySet()) {
                 if (!first) {
-                    tip.addWord(", ", Color.LIGHT_GRAY);
+                    tip.addWord(STR, Color.LIGHT_GRAY);
                 }
-                tip.addWord(entry.getKey() + " (" + entry.getValue() + ")", Color.ORANGE);
+                tip.addWord(entry.getKey() + STR_2 + entry.getValue() + STR_3, Color.ORANGE);
                 first = false;
             }
             tip.newLine();
@@ -282,6 +286,6 @@ public class City {
 
     @Override
     public String toString() {
-        return name + " (" + id + ") at (" + getX() + ", " + getY() + ")";
+        return name + STR_2 + id + ") at (" + getX() + STR + getY() + STR_3;
     }
 }

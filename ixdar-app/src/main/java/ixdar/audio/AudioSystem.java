@@ -24,6 +24,16 @@ import org.lwjgl.openal.AL10;
 import ixdar.platform.Platforms;
 
 public class AudioSystem {
+    public static final String LOAD_FAIL = "LOAD_FAIL ";
+    public static final String RES_AUDIO_MUSIC = "res/audio/music/";
+    public static final String RES_AUDIO_SFX = "res/audio/sfx/";
+    public static final String IXDARASSETS = "IxdarAssets";
+    public static final String AUDIO = "[Audio] ";
+    public static final int NUM_16 = 16;
+    public static final int NUM_4096 = 4096;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1 = 1f;
+    public static final int NUM_200 = 200;
     private static final AudioSystem INSTANCE = new AudioSystem();
 
     private long device;
@@ -45,10 +55,18 @@ public class AudioSystem {
     private final ArrayList<String> eventLog = new ArrayList<>();
     private long eventCounter = 0L;
 
+    /**
+     * TODO: document {@code get}.
+     *
+     * @return TODO: describe
+     */
     public static AudioSystem get() {
         return INSTANCE;
     }
 
+    /**
+     * TODO: document {@code init}.
+     */
     public synchronized void init() {
         if (initialized) {
             return;
@@ -90,10 +108,20 @@ public class AudioSystem {
         }
     }
 
+    /**
+     * TODO: document {@code isAvailable}.
+     *
+     * @return TODO: describe
+     */
     public synchronized boolean isAvailable() {
         return available;
     }
 
+    /**
+     * TODO: document {@code playMenuMusicLoop}.
+     *
+     * @param relativeAssetPath TODO: describe
+     */
     public synchronized void playMenuMusicLoop(String relativeAssetPath) {
         if (!ensureReady()) {
             return;
@@ -117,6 +145,9 @@ public class AudioSystem {
         }
     }
 
+    /**
+     * TODO: document {@code pauseMenuMusic}.
+     */
     public synchronized void pauseMenuMusic() {
         if (!available || menuMusicSource < 0) {
             return;
@@ -128,6 +159,9 @@ public class AudioSystem {
         }
     }
 
+    /**
+     * TODO: document {@code stopMenuMusic}.
+     */
     public synchronized void stopMenuMusic() {
         if (!available || menuMusicSource < 0) {
             return;
@@ -136,6 +170,11 @@ public class AudioSystem {
         addAudioEvent("MUSIC_STOP");
     }
 
+    /**
+     * TODO: document {@code playSfxOnce}.
+     *
+     * @param relativeAssetPath TODO: describe
+     */
     public synchronized void playSfxOnce(String relativeAssetPath) {
         if (!ensureReady()) {
             return;
@@ -156,6 +195,11 @@ public class AudioSystem {
         addAudioEvent("SFX_PLAY " + relativeAssetPath);
     }
 
+    /**
+     * TODO: document {@code isMenuMusicPlaying}.
+     *
+     * @return TODO: describe
+     */
     public synchronized boolean isMenuMusicPlaying() {
         if (!available || menuMusicSource < 0) {
             return false;
@@ -163,6 +207,11 @@ public class AudioSystem {
         return AL10.alGetSourcei(menuMusicSource, AL10.AL_SOURCE_STATE) == AL10.AL_PLAYING;
     }
 
+    /**
+     * TODO: document {@code getMenuMusicSourceCount}.
+     *
+     * @return TODO: describe
+     */
     public synchronized int getMenuMusicSourceCount() {
         if (!available || menuMusicSource < 0) {
             return 0;
@@ -174,33 +223,66 @@ public class AudioSystem {
         return 0;
     }
 
+    /**
+     * TODO: document {@code getLastSfxPlayed}.
+     *
+     * @return TODO: describe
+     */
     public synchronized String getLastSfxPlayed() {
         return lastSfxPlayed;
     }
 
+    /**
+     * TODO: document {@code getSfxPlayCountSnapshot}.
+     *
+     * @return TODO: describe
+     */
     public synchronized Map<String, Integer> getSfxPlayCountSnapshot() {
         return new HashMap<>(sfxPlayCount);
     }
 
+    /**
+     * TODO: document {@code getEventLogSnapshot}.
+     *
+     * @return TODO: describe
+     */
     public synchronized ArrayList<String> getEventLogSnapshot() {
         return new ArrayList<>(eventLog);
     }
 
+    /**
+     * TODO: document {@code setMasterVolume}.
+     *
+     * @param volume TODO: describe
+     */
     public synchronized void setMasterVolume(float volume) {
         masterVolume = clamp(volume);
         refreshSourceGains();
     }
 
+    /**
+     * TODO: document {@code setMusicVolume}.
+     *
+     * @param volume TODO: describe
+     */
     public synchronized void setMusicVolume(float volume) {
         musicVolume = clamp(volume);
         refreshSourceGains();
     }
 
+    /**
+     * TODO: document {@code setSfxVolume}.
+     *
+     * @param volume TODO: describe
+     */
     public synchronized void setSfxVolume(float volume) {
         sfxVolume = clamp(volume);
         refreshSourceGains();
     }
 
+    /**
+     * TODO: document {@code shutdown}.
+     */
     public synchronized void shutdown() {
         if (!initialized) {
             return;
@@ -261,7 +343,7 @@ public class AudioSystem {
             }
             if (resourceStream == null) {
                 log("Missing audio resource: " + classpathResourcePath);
-                addAudioEvent("LOAD_FAIL " + classpathResourcePath + " missing");
+                addAudioEvent(LOAD_FAIL + classpathResourcePath + " missing");
                 return -1;
             }
             try (InputStream in = resourceStream) {
@@ -274,22 +356,22 @@ public class AudioSystem {
             }
         } catch (Exception e) {
             log("Failed to load audio: " + classpathResourcePath + " (" + e.getMessage() + ")");
-            addAudioEvent("LOAD_FAIL " + classpathResourcePath + " " + e.getMessage());
+            addAudioEvent(LOAD_FAIL + classpathResourcePath + " " + e.getMessage());
             return -1;
         }
     }
 
     private File resolveAudioFile(String classpathResourcePath) {
         String normalizedPath = classpathResourcePath.replace("\\", "/");
-        if (normalizedPath.startsWith("res/audio/music/")) {
-            normalizedPath = normalizedPath.replaceFirst("res/audio/music/", "Music/");
-        } else if (normalizedPath.startsWith("res/audio/sfx/")) {
-            normalizedPath = normalizedPath.replaceFirst("res/audio/sfx/", "Sfx/");
+        if (normalizedPath.startsWith(RES_AUDIO_MUSIC)) {
+            normalizedPath = normalizedPath.replaceFirst(RES_AUDIO_MUSIC, "Music/");
+        } else if (normalizedPath.startsWith(RES_AUDIO_SFX)) {
+            normalizedPath = normalizedPath.replaceFirst(RES_AUDIO_SFX, "Sfx/");
         }
         Path userDir = Path.of(System.getProperty("user.dir"));
         ArrayList<Path> candidates = new ArrayList<>();
-        candidates.add(userDir.resolve("..").resolve("IxdarAssets").resolve(normalizedPath).normalize());
-        candidates.add(userDir.resolve("IxdarAssets").resolve(normalizedPath).normalize());
+        candidates.add(userDir.resolve("..").resolve(IXDARASSETS).resolve(normalizedPath).normalize());
+        candidates.add(userDir.resolve(IXDARASSETS).resolve(normalizedPath).normalize());
         candidates.add(Path.of("C:/Code/IxdarAssets").resolve(normalizedPath).normalize());
 
         for (Path candidate : candidates) {
@@ -306,14 +388,14 @@ public class AudioSystem {
             AudioFormat decoded = new AudioFormat(
                     AudioFormat.Encoding.PCM_SIGNED,
                     base.getSampleRate(),
-                    16,
+                    NUM_16,
                     base.getChannels(),
                     base.getChannels() * 2,
                     base.getSampleRate(),
                     false);
             try (AudioInputStream pcmStream = javax.sound.sampled.AudioSystem.getAudioInputStream(decoded, inputStream)) {
                 ByteArrayOutputStream output = new ByteArrayOutputStream();
-                byte[] tmp = new byte[4096];
+                byte[] tmp = new byte[NUM_4096];
                 int read = 0;
                 while ((read = pcmStream.read(tmp)) != -1) {
                     output.write(tmp, 0, read);
@@ -344,11 +426,11 @@ public class AudioSystem {
     }
 
     private float clamp(float value) {
-        if (value < 0f) {
-            return 0f;
+        if (value < NUM_0) {
+            return NUM_0;
         }
-        if (value > 1f) {
-            return 1f;
+        if (value > NUM_1) {
+            return NUM_1;
         }
         return value;
     }
@@ -366,16 +448,16 @@ public class AudioSystem {
 
     private void log(String message) {
         try {
-            Platforms.get().log("[Audio] " + message);
+            Platforms.get().log(AUDIO + message);
         } catch (Exception e) {
-            System.out.println("[Audio] " + message);
+            System.out.println(AUDIO + message);
         }
     }
 
     private void addAudioEvent(String event) {
         eventCounter++;
         eventLog.add(String.format("%d|%s|%s", eventCounter, Long.toString(System.currentTimeMillis()), event));
-        if (eventLog.size() > 200) {
+        if (eventLog.size() > NUM_200) {
             eventLog.remove(0);
         }
     }

@@ -35,25 +35,22 @@ import no.uib.cipr.matrix.sparse.SSOR;
  * MTJ-backed internally, but the public surface is plain {@code double[]}.
  */
 public final class IterativeSolver {
+    public static final String ICC = "icc";
+    public static final double NUM_1e30 = 1e30;
+    public static final double NUM_1e6 = 1e6;
 
     public static final double DEFAULT_TOL = 1e-6;
-    /** PATCH-134: bumped from 1000 to 10000. The IGM Hessian relaxed solve
+    /**
+     * PATCH-134: bumped from 1000 to 10000. The IGM Hessian relaxed solve
      *  on rocker-arm-20k (N=22852) hit the 1000 cap WITHOUT converging,
      *  returning a partial iterate with residuals 1.4-3.4x larger than the
      *  target magnitude — that was the root cause of the 41% relaxed-solve
      *  flip rate (PATCH-127/128/130/132 traced this). Convergent solves
      *  still finish in 600-1000 iters on these meshes, so the bump costs
      *  almost nothing on those; it gives the harder relaxed solve room to
-     *  reach tolerance. Override via -Dixdar.quadlayout.solver.maxIter=N. */
+     */
     public static final int DEFAULT_MAX_ITER =
             Integer.getInteger("ixdar.quadlayout.solver.maxIter", 10000);
-
-    /**
-     * Preconditioner choice. {@code AUTO} picks ICC (fast SPD path); set via
-     * system property {@code ixdar.quadlayout.solver.precond} to one of
-     * {@code jacobi|icc|ssor|amg} for A/B benchmarking.
-     */
-    public enum PrecondKind { JACOBI, ICC, SSOR, AMG }
 
     /** Set {@code -Dixdar.quadlayout.solver.profile=true} to log iter count + time per solve. */
     private static final boolean PROFILE = Boolean.getBoolean("ixdar.quadlayout.solver.profile");
@@ -61,20 +58,37 @@ public final class IterativeSolver {
     private IterativeSolver() {}
 
     private static PrecondKind defaultPrecond() {
-        String p = System.getProperty("ixdar.quadlayout.solver.precond", "icc");
+        String p = System.getProperty("ixdar.quadlayout.solver.precond", ICC);
         switch (p.toLowerCase()) {
             case "jacobi": return PrecondKind.JACOBI;
             case "ssor":   return PrecondKind.SSOR;
             case "amg":    return PrecondKind.AMG;
-            case "icc":
+            case ICC:
             default:       return PrecondKind.ICC;
         }
     }
 
+    /**
+     * TODO: document {@code solve}.
+     *
+     * @param A TODO: describe
+     * @param rhs TODO: describe
+     * @return TODO: describe
+     */
     public static double[] solve(MtjSparseMatrix A, double[] rhs) {
         return solve(A, rhs, DEFAULT_TOL, DEFAULT_MAX_ITER);
     }
 
+    /**
+     * TODO: document {@code solve}.
+     *
+     * @param A TODO: describe
+     * @param rhs TODO: describe
+     * @param tol TODO: describe
+     * @param maxIter TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public static double[] solve(MtjSparseMatrix A, double[] rhs, double tol, int maxIter) {
         if (A.rows() != A.cols()) {
             throw new IllegalArgumentException("solve() requires square matrix");
@@ -94,7 +108,7 @@ public final class IterativeSolver {
         long tPreEnd = PROFILE ? System.nanoTime() : 0L;
 
         // Try CG first — fastest on SPD systems, which is our common case.
-        DefaultIterationMonitor mon1 = new DefaultIterationMonitor(maxIter, tol, 0.0, 1e30);
+        DefaultIterationMonitor mon1 = new DefaultIterationMonitor(maxIter, tol, 0.0, NUM_1e30);
         try {
             CG cg = new CG(x);
             cg.setPreconditioner(pre);
@@ -116,7 +130,7 @@ public final class IterativeSolver {
         // BiCGstab is more robust for nonsymmetric / indefinite systems.
         // Reset solution to zero so we don't carry CG's bad iterate.
         x.zero();
-        DefaultIterationMonitor mon2 = new DefaultIterationMonitor(maxIter, tol, 0.0, 1e30);
+        DefaultIterationMonitor mon2 = new DefaultIterationMonitor(maxIter, tol, 0.0, NUM_1e30);
         try {
             BiCGstab bi = new BiCGstab(x);
             bi.setPreconditioner(pre);
@@ -168,13 +182,19 @@ public final class IterativeSolver {
                                    int iters, long preNs, long totalNs, boolean ok) {
         System.out.printf(
                 "[IterativeSolver] %s/%s n=%d iters=%d pre=%.1fms total=%.1fms ok=%s%n",
-                solver, kind, n, iters, preNs / 1e6, totalNs / 1e6, ok);
+                solver, kind, n, iters, preNs / NUM_1e6, totalNs / NUM_1e6, ok);
     }
 
     /**
      * Convenience wrapper that returns both the solution and the achieved
      * residual norm. Used by stress tests; production callers usually only
      * want the solution.
+     *
+     * @param A TODO: describe
+     * @param rhs TODO: describe
+     * @param tol TODO: describe
+     * @param maxIter TODO: describe
+     * @return TODO: describe
      */
     public static Result solveWithResidual(MtjSparseMatrix A, double[] rhs,
                                            double tol, int maxIter) {
@@ -191,6 +211,22 @@ public final class IterativeSolver {
                 bNorm > 0 ? Math.sqrt(resNorm / bNorm) : Math.sqrt(resNorm));
     }
 
+    private static double[] toArray(Vector v, int n) {
+        if (v instanceof DenseVector dv) {
+            return dv.getData().clone();
+        }
+        double[] out = new double[n];
+        for (int i = 0; i < n; i++) out[i] = v.get(i);
+        return out;
+    }
+
+    /**
+     * Preconditioner choice. {@code AUTO} picks ICC (fast SPD path); set via
+     * system property {@code ixdar.quadlayout.solver.precond} to one of
+     * {@code jacobi|icc|ssor|amg} for A/B benchmarking.
+     */
+    public enum PrecondKind { JACOBI, ICC, SSOR, AMG }
+
     public static final class Result {
         public final double[] x;
         public final double residualNorm;
@@ -201,14 +237,5 @@ public final class IterativeSolver {
             this.residualNorm = residualNorm;
             this.relativeResidual = relativeResidual;
         }
-    }
-
-    private static double[] toArray(Vector v, int n) {
-        if (v instanceof DenseVector dv) {
-            return dv.getData().clone();
-        }
-        double[] out = new double[n];
-        for (int i = 0; i < n; i++) out[i] = v.get(i);
-        return out;
     }
 }

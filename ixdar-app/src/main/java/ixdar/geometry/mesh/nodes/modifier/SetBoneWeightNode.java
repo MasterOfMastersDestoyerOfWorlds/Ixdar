@@ -26,14 +26,19 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "set_bone_weight")
 public class SetBoneWeightNode implements MeshNode {
+    public static final String GEOMETRY_2 = "geometry";
+    public static final String BONE_NAME_2 = "bone_name";
+    public static final String BONE = "bone";
+    public static final String WEIGHT_2 = "weight";
+    public static final String SELECTION_2 = "selection";
 
     public static final String BONE_WEIGHT_PREFIX = "_bone_weight_";
 
-    private static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort BONE_NAME = new InputPort("bone_name", PortType.STRING, "bone");
-    private static final InputPort WEIGHT = new InputPort("weight", PortType.FLOAT, 1.0f, 0f, 1f);
-    private static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    private static final InputPort BONE_NAME = new InputPort(BONE_NAME_2, PortType.STRING, BONE);
+    private static final InputPort WEIGHT = new InputPort(WEIGHT_2, PortType.FLOAT, 1.0f, 0f, 1f);
+    private static final InputPort SELECTION = new InputPort(SELECTION_2, PortType.BOOLEAN, true);
+    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -53,29 +58,29 @@ public class SetBoneWeightNode implements MeshNode {
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "geometry", "Input/output. Per-vertex bone weights are written into a slot keyed by `bone_name`.",
-                "bone_name", "Name of the bone whose weight is being written. Match this in a downstream apply_bone.",
-                "weight", "Weight value in [0, 1]. 0 = vertex unaffected; 1 = fully driven by the bone.",
-                "selection", "Per-face BOOLEAN mask. All vertices of selected faces receive the weight; other vertices keep their prior weight for this bone."
+                GEOMETRY_2, "Input/output. Per-vertex bone weights are written into a slot keyed by `bone_name`.",
+                BONE_NAME_2, "Name of the bone whose weight is being written. Match this in a downstream apply_bone.",
+                WEIGHT_2, "Weight value in [0, 1]. 0 = vertex unaffected; 1 = fully driven by the bone.",
+                SELECTION_2, "Per-face BOOLEAN mask. All vertices of selected faces receive the weight; other vertices keep their prior weight for this bone."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput("geometry", Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.vertexCount() == 0) {
-            ctx.setOutput("geometry", base);
+            ctx.setOutput(GEOMETRY_2, base);
             return;
         }
 
-        Object nameObj = FieldBroadcast.getInputOrDefault(ctx, "bone_name", BONE_NAME.defaultValue());
-        String boneName = nameObj instanceof String s ? s : "bone";
+        Object nameObj = FieldBroadcast.getInputOrDefault(ctx, BONE_NAME_2, BONE_NAME.defaultValue());
+        String boneName = nameObj instanceof String s ? s : BONE;
 
-        Object weightObj = FieldBroadcast.getInputOrDefault(ctx, "weight", WEIGHT.defaultValue());
+        Object weightObj = FieldBroadcast.getInputOrDefault(ctx, WEIGHT_2, WEIGHT.defaultValue());
         float weight = FieldBroadcast.floatScalarOrDefault(weightObj, 1.0f);
 
-        Object selObj = FieldBroadcast.getInputOrDefault(ctx, "selection", SELECTION.defaultValue());
+        Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION_2, SELECTION.defaultValue());
 
         String slotKey = BONE_WEIGHT_PREFIX + boneName;
 
@@ -104,6 +109,6 @@ public class SetBoneWeightNode implements MeshNode {
             }
         }
 
-        ctx.setOutput("geometry", base.withSlot(slotKey, weights));
+        ctx.setOutput(GEOMETRY_2, base.withSlot(slotKey, weights));
     }
 }

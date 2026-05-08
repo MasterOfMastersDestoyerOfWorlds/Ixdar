@@ -8,5 +8,10 @@ import ixdar.geometry.mesh.data.MeshTopology;
  */
 public interface MeshFieldContext extends FieldContext {
 
+    /**
+     * TODO: document {@code mesh}.
+     *
+     * @return TODO: describe
+     */
     MeshTopology mesh();
 }

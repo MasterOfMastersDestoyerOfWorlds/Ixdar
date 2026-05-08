@@ -6,6 +6,22 @@ public enum RouteType {
     nextDC(false, true, false, 2, 2, 1),
     nextC(true, true, false, 3, 2, 1),
     None(false, false, false, -1, -1, -1);
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
+
+    static {
+        nextC.oppositeRoute = prevC;
+        prevC.oppositeRoute = nextC;
+        nextDC.oppositeRoute = prevDC;
+        prevDC.oppositeRoute = nextDC;
+    }
+
+    static {
+        nextC.oppositeConnectionRoute = nextDC;
+        prevC.oppositeConnectionRoute = prevDC;
+        nextDC.oppositeConnectionRoute = nextC;
+        prevDC.oppositeConnectionRoute = prevC;
+    }
 
     public boolean isConnected, isNext, isPrev;
     public RouteType oppositeRoute;
@@ -23,33 +39,31 @@ public enum RouteType {
         this.matOffset = matOffset;
     }
 
-    static {
-        nextC.oppositeRoute = prevC;
-        prevC.oppositeRoute = nextC;
-        nextDC.oppositeRoute = prevDC;
-        prevDC.oppositeRoute = nextDC;
-    }
-
-    static {
-        nextC.oppositeConnectionRoute = nextDC;
-        prevC.oppositeConnectionRoute = prevDC;
-        nextDC.oppositeConnectionRoute = nextC;
-        prevDC.oppositeConnectionRoute = prevC;
-    }
-
+    /**
+     * TODO: document {@code idTransform}.
+     *
+     * @param id TODO: describe
+     * @return TODO: describe
+     */
     public int idTransform(int id) {
         nextDC.oppositeRoute = prevDC;
         if (this.equals(RouteType.None)) {
             return -1;
         }
-        return (id * 4) + this.ordinal();
+        return (id * NUM_4) + this.ordinal();
     }
 
+    /**
+     * TODO: document {@code idTransformToType}.
+     *
+     * @param id TODO: describe
+     * @return TODO: describe
+     */
     public static RouteType idTransformToType(int id) {
         if (id < 0) {
             return RouteType.None;
         }
-        int base = id % 4;
+        int base = id % NUM_4;
         switch (base) {
         case 0:
             return RouteType.prevC;
@@ -57,7 +71,7 @@ public enum RouteType {
             return RouteType.nextC;
         case 2:
             return RouteType.prevDC;
-        case 3:
+        case NUM_3:
             return RouteType.nextDC;
         default:
             return RouteType.None;

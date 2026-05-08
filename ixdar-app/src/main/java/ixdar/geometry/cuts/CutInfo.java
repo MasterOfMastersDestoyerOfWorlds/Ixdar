@@ -12,6 +12,8 @@ import ixdar.geometry.knot.Segment;
 import ixdar.geometry.shell.Shell;
 
 public class CutInfo {
+    public static final String N = "\n";
+    static int numCuts = 0;
     public Knot knot;
     public Segment cutSegment1;
     public Knot kp1;
@@ -36,9 +38,7 @@ public class CutInfo {
     public Segment lowerCutSegment;
     public Segment lowerMatchSegment;
     public Shell shell;
-    private SegmentBalanceException sbe;
     public Knot lowerCutPoint;
-    static int numCuts = 0;
     public int cutID;
     public boolean bothKnotPointsOutside;
     public BalanceMap balanceMap;
@@ -46,7 +46,37 @@ public class CutInfo {
     public boolean partialOverlaps;
     public boolean overlapOrientationCorrect;
     public boolean knotPointsConnected;
+    private SegmentBalanceException sbe;
 
+    /**
+     * TODO: document {@code CutInfo}.
+     *
+     * @param shell TODO: describe
+     * @param knot TODO: describe
+     * @param external1 TODO: describe
+     * @param external2 TODO: describe
+     * @param cutSegment1 TODO: describe
+     * @param kp1 TODO: describe
+     * @param cp1 TODO: describe
+     * @param superKnot TODO: describe
+     * @param kpSegment TODO: describe
+     * @param innerNeighborSegments TODO: describe
+     * @param innerNeighborSegmentLookup TODO: describe
+     * @param neighborSegments TODO: describe
+     * @param neighborCutSegments TODO: describe
+     * @param topCutPoint TODO: describe
+     * @param needTwoNeighborMatches TODO: describe
+     * @param bothKnotPointsInside TODO: describe
+     * @param bothKnotPointsOutside TODO: describe
+     * @param bothCutPointsOutside TODO: describe
+     * @param upperKnotPoint TODO: describe
+     * @param upperMatchSegment TODO: describe
+     * @param upperCutSegment TODO: describe
+     * @param lowerKnotPoint TODO: describe
+     * @param lowerMatchSegment TODO: describe
+     * @param lowerCutSegment TODO: describe
+     * @param balanceMap TODO: describe
+     */
     public CutInfo(Shell shell, Knot knot, Knot external1, Knot external2, Segment cutSegment1,
             Knot kp1, Knot cp1, Knot superKnot, Segment kpSegment,
             ArrayList<Segment> innerNeighborSegments, MultiKeyMap<Integer, Segment> innerNeighborSegmentLookup,
@@ -88,6 +118,23 @@ public class CutInfo {
     }
 
     // 12%
+    /**
+     * TODO: document {@code CutInfo}.
+     *
+     * @param shell TODO: describe
+     * @param lowerKnotPoint TODO: describe
+     * @param lowerCutPoint TODO: describe
+     * @param lowerCutSegment TODO: describe
+     * @param lowerExternal TODO: describe
+     * @param upperKnotPoint TODO: describe
+     * @param upperCutPoint TODO: describe
+     * @param upperCutSegment TODO: describe
+     * @param upperExternal TODO: describe
+     * @param superKnot TODO: describe
+     * @param balanceMap TODO: describe
+     * @param knotPointsConnected TODO: describe
+     * @throws BalancerException TODO: describe
+     */
     public CutInfo(Shell shell, Knot lowerKnotPoint, Knot lowerCutPoint, Segment lowerCutSegment,
             Knot lowerExternal,
             Knot upperKnotPoint, Knot upperCutPoint, Segment upperCutSegment,
@@ -135,6 +182,16 @@ public class CutInfo {
 
     }
 
+    /**
+     * TODO: document {@code CutInfo}.
+     *
+     * @param shell TODO: describe
+     * @param cutSegmentFinal TODO: describe
+     * @param matchSegment1Final TODO: describe
+     * @param cutSegment2Final TODO: describe
+     * @param matchSegment2Final TODO: describe
+     * @param knot TODO: describe
+     */
     public CutInfo(Shell shell, Segment cutSegmentFinal, Segment matchSegment1Final, Segment cutSegment2Final,
             Segment matchSegment2Final, Knot knot) {
         numCuts++;
@@ -150,6 +207,11 @@ public class CutInfo {
         this.superKnot = knot;
     }
 
+    /**
+     * TODO: document {@code CutInfo}.
+     *
+     * @param c TODO: describe
+     */
     public CutInfo(CutInfo c) {
         this.shell = c.shell;
         this.knot = c.knot;
@@ -188,6 +250,11 @@ public class CutInfo {
 
     }
 
+    /**
+     * TODO: document {@code toString}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String toString() {
         return "ID: " + cutID + " minKnot: " + knot
@@ -196,22 +263,33 @@ public class CutInfo {
                 + kpSegment +
 
                 " upperCutPointIsOutside: " + needTwoNeighborMatches + " bothKnotPOintsInside: "
-                + bothKnotPointsInside + "\n" +
+                + bothKnotPointsInside + N +
 
                 " lowerCutSegment: " + lowerCutSegment + " lowerKnotPoint: " + lowerKnotPoint + " lowerCutPoint"
                 + lowerCutPoint + " lowerMatchSegment: "
-                + lowerMatchSegment + " lowerExternal: " + lowerExternal + "\n" +
+                + lowerMatchSegment + " lowerExternal: " + lowerExternal + N +
 
                 " upperCutSegment: " + upperCutSegment + " upperKnotPoint: " + upperKnotPoint + " upperCutPoint"
                 + upperCutPoint + " upperMatchSegment: "
                 + upperMatchSegment + " upperExternal: " + upperExternal;
     }
 
+    /**
+     * TODO: document {@code genNewSegmentBalanceException}.
+     *
+     * @return TODO: describe
+     */
     public SegmentBalanceException genNewSegmentBalanceException() {
 
         return new SegmentBalanceException(shell, null, this);
     }
 
+    /**
+     * TODO: document {@code copyAndSwapExternals}.
+     *
+     * @throws SegmentBalanceException TODO: describe
+     * @return TODO: describe
+     */
     public CutInfo copyAndSwapExternals() throws SegmentBalanceException {
         CutInfo c = new CutInfo(this);
         Segment s41 = this.upperKnotPoint.getClosestSegment(this.lowerExternal, null);
@@ -238,6 +316,14 @@ public class CutInfo {
         return c;
     }
 
+    /**
+     * TODO: document {@code getExternalMatchPointFromCutSegment}.
+     *
+     * @param externalKnot TODO: describe
+     * @param cutSegment TODO: describe
+     * @param exclude TODO: describe
+     * @return TODO: describe
+     */
     public Knot getExternalMatchPointFromCutSegment(Knot externalKnot, Segment cutSegment,
             Knot exclude) {
         if (cutSegment.id == lowerCutSegment.id && externalKnot.contains(lowerExternal)
@@ -250,6 +336,14 @@ public class CutInfo {
         return null;
     }
 
+    /**
+     * TODO: document {@code getKnotPointFromCutSegment}.
+     *
+     * @param externalKnot TODO: describe
+     * @param cutSegment TODO: describe
+     * @param exclude TODO: describe
+     * @return TODO: describe
+     */
     public Knot getKnotPointFromCutSegment(Knot externalKnot, Segment cutSegment,
             Knot exclude) {
         if (cutSegment.id == lowerCutSegment.id && externalKnot.contains(lowerExternal)
@@ -262,6 +356,12 @@ public class CutInfo {
         return null;
     }
 
+    /**
+     * TODO: document {@code getCutSegmentFromKnotPoint}.
+     *
+     * @param prevMatchPoint TODO: describe
+     * @return TODO: describe
+     */
     public Segment getCutSegmentFromKnotPoint(Knot prevMatchPoint) {
         if (prevMatchPoint.id == lowerKnotPoint.id) {
             return lowerCutSegment;
@@ -271,6 +371,12 @@ public class CutInfo {
         return null;
     }
 
+    /**
+     * TODO: document {@code hasKnotPoint}.
+     *
+     * @param nextMatchPoint TODO: describe
+     * @return TODO: describe
+     */
     public boolean hasKnotPoint(Knot nextMatchPoint) {
         if (lowerKnotPoint.id == nextMatchPoint.id || upperKnotPoint.id == nextMatchPoint.id) {
             return true;
@@ -278,6 +384,11 @@ public class CutInfo {
         return false;
     }
 
+    /**
+     * TODO: document {@code getSbe}.
+     *
+     * @return TODO: describe
+     */
     public SegmentBalanceException getSbe() {
         this.sbe = new SegmentBalanceException(shell, null, this);
         return sbe;

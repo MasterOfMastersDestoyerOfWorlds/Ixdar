@@ -30,10 +30,10 @@ public enum Toggle {
     RecordKnotAnimation(false, "recordKnotAnim"),
     ScalePath(true, "scalePath"),
     GameMode(true, false, "gameMode");
-
-    private boolean initialValue;
     public boolean value;
     public String shortName;
+
+    private boolean initialValue;
     private boolean shouldReset;
 
     private Toggle(boolean value, String shortName) {
@@ -50,20 +50,36 @@ public enum Toggle {
         this.shortName = shortName;
     }
 
+    /**
+     * TODO: document {@code toggle}.
+     */
     public void toggle() {
         value = !value;
     }
 
+    /**
+     * TODO: document {@code setPanelFocus}.
+     *
+     * @param focusedPanel TODO: describe
+     */
     public static void setPanelFocus(PaneTypes focusedPanel) {
         IsMainFocused.value = focusedPanel == PaneTypes.KnotView;
         IsInfoFocused.value = focusedPanel == PaneTypes.Info;
         IsTerminalFocused.value = focusedPanel == PaneTypes.Terminal;
     }
 
+    /**
+     * TODO: document {@code shortName}.
+     *
+     * @return TODO: describe
+     */
     public String shortName() {
         return shortName;
     }
 
+    /**
+     * TODO: document {@code resetAll}.
+     */
     public static void resetAll() {
         for (Toggle toggle : Toggle.values()) {
             if (toggle.shouldReset) {

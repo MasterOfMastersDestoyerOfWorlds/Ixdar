@@ -13,67 +13,87 @@ import ixdar.annotations.meshnode.PortType;
 
 @MeshNodeAnnotation(id = "integer_math")
 public class IntegerMathNode implements MeshNode {
+    public static final String ADD = "ADD";
+    public static final String SUBTRACT = "SUBTRACT";
+    public static final String MULTIPLY = "MULTIPLY";
+    public static final String DIVIDE = "DIVIDE";
+    public static final String MODULO = "MODULO";
+    public static final String POWER = "POWER";
+    public static final String A_2 = "a";
+    public static final String B_2 = "b";
+    public static final String OPERATION_2 = "operation";
+    public static final String RESULT_2 = "result";
 
     public static final ModeConstraint MODE_CONSTRAINT = new ModeConstraint(
-            "ADD",
-            List.of("ADD", "SUBTRACT", "MULTIPLY", "DIVIDE", "MODULO", "POWER", "MIN", "MAX"),
+            ADD,
+            List.of(ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, POWER, "MIN", "MAX"),
             Map.of(
-                    "SUB", "SUBTRACT",
-                    "MUL", "MULTIPLY",
-                    "DIV", "DIVIDE",
-                    "MOD", "MODULO",
-                    "POW", "POWER"));
+                    "SUB", SUBTRACT,
+                    "MUL", MULTIPLY,
+                    "DIV", DIVIDE,
+                    "MOD", MODULO,
+                    "POW", POWER));
 
-    public enum Mode {
-        ADD,
-        SUBTRACT,
-        MULTIPLY,
-        DIVIDE,
-        MODULO,
-        POWER,
-        MIN,
-        MAX;
+    private static final InputPort A = new InputPort(A_2, PortType.INT, 0, -1000f, 1000f);
+    private static final InputPort B = new InputPort(B_2, PortType.INT, 0, -1000f, 1000f);
+    private static final InputPort OPERATION = new InputPort(OPERATION_2, PortType.STRING, ADD, MODE_CONSTRAINT);
+    private static final OutputPort RESULT = new OutputPort(RESULT_2, PortType.INT);
 
-        public static Mode parse(String raw) {
-            return Mode.valueOf(MODE_CONSTRAINT.normalize(raw));
-        }
-    }
-
-    private static final InputPort A = new InputPort("a", PortType.INT, 0, -1000f, 1000f);
-    private static final InputPort B = new InputPort("b", PortType.INT, 0, -1000f, 1000f);
-    private static final InputPort OPERATION = new InputPort("operation", PortType.STRING, "ADD", MODE_CONSTRAINT);
-    private static final OutputPort RESULT = new OutputPort("result", PortType.INT);
-
+    /**
+     * TODO: document {@code description}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String description() {
         return "Integer arithmetic with modes ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, POWER, MIN, MAX.";
     }
 
+    /**
+     * TODO: document {@code socketDocs}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
-                "a", "Left integer operand.",
-                "b", "Right integer operand.",
-                "operation", "Operation: ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, POWER, MIN, MAX.",
-                "result", "Integer result."
+                A_2, "Left integer operand.",
+                B_2, "Right integer operand.",
+                OPERATION_2, "Operation: ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, POWER, MIN, MAX.",
+                RESULT_2, "Integer result."
         );
     }
 
+    /**
+     * TODO: document {@code inputs}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public List<InputPort> inputs() {
         return List.of(A, B, OPERATION);
     }
 
+    /**
+     * TODO: document {@code outputs}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public List<OutputPort> outputs() {
         return List.of(RESULT);
     }
 
+    /**
+     * TODO: document {@code evaluate}.
+     *
+     * @param ctx TODO: describe
+     */
     @Override
     public void evaluate(NodeContext ctx) {
-        Number aNum = ctx.getInput("a", Number.class);
-        Number bNum = ctx.getInput("b", Number.class);
-        String modeStr = ctx.getInput("operation", String.class);
+        Number aNum = ctx.getInput(A_2, Number.class);
+        Number bNum = ctx.getInput(B_2, Number.class);
+        String modeStr = ctx.getInput(OPERATION_2, String.class);
         int a = aNum == null ? 0 : aNum.intValue();
         int b = bNum == null ? 0 : bNum.intValue();
         Mode mode = Mode.parse(modeStr);
@@ -88,6 +108,27 @@ public class IntegerMathNode implements MeshNode {
             case MIN -> Math.min(a, b);
             case MAX -> Math.max(a, b);
         };
-        ctx.setOutput("result", out);
+        ctx.setOutput(RESULT_2, out);
+    }
+
+    public enum Mode {
+        ADD,
+        SUBTRACT,
+        MULTIPLY,
+        DIVIDE,
+        MODULO,
+        POWER,
+        MIN,
+        MAX;
+
+        /**
+         * TODO: document {@code parse}.
+         *
+         * @param raw TODO: describe
+         * @return TODO: describe
+         */
+        public static Mode parse(String raw) {
+            return Mode.valueOf(MODE_CONSTRAINT.normalize(raw));
+        }
     }
 }

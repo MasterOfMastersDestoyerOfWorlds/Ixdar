@@ -14,6 +14,15 @@ import org.joml.Vector3f;
  * Supports vertex positions and optional normals.
  */
 public final class MeshLoader {
+    public static final String STR = "#";
+    public static final String S = "\\s+";
+    public static final String END_HEADER = "end_header";
+    public static final String ELEMENT_VERTEX = "element vertex";
+    public static final int NUM_4 = 4;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_1e_20 = 1e-20f;
+    public static final int NUM_6 = 6;
+    public static final int NUM_5 = 5;
 
     private static final int FLOATS_PER_VERTEX = 3;
 
@@ -24,8 +33,9 @@ public final class MeshLoader {
      * Load a mesh from OBJ or PLY file. Auto-detects format by extension.
      *
      * @param path File path to OBJ or PLY file
-     * @return ArrayMesh containing the loaded geometry
      * @throws IOException if file cannot be read or parsed
+     * @throws IllegalArgumentException TODO: describe
+     * @return ArrayMesh containing the loaded geometry
      */
     public static ArrayMesh load(String path) throws IOException {
         if (path == null || path.isEmpty()) {
@@ -45,6 +55,10 @@ public final class MeshLoader {
      * Load an OBJ file into ArrayMesh.
      * Supports vertex positions (v x y z) and normals (vn x y z).
      * Generates face normals if not provided.
+     *
+     * @param path TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
      */
     private static ArrayMesh loadObj(String path) throws IOException {
         try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
@@ -60,6 +74,10 @@ public final class MeshLoader {
     /**
      * Parse OBJ text content into ArrayMesh (no filesystem access).
      * Works in TeaVM/browser where FileReader is unavailable.
+     *
+     * @param content TODO: describe
+     * @throws RuntimeException TODO: describe
+     * @return TODO: describe
      */
     public static ArrayMesh parseObj(String content) {
         List<Float> positions = new ArrayList<>();
@@ -70,37 +88,37 @@ public final class MeshLoader {
             String line;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
-                if (line.isEmpty() || line.startsWith("#")) {
+                if (line.isEmpty() || line.startsWith(STR)) {
                     continue;
                 }
 
-                String[] parts = line.split("\\s+");
+                String[] parts = line.split(S);
                 if (parts.length == 0) {
                     continue;
                 }
 
                 String type = parts[0];
 
-                if ("v".equals(type) && parts.length >= 4) {
+                if ("v".equals(type) && parts.length >= NUM_4) {
                     float x = Float.parseFloat(parts[1]);
                     float y = Float.parseFloat(parts[2]);
-                    float z = Float.parseFloat(parts[3]);
+                    float z = Float.parseFloat(parts[FLOATS_PER_VERTEX]);
                     positions.add(x);
                     positions.add(y);
                     positions.add(z);
-                    normals.add(0f);
-                    normals.add(0f);
-                    normals.add(0f);
-                } else if ("vn".equals(type) && parts.length >= 4) {
+                    normals.add(NUM_0);
+                    normals.add(NUM_0);
+                    normals.add(NUM_0);
+                } else if ("vn".equals(type) && parts.length >= NUM_4) {
                     float x = Float.parseFloat(parts[1]);
                     float y = Float.parseFloat(parts[2]);
-                    float z = Float.parseFloat(parts[3]);
-                    if (normals.size() / 3 < positions.size() / 3) {
+                    float z = Float.parseFloat(parts[FLOATS_PER_VERTEX]);
+                    if (normals.size() / FLOATS_PER_VERTEX < positions.size() / FLOATS_PER_VERTEX) {
                         normals.add(x);
                         normals.add(y);
                         normals.add(z);
                     }
-                } else if ("f".equals(type) && parts.length >= 4) {
+                } else if ("f".equals(type) && parts.length >= NUM_4) {
                     int[] face = new int[parts.length - 1];
                     for (int i = 1; i < parts.length; i++) {
                         String[] vertexParts = parts[i].split("/");
@@ -122,8 +140,8 @@ public final class MeshLoader {
         // Convert face data to flat arrays — count triangulated indices
         int totalTriIndices = 0;
         for (int[] face : faces) {
-            if (face.length >= 3) {
-                totalTriIndices += (face.length - 2) * 3;
+            if (face.length >= FLOATS_PER_VERTEX) {
+                totalTriIndices += (face.length - 2) * FLOATS_PER_VERTEX;
             }
         }
 
@@ -135,7 +153,7 @@ public final class MeshLoader {
         // Generate face normals if vertex normals are zero
         boolean hasVertexNormals = false;
         for (int i = 0; i < normals.size(); i++) {
-            if (normals.get(i) != 0f) {
+            if (normals.get(i) != NUM_0) {
                 hasVertexNormals = true;
                 break;
             }
@@ -143,15 +161,15 @@ public final class MeshLoader {
 
         if (!hasVertexNormals) {
             // Compute face normals and assign to vertices
-            int vpf = faces.size() > 0 ? faces.get(0).length : 4;
-            float[] faceNormals = new float[(faces.size() * vpf) / 3 * 3];
+            int vpf = faces.size() > 0 ? faces.get(0).length : NUM_4;
+            float[] faceNormals = new float[(faces.size() * vpf) / FLOATS_PER_VERTEX * FLOATS_PER_VERTEX];
             int fnIdx = 0;
             Vector3f e1 = new Vector3f();
             Vector3f e2 = new Vector3f();
             Vector3f fn = new Vector3f();
 
             for (int[] face : faces) {
-                if (face.length < 3) {
+                if (face.length < FLOATS_PER_VERTEX) {
                     continue;
                 }
                 // Triangulate n-gons
@@ -159,36 +177,36 @@ public final class MeshLoader {
                     int v0 = face[0];
                     int v1 = face[i];
                     int v2 = face[i + 1];
-                    int p0o = v0 * 3;
-                    int p1o = v1 * 3;
-                    int p2o = v2 * 3;
+                    int p0o = v0 * FLOATS_PER_VERTEX;
+                    int p1o = v1 * FLOATS_PER_VERTEX;
+                    int p2o = v2 * FLOATS_PER_VERTEX;
                     e1.set(posArray[p1o], posArray[p1o + 1], posArray[p1o + 2])
                             .sub(posArray[p0o], posArray[p0o + 1], posArray[p0o + 2]);
                     e2.set(posArray[p2o], posArray[p2o + 1], posArray[p2o + 2])
                             .sub(posArray[p0o], posArray[p0o + 1], posArray[p0o + 2]);
                     e1.cross(e2, fn);
                     float len = fn.length();
-                    if (len > 1e-20f) {
+                    if (len > NUM_1e_20) {
                         fn.mul(1.0f / len);
                     }
                     // Assign to all three vertices
                     for (int v : new int[]{v0, v1, v2}) {
-                        int vo = v * 3;
+                        int vo = v * FLOATS_PER_VERTEX;
                         normArray[vo] += fn.x;
                         normArray[vo + 1] += fn.y;
                         normArray[vo + 2] += fn.z;
                     }
-                    fnIdx += 3;
+                    fnIdx += FLOATS_PER_VERTEX;
                 }
             }
 
             // Normalize vertex normals
-            for (int i = 0; i < normArray.length; i += 3) {
+            for (int i = 0; i < normArray.length; i += FLOATS_PER_VERTEX) {
                 float nx = normArray[i];
                 float ny = normArray[i + 1];
                 float nz = normArray[i + 2];
                 float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-                if (len > 1e-20f) {
+                if (len > NUM_1e_20) {
                     normArray[i] = nx / len;
                     normArray[i + 1] = ny / len;
                     normArray[i + 2] = nz / len;
@@ -200,7 +218,7 @@ public final class MeshLoader {
         int[] faceIndices = new int[totalTriIndices];
         int fi = 0;
         for (int[] face : faces) {
-            if (face.length < 3) {
+            if (face.length < FLOATS_PER_VERTEX) {
                 continue;
             }
             // Triangulate n-gons using fan
@@ -216,7 +234,7 @@ public final class MeshLoader {
         }
 
         // Determine vertsPerFace (assume triangles)
-        int vertsPerFace = 3;
+        int vertsPerFace = FLOATS_PER_VERTEX;
 
         return new ArrayMesh(posArray, normArray, faceIndices, vertsPerFace);
     }
@@ -224,6 +242,10 @@ public final class MeshLoader {
     /**
      * Load a PLY file into ArrayMesh.
      * Supports ASCII PLY format with vertex positions and optional normals.
+     *
+     * @param path TODO: describe
+     * @throws IOException TODO: describe
+     * @return TODO: describe
      */
     private static ArrayMesh loadPly(String path) throws IOException {
         List<Float> positions = new ArrayList<>();
@@ -234,32 +256,32 @@ public final class MeshLoader {
             String line;
             boolean readFaces = false;
             int vertexCount = 0;
-            int faceVertexCount = 3; // default to triangles
+            int faceVertexCount = FLOATS_PER_VERTEX; // default to triangles
 
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
-                if (line.isEmpty() || line.startsWith("#")) {
+                if (line.isEmpty() || line.startsWith(STR)) {
                     continue;
                 }
 
-                if (line.equals("end_header")) {
+                if (line.equals(END_HEADER)) {
                     readFaces = true;
                     continue;
                 }
 
                 if (!readFaces) {
                     // Parse header
-                    if (line.startsWith("element vertex")) {
-                        String[] parts = line.split("\\s+");
+                    if (line.startsWith(ELEMENT_VERTEX)) {
+                        String[] parts = line.split(S);
                         if (parts.length >= 2) {
                             vertexCount = Integer.parseInt(parts[1]);
                             // Pre-allocate normals
-                            for (int i = 0; i < vertexCount * 3; i++) {
-                                normals.add(0f);
+                            for (int i = 0; i < vertexCount * FLOATS_PER_VERTEX; i++) {
+                                normals.add(NUM_0);
                             }
                         }
                     } else if (line.startsWith("element face")) {
-                        String[] parts = line.split("\\s+");
+                        String[] parts = line.split(S);
                         if (parts.length >= 2) {
                             int faceCount = Integer.parseInt(parts[1]);
                             // Pre-allocate faces list
@@ -273,7 +295,7 @@ public final class MeshLoader {
                     }
                 } else {
                     // Parse face data
-                    String[] parts = line.split("\\s+");
+                    String[] parts = line.split(S);
                     if (parts.length > 0) {
                         int nVerts = Integer.parseInt(parts[0]);
                         int[] face = new int[nVerts];
@@ -295,26 +317,26 @@ public final class MeshLoader {
 
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
-                if (line.isEmpty() || line.startsWith("#")) {
+                if (line.isEmpty() || line.startsWith(STR)) {
                     continue;
                 }
 
-                if (line.equals("end_header")) {
+                if (line.equals(END_HEADER)) {
                     readVertices = true;
                     continue;
                 }
 
                 if (!readVertices) {
-                    if (line.startsWith("element vertex")) {
-                        String[] parts = line.split("\\s+");
+                    if (line.startsWith(ELEMENT_VERTEX)) {
+                        String[] parts = line.split(S);
                         if (parts.length >= 2) {
                             vertexCount = Integer.parseInt(parts[1]);
                         }
                     }
                 } else if (!readFaces) {
                     // Parse vertex data
-                    String[] parts = line.split("\\s+");
-                    if (parts.length >= 3) {
+                    String[] parts = line.split(S);
+                    if (parts.length >= FLOATS_PER_VERTEX) {
                         float x = Float.parseFloat(parts[0]);
                         float y = Float.parseFloat(parts[1]);
                         float z = Float.parseFloat(parts[2]);
@@ -323,15 +345,15 @@ public final class MeshLoader {
                         positions.add(z);
 
                         // Check for normals
-                        if (parts.length >= 6) {
-                            normals.set((positions.size() / 3 - 1) * 3, Float.parseFloat(parts[3]));
-                            normals.set((positions.size() / 3 - 1) * 3 + 1, Float.parseFloat(parts[4]));
-                            normals.set((positions.size() / 3 - 1) * 3 + 2, Float.parseFloat(parts[5]));
+                        if (parts.length >= NUM_6) {
+                            normals.set((positions.size() / FLOATS_PER_VERTEX - 1) * FLOATS_PER_VERTEX, Float.parseFloat(parts[FLOATS_PER_VERTEX]));
+                            normals.set((positions.size() / FLOATS_PER_VERTEX - 1) * FLOATS_PER_VERTEX + 1, Float.parseFloat(parts[NUM_4]));
+                            normals.set((positions.size() / FLOATS_PER_VERTEX - 1) * FLOATS_PER_VERTEX + 2, Float.parseFloat(parts[NUM_5]));
                         }
                     }
                 } else {
                     // Parse face data
-                    String[] parts = line.split("\\s+");
+                    String[] parts = line.split(S);
                     if (parts.length > 0) {
                         int nVerts = Integer.parseInt(parts[0]);
                         int[] face = new int[nVerts];
@@ -360,7 +382,7 @@ public final class MeshLoader {
         for (int i = 0; i < Math.min(normals.size(), normArray.length); i++) normArray[i] = normals.get(i);
 
         // Determine face vertex count
-        int vertsPerFace = 3; // default to triangles
+        int vertsPerFace = FLOATS_PER_VERTEX; // default to triangles
         if (!faces.isEmpty()) {
             vertsPerFace = faces.get(0).length;
         }
@@ -368,7 +390,7 @@ public final class MeshLoader {
         int[] faceIndices = new int[totalVertices];
         int fi = 0;
         for (int[] face : faces) {
-            if (face.length < 3) {
+            if (face.length < FLOATS_PER_VERTEX) {
                 continue;
             }
             // Triangulate n-gons using fan

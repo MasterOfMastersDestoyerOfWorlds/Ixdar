@@ -19,11 +19,27 @@ public class TradeKeyGuy extends KeyGuy {
 
     private TradeScene tradeScene;
 
+    /**
+     * TODO: document {@code TradeKeyGuy}.
+     *
+     * @param tradeScene TODO: describe
+     * @param camera TODO: describe
+     * @param canvas TODO: describe
+     */
     public TradeKeyGuy(TradeScene tradeScene, Camera camera, Canvas3D canvas) {
         super(camera, canvas);
         this.tradeScene = tradeScene;
     }
 
+    /**
+     * TODO: document {@code keyCallback}.
+     *
+     * @param window TODO: describe
+     * @param key TODO: describe
+     * @param scancode TODO: describe
+     * @param action TODO: describe
+     * @param mods TODO: describe
+     */
     @Override
     public void keyCallback(long window, int key, int scancode, int action, int mods) {
         Platforms.init(canvas.platform.getPlatformID());
@@ -61,6 +77,12 @@ public class TradeKeyGuy extends KeyGuy {
         }
     }
 
+    /**
+     * TODO: document {@code charCallback}.
+     *
+     * @param window TODO: describe
+     * @param codepoint TODO: describe
+     */
     @Override
     public void charCallback(long window, int codepoint) {
         Platforms.init(canvas.platform.getPlatformID());
@@ -68,6 +90,11 @@ public class TradeKeyGuy extends KeyGuy {
         // No terminal in trade scene, so no character input handling needed
     }
 
+    /**
+     * TODO: document {@code paintUpdate}.
+     *
+     * @param SHIFT_MOD TODO: describe
+     */
     @Override
     public void paintUpdate(float SHIFT_MOD) {
         if (!active)

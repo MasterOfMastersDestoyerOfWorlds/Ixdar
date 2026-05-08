@@ -6,40 +6,28 @@ package ixdar.geometry.knot;
  */
 public class PipeRecord extends OperationRecord {
 
-    /**
-     * Type of pipe operation performed.
-     */
-    public enum PipeType {
-        /** Two singletons piped to create a new order-2 knot */
-        SINGLETON_TO_SINGLETON,
-        /** Singleton added to existing knot (same hierarchy level) */
-        ADD_TO_EXISTING,
-        /** Two knots piped via pipe-edge, creating new hierarchy level */
-        NEW_HIERARCHY_LEVEL
-    }
-
-    /** The type of pipe operation */
+    /** The type of pipe operation. */
     public PipeType type;
 
-    /** The knot that was created or modified by this pipe */
+    /** The knot that was created or modified by this pipe. */
     public Knot resultKnot;
 
-    /** First operand knot */
+    /** First operand knot. */
     public Knot childA;
 
-    /** Second operand knot */
+    /** Second operand knot. */
     public Knot childB;
 
-    /** Edge that was cut on knot A (null for singletons) */
+    /** Edge that was cut on knot A (null for singletons). */
     public Segment cutEdgeA;
 
-    /** Edge that was cut on knot B (null for singletons) */
+    /** Edge that was cut on knot B (null for singletons). */
     public Segment cutEdgeB;
 
-    /** First segment added by the pipe operation */
+    /** First segment added by the pipe operation. */
     public Segment addedSeg1;
 
-    /** Second segment added by the pipe operation */
+    /** Second segment added by the pipe operation. */
     public Segment addedSeg2;
 
     @Override
@@ -276,5 +264,17 @@ public class PipeRecord extends OperationRecord {
         default:
             return "Pipe operation";
         }
+    }
+
+    /**
+     * Type of pipe operation performed.
+     */
+    public enum PipeType {
+        /** Two singletons piped to create a new order-2 knot. */
+        SINGLETON_TO_SINGLETON,
+        /** Singleton added to existing knot (same hierarchy level). */
+        ADD_TO_EXISTING,
+        /** Two knots piped via pipe-edge, creating new hierarchy level. */
+        NEW_HIERARCHY_LEVEL
     }
 }

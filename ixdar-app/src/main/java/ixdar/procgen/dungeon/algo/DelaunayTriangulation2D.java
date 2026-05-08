@@ -24,18 +24,26 @@ import ixdar.procgen.dungeon.values.RoomListValue;
  * placement). O(N^2) per insertion, fine for dungeon-scale N &lt; 200.
  */
 public final class DelaunayTriangulation2D {
+    public static final int NUM_3 = 3;
+    public static final int NUM_20 = 20;
 
     private DelaunayTriangulation2D() {
     }
 
+    /**
+     * TODO: document {@code triangulate}.
+     *
+     * @param rooms TODO: describe
+     * @return TODO: describe
+     */
     public static EdgeGraphValue triangulate(RoomListValue rooms) {
         int n = rooms.size();
         if (n == 0) return new EdgeGraphValue(0, new int[0][]);
         if (n == 1) return new EdgeGraphValue(1, new int[0][]);
         if (n == 2) return new EdgeGraphValue(2, new int[][] { { 0, 1 } });
 
-        double[] xs = new double[n + 3];
-        double[] ys = new double[n + 3];
+        double[] xs = new double[n + NUM_3];
+        double[] ys = new double[n + NUM_3];
         for (int i = 0; i < n; i++) {
             xs[i] = rooms.get(i).centerX();
             ys[i] = rooms.get(i).centerY();
@@ -55,9 +63,9 @@ public final class DelaunayTriangulation2D {
         double midX = (minX + maxX) / 2;
         double midY = (minY + maxY) / 2;
         // Super-triangle clearly encloses the bounding box with margin to spare.
-        xs[n] = midX - 20 * dmax;     ys[n] = midY - dmax;
-        xs[n + 1] = midX + 20 * dmax; ys[n + 1] = midY - dmax;
-        xs[n + 2] = midX;             ys[n + 2] = midY + 20 * dmax;
+        xs[n] = midX - NUM_20 * dmax;     ys[n] = midY - dmax;
+        xs[n + 1] = midX + NUM_20 * dmax; ys[n + 1] = midY - dmax;
+        xs[n + 2] = midX;             ys[n + 2] = midY + NUM_20 * dmax;
 
         List<Triangle> tris = new ArrayList<>();
         tris.add(ccwTriangle(n, n + 1, n + 2, xs, ys));
@@ -137,6 +145,8 @@ public final class DelaunayTriangulation2D {
     record Triangle(int a, int b, int c) { }
 
     record Edge(int a, int b) {
+        static final Comparator<Edge> COMPARATOR =
+                Comparator.comparingInt(Edge::a).thenComparingInt(Edge::b);
         Edge {
             if (a > b) {
                 int tmp = a;
@@ -144,7 +154,5 @@ public final class DelaunayTriangulation2D {
                 b = tmp;
             }
         }
-        static final Comparator<Edge> COMPARATOR =
-                Comparator.comparingInt(Edge::a).thenComparingInt(Edge::b);
     }
 }

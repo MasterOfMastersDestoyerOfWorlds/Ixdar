@@ -13,15 +13,25 @@ import ixdar.geometry.mesh.data.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "mesh_grid")
 public class GridMeshNode implements MeshNode {
-    private static final InputPort U_TILES = new InputPort("u_tiles", PortType.INT, 10, (float) 1, (float) 1000);
-    private static final InputPort V_TILES = new InputPort("v_tiles", PortType.INT, 10, (float) 1, (float) 1000);
-    private static final InputPort U_TILE_SIZE = new InputPort("u_tile_size", PortType.FLOAT, 1.0f, 0.001f, 100f);
-    private static final InputPort V_TILE_SIZE = new InputPort("v_tile_size", PortType.FLOAT, 1.0f, 0.001f, 100f);
+    public static final String U_TILES_2 = "u_tiles";
+    public static final String V_TILES_2 = "v_tiles";
+    public static final String U_TILE_SIZE_2 = "u_tile_size";
+    public static final String V_TILE_SIZE_2 = "v_tile_size";
+    public static final String U_TOTAL_SIZE_2 = "u_total_size";
+    public static final String V_TOTAL_SIZE_2 = "v_total_size";
+    public static final String MESH_2 = "mesh";
+    public static final float NUM_1e_6 = 1e-6f;
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_0 = 0f;
+    private static final InputPort U_TILES = new InputPort(U_TILES_2, PortType.INT, 10, (float) 1, (float) 1000);
+    private static final InputPort V_TILES = new InputPort(V_TILES_2, PortType.INT, 10, (float) 1, (float) 1000);
+    private static final InputPort U_TILE_SIZE = new InputPort(U_TILE_SIZE_2, PortType.FLOAT, 1.0f, 0.001f, 100f);
+    private static final InputPort V_TILE_SIZE = new InputPort(V_TILE_SIZE_2, PortType.FLOAT, 1.0f, 0.001f, 100f);
     /** When positive, per-tile U size is {@code u_total_size / u_tiles} and overrides {@code u_tile_size}. */
-    private static final InputPort U_TOTAL_SIZE = new InputPort("u_total_size", PortType.FLOAT, 0.0f, 0f, 1000f);
+    private static final InputPort U_TOTAL_SIZE = new InputPort(U_TOTAL_SIZE_2, PortType.FLOAT, 0.0f, 0f, 1000f);
     /** When positive, per-tile V size is {@code v_total_size / v_tiles} and overrides {@code v_tile_size}. */
-    private static final InputPort V_TOTAL_SIZE = new InputPort("v_total_size", PortType.FLOAT, 0.0f, 0f, 1000f);
-    private static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
+    private static final InputPort V_TOTAL_SIZE = new InputPort(V_TOTAL_SIZE_2, PortType.FLOAT, 0.0f, 0f, 1000f);
+    private static final OutputPort MESH = new OutputPort(MESH_2, PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
@@ -41,48 +51,48 @@ public class GridMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                "u_tiles", "Number of quads along the U (X) axis.",
-                "v_tiles", "Number of quads along the V (Z) axis.",
-                "u_tile_size", "Per-tile edge length along U. Grid extent along X = u_tiles × u_tile_size, vertices at ±extent/2. Ignored when u_total_size > 0.",
-                "v_tile_size", "Per-tile edge length along V. Grid extent along Z = v_tiles × v_tile_size, vertices at ±extent/2. Ignored when v_total_size > 0.",
-                "u_total_size", "Total extent along U. When > 0, per-tile U size becomes u_total_size / u_tiles (overrides u_tile_size).",
-                "v_total_size", "Total extent along V. When > 0, per-tile V size becomes v_total_size / v_tiles (overrides v_tile_size).",
-                "mesh", "Flat quad grid on XZ plane, centered at origin, Y=0."
+                U_TILES_2, "Number of quads along the U (X) axis.",
+                V_TILES_2, "Number of quads along the V (Z) axis.",
+                U_TILE_SIZE_2, "Per-tile edge length along U. Grid extent along X = u_tiles × u_tile_size, vertices at ±extent/2. Ignored when u_total_size > 0.",
+                V_TILE_SIZE_2, "Per-tile edge length along V. Grid extent along Z = v_tiles × v_tile_size, vertices at ±extent/2. Ignored when v_total_size > 0.",
+                U_TOTAL_SIZE_2, "Total extent along U. When > 0, per-tile U size becomes u_total_size / u_tiles (overrides u_tile_size).",
+                V_TOTAL_SIZE_2, "Total extent along V. When > 0, per-tile V size becomes v_total_size / v_tiles (overrides v_tile_size).",
+                MESH_2, "Flat quad grid on XZ plane, centered at origin, Y=0."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        int uTiles = ctx.getInput("u_tiles", Number.class) != null ? ctx.getInput("u_tiles", Number.class).intValue() : 1;
-        int vTiles = ctx.getInput("v_tiles", Number.class) != null ? ctx.getInput("v_tiles", Number.class).intValue() : 1;
-        float uTileSize = ctx.getInput("u_tile_size", Number.class) != null
-                ? ctx.getInput("u_tile_size", Number.class).floatValue()
+        int uTiles = ctx.getInput(U_TILES_2, Number.class) != null ? ctx.getInput(U_TILES_2, Number.class).intValue() : 1;
+        int vTiles = ctx.getInput(V_TILES_2, Number.class) != null ? ctx.getInput(V_TILES_2, Number.class).intValue() : 1;
+        float uTileSize = ctx.getInput(U_TILE_SIZE_2, Number.class) != null
+                ? ctx.getInput(U_TILE_SIZE_2, Number.class).floatValue()
                 : 1.0f;
-        float vTileSize = ctx.getInput("v_tile_size", Number.class) != null
-                ? ctx.getInput("v_tile_size", Number.class).floatValue()
+        float vTileSize = ctx.getInput(V_TILE_SIZE_2, Number.class) != null
+                ? ctx.getInput(V_TILE_SIZE_2, Number.class).floatValue()
                 : 1.0f;
 
         uTiles = Math.max(1, uTiles);
         vTiles = Math.max(1, vTiles);
 
-        Number uTotalNum = ctx.getInput("u_total_size", Number.class);
-        Number vTotalNum = ctx.getInput("v_total_size", Number.class);
+        Number uTotalNum = ctx.getInput(U_TOTAL_SIZE_2, Number.class);
+        Number vTotalNum = ctx.getInput(V_TOTAL_SIZE_2, Number.class);
         float uTotal = uTotalNum != null ? uTotalNum.floatValue() : 0.0f;
         float vTotal = vTotalNum != null ? vTotalNum.floatValue() : 0.0f;
-        if (uTotal > 1e-6f) {
+        if (uTotal > NUM_1e_6) {
             uTileSize = uTotal / uTiles;
         }
-        if (vTotal > 1e-6f) {
+        if (vTotal > NUM_1e_6) {
             vTileSize = vTotal / vTiles;
         }
 
-        uTileSize = Math.max(1e-6f, uTileSize);
-        vTileSize = Math.max(1e-6f, vTileSize);
+        uTileSize = Math.max(NUM_1e_6, uTileSize);
+        vTileSize = Math.max(NUM_1e_6, vTileSize);
 
         float totalU = uTiles * uTileSize;
         float totalV = vTiles * vTileSize;
-        float x0 = -totalU * 0.5f;
-        float z0 = -totalV * 0.5f;
+        float x0 = -totalU * NUM_0_5;
+        float z0 = -totalV * NUM_0_5;
 
         int vertsU = uTiles + 1;
         int vertsV = vTiles + 1;
@@ -94,7 +104,7 @@ public class GridMeshNode implements MeshNode {
             for (int j = 0; j < vertsV; j++) {
                 float x = x0 + i * uTileSize;
                 float z = z0 + j * vTileSize;
-                vid[i][j] = mesh.addVertex(x, 0f, z);
+                vid[i][j] = mesh.addVertex(x, NUM_0, z);
             }
         }
 
@@ -109,6 +119,6 @@ public class GridMeshNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput("mesh", mesh);
+        ctx.setOutput(MESH_2, mesh);
     }
 }

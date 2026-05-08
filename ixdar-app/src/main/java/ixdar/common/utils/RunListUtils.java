@@ -6,6 +6,13 @@ import ixdar.geometry.knot.Knot;
 
 public final class RunListUtils {
 
+    /**
+     * TODO: document {@code containsIDs}.
+     *
+     * @param runList TODO: describe
+     * @param integers TODO: describe
+     * @return TODO: describe
+     */
     public static boolean containsIDs(ArrayList<Knot> runList, ArrayList<Integer> integers) {
         int numIds = integers.size();
         for (Knot vp : runList) {
@@ -16,6 +23,13 @@ public final class RunListUtils {
         return numIds <= 0;
     }
 
+    /**
+     * TODO: document {@code containsID}.
+     *
+     * @param runList TODO: describe
+     * @param i TODO: describe
+     * @return TODO: describe
+     */
     public static boolean containsID(ArrayList<Knot> runList, int i) {
         for (Knot vp : runList) {
             if (i == vp.id) {
@@ -25,6 +39,14 @@ public final class RunListUtils {
         return false;
     }
 
+    /**
+     * TODO: document {@code subList}.
+     *
+     * @param runList TODO: describe
+     * @param idxBp1 TODO: describe
+     * @param idxBp2 TODO: describe
+     * @return TODO: describe
+     */
     public static ArrayList<Knot> subList(ArrayList<Knot> runList, int idxBp1, int idxBp2) {
         ArrayList<Knot> result = new ArrayList<>();
         int start = Math.min(idxBp1, idxBp2);
@@ -35,6 +57,14 @@ public final class RunListUtils {
         return result;
     }
 
+    /**
+     * TODO: document {@code excludeList}.
+     *
+     * @param runList TODO: describe
+     * @param idxBp1 TODO: describe
+     * @param idxBp2 TODO: describe
+     * @return TODO: describe
+     */
     public static ArrayList<Knot> excludeList(ArrayList<Knot> runList, int idxBp1, int idxBp2) {
         ArrayList<Knot> result = new ArrayList<>();
         int start = Math.min(idxBp1, idxBp2);

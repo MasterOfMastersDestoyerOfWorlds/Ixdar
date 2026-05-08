@@ -8,7 +8,7 @@ import ixdar.geometry.shell.DistanceMatrix;
 import ixdar.geometry.shell.Shell;
 
 /**
- * The optimal tsp path in a pointset ps
+ * The optimal tsp path in a pointset ps.
  */
 public class PointSetPath {
     public PointSet ps;
@@ -18,9 +18,13 @@ public class PointSetPath {
     public Grid grid;
 
     /**
-     * Initializes the path and pointset variables
-     * 
-     * @param comments
+     * Initializes the path and pointset variables.
+     *
+     * @param comments TODO: describe
+     * @param ps TODO: describe
+     * @param tsp TODO: describe
+     * @param d TODO: describe
+     * @param grid TODO: describe
      */
     public PointSetPath(PointSet ps, Shell tsp, DistanceMatrix d,
             ArrayList<String> comments, Grid grid) {

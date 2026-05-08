@@ -43,21 +43,10 @@ import ixdar.geometry.mesh.data.ArrayMesh;
  * Eq. 5.1 (cos²θ + α² sin²θ).
  */
 public final class Stvd {
-
-    /** Per-edge cost: (u, v) → positive scalar. */
-    @FunctionalInterface
-    public interface EdgeWeight {
-        double weight(int u, int v);
-    }
-
-    public static final class Result {
-        public final double[] distance;
-        public final int[] predecessor;
-        public Result(double[] distance, int[] predecessor) {
-            this.distance = distance;
-            this.predecessor = predecessor;
-        }
-    }
+    public static final int NUM_3 = 3;
+    public static final double NUM_1e_15 = 1e-15;
+    public static final int NUM_6 = 6;
+    public static final int NUM_4 = 4;
 
     private final ArrayMesh mesh;
     private final int k;
@@ -65,6 +54,14 @@ public final class Stvd {
     private final int[][] adjacency;
     private final float[] positions;
 
+    /**
+     * TODO: document {@code Stvd}.
+     *
+     * @param mesh TODO: describe
+     * @param k TODO: describe
+     * @param weight TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     */
     public Stvd(ArrayMesh mesh, int k, EdgeWeight weight) {
         if (k < 1) throw new IllegalArgumentException("k must be >= 1");
         this.mesh = mesh;
@@ -74,8 +71,15 @@ public final class Stvd {
         this.adjacency = buildAdjacency(mesh);
     }
 
+    /**
+     * TODO: document {@code compute}.
+     *
+     * @param startVertices TODO: describe
+     * @throws IllegalStateException TODO: describe
+     * @return TODO: describe
+     */
     public Result compute(int[] startVertices) {
-        int n = positions.length / 3;
+        int n = positions.length / NUM_3;
         // mesh field referenced for adjacency rebuild only; silence unused warning.
         if (mesh == null) throw new IllegalStateException("mesh required");
         double[] dist = new double[n];
@@ -97,7 +101,7 @@ public final class Stvd {
             if (d > dist[u]) continue;
             for (int v : adjacency[u]) {
                 double cand = relax(u, v, dist, pred);
-                if (cand < dist[v] - 1e-15) {
+                if (cand < dist[v] - NUM_1e_15) {
                     dist[v] = cand;
                     pred[v] = u;
                     pq.add(new long[] { Double.doubleToRawLongBits(cand), v });
@@ -111,6 +115,12 @@ public final class Stvd {
      * STVD relaxation: try all chains of length 1..k ending at u, prepend the
      * (u→v) edge, unfold into 2D, take the Euclidean norm of the summed
      * vectors.
+     *
+     * @param u TODO: describe
+     * @param v TODO: describe
+     * @param dist TODO: describe
+     * @param pred TODO: describe
+     * @return TODO: describe
      */
     private double relax(int u, int v, double[] dist, int[] pred) {
         double best = Double.POSITIVE_INFINITY;
@@ -154,6 +164,10 @@ public final class Stvd {
      * approximates the unfolded chain. Crucially this avoids the
      * sign-of-rotation ambiguity inherent in the per-vertex unfolding
      * formulation when chains revisit headings on flat grids.
+     *
+     * @param chain TODO: describe
+     * @param len TODO: describe
+     * @return TODO: describe
      */
     private double unfoldedChainLength(int[] chain, int len) {
         int m = len + 1;
@@ -161,18 +175,18 @@ public final class Stvd {
         double cx = 0, cy = 0, cz = 0;
         for (int i = 0; i < m; i++) {
             int v = chain[i];
-            cx += positions[3 * v];
-            cy += positions[3 * v + 1];
-            cz += positions[3 * v + 2];
+            cx += positions[NUM_3 * v];
+            cy += positions[NUM_3 * v + 1];
+            cz += positions[NUM_3 * v + 2];
         }
         cx /= m; cy /= m; cz /= m;
         // Covariance matrix.
         double xx = 0, xy = 0, xz = 0, yy = 0, yz = 0, zz = 0;
         for (int i = 0; i < m; i++) {
             int v = chain[i];
-            double dx = positions[3 * v] - cx;
-            double dy = positions[3 * v + 1] - cy;
-            double dz = positions[3 * v + 2] - cz;
+            double dx = positions[NUM_3 * v] - cx;
+            double dy = positions[NUM_3 * v + 1] - cy;
+            double dz = positions[NUM_3 * v + 2] - cz;
             xx += dx * dx; xy += dx * dy; xz += dx * dz;
             yy += dy * dy; yz += dy * dz; zz += dz * dz;
         }
@@ -181,11 +195,11 @@ public final class Stvd {
         // by picking u1 = anchor→head direction (good first guess) then
         // orthogonalizing.
         int va = chain[len], vh = chain[0];
-        double ux = positions[3 * vh] - positions[3 * va];
-        double uy = positions[3 * vh + 1] - positions[3 * va + 1];
-        double uz = positions[3 * vh + 2] - positions[3 * va + 2];
+        double ux = positions[NUM_3 * vh] - positions[NUM_3 * va];
+        double uy = positions[NUM_3 * vh + 1] - positions[NUM_3 * va + 1];
+        double uz = positions[NUM_3 * vh + 2] - positions[NUM_3 * va + 2];
         double uLen = Math.sqrt(ux * ux + uy * uy + uz * uz);
-        if (uLen < 1e-15) return 0.0;
+        if (uLen < NUM_1e_15) return 0.0;
         ux /= uLen; uy /= uLen; uz /= uLen;
         // Second axis from covariance perpendicular to u1.
         // v = covariance(u) - (u·covariance(u))u, normalized.
@@ -197,7 +211,7 @@ public final class Stvd {
         double vy = cuy - proj * uy;
         double vz = cuz - proj * uz;
         double vLen = Math.sqrt(vx * vx + vy * vy + vz * vz);
-        if (vLen > 1e-15) {
+        if (vLen > NUM_1e_15) {
             vx /= vLen; vy /= vLen; vz /= vLen;
         }
         // 2D coords for anchor and head; sum 2D edge vectors equals (head - anchor) projected.
@@ -205,9 +219,9 @@ public final class Stvd {
         double[] v2 = new double[m];
         for (int i = 0; i < m; i++) {
             int vId = chain[i];
-            double dx = positions[3 * vId] - cx;
-            double dy = positions[3 * vId + 1] - cy;
-            double dz = positions[3 * vId + 2] - cz;
+            double dx = positions[NUM_3 * vId] - cx;
+            double dy = positions[NUM_3 * vId + 1] - cy;
+            double dz = positions[NUM_3 * vId + 2] - cz;
             u2[i] = dx * ux + dy * uy + dz * uz;
             v2[i] = dx * vx + dy * vy + dz * vz;
         }
@@ -222,11 +236,11 @@ public final class Stvd {
             double ex2 = u2[i - 1] - u2[i];
             double ey2 = v2[i - 1] - v2[i];
             double e2Len = Math.sqrt(ex2 * ex2 + ey2 * ey2);
-            double dx = positions[3 * b] - positions[3 * a];
-            double dy = positions[3 * b + 1] - positions[3 * a + 1];
-            double dz = positions[3 * b + 2] - positions[3 * a + 2];
+            double dx = positions[NUM_3 * b] - positions[NUM_3 * a];
+            double dy = positions[NUM_3 * b + 1] - positions[NUM_3 * a + 1];
+            double dz = positions[NUM_3 * b + 2] - positions[NUM_3 * a + 2];
             double e3Len = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (e2Len > 1e-15) {
+            if (e2Len > NUM_1e_15) {
                 double s = e3Len / e2Len;
                 sumX += s * ex2;
                 sumY += s * ey2;
@@ -237,15 +251,20 @@ public final class Stvd {
         return Math.sqrt(sumX * sumX + sumY * sumY);
     }
 
-    /** Build CSR-ish vertex adjacency from face indices. */
+    /**
+     * Build CSR-ish vertex adjacency from face indices.
+     *
+     * @param mesh TODO: describe
+     * @return TODO: describe
+     */
     private static int[][] buildAdjacency(ArrayMesh mesh) {
-        int n = mesh.copyPositions().length / 3;
+        int n = mesh.copyPositions().length / NUM_3;
         int[] faces = mesh.copyFaceIndices();
         int vpf = mesh.getVertsPerFace();
         // Dedup with a small per-vertex set.
         @SuppressWarnings("unchecked")
         List<Integer>[] tmp = new List[n];
-        for (int i = 0; i < n; i++) tmp[i] = new ArrayList<>(6);
+        for (int i = 0; i < n; i++) tmp[i] = new ArrayList<>(NUM_6);
         Map<Long, Boolean> seen = new HashMap<>();
         for (int f = 0; f < faces.length; f += vpf) {
             for (int j = 0; j < vpf; j++) {
@@ -267,8 +286,43 @@ public final class Stvd {
         return out;
     }
 
-    /** Convenience entry point with k=4 (Campen's stage-2 default). */
+    /**
+     * Convenience entry point with k=4 (Campen's stage-2 default).
+     *
+     * @param mesh TODO: describe
+     * @param startVertices TODO: describe
+     * @param w TODO: describe
+     * @return TODO: describe
+     */
     public static Result computeK4(ArrayMesh mesh, int[] startVertices, EdgeWeight w) {
-        return new Stvd(mesh, 4, w).compute(startVertices);
+        return new Stvd(mesh, NUM_4, w).compute(startVertices);
+    }
+
+    /** Per-edge cost: (u, v) → positive scalar. */
+    @FunctionalInterface
+    public interface EdgeWeight {
+        /**
+         * TODO: document {@code weight}.
+         *
+         * @param u TODO: describe
+         * @param v TODO: describe
+         * @return TODO: describe
+         */
+        double weight(int u, int v);
+    }
+
+    public static final class Result {
+        public final double[] distance;
+        public final int[] predecessor;
+        /**
+         * TODO: document {@code Result}.
+         *
+         * @param distance TODO: describe
+         * @param predecessor TODO: describe
+         */
+        public Result(double[] distance, int[] predecessor) {
+            this.distance = distance;
+            this.predecessor = predecessor;
+        }
     }
 }

@@ -38,20 +38,31 @@ import java.util.Arrays;
  * conditioning ceiling.
  */
 final class LocalStiffening {
+    public static final double NUM_4_0 = 4.0;
+    public static final float NUM_0_5 = 0.5f;
+    public static final double NUM_1e_12 = 1e-12;
+    public static final int NUM_6 = 6;
+    public static final int NUM_4 = 4;
+    public static final int NUM_5 = 5;
+    public static final double NUM_0_5_2 = 0.5;
+    public static final double NUM_1e_20 = 1e-20;
+    public static final double NUM_2_0 = 2.0;
 
-    /** Hard cap on IRLS iterations. BZK09 doesn't specify; 15 was original;
+    /**
+     * Hard cap on IRLS iterations. BZK09 doesn't specify; 15 was original;
      *  PATCH-134 raised to 50 — with the IterativeSolver maxIter fix, each
      *  iteration's solve actually converges, so IRLS makes monotonic progress
      *  on dense-flip starting states (rocker-arm-20k went 8086 → 4964 in 15
      *  iters, suggesting more iters can keep reducing). Each iter ≈ 1.5s on
-     *  a 20k-face mesh, so 50 iters ≈ 75s. */
+     */
     static final int MAX_ITER = 50;
     /** BZK09 §5.4 stiffness-update constant c. */
     static final double STIFFEN_C = 1.0;
-    /** BZK09 §5.4 stiffness-update cap d. PATCH-117 confirmed empirically
+    /**
+     * BZK09 §5.4 stiffness-update cap d. PATCH-117 confirmed empirically
      *  that bumping this up to 100 makes IRLS oscillate without improving
      *  convergence on 20k+ meshes — the dense-flip regime can't be cleaned
-     *  up by reweighting alone. Stay at paper default. */
+     */
     static final double STIFFEN_D = 5.0;
     /** BZK09 §5.4 "a few uniform smoothing steps". */
     static final int SMOOTH_PASSES = 3;
@@ -61,20 +72,6 @@ final class LocalStiffening {
     static final double POS_AREA_EPS = 1e-9;
 
     private LocalStiffening() {}
-
-    static final class Result {
-        final float[] u;
-        final float[] v;
-        final int iterations;
-        final boolean injective;
-
-        Result(float[] u, float[] v, int iterations, boolean injective) {
-            this.u = u;
-            this.v = v;
-            this.iterations = iterations;
-            this.injective = injective;
-        }
-    }
 
     /**
      * Run IRLS on top of an already-relaxed (u, v). The Hessian's per-face
@@ -86,7 +83,7 @@ final class LocalStiffening {
     static Result refine(IgmHessian H, float[] uIn, float[] vIn) {
         boolean diag = "true".equals(System.getProperty("ixdar.lyon.paramDiag"));
         int F = H.faceCount;
-        int C = F * 3;
+        int C = F * SMOOTH_PASSES;
         float[] u = uIn.clone();
         float[] v = vIn.clone();
 
@@ -134,7 +131,7 @@ final class LocalStiffening {
                     iter, flips, maxLambda, bestFlips);
 
             for (int f = 0; f < F; f++) {
-                weights[f] += Math.min(STIFFEN_C * 4.0 * lambda[f], STIFFEN_D);
+                weights[f] += Math.min(STIFFEN_C * NUM_4_0 * lambda[f], STIFFEN_D);
             }
             for (int p = 0; p < SMOOTH_PASSES; p++) {
                 weights = smoothFaceLaplacian(weights, faceNeighbors);
@@ -148,9 +145,9 @@ final class LocalStiffening {
                 break;
             }
             for (int f = 0; f < F; f++) {
-                for (int c = 0; c < 3; c++) {
+                for (int c = 0; c < SMOOTH_PASSES; c++) {
                     int cv = H.chart.chartVertexAt(f, c);
-                    int corner = f * 3 + c;
+                    int corner = f * SMOOTH_PASSES + c;
                     u[corner] = (float) x[H.uBase + cv];
                     v[corner] = (float) x[H.vBase + cv];
                 }
@@ -176,8 +173,8 @@ final class LocalStiffening {
     private static int countNonPositive(float[] u, float[] v, int F) {
         int n = 0;
         for (int f = 0; f < F; f++) {
-            int o = f * 3;
-            float a = 0.5f * ((u[o + 1] - u[o]) * (v[o + 2] - v[o])
+            int o = f * SMOOTH_PASSES;
+            float a = NUM_0_5 * ((u[o + 1] - u[o]) * (v[o + 2] - v[o])
                             - (u[o + 2] - u[o]) * (v[o + 1] - v[o]));
             if (!(a > POS_AREA_EPS)) n++;
         }
@@ -194,13 +191,13 @@ final class LocalStiffening {
         double tx = H.uTarget[0];
         double ty = H.uTarget[1];
         double s = Math.sqrt(tx * tx + ty * ty);
-        return s > 1e-12 ? s : 1.0;
+        return s > NUM_1e_12 ? s : 1.0;
     }
 
     /** Build dual-mesh adjacency: up to 3 face-neighbors per face. */
     private static int[][] buildFaceNeighbors(IgmHessian H) {
         int F = H.faceCount;
-        int[][] nbr = new int[F][3];
+        int[][] nbr = new int[F][SMOOTH_PASSES];
         int[] count = new int[F];
         for (int f = 0; f < F; f++) {
             nbr[f][0] = -1; nbr[f][1] = -1; nbr[f][2] = -1;
@@ -210,21 +207,22 @@ final class LocalStiffening {
             int fa = H.field.edgeFaceA(e);
             int fb = H.field.edgeFaceB(e);
             if (fa < 0 || fb < 0) continue;
-            if (count[fa] < 3) nbr[fa][count[fa]++] = fb;
-            if (count[fb] < 3) nbr[fb][count[fb]++] = fa;
+            if (count[fa] < SMOOTH_PASSES) nbr[fa][count[fa]++] = fb;
+            if (count[fb] < SMOOTH_PASSES) nbr[fb][count[fb]++] = fa;
         }
         return nbr;
     }
 
-    /** Uniform Laplacian smoothing: each face becomes the mean of itself and
-     *  its (up-to-3) face neighbors. */
+    /**
+     * Uniform Laplacian smoothing: each face becomes the mean of itself and.
+     */
     private static double[] smoothFaceLaplacian(double[] w, int[][] nbr) {
         int F = w.length;
         double[] out = new double[F];
         for (int f = 0; f < F; f++) {
             double sum = w[f];
             int n = 1;
-            for (int k = 0; k < 3; k++) {
+            for (int k = 0; k < SMOOTH_PASSES; k++) {
                 int nb = nbr[f][k];
                 if (nb >= 0) {
                     sum += w[nb];
@@ -244,18 +242,18 @@ final class LocalStiffening {
      * {@code |τ σ₁/h − 1| + |τ σ₂/h − 1|}.
      */
     private static double computeLambda(IgmHessian H, float[] u, float[] v, int f, double h) {
-        int o = f * 6;
+        int o = f * NUM_6;
         float q0u = H.localQ[o],     q0v = H.localQ[o + 1];
-        float q1u = H.localQ[o + 2], q1v = H.localQ[o + 3];
-        float q2u = H.localQ[o + 4], q2v = H.localQ[o + 5];
-        double sa = 0.5 * ((q1u - q0u) * (q2v - q0v) - (q2u - q0u) * (q1v - q0v));
-        if (Math.abs(sa) < 1e-20) return 0.0;
-        double inv2A = 1.0 / (2.0 * sa);
+        float q1u = H.localQ[o + 2], q1v = H.localQ[o + SMOOTH_PASSES];
+        float q2u = H.localQ[o + NUM_4], q2v = H.localQ[o + NUM_5];
+        double sa = NUM_0_5_2 * ((q1u - q0u) * (q2v - q0v) - (q2u - q0u) * (q1v - q0v));
+        if (Math.abs(sa) < NUM_1e_20) return 0.0;
+        double inv2A = 1.0 / (NUM_2_0 * sa);
         double b0 = (q1v - q2v) * inv2A, c0 = (q2u - q1u) * inv2A;
         double b1 = (q2v - q0v) * inv2A, c1 = (q0u - q2u) * inv2A;
         double b2 = (q0v - q1v) * inv2A, c2 = (q1u - q0u) * inv2A;
 
-        int oc = f * 3;
+        int oc = f * SMOOTH_PASSES;
         double u0 = u[oc],     v0 = v[oc];
         double u1 = u[oc + 1], v1 = v[oc + 1];
         double u2 = u[oc + 2], v2 = v[oc + 2];
@@ -286,8 +284,8 @@ final class LocalStiffening {
     private static double[] svd2x2(double a, double b, double c, double d) {
         double frob2 = a * a + b * b + c * c + d * d;
         double det = a * d - b * c;
-        double diff = Math.sqrt(Math.max(frob2 * frob2 / 4.0 - det * det, 0.0));
-        double half = frob2 / 2.0;
+        double diff = Math.sqrt(Math.max(frob2 * frob2 / NUM_4_0 - det * det, 0.0));
+        double half = frob2 / NUM_2_0;
         double sigma1Sq = Math.max(half + diff, 0.0);
         double sigma2Sq = Math.max(half - diff, 0.0);
         return new double[]{Math.sqrt(sigma1Sq), Math.sqrt(sigma2Sq)};
@@ -295,8 +293,8 @@ final class LocalStiffening {
 
     private static boolean allPositive(float[] u, float[] v, int F) {
         for (int f = 0; f < F; f++) {
-            int o = f * 3;
-            float a = 0.5f * ((u[o + 1] - u[o]) * (v[o + 2] - v[o])
+            int o = f * SMOOTH_PASSES;
+            float a = NUM_0_5 * ((u[o + 1] - u[o]) * (v[o + 2] - v[o])
                             - (u[o + 2] - u[o]) * (v[o + 1] - v[o]));
             if (!(a > POS_AREA_EPS)) return false;
         }
@@ -306,5 +304,19 @@ final class LocalStiffening {
     private static boolean allFinite(double[] x) {
         for (double xi : x) if (!Double.isFinite(xi)) return false;
         return true;
+    }
+
+    static final class Result {
+        final float[] u;
+        final float[] v;
+        final int iterations;
+        final boolean injective;
+
+        Result(float[] u, float[] v, int iterations, boolean injective) {
+            this.u = u;
+            this.v = v;
+            this.iterations = iterations;
+            this.injective = injective;
+        }
     }
 }

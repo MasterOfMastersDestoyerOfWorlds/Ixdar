@@ -36,6 +36,18 @@ import ixdar.geometry.mesh.quadlayout.tmesh.TMesh;
  * mesh faces (no patch reachable) render light grey.
  */
 public final class LyonLayoutDecomposer {
+    public static final int NUM_3 = 3;
+    public static final int NUM_4 = 4;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_3_2 = 3f;
+    public static final double NUM_0_6180339887498949 = 0.6180339887498949;
+    public static final float NUM_0_35 = 0.35f;
+    public static final float NUM_0_70 = 0.70f;
+    public static final float NUM_0_55 = 0.55f;
+    public static final float NUM_0_50 = 0.50f;
+    public static final int NUM_6 = 6;
+    public static final int NUM_5 = 5;
+    public static final int NUM_255 = 255;
 
     private LyonLayoutDecomposer() {}
 
@@ -44,10 +56,15 @@ public final class LyonLayoutDecomposer {
      * Lyon layout. The {@code patches} list contains one {@link Patch} per
      * 4-sided + 3-sided layout patch, with face assignments + golden-ratio
      * colors. All feature-edge sets are empty.
+     *
+     * @param mesh TODO: describe
+     * @param tmesh TODO: describe
+     * @param layout TODO: describe
+     * @return TODO: describe
      */
     public static SemanticPatchDecomposer.DecompositionDiagnostics decompose(
             ArrayMesh mesh, TMesh tmesh, QuadLayout layout) {
-        int faceCount = mesh.copyFaceIndices().length / 3;
+        int faceCount = mesh.copyFaceIndices().length / NUM_3;
         int totalPatches = layout.patches().size() + layout.triangles().size();
         int[] faceLabels = new int[faceCount];
         Arrays.fill(faceLabels, -1);
@@ -63,7 +80,7 @@ public final class LyonLayoutDecomposer {
         for (int p = 0; p < layout.patches().size(); p++) {
             QuadLayoutPatch qp = layout.patches().get(p);
             int patchId = p;
-            for (int s = 0; s < 4; s++) {
+            for (int s = 0; s < NUM_4; s++) {
                 for (int la : qp.arcsBySide()[s]) {
                     arcToPatchIds.computeIfAbsent(la, k -> new HashSet<>()).add(patchId);
                 }
@@ -73,7 +90,7 @@ public final class LyonLayoutDecomposer {
         for (int t = 0; t < layout.triangles().size(); t++) {
             TrianglePatch tp = layout.triangles().get(t);
             int patchId = triOffset + t;
-            for (int s = 0; s < 3; s++) {
+            for (int s = 0; s < NUM_3; s++) {
                 for (int la : tp.arcsBySide()[s]) {
                     arcToPatchIds.computeIfAbsent(la, k -> new HashSet<>()).add(patchId);
                 }
@@ -127,7 +144,7 @@ public final class LyonLayoutDecomposer {
                 int faceId = cross[0];
                 int exitEdge = cross[1];
                 if (faceId < 0 || exitEdge < 0 || exitEdge > 2) continue;
-                int he = faceId * 3 + exitEdge;
+                int he = faceId * NUM_3 + exitEdge;
                 blockedHalfEdges.add(he);
                 int twin = mesh.halfEdgeTwin(he);
                 if (twin >= 0) blockedHalfEdges.add(twin);
@@ -144,8 +161,8 @@ public final class LyonLayoutDecomposer {
             int label = faceLabels[f];
             if (label < 0) continue;
             // Try each of f's 3 half-edges to find unlabeled neighbors.
-            for (int c = 0; c < 3; c++) {
-                int he = f * 3 + c;
+            for (int c = 0; c < NUM_3; c++) {
+                int he = f * NUM_3 + c;
                 if (blockedHalfEdges.contains(he)) continue;
                 int twin = mesh.halfEdgeTwin(he);
                 if (twin < 0) continue;
@@ -171,8 +188,8 @@ public final class LyonLayoutDecomposer {
             int f = fallbackQueue.poll();
             int label = faceLabels[f];
             if (label < 0) continue;
-            for (int c = 0; c < 3; c++) {
-                int he = f * 3 + c;
+            for (int c = 0; c < NUM_3; c++) {
+                int he = f * NUM_3 + c;
                 int twin = mesh.halfEdgeTwin(he);
                 if (twin < 0) continue;
                 int nbr = mesh.halfEdgeFace(twin);
@@ -226,23 +243,23 @@ public final class LyonLayoutDecomposer {
             // Vertex indices = unique vertices touched.
             Set<Integer> verts = new HashSet<>();
             for (int f : faces) {
-                verts.add(faceIdxArr[f * 3]);
-                verts.add(faceIdxArr[f * 3 + 1]);
-                verts.add(faceIdxArr[f * 3 + 2]);
+                verts.add(faceIdxArr[f * NUM_3]);
+                verts.add(faceIdxArr[f * NUM_3 + 1]);
+                verts.add(faceIdxArr[f * NUM_3 + 2]);
             }
             int[] vertexIds = verts.stream().mapToInt(Integer::intValue).sorted().toArray();
             float cx = 0, cy = 0, cz = 0;
             if (vertexIds.length > 0) {
                 for (int v : vertexIds) {
-                    cx += positions[v * 3];
-                    cy += positions[v * 3 + 1];
-                    cz += positions[v * 3 + 2];
+                    cx += positions[v * NUM_3];
+                    cy += positions[v * NUM_3 + 1];
+                    cz += positions[v * NUM_3 + 2];
                 }
                 cx /= vertexIds.length; cy /= vertexIds.length; cz /= vertexIds.length;
             }
             String color = colorForPatch(c, componentHasTriangle[c]);
             outPatches.add(new Patch(c, vertexIds, faces, /*branchId*/ c,
-                    new float[]{cx, cy, cz}, /*curvatureMean*/ 0f, color));
+                    new float[]{cx, cy, cz}, /*curvatureMean*/ NUM_0, color));
         }
 
         PatchDecomposition decomposition =
@@ -257,49 +274,55 @@ public final class LyonLayoutDecomposer {
                 /*union*/ Set.of(),
                 /*patchBoundary*/ Set.of(),
                 /*coonsError*/ new float[mesh.vertexCount()],
-                /*coonsErrorThreshold*/ 0f,
+                /*coonsErrorThreshold*/ NUM_0,
                 /*morseSmale*/ null);
     }
 
     private static void faceCentroid(ArrayMesh mesh, int faceId, Vector3f out) {
         int[] face = mesh.copyFaceIndices();
         float[] pos = mesh.copyPositions();
-        int v0 = face[faceId * 3];
-        int v1 = face[faceId * 3 + 1];
-        int v2 = face[faceId * 3 + 2];
-        out.set((pos[v0 * 3] + pos[v1 * 3] + pos[v2 * 3]) / 3f,
-                (pos[v0 * 3 + 1] + pos[v1 * 3 + 1] + pos[v2 * 3 + 1]) / 3f,
-                (pos[v0 * 3 + 2] + pos[v1 * 3 + 2] + pos[v2 * 3 + 2]) / 3f);
+        int v0 = face[faceId * NUM_3];
+        int v1 = face[faceId * NUM_3 + 1];
+        int v2 = face[faceId * NUM_3 + 2];
+        out.set((pos[v0 * NUM_3] + pos[v1 * NUM_3] + pos[v2 * NUM_3]) / NUM_3_2,
+                (pos[v0 * NUM_3 + 1] + pos[v1 * NUM_3 + 1] + pos[v2 * NUM_3 + 1]) / NUM_3_2,
+                (pos[v0 * NUM_3 + 2] + pos[v1 * NUM_3 + 2] + pos[v2 * NUM_3 + 2]) / NUM_3_2);
     }
 
-    /** Golden-ratio HSL hue for patch p. Triangle patches are desaturated. */
+    /**
+     * Golden-ratio HSL hue for patch p. Triangle patches are desaturated.
+     *
+     * @param p TODO: describe
+     * @param isTriangle TODO: describe
+     * @return TODO: describe
+     */
     private static String colorForPatch(int p, boolean isTriangle) {
         // Golden ratio conjugate.
-        double phi = 0.6180339887498949;
+        double phi = NUM_0_6180339887498949;
         double hue = (p * phi) % 1.0;
-        float sat = isTriangle ? 0.35f : 0.70f;
-        float lum = isTriangle ? 0.55f : 0.50f;
+        float sat = isTriangle ? NUM_0_35 : NUM_0_70;
+        float lum = isTriangle ? NUM_0_55 : NUM_0_50;
         return hslToHex((float) hue, sat, lum);
     }
 
     private static String hslToHex(float h, float s, float l) {
         float c = (1 - Math.abs(2 * l - 1)) * s;
-        float hp = h * 6;
+        float hp = h * NUM_6;
         float x = c * (1 - Math.abs(hp % 2 - 1));
         float r, g, b;
         if (hp < 1)      { r = c; g = x; b = 0; }
         else if (hp < 2) { r = x; g = c; b = 0; }
-        else if (hp < 3) { r = 0; g = c; b = x; }
-        else if (hp < 4) { r = 0; g = x; b = c; }
-        else if (hp < 5) { r = x; g = 0; b = c; }
+        else if (hp < NUM_3) { r = 0; g = c; b = x; }
+        else if (hp < NUM_4) { r = 0; g = x; b = c; }
+        else if (hp < NUM_5) { r = x; g = 0; b = c; }
         else             { r = c; g = 0; b = x; }
         float m = l - c / 2;
-        int ri = (int) Math.round((r + m) * 255);
-        int gi = (int) Math.round((g + m) * 255);
-        int bi = (int) Math.round((b + m) * 255);
+        int ri = (int) Math.round((r + m) * NUM_255);
+        int gi = (int) Math.round((g + m) * NUM_255);
+        int bi = (int) Math.round((b + m) * NUM_255);
         return String.format("#%02X%02X%02X",
-                Math.max(0, Math.min(255, ri)),
-                Math.max(0, Math.min(255, gi)),
-                Math.max(0, Math.min(255, bi)));
+                Math.max(0, Math.min(NUM_255, ri)),
+                Math.max(0, Math.min(NUM_255, gi)),
+                Math.max(0, Math.min(NUM_255, bi)));
     }
 }

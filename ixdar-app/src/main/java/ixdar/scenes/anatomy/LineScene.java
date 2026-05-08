@@ -10,38 +10,54 @@ import ixdar.scenes.Scene;
 
 @SceneAnnotation(id = "line-canvas")
 public class LineScene extends Scene {
-
-    private Segment lineSegment;
+    public static final double NUM_0_8 = 0.8;
+    public static final int NUM_20 = 20;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_0 = 0f;
     public PointND point2;
     public PointND point1;
 
+    private Segment lineSegment;
+
+    /**
+     * TODO: document {@code LineScene}.
+     */
     public LineScene() {
         super();
     }
 
+    /**
+     * TODO: document {@code initPoints}.
+     */
     @Override
     public void initPoints() {
         super.initPoints();
-        point1 = new PointND.Double(-0.8, 0.0);
-        point2 = new PointND.Double(0.8, 0.0);
+        point1 = new PointND.Double(-NUM_0_8, 0.0);
+        point2 = new PointND.Double(NUM_0_8, 0.0);
         shell.add(point1);
         shell.add(point2);
     }
 
+    /**
+     * TODO: document {@code initGL}.
+     */
     @Override
     public void initGL() {
         super.initGL();
         Knot knot1 = new Knot(point1, shell);
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
-        lineSegment.setStroke(20 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false, false, camera2D);
+        lineSegment.setStroke(NUM_20 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera2D);
         initCodePane("Line SDF", lineSegment.getShader(), lineSegment);
     }
 
+    /**
+     * TODO: document {@code drawScene}.
+     */
     @Override
     public void drawScene() {
         super.drawScene();
-        lineSegment.setStroke(20 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false, false, camera2D);
+        lineSegment.setStroke(NUM_20 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera2D);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);

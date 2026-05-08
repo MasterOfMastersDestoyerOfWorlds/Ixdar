@@ -18,6 +18,14 @@ public final class MeshDeleteVertices {
     private MeshDeleteVertices() {
     }
 
+    /**
+     * TODO: document {@code delete}.
+     *
+     * @param mesh TODO: describe
+     * @param selectionObj TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public static MeshTopology delete(MeshTopology mesh, Object selectionObj) {
         if (mesh == null || mesh.vertexCount() == 0) {
             return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();

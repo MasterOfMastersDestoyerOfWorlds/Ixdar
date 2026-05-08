@@ -33,13 +33,21 @@ import ixdar.geometry.mesh.data.ArrayMesh;
  * Tolerance is {@link #EPS}.
  */
 public final class QuadVertexGenerator {
+    public static final int NUM_3 = 3;
+    public static final float NUM_1 = 1f;
+    public static final float NUM_3_2 = 3f;
+    public static final int NUM_40 = 40;
+    public static final int NUM_0xFFFF = 0xFFFFF;
+    public static final int NUM_20 = 20;
 
-    /** Tolerance for "is integer" / "ratio in (EPS, 1-EPS)" / orientation
+    /**
+     * Tolerance for "is integer" / "ratio in (EPS, 1-EPS)" / orientation
      *  sign tests. Tight because integer values are exact and orientation
-     *  signs only need stable sign at all. */
+     */
     public static final double EPS = 1e-7;
 
-    /** Tolerance for "perpendicular distance from integer point to mesh edge"
+    /**
+     * Tolerance for "perpendicular distance from integer point to mesh edge"
      *  collinearity tests. Looser than {@link #EPS} because real-world UVs
      *  (e.g. metriko stage2) come from a numerical solve and integer-aligned
      *  iso-lines through edges only land near (not exactly on) integer
@@ -47,21 +55,11 @@ public final class QuadVertexGenerator {
      *  the best quad-count balance on Hand-30k stage2 (above this, EDGE
      *  QVerts proliferate but cycle walks break because EDGE-port prev/next
      *  ordering isn't yet CCW-correct in 3D — see PATCH-62). Override via
-     *  {@code -Dixdar.quadlayout.qex.collinearEps=...} for tuning. */
+     */
     public static final double COLLINEAR_EPS = Double.parseDouble(
             System.getProperty("ixdar.quadlayout.qex.collinearEps", "1e-4"));
 
     private QuadVertexGenerator() {}
-
-    /** Result of the vertex-generation pass: per-source QVert lists. */
-    public record Result(List<QVert> vertQVerts,
-                         List<QVert> edgeQVerts,
-                         List<QVert> faceQVerts) {
-
-        public int total() {
-            return vertQVerts.size() + edgeQVerts.size() + faceQVerts.size();
-        }
-    }
 
     /**
      * Generate QVerts for {@code mesh} given a per-corner UV map.
@@ -69,6 +67,7 @@ public final class QuadVertexGenerator {
      * @param mesh mesh on which the UV map lives
      * @param uCorner per-corner u value, length {@code 3 * F}
      * @param vCorner per-corner v value, length {@code 3 * F}
+     * @return TODO: describe
      */
     public static Result generate(ArrayMesh mesh,
                                   float[] uCorner, float[] vCorner) {
@@ -88,12 +87,12 @@ public final class QuadVertexGenerator {
         Vector3f vpos = new Vector3f();
         int idCounter = 0;
         for (int f = 0; f < F; f++) {
-            for (int c = 0; c < 3; c++) {
+            for (int c = 0; c < NUM_3; c++) {
                 int vId = mesh.faceVertexAt(f, c);
                 if (visitedVert[vId]) continue;
                 visitedVert[vId] = true;
-                float u = uCorner[f * 3 + c];
-                float v = vCorner[f * 3 + c];
+                float u = uCorner[f * NUM_3 + c];
+                float v = vCorner[f * NUM_3 + c];
                 if (isInteger(u) && isInteger(v)) {
                     mesh.vertexPosition(vId, vpos);
                     vertQVerts.add(new QVert(idCounter++, QVert.Source.VERT, vId,
@@ -125,14 +124,14 @@ public final class QuadVertexGenerator {
                 faceA = mesh.halfEdgeFace(he);
                 if (faceA < 0) continue;
             }
-            int cornerA = he % 3;
-            int cornerB = mesh.halfEdgeNext(he) % 3;
+            int cornerA = he % NUM_3;
+            int cornerB = mesh.halfEdgeNext(he) % NUM_3;
             int vertA = mesh.faceVertexAt(faceA, cornerA);
             int vertB = mesh.faceVertexAt(faceA, cornerB);
-            float u0 = uCorner[faceA * 3 + cornerA];
-            float v0u = vCorner[faceA * 3 + cornerA];
-            float u1 = uCorner[faceA * 3 + cornerB];
-            float v1u = vCorner[faceA * 3 + cornerB];
+            float u0 = uCorner[faceA * NUM_3 + cornerA];
+            float v0u = vCorner[faceA * NUM_3 + cornerA];
+            float u1 = uCorner[faceA * NUM_3 + cornerB];
+            float v1u = vCorner[faceA * NUM_3 + cornerB];
 
             int minX = (int) Math.floor(Math.min(u0, u1) - EPS);
             int maxX = (int) Math.ceil(Math.max(u0, u1) + EPS);
@@ -164,12 +163,12 @@ public final class QuadVertexGenerator {
         Vector3f q1 = new Vector3f();
         Vector3f q2 = new Vector3f();
         for (int f = 0; f < F; f++) {
-            float u0 = uCorner[f * 3];
-            float v0 = vCorner[f * 3];
-            float u1 = uCorner[f * 3 + 1];
-            float v1 = vCorner[f * 3 + 1];
-            float u2 = uCorner[f * 3 + 2];
-            float v2 = vCorner[f * 3 + 2];
+            float u0 = uCorner[f * NUM_3];
+            float v0 = vCorner[f * NUM_3];
+            float u1 = uCorner[f * NUM_3 + 1];
+            float v1 = vCorner[f * NUM_3 + 1];
+            float u2 = uCorner[f * NUM_3 + 2];
+            float v2 = vCorner[f * NUM_3 + 2];
 
             int minX = (int) Math.floor(Math.min(u0, Math.min(u1, u2)) - EPS);
             int maxX = (int) Math.ceil (Math.max(u0, Math.max(u1, u2)) + EPS);
@@ -203,6 +202,14 @@ public final class QuadVertexGenerator {
      * If (xi, yi) is collinear with the segment (u0, v0)-(u1, v1) within
      * {@link #EPS}, return its parametric ratio along the segment (0 at start,
      * 1 at end). Otherwise return {@link Double#NaN}.
+     *
+     * @param u0 TODO: describe
+     * @param v0 TODO: describe
+     * @param u1 TODO: describe
+     * @param v1 TODO: describe
+     * @param xi TODO: describe
+     * @param yi TODO: describe
+     * @return TODO: describe
      */
     private static double collinearRatio(double u0, double v0,
                                          double u1, double v1,
@@ -227,6 +234,16 @@ public final class QuadVertexGenerator {
      * Strict-inside test: orientation of (xi, yi) against all three edges
      * of the triangle must be the same sign and strictly bounded away from
      * zero by {@link #EPS}.
+     *
+     * @param u0 TODO: describe
+     * @param v0 TODO: describe
+     * @param u1 TODO: describe
+     * @param v1 TODO: describe
+     * @param u2 TODO: describe
+     * @param v2 TODO: describe
+     * @param xi TODO: describe
+     * @param yi TODO: describe
+     * @return TODO: describe
      */
     private static boolean strictlyInsideTriangle(double u0, double v0,
                                                   double u1, double v1,
@@ -244,7 +261,22 @@ public final class QuadVertexGenerator {
         return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
     }
 
-    /** Recover 3D position by mapping (xi, yi) into the triangle's barycentric coords. */
+    /**
+     * Recover 3D position by mapping (xi, yi) into the triangle's barycentric coords.
+     *
+     * @param u0 TODO: describe
+     * @param v0 TODO: describe
+     * @param u1 TODO: describe
+     * @param v1 TODO: describe
+     * @param u2 TODO: describe
+     * @param v2 TODO: describe
+     * @param xi TODO: describe
+     * @param yi TODO: describe
+     * @param p0 TODO: describe
+     * @param p1 TODO: describe
+     * @param p2 TODO: describe
+     * @return TODO: describe
+     */
     private static Vector3f barycentricInterp(double u0, double v0,
                                               double u1, double v1,
                                               double u2, double v2,
@@ -253,7 +285,7 @@ public final class QuadVertexGenerator {
         double denom = orient(u0, v0, u1, v1, u2, v2);
         if (Math.abs(denom) < EPS) {
             // Degenerate triangle — fall back to centroid.
-            return new Vector3f(p0).add(p1).add(p2).mul(1f / 3f);
+            return new Vector3f(p0).add(p1).add(p2).mul(NUM_1 / NUM_3_2);
         }
         double l0 = orient(u1, v1, u2, v2, xi, yi) / denom;
         double l1 = orient(u2, v2, u0, v0, xi, yi) / denom;
@@ -265,8 +297,30 @@ public final class QuadVertexGenerator {
         return out;
     }
 
-    /** Pack (edgeId, xi, yi) into a 64-bit dedupe key. */
+    /**
+     * Pack (edgeId, xi, yi) into a 64-bit dedupe key.
+     *
+     * @param e TODO: describe
+     * @param xi TODO: describe
+     * @param yi TODO: describe
+     * @return TODO: describe
+     */
     private static long pack(int e, int xi, int yi) {
-        return ((long) e << 40) | ((long) (xi & 0xFFFFF) << 20) | (long) (yi & 0xFFFFF);
+        return ((long) e << NUM_40) | ((long) (xi & NUM_0xFFFF) << NUM_20) | (long) (yi & NUM_0xFFFF);
+    }
+
+    /** Result of the vertex-generation pass: per-source QVert lists. */
+    public record Result(List<QVert> vertQVerts,
+                         List<QVert> edgeQVerts,
+                         List<QVert> faceQVerts) {
+
+        /**
+         * TODO: document {@code total}.
+         *
+         * @return TODO: describe
+         */
+        public int total() {
+            return vertQVerts.size() + edgeQVerts.size() + faceQVerts.size();
+        }
     }
 }

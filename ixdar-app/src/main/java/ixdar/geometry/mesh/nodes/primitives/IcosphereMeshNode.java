@@ -15,9 +15,30 @@ import ixdar.geometry.mesh.data.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "icosphere")
 public class IcosphereMeshNode implements MeshNode {
-    private static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 1.0f, 0.001f, 100f);
-    private static final InputPort SUBDIVISIONS = new InputPort("subdivisions", PortType.INT, 0, (float) 0, (float) 6);
-    private static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
+    public static final String RADIUS_2 = "radius";
+    public static final String SUBDIVISIONS_2 = "subdivisions";
+    public static final String MESH_2 = "mesh";
+    public static final int NUM_36 = 36;
+    public static final int NUM_3 = 3;
+    public static final int NUM_180 = 180;
+    public static final int NUM_72 = 72;
+    public static final double NUM_2_0 = 2.0;
+    public static final float NUM_0 = 0f;
+    public static final int NUM_5 = 5;
+    public static final int NUM_11 = 11;
+    public static final int NUM_4 = 4;
+    public static final int NUM_6 = 6;
+    public static final int NUM_7 = 7;
+    public static final int NUM_8 = 8;
+    public static final int NUM_9 = 9;
+    public static final int NUM_10 = 10;
+    public static final int NUM_60 = 60;
+    public static final int NUM_32 = 32;
+    public static final long NUM_0xffffffff = 0xffffffffL;
+    public static final float NUM_0_5 = 0.5f;
+    private static final InputPort RADIUS = new InputPort(RADIUS_2, PortType.FLOAT, 1.0f, 0.001f, 100f);
+    private static final InputPort SUBDIVISIONS = new InputPort(SUBDIVISIONS_2, PortType.INT, 0, (float) 0, (float) 6);
+    private static final OutputPort MESH = new OutputPort(MESH_2, PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
@@ -37,21 +58,21 @@ public class IcosphereMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                "radius", "Distance from center to surface. icosphere(radius=r) has extent 2r on each axis (vertices at ±r). For a reference of extent <X,Y,Z>, start with radius=1 and apply transform_geometry(scale=<X/2, Y/2, Z/2>).",
-                "subdivisions", "Number of recursive quadrisections. 0 = 20 triangle faces; each level quadruples face count. Caps at 6.",
-                "mesh", "Triangle-based sphere, manifold, centered at origin."
+                RADIUS_2, "Distance from center to surface. icosphere(radius=r) has extent 2r on each axis (vertices at ±r). For a reference of extent <X,Y,Z>, start with radius=1 and apply transform_geometry(scale=<X/2, Y/2, Z/2>).",
+                SUBDIVISIONS_2, "Number of recursive quadrisections. 0 = 20 triangle faces; each level quadruples face count. Caps at 6.",
+                MESH_2, "Triangle-based sphere, manifold, centered at origin."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        float radius = ctx.getInput("radius", Number.class) != null ? ctx.getInput("radius", Number.class).floatValue()
+        float radius = ctx.getInput(RADIUS_2, Number.class) != null ? ctx.getInput(RADIUS_2, Number.class).floatValue()
                 : 1.0f;
 
-        Number subInput = ctx.getInput("subdivisions", Number.class);
+        Number subInput = ctx.getInput(SUBDIVISIONS_2, Number.class);
         int subdivisions = subInput == null ? 0 : subInput.intValue();
 
-        ArrayList<Float> positions = new ArrayList<>(36);
+        ArrayList<Float> positions = new ArrayList<>(NUM_36);
         appendIcosahedronVertices(radius, positions);
         int[] indices = icosahedronFaceIndices();
 
@@ -60,28 +81,28 @@ public class IcosphereMeshNode implements MeshNode {
         }
 
         HalfEdgeMesh mesh = new HalfEdgeMesh();
-        int vCount = positions.size() / 3;
+        int vCount = positions.size() / NUM_3;
         for (int i = 0; i < vCount; i++) {
-            mesh.addVertex(positions.get(3 * i), positions.get(3 * i + 1), positions.get(3 * i + 2));
+            mesh.addVertex(positions.get(NUM_3 * i), positions.get(NUM_3 * i + 1), positions.get(NUM_3 * i + 2));
         }
-        for (int t = 0; t < indices.length; t += 3) {
+        for (int t = 0; t < indices.length; t += NUM_3) {
             mesh.addFace(indices[t], indices[t + 1], indices[t + 2]);
         }
 
         mesh.computeNormals();
-        ctx.setOutput("mesh", mesh);
+        ctx.setOutput(MESH_2, mesh);
     }
 
     private static void appendIcosahedronVertices(float radius, ArrayList<Float> out) {
         float pi = (float) Math.PI;
-        float horizontalOffset = pi / 180 * 72;
-        float elevation = (float) Math.atan(1.0 / 2.0);
+        float horizontalOffset = pi / NUM_180 * NUM_72;
+        float elevation = (float) Math.atan(1.0 / NUM_2_0);
 
-        out.add(0f);
+        out.add(NUM_0);
         out.add(radius);
-        out.add(0f);
+        out.add(NUM_0);
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < NUM_5; i++) {
             float hAngle = i * horizontalOffset;
             float x = (float) (radius * Math.cos(elevation) * Math.cos(hAngle));
             float y = (float) (radius * Math.sin(elevation));
@@ -91,7 +112,7 @@ public class IcosphereMeshNode implements MeshNode {
             out.add(z);
         }
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < NUM_5; i++) {
             float hAngle = i * horizontalOffset + (horizontalOffset / 2);
             float x = (float) (radius * Math.cos(elevation) * Math.cos(hAngle));
             float y = (float) (radius * -Math.sin(elevation));
@@ -101,20 +122,20 @@ public class IcosphereMeshNode implements MeshNode {
             out.add(z);
         }
 
-        out.add(0f);
+        out.add(NUM_0);
         out.add(-radius);
-        out.add(0f);
+        out.add(NUM_0);
     }
 
     private static int[] icosahedronFaceIndices() {
         int topPole = 0;
-        int bottomPole = 11;
-        int[] topRingVertices = { 1, 2, 3, 4, 5 };
-        int[] bottomRingVertices = { 6, 7, 8, 9, 10 };
-        int[] faces = new int[60];
+        int bottomPole = NUM_11;
+        int[] topRingVertices = { 1, 2, NUM_3, NUM_4, NUM_5 };
+        int[] bottomRingVertices = { NUM_6, NUM_7, NUM_8, NUM_9, NUM_10 };
+        int[] faces = new int[NUM_60];
         int f = 0;
-        for (int i = 0; i < 5; i++) {
-            int next = (i + 1) % 5;
+        for (int i = 0; i < NUM_5; i++) {
+            int next = (i + 1) % NUM_5;
             faces[f++] = topPole;
             faces[f++] = topRingVertices[i];
             faces[f++] = topRingVertices[next];
@@ -136,10 +157,10 @@ public class IcosphereMeshNode implements MeshNode {
 
     private static int[] subdivideTriangles(ArrayList<Float> positions, int[] indices, float radius) {
         Map<Long, Integer> edgeMidpoint = new HashMap<>();
-        int nTri = indices.length / 3;
-        int[] out = new int[nTri * 4 * 3];
+        int nTri = indices.length / NUM_3;
+        int[] out = new int[nTri * NUM_4 * NUM_3];
         int o = 0;
-        for (int t = 0; t < indices.length; t += 3) {
+        for (int t = 0; t < indices.length; t += NUM_3) {
             int v0 = indices[t];
             int v1 = indices[t + 1];
             int v2 = indices[t + 2];
@@ -165,7 +186,7 @@ public class IcosphereMeshNode implements MeshNode {
     private static long edgeKey(int a, int b) {
         int lo = Math.min(a, b);
         int hi = Math.max(a, b);
-        return ((long) lo << 32) | (hi & 0xffffffffL);
+        return ((long) lo << NUM_32) | (hi & NUM_0xffffffff);
     }
 
     private static int midpointOnSphere(int a, int b, ArrayList<Float> positions, float radius,
@@ -175,20 +196,20 @@ public class IcosphereMeshNode implements MeshNode {
         if (existing != null) {
             return existing;
         }
-        float ax = positions.get(3 * a);
-        float ay = positions.get(3 * a + 1);
-        float az = positions.get(3 * a + 2);
-        float bx = positions.get(3 * b);
-        float by = positions.get(3 * b + 1);
-        float bz = positions.get(3 * b + 2);
-        float mx = (ax + bx) * 0.5f;
-        float my = (ay + by) * 0.5f;
-        float mz = (az + bz) * 0.5f;
+        float ax = positions.get(NUM_3 * a);
+        float ay = positions.get(NUM_3 * a + 1);
+        float az = positions.get(NUM_3 * a + 2);
+        float bx = positions.get(NUM_3 * b);
+        float by = positions.get(NUM_3 * b + 1);
+        float bz = positions.get(NUM_3 * b + 2);
+        float mx = (ax + bx) * NUM_0_5;
+        float my = (ay + by) * NUM_0_5;
+        float mz = (az + bz) * NUM_0_5;
         float len = (float) Math.sqrt(mx * mx + my * my + mz * mz);
         mx = (mx / len) * radius;
         my = (my / len) * radius;
         mz = (mz / len) * radius;
-        int idx = positions.size() / 3;
+        int idx = positions.size() / NUM_3;
         positions.add(mx);
         positions.add(my);
         positions.add(mz);

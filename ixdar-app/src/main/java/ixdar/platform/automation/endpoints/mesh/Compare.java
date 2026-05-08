@@ -14,43 +14,49 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "mesh/compare", method = APIMethod.POST)
 public class Compare extends AutomationEndpoint implements AutomationRoute {
+    public static final String REFERENCE = "reference";
+    public static final String DISTANCE_TYPE = "distance_type";
+    public static final String SCALE = "scale";
+    public static final String NORMALIZE = "normalize";
+    public static final String OK = "ok";
+    public static final String ERROR = "error";
 
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
-            String referencePath = body.has("reference")
-                    ? body.get("reference").getAsString()
+            String referencePath = body.has(REFERENCE)
+                    ? body.get(REFERENCE).getAsString()
                     : "";
-            String distanceType = body.has("distance_type")
-                    ? body.get("distance_type").getAsString()
+            String distanceType = body.has(DISTANCE_TYPE)
+                    ? body.get(DISTANCE_TYPE).getAsString()
                     : "HAUSDORFF";
-            float scale = body.has("scale")
-                    ? body.get("scale").getAsFloat()
+            float scale = body.has(SCALE)
+                    ? body.get(SCALE).getAsFloat()
                     : 1.0f;
-            boolean normalize = body.has("normalize") && body.get("normalize").getAsBoolean();
+            boolean normalize = body.has(NORMALIZE) && body.get(NORMALIZE).getAsBoolean();
 
             if (referencePath.isEmpty()) {
                 JsonObject err = new JsonObject();
-                err.addProperty("ok", false);
-                err.addProperty("error", "Missing required field: reference");
+                err.addProperty(OK, false);
+                err.addProperty(ERROR, "Missing required field: reference");
                 return err;
             }
 
             try {
                 return runtime.runOnMainThread(() -> {
                     JsonObject result = new JsonObject();
-                    result.addProperty("ok", false);
+                    result.addProperty(OK, false);
 
                     if (!(runtime.canvas instanceof MeshNodeViewerScene)) {
                         result.addProperty(
-                                "error",
+                                ERROR,
                                 "MeshNodeViewerScene is not active");
                         return result;
                     }
                     MeshNodeViewerScene mvs = (MeshNodeViewerScene) runtime.canvas;
                     MeshTopology currentMeshTopology = mvs.getMesh();
                     if (currentMeshTopology == null) {
-                        result.addProperty("error", "Mesh not loaded yet");
+                        result.addProperty(ERROR, "Mesh not loaded yet");
                         return result;
                     }
 
@@ -70,13 +76,13 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                                 referencePath);
                     } catch (Exception e) {
                         result.addProperty(
-                                "error",
+                                ERROR,
                                 "Failed to load reference mesh: " + e.getMessage());
                         return result;
                     }
 
                     if (referenceMesh.vertexCount() == 0) {
-                        result.addProperty("error", "Reference mesh is empty");
+                        result.addProperty(ERROR, "Reference mesh is empty");
                         return result;
                     }
 
@@ -95,7 +101,7 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                                     referenceMesh,
                                     effectiveScale);
 
-                    result.addProperty("ok", true);
+                    result.addProperty(OK, true);
                     result.addProperty(
                             "current_vertices",
                             currentMesh.vertexCount());
@@ -111,24 +117,24 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                     result.addProperty(
                             "similarity_score",
                             metrics.similarityScore);
-                    result.addProperty("distance_type", distanceType);
-                    result.addProperty("scale", effectiveScale);
+                    result.addProperty(DISTANCE_TYPE, distanceType);
+                    result.addProperty(SCALE, effectiveScale);
                     result.addProperty("normalized", normalize);
 
                     return result;
                 });
             } catch (Exception e) {
                 JsonObject err = new JsonObject();
-                err.addProperty("ok", false);
+                err.addProperty(OK, false);
                 err.addProperty(
-                        "error",
+                        ERROR,
                         e.getMessage() == null ? "" : e.getMessage());
                 return err;
             }
         } catch (Exception e) {
             JsonObject err = new JsonObject();
-            err.addProperty("ok", false);
-            err.addProperty("error", e.getMessage());
+            err.addProperty(OK, false);
+            err.addProperty(ERROR, e.getMessage());
             return err;
         }
     }

@@ -27,7 +27,18 @@ import ixdar.parsing.python.PythonParser;
  *   --min-subgraph &lt;N&gt;  Minimum subgraph size for seams (default: 3)
  */
 public class AnalyzeGraph {
+    public static final String NODECOUNT = "nodeCount";
+    public static final String EDGES = "edges";
+    public static final String SEAMS = "seams";
+    public static final String STR = ".";
+    public static final int NUM_3 = 3;
 
+    /**
+     * TODO: document {@code main}.
+     *
+     * @param args TODO: describe
+     * @throws IOException TODO: describe
+     */
     public static void main(String[] args) throws IOException {
         if (args.length < 1) {
             System.err.println("Usage: AnalyzeGraph <file.dsl> [--output <path>] [--min-subgraph <N>]");
@@ -36,7 +47,7 @@ public class AnalyzeGraph {
 
         String dslPath = args[0];
         String outputPath = null;
-        int minSubgraph = 3;
+        int minSubgraph = NUM_3;
 
         for (int i = 1; i < args.length; i++) {
             switch (args[i]) {
@@ -67,9 +78,9 @@ public class AnalyzeGraph {
         } catch (RuntimeException e) {
             Map<String, Object> result = Map.of(
                     "parseError", e.getMessage(),
-                    "nodeCount", 0,
-                    "edges", List.of(),
-                    "seams", List.of());
+                    NODECOUNT, 0,
+                    EDGES, List.of(),
+                    SEAMS, List.of());
             String json = new GsonBuilder().setPrettyPrinting().create().toJson(result);
             writeOutput(json, outputPath);
             System.exit(1);
@@ -81,7 +92,7 @@ public class AnalyzeGraph {
         // Build JSON output
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("file", dslPath);
-        result.put("nodeCount", parsed.size());
+        result.put(NODECOUNT, parsed.size());
         result.put("functionCount", funcDefs.size());
         result.put("edgeCount", analysis.edges.size());
 
@@ -102,11 +113,11 @@ public class AnalyzeGraph {
         List<Map<String, String>> edgesJson = new ArrayList<>();
         for (GraphAnalyzer.Edge e : analysis.edges) {
             Map<String, String> edgeJson = new LinkedHashMap<>();
-            edgeJson.put("source", e.sourceId + "." + e.sourcePort);
-            edgeJson.put("target", e.targetId + "." + e.targetPort);
+            edgeJson.put("source", e.sourceId + STR + e.sourcePort);
+            edgeJson.put("target", e.targetId + STR + e.targetPort);
             edgesJson.add(edgeJson);
         }
-        result.put("edges", edgesJson);
+        result.put(EDGES, edgesJson);
 
         // Seams
         List<Map<String, Object>> seamsJson = new ArrayList<>();
@@ -121,14 +132,14 @@ public class AnalyzeGraph {
             List<Map<String, String>> extInputs = new ArrayList<>();
             for (GraphAnalyzer.ExternalInput ext : seam.externalInputs) {
                 Map<String, String> extJson = new LinkedHashMap<>();
-                extJson.put("from", ext.sourceNodeId + "." + ext.sourcePort);
-                extJson.put("to", ext.consumedByNodeId + "." + ext.consumedByPort);
+                extJson.put("from", ext.sourceNodeId + STR + ext.sourcePort);
+                extJson.put("to", ext.consumedByNodeId + STR + ext.consumedByPort);
                 extInputs.add(extJson);
             }
             seamJson.put("externalInputs", extInputs);
             seamsJson.add(seamJson);
         }
-        result.put("seams", seamsJson);
+        result.put(SEAMS, seamsJson);
 
         String json = new GsonBuilder().setPrettyPrinting().create().toJson(result);
         writeOutput(json, outputPath);

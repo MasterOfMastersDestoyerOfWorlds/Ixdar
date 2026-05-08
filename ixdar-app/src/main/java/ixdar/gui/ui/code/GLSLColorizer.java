@@ -10,9 +10,6 @@ import ixdar.graphics.render.text.ColorText;
 
 public final class GLSLColorizer {
 
-    private GLSLColorizer() {
-    }
-
     private static final Set<String> KEYWORDS = new HashSet<>();
     private static final Set<String> TYPES = new HashSet<>();
     static {
@@ -34,6 +31,15 @@ public final class GLSLColorizer {
         TYPES.add("vec");
     }
 
+    private GLSLColorizer() {
+    }
+
+    /**
+     * TODO: document {@code colorize}.
+     *
+     * @param codeLine TODO: describe
+     * @return TODO: describe
+     */
     public static List<ColorText<?>> colorize(String codeLine) {
         ArrayList<ColorText<?>> out = new ArrayList<>();
         if (codeLine == null || codeLine.isEmpty()) {

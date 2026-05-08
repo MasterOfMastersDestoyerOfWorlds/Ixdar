@@ -13,17 +13,21 @@ import ixdar.platform.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "/mesh/patches/decompose", method = APIMethod.POST)
 public class Decompose extends AutomationEndpoint implements AutomationRoute {
+    public static final String PATH = "path";
+    public static final String RESOLUTION = "resolution";
+    public static final String OK = "ok";
+    public static final int NUM_128 = 128;
 
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
-        String path = body.has("path") ? body.get("path").getAsString() : "";
-        int resolution = body.has("resolution")
-                ? body.get("resolution").getAsInt()
-                : 128;
+        String path = body.has(PATH) ? body.get(PATH).getAsString() : "";
+        int resolution = body.has(RESOLUTION)
+                ? body.get(RESOLUTION).getAsInt()
+                : NUM_128;
         File f = resolvePath(path);
         if (f == null) {
             JsonObject err = new JsonObject();
-            err.addProperty("ok", false);
+            err.addProperty(OK, false);
             err.addProperty("error", "File not found: " + path);
             return err;
         }
@@ -33,7 +37,7 @@ public class Decompose extends AutomationEndpoint implements AutomationRoute {
                         mesh,
                         resolution);
         JsonObject out = new JsonObject();
-        out.addProperty("ok", true);
+        out.addProperty(OK, true);
         out.addProperty("vertex_count", decomposition.vertexCount());
         JsonArray patches = new JsonArray();
         for (ixdar.geometry.mesh.data.Patch p : decomposition.patches()) {

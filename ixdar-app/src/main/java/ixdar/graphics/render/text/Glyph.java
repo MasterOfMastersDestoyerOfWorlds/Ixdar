@@ -25,6 +25,10 @@ public class Glyph {
      * @param x       X coordinate on the font texture
      * @param y       Y coordinate on the font texture
      * @param advance Advance width
+     * @param planeLeft TODO: describe
+     * @param planeBottom TODO: describe
+     * @param planeRight TODO: describe
+     * @param planeTop TODO: describe
      */
     public Glyph(int width, int height, int x, int y, float advance,
             float planeLeft, float planeBottom, float planeRight, float planeTop) {

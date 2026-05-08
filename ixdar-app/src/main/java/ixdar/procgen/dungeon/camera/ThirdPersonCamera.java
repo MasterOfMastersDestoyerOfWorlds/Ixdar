@@ -16,6 +16,8 @@ import ixdar.procgen.dungeon.values.TileGridValue3D;
  * relative to the on-screen horizontal direction without any extra plumbing.
  */
 public final class ThirdPersonCamera {
+    public static final double NUM_90_0 = 90.0;
+    public static final double NUM_15_0 = 15.0;
 
     /** Mouse sensitivity in radians per pixel. Matches Camera3D.mouseMove (0.1°/px) for parity. */
     private static final float SENSITIVITY = (float) Math.toRadians(0.1);
@@ -32,13 +34,21 @@ public final class ThirdPersonCamera {
     private float elevation;   // radians; positive = look down at player from above
     private float desiredDistance;
 
+    /**
+     * TODO: document {@code ThirdPersonCamera}.
+     */
     public ThirdPersonCamera() {
-        this.azimuth = (float) Math.toRadians(-90.0);
-        this.elevation = (float) Math.toRadians(15.0);
+        this.azimuth = (float) Math.toRadians(-NUM_90_0);
+        this.elevation = (float) Math.toRadians(NUM_15_0);
         this.desiredDistance = 1.0f;
     }
 
-    /** Initialize orbit so the toggle from first- to third-person doesn't jolt the view. */
+    /**
+     * Initialize orbit so the toggle from first- to third-person doesn't jolt the view.
+     *
+     * @param camera TODO: describe
+     * @param cellSize TODO: describe
+     */
     public void enterFromCurrentCamera(Camera3D camera, float cellSize) {
         this.azimuth = (float) Math.toRadians(camera.yaw);
         this.elevation = (float) Math.toRadians(camera.pitch);
@@ -46,11 +56,23 @@ public final class ThirdPersonCamera {
         this.desiredDistance = DEFAULT_DISTANCE_CELLS * cellSize;
     }
 
+    /**
+     * TODO: document {@code applyMouseDelta}.
+     *
+     * @param dxPixels TODO: describe
+     * @param dyPixels TODO: describe
+     */
     public void applyMouseDelta(float dxPixels, float dyPixels) {
         azimuth += dxPixels * SENSITIVITY;
         elevation = clamp(elevation - dyPixels * SENSITIVITY, MIN_ELEVATION, MAX_ELEVATION);
     }
 
+    /**
+     * TODO: document {@code applyZoom}.
+     *
+     * @param wheelTicks TODO: describe
+     * @param cellSize TODO: describe
+     */
     public void applyZoom(int wheelTicks, float cellSize) {
         if (wheelTicks == 0) return;
         desiredDistance *= (float) Math.pow(ZOOM_BASE, wheelTicks);
@@ -61,6 +83,11 @@ public final class ThirdPersonCamera {
     /**
      * Compute pivot, sweep camera against grid, write camera.position / yaw / pitch.
      * Call BEFORE {@code player.update(...)} so the controller reads the up-to-date yaw.
+     *
+     * @param player TODO: describe
+     * @param grid TODO: describe
+     * @param cellSize TODO: describe
+     * @param camera TODO: describe
      */
     public void update(PlayerController player, TileGridValue3D grid, float cellSize, Camera3D camera) {
         Vec3f playerPos = player.position();
@@ -88,8 +115,23 @@ public final class ThirdPersonCamera {
         camera.setOrientation((float) Math.toDegrees(azimuth), (float) Math.toDegrees(elevation));
     }
 
+    /**
+     * TODO: document {@code azimuthDegrees}.
+     *
+     * @return TODO: describe
+     */
     public float azimuthDegrees() { return (float) Math.toDegrees(azimuth); }
+    /**
+     * TODO: document {@code elevationDegrees}.
+     *
+     * @return TODO: describe
+     */
     public float elevationDegrees() { return (float) Math.toDegrees(elevation); }
+    /**
+     * TODO: document {@code desiredDistance}.
+     *
+     * @return TODO: describe
+     */
     public float desiredDistance() { return desiredDistance; }
 
     private static float clamp(float v, float lo, float hi) {

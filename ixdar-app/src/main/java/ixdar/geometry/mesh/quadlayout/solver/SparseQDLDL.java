@@ -25,8 +25,18 @@ public final class SparseQDLDL {
     private LDL<Double> ldl;
     private int n;
 
+    /**
+     * TODO: document {@code SparseQDLDL}.
+     */
     public SparseQDLDL() { }
 
+    /**
+     * TODO: document {@code decompose}.
+     *
+     * @param m TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public boolean decompose(SparseMatrix m) {
         if (m.rows() != m.cols()) {
             throw new IllegalArgumentException("LDL requires square matrix");
@@ -36,10 +46,23 @@ public final class SparseQDLDL {
         return ldl.decompose(m.ojAlgoStore());
     }
 
+    /**
+     * TODO: document {@code isSolvable}.
+     *
+     * @return TODO: describe
+     */
     public boolean isSolvable() {
         return ldl != null && ldl.isSolvable();
     }
 
+    /**
+     * TODO: document {@code solve}.
+     *
+     * @param rhs TODO: describe
+     * @throws IllegalStateException TODO: describe
+     * @throws IllegalArgumentException TODO: describe
+     * @return TODO: describe
+     */
     public double[] solve(double[] rhs) {
         if (ldl == null) throw new IllegalStateException("decompose() not called");
         if (rhs.length != n) throw new IllegalArgumentException("rhs length mismatch");
@@ -51,5 +74,10 @@ public final class SparseQDLDL {
         return out;
     }
 
+    /**
+     * TODO: document {@code dimension}.
+     *
+     * @return TODO: describe
+     */
     public int dimension() { return n; }
 }

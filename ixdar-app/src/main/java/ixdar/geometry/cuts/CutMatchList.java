@@ -12,6 +12,8 @@ import ixdar.graphics.render.text.HyperString;
 import ixdar.platform.file.FileStringable;
 
 public class CutMatchList implements FileStringable {
+    public static final String STR_2F = "%.2f";
+    public static int cutMatchListComparisons = 0;
 
     public ArrayList<CutMatch> cutMatches;
     public double delta;
@@ -20,8 +22,14 @@ public class CutMatchList implements FileStringable {
     public CutInfo c;
     public SegmentBalanceException sbe;
     public Knot superKnot;
-    public static int cutMatchListComparisons = 0;
 
+    /**
+     * TODO: document {@code CutMatchList}.
+     *
+     * @param shell TODO: describe
+     * @param c TODO: describe
+     * @param superKnot TODO: describe
+     */
     public CutMatchList(Shell shell, CutInfo c, Knot superKnot) {
         cutMatches = new ArrayList<>();
         this.shell = shell;
@@ -29,12 +37,23 @@ public class CutMatchList implements FileStringable {
         this.c = c;
     }
 
+    /**
+     * TODO: document {@code CutMatchList}.
+     *
+     * @param shell TODO: describe
+     * @param superKnot TODO: describe
+     */
     public CutMatchList(Shell shell, Knot superKnot) {
         cutMatches = new ArrayList<>();
         this.shell = shell;
         this.superKnot = superKnot;
     }
 
+    /**
+     * TODO: document {@code toString}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String toString() {
         String str = "CML[ topKnot:" + superKnot + "\n" + cutMatches + " \n]\n totalDelta: " + delta;
@@ -42,6 +61,16 @@ public class CutMatchList implements FileStringable {
 
     }
 
+    /**
+     * TODO: document {@code addCutMatch}.
+     *
+     * @param cutSegments TODO: describe
+     * @param matchSegments TODO: describe
+     * @param internalCuts TODO: describe
+     * @param c TODO: describe
+     * @param cutType TODO: describe
+     * @throws SegmentBalanceException TODO: describe
+     */
     public void addCutMatch(Segment[] cutSegments, Segment[] matchSegments, CutMatchList internalCuts, CutInfo c,
             String cutType)
             throws SegmentBalanceException {
@@ -72,6 +101,21 @@ public class CutMatchList implements FileStringable {
 
     }
 
+    /**
+     * TODO: document {@code addTwoCut}.
+     *
+     * @param cutSegment TODO: describe
+     * @param segments TODO: describe
+     * @param matchSegment1 TODO: describe
+     * @param matchSegment2 TODO: describe
+     * @param kp1 TODO: describe
+     * @param kp2 TODO: describe
+     * @param cml TODO: describe
+     * @param c TODO: describe
+     * @param match1 TODO: describe
+     * @param cutType TODO: describe
+     * @throws SegmentBalanceException TODO: describe
+     */
     public void addTwoCut(Segment cutSegment, Segment[] segments, Segment matchSegment1, Segment matchSegment2,
             Knot kp1, Knot kp2, CutMatchList cml, CutInfo c, boolean match1, String cutType)
             throws SegmentBalanceException {
@@ -121,6 +165,16 @@ public class CutMatchList implements FileStringable {
         cm.checkValid();
     }
 
+    /**
+     * TODO: document {@code addCutMatch}.
+     *
+     * @param cutSegments TODO: describe
+     * @param matchSegments TODO: describe
+     * @param c TODO: describe
+     * @param cutType TODO: describe
+     * @throws SegmentBalanceException TODO: describe
+     * @return TODO: describe
+     */
     public CutMatch addCutMatch(Segment[] cutSegments,
             Segment[] matchSegments, CutInfo c, String cutType)
             throws SegmentBalanceException {
@@ -176,6 +230,14 @@ public class CutMatchList implements FileStringable {
         return cm;
     }
 
+    /**
+     * TODO: document {@code addSimpleMatch}.
+     *
+     * @param matchSegment TODO: describe
+     * @param knot TODO: describe
+     * @param cutType TODO: describe
+     * @throws SegmentBalanceException TODO: describe
+     */
     public void addSimpleMatch(Segment matchSegment, Knot knot, String cutType) throws SegmentBalanceException {
         CutMatch cm = new CutMatch(cutType, shell, sbe);
         cm.matchSegments.add(matchSegment);
@@ -186,6 +248,9 @@ public class CutMatchList implements FileStringable {
         this.updateDelta();
     }
 
+    /**
+     * TODO: document {@code updateDelta}.
+     */
     public void updateDelta() {
         delta = 0.0;
         internalDelta = 0.0;
@@ -215,6 +280,15 @@ public class CutMatchList implements FileStringable {
         }
     }
 
+    /**
+     * TODO: document {@code addNeighborCut}.
+     *
+     * @param neighborCut TODO: describe
+     * @param knot TODO: describe
+     * @param cml TODO: describe
+     * @param cutType TODO: describe
+     * @throws SegmentBalanceException TODO: describe
+     */
     public void addNeighborCut(Segment neighborCut, Knot knot, CutMatchList cml, String cutType)
             throws SegmentBalanceException {
         CutMatch cm = new CutMatch(cutType, shell, sbe);
@@ -234,6 +308,12 @@ public class CutMatchList implements FileStringable {
         cm.checkValid();
     }
 
+    /**
+     * TODO: document {@code hasMatch}.
+     *
+     * @param s TODO: describe
+     * @return TODO: describe
+     */
     public boolean hasMatch(Segment s) {
         for (CutMatch cm : cutMatches) {
             if (cm.matchSegments.contains(s)) {
@@ -243,6 +323,12 @@ public class CutMatchList implements FileStringable {
         return false;
     }
 
+    /**
+     * TODO: document {@code hasMatchWith}.
+     *
+     * @param vp TODO: describe
+     * @return TODO: describe
+     */
     public boolean hasMatchWith(Knot vp) {
         for (CutMatch cm : cutMatches) {
             for (Segment s : cm.matchSegments) {
@@ -254,6 +340,12 @@ public class CutMatchList implements FileStringable {
         return false;
     }
 
+    /**
+     * TODO: document {@code getMatchWith}.
+     *
+     * @param vp TODO: describe
+     * @return TODO: describe
+     */
     public Segment getMatchWith(Knot vp) {
         for (CutMatch cm : cutMatches) {
             for (Segment s : cm.matchSegments) {
@@ -265,6 +357,11 @@ public class CutMatchList implements FileStringable {
         return null;
     }
 
+    /**
+     * TODO: document {@code removeMatch}.
+     *
+     * @param match TODO: describe
+     */
     public void removeMatch(Segment match) {
         for (CutMatch cm : cutMatches) {
             if (cm.matchSegments.contains(match)) {
@@ -274,6 +371,11 @@ public class CutMatchList implements FileStringable {
         this.updateDelta();
     }
 
+    /**
+     * TODO: document {@code removeCut}.
+     *
+     * @param cut TODO: describe
+     */
     public void removeCut(Segment cut) {
         for (CutMatch cm : cutMatches) {
             if (cm.cutSegments.contains(cut)) {
@@ -283,6 +385,11 @@ public class CutMatchList implements FileStringable {
         this.updateDelta();
     }
 
+    /**
+     * TODO: document {@code copy}.
+     *
+     * @return TODO: describe
+     */
     public CutMatchList copy() {
         CutMatchList copy = new CutMatchList(shell, c, superKnot);
         copy.delta = delta;
@@ -294,12 +401,26 @@ public class CutMatchList implements FileStringable {
         return copy;
     }
 
+    /**
+     * TODO: document {@code addDumbCutMatch}.
+     *
+     * @param knot TODO: describe
+     * @param superKnot TODO: describe
+     * @param cutType TODO: describe
+     */
     public void addDumbCutMatch(Knot knot, Knot superKnot, String cutType) {
         CutMatch cm = new CutMatch(cutType, shell, sbe);
         cm.knot = knot;
         cutMatches.add(cm);
     }
 
+    /**
+     * TODO: document {@code addCutDiff}.
+     *
+     * @param leftCut TODO: describe
+     * @param knot TODO: describe
+     * @param cutType TODO: describe
+     */
     public void addCutDiff(Segment leftCut, Knot knot, String cutType) {
         shell.buff.add("making left/right cut: " + leftCut);
 
@@ -313,6 +434,15 @@ public class CutMatchList implements FileStringable {
         }
     }
 
+    /**
+     * TODO: document {@code addLists}.
+     *
+     * @param cutSegments TODO: describe
+     * @param matchSegments TODO: describe
+     * @param knot TODO: describe
+     * @param cutType TODO: describe
+     * @throws SegmentBalanceException TODO: describe
+     */
     public void addLists(ArrayList<Segment> cutSegments, ArrayList<Segment> matchSegments, Knot knot, String cutType)
             throws SegmentBalanceException {
 
@@ -332,6 +462,11 @@ public class CutMatchList implements FileStringable {
         }
     }
 
+    /**
+     * TODO: document {@code toFileString}.
+     *
+     * @return TODO: describe
+     */
     @Override
     public String toFileString() {
         String fileString = "CUTMATCH CUTS ";
@@ -345,28 +480,13 @@ public class CutMatchList implements FileStringable {
         return fileString;
     }
 
-    public static class CutMatchListComparator implements Comparator<CutMatchList> {
-
-        @Override
-        public int compare(CutMatchList o1, CutMatchList o2) {
-            double d1 = o1.delta;
-            double d2 = o2.delta;
-            cutMatchListComparisons++;
-            if (d1 < d2)
-                return -1; // Neither val is NaN, thisVal is smaller
-            if (d1 > d2)
-                return 1; // Neither val is NaN, thisVal is larger
-
-            // Cannot use doubleToRawLongBits because of possibility of NaNs.
-            long thisBits = (long) d1;
-            long anotherBits = (long) d2;
-
-            return (thisBits == anotherBits ? 0 : // Values are equal
-                    (thisBits < anotherBits ? -1 : // (-0.0, 0.0) or (!NaN, NaN)
-                            1)); // (0.0, -0.0) or (NaN, !NaN)
-        }
-    }
-
+    /**
+     * TODO: document {@code getClosestKnotPoint}.
+     *
+     * @param neighbor TODO: describe
+     * @param other TODO: describe
+     * @return TODO: describe
+     */
     public Knot getClosestKnotPoint(Knot neighbor, Knot other) {
         CutMatch cm = cutMatches.get(0);
         Segment kp1n1 = neighbor.getSegment(cm.kp1);
@@ -380,6 +500,12 @@ public class CutMatchList implements FileStringable {
         }
     }
 
+    /**
+     * TODO: document {@code getOtherKp}.
+     *
+     * @param knotPoint TODO: describe
+     * @return TODO: describe
+     */
     public Knot getOtherKp(Knot knotPoint) {
         CutMatch cm = cutMatches.get(0);
         if (cm.kp1.id == knotPoint.id) {
@@ -390,10 +516,24 @@ public class CutMatchList implements FileStringable {
         return null;
     }
 
+    /**
+     * TODO: document {@code getCutMatch}.
+     *
+     * @return TODO: describe
+     */
     public CutMatch getCutMatch() {
         return this.cutMatches.get(0);
     }
 
+    /**
+     * TODO: document {@code toHyperString}.
+     *
+     * @param matchColor TODO: describe
+     * @param cutColor TODO: describe
+     * @param externalColor TODO: describe
+     * @param externalCutColor TODO: describe
+     * @return TODO: describe
+     */
     public HyperString toHyperString(Color matchColor, Color cutColor, Color externalColor, Color externalCutColor) {
         HyperString h = new HyperString();
         CutMatch cm = this.cutMatches.get(0);
@@ -427,10 +567,39 @@ public class CutMatchList implements FileStringable {
         h.addWord("MatchCount: ", matchColor);
         h.addLine(internalCount + "", Color.COMMAND);
         h.addWord("Delta: ", matchColor);
-        h.addLine(String.format("%.2f", delta), Color.COMMAND);
+        h.addLine(String.format(STR_2F, delta), Color.COMMAND);
         h.addWord("IntDelta: ", matchColor);
-        h.addLine(String.format("%.2f", internalDelta) + "", Color.COMMAND);
+        h.addLine(String.format(STR_2F, internalDelta) + "", Color.COMMAND);
         return h;
+    }
+
+    public static class CutMatchListComparator implements Comparator<CutMatchList> {
+
+        /**
+         * TODO: document {@code compare}.
+         *
+         * @param o1 TODO: describe
+         * @param o2 TODO: describe
+         * @return TODO: describe
+         */
+        @Override
+        public int compare(CutMatchList o1, CutMatchList o2) {
+            double d1 = o1.delta;
+            double d2 = o2.delta;
+            cutMatchListComparisons++;
+            if (d1 < d2)
+                return -1; // Neither val is NaN, thisVal is smaller
+            if (d1 > d2)
+                return 1; // Neither val is NaN, thisVal is larger
+
+            // Cannot use doubleToRawLongBits because of possibility of NaNs.
+            long thisBits = (long) d1;
+            long anotherBits = (long) d2;
+
+            return (thisBits == anotherBits ? 0 : // Values are equal
+                    (thisBits < anotherBits ? -1 : // (-0.0, 0.0) or (!NaN, NaN)
+                            1)); // (0.0, -0.0) or (NaN, !NaN)
+        }
     }
 
 }

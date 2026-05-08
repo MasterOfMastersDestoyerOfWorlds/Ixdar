@@ -37,6 +37,8 @@ public record QuadLayout(List<QuadLayoutPatch> patches,
                           int[] tArcQuantization,
                           int[] layoutArcQuantization,
                           int tJunctionsResolved) {
+    public static final int NUM_4 = 4;
+    public static final int NUM_3 = 3;
 
     // public QuadLayout(HalfEdgeMesh mesh, SeamlessParameterization seamlessParameterization,
     //         MotorcycleGraph motorcycleGraph, QuantizedMeshGrid quantizedMeshGrid) {
@@ -58,11 +60,6 @@ public record QuadLayout(List<QuadLayoutPatch> patches,
         return mergedPatchAssignment().distinctCount();
     }
 
-    /** PATCH-88 merge result: per-quad-patch component id + total count. */
-    public record MergedAssignment(int[] quadPatchToComponent,
-                                    int[] trianglePatchToComponent,
-                                    int distinctCount) {}
-
     /**
      * Compute merged-component assignment via union-find over {@code q=0}
      * arcs. Component ids are dense in {@code [0, distinctCount)}.
@@ -78,7 +75,7 @@ public record QuadLayout(List<QuadLayoutPatch> patches,
         HashMap<Integer, java.util.ArrayList<Integer>> arcToPatches = new HashMap<>();
         for (int p = 0; p < patches.size(); p++) {
             QuadLayoutPatch qp = patches.get(p);
-            for (int s = 0; s < 4; s++) {
+            for (int s = 0; s < NUM_4; s++) {
                 for (int la : qp.arcsBySide()[s]) {
                     arcToPatches.computeIfAbsent(la, k -> new java.util.ArrayList<>()).add(p);
                 }
@@ -88,7 +85,7 @@ public record QuadLayout(List<QuadLayoutPatch> patches,
         for (int t = 0; t < triangles.size(); t++) {
             TrianglePatch tp = triangles.get(t);
             int patchId = triOffset + t;
-            for (int s = 0; s < 3; s++) {
+            for (int s = 0; s < NUM_3; s++) {
                 for (int la : tp.arcsBySide()[s]) {
                     arcToPatches.computeIfAbsent(la, k -> new java.util.ArrayList<>()).add(patchId);
                 }
@@ -140,14 +137,30 @@ public record QuadLayout(List<QuadLayoutPatch> patches,
         if (ra != rb) parent[ra] = rb;
     }
 
+    /**
+     * TODO: document {@code build}.
+     *
+     * @return TODO: describe
+     */
     public QuadLayout build() {
         // L is the explicit conforming quad layout (nodes = singularities,
         // arcs = embedded paths on M).
         return this;
     }
 
+    /**
+     * TODO: document {@code toHalfEdgeMesh}.
+     *
+     * @throws UnsupportedOperationException TODO: describe
+     * @return TODO: describe
+     */
     public HalfEdgeMesh toHalfEdgeMesh() {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'toHalfEdgeMesh'");
     }
+
+    /** PATCH-88 merge result: per-quad-patch component id + total count. */
+    public record MergedAssignment(int[] quadPatchToComponent,
+                                    int[] trianglePatchToComponent,
+                                    int distinctCount) {}
 }

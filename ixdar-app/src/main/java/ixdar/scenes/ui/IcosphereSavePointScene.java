@@ -20,6 +20,17 @@ import ixdar.platform.input.SceneInputFrameUpdater;
 
 @SceneAnnotation(id = "icosphere-save-point-canvas")
 public class IcosphereSavePointScene extends Scene {
+    public static final float NUM_1 = 1f;
+    public static final float NUM_0_01 = 0.01f;
+    public static final float NUM_200 = 200f;
+    public static final float NUM_0 = 0f;
+    public static final float NUM_0_5 = 0.5f;
+    public static final float NUM_0_18 = 0.18f;
+    public static final float NUM_0_0001 = 0.0001f;
+    public static final float NUM_0_1 = 0.1f;
+    public static final float NUM_0_06 = 0.06f;
+    public static final float NUM_0_8 = 0.8f;
+    public static final float NUM_0_4 = 0.4f;
 
     private static final float ICO_RADIUS = 2.5f;
     private static final float EXPAND_DISTANCE = 1.5f;
@@ -105,43 +116,43 @@ public class IcosphereSavePointScene extends Scene {
 
         int width = Platforms.get().getWindowWidth();
         int height = Platforms.get().getWindowHeight();
-        float aspect = width <= 0 || height <= 0 ? 1f : ((float) width / (float) height);
-        projection.identity().perspective((float) Math.toRadians((float) camera.fov), aspect, 0.01f, 200f);
+        float aspect = width <= 0 || height <= 0 ? NUM_1 : ((float) width / (float) height);
+        projection.identity().perspective((float) Math.toRadians((float) camera.fov), aspect, NUM_0_01, NUM_200);
         clipTransform.set(projection).mul(camera.view);
-        centerClip.set(0f, 0f, 0f, 1f);
+        centerClip.set(NUM_0, NUM_0, NUM_0, NUM_1);
         clipTransform.transform(centerClip);
-        if (centerClip.w == 0f) {
+        if (centerClip.w == NUM_0) {
             isHovered = false;
             return;
         }
 
         float ndcX = centerClip.x / centerClip.w;
         float ndcY = centerClip.y / centerClip.w;
-        float centerX = (ndcX * 0.5f + 0.5f) * width;
-        float centerY = (1f - (ndcY * 0.5f + 0.5f)) * height;
-        float hoverRadius = Math.min(width, height) * 0.18f;
+        float centerX = (ndcX * NUM_0_5 + NUM_0_5) * width;
+        float centerY = (NUM_1 - (ndcY * NUM_0_5 + NUM_0_5)) * height;
+        float hoverRadius = Math.min(width, height) * NUM_0_18;
         float dx = trap.lastWindowX - centerX;
         float dy = trap.lastWindowY - centerY;
         isHovered = (dx * dx + dy * dy) <= (hoverRadius * hoverRadius);
     }
 
     private void updateAnimation() {
-        float delta = Math.max(0.0001f, (float) Clock.deltaTime());
+        float delta = Math.max(NUM_0_0001, (float) Clock.deltaTime());
         if (!isHovered) {
             isRotating = false;
-            shuffleTimer = 0f;
-            currentExpansion = lerp(currentExpansion, 0f, 0.1f);
+            shuffleTimer = NUM_0;
+            currentExpansion = lerp(currentExpansion, NUM_0, NUM_0_1);
             runtime.applyExpansion(currentExpansion, EXPAND_DISTANCE);
             return;
         }
 
-        currentExpansion = lerp(currentExpansion, 1f, 0.06f);
-        if (currentExpansion > 0.8f) {
+        currentExpansion = lerp(currentExpansion, NUM_1, NUM_0_06);
+        if (currentExpansion > NUM_0_8) {
             if (!isRotating) {
                 shuffleTimer += delta;
                 if (shuffleTimer >= MOVE_PAUSE_SECONDS) {
                     triggerMove();
-                    shuffleTimer = 0f;
+                    shuffleTimer = NUM_0;
                 }
             } else {
                 float step = ROTATION_SPEED * delta;
@@ -160,7 +171,7 @@ public class IcosphereSavePointScene extends Scene {
     }
 
     private void triggerMove() {
-        boolean cap = random.nextFloat() > 0.4f;
+        boolean cap = random.nextFloat() > NUM_0_4;
         activeAxis.set(geometry.randomAxis(random));
         activeGroup.clear();
         activeGroup.addAll(geometry.selectBand(activeAxis, cap));
@@ -168,7 +179,7 @@ public class IcosphereSavePointScene extends Scene {
             activeGroup.addAll(geometry.selectBand(activeAxis, true));
         }
         targetRotation = ROTATION_STEP;
-        currentRotation = 0f;
+        currentRotation = NUM_0;
         isRotating = true;
     }
 
