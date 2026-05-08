@@ -11,6 +11,10 @@ import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 
+/**
+ * MeshNode that converts a float input to an integer using one of four
+ * rounding modes (ROUND, FLOOR, CEIL, TRUNCATE).
+ */
 @MeshNodeAnnotation(id = "float_to_int")
 public class FloatToIntNode implements MeshNode {
     public static final String ROUND = "ROUND";
@@ -28,21 +32,13 @@ public class FloatToIntNode implements MeshNode {
     private static final InputPort MODE = new InputPort(MODE_2, PortType.STRING, ROUND, MODE_CONSTRAINT);
     private static final OutputPort RESULT = new OutputPort(RESULT_2, PortType.INT);
 
-    /**
-     * TODO: document {@code description}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public String description() {
         return "Converts a float to an integer using modes ROUND, FLOOR, CEIL, TRUNCATE.";
     }
 
-    /**
-     * TODO: document {@code socketDocs}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
@@ -52,31 +48,19 @@ public class FloatToIntNode implements MeshNode {
         );
     }
 
-    /**
-     * TODO: document {@code inputs}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public List<InputPort> inputs() {
         return List.of(VALUE, MODE);
     }
 
-    /**
-     * TODO: document {@code outputs}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public List<OutputPort> outputs() {
         return List.of(RESULT);
     }
 
-    /**
-     * TODO: document {@code evaluate}.
-     *
-     * @param ctx TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public void evaluate(NodeContext ctx) {
         Number valueNum = ctx.getInput(VALUE_2, Number.class);
@@ -100,10 +84,12 @@ public class FloatToIntNode implements MeshNode {
         TRUNCATE;
 
         /**
-         * TODO: document {@code parse}.
+         * Parses the {@code mode} port string, applying constraint normalization (e.g.
+         * the {@code TRUNC} alias maps to {@code TRUNCATE}). Falls back to the
+         * constraint's default for null/unknown input.
          *
-         * @param raw TODO: describe
-         * @return TODO: describe
+         * @param raw raw {@code mode} string from the node context
+         * @return matching {@link Mode}
          */
         public static Mode parse(String raw) {
             return Mode.valueOf(MODE_CONSTRAINT.normalize(raw));

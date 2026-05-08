@@ -20,14 +20,19 @@ public class SpotLight {
     Vector3f direction;
 
     /**
-     * TODO: document {@code SpotLight}.
+     * Build a spotlight at {@code position} aimed along {@code direction}, with a
+     * conical falloff bracketed by {@code cutOff} (full intensity) and
+     * {@code outerCutOff} (zero intensity). Diffuse and specular both use
+     * {@code color}; ambient is zero. Distance attenuation coefficients are
+     * picked from {@link PointLight#attenuationLookupTable} via
+     * {@link #setAttenuation(float)}.
      *
-     * @param position TODO: describe
-     * @param direction TODO: describe
-     * @param color TODO: describe
-     * @param cutOff TODO: describe
-     * @param outerCutOff TODO: describe
-     * @param distance TODO: describe
+     * @param position world-space position of the emitter
+     * @param direction normalized cone axis pointing away from the emitter
+     * @param color shared RGB intensity for diffuse and specular
+     * @param cutOff inner cone half-angle in degrees; fragments inside this cone receive full intensity
+     * @param outerCutOff outer cone half-angle in degrees; fragments beyond this cone receive nothing
+     * @param distance approximate falloff range used to pick attenuation
      */
     public SpotLight(Vector3f position, Vector3f direction, Vector3f color, float cutOff, float outerCutOff,
             float distance) {
@@ -42,9 +47,11 @@ public class SpotLight {
     }
 
     /**
-     * TODO: document {@code setAttenuation}.
+     * Pick the constant/linear/quadratic attenuation triple from
+     * {@link PointLight#attenuationLookupTable} whose effective range bracket
+     * contains {@code distance}.
      *
-     * @param distance TODO: describe
+     * @param distance falloff range in world units
      */
     public void setAttenuation(float distance) {
         int rows = PointLight.attenuationLookupTable.length / NUM_4;
@@ -59,10 +66,12 @@ public class SpotLight {
     }
 
     /**
-     * TODO: document {@code setShaderInfo}.
+     * Push this light's parameters into {@code shader}'s {@code spotLight}
+     * uniform block. The cone angles are converted from degrees to the cosine
+     * of radians, matching the dot-product comparison in the fragment shader.
      *
-     * @param shader TODO: describe
-     * @param i TODO: describe
+     * @param shader target shader program; must already be bound
+     * @param i unused; preserved for symmetry with {@link PointLight#setShaderInfo(ShaderProgram, int)}
      */
     public void setShaderInfo(ShaderProgram shader, int i) {
         shader.setVec3("spotLight.position", position);

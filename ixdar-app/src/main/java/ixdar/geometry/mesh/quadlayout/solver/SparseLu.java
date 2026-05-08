@@ -25,17 +25,17 @@ public final class SparseLu {
     private int n;
 
     /**
-     * TODO: document {@code SparseLu}.
+     * Creates an empty solver. Call {@link #decompose(SparseMatrix)} before any solve.
      */
     public SparseLu() {
     }
 
     /**
-     * TODO: document {@code decompose}.
+     * Convert {@code m} to EJML CSC and run sparse Cholesky factorization.
      *
-     * @param m TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param m square SPD matrix to factor
+     * @throws IllegalArgumentException if {@code m} is not square
+     * @return true if {@code setA} accepted the factorization
      */
     public boolean decompose(SparseMatrix m) {
         if (m.rows() != m.cols()) {
@@ -64,31 +64,32 @@ public final class SparseLu {
 
 
     /**
-     * TODO: document {@code refactor}.
+     * Re-decompose for the same nonzero pattern; EJML doesn't expose a
+     * separate symbolic/numeric phase so this re-runs the full factorization.
      *
-     * @param m TODO: describe
-     * @return TODO: describe
+     * @param m matrix to refactor
+     * @return true if the new factorization is usable
      */
     public boolean refactor(SparseMatrix m) {
         return decompose(m);
     }
 
     /**
-     * TODO: document {@code isSolvable}.
+     * Whether a factorization is currently held.
      *
-     * @return TODO: describe
+     * @return true if a factorization is held and ready to solve
      */
     public boolean isSolvable() {
         return solver != null;
     }
 
     /**
-     * TODO: document {@code solve}.
+     * Solve {@code A x = rhs} using the held factorization.
      *
-     * @param rhs TODO: describe
-     * @throws IllegalStateException TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param rhs right-hand-side vector of length {@link #dimension()}
+     * @throws IllegalStateException if {@link #decompose(SparseMatrix)} has not been called
+     * @throws IllegalArgumentException if {@code rhs.length} differs from the matrix dimension
+     * @return solution vector {@code x}
      */
     public double[] solve(double[] rhs) {
         if (solver == null) {
@@ -104,9 +105,9 @@ public final class SparseLu {
     }
 
     /**
-     * TODO: document {@code dimension}.
+     * Dimension of the matrix that was last decomposed.
      *
-     * @return TODO: describe
+     * @return the dimension {@code n} of the most recently decomposed {@code n × n} matrix
      */
     public int dimension() {
         return n;

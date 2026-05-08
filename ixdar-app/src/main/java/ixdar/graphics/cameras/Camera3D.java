@@ -232,6 +232,8 @@ public class Camera3D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the constant 1; 3D cameras do not scale via point-space zoom
      */
     @Override
@@ -325,6 +327,8 @@ public class Camera3D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the current ortho z-index
      */
     @Override
@@ -351,6 +355,8 @@ public class Camera3D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return current depth used by the descending far-z cursor
      */
     @Override
@@ -421,6 +427,8 @@ public class Camera3D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return current framebuffer width (the 3D viewport always covers it)
      */
     @Override
@@ -429,6 +437,8 @@ public class Camera3D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return current framebuffer height
      */
     @Override
@@ -437,6 +447,8 @@ public class Camera3D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return zero (3D viewport originates at the framebuffer corner)
      */
     @Override
@@ -445,6 +457,8 @@ public class Camera3D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return zero (3D viewport originates at the framebuffer corner)
      */
     @Override
@@ -453,6 +467,8 @@ public class Camera3D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return 1 (no DPI rescaling applied to 3D viewport sizing)
      */
     @Override
@@ -461,6 +477,8 @@ public class Camera3D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return 1 (no DPI rescaling applied to 3D viewport sizing)
      */
     @Override
@@ -469,6 +487,8 @@ public class Camera3D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return {@code null}; 3D camera does not maintain a {@link Bounds} rectangle
      */
     @Override

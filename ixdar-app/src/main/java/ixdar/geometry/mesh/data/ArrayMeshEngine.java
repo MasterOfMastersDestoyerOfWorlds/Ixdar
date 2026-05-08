@@ -28,9 +28,9 @@ public final class ArrayMeshEngine {
     }
 
     /**
-     * TODO: document {@code emptyQuads}.
+     * Empty quad mesh sentinel: zero vertices, zero faces, four verts per face.
      *
-     * @return TODO: describe
+     * @return fresh empty {@link ArrayMesh} that callers may use as an identity element
      */
     public static ArrayMesh emptyQuads() {
         return new ArrayMesh(new float[0], null, new int[0], NUM_4);
@@ -40,9 +40,9 @@ public final class ArrayMeshEngine {
      * Packs a mesh with uniform face size into an {@link ArrayMesh}. Vertex
      * iteration order becomes contiguous indices {@code 0..vertexCount-1}.
      *
-     * @param mesh TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param mesh source topology; if it is already an {@link ArrayMesh} it is returned as-is
+     * @throws IllegalArgumentException if faces have differing vertex counts
+     * @return packed {@link ArrayMesh} with the same geometry, or {@link #emptyQuads()} for null/empty input
      */
     public static ArrayMesh fromUniformMeshTopology(MeshTopology mesh) {
         if (mesh == null || mesh.vertexCount() == 0) {
@@ -86,10 +86,10 @@ public final class ArrayMeshEngine {
     }
 
     /**
-     * TODO: document {@code isUniformQuads}.
+     * Whether every face of {@code mesh} is a quad. Empty/null meshes count as uniform.
      *
-     * @param mesh TODO: describe
-     * @return TODO: describe
+     * @param mesh topology to inspect
+     * @return {@code true} if all faces have exactly four vertices (or there are no faces)
      */
     public static boolean isUniformQuads(MeshTopology mesh) {
         if (mesh == null || mesh.vertexCount() == 0) {
@@ -112,10 +112,10 @@ public final class ArrayMeshEngine {
      * matching {@link ixdar.geometry.mesh.nodes.modifier.SubdivideMeshNode} for
      * uniform quad meshes.
      *
-     * @param src TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @throws IllegalStateException TODO: describe
-     * @return TODO: describe
+     * @param src source mesh; must contain only quads
+     * @throws IllegalArgumentException if any face has a vertex count other than four
+     * @throws IllegalStateException if the topology lacks an edge midpoint that subdivision needs
+     * @return new subdivided {@link ArrayMesh} with normals computed
      */
     public static ArrayMesh subdivideQuadsOnce(MeshTopology src) {
         if (src == null || src.vertexCount() == 0) {
@@ -211,11 +211,11 @@ public final class ArrayMeshEngine {
      * <strong>inward</strong> vertex normals (topology must be uniform quads).
      * Adds reversed-orientation bottom faces and a side quad per boundary edge.
      *
-     * @param mesh TODO: describe
-     * @param thickness TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @throws IllegalStateException TODO: describe
-     * @return TODO: describe
+     * @param mesh source quad sheet
+     * @param thickness offset distance along negative vertex normals; absolute value is used. {@code 0} returns a copy
+     * @throws IllegalArgumentException if {@code mesh} is not uniform quads
+     * @throws IllegalStateException if the side-quad fill miscounts boundary edges
+     * @return solidified {@link ArrayMesh} with normals computed
      */
     public static ArrayMesh solidifyUniformQuads(ArrayMesh mesh, float thickness) {
         if (mesh == null || mesh.vertexCount() == 0) {
@@ -289,11 +289,12 @@ public final class ArrayMeshEngine {
     }
 
     /**
-     * TODO: document {@code solidifyUniformMeshTopology}.
+     * Convenience wrapper that accepts any {@link MeshTopology}, packing it to an
+     * {@link ArrayMesh} first if needed before {@link #solidifyUniformQuads}.
      *
-     * @param mesh TODO: describe
-     * @param thickness TODO: describe
-     * @return TODO: describe
+     * @param mesh source topology; must be uniform quads
+     * @param thickness offset distance (see {@link #solidifyUniformQuads})
+     * @return solidified topology
      */
     public static MeshTopology solidifyUniformMeshTopology(MeshTopology mesh, float thickness) {
         if (mesh == null || mesh.vertexCount() == 0) {
@@ -304,12 +305,13 @@ public final class ArrayMeshEngine {
     }
 
     /**
-     * TODO: document {@code deleteVertices}.
+     * Removes selected vertices and any face that touches one. Surviving vertices are
+     * compacted to contiguous indices.
      *
-     * @param mesh TODO: describe
-     * @param del TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param del per-vertex deletion mask; length must equal {@code mesh.vertexCount()}
+     * @throws IllegalArgumentException if {@code del.length} does not match the vertex count
+     * @return new {@link ArrayMesh} with selected vertices/faces removed, or {@link #emptyQuads()} if nothing remains
      */
     public static ArrayMesh deleteVertices(ArrayMesh mesh, boolean[] del) {
         if (mesh == null || mesh.vertexCount() == 0) {
@@ -386,11 +388,12 @@ public final class ArrayMeshEngine {
     }
 
     /**
-     * TODO: document {@code deleteEdges}.
+     * Removes faces incident to any selected edge and drops vertices that become
+     * orphaned. Surviving vertices are compacted.
      *
-     * @param mesh TODO: describe
-     * @param delEdge TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param delEdge per-edge deletion mask; null or all-false yields a copy
+     * @return new {@link ArrayMesh} with selected edges (and their faces) removed
      */
     public static ArrayMesh deleteEdges(ArrayMesh mesh, boolean[] delEdge) {
         if (mesh == null || mesh.edgeCount() == 0) {
@@ -484,11 +487,12 @@ public final class ArrayMeshEngine {
     }
 
     /**
-     * TODO: document {@code mergeByDistance}.
+     * Welds vertices closer than {@code distance} into single representatives via
+     * {@link MeshMergeByDistance}.
      *
-     * @param mesh TODO: describe
-     * @param distance TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param distance merge threshold; non-positive values yield a copy unchanged
+     * @return merged {@link ArrayMesh}
      */
     public static ArrayMesh mergeByDistance(ArrayMesh mesh, float distance) {
         if (mesh == null || mesh.vertexCount() == 0) {
@@ -502,12 +506,14 @@ public final class ArrayMeshEngine {
     }
 
     /**
-     * TODO: document {@code join}.
+     * Concatenates two meshes by appending {@code b}'s vertices and faces after
+     * {@code a}'s, offsetting {@code b}'s face indices by {@code a.vertexCount()}.
+     * No welding is performed.
      *
-     * @param a TODO: describe
-     * @param b TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param a first mesh; null or empty returns a copy of {@code b}
+     * @param b second mesh; null or empty returns a copy of {@code a}
+     * @throws IllegalArgumentException if {@code a} and {@code b} disagree on vertices-per-face
+     * @return joined {@link ArrayMesh} with normals computed
      */
     public static ArrayMesh join(ArrayMesh a, ArrayMesh b) {
         if (a == null || a.vertexCount() == 0) {
@@ -545,11 +551,11 @@ public final class ArrayMeshEngine {
      * faces with two split opposite edges become {@code cuts+1} strip quads.
      * Faces with no aligned edges pass through unchanged.
      *
+     * @param src uniform-quad source mesh
+     * @param cuts number of new loops to insert per affected edge; non-positive returns a copy
      * @param axisIndex 0=X, 1=Y, 2=Z
-     * @param src TODO: describe
-     * @param cuts TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @throws IllegalArgumentException if {@code src} is not uniform quads
+     * @return loop-cut {@link ArrayMesh} with normals computed
      */
     public static ArrayMesh loopCutAxis(ArrayMesh src, int cuts, int axisIndex) {
         if (src == null || src.vertexCount() == 0) return emptyQuads();
@@ -686,10 +692,10 @@ public final class ArrayMeshEngine {
     /**
      * Returns midpoints of undirected edge (va,vb) in the direction from va toward vb.
      *
-     * @param splitMap TODO: describe
-     * @param va TODO: describe
-     * @param vb TODO: describe
-     * @return TODO: describe
+     * @param splitMap canonical (lo,hi)-keyed map of midpoint vertex indices
+     * @param va start vertex index
+     * @param vb end vertex index
+     * @return midpoint indices ordered from {@code va} toward {@code vb}, or {@code null} if the edge was not split
      */
     private static int[] directedMids(HashMap<Long, int[]> splitMap, int va, int vb) {
         int[] mids = splitMap.get(edgeKey(va, vb));

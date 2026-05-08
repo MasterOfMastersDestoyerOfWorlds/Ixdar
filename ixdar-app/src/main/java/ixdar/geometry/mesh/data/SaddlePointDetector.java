@@ -58,12 +58,13 @@ public final class SaddlePointDetector {
     private SaddlePointDetector() {}
 
     /**
-     * TODO: document {@code detect}.
+     * Detect saddle vertices and grow short separator cuts along each saddle's
+     * positive-curvature direction.
      *
-     * @param mesh TODO: describe
-     * @param ed TODO: describe
-     * @param pdf TODO: describe
-     * @return TODO: describe
+     * @param mesh source surface mesh
+     * @param ed edge / face dihedral table; supplies the 1-ring used for the cut walk
+     * @param pdf per-vertex principal curvatures and directions
+     * @return separator edges (as packed long keys) plus the saddle seed vertex ids
      */
     public static SaddleSeparators detect(ArrayMesh mesh, EdgeDihedrals ed, PrincipalDirectionField pdf) {
         int nv = mesh.vertexCount();

@@ -687,7 +687,7 @@ public class LwjglGL implements GL {
         return GL_LINEAR_MIPMAP_LINEAR;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void clearColor(Color c) {
         Vector4f c4 = c.toVector4f();

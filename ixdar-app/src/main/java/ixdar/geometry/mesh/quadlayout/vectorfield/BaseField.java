@@ -30,9 +30,11 @@ public abstract class BaseField {
     protected final float[] frameN;
 
     /**
-     * TODO: document {@code BaseField}.
+     * Allocate per-face theta and local frame storage and build the local
+     * frames for {@code mesh}. Frames are derived from each face's first edge
+     * and face normal (see class doc).
      *
-     * @param mesh TODO: describe
+     * @param mesh underlying triangulated 2-manifold
      */
     protected BaseField(ArrayMesh mesh) {
         this.mesh = mesh;
@@ -45,49 +47,52 @@ public abstract class BaseField {
     }
 
     /**
-     * TODO: document {@code mesh}.
+     * Mesh this field is defined over.
      *
-     * @return TODO: describe
+     * @return underlying mesh this field is defined over
      */
     public ArrayMesh mesh() { return mesh; }
 
     /**
-     * TODO: document {@code faceCount}.
+     * Number of faces in the underlying mesh.
      *
-     * @return TODO: describe
+     * @return number of faces in the underlying mesh (one theta per face)
      */
     public int faceCount() { return mesh.faceCount(); }
 
     /**
-     * TODO: document {@code theta}.
+     * Theta angle stored at {@code faceId}.
      *
-     * @param faceId TODO: describe
-     * @return TODO: describe
+     * @param faceId active face id
+     * @return theta_i in radians, in face {@code faceId}'s local 2D frame
      */
     public double theta(int faceId) { return theta[faceId]; }
 
     /**
-     * TODO: document {@code copyTheta}.
+     * Snapshot of the per-face theta array.
      *
-     * @return TODO: describe
+     * @return defensive copy of the per-face theta array
      */
     public double[] copyTheta() { return Arrays.copyOf(theta, theta.length); }
 
     /**
-     * TODO: document {@code setTheta}.
+     * Overwrite theta for one face. No 4-RoSy normalization is applied; the
+     * caller is responsible for keeping the value consistent with downstream
+     * consumers.
      *
-     * @param faceId TODO: describe
-     * @param value TODO: describe
+     * @param faceId active face id
+     * @param value  new theta in radians (face's local frame)
      */
     public void setTheta(int faceId, double value) { theta[faceId] = value; }
 
     /**
      * Project the per-face cross direction (theta) to a 3D unit vector.
      *
-     * @param faceId TODO: describe
-     * @param branchIndex TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
+     * @param faceId      active face id
+     * @param branchIndex 4-RoSy branch in {0,1,2,3}; selects rotation by
+     *                    {@code branchIndex * pi/2} (low two bits used)
+     * @param dest        output vector (overwritten)
+     * @return {@code dest}, set to the chosen branch direction in world space
      */
     public Vector3f directionAt(int faceId, int branchIndex, Vector3f dest) {
         double t = theta[faceId] + (branchIndex & NUM_3) * (Math.PI * NUM_0_5);
@@ -101,11 +106,11 @@ public abstract class BaseField {
     }
 
     /**
-     * TODO: document {@code frameU}.
+     * Read the face's tangent-frame U axis (unit, along the face's first edge).
      *
-     * @param faceId TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
+     * @param faceId active face id
+     * @param dest   output vector (overwritten)
+     * @return {@code dest}, set to e0_i
      */
     public Vector3f frameU(int faceId, Vector3f dest) {
         int o = faceId * NUM_3;
@@ -113,11 +118,12 @@ public abstract class BaseField {
     }
 
     /**
-     * TODO: document {@code frameV}.
+     * Read the face's tangent-frame V axis (unit, {@code n_i x e0_i}).
      *
-     * @param faceId TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
+     * @param faceId active face id
+     * @param dest   output vector (overwritten)
+     * @return {@code dest}, set to the 90-degree CCW rotation of frameU in the
+     *         tangent plane
      */
     public Vector3f frameV(int faceId, Vector3f dest) {
         int o = faceId * NUM_3;
@@ -125,11 +131,11 @@ public abstract class BaseField {
     }
 
     /**
-     * TODO: document {@code frameN}.
+     * Read the face's tangent-frame normal (unit).
      *
-     * @param faceId TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
+     * @param faceId active face id
+     * @param dest   output vector (overwritten)
+     * @return {@code dest}, set to n_i
      */
     public Vector3f frameN(int faceId, Vector3f dest) {
         int o = faceId * NUM_3;

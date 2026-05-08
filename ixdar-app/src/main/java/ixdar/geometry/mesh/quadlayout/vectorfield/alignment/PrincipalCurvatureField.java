@@ -93,18 +93,19 @@ public final class PrincipalCurvatureField {
     }
 
     /**
-     * TODO: document {@code faceCount}.
+     * Number of faces this field covers.
      *
-     * @return TODO: describe
+     * @return number of faces in the field
      */
     public int faceCount() { return F; }
 
     /**
-     * TODO: document {@code aMin}.
+     * Read the per-face minimum-principal-curvature line direction (unit,
+     * sign-ambiguous — see class doc).
      *
-     * @param faceId TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
+     * @param faceId active face id
+     * @param dest   output vector (overwritten)
+     * @return {@code dest}, set to {@code a_min(faceId)}
      */
     public Vector3f aMin(int faceId, Vector3f dest) {
         int o = faceId * NUM_3;
@@ -112,11 +113,12 @@ public final class PrincipalCurvatureField {
     }
 
     /**
-     * TODO: document {@code aMax}.
+     * Read the per-face maximum-principal-curvature line direction (unit,
+     * sign-ambiguous; CIE*16 §3.2 ¶1: {@code a_max = n x a_min}).
      *
-     * @param faceId TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
+     * @param faceId active face id
+     * @param dest   output vector (overwritten)
+     * @return {@code dest}, set to {@code a_max(faceId)}
      */
     public Vector3f aMax(int faceId, Vector3f dest) {
         int o = faceId * NUM_3;
@@ -124,11 +126,12 @@ public final class PrincipalCurvatureField {
     }
 
     /**
-     * TODO: document {@code normal}.
+     * Read the per-face robust surface normal (unit) computed via CIE*16
+     * §3.2 ¶1.
      *
-     * @param faceId TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
+     * @param faceId active face id
+     * @param dest   output vector (overwritten)
+     * @return {@code dest}, set to the field's per-face normal
      */
     public Vector3f normal(int faceId, Vector3f dest) {
         int o = faceId * NUM_3;
@@ -136,17 +139,19 @@ public final class PrincipalCurvatureField {
     }
 
     /**
-     * TODO: document {@code kappaMin}.
+     * Per-face minimum principal curvature value.
      *
-     * @param faceId TODO: describe
-     * @return TODO: describe
+     * @param faceId active face id
+     * @return signed principal curvature in the {@code a_min} direction
+     *         ({@code |kappaMax| >= |kappaMin|})
      */
     public double kappaMin(int faceId) { return kappaMin[faceId]; }
     /**
-     * TODO: document {@code kappaMax}.
+     * Per-face maximum principal curvature value.
      *
-     * @param faceId TODO: describe
-     * @return TODO: describe
+     * @param faceId active face id
+     * @return signed principal curvature in the {@code a_max} direction
+     *         (largest-magnitude eigenvalue of the smoothed tensor)
      */
     public double kappaMax(int faceId) { return kappaMax[faceId]; }
 
@@ -156,9 +161,9 @@ public final class PrincipalCurvatureField {
      * default tensor-smoothing (ACDLD03 §2.3) and feature-edge clipping
      * (ACDLD03 §2.5).
      *
-     * @param mesh TODO: describe
-     * @param rGeo TODO: describe
-     * @return TODO: describe
+     * @param mesh triangle mesh
+     * @param rGeo geodesic-disk integration radius (world units)
+     * @return populated principal-curvature field
      */
     public static PrincipalCurvatureField compute(ArrayMesh mesh, double rGeo) {
         return compute(mesh, rGeo, DEFAULT_SMOOTH_ITERS, DEFAULT_FEATURE_DIHEDRAL_DEG);
@@ -184,11 +189,13 @@ public final class PrincipalCurvatureField {
      * dihedral), producing spurious principal directions perpendicular to
      * the edge throughout the supposedly-flat region.
      *
-     * @param mesh TODO: describe
-     * @param rGeo TODO: describe
-     * @param smoothIters TODO: describe
-     * @param featureDihedralDeg TODO: describe
-     * @return TODO: describe
+     * @param mesh               triangle mesh
+     * @param rGeo               geodesic-disk integration radius (world units)
+     * @param smoothIters        ACDLD03 §2.3 dual-graph smoothing pass count
+     * @param featureDihedralDeg sharp-edge threshold in degrees (ACDLD03 §2.5);
+     *                           BFS and smoothing do not cross edges with
+     *                           {@code |beta| > } this
+     * @return populated principal-curvature field
      */
     public static PrincipalCurvatureField compute(ArrayMesh mesh, double rGeo,
                                                    int smoothIters, double featureDihedralDeg) {
@@ -585,11 +592,11 @@ public final class PrincipalCurvatureField {
     /**
      * True if face {@code f}'s closest vertex to {@code center} is within √rSq.
      *
-     * @param mesh TODO: describe
-     * @param f TODO: describe
-     * @param center TODO: describe
-     * @param rSq TODO: describe
-     * @return TODO: describe
+     * @param mesh   triangle mesh
+     * @param f      face id to test
+     * @param center sphere center
+     * @param rSq    squared sphere radius
+     * @return {@code true} if any vertex of {@code f} lies within the ball
      */
     private static boolean faceTouchesBall(ArrayMesh mesh, int f, Vector3f center, double rSq) {
         Vector3f p = new Vector3f();
@@ -607,11 +614,12 @@ public final class PrincipalCurvatureField {
      * the line parameter t ∈ [0, 1]; returns 0 if the segment misses the ball
      * entirely.
      *
-     * @param p0 TODO: describe
-     * @param p1 TODO: describe
-     * @param c TODO: describe
-     * @param r TODO: describe
-     * @return TODO: describe
+     * @param p0 first edge endpoint
+     * @param p1 second edge endpoint
+     * @param c  ball center
+     * @param r  ball radius
+     * @return length of the segment {@code p0->p1} inside the ball, or 0 if
+     *         the segment misses entirely
      */
     private static double clippedEdgeLengthInBall(Vector3f p0, Vector3f p1,
                                                   Vector3f c, double r) {
@@ -639,10 +647,10 @@ public final class PrincipalCurvatureField {
     /**
      * Helper: dot product of eigenvector column k with vector n.
      *
-     * @param V TODO: describe
-     * @param k TODO: describe
-     * @param n TODO: describe
-     * @return TODO: describe
+     * @param V eigenvector matrix (eigenvectors as columns)
+     * @param k column index
+     * @param n vector to dot against
+     * @return {@code V[:,k] . n}
      */
     private static double eigVecDotN(double[][] V, int k, Vector3f n) {
         return V[0][k] * n.x + V[1][k] * n.y + V[2][k] * n.z;
@@ -653,9 +661,10 @@ public final class PrincipalCurvatureField {
      * {@code w[0..2]}, eigenvectors as columns of {@code V}. Sorted by
      * eigenvalue (ascending). Standard textbook (Numerical Recipes ch. 11.1).
      *
-     * @param A TODO: describe
-     * @param w TODO: describe
-     * @param V TODO: describe
+     * @param A input symmetric 3x3 matrix (read-only; copied internally)
+     * @param w output eigenvalues (length 3, sorted ascending)
+     * @param V output eigenvector matrix (eigenvectors as columns, sorted to
+     *          match {@code w})
      */
     private static void jacobiEigen3(double[][] A, double[] w, double[][] V) {
         double[][] a = new double[NUM_3][NUM_3];

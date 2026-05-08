@@ -51,7 +51,8 @@ public final class CharrotGregoryPatchSampler {
      * @param faceIdx     packed mesh triangle indices.
      * @param positions   packed mesh vertex positions.
      * @param vertexCount mesh vertex count (sizes errs array).
-     * @return TODO: describe
+     * @return sampled patch geometry plus per-vertex / aggregate reconstruction error;
+     *         an empty patch is returned when fewer than three sides are supplied
      */
     public static SampledPatch sample(List<Integer> faces,
                                        Vector3f[][] sideBeziers,
@@ -218,7 +219,8 @@ public final class CharrotGregoryPatchSampler {
     }
 
     /**
-     * TODO: document.
+     * Result of a single Charrot-Gregory patch sampling: the triangulated surface
+     * plus reconstruction-error statistics for the patch's source faces.
      *
      * @param fourSided        whether the input was a 4-sided patch (always
      *                         true for {@code sides.length == 4} since the

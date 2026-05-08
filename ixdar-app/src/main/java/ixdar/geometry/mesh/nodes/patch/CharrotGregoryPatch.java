@@ -59,7 +59,7 @@ public final class CharrotGregoryPatch {
      * @param u domain-space x of the sample point (canonical n-gon coordinates).
      * @param v domain-space y of the sample point.
      * @param out result vector (written in-place, also returned).
-     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalArgumentException if fewer than 3 boundary curves are supplied
      * @return {@code out} for chaining.
      */
     public static Vector3f evaluate(Vector3f[][] boundaryCurves, float u, float v, Vector3f out) {
@@ -151,10 +151,10 @@ public final class CharrotGregoryPatch {
     /**
      * Convenience overload that allocates the output vector.
      *
-     * @param boundaryCurves TODO: describe
-     * @param u TODO: describe
-     * @param v TODO: describe
-     * @return TODO: describe
+     * @param boundaryCurves N closed cubic Bezier curves
+     * @param u domain x in canonical n-gon coordinates
+     * @param v domain y in canonical n-gon coordinates
+     * @return newly-allocated patch sample
      */
     public static Vector3f evaluate(Vector3f[][] boundaryCurves, float u, float v) {
         return evaluate(boundaryCurves, u, v, new Vector3f());
@@ -165,11 +165,11 @@ public final class CharrotGregoryPatch {
      * canonical regular n-gon (vertices on the unit circle at angles
      * (i + 0.5) · 2π/n + π). The distance is signed positive for points inside.
      *
-     * @param edgeIndex TODO: describe
-     * @param n TODO: describe
-     * @param u TODO: describe
-     * @param v TODO: describe
-     * @return TODO: describe
+     * @param edgeIndex edge index in {@code [0, n)}; edge {@code i} runs from vertex {@code i} to {@code i + 1}
+     * @param n total side count of the canonical n-gon
+     * @param u sample point x
+     * @param v sample point y
+     * @return signed perpendicular distance (positive inside)
      */
     static float domainEdgeDistance(int edgeIndex, int n, float u, float v) {
         // Edge goes from vertex edgeIndex to vertex edgeIndex + 1.
@@ -200,13 +200,13 @@ public final class CharrotGregoryPatch {
     /**
      * Cubic Bézier evaluation at parameter t.
      *
-     * @param p0 TODO: describe
-     * @param p1 TODO: describe
-     * @param p2 TODO: describe
-     * @param p3 TODO: describe
-     * @param t TODO: describe
-     * @param out TODO: describe
-     * @return TODO: describe
+     * @param p0 first control point
+     * @param p1 second control point
+     * @param p2 third control point
+     * @param p3 fourth control point
+     * @param t parameter in {@code [0, 1]}
+     * @param out output vector overwritten with the curve sample
+     * @return {@code out} for chaining
      */
     static Vector3f bezierEval(Vector3f p0, Vector3f p1, Vector3f p2, Vector3f p3, float t, Vector3f out) {
         float omt = NUM_1 - t;
@@ -223,8 +223,8 @@ public final class CharrotGregoryPatch {
     /**
      * Quintic smoother-step: t³(6t² − 15t + 10). C² continuous at 0 and 1.
      *
-     * @param t TODO: describe
-     * @return TODO: describe
+     * @param t parameter, clamped to {@code [0, 1]} before easing
+     * @return eased value
      */
     static float smootherStep(float t) {
         t = clamp01(t);

@@ -54,6 +54,8 @@ public class MouseTrap {
     private Canvas3D canvas;
 
     /**
+     * Build a mouse controller bound to a scene, camera, and canvas.
+     *
      * @param main owning {@link MainScene}, or {@code null} for non-main scenes
      * @param camera camera to drive (pan, hover, zoom)
      * @param canvas owning canvas (provides platform ID)
@@ -451,6 +453,8 @@ public class MouseTrap {
         public ScrollHandler handler;
 
         /**
+         * Build a scroll subscription for a screen region.
+         *
          * @param bounds screen region (recalculated each event)
          * @param handler callback invoked while the cursor is inside {@code bounds}
          */
@@ -465,6 +469,8 @@ public class MouseTrap {
         public ClickHandler handler;
 
         /**
+         * Build a click subscription for a screen region.
+         *
          * @param bounds screen region (recalculated each event)
          * @param handler callback invoked when a click lands inside {@code bounds}
          */

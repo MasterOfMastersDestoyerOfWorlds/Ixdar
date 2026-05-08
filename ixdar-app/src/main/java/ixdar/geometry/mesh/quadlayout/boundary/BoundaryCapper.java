@@ -30,11 +30,14 @@ public final class BoundaryCapper {
     }
 
     /**
-     * TODO: document {@code cap}.
+     * Cap every boundary loop on {@code mesh} with a fan triangulation centred
+     * at the loop centroid; returns the closed mesh and the bookkeeping needed
+     * by {@link BoundaryUncapper}.
      *
-     * @param mesh TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param mesh triangle mesh; may have any number of boundary loops
+     * @throws IllegalArgumentException if {@code mesh} is not a triangle mesh
+     * @return closed mesh plus per-loop cap-vertex and cap-face ids; an empty result
+     *         (no new vertices/faces) if {@code mesh} was already closed
      */
     public static CapResult cap(ArrayMesh mesh) {
         if (mesh.getVertsPerFace() != VERTS_PER_TRI) {

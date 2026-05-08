@@ -56,9 +56,9 @@ public final class MathExpressionEvaluator {
      * supplied value. Re-parses on every call.
      *
      * @param x value bound to the {@code x} identifier inside the expression
-     * @return the numeric result
      * @throws IllegalArgumentException on syntax errors, unknown identifiers/functions,
      *         wrong-arity calls, or trailing characters after the expression
+     * @return the numeric result
      */
     public double evaluate(double x) {
         this.s = expression;

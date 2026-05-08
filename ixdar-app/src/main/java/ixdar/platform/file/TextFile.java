@@ -99,6 +99,8 @@ public class TextFile {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the path (lines are not included)
      */
     @Override
@@ -107,6 +109,8 @@ public class TextFile {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return hash derived from {@link #path} only
      */
     @Override

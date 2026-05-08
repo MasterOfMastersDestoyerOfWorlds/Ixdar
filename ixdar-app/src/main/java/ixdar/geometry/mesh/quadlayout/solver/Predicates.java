@@ -51,12 +51,12 @@ public final class Predicates {
      *  | b.x - c.x   b.y - c.y |
      * </pre>.
      *
-     * @param ax TODO: describe
-     * @param ay TODO: describe
-     * @param bx TODO: describe
-     * @param by TODO: describe
-     * @param cx TODO: describe
-     * @param cy TODO: describe
+     * @param ax x of point a
+     * @param ay y of point a
+     * @param bx x of point b
+     * @param by y of point b
+     * @param cx x of point c
+     * @param cy y of point c
      * @return +1 if (a, b, c) is counter-clockwise, −1 if clockwise, 0 if collinear.
      */
     public static int orient2d(double ax, double ay, double bx, double by, double cx, double cy) {
@@ -93,19 +93,19 @@ public final class Predicates {
      * Positive if d is on the negative side of the oriented plane through a,b,c
      * (matching Shewchuk's convention).
      *
-     * @param ax TODO: describe
-     * @param ay TODO: describe
-     * @param az TODO: describe
-     * @param bx TODO: describe
-     * @param by TODO: describe
-     * @param bz TODO: describe
-     * @param cx TODO: describe
-     * @param cy TODO: describe
-     * @param cz TODO: describe
-     * @param dx TODO: describe
-     * @param dy TODO: describe
-     * @param dz TODO: describe
-     * @return TODO: describe
+     * @param ax x of point a
+     * @param ay y of point a
+     * @param az z of point a
+     * @param bx x of point b
+     * @param by y of point b
+     * @param bz z of point b
+     * @param cx x of point c
+     * @param cy y of point c
+     * @param cz z of point c
+     * @param dx x of point d
+     * @param dy y of point d
+     * @param dz z of point d
+     * @return +1, −1, or 0 — sign of the tetrahedron volume determinant
      */
     public static int orient3d(double ax, double ay, double az,
                                double bx, double by, double bz,
@@ -186,7 +186,7 @@ public final class Predicates {
     /**
      * Convenience: machine epsilon used by the static filters. Public for tests.
      *
-     * @return TODO: describe
+     * @return Shewchuk's machine epsilon (largest x with {@code 1 + x == 1} in round-to-nearest)
      */
     public static double machineEpsilon() { return EPSILON; }
 }

@@ -192,7 +192,7 @@ public abstract class Point2D implements Cloneable {
      * object.
      *
      * @throws OutOfMemoryError if there is not enough memory.
-     * @throws InternalError TODO: describe
+     * @throws InternalError if {@link Cloneable} is not honored by a subclass; should never occur for {@code Point2D}
      * @return a clone of this instance.
      * @see java.lang.Cloneable
      * @since 1.2
@@ -281,7 +281,7 @@ public abstract class Point2D implements Cloneable {
         /**
          * {@inheritDoc}.
          *
-         * @return TODO: describe
+         * @return the X coordinate widened from the {@code float} field
          * @since 1.2
          */
         public double getX() {
@@ -291,7 +291,7 @@ public abstract class Point2D implements Cloneable {
         /**
          * {@inheritDoc}.
          *
-         * @return TODO: describe
+         * @return the Y coordinate widened from the {@code float} field
          * @since 1.2
          */
         public double getY() {
@@ -301,8 +301,8 @@ public abstract class Point2D implements Cloneable {
         /**
          * {@inheritDoc}.
          *
-         * @param x TODO: describe
-         * @param y TODO: describe
+         * @param x new X coordinate, narrowed to {@code float}
+         * @param y new Y coordinate, narrowed to {@code float}
          * @since 1.2
          */
         public void setLocation(double x, double y) {
@@ -381,7 +381,7 @@ public abstract class Point2D implements Cloneable {
         /**
          * {@inheritDoc}.
          *
-         * @return TODO: describe
+         * @return the X coordinate of this point
          * @since 1.2
          */
         public double getX() {
@@ -391,7 +391,7 @@ public abstract class Point2D implements Cloneable {
         /**
          * {@inheritDoc}.
          *
-         * @return TODO: describe
+         * @return the Y coordinate of this point
          * @since 1.2
          */
         public double getY() {
@@ -401,8 +401,8 @@ public abstract class Point2D implements Cloneable {
         /**
          * {@inheritDoc}.
          *
-         * @param x TODO: describe
-         * @param y TODO: describe
+         * @param x new X coordinate
+         * @param y new Y coordinate
          * @since 1.2
          */
         public void setLocation(double x, double y) {

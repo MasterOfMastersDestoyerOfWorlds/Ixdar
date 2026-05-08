@@ -90,6 +90,8 @@ public interface GL {
     int getShaderiv(int shader, int pname);
 
     /**
+     * Retrieve the shader compiler diagnostics for {@code shader}.
+     *
      * @param shader shader ID
      * @return compiler info log (empty string when there are no diagnostics)
      */
@@ -120,6 +122,8 @@ public interface GL {
     int getProgramiv(int program, int pname);
 
     /**
+     * Retrieve the program linker diagnostics for {@code program}.
+     *
      * @param program program ID
      * @return linker info log (empty when no diagnostics)
      */
@@ -338,94 +342,132 @@ public interface GL {
     void generateMipmap(int target);
 
     /**
+     * Backend-specific value of {@code GL_COLOR_BUFFER_BIT}.
+     *
      * @return GL constant for the colour buffer bit
      */
     int COLOR_BUFFER_BIT();
 
     /**
+     * Backend-specific value of {@code GL_DEPTH_BUFFER_BIT}.
+     *
      * @return GL constant for the depth buffer bit
      */
     int DEPTH_BUFFER_BIT();
 
     /**
+     * Backend-specific value of {@code GL_TRIANGLES}.
+     *
      * @return primitive mode for triangle lists
      */
     int TRIANGLES();
 
     /**
+     * Backend-specific value of {@code GL_ARRAY_BUFFER}.
+     *
      * @return GL_ARRAY_BUFFER target
      */
     int ARRAY_BUFFER();
     /**
+     * Backend-specific value of {@code GL_ELEMENT_ARRAY_BUFFER}.
+     *
      * @return GL_ELEMENT_ARRAY_BUFFER target
      */
     int ELEMENT_ARRAY_BUFFER();
 
     /**
+     * Backend-specific value of {@code GL_STATIC_DRAW}.
+     *
      * @return GL_STATIC_DRAW usage hint
      */
     int STATIC_DRAW();
 
     /**
+     * Backend-specific value of {@code GL_FLOAT}.
+     *
      * @return GL_FLOAT element type
      */
     int FLOAT();
 
     /**
+     * Backend-specific value of {@code GL_FRAGMENT_SHADER}.
+     *
      * @return GL_FRAGMENT_SHADER stage
      */
     int FRAGMENT_SHADER();
 
     /**
+     * Backend-specific value of {@code GL_VERTEX_SHADER}.
+     *
      * @return GL_VERTEX_SHADER stage
      */
     int VERTEX_SHADER();
 
     /**
+     * Backend-specific value of {@code GL_TEXTURE_2D}.
+     *
      * @return GL_TEXTURE_2D target
      */
     int TEXTURE_2D();
 
     /**
+     * Backend-specific value of {@code GL_RGBA}.
+     *
      * @return GL_RGBA pixel format
      */
     int RGBA();
 
     /**
+     * Backend-specific value of {@code GL_RGBA8}.
+     *
      * @return GL_RGBA8 sized internal format
      */
     int RGBA8();
 
     /**
+     * Backend-specific value of {@code GL_UNSIGNED_BYTE}.
+     *
      * @return GL_UNSIGNED_BYTE element type
      */
     int UNSIGNED_BYTE();
     /**
+     * Backend-specific value of {@code GL_UNSIGNED_INT}.
+     *
      * @return GL_UNSIGNED_INT element type
      */
     int UNSIGNED_INT();
 
     /**
+     * Backend-specific value of {@code GL_TEXTURE_WRAP_S}.
+     *
      * @return GL_TEXTURE_WRAP_S parameter
      */
     int TEXTURE_WRAP_S();
 
     /**
+     * Backend-specific value of {@code GL_TEXTURE_WRAP_T}.
+     *
      * @return GL_TEXTURE_WRAP_T parameter
      */
     int TEXTURE_WRAP_T();
 
     /**
+     * Backend-specific value of {@code GL_TEXTURE_MIN_FILTER}.
+     *
      * @return GL_TEXTURE_MIN_FILTER parameter
      */
     int TEXTURE_MIN_FILTER();
 
     /**
+     * Backend-specific value of {@code GL_TEXTURE_MAG_FILTER}.
+     *
      * @return GL_TEXTURE_MAG_FILTER parameter
      */
     int TEXTURE_MAG_FILTER();
 
     /**
+     * Backend-specific value of {@code GL_LINES}.
+     *
      * @return primitive mode for line lists
      */
     int LINES();
@@ -438,11 +480,15 @@ public interface GL {
     void lineWidth(float width);
 
     /**
+     * Backend-specific value of {@code GL_LINEAR}.
+     *
      * @return GL_LINEAR filter
      */
     int LINEAR();
 
     /**
+     * Backend-specific value of {@code GL_REPEAT}.
+     *
      * @return GL_REPEAT wrap mode
      */
     int REPEAT();
@@ -457,16 +503,22 @@ public interface GL {
     boolean getMouseButton(long window, MouseButtons mouseButtonLeft);
 
     /**
+     * Backend-specific value of {@code GL_SRC_ALPHA}.
+     *
      * @return GL_SRC_ALPHA blend factor
      */
     int SRC_ALPHA();
 
     /**
+     * Backend-specific value of {@code GL_ONE_MINUS_SRC_ALPHA}.
+     *
      * @return GL_ONE_MINUS_SRC_ALPHA blend factor
      */
     int ONE_MINUS_SRC_ALPHA();
 
     /**
+     * Backend-specific value of {@code GL_BLEND}.
+     *
      * @return GL_BLEND capability
      */
     int BLEND();
@@ -507,6 +559,8 @@ public interface GL {
     void createCapabilities();
 
     /**
+     * Backend-specific value of {@code GL_DEPTH_TEST}.
+     *
      * @return GL_DEPTH_TEST capability
      */
     int DEPTH_TEST();
@@ -609,6 +663,8 @@ public interface GL {
     int getAttribLocation(int iD, CharSequence name);
 
     /**
+     * Backend-specific value of {@code GL_DYNAMIC_DRAW}.
+     *
      * @return GL_DYNAMIC_DRAW usage hint
      */
     int DYNAMIC_DRAW();
@@ -646,6 +702,8 @@ public interface GL {
     void shaderSource(int fragmentShader, CharSequence[] fragmentShaderSource);
 
     /**
+     * Backend-specific value of {@code GL_LINK_STATUS}.
+     *
      * @return GL_LINK_STATUS parameter name
      */
     int LINK_STATUS();
@@ -660,6 +718,8 @@ public interface GL {
     void getProgramiv(int shader, int link_STATUS, IntBuffer success);
 
     /**
+     * Backend-specific value of {@code GL_COMPILE_STATUS}.
+     *
      * @return GL_COMPILE_STATUS parameter name
      */
     int COMPILE_STATUS();
@@ -697,6 +757,8 @@ public interface GL {
     int[] readPixels(int i, int j, int width, int height, int rgba, int unsigned_BYTE, int fb);
 
     /**
+     * Backend-specific value of {@code GL_TEXTURE0}.
+     *
      * @return GL_TEXTURE0 unit constant
      */
     int TEXTURE0();
@@ -708,6 +770,8 @@ public interface GL {
     void coldStartStack();
 
     /**
+     * Snapshot of all shader programs currently registered with this GL context.
+     *
      * @return shader programs registered via {@link #addShader(ShaderProgram)}
      */
     ArrayList<ShaderProgram> getShaders();
@@ -720,6 +784,8 @@ public interface GL {
     void addShader(ShaderProgram shader);
 
     /**
+     * Look up the platform ID this GL context is bound to.
+     *
      * @return platform ID assigned via {@link #setPlatformID(Integer)}
      */
     int getPlatformID();
@@ -741,6 +807,8 @@ public interface GL {
     void getActiveUniforms(int shader, IntBuffer success);
 
     /**
+     * Backend-specific value of {@code GL_ACTIVE_UNIFORMS}.
+     *
      * @return GL_ACTIVE_UNIFORMS parameter name
      */
     int ACTIVE_UNIFORMS();
@@ -757,16 +825,22 @@ public interface GL {
     String getActiveUniform(int iD, int i, IntBuffer sizeBuffer, IntBuffer typeBuffer);
 
     /**
+     * Backend-specific value of {@code GL_FLOAT_VEC2}.
+     *
      * @return GL_FLOAT_VEC2 type constant
      */
     int FLOAT_VEC2();
 
     /**
+     * Backend-specific value of {@code GL_FLOAT_VEC4}.
+     *
      * @return GL_FLOAT_VEC4 type constant
      */
     int FLOAT_VEC4();
 
     /**
+     * Backend-specific value of {@code GL_SAMPLER_2D}.
+     *
      * @return GL_SAMPLER_2D type constant
      */
     int SAMPLER_2D();
@@ -789,6 +863,8 @@ public interface GL {
     void setPlatformID(Integer p);
 
     /**
+     * Backend-specific value of {@code GL_LINEAR_MIPMAP_LINEAR}.
+     *
      * @return GL_LINEAR_MIPMAP_LINEAR filter
      */
     int LINEAR_MIPMAP_LINEAR();

@@ -18,7 +18,8 @@ public class SDFCircle extends ShaderDrawable {
     private Vector2f pA;
 
     /**
-     * TODO: document {@code SDFCircle}.
+     * Build an SDF circle bound to the {@code CircleSDF} shader, with a
+     * default border thickness of 0.15 (in normalized SDF units).
      */
     public SDFCircle() {
         shader = ShaderType.CircleSDF.getShader();
@@ -26,12 +27,16 @@ public class SDFCircle extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Draw a circle of {@code circleRadius} centered on {@code pA}. The
+     * underlying SDF shader rasterizes inside a square quad sized to enclose
+     * the full circle.
      *
-     * @param pA TODO: describe
-     * @param circleRadius TODO: describe
-     * @param c TODO: describe
-     * @param camera TODO: describe
+     * @param pA world-space center of the circle, also passed as the
+     *           {@code pointA} uniform
+     * @param circleRadius half-side of the bounding quad and effective radius
+     * @param c border color (the SDF shader interprets this as
+     *          {@code borderColor})
+     * @param camera camera supplying transform and z-index
      */
     public void draw(Vector2f pA, float circleRadius, Color c, Camera camera) {
 
@@ -45,7 +50,9 @@ public class SDFCircle extends ShaderDrawable {
     }
 
     /**
-     * TODO: document {@code setUniforms}.
+     * Push circle-specific uniforms: border thickness/color, the SDF center,
+     * a time-driven {@code phase} for the border animation, edge-distance
+     * and edge-sharpness terms scaled by the camera, and the quad extents.
      */
     @Override
     protected void setUniforms() {

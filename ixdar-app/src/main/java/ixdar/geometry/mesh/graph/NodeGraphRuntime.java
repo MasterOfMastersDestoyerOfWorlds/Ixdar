@@ -13,6 +13,13 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.parsing.python.PythonParser;
 
+/**
+ * Executes parsed DSL graphs by dispatching each statement to a registered
+ * {@link MeshNode} (or inlined {@link PythonParser.FunctionDef}), threading
+ * outputs along {@link PythonParser.NodeReference} edges and tracking the
+ * latest {@link MeshTopology} as the implicit field context for downstream
+ * nodes.
+ */
 public class NodeGraphRuntime {
     public static final String MESH = "mesh";
     public static final String STR = ".";
@@ -37,16 +44,17 @@ public class NodeGraphRuntime {
     /**
      * Returns per-node timing from the most recent {@code executeGraphResult} call.
      *
-     * @return TODO: describe
+     * @return insertion-ordered map keyed by {@code "id (type)"} with milliseconds spent in
+     *         each node's evaluation
      */
     public java.util.LinkedHashMap<String, Long> lastTimingMs() {
         return lastTimingMs;
     }
 
     /**
-     * TODO: document {@code lastTotalMs}.
+     * Total wall time of the most recent {@code executeGraphResult} call.
      *
-     * @return TODO: describe
+     * @return total graph execution time in milliseconds
      */
     public long lastTotalMs() {
         return lastTotalMs;
@@ -58,9 +66,9 @@ public class NodeGraphRuntime {
      * values from the DSL graph (e.g. the dungeon viewer wiring the {@code TileGrid} produced
      * by {@code astar_corridors_3d} into the player controller's collision world).
      *
-     * @param nodeId TODO: describe
-     * @param outputPortName TODO: describe
-     * @return TODO: describe
+     * @param nodeId id of the previously-executed graph node
+     * @param outputPortName name of the output port to read
+     * @return value published on that port, or {@code null} if the node never ran or the port is missing
      */
     public Object getNodeOutput(String nodeId, String outputPortName) {
         GraphNodeContext ctx = evaluatedNodes.get(nodeId);
@@ -69,10 +77,10 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * TODO: document {@code registerNode}.
+     * Registers a node implementation under the DSL id used to call it.
      *
-     * @param type TODO: describe
-     * @param nodeClass TODO: describe
+     * @param type DSL id (e.g. {@code "cube"}, {@code "extrude_mesh"})
+     * @param nodeClass {@link MeshNode} class instantiated for each call site of {@code type}
      */
     public void registerNode(String type, Class<? extends MeshNode> nodeClass) {
         nodeRegistry.put(type, nodeClass);
@@ -81,16 +89,16 @@ public class NodeGraphRuntime {
     /**
      * Register DSL function definitions (from parser or skill library).
      *
-     * @param defs TODO: describe
+     * @param defs function name to parsed body, merged into the runtime's function table
      */
     public void registerFunctionDefs(Map<String, PythonParser.FunctionDef> defs) {
         functionDefs.putAll(defs);
     }
 
     /**
-     * Map of DSL id → node class from the generated {@code MeshNodeRegistry_MeshNodes.MAP}.
+     * Map of DSL id to node class from the generated {@code MeshNodeRegistry_MeshNodes.MAP}.
      *
-     * @return TODO: describe
+     * @return unmodifiable id-to-class view; one probe instance per id is created during the lookup
      */
     public static Map<String, Class<? extends MeshNode>> annotationRegistryClasses() {
         Map<String, java.util.function.Supplier<? extends MeshNode>> map = MeshNodeRegistry_MeshNodes.MAP;
@@ -115,8 +123,8 @@ public class NodeGraphRuntime {
     /**
      * User-editable inputs and curve parameters in a parsed graph (literal metadata for UI).
      *
-     * @param parsedStatements TODO: describe
-     * @return TODO: describe
+     * @param parsedStatements top-level statements of a parsed DSL program
+     * @return descriptors for each {@code input_*} node and inline literal parameter, in source order
      */
     public static List<InputParameterDescriptor> collectInputParameters(List<PythonParser.ParsedNode> parsedStatements) {
         return InputParameterDescriptor.collect(parsedStatements);
@@ -125,10 +133,10 @@ public class NodeGraphRuntime {
     /**
      * Runs the graph and returns the final node's {@code mesh} output (backward compatible).
      *
-     * @param parsedStatements TODO: describe
-     * @param finalOutputId TODO: describe
-     * @throws Exception TODO: describe
-     * @return TODO: describe
+     * @param parsedStatements top-level DSL statements to execute in order
+     * @param finalOutputId id of the node whose {@code mesh} port is the graph result
+     * @throws Exception if any node fails or a referenced node isn't yet evaluated
+     * @return the final mesh topology, or {@code null} if no mesh is produced
      */
     public MeshTopology executeGraph(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId) throws Exception {
         return executeGraphToMesh(parsedStatements, finalOutputId, MESH);
@@ -137,11 +145,11 @@ public class NodeGraphRuntime {
     /**
      * Runs the graph and returns the final value on the given output port.
      *
-     * @param parsedStatements TODO: describe
-     * @param finalOutputId TODO: describe
-     * @param outputPortName TODO: describe
-     * @throws Exception TODO: describe
-     * @return TODO: describe
+     * @param parsedStatements top-level DSL statements to execute in order
+     * @param finalOutputId id of the node to read the result from
+     * @param outputPortName name of the output port on {@code finalOutputId}
+     * @throws Exception if any node fails or a referenced node isn't yet evaluated
+     * @return the value on the requested port, or a fallback probed across common port names
      */
     public Object executeGraphResult(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
             String outputPortName) throws Exception {
@@ -157,15 +165,15 @@ public class NodeGraphRuntime {
      *   <li>{@code "nodeId.argName.x/y/z"} — overrides a single component of a Vector3Value argument
      * </ul>
      *
-     * @param parsedStatements TODO: describe
-     * @param finalOutputId TODO: describe
-     * @param outputPortName TODO: describe
-     * @param overridesByNodeId TODO: describe
-     * @throws Exception TODO: describe
-     * @throws RuntimeException TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @throws IllegalStateException TODO: describe
-     * @return TODO: describe
+     * @param parsedStatements top-level DSL statements to execute in order
+     * @param finalOutputId id of the node to read the result from
+     * @param outputPortName name of the output port on {@code finalOutputId}
+     * @param overridesByNodeId per-node literal overrides keyed as documented above; may be empty or null
+     * @throws Exception if any node fails internally
+     * @throws RuntimeException if a node is referenced before it has been evaluated, or a function is missing arguments
+     * @throws IllegalArgumentException if a node type isn't registered
+     * @throws IllegalStateException if a registered node has no factory in the generated MAP
+     * @return the value on the requested port, or a fallback probed across common port names
      */
     public Object executeGraphResult(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
             String outputPortName, Map<String, Object> overridesByNodeId) throws Exception {
@@ -298,15 +306,15 @@ public class NodeGraphRuntime {
      * Parameters become synthetic nodes whose outputs carry the bound values.
      * Returns the context of the last node in the body (the function's return value).
      *
-     * @param funcDef TODO: describe
-     * @param callArgs TODO: describe
-     * @param callerFieldContext TODO: describe
-     * @param overrides TODO: describe
-     * @throws Exception TODO: describe
-     * @throws RuntimeException TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @throws IllegalStateException TODO: describe
-     * @return TODO: describe
+     * @param funcDef function definition whose body to execute
+     * @param callArgs argument values resolved from the caller, keyed by parameter name
+     * @param callerFieldContext implicit field context inherited from the caller
+     * @param overrides literal overrides forwarded to nested calls (same keys as the public entry point)
+     * @throws Exception if any node fails internally
+     * @throws RuntimeException if a parameter is missing, a body reference is unresolved, or the body is empty
+     * @throws IllegalArgumentException if a body node type isn't registered
+     * @throws IllegalStateException if a registered node has no factory in the generated MAP
+     * @return context of the last node in the body (the function's return value)
      */
     private GraphNodeContext executeFunctionCall(PythonParser.FunctionDef funcDef,
             Map<String, Object> callArgs, FieldContext callerFieldContext,
@@ -434,11 +442,11 @@ public class NodeGraphRuntime {
     /**
      * Returns a {@link MeshTopology} from the final port, unwrapping {@link GeometryBundle} if needed.
      *
-     * @param parsedStatements TODO: describe
-     * @param finalOutputId TODO: describe
-     * @param outputPortName TODO: describe
-     * @throws Exception TODO: describe
-     * @return TODO: describe
+     * @param parsedStatements top-level DSL statements to execute in order
+     * @param finalOutputId id of the node to read the mesh from
+     * @param outputPortName name of the output port on {@code finalOutputId}
+     * @throws Exception if any node fails or a referenced node isn't yet evaluated
+     * @return mesh topology on the requested port, or {@code null} if the result isn't a mesh or bundle
      */
     public MeshTopology executeGraphToMesh(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
             String outputPortName) throws Exception {
@@ -446,14 +454,15 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * TODO: document {@code executeGraphToMesh}.
+     * Variant of {@link #executeGraphToMesh(List, String, String)} that also accepts literal overrides.
      *
-     * @param parsedStatements TODO: describe
-     * @param finalOutputId TODO: describe
-     * @param outputPortName TODO: describe
-     * @param overridesByNodeId TODO: describe
-     * @throws Exception TODO: describe
-     * @return TODO: describe
+     * @param parsedStatements top-level DSL statements to execute in order
+     * @param finalOutputId id of the node to read the mesh from
+     * @param outputPortName name of the output port on {@code finalOutputId}
+     * @param overridesByNodeId per-node literal overrides; see
+     *        {@link #executeGraphResult(List, String, String, Map)} for the key format
+     * @throws Exception if any node fails or a referenced node isn't yet evaluated
+     * @return mesh topology on the requested port, or {@code null} if the result isn't a mesh or bundle
      */
     public MeshTopology executeGraphToMesh(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
             String outputPortName, Map<String, Object> overridesByNodeId) throws Exception {

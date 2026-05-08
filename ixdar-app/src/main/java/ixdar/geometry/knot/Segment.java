@@ -26,11 +26,13 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     public long id;
 
     /**
-     * TODO: document {@code Segment}.
+     * Build a segment between two knots with an explicit distance. The
+     * Cantor-pair-style {@link #idTransform(long, long)} of the endpoints is
+     * stored as {@link #id}.
      *
-     * @param first TODO: describe
-     * @param last TODO: describe
-     * @param distance TODO: describe
+     * @param first one endpoint knot
+     * @param last the other endpoint knot
+     * @param distance edge length to associate with this segment
      */
     public Segment(Knot first, Knot last, double distance) {
         this.first = first;
@@ -42,11 +44,12 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code Segment}.
+     * Build a segment between two knots, looking up the distance from a
+     * {@link DistanceMatrix} so callers can reuse cached point-to-point costs.
      *
-     * @param knot1 TODO: describe
-     * @param knot2 TODO: describe
-     * @param distanceMatrix TODO: describe
+     * @param knot1 one endpoint knot
+     * @param knot2 the other endpoint knot
+     * @param distanceMatrix metric source consulted for the segment length
      */
     public Segment(Knot knot1, Knot knot2, DistanceMatrix distanceMatrix) {
         this.first = knot1;
@@ -58,10 +61,11 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code getOther}.
+     * Return the endpoint of this segment that is not {@code vp}, or
+     * {@code null} when {@code vp} is neither endpoint.
      *
-     * @param vp TODO: describe
-     * @return TODO: describe
+     * @param vp one endpoint of this segment
+     * @return the opposite endpoint, or {@code null} for non-incident inputs
      */
     public Knot getOther(Knot vp) {
         if (vp.equals(first)) {
@@ -74,10 +78,12 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code getOtherKnot}.
+     * Like {@link #getOther(Knot)} but accepts a non-singleton {@code vp}: the
+     * matching endpoint is found via {@code vp.knotPointsFlattened} before its
+     * opposite is returned.
      *
-     * @param vp TODO: describe
-     * @return TODO: describe
+     * @param vp endpoint, possibly a parent knot
+     * @return the opposite endpoint
      */
     public Knot getOtherKnot(Knot vp) {
         if (!vp.isSingleton()) {
@@ -90,20 +96,20 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code contains}.
+     * Whether {@code vp} is one of this segment's two endpoints.
      *
-     * @param vp TODO: describe
-     * @return TODO: describe
+     * @param vp candidate knot
+     * @return {@code true} when {@code vp} equals {@link #first} or {@link #last}
      */
     public boolean contains(Knot vp) {
         return first.equals(vp) || last.equals(vp);
     }
 
     /**
-     * TODO: document {@code contains}.
+     * Whether any element of {@code vp} is an endpoint of this segment.
      *
-     * @param vp TODO: describe
-     * @return TODO: describe
+     * @param vp candidate knot array
+     * @return {@code true} if at least one entry in {@code vp} is an endpoint
      */
     public boolean contains(Knot[] vp) {
         boolean contains = false;
@@ -116,10 +122,11 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code getKnotPoint}.
+     * Return whichever of {@link #first}/{@link #last} appears in
+     * {@code knotPointsFlattened}, prioritizing {@code first}.
      *
-     * @param knotPointsFlattened TODO: describe
-     * @return TODO: describe
+     * @param knotPointsFlattened the membership list to query
+     * @return the matching endpoint, or {@code null} if neither belongs to the list
      */
     public Knot getKnotPoint(ArrayList<Knot> knotPointsFlattened) {
         if (knotPointsFlattened.contains(first)) {
@@ -132,10 +139,11 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code compareTo}.
+     * Order segments primarily by ascending {@link #distance}, breaking ties
+     * by {@link #id}. Non-{@code Segment} inputs sort first ({@code -1}).
      *
-     * @param o TODO: describe
-     * @return TODO: describe
+     * @param o segment to compare against
+     * @return -1, 0 or 1 per {@link Comparable#compareTo}
      */
     @Override
     public int compareTo(Segment o) {
@@ -158,10 +166,11 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code equals}.
+     * Two segments are equal when they share the same {@link #id}, i.e. the
+     * same unordered pair of endpoint ids.
      *
-     * @param obj TODO: describe
-     * @return TODO: describe
+     * @param obj candidate object
+     * @return {@code true} if {@code obj} is a {@code Segment} with matching id
      */
     @Override
     public boolean equals(Object obj) {
@@ -179,10 +188,10 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code partialOverlaps}.
+     * Whether this segment shares exactly one endpoint with {@code cutSegment2}.
      *
-     * @param cutSegment2 TODO: describe
-     * @return TODO: describe
+     * @param cutSegment2 the other segment
+     * @return {@code true} for "T"-style overlaps where exactly one endpoint coincides
      */
     public boolean partialOverlaps(Segment cutSegment2) {
         if ((cutSegment2.contains(first) && !cutSegment2.contains(last))
@@ -193,10 +202,10 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code intersects}.
+     * Whether this segment shares at least one endpoint with {@code cutSegment2}.
      *
-     * @param cutSegment2 TODO: describe
-     * @return TODO: describe
+     * @param cutSegment2 the other segment
+     * @return {@code true} when the two segments are incident at an endpoint
      */
     public boolean intersects(Segment cutSegment2) {
         if (cutSegment2.contains(first) || cutSegment2.contains(last)) {
@@ -206,10 +215,11 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code getOverlap}.
+     * Return the endpoint that is shared with {@code other}, prioritizing
+     * {@link #first}.
      *
-     * @param other TODO: describe
-     * @return TODO: describe
+     * @param other another segment
+     * @return the shared endpoint, or {@code null} if none is shared
      */
     public Knot getOverlap(Segment other) {
         if (other.contains(first)) {
@@ -221,10 +231,11 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code containsAny}.
+     * Return the first knot in {@code neighbors} that is also an endpoint of
+     * this segment.
      *
-     * @param neighbors TODO: describe
-     * @return TODO: describe
+     * @param neighbors candidate knots to scan
+     * @return the matching endpoint, or {@code null} if none of {@code neighbors} is incident
      */
     public Knot containsAny(ArrayList<Knot> neighbors) {
         for (Knot vp : neighbors) {
@@ -236,20 +247,21 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code isDegenerate}.
+     * Whether this segment is degenerate, i.e. starts and ends at the same knot.
      *
-     * @return TODO: describe
+     * @return {@code true} when {@link #first} equals {@link #last}
      */
     public boolean isDegenerate() {
         return first.equals(last);
     }
 
     /**
-     * TODO: document {@code hasPoints}.
+     * Whether this segment connects exactly the endpoints with ids {@code i}
+     * and {@code j}, in either order.
      *
-     * @param i TODO: describe
-     * @param j TODO: describe
-     * @return TODO: describe
+     * @param i first endpoint id
+     * @param j second endpoint id
+     * @return {@code true} when {@code {first.id, last.id} == {i, j}}
      */
     public boolean hasPoints(int i, int j) {
         if (first.id == i || first.id == j) {
@@ -261,11 +273,12 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code getFirstOrderId}.
+     * Smaller of two endpoint ids, used as the canonical "first" id for an
+     * undirected pair.
      *
-     * @param firstInnerNeighbor TODO: describe
-     * @param k2 TODO: describe
-     * @return TODO: describe
+     * @param firstInnerNeighbor one endpoint
+     * @param k2 other endpoint
+     * @return {@code min(firstInnerNeighbor.id, k2.id)}
      */
     public static int getFirstOrderId(Knot firstInnerNeighbor, Knot k2) {
         int first = firstInnerNeighbor.id < k2.id ? firstInnerNeighbor.id : k2.id;
@@ -273,40 +286,42 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code getLastOrderId}.
+     * Larger of two endpoint ids, the companion to
+     * {@link #getFirstOrderId(Knot, Knot)}.
      *
-     * @param firstInnerNeighbor TODO: describe
-     * @param k2 TODO: describe
-     * @return TODO: describe
+     * @param firstInnerNeighbor one endpoint
+     * @param k2 other endpoint
+     * @return {@code max(firstInnerNeighbor.id, k2.id)}
      */
     public static int getLastOrderId(Knot firstInnerNeighbor, Knot k2) {
         return firstInnerNeighbor.id < k2.id ? k2.id : firstInnerNeighbor.id;
     }
 
     /**
-     * TODO: document {@code getFirstOrderId}.
+     * Smaller of {@code s}'s endpoint ids.
      *
-     * @param s TODO: describe
-     * @return TODO: describe
+     * @param s segment to inspect
+     * @return {@code min(s.first.id, s.last.id)}
      */
     public static int getFirstOrderId(Segment s) {
         return getFirstOrderId(s.first, s.last);
     }
 
     /**
-     * TODO: document {@code getLastOrderId}.
+     * Larger of {@code s}'s endpoint ids.
      *
-     * @param s TODO: describe
-     * @return TODO: describe
+     * @param s segment to inspect
+     * @return {@code max(s.first.id, s.last.id)}
      */
     public static int getLastOrderId(Segment s) {
         return getLastOrderId(s.first, s.last);
     }
 
     /**
-     * TODO: document {@code hashCode}.
+     * Hash this segment by the product of its endpoint ids; matched to
+     * {@link #equals(Object)}'s id-based comparison.
      *
-     * @return TODO: describe
+     * @return {@code first.id * last.id}
      */
     @Override
     public int hashCode() {
@@ -314,10 +329,10 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code hasPoint}.
+     * Whether either endpoint has the supplied id.
      *
-     * @param i TODO: describe
-     * @return TODO: describe
+     * @param i candidate endpoint id
+     * @return {@code true} when {@code first.id == i} or {@code last.id == i}
      */
     public boolean hasPoint(Integer i) {
         if (first.id == i || last.id == i) {
@@ -327,10 +342,11 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code getPoint}.
+     * Return whichever endpoint has the supplied id, or {@code null} when
+     * neither matches.
      *
-     * @param i TODO: describe
-     * @return TODO: describe
+     * @param i candidate endpoint id
+     * @return matching endpoint knot, or {@code null}
      */
     public Knot getPoint(Integer i) {
         if (first.id == i) {
@@ -343,10 +359,11 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code idTransform}.
+     * Compute an undirected ("Szudzik-pair") id key from a segment's
+     * endpoints. Order-independent; matches {@link #idTransform(long, long)}.
      *
-     * @param s TODO: describe
-     * @return TODO: describe
+     * @param s segment whose endpoints supply {@code (a, b)}
+     * @return packed long key
      */
     public static long idTransform(Segment s) {
         long a = s.first.id;
@@ -355,21 +372,23 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code idTransform}.
+     * Order-independent pairing function over two long ids; the same value is
+     * produced regardless of argument order.
      *
-     * @param a TODO: describe
-     * @param b TODO: describe
-     * @return TODO: describe
+     * @param a first id
+     * @param b second id
+     * @return packed long key
      */
     public static long idTransform(long a, long b) {
         return a >= b ? a * a + a + b : b + a + b * b;
     }
 
     /**
-     * TODO: document {@code idTransformOrdered}.
+     * Cantor-pair id key over a segment's endpoints, sensitive to the
+     * {@code first}/{@code last} order via the trailing {@code +b} term.
      *
-     * @param s TODO: describe
-     * @return TODO: describe
+     * @param s segment whose endpoints supply {@code (a, b)}
+     * @return packed long key
      */
     public static long idTransformOrdered(Segment s) {
         long a = s.first.id;
@@ -378,11 +397,12 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code idTransformOrdered}.
+     * Cantor-pair id key for the directed pair (other endpoint of
+     * {@code cutSegment} at the {@code knotPoint} side).
      *
-     * @param cutSegment TODO: describe
-     * @param knotPoint TODO: describe
-     * @return TODO: describe
+     * @param cutSegment segment whose other endpoint supplies {@code a}
+     * @param knotPoint endpoint that supplies {@code b}
+     * @return packed long key
      */
     public static long idTransformOrdered(Segment cutSegment, Knot knotPoint) {
         Knot cutPoint = cutSegment.getOther(knotPoint);
@@ -392,22 +412,25 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code idTransformOrdered}.
+     * Cantor-pair id key over a directed pair of long ids.
      *
-     * @param a TODO: describe
-     * @param b TODO: describe
-     * @return TODO: describe
+     * @param a first id
+     * @param b second id
+     * @return packed long key
      */
     public static long idTransformOrdered(long a, long b) {
         return (a + b) * (a + b + 1) / 2 + b;
     }
 
     /**
-     * TODO: document {@code boundContains}.
+     * Test whether the screen-space point {@code (x, y)} lies inside the
+     * thickened bounding rectangle of this segment (width = 0.2 of length on
+     * each side); when inside, return the perpendicular distance to the
+     * segment's line.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @return TODO: describe
+     * @param x screen-space X
+     * @param y screen-space Y
+     * @return perpendicular distance when the point is inside the band, or {@code -1.0} otherwise
      */
     public double boundContains(double x, double y) {
         PointND p1 = (first).p;
@@ -443,11 +466,12 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code closestPoint}.
+     * Return the endpoint of this segment closer (in screen space) to
+     * {@code (x, y)}.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @return TODO: describe
+     * @param x screen-space X
+     * @param y screen-space Y
+     * @return {@link #first} or {@link #last}, whichever is nearer
      */
     public Knot closestPoint(double x, double y) {
         PointND p1 = (first).p;
@@ -467,9 +491,9 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code toString}.
+     * Compact debug representation: {@code "Segment[<firstId>:<lastId>]"}.
      *
-     * @return TODO: describe
+     * @return debug string
      */
     @Override
     public String toString() {
@@ -477,32 +501,36 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code toStringNoLabel}.
+     * Like {@link #toString()} but without the leading {@code "Segment"} label,
+     * yielding {@code "[<firstId>:<lastId>]"}.
      *
-     * @return TODO: describe
+     * @return shorter debug string
      */
     public String toStringNoLabel() {
         return STR_3 + first.id + STR + last.id + STR_2;
     }
 
     /**
-     * TODO: document {@code toHyperString}.
+     * Render this segment as an interactive {@link HyperString} with the
+     * supplied color and a click handler that zooms to it. Distance label is
+     * suppressed.
      *
-     * @param color TODO: describe
-     * @param labelAsSegment TODO: describe
-     * @return TODO: describe
+     * @param color label color
+     * @param labelAsSegment whether to prefix the label with {@code "Segment"}
+     * @return clickable hyperstring representation
      */
     public HyperString toHyperString(Color color, boolean labelAsSegment) {
         return toHyperString(color, labelAsSegment, false);
     }
 
     /**
-     * TODO: document {@code toHyperString}.
+     * Render this segment as an interactive {@link HyperString} with the
+     * supplied color and a click handler that zooms to it.
      *
-     * @param color TODO: describe
-     * @param labelAsSegment TODO: describe
-     * @param labelDistance TODO: describe
-     * @return TODO: describe
+     * @param color label color
+     * @param labelAsSegment whether to prefix the label with {@code "Segment"}
+     * @param labelDistance whether to append the segment distance to the label
+     * @return clickable hyperstring representation
      */
     public HyperString toHyperString(Color color, boolean labelAsSegment, boolean labelDistance) {
         HyperString h = new HyperString();
@@ -523,10 +551,11 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code getScreenSpaceVector}.
+     * Project the given knot's point-space coordinates through the cached
+     * camera into screen space.
      *
-     * @param k1 TODO: describe
-     * @return TODO: describe
+     * @param k1 endpoint knot
+     * @return screen-space {@code (x, y)} of {@code k1}
      */
     public Vector2f getScreenSpaceVector(Knot k1) {
         Vector2f psV = getPointSpaceVector(k1);
@@ -534,20 +563,22 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code toScreenSpace}.
+     * Apply the cached camera's point-to-screen transform to an arbitrary
+     * point-space vector.
      *
-     * @param pointSpaceVector TODO: describe
-     * @return TODO: describe
+     * @param pointSpaceVector point-space vector to project
+     * @return screen-space vector
      */
     public Vector2f toScreenSpace(Vector2f pointSpaceVector) {
         return new Vector2f(camera.pointTransformX(pointSpaceVector.x), camera.pointTransformY(pointSpaceVector.y));
     }
 
     /**
-     * TODO: document {@code getPointSpaceVector}.
+     * Read the point-space {@code (x, y)} of an endpoint, reaching into the
+     * first flattened sub-knot when {@code k1} is a parent knot.
      *
-     * @param k1 TODO: describe
-     * @return TODO: describe
+     * @param k1 endpoint knot
+     * @return point-space coordinates of {@code k1}
      */
     public Vector2f getPointSpaceVector(Knot k1) {
         Point2D p1;
@@ -564,16 +595,19 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * TODO: document {@code setStroke}.
+     * Configure the SDF line stroke parameters for this segment, lazily
+     * initializing the screen-space endpoints and quad on first call. The
+     * dash texture length is computed from the camera's projection of a single
+     * dash period so dashes stay screen-space consistent at any zoom.
      *
-     * @param lineWidth TODO: describe
-     * @param dashed TODO: describe
-     * @param dashLength TODO: describe
-     * @param dashRate TODO: describe
-     * @param roundCaps TODO: describe
-     * @param endCaps TODO: describe
-     * @param arrow TODO: describe
-     * @param camera2d TODO: describe
+     * @param lineWidth stroke width in screen units
+     * @param dashed whether the line is dashed
+     * @param dashLength length of one dash period in point space
+     * @param dashRate dash duty cycle (drawn fraction of one period)
+     * @param roundCaps whether to use round line caps
+     * @param endCaps whether to draw line caps at the segment ends
+     * @param arrow whether to draw an arrowhead at the {@code last} endpoint
+     * @param camera2d camera used to project dashes and endpoints into screen space
      */
     @Override
     public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,

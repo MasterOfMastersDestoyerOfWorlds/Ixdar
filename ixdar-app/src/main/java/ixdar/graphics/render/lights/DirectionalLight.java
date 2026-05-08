@@ -12,10 +12,12 @@ public class DirectionalLight {
     private Vector3f specular;
 
     /**
-     * TODO: document {@code DirectionalLight}.
+     * Build a directional light pointing along {@code direction}. Diffuse and
+     * specular both carry {@code color}; ambient is dimmed to 1% of the same
+     * color so unlit faces still pick up a faint tint.
      *
-     * @param direction TODO: describe
-     * @param color TODO: describe
+     * @param direction normalized world-space direction the light travels
+     * @param color shared RGB intensity for diffuse and specular
      */
     public DirectionalLight(Vector3f direction, Vector3f color) {
         this.direction = direction;
@@ -25,10 +27,11 @@ public class DirectionalLight {
     }
 
     /**
-     * TODO: document {@code setShaderInfo}.
+     * Push this light's parameters into {@code shader}'s {@code dirLight}
+     * uniform block.
      *
-     * @param shader TODO: describe
-     * @param i TODO: describe
+     * @param shader target shader program; must already be bound
+     * @param i unused; preserved for symmetry with {@link PointLight#setShaderInfo(ShaderProgram, int)}
      */
     public void setShaderInfo(ShaderProgram shader, int i) {
         shader.setVec3("dirLight.direction", direction);

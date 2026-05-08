@@ -22,8 +22,8 @@ public final class MeshScale {
      * @param mesh source topology (returns an empty mesh if null/empty)
      * @param scaleObj a {@link Vector3Field} (one scale per vertex), a {@link Vector3Value}
      *                 (uniform scale), or any other value (treated as uniform identity)
-     * @return scaled mesh
      * @throws IllegalArgumentException if a {@link Vector3Field} is supplied whose length does not match vertex count
+     * @return scaled mesh
      */
     public static HalfEdgeMesh apply(MeshTopology mesh, Object scaleObj) {
         if (mesh == null || mesh.vertexCount() == 0) {

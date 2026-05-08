@@ -22,6 +22,8 @@ public class Scene2DMousePanTrap extends MouseTrap {
     private Vector2f leftMouseDownPos;
 
     /**
+     * Build a 2D pan/zoom mouse controller for the given camera.
+     *
      * @param camera camera to pan/zoom
      * @param canvas owning canvas (for platform-id resolution)
      */

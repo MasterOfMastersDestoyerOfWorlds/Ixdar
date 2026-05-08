@@ -35,10 +35,10 @@ public final class ComplexSparseMatrix {
     private final SparseMatrix lifted;
 
     /**
-     * TODO: document {@code ComplexSparseMatrix}.
+     * Allocate an empty {@code n × n} complex matrix backed by a {@code 2n × 2n} real lift.
      *
-     * @param n TODO: describe
-     * @throws IllegalArgumentException TODO: describe
+     * @param n complex dimension; must be positive
+     * @throws IllegalArgumentException if {@code n} is not positive
      */
     public ComplexSparseMatrix(int n) {
         if (n <= 0) throw new IllegalArgumentException("n must be positive");
@@ -47,9 +47,9 @@ public final class ComplexSparseMatrix {
     }
 
     /**
-     * TODO: document {@code dimension}.
+     * Complex dimension of the matrix.
      *
-     * @return TODO: describe
+     * @return the complex dimension {@code n} (the lifted real matrix is {@code 2n × 2n})
      */
     public int dimension() { return n; }
 
@@ -57,10 +57,10 @@ public final class ComplexSparseMatrix {
      * Set complex entry {@code (i,j)} to {@code re + i*im}. Updates all four
      * blocks of the lifted matrix consistently.
      *
-     * @param i TODO: describe
-     * @param j TODO: describe
-     * @param re TODO: describe
-     * @param im TODO: describe
+     * @param i  complex row index in {@code [0, n)}
+     * @param j  complex column index in {@code [0, n)}
+     * @param re real part of the entry
+     * @param im imaginary part of the entry
      */
     public void set(int i, int j, double re, double im) {
         bounds(i, j);
@@ -71,12 +71,14 @@ public final class ComplexSparseMatrix {
     }
 
     /**
-     * TODO: document {@code add}.
+     * Accumulate {@code re + i*im} into complex entry {@code (i, j)}, leaving
+     * the four corresponding real-block cells consistent. Skips updates whose
+     * scalar component is exactly zero.
      *
-     * @param i TODO: describe
-     * @param j TODO: describe
-     * @param re TODO: describe
-     * @param im TODO: describe
+     * @param i  complex row index in {@code [0, n)}
+     * @param j  complex column index in {@code [0, n)}
+     * @param re real part to add
+     * @param im imaginary part to add
      */
     public void add(int i, int j, double re, double im) {
         bounds(i, j);
@@ -91,11 +93,11 @@ public final class ComplexSparseMatrix {
     }
 
     /**
-     * TODO: document {@code getReal}.
+     * Read the real part of complex entry (i, j).
      *
-     * @param i TODO: describe
-     * @param j TODO: describe
-     * @return TODO: describe
+     * @param i complex row index in {@code [0, n)}
+     * @param j complex column index in {@code [0, n)}
+     * @return real part of the entry at {@code (i, j)}
      */
     public double getReal(int i, int j) {
         bounds(i, j);
@@ -103,11 +105,11 @@ public final class ComplexSparseMatrix {
     }
 
     /**
-     * TODO: document {@code getImag}.
+     * Read the imaginary part of complex entry (i, j).
      *
-     * @param i TODO: describe
-     * @param j TODO: describe
-     * @return TODO: describe
+     * @param i complex row index in {@code [0, n)}
+     * @param j complex column index in {@code [0, n)}
+     * @return imaginary part of the entry at {@code (i, j)}
      */
     public double getImag(int i, int j) {
         bounds(i, j);
@@ -118,7 +120,7 @@ public final class ComplexSparseMatrix {
      * The 2N x 2N real block-lifted SparseMatrix. Pass this to
      * {@link SparseLu}/{@link SparseQDLDL}/{@link GeneralizedEigen}.
      *
-     * @return TODO: describe
+     * @return the underlying lifted real sparse matrix (live reference, not a copy)
      */
     public SparseMatrix realBlockLift() {
         return lifted;
@@ -128,10 +130,10 @@ public final class ComplexSparseMatrix {
      * Assemble a real RHS of length 2n from a complex RHS {@code re + i*im}
      * (each of length n). Convention: {@code [re ; im]}.
      *
-     * @param re TODO: describe
-     * @param im TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param re real components of the complex RHS
+     * @param im imaginary components of the complex RHS
+     * @throws IllegalArgumentException if {@code re} and {@code im} have different lengths
+     * @return concatenated real vector {@code [re ; im]} of length {@code 2n}
      */
     public static double[] liftRhs(double[] re, double[] im) {
         if (re.length != im.length) throw new IllegalArgumentException("re/im length mismatch");
@@ -145,9 +147,9 @@ public final class ComplexSparseMatrix {
     /**
      * Inverse of {@link #liftRhs}: split a length-2n real solution into (re, im).
      *
-     * @param xLifted TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param xLifted real solution vector of even length {@code 2n}
+     * @throws IllegalArgumentException if {@code xLifted.length} is odd
+     * @return two-element array {@code {re, im}}, each of length {@code n}
      */
     public static double[][] unliftSolution(double[] xLifted) {
         if ((xLifted.length & 1) != 0) throw new IllegalArgumentException("expected even length");

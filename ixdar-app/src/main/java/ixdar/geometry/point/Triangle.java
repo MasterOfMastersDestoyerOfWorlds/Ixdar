@@ -59,8 +59,8 @@ public class Triangle implements Geometry, PointCollection {
      *
      * @param args     full terminal argument array
      * @param startIdx index of the first argument belonging to the triangle
-     * @return the three sampled points of the parsed triangle
      * @throws TerminalParseException if the slice is malformed
+     * @return the three sampled points of the parsed triangle
      */
     public static ArrayList<PointND> parse(String[] args, int startIdx) throws TerminalParseException {
         Triangle t = parseTriangle(args, startIdx);
@@ -75,8 +75,8 @@ public class Triangle implements Geometry, PointCollection {
      *
      * @param args     full terminal argument array
      * @param startIdx index of the first argument belonging to the triangle
-     * @return parsed triangle
      * @throws TerminalParseException if any token is not numeric
+     * @return parsed triangle
      */
     public static Triangle parseTriangle(String[] args, int startIdx) throws TerminalParseException {
         if (args.length - startIdx == 0) {
@@ -95,8 +95,8 @@ public class Triangle implements Geometry, PointCollection {
      *
      * @param args     full terminal argument array
      * @param startIdx index of the first argument belonging to the triangle
-     * @return parsed triangle as a {@link PointCollection}
      * @throws TerminalParseException if the slice is malformed
+     * @return parsed triangle as a {@link PointCollection}
      */
     @Override
     public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {

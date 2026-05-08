@@ -57,10 +57,11 @@ public final class LyonLayoutDecomposer {
      * 4-sided + 3-sided layout patch, with face assignments + golden-ratio
      * colors. All feature-edge sets are empty.
      *
-     * @param mesh TODO: describe
-     * @param tmesh TODO: describe
-     * @param layout TODO: describe
-     * @return TODO: describe
+     * @param mesh   underlying triangle mesh
+     * @param tmesh  T-mesh the layout was built from
+     * @param layout the conforming Lyon 2021 layout
+     * @return diagnostics container compatible with the engine's existing
+     *         patch-rendering / overlay infrastructure
      */
     public static SemanticPatchDecomposer.DecompositionDiagnostics decompose(
             ArrayMesh mesh, TMesh tmesh, QuadLayout layout) {
@@ -292,9 +293,10 @@ public final class LyonLayoutDecomposer {
     /**
      * Golden-ratio HSL hue for patch p. Triangle patches are desaturated.
      *
-     * @param p TODO: describe
-     * @param isTriangle TODO: describe
-     * @return TODO: describe
+     * @param p          patch (component) id
+     * @param isTriangle {@code true} if the component contains any triangle
+     *                   patch (desaturates the hue)
+     * @return CSS-style {@code #RRGGBB} color
      */
     private static String colorForPatch(int p, boolean isTriangle) {
         // Golden ratio conjugate.

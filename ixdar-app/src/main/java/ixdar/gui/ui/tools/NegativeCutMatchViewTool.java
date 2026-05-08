@@ -172,6 +172,8 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the display name "Negative Cut Match View"
      */
     @Override
@@ -180,6 +182,8 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the short terminal alias {@code "neg"}
      */
     @Override
@@ -188,6 +192,8 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the full terminal name {@code "negativecutmatchview"}
      */
     @Override
@@ -196,6 +202,8 @@ public class NegativeCutMatchViewTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the one-line description of this tool's purpose
      */
     @Override

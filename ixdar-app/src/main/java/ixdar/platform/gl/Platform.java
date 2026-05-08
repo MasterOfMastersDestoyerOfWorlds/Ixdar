@@ -21,11 +21,15 @@ public interface Platform {
     void setTitle(String title);
 
     /**
+     * Logical window width.
+     *
      * @return logical window width in pixels
      */
     int getWindowWidth();
 
     /**
+     * Logical window height.
+     *
      * @return logical window height in pixels
      */
     int getWindowHeight();
@@ -37,6 +41,8 @@ public interface Platform {
     void requestRepaint();
 
     /**
+     * Monotonic time since process start.
+     *
      * @return monotonic time-since-process-start in seconds
      */
     float timeSeconds();
@@ -175,6 +181,8 @@ public interface Platform {
     void writeTextFile(TextFile path, boolean append) throws IOException;
 
     /**
+     * Wall-clock time the application started.
+     *
      * @return seconds-since-epoch (or platform clock origin) when the application started
      */
     float startTime();
@@ -187,6 +195,8 @@ public interface Platform {
     void log(String msg);
 
     /**
+     * Whether this platform supports hot reload of resources.
+     *
      * @return true when this platform supports live reload of resources (desktop only)
      */
     boolean canHotReload();
@@ -208,16 +218,22 @@ public interface Platform {
     void setFrameBufferSize(float f, float g);
 
     /**
+     * Drawable framebuffer width in pixels.
+     *
      * @return cached framebuffer width (drawable pixels, may differ from window width on HiDPI)
      */
     int getFrameBufferWidth();
 
     /**
+     * Drawable framebuffer height in pixels.
+     *
      * @return cached framebuffer height
      */
     int getFrameBufferHeight();
 
     /**
+     * Read this platform's assigned ID.
+     *
      * @return platform ID assigned by {@link ixdar.platform.Platforms#init(Platform, GL)}
      */
     int getPlatformID();

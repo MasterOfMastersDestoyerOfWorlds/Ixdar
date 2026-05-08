@@ -55,12 +55,15 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
     }
 
     /**
-     * TODO: document {@code parse}.
+     * Parse the trailing tokens of a terminal command into a {@code PointND.Double}.
+     * Each token is treated as a {@code double} coordinate; an empty tail yields the
+     * origin {@code (0, 0)}.
      *
-     * @param args TODO: describe
-     * @param startIdx TODO: describe
-     * @throws TerminalParseException TODO: describe
-     * @return TODO: describe
+     * @param args raw token array from the terminal
+     * @param startIdx first token belonging to this point
+     * @throws TerminalParseException never thrown by this implementation, but reserved
+     *         so subclasses may signal token errors uniformly
+     * @return a freshly constructed point of dimension {@code args.length - startIdx}
      */
     public static PointND parse(String[] args, int startIdx) throws TerminalParseException {
 
@@ -95,9 +98,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
     public abstract double[] getCoordList();
 
     /**
-     * TODO: document {@code getDim}.
+     * Number of coordinate dimensions stored by this point.
      *
-     * @return TODO: describe
+     * @return the dimensionality {@code n}
      */
     public abstract int getDim();
 
@@ -235,7 +238,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
      * object.
      *
      * @exception OutOfMemoryError if there is not enough memory.
-     * @throws InternalError TODO: describe
+     * @throws InternalError if {@link Cloneable} is not honored by a subclass; should never occur for {@code PointND}
      * @return a clone of this instance.
      * @see java.lang.Cloneable
      */
@@ -289,18 +292,20 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
     }
 
     /**
-     * TODO: document {@code getID}.
+     * Stable point id used for cross-basis comparisons. {@code -1} means "not
+     * yet assigned".
      *
-     * @return TODO: describe
+     * @return the point's id
      */
     public int getID() {
         return ID;
     }
 
     /**
-     * TODO: document {@code setID}.
+     * Assign this point's id and bump the static {@code maxID} watermark so
+     * future auto-assignments stay unique.
      *
-     * @param ID TODO: describe
+     * @param ID new id for this point
      */
     public void setID(int ID) {
         if (ID >= maxID) {
@@ -310,57 +315,62 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
     }
 
     /**
-     * TODO: document {@code isCentroid}.
+     * Whether this point has been flagged as a centroid by {@link #setCentroid()}.
      *
-     * @return TODO: describe
+     * @return the centroid flag
      */
     public boolean isCentroid() {
         return isCentroid;
     }
 
     /**
-     * TODO: document {@code setCentroid}.
+     * Mark this point as a centroid (e.g. computed from a {@link PointSet}).
      */
     public void setCentroid() {
         this.isCentroid = true;
     }
 
     /**
-     * TODO: document {@code isNSphereCenter}.
+     * Whether this point has been flagged as the center of an N-sphere by
+     * {@link #setNSphereCenter()}.
      *
-     * @return TODO: describe
+     * @return the N-sphere-center flag
      */
     public boolean isNSphereCenter() {
         return isNSphereCenter;
     }
 
     /**
-     * TODO: document {@code setNSphereCenter}.
+     * Mark this point as the center of an N-sphere.
      */
     public void setNSphereCenter() {
         this.isNSphereCenter = true;
     }
 
     /**
-     * TODO: document {@code isDummyNode}.
+     * Whether this point has been flagged as a dummy/sentinel node by
+     * {@link #setDummyNode()}; dummy nodes are reported at a sentinel
+     * off-screen location.
      *
-     * @return TODO: describe
+     * @return the dummy-node flag
      */
     public boolean isDummyNode() {
         return isDummyNode;
     }
 
     /**
-     * TODO: document {@code setDummyNode}.
+     * Mark this point as a dummy/sentinel node so its screen coordinates are
+     * forced off-screen.
      */
     public void setDummyNode() {
         this.isDummyNode = true;
     }
 
     /**
-     * TODO: document {@code getScreenX}.
+     * Screen-space X coordinate (the first coordinate) for rendering. Dummy
+     * nodes are shifted to a far-off sentinel location.
      *
-     * @return TODO: describe
+     * @return the X coordinate or the dummy sentinel
      */
     public double getScreenX() {
         if (this.isDummyNode) {
@@ -369,18 +379,19 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         return getCoord(0);
     }
     /**
-     * TODO: document {@code getScreenXf}.
+     * {@link #getScreenX()} narrowed to {@code float}.
      *
-     * @return TODO: describe
+     * @return the X screen coordinate as a {@code float}
      */
     public float getScreenXf() {
         return (float) getScreenX();
     }
 
     /**
-     * TODO: document {@code getScreenY}.
+     * Screen-space Y coordinate (the second coordinate) for rendering. Dummy
+     * nodes are shifted to a far-off sentinel location.
      *
-     * @return TODO: describe
+     * @return the Y coordinate or the dummy sentinel
      */
     public double getScreenY() {
         if (this.isDummyNode) {
@@ -388,20 +399,20 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
         return getCoord(1);
     }
-    
+
     /**
-     * TODO: document {@code getScreenYf}.
+     * {@link #getScreenY()} narrowed to {@code float}.
      *
-     * @return TODO: describe
+     * @return the Y screen coordinate as a {@code float}
      */
     public float getScreenYf() {
         return (float) getScreenY();
     }
 
     /**
-     * TODO: document {@code toCoordString}.
+     * Format this point's screen-space {@code (X, Y)} for the status readout.
      *
-     * @return TODO: describe
+     * @return string of the form {@code "X:<x> Y:<y>"}
      */
     public String toCoordString() {
         return "X:" + (int) this.getScreenX() + " Y:"
@@ -409,7 +420,8 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
     }
 
     /**
-     * TODO: document {@code resetIds}.
+     * Reset the auto-assigned id counter so the next implicit {@code setID}
+     * starts at {@code 0}. Useful when reloading a fresh problem.
      */
     public static void resetIds() {
         maxID = 0;
@@ -434,7 +446,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         /**
          * Constructs and initializes a {@code PointND} with coordinates (0,&nbsp;0).
          *
-         * @param ID TODO: describe
+         * @param ID stable id used for cross-basis comparisons
          */
         public Float(int ID) {
 
@@ -448,7 +460,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
          *
          * @param fs the n coordinates of the newly constructed {@code PointND}
          *
-         * @param ID TODO: describe
+         * @param ID stable id used for cross-basis comparisons
          */
         public Float(int ID, float... fs) {
 
@@ -498,9 +510,10 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code hashCode}.
+         * Hash by point id so equal {@link #getID() ids} collide as expected by
+         * the {@code equals}/{@code hashCode} contract used elsewhere.
          *
-         * @return TODO: describe
+         * @return {@link #getID()}
          */
         @Override
         public int hashCode() {
@@ -508,7 +521,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document.
+         * Number of coordinates stored, i.e. {@code fs.length}.
          *
          * @return the dimension of the vector
          */
@@ -520,8 +533,8 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         /**
          * {@inheritDoc}.
          *
-         * @param dim TODO: describe
-         * @return TODO: describe
+         * @param dim coordinate index
+         * @return the {@code dim}-th coordinate widened to {@code double}
          */
         @Override
         public double getCoord(int dim) {
@@ -531,7 +544,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         /**
          * {@inheritDoc}.
          *
-         * @param ds TODO: describe
+         * @param ds new coordinates; narrowed element-wise to {@code float}
          */
         @Override
         public void setLocation(double... ds) {
@@ -572,9 +585,10 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code toFileString}.
+         * Serialize as {@code "<id> <coord_0> <coord_1> ..."} with each
+         * coordinate formatted to four decimal places.
          *
-         * @return TODO: describe
+         * @return file-friendly representation
          */
         @Override
         public String toFileString() {
@@ -586,9 +600,10 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code getCoordList}.
+         * Coordinates as a fresh {@code double[]} (widened from the float
+         * storage).
          *
-         * @return TODO: describe
+         * @return per-dimension coordinate array
          */
         @Override
         public double[] getCoordList() {
@@ -600,12 +615,13 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code parseCollection}.
+         * Delegate to {@link PointND#parse(String[], int)} so this point type
+         * can act as the "command parser" for {@link PointCollection}.
          *
-         * @param args TODO: describe
-         * @param startIdx TODO: describe
-         * @throws TerminalParseException TODO: describe
-         * @return TODO: describe
+         * @param args raw token array from the terminal
+         * @param startIdx first token belonging to this collection
+         * @throws TerminalParseException if {@code parse} cannot decode {@code args}
+         * @return the parsed point as a {@link PointCollection}
          */
         @Override
         public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {
@@ -614,9 +630,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code usage}.
+         * Terminal usage hint describing the {@code add point} command.
          *
-         * @return TODO: describe
+         * @return the usage string
          */
         @Override
         public String usage() {
@@ -624,9 +640,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code desc}.
+         * Short, human-readable command description.
          *
-         * @return TODO: describe
+         * @return description string
          */
         @Override
         public String desc() {
@@ -634,9 +650,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code argLength}.
+         * Required argument count, or {@code -1} for variadic.
          *
-         * @return TODO: describe
+         * @return {@code -1} (variadic)
          */
         @Override
         public int argLength() {
@@ -644,9 +660,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code minArgLength}.
+         * Minimum argument count, or {@code -1} for unbounded.
          *
-         * @return TODO: describe
+         * @return {@code -1}
          */
         @Override
         public int minArgLength() {
@@ -654,9 +670,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code options}.
+         * Command aliases under which this point type is registered.
          *
-         * @return TODO: describe
+         * @return the shared {@code OptionList} for points
          */
         @Override
         public OptionList options() {
@@ -664,9 +680,10 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code realizePoints}.
+         * Treat this point as a single-element {@link PointCollection} by
+         * returning a one-entry list containing {@code this}.
          *
-         * @return TODO: describe
+         * @return list containing this point
          */
         @Override
         public ArrayList<PointND> realizePoints() {
@@ -676,9 +693,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code fullName}.
+         * Long command name (always {@value PointND#POINT}).
          *
-         * @return TODO: describe
+         * @return the long command name
          */
         @Override
         public String fullName() {
@@ -686,9 +703,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code shortName}.
+         * Short command name (defaults to {@value PointND#PT}).
          *
-         * @return TODO: describe
+         * @return the current short command name
          */
         @Override
         public String shortName() {
@@ -725,7 +742,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         /**
          * Constructs and initializes a {@code PointND} with the specified coordinates.
          *
-         * @param fs TODO: describe
+         * @param fs the n coordinates of the newly constructed {@code PointND}
          */
         public Double(double... fs) {
             this.setID(maxID);
@@ -756,7 +773,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
          * Constructs and initializes a {@code PointND} with the specified coordinates.
          *
          * @param ID             for comparison purposes across basis
-         * @param fs TODO: describe
+         * @param fs the n coordinates of the newly constructed {@code PointND}
          */
         public Double(int ID, double... fs) {
             this.setID(ID);
@@ -776,7 +793,8 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         /**
          * Constructs a {@code PointND} as the centtrroid of the specified PointSet.
          *
-         * @param ps TODO: describe
+         * @param ps point set whose mean coordinate is computed; the resulting
+         *           point has dimension {@code ps.getMaxDim()}
          */
         public Double(PointSet ps) {
             this.setID(maxID);
@@ -793,9 +811,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code hashCode}.
+         * Hash by point id so equal {@link #getID() ids} collide as expected.
          *
-         * @return TODO: describe
+         * @return {@link #getID()}
          */
         @Override
         public int hashCode() {
@@ -803,9 +821,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code getDim}.
+         * Number of coordinates stored, i.e. {@code ds.length}.
          *
-         * @return TODO: describe
+         * @return the dimension of the vector
          */
         @Override
         public int getDim() {
@@ -813,10 +831,11 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * {@inheritDoc}.
+         * {@inheritDoc}. Returns {@code 0.0} for indices past the trimmed end
+         * of the storage array.
          *
-         * @param dim TODO: describe
-         * @return TODO: describe
+         * @param dim coordinate index
+         * @return the {@code dim}-th coordinate, or {@code 0.0} if beyond storage
          */
         @Override
         public double getCoord(int dim) {
@@ -829,7 +848,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         /**
          * {@inheritDoc}.
          *
-         * @param ds TODO: describe
+         * @param ds new coordinate array (stored by reference)
          */
         @Override
         public void setLocation(double... ds) {
@@ -839,7 +858,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         /**
          * {@inheritDoc}.
          *
-         * @param fs TODO: describe
+         * @param fs new coordinates, widened element-wise to {@code double}
          */
         public void setLocation(float... fs) {
             double[] ds = new double[fs.length];
@@ -868,9 +887,10 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code toFileString}.
+         * Serialize as {@code "<id> <coord_0> <coord_1> ..."} with each
+         * coordinate formatted to four decimal places.
          *
-         * @return TODO: describe
+         * @return file-friendly representation
          */
         @Override
         public String toFileString() {
@@ -884,7 +904,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         /**
          * {@inheritDoc}.
          *
-         * @return TODO: describe
+         * @return the underlying coordinate array (no defensive copy)
          */
         @Override
         public double[] getCoordList() {
@@ -892,12 +912,13 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code parseCollection}.
+         * Delegate to {@link PointND#parse(String[], int)} so this point type
+         * can act as the "command parser" for {@link PointCollection}.
          *
-         * @param args TODO: describe
-         * @param startIdx TODO: describe
-         * @throws TerminalParseException TODO: describe
-         * @return TODO: describe
+         * @param args raw token array from the terminal
+         * @param startIdx first token belonging to this collection
+         * @throws TerminalParseException if {@code parse} cannot decode {@code args}
+         * @return the parsed point as a {@link PointCollection}
          */
         @Override
         public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {
@@ -906,9 +927,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code usage}.
+         * Terminal usage hint describing the {@code add point} command.
          *
-         * @return TODO: describe
+         * @return the usage string
          */
         @Override
         public String usage() {
@@ -916,9 +937,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code desc}.
+         * Short, human-readable command description.
          *
-         * @return TODO: describe
+         * @return description string
          */
         @Override
         public String desc() {
@@ -926,9 +947,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code argLength}.
+         * Required argument count, or {@code -1} for variadic.
          *
-         * @return TODO: describe
+         * @return {@code -1} (variadic)
          */
         @Override
         public int argLength() {
@@ -936,9 +957,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code minArgLength}.
+         * Minimum argument count, or {@code -1} for unbounded.
          *
-         * @return TODO: describe
+         * @return {@code -1}
          */
         @Override
         public int minArgLength() {
@@ -946,9 +967,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code options}.
+         * Command aliases under which this point type is registered.
          *
-         * @return TODO: describe
+         * @return the shared {@code OptionList} for points
          */
         @Override
         public OptionList options() {
@@ -956,9 +977,10 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code realizePoints}.
+         * Treat this point as a single-element {@link PointCollection} by
+         * returning a one-entry list containing {@code this}.
          *
-         * @return TODO: describe
+         * @return list containing this point
          */
         @Override
         public ArrayList<PointND> realizePoints() {
@@ -968,9 +990,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code fullName}.
+         * Long command name (always {@value PointND#POINT}).
          *
-         * @return TODO: describe
+         * @return the long command name
          */
         @Override
         public String fullName() {
@@ -978,9 +1000,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code shortName}.
+         * Short command name (defaults to {@value PointND#PT}).
          *
-         * @return TODO: describe
+         * @return the current short command name
          */
         @Override
         public String shortName() {
@@ -1060,9 +1082,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         /**
          * Constructs and initializes a {@code PointND} with the specified coordinates.
          *
-         * @param q TODO: describe
-         * @param r TODO: describe
-         * @param s TODO: describe
+         * @param q hex axial-q coordinate (right is positive)
+         * @param r hex axial-r coordinate (up-right is positive)
+         * @param s hex axial-s coordinate (up-left is positive); should satisfy {@code q + r + s = 0}
          */
         public Hex(int q, int r, int s) {
             this.setID(maxID);
@@ -1089,9 +1111,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
          * coordinates.
          *
          * @param ID for comparison purposes across basis
-         * @param q TODO: describe
-         * @param r TODO: describe
-         * @param s TODO: describe
+         * @param q hex axial-q coordinate (right is positive)
+         * @param r hex axial-r coordinate (up-right is positive)
+         * @param s hex axial-s coordinate (up-left is positive); should satisfy {@code q + r + s = 0}
          */
         public Hex(int ID, int q, int r, int s) {
             this.setID(ID);
@@ -1101,9 +1123,10 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code Hex}.
+         * Construct a hex point from a {@code [q, r, s]} array with an
+         * auto-assigned id.
          *
-         * @param coords TODO: describe
+         * @param coords three-element array of axial coordinates
          */
         public Hex(int[] coords) {
             this.setID(maxID);
@@ -1113,9 +1136,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code hashCode}.
+         * Hash by point id so equal {@link #getID() ids} collide as expected.
          *
-         * @return TODO: describe
+         * @return {@link #getID()}
          */
         @Override
         public int hashCode() {
@@ -1123,9 +1146,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code getDim}.
+         * Hex points always carry the {@code (q, r, s)} triple.
          *
-         * @return TODO: describe
+         * @return {@value #NUM_3}
          */
         @Override
         public int getDim() {
@@ -1133,10 +1156,11 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * {@inheritDoc}.
+         * {@inheritDoc}. Returns {@code Integer.MIN_VALUE} for indices outside
+         * the {@code (q, r, s)} triple.
          *
-         * @param dim TODO: describe
-         * @return TODO: describe
+         * @param dim coordinate index, {@code 0..2}
+         * @return {@code q}, {@code r} or {@code s}
          */
         @Override
         public double getCoord(int dim) {
@@ -1153,7 +1177,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         /**
          * {@inheritDoc}.
          *
-         * @param ds TODO: describe
+         * @param ds new coordinates {@code [q, r, s]}, narrowed to {@code int}
          */
         @Override
         public void setLocation(double... ds) {
@@ -1165,7 +1189,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         /**
          * {@inheritDoc}.
          *
-         * @param fs TODO: describe
+         * @param fs new coordinates {@code [q, r, s]}, narrowed to {@code int}
          */
         public void setLocation(float... fs) {
             q = (int) fs[0];
@@ -1192,9 +1216,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code toFileString}.
+         * Serialize as {@code "HEX <q> <r> <s>"}.
          *
-         * @return TODO: describe
+         * @return file-friendly representation
          */
         @Override
         public String toFileString() {
@@ -1204,7 +1228,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         /**
          * {@inheritDoc}.
          *
-         * @return TODO: describe
+         * @return a freshly allocated {@code [q, r, s]} array
          */
         @Override
         public double[] getCoordList() {
@@ -1212,12 +1236,12 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code parseCollection}.
+         * Delegate to {@link Hex#parse(String[], int)}.
          *
-         * @param args TODO: describe
-         * @param startIdx TODO: describe
-         * @throws TerminalParseException TODO: describe
-         * @return TODO: describe
+         * @param args raw token array from the terminal
+         * @param startIdx first token belonging to this collection
+         * @throws TerminalParseException when {@code args} does not contain exactly three coordinates
+         * @return the parsed hex point as a {@link PointCollection}
          */
         @Override
         public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {
@@ -1225,12 +1249,13 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code parse}.
+         * Parse exactly three integer coordinates {@code (q, r, s)} into a new
+         * {@link Hex}.
          *
-         * @param args TODO: describe
-         * @param startIdx TODO: describe
-         * @throws TerminalParseException TODO: describe
-         * @return TODO: describe
+         * @param args raw token array from the terminal
+         * @param startIdx first token belonging to this point
+         * @throws TerminalParseException if fewer or more than three coordinates are supplied
+         * @return the newly constructed hex point
          */
         public static PointND parse(String[] args, int startIdx) throws TerminalParseException {
             if (args.length - startIdx != NUM_3) {
@@ -1246,9 +1271,10 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code usage}.
+         * Terminal usage hint describing the {@code add point} command for hex
+         * coordinates.
          *
-         * @return TODO: describe
+         * @return the usage string
          */
         @Override
         public String usage() {
@@ -1256,9 +1282,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code desc}.
+         * Short, human-readable command description for hex points.
          *
-         * @return TODO: describe
+         * @return description string
          */
         @Override
         public String desc() {
@@ -1266,9 +1292,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code argLength}.
+         * Required argument count, or {@code -1} for variadic.
          *
-         * @return TODO: describe
+         * @return {@code -1}
          */
         @Override
         public int argLength() {
@@ -1276,9 +1302,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code minArgLength}.
+         * Minimum argument count, or {@code -1} for unbounded.
          *
-         * @return TODO: describe
+         * @return {@code -1}
          */
         @Override
         public int minArgLength() {
@@ -1286,9 +1312,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code options}.
+         * Command aliases under which this point type is registered.
          *
-         * @return TODO: describe
+         * @return the {@code OptionList} for hex points ({@code hex}/{@code hx})
          */
         @Override
         public OptionList options() {
@@ -1296,9 +1322,10 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code realizePoints}.
+         * Treat this point as a single-element {@link PointCollection} by
+         * returning a one-entry list containing {@code this}.
          *
-         * @return TODO: describe
+         * @return list containing this point
          */
         @Override
         public ArrayList<PointND> realizePoints() {
@@ -1308,9 +1335,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code fullName}.
+         * Long command name (always {@value PointND#POINT}).
          *
-         * @return TODO: describe
+         * @return the long command name
          */
         @Override
         public String fullName() {
@@ -1318,9 +1345,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code shortName}.
+         * Short command name (defaults to {@value PointND#PT}).
          *
-         * @return TODO: describe
+         * @return the current short command name
          */
         @Override
         public String shortName() {
@@ -1328,10 +1355,12 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code distance}.
+         * Hex distance between this point and {@code pt} measured as the
+         * Chebyshev distance over {@code (q, r, s)}. Returns
+         * {@code Integer.MIN_VALUE} when {@code pt} is not a {@link Hex}.
          *
-         * @param pt TODO: describe
-         * @return TODO: describe
+         * @param pt the other point
+         * @return integer hex distance, or sentinel for incompatible types
          */
         @Override
         public double distance(PointND pt) {
@@ -1345,11 +1374,12 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code pixelToHexCoords}.
+         * Convert a pixel-space coordinate into fractional hex coordinates
+         * {@code (q, r, s)} (typically rounded by callers to snap).
          *
-         * @param x TODO: describe
-         * @param y TODO: describe
-         * @return TODO: describe
+         * @param x pixel-space X
+         * @param y pixel-space Y
+         * @return three-element array {@code [q, r, s]}
          */
         public static double[] pixelToHexCoords(double x, double y) {
             double q = (root3over3 * x - 1.0 / NUM_3_0 * y);
@@ -1359,36 +1389,37 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code getRightUpVector}.
+         * Pixel-space basis vector pointing to the next hex up and to the right.
          *
-         * @return TODO: describe
+         * @return the right-up basis vector
          */
         public static Vector2f getRightUpVector() {
             return new Vector2f((float) (root3over2 * 1), NUM_1_5);
         }
 
         /**
-         * TODO: document {@code getRightDownVector}.
+         * Pixel-space basis vector pointing to the next hex down and to the right.
          *
-         * @return TODO: describe
+         * @return the right-down basis vector
          */
         public static Vector2f getRightDownVector() {
             return new Vector2f((float) (root3 * 1 + root3over2 * -1), -NUM_1_5);
         }
 
         /**
-         * TODO: document {@code getHorizontalVector}.
+         * Pixel-space basis vector pointing to the next hex along the
+         * horizontal (q) axis.
          *
-         * @return TODO: describe
+         * @return the horizontal basis vector
          */
         public static Vector2f getHorizontalVector() {
             return new Vector2f((float) (root3 * 1), 0);
         }
 
         /**
-         * TODO: document {@code getScreenY}.
+         * Screen-space Y for this hex, computed from {@code r} only.
          *
-         * @return TODO: describe
+         * @return the Y pixel coordinate
          */
         @Override
         public double getScreenY() {
@@ -1396,9 +1427,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code getScreenX}.
+         * Screen-space X for this hex, computed from {@code q} and {@code r}.
          *
-         * @return TODO: describe
+         * @return the X pixel coordinate
          */
         @Override
         public double getScreenX() {
@@ -1406,21 +1437,23 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code hexCoordsToPixel}.
+         * Convert axial coordinates {@code (q, r)} to pixel space. The {@code s}
+         * coordinate is implicit ({@code -q - r}).
          *
-         * @param q TODO: describe
-         * @param r TODO: describe
-         * @return TODO: describe
+         * @param q axial-q coordinate
+         * @param r axial-r coordinate
+         * @return pixel-space {@code (x, y)}
          */
         public static Vector2f hexCoordsToPixel(float q, float r) {
             return new Vector2f((float) (root3 * q + root3over2 * r), (float) (NUM_1_5_2 * r));
         }
 
         /**
-         * TODO: document {@code hexCoordsToPixel}.
+         * Convert axial coordinates from a {@code [q, r, ...]} array to pixel
+         * space; only the first two entries are read.
          *
-         * @param hexCoords TODO: describe
-         * @return TODO: describe
+         * @param hexCoords array whose first two elements are {@code q} and {@code r}
+         * @return pixel-space {@code (x, y)}
          */
         public static Vector2f hexCoordsToPixel(double[] hexCoords) {
             return new Vector2f((float) (root3 * hexCoords[0] + root3over2 * hexCoords[1]),
@@ -1428,9 +1461,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         }
 
         /**
-         * TODO: document {@code toCoordString}.
+         * Format this hex point's coordinates as {@code "Q:.. R:.. S:.."}.
          *
-         * @return TODO: describe
+         * @return readable hex coordinate string
          */
         @Override
         public String toCoordString() {

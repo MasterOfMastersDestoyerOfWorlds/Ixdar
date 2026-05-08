@@ -42,11 +42,12 @@ public final class DiscreteGradient {
     private DiscreteGradient() {}
 
     /**
-     * TODO: document {@code compute}.
+     * Computes the discrete gradient pairing for a 2D triangle mesh and per-vertex
+     * scalar via the Robins-Wood-Sheppard process-lower-star algorithm.
      *
-     * @param mesh TODO: describe
-     * @param scalar TODO: describe
-     * @return TODO: describe
+     * @param mesh source triangle mesh
+     * @param scalar per-vertex scalar value (length must be {@code mesh.vertexCount()})
+     * @return pairing, dimensions, and connectivity tables; unpaired cells are critical
      */
     public static Result compute(ArrayMesh mesh, float[] scalar) {
         int[] faceIdx = mesh.copyFaceIndices();
@@ -395,12 +396,13 @@ public final class DiscreteGradient {
             int[][] trianglesByEdge
     ) {
         /**
-         * TODO: document {@code cellId}.
+         * Encodes a (dimension, local index) pair into the unified cell-id range
+         * (vertices [0, nv), edges [nv, nv+ne), triangles [nv+ne, nv+ne+nt)).
          *
-         * @param dimension TODO: describe
-         * @param idx TODO: describe
-         * @throws IllegalArgumentException TODO: describe
-         * @return TODO: describe
+         * @param dimension cell dimension: 0, 1, or 2
+         * @param idx local index within that dimension
+         * @throws IllegalArgumentException if {@code dimension} is not 0, 1, or 2
+         * @return unified cell id
          */
         public int cellId(int dimension, int idx) {
             return switch (dimension) {
@@ -412,10 +414,10 @@ public final class DiscreteGradient {
         }
 
         /**
-         * TODO: document {@code dimOf}.
+         * Dimension (0/1/2) of a unified cell id.
          *
-         * @param cellId TODO: describe
-         * @return TODO: describe
+         * @param cellId unified cell id
+         * @return cell dimension
          */
         public int dimOf(int cellId) {
             if (cellId < nv) return 0;
@@ -424,10 +426,10 @@ public final class DiscreteGradient {
         }
 
         /**
-         * TODO: document {@code localIdx}.
+         * Local index of a unified cell id within its dimension.
          *
-         * @param cellId TODO: describe
-         * @return TODO: describe
+         * @param cellId unified cell id
+         * @return vertex / edge / triangle id depending on {@link #dimOf(int)}
          */
         public int localIdx(int cellId) {
             if (cellId < nv) return cellId;
@@ -436,19 +438,19 @@ public final class DiscreteGradient {
         }
 
         /**
-         * TODO: document {@code isCritical}.
+         * Whether a cell is critical (unpaired in the discrete gradient).
          *
-         * @param cellId TODO: describe
-         * @return TODO: describe
+         * @param cellId unified cell id
+         * @return true if {@code pair[cellId] < 0}
          */
         public boolean isCritical(int cellId) {
             return pair[cellId] < 0;
         }
 
         /**
-         * TODO: document {@code criticalCells}.
+         * All critical (unpaired) cell ids in ascending order.
          *
-         * @return TODO: describe
+         * @return freshly allocated array of critical cell ids
          */
         public int[] criticalCells() {
             int n = pair.length;

@@ -825,10 +825,13 @@ public class Knot extends SDFCircle {
     }
 
     /**
-     * TODO: document {@code beforeString}.
+     * Render the prefix of {@link #toString()} that precedes the child whose id
+     * is {@code id}, i.e. {@code "Knot[ "} followed by every child up to (but
+     * not including) the matching one. If no child matches, the whole list is
+     * rendered.
      *
-     * @param id TODO: describe
-     * @return TODO: describe
+     * @param id child knot id to stop before
+     * @return prefix string ending in {@code "]"}
      */
     public String beforeString(int id) {
         String str = KNOT;
@@ -844,10 +847,12 @@ public class Knot extends SDFCircle {
     }
 
     /**
-     * TODO: document {@code afterString}.
+     * Render the suffix of {@link #toString()} that follows the child whose id
+     * is {@code id}: the buffer is reset each time a leading child is seen so
+     * the result contains only the children that come after the match.
      *
-     * @param id TODO: describe
-     * @return TODO: describe
+     * @param id child knot id to start after
+     * @return suffix string ending in {@code "]"}
      */
     public String afterString(int id) {
         String str = "Knot[";
@@ -863,9 +868,11 @@ public class Knot extends SDFCircle {
     }
 
     /**
-     * TODO: document {@code toHyperString}.
+     * Render this knot as an interactive {@link HyperString} segment using the
+     * current scene's tool/toggles to colorize children, with a click handler
+     * that focuses the camera on this knot.
      *
-     * @return TODO: describe
+     * @return a clickable representation suitable for the terminal/text UI
      */
     public HyperString toHyperString() {
         HyperString h = new HyperString();
@@ -895,19 +902,21 @@ public class Knot extends SDFCircle {
     }
 
     /**
-     * TODO: document {@code isFull}.
+     * Whether this knot has reached its maximum match count, i.e. cannot accept
+     * any more match connections.
      *
-     * @return TODO: describe
+     * @return {@code true} when {@code matchList.size() == maxMatches}
      */
     public boolean isFull() {
         return matchList.size() == maxMatches;
     }
 
     /**
-     * TODO: document {@code getRunList}.
+     * Walk the cyclic match chain starting from this knot until {@code k2} is
+     * reached, returning every knot visited (inclusive of both endpoints).
      *
-     * @param k2 TODO: describe
-     * @return TODO: describe
+     * @param k2 the target knot whose id terminates the walk
+     * @return ordered list of knots from {@code this} to {@code k2}
      */
     public ArrayList<Knot> getRunList(Knot k2) {
         Knot next = this.m1;
@@ -929,9 +938,10 @@ public class Knot extends SDFCircle {
     }
 
     /**
-     * TODO: document {@code getRunList}.
+     * Walk the cyclic match chain starting from this knot's {@code m2}
+     * neighbor until the cycle returns to {@code this}.
      *
-     * @return TODO: describe
+     * @return ordered list of every knot visited along the cycle
      */
     public ArrayList<Knot> getRunList() {
         Knot next = this.m2;
@@ -984,7 +994,7 @@ public class Knot extends SDFCircle {
      *
      * @param k1 first singleton (e.g., HQ)
      * @param k2 second singleton (destination)
-     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalArgumentException if either argument is not a singleton
      * @return PipeRecord for undo support
      */
     public static PipeRecord pipeSimple(Knot k1, Knot k2) {
@@ -1087,10 +1097,10 @@ public class Knot extends SDFCircle {
     /**
      * Add a singleton to an existing knot by cutting an edge.
      *
-     * @param knot TODO: describe
-     * @param singleton TODO: describe
-     * @param cutEdge TODO: describe
-     * @return TODO: describe
+     * @param knot existing knot to extend
+     * @param singleton leaf point being absorbed
+     * @param cutEdge manifold segment of {@code knot} to split through {@code singleton}
+     * @return PipeRecord describing the split for undo support
      */
     private static PipeRecord pipeToExisting(Knot knot, Knot singleton, Segment cutEdge) {
         PipeRecord record = new PipeRecord();
@@ -1153,11 +1163,11 @@ public class Knot extends SDFCircle {
     /**
      * Pipe two knots at the same hierarchy level.
      *
-     * @param a TODO: describe
-     * @param b TODO: describe
-     * @param edgeA TODO: describe
-     * @param edgeB TODO: describe
-     * @return TODO: describe
+     * @param a first knot to pipe
+     * @param b second knot to pipe (added to {@code a}'s top group if needed)
+     * @param edgeA edge to cut on {@code a}
+     * @param edgeB edge to cut on {@code b}
+     * @return PipeRecord describing the new pipe segments for undo support
      */
     private static PipeRecord pipeToSameLevel(Knot a, Knot b, Segment edgeA, Segment edgeB) {
         PipeRecord record = new PipeRecord();
@@ -1231,11 +1241,11 @@ public class Knot extends SDFCircle {
     /**
      * Pipe two knots creating a new hierarchy level.
      *
-     * @param a TODO: describe
-     * @param b TODO: describe
-     * @param edgeA TODO: describe
-     * @param edgeB TODO: describe
-     * @return TODO: describe
+     * @param a first child of the new parent knot
+     * @param b second child of the new parent knot
+     * @param edgeA edge to cut on {@code a}
+     * @param edgeB edge to cut on {@code b}
+     * @return PipeRecord describing the freshly created parent and pipe segments
      */
     private static PipeRecord pipeToNewLevel(Knot a, Knot b, Segment edgeA, Segment edgeB) {
         PipeRecord record = new PipeRecord();
@@ -1348,8 +1358,8 @@ public class Knot extends SDFCircle {
      * Simple constructor that doesn't register with shell.pointMap. Used for
      * creating parent knots in trade routes.
      *
-     * @param shell TODO: describe
-     * @param id TODO: describe
+     * @param shell containing shell whose distance matrix etc. will back this knot
+     * @param id identifier to assign without inserting into {@code shell.pointMap}
      */
     public void simpleConstructorNoRegister(Shell shell, int id) {
         this.shell = shell;
@@ -1370,7 +1380,7 @@ public class Knot extends SDFCircle {
      *
      * @param singleton the singleton point to insert
      * @param edge      the edge to split (must be in this knot's manifold)
-     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalArgumentException if {@code singleton} is not a singleton or {@code edge} is missing from this knot's manifold
      * @return GrowRecord for undo support
      */
     public GrowRecord grow(Knot singleton, Segment edge) {
@@ -1442,8 +1452,8 @@ public class Knot extends SDFCircle {
      * Grow this knot by inserting a singleton at the lowest-cost edge.
      *
      * @param singleton the singleton point to insert
-     * @throws IllegalArgumentException TODO: describe
-     * @throws IllegalStateException TODO: describe
+     * @throws IllegalArgumentException if {@code singleton} is not a singleton
+     * @throws IllegalStateException if this knot has no manifold edge available to split
      * @return GrowRecord for undo support
      */
     public GrowRecord growAtLowestCost(Knot singleton) {
@@ -1599,7 +1609,7 @@ public class Knot extends SDFCircle {
      *
      * @param startChild the starting child knot
      * @param endChild   the ending child knot
-     * @throws IllegalArgumentException TODO: describe
+     * @throws IllegalArgumentException if no path can be found between {@code startChild} and {@code endChild}
      * @return CollapseRecord for undo support
      */
     public CollapseRecord collapse(Knot startChild, Knot endChild) {
@@ -1779,11 +1789,11 @@ public class Knot extends SDFCircle {
         public Knot owningKnot;
 
         /**
-         * TODO: document {@code EdgeInfo}.
+         * Record the classification of {@code edge} within a knot hierarchy.
          *
-         * @param edge TODO: describe
-         * @param type TODO: describe
-         * @param owningKnot TODO: describe
+         * @param edge the segment being described
+         * @param type whether {@code edge} sits inside a sub-knot, is a pipe, or is unknown
+         * @param owningKnot the knot that contains {@code edge} (sub-knot for {@link EdgeType#SUBKNOT_EDGE}, parent for {@link EdgeType#PIPE_EDGE})
          */
         public EdgeInfo(Segment edge, EdgeType type, Knot owningKnot) {
             this.edge = edge;

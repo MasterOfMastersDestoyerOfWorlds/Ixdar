@@ -21,11 +21,14 @@ public class ColorFixedLerp implements Color {
     private float offset;
 
     /**
-     * TODO: document {@code ColorFixedLerp}.
+     * A static (non-animated) blend between {@code startColor} and
+     * {@code endColor}, parameterized by a fixed {@code offset} in [0, 1] that
+     * is applied per-channel via {@link #channelLerp}. The display name is
+     * built from the two source colors' names.
      *
-     * @param startColor TODO: describe
-     * @param endColor TODO: describe
-     * @param offset TODO: describe
+     * @param startColor color at {@code offset == 0}
+     * @param endColor color at {@code offset == 1}
+     * @param offset blend factor along the start→end direction
      */
     public ColorFixedLerp(Color startColor, Color endColor, float offset) {
         this.startColor = startColor;
@@ -68,11 +71,7 @@ public class ColorFixedLerp implements Color {
         return lerp;
     }
 
-    /**
-     * TODO: document {@code getName}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public String getName() {
         return name;

@@ -38,6 +38,8 @@ public class DefaultBuffer implements IxBuffer {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return {@link FloatBuffer#remaining()}
      */
     @Override
@@ -58,6 +60,8 @@ public class DefaultBuffer implements IxBuffer {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return {@link FloatBuffer#capacity()}
      */
     @Override

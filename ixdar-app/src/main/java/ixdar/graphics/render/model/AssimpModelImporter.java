@@ -22,11 +22,17 @@ public class AssimpModelImporter {
     public static final float NUM_0_001 = 0.001f;
 
     /**
-     * TODO: document {@code importFromFile}.
+     * Load a model file with Assimp and produce interleaved
+     * {@code (px, py, pz, nx, ny, nz, u, v)} vertices plus triangle indices.
+     * Triangulates, joins identical vertices, and generates smooth normals if
+     * the source lacks them. Multiple meshes in the scene are concatenated.
+     * UVs default to {@code (0, 0)} when the source has no texture coords.
+     * The bounding sphere is computed from the union AABB and a radius pass
+     * over all vertices.
      *
-     * @param absoluteModelPath TODO: describe
-     * @throws IOException TODO: describe
-     * @return TODO: describe
+     * @param absoluteModelPath filesystem path passed to {@code aiImportFile}
+     * @throws IOException if Assimp fails to load the file or the imported scene contains no geometry
+     * @return imported model data ready for GPU upload
      */
     public ImportedModelData importFromFile(String absoluteModelPath) throws IOException {
         int flags = Assimp.aiProcess_Triangulate

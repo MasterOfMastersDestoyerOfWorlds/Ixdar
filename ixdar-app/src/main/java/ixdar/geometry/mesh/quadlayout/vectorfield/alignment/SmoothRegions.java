@@ -50,10 +50,13 @@ public final class SmoothRegions {
      * region).
      *
      * @param significanceDegMin minimum ∠F (degrees) to keep a region. CIE*16 default 70°.
-     * @param mesh TODO: describe
-     * @param smoothFaces TODO: describe
-     * @param pdf TODO: describe
-     * @return TODO: describe
+     * @param mesh        triangle mesh
+     * @param smoothFaces per-face smooth mask from
+     *                    {@link GeodesicCurvature#computeSmoothFaces}
+     * @param pdf         principal-curvature field providing per-face normals
+     *                    and {@code a_max} for streamline tracing
+     * @return per-face kept-region id, with {@code -1} for faces outside any
+     *         kept region
      */
     public static int[] detect(ArrayMesh mesh, boolean[] smoothFaces,
                                 PrincipalCurvatureField pdf,
@@ -138,11 +141,13 @@ public final class SmoothRegions {
      * (i.e. has at least one neighbour that is not in {@code rid}, including
      * mesh-boundary edges).
      *
-     * @param mesh TODO: describe
-     * @param f TODO: describe
-     * @param tentativeRegion TODO: describe
-     * @param rid TODO: describe
-     * @return TODO: describe
+     * @param mesh            triangle mesh
+     * @param f               face id to test
+     * @param tentativeRegion per-face component id from the connected-component
+     *                        pass
+     * @param rid             component id of {@code f}
+     * @return {@code true} if any neighbour is a mesh-boundary or belongs to
+     *         a different component
      */
     private static boolean isRegionBoundary(ArrayMesh mesh, int f,
                                             int[] tentativeRegion, int rid) {
@@ -188,12 +193,13 @@ public final class SmoothRegions {
      * canonically does for tensor-field streamline integration on a
      * parameterized surface — but applied directly on the 3D mesh here).
      *
-     * @param mesh TODO: describe
-     * @param pdf TODO: describe
-     * @param tentativeRegion TODO: describe
-     * @param rid TODO: describe
-     * @param startFace TODO: describe
-     * @return TODO: describe
+     * @param mesh            triangle mesh
+     * @param pdf             principal-curvature field
+     * @param tentativeRegion per-face component id
+     * @param rid             component id whose interior the streamline stays
+     *                        within
+     * @param startFace       seed face (a region-boundary face)
+     * @return ∠F in degrees; {@code 360} for cyclic streamlines
      */
     private static double traceStreamlineSignificanceDeg(ArrayMesh mesh,
                                                           PrincipalCurvatureField pdf,
@@ -329,12 +335,13 @@ public final class SmoothRegions {
      * <p>2D solution in the plane: choose two basis vectors orthogonal to
      * {@code n}, project everything onto them, solve a 2x2 linear system.
      *
-     * @param P TODO: describe
-     * @param D TODO: describe
-     * @param A TODO: describe
-     * @param B TODO: describe
-     * @param n TODO: describe
-     * @return TODO: describe
+     * @param P ray origin
+     * @param D ray direction (unit, in the face's tangent plane)
+     * @param A first edge endpoint
+     * @param B second edge endpoint
+     * @param n face normal (unit)
+     * @return parameter {@code t > 0} along the ray when the edge is hit at
+     *         {@code s in [0, 1]}; {@code Double.POSITIVE_INFINITY} otherwise
      */
     private static double solveRayEdgeIntersection(Vector3f P, Vector3f D,
                                                     Vector3f A, Vector3f B, Vector3f n) {

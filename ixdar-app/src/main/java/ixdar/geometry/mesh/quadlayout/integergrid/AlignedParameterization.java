@@ -53,11 +53,13 @@ public final class AlignedParameterization {
     private double energy;
 
     /**
-     * TODO: document {@code AlignedParameterization}.
+     * Build the per-vertex IGM Hessian and solve once (no pins) to populate
+     * the per-corner (u, v) arrays. The relaxed solve is gauge-invariant; this
+     * class does not perform integer rounding (see {@code SeamlessParameterization}).
      *
-     * @param mesh TODO: describe
-     * @param field TODO: describe
-     * @param combed TODO: describe
+     * @param mesh   underlying triangle mesh
+     * @param field  smoothed cross field providing per-face local frames
+     * @param combed combed branch / matching / seam set derived from {@code field}
      */
     public AlignedParameterization(ArrayMesh mesh, FaceRosyField field, CombedField combed) {
         this.mesh = mesh;
@@ -70,38 +72,40 @@ public final class AlignedParameterization {
     }
 
     /**
-     * TODO: document {@code u}.
+     * Per-corner u parameterization coordinate.
      *
-     * @param faceId TODO: describe
-     * @param cornerIdx TODO: describe
-     * @return TODO: describe
+     * @param faceId    active face id
+     * @param cornerIdx corner index in {@code [0, 3)}
+     * @return per-corner u-coordinate
      */
     public float u(int faceId, int cornerIdx) {
         return uCorner[faceId * NUM_3 + cornerIdx];
     }
 
     /**
-     * TODO: document {@code v}.
+     * Per-corner v parameterization coordinate.
      *
-     * @param faceId TODO: describe
-     * @param cornerIdx TODO: describe
-     * @return TODO: describe
+     * @param faceId    active face id
+     * @param cornerIdx corner index in {@code [0, 3)}
+     * @return per-corner v-coordinate
      */
     public float v(int faceId, int cornerIdx) {
         return vCorner[faceId * NUM_3 + cornerIdx];
     }
 
     /**
-     * TODO: document {@code energy}.
+     * Final residual energy at the solved parameterization.
      *
-     * @return TODO: describe
+     * @return summed gradient-vs-target energy at the solved (u, v) (Campen
+     *         2014 eq. 6.1)
      */
     public double energy() { return energy; }
 
     /**
      * Returns [uMin, uMax, vMin, vMax].
      *
-     * @return TODO: describe
+     * @return four-element {@code [uMin, uMax, vMin, vMax]} over all corners,
+     *         or all zeros for an empty mesh
      */
     public float[] uvBoundingBox() {
         if (faceCount == 0) return new float[]{0, 0, 0, 0};
@@ -120,8 +124,9 @@ public final class AlignedParameterization {
     /**
      * Signed area in (u,v) of triangle f. Positive = correctly oriented.
      *
-     * @param faceId TODO: describe
-     * @return TODO: describe
+     * @param faceId active face id
+     * @return signed UV-space triangle area; positive means the (u, v) image
+     *         preserves orientation
      */
     public float uvSignedArea(int faceId) {
         int o = faceId * NUM_3;

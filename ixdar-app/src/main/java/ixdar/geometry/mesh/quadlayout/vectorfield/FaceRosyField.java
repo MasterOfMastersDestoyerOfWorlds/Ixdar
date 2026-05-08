@@ -64,16 +64,17 @@ public final class FaceRosyField extends BaseField {
     private GreedyRounding.Result lastResult;
 
     /**
-     * TODO: document {@code FaceRosyField}.
+     * Construct without directional alignment ({@code principalThreshold =
+     * +Infinity}, CIE*16 chain disabled).
      *
-     * @param mesh TODO: describe
+     * @param mesh underlying triangle mesh
      */
     public FaceRosyField(ArrayMesh mesh) {
         this(mesh, Double.POSITIVE_INFINITY);
     }
 
     /**
-     * TODO: document.
+     * Construct with explicit CIE*16 significance threshold.
      *
      * @param principalThreshold CIE*16 §3.2 ¶4 significance angle threshold,
      *     in degrees (default 70°). When finite, activates the CIE*16
@@ -87,7 +88,7 @@ public final class FaceRosyField extends BaseField {
      *     threshold τ_min ∈ [0,1] (PATCH-96, deleted). The constructor
      *     signature is preserved for backward compatibility but the value's
      *     meaning has changed.
-     * @param mesh TODO: describe
+     * @param mesh underlying triangle mesh
      */
     public FaceRosyField(ArrayMesh mesh, double principalThreshold) {
         super(mesh);
@@ -96,18 +97,18 @@ public final class FaceRosyField extends BaseField {
     }
 
     /**
-     * TODO: document {@code interiorEdgeCount}.
+     * Number of interior edges in this field's adjacency.
      *
-     * @return TODO: describe
+     * @return number of interior edges (edges with two adjacent active faces)
      */
     public int interiorEdgeCount() { return interiorEdgeCount; }
 
     /**
-     * TODO: document {@code periodJump}.
+     * Solved per-edge integer period jump.
      *
-     * @param interiorEdgeIndex TODO: describe
-     * @throws IllegalStateException TODO: describe
-     * @return TODO: describe
+     * @param interiorEdgeIndex index in {@code [0, interiorEdgeCount)}
+     * @throws IllegalStateException if {@link #solve()} hasn't been called
+     * @return integer period jump m_e on this edge after {@link #solve()}
      */
     public int periodJump(int interiorEdgeIndex) {
         if (!solved) throw new IllegalStateException(SOLVE_NOT_CALLED);
@@ -115,44 +116,51 @@ public final class FaceRosyField extends BaseField {
     }
 
     /**
-     * TODO: document {@code edgeFaceA}.
+     * A-side face of an interior edge.
      *
-     * @param interiorEdgeIndex TODO: describe
-     * @return TODO: describe
+     * @param interiorEdgeIndex index in {@code [0, interiorEdgeCount)}
+     * @return id of the face on the canonical A-side of the edge
      */
     public int edgeFaceA(int interiorEdgeIndex) { return edgeFaceA[interiorEdgeIndex]; }
     /**
-     * TODO: document {@code edgeFaceB}.
+     * B-side face of an interior edge.
      *
-     * @param interiorEdgeIndex TODO: describe
-     * @return TODO: describe
+     * @param interiorEdgeIndex index in {@code [0, interiorEdgeCount)}
+     * @return id of the face on the canonical B-side of the edge
      */
     public int edgeFaceB(int interiorEdgeIndex) { return edgeFaceB[interiorEdgeIndex]; }
     /**
-     * TODO: document {@code edgeMeshId}.
+     * Underlying mesh-edge id of an interior edge.
      *
-     * @param interiorEdgeIndex TODO: describe
-     * @return TODO: describe
+     * @param interiorEdgeIndex index in {@code [0, interiorEdgeCount)}
+     * @return underlying mesh edge id
      */
     public int edgeMeshId(int interiorEdgeIndex) { return edgeMeshId[interiorEdgeIndex]; }
     /**
-     * TODO: document {@code kappa}.
+     * Parallel-transport rotation across an interior edge.
      *
-     * @param interiorEdgeIndex TODO: describe
-     * @return TODO: describe
+     * @param interiorEdgeIndex index in {@code [0, interiorEdgeCount)}
+     * @return parallel-transport rotation kappa_e between the two face frames,
+     *         in radians
      */
     public double kappa(int interiorEdgeIndex) { return kappa[interiorEdgeIndex]; }
 
     /**
-     * TODO: document {@code isTreeEdge}.
+     * Whether an interior edge belongs to the dual spanning tree.
      *
-     * @param interiorEdgeIndex TODO: describe
-     * @return TODO: describe
+     * @param interiorEdgeIndex index in {@code [0, interiorEdgeCount)}
+     * @return {@code true} if this edge is on the dual spanning tree (gauged
+     *         to {@code m=0} for the BZK system)
      */
     public boolean isTreeEdge(int interiorEdgeIndex) { return isTreeEdge[interiorEdgeIndex]; }
 
     /**
-     * TODO: document {@code solve}.
+     * Run the BZK09 mixed-integer cross-field optimization, populating
+     * {@link #theta} and per-edge integer matchings ({@link #periodJump}).
+     * Optionally invokes the CIE*16 directional-constraint chain when a finite
+     * {@code principalThreshold} was supplied to the constructor. Selects
+     * between the BZK09 greedy-rounding path and the DVPSH14 complex-polynomial
+     * path via the {@code ixdar.lyon.crossFieldSolver} system property.
      */
     public void solve() {
         int F = mesh.faceCount();
@@ -238,14 +246,16 @@ public final class FaceRosyField extends BaseField {
      * Solver convergence stats from the last {@link #solve()} call. Null
      *  before solve(), or for the no-op F=0 case. Used by bench introspection.
      *
-     * @return TODO: describe
+     * @return the {@link GreedyRounding.Result} produced by the most recent
+     *         BZK09 solve, or {@code null} for the DVPSH path / no-op case
      */
     public GreedyRounding.Result lastResult() { return lastResult; }
 
     /**
      * Mesh bounding box diagonal — used by ACDLD03 §2.1 ¶3 default radius.
      *
-     * @return TODO: describe
+     * @return diagonal length of the mesh's axis-aligned bounding box, in
+     *         world units; 0 for an empty mesh
      */
     private double boundingBoxDiagonal() {
         int V = mesh.vertexCount();
@@ -366,10 +376,11 @@ public final class FaceRosyField extends BaseField {
     }
 
     /**
-     * TODO: document {@code smoothnessEnergy}.
+     * Evaluate the BZK09 smoothness energy at the current solution:
+     * {@code sum_e (theta_a - theta_b + kappa_e + (pi/2) * m_e)^2}.
      *
-     * @throws IllegalStateException TODO: describe
-     * @return TODO: describe
+     * @throws IllegalStateException if {@link #solve()} hasn't been called
+     * @return summed squared residual over all interior edges
      */
     public double smoothnessEnergy() {
         if (!solved) throw new IllegalStateException(SOLVE_NOT_CALLED);
@@ -383,10 +394,11 @@ public final class FaceRosyField extends BaseField {
     }
 
     /**
-     * TODO: document {@code findSingularities}.
+     * Detect cross-field singularities by walking each interior vertex's
+     * one-ring (delegates to {@link SingularityFinder#find}).
      *
-     * @throws IllegalStateException TODO: describe
-     * @return TODO: describe
+     * @throws IllegalStateException if {@link #solve()} hasn't been called
+     * @return list of detected interior singularities
      */
     public List<Singularity> findSingularities() {
         if (!solved) throw new IllegalStateException(SOLVE_NOT_CALLED);
@@ -394,9 +406,10 @@ public final class FaceRosyField extends BaseField {
     }
 
     /**
-     * TODO: document {@code principalThreshold}.
+     * Significance threshold for the directional alignment chain.
      *
-     * @return TODO: describe
+     * @return the CIE*16 §3.2 ¶4 significance threshold supplied to the
+     *         constructor; {@code +Infinity} disables the directional chain
      */
     public double principalThreshold() { return principalThreshold; }
 
@@ -406,11 +419,15 @@ public final class FaceRosyField extends BaseField {
      * {@code ixdar.geometry.mesh.quadlayout.field.PrecomputedFieldImporter} to
      * load metriko's known-good stage1 cross field for downstream regression.
      *
-     * @param mesh TODO: describe
-     * @param theta TODO: describe
-     * @param periodJump TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param mesh       underlying triangle mesh
+     * @param theta      per-face theta in radians, length must equal
+     *                   {@code mesh.faceCount()}
+     * @param periodJump per-interior-edge integer matchings, length must equal
+     *                   the resulting field's {@code interiorEdgeCount()}
+     * @throws IllegalArgumentException if {@code theta} or {@code periodJump}
+     *                                  has the wrong length
+     * @return a {@code FaceRosyField} pre-populated from the supplied data and
+     *         marked as solved (no BZK pass is run)
      */
     public static FaceRosyField fromExternal(ArrayMesh mesh, double[] theta, int[] periodJump) {
         FaceRosyField f = new FaceRosyField(mesh);

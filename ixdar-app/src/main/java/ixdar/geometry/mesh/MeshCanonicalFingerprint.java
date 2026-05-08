@@ -53,10 +53,10 @@ public final class MeshCanonicalFingerprint {
     }
 
     /**
-     * TODO: document {@code triangleCount}.
+     * Triangle count of {@code mesh} using its compiled surface data.
      *
-     * @param mesh TODO: describe
-     * @return TODO: describe
+     * @param mesh mesh to count, or {@code null}
+     * @return number of triangles, or 0 when {@code mesh} is null
      */
     public static int triangleCount(MeshTopology mesh) {
         if (mesh == null) {
@@ -67,10 +67,10 @@ public final class MeshCanonicalFingerprint {
     }
 
     /**
-     * TODO: document {@code sha256Hex}.
+     * Order-independent SHA-256 fingerprint of {@code mesh}.
      *
-     * @param mesh TODO: describe
-     * @return TODO: describe
+     * @param mesh mesh to fingerprint, or {@code null}
+     * @return lowercase hex SHA-256; the empty-input digest when {@code mesh} is null
      */
     public static String sha256Hex(MeshTopology mesh) {
         if (mesh == null) {

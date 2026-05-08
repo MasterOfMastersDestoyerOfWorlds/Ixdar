@@ -96,6 +96,8 @@ public class Camera2D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the camera viewport's current screen width
      */
     @Override
@@ -104,6 +106,8 @@ public class Camera2D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the camera viewport's current screen height
      */
     @Override
@@ -605,6 +609,8 @@ public class Camera2D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the current zoom factor
      */
     @Override
@@ -643,6 +649,8 @@ public class Camera2D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the current ortho z-index
      */
     @Override
@@ -679,6 +687,8 @@ public class Camera2D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return current depth used by the descending far-z cursor
      */
     @Override
@@ -687,6 +697,8 @@ public class Camera2D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return viewport lower-left x in framebuffer space
      */
     @Override
@@ -695,6 +707,8 @@ public class Camera2D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return viewport lower-left y in framebuffer space
      */
     @Override
@@ -703,6 +717,8 @@ public class Camera2D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return framebufferWidth / screenWidth DPI ratio
      */
     @Override
@@ -711,6 +727,8 @@ public class Camera2D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return framebufferHeight / screenHeight DPI ratio
      */
     @Override
@@ -829,6 +847,8 @@ public class Camera2D implements Camera {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the camera's screen-space viewport rectangle
      */
     @Override

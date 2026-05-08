@@ -20,6 +20,8 @@ public interface IxBuffer {
     void clear();
 
     /**
+     * Number of floats remaining between the current position and limit.
+     *
      * @return number of floats between position and limit
      */
     int remaining();
@@ -33,6 +35,8 @@ public interface IxBuffer {
     IxBuffer put(float x1);
 
     /**
+     * Storage capacity of the buffer.
+     *
      * @return the maximum number of floats this buffer can hold
      */
     int capacity();

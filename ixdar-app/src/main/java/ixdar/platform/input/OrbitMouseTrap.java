@@ -75,14 +75,20 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
+     * Current azimuth angle of the orbit camera.
+     *
      * @return current azimuth in radians
      */
     public float getAzimuth() { return azimuth; }
     /**
+     * Current elevation angle of the orbit camera.
+     *
      * @return current elevation in radians (clamped to MIN/MAX_ELEVATION)
      */
     public float getElevation() { return elevation; }
     /**
+     * Current orbit distance from the target.
+     *
      * @return current distance from the orbit target
      */
     public float getDistance() { return distance; }

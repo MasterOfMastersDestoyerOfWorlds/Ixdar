@@ -75,8 +75,8 @@ public class Arc implements Geometry, PointCollection {
      *
      * @param args full terminal argument array
      * @param startIdx index of the first argument belonging to the arc
-     * @return the sampled points of the parsed arc
      * @throws TerminalParseException if the slice is malformed
+     * @return the sampled points of the parsed arc
      */
     public static ArrayList<PointND> parse(String[] args, int startIdx) throws TerminalParseException {
         Arc arc = parseArc(args, startIdx);
@@ -91,8 +91,8 @@ public class Arc implements Geometry, PointCollection {
      *
      * @param args full terminal argument array
      * @param startIdx index of the first argument belonging to the arc
-     * @return parsed arc
      * @throws TerminalParseException if any token is not numeric
+     * @return parsed arc
      */
     public static Arc parseArc(String[] args, int startIdx) throws TerminalParseException {
         if (args.length - startIdx == 0) {
@@ -112,8 +112,8 @@ public class Arc implements Geometry, PointCollection {
      *
      * @param args full terminal argument array
      * @param startIdx index of the first argument belonging to the arc
-     * @return parsed arc as a {@link PointCollection}
      * @throws TerminalParseException if the slice is malformed
+     * @return parsed arc as a {@link PointCollection}
      */
     @Override
     public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {

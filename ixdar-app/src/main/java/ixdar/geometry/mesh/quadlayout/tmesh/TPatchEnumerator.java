@@ -118,11 +118,11 @@ public final class TPatchEnumerator {
      *  {@code null} for both to fall back to raw-angle sorting (legacy
      *  behavior, used by tests and pure-T-mesh fixtures).
      *
-     * @param nodes TODO: describe
-     * @param arcs TODO: describe
-     * @param mesh TODO: describe
-     * @param singVertexToNode TODO: describe
-     * @return TODO: describe
+     * @param nodes            T-mesh nodes (singularity / intersection / boundary)
+     * @param arcs             T-mesh arcs to walk into half-arcs
+     * @param mesh             underlying triangle mesh used for fan-based sort at multi-frame nodes
+     * @param singVertexToNode map from singularity mesh-vertex id to T-node id
+     * @return enumerated patches; cycles longer than the cap or with too few corners are dropped
      */
     public static List<TPatch> enumerate(List<TNode> nodes, List<TArc> arcs,
                                          ixdar.geometry.mesh.data.ArrayMesh mesh,
@@ -131,11 +131,12 @@ public final class TPatchEnumerator {
     }
 
     /**
-     * TODO: document {@code enumerate}.
+     * Mesh-agnostic overload: sorts incident half-arcs by raw parametric angle only
+     * (no fan-based sort at multi-frame nodes).
      *
-     * @param nodes TODO: describe
-     * @param arcs TODO: describe
-     * @return TODO: describe
+     * @param nodes T-mesh nodes
+     * @param arcs  T-mesh arcs
+     * @return enumerated patches from the simple planar-dual walk
      */
     public static List<TPatch> enumerate(List<TNode> nodes, List<TArc> arcs) {
         return enumerateImpl(nodes, arcs, null, null);
@@ -518,11 +519,11 @@ public final class TPatchEnumerator {
      *  Sorting by {@code (fan_position, within_face_angle)} matches the
      *  planar walk's expectation of CCW-around-the-node ordering.
      *
-     * @param halfArcs TODO: describe
-     * @param arcs TODO: describe
-     * @param startAngle TODO: describe
-     * @param mesh TODO: describe
-     * @param vertexId TODO: describe
+     * @param halfArcs   list of {@code [halfArcId, angleBits]} pairs sorted in place
+     * @param arcs       arc table indexed by {@code halfArcId / 2}
+     * @param startAngle per-half-arc parametric start angles (used as within-face tiebreaker)
+     * @param mesh       half-edge mesh whose vertex one-ring defines the fan order
+     * @param vertexId   mesh-vertex id of the singularity at this T-node
      */
     private static void sortByMeshFan(List<int[]> halfArcs, List<TArc> arcs,
                                       double[] startAngle,
@@ -568,8 +569,8 @@ public final class TPatchEnumerator {
      * PATCH-92: mesh face the arc's first step traverses (= face frame at
      *  arc.startNode). Used to detect multi-frame angular-sort hazards.
      *
-     * @param arc TODO: describe
-     * @return TODO: describe
+     * @param arc T-mesh arc whose first mesh-face crossing is read
+     * @return mesh-face id of the first step, or {@code -1} if the arc has no crossings
      */
     private static int arc_first_face(TArc arc) {
         if (arc.meshFaceCrossings() == null || arc.meshFaceCrossings().isEmpty())
@@ -581,8 +582,8 @@ public final class TPatchEnumerator {
      * PATCH-92: mesh face the arc's last step traverses (= face frame at
      *  arc.endNode).
      *
-     * @param arc TODO: describe
-     * @return TODO: describe
+     * @param arc T-mesh arc whose last mesh-face crossing is read
+     * @return mesh-face id of the last step, or {@code -1} if the arc has no crossings
      */
     private static int arc_last_face(TArc arc) {
         if (arc.meshFaceCrossings() == null || arc.meshFaceCrossings().isEmpty())
@@ -594,8 +595,8 @@ public final class TPatchEnumerator {
     /**
      * Parametric angle of an arc's outgoing direction at its start.
      *
-     * @param arc TODO: describe
-     * @return TODO: describe
+     * @param arc arc whose first uv-step direction is measured
+     * @return signed angle in radians; falls back to the arc's cardinal direction if it has no steps
      */
     private static double forwardStartAngle(TArc arc) {
         if (arc.stepUvs().isEmpty()) return cardinalAngle(arc.direction());
@@ -606,8 +607,8 @@ public final class TPatchEnumerator {
     /**
      * Parametric angle of the arc's REVERSE outgoing direction (from its end).
      *
-     * @param arc TODO: describe
-     * @return TODO: describe
+     * @param arc arc whose last uv-step's reversed direction is measured
+     * @return signed angle in radians; falls back to the arc's cardinal direction (rotated 180°) if it has no steps
      */
     private static double reverseStartAngle(TArc arc) {
         if (arc.stepUvs().isEmpty()) return cardinalAngle((arc.direction() + 2) % NUM_4);

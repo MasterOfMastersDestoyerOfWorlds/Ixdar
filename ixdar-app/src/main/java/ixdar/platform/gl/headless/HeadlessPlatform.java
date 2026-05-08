@@ -70,7 +70,7 @@ public class HeadlessPlatform implements Platform {
         this.gl = new HeadlessGL(width, height);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public IxBuffer allocateFloats(int capacity) {
         return new HeadlessBuffer(capacity);
@@ -82,13 +82,13 @@ public class HeadlessPlatform implements Platform {
         // no-op
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getWindowWidth() {
         return windowWidth;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getWindowHeight() {
         return windowHeight;
@@ -100,7 +100,7 @@ public class HeadlessPlatform implements Platform {
         // no-op
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public float timeSeconds() {
         return (float) (System.nanoTime() / NUM_1e9);
@@ -154,7 +154,7 @@ public class HeadlessPlatform implements Platform {
         // no-op for headless
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public float startTime() {
         return startTime;
@@ -286,32 +286,32 @@ public class HeadlessPlatform implements Platform {
         return false;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void setFrameBufferSize(float width, float height) {
         this.frameBufferWidth = (int) width;
         this.frameBufferHeight = (int) height;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getFrameBufferWidth() {
         return frameBufferWidth;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getFrameBufferHeight() {
         return frameBufferHeight;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getPlatformID() {
         return platformId;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void setPlatformID(Integer p) {
         this.platformId = p == null ? -1 : p.intValue();
@@ -324,6 +324,8 @@ public class HeadlessPlatform implements Platform {
     }
 
     /**
+     * Access this platform's headless GL implementation.
+     *
      * @return the {@link HeadlessGL} created at construction
      */
     public HeadlessGL getGL() {

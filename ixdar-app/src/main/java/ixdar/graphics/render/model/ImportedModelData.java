@@ -11,14 +11,17 @@ public class ImportedModelData {
     public final float radius;
 
     /**
-     * TODO: document {@code ImportedModelData}.
+     * Raw output of an external model importer (Assimp): an interleaved
+     * float buffer of position/normal/UV vertices, a triangle index buffer,
+     * a flag indicating whether real UVs were present in the source, and
+     * a bounding sphere. Consumed by the runtime when uploading to the GPU.
      *
-     * @param vertices TODO: describe
-     * @param indices TODO: describe
-     * @param vertexCount TODO: describe
-     * @param hasTexCoords TODO: describe
-     * @param center TODO: describe
-     * @param radius TODO: describe
+     * @param vertices interleaved {@code (px, py, pz, nx, ny, nz, u, v)} per vertex
+     * @param indices triangle indices into {@code vertices}
+     * @param vertexCount number of unique vertices ({@code vertices.length / 8})
+     * @param hasTexCoords {@code true} when the source supplied UV coordinates
+     * @param center world-space bounding-sphere center
+     * @param radius world-space bounding-sphere radius
      */
     public ImportedModelData(float[] vertices, int[] indices, int vertexCount, boolean hasTexCoords, Vector3f center, float radius) {
         this.vertices = vertices;

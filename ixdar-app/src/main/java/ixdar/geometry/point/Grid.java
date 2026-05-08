@@ -29,55 +29,58 @@ public abstract class Grid {
     }
 
     /**
-     * TODO: document {@code showGrid}.
+     * Mark this grid so that its lines are rendered. The flag is forwarded to
+     * {@link Toggle#DrawGridLines} on the next {@link #init()}.
      */
     public void showGrid() {
         showGrid = true;
     }
 
     /**
-     * TODO: document {@code init}.
+     * Push {@link #showGrid} into {@link Toggle#DrawGridLines} so the renderer
+     * picks up the current grid's visibility preference.
      */
     public void init() {
         Toggle.DrawGridLines.value = showGrid;
     }
 
     /**
-     * TODO: document {@code toCoordString}.
+     * Format the cursor position under this grid's coordinate system for the
+     * status readout (e.g. {@code "X:.. Y:.."} or {@code "Q:.. R:.. S:.."}).
      *
-     * @return TODO: describe
+     * @return a printable description of the current cursor coordinates
      */
     public abstract String toCoordString();
 
     /**
-     * TODO: document {@code allowsPoint}.
+     * Whether {@code pt} is a coordinate type this grid will accept as input.
      *
-     * @param pt TODO: describe
-     * @return TODO: describe
+     * @param pt candidate point to validate
+     * @return {@code true} if the concrete subclass of {@code pt} is permitted on this grid
      */
     public abstract boolean allowsPoint(PointND pt);
 
     /**
-     * TODO: document {@code allowableTypes}.
+     * The {@link PointCollection} subclasses that may be added to this grid.
      *
-     * @return TODO: describe
+     * @return classes accepted as input on this grid
      */
     public abstract Class<? extends PointCollection>[] allowableTypes();
 
     /**
-     * TODO: document {@code draw}.
+     * Draw this grid's lines through the supplied camera.
      *
-     * @param camera TODO: describe
-     * @param gridLineThickness TODO: describe
+     * @param camera 2D camera providing screen/world transforms
+     * @param gridLineThickness stroke width, in screen units
      */
     public abstract void draw(Camera2D camera, float gridLineThickness);
 
     /**
-     * TODO: document {@code coordinateToNearestGridPoint}.
+     * Snap a screen-space coordinate to the nearest grid vertex.
      *
-     * @param mouseX TODO: describe
-     * @param mouseY TODO: describe
-     * @return TODO: describe
+     * @param mouseX screen-space X
+     * @param mouseY screen-space Y
+     * @return the nearest grid point in screen space
      */
     public abstract Vector2f coordinateToNearestGridPoint(float mouseX, float mouseY);
 
@@ -90,11 +93,11 @@ public abstract class Grid {
         Shell gridShell = new Shell();
 
         /**
-         * TODO: document {@code coordinateToNearestGridPoint}.
+         * Cartesian grid imposes no snapping; the cursor coordinate is returned unchanged.
          *
-         * @param mouseX TODO: describe
-         * @param mouseY TODO: describe
-         * @return TODO: describe
+         * @param mouseX screen-space X
+         * @param mouseY screen-space Y
+         * @return a fresh vector mirroring the input
          */
         @Override
         public Vector2f coordinateToNearestGridPoint(float mouseX, float mouseY) {
@@ -102,9 +105,9 @@ public abstract class Grid {
         }
 
         /**
-         * TODO: document {@code toCoordString}.
+         * Format the cursor's world-space coordinates as {@code "X:.. Y:.."}.
          *
-         * @return TODO: describe
+         * @return Cartesian coordinate readout for the status bar
          */
         @Override
         public String toCoordString() {
@@ -113,10 +116,10 @@ public abstract class Grid {
         }
 
         /**
-         * TODO: document {@code allowsPoint}.
+         * Cartesian grids accept any {@link PointND.Double} or {@link PointND.Float}.
          *
-         * @param pt TODO: describe
-         * @return TODO: describe
+         * @param pt candidate point
+         * @return {@code true} for floating-point N-D points
          */
         @Override
         public boolean allowsPoint(PointND pt) {
@@ -124,9 +127,10 @@ public abstract class Grid {
         }
 
         /**
-         * TODO: document {@code allowableTypes}.
+         * The point types this grid accepts: {@link PointND.Double} and
+         * {@link PointND.Float}.
          *
-         * @return TODO: describe
+         * @return the two floating-point coordinate classes
          */
         @SuppressWarnings("unchecked")
         @Override
@@ -135,10 +139,13 @@ public abstract class Grid {
         }
 
         /**
-         * TODO: document {@code draw}.
+         * Draw vertical and horizontal grid lines spaced by a power-of-ten step
+         * chosen from the current zoom level (see {@code unitsPerPixel}). Lines
+         * are pulled from {@code segmentsX}/{@code segmentsY} pools to avoid
+         * per-frame allocations.
          *
-         * @param camera TODO: describe
-         * @param gridLineThickness TODO: describe
+         * @param camera 2D camera providing screen/world transforms
+         * @param gridLineThickness stroke width passed to the SDF line draw
          */
         @Override
         public void draw(Camera2D camera, float gridLineThickness) {
@@ -190,11 +197,12 @@ public abstract class Grid {
         ArrayList<Segment> segmentsS = new ArrayList<>();
         Shell gridShell = new Shell();
         /**
-         * TODO: document {@code coordinateToNearestGridPoint}.
+         * Convert a screen-space coordinate to the nearest hex lattice vertex by
+         * rounding through the {@code (q, r, s)} representation.
          *
-         * @param x TODO: describe
-         * @param y TODO: describe
-         * @return TODO: describe
+         * @param x screen-space X
+         * @param y screen-space Y
+         * @return the nearest hex vertex, mapped back to screen space
          */
         @Override
         public Vector2f coordinateToNearestGridPoint(float x, float y) {
@@ -206,9 +214,9 @@ public abstract class Grid {
         }
 
         /**
-         * TODO: document {@code toCoordString}.
+         * Format the cursor's hex-space coordinates as {@code "Q:.. R:.. S:.."}.
          *
-         * @return TODO: describe
+         * @return hex coordinate readout for the status bar
          */
         @Override
         public String toCoordString() {
@@ -219,10 +227,10 @@ public abstract class Grid {
         }
 
         /**
-         * TODO: document {@code allowsPoint}.
+         * Hex grids accept only {@link PointND.Hex} inputs.
          *
-         * @param pt TODO: describe
-         * @return TODO: describe
+         * @param pt candidate point
+         * @return {@code true} when {@code pt} is a {@code PointND.Hex}
          */
         @Override
         public boolean allowsPoint(PointND pt) {
@@ -230,9 +238,9 @@ public abstract class Grid {
         }
 
         /**
-         * TODO: document {@code allowableTypes}.
+         * The point types this grid accepts: {@link PointND.Hex} only.
          *
-         * @return TODO: describe
+         * @return single-entry array referencing {@code PointND.Hex.class}
          */
         @SuppressWarnings("unchecked")
         @Override
@@ -241,10 +249,11 @@ public abstract class Grid {
         }
 
         /**
-         * TODO: document {@code draw}.
+         * Draw the three families of hex grid lines (along Q, R and S axes) for
+         * the visible viewport, reusing pooled {@code Segment}s.
          *
-         * @param camera TODO: describe
-         * @param gridLineThickness TODO: describe
+         * @param camera 2D camera providing screen/world transforms
+         * @param gridLineThickness stroke width passed to the SDF line draw
          */
         @Override
         public void draw(Camera2D camera, float gridLineThickness) {

@@ -24,11 +24,11 @@ public final class SparseMatrix {
     private final SparseStore<Double> store;
 
     /**
-     * TODO: document {@code SparseMatrix}.
+     * Allocate an empty {@code rows × cols} sparse matrix.
      *
-     * @param rows TODO: describe
-     * @param cols TODO: describe
-     * @throws IllegalArgumentException TODO: describe
+     * @param rows row count; must be positive
+     * @param cols column count; must be positive
+     * @throws IllegalArgumentException if either dimension is non-positive
      */
     public SparseMatrix(int rows, int cols) {
         if (rows <= 0 || cols <= 0) {
@@ -40,10 +40,10 @@ public final class SparseMatrix {
     }
 
     /**
-     * TODO: document {@code identity}.
+     * Build the {@code n × n} identity matrix.
      *
-     * @param n TODO: describe
-     * @return TODO: describe
+     * @param n side length
+     * @return new sparse identity matrix
      */
     public static SparseMatrix identity(int n) {
         SparseMatrix m = new SparseMatrix(n, n);
@@ -54,15 +54,16 @@ public final class SparseMatrix {
     }
 
     /**
-     * TODO: document {@code fromTriplets}.
+     * Build a sparse matrix from parallel COO triplet arrays. Duplicate
+     * {@code (i, j)} entries are accumulated (sum of values).
      *
-     * @param rows TODO: describe
-     * @param cols TODO: describe
-     * @param is TODO: describe
-     * @param js TODO: describe
-     * @param vs TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param rows matrix row count
+     * @param cols matrix column count
+     * @param is   row indices
+     * @param js   column indices
+     * @param vs   values
+     * @throws IllegalArgumentException if {@code is}, {@code js}, {@code vs} have different lengths
+     * @return populated sparse matrix
      */
     public static SparseMatrix fromTriplets(int rows, int cols, int[] is, int[] js, double[] vs) {
         if (is.length != js.length || is.length != vs.length) {
@@ -76,10 +77,10 @@ public final class SparseMatrix {
     }
 
     /**
-     * TODO: document {@code fromDense}.
+     * Build a sparse matrix from a dense 2D array, skipping exact zeros.
      *
-     * @param dense TODO: describe
-     * @return TODO: describe
+     * @param dense rectangular row-major source
+     * @return new sparse matrix with only the non-zero entries materialized
      */
     public static SparseMatrix fromDense(double[][] dense) {
         int r = dense.length;
@@ -96,24 +97,24 @@ public final class SparseMatrix {
     }
 
     /**
-     * TODO: document {@code rows}.
+     * Row count of the matrix.
      *
-     * @return TODO: describe
+     * @return number of rows
      */
     public int rows() { return rows; }
     /**
-     * TODO: document {@code cols}.
+     * Column count of the matrix.
      *
-     * @return TODO: describe
+     * @return number of columns
      */
     public int cols() { return cols; }
 
     /**
-     * TODO: document {@code set}.
+     * Overwrite entry {@code (i, j)} with {@code v}.
      *
-     * @param i TODO: describe
-     * @param j TODO: describe
-     * @param v TODO: describe
+     * @param i row index
+     * @param j column index
+     * @param v new value
      */
     public void set(int i, int j, double v) {
         boundsCheck(i, j);
@@ -121,11 +122,11 @@ public final class SparseMatrix {
     }
 
     /**
-     * TODO: document {@code add}.
+     * Accumulate {@code v} into entry {@code (i, j)}; no-op when {@code v == 0.0}.
      *
-     * @param i TODO: describe
-     * @param j TODO: describe
-     * @param v TODO: describe
+     * @param i row index
+     * @param j column index
+     * @param v value to add
      */
     public void add(int i, int j, double v) {
         boundsCheck(i, j);
@@ -134,11 +135,11 @@ public final class SparseMatrix {
     }
 
     /**
-     * TODO: document {@code get}.
+     * Random-access read of entry (i, j).
      *
-     * @param i TODO: describe
-     * @param j TODO: describe
-     * @return TODO: describe
+     * @param i row index
+     * @param j column index
+     * @return value at {@code (i, j)} (zero for unset entries)
      */
     public double get(int i, int j) {
         boundsCheck(i, j);
@@ -146,9 +147,9 @@ public final class SparseMatrix {
     }
 
     /**
-     * TODO: document {@code countNonzeros}.
+     * Number of explicitly stored non-zero entries.
      *
-     * @return TODO: describe
+     * @return current number of stored non-zero entries
      */
     public int countNonzeros() {
         return store.countNonzeros();
@@ -157,9 +158,9 @@ public final class SparseMatrix {
     /**
      * y = this * x.
      *
-     * @param x TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param x dense input vector of length {@link #cols()}
+     * @throws IllegalArgumentException if {@code x.length != cols()}
+     * @return product vector of length {@link #rows()}
      */
     public double[] multiply(double[] x) {
         if (x.length != cols) {
@@ -176,7 +177,7 @@ public final class SparseMatrix {
     /**
      * Returns a fresh transpose.
      *
-     * @return TODO: describe
+     * @return new {@code cols × rows} sparse matrix with entries swapped
      */
     public SparseMatrix transpose() {
         SparseMatrix t = new SparseMatrix(cols, rows);
@@ -194,9 +195,9 @@ public final class SparseMatrix {
      * want to construct a SparseLu themselves; for repeated solves use
      * {@link SparseLu} directly.
      *
-     * @param b TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param b right-hand-side vector of length {@link #rows()}
+     * @throws IllegalArgumentException if the matrix is non-square or {@code b.length} mismatches
+     * @return solution vector {@code x} of length {@link #rows()}
      */
     public double[] solveLeft(double[] b) {
         if (rows != cols) {
@@ -214,25 +215,25 @@ public final class SparseMatrix {
     /**
      * Direct access for solver wrappers.
      *
-     * @return TODO: describe
+     * @return underlying ojAlgo {@link SparseStore} (live reference, not a copy)
      */
     public SparseStore<Double> ojAlgoStore() {
         return store;
     }
 
     /**
-     * TODO: document {@code toCsr}.
+     * Convert the current entries to a CSR snapshot.
      *
-     * @return TODO: describe
+     * @return a CSR (compressed sparse row) snapshot of the current entries
      */
     public R064CSR toCsr() {
         return store.toCSR();
     }
 
     /**
-     * TODO: document {@code toCsc}.
+     * Convert the current entries to a CSC snapshot.
      *
-     * @return TODO: describe
+     * @return a CSC (compressed sparse column) snapshot of the current entries
      */
     public R064CSC toCsc() {
         return store.toCSC();
@@ -241,7 +242,7 @@ public final class SparseMatrix {
     /**
      * Materialize to a dense double[][] (small matrices / tests only).
      *
-     * @return TODO: describe
+     * @return new {@code rows × cols} dense array with all entries (zeros included)
      */
     public double[][] toDense() {
         double[][] dense = new double[rows][cols];
@@ -252,10 +253,10 @@ public final class SparseMatrix {
     /**
      * y = M * x using dense temporary; primarily for tests.
      *
-     * @param M TODO: describe
-     * @param x TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param M dense matrix of shape {@code r × c}
+     * @param x dense vector of length {@code c}
+     * @throws IllegalArgumentException if {@code x.length} does not match the column count of {@code M}
+     * @return product vector of length {@code r}
      */
     public static double[] denseMultiply(double[][] M, double[] x) {
         int r = M.length;
@@ -273,7 +274,7 @@ public final class SparseMatrix {
     /**
      * Pretty-print for tiny test matrices.
      *
-     * @return TODO: describe
+     * @return shape and nnz summary; full dense rows for matrices up to {@value #NUM_12} per side
      */
     @Override
     public String toString() {
@@ -292,8 +293,8 @@ public final class SparseMatrix {
     /**
      * Allow internal helpers to grab a fresh ojAlgo PhysicalStore for solve work.
      *
-     * @param data TODO: describe
-     * @return TODO: describe
+     * @param data column data wrapped without copying
+     * @return ojAlgo column store backed by {@code data}
      */
     PhysicalStore<Double> newColumn(double[] data) {
         return R064Store.FACTORY.column(data);
@@ -302,7 +303,7 @@ public final class SparseMatrix {
     /**
      * Internal: copy this matrix to a dense MatrixStore for ojAlgo decomposition feeds.
      *
-     * @return TODO: describe
+     * @return matrix-store view of the underlying sparse store
      */
     MatrixStore<Double> asMatrixStore() {
         return store;

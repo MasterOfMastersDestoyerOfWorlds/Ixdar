@@ -51,10 +51,12 @@ public class IcosphereRuntime {
     private final float radius;
 
     /**
-     * TODO: document {@code IcosphereRuntime}.
+     * Build a per-face GPU runtime for {@code geometry}: each triangle face
+     * gets its own VAO/VBO/EBO so it can be transformed and recolored
+     * independently. The mesh shader is initialized once and shared.
      *
-     * @param geometry TODO: describe
-     * @throws Exception TODO: describe
+     * @param geometry icosphere whose faces drive the per-face draw handles
+     * @throws Exception if the mesh shader fails to compile or link
      */
     public IcosphereRuntime(Icosphere geometry) throws Exception {
         this.meshShader = ShaderProgram.ShaderType.Mesh.getShader();
@@ -68,18 +70,22 @@ public class IcosphereRuntime {
     }
 
     /**
-     * TODO: document {@code faceStates}.
+     * Live per-face state list (position, base rotation, current render
+     * transform). Mutating elements directly is the intended way to animate
+     * the icosphere.
      *
-     * @return TODO: describe
+     * @return mutable list of face states, parallel to the source faces
      */
     public List<FaceState> faceStates() {
         return faceStates;
     }
 
     /**
-     * TODO: document {@code frameCamera}.
+     * Position {@code camera} so the entire icosphere fits in view: pulled
+     * back along +Z by 4.2x the radius, aimed at the origin, with a 33-degree
+     * vertical field of view.
      *
-     * @param camera TODO: describe
+     * @param camera camera to reposition and re-aim
      */
     public void frameCamera(Camera3D camera) {
         float distance = radius * NUM_4_2;
@@ -90,10 +96,12 @@ public class IcosphereRuntime {
     }
 
     /**
-     * TODO: document {@code render}.
+     * Render every face under the mesh shader with alpha blending enabled.
+     * The {@code glowStrength} parameter brightens the solid color and
+     * boosts the emissive and rim terms, producing the pulsing-glow effect.
      *
-     * @param camera TODO: describe
-     * @param glowStrength TODO: describe
+     * @param camera 3D camera supplying the view matrix
+     * @param glowStrength glow factor in [0, 1]; 0 = base look, 1 = max glow
      */
     public void render(Camera3D camera, float glowStrength) {
         int width = Platforms.get().getFrameBufferWidth();
@@ -129,11 +137,14 @@ public class IcosphereRuntime {
     }
 
     /**
-     * TODO: document {@code applyRotation}.
+     * Rotate the listed faces' base position and base rotation by
+     * {@code angleRadians} around {@code axis}. Affects {@code basePos} and
+     * {@code baseRot} only — call {@link #applyExpansion(float, float)} or
+     * read {@code state.renderPos} elsewhere to refresh the render transform.
      *
-     * @param faceIndices TODO: describe
-     * @param axis TODO: describe
-     * @param angleRadians TODO: describe
+     * @param faceIndices indices into {@link #faceStates()} to rotate
+     * @param axis rotation axis in world space (need not be normalized)
+     * @param angleRadians rotation amount in radians
      */
     public void applyRotation(List<Integer> faceIndices, Vector3f axis, float angleRadians) {
         Quaternionf rot = new Quaternionf().fromAxisAngleRad(axis.x, axis.y, axis.z, angleRadians);
@@ -145,10 +156,13 @@ public class IcosphereRuntime {
     }
 
     /**
-     * TODO: document {@code applyExpansion}.
+     * Push every face outward along its base position direction by
+     * {@code expandDistance * expand01}, writing the result into
+     * {@code state.renderPos}. The base position is left untouched so the
+     * expansion can be retracted by another call with {@code expand01 = 0}.
      *
-     * @param expand01 TODO: describe
-     * @param expandDistance TODO: describe
+     * @param expand01 expansion factor in [0, 1]
+     * @param expandDistance maximum outward offset at {@code expand01 == 1}
      */
     public void applyExpansion(float expand01, float expandDistance) {
         for (FaceState state : faceStates) {
@@ -158,7 +172,10 @@ public class IcosphereRuntime {
     }
 
     /**
-     * TODO: document {@code resetToIdeal}.
+     * Restore every face's base position, base rotation, and render position
+     * to the original geometry from construction. Use to undo
+     * {@link #applyRotation(List, Vector3f, float)} and
+     * {@link #applyExpansion(float, float)}.
      */
     public void resetToIdeal() {
         for (FaceState state : faceStates) {
@@ -169,9 +186,11 @@ public class IcosphereRuntime {
     }
 
     /**
-     * TODO: document {@code snapToIdeal}.
+     * For each face, snap its base position and rotation to the nearest
+     * ideal state from {@code idealStates} (nearest by squared distance of
+     * the base position). Used to clean up tiny accumulated rotation drift.
      *
-     * @param idealStates TODO: describe
+     * @param idealStates pool of canonical face poses to snap toward
      */
     public void snapToIdeal(List<FaceState> idealStates) {
         for (FaceState state : faceStates) {
@@ -192,7 +211,9 @@ public class IcosphereRuntime {
     }
 
     /**
-     * TODO: document {@code dispose}.
+     * Release every face's GPU resources (EBO, VBO, VAO) and clear the face
+     * handle and state lists. Idempotent — safe to call once after the last
+     * render pass.
      */
     public void dispose() {
         for (FaceHandle handle : faceHandles) {

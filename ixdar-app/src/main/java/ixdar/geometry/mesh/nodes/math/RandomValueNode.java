@@ -13,6 +13,11 @@ import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.annotations.meshnode.Vector3Value;
 
+/**
+ * MeshNode that produces a deterministic random scalar or vector from a seed
+ * and {@code [min, max]} range. Mode (FLOAT, INT, VECTOR) selects which
+ * output port carries the result; the other output ports are explicitly null.
+ */
 @MeshNodeAnnotation(id = "random_value")
 public class RandomValueNode implements MeshNode {
     public static final String FLOAT = "FLOAT";
@@ -44,21 +49,13 @@ public class RandomValueNode implements MeshNode {
     private static final OutputPort OUT_INT = new OutputPort(INT_OUT, PortType.INT);
     private static final OutputPort OUT_VECTOR = new OutputPort(VECTOR_2, PortType.VECTOR3);
 
-    /**
-     * TODO: document {@code description}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public String description() {
         return "Generates a deterministic random value from a seed. Modes FLOAT, INT, VECTOR select the output type within a min/max range.";
     }
 
-    /**
-     * TODO: document {@code socketDocs}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
@@ -72,31 +69,19 @@ public class RandomValueNode implements MeshNode {
         );
     }
 
-    /**
-     * TODO: document {@code inputs}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public List<InputPort> inputs() {
         return List.of(SEED, MIN, MAX, MODE);
     }
 
-    /**
-     * TODO: document {@code outputs}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public List<OutputPort> outputs() {
         return List.of(OUT_FLOAT, OUT_INT, OUT_VECTOR);
     }
 
-    /**
-     * TODO: document {@code evaluate}.
-     *
-     * @param ctx TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public void evaluate(NodeContext ctx) {
         Number seedNum = ctx.getInput(SEED_2, Number.class);
@@ -149,10 +134,11 @@ public class RandomValueNode implements MeshNode {
         VECTOR;
 
         /**
-         * TODO: document {@code parse}.
+         * Parses the {@code mode} port string via the mode constraint
+         * (case-insensitive, falls back to FLOAT on null/unknown input).
          *
-         * @param raw TODO: describe
-         * @return TODO: describe
+         * @param raw raw {@code mode} string from the node context
+         * @return matching {@link Mode}
          */
         public static Mode parse(String raw) {
             return Mode.valueOf(MODE_CONSTRAINT.normalize(raw));

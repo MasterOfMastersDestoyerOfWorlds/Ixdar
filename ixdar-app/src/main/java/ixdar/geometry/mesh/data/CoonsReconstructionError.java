@@ -38,7 +38,8 @@ public final class CoonsReconstructionError {
      * @param uvSamples resolution of the Coons UV grid (16 is plenty for
      *                  typical patches; larger = more accurate nearest-
      *                  point lookup but O(N²) distance scan cost).
-     * @return TODO: describe
+     * @return per-vertex reconstruction error plus p95/max summaries; {@link PatchError#fourSided()}
+     *         is false when the boundary did not parse into four sides
      */
     public static PatchError compute(List<Integer> faces, int patchId, int[] facePatch,
                                      int[] faceIdx, int[][] adj, float[] positions,
@@ -109,13 +110,16 @@ public final class CoonsReconstructionError {
     }
 
     /**
-     * TODO: document.
+     * Result of a single patch reconstruction-error computation.
      *
      * @param fourSided true iff the boundary parsed into exactly 4 sides
      *                  (the only case the Coons fit is defined). When
      *                  false {@code vertexError} is all zero — the
      *                  caller should fall back to shape-proxy heuristics
      *                  for that patch.
+     * @param vertexError per-mesh-vertex world-space distance to the nearest sampled Coons surface point
+     * @param p95Error 95th-percentile vertex error within the patch
+     * @param maxError maximum vertex error within the patch
      */
     public record PatchError(boolean fourSided, float[] vertexError, float p95Error, float maxError) {}
 }

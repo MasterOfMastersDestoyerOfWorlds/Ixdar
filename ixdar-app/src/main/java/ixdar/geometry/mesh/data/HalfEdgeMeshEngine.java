@@ -8,6 +8,12 @@ import org.joml.Vector3f;
 import ixdar.common.exceptions.InvalidMeshTopologyException;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
+/**
+ * Topology-mutating operations on a {@link HalfEdgeMesh}: add/remove vertices,
+ * edges, and faces; bulk allocation from indexed buffers; quad subdivision; and
+ * triangulated GPU compilation. All editing keeps the half-edge invariants
+ * (twin/next/prev, edge↔half-edge, face↔half-edge) consistent.
+ */
 public class HalfEdgeMeshEngine {
     public static final String EDGE = "Edge ";
     public static final String POSITION_DATA_MUST_BE_XYZ_TRIPLES = "Position data must be XYZ triples";
@@ -26,25 +32,25 @@ public class HalfEdgeMeshEngine {
     public static final int NUM_7 = 7;
 
     /**
-     * TODO: document {@code addVertex}.
+     * Allocates a new vertex slot at the given world-space position.
      *
-     * @param mesh TODO: describe
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @param z TODO: describe
-     * @return TODO: describe
+     * @param mesh target mesh
+     * @param x x coordinate
+     * @param y y coordinate
+     * @param z z coordinate
+     * @return id of the newly created vertex
      */
     public static int addVertex(HalfEdgeMesh mesh, float x, float y, float z) {
         return mesh.createVertexSlot(x, y, z);
     }
 
     /**
-     * TODO: document {@code addEdge}.
+     * Creates a fresh edge plus its two half-edges between the two existing vertices.
      *
-     * @param mesh TODO: describe
-     * @param startVertexId TODO: describe
-     * @param endVertexId TODO: describe
-     * @return TODO: describe
+     * @param mesh target mesh
+     * @param startVertexId active vertex on one end
+     * @param endVertexId active vertex on the other end (must differ from {@code startVertexId})
+     * @return id of the newly created edge
      */
     public static int addEdge(HalfEdgeMesh mesh, int startVertexId, int endVertexId) {
         mesh.requireActiveVertex(startVertexId);
@@ -57,19 +63,20 @@ public class HalfEdgeMeshEngine {
     /**
      * Adds a face without recomputing normals; call {@link #computeNormals} when the mesh is complete.
      *
-     * @param mesh TODO: describe
-     * @param vertexIds TODO: describe
-     * @return TODO: describe
+     * @param mesh target mesh
+     * @param vertexIds ordered vertex ids defining the face (length &ge; 3)
+     * @return id of the newly created face
      */
     public static int addFace(HalfEdgeMesh mesh, int... vertexIds) {
         return addFaceInternal(mesh, vertexIds, false);
     }
 
     /**
-     * TODO: document {@code removeFace}.
+     * Detaches a face from its half-edges, reaps any edges left isolated, and
+     * recomputes normals.
      *
-     * @param mesh TODO: describe
-     * @param faceId TODO: describe
+     * @param mesh target mesh
+     * @param faceId active face id to remove
      */
     public static void removeFace(HalfEdgeMesh mesh, int faceId) {
         mesh.requireActiveFace(faceId);
@@ -100,11 +107,12 @@ public class HalfEdgeMeshEngine {
     }
 
     /**
-     * TODO: document {@code removeEdge}.
+     * Removes an edge that is no longer attached to any face; both half-edges are
+     * deactivated and unregistered from the directed-edge map.
      *
-     * @param mesh TODO: describe
-     * @param edgeId TODO: describe
-     * @throws InvalidMeshTopologyException TODO: describe
+     * @param mesh target mesh
+     * @param edgeId active edge id with no incident faces
+     * @throws InvalidMeshTopologyException if the edge is incomplete or still attached to a face
      */
     public static void removeEdge(HalfEdgeMesh mesh, int edgeId) {
         mesh.requireActiveEdge(edgeId);
@@ -124,11 +132,11 @@ public class HalfEdgeMeshEngine {
     }
 
     /**
-     * TODO: document {@code removeVertex}.
+     * Deactivates an isolated vertex (no incident half-edges, edges, or faces).
      *
-     * @param mesh TODO: describe
-     * @param vertexId TODO: describe
-     * @throws InvalidMeshTopologyException TODO: describe
+     * @param mesh target mesh
+     * @param vertexId active vertex id
+     * @throws InvalidMeshTopologyException if the vertex is still connected to any topology
      */
     public static void removeVertex(HalfEdgeMesh mesh, int vertexId) {
         mesh.requireActiveVertex(vertexId);
@@ -141,9 +149,11 @@ public class HalfEdgeMeshEngine {
     }
 
     /**
-     * TODO: document {@code computeNormals}.
+     * Recomputes per-face and per-vertex normals in place. Face normal is the
+     * unit cross of the first two edges; vertex normals accumulate area-weighted
+     * face normals (via the unnormalized cross product) and are then normalized.
      *
-     * @param mesh TODO: describe
+     * @param mesh target mesh
      */
     public static void computeNormals(HalfEdgeMesh mesh) {
         Vector3f p0 = new Vector3f();
@@ -195,12 +205,14 @@ public class HalfEdgeMeshEngine {
     }
 
     /**
-     * TODO: document {@code buildFromIndexedMesh}.
+     * Builds a triangle {@link HalfEdgeMesh} from packed positions and a flat triangle
+     * index buffer, computing normals.
      *
-     * @param positions TODO: describe
-     * @param faceIndices TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param positions packed xyz triples
+     * @param faceIndices vertex indices in groups of three
+     * @throws IllegalArgumentException if {@code positions.length} is not divisible by 3 or
+     *         {@code faceIndices.length} is not divisible by 3
+     * @return populated half-edge mesh with normals computed
      */
     public static HalfEdgeMesh buildFromIndexedMesh(float[] positions, int[] faceIndices) {
         if (positions.length % HalfEdgeMesh.FLOATS_PER_VERTEX != 0) {
@@ -229,8 +241,9 @@ public class HalfEdgeMeshEngine {
      * @param positions    xyz triples
      * @param faceIndices  flat array of vertex indices, grouped by {@code vertsPerFace}
      * @param vertsPerFace vertices per face (3 or 4)
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @throws IllegalArgumentException if positions are not xyz triples or the index buffer
+     *         is not a multiple of {@code vertsPerFace}
+     * @return populated half-edge mesh; caller must invoke {@code computeNormals()} when ready
      */
     public static HalfEdgeMesh bulkAllocate(float[] positions, int[] faceIndices, int vertsPerFace) {
         if (positions.length % HalfEdgeMesh.FLOATS_PER_VERTEX != 0) {
@@ -268,11 +281,12 @@ public class HalfEdgeMeshEngine {
      * 3+ cage-corner merges (MESH-47). The uniform {@link #bulkAllocate}
      * variant stays the fast path for all-quad / all-tri meshes.
      *
-     * @param positions TODO: describe
-     * @param faceVertexCounts TODO: describe
-     * @param faceIndicesFlat TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param positions packed xyz triples
+     * @param faceVertexCounts per-face vertex count (each &ge; 3)
+     * @param faceIndicesFlat all face indices concatenated end-to-end
+     * @throws IllegalArgumentException if positions are not xyz triples, any face count is
+     *         &lt; 3, or the flat buffer length disagrees with the sum of face counts
+     * @return populated half-edge mesh; normals are not computed
      */
     public static HalfEdgeMesh bulkAllocateMixed(float[] positions,
                                                  int[] faceVertexCounts,
@@ -317,10 +331,10 @@ public class HalfEdgeMeshEngine {
      * One level of linear quad subdivision (edge midpoints + face centroids).
      * Matches ArrayMeshEngine.subdivideQuadsOnce for uniform quad meshes.
      *
-     * @param src TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @throws IllegalStateException TODO: describe
-     * @return TODO: describe
+     * @param src source mesh; must contain only quads (or be empty)
+     * @throws IllegalArgumentException if any face is not a quad
+     * @throws IllegalStateException if a required edge midpoint is missing during face emission
+     * @return new subdivided {@link HalfEdgeMesh} with normals computed
      */
     public static HalfEdgeMesh subdivideQuadsOnce(HalfEdgeMesh src) {
         if (src == null || src.vertexCount() == 0) {
@@ -409,10 +423,13 @@ public class HalfEdgeMeshEngine {
     }
 
     /**
-     * TODO: document {@code compileSurfaceData}.
+     * Builds GPU-ready interleaved vertex data and a triangulated index buffer
+     * for rendering. Each output vertex is 8 floats (xyz + normal xyz + two zero
+     * pads) and faces with &gt; 3 vertices are fan-triangulated. Inactive vertex
+     * slots are filtered out.
      *
-     * @param mesh TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @return compiled mesh data including bounds and bounding sphere
      */
     public static HalfEdgeCompiledMeshData compileSurfaceData(HalfEdgeMesh mesh) {
         int[] vertexRemap = new int[mesh.vertexActive.length];

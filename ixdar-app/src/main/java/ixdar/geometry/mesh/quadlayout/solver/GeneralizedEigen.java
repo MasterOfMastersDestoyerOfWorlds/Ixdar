@@ -37,19 +37,20 @@ import no.uib.cipr.matrix.sparse.ArpackSym;
 public final class GeneralizedEigen {
 
     /**
-     * TODO: document {@code solve}.
+     * Convenience overload using {@link ArpackSym.Ritz#LM} (largest magnitude).
      *
-     * @param a TODO: describe
-     * @param b TODO: describe
-     * @param numEigenpairs TODO: describe
-     * @return TODO: describe
+     * @param a             symmetric matrix
+     * @param b             SPD matrix; may be {@code null} for plain eigenproblem on A
+     * @param numEigenpairs number of eigenpairs to return
+     * @return eigenpairs sorted ascending by eigenvalue
      */
     public Result solve(SparseMatrix a, SparseMatrix b, int numEigenpairs) {
         return solve(a, b, numEigenpairs, ArpackSym.Ritz.LM);
     }
 
     /**
-     * TODO: document.
+     * Solve {@code A x = λ B x} using ARPACK Lanczos via the operator
+     * {@code B^{-1} A} (or just {@code A} when {@code b} is null).
      *
      * @param a              symmetric matrix
      * @param b              SPD matrix (regularized Laplacian etc.); may be null
@@ -61,9 +62,9 @@ public final class GeneralizedEigen {
      *                       at zero — but here we are computing eigenvalues of
      *                       B^{-1}A directly, so SA / LA / SM / LM apply to
      *                       those values
-     * @throws IllegalArgumentException TODO: describe
-     * @throws IllegalStateException TODO: describe
-     * @return TODO: describe
+     * @throws IllegalArgumentException if A is non-square, dims of A and B differ, or {@code numEigenpairs} is out of range
+     * @throws IllegalStateException    if the SPD factorization of B fails
+     * @return eigenpairs sorted ascending by eigenvalue
      */
     public Result solve(SparseMatrix a, SparseMatrix b, int numEigenpairs, ArpackSym.Ritz ritz) {
         if (a.rows() != a.cols()) {
@@ -120,10 +121,10 @@ public final class GeneralizedEigen {
         public final double[][] eigenvectors;
 
         /**
-         * TODO: document {@code Result}.
+         * Wrap the eigenvalue/eigenvector arrays of a generalized eigenproblem solve.
          *
-         * @param eigenvalues TODO: describe
-         * @param eigenvectors TODO: describe
+         * @param eigenvalues  per-pair eigenvalues, sorted ascending
+         * @param eigenvectors row-major eigenvectors aligned with {@code eigenvalues}
          */
         public Result(double[] eigenvalues, double[][] eigenvectors) {
             this.eigenvalues = eigenvalues;
@@ -140,20 +141,10 @@ public final class GeneralizedEigen {
      */
     private static abstract class OperatorMatrix extends AbstractMatrix {
         OperatorMatrix(int n) { super(n, n); }
-        /**
-         * TODO: document {@code get}.
-         *
-         * @param row TODO: describe
-         * @param column TODO: describe
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} Operator-only matrices have no element access; always returns zero. */
         @Override
         public double get(int row, int column) { return 0.0; }
-        /**
-         * TODO: document {@code iterator}.
-         *
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} Operator-only matrices expose no entries to ARPACK's symmetry check. */
         @Override
         public Iterator<MatrixEntry> iterator() {
             return Collections.<MatrixEntry>emptyList().iterator();
@@ -167,13 +158,7 @@ public final class GeneralizedEigen {
             super(a.rows());
             this.a = a;
         }
-        /**
-         * TODO: document {@code mult}.
-         *
-         * @param x TODO: describe
-         * @param y TODO: describe
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} Computes {@code y = A x} via the held {@link SparseMatrix}. */
         @Override
         public Vector mult(Vector x, Vector y) {
             double[] xa = vecToArray(x);
@@ -192,13 +177,7 @@ public final class GeneralizedEigen {
             this.a = a;
             this.bSolver = bSolver;
         }
-        /**
-         * TODO: document {@code mult}.
-         *
-         * @param x TODO: describe
-         * @param y TODO: describe
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} Computes {@code y = B^{-1} (A x)} per ARPACK iteration. */
         @Override
         public Vector mult(Vector x, Vector y) {
             double[] xa = vecToArray(x);

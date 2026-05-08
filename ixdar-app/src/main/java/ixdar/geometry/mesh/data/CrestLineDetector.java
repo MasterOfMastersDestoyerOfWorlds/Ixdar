@@ -47,12 +47,14 @@ public final class CrestLineDetector {
     private CrestLineDetector() {}
 
     /**
-     * TODO: document {@code detect}.
+     * Runs ridge/valley candidate selection, eigenvector NMS, and polyline tracing
+     * to return both polylines and the canonical-key edge set used by patch
+     * decomposition.
      *
-     * @param mesh TODO: describe
-     * @param ed TODO: describe
-     * @param pdf TODO: describe
-     * @return TODO: describe
+     * @param mesh source triangle mesh (for vertex count, faces, positions)
+     * @param ed edge-dihedral metadata (used here to derive 1-ring neighbours)
+     * @param pdf per-vertex principal curvatures and eigenvectors
+     * @return ridge/valley polylines and the union edge set marking them
      */
     public static CrestLines detect(ArrayMesh mesh, EdgeDihedrals ed, PrincipalDirectionField pdf) {
         int nv = mesh.vertexCount();

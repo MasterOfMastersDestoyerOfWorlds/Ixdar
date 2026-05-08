@@ -47,7 +47,7 @@ public final class IntersectionTable {
      * @param mesh     underlying triangle mesh
      * @param uCorner  per-corner u
      * @param vCorner  per-corner v
-     * @return TODO: describe
+     * @return populated table of {@code rows x cols} 3D positions
      */
     public static Result build(TMesh tmesh, TPatch patch,
                                 List<SplitArcTracer.SplitArc> arcs1,
@@ -128,12 +128,13 @@ public final class IntersectionTable {
      * 3D point at the UV-space intersection of two SplitArcs (one of arc1's
      *  edges and one of arc2's edges share a face and the segments cross).
      *
-     * @param arc1 TODO: describe
-     * @param arc2 TODO: describe
-     * @param mesh TODO: describe
-     * @param uCorner TODO: describe
-     * @param vCorner TODO: describe
-     * @return TODO: describe
+     * @param arc1    side-0-to-side-2 split arc
+     * @param arc2    side-1-to-side-3 split arc
+     * @param mesh    underlying triangle mesh
+     * @param uCorner per-corner u
+     * @param vCorner per-corner v
+     * @return 3D intersection point, or {@code null} if the arcs share no
+     *         face whose UV segments cross strictly
      */
     private static Vector3f intersection3D(SplitArcTracer.SplitArc arc1,
                                             SplitArcTracer.SplitArc arc2,
@@ -157,15 +158,16 @@ public final class IntersectionTable {
     /**
      * Strict segment-segment intersection: returns [tA, tB] both in (EPS, 1-EPS) or null.
      *
-     * @param a1u TODO: describe
-     * @param a1v TODO: describe
-     * @param a2u TODO: describe
-     * @param a2v TODO: describe
-     * @param b1u TODO: describe
-     * @param b1v TODO: describe
-     * @param b2u TODO: describe
-     * @param b2v TODO: describe
-     * @return TODO: describe
+     * @param a1u u of segment A start
+     * @param a1v v of segment A start
+     * @param a2u u of segment A end
+     * @param a2v v of segment A end
+     * @param b1u u of segment B start
+     * @param b1v v of segment B start
+     * @param b2u u of segment B end
+     * @param b2v v of segment B end
+     * @return two-element {@code [tA, tB]} when both fall in
+     *         {@code (EPS, 1-EPS)}; {@code null} otherwise
      */
     private static double[] strictIntersect(double a1u, double a1v,
                                              double a2u, double a2v,

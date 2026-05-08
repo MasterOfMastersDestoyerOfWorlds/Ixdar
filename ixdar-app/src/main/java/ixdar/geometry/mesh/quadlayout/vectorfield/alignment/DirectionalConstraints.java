@@ -44,11 +44,13 @@ public final class DirectionalConstraints {
      * {@code atan2} that ignores line-field sign and emits spurious
      * {@code m_e = ±2} on every region-internal sign flip.
      *
-     * @param mesh TODO: describe
-     * @param frames TODO: describe
-     * @param pdf TODO: describe
-     * @param regionId TODO: describe
-     * @return TODO: describe
+     * @param mesh     triangle mesh; pass {@code null} to disable PATCH-115
+     *                 line-field sign propagation (legacy per-face atan2 path)
+     * @param frames   field providing per-face local frames (used to project
+     *                 {@code a_min} into face-local UV coordinates)
+     * @param pdf      principal-curvature field providing per-face {@code a_min}
+     * @param regionId per-face kept-region id, {@code -1} for unconstrained
+     * @return per-face theta constraint values + companion mask
      */
     public static Result compute(ArrayMesh mesh,
                                   BaseField frames, PrincipalCurvatureField pdf,
@@ -99,10 +101,13 @@ public final class DirectionalConstraints {
      * the entry edge, agrees in sign with the parent's signed {@code a_min}.
      * Faces outside any kept region get {@code sign[f] = +1} (unused).
      *
-     * @param mesh TODO: describe
-     * @param pdf TODO: describe
-     * @param regionId TODO: describe
-     * @return TODO: describe
+     * @param mesh     triangle mesh
+     * @param pdf      principal-curvature field providing {@code a_min} and
+     *                 per-face normals
+     * @param regionId per-face kept-region id, {@code -1} for unconstrained
+     * @return per-face sign array; {@code +1} for unconstrained faces or
+     *         seeds; {@code -1} for faces whose raw {@code a_min} disagrees
+     *         with the transported parent
      */
     private static float[] buildPerFaceSign(ArrayMesh mesh, PrincipalCurvatureField pdf,
                                             int[] regionId) {
@@ -163,10 +168,12 @@ public final class DirectionalConstraints {
         public final boolean[] constrained;
 
         /**
-         * TODO: document {@code Result}.
+         * Wrap the per-face theta constraint and its activation mask.
          *
-         * @param thetaConstraint TODO: describe
-         * @param constrained TODO: describe
+         * @param thetaConstraint per-face theta constraint angle (radians, in
+         *                        the face's local frame)
+         * @param constrained     companion mask, {@code true} where
+         *                        {@code thetaConstraint[f]} is active
          */
         public Result(double[] thetaConstraint, boolean[] constrained) {
             this.thetaConstraint = thetaConstraint;

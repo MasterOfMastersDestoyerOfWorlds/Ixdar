@@ -58,6 +58,8 @@ public interface Camera extends MouseTrap.ScrollHandler {
     void incZIndex();
 
     /**
+     * Read the camera's current ortho z-index.
+     *
      * @return the current ortho z-index used by upcoming draws
      */
     float getZIndex();
@@ -122,36 +124,50 @@ public interface Camera extends MouseTrap.ScrollHandler {
     float screenTransformY(float normalizedPosY);
 
     /**
+     * Camera viewport width in screen space.
+     *
      * @return the camera's current screen-space width
      */
     float getWidth();
 
     /**
+     * Camera viewport height in screen space.
+     *
      * @return the camera's current screen-space height
      */
     float getHeight();
 
     /**
+     * X offset of the camera viewport in framebuffer space.
+     *
      * @return the camera viewport's lower-left x in framebuffer space
      */
     float getScreenOffsetX();
 
     /**
+     * Y offset of the camera viewport in framebuffer space.
+     *
      * @return the camera viewport's lower-left y in framebuffer space
      */
     float getScreenOffsetY();
 
     /**
+     * DPI scaling ratio along x.
+     *
      * @return framebuffer-width / window-width DPI ratio
      */
     float getScreenWidthRatio();
 
     /**
+     * DPI scaling ratio along y.
+     *
      * @return framebuffer-height / window-height DPI ratio
      */
     float getScreenHeightRatio();
 
     /**
+     * Read the camera's zoom factor.
+     *
      * @return current zoom / scale factor applied to point-space distances
      */
     float getScaleFactor();
@@ -173,6 +189,8 @@ public interface Camera extends MouseTrap.ScrollHandler {
     float getNormalizePosY(float yPos);
 
     /**
+     * Read the descending far-z cursor.
+     *
      * @return current depth used by the descending far-z cursor
      */
     float getFarZIndex();
@@ -183,6 +201,8 @@ public interface Camera extends MouseTrap.ScrollHandler {
     void decFarZIndex();
 
     /**
+     * Camera viewport rectangle in screen space.
+     *
      * @return the camera's screen-space viewport rectangle, or {@code null} if not assigned
      */
     Bounds getBounds();

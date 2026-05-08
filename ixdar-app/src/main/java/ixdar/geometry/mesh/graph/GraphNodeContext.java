@@ -29,6 +29,8 @@ public class GraphNodeContext implements NodeContext {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return DSL left-hand-side variable name, or null
      */
     @Override
@@ -69,6 +71,8 @@ public class GraphNodeContext implements NodeContext {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return field context most recently set on this node, or null
      */
     @Override

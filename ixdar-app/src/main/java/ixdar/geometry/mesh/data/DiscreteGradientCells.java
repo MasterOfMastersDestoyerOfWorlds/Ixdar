@@ -30,11 +30,14 @@ public final class DiscreteGradientCells {
     private DiscreteGradientCells() {}
 
     /**
-     * TODO: document {@code assemble}.
+     * Computes the discrete gradient on {@code +scalar} and {@code -scalar}, traces
+     * a V-path from each face to the corresponding critical 2-cell, and assigns
+     * face-cell ids by unique {@code (ascMax, descMin)} pairs.
      *
-     * @param mesh TODO: describe
-     * @param scalar TODO: describe
-     * @return TODO: describe
+     * @param mesh source triangle mesh
+     * @param scalar per-vertex scalar field
+     * @return per-face cell ids (negative for orphans), the per-label triangle ids
+     *         of ascending/descending criticals, and orphan count
      */
     public static Result assemble(ArrayMesh mesh, float[] scalar) {
         DiscreteGradient.Result asc = DiscreteGradient.compute(mesh, scalar);

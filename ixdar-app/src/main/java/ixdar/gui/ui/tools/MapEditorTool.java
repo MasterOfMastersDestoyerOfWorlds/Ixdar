@@ -223,6 +223,8 @@ public class MapEditorTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the display name "Map Editor"
      */
     @Override
@@ -231,6 +233,8 @@ public class MapEditorTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the full terminal name {@code "mapeditor"}
      */
     @Override
@@ -239,6 +243,8 @@ public class MapEditorTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the short terminal alias {@code "me"}
      */
     @Override
@@ -247,6 +253,8 @@ public class MapEditorTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the one-line description of this tool's purpose
      */
     @Override

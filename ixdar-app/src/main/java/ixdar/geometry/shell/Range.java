@@ -34,9 +34,9 @@ public class Range {
      * ({@code "3-7"}); the dash form may be reversed ({@code "7-3"}).
      *
      * @param arg the token to parse
-     * @return the parsed range
      * @throws TerminalParseException if the token is empty, has more than one dash, or either
      *         half is not an integer
+     * @return the parsed range
      */
     public static Range parse(String arg) throws TerminalParseException {
         if (arg.contains(STR)) {

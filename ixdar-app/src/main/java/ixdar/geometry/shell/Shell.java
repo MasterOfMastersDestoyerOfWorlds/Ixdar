@@ -124,9 +124,9 @@ public class Shell extends LinkedList<PointND> {
      *
      * @param A unused candidate shell (parameter retained for API compatibility)
      * @param distanceMatrix pairwise distances driving knot creation
-     * @return placeholder result shell
      * @throws SegmentBalanceException propagated from {@link KnotEngine#createKnots}
      * @throws BalancerException propagated from {@link KnotEngine#createKnots}
+     * @return placeholder result shell
      */
     @SuppressWarnings("unused")
     public Shell tspSolve(Shell A, DistanceMatrix distanceMatrix) throws SegmentBalanceException, BalancerException {
@@ -192,8 +192,8 @@ public class Shell extends LinkedList<PointND> {
      * @param A unused candidate shell (parameter retained for API compatibility)
      * @param distanceMatrix pairwise distances driving knot creation
      * @param layers maximum recursion depth passed through to the {@link KnotEngine}
-     * @return knots produced by the engine
      * @throws MultipleCyclesFoundException propagated from the knot engine
+     * @return knots produced by the engine
      */
     public ArrayList<Knot> slowSolve(Shell A, DistanceMatrix distanceMatrix, int layers)
             throws MultipleCyclesFoundException {
@@ -262,9 +262,9 @@ public class Shell extends LinkedList<PointND> {
      * @param last required end point of the path
      * @param A intermediate points to include between the endpoints
      * @param d distance matrix that already knows the relevant pairwise distances
-     * @return shell representing the open path from {@code first} to {@code last}
      * @throws SegmentBalanceException propagated from {@link #tspSolve}
      * @throws BalancerException propagated from {@link #tspSolve}
+     * @return shell representing the open path from {@code first} to {@code last}
      */
     public Shell solveBetweenEndpoints(PointND first, PointND last, Shell A, DistanceMatrix d)
             throws SegmentBalanceException, BalancerException {
@@ -430,8 +430,8 @@ public class Shell extends LinkedList<PointND> {
      * Find the position in this shell of the point with the given id.
      *
      * @param idTarget id to locate
-     * @return zero-based index into the shell
      * @throws IdDoesNotExistException if no point in the shell has that id
+     * @return zero-based index into the shell
      */
     public int getIndexByID(int idTarget) throws IdDoesNotExistException {
         int idx = 0;
@@ -448,8 +448,8 @@ public class Shell extends LinkedList<PointND> {
      * Remove and return the point with the given id.
      *
      * @param idTarget id of the point to remove
-     * @return the removed point
      * @throws IdDoesNotExistException if no point in the shell has that id
+     * @return the removed point
      */
     public PointND removeByID(int idTarget) throws IdDoesNotExistException {
         int idx = getIndexByID(idTarget);

@@ -1116,6 +1116,8 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
+     * Display name of the first selected city.
+     *
      * @return the name of the first selected city, or an empty string if none
      */
     public String getSelectedCityAName() {
@@ -1123,6 +1125,8 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
+     * Display name of the second selected city.
+     *
      * @return the name of the second selected city, or an empty string if none
      */
     public String getSelectedCityBName() {
@@ -1130,6 +1134,8 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
+     * Whether the operation stack has an undoable operation.
+     *
      * @return true if the operation stack has an undoable operation
      */
     public boolean canUndoOperation() {
@@ -1137,6 +1143,8 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
+     * Whether the operation stack has a redoable operation.
+     *
      * @return true if the operation stack has a redoable operation
      */
     public boolean canRedoOperation() {
@@ -1212,6 +1220,8 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the display name "Route Planning"
      */
     @Override
@@ -1220,6 +1230,8 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the full terminal name {@code "routeplanning"}
      */
     @Override
@@ -1228,6 +1240,8 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the short terminal alias {@code "rp"}
      */
     @Override
@@ -1236,6 +1250,8 @@ public class RoutePlanningTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the one-line description of this tool's purpose
      */
     @Override

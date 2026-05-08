@@ -48,8 +48,8 @@ public final class SkeletonSensitivityAnalyzer {
      * @param refMeshPath   path to reference OBJ file
      * @param resolution    TEASAR voxel resolution
      * @param epsilon       relative perturbation size (0 = use default 0.5%)
-     * @throws Exception TODO: describe
-     * @throws IllegalStateException TODO: describe
+     * @throws Exception if DSL execution, mesh load, or skeleton extraction fails
+     * @throws IllegalStateException if the unperturbed DSL run produces no mesh
      * @return sensitivity result with Jacobian, baseline errors, and suggested deltas
      */
     public static SensitivityResult analyze(
@@ -204,13 +204,13 @@ public final class SkeletonSensitivityAnalyzer {
      * Run iterative skeleton optimization by repeatedly computing the Jacobian
      * and applying damped least-squares updates.
      *
-     * @param parsed TODO: describe
-     * @param refMeshPath TODO: describe
-     * @param resolution TODO: describe
-     * @param maxIters TODO: describe
-     * @param targetScore TODO: describe
-     * @throws Exception TODO: describe
-     * @return TODO: describe
+     * @param parsed parsed DSL statements defining the mesh graph
+     * @param refMeshPath path to the reference OBJ whose skeleton drives the loss
+     * @param resolution TEASAR voxel resolution used for skeleton extraction
+     * @param maxIters maximum Gauss-Newton iterations
+     * @param targetScore early-stop skeleton-similarity score (in percent)
+     * @throws Exception if DSL execution, mesh load, or skeleton extraction fails
+     * @return trajectory of iterations plus the final parameter map and scores
      */
     public static OptimizationResult optimize(
             List<PythonParser.ParsedNode> parsed,
@@ -377,11 +377,11 @@ public final class SkeletonSensitivityAnalyzer {
      * Solve delta_params = J^T * (J * J^T + lambda * I)^{-1} * (-error)
      * for the parameter update that minimizes joint position errors.
      *
-     * @param jacobian3D TODO: describe
-     * @param errors TODO: describe
-     * @param params TODO: describe
-     * @param lambda TODO: describe
-     * @return TODO: describe
+     * @param jacobian3D per-joint, per-parameter, per-axis sensitivities ({@code [M][N][3]})
+     * @param errors flattened baseline joint errors (one entry per row of {@code jacobian3D})
+     * @param params parameter descriptors aligned with the second axis of {@code jacobian3D}
+     * @param lambda Tikhonov damping added to the diagonal of {@code J^T J}
+     * @return parameter delta keyed by {@link OptimizableParameter#overrideKey()}, clamped to each parameter's range
      */
     private static Map<String, Float> solveDampedLeastSquares(
             float[][][] jacobian3D, List<JointDelta> errors,
@@ -445,10 +445,10 @@ public final class SkeletonSensitivityAnalyzer {
     /**
      * Solve Ax = b via Gaussian elimination with partial pivoting.
      *
-     * @param A TODO: describe
-     * @param b TODO: describe
-     * @param n TODO: describe
-     * @return TODO: describe
+     * @param A square coefficient matrix of size {@code n x n}
+     * @param b right-hand-side vector of length {@code n}
+     * @param n system dimension
+     * @return solution vector {@code x}; entries with a singular pivot are zeroed
      */
     private static float[] solveLinearSystem(float[][] A, float[] b, int n) {
         // Augmented matrix

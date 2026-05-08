@@ -33,11 +33,12 @@ public final class MeshMergeByDistance {
     }
 
     /**
-     * TODO: document {@code merge}.
+     * Weld vertices that lie within {@code distance} of one another. Each cluster collapses to its
+     * average position, and degenerate faces (those that visit the same merged vertex twice) are dropped.
      *
-     * @param mesh TODO: describe
-     * @param distance TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh; treated read-only
+     * @param distance maximum Euclidean distance for two vertices to merge; values &lt;= 0 leave the mesh unchanged
+     * @return welded mesh — an {@link ArrayMesh} when the input is one, otherwise a {@link HalfEdgeMesh}
      */
     public static MeshTopology merge(MeshTopology mesh, float distance) {
         if (mesh == null || mesh.vertexCount() == 0) {
@@ -153,10 +154,10 @@ public final class MeshMergeByDistance {
      * Same clustering as {@link #merge(MeshTopology, float)} but emits a dense {@link ArrayMesh} (uniform faces only).
      * Uses primitive arrays throughout — no HashMap/Integer boxing — so it stays fast under TeaVM.
      *
-     * @param mesh TODO: describe
-     * @param distance TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh; faces must all share a common vertex count
+     * @param distance maximum Euclidean distance for two vertices to merge
+     * @throws IllegalArgumentException if {@code mesh} contains faces of differing sizes
+     * @return welded {@link ArrayMesh} with averaged positions and deduplicated faces
      */
     public static ArrayMesh mergeToArrayMesh(MeshTopology mesh, float distance) {
         if (mesh == null || mesh.vertexCount() == 0) {

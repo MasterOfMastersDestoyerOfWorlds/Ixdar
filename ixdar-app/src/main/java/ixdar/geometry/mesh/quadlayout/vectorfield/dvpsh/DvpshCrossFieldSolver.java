@@ -64,7 +64,11 @@ public final class DvpshCrossFieldSolver {
     private DvpshCrossFieldSolver() {}
 
     /**
-     * TODO: document.
+     * Solve the DVPSH14 cross-field complex polynomial: assemble the
+     * combinatorial dual Laplacian, apply directional / gauge Dirichlet pins
+     * via penalty, factor with {@link SparseLu}, recover per-face theta from
+     * {@code arg(-x_f)/4}, and unwrap along a BFS dual spanning tree to emit
+     * per-interior-edge integer matchings (BZK09 sign convention).
      *
      * @param F                 face count
      * @param E                 interior edge count
@@ -73,8 +77,10 @@ public final class DvpshCrossFieldSolver {
      * @param kappa             per interior-edge: parallel-transport rotation (radians)
      * @param thetaConstraint   per face: target angle (radians) when constrained, else ignored
      * @param constrained       per face: true if thetaConstraint[f] is active
-     * @throws IllegalStateException TODO: describe
-     * @return TODO: describe
+     * @throws IllegalStateException if the LU factorization of the penalised
+     *                               Laplacian fails or is singular
+     * @return per-face theta + per-edge integer matchings, plus the count of
+     *         faces actually constrained (incl. the gauge fallback)
      */
     public static Result solve(int F, int E,
                                 int[] edgeFaceA, int[] edgeFaceB, double[] kappa,

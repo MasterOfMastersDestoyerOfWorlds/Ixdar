@@ -37,14 +37,14 @@ public final class RoomPlacer3D {
      * rooms across all floors until {@code roomCount} have been placed (with a
      * 1-unit buffer)
      * or {@code maxAttempts} is exhausted.
-     * 
+     *
      * Always insert a START room as room[0] at the grid center on the middle floor.
      * Size is clamped to the requested [minSize, maxSize] but defaults to 4.
      * After GridToMesh3D centers the mesh at world origin, an even-sized centered
      * start room straddles
      * the origin precisely — so the player can spawn at (0, 0, 0) and find walkable
      * space.
-     * 
+     *
      * @param seed        PRNG seed
      * @param gridW       grid width (X) in cells
      * @param gridH       grid height (Y) in floors — typical 5 per vazgriz

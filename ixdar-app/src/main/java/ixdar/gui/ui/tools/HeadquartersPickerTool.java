@@ -104,6 +104,8 @@ public class HeadquartersPickerTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the display name "Headquarters Picker"
      */
     @Override
@@ -112,6 +114,8 @@ public class HeadquartersPickerTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the full terminal name {@code "hqpicker"}
      */
     @Override
@@ -120,6 +124,8 @@ public class HeadquartersPickerTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the short terminal alias {@code "hq"}
      */
     @Override
@@ -128,6 +134,8 @@ public class HeadquartersPickerTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the one-line description of this tool's purpose
      */
     @Override

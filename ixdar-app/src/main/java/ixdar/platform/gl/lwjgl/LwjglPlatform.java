@@ -60,27 +60,27 @@ public class LwjglPlatform implements Platform {
     private int platformId;
 
         /**
-     * Construct a LwjglPlatform.
-     *
-     * @param window constructor argument
-     */
+         * Construct a LwjglPlatform.
+         *
+         * @param window constructor argument
+         */
     public LwjglPlatform(long window) {
         this.window = window;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public IxBuffer allocateFloats(int capacity) {
         return new DefaultBuffer(capacity);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void setTitle(String title) {
         glfwSetWindowTitle(window, title);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getWindowWidth() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -91,7 +91,7 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getWindowHeight() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -102,51 +102,51 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void requestRepaint() {
         // no-op; loop-driven repaint in LWJGL
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public float timeSeconds() {
         return (float) (System.nanoTime() / NUM_1e9);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void setKeyCallback(KeyCallback callback) {
         glfwSetKeyCallback(window,
                 (w, key, scancode, action, mods) -> inputQueue.add(() -> callback.onKey(key, scancode, action, mods)));
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void setCharCallback(CharCallback callback) {
         glfwSetCharCallback(window, (w, codepoint) -> inputQueue.add(() -> callback.onChar(codepoint)));
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void setCursorPosCallback(CursorPosCallback callback) {
         glfwSetCursorPosCallback(window, (w, x, y) -> inputQueue.add(() -> callback.onMousePos(window, x, y)));
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void setMouseButtonCallback(MouseButtonCallback callback) {
         glfwSetMouseButtonCallback(window,
                 (w, button, action, mods) -> inputQueue.add(() -> callback.onMouseButton(button, action, mods)));
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void setScrollCallback(ScrollCallback callback) {
         glfwSetScrollCallback(window, (w, x, y) -> inputQueue.add(() -> callback.onScroll(x, y)));
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void setCursorMode(CursorMode mode) {
         switch (mode) {
@@ -162,13 +162,13 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public FontAtlasDTO parseFontAtlas(String json) {
         return new Gson().fromJson(json, FontAtlasDTO.class);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void loadTexture(String resourceName, int platformId, Consumer<Texture> callback) {
         STBImage.stbi_set_flip_vertically_on_load(true);
@@ -188,19 +188,19 @@ public class LwjglPlatform implements Platform {
         callback.accept(new Texture(resourceName, image, width, height));
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public float startTime() {
         return IxdarWindow.startTime;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void exit(int code) {
         System.exit(code);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     public String loadSource(String folder, String filename) throws IOException {
         String path = folder + STR + filename;
         try (InputStream in = LwjglPlatform.class.getClassLoader().getResourceAsStream(path)) {
@@ -208,7 +208,7 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public String trySyncLoadSource(String resourceFolder, String filename) {
         try {
@@ -218,7 +218,7 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
         try {
@@ -231,7 +231,7 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void loadShaderSourceAsync(String resourceFolder, String filename, int platformId,
             Consumer<String> callback) {
@@ -245,7 +245,7 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public TextFile loadFile(String path) {
         path = path.replaceAll("./src/main/resources/", "");
@@ -262,7 +262,7 @@ public class LwjglPlatform implements Platform {
         return new TextFile(path, lines);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public TextFile loadExternalFile(String absolutePath) throws IOException {
         Path path = Path.of(absolutePath);
@@ -273,7 +273,7 @@ public class LwjglPlatform implements Platform {
         return new TextFile(path.toString(), lines);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void writeTextFile(TextFile file, boolean append) throws IOException {
         File newFile = new File(file.getPath());
@@ -290,50 +290,50 @@ public class LwjglPlatform implements Platform {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void log(String msg) {
         System.out.println(msg);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public boolean canHotReload() {
         return true;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void setFrameBufferSize(float f, float g) {
         frameBufferSizeX = f;
         frameBufferSizeY = g;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getFrameBufferWidth() {
         return (int) frameBufferSizeX;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getFrameBufferHeight() {
         return (int) frameBufferSizeY;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getPlatformID() {
         return platformId;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void setPlatformID(Integer p) {
         this.platformId = p == null ? -1 : p.intValue();
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     public void processInputQueue() {
         Runnable runnable;
         while ((runnable = inputQueue.poll()) != null) {

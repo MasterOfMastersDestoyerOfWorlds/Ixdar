@@ -29,7 +29,8 @@ public final class SparseCholesky {
     private int n;
 
     /**
-     * TODO: document {@code SparseCholesky}.
+     * Creates an empty Cholesky wrapper. Call {@link #decompose(SparseMatrix)} before
+     * any solve.
      */
     public SparseCholesky() {
     }
@@ -38,8 +39,8 @@ public final class SparseCholesky {
      * Decompose the symmetric matrix {@code m}. Tries Cholesky first; if the
      * matrix is not positive definite, transparently falls back to LDLT.
      *
-     * @param m TODO: describe
-     * @throws IllegalArgumentException TODO: describe
+     * @param m square symmetric matrix to factor
+     * @throws IllegalArgumentException if {@code m} is not square
      * @return true if either Cholesky or LDLT produced a usable factorization
      */
     public boolean decompose(SparseMatrix m) {
@@ -68,9 +69,9 @@ public final class SparseCholesky {
      * symbolic/numeric phase; this re-decomposes from scratch but keeps the
      * factor object so per-solve allocations are reused.
      *
-     * @param m TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param m matrix with the same dimensions as the prior {@link #decompose(SparseMatrix)} call
+     * @throws IllegalArgumentException if dimensions differ from the prior decomposition
+     * @return true if the new factorization is solvable
      */
     public boolean refactor(SparseMatrix m) {
         if (m.rows() != n || m.cols() != n) {
@@ -80,9 +81,9 @@ public final class SparseCholesky {
     }
 
     /**
-     * TODO: document {@code isSolvable}.
+     * Whether a factorization is currently held.
      *
-     * @return TODO: describe
+     * @return true if the held factorization (Cholesky or LDLT fallback) can be used to solve
      */
     public boolean isSolvable() {
         if (usingLdl) {
@@ -92,12 +93,12 @@ public final class SparseCholesky {
     }
 
     /**
-     * TODO: document {@code solve}.
+     * Solve {@code A x = rhs} using the held factorization.
      *
-     * @param rhs TODO: describe
-     * @throws IllegalStateException TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param rhs right-hand-side vector of length {@link #dimension()}
+     * @throws IllegalStateException if {@link #decompose(SparseMatrix)} has not been called
+     * @throws IllegalArgumentException if {@code rhs.length} differs from the matrix dimension
+     * @return solution vector {@code x}
      */
     public double[] solve(double[] rhs) {
         if (cholesky == null && ldl == null) {
@@ -119,18 +120,18 @@ public final class SparseCholesky {
     }
 
     /**
-     * TODO: document {@code usingLdlFallback}.
+     * Whether the most recent decomposition fell back to LDLT.
      *
-     * @return TODO: describe
+     * @return true if the last successful decomposition fell back to LDLT (matrix was not PD)
      */
     public boolean usingLdlFallback() {
         return usingLdl;
     }
 
     /**
-     * TODO: document {@code dimension}.
+     * Dimension of the matrix that was last decomposed.
      *
-     * @return TODO: describe
+     * @return the dimension {@code n} of the most recently decomposed {@code n × n} matrix
      */
     public int dimension() {
         return n;

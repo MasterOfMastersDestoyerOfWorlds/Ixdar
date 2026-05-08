@@ -24,11 +24,11 @@ public class CutMatchList implements FileStringable {
     public Knot superKnot;
 
     /**
-     * TODO: document {@code CutMatchList}.
+     * Construct an empty list bound to the given shell, cut context and parent knot.
      *
-     * @param shell TODO: describe
-     * @param c TODO: describe
-     * @param superKnot TODO: describe
+     * @param shell containing shell, used for logging and balance exceptions
+     * @param c cut info describing the source of these cuts/matches
+     * @param superKnot enclosing knot whose membership decides internal vs external segments
      */
     public CutMatchList(Shell shell, CutInfo c, Knot superKnot) {
         cutMatches = new ArrayList<>();
@@ -38,10 +38,10 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code CutMatchList}.
+     * Construct an empty list with no associated {@link CutInfo}.
      *
-     * @param shell TODO: describe
-     * @param superKnot TODO: describe
+     * @param shell containing shell, used for logging and balance exceptions
+     * @param superKnot enclosing knot whose membership decides internal vs external segments
      */
     public CutMatchList(Shell shell, Knot superKnot) {
         cutMatches = new ArrayList<>();
@@ -50,9 +50,10 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code toString}.
+     * Compact debug rendering of this list including the parent knot, every
+     * contained {@link CutMatch} and the running {@link #delta}.
      *
-     * @return TODO: describe
+     * @return debug string
      */
     @Override
     public String toString() {
@@ -62,14 +63,17 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code addCutMatch}.
+     * Append a new {@link CutMatch} populated from the given segment arrays
+     * and merge in any internal cut/match results that target the same
+     * underlying knot (others are appended verbatim). The running deltas are
+     * refreshed before the call returns.
      *
-     * @param cutSegments TODO: describe
-     * @param matchSegments TODO: describe
-     * @param internalCuts TODO: describe
-     * @param c TODO: describe
-     * @param cutType TODO: describe
-     * @throws SegmentBalanceException TODO: describe
+     * @param cutSegments segments to record as cuts on the new entry
+     * @param matchSegments segments to record as matches on the new entry
+     * @param internalCuts results from a recursive cut/match pass to merge in
+     * @param c cut context for the new entry
+     * @param cutType label identifying the operation source
+     * @throws SegmentBalanceException propagated from {@link CutMatch#checkValid()}
      */
     public void addCutMatch(Segment[] cutSegments, Segment[] matchSegments, CutMatchList internalCuts, CutInfo c,
             String cutType)
@@ -102,19 +106,24 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code addTwoCut}.
+     * Add a two-cut/two-match entry: cuts are taken from {@code segments}
+     * (filtered against {@code c.balanceMap.cuts}), {@code matchSegment2} is
+     * always added and {@code matchSegment1} is added when {@code match1} is
+     * {@code true}. Internal results from {@code cml} are merged with the
+     * same knot-aware rules as {@link #addCutMatch}, then segments not on the
+     * super-knot are pruned and the deltas refreshed.
      *
-     * @param cutSegment TODO: describe
-     * @param segments TODO: describe
-     * @param matchSegment1 TODO: describe
-     * @param matchSegment2 TODO: describe
-     * @param kp1 TODO: describe
-     * @param kp2 TODO: describe
-     * @param cml TODO: describe
-     * @param c TODO: describe
-     * @param match1 TODO: describe
-     * @param cutType TODO: describe
-     * @throws SegmentBalanceException TODO: describe
+     * @param cutSegment unused legacy parameter retained for signature stability
+     * @param segments candidate cut segments to add (deduplicated against the entry and balance map)
+     * @param matchSegment1 first match segment, added only when {@code match1} is {@code true}
+     * @param matchSegment2 second match segment, always added
+     * @param kp1 lower knot point on the parent knot
+     * @param kp2 upper knot point on the parent knot
+     * @param cml recursive results to merge in
+     * @param c cut context for the new entry
+     * @param match1 whether to add {@code matchSegment1}
+     * @param cutType label identifying the operation source
+     * @throws SegmentBalanceException propagated from {@link CutMatch#checkValid()}
      */
     public void addTwoCut(Segment cutSegment, Segment[] segments, Segment matchSegment1, Segment matchSegment2,
             Knot kp1, Knot kp2, CutMatchList cml, CutInfo c, boolean match1, String cutType)
@@ -166,14 +175,20 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code addCutMatch}.
+     * Append a new {@link CutMatch} for a one-step move: every entry of
+     * {@code cutSegments} is added as a cut and every non-degenerate entry of
+     * {@code matchSegments} is added as a match. The entry's {@code kp1}/{@code kp2}
+     * come from {@code c}; a {@code null} {@code kp2} signals an unbalanced
+     * configuration and triggers a {@link SegmentBalanceException}. Cuts not
+     * on the super-knot and matches that already are on it are pruned, then
+     * the deltas refresh.
      *
-     * @param cutSegments TODO: describe
-     * @param matchSegments TODO: describe
-     * @param c TODO: describe
-     * @param cutType TODO: describe
-     * @throws SegmentBalanceException TODO: describe
-     * @return TODO: describe
+     * @param cutSegments segments to record as cuts on the new entry
+     * @param matchSegments segments to record as matches on the new entry (degenerates skipped)
+     * @param c cut context whose lower/upper knot points anchor the new entry
+     * @param cutType label identifying the operation source
+     * @throws SegmentBalanceException when {@code c} lacks an upper knot point or the entry fails validation
+     * @return the freshly created {@link CutMatch} entry
      */
     public CutMatch addCutMatch(Segment[] cutSegments,
             Segment[] matchSegments, CutInfo c, String cutType)
@@ -231,12 +246,13 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code addSimpleMatch}.
+     * Append a {@link CutMatch} consisting of a single match segment on the
+     * given knot, with no associated cuts.
      *
-     * @param matchSegment TODO: describe
-     * @param knot TODO: describe
-     * @param cutType TODO: describe
-     * @throws SegmentBalanceException TODO: describe
+     * @param matchSegment the lone match segment for the new entry
+     * @param knot knot the entry belongs to
+     * @param cutType label identifying the operation source
+     * @throws SegmentBalanceException propagated from {@link CutMatch#checkValid()}
      */
     public void addSimpleMatch(Segment matchSegment, Knot knot, String cutType) throws SegmentBalanceException {
         CutMatch cm = new CutMatch(cutType, shell, sbe);
@@ -249,7 +265,11 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code updateDelta}.
+     * Recompute {@link #delta} and {@link #internalDelta} from scratch.
+     * Each contained {@link CutMatch} is refreshed, then unique cuts on the
+     * super-knot subtract their distance from {@code delta} and unique matches
+     * not yet on the super-knot add theirs; matches whose endpoints both lie
+     * inside the super-knot also contribute to {@code internalDelta}.
      */
     public void updateDelta() {
         delta = 0.0;
@@ -281,13 +301,15 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code addNeighborCut}.
+     * Append a {@link CutMatch} that records a cut on a neighbor knot and
+     * absorbs the matches and cuts from any {@code cml} entries belonging to
+     * the same knot (others are appended verbatim).
      *
-     * @param neighborCut TODO: describe
-     * @param knot TODO: describe
-     * @param cml TODO: describe
-     * @param cutType TODO: describe
-     * @throws SegmentBalanceException TODO: describe
+     * @param neighborCut the cut segment on the neighbor knot
+     * @param knot knot the new entry belongs to
+     * @param cml recursive results to merge in
+     * @param cutType label identifying the operation source
+     * @throws SegmentBalanceException propagated from {@link CutMatch#checkValid()}
      */
     public void addNeighborCut(Segment neighborCut, Knot knot, CutMatchList cml, String cutType)
             throws SegmentBalanceException {
@@ -309,10 +331,11 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code hasMatch}.
+     * Whether {@code s} appears as a match segment on any contained
+     * {@link CutMatch}.
      *
-     * @param s TODO: describe
-     * @return TODO: describe
+     * @param s candidate segment
+     * @return {@code true} if at least one entry holds {@code s} as a match
      */
     public boolean hasMatch(Segment s) {
         for (CutMatch cm : cutMatches) {
@@ -324,10 +347,10 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code hasMatchWith}.
+     * Whether any match segment in this list is incident to {@code vp}.
      *
-     * @param vp TODO: describe
-     * @return TODO: describe
+     * @param vp candidate endpoint
+     * @return {@code true} if at least one match contains {@code vp}
      */
     public boolean hasMatchWith(Knot vp) {
         for (CutMatch cm : cutMatches) {
@@ -341,10 +364,11 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code getMatchWith}.
+     * Return the first match segment in this list that is incident to
+     * {@code vp}, or {@code null} when none exists.
      *
-     * @param vp TODO: describe
-     * @return TODO: describe
+     * @param vp candidate endpoint
+     * @return the matching segment, or {@code null}
      */
     public Segment getMatchWith(Knot vp) {
         for (CutMatch cm : cutMatches) {
@@ -358,9 +382,10 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code removeMatch}.
+     * Drop {@code match} from every {@link CutMatch} in this list and refresh
+     * the deltas.
      *
-     * @param match TODO: describe
+     * @param match match segment to remove
      */
     public void removeMatch(Segment match) {
         for (CutMatch cm : cutMatches) {
@@ -372,9 +397,10 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code removeCut}.
+     * Drop {@code cut} from every {@link CutMatch} in this list and refresh
+     * the deltas.
      *
-     * @param cut TODO: describe
+     * @param cut cut segment to remove
      */
     public void removeCut(Segment cut) {
         for (CutMatch cm : cutMatches) {
@@ -386,9 +412,10 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code copy}.
+     * Deep-copy this list and its {@link CutMatch} entries (each via
+     * {@link CutMatch#copy()}), preserving {@link #delta}.
      *
-     * @return TODO: describe
+     * @return an independent copy of this list
      */
     public CutMatchList copy() {
         CutMatchList copy = new CutMatchList(shell, c, superKnot);
@@ -402,11 +429,13 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code addDumbCutMatch}.
+     * Append a placeholder {@link CutMatch} that has no segments; used when
+     * the algorithm needs to record a knot's presence without committing to
+     * any cuts or matches yet.
      *
-     * @param knot TODO: describe
-     * @param superKnot TODO: describe
-     * @param cutType TODO: describe
+     * @param knot knot the placeholder is attached to
+     * @param superKnot enclosing knot (kept for signature symmetry; not stored)
+     * @param cutType label identifying the operation source
      */
     public void addDumbCutMatch(Knot knot, Knot superKnot, String cutType) {
         CutMatch cm = new CutMatch(cutType, shell, sbe);
@@ -415,11 +444,13 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code addCutDiff}.
+     * Append a {@link CutMatch} that records a single cut on {@code knot},
+     * but only if the segment is genuinely part of that knot's manifold.
+     * Refreshes the deltas on a successful add.
      *
-     * @param leftCut TODO: describe
-     * @param knot TODO: describe
-     * @param cutType TODO: describe
+     * @param leftCut candidate cut segment
+     * @param knot knot to validate against and attach to
+     * @param cutType label identifying the operation source
      */
     public void addCutDiff(Segment leftCut, Knot knot, String cutType) {
         shell.buff.add("making left/right cut: " + leftCut);
@@ -435,13 +466,15 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code addLists}.
+     * Append a {@link CutMatch} populated from two lists, copying them into
+     * both the live segment collections and the original-segment snapshots
+     * for replay/undo support.
      *
-     * @param cutSegments TODO: describe
-     * @param matchSegments TODO: describe
-     * @param knot TODO: describe
-     * @param cutType TODO: describe
-     * @throws SegmentBalanceException TODO: describe
+     * @param cutSegments cut segments to record on the new entry
+     * @param matchSegments match segments to record on the new entry
+     * @param knot knot the entry belongs to
+     * @param cutType label identifying the operation source
+     * @throws SegmentBalanceException propagated from {@link CutMatch#checkValid()}
      */
     public void addLists(ArrayList<Segment> cutSegments, ArrayList<Segment> matchSegments, Knot knot, String cutType)
             throws SegmentBalanceException {
@@ -463,9 +496,11 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code toFileString}.
+     * Serialize the first {@link CutMatch} as
+     * {@code "CUTMATCH CUTS <a b ...> MATCHES <a b ...>"}, where each
+     * {@code a b} pair is the endpoint ids of one segment.
      *
-     * @return TODO: describe
+     * @return file-friendly representation of {@link #getCutMatch()}
      */
     @Override
     public String toFileString() {
@@ -481,11 +516,13 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code getClosestKnotPoint}.
+     * Of the two anchor points {@code kp1}/{@code kp2} on the first
+     * {@link CutMatch}, return whichever yields the smaller summed distance
+     * when paired against {@code neighbor} and {@code other}.
      *
-     * @param neighbor TODO: describe
-     * @param other TODO: describe
-     * @return TODO: describe
+     * @param neighbor first source knot
+     * @param other second source knot
+     * @return the closer anchor knot ({@code kp1} or {@code kp2})
      */
     public Knot getClosestKnotPoint(Knot neighbor, Knot other) {
         CutMatch cm = cutMatches.get(0);
@@ -501,10 +538,11 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code getOtherKp}.
+     * Of the two anchor points {@code kp1}/{@code kp2} on the first
+     * {@link CutMatch}, return the one that is not {@code knotPoint}.
      *
-     * @param knotPoint TODO: describe
-     * @return TODO: describe
+     * @param knotPoint anchor whose counterpart is requested
+     * @return the other anchor knot, or {@code null} if {@code knotPoint} is neither
      */
     public Knot getOtherKp(Knot knotPoint) {
         CutMatch cm = cutMatches.get(0);
@@ -517,22 +555,25 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * TODO: document {@code getCutMatch}.
+     * The first (primary) {@link CutMatch} in this list.
      *
-     * @return TODO: describe
+     * @return {@code cutMatches.get(0)}
      */
     public CutMatch getCutMatch() {
         return this.cutMatches.get(0);
     }
 
     /**
-     * TODO: document {@code toHyperString}.
+     * Render the primary {@link CutMatch} as an interactive table: matches
+     * and cuts are paired row-by-row, the row's color depending on whether
+     * the segment is one of the externally supplied lower/upper match/cut
+     * segments. A trailing summary block reports match count and deltas.
      *
-     * @param matchColor TODO: describe
-     * @param cutColor TODO: describe
-     * @param externalColor TODO: describe
-     * @param externalCutColor TODO: describe
-     * @return TODO: describe
+     * @param matchColor color for internal match segments
+     * @param cutColor color for internal cut segments
+     * @param externalColor color for the externally supplied match segments
+     * @param externalCutColor color for the externally supplied cut segments
+     * @return a clickable hyperstring representation
      */
     public HyperString toHyperString(Color matchColor, Color cutColor, Color externalColor, Color externalCutColor) {
         HyperString h = new HyperString();
@@ -576,11 +617,14 @@ public class CutMatchList implements FileStringable {
     public static class CutMatchListComparator implements Comparator<CutMatchList> {
 
         /**
-         * TODO: document {@code compare}.
+         * Order two lists by ascending {@link CutMatchList#delta}, falling
+         * back to a raw-bits comparison when the deltas are equal so the
+         * sort is total even for tied values. Increments
+         * {@link CutMatchList#cutMatchListComparisons} for instrumentation.
          *
-         * @param o1 TODO: describe
-         * @param o2 TODO: describe
-         * @return TODO: describe
+         * @param o1 first list
+         * @param o2 second list
+         * @return -1, 0 or 1 per {@link Comparator#compare}
          */
         @Override
         public int compare(CutMatchList o1, CutMatchList o2) {

@@ -55,13 +55,13 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     private boolean boundsDirty = true;
 
     /**
-     * TODO: document {@code ArrayMesh}.
+     * Wraps caller-owned arrays without copying. {@code normals} may be null and is then allocated as zeros.
      *
-     * @param positions TODO: describe
-     * @param normals TODO: describe
-     * @param faceIndices TODO: describe
-     * @param vertsPerFace TODO: describe
-     * @throws IllegalArgumentException TODO: describe
+     * @param positions packed xyz triples; length must be divisible by 3
+     * @param normals packed xyz triples matching {@code positions}, or {@code null} to allocate zeros
+     * @param faceIndices vertex indices grouped by {@code vertsPerFace}
+     * @param vertsPerFace fixed face arity (e.g. 3 for triangles, 4 for quads)
+     * @throws IllegalArgumentException if {@code positions} is not in xyz triples or {@code faceIndices.length} is not a multiple of {@code vertsPerFace}
      */
     public ArrayMesh(float[] positions, float[] normals, int[] faceIndices, int vertsPerFace) {
         if (positions.length % FLOATS_PER_VERTEX != 0) {
@@ -78,11 +78,11 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * TODO: document {@code fromQuads}.
+     * Builds a quad-only mesh from packed xyz positions and a flat quad index buffer.
      *
-     * @param positions TODO: describe
-     * @param quadIndices TODO: describe
-     * @return TODO: describe
+     * @param positions packed xyz triples
+     * @param quadIndices vertex indices in groups of four
+     * @return mesh with {@code vertsPerFace = 4} and zeroed normals
      */
     public static ArrayMesh fromQuads(float[] positions, int[] quadIndices) {
         return new ArrayMesh(positions, null, quadIndices, NUM_4);
@@ -92,111 +92,111 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
      * One linear quad-subdivision step on dense arrays (see
      * {@link ArrayMeshEngine#subdivideQuadsOnce}).
      *
-     * @param positions TODO: describe
-     * @param quadIndices TODO: describe
-     * @return TODO: describe
+     * @param positions packed xyz triples
+     * @param quadIndices flat quad index buffer
+     * @return subdivided {@link ArrayMesh}
      */
     public static ArrayMesh subdivideQuads(float[] positions, int[] quadIndices) {
         return ArrayMeshEngine.subdivideQuadsOnce(fromQuads(positions, quadIndices));
     }
 
     /**
-     * TODO: document {@code subdivideQuadsOnce}.
+     * Delegates to {@link ArrayMeshEngine#subdivideQuadsOnce(MeshTopology)}.
      *
-     * @param src TODO: describe
-     * @return TODO: describe
+     * @param src uniform-quad source mesh
+     * @return subdivided {@link ArrayMesh}
      */
     public static ArrayMesh subdivideQuadsOnce(ArrayMesh src) {
         return ArrayMeshEngine.subdivideQuadsOnce(src);
     }
 
     /**
-     * TODO: document {@code deleteVertices}.
+     * Delegates to {@link ArrayMeshEngine#deleteVertices(ArrayMesh, boolean[])}.
      *
-     * @param mesh TODO: describe
-     * @param del TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param del per-vertex deletion mask
+     * @return mesh with selected vertices and incident faces removed
      */
     public static ArrayMesh deleteVertices(ArrayMesh mesh, boolean[] del) {
         return ArrayMeshEngine.deleteVertices(mesh, del);
     }
 
     /**
-     * TODO: document {@code deleteEdges}.
+     * Delegates to {@link ArrayMeshEngine#deleteEdges(ArrayMesh, boolean[])}.
      *
-     * @param mesh TODO: describe
-     * @param delEdge TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param delEdge per-edge deletion mask
+     * @return mesh with selected edges (and their faces) removed
      */
     public static ArrayMesh deleteEdges(ArrayMesh mesh, boolean[] delEdge) {
         return ArrayMeshEngine.deleteEdges(mesh, delEdge);
     }
 
     /**
-     * TODO: document {@code mergeByDistance}.
+     * Delegates to {@link ArrayMeshEngine#mergeByDistance(ArrayMesh, float)}.
      *
-     * @param mesh TODO: describe
-     * @param distance TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param distance weld threshold
+     * @return mesh with near-coincident vertices welded
      */
     public static ArrayMesh mergeByDistance(ArrayMesh mesh, float distance) {
         return ArrayMeshEngine.mergeByDistance(mesh, distance);
     }
 
     /**
-     * TODO: document {@code join}.
+     * Delegates to {@link ArrayMeshEngine#join(ArrayMesh, ArrayMesh)}.
      *
-     * @param a TODO: describe
-     * @param b TODO: describe
-     * @return TODO: describe
+     * @param a first mesh
+     * @param b second mesh
+     * @return concatenation of {@code a} and {@code b} (no welding)
      */
     public static ArrayMesh join(ArrayMesh a, ArrayMesh b) {
         return ArrayMeshEngine.join(a, b);
     }
 
     /**
-     * TODO: document {@code getVertsPerFace}.
+     * Fixed face arity (e.g. 4 for quad meshes).
      *
-     * @return TODO: describe
+     * @return number of vertices per face
      */
     public int getVertsPerFace() {
         return vertsPerFace;
     }
 
     /**
-     * TODO: document {@code copyPositions}.
+     * Defensive copy of the packed xyz position array.
      *
-     * @return TODO: describe
+     * @return new array independent of internal storage
      */
     public float[] copyPositions() {
         return Arrays.copyOf(positions, positions.length);
     }
 
     /**
-     * TODO: document {@code copyFaceIndices}.
+     * Defensive copy of the flat face-index buffer (groups of {@link #getVertsPerFace()}).
      *
-     * @return TODO: describe
+     * @return new array independent of internal storage
      */
     public int[] copyFaceIndices() {
         return Arrays.copyOf(faceIndices, faceIndices.length);
     }
 
     /**
-     * TODO: document {@code copyNormals}.
+     * Defensive copy of the packed xyz vertex-normal array.
      *
-     * @return TODO: describe
+     * @return new array independent of internal storage
      */
     public float[] copyNormals() {
         return Arrays.copyOf(normals, normals.length);
     }
 
     /**
-     * TODO: document {@code setVertexPosition}.
+     * Writes the position of a vertex in place; invalidates cached bounds and radius.
      *
-     * @param vertexId TODO: describe
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @param z TODO: describe
+     * @param vertexId vertex index
+     * @param x new x coordinate
+     * @param y new y coordinate
+     * @param z new z coordinate
      */
     public void setVertexPosition(int vertexId, float x, float y, float z) {
         requireVertex(vertexId);
@@ -209,9 +209,11 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * TODO: document {@code compileSurfaceData}.
+     * Builds GPU-ready interleaved vertex data and a triangulated index buffer for rendering.
+     * Each output vertex is 8 floats (xyz, normal xyz, two zero-padded slots); faces are
+     * fan-triangulated.
      *
-     * @return TODO: describe
+     * @return compiled mesh data including bounds and bounding sphere
      */
     public HalfEdgeCompiledMeshData compileSurfaceData() {
         int vCount = vertexCount();
@@ -255,9 +257,9 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * TODO: document {@code getEdgeIndices}.
+     * Lazy, cached flat (v0,v1) edge index buffer with one pair per unique edge.
      *
-     * @return TODO: describe
+     * @return array of length {@code 2 * edgeCount()} holding endpoint vertex ids
      */
     public int[] getEdgeIndices() {
         if (cachedEdgeIndices != null) {
@@ -278,9 +280,10 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * TODO: document {@code toHalfEdgeMesh}.
+     * Materializes this dense mesh as a fully connected {@link HalfEdgeMesh}, copying
+     * positions, faces, and vertex normals.
      *
-     * @return TODO: describe
+     * @return new half-edge mesh with the same geometry
      */
     public HalfEdgeMesh toHalfEdgeMesh() {
         HalfEdgeMesh m = HalfEdgeMesh.bulkAllocate(Arrays.copyOf(positions, positions.length),
@@ -291,7 +294,9 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * TODO: document {@code computeNormals}.
+     * Recomputes per-face and per-vertex normals in place. Face normal is the unit
+     * cross product of the first two edges; vertex normals are the area-weighted (via
+     * accumulated face normals) sum of incident face normals, then normalized.
      */
     public void computeNormals() {
         int v = vertexCount();
@@ -385,143 +390,81 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         topologyReady = true;
     }
 
-    /**
-     * TODO: document {@code vertexCount}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexCount() {
         return positions.length / FLOATS_PER_VERTEX;
     }
 
-    /**
-     * TODO: document {@code edgeCount}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int edgeCount() {
         ensureTopology();
         return edgeCount;
     }
 
-    /**
-     * TODO: document {@code faceCount}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceCount() {
         return faceIndices.length / vertsPerFace;
     }
 
-    /**
-     * TODO: document {@code halfEdgeCount}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int halfEdgeCount() {
         return faceIndices.length;
     }
 
-    /**
-     * TODO: document {@code vertexIdAt}.
-     *
-     * @param activeIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Identity mapping: vertex ids are dense indices. */
     @Override
     public int vertexIdAt(int activeIndex) {
         return activeIndex;
     }
 
-    /**
-     * TODO: document {@code edgeIdAt}.
-     *
-     * @param activeIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Identity mapping: edge ids are dense indices. */
     @Override
     public int edgeIdAt(int activeIndex) {
         return activeIndex;
     }
 
-    /**
-     * TODO: document {@code faceIdAt}.
-     *
-     * @param activeIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Identity mapping: face ids are dense indices. */
     @Override
     public int faceIdAt(int activeIndex) {
         return activeIndex;
     }
 
-    /**
-     * TODO: document {@code halfEdgeIdAt}.
-     *
-     * @param activeIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Identity mapping: half-edge ids are dense indices. */
     @Override
     public int halfEdgeIdAt(int activeIndex) {
         return activeIndex;
     }
 
-    /**
-     * TODO: document {@code hasVertex}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public boolean hasVertex(int vertexId) {
         return vertexId >= 0 && vertexId < vertexCount();
     }
 
-    /**
-     * TODO: document {@code hasEdge}.
-     *
-     * @param edgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public boolean hasEdge(int edgeId) {
         ensureTopology();
         return edgeId >= 0 && edgeId < edgeCount;
     }
 
-    /**
-     * TODO: document {@code hasFace}.
-     *
-     * @param faceId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public boolean hasFace(int faceId) {
         return faceId >= 0 && faceId < faceCount();
     }
 
-    /**
-     * TODO: document {@code hasHalfEdge}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public boolean hasHalfEdge(int halfEdgeId) {
         return halfEdgeId >= 0 && halfEdgeId < halfEdgeCount();
     }
 
-    /**
-     * TODO: document {@code vertexPosition}.
-     *
-     * @param vertexId TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public Vector3f vertexPosition(int vertexId, Vector3f dest) {
         requireVertex(vertexId);
@@ -529,13 +472,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return dest.set(positions[o], positions[o + 1], positions[o + 2]);
     }
 
-    /**
-     * TODO: document {@code vertexNormal}.
-     *
-     * @param vertexId TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public Vector3f vertexNormal(int vertexId, Vector3f dest) {
         requireVertex(vertexId);
@@ -543,12 +480,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return dest.set(normals[o], normals[o + 1], normals[o + 2]);
     }
 
-    /**
-     * TODO: document {@code vertexOutgoingHalfEdge}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdge(int vertexId) {
         ensureTopology();
@@ -560,12 +492,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return vertexOutgoingHalfEdges[s];
     }
 
-    /**
-     * TODO: document {@code vertexOutgoingHalfEdgeCount}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdgeCount(int vertexId) {
         ensureTopology();
@@ -573,14 +500,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return vertexOutgoingOffsets[vertexId + 1] - vertexOutgoingOffsets[vertexId];
     }
 
-    /**
-     * TODO: document {@code vertexOutgoingHalfEdgeAt}.
-     *
-     * @param vertexId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @throws IndexOutOfBoundsException TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdgeAt(int vertexId, int adjacencyIndex) {
         ensureTopology();
@@ -593,12 +513,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return vertexOutgoingHalfEdges[base + adjacencyIndex];
     }
 
-    /**
-     * TODO: document {@code vertexEdgeCount}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexEdgeCount(int vertexId) {
         ensureTopology();
@@ -606,14 +521,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return vertexEdgeOffsets[vertexId + 1] - vertexEdgeOffsets[vertexId];
     }
 
-    /**
-     * TODO: document {@code vertexEdgeAt}.
-     *
-     * @param vertexId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @throws IndexOutOfBoundsException TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexEdgeAt(int vertexId, int adjacencyIndex) {
         ensureTopology();
@@ -626,12 +534,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return vertexEdges[base + adjacencyIndex];
     }
 
-    /**
-     * TODO: document {@code vertexFaceCount}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexFaceCount(int vertexId) {
         ensureTopology();
@@ -639,14 +542,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return vertexFaceOffsets[vertexId + 1] - vertexFaceOffsets[vertexId];
     }
 
-    /**
-     * TODO: document {@code vertexFaceAt}.
-     *
-     * @param vertexId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @throws IndexOutOfBoundsException TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexFaceAt(int vertexId, int adjacencyIndex) {
         ensureTopology();
@@ -659,12 +555,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return vertexFaces[base + adjacencyIndex];
     }
 
-    /**
-     * TODO: document {@code isBoundaryVertex}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public boolean isBoundaryVertex(int vertexId) {
         ensureTopology();
@@ -677,12 +568,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return false;
     }
 
-    /**
-     * TODO: document {@code edgeHalfEdge}.
-     *
-     * @param edgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int edgeHalfEdge(int edgeId) {
         ensureTopology();
@@ -690,12 +576,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return edgeHalfEdge[edgeId];
     }
 
-    /**
-     * TODO: document {@code isBoundaryEdge}.
-     *
-     * @param edgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public boolean isBoundaryEdge(int edgeId) {
         ensureTopology();
@@ -704,38 +585,21 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return halfEdgeTwin[he] == MeshTopology.NONE;
     }
 
-    /**
-     * TODO: document {@code faceHalfEdge}.
-     *
-     * @param faceId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceHalfEdge(int faceId) {
         requireFace(faceId);
         return faceId * vertsPerFace;
     }
 
-    /**
-     * TODO: document {@code faceHalfEdgeCount}.
-     *
-     * @param faceId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceHalfEdgeCount(int faceId) {
         requireFace(faceId);
         return vertsPerFace;
     }
 
-    /**
-     * TODO: document {@code faceHalfEdgeAt}.
-     *
-     * @param faceId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @throws IndexOutOfBoundsException TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceHalfEdgeAt(int faceId, int adjacencyIndex) {
         requireFace(faceId);
@@ -745,49 +609,27 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return faceId * vertsPerFace + adjacencyIndex;
     }
 
-    /**
-     * TODO: document {@code faceVertexCount}.
-     *
-     * @param faceId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceVertexCount(int faceId) {
         requireFace(faceId);
         return vertsPerFace;
     }
 
-    /**
-     * TODO: document {@code faceVertexAt}.
-     *
-     * @param faceId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceVertexAt(int faceId, int adjacencyIndex) {
         requireFace(faceId);
         return faceIndices[faceId * vertsPerFace + adjacencyIndex];
     }
 
-    /**
-     * TODO: document {@code faceEdgeCount}.
-     *
-     * @param faceId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceEdgeCount(int faceId) {
         return faceVertexCount(faceId);
     }
 
-    /**
-     * TODO: document {@code faceEdgeAt}.
-     *
-     * @param faceId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceEdgeAt(int faceId, int adjacencyIndex) {
         ensureTopology();
@@ -795,13 +637,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return halfEdgeEdge[he];
     }
 
-    /**
-     * TODO: document {@code faceNormal}.
-     *
-     * @param faceId TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Returns the most recently computed face normal (see {@link #computeNormals()}). */
     @Override
     public Vector3f faceNormal(int faceId, Vector3f dest) {
         requireFace(faceId);
@@ -809,36 +645,21 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return dest.set(faceNormals[o], faceNormals[o + 1], faceNormals[o + 2]);
     }
 
-    /**
-     * TODO: document {@code halfEdgeVertex}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int halfEdgeVertex(int halfEdgeId) {
         requireHalfEdge(halfEdgeId);
         return faceIndices[halfEdgeId];
     }
 
-    /**
-     * TODO: document {@code halfEdgeEndVertex}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int halfEdgeEndVertex(int halfEdgeId) {
         requireHalfEdge(halfEdgeId);
         return halfEdgeVertex(halfEdgeNext(halfEdgeId));
     }
 
-    /**
-     * TODO: document {@code halfEdgeTwin}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int halfEdgeTwin(int halfEdgeId) {
         ensureTopology();
@@ -846,12 +667,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return halfEdgeTwin[halfEdgeId];
     }
 
-    /**
-     * TODO: document {@code halfEdgeNext}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Cycles within the owning face (face id = {@code halfEdgeId / vertsPerFace}). */
     @Override
     public int halfEdgeNext(int halfEdgeId) {
         requireHalfEdge(halfEdgeId);
@@ -861,12 +677,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return f * vpf + (k + 1) % vpf;
     }
 
-    /**
-     * TODO: document {@code halfEdgePrev}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Cycles within the owning face. */
     @Override
     public int halfEdgePrev(int halfEdgeId) {
         requireHalfEdge(halfEdgeId);
@@ -876,24 +687,14 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return f * vpf + (k + vpf - 1) % vpf;
     }
 
-    /**
-     * TODO: document {@code halfEdgeFace}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int halfEdgeFace(int halfEdgeId) {
         requireHalfEdge(halfEdgeId);
         return halfEdgeId / vertsPerFace;
     }
 
-    /**
-     * TODO: document {@code halfEdgeEdge}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int halfEdgeEdge(int halfEdgeId) {
         ensureTopology();
@@ -901,12 +702,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return halfEdgeEdge[halfEdgeId];
     }
 
-    /**
-     * TODO: document {@code isBoundaryHalfEdge}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public boolean isBoundaryHalfEdge(int halfEdgeId) {
         ensureTopology();
@@ -914,47 +710,28 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return halfEdgeTwin[halfEdgeId] == MeshTopology.NONE;
     }
 
-    /**
-     * TODO: document {@code boundsMin}.
-     *
-     * @param dest TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Bounds are recomputed lazily after vertex edits. */
     @Override
     public Vector3f boundsMin(Vector3f dest) {
         recomputeBoundsIfNeeded();
         return dest.set(boundsMin);
     }
 
-    /**
-     * TODO: document {@code boundsMax}.
-     *
-     * @param dest TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Bounds are recomputed lazily after vertex edits. */
     @Override
     public Vector3f boundsMax(Vector3f dest) {
         recomputeBoundsIfNeeded();
         return dest.set(boundsMax);
     }
 
-    /**
-     * TODO: document {@code center}.
-     *
-     * @param dest TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Returns the center of the axis-aligned bounding box. */
     @Override
     public Vector3f center(Vector3f dest) {
         recomputeBoundsIfNeeded();
         return dest.set(centerVec);
     }
 
-    /**
-     * TODO: document {@code radius}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Bounding-sphere radius about {@link #center(Vector3f)}; cached after first call. */
     @Override
     public float radius() {
         recomputeBoundsIfNeeded();

@@ -20,7 +20,7 @@ public class Pause extends AutomationEndpoint implements AutomationRoute {
      * @param body request body (unused)
      * @throws IOException never thrown directly; declared to satisfy the route contract
      * @return {@code {"ok": true, "paused": true}}, or {@code {"ok": false, "error":
-     *         <message>}} on unexpected failure
+     *         {@code <message>}}} on unexpected failure
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {

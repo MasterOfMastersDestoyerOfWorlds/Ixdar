@@ -13,6 +13,11 @@ import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 
+/**
+ * MeshNode that compares two scalars or {@link FloatField}s with an epsilon
+ * tolerance, producing a scalar boolean or per-element {@link BoolField}
+ * depending on whether any input broadcasts as a field.
+ */
 @MeshNodeAnnotation(id = "compare")
 public class CompareNode implements MeshNode {
     public static final String EQUAL = "EQUAL";
@@ -42,21 +47,13 @@ public class CompareNode implements MeshNode {
     private static final InputPort MODE = new InputPort(MODE_2, PortType.STRING, EQUAL, MODE_CONSTRAINT);
     private static final OutputPort VALUE = new OutputPort(VALUE_2, PortType.BOOLEAN);
 
-    /**
-     * TODO: document {@code description}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public String description() {
         return "Compares two float values with an epsilon tolerance using modes EQUAL, LESS, GREATER.";
     }
 
-    /**
-     * TODO: document {@code socketDocs}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
@@ -68,31 +65,19 @@ public class CompareNode implements MeshNode {
         );
     }
 
-    /**
-     * TODO: document {@code inputs}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public List<InputPort> inputs() {
         return List.of(A, B, EPSILON, MODE);
     }
 
-    /**
-     * TODO: document {@code outputs}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public List<OutputPort> outputs() {
         return List.of(VALUE);
     }
 
-    /**
-     * TODO: document {@code evaluate}.
-     *
-     * @param ctx TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public void evaluate(NodeContext ctx) {
         Object ao = FieldBroadcast.getInputOrDefault(ctx, A_2, A.defaultValue());
@@ -137,10 +122,12 @@ public class CompareNode implements MeshNode {
         GREATER;
 
         /**
-         * TODO: document {@code parse}.
+         * Parses the {@code mode} port string via the mode constraint (handles aliases
+         * {@code EQ}, {@code LT}, {@code GT}, {@code LESS_THAN}, {@code GREATER_THAN};
+         * falls back to EQUAL on null/unknown input).
          *
-         * @param raw TODO: describe
-         * @return TODO: describe
+         * @param raw raw {@code mode} string from the node context
+         * @return matching {@link Mode}
          */
         public static Mode parse(String raw) {
             return Mode.valueOf(MODE_CONSTRAINT.normalize(raw));

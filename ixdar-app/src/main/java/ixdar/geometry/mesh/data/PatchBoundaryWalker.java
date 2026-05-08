@@ -40,12 +40,12 @@ public final class PatchBoundaryWalker {
     /**
      * Extract the ordered boundary polyline sides for one patch.
      *
-     * @param faces TODO: describe
-     * @param facePatch TODO: describe
-     * @param patchId TODO: describe
-     * @param faceIdx TODO: describe
-     * @param adj TODO: describe
-     * @param positions TODO: describe
+     * @param faces face ids belonging to this patch
+     * @param facePatch patch id per face index (used to recognise interior edges)
+     * @param patchId patch label this call is extracting
+     * @param faceIdx flat triangle index buffer ({@code 3 * faceCount} entries)
+     * @param adj per-face neighbour table ({@code adj[f][e]} is the face across edge {@code e}, or {@code -1})
+     * @param positions packed XYZ vertex positions
      * @return the sides (4) + corner vertices (4), or {@code null} if
      *         no simple boundary ring of length ≥ 4 could be found —
      *         caller should fall back to shape-proxy heuristics.
@@ -140,11 +140,11 @@ public final class PatchBoundaryWalker {
      * to keep multi-neighbour junctions tracking the smoother local
      * boundary. Returns {@code null} if the ring can't close.
      *
-     * @param start TODO: describe
-     * @param neighbours TODO: describe
-     * @param globallyVisited TODO: describe
-     * @param positions TODO: describe
-     * @return TODO: describe
+     * @param start vertex id to begin the walk from
+     * @param neighbours boundary adjacency map (vertex to ordered neighbour list)
+     * @param globallyVisited vertices already consumed by previously walked rings; updated on success
+     * @param positions packed XYZ vertex positions for direction scoring
+     * @return ordered ring of vertex ids, or {@code null} if no closed simple ring could be walked
      */
     private static int[] walkRing(int start, Map<Integer, List<Integer>> neighbours,
                                   Set<Integer> globallyVisited, float[] positions) {
@@ -182,13 +182,13 @@ public final class PatchBoundaryWalker {
      * most straight (smallest turn). If no unvisited option but
      * {@code start} is a neighbour, close the ring there.
      *
-     * @param cur TODO: describe
-     * @param prev TODO: describe
-     * @param nbs TODO: describe
-     * @param ringVisited TODO: describe
-     * @param start TODO: describe
-     * @param positions TODO: describe
-     * @return TODO: describe
+     * @param cur current ring vertex
+     * @param prev previous ring vertex, or {@code -1} for the first step
+     * @param nbs boundary neighbours of {@code cur}
+     * @param ringVisited vertices already in the current ring (excluding {@code start})
+     * @param start ring start vertex; used to detect closure
+     * @param positions packed XYZ positions for the straight-continuation score
+     * @return next vertex id, {@code start} to close the ring, or {@code -1} if stuck
      */
     private static int pickNext(int cur, int prev, List<Integer> nbs,
                                  Set<Integer> ringVisited, int start, float[] positions) {

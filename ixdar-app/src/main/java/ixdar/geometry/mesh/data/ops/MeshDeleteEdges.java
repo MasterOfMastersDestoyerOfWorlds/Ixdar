@@ -23,11 +23,13 @@ public final class MeshDeleteEdges {
     }
 
     /**
-     * TODO: document {@code delete}.
+     * Delete the selected edges (and their incident faces). Vertices left isolated
+     * after face removal are dropped.
      *
-     * @param mesh TODO: describe
-     * @param selectionObj TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh; treated read-only
+     * @param selectionObj per-edge {@link BoolField} selection, or a {@link Boolean} ({@code true} = delete every edge)
+     * @return new mesh — empty if the whole input is selected, the offset-applied input if nothing is selected,
+     *         an {@link ArrayMesh} when the input is one, otherwise a {@link HalfEdgeMesh}
      */
     public static MeshTopology delete(MeshTopology mesh, Object selectionObj) {
         if (mesh == null || mesh.edgeCount() == 0) {

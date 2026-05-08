@@ -37,12 +37,12 @@ public final class CoonsEvaluator {
      * Returns a flat {@code float[samples*samples*3]} packed row-major
      * as {@code (v_row, u_col)} → xyz.
      *
-     * @param sideU0 TODO: describe
-     * @param sideU1 TODO: describe
-     * @param sideV0 TODO: describe
-     * @param sideV1 TODO: describe
-     * @param samples TODO: describe
-     * @return TODO: describe
+     * @param sideU0 cubic Bezier along u at v=0 (4 control points)
+     * @param sideU1 cubic Bezier along u at v=1
+     * @param sideV0 cubic Bezier along v at u=0
+     * @param sideV1 cubic Bezier along v at u=1
+     * @param samples grid resolution; clamped to a minimum of 2
+     * @return packed xyz triples laid out row-major in {@code (v, u)} order
      */
     public static float[] sampleGrid(Vector3f[] sideU0, Vector3f[] sideU1,
                                      Vector3f[] sideV0, Vector3f[] sideV1,
@@ -97,11 +97,11 @@ public final class CoonsEvaluator {
      * per query. Fine for the typical patch sizes we see (≤500 verts
      * × 256 grid points ≈ 128k distance evals per patch).
      *
-     * @param grid TODO: describe
-     * @param px TODO: describe
-     * @param py TODO: describe
-     * @param pz TODO: describe
-     * @return TODO: describe
+     * @param grid packed xyz triples (e.g. produced by {@link #sampleGrid})
+     * @param px query point x
+     * @param py query point y
+     * @param pz query point z
+     * @return squared distance to the closest point in {@code grid}
      */
     public static float nearestDistanceSquared(float[] grid, float px, float py, float pz) {
         float best = Float.POSITIVE_INFINITY;

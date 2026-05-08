@@ -47,6 +47,8 @@ public class HeadlessBuffer implements IxBuffer {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return floats between position and limit
      */
     @Override
@@ -70,6 +72,8 @@ public class HeadlessBuffer implements IxBuffer {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return backing array length
      */
     @Override

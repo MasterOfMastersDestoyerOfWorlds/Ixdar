@@ -107,9 +107,12 @@ public class HalfEdgeMeshRuntime {
     private ShaderMode shaderMode = ShaderMode.LAMBERT;
 
     /**
-     * TODO: document {@code HalfEdgeMeshRuntime}.
+     * Build the runtime: allocate the three mesh shader programs (lit,
+     * unlit, scalar), the shared VAO/VBO, and the EBO names for triangles,
+     * wireframe edges, feature-edge overlays, and the per-vertex scalar
+     * attribute. No mesh is uploaded yet — call {@link #upload(MeshTopology)}.
      *
-     * @throws Exception TODO: describe
+     * @throws Exception if any of the mesh shader programs fails to compile or link
      */
     public HalfEdgeMeshRuntime() throws Exception {
         this.meshShader = ShaderProgram.ShaderType.Mesh.getShader();
@@ -127,9 +130,11 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
-     * TODO: document {@code upload}.
+     * Compile {@code mesh} and upload it as static GPU geometry, replacing
+     * any previous mesh. Clears tag partitioning and the per-vertex scalar.
+     * Passing {@code null} clears all GPU state without uploading.
      *
-     * @param mesh TODO: describe
+     * @param mesh source mesh, or {@code null} to clear
      */
     public void upload(MeshTopology mesh) {
         if (mesh == null) {
@@ -147,9 +152,10 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
-     * TODO: document {@code reupload}.
+     * Like {@link #upload(MeshTopology)} but flagged as dynamic GPU usage,
+     * for meshes whose geometry changes frame-to-frame.
      *
-     * @param mesh TODO: describe
+     * @param mesh source mesh, or {@code null} to clear
      */
     public void reupload(MeshTopology mesh) {
         if (mesh == null) {
@@ -180,9 +186,12 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
-     * TODO: document {@code frameCamera}.
+     * Position {@code camera} so the current mesh fills the view: targeted
+     * on the bounding-sphere center, pulled back along +Z by 2.5x the
+     * radius (with a 1.5-unit floor), with a 45-degree field of view. Does
+     * nothing if no mesh has been uploaded.
      *
-     * @param camera TODO: describe
+     * @param camera 3D camera to reposition
      */
     public void frameCamera(Camera3D camera) {
         if (compiledMesh == null) {
@@ -196,9 +205,13 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
-     * TODO: document {@code render}.
+     * Render the current mesh: builds the projection matrix
+     * (perspective or orthographic per {@link #isOrthographic()}), picks the
+     * shader for the active {@link ShaderMode}, draws either as a single
+     * call or per tag range, then layers the wireframe and feature-edge
+     * overlay passes when enabled. No-op when no mesh is uploaded.
      *
-     * @param camera TODO: describe
+     * @param camera 3D camera supplying the view matrix and FOV
      */
     public void render(Camera3D camera) {
         if (compiledMesh == null || compiledMesh.indices.length == 0) {
@@ -299,7 +312,9 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
-     * TODO: document {@code dispose}.
+     * Release every GPU buffer owned by this runtime (face EBO, edge EBO,
+     * feature-edge EBO, scalar VBO, plus the shared VAO/VBO). Safe to call
+     * once after the last render pass; subsequent draw calls are no-ops.
      */
     public void dispose() {
         if (ebo != 0) {
@@ -359,7 +374,9 @@ public class HalfEdgeMeshRuntime {
      * SemanticPatchDecomposer.DecompositionDiagnostics} so the on-screen
      * colors match the offline PNG diagnostic pixel-for-pixel.
      *
-     * @param categories TODO: describe
+     * @param categories ordered list of overlay categories, each pairing an
+     *                   sRGB color with the edge keys to draw in that color;
+     *                   {@code null} or empty clears the overlay
      */
     public void setFeatureEdgeOverlay(java.util.List<FeatureEdgeCategory> categories) {
         if (categories == null || categories.isEmpty() || compiledMesh == null) {
@@ -424,9 +441,12 @@ public class HalfEdgeMeshRuntime {
      * <p>Size must equal the current mesh vertex count; shorter arrays are
      * ignored with a no-op.
      *
-     * @param values TODO: describe
-     * @param min TODO: describe
-     * @param max TODO: describe
+     * @param values per-vertex scalar values; length must be at least the
+     *               current vertex count, or the call is a no-op
+     * @param min lower bound of the color ramp; pass {@code Float.NaN} to
+     *            autoscale from {@code values}
+     * @param max upper bound of the color ramp; pass {@code Float.NaN} to
+     *            autoscale from {@code values}
      */
     public void setPerVertexScalar(float[] values, float min, float max) {
         if (values == null || compiledMesh == null || values.length < compiledMesh.vertexCount) {
@@ -468,21 +488,22 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
-     * TODO: document {@code hasPerVertexScalar}.
+     * Whether a usable per-vertex scalar buffer has been uploaded.
      *
-     * @return TODO: describe
+     * @return {@code true} when a per-vertex scalar buffer is currently
+     *         uploaded and large enough for the live mesh
      */
     public boolean hasPerVertexScalar() { return scalarUploaded; }
     /**
-     * TODO: document {@code getScalarMin}.
+     * Lower bound used by the SCALAR-mode shader ramp.
      *
-     * @return TODO: describe
+     * @return lower bound of the SCALAR-mode color ramp, in scalar units
      */
     public float getScalarMin() { return scalarMin; }
     /**
-     * TODO: document {@code getScalarMax}.
+     * Upper bound used by the SCALAR-mode shader ramp.
      *
-     * @return TODO: describe
+     * @return upper bound of the SCALAR-mode color ramp, in scalar units
      */
     public float getScalarMax() { return scalarMax; }
 
@@ -512,9 +533,12 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
-     * TODO: document {@code renderEdges}.
+     * Wireframe overlay: draw all mesh edges twice — first as faint lines
+     * with depth test off (so back edges show through), then as bolder
+     * lines with depth test on. Called by {@link #render(Camera3D)} when
+     * {@link #isWireframe()} is set.
      *
-     * @param camera TODO: describe
+     * @param camera 3D camera supplying the view matrix
      */
     public void renderEdges(Camera3D camera) {
         if (meshUnlitShader.ID < 0 || edgeCount <= 0) {
@@ -540,57 +564,60 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
-     * TODO: document {@code getVertexCount}.
+     * Vertex count of the currently uploaded mesh.
      *
-     * @return TODO: describe
+     * @return number of unique vertices in the currently uploaded mesh, or 0 if none
      */
     public int getVertexCount() {
         return compiledMesh == null ? 0 : compiledMesh.vertexCount;
     }
 
     /**
-     * TODO: document {@code getFaceCount}.
+     * Triangle count of the currently uploaded mesh.
      *
-     * @return TODO: describe
+     * @return number of triangle faces in the currently uploaded mesh, or 0 if none
      */
     public int getFaceCount() {
         return compiledMesh == null ? 0 : compiledMesh.faceCount;
     }
 
     /**
-     * TODO: document {@code getBoundingBoxMin}.
+     * AABB minimum corner of the uploaded mesh.
      *
-     * @return TODO: describe
+     * @return defensive copy of the AABB minimum corner, or the zero vector
+     *         if no mesh is uploaded
      */
     public Vector3f getBoundingBoxMin() {
         return compiledMesh == null ? new Vector3f() : new Vector3f(minBounds);
     }
 
     /**
-     * TODO: document {@code getBoundingBoxMax}.
+     * AABB maximum corner of the uploaded mesh.
      *
-     * @return TODO: describe
+     * @return defensive copy of the AABB maximum corner, or the zero vector
+     *         if no mesh is uploaded
      */
     public Vector3f getBoundingBoxMax() {
         return compiledMesh == null ? new Vector3f() : new Vector3f(maxBounds);
     }
 
     /**
-     * TODO: document {@code getCenter}.
+     * Bounding-sphere center of the uploaded mesh.
      *
-     * @return TODO: describe
+     * @return defensive copy of the bounding-sphere center, or the zero
+     *         vector if no mesh is uploaded
      */
     public Vector3f getCenter() {
         return compiledMesh == null ? new Vector3f() : new Vector3f(center);
     }
 
     /**
-     * TODO: document {@code setSolidColor}.
+     * Set the fallback face color used when no tag partitioning is active.
      *
-     * @param r TODO: describe
-     * @param g TODO: describe
-     * @param b TODO: describe
-     * @param a TODO: describe
+     * @param r red channel in [0, 1]
+     * @param g green channel in [0, 1]
+     * @param b blue channel in [0, 1]
+     * @param a alpha channel in [0, 1]
      */
     public void setSolidColor(float r, float g, float b, float a) {
         solidColor.set(r, g, b, a);
@@ -599,14 +626,14 @@ public class HalfEdgeMeshRuntime {
     /**
      * Per-instance world transform applied to mesh vertices. Defaults to identity.
      *
-     * @param m TODO: describe
+     * @param m model matrix; copied into the runtime's internal matrix
      */
     public void setModelMatrix(Matrix4f m) {
         modelMatrix.set(m);
     }
 
     /**
-     * TODO: document {@code setModelIdentity}.
+     * Reset the per-instance model matrix to the identity transform.
      */
     public void setModelIdentity() {
         modelMatrix.identity();
@@ -714,8 +741,8 @@ public class HalfEdgeMeshRuntime {
      * stable-hash fallback in {@link #resolveColor(String)}. Must be called
      * before {@link #setTags(Map)} to take effect in the computed ranges.
      *
-     * @param tag TODO: describe
-     * @param rgba TODO: describe
+     * @param tag tag name to override
+     * @param rgba color the tag should render with; copied
      */
     public void setTagColor(String tag, Vector4f rgba) {
         tagColorOverrides.put(tag, new Vector4f(rgba));
@@ -735,18 +762,19 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
-     * TODO: document {@code getShaderMode}.
+     * Currently selected shading mode for the main mesh draw.
      *
-     * @return TODO: describe
+     * @return active {@link ShaderMode} driving the main mesh draw
      */
     public ShaderMode getShaderMode() {
         return shaderMode;
     }
 
     /**
-     * TODO: document {@code setShaderMode}.
+     * Pick the shading mode for the main mesh draw. {@code null} resets to
+     * {@link ShaderMode#LAMBERT}.
      *
-     * @param mode TODO: describe
+     * @param mode new shader mode, or {@code null} for the default
      */
     public void setShaderMode(ShaderMode mode) {
         this.shaderMode = mode == null ? ShaderMode.LAMBERT : mode;
@@ -764,8 +792,10 @@ public class HalfEdgeMeshRuntime {
      * {@code "patch_<pid>"}, so tags originating from the decomposer render
      * identically in the live viewer and the offline multiview PNGs.
      *
-     * @param tagName TODO: describe
-     * @return TODO: describe
+     * @param tagName tag identifier; names matching {@code patch_<int>} are
+     *                colored from the patch id, all others fall back to a
+     *                stable string hash
+     * @return RGBA color with alpha = 1
      */
     public static Vector4f stableTagColor(String tagName) {
         int pid = -1;
@@ -823,36 +853,40 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
-     * TODO: document {@code isWireframe}.
+     * Whether the wireframe overlay pass is enabled.
      *
-     * @return TODO: describe
+     * @return {@code true} when {@link #render(Camera3D)} should layer the
+     *         wireframe edge overlay on top of the filled mesh
      */
     public boolean isWireframe() {
         return wireframe;
     }
 
     /**
-     * TODO: document {@code setWireframe}.
+     * Toggle the wireframe edge overlay drawn after the filled mesh.
      *
-     * @param wireframe TODO: describe
+     * @param wireframe {@code true} to enable the overlay
      */
     public void setWireframe(boolean wireframe) {
         this.wireframe = wireframe;
     }
 
     /**
-     * TODO: document {@code isOrthographic}.
+     * Whether the renderer uses an orthographic projection.
      *
-     * @return TODO: describe
+     * @return {@code true} when the projection matrix is built as an
+     *         orthographic view instead of a perspective one
      */
     public boolean isOrthographic() {
         return orthographic;
     }
 
     /**
-     * TODO: document {@code setOrthographic}.
+     * Switch between perspective and orthographic projection. The half-height
+     * of the orthographic frustum tracks the distance from the camera to its
+     * target, so it visually matches the perspective FOV.
      *
-     * @param orthographic TODO: describe
+     * @param orthographic {@code true} to render with an orthographic projection
      */
     public void setOrthographic(boolean orthographic) {
         this.orthographic = orthographic;

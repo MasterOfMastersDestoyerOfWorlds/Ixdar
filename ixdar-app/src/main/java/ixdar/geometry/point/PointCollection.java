@@ -48,9 +48,9 @@ public interface PointCollection extends FileStringable, TerminalOption {
      *
      * @param args the full terminal argument array
      * @param i index of the first argument that belongs to this collection
-     * @return a populated collection ready for {@link #realizePoints()}
      * @throws TerminalParseException if the slice cannot be parsed (bad number
      *         format, wrong arity, missing file, etc.)
+     * @return a populated collection ready for {@link #realizePoints()}
      */
     public abstract PointCollection parseCollection(String[] args, int i) throws TerminalParseException;
 

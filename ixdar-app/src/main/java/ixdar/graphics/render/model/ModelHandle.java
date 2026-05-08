@@ -19,17 +19,20 @@ public class ModelHandle {
     public final float radius;
 
     /**
-     * TODO: document {@code ModelHandle}.
+     * GPU-resident handle for a renderable model: bound VAO/VBO/EBO triple
+     * plus the optional diffuse texture and bounding-sphere metadata. The
+     * triangle count is derived from {@code indexCount / 3}; {@code center}
+     * is defensively copied.
      *
-     * @param vao TODO: describe
-     * @param vbo TODO: describe
-     * @param ebo TODO: describe
-     * @param indexCount TODO: describe
-     * @param vertexCount TODO: describe
-     * @param hasTexCoords TODO: describe
-     * @param texture TODO: describe
-     * @param center TODO: describe
-     * @param radius TODO: describe
+     * @param vao vertex-array object binding the attribute layout
+     * @param vbo vertex-buffer object holding interleaved vertex data
+     * @param ebo element-buffer name (raw GL handle) for indexed draws
+     * @param indexCount number of indices in the EBO
+     * @param vertexCount number of unique vertices in the VBO
+     * @param hasTexCoords {@code true} when the VBO interleaves UVs
+     * @param texture diffuse texture, or {@code null} for untextured models
+     * @param center world-space bounding-sphere center (copied)
+     * @param radius world-space bounding-sphere radius
      */
     public ModelHandle(
             VertexArrayObject vao,

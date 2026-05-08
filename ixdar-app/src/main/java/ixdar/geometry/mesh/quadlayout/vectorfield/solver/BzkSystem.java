@@ -49,14 +49,19 @@ public final class BzkSystem {
     private final double[] baseRhs;
 
     /**
-     * TODO: document {@code BzkSystem}.
+     * Assemble the immutable CSR matrix and base RHS for the BZK09
+     * smoothness energy from per-interior-edge metadata. Tree edges
+     * contribute only theta unknowns; chord edges add an integer
+     * {@code m_chord} column and the corresponding off-diagonals.
      *
-     * @param F TODO: describe
-     * @param E TODO: describe
-     * @param edgeFaceA TODO: describe
-     * @param edgeFaceB TODO: describe
-     * @param kappa TODO: describe
-     * @param isTreeEdge TODO: describe
+     * @param F          face count
+     * @param E          interior edge count
+     * @param edgeFaceA  per interior-edge: face on the A-side
+     * @param edgeFaceB  per interior-edge: face on the B-side
+     * @param kappa      per interior-edge: parallel-transport rotation
+     *                   (radians)
+     * @param isTreeEdge per interior-edge: {@code true} if on the dual
+     *                   spanning tree (gauged to {@code m=0})
      */
     public BzkSystem(int F, int E,
             int[] edgeFaceA, int[] edgeFaceB,
@@ -149,156 +154,158 @@ public final class BzkSystem {
     }
 
     /**
-     * TODO: document {@code faceCount}.
+     * Face count F passed at construction.
      *
-     * @return TODO: describe
+     * @return number of faces (one theta row each)
      */
     public int faceCount() {
         return F;
     }
 
     /**
-     * TODO: document {@code edgeCount}.
+     * Interior edge count E passed at construction.
      *
-     * @return TODO: describe
+     * @return number of interior edges
      */
     public int edgeCount() {
         return E;
     }
 
     /**
-     * TODO: document {@code chordCount}.
+     * Number of integer unknowns m_chord in the system.
      *
-     * @return TODO: describe
+     * @return number of chord (non-tree) edges, equal to the cycle-space
+     *         dimension and to the number of integer unknowns
      */
     public int chordCount() {
         return C;
     }
 
     /**
-     * TODO: document {@code variableCount}.
+     * Total dimension of the packed variable vector.
      *
-     * @return TODO: describe
+     * @return total variable count {@code N = F + C}
      */
     public int variableCount() {
         return N;
     }
 
     /**
-     * TODO: document {@code chordOfEdge}.
+     * Map from interior edge to its chord slot.
      *
-     * @param e TODO: describe
-     * @return TODO: describe
+     * @param e interior edge index
+     * @return chord index in {@code [0, C)} if {@code e} is a chord edge,
+     *         else {@code -1}
      */
     public int chordOfEdge(int e) {
         return chordOfEdge[e];
     }
 
     /**
-     * TODO: document {@code edgeOfChord}.
+     * Inverse of {@link #chordOfEdge(int)}.
      *
-     * @param c TODO: describe
-     * @return TODO: describe
+     * @param c chord index
+     * @return interior edge index of chord {@code c}
      */
     public int edgeOfChord(int c) {
         return edgeOfChord[c];
     }
 
     /**
-     * TODO: document {@code isTreeEdge}.
+     * Whether edge {@code e} belongs to the dual spanning tree.
      *
-     * @param e TODO: describe
-     * @return TODO: describe
+     * @param e interior edge index
+     * @return {@code true} if {@code e} is on the dual spanning tree
      */
     public boolean isTreeEdge(int e) {
         return isTreeEdge[e];
     }
 
     /**
-     * TODO: document {@code edgeFaceA}.
+     * A-side face of edge {@code e}.
      *
-     * @param e TODO: describe
-     * @return TODO: describe
+     * @param e interior edge index
+     * @return face on the A-side of edge {@code e}
      */
     public int edgeFaceA(int e) {
         return edgeFaceA[e];
     }
 
     /**
-     * TODO: document {@code edgeFaceB}.
+     * B-side face of edge {@code e}.
      *
-     * @param e TODO: describe
-     * @return TODO: describe
+     * @param e interior edge index
+     * @return face on the B-side of edge {@code e}
      */
     public int edgeFaceB(int e) {
         return edgeFaceB[e];
     }
 
     /**
-     * TODO: document {@code kappa}.
+     * Per-edge parallel-transport rotation passed at construction.
      *
-     * @param e TODO: describe
-     * @return TODO: describe
+     * @param e interior edge index
+     * @return parallel-transport rotation kappa_e (radians)
      */
     public double kappa(int e) {
         return kappa[e];
     }
 
     /**
-     * TODO: document {@code rowStart}.
+     * CSR row pointer for row {@code k}.
      *
-     * @param k TODO: describe
-     * @return TODO: describe
+     * @param k row (variable) index
+     * @return CSR start offset of row {@code k}'s off-diagonal entries
      */
     public int rowStart(int k) {
         return rowStart[k];
     }
 
     /**
-     * TODO: document {@code rowEnd}.
+     * CSR row end pointer for row {@code k}.
      *
-     * @param k TODO: describe
-     * @return TODO: describe
+     * @param k row (variable) index
+     * @return CSR end offset (exclusive) of row {@code k}
      */
     public int rowEnd(int k) {
         return rowStart[k + 1];
     }
 
     /**
-     * TODO: document {@code rowCol}.
+     * Column index of CSR slot {@code p}.
      *
-     * @param p TODO: describe
-     * @return TODO: describe
+     * @param p CSR slot index
+     * @return column index of off-diagonal entry {@code p}
      */
     public int rowCol(int p) {
         return rowCol[p];
     }
 
     /**
-     * TODO: document {@code rowVal}.
+     * Numerical value of CSR slot {@code p}.
      *
-     * @param p TODO: describe
-     * @return TODO: describe
+     * @param p CSR slot index
+     * @return value of off-diagonal entry {@code p}
      */
     public double rowVal(int p) {
         return rowVal[p];
     }
 
     /**
-     * TODO: document {@code diag}.
+     * Diagonal entry of row {@code k}.
      *
-     * @param k TODO: describe
-     * @return TODO: describe
+     * @param k row (variable) index
+     * @return diagonal entry {@code A[k, k]}
      */
     public double diag(int k) {
         return diag[k];
     }
 
     /**
-     * TODO: document {@code baseRhs}.
+     * Right-hand side entry for row {@code k} before pin elimination.
      *
-     * @param k TODO: describe
-     * @return TODO: describe
+     * @param k row (variable) index
+     * @return base RHS entry {@code b[k]} before pinned-variable elimination
      */
     public double baseRhs(int k) {
         return baseRhs[k];
@@ -308,10 +315,11 @@ public final class BzkSystem {
      * Compute y = A·x for one row of A. Off-diagonals from CSR + diagonal
      * contribution. Pinned columns are excluded (treated as zero in x).
      *
-     * @param k TODO: describe
-     * @param x TODO: describe
-     * @param pinned TODO: describe
-     * @return TODO: describe
+     * @param k      row index
+     * @param x      full-length value vector
+     * @param pinned per-variable pin mask
+     * @return {@code (A x)[k]} restricted to unpinned columns (the diagonal
+     *         is also dropped when {@code pinned[k]} is {@code true})
      */
     public double rowDotUnpinned(int k, double[] x, boolean[] pinned) {
         double s = pinned[k] ? 0.0 : diag[k] * x[k];
@@ -329,10 +337,11 @@ public final class BzkSystem {
      * Effective RHS for unpinned variable k, eliminating pinned columns: b_eff[k] =
      * baseRhs[k] − Σ_{j pinned} A[k,j] · pinVal[j].
      *
-     * @param k TODO: describe
-     * @param pinned TODO: describe
-     * @param pinVal TODO: describe
-     * @return TODO: describe
+     * @param k      row index
+     * @param pinned per-variable pin mask
+     * @param pinVal pinned values
+     * @return effective RHS for variable {@code k} after eliminating pinned
+     *         columns by substitution
      */
     public double effectiveRhs(int k, boolean[] pinned, double[] pinVal) {
         double b = baseRhs[k];

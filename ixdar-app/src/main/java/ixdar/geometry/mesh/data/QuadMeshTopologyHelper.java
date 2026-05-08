@@ -44,9 +44,9 @@ public final class QuadMeshTopologyHelper {
      * For half-edge {@code he} in a face of size {@code vpf}, this is the successor
      * vertex in the face winding.
      *
-     * @param he TODO: describe
-     * @param vpf TODO: describe
-     * @return TODO: describe
+     * @param he half-edge index
+     * @param vpf vertices (and half-edges) per face
+     * @return half-edge index of the successor within the same face
      */
     public static int nextHalfEdge(int he, int vpf) {
         int base = he - he % vpf;
@@ -54,13 +54,13 @@ public final class QuadMeshTopologyHelper {
     }
 
     /**
-     * TODO: document {@code build}.
+     * Build twin / edge / vertex-face / vertex-edge tables for a uniform face mesh.
      *
-     * @param faceIndices TODO: describe
-     * @param vertsPerFace TODO: describe
-     * @param vertexCount TODO: describe
-     * @param faceCount TODO: describe
-     * @return TODO: describe
+     * @param faceIndices flat per-face vertex index buffer ({@code vertsPerFace * faceCount} entries)
+     * @param vertsPerFace vertices per face (e.g. 3 for tris, 4 for quads)
+     * @param vertexCount total vertex count
+     * @param faceCount total face count
+     * @return a populated helper; for an empty mesh returns one with zeroed CSR offsets
      */
     public static QuadMeshTopologyHelper build(int[] faceIndices, int vertsPerFace, int vertexCount, int faceCount) {
         int HE = faceCount * vertsPerFace;

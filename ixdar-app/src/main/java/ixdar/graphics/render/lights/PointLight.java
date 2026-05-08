@@ -78,10 +78,11 @@ public class PointLight {
     }
 
     /**
-     * TODO: document {@code setShaderInfo}.
+     * Push this light's parameters into the {@code pointLights[i]} uniform
+     * slot of {@code shader}.
      *
-     * @param shader TODO: describe
-     * @param i TODO: describe
+     * @param shader target shader program; must already be bound
+     * @param i index into the {@code pointLights} array uniform
      */
     public void setShaderInfo(ShaderProgram shader, int i) {
         shader.setVec3(POINTLIGHTS + i + "].position", position);

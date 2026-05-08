@@ -32,11 +32,11 @@ public final class MtjSparseMatrix {
     private boolean dirty;
 
     /**
-     * TODO: document {@code MtjSparseMatrix}.
+     * Allocate an empty {@code rows × cols} MTJ-backed sparse matrix.
      *
-     * @param rows TODO: describe
-     * @param cols TODO: describe
-     * @throws IllegalArgumentException TODO: describe
+     * @param rows row count; must be positive
+     * @param cols column count; must be positive
+     * @throws IllegalArgumentException if either dimension is non-positive
      */
     public MtjSparseMatrix(int rows, int cols) {
         if (rows <= 0 || cols <= 0) {
@@ -49,10 +49,10 @@ public final class MtjSparseMatrix {
     }
 
     /**
-     * TODO: document {@code identity}.
+     * Build the {@code n × n} identity matrix.
      *
-     * @param n TODO: describe
-     * @return TODO: describe
+     * @param n side length
+     * @return new MTJ-backed identity matrix
      */
     public static MtjSparseMatrix identity(int n) {
         MtjSparseMatrix m = new MtjSparseMatrix(n, n);
@@ -61,15 +61,16 @@ public final class MtjSparseMatrix {
     }
 
     /**
-     * TODO: document {@code fromTriplets}.
+     * Build a sparse matrix from parallel COO triplet arrays. Duplicate
+     * {@code (i, j)} entries are summed.
      *
-     * @param rows TODO: describe
-     * @param cols TODO: describe
-     * @param is TODO: describe
-     * @param js TODO: describe
-     * @param vs TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param rows matrix row count
+     * @param cols matrix column count
+     * @param is   row indices
+     * @param js   column indices
+     * @param vs   values
+     * @throws IllegalArgumentException if {@code is}, {@code js}, {@code vs} have different lengths
+     * @return populated MTJ-backed sparse matrix
      */
     public static MtjSparseMatrix fromTriplets(int rows, int cols, int[] is, int[] js, double[] vs) {
         if (is.length != js.length || is.length != vs.length) {
@@ -81,10 +82,10 @@ public final class MtjSparseMatrix {
     }
 
     /**
-     * TODO: document {@code fromDense}.
+     * Build a sparse matrix from a dense 2D array, skipping exact zeros.
      *
-     * @param dense TODO: describe
-     * @return TODO: describe
+     * @param dense rectangular row-major source
+     * @return new MTJ-backed sparse matrix
      */
     public static MtjSparseMatrix fromDense(double[][] dense) {
         int r = dense.length;
@@ -99,24 +100,24 @@ public final class MtjSparseMatrix {
     }
 
     /**
-     * TODO: document {@code rows}.
+     * Row count of the matrix.
      *
-     * @return TODO: describe
+     * @return number of rows
      */
     public int rows() { return rows; }
     /**
-     * TODO: document {@code cols}.
+     * Column count of the matrix.
      *
-     * @return TODO: describe
+     * @return number of columns
      */
     public int cols() { return cols; }
 
     /**
-     * TODO: document {@code set}.
+     * Overwrite entry {@code (i, j)} with {@code v} and invalidate the CSR cache.
      *
-     * @param i TODO: describe
-     * @param j TODO: describe
-     * @param v TODO: describe
+     * @param i row index
+     * @param j column index
+     * @param v new value
      */
     public void set(int i, int j, double v) {
         boundsCheck(i, j);
@@ -125,11 +126,12 @@ public final class MtjSparseMatrix {
     }
 
     /**
-     * TODO: document {@code add}.
+     * Accumulate {@code v} into entry {@code (i, j)} and invalidate the CSR cache;
+     * no-op when {@code v == 0.0}.
      *
-     * @param i TODO: describe
-     * @param j TODO: describe
-     * @param v TODO: describe
+     * @param i row index
+     * @param j column index
+     * @param v value to add
      */
     public void add(int i, int j, double v) {
         boundsCheck(i, j);
@@ -139,11 +141,11 @@ public final class MtjSparseMatrix {
     }
 
     /**
-     * TODO: document {@code get}.
+     * Random-access read of entry (i, j).
      *
-     * @param i TODO: describe
-     * @param j TODO: describe
-     * @return TODO: describe
+     * @param i row index
+     * @param j column index
+     * @return current value at {@code (i, j)} (zero for unset entries)
      */
     public double get(int i, int j) {
         boundsCheck(i, j);
@@ -151,9 +153,9 @@ public final class MtjSparseMatrix {
     }
 
     /**
-     * TODO: document {@code countNonzeros}.
+     * Number of explicitly stored non-zero entries.
      *
-     * @return TODO: describe
+     * @return current number of stored non-zero entries summed across rows
      */
     public int countNonzeros() {
         int total = 0;
@@ -164,9 +166,9 @@ public final class MtjSparseMatrix {
     /**
      * y = this * x.
      *
-     * @param x TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param x dense input vector of length {@link #cols()}
+     * @throws IllegalArgumentException if {@code x.length != cols()}
+     * @return product vector of length {@link #rows()}
      */
     public double[] multiply(double[] x) {
         if (x.length != cols) {
@@ -181,7 +183,7 @@ public final class MtjSparseMatrix {
     /**
      * Returns a fresh transpose.
      *
-     * @return TODO: describe
+     * @return new {@code cols × rows} MTJ-backed matrix with entries swapped
      */
     public MtjSparseMatrix transpose() {
         MtjSparseMatrix t = new MtjSparseMatrix(cols, rows);
@@ -202,7 +204,7 @@ public final class MtjSparseMatrix {
      * pattern CSR). Cached and reused as long as the matrix isn't mutated;
      * subsequent calls to {@link #set} / {@link #add} invalidate the cache.
      *
-     * @return TODO: describe
+     * @return CSR snapshot consumable by MTJ's iterative solvers
      */
     public CompRowMatrix toCompRow() {
         if (compactCache != null && !dirty) return compactCache;
@@ -237,16 +239,16 @@ public final class MtjSparseMatrix {
     /**
      * Direct access to the build-time backing matrix.
      *
-     * @return TODO: describe
+     * @return underlying mutable {@link FlexCompRowMatrix} (live reference, not a copy)
      */
     public FlexCompRowMatrix mtjStore() { return store; }
 
     /**
      * Solve Ax = b via CG + Jacobi preconditioner, falling back to BiCGstab.
      *
-     * @param b TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param b right-hand-side vector of length {@link #rows()}
+     * @throws IllegalArgumentException if the matrix is non-square or {@code b.length} mismatches
+     * @return approximate solution {@code x}
      */
     public double[] solveLeft(double[] b) {
         if (rows != cols) {
@@ -262,7 +264,7 @@ public final class MtjSparseMatrix {
     /**
      * Materialize to a dense double[][] (small matrices / tests only).
      *
-     * @return TODO: describe
+     * @return new {@code rows × cols} dense array with all entries (zeros included)
      */
     public double[][] toDense() {
         double[][] dense = new double[rows][cols];

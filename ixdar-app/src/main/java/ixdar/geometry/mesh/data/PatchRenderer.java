@@ -115,23 +115,23 @@ public final class PatchRenderer {
     private PatchRenderer() {}
 
     /**
-     * TODO: document {@code renderMultiview}.
+     * Lambert-shaded 4x2 multiview composite of the mesh coloured by patch palette.
      *
-     * @param mesh TODO: describe
-     * @param decomposition TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param decomposition patch assignment to colour faces with
+     * @return 4-column, 2-row composite PNG of the eight canonical views
      */
     public static BufferedImage renderMultiview(ArrayMesh mesh, PatchDecomposition decomposition) {
         return renderMultiview(mesh, decomposition, 1.0f);
     }
 
     /**
-     * TODO: document {@code renderMultiview}.
+     * Lambert-shaded multiview composite with a zoom factor on the orthographic projection.
      *
-     * @param mesh TODO: describe
-     * @param decomposition TODO: describe
-     * @param zoom TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param decomposition patch assignment to colour faces with
+     * @param zoom orthographic zoom; values &gt; 1 enlarge the mesh in each cell
+     * @return 4-column, 2-row composite PNG of the eight canonical views
      */
     public static BufferedImage renderMultiview(ArrayMesh mesh, PatchDecomposition decomposition, float zoom) {
         return renderMultiviewImpl(mesh, decomposition, /*flat=*/ false, zoom).composite();
@@ -144,33 +144,33 @@ public final class PatchRenderer {
      * covers any (x, y) point exactly, without the ambiguity Lambert shading
      * introduces when two palette colours look similar at grazing angles.
      *
-     * @param mesh TODO: describe
-     * @param decomposition TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param decomposition patch assignment whose ids drive the flat unique colours
+     * @return 4-column, 2-row composite PNG with no Lambert shading
      */
     public static BufferedImage renderMultiviewFlat(ArrayMesh mesh, PatchDecomposition decomposition) {
         return renderMultiviewFlat(mesh, decomposition, 1.0f);
     }
 
     /**
-     * TODO: document {@code renderMultiviewFlat}.
+     * Flat-shaded multiview composite with a zoom factor on the orthographic projection.
      *
-     * @param mesh TODO: describe
-     * @param decomposition TODO: describe
-     * @param zoom TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param decomposition patch assignment whose ids drive the flat unique colours
+     * @param zoom orthographic zoom factor
+     * @return 4-column, 2-row composite PNG with no Lambert shading
      */
     public static BufferedImage renderMultiviewFlat(ArrayMesh mesh, PatchDecomposition decomposition, float zoom) {
         return renderMultiviewImpl(mesh, decomposition, /*flat=*/ true, zoom).composite();
     }
 
     /**
-     * TODO: document {@code renderMultiviewWithPerView}.
+     * Multiview render that exposes the eight per-view sub-images alongside the composite.
      *
-     * @param mesh TODO: describe
-     * @param decomposition TODO: describe
-     * @param flat TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param decomposition patch assignment driving face colours
+     * @param flat {@code true} for unique flat colours, {@code false} for Lambert shading
+     * @return composite + per-view buffer + view labels
      */
     public static MultiviewResult renderMultiviewWithPerView(ArrayMesh mesh,
                                                              PatchDecomposition decomposition,
@@ -179,13 +179,13 @@ public final class PatchRenderer {
     }
 
     /**
-     * TODO: document {@code renderMultiviewWithPerView}.
+     * Multiview render with per-view buffers and a zoom factor.
      *
-     * @param mesh TODO: describe
-     * @param decomposition TODO: describe
-     * @param flat TODO: describe
-     * @param zoom TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param decomposition patch assignment driving face colours
+     * @param flat {@code true} for unique flat colours, {@code false} for Lambert shading
+     * @param zoom orthographic zoom factor
+     * @return composite + per-view buffer + view labels
      */
     public static MultiviewResult renderMultiviewWithPerView(ArrayMesh mesh,
                                                              PatchDecomposition decomposition,
@@ -197,8 +197,8 @@ public final class PatchRenderer {
      * Globally-unique RGB for a patch id, using golden-ratio hue progression
      * for maximum pairwise hue separation across any two patch ids.
      *
-     * @param pid TODO: describe
-     * @return TODO: describe
+     * @param pid patch id
+     * @return packed 0xRRGGBB integer
      */
     public static int uniquePatchColor(int pid) {
         float h = (float) ((pid * NUM_0_6180339887498949) % 1.0);
@@ -208,8 +208,8 @@ public final class PatchRenderer {
     /**
      * Hex string (no leading #) of {@link #uniquePatchColor(int)}.
      *
-     * @param pid TODO: describe
-     * @return TODO: describe
+     * @param pid patch id
+     * @return uppercase 6-digit hex of the RGB triple
      */
     public static String uniquePatchColorHex(int pid) {
         int rgb = uniquePatchColor(pid);
@@ -238,12 +238,12 @@ public final class PatchRenderer {
     }
 
     /**
-     * TODO: document {@code renderFeatureEdgeMultiview}.
+     * Multiview render with a feature-edge overlay drawn on top of each view.
      *
-     * @param mesh TODO: describe
-     * @param diag TODO: describe
-     * @param mode TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param diag decomposition diagnostics supplying the edge sets to overlay
+     * @param mode which overlay to draw (see {@link OverlayMode})
+     * @return composite + per-view buffer + labels
      */
     public static MultiviewResult renderFeatureEdgeMultiview(ArrayMesh mesh,
                                                              SemanticPatchDecomposer.DecompositionDiagnostics diag,
@@ -252,13 +252,13 @@ public final class PatchRenderer {
     }
 
     /**
-     * TODO: document {@code renderFeatureEdgeMultiview}.
+     * Feature-edge overlay multiview with a zoom factor.
      *
-     * @param mesh TODO: describe
-     * @param diag TODO: describe
-     * @param mode TODO: describe
-     * @param zoom TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param diag decomposition diagnostics supplying the edge sets to overlay
+     * @param mode which overlay to draw (see {@link OverlayMode})
+     * @param zoom orthographic zoom factor
+     * @return composite + per-view buffer + labels
      */
     public static MultiviewResult renderFeatureEdgeMultiview(ArrayMesh mesh,
                                                              SemanticPatchDecomposer.DecompositionDiagnostics diag,
@@ -630,13 +630,13 @@ public final class PatchRenderer {
      * mode. Pass {@code scalarMin == scalarMax == NaN} to autoscale
      * from the array.
      *
-     * @param mesh TODO: describe
-     * @param vertexScalar TODO: describe
-     * @param scalarMin TODO: describe
-     * @param scalarMax TODO: describe
-     * @param zoom TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh
+     * @param vertexScalar one scalar value per vertex (length must be at least {@code mesh.vertexCount()})
+     * @param scalarMin lower bound of the colour ramp; pass {@link Float#NaN} together with {@code scalarMax} to autoscale
+     * @param scalarMax upper bound of the colour ramp; pass {@link Float#NaN} together with {@code scalarMin} to autoscale
+     * @param zoom orthographic zoom factor
+     * @throws IllegalArgumentException if {@code vertexScalar} is null or shorter than the vertex count
+     * @return composite + per-view buffer + labels
      */
     public static MultiviewResult renderScalarMultiview(ArrayMesh mesh, float[] vertexScalar,
                                                         float scalarMin, float scalarMax, float zoom) {
@@ -693,8 +693,8 @@ public final class PatchRenderer {
      * {@code mesh_scalar.fs} so offline PNG diagnostics match the live
      * GL view pixel-for-pixel (within floating-point rounding).
      *
-     * @param v TODO: describe
-     * @return TODO: describe
+     * @param v ramp coordinate, clamped to [0, 1]
+     * @return packed 0xRRGGBB integer along the indigo→wine→orange→pale-yellow palette
      */
     public static int scalarRampColor(float v) {
         if (v < NUM_0) v = NUM_0; else if (v > NUM_1) v = NUM_1;
@@ -807,20 +807,20 @@ public final class PatchRenderer {
     /**
      * Per-pixel barycentric color blend over a triangle — cheaper than a full shader dispatch.
      *
-     * @param pixels TODO: describe
-     * @param depth TODO: describe
-     * @param ax TODO: describe
-     * @param ay TODO: describe
-     * @param az TODO: describe
-     * @param ca TODO: describe
-     * @param bx TODO: describe
-     * @param by TODO: describe
-     * @param bz TODO: describe
-     * @param cb TODO: describe
-     * @param cxp TODO: describe
-     * @param cyp TODO: describe
-     * @param cz TODO: describe
-     * @param cc TODO: describe
+     * @param pixels CELL_W * CELL_H pixel buffer (writeable)
+     * @param depth CELL_W * CELL_H depth buffer (smaller is closer)
+     * @param ax screen-space x of vertex A
+     * @param ay screen-space y of vertex A
+     * @param az camera-space depth of vertex A
+     * @param ca packed 0xRRGGBB colour at vertex A
+     * @param bx screen-space x of vertex B
+     * @param by screen-space y of vertex B
+     * @param bz camera-space depth of vertex B
+     * @param cb packed 0xRRGGBB colour at vertex B
+     * @param cxp screen-space x of vertex C
+     * @param cyp screen-space y of vertex C
+     * @param cz camera-space depth of vertex C
+     * @param cc packed 0xRRGGBB colour at vertex C
      */
     private static void drawTriangleGouraud(int[] pixels, float[] depth,
                                             float ax, float ay, float az, int ca,

@@ -232,10 +232,10 @@ public final class StripEquivalence {
     }
 
     /**
-     * TODO: document {@code classSizes}.
+     * Single-element list wrapper around a per-class arc-count array.
      *
-     * @param strips TODO: describe
-     * @return TODO: describe
+     * @param strips strip-equivalence classes
+     * @return list whose only element is an int array of length {@code classCount} holding per-class arc counts
      */
     public static List<int[]> classSizes(Result strips) {
         int[] sizes = new int[strips.classCount()];
@@ -248,7 +248,7 @@ public final class StripEquivalence {
     /**
      * D1 diagnostic: print class size histogram + top-10 sizes to stdout.
      *
-     * @param strips TODO: describe
+     * @param strips strip-equivalence classes to describe
      */
     public static void dumpStats(Result strips) {
         int[] sizes = new int[strips.classCount()];
@@ -283,9 +283,9 @@ public final class StripEquivalence {
     public record Result(int[] arcClass, int classCount) {
 
         /**
-         * TODO: document {@code arcsByClass}.
+         * Bucket arcs by their class id.
          *
-         * @return TODO: describe
+         * @return jagged {@code classCount × sizeOfClass} array of arc ids in input order
          */
         public int[][] arcsByClass() {
             int[] sizes = new int[classCount];

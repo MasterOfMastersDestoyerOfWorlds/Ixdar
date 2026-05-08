@@ -66,8 +66,8 @@ public class Circle implements Geometry, PointCollection {
      *
      * @param args full terminal argument array
      * @param startIdx index of the first argument belonging to the circle
-     * @return the sampled points of the parsed circle
      * @throws TerminalParseException if the slice is malformed
+     * @return the sampled points of the parsed circle
      */
     public static ArrayList<PointND> parse(String[] args, int startIdx) throws TerminalParseException {
         Circle c = parseCircle(args, startIdx);
@@ -81,8 +81,8 @@ public class Circle implements Geometry, PointCollection {
      *
      * @param args full terminal argument array
      * @param startIdx index of the first argument belonging to the circle
-     * @return parsed circle
      * @throws TerminalParseException if any token is not numeric
+     * @return parsed circle
      */
     public static Circle parseCircle(String[] args, int startIdx) throws TerminalParseException {
         if (args.length - startIdx == 0) {
@@ -101,8 +101,8 @@ public class Circle implements Geometry, PointCollection {
      *
      * @param args full terminal argument array
      * @param startIdx index of the first argument belonging to the circle
-     * @return parsed circle as a {@link PointCollection}
      * @throws TerminalParseException if the slice is malformed
+     * @return parsed circle as a {@link PointCollection}
      */
     @Override
     public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {

@@ -54,8 +54,8 @@ public final class TransitionMatrix {
      * @param vCorner per-corner v, length {@code 3 * F}
      * @param combed combed cross field (matching values per interior edge);
      *               may be {@code null} for tests where matching is identically 0
-     * @throws AssertionError TODO: describe
-     * @return TODO: describe
+     * @throws AssertionError if internal corner/face bookkeeping is inconsistent
+     * @return populated transition matrix; boundary half-edges receive zeroed entries
      */
     public static TransitionMatrix compute(ArrayMesh mesh,
                                            float[] uCorner, float[] vCorner,
@@ -138,8 +138,8 @@ public final class TransitionMatrix {
     /**
      * Apply this half-edge's transition to a (u, v) point: returns rotated + translated point.
      *
-     * @param h TODO: describe
-     * @param uv TODO: describe
+     * @param h  half-edge id whose TRS is applied
+     * @param uv length-2 in/out array {@code [u, v]} updated in place
      */
     public void transformPoint(int h, float[] uv) {
         applyRotation(matching[h], uv);
@@ -150,8 +150,8 @@ public final class TransitionMatrix {
     /**
      * Apply this half-edge's rotation (no translation) to a direction vector.
      *
-     * @param h TODO: describe
-     * @param dir TODO: describe
+     * @param h   half-edge id whose rotation is applied
+     * @param dir length-2 in/out direction vector updated in place
      */
     public void transformDirection(int h, float[] dir) {
         applyRotation(matching[h], dir);

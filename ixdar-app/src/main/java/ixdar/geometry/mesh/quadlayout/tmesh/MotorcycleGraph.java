@@ -220,15 +220,15 @@ public final class MotorcycleGraph {
      * {@code t} such that {@code (origin + t * dir)} sits on segment AB
      * (within the segment's endpoints), else {@code +Infinity}.
      *
-     * @param ox TODO: describe
-     * @param oy TODO: describe
-     * @param dx TODO: describe
-     * @param dy TODO: describe
-     * @param ax TODO: describe
-     * @param ay TODO: describe
-     * @param bx TODO: describe
-     * @param by TODO: describe
-     * @return TODO: describe
+     * @param ox ray origin u
+     * @param oy ray origin v
+     * @param dx ray direction u
+     * @param dy ray direction v
+     * @param ax segment endpoint A u
+     * @param ay segment endpoint A v
+     * @param bx segment endpoint B u
+     * @param by segment endpoint B v
+     * @return smallest non-negative ray parameter that lands on segment AB, or {@link Float#POSITIVE_INFINITY} if none
      */
     static float raySegmentIntersect(float ox, float oy, float dx, float dy,
                                      float ax, float ay, float bx, float by) {
@@ -682,13 +682,13 @@ public final class MotorcycleGraph {
          * Is cardinal {@code (dx, dy)} strictly inside the face wedge bounded
          *  by {@code (e1x, e1y)} and {@code (e2x, e2y)} (CCW from e1 to e2)?.
          *
-         * @param e1x TODO: describe
-         * @param e1y TODO: describe
-         * @param e2x TODO: describe
-         * @param e2y TODO: describe
-         * @param dx TODO: describe
-         * @param dy TODO: describe
-         * @return TODO: describe
+         * @param e1x first wedge edge u
+         * @param e1y first wedge edge v
+         * @param e2x second wedge edge u
+         * @param e2y second wedge edge v
+         * @param dx  cardinal direction u
+         * @param dy  cardinal direction v
+         * @return true if the cardinal lies strictly inside the CCW wedge (handles reflex cones via complement test)
          */
         private static boolean cardinalInFaceWedge(double e1x, double e1y,
                                                     double e2x, double e2y,
@@ -720,8 +720,8 @@ public final class MotorcycleGraph {
          * trace state from prior rounds — the parallel propagation Lyon
          * implicitly assumes via the EGKT08 reference.
          *
-         * @param st TODO: describe
-         * @return TODO: describe
+         * @param st per-motorcycle state advanced in place
+         * @return {@code true} if the motorcycle survives this step (still active for next round); {@code false} once it has stopped
          */
         boolean stepMotorcycle(MotorcycleState st) {
             int motorcycleId = st.motorcycleId;
@@ -1141,12 +1141,12 @@ public final class MotorcycleGraph {
          *  vertex's parametric position in {@code face}. Reused across
          *  multiple boundary-edge synthesis calls that share a vertex.
          *
-         * @param map TODO: describe
-         * @param vid TODO: describe
-         * @param face TODO: describe
-         * @param u TODO: describe
-         * @param v TODO: describe
-         * @return TODO: describe
+         * @param map  cached vertex-id → boundary-node-id lookup, updated when a new node is created
+         * @param vid  mesh boundary vertex id
+         * @param face face whose UV frame holds {@code (u, v)}
+         * @param u    parametric u of this vertex in {@code face}
+         * @param v    parametric v of this vertex in {@code face}
+         * @return id of the existing or newly created BOUNDARY-kind {@link TNode}
          */
         int getOrCreateBoundaryNode(HashMap<Integer, Integer> map, int vid,
                                      int face, float u, float v) {
@@ -1166,9 +1166,9 @@ public final class MotorcycleGraph {
          *  {@code numBoundaryMotorcycles}) or {@code stateById} (regular
          *  round-robin motorcycles, IDs ≥ {@code numBoundaryMotorcycles}).
          *
-         * @param priorMotorcycleId TODO: describe
-         * @param stepIdx TODO: describe
-         * @return TODO: describe
+         * @param priorMotorcycleId id of either a synthetic boundary motorcycle or a regular round-robin one
+         * @param stepIdx           zero-based step index into that motorcycle's trace
+         * @return the resolved {@link Motorcycle.Step}, or {@code null} if either lookup fails or {@code stepIdx} is out of range
          */
         Motorcycle.Step lookupPriorStep(int priorMotorcycleId, int stepIdx) {
             List<Motorcycle.Step> trace = lookupPriorTrace(priorMotorcycleId);
@@ -1180,8 +1180,8 @@ public final class MotorcycleGraph {
          * PATCH-95: resolve a motorcycleId to its trace list (synthetic or
          *  in-progress round-robin state).
          *
-         * @param priorMotorcycleId TODO: describe
-         * @return TODO: describe
+         * @param priorMotorcycleId id of either a synthetic boundary motorcycle or a regular round-robin one
+         * @return the matching trace list, or {@code null} if the id is unknown
          */
         List<Motorcycle.Step> lookupPriorTrace(int priorMotorcycleId) {
             if (priorMotorcycleId < numBoundaryMotorcycles) {
@@ -1198,11 +1198,11 @@ public final class MotorcycleGraph {
          *  parametric lengths up to and into step {@code crashStepIdx}, where
          *  the crash sits at {@code (crashU, crashV)} within that step.
          *
-         * @param priorMotorcycleId TODO: describe
-         * @param crashStepIdx TODO: describe
-         * @param crashU TODO: describe
-         * @param crashV TODO: describe
-         * @return TODO: describe
+         * @param priorMotorcycleId id of the prior motorcycle whose trace is being measured
+         * @param crashStepIdx      step index where the crash sits
+         * @param crashU            parametric u of the crash point
+         * @param crashV            parametric v of the crash point
+         * @return cumulative parametric length from origin to the crash, clamped to the full step length to absorb numerical drift
          */
         float cumulativeLengthToCrash(int priorMotorcycleId, int crashStepIdx,
                                        float crashU, float crashV) {
@@ -1249,9 +1249,9 @@ public final class MotorcycleGraph {
          * Return {cornerIdxA, cornerIdxB} — the two face-corner indices of the
          * shared mesh edge {@code meshEdgeId}, in that face's vertex order.
          *
-         * @param faceId TODO: describe
-         * @param meshEdgeId TODO: describe
-         * @return TODO: describe
+         * @param faceId     face whose corner indices are returned
+         * @param meshEdgeId mesh edge id shared with a neighbouring face
+         * @return two-element {@code [c, (c+1) % 3]} corner pair, or {@code null} if {@code meshEdgeId} is not on this face
          */
         int[] sharedCornerIndices(int faceId, int meshEdgeId) {
             for (int c = 0; c < NUM_3; c++) {

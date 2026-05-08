@@ -41,6 +41,8 @@ public class TradeMouseTrap extends MouseTrap {
     private boolean automationInputInProgress = false;
 
     /**
+     * Build a trade-scene mouse controller bound to the given camera and canvas.
+     *
      * @param tradeScene owning trade scene (used for city hit-testing and tool dispatch)
      * @param camera camera the controller drives
      * @param canvas owning canvas

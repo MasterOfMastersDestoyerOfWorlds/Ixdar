@@ -59,19 +59,19 @@ public class WebGL implements GL {
         this.id = staticId++;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getPlatformID() {
         return id;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public boolean usesWebGlsl() {
         return true;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void setPlatformID(Integer p) {
         if (p != null) {
@@ -79,13 +79,13 @@ public class WebGL implements GL {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public ArrayList<ShaderProgram> getShaders() {
         return shaders;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void addShader(ShaderProgram shader) {
         shaders.add(shader);
@@ -104,25 +104,25 @@ public class WebGL implements GL {
         return created;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void viewport(int x, int y, int w, int h) {
         gl.viewport(x, y, w, h);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void clearColor(float r, float g, float b, float a) {
         gl.clearColor(r, g, b, a);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void clear(int mask) {
         gl.clear(mask);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int createProgram() {
         WebGLProgram p = gl.createProgram();
@@ -131,7 +131,7 @@ public class WebGL implements GL {
         return id;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int createShader(int type) {
         WebGLShader s = gl.createShader(type);
@@ -140,7 +140,7 @@ public class WebGL implements GL {
         return id;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void shaderSource(int shader, String src) {
         WebGLShader sh = shader(shader);
@@ -150,7 +150,7 @@ public class WebGL implements GL {
         gl.shaderSource(sh, src);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void compileShader(int shader) {
         WebGLShader sh = shader(shader);
@@ -160,7 +160,7 @@ public class WebGL implements GL {
         gl.compileShader(sh);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getShaderiv(int shader, int pname) {
         WebGLShader sh = shader(shader);
@@ -170,7 +170,7 @@ public class WebGL implements GL {
         return toInt(gl.getShaderParameter(sh, pname));
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public String getShaderInfoLog(int shader) {
         WebGLShader sh = shader(shader);
@@ -180,7 +180,7 @@ public class WebGL implements GL {
         return gl.getShaderInfoLog(sh);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void attachShader(int program, int shader) {
         WebGLProgram p = program(program);
@@ -191,35 +191,35 @@ public class WebGL implements GL {
         gl.attachShader(p, s);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void linkProgram(int program) {
         WebGLProgram p = program(program);
         gl.linkProgram(p);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getProgramiv(int program, int pname) {
         WebGLProgram p = program(program);
         return toInt(gl.getProgramParameter(p, pname));
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public String getProgramInfoLog(int program) {
         WebGLProgram p = program(program);
         return gl.getProgramInfoLog(p);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void useProgram(int program) {
         WebGLProgram p = program(program);
         gl.useProgram(p);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void deleteShader(int shader) {
         WebGLShader s = shader(shader);
@@ -228,7 +228,7 @@ public class WebGL implements GL {
         shaderMap.remove(shader);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void deleteProgram(int program) {
         WebGLProgram p = program(program);
@@ -237,7 +237,7 @@ public class WebGL implements GL {
         programMap.remove(program);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int genBuffer() {
         WebGLBuffer b = gl.createBuffer();
@@ -246,20 +246,20 @@ public class WebGL implements GL {
         return id;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bindArrayBuffer(int buffer) {
         WebGLBuffer b = buffer(buffer);
         gl.bindBuffer(WebGLRenderingContext.ARRAY_BUFFER, b);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bufferDataArray(IxBuffer data, int usage) {
         gl.bufferData(WebGLRenderingContext.ARRAY_BUFFER, ((WebBuffer) data).getFloatBuffer(), usage);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bufferDataArray(float[] data, int usage) {
         org.teavm.jso.typedarrays.Float32Array arr = org.teavm.jso.typedarrays.Float32Array.create(data.length);
@@ -268,43 +268,43 @@ public class WebGL implements GL {
         gl.bufferData(WebGLRenderingContext.ARRAY_BUFFER, arr, usage);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void enableVertexAttribArray(int index) {
         gl.enableVertexAttribArray(index);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void vertexAttribPointer(int index, int size, int type, boolean normalized, int stride, int pointer) {
         gl.vertexAttribPointer(index, size, type, normalized, stride, pointer);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int genVertexArray() {
         return vaoExt.genVertexArray();
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bindVertexArray(int vao) {
         vaoExt.bindVertexArray(vao);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void drawArrays(int mode, int first, int count) {
         gl.drawArrays(mode, first, count);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void drawElements(int mode, int count, int type, int indicesOffsetBytes) {
         gl.drawElements(mode, count, type, indicesOffsetBytes);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getUniformLocation(int program, String name) {
         WebGLUniformLocation l = gl.getUniformLocation(program(program), name);
@@ -315,43 +315,43 @@ public class WebGL implements GL {
         return id;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void uniform1f(int loc, float v) {
         gl.uniform1f(uniform(loc), v);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void uniform1i(int loc, int v) {
         gl.uniform1i(uniform(loc), v);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void uniform2fv(int loc, IxBuffer buf) {
         gl.uniform2fv(uniform(loc), ((WebBuffer) buf).getFloatBuffer());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void uniform3fv(int loc, IxBuffer buf) {
         gl.uniform3fv(uniform(loc), ((WebBuffer) buf).getFloatBuffer());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void uniform4fv(int loc, IxBuffer buf) {
         gl.uniform4fv(uniform(loc), ((WebBuffer) buf).getFloatBuffer());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void uniformMatrix4fv(int loc, boolean transpose, IxBuffer buf) {
         gl.uniformMatrix4fv(uniform(loc), transpose, ((WebBuffer) buf).getFloatBuffer());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int genTexture() {
         WebGLTexture t = gl.createTexture();
@@ -360,7 +360,7 @@ public class WebGL implements GL {
         return id;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void deleteTexture(int id) {
         WebGLTexture t = textureMap.remove(id);
@@ -369,19 +369,19 @@ public class WebGL implements GL {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bindTexture2D(int id) {
         gl.bindTexture(WebGLRenderingContext.TEXTURE_2D, texture(id));
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void texParameteri(int target, int pname, int param) {
         gl.texParameteri(target, pname, param);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void texImage2D(int target, int level, int internalFormat, int width, int height, int border, int format,
             int type, ByteBuffer data) {
@@ -394,133 +394,133 @@ public class WebGL implements GL {
         setUnpackFlipY(gl, false);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void generateMipmap(int target) {
         gl.generateMipmap(target);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int COLOR_BUFFER_BIT() {
         return WebGLRenderingContext.COLOR_BUFFER_BIT;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int TRIANGLES() {
         return WebGLRenderingContext.TRIANGLES;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int ARRAY_BUFFER() {
         return WebGLRenderingContext.ARRAY_BUFFER;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int ELEMENT_ARRAY_BUFFER() {
         return WebGLRenderingContext.ELEMENT_ARRAY_BUFFER;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int STATIC_DRAW() {
         return WebGLRenderingContext.STATIC_DRAW;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int FLOAT() {
         return WebGLRenderingContext.FLOAT;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int FRAGMENT_SHADER() {
         return WebGLRenderingContext.FRAGMENT_SHADER;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int VERTEX_SHADER() {
         return WebGLRenderingContext.VERTEX_SHADER;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int TEXTURE_2D() {
         return WebGLRenderingContext.TEXTURE_2D;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int RGBA() {
         return WebGLRenderingContext.RGBA;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int LINES() {
         return WebGLRenderingContext.LINES;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void lineWidth(float width) {
         gl.lineWidth(width);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int RGBA8() {
         return WebGLRenderingContext.RGBA;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int UNSIGNED_BYTE() {
         return WebGLRenderingContext.UNSIGNED_BYTE;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int UNSIGNED_INT() {
         return NUM_0x1405;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int TEXTURE_WRAP_S() {
         return WebGLRenderingContext.TEXTURE_WRAP_S;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int TEXTURE_WRAP_T() {
         return WebGLRenderingContext.TEXTURE_WRAP_T;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int TEXTURE_MIN_FILTER() {
         return WebGLRenderingContext.TEXTURE_MIN_FILTER;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int TEXTURE_MAG_FILTER() {
         return WebGLRenderingContext.TEXTURE_MAG_FILTER;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int LINEAR() {
         return WebGLRenderingContext.LINEAR;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int REPEAT() {
         return WebGLRenderingContext.REPEAT;
@@ -546,49 +546,49 @@ public class WebGL implements GL {
         return uniformMap.get(id);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public boolean getMouseButton(long window, MouseButtons mouseButtonLeft) {
         return WebPlatformHelper.leftDown;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int SRC_ALPHA() {
         return WebGLRenderingContext.SRC_ALPHA;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int ONE_MINUS_SRC_ALPHA() {
         return WebGLRenderingContext.ONE_MINUS_SRC_ALPHA;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int BLEND() {
         return WebGLRenderingContext.BLEND;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void blendFunc(int SRC_ALPHA, int ONE_MINUS_SRC_ALPHA) {
         gl.blendFunc(SRC_ALPHA, ONE_MINUS_SRC_ALPHA);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void enable(int blend) {
         gl.enable(blend);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void disable(int depthTest) {
         gl.disable(depthTest);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void depthMask(boolean flag) {
         gl.depthMask(flag);
@@ -597,42 +597,42 @@ public class WebGL implements GL {
     @JSBody(params = { "v" }, script = "return (v|0);")
     private static native int toInt(Object v);
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void createCapabilities() {
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int DEPTH_TEST() {
         return WebGLRenderingContext.DEPTH_TEST;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int DEPTH_BUFFER_BIT() {
         return WebGLRenderingContext.DEPTH_BUFFER_BIT;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void setWindowTitle(String string) {
         WebLauncher.setTitle(string);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int genVertexArrays() {
         return vaoExt.genVertexArray();
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void deleteVertexArrays(int id) {
         vaoExt.deleteVertexArray(id);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int genBuffers() {
         WebGLBuffer b = gl.createBuffer();
@@ -641,20 +641,20 @@ public class WebGL implements GL {
         return id;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bindBuffer(int target, int id) {
         WebGLBuffer b = buffer(id);
         gl.bindBuffer(target, b);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bufferData(int target, IxBuffer data, int usage) {
         gl.bufferData(target, ((WebBuffer) data).getFloatBuffer(), usage);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bufferData(int target, float[] data, int usage) {
         org.teavm.jso.typedarrays.Float32Array arr = org.teavm.jso.typedarrays.Float32Array.create(data.length);
@@ -664,20 +664,20 @@ public class WebGL implements GL {
         gl.bufferData(target, arr, usage);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bufferData(int target, long size, int usage) {
         org.teavm.jso.typedarrays.Uint8Array arr = org.teavm.jso.typedarrays.Uint8Array.create((int) size);
         gl.bufferData(target, arr, usage);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bufferSubData(int target, long offset, IxBuffer data) {
         gl.bufferSubData(target, (int) offset, ((WebBuffer) data).getFloatBuffer());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bufferData(int target, IntBuffer data, int usage) {
         org.teavm.jso.typedarrays.Int32Array arr = org.teavm.jso.typedarrays.Int32Array.create(data.remaining());
@@ -687,7 +687,7 @@ public class WebGL implements GL {
         gl.bufferData(target, arr, usage);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void deleteBuffers(int id) {
         WebGLBuffer b = bufferMap.remove(id);
@@ -696,37 +696,37 @@ public class WebGL implements GL {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getAttribLocation(int iD, CharSequence name) {
         return gl.getAttribLocation(program(iD), name.toString());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int DYNAMIC_DRAW() {
         return WebGLRenderingContext.DYNAMIC_DRAW;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bindFragDataLocation(int iD, int i, String string) {
 
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void activeTexture(int i) {
         gl.activeTexture(i);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void detachShader(int iD, int fragmentShader) {
         gl.detachShader(program(iD), shader(fragmentShader));
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void shaderSource(int fragmentShader, CharSequence[] fragmentShaderSource) {
         StringBuilder sb = new StringBuilder();
@@ -737,13 +737,13 @@ public class WebGL implements GL {
         gl.shaderSource(shader(fragmentShader), result);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int LINK_STATUS() {
         return WebGLRenderingContext.LINK_STATUS;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void getProgramiv(int program, int link_STATUS, IntBuffer success) {
         int val = toInt(gl.getProgramParameter(program(program), link_STATUS));
@@ -752,7 +752,7 @@ public class WebGL implements GL {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void getAttachedShaders(int program, IntBuffer success) {
         int val = toInt(gl.getProgramParameter(program(program), WebGLRenderingContext.ATTACHED_SHADERS));
@@ -761,7 +761,7 @@ public class WebGL implements GL {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void getActiveUniforms(int program, IntBuffer success) {
         int val = toInt(gl.getProgramParameter(program(program), WebGLRenderingContext.ACTIVE_UNIFORMS));
@@ -770,13 +770,13 @@ public class WebGL implements GL {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int COMPILE_STATUS() {
         return WebGLRenderingContext.COMPILE_STATUS;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void getShaderiv(int shader, int compile_STATUS, IntBuffer success) {
         int val = toInt(gl.getShaderParameter(shader(shader), compile_STATUS));
@@ -785,13 +785,13 @@ public class WebGL implements GL {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void uniform3fv(Integer integer, IxBuffer vec3) {
         gl.uniform3fv(uniform(integer), ((WebBuffer) vec3).getFloatBuffer());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int[] readPixels(int i, int j, int width, int height, int rgba, int unsigned_BYTE, int size) {
         Uint8Array fb = Uint8Array.create(width * height * NUM_4);
@@ -809,13 +809,13 @@ public class WebGL implements GL {
         return pixels;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int TEXTURE0() {
         return WebGLRenderingContext.TEXTURE0;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void coldStartStack() {
     }
@@ -827,55 +827,62 @@ public class WebGL implements GL {
     @JSBody(params = { "gl", "enable" }, script = "if(!gl){return;} try{gl.pixelStorei(0x9240, enable?1:0);}catch(e){}")
     private static native void setUnpackFlipY(WebGLRenderingContext gl, boolean enable);
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int ACTIVE_UNIFORMS() {
         return WebGLRenderingContext.ACTIVE_UNIFORMS;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public String getActiveUniform(int iD, int i, IntBuffer sizeBuffer, IntBuffer typeBuffer) {
         return gl.getActiveUniform(program(iD), i).toString();
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int FLOAT_VEC2() {
         return WebGLRenderingContext.FLOAT_VEC2;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int FLOAT_VEC4() {
         return WebGLRenderingContext.FLOAT_VEC4;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int SAMPLER_2D() {
         return WebGLRenderingContext.SAMPLER_2D;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void getUniformfv(int iD, int location, IxBuffer val) {
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     public int getDrawingBufferWidth() {
         return gl.getDrawingBufferWidth();
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     public int getDrawingBufferHeight() {
         return gl.getDrawingBufferHeight();
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int LINEAR_MIPMAP_LINEAR() {
         return WebGLRenderingContext.LINEAR_MIPMAP_LINEAR;
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public void clearColor(Color c) {
+        Vector4f c4 = c.toVector4f();
+        gl.clearColor(c4.x, c4.y, c4.z, c4.w);
     }
 
     // Minimal VAO emulation placeholder
@@ -931,13 +938,6 @@ public class WebGL implements GL {
         @JSBody(params = { "gl",
                 "vao" }, script = "if(gl && gl.deleteVertexArray){gl.deleteVertexArray(vao);} else {var ext=gl?gl.getExtension('OES_vertex_array_object'):null; if(ext){ext.deleteVertexArrayOES(vao);}}")
         private static native void jsDeleteVAO(WebGLRenderingContext gl, JSObject vao);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void clearColor(Color c) {
-        Vector4f c4 = c.toVector4f();
-        gl.clearColor(c4.x, c4.y, c4.z, c4.w);
     }
 
 }

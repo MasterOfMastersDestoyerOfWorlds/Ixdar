@@ -95,10 +95,12 @@ public class CoonsLoopCutNode implements MeshNode {
      * {@link GeometryBundle} with bezier handle slots. Used by {@code loop_cut}
      * to dispatch when the input cage carries bezier metadata.
      *
-     * @param base TODO: describe
-     * @param axis TODO: describe
-     * @param cuts TODO: describe
-     * @return TODO: describe
+     * @param base bundle carrying mesh and bezier handle slots; passed through
+     *        when the mesh is null or has no faces
+     * @param axis cut axis label ({@code "X"}, {@code "Y"}, or {@code "Z"});
+     *        cuts are placed perpendicular to this axis
+     * @param cuts number of new edge loops to insert
+     * @return new bundle with split mesh and rebuilt bezier handle slots
      */
     public static GeometryBundle loopCut(GeometryBundle base, String axis, int cuts) {
         MeshTopology mesh = base.mesh();
@@ -335,11 +337,11 @@ public class CoonsLoopCutNode implements MeshNode {
      * Returns split mid vertices for an edge going in the direction starting from
      * {@code fromVid}. If the canonical direction is reversed, the array is flipped.
      *
-     * @param mesh TODO: describe
-     * @param eid TODO: describe
-     * @param fromVid TODO: describe
-     * @param splitMids TODO: describe
-     * @return TODO: describe
+     * @param mesh source topology used to resolve the edge's canonical direction
+     * @param eid edge whose mid-vertex array is being requested
+     * @param fromVid endpoint that should appear first in the returned array
+     * @param splitMids edge id to canonical-order mid-vertex array
+     * @return mid-vertex ids ordered {@code fromVid -> other endpoint}; empty array if {@code eid} wasn't split
      */
     private static int[] getMidsInDirection(MeshTopology mesh, int eid, int fromVid,
             Map<Integer, int[]> splitMids) {
@@ -373,14 +375,14 @@ public class CoonsLoopCutNode implements MeshNode {
      * @param splitTo1   end vertex of split edge 1
      * @param mids0      split vertices on split edge 0 (from splitFrom0 toward splitTo0)
      * @param mids1      split vertices on split edge 1 (from splitFrom1 toward splitTo1)
-     * @param mesh TODO: describe
-     * @param hStart TODO: describe
-     * @param hEnd TODO: describe
-     * @param cuts TODO: describe
-     * @param origCount TODO: describe
-     * @param origPos TODO: describe
-     * @param extraPos TODO: describe
-     * @param dh TODO: describe
+     * @param mesh       input mesh providing canonical edge directions and vertex positions
+     * @param hStart     start-handle slot data on the input mesh
+     * @param hEnd       end-handle slot data on the input mesh
+     * @param cuts       number of cuts (length of {@code mids0} and {@code mids1})
+     * @param origCount  count of original vertices retained from the input mesh
+     * @param origPos    flat xyz array for the original vertices
+     * @param extraPos   flat xyz array for newly-inserted split vertices
+     * @param dh         directed-handle map; receives one entry per direction per cut
      */
     private static void computeCrossHandles(
             MeshTopology mesh, float[] hStart, float[] hEnd,
@@ -434,12 +436,12 @@ public class CoonsLoopCutNode implements MeshNode {
      * Returns the 4 control points of the bezier on edge {@code eid} going from
      * {@code fromVid} to the other endpoint.
      *
-     * @param mesh TODO: describe
-     * @param hStart TODO: describe
-     * @param hEnd TODO: describe
-     * @param eid TODO: describe
-     * @param fromVid TODO: describe
-     * @return TODO: describe
+     * @param mesh    source topology
+     * @param hStart  start-handle slot data
+     * @param hEnd    end-handle slot data
+     * @param eid     edge id
+     * @param fromVid endpoint of {@code eid} that should map to {@code P0}
+     * @return four-element {@code [P0, P1, P2, P3]} array
      */
     private static Vector3f[] getEdgeCp(MeshTopology mesh, float[] hStart, float[] hEnd,
             int eid, int fromVid) {

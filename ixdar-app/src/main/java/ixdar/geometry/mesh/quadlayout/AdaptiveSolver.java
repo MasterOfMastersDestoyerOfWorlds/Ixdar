@@ -430,11 +430,11 @@ public final class AdaptiveSolver {
     /**
      * Build adjacency list of the compact symmetric matrix (free vars only).
      *
-     * @param matrix TODO: describe
-     * @param fixed TODO: describe
-     * @param compactOf TODO: describe
-     * @param freeCount TODO: describe
-     * @return TODO: describe
+     * @param matrix    full symmetric system matrix A
+     * @param fixed     mask of held-fixed variables
+     * @param compactOf full-index → compact-index lookup (or {@code -1} for fixed rows)
+     * @param freeCount number of free variables (size of the compact problem)
+     * @return per-free-variable list of free-variable neighbours (off-diagonal only)
      */
     private static int[][] buildAdjacency(Matrix matrix,
             boolean[] fixed,
@@ -475,8 +475,8 @@ public final class AdaptiveSolver {
     /**
      * Reverse Cuthill-McKee ordering. Returns perm[newIndex] = oldIndex.
      *
-     * @param adj TODO: describe
-     * @return TODO: describe
+     * @param adj per-vertex neighbour lists for the compact problem
+     * @return permutation mapping new compact index to old compact index
      */
     private static int[] reverseCuthillMcKee(int[][] adj) {
         int n = adj.length;
@@ -635,48 +635,48 @@ public final class AdaptiveSolver {
      */
     public interface Matrix {
         /**
-         * TODO: document.
+         * Square dimension of the matrix.
          *
          * @return number of rows and columns
          */
         int size();
 
         /**
-         * TODO: document.
+         * Diagonal coefficient of the given row.
          *
-         * @param row TODO: describe
+         * @param row row index in {@code [0, size())}
          * @return diagonal coefficient A[row,row]
          */
         double diag(int row);
 
         /**
-         * TODO: document.
+         * First off-diagonal cursor for the given row.
          *
-         * @param row TODO: describe
+         * @param row row index in {@code [0, size())}
          * @return first row-entry cursor, inclusive
          */
         int rowStart(int row);
 
         /**
-         * TODO: document.
+         * Off-diagonal end cursor for the given row.
          *
-         * @param row TODO: describe
+         * @param row row index in {@code [0, size())}
          * @return last row-entry cursor, exclusive
          */
         int rowEnd(int row);
 
         /**
-         * TODO: document.
+         * Column index referenced by an off-diagonal cursor.
          *
-         * @param cursor TODO: describe
+         * @param cursor row-entry cursor in {@code [rowStart(row), rowEnd(row))}
          * @return column index for row-entry cursor
          */
         int column(int cursor);
 
         /**
-         * TODO: document.
+         * Coefficient value referenced by an off-diagonal cursor.
          *
-         * @param cursor TODO: describe
+         * @param cursor row-entry cursor in {@code [rowStart(row), rowEnd(row))}
          * @return coefficient value for row-entry cursor
          */
         double value(int cursor);

@@ -11,6 +11,10 @@ import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 
+/**
+ * MeshNode that performs scalar integer arithmetic: ADD, SUBTRACT, MULTIPLY,
+ * DIVIDE (returns 0 on divide-by-zero), MODULO (same), POWER, MIN, MAX.
+ */
 @MeshNodeAnnotation(id = "integer_math")
 public class IntegerMathNode implements MeshNode {
     public static final String ADD = "ADD";
@@ -39,21 +43,13 @@ public class IntegerMathNode implements MeshNode {
     private static final InputPort OPERATION = new InputPort(OPERATION_2, PortType.STRING, ADD, MODE_CONSTRAINT);
     private static final OutputPort RESULT = new OutputPort(RESULT_2, PortType.INT);
 
-    /**
-     * TODO: document {@code description}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public String description() {
         return "Integer arithmetic with modes ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, POWER, MIN, MAX.";
     }
 
-    /**
-     * TODO: document {@code socketDocs}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
@@ -64,31 +60,19 @@ public class IntegerMathNode implements MeshNode {
         );
     }
 
-    /**
-     * TODO: document {@code inputs}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public List<InputPort> inputs() {
         return List.of(A, B, OPERATION);
     }
 
-    /**
-     * TODO: document {@code outputs}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public List<OutputPort> outputs() {
         return List.of(RESULT);
     }
 
-    /**
-     * TODO: document {@code evaluate}.
-     *
-     * @param ctx TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public void evaluate(NodeContext ctx) {
         Number aNum = ctx.getInput(A_2, Number.class);
@@ -122,10 +106,12 @@ public class IntegerMathNode implements MeshNode {
         MAX;
 
         /**
-         * TODO: document {@code parse}.
+         * Parses the {@code operation} port string via the mode constraint
+         * (handles aliases like {@code SUB}, {@code MUL}, {@code DIV}, {@code MOD},
+         * {@code POW}; falls back to ADD on null/unknown input).
          *
-         * @param raw TODO: describe
-         * @return TODO: describe
+         * @param raw raw {@code operation} string from the node context
+         * @return matching {@link Mode}
          */
         public static Mode parse(String raw) {
             return Mode.valueOf(MODE_CONSTRAINT.normalize(raw));

@@ -34,15 +34,19 @@ public final class QuadAssembler {
     private QuadAssembler() {}
 
     /**
-     * TODO: document {@code assemble}.
+     * Walk every quad TPatch, run Stages B-E (split table, arc tracing,
+     * intersection table, quad emission), and accumulate the resulting quad
+     * faces into a single output {@link ArrayMesh}. Patches whose sides do
+     * not satisfy quantization consistency or that hit a tracing failure are
+     * skipped.
      *
-     * @param tmesh TODO: describe
-     * @param splitsByArc TODO: describe
-     * @param mesh TODO: describe
-     * @param uCorner TODO: describe
-     * @param vCorner TODO: describe
-     * @param trs TODO: describe
-     * @return TODO: describe
+     * @param tmesh       T-mesh to assemble from
+     * @param splitsByArc per-arc split-vertex lists from Stage A
+     * @param mesh        underlying triangle mesh
+     * @param uCorner     per-corner u
+     * @param vCorner     per-corner v
+     * @param trs         transition matrix for cross-seam tracing
+     * @return assembled quad mesh + per-patch counters
      */
     public static Result assemble(TMesh tmesh,
                                    List<List<SplitVert>> splitsByArc,

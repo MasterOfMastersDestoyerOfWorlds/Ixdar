@@ -42,37 +42,37 @@ public final class TMesh {
     }
 
     /**
-     * TODO: document {@code nodes}.
+     * All T-mesh nodes in id order.
      *
-     * @return TODO: describe
+     * @return all T-mesh nodes (singularities, intersections, boundary nodes) in id order
      */
     public List<TNode> nodes() { return nodes; }
     /**
-     * TODO: document {@code arcs}.
+     * All T-mesh arcs between consecutive nodes.
      *
-     * @return TODO: describe
+     * @return all T-mesh arcs connecting consecutive nodes along motorcycle traces
      */
     public List<TArc> arcs() { return arcs; }
     /**
-     * TODO: document {@code patches}.
+     * Enumerated T-patches.
      *
-     * @return TODO: describe
+     * @return enumerated T-patches (best-effort planar-dual face walk; see class javadoc)
      */
     public List<TPatch> patches() { return patches; }
     /**
-     * TODO: document {@code layoutConstraints}.
+     * Layout-deviation constraints generated from motorcycle crashes.
      *
-     * @return TODO: describe
+     * @return Lyon §4.3 Eq.(4) layout-deviation constraints generated from offending crashes
      */
     public List<LayoutConstraint> layoutConstraints() { return layoutConstraints; }
 
     /**
      * Test-only factory: assemble a TMesh from explicit component lists.
      *
-     * @param nodes TODO: describe
-     * @param arcs TODO: describe
-     * @param patches TODO: describe
-     * @return TODO: describe
+     * @param nodes  pre-built node list
+     * @param arcs   pre-built arc list
+     * @param patches pre-built patch list
+     * @return a TMesh wrapping the given components with an empty layout-constraint list
      */
     public static TMesh fromComponents(List<TNode> nodes, List<TArc> arcs,
                                         List<TPatch> patches) {
@@ -84,10 +84,10 @@ public final class TMesh {
      *  through to {@link TPatchEnumerator} so the planar-dual face walk
      *  uses fan-based sorting at multi-frame nodes (singularities).
      *
-     * @param graph TODO: describe
-     * @param param TODO: describe
-     * @param mesh TODO: describe
-     * @return TODO: describe
+     * @param graph  motorcycle-graph result whose traces and crashes drive arc construction
+     * @param param  seamless parameterization carrying per-face uv data
+     * @param mesh   underlying triangle mesh used for fan-based sorting at singularity nodes
+     * @return assembled TMesh with mesh-aware patch enumeration
      */
     public static TMesh build(MotorcycleGraph.Result graph,
                               SeamlessParameterization param,
@@ -96,11 +96,12 @@ public final class TMesh {
     }
 
     /**
-     * TODO: document {@code build}.
+     * Mesh-agnostic build: falls back to the simple four-cycle planar-dual walk
+     * (no mesh-fan sorting at singularities).
      *
-     * @param graph TODO: describe
-     * @param param TODO: describe
-     * @return TODO: describe
+     * @param graph motorcycle-graph result whose traces and crashes drive arc construction
+     * @param param seamless parameterization carrying per-face uv data
+     * @return assembled TMesh with patches enumerated by simple cycle search
      */
     public static TMesh build(MotorcycleGraph.Result graph,
                               SeamlessParameterization param) {
@@ -292,9 +293,9 @@ public final class TMesh {
      *  boundary motorcycle by matching its first-step (uIn, vIn) within
      *  the same face.
      *
-     * @param nodes TODO: describe
-     * @param m TODO: describe
-     * @return TODO: describe
+     * @param nodes candidate node list (only BOUNDARY/SINGULARITY kinds are considered)
+     * @param m     synthetic boundary motorcycle whose first step pins the start uv
+     * @return id of the matching boundary node, or {@code -1} if no match within tolerance
      */
     private static int findBoundaryStartNode(List<TNode> nodes, Motorcycle m) {
         if (m.trace().isEmpty()) return -1;
@@ -329,9 +330,9 @@ public final class TMesh {
     /**
      * Return TPatches via planar-graph face enumeration (PATCH-68).
      *
-     * @param nodes TODO: describe
-     * @param arcs TODO: describe
-     * @return TODO: describe
+     * @param nodes T-mesh node list
+     * @param arcs  T-mesh arc list
+     * @return enumerated patches from the simple planar-dual walk
      */
     private static List<TPatch> enumerateFourCycles(List<TNode> nodes, List<TArc> arcs) {
         return TPatchEnumerator.enumerate(nodes, arcs);

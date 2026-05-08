@@ -23,13 +23,15 @@ public class IrregularQuadGrid extends Grid {
     private final float verticalEdgeStdDev;
 
     /**
-     * TODO: document {@code IrregularQuadGrid}.
+     * Bare-bones constructor that records the grid's dimensions and reuses the
+     * supplied {@code anchors} as its quad corners. Dual points, edges and
+     * edge-statistics fields default to empty/zero.
      *
-     * @param anchors TODO: describe
-     * @param seed TODO: describe
-     * @param relaxIterations TODO: describe
-     * @param rows TODO: describe
-     * @param cols TODO: describe
+     * @param anchors quad corners; {@code null} is treated as an empty list
+     * @param seed RNG seed used to generate the layout
+     * @param relaxIterations number of relaxation passes that produced {@code anchors}
+     * @param rows quad row count
+     * @param cols quad column count
      */
     public IrregularQuadGrid(ArrayList<Vector2f> anchors, long seed, int relaxIterations, int rows, int cols) {
         this.anchors = anchors == null ? new ArrayList<>() : anchors;
@@ -47,12 +49,14 @@ public class IrregularQuadGrid extends Grid {
     }
 
     /**
-     * TODO: document {@code IrregularQuadGrid}.
+     * Build a grid from a fully populated
+     * {@link IrregularQuadLayoutGenerator.Layout}, copying its anchor points,
+     * dual points, edge index pairs, dimensions and edge-length statistics.
      *
-     * @param layout TODO: describe
-     * @param seed TODO: describe
-     * @param relaxIterations TODO: describe
-     * @param jitterRatio TODO: describe
+     * @param layout produced layout to ingest; {@code null} yields an empty grid
+     * @param seed RNG seed that produced {@code layout}
+     * @param relaxIterations number of relaxation passes used during generation
+     * @param jitterRatio per-point jitter ratio applied during generation
      */
     public IrregularQuadGrid(IrregularQuadLayoutGenerator.Layout layout, long seed, int relaxIterations,
             float jitterRatio) {
@@ -72,144 +76,145 @@ public class IrregularQuadGrid extends Grid {
     }
 
     /**
-     * TODO: document {@code seed}.
+     * RNG seed that produced this grid's layout.
      *
-     * @return TODO: describe
+     * @return the stored seed
      */
     public long seed() {
         return seed;
     }
 
     /**
-     * TODO: document {@code relaxIterations}.
+     * Number of relaxation passes that were run on the layout.
      *
-     * @return TODO: describe
+     * @return relaxation iteration count
      */
     public int relaxIterations() {
         return relaxIterations;
     }
 
     /**
-     * TODO: document {@code jitterRatio}.
+     * Per-point jitter ratio applied when generating the layout.
      *
-     * @return TODO: describe
+     * @return the jitter ratio in {@code [0, 1]}
      */
     public float jitterRatio() {
         return jitterRatio;
     }
 
     /**
-     * TODO: document {@code rows}.
+     * Number of quad rows in the layout.
      *
-     * @return TODO: describe
+     * @return row count
      */
     public int rows() {
         return rows;
     }
 
     /**
-     * TODO: document {@code cols}.
+     * Number of quad columns in the layout.
      *
-     * @return TODO: describe
+     * @return column count
      */
     public int cols() {
         return cols;
     }
 
     /**
-     * TODO: document {@code anchorCount}.
+     * Count of anchor points (quad corners).
      *
-     * @return TODO: describe
+     * @return {@code anchors.size()}
      */
     public int anchorCount() {
         return anchors.size();
     }
 
     /**
-     * TODO: document {@code dualPointCount}.
+     * Count of dual points (one per quad face).
      *
-     * @return TODO: describe
+     * @return {@code dualPoints.size()}
      */
     public int dualPointCount() {
         return dualPoints.size();
     }
 
     /**
-     * TODO: document {@code edgeCount}.
+     * Count of edges in the layout.
      *
-     * @return TODO: describe
+     * @return {@code edges.size()}
      */
     public int edgeCount() {
         return edges.size();
     }
 
     /**
-     * TODO: document {@code anchorPoints}.
+     * The anchor points (quad corners) of the layout.
      *
-     * @return TODO: describe
+     * @return live reference to the anchor list
      */
     public ArrayList<Vector2f> anchorPoints() {
         return anchors;
     }
 
     /**
-     * TODO: document {@code dualPoints}.
+     * The dual points (per-face centers) of the layout.
      *
-     * @return TODO: describe
+     * @return live reference to the dual point list
      */
     public ArrayList<Vector2f> dualPoints() {
         return dualPoints;
     }
 
     /**
-     * TODO: document {@code edgeIndices}.
+     * Edge connectivity as pairs of indices into {@link #anchorPoints()}.
      *
-     * @return TODO: describe
+     * @return live reference to the edge list
      */
     public ArrayList<int[]> edgeIndices() {
         return edges;
     }
 
     /**
-     * TODO: document {@code horizontalEdgeMean}.
+     * Mean length of horizontal edges in the layout.
      *
-     * @return TODO: describe
+     * @return the horizontal edge-length mean
      */
     public float horizontalEdgeMean() {
         return horizontalEdgeMean;
     }
 
     /**
-     * TODO: document {@code verticalEdgeMean}.
+     * Mean length of vertical edges in the layout.
      *
-     * @return TODO: describe
+     * @return the vertical edge-length mean
      */
     public float verticalEdgeMean() {
         return verticalEdgeMean;
     }
 
     /**
-     * TODO: document {@code horizontalEdgeStdDev}.
+     * Standard deviation of horizontal edge lengths.
      *
-     * @return TODO: describe
+     * @return the horizontal edge-length standard deviation
      */
     public float horizontalEdgeStdDev() {
         return horizontalEdgeStdDev;
     }
 
     /**
-     * TODO: document {@code verticalEdgeStdDev}.
+     * Standard deviation of vertical edge lengths.
      *
-     * @return TODO: describe
+     * @return the vertical edge-length standard deviation
      */
     public float verticalEdgeStdDev() {
         return verticalEdgeStdDev;
     }
 
     /**
-     * TODO: document {@code toCoordString}.
+     * Format the cursor's world-space coordinates as {@code "X:.. Y:.."}, the
+     * same readout as {@link CartesianGrid}.
      *
-     * @return TODO: describe
+     * @return Cartesian coordinate readout for the status bar
      */
     @Override
     public String toCoordString() {
@@ -220,10 +225,11 @@ public class IrregularQuadGrid extends Grid {
     }
 
     /**
-     * TODO: document {@code allowsPoint}.
+     * The irregular quad grid accepts the same floating-point coordinate types
+     * as the Cartesian grid.
      *
-     * @param pt TODO: describe
-     * @return TODO: describe
+     * @param pt candidate point
+     * @return {@code true} when {@code pt} is a {@link PointND.Double} or {@link PointND.Float}
      */
     @Override
     public boolean allowsPoint(PointND pt) {
@@ -231,9 +237,10 @@ public class IrregularQuadGrid extends Grid {
     }
 
     /**
-     * TODO: document {@code allowableTypes}.
+     * The point types this grid accepts: {@link PointND.Double} and
+     * {@link PointND.Float}.
      *
-     * @return TODO: describe
+     * @return the two floating-point coordinate classes
      */
     @SuppressWarnings("unchecked")
     @Override
@@ -242,21 +249,23 @@ public class IrregularQuadGrid extends Grid {
     }
 
     /**
-     * TODO: document {@code draw}.
+     * Drawing of the quad grid is delegated elsewhere (see the layout
+     * generator's debug overlay); this method is intentionally a no-op.
      *
-     * @param camera TODO: describe
-     * @param gridLineThickness TODO: describe
+     * @param camera 2D camera providing screen/world transforms
+     * @param gridLineThickness stroke width (unused)
      */
     @Override
     public void draw(Camera2D camera, float gridLineThickness) {
     }
 
     /**
-     * TODO: document {@code coordinateToNearestGridPoint}.
+     * Snap to the closest anchor point by squared screen-space distance, or
+     * return the input position when no anchors are loaded.
      *
-     * @param mouseX TODO: describe
-     * @param mouseY TODO: describe
-     * @return TODO: describe
+     * @param mouseX screen-space X
+     * @param mouseY screen-space Y
+     * @return a fresh vector at the nearest anchor (or the input if empty)
      */
     @Override
     public Vector2f coordinateToNearestGridPoint(float mouseX, float mouseY) {

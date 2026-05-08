@@ -44,9 +44,10 @@ public final class GeodesicCurvature {
      * f1's via a rotation about {@code n1 × n2} by {@code arccos(n1·n2)}, and
      * {@code d} is the barycenter distance between the adjacent faces.
      *
-     * @param mesh TODO: describe
-     * @param pdf TODO: describe
-     * @return TODO: describe
+     * @param mesh triangle mesh
+     * @param pdf  per-face principal-curvature field providing {@code a_min}
+     *             and the per-face robust normals
+     * @return array of length {@code mesh.edgeCount()}; boundary entries are 0
      */
     public static double[] computePerEdge(ArrayMesh mesh, PrincipalCurvatureField pdf) {
         int E = mesh.edgeCount();
@@ -122,13 +123,13 @@ public final class GeodesicCurvature {
      *
      * <p>Output written into {@code dest}.
      *
-     * @param v TODO: describe
-     * @param n1 TODO: describe
-     * @param n2 TODO: describe
-     * @param n1DotN2 TODO: describe
-     * @param axisScratch TODO: describe
-     * @param dest TODO: describe
-     * @param tmpScratch TODO: describe
+     * @param v            unit vector in {@code n2}'s tangent plane
+     * @param n1           target tangent-plane normal (unit)
+     * @param n2           source tangent-plane normal (unit)
+     * @param n1DotN2      pre-computed {@code n1 . n2} (clamped to [-1, 1])
+     * @param axisScratch  scratch buffer for the rotation axis (overwritten)
+     * @param dest         output rotated vector (overwritten)
+     * @param tmpScratch   scratch buffer for the {@code k x v} term (overwritten)
      */
     static void transportLineField(Vector3f v, Vector3f n1, Vector3f n2, double n1DotN2,
                                    Vector3f axisScratch, Vector3f dest, Vector3f tmpScratch) {
@@ -161,10 +162,13 @@ public final class GeodesicCurvature {
      * triangle f is not part of a smooth region (non-smooth); otherwise, it
      * is (smooth)".
      *
-     * @param mesh TODO: describe
-     * @param kappaG TODO: describe
-     * @param pdf TODO: describe
-     * @return TODO: describe
+     * @param mesh   triangle mesh
+     * @param kappaG per-edge geodesic curvature (output of
+     *               {@link #computePerEdge})
+     * @param pdf    principal-curvature field providing {@code |kappa_max|}
+     *               per face
+     * @return per-face mask: {@code true} iff every adjacent edge satisfies
+     *         {@code kappa(e) < |kappa_max(f)|}
      */
     public static boolean[] computeSmoothFaces(ArrayMesh mesh, double[] kappaG,
                                                 PrincipalCurvatureField pdf) {
@@ -198,10 +202,10 @@ public final class GeodesicCurvature {
     /**
      * Mesh-edge id for the c-th edge of face f (between corners c and c+1).
      *
-     * @param mesh TODO: describe
-     * @param f TODO: describe
-     * @param c TODO: describe
-     * @return TODO: describe
+     * @param mesh triangle mesh
+     * @param f    face id
+     * @param c    corner index (which face half-edge to read)
+     * @return mesh edge id of the c-th half-edge, or {@code -1} if absent
      */
     private static int faceEdgeId(ArrayMesh mesh, int f, int c) {
         int he = mesh.faceHalfEdgeAt(f, c);

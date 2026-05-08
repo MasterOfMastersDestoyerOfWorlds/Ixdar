@@ -56,9 +56,10 @@ public final class LyonMetrics {
      *  edges — on real meshes prefer the {@link #compute(QuadLayout, TMesh,
      *  ArrayMesh, TransitionMatrix)} overload.
      *
-     * @param layout TODO: describe
-     * @param tmesh TODO: describe
-     * @return TODO: describe
+     * @param layout the conforming Lyon 2021 layout
+     * @param tmesh  T-mesh the layout was built from
+     * @return result with {@code dmean / dmax} populated and {@code msjAvg}
+     *         set to {@link Double#NaN}
      */
     public static Result compute(QuadLayout layout, TMesh tmesh) {
         return computeImpl(layout, tmesh, null, null);
@@ -70,11 +71,12 @@ public final class LyonMetrics {
      *  using {@link TransitionMatrix#matching}, so per-step deviation is
      *  measured against the locally-correct cardinal in each face's frame.
      *
-     * @param layout TODO: describe
-     * @param tmesh TODO: describe
-     * @param mesh TODO: describe
-     * @param trs TODO: describe
-     * @return TODO: describe
+     * @param layout the conforming Lyon 2021 layout
+     * @param tmesh  T-mesh the layout was built from
+     * @param mesh   underlying triangle mesh (for half-edge index lookups)
+     * @param trs    transition matrix providing per-half-edge matchings
+     * @return result with {@code dmean / dmax} populated and {@code msjAvg}
+     *         set to {@link Double#NaN}
      */
     public static Result compute(QuadLayout layout, TMesh tmesh,
                                   ArrayMesh mesh, TransitionMatrix trs) {
@@ -171,9 +173,10 @@ public final class LyonMetrics {
      * step has zero length. Used to recover from arc.direction() values that
      * were set in a different frame than the first-face's local frame.
      *
-     * @param steps TODO: describe
-     * @param declared TODO: describe
-     * @return TODO: describe
+     * @param steps    arc step UV deltas (each {@code [u1, v1, u2, v2]})
+     * @param declared {@link LayoutArc#direction()} fallback when every step
+     *                 is degenerate
+     * @return a cardinal index in {@code {0, 1, 2, 3}} for {+u, +v, -u, -v}
      */
     private static int inferDirectionFromFirstStep(List<float[]> steps, int declared) {
         for (float[] s : steps) {
@@ -196,10 +199,11 @@ public final class LyonMetrics {
      *   <li>{@code dir = 1 or 3} (v-axis): deviation = atan(|Δu| / |Δv|)</li>
      * </ul>
      *
-     * @param du TODO: describe
-     * @param dv TODO: describe
-     * @param dir TODO: describe
-     * @return TODO: describe
+     * @param du  per-step UV delta along u
+     * @param dv  per-step UV delta along v
+     * @param dir cardinal direction index in {@code {0, 1, 2, 3}}
+     * @return non-negative deviation in radians, or {@code 0} if the step is
+     *         degenerate (length below numerical threshold)
      */
     private static double stepDeviation(double du, double dv, int dir) {
         double along, ortho;

@@ -50,15 +50,16 @@ public final class BoundarySnap {
     private BoundarySnap() {}
 
     /**
-     * TODO: document {@code snap}.
+     * Snaps cell-pair boundaries onto detected feature edges and returns the
+     * relabeled per-face labels (see class Javadoc for the three-stage pipeline).
      *
-     * @param mesh TODO: describe
-     * @param faceLabels TODO: describe
-     * @param highConfidenceEdges TODO: describe
-     * @param dihedralEdges TODO: describe
-     * @param principalEdges TODO: describe
-     * @param crestEdges TODO: describe
-     * @return TODO: describe
+     * @param mesh triangle mesh whose face indices and positions are used
+     * @param faceLabels per-face cell label assigned by the prior MSC pass
+     * @param highConfidenceEdges canonical (lo,hi) edge keys with strongest crease evidence
+     * @param dihedralEdges edges flagged by dihedral-angle thresholding
+     * @param principalEdges edges aligned with principal curvature directions
+     * @param crestEdges edges on a detected crest line (highest priority)
+     * @return relabeled face labels (length equals face count)
      */
     public static int[] snap(ArrayMesh mesh,
                               int[] faceLabels,

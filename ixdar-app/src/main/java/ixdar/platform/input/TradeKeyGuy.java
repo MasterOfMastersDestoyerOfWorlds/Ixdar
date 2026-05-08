@@ -20,6 +20,8 @@ public class TradeKeyGuy extends KeyGuy {
     private TradeScene tradeScene;
 
     /**
+     * Build a trade-scene key controller bound to the given camera and canvas.
+     *
      * @param tradeScene owning trade scene (used for tool dispatch and menu return)
      * @param camera camera the controller drives
      * @param canvas owning canvas

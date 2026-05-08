@@ -34,10 +34,10 @@ public final class FloatCurveKernel {
      * Parse a curve from a flat {@code "x0,y0,x1,y1,..."} string with at least two points.
      *
      * @param raw comma-separated x,y pairs
-     * @return the parsed curve
      * @throws IllegalArgumentException if {@code raw} is blank, has fewer than four entries, or
      *         contains an odd number of values
      * @throws NumberFormatException if any entry is not a valid float
+     * @return the parsed curve
      */
     public static FloatCurveKernel fromCommaSeparatedPairs(String raw) {
         if (raw == null || raw.isBlank()) {

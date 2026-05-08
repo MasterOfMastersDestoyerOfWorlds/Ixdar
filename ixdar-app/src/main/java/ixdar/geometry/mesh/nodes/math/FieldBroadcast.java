@@ -19,12 +19,13 @@ public final class FieldBroadcast {
     }
 
     /**
-     * TODO: document {@code floatFieldLength}.
+     * Returns the broadcast length of two operands when at least one is a
+     * {@link FloatField}, or 0 if neither is.
      *
-     * @param a TODO: describe
-     * @param b TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param a first operand (any type)
+     * @param b second operand (any type)
+     * @throws IllegalArgumentException if both operands are {@link FloatField}s with mismatched lengths
+     * @return common length, or 0 if neither operand is a field
      */
     public static int floatFieldLength(Object a, Object b) {
         int la = a instanceof FloatField fa ? fa.length() : 0;
@@ -36,13 +37,13 @@ public final class FieldBroadcast {
     }
 
     /**
-     * TODO: document {@code floatFieldLength3}.
+     * Three-operand variant of {@link #floatFieldLength(Object, Object)}.
      *
-     * @param a TODO: describe
-     * @param b TODO: describe
-     * @param c TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param a first operand (any type)
+     * @param b second operand (any type)
+     * @param c third operand (any type)
+     * @throws IllegalArgumentException if any operand is a {@link FloatField} whose length differs from the broadcast length
+     * @return common length, or 0 if no operand is a field
      */
     public static int floatFieldLength3(Object a, Object b, Object c) {
         int l = 0;
@@ -65,12 +66,12 @@ public final class FieldBroadcast {
     }
 
     /**
-     * TODO: document {@code floatAt}.
+     * Reads the {@code i}-th element from {@code o}, broadcasting scalars.
      *
-     * @param o TODO: describe
-     * @param i TODO: describe
-     * @param def TODO: describe
-     * @return TODO: describe
+     * @param o {@link FloatField}, {@link Number} scalar, or {@code null}
+     * @param i element index into the field; ignored for scalars
+     * @param def fallback returned when {@code o} is {@code null} or not a recognized type
+     * @return float value
      */
     public static float floatAt(Object o, int i, float def) {
         if (o == null) {
@@ -86,12 +87,12 @@ public final class FieldBroadcast {
     }
 
     /**
-     * TODO: document {@code intAt}.
+     * Integer counterpart of {@link #floatAt(Object, int, float)}.
      *
-     * @param o TODO: describe
-     * @param i TODO: describe
-     * @param def TODO: describe
-     * @return TODO: describe
+     * @param o {@link IntField}, {@link Number} scalar, or {@code null}
+     * @param i element index into the field; ignored for scalars
+     * @param def fallback returned when {@code o} is {@code null} or not a recognized type
+     * @return int value
      */
     public static int intAt(Object o, int i, int def) {
         if (o == null) {
@@ -107,12 +108,12 @@ public final class FieldBroadcast {
     }
 
     /**
-     * TODO: document {@code boolAt}.
+     * Boolean counterpart of {@link #floatAt(Object, int, float)}.
      *
-     * @param o TODO: describe
-     * @param i TODO: describe
-     * @param def TODO: describe
-     * @return TODO: describe
+     * @param o {@link BoolField}, {@link Boolean} scalar, or {@code null}
+     * @param i element index into the field; ignored for scalars
+     * @param def fallback returned when {@code o} is {@code null} or not a recognized type
+     * @return boolean value
      */
     public static boolean boolAt(Object o, int i, boolean def) {
         if (o == null) {
@@ -128,12 +129,12 @@ public final class FieldBroadcast {
     }
 
     /**
-     * TODO: document {@code floatScalarOrDefault}.
+     * Reads {@code o} as a scalar float, used by ports that don't broadcast.
      *
-     * @param o TODO: describe
-     * @param def TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param o {@link Number} scalar or {@code null}
+     * @param def fallback returned when {@code o} is {@code null} or not a {@link Number}
+     * @throws IllegalArgumentException if {@code o} is a {@link FloatField} (caller expected a scalar)
+     * @return float value
      */
     public static float floatScalarOrDefault(Object o, float def) {
         if (o == null) {
@@ -149,12 +150,12 @@ public final class FieldBroadcast {
     }
 
     /**
-     * TODO: document {@code intScalarOrDefault}.
+     * Integer counterpart of {@link #floatScalarOrDefault(Object, float)}.
      *
-     * @param o TODO: describe
-     * @param def TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param o {@link Number} scalar or {@code null}
+     * @param def fallback returned when {@code o} is {@code null} or not a {@link Number}
+     * @throws IllegalArgumentException if {@code o} is an {@link IntField} (caller expected a scalar)
+     * @return int value
      */
     public static int intScalarOrDefault(Object o, int def) {
         if (o == null) {
@@ -170,12 +171,12 @@ public final class FieldBroadcast {
     }
 
     /**
-     * TODO: document {@code vec3Length}.
+     * Vector3 counterpart of {@link #floatFieldLength(Object, Object)}.
      *
-     * @param a TODO: describe
-     * @param b TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param a first operand (any type)
+     * @param b second operand (any type)
+     * @throws IllegalArgumentException if both operands are {@link Vector3Field}s with mismatched lengths
+     * @return common length, or 0 if neither operand is a field
      */
     public static int vec3Length(Object a, Object b) {
         int la = a instanceof Vector3Field va ? va.length() : 0;
@@ -187,22 +188,23 @@ public final class FieldBroadcast {
     }
 
     /**
-     * TODO: document {@code vec3Length1}.
+     * Length of a single operand if it is a {@link Vector3Field}, else 0.
      *
-     * @param a TODO: describe
-     * @return TODO: describe
+     * @param a operand to inspect
+     * @return field length, or 0 if {@code a} isn't a {@link Vector3Field}
      */
     public static int vec3Length1(Object a) {
         return a instanceof Vector3Field va ? va.length() : 0;
     }
 
     /**
-     * TODO: document {@code vec3At}.
+     * Reads the {@code i}-th element of {@code o} into {@code dest}, broadcasting
+     * {@link Vector3Value} scalars and falling back to {@code defaultV}.
      *
-     * @param o TODO: describe
-     * @param i TODO: describe
-     * @param defaultV TODO: describe
-     * @param dest TODO: describe
+     * @param o {@link Vector3Field}, {@link Vector3Value}, or {@code null}
+     * @param i element index into the field; ignored for scalars
+     * @param defaultV fallback used when {@code o} is {@code null} or not a recognized type
+     * @param dest output vector overwritten with the result
      */
     public static void vec3At(Object o, int i, Vector3Value defaultV, Vector3f dest) {
         if (o == null) {
@@ -221,11 +223,13 @@ public final class FieldBroadcast {
     }
 
     /**
-     * TODO: document {@code vector3ValueOrDefault}.
+     * Coerces {@code o} to a single {@link Vector3Value}: returns the value
+     * itself if scalar, the field's first element if a non-empty
+     * {@link Vector3Field}, or {@code def}.
      *
-     * @param o TODO: describe
-     * @param def TODO: describe
-     * @return TODO: describe
+     * @param o input operand
+     * @param def fallback returned when {@code o} is {@code null}, an empty field, or not a recognized type
+     * @return scalar Vector3Value
      */
     public static Vector3Value vector3ValueOrDefault(Object o, Vector3Value def) {
         if (o == null) {
@@ -241,12 +245,14 @@ public final class FieldBroadcast {
     }
 
     /**
-     * TODO: document {@code getInputOrDefault}.
+     * Reads a node input, falling back to the port's schema default when no
+     * value was provided by the caller. Used by math nodes to keep the
+     * "treat missing input as scalar default" branch a one-liner.
      *
-     * @param ctx TODO: describe
-     * @param name TODO: describe
-     * @param schemaDefault TODO: describe
-     * @return TODO: describe
+     * @param ctx node context being evaluated
+     * @param name input port name
+     * @param schemaDefault default declared on the {@link ixdar.annotations.meshnode.InputPort}
+     * @return the bound value, or {@code schemaDefault} when no value is present
      */
     public static Object getInputOrDefault(NodeContext ctx, String name, Object schemaDefault) {
         Object v = ctx.getInputValue(name);

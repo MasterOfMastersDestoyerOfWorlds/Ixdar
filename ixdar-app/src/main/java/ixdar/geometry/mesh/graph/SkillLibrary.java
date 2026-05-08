@@ -138,6 +138,8 @@ public final class SkillLibrary {
     }
 
     /**
+     * Direct access to the loaded skill list.
+     *
      * @return all skills loaded so far (live list; not a copy)
      */
     public List<Skill> getSkills() {

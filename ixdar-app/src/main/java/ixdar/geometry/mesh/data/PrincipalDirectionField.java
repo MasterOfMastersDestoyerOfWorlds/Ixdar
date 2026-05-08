@@ -52,25 +52,25 @@ public final class PrincipalDirectionField {
     }
 
     /**
-     * TODO: document {@code kappaMax}.
+     * Maximum principal curvature at vertex {@code v}.
      *
-     * @param v TODO: describe
-     * @return TODO: describe
+     * @param v vertex index
+     * @return κMax (signed, in 1/length units)
      */
     public float kappaMax(int v) { return kappaMax[v]; }
     /**
-     * TODO: document {@code kappaMin}.
+     * Minimum principal curvature at vertex {@code v}.
      *
-     * @param v TODO: describe
-     * @return TODO: describe
+     * @param v vertex index
+     * @return κMin, with {@code κMin <= κMax}
      */
     public float kappaMin(int v) { return kappaMin[v]; }
 
     /**
      * Write {@code dirMax(v)} into {@code out} (indices 0..2).
      *
-     * @param v TODO: describe
-     * @param out TODO: describe
+     * @param v vertex index
+     * @param out length-3 array to receive the unit tangent direction of maximum curvature
      */
     public void dirMax(int v, float[] out) {
         out[0] = dirMax[v * NUM_3];
@@ -79,10 +79,10 @@ public final class PrincipalDirectionField {
     }
 
     /**
-     * TODO: document {@code dirMin}.
+     * Write {@code dirMin(v)} into {@code out} (indices 0..2).
      *
-     * @param v TODO: describe
-     * @param out TODO: describe
+     * @param v vertex index
+     * @param out length-3 array to receive the unit tangent direction of minimum curvature
      */
     public void dirMin(int v, float[] out) {
         out[0] = dirMin[v * NUM_3];
@@ -91,10 +91,10 @@ public final class PrincipalDirectionField {
     }
 
     /**
-     * TODO: document {@code vertexNormal}.
+     * Write the unit vertex normal at {@code v} into {@code out} (indices 0..2).
      *
-     * @param v TODO: describe
-     * @param out TODO: describe
+     * @param v vertex index
+     * @param out length-3 array to receive the area-weighted vertex normal
      */
     public void vertexNormal(int v, float[] out) {
         out[0] = vertexNormals[v * NUM_3];
@@ -103,9 +103,9 @@ public final class PrincipalDirectionField {
     }
 
     /**
-     * TODO: document {@code vertexCount}.
+     * Number of vertices for which curvatures and directions are stored.
      *
-     * @return TODO: describe
+     * @return vertex count
      */
     public int vertexCount() { return kappaMax.length; }
 
@@ -113,9 +113,9 @@ public final class PrincipalDirectionField {
      * Build the field for the given mesh. Reuses face normals from the
      * already-computed {@link EdgeDihedrals}.
      *
-     * @param mesh TODO: describe
-     * @param ed TODO: describe
-     * @return TODO: describe
+     * @param mesh source surface
+     * @param ed precomputed edge / face dihedral data; supplies face normals and the edge map for 1-rings
+     * @return populated principal-direction field for every vertex of {@code mesh}
      */
     public static PrincipalDirectionField compute(ArrayMesh mesh, EdgeDihedrals ed) {
         int nv = mesh.vertexCount();
@@ -264,9 +264,9 @@ public final class PrincipalDirectionField {
     /**
      * Builds an orthonormal 2D tangent basis (t1, t2) perpendicular to n.
      *
-     * @param n TODO: describe
-     * @param t1 TODO: describe
-     * @param t2 TODO: describe
+     * @param n unit normal (length-3)
+     * @param t1 length-3 output for the first tangent axis
+     * @param t2 length-3 output for the second tangent axis ({@code n x t1})
      */
     private static void buildTangentBasis(float[] n, float[] t1, float[] t2) {
         float ax = Math.abs(n[0]);

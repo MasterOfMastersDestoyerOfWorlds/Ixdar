@@ -121,9 +121,9 @@ public final class SemanticPatchDecomposer {
      * triangles before running the main decomposer. Fan-triangulates any
      * n-gon face.
      *
-     * @param mesh TODO: describe
-     * @param resolution TODO: describe
-     * @return TODO: describe
+     * @param mesh source topology (any {@link MeshTopology}); converted to triangles when not already an {@link ArrayMesh}
+     * @param resolution TEASAR voxel resolution forwarded to skeleton extraction
+     * @return decomposition; empty when {@code mesh} is null
      */
     public static PatchDecomposition decompose(MeshTopology mesh, int resolution) {
         if (mesh == null) return new PatchDecomposition(0, List.of());
@@ -136,8 +136,8 @@ public final class SemanticPatchDecomposer {
      * interface API — works on {@link HalfEdgeMesh}, {@link ArrayMesh},
      * and any future MeshTopology implementation.
      *
-     * @param mesh TODO: describe
-     * @return TODO: describe
+     * @param mesh source topology
+     * @return triangle {@link ArrayMesh}; n-gons are fan-triangulated
      */
     public static ArrayMesh toArrayMesh(MeshTopology mesh) {
         int nv = mesh.vertexCount();
@@ -194,22 +194,24 @@ public final class SemanticPatchDecomposer {
     }
 
     /**
-     * TODO: document {@code decompose}.
+     * Run the full skeleton + curvature pipeline and return only the patch result.
      *
-     * @param mesh TODO: describe
-     * @param resolution TODO: describe
-     * @return TODO: describe
+     * @param mesh triangle mesh
+     * @param resolution TEASAR voxel resolution
+     * @return patch decomposition (per-vertex/face patch ids and palette colours)
      */
     public static PatchDecomposition decompose(ArrayMesh mesh, int resolution) {
         return decomposeWithDiagnostics(mesh, resolution).decomposition();
     }
 
     /**
-     * TODO: document {@code decomposeWithDiagnostics}.
+     * Same as {@link #decompose(ArrayMesh, int)} but also exposes per-stage diagnostics
+     * (feature edge sets, Morse-Smale complex, principal-curvature field, etc.) for the
+     * overlay renderers.
      *
-     * @param mesh TODO: describe
-     * @param resolution TODO: describe
-     * @return TODO: describe
+     * @param mesh triangle mesh
+     * @param resolution TEASAR voxel resolution
+     * @return decomposition plus diagnostic intermediates
      */
     public static DecompositionDiagnostics decomposeWithDiagnostics(ArrayMesh mesh, int resolution) {
         int nv = mesh.vertexCount();
@@ -659,10 +661,11 @@ public final class SemanticPatchDecomposer {
     }
 
     /**
-     * TODO: document {@code computeEdgeDihedrals}.
+     * Build the per-edge / per-face structures used by curvature and feature-edge
+     * detection: face normals, the edge → incident-faces map, and the edge dihedral angle.
      *
-     * @param mesh TODO: describe
-     * @return TODO: describe
+     * @param mesh triangle mesh
+     * @return {@link EdgeDihedrals} bundle
      */
     public static EdgeDihedrals computeEdgeDihedrals(ArrayMesh mesh) {
         int[] faceIdx = mesh.copyFaceIndices();
@@ -720,11 +723,11 @@ public final class SemanticPatchDecomposer {
     }
 
     /**
-     * TODO: document {@code vertexCurvatureFrom}.
+     * Average dihedral angle per vertex, computed from a precomputed {@link EdgeDihedrals}.
      *
-     * @param ed TODO: describe
-     * @param vertexCount TODO: describe
-     * @return TODO: describe
+     * @param ed precomputed edge / dihedral data
+     * @param vertexCount mesh vertex count (defines the output length)
+     * @return per-vertex mean dihedral, zero for vertices with no incident interior edge
      */
     public static float[] vertexCurvatureFrom(EdgeDihedrals ed, int vertexCount) {
         float[] accum = new float[vertexCount];
@@ -750,8 +753,8 @@ public final class SemanticPatchDecomposer {
      * Backward-compatible entry point: produces per-vertex mean dihedral,
      * same shape and values as the pre-refactor computeVertexCurvature.
      *
-     * @param mesh TODO: describe
-     * @return TODO: describe
+     * @param mesh triangle mesh
+     * @return per-vertex mean dihedral angle (length {@code mesh.vertexCount()})
      */
     public static float[] computeVertexCurvature(ArrayMesh mesh) {
         return vertexCurvatureFrom(computeEdgeDihedrals(mesh), mesh.vertexCount());
@@ -765,10 +768,10 @@ public final class SemanticPatchDecomposer {
      * Strongly negative K marks a concave saddle/bowl vertex; strongly
      * positive marks a sharp convex point.
      *
-     * @param mesh TODO: describe
-     * @param positions TODO: describe
-     * @param faceIdx TODO: describe
-     * @return TODO: describe
+     * @param mesh triangle mesh (used only for vertex count)
+     * @param positions packed XYZ vertex positions
+     * @param faceIdx flat triangle index buffer
+     * @return per-vertex angle defect (signed, in radians)
      */
     private static float[] computeAngleDefect(ArrayMesh mesh, float[] positions, int[] faceIdx) {
         int nv = mesh.vertexCount();
@@ -805,9 +808,9 @@ public final class SemanticPatchDecomposer {
      * PATCH-11 helper: the p-th percentile of the per-edge dihedral
      * distribution for adaptive feature thresholding.
      *
-     * @param ed TODO: describe
-     * @param p TODO: describe
-     * @return TODO: describe
+     * @param ed precomputed edge / dihedral data
+     * @param p percentile in [0, 1] (e.g. 0.85 for p85)
+     * @return dihedral angle (radians) at the requested percentile, 0 if the mesh has no edges
      */
     private static float percentileDihedral(EdgeDihedrals ed, float p) {
         Map<Long, Float> dihedrals = ed.dihedralByEdge();
@@ -837,10 +840,10 @@ public final class SemanticPatchDecomposer {
      * to normalize the cotangent Laplacian mean curvature and the angle-defect
      * Gaussian curvature so both have units of 1/length.
      *
-     * @param mesh TODO: describe
-     * @param positions TODO: describe
-     * @param faceIdx TODO: describe
-     * @return TODO: describe
+     * @param mesh triangle mesh (used only for vertex count)
+     * @param positions packed XYZ vertex positions
+     * @param faceIdx flat triangle index buffer
+     * @return per-vertex barycentric area
      */
     private static float[] computeBarycentricAreas(ArrayMesh mesh, float[] positions, int[] faceIdx) {
         int nv = mesh.vertexCount();
@@ -867,12 +870,12 @@ public final class SemanticPatchDecomposer {
      * α_ij, β_ij are the two angles opposite edge ij in the pair of triangles
      * sharing that edge. On a boundary edge only one cotangent contributes.
      *
-     * @param mesh TODO: describe
-     * @param positions TODO: describe
-     * @param faceIdx TODO: describe
-     * @param ed TODO: describe
-     * @param barycentricArea TODO: describe
-     * @return TODO: describe
+     * @param mesh triangle mesh (used only for vertex count)
+     * @param positions packed XYZ vertex positions
+     * @param faceIdx flat triangle index buffer
+     * @param ed precomputed edge / dihedral data; supplies face normals for the sign convention
+     * @param barycentricArea per-vertex barycentric area (already normalized)
+     * @return signed per-vertex mean curvature {@code H} in 1/length units
      */
     private static float[] computeMeanCurvature(
             ArrayMesh mesh, float[] positions, int[] faceIdx,
@@ -976,11 +979,11 @@ public final class SemanticPatchDecomposer {
      * barycentric area normalization as mean curvature so the κ₁,₂ formula
      * behaves dimensionally correctly.
      *
-     * @param mesh TODO: describe
-     * @param positions TODO: describe
-     * @param faceIdx TODO: describe
-     * @param barycentricArea TODO: describe
-     * @return TODO: describe
+     * @param mesh triangle mesh (used only for vertex count)
+     * @param positions packed XYZ vertex positions
+     * @param faceIdx flat triangle index buffer
+     * @param barycentricArea per-vertex barycentric area (denominator)
+     * @return per-vertex Gaussian curvature {@code K} in 1/length^2 units
      */
     private static float[] computeGaussianCurvature(
             ArrayMesh mesh, float[] positions, int[] faceIdx, float[] barycentricArea) {
@@ -999,9 +1002,9 @@ public final class SemanticPatchDecomposer {
      * κ₁,₂ = H ± √(max(0, H² - K)). Returns [kappa1[], kappa2[]] with
      * κ₁ ≥ κ₂ pointwise.
      *
-     * @param H TODO: describe
-     * @param K TODO: describe
-     * @return TODO: describe
+     * @param H per-vertex mean curvature
+     * @param K per-vertex Gaussian curvature
+     * @return two-row array {@code [κ₁[], κ₂[]]} with {@code κ₁ >= κ₂} pointwise
      */
     private static float[][] computePrincipalCurvatures(float[] H, float[] K) {
         int nv = H.length;
@@ -1022,12 +1025,12 @@ public final class SemanticPatchDecomposer {
      * (κ₂ < -T). Threshold is in 1/length units, so the caller should pass
      * {@code T / mesh_extent} to stay scale-invariant.
      *
-     * @param ed TODO: describe
-     * @param kappa1 TODO: describe
-     * @param kappa2 TODO: describe
-     * @param ridgeThreshold TODO: describe
-     * @param valleyThreshold TODO: describe
-     * @return TODO: describe
+     * @param ed precomputed edge data (supplies the edge enumeration)
+     * @param kappa1 per-vertex maximum principal curvature
+     * @param kappa2 per-vertex minimum principal curvature
+     * @param ridgeThreshold positive threshold on κ₁ for ridge promotion (1/length)
+     * @param valleyThreshold positive threshold on −κ₂ for valley promotion (1/length)
+     * @return set of edge keys that satisfy the ridge or valley test on both endpoints
      */
     private static java.util.Set<Long> principalCurvatureFeatureEdges(
             EdgeDihedrals ed, float[] kappa1, float[] kappa2,
@@ -1050,10 +1053,10 @@ public final class SemanticPatchDecomposer {
      * positive=false}, for {@code −κ₂} / valley depth) of a per-vertex
      * curvature array. Used to derive mesh-adaptive thresholds.
      *
-     * @param values TODO: describe
-     * @param pct TODO: describe
-     * @param positive TODO: describe
-     * @return TODO: describe
+     * @param values per-vertex curvature array
+     * @param pct percentile in [0, 1]
+     * @param positive {@code true} to take {@code max(value, 0)}, {@code false} to take {@code max(-value, 0)}
+     * @return value at the requested percentile, 0 for an empty input
      */
     private static float percentileAbs(float[] values, float pct, boolean positive) {
         int n = values.length;
@@ -1072,13 +1075,13 @@ public final class SemanticPatchDecomposer {
      * Components smaller than {@link #MIN_CONCAVITY_VERTS} are discarded
      * (set to -1); survivors get a unique non-negative component id.
      *
-     * @param defect TODO: describe
-     * @param mesh TODO: describe
-     * @param faceIdx TODO: describe
-     * @param faceCount TODO: describe
-     * @param vertexCount TODO: describe
-     * @param faceAdj TODO: describe
-     * @return TODO: describe
+     * @param defect per-vertex angle defect (used to identify seed vertices)
+     * @param mesh source triangle mesh
+     * @param faceIdx flat triangle index buffer
+     * @param faceCount number of triangles
+     * @param vertexCount number of vertices
+     * @param faceAdj per-face adjacency table (kept for parity with other helpers; not used directly)
+     * @return per-vertex component id, or {@code -1} for vertices not in any kept component
      */
     private static int[] concavityVertexComponents(
             float[] defect, ArrayMesh mesh, int[] faceIdx, int faceCount,
@@ -1153,12 +1156,12 @@ public final class SemanticPatchDecomposer {
      * multiview; without halo the patch boundary sits exactly on the crease
      * and visually merges with the neighbour).
      *
-     * @param vertexCC TODO: describe
-     * @param faceIdx TODO: describe
-     * @param faceCount TODO: describe
-     * @param adj TODO: describe
-     * @param ringExpand TODO: describe
-     * @return TODO: describe
+     * @param vertexCC per-vertex concavity component id ({@code -1} for none)
+     * @param faceIdx flat triangle index buffer
+     * @param faceCount number of triangles
+     * @param adj per-face adjacency used for halo expansion
+     * @param ringExpand number of face rings to flood outward from the seeded faces
+     * @return per-face component id ({@code -1} for faces outside any halo)
      */
     private static int[] expandConcavityToFaces(
             int[] vertexCC, int[] faceIdx, int faceCount, int[][] adj, int ringExpand) {
@@ -1215,10 +1218,10 @@ public final class SemanticPatchDecomposer {
      * edge). Built from the edge→faces map so it's O(E) not
      * O(F · vertex_ring²).
      *
-     * @param faceIdx TODO: describe
-     * @param faceCount TODO: describe
-     * @param ed TODO: describe
-     * @return TODO: describe
+     * @param faceIdx flat triangle index buffer
+     * @param faceCount number of triangles
+     * @param ed precomputed edge / face data
+     * @return {@code adj[f][e]} = id of the face across edge {@code e} of face {@code f}, or {@code -1} on a boundary
      */
     static int[][] buildFaceAdjacency(int[] faceIdx, int faceCount, EdgeDihedrals ed) {
         int[][] adj = new int[faceCount][NUM_3];
@@ -1254,12 +1257,12 @@ public final class SemanticPatchDecomposer {
      * principal-curvature feature set, the neighbour slot is cleared to
      * {@code -1}. Region growing on this graph can't cross a feature ridge.
      *
-     * @param adj TODO: describe
-     * @param faceIdx TODO: describe
-     * @param ed TODO: describe
-     * @param thresholdRad TODO: describe
-     * @param principalFeatureEdges TODO: describe
-     * @return TODO: describe
+     * @param adj source face-face adjacency
+     * @param faceIdx flat triangle index buffer (used to identify each adjacency edge)
+     * @param ed precomputed edge / dihedral data
+     * @param thresholdRad dihedral threshold above which an edge is severed
+     * @param principalFeatureEdges optional set of edge keys to also sever; may be null
+     * @return adjacency clone with severed edges replaced by {@code -1}
      */
     private static int[][] featureCutAdjacency(
             int[][] adj, int[] faceIdx, EdgeDihedrals ed, float thresholdRad,
@@ -1313,11 +1316,11 @@ public final class SemanticPatchDecomposer {
      * {@code colorIdx[pid]} ∈ [0, 5] or so (4-6 colours suffice on planar
      * surface patches by the four-colour theorem).
      *
-     * @param facePatch TODO: describe
-     * @param adj TODO: describe
-     * @param faceCount TODO: describe
-     * @param patchCount TODO: describe
-     * @return TODO: describe
+     * @param facePatch per-face patch id
+     * @param adj per-face adjacency table
+     * @param faceCount number of triangles
+     * @param patchCount number of patches
+     * @return per-patch palette index in {@code [0, PALETTE.length)}
      */
     private static int[] welshPowellColoring(
             int[] facePatch, int[][] adj, int faceCount, int patchCount) {
@@ -1375,16 +1378,16 @@ public final class SemanticPatchDecomposer {
      * overrides the scorer: no patch ever survives with more than that many
      * vertices, no matter how flat and Coons-shaped the scorer claims it is.
      *
-     * @param facePatch TODO: describe
-     * @param patchCount TODO: describe
-     * @param faceIdx TODO: describe
-     * @param faceCount TODO: describe
-     * @param positions TODO: describe
-     * @param vertexCurvature TODO: describe
-     * @param adj TODO: describe
-     * @param adjCrestOnly TODO: describe
-     * @param meshExtent TODO: describe
-     * @return TODO: describe
+     * @param facePatch per-face patch id
+     * @param patchCount number of patches
+     * @param faceIdx flat triangle index buffer
+     * @param faceCount number of triangles
+     * @param positions packed XYZ vertex positions
+     * @param vertexCurvature per-vertex curvature scalar (mean dihedral)
+     * @param adj face-face adjacency
+     * @param adjCrestOnly adjacency severed only along crest edges (used during k-means seeding/expansion)
+     * @param meshExtent largest axis span of the mesh; calibrates the Coons error budget
+     * @return new per-face patch id assignment (some patches subdivided)
      */
     private static int[] splitByQuality(
             int[] facePatch, int patchCount, int[] faceIdx, int faceCount,
@@ -1555,13 +1558,13 @@ public final class SemanticPatchDecomposer {
      * collecting each boundary vertex's two incident boundary edges and
      * measuring the angle between their outgoing direction vectors.
      *
-     * @param faces TODO: describe
-     * @param facePatch TODO: describe
-     * @param patchId TODO: describe
-     * @param faceIdx TODO: describe
-     * @param adj TODO: describe
-     * @param positions TODO: describe
-     * @return TODO: describe
+     * @param faces face ids belonging to this patch
+     * @param facePatch per-face patch id (used to detect interior edges)
+     * @param patchId patch id under inspection
+     * @param faceIdx flat triangle index buffer
+     * @param adj per-face adjacency
+     * @param positions packed XYZ vertex positions
+     * @return number of corner vertices on this patch's boundary
      */
     private static int boundarySideCount(
             List<Integer> faces, int[] facePatch, int patchId,
@@ -1622,13 +1625,13 @@ public final class SemanticPatchDecomposer {
      * Isoperimetric ratio: 4π·area / perimeter². 1.0 for a circle, lower
      * values indicate elongated or concave patches. Clamped to [0, 1].
      *
-     * @param faces TODO: describe
-     * @param facePatch TODO: describe
-     * @param patchId TODO: describe
-     * @param faceIdx TODO: describe
-     * @param adj TODO: describe
-     * @param positions TODO: describe
-     * @return TODO: describe
+     * @param faces face ids belonging to this patch
+     * @param facePatch per-face patch id (used to detect interior edges)
+     * @param patchId patch id under inspection
+     * @param faceIdx flat triangle index buffer
+     * @param adj per-face adjacency
+     * @param positions packed XYZ vertex positions
+     * @return isoperimetric ratio in [0, 1]; 1 means perfectly circular
      */
     private static float isoperimetricRatio(
             List<Integer> faces, int[] facePatch, int patchId,
@@ -1748,11 +1751,11 @@ public final class SemanticPatchDecomposer {
      * the split is informed by "where the fit fails" rather than
      * arbitrary spatial bisection.
      *
-     * @param pts TODO: describe
-     * @param n TODO: describe
-     * @param k TODO: describe
-     * @param seedXyz TODO: describe
-     * @return TODO: describe
+     * @param pts flat XYZ point coordinates ({@code 3 * n} entries)
+     * @param n number of points
+     * @param k number of clusters
+     * @param seedXyz flat XYZ seed centroids ({@code 3 * k} entries)
+     * @return cluster label per point in {@code [0, k)}
      */
     private static int[] kmeansXyzWithSeeds(float[] pts, int n, int k, float[] seedXyz) {
         float[] centroids = seedXyz.clone();

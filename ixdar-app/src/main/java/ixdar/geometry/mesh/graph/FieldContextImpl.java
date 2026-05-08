@@ -17,29 +17,22 @@ public final class FieldContextImpl implements MeshFieldContext {
     private Vector3Field normals;
 
     /**
-     * TODO: document {@code FieldContextImpl}.
+     * Wraps a {@link MeshTopology} as a vertex-domain field context. Position
+     * and normal {@link Vector3Field} views are built lazily on first access.
      *
-     * @param mesh TODO: describe
+     * @param mesh source topology; may be {@code null} for an empty context
      */
     public FieldContextImpl(MeshTopology mesh) {
         this.mesh = mesh;
     }
 
-    /**
-     * TODO: document {@code mesh}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public MeshTopology mesh() {
         return mesh;
     }
 
-    /**
-     * TODO: document {@code elementCount}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Returns vertex count, or 0 when no mesh is bound. */
     @Override
     public int elementCount() {
         if (mesh == null) {
@@ -48,11 +41,7 @@ public final class FieldContextImpl implements MeshFieldContext {
         return mesh.vertexCount();
     }
 
-    /**
-     * TODO: document {@code positions}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Built lazily on first call; xyz triples in active-vertex order. */
     @Override
     public Vector3Field positions() {
         if (positions == null) {
@@ -61,11 +50,7 @@ public final class FieldContextImpl implements MeshFieldContext {
         return positions;
     }
 
-    /**
-     * TODO: document {@code normals}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Built lazily on first call; xyz triples in active-vertex order. */
     @Override
     public Vector3Field normals() {
         if (normals == null) {

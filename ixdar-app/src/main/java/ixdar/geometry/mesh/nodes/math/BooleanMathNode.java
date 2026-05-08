@@ -12,6 +12,10 @@ import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 
+/**
+ * MeshNode that performs per-element boolean logic (AND, OR, NOT, XOR) on
+ * scalar booleans or {@link BoolField} inputs, broadcasting as needed.
+ */
 @MeshNodeAnnotation(id = "boolean_math")
 public class BooleanMathNode implements MeshNode {
     public static final String AND = "AND";
@@ -30,21 +34,13 @@ public class BooleanMathNode implements MeshNode {
     private static final InputPort OPERATION = new InputPort(OPERATION_2, PortType.STRING, AND, MODE_CONSTRAINT);
     private static final OutputPort VALUE = new OutputPort(VALUE_2, PortType.BOOLEAN);
 
-    /**
-     * TODO: document {@code description}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public String description() {
         return "Per-element boolean logic with modes AND, OR, NOT, XOR.";
     }
 
-    /**
-     * TODO: document {@code socketDocs}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public java.util.Map<String, String> socketDocs() {
         return java.util.Map.of(
@@ -55,31 +51,19 @@ public class BooleanMathNode implements MeshNode {
         );
     }
 
-    /**
-     * TODO: document {@code inputs}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public List<InputPort> inputs() {
         return List.of(A, B, OPERATION);
     }
 
-    /**
-     * TODO: document {@code outputs}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public List<OutputPort> outputs() {
         return List.of(VALUE);
     }
 
-    /**
-     * TODO: document {@code evaluate}.
-     *
-     * @param ctx TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public void evaluate(NodeContext ctx) {
         Object aObj = FieldBroadcast.getInputOrDefault(ctx, A_2, A.defaultValue());
@@ -129,10 +113,11 @@ public class BooleanMathNode implements MeshNode {
         XOR;
 
         /**
-         * TODO: document {@code parse}.
+         * Parses the {@code operation} port string via the mode constraint
+         * (case-insensitive, falls back to AND on null/unknown input).
          *
-         * @param raw TODO: describe
-         * @return TODO: describe
+         * @param raw raw {@code operation} string from the node context
+         * @return matching {@link Mode}
          */
         public static Mode parse(String raw) {
             return Mode.valueOf(MODE_CONSTRAINT.normalize(raw));

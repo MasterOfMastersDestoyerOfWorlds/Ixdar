@@ -339,6 +339,8 @@ public final class GraphAnalyzer {
         public final String targetPort;
 
         /**
+         * Build a data-flow edge between two ports.
+         *
          * @param sourceId   producer node id
          * @param sourcePort producer output port name
          * @param targetId   consumer node id
@@ -365,6 +367,8 @@ public final class GraphAnalyzer {
         public final List<SeamNode> seams;
 
         /**
+         * Bundle the graph-analysis output into a single result record.
+         *
          * @param edges        all data-flow edges
          * @param predecessors predecessor adjacency by node id
          * @param successors   successor adjacency by node id
@@ -394,6 +398,8 @@ public final class GraphAnalyzer {
         public final List<ExternalInput> externalInputs;
 
         /**
+         * Build a seam node with its upstream subgraph and external inputs.
+         *
          * @param nodeId          seam node's DSL id
          * @param nodeType        seam node's type
          * @param subgraphNodeIds upstream subgraph in topological order
@@ -418,6 +424,8 @@ public final class GraphAnalyzer {
         public final String consumedByPort;
 
         /**
+         * Build an external-input record describing data crossing the subgraph boundary.
+         *
          * @param sourceNodeId     producer node id outside the subgraph
          * @param sourcePort       producer output port name
          * @param consumedByNodeId consumer node id inside the subgraph

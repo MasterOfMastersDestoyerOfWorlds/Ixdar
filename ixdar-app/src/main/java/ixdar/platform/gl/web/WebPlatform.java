@@ -151,7 +151,11 @@ public class WebPlatform implements Platform {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param title text to set as the browser document title
+     */
     @Override
     public void setTitle(String title) {
         setDocTitle(title);
@@ -160,19 +164,27 @@ public class WebPlatform implements Platform {
     @JSBody(params = { "t" }, script = "document.title=t;")
     private static native void setDocTitle(String t);
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @return canvas client width in CSS pixels
+     */
     @Override
     public int getWindowWidth() {
         return canvas.getClientWidth();
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @return canvas client height in CSS pixels
+     */
     @Override
     public int getWindowHeight() {
         return canvas.getClientHeight();
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void requestRepaint() {
         // RAF loop externally drives rendering
@@ -181,45 +193,73 @@ public class WebPlatform implements Platform {
     @JSBody(params = {}, script = "return Date.now()/1000.0;")
     private static native double nowSeconds();
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @return current wall-clock time in seconds (from {@code Date.now()})
+     */
     @Override
     public float timeSeconds() {
         return (float) nowSeconds();
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param callback handler invoked for document-level keydown/keyup events
+     */
     @Override
     public void setKeyCallback(KeyCallback callback) {
         this.keyCallback = callback;
         sKeyCallback = callback;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param callback handler invoked for typed character input from keypress events
+     */
     @Override
     public void setCharCallback(CharCallback callback) {
         this.charCallback = callback;
         sCharCallback = callback;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param callback handler invoked with canvas-relative mouse coordinates on mousemove
+     */
     @Override
     public void setCursorPosCallback(CursorPosCallback callback) {
         this.cursorPosCallback = callback;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param callback handler invoked on mouse press and release events
+     */
     @Override
     public void setMouseButtonCallback(MouseButtonCallback callback) {
         this.mouseButtonCallback = callback;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param callback handler invoked with wheel delta on scroll events
+     */
     @Override
     public void setScrollCallback(ScrollCallback callback) {
         this.scrollCallback = callback;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param mode {@code CAPTURED} requests pointer lock, {@code NORMAL} releases it
+     */
     @Override
     public void setCursorMode(CursorMode mode) {
         if (canvas == null) return;
@@ -238,7 +278,13 @@ public class WebPlatform implements Platform {
     @JSBody(params = { "json" }, script = "try { return JSON.parse(json); } catch (e) { return null; }")
     private static native JsRoot parseJsonRoot(String json);
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param json msdf-atlas-gen JSON descriptor for the font
+     * @throws IllegalArgumentException if {@code json} is null/empty or fails to parse
+     * @return populated {@link FontAtlasDTO} with atlas info, metrics, and glyph entries
+     */
     @Override
     public FontAtlasDTO parseFontAtlas(String json) {
         if (json == null || json.isEmpty()) {
@@ -307,7 +353,13 @@ public class WebPlatform implements Platform {
         return dto;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param resourceName image filename under {@code /ixdar/res/}
+     * @param platformId platform context to re-bind before invoking the callback
+     * @param callback receives the decoded {@link Texture} once pixels have been read
+     */
     @Override
     public void loadTexture(String resourceName, int platformId, Consumer<Texture> callback) {
         loadImagePixels("/ixdar/res/" + resourceName, (w, h, data) -> {
@@ -321,19 +373,34 @@ public class WebPlatform implements Platform {
         });
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @return the {@link WebLauncher} startup timestamp captured at page boot
+     */
     @Override
     public float startTime() {
         return WebLauncher.startTime;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param code ignored on the web platform; the browser owns the lifecycle
+     */
     @Override
     public void exit(int code) {
         // no-op on web
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param resourceFolder folder under {@code /ixdar/} that holds the shader file
+     * @param filename shader source file name
+     * @param platformId platform context to re-bind before invoking the callback
+     * @param callback receives the loaded shader source text
+     */
     @Override
     public void loadShaderSourceAsync(String resourceFolder, String filename, int platformId,
             Consumer<String> callback) {
@@ -345,18 +412,35 @@ public class WebPlatform implements Platform {
         loadSourceAsync(resourceFolder, filename, platformId, callback2);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param resourceFolder ignored; synchronous loading is unsupported on web
+     * @param filename ignored; synchronous loading is unsupported on web
+     * @return always {@code null}; callers must use the async variant
+     */
     @Override
     public String trySyncLoadSource(String resourceFolder, String filename) {
         return null;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param resourceFolder folder under {@code /ixdar/} that holds the file
+     * @param filename text resource file name to fetch
+     * @param platformId platform context to re-bind before invoking the callback
+     * @param callback receives the fetched text (empty string on fetch failure)
+     */
     @Override
     public void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
         String url = "/ixdar/" + resourceFolder + "/" + filename;
         fetchTextAsync(url, new TextCallback() {
-            /** {@inheritDoc} */
+            /**
+             * {@inheritDoc}.
+             *
+             * @param text fetched text body, or null when the fetch failed
+             */
             @Override
             public void onText(String text) {
                 Platforms.init(platformId);
@@ -366,13 +450,25 @@ public class WebPlatform implements Platform {
         });
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param path ignored; included in the error message
+     * @throws IOException always, since synchronous file loading is not supported on web
+     * @return never returns; always throws
+     */
     @Override
     public TextFile loadFile(String path) throws IOException {
         throw new IOException("Synchronous loadFile is not supported on web; use async loading: " + path);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param absolutePath ignored; included in the error message
+     * @throws IOException always, since external filesystem access is unavailable on web
+     * @return never returns; always throws
+     */
     @Override
     public TextFile loadExternalFile(String absolutePath) throws IOException {
         throw new IOException("External filesystem assets are not available on web platform: " + absolutePath);
@@ -409,7 +505,13 @@ public class WebPlatform implements Platform {
         return p;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Fetch {@code url} as an image, decode it via {@code createImageBitmap}, and
+     * deliver its RGBA pixel data to {@code callback}.
+     *
+     * @param url image URL to fetch
+     * @param callback receives the decoded width, height, and RGBA pixel buffer
+     */
     @org.teavm.jso.JSBody(params = { "url", "callback" }, script = "fetch(url)" +
             "  .then(function(r) { return r.blob(); })" +
             "  .then(function(blob) { return createImageBitmap(blob); })" +
@@ -424,13 +526,23 @@ public class WebPlatform implements Platform {
             "  });")
     public static native void loadImagePixels(String url, ImagePixelsCallback callback);
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param file ignored; the web platform cannot write to local files
+     * @param append ignored; the web platform cannot write to local files
+     * @throws IOException never; this implementation is a silent no-op
+     */
     @Override
     public void writeTextFile(TextFile file, boolean append) throws java.io.IOException {
         // No-op for web (cannot write). Intentionally ignored.
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param msg message to forward to the browser {@code console.log}
+     */
     @Override
     public void log(String msg) {
         WebPlatform.jsLog(msg);
@@ -439,50 +551,84 @@ public class WebPlatform implements Platform {
     @JSBody(params = { "msg" }, script = "console.log(msg == null ? '(null)' : msg);")
     private static native void jsLog(String msg);
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @return always {@code false}; hot reload is not supported on web
+     */
     @Override
     public boolean canHotReload() {
         return false;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param i number of floats the buffer must hold
+     * @return a {@link WebBuffer} sized for {@code i} floats
+     */
     @Override
     public IxBuffer allocateFloats(int i) {
         return new WebBuffer(i);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param f framebuffer width in physical pixels
+     * @param g framebuffer height in physical pixels
+     */
     @Override
     public void setFrameBufferSize(float f, float g) {
         frameBufferSizeX = f;
         frameBufferSizeY = g;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @return framebuffer width in physical pixels, truncated to int
+     */
     @Override
     public int getFrameBufferWidth() {
         return (int) frameBufferSizeX;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @return framebuffer height in physical pixels, truncated to int
+     */
     @Override
     public int getFrameBufferHeight() {
         return (int) frameBufferSizeY;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @return id assigned by {@link Platforms}, or {@code -1} if not yet assigned
+     */
     @Override
     public int getPlatformID() {
         return platformId;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @param p platform id assigned by {@link Platforms}; {@code null} clears it to {@code -1}
+     */
     @Override
     public void setPlatformID(Integer p) {
         this.platformId = p == null ? -1 : p.intValue();
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Indicates whether all in-flight shader fetches have completed.
+     *
+     * @return {@code true} once every shader requested via {@link #loadShaderSourceAsync} has resolved
+     */
     public boolean loadedShaders() {
         return shadersToLoad == 0;
     }
@@ -498,114 +644,214 @@ public class WebPlatform implements Platform {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}.
+     *
+     * @throws UnsupportedOperationException always; the web platform delivers input synchronously via DOM events
+     */
     @Override
     public void processInputQueue() {
         throw new UnsupportedOperationException("Unimplemented method 'processInputQueue'");
     }
 
     private interface JsRect extends JSObject {
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return left edge of the rectangle from the parsed JSON
+         */
         @JSProperty
         double getLeft();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return bottom edge of the rectangle from the parsed JSON
+         */
         @JSProperty
         double getBottom();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return right edge of the rectangle from the parsed JSON
+         */
         @JSProperty
         double getRight();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return top edge of the rectangle from the parsed JSON
+         */
         @JSProperty
         double getTop();
     }
 
     private interface JsGlyphEntry extends JSObject {
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return unicode codepoint of the glyph
+         */
         @JSProperty
         int getUnicode();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return horizontal advance width in em units
+         */
         @JSProperty
         double getAdvance();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return glyph bounds in plane (em) coordinates, or null if absent
+         */
         @JSProperty
         JsRect getPlaneBounds();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return glyph bounds in atlas pixel coordinates, or null if absent
+         */
         @JSProperty
         JsRect getAtlasBounds();
     }
 
     private interface JsAtlasInfo extends JSObject {
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return atlas field type (e.g. {@code msdf}, {@code mtsdf})
+         */
         @JSProperty
         String getType();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return distance field range in pixels
+         */
         @JSProperty
         double getDistanceRange();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return distance field midpoint value
+         */
         @JSProperty
         double getDistanceRangeMiddle();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return em-size in pixels used when generating the atlas
+         */
         @JSProperty
         double getSize();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return atlas image width in pixels
+         */
         @JSProperty
         int getWidth();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return atlas image height in pixels
+         */
         @JSProperty
         int getHeight();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return Y-axis origin convention used by the atlas (e.g. {@code bottom}, {@code top})
+         */
         @JSProperty("yOrigin")
         String getYOrigin();
     }
 
     private interface JsMetrics extends JSObject {
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return em size in font units
+         */
         @JSProperty
         double getEmSize();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return line height in font units
+         */
         @JSProperty
         double getLineHeight();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return ascender height in font units
+         */
         @JSProperty
         double getAscender();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return descender depth in font units (typically negative)
+         */
         @JSProperty
         double getDescender();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return underline Y position in font units
+         */
         @JSProperty
         double getUnderlineY();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return underline stroke thickness in font units
+         */
         @JSProperty
         double getUnderlineThickness();
     }
 
     private interface JsRoot extends JSObject {
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return parsed {@code atlas} sub-object, or null if absent
+         */
         @JSProperty
         JsAtlasInfo getAtlas();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return parsed {@code metrics} sub-object, or null if absent
+         */
         @JSProperty
         JsMetrics getMetrics();
 
-        /** {@inheritDoc} */
+        /**
+         * {@inheritDoc}.
+         *
+         * @return array of glyph entries, or null if absent
+         */
         @JSProperty
         JsGlyphEntry[] getGlyphs();
         // kerning omitted for now
@@ -613,13 +859,23 @@ public class WebPlatform implements Platform {
 
     @JSFunctor
     interface TextCallback extends JSObject {
-        /** {@inheritDoc} */
+        /**
+         * Invoked once {@code fetch} resolves with the response body.
+         *
+         * @param text fetched text content; may be null if the fetch failed
+         */
         void onText(String text);
     }
 
     @JSFunctor
     public interface ImagePixelsCallback extends JSObject {
-        /** {@inheritDoc} */
+        /**
+         * Invoked once {@code createImageBitmap} has decoded the image and pixels have been read.
+         *
+         * @param width decoded image width in pixels
+         * @param height decoded image height in pixels
+         * @param data RGBA byte data laid out row by row
+         */
         void onPixels(int width, int height, Uint8ClampedArray data);
     }
 }

@@ -11,6 +11,11 @@ import ixdar.annotations.meshnode.MeshValue;
 import ixdar.common.exceptions.InvalidMeshTopologyException;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
+/**
+ * Mutable half-edge mesh: separate id ranges for vertices, edges, faces, and
+ * half-edges, each with an active flag and per-id parallel arrays plus
+ * {@link IntIdList} adjacency. Editing methods delegate to {@link HalfEdgeMeshEngine}.
+ */
 public class HalfEdgeMesh implements MeshTopology, MeshValue {
     public static final String IS_NOT_ACTIVE = " is not active";
     public static final int NUM_4 = 4;
@@ -59,14 +64,15 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     int nextHalfEdgeId;
 
     /**
-     * TODO: document {@code HalfEdgeMesh}.
+     * Creates an empty mesh with small default capacity for incremental construction.
      */
     public HalfEdgeMesh() {
         this(NUM_4, NUM_4, NUM_4, NUM_8);
     }
 
     /**
-     * TODO: document.
+     * Creates an empty mesh with hinted capacities to skip array growth during
+     * incremental construction. All capacities are clamped to safe minima.
      *
      * @param vertexCapacity expected number of vertices
      * @param edgeCapacity   expected number of edges
@@ -126,11 +132,11 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
      * Pre-sized topology for bulk quad construction (e.g. Catmull–Clark). Avoids array growth and
      * HashMap rehash during {@link HalfEdgeMeshEngine#addFaceInternal}.
      *
-     * @param maxV TODO: describe
-     * @param maxE TODO: describe
-     * @param maxF TODO: describe
-     * @param maxHe TODO: describe
-     * @param mapCapacity TODO: describe
+     * @param maxV exact vertex capacity to allocate
+     * @param maxE exact edge capacity to allocate
+     * @param maxF exact face capacity to allocate
+     * @param maxHe exact half-edge capacity to allocate
+     * @param mapCapacity initial capacity for the directed-edge HashMap (load factor 1.0)
      */
     HalfEdgeMesh(int maxV, int maxE, int maxF, int maxHe, int mapCapacity) {
         this.halfEdgesByDirection = new HashMap<>(mapCapacity, 1.0f);
@@ -186,33 +192,33 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * TODO: document {@code addVertex}.
+     * Convenience wrapper for {@link HalfEdgeMeshEngine#addVertex(HalfEdgeMesh, float, float, float)}.
      *
-     * @param x TODO: describe
-     * @param y TODO: describe
-     * @param z TODO: describe
-     * @return TODO: describe
+     * @param x x coordinate
+     * @param y y coordinate
+     * @param z z coordinate
+     * @return id of the newly created vertex
      */
     public int addVertex(float x, float y, float z) {
         return HalfEdgeMeshEngine.addVertex(this, x, y, z);
     }
 
     /**
-     * TODO: document {@code addVertex}.
+     * Vector overload of {@link #addVertex(float, float, float)}.
      *
-     * @param position TODO: describe
-     * @return TODO: describe
+     * @param position position vector
+     * @return id of the newly created vertex
      */
     public int addVertex(Vector3f position) {
         return addVertex(position.x, position.y, position.z);
     }
 
     /**
-     * TODO: document {@code addEdge}.
+     * Convenience wrapper for {@link HalfEdgeMeshEngine#addEdge(HalfEdgeMesh, int, int)}.
      *
-     * @param startVertexId TODO: describe
-     * @param endVertexId TODO: describe
-     * @return TODO: describe
+     * @param startVertexId active vertex on one end
+     * @param endVertexId active vertex on the other end
+     * @return id of the newly created edge
      */
     public int addEdge(int startVertexId, int endVertexId) {
         return HalfEdgeMeshEngine.addEdge(this, startVertexId, endVertexId);
@@ -222,62 +228,62 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
      * Adds a face without updating normals. Call {@link #computeNormals()} when the mesh is finished
      * (or after edits that should refresh shading).
      *
-     * @param vertexIds TODO: describe
-     * @return TODO: describe
+     * @param vertexIds ordered vertex ids defining the face (length &ge; 3)
+     * @return id of the newly created face
      */
     public int addFace(int... vertexIds) {
         return HalfEdgeMeshEngine.addFace(this, vertexIds);
     }
 
     /**
-     * TODO: document {@code removeFace}.
+     * Convenience wrapper for {@link HalfEdgeMeshEngine#removeFace(HalfEdgeMesh, int)}.
      *
-     * @param faceId TODO: describe
+     * @param faceId active face id to remove
      */
     public void removeFace(int faceId) {
         HalfEdgeMeshEngine.removeFace(this, faceId);
     }
 
     /**
-     * TODO: document {@code removeEdge}.
+     * Convenience wrapper for {@link HalfEdgeMeshEngine#removeEdge(HalfEdgeMesh, int)}.
      *
-     * @param edgeId TODO: describe
+     * @param edgeId active edge id with no incident faces
      */
     public void removeEdge(int edgeId) {
         HalfEdgeMeshEngine.removeEdge(this, edgeId);
     }
 
     /**
-     * TODO: document {@code removeVertex}.
+     * Convenience wrapper for {@link HalfEdgeMeshEngine#removeVertex(HalfEdgeMesh, int)}.
      *
-     * @param vertexId TODO: describe
+     * @param vertexId active vertex id with no incident topology
      */
     public void removeVertex(int vertexId) {
         HalfEdgeMeshEngine.removeVertex(this, vertexId);
     }
 
     /**
-     * TODO: document {@code computeNormals}.
+     * Convenience wrapper for {@link HalfEdgeMeshEngine#computeNormals(HalfEdgeMesh)}.
      */
     public void computeNormals() {
         HalfEdgeMeshEngine.computeNormals(this);
     }
 
     /**
-     * TODO: document {@code compileSurfaceData}.
+     * Convenience wrapper for {@link HalfEdgeMeshEngine#compileSurfaceData(HalfEdgeMesh)}.
      *
-     * @return TODO: describe
+     * @return GPU-ready interleaved vertex data, triangulated indices, bounds, and bounding sphere
      */
     public HalfEdgeCompiledMeshData compileSurfaceData() {
         return HalfEdgeMeshEngine.compileSurfaceData(this);
     }
 
     /**
-     * TODO: document {@code buildFromIndexedMesh}.
+     * Convenience wrapper for {@link HalfEdgeMeshEngine#buildFromIndexedMesh(float[], int[])}.
      *
-     * @param positions TODO: describe
-     * @param faceIndices TODO: describe
-     * @return TODO: describe
+     * @param positions packed xyz triples
+     * @param faceIndices triangle vertex indices in groups of three
+     * @return populated half-edge mesh with normals computed
      */
     public static HalfEdgeMesh buildFromIndexedMesh(float[] positions, int[] faceIndices) {
         return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faceIndices);
@@ -287,150 +293,88 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
      * Pre-sized mesh build for uniform face sizes (3 for triangles, 4 for quads). Does not compute
      * normals — call {@link #computeNormals()} when the mesh is ready for rendering.
      *
-     * @param positions TODO: describe
-     * @param faceIndices TODO: describe
-     * @param vertsPerFace TODO: describe
-     * @return TODO: describe
+     * @param positions packed xyz triples
+     * @param faceIndices flat face index buffer, grouped by {@code vertsPerFace}
+     * @param vertsPerFace fixed face arity
+     * @return populated half-edge mesh; normals are not computed
      */
     public static HalfEdgeMesh bulkAllocate(float[] positions, int[] faceIndices, int vertsPerFace) {
         return HalfEdgeMeshEngine.bulkAllocate(positions, faceIndices, vertsPerFace);
     }
 
-    /**
-     * TODO: document {@code vertexCount}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexCount() {
         return activeVertexIds.size();
     }
 
-    /**
-     * TODO: document {@code edgeCount}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int edgeCount() {
         return activeEdgeIds.size();
     }
 
-    /**
-     * TODO: document {@code faceCount}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceCount() {
         return activeFaceIds.size();
     }
 
-    /**
-     * TODO: document {@code halfEdgeCount}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int halfEdgeCount() {
         return activeHalfEdgeIds.size();
     }
 
-    /**
-     * TODO: document {@code vertexIdAt}.
-     *
-     * @param activeIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexIdAt(int activeIndex) {
         return activeVertexIds.get(activeIndex);
     }
 
-    /**
-     * TODO: document {@code edgeIdAt}.
-     *
-     * @param activeIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int edgeIdAt(int activeIndex) {
         return activeEdgeIds.get(activeIndex);
     }
 
-    /**
-     * TODO: document {@code faceIdAt}.
-     *
-     * @param activeIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceIdAt(int activeIndex) {
         return activeFaceIds.get(activeIndex);
     }
 
-    /**
-     * TODO: document {@code halfEdgeIdAt}.
-     *
-     * @param activeIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int halfEdgeIdAt(int activeIndex) {
         return activeHalfEdgeIds.get(activeIndex);
     }
 
-    /**
-     * TODO: document {@code hasVertex}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public boolean hasVertex(int vertexId) {
         return isActive(vertexActive, vertexId);
     }
 
-    /**
-     * TODO: document {@code hasEdge}.
-     *
-     * @param edgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public boolean hasEdge(int edgeId) {
         return isActive(edgeActive, edgeId);
     }
 
-    /**
-     * TODO: document {@code hasFace}.
-     *
-     * @param faceId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public boolean hasFace(int faceId) {
         return isActive(faceActive, faceId);
     }
 
-    /**
-     * TODO: document {@code hasHalfEdge}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public boolean hasHalfEdge(int halfEdgeId) {
         return isActive(halfEdgeActive, halfEdgeId);
     }
 
-    /**
-     * TODO: document {@code vertexPosition}.
-     *
-     * @param vertexId TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public Vector3f vertexPosition(int vertexId, Vector3f dest) {
         requireActiveVertex(vertexId);
@@ -438,13 +382,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return dest.set(vertexPositions[offset], vertexPositions[offset + 1], vertexPositions[offset + 2]);
     }
 
-    /**
-     * TODO: document {@code vertexNormal}.
-     *
-     * @param vertexId TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public Vector3f vertexNormal(int vertexId, Vector3f dest) {
         requireActiveVertex(vertexId);
@@ -452,99 +390,56 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return dest.set(vertexNormals[offset], vertexNormals[offset + 1], vertexNormals[offset + 2]);
     }
 
-    /**
-     * TODO: document {@code vertexOutgoingHalfEdge}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdge(int vertexId) {
         requireActiveVertex(vertexId);
         return vertexOutgoing[vertexId];
     }
 
-    /**
-     * TODO: document {@code vertexOutgoingHalfEdgeCount}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdgeCount(int vertexId) {
         requireActiveVertex(vertexId);
         return vertexOutgoingHalfEdges.get(vertexId).size();
     }
 
-    /**
-     * TODO: document {@code vertexOutgoingHalfEdgeAt}.
-     *
-     * @param vertexId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdgeAt(int vertexId, int adjacencyIndex) {
         requireActiveVertex(vertexId);
         return vertexOutgoingHalfEdges.get(vertexId).get(adjacencyIndex);
     }
 
-    /**
-     * TODO: document {@code vertexEdgeCount}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexEdgeCount(int vertexId) {
         requireActiveVertex(vertexId);
         return vertexEdges.get(vertexId).size();
     }
 
-    /**
-     * TODO: document {@code vertexEdgeAt}.
-     *
-     * @param vertexId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexEdgeAt(int vertexId, int adjacencyIndex) {
         requireActiveVertex(vertexId);
         return vertexEdges.get(vertexId).get(adjacencyIndex);
     }
 
-    /**
-     * TODO: document {@code vertexFaceCount}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexFaceCount(int vertexId) {
         requireActiveVertex(vertexId);
         return vertexFaces.get(vertexId).size();
     }
 
-    /**
-     * TODO: document {@code vertexFaceAt}.
-     *
-     * @param vertexId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int vertexFaceAt(int vertexId, int adjacencyIndex) {
         requireActiveVertex(vertexId);
         return vertexFaces.get(vertexId).get(adjacencyIndex);
     }
 
-    /**
-     * TODO: document {@code isBoundaryVertex}.
-     *
-     * @param vertexId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public boolean isBoundaryVertex(int vertexId) {
         requireActiveVertex(vertexId);
@@ -557,24 +452,14 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return false;
     }
 
-    /**
-     * TODO: document {@code edgeHalfEdge}.
-     *
-     * @param edgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int edgeHalfEdge(int edgeId) {
         requireActiveEdge(edgeId);
         return edgeHalfEdge[edgeId];
     }
 
-    /**
-     * TODO: document {@code isBoundaryEdge}.
-     *
-     * @param edgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} An edge is a boundary edge if either of its half-edges is unattached to a face. */
     @Override
     public boolean isBoundaryEdge(int edgeId) {
         requireActiveEdge(edgeId);
@@ -583,100 +468,56 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return halfEdgeFace[firstHalfEdge] == NONE || halfEdgeFace[secondHalfEdge] == NONE;
     }
 
-    /**
-     * TODO: document {@code faceHalfEdge}.
-     *
-     * @param faceId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceHalfEdge(int faceId) {
         requireActiveFace(faceId);
         return faceHalfEdge[faceId];
     }
 
-    /**
-     * TODO: document {@code faceHalfEdgeCount}.
-     *
-     * @param faceId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceHalfEdgeCount(int faceId) {
         requireActiveFace(faceId);
         return faceHalfEdges.get(faceId).size();
     }
 
-    /**
-     * TODO: document {@code faceHalfEdgeAt}.
-     *
-     * @param faceId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceHalfEdgeAt(int faceId, int adjacencyIndex) {
         requireActiveFace(faceId);
         return faceHalfEdges.get(faceId).get(adjacencyIndex);
     }
 
-    /**
-     * TODO: document {@code faceVertexCount}.
-     *
-     * @param faceId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceVertexCount(int faceId) {
         requireActiveFace(faceId);
         return faceVertices.get(faceId).size();
     }
 
-    /**
-     * TODO: document {@code faceVertexAt}.
-     *
-     * @param faceId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceVertexAt(int faceId, int adjacencyIndex) {
         requireActiveFace(faceId);
         return faceVertices.get(faceId).get(adjacencyIndex);
     }
 
-    /**
-     * TODO: document {@code faceEdgeCount}.
-     *
-     * @param faceId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceEdgeCount(int faceId) {
         requireActiveFace(faceId);
         return faceEdges.get(faceId).size();
     }
 
-    /**
-     * TODO: document {@code faceEdgeAt}.
-     *
-     * @param faceId TODO: describe
-     * @param adjacencyIndex TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int faceEdgeAt(int faceId, int adjacencyIndex) {
         requireActiveFace(faceId);
         return faceEdges.get(faceId).get(adjacencyIndex);
     }
 
-    /**
-     * TODO: document {@code faceNormal}.
-     *
-     * @param faceId TODO: describe
-     * @param dest TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Returns the most recently computed face normal (see {@link #computeNormals()}). */
     @Override
     public Vector3f faceNormal(int faceId, Vector3f dest) {
         requireActiveFace(faceId);
@@ -684,24 +525,14 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return dest.set(faceNormals[offset], faceNormals[offset + 1], faceNormals[offset + 2]);
     }
 
-    /**
-     * TODO: document {@code halfEdgeVertex}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int halfEdgeVertex(int halfEdgeId) {
         requireActiveHalfEdge(halfEdgeId);
         return halfEdgeVertex[halfEdgeId];
     }
 
-    /**
-     * TODO: document {@code halfEdgeEndVertex}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Reads the start vertex of {@code halfEdgeNext}. */
     @Override
     public int halfEdgeEndVertex(int halfEdgeId) {
         requireActiveHalfEdge(halfEdgeId);
@@ -710,84 +541,49 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return halfEdgeVertex[next];
     }
 
-    /**
-     * TODO: document {@code halfEdgeTwin}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int halfEdgeTwin(int halfEdgeId) {
         requireActiveHalfEdge(halfEdgeId);
         return halfEdgeTwin[halfEdgeId];
     }
 
-    /**
-     * TODO: document {@code halfEdgeNext}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int halfEdgeNext(int halfEdgeId) {
         requireActiveHalfEdge(halfEdgeId);
         return halfEdgeNext[halfEdgeId];
     }
 
-    /**
-     * TODO: document {@code halfEdgePrev}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int halfEdgePrev(int halfEdgeId) {
         requireActiveHalfEdge(halfEdgeId);
         return halfEdgePrev[halfEdgeId];
     }
 
-    /**
-     * TODO: document {@code halfEdgeFace}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Returns {@link MeshTopology#NONE} for boundary half-edges. */
     @Override
     public int halfEdgeFace(int halfEdgeId) {
         requireActiveHalfEdge(halfEdgeId);
         return halfEdgeFace[halfEdgeId];
     }
 
-    /**
-     * TODO: document {@code halfEdgeEdge}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public int halfEdgeEdge(int halfEdgeId) {
         requireActiveHalfEdge(halfEdgeId);
         return halfEdgeEdge[halfEdgeId];
     }
 
-    /**
-     * TODO: document {@code isBoundaryHalfEdge}.
-     *
-     * @param halfEdgeId TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc}. */
     @Override
     public boolean isBoundaryHalfEdge(int halfEdgeId) {
         requireActiveHalfEdge(halfEdgeId);
         return halfEdgeFace[halfEdgeId] == NONE;
     }
 
-    /**
-     * TODO: document {@code boundsMin}.
-     *
-     * @param dest TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Recomputed on every call by linear scan over active vertices. */
     @Override
     public Vector3f boundsMin(Vector3f dest) {
         if (activeVertexIds.isEmpty()) {
@@ -807,12 +603,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return dest;
     }
 
-    /**
-     * TODO: document {@code boundsMax}.
-     *
-     * @param dest TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Recomputed on every call by linear scan over active vertices. */
     @Override
     public Vector3f boundsMax(Vector3f dest) {
         if (activeVertexIds.isEmpty()) {
@@ -832,12 +623,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return dest;
     }
 
-    /**
-     * TODO: document {@code center}.
-     *
-     * @param dest TODO: describe
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Returns the center of the axis-aligned bounding box. */
     @Override
     public Vector3f center(Vector3f dest) {
         Vector3f min = boundsMin(new Vector3f());
@@ -845,11 +631,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return dest.set(min).add(max).mul(NUM_0_5);
     }
 
-    /**
-     * TODO: document {@code radius}.
-     *
-     * @return TODO: describe
-     */
+    /** {@inheritDoc} Bounding-sphere radius about {@link #center(Vector3f)}; recomputed each call. */
     @Override
     public float radius() {
         if (activeVertexIds.isEmpty()) {
@@ -1092,9 +874,9 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
     
     /**
-     * TODO: document {@code getEdgeIndices}.
+     * Builds a flat (v0, v1) edge index buffer with one pair per active edge.
      *
-     * @return TODO: describe
+     * @return array of length {@code 2 * edgeCount()} holding endpoint vertex ids
      */
     public int[] getEdgeIndices() {
         int[] indices = new int[activeEdgeIds.size() * 2];

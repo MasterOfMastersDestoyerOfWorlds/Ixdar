@@ -55,9 +55,10 @@ public final class PatchDecomposerCLI {
     private PatchDecomposerCLI() {}
 
     /**
-     * TODO: document {@code main}.
+     * Dispatch one of the documented sub-commands. Prints a JSON result to stdout
+     * and exits non-zero with a JSON error on failure.
      *
-     * @param args TODO: describe
+     * @param args sub-command name followed by command-specific positional arguments
      */
     public static void main(String[] args) {
         if (args.length < 1) {

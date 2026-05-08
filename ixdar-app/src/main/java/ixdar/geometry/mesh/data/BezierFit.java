@@ -35,7 +35,7 @@ public final class BezierFit {
      *
      * @param indices vertex indices of the polyline samples in order
      * @param positions packed {@code xyz} vertex positions (float[nv*3])
-     * @return TODO: describe
+     * @return four control points {P0, P1, P2, P3}; degenerate inputs yield a straight-line fit
      */
     public static Vector3f[] fitCubic(int[] indices, float[] positions) {
         int n = indices == null ? 0 : indices.length;
@@ -118,10 +118,10 @@ public final class BezierFit {
     /**
      * Evaluate a cubic Bezier at parameter {@code t} ∈ [0, 1].
      *
-     * @param ctl TODO: describe
-     * @param t TODO: describe
-     * @param out TODO: describe
-     * @return TODO: describe
+     * @param ctl four control points P0..P3
+     * @param t curve parameter in [0, 1]
+     * @param out destination written with the curve point at {@code t}
+     * @return {@code out} for chaining
      */
     public static Vector3f eval(Vector3f[] ctl, float t, Vector3f out) {
         float omt = NUM_1 - t;

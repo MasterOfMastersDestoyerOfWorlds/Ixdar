@@ -118,37 +118,37 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void viewport(int x, int y, int w, int h) {
         GL11.glViewport(x, y, w, h);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void clearColor(float r, float g, float b, float a) {
         GL11.glClearColor(r, g, b, a);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void clear(int mask) {
         GL11.glClear(mask);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void drawArrays(int mode, int first, int count) {
         GL11.glDrawArrays(mode, first, count);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void drawElements(int mode, int count, int type, int indicesOffsetBytes) {
         GL11.glDrawElements(mode, count, type, indicesOffsetBytes);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int genTexture() {
         int[] textures = new int[1];
@@ -156,62 +156,62 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         return textures[0];
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void deleteTexture(int id) {
         GL11.glDeleteTextures(id);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bindTexture2D(int id) {
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, id);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void texParameteri(int target, int pname, int param) {
         GL11.glTexParameteri(target, pname, param);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void texImage2D(int target, int level, int internalFormat, int width, int height, int border, int format,
             int type, ByteBuffer data) {
         GL11.glTexImage2D(target, level, internalFormat, width, height, border, format, type, data);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void enable(int cap) {
         GL11.glEnable(cap);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void disable(int cap) {
         GL11.glDisable(cap);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void depthMask(boolean flag) {
         GL11.glDepthMask(flag);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void blendFunc(int sfactor, int dfactor) {
         GL11.glBlendFunc(sfactor, dfactor);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void lineWidth(float width) {
         GL11.glLineWidth(width);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int[] readPixels(int x, int y, int width, int height, int format, int type, int fb) {
         ByteBuffer frameBuffer = BufferUtils.createByteBuffer(width * height * NUM_4);
@@ -229,140 +229,140 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         return pixels;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int COLOR_BUFFER_BIT() {
         return GL11.GL_COLOR_BUFFER_BIT;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int DEPTH_BUFFER_BIT() {
         return GL11.GL_DEPTH_BUFFER_BIT;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int TRIANGLES() {
         return GL11.GL_TRIANGLES;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int LINES() {
         return GL11.GL_LINES;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int FLOAT() {
         return GL11.GL_FLOAT;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int UNSIGNED_BYTE() {
         return GL11.GL_UNSIGNED_BYTE;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int UNSIGNED_INT() {
         return GL11.GL_UNSIGNED_INT;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int TEXTURE_2D() {
         return GL11.GL_TEXTURE_2D;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int RGBA() {
         return GL11.GL_RGBA;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int RGBA8() {
         return GL11.GL_RGBA8;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int TEXTURE_WRAP_S() {
         return GL11.GL_TEXTURE_WRAP_S;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int TEXTURE_WRAP_T() {
         return GL11.GL_TEXTURE_WRAP_T;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int TEXTURE_MIN_FILTER() {
         return GL11.GL_TEXTURE_MIN_FILTER;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int TEXTURE_MAG_FILTER() {
         return GL11.GL_TEXTURE_MAG_FILTER;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int LINEAR() {
         return GL11.GL_LINEAR;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int LINEAR_MIPMAP_LINEAR() {
         return GL11.GL_LINEAR_MIPMAP_LINEAR;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int REPEAT() {
         return GL11.GL_REPEAT;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int DEPTH_TEST() {
         return GL11.GL_DEPTH_TEST;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int BLEND() {
         return GL11.GL_BLEND;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int SRC_ALPHA() {
         return GL11.GL_SRC_ALPHA;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int ONE_MINUS_SRC_ALPHA() {
         return GL11.GL_ONE_MINUS_SRC_ALPHA;
     }
 
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void activeTexture(int unit) {
         GL13.glActiveTexture(unit);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int TEXTURE0() {
         return GL13.GL_TEXTURE0;
@@ -370,37 +370,37 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
 
     // ---- GL15 (buffer objects) ----
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int genBuffer() {
         return GL15.glGenBuffers();
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int genBuffers() {
         return GL15.glGenBuffers();
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bindArrayBuffer(int buffer) {
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, buffer);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bindBuffer(int target, int id) {
         GL15.glBindBuffer(target, id);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bufferDataArray(IxBuffer data, int usage) {
         GL15.glBufferData(GL15.GL_ARRAY_BUFFER, ((HeadlessBuffer) data).getBuffer(), usage);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bufferDataArray(float[] data, int usage) {
         FloatBuffer buf = BufferUtils.createFloatBuffer(data.length);
@@ -408,13 +408,13 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buf, usage);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bufferData(int target, IxBuffer data, int usage) {
         GL15.glBufferData(target, ((HeadlessBuffer) data).getBuffer(), usage);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bufferData(int target, float[] data, int usage) {
         FloatBuffer buf = BufferUtils.createFloatBuffer(data.length);
@@ -422,85 +422,85 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         GL15.glBufferData(target, buf, usage);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bufferData(int target, long size, int usage) {
         GL15.glBufferData(target, size, usage);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bufferData(int target, IntBuffer data, int usage) {
         GL15.glBufferData(target, data, usage);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bufferSubData(int target, long offset, IxBuffer data) {
         GL15.glBufferSubData(target, offset, ((HeadlessBuffer) data).getBuffer());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void deleteBuffers(int id) {
         GL15.glDeleteBuffers(id);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int ARRAY_BUFFER() {
         return GL15.GL_ARRAY_BUFFER;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int ELEMENT_ARRAY_BUFFER() {
         return GL15.GL_ELEMENT_ARRAY_BUFFER;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int STATIC_DRAW() {
         return GL15.GL_STATIC_DRAW;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int DYNAMIC_DRAW() {
         return GL15.GL_DYNAMIC_DRAW;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int createProgram() {
         return GL20.glCreateProgram();
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int createShader(int type) {
         return GL20.glCreateShader(type);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void shaderSource(int shader, String src) {
         GL20.glShaderSource(shader, src);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void shaderSource(int shader, CharSequence[] src) {
         GL20.glShaderSource(shader, src);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void compileShader(int shader) {
         GL20.glCompileShader(shader);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getShaderiv(int shader, int pname) {
         IntBuffer buf = BufferUtils.createIntBuffer(1);
@@ -508,37 +508,37 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         return buf.get(0);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void getShaderiv(int shader, int pname, IntBuffer success) {
         GL20.glGetShaderiv(shader, pname, success);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public String getShaderInfoLog(int shader) {
         return GL20.glGetShaderInfoLog(shader);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void attachShader(int program, int shader) {
         GL20.glAttachShader(program, shader);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void detachShader(int program, int shader) {
         GL20.glDetachShader(program, shader);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void linkProgram(int program) {
         GL20.glLinkProgram(program);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getProgramiv(int program, int pname) {
         IntBuffer buf = BufferUtils.createIntBuffer(1);
@@ -546,115 +546,115 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         return buf.get(0);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void getProgramiv(int program, int pname, IntBuffer success) {
         GL20.glGetProgramiv(program, pname, success);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public String getProgramInfoLog(int program) {
         return GL20.glGetProgramInfoLog(program);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void useProgram(int program) {
         GL20.glUseProgram(program);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void deleteShader(int shader) {
         GL20.glDeleteShader(shader);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void deleteProgram(int program) {
         GL20.glDeleteProgram(program);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getUniformLocation(int program, String name) {
         return GL20.glGetUniformLocation(program, name);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getAttribLocation(int program, CharSequence name) {
         return GL20.glGetAttribLocation(program, name.toString());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void enableVertexAttribArray(int index) {
         GL20.glEnableVertexAttribArray(index);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void vertexAttribPointer(int index, int size, int type, boolean normalized, int stride, int pointer) {
         GL20.glVertexAttribPointer(index, size, type, normalized, stride, pointer);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void uniform1f(int loc, float v) {
         GL20.glUniform1f(loc, v);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void uniform1i(int loc, int v) {
         GL20.glUniform1i(loc, v);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void uniform2fv(int loc, IxBuffer buffer) {
         GL20.glUniform2fv(loc, ((HeadlessBuffer) buffer).getBuffer());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void uniform3fv(int loc, IxBuffer buffer) {
         GL20.glUniform3fv(loc, ((HeadlessBuffer) buffer).getBuffer());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void uniform3fv(Integer loc, IxBuffer buffer) {
         GL20.glUniform3fv(loc, ((HeadlessBuffer) buffer).getBuffer());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void uniform4fv(int loc, IxBuffer buffer) {
         GL20.glUniform4fv(loc, ((HeadlessBuffer) buffer).getBuffer());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void uniformMatrix4fv(int loc, boolean transpose, IxBuffer buffer) {
         GL20.glUniformMatrix4fv(loc, transpose, ((HeadlessBuffer) buffer).getBuffer());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void getUniformfv(int program, int location, IxBuffer val) {
         GL20.glGetUniformfv(program, location, ((HeadlessBuffer) val).getBuffer());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public String getActiveUniform(int program, int index, IntBuffer sizeBuffer, IntBuffer typeBuffer) {
         return GL20.glGetActiveUniform(program, index, sizeBuffer, typeBuffer);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void getAttachedShaders(int program, IntBuffer success) {
         if (success != null && success.remaining() > 0) {
@@ -662,7 +662,7 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void getActiveUniforms(int program, IntBuffer success) {
         if (success != null && success.remaining() > 0) {
@@ -670,104 +670,104 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int FRAGMENT_SHADER() {
         return GL20.GL_FRAGMENT_SHADER;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int VERTEX_SHADER() {
         return GL20.GL_VERTEX_SHADER;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int LINK_STATUS() {
         return GL20.GL_LINK_STATUS;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int COMPILE_STATUS() {
         return GL20.GL_COMPILE_STATUS;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int ACTIVE_UNIFORMS() {
         return GL20.GL_ACTIVE_UNIFORMS;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int FLOAT_VEC2() {
         return GL20.GL_FLOAT_VEC2;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int FLOAT_VEC4() {
         return GL20.GL_FLOAT_VEC4;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int SAMPLER_2D() {
         return GL20.GL_SAMPLER_2D;
     }
 
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int genVertexArray() {
         return GL30.glGenVertexArrays();
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int genVertexArrays() {
         return GL30.glGenVertexArrays();
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bindVertexArray(int vao) {
         GL30.glBindVertexArray(vao);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void deleteVertexArrays(int id) {
         GL30.glDeleteVertexArrays(id);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void generateMipmap(int target) {
         GL30.glGenerateMipmap(target);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void bindFragDataLocation(int program, int colorNumber, String name) {
         GL30.glBindFragDataLocation(program, colorNumber, name);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public boolean getMouseButton(long window, MouseButtons button) {
         return false;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void createCapabilities() {
         // Already created in init
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void setWindowTitle(String title) {
         if (window != NULL) {
@@ -775,7 +775,7 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void coldStartStack() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -784,25 +784,25 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public ArrayList<ShaderProgram> getShaders() {
         return shaders;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void addShader(ShaderProgram shader) {
         shaders.add(shader);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public int getPlatformID() {
         return platformId;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void setPlatformID(Integer p) {
         if (p != null) {
@@ -810,31 +810,31 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     public int getWidth() {
         return framebufferWidth;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     public int getHeight() {
         return framebufferHeight;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     public void swapBuffers() {
         if (window != NULL) {
             glfwSwapBuffers(window);
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     public void pollEvents() {
         if (window != NULL) {
             glfwPollEvents();
         }
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     public void shutdown() {
         if (window != NULL) {
             glfwDestroyWindow(window);
@@ -844,7 +844,7 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         initialized = false;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}. */
     @Override
     public void clearColor(Color c) {
         Vector4f c4 = c.toVector4f();

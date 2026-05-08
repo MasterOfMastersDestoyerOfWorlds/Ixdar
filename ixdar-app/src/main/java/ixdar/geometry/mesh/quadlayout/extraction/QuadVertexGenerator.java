@@ -67,7 +67,7 @@ public final class QuadVertexGenerator {
      * @param mesh mesh on which the UV map lives
      * @param uCorner per-corner u value, length {@code 3 * F}
      * @param vCorner per-corner v value, length {@code 3 * F}
-     * @return TODO: describe
+     * @return per-source QVert lists for the VERT, EDGE, and FACE passes
      */
     public static Result generate(ArrayMesh mesh,
                                   float[] uCorner, float[] vCorner) {
@@ -203,13 +203,13 @@ public final class QuadVertexGenerator {
      * {@link #EPS}, return its parametric ratio along the segment (0 at start,
      * 1 at end). Otherwise return {@link Double#NaN}.
      *
-     * @param u0 TODO: describe
-     * @param v0 TODO: describe
-     * @param u1 TODO: describe
-     * @param v1 TODO: describe
-     * @param xi TODO: describe
-     * @param yi TODO: describe
-     * @return TODO: describe
+     * @param u0 segment-start u
+     * @param v0 segment-start v
+     * @param u1 segment-end u
+     * @param v1 segment-end v
+     * @param xi integer-grid u
+     * @param yi integer-grid v
+     * @return parametric ratio in {@code [0, 1]}, or {@link Double#NaN} if not collinear within tolerance
      */
     private static double collinearRatio(double u0, double v0,
                                          double u1, double v1,
@@ -235,15 +235,15 @@ public final class QuadVertexGenerator {
      * of the triangle must be the same sign and strictly bounded away from
      * zero by {@link #EPS}.
      *
-     * @param u0 TODO: describe
-     * @param v0 TODO: describe
-     * @param u1 TODO: describe
-     * @param v1 TODO: describe
-     * @param u2 TODO: describe
-     * @param v2 TODO: describe
-     * @param xi TODO: describe
-     * @param yi TODO: describe
-     * @return TODO: describe
+     * @param u0 first-corner u
+     * @param v0 first-corner v
+     * @param u1 second-corner u
+     * @param v1 second-corner v
+     * @param u2 third-corner u
+     * @param v2 third-corner v
+     * @param xi candidate integer-grid u
+     * @param yi candidate integer-grid v
+     * @return true if {@code (xi, yi)} lies strictly inside (excludes edges/vertices)
      */
     private static boolean strictlyInsideTriangle(double u0, double v0,
                                                   double u1, double v1,
@@ -264,18 +264,18 @@ public final class QuadVertexGenerator {
     /**
      * Recover 3D position by mapping (xi, yi) into the triangle's barycentric coords.
      *
-     * @param u0 TODO: describe
-     * @param v0 TODO: describe
-     * @param u1 TODO: describe
-     * @param v1 TODO: describe
-     * @param u2 TODO: describe
-     * @param v2 TODO: describe
-     * @param xi TODO: describe
-     * @param yi TODO: describe
-     * @param p0 TODO: describe
-     * @param p1 TODO: describe
-     * @param p2 TODO: describe
-     * @return TODO: describe
+     * @param u0 first-corner u
+     * @param v0 first-corner v
+     * @param u1 second-corner u
+     * @param v1 second-corner v
+     * @param u2 third-corner u
+     * @param v2 third-corner v
+     * @param xi target integer-grid u
+     * @param yi target integer-grid v
+     * @param p0 first-corner 3D position
+     * @param p1 second-corner 3D position
+     * @param p2 third-corner 3D position
+     * @return 3D position interpolated by the barycentric weights of {@code (xi, yi)}; falls back to centroid for degenerate triangles
      */
     private static Vector3f barycentricInterp(double u0, double v0,
                                               double u1, double v1,
@@ -300,10 +300,10 @@ public final class QuadVertexGenerator {
     /**
      * Pack (edgeId, xi, yi) into a 64-bit dedupe key.
      *
-     * @param e TODO: describe
-     * @param xi TODO: describe
-     * @param yi TODO: describe
-     * @return TODO: describe
+     * @param e  mesh edge id
+     * @param xi integer u
+     * @param yi integer v
+     * @return 64-bit hash key combining the three components
      */
     private static long pack(int e, int xi, int yi) {
         return ((long) e << NUM_40) | ((long) (xi & NUM_0xFFFF) << NUM_20) | (long) (yi & NUM_0xFFFF);
@@ -315,9 +315,9 @@ public final class QuadVertexGenerator {
                          List<QVert> faceQVerts) {
 
         /**
-         * TODO: document {@code total}.
+         * Combined size of the vert-, edge-, and face-source QVert lists.
          *
-         * @return TODO: describe
+         * @return total QVert count across the VERT, EDGE, and FACE source lists
          */
         public int total() {
             return vertQVerts.size() + edgeQVerts.size() + faceQVerts.size();

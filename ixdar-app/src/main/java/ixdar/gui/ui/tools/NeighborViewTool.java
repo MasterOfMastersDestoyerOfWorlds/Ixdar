@@ -111,6 +111,8 @@ public class NeighborViewTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the display name "Neighbor View"
      */
     @Override
@@ -119,6 +121,8 @@ public class NeighborViewTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the short terminal alias {@code "nbr"}
      */
     @Override
@@ -127,6 +131,8 @@ public class NeighborViewTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the full terminal name {@code "neighborview"}
      */
     @Override
@@ -135,6 +141,8 @@ public class NeighborViewTool extends Tool {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return the one-line description of this tool's purpose
      */
     @Override

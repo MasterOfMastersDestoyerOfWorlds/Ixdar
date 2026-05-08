@@ -38,6 +38,8 @@ public class WebBuffer implements IxBuffer {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return floats not yet written via {@link #put}
      */
     @Override
@@ -60,6 +62,8 @@ public class WebBuffer implements IxBuffer {
     }
 
     /**
+     * {@inheritDoc}.
+     *
      * @return capacity passed to the constructor
      */
     @Override

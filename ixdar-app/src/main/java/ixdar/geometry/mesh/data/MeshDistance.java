@@ -563,10 +563,11 @@ public final class MeshDistance {
         public final float[] centroid;
 
         /**
-         * TODO: document {@code PreparedReference}.
+         * Pre-process a reference mesh: center on its centroid, build a KD-tree, and
+         * record per-axis spans.
          *
-         * @param positions TODO: describe
-         * @param vertexCount TODO: describe
+         * @param positions packed XYZ vertex positions of the reference
+         * @param vertexCount number of vertices in {@code positions}
          */
         public PreparedReference(float[] positions, int vertexCount) {
             this.vertexCount = vertexCount;
@@ -644,10 +645,10 @@ public final class MeshDistance {
         /**
          * Returns squared distance to the nearest point in the tree.
          *
-         * @param qx TODO: describe
-         * @param qy TODO: describe
-         * @param qz TODO: describe
-         * @return TODO: describe
+         * @param qx query x
+         * @param qy query y
+         * @param qz query z
+         * @return squared Euclidean distance to the closest stored point, or {@link Float#MAX_VALUE} for an empty tree
          */
         float queryNearestSq(float qx, float qy, float qz) {
             if (nodeCount == 0) return Float.MAX_VALUE;
@@ -685,11 +686,11 @@ public final class MeshDistance {
          * Quickselect: rearrange idx[lo..hi) so that idx[k] holds the element
          * that would be at position k if sorted by positions on the given axis.
          *
-         * @param idx TODO: describe
-         * @param lo TODO: describe
-         * @param hi TODO: describe
-         * @param k TODO: describe
-         * @param ax TODO: describe
+         * @param idx vertex index buffer; partitioned in place
+         * @param lo inclusive lower bound of the active range
+         * @param hi exclusive upper bound of the active range
+         * @param k position whose final occupant is sought
+         * @param ax axis (0=X, 1=Y, 2=Z) used as the comparison key
          */
         private void nthElement(int[] idx, int lo, int hi, int k, int ax) {
             while (lo < hi - 1) {

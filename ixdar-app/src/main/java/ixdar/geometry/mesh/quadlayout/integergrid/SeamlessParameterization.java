@@ -72,12 +72,15 @@ public final class SeamlessParameterization {
     private final boolean injective;
 
     /**
-     * TODO: document {@code SeamlessParameterization}.
+     * Production constructor: runs the full IGM pipeline (relaxed solve →
+     * BZK09 §5.4 LocalStiffening → iterative integer rounding) with no cap
+     * on the rounding loop.
      *
-     * @param mesh TODO: describe
-     * @param field TODO: describe
-     * @param combed TODO: describe
-     * @param singularities TODO: describe
+     * @param mesh           underlying triangle mesh
+     * @param field          smoothed cross field providing per-face frames
+     * @param combed         combed branches / matchings / seam set
+     * @param singularities  singularity list (their incident corners get
+     *                       seeded with integer pins first)
      */
     public SeamlessParameterization(ArrayMesh mesh,
                                     FaceRosyField field,
@@ -89,11 +92,14 @@ public final class SeamlessParameterization {
     /**
      * Private "external" constructor — bypasses the IGM solve.
      *
-     * @param faceCount TODO: describe
-     * @param uCorner TODO: describe
-     * @param vCorner TODO: describe
-     * @param injective TODO: describe
-     * @throws IllegalArgumentException TODO: describe
+     * @param faceCount face count; UV array lengths must equal
+     *                  {@code 3 * faceCount}
+     * @param uCorner   per-corner u (defensively copied)
+     * @param vCorner   per-corner v (defensively copied)
+     * @param injective whether the caller guarantees positive UV signed area
+     *                  on every triangle
+     * @throws IllegalArgumentException if {@code uCorner} or {@code vCorner}
+     *                                  has the wrong length
      */
     private SeamlessParameterization(int faceCount, float[] uCorner, float[] vCorner,
                                      boolean injective) {
@@ -119,11 +125,13 @@ public final class SeamlessParameterization {
      * that just want shape-compatibility (PrecomputedFieldImporter test) pass a small
      * cap; production solves leave it at {@link Integer#MAX_VALUE}.
      *
-     * @param mesh TODO: describe
-     * @param field TODO: describe
-     * @param combed TODO: describe
-     * @param singularities TODO: describe
-     * @param maxRoundingIter TODO: describe
+     * @param mesh            underlying triangle mesh
+     * @param field           smoothed cross field providing per-face frames
+     * @param combed          combed branches / matchings / seam set
+     * @param singularities   singularity list (incident corners seeded first)
+     * @param maxRoundingIter maximum number of iterative-rounding pin attempts;
+     *                        production solves typically pass
+     *                        {@link Integer#MAX_VALUE}
      */
     public SeamlessParameterization(ArrayMesh mesh,
                                     FaceRosyField field,
@@ -443,7 +451,8 @@ public final class SeamlessParameterization {
      * @param vCorner per-corner v, length {@code 3 * F}
      * @param injective {@code true} if caller guarantees no flipped triangles
      *                  in the input UVs (metriko stage2 is)
-     * @return TODO: describe
+     * @return a {@code SeamlessParameterization} with the supplied UVs and
+     *         no pin metadata; the IGM solve is not run
      */
     public static SeamlessParameterization fromExternal(ArrayMesh mesh,
                                                         float[] uCorner,
@@ -459,9 +468,9 @@ public final class SeamlessParameterization {
     /**
      * Map chart-vertex pin flags back to per-corner array used by the public API.
      *
-     * @param pinnedCV TODO: describe
-     * @param H TODO: describe
-     * @return TODO: describe
+     * @param pinnedCV per-chart-vertex pin mask
+     * @param H        IGM Hessian providing the corner→chart-vertex map
+     * @return per-corner pin mask of length {@code 3 * faceCount}
      */
     private static boolean[] projectPinsCV(boolean[] pinnedCV, IgmHessian H) {
         int F = H.faceCount;
@@ -476,32 +485,33 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * TODO: document {@code u}.
+     * Per-corner u parameterization coordinate.
      *
-     * @param faceId TODO: describe
-     * @param cornerIdx TODO: describe
-     * @return TODO: describe
+     * @param faceId    active face id
+     * @param cornerIdx corner index in {@code [0, 3)}
+     * @return per-corner u-coordinate
      */
     public float u(int faceId, int cornerIdx) {
         return uCorner[faceId * NUM_3 + cornerIdx];
     }
 
     /**
-     * TODO: document {@code v}.
+     * Per-corner v parameterization coordinate.
      *
-     * @param faceId TODO: describe
-     * @param cornerIdx TODO: describe
-     * @return TODO: describe
+     * @param faceId    active face id
+     * @param cornerIdx corner index in {@code [0, 3)}
+     * @return per-corner v-coordinate
      */
     public float v(int faceId, int cornerIdx) {
         return vCorner[faceId * NUM_3 + cornerIdx];
     }
 
     /**
-     * TODO: document {@code uvSignedArea}.
+     * Signed area of a face in UV parameter space.
      *
-     * @param faceId TODO: describe
-     * @return TODO: describe
+     * @param faceId active face id
+     * @return signed UV-space triangle area; positive means the (u, v) image
+     *         preserves orientation (no flip)
      */
     public float uvSignedArea(int faceId) {
         int o = faceId * NUM_3;
@@ -512,11 +522,12 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * TODO: document {@code isSingularityCorner}.
+     * Whether a corner sits at a singularity vertex.
      *
-     * @param faceId TODO: describe
-     * @param cornerIdx TODO: describe
-     * @return TODO: describe
+     * @param faceId    active face id
+     * @param cornerIdx corner index in {@code [0, 3)}
+     * @return {@code true} iff this corner's mesh vertex is in the
+     *         singularity set (independent of pinning)
      */
     public boolean isSingularityCorner(int faceId, int cornerIdx) {
         return singularityCorner[faceId * NUM_3 + cornerIdx];
@@ -525,7 +536,8 @@ public final class SeamlessParameterization {
     /**
      * Returns flat array of corner ids (face*3 + cornerIdx) hard-pinned in BOTH u and v.
      *
-     * @return TODO: describe
+     * @return ids of every corner pinned in both u and v at the end of the
+     *         iterative-rounding loop
      */
     public int[] pinnedCorners() {
         ArrayList<Integer> out = new ArrayList<>();
@@ -536,16 +548,18 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * TODO: document {@code iterationCount}.
+     * Number of iterative-rounding pin attempts performed.
      *
-     * @return TODO: describe
+     * @return number of iterative-rounding pin attempts (commit + reject) the
+     *         loop performed before exit
      */
     public int iterationCount() { return iterationCount; }
 
     /**
-     * TODO: document {@code injectiveOnAllTriangles}.
+     * Whether the final UV map preserves triangle orientation everywhere.
      *
-     * @return TODO: describe
+     * @return {@code true} iff every triangle has positive UV signed area at
+     *         the final solution
      */
     public boolean injectiveOnAllTriangles() { return injective; }
 
@@ -562,10 +576,11 @@ public final class SeamlessParameterization {
      * below the target unit. Without rescale the iterative-rounding step
      * collapses every singularity corner to the same integer (0, 0).
      *
-     * @param mesh TODO: describe
-     * @param u TODO: describe
-     * @param v TODO: describe
-     * @return TODO: describe
+     * @param mesh triangle mesh
+     * @param u    relaxed-solve per-corner u
+     * @param v    relaxed-solve per-corner v
+     * @return multiplicative rescale factor; {@code 1.0} when relaxed solve
+     *         is degenerate (75th-percentile edge length below threshold)
      */
     private static float computeUvRescale(ArrayMesh mesh, float[] u, float[] v) {
         int F = mesh.faceCount();
@@ -605,8 +620,9 @@ public final class SeamlessParameterization {
      * this puts approximately one quad cell per triangle. Falls back to 1.0
      * for degenerate / empty meshes.
      *
-     * @param mesh TODO: describe
-     * @return TODO: describe
+     * @param mesh triangle mesh
+     * @return global scale parameter {@code q}; {@code 1.0} for empty or
+     *         degenerate meshes
      */
     private static double computeGlobalScale(ArrayMesh mesh) {
         int F = mesh.faceCount();
@@ -642,7 +658,8 @@ public final class SeamlessParameterization {
     /**
      * Returns [uMin, uMax, vMin, vMax].
      *
-     * @return TODO: describe
+     * @return four-element {@code [uMin, uMax, vMin, vMax]} over all corners,
+     *         or all zeros for an empty mesh
      */
     public float[] uvBoundingBox() {
         if (faceCount == 0) return new float[]{0, 0, 0, 0};
@@ -659,10 +676,10 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * TODO: document {@code build}.
+     * Auto-generated unimplemented stub; always throws.
      *
-     * @throws UnsupportedOperationException TODO: describe
-     * @return TODO: describe
+     * @throws UnsupportedOperationException always
+     * @return never returns normally
      */
     public SeamlessParameterization build() {
         // TODO Auto-generated method stub
@@ -670,10 +687,10 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * TODO: document {@code makeExactlySeamless}.
+     * Auto-generated unimplemented stub; always throws.
      *
-     * @throws UnsupportedOperationException TODO: describe
-     * @return TODO: describe
+     * @throws UnsupportedOperationException always
+     * @return never returns normally
      */
     public SeamlessParameterization makeExactlySeamless() {
         // TODO Auto-generated method stub

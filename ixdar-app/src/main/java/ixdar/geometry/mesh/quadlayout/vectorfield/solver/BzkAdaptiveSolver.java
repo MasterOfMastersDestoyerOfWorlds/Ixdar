@@ -40,7 +40,8 @@ public final class BzkAdaptiveSolver {
      * @param pinVal  values for pinned variables
      * @param opts    solver knobs
      * @param stats   output stats (may be null)
-     * @return TODO: describe
+     * @return full-length solution vector with pinned entries set to
+     *         {@code pinVal[k]} and the remaining unpinned entries solved
      */
     public static double[] solve(BzkSystem sys, double[] x0,
                                  boolean[] pinned, double[] pinVal,
@@ -93,13 +94,15 @@ public final class BzkAdaptiveSolver {
      * reduction. Returns null if MTJ's solver doesn't converge to tolerance,
      * leaving the caller to fall back further.
      *
-     * @param sys TODO: describe
-     * @param x TODO: describe
-     * @param pinned TODO: describe
-     * @param pinVal TODO: describe
-     * @param opts TODO: describe
-     * @param stats TODO: describe
-     * @return TODO: describe
+     * @param sys    immutable BZK system
+     * @param x      warm-start vector (currently unused; bootstrap built
+     *               internally)
+     * @param pinned which variables are eliminated
+     * @param pinVal values for pinned variables
+     * @param opts   solver knobs (uses {@code iccTolerance}, {@code iccMaxIter})
+     * @param stats  output stats (cgIters set on success)
+     * @return full-length solution vector, or {@code null} if MTJ does not
+     *         converge to {@code iccTolerance}
      */
     private static double[] tryIccCg(BzkSystem sys, double[] x,
                                       boolean[] pinned, double[] pinVal,
@@ -169,12 +172,12 @@ public final class BzkAdaptiveSolver {
     /**
      * Convenience: bootstrap solve (x0 = zeros).
      *
-     * @param sys TODO: describe
-     * @param pinned TODO: describe
-     * @param pinVal TODO: describe
-     * @param opts TODO: describe
-     * @param stats TODO: describe
-     * @return TODO: describe
+     * @param sys    immutable BZK system
+     * @param pinned which variables are eliminated
+     * @param pinVal values for pinned variables
+     * @param opts   solver knobs
+     * @param stats  output stats (may be null)
+     * @return full-length solution vector
      */
     public static double[] bootstrap(BzkSystem sys,
                                      boolean[] pinned, double[] pinVal,
@@ -188,13 +191,13 @@ public final class BzkAdaptiveSolver {
      * residuals through dependent variables via single-variable updates.
      * Returns null if not converged within {@code gsMaxIter}.
      *
-     * @param sys TODO: describe
-     * @param x TODO: describe
-     * @param pinned TODO: describe
-     * @param pinVal TODO: describe
-     * @param opts TODO: describe
-     * @param stats TODO: describe
-     * @return TODO: describe
+     * @param sys    immutable BZK system
+     * @param x      starting vector (with pinned entries already set)
+     * @param pinned which variables are eliminated
+     * @param pinVal values for pinned variables
+     * @param opts   solver knobs (uses {@code gsMaxIter}, {@code gsTolerance})
+     * @param stats  output stats (gsIters set)
+     * @return full-length solution vector, or {@code null} if not converged
      */
     private static double[] tryLocalGs(BzkSystem sys, double[] x,
                                        boolean[] pinned, double[] pinVal,
@@ -261,13 +264,13 @@ public final class BzkAdaptiveSolver {
      *              β = (r·z)_new / (r·z)_old; p = z + βp.
      * </pre>
      *
-     * @param sys TODO: describe
-     * @param x TODO: describe
-     * @param pinned TODO: describe
-     * @param pinVal TODO: describe
-     * @param opts TODO: describe
-     * @param stats TODO: describe
-     * @return TODO: describe
+     * @param sys    immutable BZK system
+     * @param x      warm-start vector (with pinned entries already set)
+     * @param pinned which variables are eliminated
+     * @param pinVal values for pinned variables
+     * @param opts   solver knobs (uses {@code cgMaxIter}, {@code cgTolerance})
+     * @param stats  output stats (cgIters set)
+     * @return full-length solution vector, or {@code null} if not converged
      */
     private static double[] tryPcg(BzkSystem sys, double[] x,
                                    boolean[] pinned, double[] pinVal,
@@ -346,10 +349,10 @@ public final class BzkAdaptiveSolver {
      * GS and PCG fail to converge — typically a sign of an ill-conditioned
      * matrix near rank deficiency, not normal operation.
      *
-     * @param sys TODO: describe
-     * @param pinned TODO: describe
-     * @param pinVal TODO: describe
-     * @return TODO: describe
+     * @param sys    immutable BZK system
+     * @param pinned which variables are eliminated
+     * @param pinVal values for pinned variables
+     * @return full-length solution vector from the direct sparse solve
      */
     private static double[] solveDirect(BzkSystem sys,
                                         boolean[] pinned, double[] pinVal) {

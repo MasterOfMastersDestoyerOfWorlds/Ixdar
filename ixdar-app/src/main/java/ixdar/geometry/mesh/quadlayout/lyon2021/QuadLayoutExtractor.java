@@ -61,13 +61,15 @@ public final class QuadLayoutExtractor {
      * INTERIOR layout arcs across face boundaries. Use this for real meshes
      * where T-junction extension may fire.
      *
-     * @param tmesh TODO: describe
-     * @param q TODO: describe
-     * @param mesh TODO: describe
-     * @param uCorner TODO: describe
-     * @param vCorner TODO: describe
-     * @param trs TODO: describe
-     * @return TODO: describe
+     * @param tmesh   T-mesh
+     * @param q       per-T-arc integer quantization (length must equal
+     *                {@code tmesh.arcs().size()})
+     * @param mesh    underlying triangle mesh
+     * @param uCorner per-corner u
+     * @param vCorner per-corner v
+     * @param trs     transition matrix for cross-seam interior arc tracing
+     * @return extraction result with the conforming {@link QuadLayout},
+     *         per-source-TPatch resolution counters, and skipped-patch ids
      */
     public static Result extract(TMesh tmesh, int[] q, ArrayMesh mesh,
                                   float[] uCorner, float[] vCorner,
@@ -80,9 +82,10 @@ public final class QuadLayoutExtractor {
      * (e.g. synthetic toy fixtures with no T-junctions). Throws if any
      * T-junction extension is actually attempted.
      *
-     * @param tmesh TODO: describe
-     * @param q TODO: describe
-     * @return TODO: describe
+     * @param tmesh T-mesh
+     * @param q     per-T-arc integer quantization
+     * @return extraction result; throws if any T-junction extension is
+     *         attempted without the mesh + TRS context
      */
     public static Result extract(TMesh tmesh, int[] q) {
         return extractImpl(tmesh, q, null, null, null, null);
@@ -387,14 +390,15 @@ public final class QuadLayoutExtractor {
      * (end of arc {@code matchIdx} on side {@code opp} walked from corner
      * opp). See plan §B5 for the corner labelling.
      *
-     * @param p TODO: describe
-     * @param s TODO: describe
-     * @param opp TODO: describe
-     * @param matchIdx TODO: describe
-     * @param interiorArcId TODO: describe
-     * @param tNodeId TODO: describe
-     * @param mNodeId TODO: describe
-     * @return TODO: describe
+     * @param p             parent worklist entry
+     * @param s             multi-arc side
+     * @param opp           opposite side {@code (s + 2) % 4}
+     * @param matchIdx      forward index of the last arc walked on side
+     *                      {@code opp} before reaching M
+     * @param interiorArcId id of the freshly created interior LayoutArc
+     * @param tNodeId       T-junction node id
+     * @param mNodeId       matching node id on the opposite side
+     * @return two-element array {@code [halfA, halfB]} of child WorkPatches
      */
     private static WorkPatch[] splitPatch(WorkPatch p, int s, int opp,
                                            int matchIdx, int interiorArcId,
@@ -472,20 +476,22 @@ public final class QuadLayoutExtractor {
      * to the matching node M (end of arc {@code matchIdx} on side {@code opp}
      * walked from corner {@code cornerOpp}) using {@link SplitArcTracer}.
      *
-     * @param tmesh TODO: describe
-     * @param mesh TODO: describe
-     * @param layoutArcs TODO: describe
-     * @param p TODO: describe
-     * @param s TODO: describe
-     * @param firstArcOnS TODO: describe
-     * @param cornerS TODO: describe
-     * @param opp TODO: describe
-     * @param matchIdx TODO: describe
-     * @param cornerOpp TODO: describe
-     * @param uCorner TODO: describe
-     * @param vCorner TODO: describe
-     * @param trs TODO: describe
-     * @return TODO: describe
+     * @param tmesh        T-mesh
+     * @param mesh         underlying triangle mesh
+     * @param layoutArcs   live LayoutArc registry
+     * @param p            current worklist entry
+     * @param s            multi-arc side
+     * @param firstArcOnS  layoutArc id of the first arc on side {@code s}
+     * @param cornerS      corner node at the start of side {@code s}
+     * @param opp          opposite side
+     * @param matchIdx     index of the matching arc on side {@code opp}
+     *                     walking forward from {@code cornerOpp}
+     * @param cornerOpp    corner node at the start of side {@code opp}
+     * @param uCorner      per-corner u
+     * @param vCorner      per-corner v
+     * @param trs          transition matrix
+     * @return polyline of {@link SplitEdge}s realizing the traced INTERIOR
+     *         layout arc; empty if {@link SplitArcTracer} couldn't reach M
      */
     private static List<SplitEdge> traceInterior(TMesh tmesh, ArrayMesh mesh,
                                                   List<LayoutArc> layoutArcs,
@@ -575,11 +581,12 @@ public final class QuadLayoutExtractor {
      * Walk side from {@code cornerStart}, returning the node at the end of
      *  arc index {@code arcIdx}.
      *
-     * @param layoutArcs TODO: describe
-     * @param sideArcs TODO: describe
-     * @param cornerStart TODO: describe
-     * @param arcIdx TODO: describe
-     * @return TODO: describe
+     * @param layoutArcs  live LayoutArc registry
+     * @param sideArcs    forward-walk arc id sequence on one side of a patch
+     * @param cornerStart corner node at the start of the walk
+     * @param arcIdx      index of the last arc to traverse (inclusive)
+     * @return node id at the end of arc {@code sideArcs[arcIdx]} after
+     *         walking forward from {@code cornerStart}
      */
     private static int walkSide(List<LayoutArc> layoutArcs, int[] sideArcs,
                                  int cornerStart, int arcIdx) {
@@ -593,9 +600,9 @@ public final class QuadLayoutExtractor {
     /**
      * Given a LayoutArc and one of its endpoint TNode ids, return the other.
      *
-     * @param la TODO: describe
-     * @param fromNodeId TODO: describe
-     * @return TODO: describe
+     * @param la         LayoutArc
+     * @param fromNodeId one of the arc's two endpoint TNode ids
+     * @return the other endpoint of the arc
      */
     private static int endNodeOf(LayoutArc la, int fromNodeId) {
         if (la.startNodeId() == fromNodeId) return la.endNodeId();

@@ -119,8 +119,9 @@ public class TagGeometryNode implements MeshNode {
     /**
      * Extract the tags map from a GeometryBundle, or null if absent.
      *
-     * @param bundle TODO: describe
-     * @return TODO: describe
+     * @param bundle bundle to inspect; may be {@code null}
+     * @return tag-name to per-vertex boolean mask map, or {@code null} if the
+     *         bundle is null or has no {@code __tags} slot of the expected type
      */
     @SuppressWarnings("unchecked")
     public static Map<String, boolean[]> getTags(GeometryBundle bundle) {

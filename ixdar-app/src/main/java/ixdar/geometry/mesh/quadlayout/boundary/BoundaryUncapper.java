@@ -25,12 +25,15 @@ public final class BoundaryUncapper {
     }
 
     /**
-     * TODO: document {@code uncap}.
+     * Drop quads that fall entirely within the per-loop cap radii recorded by
+     * {@link BoundaryCapper}. The original boundary loops re-emerge as edges
+     * with a single incident face.
      *
-     * @param quadMesh TODO: describe
-     * @param capResult TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param quadMesh  quad mesh produced downstream from {@link CapResult#closedMesh()}
+     * @param capResult cap metadata returned by {@link BoundaryCapper#cap(ArrayMesh)}
+     * @throws IllegalArgumentException if {@code quadMesh} is not a quad mesh
+     * @return a new quad mesh with cap quads removed; returns {@code quadMesh} unchanged
+     *         when there were no caps or no quads matched a cap region
      */
     public static ArrayMesh uncap(ArrayMesh quadMesh, CapResult capResult) {
         if (capResult.capVertexIds().length == 0) {

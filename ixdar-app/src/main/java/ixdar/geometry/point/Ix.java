@@ -49,8 +49,8 @@ public class Ix implements Geometry, PointCollection {
      *
      * @param args full terminal argument array
      * @param startIdx index of the filename argument
-     * @return points loaded from the referenced file
      * @throws TerminalParseException if the file cannot be located or read
+     * @return points loaded from the referenced file
      */
     public static ArrayList<PointND> parse(String[] args, int startIdx) throws TerminalParseException {
         PointSetPath retTup = parseFull(args, startIdx);
@@ -63,8 +63,8 @@ public class Ix implements Geometry, PointCollection {
      *
      * @param args full terminal argument array
      * @param startIdx index of the filename argument
-     * @return loaded point-set-and-path tuple
      * @throws TerminalParseException if the underlying file IO fails
+     * @return loaded point-set-and-path tuple
      */
     public static PointSetPath parseFull(String[] args, int startIdx) throws TerminalParseException {
         String loadFile = FileManagement.getTestFile(args[startIdx]);
@@ -85,8 +85,8 @@ public class Ix implements Geometry, PointCollection {
      *
      * @param args full terminal argument array
      * @param startIdx index of the filename argument
-     * @return populated {@code Ix} reference
      * @throws TerminalParseException if the file cannot be located or read
+     * @return populated {@code Ix} reference
      */
     public static Ix parseIx(String[] args, int startIdx) throws TerminalParseException {
         PointSetPath retTup = parseFull(args, startIdx);
@@ -99,8 +99,8 @@ public class Ix implements Geometry, PointCollection {
      *
      * @param args full terminal argument array
      * @param startIdx index of the filename argument
-     * @return parsed reference as a {@link PointCollection}
      * @throws TerminalParseException if the file cannot be located or read
+     * @return parsed reference as a {@link PointCollection}
      */
     @Override
     public PointCollection parseCollection(String[] args, int startIdx) throws TerminalParseException {

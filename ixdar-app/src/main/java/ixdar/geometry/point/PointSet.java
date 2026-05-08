@@ -152,9 +152,10 @@ public class PointSet extends ArrayList<PointND> {
     }
 
     /**
-     * TODO: document {@code getMaxDim}.
+     * Largest {@link PointND#getDim()} across the points in this set, or {@code 0}
+     * for an empty set.
      *
-     * @return TODO: describe
+     * @return the highest dimensionality observed
      */
     public int getMaxDim() {
         int max = 0;
@@ -167,10 +168,11 @@ public class PointSet extends ArrayList<PointND> {
     }
 
     /**
-     * TODO: document {@code toArrayList}.
+     * Wrap each point in a singleton {@link Knot} bound to {@code shell} and
+     * register it under the point's id in {@code shell.pointMap}.
      *
-     * @param shell TODO: describe
-     * @return TODO: describe
+     * @param shell shell that will own the resulting knots and host their entries in {@code pointMap}
+     * @return list of newly created singleton knots, in iteration order of this set
      */
     public ArrayList<Knot> toArrayList(Shell shell) {
         ArrayList<Knot> list = new ArrayList<>();

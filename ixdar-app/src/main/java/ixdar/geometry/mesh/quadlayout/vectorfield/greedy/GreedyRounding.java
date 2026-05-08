@@ -35,11 +35,16 @@ public final class GreedyRounding {
     private GreedyRounding() {}
 
     /**
-     * TODO: document {@code solve}.
+     * Run the BZK09 greedy round-and-resolve loop on {@code sys}: bootstrap
+     * with gauge + directional pins, then commit chord integers in batches
+     * (PATCH-103) under a geometrically-growing fractional threshold,
+     * re-solving via {@link BzkAdaptiveSolver} after each batch. Tree-edge
+     * integers are recovered post-hoc from the residual.
      *
-     * @param sys TODO: describe
-     * @param opts TODO: describe
-     * @return TODO: describe
+     * @param sys  immutable BZK system
+     * @param opts solver knobs and optional directional constraints
+     * @return solved per-face theta, per-edge integer matchings, and
+     *         convergence stats across all inner solves
      */
     public static Result solve(BzkSystem sys, Options opts) {
         int F = sys.faceCount();
@@ -160,18 +165,23 @@ public final class GreedyRounding {
         public final boolean[] constrained;
 
         /**
-         * TODO: document {@code Options}.
+         * Default-constructed options: no directional constraints, default
+         * {@link BzkAdaptiveSolver.Options}.
          */
         public Options() {
             this(new BzkAdaptiveSolver.Options(), null, null);
         }
 
         /**
-         * TODO: document {@code Options}.
+         * Full constructor.
          *
-         * @param solverOpts TODO: describe
-         * @param thetaConstraint TODO: describe
-         * @param constrained TODO: describe
+         * @param solverOpts      inner-solver knobs forwarded to
+         *                        {@link BzkAdaptiveSolver}
+         * @param thetaConstraint optional per-face theta hard-constraint
+         *                        values (radians); may be {@code null}
+         * @param constrained     companion mask: {@code constrained[f]==true}
+         *                        means {@code thetaConstraint[f]} is active;
+         *                        may be {@code null}
          */
         public Options(BzkAdaptiveSolver.Options solverOpts,
                        double[] thetaConstraint, boolean[] constrained) {

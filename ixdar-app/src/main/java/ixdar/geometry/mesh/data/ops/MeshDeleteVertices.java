@@ -19,12 +19,14 @@ public final class MeshDeleteVertices {
     }
 
     /**
-     * TODO: document {@code delete}.
+     * Delete every vertex flagged in {@code selectionObj}, dropping faces that used any deleted vertex.
      *
-     * @param mesh TODO: describe
-     * @param selectionObj TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param mesh source mesh; treated read-only
+     * @param selectionObj per-vertex {@link BoolField} whose length matches {@code mesh.vertexCount()},
+     *                     or a {@link Boolean} ({@code true} = delete every vertex)
+     * @throws IllegalArgumentException if {@code selectionObj} is a {@link BoolField} of mismatched length
+     * @return new mesh — empty if everything was deleted, a copy of the input if nothing was selected,
+     *         an {@link ArrayMesh} when the input is one, otherwise a {@link HalfEdgeMesh}
      */
     public static MeshTopology delete(MeshTopology mesh, Object selectionObj) {
         if (mesh == null || mesh.vertexCount() == 0) {

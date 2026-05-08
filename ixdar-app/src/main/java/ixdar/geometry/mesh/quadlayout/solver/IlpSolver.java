@@ -39,10 +39,10 @@ public final class IlpSolver {
      * MIP solver works much better with finite bounds; the QGP pipeline can always
      * supply finite bounds from problem geometry.
      *
-     * @param name TODO: describe
-     * @param lowerBound TODO: describe
-     * @param upperBound TODO: describe
-     * @return TODO: describe
+     * @param name       variable label for diagnostics
+     * @param lowerBound inclusive lower bound, or {@code null} for unbounded below
+     * @param upperBound inclusive upper bound, or {@code null} for unbounded above
+     * @return zero-based index of the new variable (matches future coefficient slots)
      */
     public int addIntegerVar(String name, Long lowerBound, Long upperBound) {
         Variable v = model.addVariable(name).integer(true);
@@ -53,12 +53,12 @@ public final class IlpSolver {
     }
 
     /**
-     * TODO: document {@code addContinuousVar}.
+     * Add a continuous (real-valued) variable.
      *
-     * @param name TODO: describe
-     * @param lowerBound TODO: describe
-     * @param upperBound TODO: describe
-     * @return TODO: describe
+     * @param name       variable label for diagnostics
+     * @param lowerBound inclusive lower bound, or {@code null} for unbounded below
+     * @param upperBound inclusive upper bound, or {@code null} for unbounded above
+     * @return zero-based index of the new variable
      */
     public int addContinuousVar(String name, Double lowerBound, Double upperBound) {
         Variable v = model.addVariable(name);
@@ -69,10 +69,10 @@ public final class IlpSolver {
     }
 
     /**
-     * TODO: document {@code addBinaryVar}.
+     * Add a binary (0/1) variable.
      *
-     * @param name TODO: describe
-     * @return TODO: describe
+     * @param name variable label for diagnostics
+     * @return zero-based index of the new variable
      */
     public int addBinaryVar(String name) {
         Variable v = model.addVariable(name).binary();
@@ -84,10 +84,10 @@ public final class IlpSolver {
      * Add a linear constraint Σ c_i x_i (op) rhs. The coefficients array length
      * must equal the number of variables added so far.
      *
-     * @param coefficients TODO: describe
-     * @param op TODO: describe
-     * @param rhs TODO: describe
-     * @throws IllegalArgumentException TODO: describe
+     * @param coefficients per-variable coefficient vector (length must equal {@link #variableCount()})
+     * @param op           comparison operator against {@code rhs}
+     * @param rhs          right-hand-side scalar
+     * @throws IllegalArgumentException if {@code coefficients.length} does not match the variable count
      */
     public void addLinearConstraint(double[] coefficients, Op op, double rhs) {
         if (coefficients.length != vars.size()) {
@@ -109,20 +109,20 @@ public final class IlpSolver {
     }
 
     /**
-     * TODO: document {@code setObjective}.
+     * Convenience overload that defaults to {@link Sense#MINIMIZE}.
      *
-     * @param coefficients TODO: describe
+     * @param coefficients per-variable objective coefficients
      */
     public void setObjective(double[] coefficients) {
         setObjective(coefficients, Sense.MINIMIZE);
     }
 
     /**
-     * TODO: document {@code setObjective}.
+     * Set the linear objective Σ c_i x_i and the optimization sense.
      *
-     * @param coefficients TODO: describe
-     * @param sense TODO: describe
-     * @throws IllegalArgumentException TODO: describe
+     * @param coefficients per-variable objective coefficients (length must equal {@link #variableCount()})
+     * @param sense        whether to minimize or maximize
+     * @throws IllegalArgumentException if {@code coefficients.length} does not match the variable count
      */
     public void setObjective(double[] coefficients, Sense sense) {
         if (coefficients.length != vars.size()) {
@@ -137,9 +137,9 @@ public final class IlpSolver {
     }
 
     /**
-     * TODO: document {@code solve}.
+     * Solve with no time limit.
      *
-     * @return TODO: describe
+     * @return optimal variable values, indexed in the order returned by the {@code add*Var} calls
      */
     public double[] solve() {
         return solveWithTimeLimit(0L);
@@ -150,9 +150,9 @@ public final class IlpSolver {
      * returns the best feasible incumbent found so far if any, else throws.
      * Pass 0 for no limit.
      *
-     * @param timeoutMillis TODO: describe
-     * @throws IllegalStateException TODO: describe
-     * @return TODO: describe
+     * @param timeoutMillis wall-clock budget in milliseconds; pass 0 for unlimited
+     * @throws IllegalStateException if {@link #setObjective(double[])} was not called or the solver returned an infeasible state
+     * @return optimal (or best feasible incumbent on timeout) variable values
      */
     public double[] solveWithTimeLimit(long timeoutMillis) {
         if (objectiveCoeffs == null) {
@@ -179,7 +179,7 @@ public final class IlpSolver {
     /**
      * Get the objective value of the last solve.
      *
-     * @return TODO: describe
+     * @return objective value at the optimum, or {@link Double#NaN} if no objective was set
      */
     public double objectiveValue() {
         if (objectiveCoeffs == null) return Double.NaN;
@@ -188,9 +188,9 @@ public final class IlpSolver {
     }
 
     /**
-     * TODO: document {@code variableCount}.
+     * Number of variables registered with this solver so far.
      *
-     * @return TODO: describe
+     * @return number of variables registered via the {@code add*Var} methods
      */
     public int variableCount() { return vars.size(); }
 

@@ -69,25 +69,26 @@ public final class IterativeSolver {
     }
 
     /**
-     * TODO: document {@code solve}.
+     * Convenience overload using {@link #DEFAULT_TOL} and {@link #DEFAULT_MAX_ITER}.
      *
-     * @param A TODO: describe
-     * @param rhs TODO: describe
-     * @return TODO: describe
+     * @param A   square sparse system matrix
+     * @param rhs right-hand-side vector
+     * @return approximate solution {@code x} (best iterate if the solver did not converge)
      */
     public static double[] solve(MtjSparseMatrix A, double[] rhs) {
         return solve(A, rhs, DEFAULT_TOL, DEFAULT_MAX_ITER);
     }
 
     /**
-     * TODO: document {@code solve}.
+     * Solve {@code A x = rhs} with the default schedule (CG with selected
+     * preconditioner, falling back to BiCGstab on non-convergence).
      *
-     * @param A TODO: describe
-     * @param rhs TODO: describe
-     * @param tol TODO: describe
-     * @param maxIter TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param A       square sparse system matrix
+     * @param rhs     right-hand-side vector of length {@code A.rows()}
+     * @param tol     residual tolerance for the iteration monitor
+     * @param maxIter iteration cap
+     * @throws IllegalArgumentException if {@code A} is not square or {@code rhs} length mismatches
+     * @return approximate solution; on total non-convergence, the best partial iterate
      */
     public static double[] solve(MtjSparseMatrix A, double[] rhs, double tol, int maxIter) {
         if (A.rows() != A.cols()) {
@@ -190,11 +191,11 @@ public final class IterativeSolver {
      * residual norm. Used by stress tests; production callers usually only
      * want the solution.
      *
-     * @param A TODO: describe
-     * @param rhs TODO: describe
-     * @param tol TODO: describe
-     * @param maxIter TODO: describe
-     * @return TODO: describe
+     * @param A       square sparse system matrix
+     * @param rhs     right-hand-side vector
+     * @param tol     residual tolerance forwarded to {@link #solve(MtjSparseMatrix, double[], double, int)}
+     * @param maxIter iteration cap
+     * @return solution wrapped with absolute and relative residual norms
      */
     public static Result solveWithResidual(MtjSparseMatrix A, double[] rhs,
                                            double tol, int maxIter) {

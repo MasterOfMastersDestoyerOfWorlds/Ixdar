@@ -129,22 +129,26 @@ public class Clock {
     }
 
     /**
-     * TODO: document {@code deltaTime}.
+     * Seconds elapsed between the two most recent {@link #frameRendered()}
+     * calls, computed from {@link System#nanoTime()}.
      *
-     * @return TODO: describe
+     * @return delta time of the last completed frame in seconds
      */
     public static double deltaTime() {
         return (double) (System.nanoTime() - lastFrameDouble2) / NUM_1000000000_0;
     }
 
     /**
-     * TODO: document {@code sin}.
+     * Like {@link #oscillate(float, float, float)} with an explicit phase
+     * offset. Samples a sine wave that swings from {@code offset} to
+     * {@code offset + amplitude} at angular frequency {@code freq}, anchored
+     * to Clock startup time and shifted by {@code phase} radians.
      *
-     * @param offset TODO: describe
-     * @param amplitude TODO: describe
-     * @param freq TODO: describe
-     * @param phase TODO: describe
-     * @return TODO: describe
+     * @param offset value at the bottom of the swing
+     * @param amplitude peak-to-peak amplitude
+     * @param freq angular frequency in radians/sec
+     * @param phase phase offset in radians
+     * @return offset plus a cosine-shifted sine in [0, amplitude]
      */
     public static float sin(float offset, float amplitude, float freq, float phase) {
         double timeSeconds = (((double) System.currentTimeMillis()) / NUM_1000_0) - startTimeSeconds;
@@ -152,9 +156,11 @@ public class Clock {
     }
 
     /**
-     * TODO: document {@code fps}.
+     * Running frames-per-second estimate. Each call increments a sample
+     * counter; once a wall-clock second elapses, the counter is published as
+     * the new FPS value and reset. Call once per rendered frame.
      *
-     * @return TODO: describe
+     * @return frames-per-second observed during the previous full second
      */
     public static float fps() {
         int timeSeconds = (int) time();

@@ -25,10 +25,10 @@ public class Glyph {
      * @param x       X coordinate on the font texture
      * @param y       Y coordinate on the font texture
      * @param advance Advance width
-     * @param planeLeft TODO: describe
-     * @param planeBottom TODO: describe
-     * @param planeRight TODO: describe
-     * @param planeTop TODO: describe
+     * @param planeLeft left edge of the glyph quad in EM units relative to the baseline origin
+     * @param planeBottom bottom edge of the glyph quad in EM units relative to the baseline origin
+     * @param planeRight right edge of the glyph quad in EM units relative to the baseline origin
+     * @param planeTop top edge of the glyph quad in EM units relative to the baseline origin
      */
     public Glyph(int width, int height, int x, int y, float advance,
             float planeLeft, float planeBottom, float planeRight, float planeTop) {

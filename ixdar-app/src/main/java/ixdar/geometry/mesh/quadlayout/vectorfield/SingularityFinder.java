@@ -34,10 +34,13 @@ public final class SingularityFinder {
     private SingularityFinder() {}
 
     /**
-     * TODO: document {@code find}.
+     * Detect interior cross-field singularities by walking each interior
+     * vertex's one-ring and computing {@code index_4(v)} from the angle
+     * defect plus signed period-jump sum (see class doc).
      *
-     * @param field TODO: describe
-     * @return TODO: describe
+     * @param field a solved {@link FaceRosyField}
+     * @return list of vertices with non-zero singularity index, with their
+     *         quarter-turn index ({@code +1} = +pi/2 turn, etc.)
      */
     public static List<Singularity> find(FaceRosyField field) {
         ArrayMesh mesh = field.mesh();

@@ -125,18 +125,19 @@ public class CrossField {
     public Map<Integer, Integer> edgeIdToActive;
 
     /**
-     * TODO: document {@code CrossField}.
+     * Wrap a half-edge mesh; defer all field arrays until {@link #build()} runs.
      *
-     * @param mesh TODO: describe
+     * @param mesh half-edge mesh providing geometry, topology, and active-id mapping
      */
     public CrossField(HalfEdgeMesh mesh) {
         this.mesh = mesh;
     }
 
     /**
-     * TODO: document {@code build}.
+     * Run the BZK09 pipeline (A1 frames + κ, A2 constraints, A3 Voronoi forest,
+     * A4 greedy mixed-integer LSQ) and extract singularities.
      *
-     * @return TODO: describe
+     * @return {@code this}, with field arrays populated and singularities filled
      */
     public CrossField build() {
         mesh.computeNormals();
@@ -326,10 +327,11 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code arbitraryTangent}.
+     * Pick an arbitrary unit vector in the tangent plane defined by {@code n}.
+     * Used as a fallback when the natural x-axis collapses to zero length.
      *
-     * @param n TODO: describe
-     * @param out TODO: describe
+     * @param n   unit face normal
+     * @param out scratch vector overwritten with a unit tangent perpendicular to {@code n}
      */
     public static void arbitraryTangent(Vector3f n, Vector3f out) {
         if (Math.abs(n.x) < NUM_0_9)
@@ -344,7 +346,8 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code buildTransportAngles}.
+     * Recompute the per-edge transport angles {@link #kappa} from {@link #faceX}
+     * / {@link #faceY}. Boundary and degenerate edges receive zero κ.
      */
     public void buildTransportAngles() {
         Vector3f v0 = new Vector3f();
@@ -401,9 +404,9 @@ public class CrossField {
     /**
      * Rodrigues rotation: rotate v about unit axis k by angle θ, in place.
      *
-     * @param v TODO: describe
-     * @param k TODO: describe
-     * @param theta TODO: describe
+     * @param v     vector rotated in place
+     * @param k     unit rotation axis
+     * @param theta rotation angle in radians
      */
     public static void rotateAboutAxis(Vector3f v, Vector3f k, float theta) {
         float c = (float) Math.cos(theta);
@@ -420,11 +423,11 @@ public class CrossField {
     /**
      * A2. Directional constraints from principal curvature
      *
-     * @param faceConstrained TODO: describe
-     * @param faceConstraintAngle TODO: describe
-     * @param averageEdgeLength TODO: describe
-     * @param curvatureK TODO: describe
-     * @return TODO: describe
+     * @param faceConstrained     per-face flag, set to true for faces that receive a constraint
+     * @param faceConstraintAngle per-face constraint angle (in face-local frame); written for newly constrained faces
+     * @param averageEdgeLength   pre-computed mean edge length
+     * @param curvatureK          BZK09 §3 mean-curvature threshold
+     * @return number of newly constrained faces
      */
 
     public int applyCurvatureConstraints(boolean[] faceConstrained,
@@ -569,11 +572,11 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code projectedDirectionLength}.
+     * Length of {@code dirWorld} after projection onto face {@code fAi}'s tangent plane.
      *
-     * @param dirWorld TODO: describe
-     * @param fAi TODO: describe
-     * @return TODO: describe
+     * @param dirWorld 3D direction in world coordinates
+     * @param fAi      face active index
+     * @return Euclidean length of the projected vector
      */
     public float projectedDirectionLength(Vector3f dirWorld, int fAi) {
         Vector3f n = new Vector3f();
@@ -586,10 +589,12 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code resolvedTargetEdgeLength}.
+     * Resolve the BZK09 target quad edge length: a fraction of the bounding-box
+     * diagonal, falling back to the supplied mean edge length when the bounds
+     * collapse.
      *
-     * @param averageEdgeLength TODO: describe
-     * @return TODO: describe
+     * @param averageEdgeLength fallback target when the bounding box has zero diagonal
+     * @return the resolved target edge length {@code h}
      */
     public float resolvedTargetEdgeLength(float averageEdgeLength) {
         float target = targetEdgeLengthFractionOfBounds * computeBoundingBoxDiagonal();
@@ -597,9 +602,9 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code computeBoundingBoxDiagonal}.
+     * Bounding-box diagonal length over active vertices.
      *
-     * @return TODO: describe
+     * @return diagonal of the axis-aligned bounding box of the active vertices, or 0 for an empty mesh
      */
     public float computeBoundingBoxDiagonal() {
         if (mesh.vertexCount() == 0) {
@@ -631,9 +636,9 @@ public class CrossField {
      * Project a 3D direction into a face's local (x, y) frame and return atan2(y,
      * x).
      *
-     * @param dirWorld TODO: describe
-     * @param fAi TODO: describe
-     * @return TODO: describe
+     * @param dirWorld 3D direction in world coordinates
+     * @param fAi      face active index
+     * @return signed angle of the projected direction in face-local frame, in radians
      */
     public float projectDirectionToFaceAngle(Vector3f dirWorld, int fAi) {
         Vector3f n = new Vector3f();
@@ -649,9 +654,9 @@ public class CrossField {
     /**
      * Build a tangent-frame (e1, e2) for normal n.
      *
-     * @param n TODO: describe
-     * @param e1 TODO: describe
-     * @param e2 TODO: describe
+     * @param n  unit face normal
+     * @param e1 scratch vector overwritten with a unit tangent perpendicular to {@code n}
+     * @param e2 scratch vector overwritten with {@code n × e1}
      */
     public static void tangentFrame(Vector3f n, Vector3f e1, Vector3f e2) {
         arbitraryTangent(n, e1);
@@ -662,13 +667,13 @@ public class CrossField {
      * Cohen-Steiner integrated curvature tensor over a geodesic disk. Returns [T00,
      * T01, T11] in basis (e1, e2), or null if the disk is empty.
      *
-     * @param vId TODO: describe
-     * @param vPos TODO: describe
-     * @param vNormal TODO: describe
-     * @param e1 TODO: describe
-     * @param e2 TODO: describe
-     * @param radius TODO: describe
-     * @return TODO: describe
+     * @param vId     center vertex id
+     * @param vPos    center vertex position
+     * @param vNormal center vertex normal
+     * @param e1      tangent basis vector 1
+     * @param e2      tangent basis vector 2 (= {@code n × e1})
+     * @param radius  geodesic-disk radius (Dijkstra over 1-skeleton)
+     * @return three-element {@code [T00, T01, T11]} tensor entries, or {@code null} when the disk has no usable triangles
      */
     public float[] integrateCurvatureTensor(int vId, Vector3f vPos, Vector3f vNormal,
             Vector3f e1, Vector3f e2, float radius) {
@@ -772,10 +777,10 @@ public class CrossField {
      * Eigendecomposition of [[t00, t01], [t01, t11]]. Returns [eigBig, eigSmall,
      * angleOfBigEigenvector]; eigenvalues sorted by absolute value.
      *
-     * @param t00 TODO: describe
-     * @param t01 TODO: describe
-     * @param t11 TODO: describe
-     * @return TODO: describe
+     * @param t00 tensor entry [0,0]
+     * @param t01 tensor entry [0,1] = [1,0]
+     * @param t11 tensor entry [1,1]
+     * @return three-element array {@code [eigBig, eigSmall, angleOfBigEigenvector]}; eigenvalues sorted by absolute value
      */
     public static float[] eigSym2x2(float t00, float t01, float t11) {
         float trace = t00 + t11;
@@ -809,9 +814,9 @@ public class CrossField {
     /**
      * Dijkstra over the 1-skeleton from v, edge weights = Euclidean lengths.
      *
-     * @param vId TODO: describe
-     * @param radius TODO: describe
-     * @return TODO: describe
+     * @param vId    source vertex id
+     * @param radius geodesic distance cutoff
+     * @return map from reachable vertex id to its shortest 1-skeleton distance from {@code vId} (always includes {@code vId} at distance 0)
      */
     public Map<Integer, Float> dijkstraWithinRadius(int vId, float radius) {
         Map<Integer, Float> dist = new HashMap<>();
@@ -849,15 +854,17 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code curvatureIntervalStatus}.
+     * Status of the BZK09 §3 curvature stability interval centred at radius
+     * index {@code k}.
      *
-     * @param radii TODO: describe
-     * @param kappaMaxList TODO: describe
-     * @param kappaMinList TODO: describe
-     * @param k TODO: describe
-     * @param stabilityWindow TODO: describe
-     * @param curvatureK TODO: describe
-     * @return TODO: describe
+     * @param radii           geometric series of disk radii
+     * @param kappaMaxList    per-radius {@code |κ_max|}
+     * @param kappaMinList    per-radius {@code |κ_min|}
+     * @param k               index in {@code radii} the interval is centred on
+     * @param stabilityWindow half-window of radii considered in the stability test
+     * @param curvatureK      BZK09 §3 mean-curvature threshold
+     * @return one of {@link #CURVATURE_INTERVAL_VALID}, {@link #CURVATURE_INTERVAL_FAIL_EMPTY},
+     *         {@link #CURVATURE_INTERVAL_FAIL_TAU}, or {@link #CURVATURE_INTERVAL_FAIL_MEAN}
      */
     public int curvatureIntervalStatus(List<Float> radii,
             List<Float> kappaMaxList,
@@ -889,11 +896,11 @@ public class CrossField {
      * Direction jitter at index k: angular std deviation inside the BZK09 stability
      * interval, modulo π (κ_max direction is invariant under +π).
      *
-     * @param angles TODO: describe
-     * @param radii TODO: describe
-     * @param k TODO: describe
-     * @param stabilityWindow TODO: describe
-     * @return TODO: describe
+     * @param angles          per-radius principal-direction angle
+     * @param radii           geometric series of disk radii
+     * @param k               index in {@code radii} the jitter is measured at
+     * @param stabilityWindow half-window of radii contributing to the std deviation
+     * @return RMS angular deviation in radians (mod π); 0 when no neighbours fall inside the window
      */
     public static float directionJitter(List<Float> angles, List<Float> radii, int k, float stabilityWindow) {
         float ak = angles.get(k);
@@ -917,11 +924,12 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code applyBoundaryConstraints}.
+     * Constrain every face incident on a boundary edge so its cross aligns
+     * with the edge direction (BZK09 §A2 boundary rule).
      *
-     * @param faceConstrained TODO: describe
-     * @param faceConstraintAngle TODO: describe
-     * @return TODO: describe
+     * @param faceConstrained     per-face flag, set to true for faces newly constrained
+     * @param faceConstraintAngle per-face constraint angle (face-local) written for newly constrained faces
+     * @return number of newly constrained faces
      */
     public int applyBoundaryConstraints(boolean[] faceConstrained, float[] faceConstraintAngle) {
         Vector3f a = new Vector3f();
@@ -943,13 +951,15 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code constrainBothFacesOfEdge}.
+     * Project {@code edgeDirWorld} into both incident faces of {@code eId} and
+     * record the resulting face-local angle as a constraint, marking faces as
+     * constrained if they were not already.
      *
-     * @param eId TODO: describe
-     * @param edgeDirWorld TODO: describe
-     * @param faceConstrained TODO: describe
-     * @param faceConstraintAngle TODO: describe
-     * @return TODO: describe
+     * @param eId                 edge id whose two incident faces are constrained
+     * @param edgeDirWorld        edge direction in world coordinates
+     * @param faceConstrained     per-face flag, updated for newly constrained faces
+     * @param faceConstraintAngle per-face constraint angle (face-local) overwritten for both incident faces
+     * @return number of newly constrained faces (0, 1, or 2)
      */
     public int constrainBothFacesOfEdge(int eId, Vector3f edgeDirWorld,
             boolean[] faceConstrained,
@@ -976,10 +986,12 @@ public class CrossField {
      */
 
     /**
-     * TODO: document {@code buildVoronoiSpanningForest}.
+     * Multi-source Dijkstra over the dual graph rooted at every constrained
+     * face; the shortest-parent edge of each non-constrained face becomes a
+     * forest edge whose period jump is fixed to zero in BZK09 §A3.
      *
-     * @param faceConstrained TODO: describe
-     * @return TODO: describe
+     * @param faceConstrained per-face flag indicating dual-graph sources
+     * @return active edge ids of the spanning-forest edges
      */
     public Set<Integer> buildVoronoiSpanningForest(boolean[] faceConstrained) {
         int faceCount = mesh.faceCount();
@@ -1053,9 +1065,11 @@ public class CrossField {
      */
 
     /**
-     * TODO: document {@code extractSingularities}.
+     * Compute per-vertex singularity index (×4 to keep integer) from the angle
+     * defect plus signed κ- and period-walks around the 1-ring; populates
+     * {@link #singularityIndexQuarter} and {@link #singularities}.
      *
-     * @return TODO: describe
+     * @return singularity list (also stored in {@link #singularities}); excludes boundary vertices and zero-index interior vertices
      */
     public List<Singularity> extractSingularities() {
         int vertexCount = mesh.vertexCount();
@@ -1104,14 +1118,14 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code interiorAngleAtVertex}.
+     * Interior angle of face {@code fId} at vertex {@code vId}.
      *
-     * @param fId TODO: describe
-     * @param vId TODO: describe
-     * @param vPos TODO: describe
-     * @param a TODO: describe
-     * @param b TODO: describe
-     * @return TODO: describe
+     * @param fId  face id
+     * @param vId  vertex id (must be a corner of {@code fId})
+     * @param vPos position of {@code vId}
+     * @param a    scratch vector overwritten with the previous-corner edge direction
+     * @param b    scratch vector overwritten with the next-corner edge direction
+     * @return angle in radians, or 0 for degenerate triangles or when {@code vId} is not a corner of {@code fId}
      */
     public float interiorAngleAtVertex(int fId, int vId, Vector3f vPos, Vector3f a, Vector3f b) {
         int adj = mesh.faceHalfEdgeCount(fId);
@@ -1138,19 +1152,20 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code printProblemDiagnostics}.
+     * Print one-shot problem-shape diagnostics to stdout (constraint counts,
+     * solver tuning, BZK09 reference targets).
      *
-     * @param averageEdgeLength TODO: describe
-     * @param boundingSphereRadius TODO: describe
-     * @param curvatureK TODO: describe
-     * @param curvatureConstraints TODO: describe
-     * @param boundaryConstraints TODO: describe
-     * @param totalConstraints TODO: describe
-     * @param forestEdgeCount TODO: describe
-     * @param boundaryPeriodFixes TODO: describe
-     * @param constrainedPeriodFixes TODO: describe
-     * @param initiallyFixedPeriods TODO: describe
-     * @param system TODO: describe
+     * @param averageEdgeLength      mean edge length (BZK09 §3 "h" fallback)
+     * @param boundingSphereRadius   mesh bounding-sphere radius
+     * @param curvatureK             BZK09 §3 mean-curvature threshold
+     * @param curvatureConstraints   number of curvature constraints applied
+     * @param boundaryConstraints    number of boundary constraints applied
+     * @param totalConstraints       total constrained faces
+     * @param forestEdgeCount        number of Voronoi-forest edges
+     * @param boundaryPeriodFixes    period jumps fixed to 0 because the edge is on the boundary
+     * @param constrainedPeriodFixes period jumps rounded between two constrained faces
+     * @param initiallyFixedPeriods  per-edge mask of period jumps fixed before the greedy solve
+     * @param system                 assembled smooth-energy linear system
      */
     public void printProblemDiagnostics(float averageEdgeLength,
             float boundingSphereRadius,
@@ -1209,9 +1224,10 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code printSolutionDiagnostics}.
+     * Print one-shot solution-quality diagnostics (solver path counts, residuals,
+     * smoothness energy, singularity histogram) to stdout.
      *
-     * @param system TODO: describe
+     * @param system the smooth-energy linear system after the greedy MIP solve
      */
     public void printSolutionDiagnostics(SmoothEnergySystem system) {
         SmoothnessStats stats = smoothnessStats();
@@ -1235,9 +1251,9 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code smoothnessStats}.
+     * Snapshot of smoothness energy and per-edge residual statistics.
      *
-     * @return TODO: describe
+     * @return aggregate smoothness energy and per-edge residual stats over the current θ / κ / period-jump arrays
      */
     public SmoothnessStats smoothnessStats() {
         float halfPi = (float) (Math.PI / NUM_2_0);
@@ -1263,9 +1279,9 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code singularityHistogram}.
+     * Histogram of singularity indices for the current solution.
      *
-     * @return TODO: describe
+     * @return string representation of the {index ×4 → count} histogram of {@link #singularities}
      */
     public String singularityHistogram() {
         Map<Integer, Integer> histogram = new HashMap<>();
@@ -1276,10 +1292,10 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code countTrue}.
+     * Count the {@code true} entries in a boolean array.
      *
-     * @param values TODO: describe
-     * @return TODO: describe
+     * @param values flag array
+     * @return number of {@code true} entries in {@code values}
      */
     public static int countTrue(boolean[] values) {
         int count = 0;
@@ -1291,9 +1307,9 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code computeAverageEdgeLength}.
+     * Mean Euclidean length of active edges.
      *
-     * @return TODO: describe
+     * @return mean Euclidean length of active edges, or 1 for an empty mesh
      */
     public float computeAverageEdgeLength() {
         Vector3f a = new Vector3f();
@@ -1315,9 +1331,9 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code computeBoundingSphereRadius}.
+     * Bounding-sphere radius proxy from the active vertices.
      *
-     * @return TODO: describe
+     * @return half-diagonal of the active vertices' bounding box (used as a bounding-sphere proxy), or 1 for an empty mesh
      */
     public float computeBoundingSphereRadius() {
         int vertexCount = mesh.vertexCount();
@@ -1349,10 +1365,10 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code faceArea}.
+     * Euclidean area of a triangular face.
      *
-     * @param fId TODO: describe
-     * @return TODO: describe
+     * @param fId face id (assumed triangular)
+     * @return Euclidean area of the triangle whose first half-edge starts the face
      */
     public float faceArea(int fId) {
         int he = mesh.faceHalfEdge(fId);
@@ -1373,11 +1389,11 @@ public class CrossField {
     }
 
     /**
-     * TODO: document {@code canonicalizeMod}.
+     * Reduce {@code angle} into the half-open interval {@code [0, mod)}.
      *
-     * @param angle TODO: describe
-     * @param mod TODO: describe
-     * @return TODO: describe
+     * @param angle angle in radians
+     * @param mod   positive modulus
+     * @return canonical representative of {@code angle} modulo {@code mod}
      */
     public static float canonicalizeMod(float angle, float mod) {
         float r = (float) (angle - mod * Math.floor(angle / mod));
@@ -1395,12 +1411,7 @@ public class CrossField {
             this.vertexOrFace = vertexOrFace;
         }
 
-        /**
-         * TODO: document {@code compareTo}.
-         *
-         * @param other TODO: describe
-         * @return TODO: describe
-         */
+        /** {@inheritDoc} Orders by ascending {@code distance} for the priority queue. */
         @Override
         public int compareTo(DijkstraNode other) {
             return Float.compare(this.distance, other.distance);
@@ -1629,10 +1640,12 @@ public class CrossField {
         }
 
         /**
-         * TODO: document {@code buildBatchCandidates}.
+         * Populate {@code candidates} with the free chords ordered ascending by
+         * roundoff distance to the nearest integer; respects {@link #roundBatchTol}
+         * when batching is on.
          *
-         * @param candidates TODO: describe
-         * @return TODO: describe
+         * @param candidates output array sized at least {@link #chordCount}
+         * @return number of valid entries written to {@code candidates}
          */
         public int buildBatchCandidates(BatchCandidate[] candidates) {
             int candidateCount = 0;
@@ -1676,16 +1689,18 @@ public class CrossField {
         }
 
         /**
-         * TODO: document {@code selectRoundingBatch}.
+         * Pick a non-overlapping subset of {@code candidates} (each variable's
+         * two-hop dependency patch must be disjoint within the batch) of size up
+         * to {@link #roundBatchSize}.
          *
-         * @param candidates TODO: describe
-         * @param candidateCount TODO: describe
-         * @param roundedVariables TODO: describe
-         * @param roundedEdges TODO: describe
-         * @param candidatePatch TODO: describe
-         * @param selectedPatch TODO: describe
-         * @param candidateMarked TODO: describe
-         * @return TODO: describe
+         * @param candidates       roundoff-sorted candidate list
+         * @param candidateCount   valid prefix length of {@code candidates}
+         * @param roundedVariables output buffer for picked variable indices
+         * @param roundedEdges     output buffer for picked edge active indices
+         * @param candidatePatch   scratch buffer for one candidate's patch members
+         * @param selectedPatch    scratch flag array marking variables already claimed by the batch
+         * @param candidateMarked  scratch marker buffer for {@link AdaptiveSolver#collectAffectedPatch}
+         * @return number of variables admitted to the batch
          */
         public int selectRoundingBatch(BatchCandidate[] candidates,
                 int candidateCount,
@@ -1729,7 +1744,7 @@ public class CrossField {
          * Continuous L2 solve with currently-fixed variables held constant. Uses the
          * BZK09 adaptive ladder: local GS, then CG, then direct fallback.
          *
-         * @param roundedVariable TODO: describe
+         * @param roundedVariable variable index just rounded, or negative for the bootstrap (no rounded variable yet)
          */
         void solveRelaxed(int roundedVariable) {
             if (roundedVariable < 0) {
@@ -1783,7 +1798,8 @@ public class CrossField {
         }
 
         /**
-         * TODO: document {@code updateLastDiagnostics}.
+         * Format and stash a one-line diagnostic snapshot in
+         * {@link CrossField#lastDiagnostics} (rounded count, batch / solver / cap stats).
          */
         public void updateLastDiagnostics() {
             int remaining = 0;
@@ -1907,12 +1923,13 @@ public class CrossField {
             }
 
             /**
-             * TODO: document {@code addOffDiagonal}.
+             * Append one off-diagonal entry into the row's CSR slot, advancing the
+             * row's write cursor in {@code cursor}.
              *
-             * @param cursor TODO: describe
-             * @param row TODO: describe
-             * @param col TODO: describe
-             * @param value TODO: describe
+             * @param cursor per-row write cursor (mutated)
+             * @param row    row index of the new entry
+             * @param col    column index of the new entry
+             * @param value  coefficient
              */
             public void addOffDiagonal(int[] cursor, int row, int col, double value) {
                 int i = cursor[row]++;
@@ -1920,66 +1937,37 @@ public class CrossField {
                 rowVal[i] = value;
             }
 
-            /**
-             * TODO: document {@code size}.
-             *
-             * @return TODO: describe
-             */
+            /** {@inheritDoc}. */
             @Override
             public int size() {
                 return variableCount;
             }
 
-            /**
-             * TODO: document {@code diag}.
-             *
-             * @param row TODO: describe
-             * @return TODO: describe
-             */
+            /** {@inheritDoc}. */
             @Override
             public double diag(int row) {
                 return diag[row];
             }
 
-            /**
-             * TODO: document {@code rowStart}.
-             *
-             * @param row TODO: describe
-             * @return TODO: describe
-             */
+            /** {@inheritDoc}. */
             @Override
             public int rowStart(int row) {
                 return rowStart[row];
             }
 
-            /**
-             * TODO: document {@code rowEnd}.
-             *
-             * @param row TODO: describe
-             * @return TODO: describe
-             */
+            /** {@inheritDoc}. */
             @Override
             public int rowEnd(int row) {
                 return rowStart[row + 1];
             }
 
-            /**
-             * TODO: document {@code column}.
-             *
-             * @param cursor TODO: describe
-             * @return TODO: describe
-             */
+            /** {@inheritDoc}. */
             @Override
             public int column(int cursor) {
                 return rowCol[cursor];
             }
 
-            /**
-             * TODO: document {@code value}.
-             *
-             * @param cursor TODO: describe
-             * @return TODO: describe
-             */
+            /** {@inheritDoc}. */
             @Override
             public double value(int cursor) {
                 return rowVal[cursor];

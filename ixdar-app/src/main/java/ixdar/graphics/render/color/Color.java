@@ -58,26 +58,28 @@ public interface Color {
     public static final Color GLSL_SKIP = new ColorRGB(0.98f, 0.96f, 0.70f, "GLSL Skip");
 
     /**
-     * TODO: document {@code toVector3f}.
+     * RGB channels of this color as a {@code (r, g, b)} vector.
      *
-     * @return TODO: describe
+     * @return the color as a vec3
      */
     public Vector3f toVector3f();
 
     /**
-     * TODO: document {@code toVector4f}.
+     * RGBA channels of this color as a {@code (r, g, b, a)} vector.
      *
-     * @return TODO: describe
+     * @return the color as a vec4
      */
     public Vector4f toVector4f();
 
     /**
-     * TODO: document {@code HSBtoRGB}.
+     * Convert HSB (hue/saturation/brightness) to an RGB {@link ColorRGB}.
+     * Mirrors {@link java.awt.Color#HSBtoRGB(float, float, float)} but returns
+     * a {@code Color} instance directly.
      *
-     * @param hue TODO: describe
-     * @param saturation TODO: describe
-     * @param brightness TODO: describe
-     * @return TODO: describe
+     * @param hue hue in [0, 1); fractional turns are taken modulo 1
+     * @param saturation saturation in [0, 1]
+     * @param brightness brightness in [0, 1]
+     * @return new RGB color with 0–255 channels
      */
     public static Color HSBtoRGB(float hue, float saturation, float brightness) {
         int r = 0, g = 0, b = 0;
@@ -126,21 +128,23 @@ public interface Color {
     }
 
     /**
-     * TODO: document {@code getHSBColor}.
+     * Convenience wrapper around {@link #HSBtoRGB(float, float, float)} that
+     * rewraps the result as a {@link ColorRGB}, matching the
+     * {@code java.awt.Color.getHSBColor} signature for callers porting AWT code.
      *
-     * @param h TODO: describe
-     * @param s TODO: describe
-     * @param b TODO: describe
-     * @return TODO: describe
+     * @param h hue in [0, 1)
+     * @param s saturation in [0, 1]
+     * @param b brightness in [0, 1]
+     * @return new RGB color
      */
     public static Color getHSBColor(float h, float s, float b) {
         return new ColorRGB(HSBtoRGB(h, s, b));
     }
 
     /**
-     * TODO: document {@code getName}.
+     * Display name for diagnostics, color pickers, and debug overlays.
      *
-     * @return TODO: describe
+     * @return human-readable color name
      */
     public String getName();
 }

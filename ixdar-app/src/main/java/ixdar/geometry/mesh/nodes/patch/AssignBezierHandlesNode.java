@@ -92,9 +92,10 @@ public class AssignBezierHandlesNode implements MeshNode {
      * nodes (extrude, inset) to rebuild globally consistent handles after they
      * change the mesh.
      *
-     * @param base TODO: describe
-     * @param weight TODO: describe
-     * @return TODO: describe
+     * @param base input bundle whose mesh supplies the topology and vertex positions
+     * @param weight handle-magnitude multiplier on the default quarter-circle tangent length
+     * @return new bundle carrying populated handle/weight slots; returns {@code base} (with weight slot)
+     *         when the mesh is null or has no edges
      */
     public static GeometryBundle computeHandles(GeometryBundle base, float weight) {
         MeshTopology mesh = base.mesh();
@@ -165,12 +166,12 @@ public class AssignBezierHandlesNode implements MeshNode {
      * Handle vector at {@code vert} for edge {@code eid} (offset from vertex),
      * length {@code handleMag}.
      *
-     * @param mesh TODO: describe
-     * @param eid TODO: describe
-     * @param vert TODO: describe
-     * @param meshCenter TODO: describe
-     * @param handleMag TODO: describe
-     * @param dest TODO: describe
+     * @param mesh source topology
+     * @param eid edge whose handle is being computed
+     * @param vert endpoint vertex of {@code eid} the handle is anchored at
+     * @param meshCenter precomputed centroid used to bias the fallback direction outward
+     * @param handleMag target handle length
+     * @param dest receives the handle offset vector (overwritten on every call)
      */
     private static void handleOffsetAtVertex(
             MeshTopology mesh,

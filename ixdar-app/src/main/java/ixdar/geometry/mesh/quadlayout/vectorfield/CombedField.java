@@ -44,69 +44,71 @@ public final class CombedField {
     }
 
     /**
-     * TODO: document {@code field}.
+     * Source rosy field this combing was computed from.
      *
-     * @return TODO: describe
+     * @return the underlying {@link FaceRosyField} this combing was derived from
      */
     public FaceRosyField field() { return field; }
 
     /**
-     * TODO: document {@code branch}.
+     * Branch (rotation index) chosen for {@code faceId}.
      *
-     * @param faceId TODO: describe
-     * @return TODO: describe
+     * @param faceId active face id
+     * @return chosen branch index in {@code {0, 1, 2, 3}} for this face
      */
     public int branch(int faceId) { return branch[faceId]; }
 
     /**
-     * TODO: document {@code combedAngle}.
+     * Combed direction at {@code faceId}, including the chosen branch rotation.
      *
-     * @param faceId TODO: describe
-     * @return TODO: describe
+     * @param faceId active face id
+     * @return {@code theta(faceId) + branch(faceId) * pi/2}, the unique combed
+     *         angle in the face's local frame
      */
     public double combedAngle(int faceId) {
         return field.theta(faceId) + branch[faceId] * (Math.PI * NUM_0_5);
     }
 
     /**
-     * TODO: document {@code matching}.
+     * Residual matching across an interior edge after combing.
      *
-     * @param interiorEdgeIndex TODO: describe
-     * @return TODO: describe
+     * @param interiorEdgeIndex index in {@code [0, interiorEdgeCount)}
+     * @return residual matching {@code r_e in {0,1,2,3}} after combing
      */
     public int matching(int interiorEdgeIndex) { return matching[interiorEdgeIndex]; }
 
     /**
-     * TODO: document {@code isSeamEdge}.
+     * Whether {@code interiorEdgeIndex} lies on the seam.
      *
-     * @param interiorEdgeIndex TODO: describe
-     * @return TODO: describe
+     * @param interiorEdgeIndex index in {@code [0, interiorEdgeCount)}
+     * @return {@code true} iff the residual matching is non-zero (this edge
+     *         is part of the seam)
      */
     public boolean isSeamEdge(int interiorEdgeIndex) { return seamEdge[interiorEdgeIndex]; }
 
     /**
-     * TODO: document {@code copyBranch}.
+     * Snapshot of the per-face branch assignments.
      *
-     * @return TODO: describe
+     * @return defensive copy of the per-face branch array
      */
     public int[] copyBranch() { return Arrays.copyOf(branch, branch.length); }
     /**
-     * TODO: document {@code copyMatching}.
+     * Snapshot of the per-edge residual matching assignments.
      *
-     * @return TODO: describe
+     * @return defensive copy of the per-edge matching array
      */
     public int[] copyMatching() { return Arrays.copyOf(matching, matching.length); }
     /**
-     * TODO: document {@code copySeamEdge}.
+     * Snapshot of the per-edge seam mask.
      *
-     * @return TODO: describe
+     * @return defensive copy of the per-edge seam-edge mask
      */
     public boolean[] copySeamEdge() { return Arrays.copyOf(seamEdge, seamEdge.length); }
 
     /**
-     * TODO: document {@code seamEdgeIndices}.
+     * Enumerate the interior-edge indices that lie on the seam.
      *
-     * @return TODO: describe
+     * @return interior-edge indices of every seam edge
      */
     public List<Integer> seamEdgeIndices() {
         ArrayList<Integer> out = new ArrayList<>();
@@ -115,9 +117,9 @@ public final class CombedField {
     }
 
     /**
-     * TODO: document {@code seamEdgeCount}.
+     * Total number of seam edges in this combing.
      *
-     * @return TODO: describe
+     * @return number of seam edges (edges with non-zero residual matching)
      */
     public int seamEdgeCount() {
         int c = 0;
@@ -134,12 +136,15 @@ public final class CombedField {
      * ({@code branch.length == field.faceCount()},
      * {@code matching.length == seamEdge.length == field.interiorEdgeCount()}).
      *
-     * @param field TODO: describe
-     * @param branch TODO: describe
-     * @param matching TODO: describe
-     * @param seamEdge TODO: describe
-     * @throws IllegalArgumentException TODO: describe
-     * @return TODO: describe
+     * @param field    a solved {@link FaceRosyField}
+     * @param branch   per-face branch index, length {@code field.faceCount()}
+     * @param matching per-interior-edge residual matching, length
+     *                 {@code field.interiorEdgeCount()}
+     * @param seamEdge per-interior-edge seam mask, same length as {@code matching}
+     * @throws IllegalArgumentException if any array length is inconsistent
+     *                                  with {@code field}
+     * @return a {@code CombedField} populated from defensive copies of the
+     *         supplied arrays
      */
     public static CombedField fromExternal(FaceRosyField field, int[] branch,
                                            int[] matching, boolean[] seamEdge) {
@@ -161,8 +166,8 @@ public final class CombedField {
      * propagating the branch choice. Non-tree edges retain the residual
      * matching as seam edges.
      *
-     * @param field TODO: describe
-     * @return TODO: describe
+     * @param field a solved {@link FaceRosyField}
+     * @return combed branches, residual matchings, and seam-edge mask
      */
     public static CombedField comb(FaceRosyField field) {
         int F = field.faceCount();
@@ -242,11 +247,15 @@ public final class CombedField {
      * on face {@code from} (which is one endpoint of the edge), return the
      * branch index for the OTHER face such that the matching residual is zero.
      *
-     * @param field TODO: describe
-     * @param e TODO: describe
-     * @param b TODO: describe
-     * @param from TODO: describe
-     * @return TODO: describe
+     * @param field solved cross field
+     * @param e     interior edge index
+     * @param b     branch index already fixed on face {@code from} (unused,
+     *              the residual is determined entirely by {@code m_e} and
+     *              traversal direction)
+     * @param from  face id we are stepping out of (one of edge {@code e}'s
+     *              two faces)
+     * @return branch increment to apply to the other face so that the
+     *         residual matching across this edge is zero
      */
     private static int matchingFor(FaceRosyField field, int e, int b, int from) {
         int m = field.periodJump(e);

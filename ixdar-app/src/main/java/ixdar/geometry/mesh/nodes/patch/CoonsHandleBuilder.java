@@ -41,9 +41,9 @@ public final class CoonsHandleBuilder {
      * Packs a directed vertex pair {@code (from, to)} into a stable long key
      * for the per-edge handle map.
      *
-     * @param from TODO: describe
-     * @param to TODO: describe
-     * @return TODO: describe
+     * @param from start vertex id
+     * @param to end vertex id
+     * @return packed {@code long} key suitable for use in a {@link Map}
      */
     public static long dirPack(int from, int to) {
         return ((long) from << NUM_32) | (to & NUM_0xffffffff);
@@ -54,10 +54,10 @@ public final class CoonsHandleBuilder {
      * zeros if the stored array is shorter than needed for {@code mesh}'s edge
      * IDs. Returns zero-filled array when the slot is absent or not a float[].
      *
-     * @param base TODO: describe
-     * @param slotName TODO: describe
-     * @param mesh TODO: describe
-     * @return TODO: describe
+     * @param base bundle to read from
+     * @param slotName slot key, typically {@link AssignBezierHandlesNode#SLOT_HANDLES_START} or {@code _END}
+     * @param mesh mesh whose edge IDs determine the required array length
+     * @return float array of length {@code (maxEdgeId + 1) * 3}, zero-padded as needed
      */
     public static float[] readHandleSlot(GeometryBundle base, String slotName, MeshTopology mesh) {
         Object o = base.slots().get(slotName);
@@ -79,8 +79,8 @@ public final class CoonsHandleBuilder {
      * slot — a cheap check for whether a node should take its curve-preserving
      * path vs its straight-math fallback.
      *
-     * @param base TODO: describe
-     * @return TODO: describe
+     * @param base bundle to inspect
+     * @return {@code true} if start-handle data is present and non-empty
      */
     public static boolean hasHandles(GeometryBundle base) {
         Object o = base.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_START);
@@ -91,8 +91,8 @@ public final class CoonsHandleBuilder {
      * Returns {@code max(mesh.edgeIdAt(i))} across all edges in {@code mesh}, or
      * 0 for an empty mesh.
      *
-     * @param mesh TODO: describe
-     * @return TODO: describe
+     * @param mesh mesh to scan
+     * @return largest active edge id, or 0 if no edges exist
      */
     public static int maxEdgeId(MeshTopology mesh) {
         int max = 0;
@@ -112,12 +112,12 @@ public final class CoonsHandleBuilder {
      * half-edge — if {@code fromVid} is the canonical end, the returned array is
      * reversed (and handle offsets swapped) to match the requested direction.
      *
-     * @param mesh TODO: describe
-     * @param hStart TODO: describe
-     * @param hEnd TODO: describe
-     * @param eid TODO: describe
-     * @param fromVid TODO: describe
-     * @return TODO: describe
+     * @param mesh source topology
+     * @param hStart start-handle slot data ({@code 3 * eid} indexed)
+     * @param hEnd end-handle slot data ({@code 3 * eid} indexed)
+     * @param eid edge id
+     * @param fromVid endpoint of {@code eid} that should map to {@code P0}
+     * @return four-element {@code [P0, P1, P2, P3]} array
      */
     public static Vector3f[] getEdgeControlPoints(MeshTopology mesh, float[] hStart, float[] hEnd,
             int eid, int fromVid) {
@@ -147,12 +147,12 @@ public final class CoonsHandleBuilder {
      * de Casteljau split of the cubic bezier {@code (p0, p1, p2, p3)} at
      * parameter {@code t ∈ [0, 1]}. Does not mutate the inputs.
      *
-     * @param p0 TODO: describe
-     * @param p1 TODO: describe
-     * @param p2 TODO: describe
-     * @param p3 TODO: describe
-     * @param t TODO: describe
-     * @return TODO: describe
+     * @param p0 first control point
+     * @param p1 second control point
+     * @param p2 third control point
+     * @param p3 fourth control point
+     * @param t split parameter in {@code [0, 1]}
+     * @return {@link SplitResult} with the split point and the four interior control points
      */
     public static SplitResult split(Vector3f p0, Vector3f p1, Vector3f p2, Vector3f p3, float t) {
         Vector3f a = new Vector3f(p0).lerp(p1, t);
@@ -177,11 +177,11 @@ public final class CoonsHandleBuilder {
      * When two input edges map onto the same output edge (duplicates), the
      * first one wins.
      *
-     * @param inHStart TODO: describe
-     * @param inHEnd TODO: describe
-     * @param inMesh TODO: describe
-     * @param outMesh TODO: describe
-     * @param weldDist TODO: describe
+     * @param inHStart start-handle data on the input mesh, indexed by input edge id
+     * @param inHEnd end-handle data on the input mesh, indexed by input edge id
+     * @param inMesh pre-weld mesh
+     * @param outMesh post-weld mesh
+     * @param weldDist weld tolerance used to match input vertices to output vertices (matched within {@code 2 * weldDist})
      * @return the resulting {@code [hStart, hEnd]} arrays indexed by output
      *         edge ID, or {@code null} if either input mesh or output mesh is
      *         null or empty.
@@ -259,8 +259,8 @@ public final class CoonsHandleBuilder {
      * </ul>
      * Missing entries default to zero.
      *
-     * @param outMesh TODO: describe
-     * @param dh TODO: describe
+     * @param outMesh output mesh providing canonical edge directions
+     * @param dh directed-handle map keyed by {@link #dirPack(int, int)}
      * @return float[] array of length 2: {@code [0] = hStart, [1] = hEnd}, both
      *         indexed by {@code eid * 3}.
      */
@@ -296,12 +296,12 @@ public final class CoonsHandleBuilder {
      * Vector3f, Vector3f, float, Vector3f)} when you have a destination to
      * reuse.
      *
-     * @param p0 TODO: describe
-     * @param p1 TODO: describe
-     * @param p2 TODO: describe
-     * @param p3 TODO: describe
-     * @param t TODO: describe
-     * @return TODO: describe
+     * @param p0 first control point
+     * @param p1 second control point
+     * @param p2 third control point
+     * @param p3 fourth control point
+     * @param t parameter in {@code [0, 1]}
+     * @return newly-allocated {@link Vector3f} with the curve sample
      */
     public static Vector3f cubicBezier(Vector3f p0, Vector3f p1, Vector3f p2, Vector3f p3, float t) {
         Vector3f dest = new Vector3f();
@@ -312,12 +312,12 @@ public final class CoonsHandleBuilder {
     /**
      * Evaluates a cubic Bezier at {@code t}, writing into {@code dest}.
      *
-     * @param p0 TODO: describe
-     * @param p1 TODO: describe
-     * @param p2 TODO: describe
-     * @param p3 TODO: describe
-     * @param t TODO: describe
-     * @param dest TODO: describe
+     * @param p0 first control point
+     * @param p1 second control point
+     * @param p2 third control point
+     * @param p3 fourth control point
+     * @param t parameter in {@code [0, 1]}
+     * @param dest output vector overwritten with the curve sample
      */
     public static void cubicBezier(
             Vector3f p0, Vector3f p1, Vector3f p2, Vector3f p3, float t, Vector3f dest) {
@@ -341,13 +341,13 @@ public final class CoonsHandleBuilder {
      * control points, guaranteeing bitwise-identical output for the two faces
      * sharing this edge. Mirrors the convention in CoonsPatchNode.
      *
-     * @param mesh TODO: describe
-     * @param hStart TODO: describe
-     * @param hEnd TODO: describe
-     * @param eid TODO: describe
-     * @param expectedStartVid TODO: describe
-     * @param t TODO: describe
-     * @return TODO: describe
+     * @param mesh source topology
+     * @param hStart start-handle slot data
+     * @param hEnd end-handle slot data
+     * @param eid edge id of the curve to sample
+     * @param expectedStartVid endpoint of {@code eid} that {@code t = 0} should align with
+     * @param t parameter in {@code [0, 1]}
+     * @return curve sample
      */
     public static Vector3f evalFaceEdgeAt(
             MeshTopology mesh, float[] hStart, float[] hEnd,
@@ -368,8 +368,8 @@ public final class CoonsHandleBuilder {
      * Smootherstep — the same easing {@link CoonsPatchNode} uses for its
      * bilinear blend, so surface samples match.
      *
-     * @param t TODO: describe
-     * @return TODO: describe
+     * @param t parameter, expected in {@code [0, 1]}
+     * @return eased value
      */
     public static float smootherStep(float t) {
         return t * t * t * (t * (t * NUM_6 - NUM_15) + NUM_10);
@@ -387,19 +387,19 @@ public final class CoonsHandleBuilder {
      * boundary of the parameter square, the finite difference is one-sided
      * toward the interior.
      *
-     * @param mesh TODO: describe
-     * @param hStart TODO: describe
-     * @param hEnd TODO: describe
-     * @param v0 TODO: describe
-     * @param v1 TODO: describe
-     * @param v3 TODO: describe
-     * @param e0 TODO: describe
-     * @param e1 TODO: describe
-     * @param e2 TODO: describe
-     * @param e3 TODO: describe
-     * @param u TODO: describe
-     * @param v TODO: describe
-     * @return TODO: describe
+     * @param mesh source topology
+     * @param hStart start-handle slot data
+     * @param hEnd end-handle slot data
+     * @param v0 corner at {@code (u=0, v=0)}
+     * @param v1 corner at {@code (u=1, v=0)}
+     * @param v3 corner at {@code (u=0, v=1)}
+     * @param e0 v0 to v1 edge id
+     * @param e1 v1 to v2 edge id
+     * @param e2 v3 to v2 edge id
+     * @param e3 v0 to v3 edge id
+     * @param u parameter in {@code [0, 1]}
+     * @param v parameter in {@code [0, 1]}
+     * @return unit normal at {@code (u, v)}; zero-length if the surface degenerates
      */
     public static Vector3f coonsSurfaceNormal(
             MeshTopology mesh, float[] hStart, float[] hEnd,
@@ -447,19 +447,19 @@ public final class CoonsHandleBuilder {
      * Matches {@link CoonsPatchNode}'s bilinear blend with smootherStep
      * easing.
      *
-     * @param mesh TODO: describe
-     * @param hStart TODO: describe
-     * @param hEnd TODO: describe
-     * @param v0 TODO: describe
-     * @param v1 TODO: describe
-     * @param v3 TODO: describe
-     * @param e0 TODO: describe
-     * @param e1 TODO: describe
-     * @param e2 TODO: describe
-     * @param e3 TODO: describe
-     * @param u TODO: describe
-     * @param v TODO: describe
-     * @return TODO: describe
+     * @param mesh source topology
+     * @param hStart start-handle slot data
+     * @param hEnd end-handle slot data
+     * @param v0 corner at {@code (u=0, v=0)}
+     * @param v1 corner at {@code (u=1, v=0)}
+     * @param v3 corner at {@code (u=0, v=1)}
+     * @param e0 v0 to v1 edge id
+     * @param e1 v1 to v2 edge id
+     * @param e2 v3 to v2 edge id
+     * @param e3 v0 to v3 edge id
+     * @param u parameter in {@code [0, 1]}
+     * @param v parameter in {@code [0, 1]}
+     * @return surface position at {@code (u, v)}
      */
     public static Vector3f evalCoonsSurface(
             MeshTopology mesh, float[] hStart, float[] hEnd,
