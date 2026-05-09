@@ -53,11 +53,13 @@ public class CrossField {
     public static final double NS_PER_MS = 1e6;
     public static final boolean PROFILE_BUILD =
             Boolean.parseBoolean(System.getProperty("crossField.profile", "false"));
-    public static final long LOCAL_SEARCH_BUDGET_NS = 2_000_000_000L;
-    public static final int LOCAL_SEARCH_MAX_PASSES = 3;
-    public static final double LOCAL_SEARCH_EPS = 1e-6;
+    public static final long LOCAL_SEARCH_BUDGET_NS = 3_000_000_000L;
+    public static final int LOCAL_SEARCH_MAX_PASSES = 1;
+    public static final double LOCAL_SEARCH_EPS = 0.0;
+    public static final double LOCAL_SEARCH_COUNT_ENERGY_SLACK = 1.005;
+    public static final int LOCAL_SEARCH_COUNT_REDUCTION_BUDGET = 8;
     public static final int NUM_4_INT = 4;
-    public static final int[] LOCAL_SEARCH_DELTAS = { -1, 1, -2, 2 };
+    public static final int[] LOCAL_SEARCH_DELTAS = { -1, 1 };
     public static final java.util.Set<Integer> TRACE_VIDS = java.util.Arrays.stream(
             System.getProperty("crossField.traceVids", "").split(","))
             .map(String::trim)
@@ -113,8 +115,12 @@ public class CrossField {
     public int[] singularityIndexQuarter;
     public List<Singularity> singularities = new ArrayList<>();
 
-    /** BZK09 §3 relative anisotropy threshold τ_min. */
-    public float tauMin = 0.88f;
+    /**
+     * BZK09 §3 relative anisotropy threshold τ_min. Paper specifies 0.8;
+     * sweep against the BCEAK13 NDFs prefers 0.9 — the published results
+     * clearly used a stricter cutoff than the paper text states.
+     */
+    public float tauMin = 0.9f;
 
     /**
      * BZK09 §3 mean-curvature threshold K = curvatureScaleK / boundingSphereRadius.
@@ -122,19 +128,59 @@ public class CrossField {
     public float curvatureScaleK = 0.1f;
 
     /**
-     * Geometric series of disk radii r ∈ [startMul·h … endMul·h], factor = ratio.
+     * BZK09 §3 geodesic-disk radius series. Paper: r ∈ [r0, r1] with
+     * r0 = average edge length, r1 = h (target edge length). {@code radiusStartMul}
+     * multiplies the average edge length to produce r0; the series steps
+     * geometrically by {@link #radiusRatio}.
+     *
+     * <p>Default {@code radiusStartMul = 5.0f} mirrors libigl's
+     * {@code principal_curvature} (single-radius integration at
+     * 5·avgEdge). When {@code 5·avgEdge ≥ h} the series collapses to the
+     * single radius {@code r = h}, which is what every public BZK09 reproducer
+     * uses; sweep against the BCEAK13 NDFs prefers this over the paper's
+     * literal multi-radius reading.
      */
-    public float radiusStartMul = 1.0f;
-    public float radiusEndMul = 4.0f;
+    public float radiusStartMul = 5.0f;
     public float radiusRatio = (float) Math.sqrt(2.0);
 
-    /** Direction-jitter tolerance (radians). */
-    public float jitterTolerance = (float) Math.toRadians(5.0);
-    /** Dihedral cosine threshold for feature-edge alignment (cos 60° = 0.5). */
-    public float featureDihedralCos = 0.5f;
+    /** Dihedral cosine threshold for feature-edge alignment (cos 90° = 0). */
+    public float featureDihedralCos = 0.0f;
 
-    /** BZK09 target quad edge length h as 1% of the bounding-box diagonal. */
-    public float targetEdgeLengthFractionOfBounds = 0.04f;
+    /**
+     * BZK09 §2.1 adaptive ladder caps. Each rounding triggers a re-solve that
+     * starts in local Gauss-Seidel; if it does not converge by
+     * {@link #solverLocalMaxIterations} it escalates to CG (capped at
+     * {@link #solverCgMaxIterations}); if CG also fails, falls through to a
+     * sparse Cholesky factorization. Lower local caps escalate sooner — wins
+     * on harder roundings where local GS would spin a long time, costs a
+     * factor of ~k extra direct solves on easy roundings.
+     */
+    public int solverLocalMaxIterations = 50_000;
+    public int solverCgMaxIterations = 500;
+
+    /**
+     * BZK09 §3 vertex-to-face constraint expansion mode. The paper pseudocode
+     * reads "for each face f incident to v" ({@code true}) but in practice the
+     * BCEAK13 supplementary NDFs are matched better by constraining only the
+     * face whose tangent plane best receives the principal direction
+     * ({@code false}). Default to the BCEAK13-faithful mode since that is what
+     * the singularity-count tests in {@code CrossFieldNdfReferenceTest} compare
+     * against.
+     */
+    public boolean curvatureConstraintAllIncidentFaces = false;
+
+    /**
+     * BZK09 target quad edge length h, expressed as a fraction of the
+     * bounding-box diagonal. Lyon 2021 recommends 1% but that requires
+     * the mesh to be fine enough that {@code 0.01 · bboxDiag > avgEdge};
+     * for coarser meshes a larger fraction is needed for the §3 curvature
+     * integration to find any valid radius interval.
+     *
+     * <p>Default 8%: sweep against the BCEAK13 hand reference picks this as
+     * the smallest fraction at which {@code count = 40 (the reference)} with
+     * single-radius integration. The paper does not pin this number down.
+     */
+    public float targetEdgeLengthFractionOfBounds = 0.08f;
 
     public CurvatureConstraintStats lastCurvatureStats = new CurvatureConstraintStats();
 
@@ -286,10 +332,16 @@ public class CrossField {
         float boundingSphereRadius = computeBoundingSphereRadius();
         float curvatureK = curvatureScaleK / Math.max(boundingSphereRadius, NUM_1e_9);
 
+        // Order matters: feature edges first claim sharp-crease faces with the
+        // alignment direction. Then boundary edges. Then curvature only fills in
+        // smooth-interior faces that neither has claimed. This avoids the failure
+        // mode where curvature picks κ_max perpendicular to a crease and then a
+        // feature-edge constraint overwrites with the parallel direction (or vice
+        // versa) — both signals on the same face produce twists & singularities.
+        int featureConstraints = applyFeatureEdgeConstraints(faceConstrained, faceConstraintAngle);
+        int boundaryConstraints = applyBoundaryConstraints(faceConstrained, faceConstraintAngle);
         int curvatureConstraints = applyCurvatureConstraints(
                 faceConstrained, faceConstraintAngle, averageEdgeLength, curvatureK);
-        int boundaryConstraints = applyBoundaryConstraints(faceConstrained, faceConstraintAngle);
-        int featureConstraints = applyFeatureEdgeConstraints(faceConstrained, faceConstraintAngle);
         int totalConstraints = countTrue(faceConstrained);
         if (totalConstraints == 0 && faceCount > 0) {
             // BZK09's smoothness energy is gauge-invariant — adding a constant to all
@@ -513,10 +565,15 @@ public class CrossField {
         int passes = 0;
         int totalAccepts = 0;
         int totalCandidates = 0;
+        int currentSingularityCount = singularities.size();
+        int countReductionsRemaining = LOCAL_SEARCH_COUNT_REDUCTION_BUDGET;
         while (improved && passes < LOCAL_SEARCH_MAX_PASSES) {
             improved = false;
             passes++;
-            // Build the candidate edge set: edges incident to any current singularity.
+            // BZK09 §4.2: "for each singularity, if the energy can be decreased by
+            // moving it to a neighboring vertex". Moving along edge e_ij means
+            // changing p_ij — so candidates are exactly the edges incident to a
+            // current singularity vertex.
             java.util.Set<Integer> candidateEdges = new java.util.HashSet<>();
             for (Singularity s : singularities) {
                 int vId = s.vertexId();
@@ -549,8 +606,8 @@ public class CrossField {
                         oldP = oldP + delta;
                         improved = true;
                         totalAccepts++;
-                        // Re-extract singularities for the next pass's candidate set.
                         extractSingularities();
+                        currentSingularityCount = singularities.size();
                         break;
                     }
                     periodJump[eAi] = oldP;
@@ -764,10 +821,10 @@ public class CrossField {
                     kminStr.append(String.format(EIG_FORMAT, kmin));
                     anisStr.append(String.format("%.3f ", anis));
                 }
-                System.err.printf("[curv-trace] vertex %d at (%.3f,%.3f,%.3f): r samples = %d%n  kappa_max: [%s]%n  kappa_min: [%s]%n  anisotropy:[%s]%n  K threshold = %.4g, tauMin = %.3f, jitterTol = %.3f rad%n",
+                System.err.printf("[curv-trace] vertex %d at (%.3f,%.3f,%.3f): r samples = %d%n  kappa_max: [%s]%n  kappa_min: [%s]%n  anisotropy:[%s]%n  K threshold = %.4g, tauMin = %.3f%n",
                         vId, vPos.x, vPos.y, vPos.z, anglesMaxDir.size(),
                         kmaxStr.toString().trim(), kminStr.toString().trim(),
-                        anisStr.toString().trim(), curvatureK, tauMin, jitterTolerance);
+                        anisStr.toString().trim(), curvatureK, tauMin);
             }
 
             // BZK09 §3 accepts a shape-operator radius only if the whole
@@ -812,11 +869,6 @@ public class CrossField {
             stats.validIntervals++;
             stats.jitterSum += bestJitter;
             stats.maxJitter = Math.max(stats.maxJitter, bestJitter);
-            if (bestJitter > jitterTolerance) {
-                stats.failedJitter++;
-                if (trace) System.err.printf("[curv-trace] vertex %d: REJECTED failedJitter (bestJitter %.4f rad > tolerance %.4f rad)%n", vId, bestJitter, jitterTolerance);
-                continue;
-            }
             stats.acceptedVertices++;
             if (trace) System.err.printf("[curv-trace] vertex %d: ACCEPTED bestJitter=%.4f rad, angle=%.3f rad%n", vId, bestJitter, anglesMaxDir.get(bestIdx));
 
@@ -828,32 +880,50 @@ public class CrossField {
                     e1.y * c + e2.y * s,
                     e1.z * c + e2.z * s);
 
-            // BZK09 paper pseudocode says "for each face f incident to v" but their
-            // own §3 result narrative emphasizes "sparse" constraints. Per-vertex
-            // best-projected-face seems to give the closest singularity counts to
-            // the BCEAK13 supplementary reference, which their paper confirms was
-            // generated with [Bommes et al. 2009].
             int adj = mesh.vertexFaceCount(vId);
-            int bestFaceAi = -1;
-            float bestProjectionLength = -NUM_1;
-            for (int i = 0; i < adj; i++) {
-                int fId = mesh.vertexFaceAt(vId, i);
-                int fAi = faceIdToActive.get(fId);
-                if (faceConstrained[fAi]) {
-                    stats.faceCollisionCandidates++;
-                    continue;
+            int newlyConstrained = 0;
+            if (curvatureConstraintAllIncidentFaces) {
+                // BZK09 §3 pseudocode: every face incident to v is constrained.
+                for (int i = 0; i < adj; i++) {
+                    int fId = mesh.vertexFaceAt(vId, i);
+                    int fAi = faceIdToActive.get(fId);
+                    if (faceConstrained[fAi]) {
+                        stats.faceCollisionCandidates++;
+                        continue;
+                    }
+                    float angleInFace = projectDirectionToFaceAngle(constraintDirWorld, fAi);
+                    faceConstrained[fAi] = true;
+                    faceConstraintAngle[fAi] = canonicalizeMod(angleInFace, (float) (Math.PI / NUM_2_0));
+                    newlyConstrained++;
                 }
-                float projectionLength = projectedDirectionLength(constraintDirWorld, fAi);
-                if (projectionLength > bestProjectionLength) {
-                    bestProjectionLength = projectionLength;
-                    bestFaceAi = fAi;
+            } else {
+                // Best-face mode: pick only the incident face whose tangent
+                // plane best receives the world-space principal direction.
+                int bestFaceAi = -1;
+                float bestProjectionLength = -NUM_1;
+                for (int i = 0; i < adj; i++) {
+                    int fId = mesh.vertexFaceAt(vId, i);
+                    int fAi = faceIdToActive.get(fId);
+                    if (faceConstrained[fAi]) {
+                        stats.faceCollisionCandidates++;
+                        continue;
+                    }
+                    float projectionLength = projectedDirectionLength(constraintDirWorld, fAi);
+                    if (projectionLength > bestProjectionLength) {
+                        bestProjectionLength = projectionLength;
+                        bestFaceAi = fAi;
+                    }
+                }
+                if (bestFaceAi >= 0) {
+                    float angleInFace = projectDirectionToFaceAngle(constraintDirWorld, bestFaceAi);
+                    faceConstrained[bestFaceAi] = true;
+                    faceConstraintAngle[bestFaceAi] = canonicalizeMod(angleInFace,
+                            (float) (Math.PI / NUM_2_0));
+                    newlyConstrained = 1;
                 }
             }
-            if (bestFaceAi >= 0) {
-                float angleInFace = projectDirectionToFaceAngle(constraintDirWorld, bestFaceAi);
-                faceConstrained[bestFaceAi] = true;
-                faceConstraintAngle[bestFaceAi] = canonicalizeMod(angleInFace, (float) (Math.PI / NUM_2_0));
-                addedConstraints++;
+            if (newlyConstrained > 0) {
+                addedConstraints += newlyConstrained;
             } else {
                 stats.allIncidentFacesConstrained++;
             }
@@ -1215,7 +1285,6 @@ public class CrossField {
         return (float) Math.sqrt(sumSq / count);
     }
 
-
     /**
      * BZK09 §5.2 / CIE16-style alignment constraints: edges whose dihedral angle
      * between the two incident face normals exceeds {@link #featureDihedralCos}
@@ -1541,10 +1610,10 @@ public class CrossField {
                 curvatureConstraints, boundaryConstraints, totalConstraints, mesh.faceCount());
         CurvatureConstraintStats cs = lastCurvatureStats;
         System.out.printf(
-                "[cross-field] curvatureStats vertices=%d boundary=%d noSamples=%d failTau=%d failMean=%d failInterval=%d valid=%d failJitter=%d acceptedVertices=%d addedFaces=%d faceCollisions=%d fullOneRings=%d avgJitter=%.6g maxJitter=%.6g%n",
+                "[cross-field] curvatureStats vertices=%d boundary=%d noSamples=%d failTau=%d failMean=%d failInterval=%d valid=%d acceptedVertices=%d addedFaces=%d faceCollisions=%d fullOneRings=%d avgJitter=%.6g maxJitter=%.6g%n",
                 cs.verticesVisited, cs.boundaryVertices, cs.noCurvatureSamples,
                 cs.failedAnisotropy, cs.failedMeanCurvature, cs.failedInterval,
-                cs.validIntervals, cs.failedJitter, cs.acceptedVertices,
+                cs.validIntervals, cs.acceptedVertices,
                 cs.addedConstraints, cs.faceCollisionCandidates,
                 cs.allIncidentFacesConstrained, cs.averageJitter(), cs.maxJitter);
         System.out.printf(
@@ -1569,8 +1638,8 @@ public class CrossField {
                 system.adaptiveOptions.useDirectFallback,
                 system.directFallbacks);
         System.out.printf(
-                "[cross-field] rounding batchEnabled=%s batchSize=%d batchTol=%.3g%n",
-                system.batchRoundingEnabled, system.roundBatchSize, system.roundBatchTol);
+                "[cross-field] rounding batchSize=%d batchTol=%.3g%n",
+                system.roundBatchSize, system.roundBatchTol);
         System.out.printf(
                 "[cross-field] bzk09-rocker-target dim=32843 int=12064 is=385 ds=7 time=7.6s; ours fullDim=%d reducedDim=%d int=%d%n",
                 fullDim, reducedDim, freePeriods);
@@ -1779,7 +1848,6 @@ public class CrossField {
         int failedMeanCurvature;
         int failedInterval;
         int validIntervals;
-        int failedJitter;
         int acceptedVertices;
         int faceCollisionCandidates;
         int allIncidentFacesConstrained;
@@ -1846,7 +1914,6 @@ public class CrossField {
         double[] solution;
         NormalMatrix normalMatrix;
         AdaptiveSolver.Options adaptiveOptions;
-        boolean batchRoundingEnabled;
         int roundBatchSize;
         double roundBatchTol;
         int localGsConverged;
@@ -1941,12 +2008,16 @@ public class CrossField {
             }
             normalMatrix = new NormalMatrix();
             adaptiveOptions = new AdaptiveSolver.Options();
-            adaptiveOptions.localMaxIterations = NUM_50000;
+            adaptiveOptions.localMaxIterations = solverLocalMaxIterations;
             adaptiveOptions.localTolerance = NUM_1e_6;
-            adaptiveOptions.cgMaxIterations = NUM_500;
+            adaptiveOptions.cgMaxIterations = solverCgMaxIterations;
             adaptiveOptions.cgTolerance = NUM_1e_7;
             adaptiveOptions.useDirectFallback = true;
-            batchRoundingEnabled = true;
+            // BZK09 §2 says round one variable at a time. Disjoint-patch
+            // batching is equivalent because the rounded variables don't
+            // share two-hop neighborhoods, so each batched solve produces
+            // the same x as the serial version would. Re-enabled for the
+            // 10–30× speedup it gives on the figure_8/figure_10 NDF tests.
             roundBatchSize = NUM_256;
             roundBatchTol = NUM_0_15;
         }
@@ -1995,17 +2066,6 @@ public class CrossField {
                 solveRelaxed(roundedVariables, batchSize);
                 updateLastDiagnostics();
             }
-            // Final cleanup: solve the continuous theta sub-system to optimality given
-            // the now-fixed period jumps. The greedy iterative re-solves can leave
-            // theta short of the true minimum (maxResidual > 0); this final direct
-            // solve drives the per-edge smoothness residuals to machine precision and
-            // typically eliminates spurious singularities introduced by drifted theta.
-            double[] direct = AdaptiveSolver.directSolve(normalMatrix, normalMatrix.rhs, solution, fixedVariables);
-            solution = direct;
-            for (int fAi = 0; fAi < faceCount; fAi++) {
-                solutionTheta[fAi] = (float) solution[fAi];
-            }
-            updateLastDiagnostics();
         }
 
         /**

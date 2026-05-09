@@ -26,10 +26,12 @@ import ixdar.geometry.mesh.quadlayout.CrossField;
  */
 class CrossFieldBuildProfileTest {
 
-    private static final Path HAND_OFF = Path.of(
-            "test", "resources", "quadlayout", "figure_6", "hand_in_tri.off");
-    private static final Path HAND_NDF = Path.of(
-            "test", "resources", "quadlayout", "figure_6", "hand_in_cf.ndf");
+    private static final Path HAND_OFF = Path.of(System.getProperty(
+            "crossField.profileOff",
+            "test/resources/quadlayout/figure_6/hand_in_tri.off"));
+    private static final Path HAND_NDF = Path.of(System.getProperty(
+            "crossField.profileNdf",
+            "test/resources/quadlayout/figure_6/hand_in_cf.ndf"));
 
     @Test
     @Timeout(value = 5, unit = java.util.concurrent.TimeUnit.MINUTES)
@@ -45,9 +47,20 @@ class CrossFieldBuildProfileTest {
         cf.curvatureScaleK = Float.parseFloat(System.getProperty("crossField.kScale", "0.1"));
         cf.tauMin = Float.parseFloat(System.getProperty("crossField.tauMin",
                 String.valueOf(cf.tauMin)));
-        cf.jitterTolerance = (float) Math.toRadians(
-                Float.parseFloat(System.getProperty("crossField.jitterDeg",
-                        String.valueOf(Math.toDegrees(cf.jitterTolerance)))));
+        cf.targetEdgeLengthFractionOfBounds = Float.parseFloat(
+                System.getProperty("crossField.hFraction",
+                        String.valueOf(cf.targetEdgeLengthFractionOfBounds)));
+        cf.curvatureConstraintAllIncidentFaces = Boolean.parseBoolean(
+                System.getProperty("crossField.allFaces",
+                        String.valueOf(cf.curvatureConstraintAllIncidentFaces)));
+        cf.radiusStartMul = Float.parseFloat(System.getProperty("crossField.r0Mul",
+                String.valueOf(cf.radiusStartMul)));
+        cf.radiusRatio = Float.parseFloat(System.getProperty("crossField.rRatio",
+                String.valueOf(cf.radiusRatio)));
+        cf.solverLocalMaxIterations = Integer.parseInt(System.getProperty(
+                "crossField.localMax", String.valueOf(cf.solverLocalMaxIterations)));
+        cf.solverCgMaxIterations = Integer.parseInt(System.getProperty(
+                "crossField.cgMax", String.valueOf(cf.solverCgMaxIterations)));
         CrossField generated = cf.build();
         Duration elapsed = Duration.ofNanos(System.nanoTime() - start);
 
