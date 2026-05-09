@@ -7,6 +7,7 @@ import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import ixdar.geometry.mesh.data.load.CrossFieldLoader;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -27,6 +28,8 @@ class CrossFieldBuildProfileTest {
 
     private static final Path HAND_OFF = Path.of(
             "test", "resources", "quadlayout", "figure_6", "hand_in_tri.off");
+    private static final Path HAND_NDF = Path.of(
+            "test", "resources", "quadlayout", "figure_6", "hand_in_cf.ndf");
 
     @Test
     @Timeout(value = 5, unit = java.util.concurrent.TimeUnit.MINUTES)
@@ -38,10 +41,21 @@ class CrossFieldBuildProfileTest {
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
 
         long start = System.nanoTime();
-        new CrossField(halfEdgeMesh).build();
+        CrossField generated = new CrossField(halfEdgeMesh).build();
         Duration elapsed = Duration.ofNanos(System.nanoTime() - start);
+
+        CrossField reference = CrossFieldLoader.load(HAND_NDF.toString(), halfEdgeMesh);
+        int expectedCount = reference.singularities.size();
+        int actualCount = generated.singularities.size();
+        long expectedPositive = reference.singularities.stream().filter(s -> s.index4() > 0).count();
+        long expectedNegative = reference.singularities.stream().filter(s -> s.index4() < 0).count();
+        long actualPositive = generated.singularities.stream().filter(s -> s.index4() > 0).count();
+        long actualNegative = generated.singularities.stream().filter(s -> s.index4() < 0).count();
 
         System.out.printf("[cross-field profile] hand mesh build wall time: %.2fs%n",
                 elapsed.toMillis() / 1000.0);
+        System.out.printf("[cross-field profile] singularities expected=%d (+%d/-%d) actual=%d (+%d/-%d)%n",
+                expectedCount, expectedPositive, expectedNegative,
+                actualCount, actualPositive, actualNegative);
     }
 }

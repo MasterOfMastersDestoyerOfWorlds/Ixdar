@@ -1494,6 +1494,12 @@ public class CrossField {
         public static final int NUM_5000 = 5000;
         public static final double NUM_1e_6 = 1e-6;
         public static final int NUM_100 = 100;
+        public static final int NUM_500 = 500;
+        public static final int NUM_50000 = 50000;
+        public static final int NUM_64 = 64;
+        public static final int NUM_256 = 256;
+        public static final double NUM_0_05 = 0.05;
+        public static final double NUM_0_15 = 0.15;
         public static final double NUM_1e_7 = 1e-7;
         public static final double NUM_1e_3 = 1e-3;
         final int faceCount;
@@ -1616,14 +1622,14 @@ public class CrossField {
             }
             normalMatrix = new NormalMatrix();
             adaptiveOptions = new AdaptiveSolver.Options();
-            adaptiveOptions.localMaxIterations = NUM_5000;
+            adaptiveOptions.localMaxIterations = NUM_50000;
             adaptiveOptions.localTolerance = NUM_1e_6;
-            adaptiveOptions.cgMaxIterations = NUM_100;
+            adaptiveOptions.cgMaxIterations = NUM_500;
             adaptiveOptions.cgTolerance = NUM_1e_7;
             adaptiveOptions.useDirectFallback = true;
             batchRoundingEnabled = true;
-            roundBatchSize = 1;
-            roundBatchTol = NUM_1e_3;
+            roundBatchSize = NUM_256;
+            roundBatchTol = NUM_0_15;
         }
 
         void solveGreedyMIP() {

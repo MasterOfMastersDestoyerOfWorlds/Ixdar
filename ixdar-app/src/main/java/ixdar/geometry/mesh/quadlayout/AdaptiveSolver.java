@@ -168,7 +168,7 @@ public final class AdaptiveSolver {
             Options options) {
         int n = matrix.size();
         double[] x = start.clone();
-        ArrayDeque<Integer> queue = new ArrayDeque<>();
+        IntArrayQueue queue = new IntArrayQueue(n);
         boolean[] inQueue = new boolean[n];
 
         for (int i = 0; i < roundedCount; i++) {
@@ -211,6 +211,57 @@ public final class AdaptiveSolver {
                 : new CapResidual(0.0, -1);
         return new LocalResult(x, iterations, queue.isEmpty(), hitCap, initialQueueSize,
                 maxQueueSize, capResidual.norm, capResidual.row);
+    }
+
+    /**
+     * Primitive-int FIFO sized for at most {@code n} entries (caller guarantees
+     * deduplication via an external {@code inQueue[]} flag, so the buffer never
+     * needs to hold more than {@code n} live elements). Avoids the boxing cost
+     * of {@link ArrayDeque} on the local Gauss-Seidel hot path, which can run
+     * tens of millions of pop/push operations per build.
+     */
+    static final class IntArrayQueue {
+        private final int[] buf;
+        private int head;
+        private int tail;
+
+        IntArrayQueue(int capacity) {
+            this.buf = new int[capacity];
+        }
+
+        void offer(int v) {
+            buf[tail++] = v;
+            if (tail == buf.length) {
+                tail = 0;
+            }
+        }
+
+        int poll() {
+            int v = buf[head++];
+            if (head == buf.length) {
+                head = 0;
+            }
+            return v;
+        }
+
+        boolean isEmpty() {
+            return head == tail;
+        }
+
+        int size() {
+            int s = tail - head;
+            return s < 0 ? s + buf.length : s;
+        }
+
+        void forEach(java.util.function.IntConsumer consumer) {
+            int i = head;
+            while (i != tail) {
+                consumer.accept(buf[i++]);
+                if (i == buf.length) {
+                    i = 0;
+                }
+            }
+        }
     }
 
     /**
@@ -552,7 +603,7 @@ public final class AdaptiveSolver {
     private static void enqueueDependents(Matrix matrix,
             int row,
             boolean[] fixed,
-            ArrayDeque<Integer> queue,
+            IntArrayQueue queue,
             boolean[] inQueue) {
         if (row < 0 || row >= matrix.size()) {
             return;
@@ -562,7 +613,7 @@ public final class AdaptiveSolver {
             if (fixed[col] || inQueue[col]) {
                 continue;
             }
-            queue.add(col);
+            queue.offer(col);
             inQueue[col] = true;
         }
     }
@@ -579,20 +630,20 @@ public final class AdaptiveSolver {
             double[] rhs,
             double[] x,
             boolean[] fixed,
-            ArrayDeque<Integer> queue) {
-        double maxResidual = 0.0;
-        int maxRow = -1;
-        for (int row : queue) {
+            IntArrayQueue queue) {
+        double[] maxRef = {0.0};
+        int[] maxRowRef = {-1};
+        queue.forEach(row -> {
             if (fixed[row]) {
-                continue;
+                return;
             }
             double residual = Math.abs(rhs[row] - rowDot(matrix, row, x));
-            if (residual > maxResidual) {
-                maxResidual = residual;
-                maxRow = row;
+            if (residual > maxRef[0]) {
+                maxRef[0] = residual;
+                maxRowRef[0] = row;
             }
-        }
-        return new CapResidual(maxResidual, maxRow);
+        });
+        return new CapResidual(maxRef[0], maxRowRef[0]);
     }
 
     private static double residualNorm(Matrix matrix, double[] rhs, double[] x, boolean[] fixed) {
