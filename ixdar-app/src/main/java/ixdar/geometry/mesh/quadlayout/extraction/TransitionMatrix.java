@@ -1,6 +1,6 @@
 package ixdar.geometry.mesh.quadlayout.extraction;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.quadlayout.vectorfield.CombedField;
 
 /**

@@ -5,6 +5,9 @@ import java.util.Map;
 import java.util.Objects;
 
 import ixdar.annotations.meshnode.GeometryBundleValue;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
  * Mesh plus named slots for stub fields (float arrays, flags, etc.) used by the

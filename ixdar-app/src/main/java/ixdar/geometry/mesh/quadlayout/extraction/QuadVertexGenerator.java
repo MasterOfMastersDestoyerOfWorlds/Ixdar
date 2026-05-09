@@ -6,7 +6,7 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * Stage 1 of QEx (Ebke 2013): walk the mesh + UV map and emit one

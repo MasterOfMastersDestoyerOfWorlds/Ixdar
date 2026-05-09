@@ -4,7 +4,7 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * Per-face tangent angle (theta) representation of a face-based direction field

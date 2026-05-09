@@ -3,7 +3,7 @@ package ixdar.geometry.mesh.quadlayout.lyon2021;
 import java.util.ArrayList;
 import java.util.List;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.quadlayout.extraction.TransitionMatrix;
 import ixdar.geometry.mesh.quadlayout.tmesh.TArc;
 import ixdar.geometry.mesh.quadlayout.tmesh.TMesh;

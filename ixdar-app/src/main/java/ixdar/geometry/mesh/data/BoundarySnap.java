@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
 
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+
 /**
  * PATCH-28: post-assembly feature-edge boundary snap (Dong 2005 §4).
  * Reroutes adjacent-cell-pair boundaries through high-confidence
@@ -68,7 +70,6 @@ public final class BoundarySnap {
                               Set<Long> principalEdges,
                               Set<Long> crestEdges) {
         int[] faceIdx = mesh.copyFaceIndices();
-        int faceCount = faceIdx.length / NUM_3;
         int nv = mesh.vertexCount();
         float[] positions = mesh.copyPositions();
 

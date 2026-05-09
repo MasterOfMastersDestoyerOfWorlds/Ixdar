@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * Short-Term Vector Dijkstra (STVD) for anisotropic geodesic distance

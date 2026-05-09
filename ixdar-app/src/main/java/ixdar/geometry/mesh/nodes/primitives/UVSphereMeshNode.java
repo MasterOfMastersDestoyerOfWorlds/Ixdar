@@ -9,7 +9,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "uv_sphere")
 public class UVSphereMeshNode implements MeshNode {

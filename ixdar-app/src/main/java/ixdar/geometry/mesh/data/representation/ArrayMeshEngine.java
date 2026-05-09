@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.data;
+package ixdar.geometry.mesh.data.representation;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -6,6 +6,7 @@ import java.util.HashSet;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 
 /**

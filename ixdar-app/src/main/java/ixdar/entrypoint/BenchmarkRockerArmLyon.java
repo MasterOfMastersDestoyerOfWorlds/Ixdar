@@ -4,9 +4,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.MeshLoader;
+import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.CrossField;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 

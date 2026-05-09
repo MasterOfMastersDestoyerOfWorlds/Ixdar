@@ -9,6 +9,8 @@ import java.awt.image.BufferedImage;
 import java.util.Arrays;
 import java.util.Set;
 
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+
 /**
  * Self-contained software rasterizer for rendering a mesh with per-face patch
  * colors from eight canonical angles and compositing them into a 4x2 grid PNG.

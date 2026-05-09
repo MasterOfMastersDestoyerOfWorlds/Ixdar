@@ -5,7 +5,7 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.quadlayout.tmesh.TMesh;
 import ixdar.geometry.mesh.quadlayout.tmesh.TPatch;
 

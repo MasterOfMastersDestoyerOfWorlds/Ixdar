@@ -11,9 +11,9 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.ShaderProgram;

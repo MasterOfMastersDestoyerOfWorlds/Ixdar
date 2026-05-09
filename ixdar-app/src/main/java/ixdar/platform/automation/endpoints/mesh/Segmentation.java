@@ -7,9 +7,9 @@ import ixdar.annotations.automation.APIMethod;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
-import ixdar.geometry.mesh.data.ArrayMesh;
-import ixdar.geometry.mesh.data.MeshLoader;
 import ixdar.geometry.mesh.data.MeshSegmenter;
+import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 import java.io.File;
 import java.io.IOException;

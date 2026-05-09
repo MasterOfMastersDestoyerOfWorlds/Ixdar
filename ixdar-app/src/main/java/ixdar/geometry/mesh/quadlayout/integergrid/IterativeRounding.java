@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * Iterative rounding loop (Bommes-Campen-Ebke-Alliez-Kobbelt 2013) on top of

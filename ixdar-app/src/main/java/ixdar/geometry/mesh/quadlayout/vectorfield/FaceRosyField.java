@@ -7,7 +7,7 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.quadlayout.vectorfield.alignment.DirectionalConstraints;
 import ixdar.geometry.mesh.quadlayout.vectorfield.alignment.GeodesicCurvature;
 import ixdar.geometry.mesh.quadlayout.vectorfield.alignment.PrincipalCurvatureField;

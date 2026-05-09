@@ -2,13 +2,13 @@ package ixdar.geometry.mesh.data;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.SemanticPatchDecomposer.EdgeDihedrals;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * Yoshizawa-Belyaev-style crest-line detection (PATCH-11).
@@ -58,7 +58,6 @@ public final class CrestLineDetector {
      */
     public static CrestLines detect(ArrayMesh mesh, EdgeDihedrals ed, PrincipalDirectionField pdf) {
         int nv = mesh.vertexCount();
-        int[] faceIdx = mesh.copyFaceIndices();
         float[] positions = mesh.copyPositions();
 
         // 1-ring neighbourhoods.

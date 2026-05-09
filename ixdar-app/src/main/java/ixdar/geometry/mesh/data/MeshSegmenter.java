@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+
 /**
  * Java ports of the three legacy segmentation methods that used to live in
  * {@code auto_segment.py} (components / curvature / spatial). Output shape

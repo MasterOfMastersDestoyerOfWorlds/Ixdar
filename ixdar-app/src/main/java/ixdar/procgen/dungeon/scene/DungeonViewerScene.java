@@ -5,8 +5,8 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.geometry.mesh.data.ArrayMesh;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;

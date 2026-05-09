@@ -9,7 +9,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 @MeshNodeAnnotation(id = "cube")
 public class CubeMeshNode implements MeshNode {

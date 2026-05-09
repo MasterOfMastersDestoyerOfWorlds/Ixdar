@@ -9,8 +9,8 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
 /**

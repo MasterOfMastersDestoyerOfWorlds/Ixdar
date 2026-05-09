@@ -10,7 +10,7 @@ import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
  * All-quad cylinder primitive suitable for Catmull-Clark subdivision.

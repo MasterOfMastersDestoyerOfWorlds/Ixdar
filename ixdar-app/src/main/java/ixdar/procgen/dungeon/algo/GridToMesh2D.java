@@ -1,6 +1,6 @@
 package ixdar.procgen.dungeon.algo;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.procgen.dungeon.values.CellType;
 import ixdar.procgen.dungeon.values.TileGridValue;
 

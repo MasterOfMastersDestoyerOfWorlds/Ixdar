@@ -5,8 +5,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.integergrid.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.vectorfield.CombedField;
 import ixdar.geometry.mesh.quadlayout.vectorfield.FaceRosyField;

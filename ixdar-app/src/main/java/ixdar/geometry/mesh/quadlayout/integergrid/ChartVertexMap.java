@@ -2,7 +2,7 @@ package ixdar.geometry.mesh.quadlayout.integergrid;
 
 import java.util.HashMap;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.quadlayout.vectorfield.CombedField;
 import ixdar.geometry.mesh.quadlayout.vectorfield.FaceRosyField;
 

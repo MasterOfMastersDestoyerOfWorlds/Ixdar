@@ -5,6 +5,8 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+
 /**
  * Computes mesh distance metrics between two ArrayMesh instances.
  * Supports Hausdorff distance (worst-case) and Chamfer distance (average).

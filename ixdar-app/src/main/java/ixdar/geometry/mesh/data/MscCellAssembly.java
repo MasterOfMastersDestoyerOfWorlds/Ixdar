@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+
 /**
  * Ascending-manifold segmentation built from a Morse-Smale critical-point
  * set (PATCH-24, B2 of PATCH-23). For every mesh face, walk steepest-

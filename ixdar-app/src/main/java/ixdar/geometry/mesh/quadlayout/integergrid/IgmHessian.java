@@ -2,7 +2,7 @@ package ixdar.geometry.mesh.quadlayout.integergrid;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.quadlayout.solver.IterativeSolver;
 import ixdar.geometry.mesh.quadlayout.solver.MtjSparseMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.SparseLu;

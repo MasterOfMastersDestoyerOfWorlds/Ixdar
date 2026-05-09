@@ -10,10 +10,10 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
 import ixdar.geometry.mesh.data.Patch;
 import ixdar.geometry.mesh.data.PatchDecomposition;
 import ixdar.geometry.mesh.data.SemanticPatchDecomposer;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.quadlayout.tmesh.TArc;
 import ixdar.geometry.mesh.quadlayout.tmesh.TMesh;
 

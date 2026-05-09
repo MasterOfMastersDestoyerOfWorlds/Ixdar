@@ -18,16 +18,14 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeSchema;
-import ixdar.geometry.mesh.data.ArrayMesh;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshDistance;
-import ixdar.geometry.mesh.data.MeshLoader;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.SkeletonSensitivityAnalyzer;
-import ixdar.geometry.mesh.graph.InputParameterDescriptor;
+import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.graph.OptimizableParameter;
 import ixdar.parsing.python.PythonLexer;
@@ -247,7 +245,7 @@ public final class BatchDslEvaluator {
                     // Inline mesh comparison against reference (if available)
                     // Uses exact same path as viewer: normalize + computeAllMetrics(scale=1.0)
                     if (normalizedRefMesh != null) {
-                        ArrayMesh genArrayMesh = ixdar.geometry.mesh.data.ArrayMeshEngine
+                        ArrayMesh genArrayMesh = ixdar.geometry.mesh.data.representation.ArrayMeshEngine
                                 .fromUniformMeshTopology(mesh);
                         normalizeArrayMesh(genArrayMesh);
                         MeshDistance.MeshMetrics metrics = MeshDistance.computeAllMetrics(

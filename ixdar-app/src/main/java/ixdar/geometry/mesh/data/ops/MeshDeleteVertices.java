@@ -3,11 +3,11 @@ package ixdar.geometry.mesh.data.ops;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.BoolField;
-import ixdar.geometry.mesh.data.ArrayMesh;
-import ixdar.geometry.mesh.data.ArrayMeshEngine;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.MeshVertexOffset;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
  * Deletes selected vertices (where selection is true), producing a new mesh

@@ -17,9 +17,9 @@ import ixdar.annotations.meshnode.RotationValue;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshAppend;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "instance_on_points")

@@ -1,8 +1,8 @@
-package ixdar.geometry.mesh.data;
+package ixdar.geometry.mesh.data.representation;
 
 import java.util.Arrays;
 
-final class IntIdList {
+public final class IntIdList {
     public static final int NUM_4 = 4;
     private int[] values;
     private int size;
@@ -20,11 +20,11 @@ final class IntIdList {
         return size;
     }
 
-    boolean isEmpty() {
+    public boolean isEmpty() {
         return size == 0;
     }
 
-    int get(int index) {
+    public int get(int index) {
         if (index < 0 || index >= size) {
             throw new IndexOutOfBoundsException("Index " + index + " out of bounds for size " + size);
         }
@@ -40,18 +40,18 @@ final class IntIdList {
         return false;
     }
 
-    void add(int value) {
+    public void add(int value) {
         ensureCapacity(size + 1);
         values[size++] = value;
     }
 
-    void addUnique(int value) {
+    public void addUnique(int value) {
         if (!contains(value)) {
             add(value);
         }
     }
 
-    boolean removeValue(int value) {
+    public boolean removeValue(int value) {
         for (int i = 0; i < size; i++) {
             if (values[i] == value) {
                 int tail = size - i - 1;
@@ -65,11 +65,11 @@ final class IntIdList {
         return false;
     }
 
-    void clear() {
+    public void clear() {
         size = 0;
     }
 
-    int[] toArray() {
+    public int[] toArray() {
         return Arrays.copyOf(values, size);
     }
 

@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+
 /**
  * Parallel patch decomposer driven by Morse-Smale topology (PATCH-26 / B4
  * of PATCH-23). Coexists with {@link SemanticPatchDecomposer} so the

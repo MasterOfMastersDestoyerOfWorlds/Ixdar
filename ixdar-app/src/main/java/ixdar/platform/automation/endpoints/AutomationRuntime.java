@@ -11,13 +11,13 @@ import ixdar.canvas.Canvas3D;
 import ixdar.canvas.IxdarWindow;
 import ixdar.game.City;
 import ixdar.geometry.mesh.MeshCanonicalFingerprint;
-import ixdar.geometry.mesh.data.ArrayMesh;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.MeshDistance;
-import ixdar.geometry.mesh.data.MeshLoader;
 import ixdar.geometry.mesh.data.MeshSkeletonComparator;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.point.IrregularQuadGrid;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.graphics.render.text.HyperWord;
@@ -291,7 +291,7 @@ public class AutomationRuntime {
      *             place
      */
     public static void normalizeMeshPositions(
-            ixdar.geometry.mesh.data.ArrayMesh mesh) {
+            ixdar.geometry.mesh.data.representation.ArrayMesh mesh) {
         int n = mesh.vertexCount();
         if (n == 0)
             return;

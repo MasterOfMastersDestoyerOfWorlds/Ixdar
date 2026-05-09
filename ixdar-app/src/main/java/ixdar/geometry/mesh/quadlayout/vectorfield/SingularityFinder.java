@@ -7,7 +7,7 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * Vertex-by-vertex singularity detection for a {@link FaceRosyField}.

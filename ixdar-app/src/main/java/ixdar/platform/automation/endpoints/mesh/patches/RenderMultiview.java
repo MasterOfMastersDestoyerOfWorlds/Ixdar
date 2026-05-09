@@ -32,7 +32,7 @@ public class RenderMultiview extends AutomationEndpoint implements AutomationRou
             err.addProperty("error", "File not found: " + path);
             return err;
         }
-        ixdar.geometry.mesh.data.ArrayMesh mesh = ixdar.geometry.mesh.data.MeshLoader.load(f.getAbsolutePath());
+        ixdar.geometry.mesh.data.representation.ArrayMesh mesh = ixdar.geometry.mesh.data.load.MeshLoader.load(f.getAbsolutePath());
         ixdar.geometry.mesh.data.PatchDecomposition decomposition = ixdar.geometry.mesh.data.SemanticPatchDecomposer
                 .decompose(mesh, resolution);
         BufferedImage composite = ixdar.geometry.mesh.data.PatchRenderer.renderMultiview(mesh, decomposition);

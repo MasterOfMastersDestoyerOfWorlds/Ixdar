@@ -13,7 +13,7 @@ import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
  * Closes the open end of a {@link DualRadialSegmentNode} tube with a watertight

@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.QuantizedMeshGrid;
 import ixdar.geometry.mesh.quadlayout.integergrid.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph;

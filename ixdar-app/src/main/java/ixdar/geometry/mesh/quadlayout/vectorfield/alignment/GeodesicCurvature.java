@@ -2,7 +2,7 @@ package ixdar.geometry.mesh.quadlayout.vectorfield.alignment;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * Per-edge geodesic curvature κ^g of the {@code a_min} line field, and the

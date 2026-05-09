@@ -2,7 +2,7 @@ package ixdar.geometry.mesh.quadlayout.vectorfield.alignment;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * Per-face principal curvature directions and magnitudes.

@@ -91,7 +91,7 @@ public final class TMesh {
      */
     public static TMesh build(MotorcycleGraph.Result graph,
                               SeamlessParameterization param,
-                              ixdar.geometry.mesh.data.ArrayMesh mesh) {
+                              ixdar.geometry.mesh.data.representation.ArrayMesh mesh) {
         return buildImpl(graph, param, mesh);
     }
 
@@ -110,7 +110,7 @@ public final class TMesh {
 
     private static TMesh buildImpl(MotorcycleGraph.Result graph,
                               SeamlessParameterization param,
-                              ixdar.geometry.mesh.data.ArrayMesh mesh) {
+                              ixdar.geometry.mesh.data.representation.ArrayMesh mesh) {
         List<TNode> nodes = new ArrayList<>(graph.nodes());
         List<TArc> arcs = new ArrayList<>();
         // PATCH-87: per-motorcycle list of TArc IDs in walk order, indexed

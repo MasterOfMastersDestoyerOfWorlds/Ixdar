@@ -6,8 +6,8 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.CrossField;
 import ixdar.geometry.mesh.quadlayout.vectorfield.CombedField;
 import ixdar.geometry.mesh.quadlayout.vectorfield.FaceRosyField;

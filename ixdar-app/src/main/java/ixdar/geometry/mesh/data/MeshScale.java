@@ -4,6 +4,7 @@ import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.Vector3Field;
 import ixdar.annotations.meshnode.Vector3Value;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
  * Applies per-vertex or uniform scale to mesh positions.

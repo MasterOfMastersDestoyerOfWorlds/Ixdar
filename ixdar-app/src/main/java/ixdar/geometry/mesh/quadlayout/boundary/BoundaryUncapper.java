@@ -2,7 +2,7 @@ package ixdar.geometry.mesh.quadlayout.boundary;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.quadlayout.boundary.BoundaryCapper.CapResult;
 
 /**

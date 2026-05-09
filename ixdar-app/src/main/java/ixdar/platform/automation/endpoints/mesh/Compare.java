@@ -61,18 +61,18 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                     }
 
                     // Convert current mesh to ArrayMesh
-                    ixdar.geometry.mesh.data.ArrayMesh currentMesh;
-                    if (currentMeshTopology instanceof ixdar.geometry.mesh.data.ArrayMesh) {
-                        currentMesh = (ixdar.geometry.mesh.data.ArrayMesh) currentMeshTopology;
+                    ixdar.geometry.mesh.data.representation.ArrayMesh currentMesh;
+                    if (currentMeshTopology instanceof ixdar.geometry.mesh.data.representation.ArrayMesh) {
+                        currentMesh = (ixdar.geometry.mesh.data.representation.ArrayMesh) currentMeshTopology;
                     } else {
-                        currentMesh = ixdar.geometry.mesh.data.ArrayMeshEngine.fromUniformMeshTopology(
+                        currentMesh = ixdar.geometry.mesh.data.representation.ArrayMeshEngine.fromUniformMeshTopology(
                                 currentMeshTopology);
                     }
 
                     // Load reference mesh
-                    ixdar.geometry.mesh.data.ArrayMesh referenceMesh;
+                    ixdar.geometry.mesh.data.representation.ArrayMesh referenceMesh;
                     try {
-                        referenceMesh = ixdar.geometry.mesh.data.MeshLoader.load(
+                        referenceMesh = ixdar.geometry.mesh.data.load.MeshLoader.load(
                                 referencePath);
                     } catch (Exception e) {
                         result.addProperty(

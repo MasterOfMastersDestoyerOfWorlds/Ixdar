@@ -9,11 +9,11 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
-import ixdar.geometry.mesh.data.ArrayMesh;
-import ixdar.geometry.mesh.data.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**

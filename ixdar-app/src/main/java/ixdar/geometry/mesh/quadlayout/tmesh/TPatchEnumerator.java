@@ -127,7 +127,7 @@ public final class TPatchEnumerator {
      * @return enumerated patches; cycles longer than the cap or with too few corners are dropped
      */
     public static List<TPatch> enumerate(List<TNode> nodes, List<TArc> arcs,
-                                         ixdar.geometry.mesh.data.ArrayMesh mesh,
+                                         ixdar.geometry.mesh.data.representation.ArrayMesh mesh,
                                          java.util.Map<Integer, Integer> singVertexToNode) {
         return enumerateImpl(nodes, arcs, mesh, singVertexToNode);
     }
@@ -145,7 +145,7 @@ public final class TPatchEnumerator {
     }
 
     private static List<TPatch> enumerateImpl(List<TNode> nodes, List<TArc> arcs,
-                                              ixdar.geometry.mesh.data.ArrayMesh mesh,
+                                              ixdar.geometry.mesh.data.representation.ArrayMesh mesh,
                                               java.util.Map<Integer, Integer> singVertexToNode) {
         statHalfArcs = 0;
         statHalfArcsLinkable = 0;
@@ -529,7 +529,7 @@ public final class TPatchEnumerator {
      */
     private static void sortByMeshFan(List<int[]> halfArcs, List<TArc> arcs,
                                       double[] startAngle,
-                                      ixdar.geometry.mesh.data.ArrayMesh mesh,
+                                      ixdar.geometry.mesh.data.representation.ArrayMesh mesh,
                                       int vertexId) {
         // Build face → fan_position map by walking the vertex's outgoing
         // half-edge cycle (mesh half-edge structure is consistently CCW

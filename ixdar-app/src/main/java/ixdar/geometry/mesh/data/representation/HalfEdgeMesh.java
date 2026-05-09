@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.data;
+package ixdar.geometry.mesh.data.representation;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -9,6 +9,7 @@ import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.MeshValue;
 import ixdar.common.exceptions.InvalidMeshTopologyException;
+import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
 /**
@@ -26,36 +27,36 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     public static final long NUM_0xffffffff = 0xffffffffL;
     public static final int FLOATS_PER_VERTEX = 3;
 
-    final Map<Long, Integer> halfEdgesByDirection;
-    final IntIdList activeVertexIds;
-    final IntIdList activeEdgeIds;
-    final IntIdList activeFaceIds;
-    final IntIdList activeHalfEdgeIds;
-    final ArrayList<IntIdList> vertexOutgoingHalfEdges;
-    final ArrayList<IntIdList> vertexEdges;
-    final ArrayList<IntIdList> vertexFaces;
-    final ArrayList<IntIdList> faceHalfEdges;
-    final ArrayList<IntIdList> faceVertices;
-    final ArrayList<IntIdList> faceEdges;
+    public final Map<Long, Integer> halfEdgesByDirection;
+    public final IntIdList activeVertexIds;
+    public final IntIdList activeEdgeIds;
+    public final IntIdList activeFaceIds;
+    public final IntIdList activeHalfEdgeIds;
+    public final ArrayList<IntIdList> vertexOutgoingHalfEdges;
+    public final ArrayList<IntIdList> vertexEdges;
+    public final ArrayList<IntIdList> vertexFaces;
+    public final ArrayList<IntIdList> faceHalfEdges;
+    public final ArrayList<IntIdList> faceVertices;
+    public final ArrayList<IntIdList> faceEdges;
 
-    float[] vertexPositions;
-    float[] vertexNormals;
-    int[] vertexOutgoing;
-    boolean[] vertexActive;
+    public float[] vertexPositions;
+    public float[] vertexNormals;
+    public int[] vertexOutgoing;
+    public boolean[] vertexActive;
 
-    int[] edgeHalfEdge;
+    public int[] edgeHalfEdge;
     boolean[] edgeActive;
 
-    int[] faceHalfEdge;
-    float[] faceNormals;
+    public int[] faceHalfEdge;
+    public float[] faceNormals;
     boolean[] faceActive;
 
-    int[] halfEdgeTwin;
-    int[] halfEdgeNext;
-    int[] halfEdgePrev;
-    int[] halfEdgeVertex;
-    int[] halfEdgeFace;
-    int[] halfEdgeEdge;
+    public int[] halfEdgeTwin;
+    public int[] halfEdgeNext;
+    public int[] halfEdgePrev;
+    public int[] halfEdgeVertex;
+    public int[] halfEdgeFace;
+    public int[] halfEdgeEdge;
     boolean[] halfEdgeActive;
 
     int nextVertexId;
@@ -138,7 +139,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
      * @param maxHe exact half-edge capacity to allocate
      * @param mapCapacity initial capacity for the directed-edge HashMap (load factor 1.0)
      */
-    HalfEdgeMesh(int maxV, int maxE, int maxF, int maxHe, int mapCapacity) {
+    public HalfEdgeMesh(int maxV, int maxE, int maxF, int maxHe, int mapCapacity) {
         this.halfEdgesByDirection = new HashMap<>(mapCapacity, 1.0f);
         this.activeVertexIds = new IntIdList(Math.max(NUM_4, maxV));
         this.activeEdgeIds = new IntIdList(Math.max(NUM_4, maxE));
@@ -653,7 +654,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return (float) Math.sqrt(maxDistanceSquared);
     }
 
-    int createVertexSlot(float x, float y, float z) {
+    public int createVertexSlot(float x, float y, float z) {
         int vertexId = nextVertexId++;
         ensureVertexCapacity(vertexId + 1);
         vertexActive[vertexId] = true;
@@ -667,7 +668,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return vertexId;
     }
 
-    int createEdgeSlot() {
+    public int createEdgeSlot() {
         int edgeId = nextEdgeId++;
         ensureEdgeCapacity(edgeId + 1);
         edgeActive[edgeId] = true;
@@ -676,7 +677,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return edgeId;
     }
 
-    int createFaceSlot() {
+    public int createFaceSlot() {
         int faceId = nextFaceId++;
         ensureFaceCapacity(faceId + 1);
         faceActive[faceId] = true;
@@ -689,7 +690,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return faceId;
     }
 
-    int createHalfEdgeSlot(int vertexId) {
+    public int createHalfEdgeSlot(int vertexId) {
         int halfEdgeId = nextHalfEdgeId++;
         ensureHalfEdgeCapacity(halfEdgeId + 1);
         halfEdgeActive[halfEdgeId] = true;
@@ -703,7 +704,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return halfEdgeId;
     }
 
-    void deactivateFace(int faceId) {
+    public void deactivateFace(int faceId) {
         faceActive[faceId] = false;
         activeFaceIds.removeValue(faceId);
         faceHalfEdge[faceId] = NONE;
@@ -713,13 +714,13 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         faceEdges.get(faceId).clear();
     }
 
-    void deactivateEdge(int edgeId) {
+    public void deactivateEdge(int edgeId) {
         edgeActive[edgeId] = false;
         activeEdgeIds.removeValue(edgeId);
         edgeHalfEdge[edgeId] = NONE;
     }
 
-    void deactivateHalfEdge(int halfEdgeId) {
+    public void deactivateHalfEdge(int halfEdgeId) {
         halfEdgeActive[halfEdgeId] = false;
         activeHalfEdgeIds.removeValue(halfEdgeId);
         halfEdgeTwin[halfEdgeId] = NONE;
@@ -730,7 +731,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         halfEdgeEdge[halfEdgeId] = NONE;
     }
 
-    void deactivateVertex(int vertexId) {
+    public void deactivateVertex(int vertexId) {
         vertexActive[vertexId] = false;
         activeVertexIds.removeValue(vertexId);
         vertexOutgoing[vertexId] = NONE;
@@ -741,19 +742,19 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         vertexFaces.get(vertexId).clear();
     }
 
-    void requireActiveVertex(int vertexId) {
+    public void requireActiveVertex(int vertexId) {
         if (!hasVertex(vertexId)) {
             throw new InvalidMeshTopologyException("Vertex " + vertexId + IS_NOT_ACTIVE);
         }
     }
 
-    void requireActiveEdge(int edgeId) {
+    public void requireActiveEdge(int edgeId) {
         if (!hasEdge(edgeId)) {
             throw new InvalidMeshTopologyException("Edge " + edgeId + IS_NOT_ACTIVE);
         }
     }
 
-    void requireActiveFace(int faceId) {
+    public void requireActiveFace(int faceId) {
         if (!hasFace(faceId)) {
             throw new InvalidMeshTopologyException("Face " + faceId + IS_NOT_ACTIVE);
         }
@@ -765,11 +766,11 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         }
     }
 
-    long directedKey(int startIndex, int endIndex) {
+    public long directedKey(int startIndex, int endIndex) {
         return (((long) startIndex) << NUM_32) | (endIndex & NUM_0xffffffff);
     }
 
-    int vertexOffset(int vertexId) {
+    public int vertexOffset(int vertexId) {
         return vertexId * FLOATS_PER_VERTEX;
     }
 
@@ -777,7 +778,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return faceId * FLOATS_PER_VERTEX;
     }
 
-    private void ensureVertexCapacity(int requiredVertexCount) {
+    public void ensureVertexCapacity(int requiredVertexCount) {
         if (requiredVertexCount <= vertexActive.length) {
             return;
         }
@@ -788,7 +789,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         vertexNormals = resizeFloatTupleArray(vertexNormals, nextCapacity);
     }
 
-    private void ensureEdgeCapacity(int requiredEdgeCount) {
+    public void ensureEdgeCapacity(int requiredEdgeCount) {
         if (requiredEdgeCount <= edgeActive.length) {
             return;
         }
@@ -797,7 +798,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         edgeHalfEdge = resizeIntArray(edgeHalfEdge, nextCapacity);
     }
 
-    private void ensureFaceCapacity(int requiredFaceCount) {
+    public void ensureFaceCapacity(int requiredFaceCount) {
         if (requiredFaceCount <= faceActive.length) {
             return;
         }
@@ -807,7 +808,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         faceNormals = resizeFloatTupleArray(faceNormals, nextCapacity);
     }
 
-    private void ensureHalfEdgeCapacity(int requiredHalfEdgeCount) {
+    public void ensureHalfEdgeCapacity(int requiredHalfEdgeCount) {
         if (requiredHalfEdgeCount <= halfEdgeActive.length) {
             return;
         }
@@ -821,55 +822,55 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         halfEdgeEdge = resizeIntArray(halfEdgeEdge, nextCapacity);
     }
 
-    private IntIdList ensureVertexAdjacencySlot(ArrayList<IntIdList> adjacency, int vertexId) {
+    public IntIdList ensureVertexAdjacencySlot(ArrayList<IntIdList> adjacency, int vertexId) {
         while (adjacency.size() <= vertexId) {
             adjacency.add(new IntIdList());
         }
         return adjacency.get(vertexId);
     }
 
-    private IntIdList ensureFaceAdjacencySlot(ArrayList<IntIdList> adjacency, int faceId) {
+    public IntIdList ensureFaceAdjacencySlot(ArrayList<IntIdList> adjacency, int faceId) {
         while (adjacency.size() <= faceId) {
             adjacency.add(new IntIdList());
         }
         return adjacency.get(faceId);
     }
 
-    private static boolean isActive(boolean[] active, int id) {
+    public static boolean isActive(boolean[] active, int id) {
         return id >= 0 && id < active.length && active[id];
     }
 
-    private static void setVector(float[] target, int id, float x, float y, float z) {
+    public static void setVector(float[] target, int id, float x, float y, float z) {
         int offset = id * FLOATS_PER_VERTEX;
         target[offset] = x;
         target[offset + 1] = y;
         target[offset + 2] = z;
     }
 
-    private static boolean[] resizeBooleanArray(boolean[] source, int nextCapacity) {
+    public static boolean[] resizeBooleanArray(boolean[] source, int nextCapacity) {
         boolean[] resized = new boolean[nextCapacity];
         System.arraycopy(source, 0, resized, 0, source.length);
         return resized;
     }
 
-    private static int[] resizeIntArray(int[] source, int nextCapacity) {
+    public static int[] resizeIntArray(int[] source, int nextCapacity) {
         int[] resized = new int[nextCapacity];
         fillWithNone(resized);
         System.arraycopy(source, 0, resized, 0, source.length);
         return resized;
     }
 
-    private static float[] resizeFloatTupleArray(float[] source, int nextCapacity) {
+    public static float[] resizeFloatTupleArray(float[] source, int nextCapacity) {
         float[] resized = new float[nextCapacity * FLOATS_PER_VERTEX];
         System.arraycopy(source, 0, resized, 0, source.length);
         return resized;
     }
 
-    private static int nextCapacity(int currentCapacity, int requiredCapacity) {
+    public static int nextCapacity(int currentCapacity, int requiredCapacity) {
         return Math.max(requiredCapacity, Math.max(NUM_4, currentCapacity * 2));
     }
 
-    private static void fillWithNone(int[] values) {
+    public static void fillWithNone(int[] values) {
         Arrays.fill(values, NONE);
     }
     

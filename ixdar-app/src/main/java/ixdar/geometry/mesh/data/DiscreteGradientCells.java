@@ -1,9 +1,9 @@
 package ixdar.geometry.mesh.data;
 
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
+
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * PATCH-35: ascending/descending V-path face labelling using

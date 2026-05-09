@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.geometry.mesh.data.SemanticPatchDecomposer.EdgeDihedrals;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * Morse-Smale complex (MSC) on a triangle mesh (PATCH-22 Phase A —

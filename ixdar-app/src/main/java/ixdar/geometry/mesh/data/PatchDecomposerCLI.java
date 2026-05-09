@@ -9,6 +9,9 @@ import javax.imageio.ImageIO;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+
 /**
  * Headless CLI for the patch decomposition pipeline. Lets Python invoke the
  * Java geometry work during reference-mesh preprocessing without needing the

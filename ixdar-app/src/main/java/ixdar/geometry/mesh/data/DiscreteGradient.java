@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
 
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+
 /**
  * PATCH-35: Robins-Wood-Sheppard 2011 discrete-gradient field for 2D
  * triangulated piecewise-linear scalar fields. Implements the

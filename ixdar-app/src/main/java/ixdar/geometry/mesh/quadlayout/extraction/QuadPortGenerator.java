@@ -7,7 +7,7 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * Stage 2 of QEx (Ebke 2013): emit {@link QPort}s for every {@link QVert}.

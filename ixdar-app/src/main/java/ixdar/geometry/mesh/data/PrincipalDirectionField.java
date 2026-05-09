@@ -3,6 +3,7 @@ package ixdar.geometry.mesh.data;
 import java.util.Map;
 
 import ixdar.geometry.mesh.data.SemanticPatchDecomposer.EdgeDihedrals;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * Per-vertex principal curvatures and their 3D tangent directions, built

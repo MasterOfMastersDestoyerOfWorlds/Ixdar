@@ -2,7 +2,7 @@ package ixdar.procgen.dungeon.render;
 
 import org.joml.Matrix4f;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 

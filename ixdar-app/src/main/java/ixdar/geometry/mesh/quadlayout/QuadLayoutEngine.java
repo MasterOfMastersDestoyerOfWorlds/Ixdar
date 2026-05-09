@@ -2,7 +2,7 @@ package ixdar.geometry.mesh.quadlayout;
 
 import java.util.Map.Entry;
 
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.lyon2021.QuadLayout;
 
 public final class QuadLayoutEngine {

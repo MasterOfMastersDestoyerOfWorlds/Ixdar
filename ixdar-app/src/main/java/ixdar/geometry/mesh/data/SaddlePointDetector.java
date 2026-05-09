@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.SemanticPatchDecomposer.EdgeDihedrals;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * Saddle-point separator detection (PATCH-13).

@@ -11,6 +11,8 @@ import java.util.Set;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonBranch;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonJoint;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonResult;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
  * Feature-edge + concavity patch decomposer.

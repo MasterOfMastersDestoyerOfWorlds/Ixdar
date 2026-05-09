@@ -5,7 +5,7 @@ import java.util.Deque;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * Connected-component grouping of smooth faces, plus per-region significance

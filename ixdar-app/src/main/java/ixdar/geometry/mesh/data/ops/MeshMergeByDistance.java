@@ -7,10 +7,10 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.ArrayMesh;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.MeshVertexOffset;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
  * Welds vertices within {@code distance} (same cluster). {@link ArrayMesh} inputs use a dense path;

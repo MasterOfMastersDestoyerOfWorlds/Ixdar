@@ -11,10 +11,10 @@ import com.google.gson.JsonParser;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
-import ixdar.geometry.mesh.data.ArrayMesh;
-import ixdar.geometry.mesh.data.MeshLoader;
 import ixdar.geometry.mesh.data.MeshSkeletonComparator;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor;
+import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.platform.automation.AutomationEndpoint;
 
 /**

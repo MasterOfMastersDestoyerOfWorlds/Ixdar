@@ -11,8 +11,8 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
 
 /**

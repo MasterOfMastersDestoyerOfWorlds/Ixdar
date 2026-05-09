@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.data;
+package ixdar.geometry.mesh.data.representation;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -6,6 +6,7 @@ import java.util.HashMap;
 import org.joml.Vector3f;
 
 import ixdar.common.exceptions.InvalidMeshTopologyException;
+import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
 /**
@@ -385,12 +386,9 @@ public class HalfEdgeMeshEngine {
                 p.add(vp);
             }
             p.mul(NUM_0_25);
-            int centIdx = srcV + srcE + fi;
             out.createVertexSlot(p.x, p.y, p.z);
         }
 
-        // Build new faces from original vertices, edge midpoints, and face centroids
-        Vector3f tmp = new Vector3f();
         for (int fi = 0; fi < srcF; fi++) {
             int fid = src.faceIdAt(fi);
             int[] faceVerts = new int[NUM_4];

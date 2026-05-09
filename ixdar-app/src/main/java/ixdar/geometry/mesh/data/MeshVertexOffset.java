@@ -4,6 +4,9 @@ import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.Vector3Field;
 import ixdar.annotations.meshnode.Vector3Value;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
  * Applies per-vertex offsets to a mesh, producing a new mesh (dense

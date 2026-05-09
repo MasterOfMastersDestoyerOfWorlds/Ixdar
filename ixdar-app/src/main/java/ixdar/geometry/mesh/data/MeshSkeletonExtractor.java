@@ -2,11 +2,13 @@ package ixdar.geometry.mesh.data;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
 
 import org.joml.Vector3f;
+
+import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * TEASAR-based skeleton extraction from a triangle mesh.

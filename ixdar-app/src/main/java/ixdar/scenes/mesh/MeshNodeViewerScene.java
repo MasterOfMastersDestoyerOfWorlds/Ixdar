@@ -9,14 +9,14 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.geometry.mesh.data.ArrayMesh;
-import ixdar.geometry.mesh.data.MeshLoader;
-import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.FeatureEdgeColors;
+import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.Patch;
-import ixdar.geometry.mesh.data.PatchDecomposition;
 import ixdar.geometry.mesh.data.PatchRenderer;
 import ixdar.geometry.mesh.data.SemanticPatchDecomposer;
+import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.load.ObjMeshParser;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
@@ -283,7 +283,7 @@ public class MeshNodeViewerScene extends Scene {
     private void initObjViewer() {
         try {
             Platforms.get().loadSourceAsync("obj", objResource, Platforms.gl().getPlatformID(), objText -> {
-                ArrayMesh arrayMesh = MeshLoader.parseObj(objText);
+                ArrayMesh arrayMesh = ObjMeshParser.load(objText);
                 try {
                     meshRuntime = new HalfEdgeMeshRuntime();
                 } catch (Exception e) {

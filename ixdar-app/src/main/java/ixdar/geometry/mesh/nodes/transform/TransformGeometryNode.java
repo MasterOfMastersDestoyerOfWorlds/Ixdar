@@ -14,12 +14,12 @@ import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
 import ixdar.annotations.meshnode.Vector3Value;
-import ixdar.geometry.mesh.data.ArrayMesh;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
-import ixdar.geometry.mesh.data.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
 
