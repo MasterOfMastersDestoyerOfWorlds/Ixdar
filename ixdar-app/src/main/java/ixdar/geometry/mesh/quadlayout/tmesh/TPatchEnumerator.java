@@ -43,6 +43,8 @@ public final class TPatchEnumerator {
     public static final int NUM_50 = 50;
     public static final int NUM_16 = 16;
     public static final int NUM_64 = 64;
+    /** Upper bound on a face's half-arc count for the diagnostic histogram. */
+    public static final int SIDE_HISTOGRAM_SIZE = 256;
 
     /** Debug counters; printed if {@code -Dixdar.quadlayout.tmesh.debug=true} is set. */
     public static int statHalfArcs;
@@ -51,7 +53,7 @@ public final class TPatchEnumerator {
     public static int statFacesShortCycle;
     public static int statFacesNonQuad;
     public static int statFacesEmittedAsPatches;
-    public static final int[] statSideHistogram = new int[256];
+    public static final int[] statSideHistogram = new int[SIDE_HISTOGRAM_SIZE];
 
     /** PATCH-70 dump: first N non-quad face cycles' cardinal sequences. */
     public static java.util.List<int[]> nonQuadCardinals = new java.util.ArrayList<>();
