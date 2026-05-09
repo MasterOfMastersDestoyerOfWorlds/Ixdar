@@ -1,0 +1,18 @@
+The block model was provided courtesy of the Max-Planck-Institut für
+Informatik by the AIM@SHAPE Shape Repository.
+
+The botijo model was the provided by the Image-based 3D Models Archive,
+Télécom Paris.
+
+The buddha model was provided courtesy of the Visual Computing Lab of CNR-ISTI
+by the AIM@SHAPE Shape Repository.
+
+The elk model was provided courtesy of the Max-Planck-Institut für Informatik
+by the AIM@SHAPE Shape Repository.
+
+The fandisk model was provided courtesy of the Max-Planck-Institut für
+Informatik by the AIM@SHAPE Shape Repository.
+
+The fertility model was provided by the AIM@SHAPE Shape Repository.
+
+The rockerarm model was provided by the AIM@SHAPE Shape Repository.
