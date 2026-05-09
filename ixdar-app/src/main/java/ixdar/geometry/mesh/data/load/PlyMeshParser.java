@@ -17,6 +17,7 @@ public final class PlyMeshParser {
      * Supports ASCII PLY format with vertex positions and optional normals.
      *
      * @param content raw PLY content
+     * @throws RuntimeException wraps any {@link IOException} from the underlying reader
      * @return parsed mesh (empty if the file has no positions); n-gon faces are
      *         fan-triangulated
      */ 

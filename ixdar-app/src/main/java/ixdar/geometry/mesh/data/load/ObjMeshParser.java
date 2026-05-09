@@ -19,6 +19,7 @@ public final class ObjMeshParser {
      * Generates face normals if not provided.
      *
      * @param content raw OBJ content
+     * @throws RuntimeException wraps any {@link IOException} from the underlying reader
      * @return parsed mesh (empty if the file has no positions)
      */
     public static ArrayMesh load(String content) {

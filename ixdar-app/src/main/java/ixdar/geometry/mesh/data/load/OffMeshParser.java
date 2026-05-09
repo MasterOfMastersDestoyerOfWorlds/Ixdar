@@ -20,6 +20,8 @@ public final class OffMeshParser {
      * trailing per-vertex color/normal columns and per-face color columns.
      *
      * @param content raw OFF content
+     * @throws IllegalArgumentException if the first non-comment line is not an OFF header
+     * @throws RuntimeException wraps any {@link IOException} from the underlying reader
      * @return parsed mesh (empty if the file has no positions); n-gon faces are
      *         fan-triangulated
      */

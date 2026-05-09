@@ -50,6 +50,7 @@ public final class CrossFieldLoader {
      * @param mesh    half-edge mesh whose iteration order matches the NDF arrays
      * @throws IOException              if reading the file fails
      * @throws IllegalArgumentException if section sizes disagree with the mesh
+     * @throws RuntimeException wraps any {@link IOException} thrown while re-parsing the buffered content
      * @return populated CrossField (only solver-output fields)
      */
     public static CrossField load(String ndfPath, HalfEdgeMesh mesh) throws IOException {

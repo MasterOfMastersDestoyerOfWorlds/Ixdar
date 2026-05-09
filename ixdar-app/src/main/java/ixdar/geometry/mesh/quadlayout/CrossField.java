@@ -50,6 +50,9 @@ public class CrossField {
     public static final float NUM_0_25 = 0.25f;
     public static final float NUM_1_001 = 1.001f;
     public static final float NUM_1e_6 = 1e-6f;
+    public static final double NS_PER_MS = 1e6;
+    public static final boolean PROFILE_BUILD =
+            Boolean.parseBoolean(System.getProperty("crossField.profile", "false"));
     public static final float NUM_4 = 4f;
     public static final float NUM_0_5 = 0.5f;
     public static final float NUM_1e_12 = 1e-12f;
@@ -140,6 +143,8 @@ public class CrossField {
      * @return {@code this}, with field arrays populated and singularities filled
      */
     public CrossField build() {
+        long phaseStart = System.nanoTime();
+        long buildStart = phaseStart;
         mesh.computeNormals();
 
         int faceCount = mesh.faceCount();
@@ -160,6 +165,7 @@ public class CrossField {
         for (int i = 0; i < mesh.edgeCount(); i++) {
             edgeIdToActive.put(mesh.edgeIdAt(i), i);
         }
+        phaseStart = profilePhase("A0 setup", phaseStart, faceCount, edgeCount);
 
         // ---- A1. local frames + transport angles -----------------------
         /*
@@ -255,6 +261,7 @@ public class CrossField {
             float ay = xiTransported.dot(faceY[fjAi1]);
             kappa[eAi1] = (float) Math.atan2(ay, ax);
         }
+        phaseStart = profilePhase("A1 frames+kappa", phaseStart, faceCount, edgeCount);
 
         // ---- A2. directional constraints --------------------------------
         boolean[] faceConstrained = new boolean[faceCount];
@@ -269,6 +276,7 @@ public class CrossField {
                 faceConstrained, faceConstraintAngle, averageEdgeLength, curvatureK);
         int boundaryConstraints = applyBoundaryConstraints(faceConstrained, faceConstraintAngle);
         int totalConstraints = countTrue(faceConstrained);
+        phaseStart = profilePhase("A2 constraints", phaseStart, faceCount, edgeCount);
 
         // ---- A3. Voronoi forest fixes one period jump per non-constrained face --
         boolean[] periodFixed = new boolean[edgeCount];
@@ -309,21 +317,47 @@ public class CrossField {
             }
         }
 
+        phaseStart = profilePhase("A3 voronoi forest", phaseStart, faceCount, edgeCount);
+
         // ---- A4. Greedy mixed-integer least squares ---------------------
         SmoothEnergySystem system = new SmoothEnergySystem(faceCount, edgeCount,
                 faceConstrained, faceConstraintAngle, periodFixed, periodValue);
         system.assemble();
+        long a4Assembled = profilePhase("A4 assemble", phaseStart, faceCount, edgeCount);
         printProblemDiagnostics(averageEdgeLength, boundingSphereRadius, curvatureK,
                 curvatureConstraints, boundaryConstraints, totalConstraints,
                 forestEdgeAi.size(), boundaryPeriodFixes, constrainedPeriodFixes,
                 periodFixed, system);
         system.solveGreedyMIP();
         system.unpackInto(this);
+        phaseStart = profilePhase("A4 greedy MIP", a4Assembled, faceCount, edgeCount);
 
         // ---- B. Singularities -------------------------------------------
         extractSingularities();
+        profilePhase("B singularities", phaseStart, faceCount, edgeCount);
+        profilePhase("TOTAL build()", buildStart, faceCount, edgeCount);
         printSolutionDiagnostics(system);
         return this;
+    }
+
+    /**
+     * Print elapsed wall time since {@code startNs} for {@code phase} when
+     * {@code -DcrossField.profile=true} is set. Returns {@code System.nanoTime()}
+     * so call sites can chain phases without restating the clock.
+     *
+     * @param phase     phase label (e.g. "A1 frames")
+     * @param startNs   nanoTime captured at the previous phase boundary
+     * @param faceCount face count, included in the line for context
+     * @param edgeCount edge count, included in the line for context
+     * @return current {@link System#nanoTime()} for the next phase to chain from
+     */
+    private static long profilePhase(String phase, long startNs, int faceCount, int edgeCount) {
+        long now = System.nanoTime();
+        if (PROFILE_BUILD) {
+            System.out.printf("[cross-field profile] %-18s  %8.1f ms   (F=%d, E=%d)%n",
+                    phase, (now - startNs) / NS_PER_MS, faceCount, edgeCount);
+        }
+        return now;
     }
 
     /**
