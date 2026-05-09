@@ -41,10 +41,22 @@ class CrossFieldBuildProfileTest {
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
 
         long start = System.nanoTime();
-        CrossField generated = new CrossField(halfEdgeMesh).build();
+        CrossField cf = new CrossField(halfEdgeMesh);
+        // Disable curvature constraints by raising the threshold; isolate solver
+        // quality from constraint-pass quality.
+        cf.curvatureScaleK = Float.parseFloat(System.getProperty("crossField.kScale", "0.1"));
+        CrossField generated = cf.build();
         Duration elapsed = Duration.ofNanos(System.nanoTime() - start);
 
         CrossField reference = CrossFieldLoader.load(HAND_NDF.toString(), halfEdgeMesh);
+        // Reference NDF only carries solver outputs (theta, periodJump, singularities);
+        // borrow the just-computed geometric arrays so we can score it on the same scale.
+        reference.kappa = generated.kappa;
+        reference.faceX = generated.faceX;
+        reference.faceY = generated.faceY;
+        reference.faceIdToActive = generated.faceIdToActive;
+        reference.edgeIdToActive = generated.edgeIdToActive;
+
         int expectedCount = reference.singularities.size();
         int actualCount = generated.singularities.size();
         long expectedPositive = reference.singularities.stream().filter(s -> s.index4() > 0).count();
@@ -52,10 +64,17 @@ class CrossFieldBuildProfileTest {
         long actualPositive = generated.singularities.stream().filter(s -> s.index4() > 0).count();
         long actualNegative = generated.singularities.stream().filter(s -> s.index4() < 0).count();
 
+        CrossField.SmoothnessStats refStats = reference.smoothnessStats();
+        CrossField.SmoothnessStats genStats = generated.smoothnessStats();
+
         System.out.printf("[cross-field profile] hand mesh build wall time: %.2fs%n",
                 elapsed.toMillis() / 1000.0);
         System.out.printf("[cross-field profile] singularities expected=%d (+%d/-%d) actual=%d (+%d/-%d)%n",
                 expectedCount, expectedPositive, expectedNegative,
                 actualCount, actualPositive, actualNegative);
+        System.out.printf("[cross-field profile] smoothEnergy reference=%.4f generated=%.4f (delta=%+.4f)%n",
+                refStats.energy(), genStats.energy(), genStats.energy() - refStats.energy());
+        System.out.printf("[cross-field profile] maxResidual reference=%.4f generated=%.4f%n",
+                refStats.maxResidual(), genStats.maxResidual());
     }
 }

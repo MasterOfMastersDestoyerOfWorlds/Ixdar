@@ -397,7 +397,20 @@ public final class AdaptiveSolver {
         return new CgResult(x, iteration, false);
     }
 
-    private static double[] directSolve(Matrix matrix,
+    /**
+     * Solve {@code A x = b} for the free variables (those with {@code !fixed[i]})
+     * using a sparse Cholesky factorization with reverse-Cuthill-McKee ordering,
+     * holding the fixed entries at {@code start[i]}. Throws when the matrix is
+     * not positive definite (e.g. for closed surfaces with no anchored variable).
+     *
+     * @param matrix symmetric system matrix A
+     * @param rhs    right-hand side b
+     * @param start  initial values; only the fixed entries are read
+     * @param fixed  per-variable fixed flag
+     * @throws IllegalStateException if the Cholesky factorization fails
+     * @return solution with fixed entries copied from {@code start}
+     */
+    public static double[] directSolve(Matrix matrix,
             double[] rhs,
             double[] start,
             boolean[] fixed) {

@@ -276,6 +276,16 @@ public class CrossField {
                 faceConstrained, faceConstraintAngle, averageEdgeLength, curvatureK);
         int boundaryConstraints = applyBoundaryConstraints(faceConstrained, faceConstraintAngle);
         int totalConstraints = countTrue(faceConstrained);
+        if (totalConstraints == 0 && faceCount > 0) {
+            // BZK09's smoothness energy is gauge-invariant — adding a constant to all
+            // theta_f leaves it unchanged. With zero face constraints (e.g. closed
+            // mesh with random/featureless geometry like figure_7/sphere_random), the
+            // normal matrix is rank-1 deficient and Cholesky factorization fails.
+            // Pin face 0 to theta=0 to break the gauge.
+            faceConstrained[0] = true;
+            faceConstraintAngle[0] = NUM_0;
+            totalConstraints = 1;
+        }
         phaseStart = profilePhase("A2 constraints", phaseStart, faceCount, edgeCount);
 
         // ---- A3. Voronoi forest fixes one period jump per non-constrained face --
@@ -1628,8 +1638,8 @@ public class CrossField {
             adaptiveOptions.cgTolerance = NUM_1e_7;
             adaptiveOptions.useDirectFallback = true;
             batchRoundingEnabled = true;
-            roundBatchSize = NUM_256;
-            roundBatchTol = NUM_0_15;
+            roundBatchSize = 1;
+            roundBatchTol = NUM_1e_3;
         }
 
         void solveGreedyMIP() {
@@ -1675,6 +1685,16 @@ public class CrossField {
                 updateLastDiagnostics();
                 solveRelaxed(roundedVariables, batchSize);
                 updateLastDiagnostics();
+            }
+            // Final cleanup: solve the continuous theta sub-system to optimality given
+            // the now-fixed period jumps. The greedy iterative re-solves can leave
+            // theta short of the true minimum (maxResidual > 0); this final direct
+            // solve drives the per-edge smoothness residuals to machine precision and
+            // typically eliminates spurious singularities introduced by drifted theta.
+            double[] direct = AdaptiveSolver.directSolve(normalMatrix, normalMatrix.rhs, solution, fixedVariables);
+            solution = direct;
+            for (int fAi = 0; fAi < faceCount; fAi++) {
+                solutionTheta[fAi] = (float) solution[fAi];
             }
             updateLastDiagnostics();
         }
@@ -2023,6 +2043,24 @@ public class CrossField {
         SmoothnessStats(double energy, double maxResidual) {
             this.energy = energy;
             this.maxResidual = maxResidual;
+        }
+
+        /**
+         * Total smoothness energy.
+         *
+         * @return Σ_e (θ_i + κ_e + (π/2)·p_e − θ_j)² over all interior edges
+         */
+        public double energy() {
+            return energy;
+        }
+
+        /**
+         * Largest per-edge residual.
+         *
+         * @return max |θ_i + κ_e + (π/2)·p_e − θ_j| (radians) over all interior edges
+         */
+        public double maxResidual() {
+            return maxResidual;
         }
     }
 }
