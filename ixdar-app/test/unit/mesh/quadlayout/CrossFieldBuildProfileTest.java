@@ -43,9 +43,11 @@ class CrossFieldBuildProfileTest {
         long start = System.nanoTime();
         CrossField cf = new CrossField(halfEdgeMesh);
         cf.curvatureScaleK = Float.parseFloat(System.getProperty("crossField.kScale", "0.1"));
-        cf.tauMin = Float.parseFloat(System.getProperty("crossField.tauMin", "0.8"));
+        cf.tauMin = Float.parseFloat(System.getProperty("crossField.tauMin",
+                String.valueOf(cf.tauMin)));
         cf.jitterTolerance = (float) Math.toRadians(
-                Float.parseFloat(System.getProperty("crossField.jitterDeg", "15.0")));
+                Float.parseFloat(System.getProperty("crossField.jitterDeg",
+                        String.valueOf(Math.toDegrees(cf.jitterTolerance)))));
         CrossField generated = cf.build();
         Duration elapsed = Duration.ofNanos(System.nanoTime() - start);
 
@@ -98,5 +100,39 @@ class CrossFieldBuildProfileTest {
         }
         System.out.printf("[cross-field profile] singularity overlap: agree=%d signFlip=%d refOnly=%d genOnly=%d%n",
                 agree, signFlip, refOnly, genOnly);
+
+        // For each ref-only singularity at a "trace vertex", list the nearest generated
+        // singularities (with their distances) so we can see how far off they are.
+        java.util.Set<Integer> traceVids = ixdar.geometry.mesh.quadlayout.CrossField.TRACE_VIDS;
+        if (!traceVids.isEmpty()) {
+            org.joml.Vector3f tp = new org.joml.Vector3f();
+            org.joml.Vector3f gp = new org.joml.Vector3f();
+            for (int traceVid : traceVids) {
+                if (!refSingVerts.containsKey(traceVid)) {
+                    continue;
+                }
+                halfEdgeMesh.vertexPosition(traceVid, tp);
+                int refIdx = refSingVerts.get(traceVid);
+                System.out.printf("[trace] ref singularity %+d/4 at vertex %d (%.3f,%.3f,%.3f). Nearest 3 generated singularities:%n",
+                        refIdx, traceVid, tp.x, tp.y, tp.z);
+                java.util.List<float[]> sortedByDist = new java.util.ArrayList<>();
+                for (var s : generated.singularities) {
+                    halfEdgeMesh.vertexPosition(s.vertexId(), gp);
+                    float dx = gp.x - tp.x;
+                    float dy = gp.y - tp.y;
+                    float dz = gp.z - tp.z;
+                    float d = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+                    sortedByDist.add(new float[] { d, s.vertexId(), s.index4(), gp.x, gp.y, gp.z });
+                }
+                sortedByDist.sort((a, b) -> Float.compare(a[0], b[0]));
+                int show = Math.min(3, sortedByDist.size());
+                for (int i = 0; i < show; i++) {
+                    float[] r = sortedByDist.get(i);
+                    System.out.printf("  [%+d/4] vertex %d at (%.3f,%.3f,%.3f) distance %.4f (%.2f%% of bbox)%n",
+                            (int) r[2], (int) r[1], r[3], r[4], r[5], r[0],
+                            100.0 * r[0] / 1.31);
+                }
+            }
+        }
     }
 }
