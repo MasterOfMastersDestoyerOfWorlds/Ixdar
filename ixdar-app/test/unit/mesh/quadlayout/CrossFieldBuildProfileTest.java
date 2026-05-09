@@ -42,9 +42,10 @@ class CrossFieldBuildProfileTest {
 
         long start = System.nanoTime();
         CrossField cf = new CrossField(halfEdgeMesh);
-        // Disable curvature constraints by raising the threshold; isolate solver
-        // quality from constraint-pass quality.
         cf.curvatureScaleK = Float.parseFloat(System.getProperty("crossField.kScale", "0.1"));
+        cf.tauMin = Float.parseFloat(System.getProperty("crossField.tauMin", "0.8"));
+        cf.jitterTolerance = (float) Math.toRadians(
+                Float.parseFloat(System.getProperty("crossField.jitterDeg", "15.0")));
         CrossField generated = cf.build();
         Duration elapsed = Duration.ofNanos(System.nanoTime() - start);
 
@@ -72,9 +73,30 @@ class CrossFieldBuildProfileTest {
         System.out.printf("[cross-field profile] singularities expected=%d (+%d/-%d) actual=%d (+%d/-%d)%n",
                 expectedCount, expectedPositive, expectedNegative,
                 actualCount, actualPositive, actualNegative);
-        System.out.printf("[cross-field profile] smoothEnergy reference=%.4f generated=%.4f (delta=%+.4f)%n",
-                refStats.energy(), genStats.energy(), genStats.energy() - refStats.energy());
-        System.out.printf("[cross-field profile] maxResidual reference=%.4f generated=%.4f%n",
-                refStats.maxResidual(), genStats.maxResidual());
+        // Singularity disagreement: how many ref-singular vertices are non-singular for us, and vice versa.
+        var refSingVerts = new java.util.HashMap<Integer, Integer>();
+        for (var s : reference.singularities) refSingVerts.put(s.vertexId(), s.index4());
+        var genSingVerts = new java.util.HashMap<Integer, Integer>();
+        for (var s : generated.singularities) genSingVerts.put(s.vertexId(), s.index4());
+        int agree = 0;
+        int refOnly = 0;
+        int genOnly = 0;
+        int signFlip = 0;
+        var allVerts = new java.util.HashSet<Integer>();
+        allVerts.addAll(refSingVerts.keySet());
+        allVerts.addAll(genSingVerts.keySet());
+        for (int v : allVerts) {
+            Integer r = refSingVerts.get(v);
+            Integer g = genSingVerts.get(v);
+            if (r != null && g != null) {
+                if (r.equals(g)) agree++; else signFlip++;
+            } else if (r != null) {
+                refOnly++;
+            } else {
+                genOnly++;
+            }
+        }
+        System.out.printf("[cross-field profile] singularity overlap: agree=%d signFlip=%d refOnly=%d genOnly=%d%n",
+                agree, signFlip, refOnly, genOnly);
     }
 }

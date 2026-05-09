@@ -53,6 +53,11 @@ public class CrossField {
     public static final double NS_PER_MS = 1e6;
     public static final boolean PROFILE_BUILD =
             Boolean.parseBoolean(System.getProperty("crossField.profile", "false"));
+    public static final long LOCAL_SEARCH_BUDGET_NS = 2_000_000_000L;
+    public static final int LOCAL_SEARCH_MAX_PASSES = 3;
+    public static final double LOCAL_SEARCH_EPS = 1e-6;
+    public static final int NUM_4_INT = 4;
+    public static final int[] LOCAL_SEARCH_DELTAS = { -1, 1, -2, 2 };
     public static final float NUM_4 = 4f;
     public static final float NUM_0_5 = 0.5f;
     public static final float NUM_1e_12 = 1e-12f;
@@ -102,7 +107,7 @@ public class CrossField {
     public List<Singularity> singularities = new ArrayList<>();
 
     /** BZK09 §3 relative anisotropy threshold τ_min. */
-    public float tauMin = 0.8f;
+    public float tauMin = 0.88f;
 
     /**
      * BZK09 §3 mean-curvature threshold K = curvatureScaleK / boundingSphereRadius.
@@ -117,7 +122,9 @@ public class CrossField {
     public float radiusRatio = (float) Math.sqrt(2.0);
 
     /** Direction-jitter tolerance (radians). */
-    public float jitterTolerance = (float) Math.toRadians(15.0);
+    public float jitterTolerance = (float) Math.toRadians(5.0);
+    /** Dihedral cosine threshold for feature-edge alignment (cos 60° = 0.5). */
+    public float featureDihedralCos = 0.5f;
 
     /** BZK09 target quad edge length h as 1% of the bounding-box diagonal. */
     public float targetEdgeLengthFractionOfBounds = 0.04f;
@@ -275,6 +282,7 @@ public class CrossField {
         int curvatureConstraints = applyCurvatureConstraints(
                 faceConstrained, faceConstraintAngle, averageEdgeLength, curvatureK);
         int boundaryConstraints = applyBoundaryConstraints(faceConstrained, faceConstraintAngle);
+        int featureConstraints = applyFeatureEdgeConstraints(faceConstrained, faceConstraintAngle);
         int totalConstraints = countTrue(faceConstrained);
         if (totalConstraints == 0 && faceCount > 0) {
             // BZK09's smoothness energy is gauge-invariant — adding a constant to all
@@ -344,10 +352,208 @@ public class CrossField {
 
         // ---- B. Singularities -------------------------------------------
         extractSingularities();
-        profilePhase("B singularities", phaseStart, faceCount, edgeCount);
+        phaseStart = profilePhase("B singularities", phaseStart, faceCount, edgeCount);
+
+        // ---- C. BZK09 §4.2 local search singularity optimization --------
+        localSearchSingularityOptimization(faceConstrained, faceConstraintAngle);
+        extractSingularities();
+        profilePhase("C local search", phaseStart, faceCount, edgeCount);
         profilePhase("TOTAL build()", buildStart, faceCount, edgeCount);
         printSolutionDiagnostics(system);
         return this;
+    }
+
+    /**
+     * BZK09 §4.2 "Local Search Singularity Optimization" post-process.
+     * For each edge incident to a current singularity, try changing the period
+     * jump by ±1 and re-solve theta. The Laplacian-style theta-only matrix is
+     * factorized once and reused across all candidate solves (the matrix is
+     * unchanged when only period jumps shift; only the RHS changes).
+     *
+     * <p>Per the paper this often eliminates spurious singularities that the
+     * greedy rounding placed in flat regions, dramatically reducing the count.
+     *
+     * @param faceConstrained     per-face flag; constrained faces are excluded from theta DOFs
+     * @param faceConstraintAngle theta value held at constrained faces
+     */
+    private void localSearchSingularityOptimization(boolean[] faceConstrained, float[] faceConstraintAngle) {
+        long deadlineNs = System.nanoTime() + LOCAL_SEARCH_BUDGET_NS;
+        int edgeCount = mesh.edgeCount();
+        int faceCount = mesh.faceCount();
+        float halfPi = (float) (Math.PI / NUM_2_0);
+
+        int[] freeFromAll = new int[faceCount];
+        int[] allFromFree = new int[faceCount];
+        int freeCountMut = 0;
+        for (int fAi = 0; fAi < faceCount; fAi++) {
+            if (faceConstrained[fAi]) {
+                freeFromAll[fAi] = -1;
+            } else {
+                freeFromAll[fAi] = freeCountMut;
+                allFromFree[freeCountMut] = fAi;
+                freeCountMut++;
+            }
+        }
+        final int freeCount = freeCountMut;
+        if (freeCount == 0) {
+            return;
+        }
+
+        org.ejml.data.DMatrixSparseTriplet triplets =
+                new org.ejml.data.DMatrixSparseTriplet(freeCount, freeCount, edgeCount * NUM_4_INT);
+        double[] diag = new double[freeCount];
+        for (int eAi = 0; eAi < edgeCount; eAi++) {
+            int eId = mesh.edgeIdAt(eAi);
+            if (mesh.isBoundaryEdge(eId)) {
+                continue;
+            }
+            int he = mesh.edgeHalfEdge(eId);
+            int twin = mesh.halfEdgeTwin(he);
+            int fi = faceIdToActive.get(mesh.halfEdgeFace(he));
+            int fj = faceIdToActive.get(mesh.halfEdgeFace(twin));
+            int rfi = freeFromAll[fi];
+            int rfj = freeFromAll[fj];
+            if (rfi >= 0) {
+                diag[rfi] += 1.0;
+            }
+            if (rfj >= 0) {
+                diag[rfj] += 1.0;
+            }
+            if (rfi >= 0 && rfj >= 0 && rfi < rfj) {
+                triplets.addItem(rfi, rfj, -1.0);
+            }
+        }
+        for (int rf = 0; rf < freeCount; rf++) {
+            triplets.addItem(rf, rf, diag[rf]);
+        }
+
+        org.ejml.data.DMatrixSparseCSC csc = new org.ejml.data.DMatrixSparseCSC(freeCount, freeCount, triplets.nz_length);
+        org.ejml.ops.DConvertMatrixStruct.convert(triplets, csc);
+        var solver = org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC
+                .cholesky(org.ejml.sparse.FillReducing.NONE);
+        if (!solver.setA(csc)) {
+            return;
+        }
+        org.ejml.data.DMatrixRMaj b = new org.ejml.data.DMatrixRMaj(freeCount, 1);
+        org.ejml.data.DMatrixRMaj x = new org.ejml.data.DMatrixRMaj(freeCount, 1);
+
+        java.util.function.Supplier<double[]> solveTheta = () -> {
+            for (int rf = 0; rf < freeCount; rf++) {
+                b.unsafe_set(rf, 0, 0.0);
+            }
+            for (int eAi = 0; eAi < edgeCount; eAi++) {
+                int eId = mesh.edgeIdAt(eAi);
+                if (mesh.isBoundaryEdge(eId)) {
+                    continue;
+                }
+                int he = mesh.edgeHalfEdge(eId);
+                int twin = mesh.halfEdgeTwin(he);
+                int fi = faceIdToActive.get(mesh.halfEdgeFace(he));
+                int fj = faceIdToActive.get(mesh.halfEdgeFace(twin));
+                double k = kappa[eAi] + halfPi * periodJump[eAi];
+                int rfi = freeFromAll[fi];
+                int rfj = freeFromAll[fj];
+                if (rfi >= 0) {
+                    b.unsafe_set(rfi, 0, b.unsafe_get(rfi, 0) - k);
+                }
+                if (rfj >= 0) {
+                    b.unsafe_set(rfj, 0, b.unsafe_get(rfj, 0) + k);
+                }
+                if (rfi < 0 && rfj >= 0) {
+                    b.unsafe_set(rfj, 0, b.unsafe_get(rfj, 0) + faceConstraintAngle[fi]);
+                }
+                if (rfj < 0 && rfi >= 0) {
+                    b.unsafe_set(rfi, 0, b.unsafe_get(rfi, 0) + faceConstraintAngle[fj]);
+                }
+            }
+            solver.solve(b, x);
+            double[] thetaFull = new double[faceCount];
+            for (int fAi = 0; fAi < faceCount; fAi++) {
+                if (faceConstrained[fAi]) {
+                    thetaFull[fAi] = faceConstraintAngle[fAi];
+                } else {
+                    thetaFull[fAi] = x.unsafe_get(freeFromAll[fAi], 0);
+                }
+            }
+            return thetaFull;
+        };
+
+        java.util.function.ToDoubleFunction<double[]> energyOf = thetaFull -> {
+            double e = 0.0;
+            for (int eAi = 0; eAi < edgeCount; eAi++) {
+                int eId = mesh.edgeIdAt(eAi);
+                if (mesh.isBoundaryEdge(eId)) {
+                    continue;
+                }
+                int he = mesh.edgeHalfEdge(eId);
+                int twin = mesh.halfEdgeTwin(he);
+                int fi = faceIdToActive.get(mesh.halfEdgeFace(he));
+                int fj = faceIdToActive.get(mesh.halfEdgeFace(twin));
+                double r = thetaFull[fi] + kappa[eAi] + halfPi * periodJump[eAi] - thetaFull[fj];
+                e += r * r;
+            }
+            return e;
+        };
+
+        // Resolve to optimal theta given current period jumps.
+        double[] thetaCurrent = solveTheta.get();
+        for (int fAi = 0; fAi < faceCount; fAi++) {
+            theta[fAi] = (float) thetaCurrent[fAi];
+        }
+        double currentEnergy = energyOf.applyAsDouble(thetaCurrent);
+
+        boolean improved = true;
+        int passes = 0;
+        int totalAccepts = 0;
+        int totalCandidates = 0;
+        while (improved && passes < LOCAL_SEARCH_MAX_PASSES) {
+            improved = false;
+            passes++;
+            // Build the candidate edge set: edges incident to any current singularity.
+            java.util.Set<Integer> candidateEdges = new java.util.HashSet<>();
+            for (Singularity s : singularities) {
+                int vId = s.vertexId();
+                int outCount = mesh.vertexOutgoingHalfEdgeCount(vId);
+                for (int i = 0; i < outCount; i++) {
+                    int hh = mesh.vertexOutgoingHalfEdgeAt(vId, i);
+                    int eId = mesh.halfEdgeEdge(hh);
+                    if (mesh.isBoundaryEdge(eId)) {
+                        continue;
+                    }
+                    candidateEdges.add(edgeIdToActive.get(eId));
+                }
+            }
+            for (int eAi : candidateEdges) {
+                if (System.nanoTime() > deadlineNs) {
+                    break;
+                }
+                int oldP = periodJump[eAi];
+                for (int delta : LOCAL_SEARCH_DELTAS) {
+                    totalCandidates++;
+                    periodJump[eAi] = oldP + delta;
+                    double[] thetaTrial = solveTheta.get();
+                    double trialEnergy = energyOf.applyAsDouble(thetaTrial);
+                    if (trialEnergy < currentEnergy - LOCAL_SEARCH_EPS) {
+                        currentEnergy = trialEnergy;
+                        thetaCurrent = thetaTrial;
+                        for (int fAi = 0; fAi < faceCount; fAi++) {
+                            theta[fAi] = (float) thetaCurrent[fAi];
+                        }
+                        oldP = oldP + delta;
+                        improved = true;
+                        totalAccepts++;
+                        // Re-extract singularities for the next pass's candidate set.
+                        extractSingularities();
+                        break;
+                    }
+                    periodJump[eAi] = oldP;
+                }
+            }
+        }
+        if (PROFILE_BUILD) {
+            System.out.printf("[cross-field profile] local search passes=%d candidates=%d accepts=%d%n",
+                    passes, totalCandidates, totalAccepts);
+        }
     }
 
     /**
@@ -583,8 +789,11 @@ public class CrossField {
                     e1.y * c + e2.y * s,
                     e1.z * c + e2.z * s);
 
-            // BZK09 solves per-face theta constraints. A reliable curvature sample
-            // contributes one sparse face constraint, not a whole one-ring flood.
+            // BZK09 paper pseudocode says "for each face f incident to v" but their
+            // own §3 result narrative emphasizes "sparse" constraints. Per-vertex
+            // best-projected-face seems to give the closest singularity counts to
+            // the BCEAK13 supplementary reference, which their paper confirms was
+            // generated with [Bommes et al. 2009].
             int adj = mesh.vertexFaceCount(vId);
             int bestFaceAi = -1;
             float bestProjectionLength = -NUM_1;
@@ -967,12 +1176,73 @@ public class CrossField {
         return (float) Math.sqrt(sumSq / count);
     }
 
+
     /**
-     * Constrain every face incident on a boundary edge so its cross aligns
-     * with the edge direction (BZK09 §A2 boundary rule).
+     * BZK09 §5.2 / CIE16-style alignment constraints: edges whose dihedral angle
+     * between the two incident face normals exceeds {@link #featureDihedralCos}
+     * (default cos 30° = 0.866) are treated as sharp creases. The cross is
+     * aligned with the edge direction in both incident faces.
      *
-     * @param faceConstrained     per-face flag, set to true for faces newly constrained
-     * @param faceConstraintAngle per-face constraint angle (face-local) written for newly constrained faces
+     * <p>Without this pass, sharp models like fandisk produce many spurious
+     * singularities because the field has no incentive to follow features.
+     *
+     * @param faceConstrained     per-face flag, updated for newly constrained faces
+     * @param faceConstraintAngle per-face constraint angle (face-local) overwritten for affected faces
+     * @return number of newly constrained faces
+     */
+    public int applyFeatureEdgeConstraints(boolean[] faceConstrained, float[] faceConstraintAngle) {
+        Vector3f a = new Vector3f();
+        Vector3f b = new Vector3f();
+        Vector3f n0 = new Vector3f();
+        Vector3f n1 = new Vector3f();
+        int addedConstraints = 0;
+        for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
+            int eId = mesh.edgeIdAt(eAi);
+            if (mesh.isBoundaryEdge(eId)) {
+                continue;
+            }
+            int he = mesh.edgeHalfEdge(eId);
+            int twin = mesh.halfEdgeTwin(he);
+            int fi = mesh.halfEdgeFace(he);
+            int fj = mesh.halfEdgeFace(twin);
+            mesh.faceNormal(fi, n0);
+            mesh.faceNormal(fj, n1);
+            float dot = n0.dot(n1);
+            if (dot >= featureDihedralCos) {
+                continue;
+            }
+            // Don't overwrite existing curvature constraints — they're more directional
+            // information per vertex than a feature edge can provide for one face.
+            int fiAi = faceIdToActive.get(fi);
+            int fjAi = faceIdToActive.get(fj);
+            if (faceConstrained[fiAi] && faceConstrained[fjAi]) {
+                continue;
+            }
+            int v0 = mesh.halfEdgeVertex(he);
+            int v1 = mesh.halfEdgeEndVertex(he);
+            mesh.vertexPosition(v0, a);
+            mesh.vertexPosition(v1, b);
+            Vector3f edgeDir = new Vector3f(b).sub(a);
+            for (int sideAi : new int[] { fiAi, fjAi }) {
+                if (faceConstrained[sideAi]) {
+                    continue;
+                }
+                float angle = projectDirectionToFaceAngle(edgeDir, sideAi);
+                faceConstrained[sideAi] = true;
+                faceConstraintAngle[sideAi] = canonicalizeMod(angle, (float) (Math.PI / NUM_2_0));
+                addedConstraints++;
+            }
+        }
+        return addedConstraints;
+    }
+
+    /**
+     * Add directional constraints on both faces incident to each boundary edge.
+     * The cross is aligned with the edge direction so the quadrangulation
+     * follows the surface boundary.
+     *
+     * @param faceConstrained     per-face flag, updated for newly constrained boundary-incident faces
+     * @param faceConstraintAngle per-face constraint angle (face-local) overwritten for boundary-incident faces
      * @return number of newly constrained faces
      */
     public int applyBoundaryConstraints(boolean[] faceConstrained, float[] faceConstraintAngle) {
@@ -1638,8 +1908,8 @@ public class CrossField {
             adaptiveOptions.cgTolerance = NUM_1e_7;
             adaptiveOptions.useDirectFallback = true;
             batchRoundingEnabled = true;
-            roundBatchSize = 1;
-            roundBatchTol = NUM_1e_3;
+            roundBatchSize = NUM_256;
+            roundBatchTol = NUM_0_15;
         }
 
         void solveGreedyMIP() {
