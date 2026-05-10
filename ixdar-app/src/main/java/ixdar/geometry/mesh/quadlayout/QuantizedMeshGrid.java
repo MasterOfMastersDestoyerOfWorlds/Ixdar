@@ -1,6 +1,6 @@
 package ixdar.geometry.mesh.quadlayout;
 
-import ixdar.geometry.mesh.quadlayout.tmesh.MotorcycleGraph;
+import ixdar.geometry.mesh.quadlayout.MotorcycleGraph;
 
 public class QuantizedMeshGrid {
 

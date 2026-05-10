@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
 
 /**
  * § A. CROSS FIELD GENERATION (Bommes–Zimmer–Kobbelt 2009 — BZK09)

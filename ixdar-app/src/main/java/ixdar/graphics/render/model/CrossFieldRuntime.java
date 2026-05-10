@@ -9,7 +9,7 @@ import org.lwjgl.BufferUtils;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.CrossField;
-import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
+import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;

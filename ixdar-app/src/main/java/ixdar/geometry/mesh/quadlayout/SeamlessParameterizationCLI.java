@@ -9,7 +9,6 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
 
 /**
  * Stand-alone driver: load a triangle mesh, run the LCK21 stages 1–3 (cross

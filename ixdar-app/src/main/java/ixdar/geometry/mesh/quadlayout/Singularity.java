@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.vectorfield;
+package ixdar.geometry.mesh.quadlayout;
 
 /**
  * A 4-RoSy field singularity at vertex {@code vertexId}. Index is stored as

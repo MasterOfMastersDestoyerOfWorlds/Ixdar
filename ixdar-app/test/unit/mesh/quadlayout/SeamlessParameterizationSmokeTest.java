@@ -16,7 +16,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.CrossField;
 import ixdar.geometry.mesh.quadlayout.SeamlessParameterization;
-import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
+import ixdar.geometry.mesh.quadlayout.Singularity;
 
 /**
  * Smoke test for {@link SeamlessParameterization}. Runs the BZK09 §5 pipeline

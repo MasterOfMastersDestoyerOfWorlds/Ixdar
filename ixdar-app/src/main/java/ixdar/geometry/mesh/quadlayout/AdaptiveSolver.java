@@ -2,37 +2,15 @@ package ixdar.geometry.mesh.quadlayout;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
-
-import java.util.ArrayList;
-
-import ixdar.geometry.mesh.quadlayout.solver.SparseMatrix;
-
-import java.util.List;
+import java.util.function.IntConsumer;
 
 import org.ejml.data.DMatrixRMaj;
-
 import org.ejml.data.DMatrixSparseCSC;
-
 import org.ejml.data.DMatrixSparseTriplet;
 import org.ejml.interfaces.linsol.LinearSolverSparse;
-
-import java.util.concurrent.ExecutorService;
-
 import org.ejml.ops.DConvertMatrixStruct;
-
-import java.util.concurrent.ExecutionException;
-
 import org.ejml.sparse.FillReducing;
-
 import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
-
-import java.util.concurrent.Callable;
-
-import java.util.concurrent.Executors;
-
-import java.util.concurrent.Future;
-
-import java.util.function.IntConsumer;
 
 /**
  * Adaptive solver ladder for the mixed-integer systems described by
@@ -80,7 +58,6 @@ public final class AdaptiveSolver {
         }
     }
 
-
     /**
      * Solve after one or more independent integer variables have been rounded and
      * fixed. The local Gauss-Seidel seed is the union of each rounded variable's
@@ -96,7 +73,7 @@ public final class AdaptiveSolver {
      * @param options          solver tolerances and iteration caps
      * @return solution and stats
      */
-    public static Result solveAfterRounding(Matrix matrix,
+    public static Result solveAfterRounding(NormalMatrix matrix,
             double[] rhs,
             double[] warmStart,
             boolean[] fixed,
@@ -150,7 +127,7 @@ public final class AdaptiveSolver {
                 local.capResidualNorm, local.capResidualRow));
     }
 
-    private static LocalResult localGaussSeidel(Matrix matrix,
+    private static LocalResult localGaussSeidel(NormalMatrix matrix,
             double[] rhs,
             double[] start,
             boolean[] fixed,
@@ -221,7 +198,7 @@ public final class AdaptiveSolver {
      * @param marked          scratch/accumulated marker array
      * @return number of entries written to {@code patch}
      */
-    public static int collectAffectedPatch(Matrix matrix,
+    public static int collectAffectedPatch(NormalMatrix matrix,
             int roundedVariable,
             boolean[] fixed,
             int[] patch,
@@ -250,7 +227,7 @@ public final class AdaptiveSolver {
         return count;
     }
 
-    private static CgResult conjugateGradient(Matrix matrix,
+    private static CgResult conjugateGradient(NormalMatrix matrix,
             double[] rhs,
             double[] start,
             boolean[] fixed,
@@ -350,7 +327,7 @@ public final class AdaptiveSolver {
      * @throws IllegalStateException if the Cholesky factorization fails
      * @return solution with fixed entries copied from {@code start}
      */
-    public static double[] directSolve(Matrix matrix,
+    public static double[] directSolve(NormalMatrix matrix,
             double[] rhs,
             double[] start,
             boolean[] fixed) {
@@ -442,7 +419,7 @@ public final class AdaptiveSolver {
      * @return per-free-variable list of free-variable neighbours (off-diagonal
      *         only)
      */
-    private static int[][] buildAdjacency(Matrix matrix,
+    private static int[][] buildAdjacency(NormalMatrix matrix,
             boolean[] fixed,
             int[] compactOf,
             int freeCount) {
@@ -531,7 +508,7 @@ public final class AdaptiveSolver {
         return reversed;
     }
 
-    private static BootstrapResult bootstrapSolve(Matrix matrix,
+    private static BootstrapResult bootstrapSolve(NormalMatrix matrix,
             double[] rhs,
             double[] start,
             boolean[] fixed) {
@@ -555,7 +532,7 @@ public final class AdaptiveSolver {
         return count + 1;
     }
 
-    private static void enqueueDependents(Matrix matrix,
+    private static void enqueueDependents(NormalMatrix matrix,
             int row,
             boolean[] fixed,
             IntArrayQueue queue,
@@ -573,7 +550,7 @@ public final class AdaptiveSolver {
         }
     }
 
-    private static double rowDot(Matrix matrix, int row, double[] x) {
+    private static double rowDot(NormalMatrix matrix, int row, double[] x) {
         double sum = matrix.diag(row) * x[row];
         for (int c = matrix.rowStart(row); c < matrix.rowEnd(row); c++) {
             sum += matrix.value(c) * x[matrix.column(c)];
@@ -581,7 +558,7 @@ public final class AdaptiveSolver {
         return sum;
     }
 
-    private static CapResidual maxQueuedResidual(Matrix matrix,
+    private static CapResidual maxQueuedResidual(NormalMatrix matrix,
             double[] rhs,
             double[] x,
             boolean[] fixed,
@@ -601,7 +578,7 @@ public final class AdaptiveSolver {
         return new CapResidual(maxRef[0], maxRowRef[0]);
     }
 
-    private static double residualNorm(Matrix matrix, double[] rhs, double[] x, boolean[] fixed) {
+    private static double residualNorm(NormalMatrix matrix, double[] rhs, double[] x, boolean[] fixed) {
         double sum = 0.0;
         for (int i = 0; i < matrix.size(); i++) {
             if (fixed[i]) {
@@ -623,7 +600,7 @@ public final class AdaptiveSolver {
         return sum;
     }
 
-    private static void validateInputs(Matrix matrix, double[] rhs, double[] warmStart, boolean[] fixed) {
+    private static void validateInputs(NormalMatrix matrix, double[] rhs, double[] warmStart, boolean[] fixed) {
         int n = matrix.size();
         if (rhs.length != n || warmStart.length != n || fixed.length != n) {
             throw new IllegalArgumentException("matrix/vector size mismatch");
@@ -679,64 +656,6 @@ public final class AdaptiveSolver {
                 }
             }
         }
-    }
-
-    /**
-     * Sparse row-access interface used by {@link AdaptiveSolver}.
-     *
-     * <p>
-     * The matrix is expected to be symmetric for the CG/direct fallback to match
-     * BZK09's normal-equation systems. Diagonal entries are supplied through
-     * {@link #diag(int)}; the row-entry range is expected to contain off-diagonal
-     * entries only.
-     */
-    public interface Matrix {
-        /**
-         * Square dimension of the matrix.
-         *
-         * @return number of rows and columns
-         */
-        int size();
-
-        /**
-         * Diagonal coefficient of the given row.
-         *
-         * @param row row index in {@code [0, size())}
-         * @return diagonal coefficient A[row,row]
-         */
-        double diag(int row);
-
-        /**
-         * First off-diagonal cursor for the given row.
-         *
-         * @param row row index in {@code [0, size())}
-         * @return first row-entry cursor, inclusive
-         */
-        int rowStart(int row);
-
-        /**
-         * Off-diagonal end cursor for the given row.
-         *
-         * @param row row index in {@code [0, size())}
-         * @return last row-entry cursor, exclusive
-         */
-        int rowEnd(int row);
-
-        /**
-         * Column index referenced by an off-diagonal cursor.
-         *
-         * @param cursor row-entry cursor in {@code [rowStart(row), rowEnd(row))}
-         * @return column index for row-entry cursor
-         */
-        int column(int cursor);
-
-        /**
-         * Coefficient value referenced by an off-diagonal cursor.
-         *
-         * @param cursor row-entry cursor in {@code [rowStart(row), rowEnd(row))}
-         * @return coefficient value for row-entry cursor
-         */
-        double value(int cursor);
     }
 
     /**

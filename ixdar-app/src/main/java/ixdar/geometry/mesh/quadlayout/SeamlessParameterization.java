@@ -21,7 +21,6 @@ import org.ejml.data.DMatrixRMaj;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
 
 /**
  * BZK09 §5 seamless parametrization, stage 3 of the Lyon 2021 quad-layout

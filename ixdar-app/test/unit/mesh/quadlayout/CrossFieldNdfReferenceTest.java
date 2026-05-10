@@ -167,8 +167,8 @@ class CrossFieldNdfReferenceTest {
      * actual one. Returns the largest pairing distance and the pair that produced it.
      */
     private static SingularityPairing greedyPairingBySign(
-            java.util.List<ixdar.geometry.mesh.quadlayout.vectorfield.Singularity> expected,
-            java.util.List<ixdar.geometry.mesh.quadlayout.vectorfield.Singularity> actual,
+            java.util.List<ixdar.geometry.mesh.quadlayout.Singularity> expected,
+            java.util.List<ixdar.geometry.mesh.quadlayout.Singularity> actual,
             HalfEdgeMesh mesh) {
         SingularityPairing positivePairing = pairSameSign(filterBySign(expected, +1), filterBySign(actual, +1), mesh);
         SingularityPairing negativePairing = pairSameSign(filterBySign(expected, -1), filterBySign(actual, -1), mesh);
@@ -179,9 +179,9 @@ class CrossFieldNdfReferenceTest {
         return negativePairing;
     }
 
-    private static java.util.List<ixdar.geometry.mesh.quadlayout.vectorfield.Singularity> filterBySign(
-            java.util.List<ixdar.geometry.mesh.quadlayout.vectorfield.Singularity> singularities, int sign) {
-        java.util.List<ixdar.geometry.mesh.quadlayout.vectorfield.Singularity> out = new java.util.ArrayList<>();
+    private static java.util.List<ixdar.geometry.mesh.quadlayout.Singularity> filterBySign(
+            java.util.List<ixdar.geometry.mesh.quadlayout.Singularity> singularities, int sign) {
+        java.util.List<ixdar.geometry.mesh.quadlayout.Singularity> out = new java.util.ArrayList<>();
         for (var s : singularities) {
             if (Integer.signum(s.index4()) == sign) {
                 out.add(s);
@@ -191,8 +191,8 @@ class CrossFieldNdfReferenceTest {
     }
 
     private static SingularityPairing pairSameSign(
-            java.util.List<ixdar.geometry.mesh.quadlayout.vectorfield.Singularity> expected,
-            java.util.List<ixdar.geometry.mesh.quadlayout.vectorfield.Singularity> actual,
+            java.util.List<ixdar.geometry.mesh.quadlayout.Singularity> expected,
+            java.util.List<ixdar.geometry.mesh.quadlayout.Singularity> actual,
             HalfEdgeMesh mesh) {
         if (expected.isEmpty() || actual.isEmpty()) {
             return new SingularityPairing(0.0f, 0.0f, 0.0f, "");

@@ -7,7 +7,7 @@ import java.util.Locale;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.CrossField;
-import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
+import ixdar.geometry.mesh.quadlayout.Singularity;
 
 /**
  * Emit a {@link CrossField} in the .ndf format consumed by

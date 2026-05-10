@@ -142,7 +142,7 @@ public final class SmoothEnergySystem {
                 solution[faceCount + chord] = solutionPeriod[eAi];
             }
         }
-        normalMatrix = new NormalMatrix();
+        normalMatrix = new NormalMatrix(faceCount, chordCount, rowCount, rowFaceI, rowFaceJ, rowEdgeAi, chordOfEdge, periodValue, rowKappa);
         adaptiveOptions = new AdaptiveSolver.Options();
         adaptiveOptions.localMaxIterations = solverLocalMaxIterations;
         adaptiveOptions.localTolerance = DEFAULT_LOCAL_TOLERANCE;
@@ -157,9 +157,7 @@ public final class SmoothEnergySystem {
     void solveGreedyMIP(String lastDiagnostics) {
         lastAdaptiveMethod = "BOOTSTRAP_DIRECT_PENDING";
         lastAdaptiveResidual = Double.NaN;
-        updateLastDiagnostics(lastDiagnostics);
         solveRelaxed(-1);
-        updateLastDiagnostics(lastDiagnostics);
         int[] roundedVariables = new int[roundBatchSize];
         int[] roundedEdges = new int[roundBatchSize];
         int[] patch = new int[normalMatrix.size()];
@@ -193,9 +191,7 @@ public final class SmoothEnergySystem {
             maxBatchSize = Math.max(maxBatchSize, batchSize);
             lastAdaptiveMethod = batchSize == 1 ? "ROUND_LOCAL_GS_PENDING" : "BATCH_LOCAL_GS_PENDING";
             lastAdaptiveResidual = Double.NaN;
-            updateLastDiagnostics(lastDiagnostics);
             solveRelaxed(roundedVariables, batchSize);
-            updateLastDiagnostics(lastDiagnostics);
         }
     }
 
@@ -324,10 +320,10 @@ public final class SmoothEnergySystem {
         solution = result.x();
         AdaptiveSolver.Stats stats = result.stats();
         switch (stats.method()) {
-        case LOCAL_GAUSS_SEIDEL -> localGsConverged++;
-        case CONJUGATE_GRADIENT -> cgConverged++;
-        case DIRECT -> directFallbacks++;
-        case FAILED -> failedSolves++;
+            case LOCAL_GAUSS_SEIDEL -> localGsConverged++;
+            case CONJUGATE_GRADIENT -> cgConverged++;
+            case DIRECT -> directFallbacks++;
+            case FAILED -> failedSolves++;
         }
         if (!stats.converged() && stats.method() != AdaptiveSolver.Method.FAILED) {
             failedSolves++;
@@ -360,34 +356,6 @@ public final class SmoothEnergySystem {
         }
     }
 
-    /**
-     * Format and stash a one-line diagnostic snapshot in
-     * {@link CrossField#lastDiagnostics} (rounded count, batch / solver / cap
-     * stats).
-     *
-     * @param lastDiagnostics output parameter for the diagnostic string
-     */
-    public void updateLastDiagnostics(String lastDiagnostics) {
-        int remaining = 0;
-        for (int eAi = 0; eAi < edgeCount; eAi++) {
-            if (!periodFixed[eAi]) {
-                remaining++;
-            }
-        }
-        double avgBatch = batchCount > 0 ? (double) totalBatchSize / batchCount : 0.0;
-        double avgInitialQueue = batchCount > 0
-                ? (double) totalLocalInitialQueueSize / batchCount
-                : 0.0;
-        lastDiagnostics = String.format(
-                "[cross-field] failure-diagnostics rounded=%d remaining=%d batches=%d avgBatch=%.3f maxBatch=%d rejectOverlap=%d rejectRoundoff=%d localGS=%d cg=%d direct=%d failed=%d localIters=%d cgIters=%d localCapHits=%d capFace=%d capChord=%d maxCapResidual=%.6g avgSeedQueue=%.3f maxQueue=%d lastMethod=%s lastResidual=%.6g",
-                roundedPeriods, remaining, batchCount, avgBatch, maxBatchSize,
-                batchRejectedByOverlap, batchRejectedByRoundoff, localGsConverged,
-                cgConverged, directFallbacks, failedSolves, totalLocalGsIterations,
-                totalCgIterations, localGsCapHits, localCapFaceRows, localCapChordRows,
-                maxLocalCapResidual, avgInitialQueue, maxLocalQueueSize,
-                lastAdaptiveMethod, lastAdaptiveResidual);
-    }
-
     void unpackInto(HalfEdgeMesh mesh, CrossField cf) {
         cf.theta = solutionTheta.clone();
         cf.periodJump = new int[edgeCount];
@@ -417,126 +385,6 @@ public final class SmoothEnergySystem {
             this.chord = chord;
             this.edgeAi = edgeAi;
             this.roundoff = roundoff;
-        }
-    }
-
-    public final class NormalMatrix implements AdaptiveSolver.Matrix {
-        public static final double HALF = 0.5;
-        final int variableCount;
-        final double[] diag;
-        final double[] rhs;
-        final int[] rowStart;
-        final int[] rowCol;
-        final double[] rowVal;
-
-        NormalMatrix() {
-            variableCount = faceCount + chordCount;
-            diag = new double[variableCount];
-            rhs = new double[variableCount];
-
-            int[] degree = new int[variableCount];
-            for (int r = 0; r < rowCount; r++) {
-                int fi = rowFaceI[r];
-                int fj = rowFaceJ[r];
-                int chord = chordOfEdge[rowEdgeAi[r]];
-                if (chord >= 0) {
-                    int pe = faceCount + chord;
-                    degree[fi] += 2;
-                    degree[fj] += 2;
-                    degree[pe] += 2;
-                } else {
-                    degree[fi] += 1;
-                    degree[fj] += 1;
-                }
-            }
-
-            rowStart = new int[variableCount + 1];
-            for (int i = 0; i < variableCount; i++) {
-                rowStart[i + 1] = rowStart[i] + degree[i];
-            }
-            rowCol = new int[rowStart[variableCount]];
-            rowVal = new double[rowStart[variableCount]];
-            int[] cursor = rowStart.clone();
-            double halfPi = Math.PI * HALF;
-
-            for (int r = 0; r < rowCount; r++) {
-                int fi = rowFaceI[r];
-                int fj = rowFaceJ[r];
-                int eAi = rowEdgeAi[r];
-                int chord = chordOfEdge[eAi];
-                int pe = chord >= 0 ? faceCount + chord : -1;
-                double k = rowKappa[r] + (chord < 0 ? halfPi * periodValue[eAi] : 0.0);
-
-                diag[fi] += 1.0;
-                diag[fj] += 1.0;
-
-                addOffDiagonal(cursor, fi, fj, -1.0);
-                addOffDiagonal(cursor, fj, fi, -1.0);
-
-                rhs[fi] -= k;
-                rhs[fj] += k;
-                if (pe >= 0) {
-                    diag[pe] += halfPi * halfPi;
-
-                    addOffDiagonal(cursor, fi, pe, halfPi);
-                    addOffDiagonal(cursor, pe, fi, halfPi);
-                    addOffDiagonal(cursor, fj, pe, -halfPi);
-                    addOffDiagonal(cursor, pe, fj, -halfPi);
-
-                    rhs[pe] -= halfPi * k;
-                }
-            }
-        }
-
-        /**
-         * Append one off-diagonal entry into the row's CSR slot, advancing the row's
-         * write cursor in {@code cursor}.
-         *
-         * @param cursor per-row write cursor (mutated)
-         * @param row    row index of the new entry
-         * @param col    column index of the new entry
-         * @param value  coefficient
-         */
-        public void addOffDiagonal(int[] cursor, int row, int col, double value) {
-            int i = cursor[row]++;
-            rowCol[i] = col;
-            rowVal[i] = value;
-        }
-
-        /** {@inheritDoc}. */
-        @Override
-        public int size() {
-            return variableCount;
-        }
-
-        /** {@inheritDoc}. */
-        @Override
-        public double diag(int row) {
-            return diag[row];
-        }
-
-        /** {@inheritDoc}. */
-        @Override
-        public int rowStart(int row) {
-            return rowStart[row];
-        }
-
-        /** {@inheritDoc}. */
-        @Override
-        public int rowEnd(int row) {
-            return rowStart[row + 1];
-        }
-
-        /** {@inheritDoc}. */
-        @Override
-        public int column(int cursor) {
-            return rowCol[cursor];
-        }
-
-        /** {@inheritDoc}. */
-        @Override
-        public double value(int cursor) {
-            return rowVal[cursor];
         }
     }
 }
