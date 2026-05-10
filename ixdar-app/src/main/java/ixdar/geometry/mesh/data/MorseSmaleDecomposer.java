@@ -1,7 +1,10 @@
 package ixdar.geometry.mesh.data;
-
 import java.util.ArrayList;
+
+import java.util.ArrayDeque;
 import java.util.HashMap;
+
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -217,7 +220,7 @@ public final class MorseSmaleDecomposer {
         }
         Integer[] order = new Integer[n];
         for (int i = 0; i < n; i++) order[i] = i;
-        java.util.Arrays.sort(order, (a, b) -> Float.compare(faceErr[b], faceErr[a]));
+        Arrays.sort(order, (a, b) -> Float.compare(faceErr[b], faceErr[a]));
         int seed1 = faces.get(order[0]);
         // Second seed: stride into the sorted head so seeds aren't both
         // in the same hot spot.
@@ -241,8 +244,8 @@ public final class MorseSmaleDecomposer {
         Map<Integer, Integer> faceToIdx = new HashMap<>(n * 2);
         for (int i = 0; i < n; i++) faceToIdx.put(faces.get(i), i);
         int[] labels = new int[n];
-        java.util.Arrays.fill(labels, -1);
-        java.util.ArrayDeque<int[]> queue = new java.util.ArrayDeque<>();
+        Arrays.fill(labels, -1);
+        ArrayDeque<int[]> queue = new ArrayDeque<>();
         for (int s = 0; s < 2; s++) {
             Integer idx = faceToIdx.get(seedFaces[s]);
             if (idx == null) continue;
@@ -390,7 +393,7 @@ public final class MorseSmaleDecomposer {
         int max = 0;
         for (int l : labels) if (l + 1 > max) max = l + 1;
         int[] map = new int[max];
-        java.util.Arrays.fill(map, -1);
+        Arrays.fill(map, -1);
         int next = 0;
         for (int l : labels) {
             if (map[l] < 0) map[l] = next++;

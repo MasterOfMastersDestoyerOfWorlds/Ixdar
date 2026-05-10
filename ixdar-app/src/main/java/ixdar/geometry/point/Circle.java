@@ -88,11 +88,11 @@ public class Circle implements Geometry, PointCollection {
         if (args.length - startIdx == 0) {
             return new Circle();
         }
-        double xCenter = java.lang.Double.parseDouble(args[startIdx]);
-        double yCenter = java.lang.Double.parseDouble(args[startIdx + 1]);
-        double radius = java.lang.Double.parseDouble(args[startIdx + 2]);
-        int numPoints = java.lang.Integer.parseInt(args[startIdx + NUM_3]);
-        double rotation = Math.PI * java.lang.Double.parseDouble(args[startIdx + NUM_4]) / NUM_180_0;
+        double xCenter = Double.parseDouble(args[startIdx]);
+        double yCenter = Double.parseDouble(args[startIdx + 1]);
+        double radius = Double.parseDouble(args[startIdx + 2]);
+        int numPoints = Integer.parseInt(args[startIdx + NUM_3]);
+        double rotation = Math.PI * Double.parseDouble(args[startIdx + NUM_4]) / NUM_180_0;
         return new Circle(xCenter, yCenter, radius, numPoints, rotation);
     }
 

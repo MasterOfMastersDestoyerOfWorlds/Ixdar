@@ -6,6 +6,8 @@ import org.ejml.ops.DConvertMatrixStruct;
 import org.ejml.sparse.csc.CommonOps_DSCC;
 import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
 import org.ejml.interfaces.linsol.LinearSolverSparse;
+
+import org.ojalgo.matrix.store.SparseStore;
 import org.ejml.sparse.FillReducing;
 import org.ejml.data.DMatrixRMaj;
 
@@ -127,7 +129,7 @@ public final class SparseLu {
     
         // Off-diagonal: emit only the lower triangle (r > c).
         // The matrix is symmetric so the upper triangle is implied.
-        org.ojalgo.matrix.store.SparseStore<Double> store = m.ojAlgoStore();
+        SparseStore<Double> store = m.ojAlgoStore();
         store.nonzeros().forEach(view -> {
             int r = (int) view.row();
             int c = (int) view.column();

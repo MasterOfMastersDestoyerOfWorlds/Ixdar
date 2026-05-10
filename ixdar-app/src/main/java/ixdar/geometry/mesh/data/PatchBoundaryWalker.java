@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.data;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -116,7 +118,7 @@ public final class PatchBoundaryWalker {
             corners = new ArrayList<>();
             for (int i = 0; i < NUM_4; i++) corners.add(all[i]);
         }
-        java.util.Collections.sort(corners);
+        Collections.sort(corners);
 
         int[] cornerVerts = new int[NUM_4];
         for (int i = 0; i < NUM_4; i++) cornerVerts[i] = bestRing[corners.get(i)];

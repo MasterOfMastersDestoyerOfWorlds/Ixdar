@@ -22,10 +22,13 @@ import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
-
 import org.joml.Vector4f;
+
+import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFWErrorCallback;
+
+import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -88,7 +91,7 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
         try {
             GLFWErrorCallback.createPrint(System.err).set();
 
-            if (!org.lwjgl.glfw.GLFW.glfwInit()) {
+            if (!GLFW.glfwInit()) {
                 throw new RuntimeException("Failed to initialize GLFW");
             }
 
@@ -771,7 +774,7 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
     @Override
     public void setWindowTitle(String title) {
         if (window != NULL) {
-            org.lwjgl.glfw.GLFW.glfwSetWindowTitle(window, title);
+            GLFW.glfwSetWindowTitle(window, title);
         }
     }
 
@@ -780,7 +783,7 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
     public void coldStartStack() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             @SuppressWarnings("unused")
-            FloatBuffer buffer = new org.joml.Matrix4f().get(stack.mallocFloat(NUM_16));
+            FloatBuffer buffer = new Matrix4f().get(stack.mallocFloat(NUM_16));
         }
     }
 

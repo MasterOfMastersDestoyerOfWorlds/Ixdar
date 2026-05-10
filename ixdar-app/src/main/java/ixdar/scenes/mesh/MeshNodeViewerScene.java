@@ -2,16 +2,30 @@ package ixdar.scenes.mesh;
 
 import java.io.IOException;
 import java.util.HashMap;
+
+import java.util.ArrayList;
+
+import java.nio.file.Path;
+
+import java.util.HashSet;
+
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 
 import org.joml.Vector3f;
+
+import java.util.Set;
 import org.joml.Vector4f;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.FeatureEdgeColors;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.Patch;
+
+import ixdar.geometry.mesh.data.MorseSmaleDecomposer;
+
+import ixdar.geometry.mesh.data.MorseSmaleComplex;
 import ixdar.geometry.mesh.data.PatchRenderer;
 import ixdar.geometry.mesh.data.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.load.MeshLoader;
@@ -25,6 +39,12 @@ import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.input.OrbitMouseTrap;
+
+import ixdar.platform.input.MouseTrap;
+
+import ixdar.platform.input.KeyGuy;
+
+import ixdar.platform.gl.Platform;
 import ixdar.scenes.Scene;
 
 @SceneAnnotation(id = "mesh-viewer")
@@ -681,7 +701,7 @@ public class MeshNodeViewerScene extends Scene {
         // loadDsl() expects a resource-relative name, but the staging dir
         // contains symlinks — read the file directly and execute the graph.
         try {
-            String dslCode = new String(java.nio.file.Files.readAllBytes(java.nio.file.Path.of(absolutePath)));
+            String dslCode = new String(Files.readAllBytes(Path.of(absolutePath)));
             disposeMeshRuntime();
             PythonLexer lexer = new PythonLexer(dslCode);
             PythonParser parser = new PythonParser(lexer);
@@ -837,20 +857,20 @@ public class MeshNodeViewerScene extends Scene {
     private void applyFeatureEdgeOverlay() {
         if (meshRuntime == null || cachedDiagnostics == null) return;
         if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.STAGES) {
-            java.util.Set<Long> dih = cachedDiagnostics.dihedralFeatureEdges();
-            java.util.Set<Long> prin = cachedDiagnostics.principalFeatureEdges();
-            java.util.Set<Long> crest = cachedDiagnostics.crestEdges();
-            java.util.Set<Long> saddle = cachedDiagnostics.saddleSeparatorEdges();
+            Set<Long> dih = cachedDiagnostics.dihedralFeatureEdges();
+            Set<Long> prin = cachedDiagnostics.principalFeatureEdges();
+            Set<Long> crest = cachedDiagnostics.crestEdges();
+            Set<Long> saddle = cachedDiagnostics.saddleSeparatorEdges();
 
-            java.util.Set<Long> all = new java.util.HashSet<>(dih);
+            Set<Long> all = new HashSet<>(dih);
             all.addAll(prin);
             all.addAll(crest);
             all.addAll(saddle);
 
-            java.util.List<Long> dihOnly = new java.util.ArrayList<>();
-            java.util.List<Long> prinOnly = new java.util.ArrayList<>();
-            java.util.List<Long> crestOnly = new java.util.ArrayList<>();
-            java.util.List<Long> multi = new java.util.ArrayList<>();
+            List<Long> dihOnly = new ArrayList<>();
+            List<Long> prinOnly = new ArrayList<>();
+            List<Long> crestOnly = new ArrayList<>();
+            List<Long> multi = new ArrayList<>();
             for (long key : all) {
                 boolean d = dih.contains(key);
                 boolean p = prin.contains(key);
@@ -863,7 +883,7 @@ public class MeshNodeViewerScene extends Scene {
                 else if (c) crestOnly.add(key);
                 // saddle-only not drawn here; saddle drawn as a last pass below for emphasis.
             }
-            java.util.List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new java.util.ArrayList<>();
+            List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new ArrayList<>();
             cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.DIHEDRAL, dihOnly));
             cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.PRINCIPAL, prinOnly));
             cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.CREST, crestOnly));
@@ -871,12 +891,12 @@ public class MeshNodeViewerScene extends Scene {
             cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.SADDLE, saddle));
             meshRuntime.setFeatureEdgeOverlay(cats);
         } else if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.CREST_VS_BOUNDARY) {
-            java.util.Set<Long> crest = cachedDiagnostics.crestEdges();
-            java.util.Set<Long> boundary = cachedDiagnostics.patchBoundaryEdges();
-            java.util.List<Long> boundaryOnly = new java.util.ArrayList<>();
-            java.util.List<Long> crestIgnored = new java.util.ArrayList<>();
-            java.util.List<Long> aligned = new java.util.ArrayList<>();
-            java.util.Set<Long> union = new java.util.HashSet<>(crest);
+            Set<Long> crest = cachedDiagnostics.crestEdges();
+            Set<Long> boundary = cachedDiagnostics.patchBoundaryEdges();
+            List<Long> boundaryOnly = new ArrayList<>();
+            List<Long> crestIgnored = new ArrayList<>();
+            List<Long> aligned = new ArrayList<>();
+            Set<Long> union = new HashSet<>(crest);
             union.addAll(boundary);
             for (long key : union) {
                 boolean c = crest.contains(key);
@@ -885,20 +905,20 @@ public class MeshNodeViewerScene extends Scene {
                 else if (b) boundaryOnly.add(key);
                 else if (c) crestIgnored.add(key);
             }
-            java.util.List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new java.util.ArrayList<>();
+            List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new ArrayList<>();
             cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.BOUNDARY_ONLY, boundaryOnly));
             cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.CREST_IGNORED, crestIgnored));
             cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.CREST_HONORED, aligned));
             meshRuntime.setFeatureEdgeOverlay(cats);
         } else if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.MSC) {
-            ixdar.geometry.mesh.data.MorseSmaleComplex.Result msc = cachedDiagnostics.morseSmale();
+            MorseSmaleComplex.Result msc = cachedDiagnostics.morseSmale();
             if (msc != null) {
                 // Convert each MSC arc polyline into mesh edges; push as
                 // a single black-colored category. Critical-point dots
                 // are CPU-only for now (live-viewer point sprites are
                 // future work — the arcs alone already give the topology
                 // structure on screen).
-                java.util.List<Long> arcEdges = new java.util.ArrayList<>();
+                List<Long> arcEdges = new ArrayList<>();
                 for (var arc : msc.arcs()) {
                     int[] verts = arc.vertices();
                     for (int i = 0; i + 1 < verts.length; i++) {
@@ -910,7 +930,7 @@ public class MeshNodeViewerScene extends Scene {
                         arcEdges.add(key);
                     }
                 }
-                java.util.List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new java.util.ArrayList<>();
+                List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new ArrayList<>();
                 cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(NUM_0x000000, arcEdges));
                 meshRuntime.setFeatureEdgeOverlay(cats);
             } else {
@@ -946,7 +966,7 @@ public class MeshNodeViewerScene extends Scene {
                 + " (" + am.vertexCount() + " verts)...");
         long start = System.currentTimeMillis();
         cachedDiagnostics = (activeDecomposer == DecomposerKind.MORSE_SMALE)
-                ? ixdar.geometry.mesh.data.MorseSmaleDecomposer.decomposeWithDiagnostics(am, NUM_128)
+                ? MorseSmaleDecomposer.decomposeWithDiagnostics(am, NUM_128)
                 : SemanticPatchDecomposer.decomposeWithDiagnostics(am, NUM_128);
         cachedDiagnosticsKey = key;
         long elapsed = System.currentTimeMillis() - start;
@@ -1042,9 +1062,9 @@ public class MeshNodeViewerScene extends Scene {
      * @param keys keyboard handler invoked from the key callback
      * @param mouse mouse handler invoked from the cursor/button/scroll callbacks
      */
-    private static void bindInputDirect(ixdar.platform.gl.Platform platform,
-                                         ixdar.platform.input.KeyGuy keys,
-                                         ixdar.platform.input.MouseTrap mouse) {
+    private static void bindInputDirect(Platform platform,
+                                         KeyGuy keys,
+                                         MouseTrap mouse) {
         platform.setCursorPosCallback((window, x, y) -> {
             mouse.moveOrDrag(window, (float) x, (float) y);
         });

@@ -1,7 +1,10 @@
 package ixdar.geometry.mesh.data;
-
 import java.util.HashMap;
+
+import java.util.ArrayList;
 import java.util.Map;
+
+import java.util.List;
 
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
@@ -49,7 +52,7 @@ public final class DiscreteGradientCells {
         int faceCount = asc.nt();
         // Collect critical 2-cells = local maxima of the +scalar gradient.
         Map<Integer, Integer> maxLabelByTriId = new HashMap<>();
-        java.util.List<Integer> maxList = new java.util.ArrayList<>();
+        List<Integer> maxList = new ArrayList<>();
         for (int c : asc.criticalCells()) {
             if (asc.dimOf(c) == 2) {
                 int triId = asc.localIdx(c);
@@ -59,7 +62,7 @@ public final class DiscreteGradientCells {
         }
         // Critical 2-cells of -scalar = local minima of +scalar.
         Map<Integer, Integer> minLabelByTriId = new HashMap<>();
-        java.util.List<Integer> minList = new java.util.ArrayList<>();
+        List<Integer> minList = new ArrayList<>();
         for (int c : desc.criticalCells()) {
             if (desc.dimOf(c) == 2) {
                 int triId = desc.localIdx(c);

@@ -1,6 +1,10 @@
 package ixdar.gui.ui.code;
-
 import java.util.regex.Matcher;
+import java.util.List;
+
+import java.util.Arrays;
+
+import java.util.ArrayList;
 import java.util.regex.Pattern;
 
 import ixdar.graphics.render.sdf.ShaderDrawable;
@@ -371,7 +375,7 @@ public class ShaderBranchInjector {
 
             boolean inThen = (lineIndex >= ifHeader) && (elseHeader < 0 || lineIndex < elseHeader);
 
-            java.util.List<String> edited = new java.util.ArrayList<>();
+            List<String> edited = new ArrayList<>();
 
             for (int i = 0; i < ifHeader; i++) {
                 String line = lines[i];
@@ -432,9 +436,9 @@ public class ShaderBranchInjector {
 
     private void simpleTruncate(String[] lines, int lineIndex, int mainStart, int mainEnd, String outName, String expr,
             String indent) {
-        java.util.List<Boolean> execFlags = GLSLExpressionParser.wouldExecute(java.util.Arrays.asList(lines),
+        List<Boolean> execFlags = GLSLExpressionParser.wouldExecute(Arrays.asList(lines),
                 uniformProvider.getUniformMap());
-        java.util.List<String> newLines = new java.util.ArrayList<>();
+        List<String> newLines = new ArrayList<>();
         for (int i = 0; i <= lineIndex; i++)
             newLines.add(lines[i]);
         boolean clickedAssignsOut = lines[lineIndex].contains(outName + STR_2);

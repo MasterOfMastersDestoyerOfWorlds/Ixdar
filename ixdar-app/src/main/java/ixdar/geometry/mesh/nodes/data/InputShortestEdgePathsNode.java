@@ -4,6 +4,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.PriorityQueue;
 
+import java.util.Map;
+
 import ixdar.annotations.meshnode.BoolField;
 import ixdar.annotations.meshnode.FloatField;
 import ixdar.annotations.meshnode.InputPort;
@@ -41,8 +43,8 @@ public class InputShortestEdgePathsNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 END_2, "Per-vertex BoolField marking source (start) vertices. Paths are computed FROM these TO every other vertex.",
                 EDGE_COST_2, "Per-edge FloatField of edge traversal costs. Scalar = uniform graph distance.",
                 NEXT_VERTEX_2, "Per-vertex IntField: the next hop toward the nearest source.",

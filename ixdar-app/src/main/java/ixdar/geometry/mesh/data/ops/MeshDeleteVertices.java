@@ -3,6 +3,10 @@ package ixdar.geometry.mesh.data.ops;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.BoolField;
+
+import java.util.HashMap;
+
+import ixdar.annotations.meshnode.Vector3Value;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
@@ -67,7 +71,7 @@ public final class MeshDeleteVertices {
             return ArrayMeshEngine.deleteVertices(am, del);
         }
 
-        java.util.HashMap<Integer, Integer> oldToNew = new java.util.HashMap<>();
+        HashMap<Integer, Integer> oldToNew = new HashMap<>();
         HalfEdgeMesh out = new HalfEdgeMesh();
         Vector3f p = new Vector3f();
         for (int i = 0; i < n; i++) {
@@ -113,6 +117,6 @@ public final class MeshDeleteVertices {
     }
 
     private static MeshTopology copyMesh(MeshTopology mesh) {
-        return MeshVertexOffset.apply(mesh, new ixdar.annotations.meshnode.Vector3Value(0f, 0f, 0f));
+        return MeshVertexOffset.apply(mesh, new Vector3Value(0f, 0f, 0f));
     }
 }

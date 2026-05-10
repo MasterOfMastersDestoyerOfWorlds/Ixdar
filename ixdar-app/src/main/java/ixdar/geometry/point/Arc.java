@@ -98,12 +98,12 @@ public class Arc implements Geometry, PointCollection {
         if (args.length - startIdx == 0) {
             return new Arc();
         }
-        double xCenter = java.lang.Double.parseDouble(args[startIdx]);
-        double yCenter = java.lang.Double.parseDouble(args[startIdx + 1]);
-        double radius = java.lang.Double.parseDouble(args[startIdx + 2]);
-        int numPoints = java.lang.Integer.parseInt(args[startIdx + NUM_3]);
-        double startAngle = java.lang.Double.parseDouble(args[startIdx + NUM_4]) * (Math.PI / NUM_180);
-        double endAngle = java.lang.Double.parseDouble(args[startIdx + NUM_5]) * (Math.PI / NUM_180);
+        double xCenter = Double.parseDouble(args[startIdx]);
+        double yCenter = Double.parseDouble(args[startIdx + 1]);
+        double radius = Double.parseDouble(args[startIdx + 2]);
+        int numPoints = Integer.parseInt(args[startIdx + NUM_3]);
+        double startAngle = Double.parseDouble(args[startIdx + NUM_4]) * (Math.PI / NUM_180);
+        double endAngle = Double.parseDouble(args[startIdx + NUM_5]) * (Math.PI / NUM_180);
         return new Arc(xCenter, yCenter, radius, numPoints, startAngle, endAngle);
     }
 

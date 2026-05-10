@@ -57,8 +57,8 @@ public class RandomValueNode implements MeshNode {
 
     /** {@inheritDoc}. */
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 SEED_2, "Deterministic PRNG seed. Same seed = same output.",
                 MIN_2, "Range minimum (per-component for VECTOR).",
                 MAX_2, "Range maximum.",

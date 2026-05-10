@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.curve;
 import java.util.List;
 
 import ixdar.annotations.meshnode.InputPort;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
@@ -32,8 +34,8 @@ public class FloatCurveNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 POINTS_2, "Comma-separated x,y pairs: 'x0,y0,x1,y1,...'. Linear interpolation between points; clamped outside.",
                 CLOSURE_2, "Float closure that can be sampled by evaluate_closure at any input x."
         );

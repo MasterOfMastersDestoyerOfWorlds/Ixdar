@@ -2,10 +2,14 @@ package ixdar.geometry.mesh.quadlayout.tmesh;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
+
+import java.util.Map;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.integergrid.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.vectorfield.CombedField;
@@ -126,9 +130,9 @@ public final class MotorcycleGraph {
     /**
      * PATCH-94: per-motorcycle final outcome (PROPER_STOP / MAX_STEPS /.
      */
-    public static java.util.List<String> motorcycleOutcomes = new java.util.ArrayList<>();
+    public static List<String> motorcycleOutcomes = new ArrayList<>();
     /** PATCH-93 diagnostic: dump first N no-exit-edge abort events. */
-    public static java.util.List<String> abortDumps = new java.util.ArrayList<>();
+    public static List<String> abortDumps = new ArrayList<>();
 
     /** Numerical tolerance for "ray exits triangle" intersection tests. */
     private static final float EPS = 1e-5f;
@@ -283,7 +287,7 @@ public final class MotorcycleGraph {
                           *  motorcycle's start node without doing the
                           *  per-face uv-match dance, which fails for
                           */
-                         java.util.Map<Integer, Integer> singVertexToNode) {}
+                         Map<Integer, Integer> singVertexToNode) {}
 
     /**
      * PATCH-95: per-motorcycle state for round-robin (step-locked parallel)
@@ -314,7 +318,7 @@ public final class MotorcycleGraph {
         int crashesRightAlpha = 0;     // crashes with cross>0 AND |αij|≤α
         int enteredFlippedFace = 0;    // faces with uvSignedArea ≤ 0 visited
         int nudgeRecoveryFires = 0;    // PATCH-93 recovery firings
-        java.util.HashSet<Integer> uniqueFaces = new java.util.HashSet<>();  // PATCH-107 oscillation probe
+        HashSet<Integer> uniqueFaces = new HashSet<>();  // PATCH-107 oscillation probe
         /**
          * PATCH-107 cycle-detection: visited (face, dirInFace) tuples. EGKT08
          *  spirit: motorcycle stops when "particle meets a vertex previously
@@ -322,7 +326,7 @@ public final class MotorcycleGraph {
          *  the same direction as before". Catches oscillation that the
          *  segment-intersection self-stop misses (parallel cardinal traces
          */
-        java.util.HashSet<Long> visitedFaceDir = new java.util.HashSet<>();
+        HashSet<Long> visitedFaceDir = new HashSet<>();
 
         MotorcycleState(int motorcycleId, int singVid, int direction, int startNode,
                         int face, float uIn, float vIn) {
@@ -378,7 +382,7 @@ public final class MotorcycleGraph {
         // Synthetic boundary motorcycles live in `motorcycles` (added before
         // round-robin starts). Regular motorcycles live in `stateById`
         // until they're converted to Motorcycle objects at the end.
-        final java.util.HashMap<Integer, MotorcycleState> stateById = new java.util.HashMap<>();
+        final HashMap<Integer, MotorcycleState> stateById = new HashMap<>();
         int numBoundaryMotorcycles = 0;
         // Per-mesh-face list of trace segments laid down so far. Each entry:
         // {motorcycleId, stepIndex, uA, vA, uB, vB} stored flat.
@@ -402,7 +406,7 @@ public final class MotorcycleGraph {
             this.facePaths = (ArrayList<float[]>[]) new ArrayList<?>[F];
             for (int i = 0; i < F; i++) facePaths[i] = new ArrayList<>();
             this.meshEdgeToInterior = new int[mesh.edgeCount()];
-            java.util.Arrays.fill(meshEdgeToInterior, -1);
+            Arrays.fill(meshEdgeToInterior, -1);
             for (int e = 0; e < field.interiorEdgeCount(); e++) {
                 meshEdgeToInterior[field.edgeMeshId(e)] = e;
             }
@@ -525,7 +529,7 @@ public final class MotorcycleGraph {
             //    for cone-like singularities), instead of 4 launches all from
             //    a single face which produces only 1-2 valid traces.
             // PATCH-91 H1: reset per-call diagnostic counters.
-            java.util.Arrays.fill(statSingLaunchCount, 0);
+            Arrays.fill(statSingLaunchCount, 0);
             statSingTotal = 0;
             statSingBoundaryCardinals = 0;
             statAbortDegenStartFace = 0;
@@ -544,9 +548,9 @@ public final class MotorcycleGraph {
             statSelfCrashesSkipped = 0;
             statRealSelfCrashes = 0;
             statMotorcyclesWithSelfCrash = 0;
-            java.util.Arrays.fill(statAlphaIjHist, 0);
-            abortDumps = new java.util.ArrayList<>();
-            motorcycleOutcomes = new java.util.ArrayList<>();
+            Arrays.fill(statAlphaIjHist, 0);
+            abortDumps = new ArrayList<>();
+            motorcycleOutcomes = new ArrayList<>();
             // PATCH-95: collect initial motorcycle states (one per launch),
             // then drive them all forward in step-locked rounds (EGKT08
             // §5 line 312 parallel propagation). Synthetic boundary

@@ -56,8 +56,8 @@ public class MapRangeNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 VALUE_2, "Input value to remap.",
                 FROM_MIN_2, "Input range low end.",
                 FROM_MAX_2, "Input range high end.",

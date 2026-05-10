@@ -51,8 +51,8 @@ public class IntegerMathNode implements MeshNode {
 
     /** {@inheritDoc}. */
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 A_2, "Left integer operand.",
                 B_2, "Right integer operand.",
                 OPERATION_2, "Operation: ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, POWER, MIN, MAX.",

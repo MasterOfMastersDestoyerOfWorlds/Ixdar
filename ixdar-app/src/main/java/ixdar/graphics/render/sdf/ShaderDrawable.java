@@ -193,7 +193,7 @@ public abstract class ShaderDrawable {
             } else if (value instanceof Boolean) {
                 Boolean b = (Boolean) value;
 
-                map.put(key, new GLSLParseText(b ? "tru" : "false", ixdar.graphics.render.color.Color.GLSL_BOOLEAN,
+                map.put(key, new GLSLParseText(b ? "tru" : "false", Color.GLSL_BOOLEAN,
                         new Vector4f(b ? NUM_1 : NUM_0, NUM_0, NUM_0, NUM_0), 1, key));
             } else if (value instanceof Vector2f) {
                 Vector2f vec2 = (Vector2f) value;

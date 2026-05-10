@@ -1,8 +1,9 @@
 package ixdar.graphics.render.color;
 
 import java.util.HashMap;
-
 import org.joml.Vector3f;
+
+import ixdar.common.utils.Compat;
 import org.joml.Vector4f;
 
 public class ColorFixedLerp implements Color {
@@ -63,10 +64,10 @@ public class ColorFixedLerp implements Color {
         Vector4f other = endColor.toVector4f();
         Vector4f lerp = new Vector4f(vec);
 
-        lerp.x = ixdar.common.utils.Compat.fmaf(other.x() - lerp.x, offset * channelLerp[0], lerp.x);
-        lerp.y = ixdar.common.utils.Compat.fmaf(other.y() - lerp.y, offset * channelLerp[1], lerp.y);
-        lerp.z = ixdar.common.utils.Compat.fmaf(other.z() - lerp.z, offset * channelLerp[2], lerp.z);
-        lerp.w = ixdar.common.utils.Compat.fmaf(other.w() - lerp.w, offset * channelLerp[NUM_3], lerp.w);
+        lerp.x = Compat.fmaf(other.x() - lerp.x, offset * channelLerp[0], lerp.x);
+        lerp.y = Compat.fmaf(other.y() - lerp.y, offset * channelLerp[1], lerp.y);
+        lerp.z = Compat.fmaf(other.z() - lerp.z, offset * channelLerp[2], lerp.z);
+        lerp.w = Compat.fmaf(other.w() - lerp.w, offset * channelLerp[NUM_3], lerp.w);
 
         return lerp;
     }

@@ -4,6 +4,8 @@ import java.util.Arrays;
 import java.util.List;
 
 import ixdar.annotations.meshnode.InputPort;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
@@ -55,8 +57,8 @@ public class MarkCreaseNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Input/output. Output carries the crease weights in a slot read by subdivision_surface.",
                 SELECTION_2, "Per-face OR per-edge BOOLEAN mask. Determines which edges receive the crease weight.",
                 WEIGHT_2, "Crease weight 0..infinity. 0 = no crease (fully smooth); higher = sharper; +infinity = perfectly sharp.",

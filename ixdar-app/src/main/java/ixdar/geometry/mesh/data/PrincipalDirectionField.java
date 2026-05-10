@@ -1,6 +1,8 @@
 package ixdar.geometry.mesh.data;
-
 import java.util.Map;
+import java.util.List;
+
+import java.util.ArrayList;
 
 import ixdar.geometry.mesh.data.SemanticPatchDecomposer.EdgeDihedrals;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
@@ -291,8 +293,8 @@ public final class PrincipalDirectionField {
     }
 
     private static int[][] buildOneRing(ArrayMesh mesh, EdgeDihedrals ed, int nv) {
-        java.util.List<java.util.List<Integer>> tmp = new java.util.ArrayList<>(nv);
-        for (int i = 0; i < nv; i++) tmp.add(new java.util.ArrayList<>(NUM_6));
+        List<List<Integer>> tmp = new ArrayList<>(nv);
+        for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(NUM_6));
         for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
             long key = e.getKey();
             int u = (int) (key >> NUM_32);
@@ -302,7 +304,7 @@ public final class PrincipalDirectionField {
         }
         int[][] out = new int[nv][];
         for (int i = 0; i < nv; i++) {
-            java.util.List<Integer> list = tmp.get(i);
+            List<Integer> list = tmp.get(i);
             int[] arr = new int[list.size()];
             for (int j = 0; j < list.size(); j++) arr[j] = list.get(j);
             out[i] = arr;

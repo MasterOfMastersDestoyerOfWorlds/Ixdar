@@ -1,5 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.tmesh;
 
+import java.util.ArrayList;
+
 import java.util.List;
 
 /**
@@ -40,7 +42,7 @@ public record TArc(int id,
                               List<int[]> meshFaceCrossings,
                               int direction, float parametricLength) {
         return new TArc(id, startNode, endNode, meshFaceCrossings,
-                new java.util.ArrayList<>(), direction, parametricLength);
+                new ArrayList<>(), direction, parametricLength);
     }
 
     /**

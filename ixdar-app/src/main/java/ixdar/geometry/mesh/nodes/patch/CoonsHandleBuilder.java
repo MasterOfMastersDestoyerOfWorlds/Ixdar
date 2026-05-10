@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.nodes.patch;
-
 import java.util.Map;
+
+import java.util.HashMap;
 
 import org.joml.Vector3f;
 
@@ -196,7 +197,7 @@ public final class CoonsHandleBuilder {
         int outVc = outMesh.vertexCount();
         float[] outPos = new float[outVc * NUM_3];
         int[] outVids = new int[outVc];
-        org.joml.Vector3f tmp = new org.joml.Vector3f();
+        Vector3f tmp = new Vector3f();
         for (int i = 0; i < outVc; i++) {
             int vid = outMesh.vertexIdAt(i);
             outVids[i] = vid;
@@ -207,7 +208,7 @@ public final class CoonsHandleBuilder {
         }
         float tol = Math.max(weldDist, NUM_1e_6) * NUM_2;
         float tol2 = tol * tol;
-        java.util.Map<Integer, Integer> inToOut = new java.util.HashMap<>();
+        Map<Integer, Integer> inToOut = new HashMap<>();
         int inVc = inMesh.vertexCount();
         for (int i = 0; i < inVc; i++) {
             int ivid = inMesh.vertexIdAt(i);
@@ -228,7 +229,7 @@ public final class CoonsHandleBuilder {
                 inToOut.put(ivid, outVids[best]);
             }
         }
-        java.util.Map<Long, float[]> dh = new java.util.HashMap<>();
+        Map<Long, float[]> dh = new HashMap<>();
         for (int ei = 0; ei < inMesh.edgeCount(); ei++) {
             int eid = inMesh.edgeIdAt(ei);
             int he = inMesh.edgeHalfEdge(eid);

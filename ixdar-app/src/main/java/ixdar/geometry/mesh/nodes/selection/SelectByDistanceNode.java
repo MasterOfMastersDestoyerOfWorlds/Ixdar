@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
+import java.util.Map;
+
 import ixdar.annotations.meshnode.BoolField;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -56,8 +58,8 @@ public class SelectByDistanceNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Geometry bundle to test. Face centroids are computed from the current vertex positions.",
                 POINT_2, "World-space center of the test sphere.",
                 RADIUS_2, "Selection radius. Faces with centroid distance ≤ radius from `point` are selected. Tune with care — too large overlaps adjacent features after topology modifications.",

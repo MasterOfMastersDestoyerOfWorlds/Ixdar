@@ -2,7 +2,15 @@ package ixdar.geometry.mesh.data;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
+
+import java.io.BufferedWriter;
+
+import java.nio.file.Files;
 import java.util.Map;
+
+import java.util.List;
+
+import java.util.Arrays;
 
 import javax.imageio.ImageIO;
 
@@ -227,7 +235,7 @@ public final class PatchDecomposerCLI {
         float[] ds = new float[n];
         int i = 0;
         for (Float f : ed.dihedralByEdge().values()) ds[i++] = f;
-        java.util.Arrays.sort(ds);
+        Arrays.sort(ds);
         JsonObject res = new JsonObject();
         res.addProperty(OK, true);
         res.addProperty(VERTEX_COUNT, mesh.vertexCount());
@@ -242,7 +250,7 @@ public final class PatchDecomposerCLI {
         res.add("dihedral_percentiles_rad", pct);
         // Angle-defect: approximate per-vertex Gaussian curvature.
         float[] defect = new float[mesh.vertexCount()];
-        java.util.Arrays.fill(defect, (float) (2 * Math.PI));
+        Arrays.fill(defect, (float) (2 * Math.PI));
         int[] faceIdx = mesh.copyFaceIndices();
         float[] positions = mesh.copyPositions();
         int faceCount = faceIdx.length / NUM_3;
@@ -255,7 +263,7 @@ public final class PatchDecomposerCLI {
             defect[v2] -= triAngle(positions, v2, v0, v1);
         }
         float[] dd = defect.clone();
-        java.util.Arrays.sort(dd);
+        Arrays.sort(dd);
         JsonObject defectPct = new JsonObject();
         for (int p : pcts) {
             defectPct.addProperty(P + p, dd[Math.min(dd.length - 1, (int) (dd.length * (p / NUM_100_0)))]);
@@ -299,7 +307,7 @@ public final class PatchDecomposerCLI {
         if (!out.isAbsolute()) out = new File(System.getProperty(USER_DIR), outPath);
         File parent = out.getParentFile();
         if (parent != null) parent.mkdirs();
-        try (java.io.BufferedWriter w = java.nio.file.Files.newBufferedWriter(out.toPath())) {
+        try (BufferedWriter w = Files.newBufferedWriter(out.toPath())) {
             w.write("# Crest lines for " + path + N);
             w.write("# ridge polylines: " + crest.ridgePolylines.size()
                     + "  valley polylines: " + crest.valleyPolylines.size() + N);
@@ -326,7 +334,7 @@ public final class PatchDecomposerCLI {
         System.out.println(res);
     }
 
-    private static void writePolylines(java.io.BufferedWriter w, java.util.List<int[]> lines) throws Exception {
+    private static void writePolylines(BufferedWriter w, List<int[]> lines) throws Exception {
         for (int[] line : lines) {
             if (line.length < 2) continue;
             // OBJ line primitives are 1-indexed.

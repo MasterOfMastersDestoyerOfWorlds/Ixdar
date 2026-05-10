@@ -6,8 +6,9 @@ import java.util.HashMap;
 import java.util.List;
 
 import org.joml.Vector3f;
-
 import ixdar.geometry.mesh.data.MeshTopology;
+
+import ixdar.annotations.meshnode.Vector3Value;
 import ixdar.geometry.mesh.data.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -45,7 +46,7 @@ public final class MeshMergeByDistance {
             return mesh instanceof ArrayMesh ? new ArrayMesh(new float[0], null, new int[0], NUM_4) : new HalfEdgeMesh();
         }
         if (distance <= NUM_0) {
-            return MeshVertexOffset.apply(mesh, new ixdar.annotations.meshnode.Vector3Value(NUM_0, NUM_0, NUM_0));
+            return MeshVertexOffset.apply(mesh, new Vector3Value(NUM_0, NUM_0, NUM_0));
         }
         if (mesh instanceof ArrayMesh am) {
             return mergeToArrayMesh(am, distance);

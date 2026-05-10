@@ -14,6 +14,18 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.platform.automation.AutomationEndpoint;
 
+import ixdar.geometry.mesh.data.Patch;
+
+import ixdar.geometry.mesh.data.PatchDecomposition;
+
+import ixdar.geometry.mesh.data.load.MeshLoader;
+
+import ixdar.geometry.mesh.data.PatchRenderer;
+
+import ixdar.geometry.mesh.data.SemanticPatchDecomposer;
+
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+
 @AutomationRouteAnnotation(path = "/mesh/patches/render-flat-multiview", method = APIMethod.POST)
 public class RenderFlatMultiview extends AutomationEndpoint implements AutomationRoute {
     public static final String PATH = "path";
@@ -33,10 +45,10 @@ public class RenderFlatMultiview extends AutomationEndpoint implements Automatio
             err.addProperty("error", "File not found: " + path);
             return err;
         }
-        ixdar.geometry.mesh.data.representation.ArrayMesh mesh = ixdar.geometry.mesh.data.load.MeshLoader.load(f.getAbsolutePath());
-        ixdar.geometry.mesh.data.PatchDecomposition decomposition = ixdar.geometry.mesh.data.SemanticPatchDecomposer
+        ArrayMesh mesh = MeshLoader.load(f.getAbsolutePath());
+        PatchDecomposition decomposition = SemanticPatchDecomposer
                 .decompose(mesh, resolution);
-        BufferedImage composite = ixdar.geometry.mesh.data.PatchRenderer.renderMultiviewFlat(mesh, decomposition);
+        BufferedImage composite = PatchRenderer.renderMultiviewFlat(mesh, decomposition);
         File out;
         if (outPath == null || outPath.isBlank()) {
             out = new File("screenshots/automation", "patches-flat-multiview-" + System.currentTimeMillis() + ".png");
@@ -56,10 +68,10 @@ public class RenderFlatMultiview extends AutomationEndpoint implements Automatio
         result.addProperty("height", composite.getHeight());
         result.addProperty("patch_count", decomposition.patches().size());
         JsonArray palette = new JsonArray();
-        for (ixdar.geometry.mesh.data.Patch p : decomposition.patches()) {
+        for (Patch p : decomposition.patches()) {
             JsonObject pj = new JsonObject();
             pj.addProperty("id", p.id());
-            pj.addProperty("flat_color", ixdar.geometry.mesh.data.PatchRenderer.uniquePatchColorHex(p.id()));
+            pj.addProperty("flat_color", PatchRenderer.uniquePatchColorHex(p.id()));
             pj.addProperty("vertex_count", p.vertexIndices().length);
             palette.add(pj);
         }

@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.data;
 import java.util.List;
 
 import ixdar.annotations.meshnode.FieldContext;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.FloatField;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -32,8 +34,8 @@ public class InputFaceIndexNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 RESULT_2, "Per-face FloatField where result[i] = i. Feed into compare + boolean_math to build per-face selection masks."
         );
     }

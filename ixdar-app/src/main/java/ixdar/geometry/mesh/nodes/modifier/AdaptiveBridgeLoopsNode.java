@@ -89,8 +89,8 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Input/output. The two tagged loops are bridged with quad faces; unequal vertex counts are handled via a fan transition.",
                 LOOP_A_TAG_2, "Tag string identifying the first boundary loop (set upstream by attach_to_surface or tag_geometry).",
                 LOOP_B_TAG_2, "Tag string identifying the second boundary loop. If empty, the nearest untagged loop is auto-discovered.",

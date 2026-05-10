@@ -13,6 +13,8 @@ import java.util.List;
 
 import ixdar.common.exceptions.TerminalParseException;
 import ixdar.geometry.point.Arc;
+
+import ixdar.common.utils.Compat;
 import ixdar.geometry.point.Circle;
 import ixdar.geometry.point.Grid;
 import ixdar.geometry.point.Ix;
@@ -54,11 +56,11 @@ public class FileManagement {
      */
     public static String getAssetRepoRoot() {
         String propRoot = System.getProperty(ASSET_REPO_PROP);
-        if (!ixdar.common.utils.Compat.isBlank(propRoot)) {
+        if (!Compat.isBlank(propRoot)) {
             return propRoot;
         }
         String root = System.getenv(ASSET_REPO_ENV_VAR);
-        if (ixdar.common.utils.Compat.isBlank(root)) {
+        if (Compat.isBlank(root)) {
             return null;
         }
         return root;
@@ -73,7 +75,7 @@ public class FileManagement {
      */
     public static String resolveAssetPath(String relativeAssetPath) {
         String root = getAssetRepoRoot();
-        if (ixdar.common.utils.Compat.isBlank(root)) {
+        if (Compat.isBlank(root)) {
             throw new IllegalStateException(
                     "Missing asset repo root. Set either env var " + ASSET_REPO_ENV_VAR
                             + " or JVM property " + ASSET_REPO_PROP
@@ -155,7 +157,7 @@ public class FileManagement {
      * @param cachedLocation path to remember; ignored if blank
      */
     public static void updateTestFileCache(String cachedLocation) {
-        if (!ixdar.common.utils.Compat.isBlank(cachedLocation)) {
+        if (!Compat.isBlank(cachedLocation)) {
             File cache = new File(testFileCacheLocation);
             try (FileWriter fw = new FileWriter(cache)) {
                 BufferedWriter out = new BufferedWriter(fw);
@@ -210,8 +212,8 @@ public class FileManagement {
                     if (fi.d == null) {
                         fi.d = new DistanceMatrix(fi.ps);
                     }
-                    int firstPointId = java.lang.Integer.parseInt(args[1]);
-                    int secondPointId = java.lang.Integer.parseInt(args[2]);
+                    int firstPointId = Integer.parseInt(args[1]);
+                    int secondPointId = Integer.parseInt(args[2]);
                     PointND wormHole = fi.d.addDummyNode(fi.index, fi.lookUp.get(firstPointId),
                             fi.lookUp.get(secondPointId));
                     int insertIdx = firstPointId;
@@ -227,7 +229,7 @@ public class FileManagement {
                 } else if (args[0].equals("ANS")) {
                     // ANS
                     for (int j = 1; j < args.length; j++) {
-                        fi.answerOrder.add(java.lang.Integer.parseInt(args[j]));
+                        fi.answerOrder.add(Integer.parseInt(args[j]));
                     }
                 } else if (Ix.opts.contains(args[0])) {
                     // LOAD
@@ -268,8 +270,8 @@ public class FileManagement {
                     // COMMENT
                     fi.comments.add(line);
                 } else {
-                    PointND pt = new PointND.Double(fi.index, java.lang.Double.parseDouble(args[1]),
-                            java.lang.Double.parseDouble(args[2]));
+                    PointND pt = new PointND.Double(fi.index, Double.parseDouble(args[1]),
+                            Double.parseDouble(args[2]));
 
                     addPoint(pt, fi);
                 }

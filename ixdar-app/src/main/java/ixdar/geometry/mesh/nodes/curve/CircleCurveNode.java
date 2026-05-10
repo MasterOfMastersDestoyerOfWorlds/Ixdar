@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.curve;
 import java.util.List;
 
 import ixdar.annotations.meshnode.InputPort;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
@@ -42,8 +44,8 @@ public class CircleCurveNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 RADIUS_2, "Distance from center to each polyline vertex. The circle has diameter 2r in the XZ plane (extent 2r on those axes).",
                 RESOLUTION_2, "Number of segments. 3 = triangle; 32 = near-circle; 128 = very smooth.",
                 CENTER_2, "World-space position of the circle's center.",

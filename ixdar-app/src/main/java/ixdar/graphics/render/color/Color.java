@@ -87,7 +87,7 @@ public interface Color {
             r = g = b = (int) (brightness * NUM_255_0 + NUM_0_5);
         } else {
             float h = (hue - (float) Math.floor(hue)) * NUM_6_0;
-            float f = h - (float) java.lang.Math.floor(h);
+            float f = h - (float) Math.floor(h);
             float p = brightness * (1.0f - saturation);
             float q = brightness * (1.0f - saturation * f);
             float t = brightness * (1.0f - (saturation * (1.0f - f)));

@@ -5,10 +5,18 @@ import java.nio.IntBuffer;
 import java.util.ArrayList;
 
 import org.joml.Vector4f;
+
+import java.util.HashMap;
+
+import java.util.Map;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.typedarrays.Uint8Array;
+
+import org.teavm.jso.typedarrays.Int32Array;
+
+import org.teavm.jso.typedarrays.Float32Array;
 import org.teavm.jso.webgl.WebGLBuffer;
 import org.teavm.jso.webgl.WebGLContextAttributes;
 import org.teavm.jso.webgl.WebGLProgram;
@@ -33,16 +41,16 @@ public class WebGL implements GL {
     private static int staticId = 0;
 
     // Cache a single WebGL context per canvas to support multiple canvases reliably
-    private static final java.util.Map<String, WebGLRenderingContext> CONTEXT_CACHE = new java.util.HashMap<>();
+    private static final Map<String, WebGLRenderingContext> CONTEXT_CACHE = new HashMap<>();
     private int id;
     private final WebGLRenderingContext gl;
     private final VAOExtension vaoExt;
     private int nextId = 1;
-    private final java.util.Map<Integer, WebGLProgram> programMap = new java.util.HashMap<>();
-    private final java.util.Map<Integer, WebGLShader> shaderMap = new java.util.HashMap<>();
-    private final java.util.Map<Integer, WebGLBuffer> bufferMap = new java.util.HashMap<>();
-    private final java.util.Map<Integer, WebGLTexture> textureMap = new java.util.HashMap<>();
-    private final java.util.Map<Integer, WebGLUniformLocation> uniformMap = new java.util.HashMap<>();
+    private final Map<Integer, WebGLProgram> programMap = new HashMap<>();
+    private final Map<Integer, WebGLShader> shaderMap = new HashMap<>();
+    private final Map<Integer, WebGLBuffer> bufferMap = new HashMap<>();
+    private final Map<Integer, WebGLTexture> textureMap = new HashMap<>();
+    private final Map<Integer, WebGLUniformLocation> uniformMap = new HashMap<>();
     private final ArrayList<ShaderProgram> shaders = new ArrayList<>();
 
     /**
@@ -262,7 +270,7 @@ public class WebGL implements GL {
     /** {@inheritDoc}. */
     @Override
     public void bufferDataArray(float[] data, int usage) {
-        org.teavm.jso.typedarrays.Float32Array arr = org.teavm.jso.typedarrays.Float32Array.create(data.length);
+        Float32Array arr = Float32Array.create(data.length);
         for (int i = 0; i < data.length; i++)
             arr.set(i, data[i]);
         gl.bufferData(WebGLRenderingContext.ARRAY_BUFFER, arr, usage);
@@ -385,7 +393,7 @@ public class WebGL implements GL {
     @Override
     public void texImage2D(int target, int level, int internalFormat, int width, int height, int border, int format,
             int type, ByteBuffer data) {
-        org.teavm.jso.typedarrays.Uint8Array arr = org.teavm.jso.typedarrays.Uint8Array.create(data.remaining());
+        Uint8Array arr = Uint8Array.create(data.remaining());
         for (int i = 0, j = data.position(); j < data.limit(); i++, j++)
             arr.set(i, data.get(j));
         // Ensure textures uploaded match typical OpenGL origin expectations
@@ -657,7 +665,7 @@ public class WebGL implements GL {
     /** {@inheritDoc}. */
     @Override
     public void bufferData(int target, float[] data, int usage) {
-        org.teavm.jso.typedarrays.Float32Array arr = org.teavm.jso.typedarrays.Float32Array.create(data.length);
+        Float32Array arr = Float32Array.create(data.length);
         for (int i = 0; i < data.length; i++) {
             arr.set(i, data[i]);
         }
@@ -667,7 +675,7 @@ public class WebGL implements GL {
     /** {@inheritDoc}. */
     @Override
     public void bufferData(int target, long size, int usage) {
-        org.teavm.jso.typedarrays.Uint8Array arr = org.teavm.jso.typedarrays.Uint8Array.create((int) size);
+        Uint8Array arr = Uint8Array.create((int) size);
         gl.bufferData(target, arr, usage);
     }
 
@@ -680,7 +688,7 @@ public class WebGL implements GL {
     /** {@inheritDoc}. */
     @Override
     public void bufferData(int target, IntBuffer data, int usage) {
-        org.teavm.jso.typedarrays.Int32Array arr = org.teavm.jso.typedarrays.Int32Array.create(data.remaining());
+        Int32Array arr = Int32Array.create(data.remaining());
         for (int i = 0, j = data.position(); j < data.limit(); i++, j++) {
             arr.set(i, data.get(j));
         }
@@ -889,7 +897,7 @@ public class WebGL implements GL {
     private static final class VAOExtension {
         private final WebGLRenderingContext gl;
         private int nextId = 1;
-        private final java.util.Map<Integer, JSObject> vaoMap = new java.util.HashMap<>();
+        private final Map<Integer, JSObject> vaoMap = new HashMap<>();
 
         VAOExtension(WebGLRenderingContext gl) {
             this.gl = gl;

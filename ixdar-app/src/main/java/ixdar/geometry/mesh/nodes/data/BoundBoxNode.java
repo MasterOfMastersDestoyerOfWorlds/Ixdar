@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
+import java.util.Map;
+
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -30,8 +32,8 @@ public class BoundBoxNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Input geometry bundle to measure.",
                 MIN_2, "Lower corner: <min_x, min_y, min_z>.",
                 MAX_2, "Upper corner: <max_x, max_y, max_z>. Extent = max - min."

@@ -21,12 +21,16 @@ import com.google.gson.JsonParser;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeSchema;
 import ixdar.geometry.mesh.data.GeometryBundle;
+
+import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.MeshDistance;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.SkeletonSensitivityAnalyzer;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+
+import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.graph.OptimizableParameter;
 import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
@@ -245,7 +249,7 @@ public final class BatchDslEvaluator {
                     // Inline mesh comparison against reference (if available)
                     // Uses exact same path as viewer: normalize + computeAllMetrics(scale=1.0)
                     if (normalizedRefMesh != null) {
-                        ArrayMesh genArrayMesh = ixdar.geometry.mesh.data.representation.ArrayMeshEngine
+                        ArrayMesh genArrayMesh = ArrayMeshEngine
                                 .fromUniformMeshTopology(mesh);
                         normalizeArrayMesh(genArrayMesh);
                         MeshDistance.MeshMetrics metrics = MeshDistance.computeAllMetrics(
@@ -465,8 +469,8 @@ public final class BatchDslEvaluator {
                 MeshNodeSchema schema = MeshNodeSchema.from(instance);
                 List<String> names = new ArrayList<>();
                 for (var op : schema.outputs()) {
-                    if (op.type() == ixdar.annotations.meshnode.PortType.MESH
-                            || op.type() == ixdar.annotations.meshnode.PortType.GEOMETRY_BUNDLE) {
+                    if (op.type() == PortType.MESH
+                            || op.type() == PortType.GEOMETRY_BUNDLE) {
                         names.add(op.name());
                     }
                 }

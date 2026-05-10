@@ -9,6 +9,8 @@ import java.awt.image.BufferedImage;
 import java.util.Arrays;
 import java.util.Set;
 
+import java.util.HashSet;
+
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
@@ -452,7 +454,7 @@ public final class PatchRenderer {
             Set<Long> prin = diag.principalFeatureEdges();
             Set<Long> crest = diag.crestEdges();
             Set<Long> saddle = diag.saddleSeparatorEdges();
-            Set<Long> all = new java.util.HashSet<>(dih);
+            Set<Long> all = new HashSet<>(dih);
             all.addAll(prin);
             all.addAll(crest);
             all.addAll(saddle);
@@ -472,7 +474,7 @@ public final class PatchRenderer {
         } else {
             Set<Long> crest = diag.crestEdges();
             Set<Long> boundary = diag.patchBoundaryEdges();
-            Set<Long> all = new java.util.HashSet<>(crest);
+            Set<Long> all = new HashSet<>(crest);
             all.addAll(boundary);
             for (long key : all) {
                 boolean isCrest = crest.contains(key);

@@ -1,6 +1,8 @@
 package ixdar.geometry.mesh.quadlayout.integergrid;
-
 import java.util.HashMap;
+import java.util.Arrays;
+
+import java.util.ArrayList;
 
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.quadlayout.vectorfield.CombedField;
@@ -94,7 +96,7 @@ final class ChartVertexMap {
         }
         int[] faceChart = new int[F];
         int[] rootToChart = new int[F];
-        java.util.Arrays.fill(rootToChart, -1);
+        Arrays.fill(rootToChart, -1);
         int chartCount = 0;
         for (int f = 0; f < F; f++) {
             int r = find(faceParent, f);
@@ -129,9 +131,9 @@ final class ChartVertexMap {
         }
         int[] cornerChartVertex = new int[C];
         int[] rootToCv = new int[C];
-        java.util.Arrays.fill(rootToCv, -1);
-        java.util.ArrayList<Integer> cvMesh = new java.util.ArrayList<>(C);
-        java.util.ArrayList<Integer> cvChart = new java.util.ArrayList<>(C);
+        Arrays.fill(rootToCv, -1);
+        ArrayList<Integer> cvMesh = new ArrayList<>(C);
+        ArrayList<Integer> cvChart = new ArrayList<>(C);
         for (int f = 0; f < F; f++) {
             for (int c = 0; c < NUM_3; c++) {
                 int corner = f * NUM_3 + c;

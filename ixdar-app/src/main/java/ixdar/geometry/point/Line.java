@@ -86,11 +86,11 @@ public class Line implements Geometry, PointCollection {
         if (args.length - startIdx == 0) {
             return new Line();
         }
-        double xStart = java.lang.Double.parseDouble(args[startIdx]);
-        double yStart = java.lang.Double.parseDouble(args[startIdx + 1]);
-        double xEnd = java.lang.Double.parseDouble(args[startIdx + 2]);
-        double yEnd = java.lang.Double.parseDouble(args[startIdx + NUM_3]);
-        int numPoints = java.lang.Integer.parseInt(args[startIdx + NUM_4]);
+        double xStart = Double.parseDouble(args[startIdx]);
+        double yStart = Double.parseDouble(args[startIdx + 1]);
+        double xEnd = Double.parseDouble(args[startIdx + 2]);
+        double yEnd = Double.parseDouble(args[startIdx + NUM_3]);
+        int numPoints = Integer.parseInt(args[startIdx + NUM_4]);
         Line l = new Line(xStart, yStart, numPoints, xEnd, yEnd);
         return l;
     }

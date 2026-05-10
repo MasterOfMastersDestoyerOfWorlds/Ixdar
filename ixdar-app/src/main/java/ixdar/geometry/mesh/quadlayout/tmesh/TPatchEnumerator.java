@@ -1,9 +1,15 @@
 package ixdar.geometry.mesh.quadlayout.tmesh;
 
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+
+import java.util.HashSet;
+
+import java.util.Map;
 
 /**
  * PATCH-68: enumerate {@link TPatch}es from a planar T-mesh by walking
@@ -56,7 +62,7 @@ public final class TPatchEnumerator {
     public static final int[] statSideHistogram = new int[SIDE_HISTOGRAM_SIZE];
 
     /** PATCH-70 dump: first N non-quad face cycles' cardinal sequences. */
-    public static java.util.List<int[]> nonQuadCardinals = new java.util.ArrayList<>();
+    public static List<int[]> nonQuadCardinals = new ArrayList<>();
 
     /** PATCH-91 D1: face-cycle length distribution (# half-arcs per cycle). */
     public static int[] statFaceLengthHist = new int[64];
@@ -78,7 +84,7 @@ public final class TPatchEnumerator {
     public static int statLongCyclesWithBoundaryCorner;
     public static int statLongCyclesAllIntersection;
     /** PATCH-89: lengths of dropped long cycles for inspection. */
-    public static java.util.List<int[]> longCycleLengths = new java.util.ArrayList<>();
+    public static List<int[]> longCycleLengths = new ArrayList<>();
 
     /**
      * PATCH-92 angular-sort audit: per-node histogram of distinct mesh-face
@@ -102,7 +108,7 @@ public final class TPatchEnumerator {
      * PATCH-91 H2: dump first N triangle details for inspection.
      *  Each entry: {cardinal_sequence, corner_node_ids, corner_kinds (0=sing, 1=intersection),
      */
-    public static java.util.List<String> triangleDumps = new java.util.ArrayList<>();
+    public static List<String> triangleDumps = new ArrayList<>();
 
     /** Half-arc direction relative to its underlying TArc. */
     private static final int FORWARD = 0;
@@ -127,8 +133,8 @@ public final class TPatchEnumerator {
      * @return enumerated patches; cycles longer than the cap or with too few corners are dropped
      */
     public static List<TPatch> enumerate(List<TNode> nodes, List<TArc> arcs,
-                                         ixdar.geometry.mesh.data.representation.ArrayMesh mesh,
-                                         java.util.Map<Integer, Integer> singVertexToNode) {
+                                         ArrayMesh mesh,
+                                         Map<Integer, Integer> singVertexToNode) {
         return enumerateImpl(nodes, arcs, mesh, singVertexToNode);
     }
 
@@ -145,8 +151,8 @@ public final class TPatchEnumerator {
     }
 
     private static List<TPatch> enumerateImpl(List<TNode> nodes, List<TArc> arcs,
-                                              ixdar.geometry.mesh.data.representation.ArrayMesh mesh,
-                                              java.util.Map<Integer, Integer> singVertexToNode) {
+                                              ArrayMesh mesh,
+                                              Map<Integer, Integer> singVertexToNode) {
         statHalfArcs = 0;
         statHalfArcsLinkable = 0;
         statFacesWalked = 0;
@@ -160,13 +166,13 @@ public final class TPatchEnumerator {
         statLongCyclesAllIntersection = 0;
         statMultiFrameNodes = 0;
         statFanSortedNodes = 0;
-        java.util.Arrays.fill(statNodeFrameCountHist, 0);
-        triangleDumps = new java.util.ArrayList<>();
-        longCycleLengths = new java.util.ArrayList<>();
-        java.util.Arrays.fill(statSideHistogram, 0);
-        java.util.Arrays.fill(statFaceLengthHist, 0);
-        java.util.Arrays.fill(statArcIncidenceHist, 0);
-        nonQuadCardinals = new java.util.ArrayList<>();
+        Arrays.fill(statNodeFrameCountHist, 0);
+        triangleDumps = new ArrayList<>();
+        longCycleLengths = new ArrayList<>();
+        Arrays.fill(statSideHistogram, 0);
+        Arrays.fill(statFaceLengthHist, 0);
+        Arrays.fill(statArcIncidenceHist, 0);
+        nonQuadCardinals = new ArrayList<>();
         if (arcs.isEmpty()) return new ArrayList<>();
         int arcCount = arcs.size();
         int halfCount = 2 * arcCount;
@@ -201,7 +207,7 @@ public final class TPatchEnumerator {
         // PATCH-92: build inverse map (nodeId → mesh vertexId) so we can look
         // up the mesh vertex for multi-frame nodes (singularities) and use
         // mesh-fan-based sorting instead of incompatible cross-frame angles.
-        java.util.HashMap<Integer, Integer> nodeIdToVertex = new java.util.HashMap<>();
+        HashMap<Integer, Integer> nodeIdToVertex = new HashMap<>();
         if (singVertexToNode != null) {
             for (var entry : singVertexToNode.entrySet()) {
                 nodeIdToVertex.put(entry.getValue(), entry.getKey());
@@ -213,7 +219,7 @@ public final class TPatchEnumerator {
             List<int[]> list = e.getValue();
 
             // PATCH-92: count distinct mesh-face frames at this node.
-            java.util.HashSet<Integer> framesAtNode = new java.util.HashSet<>();
+            HashSet<Integer> framesAtNode = new HashSet<>();
             for (int[] entry : list) {
                 int h = entry[0];
                 int aid = h / 2;
@@ -434,7 +440,7 @@ public final class TPatchEnumerator {
                     if (triangleDumps.size() < TRIANGLE_DUMP_LIMIT) {
                         StringBuilder sb = new StringBuilder();
                         sb.append("triangle: nHalfArcs=").append(n)
-                                .append(" cardinals=").append(java.util.Arrays.toString(dirOf))
+                                .append(" cardinals=").append(Arrays.toString(dirOf))
                                 .append("\n    corners: ");
                         for (int s = 0; s < cIdxSize; s++) {
                             sb.append("[node=").append(cornerNodeIds[s])
@@ -529,12 +535,12 @@ public final class TPatchEnumerator {
      */
     private static void sortByMeshFan(List<int[]> halfArcs, List<TArc> arcs,
                                       double[] startAngle,
-                                      ixdar.geometry.mesh.data.representation.ArrayMesh mesh,
+                                      ArrayMesh mesh,
                                       int vertexId) {
         // Build face → fan_position map by walking the vertex's outgoing
         // half-edge cycle (mesh half-edge structure is consistently CCW
         // around vertices for closed-orientable surfaces).
-        java.util.HashMap<Integer, Integer> faceFanPos = new java.util.HashMap<>();
+        HashMap<Integer, Integer> faceFanPos = new HashMap<>();
         int outCount = mesh.vertexOutgoingHalfEdgeCount(vertexId);
         // PATCH-92: empirical — vertexOutgoingHalfEdgeAt walks one way; the
         // planar-dual face walk (next-CCW-after-inverse) expects the OTHER

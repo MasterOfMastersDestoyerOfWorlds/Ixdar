@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
+import java.util.Map;
+
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -59,8 +61,8 @@ public class AssignBezierHandlesNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Input cage / output bundle with _bezier_handles_start, _bezier_handles_end, _bezier_handle_weight slots populated.",
                 WEIGHT_2, "Multiplier on the default quarter-circle tangent magnitude. 0 = straight edges (no rounding); 0.33 ≈ gentle; 1.0 ≈ bulging. Stored in the _bezier_handle_weight slot so downstream topology ops (loop_cut, inset, extrude) can rebuild handles consistently."
         );

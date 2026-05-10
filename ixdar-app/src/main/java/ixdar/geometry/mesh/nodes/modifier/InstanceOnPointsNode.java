@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.modifier;
 import java.util.List;
 
 import org.joml.Matrix4f;
+
+import java.util.Map;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -54,8 +56,8 @@ public class InstanceOnPointsNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 POINTS_2, "Geometry bundle or curve whose vertex positions act as placement locations for the instances.",
                 INSTANCE_2, "Source mesh to be copied at each point.",
                 ROTATION_2, "Per-point Euler rotation (radians) applied to each instance. Accepts a single Vector3 or a rotation field.",

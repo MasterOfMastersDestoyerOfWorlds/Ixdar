@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.data;
 import java.util.List;
 
 import ixdar.annotations.meshnode.FloatField;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.IntField;
 import ixdar.annotations.meshnode.MeshNode;
@@ -28,8 +30,8 @@ public class FieldAtIndexNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 VALUE_2, "Per-element FloatField to sample from.",
                 INDEX_2, "Indices into the field. Scalar or IntField.",
                 RESULT_2, "Sampled float(s) at the requested index/indices."

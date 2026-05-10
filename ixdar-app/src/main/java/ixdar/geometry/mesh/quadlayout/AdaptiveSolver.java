@@ -3,7 +3,34 @@ package ixdar.geometry.mesh.quadlayout;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 
+import java.util.ArrayList;
+
 import ixdar.geometry.mesh.quadlayout.solver.SparseMatrix;
+
+import java.util.List;
+
+import org.ejml.data.DMatrixRMaj;
+
+import org.ejml.data.DMatrixSparseCSC;
+
+import org.ejml.data.DMatrixSparseTriplet;
+import java.util.concurrent.ExecutorService;
+
+import org.ejml.ops.DConvertMatrixStruct;
+
+import java.util.concurrent.ExecutionException;
+
+import org.ejml.sparse.FillReducing;
+
+import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
+
+import java.util.concurrent.Callable;
+
+import java.util.concurrent.Executors;
+
+import java.util.concurrent.Future;
+
+import java.util.function.IntConsumer;
 
 /**
  * Adaptive solver ladder for the mixed-integer systems described by
@@ -38,18 +65,18 @@ public final class AdaptiveSolver {
     public static final int COLORED_GS_MIN_PARALLEL_SIZE = 64;
     public static final int COLORED_GS_MAX_WORKERS = 8;
 
-    private static volatile java.util.concurrent.ExecutorService coloredGsPool;
+    private static volatile ExecutorService coloredGsPool;
 
     private AdaptiveSolver() {
     }
 
-    private static java.util.concurrent.ExecutorService coloredGsPool() {
-        java.util.concurrent.ExecutorService p = coloredGsPool;
+    private static ExecutorService coloredGsPool() {
+        ExecutorService p = coloredGsPool;
         if (p != null) return p;
         synchronized (AdaptiveSolver.class) {
             if (coloredGsPool == null) {
                 int n = Math.min(Runtime.getRuntime().availableProcessors(), COLORED_GS_MAX_WORKERS);
-                coloredGsPool = java.util.concurrent.Executors.newFixedThreadPool(n, r -> {
+                coloredGsPool = Executors.newFixedThreadPool(n, r -> {
                     Thread t = new Thread(r, "adaptive-colored-gs");
                     t.setDaemon(true);
                     return t;
@@ -197,7 +224,7 @@ public final class AdaptiveSolver {
     public static int[] computeGreedyColoring(Matrix matrix) {
         int n = matrix.size();
         int[] colors = new int[n];
-        java.util.Arrays.fill(colors, -1);
+        Arrays.fill(colors, -1);
         boolean[] used = new boolean[n + 1];
         for (int row = 0; row < n; row++) {
             int touched = 0;
@@ -341,7 +368,7 @@ public final class AdaptiveSolver {
         for (var q : queues) initialQueueSize += q.size();
         int maxQueueSize = initialQueueSize;
         int iterations = 0;
-        java.util.concurrent.ExecutorService pool = coloredGsPool();
+        ExecutorService pool = coloredGsPool();
         int nWorkers = Math.min(Runtime.getRuntime().availableProcessors(), COLORED_GS_MAX_WORKERS);
 
         boolean anyWork = true;
@@ -366,8 +393,8 @@ public final class AdaptiveSolver {
                     collected = new int[][] { deps };
                 } else {
                     int chunkSize = Math.max(1, (batchSize + nWorkers - 1) / nWorkers);
-                    java.util.List<java.util.concurrent.Callable<int[]>> tasks =
-                            new java.util.ArrayList<>(nWorkers);
+                    List<Callable<int[]>> tasks =
+                            new ArrayList<>(nWorkers);
                     for (int s = 0; s < batchSize; s += chunkSize) {
                         final int chunkStart = s;
                         final int chunkEnd = Math.min(s + chunkSize, batchSize);
@@ -376,7 +403,7 @@ public final class AdaptiveSolver {
                     }
                     collected = new int[tasks.size()][];
                     try {
-                        java.util.List<java.util.concurrent.Future<int[]>> futures =
+                        List<Future<int[]>> futures =
                                 pool.invokeAll(tasks);
                         for (int i = 0; i < futures.size(); i++) {
                             collected[i] = futures.get(i).get();
@@ -385,7 +412,7 @@ public final class AdaptiveSolver {
                         Thread.currentThread().interrupt();
                         return new LocalResult(x, iterations, false, false,
                                 initialQueueSize, maxQueueSize, 0.0, -1);
-                    } catch (java.util.concurrent.ExecutionException ee) {
+                    } catch (ExecutionException ee) {
                         return new LocalResult(x, iterations, false, false,
                                 initialQueueSize, maxQueueSize, 0.0, -1);
                     }
@@ -421,7 +448,7 @@ public final class AdaptiveSolver {
      */
     private static int[] processColorChunkSerial(Matrix matrix, double[] rhs, double[] x,
             boolean[] fixed, Options options, int[] toProcess, int start, int end) {
-        java.util.ArrayList<Integer> deps = null;
+        ArrayList<Integer> deps = null;
         for (int i = start; i < end; i++) {
             int row = toProcess[i];
             if (fixed[row]) continue;
@@ -434,7 +461,7 @@ public final class AdaptiveSolver {
             // same omega as the serial path (1.7) is valid.
             x[row] += NUM_1_7 * delta;
             if (Math.abs(delta) > options.localTolerance) {
-                if (deps == null) deps = new java.util.ArrayList<>();
+                if (deps == null) deps = new ArrayList<>();
                 for (int c = matrix.rowStart(row); c < matrix.rowEnd(row); c++) {
                     int col = matrix.column(c);
                     if (!fixed[col]) deps.add(col);
@@ -456,57 +483,6 @@ public final class AdaptiveSolver {
             if (cr.norm > maxNorm) { maxNorm = cr.norm; maxRow = cr.row; }
         }
         return new CapResidual(maxNorm, maxRow);
-    }
-
-    /**
-     * Primitive-int FIFO sized for at most {@code n} entries (caller guarantees
-     * deduplication via an external {@code inQueue[]} flag, so the buffer never
-     * needs to hold more than {@code n} live elements). Avoids the boxing cost
-     * of {@link ArrayDeque} on the local Gauss-Seidel hot path, which can run
-     * tens of millions of pop/push operations per build.
-     */
-    static final class IntArrayQueue {
-        private final int[] buf;
-        private int head;
-        private int tail;
-
-        IntArrayQueue(int capacity) {
-            this.buf = new int[capacity];
-        }
-
-        void offer(int v) {
-            buf[tail++] = v;
-            if (tail == buf.length) {
-                tail = 0;
-            }
-        }
-
-        int poll() {
-            int v = buf[head++];
-            if (head == buf.length) {
-                head = 0;
-            }
-            return v;
-        }
-
-        boolean isEmpty() {
-            return head == tail;
-        }
-
-        int size() {
-            int s = tail - head;
-            return s < 0 ? s + buf.length : s;
-        }
-
-        void forEach(java.util.function.IntConsumer consumer) {
-            int i = head;
-            while (i != tail) {
-                consumer.accept(buf[i++]);
-                if (i == buf.length) {
-                    i = 0;
-                }
-            }
-        }
     }
 
     /**
@@ -690,7 +666,7 @@ public final class AdaptiveSolver {
 
         // Step 4: build the permuted matrix (in new variable order) for EJML.
         // EJML's Cholesky needs the upper triangle in CSC format.
-        org.ejml.data.DMatrixSparseTriplet triplets = new org.ejml.data.DMatrixSparseTriplet(freeCount, freeCount, 0);
+        DMatrixSparseTriplet triplets = new DMatrixSparseTriplet(freeCount, freeCount, 0);
         double[] permRhs = new double[freeCount];
         for (int newRow = 0; newRow < freeCount; newRow++) {
             int oldU = perm[newRow]; // compact-index in old order
@@ -713,18 +689,18 @@ public final class AdaptiveSolver {
             permRhs[newRow] = value;
         }
 
-        org.ejml.data.DMatrixSparseCSC csc = new org.ejml.data.DMatrixSparseCSC(freeCount, freeCount,
+        DMatrixSparseCSC csc = new DMatrixSparseCSC(freeCount, freeCount,
                 triplets.nz_length);
-        org.ejml.ops.DConvertMatrixStruct.convert(triplets, csc);
+        DConvertMatrixStruct.convert(triplets, csc);
 
         // Step 5: factorize and solve
-        var solver = org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC
-                .cholesky(org.ejml.sparse.FillReducing.NONE);
+        var solver = LinearSolverFactory_DSCC
+                .cholesky(FillReducing.NONE);
         if (!solver.setA(csc)) {
             throw new IllegalStateException("Cholesky factorization failed");
         }
-        org.ejml.data.DMatrixRMaj b = new org.ejml.data.DMatrixRMaj(freeCount, 1, true, permRhs);
-        org.ejml.data.DMatrixRMaj solX = new org.ejml.data.DMatrixRMaj(freeCount, 1);
+        DMatrixRMaj b = new DMatrixRMaj(freeCount, 1, true, permRhs);
+        DMatrixRMaj solX = new DMatrixRMaj(freeCount, 1);
         solver.solve(b, solX);
 
         // Step 6: unpermute the solution back into the full-size answer
@@ -805,7 +781,7 @@ public final class AdaptiveSolver {
             }
 
             // BFS, sorting each level's neighbors by degree
-            java.util.ArrayDeque<Integer> queue = new java.util.ArrayDeque<>();
+            ArrayDeque<Integer> queue = new ArrayDeque<>();
             queue.add(start);
             visited[start] = true;
             while (!queue.isEmpty()) {
@@ -816,7 +792,7 @@ public final class AdaptiveSolver {
                 Integer[] boxed = new Integer[nbrs.length];
                 for (int i = 0; i < nbrs.length; i++)
                     boxed[i] = nbrs[i];
-                java.util.Arrays.sort(boxed, (a, b) -> adj[a].length - adj[b].length);
+                Arrays.sort(boxed, (a, b) -> adj[a].length - adj[b].length);
                 for (int v : boxed) {
                     if (!visited[v]) {
                         visited[v] = true;
@@ -930,6 +906,57 @@ public final class AdaptiveSolver {
         int n = matrix.size();
         if (rhs.length != n || warmStart.length != n || fixed.length != n) {
             throw new IllegalArgumentException("matrix/vector size mismatch");
+        }
+    }
+
+    /**
+     * Primitive-int FIFO sized for at most {@code n} entries (caller guarantees
+     * deduplication via an external {@code inQueue[]} flag, so the buffer never
+     * needs to hold more than {@code n} live elements). Avoids the boxing cost
+     * of {@link ArrayDeque} on the local Gauss-Seidel hot path, which can run
+     * tens of millions of pop/push operations per build.
+     */
+    static final class IntArrayQueue {
+        private final int[] buf;
+        private int head;
+        private int tail;
+
+        IntArrayQueue(int capacity) {
+            this.buf = new int[capacity];
+        }
+
+        void offer(int v) {
+            buf[tail++] = v;
+            if (tail == buf.length) {
+                tail = 0;
+            }
+        }
+
+        int poll() {
+            int v = buf[head++];
+            if (head == buf.length) {
+                head = 0;
+            }
+            return v;
+        }
+
+        boolean isEmpty() {
+            return head == tail;
+        }
+
+        int size() {
+            int s = tail - head;
+            return s < 0 ? s + buf.length : s;
+        }
+
+        void forEach(IntConsumer consumer) {
+            int i = head;
+            while (i != tail) {
+                consumer.accept(buf[i++]);
+                if (i == buf.length) {
+                    i = 0;
+                }
+            }
         }
     }
 

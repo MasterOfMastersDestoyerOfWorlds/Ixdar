@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
+import java.util.Map;
+
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -51,8 +53,8 @@ public class BirailLoftMeshNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 RAIL_A_2, "First rail curve defining one surface boundary.",
                 RAIL_B_2, "Second rail curve defining the opposing boundary.",
                 U_SEGMENTS_2, "Samples along the rails. Higher = smoother sweep.",

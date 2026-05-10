@@ -5,6 +5,8 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import ixdar.geometry.mesh.data.MeshTopology;
+
+import java.util.HashMap;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -35,7 +37,7 @@ public final class MeshAppend {
         Vector3f p = new Vector3f();
         Vector4f ph = new Vector4f();
         int n = src.vertexCount();
-        java.util.HashMap<Integer, Integer> idMap = new java.util.HashMap<>();
+        HashMap<Integer, Integer> idMap = new HashMap<>();
         for (int i = 0; i < n; i++) {
             int vid = src.vertexIdAt(i);
             src.vertexPosition(vid, p);

@@ -14,7 +14,7 @@ public class TextFile {
      */
     public TextFile(String path) {
         this.path = path == null ? "" : path;
-        this.lines = new java.util.ArrayList<>();
+        this.lines = new ArrayList<>();
     }
 
     /**
@@ -75,7 +75,7 @@ public class TextFile {
      */
     public ArrayList<String> getLines() {
         if (lines == null) {
-            lines = new java.util.ArrayList<>();
+            lines = new ArrayList<>();
         }
         return lines;
     }

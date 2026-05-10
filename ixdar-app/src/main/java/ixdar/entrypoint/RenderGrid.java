@@ -21,6 +21,8 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.graphics.cameras.Camera3D;
+
+import ixdar.geometry.mesh.graph.SkillLibrary;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
@@ -255,8 +257,8 @@ public class RenderGrid {
             runtime.registerFunctionDefs(parser.functionDefs());
 
             if (skillDir != null) {
-                var skillLib = new ixdar.geometry.mesh.graph.SkillLibrary();
-                skillLib.loadDirectory(java.nio.file.Path.of(skillDir));
+                var skillLib = new SkillLibrary();
+                skillLib.loadDirectory(Path.of(skillDir));
                 skillLib.registerWith(runtime);
             }
 

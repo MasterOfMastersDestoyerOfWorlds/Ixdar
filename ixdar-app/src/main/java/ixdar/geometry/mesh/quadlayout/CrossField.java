@@ -3,13 +3,36 @@ package ixdar.geometry.mesh.quadlayout;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
-
 import org.joml.Vector3f;
+import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
+
+import org.ejml.sparse.FillReducing;
+
+import java.util.concurrent.Callable;
+
+import java.util.concurrent.ExecutorService;
+
+import java.util.concurrent.ExecutionException;
+import org.ejml.ops.DConvertMatrixStruct;
+
+import org.ejml.interfaces.linsol.LinearSolverSparse;
+
+import java.util.concurrent.Executors;
+import org.ejml.data.DMatrixSparseTriplet;
+
+import java.util.concurrent.Future;
+import org.ejml.data.DMatrixSparseCSC;
+
+import org.ejml.data.DMatrixRMaj;
+
+import java.util.stream.Collectors;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -61,7 +84,7 @@ public class CrossField {
             .map(String::trim)
             .filter(s -> !s.isEmpty() && s.chars().allMatch(c -> Character.isDigit(c) || c == '-'))
             .map(Integer::parseInt)
-            .collect(java.util.stream.Collectors.toSet());
+            .collect(Collectors.toSet());
     public static final String EIG_FORMAT = "%+.4f ";
     public static final float QUADRATIC_DISCRIMINANT_FACTOR = 4f;
     public static final float HALF = 0.5f;
@@ -443,7 +466,7 @@ public class CrossField {
             return;
         }
 
-        org.ejml.data.DMatrixSparseTriplet triplets = new org.ejml.data.DMatrixSparseTriplet(freeCount, freeCount,
+        DMatrixSparseTriplet triplets = new DMatrixSparseTriplet(freeCount, freeCount,
                 edgeCount * INITIAL_NONZEROS_PER_EDGE);
         double[] diag = new double[freeCount];
         for (int eAi = 0; eAi < edgeCount; eAi++) {
@@ -468,9 +491,9 @@ public class CrossField {
         for (int rf = 0; rf < freeCount; rf++) {
             triplets.addItem(rf, rf, diag[rf]);
         }
-        final org.ejml.data.DMatrixSparseCSC csc = new org.ejml.data.DMatrixSparseCSC(freeCount, freeCount,
+        final DMatrixSparseCSC csc = new DMatrixSparseCSC(freeCount, freeCount,
                 triplets.nz_length);
-        org.ejml.ops.DConvertMatrixStruct.convert(triplets, csc);
+        DConvertMatrixStruct.convert(triplets, csc);
 
         final int nWorkers = Math.min(Runtime.getRuntime().availableProcessors(), 8);
         final ThreadLocal<Worker> tlWorker = ThreadLocal.withInitial(() -> new Worker(freeCount, csc));
@@ -509,7 +532,7 @@ public class CrossField {
 
         final int[][] patchFacesByEdge = buildTwoHopPatchTable(edgeCount, interiorEdge, aliFi, aliFj);
 
-        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(nWorkers, r -> {
+        ExecutorService pool = Executors.newFixedThreadPool(nWorkers, r -> {
             Thread t = new Thread(r, "cross-field-localsearch");
             t.setDaemon(true);
             return t;
@@ -524,7 +547,7 @@ public class CrossField {
             while (improved && passes < LOCAL_SEARCH_MAX_PASSES) {
                 improved = false;
                 passes++;
-                java.util.Set<Integer> candidateEdges = new java.util.HashSet<>();
+                Set<Integer> candidateEdges = new HashSet<>();
                 for (Singularity s : singularities) {
                     int vId = s.vertexId();
                     int outCount = mesh.vertexOutgoingHalfEdgeCount(vId);
@@ -536,16 +559,16 @@ public class CrossField {
                         }
                     }
                 }
-                java.util.List<Integer> remaining = new java.util.ArrayList<>(candidateEdges);
-                java.util.Collections.sort(remaining);
+                List<Integer> remaining = new ArrayList<>(candidateEdges);
+                Collections.sort(remaining);
                 boolean[] usedFace = new boolean[faceCount];
                 while (!remaining.isEmpty()) {
                     if (System.nanoTime() > deadlineNs) {
                         break;
                     }
-                    java.util.Arrays.fill(usedFace, false);
-                    java.util.List<Integer> batch = new java.util.ArrayList<>();
-                    java.util.List<Integer> deferred = new java.util.ArrayList<>();
+                    Arrays.fill(usedFace, false);
+                    List<Integer> batch = new ArrayList<>();
+                    List<Integer> deferred = new ArrayList<>();
                     for (int eAi : remaining) {
                         int[] patch = patchFacesByEdge[eAi];
                         boolean overlap = false;
@@ -565,7 +588,7 @@ public class CrossField {
                     }
 
                     final double batchCurrentEnergy = currentEnergy;
-                    java.util.List<java.util.concurrent.Callable<TrialResult>> tasks = new java.util.ArrayList<>(
+                    List<Callable<TrialResult>> tasks = new ArrayList<>(
                             batch.size());
                     for (int eAi : batch) {
                         final int eAiF = eAi;
@@ -590,15 +613,15 @@ public class CrossField {
                             return new TrialResult(eAiF, bestDelta, bestTrialE);
                         });
                     }
-                    java.util.List<TrialResult> results = new java.util.ArrayList<>(batch.size());
+                    List<TrialResult> results = new ArrayList<>(batch.size());
                     try {
-                        for (java.util.concurrent.Future<TrialResult> f : pool.invokeAll(tasks)) {
+                        for (Future<TrialResult> f : pool.invokeAll(tasks)) {
                             results.add(f.get());
                         }
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         break;
-                    } catch (java.util.concurrent.ExecutionException ee) {
+                    } catch (ExecutionException ee) {
                         throw new RuntimeException(ee.getCause());
                     }
                     totalCandidates += batch.size() * LOCAL_SEARCH_DELTAS.length;
@@ -712,7 +735,7 @@ public class CrossField {
     private int[][] buildTwoHopPatchTable(int edgeCount, boolean[] interiorEdge,
             int[] aliFi, int[] aliFj) {
         int[][] result = new int[edgeCount][];
-        java.util.Set<Integer> patch = new java.util.HashSet<>();
+        Set<Integer> patch = new HashSet<>();
         for (int eAi = 0; eAi < edgeCount; eAi++) {
             if (!interiorEdge[eAi]) {
                 result[eAi] = new int[0];
@@ -750,24 +773,6 @@ public class CrossField {
             result[eAi] = arr;
         }
         return result;
-    }
-
-    /** Per-thread Cholesky solver + scratch buffers for the local search. */
-    private final class Worker {
-        final org.ejml.interfaces.linsol.LinearSolverSparse<org.ejml.data.DMatrixSparseCSC, org.ejml.data.DMatrixRMaj> solver;
-        final org.ejml.data.DMatrixRMaj b;
-        final org.ejml.data.DMatrixRMaj x;
-
-        Worker(int freeCount, org.ejml.data.DMatrixSparseCSC csc) {
-            var s = org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC
-                    .cholesky(org.ejml.sparse.FillReducing.NONE);
-            this.solver = s.setA(csc) ? s : null;
-            this.b = new org.ejml.data.DMatrixRMaj(freeCount, 1);
-            this.x = new org.ejml.data.DMatrixRMaj(freeCount, 1);
-        }
-    }
-
-    private record TrialResult(int eAi, int bestDelta, double bestEnergy) {
     }
 
     /**
@@ -846,7 +851,7 @@ public class CrossField {
             }
         }
 
-        java.util.Set<Integer> traceVids = TRACE_VIDS;
+        Set<Integer> traceVids = TRACE_VIDS;
         for (int vAi = 0; vAi < mesh.vertexCount(); vAi++) {
             stats.verticesVisited++;
             int vId = mesh.vertexIdAt(vAi);
@@ -1822,6 +1827,24 @@ public class CrossField {
         if (r < 0)
             r += mod;
         return r;
+    }
+
+    /** Per-thread Cholesky solver + scratch buffers for the local search. */
+    private final class Worker {
+        final LinearSolverSparse<DMatrixSparseCSC, DMatrixRMaj> solver;
+        final DMatrixRMaj b;
+        final DMatrixRMaj x;
+
+        Worker(int freeCount, DMatrixSparseCSC csc) {
+            var s = LinearSolverFactory_DSCC
+                    .cholesky(FillReducing.NONE);
+            this.solver = s.setA(csc) ? s : null;
+            this.b = new DMatrixRMaj(freeCount, 1);
+            this.x = new DMatrixRMaj(freeCount, 1);
+        }
+    }
+
+    private record TrialResult(int eAi, int bestDelta, double bestEnergy) {
     }
 
     public static final class DijkstraNode implements Comparable<DijkstraNode> {

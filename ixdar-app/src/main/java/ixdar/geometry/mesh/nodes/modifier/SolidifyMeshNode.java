@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.modifier;
 import java.util.List;
 
 import ixdar.annotations.meshnode.InputPort;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
@@ -43,8 +45,8 @@ public class SolidifyMeshNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Input/output. Flat (or near-flat) quad surface becomes a closed shell wrapped in a GeometryBundle.",
                 THICKNESS_2, "Offset distance along the averaged vertex normal. 0 = no thickness; positive = outward shell.",
                 MESH, "Solid mesh topology (alternative accessor to `geometry.mesh`)."

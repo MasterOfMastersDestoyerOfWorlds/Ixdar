@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.closure;
 import java.util.List;
 
 import ixdar.annotations.meshnode.FloatField;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -29,8 +31,8 @@ public class EvaluateClosureNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 CLOSURE_2, "Float closure to sample (from float_curve or function_curve).",
                 VALUE_2, "Input X (scalar or per-vertex FloatField). Typically in [0, 1] for float_curve; arbitrary for function_curve.",
                 RESULT_2, "Sampled Y value(s)."

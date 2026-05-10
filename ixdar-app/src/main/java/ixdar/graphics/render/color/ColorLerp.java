@@ -5,8 +5,9 @@ import java.util.HashMap;
 
 import org.joml.Vector3f;
 import org.joml.Vector4f;
-
 import ixdar.graphics.render.Clock;
+
+import ixdar.common.utils.Compat;
 
 public class ColorLerp implements Color {
     public static final int NUM_3 = 3;
@@ -128,10 +129,10 @@ public class ColorLerp implements Color {
         Vector4f other = endColor.toVector4f();
         Vector4f lerp = new Vector4f(vec);
 
-        lerp.x = ixdar.common.utils.Compat.fmaf(other.x() - lerp.x, occ * channelLerp[0], lerp.x);
-        lerp.y = ixdar.common.utils.Compat.fmaf(other.y() - lerp.y, occ * channelLerp[1], lerp.y);
-        lerp.z = ixdar.common.utils.Compat.fmaf(other.z() - lerp.z, occ * channelLerp[2], lerp.z);
-        lerp.w = ixdar.common.utils.Compat.fmaf(other.w() - lerp.w, occ * channelLerp[NUM_3], lerp.w);
+        lerp.x = Compat.fmaf(other.x() - lerp.x, occ * channelLerp[0], lerp.x);
+        lerp.y = Compat.fmaf(other.y() - lerp.y, occ * channelLerp[1], lerp.y);
+        lerp.z = Compat.fmaf(other.z() - lerp.z, occ * channelLerp[2], lerp.z);
+        lerp.w = Compat.fmaf(other.w() - lerp.w, occ * channelLerp[NUM_3], lerp.w);
 
         return lerp;
     }

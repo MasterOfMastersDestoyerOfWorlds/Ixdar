@@ -3,9 +3,13 @@ package ixdar.geometry.mesh.graph;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.FieldContext;
+
+import java.util.function.Supplier;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
 import ixdar.annotations.meshnode.Vector3Value;
@@ -38,7 +42,7 @@ public class NodeGraphRuntime {
     private final Map<String, GraphNodeContext> evaluatedNodes = new HashMap<>();
 
     /** Per-node timing from last graph execution. Entries: "id (type) → ms". */
-    private final java.util.LinkedHashMap<String, Long> lastTimingMs = new java.util.LinkedHashMap<>();
+    private final LinkedHashMap<String, Long> lastTimingMs = new LinkedHashMap<>();
     private long lastTotalMs;
 
     /**
@@ -47,7 +51,7 @@ public class NodeGraphRuntime {
      * @return insertion-ordered map keyed by {@code "id (type)"} with milliseconds spent in
      *         each node's evaluation
      */
-    public java.util.LinkedHashMap<String, Long> lastTimingMs() {
+    public LinkedHashMap<String, Long> lastTimingMs() {
         return lastTimingMs;
     }
 
@@ -101,9 +105,9 @@ public class NodeGraphRuntime {
      * @return unmodifiable id-to-class view; one probe instance per id is created during the lookup
      */
     public static Map<String, Class<? extends MeshNode>> annotationRegistryClasses() {
-        Map<String, java.util.function.Supplier<? extends MeshNode>> map = MeshNodeRegistry_MeshNodes.MAP;
+        Map<String, Supplier<? extends MeshNode>> map = MeshNodeRegistry_MeshNodes.MAP;
         Map<String, Class<? extends MeshNode>> out = new HashMap<>();
-        for (Map.Entry<String, java.util.function.Supplier<? extends MeshNode>> e : map.entrySet()) {
+        for (Map.Entry<String, Supplier<? extends MeshNode>> e : map.entrySet()) {
             MeshNode probe = e.getValue().get();
             out.put(e.getKey(), probe.getClass());
         }
@@ -240,7 +244,7 @@ public class NodeGraphRuntime {
                 if (nodeRegistry.get(parsedData.type) == null) {
                     throw new IllegalArgumentException("Unknown node type: " + parsedData.type);
                 }
-                java.util.function.Supplier<? extends MeshNode> supplier =
+                Supplier<? extends MeshNode> supplier =
                         MeshNodeRegistry_MeshNodes.MAP.get(parsedData.type);
                 if (supplier == null) {
                     throw new IllegalStateException(NO_MESH_NODE_SUPPLIER_FOR_TYPE + parsedData.type);
@@ -382,7 +386,7 @@ public class NodeGraphRuntime {
                     throw new IllegalArgumentException(IN_FUNCTION + funcDef.name
                             + "': unknown node type: " + bodyNode.type);
                 }
-                java.util.function.Supplier<? extends MeshNode> supplier =
+                Supplier<? extends MeshNode> supplier =
                         MeshNodeRegistry_MeshNodes.MAP.get(bodyNode.type);
                 if (supplier == null) {
                     throw new IllegalStateException(NO_MESH_NODE_SUPPLIER_FOR_TYPE + bodyNode.type);

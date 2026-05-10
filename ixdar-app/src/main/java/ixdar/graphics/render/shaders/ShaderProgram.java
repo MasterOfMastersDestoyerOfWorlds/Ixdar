@@ -6,9 +6,15 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.IntBuffer;
+
+import java.nio.ByteOrder;
+
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+
+import java.util.List;
 
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
@@ -51,7 +57,7 @@ public abstract class ShaderProgram {
     public final static float ORTHO_NEAR = -ORTHO_FAR;
     public final static float ORTHO_Z_INCREMENT = 0.1f;
 
-    private static final java.util.Map<Long, Object> GLOBAL_OWNER_KEYS = new java.util.HashMap<>();
+    private static final Map<Long, Object> GLOBAL_OWNER_KEYS = new HashMap<>();
     public VertexArrayObject vao;
     public VertexBufferObject vbo;
     public HashMap<String, Integer> uniformLocations;
@@ -78,9 +84,9 @@ public abstract class ShaderProgram {
     /** Next free vertex cursor within the persistent region. */
     private int regionCursorVertex = -1;
     /** Queued draw ranges that refer to persistent VBO regions. */
-    private final java.util.List<DrawRange> queuedRanges = new java.util.ArrayList<>();
+    private final List<DrawRange> queuedRanges = new ArrayList<>();
     /** Allocation table per owner object for its persistent VBO slice. */
-    private final java.util.Map<Object, Allocation> allocations = new java.util.HashMap<>();
+    private final Map<Object, Allocation> allocations = new HashMap<>();
     /** Current GPU buffer size in bytes. */
     private long vboSizeBytes = 0L;
     /** Reserved staging floats for legacy immediate path. */
@@ -97,7 +103,7 @@ public abstract class ShaderProgram {
 
     private String originalFragmentSourceStr;
 
-    private final java.util.Map<Long, Allocation> idToAllocation = new java.util.HashMap<>();
+    private final Map<Long, Allocation> idToAllocation = new HashMap<>();
 
     /** Reusable direct buffers for uniform uploads — avoids per-call ByteBuffer.allocateDirect(). */
     private IxBuffer vec2Buf;
@@ -321,7 +327,7 @@ public abstract class ShaderProgram {
     private void checkCompileErrors(int shader, ShaderOperationType type, String location,
             CharSequence[] shaderSource) {
 
-        IntBuffer success = java.nio.ByteBuffer.allocateDirect(NUM_4).order(java.nio.ByteOrder.nativeOrder()).asIntBuffer();
+        IntBuffer success = ByteBuffer.allocateDirect(NUM_4).order(ByteOrder.nativeOrder()).asIntBuffer();
 
         if (type != ShaderOperationType.Program) {
             gl.getShaderiv(shader, gl.COMPILE_STATUS(), success);
@@ -416,7 +422,7 @@ public abstract class ShaderProgram {
         }
         int prevID = ID;
         recompileShaders(vertexShaderLocation, fragmentShaderLocation);
-        IntBuffer success = java.nio.ByteBuffer.allocateDirect(NUM_4).order(java.nio.ByteOrder.nativeOrder()).asIntBuffer();
+        IntBuffer success = ByteBuffer.allocateDirect(NUM_4).order(ByteOrder.nativeOrder()).asIntBuffer();
         gl.getProgramiv(ID, gl.LINK_STATUS(), success);
         if (success.get(0) != 0) {
             gl.useProgram(ID);
@@ -489,7 +495,7 @@ public abstract class ShaderProgram {
     private CharSequence[] buildPlatformFragmentSource(String src) {
         String body = gl.usesWebGlsl() ? src : GlslSource.adaptEs300SharedForDesktopCore330(src);
         try {
-            String platformName = ixdar.platform.Platforms.get().getClass().getName();
+            String platformName = Platforms.get().getClass().getName();
             boolean isWeb = platformName != null && platformName.toLowerCase().contains("web");
             if (isWeb) {
                 return new CharSequence[] { body };
@@ -511,7 +517,7 @@ public abstract class ShaderProgram {
         if (uniformMap == null || uniformMap.isEmpty()) {
             return;
         }
-        for (java.util.Map.Entry<String, Object> e : uniformMap.entrySet()) {
+        for (Map.Entry<String, Object> e : uniformMap.entrySet()) {
             String name = e.getKey();
             Object v = e.getValue();
             try {
@@ -521,14 +527,14 @@ public abstract class ShaderProgram {
                     setInt(name, (Integer) v);
                 } else if (v instanceof Float) {
                     setFloat(name, (Float) v);
-                } else if (v instanceof org.joml.Matrix4f) {
-                    setMat4(name, (org.joml.Matrix4f) v);
-                } else if (v instanceof org.joml.Vector2f) {
-                    setVec2(name, (org.joml.Vector2f) v);
-                } else if (v instanceof org.joml.Vector3f) {
-                    setVec3(name, (org.joml.Vector3f) v);
-                } else if (v instanceof org.joml.Vector4f) {
-                    setVec4(name, (org.joml.Vector4f) v);
+                } else if (v instanceof Matrix4f) {
+                    setMat4(name, (Matrix4f) v);
+                } else if (v instanceof Vector2f) {
+                    setVec2(name, (Vector2f) v);
+                } else if (v instanceof Vector3f) {
+                    setVec3(name, (Vector3f) v);
+                } else if (v instanceof Vector4f) {
+                    setVec4(name, (Vector4f) v);
                 } else if (v instanceof Texture) {
 
                     setTexture(name, (Texture) v, gl.TEXTURE0(), 0);
@@ -1294,9 +1300,9 @@ public abstract class ShaderProgram {
             return;
         }
 
-        IntBuffer sizeBuffer = java.nio.ByteBuffer.allocateDirect(NUM_4).order(java.nio.ByteOrder.nativeOrder())
+        IntBuffer sizeBuffer = ByteBuffer.allocateDirect(NUM_4).order(ByteOrder.nativeOrder())
                 .asIntBuffer();
-        IntBuffer typeBuffer = java.nio.ByteBuffer.allocateDirect(NUM_4).order(java.nio.ByteOrder.nativeOrder())
+        IntBuffer typeBuffer = ByteBuffer.allocateDirect(NUM_4).order(ByteOrder.nativeOrder())
                 .asIntBuffer();
 
         for (int i = 0; i < numUniforms; i++) {

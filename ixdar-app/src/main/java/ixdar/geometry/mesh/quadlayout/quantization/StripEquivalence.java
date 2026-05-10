@@ -2,9 +2,14 @@ package ixdar.geometry.mesh.quadlayout.quantization;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 
+import java.util.Arrays;
+import java.util.List;
 import ixdar.geometry.mesh.quadlayout.tmesh.TMesh;
+
+import ixdar.geometry.mesh.quadlayout.tmesh.TArc;
+
+import ixdar.geometry.mesh.quadlayout.tmesh.TNode;
 import ixdar.geometry.mesh.quadlayout.tmesh.TPatch;
 
 /**
@@ -108,14 +113,14 @@ public final class StripEquivalence {
             }
         }
 
-        List<ixdar.geometry.mesh.quadlayout.tmesh.TArc> arcs = tmesh.arcs();
-        List<ixdar.geometry.mesh.quadlayout.tmesh.TNode> nodes = tmesh.nodes();
+        List<TArc> arcs = tmesh.arcs();
+        List<TNode> nodes = tmesh.nodes();
         int nodeCount = nodes.size();
 
         @SuppressWarnings("unchecked")
         List<int[]>[] arcsAtNode = new List[nodeCount];
         for (int aId = 0; aId < n; aId++) {
-            ixdar.geometry.mesh.quadlayout.tmesh.TArc arc = arcs.get(aId);
+            TArc arc = arcs.get(aId);
             int sn = arc.startNode();
             int en = arc.endNode();
             int dirS = arc.directionAtStart();
@@ -267,7 +272,7 @@ public final class StripEquivalence {
             else buckets[NUM_4]++;
         }
         int[] sorted = sizes.clone();
-        java.util.Arrays.sort(sorted);
+        Arrays.sort(sorted);
         int[] top10 = new int[Math.min(NUM_10, sorted.length)];
         for (int i = 0; i < top10.length; i++) {
             top10[i] = sorted[sorted.length - 1 - i];
@@ -276,7 +281,7 @@ public final class StripEquivalence {
                 + "buckets [size1=%d, size2=%d, 3-5=%d, 6-10=%d, >10=%d]; top10=%s%n",
                 strips.classCount(), totalArcs, max,
                 buckets[0], buckets[1], buckets[2], buckets[NUM_3], buckets[NUM_4],
-                java.util.Arrays.toString(top10));
+                Arrays.toString(top10));
     }
 
     /** Result: per-arc class id, plus class count. */

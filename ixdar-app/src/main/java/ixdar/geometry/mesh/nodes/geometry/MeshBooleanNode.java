@@ -72,8 +72,8 @@ public class MeshBooleanNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 MESH_A_2, "First operand (typically the base mesh).",
                 MESH_B_2, "Second operand (typically the tool mesh).",
                 OPERATION_2, "CSG op: UNION (A ∪ B), DIFFERENCE (A − B), INTERSECT (A ∩ B).",

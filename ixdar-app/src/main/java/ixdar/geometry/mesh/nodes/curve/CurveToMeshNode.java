@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.curve;
 import java.util.List;
 
 import org.joml.Quaternionf;
+
+import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.InputPort;
@@ -62,8 +64,8 @@ public class CurveToMeshNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 CURVE_2, "Path curve to sweep along.",
                 PROFILE_CURVE_2, "Optional custom cross-section curve. If null, a circle of `radius` and `resolution` is used.",
                 RADIUS_2, "Tube radius (ignored when profile_curve is set).",

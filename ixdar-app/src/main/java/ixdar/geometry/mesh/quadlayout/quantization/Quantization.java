@@ -1,11 +1,14 @@
 package ixdar.geometry.mesh.quadlayout.quantization;
-
 import java.util.List;
+
+import java.util.HashSet;
 
 import ixdar.geometry.mesh.quadlayout.solver.IlpSolver;
 import ixdar.geometry.mesh.quadlayout.tmesh.TArc;
 import ixdar.geometry.mesh.quadlayout.tmesh.TMesh;
 import ixdar.geometry.mesh.quadlayout.tmesh.TPatch;
+
+import ixdar.geometry.mesh.quadlayout.tmesh.TNode;
 
 /**
  * T-mesh quantization (Lyon 2021 §4.1 + §5).
@@ -205,13 +208,13 @@ public final class Quantization {
         // Conservative form: for each TArc whose startNode is a SINGULARITY,
         // its strip class must be ≥ 1. Stronger than Eq.(3) but easy to
         // express; matches the paper's "one constraint per trace" claim.
-        java.util.HashSet<Integer> singularityValidityClasses = new java.util.HashSet<>();
+        HashSet<Integer> singularityValidityClasses = new HashSet<>();
         for (int aId = 0; aId < A; aId++) {
             TArc arc = arcs.get(aId);
             int sn = arc.startNode();
             if (sn < 0 || sn >= tmesh.nodes().size()) continue;
             if (tmesh.nodes().get(sn).kind()
-                    == ixdar.geometry.mesh.quadlayout.tmesh.TNode.NodeKind.SINGULARITY) {
+                    == TNode.NodeKind.SINGULARITY) {
                 singularityValidityClasses.add(arcClass[aId]);
             }
         }
@@ -230,7 +233,7 @@ public final class Quantization {
             if (lc.arcIds() == null || lc.arcIds().length == 0) continue;
             double[] row = new double[N];
             // Sum over the strip classes of these arcs.
-            java.util.HashSet<Integer> classesSeen = new java.util.HashSet<>();
+            HashSet<Integer> classesSeen = new HashSet<>();
             for (int arcId : lc.arcIds()) {
                 int cls = arcClass[arcId];
                 if (classesSeen.add(cls)) row[qVar[cls]] += 1.0;

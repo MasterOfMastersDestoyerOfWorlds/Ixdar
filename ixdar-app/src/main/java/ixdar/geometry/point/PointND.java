@@ -240,7 +240,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
      * @exception OutOfMemoryError if there is not enough memory.
      * @throws InternalError if {@link Cloneable} is not honored by a subclass; should never occur for {@code PointND}
      * @return a clone of this instance.
-     * @see java.lang.Cloneable
+     * @see Cloneable
      */
     @Override
     public Object clone() {
@@ -1264,7 +1264,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
             }
             int[] coords = new int[NUM_3];
             for (int i = 0; i < coords.length; i++) {
-                coords[i] = java.lang.Integer.parseInt(args[startIdx + i]);
+                coords[i] = Integer.parseInt(args[startIdx + i]);
             }
             PointND pt = new Hex(coords);
             return pt;

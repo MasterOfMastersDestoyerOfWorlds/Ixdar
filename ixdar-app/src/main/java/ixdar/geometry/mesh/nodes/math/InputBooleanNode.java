@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.math;
 import java.util.List;
 
 import ixdar.annotations.meshnode.InputPort;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
@@ -24,8 +26,8 @@ public class InputBooleanNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 NAME_2, "Parameter name (shown in the UI, referenced by param_sweep / overrides).",
                 DEFAULT_2, "Initial value when not overridden.",
                 VALUE_2, "The (possibly-overridden) boolean value."

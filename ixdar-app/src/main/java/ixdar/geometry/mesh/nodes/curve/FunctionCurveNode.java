@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.curve;
 import java.util.List;
 
 import ixdar.annotations.meshnode.InputPort;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
@@ -104,8 +106,8 @@ public class FunctionCurveNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 EXPRESSION_2, "Math expression in variable `x`. Supports trig, exp/log, clamp, smoothstep, ease_*, smin, pingpong, and more (see node description for the full list).",
                 RESOLUTION_2, "Number of samples taken over x∈[0,1] when rendering the curve for display; does NOT limit evaluation precision at runtime.",
                 CLOSURE_2, "Float closure wrapping the compiled expression. Sample at any x via evaluate_closure."

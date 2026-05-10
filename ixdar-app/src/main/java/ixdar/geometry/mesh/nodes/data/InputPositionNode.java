@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.data;
 import java.util.List;
 
 import ixdar.annotations.meshnode.FieldContext;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -23,8 +25,8 @@ public class InputPositionNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 VECTOR_2, "Per-vertex Vector3field of world-space positions. Requires a mesh field context."
         );
     }

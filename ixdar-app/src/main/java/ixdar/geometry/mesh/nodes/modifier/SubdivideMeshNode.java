@@ -2,8 +2,11 @@ package ixdar.geometry.mesh.nodes.modifier;
 
 import java.util.HashMap;
 import java.util.List;
-
 import org.joml.Vector3f;
+
+import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
+
+import java.util.Map;
 
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -56,8 +59,8 @@ public class SubdivideMeshNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 MESH, "Input topology to subdivide. Each face becomes 4^levels faces.",
                 LEVELS_2, "Subdivision iterations, 0..N. Each level quadruples face count. DESTRUCTIVE: consumes bezier handle slots — use BEFORE assign_bezier_handles.",
                 GEOMETRY_2, "Output geometry bundle wrapping the subdivided mesh (slots dropped per destructive contract)."
@@ -72,8 +75,8 @@ public class SubdivideMeshNode implements MeshNode {
     @Override
     public List<String> consumes() {
         return List.of(
-                ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode.SLOT_HANDLES_START,
-                ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode.SLOT_HANDLES_END);
+                AssignBezierHandlesNode.SLOT_HANDLES_START,
+                AssignBezierHandlesNode.SLOT_HANDLES_END);
     }
 
     @Override

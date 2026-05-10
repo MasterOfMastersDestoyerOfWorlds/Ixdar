@@ -371,16 +371,16 @@ public class GLSLExpressionParser {
      * @param envSnapshot read-only environment used when evaluating conditions
      * @return list of booleans, one per input line, in the same order
      */
-    public static java.util.List<Boolean> wouldExecute(List<String> lines, Map<String, GLSLParseText> envSnapshot) {
-        java.util.ArrayList<Boolean> execFlags = new java.util.ArrayList<>();
+    public static List<Boolean> wouldExecute(List<String> lines, Map<String, GLSLParseText> envSnapshot) {
+        ArrayList<Boolean> execFlags = new ArrayList<>();
         if (lines == null) {
             return execFlags;
         }
-        java.util.ArrayList<Boolean> execStack = new java.util.ArrayList<>();
+        ArrayList<Boolean> execStack = new ArrayList<>();
         execStack.add(Boolean.TRUE);
-        java.util.ArrayList<Boolean> isIfStack = new java.util.ArrayList<>();
+        ArrayList<Boolean> isIfStack = new ArrayList<>();
         isIfStack.add(Boolean.FALSE);
-        java.util.ArrayList<Boolean> elseShouldExecStack = new java.util.ArrayList<>();
+        ArrayList<Boolean> elseShouldExecStack = new ArrayList<>();
         elseShouldExecStack.add(Boolean.FALSE);
 
         for (int i = 0; i < lines.size(); i++) {

@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.data;
 import java.util.List;
 
 import ixdar.annotations.meshnode.FloatField;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -31,8 +33,8 @@ public class CaptureAttributeNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Input/output bundle. The output carries a new slot named `name` holding `value`.",
                 NAME_2, "Slot key (string) under which to store the attribute.",
                 VALUE_2, "Float scalar or FloatField to store. Downstream nodes read via this same name."

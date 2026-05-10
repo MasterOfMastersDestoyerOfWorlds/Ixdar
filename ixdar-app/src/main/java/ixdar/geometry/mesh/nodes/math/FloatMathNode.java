@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.math;
 import java.util.List;
 
 import ixdar.annotations.meshnode.FloatField;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -32,8 +34,8 @@ public class FloatMathNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 OPERATION_2, "Op name: ADD, SUBTRACT, MULTIPLY, DIVIDE, POWER, MINIMUM, MAXIMUM, ABSOLUTE, FRACT, SIN, COS, SQRT, NEGATE, MODULO, ATAN2.",
                 A_2, "Left operand (scalar or per-vertex FloatField).",
                 B_2, "Right operand. Ignored for single-operand ops (ABSOLUTE, FRACT, SIN, COS, SQRT, NEGATE).",

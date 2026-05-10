@@ -8,7 +8,15 @@ import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.geometry.mesh.data.MeshTopology;
+
+import ixdar.geometry.mesh.data.MeshDistance;
 import ixdar.platform.automation.AutomationEndpoint;
+
+import ixdar.geometry.mesh.data.load.MeshLoader;
+
+import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
+
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.platform.automation.endpoints.AutomationRuntime;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 
@@ -61,18 +69,18 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                     }
 
                     // Convert current mesh to ArrayMesh
-                    ixdar.geometry.mesh.data.representation.ArrayMesh currentMesh;
-                    if (currentMeshTopology instanceof ixdar.geometry.mesh.data.representation.ArrayMesh) {
-                        currentMesh = (ixdar.geometry.mesh.data.representation.ArrayMesh) currentMeshTopology;
+                    ArrayMesh currentMesh;
+                    if (currentMeshTopology instanceof ArrayMesh) {
+                        currentMesh = (ArrayMesh) currentMeshTopology;
                     } else {
-                        currentMesh = ixdar.geometry.mesh.data.representation.ArrayMeshEngine.fromUniformMeshTopology(
+                        currentMesh = ArrayMeshEngine.fromUniformMeshTopology(
                                 currentMeshTopology);
                     }
 
                     // Load reference mesh
-                    ixdar.geometry.mesh.data.representation.ArrayMesh referenceMesh;
+                    ArrayMesh referenceMesh;
                     try {
-                        referenceMesh = ixdar.geometry.mesh.data.load.MeshLoader.load(
+                        referenceMesh = MeshLoader.load(
                                 referencePath);
                     } catch (Exception e) {
                         result.addProperty(
@@ -95,7 +103,7 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                     float effectiveScale = (Float.isNaN(scale) || scale <= 0f)
                             ? 1.0f
                             : scale;
-                    ixdar.geometry.mesh.data.MeshDistance.MeshMetrics metrics = ixdar.geometry.mesh.data.MeshDistance
+                    MeshDistance.MeshMetrics metrics = MeshDistance
                             .computeAllMetrics(
                                     currentMesh,
                                     referenceMesh,

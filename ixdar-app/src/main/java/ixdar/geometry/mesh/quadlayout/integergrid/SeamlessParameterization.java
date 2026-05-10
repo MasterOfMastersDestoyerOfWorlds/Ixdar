@@ -2,6 +2,8 @@ package ixdar.geometry.mesh.quadlayout.integergrid;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+
+import java.util.Arrays;
 import java.util.List;
 
 import org.joml.Vector3f;
@@ -597,7 +599,7 @@ public final class SeamlessParameterization {
                 lengths[written++] = (float) Math.sqrt(du * du + dv * dv);
             }
         }
-        java.util.Arrays.sort(lengths, 0, written);
+        Arrays.sort(lengths, 0, written);
         // 75th percentile rather than median — robust against the cluster of
         // tiny edges near collapsed-by-Tikhonov corners.
         float q75 = lengths[(written * NUM_3) / NUM_4];

@@ -5,8 +5,13 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
 import ixdar.geometry.mesh.data.MeshSkeletonComparator.DetailedBranchMatch;
+
+import ixdar.annotations.meshnode.PortType;
+
+import ixdar.annotations.meshnode.MeshNodeSchema;
+
+import ixdar.annotations.meshnode.MeshNode;
 import ixdar.geometry.mesh.data.MeshSkeletonComparator.DetailedComparisonResult;
 import ixdar.geometry.mesh.data.MeshSkeletonComparator.JointDelta;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonResult;
@@ -578,18 +583,18 @@ public final class SkeletonSensitivityAnalyzer {
     private static List<String> candidatePorts(List<PythonParser.ParsedNode> parsed) {
         // Try to detect output port from node schema, fall back to common names
         PythonParser.ParsedNode last = parsed.get(parsed.size() - 1);
-        Map<String, Class<? extends ixdar.annotations.meshnode.MeshNode>> registry =
+        Map<String, Class<? extends MeshNode>> registry =
                 NodeGraphRuntime.annotationRegistryClasses();
-        Class<? extends ixdar.annotations.meshnode.MeshNode> clazz = registry.get(last.type);
+        Class<? extends MeshNode> clazz = registry.get(last.type);
         if (clazz != null) {
             try {
-                ixdar.annotations.meshnode.MeshNode instance = clazz.getDeclaredConstructor().newInstance();
-                ixdar.annotations.meshnode.MeshNodeSchema schema =
-                        ixdar.annotations.meshnode.MeshNodeSchema.from(instance);
+                MeshNode instance = clazz.getDeclaredConstructor().newInstance();
+                MeshNodeSchema schema =
+                        MeshNodeSchema.from(instance);
                 List<String> names = new ArrayList<>();
                 for (var op : schema.outputs()) {
-                    if (op.type() == ixdar.annotations.meshnode.PortType.MESH
-                            || op.type() == ixdar.annotations.meshnode.PortType.GEOMETRY_BUNDLE) {
+                    if (op.type() == PortType.MESH
+                            || op.type() == PortType.GEOMETRY_BUNDLE) {
                         names.add(op.name());
                     }
                 }

@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.lyon2021;
-
 import java.util.ArrayList;
+
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -131,7 +132,7 @@ public final class LyonLayoutDecomposer {
         // Build the blocked half-edge set: for each layout arc, walk its
         // underlying TArc's per-step exitEdgeIndex; both the exit half-edge
         // and its twin are blocked (the arc crosses through that mesh edge).
-        java.util.HashSet<Integer> blockedHalfEdges = new java.util.HashSet<>();
+        HashSet<Integer> blockedHalfEdges = new HashSet<>();
         for (LayoutArc la : layout.layoutArcs()) {
             if (la.variant() == LayoutArc.Variant.INTERIOR) {
                 // INTERIOR arcs traverse face interiors, not edges — but they
@@ -153,7 +154,7 @@ public final class LyonLayoutDecomposer {
         }
 
         // BFS flood-fill from each labeled face.
-        java.util.ArrayDeque<Integer> queue = new java.util.ArrayDeque<>();
+        ArrayDeque<Integer> queue = new ArrayDeque<>();
         for (int f = 0; f < faceCount; f++) {
             if (faceLabels[f] >= 0) queue.add(f);
         }
@@ -181,7 +182,7 @@ public final class LyonLayoutDecomposer {
         // Without this, the visual has large grey holes which obscures the
         // patch structure of the rest. Once topology is paper-rectangular
         // (no gaps), this fallback should rarely fire.
-        java.util.ArrayDeque<Integer> fallbackQueue = new java.util.ArrayDeque<>();
+        ArrayDeque<Integer> fallbackQueue = new ArrayDeque<>();
         for (int f = 0; f < faceCount; f++) {
             if (faceLabels[f] >= 0) fallbackQueue.add(f);
         }

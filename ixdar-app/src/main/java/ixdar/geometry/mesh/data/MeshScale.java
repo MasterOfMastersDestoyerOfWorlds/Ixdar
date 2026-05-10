@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.data;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.Vector3Field;
+
+import java.util.HashMap;
 import ixdar.annotations.meshnode.Vector3Value;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
@@ -44,7 +46,7 @@ public final class MeshScale {
         }
 
         HalfEdgeMesh out = new HalfEdgeMesh();
-        java.util.HashMap<Integer, Integer> idMap = new java.util.HashMap<>();
+        HashMap<Integer, Integer> idMap = new HashMap<>();
         for (int i = 0; i < n; i++) {
             int vid = mesh.vertexIdAt(i);
             mesh.vertexPosition(vid, tmp);

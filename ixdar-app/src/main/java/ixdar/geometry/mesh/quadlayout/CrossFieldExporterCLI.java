@@ -2,6 +2,8 @@ package ixdar.geometry.mesh.quadlayout;
 
 import java.io.IOException;
 import java.nio.file.Files;
+
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -134,7 +136,7 @@ public final class CrossFieldExporterCLI {
             try (var in = Files.newInputStream(off)) {
                 read = in.read(head);
             }
-            String header = new String(head, 0, Math.max(0, read), java.nio.charset.StandardCharsets.ISO_8859_1);
+            String header = new String(head, 0, Math.max(0, read), StandardCharsets.ISO_8859_1);
             return header.contains("BINARY");
         } catch (IOException e) {
             return false;

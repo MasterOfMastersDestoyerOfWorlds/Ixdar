@@ -6,11 +6,15 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
 
+import java.util.LinkedHashSet;
+
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.quadlayout.extraction.TransitionMatrix;
 import ixdar.geometry.mesh.quadlayout.tmesh.TArc;
 import ixdar.geometry.mesh.quadlayout.tmesh.TMesh;
 import ixdar.geometry.mesh.quadlayout.tmesh.TPatch;
+
+import org.joml.Vector3f;
 
 /**
  * Lyon 2021 §6 ¶1 — extract a conforming {@link QuadLayout} from a
@@ -270,7 +274,7 @@ public final class QuadLayoutExtractor {
                     skipped.add(p.sourceTPatchId);
                     continue;
                 }
-                ixdar.geometry.mesh.quadlayout.tmesh.TArc tarc =
+                TArc tarc =
                         tmesh.arcs().get(orig.underlyingTArcId());
 
                 // Determine fraction t and direction (FORWARD vs reversed in
@@ -377,7 +381,7 @@ public final class QuadLayoutExtractor {
         // sub-patches, and only some may fail to resolve; we want one entry
         // per source TPatch.
         ArrayList<Integer> uniqueSkipped = new ArrayList<>(
-                new java.util.LinkedHashSet<>(skipped));
+                new LinkedHashSet<>(skipped));
         // conformingPatches counts both quads and triangles (PATCH-79).
         return new Result(layout, tmesh.patches().size(),
                 patches.size() + triangles.size(),
@@ -528,7 +532,7 @@ public final class QuadLayoutExtractor {
         }
         // 3D position not needed for tracer; pass null/0 vector.
         SplitElem from = new SplitElem(tArcFromS.id(), fromStepIdx, fromU, fromV,
-                new org.joml.Vector3f(),
+                new Vector3f(),
                 tArcFromS.parametricLength());
 
         // SplitElem for the matching node M = end of opp[matchIdx] walked
@@ -562,7 +566,7 @@ public final class QuadLayoutExtractor {
             matchDist += layoutArcs.get(p.sides[opp][i]).parametricLength();
         }
         SplitElem to = new SplitElem(matchTArcId, matchStepIdx, matchU, matchV,
-                new org.joml.Vector3f(),
+                new Vector3f(),
                 (float) matchDist);
 
         // SplitElem.distance for `from` — parametric distance from corner s

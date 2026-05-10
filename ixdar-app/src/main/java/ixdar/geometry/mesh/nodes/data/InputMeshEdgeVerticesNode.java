@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.data;
 import java.util.List;
 
 import ixdar.annotations.meshnode.InputPort;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.IntField;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -26,8 +28,8 @@ public class InputMeshEdgeVerticesNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 VERTEX_A_2, "Per-edge IntField: the start vertex index of each edge.",
                 VERTEX_B_2, "Per-edge IntField: the end vertex index of each edge."
         );

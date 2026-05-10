@@ -5,6 +5,8 @@ import no.uib.cipr.matrix.sparse.CompRowMatrix;
 import no.uib.cipr.matrix.sparse.FlexCompRowMatrix;
 import no.uib.cipr.matrix.sparse.SparseVector;
 
+import java.util.Arrays;
+
 /**
  * Real-valued sparse matrix backed by MTJ's CSR-family classes. Used by the QGP
  * pipeline whenever {@link SparseMatrix}'s ojAlgo backend would overflow its
@@ -218,7 +220,7 @@ public final class MtjSparseMatrix {
             int[] cols = new int[used];
             System.arraycopy(idx, 0, cols, 0, used);
             // CompRowMatrix requires sorted column indices per row.
-            java.util.Arrays.sort(cols);
+            Arrays.sort(cols);
             pattern[i] = cols;
         }
         CompRowMatrix m = new CompRowMatrix(rows, cols, pattern);

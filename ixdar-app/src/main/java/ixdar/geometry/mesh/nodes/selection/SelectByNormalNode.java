@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
+import java.util.Map;
+
 import ixdar.annotations.meshnode.BoolField;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -59,8 +61,8 @@ public class SelectByNormalNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Geometry bundle to test.",
                 DIRECTION_2, "Reference direction (need not be unit; normalized internally).",
                 THRESHOLD_2, "Minimum dot product. 1 = exact alignment; 0.7 ≈ within 45°; 0 ≈ same hemisphere; -1 = always true.",

@@ -8,6 +8,8 @@ import ixdar.platform.Platforms;
 import ixdar.platform.file.FileManagement;
 import ixdar.scenes.Scene;
 
+import org.joml.Vector3f;
+
 @SceneAnnotation(id = "model-load-canvas")
 public class ModelLoadScene extends Scene {
 
@@ -67,7 +69,7 @@ public class ModelLoadScene extends Scene {
         }
     }
 
-    private String vec3(org.joml.Vector3f v) {
+    private String vec3(Vector3f v) {
         return String.format("(%.3f, %.3f, %.3f)", v.x, v.y, v.z);
     }
 }

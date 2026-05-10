@@ -1,6 +1,9 @@
 package ixdar.geometry.mesh.quadlayout.lyon2021;
-
 import java.util.HashMap;
+
+import java.util.Arrays;
+
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
@@ -72,12 +75,12 @@ public record QuadLayout(List<QuadLayoutPatch> patches,
         // Build arc → list of patches (quad or triangle) that contain it.
         // Each interior layout arc appears in exactly 2 patches; boundary
         // arcs in 1.
-        HashMap<Integer, java.util.ArrayList<Integer>> arcToPatches = new HashMap<>();
+        HashMap<Integer, ArrayList<Integer>> arcToPatches = new HashMap<>();
         for (int p = 0; p < patches.size(); p++) {
             QuadLayoutPatch qp = patches.get(p);
             for (int s = 0; s < NUM_4; s++) {
                 for (int la : qp.arcsBySide()[s]) {
-                    arcToPatches.computeIfAbsent(la, k -> new java.util.ArrayList<>()).add(p);
+                    arcToPatches.computeIfAbsent(la, k -> new ArrayList<>()).add(p);
                 }
             }
         }
@@ -87,7 +90,7 @@ public record QuadLayout(List<QuadLayoutPatch> patches,
             int patchId = triOffset + t;
             for (int s = 0; s < NUM_3; s++) {
                 for (int la : tp.arcsBySide()[s]) {
-                    arcToPatches.computeIfAbsent(la, k -> new java.util.ArrayList<>()).add(patchId);
+                    arcToPatches.computeIfAbsent(la, k -> new ArrayList<>()).add(patchId);
                 }
             }
         }
@@ -117,8 +120,8 @@ public record QuadLayout(List<QuadLayoutPatch> patches,
             component[i] = c;
         }
 
-        int[] quadAssign = java.util.Arrays.copyOfRange(component, 0, patches.size());
-        int[] triAssign = java.util.Arrays.copyOfRange(component,
+        int[] quadAssign = Arrays.copyOfRange(component, 0, patches.size());
+        int[] triAssign = Arrays.copyOfRange(component,
                 patches.size(), totalNonMerged);
         return new MergedAssignment(quadAssign, triAssign, distinctCount);
     }

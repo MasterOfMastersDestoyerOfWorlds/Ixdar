@@ -9,6 +9,8 @@ import org.ojalgo.optimisation.ExpressionsBasedModel;
 import org.ojalgo.optimisation.Optimisation;
 import org.ojalgo.optimisation.Variable;
 
+import org.ojalgo.type.CalendarDateUnit;
+
 /**
  * Facade over ojAlgo's {@link ExpressionsBasedModel} + {@code IntegerSolver} for
  * mixed-integer linear programs. Exposes a numpy-flavoured Java API that the
@@ -161,7 +163,7 @@ public final class IlpSolver {
         if (timeoutMillis > 0) {
             // ojAlgo: configure both abort (terminate) and suffice (accept
             // incumbent) windows to the same wall-clock bound.
-            org.ojalgo.type.CalendarDateUnit u = org.ojalgo.type.CalendarDateUnit.MILLIS;
+            CalendarDateUnit u = CalendarDateUnit.MILLIS;
             model.options.time_abort = timeoutMillis;
             model.options.time_suffice = timeoutMillis;
         }

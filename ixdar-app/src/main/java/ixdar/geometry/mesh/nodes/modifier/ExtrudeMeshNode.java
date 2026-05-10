@@ -1,11 +1,16 @@
 package ixdar.geometry.mesh.nodes.modifier;
-
 import java.util.Arrays;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+
+import java.util.HashSet;
 import java.util.Map;
 
 import org.joml.Vector3f;
+
+import java.util.Set;
 
 import ixdar.annotations.meshnode.BoolField;
 import ixdar.annotations.meshnode.InputPort;
@@ -468,17 +473,17 @@ public class ExtrudeMeshNode implements MeshNode {
         // A boundary edge is one where a selected face meets an unselected face or the mesh boundary.
         // We store the edge as (va, vb) in the winding order of the SELECTED face.
         record BoundaryEdge(int va, int vb) {}
-        java.util.List<BoundaryEdge> boundaryEdges = new java.util.ArrayList<>();
-        java.util.Set<Long> edgeSeen = new java.util.HashSet<>();
+        List<BoundaryEdge> boundaryEdges = new ArrayList<>();
+        Set<Long> edgeSeen = new HashSet<>();
 
         // Build edge-to-faces map for adjacency lookup
-        java.util.Map<Long, java.util.List<Integer>> edgeFaces = new java.util.HashMap<>();
+        Map<Long, List<Integer>> edgeFaces = new HashMap<>();
         for (int fi = 0; fi < faceCount; fi++) {
             for (int k = 0; k < vpf; k++) {
                 int va = srcFaces[fi * vpf + k];
                 int vb = srcFaces[fi * vpf + ((k + 1) % vpf)];
                 long key = edgeKey(va, vb, vertCount);
-                edgeFaces.computeIfAbsent(key, x -> new java.util.ArrayList<>()).add(fi);
+                edgeFaces.computeIfAbsent(key, x -> new ArrayList<>()).add(fi);
             }
         }
 
@@ -491,7 +496,7 @@ public class ExtrudeMeshNode implements MeshNode {
                 long key = edgeKey(va, vb, vertCount);
                 if (edgeSeen.contains(key)) continue;
 
-                java.util.List<Integer> faces = edgeFaces.get(key);
+                List<Integer> faces = edgeFaces.get(key);
                 boolean allSelected = true;
                 for (int f : faces) {
                     if (!selected[f]) { allSelected = false; break; }

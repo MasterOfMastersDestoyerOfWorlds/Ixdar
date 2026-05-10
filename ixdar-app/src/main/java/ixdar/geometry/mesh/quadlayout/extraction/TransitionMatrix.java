@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.quadlayout.extraction;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.quadlayout.vectorfield.CombedField;
 
+import java.util.Arrays;
+
 /**
  * Per-half-edge rotation + translation describing how a parametric point
  * {@code (u, v)} transforms when crossed across the half-edge into the
@@ -65,7 +67,7 @@ public final class TransitionMatrix {
         int[] tx = new int[H];
         int[] ty = new int[H];
         int[] ie = new int[H];
-        java.util.Arrays.fill(ie, -1);
+        Arrays.fill(ie, -1);
 
         // Build interior-edge -> matching map up front.
         int[] interiorMatching = null;
@@ -79,7 +81,7 @@ public final class TransitionMatrix {
         if (combed != null) {
             int Ei = combed.field().interiorEdgeCount();
             meshEdgeToInterior = new int[mesh.edgeCount()];
-            java.util.Arrays.fill(meshEdgeToInterior, -1);
+            Arrays.fill(meshEdgeToInterior, -1);
             for (int e = 0; e < Ei; e++) {
                 meshEdgeToInterior[combed.field().edgeMeshId(e)] = e;
             }

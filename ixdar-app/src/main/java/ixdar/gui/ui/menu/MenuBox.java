@@ -3,7 +3,11 @@ package ixdar.gui.ui.menu;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.util.HashMap;
+
 import ixdar.graphics.cameras.Bounds;
+
+import java.util.Map;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
@@ -104,11 +108,11 @@ public class MenuBox implements MouseTrap.ScrollHandler {
         Object rt = getAutomationRuntime();
         if (rt == null) return;
         try {
-            java.util.Map<String, Object> payload = new java.util.HashMap<>();
+            Map<String, Object> payload = new HashMap<>();
             for (int i = 0; i < keyValues.length; i += 2) {
                 payload.put((String) keyValues[i], keyValues[i + 1]);
             }
-            rt.getClass().getMethod("recordAbstractActionMap", String.class, java.util.Map.class).invoke(rt, action, payload);
+            rt.getClass().getMethod("recordAbstractActionMap", String.class, Map.class).invoke(rt, action, payload);
         } catch (Throwable ignored) {}
     }
 

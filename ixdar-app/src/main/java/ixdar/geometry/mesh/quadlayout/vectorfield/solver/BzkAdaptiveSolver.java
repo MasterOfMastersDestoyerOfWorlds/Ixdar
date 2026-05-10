@@ -4,6 +4,8 @@ import ixdar.geometry.mesh.quadlayout.solver.IterativeSolver;
 import ixdar.geometry.mesh.quadlayout.solver.MtjSparseMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.SparseMatrix;
 
+import java.util.ArrayDeque;
+
 /**
  * BZK09 §2.1 adaptive solver ladder for the BZK system. Solves
  *
@@ -206,7 +208,7 @@ public final class BzkAdaptiveSolver {
         double[] xLocal = x.clone();
 
         // Seed queue with all unpinned variables that touch a pinned variable.
-        java.util.ArrayDeque<Integer> queue = new java.util.ArrayDeque<>();
+        ArrayDeque<Integer> queue = new ArrayDeque<>();
         boolean[] inQueue = new boolean[N];
         for (int k = 0; k < N; k++) {
             if (pinned[k]) continue;

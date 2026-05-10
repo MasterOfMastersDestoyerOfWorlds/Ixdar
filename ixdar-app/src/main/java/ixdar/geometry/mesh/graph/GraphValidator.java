@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.InputPort;
+
+import java.util.Set;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeSchema;
 import ixdar.annotations.meshnode.OutputPort;
@@ -45,7 +47,7 @@ public final class GraphValidator {
      */
     public static List<String> validate(List<PythonParser.ParsedNode> parsed,
             Map<String, Class<? extends MeshNode>> registry) {
-        return validate(parsed, registry, java.util.Set.of());
+        return validate(parsed, registry, Set.of());
     }
 
     /**
@@ -60,7 +62,7 @@ public final class GraphValidator {
      */
     public static List<String> validate(List<PythonParser.ParsedNode> parsed,
             Map<String, Class<? extends MeshNode>> registry,
-            java.util.Set<String> functionNames) {
+            Set<String> functionNames) {
         List<String> errors = new ArrayList<>();
         Map<String, PythonParser.ParsedNode> byId = new HashMap<>();
         for (PythonParser.ParsedNode n : parsed) {

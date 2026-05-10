@@ -53,8 +53,8 @@ public class SeparateGeometryNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Input bundle to split.",
                 SELECTION_2, "Per-face BOOLEAN mask.",
                 SELECTED_2, "Bundle containing only the selected faces (and their vertices).",

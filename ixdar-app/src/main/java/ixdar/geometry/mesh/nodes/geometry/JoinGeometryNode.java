@@ -17,6 +17,8 @@ import ixdar.geometry.mesh.data.ops.MeshAppend;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 
+import ixdar.geometry.mesh.nodes.modifier.SetBoneWeightNode;
+
 @MeshNodeAnnotation(id = "join_geometry")
 public class JoinGeometryNode implements MeshNode {
     public static final String A_2 = "a";
@@ -45,8 +47,8 @@ public class JoinGeometryNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 A_2, "First geometry bundle. Tags/weights from both are preserved in the output.",
                 B_2, "Second geometry bundle.",
                 MERGE_DISTANCE_2, "Weld threshold for seam vertices. 0 = no weld (a and b remain disjoint); typical 0.001 for light seam cleanup.",
@@ -120,7 +122,7 @@ public class JoinGeometryNode implements MeshNode {
         }
 
         // Merge bone weight slots (float[] indexed by vertex ID)
-        String prefix = ixdar.geometry.mesh.nodes.modifier.SetBoneWeightNode.BONE_WEIGHT_PREFIX;
+        String prefix = SetBoneWeightNode.BONE_WEIGHT_PREFIX;
         Map<String, float[]> boneSlots = new HashMap<>();
         for (var entry : ga.slots().entrySet()) {
             if (entry.getKey().startsWith(prefix) && entry.getValue() instanceof float[] src) {

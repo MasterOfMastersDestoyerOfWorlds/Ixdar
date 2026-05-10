@@ -15,6 +15,8 @@ import java.util.function.Supplier;
 import ixdar.annotations.command.TerminalOption;
 import ixdar.annotations.geometry.Geometry;
 import ixdar.geometry.point.GeometryMap;
+
+import ixdar.common.utils.Compat;
 import ixdar.geometry.point.PointCollection;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
@@ -200,12 +202,12 @@ public class Terminal implements MouseTrap.ScrollHandler {
     public void keyPress(int key, int mods, boolean controlMask) {
         if (key == Keys.BACKSPACE) {
             if (controlMask) {
-                commandLine = ixdar.common.utils.Compat.stripTrailing(commandLine);
+                commandLine = Compat.stripTrailing(commandLine);
                 int lastSpace = commandLine.lastIndexOf(" ");
                 if (lastSpace == -1) {
                     commandLine = "";
                 } else {
-                    commandLine = ixdar.common.utils.Compat.stripTrailing(commandLine.substring(0, lastSpace));
+                    commandLine = Compat.stripTrailing(commandLine.substring(0, lastSpace));
                 }
             } else {
                 int back = commandLine.length() - 1;
@@ -242,7 +244,7 @@ public class Terminal implements MouseTrap.ScrollHandler {
         }
         if (key == Keys.ENTER) {
             history.addLine(commandLine);
-            if (!ixdar.common.utils.Compat.isBlank(commandLine)) {
+            if (!Compat.isBlank(commandLine)) {
                 commandHistory.add(0, commandLine);
                 commandHistoryIdx = -1;
                 run(commandLine);
@@ -256,7 +258,7 @@ public class Terminal implements MouseTrap.ScrollHandler {
             return;
         }
         if (key == Keys.TAB) {
-            if (ixdar.common.utils.Compat.isBlank(commandLine) && nextLogicalCommand.length > 0) {
+            if (Compat.isBlank(commandLine) && nextLogicalCommand.length > 0) {
                 commandLine = nextLogicalCommand[nextLogicalCommandIdx];
                 nextLogicalCommandIdx = (nextLogicalCommandIdx + 1) % nextLogicalCommand.length;
                 return;
@@ -280,7 +282,7 @@ public class Terminal implements MouseTrap.ScrollHandler {
      * @param typedCharacter character text from the OS input event; ignored if blank
      */
     public void type(String typedCharacter) {
-        if (ixdar.common.utils.Compat.isBlank(typedCharacter)) {
+        if (Compat.isBlank(typedCharacter)) {
             return;
         }
         commandHistoryIdx = -1;

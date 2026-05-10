@@ -4,8 +4,9 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.function.Supplier;
-
 import org.teavm.jso.browser.Window;
+
+import org.teavm.jso.JSBody;
 import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.dom.html.HTMLDocument;
 
@@ -124,7 +125,7 @@ public final class WebLauncher {
         }
     }
 
-    @org.teavm.jso.JSBody(params = {
+    @JSBody(params = {
             "el" }, script = "if(!el) return false; var style=getComputedStyle(el); if(style.display==='none'||style.visibility==='hidden'||parseFloat(style.opacity)===0) return false; var rect=el.getBoundingClientRect(); var vw=window.innerWidth||document.documentElement.clientWidth; var vh=window.innerHeight||document.documentElement.clientHeight; var m=600; return !(rect.bottom<=-m || rect.top>=vh+m || rect.right<=-m || rect.left>=vw+m);")
     private static native boolean isElementVisible(HTMLCanvasElement el);
 

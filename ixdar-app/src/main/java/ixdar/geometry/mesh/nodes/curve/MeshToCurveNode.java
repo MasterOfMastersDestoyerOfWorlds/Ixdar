@@ -39,8 +39,8 @@ public class MeshToCurveNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 // Shared input+output key — input is the source mesh, output is the extracted curve bundle.
                 GEOMETRY_2, "Input: source mesh to extract curves from. Output: extracted curve geometry bundle (polylines).",
                 SOURCE_2, "Extraction mode: ALL_EDGES (every mesh edge as a 2-point segment) or BOUNDARY (ordered polyline around each open boundary)."

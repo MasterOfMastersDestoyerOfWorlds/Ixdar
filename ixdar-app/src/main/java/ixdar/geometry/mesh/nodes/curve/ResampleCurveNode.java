@@ -5,6 +5,8 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
+import java.util.Map;
+
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -36,8 +38,8 @@ public class ResampleCurveNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 CURVE_2, "Input curve polyline.",
                 LENGTH_2, "Target segment length (world units). Smaller = more points, smoother sweeps. Ignored when the curve is already shorter than `length`.",
                 GEOMETRY, "Resampled curve polyline (same curves, uniform segment lengths)."

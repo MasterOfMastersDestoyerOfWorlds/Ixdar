@@ -8,6 +8,8 @@ import ixdar.gui.ui.actions.LoadIxAction;
 import ixdar.gui.ui.actions.LoadMapEditor;
 import ixdar.platform.file.FileManagement;
 
+import ixdar.platform.Platforms;
+
 /**
  * A menu screen: a list of {@link MenuItem}s plus a back-navigation hook.
  * Implementations include the debug {@link MainMenu}, the file-browsing
@@ -69,7 +71,7 @@ public interface Menu {
          */
         @Override
         public void back() {
-            ixdar.platform.Platforms.get().exit(0);
+            Platforms.get().exit(0);
         }
 
     }

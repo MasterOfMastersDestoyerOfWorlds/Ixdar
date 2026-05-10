@@ -8,6 +8,8 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.InputPort;
+
+import org.joml.Vector4f;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
@@ -94,9 +96,9 @@ public class MirrorGeometryNode implements MeshNode {
         // Create mirrored copy with reversed winding
         HalfEdgeMesh mirrored = new HalfEdgeMesh();
         Vector3f p = new Vector3f();
-        org.joml.Vector4f ph = new org.joml.Vector4f();
+        Vector4f ph = new Vector4f();
         int n = mesh.vertexCount();
-        java.util.HashMap<Integer, Integer> idMap = new java.util.HashMap<>();
+        HashMap<Integer, Integer> idMap = new HashMap<>();
         for (int i = 0; i < n; i++) {
             int vid = mesh.vertexIdAt(i);
             mesh.vertexPosition(vid, p);

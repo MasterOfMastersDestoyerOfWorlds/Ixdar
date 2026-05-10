@@ -61,8 +61,8 @@ public class BridgeEdgeLoopsNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Input/output. Two tagged boundary loops of EQUAL vertex count are bridged with quads. For unequal counts use adaptive_bridge_loops.",
                 LOOP_A_TAG_2, "Tag identifying the first boundary loop.",
                 LOOP_B_TAG_2, "Tag identifying the second boundary loop.",

@@ -7,6 +7,8 @@ import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.BoolField;
 import ixdar.geometry.mesh.data.MeshTopology;
+
+import ixdar.annotations.meshnode.Vector3Value;
 import ixdar.geometry.mesh.data.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
@@ -59,7 +61,7 @@ public final class MeshDeleteEdges {
             }
         }
         if (!any) {
-            return MeshVertexOffset.apply(mesh, new ixdar.annotations.meshnode.Vector3Value(0f, 0f, 0f));
+            return MeshVertexOffset.apply(mesh, new Vector3Value(0f, 0f, 0f));
         }
 
         if (mesh instanceof ArrayMesh am) {

@@ -14,6 +14,8 @@ import ixdar.scenes.main.PaneTypes;
 
 import java.util.List;
 
+import java.util.Map;
+
 import static ixdar.platform.input.Keys.ACTION_PRESS;
 import static ixdar.platform.input.Keys.ACTION_RELEASE;
 
@@ -82,11 +84,11 @@ public class MouseTrap {
         Object rt = getAutomationRuntime();
         if (rt == null) return;
         try {
-            java.util.Map<String, Object> payload = new java.util.HashMap<>();
+            Map<String, Object> payload = new HashMap<>();
             for (int i = 0; i < keyValues.length; i += 2) {
                 payload.put((String) keyValues[i], keyValues[i + 1]);
             }
-            rt.getClass().getMethod("recordAbstractActionMap", String.class, java.util.Map.class).invoke(rt, action, payload);
+            rt.getClass().getMethod("recordAbstractActionMap", String.class, Map.class).invoke(rt, action, payload);
         } catch (Throwable ignored) {}
     }
 

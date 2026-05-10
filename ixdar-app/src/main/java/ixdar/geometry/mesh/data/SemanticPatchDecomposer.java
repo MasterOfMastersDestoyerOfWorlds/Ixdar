@@ -1,18 +1,27 @@
 package ixdar.geometry.mesh.data;
-
 import java.util.ArrayList;
+
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.HashMap;
+
+import java.util.BitSet;
+
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import java.util.Random;
 
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonBranch;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonJoint;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonResult;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+
+import org.joml.Vector3f;
 
 /**
  * Feature-edge + concavity patch decomposer.
@@ -148,8 +157,8 @@ public final class SemanticPatchDecomposer {
         float[] normals = new float[nv * NUM_3];
         // Build id → compact-index mapping via vertexIdAt.
         int[] idToIndex = new int[nv > 0 ? maxVertexId(mesh) + 1 : 1];
-        java.util.Arrays.fill(idToIndex, -1);
-        org.joml.Vector3f v = new org.joml.Vector3f();
+        Arrays.fill(idToIndex, -1);
+        Vector3f v = new Vector3f();
         for (int i = 0; i < nv; i++) {
             int id = mesh.vertexIdAt(i);
             idToIndex[id] = i;
@@ -220,9 +229,9 @@ public final class SemanticPatchDecomposer {
         if (nv == 0) {
             PatchDecomposition empty = new PatchDecomposition(0, List.of());
             return new DecompositionDiagnostics(empty, new int[0],
-                    java.util.Collections.emptySet(), java.util.Collections.emptySet(),
-                    java.util.Collections.emptySet(), java.util.Collections.emptySet(),
-                    java.util.Collections.emptySet(), java.util.Collections.emptySet(),
+                    Collections.emptySet(), Collections.emptySet(),
+                    Collections.emptySet(), Collections.emptySet(),
+                    Collections.emptySet(), Collections.emptySet(),
                     new float[0], NUM_0, null);
         }
 
@@ -263,7 +272,7 @@ public final class SemanticPatchDecomposer {
         float floor = T_PRINCIPAL * (NUM_1 / meshExtent);
         ridgeT = Math.max(ridgeT, floor);
         valleyT = Math.max(valleyT, floor);
-        java.util.Set<Long> principalFeatureEdges = principalCurvatureFeatureEdges(
+        Set<Long> principalFeatureEdges = principalCurvatureFeatureEdges(
                 ed, kappa1, kappa2, ridgeT, valleyT);
 
         // PATCH-11: crest-line detection via Yoshizawa-style NMS along the
@@ -303,8 +312,8 @@ public final class SemanticPatchDecomposer {
         // All four source sets remain in DecompositionDiagnostics so the
         // STAGES overlay keeps showing the raw per-source signal for
         // diagnosis; only the cut-set fed into region-growing is filtered.
-        java.util.Set<Long> allFeatureEdges = new java.util.HashSet<>(saddle.separatorEdges);
-        java.util.Set<Long> candidates = new java.util.HashSet<>(principalFeatureEdges);
+        Set<Long> allFeatureEdges = new HashSet<>(saddle.separatorEdges);
+        Set<Long> candidates = new HashSet<>(principalFeatureEdges);
         candidates.addAll(crest.crestEdges);
         candidates.addAll(dihedralFeatureEdges);
         for (long key : candidates) {
@@ -318,7 +327,7 @@ public final class SemanticPatchDecomposer {
         // Saddle separators must survive the small-patch merge pass 2 just
         // like crest edges — without this, adjacent teeth would be merged
         // back together across the short separator bars.
-        java.util.Set<Long> highConfidenceEdges = new java.util.HashSet<>(crest.crestEdges);
+        Set<Long> highConfidenceEdges = new HashSet<>(crest.crestEdges);
         highConfidenceEdges.addAll(saddle.separatorEdges);
 
         // Face adjacency (full + feature-cut variants). Pass +infinity as the
@@ -821,7 +830,7 @@ public final class SemanticPatchDecomposer {
         float[] values = new float[n];
         int i = 0;
         for (Float d : dihedrals.values()) values[i++] = d;
-        java.util.Arrays.sort(values);
+        Arrays.sort(values);
         int idx = Math.min(n - 1, Math.max(0, (int) (n * p)));
         return values[idx];
     }
@@ -1034,10 +1043,10 @@ public final class SemanticPatchDecomposer {
      * @param valleyThreshold positive threshold on −κ₂ for valley promotion (1/length)
      * @return set of edge keys that satisfy the ridge or valley test on both endpoints
      */
-    private static java.util.Set<Long> principalCurvatureFeatureEdges(
+    private static Set<Long> principalCurvatureFeatureEdges(
             EdgeDihedrals ed, float[] kappa1, float[] kappa2,
             float ridgeThreshold, float valleyThreshold) {
-        java.util.Set<Long> out = new java.util.HashSet<>();
+        Set<Long> out = new HashSet<>();
         for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
             long key = e.getKey();
             int u = (int) (key >> NUM_32);
@@ -1067,7 +1076,7 @@ public final class SemanticPatchDecomposer {
         for (int i = 0; i < n; i++) {
             copy[i] = positive ? Math.max(values[i], NUM_0) : Math.max(-values[i], NUM_0);
         }
-        java.util.Arrays.sort(copy);
+        Arrays.sort(copy);
         int idx = Math.min(n - 1, Math.max(0, Math.round((n - 1) * pct)));
         return copy[idx];
     }
@@ -1268,7 +1277,7 @@ public final class SemanticPatchDecomposer {
      */
     private static int[][] featureCutAdjacency(
             int[][] adj, int[] faceIdx, EdgeDihedrals ed, float thresholdRad,
-            java.util.Set<Long> principalFeatureEdges) {
+            Set<Long> principalFeatureEdges) {
         int faceCount = adj.length;
         int[][] out = new int[faceCount][NUM_3];
         for (int f = 0; f < faceCount; f++) {
@@ -1327,8 +1336,8 @@ public final class SemanticPatchDecomposer {
     private static int[] welshPowellColoring(
             int[] facePatch, int[][] adj, int faceCount, int patchCount) {
         @SuppressWarnings("unchecked")
-        java.util.Set<Integer>[] neighbours = new java.util.HashSet[patchCount];
-        for (int i = 0; i < patchCount; i++) neighbours[i] = new java.util.HashSet<>();
+        Set<Integer>[] neighbours = new HashSet[patchCount];
+        for (int i = 0; i < patchCount; i++) neighbours[i] = new HashSet<>();
         for (int f = 0; f < faceCount; f++) {
             int pa = facePatch[f];
             for (int nb : adj[f]) {
@@ -1396,16 +1405,16 @@ public final class SemanticPatchDecomposer {
             float[] positions, float[] vertexCurvature, int[][] adj,
             int[][] adjCrestOnly, float meshExtent) {
         // 1. Group faces + vertices by patch id.
-        List<java.util.BitSet> vertsByPatch = new ArrayList<>();
+        List<BitSet> vertsByPatch = new ArrayList<>();
         List<List<Integer>> facesByPatch = new ArrayList<>();
         for (int i = 0; i < patchCount; i++) {
-            vertsByPatch.add(new java.util.BitSet());
+            vertsByPatch.add(new BitSet());
             facesByPatch.add(new ArrayList<>());
         }
         for (int f = 0; f < faceCount; f++) {
             int p = facePatch[f];
             facesByPatch.get(p).add(f);
-            java.util.BitSet bs = vertsByPatch.get(p);
+            BitSet bs = vertsByPatch.get(p);
             bs.set(faceIdx[f * NUM_3]);
             bs.set(faceIdx[f * NUM_3 + 1]);
             bs.set(faceIdx[f * NUM_3 + 2]);
@@ -1539,7 +1548,7 @@ public final class SemanticPatchDecomposer {
         return outPatch;
     }
 
-    private static float curvatureStddev(java.util.BitSet verts, float[] curvature) {
+    private static float curvatureStddev(BitSet verts, float[] curvature) {
         int n = 0;
         double sum = 0, sumSq = 0;
         for (int v = verts.nextSetBit(0); v >= 0; v = verts.nextSetBit(v + 1)) {
@@ -1700,7 +1709,7 @@ public final class SemanticPatchDecomposer {
 
         int[] labels = new int[n];
         Arrays.fill(labels, -1);
-        java.util.ArrayDeque<int[]> queue = new java.util.ArrayDeque<>();
+        ArrayDeque<int[]> queue = new ArrayDeque<>();
         for (int c = 0; c < k; c++) {
             Integer seedListIdx = faceToListIdx.get(seedFaceIds[c]);
             if (seedListIdx == null) continue;
@@ -1799,7 +1808,7 @@ public final class SemanticPatchDecomposer {
     }
 
     private static int[] kmeansXyz(float[] pts, int n, int k, long seed) {
-        java.util.Random rnd = new java.util.Random(seed);
+        Random rnd = new Random(seed);
         float[] centroids = new float[k * NUM_3];
         int first = rnd.nextInt(n);
         System.arraycopy(pts, first * NUM_3, centroids, 0, NUM_3);

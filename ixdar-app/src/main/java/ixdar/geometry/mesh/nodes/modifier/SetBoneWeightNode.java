@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.modifier;
 import java.util.List;
 
 import ixdar.annotations.meshnode.InputPort;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
@@ -56,8 +58,8 @@ public class SetBoneWeightNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Input/output. Per-vertex bone weights are written into a slot keyed by `bone_name`.",
                 BONE_NAME_2, "Name of the bone whose weight is being written. Match this in a downstream apply_bone.",
                 WEIGHT_2, "Weight value in [0, 1]. 0 = vertex unaffected; 1 = fully driven by the bone.",

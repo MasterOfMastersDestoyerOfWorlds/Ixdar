@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.geometry;
 import java.util.List;
 
 import ixdar.annotations.meshnode.InputPort;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
@@ -42,8 +44,8 @@ public class DeleteGeometryNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Input/output bundle. Elements matching `selection` in the chosen `domain` are deleted along with their incident geometry.",
                 SELECTION_2, "BOOLEAN mask. Interpretation depends on `domain`.",
                 DOMAIN_2, "Selection domain: POINT (delete vertices + incident edges/faces), EDGE (delete edges + dependent faces), FACE (delete faces)."

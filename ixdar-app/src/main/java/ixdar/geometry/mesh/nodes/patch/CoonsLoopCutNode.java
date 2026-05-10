@@ -57,8 +57,8 @@ public class CoonsLoopCutNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Input/output bundle; MUST carry bezier handle slots from assign_bezier_handles. Unhandled input passes through with a warning.",
                 AXIS_2, "Cuts are placed PERPENDICULAR to this axis. Accepted: X, Y, Z.",
                 CUTS_2, "Number of new edge loops to insert (1..8)."

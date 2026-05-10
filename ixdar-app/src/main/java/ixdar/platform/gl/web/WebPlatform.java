@@ -512,7 +512,7 @@ public class WebPlatform implements Platform {
      * @param url image URL to fetch
      * @param callback receives the decoded width, height, and RGBA pixel buffer
      */
-    @org.teavm.jso.JSBody(params = { "url", "callback" }, script = "fetch(url)" +
+    @JSBody(params = { "url", "callback" }, script = "fetch(url)" +
             "  .then(function(r) { return r.blob(); })" +
             "  .then(function(blob) { return createImageBitmap(blob); })" +
             "  .then(function(bitmap) {" +
@@ -534,7 +534,7 @@ public class WebPlatform implements Platform {
      * @throws IOException never; this implementation is a silent no-op
      */
     @Override
-    public void writeTextFile(TextFile file, boolean append) throws java.io.IOException {
+    public void writeTextFile(TextFile file, boolean append) throws IOException {
         // No-op for web (cannot write). Intentionally ignored.
     }
 

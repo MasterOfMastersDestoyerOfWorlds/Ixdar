@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.control;
 import java.util.List;
 
 import ixdar.annotations.meshnode.BoolField;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.FloatField;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -40,8 +42,8 @@ public class SwitchFloatNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 SWITCH_2, "Per-element BOOLEAN selector.",
                 FALSE, "Value used where switch is false.",
                 TRUE, "Value used where switch is true.",

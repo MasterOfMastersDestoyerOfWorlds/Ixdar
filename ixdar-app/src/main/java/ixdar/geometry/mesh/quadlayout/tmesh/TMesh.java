@@ -5,8 +5,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-
 import ixdar.geometry.mesh.quadlayout.integergrid.SeamlessParameterization;
+
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * Assemble a {@link MotorcycleGraph.Result} into a T-mesh of nodes, arcs and
@@ -76,7 +77,7 @@ public final class TMesh {
      */
     public static TMesh fromComponents(List<TNode> nodes, List<TArc> arcs,
                                         List<TPatch> patches) {
-        return new TMesh(nodes, arcs, patches, java.util.Collections.emptyList());
+        return new TMesh(nodes, arcs, patches, Collections.emptyList());
     }
 
     /**
@@ -91,7 +92,7 @@ public final class TMesh {
      */
     public static TMesh build(MotorcycleGraph.Result graph,
                               SeamlessParameterization param,
-                              ixdar.geometry.mesh.data.representation.ArrayMesh mesh) {
+                              ArrayMesh mesh) {
         return buildImpl(graph, param, mesh);
     }
 
@@ -110,27 +111,27 @@ public final class TMesh {
 
     private static TMesh buildImpl(MotorcycleGraph.Result graph,
                               SeamlessParameterization param,
-                              ixdar.geometry.mesh.data.representation.ArrayMesh mesh) {
+                              ArrayMesh mesh) {
         List<TNode> nodes = new ArrayList<>(graph.nodes());
         List<TArc> arcs = new ArrayList<>();
         // PATCH-87: per-motorcycle list of TArc IDs in walk order, indexed
         // by motorcycle id. Used to compute S_ij arc sets for Eq.(4) layout
         // constraints. arcsByMotorcycle.get(mId) gives [tarc0, tarc1, ...]
         // representing the splits of motorcycle mId from singularity outward.
-        java.util.HashMap<Integer, java.util.ArrayList<Integer>> arcsByMotorcycle =
-                new java.util.HashMap<>();
+        HashMap<Integer, ArrayList<Integer>> arcsByMotorcycle =
+                new HashMap<>();
         // For each motorcycle, the END node of each TArc — used to identify
         // which prefix of arcs reaches a given intersection node.
-        java.util.HashMap<Integer, java.util.ArrayList<Integer>> endNodesByMotorcycle =
-                new java.util.HashMap<>();
+        HashMap<Integer, ArrayList<Integer>> endNodesByMotorcycle =
+                new HashMap<>();
 
         // PATCH-60: bucket crashes by victim motorcycle so each motorcycle's
         // trace can be split into multiple TArcs at every crash point —
         // mirroring metriko's split_segment in motorcycle.h. When motorcycle
         // B crashes into A's trace at step k, A's trace is divided at the
         // crash point: an arc up to step k, an arc from step k onward.
-        java.util.HashMap<Integer, java.util.List<MotorcycleGraph.Crash>> crashesByVictim =
-                new java.util.HashMap<>();
+        HashMap<Integer, List<MotorcycleGraph.Crash>> crashesByVictim =
+                new HashMap<>();
         for (MotorcycleGraph.Crash c : graph.crashes()) {
             crashesByVictim.computeIfAbsent(c.victimMotorcycleId(), k -> new ArrayList<>())
                     .add(c);
@@ -159,12 +160,12 @@ public final class TMesh {
             // u-axis arcs (0,2) and |Δv| for v-axis arcs (1,3).
             boolean uAxis = (m.direction() & 1) == 0;
 
-            java.util.ArrayList<Integer> mArcs =
+            ArrayList<Integer> mArcs =
                     arcsByMotorcycle.computeIfAbsent(m.id(), k -> new ArrayList<>());
-            java.util.ArrayList<Integer> mEndNodes =
+            ArrayList<Integer> mEndNodes =
                     endNodesByMotorcycle.computeIfAbsent(m.id(), k -> new ArrayList<>());
 
-            java.util.List<MotorcycleGraph.Crash> myCrashes =
+            List<MotorcycleGraph.Crash> myCrashes =
                     crashesByVictim.get(m.id());
             if (myCrashes == null || myCrashes.isEmpty()) {
                 ArrayList<int[]> faceCrossings = new ArrayList<>();
@@ -260,8 +261,8 @@ public final class TMesh {
         for (MotorcycleGraph.Crash c : graph.crashes()) {
             if (c.absAlphaIj() <= layoutAlpha + NUM_1e_9) continue;   // not offending
             if (c.crasherMotorcycleId() < 0) continue;
-            java.util.ArrayList<Integer> mArcs = arcsByMotorcycle.get(c.crasherMotorcycleId());
-            java.util.ArrayList<Integer> mEnds = endNodesByMotorcycle.get(c.crasherMotorcycleId());
+            ArrayList<Integer> mArcs = arcsByMotorcycle.get(c.crasherMotorcycleId());
+            ArrayList<Integer> mEnds = endNodesByMotorcycle.get(c.crasherMotorcycleId());
             if (mArcs == null || mEnds == null) continue;
             // Find prefix of mArcs ending AT (or before) the intersection node.
             int prefixEnd = -1;

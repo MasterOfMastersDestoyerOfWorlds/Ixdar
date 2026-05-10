@@ -1,8 +1,9 @@
 package ixdar.gui.ui.menu;
 
 import java.util.ArrayList;
-
 import ixdar.gui.ui.actions.StartNewGameAction;
+
+import ixdar.gui.ui.actions.ChangeScreenAction;
 
 /**
  * The main menu for the trade game mode.
@@ -29,7 +30,7 @@ public class GameMenu implements Menu {
         menuItems.add(new MenuItem("Start New Game", new StartNewGameAction()));
         menuItems.add(new MenuItem("Continue", null)); // Placeholder for TRADE-18
         menuItems.add(new MenuItem("Settings", null)); // Placeholder
-        menuItems.add(new MenuItem("Debug Menu", new ixdar.gui.ui.actions.ChangeScreenAction(debugMenu)));
+        menuItems.add(new MenuItem("Debug Menu", new ChangeScreenAction(debugMenu)));
     }
 
     /**

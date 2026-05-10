@@ -42,8 +42,8 @@ public class BooleanMathNode implements MeshNode {
 
     /** {@inheritDoc}. */
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 A_2, "Left operand (scalar bool or per-element BoolField).",
                 B_2, "Right operand. Ignored for operation=NOT.",
                 OPERATION_2, "Operation: AND, OR, NOT (of a), XOR.",

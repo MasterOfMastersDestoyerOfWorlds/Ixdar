@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.modifier;
 import java.util.List;
 
 import ixdar.annotations.meshnode.InputPort;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
@@ -40,8 +42,8 @@ public class SetPositionNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Input/output. Every vertex position is shifted by `offset`.",
                 OFFSET_2, "World-space translation added to every vertex. <0,0,0> = identity. For selective displacement, use a Vector3field."
         );

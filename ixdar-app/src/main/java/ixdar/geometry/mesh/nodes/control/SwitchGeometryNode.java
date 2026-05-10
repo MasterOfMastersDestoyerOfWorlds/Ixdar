@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.control;
 import java.util.List;
 
 import ixdar.annotations.meshnode.InputPort;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
@@ -39,8 +41,8 @@ public class SwitchGeometryNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 SWITCH_2, "Scalar BOOLEAN selector.",
                 FALSE, "Geometry used when switch is false.",
                 TRUE, "Geometry used when switch is true.",

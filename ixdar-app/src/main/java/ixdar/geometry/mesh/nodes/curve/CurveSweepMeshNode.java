@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.curve;
 import java.util.List;
 
 import org.joml.Quaternionf;
+
+import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.InputPort;
@@ -52,8 +54,8 @@ public class CurveSweepMeshNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 CURVE_2, "Path curve to sweep along.",
                 PROFILE_2, "Mesh whose first face is swept along the curve. Vertex count determines segment resolution.",
                 CAPS_2, "If true, cap the two ends of the sweep with the profile face; if false, leave the tube open.",

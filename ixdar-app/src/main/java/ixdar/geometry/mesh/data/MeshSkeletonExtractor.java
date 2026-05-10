@@ -6,8 +6,9 @@ import java.util.List;
 import java.util.PriorityQueue;
 
 import org.joml.Vector3f;
-
 import ixdar.geometry.mesh.data.load.MeshLoader;
+
+import com.google.gson.GsonBuilder;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
@@ -532,7 +533,7 @@ public final class MeshSkeletonExtractor {
         SkeletonResult result = extract(mesh, res);
         long elapsed = System.currentTimeMillis() - t0;
         System.err.printf("Extracted %d branches in %dms%n", result.branches.size(), elapsed);
-        System.out.println(new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(result));
+        System.out.println(new GsonBuilder().setPrettyPrinting().create().toJson(result));
     }
 
     // Output records

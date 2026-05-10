@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
+import java.util.Map;
+
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -83,22 +85,22 @@ public class BiRailLoftNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.ofEntries(
-                java.util.Map.entry(RAIL_A_2, "First rail curve defining the surface boundary along one side."),
-                java.util.Map.entry(RAIL_B_2, "Second rail curve defining the opposing boundary."),
-                java.util.Map.entry(PROFILE_2, "Primary cross-section curve swept between rails."),
-                java.util.Map.entry(PROFILE_B_2, "Optional second cross-section. When set, the surface blends from `profile` at V=0 to `profile_b` at V=1."),
-                java.util.Map.entry(X_RESOLUTION_2, "Samples along the U direction (along the rails). Higher = smoother sweep."),
-                java.util.Map.entry(Y_RESOLUTION_2, "Samples along the V direction (across the profile). Higher = smoother cross-section."),
-                java.util.Map.entry(BLEND_CLOSURE_2, "Optional float closure controlling profile-to-profile_b blend as a function of V."),
-                java.util.Map.entry(DEPTH_SCALE_2, "Multiplier on profile depth. 1 = as-authored; 0 = flat sheet."),
-                java.util.Map.entry(ISO_CURVE_T_2, "If ≥ 0, also output an iso-curve at this U parameter. -1 = disabled."),
-                java.util.Map.entry(THICKNESS_2, "Solidify thickness for closed shells. 0 = open surface. Typical 0.001."),
-                java.util.Map.entry(GEOMETRY_2, "Generated surface (possibly solidified)."),
-                java.util.Map.entry(ISO_CURVE_2, "U-isocurve at iso_curve_t (empty if disabled)."),
-                java.util.Map.entry(BOUNDARY_A_2, "Ordered boundary curve on the rail_a side of the surface (for bridging)."),
-                java.util.Map.entry(BOUNDARY_B_2, "Ordered boundary curve on the rail_b side.")
+    public Map<String, String> socketDocs() {
+        return Map.ofEntries(
+                Map.entry(RAIL_A_2, "First rail curve defining the surface boundary along one side."),
+                Map.entry(RAIL_B_2, "Second rail curve defining the opposing boundary."),
+                Map.entry(PROFILE_2, "Primary cross-section curve swept between rails."),
+                Map.entry(PROFILE_B_2, "Optional second cross-section. When set, the surface blends from `profile` at V=0 to `profile_b` at V=1."),
+                Map.entry(X_RESOLUTION_2, "Samples along the U direction (along the rails). Higher = smoother sweep."),
+                Map.entry(Y_RESOLUTION_2, "Samples along the V direction (across the profile). Higher = smoother cross-section."),
+                Map.entry(BLEND_CLOSURE_2, "Optional float closure controlling profile-to-profile_b blend as a function of V."),
+                Map.entry(DEPTH_SCALE_2, "Multiplier on profile depth. 1 = as-authored; 0 = flat sheet."),
+                Map.entry(ISO_CURVE_T_2, "If ≥ 0, also output an iso-curve at this U parameter. -1 = disabled."),
+                Map.entry(THICKNESS_2, "Solidify thickness for closed shells. 0 = open surface. Typical 0.001."),
+                Map.entry(GEOMETRY_2, "Generated surface (possibly solidified)."),
+                Map.entry(ISO_CURVE_2, "U-isocurve at iso_curve_t (empty if disabled)."),
+                Map.entry(BOUNDARY_A_2, "Ordered boundary curve on the rail_a side of the surface (for bridging)."),
+                Map.entry(BOUNDARY_B_2, "Ordered boundary curve on the rail_b side.")
         );
     }
 

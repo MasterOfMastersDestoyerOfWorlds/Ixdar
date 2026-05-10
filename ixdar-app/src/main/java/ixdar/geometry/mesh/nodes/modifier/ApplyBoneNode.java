@@ -4,6 +4,8 @@ import java.util.HashMap;
 import java.util.List;
 
 import org.joml.Matrix4f;
+
+import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.InputPort;
@@ -63,8 +65,8 @@ public class ApplyBoneNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Input/output. Vertices with nonzero weight for `bone_name` are rotated around `pivot`.",
                 BONE_NAME_2, "Name of the bone whose weights were written upstream by set_bone_weight.",
                 ROTATION_2, "Euler rotation (radians) applied around the pivot.",

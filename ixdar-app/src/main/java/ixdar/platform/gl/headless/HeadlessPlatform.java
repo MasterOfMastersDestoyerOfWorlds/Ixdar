@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
+
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.function.Consumer;
@@ -181,7 +183,7 @@ public class HeadlessPlatform implements Platform {
                 if (in == null) {
                     return null;
                 }
-                return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                return new String(in.readAllBytes(), StandardCharsets.UTF_8);
             }
         } catch (IOException e) {
             return null;

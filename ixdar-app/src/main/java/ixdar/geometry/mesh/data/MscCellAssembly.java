@@ -5,6 +5,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -281,8 +283,8 @@ public final class MscCellAssembly {
 
     private static int[][] buildOneRingFromFaces(int[] faceIdx, int nv) {
         int faceCount = faceIdx.length / NUM_3;
-        List<java.util.HashSet<Integer>> tmp = new ArrayList<>(nv);
-        for (int i = 0; i < nv; i++) tmp.add(new java.util.HashSet<>(NUM_6));
+        List<HashSet<Integer>> tmp = new ArrayList<>(nv);
+        for (int i = 0; i < nv; i++) tmp.add(new HashSet<>(NUM_6));
         for (int f = 0; f < faceCount; f++) {
             int a = faceIdx[f * NUM_3];
             int b = faceIdx[f * NUM_3 + 1];
@@ -293,7 +295,7 @@ public final class MscCellAssembly {
         }
         int[][] out = new int[nv][];
         for (int i = 0; i < nv; i++) {
-            java.util.HashSet<Integer> set = tmp.get(i);
+            HashSet<Integer> set = tmp.get(i);
             int[] arr = new int[set.size()];
             int j = 0;
             for (int n : set) arr[j++] = n;

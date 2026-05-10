@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.nodes.transform;
-
 import java.util.List;
+
+import java.util.HashMap;
 import java.util.Map;
 
 import org.joml.Matrix4f;
@@ -159,7 +160,7 @@ public class TransformGeometryNode implements MeshNode {
             } else {
                 // Fallback: mixed-valence faces require HalfEdgeMesh
                 HalfEdgeMesh out = new HalfEdgeMesh();
-                java.util.HashMap<Integer, Integer> idMap = new java.util.HashMap<>();
+                HashMap<Integer, Integer> idMap = new HashMap<>();
 
                 for (int i = 0; i < n; i++) {
                     int vid = mesh.vertexIdAt(i);

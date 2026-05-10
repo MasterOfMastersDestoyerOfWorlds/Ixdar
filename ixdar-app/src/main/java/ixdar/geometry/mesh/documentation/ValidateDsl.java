@@ -11,6 +11,8 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.graph.GraphValidator;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
+
+import ixdar.geometry.mesh.graph.SkillLibrary;
 import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
 import java.io.BufferedWriter;
@@ -23,6 +25,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.joml.Vector3f;
+
+import java.util.Set;
 
 /**
  * CLI entry point that validates a .dsl file against the mesh node registry.
@@ -69,8 +73,8 @@ public final class ValidateDsl {
         String exportPath
     ) {
         // Load skill library if provided (optional — validation works without it)
-        ixdar.geometry.mesh.graph.SkillLibrary skillLib =
-            new ixdar.geometry.mesh.graph.SkillLibrary();
+        SkillLibrary skillLib =
+            new SkillLibrary();
         if (skillDir != null && !skillDir.isEmpty()) {
             try {
                 skillLib.loadDirectory(Path.of(skillDir));
@@ -92,7 +96,7 @@ public final class ValidateDsl {
                     new PythonLexer(preamble)
                 );
                 preambleParser.parseGraph();
-                funcDefs = new java.util.HashMap<>(
+                funcDefs = new HashMap<>(
                     preambleParser.functionDefs()
                 );
                 parsed = parser.parseGraph();
@@ -116,7 +120,7 @@ public final class ValidateDsl {
             );
         }
 
-        java.util.Set<String> functionNames = funcDefs.keySet();
+        Set<String> functionNames = funcDefs.keySet();
         List<String> errors = GraphValidator.validate(
             parsed,
             registry,

@@ -4,9 +4,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+
+import java.util.HashSet;
 import java.util.Map;
 
 import ixdar.geometry.mesh.data.SemanticPatchDecomposer.EdgeDihedrals;
+
+import java.util.Set;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
@@ -470,8 +474,8 @@ public final class MorseSmaleComplex {
         // Collect surviving critical set.
         List<CriticalPoint> critical = new ArrayList<>();
         List<Integer> saddles = new ArrayList<>();
-        java.util.Arrays.fill(isMax, false);
-        java.util.Arrays.fill(isMin, false);
+        Arrays.fill(isMax, false);
+        Arrays.fill(isMin, false);
         for (int v = 0; v < nv; v++) {
             if (label[v] == null) continue;
             critical.add(new CriticalPoint(v, label[v], scalar[v]));
@@ -612,7 +616,7 @@ public final class MorseSmaleComplex {
     private static int walkToExtremum(int from, float[] scalar, int[][] ring,
                                        boolean[] isExtremum, boolean ascending) {
         int cur = from;
-        java.util.Set<Integer> visited = new java.util.HashSet<>();
+        Set<Integer> visited = new HashSet<>();
         visited.add(cur);
         for (int step = 0; step < MAX_TRACE_STEPS; step++) {
             if (isExtremum[cur] && cur != from) return cur;
@@ -649,7 +653,7 @@ public final class MorseSmaleComplex {
         int faceCount = faceIdx.length / NUM_3;
 
         // Vertex → list of (faceId, vPositionInFace) inverse index.
-        java.util.List<int[]>[] vertFaces = new java.util.List[nv];
+        List<int[]>[] vertFaces = new List[nv];
         for (int i = 0; i < nv; i++) vertFaces[i] = new ArrayList<>(NUM_6);
         for (int f = 0; f < faceCount; f++) {
             for (int p = 0; p < NUM_3; p++) {
@@ -658,10 +662,10 @@ public final class MorseSmaleComplex {
             }
         }
 
-        java.util.Map<Long, int[]> edgeFaces = ed.edgeFaces();
+        Map<Long, int[]> edgeFaces = ed.edgeFaces();
         int[][] out = new int[nv][];
         for (int v = 0; v < nv; v++) {
-            java.util.List<int[]> incident = vertFaces[v];
+            List<int[]> incident = vertFaces[v];
             if (incident.isEmpty()) { out[v] = null; continue; }
             // Start at any incident face; orient: v at position p, "left"
             // is at (p+2)%3, "right" is at (p+1)%3 (assuming consistent
@@ -669,8 +673,8 @@ public final class MorseSmaleComplex {
             int[] startFp = incident.get(0);
             int curFace = startFp[0];
             int curPos = startFp[1];
-            java.util.List<Integer> ringList = new ArrayList<>(incident.size());
-            java.util.Set<Integer> visitedFaces = new java.util.HashSet<>();
+            List<Integer> ringList = new ArrayList<>(incident.size());
+            Set<Integer> visitedFaces = new HashSet<>();
             int safety = 0;
             int firstNeighbour = -1;
             while (safety++ < incident.size() + 2) {

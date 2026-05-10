@@ -1,5 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.solver;
 
+import java.math.BigDecimal;
+
 /**
  * Robust geometry predicates. {@link #orient2d} and {@link #orient3d} return
  * the sign of the corresponding determinant exactly: +1 if positively oriented,
@@ -139,12 +141,12 @@ public final class Predicates {
     // ---- Exact slow paths (BigDecimal-based) -------------------------------
 
     private static int orient2dExact(double ax, double ay, double bx, double by, double cx, double cy) {
-        java.math.BigDecimal Ax = bd(ax), Ay = bd(ay);
-        java.math.BigDecimal Bx = bd(bx), By = bd(by);
-        java.math.BigDecimal Cx = bd(cx), Cy = bd(cy);
-        java.math.BigDecimal acx = Ax.subtract(Cx), bcx = Bx.subtract(Cx);
-        java.math.BigDecimal acy = Ay.subtract(Cy), bcy = By.subtract(Cy);
-        java.math.BigDecimal det = acx.multiply(bcy).subtract(acy.multiply(bcx));
+        BigDecimal Ax = bd(ax), Ay = bd(ay);
+        BigDecimal Bx = bd(bx), By = bd(by);
+        BigDecimal Cx = bd(cx), Cy = bd(cy);
+        BigDecimal acx = Ax.subtract(Cx), bcx = Bx.subtract(Cx);
+        BigDecimal acy = Ay.subtract(Cy), bcy = By.subtract(Cy);
+        BigDecimal det = acx.multiply(bcy).subtract(acy.multiply(bcx));
         return det.signum();
     }
 
@@ -152,21 +154,21 @@ public final class Predicates {
                                      double bx, double by, double bz,
                                      double cx, double cy, double cz,
                                      double dx, double dy, double dz) {
-        java.math.BigDecimal Ax = bd(ax), Ay = bd(ay), Az = bd(az);
-        java.math.BigDecimal Bx = bd(bx), By = bd(by), Bz = bd(bz);
-        java.math.BigDecimal Cx = bd(cx), Cy = bd(cy), Cz = bd(cz);
-        java.math.BigDecimal Dx = bd(dx), Dy = bd(dy), Dz = bd(dz);
-        java.math.BigDecimal adx = Ax.subtract(Dx), bdx = Bx.subtract(Dx), cdx = Cx.subtract(Dx);
-        java.math.BigDecimal ady = Ay.subtract(Dy), bdy = By.subtract(Dy), cdy = Cy.subtract(Dy);
-        java.math.BigDecimal adz = Az.subtract(Dz), bdz = Bz.subtract(Dz), cdz = Cz.subtract(Dz);
-        java.math.BigDecimal m = adz.multiply(bdx.multiply(cdy).subtract(cdx.multiply(bdy)))
+        BigDecimal Ax = bd(ax), Ay = bd(ay), Az = bd(az);
+        BigDecimal Bx = bd(bx), By = bd(by), Bz = bd(bz);
+        BigDecimal Cx = bd(cx), Cy = bd(cy), Cz = bd(cz);
+        BigDecimal Dx = bd(dx), Dy = bd(dy), Dz = bd(dz);
+        BigDecimal adx = Ax.subtract(Dx), bdx = Bx.subtract(Dx), cdx = Cx.subtract(Dx);
+        BigDecimal ady = Ay.subtract(Dy), bdy = By.subtract(Dy), cdy = Cy.subtract(Dy);
+        BigDecimal adz = Az.subtract(Dz), bdz = Bz.subtract(Dz), cdz = Cz.subtract(Dz);
+        BigDecimal m = adz.multiply(bdx.multiply(cdy).subtract(cdx.multiply(bdy)))
             .add(bdz.multiply(cdx.multiply(ady).subtract(adx.multiply(cdy))))
             .add(cdz.multiply(adx.multiply(bdy).subtract(bdx.multiply(ady))));
         return m.signum();
     }
 
-    private static java.math.BigDecimal bd(double v) {
-        return new java.math.BigDecimal(v);
+    private static BigDecimal bd(double v) {
+        return new BigDecimal(v);
     }
 
     private static int signum(double x) {

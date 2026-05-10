@@ -2,6 +2,8 @@ package ixdar.entrypoint;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
+
+import java.nio.file.Path;
 import java.util.List;
 
 import org.joml.Vector3f;
@@ -9,6 +11,8 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.graphics.cameras.Camera3D;
+
+import ixdar.geometry.mesh.graph.SkillLibrary;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
@@ -118,8 +122,8 @@ public class RenderDsl {
 
             // Load skills if --skill-dir specified
             if (skillDir != null) {
-                var skillLib = new ixdar.geometry.mesh.graph.SkillLibrary();
-                skillLib.loadDirectory(java.nio.file.Path.of(skillDir));
+                var skillLib = new SkillLibrary();
+                skillLib.loadDirectory(Path.of(skillDir));
                 skillLib.registerWith(runtime);
                 System.out.println("[RenderDsl] Loaded " + skillLib.getSkills().size() + " skills");
             }

@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.selection;
 import java.util.List;
 
 import ixdar.annotations.meshnode.BoolField;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.IntField;
 import ixdar.annotations.meshnode.MeshNode;
@@ -40,8 +42,8 @@ public class EdgePathsToSelectionNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 START_2, "Per-vertex BoolField marking path start vertices.",
                 NEXT_VERTEX_2, "Per-vertex IntField: next-hop vertex index for each vertex (from input_shortest_edge_paths).",
                 SELECTION_2, "Per-edge BoolField: true for edges that lie on any traced path."

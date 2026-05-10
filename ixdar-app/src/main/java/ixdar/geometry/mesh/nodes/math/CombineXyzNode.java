@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.math;
 import java.util.List;
 
 import ixdar.annotations.meshnode.FloatField;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -32,8 +34,8 @@ public class CombineXyzNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 X_2, "X component (scalar float or per-vertex FloatField).",
                 Y_2, "Y component.",
                 Z_2, "Z component.",

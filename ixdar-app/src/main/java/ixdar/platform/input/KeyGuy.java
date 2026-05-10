@@ -4,9 +4,12 @@ import static ixdar.platform.input.Keys.ACTION_PRESS;
 import static ixdar.platform.input.Keys.ACTION_RELEASE;
 import static ixdar.platform.input.Keys.ACTION_REPEAT;
 import static ixdar.platform.input.Keys.LEFT_CONTROL;
-
 import java.util.HashSet;
+
+import java.util.HashMap;
 import java.util.Set;
+
+import java.util.Map;
 
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
@@ -86,11 +89,11 @@ public class KeyGuy extends Camera2DInputController{
         Object rt = getAutomationRuntime();
         if (rt == null) return;
         try {
-            java.util.Map<String, Object> payload = new java.util.HashMap<>();
+            Map<String, Object> payload = new HashMap<>();
             for (int i = 0; i < keyValues.length; i += 2) {
                 payload.put((String) keyValues[i], keyValues[i + 1]);
             }
-            rt.getClass().getMethod("recordAbstractActionMap", String.class, java.util.Map.class).invoke(rt, action, payload);
+            rt.getClass().getMethod("recordAbstractActionMap", String.class, Map.class).invoke(rt, action, payload);
         } catch (Throwable ignored) {}
     }
 

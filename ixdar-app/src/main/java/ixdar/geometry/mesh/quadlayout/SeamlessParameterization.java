@@ -2,12 +2,22 @@ package ixdar.geometry.mesh.quadlayout;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.PriorityQueue;
 import java.util.Set;
-
 import org.joml.Vector3f;
+import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
+
+import org.ejml.sparse.FillReducing;
+
+import org.ejml.ops.DConvertMatrixStruct;
+import org.ejml.data.DMatrixSparseTriplet;
+import org.ejml.data.DMatrixSparseCSC;
+
+import org.ejml.data.DMatrixRMaj;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -262,7 +272,7 @@ public final class SeamlessParameterization {
         this.faceCount = mesh.faceCount();
         this.edgeCount = mesh.edgeCount();
         if (this.h <= 0f) {
-            this.h = crossField.computeAverageEdgeLength();
+            this.h = mesh.computeAverageEdgeLength();
             if (this.h <= 0f)
                 this.h = 1.0f;
         }
@@ -699,7 +709,7 @@ public final class SeamlessParameterization {
         // Iterate the active list once to build a map; cache lazily.
         if (vertexActiveCache == null) {
             int n = mesh.vertexCount();
-            vertexActiveCache = new java.util.HashMap<>(n * 2);
+            vertexActiveCache = new HashMap<>(n * 2);
             for (int va = 0; va < n; va++) {
                 vertexActiveCache.put(mesh.vertexIdAt(va), va);
             }
@@ -900,7 +910,7 @@ public final class SeamlessParameterization {
 
         // Compact roots to dense [0, chartVertexCount).
         cornerToChartVertex = new int[totalCorners];
-        java.util.HashMap<Integer, Integer> rootToCv = new java.util.HashMap<>();
+        HashMap<Integer, Integer> rootToCv = new HashMap<>();
         for (int i = 0; i < totalCorners; i++) {
             int r = findCorner(parent, i);
             Integer cv = rootToCv.get(r);
@@ -1047,7 +1057,7 @@ public final class SeamlessParameterization {
         // factorization path AdaptiveSolver and CrossField use; the dense ojAlgo
         // Cholesky used previously was prohibitively slow on bolt-class meshes.
         double[] diag = new double[dofCount];
-        java.util.HashMap<Long, Double> upper = new java.util.HashMap<>(dofCount * AVG_NONZEROS_PER_ROW);
+        HashMap<Long, Double> upper = new HashMap<>(dofCount * AVG_NONZEROS_PER_ROW);
         double[] rhs = new double[dofCount];
 
         // Per-triangle gradient-target energy.
@@ -1134,8 +1144,8 @@ public final class SeamlessParameterization {
         }
 
         // Build EJML CSC and solve with sparse Cholesky.
-        org.ejml.data.DMatrixSparseTriplet triplets =
-                new org.ejml.data.DMatrixSparseTriplet(dofCount, dofCount, diag.length + upper.size());
+        DMatrixSparseTriplet triplets =
+                new DMatrixSparseTriplet(dofCount, dofCount, diag.length + upper.size());
         for (int i = 0; i < dofCount; i++) {
             triplets.addItem(i, i, diag[i]);
         }
@@ -1145,24 +1155,24 @@ public final class SeamlessParameterization {
             int col = (int) (k & MASK_32);
             triplets.addItem(row, col, e.getValue());
         }
-        org.ejml.data.DMatrixSparseCSC csc =
-                new org.ejml.data.DMatrixSparseCSC(dofCount, dofCount, triplets.nz_length);
-        org.ejml.ops.DConvertMatrixStruct.convert(triplets, csc);
+        DMatrixSparseCSC csc =
+                new DMatrixSparseCSC(dofCount, dofCount, triplets.nz_length);
+        DConvertMatrixStruct.convert(triplets, csc);
 
-        var solver = org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC
-                .cholesky(org.ejml.sparse.FillReducing.IDENTITY);
+        var solver = LinearSolverFactory_DSCC
+                .cholesky(FillReducing.IDENTITY);
         if (!solver.setA(csc)) {
             throw new IllegalStateException("seamless param: sparse Cholesky factorization failed (singular matrix)");
         }
-        org.ejml.data.DMatrixRMaj b = new org.ejml.data.DMatrixRMaj(dofCount, 1, true, rhs.clone());
-        org.ejml.data.DMatrixRMaj x = new org.ejml.data.DMatrixRMaj(dofCount, 1);
+        DMatrixRMaj b = new DMatrixRMaj(dofCount, 1, true, rhs.clone());
+        DMatrixRMaj x = new DMatrixRMaj(dofCount, 1);
         solver.solve(b, x);
 
         solution = new double[dofCount];
         for (int i = 0; i < dofCount; i++) solution[i] = x.get(i, 0);
     }
 
-    private static void accumulate(double[] diag, java.util.HashMap<Long, Double> upper,
+    private static void accumulate(double[] diag, HashMap<Long, Double> upper,
                                     int row, int col, double v) {
         if (v == 0.0) return;
         if (row == col) {
@@ -1175,7 +1185,7 @@ public final class SeamlessParameterization {
     }
 
     /** Add μ · a aᵀ to the symmetric system. */
-    private static void addOuterSparse(double[] diag, java.util.HashMap<Long, Double> upper,
+    private static void addOuterSparse(double[] diag, HashMap<Long, Double> upper,
                                         double mu, int[] cols, double[] vals) {
         for (int i = 0; i < cols.length; i++) {
             for (int j = i; j < cols.length; j++) {
@@ -1193,7 +1203,7 @@ public final class SeamlessParameterization {
      */
     private int[] pickOneChartVertexPerChart() {
         boolean[] visitedFace = new boolean[faceCount];
-        java.util.ArrayList<Integer> picks = new java.util.ArrayList<>();
+        ArrayList<Integer> picks = new ArrayList<>();
         ArrayDeque<Integer> queue = new ArrayDeque<>();
         for (int seed = 0; seed < faceCount; seed++) {
             if (visitedFace[seed])

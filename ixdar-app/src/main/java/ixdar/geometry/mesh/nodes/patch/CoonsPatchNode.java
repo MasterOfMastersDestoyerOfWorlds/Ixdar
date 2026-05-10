@@ -55,8 +55,8 @@ public class CoonsPatchNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 GEOMETRY_2, "Input cage (must carry bezier handle slots from assign_bezier_handles) / output smooth high-poly surface mesh. DESTRUCTIVE: consumes the handle slots. Always follow with merge_by_distance(distance=0.0001) to weld duplicated seam vertices.",
                 SUBDIVISIONS_2, "n×n samples per quad face. 4 = 16 quads per face (cheap); 8 = 64 (smooth). Capped internally so total output faces stay under 600k."
         );
@@ -116,9 +116,9 @@ public class CoonsPatchNode implements MeshNode {
         // the default ArrayList capacity; non-quad n-gons produce triangles
         // rather than quads so the output mesh is mixed-vpf (handled via
         // HalfEdgeMeshEngine.bulkAllocateMixed).
-        java.util.ArrayList<Float> positionsList = new ArrayList<>();
-        java.util.ArrayList<Integer> faceIndicesList = new ArrayList<>();
-        java.util.ArrayList<Integer> faceVertexCountsList = new ArrayList<>();
+        ArrayList<Float> positionsList = new ArrayList<>();
+        ArrayList<Integer> faceIndicesList = new ArrayList<>();
+        ArrayList<Integer> faceVertexCountsList = new ArrayList<>();
         int[] vertCountBox = new int[]{0};
 
         Vector3f tmp0 = new Vector3f();
@@ -299,9 +299,9 @@ public class CoonsPatchNode implements MeshNode {
      */
     private static void emitGregoryFan(MeshTopology mesh, float[] hStart, float[] hEnd,
                                        int fid, int N, int n,
-                                       java.util.ArrayList<Float> positionsList,
-                                       java.util.ArrayList<Integer> faceIndicesList,
-                                       java.util.ArrayList<Integer> faceVertexCountsList,
+                                       ArrayList<Float> positionsList,
+                                       ArrayList<Integer> faceIndicesList,
+                                       ArrayList<Integer> faceVertexCountsList,
                                        int[] vertCountBox) {
         // Build N boundary bezier curves oriented face-CCW: each curve goes
         // from face corner k to face corner (k+1) % N.

@@ -136,8 +136,8 @@ public class Camera2D implements Camera {
      */
     @Override
     public void calculateCameraTransform(PointSet ps) {
-        minX = java.lang.Float.MAX_VALUE;
-        minY = java.lang.Float.MAX_VALUE;
+        minX = Float.MAX_VALUE;
+        minY = Float.MAX_VALUE;
         maxX = 0;
         maxY = 0;
         if (ps.size() == 0) {
@@ -184,8 +184,8 @@ public class Camera2D implements Camera {
      * {@link #reset()} to apply the framing.
      */
     public void initCamera() {
-        minX = java.lang.Float.MAX_VALUE;
-        minY = java.lang.Float.MAX_VALUE;
+        minX = Float.MAX_VALUE;
+        minY = Float.MAX_VALUE;
         maxX = 0;
         maxY = 0;
         boolean empty = ps.size() == 0;

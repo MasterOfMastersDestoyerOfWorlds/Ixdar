@@ -40,8 +40,8 @@ public class FloatToIntNode implements MeshNode {
 
     /** {@inheritDoc}. */
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 VALUE_2, "Float input to convert.",
                 MODE_2, "Rounding rule: ROUND (nearest, half away from zero), FLOOR (toward -∞), CEIL (toward +∞), TRUNCATE (toward 0).",
                 RESULT_2, "Integer output."

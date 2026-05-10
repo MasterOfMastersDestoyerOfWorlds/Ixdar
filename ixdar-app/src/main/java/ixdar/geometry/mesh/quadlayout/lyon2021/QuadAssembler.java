@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.quadlayout.lyon2021;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.util.Arrays;
+
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
@@ -64,7 +66,7 @@ public final class QuadAssembler {
             }
             // Stage B: build split table.
             SplitTable.Result table = SplitTable.generate(tmesh, patch, splitsByArc);
-            if (table.sides().stream().anyMatch(java.util.List::isEmpty)) {
+            if (table.sides().stream().anyMatch(List::isEmpty)) {
                 skipped++;
                 continue;
             }
@@ -109,7 +111,7 @@ public final class QuadAssembler {
             int rows = it.rows();
             int cols = it.cols();
             int[] indexMap = new int[rows * cols];
-            java.util.Arrays.fill(indexMap, -1);
+            Arrays.fill(indexMap, -1);
             for (int i = 0; i < rows; i++) {
                 for (int j = 0; j < cols; j++) {
                     Vector3f p = it.positions()[i * cols + j];

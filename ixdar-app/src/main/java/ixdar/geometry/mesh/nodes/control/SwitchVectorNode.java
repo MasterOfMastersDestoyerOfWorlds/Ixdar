@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.control;
 import java.util.List;
 
 import ixdar.annotations.meshnode.BoolField;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -12,6 +14,8 @@ import ixdar.annotations.meshnode.PortType;
 import ixdar.annotations.meshnode.Vector3Field;
 import ixdar.annotations.meshnode.Vector3Value;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
+
+import org.joml.Vector3f;
 
 @MeshNodeAnnotation(id = "switch_vector")
 public class SwitchVectorNode implements MeshNode {
@@ -44,8 +48,8 @@ public class SwitchVectorNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 SWITCH_2, "Per-element BOOLEAN selector.",
                 FALSE, "Vector used where switch is false.",
                 TRUE, "Vector used where switch is true.",
@@ -71,13 +75,13 @@ public class SwitchVectorNode implements MeshNode {
                 n = Math.max(n, vt.length());
             }
             float[] out = new float[n * NUM_3];
-            org.joml.Vector3f a = new org.joml.Vector3f();
-            org.joml.Vector3f b = new org.joml.Vector3f();
+            Vector3f a = new Vector3f();
+            Vector3f b = new Vector3f();
             for (int i = 0; i < n; i++) {
                 boolean on = FieldBroadcast.boolAt(so, i, false);
                 FieldBroadcast.vec3At(fa, i, ZERO, a);
                 FieldBroadcast.vec3At(tr, i, ZERO, b);
-                org.joml.Vector3f pick = on ? b : a;
+                Vector3f pick = on ? b : a;
                 out[NUM_3 * i] = pick.x;
                 out[NUM_3 * i + 1] = pick.y;
                 out[NUM_3 * i + 2] = pick.z;

@@ -11,6 +11,16 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.platform.automation.AutomationEndpoint;
 
+import ixdar.geometry.mesh.data.Patch;
+
+import ixdar.geometry.mesh.data.PatchDecomposition;
+
+import ixdar.geometry.mesh.data.load.MeshLoader;
+
+import ixdar.geometry.mesh.data.SemanticPatchDecomposer;
+
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+
 @AutomationRouteAnnotation(path = "/mesh/patches/decompose", method = APIMethod.POST)
 public class Decompose extends AutomationEndpoint implements AutomationRoute {
     public static final String PATH = "path";
@@ -31,8 +41,8 @@ public class Decompose extends AutomationEndpoint implements AutomationRoute {
             err.addProperty("error", "File not found: " + path);
             return err;
         }
-        ixdar.geometry.mesh.data.representation.ArrayMesh mesh = ixdar.geometry.mesh.data.load.MeshLoader.load(f.getAbsolutePath());
-        ixdar.geometry.mesh.data.PatchDecomposition decomposition = ixdar.geometry.mesh.data.SemanticPatchDecomposer
+        ArrayMesh mesh = MeshLoader.load(f.getAbsolutePath());
+        PatchDecomposition decomposition = SemanticPatchDecomposer
                 .decompose(
                         mesh,
                         resolution);
@@ -40,7 +50,7 @@ public class Decompose extends AutomationEndpoint implements AutomationRoute {
         out.addProperty(OK, true);
         out.addProperty("vertex_count", decomposition.vertexCount());
         JsonArray patches = new JsonArray();
-        for (ixdar.geometry.mesh.data.Patch p : decomposition.patches()) {
+        for (Patch p : decomposition.patches()) {
             JsonObject pj = new JsonObject();
             pj.addProperty("id", p.id());
             pj.addProperty("branch_id", p.branchId());

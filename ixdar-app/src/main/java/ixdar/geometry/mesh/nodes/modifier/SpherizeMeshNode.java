@@ -41,8 +41,8 @@ public class SpherizeMeshNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 MESH, "Input/output mesh. Each vertex is lerped from its position toward a point on a sphere of the bounding radius centered at the centroid.",
                 FACTOR_2, "Blend amount in [0, 1]. 0 = no change; 1 = vertices fully projected onto the sphere."
         );

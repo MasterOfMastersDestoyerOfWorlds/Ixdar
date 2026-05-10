@@ -291,7 +291,7 @@ public class AutomationRuntime {
      *             place
      */
     public static void normalizeMeshPositions(
-            ixdar.geometry.mesh.data.representation.ArrayMesh mesh) {
+            ArrayMesh mesh) {
         int n = mesh.vertexCount();
         if (n == 0)
             return;
@@ -343,7 +343,7 @@ public class AutomationRuntime {
      *               and a {@code timing.nodes} array of {@code {node, ms}} entries
      */
     public static void appendTiming(
-            ixdar.scenes.mesh.MeshNodeViewerScene mvs,
+            MeshNodeViewerScene mvs,
             JsonObject result) {
         var runtime = mvs.getLastGraphRuntime();
         if (runtime == null)

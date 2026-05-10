@@ -3,6 +3,8 @@ package ixdar.graphics.render.model;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -88,7 +90,7 @@ public class HalfEdgeMeshRuntime {
     private int edgeCount;
     // Feature-edge overlay buffer: all categories concatenated, ranges recorded.
     private int featureEdgeEbo;
-    private java.util.List<FeatureEdgeRange> featureEdgeRanges = java.util.List.of();
+    private List<FeatureEdgeRange> featureEdgeRanges = List.of();
     // PATCH-15: per-vertex scalar for heat-map diagnostics. Populated by
     // setPerVertexScalar; bound at attribute location 3 only when SCALAR
     // shader mode is active.
@@ -378,9 +380,9 @@ public class HalfEdgeMeshRuntime {
      *                   sRGB color with the edge keys to draw in that color;
      *                   {@code null} or empty clears the overlay
      */
-    public void setFeatureEdgeOverlay(java.util.List<FeatureEdgeCategory> categories) {
+    public void setFeatureEdgeOverlay(List<FeatureEdgeCategory> categories) {
         if (categories == null || categories.isEmpty() || compiledMesh == null) {
-            featureEdgeRanges = java.util.List.of();
+            featureEdgeRanges = List.of();
             return;
         }
         int totalIndices = 0;
@@ -388,11 +390,11 @@ public class HalfEdgeMeshRuntime {
             totalIndices += cat.edgeKeys().size() * 2;
         }
         if (totalIndices == 0) {
-            featureEdgeRanges = java.util.List.of();
+            featureEdgeRanges = List.of();
             return;
         }
         int[] indices = new int[totalIndices];
-        java.util.List<FeatureEdgeRange> ranges = new java.util.ArrayList<>(categories.size());
+        List<FeatureEdgeRange> ranges = new ArrayList<>(categories.size());
         int cursor = 0;
         for (FeatureEdgeCategory cat : categories) {
             int start = cursor;
@@ -418,12 +420,12 @@ public class HalfEdgeMeshRuntime {
         IntBuffer buffer = BufferUtils.createIntBuffer(indices.length);
         buffer.put(indices).flip();
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), buffer, gl.STATIC_DRAW());
-        featureEdgeRanges = java.util.List.copyOf(ranges);
+        featureEdgeRanges = List.copyOf(ranges);
     }
 
     /** Clear the feature-edge overlay (nothing drawn until setFeatureEdgeOverlay called again). */
     public void clearFeatureEdgeOverlay() {
-        featureEdgeRanges = java.util.List.of();
+        featureEdgeRanges = List.of();
     }
 
     /**
@@ -966,5 +968,5 @@ public class HalfEdgeMeshRuntime {
      * Categories are drawn in the order supplied, so later ones overpaint
      * earlier ones where they share edges.
      */
-    public record FeatureEdgeCategory(int colorRgb, java.util.Collection<Long> edgeKeys) {}
+    public record FeatureEdgeCategory(int colorRgb, Collection<Long> edgeKeys) {}
 }

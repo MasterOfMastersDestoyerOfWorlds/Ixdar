@@ -55,8 +55,8 @@ public class CompareNode implements MeshNode {
 
     /** {@inheritDoc}. */
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 A_2, "Left operand (scalar or per-vertex FloatField).",
                 B_2, "Right operand.",
                 EPSILON_2, "Tolerance for EQUAL mode. EQUAL is |a - b| < epsilon; LESS/GREATER are strict when epsilon=0, otherwise include a tolerance band.",

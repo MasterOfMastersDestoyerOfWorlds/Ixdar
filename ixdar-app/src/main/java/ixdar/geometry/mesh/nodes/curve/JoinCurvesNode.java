@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.curve;
 import java.util.List;
 
 import ixdar.annotations.meshnode.InputPort;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
@@ -40,8 +42,8 @@ public class JoinCurvesNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 CURVE_A_2, "First curve polyline.",
                 CURVE_B_2, "Second curve polyline, appended after a's end.",
                 DEDUPLICATE_2, "If true (default), drop b's start vertex when it coincides with a's end, keeping the join clean.",

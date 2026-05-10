@@ -61,8 +61,8 @@ public class CurvePrimitiveBezierNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 RESOLUTION_2, "Number of polyline segments. Higher = smoother curve.",
                 START_2, "Curve start point (world-space).",
                 HANDLE_START_2, "First control handle. For CUBIC, this is the start's outgoing tangent endpoint. For QUADRATIC, the single control point.",

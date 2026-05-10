@@ -10,6 +10,8 @@ import org.joml.Vector4f;
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.standalone.Icosphere;
 import ixdar.graphics.render.Clock;
+
+import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.model.IcosphereRuntime;
 import ixdar.scenes.Scene;
 import ixdar.gui.ui.menu.MenuBox;
@@ -205,7 +207,7 @@ public class IcosphereSavePointScene extends Scene {
         private float lastWindowX = Float.NaN;
         private float lastWindowY = Float.NaN;
 
-        IcosphereMouseTrap(ixdar.graphics.cameras.Camera3D cam) {
+        IcosphereMouseTrap(Camera3D cam) {
             super(null, cam, IcosphereSavePointScene.this);
         }
 

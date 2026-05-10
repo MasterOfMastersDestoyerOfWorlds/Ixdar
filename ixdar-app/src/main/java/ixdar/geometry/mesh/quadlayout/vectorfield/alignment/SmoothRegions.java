@@ -5,6 +5,8 @@ import java.util.Deque;
 
 import org.joml.Vector3f;
 
+import java.util.HashSet;
+
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
@@ -209,7 +211,7 @@ public final class SmoothRegions {
         double sumBeta = 0.0;
         double maxSum = 0.0;
         double minSum = 0.0;
-        java.util.HashSet<Integer> visited = new java.util.HashSet<>();
+        HashSet<Integer> visited = new HashSet<>();
         visited.add(startFace);
 
         Vector3f curN = new Vector3f();

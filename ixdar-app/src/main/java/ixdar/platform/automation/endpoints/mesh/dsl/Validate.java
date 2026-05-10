@@ -4,6 +4,8 @@ import java.io.IOException;
 
 import com.google.gson.JsonObject;
 
+import java.util.Map;
+
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
@@ -30,7 +32,7 @@ public class Validate extends AutomationEndpoint implements AutomationRoute {
         }
 
         String skillDir = System.getProperty("user.home") + "/.ix/voyage/skills";
-        java.util.Map<String, Object> result = ValidateDsl.validate(
+        Map<String, Object> result = ValidateDsl.validate(
                 dslSource,
                 skillDir,
                 exportPath);

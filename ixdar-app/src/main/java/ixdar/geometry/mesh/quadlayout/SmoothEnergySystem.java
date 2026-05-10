@@ -364,8 +364,8 @@ public final class SmoothEnergySystem {
      * Format and stash a one-line diagnostic snapshot in
      * {@link CrossField#lastDiagnostics} (rounded count, batch / solver / cap
      * stats).
-     * 
-     * @param lastDiagnostics
+     *
+     * @param lastDiagnostics output parameter for the diagnostic string
      */
     public void updateLastDiagnostics(String lastDiagnostics) {
         int remaining = 0;

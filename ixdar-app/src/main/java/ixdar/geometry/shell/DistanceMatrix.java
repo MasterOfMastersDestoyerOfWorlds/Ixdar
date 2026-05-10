@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.apache.commons.math3.complex.Complex;
+
+import java.util.Locale;
 import org.apache.commons.math3.linear.Array2DRowFieldMatrix;
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.ArrayRealVector;
@@ -27,7 +29,7 @@ public class DistanceMatrix {
     private ArrayList<PointND> points;
     private HashMap<Integer, Integer> lookup = new HashMap<Integer, Integer>();
     private double maxDist = 0;
-    private double minDist = java.lang.Double.MAX_VALUE;
+    private double minDist = Double.MAX_VALUE;
     private double zero = 0;
     private PointND.Double centroid;
     private double[] centroidDist;
@@ -546,7 +548,7 @@ public class DistanceMatrix {
                 double v = matrix[i][j];
                 // Use plain fixed-point formatting to avoid DecimalFormat pattern issues under
                 // TeaVM
-                str += " " + String.format(java.util.Locale.ROOT, "%.7f", v) + " ";
+                str += " " + String.format(Locale.ROOT, "%.7f", v) + " ";
             }
             str += "]\n";
         }

@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.math;
 import java.util.List;
 
 import ixdar.annotations.meshnode.InputPort;
+
+import java.util.Map;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
@@ -27,8 +29,8 @@ public class InputVectorNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 X_2, "X component.",
                 Y_2, "Y component.",
                 Z_2, "Z component.",

@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
+import java.util.Map;
+
 import ixdar.annotations.meshnode.FloatField;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -54,8 +56,8 @@ public class VectorMathNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 OPERATION_2, "Op: ADD, SUBTRACT, MULTIPLY, SCALE (by `scale`), NORMALIZE (of a), CROSS, DOT (scalar result).",
                 A_2, "Left vector operand.",
                 B_2, "Right vector operand. Ignored for NORMALIZE and SCALE.",

@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.nodes.modifier;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.IntConsumer;
+
+import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.InputPort;
@@ -55,8 +57,8 @@ public class SubdivisionMeshNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.of(
+    public Map<String, String> socketDocs() {
+        return Map.of(
                 MESH, "Plain topology input (alternative to geometry). Used when no crease weights need to be read.",
                 GEOMETRY, "Input/output geometry bundle. Carries crease weights written by mark_crease so semi-sharp edges subdivide smoothly.",
                 LEVELS_2, "Catmull-Clark iterations. Each level quadruples face count AND smooths toward the limit surface."

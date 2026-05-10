@@ -85,18 +85,18 @@ public class AttachToSurfaceNode implements MeshNode {
     }
 
     @Override
-    public java.util.Map<String, String> socketDocs() {
-        return java.util.Map.ofEntries(
-                java.util.Map.entry(GEOMETRY_2, "Input/output. A hole is cut at the attachment point on the parent surface; the opening boundary is tagged for bridge_edge_loops."),
-                java.util.Map.entry(THETA_2, "Azimuthal angle (radians, around Y axis). 0 = +X, π/2 = +Z."),
-                java.util.Map.entry(PHI_2, "Polar angle (radians, from +Y). 0 = top pole, π/2 = equator, π = bottom pole."),
-                java.util.Map.entry(RADIUS_2, "Hole radius around the attachment point in world units."),
-                java.util.Map.entry(INSET_2, "Inset distance from the cut boundary to the attachment ring. 0 = flush; positive = recessed."),
-                java.util.Map.entry(TWIST_2, "Roll angle (radians) around the attachment normal. Rotates the attached child around its axis."),
-                java.util.Map.entry(TAG_2, "String tag applied to the new boundary ring so downstream bridge_edge_loops / adaptive_bridge_loops can find it."),
-                java.util.Map.entry(ATTACH_POSITION, "World-space position of the attachment point on the surface."),
-                java.util.Map.entry(ATTACH_NORMAL, "Unit outward normal at the attachment point."),
-                java.util.Map.entry(ATTACH_ROTATION, "Euler rotation (radians) that aligns +Y to the attach normal, plus twist.")
+    public Map<String, String> socketDocs() {
+        return Map.ofEntries(
+                Map.entry(GEOMETRY_2, "Input/output. A hole is cut at the attachment point on the parent surface; the opening boundary is tagged for bridge_edge_loops."),
+                Map.entry(THETA_2, "Azimuthal angle (radians, around Y axis). 0 = +X, π/2 = +Z."),
+                Map.entry(PHI_2, "Polar angle (radians, from +Y). 0 = top pole, π/2 = equator, π = bottom pole."),
+                Map.entry(RADIUS_2, "Hole radius around the attachment point in world units."),
+                Map.entry(INSET_2, "Inset distance from the cut boundary to the attachment ring. 0 = flush; positive = recessed."),
+                Map.entry(TWIST_2, "Roll angle (radians) around the attachment normal. Rotates the attached child around its axis."),
+                Map.entry(TAG_2, "String tag applied to the new boundary ring so downstream bridge_edge_loops / adaptive_bridge_loops can find it."),
+                Map.entry(ATTACH_POSITION, "World-space position of the attachment point on the surface."),
+                Map.entry(ATTACH_NORMAL, "Unit outward normal at the attachment point."),
+                Map.entry(ATTACH_ROTATION, "Euler rotation (radians) that aligns +Y to the attach normal, plus twist.")
         );
     }
 

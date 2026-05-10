@@ -82,10 +82,10 @@ public class Triangle implements Geometry, PointCollection {
         if (args.length - startIdx == 0) {
             return new Triangle();
         }
-        double xCenter = java.lang.Double.parseDouble(args[startIdx]);
-        double yCenter = java.lang.Double.parseDouble(args[startIdx + 1]);
-        double radius = java.lang.Double.parseDouble(args[startIdx + 2]);
-        double rotation = Math.PI * java.lang.Double.parseDouble(args[startIdx + NUM_3]) / NUM_180_0;
+        double xCenter = Double.parseDouble(args[startIdx]);
+        double yCenter = Double.parseDouble(args[startIdx + 1]);
+        double radius = Double.parseDouble(args[startIdx + 2]);
+        double rotation = Math.PI * Double.parseDouble(args[startIdx + NUM_3]) / NUM_180_0;
         Triangle t = new Triangle(xCenter, yCenter, radius, rotation);
         return t;
     }

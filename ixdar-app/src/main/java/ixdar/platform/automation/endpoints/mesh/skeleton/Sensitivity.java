@@ -4,6 +4,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
+import java.nio.file.Files;
+
+import java.nio.file.Path;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -52,16 +56,16 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
                 String dslFileName = dslName;
                 if (!dslFileName.endsWith(DSL_2))
                     dslFileName += DSL_2;
-                java.nio.file.Path dslPath = null;
+                Path dslPath = null;
                 for (String base : new String[] {
                         "src/main/resources/dsl",
                         "ixdar-app/src/main/resources/dsl",
                 }) {
-                    java.nio.file.Path candidate = java.nio.file.Path.of(
+                    Path candidate = Path.of(
                             System.getProperty(USER_DIR),
                             base,
                             dslFileName);
-                    if (java.nio.file.Files.exists(candidate)) {
+                    if (Files.exists(candidate)) {
                         dslPath = candidate;
                         break;
                     }
@@ -94,7 +98,7 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
                     return err;
                 }
 
-                String source = java.nio.file.Files.readString(dslPath);
+                String source = Files.readString(dslPath);
                 List<PythonParser.ParsedNode> parsed = new PythonParser(
                         new PythonLexer(source)).parseGraph();
 
