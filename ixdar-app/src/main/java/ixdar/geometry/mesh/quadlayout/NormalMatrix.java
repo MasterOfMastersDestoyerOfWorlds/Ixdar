@@ -2,13 +2,26 @@ package ixdar.geometry.mesh.quadlayout;
 
 public final class NormalMatrix {
     public static final double HALF = 0.5;
-    final int variableCount;
+    public final int variableCount;
     final double[] diag;
     final double[] rhs;
     final int[] rowStart;
     final int[] rowCol;
     final double[] rowVal;
 
+    /**
+     * Constructor with chord-based rows.
+     * 
+     * @param faceCount   number of faces
+     * @param chordCount  number of chords
+     * @param rowCount    number of rows
+     * @param rowFaceI    row face I
+     * @param rowFaceJ    row face J
+     * @param rowEdgeAi   row edge A I
+     * @param chordOfEdge chord of edge
+     * @param periodValue period value
+     * @param rowKappa    row kappa
+     */
     NormalMatrix(int faceCount, int chordCount, int rowCount, int[] rowFaceI, int[] rowFaceJ, int[] rowEdgeAi,
             int[] chordOfEdge, int[] periodValue, float[] rowKappa) {
         variableCount = faceCount + chordCount;
@@ -41,12 +54,76 @@ public final class NormalMatrix {
         double halfPi = Math.PI * HALF;
 
         for (int r = 0; r < rowCount; r++) {
+            int faceI = rowFaceI[r];
+            int faceJ = rowFaceJ[r];
+            int edge = rowEdgeAi[r];
+            int chord = chordOfEdge[edge];
+            int pe = chord >= 0 ? faceCount + chord : -1;
+            double k = rowKappa[r] + (chord < 0 ? halfPi * periodValue[edge] : 0.0);
+
+            diag[faceI] += 1.0;
+            diag[faceJ] += 1.0;
+
+            addOffDiagonal(cursor, faceI, faceJ, -1.0);
+            addOffDiagonal(cursor, faceJ, faceI, -1.0);
+
+            rhs[faceI] -= k;
+            rhs[faceJ] += k;
+            if (pe >= 0) {
+                diag[pe] += halfPi * halfPi;
+
+                addOffDiagonal(cursor, faceI, pe, halfPi);
+                addOffDiagonal(cursor, pe, faceI, halfPi);
+                addOffDiagonal(cursor, faceJ, pe, -halfPi);
+                addOffDiagonal(cursor, pe, faceJ, -halfPi);
+
+                rhs[pe] -= halfPi * k;
+            }
+        }
+    }
+
+    /**
+     * Theta-only Laplacian constructor for the local-search post-process. One
+     * variable per face; one row per interior edge. Each interior edge between
+     * faces (i, j) contributes +1 to diag[i] and diag[j], -1 at off-diagonals (i,
+     * j) and (j, i), and -k / +k to rhs[i] / rhs[j] where k = kappa_ij + (pi/2) *
+     * p_ij is precomputed by the caller.
+     *
+     * <p>
+     * No chord variables, no constrained-face elimination — fixed faces are handled
+     * at solve time by {@link AdaptiveSolver}, same convention as the MIP
+     * constructor.
+     *
+     * @param faceCount           number of face variables (variableCount)
+     * @param rowCount            number of interior-edge rows
+     * @param rowFaceI            per-row first face index
+     * @param rowFaceJ            per-row second face index
+     * @param rowKappaPlusHalfPiP per-row precomputed kappa + (pi/2) * p
+     */
+    NormalMatrix(int faceCount, int rowCount,
+            int[] rowFaceI, int[] rowFaceJ, double[] rowKappaPlusHalfPiP) {
+        variableCount = faceCount;
+        diag = new double[variableCount];
+        rhs = new double[variableCount];
+
+        int[] degree = new int[variableCount];
+        for (int r = 0; r < rowCount; r++) {
+            degree[rowFaceI[r]] += 1;
+            degree[rowFaceJ[r]] += 1;
+        }
+
+        rowStart = new int[variableCount + 1];
+        for (int i = 0; i < variableCount; i++) {
+            rowStart[i + 1] = rowStart[i] + degree[i];
+        }
+        rowCol = new int[rowStart[variableCount]];
+        rowVal = new double[rowStart[variableCount]];
+        int[] cursor = rowStart.clone();
+
+        for (int r = 0; r < rowCount; r++) {
             int fi = rowFaceI[r];
             int fj = rowFaceJ[r];
-            int eAi = rowEdgeAi[r];
-            int chord = chordOfEdge[eAi];
-            int pe = chord >= 0 ? faceCount + chord : -1;
-            double k = rowKappa[r] + (chord < 0 ? halfPi * periodValue[eAi] : 0.0);
+            double k = rowKappaPlusHalfPiP[r];
 
             diag[fi] += 1.0;
             diag[fj] += 1.0;
@@ -56,16 +133,6 @@ public final class NormalMatrix {
 
             rhs[fi] -= k;
             rhs[fj] += k;
-            if (pe >= 0) {
-                diag[pe] += halfPi * halfPi;
-
-                addOffDiagonal(cursor, fi, pe, halfPi);
-                addOffDiagonal(cursor, pe, fi, halfPi);
-                addOffDiagonal(cursor, fj, pe, -halfPi);
-                addOffDiagonal(cursor, pe, fj, -halfPi);
-
-                rhs[pe] -= halfPi * k;
-            }
         }
     }
 
@@ -84,27 +151,77 @@ public final class NormalMatrix {
         rowVal[i] = value;
     }
 
+    /**
+     * Get the number of variables.
+     * 
+     * @return number of variables
+     */
     public int size() {
         return variableCount;
     }
 
+    /**
+     * Get the diagonal entry of the row.
+     * 
+     * @param row row index
+     * @return diagonal entry
+     */
     public double diag(int row) {
         return diag[row];
     }
 
+    /**
+     * Get the start index of the row.
+     * 
+     * @param row row index
+     * @return start index
+     */
     public int rowStart(int row) {
         return rowStart[row];
     }
 
+    /**
+     * Get the end index of the row.
+     * 
+     * @param row row index
+     * @return end index
+     */
     public int rowEnd(int row) {
         return rowStart[row + 1];
     }
 
+    /**
+     * Get the column index of the entry at the given cursor.
+     * 
+     * @param cursor cursor index
+     * @return column index
+     */
     public int column(int cursor) {
         return rowCol[cursor];
     }
 
+    /**
+     * Get the column index of the entry at the given cursor.
+     * 
+     * @param cursor cursor index
+     * @return column index
+     */
     public double value(int cursor) {
         return rowVal[cursor];
+    }
+
+    /**
+     * Compute the dot product of the row with the vector x.
+     * 
+     * @param row row index
+     * @param x   vector
+     * @return dot product
+     */
+    public double rowDot(int row, double[] x) {
+        double sum = diag[row] * x[row];
+        for (int cursor = rowStart[row]; cursor < rowStart[row + 1]; cursor++) {
+            sum += rowVal[cursor] * x[rowCol[cursor]];
+        }
+        return sum;
     }
 }

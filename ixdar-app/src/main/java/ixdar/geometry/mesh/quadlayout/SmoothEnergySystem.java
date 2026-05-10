@@ -315,7 +315,7 @@ public final class SmoothEnergySystem {
 
     void solveRelaxed(int[] roundedVariables, int roundedCount) {
         AdaptiveSolver.Result result = AdaptiveSolver.solveAfterRounding(
-                normalMatrix, normalMatrix.rhs, solution, fixedVariables,
+                normalMatrix, solution, fixedVariables,
                 roundedVariables, roundedCount, adaptiveOptions);
         solution = result.x();
         AdaptiveSolver.Stats stats = result.stats();

@@ -383,12 +383,12 @@ public class CrossField {
             }
             int he = mesh.edgeHalfEdge(eId);
             int twin = mesh.halfEdgeTwin(he);
-            int fiId = mesh.halfEdgeFace(he);
-            int fjId = mesh.halfEdgeFace(twin);
-            int fiAi = faceIdToActive.get(fiId);
-            int fjAi = faceIdToActive.get(fjId);
-            if (faceConstrained[fiAi] && faceConstrained[fjAi]) {
-                float diff = faceConstraintAngle[fjAi] - faceConstraintAngle[fiAi] - kappa[eAi];
+            int faceI = mesh.halfEdgeFace(he);
+            int faceJ = mesh.halfEdgeFace(twin);
+            int faceIIdx = faceIdToActive.get(faceI);
+            int faceJIdx = faceIdToActive.get(faceJ);
+            if (faceConstrained[faceIIdx] && faceConstrained[faceJIdx]) {
+                float diff = faceConstraintAngle[faceJIdx] - faceConstraintAngle[faceIIdx] - kappa[eAi];
                 int p = Math.round(diff / (float) (Math.PI / 2.0));
                 periodFixed[eAi] = true;
                 periodValue[eAi] = p;
@@ -430,86 +430,86 @@ public class CrossField {
         final int faceCount = mesh.faceCount();
         final float halfPi = (float) (Math.PI / 2.0);
 
-        final int[] freeFromAll = new int[faceCount];
-        int freeCountMut = 0;
-        for (int fAi = 0; fAi < faceCount; fAi++) {
-            if (faceConstrained[fAi]) {
-                freeFromAll[fAi] = -1;
-            } else {
-                freeFromAll[fAi] = freeCountMut++;
+        // Count interior edges and collect per-row data for the theta-only Laplacian.
+        int interiorRowCount = 0;
+        for (int i = 0; i < edgeCount; i++) {
+            if (!mesh.isBoundaryEdge(mesh.edgeIdAt(i))) {
+                interiorRowCount++;
             }
         }
-        final int freeCount = freeCountMut;
-        if (freeCount == 0) {
+        if (interiorRowCount == 0) {
             return;
         }
-
-        DMatrixSparseTriplet triplets = new DMatrixSparseTriplet(freeCount, freeCount,
-                edgeCount * INITIAL_NONZEROS_PER_EDGE);
-        double[] diag = new double[freeCount];
-        for (int eAi = 0; eAi < edgeCount; eAi++) {
-            int eId = mesh.edgeIdAt(eAi);
-            if (mesh.isBoundaryEdge(eId)) {
+        final int[] rowFaceI = new int[interiorRowCount];
+        final int[] rowFaceJ = new int[interiorRowCount];
+        final double[] rowKappaPlusHalfPiP = new double[interiorRowCount];
+        final int[] rowOfEdge = new int[edgeCount]; // -1 for boundary, row index otherwise
+        Arrays.fill(rowOfEdge, -1);
+        int row = 0;
+        for (int i = 0; i < edgeCount; i++) {
+            int edgeId = mesh.edgeIdAt(i);
+            if (mesh.isBoundaryEdge(edgeId)) {
                 continue;
             }
-            int he = mesh.edgeHalfEdge(eId);
-            int twin = mesh.halfEdgeTwin(he);
-            int fi = faceIdToActive.get(mesh.halfEdgeFace(he));
-            int fj = faceIdToActive.get(mesh.halfEdgeFace(twin));
-            int rfi = freeFromAll[fi];
-            int rfj = freeFromAll[fj];
-            if (rfi >= 0)
-                diag[rfi] += 1.0;
-            if (rfj >= 0)
-                diag[rfj] += 1.0;
-            if (rfi >= 0 && rfj >= 0 && rfi < rfj) {
-                triplets.addItem(rfi, rfj, -1.0);
-            }
+            int halfEdge = mesh.edgeHalfEdge(edgeId);
+            int twin = mesh.halfEdgeTwin(halfEdge);
+            rowFaceI[row] = faceIdToActive.get(mesh.halfEdgeFace(halfEdge));
+            rowFaceJ[row] = faceIdToActive.get(mesh.halfEdgeFace(twin));
+            rowKappaPlusHalfPiP[row] = kappa[i] + halfPi * periodJump[i];
+            rowOfEdge[i] = row;
+            row++;
         }
-        for (int rf = 0; rf < freeCount; rf++) {
-            triplets.addItem(rf, rf, diag[rf]);
-        }
-        final DMatrixSparseCSC csc = new DMatrixSparseCSC(freeCount, freeCount,
-                triplets.nz_length);
-        DConvertMatrixStruct.convert(triplets, csc);
 
-        final int nWorkers = Math.min(Runtime.getRuntime().availableProcessors(), 8);
-        final ThreadLocal<Worker> tlWorker = ThreadLocal.withInitial(() -> new Worker(freeCount, csc));
-        final Worker mainWorker = tlWorker.get();
-        if (mainWorker.solver == null) {
+        final NormalMatrix matrix = new NormalMatrix(faceCount, interiorRowCount,
+                rowFaceI, rowFaceJ, rowKappaPlusHalfPiP);
+
+        // Coerce per-face constraint angles into a double[] for solveCompact's `start`
+        // arg.
+        final double[] start = new double[faceCount];
+        for (int fAi = 0; fAi < faceCount; fAi++) {
+            start[fAi] = faceConstrained[fAi] ? faceConstraintAngle[fAi] : 0.0;
+        }
+
+        // Factor once. Shared across all threads — solve() is what's not thread-safe,
+        // so each thread needs its own handle. Build them lazily.
+        final ThreadLocal<DirectSolver.CholeskyHandle> tlHandle = ThreadLocal
+                .withInitial(() -> DirectSolver.factorize(matrix, faceConstrained));
+        final ThreadLocal<double[]> tlRhsScratch = ThreadLocal.withInitial(() -> new double[faceCount]);
+        final ThreadLocal<double[]> tlThetaScratch = ThreadLocal.withInitial(() -> new double[faceCount]);
+
+        final DirectSolver.CholeskyHandle mainHandle = tlHandle.get();
+        if (mainHandle.solver() == null) {
             return;
         }
+        final double[] mainRhs = tlRhsScratch.get();
+        final double[] mainTheta = tlThetaScratch.get();
 
-        final int[] rfiByEdge = new int[edgeCount];
-        final int[] rfjByEdge = new int[edgeCount];
+        // Initial baseline solve (no perturbation).
+        buildRhs(mainRhs, faceCount, edgeCount, rowOfEdge, rowFaceI, rowFaceJ,
+                faceConstrained, faceConstraintAngle, halfPi, /* perturbEdge */ -1, /* perturbedP */ 0);
+        DirectSolver.solveCompact(mainHandle, matrix, mainRhs, mainTheta, start, faceConstrained);
+        for (int fAi = 0; fAi < faceCount; fAi++) {
+            theta[fAi] = (float) mainTheta[fAi];
+        }
+        double currentEnergy = energyOfTheta(mainTheta, edgeCount, rowOfEdge, rowFaceI, rowFaceJ,
+                halfPi, -1, 0);
+
+        // patchFacesByEdge expects the old per-edge face arrays — we still need those
+        // for overlap detection in batching.
         final int[] aliFi = new int[edgeCount];
         final int[] aliFj = new int[edgeCount];
         final boolean[] interiorEdge = new boolean[edgeCount];
         for (int eAi = 0; eAi < edgeCount; eAi++) {
-            int eId = mesh.edgeIdAt(eAi);
-            if (mesh.isBoundaryEdge(eId)) {
+            int rowOf = rowOfEdge[eAi];
+            if (rowOf < 0)
                 continue;
-            }
-            int he = mesh.edgeHalfEdge(eId);
-            int twin = mesh.halfEdgeTwin(he);
-            aliFi[eAi] = faceIdToActive.get(mesh.halfEdgeFace(he));
-            aliFj[eAi] = faceIdToActive.get(mesh.halfEdgeFace(twin));
-            rfiByEdge[eAi] = freeFromAll[aliFi[eAi]];
-            rfjByEdge[eAi] = freeFromAll[aliFj[eAi]];
+            aliFi[eAi] = rowFaceI[rowOf];
+            aliFj[eAi] = rowFaceJ[rowOf];
             interiorEdge[eAi] = true;
         }
-
-        double[] thetaCurrent = solveThetaInto(mainWorker, faceCount, edgeCount, freeCount,
-                interiorEdge, rfiByEdge, rfjByEdge, aliFi, aliFj, faceConstrained, freeFromAll,
-                faceConstraintAngle, halfPi, -1, 0);
-        for (int fAi = 0; fAi < faceCount; fAi++) {
-            theta[fAi] = (float) thetaCurrent[fAi];
-        }
-        double currentEnergy = energyOfTheta(thetaCurrent, edgeCount, interiorEdge,
-                aliFi, aliFj, halfPi, -1, 0);
-
         final int[][] patchFacesByEdge = buildTwoHopPatchTable(edgeCount, interiorEdge, aliFi, aliFj);
 
+        final int nWorkers = Math.min(Runtime.getRuntime().availableProcessors(), 8);
         ExecutorService pool = Executors.newFixedThreadPool(nWorkers, r -> {
             Thread t = new Thread(r, "cross-field-localsearch");
             t.setDaemon(true);
@@ -566,23 +566,24 @@ public class CrossField {
                     }
 
                     final double batchCurrentEnergy = currentEnergy;
-                    List<Callable<TrialResult>> tasks = new ArrayList<>(
-                            batch.size());
+                    List<Callable<TrialResult>> tasks = new ArrayList<>(batch.size());
                     for (int eAi : batch) {
                         final int eAiF = eAi;
                         final int oldP = periodJump[eAi];
                         tasks.add(() -> {
-                            Worker w = tlWorker.get();
+                            DirectSolver.CholeskyHandle h = tlHandle.get();
+                            double[] rhsScratch = tlRhsScratch.get();
+                            double[] thetaScratch = tlThetaScratch.get();
                             int bestDelta = 0;
                             double bestTrialE = batchCurrentEnergy;
                             for (int delta : LOCAL_SEARCH_DELTAS) {
                                 int trialP = oldP + delta;
-                                double[] thetaTrial = solveThetaInto(w, faceCount, edgeCount,
-                                        freeCount, interiorEdge, rfiByEdge, rfjByEdge,
-                                        aliFi, aliFj, faceConstrained, freeFromAll,
-                                        faceConstraintAngle, halfPi, eAiF, trialP);
-                                double e = energyOfTheta(thetaTrial, edgeCount, interiorEdge,
-                                        aliFi, aliFj, halfPi, eAiF, trialP);
+                                buildRhs(rhsScratch, faceCount, edgeCount, rowOfEdge, rowFaceI, rowFaceJ,
+                                        faceConstrained, faceConstraintAngle, halfPi, eAiF, trialP);
+                                DirectSolver.solveCompact(h, matrix, rhsScratch, thetaScratch, start,
+                                        faceConstrained);
+                                double e = energyOfTheta(thetaScratch, edgeCount, rowOfEdge, rowFaceI,
+                                        rowFaceJ, halfPi, eAiF, trialP);
                                 if (e < bestTrialE - LOCAL_SEARCH_EPS) {
                                     bestTrialE = e;
                                     bestDelta = delta;
@@ -617,14 +618,15 @@ public class CrossField {
                         improved = true;
                         totalAccepts += batchAccepts;
 
-                        thetaCurrent = solveThetaInto(mainWorker, faceCount, edgeCount, freeCount,
-                                interiorEdge, rfiByEdge, rfjByEdge, aliFi, aliFj,
-                                faceConstrained, freeFromAll, faceConstraintAngle, halfPi, -1, 0);
+                        buildRhs(mainRhs, faceCount, edgeCount, rowOfEdge, rowFaceI, rowFaceJ,
+                                faceConstrained, faceConstraintAngle, halfPi, -1, 0);
+                        DirectSolver.solveCompact(mainHandle, matrix, mainRhs, mainTheta, start,
+                                faceConstrained);
                         for (int fAi = 0; fAi < faceCount; fAi++) {
-                            theta[fAi] = (float) thetaCurrent[fAi];
+                            theta[fAi] = (float) mainTheta[fAi];
                         }
-                        currentEnergy = energyOfTheta(thetaCurrent, edgeCount, interiorEdge,
-                                aliFi, aliFj, halfPi, -1, 0);
+                        currentEnergy = energyOfTheta(mainTheta, edgeCount, rowOfEdge, rowFaceI,
+                                rowFaceJ, halfPi, -1, 0);
                     }
                     remaining = deferred;
                 }
@@ -642,48 +644,29 @@ public class CrossField {
     }
 
     /**
-     * Solve {@code H · θ_free = b} where {@code b} is built from the current
-     * period-jump array, optionally with a single edge's period jump substituted by
-     * {@code perturbedP} (used for local-search trial solves). Returns a per-face
-     * theta array (constrained faces hold their constraint angle).
+     * Build the right-hand-side for the theta-only Laplacian, walking interior
+     * edges and accumulating ±(κ + (π/2)·p) into the two incident faces. If
+     * {@code perturbEdge >= 0}, that edge uses {@code perturbedP} instead of
+     * {@code periodJump[perturbEdge]}. Constrained-face contributions are left out
+     * of the RHS — {@link AdaptiveSolver#solveCompact} folds them in via the
+     * {@code start} / {@code fixed} arguments.
      */
-    private double[] solveThetaInto(Worker w, int faceCount, int edgeCount, int freeCount,
-            boolean[] interiorEdge, int[] rfiByEdge, int[] rfjByEdge,
-            int[] aliFi, int[] aliFj, boolean[] faceConstrained, int[] freeFromAll,
-            float[] faceConstraintAngle, float halfPi, int perturbEdge, int perturbedP) {
-        for (int rf = 0; rf < freeCount; rf++) {
-            w.b.unsafe_set(rf, 0, 0.0);
-        }
-        for (int i = 0; i < edgeCount; i++) {
-            if (!interiorEdge[i])
+    private void buildRhs(double[] rhs, int faceCount, int edgeCount,
+            int[] rowOfEdge, int[] rowFaceI, int[] rowFaceJ,
+            boolean[] faceConstrained, float[] faceConstraintAngle,
+            float halfPi, int perturbEdge, int perturbedP) {
+        Arrays.fill(rhs, 0.0);
+        for (int eAi = 0; eAi < edgeCount; eAi++) {
+            int r = rowOfEdge[eAi];
+            if (r < 0)
                 continue;
-            int rfi = rfiByEdge[i];
-            int rfj = rfjByEdge[i];
-            int p = (i == perturbEdge) ? perturbedP : periodJump[i];
-            double k = kappa[i] + halfPi * p;
-            if (rfi >= 0) {
-                w.b.unsafe_set(rfi, 0, w.b.unsafe_get(rfi, 0) - k);
-            }
-            if (rfj >= 0) {
-                w.b.unsafe_set(rfj, 0, w.b.unsafe_get(rfj, 0) + k);
-            }
-            if (rfi < 0 && rfj >= 0) {
-                w.b.unsafe_set(rfj, 0, w.b.unsafe_get(rfj, 0) + faceConstraintAngle[aliFi[i]]);
-            }
-            if (rfj < 0 && rfi >= 0) {
-                w.b.unsafe_set(rfi, 0, w.b.unsafe_get(rfi, 0) + faceConstraintAngle[aliFj[i]]);
-            }
+            int fi = rowFaceI[r];
+            int fj = rowFaceJ[r];
+            int p = (eAi == perturbEdge) ? perturbedP : periodJump[eAi];
+            double k = kappa[eAi] + halfPi * p;
+            rhs[fi] -= k;
+            rhs[fj] += k;
         }
-        w.solver.solve(w.b, w.x);
-        double[] thetaFull = new double[faceCount];
-        for (int fAi = 0; fAi < faceCount; fAi++) {
-            if (faceConstrained[fAi]) {
-                thetaFull[fAi] = faceConstraintAngle[fAi];
-            } else {
-                thetaFull[fAi] = w.x.unsafe_get(freeFromAll[fAi], 0);
-            }
-        }
-        return thetaFull;
     }
 
     /**
@@ -691,15 +674,16 @@ public class CrossField {
      * lets a worker evaluate the energy as if
      * {@code periodJump[perturbEdge] == perturbedP} without mutating shared state.
      */
-    private double energyOfTheta(double[] thetaFull, int edgeCount, boolean[] interiorEdge,
-            int[] aliFi, int[] aliFj, float halfPi, int perturbEdge, int perturbedP) {
+    private double energyOfTheta(double[] thetaFull, int edgeCount, int[] rowOfEdge,
+            int[] rowFaceI, int[] rowFaceJ, float halfPi, int perturbEdge, int perturbedP) {
         double e = 0.0;
         for (int eAi = 0; eAi < edgeCount; eAi++) {
-            if (!interiorEdge[eAi])
+            int r = rowOfEdge[eAi];
+            if (r < 0)
                 continue;
             int p = (eAi == perturbEdge) ? perturbedP : periodJump[eAi];
-            double r = thetaFull[aliFi[eAi]] + kappa[eAi] + halfPi * p - thetaFull[aliFj[eAi]];
-            e += r * r;
+            double resid = thetaFull[rowFaceI[r]] + kappa[eAi] + halfPi * p - thetaFull[rowFaceJ[r]];
+            e += resid * resid;
         }
         return e;
     }
