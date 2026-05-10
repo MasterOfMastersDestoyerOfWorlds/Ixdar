@@ -2,37 +2,26 @@ package ixdar.geometry.mesh.quadlayout;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
-import org.joml.Vector3f;
-import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
-
-import org.ejml.sparse.FillReducing;
-
 import java.util.concurrent.Callable;
-
-import java.util.concurrent.ExecutorService;
-
 import java.util.concurrent.ExecutionException;
-import org.ejml.ops.DConvertMatrixStruct;
-
-import org.ejml.interfaces.linsol.LinearSolverSparse;
-
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.ejml.data.DMatrixSparseTriplet;
-
 import java.util.concurrent.Future;
-import org.ejml.data.DMatrixSparseCSC;
+import java.util.stream.Collectors;
 
 import org.ejml.data.DMatrixRMaj;
-
-import java.util.stream.Collectors;
+import org.ejml.data.DMatrixSparseCSC;
+import org.ejml.interfaces.linsol.LinearSolverSparse;
+import org.ejml.sparse.FillReducing;
+import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
+import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -206,6 +195,19 @@ public class CrossField {
     public Map<Integer, Integer> faceIdToActive;
     public Map<Integer, Integer> edgeIdToActive;
 
+    // Reusable scratch for integrateCurvatureTensor. Each call bumps
+    // `curvatureStamp`
+    // and writes that value into the per-vertex/per-face/per-edge slots it visits;
+    // reads compare against the current stamp instead of clearing arrays each call.
+    public int[] vertexInDiskStamp;
+    public int[] faceInDiskStamp;
+    public int[] edgeProcessedStamp;
+    // Per-call scratch for Dijkstra. distance[v] is meaningful only when
+    // vertexInDiskStamp[v] == curvatureStamp; otherwise treat as "not visited."
+    public float[] vertexDistance;
+    public int[] verticesVisited;
+    public int curvatureStamp = 0;
+
     /**
      * Wrap a half-edge mesh; defer all field arrays until {@link #build()} runs.
      *
@@ -227,6 +229,13 @@ public class CrossField {
 
         int faceCount = mesh.faceCount();
         int edgeCount = mesh.edgeCount();
+        int vertexCount = mesh.vertexCount();
+
+        this.vertexInDiskStamp = new int[vertexCount];
+        this.faceInDiskStamp = new int[faceCount];
+        this.edgeProcessedStamp = new int[edgeCount];
+        this.vertexDistance = new float[vertexCount];
+        this.verticesVisited = new int[vertexCount];
 
         this.theta = new float[faceCount];
         this.periodJump = new int[edgeCount];
@@ -1020,111 +1029,176 @@ public class CrossField {
     }
 
     /**
-     * Cohen-Steiner integrated curvature tensor over a geodesic disk. Returns [T00,
-     * T01, T11] in basis (e1, e2), or null if the disk is empty.
+     * Cohen-Steiner integrated curvature tensor over a geodesic disk around
+     * {@code centerVertexId}. Walks all triangles whose three vertices fall within
+     * the disk and accumulates per-interior-edge dihedral contributions
+     * {@code β·|e|·(ē⊗ē)}, normalized by total triangle area. Returns
+     * {@code [T00, T01, T11]} expressed in the local tangent basis (e1, e2), or
+     * {@code null} when the disk is empty or has no usable area.
      *
-     * @param vId     center vertex id
-     * @param vPos    center vertex position
-     * @param vNormal center vertex normal
-     * @param e1      tangent basis vector 1
-     * @param e2      tangent basis vector 2 (= {@code n × e1})
-     * @param radius  geodesic-disk radius (Dijkstra over 1-skeleton)
+     * @param centerVertexId center vertex id
+     * @param centerPosition center vertex position
+     * @param centerNormal   center vertex normal
+     * @param tangentE1      tangent basis vector 1
+     * @param tangentE2      tangent basis vector 2 (= centerNormal × tangentE1)
+     * @param geodesicRadius geodesic-disk radius (Dijkstra over 1-skeleton)
      * @return three-element {@code [T00, T01, T11]} tensor entries, or {@code null}
      *         when the disk has no usable triangles
      */
-    public float[] integrateCurvatureTensor(int vId, Vector3f vPos, Vector3f vNormal,
-            Vector3f e1, Vector3f e2, float radius) {
-        Map<Integer, Float> dist = dijkstraWithinRadius(vId, radius);
-        if (dist.isEmpty())
-            return null;
-        Set<Integer> verticesInDisk = dist.keySet();
+    public float[] integrateCurvatureTensor(int centerVertexId, Vector3f centerPosition,
+            Vector3f centerNormal, Vector3f tangentE1, Vector3f tangentE2, float geodesicRadius) {
 
-        Set<Integer> B = new HashSet<>();
-        for (int u : verticesInDisk) {
-            int faces = mesh.vertexFaceCount(u);
-            for (int i = 0; i < faces; i++) {
-                int fId = mesh.vertexFaceAt(u, i);
-                if (B.contains(fId))
+        // Bump stamp; entries with this value are "in this call's set", everything else
+        // is implicitly cleared from prior calls.
+        final int stamp = ++curvatureStamp;
+
+        // Dijkstra over the 1-skeleton, stamp-marked. vertexInDiskStamp[v] == stamp
+        // means "visited this call"; vertexDistance[v] is the best known distance.
+        PriorityQueue<DijkstraNode> pq = new PriorityQueue<>();
+        pq.offer(new DijkstraNode(0f, centerVertexId));
+        vertexInDiskStamp[centerVertexId] = stamp;
+        vertexDistance[centerVertexId] = 0f;
+        int visitedCount = 0;
+        verticesVisited[visitedCount++] = centerVertexId;
+
+        Vector3f a = new Vector3f();
+        Vector3f b = new Vector3f();
+        while (!pq.isEmpty()) {
+            DijkstraNode node = pq.poll();
+            int u = node.vertexOrFace;
+            // Stale entry check: a better distance was found after this was queued.
+            if (node.distance > vertexDistance[u] + EPSILON_FP_TOLERANCE) {
+                continue;
+            }
+            mesh.vertexPosition(u, a);
+            int outCount = mesh.vertexOutgoingHalfEdgeCount(u);
+            for (int i = 0; i < outCount; i++) {
+                int he = mesh.vertexOutgoingHalfEdgeAt(u, i);
+                int w = mesh.halfEdgeEndVertex(he);
+                mesh.vertexPosition(w, b);
+                float dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+                float wLen = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+                float nd = node.distance + wLen;
+                if (nd > geodesicRadius) {
                     continue;
-                int v0 = mesh.faceVertexAt(fId, 0);
-                int v1 = mesh.faceVertexAt(fId, 1);
-                int v2 = mesh.faceVertexAt(fId, 2);
-                if (verticesInDisk.contains(v0)
-                        && verticesInDisk.contains(v1)
-                        && verticesInDisk.contains(v2)) {
-                    B.add(fId);
+                }
+                if (vertexInDiskStamp[w] != stamp) {
+                    vertexInDiskStamp[w] = stamp;
+                    vertexDistance[w] = nd;
+                    verticesVisited[visitedCount++] = w;
+                    pq.offer(new DijkstraNode(nd, w));
+                } else if (nd < vertexDistance[w]) {
+                    vertexDistance[w] = nd;
+                    pq.offer(new DijkstraNode(nd, w));
                 }
             }
         }
-        if (B.isEmpty())
+        if (visitedCount == 0) {
             return null;
+        }
 
-        float A = 0f;
-        for (int fId : B)
-            A += faceArea(fId);
-        if (A < EPSILON_DEGENERATE)
-            return null;
-
-        float T00 = 0f, T01 = 0f, T11 = 0f;
-        Vector3f p0 = new Vector3f();
-        Vector3f p1 = new Vector3f();
-        Vector3f edge = new Vector3f();
-        Vector3f ni = new Vector3f();
-        Vector3f nj = new Vector3f();
-        Vector3f cross = new Vector3f();
-        Set<Integer> edgesProcessed = new HashSet<>();
-
-        for (int u : verticesInDisk) {
-            int eCount = mesh.vertexEdgeCount(u);
-            for (int i = 0; i < eCount; i++) {
-                int eId = mesh.vertexEdgeAt(u, i);
-                if (!edgesProcessed.add(eId))
+        // Collect faces fully inside the disk.
+        int facesFound = 0;
+        float totalDiskArea = 0f;
+        for (int vi = 0; vi < visitedCount; vi++) {
+            int vertexId = verticesVisited[vi];
+            int adjacentFaceCount = mesh.vertexFaceCount(vertexId);
+            for (int i = 0; i < adjacentFaceCount; i++) {
+                int faceId = mesh.vertexFaceAt(vertexId, i);
+                if (faceInDiskStamp[faceId] == stamp) {
                     continue;
-                int he = mesh.edgeHalfEdge(eId);
-                int v0Id = mesh.halfEdgeVertex(he);
-                int v1Id = mesh.halfEdgeEndVertex(he);
-                if (!verticesInDisk.contains(v0Id) || !verticesInDisk.contains(v1Id))
-                    continue;
-                if (mesh.isBoundaryEdge(eId))
-                    continue;
-                int twin = mesh.halfEdgeTwin(he);
-                int fiId = mesh.halfEdgeFace(he);
-                int fjId = mesh.halfEdgeFace(twin);
-                if (!B.contains(fiId) || !B.contains(fjId))
-                    continue;
-
-                mesh.vertexPosition(v0Id, p0);
-                mesh.vertexPosition(v1Id, p1);
-                edge.set(p1).sub(p0);
-                float edgeLen = edge.length();
-                if (edgeLen < EPSILON_DEGENERATE)
-                    continue;
-
-                mesh.faceNormal(fiId, ni);
-                mesh.faceNormal(fjId, nj);
-                float cosD = Math.max(-1f, Math.min(1f, ni.dot(nj)));
-                ni.cross(nj, cross);
-                float sinD = cross.dot(edge) / edgeLen;
-                float beta = (float) Math.atan2(sinD, cosD);
-
-                Vector3f eUnit = new Vector3f(edge).div(edgeLen);
-                float dotN = eUnit.dot(vNormal);
-                eUnit.x -= dotN * vNormal.x;
-                eUnit.y -= dotN * vNormal.y;
-                eUnit.z -= dotN * vNormal.z;
-                float ex = eUnit.dot(e1);
-                float ey = eUnit.dot(e2);
-
-                float w = beta * edgeLen;
-                T00 += w * ex * ex;
-                T01 += w * ex * ey;
-                T11 += w * ey * ey;
+                }
+                int faceVertex0 = mesh.faceVertexAt(faceId, 0);
+                int faceVertex1 = mesh.faceVertexAt(faceId, 1);
+                int faceVertex2 = mesh.faceVertexAt(faceId, 2);
+                if (vertexInDiskStamp[faceVertex0] == stamp
+                        && vertexInDiskStamp[faceVertex1] == stamp
+                        && vertexInDiskStamp[faceVertex2] == stamp) {
+                    faceInDiskStamp[faceId] = stamp;
+                    totalDiskArea += faceArea(faceId);
+                    facesFound++;
+                }
             }
         }
-        T00 /= A;
-        T01 /= A;
-        T11 /= A;
-        return new float[] { T00, T01, T11 };
+        if (facesFound == 0 || totalDiskArea < EPSILON_DEGENERATE) {
+            return null;
+        }
+
+        // Per-edge dihedral contributions.
+        float tensor00 = 0f;
+        float tensor01 = 0f;
+        float tensor11 = 0f;
+
+        Vector3f position0 = new Vector3f();
+        Vector3f position1 = new Vector3f();
+        Vector3f edgeVector = new Vector3f();
+        Vector3f normal0 = new Vector3f();
+        Vector3f normal1 = new Vector3f();
+        Vector3f normalCross = new Vector3f();
+        Vector3f edgeDirInTangentPlane = new Vector3f();
+
+        for (int vi = 0; vi < visitedCount; vi++) {
+            int vertexId = verticesVisited[vi];
+            int incidentEdgeCount = mesh.vertexEdgeCount(vertexId);
+            for (int i = 0; i < incidentEdgeCount; i++) {
+                int edgeId = mesh.vertexEdgeAt(vertexId, i);
+                if (edgeProcessedStamp[edgeId] == stamp) {
+                    continue;
+                }
+                edgeProcessedStamp[edgeId] = stamp;
+
+                int halfEdge = mesh.edgeHalfEdge(edgeId);
+                int edgeStartVertex = mesh.halfEdgeVertex(halfEdge);
+                int edgeEndVertex = mesh.halfEdgeEndVertex(halfEdge);
+                if (vertexInDiskStamp[edgeStartVertex] != stamp
+                        || vertexInDiskStamp[edgeEndVertex] != stamp) {
+                    continue;
+                }
+                if (mesh.isBoundaryEdge(edgeId)) {
+                    continue;
+                }
+                int twinHalfEdge = mesh.halfEdgeTwin(halfEdge);
+                int leftFaceId = mesh.halfEdgeFace(halfEdge);
+                int rightFaceId = mesh.halfEdgeFace(twinHalfEdge);
+                if (faceInDiskStamp[leftFaceId] != stamp
+                        || faceInDiskStamp[rightFaceId] != stamp) {
+                    continue;
+                }
+
+                mesh.vertexPosition(edgeStartVertex, position0);
+                mesh.vertexPosition(edgeEndVertex, position1);
+                edgeVector.set(position1).sub(position0);
+                float edgeLength = edgeVector.length();
+                if (edgeLength < EPSILON_DEGENERATE) {
+                    continue;
+                }
+
+                mesh.faceNormal(leftFaceId, normal0);
+                mesh.faceNormal(rightFaceId, normal1);
+                float cosDihedral = Math.max(-1f, Math.min(1f, normal0.dot(normal1)));
+                normal0.cross(normal1, normalCross);
+                float sinDihedral = normalCross.dot(edgeVector) / edgeLength;
+                float dihedralAngle = (float) Math.atan2(sinDihedral, cosDihedral);
+
+                edgeDirInTangentPlane.set(edgeVector).div(edgeLength);
+                float normalComponent = edgeDirInTangentPlane.dot(centerNormal);
+                edgeDirInTangentPlane.x -= normalComponent * centerNormal.x;
+                edgeDirInTangentPlane.y -= normalComponent * centerNormal.y;
+                edgeDirInTangentPlane.z -= normalComponent * centerNormal.z;
+                float edgeComponentE1 = edgeDirInTangentPlane.dot(tangentE1);
+                float edgeComponentE2 = edgeDirInTangentPlane.dot(tangentE2);
+
+                float weight = dihedralAngle * edgeLength;
+                tensor00 += weight * edgeComponentE1 * edgeComponentE1;
+                tensor01 += weight * edgeComponentE1 * edgeComponentE2;
+                tensor11 += weight * edgeComponentE2 * edgeComponentE2;
+            }
+        }
+
+        tensor00 /= totalDiskArea;
+        tensor01 /= totalDiskArea;
+        tensor11 /= totalDiskArea;
+        return new float[] { tensor00, tensor01, tensor11 };
     }
 
     /**
@@ -1165,49 +1239,6 @@ public class CrossField {
         }
         float angle = (float) Math.atan2(vy, vx);
         return new float[] { eigBig, eigSmall, angle };
-    }
-
-    /**
-     * Dijkstra over the 1-skeleton from v, edge weights = Euclidean lengths.
-     *
-     * @param vId    source vertex id
-     * @param radius geodesic distance cutoff
-     * @return map from reachable vertex id to its shortest 1-skeleton distance from
-     *         {@code vId} (always includes {@code vId} at distance 0)
-     */
-    public Map<Integer, Float> dijkstraWithinRadius(int vId, float radius) {
-        Map<Integer, Float> dist = new HashMap<>();
-        dist.put(vId, 0f);
-        PriorityQueue<DijkstraNode> pq = new PriorityQueue<>();
-        pq.offer(new DijkstraNode(0f, vId));
-        Vector3f a = new Vector3f();
-        Vector3f b = new Vector3f();
-        while (!pq.isEmpty()) {
-            DijkstraNode node = pq.poll();
-            Float bestD = dist.get(node.vertexOrFace);
-            if (bestD == null || node.distance > bestD + EPSILON_FP_TOLERANCE)
-                continue;
-            int outCount = mesh.vertexOutgoingHalfEdgeCount(node.vertexOrFace);
-            mesh.vertexPosition(node.vertexOrFace, a);
-            for (int i = 0; i < outCount; i++) {
-                int he = mesh.vertexOutgoingHalfEdgeAt(node.vertexOrFace, i);
-                int w = mesh.halfEdgeEndVertex(he);
-                mesh.vertexPosition(w, b);
-                float wLen = (float) Math.sqrt(
-                        (b.x - a.x) * (b.x - a.x) +
-                                (b.y - a.y) * (b.y - a.y) +
-                                (b.z - a.z) * (b.z - a.z));
-                float nd = node.distance + wLen;
-                if (nd > radius)
-                    continue;
-                Float cur = dist.get(w);
-                if (cur == null || nd < cur) {
-                    dist.put(w, nd);
-                    pq.offer(new DijkstraNode(nd, w));
-                }
-            }
-        }
-        return dist;
     }
 
     /**

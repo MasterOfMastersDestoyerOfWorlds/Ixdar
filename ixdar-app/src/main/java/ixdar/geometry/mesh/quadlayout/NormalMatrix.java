@@ -137,7 +137,7 @@ public final class NormalMatrix {
     }
 
     /**
-     * Append one off-diagonal entry into the row's CSR slot, advancing the row's
+     * Append one off-diagonal entry into the row's Compressed Sparse Row slot, advancing the row's
      * write cursor in {@code cursor}.
      *
      * @param cursor per-row write cursor (mutated)
@@ -223,5 +223,79 @@ public final class NormalMatrix {
             sum += rowVal[cursor] * x[rowCol[cursor]];
         }
         return sum;
+    }
+
+    /**
+     * Permuted-upper-triangle Compressed Sparse Column: column-pointer / row-index
+     * / value arrays for the free-variable submatrix in the supplied permutation,
+     * packing only the upper triangle (col ≥ row in the permuted order).
+     * 
+     * @param freeCount size of the compact problem
+     * @param fixed     full-size fixed-variable mask
+     * @param compactOf full-index → compact-index, or -1 if fixed
+     * @param fullOf    compact-index → full-index, length freeCount
+     * @param perm      permuted-index → old compact-index, length freeCount
+     * @param invPerm   old compact-index → permuted-index, length freeCount
+     * @return three arrays {@code [colPtr, rowIdx, values]} where
+     *         {@code colPtr.length == freeCount + 1},
+     *         {@code rowIdx.length == values.length == nnz}
+     */
+    public CompressedSparseColumnArrays toPermutedUpperCompressedSparseColumn(int freeCount, boolean[] fixed,
+            int[] compactOf, int[] fullOf, int[] perm, int[] invPerm) {
+        int[] colPtr = new int[freeCount + 1];
+
+        for (int pCol = 0; pCol < freeCount; pCol++) {
+            colPtr[pCol + 1] = 1;
+        }
+        for (int oldFull = 0; oldFull < variableCount; oldFull++) {
+            if (fixed[oldFull])
+                continue;
+            int pRow = invPerm[compactOf[oldFull]];
+            for (int c = rowStart[oldFull]; c < rowStart[oldFull + 1]; c++) {
+                int colFull = rowCol[c];
+                if (fixed[colFull])
+                    continue;
+                int pCol = invPerm[compactOf[colFull]];
+                if (pRow < pCol) {
+                    colPtr[pCol + 1]++;
+                }
+            }
+        }
+
+        for (int i = 0; i < freeCount; i++) {
+            colPtr[i + 1] += colPtr[i];
+        }
+        int nnz = colPtr[freeCount];
+        int[] rowIdx = new int[nnz];
+        double[] values = new double[nnz];
+
+        int[] cursor = colPtr.clone();
+        for (int pCol = 0; pCol < freeCount; pCol++) {
+            int oldFull = fullOf[perm[pCol]];
+            int slot = cursor[pCol]++;
+            rowIdx[slot] = pCol;
+            values[slot] = diag[oldFull];
+        }
+        for (int oldFull = 0; oldFull < variableCount; oldFull++) {
+            if (fixed[oldFull])
+                continue;
+            int pRow = invPerm[compactOf[oldFull]];
+            for (int c = rowStart[oldFull]; c < rowStart[oldFull + 1]; c++) {
+                int colFull = rowCol[c];
+                if (fixed[colFull])
+                    continue;
+                int pCol = invPerm[compactOf[colFull]];
+                if (pRow < pCol) {
+                    int slot = cursor[pCol]++;
+                    rowIdx[slot] = pRow;
+                    values[slot] = rowVal[c];
+                }
+            }
+        }
+
+        return new CompressedSparseColumnArrays(colPtr, rowIdx, values);
+    }
+
+    public record CompressedSparseColumnArrays(int[] colPtr, int[] rowIdx, double[] values) {
     }
 }

@@ -93,29 +93,17 @@ public final class DirectSolver {
 
         // Step 4: build the permuted matrix (in new variable order) for EJML.
         // EJML's Cholesky needs the upper triangle in CSC format.
-        DMatrixSparseTriplet triplets = new DMatrixSparseTriplet(freeCount, freeCount, 0);
-        for (int newRow = 0; newRow < freeCount; newRow++) {
-            int oldU = perm[newRow]; // compact-index in old order
-            int row = fullOf[oldU]; // full-index into matrix
-            triplets.addItem(newRow, newRow, matrix.diag(row));
-            for (int c = matrix.rowStart(row); c < matrix.rowEnd(row); c++) {
-                int col = matrix.column(c);
-                double a = matrix.value(c);
-                if (!fixed[col]) {
-                    int oldV = compactOf[col];
-                    int newCol = invPerm[oldV];
-                    if (newRow < newCol) { // upper triangle only
-                        triplets.addItem(newRow, newCol, a);
-                    }
-                }
-            }
-        }
-        DMatrixSparseCSC csc = new DMatrixSparseCSC(freeCount, freeCount,
-                triplets.nz_length);
-        DConvertMatrixStruct.convert(triplets, csc);
+        NormalMatrix.CompressedSparseColumnArrays csc = matrix.toPermutedUpperCompressedSparseColumn(freeCount, fixed,
+                compactOf, fullOf,
+                perm, invPerm);
+        DMatrixSparseCSC ejmlCsc = new DMatrixSparseCSC(freeCount, freeCount, csc.values().length);
+        ejmlCsc.col_idx = csc.colPtr();
+        ejmlCsc.nz_rows = csc.rowIdx();
+        ejmlCsc.nz_values = csc.values();
+        ejmlCsc.nz_length = csc.values().length;
         // Step 5: factorize and solve
         var solver = LinearSolverFactory_DSCC.cholesky(FillReducing.NONE);
-        solver.setA(csc);
+        solver.setA(ejmlCsc);
         DMatrixRMaj b = new DMatrixRMaj(freeCount, 1);
         DMatrixRMaj solX = new DMatrixRMaj(freeCount, 1);
         CholeskyHandle handle = new CholeskyHandle(n, freeCount, compactOf, fullOf, perm, invPerm, solver, b, solX);
