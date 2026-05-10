@@ -1006,7 +1006,7 @@ public final class AdaptiveSolver {
         public int cgMaxIterations = 20_000;
 
         /** Relative residual tolerance for conjugate gradient. */
-        public double cgTolerance = 1e-7;
+        public double cgTolerance = 1e-3;
 
         /** Whether to use the direct sparse fallback after CG failure. */
         public boolean useDirectFallback = true;

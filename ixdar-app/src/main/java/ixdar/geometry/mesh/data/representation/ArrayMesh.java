@@ -57,13 +57,17 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     private boolean boundsDirty = true;
 
     /**
-     * Wraps caller-owned arrays without copying. {@code normals} may be null and is then allocated as zeros.
+     * Wraps caller-owned arrays without copying. {@code normals} may be null and is
+     * then allocated as zeros.
      *
-     * @param positions packed xyz triples; length must be divisible by 3
-     * @param normals packed xyz triples matching {@code positions}, or {@code null} to allocate zeros
-     * @param faceIndices vertex indices grouped by {@code vertsPerFace}
+     * @param positions    packed xyz triples; length must be divisible by 3
+     * @param normals      packed xyz triples matching {@code positions}, or
+     *                     {@code null} to allocate zeros
+     * @param faceIndices  vertex indices grouped by {@code vertsPerFace}
      * @param vertsPerFace fixed face arity (e.g. 3 for triangles, 4 for quads)
-     * @throws IllegalArgumentException if {@code positions} is not in xyz triples or {@code faceIndices.length} is not a multiple of {@code vertsPerFace}
+     * @throws IllegalArgumentException if {@code positions} is not in xyz triples
+     *                                  or {@code faceIndices.length} is not a
+     *                                  multiple of {@code vertsPerFace}
      */
     public ArrayMesh(float[] positions, float[] normals, int[] faceIndices, int vertsPerFace) {
         if (positions.length % FLOATS_PER_VERTEX != 0) {
@@ -80,9 +84,10 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Builds a quad-only mesh from packed xyz positions and a flat quad index buffer.
+     * Builds a quad-only mesh from packed xyz positions and a flat quad index
+     * buffer.
      *
-     * @param positions packed xyz triples
+     * @param positions   packed xyz triples
      * @param quadIndices vertex indices in groups of four
      * @return mesh with {@code vertsPerFace = 4} and zeroed normals
      */
@@ -94,7 +99,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
      * One linear quad-subdivision step on dense arrays (see
      * {@link ArrayMeshEngine#subdivideQuadsOnce}).
      *
-     * @param positions packed xyz triples
+     * @param positions   packed xyz triples
      * @param quadIndices flat quad index buffer
      * @return subdivided {@link ArrayMesh}
      */
@@ -116,7 +121,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
      * Delegates to {@link ArrayMeshEngine#deleteVertices(ArrayMesh, boolean[])}.
      *
      * @param mesh source mesh
-     * @param del per-vertex deletion mask
+     * @param del  per-vertex deletion mask
      * @return mesh with selected vertices and incident faces removed
      */
     public static ArrayMesh deleteVertices(ArrayMesh mesh, boolean[] del) {
@@ -126,7 +131,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /**
      * Delegates to {@link ArrayMeshEngine#deleteEdges(ArrayMesh, boolean[])}.
      *
-     * @param mesh source mesh
+     * @param mesh    source mesh
      * @param delEdge per-edge deletion mask
      * @return mesh with selected edges (and their faces) removed
      */
@@ -137,7 +142,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /**
      * Delegates to {@link ArrayMeshEngine#mergeByDistance(ArrayMesh, float)}.
      *
-     * @param mesh source mesh
+     * @param mesh     source mesh
      * @param distance weld threshold
      * @return mesh with near-coincident vertices welded
      */
@@ -175,7 +180,8 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Defensive copy of the flat face-index buffer (groups of {@link #getVertsPerFace()}).
+     * Defensive copy of the flat face-index buffer (groups of
+     * {@link #getVertsPerFace()}).
      *
      * @return new array independent of internal storage
      */
@@ -193,15 +199,15 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Writes the position of a vertex in place; invalidates cached bounds and radius.
+     * Writes the position of a vertex in place; invalidates cached bounds and
+     * radius.
      *
      * @param vertexId vertex index
-     * @param x new x coordinate
-     * @param y new y coordinate
-     * @param z new z coordinate
+     * @param x        new x coordinate
+     * @param y        new y coordinate
+     * @param z        new z coordinate
      */
     public void setVertexPosition(int vertexId, float x, float y, float z) {
-        requireVertex(vertexId);
         int o = vertexId * FLOATS_PER_VERTEX;
         positions[o] = x;
         positions[o + 1] = y;
@@ -211,9 +217,9 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Builds GPU-ready interleaved vertex data and a triangulated index buffer for rendering.
-     * Each output vertex is 8 floats (xyz, normal xyz, two zero-padded slots); faces are
-     * fan-triangulated.
+     * Builds GPU-ready interleaved vertex data and a triangulated index buffer for
+     * rendering. Each output vertex is 8 floats (xyz, normal xyz, two zero-padded
+     * slots); faces are fan-triangulated.
      *
      * @return compiled mesh data including bounds and bounding sphere
      */
@@ -267,7 +273,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         if (cachedEdgeIndices != null) {
             return cachedEdgeIndices;
         }
-        ensureTopology();
+
         int e = edgeCount;
         int[] out = new int[e * 2];
         for (int ei = 0; ei < e; ei++) {
@@ -282,8 +288,8 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Materializes this dense mesh as a fully connected {@link HalfEdgeMesh}, copying
-     * positions, faces, and vertex normals.
+     * Materializes this dense mesh as a fully connected {@link HalfEdgeMesh},
+     * copying positions, faces, and vertex normals.
      *
      * @return new half-edge mesh with the same geometry
      */
@@ -297,8 +303,8 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
 
     /**
      * Recomputes per-face and per-vertex normals in place. Face normal is the unit
-     * cross product of the first two edges; vertex normals are the area-weighted (via
-     * accumulated face normals) sum of incident face normals, then normalized.
+     * cross product of the first two edges; vertex normals are the area-weighted
+     * (via accumulated face normals) sum of incident face normals, then normalized.
      */
     public void computeNormals() {
         int v = vertexCount();
@@ -349,49 +355,6 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         }
     }
 
-    private void ensureTopology() {
-        if (topologyReady) {
-            return;
-        }
-        int fc = faceCount();
-        int V = vertexCount();
-        QuadMeshTopologyHelper topo = QuadMeshTopologyHelper.build(faceIndices, vertsPerFace, V, fc);
-        halfEdgeTwin = topo.halfEdgeTwin;
-        halfEdgeEdge = topo.halfEdgeEdge;
-        edgeHalfEdge = topo.edgeHalfEdge;
-        edgeCount = topo.edgeCount;
-        vertexFaceOffsets = topo.vertexFaceOffsets;
-        vertexFaces = topo.vertexFaces;
-        vertexEdgeOffsets = topo.vertexEdgeOffsets;
-        vertexEdges = topo.vertexEdges;
-
-        int HE = topo.halfEdgeCount;
-        if (HE == 0) {
-            vertexOutgoingOffsets = new int[V + 1];
-            vertexOutgoingHalfEdges = new int[0];
-            topologyReady = true;
-            return;
-        }
-
-        int[] vohCount = new int[V];
-        for (int he = 0; he < HE; he++) {
-            vohCount[faceIndices[he]]++;
-        }
-        vertexOutgoingOffsets = new int[V + 1];
-        vertexOutgoingOffsets[0] = 0;
-        for (int i = 0; i < V; i++) {
-            vertexOutgoingOffsets[i + 1] = vertexOutgoingOffsets[i] + vohCount[i];
-        }
-        vertexOutgoingHalfEdges = new int[vertexOutgoingOffsets[V]];
-        int[] vohWrite = Arrays.copyOf(vertexOutgoingOffsets, V + 1);
-        for (int he = 0; he < HE; he++) {
-            int v = faceIndices[he];
-            vertexOutgoingHalfEdges[vohWrite[v]++] = he;
-        }
-
-        topologyReady = true;
-    }
-
     /** {@inheritDoc}. */
     @Override
     public int vertexCount() {
@@ -401,7 +364,6 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public int edgeCount() {
-        ensureTopology();
         return edgeCount;
     }
 
@@ -450,7 +412,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public boolean hasEdge(int edgeId) {
-        ensureTopology();
+
         return edgeId >= 0 && edgeId < edgeCount;
     }
 
@@ -469,7 +431,6 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public Vector3f vertexPosition(int vertexId, Vector3f dest) {
-        requireVertex(vertexId);
         int o = vertexId * FLOATS_PER_VERTEX;
         return dest.set(positions[o], positions[o + 1], positions[o + 2]);
     }
@@ -477,7 +438,6 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public Vector3f vertexNormal(int vertexId, Vector3f dest) {
-        requireVertex(vertexId);
         int o = vertexId * FLOATS_PER_VERTEX;
         return dest.set(normals[o], normals[o + 1], normals[o + 2]);
     }
@@ -485,8 +445,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdge(int vertexId) {
-        ensureTopology();
-        requireVertex(vertexId);
+
         int s = vertexOutgoingOffsets[vertexId];
         if (s >= vertexOutgoingOffsets[vertexId + 1]) {
             return MeshTopology.NONE;
@@ -497,16 +456,14 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdgeCount(int vertexId) {
-        ensureTopology();
-        requireVertex(vertexId);
+
         return vertexOutgoingOffsets[vertexId + 1] - vertexOutgoingOffsets[vertexId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdgeAt(int vertexId, int adjacencyIndex) {
-        ensureTopology();
-        requireVertex(vertexId);
+
         int base = vertexOutgoingOffsets[vertexId];
         int n = vertexOutgoingOffsets[vertexId + 1] - base;
         if (adjacencyIndex < 0 || adjacencyIndex >= n) {
@@ -518,16 +475,14 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public int vertexEdgeCount(int vertexId) {
-        ensureTopology();
-        requireVertex(vertexId);
+
         return vertexEdgeOffsets[vertexId + 1] - vertexEdgeOffsets[vertexId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexEdgeAt(int vertexId, int adjacencyIndex) {
-        ensureTopology();
-        requireVertex(vertexId);
+
         int base = vertexEdgeOffsets[vertexId];
         int n = vertexEdgeOffsets[vertexId + 1] - base;
         if (adjacencyIndex < 0 || adjacencyIndex >= n) {
@@ -539,16 +494,14 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public int vertexFaceCount(int vertexId) {
-        ensureTopology();
-        requireVertex(vertexId);
+
         return vertexFaceOffsets[vertexId + 1] - vertexFaceOffsets[vertexId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexFaceAt(int vertexId, int adjacencyIndex) {
-        ensureTopology();
-        requireVertex(vertexId);
+
         int base = vertexFaceOffsets[vertexId];
         int n = vertexFaceOffsets[vertexId + 1] - base;
         if (adjacencyIndex < 0 || adjacencyIndex >= n) {
@@ -560,8 +513,7 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public boolean isBoundaryVertex(int vertexId) {
-        ensureTopology();
-        requireVertex(vertexId);
+
         for (int i = 0; i < vertexEdgeCount(vertexId); i++) {
             if (isBoundaryEdge(vertexEdgeAt(vertexId, i))) {
                 return true;
@@ -573,16 +525,20 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public int edgeHalfEdge(int edgeId) {
-        ensureTopology();
-        requireEdge(edgeId);
+
         return edgeHalfEdge[edgeId];
     }
 
     /** {@inheritDoc}. */
     @Override
+    public int edgeHalfEdgeAtActiveIndex(int activeIndex) {
+        return edgeHalfEdge[edgeIdAt(activeIndex)];
+    }
+
+    /** {@inheritDoc}. */
+    @Override
     public boolean isBoundaryEdge(int edgeId) {
-        ensureTopology();
-        requireEdge(edgeId);
+
         int he = edgeHalfEdge[edgeId];
         return halfEdgeTwin[he] == MeshTopology.NONE;
     }
@@ -590,21 +546,18 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public int faceHalfEdge(int faceId) {
-        requireFace(faceId);
         return faceId * vertsPerFace;
     }
 
     /** {@inheritDoc}. */
     @Override
     public int faceHalfEdgeCount(int faceId) {
-        requireFace(faceId);
         return vertsPerFace;
     }
 
     /** {@inheritDoc}. */
     @Override
     public int faceHalfEdgeAt(int faceId, int adjacencyIndex) {
-        requireFace(faceId);
         if (adjacencyIndex < 0 || adjacencyIndex >= vertsPerFace) {
             throw new IndexOutOfBoundsException();
         }
@@ -614,14 +567,12 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public int faceVertexCount(int faceId) {
-        requireFace(faceId);
         return vertsPerFace;
     }
 
     /** {@inheritDoc}. */
     @Override
     public int faceVertexAt(int faceId, int adjacencyIndex) {
-        requireFace(faceId);
         return faceIndices[faceId * vertsPerFace + adjacencyIndex];
     }
 
@@ -634,45 +585,57 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public int faceEdgeAt(int faceId, int adjacencyIndex) {
-        ensureTopology();
+
         int he = faceHalfEdgeAt(faceId, adjacencyIndex);
         return halfEdgeEdge[he];
     }
 
-    /** {@inheritDoc} Returns the most recently computed face normal (see {@link #computeNormals()}). */
+    /**
+     * {@inheritDoc} Returns the most recently computed face normal (see
+     * {@link #computeNormals()}).
+     */
     @Override
     public Vector3f faceNormal(int faceId, Vector3f dest) {
-        requireFace(faceId);
         int o = faceId * FLOATS_PER_VERTEX;
+        return dest.set(faceNormals[o], faceNormals[o + 1], faceNormals[o + 2]);
+    }
+
+    /**
+     * {@inheritDoc} Returns the most recently computed face normal (see
+     * {@link #computeNormals()}).
+     */
+    @Override
+    public Vector3f faceNormalAtActiveIndex(int activeIndex, Vector3f dest) {
+
+        int o = activeIndex * FLOATS_PER_VERTEX;
         return dest.set(faceNormals[o], faceNormals[o + 1], faceNormals[o + 2]);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int halfEdgeVertex(int halfEdgeId) {
-        requireHalfEdge(halfEdgeId);
         return faceIndices[halfEdgeId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int halfEdgeEndVertex(int halfEdgeId) {
-        requireHalfEdge(halfEdgeId);
         return halfEdgeVertex(halfEdgeNext(halfEdgeId));
     }
 
     /** {@inheritDoc}. */
     @Override
     public int halfEdgeTwin(int halfEdgeId) {
-        ensureTopology();
-        requireHalfEdge(halfEdgeId);
+
         return halfEdgeTwin[halfEdgeId];
     }
 
-    /** {@inheritDoc} Cycles within the owning face (face id = {@code halfEdgeId / vertsPerFace}). */
+    /**
+     * {@inheritDoc} Cycles within the owning face (face id =
+     * {@code halfEdgeId / vertsPerFace}).
+     */
     @Override
     public int halfEdgeNext(int halfEdgeId) {
-        requireHalfEdge(halfEdgeId);
         int vpf = vertsPerFace;
         int f = halfEdgeId / vpf;
         int k = halfEdgeId % vpf;
@@ -682,7 +645,6 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc} Cycles within the owning face. */
     @Override
     public int halfEdgePrev(int halfEdgeId) {
-        requireHalfEdge(halfEdgeId);
         int vpf = vertsPerFace;
         int f = halfEdgeId / vpf;
         int k = halfEdgeId % vpf;
@@ -692,23 +654,20 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public int halfEdgeFace(int halfEdgeId) {
-        requireHalfEdge(halfEdgeId);
         return halfEdgeId / vertsPerFace;
     }
 
     /** {@inheritDoc}. */
     @Override
     public int halfEdgeEdge(int halfEdgeId) {
-        ensureTopology();
-        requireHalfEdge(halfEdgeId);
+
         return halfEdgeEdge[halfEdgeId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public boolean isBoundaryHalfEdge(int halfEdgeId) {
-        ensureTopology();
-        requireHalfEdge(halfEdgeId);
+
         return halfEdgeTwin[halfEdgeId] == MeshTopology.NONE;
     }
 
@@ -733,7 +692,10 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         return dest.set(centerVec);
     }
 
-    /** {@inheritDoc} Bounding-sphere radius about {@link #center(Vector3f)}; cached after first call. */
+    /**
+     * {@inheritDoc} Bounding-sphere radius about {@link #center(Vector3f)}; cached
+     * after first call.
+     */
     @Override
     public float radius() {
         recomputeBoundsIfNeeded();
@@ -792,29 +754,5 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
         boundsMax.set(maxX, maxY, maxZ);
         centerVec.set((minX + maxX) * NUM_0_5, (minY + maxY) * NUM_0_5, (minZ + maxZ) * NUM_0_5);
         boundsDirty = false;
-    }
-
-    private void requireVertex(int vertexId) {
-        if (!hasVertex(vertexId)) {
-            throw new InvalidMeshTopologyException("Vertex " + vertexId + IS_NOT_VALID);
-        }
-    }
-
-    private void requireFace(int faceId) {
-        if (!hasFace(faceId)) {
-            throw new InvalidMeshTopologyException("Face " + faceId + IS_NOT_VALID);
-        }
-    }
-
-    private void requireHalfEdge(int halfEdgeId) {
-        if (!hasHalfEdge(halfEdgeId)) {
-            throw new InvalidMeshTopologyException("Half-edge " + halfEdgeId + IS_NOT_VALID);
-        }
-    }
-
-    private void requireEdge(int edgeId) {
-        if (!hasEdge(edgeId)) {
-            throw new InvalidMeshTopologyException("Edge " + edgeId + IS_NOT_VALID);
-        }
     }
 }

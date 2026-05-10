@@ -196,6 +196,14 @@ public interface MeshTopology {
     int edgeHalfEdge(int edgeId);
 
     /**
+     * Half-edge of {@code edgeId} at the given dense index in {@code [0, edgeCount())}.
+     *
+     * @param activeIndex packed index over live edges
+     * @return stable half-edge id at that position
+     */
+    int edgeHalfEdgeAtActiveIndex(int activeIndex);
+
+    /**
      * Whether {@code edgeId} sits on the mesh boundary.
      *
      * @param edgeId edge to query
@@ -270,6 +278,17 @@ public interface MeshTopology {
      * @return {@code dest} for chaining
      */
     Vector3f faceNormal(int faceId, Vector3f dest);
+
+
+
+    /**
+     * Read the (cached) per-face normal into {@code dest}.
+     *
+     * @param activeIndex packed index over live faces
+     * @param dest scratch vector to fill
+     * @return {@code dest} for chaining
+     */
+    Vector3f faceNormalAtActiveIndex(int activeIndex, Vector3f dest);
 
     /**
      * Source vertex of {@code halfEdgeId}.

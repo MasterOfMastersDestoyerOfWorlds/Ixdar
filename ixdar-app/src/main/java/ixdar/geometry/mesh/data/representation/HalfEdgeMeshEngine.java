@@ -54,8 +54,6 @@ public class HalfEdgeMeshEngine {
      * @return id of the newly created edge
      */
     public static int addEdge(HalfEdgeMesh mesh, int startVertexId, int endVertexId) {
-        mesh.requireActiveVertex(startVertexId);
-        mesh.requireActiveVertex(endVertexId);
         validateDistinctVertices(startVertexId, endVertexId);
         ensureDirectedEdgeAvailable(mesh, startVertexId, endVertexId);
         return createEdgePair(mesh, startVertexId, endVertexId);
@@ -80,7 +78,6 @@ public class HalfEdgeMeshEngine {
      * @param faceId active face id to remove
      */
     public static void removeFace(HalfEdgeMesh mesh, int faceId) {
-        mesh.requireActiveFace(faceId);
 
         int[] vertices = mesh.faceVertices.get(faceId).toArray();
         int[] halfEdges = mesh.faceHalfEdges.get(faceId).toArray();
@@ -116,7 +113,6 @@ public class HalfEdgeMeshEngine {
      * @throws InvalidMeshTopologyException if the edge is incomplete or still attached to a face
      */
     public static void removeEdge(HalfEdgeMesh mesh, int edgeId) {
-        mesh.requireActiveEdge(edgeId);
 
         int firstHalfEdge = mesh.edgeHalfEdge[edgeId];
         int secondHalfEdge = mesh.halfEdgeTwin[firstHalfEdge];
@@ -140,7 +136,6 @@ public class HalfEdgeMeshEngine {
      * @throws InvalidMeshTopologyException if the vertex is still connected to any topology
      */
     public static void removeVertex(HalfEdgeMesh mesh, int vertexId) {
-        mesh.requireActiveVertex(vertexId);
         if (!mesh.vertexOutgoingHalfEdges.get(vertexId).isEmpty()
                 || !mesh.vertexEdges.get(vertexId).isEmpty()
                 || !mesh.vertexFaces.get(vertexId).isEmpty()) {
@@ -496,8 +491,6 @@ public class HalfEdgeMeshEngine {
         for (int i = 0; i < vertexIds.length; i++) {
             int startVertexId = vertexIds[i];
             int endVertexId = vertexIds[(i + 1) % vertexIds.length];
-            mesh.requireActiveVertex(startVertexId);
-            mesh.requireActiveVertex(endVertexId);
             validateDistinctVertices(startVertexId, endVertexId);
 
             int halfEdgeId = ensureEdgePair(mesh, startVertexId, endVertexId);

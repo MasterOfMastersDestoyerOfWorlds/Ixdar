@@ -56,7 +56,7 @@ public class CrossField {
     public static final int LOCAL_SEARCH_COUNT_REDUCTION_BUDGET = 8;
     public static final int INITIAL_NONZEROS_PER_EDGE = 4;
     public static final int[] LOCAL_SEARCH_DELTAS = { -1, 1, -2, 2 };
-    public static final java.util.Set<Integer> TRACE_VIDS = java.util.Arrays.stream(
+    public static final Set<Integer> TRACE_VIDS = Arrays.stream(
             System.getProperty("crossField.traceVids", "").split(","))
             .map(String::trim)
             .filter(s -> !s.isEmpty() && s.chars().allMatch(c -> Character.isDigit(c) || c == '-'))
@@ -215,8 +215,8 @@ public class CrossField {
         this.faceY = new Vector3f[faceCount];
 
         faceIdToActive = new HashMap<>(mesh.faceCount() * 2);
-        for (int i1 = 0; i1 < mesh.faceCount(); i1++) {
-            faceIdToActive.put(mesh.faceIdAt(i1), i1);
+        for (int i = 0; i < mesh.faceCount(); i++) {
+            faceIdToActive.put(mesh.faceIdAt(i), i);
         }
         edgeIdToActive = new HashMap<>(mesh.edgeCount() * 2);
         for (int i = 0; i < mesh.edgeCount(); i++) {
@@ -231,11 +231,11 @@ public class CrossField {
         Vector3f b = new Vector3f();
         Vector3f n = new Vector3f();
 
-        for (int fAi = 0; fAi < mesh.faceCount(); fAi++) {
-            int fId = mesh.faceIdAt(fAi);
-            int he = mesh.faceHalfEdge(fId);
-            int v0 = mesh.halfEdgeVertex(he);
-            int v1 = mesh.halfEdgeEndVertex(he);
+        for (int faceIndex = 0; faceIndex < mesh.faceCount(); faceIndex++) {
+            int fId = mesh.faceIdAt(faceIndex);
+            int halfEdge = mesh.faceHalfEdge(fId);
+            int v0 = mesh.halfEdgeVertex(halfEdge);
+            int v1 = mesh.halfEdgeEndVertex(halfEdge);
 
             mesh.vertexPosition(v0, a);
             mesh.vertexPosition(v1, b);
@@ -256,8 +256,8 @@ public class CrossField {
             Vector3f yAxis = new Vector3f();
             n.cross(xAxis, yAxis).normalize();
 
-            faceX[fAi] = xAxis;
-            faceY[fAi] = yAxis;
+            faceX[faceIndex] = xAxis;
+            faceY[faceIndex] = yAxis;
         }
 
         /*
@@ -309,7 +309,16 @@ public class CrossField {
             float dihedral = (float) Math.atan2(sinD, cosD);
 
             xiTransported.set(faceX[fiAi1]);
-            rotateAboutAxis(xiTransported, edgeDir, dihedral);
+
+            float c = (float) Math.cos(dihedral);
+            float s = (float) Math.sin(dihedral);
+            Vector3f kCrossV = new Vector3f();
+            edgeDir.cross(xiTransported, kCrossV);
+            float kDotV = edgeDir.dot(xiTransported);
+            float oneMinusC = 1f - c;
+            xiTransported.x = xiTransported.x * c + kCrossV.x * s + edgeDir.x * kDotV * oneMinusC;
+            xiTransported.y = xiTransported.y * c + kCrossV.y * s + edgeDir.y * kDotV * oneMinusC;
+            xiTransported.z = xiTransported.z * c + kCrossV.z * s + edgeDir.z * kDotV * oneMinusC;
 
             float ax = xiTransported.dot(faceX[fjAi1]);
             float ay = xiTransported.dot(faceY[fjAi1]);
@@ -321,11 +330,11 @@ public class CrossField {
         float[] faceConstraintAngle = new float[faceCount];
         Arrays.fill(faceConstraintAngle, Float.NaN);
 
-        float averageEdgeLength = computeAverageEdgeLength();
+        float averageEdgeLength = mesh.computeAverageEdgeLength();
         float boundingSphereRadius = computeBoundingSphereRadius();
         float curvatureK = curvatureScaleK / Math.max(boundingSphereRadius, EPSILON_FP_TOLERANCE);
 
-        int featureConstraints = applyFeatureEdgeConstraints(faceConstrained, faceConstraintAngle);
+        applyFeatureEdgeConstraints(faceConstrained, faceConstraintAngle);
         int boundaryConstraints = applyBoundaryConstraints(faceConstrained, faceConstraintAngle);
         int curvatureConstraints = applyCurvatureConstraints(
                 faceConstrained, faceConstraintAngle, averageEdgeLength, curvatureK);
@@ -378,14 +387,14 @@ public class CrossField {
 
         SmoothEnergySystem system = new SmoothEnergySystem(faceCount, edgeCount,
                 faceConstrained, faceConstraintAngle, periodFixed, periodValue);
-        system.assemble();
+        system.assemble(mesh, faceIdToActive, kappa, solverLocalMaxIterations, solverCgMaxIterations);
         long a4Assembled = profilePhase("A4 assemble", phaseStart, faceCount, edgeCount);
         printProblemDiagnostics(averageEdgeLength, boundingSphereRadius, curvatureK,
                 curvatureConstraints, boundaryConstraints, totalConstraints,
                 forestEdgeAi.size(), boundaryPeriodFixes, constrainedPeriodFixes,
                 periodFixed, system);
-        system.solveGreedyMIP();
-        system.unpackInto(this);
+        system.solveGreedyMIP(lastDiagnostics);
+        system.unpackInto(mesh, this);
         phaseStart = profilePhase("A4 greedy MIP", a4Assembled, faceCount, edgeCount);
 
         extractSingularities();
@@ -763,8 +772,9 @@ public class CrossField {
 
     /**
      * Print elapsed wall time since {@code startNs} for {@code phase} when
-     * {@code -DcrossField.profile=true} is set. Returns {@code System.nanoTime()}
-     * so call sites can chain phases without restating the clock.
+     * {@code -DcrossField.profile=true} is set. Returns
+     * {@code System.nanoTime()}.*requireActiveHalfEdge.* so call sites can chain
+     * phases without restating the clock.
      *
      * @param phase     phase label (e.g. "A1 frames")
      * @param startNs   nanoTime captured at the previous phase boundary
@@ -785,94 +795,20 @@ public class CrossField {
      * Pick an arbitrary unit vector in the tangent plane defined by {@code n}. Used
      * as a fallback when the natural x-axis collapses to zero length.
      *
-     * @param n   unit face normal
-     * @param out scratch vector overwritten with a unit tangent perpendicular to
-     *            {@code n}
+     * @param normal unit face normal
+     * @param out    scratch vector overwritten with a unit tangent perpendicular to
+     *               {@code n}
      */
-    public static void arbitraryTangent(Vector3f n, Vector3f out) {
-        if (Math.abs(n.x) < BASIS_AXIS_PICK_THRESHOLD)
+    public static void arbitraryTangent(Vector3f normal, Vector3f out) {
+        if (Math.abs(normal.x) < BASIS_AXIS_PICK_THRESHOLD)
             out.set(1f, 0f, 0f);
         else
             out.set(0f, 1f, 0f);
-        float dotN = out.dot(n);
-        out.x -= dotN * n.x;
-        out.y -= dotN * n.y;
-        out.z -= dotN * n.z;
+        float dot = out.dot(normal);
+        out.x -= dot * normal.x;
+        out.y -= dot * normal.y;
+        out.z -= dot * normal.z;
         out.normalize();
-    }
-
-    /**
-     * Recompute the per-edge transport angles {@link #kappa} from {@link #faceX} /
-     * {@link #faceY}. Boundary and degenerate edges receive zero κ.
-     */
-    public void buildTransportAngles() {
-        Vector3f v0 = new Vector3f();
-        Vector3f v1 = new Vector3f();
-        Vector3f edgeDir = new Vector3f();
-        Vector3f ni = new Vector3f();
-        Vector3f nj = new Vector3f();
-        Vector3f cross = new Vector3f();
-        Vector3f xiTransported = new Vector3f();
-
-        for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
-            int eId = mesh.edgeIdAt(eAi);
-            if (mesh.isBoundaryEdge(eId)) {
-                kappa[eAi] = 0f;
-                continue;
-            }
-            int he = mesh.edgeHalfEdge(eId);
-            int twin = mesh.halfEdgeTwin(he);
-            int fiId = mesh.halfEdgeFace(he);
-            int fjId = mesh.halfEdgeFace(twin);
-            int fiAi = faceIdToActive.get(fiId);
-            int fjAi = faceIdToActive.get(fjId);
-
-            int v0Id = mesh.halfEdgeVertex(he);
-            int v1Id = mesh.halfEdgeEndVertex(he);
-            mesh.vertexPosition(v0Id, v0);
-            mesh.vertexPosition(v1Id, v1);
-            edgeDir.set(v1).sub(v0);
-            float edgeLen = edgeDir.length();
-            if (edgeLen < EPSILON_DEGENERATE) {
-                kappa[eAi] = 0f;
-                continue;
-            }
-            edgeDir.div(edgeLen);
-
-            mesh.faceNormal(fiId, ni);
-            mesh.faceNormal(fjId, nj);
-
-            float cosD = Math.max(-1f, Math.min(1f, ni.dot(nj)));
-            ni.cross(nj, cross);
-            float sinD = cross.dot(edgeDir);
-            float dihedral = (float) Math.atan2(sinD, cosD);
-
-            xiTransported.set(faceX[fiAi]);
-            rotateAboutAxis(xiTransported, edgeDir, dihedral);
-
-            float ax = xiTransported.dot(faceX[fjAi]);
-            float ay = xiTransported.dot(faceY[fjAi]);
-            kappa[eAi] = (float) Math.atan2(ay, ax);
-        }
-    }
-
-    /**
-     * Rodrigues rotation: rotate v about unit axis k by angle θ, in place.
-     *
-     * @param v     vector rotated in place
-     * @param k     unit rotation axis
-     * @param theta rotation angle in radians
-     */
-    public static void rotateAboutAxis(Vector3f v, Vector3f k, float theta) {
-        float c = (float) Math.cos(theta);
-        float s = (float) Math.sin(theta);
-        Vector3f kCrossV = new Vector3f();
-        k.cross(v, kCrossV);
-        float kDotV = k.dot(v);
-        float oneMinusC = 1f - c;
-        v.x = v.x * c + kCrossV.x * s + k.x * kDotV * oneMinusC;
-        v.y = v.y * c + kCrossV.y * s + k.y * kDotV * oneMinusC;
-        v.z = v.z * c + kCrossV.z * s + k.z * kDotV * oneMinusC;
     }
 
     /**
@@ -924,7 +860,8 @@ public class CrossField {
             }
             mesh.vertexPosition(vId, vPos);
             mesh.vertexNormal(vId, vNormal);
-            tangentFrame(vNormal, e1, e2);
+            arbitraryTangent(vNormal, e1);
+            vNormal.cross(e1, e2).normalize();
 
             List<Float> anglesMaxDir = new ArrayList<>();
             List<Float> kappaMaxList = new ArrayList<>();
@@ -1112,40 +1049,8 @@ public class CrossField {
      * @return the resolved target edge length {@code h}
      */
     public float resolvedTargetEdgeLength(float averageEdgeLength) {
-        float target = targetEdgeLengthFractionOfBounds * computeBoundingBoxDiagonal();
+        float target = targetEdgeLengthFractionOfBounds * mesh.computeBoundingBoxDiagonal();
         return target > 0f ? target : averageEdgeLength;
-    }
-
-    /**
-     * Bounding-box diagonal length over active vertices.
-     *
-     * @return diagonal of the axis-aligned bounding box of the active vertices, or
-     *         0 for an empty mesh
-     */
-    public float computeBoundingBoxDiagonal() {
-        if (mesh.vertexCount() == 0) {
-            return 0f;
-        }
-        Vector3f p = new Vector3f();
-        float minX = Float.POSITIVE_INFINITY;
-        float minY = Float.POSITIVE_INFINITY;
-        float minZ = Float.POSITIVE_INFINITY;
-        float maxX = Float.NEGATIVE_INFINITY;
-        float maxY = Float.NEGATIVE_INFINITY;
-        float maxZ = Float.NEGATIVE_INFINITY;
-        for (int vAi = 0; vAi < mesh.vertexCount(); vAi++) {
-            mesh.vertexPosition(mesh.vertexIdAt(vAi), p);
-            minX = Math.min(minX, p.x);
-            minY = Math.min(minY, p.y);
-            minZ = Math.min(minZ, p.z);
-            maxX = Math.max(maxX, p.x);
-            maxY = Math.max(maxY, p.y);
-            maxZ = Math.max(maxZ, p.z);
-        }
-        float dx = maxX - minX;
-        float dy = maxY - minY;
-        float dz = maxZ - minZ;
-        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
     /**
@@ -1153,32 +1058,19 @@ public class CrossField {
      * x).
      *
      * @param dirWorld 3D direction in world coordinates
-     * @param fAi      face active index
+     * @param faceIndex      face active index
      * @return signed angle of the projected direction in face-local frame, in
      *         radians
      */
-    public float projectDirectionToFaceAngle(Vector3f dirWorld, int fAi) {
+    public float projectDirectionToFaceAngle(Vector3f dirWorld, int faceIndex) {
         Vector3f n = new Vector3f();
-        mesh.faceNormal(mesh.faceIdAt(fAi), n);
+        mesh.faceNormal(mesh.faceIdAt(faceIndex), n);
         float dotN = dirWorld.dot(n);
         Vector3f planar = new Vector3f(
                 dirWorld.x - dotN * n.x,
                 dirWorld.y - dotN * n.y,
                 dirWorld.z - dotN * n.z);
-        return (float) Math.atan2(planar.dot(faceY[fAi]), planar.dot(faceX[fAi]));
-    }
-
-    /**
-     * Build a tangent-frame (e1, e2) for normal n.
-     *
-     * @param n  unit face normal
-     * @param e1 scratch vector overwritten with a unit tangent perpendicular to
-     *           {@code n}
-     * @param e2 scratch vector overwritten with {@code n × e1}
-     */
-    public static void tangentFrame(Vector3f n, Vector3f e1, Vector3f e2) {
-        arbitraryTangent(n, e1);
-        n.cross(e1, e2).normalize();
+        return (float) Math.atan2(planar.dot(faceY[faceIndex]), planar.dot(faceX[faceIndex]));
     }
 
     /**
@@ -1789,7 +1681,7 @@ public class CrossField {
         System.out.printf(
                 "[cross-field] bzk tauMin=%.3f K=%.6g avgEdge=%.6g targetH=%.6g bboxDiag=%.6g hFraction=%.3g boundingRadius=%.6g r0=%.6g r1=%.6g%n",
                 tauMin, curvatureK, averageEdgeLength, resolvedTargetEdgeLength(averageEdgeLength),
-                computeBoundingBoxDiagonal(), targetEdgeLengthFractionOfBounds,
+                mesh.computeBoundingBoxDiagonal(), targetEdgeLengthFractionOfBounds,
                 boundingSphereRadius, radiusStartMul * averageEdgeLength,
                 resolvedTargetEdgeLength(averageEdgeLength));
         System.out.printf(
@@ -1822,7 +1714,6 @@ public class CrossField {
      * @param system the smooth-energy linear system after the greedy MIP solve
      */
     public void printSolutionDiagnostics(SmoothEnergySystem system) {
-        SmoothnessStats stats = smoothnessStats();
         double avgBatch = system.batchCount > 0
                 ? (double) system.totalBatchSize / system.batchCount
                 : 0.0;
@@ -1837,53 +1728,12 @@ public class CrossField {
                 system.maxLocalCapResidual, avgInitialQueue, system.maxLocalQueueSize,
                 system.batchCount, avgBatch, system.maxBatchSize,
                 system.batchRejectedByOverlap, system.batchRejectedByRoundoff);
-        System.out.printf(
-                "[cross-field] smoothEnergy=%.6g maxResidual=%.6g singularityHistogram=%s%n",
-                stats.energy, stats.maxResidual, singularityHistogram());
-    }
 
-    /**
-     * Snapshot of smoothness energy and per-edge residual statistics.
-     *
-     * @return aggregate smoothness energy and per-edge residual stats over the
-     *         current θ / κ / period-jump arrays
-     */
-    public SmoothnessStats smoothnessStats() {
-        float halfPi = (float) (Math.PI / 2.0);
-        double energy = 0.0;
-        double maxResidual = 0.0;
-        int[] buckets = new int[RESIDUAL_HISTOGRAM_BUCKETS];
-        for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
-            int eId = mesh.edgeIdAt(eAi);
-            if (mesh.isBoundaryEdge(eId))
-                continue;
-            int he = mesh.edgeHalfEdge(eId);
-            int twin = mesh.halfEdgeTwin(he);
-            int fi = faceIdToActive.get(mesh.halfEdgeFace(he));
-            int fj = faceIdToActive.get(mesh.halfEdgeFace(twin));
-            double residual = theta[fi] + kappa[eAi] + halfPi * periodJump[eAi] - theta[fj];
-            energy += residual * residual;
-            maxResidual = Math.max(maxResidual, Math.abs(residual));
-            int b = Math.min(RESIDUAL_HISTOGRAM_LAST_BUCKET,
-                    (int) (Math.abs(residual) / (Math.PI / RESIDUAL_HISTOGRAM_BIN_DIVISOR)));
-            buckets[b]++;
-        }
-        System.err.println("[res] " + Arrays.toString(buckets));
-        return new SmoothnessStats(energy, maxResidual);
-    }
-
-    /**
-     * Histogram of singularity indices for the current solution.
-     *
-     * @return string representation of the {index ×4 → count} histogram of
-     *         {@link #singularities}
-     */
-    public String singularityHistogram() {
         Map<Integer, Integer> histogram = new HashMap<>();
         for (Singularity s : singularities) {
             histogram.merge(s.index4(), 1, Integer::sum);
         }
-        return histogram.toString();
+        System.out.printf("[cross-field] singularityHistogram=%s%n", histogram);
     }
 
     /**
@@ -1899,30 +1749,6 @@ public class CrossField {
                 count++;
         }
         return count;
-    }
-
-    /**
-     * Mean Euclidean length of active edges.
-     *
-     * @return mean Euclidean length of active edges, or 1 for an empty mesh
-     */
-    public float computeAverageEdgeLength() {
-        Vector3f a = new Vector3f();
-        Vector3f b = new Vector3f();
-        double sum = 0;
-        int count = 0;
-        for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
-            int eId = mesh.edgeIdAt(eAi);
-            int he = mesh.edgeHalfEdge(eId);
-            mesh.vertexPosition(mesh.halfEdgeVertex(he), a);
-            mesh.vertexPosition(mesh.halfEdgeEndVertex(he), b);
-            sum += Math.sqrt(
-                    (b.x - a.x) * (b.x - a.x) +
-                            (b.y - a.y) * (b.y - a.y) +
-                            (b.z - a.z) * (b.z - a.z));
-            count++;
-        }
-        return count == 0 ? 1f : (float) (sum / count);
     }
 
     /**
@@ -2036,565 +1862,4 @@ public class CrossField {
         }
     }
 
-    /*
-     * A4. Smooth-energy MIP solver (greedy rounding of period jumps)
-     *
-     * Energy: E = Σ_e (θ_i + κ_ij + (π/2)·p_ij − θ_j)² non-boundary edges
-     *
-     * Each row r of the design matrix A: A[r, θ_i] = +1 A[r, θ_j] = −1 A[r, p_e] =
-     * +π/2 with rhs b[r] = −κ_ij so that residual = A·x − b.
-     *
-     * Hard constraints (θ̂_f for f ∈ F_c, p̂_e for e ∈ fixed_edges) are applied by
-     * elimination — we move them to the rhs and solve the reduced normal equations
-     * Hᵣ · x_free = gᵣ via Conjugate Gradient.
-     *
-     * Greedy MIP rounding (BZK09 §2): while any free p variable remains:
-     * relax-solve, then fix the free p with the smallest |p − round(p)|
-     */
-
-    public final class SmoothEnergySystem {
-        public static final double DEFAULT_LOCAL_TOLERANCE = 1e-6;
-        public static final int DEFAULT_ROUND_BATCH_SIZE = 256;
-        public static final double DEFAULT_ROUND_BATCH_TOLERANCE = 0.15;
-        public static final double DEFAULT_CG_TOLERANCE = 1e-7;
-        final int faceCount;
-        final int edgeCount;
-        final boolean[] faceConstrained;
-        final float[] faceConstraintAngle;
-        final boolean[] periodFixedInit;
-        final int[] periodValue;
-
-        int[] rowFaceI;
-        int[] rowFaceJ;
-        int[] rowEdgeAi;
-        float[] rowKappa;
-        int rowCount;
-        int[] chordOfEdge;
-        int[] edgeOfChord;
-        int chordCount;
-
-        float[] solutionTheta;
-        float[] solutionPeriod;
-        boolean[] periodFixed;
-        boolean[] fixedVariables;
-        double[] solution;
-        NormalMatrix normalMatrix;
-        AdaptiveSolver.Options adaptiveOptions;
-        int roundBatchSize;
-        double roundBatchTol;
-        int localGsConverged;
-        int cgConverged;
-        int directFallbacks;
-        int failedSolves;
-        int totalLocalGsIterations;
-        int totalCgIterations;
-        int localGsCapHits;
-        int totalLocalInitialQueueSize;
-        int maxLocalQueueSize;
-        double maxLocalCapResidual;
-        int localCapFaceRows;
-        int localCapChordRows;
-        int roundedPeriods;
-        int batchCount;
-        int totalBatchSize;
-        int maxBatchSize;
-        int batchRejectedByOverlap;
-        int batchRejectedByRoundoff;
-        String lastAdaptiveMethod = "none";
-        double lastAdaptiveResidual;
-
-        SmoothEnergySystem(int faceCount, int edgeCount,
-                boolean[] faceConstrained, float[] faceConstraintAngle,
-                boolean[] periodFixed, int[] periodValue) {
-            this.faceCount = faceCount;
-            this.edgeCount = edgeCount;
-            this.faceConstrained = faceConstrained;
-            this.faceConstraintAngle = faceConstraintAngle;
-            this.periodFixedInit = periodFixed;
-            this.periodValue = periodValue;
-        }
-
-        void assemble() {
-
-            int nbCount = 0;
-            for (int eAi = 0; eAi < edgeCount; eAi++) {
-                if (!mesh.isBoundaryEdge(mesh.edgeIdAt(eAi)))
-                    nbCount++;
-            }
-            rowFaceI = new int[nbCount];
-            rowFaceJ = new int[nbCount];
-            rowEdgeAi = new int[nbCount];
-            rowKappa = new float[nbCount];
-            rowCount = 0;
-            for (int eAi = 0; eAi < edgeCount; eAi++) {
-                int eId = mesh.edgeIdAt(eAi);
-                if (mesh.isBoundaryEdge(eId))
-                    continue;
-                int he = mesh.edgeHalfEdge(eId);
-                int twin = mesh.halfEdgeTwin(he);
-                rowFaceI[rowCount] = faceIdToActive.get(mesh.halfEdgeFace(he));
-                rowFaceJ[rowCount] = faceIdToActive.get(mesh.halfEdgeFace(twin));
-                rowEdgeAi[rowCount] = eAi;
-                rowKappa[rowCount] = kappa[eAi];
-                rowCount++;
-            }
-
-            periodFixed = periodFixedInit.clone();
-            chordOfEdge = new int[edgeCount];
-            Arrays.fill(chordOfEdge, -1);
-            chordCount = 0;
-            for (int eAi = 0; eAi < edgeCount; eAi++) {
-                if (!periodFixed[eAi]) {
-                    chordOfEdge[eAi] = chordCount++;
-                }
-            }
-            edgeOfChord = new int[chordCount];
-            for (int eAi = 0; eAi < edgeCount; eAi++) {
-                int chord = chordOfEdge[eAi];
-                if (chord >= 0) {
-                    edgeOfChord[chord] = eAi;
-                }
-            }
-
-            solutionTheta = new float[faceCount];
-            solutionPeriod = new float[edgeCount];
-            solution = new double[faceCount + chordCount];
-            fixedVariables = new boolean[faceCount + chordCount];
-            for (int fAi = 0; fAi < faceCount; fAi++) {
-                solutionTheta[fAi] = faceConstrained[fAi] ? faceConstraintAngle[fAi] : 0f;
-                solution[fAi] = solutionTheta[fAi];
-                fixedVariables[fAi] = faceConstrained[fAi];
-            }
-            for (int eAi = 0; eAi < edgeCount; eAi++) {
-                solutionPeriod[eAi] = periodFixed[eAi] ? periodValue[eAi] : 0f;
-                int chord = chordOfEdge[eAi];
-                if (chord >= 0) {
-                    solution[faceCount + chord] = solutionPeriod[eAi];
-                }
-            }
-            normalMatrix = new NormalMatrix();
-            adaptiveOptions = new AdaptiveSolver.Options();
-            adaptiveOptions.localMaxIterations = solverLocalMaxIterations;
-            adaptiveOptions.localTolerance = DEFAULT_LOCAL_TOLERANCE;
-            adaptiveOptions.cgMaxIterations = solverCgMaxIterations;
-            adaptiveOptions.cgTolerance = DEFAULT_CG_TOLERANCE;
-            adaptiveOptions.useDirectFallback = true;
-
-            roundBatchSize = DEFAULT_ROUND_BATCH_SIZE;
-            roundBatchTol = DEFAULT_ROUND_BATCH_TOLERANCE;
-        }
-
-        void solveGreedyMIP() {
-            lastAdaptiveMethod = "BOOTSTRAP_DIRECT_PENDING";
-            lastAdaptiveResidual = Double.NaN;
-            updateLastDiagnostics();
-            solveRelaxed(-1);
-            updateLastDiagnostics();
-            int[] roundedVariables = new int[roundBatchSize];
-            int[] roundedEdges = new int[roundBatchSize];
-            int[] patch = new int[normalMatrix.size()];
-            boolean[] patchMarked = new boolean[normalMatrix.size()];
-            boolean[] candidateMarked = new boolean[normalMatrix.size()];
-            BatchCandidate[] candidates = new BatchCandidate[chordCount];
-            while (true) {
-                int candidateCount = buildBatchCandidates(candidates);
-                if (candidateCount == 0)
-                    break;
-                int batchSize = selectRoundingBatch(candidates, candidateCount,
-                        roundedVariables, roundedEdges, patch, patchMarked, candidateMarked);
-                if (batchSize == 0) {
-                    break;
-                }
-                for (int i = 0; i < batchSize; i++) {
-                    int variable = roundedVariables[i];
-                    int eAi = roundedEdges[i];
-                    int rounded = (int) Math.round(solution[variable]);
-                    double roundoffAmount = Math.abs(solution[variable] - rounded);
-
-                    periodFixed[eAi] = true;
-                    periodValue[eAi] = rounded;
-                    solutionPeriod[eAi] = rounded;
-                    solution[variable] = rounded;
-                    fixedVariables[variable] = true;
-                }
-                roundedPeriods += batchSize;
-                batchCount++;
-                totalBatchSize += batchSize;
-                maxBatchSize = Math.max(maxBatchSize, batchSize);
-                lastAdaptiveMethod = batchSize == 1 ? "ROUND_LOCAL_GS_PENDING" : "BATCH_LOCAL_GS_PENDING";
-                lastAdaptiveResidual = Double.NaN;
-                updateLastDiagnostics();
-                solveRelaxed(roundedVariables, batchSize);
-                updateLastDiagnostics();
-            }
-        }
-
-        /**
-         * Populate {@code candidates} with the free chords ordered ascending by
-         * roundoff distance to the nearest integer; respects {@link #roundBatchTol}
-         * when batching is on.
-         *
-         * @param candidates output array sized at least {@link #chordCount}
-         * @return number of valid entries written to {@code candidates}
-         */
-        public int buildBatchCandidates(BatchCandidate[] candidates) {
-            int candidateCount = 0;
-            int rejectedByRoundoff = 0;
-            BatchCandidate best = null;
-            for (int chord = 0; chord < chordCount; chord++) {
-                int eAi = edgeOfChord[chord];
-                if (periodFixed[eAi]) {
-                    continue;
-                }
-                double value = solution[faceCount + chord];
-                BatchCandidate candidate = new BatchCandidate(
-                        chord, eAi, Math.abs(value - Math.rint(value)));
-                if (best == null || candidate.roundoff < best.roundoff) {
-                    best = candidate;
-                }
-                if (roundBatchSize == 1 || candidate.roundoff <= roundBatchTol) {
-                    candidates[candidateCount++] = candidate;
-                } else {
-                    rejectedByRoundoff++;
-                }
-            }
-            if (roundBatchSize == 1) {
-                if (best == null) {
-                    return 0;
-                }
-                candidates[0] = best;
-                return 1;
-            }
-            if (candidateCount == 0) {
-                if (best == null) {
-                    return 0;
-                }
-                candidates[0] = best;
-                return 1;
-            }
-            Arrays.sort(candidates, 0, candidateCount,
-                    (a, b) -> Double.compare(a.roundoff, b.roundoff));
-            batchRejectedByRoundoff += rejectedByRoundoff;
-            return candidateCount;
-        }
-
-        /**
-         * Pick a non-overlapping subset of {@code candidates} (each variable's two-hop
-         * dependency patch must be disjoint within the batch) of size up to
-         * {@link #roundBatchSize}.
-         *
-         * @param candidates       roundoff-sorted candidate list
-         * @param candidateCount   valid prefix length of {@code candidates}
-         * @param roundedVariables output buffer for picked variable indices
-         * @param roundedEdges     output buffer for picked edge active indices
-         * @param candidatePatch   scratch buffer for one candidate's patch members
-         * @param selectedPatch    scratch flag array marking variables already claimed
-         *                         by the batch
-         * @param candidateMarked  scratch marker buffer for
-         *                         {@link AdaptiveSolver#collectAffectedPatch}
-         * @return number of variables admitted to the batch
-         */
-        public int selectRoundingBatch(BatchCandidate[] candidates,
-                int candidateCount,
-                int[] roundedVariables,
-                int[] roundedEdges,
-                int[] candidatePatch,
-                boolean[] selectedPatch,
-                boolean[] candidateMarked) {
-            Arrays.fill(selectedPatch, false);
-            int batchSize = 0;
-            for (int i = 0; i < candidateCount && batchSize < roundBatchSize; i++) {
-                BatchCandidate candidate = candidates[i];
-                int variable = faceCount + candidate.chord;
-                int patchCount = AdaptiveSolver.collectAffectedPatch(
-                        normalMatrix, variable, fixedVariables, candidatePatch, candidateMarked);
-                boolean overlaps = false;
-                for (int p = 0; p < patchCount; p++) {
-                    if (selectedPatch[candidatePatch[p]]) {
-                        overlaps = true;
-                        break;
-                    }
-                }
-                if (overlaps) {
-                    batchRejectedByOverlap++;
-                } else {
-                    roundedVariables[batchSize] = variable;
-                    roundedEdges[batchSize] = candidate.edgeAi;
-                    batchSize++;
-                    for (int p = 0; p < patchCount; p++) {
-                        selectedPatch[candidatePatch[p]] = true;
-                    }
-                }
-                for (int p = 0; p < patchCount; p++) {
-                    candidateMarked[candidatePatch[p]] = false;
-                }
-            }
-            return batchSize;
-        }
-
-        /**
-         * Continuous L2 solve with currently-fixed variables held constant. Uses the
-         * BZK09 adaptive ladder: local GS, then CG, then direct fallback.
-         *
-         * @param roundedVariable variable index just rounded, or negative for the
-         *                        bootstrap (no rounded variable yet)
-         */
-        void solveRelaxed(int roundedVariable) {
-            if (roundedVariable < 0) {
-                solveRelaxed((int[]) null, 0);
-                return;
-            }
-            solveRelaxed(new int[] { roundedVariable }, 1);
-        }
-
-        void solveRelaxed(int[] roundedVariables, int roundedCount) {
-            AdaptiveSolver.Result result = AdaptiveSolver.solveAfterRounding(
-                    normalMatrix, normalMatrix.rhs, solution, fixedVariables,
-                    roundedVariables, roundedCount, adaptiveOptions);
-            solution = result.x();
-            AdaptiveSolver.Stats stats = result.stats();
-            switch (stats.method()) {
-            case LOCAL_GAUSS_SEIDEL -> localGsConverged++;
-            case CONJUGATE_GRADIENT -> cgConverged++;
-            case DIRECT -> directFallbacks++;
-            case FAILED -> failedSolves++;
-            }
-            if (!stats.converged() && stats.method() != AdaptiveSolver.Method.FAILED) {
-                failedSolves++;
-            }
-            if (stats.localHitCap()) {
-                localGsCapHits++;
-                if (stats.capResidualRow() >= 0 && stats.capResidualRow() < faceCount) {
-                    localCapFaceRows++;
-                } else if (stats.capResidualRow() >= faceCount) {
-                    localCapChordRows++;
-                }
-                maxLocalCapResidual = Math.max(maxLocalCapResidual, stats.capResidualNorm());
-            }
-            totalLocalInitialQueueSize += stats.initialQueueSize();
-            maxLocalQueueSize = Math.max(maxLocalQueueSize, stats.maxQueueSize());
-            lastAdaptiveMethod = stats.method().name();
-            lastAdaptiveResidual = stats.residualNorm();
-            totalLocalGsIterations += stats.localIterations();
-            totalCgIterations += stats.cgIterations();
-            for (int fAi = 0; fAi < faceCount; fAi++) {
-                solutionTheta[fAi] = (float) solution[fAi];
-            }
-            for (int eAi = 0; eAi < edgeCount; eAi++) {
-                int chord = chordOfEdge[eAi];
-                if (chord >= 0) {
-                    solutionPeriod[eAi] = (float) solution[faceCount + chord];
-                } else {
-                    solutionPeriod[eAi] = periodValue[eAi];
-                }
-            }
-        }
-
-        /**
-         * Format and stash a one-line diagnostic snapshot in
-         * {@link CrossField#lastDiagnostics} (rounded count, batch / solver / cap
-         * stats).
-         */
-        public void updateLastDiagnostics() {
-            int remaining = 0;
-            for (int eAi = 0; eAi < edgeCount; eAi++) {
-                if (!periodFixed[eAi]) {
-                    remaining++;
-                }
-            }
-            double avgBatch = batchCount > 0 ? (double) totalBatchSize / batchCount : 0.0;
-            double avgInitialQueue = batchCount > 0
-                    ? (double) totalLocalInitialQueueSize / batchCount
-                    : 0.0;
-            lastDiagnostics = String.format(
-                    "[cross-field] failure-diagnostics rounded=%d remaining=%d batches=%d avgBatch=%.3f maxBatch=%d rejectOverlap=%d rejectRoundoff=%d localGS=%d cg=%d direct=%d failed=%d localIters=%d cgIters=%d localCapHits=%d capFace=%d capChord=%d maxCapResidual=%.6g avgSeedQueue=%.3f maxQueue=%d lastMethod=%s lastResidual=%.6g",
-                    roundedPeriods, remaining, batchCount, avgBatch, maxBatchSize,
-                    batchRejectedByOverlap, batchRejectedByRoundoff, localGsConverged,
-                    cgConverged, directFallbacks, failedSolves, totalLocalGsIterations,
-                    totalCgIterations, localGsCapHits, localCapFaceRows, localCapChordRows,
-                    maxLocalCapResidual, avgInitialQueue, maxLocalQueueSize,
-                    lastAdaptiveMethod, lastAdaptiveResidual);
-        }
-
-        void unpackInto(CrossField cf) {
-            cf.theta = solutionTheta.clone();
-            cf.periodJump = new int[edgeCount];
-            for (int eAi = 0; eAi < edgeCount; eAi++) {
-                int eId = mesh.edgeIdAt(eAi);
-                if (mesh.isBoundaryEdge(eId)) {
-                    cf.periodJump[eAi] = 0;
-                    continue;
-                }
-                int chord = chordOfEdge[eAi];
-                if (chord >= 0) {
-
-                    cf.periodJump[eAi] = (int) Math.round(solutionPeriod[eAi]);
-                } else {
-
-                    cf.periodJump[eAi] = periodValue[eAi];
-                }
-            }
-        }
-
-        public final class BatchCandidate {
-            final int chord;
-            final int edgeAi;
-            final double roundoff;
-
-            BatchCandidate(int chord, int edgeAi, double roundoff) {
-                this.chord = chord;
-                this.edgeAi = edgeAi;
-                this.roundoff = roundoff;
-            }
-        }
-
-        public final class NormalMatrix implements AdaptiveSolver.Matrix {
-            public static final double HALF = 0.5;
-            final int variableCount;
-            final double[] diag;
-            final double[] rhs;
-            final int[] rowStart;
-            final int[] rowCol;
-            final double[] rowVal;
-
-            NormalMatrix() {
-                variableCount = faceCount + chordCount;
-                diag = new double[variableCount];
-                rhs = new double[variableCount];
-
-                int[] degree = new int[variableCount];
-                for (int r = 0; r < rowCount; r++) {
-                    int fi = rowFaceI[r];
-                    int fj = rowFaceJ[r];
-                    int chord = chordOfEdge[rowEdgeAi[r]];
-                    if (chord >= 0) {
-                        int pe = faceCount + chord;
-                        degree[fi] += 2;
-                        degree[fj] += 2;
-                        degree[pe] += 2;
-                    } else {
-                        degree[fi] += 1;
-                        degree[fj] += 1;
-                    }
-                }
-
-                rowStart = new int[variableCount + 1];
-                for (int i = 0; i < variableCount; i++) {
-                    rowStart[i + 1] = rowStart[i] + degree[i];
-                }
-                rowCol = new int[rowStart[variableCount]];
-                rowVal = new double[rowStart[variableCount]];
-                int[] cursor = rowStart.clone();
-                double halfPi = Math.PI * HALF;
-
-                for (int r = 0; r < rowCount; r++) {
-                    int fi = rowFaceI[r];
-                    int fj = rowFaceJ[r];
-                    int eAi = rowEdgeAi[r];
-                    int chord = chordOfEdge[eAi];
-                    int pe = chord >= 0 ? faceCount + chord : -1;
-                    double k = rowKappa[r] + (chord < 0 ? halfPi * periodValue[eAi] : 0.0);
-
-                    diag[fi] += 1.0;
-                    diag[fj] += 1.0;
-
-                    addOffDiagonal(cursor, fi, fj, -1.0);
-                    addOffDiagonal(cursor, fj, fi, -1.0);
-
-                    rhs[fi] -= k;
-                    rhs[fj] += k;
-                    if (pe >= 0) {
-                        diag[pe] += halfPi * halfPi;
-
-                        addOffDiagonal(cursor, fi, pe, halfPi);
-                        addOffDiagonal(cursor, pe, fi, halfPi);
-                        addOffDiagonal(cursor, fj, pe, -halfPi);
-                        addOffDiagonal(cursor, pe, fj, -halfPi);
-
-                        rhs[pe] -= halfPi * k;
-                    }
-                }
-            }
-
-            /**
-             * Append one off-diagonal entry into the row's CSR slot, advancing the row's
-             * write cursor in {@code cursor}.
-             *
-             * @param cursor per-row write cursor (mutated)
-             * @param row    row index of the new entry
-             * @param col    column index of the new entry
-             * @param value  coefficient
-             */
-            public void addOffDiagonal(int[] cursor, int row, int col, double value) {
-                int i = cursor[row]++;
-                rowCol[i] = col;
-                rowVal[i] = value;
-            }
-
-            /** {@inheritDoc}. */
-            @Override
-            public int size() {
-                return variableCount;
-            }
-
-            /** {@inheritDoc}. */
-            @Override
-            public double diag(int row) {
-                return diag[row];
-            }
-
-            /** {@inheritDoc}. */
-            @Override
-            public int rowStart(int row) {
-                return rowStart[row];
-            }
-
-            /** {@inheritDoc}. */
-            @Override
-            public int rowEnd(int row) {
-                return rowStart[row + 1];
-            }
-
-            /** {@inheritDoc}. */
-            @Override
-            public int column(int cursor) {
-                return rowCol[cursor];
-            }
-
-            /** {@inheritDoc}. */
-            @Override
-            public double value(int cursor) {
-                return rowVal[cursor];
-            }
-        }
-    }
-
-    public static final class SmoothnessStats {
-        final double energy;
-        final double maxResidual;
-        int[] buckets = new int[8];
-
-        SmoothnessStats(double energy, double maxResidual) {
-            this.energy = energy;
-            this.maxResidual = maxResidual;
-        }
-
-        /**
-         * Total smoothness energy.
-         *
-         * @return Σ_e (θ_i + κ_e + (π/2)·p_e − θ_j)² over all interior edges
-         */
-        public double energy() {
-            return energy;
-        }
-
-        /**
-         * Largest per-edge residual.
-         *
-         * @return max |θ_i + κ_e + (π/2)·p_e − θ_j| (radians) over all interior edges
-         */
-        public double maxResidual() {
-            return maxResidual;
-        }
-    }
 }

@@ -15,7 +15,8 @@ import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 /**
  * Mutable half-edge mesh: separate id ranges for vertices, edges, faces, and
  * half-edges, each with an active flag and per-id parallel arrays plus
- * {@link IntIdList} adjacency. Editing methods delegate to {@link HalfEdgeMeshEngine}.
+ * {@link IntIdList} adjacency. Editing methods delegate to
+ * {@link HalfEdgeMeshEngine}.
  */
 public class HalfEdgeMesh implements MeshTopology, MeshValue {
     public static final String IS_NOT_ACTIVE = " is not active";
@@ -65,7 +66,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     int nextHalfEdgeId;
 
     /**
-     * Creates an empty mesh with small default capacity for incremental construction.
+     * Creates an empty mesh with small default capacity for incremental
+     * construction.
      */
     public HalfEdgeMesh() {
         this(NUM_4, NUM_4, NUM_4, NUM_8);
@@ -75,9 +77,9 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
      * Creates an empty mesh with hinted capacities to skip array growth during
      * incremental construction. All capacities are clamped to safe minima.
      *
-     * @param vertexCapacity expected number of vertices
-     * @param edgeCapacity   expected number of edges
-     * @param faceCapacity   expected number of faces
+     * @param vertexCapacity   expected number of vertices
+     * @param edgeCapacity     expected number of edges
+     * @param faceCapacity     expected number of faces
      * @param halfEdgeCapacity expected number of half-edges
      */
     public HalfEdgeMesh(int vertexCapacity, int edgeCapacity, int faceCapacity, int halfEdgeCapacity) {
@@ -130,14 +132,16 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Pre-sized topology for bulk quad construction (e.g. Catmull–Clark). Avoids array growth and
-     * HashMap rehash during {@link HalfEdgeMeshEngine#addFaceInternal}.
+     * Pre-sized topology for bulk quad construction (e.g. Catmull–Clark). Avoids
+     * array growth and HashMap rehash during
+     * {@link HalfEdgeMeshEngine#addFaceInternal}.
      *
-     * @param maxV exact vertex capacity to allocate
-     * @param maxE exact edge capacity to allocate
-     * @param maxF exact face capacity to allocate
-     * @param maxHe exact half-edge capacity to allocate
-     * @param mapCapacity initial capacity for the directed-edge HashMap (load factor 1.0)
+     * @param maxV        exact vertex capacity to allocate
+     * @param maxE        exact edge capacity to allocate
+     * @param maxF        exact face capacity to allocate
+     * @param maxHe       exact half-edge capacity to allocate
+     * @param mapCapacity initial capacity for the directed-edge HashMap (load
+     *                    factor 1.0)
      */
     public HalfEdgeMesh(int maxV, int maxE, int maxF, int maxHe, int mapCapacity) {
         this.halfEdgesByDirection = new HashMap<>(mapCapacity, 1.0f);
@@ -193,7 +197,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Convenience wrapper for {@link HalfEdgeMeshEngine#addVertex(HalfEdgeMesh, float, float, float)}.
+     * Convenience wrapper for
+     * {@link HalfEdgeMeshEngine#addVertex(HalfEdgeMesh, float, float, float)}.
      *
      * @param x x coordinate
      * @param y y coordinate
@@ -215,10 +220,11 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Convenience wrapper for {@link HalfEdgeMeshEngine#addEdge(HalfEdgeMesh, int, int)}.
+     * Convenience wrapper for
+     * {@link HalfEdgeMeshEngine#addEdge(HalfEdgeMesh, int, int)}.
      *
      * @param startVertexId active vertex on one end
-     * @param endVertexId active vertex on the other end
+     * @param endVertexId   active vertex on the other end
      * @return id of the newly created edge
      */
     public int addEdge(int startVertexId, int endVertexId) {
@@ -226,8 +232,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Adds a face without updating normals. Call {@link #computeNormals()} when the mesh is finished
-     * (or after edits that should refresh shading).
+     * Adds a face without updating normals. Call {@link #computeNormals()} when the
+     * mesh is finished (or after edits that should refresh shading).
      *
      * @param vertexIds ordered vertex ids defining the face (length &ge; 3)
      * @return id of the newly created face
@@ -237,7 +243,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Convenience wrapper for {@link HalfEdgeMeshEngine#removeFace(HalfEdgeMesh, int)}.
+     * Convenience wrapper for
+     * {@link HalfEdgeMeshEngine#removeFace(HalfEdgeMesh, int)}.
      *
      * @param faceId active face id to remove
      */
@@ -246,7 +253,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Convenience wrapper for {@link HalfEdgeMeshEngine#removeEdge(HalfEdgeMesh, int)}.
+     * Convenience wrapper for
+     * {@link HalfEdgeMeshEngine#removeEdge(HalfEdgeMesh, int)}.
      *
      * @param edgeId active edge id with no incident faces
      */
@@ -255,7 +263,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Convenience wrapper for {@link HalfEdgeMeshEngine#removeVertex(HalfEdgeMesh, int)}.
+     * Convenience wrapper for
+     * {@link HalfEdgeMeshEngine#removeVertex(HalfEdgeMesh, int)}.
      *
      * @param vertexId active vertex id with no incident topology
      */
@@ -264,25 +273,29 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Convenience wrapper for {@link HalfEdgeMeshEngine#computeNormals(HalfEdgeMesh)}.
+     * Convenience wrapper for
+     * {@link HalfEdgeMeshEngine#computeNormals(HalfEdgeMesh)}.
      */
     public void computeNormals() {
         HalfEdgeMeshEngine.computeNormals(this);
     }
 
     /**
-     * Convenience wrapper for {@link HalfEdgeMeshEngine#compileSurfaceData(HalfEdgeMesh)}.
+     * Convenience wrapper for
+     * {@link HalfEdgeMeshEngine#compileSurfaceData(HalfEdgeMesh)}.
      *
-     * @return GPU-ready interleaved vertex data, triangulated indices, bounds, and bounding sphere
+     * @return GPU-ready interleaved vertex data, triangulated indices, bounds, and
+     *         bounding sphere
      */
     public HalfEdgeCompiledMeshData compileSurfaceData() {
         return HalfEdgeMeshEngine.compileSurfaceData(this);
     }
 
     /**
-     * Convenience wrapper for {@link HalfEdgeMeshEngine#buildFromIndexedMesh(float[], int[])}.
+     * Convenience wrapper for
+     * {@link HalfEdgeMeshEngine#buildFromIndexedMesh(float[], int[])}.
      *
-     * @param positions packed xyz triples
+     * @param positions   packed xyz triples
      * @param faceIndices triangle vertex indices in groups of three
      * @return populated half-edge mesh with normals computed
      */
@@ -291,11 +304,12 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Pre-sized mesh build for uniform face sizes (3 for triangles, 4 for quads). Does not compute
-     * normals — call {@link #computeNormals()} when the mesh is ready for rendering.
+     * Pre-sized mesh build for uniform face sizes (3 for triangles, 4 for quads).
+     * Does not compute normals — call {@link #computeNormals()} when the mesh is
+     * ready for rendering.
      *
-     * @param positions packed xyz triples
-     * @param faceIndices flat face index buffer, grouped by {@code vertsPerFace}
+     * @param positions    packed xyz triples
+     * @param faceIndices  flat face index buffer, grouped by {@code vertsPerFace}
      * @param vertsPerFace fixed face arity
      * @return populated half-edge mesh; normals are not computed
      */
@@ -378,7 +392,6 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public Vector3f vertexPosition(int vertexId, Vector3f dest) {
-        requireActiveVertex(vertexId);
         int offset = vertexOffset(vertexId);
         return dest.set(vertexPositions[offset], vertexPositions[offset + 1], vertexPositions[offset + 2]);
     }
@@ -386,7 +399,6 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public Vector3f vertexNormal(int vertexId, Vector3f dest) {
-        requireActiveVertex(vertexId);
         int offset = vertexOffset(vertexId);
         return dest.set(vertexNormals[offset], vertexNormals[offset + 1], vertexNormals[offset + 2]);
     }
@@ -394,56 +406,48 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdge(int vertexId) {
-        requireActiveVertex(vertexId);
         return vertexOutgoing[vertexId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdgeCount(int vertexId) {
-        requireActiveVertex(vertexId);
         return vertexOutgoingHalfEdges.get(vertexId).size();
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdgeAt(int vertexId, int adjacencyIndex) {
-        requireActiveVertex(vertexId);
         return vertexOutgoingHalfEdges.get(vertexId).get(adjacencyIndex);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexEdgeCount(int vertexId) {
-        requireActiveVertex(vertexId);
         return vertexEdges.get(vertexId).size();
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexEdgeAt(int vertexId, int adjacencyIndex) {
-        requireActiveVertex(vertexId);
         return vertexEdges.get(vertexId).get(adjacencyIndex);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexFaceCount(int vertexId) {
-        requireActiveVertex(vertexId);
         return vertexFaces.get(vertexId).size();
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexFaceAt(int vertexId, int adjacencyIndex) {
-        requireActiveVertex(vertexId);
         return vertexFaces.get(vertexId).get(adjacencyIndex);
     }
 
     /** {@inheritDoc}. */
     @Override
     public boolean isBoundaryVertex(int vertexId) {
-        requireActiveVertex(vertexId);
         IntIdList edges = vertexEdges.get(vertexId);
         for (int i = 0; i < edges.size(); i++) {
             if (isBoundaryEdge(edges.get(i))) {
@@ -456,14 +460,21 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public int edgeHalfEdge(int edgeId) {
-        requireActiveEdge(edgeId);
         return edgeHalfEdge[edgeId];
     }
 
-    /** {@inheritDoc} An edge is a boundary edge if either of its half-edges is unattached to a face. */
+    /** {@inheritDoc}. */
+    @Override
+    public int edgeHalfEdgeAtActiveIndex(int activeIndex) {
+        return edgeHalfEdge[activeEdgeIds.get(activeIndex)];
+    }
+
+    /**
+     * {@inheritDoc} An edge is a boundary edge if either of its half-edges is
+     * unattached to a face.
+     */
     @Override
     public boolean isBoundaryEdge(int edgeId) {
-        requireActiveEdge(edgeId);
         int firstHalfEdge = edgeHalfEdge[edgeId];
         int secondHalfEdge = halfEdgeTwin[firstHalfEdge];
         return halfEdgeFace[firstHalfEdge] == NONE || halfEdgeFace[secondHalfEdge] == NONE;
@@ -472,119 +483,119 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     /** {@inheritDoc}. */
     @Override
     public int faceHalfEdge(int faceId) {
-        requireActiveFace(faceId);
         return faceHalfEdge[faceId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int faceHalfEdgeCount(int faceId) {
-        requireActiveFace(faceId);
         return faceHalfEdges.get(faceId).size();
     }
 
     /** {@inheritDoc}. */
     @Override
     public int faceHalfEdgeAt(int faceId, int adjacencyIndex) {
-        requireActiveFace(faceId);
         return faceHalfEdges.get(faceId).get(adjacencyIndex);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int faceVertexCount(int faceId) {
-        requireActiveFace(faceId);
         return faceVertices.get(faceId).size();
     }
 
     /** {@inheritDoc}. */
     @Override
     public int faceVertexAt(int faceId, int adjacencyIndex) {
-        requireActiveFace(faceId);
         return faceVertices.get(faceId).get(adjacencyIndex);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int faceEdgeCount(int faceId) {
-        requireActiveFace(faceId);
         return faceEdges.get(faceId).size();
     }
 
     /** {@inheritDoc}. */
     @Override
     public int faceEdgeAt(int faceId, int adjacencyIndex) {
-        requireActiveFace(faceId);
         return faceEdges.get(faceId).get(adjacencyIndex);
     }
 
-    /** {@inheritDoc} Returns the most recently computed face normal (see {@link #computeNormals()}). */
+    /**
+     * {@inheritDoc} Returns the most recently computed face normal (see
+     * {@link #computeNormals()}).
+     */
     @Override
     public Vector3f faceNormal(int faceId, Vector3f dest) {
-        requireActiveFace(faceId);
+
         int offset = faceOffset(faceId);
+        return dest.set(faceNormals[offset], faceNormals[offset + 1], faceNormals[offset + 2]);
+    }
+
+    /**
+     * {@inheritDoc} Returns the most recently computed face normal (see
+     * {@link #computeNormals()}).
+     */
+    @Override
+    public Vector3f faceNormalAtActiveIndex(int activeIndex, Vector3f dest) {
+
+        int offset = faceOffset(activeFaceIds.get(activeIndex));
         return dest.set(faceNormals[offset], faceNormals[offset + 1], faceNormals[offset + 2]);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int halfEdgeVertex(int halfEdgeId) {
-        requireActiveHalfEdge(halfEdgeId);
         return halfEdgeVertex[halfEdgeId];
     }
 
     /** {@inheritDoc} Reads the start vertex of {@code halfEdgeNext}. */
     @Override
     public int halfEdgeEndVertex(int halfEdgeId) {
-        requireActiveHalfEdge(halfEdgeId);
         int next = halfEdgeNext[halfEdgeId];
-        requireActiveHalfEdge(next);
         return halfEdgeVertex[next];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int halfEdgeTwin(int halfEdgeId) {
-        requireActiveHalfEdge(halfEdgeId);
         return halfEdgeTwin[halfEdgeId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int halfEdgeNext(int halfEdgeId) {
-        requireActiveHalfEdge(halfEdgeId);
         return halfEdgeNext[halfEdgeId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int halfEdgePrev(int halfEdgeId) {
-        requireActiveHalfEdge(halfEdgeId);
         return halfEdgePrev[halfEdgeId];
     }
 
     /** {@inheritDoc} Returns {@link MeshTopology#NONE} for boundary half-edges. */
     @Override
     public int halfEdgeFace(int halfEdgeId) {
-        requireActiveHalfEdge(halfEdgeId);
         return halfEdgeFace[halfEdgeId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int halfEdgeEdge(int halfEdgeId) {
-        requireActiveHalfEdge(halfEdgeId);
         return halfEdgeEdge[halfEdgeId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public boolean isBoundaryHalfEdge(int halfEdgeId) {
-        requireActiveHalfEdge(halfEdgeId);
         return halfEdgeFace[halfEdgeId] == NONE;
     }
 
-    /** {@inheritDoc} Recomputed on every call by linear scan over active vertices. */
+    /**
+     * {@inheritDoc} Recomputed on every call by linear scan over active vertices.
+     */
     @Override
     public Vector3f boundsMin(Vector3f dest) {
         if (activeVertexIds.isEmpty()) {
@@ -604,7 +615,9 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return dest;
     }
 
-    /** {@inheritDoc} Recomputed on every call by linear scan over active vertices. */
+    /**
+     * {@inheritDoc} Recomputed on every call by linear scan over active vertices.
+     */
     @Override
     public Vector3f boundsMax(Vector3f dest) {
         if (activeVertexIds.isEmpty()) {
@@ -632,7 +645,10 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return dest.set(min).add(max).mul(NUM_0_5);
     }
 
-    /** {@inheritDoc} Bounding-sphere radius about {@link #center(Vector3f)}; recomputed each call. */
+    /**
+     * {@inheritDoc} Bounding-sphere radius about {@link #center(Vector3f)};
+     * recomputed each call.
+     */
     @Override
     public float radius() {
         if (activeVertexIds.isEmpty()) {
@@ -655,7 +671,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Allocates and activates a fresh vertex slot at the given position with zeroed normal and empty adjacency.
+     * Allocates and activates a fresh vertex slot at the given position with zeroed
+     * normal and empty adjacency.
      *
      * @param x x coordinate
      * @param y y coordinate
@@ -691,7 +708,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Allocates and activates a fresh face slot with zeroed normal and empty adjacency.
+     * Allocates and activates a fresh face slot with zeroed normal and empty
+     * adjacency.
      *
      * @return id of the newly allocated face
      */
@@ -709,7 +727,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Allocates and activates a fresh half-edge slot anchored at the given start vertex; twin/next/prev/face/edge are left unset.
+     * Allocates and activates a fresh half-edge slot anchored at the given start
+     * vertex; twin/next/prev/face/edge are left unset.
      *
      * @param vertexId start vertex of the new half-edge
      * @return id of the newly allocated half-edge
@@ -755,7 +774,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Marks a half-edge slot inactive and clears all twin/next/prev/vertex/face/edge links.
+     * Marks a half-edge slot inactive and clears all
+     * twin/next/prev/vertex/face/edge links.
      *
      * @param halfEdgeId half-edge slot to deactivate
      */
@@ -787,52 +807,11 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Guard that throws if the given vertex id is not currently active.
-     *
-     * @param vertexId vertex id to check
-     * @throws InvalidMeshTopologyException if the vertex slot is not active
-     */
-    public void requireActiveVertex(int vertexId) {
-        if (!hasVertex(vertexId)) {
-            throw new InvalidMeshTopologyException("Vertex " + vertexId + IS_NOT_ACTIVE);
-        }
-    }
-
-    /**
-     * Guard that throws if the given edge id is not currently active.
-     *
-     * @param edgeId edge id to check
-     * @throws InvalidMeshTopologyException if the edge slot is not active
-     */
-    public void requireActiveEdge(int edgeId) {
-        if (!hasEdge(edgeId)) {
-            throw new InvalidMeshTopologyException("Edge " + edgeId + IS_NOT_ACTIVE);
-        }
-    }
-
-    /**
-     * Guard that throws if the given face id is not currently active.
-     *
-     * @param faceId face id to check
-     * @throws InvalidMeshTopologyException if the face slot is not active
-     */
-    public void requireActiveFace(int faceId) {
-        if (!hasFace(faceId)) {
-            throw new InvalidMeshTopologyException("Face " + faceId + IS_NOT_ACTIVE);
-        }
-    }
-
-    void requireActiveHalfEdge(int halfEdgeId) {
-        if (!hasHalfEdge(halfEdgeId)) {
-            throw new InvalidMeshTopologyException("Half-edge " + halfEdgeId + IS_NOT_ACTIVE);
-        }
-    }
-
-    /**
-     * Packs a directed (start, end) vertex pair into a single long for use as the {@link #halfEdgesByDirection} key.
+     * Packs a directed (start, end) vertex pair into a single long for use as the
+     * {@link #halfEdgesByDirection} key.
      *
      * @param startIndex source vertex id (high 32 bits)
-     * @param endIndex destination vertex id (low 32 bits)
+     * @param endIndex   destination vertex id (low 32 bits)
      * @return packed key suitable for the directed-edge map
      */
     public long directedKey(int startIndex, int endIndex) {
@@ -840,7 +819,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Index of the first float for this vertex within {@link #vertexPositions} or {@link #vertexNormals}.
+     * Index of the first float for this vertex within {@link #vertexPositions} or
+     * {@link #vertexNormals}.
      *
      * @param vertexId vertex id
      * @return base offset into the packed xyz array
@@ -854,7 +834,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Grows the per-vertex parallel arrays so they can address at least {@code requiredVertexCount} vertex ids.
+     * Grows the per-vertex parallel arrays so they can address at least
+     * {@code requiredVertexCount} vertex ids.
      *
      * @param requiredVertexCount minimum addressable vertex count
      */
@@ -870,7 +851,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Grows the per-edge parallel arrays so they can address at least {@code requiredEdgeCount} edge ids.
+     * Grows the per-edge parallel arrays so they can address at least
+     * {@code requiredEdgeCount} edge ids.
      *
      * @param requiredEdgeCount minimum addressable edge count
      */
@@ -884,7 +866,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Grows the per-face parallel arrays so they can address at least {@code requiredFaceCount} face ids.
+     * Grows the per-face parallel arrays so they can address at least
+     * {@code requiredFaceCount} face ids.
      *
      * @param requiredFaceCount minimum addressable face count
      */
@@ -899,7 +882,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Grows the per-half-edge parallel arrays so they can address at least {@code requiredHalfEdgeCount} ids.
+     * Grows the per-half-edge parallel arrays so they can address at least
+     * {@code requiredHalfEdgeCount} ids.
      *
      * @param requiredHalfEdgeCount minimum addressable half-edge count
      */
@@ -918,10 +902,11 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Pads a vertex-indexed adjacency list with empty slots up to {@code vertexId} and returns the entry at that id.
+     * Pads a vertex-indexed adjacency list with empty slots up to {@code vertexId}
+     * and returns the entry at that id.
      *
      * @param adjacency vertex-indexed list of {@link IntIdList} adjacency buckets
-     * @param vertexId vertex id whose slot must exist
+     * @param vertexId  vertex id whose slot must exist
      * @return the {@link IntIdList} bucket for {@code vertexId}
      */
     public IntIdList ensureVertexAdjacencySlot(ArrayList<IntIdList> adjacency, int vertexId) {
@@ -932,10 +917,11 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Pads a face-indexed adjacency list with empty slots up to {@code faceId} and returns the entry at that id.
+     * Pads a face-indexed adjacency list with empty slots up to {@code faceId} and
+     * returns the entry at that id.
      *
      * @param adjacency face-indexed list of {@link IntIdList} adjacency buckets
-     * @param faceId face id whose slot must exist
+     * @param faceId    face id whose slot must exist
      * @return the {@link IntIdList} bucket for {@code faceId}
      */
     public IntIdList ensureFaceAdjacencySlot(ArrayList<IntIdList> adjacency, int faceId) {
@@ -949,7 +935,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
      * Bounds-safe lookup into an active-flag array.
      *
      * @param active per-id active flags
-     * @param id slot id
+     * @param id     slot id
      * @return true when {@code id} is in range and the slot is flagged active
      */
     public static boolean isActive(boolean[] active, int id) {
@@ -960,10 +946,10 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
      * Writes an xyz triple into a packed float array at the slot for the given id.
      *
      * @param target packed xyz array
-     * @param id slot id (vertex or face)
-     * @param x x component
-     * @param y y component
-     * @param z z component
+     * @param id     slot id (vertex or face)
+     * @param x      x component
+     * @param y      y component
+     * @param z      z component
      */
     public static void setVector(float[] target, int id, float x, float y, float z) {
         int offset = id * FLOATS_PER_VERTEX;
@@ -973,9 +959,10 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Returns a boolean array of the requested length with the contents of {@code source} copied to the prefix.
+     * Returns a boolean array of the requested length with the contents of
+     * {@code source} copied to the prefix.
      *
-     * @param source array to copy from
+     * @param source       array to copy from
      * @param nextCapacity length of the returned array
      * @return new boolean array sized to {@code nextCapacity}
      */
@@ -986,9 +973,10 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Returns an int array of the requested length, prefilled with {@link MeshTopology#NONE} and overlaid with {@code source}.
+     * Returns an int array of the requested length, prefilled with
+     * {@link MeshTopology#NONE} and overlaid with {@code source}.
      *
-     * @param source array to copy from
+     * @param source       array to copy from
      * @param nextCapacity length of the returned array
      * @return new int array sized to {@code nextCapacity}
      */
@@ -1000,9 +988,10 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Returns a packed xyz float array sized for {@code nextCapacity} entries (i.e. length {@code nextCapacity * 3}) with {@code source} copied into the prefix.
+     * Returns a packed xyz float array sized for {@code nextCapacity} entries (i.e.
+     * length {@code nextCapacity * 3}) with {@code source} copied into the prefix.
      *
-     * @param source array to copy from
+     * @param source       array to copy from
      * @param nextCapacity number of xyz entries the returned array should hold
      * @return new float array sized to {@code nextCapacity * FLOATS_PER_VERTEX}
      */
@@ -1013,9 +1002,10 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
-     * Growth policy for parallel arrays: doubles the current capacity but never returns less than the required size or the floor of 4.
+     * Growth policy for parallel arrays: doubles the current capacity but never
+     * returns less than the required size or the floor of 4.
      *
-     * @param currentCapacity existing array length
+     * @param currentCapacity  existing array length
      * @param requiredCapacity minimum length the caller needs
      * @return new capacity to allocate
      */
@@ -1031,7 +1021,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     public static void fillWithNone(int[] values) {
         Arrays.fill(values, NONE);
     }
-    
+
     /**
      * Builds a flat (v0, v1) edge index buffer with one pair per active edge.
      *
@@ -1048,4 +1038,60 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         }
         return indices;
     }
+
+    /**
+     * Mean Euclidean length of active edges.
+     *
+     * @return mean Euclidean length of active edges, or 1 for an empty mesh
+     */
+    public float computeAverageEdgeLength() {
+        Vector3f a = new Vector3f();
+        Vector3f b = new Vector3f();
+        double sum = 0;
+        int count = 0;
+        for (int i = 0; i < activeEdgeIds.size(); i++) {
+            int halfEdge = edgeHalfEdge[activeEdgeIds.get(i)];
+            vertexPosition(halfEdgeVertex[halfEdge], a);
+            vertexPosition(halfEdgeVertex[halfEdgeNext[halfEdge]], b);
+            sum += Math.sqrt(
+                    (b.x - a.x) * (b.x - a.x) +
+                            (b.y - a.y) * (b.y - a.y) +
+                            (b.z - a.z) * (b.z - a.z));
+            count++;
+        }
+        return count == 0 ? 1f : (float) (sum / count);
+    }
+
+    /**
+     * Bounding-box diagonal length over active vertices.
+     *
+     * @return diagonal of the axis-aligned bounding box of the active vertices, or
+     *         0 for an empty mesh
+     */
+    public float computeBoundingBoxDiagonal() {
+        if (vertexCount() == 0) {
+            return 0f;
+        }
+        Vector3f p = new Vector3f();
+        float minX = Float.POSITIVE_INFINITY;
+        float minY = Float.POSITIVE_INFINITY;
+        float minZ = Float.POSITIVE_INFINITY;
+        float maxX = Float.NEGATIVE_INFINITY;
+        float maxY = Float.NEGATIVE_INFINITY;
+        float maxZ = Float.NEGATIVE_INFINITY;
+        for (int i = 0; i < activeVertexIds.size(); i++) {
+            vertexPosition(activeVertexIds.get(i), p);
+            minX = Math.min(minX, p.x);
+            minY = Math.min(minY, p.y);
+            minZ = Math.min(minZ, p.z);
+            maxX = Math.max(maxX, p.x);
+            maxY = Math.max(maxY, p.y);
+            maxZ = Math.max(maxZ, p.z);
+        }
+        float dx = maxX - minX;
+        float dy = maxY - minY;
+        float dz = maxZ - minZ;
+        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
 }

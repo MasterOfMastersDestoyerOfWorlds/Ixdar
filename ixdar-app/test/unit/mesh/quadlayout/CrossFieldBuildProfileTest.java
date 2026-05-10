@@ -91,9 +91,6 @@ class CrossFieldBuildProfileTest {
         long actualPositive = generated.singularities.stream().filter(s -> s.index4() > 0).count();
         long actualNegative = generated.singularities.stream().filter(s -> s.index4() < 0).count();
 
-        CrossField.SmoothnessStats refStats = reference.smoothnessStats();
-        CrossField.SmoothnessStats genStats = generated.smoothnessStats();
-
         System.out.printf("[cross-field profile] hand mesh build wall time: %.2fs%n",
                 elapsed.toMillis() / 1000.0);
         System.out.printf("[cross-field profile] singularities expected=%d (+%d/-%d) actual=%d (+%d/-%d)%n",
