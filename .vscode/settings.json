@@ -33,5 +33,7 @@
   "github.copilot.nextEditSuggestions.enabled": false,
   "github.copilot.nextEditSuggestions.fixes": false,
   "github.copilot.renameSuggestions.triggerAutomatically": false,
-  "java.compile.nullAnalysis.mode": "disabled"
+  "java.compile.nullAnalysis.mode": "disabled",
+  "java.profiler.args": "-agentpath:/usr/lib/libasyncProfiler.so=start,event=cpu,file=${workspaceFolder}/profile.html",
+  "java.profiler.off": ""
 }

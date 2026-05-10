@@ -34,3 +34,4 @@ ixdar-app/screenshots/.DS_Store
 .worktrees/*
 ixdar-app/${dsl.export}.tags.json
 quad_layout_text/*
+profile.html
