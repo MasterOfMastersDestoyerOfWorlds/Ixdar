@@ -29,9 +29,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  * <p>
  * Given a {@link CrossField} (per-face θ, per-edge period jumps, singularities,
  * local frames), produces per-corner (u, v) on the triangle mesh whose
- * gradients
- * follow the cross-field directions and that is <em>seamless</em> across cuts:
- * across each cut edge,
+ * gradients follow the cross-field directions and that is <em>seamless</em>
+ * across cuts: across each cut edge,
  *
  * <pre>
  *   (u', v') = R<sub>r_e · π/2</sub>(u, v) + (s<sub>e</sub>, t<sub>e</sub>)
@@ -56,8 +55,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  * <li><b>C2 branch propagation</b>: BFS over non-cut edges assigns a per-face
  * branch g_f ∈ {0,1,2,3} so neighbouring faces share an oriented cross.
  * <li><b>C3 chart vertices</b>: union-find over corners across non-cut edges.
- * Each (mesh-vertex, chart) pair gets one chart-vertex id with two real
- * DOFs (u, v).
+ * Each (mesh-vertex, chart) pair gets one chart-vertex id with two real DOFs
+ * (u, v).
  * <li><b>C4 system assembly</b>: per-triangle gradient-target energy plus
  * per-cut-edge soft transition penalty plus a gauge pin on chart-vertex 0.
  * <li><b>C5 solve</b>: sparse SPD normal equations via EJML's
@@ -95,8 +94,6 @@ public final class SeamlessParameterization {
     public final HalfEdgeMesh mesh;
     public final CrossField crossField;
 
-    // ---- outputs ----
-
     /** Per-corner u, length {@code 3 * faceCount} (active-face order). */
     public float[] uCorner;
     /** Per-corner v, length {@code 3 * faceCount}. */
@@ -126,8 +123,6 @@ public final class SeamlessParameterization {
      */
     public int stiffeningIterations;
 
-    // ---- tunables ----
-
     /**
      * Global UV scale (BZK09 §5 "h"). Defaults to mean mesh edge length so the
      * resulting (u, v) is in world-distance units and the {@code 1/h} gradient
@@ -137,119 +132,140 @@ public final class SeamlessParameterization {
 
     /**
      * Soft-penalty weight for the four seamless transition equations of each cut
-     * edge.
-     * Higher μ tightens transitions but ill-conditions the SPD factorization and
-     * destabilises the §5.4 stiffening loop; this default trades off against
+     * edge. Higher μ tightens transitions but ill-conditions the SPD factorization
+     * and destabilises the §5.4 stiffening loop; this default trades off against
      * downstream tolerance. Exact (zero) seamlessness is MC19's job, not this
      * stage's.
      */
     public float seamPenaltyWeight = 1.0e6f;
+
     /** Diagonal pin weight on each per-chart gauge corner. */
     public float gaugePinWeight = 1.0e6f;
+
     /** Hard cap on §5.4 IRLS iterations. */
     public int maxStiffeningIterations = 50;
+
     /**
      * §5.4 weight growth factor per pass for flipped triangles (multiplicative not
      * additive). 4.0 converges sphere-class meshes in ~30 iters; harder meshes
-     * (bolt, rockerarm) diverge under this simplified IRLS — see {@link #stiffeningSmoothPasses}
-     * and the class-level note on §5.4 fidelity.
+     * (bolt, rockerarm) diverge under this simplified IRLS — see
+     * {@link #stiffeningSmoothPasses} and the class-level note on §5.4 fidelity.
      */
     public float stiffeningGrowth = 4.0f;
+
     /**
      * §5.4 maximum per-face IRLS weight. Allowed above {@link #seamPenaltyWeight}
      * so the stiffening loop can flip-fix faces in pathological corners; the
      * trade-off is that the seam constraints relax slightly near a stiffened face.
      */
     public double stiffeningWeightCap = 1.0e8;
+
     /**
-     * BZK09 §5.4 uniform-Laplacian smoothing passes applied to the per-face
-     * weight field after each multiplicative bump. Smoothing damps the
-     * single-face oscillations the simplified stiffening otherwise exhibits on
-     * non-trivial meshes (a flip in face f raises w(f), the next solve flips
-     * face f's neighbour, etc.). 3 rings is enough on the test fixtures.
+     * BZK09 §5.4 uniform-Laplacian smoothing passes applied to the per-face weight
+     * field after each multiplicative bump. Smoothing damps the single-face
+     * oscillations the simplified stiffening otherwise exhibits on non-trivial
+     * meshes (a flip in face f raises w(f), the next solve flips face f's
+     * neighbour, etc.). 3 rings is enough on the test fixtures.
      */
     public int stiffeningSmoothPasses = 1;
+
     /**
-     * §5.4 proportionality constant for the {@code |Δλ|} bump. Paper recommends
-     * c = 1 for IGM where flips are rare; for the seamless mode without integer
-     * singularity pinning, the relaxed solve has many flips and needs much
-     * faster weight growth — c = 100 converges sphere in &lt;30 iterations.
+     * §5.4 proportionality constant for the {@code |Δλ|} bump. Paper recommends c =
+     * 1 for IGM where flips are rare; for the seamless mode without integer
+     * singularity pinning, the relaxed solve has many flips and needs much faster
+     * weight growth — c = 100 converges sphere in &lt;30 iterations.
      */
     public double stiffeningC = 100.0;
-    /** §5.4 maximum per-pass weight bump (paper: d = 5; we raise it to keep up with c). */
+
+    /**
+     * §5.4 maximum per-pass weight bump (paper: d = 5; we raise it to keep up with
+     * c).
+     */
     public double stiffeningD = 1.0e4;
 
     /**
-     * If true, run BZK09 §2 greedy mixed-integer rounding of (j, k) cut translations
-     * and singularity chart-vertex (u, v) — produces an INTEGER-GRID MAP per
-     * BZK09 §5. Lyon 2021 §3 wants a SEAMLESS map (real (s, t), real
-     * singularities) as input — the integer grid is built later by the ILP.
-     * Default false to match Lyon's pipeline; enable for downstream stages
-     * (e.g. QEx-style quad mesh extraction direct from BZK09's IGM).
+     * If true, run BZK09 §2 greedy mixed-integer rounding of (j, k) cut
+     * translations and singularity chart-vertex (u, v) — produces an INTEGER-GRID
+     * MAP per BZK09 §5. Lyon 2021 §3 wants a SEAMLESS map (real (s, t), real
+     * singularities) as input — the integer grid is built later by the ILP. Default
+     * false to match Lyon's pipeline; enable for downstream stages (e.g. QEx-style
+     * quad mesh extraction direct from BZK09's IGM).
      */
     public boolean integerGridMap = false;
-
-    // ---- internal state ----
 
     private int faceCount;
     private int edgeCount;
 
-    // active-edge → active-face indices on each side; -1 if that side is boundary
+    /**
+     * active-edge → active-face indices on each side; -1 if that side is boundary
+     */
     private int[] edgeFaceA;
     private int[] edgeFaceB;
-    // active-edge → corner index of {@code halfEdgeVertex(edgeHalfEdge)} in face A
-    // and face B
+
+    /**
+     * active-edge → corner index of {@code halfEdgeVertex(edgeHalfEdge)} in face A
+     * and face B
+     */
     private int[] edgeCornerInA;
     private int[] edgeCornerInB;
 
     private int chartVertexCount;
-    private int[] cornerToChartVertex; // length 3*F (active-face indexed)
-    private int[] faceBranch; // active-face → branch g_f ∈ {0..3}
+
+    /** length 3*F (active-face indexed) */
+    private int[] cornerToChartVertex;
+
+    /** active-face → branch g_f ∈ {0..3} */
+    private int[] faceBranch;
 
     private int interiorCutEdgeCount;
-    private int[] cutEdgeDenseIdx; // active-edge → dense index in [0, interiorCutEdgeCount), -1 otherwise
 
-    private double[] faceWeight; // §5.4 IRLS weights, init 1
+    /** active-edge → dense index in [0, interiorCutEdgeCount), -1 otherwise */
+    private int[] cutEdgeDenseIdx;
+
+    /** §5.4 IRLS weights, init 1 */
+    private double[] faceWeight;
 
     // per-face cached geometry (active-face order)
-    private double[] faceArea; // 3D area
-    private double[] faceShapeB; // length 3 per face: b_i (= ∂φ/∂x coefficients in local frame)
-    private double[] faceShapeC; // length 3 per face: c_i
-    private double[] faceUtxLocal; // u_T(ξ) x in local frame, post branch rotation
+    /** 3D area */
+    private double[] faceArea;
+    /** length 3 per face: b_i (= ∂φ/∂x coefficients in local frame) */
+    private double[] faceShapeB;
+    /** length 3 per face: c_i */
+    private double[] faceShapeC;
+    /** u_T(ξ) x in local frame, post branch rotation */
+    private double[] faceUtxLocal;
     private double[] faceUtyLocal;
     private double[] faceVtxLocal;
     private double[] faceVtyLocal;
 
-    private double[] solution; // last solver output (size N)
-    private int uCvBase; // == 0
-    private int vCvBase; // == chartVertexCount
-    private int sCutBase; // == 2 * chartVertexCount
-    private int tCutBase; // == 2 * chartVertexCount + interiorCutEdgeCount
-    private int dofCount; // total
+    /** last solver output (size N) */
+    private double[] solution;
+    /** == 0 */
+    private int uCvBase;
+    /** == chartVertexCount */
+    private int vCvBase;
+    /** == 2 * chartVertexCount */
+    private int sCutBase;
+    /** == 2 * chartVertexCount + interiorCutEdgeCount */
+    private int tCutBase;
+    /** total */
+    private int dofCount;
 
-    // BZK09 §5 mixed-integer state. dofIsInteger[i] is true if DOF i is one of
-    // the variables that the greedy MI loop will round (singularity (u, v) or
-    // cut translation (s, t)). dofPinned[i] is true after greedy rounding has
-    // committed an integer for that DOF; dofPinnedValue[i] holds the integer.
+    /**
+     * BZK09 §5 mixed-integer state. dofIsInteger[i] is true if DOF i is one of the
+     * variables that the greedy MI loop will round (singularity (u, v) or cut
+     * translation (s, t)). dofPinned[i] is true after greedy rounding has committed
+     * an integer for that DOF; dofPinnedValue[i] holds the integer.
+     */
     private boolean[] dofIsInteger;
     private boolean[] dofPinned;
     private double[] dofPinnedValue;
+
     /** Soft-pin diagonal weight applied to a rounded integer DOF. */
     private double integerPinWeight = 1.0e10;
 
-    // mesh-vertex-id → active-vertex-index, lazily built.
+    /** mesh-vertex-id → active-vertex-index, lazily built. */
     private HashMap<Integer, Integer> vertexActiveCache;
-
-    private SeamlessParameterization(CrossField crossField) {
-        if (crossField == null) {
-            throw new IllegalArgumentException("crossField must not be null");
-        }
-        if (crossField.theta == null || crossField.periodJump == null) {
-            throw new IllegalArgumentException("crossField.build() must run before SeamlessParameterization.from(...)");
-        }
-        this.crossField = crossField;
-        this.mesh = crossField.mesh;
-    }
 
     /**
      * Adopts a built {@link CrossField}. Caller must invoke {@link #build()} to
@@ -258,8 +274,9 @@ public final class SeamlessParameterization {
      * @param crossField a CrossField that has already had {@code build()} called
      * @return a fresh {@code SeamlessParameterization} bound to {@code crossField}
      */
-    public static SeamlessParameterization from(CrossField crossField) {
-        return new SeamlessParameterization(crossField);
+    public SeamlessParameterization(CrossField crossField) {
+        this.crossField = crossField;
+        this.mesh = crossField.mesh;
     }
 
     /**
@@ -311,11 +328,10 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * Identify which DOFs of the linear system the BZK09 §5 mixed-integer
-     * solver should round. Per-cut-edge translations (s, t) are integer per
-     * the paper's transition definition (j, k) ∈ ℤ; per-singularity-vertex
-     * chart-vertices' (u, v) are integer per BZK09 §5 "Integer location of
-     * singularities".
+     * Identify which DOFs of the linear system the BZK09 §5 mixed-integer solver
+     * should round. Per-cut-edge translations (s, t) are integer per the paper's
+     * transition definition (j, k) ∈ ℤ; per-singularity-vertex chart-vertices' (u,
+     * v) are integer per BZK09 §5 "Integer location of singularities".
      */
     private void markIntegerDofs() {
         dofIsInteger = new boolean[dofCount];
@@ -330,12 +346,14 @@ public final class SeamlessParameterization {
 
         // Chart-vertices touching any singularity vertex must be integer.
         Set<Integer> singVids = new HashSet<>();
-        for (Singularity s : crossField.singularities) singVids.add(s.vertexId());
+        for (Singularity s : crossField.singularities)
+            singVids.add(s.vertexId());
         for (int af = 0; af < faceCount; af++) {
             int faceId = mesh.faceIdAt(af);
             for (int c = 0; c < CORNERS_PER_FACE; c++) {
                 int vId = mesh.faceVertexAt(faceId, c);
-                if (!singVids.contains(vId)) continue;
+                if (!singVids.contains(vId))
+                    continue;
                 int cv = cornerToChartVertex[af * CORNERS_PER_FACE + c];
                 dofIsInteger[uCvBase + cv] = true;
                 dofIsInteger[vCvBase + cv] = true;
@@ -344,15 +362,16 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * BZK09 §2 / §5 greedy rounding. Repeatedly: among unpinned integer DOFs,
-     * pick the one whose current solution value is closest to its nearest
-     * integer, snap it to that integer, re-solve. Stop when no integer DOF
-     * is unpinned.
+     * BZK09 §2 / §5 greedy rounding. Repeatedly: among unpinned integer DOFs, pick
+     * the one whose current solution value is closest to its nearest integer, snap
+     * it to that integer, re-solve. Stop when no integer DOF is unpinned.
      */
     private void runGreedyIntegerRounding() {
         boolean diag = DIAG_TRUE.equals(System.getProperty(DIAG_PROP));
         int totalToRound = 0;
-        for (int i = 0; i < dofCount; i++) if (dofIsInteger[i]) totalToRound++;
+        for (int i = 0; i < dofCount; i++)
+            if (dofIsInteger[i])
+                totalToRound++;
         if (diag) {
             System.err.printf("[seamlessParam] greedy rounding: %d integer DOFs%n", totalToRound);
         }
@@ -361,10 +380,13 @@ public final class SeamlessParameterization {
             double maxAbs = 0.0;
             int nearZero = 0;
             for (int i = 0; i < dofCount; i++) {
-                if (!dofIsInteger[i]) continue;
+                if (!dofIsInteger[i])
+                    continue;
                 double v = Math.abs(solution[i]);
-                if (v > maxAbs) maxAbs = v;
-                if (v < HALF_D) nearZero++;
+                if (v > maxAbs)
+                    maxAbs = v;
+                if (v < HALF_D)
+                    nearZero++;
             }
             System.err.printf("[seamlessParam] pre-round int DOF distribution: max|x|=%.3f  |x|<0.5: %d/%d%n",
                     maxAbs, nearZero, totalToRound);
@@ -375,7 +397,8 @@ public final class SeamlessParameterization {
             double bestDist = Double.POSITIVE_INFINITY;
             double bestValue = 0;
             for (int i = 0; i < dofCount; i++) {
-                if (!dofIsInteger[i] || dofPinned[i]) continue;
+                if (!dofIsInteger[i] || dofPinned[i])
+                    continue;
                 double x = solution[i];
                 double rounded01 = Math.rint(x);
                 double dist = Math.abs(x - rounded01);
@@ -385,7 +408,8 @@ public final class SeamlessParameterization {
                     bestValue = rounded01;
                 }
             }
-            if (bestIdx < 0) break;
+            if (bestIdx < 0)
+                break;
             dofPinned[bestIdx] = true;
             dofPinnedValue[bestIdx] = bestValue;
             rounded++;
@@ -597,9 +621,9 @@ public final class SeamlessParameterization {
 
     /**
      * Add one more cut edge incident to a degree-1 singularity to push its
-     * cut-degree to 2. Picks the shortest Dijkstra path from {@code sVid} to
-     * the existing cut graph that does not back-track over the existing
-     * incoming cut edge.
+     * cut-degree to 2. Picks the shortest Dijkstra path from {@code sVid} to the
+     * existing cut graph that does not back-track over the existing incoming cut
+     * edge.
      */
     private void extendSingularityToDegreeTwo(int sVid, int[] cutDegree) {
         int existingCutEdge = -1;
@@ -1049,131 +1073,132 @@ public final class SeamlessParameterization {
         }
     }
 
+    /**
+     * Accumulate symmetric SPD entries into a diagonal vector + upper-triangle
+     */
+
     private void solveOnce() {
-        // Accumulate symmetric SPD entries into a diagonal vector + upper-triangle
-        // hash map, then dump to an EJML CSC matrix and solve with EJML's true
-        // sparse Cholesky (LinearSolverFactory_DSCC.cholesky). This is the same
-        // factorization path AdaptiveSolver and CrossField use; the dense ojAlgo
-        // Cholesky used previously was prohibitively slow on bolt-class meshes.
-        double[] diag = new double[dofCount];
-        HashMap<Long, Double> upper = new HashMap<>(dofCount * AVG_NONZEROS_PER_ROW);
-        double[] rhs = new double[dofCount];
+        double[] systemDiagonal = new double[dofCount];
+        HashMap<Long, Double> systemUpperTriangle = new HashMap<>(dofCount * AVG_NONZEROS_PER_ROW);
+        double[] systemRhs = new double[dofCount];
 
-        // Per-triangle gradient-target energy.
-        for (int af = 0; af < faceCount; af++) {
-            double area = faceArea[af];
-            if (area <= 0) continue;
-            double w = faceWeight[af] * area;
-            int o = af * CORNERS_PER_FACE;
-            double[] bb = new double[CORNERS_PER_FACE];
-            double[] cc = new double[CORNERS_PER_FACE];
-            int[] cv = new int[CORNERS_PER_FACE];
-            for (int i = 0; i < CORNERS_PER_FACE; i++) {
-                bb[i] = faceShapeB[o + i];
-                cc[i] = faceShapeC[o + i];
-                cv[i] = cornerToChartVertex[o + i];
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            double area = faceArea[activeFace];
+            if (area <= 0) {
+                continue;
             }
-            double utx = faceUtxLocal[af], uty = faceUtyLocal[af];
-            double vtx = faceVtxLocal[af], vty = faceVtyLocal[af];
-            double h2 = (double) h * h;
+            double faceWeightedArea = faceWeight[activeFace] * area;
+            int faceCornerBase = activeFace * CORNERS_PER_FACE;
 
-            for (int i = 0; i < CORNERS_PER_FACE; i++) {
-                for (int j = i; j < CORNERS_PER_FACE; j++) {
-                    double k = w * h2 * (bb[i] * bb[j] + cc[i] * cc[j]);
-                    if (k == 0.0) continue;
-                    accumulate(diag, upper, uCvBase + cv[i], uCvBase + cv[j], k);
-                    accumulate(diag, upper, vCvBase + cv[i], vCvBase + cv[j], k);
+            double[] shapeGradX = new double[CORNERS_PER_FACE];
+            double[] shapeGradY = new double[CORNERS_PER_FACE];
+            int[] cornerChartVertex = new int[CORNERS_PER_FACE];
+            for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
+                shapeGradX[corner] = faceShapeB[faceCornerBase + corner];
+                shapeGradY[corner] = faceShapeC[faceCornerBase + corner];
+                cornerChartVertex[corner] = cornerToChartVertex[faceCornerBase + corner];
+            }
+            double targetUx = faceUtxLocal[activeFace], targetUy = faceUtyLocal[activeFace];
+            double targetVx = faceVtxLocal[activeFace], targetVy = faceVtyLocal[activeFace];
+            double edgeLengthSquared = (double) h * h;
+
+            for (int cornerI = 0; cornerI < CORNERS_PER_FACE; cornerI++) {
+                for (int cornerJ = cornerI; cornerJ < CORNERS_PER_FACE; cornerJ++) {
+                    double stiffness = faceWeightedArea * edgeLengthSquared
+                            * (shapeGradX[cornerI] * shapeGradX[cornerJ]
+                                    + shapeGradY[cornerI] * shapeGradY[cornerJ]);
+                    if (stiffness == 0.0) {
+                        continue;
+                    }
+                    accumulate(systemDiagonal, systemUpperTriangle,
+                            uCvBase + cornerChartVertex[cornerI],
+                            uCvBase + cornerChartVertex[cornerJ], stiffness);
+                    accumulate(systemDiagonal, systemUpperTriangle,
+                            vCvBase + cornerChartVertex[cornerI],
+                            vCvBase + cornerChartVertex[cornerJ], stiffness);
                 }
             }
-            for (int i = 0; i < CORNERS_PER_FACE; i++) {
-                rhs[uCvBase + cv[i]] += w * h * (bb[i] * utx + cc[i] * uty);
-                rhs[vCvBase + cv[i]] += w * h * (bb[i] * vtx + cc[i] * vty);
+
+            for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
+                systemRhs[uCvBase + cornerChartVertex[corner]] += faceWeightedArea * h
+                        * (shapeGradX[corner] * targetUx + shapeGradY[corner] * targetUy);
+                systemRhs[vCvBase + cornerChartVertex[corner]] += faceWeightedArea * h
+                        * (shapeGradX[corner] * targetVx + shapeGradY[corner] * targetVy);
             }
         }
 
-        // Per-cut-edge soft seamless transition penalty.
-        double mu = (double) seamPenaltyWeight;
-        for (int ae = 0; ae < edgeCount; ae++) {
-            int dense = cutEdgeDenseIdx[ae];
-            if (dense < 0) continue;
-            int afA = edgeFaceA[ae];
-            int afB = edgeFaceB[ae];
-            int cAStart = edgeCornerInA[ae];
-            int cBStart = edgeCornerInB[ae];
-            int cAEnd = (cAStart + 1) % CORNERS_PER_FACE;
-            int cBEnd = (cBStart + CORNERS_PER_FACE - 1) % CORNERS_PER_FACE;
-            int cvAp = cornerToChartVertex[afA * CORNERS_PER_FACE + cAStart];
-            int cvAq = cornerToChartVertex[afA * CORNERS_PER_FACE + cAEnd];
-            int cvBp = cornerToChartVertex[afB * CORNERS_PER_FACE + cBStart];
-            int cvBq = cornerToChartVertex[afB * CORNERS_PER_FACE + cBEnd];
-            int r = cutRotation[ae];
-            double cr = cosRot(r), sr = sinRot(r);
-            int sIdx = sCutBase + dense;
-            int tIdx = tCutBase + dense;
+        double penaltyWeight = (double) seamPenaltyWeight;
+        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+            int cutDenseIdx = cutEdgeDenseIdx[activeEdge];
+            if (cutDenseIdx < 0) {
+                continue;
+            }
+            int activeFaceA = edgeFaceA[activeEdge];
+            int activeFaceB = edgeFaceB[activeEdge];
 
-            addOuterSparse(diag, upper, mu,
-                    new int[] {uCvBase + cvBp, uCvBase + cvAp, vCvBase + cvAp, sIdx},
-                    new double[] {1.0, -cr, sr, -1.0});
-            addOuterSparse(diag, upper, mu,
-                    new int[] {vCvBase + cvBp, uCvBase + cvAp, vCvBase + cvAp, tIdx},
-                    new double[] {1.0, -sr, -cr, -1.0});
-            addOuterSparse(diag, upper, mu,
-                    new int[] {uCvBase + cvBq, uCvBase + cvAq, vCvBase + cvAq, sIdx},
-                    new double[] {1.0, -cr, sr, -1.0});
-            addOuterSparse(diag, upper, mu,
-                    new int[] {vCvBase + cvBq, uCvBase + cvAq, vCvBase + cvAq, tIdx},
-                    new double[] {1.0, -sr, -cr, -1.0});
+            int startCornerInA = edgeCornerInA[activeEdge];
+            int startCornerInB = edgeCornerInB[activeEdge];
+            int endCornerInA = (startCornerInA + 1) % CORNERS_PER_FACE;
+            int endCornerInB = (startCornerInB + CORNERS_PER_FACE - 1) % CORNERS_PER_FACE;
+            int chartVertexAp = cornerToChartVertex[activeFaceA * CORNERS_PER_FACE + startCornerInA];
+            int chartVertexAq = cornerToChartVertex[activeFaceA * CORNERS_PER_FACE + endCornerInA];
+            int chartVertexBp = cornerToChartVertex[activeFaceB * CORNERS_PER_FACE + startCornerInB];
+            int chartVertexBq = cornerToChartVertex[activeFaceB * CORNERS_PER_FACE + endCornerInB];
+            int rotationQuarterTurns = cutRotation[activeEdge];
+            double cosRotation = cosRot(rotationQuarterTurns);
+            double sinRotation = sinRot(rotationQuarterTurns);
+            int translationSdofIdx = sCutBase + cutDenseIdx;
+            int translationTdofIdx = tCutBase + cutDenseIdx;
+
+            addOuterSparse(systemDiagonal, systemUpperTriangle, penaltyWeight,
+                    new int[] { uCvBase + chartVertexBp, uCvBase + chartVertexAp,
+                            vCvBase + chartVertexAp, translationSdofIdx },
+                    new double[] { 1.0, -cosRotation, sinRotation, -1.0 });
+            addOuterSparse(systemDiagonal, systemUpperTriangle, penaltyWeight,
+                    new int[] { vCvBase + chartVertexBp, uCvBase + chartVertexAp,
+                            vCvBase + chartVertexAp, translationTdofIdx },
+                    new double[] { 1.0, -sinRotation, -cosRotation, -1.0 });
+
+            addOuterSparse(systemDiagonal, systemUpperTriangle, penaltyWeight,
+                    new int[] { uCvBase + chartVertexBq, uCvBase + chartVertexAq,
+                            vCvBase + chartVertexAq, translationSdofIdx },
+                    new double[] { 1.0, -cosRotation, sinRotation, -1.0 });
+            addOuterSparse(systemDiagonal, systemUpperTriangle, penaltyWeight,
+                    new int[] { vCvBase + chartVertexBq, uCvBase + chartVertexAq,
+                            vCvBase + chartVertexAq, translationTdofIdx },
+                    new double[] { 1.0, -sinRotation, -cosRotation, -1.0 });
         }
 
-        // Gauge pin (one per chart) + Tikhonov on translation DOFs + integer pins.
-        for (int cv : pickOneChartVertexPerChart()) {
-            diag[uCvBase + cv] += gaugePinWeight;
-            diag[vCvBase + cv] += gaugePinWeight;
+        for (int chartVertex : pickOneChartVertexPerChart()) {
+            systemDiagonal[uCvBase + chartVertex] += gaugePinWeight;
+            systemDiagonal[vCvBase + chartVertex] += gaugePinWeight;
         }
-        for (int dense = 0; dense < interiorCutEdgeCount; dense++) {
-            diag[sCutBase + dense] += TRANSLATION_TIKHONOV;
-            diag[tCutBase + dense] += TRANSLATION_TIKHONOV;
+
+        for (int cutDenseIdx = 0; cutDenseIdx < interiorCutEdgeCount; cutDenseIdx++) {
+            systemDiagonal[sCutBase + cutDenseIdx] += TRANSLATION_TIKHONOV;
+            systemDiagonal[tCutBase + cutDenseIdx] += TRANSLATION_TIKHONOV;
         }
+
         if (dofPinned != null) {
-            for (int i = 0; i < dofCount; i++) {
-                if (!dofPinned[i]) continue;
-                diag[i] += integerPinWeight;
-                rhs[i] += integerPinWeight * dofPinnedValue[i];
+            for (int dofIdx = 0; dofIdx < dofCount; dofIdx++) {
+                if (!dofPinned[dofIdx]) {
+                    continue;
+                }
+                systemDiagonal[dofIdx] += integerPinWeight;
+                systemRhs[dofIdx] += integerPinWeight * dofPinnedValue[dofIdx];
             }
         }
 
-        // Build EJML CSC and solve with sparse Cholesky.
-        DMatrixSparseTriplet triplets =
-                new DMatrixSparseTriplet(dofCount, dofCount, diag.length + upper.size());
-        for (int i = 0; i < dofCount; i++) {
-            triplets.addItem(i, i, diag[i]);
-        }
-        for (var e : upper.entrySet()) {
-            long k = e.getKey();
-            int row = (int) (k >>> SHIFT_32);
-            int col = (int) (k & MASK_32);
-            triplets.addItem(row, col, e.getValue());
-        }
-        DMatrixSparseCSC csc =
-                new DMatrixSparseCSC(dofCount, dofCount, triplets.nz_length);
-        DConvertMatrixStruct.convert(triplets, csc);
-
-        var solver = LinearSolverFactory_DSCC
-                .cholesky(FillReducing.IDENTITY);
-        if (!solver.setA(csc)) {
-            throw new IllegalStateException("seamless param: sparse Cholesky factorization failed (singular matrix)");
-        }
-        DMatrixRMaj b = new DMatrixRMaj(dofCount, 1, true, rhs.clone());
-        DMatrixRMaj x = new DMatrixRMaj(dofCount, 1);
-        solver.solve(b, x);
-
-        solution = new double[dofCount];
-        for (int i = 0; i < dofCount; i++) solution[i] = x.get(i, 0);
+        boolean[] fixed = new boolean[dofCount];
+        double[] start = new double[dofCount];
+        NormalMatrix matrix = new NormalMatrix(systemDiagonal, systemUpperTriangle, systemRhs);
+        solution = DirectSolver.solve(matrix, start, fixed);
     }
 
     private static void accumulate(double[] diag, HashMap<Long, Double> upper,
-                                    int row, int col, double v) {
-        if (v == 0.0) return;
+            int row, int col, double v) {
+        if (v == 0.0)
+            return;
         if (row == col) {
             diag[row] += v;
             return;
@@ -1185,20 +1210,21 @@ public final class SeamlessParameterization {
 
     /** Add μ · a aᵀ to the symmetric system. */
     private static void addOuterSparse(double[] diag, HashMap<Long, Double> upper,
-                                        double mu, int[] cols, double[] vals) {
+            double mu, int[] cols, double[] vals) {
         for (int i = 0; i < cols.length; i++) {
             for (int j = i; j < cols.length; j++) {
                 double k = mu * vals[i] * vals[j];
-                if (k == 0.0) continue;
+                if (k == 0.0)
+                    continue;
                 accumulate(diag, upper, cols[i], cols[j], k);
             }
         }
     }
 
     /**
-     * Pick one chart-vertex per chart. A "chart" = a face-connected component
-     * under non-cut interior edges. The returned list has one chart-vertex id
-     * per chart, suitable for gauge pinning.
+     * Pick one chart-vertex per chart. A "chart" = a face-connected component under
+     * non-cut interior edges. The returned list has one chart-vertex id per chart,
+     * suitable for gauge pinning.
      */
     private int[] pickOneChartVertexPerChart() {
         boolean[] visitedFace = new boolean[faceCount];
@@ -1238,27 +1264,27 @@ public final class SeamlessParameterization {
 
     private static double cosRot(int r) {
         switch (r & (BRANCH_COUNT - 1)) {
-            case 0:
-                return 1.0;
-            case 1:
-                return 0.0;
-            case 2:
-                return -1.0;
-            default:
-                return 0.0;
+        case 0:
+            return 1.0;
+        case 1:
+            return 0.0;
+        case 2:
+            return -1.0;
+        default:
+            return 0.0;
         }
     }
 
     private static double sinRot(int r) {
         switch (r & (BRANCH_COUNT - 1)) {
-            case 0:
-                return 0.0;
-            case 1:
-                return 1.0;
-            case 2:
-                return 0.0;
-            default:
-                return -1.0;
+        case 0:
+            return 0.0;
+        case 1:
+            return 1.0;
+        case 2:
+            return 0.0;
+        default:
+            return -1.0;
         }
     }
 
@@ -1284,24 +1310,26 @@ public final class SeamlessParameterization {
     /**
      * BZK09 §5.4 weight update — verbatim from the paper.
      *
-     * <p>For every triangle T:
+     * <p>
+     * For every triangle T:
      * <ol>
-     *   <li>Compute the parametric Jacobian {@code J = [[∂u/∂x, ∂u/∂y], [∂v/∂x, ∂v/∂y]]}
-     *       in the local face frame, its singular values σ₁ ≥ σ₂, and the orientation
-     *       sign {@code τ = sign(det J)}.
-     *   <li>Distortion {@code λ(T) = |τ·σ₁/h − 1| + |τ·σ₂/h − 1|} (paper Eq. between
-     *       §5.4 and §6).
-     *   <li>{@code Δλ(T)} = uniform Laplacian of λ on the dual mesh (i.e. mean of λ
-     *       over T's face-neighbours minus λ(T)).
-     *   <li>{@code w(T) ← w(T) + min(c · |Δλ|, d)} with paper-prescribed {@code c=1,
+     * <li>Compute the parametric Jacobian
+     * {@code J = [[∂u/∂x, ∂u/∂y], [∂v/∂x, ∂v/∂y]]} in the local face frame, its
+     * singular values σ₁ ≥ σ₂, and the orientation sign {@code τ = sign(det J)}.
+     * <li>Distortion {@code λ(T) = |τ·σ₁/h − 1| + |τ·σ₂/h − 1|} (paper Eq. between
+     * §5.4 and §6).
+     * <li>{@code Δλ(T)} = uniform Laplacian of λ on the dual mesh (i.e. mean of λ
+     * over T's face-neighbours minus λ(T)).
+     * <li>{@code w(T) ← w(T) + min(c · |Δλ|, d)} with paper-prescribed {@code c=1,
      *       d=5}. Then a couple of uniform smoothing passes over {@code w}.
      * </ol>
      *
-     * <p>Using {@code Δλ} (not λ itself) is the paper's key insight: a globally
-     * uniform stretch is OK and shouldn't trigger reweighting; only LOCAL spikes
-     * in distortion (boundaries of high-distortion regions, isolated flipped
-     * faces) get bumped. This is what stops the IRLS oscillations the naive
-     * "bump every flipped face" version exhibits.
+     * <p>
+     * Using {@code Δλ} (not λ itself) is the paper's key insight: a globally
+     * uniform stretch is OK and shouldn't trigger reweighting; only LOCAL spikes in
+     * distortion (boundaries of high-distortion regions, isolated flipped faces)
+     * get bumped. This is what stops the IRLS oscillations the naive "bump every
+     * flipped face" version exhibits.
      */
     private void stiffenFlippedFaces() {
         // Step 1: BZK09 §5.4 Δλ-Laplacian update — penalises *boundaries* of
@@ -1325,7 +1353,8 @@ public final class SeamlessParameterization {
         // inversions; without this kick a flipped face never accumulates
         // enough weight to flip back. Capped by {@link #stiffeningWeightCap}.
         for (int af = 0; af < faceCount; af++) {
-            if (faceArea[af] <= 0) continue;
+            if (faceArea[af] <= 0)
+                continue;
             int o = af * CORNERS_PER_FACE;
             int cv0 = cornerToChartVertex[o];
             int cv1 = cornerToChartVertex[o + 1];
@@ -1372,7 +1401,9 @@ public final class SeamlessParameterization {
         return Math.abs(tau * sigma1 / h - 1.0) + Math.abs(tau * sigma2 / h - 1.0);
     }
 
-    /** Uniform-Laplacian on the dual mesh: out[T] = mean(in[neighbours]) − in[T]. */
+    /**
+     * Uniform-Laplacian on the dual mesh: out[T] = mean(in[neighbours]) − in[T].
+     */
     private double[] laplacianOfPerFace(double[] in) {
         double[] out = new double[faceCount];
         for (int af = 0; af < faceCount; af++) {
@@ -1385,7 +1416,8 @@ public final class SeamlessParameterization {
                 int afA = edgeFaceA[ae];
                 int afB = edgeFaceB[ae];
                 int afOther = (afA == af) ? afB : afA;
-                if (afOther < 0) continue;
+                if (afOther < 0)
+                    continue;
                 sum += in[afOther];
                 count++;
             }
@@ -1394,7 +1426,10 @@ public final class SeamlessParameterization {
         return out;
     }
 
-    /** Average each face's weight with its non-cut face neighbours, {@code passes} times. */
+    /**
+     * Average each face's weight with its non-cut face neighbours, {@code passes}
+     * times.
+     */
     private void smoothFaceWeights(int passes) {
         if (passes <= 0)
             return;

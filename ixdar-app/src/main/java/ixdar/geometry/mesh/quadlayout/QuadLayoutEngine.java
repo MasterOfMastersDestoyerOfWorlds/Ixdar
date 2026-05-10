@@ -73,7 +73,7 @@ public final class QuadLayoutEngine {
         CrossField crossField = new CrossField(mesh).build();
         System.out.println("Singularities: " + crossField.singularities.size());
 
-        SeamlessParameterization seamless = SeamlessParameterization.from(crossField).build();
+        SeamlessParameterization seamless = new SeamlessParameterization(crossField).build();
         System.out.println("Seamless injective: " + seamless.injective
                 + " (stiffening iters: " + seamless.stiffeningIterations + ")");
 

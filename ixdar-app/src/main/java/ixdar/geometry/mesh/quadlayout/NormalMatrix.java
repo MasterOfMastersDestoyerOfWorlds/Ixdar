@@ -1,4 +1,5 @@
 package ixdar.geometry.mesh.quadlayout;
+import java.util.Map;
 
 public final class NormalMatrix {
     public static final double HALF = 0.5;
@@ -137,8 +138,56 @@ public final class NormalMatrix {
     }
 
     /**
-     * Append one off-diagonal entry into the row's Compressed Sparse Row slot, advancing the row's
-     * write cursor in {@code cursor}.
+     * Accumulator constructor. Builds the CSR layout from an already-assembled SPD
+     * system expressed as a diagonal vector plus an upper-triangle map (key =
+     * ((long) row << 32) | (col & 0xFFFFFFFFL) with row ≤ col) plus an rhs. The
+     * off-diagonal map's values are mirrored to both (row, col) and (col, row) to
+     * satisfy {@code NormalMatrix}'s full-symmetric storage convention.
+     *
+     * <p>
+     * Used by callers that build their matrix by accumulating outer-product
+     * contributions (e.g. seamless parameterization's per-face and per-cut-edge
+     * penalty terms) rather than by walking a fixed row-row structure.
+     *
+     * @param diag  diagonal values, length {@code variableCount}
+     * @param upper off-diagonals; key packs (row, col) with row &lt; col, value is
+     *              the matrix entry; mirrored to both triangles on construction
+     * @param rhs   right-hand-side, length {@code variableCount}
+     */
+    NormalMatrix(double[] diag, Map<Long, Double> upper, double[] rhs) {
+        this.variableCount = diag.length;
+        this.diag = diag.clone();
+        this.rhs = rhs.clone();
+
+        int[] degree = new int[variableCount];
+        for (long key : upper.keySet()) {
+            int row = (int) (key >>> 32);
+            int col = (int) (key & 0xFFFFFFFFL);
+            degree[row]++;
+            degree[col]++;
+        }
+
+        rowStart = new int[variableCount + 1];
+        for (int i = 0; i < variableCount; i++) {
+            rowStart[i + 1] = rowStart[i] + degree[i];
+        }
+        rowCol = new int[rowStart[variableCount]];
+        rowVal = new double[rowStart[variableCount]];
+        int[] cursor = rowStart.clone();
+
+        for (Map.Entry<Long, Double> e : upper.entrySet()) {
+            long key = e.getKey();
+            int row = (int) (key >>> 32);
+            int col = (int) (key & 0xFFFFFFFFL);
+            double value = e.getValue();
+            addOffDiagonal(cursor, row, col, value);
+            addOffDiagonal(cursor, col, row, value);
+        }
+    }
+
+    /**
+     * Append one off-diagonal entry into the row's Compressed Sparse Row slot,
+     * advancing the row's write cursor in {@code cursor}.
      *
      * @param cursor per-row write cursor (mutated)
      * @param row    row index of the new entry
