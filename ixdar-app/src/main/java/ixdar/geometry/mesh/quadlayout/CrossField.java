@@ -224,8 +224,6 @@ public class CrossField {
      * @return {@code this}, with field arrays populated and singularities filled
      */
     public CrossField build() {
-        long phaseStart = System.nanoTime();
-        long buildStart = phaseStart;
         mesh.computeNormals();
 
         int faceCount = mesh.faceCount();
@@ -245,7 +243,6 @@ public class CrossField {
         for (int i = 0; i < mesh.edgeCount(); i++) {
             edgeIdToActive.put(mesh.edgeIdAt(i), i);
         }
-        phaseStart = profilePhase("A0 setup", phaseStart, faceCount, edgeCount);
         /*
          * A1. Local face frames Convention: x_f = first half-edge of f, projected onto
          * the tangent plane. y_f = n_f × x_f. Right-handed.
@@ -290,76 +287,75 @@ public class CrossField {
          * x-component).
          */
 
-        Vector3f v0 = new Vector3f();
-        Vector3f v1 = new Vector3f();
+        Vector3f position1 = new Vector3f();
+        Vector3f position2 = new Vector3f();
         Vector3f edgeDir = new Vector3f();
-        Vector3f ni = new Vector3f();
-        Vector3f nj = new Vector3f();
+        Vector3f faceNormalU = new Vector3f();
+        Vector3f faceNormalV = new Vector3f();
         Vector3f cross = new Vector3f();
         Vector3f xiTransported = new Vector3f();
 
-        for (int eAi1 = 0; eAi1 < mesh.edgeCount(); eAi1++) {
-            int eId1 = mesh.edgeIdAt(eAi1);
-            if (mesh.isBoundaryEdge(eId1)) {
-                kappa[eAi1] = 0f;
+        for (int i = 0; i < mesh.edgeCount(); i++) {
+            int edge = mesh.edgeIdAt(i);
+            if (mesh.isBoundaryEdge(edge)) {
+                kappa[i] = 0f;
                 continue;
             }
-            int he1 = mesh.edgeHalfEdge(eId1);
-            int twin1 = mesh.halfEdgeTwin(he1);
-            int fiId1 = mesh.halfEdgeFace(he1);
-            int fjId1 = mesh.halfEdgeFace(twin1);
-            int fiAi1 = faceIdToActive.get(fiId1);
-            int fjAi1 = faceIdToActive.get(fjId1);
+            int halfEdge = mesh.edgeHalfEdge(edge);
+            int twin = mesh.halfEdgeTwin(halfEdge);
+            int halfEdgeFaceId1 = mesh.halfEdgeFace(halfEdge);
+            int haldEdgeFaceIndex1 = faceIdToActive.get(halfEdgeFaceId1);
+            int halfEdgeFaceId2 = mesh.halfEdgeFace(twin);
+            int halfEdgeFaceIndex2 = faceIdToActive.get(halfEdgeFaceId2);
 
-            int v0Id = mesh.halfEdgeVertex(he1);
-            int v1Id = mesh.halfEdgeEndVertex(he1);
-            mesh.vertexPosition(v0Id, v0);
-            mesh.vertexPosition(v1Id, v1);
-            edgeDir.set(v1).sub(v0);
+            int vertexId1 = mesh.halfEdgeVertex(halfEdge);
+            int vertexId2 = mesh.halfEdgeEndVertex(halfEdge);
+            mesh.vertexPosition(vertexId1, position1);
+            mesh.vertexPosition(vertexId2, position2);
+            edgeDir.set(position2).sub(position1);
             float edgeLen = edgeDir.length();
             if (edgeLen < EPSILON_DEGENERATE) {
-                kappa[eAi1] = 0f;
+                kappa[i] = 0f;
                 continue;
             }
             edgeDir.div(edgeLen);
 
-            mesh.faceNormal(fiId1, ni);
-            mesh.faceNormal(fjId1, nj);
+            mesh.faceNormal(halfEdgeFaceId1, faceNormalU);
+            mesh.faceNormal(halfEdgeFaceId2, faceNormalV);
 
-            float cosD = Math.max(-1f, Math.min(1f, ni.dot(nj)));
-            ni.cross(nj, cross);
+            float cosD = Math.max(-1f, Math.min(1f, faceNormalU.dot(faceNormalV)));
+            faceNormalU.cross(faceNormalV, cross);
             float sinD = cross.dot(edgeDir);
             float dihedral = (float) Math.atan2(sinD, cosD);
 
-            xiTransported.set(faceX[fiAi1]);
+            xiTransported.set(faceX[haldEdgeFaceIndex1]);
 
-            float c = (float) Math.cos(dihedral);
-            float s = (float) Math.sin(dihedral);
+            float dihedralCos = (float) Math.cos(dihedral);
+            float dihedralSin = (float) Math.sin(dihedral);
             Vector3f kCrossV = new Vector3f();
             edgeDir.cross(xiTransported, kCrossV);
             float kDotV = edgeDir.dot(xiTransported);
-            float oneMinusC = 1f - c;
-            xiTransported.x = xiTransported.x * c + kCrossV.x * s + edgeDir.x * kDotV * oneMinusC;
-            xiTransported.y = xiTransported.y * c + kCrossV.y * s + edgeDir.y * kDotV * oneMinusC;
-            xiTransported.z = xiTransported.z * c + kCrossV.z * s + edgeDir.z * kDotV * oneMinusC;
+            float oneMinusC = 1f - dihedralCos;
+            xiTransported.x = xiTransported.x * dihedralCos + kCrossV.x * dihedralSin + edgeDir.x * kDotV * oneMinusC;
+            xiTransported.y = xiTransported.y * dihedralCos + kCrossV.y * dihedralSin + edgeDir.y * kDotV * oneMinusC;
+            xiTransported.z = xiTransported.z * dihedralCos + kCrossV.z * dihedralSin + edgeDir.z * kDotV * oneMinusC;
 
-            float ax = xiTransported.dot(faceX[fjAi1]);
-            float ay = xiTransported.dot(faceY[fjAi1]);
-            kappa[eAi1] = (float) Math.atan2(ay, ax);
+            float crossDirX = xiTransported.dot(faceX[halfEdgeFaceIndex2]);
+            float crossDirY = xiTransported.dot(faceY[halfEdgeFaceIndex2]);
+            kappa[i] = (float) Math.atan2(crossDirY, crossDirX);
         }
-        phaseStart = profilePhase("A1 frames+kappa", phaseStart, faceCount, edgeCount);
 
         boolean[] faceConstrained = new boolean[faceCount];
         float[] faceConstraintAngle = new float[faceCount];
         Arrays.fill(faceConstraintAngle, Float.NaN);
 
         float averageEdgeLength = mesh.computeAverageEdgeLength();
-        float boundingSphereRadius = computeBoundingSphereRadius();
+        float boundingSphereRadius = mesh.computeBoundingSphereRadius();
         float curvatureK = curvatureScaleK / Math.max(boundingSphereRadius, EPSILON_FP_TOLERANCE);
 
         applyFeatureEdgeConstraints(faceConstrained, faceConstraintAngle);
-        int boundaryConstraints = applyBoundaryConstraints(faceConstrained, faceConstraintAngle);
-        int curvatureConstraints = applyCurvatureConstraints(
+        applyBoundaryConstraints(faceConstrained, faceConstraintAngle);
+        applyCurvatureConstraints(
                 faceConstrained, faceConstraintAngle, averageEdgeLength, curvatureK);
         int totalConstraints = countTrue(faceConstrained);
         if (totalConstraints == 0 && faceCount > 0) {
@@ -368,19 +364,15 @@ public class CrossField {
             faceConstraintAngle[0] = 0f;
             totalConstraints = 1;
         }
-        phaseStart = profilePhase("A2 constraints", phaseStart, faceCount, edgeCount);
 
         boolean[] periodFixed = new boolean[edgeCount];
         int[] periodValue = new int[edgeCount];
 
-        Set<Integer> forestEdgeAi = buildVoronoiSpanningForest(faceConstrained);
-        for (int eAi : forestEdgeAi) {
-            periodFixed[eAi] = true;
-            periodValue[eAi] = 0;
+        Set<Integer> forestEdgeIds = buildVoronoiSpanningForest(faceConstrained);
+        for (int edge : forestEdgeIds) {
+            periodFixed[edge] = true;
+            periodValue[edge] = 0;
         }
-
-        int boundaryPeriodFixes = 0;
-        int constrainedPeriodFixes = 0;
         for (int eAi = 0; eAi < edgeCount; eAi++) {
             if (periodFixed[eAi])
                 continue;
@@ -388,7 +380,6 @@ public class CrossField {
             if (mesh.isBoundaryEdge(eId)) {
                 periodFixed[eAi] = true;
                 periodValue[eAi] = 0;
-                boundaryPeriodFixes++;
                 continue;
             }
             int he = mesh.edgeHalfEdge(eId);
@@ -402,31 +393,19 @@ public class CrossField {
                 int p = Math.round(diff / (float) (Math.PI / 2.0));
                 periodFixed[eAi] = true;
                 periodValue[eAi] = p;
-                constrainedPeriodFixes++;
             }
         }
-
-        phaseStart = profilePhase("A3 voronoi forest", phaseStart, faceCount, edgeCount);
 
         SmoothEnergySystem system = new SmoothEnergySystem(faceCount, edgeCount,
                 faceConstrained, faceConstraintAngle, periodFixed, periodValue);
         system.assemble(mesh, faceIdToActive, kappa, solverLocalMaxIterations, solverCgMaxIterations);
-        long a4Assembled = profilePhase("A4 assemble", phaseStart, faceCount, edgeCount);
-        printProblemDiagnostics(averageEdgeLength, boundingSphereRadius, curvatureK,
-                curvatureConstraints, boundaryConstraints, totalConstraints,
-                forestEdgeAi.size(), boundaryPeriodFixes, constrainedPeriodFixes,
-                periodFixed, system);
         system.solveGreedyMIP(lastDiagnostics);
         system.unpackInto(mesh, this);
-        phaseStart = profilePhase("A4 greedy MIP", a4Assembled, faceCount, edgeCount);
-
         extractSingularities();
-        phaseStart = profilePhase("B singularities", phaseStart, faceCount, edgeCount);
 
         localSearchSingularityOptimization(faceConstrained, faceConstraintAngle);
         extractSingularities();
-        profilePhase("C local search", phaseStart, faceCount, edgeCount);
-        profilePhase("TOTAL build()", buildStart, faceCount, edgeCount);
+
         printSolutionDiagnostics(system);
         return this;
     }
@@ -523,12 +502,12 @@ public class CrossField {
 
         double[] thetaCurrent = solveThetaInto(mainWorker, faceCount, edgeCount, freeCount,
                 interiorEdge, rfiByEdge, rfjByEdge, aliFi, aliFj, faceConstrained, freeFromAll,
-                faceConstraintAngle, halfPi, /* perturbEdge= */-1, /* perturbedP= */0);
+                faceConstraintAngle, halfPi, -1, 0);
         for (int fAi = 0; fAi < faceCount; fAi++) {
             theta[fAi] = (float) thetaCurrent[fAi];
         }
         double currentEnergy = energyOfTheta(thetaCurrent, edgeCount, interiorEdge,
-                aliFi, aliFj, halfPi, /* perturbEdge= */-1, /* perturbedP= */0);
+                aliFi, aliFj, halfPi, -1, 0);
 
         final int[][] patchFacesByEdge = buildTwoHopPatchTable(edgeCount, interiorEdge, aliFi, aliFj);
 
@@ -676,13 +655,13 @@ public class CrossField {
         for (int rf = 0; rf < freeCount; rf++) {
             w.b.unsafe_set(rf, 0, 0.0);
         }
-        for (int eAi = 0; eAi < edgeCount; eAi++) {
-            if (!interiorEdge[eAi])
+        for (int i = 0; i < edgeCount; i++) {
+            if (!interiorEdge[i])
                 continue;
-            int rfi = rfiByEdge[eAi];
-            int rfj = rfjByEdge[eAi];
-            int p = (eAi == perturbEdge) ? perturbedP : periodJump[eAi];
-            double k = kappa[eAi] + halfPi * p;
+            int rfi = rfiByEdge[i];
+            int rfj = rfjByEdge[i];
+            int p = (i == perturbEdge) ? perturbedP : periodJump[i];
+            double k = kappa[i] + halfPi * p;
             if (rfi >= 0) {
                 w.b.unsafe_set(rfi, 0, w.b.unsafe_get(rfi, 0) - k);
             }
@@ -690,10 +669,10 @@ public class CrossField {
                 w.b.unsafe_set(rfj, 0, w.b.unsafe_get(rfj, 0) + k);
             }
             if (rfi < 0 && rfj >= 0) {
-                w.b.unsafe_set(rfj, 0, w.b.unsafe_get(rfj, 0) + faceConstraintAngle[aliFi[eAi]]);
+                w.b.unsafe_set(rfj, 0, w.b.unsafe_get(rfj, 0) + faceConstraintAngle[aliFi[i]]);
             }
             if (rfj < 0 && rfi >= 0) {
-                w.b.unsafe_set(rfi, 0, w.b.unsafe_get(rfi, 0) + faceConstraintAngle[aliFj[eAi]]);
+                w.b.unsafe_set(rfi, 0, w.b.unsafe_get(rfi, 0) + faceConstraintAngle[aliFj[i]]);
             }
         }
         w.solver.solve(w.b, w.x);
@@ -773,27 +752,6 @@ public class CrossField {
             result[eAi] = arr;
         }
         return result;
-    }
-
-    /**
-     * Print elapsed wall time since {@code startNs} for {@code phase} when
-     * {@code -DcrossField.profile=true} is set. Returns
-     * {@code System.nanoTime()}.*requireActiveHalfEdge.* so call sites can chain
-     * phases without restating the clock.
-     *
-     * @param phase     phase label (e.g. "A1 frames")
-     * @param startNs   nanoTime captured at the previous phase boundary
-     * @param faceCount face count, included in the line for context
-     * @param edgeCount edge count, included in the line for context
-     * @return current {@link System#nanoTime()} for the next phase to chain from
-     */
-    private static long profilePhase(String phase, long startNs, int faceCount, int edgeCount) {
-        long now = System.nanoTime();
-        if (PROFILE_BUILD) {
-            System.out.printf("[cross-field profile] %-18s  %8.1f ms   (F=%d, E=%d)%n",
-                    phase, (now - startNs) / NS_PER_MS, faceCount, edgeCount);
-        }
-        return now;
     }
 
     /**
@@ -1062,8 +1020,8 @@ public class CrossField {
      * Project a 3D direction into a face's local (x, y) frame and return atan2(y,
      * x).
      *
-     * @param dirWorld 3D direction in world coordinates
-     * @param faceIndex      face active index
+     * @param dirWorld  3D direction in world coordinates
+     * @param faceIndex face active index
      * @return signed angle of the projected direction in face-local frame, in
      *         radians
      */
@@ -1638,81 +1596,6 @@ public class CrossField {
     }
 
     /**
-     * Print one-shot problem-shape diagnostics to stdout (constraint counts, solver
-     * tuning, BZK09 reference targets).
-     *
-     * @param averageEdgeLength      mean edge length (BZK09 §3 "h" fallback)
-     * @param boundingSphereRadius   mesh bounding-sphere radius
-     * @param curvatureK             BZK09 §3 mean-curvature threshold
-     * @param curvatureConstraints   number of curvature constraints applied
-     * @param boundaryConstraints    number of boundary constraints applied
-     * @param totalConstraints       total constrained faces
-     * @param forestEdgeCount        number of Voronoi-forest edges
-     * @param boundaryPeriodFixes    period jumps fixed to 0 because the edge is on
-     *                               the boundary
-     * @param constrainedPeriodFixes period jumps rounded between two constrained
-     *                               faces
-     * @param initiallyFixedPeriods  per-edge mask of period jumps fixed before the
-     *                               greedy solve
-     * @param system                 assembled smooth-energy linear system
-     */
-    public void printProblemDiagnostics(float averageEdgeLength,
-            float boundingSphereRadius,
-            float curvatureK,
-            int curvatureConstraints,
-            int boundaryConstraints,
-            int totalConstraints,
-            int forestEdgeCount,
-            int boundaryPeriodFixes,
-            int constrainedPeriodFixes,
-            boolean[] initiallyFixedPeriods,
-            SmoothEnergySystem system) {
-        int freePeriods = initiallyFixedPeriods.length - countTrue(initiallyFixedPeriods);
-        int freeTheta = mesh.faceCount() - totalConstraints;
-        int fullDim = mesh.faceCount() + freePeriods;
-        int reducedDim = freeTheta + freePeriods;
-        int expectedForestEdges = mesh.faceCount() - totalConstraints;
-        System.out.printf(
-                "[cross-field] constraints curvature=%d boundary=%d totalFaces=%d/%d%n",
-                curvatureConstraints, boundaryConstraints, totalConstraints, mesh.faceCount());
-        CurvatureConstraintStats cs = lastCurvatureStats;
-        System.out.printf(
-                "[cross-field] curvatureStats vertices=%d boundary=%d noSamples=%d failTau=%d failMean=%d failInterval=%d valid=%d acceptedVertices=%d addedFaces=%d faceCollisions=%d fullOneRings=%d avgJitter=%.6g maxJitter=%.6g%n",
-                cs.verticesVisited, cs.boundaryVertices, cs.noCurvatureSamples,
-                cs.failedAnisotropy, cs.failedMeanCurvature, cs.failedInterval,
-                cs.validIntervals, cs.acceptedVertices,
-                cs.addedConstraints, cs.faceCollisionCandidates,
-                cs.allIncidentFacesConstrained, cs.averageJitter(), cs.maxJitter);
-        System.out.printf(
-                "[cross-field] bzk tauMin=%.3f K=%.6g avgEdge=%.6g targetH=%.6g bboxDiag=%.6g hFraction=%.3g boundingRadius=%.6g r0=%.6g r1=%.6g%n",
-                tauMin, curvatureK, averageEdgeLength, resolvedTargetEdgeLength(averageEdgeLength),
-                mesh.computeBoundingBoxDiagonal(), targetEdgeLengthFractionOfBounds,
-                boundingSphereRadius, radiusStartMul * averageEdgeLength,
-                resolvedTargetEdgeLength(averageEdgeLength));
-        System.out.printf(
-                "[cross-field] mip rows=%d fixedPeriods=%d freePeriods=%d forestEdges=%d%n",
-                system.rowCount, countTrue(initiallyFixedPeriods), freePeriods, forestEdgeCount);
-        System.out.printf(
-                "[cross-field] bzk reduction constrainedFaces=%d expectedForest=%d actualForest=%d constrainedEdgeFixes=%d boundaryFixes=%d%n",
-                totalConstraints, expectedForestEdges, forestEdgeCount,
-                constrainedPeriodFixes, boundaryPeriodFixes);
-        System.out.printf(
-                "[cross-field] solver localMaxIter=%d localTol=%.3g cgMaxIter=%d cgTol=%.3g directAllowed=%s bootstrapDirect=true directUsed=%d%n",
-                system.adaptiveOptions.localMaxIterations,
-                system.adaptiveOptions.localTolerance,
-                system.adaptiveOptions.cgMaxIterations,
-                system.adaptiveOptions.cgTolerance,
-                system.adaptiveOptions.useDirectFallback,
-                system.directFallbacks);
-        System.out.printf(
-                "[cross-field] rounding batchSize=%d batchTol=%.3g%n",
-                system.roundBatchSize, system.roundBatchTol);
-        System.out.printf(
-                "[cross-field] bzk09-rocker-target dim=32843 int=12064 is=385 ds=7 time=7.6s; ours fullDim=%d reducedDim=%d int=%d%n",
-                fullDim, reducedDim, freePeriods);
-    }
-
-    /**
      * Print one-shot solution-quality diagnostics (solver path counts, residuals,
      * smoothness energy, singularity histogram) to stdout.
      *
@@ -1754,41 +1637,6 @@ public class CrossField {
                 count++;
         }
         return count;
-    }
-
-    /**
-     * Bounding-sphere radius proxy from the active vertices.
-     *
-     * @return half-diagonal of the active vertices' bounding box (used as a
-     *         bounding-sphere proxy), or 1 for an empty mesh
-     */
-    public float computeBoundingSphereRadius() {
-        int vertexCount = mesh.vertexCount();
-        if (vertexCount == 0)
-            return 1f;
-        Vector3f p = new Vector3f();
-        mesh.vertexPosition(mesh.vertexIdAt(0), p);
-        float minX = p.x, minY = p.y, minZ = p.z;
-        float maxX = p.x, maxY = p.y, maxZ = p.z;
-        for (int vAi = 1; vAi < vertexCount; vAi++) {
-            mesh.vertexPosition(mesh.vertexIdAt(vAi), p);
-            if (p.x < minX)
-                minX = p.x;
-            if (p.y < minY)
-                minY = p.y;
-            if (p.z < minZ)
-                minZ = p.z;
-            if (p.x > maxX)
-                maxX = p.x;
-            if (p.y > maxY)
-                maxY = p.y;
-            if (p.z > maxZ)
-                maxZ = p.z;
-        }
-        float dx = maxX - minX;
-        float dy = maxY - minY;
-        float dz = maxZ - minZ;
-        return HALF * (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
     /**
@@ -1837,7 +1685,7 @@ public class CrossField {
 
         Worker(int freeCount, DMatrixSparseCSC csc) {
             var s = LinearSolverFactory_DSCC
-                    .cholesky(FillReducing.NONE);
+                    .cholesky(FillReducing.IDENTITY);
             this.solver = s.setA(csc) ? s : null;
             this.b = new DMatrixRMaj(freeCount, 1);
             this.x = new DMatrixRMaj(freeCount, 1);

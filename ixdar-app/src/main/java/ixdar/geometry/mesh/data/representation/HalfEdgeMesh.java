@@ -1063,6 +1063,41 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
+     * Bounding-sphere radius proxy from the active vertices.
+     *
+     * @return half-diagonal of the active vertices' bounding box (used as a
+     *         bounding-sphere proxy), or 1 for an empty mesh
+     */
+    public float computeBoundingSphereRadius() {
+        int vertexCount = vertexCount();
+        if (vertexCount == 0)
+            return 1f;
+        Vector3f p = new Vector3f();
+        vertexPosition(vertexIdAt(0), p);
+        float minX = p.x, minY = p.y, minZ = p.z;
+        float maxX = p.x, maxY = p.y, maxZ = p.z;
+        for (int vAi = 1; vAi < vertexCount; vAi++) {
+            vertexPosition(vertexIdAt(vAi), p);
+            if (p.x < minX)
+                minX = p.x;
+            if (p.y < minY)
+                minY = p.y;
+            if (p.z < minZ)
+                minZ = p.z;
+            if (p.x > maxX)
+                maxX = p.x;
+            if (p.y > maxY)
+                maxY = p.y;
+            if (p.z > maxZ)
+                maxZ = p.z;
+        }
+        float dx = maxX - minX;
+        float dy = maxY - minY;
+        float dz = maxZ - minZ;
+        return NUM_0_5 * (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    /**
      * Bounding-box diagonal length over active vertices.
      *
      * @return diagonal of the axis-aligned bounding box of the active vertices, or
