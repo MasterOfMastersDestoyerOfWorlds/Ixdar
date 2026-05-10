@@ -1,9 +1,6 @@
 package ixdar.geometry.mesh.quadlayout;
 
-import java.util.Map.Entry;
-
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.lyon2021.QuadLayout;
 
 public final class QuadLayoutEngine {
 
@@ -63,36 +60,27 @@ public final class QuadLayoutEngine {
             """;
 
     /**
-     * Run the Lyon 2021 quad-layout pipeline on {@code mesh}. Currently builds
-     * stage 1 only (cross field + singularities); the remaining stages
-     * (seamless parametrization, motorcycle T-mesh, ILP quantization, layout
-     * extraction) are scaffolded but commented out.
+     * Run the Lyon 2021 quad-layout pipeline on {@code mesh}. Currently runs
+     * stages 1–3 (cross field + singularities, seamless parametrization);
+     * remaining stages (motorcycle T-mesh, ILP quantization, layout extraction)
+     * are still stubs.
      *
      * @param mesh   triangle mesh, manifold, possibly with boundary
      * @param alpha  maximum separatrix deviation in radians (e.g. 5°…45°)
-     * @return the cross field built on {@code mesh}
+     * @return the seamless parametrization (also exposes the cross field)
      */
-    public static CrossField pipeline(HalfEdgeMesh mesh, float alpha) {
+    public static SeamlessParameterization pipeline(HalfEdgeMesh mesh, float alpha) {
         CrossField crossField = new CrossField(mesh).build();
-
         System.out.println("Singularities: " + crossField.singularities.size());
-        // SeamlessParameterization seamlessParameterization = new
-        // SeamlessParameterization(mesh, crossField,
-        // singularities).build();
-        // seamlessParameterization = seamlessParameterization.makeExactlySeamless();
 
-        // MotorcycleGraph motorcycleGraph = new MotorcycleGraph(mesh,
-        // seamlessParameterization, singularities, alpha)
-        // .build();
+        SeamlessParameterization seamless = SeamlessParameterization.from(crossField).build();
+        System.out.println("Seamless injective: " + seamless.injective
+                + " (stiffening iters: " + seamless.stiffeningIterations + ")");
 
-        // QuantizedMeshGrid quantizedMeshGrid = new QuantizedMeshGrid(motorcycleGraph,
-        // alpha).build();
+        // Stage 4 — Modified motorcycle graph T-mesh (Lyon 2021 §3) — not yet implemented.
+        // Stage 5 — ILP for quantization (Lyon 2021 §4–§5) — not yet implemented.
+        // Stage 6 — Layout extraction (Lyon 2021 §6) — not yet implemented.
 
-        // QuadLayout quadLayout = new QuadLayout(mesh, seamlessParameterization,
-        // motorcycleGraph, quantizedMeshGrid)
-        // .build();
-        // HalfEdgeMesh quadMesh = quadLayout.toHalfEdgeMesh();
-
-        return crossField;
+        return seamless;
     }
 }

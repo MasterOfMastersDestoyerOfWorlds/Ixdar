@@ -20,11 +20,11 @@ import ixdar.platform.Platforms;
 public class OrbitMouseTrap extends MouseTrap {
     public static final float NUM_3 = 3f;
     public static final int NUM_60 = 60;
+    public static final float DEFAULT_MIN_DISTANCE = 0.75f;
+    public static final float DEFAULT_MAX_DISTANCE = 40.0f;
     private static final float DRAG_RADIANS_PER_PIXEL = 0.01f;
     private static final float MIN_ELEVATION = (float) Math.toRadians(-85.0);
     private static final float MAX_ELEVATION = (float) Math.toRadians(85.0);
-    private static final float MIN_DISTANCE = 0.75f;
-    private static final float MAX_DISTANCE = 40.0f;
     private static final float ZOOM_BASE = 0.97f;
 
     private final Camera3D orbitCamera;
@@ -34,6 +34,8 @@ public class OrbitMouseTrap extends MouseTrap {
     private float azimuth = (float) Math.toRadians(90.0);
     private float elevation = (float) Math.toRadians(20.0);
     private float distance = 3.5f;
+    private float minDistance = DEFAULT_MIN_DISTANCE;
+    private float maxDistance = DEFAULT_MAX_DISTANCE;
 
     /**
      * Build a trap that orbits {@code camera} around the origin at the default angles and
@@ -70,7 +72,22 @@ public class OrbitMouseTrap extends MouseTrap {
     public void setOrbit(float azimuthRadians, float elevationRadians, float orbitDistance) {
         azimuth = azimuthRadians;
         elevation = clamp(elevationRadians, MIN_ELEVATION, MAX_ELEVATION);
-        distance = clamp(orbitDistance, MIN_DISTANCE, MAX_DISTANCE);
+        distance = clamp(orbitDistance, minDistance, maxDistance);
+        applyOrbit();
+    }
+
+    /**
+     * Configure the orbit zoom bounds. {@code distance} clamps to
+     * {@code [minDistance, maxDistance]} on every {@link #setOrbit} and
+     * scroll-wheel update.
+     *
+     * @param minDist closest the camera may sit to the orbit target
+     * @param maxDist farthest the camera may sit from the orbit target
+     */
+    public void setDistanceBounds(float minDist, float maxDist) {
+        this.minDistance = Math.max(0f, minDist);
+        this.maxDistance = Math.max(this.minDistance, maxDist);
+        distance = clamp(distance, this.minDistance, this.maxDistance);
         applyOrbit();
     }
 
@@ -209,7 +226,7 @@ public class OrbitMouseTrap extends MouseTrap {
             queuedMouseWheelTicks = 0;
         }
         if (queuedMouseWheelTicks != 0) {
-            distance = clamp(distance * (float) Math.pow(ZOOM_BASE, queuedMouseWheelTicks), MIN_DISTANCE, MAX_DISTANCE);
+            distance = clamp(distance * (float) Math.pow(ZOOM_BASE, queuedMouseWheelTicks), minDistance, maxDistance);
             queuedMouseWheelTicks = 0;
             applyOrbit();
         }

@@ -41,25 +41,21 @@ import ixdar.geometry.mesh.quadlayout.vectorfield.Singularity;
  * {@code mesh.vertexIdAt / faceIdAt / edgeIdAt}), not by raw entity id.
  */
 public class CrossField {
-    public static final float NUM_1e_20 = 1e-20f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_1e_9 = 1e-9f;
-    public static final double NUM_2_0 = 2.0;
-    public static final float NUM_0_9 = 0.9f;
-    public static final float NUM_0_25 = 0.25f;
-    public static final float NUM_1_001 = 1.001f;
-    public static final float NUM_1e_6 = 1e-6f;
+    public static final float EPSILON_DEGENERATE = 1e-20f;
+    public static final float EPSILON_FP_TOLERANCE = 1e-9f;
+    public static final float BASIS_AXIS_PICK_THRESHOLD = 0.9f;
+    public static final float RADIUS_STABILITY_WINDOW_FRACTION = 0.25f;
+    public static final float SINGLE_RADIUS_RATIO_THRESHOLD = 1.001f;
+    public static final float RADIUS_STEP_EPSILON = 1e-6f;
     public static final double NS_PER_MS = 1e6;
-    public static final boolean PROFILE_BUILD =
-            Boolean.parseBoolean(System.getProperty("crossField.profile", "false"));
+    public static final boolean PROFILE_BUILD = Boolean.parseBoolean(System.getProperty("crossField.profile", "false"));
     public static final long LOCAL_SEARCH_BUDGET_NS = 3_000_000_000L;
-    public static final int LOCAL_SEARCH_MAX_PASSES = 1;
+    public static final int LOCAL_SEARCH_MAX_PASSES = 4;
     public static final double LOCAL_SEARCH_EPS = 0.0;
     public static final double LOCAL_SEARCH_COUNT_ENERGY_SLACK = 1.005;
     public static final int LOCAL_SEARCH_COUNT_REDUCTION_BUDGET = 8;
-    public static final int NUM_4_INT = 4;
-    public static final int[] LOCAL_SEARCH_DELTAS = { -1, 1 };
+    public static final int INITIAL_NONZEROS_PER_EDGE = 4;
+    public static final int[] LOCAL_SEARCH_DELTAS = { -1, 1, -2, 2 };
     public static final java.util.Set<Integer> TRACE_VIDS = java.util.Arrays.stream(
             System.getProperty("crossField.traceVids", "").split(","))
             .map(String::trim)
@@ -67,12 +63,12 @@ public class CrossField {
             .map(Integer::parseInt)
             .collect(java.util.stream.Collectors.toSet());
     public static final String EIG_FORMAT = "%+.4f ";
-    public static final float NUM_4 = 4f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_1e_12 = 1e-12f;
-    public static final int NUM_8 = 8;
-    public static final int NUM_7 = 7;
-    public static final int NUM_32 = 32;
+    public static final float QUADRATIC_DISCRIMINANT_FACTOR = 4f;
+    public static final float HALF = 0.5f;
+    public static final float EPSILON_PRINCIPAL_CURVATURE = 1e-12f;
+    public static final int RESIDUAL_HISTOGRAM_BUCKETS = 8;
+    public static final int RESIDUAL_HISTOGRAM_LAST_BUCKET = 7;
+    public static final int RESIDUAL_HISTOGRAM_BIN_DIVISOR = 32;
 
     public static volatile String lastDiagnostics = "[cross-field] no diagnostics recorded";
 
@@ -116,9 +112,9 @@ public class CrossField {
     public List<Singularity> singularities = new ArrayList<>();
 
     /**
-     * BZK09 §3 relative anisotropy threshold τ_min. Paper specifies 0.8;
-     * sweep against the BCEAK13 NDFs prefers 0.9 — the published results
-     * clearly used a stricter cutoff than the paper text states.
+     * BZK09 §3 relative anisotropy threshold τ_min. Paper specifies 0.8; sweep
+     * against the BCEAK13 NDFs prefers 0.9 — the published results clearly used a
+     * stricter cutoff than the paper text states.
      */
     public float tauMin = 0.9f;
 
@@ -128,17 +124,18 @@ public class CrossField {
     public float curvatureScaleK = 0.1f;
 
     /**
-     * BZK09 §3 geodesic-disk radius series. Paper: r ∈ [r0, r1] with
-     * r0 = average edge length, r1 = h (target edge length). {@code radiusStartMul}
-     * multiplies the average edge length to produce r0; the series steps
-     * geometrically by {@link #radiusRatio}.
+     * BZK09 §3 geodesic-disk radius series. Paper: r ∈ [r0, r1] with r0 = average
+     * edge length, r1 = h (target edge length). {@code radiusStartMul} multiplies
+     * the average edge length to produce r0; the series steps geometrically by
+     * {@link #radiusRatio}.
      *
-     * <p>Default {@code radiusStartMul = 5.0f} mirrors libigl's
-     * {@code principal_curvature} (single-radius integration at
-     * 5·avgEdge). When {@code 5·avgEdge ≥ h} the series collapses to the
-     * single radius {@code r = h}, which is what every public BZK09 reproducer
-     * uses; sweep against the BCEAK13 NDFs prefers this over the paper's
-     * literal multi-radius reading.
+     * <p>
+     * Default {@code radiusStartMul = 5.0f} mirrors libigl's
+     * {@code principal_curvature} (single-radius integration at 5·avgEdge). When
+     * {@code 5·avgEdge ≥ h} the series collapses to the single radius
+     * {@code r = h}, which is what every public BZK09 reproducer uses; sweep
+     * against the BCEAK13 NDFs prefers this over the paper's literal multi-radius
+     * reading.
      */
     public float radiusStartMul = 5.0f;
     public float radiusRatio = (float) Math.sqrt(2.0);
@@ -150,34 +147,34 @@ public class CrossField {
      * BZK09 §2.1 adaptive ladder caps. Each rounding triggers a re-solve that
      * starts in local Gauss-Seidel; if it does not converge by
      * {@link #solverLocalMaxIterations} it escalates to CG (capped at
-     * {@link #solverCgMaxIterations}); if CG also fails, falls through to a
-     * sparse Cholesky factorization. Lower local caps escalate sooner — wins
-     * on harder roundings where local GS would spin a long time, costs a
-     * factor of ~k extra direct solves on easy roundings.
+     * {@link #solverCgMaxIterations}); if CG also fails, falls through to a sparse
+     * Cholesky factorization. Lower local caps escalate sooner — wins on harder
+     * roundings where local GS would spin a long time, costs a factor of ~k extra
+     * direct solves on easy roundings.
      */
     public int solverLocalMaxIterations = 50_000;
     public int solverCgMaxIterations = 500;
 
     /**
-     * BZK09 §3 vertex-to-face constraint expansion mode. The paper pseudocode
-     * reads "for each face f incident to v" ({@code true}) but in practice the
-     * BCEAK13 supplementary NDFs are matched better by constraining only the
-     * face whose tangent plane best receives the principal direction
-     * ({@code false}). Default to the BCEAK13-faithful mode since that is what
-     * the singularity-count tests in {@code CrossFieldNdfReferenceTest} compare
-     * against.
+     * BZK09 §3 vertex-to-face constraint expansion mode. The paper pseudocode reads
+     * "for each face f incident to v" ({@code true}) but in practice the BCEAK13
+     * supplementary NDFs are matched better by constraining only the face whose
+     * tangent plane best receives the principal direction ({@code false}). Default
+     * to the BCEAK13-faithful mode since that is what the singularity-count tests
+     * in {@code CrossFieldNdfReferenceTest} compare against.
      */
     public boolean curvatureConstraintAllIncidentFaces = false;
 
     /**
-     * BZK09 target quad edge length h, expressed as a fraction of the
-     * bounding-box diagonal. Lyon 2021 recommends 1% but that requires
-     * the mesh to be fine enough that {@code 0.01 · bboxDiag > avgEdge};
-     * for coarser meshes a larger fraction is needed for the §3 curvature
-     * integration to find any valid radius interval.
+     * BZK09 target quad edge length h, expressed as a fraction of the bounding-box
+     * diagonal. Lyon 2021 recommends 1% but that requires the mesh to be fine
+     * enough that {@code 0.01 · bboxDiag > avgEdge}; for coarser meshes a larger
+     * fraction is needed for the §3 curvature integration to find any valid radius
+     * interval.
      *
-     * <p>Default 8%: sweep against the BCEAK13 hand reference picks this as
-     * the smallest fraction at which {@code count = 40 (the reference)} with
+     * <p>
+     * Default 8%: sweep against the BCEAK13 hand reference picks this as the
+     * smallest fraction at which {@code count = 40 (the reference)} with
      * single-radius integration. The paper does not pin this number down.
      */
     public float targetEdgeLengthFractionOfBounds = 0.08f;
@@ -190,15 +187,16 @@ public class CrossField {
     /**
      * Wrap a half-edge mesh; defer all field arrays until {@link #build()} runs.
      *
-     * @param mesh half-edge mesh providing geometry, topology, and active-id mapping
+     * @param mesh half-edge mesh providing geometry, topology, and active-id
+     *             mapping
      */
     public CrossField(HalfEdgeMesh mesh) {
         this.mesh = mesh;
     }
 
     /**
-     * Run the BZK09 pipeline (A1 frames + κ, A2 constraints, A3 Voronoi forest,
-     * A4 greedy mixed-integer LSQ) and extract singularities.
+     * Run the BZK09 pipeline (A1 frames + κ, A2 constraints, A3 Voronoi forest, A4
+     * greedy mixed-integer LSQ) and extract singularities.
      *
      * @return {@code this}, with field arrays populated and singularities filled
      */
@@ -216,7 +214,6 @@ public class CrossField {
         this.faceX = new Vector3f[faceCount];
         this.faceY = new Vector3f[faceCount];
 
-        // Build id -> active-index maps once (used everywhere downstream).
         faceIdToActive = new HashMap<>(mesh.faceCount() * 2);
         for (int i1 = 0; i1 < mesh.faceCount(); i1++) {
             faceIdToActive.put(mesh.faceIdAt(i1), i1);
@@ -226,8 +223,6 @@ public class CrossField {
             edgeIdToActive.put(mesh.edgeIdAt(i), i);
         }
         phaseStart = profilePhase("A0 setup", phaseStart, faceCount, edgeCount);
-
-        // ---- A1. local frames + transport angles -----------------------
         /*
          * A1. Local face frames Convention: x_f = first half-edge of f, projected onto
          * the tangent plane. y_f = n_f × x_f. Right-handed.
@@ -247,13 +242,13 @@ public class CrossField {
             Vector3f xAxis = new Vector3f(b).sub(a);
 
             mesh.faceNormal(fId, n);
-            // Project x onto the tangent plane in case of a slightly off normal.
+
             float xDotN = xAxis.dot(n);
             xAxis.x -= xDotN * n.x;
             xAxis.y -= xDotN * n.y;
             xAxis.z -= xDotN * n.z;
             float xLen = xAxis.length();
-            if (xLen < NUM_1e_20) {
+            if (xLen < EPSILON_DEGENERATE) {
                 arbitraryTangent(n, xAxis);
             } else {
                 xAxis.div(xLen);
@@ -283,7 +278,7 @@ public class CrossField {
         for (int eAi1 = 0; eAi1 < mesh.edgeCount(); eAi1++) {
             int eId1 = mesh.edgeIdAt(eAi1);
             if (mesh.isBoundaryEdge(eId1)) {
-                kappa[eAi1] = NUM_0;
+                kappa[eAi1] = 0f;
                 continue;
             }
             int he1 = mesh.edgeHalfEdge(eId1);
@@ -299,8 +294,8 @@ public class CrossField {
             mesh.vertexPosition(v1Id, v1);
             edgeDir.set(v1).sub(v0);
             float edgeLen = edgeDir.length();
-            if (edgeLen < NUM_1e_20) {
-                kappa[eAi1] = NUM_0;
+            if (edgeLen < EPSILON_DEGENERATE) {
+                kappa[eAi1] = 0f;
                 continue;
             }
             edgeDir.div(edgeLen);
@@ -308,8 +303,7 @@ public class CrossField {
             mesh.faceNormal(fiId1, ni);
             mesh.faceNormal(fjId1, nj);
 
-            // Signed dihedral: cos = ni·nj, sin = (ni × nj)·edgeDir.
-            float cosD = Math.max(-NUM_1, Math.min(NUM_1, ni.dot(nj)));
+            float cosD = Math.max(-1f, Math.min(1f, ni.dot(nj)));
             ni.cross(nj, cross);
             float sinD = cross.dot(edgeDir);
             float dihedral = (float) Math.atan2(sinD, cosD);
@@ -323,39 +317,27 @@ public class CrossField {
         }
         phaseStart = profilePhase("A1 frames+kappa", phaseStart, faceCount, edgeCount);
 
-        // ---- A2. directional constraints --------------------------------
         boolean[] faceConstrained = new boolean[faceCount];
         float[] faceConstraintAngle = new float[faceCount];
         Arrays.fill(faceConstraintAngle, Float.NaN);
 
         float averageEdgeLength = computeAverageEdgeLength();
         float boundingSphereRadius = computeBoundingSphereRadius();
-        float curvatureK = curvatureScaleK / Math.max(boundingSphereRadius, NUM_1e_9);
+        float curvatureK = curvatureScaleK / Math.max(boundingSphereRadius, EPSILON_FP_TOLERANCE);
 
-        // Order matters: feature edges first claim sharp-crease faces with the
-        // alignment direction. Then boundary edges. Then curvature only fills in
-        // smooth-interior faces that neither has claimed. This avoids the failure
-        // mode where curvature picks κ_max perpendicular to a crease and then a
-        // feature-edge constraint overwrites with the parallel direction (or vice
-        // versa) — both signals on the same face produce twists & singularities.
         int featureConstraints = applyFeatureEdgeConstraints(faceConstrained, faceConstraintAngle);
         int boundaryConstraints = applyBoundaryConstraints(faceConstrained, faceConstraintAngle);
         int curvatureConstraints = applyCurvatureConstraints(
                 faceConstrained, faceConstraintAngle, averageEdgeLength, curvatureK);
         int totalConstraints = countTrue(faceConstrained);
         if (totalConstraints == 0 && faceCount > 0) {
-            // BZK09's smoothness energy is gauge-invariant — adding a constant to all
-            // theta_f leaves it unchanged. With zero face constraints (e.g. closed
-            // mesh with random/featureless geometry like figure_7/sphere_random), the
-            // normal matrix is rank-1 deficient and Cholesky factorization fails.
-            // Pin face 0 to theta=0 to break the gauge.
+
             faceConstrained[0] = true;
-            faceConstraintAngle[0] = NUM_0;
+            faceConstraintAngle[0] = 0f;
             totalConstraints = 1;
         }
         phaseStart = profilePhase("A2 constraints", phaseStart, faceCount, edgeCount);
 
-        // ---- A3. Voronoi forest fixes one period jump per non-constrained face --
         boolean[] periodFixed = new boolean[edgeCount];
         int[] periodValue = new int[edgeCount];
 
@@ -365,8 +347,6 @@ public class CrossField {
             periodValue[eAi] = 0;
         }
 
-        // For dual edges between two constrained faces (and not in the forest),
-        // fix p_ij to round( (θ̂_j − θ̂_i − κ_ij) / (π/2) ).
         int boundaryPeriodFixes = 0;
         int constrainedPeriodFixes = 0;
         for (int eAi = 0; eAi < edgeCount; eAi++) {
@@ -375,7 +355,7 @@ public class CrossField {
             int eId = mesh.edgeIdAt(eAi);
             if (mesh.isBoundaryEdge(eId)) {
                 periodFixed[eAi] = true;
-                periodValue[eAi] = 0; // boundary edges contribute nothing to E_smooth
+                periodValue[eAi] = 0;
                 boundaryPeriodFixes++;
                 continue;
             }
@@ -387,7 +367,7 @@ public class CrossField {
             int fjAi = faceIdToActive.get(fjId);
             if (faceConstrained[fiAi] && faceConstrained[fjAi]) {
                 float diff = faceConstraintAngle[fjAi] - faceConstraintAngle[fiAi] - kappa[eAi];
-                int p = Math.round(diff / (float) (Math.PI / NUM_2_0));
+                int p = Math.round(diff / (float) (Math.PI / 2.0));
                 periodFixed[eAi] = true;
                 periodValue[eAi] = p;
                 constrainedPeriodFixes++;
@@ -396,7 +376,6 @@ public class CrossField {
 
         phaseStart = profilePhase("A3 voronoi forest", phaseStart, faceCount, edgeCount);
 
-        // ---- A4. Greedy mixed-integer least squares ---------------------
         SmoothEnergySystem system = new SmoothEnergySystem(faceCount, edgeCount,
                 faceConstrained, faceConstraintAngle, periodFixed, periodValue);
         system.assemble();
@@ -409,11 +388,9 @@ public class CrossField {
         system.unpackInto(this);
         phaseStart = profilePhase("A4 greedy MIP", a4Assembled, faceCount, edgeCount);
 
-        // ---- B. Singularities -------------------------------------------
         extractSingularities();
         phaseStart = profilePhase("B singularities", phaseStart, faceCount, edgeCount);
 
-        // ---- C. BZK09 §4.2 local search singularity optimization --------
         localSearchSingularityOptimization(faceConstrained, faceConstraintAngle);
         extractSingularities();
         profilePhase("C local search", phaseStart, faceCount, edgeCount);
@@ -423,23 +400,25 @@ public class CrossField {
     }
 
     /**
-     * BZK09 §4.2 "Local Search Singularity Optimization" post-process.
-     * For each edge incident to a current singularity, try changing the period
-     * jump by ±1 and re-solve theta. The Laplacian-style theta-only matrix is
-     * factorized once and reused across all candidate solves (the matrix is
-     * unchanged when only period jumps shift; only the RHS changes).
+     * BZK09 §4.2 "Local Search Singularity Optimization" post-process. For each
+     * edge incident to a current singularity, try changing the period jump by ±1
+     * and re-solve theta. The Laplacian-style theta-only matrix is factorized once
+     * and reused across all candidate solves (the matrix is unchanged when only
+     * period jumps shift; only the RHS changes).
      *
-     * <p>Per the paper this often eliminates spurious singularities that the
-     * greedy rounding placed in flat regions, dramatically reducing the count.
+     * <p>
+     * Per the paper this often eliminates spurious singularities that the greedy
+     * rounding placed in flat regions, dramatically reducing the count.
      *
-     * @param faceConstrained     per-face flag; constrained faces are excluded from theta DOFs
+     * @param faceConstrained     per-face flag; constrained faces are excluded from
+     *                            theta DOFs
      * @param faceConstraintAngle theta value held at constrained faces
      */
     private void localSearchSingularityOptimization(boolean[] faceConstrained, float[] faceConstraintAngle) {
         long deadlineNs = System.nanoTime() + LOCAL_SEARCH_BUDGET_NS;
         final int edgeCount = mesh.edgeCount();
         final int faceCount = mesh.faceCount();
-        final float halfPi = (float) (Math.PI / NUM_2_0);
+        final float halfPi = (float) (Math.PI / 2.0);
 
         final int[] freeFromAll = new int[faceCount];
         int freeCountMut = 0;
@@ -455,9 +434,8 @@ public class CrossField {
             return;
         }
 
-        // Build the theta-only Laplacian once; all workers share the CSC matrix.
-        org.ejml.data.DMatrixSparseTriplet triplets =
-                new org.ejml.data.DMatrixSparseTriplet(freeCount, freeCount, edgeCount * NUM_4_INT);
+        org.ejml.data.DMatrixSparseTriplet triplets = new org.ejml.data.DMatrixSparseTriplet(freeCount, freeCount,
+                edgeCount * INITIAL_NONZEROS_PER_EDGE);
         double[] diag = new double[freeCount];
         for (int eAi = 0; eAi < edgeCount; eAi++) {
             int eId = mesh.edgeIdAt(eAi);
@@ -470,8 +448,10 @@ public class CrossField {
             int fj = faceIdToActive.get(mesh.halfEdgeFace(twin));
             int rfi = freeFromAll[fi];
             int rfj = freeFromAll[fj];
-            if (rfi >= 0) diag[rfi] += 1.0;
-            if (rfj >= 0) diag[rfj] += 1.0;
+            if (rfi >= 0)
+                diag[rfi] += 1.0;
+            if (rfj >= 0)
+                diag[rfj] += 1.0;
             if (rfi >= 0 && rfj >= 0 && rfi < rfj) {
                 triplets.addItem(rfi, rfj, -1.0);
             }
@@ -479,12 +459,10 @@ public class CrossField {
         for (int rf = 0; rf < freeCount; rf++) {
             triplets.addItem(rf, rf, diag[rf]);
         }
-        final org.ejml.data.DMatrixSparseCSC csc =
-                new org.ejml.data.DMatrixSparseCSC(freeCount, freeCount, triplets.nz_length);
+        final org.ejml.data.DMatrixSparseCSC csc = new org.ejml.data.DMatrixSparseCSC(freeCount, freeCount,
+                triplets.nz_length);
         org.ejml.ops.DConvertMatrixStruct.convert(triplets, csc);
 
-        // Each worker holds its own solver and scratch buffers (EJML's solver
-        // is not thread-safe across solve() calls because of internal scratch).
         final int nWorkers = Math.min(Runtime.getRuntime().availableProcessors(), 8);
         final ThreadLocal<Worker> tlWorker = ThreadLocal.withInitial(() -> new Worker(freeCount, csc));
         final Worker mainWorker = tlWorker.get();
@@ -492,8 +470,6 @@ public class CrossField {
             return;
         }
 
-        // Pre-build per-edge constants: which two free indices it touches and
-        // a fixed κ contribution so per-batch RHS construction is just a hot loop.
         final int[] rfiByEdge = new int[edgeCount];
         final int[] rfjByEdge = new int[edgeCount];
         final int[] aliFi = new int[edgeCount];
@@ -513,28 +489,22 @@ public class CrossField {
             interiorEdge[eAi] = true;
         }
 
-        // Initial theta + energy from the current period-jump assignment.
         double[] thetaCurrent = solveThetaInto(mainWorker, faceCount, edgeCount, freeCount,
                 interiorEdge, rfiByEdge, rfjByEdge, aliFi, aliFj, faceConstrained, freeFromAll,
-                faceConstraintAngle, halfPi, /*perturbEdge=*/-1, /*perturbedP=*/0);
+                faceConstraintAngle, halfPi, /* perturbEdge= */-1, /* perturbedP= */0);
         for (int fAi = 0; fAi < faceCount; fAi++) {
             theta[fAi] = (float) thetaCurrent[fAi];
         }
         double currentEnergy = energyOfTheta(thetaCurrent, edgeCount, interiorEdge,
-                aliFi, aliFj, halfPi, /*perturbEdge=*/-1, /*perturbedP=*/0);
+                aliFi, aliFj, halfPi, /* perturbEdge= */-1, /* perturbedP= */0);
 
-        // Build a 2-hop face-patch table per edge once. A batch contains edges
-        // whose patches are pairwise disjoint, so applying their accepts in any
-        // order is approximately equivalent (cross-term absorbed by the post-batch
-        // full theta resolve, per BZK09 §6 locality of period-jump impact).
         final int[][] patchFacesByEdge = buildTwoHopPatchTable(edgeCount, interiorEdge, aliFi, aliFj);
 
-        java.util.concurrent.ExecutorService pool =
-                java.util.concurrent.Executors.newFixedThreadPool(nWorkers, r -> {
-                    Thread t = new Thread(r, "cross-field-localsearch");
-                    t.setDaemon(true);
-                    return t;
-                });
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(nWorkers, r -> {
+            Thread t = new Thread(r, "cross-field-localsearch");
+            t.setDaemon(true);
+            return t;
+        });
 
         boolean improved = true;
         int passes = 0;
@@ -571,19 +541,23 @@ public class CrossField {
                         int[] patch = patchFacesByEdge[eAi];
                         boolean overlap = false;
                         for (int f : patch) {
-                            if (usedFace[f]) { overlap = true; break; }
+                            if (usedFace[f]) {
+                                overlap = true;
+                                break;
+                            }
                         }
                         if (overlap) {
                             deferred.add(eAi);
                         } else {
                             batch.add(eAi);
-                            for (int f : patch) usedFace[f] = true;
+                            for (int f : patch)
+                                usedFace[f] = true;
                         }
                     }
 
                     final double batchCurrentEnergy = currentEnergy;
-                    java.util.List<java.util.concurrent.Callable<TrialResult>> tasks =
-                            new java.util.ArrayList<>(batch.size());
+                    java.util.List<java.util.concurrent.Callable<TrialResult>> tasks = new java.util.ArrayList<>(
+                            batch.size());
                     for (int eAi : batch) {
                         final int eAiF = eAi;
                         final int oldP = periodJump[eAi];
@@ -621,7 +595,6 @@ public class CrossField {
                     totalCandidates += batch.size() * LOCAL_SEARCH_DELTAS.length;
                     totalBatches++;
 
-                    // Accept improving moves in deterministic edge-ascending order.
                     results.sort((a, b) -> Integer.compare(a.eAi, b.eAi));
                     int batchAccepts = 0;
                     for (TrialResult r : results) {
@@ -633,7 +606,7 @@ public class CrossField {
                     if (batchAccepts > 0) {
                         improved = true;
                         totalAccepts += batchAccepts;
-                        // Refresh global theta + energy after applying batch.
+
                         thetaCurrent = solveThetaInto(mainWorker, faceCount, edgeCount, freeCount,
                                 interiorEdge, rfiByEdge, rfjByEdge, aliFi, aliFj,
                                 faceConstrained, freeFromAll, faceConstraintAngle, halfPi, -1, 0);
@@ -645,24 +618,24 @@ public class CrossField {
                     }
                     remaining = deferred;
                 }
-                // Re-extract singularities so the next pass's candidate set reflects
-                // the moves that were just accepted.
+
                 extractSingularities();
             }
         } finally {
             pool.shutdownNow();
         }
         if (PROFILE_BUILD) {
-            System.out.printf("[cross-field profile] local search passes=%d batches=%d candidates=%d accepts=%d workers=%d%n",
+            System.out.printf(
+                    "[cross-field profile] local search passes=%d batches=%d candidates=%d accepts=%d workers=%d%n",
                     passes, totalBatches, totalCandidates, totalAccepts, nWorkers);
         }
     }
 
     /**
      * Solve {@code H · θ_free = b} where {@code b} is built from the current
-     * period-jump array, optionally with a single edge's period jump
-     * substituted by {@code perturbedP} (used for local-search trial solves).
-     * Returns a per-face theta array (constrained faces hold their constraint angle).
+     * period-jump array, optionally with a single edge's period jump substituted by
+     * {@code perturbedP} (used for local-search trial solves). Returns a per-face
+     * theta array (constrained faces hold their constraint angle).
      */
     private double[] solveThetaInto(Worker w, int faceCount, int edgeCount, int freeCount,
             boolean[] interiorEdge, int[] rfiByEdge, int[] rfjByEdge,
@@ -672,7 +645,8 @@ public class CrossField {
             w.b.unsafe_set(rf, 0, 0.0);
         }
         for (int eAi = 0; eAi < edgeCount; eAi++) {
-            if (!interiorEdge[eAi]) continue;
+            if (!interiorEdge[eAi])
+                continue;
             int rfi = rfiByEdge[eAi];
             int rfj = rfjByEdge[eAi];
             int p = (eAi == perturbEdge) ? perturbedP : periodJump[eAi];
@@ -704,14 +678,15 @@ public class CrossField {
 
     /**
      * Sum of squared per-edge residuals for the given theta. {@code perturbEdge}
-     * lets a worker evaluate the energy as if {@code periodJump[perturbEdge] == perturbedP}
-     * without mutating shared state.
+     * lets a worker evaluate the energy as if
+     * {@code periodJump[perturbEdge] == perturbedP} without mutating shared state.
      */
     private double energyOfTheta(double[] thetaFull, int edgeCount, boolean[] interiorEdge,
             int[] aliFi, int[] aliFj, float halfPi, int perturbEdge, int perturbedP) {
         double e = 0.0;
         for (int eAi = 0; eAi < edgeCount; eAi++) {
-            if (!interiorEdge[eAi]) continue;
+            if (!interiorEdge[eAi])
+                continue;
             int p = (eAi == perturbEdge) ? perturbedP : periodJump[eAi];
             double r = thetaFull[aliFi[eAi]] + kappa[eAi] + halfPi * p - thetaFull[aliFj[eAi]];
             e += r * r;
@@ -720,10 +695,10 @@ public class CrossField {
     }
 
     /**
-     * For each interior edge, the set of face active indices reachable within
-     * two dual-graph hops from either incident face. Used to build batches of
-     * candidate edges with disjoint patches so their trial solves can run
-     * approximately independently in parallel.
+     * For each interior edge, the set of face active indices reachable within two
+     * dual-graph hops from either incident face. Used to build batches of candidate
+     * edges with disjoint patches so their trial solves can run approximately
+     * independently in parallel.
      */
     private int[][] buildTwoHopPatchTable(int edgeCount, boolean[] interiorEdge,
             int[] aliFi, int[] aliFj) {
@@ -744,7 +719,8 @@ public class CrossField {
                     int he = mesh.faceHalfEdgeAt(fId, i);
                     int twin = mesh.halfEdgeTwin(he);
                     int neighborFid = mesh.halfEdgeFace(twin);
-                    if (neighborFid == MeshTopology.NONE) continue;
+                    if (neighborFid == MeshTopology.NONE)
+                        continue;
                     int neighborAi = faceIdToActive.get(neighborFid);
                     patch.add(neighborAi);
                     int neighborHCount = mesh.faceHalfEdgeCount(neighborFid);
@@ -752,14 +728,16 @@ public class CrossField {
                         int nhe = mesh.faceHalfEdgeAt(neighborFid, j);
                         int ntwin = mesh.halfEdgeTwin(nhe);
                         int n2Fid = mesh.halfEdgeFace(ntwin);
-                        if (n2Fid == MeshTopology.NONE) continue;
+                        if (n2Fid == MeshTopology.NONE)
+                            continue;
                         patch.add(faceIdToActive.get(n2Fid));
                     }
                 }
             }
             int[] arr = new int[patch.size()];
             int k = 0;
-            for (int f : patch) arr[k++] = f;
+            for (int f : patch)
+                arr[k++] = f;
             result[eAi] = arr;
         }
         return result;
@@ -780,7 +758,8 @@ public class CrossField {
         }
     }
 
-    private record TrialResult(int eAi, int bestDelta, double bestEnergy) {}
+    private record TrialResult(int eAi, int bestDelta, double bestEnergy) {
+    }
 
     /**
      * Print elapsed wall time since {@code startNs} for {@code phase} when
@@ -803,17 +782,18 @@ public class CrossField {
     }
 
     /**
-     * Pick an arbitrary unit vector in the tangent plane defined by {@code n}.
-     * Used as a fallback when the natural x-axis collapses to zero length.
+     * Pick an arbitrary unit vector in the tangent plane defined by {@code n}. Used
+     * as a fallback when the natural x-axis collapses to zero length.
      *
      * @param n   unit face normal
-     * @param out scratch vector overwritten with a unit tangent perpendicular to {@code n}
+     * @param out scratch vector overwritten with a unit tangent perpendicular to
+     *            {@code n}
      */
     public static void arbitraryTangent(Vector3f n, Vector3f out) {
-        if (Math.abs(n.x) < NUM_0_9)
-            out.set(NUM_1, NUM_0, NUM_0);
+        if (Math.abs(n.x) < BASIS_AXIS_PICK_THRESHOLD)
+            out.set(1f, 0f, 0f);
         else
-            out.set(NUM_0, NUM_1, NUM_0);
+            out.set(0f, 1f, 0f);
         float dotN = out.dot(n);
         out.x -= dotN * n.x;
         out.y -= dotN * n.y;
@@ -822,8 +802,8 @@ public class CrossField {
     }
 
     /**
-     * Recompute the per-edge transport angles {@link #kappa} from {@link #faceX}
-     * / {@link #faceY}. Boundary and degenerate edges receive zero κ.
+     * Recompute the per-edge transport angles {@link #kappa} from {@link #faceX} /
+     * {@link #faceY}. Boundary and degenerate edges receive zero κ.
      */
     public void buildTransportAngles() {
         Vector3f v0 = new Vector3f();
@@ -837,7 +817,7 @@ public class CrossField {
         for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
             int eId = mesh.edgeIdAt(eAi);
             if (mesh.isBoundaryEdge(eId)) {
-                kappa[eAi] = NUM_0;
+                kappa[eAi] = 0f;
                 continue;
             }
             int he = mesh.edgeHalfEdge(eId);
@@ -853,8 +833,8 @@ public class CrossField {
             mesh.vertexPosition(v1Id, v1);
             edgeDir.set(v1).sub(v0);
             float edgeLen = edgeDir.length();
-            if (edgeLen < NUM_1e_20) {
-                kappa[eAi] = NUM_0;
+            if (edgeLen < EPSILON_DEGENERATE) {
+                kappa[eAi] = 0f;
                 continue;
             }
             edgeDir.div(edgeLen);
@@ -862,8 +842,7 @@ public class CrossField {
             mesh.faceNormal(fiId, ni);
             mesh.faceNormal(fjId, nj);
 
-            // Signed dihedral: cos = ni·nj, sin = (ni × nj)·edgeDir.
-            float cosD = Math.max(-NUM_1, Math.min(NUM_1, ni.dot(nj)));
+            float cosD = Math.max(-1f, Math.min(1f, ni.dot(nj)));
             ni.cross(nj, cross);
             float sinD = cross.dot(edgeDir);
             float dihedral = (float) Math.atan2(sinD, cosD);
@@ -890,7 +869,7 @@ public class CrossField {
         Vector3f kCrossV = new Vector3f();
         k.cross(v, kCrossV);
         float kDotV = k.dot(v);
-        float oneMinusC = NUM_1 - c;
+        float oneMinusC = 1f - c;
         v.x = v.x * c + kCrossV.x * s + k.x * kDotV * oneMinusC;
         v.y = v.y * c + kCrossV.y * s + k.y * kDotV * oneMinusC;
         v.z = v.z * c + kCrossV.z * s + k.z * kDotV * oneMinusC;
@@ -899,8 +878,10 @@ public class CrossField {
     /**
      * A2. Directional constraints from principal curvature
      *
-     * @param faceConstrained     per-face flag, set to true for faces that receive a constraint
-     * @param faceConstraintAngle per-face constraint angle (in face-local frame); written for newly constrained faces
+     * @param faceConstrained     per-face flag, set to true for faces that receive
+     *                            a constraint
+     * @param faceConstraintAngle per-face constraint angle (in face-local frame);
+     *                            written for newly constrained faces
      * @param averageEdgeLength   pre-computed mean edge length
      * @param curvatureK          BZK09 §3 mean-curvature threshold
      * @return number of newly constrained faces
@@ -917,15 +898,14 @@ public class CrossField {
         int addedConstraints = 0;
         CurvatureConstraintStats stats = new CurvatureConstraintStats();
         float h = resolvedTargetEdgeLength(averageEdgeLength);
-        float stabilityWindow = NUM_0_25 * h;
+        float stabilityWindow = RADIUS_STABILITY_WINDOW_FRACTION * h;
 
-        // Geometric radius series.
         List<Float> radii = new ArrayList<>();
         float startRadius = radiusStartMul * averageEdgeLength;
-        if (radiusRatio <= NUM_1_001 || h <= startRadius) {
+        if (radiusRatio <= SINGLE_RADIUS_RATIO_THRESHOLD || h <= startRadius) {
             radii.add(h);
         } else {
-            for (float r = startRadius; r <= h + NUM_1e_6; r *= radiusRatio) {
+            for (float r = startRadius; r <= h + RADIUS_STEP_EPSILON; r *= radiusRatio) {
                 radii.add(r);
             }
         }
@@ -946,7 +926,6 @@ public class CrossField {
             mesh.vertexNormal(vId, vNormal);
             tangentFrame(vNormal, e1, e2);
 
-            // Per-radius results.
             List<Float> anglesMaxDir = new ArrayList<>();
             List<Float> kappaMaxList = new ArrayList<>();
             List<Float> kappaMinList = new ArrayList<>();
@@ -965,7 +944,8 @@ public class CrossField {
             if (anglesMaxDir.isEmpty()) {
                 stats.noCurvatureSamples++;
                 if (trace) {
-                    System.err.printf("[curv-trace] vertex %d: REJECTED no curvature samples (all radii degenerate)%n", vId);
+                    System.err.printf("[curv-trace] vertex %d: REJECTED no curvature samples (all radii degenerate)%n",
+                            vId);
                 }
                 continue;
             }
@@ -976,21 +956,20 @@ public class CrossField {
                 for (int k = 0; k < kappaMaxList.size(); k++) {
                     float kmax = kappaMaxList.get(k);
                     float kmin = kappaMinList.get(k);
-                    float anis = Math.abs(kmax) > NUM_1e_20
+                    float anis = Math.abs(kmax) > EPSILON_DEGENERATE
                             ? (Math.abs(kmax) - Math.abs(kmin)) / Math.abs(kmax)
                             : 0f;
                     kmaxStr.append(String.format(EIG_FORMAT, kmax));
                     kminStr.append(String.format(EIG_FORMAT, kmin));
                     anisStr.append(String.format("%.3f ", anis));
                 }
-                System.err.printf("[curv-trace] vertex %d at (%.3f,%.3f,%.3f): r samples = %d%n  kappa_max: [%s]%n  kappa_min: [%s]%n  anisotropy:[%s]%n  K threshold = %.4g, tauMin = %.3f%n",
+                System.err.printf(
+                        "[curv-trace] vertex %d at (%.3f,%.3f,%.3f): r samples = %d%n  kappa_max: [%s]%n  kappa_min: [%s]%n  anisotropy:[%s]%n  K threshold = %.4g, tauMin = %.3f%n",
                         vId, vPos.x, vPos.y, vPos.z, anglesMaxDir.size(),
                         kmaxStr.toString().trim(), kminStr.toString().trim(),
                         anisStr.toString().trim(), curvatureK, tauMin);
             }
 
-            // BZK09 §3 accepts a shape-operator radius only if the whole
-            // interval [r - h/4, r + h/4] remains anisotropic and non-flat.
             int bestIdx = -1;
             float bestJitter = Float.POSITIVE_INFINITY;
             boolean failedTau = false;
@@ -1018,13 +997,22 @@ public class CrossField {
             if (bestIdx < 0) {
                 if (failedTau) {
                     stats.failedAnisotropy++;
-                    if (trace) System.err.printf("[curv-trace] vertex %d: REJECTED failedAnisotropy (no radius interval has both max & min anisotropy >= tauMin %.3f)%n", vId, tauMin);
+                    if (trace)
+                        System.err.printf(
+                                "[curv-trace] vertex %d: REJECTED failedAnisotropy (no radius interval has both max & min anisotropy >= tauMin %.3f)%n",
+                                vId, tauMin);
                 } else if (failedMean) {
                     stats.failedMeanCurvature++;
-                    if (trace) System.err.printf("[curv-trace] vertex %d: REJECTED failedMeanCurvature (no radius interval has mean curvature >= K %.4g)%n", vId, curvatureK);
+                    if (trace)
+                        System.err.printf(
+                                "[curv-trace] vertex %d: REJECTED failedMeanCurvature (no radius interval has mean curvature >= K %.4g)%n",
+                                vId, curvatureK);
                 } else {
                     stats.failedInterval++;
-                    if (trace) System.err.printf("[curv-trace] vertex %d: REJECTED failedInterval (no radius has full window in valid range)%n", vId);
+                    if (trace)
+                        System.err.printf(
+                                "[curv-trace] vertex %d: REJECTED failedInterval (no radius has full window in valid range)%n",
+                                vId);
                 }
                 continue;
             }
@@ -1032,7 +1020,9 @@ public class CrossField {
             stats.jitterSum += bestJitter;
             stats.maxJitter = Math.max(stats.maxJitter, bestJitter);
             stats.acceptedVertices++;
-            if (trace) System.err.printf("[curv-trace] vertex %d: ACCEPTED bestJitter=%.4f rad, angle=%.3f rad%n", vId, bestJitter, anglesMaxDir.get(bestIdx));
+            if (trace)
+                System.err.printf("[curv-trace] vertex %d: ACCEPTED bestJitter=%.4f rad, angle=%.3f rad%n", vId,
+                        bestJitter, anglesMaxDir.get(bestIdx));
 
             float constraintAngleAtV = anglesMaxDir.get(bestIdx);
             float c = (float) Math.cos(constraintAngleAtV);
@@ -1045,7 +1035,7 @@ public class CrossField {
             int adj = mesh.vertexFaceCount(vId);
             int newlyConstrained = 0;
             if (curvatureConstraintAllIncidentFaces) {
-                // BZK09 §3 pseudocode: every face incident to v is constrained.
+
                 for (int i = 0; i < adj; i++) {
                     int fId = mesh.vertexFaceAt(vId, i);
                     int fAi = faceIdToActive.get(fId);
@@ -1055,14 +1045,13 @@ public class CrossField {
                     }
                     float angleInFace = projectDirectionToFaceAngle(constraintDirWorld, fAi);
                     faceConstrained[fAi] = true;
-                    faceConstraintAngle[fAi] = canonicalizeMod(angleInFace, (float) (Math.PI / NUM_2_0));
+                    faceConstraintAngle[fAi] = canonicalizeMod(angleInFace, (float) (Math.PI / 2.0));
                     newlyConstrained++;
                 }
             } else {
-                // Best-face mode: pick only the incident face whose tangent
-                // plane best receives the world-space principal direction.
+
                 int bestFaceAi = -1;
-                float bestProjectionLength = -NUM_1;
+                float bestProjectionLength = -1f;
                 for (int i = 0; i < adj; i++) {
                     int fId = mesh.vertexFaceAt(vId, i);
                     int fAi = faceIdToActive.get(fId);
@@ -1080,7 +1069,7 @@ public class CrossField {
                     float angleInFace = projectDirectionToFaceAngle(constraintDirWorld, bestFaceAi);
                     faceConstrained[bestFaceAi] = true;
                     faceConstraintAngle[bestFaceAi] = canonicalizeMod(angleInFace,
-                            (float) (Math.PI / NUM_2_0));
+                            (float) (Math.PI / 2.0));
                     newlyConstrained = 1;
                 }
             }
@@ -1096,7 +1085,8 @@ public class CrossField {
     }
 
     /**
-     * Length of {@code dirWorld} after projection onto face {@code fAi}'s tangent plane.
+     * Length of {@code dirWorld} after projection onto face {@code fAi}'s tangent
+     * plane.
      *
      * @param dirWorld 3D direction in world coordinates
      * @param fAi      face active index
@@ -1117,22 +1107,24 @@ public class CrossField {
      * diagonal, falling back to the supplied mean edge length when the bounds
      * collapse.
      *
-     * @param averageEdgeLength fallback target when the bounding box has zero diagonal
+     * @param averageEdgeLength fallback target when the bounding box has zero
+     *                          diagonal
      * @return the resolved target edge length {@code h}
      */
     public float resolvedTargetEdgeLength(float averageEdgeLength) {
         float target = targetEdgeLengthFractionOfBounds * computeBoundingBoxDiagonal();
-        return target > NUM_0 ? target : averageEdgeLength;
+        return target > 0f ? target : averageEdgeLength;
     }
 
     /**
      * Bounding-box diagonal length over active vertices.
      *
-     * @return diagonal of the axis-aligned bounding box of the active vertices, or 0 for an empty mesh
+     * @return diagonal of the axis-aligned bounding box of the active vertices, or
+     *         0 for an empty mesh
      */
     public float computeBoundingBoxDiagonal() {
         if (mesh.vertexCount() == 0) {
-            return NUM_0;
+            return 0f;
         }
         Vector3f p = new Vector3f();
         float minX = Float.POSITIVE_INFINITY;
@@ -1162,7 +1154,8 @@ public class CrossField {
      *
      * @param dirWorld 3D direction in world coordinates
      * @param fAi      face active index
-     * @return signed angle of the projected direction in face-local frame, in radians
+     * @return signed angle of the projected direction in face-local frame, in
+     *         radians
      */
     public float projectDirectionToFaceAngle(Vector3f dirWorld, int fAi) {
         Vector3f n = new Vector3f();
@@ -1179,7 +1172,8 @@ public class CrossField {
      * Build a tangent-frame (e1, e2) for normal n.
      *
      * @param n  unit face normal
-     * @param e1 scratch vector overwritten with a unit tangent perpendicular to {@code n}
+     * @param e1 scratch vector overwritten with a unit tangent perpendicular to
+     *           {@code n}
      * @param e2 scratch vector overwritten with {@code n × e1}
      */
     public static void tangentFrame(Vector3f n, Vector3f e1, Vector3f e2) {
@@ -1197,7 +1191,8 @@ public class CrossField {
      * @param e1      tangent basis vector 1
      * @param e2      tangent basis vector 2 (= {@code n × e1})
      * @param radius  geodesic-disk radius (Dijkstra over 1-skeleton)
-     * @return three-element {@code [T00, T01, T11]} tensor entries, or {@code null} when the disk has no usable triangles
+     * @return three-element {@code [T00, T01, T11]} tensor entries, or {@code null}
+     *         when the disk has no usable triangles
      */
     public float[] integrateCurvatureTensor(int vId, Vector3f vPos, Vector3f vNormal,
             Vector3f e1, Vector3f e2, float radius) {
@@ -1206,7 +1201,6 @@ public class CrossField {
             return null;
         Set<Integer> verticesInDisk = dist.keySet();
 
-        // Triangle subset B = triangles whose all 3 vertices are within the disk.
         Set<Integer> B = new HashSet<>();
         for (int u : verticesInDisk) {
             int faces = mesh.vertexFaceCount(u);
@@ -1227,13 +1221,13 @@ public class CrossField {
         if (B.isEmpty())
             return null;
 
-        float A = NUM_0;
+        float A = 0f;
         for (int fId : B)
             A += faceArea(fId);
-        if (A < NUM_1e_20)
+        if (A < EPSILON_DEGENERATE)
             return null;
 
-        float T00 = NUM_0, T01 = NUM_0, T11 = NUM_0;
+        float T00 = 0f, T01 = 0f, T11 = 0f;
         Vector3f p0 = new Vector3f();
         Vector3f p1 = new Vector3f();
         Vector3f edge = new Vector3f();
@@ -1265,17 +1259,16 @@ public class CrossField {
                 mesh.vertexPosition(v1Id, p1);
                 edge.set(p1).sub(p0);
                 float edgeLen = edge.length();
-                if (edgeLen < NUM_1e_20)
+                if (edgeLen < EPSILON_DEGENERATE)
                     continue;
 
                 mesh.faceNormal(fiId, ni);
                 mesh.faceNormal(fjId, nj);
-                float cosD = Math.max(-NUM_1, Math.min(NUM_1, ni.dot(nj)));
+                float cosD = Math.max(-1f, Math.min(1f, ni.dot(nj)));
                 ni.cross(nj, cross);
                 float sinD = cross.dot(edge) / edgeLen;
                 float beta = (float) Math.atan2(sinD, cosD);
 
-                // Project edge direction into v's tangent plane.
                 Vector3f eUnit = new Vector3f(edge).div(edgeLen);
                 float dotN = eUnit.dot(vNormal);
                 eUnit.x -= dotN * vNormal.x;
@@ -1283,7 +1276,6 @@ public class CrossField {
                 eUnit.z -= dotN * vNormal.z;
                 float ex = eUnit.dot(e1);
                 float ey = eUnit.dot(e2);
-                // Note: don't renormalize after projection — projection length is the weight.
 
                 float w = beta * edgeLen;
                 T00 += w * ex * ex;
@@ -1304,14 +1296,16 @@ public class CrossField {
      * @param t00 tensor entry [0,0]
      * @param t01 tensor entry [0,1] = [1,0]
      * @param t11 tensor entry [1,1]
-     * @return three-element array {@code [eigBig, eigSmall, angleOfBigEigenvector]}; eigenvalues sorted by absolute value
+     * @return three-element array
+     *         {@code [eigBig, eigSmall, angleOfBigEigenvector]}; eigenvalues sorted
+     *         by absolute value
      */
     public static float[] eigSym2x2(float t00, float t01, float t11) {
         float trace = t00 + t11;
         float diff = t00 - t11;
-        float disc = (float) Math.sqrt(diff * diff + NUM_4 * t01 * t01);
-        float lambda1 = NUM_0_5 * (trace + disc);
-        float lambda2 = NUM_0_5 * (trace - disc);
+        float disc = (float) Math.sqrt(diff * diff + QUADRATIC_DISCRIMINANT_FACTOR * t01 * t01);
+        float lambda1 = HALF * (trace + disc);
+        float lambda2 = HALF * (trace - disc);
         float eigBig, eigSmall;
         if (Math.abs(lambda1) >= Math.abs(lambda2)) {
             eigBig = lambda1;
@@ -1321,15 +1315,15 @@ public class CrossField {
             eigSmall = lambda1;
         }
         float vx, vy;
-        if (Math.abs(t01) > NUM_1e_20) {
+        if (Math.abs(t01) > EPSILON_DEGENERATE) {
             vx = eigBig - t11;
             vy = t01;
         } else if (Math.abs(eigBig - t00) < Math.abs(eigBig - t11)) {
-            vx = NUM_1;
-            vy = NUM_0;
+            vx = 1f;
+            vy = 0f;
         } else {
-            vx = NUM_0;
-            vy = NUM_1;
+            vx = 0f;
+            vy = 1f;
         }
         float angle = (float) Math.atan2(vy, vx);
         return new float[] { eigBig, eigSmall, angle };
@@ -1340,19 +1334,20 @@ public class CrossField {
      *
      * @param vId    source vertex id
      * @param radius geodesic distance cutoff
-     * @return map from reachable vertex id to its shortest 1-skeleton distance from {@code vId} (always includes {@code vId} at distance 0)
+     * @return map from reachable vertex id to its shortest 1-skeleton distance from
+     *         {@code vId} (always includes {@code vId} at distance 0)
      */
     public Map<Integer, Float> dijkstraWithinRadius(int vId, float radius) {
         Map<Integer, Float> dist = new HashMap<>();
-        dist.put(vId, NUM_0);
+        dist.put(vId, 0f);
         PriorityQueue<DijkstraNode> pq = new PriorityQueue<>();
-        pq.offer(new DijkstraNode(NUM_0, vId));
+        pq.offer(new DijkstraNode(0f, vId));
         Vector3f a = new Vector3f();
         Vector3f b = new Vector3f();
         while (!pq.isEmpty()) {
             DijkstraNode node = pq.poll();
             Float bestD = dist.get(node.vertexOrFace);
-            if (bestD == null || node.distance > bestD + NUM_1e_9)
+            if (bestD == null || node.distance > bestD + EPSILON_FP_TOLERANCE)
                 continue;
             int outCount = mesh.vertexOutgoingHalfEdgeCount(node.vertexOrFace);
             mesh.vertexPosition(node.vertexOrFace, a);
@@ -1378,8 +1373,8 @@ public class CrossField {
     }
 
     /**
-     * Status of the BZK09 §3 curvature stability interval centred at radius
-     * index {@code k}.
+     * Status of the BZK09 §3 curvature stability interval centred at radius index
+     * {@code k}.
      *
      * @param radii           geometric series of disk radii
      * @param kappaMaxList    per-radius {@code |κ_max|}
@@ -1387,8 +1382,10 @@ public class CrossField {
      * @param k               index in {@code radii} the interval is centred on
      * @param stabilityWindow half-window of radii considered in the stability test
      * @param curvatureK      BZK09 §3 mean-curvature threshold
-     * @return one of {@link #CURVATURE_INTERVAL_VALID}, {@link #CURVATURE_INTERVAL_FAIL_EMPTY},
-     *         {@link #CURVATURE_INTERVAL_FAIL_TAU}, or {@link #CURVATURE_INTERVAL_FAIL_MEAN}
+     * @return one of {@link #CURVATURE_INTERVAL_VALID},
+     *         {@link #CURVATURE_INTERVAL_FAIL_EMPTY},
+     *         {@link #CURVATURE_INTERVAL_FAIL_TAU}, or
+     *         {@link #CURVATURE_INTERVAL_FAIL_MEAN}
      */
     public int curvatureIntervalStatus(List<Float> radii,
             List<Float> kappaMaxList,
@@ -1404,10 +1401,10 @@ public class CrossField {
             hasSample = true;
             float kmax = kappaMaxList.get(j);
             float kmin = kappaMinList.get(j);
-            if (Math.abs(kmax) < NUM_1e_12)
+            if (Math.abs(kmax) < EPSILON_PRINCIPAL_CURVATURE)
                 return CURVATURE_INTERVAL_FAIL_TAU;
             float tau = (Math.abs(kmax) - Math.abs(kmin)) / Math.abs(kmax);
-            float meanH = NUM_0_5 * (kmax + kmin);
+            float meanH = HALF * (kmax + kmin);
             if (tau <= tauMin || Math.abs(meanH) <= curvatureK)
                 return tau <= tauMin
                         ? CURVATURE_INTERVAL_FAIL_TAU
@@ -1424,12 +1421,13 @@ public class CrossField {
      * @param radii           geometric series of disk radii
      * @param k               index in {@code radii} the jitter is measured at
      * @param stabilityWindow half-window of radii contributing to the std deviation
-     * @return RMS angular deviation in radians (mod π); 0 when no neighbours fall inside the window
+     * @return RMS angular deviation in radians (mod π); 0 when no neighbours fall
+     *         inside the window
      */
     public static float directionJitter(List<Float> angles, List<Float> radii, int k, float stabilityWindow) {
         float ak = angles.get(k);
         float center = radii.get(k);
-        float sumSq = NUM_0;
+        float sumSq = 0f;
         int count = 0;
         for (int j = 0; j < angles.size(); j++) {
             if (j == k)
@@ -1438,26 +1436,28 @@ public class CrossField {
                 continue;
             float alpha = angles.get(j) - ak;
             /** Wrap an angle to (−π/2, π/2]. */
-            float diff = (float) (alpha - Math.PI * Math.floor((alpha + Math.PI / NUM_2_0) / Math.PI));
+            float diff = (float) (alpha - Math.PI * Math.floor((alpha + Math.PI / 2.0) / Math.PI));
             sumSq += diff * diff;
             count++;
         }
         if (count == 0)
-            return NUM_0;
+            return 0f;
         return (float) Math.sqrt(sumSq / count);
     }
 
     /**
      * BZK09 §5.2 / CIE16-style alignment constraints: edges whose dihedral angle
      * between the two incident face normals exceeds {@link #featureDihedralCos}
-     * (default cos 30° = 0.866) are treated as sharp creases. The cross is
-     * aligned with the edge direction in both incident faces.
+     * (default cos 30° = 0.866) are treated as sharp creases. The cross is aligned
+     * with the edge direction in both incident faces.
      *
-     * <p>Without this pass, sharp models like fandisk produce many spurious
+     * <p>
+     * Without this pass, sharp models like fandisk produce many spurious
      * singularities because the field has no incentive to follow features.
      *
      * @param faceConstrained     per-face flag, updated for newly constrained faces
-     * @param faceConstraintAngle per-face constraint angle (face-local) overwritten for affected faces
+     * @param faceConstraintAngle per-face constraint angle (face-local) overwritten
+     *                            for affected faces
      * @return number of newly constrained faces
      */
     public int applyFeatureEdgeConstraints(boolean[] faceConstrained, float[] faceConstraintAngle) {
@@ -1481,8 +1481,7 @@ public class CrossField {
             if (dot >= featureDihedralCos) {
                 continue;
             }
-            // Don't overwrite existing curvature constraints — they're more directional
-            // information per vertex than a feature edge can provide for one face.
+
             int fiAi = faceIdToActive.get(fi);
             int fjAi = faceIdToActive.get(fj);
             if (faceConstrained[fiAi] && faceConstrained[fjAi]) {
@@ -1499,7 +1498,7 @@ public class CrossField {
                 }
                 float angle = projectDirectionToFaceAngle(edgeDir, sideAi);
                 faceConstrained[sideAi] = true;
-                faceConstraintAngle[sideAi] = canonicalizeMod(angle, (float) (Math.PI / NUM_2_0));
+                faceConstraintAngle[sideAi] = canonicalizeMod(angle, (float) (Math.PI / 2.0));
                 addedConstraints++;
             }
         }
@@ -1507,12 +1506,14 @@ public class CrossField {
     }
 
     /**
-     * Add directional constraints on both faces incident to each boundary edge.
-     * The cross is aligned with the edge direction so the quadrangulation
-     * follows the surface boundary.
+     * Add directional constraints on both faces incident to each boundary edge. The
+     * cross is aligned with the edge direction so the quadrangulation follows the
+     * surface boundary.
      *
-     * @param faceConstrained     per-face flag, updated for newly constrained boundary-incident faces
-     * @param faceConstraintAngle per-face constraint angle (face-local) overwritten for boundary-incident faces
+     * @param faceConstrained     per-face flag, updated for newly constrained
+     *                            boundary-incident faces
+     * @param faceConstraintAngle per-face constraint angle (face-local) overwritten
+     *                            for boundary-incident faces
      * @return number of newly constrained faces
      */
     public int applyBoundaryConstraints(boolean[] faceConstrained, float[] faceConstraintAngle) {
@@ -1542,7 +1543,8 @@ public class CrossField {
      * @param eId                 edge id whose two incident faces are constrained
      * @param edgeDirWorld        edge direction in world coordinates
      * @param faceConstrained     per-face flag, updated for newly constrained faces
-     * @param faceConstraintAngle per-face constraint angle (face-local) overwritten for both incident faces
+     * @param faceConstraintAngle per-face constraint angle (face-local) overwritten
+     *                            for both incident faces
      * @return number of newly constrained faces (0, 1, or 2)
      */
     public int constrainBothFacesOfEdge(int eId, Vector3f edgeDirWorld,
@@ -1554,13 +1556,13 @@ public class CrossField {
         for (int hePick : new int[] { he, twin }) {
             int fId = mesh.halfEdgeFace(hePick);
             if (fId == MeshTopology.NONE)
-                continue; // boundary side of a boundary edge
+                continue;
             int fAi = faceIdToActive.get(fId);
             float angle = projectDirectionToFaceAngle(edgeDirWorld, fAi);
             if (!faceConstrained[fAi])
                 addedConstraints++;
             faceConstrained[fAi] = true;
-            faceConstraintAngle[fAi] = canonicalizeMod(angle, (float) (Math.PI / NUM_2_0));
+            faceConstraintAngle[fAi] = canonicalizeMod(angle, (float) (Math.PI / 2.0));
         }
         return addedConstraints;
     }
@@ -1570,9 +1572,9 @@ public class CrossField {
      */
 
     /**
-     * Multi-source Dijkstra over the dual graph rooted at every constrained
-     * face; the shortest-parent edge of each non-constrained face becomes a
-     * forest edge whose period jump is fixed to zero in BZK09 §A3.
+     * Multi-source Dijkstra over the dual graph rooted at every constrained face;
+     * the shortest-parent edge of each non-constrained face becomes a forest edge
+     * whose period jump is fixed to zero in BZK09 §A3.
      *
      * @param faceConstrained per-face flag indicating dual-graph sources
      * @return active edge ids of the spanning-forest edges
@@ -1587,8 +1589,8 @@ public class CrossField {
         PriorityQueue<DijkstraNode> pq = new PriorityQueue<>();
         for (int fAi = 0; fAi < faceCount; fAi++) {
             if (faceConstrained[fAi]) {
-                dist[fAi] = NUM_0;
-                pq.offer(new DijkstraNode(NUM_0, fAi));
+                dist[fAi] = 0f;
+                pq.offer(new DijkstraNode(0f, fAi));
             }
         }
         Vector3f va = new Vector3f();
@@ -1597,7 +1599,7 @@ public class CrossField {
         while (!pq.isEmpty()) {
             DijkstraNode node = pq.poll();
             int fAi = node.vertexOrFace;
-            if (node.distance > dist[fAi] + NUM_1e_9)
+            if (node.distance > dist[fAi] + EPSILON_FP_TOLERANCE)
                 continue;
             int fId = mesh.faceIdAt(fAi);
             int adj = mesh.faceHalfEdgeCount(fId);
@@ -1653,7 +1655,8 @@ public class CrossField {
      * defect plus signed κ- and period-walks around the 1-ring; populates
      * {@link #singularityIndexQuarter} and {@link #singularities}.
      *
-     * @return singularity list (also stored in {@link #singularities}); excludes boundary vertices and zero-index interior vertices
+     * @return singularity list (also stored in {@link #singularities}); excludes
+     *         boundary vertices and zero-index interior vertices
      */
     public List<Singularity> extractSingularities() {
         int vertexCount = mesh.vertexCount();
@@ -1669,15 +1672,15 @@ public class CrossField {
                 continue;
             mesh.vertexPosition(vId, vPos);
 
-            float angleSum = NUM_0;
+            float angleSum = 0f;
             int faces = mesh.vertexFaceCount(vId);
             for (int i = 0; i < faces; i++) {
                 int fId = mesh.vertexFaceAt(vId, i);
                 angleSum += interiorAngleAtVertex(fId, vId, vPos, a, b);
             }
-            float defect = (float) (NUM_2_0 * Math.PI) - angleSum;
+            float defect = (float) (2.0 * Math.PI) - angleSum;
 
-            float signedKappaSum = NUM_0;
+            float signedKappaSum = 0f;
             int signedPeriodSum = 0;
             int outCount = mesh.vertexOutgoingHalfEdgeCount(vId);
             for (int i = 0; i < outCount; i++) {
@@ -1691,7 +1694,7 @@ public class CrossField {
                 signedPeriodSum += sign * periodJump[eAi];
             }
 
-            float iTimes4 = (float) (((defect + signedKappaSum) * NUM_2_0) / Math.PI) + signedPeriodSum;
+            float iTimes4 = (float) (((defect + signedKappaSum) * 2.0) / Math.PI) + signedPeriodSum;
             int iQuarter = Math.round(iTimes4);
             singularityIndexQuarter[vAi] = iQuarter;
             if (iQuarter != 0) {
@@ -1707,9 +1710,11 @@ public class CrossField {
      * @param fId  face id
      * @param vId  vertex id (must be a corner of {@code fId})
      * @param vPos position of {@code vId}
-     * @param a    scratch vector overwritten with the previous-corner edge direction
+     * @param a    scratch vector overwritten with the previous-corner edge
+     *             direction
      * @param b    scratch vector overwritten with the next-corner edge direction
-     * @return angle in radians, or 0 for degenerate triangles or when {@code vId} is not a corner of {@code fId}
+     * @return angle in radians, or 0 for degenerate triangles or when {@code vId}
+     *         is not a corner of {@code fId}
      */
     public float interiorAngleAtVertex(int fId, int vId, Vector3f vPos, Vector3f a, Vector3f b) {
         int adj = mesh.faceHalfEdgeCount(fId);
@@ -1725,19 +1730,19 @@ public class CrossField {
                 b.sub(vPos);
                 float la = a.length();
                 float lb = b.length();
-                if (la < NUM_1e_20 || lb < NUM_1e_20)
-                    return NUM_0;
+                if (la < EPSILON_DEGENERATE || lb < EPSILON_DEGENERATE)
+                    return 0f;
                 float c = a.dot(b) / (la * lb);
-                c = Math.max(-NUM_1, Math.min(NUM_1, c));
+                c = Math.max(-1f, Math.min(1f, c));
                 return (float) Math.acos(c);
             }
         }
-        return NUM_0;
+        return 0f;
     }
 
     /**
-     * Print one-shot problem-shape diagnostics to stdout (constraint counts,
-     * solver tuning, BZK09 reference targets).
+     * Print one-shot problem-shape diagnostics to stdout (constraint counts, solver
+     * tuning, BZK09 reference targets).
      *
      * @param averageEdgeLength      mean edge length (BZK09 §3 "h" fallback)
      * @param boundingSphereRadius   mesh bounding-sphere radius
@@ -1746,9 +1751,12 @@ public class CrossField {
      * @param boundaryConstraints    number of boundary constraints applied
      * @param totalConstraints       total constrained faces
      * @param forestEdgeCount        number of Voronoi-forest edges
-     * @param boundaryPeriodFixes    period jumps fixed to 0 because the edge is on the boundary
-     * @param constrainedPeriodFixes period jumps rounded between two constrained faces
-     * @param initiallyFixedPeriods  per-edge mask of period jumps fixed before the greedy solve
+     * @param boundaryPeriodFixes    period jumps fixed to 0 because the edge is on
+     *                               the boundary
+     * @param constrainedPeriodFixes period jumps rounded between two constrained
+     *                               faces
+     * @param initiallyFixedPeriods  per-edge mask of period jumps fixed before the
+     *                               greedy solve
      * @param system                 assembled smooth-energy linear system
      */
     public void printProblemDiagnostics(float averageEdgeLength,
@@ -1837,13 +1845,14 @@ public class CrossField {
     /**
      * Snapshot of smoothness energy and per-edge residual statistics.
      *
-     * @return aggregate smoothness energy and per-edge residual stats over the current θ / κ / period-jump arrays
+     * @return aggregate smoothness energy and per-edge residual stats over the
+     *         current θ / κ / period-jump arrays
      */
     public SmoothnessStats smoothnessStats() {
-        float halfPi = (float) (Math.PI / NUM_2_0);
+        float halfPi = (float) (Math.PI / 2.0);
         double energy = 0.0;
         double maxResidual = 0.0;
-        int[] buckets = new int[NUM_8];
+        int[] buckets = new int[RESIDUAL_HISTOGRAM_BUCKETS];
         for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
             int eId = mesh.edgeIdAt(eAi);
             if (mesh.isBoundaryEdge(eId))
@@ -1855,7 +1864,8 @@ public class CrossField {
             double residual = theta[fi] + kappa[eAi] + halfPi * periodJump[eAi] - theta[fj];
             energy += residual * residual;
             maxResidual = Math.max(maxResidual, Math.abs(residual));
-            int b = Math.min(NUM_7, (int) (Math.abs(residual) / (Math.PI / NUM_32)));
+            int b = Math.min(RESIDUAL_HISTOGRAM_LAST_BUCKET,
+                    (int) (Math.abs(residual) / (Math.PI / RESIDUAL_HISTOGRAM_BIN_DIVISOR)));
             buckets[b]++;
         }
         System.err.println("[res] " + Arrays.toString(buckets));
@@ -1865,7 +1875,8 @@ public class CrossField {
     /**
      * Histogram of singularity indices for the current solution.
      *
-     * @return string representation of the {index ×4 → count} histogram of {@link #singularities}
+     * @return string representation of the {index ×4 → count} histogram of
+     *         {@link #singularities}
      */
     public String singularityHistogram() {
         Map<Integer, Integer> histogram = new HashMap<>();
@@ -1911,18 +1922,19 @@ public class CrossField {
                             (b.z - a.z) * (b.z - a.z));
             count++;
         }
-        return count == 0 ? NUM_1 : (float) (sum / count);
+        return count == 0 ? 1f : (float) (sum / count);
     }
 
     /**
      * Bounding-sphere radius proxy from the active vertices.
      *
-     * @return half-diagonal of the active vertices' bounding box (used as a bounding-sphere proxy), or 1 for an empty mesh
+     * @return half-diagonal of the active vertices' bounding box (used as a
+     *         bounding-sphere proxy), or 1 for an empty mesh
      */
     public float computeBoundingSphereRadius() {
         int vertexCount = mesh.vertexCount();
         if (vertexCount == 0)
-            return NUM_1;
+            return 1f;
         Vector3f p = new Vector3f();
         mesh.vertexPosition(mesh.vertexIdAt(0), p);
         float minX = p.x, minY = p.y, minZ = p.z;
@@ -1945,7 +1957,7 @@ public class CrossField {
         float dx = maxX - minX;
         float dy = maxY - minY;
         float dz = maxZ - minZ;
-        return NUM_0_5 * (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        return HALF * (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
     /**
@@ -1969,7 +1981,7 @@ public class CrossField {
         c.sub(a);
         Vector3f cross = new Vector3f();
         b.cross(c, cross);
-        return NUM_0_5 * cross.length();
+        return HALF * cross.length();
     }
 
     /**
@@ -1995,7 +2007,9 @@ public class CrossField {
             this.vertexOrFace = vertexOrFace;
         }
 
-        /** {@inheritDoc} Orders by ascending {@code distance} for the priority queue. */
+        /**
+         * {@inheritDoc} Orders by ascending {@code distance} for the priority queue.
+         */
         @Override
         public int compareTo(DijkstraNode other) {
             return Float.compare(this.distance, other.distance);
@@ -2039,18 +2053,10 @@ public class CrossField {
      */
 
     public final class SmoothEnergySystem {
-        public static final float NUM_0 = 0f;
-        public static final int NUM_5000 = 5000;
-        public static final double NUM_1e_6 = 1e-6;
-        public static final int NUM_100 = 100;
-        public static final int NUM_500 = 500;
-        public static final int NUM_50000 = 50000;
-        public static final int NUM_64 = 64;
-        public static final int NUM_256 = 256;
-        public static final double NUM_0_05 = 0.05;
-        public static final double NUM_0_15 = 0.15;
-        public static final double NUM_1e_7 = 1e-7;
-        public static final double NUM_1e_3 = 1e-3;
+        public static final double DEFAULT_LOCAL_TOLERANCE = 1e-6;
+        public static final int DEFAULT_ROUND_BATCH_SIZE = 256;
+        public static final double DEFAULT_ROUND_BATCH_TOLERANCE = 0.15;
+        public static final double DEFAULT_CG_TOLERANCE = 1e-7;
         final int faceCount;
         final int edgeCount;
         final boolean[] faceConstrained;
@@ -2058,17 +2064,15 @@ public class CrossField {
         final boolean[] periodFixedInit;
         final int[] periodValue;
 
-        // Energy rows (one per non-boundary edge).
-        int[] rowFaceI; // active-index of face i
-        int[] rowFaceJ; // active-index of face j
-        int[] rowEdgeAi; // active-index of the edge
+        int[] rowFaceI;
+        int[] rowFaceJ;
+        int[] rowEdgeAi;
         float[] rowKappa;
         int rowCount;
         int[] chordOfEdge;
         int[] edgeOfChord;
         int chordCount;
 
-        // Solution storage.
         float[] solutionTheta;
         float[] solutionPeriod;
         boolean[] periodFixed;
@@ -2111,7 +2115,7 @@ public class CrossField {
         }
 
         void assemble() {
-            // Count non-boundary edges.
+
             int nbCount = 0;
             for (int eAi = 0; eAi < edgeCount; eAi++) {
                 if (!mesh.isBoundaryEdge(mesh.edgeIdAt(eAi)))
@@ -2157,12 +2161,12 @@ public class CrossField {
             solution = new double[faceCount + chordCount];
             fixedVariables = new boolean[faceCount + chordCount];
             for (int fAi = 0; fAi < faceCount; fAi++) {
-                solutionTheta[fAi] = faceConstrained[fAi] ? faceConstraintAngle[fAi] : NUM_0;
+                solutionTheta[fAi] = faceConstrained[fAi] ? faceConstraintAngle[fAi] : 0f;
                 solution[fAi] = solutionTheta[fAi];
                 fixedVariables[fAi] = faceConstrained[fAi];
             }
             for (int eAi = 0; eAi < edgeCount; eAi++) {
-                solutionPeriod[eAi] = periodFixed[eAi] ? periodValue[eAi] : NUM_0;
+                solutionPeriod[eAi] = periodFixed[eAi] ? periodValue[eAi] : 0f;
                 int chord = chordOfEdge[eAi];
                 if (chord >= 0) {
                     solution[faceCount + chord] = solutionPeriod[eAi];
@@ -2171,17 +2175,13 @@ public class CrossField {
             normalMatrix = new NormalMatrix();
             adaptiveOptions = new AdaptiveSolver.Options();
             adaptiveOptions.localMaxIterations = solverLocalMaxIterations;
-            adaptiveOptions.localTolerance = NUM_1e_6;
+            adaptiveOptions.localTolerance = DEFAULT_LOCAL_TOLERANCE;
             adaptiveOptions.cgMaxIterations = solverCgMaxIterations;
-            adaptiveOptions.cgTolerance = NUM_1e_7;
+            adaptiveOptions.cgTolerance = DEFAULT_CG_TOLERANCE;
             adaptiveOptions.useDirectFallback = true;
-            // BZK09 §2 says round one variable at a time. Disjoint-patch
-            // batching is equivalent because the rounded variables don't
-            // share two-hop neighborhoods, so each batched solve produces
-            // the same x as the serial version would. Re-enabled for the
-            // 10–30× speedup it gives on the figure_8/figure_10 NDF tests.
-            roundBatchSize = NUM_256;
-            roundBatchTol = NUM_0_15;
+
+            roundBatchSize = DEFAULT_ROUND_BATCH_SIZE;
+            roundBatchTol = DEFAULT_ROUND_BATCH_TOLERANCE;
         }
 
         void solveGreedyMIP() {
@@ -2210,8 +2210,7 @@ public class CrossField {
                     int eAi = roundedEdges[i];
                     int rounded = (int) Math.round(solution[variable]);
                     double roundoffAmount = Math.abs(solution[variable] - rounded);
-                    // System.err.printf("[round] var=%d roundoff=%.6f%n", variable,
-                    // roundoffAmount);
+
                     periodFixed[eAi] = true;
                     periodValue[eAi] = rounded;
                     solutionPeriod[eAi] = rounded;
@@ -2280,17 +2279,19 @@ public class CrossField {
         }
 
         /**
-         * Pick a non-overlapping subset of {@code candidates} (each variable's
-         * two-hop dependency patch must be disjoint within the batch) of size up
-         * to {@link #roundBatchSize}.
+         * Pick a non-overlapping subset of {@code candidates} (each variable's two-hop
+         * dependency patch must be disjoint within the batch) of size up to
+         * {@link #roundBatchSize}.
          *
          * @param candidates       roundoff-sorted candidate list
          * @param candidateCount   valid prefix length of {@code candidates}
          * @param roundedVariables output buffer for picked variable indices
          * @param roundedEdges     output buffer for picked edge active indices
          * @param candidatePatch   scratch buffer for one candidate's patch members
-         * @param selectedPatch    scratch flag array marking variables already claimed by the batch
-         * @param candidateMarked  scratch marker buffer for {@link AdaptiveSolver#collectAffectedPatch}
+         * @param selectedPatch    scratch flag array marking variables already claimed
+         *                         by the batch
+         * @param candidateMarked  scratch marker buffer for
+         *                         {@link AdaptiveSolver#collectAffectedPatch}
          * @return number of variables admitted to the batch
          */
         public int selectRoundingBatch(BatchCandidate[] candidates,
@@ -2335,7 +2336,8 @@ public class CrossField {
          * Continuous L2 solve with currently-fixed variables held constant. Uses the
          * BZK09 adaptive ladder: local GS, then CG, then direct fallback.
          *
-         * @param roundedVariable variable index just rounded, or negative for the bootstrap (no rounded variable yet)
+         * @param roundedVariable variable index just rounded, or negative for the
+         *                        bootstrap (no rounded variable yet)
          */
         void solveRelaxed(int roundedVariable) {
             if (roundedVariable < 0) {
@@ -2390,7 +2392,8 @@ public class CrossField {
 
         /**
          * Format and stash a one-line diagnostic snapshot in
-         * {@link CrossField#lastDiagnostics} (rounded count, batch / solver / cap stats).
+         * {@link CrossField#lastDiagnostics} (rounded count, batch / solver / cap
+         * stats).
          */
         public void updateLastDiagnostics() {
             int remaining = 0;
@@ -2424,10 +2427,10 @@ public class CrossField {
                 }
                 int chord = chordOfEdge[eAi];
                 if (chord >= 0) {
-                    // Free chord: use the value we actually solved/rounded for
+
                     cf.periodJump[eAi] = (int) Math.round(solutionPeriod[eAi]);
                 } else {
-                    // Pre-fixed (forest tree or constrained pair)
+
                     cf.periodJump[eAi] = periodValue[eAi];
                 }
             }
@@ -2446,7 +2449,7 @@ public class CrossField {
         }
 
         public final class NormalMatrix implements AdaptiveSolver.Matrix {
-            public static final double NUM_0_5 = 0.5;
+            public static final double HALF = 0.5;
             final int variableCount;
             final double[] diag;
             final double[] rhs;
@@ -2482,7 +2485,7 @@ public class CrossField {
                 rowCol = new int[rowStart[variableCount]];
                 rowVal = new double[rowStart[variableCount]];
                 int[] cursor = rowStart.clone();
-                double halfPi = Math.PI * NUM_0_5;
+                double halfPi = Math.PI * HALF;
 
                 for (int r = 0; r < rowCount; r++) {
                     int fi = rowFaceI[r];
@@ -2514,8 +2517,8 @@ public class CrossField {
             }
 
             /**
-             * Append one off-diagonal entry into the row's CSR slot, advancing the
-             * row's write cursor in {@code cursor}.
+             * Append one off-diagonal entry into the row's CSR slot, advancing the row's
+             * write cursor in {@code cursor}.
              *
              * @param cursor per-row write cursor (mutated)
              * @param row    row index of the new entry

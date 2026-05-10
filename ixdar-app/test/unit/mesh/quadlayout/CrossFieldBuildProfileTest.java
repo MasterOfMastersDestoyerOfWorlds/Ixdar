@@ -61,6 +61,17 @@ class CrossFieldBuildProfileTest {
                 "crossField.localMax", String.valueOf(cf.solverLocalMaxIterations)));
         cf.solverCgMaxIterations = Integer.parseInt(System.getProperty(
                 "crossField.cgMax", String.valueOf(cf.solverCgMaxIterations)));
+        cf.solverLocalTolerance = Double.parseDouble(System.getProperty(
+                "crossField.localTol", String.valueOf(cf.solverLocalTolerance)));
+        cf.solverCgTolerance = Double.parseDouble(System.getProperty(
+                "crossField.cgTol", String.valueOf(cf.solverCgTolerance)));
+        cf.featureDihedralCos = Float.parseFloat(System.getProperty(
+                "crossField.featureDihedralCos", String.valueOf(cf.featureDihedralCos)));
+        cf.curvatureClusterOfThree = Boolean.parseBoolean(System.getProperty(
+                "crossField.clusterOfThree", String.valueOf(cf.curvatureClusterOfThree)));
+        cf.curvatureClusterAngleTolerance = (float) Math.toRadians(Float.parseFloat(
+                System.getProperty("crossField.clusterDeg",
+                        String.valueOf(Math.toDegrees(cf.curvatureClusterAngleTolerance)))));
         CrossField generated = cf.build();
         Duration elapsed = Duration.ofNanos(System.nanoTime() - start);
 

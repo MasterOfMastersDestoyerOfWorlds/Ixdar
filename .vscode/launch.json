@@ -163,6 +163,15 @@
       "args": "mesh-viewer",
       "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Xmx4g -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Cross Field Examination",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "cross-field-exam",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Xmx4g -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -DcrossFieldScene.off=test/resources/quadlayout/figure_10/fandisk_in_tri.off",
+      "cwd": "${workspaceFolder}/ixdar-app"
     }
 
   ]

@@ -30,12 +30,11 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.CrossField;
-import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 
 /**
  * For every {@code *_in_cf*.ndf} reference under {@code test/resources/quadlayout/figure_*}
- * that has a matching {@code *_in_tri.off}, run {@link QuadLayoutEngine#pipeline}
- * on the OFF and assert the resulting {@link CrossField} matches the NDF reference.
+ * that has a matching {@code *_in_tri.off}, build the {@link CrossField} on the
+ * OFF and assert it matches the NDF reference.
  *
  * <p>Each pair runs as its own {@link DynamicTest} on a dedicated single-thread
  * executor with a 10-second timeout, so one slow or hung pair does not block
@@ -107,7 +106,7 @@ class CrossFieldNdfReferenceTest {
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
 
         CrossField reference = CrossFieldLoader.load(pair.ndfPath.toString(), halfEdgeMesh);
-        CrossField generated = QuadLayoutEngine.pipeline(halfEdgeMesh, ALPHA);
+        CrossField generated = new CrossField(halfEdgeMesh).build();
 
         assertCrossFieldsEquivalent(reference, generated, halfEdgeMesh, pair);
     }

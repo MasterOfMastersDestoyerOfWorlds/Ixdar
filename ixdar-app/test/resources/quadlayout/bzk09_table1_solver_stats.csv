@@ -1,0 +1,35 @@
+# BZK09 Table 1 — both halves transcribed from the paper PDF (Figure of solver
+# statistics, embedded as an image so it isn't selectable). One row per model.
+# The Cross-Field block is what {@link CrossField#build()} solves; the
+# Parametrization block is what {@link SeamlessParameterization#build()} solves
+# on top. Columns:
+#   model      — lowercased model name; matches the {model}_in_tri.off file under
+#                test/resources/quadlayout/figure_*/. Rows whose mesh isn't in
+#                the test resources are skipped by the test factory.
+#   cf_dim     — Cross Field: initial dimension of the linear system
+#                (= unconstrained θ DOFs + free period-jump DOFs after
+#                constraint elimination).
+#   cf_int     — Cross Field: number of free integer (period-jump) variables to round.
+#   cf_is      — Cross Field: iterative-solver escalations (CG calls when local
+#                Gauss-Seidel hit its iteration cap and had to promote).
+#   cf_ds      — Cross Field: direct-solver escalations (sparse Cholesky calls
+#                when CG also hit its cap).
+#   cf_time_s  — Cross Field: wall time on BZK09's 3.0 GHz reference machine.
+#   p_dim      — Parametrization: initial dimension of the linear system after
+#                eliminating 4 continuous DOFs per cut edge in favour of the
+#                two integer (j, k) per cut edge.
+#   p_int      — Parametrization: number of integer variables to round (the cut
+#                (j, k) plus singularity (u, v) snap-to-integer pins).
+#   p_time_s   — Parametrization: wall time on BZK09's reference machine. Per
+#                paper text, "Time refers solely to the direct solver" because
+#                the global parametrization solve seldom benefits from the
+#                iterative path.
+# All times are 2009 hardware ceilings; treat as order-of-magnitude reference,
+# not a hard assertion.
+model,cf_dim,cf_int,cf_is,cf_ds,cf_time_s,p_dim,p_int,p_time_s
+fertility,29342,10621,762,11,6.6,27954,108,25.7
+rockerarm,32843,12064,385,7,7.6,41552,72,25.5
+lever,21113,8254,62,2,3.3,19331,148,19.9
+botijo,25821,9611,669,7,5.4,29994,164,44.0
+fandisk,17820,6447,209,6,2.2,13776,19,2.4
+beetle,46425,15827,562,14,13.3,34705,82,25.5

@@ -32,8 +32,31 @@ import ixdar.geometry.mesh.quadlayout.solver.SparseMatrix;
 public final class AdaptiveSolver {
     public static final double NUM_1e_30 = 1e-30;
     public static final double NUM_1_7 = 1.7;
+    /** SOR factor for the colored-GS variant; 1.0 keeps convergence stable across colors. */
+    public static final double NUM_1_0 = 1.0;
+    /** Below this work-set size we run the colored variant serially (per-color thread overhead dominates). */
+    public static final int COLORED_GS_MIN_PARALLEL_SIZE = 64;
+    public static final int COLORED_GS_MAX_WORKERS = 8;
+
+    private static volatile java.util.concurrent.ExecutorService coloredGsPool;
 
     private AdaptiveSolver() {
+    }
+
+    private static java.util.concurrent.ExecutorService coloredGsPool() {
+        java.util.concurrent.ExecutorService p = coloredGsPool;
+        if (p != null) return p;
+        synchronized (AdaptiveSolver.class) {
+            if (coloredGsPool == null) {
+                int n = Math.min(Runtime.getRuntime().availableProcessors(), COLORED_GS_MAX_WORKERS);
+                coloredGsPool = java.util.concurrent.Executors.newFixedThreadPool(n, r -> {
+                    Thread t = new Thread(r, "adaptive-colored-gs");
+                    t.setDaemon(true);
+                    return t;
+                });
+            }
+            return coloredGsPool;
+        }
     }
 
     /**
@@ -124,8 +147,11 @@ public final class AdaptiveSolver {
 
         }
 
-        LocalResult local = localGaussSeidel(matrix, rhs, x, fixed,
-                roundedVariables, roundedCount, opts);
+        LocalResult local = opts.useColoredGaussSeidel
+                ? coloredLocalGaussSeidel(matrix, rhs, x, fixed,
+                        roundedVariables, roundedCount, opts.coloring, opts)
+                : localGaussSeidel(matrix, rhs, x, fixed,
+                        roundedVariables, roundedCount, opts);
         if (local.converged) {
             double residual = residualNorm(matrix, rhs, local.x, fixed);
             return new Result(local.x, new Stats(
@@ -157,6 +183,64 @@ public final class AdaptiveSolver {
                 Method.FAILED, false, local.iterations, cg.iterations, residual,
                 local.hitCap, local.initialQueueSize, local.maxQueueSize,
                 local.capResidualNorm, local.capResidualRow));
+    }
+
+    /**
+     * Greedy first-fit coloring of the matrix's variable dependency graph
+     * (off-diagonal nonzero pattern). Within a color, no two variables are
+     * connected by a nonzero off-diagonal entry, so they can be Gauss-Seidel
+     * updated in parallel without changing each other's residual computation.
+     *
+     * @param matrix symmetric system matrix
+     * @return per-row color index in {@code [0, numColors)}; {@link #colorCount(int[])} returns the count
+     */
+    public static int[] computeGreedyColoring(Matrix matrix) {
+        int n = matrix.size();
+        int[] colors = new int[n];
+        java.util.Arrays.fill(colors, -1);
+        boolean[] used = new boolean[n + 1];
+        for (int row = 0; row < n; row++) {
+            int touched = 0;
+            for (int c = matrix.rowStart(row); c < matrix.rowEnd(row); c++) {
+                int neighbor = matrix.column(c);
+                if (neighbor != row && colors[neighbor] >= 0) {
+                    int col = colors[neighbor];
+                    if (col < used.length) {
+                        used[col] = true;
+                        touched++;
+                    }
+                }
+            }
+            int chosen = 0;
+            while (chosen < used.length && used[chosen]) {
+                chosen++;
+            }
+            colors[row] = chosen;
+            // Reset the marks we set this iteration without scanning all of `used`.
+            for (int c = matrix.rowStart(row); c < matrix.rowEnd(row); c++) {
+                int neighbor = matrix.column(c);
+                if (neighbor != row && colors[neighbor] >= 0) {
+                    int col = colors[neighbor];
+                    if (col < used.length) used[col] = false;
+                }
+            }
+            if (touched == 0) {
+                // nothing to reset
+            }
+        }
+        return colors;
+    }
+
+    /**
+     * Number of distinct colors in a coloring (i.e. {@code max(colors)+1}).
+     *
+     * @param colors per-row color index produced by {@link #computeGreedyColoring}
+     * @return number of distinct colors used
+     */
+    public static int colorCount(int[] colors) {
+        int max = -1;
+        for (int c : colors) if (c > max) max = c;
+        return max + 1;
     }
 
     private static LocalResult localGaussSeidel(Matrix matrix,
@@ -211,6 +295,167 @@ public final class AdaptiveSolver {
                 : new CapResidual(0.0, -1);
         return new LocalResult(x, iterations, queue.isEmpty(), hitCap, initialQueueSize,
                 maxQueueSize, capResidual.norm, capResidual.row);
+    }
+
+    /**
+     * Colored variant of {@link #localGaussSeidel}. Variables are partitioned
+     * into colors such that no two same-color variables share an off-diagonal
+     * nonzero in {@code matrix}; within a color, updates are applied in
+     * parallel because they don't enter each other's {@code rowDot}. Uses
+     * SOR factor 1.0 (no over-relaxation) since colored-Jacobi-style
+     * convergence is more sensitive than the serial variant.
+     *
+     * <p>Caller may pass a precomputed {@code colors} array; otherwise the
+     * coloring is computed from {@code matrix}.
+     */
+    private static LocalResult coloredLocalGaussSeidel(Matrix matrix,
+            double[] rhs,
+            double[] start,
+            boolean[] fixed,
+            int[] roundedVariables,
+            int roundedCount,
+            int[] colors,
+            Options options) {
+        int n = matrix.size();
+        double[] x = start.clone();
+        int[] effColors = colors != null ? colors : computeGreedyColoring(matrix);
+        int numColors = colorCount(effColors);
+        IntArrayQueue[] queues = new IntArrayQueue[numColors];
+        for (int c = 0; c < numColors; c++) {
+            queues[c] = new IntArrayQueue(n);
+        }
+        boolean[] inQueue = new boolean[n];
+
+        for (int i = 0; i < roundedCount; i++) {
+            int rv = roundedVariables[i];
+            if (rv < 0 || rv >= n) continue;
+            for (int c = matrix.rowStart(rv); c < matrix.rowEnd(rv); c++) {
+                int col = matrix.column(c);
+                if (fixed[col] || inQueue[col]) continue;
+                queues[effColors[col]].offer(col);
+                inQueue[col] = true;
+            }
+        }
+
+        int initialQueueSize = 0;
+        for (var q : queues) initialQueueSize += q.size();
+        int maxQueueSize = initialQueueSize;
+        int iterations = 0;
+        java.util.concurrent.ExecutorService pool = coloredGsPool();
+        int nWorkers = Math.min(Runtime.getRuntime().availableProcessors(), COLORED_GS_MAX_WORKERS);
+
+        boolean anyWork = true;
+        while (anyWork && iterations < options.localMaxIterations) {
+            anyWork = false;
+            for (int c = 0; c < numColors; c++) {
+                IntArrayQueue q = queues[c];
+                if (q.isEmpty()) continue;
+                anyWork = true;
+                int batchSize = q.size();
+                int[] toProcess = new int[batchSize];
+                for (int i = 0; i < batchSize; i++) {
+                    int v = q.poll();
+                    inQueue[v] = false;
+                    toProcess[i] = v;
+                }
+                iterations += batchSize;
+                int[][] collected;
+                if (batchSize < COLORED_GS_MIN_PARALLEL_SIZE) {
+                    int[] deps = processColorChunkSerial(matrix, rhs, x, fixed,
+                            options, toProcess, 0, batchSize);
+                    collected = new int[][] { deps };
+                } else {
+                    int chunkSize = Math.max(1, (batchSize + nWorkers - 1) / nWorkers);
+                    java.util.List<java.util.concurrent.Callable<int[]>> tasks =
+                            new java.util.ArrayList<>(nWorkers);
+                    for (int s = 0; s < batchSize; s += chunkSize) {
+                        final int chunkStart = s;
+                        final int chunkEnd = Math.min(s + chunkSize, batchSize);
+                        tasks.add(() -> processColorChunkSerial(matrix, rhs, x, fixed,
+                                options, toProcess, chunkStart, chunkEnd));
+                    }
+                    collected = new int[tasks.size()][];
+                    try {
+                        java.util.List<java.util.concurrent.Future<int[]>> futures =
+                                pool.invokeAll(tasks);
+                        for (int i = 0; i < futures.size(); i++) {
+                            collected[i] = futures.get(i).get();
+                        }
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return new LocalResult(x, iterations, false, false,
+                                initialQueueSize, maxQueueSize, 0.0, -1);
+                    } catch (java.util.concurrent.ExecutionException ee) {
+                        return new LocalResult(x, iterations, false, false,
+                                initialQueueSize, maxQueueSize, 0.0, -1);
+                    }
+                }
+                for (int[] depList : collected) {
+                    if (depList == null) continue;
+                    for (int dep : depList) {
+                        if (!inQueue[dep] && !fixed[dep]) {
+                            queues[effColors[dep]].offer(dep);
+                            inQueue[dep] = true;
+                        }
+                    }
+                }
+                int totalQ = 0;
+                for (var qq : queues) totalQ += qq.size();
+                if (totalQ > maxQueueSize) maxQueueSize = totalQ;
+            }
+        }
+
+        boolean hitCap = false;
+        for (var q : queues) if (!q.isEmpty()) { hitCap = true; break; }
+        CapResidual cap = hitCap ? maxQueuedResidualMulti(matrix, rhs, x, fixed, queues)
+                                 : new CapResidual(0.0, -1);
+        return new LocalResult(x, iterations, !hitCap, hitCap, initialQueueSize,
+                maxQueueSize, cap.norm, cap.row);
+    }
+
+    /**
+     * Process {@code toProcess[start..end)} as a single-threaded GS pass: for
+     * each row, compute its residual, do an SOR update, and collect dependents
+     * to re-enqueue. Returns the dependent indices encountered (deduplication
+     * happens at the caller's barrier).
+     */
+    private static int[] processColorChunkSerial(Matrix matrix, double[] rhs, double[] x,
+            boolean[] fixed, Options options, int[] toProcess, int start, int end) {
+        java.util.ArrayList<Integer> deps = null;
+        for (int i = start; i < end; i++) {
+            int row = toProcess[i];
+            if (fixed[row]) continue;
+            double residual = rhs[row] - rowDot(matrix, row, x);
+            if (Math.abs(residual) <= options.localTolerance) continue;
+            double diag = matrix.diag(row);
+            if (Math.abs(diag) < NUM_1e_30) continue;
+            double delta = residual / diag;
+            // Within a color all writes are to disjoint rows, so SOR with the
+            // same omega as the serial path (1.7) is valid.
+            x[row] += NUM_1_7 * delta;
+            if (Math.abs(delta) > options.localTolerance) {
+                if (deps == null) deps = new java.util.ArrayList<>();
+                for (int c = matrix.rowStart(row); c < matrix.rowEnd(row); c++) {
+                    int col = matrix.column(c);
+                    if (!fixed[col]) deps.add(col);
+                }
+            }
+        }
+        if (deps == null) return new int[0];
+        int[] arr = new int[deps.size()];
+        for (int i = 0; i < deps.size(); i++) arr[i] = deps.get(i);
+        return arr;
+    }
+
+    private static CapResidual maxQueuedResidualMulti(Matrix matrix, double[] rhs,
+            double[] x, boolean[] fixed, IntArrayQueue[] queues) {
+        double maxNorm = 0.0;
+        int maxRow = -1;
+        for (IntArrayQueue q : queues) {
+            CapResidual cr = maxQueuedResidual(matrix, rhs, x, fixed, q);
+            if (cr.norm > maxNorm) { maxNorm = cr.norm; maxRow = cr.row; }
+        }
+        return new CapResidual(maxNorm, maxRow);
     }
 
     /**
@@ -765,6 +1010,23 @@ public final class AdaptiveSolver {
 
         /** Whether to use the direct sparse fallback after CG failure. */
         public boolean useDirectFallback = true;
+
+        /**
+         * If true, use the colored parallel Gauss-Seidel variant instead of
+         * the serial queue-based one. Convergence may take more total
+         * iterations (omega=1.0 inside; serial uses 1.7 SOR), but each
+         * iteration runs across multiple cores when the work-set is large
+         * enough to amortise per-task overhead.
+         */
+        public boolean useColoredGaussSeidel = false;
+
+        /**
+         * Optional precomputed coloring of the matrix (row index → color).
+         * Honored only when {@link #useColoredGaussSeidel} is true. If null,
+         * the coloring is recomputed per call — pass a cached coloring across
+         * the many small per-batch solves of a greedy MIP loop.
+         */
+        public int[] coloring;
     }
 
     /** Which rung of the adaptive ladder returned the final solution. */
