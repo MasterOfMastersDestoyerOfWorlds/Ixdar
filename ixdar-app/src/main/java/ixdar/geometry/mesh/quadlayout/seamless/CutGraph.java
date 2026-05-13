@@ -22,27 +22,26 @@ public class CutGraph {
      */
     public int[] cutRotation;
 
+    public int interiorCutEdgeCount;
+
+    /** active-edge → dense index in [0, interiorCutEdgeCount), -1 otherwise */
+    public int[] cutEdgeDenseIdx;
+
+    public SeamlessParameterization seamless;
+
+    public int chartVertexCount;
+
+    /** length 3*F (active-face indexed) */
+    public int[] cornerToChartVertex;
+
+    /** active-face → branch g_f ∈ {0..3} */
+    public int[] faceBranch;
+
+    /** mesh-vertex-id → active-vertex-index, lazily built. */
+    public HashMap<Integer, Integer> vertexActiveCache;
 
     public final HalfEdgeMesh mesh;
     public final CrossField crossField;
-
-    int interiorCutEdgeCount;
-
-    /** active-edge → dense index in [0, interiorCutEdgeCount), -1 otherwise */
-    int[] cutEdgeDenseIdx;
-
-    private SeamlessParameterization seamless;
-
-    int chartVertexCount;
-
-    /** length 3*F (active-face indexed) */
-    int[] cornerToChartVertex;
-
-    /** active-face → branch g_f ∈ {0..3} */
-    int[] faceBranch;
-
-    /** mesh-vertex-id → active-vertex-index, lazily built. */
-    private HashMap<Integer, Integer> vertexActiveCache;
 
     public CutGraph(HalfEdgeMesh mesh, CrossField crossField, SeamlessParameterization seamlessParameterization) {
         this.mesh = mesh;
@@ -84,7 +83,6 @@ public class CutGraph {
             }
         }
     }
-
 
     private void initialCutFromDualSpanningTree() {
         isCutEdge = new boolean[seamless.edgeCount];
@@ -136,7 +134,6 @@ public class CutGraph {
         }
         return cutDegree;
     }
-
 
     private void trimDanglingBranches(int[] cutDegree) {
         // Trim dangling paths: a non-singularity vertex with exactly one cut edge.
@@ -195,11 +192,9 @@ public class CutGraph {
             int sVid = s.vertexId();
             if (cutDegree[activeVertexIndex(sVid)] > 0 || mesh.isBoundaryVertex(sVid))
                 continue;
-            connectVertexToCut(sVid, cutDegree);
+            connectVertexToCut(sVid, cutDegree, -1);
         }
     }
-
-
 
     // =====================================================================
     // C2. branch propagation (BFS over non-cut interior edges)
@@ -248,7 +243,6 @@ public class CutGraph {
             }
         }
     }
-
 
     public void buildCutRotation() {
         cutRotation = new int[seamless.edgeCount];
@@ -348,10 +342,8 @@ public class CutGraph {
     }
 
     /**
-     * Add one more cut edge incident to a degree-1 singularity to push its
-     * cut-degree to 2. Picks the shortest Dijkstra path from {@code sVid} to the
-     * existing cut graph that does not back-track over the existing incoming cut
-     * edge.
+     * Push a degree-1 singularity's cut-degree to 2 by adding the shortest extra
+     * cut path leaving by a different edge than the one already connecting it.
      */
     private void extendSingularityToDegreeTwo(int sVid, int[] cutDegree) {
         int existingCutEdge = -1;
@@ -364,82 +356,35 @@ public class CutGraph {
                 break;
             }
         }
+        connectVertexToCut(sVid, cutDegree, existingCutEdge);
+    }
 
-        int n = mesh.vertexCount();
-        double[] dist = new double[n];
-        int[] prev = new int[n];
-        int[] prevEdge = new int[n];
-        Arrays.fill(dist, Double.POSITIVE_INFINITY);
-        Arrays.fill(prev, -1);
-        Arrays.fill(prevEdge, -1);
-        int startVa = activeVertexIndex(sVid);
-        dist[startVa] = 0.0;
-
-        PriorityQueue<long[]> pq = new PriorityQueue<>((a, b) -> Double.compare(
-                Double.longBitsToDouble(a[0]), Double.longBitsToDouble(b[0])));
-        pq.add(new long[] { Double.doubleToLongBits(0.0), startVa });
-
-        Vector3f pa = new Vector3f();
-        Vector3f pb = new Vector3f();
-
-        int hitVa = -1;
-        while (!pq.isEmpty()) {
-            long[] entry = pq.poll();
-            double d = Double.longBitsToDouble(entry[0]);
-            int va = (int) entry[1];
-            if (d > dist[va])
-                continue;
-            int vId = mesh.vertexIdAt(va);
-            if (cutDegree[va] > 0 && va != startVa) {
-                hitVa = va;
-                break;
-            }
-            int incidentEdges = mesh.vertexEdgeCount(vId);
-            mesh.vertexPosition(vId, pa);
-            for (int i = 0; i < incidentEdges; i++) {
-                int eId = mesh.vertexEdgeAt(vId, i);
-                int ae = crossField.edgeIdToActive.get(eId);
-                if (va == startVa && ae == existingCutEdge)
-                    continue;
-                int hCanon = mesh.edgeHalfEdge(eId);
-                int otherVid = (mesh.halfEdgeVertex(hCanon) == vId)
-                        ? mesh.halfEdgeEndVertex(hCanon)
-                        : mesh.halfEdgeVertex(hCanon);
-                int otherVa = activeVertexIndex(otherVid);
-                mesh.vertexPosition(otherVid, pb);
-                double w = pa.distance(pb);
-                double nd = d + w;
-                if (nd < dist[otherVa]) {
-                    dist[otherVa] = nd;
-                    prev[otherVa] = va;
-                    prevEdge[otherVa] = ae;
-                    pq.add(new long[] { Double.doubleToLongBits(nd), otherVa });
-                }
-            }
-        }
-
-        if (hitVa < 0)
+    /**
+     * Mark the shortest mesh-edge path from {@code startVid} to the cut graph as
+     * cut, keeping {@code cutDegree} in sync. No-op if {@code startVid} can't reach
+     * the cut (disconnected mesh) — that chart's origin just floats.
+     * {@code skipFirstEdge} (-1 = none) is excluded as the first hop.
+     */
+    private void connectVertexToCut(int startVid, int[] cutDegree, int skipFirstEdge) {
+        int[] pathEdges = shortestMeshPathToCut(startVid, cutDegree, skipFirstEdge);
+        if (pathEdges == null)
             return;
-
-        for (int va = hitVa; va != startVa; va = prev[va]) {
-            int ae = prevEdge[va];
-            if (!isCutEdge[ae]) {
-                isCutEdge[ae] = true;
-                int eId = mesh.edgeIdAt(ae);
-                int hCanon = mesh.edgeHalfEdge(eId);
-                int va0 = activeVertexIndex(mesh.halfEdgeVertex(hCanon));
-                int va1 = activeVertexIndex(mesh.halfEdgeEndVertex(hCanon));
-                cutDegree[va0]++;
-                cutDegree[va1]++;
-            }
+        for (int ae : pathEdges) {
+            if (isCutEdge[ae])
+                continue;
+            isCutEdge[ae] = true;
+            int hCanon = mesh.edgeHalfEdge(mesh.edgeIdAt(ae));
+            cutDegree[activeVertexIndex(mesh.halfEdgeVertex(hCanon))]++;
+            cutDegree[activeVertexIndex(mesh.halfEdgeEndVertex(hCanon))]++;
         }
     }
 
     /**
-     * Adds a Dijkstra path of mesh edges from {@code startVid} to the nearest cut
-     * vertex.
+     * Shortest mesh-edge path (Euclidean edge-length weights) from {@code startVid}
+     * to the nearest already-cut vertex, as active-edge ids, or {@code null} if
+     * unreachable. {@code skipFirstEdge} (-1 = none) may not be the first hop.
      */
-    private void connectVertexToCut(int startVid, int[] cutDegree) {
+    private int[] shortestMeshPathToCut(int startVid, int[] cutDegree, int skipFirstEdge) {
         int n = mesh.vertexCount();
         double[] dist = new double[n];
         int[] prev = new int[n];
@@ -469,46 +414,39 @@ public class CutGraph {
                 hitVa = va;
                 break;
             }
-            int incident = mesh.vertexEdgeCount(vId);
             mesh.vertexPosition(vId, pa);
+            int incident = mesh.vertexEdgeCount(vId);
             for (int i = 0; i < incident; i++) {
                 int eId = mesh.vertexEdgeAt(vId, i);
+                int ae = crossField.edgeIdToActive.get(eId);
+                if (va == startVa && ae == skipFirstEdge)
+                    continue;
                 int hCanon = mesh.edgeHalfEdge(eId);
                 int otherVid = (mesh.halfEdgeVertex(hCanon) == vId)
                         ? mesh.halfEdgeEndVertex(hCanon)
                         : mesh.halfEdgeVertex(hCanon);
                 int otherVa = activeVertexIndex(otherVid);
                 mesh.vertexPosition(otherVid, pb);
-                double w = pa.distance(pb);
-                double nd = d + w;
+                double nd = d + pa.distance(pb);
                 if (nd < dist[otherVa]) {
                     dist[otherVa] = nd;
                     prev[otherVa] = va;
-                    prevEdge[otherVa] = crossField.edgeIdToActive.get(eId);
+                    prevEdge[otherVa] = ae;
                     pq.add(new long[] { Double.doubleToLongBits(nd), otherVa });
                 }
             }
         }
 
-        if (hitVa < 0) {
-            // Singularity has no path to existing cut graph (degenerate / non-connected
-            // mesh).
-            // Bail out silently — the system will still solve, just with one unconstrained
-            // chart whose origin floats.
-            return;
-        }
-        for (int va = hitVa; va != startVa; va = prev[va]) {
-            int ae = prevEdge[va];
-            if (!isCutEdge[ae]) {
-                isCutEdge[ae] = true;
-                int eId = mesh.edgeIdAt(ae);
-                int hCanon = mesh.edgeHalfEdge(eId);
-                int va0 = activeVertexIndex(mesh.halfEdgeVertex(hCanon));
-                int va1 = activeVertexIndex(mesh.halfEdgeEndVertex(hCanon));
-                cutDegree[va0]++;
-                cutDegree[va1]++;
-            }
-        }
+        if (hitVa < 0)
+            return null;
+
+        int len = 0;
+        for (int va = hitVa; va != startVa; va = prev[va])
+            len++;
+        int[] pathEdges = new int[len];
+        for (int va = hitVa, k = 0; va != startVa; va = prev[va])
+            pathEdges[k++] = prevEdge[va];
+        return pathEdges;
     }
 
     public void buildDenseIndices() {
@@ -525,7 +463,6 @@ public class CutGraph {
         }
         interiorCutEdgeCount = next;
     }
-
 
     public int activeVertexIndex(int vId) {
         // ArrayMesh keeps active = id but HalfEdgeMesh may have holes. Linear scan is
