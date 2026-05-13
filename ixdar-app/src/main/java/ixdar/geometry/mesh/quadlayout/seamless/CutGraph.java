@@ -13,8 +13,29 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 
+/**
+ * The combinatorial layout induced by cutting the surface open along a seam:
+ * which edges are seams, the per-face branch labels, the seam rotation
+ * transitions, the chart-vertex identification, and the dense numbering of
+ * interior seam edges. Every output here is pure integer combinatorics over
+ * (mesh, cross field, choice of cut); the continuous parameterization is fitted
+ * on top of it by {@link SeamlessParameterization}.
+ *
+ * <p>
+ * Naming convention used throughout: an <em>id</em> ({@code edgeId},
+ * {@code vertexId}, {@code faceId}) is a raw {@link HalfEdgeMesh} handle and
+ * may be sparse; an <em>active index</em> ({@code activeEdge},
+ * {@code activeVertex}, {@code activeFace}) is the dense {@code [0, count)}
+ * index the solver uses, obtained via {@link CrossField#edgeIdToActive},
+ * {@link #activeVertexIndex(int)}, {@link SeamlessParameterization#edgeFaceA}
+ * and friends.
+ */
 public class CutGraph {
-    /** True iff active edge {@code ae} is a cut edge or a mesh boundary edge. */
+
+    /**
+     * True iff the edge at this active-edge index is a seam edge or a mesh boundary
+     * edge.
+     */
     public boolean[] isCutEdge;
     /**
      * Cut transition rotation r<sub>e</sub> ∈ {0,1,2,3}; valid only where
@@ -22,33 +43,53 @@ public class CutGraph {
      */
     public int[] cutRotation;
 
+    /** the number of interior cut edges */
     public int interiorCutEdgeCount;
 
-    /** active-edge → dense index in [0, interiorCutEdgeCount), -1 otherwise */
+    /**
+     * active-edge index → dense index in [0, interiorCutEdgeCount), -1 otherwise
+     */
     public int[] cutEdgeDenseIdx;
 
+    /** the seamless parameterization */
     public SeamlessParameterization seamless;
 
+    /** the number of chart vertices */
     public int chartVertexCount;
 
-    /** length 3*F (active-face indexed) */
+    /** length 3*F, indexed by (activeFace * 3 + corner) → chart-vertex index */
     public int[] cornerToChartVertex;
 
-    /** active-face → branch g_f ∈ {0..3} */
+    /** active-face index → branch g_f ∈ {0..3} */
     public int[] faceBranch;
 
     /** mesh-vertex-id → active-vertex-index, lazily built. */
     public HashMap<Integer, Integer> vertexActiveCache;
 
+    /** the mesh */
     public final HalfEdgeMesh mesh;
+
+    /** the cross field */
     public final CrossField crossField;
 
+    /**
+     * Constructor.
+     * 
+     * @param mesh                     the mesh
+     * @param crossField               the cross field
+     * @param seamlessParameterization the seamless parameterization
+     */
     public CutGraph(HalfEdgeMesh mesh, CrossField crossField, SeamlessParameterization seamlessParameterization) {
         this.mesh = mesh;
         this.crossField = crossField;
         this.seamless = seamlessParameterization;
     }
 
+    /**
+     * Run the full pipeline: choose the seam edges, then derive the branch labels,
+     * seam rotations, chart vertices and dense seam-edge indices implied by that
+     * choice.
+     */
     public void buildCutGraph() {
         selectCutEdges();
         propagateBranches();
@@ -57,428 +98,467 @@ public class CutGraph {
         buildDenseIndices();
     }
 
+    /**
+     * Choose the seam edge set: start from the complement of a dual spanning tree
+     * (so the cut opens the surface into a disk), trim the dead "whiskers" that
+     * leaves behind, route every interior singularity onto the cut, and — for
+     * Lyon's seamless input — give every interior singularity cut-degree ≥ 2 so the
+     * fan of faces around it splits into separate chart vertices and the cross
+     * field's ±π/2 turn there has a transition to absorb. (BZK09's full pipeline
+     * instead integer-pins singularity (u, v); that step is skipped when
+     * {@link SeamlessParameterization#integerGridMap} is off.)
+     */
     private void selectCutEdges() {
         initialCutFromDualSpanningTree();
-
         int[] cutDegree = computeCutDegree();
-
         trimDanglingBranches(cutDegree);
-
         connectDetachedSingularities(cutDegree);
-        // For Lyon's seamless input (NOT integer-grid), every singularity must
-        // have cut-degree ≥ 2 — otherwise the surrounding face fan stays
-        // connected as one chart vertex and the cross-field's ±π/2 rotation
-        // around the singularity has no transition to absorb. (BZK09's full
-        // pipeline avoids this by integer-pinning singularity (u, v); we
-        // skip that step when {@link #integerGridMap} is off.)
         if (!seamless.integerGridMap) {
-            for (Singularity s : crossField.singularities) {
-                int sVid = s.vertexId();
-                if (mesh.isBoundaryVertex(sVid))
+            for (Singularity singularity : crossField.singularities) {
+                int vertexId = singularity.vertexId();
+                if (mesh.isBoundaryVertex(vertexId))
                     continue;
-                int va = activeVertexIndex(sVid);
-                if (cutDegree[va] >= 2)
+                if (cutDegree[activeVertexIndex(vertexId)] >= 2)
                     continue;
-                extendSingularityToDegreeTwo(sVid, cutDegree);
+                extendSingularityToDegreeTwo(vertexId, cutDegree);
             }
         }
     }
 
+    /**
+     * Initialize the seam set to the complement of a dual spanning tree: mark every
+     * edge cut, then BFS the faces through interior two-sided edges, un-cutting
+     * each tree edge crossed. Boundary edges stay cut.
+     */
     private void initialCutFromDualSpanningTree() {
         isCutEdge = new boolean[seamless.edgeCount];
-
-        // Mark all edges as initially cut. Dual spanning tree will UN-cut its tree
-        // edges.
         Arrays.fill(isCutEdge, true);
 
-        // Dual spanning tree: BFS over faces via interior, two-sided edges.
         boolean[] faceVisited = new boolean[seamless.faceCount];
-        ArrayDeque<Integer> queue = new ArrayDeque<>();
-        // Seed at active face 0.
+        ArrayDeque<Integer> faceQueue = new ArrayDeque<>();
         if (seamless.faceCount > 0) {
             faceVisited[0] = true;
-            queue.add(0);
+            faceQueue.add(0);
         }
-        while (!queue.isEmpty()) {
-            int afA = queue.poll();
-            int faceAId = mesh.faceIdAt(afA);
-            for (int c = 0; c < SeamlessParameterization.CORNERS_PER_FACE; c++) {
-                int eId = mesh.faceEdgeAt(faceAId, c);
-                int ae = crossField.edgeIdToActive.get(eId);
-                int afOther = (seamless.edgeFaceA[ae] == afA) ? seamless.edgeFaceB[ae] : seamless.edgeFaceA[ae];
-                if (afOther < 0)
-                    continue; // boundary side — leave isCutEdge true
-                if (faceVisited[afOther])
+        while (!faceQueue.isEmpty()) {
+            int activeFace = faceQueue.poll();
+            int faceId = mesh.faceIdAt(activeFace);
+            for (int corner = 0; corner < SeamlessParameterization.CORNERS_PER_FACE; corner++) {
+                int activeEdge = crossField.edgeIdToActive.get(mesh.faceEdgeAt(faceId, corner));
+                int otherActiveFace = (seamless.edgeFaceA[activeEdge] == activeFace)
+                        ? seamless.edgeFaceB[activeEdge]
+                        : seamless.edgeFaceA[activeEdge];
+                if (otherActiveFace < 0 || faceVisited[otherActiveFace])
                     continue;
-                faceVisited[afOther] = true;
-                isCutEdge[ae] = false; // dual-tree edge → not cut
-                queue.add(afOther);
+                faceVisited[otherActiveFace] = true;
+                isCutEdge[activeEdge] = false;
+                faceQueue.add(otherActiveFace);
             }
         }
     }
 
+    /**
+     * Count, per active vertex, how many of its incident edges are currently cut.
+     * 
+     * @return the cut degree array
+     */
     private int[] computeCutDegree() {
-        // For trim we need vertex → set of incident cut edges. Build counts only.
-        int vertexCount = mesh.vertexCount();
-        int[] cutDegree = new int[vertexCount];
-        Arrays.fill(cutDegree, 0);
-        for (int ae = 0; ae < seamless.edgeCount; ae++) {
-            if (!isCutEdge[ae])
+        int[] cutDegree = new int[mesh.vertexCount()];
+        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
+            if (!isCutEdge[activeEdge])
                 continue;
-            int eId = mesh.edgeIdAt(ae);
-            int hCanon = mesh.edgeHalfEdge(eId);
-            int va0 = activeVertexIndex(mesh.halfEdgeVertex(hCanon));
-            int va1 = activeVertexIndex(mesh.halfEdgeEndVertex(hCanon));
-            cutDegree[va0]++;
-            cutDegree[va1]++;
+            int halfEdge = mesh.edgeHalfEdge(mesh.edgeIdAt(activeEdge));
+            cutDegree[activeVertexIndex(mesh.halfEdgeVertex(halfEdge))]++;
+            cutDegree[activeVertexIndex(mesh.halfEdgeEndVertex(halfEdge))]++;
         }
         return cutDegree;
     }
 
+    /**
+     * Repeatedly remove the lone cut edge at any non-singularity, non-boundary
+     * vertex with cut-degree 1, until none remain — this strips the dead branches
+     * left by the spanning-tree complement. Boundary edges are never removed.
+     * 
+     * @param cutDegree the cut degree array
+     */
     private void trimDanglingBranches(int[] cutDegree) {
-        // Trim dangling paths: a non-singularity vertex with exactly one cut edge.
-        // Repeat until stable.
-        Set<Integer> singularityVerts = new HashSet<>();
-        for (Singularity s : crossField.singularities)
-            singularityVerts.add(s.vertexId());
+        Set<Integer> singularityVertexIds = new HashSet<>();
+        for (Singularity singularity : crossField.singularities)
+            singularityVertexIds.add(singularity.vertexId());
 
         ArrayDeque<Integer> trimQueue = new ArrayDeque<>();
-        for (int va = 0; va < mesh.vertexCount(); va++) {
-            int vId = mesh.vertexIdAt(va);
-            if (cutDegree[va] == 1 && !singularityVerts.contains(vId) && !mesh.isBoundaryVertex(vId)) {
-                trimQueue.add(va);
-            }
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            if (cutDegree[activeVertex] == 1 && !singularityVertexIds.contains(vertexId)
+                    && !mesh.isBoundaryVertex(vertexId))
+                trimQueue.add(activeVertex);
         }
         while (!trimQueue.isEmpty()) {
-            int va = trimQueue.poll();
-            int vId = mesh.vertexIdAt(va);
-            if (cutDegree[va] != 1)
+            int activeVertex = trimQueue.poll();
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            if (cutDegree[activeVertex] != 1)
                 continue;
-            if (singularityVerts.contains(vId) || mesh.isBoundaryVertex(vId))
+            if (singularityVertexIds.contains(vertexId) || mesh.isBoundaryVertex(vertexId))
                 continue;
-            // Find the one cut edge incident to vId and remove it.
-            int incidentEdgeCount = mesh.vertexEdgeCount(vId);
+            int incidentEdgeCount = mesh.vertexEdgeCount(vertexId);
             for (int i = 0; i < incidentEdgeCount; i++) {
-                int eId = mesh.vertexEdgeAt(vId, i);
-                int ae = crossField.edgeIdToActive.get(eId);
-                if (!isCutEdge[ae])
+                int edgeId = mesh.vertexEdgeAt(vertexId, i);
+                int activeEdge = crossField.edgeIdToActive.get(edgeId);
+                if (!isCutEdge[activeEdge] || mesh.isBoundaryEdge(edgeId))
                     continue;
-                if (mesh.isBoundaryEdge(eId))
-                    continue; // keep boundaries cut
-                // Mark edge non-cut and decrement both endpoints' degrees.
-                isCutEdge[ae] = false;
-                cutDegree[va]--;
-                int hCanon = mesh.edgeHalfEdge(eId);
-                int otherVid = (mesh.halfEdgeVertex(hCanon) == vId)
-                        ? mesh.halfEdgeEndVertex(hCanon)
-                        : mesh.halfEdgeVertex(hCanon);
-                int otherVa = activeVertexIndex(otherVid);
-                cutDegree[otherVa]--;
-                int otherVidFinal = otherVid;
-                if (cutDegree[otherVa] == 1
-                        && !singularityVerts.contains(otherVidFinal)
-                        && !mesh.isBoundaryVertex(otherVidFinal)) {
-                    trimQueue.add(otherVa);
-                }
+                isCutEdge[activeEdge] = false;
+                cutDegree[activeVertex]--;
+                int halfEdge = mesh.edgeHalfEdge(edgeId);
+                int otherVertexId = (mesh.halfEdgeVertex(halfEdge) == vertexId)
+                        ? mesh.halfEdgeEndVertex(halfEdge)
+                        : mesh.halfEdgeVertex(halfEdge);
+                int otherActiveVertex = activeVertexIndex(otherVertexId);
+                cutDegree[otherActiveVertex]--;
+                if (cutDegree[otherActiveVertex] == 1
+                        && !singularityVertexIds.contains(otherVertexId)
+                        && !mesh.isBoundaryVertex(otherVertexId))
+                    trimQueue.add(otherActiveVertex);
                 break;
             }
         }
     }
 
+    /**
+     * Route every interior singularity that is not already on the cut to it along
+     * the shortest mesh-edge path (BZK09 §5).
+     * 
+     * @param cutDegree the cut degree array
+     */
     private void connectDetachedSingularities(int[] cutDegree) {
-        // BZK09 §5: Connect interior singularities not yet on the cut: Dijkstra
-        // (primal) to nearest cut vertex.
-        for (Singularity s : crossField.singularities) {
-            int sVid = s.vertexId();
-            if (cutDegree[activeVertexIndex(sVid)] > 0 || mesh.isBoundaryVertex(sVid))
+        for (Singularity singularity : crossField.singularities) {
+            int vertexId = singularity.vertexId();
+            if (cutDegree[activeVertexIndex(vertexId)] > 0 || mesh.isBoundaryVertex(vertexId))
                 continue;
-            connectVertexToCut(sVid, cutDegree, -1);
-        }
-    }
-
-    // =====================================================================
-    // C2. branch propagation (BFS over non-cut interior edges)
-    // =====================================================================
-
-    private void propagateBranches() {
-        faceBranch = new int[seamless.faceCount];
-        Arrays.fill(faceBranch, -1);
-
-        ArrayDeque<Integer> queue = new ArrayDeque<>();
-        for (int seed = 0; seed < seamless.faceCount; seed++) {
-            if (faceBranch[seed] != -1)
-                continue;
-            faceBranch[seed] = 0;
-            queue.add(seed);
-            while (!queue.isEmpty()) {
-                int af = queue.poll();
-                int fId = mesh.faceIdAt(af);
-                for (int c = 0; c < SeamlessParameterization.CORNERS_PER_FACE; c++) {
-                    int eId = mesh.faceEdgeAt(fId, c);
-                    int ae = crossField.edgeIdToActive.get(eId);
-                    if (isCutEdge[ae])
-                        continue;
-                    int afA = seamless.edgeFaceA[ae];
-                    int afB = seamless.edgeFaceB[ae];
-                    if (afA < 0 || afB < 0)
-                        continue; // boundary
-                    int afOther = (afA == af) ? afB : afA;
-                    if (faceBranch[afOther] != -1)
-                        continue;
-                    int p = crossField.periodJump[ae];
-                    // BZK09 §5 convention: cross-field smoothness energy is
-                    // (θ_A + κ_AB + (π/2)·p_AB − θ_B)² with edgeHalfEdge oriented A→B,
-                    // so for a (u,v) basis aligned with branch g_f the continuity
-                    // requirement gives g_B = (g_A − p_AB) mod 4 in the canonical
-                    // direction; the reverse traversal (B→A) flips that sign.
-                    int newBranch;
-                    if (afA == af) {
-                        newBranch = (faceBranch[af] - p) & (SeamlessParameterization.BRANCH_COUNT - 1);
-                    } else {
-                        newBranch = (faceBranch[af] + p) & (SeamlessParameterization.BRANCH_COUNT - 1);
-                    }
-                    faceBranch[afOther] = newBranch;
-                    queue.add(afOther);
-                }
-            }
-        }
-    }
-
-    public void buildCutRotation() {
-        cutRotation = new int[seamless.edgeCount];
-        for (int ae1 = 0; ae1 < seamless.edgeCount; ae1++) {
-            if (!isCutEdge[ae1]) {
-                cutRotation[ae1] = 0;
-                continue;
-            }
-            int afA = seamless.edgeFaceA[ae1];
-            int afB = seamless.edgeFaceB[ae1];
-            if (afA < 0 || afB < 0) {
-                cutRotation[ae1] = 0; // boundary — no transition
-                continue;
-            }
-            // Discrepancy (in B's frame) of A's chosen u-axis vs B's chosen u-axis is
-            // (θ_B + g_B·π/2) − (θ_A + g_A·π/2 + κ_AB)
-            // = (g_B − g_A)·π/2 + (θ_B − θ_A − κ_AB)
-            // = (g_B − g_A + p_AB)·π/2 [from BZK09 cross-field smoothness]
-            // so r_e = (g_B − g_A + p_AB) mod 4. For non-cut edges this is 0 by
-            // construction (BFS propagated branches with g_B = g_A − p).
-            int p = crossField.periodJump[ae1];
-            cutRotation[ae1] = (faceBranch[afB] - faceBranch[afA] + p)
-                    & (SeamlessParameterization.BRANCH_COUNT - 1);
-        }
-    }
-
-    // =====================================================================
-    // C3. chart vertices via union-find on corners
-    // =====================================================================
-
-    private void buildChartVertices() {
-        int totalCorners = seamless.faceCount * SeamlessParameterization.CORNERS_PER_FACE;
-        int[] parent = new int[totalCorners];
-        int[] rank = new int[totalCorners];
-        for (int i = 0; i < totalCorners; i++)
-            parent[i] = i;
-
-        // For each non-cut interior edge, merge the two corners on each endpoint.
-        for (int ae = 0; ae < seamless.edgeCount; ae++) {
-            if (isCutEdge[ae])
-                continue;
-            int afA = seamless.edgeFaceA[ae];
-            int afB = seamless.edgeFaceB[ae];
-            if (afA < 0 || afB < 0)
-                continue;
-            int cAStart = seamless.edgeCornerInA[ae];
-            int cBStart = seamless.edgeCornerInB[ae];
-            // Edge endpoint at "start" vertex: corners cAStart in A, cBStart in B.
-            // Edge endpoint at "enpropagateBranches()d" vertex: corners (cAStart+1)%3 in A,
-            // (cBStart-1+3)%3 in
-            // B
-            // (because the half-edge in B goes the OTHER direction across this edge).
-            int cAEnd = (cAStart + 1) % SeamlessParameterization.CORNERS_PER_FACE;
-            int cBEnd = (cBStart + SeamlessParameterization.CORNERS_PER_FACE - 1)
-                    % SeamlessParameterization.CORNERS_PER_FACE;
-            unionCorners(parent, rank, afA * SeamlessParameterization.CORNERS_PER_FACE + cAStart,
-                    afB * SeamlessParameterization.CORNERS_PER_FACE + cBStart);
-            unionCorners(parent, rank, afA * SeamlessParameterization.CORNERS_PER_FACE + cAEnd,
-                    afB * SeamlessParameterization.CORNERS_PER_FACE + cBEnd);
-        }
-
-        // Compact roots to dense [0, chartVertexCount).
-        cornerToChartVertex = new int[totalCorners];
-        HashMap<Integer, Integer> rootToCv = new HashMap<>();
-        for (int i = 0; i < totalCorners; i++) {
-            int r = findCorner(parent, i);
-            Integer cv = rootToCv.get(r);
-            if (cv == null) {
-                cv = rootToCv.size();
-                rootToCv.put(r, cv);
-            }
-            cornerToChartVertex[i] = cv;
-        }
-        chartVertexCount = rootToCv.size();
-    }
-
-    private static int findCorner(int[] parent, int x) {
-        while (parent[x] != x) {
-            parent[x] = parent[parent[x]];
-            x = parent[x];
-        }
-        return x;
-    }
-
-    private static void unionCorners(int[] parent, int[] rank, int a, int b) {
-        int ra = findCorner(parent, a), rb = findCorner(parent, b);
-        if (ra == rb)
-            return;
-        if (rank[ra] < rank[rb]) {
-            parent[ra] = rb;
-        } else if (rank[ra] > rank[rb]) {
-            parent[rb] = ra;
-        } else {
-            parent[rb] = ra;
-            rank[ra]++;
+            connectVertexToCut(vertexId, cutDegree, -1);
         }
     }
 
     /**
      * Push a degree-1 singularity's cut-degree to 2 by adding the shortest extra
-     * cut path leaving by a different edge than the one already connecting it.
+     * cut path that leaves by a different edge than the one already connecting it.
      */
-    private void extendSingularityToDegreeTwo(int sVid, int[] cutDegree) {
+    private void extendSingularityToDegreeTwo(int singularityVertexId, int[] cutDegree) {
         int existingCutEdge = -1;
-        int incident = mesh.vertexEdgeCount(sVid);
-        for (int i = 0; i < incident; i++) {
-            int eId = mesh.vertexEdgeAt(sVid, i);
-            int ae = crossField.edgeIdToActive.get(eId);
-            if (isCutEdge[ae] && !mesh.isBoundaryEdge(eId)) {
-                existingCutEdge = ae;
+        int incidentEdgeCount = mesh.vertexEdgeCount(singularityVertexId);
+        for (int i = 0; i < incidentEdgeCount; i++) {
+            int edgeId = mesh.vertexEdgeAt(singularityVertexId, i);
+            int activeEdge = crossField.edgeIdToActive.get(edgeId);
+            if (isCutEdge[activeEdge] && !mesh.isBoundaryEdge(edgeId)) {
+                existingCutEdge = activeEdge;
                 break;
             }
         }
-        connectVertexToCut(sVid, cutDegree, existingCutEdge);
+        connectVertexToCut(singularityVertexId, cutDegree, existingCutEdge);
     }
 
     /**
-     * Mark the shortest mesh-edge path from {@code startVid} to the cut graph as
-     * cut, keeping {@code cutDegree} in sync. No-op if {@code startVid} can't reach
-     * the cut (disconnected mesh) — that chart's origin just floats.
-     * {@code skipFirstEdge} (-1 = none) is excluded as the first hop.
+     * Mark the shortest mesh-edge path from {@code startVertexId} to the cut graph
+     * as cut, keeping {@code cutDegree} in sync. No-op if {@code startVertexId}
+     * cannot reach the cut (disconnected mesh) — that chart's origin simply floats.
+     * {@code skipFirstEdge} (an active-edge index to exclude as the first hop, or
+     * -1) lets a caller force a branch away from an edge that is already on the
+     * cut.
+     * 
+     * @param startVertexId the vertex id to start from
+     * @param cutDegree     the cut degree array
+     * @param skipFirstEdge the edge to skip as the first hop
      */
-    private void connectVertexToCut(int startVid, int[] cutDegree, int skipFirstEdge) {
-        int[] pathEdges = shortestMeshPathToCut(startVid, cutDegree, skipFirstEdge);
+    private void connectVertexToCut(int startVertexId, int[] cutDegree, int skipFirstEdge) {
+        int[] pathEdges = shortestMeshPathToCut(startVertexId, cutDegree, skipFirstEdge);
         if (pathEdges == null)
             return;
-        for (int ae : pathEdges) {
-            if (isCutEdge[ae])
+        for (int activeEdge : pathEdges) {
+            if (isCutEdge[activeEdge])
                 continue;
-            isCutEdge[ae] = true;
-            int hCanon = mesh.edgeHalfEdge(mesh.edgeIdAt(ae));
-            cutDegree[activeVertexIndex(mesh.halfEdgeVertex(hCanon))]++;
-            cutDegree[activeVertexIndex(mesh.halfEdgeEndVertex(hCanon))]++;
+            isCutEdge[activeEdge] = true;
+            int halfEdge = mesh.edgeHalfEdge(mesh.edgeIdAt(activeEdge));
+            cutDegree[activeVertexIndex(mesh.halfEdgeVertex(halfEdge))]++;
+            cutDegree[activeVertexIndex(mesh.halfEdgeEndVertex(halfEdge))]++;
         }
     }
 
     /**
-     * Shortest mesh-edge path (Euclidean edge-length weights) from {@code startVid}
-     * to the nearest already-cut vertex, as active-edge ids, or {@code null} if
-     * unreachable. {@code skipFirstEdge} (-1 = none) may not be the first hop.
+     * Dijkstra over mesh edges weighted by Euclidean length, from
+     * {@code startVertexId} until any vertex already on the cut is reached. Returns
+     * the active-edge indices along that shortest path, or {@code null} if no
+     * on-cut vertex is reachable. {@code skipFirstEdge} (or -1) may not be used as
+     * the first hop out of {@code startVertexId}. Implementation note: the priority
+     * queue holds {@code long[]} pairs of {bit-cast distance, active vertex}.
+     * 
+     * @param startVertexId the vertex id to start from
+     * @param cutDegree     the cut degree array
+     * @param skipFirstEdge the edge to skip as the first hop
+     * @return the active-edge indices along the shortest path
      */
-    private int[] shortestMeshPathToCut(int startVid, int[] cutDegree, int skipFirstEdge) {
-        int n = mesh.vertexCount();
-        double[] dist = new double[n];
-        int[] prev = new int[n];
-        int[] prevEdge = new int[n];
-        Arrays.fill(dist, Double.POSITIVE_INFINITY);
-        Arrays.fill(prev, -1);
+    private int[] shortestMeshPathToCut(int startVertexId, int[] cutDegree, int skipFirstEdge) {
+        int vertexCount = mesh.vertexCount();
+        double[] distance = new double[vertexCount];
+        int[] prevVertex = new int[vertexCount];
+        int[] prevEdge = new int[vertexCount];
+        Arrays.fill(distance, Double.POSITIVE_INFINITY);
+        Arrays.fill(prevVertex, -1);
         Arrays.fill(prevEdge, -1);
-        int startVa = activeVertexIndex(startVid);
-        dist[startVa] = 0.0;
+        int startActiveVertex = activeVertexIndex(startVertexId);
+        distance[startActiveVertex] = 0.0;
 
-        PriorityQueue<long[]> pq = new PriorityQueue<>((a, b) -> Double.compare(
+        PriorityQueue<long[]> frontier = new PriorityQueue<>((a, b) -> Double.compare(
                 Double.longBitsToDouble(a[0]), Double.longBitsToDouble(b[0])));
-        pq.add(new long[] { Double.doubleToLongBits(0.0), startVa });
+        frontier.add(new long[] { Double.doubleToLongBits(0.0), startActiveVertex });
 
-        Vector3f pa = new Vector3f();
-        Vector3f pb = new Vector3f();
+        Vector3f posHere = new Vector3f();
+        Vector3f posOther = new Vector3f();
 
-        int hitVa = -1;
-        while (!pq.isEmpty()) {
-            long[] entry = pq.poll();
-            double d = Double.longBitsToDouble(entry[0]);
-            int va = (int) entry[1];
-            if (d > dist[va])
+        int reachedActiveVertex = -1;
+        while (!frontier.isEmpty()) {
+            long[] top = frontier.poll();
+            double distHere = Double.longBitsToDouble(top[0]);
+            int activeVertex = (int) top[1];
+            if (distHere > distance[activeVertex])
                 continue;
-            int vId = mesh.vertexIdAt(va);
-            if (cutDegree[va] > 0 && va != startVa) {
-                hitVa = va;
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            if (cutDegree[activeVertex] > 0 && activeVertex != startActiveVertex) {
+                reachedActiveVertex = activeVertex;
                 break;
             }
-            mesh.vertexPosition(vId, pa);
-            int incident = mesh.vertexEdgeCount(vId);
-            for (int i = 0; i < incident; i++) {
-                int eId = mesh.vertexEdgeAt(vId, i);
-                int ae = crossField.edgeIdToActive.get(eId);
-                if (va == startVa && ae == skipFirstEdge)
+            mesh.vertexPosition(vertexId, posHere);
+            int incidentEdgeCount = mesh.vertexEdgeCount(vertexId);
+            for (int i = 0; i < incidentEdgeCount; i++) {
+                int edgeId = mesh.vertexEdgeAt(vertexId, i);
+                int activeEdge = crossField.edgeIdToActive.get(edgeId);
+                if (activeVertex == startActiveVertex && activeEdge == skipFirstEdge)
                     continue;
-                int hCanon = mesh.edgeHalfEdge(eId);
-                int otherVid = (mesh.halfEdgeVertex(hCanon) == vId)
-                        ? mesh.halfEdgeEndVertex(hCanon)
-                        : mesh.halfEdgeVertex(hCanon);
-                int otherVa = activeVertexIndex(otherVid);
-                mesh.vertexPosition(otherVid, pb);
-                double nd = d + pa.distance(pb);
-                if (nd < dist[otherVa]) {
-                    dist[otherVa] = nd;
-                    prev[otherVa] = va;
-                    prevEdge[otherVa] = ae;
-                    pq.add(new long[] { Double.doubleToLongBits(nd), otherVa });
+                int halfEdge = mesh.edgeHalfEdge(edgeId);
+                int otherVertexId = (mesh.halfEdgeVertex(halfEdge) == vertexId)
+                        ? mesh.halfEdgeEndVertex(halfEdge)
+                        : mesh.halfEdgeVertex(halfEdge);
+                int otherActiveVertex = activeVertexIndex(otherVertexId);
+                mesh.vertexPosition(otherVertexId, posOther);
+                double newDistance = distHere + posHere.distance(posOther);
+                if (newDistance < distance[otherActiveVertex]) {
+                    distance[otherActiveVertex] = newDistance;
+                    prevVertex[otherActiveVertex] = activeVertex;
+                    prevEdge[otherActiveVertex] = activeEdge;
+                    frontier.add(new long[] { Double.doubleToLongBits(newDistance), otherActiveVertex });
                 }
             }
         }
 
-        if (hitVa < 0)
+        if (reachedActiveVertex < 0)
             return null;
 
-        int len = 0;
-        for (int va = hitVa; va != startVa; va = prev[va])
-            len++;
-        int[] pathEdges = new int[len];
-        for (int va = hitVa, k = 0; va != startVa; va = prev[va])
-            pathEdges[k++] = prevEdge[va];
+        int pathLength = 0;
+        for (int v = reachedActiveVertex; v != startActiveVertex; v = prevVertex[v]) {
+            pathLength++;
+        }
+        int[] pathEdges = new int[pathLength];
+        for (int v = reachedActiveVertex, i = 0; v != startActiveVertex; v = prevVertex[v]) {
+            pathEdges[i++] = prevEdge[v];
+        }
         return pathEdges;
     }
 
-    public void buildDenseIndices() {
-        // Dense-index every interior cut edge for the seam transition variables.
-        cutEdgeDenseIdx = new int[seamless.edgeCount];
-        Arrays.fill(cutEdgeDenseIdx, -1);
-        int next = 0;
-        for (int ae = 0; ae < seamless.edgeCount; ae++) {
-            if (!isCutEdge[ae])
-                continue;
-            if (seamless.edgeFaceA[ae] < 0 || seamless.edgeFaceB[ae] < 0)
-                continue; // boundary cut, no transition
-            cutEdgeDenseIdx[ae] = next++;
-        }
-        interiorCutEdgeCount = next;
-    }
+    /**
+     * Assign each active face a branch label g_f ∈ {0..3} by BFS over non-cut
+     * interior edges, seeding each connected component at 0.
+     *
+     * <p>
+     * BZK09 §5 convention: the cross-field smoothness energy is (θ_A + κ_AB +
+     * (π/2)·p_AB − θ_B)² with {@code edgeHalfEdge} oriented A→B, so a (u, v) basis
+     * aligned with g_f stays continuous across a non-cut edge when g_B = (g_A −
+     * p_AB) mod 4 in that canonical direction; traversing B→A flips the sign of the
+     * period jump.
+     */
+    private void propagateBranches() {
+        faceBranch = new int[seamless.faceCount];
+        Arrays.fill(faceBranch, -1);
 
-    public int activeVertexIndex(int vId) {
-        // ArrayMesh keeps active = id but HalfEdgeMesh may have holes. Linear scan is
-        // OK
-        // since we cache cutDegree by active index.
-        // Iterate the active list once to build a map; cache lazily.
-        if (vertexActiveCache == null) {
-            int n = mesh.vertexCount();
-            vertexActiveCache = new HashMap<>(n * 2);
-            for (int va = 0; va < n; va++) {
-                vertexActiveCache.put(mesh.vertexIdAt(va), va);
+        ArrayDeque<Integer> faceQueue = new ArrayDeque<>();
+        for (int seed = 0; seed < seamless.faceCount; seed++) {
+            if (faceBranch[seed] != -1)
+                continue;
+            faceBranch[seed] = 0;
+            faceQueue.add(seed);
+            while (!faceQueue.isEmpty()) {
+                int activeFace = faceQueue.poll();
+                int faceId = mesh.faceIdAt(activeFace);
+                for (int corner = 0; corner < SeamlessParameterization.CORNERS_PER_FACE; corner++) {
+                    int activeEdge = crossField.edgeIdToActive.get(mesh.faceEdgeAt(faceId, corner));
+                    if (isCutEdge[activeEdge])
+                        continue;
+                    int activeFaceA = seamless.edgeFaceA[activeEdge];
+                    int activeFaceB = seamless.edgeFaceB[activeEdge];
+                    if (activeFaceA < 0 || activeFaceB < 0)
+                        continue;
+                    int otherActiveFace = (activeFaceA == activeFace) ? activeFaceB : activeFaceA;
+                    if (faceBranch[otherActiveFace] != -1)
+                        continue;
+                    int periodJump = crossField.periodJump[activeEdge];
+                    int branchMask = SeamlessParameterization.BRANCH_COUNT - 1;
+                    faceBranch[otherActiveFace] = (activeFaceA == activeFace)
+                            ? (faceBranch[activeFace] - periodJump) & branchMask
+                            : (faceBranch[activeFace] + periodJump) & branchMask;
+                    faceQueue.add(otherActiveFace);
+                }
             }
         }
-        Integer i = vertexActiveCache.get(vId);
-        if (i == null)
-            throw new IllegalStateException("unknown vertex id " + vId);
-        return i;
+    }
+
+    /**
+     * Compute the seam rotation r_e ∈ {0..3} for every edge: 0 on non-cut and
+     * boundary edges, and (g_B − g_A + p_AB) mod 4 on an interior cut edge.
+     *
+     * <p>
+     * In B's frame the discrepancy between A's and B's chosen u-axes is (θ_B +
+     * g_B·π/2) − (θ_A + g_A·π/2 + κ_AB) = (g_B − g_A + p_AB)·π/2 by the cross-field
+     * smoothness relation, hence r_e = (g_B − g_A + p_AB) mod 4. On non-cut edges
+     * {@link #propagateBranches()} chose g_B = g_A − p, making this 0.
+     */
+    public void buildCutRotation() {
+        cutRotation = new int[seamless.edgeCount];
+        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
+            int activeFaceA = seamless.edgeFaceA[activeEdge];
+            int activeFaceB = seamless.edgeFaceB[activeEdge];
+            if (!isCutEdge[activeEdge] || activeFaceA < 0 || activeFaceB < 0) {
+                cutRotation[activeEdge] = 0;
+                continue;
+            }
+            int periodJump = crossField.periodJump[activeEdge];
+            cutRotation[activeEdge] = (faceBranch[activeFaceB] - faceBranch[activeFaceA] + periodJump)
+                    & (SeamlessParameterization.BRANCH_COUNT - 1);
+        }
+    }
+
+    /**
+     * Identify chart vertices: union the two corners on each endpoint of every
+     * non-cut interior edge (so corners that map to the same point in the unfolded
+     * chart merge), then compact the union-find roots to a dense
+     * {@code [0, chartVertexCount)} numbering in {@link #cornerToChartVertex}.
+     *
+     * <p>
+     * The half-edge in face B runs opposite to the one in face A across a shared
+     * edge, so face A's corner {@code start} pairs with face B's corner
+     * {@code start}, and face A's corner {@code start+1} with face B's corner
+     * {@code start−1}.
+     */
+    private void buildChartVertices() {
+        final int cornersPerFace = SeamlessParameterization.CORNERS_PER_FACE;
+        int totalCorners = seamless.faceCount * cornersPerFace;
+        int[] parent = new int[totalCorners];
+        int[] rank = new int[totalCorners];
+        for (int corner = 0; corner < totalCorners; corner++)
+            parent[corner] = corner;
+
+        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
+            if (isCutEdge[activeEdge])
+                continue;
+            int activeFaceA = seamless.edgeFaceA[activeEdge];
+            int activeFaceB = seamless.edgeFaceB[activeEdge];
+            if (activeFaceA < 0 || activeFaceB < 0)
+                continue;
+            int cornerStartA = seamless.edgeCornerInA[activeEdge];
+            int cornerStartB = seamless.edgeCornerInB[activeEdge];
+            int cornerEndA = (cornerStartA + 1) % cornersPerFace;
+            int cornerEndB = (cornerStartB + cornersPerFace - 1) % cornersPerFace;
+            unionCorners(parent, rank, activeFaceA * cornersPerFace + cornerStartA,
+                    activeFaceB * cornersPerFace + cornerStartB);
+            unionCorners(parent, rank, activeFaceA * cornersPerFace + cornerEndA,
+                    activeFaceB * cornersPerFace + cornerEndB);
+        }
+
+        cornerToChartVertex = new int[totalCorners];
+        HashMap<Integer, Integer> rootToChartVertex = new HashMap<>();
+        for (int corner = 0; corner < totalCorners; corner++) {
+            int root = findCorner(parent, corner);
+            Integer chartVertex = rootToChartVertex.get(root);
+            if (chartVertex == null) {
+                chartVertex = rootToChartVertex.size();
+                rootToChartVertex.put(root, chartVertex);
+            }
+            cornerToChartVertex[corner] = chartVertex;
+        }
+        chartVertexCount = rootToChartVertex.size();
+    }
+
+    /**
+     * Union-find {@code find} with path halving.
+     * 
+     * @param parent the parent array
+     * @param corner the corner to find
+     * @return the root of the corner
+     */
+    private static int findCorner(int[] parent, int corner) {
+        while (parent[corner] != corner) {
+            parent[corner] = parent[parent[corner]];
+            corner = parent[corner];
+        }
+        return corner;
+    }
+
+    /**
+     * Union-find {@code union} by rank.
+     * 
+     * @param parent  the parent array
+     * @param rank    the rank array
+     * @param cornerA the first corner
+     * @param cornerB the second corner
+     */
+    private static void unionCorners(int[] parent, int[] rank, int cornerA, int cornerB) {
+        int rootA = findCorner(parent, cornerA);
+        int rootB = findCorner(parent, cornerB);
+        if (rootA == rootB)
+            return;
+        if (rank[rootA] < rank[rootB]) {
+            parent[rootA] = rootB;
+        } else if (rank[rootA] > rank[rootB]) {
+            parent[rootB] = rootA;
+        } else {
+            parent[rootB] = rootA;
+            rank[rootA]++;
+        }
+    }
+
+    /**
+     * Assign each interior cut edge a dense index in
+     * {@code [0, interiorCutEdgeCount)} for the seam translation variables;
+     * boundary cut edges (only one incident face, hence no transition) get -1.
+     */
+    public void buildDenseIndices() {
+        cutEdgeDenseIdx = new int[seamless.edgeCount];
+        Arrays.fill(cutEdgeDenseIdx, -1);
+        int nextIndex = 0;
+        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
+            if (!isCutEdge[activeEdge])
+                continue;
+            if (seamless.edgeFaceA[activeEdge] < 0 || seamless.edgeFaceB[activeEdge] < 0)
+                continue;
+            cutEdgeDenseIdx[activeEdge] = nextIndex++;
+        }
+        interiorCutEdgeCount = nextIndex;
+    }
+
+    /**
+     * Map a {@link HalfEdgeMesh} vertex id to its dense active-vertex index. The
+     * lookup table is built on first call (the mesh may have holes, so id ≠ index).
+     *
+     * @throws IllegalStateException if {@code vertexId} is not a live mesh vertex
+     * @param vertexId the vertex id to map
+     * @return the dense active-vertex index
+     */
+    public int activeVertexIndex(int vertexId) {
+        if (vertexActiveCache == null) {
+            int vertexCount = mesh.vertexCount();
+            vertexActiveCache = new HashMap<>(vertexCount * 2);
+            for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++)
+                vertexActiveCache.put(mesh.vertexIdAt(activeVertex), activeVertex);
+        }
+        Integer activeVertex = vertexActiveCache.get(vertexId);
+        if (activeVertex == null)
+            throw new IllegalStateException("unknown vertex id " + vertexId);
+        return activeVertex;
     }
 }
