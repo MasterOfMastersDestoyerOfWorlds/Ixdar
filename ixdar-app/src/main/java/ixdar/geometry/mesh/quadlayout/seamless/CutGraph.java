@@ -85,16 +85,58 @@ public class CutGraph {
         }
     }
 
-    private void connectDetachedSingularities(int[] cutDegree) {
-        // BZK09 §5: Connect interior singularities not yet on the cut: Dijkstra
-        // (primal) to nearest cut vertex.
-        for (Singularity s : crossField.singularities) {
-            int sVid = s.vertexId();
-            if (cutDegree[activeVertexIndex(sVid)] > 0 || mesh.isBoundaryVertex(sVid))
-                continue;
-            connectVertexToCut(sVid, cutDegree);
+
+    private void initialCutFromDualSpanningTree() {
+        isCutEdge = new boolean[seamless.edgeCount];
+
+        // Mark all edges as initially cut. Dual spanning tree will UN-cut its tree
+        // edges.
+        Arrays.fill(isCutEdge, true);
+
+        // Dual spanning tree: BFS over faces via interior, two-sided edges.
+        boolean[] faceVisited = new boolean[seamless.faceCount];
+        ArrayDeque<Integer> queue = new ArrayDeque<>();
+        // Seed at active face 0.
+        if (seamless.faceCount > 0) {
+            faceVisited[0] = true;
+            queue.add(0);
+        }
+        while (!queue.isEmpty()) {
+            int afA = queue.poll();
+            int faceAId = mesh.faceIdAt(afA);
+            for (int c = 0; c < SeamlessParameterization.CORNERS_PER_FACE; c++) {
+                int eId = mesh.faceEdgeAt(faceAId, c);
+                int ae = crossField.edgeIdToActive.get(eId);
+                int afOther = (seamless.edgeFaceA[ae] == afA) ? seamless.edgeFaceB[ae] : seamless.edgeFaceA[ae];
+                if (afOther < 0)
+                    continue; // boundary side — leave isCutEdge true
+                if (faceVisited[afOther])
+                    continue;
+                faceVisited[afOther] = true;
+                isCutEdge[ae] = false; // dual-tree edge → not cut
+                queue.add(afOther);
+            }
         }
     }
+
+    private int[] computeCutDegree() {
+        // For trim we need vertex → set of incident cut edges. Build counts only.
+        int vertexCount = mesh.vertexCount();
+        int[] cutDegree = new int[vertexCount];
+        Arrays.fill(cutDegree, 0);
+        for (int ae = 0; ae < seamless.edgeCount; ae++) {
+            if (!isCutEdge[ae])
+                continue;
+            int eId = mesh.edgeIdAt(ae);
+            int hCanon = mesh.edgeHalfEdge(eId);
+            int va0 = activeVertexIndex(mesh.halfEdgeVertex(hCanon));
+            int va1 = activeVertexIndex(mesh.halfEdgeEndVertex(hCanon));
+            cutDegree[va0]++;
+            cutDegree[va1]++;
+        }
+        return cutDegree;
+    }
+
 
     private void trimDanglingBranches(int[] cutDegree) {
         // Trim dangling paths: a non-singularity vertex with exactly one cut edge.
@@ -146,56 +188,18 @@ public class CutGraph {
         }
     }
 
-    private int[] computeCutDegree() {
-        // For trim we need vertex → set of incident cut edges. Build counts only.
-        int vertexCount = mesh.vertexCount();
-        int[] cutDegree = new int[vertexCount];
-        Arrays.fill(cutDegree, 0);
-        for (int ae = 0; ae < seamless.edgeCount; ae++) {
-            if (!isCutEdge[ae])
+    private void connectDetachedSingularities(int[] cutDegree) {
+        // BZK09 §5: Connect interior singularities not yet on the cut: Dijkstra
+        // (primal) to nearest cut vertex.
+        for (Singularity s : crossField.singularities) {
+            int sVid = s.vertexId();
+            if (cutDegree[activeVertexIndex(sVid)] > 0 || mesh.isBoundaryVertex(sVid))
                 continue;
-            int eId = mesh.edgeIdAt(ae);
-            int hCanon = mesh.edgeHalfEdge(eId);
-            int va0 = activeVertexIndex(mesh.halfEdgeVertex(hCanon));
-            int va1 = activeVertexIndex(mesh.halfEdgeEndVertex(hCanon));
-            cutDegree[va0]++;
-            cutDegree[va1]++;
-        }
-        return cutDegree;
-    }
-
-    private void initialCutFromDualSpanningTree() {
-        isCutEdge = new boolean[seamless.edgeCount];
-
-        // Mark all edges as initially cut. Dual spanning tree will UN-cut its tree
-        // edges.
-        Arrays.fill(isCutEdge, true);
-
-        // Dual spanning tree: BFS over faces via interior, two-sided edges.
-        boolean[] faceVisited = new boolean[seamless.faceCount];
-        ArrayDeque<Integer> queue = new ArrayDeque<>();
-        // Seed at active face 0.
-        if (seamless.faceCount > 0) {
-            faceVisited[0] = true;
-            queue.add(0);
-        }
-        while (!queue.isEmpty()) {
-            int afA = queue.poll();
-            int faceAId = mesh.faceIdAt(afA);
-            for (int c = 0; c < SeamlessParameterization.CORNERS_PER_FACE; c++) {
-                int eId = mesh.faceEdgeAt(faceAId, c);
-                int ae = crossField.edgeIdToActive.get(eId);
-                int afOther = (seamless.edgeFaceA[ae] == afA) ? seamless.edgeFaceB[ae] : seamless.edgeFaceA[ae];
-                if (afOther < 0)
-                    continue; // boundary side — leave isCutEdge true
-                if (faceVisited[afOther])
-                    continue;
-                faceVisited[afOther] = true;
-                isCutEdge[ae] = false; // dual-tree edge → not cut
-                queue.add(afOther);
-            }
+            connectVertexToCut(sVid, cutDegree);
         }
     }
+
+
 
     // =====================================================================
     // C2. branch propagation (BFS over non-cut interior edges)
@@ -242,6 +246,32 @@ public class CutGraph {
                     queue.add(afOther);
                 }
             }
+        }
+    }
+
+
+    public void buildCutRotation() {
+        cutRotation = new int[seamless.edgeCount];
+        for (int ae1 = 0; ae1 < seamless.edgeCount; ae1++) {
+            if (!isCutEdge[ae1]) {
+                cutRotation[ae1] = 0;
+                continue;
+            }
+            int afA = seamless.edgeFaceA[ae1];
+            int afB = seamless.edgeFaceB[ae1];
+            if (afA < 0 || afB < 0) {
+                cutRotation[ae1] = 0; // boundary — no transition
+                continue;
+            }
+            // Discrepancy (in B's frame) of A's chosen u-axis vs B's chosen u-axis is
+            // (θ_B + g_B·π/2) − (θ_A + g_A·π/2 + κ_AB)
+            // = (g_B − g_A)·π/2 + (θ_B − θ_A − κ_AB)
+            // = (g_B − g_A + p_AB)·π/2 [from BZK09 cross-field smoothness]
+            // so r_e = (g_B − g_A + p_AB) mod 4. For non-cut edges this is 0 by
+            // construction (BFS propagated branches with g_B = g_A − p).
+            int p = crossField.periodJump[ae1];
+            cutRotation[ae1] = (faceBranch[afB] - faceBranch[afA] + p)
+                    & (SeamlessParameterization.BRANCH_COUNT - 1);
         }
     }
 
@@ -496,30 +526,6 @@ public class CutGraph {
         interiorCutEdgeCount = next;
     }
 
-    public void buildCutRotation() {
-        cutRotation = new int[seamless.edgeCount];
-        for (int ae1 = 0; ae1 < seamless.edgeCount; ae1++) {
-            if (!isCutEdge[ae1]) {
-                cutRotation[ae1] = 0;
-                continue;
-            }
-            int afA = seamless.edgeFaceA[ae1];
-            int afB = seamless.edgeFaceB[ae1];
-            if (afA < 0 || afB < 0) {
-                cutRotation[ae1] = 0; // boundary — no transition
-                continue;
-            }
-            // Discrepancy (in B's frame) of A's chosen u-axis vs B's chosen u-axis is
-            // (θ_B + g_B·π/2) − (θ_A + g_A·π/2 + κ_AB)
-            // = (g_B − g_A)·π/2 + (θ_B − θ_A − κ_AB)
-            // = (g_B − g_A + p_AB)·π/2 [from BZK09 cross-field smoothness]
-            // so r_e = (g_B − g_A + p_AB) mod 4. For non-cut edges this is 0 by
-            // construction (BFS propagated branches with g_B = g_A − p).
-            int p = crossField.periodJump[ae1];
-            cutRotation[ae1] = (faceBranch[afB] - faceBranch[afA] + p)
-                    & (SeamlessParameterization.BRANCH_COUNT - 1);
-        }
-    }
 
     public int activeVertexIndex(int vId) {
         // ArrayMesh keeps active = id but HalfEdgeMesh may have holes. Linear scan is
