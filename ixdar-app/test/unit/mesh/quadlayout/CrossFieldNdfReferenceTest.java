@@ -29,7 +29,7 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.quadlayout.CrossField;
+import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 
 /**
  * For every {@code *_in_cf*.ndf} reference under {@code test/resources/quadlayout/figure_*}

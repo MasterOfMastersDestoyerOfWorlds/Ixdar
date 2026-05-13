@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout;
+package ixdar.geometry.mesh.quadlayout.crossfield;
 
 /*
      * A4. Smooth-energy MIP solver (greedy rounding of period jumps)
@@ -20,6 +20,12 @@ import java.util.Arrays;
 import java.util.Map;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
+import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver.Method;
+import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver.Options;
+import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver.Result;
+import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver.Stats;
 
 public final class SmoothEnergySystem {
     public static final double DEFAULT_LOCAL_TOLERANCE = 1e-6;

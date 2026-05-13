@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout;
+package ixdar.geometry.mesh.quadlayout.crossfield;
 
 import java.io.IOException;
 import java.nio.file.Files;

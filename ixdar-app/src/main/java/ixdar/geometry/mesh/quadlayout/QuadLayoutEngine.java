@@ -1,6 +1,8 @@
 package ixdar.geometry.mesh.quadlayout;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 
 public final class QuadLayoutEngine {
 

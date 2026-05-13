@@ -12,7 +12,7 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.quadlayout.CrossField;
+import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 
 /**
  * Runs {@link CrossField#build()} on the hand mesh ({@code figure_6/hand_in_tri.off},
@@ -124,7 +124,7 @@ class CrossFieldBuildProfileTest {
 
         // For each ref-only singularity at a "trace vertex", list the nearest generated
         // singularities (with their distances) so we can see how far off they are.
-        java.util.Set<Integer> traceVids = ixdar.geometry.mesh.quadlayout.CrossField.TRACE_VIDS;
+        java.util.Set<Integer> traceVids = ixdar.geometry.mesh.quadlayout.crossfield.CrossField.TRACE_VIDS;
         if (!traceVids.isEmpty()) {
             org.joml.Vector3f tp = new org.joml.Vector3f();
             org.joml.Vector3f gp = new org.joml.Vector3f();

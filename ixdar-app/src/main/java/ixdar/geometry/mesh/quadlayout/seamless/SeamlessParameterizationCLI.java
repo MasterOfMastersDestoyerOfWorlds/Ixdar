@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout;
+package ixdar.geometry.mesh.quadlayout.seamless;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -9,6 +9,8 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.quadlayout.Singularity;
+import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 
 /**
  * Stand-alone driver: load a triangle mesh, run the LCK21 stages 1–3 (cross
@@ -87,7 +89,7 @@ public final class SeamlessParameterizationCLI {
         int totalCut = 0;
         int boundaryCut = 0;
         for (int ae = 0; ae < mesh.edgeCount(); ae++) {
-            if (!seamless.isCutEdge[ae]) continue;
+            if (!seamless.cutGraph.isCutEdge[ae]) continue;
             totalCut++;
             if (mesh.isBoundaryEdge(mesh.edgeIdAt(ae))) boundaryCut++;
         }
@@ -107,7 +109,7 @@ public final class SeamlessParameterizationCLI {
             for (int i = 0; i < incident; i++) {
                 int eId = mesh.vertexEdgeAt(sVid, i);
                 int ae = crossField.edgeIdToActive.get(eId);
-                if (seamless.isCutEdge[ae] && !mesh.isBoundaryEdge(eId)) cutDeg++;
+                if (seamless.cutGraph.isCutEdge[ae] && !mesh.isBoundaryEdge(eId)) cutDeg++;
             }
             if (cutDeg > 0) onCut++; else offCut++;
             if (cutDeg < minCutDeg) minCutDeg = cutDeg;
@@ -123,7 +125,7 @@ public final class SeamlessParameterizationCLI {
         double max = 0.0;
         double sumSq = 0.0;
         for (int ae = 0; ae < mesh.edgeCount(); ae++) {
-            if (!seamless.isCutEdge[ae]) continue;
+            if (!seamless.cutGraph.isCutEdge[ae]) continue;
             int eId = mesh.edgeIdAt(ae);
             if (mesh.isBoundaryEdge(eId)) continue;
             int hCanon = mesh.edgeHalfEdge(eId);
@@ -134,7 +136,7 @@ public final class SeamlessParameterizationCLI {
             int vEnd = mesh.halfEdgeEndVertex(hCanon);
             float[] coordsA = lookupCorners(seamless, mesh, faceA, vStart, vEnd);
             float[] coordsB = lookupCorners(seamless, mesh, faceB, vStart, vEnd);
-            int r = seamless.cutRotation[ae];
+            int r = seamless.cutGraph.cutRotation[ae];
             double cr = Math.cos(r * Math.PI / 2.0);
             double sr = Math.sin(r * Math.PI / 2.0);
             double s = seamless.cutTranslationS[ae];

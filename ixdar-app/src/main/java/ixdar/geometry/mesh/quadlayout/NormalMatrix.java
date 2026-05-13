@@ -1,14 +1,16 @@
 package ixdar.geometry.mesh.quadlayout;
 import java.util.Map;
 
+import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
+
 public final class NormalMatrix {
     public static final double HALF = 0.5;
     public final int variableCount;
     final double[] diag;
-    final double[] rhs;
-    final int[] rowStart;
-    final int[] rowCol;
-    final double[] rowVal;
+    public final double[] rhs;
+    public final int[] rowStart;
+    public final int[] rowCol;
+    public final double[] rowVal;
 
     /**
      * Constructor with chord-based rows.
@@ -23,7 +25,7 @@ public final class NormalMatrix {
      * @param periodValue period value
      * @param rowKappa    row kappa
      */
-    NormalMatrix(int faceCount, int chordCount, int rowCount, int[] rowFaceI, int[] rowFaceJ, int[] rowEdgeAi,
+    public NormalMatrix(int faceCount, int chordCount, int rowCount, int[] rowFaceI, int[] rowFaceJ, int[] rowEdgeAi,
             int[] chordOfEdge, int[] periodValue, float[] rowKappa) {
         variableCount = faceCount + chordCount;
         diag = new double[variableCount];
@@ -101,7 +103,7 @@ public final class NormalMatrix {
      * @param rowFaceJ            per-row second face index
      * @param rowKappaPlusHalfPiP per-row precomputed kappa + (pi/2) * p
      */
-    NormalMatrix(int faceCount, int rowCount,
+    public NormalMatrix(int faceCount, int rowCount,
             int[] rowFaceI, int[] rowFaceJ, double[] rowKappaPlusHalfPiP) {
         variableCount = faceCount;
         diag = new double[variableCount];
@@ -154,7 +156,7 @@ public final class NormalMatrix {
      *              the matrix entry; mirrored to both triangles on construction
      * @param rhs   right-hand-side, length {@code variableCount}
      */
-    NormalMatrix(double[] diag, Map<Long, Double> upper, double[] rhs) {
+    public NormalMatrix(double[] diag, Map<Long, Double> upper, double[] rhs) {
         this.variableCount = diag.length;
         this.diag = diag.clone();
         this.rhs = rhs.clone();

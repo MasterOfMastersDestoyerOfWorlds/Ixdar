@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout;
+package ixdar.geometry.mesh.quadlayout.solver;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -9,6 +9,8 @@ import org.ejml.data.DMatrixSparseCSC;
 import org.ejml.interfaces.linsol.LinearSolverSparse;
 import org.ejml.sparse.FillReducing;
 import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
+
+import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 
 /**
  * Adaptive solver ladder for the mixed-integer systems described by

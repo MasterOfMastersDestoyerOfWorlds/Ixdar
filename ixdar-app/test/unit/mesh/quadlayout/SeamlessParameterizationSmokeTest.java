@@ -14,9 +14,9 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.quadlayout.CrossField;
-import ixdar.geometry.mesh.quadlayout.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.Singularity;
+import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 
 /**
  * Smoke test for {@link SeamlessParameterization}. Runs the BZK09 §5 pipeline
@@ -61,18 +61,18 @@ class SeamlessParameterizationSmokeTest {
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
 
         CrossField crossField = new CrossField(mesh).build();
-        SeamlessParameterization seamless = SeamlessParameterization.from(crossField).build();
+        SeamlessParameterization seamless = new SeamlessParameterization(crossField).build();
 
         // 1. Output arrays populated.
         assertNotNull(seamless.uCorner);
         assertNotNull(seamless.vCorner);
-        assertNotNull(seamless.isCutEdge);
-        assertNotNull(seamless.cutRotation);
+        assertNotNull(seamless.cutGraph.isCutEdge);
+        assertNotNull(seamless.cutGraph.cutRotation);
         assertNotNull(seamless.cutTranslationS);
         assertNotNull(seamless.cutTranslationT);
         assertEquals(SeamlessParameterization.CORNERS_PER_FACE * mesh.faceCount(), seamless.uCorner.length);
         assertEquals(SeamlessParameterization.CORNERS_PER_FACE * mesh.faceCount(), seamless.vCorner.length);
-        assertEquals(mesh.edgeCount(), seamless.isCutEdge.length);
+        assertEquals(mesh.edgeCount(), seamless.cutGraph.isCutEdge.length);
 
         // 2. Every singularity is on the cut graph.
         for (Singularity s : crossField.singularities) {
@@ -82,18 +82,18 @@ class SeamlessParameterizationSmokeTest {
             for (int i = 0; i < incidentEdges; i++) {
                 int eId = mesh.vertexEdgeAt(sVid, i);
                 int ae = crossField.edgeIdToActive.get(eId);
-                if (seamless.isCutEdge[ae] && !mesh.isBoundaryEdge(eId)) { onCut = true; break; }
+                if (seamless.cutGraph.isCutEdge[ae] && !mesh.isBoundaryEdge(eId)) { onCut = true; break; }
             }
             assertTrue(onCut, "singularity vertex " + sVid + " is not on the cut graph");
         }
 
         // 3. Seamless transition residuals < tolerance on every interior cut edge.
-        float maxResidual = computeMaxTransitionResidual(seamless, mesh);
+        float maxResidual = seamless.computeMaxTransitionResidual();
         assertTrue(maxResidual < TRANSITION_TOLERANCE,
                 "max seamless transition residual = " + maxResidual + " (tolerance " + TRANSITION_TOLERANCE + ")");
 
         // 4. Injectivity. The relaxed solve may need stiffening; allow up to the configured cap.
-        int flipped = countFlippedTriangles(seamless, mesh);
+        int flipped = seamless.countFlippedTriangles();
         assertTrue(seamless.injective,
                 "expected injective UV map; flipped=" + flipped
                         + " stiffeningIters=" + seamless.stiffeningIterations);
@@ -131,18 +131,18 @@ class SeamlessParameterizationSmokeTest {
         long t0 = System.nanoTime();
         CrossField crossField = new CrossField(mesh).build();
         long t1 = System.nanoTime();
-        SeamlessParameterization seamless = SeamlessParameterization.from(crossField).build();
+        SeamlessParameterization seamless = new SeamlessParameterization(crossField).build();
         long t2 = System.nanoTime();
 
         int totalCut = 0, boundaryCut = 0;
         for (int ae = 0; ae < mesh.edgeCount(); ae++) {
-            if (seamless.isCutEdge[ae]) {
+            if (seamless.cutGraph.isCutEdge[ae]) {
                 totalCut++;
                 if (mesh.isBoundaryEdge(mesh.edgeIdAt(ae))) boundaryCut++;
             }
         }
-        int flipped = countFlippedTriangles(seamless, mesh);
-        float maxResidual = computeMaxTransitionResidual(seamless, mesh);
+        int flipped = seamless.countFlippedTriangles();
+        float maxResidual = seamless.computeMaxTransitionResidual();
 
         System.out.printf("[%s] V=%d E=%d F=%d  sing=%d  crossField=%.2fs seamless=%.2fs%n",
                 label, mesh.vertexCount(), mesh.edgeCount(), mesh.faceCount(),
@@ -163,70 +163,12 @@ class SeamlessParameterizationSmokeTest {
             for (int i = 0; i < incident; i++) {
                 int eId = mesh.vertexEdgeAt(sVid, i);
                 int ae = crossField.edgeIdToActive.get(eId);
-                if (seamless.isCutEdge[ae] && !mesh.isBoundaryEdge(eId)) { onCut = true; break; }
+                if (seamless.cutGraph.isCutEdge[ae] && !mesh.isBoundaryEdge(eId)) { onCut = true; break; }
             }
             assertTrue(onCut, label + ": singularity vertex " + sVid + " is not on the cut graph");
         }
     }
 
-    private static float computeMaxTransitionResidual(SeamlessParameterization seamless, HalfEdgeMesh mesh) {
-        float worst = 0.0f;
-        int edgeCount = mesh.edgeCount();
-        for (int ae = 0; ae < edgeCount; ae++) {
-            if (!seamless.isCutEdge[ae]) continue;
-            int eId = mesh.edgeIdAt(ae);
-            if (mesh.isBoundaryEdge(eId)) continue; // boundary cut: no transition
 
-            int hCanon = mesh.edgeHalfEdge(eId);
-            int twin = mesh.halfEdgeTwin(hCanon);
-            int faceA = mesh.halfEdgeFace(hCanon);
-            int faceB = mesh.halfEdgeFace(twin);
-            int vStart = mesh.halfEdgeVertex(hCanon);
-            int vEnd = mesh.halfEdgeEndVertex(hCanon);
 
-            float[] coordsA = lookupCorners(seamless, mesh, faceA, vStart, vEnd);
-            float[] coordsB = lookupCorners(seamless, mesh, faceB, vStart, vEnd);
-
-            int r = seamless.cutRotation[ae];
-            float cr = (float) Math.cos(r * Math.PI / 2.0);
-            float sr = (float) Math.sin(r * Math.PI / 2.0);
-            float s = seamless.cutTranslationS[ae];
-            float t = seamless.cutTranslationT[ae];
-
-            float upGexpected = cr * coordsA[0] - sr * coordsA[1] + s;
-            float vpGexpected = sr * coordsA[0] + cr * coordsA[1] + t;
-            float uqGexpected = cr * coordsA[2] - sr * coordsA[3] + s;
-            float vqGexpected = sr * coordsA[2] + cr * coordsA[3] + t;
-
-            worst = Math.max(worst, Math.abs(upGexpected - coordsB[0]));
-            worst = Math.max(worst, Math.abs(vpGexpected - coordsB[1]));
-            worst = Math.max(worst, Math.abs(uqGexpected - coordsB[2]));
-            worst = Math.max(worst, Math.abs(vqGexpected - coordsB[3]));
-        }
-        return worst;
-    }
-
-    /** Returns [u_p, v_p, u_q, v_q] for face's corners at vStart and vEnd. */
-    private static float[] lookupCorners(SeamlessParameterization seamless, HalfEdgeMesh mesh,
-                                          int faceId, int vStart, int vEnd) {
-        int cStart = -1, cEnd = -1;
-        for (int c = 0; c < SeamlessParameterization.CORNERS_PER_FACE; c++) {
-            int v = mesh.faceVertexAt(faceId, c);
-            if (v == vStart) cStart = c;
-            else if (v == vEnd) cEnd = c;
-        }
-        return new float[] {
-                seamless.u(faceId, cStart), seamless.v(faceId, cStart),
-                seamless.u(faceId, cEnd),   seamless.v(faceId, cEnd),
-        };
-    }
-
-    private static int countFlippedTriangles(SeamlessParameterization seamless, HalfEdgeMesh mesh) {
-        int flipped = 0;
-        for (int af = 0; af < mesh.faceCount(); af++) {
-            int faceId = mesh.faceIdAt(af);
-            if (seamless.uvSignedArea(faceId) <= 0.0f) flipped++;
-        }
-        return flipped;
-    }
 }

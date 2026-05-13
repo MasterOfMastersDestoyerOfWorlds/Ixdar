@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout;
+package ixdar.geometry.mesh.quadlayout.crossfield;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,6 +25,10 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.Singularity;
+import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
+import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 
 /**
  * § A. CROSS FIELD GENERATION (Bommes–Zimmer–Kobbelt 2009 — BZK09)

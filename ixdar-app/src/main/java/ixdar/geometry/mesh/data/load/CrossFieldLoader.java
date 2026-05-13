@@ -8,8 +8,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.CrossField;
 import ixdar.geometry.mesh.quadlayout.Singularity;
+import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 
 /**
  * Reads .ndf cross-field files from the BCEAK13 supplementary material into a

@@ -8,8 +8,8 @@ import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.CrossField;
 import ixdar.geometry.mesh.quadlayout.Singularity;
+import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;

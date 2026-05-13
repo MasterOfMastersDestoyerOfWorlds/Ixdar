@@ -6,8 +6,8 @@ import java.io.IOException;
 import java.util.Locale;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.CrossField;
 import ixdar.geometry.mesh.quadlayout.Singularity;
+import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 
 /**
  * Emit a {@link CrossField} in the .ndf format consumed by
