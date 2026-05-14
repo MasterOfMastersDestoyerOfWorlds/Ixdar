@@ -163,7 +163,8 @@ class SeamlessParameterizationSmokeTest {
         long t0 = System.nanoTime();
         CrossField crossField = new CrossField(mesh).build();
         long t1 = System.nanoTime();
-        SeamlessParameterization seamless = new SeamlessParameterization(crossField).build();
+        SeamlessParameterization seamless = new SeamlessParameterization(crossField);
+        ParameterizationMetrics metrics = seamless.build();
         long t2 = System.nanoTime();
 
         int totalCut = 0, boundaryCut = 0;
@@ -173,8 +174,6 @@ class SeamlessParameterizationSmokeTest {
                 if (mesh.isBoundaryEdge(mesh.edgeIdAt(ae))) boundaryCut++;
             }
         }
-        int flipped = seamless.countFlippedTriangles();
-        float maxResidual = seamless.computeMaxTransitionResidual();
 
         System.out.printf("[%s] V=%d E=%d F=%d  sing=%d  crossField=%.2fs seamless=%.2fs%n",
                 label, mesh.vertexCount(), mesh.edgeCount(), mesh.faceCount(),
@@ -183,10 +182,15 @@ class SeamlessParameterizationSmokeTest {
         System.out.printf("[%s] cuts=%d (boundary=%d interior=%d)  injective=%b stiffeningIters=%d  flipped=%d/%d (%.2f%%)%n",
                 label, totalCut, boundaryCut, totalCut - boundaryCut,
                 seamless.injective, seamless.stiffeningIterations,
-                flipped, mesh.faceCount(), 100.0 * flipped / mesh.faceCount());
-        System.out.printf("[%s] max transition residual=%.4f%n", label, maxResidual);
+                metrics.flippedTriangleCount, mesh.faceCount(),
+                100.0 * metrics.flippedTriangleCount / mesh.faceCount());
+        System.out.printf("[%s] residual: max=%.4f mean=%.4f  distortion(mean)=%.4f  charts=%d  branchViolations=%d%n",
+                label, metrics.maxTransitionResidual, metrics.meanTransitionResidual,
+                metrics.meanDistortion, metrics.disconnectedChartCount, metrics.validBranchConsistency);
 
         assertNotNull(seamless.uCorner);
+        // BZK09 §5 hard combinatorial invariants — must hold regardless of solver quality.
+        assertBzk09Invariants(metrics, seamless, label);
         // Sanity: every singularity sits on the cut graph.
         for (Singularity s : crossField.singularities) {
             int sVid = s.vertexId();

@@ -8,6 +8,11 @@ public class ParameterizationMetrics {
 
     public static final float HALF = 0.5f;
     public static final float SVD_DET_FACTOR = 4.0f;
+    /** Indices into the 4-element {@code [u_p, v_p, u_q, v_q]} array returned by
+     *  {@link SeamlessParameterization#lookupCorners(int, int, int)}. */
+    public static final int IDX_UQ = 2;
+    /** {@link #IDX_UQ} sibling. */
+    public static final int IDX_VQ = 3;
 
     public final SeamlessParameterization seamless;
     public final HalfEdgeMesh mesh;
@@ -20,6 +25,14 @@ public class ParameterizationMetrics {
     public int disconnectedChartCount;
     public int validBranchConsistency;
 
+    /**
+     * Build all metric summaries by running each measurement against the freshly
+     * solved {@code seamless} state and storing the result in the corresponding
+     * public field.
+     *
+     * @param seamless the solved parameterization to measure
+     * @param mesh     the mesh the parameterization was built on
+     */
     public ParameterizationMetrics(SeamlessParameterization seamless, HalfEdgeMesh mesh) {
         this.seamless = seamless;
         this.mesh = mesh;
@@ -81,13 +94,13 @@ public class ParameterizationMetrics {
 
             float upGexpected = cr * coordsA[0] - sr * coordsA[1] + s;
             float vpGexpected = sr * coordsA[0] + cr * coordsA[1] + t;
-            float uqGexpected = cr * coordsA[2] - sr * coordsA[3] + s;
-            float vqGexpected = sr * coordsA[2] + cr * coordsA[3] + t;
+            float uqGexpected = cr * coordsA[IDX_UQ] - sr * coordsA[IDX_VQ] + s;
+            float vqGexpected = sr * coordsA[IDX_UQ] + cr * coordsA[IDX_VQ] + t;
 
             worst = Math.max(worst, Math.abs(upGexpected - coordsB[0]));
             worst = Math.max(worst, Math.abs(vpGexpected - coordsB[1]));
-            worst = Math.max(worst, Math.abs(uqGexpected - coordsB[2]));
-            worst = Math.max(worst, Math.abs(vqGexpected - coordsB[3]));
+            worst = Math.max(worst, Math.abs(uqGexpected - coordsB[IDX_UQ]));
+            worst = Math.max(worst, Math.abs(vqGexpected - coordsB[IDX_VQ]));
         }
         return worst;
     }
@@ -127,13 +140,13 @@ public class ParameterizationMetrics {
 
             float expectedUp = cosR * coordsA[0] - sinR * coordsA[1] + translationS;
             float expectedVp = sinR * coordsA[0] + cosR * coordsA[1] + translationT;
-            float expectedUq = cosR * coordsA[2] - sinR * coordsA[3] + translationS;
-            float expectedVq = sinR * coordsA[2] + cosR * coordsA[3] + translationT;
+            float expectedUq = cosR * coordsA[IDX_UQ] - sinR * coordsA[IDX_VQ] + translationS;
+            float expectedVq = sinR * coordsA[IDX_UQ] + cosR * coordsA[IDX_VQ] + translationT;
 
             sum += Math.abs(expectedUp - coordsB[0]);
             sum += Math.abs(expectedVp - coordsB[1]);
-            sum += Math.abs(expectedUq - coordsB[2]);
-            sum += Math.abs(expectedVq - coordsB[3]);
+            sum += Math.abs(expectedUq - coordsB[IDX_UQ]);
+            sum += Math.abs(expectedVq - coordsB[IDX_VQ]);
             componentCount += coordsA.length;
         }
         return componentCount == 0 ? 0.0f : sum / componentCount;

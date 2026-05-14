@@ -177,49 +177,63 @@ public final class SeamlessParameterization {
      */
     public boolean integerGridMap = false;
 
+    /** Cut graph. */
+    public CutGraph cutGraph;
+
+    /** Metrics summary populated by {@link #build()}. */
+    public ParameterizationMetrics metrics;
+
     int faceCount;
     int edgeCount;
 
     /**
-     * active-edge → active-face indices on each side; -1 if that side is boundary
+     * Active-edge → active-face index on the "A" side; -1 if that side is boundary.
      */
     int[] edgeFaceA;
+    /**
+     * Active-edge → active-face index on the "B" side; -1 if that side is boundary.
+     */
     int[] edgeFaceB;
 
     /**
-     * active-edge → corner index of {@code halfEdgeVertex(edgeHalfEdge)} in face A
-     * and face B
+     * Active-edge → corner index of {@code halfEdgeVertex(edgeHalfEdge)} in face A.
      */
     int[] edgeCornerInA;
+    /**
+     * Active-edge → corner index of {@code halfEdgeVertex(edgeHalfEdge)} in face B.
+     */
     int[] edgeCornerInB;
 
-    /** §5.4 IRLS weights, init 1 */
+    /** DOF index base for cut translation s; equals {@code 2 * chartVertexCount}. */
+    int sCutBase;
+    /** DOF index base for cut translation t; equals {@code sCutBase + interiorCutEdgeCount}. */
+    int tCutBase;
+
+    /** §5.4 IRLS weights, initialized to 1. */
     private double[] faceWeight;
 
-    // per-face cached geometry (active-face order)
-    /** 3D area */
+    /** Per-face 3D area (active-face order). */
     private double[] faceArea;
-    /** length 3 per face: b_i (= ∂φ/∂x coefficients in local frame) */
+    /** Length 3 per face: b_i (= ∂φ/∂x coefficients in local frame). */
     private double[] faceShapeB;
-    /** length 3 per face: c_i */
+    /** Length 3 per face: c_i (= ∂φ/∂y coefficients in local frame). */
     private double[] faceShapeC;
-    /** u_T(ξ) x in local frame, post branch rotation */
+    /** u_T(ξ) x-component in local frame, post branch rotation. */
     private double[] faceUtxLocal;
+    /** u_T(ξ) y-component in local frame, post branch rotation. */
     private double[] faceUtyLocal;
+    /** v_T(ξ) x-component in local frame, post branch rotation. */
     private double[] faceVtxLocal;
+    /** v_T(ξ) y-component in local frame, post branch rotation. */
     private double[] faceVtyLocal;
 
-    /** last solver output (size N) */
+    /** Last solver output (size {@link #dofCount}). */
     private double[] solution;
-    /** == 0 */
+    /** DOF index base for u of chart vertex 0; equals 0. */
     private int uCvBase;
-    /** == chartVertexCount */
+    /** DOF index base for v of chart vertex 0; equals {@code chartVertexCount}. */
     private int vCvBase;
-    /** == 2 * chartVertexCount */
-    int sCutBase;
-    /** == 2 * chartVertexCount + interiorCutEdgeCount */
-    int tCutBase;
-    /** total */
+    /** Total DOF count. */
     private int dofCount;
 
     /**
@@ -235,18 +249,11 @@ public final class SeamlessParameterization {
     /** Soft-pin diagonal weight applied to a rounded integer DOF. */
     private double integerPinWeight = 1.0e10;
 
-    /** Cut graph. */
-    public CutGraph cutGraph;
-
-    /** Metrics. */
-    public ParameterizationMetrics metrics;
-
     /**
      * Adopts a built {@link CrossField}. Caller must invoke {@link #build()} to
      * actually compute the parametrization.
      *
      * @param crossField a CrossField that has already had {@code build()} called
-     * @return a fresh {@code SeamlessParameterization} bound to {@code crossField}
      */
     public SeamlessParameterization(CrossField crossField) {
         this.crossField = crossField;
@@ -723,7 +730,7 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * Accumulate symmetric SPD entries into a diagonal vector + upper-triangle
+     * Accumulate symmetric SPD entries into a diagonal vector + upper-triangle.
      */
     private void solveOnce() {
         double[] systemDiagonal = new double[dofCount];

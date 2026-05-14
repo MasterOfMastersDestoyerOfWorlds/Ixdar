@@ -43,33 +43,33 @@ public class CutGraph {
      */
     public int[] cutRotation;
 
-    /** the number of interior cut edges */
+    /** Number of interior cut edges. */
     public int interiorCutEdgeCount;
 
     /**
-     * active-edge index → dense index in [0, interiorCutEdgeCount), -1 otherwise
+     * Active-edge index → dense index in [0, interiorCutEdgeCount), -1 otherwise.
      */
     public int[] cutEdgeDenseIdx;
 
-    /** the seamless parameterization */
+    /** The seamless parameterization owning this cut graph. */
     public SeamlessParameterization seamless;
 
-    /** the number of chart vertices */
+    /** Number of chart vertices. */
     public int chartVertexCount;
 
-    /** length 3*F, indexed by (activeFace * 3 + corner) → chart-vertex index */
+    /** Length 3*F, indexed by (activeFace * 3 + corner) → chart-vertex index. */
     public int[] cornerToChartVertex;
 
-    /** active-face index → branch g_f ∈ {0..3} */
+    /** Active-face index → branch g_f ∈ {0..3}. */
     public int[] faceBranch;
 
-    /** mesh-vertex-id → active-vertex-index, lazily built. */
+    /** Mesh-vertex-id → active-vertex-index, lazily built. */
     public HashMap<Integer, Integer> vertexActiveCache;
 
-    /** the mesh */
+    /** The mesh. */
     public final HalfEdgeMesh mesh;
 
-    /** the cross field */
+    /** The cross field. */
     public final CrossField crossField;
 
     /**

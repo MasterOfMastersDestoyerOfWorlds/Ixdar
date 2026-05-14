@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(find /home/acw/Code/Ixdar -maxdepth 4 -name CLAUDE.md 2>/dev/null; find /home/acw/Code -maxdepth 2 -name CLAUDE.md 2>/dev/null)",
-      "Read(//home/acw/Code/**)"
+      "Read(//home/acw/Code/**)",
+      "Bash(mvn -q test -Dtest=SeamlessParameterizationSmokeTest)",
+      "Bash(grep -E \"BUILD|Tests |Failed|ERROR|\\\\[INFO\\\\] -+$\")",
+      "Bash(mvn test *)",
+      "Read(//opt/async-profiler/lib/**)",
+      "Read(//usr/lib/**)"
     ]
   }
 }

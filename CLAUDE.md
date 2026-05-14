@@ -61,7 +61,7 @@ This rule has a custom checkstyle module (`SingleCallerHelperCheck`, currently d
 
 ## Other checkstyle rules to know
 
-The build is checked against `~/Code/autofix/src/main/resources/checkstyle.xml`. Beyond Javadoc, the rules that bite most often:
+**Never skip checkstyle.** Don't run with `-Dcheckstyle.skip=true` or comment out rules to make a build pass — fix the violations. A red checkstyle is a red build, full stop. The build is checked against `~/Code/autofix/src/main/resources/checkstyle.xml`. Beyond Javadoc, the rules that bite most often:
 
 - **Declaration order** (`DeclarationOrder`): static fields → instance fields → constructors → methods. Within each field bucket, `public → protected → package → private`. The autofix recipe reorders this for you, but write it right the first time.
 - **Magic numbers:** literals other than `-1, 0, 1, 2` must be named constants. Field initializers and annotations are exempt.

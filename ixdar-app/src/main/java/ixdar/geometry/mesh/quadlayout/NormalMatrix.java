@@ -5,12 +5,16 @@ import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
 
 public final class NormalMatrix {
     public static final double HALF = 0.5;
+    /** Bit shift used to pack (row, col) keys into a {@code long}. */
+    public static final int KEY_ROW_SHIFT = 32;
+    /** Low-32-bit mask used to extract the column from a packed (row, col) key. */
+    public static final long KEY_COL_MASK = 0xFFFFFFFFL;
     public final int variableCount;
-    final double[] diag;
     public final double[] rhs;
     public final int[] rowStart;
     public final int[] rowCol;
     public final double[] rowVal;
+    final double[] diag;
 
     /**
      * Constructor with chord-based rows.
@@ -163,8 +167,8 @@ public final class NormalMatrix {
 
         int[] degree = new int[variableCount];
         for (long key : upper.keySet()) {
-            int row = (int) (key >>> 32);
-            int col = (int) (key & 0xFFFFFFFFL);
+            int row = (int) (key >>> KEY_ROW_SHIFT);
+            int col = (int) (key & KEY_COL_MASK);
             degree[row]++;
             degree[col]++;
         }
@@ -179,8 +183,8 @@ public final class NormalMatrix {
 
         for (Map.Entry<Long, Double> e : upper.entrySet()) {
             long key = e.getKey();
-            int row = (int) (key >>> 32);
-            int col = (int) (key & 0xFFFFFFFFL);
+            int row = (int) (key >>> KEY_ROW_SHIFT);
+            int col = (int) (key & KEY_COL_MASK);
             double value = e.getValue();
             addOffDiagonal(cursor, row, col, value);
             addOffDiagonal(cursor, col, row, value);
