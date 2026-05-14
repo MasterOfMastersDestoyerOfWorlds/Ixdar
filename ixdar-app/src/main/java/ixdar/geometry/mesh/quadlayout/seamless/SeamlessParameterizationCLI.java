@@ -69,7 +69,8 @@ public final class SeamlessParameterizationCLI {
                 (tCross1 - tCross0) / NS_PER_SEC, crossField.singularities.size());
 
         long tSeam0 = System.nanoTime();
-        SeamlessParameterization seamless = new SeamlessParameterization(crossField).build();
+        SeamlessParameterization seamless = new SeamlessParameterization(crossField);
+        seamless.build();
         long tSeam1 = System.nanoTime();
         System.out.printf("[seam-cli] seamless: %.2fs  injective=%b stiffeningIters=%d%n",
                 (tSeam1 - tSeam0) / NS_PER_SEC, seamless.injective, seamless.stiffeningIterations);

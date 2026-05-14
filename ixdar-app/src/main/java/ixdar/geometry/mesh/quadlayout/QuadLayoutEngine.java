@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.quadlayout;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 
 public final class QuadLayoutEngine {
@@ -75,7 +76,8 @@ public final class QuadLayoutEngine {
         CrossField crossField = new CrossField(mesh).build();
         System.out.println("Singularities: " + crossField.singularities.size());
 
-        SeamlessParameterization seamless = new SeamlessParameterization(crossField).build();
+        SeamlessParameterization seamless = new SeamlessParameterization(crossField);
+        ParameterizationMetrics metrics = seamless.build();
         System.out.println("Seamless injective: " + seamless.injective
                 + " (stiffening iters: " + seamless.stiffeningIterations + ")");
 

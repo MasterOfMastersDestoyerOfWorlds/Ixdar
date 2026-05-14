@@ -16,6 +16,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 
 /**
@@ -61,7 +62,8 @@ class SeamlessParameterizationSmokeTest {
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
 
         CrossField crossField = new CrossField(mesh).build();
-        SeamlessParameterization seamless = new SeamlessParameterization(crossField).build();
+        SeamlessParameterization seamless = new SeamlessParameterization(crossField);
+        ParameterizationMetrics metrics = seamless.build();
 
         // 1. Output arrays populated.
         assertNotNull(seamless.uCorner);
@@ -74,7 +76,7 @@ class SeamlessParameterizationSmokeTest {
         assertEquals(SeamlessParameterization.CORNERS_PER_FACE * mesh.faceCount(), seamless.vCorner.length);
         assertEquals(mesh.edgeCount(), seamless.cutGraph.isCutEdge.length);
 
-        // 2. Every singularity is on the cut graph.
+        // 2. Every singularity is on the cut graph (BZK09 §5 cutting requirement).
         for (Singularity s : crossField.singularities) {
             int sVid = s.vertexId();
             boolean onCut = false;
@@ -87,16 +89,46 @@ class SeamlessParameterizationSmokeTest {
             assertTrue(onCut, "singularity vertex " + sVid + " is not on the cut graph");
         }
 
-        // 3. Seamless transition residuals < tolerance on every interior cut edge.
-        float maxResidual = seamless.computeMaxTransitionResidual();
-        assertTrue(maxResidual < TRANSITION_TOLERANCE,
-                "max seamless transition residual = " + maxResidual + " (tolerance " + TRANSITION_TOLERANCE + ")");
+        // 3. BZK09 §5 hard combinatorial invariants.
+        assertBzk09Invariants(metrics, seamless, "sphere");
 
-        // 4. Injectivity. The relaxed solve may need stiffening; allow up to the configured cap.
-        int flipped = seamless.countFlippedTriangles();
+        // 4. Seamless transition residuals < tolerance on every interior cut edge
+        //    (BZK09 §5 soft-penalty seamlessness; exactness is MC19's job).
+        assertTrue(metrics.maxTransitionResidual < TRANSITION_TOLERANCE,
+                "max seamless transition residual = " + metrics.maxTransitionResidual
+                        + " (tolerance " + TRANSITION_TOLERANCE + ")");
+
+        // 5. Injectivity. The relaxed solve may need §5.4 stiffening; allow up to the
+        //    configured cap.
         assertTrue(seamless.injective,
-                "expected injective UV map; flipped=" + flipped
+                "expected injective UV map; flipped=" + metrics.flippedTriangleCount
                         + " stiffeningIters=" + seamless.stiffeningIterations);
+    }
+
+    /**
+     * Assert the hard combinatorial invariants from BZK09 §5: branch consistency
+     * across every interior edge (matches on non-cut, differs by
+     * {@code cutRotation[ae]} on cut) and {@code cutRotation ∈ {0..3}} on every
+     * edge. These hold by construction on a correct {@code CutGraph} build, so a
+     * failure here is a bug, not a tolerance issue.
+     *
+     * @param metrics  metrics summary produced by {@link SeamlessParameterization#build()}
+     * @param seamless the parameterization whose {@code cutGraph} is being checked
+     * @param label    fixture name for failure messages
+     */
+    private static void assertBzk09Invariants(ParameterizationMetrics metrics,
+            SeamlessParameterization seamless, String label) {
+        assertEquals(0, metrics.validBranchConsistency,
+                label + ": BZK09 §5 branch consistency violated on "
+                        + metrics.validBranchConsistency + " interior edges");
+        int[] cutRotation = seamless.cutGraph.cutRotation;
+        for (int ae = 0; ae < cutRotation.length; ae++) {
+            int r = cutRotation[ae];
+            assertTrue(r >= 0 && r < SeamlessParameterization.BRANCH_COUNT,
+                    label + ": cutRotation[" + ae + "] = " + r + " out of {0..3}");
+        }
+        assertTrue(metrics.disconnectedChartCount >= 1,
+                label + ": chartCount = " + metrics.disconnectedChartCount + " (expected ≥ 1)");
     }
 
     /**

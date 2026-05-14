@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /home/acw/Code/Ixdar -maxdepth 4 -name CLAUDE.md 2>/dev/null; find /home/acw/Code -maxdepth 2 -name CLAUDE.md 2>/dev/null)",
+      "Read(//home/acw/Code/**)"
+    ]
+  }
+}

@@ -68,7 +68,7 @@ public final class SeamlessParameterization {
     public static final int CORNERS_PER_FACE = 3;
     /** Number of cross-field branches (a 4-RoSy field has 4). */
     public static final int BRANCH_COUNT = 4;
-    private static final float HALF_PI = (float) (Math.PI / 2.0);
+    static final float HALF_PI = (float) (Math.PI / 2.0);
     private static final float HALF = 0.5f;
     private static final double HALF_D = 0.5;
     private static final double DEGENERATE_AREA_EPS = 1.0e-30;
@@ -238,6 +238,9 @@ public final class SeamlessParameterization {
     /** Cut graph. */
     public CutGraph cutGraph;
 
+    /** Metrics. */
+    public ParameterizationMetrics metrics;
+
     /**
      * Adopts a built {@link CrossField}. Caller must invoke {@link #build()} to
      * actually compute the parametrization.
@@ -255,7 +258,7 @@ public final class SeamlessParameterization {
      *
      * @return {@code this}
      */
-    public SeamlessParameterization build() {
+    public ParameterizationMetrics build() {
         this.faceCount = mesh.faceCount();
         this.edgeCount = mesh.edgeCount();
         if (this.h <= 0f) {
@@ -389,8 +392,8 @@ public final class SeamlessParameterization {
             }
         }
         this.injective = inj && this.injective;
-
-        return this;
+        this.metrics = new ParameterizationMetrics(this, mesh);
+        return this.metrics;
     }
 
     /**
@@ -983,65 +986,6 @@ public final class SeamlessParameterization {
         float u1 = uCorner[o + 1], v1 = vCorner[o + 1];
         float u2 = uCorner[o + 2], v2 = vCorner[o + 2];
         return HALF * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
-    }
-
-    /**
-     * Counts the number of flipped triangles.
-     * 
-     * @return the number of flipped triangles
-     */
-    public int countFlippedTriangles() {
-        int flipped = 0;
-        for (int af = 0; af < faceCount; af++) {
-            int faceId = mesh.faceIdAt(af);
-            if (uvSignedArea(faceId) <= 0.0f) {
-                flipped++;
-            }
-        }
-        return flipped;
-    }
-
-    /**
-     * Computes the maximum transition residual.
-     * 
-     * @return the maximum transition residual
-     */
-    public float computeMaxTransitionResidual() {
-        float worst = 0.0f;
-        for (int ae = 0; ae < edgeCount; ae++) {
-            if (!cutGraph.isCutEdge[ae])
-                continue;
-            int eId = mesh.edgeIdAt(ae);
-            if (mesh.isBoundaryEdge(eId))
-                continue; // boundary cut: no transition
-
-            int hCanon = mesh.edgeHalfEdge(eId);
-            int twin = mesh.halfEdgeTwin(hCanon);
-            int faceA = mesh.halfEdgeFace(hCanon);
-            int faceB = mesh.halfEdgeFace(twin);
-            int vStart = mesh.halfEdgeVertex(hCanon);
-            int vEnd = mesh.halfEdgeEndVertex(hCanon);
-
-            float[] coordsA = lookupCorners(faceA, vStart, vEnd);
-            float[] coordsB = lookupCorners(faceB, vStart, vEnd);
-
-            int r = cutGraph.cutRotation[ae];
-            float cr = (float) Math.cos(r * HALF_PI);
-            float sr = (float) Math.sin(r * HALF_PI);
-            float s = cutTranslationS[ae];
-            float t = cutTranslationT[ae];
-
-            float upGexpected = cr * coordsA[0] - sr * coordsA[1] + s;
-            float vpGexpected = sr * coordsA[0] + cr * coordsA[1] + t;
-            float uqGexpected = cr * coordsA[2] - sr * coordsA[3] + s;
-            float vqGexpected = sr * coordsA[2] + cr * coordsA[3] + t;
-
-            worst = Math.max(worst, Math.abs(upGexpected - coordsB[0]));
-            worst = Math.max(worst, Math.abs(vpGexpected - coordsB[1]));
-            worst = Math.max(worst, Math.abs(uqGexpected - coordsB[2]));
-            worst = Math.max(worst, Math.abs(vqGexpected - coordsB[3]));
-        }
-        return worst;
     }
 
     /**
