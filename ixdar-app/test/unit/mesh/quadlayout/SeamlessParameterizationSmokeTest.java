@@ -106,6 +106,39 @@ class SeamlessParameterizationSmokeTest {
     }
 
     /**
+     * Sphere fixture with MC19 exact-seamless projection enabled. After the
+     * BZK09 → MC19 stages the per-cut-edge transition residual must be
+     * <em>literally zero</em>, not just small — that is what MC19 promises.
+     *
+     * @throws IOException if the fixture mesh cannot be loaded
+     */
+    @Test
+    @Timeout(value = 3, unit = java.util.concurrent.TimeUnit.MINUTES)
+    void exactSeamsSphereBase() throws IOException {
+        ArrayMesh arrayMesh = MeshLoader.load(SPHERE_OFF.toString());
+        HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
+                arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
+
+        CrossField crossField = new CrossField(mesh).build();
+        SeamlessParameterization seamless = new SeamlessParameterization(crossField);
+        seamless.exactSeams = true;
+        ParameterizationMetrics metrics = seamless.build();
+
+        assertBzk09Invariants(metrics, seamless, "sphere-exact");
+        assertEquals(0.0f, metrics.maxTransitionResidual,
+                "sphere-exact: MC19 must yield literal zero residual, got "
+                        + metrics.maxTransitionResidual);
+        for (float u : seamless.uCorner) {
+            assertTrue(Float.isFinite(u),
+                    "sphere-exact: non-finite uCorner after MC19");
+        }
+        for (float v : seamless.vCorner) {
+            assertTrue(Float.isFinite(v),
+                    "sphere-exact: non-finite vCorner after MC19");
+        }
+    }
+
+    /**
      * Assert the hard combinatorial invariants from BZK09 §5: branch consistency
      * across every interior edge (matches on non-cut, differs by
      * {@code cutRotation[ae]} on cut) and {@code cutRotation ∈ {0..3}} on every

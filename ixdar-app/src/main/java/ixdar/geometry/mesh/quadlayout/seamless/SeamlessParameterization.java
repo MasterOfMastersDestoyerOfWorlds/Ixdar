@@ -14,6 +14,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.seamless.exact.SeamlessProjector;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 
 /**
@@ -177,37 +178,45 @@ public final class SeamlessParameterization {
      */
     public boolean integerGridMap = false;
 
+    /**
+     * If true, run MC19 (Mandad–Campen 2019) exact-constraint projection after
+     * the §5.4 stiffening loop. Drives the per-cut-edge transition residual to
+     * literal zero, making the output safe to feed into Lyon 2021's T-mesh
+     * stage. Default false until the projection is proven on all fixtures.
+     */
+    public boolean exactSeams = false;
+
     /** Cut graph. */
     public CutGraph cutGraph;
 
     /** Metrics summary populated by {@link #build()}. */
     public ParameterizationMetrics metrics;
 
-    int faceCount;
-    int edgeCount;
+    public int faceCount;
+    public int edgeCount;
 
     /**
      * Active-edge → active-face index on the "A" side; -1 if that side is boundary.
      */
-    int[] edgeFaceA;
+    public int[] edgeFaceA;
     /**
      * Active-edge → active-face index on the "B" side; -1 if that side is boundary.
      */
-    int[] edgeFaceB;
+    public int[] edgeFaceB;
 
     /**
      * Active-edge → corner index of {@code halfEdgeVertex(edgeHalfEdge)} in face A.
      */
-    int[] edgeCornerInA;
+    public int[] edgeCornerInA;
     /**
      * Active-edge → corner index of {@code halfEdgeVertex(edgeHalfEdge)} in face B.
      */
-    int[] edgeCornerInB;
+    public int[] edgeCornerInB;
 
     /** DOF index base for cut translation s; equals {@code 2 * chartVertexCount}. */
-    int sCutBase;
+    public int sCutBase;
     /** DOF index base for cut translation t; equals {@code sCutBase + interiorCutEdgeCount}. */
-    int tCutBase;
+    public int tCutBase;
 
     /** §5.4 IRLS weights, initialized to 1. */
     private double[] faceWeight;
@@ -399,6 +408,9 @@ public final class SeamlessParameterization {
             }
         }
         this.injective = inj && this.injective;
+        if (exactSeams) {
+            new SeamlessProjector(this).project();
+        }
         this.metrics = new ParameterizationMetrics(this, mesh);
         return this.metrics;
     }

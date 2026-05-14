@@ -3,6 +3,7 @@ package ixdar.geometry.mesh.quadlayout.seamless;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.seamless.exact.ExactArithmetic;
 
 public class ParameterizationMetrics {
 
@@ -87,8 +88,8 @@ public class ParameterizationMetrics {
             float[] coordsB = seamless.lookupCorners(faceB, vStart, vEnd);
 
             int r = seamless.cutGraph.cutRotation[ae];
-            float cr = (float) Math.cos(r * SeamlessParameterization.HALF_PI);
-            float sr = (float) Math.sin(r * SeamlessParameterization.HALF_PI);
+            float cr = ExactArithmetic.integerCosine(r);
+            float sr = ExactArithmetic.integerSine(r);
             float s = seamless.cutTranslationS[ae];
             float t = seamless.cutTranslationT[ae];
 
@@ -133,8 +134,8 @@ public class ParameterizationMetrics {
             float[] coordsB = seamless.lookupCorners(faceB, vStart, vEnd);
 
             int rotation = seamless.cutGraph.cutRotation[activeEdge];
-            float cosR = (float) Math.cos(rotation * SeamlessParameterization.HALF_PI);
-            float sinR = (float) Math.sin(rotation * SeamlessParameterization.HALF_PI);
+            int cosR = ExactArithmetic.integerCosine(rotation);
+            int sinR = ExactArithmetic.integerSine(rotation);
             float translationS = seamless.cutTranslationS[activeEdge];
             float translationT = seamless.cutTranslationT[activeEdge];
 

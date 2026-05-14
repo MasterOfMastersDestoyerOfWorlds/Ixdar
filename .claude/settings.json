@@ -7,7 +7,8 @@
       "Bash(grep -E \"BUILD|Tests |Failed|ERROR|\\\\[INFO\\\\] -+$\")",
       "Bash(mvn test *)",
       "Read(//opt/async-profiler/lib/**)",
-      "Read(//usr/lib/**)"
+      "Read(//usr/lib/**)",
+      "Bash(mvn -q test-compile)"
     ]
   }
 }

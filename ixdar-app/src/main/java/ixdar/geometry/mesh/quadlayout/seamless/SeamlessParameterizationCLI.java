@@ -11,6 +11,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.seamless.exact.ExactArithmetic;
 
 /**
  * Stand-alone driver: load a triangle mesh, run the LCK21 stages 1–3 (cross
@@ -138,8 +139,8 @@ public final class SeamlessParameterizationCLI {
             float[] coordsA = lookupCorners(seamless, mesh, faceA, vStart, vEnd);
             float[] coordsB = lookupCorners(seamless, mesh, faceB, vStart, vEnd);
             int r = seamless.cutGraph.cutRotation[ae];
-            double cr = Math.cos(r * Math.PI / 2.0);
-            double sr = Math.sin(r * Math.PI / 2.0);
+            int cr = ExactArithmetic.integerCosine(r);
+            int sr = ExactArithmetic.integerSine(r);
             double s = seamless.cutTranslationS[ae];
             double t = seamless.cutTranslationT[ae];
             for (int end = 0; end < 2; end++) {
