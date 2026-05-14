@@ -197,6 +197,7 @@ class SeamlessParameterizationSmokeTest {
         CrossField crossField = new CrossField(mesh).build();
         long t1 = System.nanoTime();
         SeamlessParameterization seamless = new SeamlessParameterization(crossField);
+        seamless.exactSeams = true;
         ParameterizationMetrics metrics = seamless.build();
         long t2 = System.nanoTime();
 
@@ -224,6 +225,10 @@ class SeamlessParameterizationSmokeTest {
         assertNotNull(seamless.uCorner);
         // BZK09 §5 hard combinatorial invariants — must hold regardless of solver quality.
         assertBzk09Invariants(metrics, seamless, label);
+        // MC19 §5.3.1 exact-seamlessness gate.
+        assertEquals(0.0f, metrics.maxTransitionResidual,
+                label + ": MC19 must yield exactly zero residual, got "
+                        + metrics.maxTransitionResidual);
         // Sanity: every singularity sits on the cut graph.
         for (Singularity s : crossField.singularities) {
             int sVid = s.vertexId();

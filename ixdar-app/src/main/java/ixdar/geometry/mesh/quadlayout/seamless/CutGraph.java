@@ -63,6 +63,13 @@ public class CutGraph {
     /** Active-face index → branch g_f ∈ {0..3}. */
     public int[] faceBranch;
 
+    /**
+     * Active-vertex index → number of incident edges currently in the cut graph.
+     * Built during {@link #selectCutEdges()} and retained for downstream
+     * branch-walk consumers like {@code SeamlessProjector}.
+     */
+    public int[] cutDegree;
+
     /** Mesh-vertex-id → active-vertex-index, lazily built. */
     public HashMap<Integer, Integer> vertexActiveCache;
 
@@ -110,7 +117,7 @@ public class CutGraph {
      */
     private void selectCutEdges() {
         initialCutFromDualSpanningTree();
-        int[] cutDegree = computeCutDegree();
+        cutDegree = computeCutDegree();
         trimDanglingBranches(cutDegree);
         connectDetachedSingularities(cutDegree);
         if (!seamless.integerGridMap) {
