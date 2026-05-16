@@ -19,6 +19,7 @@ import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.SeamlessProjector;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
+import ixdar.geometry.mesh.quadlayout.solver.IncrementalCholeskySolver;
 
 /**
  * BZK09 §5 seamless parametrization, stage 3 of the Lyon 2021 quad-layout
@@ -175,7 +176,7 @@ public final class SeamlessParameterization {
      * false to match Lyon's pipeline; enable for downstream stages (e.g. QEx-style
      * quad mesh extraction direct from BZK09's IGM).
      */
-    public boolean integerGridMap = false;
+    public boolean integerGridMap = true;
 
     /**
      * If true, run MC19 (Mandad–Campen 2019) exact-constraint projection after
@@ -302,6 +303,7 @@ public final class SeamlessParameterization {
      * @return {@code this}
      */
     public ParameterizationMetrics build() {
+        System.out.println("[seamless] Building seamless parameterization");
         this.faceCount = mesh.faceCount();
         this.edgeCount = mesh.edgeCount();
         if (this.h <= 0f) {
@@ -351,10 +353,15 @@ public final class SeamlessParameterization {
             }
         }
 
+        System.out.println("[seamless] Mesh setup done, building cut graph");
+
         cutGraph = new CutGraph(mesh, crossField, this);
         cutGraph.buildCutGraph();
 
+        System.out.println("[seamless] Cut graph built, precomputing per-face geometry and targets");
         precomputePerFaceGeometryAndTargets();
+
+        System.out.println("[seamless] Per-face geometry and targets precomputed, assigning cut edge translation DOFs");
 
         this.faceWeight = new double[faceCount];
         Arrays.fill(faceWeight, 1.0);
@@ -375,12 +382,16 @@ public final class SeamlessParameterization {
         // Hormann-Lévy-Sheffer distortion + uniform-Laplacian weight updates
         // (paper recipe). Lyon 2021 wants a *seamless* map (real (s, t), real
         // singularities), so {@link #integerGridMap} defaults off.
+        System.out.println("[seamless] Solving once");
         solveOnce();
         if (integerGridMap) {
+            System.out.println("[seamless] Running greedy integer rounding");
             runGreedyIntegerRounding();
         }
+        System.out.println("[seamless] Running stiffening loop");
         runStiffeningLoop();
 
+        System.out.println("[seamless] Writing chart vertices from solution");
         int totalCorners = faceCount * CORNERS_PER_FACE;
         uCorner = new float[totalCorners];
         vCorner = new float[totalCorners];
@@ -402,11 +413,15 @@ public final class SeamlessParameterization {
                 break;
             }
         }
+
         this.injective = inj && this.injective;
         if (exactSeams) {
+
+        System.out.println("[seamless] Projecting onto exact-seam parameterization");
             new SeamlessProjector(this).project();
         }
         this.metrics = new ParameterizationMetrics(this, mesh);
+        System.out.println("[seamless] Metrics computed, returning");
         return this.metrics;
     }
 
@@ -423,9 +438,6 @@ public final class SeamlessParameterization {
                 totalToRound++;
         if (diag) {
             System.err.printf("[seamlessParam] greedy rounding: %d integer DOFs%n", totalToRound);
-        }
-        if (diag) {
-            // Distribution of integer-DOF values pre-rounding.
             double maxAbs = 0.0;
             int nearZero = 0;
             for (int i = 0; i < dofCount; i++) {
@@ -440,6 +452,19 @@ public final class SeamlessParameterization {
             System.err.printf("[seamlessParam] pre-round int DOF distribution: max|x|=%.3f  |x|<0.5: %d/%d%n",
                     maxAbs, nearZero, totalToRound);
         }
+
+        // Cold-factor the base system once; each pin then becomes a rank-1
+        // update of L instead of a full re-factor. Davis ch. 4.10.
+        AssembledSystem base = assembleBaseSystem();
+        NormalMatrix baseMatrix = new NormalMatrix(
+                base.diagonal, base.upper, base.rhs);
+        IncrementalCholeskySolver incremental = new IncrementalCholeskySolver();
+        if (!incremental.setA(baseMatrix)) {
+            throw new IllegalStateException(
+                    "IGM rounding: cold Cholesky factor of the base system failed");
+        }
+        double[] runningRhs = base.rhs.clone();
+
         int rounded = 0;
         while (true) {
             int bestIdx = -1;
@@ -462,7 +487,12 @@ public final class SeamlessParameterization {
             dofPinned[bestIdx] = true;
             dofPinnedValue[bestIdx] = bestValue;
             rounded++;
-            solveOnce();
+            if (!incremental.pinDof(bestIdx, integerPinWeight)) {
+                throw new IllegalStateException(
+                        "IGM rounding: rank-1 update failed at DOF " + bestIdx);
+            }
+            runningRhs[bestIdx] += integerPinWeight * bestValue;
+            incremental.solve(runningRhs, solution);
             if (diag && (rounded % DIAG_LOG_EVERY == 0 || rounded == totalToRound)) {
                 System.err.printf("[seamlessParam] rounded %d/%d  lastDist=%.4f%n",
                         rounded, totalToRound, bestDist);
@@ -745,7 +775,63 @@ public final class SeamlessParameterization {
     /**
      * Accumulate symmetric SPD entries into a diagonal vector + upper-triangle.
      */
+    /**
+     * Container for the three accumulators that the per-face / gauge / cut
+     * pass writes into. Returned by {@link #assembleBaseSystem()} so the
+     * incremental rounding path can build its own {@link NormalMatrix}
+     * from the base (un-pinned) system and apply diagonal pins via L's
+     * rank-1 update instead of by mutating the diagonal here.
+     *
+     * @param diagonal length-{@code dofCount} diagonal
+     * @param upper    sparse upper-triangle entries keyed by packed (row, col)
+     * @param rhs      length-{@code dofCount} right-hand side
+     */
+    private record AssembledSystem(double[] diagonal,
+            HashMap<Long, Double> upper, double[] rhs) {
+    }
+
     private void solveOnce() {
+        AssembledSystem assembled = assembleBaseSystem();
+        applyIntegerPinPenalty(assembled);
+        NormalMatrix matrix = new NormalMatrix(
+                assembled.diagonal, assembled.upper, assembled.rhs);
+        boolean[] fixed = new boolean[dofCount];
+        double[] start = new double[dofCount];
+        solution = DirectSolver.solve(matrix, start, fixed);
+    }
+
+    /**
+     * Soft-penalty bump on each {@link #dofPinned} entry: add
+     * {@link #integerPinWeight} to the diagonal and
+     * {@code integerPinWeight · pinnedValue} to the RHS. Used by the
+     * legacy {@link #solveOnce()} path that re-factors per pin. The
+     * incremental path bypasses this and updates the L factor directly.
+     *
+     * @param assembled the base SPD system to fold pins into
+     */
+    private void applyIntegerPinPenalty(AssembledSystem assembled) {
+        if (dofPinned == null) {
+            return;
+        }
+        for (int dofIdx = 0; dofIdx < dofCount; dofIdx++) {
+            if (!dofPinned[dofIdx]) {
+                continue;
+            }
+            assembled.diagonal[dofIdx] += integerPinWeight;
+            assembled.rhs[dofIdx] += integerPinWeight * dofPinnedValue[dofIdx];
+        }
+    }
+
+    /**
+     * Assemble the SPD system from per-face gradient-target energy, gauge
+     * pins, and the upper-triangle double-count halving — without any
+     * {@link #dofPinned} integer-pin contributions. The base system is
+     * what BZK09 greedy rounding needs to cold-factor before applying
+     * rank-1 updates per pin.
+     *
+     * @return the un-pinned base SPD system
+     */
+    private AssembledSystem assembleBaseSystem() {
         double[] systemDiagonal = new double[dofCount];
         HashMap<Long, Double> systemUpperTriangle = new HashMap<>(dofCount * AVG_NONZEROS_PER_ROW);
         double[] systemRhs = new double[dofCount];
@@ -860,20 +946,7 @@ public final class SeamlessParameterization {
                     chartVertexFinalCoefs[chartVertex][1]);
         }
 
-        if (dofPinned != null) {
-            for (int dofIdx = 0; dofIdx < dofCount; dofIdx++) {
-                if (!dofPinned[dofIdx]) {
-                    continue;
-                }
-                systemDiagonal[dofIdx] += integerPinWeight;
-                systemRhs[dofIdx] += integerPinWeight * dofPinnedValue[dofIdx];
-            }
-        }
-
-        boolean[] fixed = new boolean[dofCount];
-        double[] start = new double[dofCount];
-        NormalMatrix matrix = new NormalMatrix(systemDiagonal, systemUpperTriangle, systemRhs);
-        solution = DirectSolver.solve(matrix, start, fixed);
+        return new AssembledSystem(systemDiagonal, systemUpperTriangle, systemRhs);
     }
 
     /**

@@ -30,7 +30,12 @@
       "Bash(timeout 10 curl -sL \"https://raw.githubusercontent.com/komietty/metriko/main/README.md\")",
       "Bash(timeout 15 curl -sL \"https://api.github.com/repos/komietty/metriko/contents/include\")",
       "Read(//home/acw/metriko/include/metriko/**)",
-      "Read(//home/acw/metriko/**)"
+      "Read(//home/acw/metriko/**)",
+      "Bash(grep -n \"ejml\" /home/acw/Code/Ixdar/ixdar-app/pom.xml /home/acw/Code/Ixdar/pom.xml 2>/dev/null | head -10; echo ---; ls ~/.m2/repository/org/ejml/ 2>&1 | head; echo ---; grep -rln \"LinearSolverFactory_DSCC\\\\|LinearSolverSparse\\\\b\" /home/acw/Code/Ixdar/ixdar-app/src/main/java/ 2>/dev/null | head -10)",
+      "Read(//home/acw/.m2/repository/org/ejml/**)",
+      "Read(//home/acw/ejml/**)",
+      "Bash(grep -oE '\"[A-Za-z_./$0-9]*\\(setA|decompose|Cholesky|cholesky|TriangularSolver|permute|Permutation|pinDiagonal|rankOneUpdate|assemble|stiff\\)[A-Za-z_./$0-9]*\"' profile.html)",
+      "Bash(grep *)"
     ],
     "deny": [
       "Bash(cp *)",
@@ -57,7 +62,13 @@
       "Bash(git rebase *)",
       "Bash(git rebase)",
       "Bash(git cherry-pick *)",
-      "Bash(git cherry-pick)"
+      "Bash(git cherry-pick)",
+      "Bash(rm -f *)",
+      "Bash(rm -f)",
+      "Bash(rm -rf *)",
+      "Bash(rm -rf)",
+      "Bash(rm *)",
+      "Bash(rm)"
     ],
     "additionalDirectories": [
       "/tmp"
