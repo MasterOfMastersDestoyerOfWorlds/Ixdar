@@ -59,6 +59,22 @@ class SeamlessParameterizationSmokeTest {
      */
     private static final float TRANSITION_TOLERANCE = 1.0e-3f;
 
+    /**
+     * EXPERIMENT: turn on BZK09 §5 IGM mode + paper-faithful §5.4 stiffening
+     * constants (c=1, d=5, no multiplicative kick). Used to test the
+     * hypothesis that Lyon's flip-free input was in practice an IGM (which
+     * is a special case of seamless) and the §5.4 paper recipe converges in
+     * that regime.
+     *
+     * @param seamless the parametrization to configure
+     */
+    private static void applyIgmExperimentDefaults(SeamlessParameterization seamless) {
+        seamless.integerGridMap = true;
+        seamless.stiffeningC = 1.0;
+        seamless.stiffeningD = 5.0;
+        seamless.stiffeningGrowth = 1.0f;
+    }
+
     @Test
     @Timeout(value = 2, unit = java.util.concurrent.TimeUnit.MINUTES)
     void buildSphereBase() throws IOException {
@@ -68,6 +84,7 @@ class SeamlessParameterizationSmokeTest {
 
         CrossField crossField = new CrossField(mesh).build();
         SeamlessParameterization seamless = new SeamlessParameterization(crossField);
+        applyIgmExperimentDefaults(seamless);
         ParameterizationMetrics metrics = seamless.build();
 
         // 1. Output arrays populated.
@@ -127,6 +144,7 @@ class SeamlessParameterizationSmokeTest {
         CrossField crossField = new CrossField(mesh).build();
         SeamlessParameterization seamless = new SeamlessParameterization(crossField);
         seamless.exactSeams = true;
+        applyIgmExperimentDefaults(seamless);
         ParameterizationMetrics metrics = seamless.build();
 
         assertBzk09Invariants(metrics, seamless, "sphere-exact");
@@ -203,6 +221,7 @@ class SeamlessParameterizationSmokeTest {
         long t1 = System.nanoTime();
         SeamlessParameterization seamless = new SeamlessParameterization(crossField);
         seamless.exactSeams = true;
+        applyIgmExperimentDefaults(seamless);
         ParameterizationMetrics metrics = seamless.build();
         long t2 = System.nanoTime();
 

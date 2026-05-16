@@ -172,6 +172,15 @@
       "args": "cross-field-exam",
       "vmArgs": "${config:java.profiler.args} -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Xmx4g -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -DcrossFieldScene.off=test/resources/quadlayout/figure_8/elk_in_tri.off",
       "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Parametrization Examination",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "param-exam",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Xmx4g -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dparametrization.scene.off=test/resources/quadlayout/figure_10/fandisk_in_tri.off",
+      "cwd": "${workspaceFolder}/ixdar-app"
     }
 
   ]

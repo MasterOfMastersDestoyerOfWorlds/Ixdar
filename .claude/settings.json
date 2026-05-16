@@ -25,7 +25,12 @@
       "Skill(update-config:*)",
       "Bash(ls -la /home/acw/Code/Ixdar/.claude/settings.json /home/acw/Code/Ixdar/.claude/settings.local.json /home/acw/.claude/settings.json 2>&1)",
       "Read(//home/acw/.claude/**)",
-      "Bash(git worktree *)"
+      "Bash(git worktree *)",
+      "Bash(grep -inB1 -A4 \"restrict.*greedy\\\\|adaptive.*solver\\\\|Cholesky\\\\|global impact\\\\|local Gauss\" \"/home/acw/Code/Ixdar/quad_layout_text/BZK09 | Bommes | 2009 | Mixed Integer Quadrangulation.txt\")",
+      "Bash(timeout 10 curl -sL \"https://raw.githubusercontent.com/komietty/metriko/main/README.md\")",
+      "Bash(timeout 15 curl -sL \"https://api.github.com/repos/komietty/metriko/contents/include\")",
+      "Read(//home/acw/metriko/include/metriko/**)",
+      "Read(//home/acw/metriko/**)"
     ],
     "deny": [
       "Bash(cp *)",
