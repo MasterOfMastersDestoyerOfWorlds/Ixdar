@@ -6,7 +6,10 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+
+import ixdar.geometry.mesh.quadlayout.seamless.exact.ExactArithmetic;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.MeshTopology;
@@ -73,8 +76,15 @@ public final class SeamlessParameterization {
     private static final float HALF = 0.5f;
     private static final double HALF_D = 0.5;
     private static final double DEGENERATE_AREA_EPS = 1.0e-30;
-    private static final double TRANSLATION_TIKHONOV = 1.0e-6;
     private static final double SVD_DET_FACTOR = 4.0;
+    /**
+     * Coefficient-magnitude threshold below which a leftover-row entry is
+     * treated as zero during sparse Gauss-Jordan elimination. Sized to swallow
+     * round-off from {@code R · (s, t)} cancellations at singularity nodes.
+     */
+    private static final double LEFTOVER_REDUCE_TOLERANCE = 1.0e-10;
+    /** Components per chart vertex: 2 (u and v). */
+    private static final int COMPONENTS_PER_CHART_VERTEX = 2;
     private static final double NANOS_PER_SEC = 1.0e9;
     private static final int SHIFT_32 = 32;
     private static final long MASK_32 = 0xFFFFFFFFL;
@@ -115,15 +125,6 @@ public final class SeamlessParameterization {
      */
     public float h;
 
-    /**
-     * Soft-penalty weight for the four seamless transition equations of each cut
-     * edge. Higher μ tightens transitions but ill-conditions the SPD factorization
-     * and destabilises the §5.4 stiffening loop; this default trades off against
-     * downstream tolerance. Exact (zero) seamlessness is MC19's job, not this
-     * stage's.
-     */
-    public float seamPenaltyWeight = 1.0e6f;
-
     /** Diagonal pin weight on each per-chart gauge corner. */
     public float gaugePinWeight = 1.0e6f;
 
@@ -139,9 +140,7 @@ public final class SeamlessParameterization {
     public float stiffeningGrowth = 4.0f;
 
     /**
-     * §5.4 maximum per-face IRLS weight. Allowed above {@link #seamPenaltyWeight}
-     * so the stiffening loop can flip-fix faces in pathological corners; the
-     * trade-off is that the seam constraints relax slightly near a stiffened face.
+     * §5.4 maximum per-face IRLS weight; bounds the multiplicative flip kick.
      */
     public double stiffeningWeightCap = 1.0e8;
 
@@ -213,10 +212,42 @@ public final class SeamlessParameterization {
      */
     public int[] edgeCornerInB;
 
-    /** DOF index base for cut translation s; equals {@code 2 * chartVertexCount}. */
-    public int sCutBase;
-    /** DOF index base for cut translation t; equals {@code sCutBase + interiorCutEdgeCount}. */
-    public int tCutBase;
+    /**
+     * Per active edge: index of the {@code s} translation raw-DOF for that
+     * cut edge; -1 if the edge is not an interior cut edge. Raw DOFs live in
+     * a pre-elimination space; non-pivot raw DOFs map to final DOFs via
+     * {@link #rawDofToFinal}.
+     */
+    private int[] cutEdgeSDof;
+    /** Sibling of {@link #cutEdgeSDof} for the {@code t} translation. */
+    private int[] cutEdgeTDof;
+    /**
+     * Pre-leftover-elimination DOF count
+     * ({@code 2*primaryChartCount + 2*interiorCutEdgeCount}).
+     */
+    private int rawDofCount;
+    /**
+     * Per raw DOF: dense final-DOF index in {@code [0, dofCount)}, or -1 if
+     * the raw DOF was a pivot eliminated by leftover-row reduction.
+     */
+    private int[] rawDofToFinal;
+    /**
+     * Substitution rules from leftover-row reduction. Indexed by raw DOF:
+     * pivot raw-DOFs map to the list of non-pivot raw-DOFs they expand into
+     * (coefficients in {@link #leftoverPivotCoefs}); non-pivot raw DOFs are
+     * {@code null}.
+     */
+    private int[][] leftoverPivotDofs;
+    /** Coefficients matching {@link #leftoverPivotDofs}. */
+    private double[][] leftoverPivotCoefs;
+    /**
+     * Per chart vertex, per component (u=0, v=1): final-DOF indices that
+     * this chart vertex's value expands to after both per-cut-edge
+     * substitution and leftover-row elimination.
+     */
+    private int[][][] chartVertexFinalDofs;
+    /** Coefficients matching {@link #chartVertexFinalDofs}. */
+    private double[][][] chartVertexFinalCoefs;
 
     /** §5.4 IRLS weights, initialized to 1. */
     private double[] faceWeight;
@@ -238,11 +269,7 @@ public final class SeamlessParameterization {
 
     /** Last solver output (size {@link #dofCount}). */
     private double[] solution;
-    /** DOF index base for u of chart vertex 0; equals 0. */
-    private int uCvBase;
-    /** DOF index base for v of chart vertex 0; equals {@code chartVertexCount}. */
-    private int vCvBase;
-    /** Total DOF count. */
+    /** Total final-DOF count after leftover-row elimination. */
     private int dofCount;
 
     /**
@@ -332,37 +359,15 @@ public final class SeamlessParameterization {
         this.faceWeight = new double[faceCount];
         Arrays.fill(faceWeight, 1.0);
 
-        this.uCvBase = 0;
-        this.vCvBase = cutGraph.chartVertexCount;
-        this.sCutBase = 2 * cutGraph.chartVertexCount;
-        this.tCutBase = 2 * cutGraph.chartVertexCount + cutGraph.interiorCutEdgeCount;
-        this.dofCount = 2 * cutGraph.chartVertexCount + 2 * cutGraph.interiorCutEdgeCount;
+        assignCutEdgeTranslationDofs();
+        this.rawDofCount = 2 * cutGraph.primaryChartCount + 2 * cutGraph.interiorCutEdgeCount;
+        reduceLeftoverConstraints();
+        buildChartVertexFinalExpansions();
 
         dofIsInteger = new boolean[dofCount];
         dofPinned = new boolean[dofCount];
         dofPinnedValue = new double[dofCount];
-
-        // Cut-edge translation DOFs are the (j, k).
-        for (int dense1 = 0; dense1 < cutGraph.interiorCutEdgeCount; dense1++) {
-            dofIsInteger[sCutBase + dense1] = true;
-            dofIsInteger[tCutBase + dense1] = true;
-        }
-
-        // Chart-vertices touching any singularity vertex must be integer.
-        Set<Integer> singVids = new HashSet<>();
-        for (Singularity s : crossField.singularities)
-            singVids.add(s.vertexId());
-        for (int af1 = 0; af1 < faceCount; af1++) {
-            int faceId = mesh.faceIdAt(af1);
-            for (int c = 0; c < CORNERS_PER_FACE; c++) {
-                int vId = mesh.faceVertexAt(faceId, c);
-                if (!singVids.contains(vId))
-                    continue;
-                int cv1 = cutGraph.cornerToChartVertex[af1 * CORNERS_PER_FACE + c];
-                dofIsInteger[uCvBase + cv1] = true;
-                dofIsInteger[vCvBase + cv1] = true;
-            }
-        }
+        markIntegerDofs();
 
         // BZK09 §5: (1) all-continuous solve. If {@link #integerGridMap} is on,
         // (2) BZK09 §2 greedy round (j, k) and singularity (u, v) to integers,
@@ -379,20 +384,10 @@ public final class SeamlessParameterization {
         int totalCorners = faceCount * CORNERS_PER_FACE;
         uCorner = new float[totalCorners];
         vCorner = new float[totalCorners];
-        for (int i = 0; i < totalCorners; i++) {
-            int cv = cutGraph.cornerToChartVertex[i];
-            uCorner[i] = (float) solution[uCvBase + cv];
-            vCorner[i] = (float) solution[vCvBase + cv];
-        }
+        writeChartVerticesFromSolution(totalCorners);
         cutTranslationS = new float[edgeCount];
         cutTranslationT = new float[edgeCount];
-        for (int ae = 0; ae < edgeCount; ae++) {
-            int dense = cutGraph.cutEdgeDenseIdx[ae];
-            if (dense < 0)
-                continue;
-            cutTranslationS[ae] = (float) solution[sCutBase + dense];
-            cutTranslationT[ae] = (float) solution[tCutBase + dense];
-        }
+        writeCutTranslationsFromSolution();
         // Re-evaluate injectivity from the float-cast outputs (cheap consistency
         // check).
         boolean inj = true;
@@ -621,9 +616,12 @@ public final class SeamlessParameterization {
                 int chartVertex1 = cutGraph.cornerToChartVertex[faceCornerBase + 1];
                 int chartVertex2 = cutGraph.cornerToChartVertex[faceCornerBase + 2];
 
-                double u0 = solution[uCvBase + chartVertex0], v0 = solution[vCvBase + chartVertex0];
-                double u1 = solution[uCvBase + chartVertex1], v1 = solution[vCvBase + chartVertex1];
-                double u2 = solution[uCvBase + chartVertex2], v2 = solution[vCvBase + chartVertex2];
+                double u0 = evaluateChartComponent(chartVertex0, 0);
+                double v0 = evaluateChartComponent(chartVertex0, 1);
+                double u1 = evaluateChartComponent(chartVertex1, 0);
+                double v1 = evaluateChartComponent(chartVertex1, 1);
+                double u2 = evaluateChartComponent(chartVertex2, 0);
+                double v2 = evaluateChartComponent(chartVertex2, 1);
 
                 double shapeGradX0 = faceShapeB[faceCornerBase];
                 double shapeGradX1 = faceShapeB[faceCornerBase + 1];
@@ -698,9 +696,12 @@ public final class SeamlessParameterization {
                 int chartVertex0 = cutGraph.cornerToChartVertex[faceCornerBase];
                 int chartVertex1 = cutGraph.cornerToChartVertex[faceCornerBase + 1];
                 int chartVertex2 = cutGraph.cornerToChartVertex[faceCornerBase + 2];
-                double u0 = solution[uCvBase + chartVertex0], v0 = solution[vCvBase + chartVertex0];
-                double u1 = solution[uCvBase + chartVertex1], v1 = solution[vCvBase + chartVertex1];
-                double u2 = solution[uCvBase + chartVertex2], v2 = solution[vCvBase + chartVertex2];
+                double u0 = evaluateChartComponent(chartVertex0, 0);
+                double v0 = evaluateChartComponent(chartVertex0, 1);
+                double u1 = evaluateChartComponent(chartVertex1, 0);
+                double v1 = evaluateChartComponent(chartVertex1, 1);
+                double u2 = evaluateChartComponent(chartVertex2, 0);
+                double v2 = evaluateChartComponent(chartVertex2, 1);
 
                 double uvSignedArea = HALF_D * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
                 if (uvSignedArea <= 0.0) {
@@ -769,100 +770,49 @@ public final class SeamlessParameterization {
             double targetVx = faceVtxLocal[activeFace], targetVy = faceVtyLocal[activeFace];
             double edgeLengthSquared = (double) h * h;
 
+            // Full 3×3 corner iteration + outer-product expansion through
+            // the per-chart-vertex final-DOF map. Off-diagonal double-count
+            // from the (i, j) + (j, i) symmetry is corrected by the
+            // halve-upper pass below.
             for (int cornerI = 0; cornerI < CORNERS_PER_FACE; cornerI++) {
-                for (int cornerJ = cornerI; cornerJ < CORNERS_PER_FACE; cornerJ++) {
+                for (int cornerJ = 0; cornerJ < CORNERS_PER_FACE; cornerJ++) {
                     double stiffness = faceWeightedArea * edgeLengthSquared
                             * (shapeGradX[cornerI] * shapeGradX[cornerJ]
                                     + shapeGradY[cornerI] * shapeGradY[cornerJ]);
                     if (stiffness == 0.0) {
                         continue;
                     }
-                    accumulate(systemDiagonal, systemUpperTriangle,
-                            uCvBase + cornerChartVertex[cornerI],
-                            uCvBase + cornerChartVertex[cornerJ], stiffness);
-                    accumulate(systemDiagonal, systemUpperTriangle,
-                            vCvBase + cornerChartVertex[cornerI],
-                            vCvBase + cornerChartVertex[cornerJ], stiffness);
+                    accumulateOuterProduct(systemDiagonal, systemUpperTriangle,
+                            chartVertexFinalDofs[cornerChartVertex[cornerI]][0],
+                            chartVertexFinalCoefs[cornerChartVertex[cornerI]][0],
+                            chartVertexFinalDofs[cornerChartVertex[cornerJ]][0],
+                            chartVertexFinalCoefs[cornerChartVertex[cornerJ]][0],
+                            stiffness);
+                    accumulateOuterProduct(systemDiagonal, systemUpperTriangle,
+                            chartVertexFinalDofs[cornerChartVertex[cornerI]][1],
+                            chartVertexFinalCoefs[cornerChartVertex[cornerI]][1],
+                            chartVertexFinalDofs[cornerChartVertex[cornerJ]][1],
+                            chartVertexFinalCoefs[cornerChartVertex[cornerJ]][1],
+                            stiffness);
                 }
             }
 
             for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
-                systemRhs[uCvBase + cornerChartVertex[corner]] += faceWeightedArea * h
+                double uRhs = faceWeightedArea * h
                         * (shapeGradX[corner] * targetUx + shapeGradY[corner] * targetUy);
-                systemRhs[vCvBase + cornerChartVertex[corner]] += faceWeightedArea * h
+                double vRhs = faceWeightedArea * h
                         * (shapeGradX[corner] * targetVx + shapeGradY[corner] * targetVy);
+                int[] uExpDofs = chartVertexFinalDofs[cornerChartVertex[corner]][0];
+                double[] uExpCoefs = chartVertexFinalCoefs[cornerChartVertex[corner]][0];
+                for (int i = 0; i < uExpDofs.length; i++) {
+                    systemRhs[uExpDofs[i]] += uRhs * uExpCoefs[i];
+                }
+                int[] vExpDofs = chartVertexFinalDofs[cornerChartVertex[corner]][1];
+                double[] vExpCoefs = chartVertexFinalCoefs[cornerChartVertex[corner]][1];
+                for (int i = 0; i < vExpDofs.length; i++) {
+                    systemRhs[vExpDofs[i]] += vRhs * vExpCoefs[i];
+                }
             }
-        }
-
-        double penaltyWeight = (double) seamPenaltyWeight;
-        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
-            int cutDenseIdx = cutGraph.cutEdgeDenseIdx[activeEdge];
-            if (cutDenseIdx < 0) {
-                continue;
-            }
-            int activeFaceA = edgeFaceA[activeEdge];
-            int activeFaceB = edgeFaceB[activeEdge];
-
-            int startCornerInA = edgeCornerInA[activeEdge];
-            int startCornerInB = edgeCornerInB[activeEdge];
-            int endCornerInA = (startCornerInA + 1) % CORNERS_PER_FACE;
-            int endCornerInB = (startCornerInB + CORNERS_PER_FACE - 1) % CORNERS_PER_FACE;
-            int chartVertexAp = cutGraph.cornerToChartVertex[activeFaceA * CORNERS_PER_FACE + startCornerInA];
-            int chartVertexAq = cutGraph.cornerToChartVertex[activeFaceA * CORNERS_PER_FACE + endCornerInA];
-            int chartVertexBp = cutGraph.cornerToChartVertex[activeFaceB * CORNERS_PER_FACE + startCornerInB];
-            int chartVertexBq = cutGraph.cornerToChartVertex[activeFaceB * CORNERS_PER_FACE + endCornerInB];
-            int rotationQuarterTurns = cutGraph.cutRotation[activeEdge];
-            double cosRotation;
-            switch (rotationQuarterTurns & (BRANCH_COUNT - 1)) {
-            case 0:
-                cosRotation = 1.0;
-                break;
-            case 1:
-                cosRotation = 0.0;
-                break;
-            case 2:
-                cosRotation = -1.0;
-                break;
-            default:
-                cosRotation = 0.0;
-                break;
-            }
-
-            double sinRotation;
-            switch (rotationQuarterTurns & (BRANCH_COUNT - 1)) {
-            case 0:
-                sinRotation = 0.0;
-                break;
-            case 1:
-                sinRotation = 1.0;
-                break;
-            case 2:
-                sinRotation = 0.0;
-                break;
-            default:
-                sinRotation = -1.0;
-                break;
-            }
-            int translationSdofIdx = sCutBase + cutDenseIdx;
-            int translationTdofIdx = tCutBase + cutDenseIdx;
-
-            addOuterSparse(systemDiagonal, systemUpperTriangle, penaltyWeight,
-                    new int[] { uCvBase + chartVertexBp, uCvBase + chartVertexAp,
-                            vCvBase + chartVertexAp, translationSdofIdx },
-                    new double[] { 1.0, -cosRotation, sinRotation, -1.0 });
-            addOuterSparse(systemDiagonal, systemUpperTriangle, penaltyWeight,
-                    new int[] { vCvBase + chartVertexBp, uCvBase + chartVertexAp,
-                            vCvBase + chartVertexAp, translationTdofIdx },
-                    new double[] { 1.0, -sinRotation, -cosRotation, -1.0 });
-
-            addOuterSparse(systemDiagonal, systemUpperTriangle, penaltyWeight,
-                    new int[] { uCvBase + chartVertexBq, uCvBase + chartVertexAq,
-                            vCvBase + chartVertexAq, translationSdofIdx },
-                    new double[] { 1.0, -cosRotation, sinRotation, -1.0 });
-            addOuterSparse(systemDiagonal, systemUpperTriangle, penaltyWeight,
-                    new int[] { vCvBase + chartVertexBq, uCvBase + chartVertexAq,
-                            vCvBase + chartVertexAq, translationTdofIdx },
-                    new double[] { 1.0, -sinRotation, -cosRotation, -1.0 });
         }
 
         boolean[] visitedFace = new boolean[faceCount];
@@ -894,18 +844,20 @@ public final class SeamlessParameterization {
                 }
             }
         }
-        int[] pickedChartVertices = new int[picks.size()];
-        for (int i = 0; i < pickedChartVertices.length; i++)
-            pickedChartVertices[i] = picks.get(i);
 
-        for (int chartVertex : pickedChartVertices) {
-            systemDiagonal[uCvBase + chartVertex] += gaugePinWeight;
-            systemDiagonal[vCvBase + chartVertex] += gaugePinWeight;
-        }
+        // Half off-diagonal upper to correct the full-3×3 + outer-product
+        // double-count from (i, j) and (j, i) both routing to upper(min, max).
+        systemUpperTriangle.replaceAll((key, value) -> value * HALF_D);
 
-        for (int cutDenseIdx = 0; cutDenseIdx < cutGraph.interiorCutEdgeCount; cutDenseIdx++) {
-            systemDiagonal[sCutBase + cutDenseIdx] += TRANSLATION_TIKHONOV;
-            systemDiagonal[tCutBase + cutDenseIdx] += TRANSLATION_TIKHONOV;
+        // Gauge pins go in AFTER the halve so each chart-vertex pin
+        // contributes exactly its outer product μ · vᵀv.
+        for (int chartVertex : picks) {
+            addOuterSparse(systemDiagonal, systemUpperTriangle, gaugePinWeight,
+                    chartVertexFinalDofs[chartVertex][0],
+                    chartVertexFinalCoefs[chartVertex][0]);
+            addOuterSparse(systemDiagonal, systemUpperTriangle, gaugePinWeight,
+                    chartVertexFinalDofs[chartVertex][1],
+                    chartVertexFinalCoefs[chartVertex][1]);
         }
 
         if (dofPinned != null) {
@@ -949,7 +901,7 @@ public final class SeamlessParameterization {
 
     /**
      * Adds μ · a aᵀ to the symmetric system.
-     * 
+     *
      * @param diag  the diagonal of the system
      * @param upper the upper triangular part of the system
      * @param mu    the weight
@@ -969,6 +921,395 @@ public final class SeamlessParameterization {
     }
 
     /**
+     * Accumulate {@code stiffness · v_a · v_b} from outer product of two
+     * expansion vectors using full {@code (a, b)} iteration. Off-diagonal
+     * upper entries are double-counted by the symmetric (i, j) + (j, i)
+     * iteration in the caller; the post-assembly halve-upper pass in
+     * {@link #solveOnce} corrects that.
+     *
+     * @param diag      SPD diagonal accumulator
+     * @param upper     SPD upper-triangle accumulator
+     * @param dofsA     final-DOF indices of the first vector
+     * @param coefsA    coefficients of the first vector
+     * @param dofsB     final-DOF indices of the second vector
+     * @param coefsB    coefficients of the second vector
+     * @param stiffness scale factor
+     */
+    private static void accumulateOuterProduct(double[] diag, HashMap<Long, Double> upper,
+            int[] dofsA, double[] coefsA, int[] dofsB, double[] coefsB, double stiffness) {
+        for (int a = 0; a < dofsA.length; a++) {
+            for (int b = 0; b < dofsB.length; b++) {
+                accumulate(diag, upper, dofsA[a], dofsB[b], stiffness * coefsA[a] * coefsB[b]);
+            }
+        }
+    }
+
+    /**
+     * Pre-leftover-elimination raw-DOF expansion of {@code chartVertex}'s
+     * {@code component}. Primary chart vertices expand to a single raw DOF
+     * (their u or v slot); secondary chart vertices expand to
+     * {@code (partnerU, partnerV, s_e or t_e)} with rotation coefficients.
+     *
+     * @param chartVertex chart vertex index
+     * @param component   0 for u, 1 for v
+     * @return raw-DOF indices array
+     */
+    private int[] rawExpansionDofs(int chartVertex, int component) {
+        if (cutGraph.chartVertexIsPrimary[chartVertex]) {
+            return new int[] { 2 * cutGraph.primaryChartIndex[chartVertex] + component };
+        }
+        int activeEdge = cutGraph.secondaryEdge[chartVertex];
+        int partner = cutGraph.secondaryPartner[chartVertex];
+        int partnerBaseDof = 2 * cutGraph.primaryChartIndex[partner];
+        int translationDof = (component == 0) ? cutEdgeSDof[activeEdge] : cutEdgeTDof[activeEdge];
+        return new int[] { partnerBaseDof, partnerBaseDof + 1, translationDof };
+    }
+
+    /**
+     * Coefficients matching {@link #rawExpansionDofs}.
+     *
+     * @param chartVertex chart vertex index
+     * @param component   0 for u, 1 for v
+     * @return coefficient array
+     */
+    private double[] rawExpansionCoefs(int chartVertex, int component) {
+        if (cutGraph.chartVertexIsPrimary[chartVertex]) {
+            return new double[] { 1.0 };
+        }
+        int activeEdge = cutGraph.secondaryEdge[chartVertex];
+        int rotation = cutGraph.cutRotation[activeEdge];
+        int cos = ExactArithmetic.integerCosine(rotation);
+        int sin = ExactArithmetic.integerSine(rotation);
+        if (component == 0) {
+            return new double[] { cos, -sin, 1.0 };
+        }
+        return new double[] { sin, cos, 1.0 };
+    }
+
+    /**
+     * Scatter {@code outerCoef · (raw-DOF expansion of chartVertex's
+     * component)} into {@code accumulator}.
+     *
+     * @param accumulator raw-DOF → coefficient accumulator
+     * @param chartVertex chart vertex whose component to expand
+     * @param component   0 for u, 1 for v
+     * @param outerCoef   multiplier applied to every term in the expansion
+     */
+    private void addRawExpansionTo(HashMap<Integer, Double> accumulator,
+            int chartVertex, int component, double outerCoef) {
+        if (outerCoef == 0.0) {
+            return;
+        }
+        int[] dofs = rawExpansionDofs(chartVertex, component);
+        double[] coefs = rawExpansionCoefs(chartVertex, component);
+        for (int i = 0; i < dofs.length; i++) {
+            accumulator.merge(dofs[i], outerCoef * coefs[i], Double::sum);
+        }
+    }
+
+    /**
+     * Assign per-cut-edge {@code (s, t)} translation raw DOFs in the suffix
+     * of the raw-DOF vector after the primary chart-vertex (u, v): the
+     * {@code s} block starts at {@code 2*primaryChartCount} for
+     * {@code interiorCutEdgeCount} entries, then the {@code t} block.
+     */
+    private void assignCutEdgeTranslationDofs() {
+        cutEdgeSDof = new int[edgeCount];
+        cutEdgeTDof = new int[edgeCount];
+        Arrays.fill(cutEdgeSDof, -1);
+        Arrays.fill(cutEdgeTDof, -1);
+        int sBase = 2 * cutGraph.primaryChartCount;
+        int tBase = sBase + cutGraph.interiorCutEdgeCount;
+        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+            int dense = cutGraph.cutEdgeDenseIdx[activeEdge];
+            if (dense < 0) {
+                continue;
+            }
+            cutEdgeSDof[activeEdge] = sBase + dense;
+            cutEdgeTDof[activeEdge] = tBase + dense;
+        }
+    }
+
+    /**
+     * Reduce the leftover-constraint system {@code L · x = 0} to a set of
+     * substitution rules, one per pivoted raw DOF, by sparse Gauss-Jordan
+     * elimination with partial pivoting on the largest-magnitude entry. Each
+     * leftover record emits two scalar rows
+     * ({@code u_chartB − R · u_chartA − s_e = 0} and the v variant) in the
+     * raw-DOF column space; rank-deficient rows are silently dropped.
+     * Populates {@link #leftoverPivotDofs}, {@link #leftoverPivotCoefs},
+     * {@link #rawDofToFinal} and {@link #dofCount}.
+     */
+    private void reduceLeftoverConstraints() {
+        leftoverPivotDofs = new int[rawDofCount][];
+        leftoverPivotCoefs = new double[rawDofCount][];
+
+        ArrayList<HashMap<Integer, Double>> rows = new ArrayList<>();
+        for (int[] record : cutGraph.leftoverConstraints) {
+            int activeEdge = record[0];
+            int chartA = record[1];
+            int chartB = record[2];
+            int rotation = cutGraph.cutRotation[activeEdge];
+            int cos = ExactArithmetic.integerCosine(rotation);
+            int sin = ExactArithmetic.integerSine(rotation);
+            int sDof = cutEdgeSDof[activeEdge];
+            int tDof = cutEdgeTDof[activeEdge];
+            HashMap<Integer, Double> rowU = new HashMap<>();
+            addRawExpansionTo(rowU, chartB, 0, 1.0);
+            addRawExpansionTo(rowU, chartA, 0, -cos);
+            addRawExpansionTo(rowU, chartA, 1, sin);
+            rowU.merge(sDof, -1.0, Double::sum);
+            rows.add(rowU);
+            HashMap<Integer, Double> rowV = new HashMap<>();
+            addRawExpansionTo(rowV, chartB, 1, 1.0);
+            addRawExpansionTo(rowV, chartA, 0, -sin);
+            addRawExpansionTo(rowV, chartA, 1, -cos);
+            rowV.merge(tDof, -1.0, Double::sum);
+            rows.add(rowV);
+        }
+
+        int totalRows = rows.size();
+        boolean[] rowPivoted = new boolean[totalRows];
+        for (int processed = 0; processed < totalRows; processed++) {
+            int bestRow = -1;
+            int bestPivot = -1;
+            double bestMagnitude = 0.0;
+            for (int rowIdx = 0; rowIdx < totalRows; rowIdx++) {
+                if (rowPivoted[rowIdx]) {
+                    continue;
+                }
+                for (Map.Entry<Integer, Double> entry : rows.get(rowIdx).entrySet()) {
+                    double magnitude = Math.abs(entry.getValue());
+                    if (magnitude > bestMagnitude) {
+                        bestMagnitude = magnitude;
+                        bestRow = rowIdx;
+                        bestPivot = entry.getKey();
+                    }
+                }
+            }
+            if (bestRow < 0 || bestMagnitude < LEFTOVER_REDUCE_TOLERANCE) {
+                break;
+            }
+            HashMap<Integer, Double> pivotRow = rows.get(bestRow);
+            double pivotCoef = pivotRow.remove(bestPivot);
+            int[] subsDofs = new int[pivotRow.size()];
+            double[] subsCoefs = new double[pivotRow.size()];
+            int idx = 0;
+            for (Map.Entry<Integer, Double> entry : pivotRow.entrySet()) {
+                subsDofs[idx] = entry.getKey();
+                subsCoefs[idx] = -entry.getValue() / pivotCoef;
+                idx++;
+            }
+            leftoverPivotDofs[bestPivot] = subsDofs;
+            leftoverPivotCoefs[bestPivot] = subsCoefs;
+            rowPivoted[bestRow] = true;
+            for (int rowIdx = 0; rowIdx < totalRows; rowIdx++) {
+                if (rowIdx == bestRow) {
+                    continue;
+                }
+                HashMap<Integer, Double> otherRow = rows.get(rowIdx);
+                Double otherCoef = otherRow.remove(bestPivot);
+                if (otherCoef == null) {
+                    continue;
+                }
+                for (int i = 0; i < subsDofs.length; i++) {
+                    otherRow.merge(subsDofs[i], otherCoef * subsCoefs[i], Double::sum);
+                }
+                otherRow.entrySet().removeIf(e -> Math.abs(e.getValue()) < LEFTOVER_REDUCE_TOLERANCE);
+            }
+        }
+
+        rawDofToFinal = new int[rawDofCount];
+        int nextFinal = 0;
+        for (int rawDof = 0; rawDof < rawDofCount; rawDof++) {
+            if (leftoverPivotDofs[rawDof] != null) {
+                rawDofToFinal[rawDof] = -1;
+            } else {
+                rawDofToFinal[rawDof] = nextFinal++;
+            }
+        }
+        this.dofCount = nextFinal;
+    }
+
+    /**
+     * Bake the per-cut-edge substitution and leftover-row elimination into a
+     * per-chart-vertex final-DOF expansion. After this the solver works in
+     * the final DOF space directly: each chart vertex's u or v is
+     * {@code Σ coef · solution[finalDof]}.
+     */
+    private void buildChartVertexFinalExpansions() {
+        int chartVertexCount = cutGraph.chartVertexCount;
+        chartVertexFinalDofs = new int[chartVertexCount][COMPONENTS_PER_CHART_VERTEX][];
+        chartVertexFinalCoefs = new double[chartVertexCount][COMPONENTS_PER_CHART_VERTEX][];
+        for (int chartVertex = 0; chartVertex < chartVertexCount; chartVertex++) {
+            for (int component = 0; component < COMPONENTS_PER_CHART_VERTEX; component++) {
+                HashMap<Integer, Double> finalAccum = new HashMap<>();
+                int[] rawDofs = rawExpansionDofs(chartVertex, component);
+                double[] rawCoefs = rawExpansionCoefs(chartVertex, component);
+                for (int i = 0; i < rawDofs.length; i++) {
+                    accumulateRawDofAsFinal(finalAccum, rawDofs[i], rawCoefs[i]);
+                }
+                int size = finalAccum.size();
+                int[] dofs = new int[size];
+                double[] coefs = new double[size];
+                int idx = 0;
+                for (Map.Entry<Integer, Double> entry : finalAccum.entrySet()) {
+                    dofs[idx] = entry.getKey();
+                    coefs[idx] = entry.getValue();
+                    idx++;
+                }
+                chartVertexFinalDofs[chartVertex][component] = dofs;
+                chartVertexFinalCoefs[chartVertex][component] = coefs;
+            }
+        }
+    }
+
+    /**
+     * Fold one raw-DOF contribution into a final-DOF accumulator: a non-pivot
+     * raw DOF maps directly to its dense final index; a pivot raw DOF
+     * expands recursively through {@link #leftoverPivotDofs} /
+     * {@link #leftoverPivotCoefs}.
+     *
+     * @param finalAccum final-DOF → coefficient accumulator
+     * @param rawDof     the raw-DOF index whose contribution to fold in
+     * @param coef       coefficient to multiply into the expansion
+     */
+    private void accumulateRawDofAsFinal(HashMap<Integer, Double> finalAccum,
+            int rawDof, double coef) {
+        if (leftoverPivotDofs[rawDof] != null) {
+            int[] subsDofs = leftoverPivotDofs[rawDof];
+            double[] subsCoefs = leftoverPivotCoefs[rawDof];
+            for (int i = 0; i < subsDofs.length; i++) {
+                accumulateRawDofAsFinal(finalAccum, subsDofs[i], coef * subsCoefs[i]);
+            }
+            return;
+        }
+        int finalDof = rawDofToFinal[rawDof];
+        finalAccum.merge(finalDof, coef, Double::sum);
+    }
+
+    /**
+     * Evaluate one component of a chart vertex in the current
+     * {@link #solution} by summing its final-DOF expansion.
+     *
+     * @param chartVertex chart vertex index
+     * @param component   0 for u, 1 for v
+     * @return the chart vertex's component value
+     */
+    private double evaluateChartComponent(int chartVertex, int component) {
+        int[] dofs = chartVertexFinalDofs[chartVertex][component];
+        double[] coefs = chartVertexFinalCoefs[chartVertex][component];
+        double value = 0.0;
+        for (int i = 0; i < dofs.length; i++) {
+            value += coefs[i] * solution[dofs[i]];
+        }
+        return value;
+    }
+
+    /**
+     * Evaluate the value of a raw DOF in the current {@link #solution}: a
+     * non-pivot raw DOF reads its dense final entry; a pivot raw DOF
+     * evaluates recursively through {@link #leftoverPivotDofs} /
+     * {@link #leftoverPivotCoefs}.
+     *
+     * @param rawDof a raw-DOF index in {@code [0, rawDofCount)}
+     * @return the value of {@code rawDof} implied by the current solution
+     */
+    private double evaluateRawDof(int rawDof) {
+        if (leftoverPivotDofs[rawDof] != null) {
+            int[] subsDofs = leftoverPivotDofs[rawDof];
+            double[] subsCoefs = leftoverPivotCoefs[rawDof];
+            double value = 0.0;
+            for (int i = 0; i < subsDofs.length; i++) {
+                value += subsCoefs[i] * evaluateRawDof(subsDofs[i]);
+            }
+            return value;
+        }
+        return solution[rawDofToFinal[rawDof]];
+    }
+
+    /**
+     * Materialise per-corner {@code uCorner} / {@code vCorner} from the
+     * current {@link #solution} via each chart vertex's final-DOF expansion.
+     *
+     * @param totalCorners {@code 3 * faceCount}
+     */
+    private void writeChartVerticesFromSolution(int totalCorners) {
+        for (int corner = 0; corner < totalCorners; corner++) {
+            int chartVertex = cutGraph.cornerToChartVertex[corner];
+            uCorner[corner] = (float) evaluateChartComponent(chartVertex, 0);
+            vCorner[corner] = (float) evaluateChartComponent(chartVertex, 1);
+        }
+    }
+
+    /**
+     * Back-fill {@code cutTranslationS} / {@code cutTranslationT} from the
+     * raw {@code (s, t)} DOFs, evaluating through the leftover-row
+     * substitution if those DOFs were pivot-eliminated.
+     */
+    private void writeCutTranslationsFromSolution() {
+        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+            if (cutEdgeSDof[activeEdge] < 0) {
+                continue;
+            }
+            cutTranslationS[activeEdge] = (float) evaluateRawDof(cutEdgeSDof[activeEdge]);
+            cutTranslationT[activeEdge] = (float) evaluateRawDof(cutEdgeTDof[activeEdge]);
+        }
+    }
+
+    /**
+     * Mark which final DOFs must round to integers in {@link #integerGridMap}
+     * mode: every per-cut-edge {@code (s, t)} pair, and the (u, v) of every
+     * primary chart vertex that touches a singularity mesh vertex.
+     * Pivot-eliminated raw DOFs are skipped — their values are determined by
+     * the non-eliminated free DOFs.
+     */
+    private void markIntegerDofs() {
+        if (!integerGridMap) {
+            return;
+        }
+        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+            if (cutEdgeSDof[activeEdge] < 0) {
+                continue;
+            }
+            markRawDofAsInteger(cutEdgeSDof[activeEdge]);
+            markRawDofAsInteger(cutEdgeTDof[activeEdge]);
+        }
+        Set<Integer> singularVertexIds = new HashSet<>();
+        for (Singularity s : crossField.singularities) {
+            singularVertexIds.add(s.vertexId());
+        }
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            int faceId = mesh.faceIdAt(activeFace);
+            for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
+                if (!singularVertexIds.contains(mesh.faceVertexAt(faceId, corner))) {
+                    continue;
+                }
+                int chartVertex = cutGraph.cornerToChartVertex[activeFace * CORNERS_PER_FACE + corner];
+                if (!cutGraph.chartVertexIsPrimary[chartVertex]) {
+                    continue;
+                }
+                int primaryIdx = cutGraph.primaryChartIndex[chartVertex];
+                markRawDofAsInteger(2 * primaryIdx);
+                markRawDofAsInteger(2 * primaryIdx + 1);
+            }
+        }
+    }
+
+    /**
+     * Mark the final DOF corresponding to {@code rawDof} as integer-rounded.
+     * No-op if {@code rawDof} was pivot-eliminated by leftover-row reduction.
+     *
+     * @param rawDof a raw-DOF index
+     */
+    private void markRawDofAsInteger(int rawDof) {
+        if (leftoverPivotDofs[rawDof] != null) {
+            return;
+        }
+        dofIsInteger[rawDofToFinal[rawDof]] = true;
+    }
+
+    /**
      * Counts the number of flipped triangles from the solution.
      * 
      * @return the number of flipped triangles
@@ -982,9 +1323,9 @@ public final class SeamlessParameterization {
             int cv0 = cutGraph.cornerToChartVertex[o];
             int cv1 = cutGraph.cornerToChartVertex[o + 1];
             int cv2 = cutGraph.cornerToChartVertex[o + 2];
-            double u0 = solution[uCvBase + cv0], v0 = solution[vCvBase + cv0];
-            double u1 = solution[uCvBase + cv1], v1 = solution[vCvBase + cv1];
-            double u2 = solution[uCvBase + cv2], v2 = solution[vCvBase + cv2];
+            double u0 = evaluateChartComponent(cv0, 0), v0 = evaluateChartComponent(cv0, 1);
+            double u1 = evaluateChartComponent(cv1, 0), v1 = evaluateChartComponent(cv1, 1);
+            double u2 = evaluateChartComponent(cv2, 0), v2 = evaluateChartComponent(cv2, 1);
             double sa = HALF_D * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
             if (sa <= 0.0)
                 flipped++;

@@ -52,7 +52,12 @@ class SeamlessParameterizationSmokeTest {
      * MC19's job (LCK21 §3 — "exact seamlessness"); for the seamless input
      * Lyon's pipeline expects a few percent of the parametric scale is fine.
      */
-    private static final float TRANSITION_TOLERANCE = 1.0f;
+    /**
+     * Hard variable elimination makes seam transitions hold by construction
+     * at solver float precision; 1e-3 absorbs round-off through chained
+     * leftover substitutions on dense singularity nodes.
+     */
+    private static final float TRANSITION_TOLERANCE = 1.0e-3f;
 
     @Test
     @Timeout(value = 2, unit = java.util.concurrent.TimeUnit.MINUTES)
