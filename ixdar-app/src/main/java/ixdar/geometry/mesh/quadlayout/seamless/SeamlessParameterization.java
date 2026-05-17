@@ -154,11 +154,15 @@ public final class SeamlessParameterization {
 
     /**
      * If true, run BZK09 §2 greedy mixed-integer rounding of (j, k) cut
-     * translations and singularity chart-vertex (u, v) — produces an INTEGER-GRID
-     * MAP per BZK09 §5. Lyon 2021 §3 wants a SEAMLESS map (real (s, t), real
-     * singularities) as input — the integer grid is built later by the ILP. Default
-     * false to match Lyon's pipeline; enable for downstream stages (e.g. QEx-style
-     * quad mesh extraction direct from BZK09's IGM).
+     * translations and singularity chart-vertex (u, v) — produces a full
+     * INTEGER-GRID MAP per BZK09 §5. This is what BZK09 itself ships, what
+     * Lyon 2021 §7 used as its input parametrization
+     * ("optimizing the energy proposed by Bommes et al. [BZK09]"), and what
+     * QEx-style quad extraction downstream of the T-mesh expects. The IGM
+     * is a strict refinement of seamlessness, so every downstream stage that
+     * accepts a "seamless" input accepts an IGM too. Disable only for
+     * diagnostic / experimental runs where real (s, t) and real singularity
+     * positions are wanted.
      */
     public boolean integerGridMap = true;
 
