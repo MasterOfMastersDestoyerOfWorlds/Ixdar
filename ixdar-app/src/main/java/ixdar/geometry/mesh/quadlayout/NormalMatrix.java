@@ -14,7 +14,7 @@ public final class NormalMatrix {
     public final int[] rowStart;
     public final int[] rowCol;
     public final double[] rowVal;
-    final double[] diag;
+    public final double[] diag;
 
     /**
      * Constructor with chord-based rows.
@@ -186,6 +186,52 @@ public final class NormalMatrix {
             int row = (int) (key >>> KEY_ROW_SHIFT);
             int col = (int) (key & KEY_COL_MASK);
             double value = e.getValue();
+            addOffDiagonal(cursor, row, col, value);
+            addOffDiagonal(cursor, col, row, value);
+        }
+    }
+
+    /**
+     * Parallel-array accumulator constructor. Builds the CSR layout from
+     * an already-assembled SPD system in flat-array form: diagonal,
+     * sorted upper-triangle packed keys plus a value array indexed by the
+     * same slot, and an RHS vector. Equivalent to the {@code Map<Long,
+     * Double>} constructor but the caller has already paid the deduplication
+     * cost — used by the cached seamless assembly playback path where the
+     * same upper-triangle structure is reused across many solves.
+     *
+     * @param diag         diagonal values, length {@code variableCount}
+     * @param upperKeys    sorted (row, col) packed-long keys; slot index =
+     *                     array index
+     * @param upperValues  values matching {@code upperKeys}, same length
+     * @param rhs          right-hand-side, length {@code variableCount}
+     */
+    public NormalMatrix(double[] diag, long[] upperKeys, double[] upperValues, double[] rhs) {
+        this.variableCount = diag.length;
+        this.diag = diag.clone();
+        this.rhs = rhs.clone();
+
+        int[] degree = new int[variableCount];
+        for (long key : upperKeys) {
+            int row = (int) (key >>> KEY_ROW_SHIFT);
+            int col = (int) (key & KEY_COL_MASK);
+            degree[row]++;
+            degree[col]++;
+        }
+
+        rowStart = new int[variableCount + 1];
+        for (int i = 0; i < variableCount; i++) {
+            rowStart[i + 1] = rowStart[i] + degree[i];
+        }
+        rowCol = new int[rowStart[variableCount]];
+        rowVal = new double[rowStart[variableCount]];
+        int[] cursor = rowStart.clone();
+
+        for (int slot = 0; slot < upperKeys.length; slot++) {
+            long key = upperKeys[slot];
+            int row = (int) (key >>> KEY_ROW_SHIFT);
+            int col = (int) (key & KEY_COL_MASK);
+            double value = upperValues[slot];
             addOffDiagonal(cursor, row, col, value);
             addOffDiagonal(cursor, col, row, value);
         }
