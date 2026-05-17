@@ -36,7 +36,10 @@
       "Read(//home/acw/ejml/**)",
       "Bash(grep -oE '\"[A-Za-z_./$0-9]*\\(setA|decompose|Cholesky|cholesky|TriangularSolver|permute|Permutation|pinDiagonal|rankOneUpdate|assemble|stiff\\)[A-Za-z_./$0-9]*\"' profile.html)",
       "Bash(grep *)",
-      "Bash(echo \"EXIT=$?\")"
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(find ~ -maxdepth 4 -type d \\\\\\( -name \"CoMISo\" -o -name \"OpenFlipper\" \\\\\\) 2>/dev/null | head; echo ===; find ~/.m2 ~/Code -maxdepth 5 -name \"*comiso*\" -o -name \"*CoMISo*\" 2>/dev/null | head; echo ===; ls ~/metriko/include/metriko/ 2>&1 | head -20)",
+      "Read(//home/acw/**)",
+      "Read(//home/acw/.m2/**)"
     ],
     "deny": [
       "Bash(cp *)",

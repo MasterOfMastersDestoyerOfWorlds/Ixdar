@@ -62,7 +62,42 @@ public final class IncrementalCholeskySolver {
      *         factor succeeded
      */
     public boolean setA(NormalMatrix matrix, OrderingMethod ordering) {
+        int n = matrix.size();
+        boolean[] noneFixed = new boolean[n];
+        int[] identityCompactOf = new int[n];
+        for (int i = 0; i < n; i++) {
+            identityCompactOf[i] = i;
+        }
+        int[] computedPerm = SolverPermutation.computePermutation(
+                matrix, noneFixed, identityCompactOf, n, ordering);
+        return setAWithPerm(matrix, computedPerm);
+    }
+
+    /**
+     * Cold-factor the SPD system using a caller-supplied permutation. Use
+     * when the matrix non-zero pattern matches a prior {@link #setA} call so
+     * the fill-reducing ordering can be reused — invariant across all 50
+     * stiffening iterations of one seamless build, so paying for AMD once
+     * and reusing it across solver instantiations saves real time.
+     *
+     * <p>The caller is responsible for invalidating the cached perm if the
+     * matrix pattern (mesh topology, cut graph, integer-pin set) changes.
+     *
+     * @param matrix the SPD system to factor; only the upper triangle is
+     *               used
+     * @param perm   cached column permutation from a prior
+     *               {@link SolverPermutation#computePermutation} call
+     * @return {@code true} iff the matrix was positive definite and the
+     *         factor succeeded
+     * @throws IllegalArgumentException if {@code perm.length != matrix.size()}
+     */
+    public boolean setAWithPerm(NormalMatrix matrix, int[] perm) {
         dimension = matrix.size();
+        if (perm.length != dimension) {
+            throw new IllegalArgumentException(
+                    "cached perm length " + perm.length
+                            + " must equal matrix dimension " + dimension);
+        }
         boolean[] noneFixed = new boolean[dimension];
         int[] identityCompactOf = new int[dimension];
         int[] identityFullOf = new int[dimension];
@@ -70,14 +105,11 @@ public final class IncrementalCholeskySolver {
             identityCompactOf[i] = i;
             identityFullOf[i] = i;
         }
-
-        perm = SolverPermutation.computePermutation(
-                matrix, noneFixed, identityCompactOf, dimension, ordering);
+        this.perm = perm;
         invPerm = new int[dimension];
         for (int i = 0; i < dimension; i++) {
             invPerm[perm[i]] = i;
         }
-
         NormalMatrix.CompressedSparseColumnArrays csc =
                 matrix.toPermutedUpperCompressedSparseColumn(
                         dimension, noneFixed,
@@ -89,7 +121,6 @@ public final class IncrementalCholeskySolver {
         ejmlCsc.nz_rows = csc.rowIdx();
         ejmlCsc.nz_values = csc.values();
         ejmlCsc.nz_length = csc.values().length;
-
         permutedRhs = new double[dimension];
         permutedSolution = new double[dimension];
         return factor.decompose(ejmlCsc);
