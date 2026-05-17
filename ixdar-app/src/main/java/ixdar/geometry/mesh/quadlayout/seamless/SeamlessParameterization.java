@@ -20,6 +20,7 @@ import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.SeamlessProjector;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.IncrementalCholeskySolver;
+import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 
 /**
  * BZK09 §5 seamless parametrization, stage 3 of the Lyon 2021 quad-layout
@@ -459,7 +460,7 @@ public final class SeamlessParameterization {
         NormalMatrix baseMatrix = new NormalMatrix(
                 base.diagonal, base.upper, base.rhs);
         IncrementalCholeskySolver incremental = new IncrementalCholeskySolver();
-        if (!incremental.setA(baseMatrix)) {
+        if (!incremental.setA(baseMatrix, OrderingMethod.AMD)) {
             throw new IllegalStateException(
                     "IGM rounding: cold Cholesky factor of the base system failed");
         }
@@ -797,7 +798,7 @@ public final class SeamlessParameterization {
                 assembled.diagonal, assembled.upper, assembled.rhs);
         boolean[] fixed = new boolean[dofCount];
         double[] start = new double[dofCount];
-        solution = DirectSolver.solve(matrix, start, fixed);
+        solution = DirectSolver.solve(matrix, start, fixed, OrderingMethod.AMD);
     }
 
     /**

@@ -206,7 +206,7 @@ class SeamlessParameterizationSmokeTest {
      * Real-mesh harness on the {@code fandisk} fixture (14454 faces).
      */
     @Test
-    @Timeout(value = 10, unit = java.util.concurrent.TimeUnit.MINUTES)
+    @Timeout(value = 5, unit = java.util.concurrent.TimeUnit.MINUTES)
     void realMeshFandisk() throws IOException {
         runRealMeshDiagnostic("fandisk", FANDISK_OFF);
     }

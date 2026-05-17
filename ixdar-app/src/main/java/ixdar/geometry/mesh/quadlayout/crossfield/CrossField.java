@@ -28,6 +28,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
+import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 
 /**
@@ -486,7 +487,7 @@ public class CrossField {
         // Factor once. Shared across all threads — solve() is what's not thread-safe,
         // so each thread needs its own handle. Build them lazily.
         final ThreadLocal<DirectSolver.CholeskyHandle> tlHandle = ThreadLocal
-                .withInitial(() -> DirectSolver.factorize(matrix, faceConstrained));
+                .withInitial(() -> DirectSolver.factorize(matrix, faceConstrained, OrderingMethod.RCM));
         final ThreadLocal<double[]> tlRhsScratch = ThreadLocal.withInitial(() -> new double[faceCount]);
         final ThreadLocal<double[]> tlThetaScratch = ThreadLocal.withInitial(() -> new double[faceCount]);
 

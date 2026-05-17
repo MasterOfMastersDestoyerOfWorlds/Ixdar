@@ -35,7 +35,8 @@
       "Read(//home/acw/.m2/repository/org/ejml/**)",
       "Read(//home/acw/ejml/**)",
       "Bash(grep -oE '\"[A-Za-z_./$0-9]*\\(setA|decompose|Cholesky|cholesky|TriangularSolver|permute|Permutation|pinDiagonal|rankOneUpdate|assemble|stiff\\)[A-Za-z_./$0-9]*\"' profile.html)",
-      "Bash(grep *)"
+      "Bash(grep *)",
+      "Bash(echo \"EXIT=$?\")"
     ],
     "deny": [
       "Bash(cp *)",

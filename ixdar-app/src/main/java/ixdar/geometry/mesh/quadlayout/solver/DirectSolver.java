@@ -1,18 +1,14 @@
 package ixdar.geometry.mesh.quadlayout.solver;
 
-import java.util.ArrayDeque;
 import java.util.Arrays;
 
 import org.ejml.data.DMatrixRMaj;
 import org.ejml.data.DMatrixSparseCSC;
-import org.ejml.data.DMatrixSparseTriplet;
 import org.ejml.interfaces.linsol.LinearSolverSparse;
-import org.ejml.ops.DConvertMatrixStruct;
 import org.ejml.sparse.FillReducing;
 import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
 
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.NormalMatrix.CompressedSparseColumnArrays;
 
 public final class DirectSolver {
 
@@ -61,11 +57,17 @@ public final class DirectSolver {
      * {@code !fixed[i]}) using a sparse Cholesky factorization with
      * reverse-Cuthill-McKee ordering.
      *
-     * @param matrix the system matrix
-     * @param fixed  the per-variable fixed flag
+     * @param matrix   the system matrix
+     * @param fixed    the per-variable fixed flag
+     * @param ordering fill-reducing column ordering applied before the cold
+     *                 factor; pick {@link OrderingMethod#RCM} for the
+     *                 cross-field bandwidth-minimising path or
+     *                 {@link OrderingMethod#AMD} for the seamless stage where
+     *                 nnz(L) dominates
      * @return the Cholesky handle
      */
-    public static CholeskyHandle factorize(NormalMatrix matrix, boolean[] fixed) {
+    public static CholeskyHandle factorize(NormalMatrix matrix, boolean[] fixed,
+            OrderingMethod ordering) {
         int n = matrix.size();
         int[] compactOf = new int[n];
         int[] fullOf = new int[n];
@@ -83,12 +85,7 @@ public final class DirectSolver {
                     new int[0], new int[0], null, null, null);
         }
 
-        // Step 2: build adjacency list of the compact (free-only) matrix
-        // for the reordering algorithm
-        int[][] adj = buildAdjacency(matrix, fixed, compactOf, freeCount);
-
-        // Step 3: compute reordering using Reverse Cuthill-McKee
-        int[] perm = reverseCuthillMcKee(adj);
+        int[] perm = SolverPermutation.computePermutation(matrix, fixed, compactOf, freeCount, ordering);
         int[] invPerm = new int[freeCount];
         for (int i = 0; i < freeCount; i++) {
             invPerm[perm[i]] = i;
@@ -166,122 +163,27 @@ public final class DirectSolver {
 
     /**
      * Solve {@code A x = b} for the free variables (those with {@code !fixed[i]})
-     * using a sparse Cholesky factorization with reverse-Cuthill-McKee ordering,
-     * holding the fixed entries at {@code start[i]}. Throws when the matrix is not
-     * positive definite (e.g. for closed surfaces with no anchored variable).
+     * using a sparse Cholesky factorization with the requested fill-reducing
+     * ordering, holding the fixed entries at {@code start[i]}. Throws when the
+     * matrix is not positive definite (e.g. for closed surfaces with no
+     * anchored variable).
      *
-     * @param matrix symmetric system matrix A
-     * @param start  initial values; only the fixed entries are read
-     * @param fixed  per-variable fixed flag
+     * @param matrix   symmetric system matrix A
+     * @param start    initial values; only the fixed entries are read
+     * @param fixed    per-variable fixed flag
+     * @param ordering fill-reducing column ordering applied before the
+     *                 factorization
      * @throws IllegalStateException if the Cholesky factorization fails
      * @return solution with fixed entries copied from {@code start}
      */
     public static double[] solve(NormalMatrix matrix,
             double[] start,
-            boolean[] fixed) {
-        CholeskyHandle handle = factorize(matrix, fixed);
+            boolean[] fixed,
+            OrderingMethod ordering) {
+        CholeskyHandle handle = factorize(matrix, fixed, ordering);
         double[] out = start.clone();
         solveCompact(handle, matrix, matrix.rhs, out, start, fixed);
         return out;
     }
 
-    /**
-     * Build adjacency list of the compact symmetric matrix (free vars only).
-     *
-     * @param matrix    full symmetric system matrix A
-     * @param fixed     mask of held-fixed variables
-     * @param compactOf full-index → compact-index lookup (or {@code -1} for fixed
-     *                  rows)
-     * @param freeCount number of free variables (size of the compact problem)
-     * @return per-free-variable list of free-variable neighbours (off-diagonal
-     *         only)
-     */
-    private static int[][] buildAdjacency(NormalMatrix matrix,
-            boolean[] fixed,
-            int[] compactOf,
-            int freeCount) {
-        int n = matrix.size();
-        int[] degree = new int[freeCount];
-        for (int i = 0; i < n; i++) {
-            if (fixed[i])
-                continue;
-            int u = compactOf[i];
-            for (int c = matrix.rowStart(i); c < matrix.rowEnd(i); c++) {
-                int col = matrix.column(c);
-                if (!fixed[col] && col != i) {
-                    degree[u]++;
-                }
-            }
-        }
-        int[][] adj = new int[freeCount][];
-        for (int u = 0; u < freeCount; u++) {
-            adj[u] = new int[degree[u]];
-        }
-        int[] cursor = new int[freeCount];
-        for (int i = 0; i < n; i++) {
-            if (fixed[i])
-                continue;
-            int u = compactOf[i];
-            for (int c = matrix.rowStart(i); c < matrix.rowEnd(i); c++) {
-                int col = matrix.column(c);
-                if (!fixed[col] && col != i) {
-                    adj[u][cursor[u]++] = compactOf[col];
-                }
-            }
-        }
-        return adj;
-    }
-
-    /**
-     * Reverse Cuthill-McKee ordering. Returns perm[newIndex] = oldIndex.
-     *
-     * @param adj per-vertex neighbour lists for the compact problem
-     * @return permutation mapping new compact index to old compact index
-     */
-    private static int[] reverseCuthillMcKee(int[][] adj) {
-        int n = adj.length;
-        int[] perm = new int[n];
-        boolean[] visited = new boolean[n];
-        int filled = 0;
-
-        while (filled < n) {
-            // Find unvisited node of minimum degree as the BFS start
-            int start = -1;
-            int minDeg = Integer.MAX_VALUE;
-            for (int i = 0; i < n; i++) {
-                if (!visited[i] && adj[i].length < minDeg) {
-                    minDeg = adj[i].length;
-                    start = i;
-                }
-            }
-
-            // BFS, sorting each level's neighbors by degree
-            ArrayDeque<Integer> queue = new ArrayDeque<>();
-            queue.add(start);
-            visited[start] = true;
-            while (!queue.isEmpty()) {
-                int u = queue.poll();
-                perm[filled++] = u;
-                int[] nbrs = adj[u].clone();
-                // Sort unvisited neighbors by ascending degree
-                Integer[] boxed = new Integer[nbrs.length];
-                for (int i = 0; i < nbrs.length; i++)
-                    boxed[i] = nbrs[i];
-                Arrays.sort(boxed, (a, b) -> adj[a].length - adj[b].length);
-                for (int v : boxed) {
-                    if (!visited[v]) {
-                        visited[v] = true;
-                        queue.add(v);
-                    }
-                }
-            }
-        }
-
-        // Reverse the order
-        int[] reversed = new int[n];
-        for (int i = 0; i < n; i++) {
-            reversed[i] = perm[n - 1 - i];
-        }
-        return reversed;
-    }
 }

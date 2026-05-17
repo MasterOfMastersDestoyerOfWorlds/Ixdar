@@ -110,7 +110,7 @@ public final class AdaptiveSolver {
         }
 
         if (opts.useDirectFallback) {
-            double[] direct = DirectSolver.solve(matrix, cg.x, fixed);
+            double[] direct = DirectSolver.solve(matrix, cg.x, fixed, OrderingMethod.RCM);
             double residual = residualNorm(matrix, direct, fixed);
             return new Result(direct, new Stats(
                     Method.DIRECT, true, local.iterations, cg.iterations, residual,
@@ -313,7 +313,7 @@ public final class AdaptiveSolver {
     private static BootstrapResult bootstrapSolve(NormalMatrix matrix,
             double[] start,
             boolean[] fixed) {
-        double[] direct = DirectSolver.solve(matrix, start, fixed);
+        double[] direct = DirectSolver.solve(matrix, start, fixed, OrderingMethod.RCM);
         double residual = residualNorm(matrix, direct, fixed);
         return new BootstrapResult(direct, Method.DIRECT, true, residual);
     }
