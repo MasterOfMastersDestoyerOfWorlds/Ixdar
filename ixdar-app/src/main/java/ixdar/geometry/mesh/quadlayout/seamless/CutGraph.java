@@ -35,6 +35,14 @@ import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 public class CutGraph {
 
     /**
+     * Multiplier applied to alignment-edge weights in
+     * {@link #shortestMeshPathToCut} so singularity-to-cut routing
+     * avoids putting a feature edge on the seam unless no non-alignment
+     * path exists.
+     */
+    public static final double ALIGNMENT_PATH_PENALTY = 1.0e6;
+
+    /**
      * True iff the edge at this active-edge index is a seam edge or a mesh boundary
      * edge.
      */
@@ -145,60 +153,79 @@ public class CutGraph {
     }
 
     /**
-     * Choose the seam edge set: start from the complement of a dual spanning tree
-     * (so the cut opens the surface into a disk), trim the dead "whiskers" that
-     * leaves behind, route every interior singularity onto the cut, and — for
-     * Lyon's seamless input — give every interior singularity cut-degree ≥ 2 so the
-     * fan of faces around it splits into separate chart vertices and the cross
-     * field's ±π/2 turn there has a transition to absorb. (BZK09's full pipeline
-     * instead integer-pins singularity (u, v); that step is skipped when
-     * {@link SeamlessParameterization#integerGridMap} is off.)
+     * Choose the seam edge set: start from the complement of a min-cost
+     * dual spanning tree biased to absorb {@link CrossField#alignmentEdgeIds}
+     * (so the cut opens the surface into a disk while keeping feature edges
+     * non-cut), trim the dead "whiskers" that leaves behind, then route
+     * every interior singularity onto the cut. BZK09's full pipeline
+     * integer-pins singularity (u, v) once the parametrization runs, so a
+     * single cut-degree is sufficient.
      */
     private void selectCutEdges() {
         initialCutFromDualSpanningTree();
         cutDegree = computeCutDegree();
         trimDanglingBranches(cutDegree);
         connectDetachedSingularities(cutDegree);
-        if (!seamless.integerGridMap) {
-            for (Singularity singularity : crossField.singularities) {
-                int vertexId = singularity.vertexId();
-                if (mesh.isBoundaryVertex(vertexId))
-                    continue;
-                if (cutDegree[activeVertexIndex(vertexId)] >= 2)
-                    continue;
-                extendSingularityToDegreeTwo(vertexId, cutDegree);
-            }
-        }
     }
 
     /**
-     * Initialize the seam set to the complement of a dual spanning tree: mark every
-     * edge cut, then BFS the faces through interior two-sided edges, un-cutting
-     * each tree edge crossed. Boundary edges stay cut.
+     * Initialize the seam set to the complement of a min-cost dual spanning
+     * tree: mark every edge cut, then run a Dijkstra-style traversal of the
+     * dual graph where alignment edges have cost {@code 0} and all other
+     * interior edges have cost {@code 1}. Tree edges (the parents in the
+     * resulting spanning forest) are un-cut. Boundary edges stay cut.
+     *
+     * <p>BZK09 §5.2 requires alignment edges to be non-cut: if a feature
+     * edge ended up on the cut with rotation {@code r ≠ 0}, satisfying
+     * {@code v_p = v_q} on both sides would collapse the edge to a point.
+     * Biasing the spanning tree to absorb alignment edges keeps them
+     * non-cut whenever the surface topology allows.
      */
     private void initialCutFromDualSpanningTree() {
         isCutEdge = new boolean[seamless.edgeCount];
         Arrays.fill(isCutEdge, true);
 
-        boolean[] faceVisited = new boolean[seamless.faceCount];
-        ArrayDeque<Integer> faceQueue = new ArrayDeque<>();
+        double[] distance = new double[seamless.faceCount];
+        int[] parentEdge = new int[seamless.faceCount];
+        Arrays.fill(distance, Double.POSITIVE_INFINITY);
+        Arrays.fill(parentEdge, -1);
+
+        PriorityQueue<long[]> frontier = new PriorityQueue<>((a, b) -> Double.compare(
+                Double.longBitsToDouble(a[0]), Double.longBitsToDouble(b[0])));
         if (seamless.faceCount > 0) {
-            faceVisited[0] = true;
-            faceQueue.add(0);
+            distance[0] = 0.0;
+            frontier.add(new long[] { Double.doubleToLongBits(0.0), 0 });
         }
-        while (!faceQueue.isEmpty()) {
-            int activeFace = faceQueue.poll();
+        while (!frontier.isEmpty()) {
+            long[] top = frontier.poll();
+            double distHere = Double.longBitsToDouble(top[0]);
+            int activeFace = (int) top[1];
+            if (distHere > distance[activeFace]) {
+                continue;
+            }
             int faceId = mesh.faceIdAt(activeFace);
             for (int corner = 0; corner < SeamlessParameterization.CORNERS_PER_FACE; corner++) {
-                int activeEdge = crossField.edgeIdToActive.get(mesh.faceEdgeAt(faceId, corner));
+                int edgeId = mesh.faceEdgeAt(faceId, corner);
+                int activeEdge = crossField.edgeIdToActive.get(edgeId);
                 int otherActiveFace = (seamless.edgeFaceA[activeEdge] == activeFace)
                         ? seamless.edgeFaceB[activeEdge]
                         : seamless.edgeFaceA[activeEdge];
-                if (otherActiveFace < 0 || faceVisited[otherActiveFace])
+                if (otherActiveFace < 0) {
                     continue;
-                faceVisited[otherActiveFace] = true;
-                isCutEdge[activeEdge] = false;
-                faceQueue.add(otherActiveFace);
+                }
+                double edgeCost = crossField.alignmentEdgeIds.contains(edgeId) ? 0.0 : 1.0;
+                double newDistance = distHere + edgeCost;
+                if (newDistance < distance[otherActiveFace]) {
+                    distance[otherActiveFace] = newDistance;
+                    parentEdge[otherActiveFace] = activeEdge;
+                    frontier.add(new long[] { Double.doubleToLongBits(newDistance), otherActiveFace });
+                }
+            }
+        }
+        for (int activeFace = 0; activeFace < seamless.faceCount; activeFace++) {
+            int treeEdge = parentEdge[activeFace];
+            if (treeEdge >= 0) {
+                isCutEdge[treeEdge] = false;
             }
         }
     }
@@ -285,24 +312,6 @@ public class CutGraph {
     }
 
     /**
-     * Push a degree-1 singularity's cut-degree to 2 by adding the shortest extra
-     * cut path that leaves by a different edge than the one already connecting it.
-     */
-    private void extendSingularityToDegreeTwo(int singularityVertexId, int[] cutDegree) {
-        int existingCutEdge = -1;
-        int incidentEdgeCount = mesh.vertexEdgeCount(singularityVertexId);
-        for (int i = 0; i < incidentEdgeCount; i++) {
-            int edgeId = mesh.vertexEdgeAt(singularityVertexId, i);
-            int activeEdge = crossField.edgeIdToActive.get(edgeId);
-            if (isCutEdge[activeEdge] && !mesh.isBoundaryEdge(edgeId)) {
-                existingCutEdge = activeEdge;
-                break;
-            }
-        }
-        connectVertexToCut(singularityVertexId, cutDegree, existingCutEdge);
-    }
-
-    /**
      * Mark the shortest mesh-edge path from {@code startVertexId} to the cut graph
      * as cut, keeping {@code cutDegree} in sync. No-op if {@code startVertexId}
      * cannot reach the cut (disconnected mesh) — that chart's origin simply floats.
@@ -384,7 +393,17 @@ public class CutGraph {
                         : mesh.halfEdgeVertex(halfEdge);
                 int otherActiveVertex = activeVertexIndex(otherVertexId);
                 mesh.vertexPosition(otherVertexId, posOther);
-                double newDistance = distHere + posHere.distance(posOther);
+                // BZK09 §5.2: routing a singularity through an alignment edge
+                // would put that feature edge on the cut and force the
+                // {@code v_p = v_q} constraint to collapse it to a point.
+                // Hard-skipping would disconnect singularities sitting on a
+                // feature crease, so penalise instead: alignment edges are
+                // taken only when there is no non-alignment alternative.
+                double edgeLength = posHere.distance(posOther);
+                double edgeCost = crossField.alignmentEdgeIds.contains(edgeId)
+                        ? edgeLength * ALIGNMENT_PATH_PENALTY
+                        : edgeLength;
+                double newDistance = distHere + edgeCost;
                 if (newDistance < distance[otherActiveVertex]) {
                     distance[otherActiveVertex] = newDistance;
                     prevVertex[otherActiveVertex] = activeVertex;

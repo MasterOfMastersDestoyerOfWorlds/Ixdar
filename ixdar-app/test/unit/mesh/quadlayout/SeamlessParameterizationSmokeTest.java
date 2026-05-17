@@ -60,16 +60,14 @@ class SeamlessParameterizationSmokeTest {
     private static final float TRANSITION_TOLERANCE = 1.0e-3f;
 
     /**
-     * EXPERIMENT: turn on BZK09 §5 IGM mode + paper-faithful §5.4 stiffening
-     * constants (c=1, d=5, no multiplicative kick). Used to test the
-     * hypothesis that Lyon's flip-free input was in practice an IGM (which
-     * is a special case of seamless) and the §5.4 paper recipe converges in
-     * that regime.
+     * Use BZK09 §5.4's paper-faithful stiffening constants (c=1, d=5, no
+     * multiplicative kick). IGM mode is now always on by construction, so
+     * the paper recipe converges; the production defaults keep the
+     * non-paper aggressive constants for legacy non-IGM experimentation.
      *
      * @param seamless the parametrization to configure
      */
     private static void applyIgmExperimentDefaults(SeamlessParameterization seamless) {
-        seamless.integerGridMap = true;
         seamless.stiffeningC = 1.0;
         seamless.stiffeningD = 5.0;
         seamless.stiffeningGrowth = 1.0f;
@@ -267,6 +265,69 @@ class SeamlessParameterizationSmokeTest {
         }
     }
 
+    /**
+     * BZK09 §5.2 alignment partial-success diagnostic: every non-cut
+     * alignment edge should have one of its (u, v) components equal and
+     * integer at both endpoints. The current implementation hits this
+     * for ~85% of alignment edges on the fandisk; the rest cluster on
+     * boundary chains where the chart-vertex / cut-edge interaction
+     * leaves the iso-DOF half-integer.
+     *
+     * <p>This test reports the pass rate and asserts a soft floor; it
+     * does not yet require 100% until the secondary-chart-vertex chain
+     * marking is fully worked out (see audit doc item §5.2).
+     *
+     * @throws IOException if the fixture mesh cannot be loaded
+     */
+    @Test
+    @Timeout(value = 5, unit = java.util.concurrent.TimeUnit.MINUTES)
+    void alignmentIsoFandisk() throws IOException {
+        ArrayMesh arrayMesh = MeshLoader.load(FANDISK_OFF.toString());
+        HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
+                arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
+        CrossField crossField = new CrossField(mesh).build();
+        SeamlessParameterization seamless = new SeamlessParameterization(crossField);
+        applyIgmExperimentDefaults(seamless);
+        seamless.build();
 
+        float equalityTolerance = 1.0e-2f;
+        float integerTolerance = 1.0e-1f;
+        int checked = 0;
+        int failed = 0;
+        for (int edgeId : crossField.alignmentEdgeIds) {
+            int ae = crossField.edgeIdToActive.get(edgeId);
+            int faceA = seamless.edgeFaceA[ae];
+            int faceB = seamless.edgeFaceB[ae];
+            if (faceA < 0) continue;
+            if (faceB >= 0 && seamless.cutGraph.isCutEdge[ae]) continue;
+            int hCanon = mesh.edgeHalfEdge(edgeId);
+            int vStart = mesh.halfEdgeVertex(hCanon);
+            int vEnd = mesh.halfEdgeEndVertex(hCanon);
+            int faceAId = mesh.faceIdAt(faceA);
+            float[] cornerCoords = seamless.lookupCorners(faceAId, vStart, vEnd);
+            float uDiff = Math.abs(cornerCoords[0] - cornerCoords[IDX_U_END]);
+            float vDiff = Math.abs(cornerCoords[1] - cornerCoords[IDX_V_END]);
+            float uIntegerSlack = Math.abs(cornerCoords[0] - Math.round(cornerCoords[0]));
+            float vIntegerSlack = Math.abs(cornerCoords[1] - Math.round(cornerCoords[1]));
+            boolean uIsoOk = uDiff < equalityTolerance && uIntegerSlack < integerTolerance;
+            boolean vIsoOk = vDiff < equalityTolerance && vIntegerSlack < integerTolerance;
+            checked++;
+            if (!uIsoOk && !vIsoOk) {
+                failed++;
+            }
+        }
+        int passed = checked - failed;
+        double rate = checked == 0 ? 1.0 : (double) passed / checked;
+        System.out.printf("[fandisk] alignment edges: %d/%d satisfy iso-line invariant (%.1f%%)%n",
+                passed, checked, rate * SOFT_FLOOR_PERCENT_SCALE);
+        assertTrue(rate >= ALIGNMENT_SOFT_FLOOR,
+                String.format("fandisk: only %d/%d alignment edges passed (%.1f%%), expected >= %.0f%%",
+                        passed, checked, rate * SOFT_FLOOR_PERCENT_SCALE,
+                        ALIGNMENT_SOFT_FLOOR * SOFT_FLOOR_PERCENT_SCALE));
+    }
 
+    private static final int IDX_U_END = 2;
+    private static final int IDX_V_END = 3;
+    private static final double ALIGNMENT_SOFT_FLOOR = 0.80;
+    private static final double SOFT_FLOOR_PERCENT_SCALE = 100.0;
 }

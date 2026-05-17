@@ -8,6 +8,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.Singularity;
@@ -52,6 +54,12 @@ public final class SeamlessDofSystem {
     private static final int AVG_NONZEROS_PER_ROW = 8;
     /** Tolerance for the leftover-row Gauss-Jordan pivot magnitude. */
     private static final double LEFTOVER_REDUCE_TOLERANCE = 1.0e-10;
+    /** Sentinel for "this edge is not an alignment edge". */
+    private static final int NOT_ALIGNMENT = -1;
+    /** {@link #alignmentEdgeIsoAxis} value when u_T is along the edge and v is the iso-coordinate to pin. */
+    private static final int ALIGN_AXIS_V = 1;
+    /** {@link #alignmentEdgeIsoAxis} value when v_T is along the edge and u is the iso-coordinate to pin. */
+    private static final int ALIGN_AXIS_U = 0;
 
     // ===== Input references (snapshotted at construction) =====
 
@@ -110,6 +118,17 @@ public final class SeamlessDofSystem {
     public final double[][][] chartVertexFinalCoefs;
     /** True if final-DOF i must round to an integer in IGM mode. */
     public final boolean[] dofIsInteger;
+
+    /**
+     * BZK09 §5.2 alignment iso-axis per active edge: {@link #ALIGN_AXIS_V}
+     * if the cross-field u-axis runs along this edge and v is the
+     * iso-coordinate to pin; {@link #ALIGN_AXIS_U} for the reverse;
+     * {@link #NOT_ALIGNMENT} if this edge is not in
+     * {@link CrossField#alignmentEdgeIds}, or is an interior cut edge
+     * (a feature edge that ended up on the cut cannot satisfy
+     * {@code v_p = v_q} on both sides simultaneously; see audit doc).
+     */
+    public final int[] alignmentEdgeIsoAxis;
 
     // ===== Pin state (mutated by the greedy rounder) =====
 
@@ -193,6 +212,8 @@ public final class SeamlessDofSystem {
         }
         this.rawDofCount = 2 * cutGraph.primaryChartCount + 2 * cutGraph.interiorCutEdgeCount;
 
+        this.alignmentEdgeIsoAxis = computeAlignmentEdgeIsoAxes();
+
         this.leftoverPivotDofs = new int[rawDofCount][];
         this.leftoverPivotCoefs = new double[rawDofCount][];
         this.rawDofToFinal = new int[rawDofCount];
@@ -205,7 +226,7 @@ public final class SeamlessDofSystem {
         this.dofIsInteger = new boolean[dofCount];
         this.dofPinned = new boolean[dofCount];
         this.dofPinnedValue = new double[dofCount];
-        markIntegerDofs(owner.integerGridMap);
+        markIntegerDofs();
     }
 
     /**
@@ -339,6 +360,63 @@ public final class SeamlessDofSystem {
     }
 
     /**
+     * Decide, for every active edge in
+     * {@link CrossField#alignmentEdgeIds}, whether the cross field's
+     * u-axis or v-axis runs along it. Picks the axis whose projection
+     * onto the edge direction (in face A's local frame, post
+     * branch rotation) has the larger absolute value; the orthogonal
+     * coordinate is the iso to pin per BZK09 §5.2.
+     *
+     * <p>Interior cut edges that happen to be alignment edges are
+     * marked {@link #NOT_ALIGNMENT}: the {@code v_p = v_q} constraint
+     * cannot hold simultaneously on both sides of a rotated cut.
+     * Boundary alignment edges keep their axis because they have only
+     * one face and no seam transition.
+     *
+     * @return per active edge: {@link #ALIGN_AXIS_U},
+     *         {@link #ALIGN_AXIS_V}, or {@link #NOT_ALIGNMENT}
+     */
+    private int[] computeAlignmentEdgeIsoAxes() {
+        int[] axis = new int[edgeCount];
+        Arrays.fill(axis, NOT_ALIGNMENT);
+        Vector3f startPos = new Vector3f();
+        Vector3f endPos = new Vector3f();
+        Vector3f edgeDir = new Vector3f();
+        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+            int edgeId = mesh.edgeIdAt(activeEdge);
+            if (!crossField.alignmentEdgeIds.contains(edgeId)) {
+                continue;
+            }
+            int faceA = edgeFaceA[activeEdge];
+            int faceB = edgeFaceB[activeEdge];
+            if (faceA < 0) {
+                continue;
+            }
+            if (faceB >= 0 && cutGraph.isCutEdge[activeEdge]) {
+                // Feature edge ended up on the cut despite the bias.
+                continue;
+            }
+            int halfEdge = mesh.edgeHalfEdge(edgeId);
+            int startVertex = mesh.halfEdgeVertex(halfEdge);
+            int endVertex = mesh.halfEdgeEndVertex(halfEdge);
+            mesh.vertexPosition(startVertex, startPos);
+            mesh.vertexPosition(endVertex, endPos);
+            edgeDir.set(endPos).sub(startPos);
+            double edgeX = edgeDir.dot(crossField.faceX[faceA]);
+            double edgeY = edgeDir.dot(crossField.faceY[faceA]);
+            double angle = crossField.theta[faceA]
+                    + cutGraph.faceBranch[faceA] * (Math.PI / 2.0);
+            double uTx = Math.cos(angle);
+            double uTy = Math.sin(angle);
+            // v_T = R_{π/2} u_T = (-uTy, uTx)
+            double dotU = edgeX * uTx + edgeY * uTy;
+            double dotV = edgeX * (-uTy) + edgeY * uTx;
+            axis[activeEdge] = Math.abs(dotU) >= Math.abs(dotV) ? ALIGN_AXIS_V : ALIGN_AXIS_U;
+        }
+        return axis;
+    }
+
+    /**
      * Reduce the leftover-constraint system {@code L · x = 0} to a set of
      * substitution rules, one per pivoted raw DOF, by sparse Gauss-Jordan
      * elimination with partial pivoting on the largest-magnitude entry.
@@ -371,6 +449,7 @@ public final class SeamlessDofSystem {
             rowV.merge(tDof, -1.0, Double::sum);
             rows.add(rowV);
         }
+        addAlignmentEqualityRows(rows);
 
         int totalRows = rows.size();
         boolean[] rowPivoted = new boolean[totalRows];
@@ -435,6 +514,49 @@ public final class SeamlessDofSystem {
     }
 
     /**
+     * For every BZK09 §5.2 alignment edge with a decided iso-axis, add
+     * one equality row {@code u_p − u_q = 0} (or v) to {@code rows}.
+     * The endpoint chart vertices come from face A's corners at the
+     * canonical half-edge's start/end vertices; boundary alignment
+     * edges only have face A, interior non-cut alignment edges have
+     * both A and B unified onto the same pair of chart vertices.
+     *
+     * @param rows the accumulator the §5 cut-rotation rows already
+     *             populated; this method appends to it in place
+     */
+    private void addAlignmentEqualityRows(ArrayList<HashMap<Integer, Double>> rows) {
+        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+            int axis = alignmentEdgeIsoAxis[activeEdge];
+            if (axis == NOT_ALIGNMENT) {
+                continue;
+            }
+            int faceA = edgeFaceA[activeEdge];
+            int cornerStartA = -1;
+            int cornerEndA = -1;
+            int edgeId = mesh.edgeIdAt(activeEdge);
+            int halfEdge = mesh.edgeHalfEdge(edgeId);
+            int startVertex = mesh.halfEdgeVertex(halfEdge);
+            int endVertex = mesh.halfEdgeEndVertex(halfEdge);
+            int faceAId = mesh.faceIdAt(faceA);
+            for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
+                int cornerVertex = mesh.faceVertexAt(faceAId, corner);
+                if (cornerVertex == startVertex) {
+                    cornerStartA = corner;
+                } else if (cornerVertex == endVertex) {
+                    cornerEndA = corner;
+                }
+            }
+            int chartStart = cutGraph.cornerToChartVertex[faceA * CORNERS_PER_FACE + cornerStartA];
+            int chartEnd = cutGraph.cornerToChartVertex[faceA * CORNERS_PER_FACE + cornerEndA];
+            int component = axis == ALIGN_AXIS_V ? 1 : 0;
+            HashMap<Integer, Double> row = new HashMap<>();
+            addRawExpansionTo(row, chartStart, component, 1.0);
+            addRawExpansionTo(row, chartEnd, component, -1.0);
+            rows.add(row);
+        }
+    }
+
+    /**
      * Bake the per-cut-edge substitution and leftover-row elimination into
      * a per-chart-vertex final-DOF expansion. After this the solver works
      * in the final DOF space directly: each chart vertex's u or v is
@@ -465,18 +587,15 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Mark which final DOFs must round to integers in IGM mode: every
-     * per-cut-edge {@code (s, t)} pair, and the {@code (u, v)} of every
-     * primary chart vertex that touches a singularity mesh vertex.
+     * Mark which final DOFs must round to integers: every per-cut-edge
+     * {@code (s, t)} pair, the {@code (u, v)} of every primary chart
+     * vertex that touches a singularity mesh vertex, and the iso-axis
+     * coordinate of every primary chart vertex on a BZK09 §5.2 alignment
+     * edge (handed off to {@link #markAlignmentIsoDofs}).
      * Pivot-eliminated raw DOFs are skipped (their values are determined
      * by non-eliminated free DOFs).
-     *
-     * @param integerGridMap whether IGM mode is enabled
      */
-    private void markIntegerDofs(boolean integerGridMap) {
-        if (!integerGridMap) {
-            return;
-        }
+    private void markIntegerDofs() {
         for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
             if (cutEdgeSDof[activeEdge] < 0) {
                 continue;
@@ -502,6 +621,72 @@ public final class SeamlessDofSystem {
                 markRawDofAsInteger(2 * primaryIdx);
                 markRawDofAsInteger(2 * primaryIdx + 1);
             }
+        }
+        markAlignmentIsoDofs();
+    }
+
+    /**
+     * BZK09 §5.2 integer iso-line pin: for every alignment edge whose
+     * axis was decided in {@link #computeAlignmentEdgeIsoAxes}, mark
+     * the iso-coordinate of both endpoint chart vertices as integer.
+     * The pair was tied together as equal in
+     * {@link #addAlignmentEqualityRows}, so leftover-row elimination
+     * collapses them onto a shared expansion in
+     * {@link #chartVertexFinalDofs}; the integer pin propagates through
+     * every final DOF in that expansion.
+     */
+    private void markAlignmentIsoDofs() {
+        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+            int axis = alignmentEdgeIsoAxis[activeEdge];
+            if (axis == NOT_ALIGNMENT) {
+                continue;
+            }
+            int faceA = edgeFaceA[activeEdge];
+            int edgeId = mesh.edgeIdAt(activeEdge);
+            int halfEdge = mesh.edgeHalfEdge(edgeId);
+            int startVertex = mesh.halfEdgeVertex(halfEdge);
+            int endVertex = mesh.halfEdgeEndVertex(halfEdge);
+            int faceAId = mesh.faceIdAt(faceA);
+            int cornerStartA = -1;
+            int cornerEndA = -1;
+            for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
+                int cornerVertex = mesh.faceVertexAt(faceAId, corner);
+                if (cornerVertex == startVertex) {
+                    cornerStartA = corner;
+                } else if (cornerVertex == endVertex) {
+                    cornerEndA = corner;
+                }
+            }
+            int chartStart = cutGraph.cornerToChartVertex[faceA * CORNERS_PER_FACE + cornerStartA];
+            int chartEnd = cutGraph.cornerToChartVertex[faceA * CORNERS_PER_FACE + cornerEndA];
+            int component = axis == ALIGN_AXIS_V ? 1 : 0;
+            markChartComponentExpansionInteger(chartStart, component);
+            markChartComponentExpansionInteger(chartEnd, component);
+        }
+    }
+
+    /**
+     * Mark every final DOF in a chart vertex's component expansion as
+     * integer. For a primary chart vertex this is a single DOF (the
+     * direct raw DOF after pivot survival); for a secondary one it
+     * walks the seam-rotation substitution {@code chartC.v = ±partner.u
+     * + (s, t)} and marks each surviving DOF. Because every coefficient
+     * in {@link #chartVertexFinalDofs} is integer (seam rotations have
+     * integer cos/sin, alignment rows have ±1 coefficients), an integer
+     * value for every term in the expansion forces the chart vertex's
+     * component to also be integer.
+     *
+     * @param chartVertex chart vertex index
+     * @param component   0 for u, 1 for v
+     */
+    private void markChartComponentExpansionInteger(int chartVertex, int component) {
+        int[] dofs = chartVertexFinalDofs[chartVertex][component];
+        double[] coefs = chartVertexFinalCoefs[chartVertex][component];
+        for (int i = 0; i < dofs.length; i++) {
+            if (coefs[i] == 0.0) {
+                continue;
+            }
+            dofIsInteger[dofs[i]] = true;
         }
     }
 

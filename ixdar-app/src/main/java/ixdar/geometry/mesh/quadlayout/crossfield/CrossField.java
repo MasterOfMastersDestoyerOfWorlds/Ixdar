@@ -200,6 +200,17 @@ public class CrossField {
     public Map<Integer, Integer> faceIdToActive;
     public Map<Integer, Integer> edgeIdToActive;
 
+    /**
+     * BZK09 §5.2 alignment edges: union of sharp feature edges (dihedral test
+     * in {@link #applyFeatureEdgeConstraints}) and mesh boundary edges
+     * (from {@link #applyBoundaryConstraints}). Filled by {@link #build()}
+     * during constraint construction; downstream seamless code uses this
+     * set both to bias cut-graph routing away from these edges and to add
+     * one {@code v_p = v_q ∈ ℤ} (or {@code u_p = u_q ∈ ℤ}) constraint per
+     * edge. Keys are raw {@link HalfEdgeMesh} edge ids, not active indices.
+     */
+    public Set<Integer> alignmentEdgeIds = new HashSet<>();
+
     // Reusable scratch for integrateCurvatureTensor. Each call bumps
     // `curvatureStamp`
     // and writes that value into the per-vertex/per-face/per-edge slots it visits;
@@ -247,6 +258,7 @@ public class CrossField {
         this.kappa = new float[edgeCount];
         this.faceX = new Vector3f[faceCount];
         this.faceY = new Vector3f[faceCount];
+        this.alignmentEdgeIds = new HashSet<>();
 
         faceIdToActive = new HashMap<>(mesh.faceCount() * 2);
         for (int i = 0; i < mesh.faceCount(); i++) {
@@ -1358,6 +1370,7 @@ public class CrossField {
 
             int fiAi = faceIdToActive.get(fi);
             int fjAi = faceIdToActive.get(fj);
+            alignmentEdgeIds.add(eId);
             if (faceConstrained[fiAi] && faceConstrained[fjAi]) {
                 continue;
             }
@@ -1404,6 +1417,7 @@ public class CrossField {
             mesh.vertexPosition(v0, a);
             mesh.vertexPosition(v1, b);
             Vector3f edgeDir = new Vector3f(b).sub(a);
+            alignmentEdgeIds.add(eId);
             addedConstraints += constrainBothFacesOfEdge(eId, edgeDir, faceConstrained, faceConstraintAngle);
         }
         return addedConstraints;

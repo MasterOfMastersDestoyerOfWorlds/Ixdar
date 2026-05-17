@@ -122,7 +122,7 @@ public final class SeamlessParameterization {
      * (bolt, rockerarm) diverge under this simplified IRLS — see
      * {@link #stiffeningSmoothPasses} and the class-level note on §5.4 fidelity.
      */
-    public float stiffeningGrowth = 4.0f;
+    public float stiffeningGrowth = 1.0f;
 
     /**
      * §5.4 maximum per-face IRLS weight; bounds the multiplicative flip kick.
@@ -144,27 +144,13 @@ public final class SeamlessParameterization {
      * singularity pinning, the relaxed solve has many flips and needs much faster
      * weight growth — c = 100 converges sphere in &lt;30 iterations.
      */
-    public double stiffeningC = 100.0;
+    public double stiffeningC = 1.0;
 
     /**
      * §5.4 maximum per-pass weight bump (paper: d = 5; we raise it to keep up with
      * c).
      */
-    public double stiffeningD = 1.0e4;
-
-    /**
-     * If true, run BZK09 §2 greedy mixed-integer rounding of (j, k) cut
-     * translations and singularity chart-vertex (u, v) — produces a full
-     * INTEGER-GRID MAP per BZK09 §5. This is what BZK09 itself ships, what
-     * Lyon 2021 §7 used as its input parametrization
-     * ("optimizing the energy proposed by Bommes et al. [BZK09]"), and what
-     * QEx-style quad extraction downstream of the T-mesh expects. The IGM
-     * is a strict refinement of seamlessness, so every downstream stage that
-     * accepts a "seamless" input accepts an IGM too. Disable only for
-     * diagnostic / experimental runs where real (s, t) and real singularity
-     * positions are wanted.
-     */
-    public boolean integerGridMap = true;
+    public double stiffeningD = 5;
 
     /**
      * If true, run MC19 (Mandad–Campen 2019) exact-constraint projection after
@@ -310,18 +296,15 @@ public final class SeamlessParameterization {
 
         this.dofSystem = new SeamlessDofSystem(this);
 
-        // BZK09 §5: (1) all-continuous solve. If {@link #integerGridMap} is on,
-        // (2) BZK09 §2 greedy round (j, k) and singularity (u, v) to integers,
-        // re-solving after each pin. Then (3) §5.4 IRLS stiffening using the
-        // Hormann-Lévy-Sheffer distortion + uniform-Laplacian weight updates
-        // (paper recipe). Lyon 2021 wants a *seamless* map (real (s, t), real
-        // singularities), so {@link #integerGridMap} defaults off.
+        // BZK09 §5: (1) all-continuous solve, (2) BZK09 §2 greedy round
+        // (j, k), singularity (u, v), and §5.2 alignment iso-coordinates
+        // to integers re-solving after each pin, then (3) §5.4 IRLS
+        // stiffening using the Hormann-Lévy-Sheffer distortion +
+        // uniform-Laplacian weight updates.
         System.out.println("[seamless] Solving once");
         solveOnce();
-        if (integerGridMap) {
-            System.out.println("[seamless] Running greedy integer rounding");
-            runGreedyIntegerRounding();
-        }
+        System.out.println("[seamless] Running greedy integer rounding");
+        runGreedyIntegerRounding();
         System.out.println("[seamless] Running stiffening loop");
         runStiffeningLoop();
 
