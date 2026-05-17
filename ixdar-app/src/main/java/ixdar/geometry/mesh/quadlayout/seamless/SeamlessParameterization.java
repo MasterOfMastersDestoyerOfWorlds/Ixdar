@@ -1,27 +1,15 @@
 package ixdar.geometry.mesh.quadlayout.seamless;
 
-import java.util.ArrayDeque;
 import java.util.Arrays;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
-import ixdar.geometry.mesh.quadlayout.seamless.exact.ExactArithmetic;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.SeamlessProjector;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.IncrementalCholeskySolver;
-import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
-import ixdar.geometry.mesh.quadlayout.solver.SolverPermutation;
 
 /**
  * BZK09 §5 seamless parametrization, stage 3 of the Lyon 2021 quad-layout
@@ -85,13 +73,7 @@ public final class SeamlessParameterization {
      * treated as zero during sparse Gauss-Jordan elimination. Sized to swallow
      * round-off from {@code R · (s, t)} cancellations at singularity nodes.
      */
-    private static final double LEFTOVER_REDUCE_TOLERANCE = 1.0e-10;
-    /** Components per chart vertex: 2 (u and v). */
-    private static final int COMPONENTS_PER_CHART_VERTEX = 2;
     private static final double NANOS_PER_SEC = 1.0e9;
-    private static final int SHIFT_32 = 32;
-    private static final long MASK_32 = 0xFFFFFFFFL;
-    private static final int AVG_NONZEROS_PER_ROW = 8;
     private static final String DIAG_PROP = "seamlessParam.diag";
     private static final String DIAG_TRUE = "true";
     private static final int DIAG_LOG_EVERY = 10;
