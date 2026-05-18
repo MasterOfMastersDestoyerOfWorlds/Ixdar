@@ -616,13 +616,11 @@ public class HalfEdgeMeshRuntime {
     /**
      * Set the fallback face color used when no tag partitioning is active.
      *
-     * @param r red channel in [0, 1]
-     * @param g green channel in [0, 1]
-     * @param b blue channel in [0, 1]
-     * @param a alpha channel in [0, 1]
+     * @param color RGBA channels, each in [0, 1]; copied into the runtime's
+     *              internal {@code solidColor}
      */
-    public void setSolidColor(float r, float g, float b, float a) {
-        solidColor.set(r, g, b, a);
+    public void setSolidColor(Vector4f color) {
+        solidColor.set(color);
     }
 
     /**

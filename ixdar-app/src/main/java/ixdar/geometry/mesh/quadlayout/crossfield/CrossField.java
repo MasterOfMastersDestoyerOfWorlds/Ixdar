@@ -128,11 +128,9 @@ public class CrossField {
     public List<Singularity> singularities = new ArrayList<>();
 
     /**
-     * BZK09 §3 relative anisotropy threshold τ_min. Paper specifies 0.8; sweep
-     * against the BCEAK13 NDFs prefers 0.9 — the published results clearly used a
-     * stricter cutoff than the paper text states.
+     * BZK09 §3 relative anisotropy threshold τ_min.
      */
-    public float tauMin = 0.9f;
+    public float tauMin = 0.8f;
 
     /**
      * BZK09 §3 mean-curvature threshold K = curvatureScaleK / boundingSphereRadius.
@@ -157,7 +155,7 @@ public class CrossField {
     public float radiusRatio = (float) Math.sqrt(2.0);
 
     /** Dihedral cosine threshold for feature-edge alignment (cos 90° = 0). */
-    public float featureDihedralCos = 0.0f;
+    public float featureDihedralCos = 0f;
 
     /**
      * BZK09 §2.1 adaptive ladder caps. Each rounding triggers a re-solve that
@@ -168,8 +166,8 @@ public class CrossField {
      * roundings where local GS would spin a long time, costs a factor of ~k extra
      * direct solves on easy roundings.
      */
-    public int solverLocalMaxIterations = 50_000;
-    public int solverCgMaxIterations = 500;
+    public int solverLocalMaxIterations = 5000;
+    public int solverCgMaxIterations = 50;
 
     /**
      * BZK09 §3 vertex-to-face constraint expansion mode. The paper pseudocode reads
@@ -193,7 +191,7 @@ public class CrossField {
      * smallest fraction at which {@code count = 40 (the reference)} with
      * single-radius integration. The paper does not pin this number down.
      */
-    public float targetEdgeLengthFractionOfBounds = 0.08f;
+    public float targetEdgeLengthFractionOfBounds = 0.01f;
 
     public CurvatureConstraintStats lastCurvatureStats = new CurvatureConstraintStats();
 
@@ -201,13 +199,13 @@ public class CrossField {
     public Map<Integer, Integer> edgeIdToActive;
 
     /**
-     * BZK09 §5.2 alignment edges: union of sharp feature edges (dihedral test
-     * in {@link #applyFeatureEdgeConstraints}) and mesh boundary edges
-     * (from {@link #applyBoundaryConstraints}). Filled by {@link #build()}
-     * during constraint construction; downstream seamless code uses this
-     * set both to bias cut-graph routing away from these edges and to add
-     * one {@code v_p = v_q ∈ ℤ} (or {@code u_p = u_q ∈ ℤ}) constraint per
-     * edge. Keys are raw {@link HalfEdgeMesh} edge ids, not active indices.
+     * BZK09 §5.2 alignment edges: union of sharp feature edges (dihedral test in
+     * {@link #applyFeatureEdgeConstraints}) and mesh boundary edges (from
+     * {@link #applyBoundaryConstraints}). Filled by {@link #build()} during
+     * constraint construction; downstream seamless code uses this set both to bias
+     * cut-graph routing away from these edges and to add one {@code v_p = v_q ∈ ℤ}
+     * (or {@code u_p = u_q ∈ ℤ}) constraint per edge. Keys are raw
+     * {@link HalfEdgeMesh} edge ids, not active indices.
      */
     public Set<Integer> alignmentEdgeIds = new HashSet<>();
 
@@ -223,6 +221,7 @@ public class CrossField {
     public float[] vertexDistance;
     public int[] verticesVisited;
     public int curvatureStamp = 0;
+    public float h;
 
     /**
      * Wrap a half-edge mesh; defer all field arrays until {@link #build()} runs.
@@ -377,6 +376,9 @@ public class CrossField {
         float averageEdgeLength = mesh.computeAverageEdgeLength();
         float boundingSphereRadius = mesh.computeBoundingSphereRadius();
         float curvatureK = curvatureScaleK / Math.max(boundingSphereRadius, EPSILON_FP_TOLERANCE);
+
+        float targetLength = targetEdgeLengthFractionOfBounds * mesh.computeBoundingBoxDiagonal();
+        this.h = targetLength > 0f ? targetLength : averageEdgeLength;
 
         applyFeatureEdgeConstraints(faceConstrained, faceConstraintAngle);
         applyBoundaryConstraints(faceConstrained, faceConstraintAngle);
@@ -805,7 +807,6 @@ public class CrossField {
         Vector3f e2 = new Vector3f();
         int addedConstraints = 0;
         CurvatureConstraintStats stats = new CurvatureConstraintStats();
-        float h = resolvedTargetEdgeLength(averageEdgeLength);
         float stabilityWindow = RADIUS_STABILITY_WINDOW_FRACTION * h;
 
         List<Float> radii = new ArrayList<>();
@@ -1009,20 +1010,6 @@ public class CrossField {
         float y = dirWorld.y - dotN * n.y;
         float z = dirWorld.z - dotN * n.z;
         return (float) Math.sqrt(x * x + y * y + z * z);
-    }
-
-    /**
-     * Resolve the BZK09 target quad edge length: a fraction of the bounding-box
-     * diagonal, falling back to the supplied mean edge length when the bounds
-     * collapse.
-     *
-     * @param averageEdgeLength fallback target when the bounding box has zero
-     *                          diagonal
-     * @return the resolved target edge length {@code h}
-     */
-    public float resolvedTargetEdgeLength(float averageEdgeLength) {
-        float target = targetEdgeLengthFractionOfBounds * mesh.computeBoundingBoxDiagonal();
-        return target > 0f ? target : averageEdgeLength;
     }
 
     /**
@@ -1332,10 +1319,12 @@ public class CrossField {
     }
 
     /**
-     * BZK09 §5.2 / CIE16-style alignment constraints: edges whose dihedral angle
+     * BZK09 §5.2 feature-edge alignment constraints: edges whose dihedral angle
      * between the two incident face normals exceeds {@link #featureDihedralCos}
      * (default cos 30° = 0.866) are treated as sharp creases. The cross is aligned
-     * with the edge direction in both incident faces.
+     * with the edge direction in both incident faces. Binary include/exclude
+     * decision by dihedral threshold — no scale-invariant adaptation, no confidence
+     * weighting; CIE16 is a richer alternative we do not implement.
      *
      * <p>
      * Without this pass, sharp models like fandisk produce many spurious

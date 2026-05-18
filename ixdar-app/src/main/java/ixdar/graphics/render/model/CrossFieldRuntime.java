@@ -11,6 +11,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.graphics.cameras.Camera3D;
+import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
@@ -33,6 +34,7 @@ public class CrossFieldRuntime extends HalfEdgeMeshRuntime {
     public static final int VERTS_PER_FACE = 4;
     public static final int LINES_PER_FACE = 2;
     public static final int INDICES_PER_FACE = LINES_PER_FACE * 2;
+    public static final int INDICES_PER_AXIS = 2;
     public static final int FLOATS_PER_VERTEX = 3;
     public static final int FLOATS_PER_FACE = VERTS_PER_FACE * FLOATS_PER_VERTEX;
     public static final int ICOSAHEDRON_VERTEX_COUNT = 12;
@@ -50,12 +52,13 @@ public class CrossFieldRuntime extends HalfEdgeMeshRuntime {
     public static final int IDX_VBASE_PLUS_3 = 3;
 
     /** Cyan for {@code index4 > 0} (valence-3, +π/2) per BZK09 fig. 4 caption. */
-    private static final Vector4f COLOR_POSITIVE_INDEX = new Vector4f(
-            SPHERE_TINT_OFFSET, SPHERE_TINT_SECONDARY_LOW, SPHERE_TINT_PRIMARY, 1f);
+    private static final Vector4f COLOR_POSITIVE_INDEX = ColorRGB.CYAN.toVector4f();
     /** Red for {@code index4 < 0} (valence-5, -π/2) per BZK09 fig. 4 caption. */
-    private static final Vector4f COLOR_NEGATIVE_INDEX = new Vector4f(
-            SPHERE_TINT_PRIMARY, SPHERE_TINT_OFFSET, SPHERE_TINT_OFFSET, 1f);
-    private static final Vector4f COLOR_CROSS_ARMS = new Vector4f(0f, 0f, 0f, 1f);
+    private static final Vector4f COLOR_NEGATIVE_INDEX = ColorRGB.RED.toVector4f();
+    /** Yellow for the u-axis arm (cos θ · f_x + sin θ · f_y). */
+    private static final Vector4f COLOR_U_ARM = ColorRGB.YELLOW.toVector4f();
+    /** Cyan for the v-axis arm (−sin θ · f_x + cos θ · f_y). */
+    private static final Vector4f COLOR_V_ARM = ColorRGB.CYAN.toVector4f();
 
     /** 12 unit-icosahedron vertices in xyz layout (flat). */
     private static final float[] ICO_VERTICES = {
@@ -73,11 +76,15 @@ public class CrossFieldRuntime extends HalfEdgeMeshRuntime {
 
     private final ShaderProgram unlit;
 
-    // Cross-arm geometry (xyz only, attribute location 0).
+    // Cross-arm geometry (xyz only, attribute location 0). U-axis and v-axis
+    // arms share a single VBO but live in separate EBOs so each axis can be
+    // drawn with its own solid colour, making field rotation across cuts
+    // visually obvious.
     private int crossArmsVao;
     private int crossArmsVbo;
-    private int crossArmsEbo;
-    private int crossArmsIndexCount;
+    private int crossArmsUEbo;
+    private int crossArmsVEbo;
+    private int crossArmsIndexCountPerAxis;
 
     // Shared icosphere unit mesh (radius=1, no subdiv — 12 verts, 20 tris). Each
     // singularity gets one draw call with its own model matrix translating to
@@ -126,7 +133,8 @@ public class CrossFieldRuntime extends HalfEdgeMeshRuntime {
         GL gl = Platforms.gl();
         int faceCount = mesh.faceCount();
         float[] arms = new float[faceCount * FLOATS_PER_FACE];
-        int[] armsIndices = new int[faceCount * INDICES_PER_FACE];
+        int[] uArmsIndices = new int[faceCount * INDICES_PER_AXIS];
+        int[] vArmsIndices = new int[faceCount * INDICES_PER_AXIS];
         Vector3f p0 = new Vector3f();
         Vector3f p1 = new Vector3f();
         Vector3f p2 = new Vector3f();
@@ -181,13 +189,12 @@ public class CrossFieldRuntime extends HalfEdgeMeshRuntime {
             writeVertex(arms, base + IDX_VBASE_PLUS_3 * FLOATS_PER_VERTEX,
                     cx + s * pdx, cy + s * pdy, cz + s * pdz);
 
-            // 2 line segments per face: (vBase, vBase+1) and (vBase+2, vBase+3).
-            int idxBase = fAi * INDICES_PER_FACE;
+            int idxBase = fAi * INDICES_PER_AXIS;
             int vBase = fAi * VERTS_PER_FACE;
-            armsIndices[idxBase] = vBase;
-            armsIndices[idxBase + IDX_VBASE_PLUS_1] = vBase + IDX_VBASE_PLUS_1;
-            armsIndices[idxBase + IDX_VBASE_PLUS_2] = vBase + IDX_VBASE_PLUS_2;
-            armsIndices[idxBase + IDX_VBASE_PLUS_3] = vBase + IDX_VBASE_PLUS_3;
+            uArmsIndices[idxBase] = vBase;
+            uArmsIndices[idxBase + IDX_VBASE_PLUS_1] = vBase + IDX_VBASE_PLUS_1;
+            vArmsIndices[idxBase] = vBase + IDX_VBASE_PLUS_2;
+            vArmsIndices[idxBase + IDX_VBASE_PLUS_1] = vBase + IDX_VBASE_PLUS_3;
         }
 
         if (crossArmsVao != 0) {
@@ -196,23 +203,31 @@ public class CrossFieldRuntime extends HalfEdgeMeshRuntime {
         if (crossArmsVbo != 0) {
             gl.deleteBuffers(crossArmsVbo);
         }
-        if (crossArmsEbo != 0) {
-            gl.deleteBuffers(crossArmsEbo);
+        if (crossArmsUEbo != 0) {
+            gl.deleteBuffers(crossArmsUEbo);
+        }
+        if (crossArmsVEbo != 0) {
+            gl.deleteBuffers(crossArmsVEbo);
         }
         crossArmsVao = gl.genVertexArrays();
         crossArmsVbo = gl.genBuffers();
-        crossArmsEbo = gl.genBuffers();
+        crossArmsUEbo = gl.genBuffers();
+        crossArmsVEbo = gl.genBuffers();
         gl.bindVertexArray(crossArmsVao);
         gl.bindBuffer(gl.ARRAY_BUFFER(), crossArmsVbo);
         gl.bufferData(gl.ARRAY_BUFFER(), arms, gl.STATIC_DRAW());
         gl.vertexAttribPointer(0, FLOATS_PER_VERTEX, gl.FLOAT(), false,
                 FLOATS_PER_VERTEX * Float.BYTES, 0);
         gl.enableVertexAttribArray(0);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), crossArmsEbo);
-        IntBuffer ib = BufferUtils.createIntBuffer(armsIndices.length);
-        ib.put(armsIndices).flip();
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), ib, gl.STATIC_DRAW());
-        crossArmsIndexCount = armsIndices.length;
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), crossArmsUEbo);
+        IntBuffer uIb = BufferUtils.createIntBuffer(uArmsIndices.length);
+        uIb.put(uArmsIndices).flip();
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), uIb, gl.STATIC_DRAW());
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), crossArmsVEbo);
+        IntBuffer vIb = BufferUtils.createIntBuffer(vArmsIndices.length);
+        vIb.put(vArmsIndices).flip();
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), vIb, gl.STATIC_DRAW());
+        crossArmsIndexCountPerAxis = uArmsIndices.length;
 
         if (singularityVao == 0) {
             buildIcosphereBuffers(gl);
@@ -282,7 +297,7 @@ public class CrossFieldRuntime extends HalfEdgeMeshRuntime {
      * @return {@code true} when cross-arm geometry has been uploaded
      */
     public boolean hasCrossField() {
-        return crossArmsIndexCount > 0;
+        return crossArmsIndexCountPerAxis > 0;
     }
 
     /**
@@ -316,11 +331,14 @@ public class CrossFieldRuntime extends HalfEdgeMeshRuntime {
 
         sphereModel.identity();
         unlit.setMat4(MODEL, sphereModel);
-        unlit.setVec4(SOLIDCOLOR, COLOR_CROSS_ARMS);
         gl.bindVertexArray(crossArmsVao);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), crossArmsEbo);
         gl.lineWidth(CROSS_LINE_WIDTH);
-        gl.drawElements(gl.LINES(), crossArmsIndexCount, gl.UNSIGNED_INT(), 0);
+        unlit.setVec4(SOLIDCOLOR, COLOR_U_ARM);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), crossArmsUEbo);
+        gl.drawElements(gl.LINES(), crossArmsIndexCountPerAxis, gl.UNSIGNED_INT(), 0);
+        unlit.setVec4(SOLIDCOLOR, COLOR_V_ARM);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), crossArmsVEbo);
+        gl.drawElements(gl.LINES(), crossArmsIndexCountPerAxis, gl.UNSIGNED_INT(), 0);
 
         gl.bindVertexArray(singularityVao);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), singularityEbo);
@@ -351,9 +369,13 @@ public class CrossFieldRuntime extends HalfEdgeMeshRuntime {
             gl.deleteBuffers(crossArmsVbo);
             crossArmsVbo = 0;
         }
-        if (crossArmsEbo != 0) {
-            gl.deleteBuffers(crossArmsEbo);
-            crossArmsEbo = 0;
+        if (crossArmsUEbo != 0) {
+            gl.deleteBuffers(crossArmsUEbo);
+            crossArmsUEbo = 0;
+        }
+        if (crossArmsVEbo != 0) {
+            gl.deleteBuffers(crossArmsVEbo);
+            crossArmsVEbo = 0;
         }
         if (singularityVao != 0) {
             gl.deleteVertexArrays(singularityVao);
@@ -367,7 +389,7 @@ public class CrossFieldRuntime extends HalfEdgeMeshRuntime {
             gl.deleteBuffers(singularityEbo);
             singularityEbo = 0;
         }
-        crossArmsIndexCount = 0;
+        crossArmsIndexCountPerAxis = 0;
         singularityIndexCount = 0;
     }
 }

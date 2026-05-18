@@ -38,6 +38,7 @@ public final class SeamlessProjector {
     private static final int COMPONENTS_PER_CHART_VERTEX = 2;
     private static final int U_COMPONENT = 0;
     private static final int V_COMPONENT = 1;
+    private static final int ROSY_ROTATION_COUNT = 4;
     public final SeamlessParameterization seamless;
     public final CutGraph cutGraph;
     public final CrossField crossField;
@@ -228,7 +229,6 @@ public final class SeamlessProjector {
         int firstActiveEdge = backwardSeedEdge;
 
         // Walk forward from the start node along the first edge, recording chain.
-        int rotation = cutGraph.cutRotation[firstActiveEdge];
         int currentActiveVertex = startNodeActiveVertex;
         int currentActiveEdge = firstActiveEdge;
         int currentPlusActiveFace = seamless.edgeFaceA[firstActiveEdge];
@@ -239,7 +239,18 @@ public final class SeamlessProjector {
         chainPlus.add(chartVertexOfFaceAtActiveVertex(currentPlusActiveFace, currentActiveVertex));
         chainMinus.add(chartVertexOfFaceAtActiveVertex(currentMinusActiveFace, currentActiveVertex));
 
+        int branchEffectiveRotation = -1;
         while (true) {
+            int effectiveRotation = effectivePlusToMinusRotation(currentActiveEdge, currentPlusActiveFace);
+            if (branchEffectiveRotation < 0) {
+                branchEffectiveRotation = effectiveRotation;
+            } else if (effectiveRotation != branchEffectiveRotation) {
+                throw new IllegalStateException(
+                        "MC19: branch has inconsistent plus→minus rotations along chain: "
+                                + branchEffectiveRotation + " vs " + effectiveRotation
+                                + " at active edge " + currentActiveEdge);
+            }
+
             walkedCutEdge[currentActiveEdge] = true;
             int[] endpoints = edgeEndpointsActive(currentActiveEdge);
             int nextActiveVertex = (endpoints[0] == currentActiveVertex) ? endpoints[1] : endpoints[0];
@@ -266,7 +277,32 @@ public final class SeamlessProjector {
 
         branchPlusChart.add(toIntArray(chainPlus));
         branchMinusChart.add(toIntArray(chainMinus));
-        branchRotation.add(rotation);
+        branchRotation.add(branchEffectiveRotation);
+    }
+
+    /**
+     * Compute the rotation from the {@code +} sector to the {@code -} sector for
+     * one edge in a chain. {@link CutGraph#cutRotation} stores the rotation from
+     * the canonical {@code A} face to the canonical {@code B} face; if the chain
+     * happens to label {@code A} as plus the stored value applies directly,
+     * otherwise the chain rotation is its inverse {@code (4 - r) mod 4}. Without
+     * this swap, half the chain edges (those where chart-vertex continuity
+     * forced plus = canonical B) would carry the wrong rotation, mixing u and v
+     * components at every cut with r ∈ {1, 3} and producing the ribbon artifact
+     * at chart seams in the MC19 output.
+     *
+     * @param activeEdge      dense edge index in the chain
+     * @param plusActiveFace  active face that has been labeled the {@code +}
+     *                        side at this edge
+     * @return rotation r ∈ {0..3} such that f_minus = R_r · f_plus + t on this
+     *         edge
+     */
+    private int effectivePlusToMinusRotation(int activeEdge, int plusActiveFace) {
+        int edgeRotation = cutGraph.cutRotation[activeEdge];
+        if (plusActiveFace == seamless.edgeFaceA[activeEdge]) {
+            return edgeRotation;
+        }
+        return (ROSY_ROTATION_COUNT - edgeRotation) % ROSY_ROTATION_COUNT;
     }
 
     /**

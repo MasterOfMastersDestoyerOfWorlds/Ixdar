@@ -3,6 +3,7 @@ package ixdar.scenes;
 import org.joml.Vector3f;
 
 import ixdar.annotations.scene.SceneAnnotation;
+import ixdar.geometry.mesh.data.load.CrossFieldLoader;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -31,6 +32,17 @@ public class ParametrizationExaminationScene extends Scene {
     public static final String DEFAULT_OFF =
             "test/resources/quadlayout/figure_10/fandisk_in_tri.off";
     public static final String OFF_PROPERTY = "parametrization.scene.off";
+    /**
+     * Optional system property: path to an .ndf reference cross field. When
+     * set, {@link #initGL} still runs {@link CrossField#build()} to derive
+     * the per-face local frames and active-index maps, then overwrites
+     * {@code theta}, {@code periodJump}, {@code singularityIndexQuarter}
+     * and {@code singularities} with the NDF values. Lets the same
+     * seamless pipeline run on the paper's reference field so you can
+     * compare flipped-triangle counts and visual output side by side
+     * against our own solver.
+     */
+    public static final String CROSS_FIELD_PROPERTY = "parametrization.scene.cf";
     public static final String SCENE_TITLE = "Ixdar : Parametrization Examination";
     public static final float CAMERA_AZIMUTH = (float) Math.toRadians(45.0);
     public static final float CAMERA_ELEVATION = (float) Math.toRadians(24.0);
@@ -75,11 +87,24 @@ public class ParametrizationExaminationScene extends Scene {
         bindInputDirect(Platforms.get(), keys, mouse);
 
         String offPath = System.getProperty(OFF_PROPERTY, DEFAULT_OFF);
+        String cfPath = System.getProperty(CROSS_FIELD_PROPERTY, null);
         try {
             ArrayMesh arrayMesh = MeshLoader.load(offPath);
             HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
                     arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
             CrossField crossField = new CrossField(mesh).build();
+            int ourSingCount = crossField.singularities.size();
+            if (cfPath != null) {
+                CrossField reference = CrossFieldLoader.load(cfPath, mesh);
+                crossField.theta = reference.theta;
+                crossField.periodJump = reference.periodJump;
+                crossField.singularityIndexQuarter = reference.singularityIndexQuarter;
+                crossField.singularities.clear();
+                crossField.singularities.addAll(reference.singularities);
+                Platforms.get().log("[param-exam] using reference cross field from "
+                        + cfPath + " (our solver produced " + ourSingCount
+                        + " singularities, reference has " + reference.singularities.size() + ")");
+            }
             SeamlessParameterization seamless = new SeamlessParameterization(crossField);
             ParameterizationMetrics metrics = seamless.build();
 
@@ -102,6 +127,7 @@ public class ParametrizationExaminationScene extends Scene {
             orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, orbitDist);
 
             Platforms.get().log("[param-exam] " + offPath
+                    + (cfPath == null ? "" : " cf=" + cfPath)
                     + " V=" + mesh.vertexCount()
                     + " F=" + mesh.faceCount()
                     + " singularities=" + crossField.singularities.size()

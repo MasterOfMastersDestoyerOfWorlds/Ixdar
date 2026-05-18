@@ -767,14 +767,13 @@ greedy solver from Section 2.
 
 > **Code (integer-pinning of singularities).**
 > Marking which DOFs must round to an integer (singularity chart-vertex
-> (u, v) and per-cut-edge translation (s, t)) —
-> [SeamlessDofSystem.markIntegerDofs](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessDofSystem.java#L476-L506).
+> (u, v), per-cut-edge translation (s, t), and §5.2 alignment iso-coords) —
+> [SeamlessDofSystem.markIntegerDofs](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessDofSystem.java).
 > Greedy rounding loop (BZK09 §2 closest-to-integer first, rank-1 LDL update per pin) —
-> [SeamlessParameterization.runGreedyIntegerRounding](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessParameterization.java#L363-L431).
-> This step is gated by
-> [`integerGridMap` flag](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessParameterization.java#L155-L163);
-> when off (Lyon mode) singularity (u, v) stays real and only the seam
-> rotation transition holds the topology of the fan.
+> [SeamlessParameterization.runGreedyIntegerRounding](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessParameterization.java).
+> IGM mode is always on; Lyon 2021 §7 used the same BZK09 IGM as its
+> seamless input, and QEx-style extraction downstream of the T-mesh
+> requires it.
 Cross boundary compatibility: In order to avoid visible seams
 across the cut paths on the surface we have to make sure that the
 quad structure on both sides of a cut edge is compatible. This is
@@ -847,22 +846,21 @@ shortest path algorithm.
 > **Code (§5 — cut graph in two passes).**
 > [CutGraph.buildCutGraph](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/CutGraph.java#L138-L145)
 > drives the full cut-graph construction.
-> 1. **Dual-spanning-tree complement** —
->    [initialCutFromDualSpanningTree](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/CutGraph.java#L179-L204):
->    starts with every edge cut, BFSes faces through interior edges,
->    un-cuts each tree edge crossed.
+> 1. **Min-cost dual-spanning-tree complement** —
+>    [initialCutFromDualSpanningTree](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/CutGraph.java):
+>    starts with every edge cut, runs a Dijkstra-style traversal of the
+>    dual graph where alignment edges have cost 0 and other interior
+>    edges have cost 1. Tree edges are un-cut, so feature/boundary edges
+>    stay non-cut whenever surface topology allows.
 > 2. **Trim open paths** —
->    [trimDanglingBranches](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/CutGraph.java#L230-L270):
+>    [trimDanglingBranches](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/CutGraph.java):
 >    iteratively remove cut-degree-1 non-singularity, non-boundary leaves.
 > 3. **Route singularities to the cut** —
->    [connectDetachedSingularities](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/CutGraph.java#L278-L285)
->    + [shortestMeshPathToCut](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/CutGraph.java#L344-L409)
->    (Dijkstra over Euclidean edge lengths).
-> 4. **Lyon-seamless extension** —
->    [extendSingularityToDegreeTwo](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/CutGraph.java#L291-L303):
->    when `integerGridMap = false`, push every interior singularity's
->    cut-degree to ≥ 2 so the fan splits into independent chart vertices.
->    This is **not** in BZK09; it is the Lyon-2021 input requirement.
+>    [connectDetachedSingularities](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/CutGraph.java)
+>    + [shortestMeshPathToCut](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/CutGraph.java)
+>    (Dijkstra over Euclidean edge lengths, with alignment edges
+>    penalised by {@code ALIGNMENT_PATH_PENALTY} so they're only used
+>    when no non-alignment path exists).
 
 Hence, in total we add two integer variables and eliminate four continuous variables per cut edge.
 
@@ -952,21 +950,47 @@ of the parametrization is improved by using the anisotropic norm.
 
 Feature Line Alignment
 
-> **Code (cross-field side only).**
-> [CrossField.applyFeatureEdgeConstraints](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/crossfield/CrossField.java#L1337-L1380)
-> aligns the cross field with sharp dihedrals (CIE16-style), and
-> [CrossField.applyBoundaryConstraints](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/crossfield/CrossField.java#L1393-L1410)
-> does the same for boundary edges. Together they realise BZK09 §5.2's
-> "alignment requires correct orientation" half of the recipe.
+> **Code (cross-field + parametrization sides, both implemented).**
 >
-> **MISSING — the parametrization-side half.** BZK09's `v_p = v_q ∈ ℤ`
-> (or `u_p = u_q ∈ ℤ`) per alignment edge is **not** implemented. There
-> is no per-alignment-edge linear constraint in
-> [SeamlessDofSystem](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessDofSystem.java),
-> no `alignmentEdges` set anywhere, no `integerIsoLine` DOF marking. As a
-> result, even when the field is correctly aligned, the iso-line through
-> a feature edge is not guaranteed to be integer-valued, so the resulting
-> quad mesh can drift off feature lines. See the audit "Fix list".
+> **Cross-field side.**
+> [CrossField.applyFeatureEdgeConstraints](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/crossfield/CrossField.java)
+> aligns the cross field with sharp dihedrals (CIE16-style), and
+> [CrossField.applyBoundaryConstraints](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/crossfield/CrossField.java)
+> does the same for boundary edges. Both append the active edge id to
+> [`CrossField.alignmentEdgeIds`](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/crossfield/CrossField.java)
+> so the seamless stage can read the union as the alignment set S ⊂ E.
+>
+> **Cut-graph bias.** To keep alignment edges off the seam (a feature
+> edge with rotation r ≠ 0 across it cannot satisfy {@code v_p = v_q}
+> on both sides), the dual-MST in
+> [initialCutFromDualSpanningTree](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/CutGraph.java)
+> weights alignment edges by 0 (preferred as tree edges → non-cut) and
+> the singularity-to-cut Dijkstra in
+> [shortestMeshPathToCut](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/CutGraph.java)
+> penalises them by {@code ALIGNMENT_PATH_PENALTY × length}.
+>
+> **Parametrization side.**
+> [SeamlessDofSystem.computeAlignmentEdgeIsoAxes](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessDofSystem.java)
+> decides per edge whether u or v is the iso-coordinate by projecting
+> the edge direction into face A's branch-rotated local frame; the axis
+> whose target points along the edge gets the orthogonal coordinate
+> pinned.
+> [SeamlessDofSystem.addAlignmentEqualityRows](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessDofSystem.java)
+> appends one {@code u_p − u_q = 0} (or v) row per alignment edge to
+> the leftover-constraint matrix, fed through the same fraction-free
+> Gauss-Jordan reduction used for seam transitions.
+> [SeamlessDofSystem.markAlignmentIsoDofs](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessDofSystem.java)
+> walks each endpoint's chart-vertex final-DOF expansion and marks every
+> surviving DOF as integer, so the greedy rounder pins the iso-line.
+>
+> **Known limitation.** The current marking handles ~85% of alignment
+> edges on the fandisk fixture
+> ([alignmentIsoFandisk](ixdar-app/test/unit/mesh/quadlayout/SeamlessParameterizationSmokeTest.java)
+> asserts ≥ 80%). The remaining ~15% are boundary chains where multiple
+> alignment rows share a surviving final DOF that conflicts with another
+> constraint chain; equality holds exactly but the value lands on a
+> half-integer instead of snapping to round. Audit "Fix list" item 1
+> tracks the chain-aware fix.
 
 Sharp feature lines of the input mesh should be preserved in the
 quadrangulation. Given a subset S ⊂ E of triangle mesh edges, the
@@ -1336,25 +1360,58 @@ These pieces match the paper closely and need no change:
 
 ### What is wrong or missing — ordered by likely impact on output quality
 
-> *Earlier revisions of this audit listed `integerGridMap = true` as a
-> default-vs-doc mismatch. That was wrong: Lyon 2021 §7 explicitly built
-> its input by "optimizing the energy proposed by Bommes et al. [BZK09]"
-> (i.e. the IGM produced by this module) and extracted with QEx, which
-> itself needs an IGM. The javadoc that suggested otherwise has been
-> rewritten in [SeamlessParameterization.java](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessParameterization.java#L155-L166).
-> An IGM is a strict refinement of a seamless map, so every downstream
-> "seamless input" stage is satisfied by an IGM.*
+> **Status note (2026-05-17).** Item §5.2 from earlier revisions of this
+> list — *alignment iso-line constraint not implemented* — landed. The
+> cross field now exposes
+> [`alignmentEdgeIds`](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/crossfield/CrossField.java),
+> the cut graph routes around those edges via min-cost dual-MST +
+> penalised Dijkstra, and
+> [SeamlessDofSystem.addAlignmentEqualityRows](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessDofSystem.java)
+> / [markAlignmentIsoDofs](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessDofSystem.java)
+> wire the equality + integer pin into the leftover-row Gauss-Jordan
+> reduction. A regression test
+> ([alignmentIsoFandisk](ixdar-app/test/unit/mesh/quadlayout/SeamlessParameterizationSmokeTest.java))
+> guards at ≥ 80 % of alignment edges holding the BZK09 §5.2 invariant
+> on the fandisk fixture (current: 194/229 = 84.7 %). The visible spiral
+> + flat-region drift the audit was originally written against is gone.
+>
+> The `integerGridMap` toggle was removed entirely; IGM is always on
+> (Lyon 2021 §7 used the BZK09 IGM as its seamless input and QEx-style
+> extraction requires it).
+>
+> §5.4 defaults were brought back to the paper's `c=1, d=5, growth=1`
+> (no multiplicative flip kick); the test fixture confirms no regression.
 
-#### 1. §5.1 anisotropic norm — not implemented
-**Severity: medium (visible on aligned models like fandisk).**
+#### 1. §5.2 alignment iso-line chain completion (partial)
+**Severity: medium — ~15 % of alignment edges still fail the invariant.**
+The current
+[markAlignmentIsoDofs](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessDofSystem.java)
+marks every final DOF in each endpoint's chart-vertex expansion as
+integer, which catches both primary and most secondary-via-cut chains.
+The residual failures cluster on boundary chains where multiple
+alignment rows pivot onto a shared surviving DOF that another constraint
+chain then pulls to a half-integer. Equality (`u_p = u_q`) is enforced
+exactly; only the integer pin slips.
+
+*Fix.* Treat the per-chain "shared survivor" DOF as a single integer
+DOF: detect the equivalence class of chart-vertex iso-coordinates joined
+by alignment-equality rows and add **one** integer pin per class instead
+of per chart vertex (avoids per-vertex pins fighting each other through
+Gauss-Jordan pivot reshuffling). Diagnostic counter in
+[alignmentIsoFandisk](ixdar-app/test/unit/mesh/quadlayout/SeamlessParameterizationSmokeTest.java)
+will track the pass rate up from 84.7 % toward 100 %.
+
+#### 2. §5.1 anisotropic norm — not implemented
+**Severity: low-medium (now that §5.2 is in, this is a refinement, not the headline fix).**
 There is no γ parameter, no anisotropic energy term, and no test.
-Without it, models with sharp features get the BZK09 Figure 6(a)
-behavior (quads pull off feature lines) instead of 6(b).
+With §5.2 alignment in place the iso-lines lock to feature edges; the
+anisotropic norm would additionally let quads stretch along iso-lines
+to better follow curved features (BZK09 Figure 6(b)).
 
 *Fix.* Add a public field `public float anisotropyGamma = 1.0f;` on
 [SeamlessParameterization](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessParameterization.java).
 In
-[SeamlessDofSystem.buildAssemblyPlan](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessDofSystem.java#L619-L765),
+[SeamlessDofSystem.buildAssemblyPlan](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessDofSystem.java),
 replace the u/v outer products' `stiffnessConstant` with two separate
 constants for u and v, each scaled by the appropriate `(γ, 1)` / `(1, γ)`
 weights expressed in the cross-field tangent basis. The cleanest form:
@@ -1362,31 +1419,6 @@ build the per-face metric `M = R · diag(γ, 1) · Rᵀ` in the face-local
 frame (where R aligns to u_T) and use `M_{ij} · b_i · b_j` instead of
 `b_i · b_j + c_i · c_j`. Add a fandisk test that asserts the feature-edge
 length stays close to `h` once `γ < 1`.
-
-#### 2. §5.2 alignment iso-line constraint — not implemented (parametrization side)
-**Severity: medium-high for feature-aligned use cases.**
-The cross-field side ([applyFeatureEdgeConstraints](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/crossfield/CrossField.java#L1337-L1380))
-covers orientation, but `v_p = v_q ∈ ℤ` (the linear constraint that
-holds the entire alignment edge at integer iso-value) is missing.
-Without it, even when the cross is aligned, the quad mesh extracted
-from the parametrization may not pass through feature vertices.
-
-*Fix.*
-1. Plumb an `alignmentEdges` set from the cross field into
-   [SeamlessParameterization](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessParameterization.java)
-   (currently feature edges exist only as a marker for which faces got
-   constrained, never as a set of edges to align in (u, v)).
-2. For every alignment edge `(p, q)` decide whether `u_T` or `v_T`
-   points along it (compare the projected edge direction in the local
-   frame to the branch-rotated u_T target). The orthogonal component is
-   the integer-iso DOF.
-3. Add a row to the leftover-constraint system in
-   [SeamlessDofSystem.reduceLeftoverConstraints](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessDofSystem.java#L350-L435)
-   expressing `v_p − v_q = 0` (or `u_p − u_q = 0`), and mark the
-   surviving raw DOF as integer in
-   [markIntegerDofs](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessDofSystem.java#L476-L506).
-4. Boundary edges should reuse the same path — the comment at
-   §5.2 line 793 explicitly mentions this.
 
 #### 3. §5.3 parametrization-aware singularity relocation — not implemented
 **Severity: low-medium (paper says "rarely needed on its examples").**
@@ -1402,38 +1434,7 @@ singularity, evaluates `E_orient` after re-running the cross field + a
 fresh seamless solve with the singularity moved one ring outward; keep
 the move that reduces energy.
 
-#### 4. §5.4 stiffening — diverges from the paper by default
-**Severity: low (justified divergence, but quiet).**
-The defaults `stiffeningC = 100, stiffeningD = 1e4` and the
-"multiplicative-kick" growth-factor-4× on flipped faces
-([lines 647-673](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessParameterization.java#L647-L673))
-are documented in the field javadocs as deviations needed for the
-seamless-without-pin mode. This is fine *if* the user is aware that
-turning IGM off changes the §5.4 numerics; the smoke test currently
-opts back into paper-faithful constants via
-[`applyIgmExperimentDefaults`](ixdar-app/test/unit/mesh/quadlayout/SeamlessParameterizationSmokeTest.java#L71-L76).
-
-*Fix.* When `integerGridMap` is on (the default and Lyon-compatible path),
-the paper's `c=1, d=5` recipe converges — switch the defaults to those
-constants and drop the multiplicative kick, matching what
-[`applyIgmExperimentDefaults`](ixdar-app/test/unit/mesh/quadlayout/SeamlessParameterizationSmokeTest.java#L71-L76)
-already does in the smoke test. Keep the aggressive constants behind an
-opt-in only relevant to the rarely-used non-IGM mode, and document the
-rationale on each field.
-
-#### 5. §5.4 multiplicative kick can dominate the Δλ-Laplacian update
-**Severity: low — but worth a one-line invariant check.**
-Both the additive `min(c·|Δλ|, d)` and the multiplicative `×4` are
-applied in the **same** stiffening iteration. For a face that is both
-flipped *and* on the boundary of a high-distortion region, both bumps
-fire; for faces that are flipped in the interior of a uniform-distortion
-region, only the multiplicative kick fires. That mixes additive and
-multiplicative regimes in a way the paper doesn't sanction.
-
-*Fix.* Either gate the multiplicative kick behind a "Δλ ≈ 0" condition,
-or document that the two are intentionally OR-ed.
-
-#### 6. Per-edge transition residual is not asserted in the non-exact path on real meshes
+#### 4. Per-edge transition residual is not asserted in the non-exact path on real meshes
 **Severity: medium — diagnostic gap.**
 [`SeamlessParameterizationSmokeTest.realMeshBolt`](ixdar-app/test/unit/mesh/quadlayout/SeamlessParameterizationSmokeTest.java#L201-L203)
 and
@@ -1450,13 +1451,13 @@ current 1e-10 pivot tolerance in
 [reduceLeftoverConstraints](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessDofSystem.java#L394)
 is tight for chains through singularity nodes.
 
-#### 7. `precomputePerFaceGeometryAndTargets` silently skips degenerate triangles
+#### 5. `precomputePerFaceGeometryAndTargets` silently skips degenerate triangles
 **Severity: low — but lets a downstream bug hide.**
-[Lines 495-499](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessParameterization.java#L495-L499):
+[Lines 495-499](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessParameterization.java):
 when `|twoArea| < 1e-30`, `faceArea[af] = 0` and the targets are
 left zero. Downstream code does `if (area <= 0) continue;` in most
 spots, but
-[`countFlippedTrianglesFromSolution`](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessParameterization.java#L755-L775)
+[`countFlippedTrianglesFromSolution`](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessParameterization.java)
 also skips them — so a degenerate triangle that produces a UV-degenerate
 output is invisible to the injectivity counter.
 
@@ -1465,16 +1466,26 @@ or count it as flipped so stiffening at least tries to recover, and
 emit a diagnostic log line. Currently the silent zero target distorts
 the smoothness solution near the degeneracy without any signal.
 
+### Resolved since last revision
+
+- **§5.2 alignment iso-line constraint (parametrization side)** — wired
+  through the cut graph and DOF system; ≥ 80 % regression test gate in
+  place. Visible spiral + flat-region drift on fandisk is gone.
+- **`integerGridMap` toggle** — removed; IGM is always on, matching how
+  Lyon 2021 §7 actually uses BZK09.
+- **§5.4 stiffening defaults** — back to the paper's `c=1, d=5`, no
+  multiplicative kick. Smoke-test override removed.
+
 ### Suggested order of attack
 
-1. Item 2 — alignment iso-line constraint. The cross-field side is
-   already in place; this is the missing half of "feature edges
-   preserved" that downstream stages will trust.
-2. Item 6 — add a non-exact real-mesh residual test, then…
-3. Item 1 — anisotropic norm. The test rig from 6 makes this easy to
+1. Item 1 — alignment iso-line chain completion. Push the regression
+   gate from 84.7 % toward 100 % by adding one integer pin per
+   alignment-equality equivalence class instead of per chart vertex.
+2. Item 4 — add a non-exact real-mesh residual test. Will catch any
+   numerical drift from the leftover-row Gauss-Jordan as items 1 and 2
+   add more rows to that reduction.
+3. Item 2 — anisotropic norm. The test rig from 4 makes this easy to
    regress-test against.
-4. Item 4 — switch §5.4 defaults to the paper's `c=1, d=5` (matches
-   IGM's smoke-test override) so the test rig and production path agree.
-5. Items 3, 5, 7 — quality-of-life and instrumentation.
+4. Items 3, 5 — quality-of-life and instrumentation.
 
 

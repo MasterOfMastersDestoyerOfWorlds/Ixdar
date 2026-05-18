@@ -59,20 +59,6 @@ class SeamlessParameterizationSmokeTest {
      */
     private static final float TRANSITION_TOLERANCE = 1.0e-3f;
 
-    /**
-     * Use BZK09 §5.4's paper-faithful stiffening constants (c=1, d=5, no
-     * multiplicative kick). IGM mode is now always on by construction, so
-     * the paper recipe converges; the production defaults keep the
-     * non-paper aggressive constants for legacy non-IGM experimentation.
-     *
-     * @param seamless the parametrization to configure
-     */
-    private static void applyIgmExperimentDefaults(SeamlessParameterization seamless) {
-        seamless.stiffeningC = 1.0;
-        seamless.stiffeningD = 5.0;
-        seamless.stiffeningGrowth = 1.0f;
-    }
-
     @Test
     @Timeout(value = 2, unit = java.util.concurrent.TimeUnit.MINUTES)
     void buildSphereBase() throws IOException {
@@ -82,7 +68,6 @@ class SeamlessParameterizationSmokeTest {
 
         CrossField crossField = new CrossField(mesh).build();
         SeamlessParameterization seamless = new SeamlessParameterization(crossField);
-        applyIgmExperimentDefaults(seamless);
         ParameterizationMetrics metrics = seamless.build();
 
         // 1. Output arrays populated.
@@ -142,7 +127,6 @@ class SeamlessParameterizationSmokeTest {
         CrossField crossField = new CrossField(mesh).build();
         SeamlessParameterization seamless = new SeamlessParameterization(crossField);
         seamless.exactSeams = true;
-        applyIgmExperimentDefaults(seamless);
         ParameterizationMetrics metrics = seamless.build();
 
         assertBzk09Invariants(metrics, seamless, "sphere-exact");
@@ -219,7 +203,6 @@ class SeamlessParameterizationSmokeTest {
         long t1 = System.nanoTime();
         SeamlessParameterization seamless = new SeamlessParameterization(crossField);
         seamless.exactSeams = true;
-        applyIgmExperimentDefaults(seamless);
         ParameterizationMetrics metrics = seamless.build();
         long t2 = System.nanoTime();
 
@@ -287,7 +270,6 @@ class SeamlessParameterizationSmokeTest {
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
         CrossField crossField = new CrossField(mesh).build();
         SeamlessParameterization seamless = new SeamlessParameterization(crossField);
-        applyIgmExperimentDefaults(seamless);
         seamless.build();
 
         float equalityTolerance = 1.0e-2f;

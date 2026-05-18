@@ -18,6 +18,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.graphics.cameras.Camera;
+import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.model.CrossFieldRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.Platform;
@@ -46,11 +47,6 @@ public class CrossFieldExaminationScene extends Scene {
     public static final String IN_TRI_OFF_SUFFIX = "_in_tri.off";
     public static final String IN_CF_NDF_SUFFIX = "_in_cf.ndf";
     public static final String SCENE_TITLE = "Ixdar : Cross Field Examination";
-    public static final float SURFACE_R = 0.85f;
-    public static final float SURFACE_G = 0.85f;
-    public static final float SURFACE_B = 0.9f;
-    /** Opaque surface so back-side crosses are occluded; cross arms render afterward via depthBias. */
-    public static final float SURFACE_A = 1.0f;
     public static final float CAMERA_AZIMUTH = (float) Math.toRadians(45.0);
     public static final float CAMERA_ELEVATION = (float) Math.toRadians(24.0);
     public static final float CAMERA_DISTANCE_MIN = 1.5f;
@@ -133,7 +129,7 @@ public class CrossFieldExaminationScene extends Scene {
                 throw new IllegalStateException("Failed to create CrossFieldRuntime", ex);
             }
             runtime.upload(he);
-            runtime.setSolidColor(SURFACE_R, SURFACE_G, SURFACE_B, SURFACE_A);
+            runtime.setSolidColor(ColorRGB.BLUE_GRAY.toVector4f());
             runtime.frameCamera(camera);
             runtime.setCrossField(oursField, CrossFieldRuntime.DEFAULT_CROSS_SCALE);
 

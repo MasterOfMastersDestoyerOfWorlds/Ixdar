@@ -648,6 +648,20 @@ public class CutGraph {
         Arrays.fill(secondaryEdge, -1);
         Arrays.fill(secondaryPartner, -1);
 
+        if (seamless.useSoftSeams) {
+            // Soft-seam mode: keep every chart vertex as its own free DOF; the
+            // seam transitions become quadratic penalty rows added to the SPD
+            // energy by SeamlessDofSystem rather than hard substitutions.
+            Arrays.fill(chartVertexIsPrimary, true);
+            primaryChartIndex = new int[chartVertexCount];
+            for (int cv = 0; cv < chartVertexCount; cv++) {
+                primaryChartIndex[cv] = cv;
+            }
+            primaryChartCount = chartVertexCount;
+            leftoverConstraints = new int[0][];
+            return;
+        }
+
         boolean[] onASide = new boolean[chartVertexCount];
         boolean[] onBSide = new boolean[chartVertexCount];
         int edgeCount = isCutEdge.length;

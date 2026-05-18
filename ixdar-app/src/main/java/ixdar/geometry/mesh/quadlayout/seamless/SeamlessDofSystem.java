@@ -1,6 +1,5 @@
 package ixdar.geometry.mesh.quadlayout.seamless;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -60,6 +59,11 @@ public final class SeamlessDofSystem {
     private static final int ALIGN_AXIS_V = 1;
     /** {@link #alignmentEdgeIsoAxis} value when v_T is along the edge and u is the iso-coordinate to pin. */
     private static final int ALIGN_AXIS_U = 0;
+    /**
+     * Diagonal regularization added to DOF 0 in soft-seam mode to break
+     * the 1D translation nullspace so cold sparse Cholesky succeeds.
+     */
+    private static final double NULLSPACE_ANCHOR_WEIGHT = 1.0;
 
     // ===== Input references (snapshotted at construction) =====
 
@@ -93,8 +97,14 @@ public final class SeamlessDofSystem {
     public final double[] faceVtyLocal;
     /** BZK09 target edge length. */
     public final float h;
-    /** Gauge-pin penalty weight. */
-    public final float gaugePinWeight;
+    /** True iff the BZK09 §5 seam transitions are added as soft penalties instead of hard variable elimination. */
+    public final boolean useSoftSeams;
+    /** Weight applied to each soft seam-transition penalty row. */
+    public final double softSeamWeight;
+    /** Active-edge → corner index of canonical start vertex in face A (mirrors {@link SeamlessParameterization}). */
+    public final int[] edgeCornerInA;
+    /** Active-edge → corner index of canonical start vertex in face B. */
+    public final int[] edgeCornerInB;
 
     // ===== DOF state (set once during construction) =====
 
@@ -167,8 +177,6 @@ public final class SeamlessDofSystem {
     private double[] planStaticUpperValues;
     /** Cached AMD column permutation for this DOF system's SPD matrix. */
     private int[] cachedAmdPerm;
-    /** Cached gauge-pin chart vertex picks (BFS over cut graph). */
-    private int[] cachedGaugePinChartVertices;
 
     /**
      * Build the DOF system snapshot for one seamless build.
@@ -193,8 +201,11 @@ public final class SeamlessDofSystem {
         this.faceVtxLocal = owner.faceVtxLocal;
         this.faceVtyLocal = owner.faceVtyLocal;
         this.h = owner.h;
-        this.gaugePinWeight = owner.gaugePinWeight;
         this.integerPinWeight = owner.integerPinWeight;
+        this.useSoftSeams = owner.useSoftSeams;
+        this.softSeamWeight = owner.softSeamWeight;
+        this.edgeCornerInA = owner.edgeCornerInA;
+        this.edgeCornerInB = owner.edgeCornerInB;
 
         this.cutEdgeSDof = new int[edgeCount];
         this.cutEdgeTDof = new int[edgeCount];
@@ -877,18 +888,28 @@ public final class SeamlessDofSystem {
             uniqueUpperKeys.addAll(upperMap.keySet());
         }
 
-        cachedGaugePinChartVertices = computeGaugePinChartVertices();
-        HashMap<Long, Double> gaugeUpper = new HashMap<>();
-        HashMap<Integer, Double> gaugeDiagonal = new HashMap<>();
-        for (int chartVertex : cachedGaugePinChartVertices) {
-            addGaugePinContribution(gaugeDiagonal, gaugeUpper,
-                    chartVertexFinalDofs[chartVertex][0],
-                    chartVertexFinalCoefs[chartVertex][0]);
-            addGaugePinContribution(gaugeDiagonal, gaugeUpper,
-                    chartVertexFinalDofs[chartVertex][1],
-                    chartVertexFinalCoefs[chartVertex][1]);
+        HashMap<Long, Double> staticUpper = new HashMap<>();
+        HashMap<Integer, Double> staticDiagonal = new HashMap<>();
+        if (useSoftSeams) {
+            addSoftSeamContributions(staticDiagonal, staticUpper);
+            // Soft-seam mode has (at least) a 2D translation nullspace:
+            // adding a constant offset δ_u to every chart vertex u-DOF
+            // leaves the soft-seam residual and orientation energy
+            // unchanged, and ditto for δ_v. Cold sparse Cholesky needs
+            // a strictly SPD matrix, so anchor DOFs 0 and 1 (chart
+            // vertex 0's u and v) with a tiny diagonal regularization.
+            // Weight 1.0 is small enough to be negligible vs the
+            // orientation energy (~h²·area per face, summed over
+            // thousands of faces) but enough to make the matrix
+            // positive-definite.
+            if (dofCount > 0) {
+                staticDiagonal.merge(0, NULLSPACE_ANCHOR_WEIGHT, Double::sum);
+            }
+            if (dofCount > 1) {
+                staticDiagonal.merge(1, NULLSPACE_ANCHOR_WEIGHT, Double::sum);
+            }
         }
-        uniqueUpperKeys.addAll(gaugeUpper.keySet());
+        uniqueUpperKeys.addAll(staticUpper.keySet());
 
         planUpperKeys = uniqueUpperKeys.stream().mapToLong(Long::longValue).sorted().toArray();
         HashMap<Long, Integer> keyToSlot = new HashMap<>(planUpperKeys.length * 2);
@@ -898,10 +919,10 @@ public final class SeamlessDofSystem {
 
         planStaticDiagonal = new double[dofCount];
         planStaticUpperValues = new double[planUpperKeys.length];
-        for (Map.Entry<Integer, Double> e : gaugeDiagonal.entrySet()) {
+        for (Map.Entry<Integer, Double> e : staticDiagonal.entrySet()) {
             planStaticDiagonal[e.getKey()] = e.getValue();
         }
-        for (Map.Entry<Long, Double> e : gaugeUpper.entrySet()) {
+        for (Map.Entry<Long, Double> e : staticUpper.entrySet()) {
             planStaticUpperValues[keyToSlot.get(e.getKey())] = e.getValue();
         }
 
@@ -965,6 +986,154 @@ public final class SeamlessDofSystem {
      * @param coefsB      coefficients matching {@code dofsB}
      * @param scale       outer scaling (area × h² × shape-grad product)
      */
+    /**
+     * Build the static soft-seam penalty contributions for every interior
+     * cut edge. Each cut edge with rotation {@code r}, endpoints {@code p, q},
+     * and translation DOFs {@code s_e, t_e} adds four quadratic rows to the
+     * energy:
+     * <pre>
+     *   W · (chart_B_p.u − cos_r · chart_A_p.u + sin_r · chart_A_p.v − s_e)²
+     *   W · (chart_B_p.v − sin_r · chart_A_p.u − cos_r · chart_A_p.v − t_e)²
+     *   W · (chart_B_q.u − cos_r · chart_A_q.u + sin_r · chart_A_q.v − s_e)²
+     *   W · (chart_B_q.v − sin_r · chart_A_q.u − cos_r · chart_A_q.v − t_e)²
+     * </pre>
+     * Each row contributes a rank-1 outer product {@code W · vec ⊗ vec} to
+     * the Hessian, where {@code vec} is the linear-combination coefficient
+     * vector indexed by final-DOF id.
+     *
+     * @param diagonal accumulator for static diagonal contributions
+     * @param upper    accumulator for static upper-triangle contributions
+     */
+    private void addSoftSeamContributions(HashMap<Integer, Double> diagonal,
+            HashMap<Long, Double> upper) {
+        int cornersPerFace = SeamlessParameterization.CORNERS_PER_FACE;
+        for (int ae = 0; ae < edgeCount; ae++) {
+            if (!cutGraph.isCutEdge[ae]) {
+                continue;
+            }
+            int faceA = edgeFaceA[ae];
+            int faceB = edgeFaceB[ae];
+            if (faceA < 0 || faceB < 0) {
+                continue;
+            }
+            int cornerAStart = edgeCornerInA[ae];
+            int cornerAEnd = (cornerAStart + 1) % cornersPerFace;
+            int cornerBStart = edgeCornerInB[ae];
+            int cornerBEnd = (cornerBStart + cornersPerFace - 1) % cornersPerFace;
+            int chartAStart = cutGraph.cornerToChartVertex[faceA * cornersPerFace + cornerAStart];
+            int chartAEnd = cutGraph.cornerToChartVertex[faceA * cornersPerFace + cornerAEnd];
+            int chartBStart = cutGraph.cornerToChartVertex[faceB * cornersPerFace + cornerBStart];
+            int chartBEnd = cutGraph.cornerToChartVertex[faceB * cornersPerFace + cornerBEnd];
+            int rotation = cutGraph.cutRotation[ae];
+            int cos = ExactArithmetic.integerCosine(rotation);
+            int sin = ExactArithmetic.integerSine(rotation);
+            int sDof = cutEdgeSDof[ae];
+            int tDof = cutEdgeTDof[ae];
+            // u_eq at start: chart_B_p.u − cos · chart_A_p.u + sin · chart_A_p.v − s_e = 0
+            addSeamPenaltyRow(diagonal, upper, chartBStart, 0, chartAStart, -cos, sin,
+                    sDof, -1.0);
+            // v_eq at start: chart_B_p.v − sin · chart_A_p.u − cos · chart_A_p.v − t_e = 0
+            addSeamPenaltyRow(diagonal, upper, chartBStart, 1, chartAStart, -sin, -cos,
+                    tDof, -1.0);
+            // u_eq at end
+            addSeamPenaltyRow(diagonal, upper, chartBEnd, 0, chartAEnd, -cos, sin,
+                    sDof, -1.0);
+            // v_eq at end
+            addSeamPenaltyRow(diagonal, upper, chartBEnd, 1, chartAEnd, -sin, -cos,
+                    tDof, -1.0);
+        }
+    }
+
+    /**
+     * Add one rank-1 outer product {@code softSeamWeight · vec ⊗ vec} to
+     * the static-diagonal / static-upper accumulators, where {@code vec}
+     * has the form {@code [+1 at chart_B[component], cosACoef at chart_A.u,
+     * sinACoef at chart_A.v, translationCoef at translationDof]}. For
+     * {@code chart_B = R_r · chart_A + (s, t)}, the residual u-equation
+     * needs {@code (-cos, +sin)} for {@code (cosACoef, sinACoef)} and the
+     * v-equation needs {@code (-sin, -cos)} — these are the coefficients
+     * that take {@code chart_A.(u, v)} to {@code -R_r · chart_A} once the
+     * {@code chart_B} row is the identity contribution.
+     *
+     * @param diagonal       accumulator for diagonal terms
+     * @param upper          accumulator for upper-triangle terms
+     * @param chartB         chart vertex on B-side
+     * @param component      0 for u-equation, 1 for v-equation
+     * @param chartA         chart vertex on A-side
+     * @param cosACoef       coefficient on {@code chart_A.u}
+     * @param sinACoef       coefficient on {@code chart_A.v}
+     * @param translationDof translation DOF (s_e for u-eq, t_e for v-eq)
+     * @param translationCoef coefficient on the translation DOF (usually −1)
+     */
+    private void addSeamPenaltyRow(HashMap<Integer, Double> diagonal,
+            HashMap<Long, Double> upper,
+            int chartB, int component,
+            int chartA, double cosACoef, double sinACoef,
+            int translationRawDof, double translationCoef) {
+        int[] bDofs = chartVertexFinalDofs[chartB][component];
+        double[] bCoefs = chartVertexFinalCoefs[chartB][component];
+        int[] aUDofs = chartVertexFinalDofs[chartA][0];
+        double[] aUCoefs = chartVertexFinalCoefs[chartA][0];
+        int[] aVDofs = chartVertexFinalDofs[chartA][1];
+        double[] aVCoefs = chartVertexFinalCoefs[chartA][1];
+
+        // Translation DOFs are stored as raw DOF indices; convert to final
+        // via the pivot map so the entries we accumulate land in the
+        // dense [0, dofCount) range that planStaticDiagonal /
+        // planUpperKeys index over. The chart-vertex expansions are
+        // already in final-DOF space via chartVertexFinalDofs.
+        if (translationRawDof < 0) {
+            return;
+        }
+        int translationFinalDof = rawDofToFinal[translationRawDof];
+        if (translationFinalDof < 0) {
+            // Translation pivot-eliminated by some leftover constraint —
+            // shouldn't happen in soft-seam mode but skip defensively.
+            return;
+        }
+
+        int totalEntries = bDofs.length + aUDofs.length + aVDofs.length + 1;
+        int[] vecDofs = new int[totalEntries];
+        double[] vecCoefs = new double[totalEntries];
+        int idx = 0;
+        for (int i = 0; i < bDofs.length; i++) {
+            vecDofs[idx] = bDofs[i];
+            vecCoefs[idx] = bCoefs[i];
+            idx++;
+        }
+        for (int i = 0; i < aUDofs.length; i++) {
+            vecDofs[idx] = aUDofs[i];
+            vecCoefs[idx] = cosACoef * aUCoefs[i];
+            idx++;
+        }
+        for (int i = 0; i < aVDofs.length; i++) {
+            vecDofs[idx] = aVDofs[i];
+            vecCoefs[idx] = sinACoef * aVCoefs[i];
+            idx++;
+        }
+        vecDofs[idx] = translationFinalDof;
+        vecCoefs[idx] = translationCoef;
+
+        for (int i = 0; i < totalEntries; i++) {
+            for (int j = i; j < totalEntries; j++) {
+                double value = softSeamWeight * vecCoefs[i] * vecCoefs[j];
+                if (value == 0.0) {
+                    continue;
+                }
+                int rowI = vecDofs[i];
+                int colJ = vecDofs[j];
+                if (rowI == colJ) {
+                    diagonal.merge(rowI, value, Double::sum);
+                } else {
+                    int row = Math.min(rowI, colJ);
+                    int col = Math.max(rowI, colJ);
+                    long key = ((long) row << KEY_ROW_SHIFT) | (col & KEY_COL_MASK);
+                    upper.merge(key, value, Double::sum);
+                }
+            }
+        }
+    }
+
     private static void accumulatePerFaceOuterProduct(
             HashMap<Long, Double> upperMap, HashMap<Integer, Double> diagonalMap,
             int[] dofsA, double[] coefsA, int[] dofsB, double[] coefsB, double scale) {
@@ -986,87 +1155,5 @@ public final class SeamlessDofSystem {
                 }
             }
         }
-    }
-
-    /**
-     * Add {@code gaugePinWeight · v · vᵀ} into the gauge-pin accumulators.
-     * Matches the original {@code addOuterSparse}: upper-half iteration
-     * ({@code j ≥ i}) so each pair counted once, no halve needed.
-     *
-     * @param diagonalMap gauge-pin diagonal accumulator
-     * @param upperMap    gauge-pin upper accumulator
-     * @param cols        expansion DOFs of the chart vertex
-     * @param vals        coefficients matching {@code cols}
-     */
-    private void addGaugePinContribution(
-            HashMap<Integer, Double> diagonalMap, HashMap<Long, Double> upperMap,
-            int[] cols, double[] vals) {
-        for (int i = 0; i < cols.length; i++) {
-            for (int j = i; j < cols.length; j++) {
-                double value = gaugePinWeight * vals[i] * vals[j];
-                if (value == 0.0) {
-                    continue;
-                }
-                int rowA = cols[i];
-                int colB = cols[j];
-                if (rowA == colB) {
-                    diagonalMap.merge(rowA, value, Double::sum);
-                } else {
-                    int r = Math.min(rowA, colB);
-                    int c = Math.max(rowA, colB);
-                    long key = ((long) r << KEY_ROW_SHIFT) | (c & KEY_COL_MASK);
-                    upperMap.merge(key, value, Double::sum);
-                }
-            }
-        }
-    }
-
-    /**
-     * BFS over the cut graph to pick one chart vertex per connected
-     * component (across non-cut edges) for the gauge-pin. The picks set
-     * is invariant for the whole build — cached so subsequent rebuilds
-     * skip the BFS.
-     *
-     * @return one chart-vertex per connected component
-     */
-    private int[] computeGaugePinChartVertices() {
-        boolean[] visitedFace = new boolean[faceCount];
-        ArrayList<Integer> picks = new ArrayList<>();
-        ArrayDeque<Integer> queue = new ArrayDeque<>();
-        for (int seed = 0; seed < faceCount; seed++) {
-            if (visitedFace[seed]) {
-                continue;
-            }
-            visitedFace[seed] = true;
-            picks.add(cutGraph.cornerToChartVertex[seed * CORNERS_PER_FACE]);
-            queue.add(seed);
-            while (!queue.isEmpty()) {
-                int af = queue.poll();
-                int fId = mesh.faceIdAt(af);
-                for (int c = 0; c < CORNERS_PER_FACE; c++) {
-                    int eId = mesh.faceEdgeAt(fId, c);
-                    int ae = crossField.edgeIdToActive.get(eId);
-                    if (cutGraph.isCutEdge[ae]) {
-                        continue;
-                    }
-                    int afA = edgeFaceA[ae];
-                    int afB = edgeFaceB[ae];
-                    if (afA < 0 || afB < 0) {
-                        continue;
-                    }
-                    int afOther = (afA == af) ? afB : afA;
-                    if (visitedFace[afOther]) {
-                        continue;
-                    }
-                    visitedFace[afOther] = true;
-                    queue.add(afOther);
-                }
-            }
-        }
-        int[] result = new int[picks.size()];
-        for (int i = 0; i < picks.size(); i++) {
-            result[i] = picks.get(i);
-        }
-        return result;
     }
 }

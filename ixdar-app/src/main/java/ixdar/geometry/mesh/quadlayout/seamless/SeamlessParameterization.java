@@ -69,14 +69,16 @@ public final class SeamlessParameterization {
     private static final double DEGENERATE_AREA_EPS = 1.0e-30;
     private static final double SVD_DET_FACTOR = 4.0;
     /**
-     * Coefficient-magnitude threshold below which a leftover-row entry is
-     * treated as zero during sparse Gauss-Jordan elimination. Sized to swallow
-     * round-off from {@code R · (s, t)} cancellations at singularity nodes.
+     * Coefficient-magnitude threshold below which a leftover-row entry is treated
+     * as zero during sparse Gauss-Jordan elimination. Sized to swallow round-off
+     * from {@code R · (s, t)} cancellations at singularity nodes.
      */
     private static final double NANOS_PER_SEC = 1.0e9;
     private static final String DIAG_PROP = "seamlessParam.diag";
     private static final String DIAG_TRUE = "true";
     private static final int DIAG_LOG_EVERY = 10;
+    /** Width in characters of the §5.4 stiffening progress bar. */
+    private static final int PROGRESS_BAR_WIDTH = 30;
 
     public final HalfEdgeMesh mesh;
     public final CrossField crossField;
@@ -110,45 +112,25 @@ public final class SeamlessParameterization {
      */
     public float h;
 
-    /** Diagonal pin weight on each per-chart gauge corner. */
-    public float gaugePinWeight = 1.0e6f;
-
     /** Hard cap on §5.4 IRLS iterations. */
-    public int maxStiffeningIterations = 50;
+    public int maxStiffeningIterations = 20;
 
     /**
-     * §5.4 weight growth factor per pass for flipped triangles (multiplicative not
-     * additive). 4.0 converges sphere-class meshes in ~30 iters; harder meshes
-     * (bolt, rockerarm) diverge under this simplified IRLS — see
-     * {@link #stiffeningSmoothPasses} and the class-level note on §5.4 fidelity.
-     */
-    public float stiffeningGrowth = 1.0f;
-
-    /**
-     * §5.4 maximum per-face IRLS weight; bounds the multiplicative flip kick.
-     */
-    public double stiffeningWeightCap = 1.0e8;
-
-    /**
-     * BZK09 §5.4 uniform-Laplacian smoothing passes applied to the per-face weight
-     * field after each multiplicative bump. Smoothing damps the single-face
-     * oscillations the simplified stiffening otherwise exhibits on non-trivial
-     * meshes (a flip in face f raises w(f), the next solve flips face f's
-     * neighbour, etc.). 3 rings is enough on the test fixtures.
+     * BZK09 §5.4 uniform-Laplacian smoothing passes applied to the per-face
+     * weight field after each Δλ bump. The paper recommends "a few" passes;
+     * 1 is enough on the test fixtures.
      */
     public int stiffeningSmoothPasses = 1;
 
     /**
-     * §5.4 proportionality constant for the {@code |Δλ|} bump. Paper recommends c =
-     * 1 for IGM where flips are rare; for the seamless mode without integer
-     * singularity pinning, the relaxed solve has many flips and needs much faster
-     * weight growth — c = 100 converges sphere in &lt;30 iterations.
+     * BZK09 §5.4 proportionality constant for the {@code |Δλ|} bump. Paper's
+     * value: {@code c = 1}.
      */
     public double stiffeningC = 1.0;
 
     /**
-     * §5.4 maximum per-pass weight bump (paper: d = 5; we raise it to keep up with
-     * c).
+     * BZK09 §5.4 hard cap on the per-iteration weight bump. Paper's value:
+     * {@code d = 5}.
      */
     public double stiffeningD = 5;
 
@@ -158,7 +140,34 @@ public final class SeamlessParameterization {
      * literal zero, making the output safe to feed into Lyon 2021's T-mesh
      * stage. Default false until the projection is proven on all fixtures.
      */
-    public boolean exactSeams = false;
+    public boolean exactSeams = true;
+
+    /**
+     * If true, enforce the BZK09 §5 cross-boundary compatibility equations
+     * {@code chart_B = R_r · chart_A + (s, t)} as <b>soft</b> penalties in
+     * the SPD energy instead of <b>hard</b> variable elimination via the
+     * leftover-row Gauss-Jordan reduction. Each cut edge contributes
+     * {@code softSeamWeight · ‖chart_B − R_r·chart_A − (s, t)‖²} at both
+     * endpoints, leaving every chart vertex as a free DOF rather than
+     * substituting B-side chart vertices out.
+     *
+     * <p>The hypothesis: hard elimination at r ∈ {1, 3} cuts mixes u and v
+     * raw DOFs into a single block, removing the structural decoupling
+     * that lets ∇u and ∇v stay orthogonal at the energy minimum. Soft
+     * penalties keep all chart vertices independent at the DOF level; the
+     * coupling enters only via the penalty rows, which the SPD solver can
+     * trade off against the orientation energy. After this stage, MC19
+     * (when {@link #exactSeams} is on) drives the residual to literal
+     * zero so the final output is still exactly seamless.
+     */
+    public boolean useSoftSeams = true;
+
+    /**
+     * Weight on each soft seam-transition penalty row when
+     * {@link #useSoftSeams} is true. Large enough that the seam residual
+     * is small but finite — leaves slack for orthogonality preservation.
+     */
+    public double softSeamWeight = 1.0;
 
     /** Cut graph. */
     public CutGraph cutGraph;
@@ -205,10 +214,15 @@ public final class SeamlessParameterization {
     /** v_T(ξ) y-component in local frame, post branch rotation. */
     public double[] faceVtyLocal;
 
-    /** Soft-pin diagonal weight applied to a rounded integer DOF; passed to {@link SeamlessDofSystem}. */
+    /**
+     * Soft-pin diagonal weight applied to a rounded integer DOF; passed to
+     * {@link SeamlessDofSystem}.
+     */
     public double integerPinWeight = 1.0e10;
 
-    /** DOF state + cached assembly plan + AMD perm. Constructed in {@link #build}. */
+    /**
+     * DOF state + cached assembly plan + AMD perm. Constructed in {@link #build}.
+     */
     public SeamlessDofSystem dofSystem;
 
     /** Last solver output (size {@code dofSystem.dofCount}). */
@@ -234,11 +248,7 @@ public final class SeamlessParameterization {
         System.out.println("[seamless] Building seamless parameterization");
         this.faceCount = mesh.faceCount();
         this.edgeCount = mesh.edgeCount();
-        if (this.h <= 0f) {
-            this.h = mesh.computeAverageEdgeLength();
-            if (this.h <= 0f)
-                this.h = 1.0f;
-        }
+        this.h = this.crossField.h;
 
         edgeFaceA = new int[edgeCount];
         edgeFaceB = new int[edgeCount];
@@ -334,7 +344,7 @@ public final class SeamlessParameterization {
         this.injective = inj && this.injective;
         if (exactSeams) {
 
-        System.out.println("[seamless] Projecting onto exact-seam parameterization");
+            System.out.println("[seamless] Projecting onto exact-seam parameterization");
             new SeamlessProjector(this).project();
         }
         this.metrics = new ParameterizationMetrics(this, mesh);
@@ -530,17 +540,19 @@ public final class SeamlessParameterization {
      * flipped face" version exhibits.
      */
     private void runStiffeningLoop() {
-        boolean diag = DIAG_TRUE.equals(System.getProperty(DIAG_PROP));
+        int initialFlipped = -1;
+        int previousFlipped = -1;
         for (int iter = 0; iter <= maxStiffeningIterations; iter++) {
             stiffeningIterations = iter;
             long t0 = System.nanoTime();
             solveOnce();
             long t1 = System.nanoTime();
             int flipped = countFlippedTrianglesFromSolution();
-            if (diag) {
-                System.err.printf("[seamlessParam] iter=%d flipped=%d  solve=%.2fs%n",
-                        iter, flipped, (t1 - t0) / NANOS_PER_SEC);
+            if (initialFlipped < 0) {
+                initialFlipped = flipped;
             }
+            printStiffeningProgress(iter, flipped, initialFlipped, previousFlipped, t1 - t0);
+            previousFlipped = flipped;
             if (flipped == 0) {
                 injective = true;
                 return;
@@ -631,38 +643,10 @@ public final class SeamlessParameterization {
                 faceWeight[activeFace] += weightBump;
             }
 
-            // Step 2: aggressive multiplicative kick on actually-flipped faces.
-            // The paper's c=1, d=5 grow weights too slowly to fix orientation
-            // inversions; without this kick a flipped face never accumulates
-            // enough weight to flip back. Capped by {@link #stiffeningWeightCap}.
-            for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-                if (faceArea[activeFace] <= 0) {
-                    continue;
-                }
-                int faceCornerBase = activeFace * CORNERS_PER_FACE;
-                int chartVertex0 = cutGraph.cornerToChartVertex[faceCornerBase];
-                int chartVertex1 = cutGraph.cornerToChartVertex[faceCornerBase + 1];
-                int chartVertex2 = cutGraph.cornerToChartVertex[faceCornerBase + 2];
-                double u0 = dofSystem.evaluateChartComponent(chartVertex0, 0, solution);
-                double v0 = dofSystem.evaluateChartComponent(chartVertex0, 1, solution);
-                double u1 = dofSystem.evaluateChartComponent(chartVertex1, 0, solution);
-                double v1 = dofSystem.evaluateChartComponent(chartVertex1, 1, solution);
-                double u2 = dofSystem.evaluateChartComponent(chartVertex2, 0, solution);
-                double v2 = dofSystem.evaluateChartComponent(chartVertex2, 1, solution);
-
-                double uvSignedArea = HALF_D * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
-                if (uvSignedArea <= 0.0) {
-                    faceWeight[activeFace] = Math.min(
-                            faceWeight[activeFace] * stiffeningGrowth, stiffeningWeightCap);
-                } else {
-                    faceWeight[activeFace] = Math.min(faceWeight[activeFace], stiffeningWeightCap);
-                }
-            }
-
             // Smoothing passes: replace each face's weight with the average of itself
             // and its face-neighbours' weights. Paper recommends a couple of passes.
             if (stiffeningSmoothPasses <= 0) {
-                return;
+                continue;
             }
             double[] smoothedWeights = new double[faceCount];
             for (int pass = 0; pass < stiffeningSmoothPasses; pass++) {
@@ -690,9 +674,9 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * Assemble the SPD system for the current {@link #faceWeight} via the
-     * cached {@link SeamlessDofSystem} plan, apply the integer-pin penalty,
-     * factor with the cached AMD permutation, and solve.
+     * Assemble the SPD system for the current {@link #faceWeight} via the cached
+     * {@link SeamlessDofSystem} plan, apply the integer-pin penalty, factor with
+     * the cached AMD permutation, and solve.
      */
     private void solveOnce() {
         NormalMatrix matrix = dofSystem.assemble(faceWeight);
@@ -704,8 +688,8 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * Materialise per-corner {@code uCorner} / {@code vCorner} from the
-     * current {@link #solution} via each chart vertex's final-DOF expansion.
+     * Materialise per-corner {@code uCorner} / {@code vCorner} from the current
+     * {@link #solution} via each chart vertex's final-DOF expansion.
      *
      * @param totalCorners {@code 3 * faceCount}
      */
@@ -718,9 +702,9 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * Back-fill {@code cutTranslationS} / {@code cutTranslationT} from the
-     * raw {@code (s, t)} DOFs, evaluating through the leftover-row
-     * substitution if those DOFs were pivot-eliminated.
+     * Back-fill {@code cutTranslationS} / {@code cutTranslationT} from the raw
+     * {@code (s, t)} DOFs, evaluating through the leftover-row substitution if
+     * those DOFs were pivot-eliminated.
      */
     private void writeCutTranslationsFromSolution() {
         for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
@@ -735,8 +719,44 @@ public final class SeamlessParameterization {
     }
 
     /**
+     * Print one §5.4 stiffening iteration's progress: iteration number,
+     * flipped-triangle bar with initial-vs-current scale, signed delta since
+     * previous iteration, and solve time. Output goes to stdout so it interleaves
+     * with the rest of the build log.
+     *
+     * @param iter            zero-based iteration index
+     * @param flipped         current flipped-triangle count
+     * @param initialFlipped  flipped count at iter 0 (denominator of the bar)
+     * @param previousFlipped flipped count one iteration ago, or -1 on iter 0
+     * @param solveNanos      elapsed nanoseconds for this iteration's solve
+     */
+    private void printStiffeningProgress(int iter, int flipped, int initialFlipped,
+            int previousFlipped, long solveNanos) {
+        int barWidth = PROGRESS_BAR_WIDTH;
+        int filled = initialFlipped == 0 ? 0
+                : Math.max(0, Math.min(barWidth, (int) Math.round(
+                        (double) flipped * barWidth / Math.max(1, initialFlipped))));
+        StringBuilder bar = new StringBuilder(barWidth + 2);
+        bar.append('[');
+        for (int i = 0; i < barWidth; i++) {
+            bar.append(i < filled ? '#' : '.');
+        }
+        bar.append(']');
+        String delta;
+        if (previousFlipped < 0) {
+            delta = "(initial)";
+        } else {
+            int d = flipped - previousFlipped;
+            delta = String.format("(%+d)", d);
+        }
+        System.out.printf("[stiffening] %s iter %2d/%d  flipped=%4d/%-4d %s  %.2fs%n",
+                bar.toString(), iter, maxStiffeningIterations,
+                flipped, initialFlipped, delta, solveNanos / NANOS_PER_SEC);
+    }
+
+    /**
      * Counts the number of flipped triangles from the solution.
-     * 
+     *
      * @return the number of flipped triangles
      */
     private int countFlippedTrianglesFromSolution() {
@@ -745,16 +765,16 @@ public final class SeamlessParameterization {
             if (faceArea[af] <= 0)
                 continue;
             int o = af * CORNERS_PER_FACE;
-            int cv0 = cutGraph.cornerToChartVertex[o];
-            int cv1 = cutGraph.cornerToChartVertex[o + 1];
-            int cv2 = cutGraph.cornerToChartVertex[o + 2];
-            double u0 = dofSystem.evaluateChartComponent(cv0, 0, solution);
-            double v0 = dofSystem.evaluateChartComponent(cv0, 1, solution);
-            double u1 = dofSystem.evaluateChartComponent(cv1, 0, solution);
-            double v1 = dofSystem.evaluateChartComponent(cv1, 1, solution);
-            double u2 = dofSystem.evaluateChartComponent(cv2, 0, solution);
-            double v2 = dofSystem.evaluateChartComponent(cv2, 1, solution);
-            double sa = HALF_D * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
+        int cv0 = cutGraph.cornerToChartVertex[o];
+        int cv1 = cutGraph.cornerToChartVertex[o + 1];
+        int cv2 = cutGraph.cornerToChartVertex[o + 2];
+        double u0 = dofSystem.evaluateChartComponent(cv0, 0, solution);
+        double v0 = dofSystem.evaluateChartComponent(cv0, 1, solution);
+        double u1 = dofSystem.evaluateChartComponent(cv1, 0, solution);
+        double v1 = dofSystem.evaluateChartComponent(cv1, 1, solution);
+        double u2 = dofSystem.evaluateChartComponent(cv2, 0, solution);
+        double v2 = dofSystem.evaluateChartComponent(cv2, 1, solution);
+        double sa = HALF_D * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
             if (sa <= 0.0)
                 flipped++;
         }
