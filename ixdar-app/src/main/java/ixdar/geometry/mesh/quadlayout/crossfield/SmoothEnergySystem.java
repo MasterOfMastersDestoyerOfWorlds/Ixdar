@@ -22,10 +22,6 @@ import java.util.Map;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
-import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver.Method;
-import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver.Options;
-import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver.Result;
-import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver.Stats;
 
 public final class SmoothEnergySystem {
     public static final double DEFAULT_LOCAL_TOLERANCE = 1e-6;
@@ -36,8 +32,7 @@ public final class SmoothEnergySystem {
     final int edgeCount;
     final boolean[] faceConstrained;
     final float[] faceConstraintAngle;
-    final boolean[] periodFixedInit;
-    final int[] periodValue;
+    final VornoiForest vornoiForest;
 
     int[] rowFaceI;
     int[] rowFaceJ;
@@ -80,13 +75,12 @@ public final class SmoothEnergySystem {
 
     SmoothEnergySystem(int faceCount, int edgeCount,
             boolean[] faceConstrained, float[] faceConstraintAngle,
-            boolean[] periodFixed, int[] periodValue) {
+            VornoiForest vornoiForest) {
         this.faceCount = faceCount;
         this.edgeCount = edgeCount;
         this.faceConstrained = faceConstrained;
         this.faceConstraintAngle = faceConstraintAngle;
-        this.periodFixedInit = periodFixed;
-        this.periodValue = periodValue;
+        this.vornoiForest = vornoiForest;
     }
 
     void assemble(HalfEdgeMesh mesh, Map<Integer, Integer> faceIdToActive, float[] kappa,
@@ -115,7 +109,7 @@ public final class SmoothEnergySystem {
             rowCount++;
         }
 
-        periodFixed = periodFixedInit.clone();
+        periodFixed = vornoiForest.periodFixed.clone();
         chordOfEdge = new int[edgeCount];
         Arrays.fill(chordOfEdge, -1);
         chordCount = 0;
@@ -142,13 +136,13 @@ public final class SmoothEnergySystem {
             fixedVariables[fAi] = faceConstrained[fAi];
         }
         for (int eAi = 0; eAi < edgeCount; eAi++) {
-            solutionPeriod[eAi] = periodFixed[eAi] ? periodValue[eAi] : 0f;
+            solutionPeriod[eAi] = periodFixed[eAi] ? vornoiForest.periodValue[eAi] : 0f;
             int chord = chordOfEdge[eAi];
             if (chord >= 0) {
                 solution[faceCount + chord] = solutionPeriod[eAi];
             }
         }
-        normalMatrix = new NormalMatrix(faceCount, chordCount, rowCount, rowFaceI, rowFaceJ, rowEdgeAi, chordOfEdge, periodValue, rowKappa);
+        normalMatrix = new NormalMatrix(faceCount, chordCount, rowCount, rowFaceI, rowFaceJ, rowEdgeAi, chordOfEdge, vornoiForest.periodValue, rowKappa);
         adaptiveOptions = new AdaptiveSolver.Options();
         adaptiveOptions.localMaxIterations = solverLocalMaxIterations;
         adaptiveOptions.localTolerance = DEFAULT_LOCAL_TOLERANCE;
@@ -183,10 +177,8 @@ public final class SmoothEnergySystem {
                 int variable = roundedVariables[i];
                 int eAi = roundedEdges[i];
                 int rounded = (int) Math.round(solution[variable]);
-                double roundoffAmount = Math.abs(solution[variable] - rounded);
-
                 periodFixed[eAi] = true;
-                periodValue[eAi] = rounded;
+                vornoiForest.periodValue[eAi] = rounded;
                 solutionPeriod[eAi] = rounded;
                 solution[variable] = rounded;
                 fixedVariables[variable] = true;
@@ -357,7 +349,7 @@ public final class SmoothEnergySystem {
             if (chord >= 0) {
                 solutionPeriod[eAi] = (float) solution[faceCount + chord];
             } else {
-                solutionPeriod[eAi] = periodValue[eAi];
+                solutionPeriod[eAi] = vornoiForest.periodValue[eAi];
             }
         }
     }
@@ -377,7 +369,7 @@ public final class SmoothEnergySystem {
                 cf.periodJump[eAi] = (int) Math.round(solutionPeriod[eAi]);
             } else {
 
-                cf.periodJump[eAi] = periodValue[eAi];
+                cf.periodJump[eAi] = vornoiForest.periodValue[eAi];
             }
         }
     }

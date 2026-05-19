@@ -7,7 +7,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.PriorityQueue;
 import java.util.Set;
 
 import org.joml.Vector3f;
@@ -15,9 +14,11 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.VertexFaceIds;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.Singularity;
+import ixdar.geometry.mesh.quadlayout.crossfield.constraint.BoundaryConstraints;
+import ixdar.geometry.mesh.quadlayout.crossfield.constraint.CurvatureConstraints;
+import ixdar.geometry.mesh.quadlayout.crossfield.constraint.FeatureEdgeConstraints;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
@@ -57,6 +58,11 @@ public class CrossField {
      * The mesh that the cross field is built from.
      */
     public final HalfEdgeMesh mesh;
+
+    /**
+     * The Voronoi forest of the cross field.
+     */
+    public VornoiForest vornoiForest;
 
     /**
      * Angle from this face's local x-axis to the cross field's representative
@@ -121,7 +127,7 @@ public class CrossField {
      * How far the angle between two faces can be from flat to be considered a
      * feature edge (cos 90° = 0). Feature edges are aligned with the cross field.
      */
-    public float featureDihedralCos = 0.25f;
+    public float featureDihedralCos = 0.2f;
 
     /**
      * Maximum number of local Gauss-Seidel iterations on the AdaptiveSolver before
@@ -174,9 +180,6 @@ public class CrossField {
     public int[] visitedVertexIds;
     public int curvatureStamp = 0;
 
-    public boolean[] periodFixed;
-    public int[] periodValue;
-
     public boolean[] faceConstrained;
     public float[] faceConstraintAngle;
 
@@ -202,9 +205,6 @@ public class CrossField {
         this.edgeCount = mesh.edgeCount();
         this.faceCount = mesh.faceCount();
         this.vertexCount = mesh.vertexCount();
-
-        this.periodFixed = new boolean[edgeCount];
-        this.periodValue = new int[edgeCount];
 
         this.faceConstrained = new boolean[faceCount];
         this.faceConstraintAngle = new float[faceCount];
@@ -331,9 +331,9 @@ public class CrossField {
             kappa[i] = (float) Math.atan2(crossDirY, crossDirX);
         }
 
-        applyFeatureEdgeConstraints();
-        applyBoundaryConstraints();
-        applyCurvatureConstraints();
+        FeatureEdgeConstraints.applyFeatureEdgeConstraints(mesh, this);
+        BoundaryConstraints.applyBoundaryConstraints(mesh, this);
+        CurvatureConstraints.applyCurvatureConstraints(mesh, this);
 
         int totalConstraints = 0;
         for (boolean constrained : faceConstrained) {
@@ -347,9 +347,10 @@ public class CrossField {
             totalConstraints = 1;
         }
 
-        buildVoronoiSpanningForest(faceConstrained);
+        VornoiForest vornoiForest = new VornoiForest(mesh, this);
+        vornoiForest.buildVoronoiSpanningForest();
         SmoothEnergySystem system = new SmoothEnergySystem(faceCount, edgeCount,
-                faceConstrained, faceConstraintAngle, periodFixed, periodValue);
+                faceConstrained, faceConstraintAngle, vornoiForest);
         system.assemble(mesh, faceIdToActive, kappa, solverLocalMaxIterations, solverCgMaxIterations);
         system.solveGreedyMIP(lastDiagnostics);
         system.unpackInto(mesh, this);
@@ -543,8 +544,8 @@ public class CrossField {
                 continue;
             int faceA = rowFaceA[row];
             int faceB = rowFaceB[row];
-            double k = kappa[activeEdgeIndex] + halfPi * 
-                ((activeEdgeIndex == perturbEdge) ? perturbedPeriodJump : periodJump[activeEdgeIndex]);
+            double k = kappa[activeEdgeIndex] + halfPi *
+                    ((activeEdgeIndex == perturbEdge) ? perturbedPeriodJump : periodJump[activeEdgeIndex]);
             rhs[faceA] -= k;
             rhs[faceB] += k;
         }
@@ -635,521 +636,6 @@ public class CrossField {
         out.y -= dot * normal.y;
         out.z -= dot * normal.z;
         out.normalize();
-    }
-
-    /**
-     * A2. Directional constraints from principal curvature
-     *
-     * @return number of newly constrained faces
-     */
-
-    public int applyCurvatureConstraints() {
-        float averageEdgeLength = mesh.computeAverageEdgeLength();
-        float curvatureK = curvatureScaleK / Math.max(mesh.computeBoundingSphereRadius(), EPSILON);
-        Vector3f vPos = new Vector3f();
-        Vector3f vNormal = new Vector3f();
-        Vector3f e1 = new Vector3f();
-        Vector3f e2 = new Vector3f();
-        int addedConstraints = 0;
-        float stabilityWindow = RADIUS_STABILITY_WINDOW_FRACTION * targetQuadEdgeLength;
-
-        List<Float> radii = new ArrayList<>();
-        float startRadius = radiusStartMul * averageEdgeLength;
-        if (radiusRatio <= SINGLE_RADIUS_RATIO_THRESHOLD || targetQuadEdgeLength <= startRadius) {
-            radii.add(targetQuadEdgeLength);
-        } else {
-            for (float r = startRadius; r <= targetQuadEdgeLength + EPSILON; r *= radiusRatio) {
-                radii.add(r);
-            }
-        }
-
-        for (int vAi = 0; vAi < mesh.vertexCount(); vAi++) {
-            int vId = mesh.vertexIdAt(vAi);
-            if (mesh.isBoundaryVertex(vId)) {
-                continue;
-            }
-            mesh.vertexPosition(vId, vPos);
-            mesh.vertexNormal(vId, vNormal);
-            arbitraryTangent(vNormal, e1);
-            vNormal.cross(e1, e2).normalize();
-
-            List<Float> anglesMaxDir = new ArrayList<>();
-            List<Float> kappaMaxList = new ArrayList<>();
-            List<Float> kappaMinList = new ArrayList<>();
-            List<Float> validRadii = new ArrayList<>();
-
-            for (float r : radii) {
-                float[] T = integrateCurvatureTensor(vId, vPos, vNormal, e1, e2, r);
-                if (T == null)
-                    continue;
-
-                float t00 = T[0];
-                float t01 = T[1];
-                float t11 = T[2];
-                float trace = t00 + t11;
-                float diff = t00 - t11;
-                float disc = (float) Math.sqrt(diff * diff + 4f * t01 * t01);
-                float lambda1 = 0.5f * (trace + disc);
-                float lambda2 = 0.5f * (trace - disc);
-                float eigBig, eigSmall;
-                if (Math.abs(lambda1) >= Math.abs(lambda2)) {
-                    eigBig = lambda1;
-                    eigSmall = lambda2;
-                } else {
-                    eigBig = lambda2;
-                    eigSmall = lambda1;
-                }
-                float vx, vy;
-                if (Math.abs(t01) > EPSILON) {
-                    vx = eigBig - t11;
-                    vy = t01;
-                } else if (Math.abs(eigBig - t00) < Math.abs(eigBig - t11)) {
-                    vx = 1f;
-                    vy = 0f;
-                } else {
-                    vx = 0f;
-                    vy = 1f;
-                }
-                float angle = (float) Math.atan2(vy, vx);
-                kappaMaxList.add(eigBig);
-                kappaMinList.add(eigSmall);
-                anglesMaxDir.add(angle);
-                validRadii.add(r);
-            }
-            if (anglesMaxDir.isEmpty()) {
-                continue;
-            }
-
-            int bestIdx = -1;
-            float bestJitter = Float.POSITIVE_INFINITY;
-            for (int k = 0; k < anglesMaxDir.size(); k++) {
-
-                float center = validRadii.get(k);
-                int intervalStatus = CURVATURE_INTERVAL_VALID;
-                for (int j = 0; j < validRadii.size(); j++) {
-                    if (Math.abs(validRadii.get(j) - center) > stabilityWindow) {
-                        continue;
-                    }
-                    float kmax = kappaMaxList.get(j);
-                    float kmin = kappaMinList.get(j);
-                    if (Math.abs(kmax) < EPSILON) {
-                        intervalStatus = CURVATURE_INTERVAL_FAIL_TAU;
-                        break;
-                    }
-                    float curvatureConstrast = (Math.abs(kmax) - Math.abs(kmin)) / Math.abs(kmax);
-                    float meanH = 0.5f * (kmax + kmin);
-                    if (curvatureConstrast <= minimumCurvatureContrast || Math.abs(meanH) <= curvatureK) {
-                        intervalStatus = curvatureConstrast <= minimumCurvatureContrast
-                                ? CURVATURE_INTERVAL_FAIL_TAU
-                                : CURVATURE_INTERVAL_FAIL_MEAN;
-                        break;
-                    }
-                }
-                if (intervalStatus == CURVATURE_INTERVAL_FAIL_TAU || intervalStatus == CURVATURE_INTERVAL_FAIL_MEAN
-                        || intervalStatus != CURVATURE_INTERVAL_VALID) {
-                    continue;
-                }
-
-                float ak = anglesMaxDir.get(k);
-                float sumSq = 0f;
-                int count = 0;
-                for (int j = 0; j < anglesMaxDir.size(); j++) {
-                    if (j == k)
-                        continue;
-                    if (Math.abs(validRadii.get(j) - center) > stabilityWindow)
-                        continue;
-                    float alpha = anglesMaxDir.get(j) - ak;
-                    /** Wrap an angle to (−π/2, π/2]. */
-                    float diff = (float) (alpha - Math.PI * Math.floor((alpha + Math.PI / 2.0) / Math.PI));
-                    sumSq += diff * diff;
-                    count++;
-                }
-                float jitter = 0f;
-                if (count != 0) {
-                    jitter = (float) Math.sqrt(sumSq / count);
-                }
-                if (jitter < bestJitter) {
-                    bestJitter = jitter;
-                    bestIdx = k;
-                }
-            }
-            if (bestIdx < 0) {
-                continue;
-            }
-
-            float constraintAngleAtV = anglesMaxDir.get(bestIdx);
-            float c = (float) Math.cos(constraintAngleAtV);
-            float s = (float) Math.sin(constraintAngleAtV);
-            Vector3f constraintDirWorld = new Vector3f(
-                    e1.x * c + e2.x * s,
-                    e1.y * c + e2.y * s,
-                    e1.z * c + e2.z * s);
-
-            int adj = mesh.vertexFaceCount(vId);
-            int newlyConstrained = 0;
-
-            int bestFaceAi = -1;
-            float bestProjectionLength = -1f;
-            for (int i = 0; i < adj; i++) {
-                int fId = mesh.vertexFaceAt(vId, i);
-                int fAi = faceIdToActive.get(fId);
-                if (faceConstrained[fAi]) {
-                    continue;
-                }
-                Vector3f n = new Vector3f();
-                mesh.faceNormal(mesh.faceIdAt(fAi), n);
-                float dotN = constraintDirWorld.dot(n);
-                float x = constraintDirWorld.x - dotN * n.x;
-                float y = constraintDirWorld.y - dotN * n.y;
-                float z = constraintDirWorld.z - dotN * n.z;
-                float projectionLength = (float) Math.sqrt(x * x + y * y + z * z);
-                if (projectionLength > bestProjectionLength) {
-                    bestProjectionLength = projectionLength;
-                    bestFaceAi = fAi;
-                }
-            }
-            if (bestFaceAi >= 0) {
-                float angleInFace = mesh.projectDirectionToFaceAngle(constraintDirWorld, bestFaceAi, faceY[bestFaceAi],
-                        faceX[bestFaceAi]);
-                faceConstrained[bestFaceAi] = true;
-                faceConstraintAngle[bestFaceAi] = canonicalizeMod(angleInFace);
-                newlyConstrained = 1;
-            }
-            if (newlyConstrained > 0) {
-                addedConstraints += newlyConstrained;
-            }
-        }
-        return addedConstraints;
-    }
-
-    /**
-     * Cohen-Steiner integrated curvature tensor over a geodesic disk around
-     * {@code centerVertexId}. Walks all triangles whose three vertices fall within
-     * the disk and accumulates per-interior-edge dihedral contributions
-     * {@code β·|e|·(ē⊗ē)}, normalized by total triangle area. Returns
-     * {@code [T00, T01, T11]} expressed in the local tangent basis (e1, e2), or
-     * {@code null} when the disk is empty or has no usable area.
-     *
-     * @param centerVertexId center vertex id
-     * @param centerPosition center vertex position
-     * @param centerNormal   center vertex normal
-     * @param tangentE1      tangent basis vector 1
-     * @param tangentE2      tangent basis vector 2 (= centerNormal × tangentE1)
-     * @param geodesicRadius geodesic-disk radius (Dijkstra over 1-skeleton)
-     * @return three-element {@code [T00, T01, T11]} tensor entries, or {@code null}
-     *         when the disk has no usable triangles
-     */
-    public float[] integrateCurvatureTensor(int centerVertexId, Vector3f centerPosition,
-            Vector3f centerNormal, Vector3f tangentE1, Vector3f tangentE2, float geodesicRadius) {
-        final int stamp = ++curvatureStamp;
-
-        PriorityQueue<DijkstraNode> pq = new PriorityQueue<>();
-        pq.offer(new DijkstraNode(0f, centerVertexId));
-        vertexInDiskStamp[centerVertexId] = stamp;
-        vertexDistance[centerVertexId] = 0f;
-        int visitedCount = 0;
-        visitedVertexIds[visitedCount++] = centerVertexId;
-
-        Vector3f a = new Vector3f();
-        Vector3f b = new Vector3f();
-        while (!pq.isEmpty()) {
-            DijkstraNode node = pq.poll();
-            int u = node.vertexOrFace;
-            if (node.distance > vertexDistance[u] + EPSILON) {
-                continue;
-            }
-            mesh.vertexPosition(u, a);
-            int outCount = mesh.vertexOutgoingHalfEdgeCount(u);
-            for (int i = 0; i < outCount; i++) {
-                int he = mesh.vertexOutgoingHalfEdgeAt(u, i);
-                int w = mesh.halfEdgeEndVertex(he);
-                mesh.vertexPosition(w, b);
-                float dx = b.x - a.x;
-                float dy = b.y - a.y;
-                float dz = b.z - a.z;
-                float wLen = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-                float nd = node.distance + wLen;
-                if (nd > geodesicRadius) {
-                    continue;
-                }
-                if (vertexInDiskStamp[w] != stamp) {
-                    vertexInDiskStamp[w] = stamp;
-                    vertexDistance[w] = nd;
-                    visitedVertexIds[visitedCount++] = w;
-                    pq.offer(new DijkstraNode(nd, w));
-                } else if (nd < vertexDistance[w]) {
-                    vertexDistance[w] = nd;
-                    pq.offer(new DijkstraNode(nd, w));
-                }
-            }
-        }
-        if (visitedCount == 0) {
-            return null;
-        }
-
-        // Collect faces fully inside the disk.
-        int facesFound = 0;
-        float totalDiskArea = 0f;
-        for (int vi = 0; vi < visitedCount; vi++) {
-            int vertexId = visitedVertexIds[vi];
-            int adjacentFaceCount = mesh.vertexFaceCount(vertexId);
-            for (int i = 0; i < adjacentFaceCount; i++) {
-                int faceId = mesh.vertexFaceAt(vertexId, i);
-                if (faceInDiskStamp[faceId] == stamp) {
-                    continue;
-                }
-                int faceVertex0 = mesh.faceVertexAt(faceId, 0);
-                int faceVertex1 = mesh.faceVertexAt(faceId, 1);
-                int faceVertex2 = mesh.faceVertexAt(faceId, 2);
-                if (vertexInDiskStamp[faceVertex0] == stamp
-                        && vertexInDiskStamp[faceVertex1] == stamp
-                        && vertexInDiskStamp[faceVertex2] == stamp) {
-                    faceInDiskStamp[faceId] = stamp;
-                    totalDiskArea += mesh.faceArea(faceId);
-                    facesFound++;
-                }
-            }
-        }
-        if (facesFound == 0 || totalDiskArea < EPSILON) {
-            return null;
-        }
-
-        float tensor00 = 0f;
-        float tensor01 = 0f;
-        float tensor11 = 0f;
-
-        for (int vi = 0; vi < visitedCount; vi++) {
-            int vertexId = visitedVertexIds[vi];
-            int incidentEdgeCount = mesh.vertexEdgeCount(vertexId);
-            for (int activeVertexIndex = 0; activeVertexIndex < incidentEdgeCount; activeVertexIndex++) {
-                VertexFaceIds vertexEdgeIds = mesh.vertexFaceIds(vertexId, activeVertexIndex);
-                if (edgeProcessedStamp[vertexEdgeIds.edgeId] == stamp) {
-                    continue;
-                }
-                edgeProcessedStamp[vertexEdgeIds.edgeId] = stamp;
-
-                if (vertexInDiskStamp[vertexEdgeIds.edgeStartVertex] != stamp
-                        || vertexInDiskStamp[vertexEdgeIds.edgeEndVertex] != stamp) {
-                    continue;
-                }
-                if (mesh.isBoundaryEdge(vertexEdgeIds.edgeId)) {
-                    continue;
-                }
-                if (faceInDiskStamp[vertexEdgeIds.faceA] != stamp
-                        || faceInDiskStamp[vertexEdgeIds.faceB] != stamp) {
-                    continue;
-                }
-
-                Vector3f position0 = mesh.vertexPosition(vertexEdgeIds.edgeStartVertex);
-                Vector3f position1 = mesh.vertexPosition(vertexEdgeIds.edgeEndVertex);
-                Vector3f edgeVector = new Vector3f(position1).sub(position0);
-                float edgeLength = edgeVector.length();
-                if (edgeLength < EPSILON) {
-                    continue;
-                }
-
-                Vector3f leftFaceNormal = mesh.faceNormal(vertexEdgeIds.faceA);
-                Vector3f rightFaceNormal = mesh.faceNormal(vertexEdgeIds.faceB);
-                float cosDihedral = Math.max(-1f, Math.min(1f, leftFaceNormal.dot(rightFaceNormal)));
-                Vector3f normalCross = new Vector3f(leftFaceNormal).cross(rightFaceNormal);
-                float sinDihedral = normalCross.dot(edgeVector) / edgeLength;
-                float dihedralAngle = (float) Math.atan2(sinDihedral, cosDihedral);
-
-                Vector3f edgeDirInTangentPlane = new Vector3f(edgeVector).div(edgeLength);
-                float normalComponent = edgeDirInTangentPlane.dot(centerNormal);
-                edgeDirInTangentPlane.x -= normalComponent * centerNormal.x;
-                edgeDirInTangentPlane.y -= normalComponent * centerNormal.y;
-                edgeDirInTangentPlane.z -= normalComponent * centerNormal.z;
-                float edgeComponentE1 = edgeDirInTangentPlane.dot(tangentE1);
-                float edgeComponentE2 = edgeDirInTangentPlane.dot(tangentE2);
-
-                float weight = dihedralAngle * edgeLength;
-                tensor00 += weight * edgeComponentE1 * edgeComponentE1;
-                tensor01 += weight * edgeComponentE1 * edgeComponentE2;
-                tensor11 += weight * edgeComponentE2 * edgeComponentE2;
-            }
-        }
-
-        tensor00 = tensor00 / totalDiskArea;
-        tensor01 = tensor01 / totalDiskArea;
-        tensor11 = tensor11 / totalDiskArea;
-        return new float[] { tensor00, tensor01, tensor11 };
-    }
-
-    /**
-     * BZK09 §5.2 feature-edge alignment constraints: edges whose dihedral angle
-     * between the two incident face normals exceeds {@link #featureDihedralCos}
-     * (default cos 30° = 0.866) are treated as sharp creases. The cross is aligned
-     * with the edge direction in both incident faces. Binary include/exclude
-     * decision by dihedral threshold — no scale-invariant adaptation, no confidence
-     * weighting; CIE16 is a richer alternative we do not implement.
-     *
-     * <p>
-     * Without this pass, sharp models like fandisk produce many spurious
-     * singularities because the field has no incentive to follow features.
-     *
-     * @param faceConstrained     per-face flag, updated for newly constrained faces
-     * @param faceConstraintAngle per-face constraint angle (face-local) overwritten
-     *                            for affected faces
-     * @return number of newly constrained faces
-     */
-    public int applyFeatureEdgeConstraints() {
-        int addedConstraints = 0;
-        for (int activeEdgeIndex = 0; activeEdgeIndex < mesh.edgeCount(); activeEdgeIndex++) {
-            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(activeEdgeIndex);
-            if (mesh.isBoundaryEdge(edgeFaceIds.edgeId)) {
-                continue;
-            }
-            Vector3f faceANormal = mesh.faceNormal(edgeFaceIds.faceA);
-            Vector3f faceBNormal = mesh.faceNormal(edgeFaceIds.faceB);
-            float dot = faceANormal.dot(faceBNormal);
-            if (dot >= featureDihedralCos) {
-                continue;
-            }
-
-            int faceAActiveId = faceIdToActive.get(edgeFaceIds.faceA);
-            int faceBActiveId = faceIdToActive.get(edgeFaceIds.faceB);
-            alignmentEdgeIds.add(edgeFaceIds.edgeId);
-            if (faceConstrained[faceAActiveId] && faceConstrained[faceBActiveId]) {
-                continue;
-            }
-            int v0 = mesh.halfEdgeVertex(edgeFaceIds.halfEdge);
-            int v1 = mesh.halfEdgeEndVertex(edgeFaceIds.halfEdge);
-            Vector3f vertex0Position = mesh.vertexPosition(v0);
-            Vector3f vertex1Position = mesh.vertexPosition(v1);
-            Vector3f edgeDir = new Vector3f(vertex1Position).sub(vertex0Position);
-            for (int sideAi : new int[] { faceAActiveId, faceBActiveId }) {
-                if (faceConstrained[sideAi]) {
-                    continue;
-                }
-                float angle = mesh.projectDirectionToFaceAngle(edgeDir, sideAi, faceY[sideAi], faceX[sideAi]);
-                faceConstrained[sideAi] = true;
-                faceConstraintAngle[sideAi] = canonicalizeMod(angle);
-                addedConstraints++;
-            }
-        }
-        return addedConstraints;
-    }
-
-    /**
-     * Add directional constraints on both faces incident to each boundary edge. The
-     * cross is aligned with the edge direction so the quadrangulation follows the
-     * surface boundary.
-     *
-     */
-    public void applyBoundaryConstraints() {
-        for (int activeEdgeIndex = 0; activeEdgeIndex < mesh.edgeCount(); activeEdgeIndex++) {
-            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(activeEdgeIndex);
-            if (!mesh.isBoundaryEdge(edgeFaceIds.edgeId))
-                continue;
-            Vector3f edgeDir = new Vector3f(mesh.vertexPosition(edgeFaceIds.edgeEndVertex))
-                    .sub(mesh.vertexPosition(edgeFaceIds.edgeStartVertex));
-            alignmentEdgeIds.add(edgeFaceIds.edgeId);
-            for (int faceIndex : new int[] { edgeFaceIds.faceA, edgeFaceIds.faceB }) {
-                if (faceIndex == MeshTopology.NONE)
-                    continue;
-                int faceActiveIndex = faceIdToActive.get(faceIndex);
-                float angle = mesh.projectDirectionToFaceAngle(edgeDir, faceActiveIndex, faceY[faceActiveIndex],
-                        faceX[faceActiveIndex]);
-                if (!faceConstrained[faceActiveIndex])
-                    faceConstrained[faceActiveIndex] = true;
-                faceConstraintAngle[faceActiveIndex] = canonicalizeMod(angle);
-            }
-        }
-    }
-
-    /*
-     * A3. Voronoi spanning forest in the dual graph
-     */
-
-    /**
-     * Multi-source Dijkstra over the dual graph rooted at every constrained face;
-     * the shortest-parent edge of each non-constrained face becomes a forest edge
-     * whose period jump is fixed to zero in BZK09 §A3.
-     *
-     * @param faceConstrained per-face flag indicating dual-graph sources
-     * @return active edge ids of the spanning-forest edges
-     */
-    public void buildVoronoiSpanningForest(boolean[] faceConstrained) {
-        int faceCount = mesh.faceCount();
-        float[] dist = new float[faceCount];
-        int[] parentEdgeAi = new int[faceCount];
-        Arrays.fill(dist, Float.POSITIVE_INFINITY);
-        Arrays.fill(parentEdgeAi, -1);
-
-        PriorityQueue<DijkstraNode> pq = new PriorityQueue<>();
-        for (int fAi = 0; fAi < faceCount; fAi++) {
-            if (faceConstrained[fAi]) {
-                dist[fAi] = 0f;
-                pq.offer(new DijkstraNode(0f, fAi));
-            }
-        }
-        Vector3f va = new Vector3f();
-        Vector3f vb = new Vector3f();
-
-        while (!pq.isEmpty()) {
-            DijkstraNode node = pq.poll();
-            int fAi = node.vertexOrFace;
-            if (node.distance > dist[fAi] + EPSILON)
-                continue;
-            int fId = mesh.faceIdAt(fAi);
-            int adj = mesh.faceHalfEdgeCount(fId);
-            for (int i = 0; i < adj; i++) {
-                int he = mesh.faceHalfEdgeAt(fId, i);
-                int twin = mesh.halfEdgeTwin(he);
-                int gId = mesh.halfEdgeFace(twin);
-                if (gId == MeshTopology.NONE)
-                    continue;
-                int gAi = faceIdToActive.get(gId);
-                int eId = mesh.halfEdgeEdge(he);
-                int eAi = edgeIdToActive.get(eId);
-
-                int v0 = mesh.halfEdgeVertex(he);
-                int v1 = mesh.halfEdgeEndVertex(he);
-                mesh.vertexPosition(v0, va);
-                mesh.vertexPosition(v1, vb);
-                float w = (float) Math.sqrt(
-                        (vb.x - va.x) * (vb.x - va.x) +
-                                (vb.y - va.y) * (vb.y - va.y) +
-                                (vb.z - va.z) * (vb.z - va.z));
-                float nd = node.distance + w;
-                if (nd < dist[gAi]) {
-                    dist[gAi] = nd;
-                    parentEdgeAi[gAi] = eAi;
-                    pq.offer(new DijkstraNode(nd, gAi));
-                }
-            }
-        }
-
-        Set<Integer> forest = new HashSet<>();
-        for (int fAi = 0; fAi < faceCount; fAi++) {
-            if (parentEdgeAi[fAi] >= 0 && !faceConstrained[fAi]) {
-                forest.add(parentEdgeAi[fAi]);
-            }
-        }
-        for (int edge : forest) {
-            periodFixed[edge] = true;
-            periodValue[edge] = 0;
-        }
-        for (int eAi = 0; eAi < edgeCount; eAi++) {
-            if (periodFixed[eAi])
-                continue;
-            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(eAi);
-            if (mesh.isBoundaryEdge(edgeFaceIds.edgeId)) {
-                periodFixed[eAi] = true;
-                periodValue[eAi] = 0;
-                continue;
-            }
-            if (faceConstrained[faceIdToActive.get(edgeFaceIds.faceA)]
-                    && faceConstrained[faceIdToActive.get(edgeFaceIds.faceB)]) {
-                float diff = faceConstraintAngle[faceIdToActive.get(edgeFaceIds.faceB)]
-                        - faceConstraintAngle[faceIdToActive.get(edgeFaceIds.faceA)] - kappa[eAi];
-                int p = Math.round(diff / (float) (Math.PI / 2.0));
-                periodFixed[eAi] = true;
-                periodValue[eAi] = p;
-            }
-        }
-
     }
 
     /*
@@ -1255,24 +741,6 @@ public class CrossField {
         if (r < 0)
             r += halfPi;
         return r;
-    }
-
-    public static final class DijkstraNode implements Comparable<DijkstraNode> {
-        final float distance;
-        final int vertexOrFace;
-
-        DijkstraNode(float distance, int vertexOrFace) {
-            this.distance = distance;
-            this.vertexOrFace = vertexOrFace;
-        }
-
-        /**
-         * {@inheritDoc} Orders by ascending {@code distance} for the priority queue.
-         */
-        @Override
-        public int compareTo(DijkstraNode other) {
-            return Float.compare(this.distance, other.distance);
-        }
     }
 
 }
