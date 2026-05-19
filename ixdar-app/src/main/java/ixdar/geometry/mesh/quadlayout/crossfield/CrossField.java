@@ -170,6 +170,12 @@ public class CrossField {
     public int[] visitedVertexIds;
     public int curvatureStamp = 0;
 
+    public boolean[] periodFixed;
+    public int[] periodValue;
+
+    public boolean[] faceConstrained;
+    public float[] faceConstraintAngle;
+
     public int edgeCount;
     public int faceCount;
     public int vertexCount;
@@ -186,6 +192,14 @@ public class CrossField {
         this.edgeCount = mesh.edgeCount();
         this.faceCount = mesh.faceCount();
         this.vertexCount = mesh.vertexCount();
+
+        this.periodFixed = new boolean[edgeCount];
+        this.periodValue = new int[edgeCount];
+
+        this.faceConstrained = new boolean[faceCount];
+        this.faceConstraintAngle = new float[faceCount];
+        Arrays.fill(faceConstraintAngle, Float.NaN);
+
         this.vertexInDiskStamp = new int[vertexCount];
         this.faceInDiskStamp = new int[faceCount];
         this.edgeProcessedStamp = new int[edgeCount];
@@ -309,18 +323,13 @@ public class CrossField {
             kappa[i] = (float) Math.atan2(crossDirY, crossDirX);
         }
 
-        boolean[] faceConstrained = new boolean[faceCount];
-        float[] faceConstraintAngle = new float[faceCount];
-        Arrays.fill(faceConstraintAngle, Float.NaN);
-
         float averageEdgeLength = mesh.computeAverageEdgeLength();
         float boundingSphereRadius = mesh.computeBoundingSphereRadius();
         float curvatureK = curvatureScaleK / Math.max(boundingSphereRadius, EPSILON);
 
-        applyFeatureEdgeConstraints(faceConstrained, faceConstraintAngle);
-        applyBoundaryConstraints(faceConstrained, faceConstraintAngle);
-        applyCurvatureConstraints(
-                faceConstrained, faceConstraintAngle, averageEdgeLength, curvatureK);
+        applyFeatureEdgeConstraints();
+        applyBoundaryConstraints();
+        applyCurvatureConstraints(averageEdgeLength, curvatureK);
 
         int totalConstraints = 0;
         for (boolean constrained : faceConstrained) {
@@ -334,37 +343,7 @@ public class CrossField {
             totalConstraints = 1;
         }
 
-        boolean[] periodFixed = new boolean[edgeCount];
-        int[] periodValue = new int[edgeCount];
-
-        Set<Integer> forestEdgeIds = buildVoronoiSpanningForest(faceConstrained);
-        for (int edge : forestEdgeIds) {
-            periodFixed[edge] = true;
-            periodValue[edge] = 0;
-        }
-        for (int eAi = 0; eAi < edgeCount; eAi++) {
-            if (periodFixed[eAi])
-                continue;
-            int eId = mesh.edgeIdAt(eAi);
-            if (mesh.isBoundaryEdge(eId)) {
-                periodFixed[eAi] = true;
-                periodValue[eAi] = 0;
-                continue;
-            }
-            int he = mesh.edgeHalfEdge(eId);
-            int twin = mesh.halfEdgeTwin(he);
-            int faceI = mesh.halfEdgeFace(he);
-            int faceJ = mesh.halfEdgeFace(twin);
-            int faceIIdx = faceIdToActive.get(faceI);
-            int faceJIdx = faceIdToActive.get(faceJ);
-            if (faceConstrained[faceIIdx] && faceConstrained[faceJIdx]) {
-                float diff = faceConstraintAngle[faceJIdx] - faceConstraintAngle[faceIIdx] - kappa[eAi];
-                int p = Math.round(diff / (float) (Math.PI / 2.0));
-                periodFixed[eAi] = true;
-                periodValue[eAi] = p;
-            }
-        }
-
+        buildVoronoiSpanningForest(faceConstrained);
         SmoothEnergySystem system = new SmoothEnergySystem(faceCount, edgeCount,
                 faceConstrained, faceConstraintAngle, periodFixed, periodValue);
         system.assemble(mesh, faceIdToActive, kappa, solverLocalMaxIterations, solverCgMaxIterations);
@@ -683,19 +662,12 @@ public class CrossField {
     /**
      * A2. Directional constraints from principal curvature
      *
-     * @param faceConstrained     per-face flag, set to true for faces that receive
-     *                            a constraint
-     * @param faceConstraintAngle per-face constraint angle (in face-local frame);
-     *                            written for newly constrained faces
-     * @param averageEdgeLength   pre-computed mean edge length
-     * @param curvatureK          BZK09 §3 mean-curvature threshold
+     * @param averageEdgeLength pre-computed mean edge length
+     * @param curvatureK        BZK09 §3 mean-curvature threshold
      * @return number of newly constrained faces
      */
 
-    public int applyCurvatureConstraints(boolean[] faceConstrained,
-            float[] faceConstraintAngle,
-            float averageEdgeLength,
-            float curvatureK) {
+    public int applyCurvatureConstraints(float averageEdgeLength, float curvatureK) {
         Vector3f vPos = new Vector3f();
         Vector3f vNormal = new Vector3f();
         Vector3f e1 = new Vector3f();
@@ -842,8 +814,7 @@ public class CrossField {
             if (bestFaceAi >= 0) {
                 float angleInFace = projectDirectionToFaceAngle(constraintDirWorld, bestFaceAi);
                 faceConstrained[bestFaceAi] = true;
-                faceConstraintAngle[bestFaceAi] = canonicalizeMod(angleInFace,
-                        (float) (Math.PI / 2.0));
+                faceConstraintAngle[bestFaceAi] = canonicalizeMod(angleInFace);
                 newlyConstrained = 1;
             }
             if (newlyConstrained > 0) {
@@ -969,18 +940,9 @@ public class CrossField {
             return null;
         }
 
-        // Per-edge dihedral contributions.
         float tensor00 = 0f;
         float tensor01 = 0f;
         float tensor11 = 0f;
-
-        Vector3f position0 = new Vector3f();
-        Vector3f position1 = new Vector3f();
-        Vector3f edgeVector = new Vector3f();
-        Vector3f normal0 = new Vector3f();
-        Vector3f normal1 = new Vector3f();
-        Vector3f normalCross = new Vector3f();
-        Vector3f edgeDirInTangentPlane = new Vector3f();
 
         for (int vi = 0; vi < visitedCount; vi++) {
             int vertexId = visitedVertexIds[vi];
@@ -1010,22 +972,22 @@ public class CrossField {
                     continue;
                 }
 
-                mesh.vertexPosition(edgeStartVertex, position0);
-                mesh.vertexPosition(edgeEndVertex, position1);
-                edgeVector.set(position1).sub(position0);
+                Vector3f position0 = mesh.vertexPosition(edgeStartVertex);
+                Vector3f position1 = mesh.vertexPosition(edgeEndVertex);
+                Vector3f edgeVector = new Vector3f(position1).sub(position0);
                 float edgeLength = edgeVector.length();
                 if (edgeLength < EPSILON) {
                     continue;
                 }
 
-                mesh.faceNormal(leftFaceId, normal0);
-                mesh.faceNormal(rightFaceId, normal1);
-                float cosDihedral = Math.max(-1f, Math.min(1f, normal0.dot(normal1)));
-                normal0.cross(normal1, normalCross);
+                Vector3f leftFaceNormal = mesh.faceNormal(leftFaceId);
+                Vector3f rightFaceNormal = mesh.faceNormal(rightFaceId);
+                float cosDihedral = Math.max(-1f, Math.min(1f, leftFaceNormal.dot(rightFaceNormal)));
+                Vector3f normalCross = new Vector3f(leftFaceNormal).cross(rightFaceNormal);
                 float sinDihedral = normalCross.dot(edgeVector) / edgeLength;
                 float dihedralAngle = (float) Math.atan2(sinDihedral, cosDihedral);
 
-                edgeDirInTangentPlane.set(edgeVector).div(edgeLength);
+                Vector3f edgeDirInTangentPlane = new Vector3f(edgeVector).div(edgeLength);
                 float normalComponent = edgeDirInTangentPlane.dot(centerNormal);
                 edgeDirInTangentPlane.x -= normalComponent * centerNormal.x;
                 edgeDirInTangentPlane.y -= normalComponent * centerNormal.y;
@@ -1040,9 +1002,9 @@ public class CrossField {
             }
         }
 
-        tensor00 /= totalDiskArea;
-        tensor01 /= totalDiskArea;
-        tensor11 /= totalDiskArea;
+        tensor00 = tensor00 / totalDiskArea;
+        tensor01 = tensor01 / totalDiskArea;
+        tensor11 = tensor11 / totalDiskArea;
         return new float[] { tensor00, tensor01, tensor11 };
     }
 
@@ -1104,7 +1066,7 @@ public class CrossField {
      *                            for affected faces
      * @return number of newly constrained faces
      */
-    public int applyFeatureEdgeConstraints(boolean[] faceConstrained, float[] faceConstraintAngle) {
+    public int applyFeatureEdgeConstraints() {
         int addedConstraints = 0;
         for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
             int eId = mesh.edgeIdAt(eAi);
@@ -1139,7 +1101,7 @@ public class CrossField {
                 }
                 float angle = projectDirectionToFaceAngle(edgeDir, sideAi);
                 faceConstrained[sideAi] = true;
-                faceConstraintAngle[sideAi] = canonicalizeMod(angle, (float) (Math.PI / 2.0));
+                faceConstraintAngle[sideAi] = canonicalizeMod(angle);
                 addedConstraints++;
             }
         }
@@ -1151,13 +1113,9 @@ public class CrossField {
      * cross is aligned with the edge direction so the quadrangulation follows the
      * surface boundary.
      *
-     * @param faceConstrained     per-face flag, updated for newly constrained
-     *                            boundary-incident faces
-     * @param faceConstraintAngle per-face constraint angle (face-local) overwritten
-     *                            for boundary-incident faces
      * @return number of newly constrained faces
      */
-    public int applyBoundaryConstraints(boolean[] faceConstrained, float[] faceConstraintAngle) {
+    public int applyBoundaryConstraints() {
         Vector3f a = new Vector3f();
         Vector3f b = new Vector3f();
         int addedConstraints = 0;
@@ -1204,7 +1162,7 @@ public class CrossField {
             if (!faceConstrained[fAi])
                 addedConstraints++;
             faceConstrained[fAi] = true;
-            faceConstraintAngle[fAi] = canonicalizeMod(angle, (float) (Math.PI / 2.0));
+            faceConstraintAngle[fAi] = canonicalizeMod(angle);
         }
         return addedConstraints;
     }
@@ -1221,7 +1179,7 @@ public class CrossField {
      * @param faceConstrained per-face flag indicating dual-graph sources
      * @return active edge ids of the spanning-forest edges
      */
-    public Set<Integer> buildVoronoiSpanningForest(boolean[] faceConstrained) {
+    public void buildVoronoiSpanningForest(boolean[] faceConstrained) {
         int faceCount = mesh.faceCount();
         float[] dist = new float[faceCount];
         int[] parentEdgeAi = new int[faceCount];
@@ -1278,7 +1236,33 @@ public class CrossField {
                 forest.add(parentEdgeAi[fAi]);
             }
         }
-        return forest;
+        for (int edge : forest) {
+            periodFixed[edge] = true;
+            periodValue[edge] = 0;
+        }
+        for (int eAi = 0; eAi < edgeCount; eAi++) {
+            if (periodFixed[eAi])
+                continue;
+            int eId = mesh.edgeIdAt(eAi);
+            if (mesh.isBoundaryEdge(eId)) {
+                periodFixed[eAi] = true;
+                periodValue[eAi] = 0;
+                continue;
+            }
+            int he = mesh.edgeHalfEdge(eId);
+            int twin = mesh.halfEdgeTwin(he);
+            int faceI = mesh.halfEdgeFace(he);
+            int faceJ = mesh.halfEdgeFace(twin);
+            int faceIIdx = faceIdToActive.get(faceI);
+            int faceJIdx = faceIdToActive.get(faceJ);
+            if (faceConstrained[faceIIdx] && faceConstrained[faceJIdx]) {
+                float diff = faceConstraintAngle[faceJIdx] - faceConstraintAngle[faceIIdx] - kappa[eAi];
+                int p = Math.round(diff / (float) (Math.PI / 2.0));
+                periodFixed[eAi] = true;
+                periodValue[eAi] = p;
+            }
+        }
+
     }
 
     /*
@@ -1409,16 +1393,16 @@ public class CrossField {
     }
 
     /**
-     * Reduce {@code angle} into the half-open interval {@code [0, mod)}.
+     * Reduce {@code angle} into the half-open interval {@code [0, PI/2)}.
      *
      * @param angle angle in radians
-     * @param mod   positive modulus
-     * @return canonical representative of {@code angle} modulo {@code mod}
+     * @return canonical representative of {@code angle} modulo PI/2
      */
-    public static float canonicalizeMod(float angle, float mod) {
-        float r = (float) (angle - mod * Math.floor(angle / mod));
+    public static float canonicalizeMod(float angle) {
+        float halfPi = (float) (Math.PI / 2.0);
+        float r = (float) (angle - halfPi * Math.floor(angle / halfPi));
         if (r < 0)
-            r += mod;
+            r += halfPi;
         return r;
     }
 
