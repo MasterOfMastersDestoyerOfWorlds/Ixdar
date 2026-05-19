@@ -175,6 +175,10 @@ public class CrossField {
     public int[] visitedVertexIds;
     public int curvatureStamp = 0;
 
+    public int edgeCount;
+    public int faceCount;
+    public int vertexCount;
+
     /**
      * 
      * Cross field construction.
@@ -184,6 +188,9 @@ public class CrossField {
      */
     public CrossField(HalfEdgeMesh mesh) {
         this.mesh = mesh;
+        this.edgeCount = mesh.edgeCount();
+        this.faceCount = mesh.faceCount();
+        this.vertexCount = mesh.vertexCount();
     }
 
     /**
@@ -193,11 +200,6 @@ public class CrossField {
      * @return {@code this}, with field arrays populated and singularities filled
      */
     public CrossField build() {
-        mesh.computeNormals();
-
-        int faceCount = mesh.faceCount();
-        int edgeCount = mesh.edgeCount();
-        int vertexCount = mesh.vertexCount();
 
         this.vertexInDiskStamp = new int[vertexCount];
         this.faceInDiskStamp = new int[faceCount];
@@ -396,8 +398,6 @@ public class CrossField {
      */
     private void localSearchSingularityOptimization(boolean[] faceConstrained, float[] faceConstraintAngle) {
         long deadlineMs = System.currentTimeMillis() + LOCAL_SEARCH_BUDGET_MS;
-        final int edgeCount = mesh.edgeCount();
-        final int faceCount = mesh.faceCount();
         final float halfPi = (float) (Math.PI / 2.0);
 
         // Count interior edges and collect per-row data for the theta-only Laplacian.
@@ -479,126 +479,92 @@ public class CrossField {
         }
         final int[][] patchFacesByEdge = buildTwoHopPatchTable(edgeCount, interiorEdge, aliFi, aliFj);
 
-        final int nWorkers = Math.min(Runtime.getRuntime().availableProcessors(), 8);
-        ExecutorService pool = Executors.newFixedThreadPool(nWorkers, r -> {
-            Thread t = new Thread(r, "cross-field-localsearch");
-            t.setDaemon(true);
-            return t;
-        });
-
         boolean improved = true;
-        int passes = 0;
-        try {
-            while (improved && passes < 4) {
-                improved = false;
-                passes++;
-                Set<Integer> candidateEdges = new HashSet<>();
-                for (Singularity s : singularities) {
-                    int vId = s.vertexId();
-                    int outCount = mesh.vertexOutgoingHalfEdgeCount(vId);
-                    for (int i = 0; i < outCount; i++) {
-                        int hh = mesh.vertexOutgoingHalfEdgeAt(vId, i);
-                        int eId = mesh.halfEdgeEdge(hh);
-                        if (!mesh.isBoundaryEdge(eId)) {
-                            candidateEdges.add(edgeIdToActive.get(eId));
-                        }
+        while (improved) {
+            improved = false;
+            Set<Integer> candidateEdges = new HashSet<>();
+            for (Singularity s : singularities) {
+                int vId = s.vertexId();
+                int outCount = mesh.vertexOutgoingHalfEdgeCount(vId);
+                for (int i = 0; i < outCount; i++) {
+                    int hh = mesh.vertexOutgoingHalfEdgeAt(vId, i);
+                    int eId = mesh.halfEdgeEdge(hh);
+                    if (!mesh.isBoundaryEdge(eId)) {
+                        candidateEdges.add(edgeIdToActive.get(eId));
                     }
                 }
-                List<Integer> remaining = new ArrayList<>(candidateEdges);
-                Collections.sort(remaining);
-                boolean[] usedFace = new boolean[faceCount];
-                while (!remaining.isEmpty()) {
-                    if (System.currentTimeMillis() > deadlineMs) {
-                        break;
-                    }
-                    Arrays.fill(usedFace, false);
-                    List<Integer> batch = new ArrayList<>();
-                    List<Integer> deferred = new ArrayList<>();
-                    for (int eAi : remaining) {
-                        int[] patch = patchFacesByEdge[eAi];
-                        boolean overlap = false;
-                        for (int f : patch) {
-                            if (usedFace[f]) {
-                                overlap = true;
-                                break;
-                            }
-                        }
-                        if (overlap) {
-                            deferred.add(eAi);
-                        } else {
-                            batch.add(eAi);
-                            for (int f : patch)
-                                usedFace[f] = true;
-                        }
-                    }
-
-                    final double batchCurrentEnergy = currentEnergy;
-                    List<Callable<TrialResult>> tasks = new ArrayList<>(batch.size());
-                    for (int eAi : batch) {
-                        final int eAiF = eAi;
-                        final int oldP = periodJump[eAi];
-                        tasks.add(() -> {
-                            DirectSolver.CholeskyHandle h = tlHandle.get();
-                            double[] rhsScratch = tlRhsScratch.get();
-                            double[] thetaScratch = tlThetaScratch.get();
-                            int bestDelta = 0;
-                            double bestTrialE = batchCurrentEnergy;
-                            for (int delta : LOCAL_SEARCH_DELTAS) {
-                                int trialP = oldP + delta;
-                                buildRhs(rhsScratch, faceCount, edgeCount, rowOfEdge, rowFaceI, rowFaceJ,
-                                        faceConstrained, faceConstraintAngle, halfPi, eAiF, trialP);
-                                DirectSolver.solveCompact(h, matrix, rhsScratch, thetaScratch, start,
-                                        faceConstrained);
-                                double e = energyOfTheta(thetaScratch, edgeCount, rowOfEdge, rowFaceI,
-                                        rowFaceJ, halfPi, eAiF, trialP);
-                                if (e < bestTrialE) {
-                                    bestTrialE = e;
-                                    bestDelta = delta;
-                                }
-                            }
-                            return new TrialResult(eAiF, bestDelta, bestTrialE);
-                        });
-                    }
-                    List<TrialResult> results = new ArrayList<>(batch.size());
-                    try {
-                        for (Future<TrialResult> f : pool.invokeAll(tasks)) {
-                            results.add(f.get());
-                        }
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    } catch (ExecutionException ee) {
-                        throw new RuntimeException(ee.getCause());
-                    }
-
-                    results.sort((a, b) -> Integer.compare(a.eAi, b.eAi));
-                    int batchAccepts = 0;
-                    for (TrialResult r : results) {
-                        if (r.bestDelta != 0) {
-                            periodJump[r.eAi] += r.bestDelta;
-                            batchAccepts++;
-                        }
-                    }
-                    if (batchAccepts > 0) {
-                        improved = true;
-
-                        buildRhs(mainRhs, faceCount, edgeCount, rowOfEdge, rowFaceI, rowFaceJ,
-                                faceConstrained, faceConstraintAngle, halfPi, -1, 0);
-                        DirectSolver.solveCompact(mainHandle, matrix, mainRhs, mainTheta, start,
-                                faceConstrained);
-                        for (int fAi = 0; fAi < faceCount; fAi++) {
-                            theta[fAi] = (float) mainTheta[fAi];
-                        }
-                        currentEnergy = energyOfTheta(mainTheta, edgeCount, rowOfEdge, rowFaceI,
-                                rowFaceJ, halfPi, -1, 0);
-                    }
-                    remaining = deferred;
-                }
-
-                extractSingularities();
             }
-        } finally {
-            pool.shutdownNow();
+            List<Integer> remaining = new ArrayList<>(candidateEdges);
+            Collections.sort(remaining);
+            boolean[] usedFace = new boolean[faceCount];
+            while (!remaining.isEmpty()) {
+                if (System.currentTimeMillis() > deadlineMs) {
+                    break;
+                }
+                Arrays.fill(usedFace, false);
+                List<Integer> batch = new ArrayList<>();
+                List<Integer> deferred = new ArrayList<>();
+                for (int eAi : remaining) {
+                    int[] patch = patchFacesByEdge[eAi];
+                    boolean overlap = false;
+                    for (int f : patch) {
+                        if (usedFace[f]) {
+                            overlap = true;
+                            break;
+                        }
+                    }
+                    if (overlap) {
+                        deferred.add(eAi);
+                    } else {
+                        batch.add(eAi);
+                        for (int f : patch)
+                            usedFace[f] = true;
+                    }
+                }
+
+                final double batchCurrentEnergy = currentEnergy;
+                for (int eAi : batch) {
+                    final int eAiF = eAi;
+                    final int oldP = periodJump[eAi];
+                    DirectSolver.CholeskyHandle h = tlHandle.get();
+                    double[] rhsScratch = tlRhsScratch.get();
+                    double[] thetaScratch = tlThetaScratch.get();
+                    int bestDelta = 0;
+                    double bestTrialE = batchCurrentEnergy;
+                    for (int delta : LOCAL_SEARCH_DELTAS) {
+                        int trialP = oldP + delta;
+                        buildRhs(rhsScratch, faceCount, edgeCount, rowOfEdge, rowFaceI, rowFaceJ,
+                                faceConstrained, faceConstraintAngle, halfPi, eAiF, trialP);
+                        DirectSolver.solveCompact(h, matrix, rhsScratch, thetaScratch, start,
+                                faceConstrained);
+                        double e = energyOfTheta(thetaScratch, edgeCount, rowOfEdge, rowFaceI,
+                                rowFaceJ, halfPi, eAiF, trialP);
+                        if (e < bestTrialE) {
+                            bestTrialE = e;
+                            bestDelta = delta;
+                        }
+                    }
+                    if (bestDelta != 0) {
+                        periodJump[eAi] += bestDelta;
+                        improved = true;
+                    }
+                }
+                if (improved) {
+
+                    buildRhs(mainRhs, faceCount, edgeCount, rowOfEdge, rowFaceI, rowFaceJ,
+                            faceConstrained, faceConstraintAngle, halfPi, -1, 0);
+                    DirectSolver.solveCompact(mainHandle, matrix, mainRhs, mainTheta, start,
+                            faceConstrained);
+                    for (int fAi = 0; fAi < faceCount; fAi++) {
+                        theta[fAi] = (float) mainTheta[fAi];
+                    }
+                    currentEnergy = energyOfTheta(mainTheta, edgeCount, rowOfEdge, rowFaceI,
+                            rowFaceJ, halfPi, -1, 0);
+                }
+                remaining = deferred;
+            }
+
+            extractSingularities();
         }
     }
 
