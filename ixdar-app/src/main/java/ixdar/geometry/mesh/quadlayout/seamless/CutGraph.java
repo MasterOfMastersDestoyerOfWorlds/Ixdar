@@ -36,9 +36,8 @@ public class CutGraph {
 
     /**
      * Multiplier applied to alignment-edge weights in
-     * {@link #shortestMeshPathToCut} so singularity-to-cut routing
-     * avoids putting a feature edge on the seam unless no non-alignment
-     * path exists.
+     * {@link #shortestMeshPathToCut} so singularity-to-cut routing avoids putting a
+     * feature edge on the seam unless no non-alignment path exists.
      */
     public static final double ALIGNMENT_PATH_PENALTY = 1.0e6;
 
@@ -75,17 +74,16 @@ public class CutGraph {
 
     /**
      * Per chart vertex: true iff <em>primary</em> (free DOF in the BZK09 §5
-     * variable-elimination layout). A chart vertex is primary iff it sits on
-     * the canonical {@code edgeFaceA} side of at least one cut edge, or it
-     * touches no cut edge at all. False ⇒ secondary, with value defined by
-     * the per-cut-edge substitution
-     * {@code u_c = R_{r_e} · u_partner + (s_e, t_e)} via
+     * variable-elimination layout). A chart vertex is primary iff it sits on the
+     * canonical {@code edgeFaceA} side of at least one cut edge, or it touches no
+     * cut edge at all. False ⇒ secondary, with value defined by the per-cut-edge
+     * substitution {@code u_c = R_{r_e} · u_partner + (s_e, t_e)} via
      * {@link #secondaryEdge} / {@link #secondaryPartner}.
      */
     public boolean[] chartVertexIsPrimary;
     /**
-     * Per chart vertex: cut edge whose seam compatibility equation
-     * eliminates this chart vertex by substitution; -1 if primary.
+     * Per chart vertex: cut edge whose seam compatibility equation eliminates this
+     * chart vertex by substitution; -1 if primary.
      */
     public int[] secondaryEdge;
     /**
@@ -94,16 +92,16 @@ public class CutGraph {
      */
     public int[] secondaryPartner;
     /**
-     * Per primary chart vertex: dense index in
-     * {@code [0, primaryChartCount)}; -1 if secondary.
+     * Per primary chart vertex: dense index in {@code [0, primaryChartCount)}; -1
+     * if secondary.
      */
     public int[] primaryChartIndex;
     /** Number of primary chart vertices. */
     public int primaryChartCount;
     /**
      * Leftover seam-compatibility records — seam equations not eliminated by
-     * per-cut-edge substitution because the B-side chart vertex was already
-     * claimed by another cut edge or is primary. Each record is
+     * per-cut-edge substitution because the B-side chart vertex was already claimed
+     * by another cut edge or is primary. Each record is
      * {@code [activeEdge, chartA, chartB, endpoint]}; reduced exactly by
      * {@link SeamlessParameterization#reduceLeftoverConstraints}.
      */
@@ -153,13 +151,12 @@ public class CutGraph {
     }
 
     /**
-     * Choose the seam edge set: start from the complement of a min-cost
-     * dual spanning tree biased to absorb {@link CrossField#alignmentEdgeIds}
-     * (so the cut opens the surface into a disk while keeping feature edges
-     * non-cut), trim the dead "whiskers" that leaves behind, then route
-     * every interior singularity onto the cut. BZK09's full pipeline
-     * integer-pins singularity (u, v) once the parametrization runs, so a
-     * single cut-degree is sufficient.
+     * Choose the seam edge set: start from the complement of a min-cost dual
+     * spanning tree biased to absorb {@link CrossField#alignmentEdgeIds} (so the
+     * cut opens the surface into a disk while keeping feature edges non-cut), trim
+     * the dead "whiskers" that leaves behind, then route every interior singularity
+     * onto the cut. BZK09's full pipeline integer-pins singularity (u, v) once the
+     * parametrization runs, so a single cut-degree is sufficient.
      */
     private void selectCutEdges() {
         initialCutFromDualSpanningTree();
@@ -169,17 +166,17 @@ public class CutGraph {
     }
 
     /**
-     * Initialize the seam set to the complement of a min-cost dual spanning
-     * tree: mark every edge cut, then run a Dijkstra-style traversal of the
-     * dual graph where alignment edges have cost {@code 0} and all other
-     * interior edges have cost {@code 1}. Tree edges (the parents in the
-     * resulting spanning forest) are un-cut. Boundary edges stay cut.
+     * Initialize the seam set to the complement of a min-cost dual spanning tree:
+     * mark every edge cut, then run a Dijkstra-style traversal of the dual graph
+     * where alignment edges have cost {@code 0} and all other interior edges have
+     * cost {@code 1}. Tree edges (the parents in the resulting spanning forest) are
+     * un-cut. Boundary edges stay cut.
      *
-     * <p>BZK09 §5.2 requires alignment edges to be non-cut: if a feature
-     * edge ended up on the cut with rotation {@code r ≠ 0}, satisfying
-     * {@code v_p = v_q} on both sides would collapse the edge to a point.
-     * Biasing the spanning tree to absorb alignment edges keeps them
-     * non-cut whenever the surface topology allows.
+     * <p>
+     * BZK09 §5.2 requires alignment edges to be non-cut: if a feature edge ended up
+     * on the cut with rotation {@code r ≠ 0}, satisfying {@code v_p = v_q} on both
+     * sides would collapse the edge to a point. Biasing the spanning tree to absorb
+     * alignment edges keeps them non-cut whenever the surface topology allows.
      */
     private void initialCutFromDualSpanningTree() {
         isCutEdge = new boolean[seamless.edgeCount];
@@ -602,7 +599,7 @@ public class CutGraph {
             if (seamless.edgeFaceA[activeEdge] < 0 || seamless.edgeFaceB[activeEdge] < 0)
                 continue;
             cutEdgeDenseIdx[activeEdge] = nextIndex++;
-            }
+        }
         interiorCutEdgeCount = nextIndex;
     }
 
@@ -630,110 +627,29 @@ public class CutGraph {
     /**
      * BZK09 §5 chart-vertex classification for variable elimination.
      *
-     * <p>A chart vertex is primary iff it appears on the canonical
-     * {@code edgeFaceA} side of at least one cut edge, or it never touches a
-     * cut edge at all. Else it is secondary — the first cut edge that has it
-     * on its {@code edgeFaceB} side owns the substitution
-     * {@code u_c = R_{r_e} · u_partner + (s_e, t_e)}. Subsequent cut edges
-     * that would also substitute the same chart vertex, and any cut edge
-     * whose B-side chart vertex turns out to be primary (also on some
+     * <p>
+     * A chart vertex is primary iff it appears on the canonical {@code edgeFaceA}
+     * side of at least one cut edge, or it never touches a cut edge at all. Else it
+     * is secondary — the first cut edge that has it on its {@code edgeFaceB} side
+     * owns the substitution {@code u_c = R_{r_e} · u_partner + (s_e, t_e)}.
+     * Subsequent cut edges that would also substitute the same chart vertex, and
+     * any cut edge whose B-side chart vertex turns out to be primary (also on some
      * A-side), contribute a leftover record to be reduced exactly by
      * {@link SeamlessParameterization#reduceLeftoverConstraints}.
      */
     private void classifyChartVerticesForSubstitution() {
-        int cornersPerFace = SeamlessParameterization.CORNERS_PER_FACE;
         chartVertexIsPrimary = new boolean[chartVertexCount];
         secondaryEdge = new int[chartVertexCount];
         secondaryPartner = new int[chartVertexCount];
         Arrays.fill(secondaryEdge, -1);
         Arrays.fill(secondaryPartner, -1);
-
-        if (seamless.useSoftSeams) {
-            // Soft-seam mode: keep every chart vertex as its own free DOF; the
-            // seam transitions become quadratic penalty rows added to the SPD
-            // energy by SeamlessDofSystem rather than hard substitutions.
-            Arrays.fill(chartVertexIsPrimary, true);
-            primaryChartIndex = new int[chartVertexCount];
-            for (int cv = 0; cv < chartVertexCount; cv++) {
-                primaryChartIndex[cv] = cv;
-            }
-            primaryChartCount = chartVertexCount;
-            leftoverConstraints = new int[0][];
-            return;
-        }
-
-        boolean[] onASide = new boolean[chartVertexCount];
-        boolean[] onBSide = new boolean[chartVertexCount];
-        int edgeCount = isCutEdge.length;
-        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
-            if (!isCutEdge[activeEdge])
-                continue;
-            int faceA = seamless.edgeFaceA[activeEdge];
-            int faceB = seamless.edgeFaceB[activeEdge];
-            if (faceA < 0 || faceB < 0)
-                continue;
-            int cornerAStart = seamless.edgeCornerInA[activeEdge];
-            int cornerAEnd = (cornerAStart + 1) % cornersPerFace;
-            int cornerBStart = seamless.edgeCornerInB[activeEdge];
-            int cornerBEnd = (cornerBStart + cornersPerFace - 1) % cornersPerFace;
-            onASide[cornerToChartVertex[faceA * cornersPerFace + cornerAStart]] = true;
-            onASide[cornerToChartVertex[faceA * cornersPerFace + cornerAEnd]] = true;
-            onBSide[cornerToChartVertex[faceB * cornersPerFace + cornerBStart]] = true;
-            onBSide[cornerToChartVertex[faceB * cornersPerFace + cornerBEnd]] = true;
-        }
-        for (int chartVertex = 0; chartVertex < chartVertexCount; chartVertex++) {
-            chartVertexIsPrimary[chartVertex] = onASide[chartVertex] || !onBSide[chartVertex];
-        }
-
+        Arrays.fill(chartVertexIsPrimary, true);
         primaryChartIndex = new int[chartVertexCount];
-        Arrays.fill(primaryChartIndex, -1);
-        int nextIndex = 0;
-        for (int chartVertex = 0; chartVertex < chartVertexCount; chartVertex++) {
-            if (chartVertexIsPrimary[chartVertex])
-                primaryChartIndex[chartVertex] = nextIndex++;
+        for (int cv = 0; cv < chartVertexCount; cv++) {
+            primaryChartIndex[cv] = cv;
         }
-        primaryChartCount = nextIndex;
-
-        ArrayList<int[]> leftover = new ArrayList<>();
-        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
-            if (!isCutEdge[activeEdge])
-                continue;
-            int faceA = seamless.edgeFaceA[activeEdge];
-            int faceB = seamless.edgeFaceB[activeEdge];
-            if (faceA < 0 || faceB < 0)
-                continue;
-            int cornerAStart = seamless.edgeCornerInA[activeEdge];
-            int cornerAEnd = (cornerAStart + 1) % cornersPerFace;
-            int cornerBStart = seamless.edgeCornerInB[activeEdge];
-            int cornerBEnd = (cornerBStart + cornersPerFace - 1) % cornersPerFace;
-            int chartAStart = cornerToChartVertex[faceA * cornersPerFace + cornerAStart];
-            int chartAEnd = cornerToChartVertex[faceA * cornersPerFace + cornerAEnd];
-            int chartBStart = cornerToChartVertex[faceB * cornersPerFace + cornerBStart];
-            int chartBEnd = cornerToChartVertex[faceB * cornersPerFace + cornerBEnd];
-            tryClaimOrRecordLeftover(activeEdge, chartAStart, chartBStart, 0, leftover);
-            tryClaimOrRecordLeftover(activeEdge, chartAEnd, chartBEnd, 1, leftover);
-        }
-        leftoverConstraints = leftover.toArray(new int[leftover.size()][]);
-    }
-
-    /**
-     * For one (cut edge, endpoint) seam equation: claim the B-side chart
-     * vertex's substitution if it's secondary and not yet claimed; otherwise
-     * record a leftover constraint.
-     *
-     * @param activeEdge the cut edge being processed
-     * @param chartA     A-side chart vertex at this endpoint (always primary)
-     * @param chartB     B-side chart vertex at this endpoint
-     * @param endpoint   0 for start vertex, 1 for end vertex (diagnostic)
-     * @param leftover   accumulator for leftover records
-     */
-    private void tryClaimOrRecordLeftover(int activeEdge, int chartA, int chartB,
-            int endpoint, List<int[]> leftover) {
-        if (!chartVertexIsPrimary[chartB] && secondaryEdge[chartB] == -1) {
-            secondaryEdge[chartB] = activeEdge;
-            secondaryPartner[chartB] = chartA;
-        } else {
-            leftover.add(new int[] { activeEdge, chartA, chartB, endpoint });
-        }
+        primaryChartCount = chartVertexCount;
+        leftoverConstraints = new int[0][];
+        return;
     }
 }

@@ -18,24 +18,24 @@ import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 import ixdar.geometry.mesh.quadlayout.solver.SolverPermutation;
 
 /**
- * DOF state plus cached SPD assembly plan for one BZK09 §5 seamless build.
- * Owns the per-cut-edge translation DOF assignment, the leftover-row
- * Gauss-Jordan elimination state, the per-chart-vertex final-DOF
- * expansions, the integer-pin tracking, the cached AMD column
- * permutation, and the per-face assembly playback log that lets the 50
- * §5.4 stiffening iterations skip rebuilding the SPD upper triangle from
- * scratch.
+ * DOF state plus cached SPD assembly plan for one BZK09 §5 seamless build. Owns
+ * the per-cut-edge translation DOF assignment, the leftover-row Gauss-Jordan
+ * elimination state, the per-chart-vertex final-DOF expansions, the integer-pin
+ * tracking, the cached AMD column permutation, and the per-face assembly
+ * playback log that lets the 50 §5.4 stiffening iterations skip rebuilding the
+ * SPD upper triangle from scratch.
  *
- * <p>The non-zero pattern of the SPD matrix is invariant across all
- * solver calls within one build — only per-face IRLS weights and
- * integer-pin diagonal bumps change values. {@link #assemble(double[])}
- * builds the playback log on its first call and replays it on every
- * subsequent call: zero-and-refill values into the cached per-slot
- * arrays, no hashing.
+ * <p>
+ * The non-zero pattern of the SPD matrix is invariant across all solver calls
+ * within one build — only per-face IRLS weights and integer-pin diagonal bumps
+ * change values. {@link #assemble(double[])} builds the playback log on its
+ * first call and replays it on every subsequent call: zero-and-refill values
+ * into the cached per-slot arrays, no hashing.
  *
- * <p>One instance per {@link SeamlessParameterization#build()} invocation.
- * Pin state is mutated by the greedy rounder; everything else is
- * post-construction immutable.
+ * <p>
+ * One instance per {@link SeamlessParameterization#build()} invocation. Pin
+ * state is mutated by the greedy rounder; everything else is post-construction
+ * immutable.
  */
 public final class SeamlessDofSystem {
 
@@ -55,74 +55,49 @@ public final class SeamlessDofSystem {
     private static final double LEFTOVER_REDUCE_TOLERANCE = 1.0e-10;
     /** Sentinel for "this edge is not an alignment edge". */
     private static final int NOT_ALIGNMENT = -1;
-    /** {@link #alignmentEdgeIsoAxis} value when u_T is along the edge and v is the iso-coordinate to pin. */
+    /**
+     * {@link #alignmentEdgeIsoAxis} value when u_T is along the edge and v is the
+     * iso-coordinate to pin.
+     */
     private static final int ALIGN_AXIS_V = 1;
-    /** {@link #alignmentEdgeIsoAxis} value when v_T is along the edge and u is the iso-coordinate to pin. */
+    /**
+     * {@link #alignmentEdgeIsoAxis} value when v_T is along the edge and u is the
+     * iso-coordinate to pin.
+     */
     private static final int ALIGN_AXIS_U = 0;
     /**
-     * Diagonal regularization added to DOF 0 in soft-seam mode to break
-     * the 1D translation nullspace so cold sparse Cholesky succeeds.
+     * Diagonal regularization added to DOF 0 in soft-seam mode to break the 1D
+     * translation nullspace so cold sparse Cholesky succeeds.
      */
     private static final double NULLSPACE_ANCHOR_WEIGHT = 1.0;
-
-    // ===== Input references (snapshotted at construction) =====
-
-    /** Mesh used to look up face/edge/vertex topology during the gauge BFS. */
-    public final HalfEdgeMesh mesh;
-    /** Cross field providing edge/face activation maps and singularity list. */
-    public final CrossField crossField;
-    /** Cut graph providing chart vertex assignments and leftover constraints. */
-    public final CutGraph cutGraph;
-    /** Active-face count. */
-    public final int faceCount;
-    /** Active-edge count. */
-    public final int edgeCount;
-    /** Active-edge → active-face A; -1 for boundary. */
-    public final int[] edgeFaceA;
-    /** Active-edge → active-face B; -1 for boundary. */
-    public final int[] edgeFaceB;
-    /** Per-face area (static for the build). */
-    public final double[] faceArea;
-    /** Per-face shape gradient x-coefficients, 3 per face. */
-    public final double[] faceShapeB;
-    /** Per-face shape gradient y-coefficients, 3 per face. */
-    public final double[] faceShapeC;
-    /** Per-face u-target x-component in local frame. */
-    public final double[] faceUtxLocal;
-    /** Per-face u-target y-component in local frame. */
-    public final double[] faceUtyLocal;
-    /** Per-face v-target x-component in local frame. */
-    public final double[] faceVtxLocal;
-    /** Per-face v-target y-component in local frame. */
-    public final double[] faceVtyLocal;
-    /** BZK09 target edge length. */
-    public final float h;
-    /** True iff the BZK09 §5 seam transitions are added as soft penalties instead of hard variable elimination. */
-    public final boolean useSoftSeams;
-    /** Weight applied to each soft seam-transition penalty row. */
-    public final double softSeamWeight;
-    /** Active-edge → corner index of canonical start vertex in face A (mirrors {@link SeamlessParameterization}). */
-    public final int[] edgeCornerInA;
-    /** Active-edge → corner index of canonical start vertex in face B. */
-    public final int[] edgeCornerInB;
-
-    // ===== DOF state (set once during construction) =====
 
     /** Pre-leftover-elimination DOF count. */
     public final int rawDofCount;
     /** Final-DOF count after leftover-row elimination. */
     public final int dofCount;
-    /** Per-active-edge: raw-DOF index of the s translation; -1 if not an interior cut edge. */
+    /**
+     * Per-active-edge: raw-DOF index of the s translation; -1 if not an interior
+     * cut edge.
+     */
     public final int[] cutEdgeSDof;
     /** Sibling of {@link #cutEdgeSDof} for the t translation. */
     public final int[] cutEdgeTDof;
-    /** Per raw DOF: dense final-DOF index, or -1 if pivoted out by leftover elimination. */
+    /**
+     * Per raw DOF: dense final-DOF index, or -1 if pivoted out by leftover
+     * elimination.
+     */
     public final int[] rawDofToFinal;
-    /** Per pivot raw DOF: list of non-pivot raw DOFs it expands into; non-pivots are null. */
+    /**
+     * Per pivot raw DOF: list of non-pivot raw DOFs it expands into; non-pivots are
+     * null.
+     */
     public final int[][] leftoverPivotDofs;
     /** Coefficients matching {@link #leftoverPivotDofs}. */
     public final double[][] leftoverPivotCoefs;
-    /** Per chart vertex, per component: final-DOF indices the chart vertex's value expands to. */
+    /**
+     * Per chart vertex, per component: final-DOF indices the chart vertex's value
+     * expands to.
+     */
     public final int[][][] chartVertexFinalDofs;
     /** Coefficients matching {@link #chartVertexFinalDofs}. */
     public final double[][][] chartVertexFinalCoefs;
@@ -130,30 +105,29 @@ public final class SeamlessDofSystem {
     public final boolean[] dofIsInteger;
 
     /**
-     * BZK09 §5.2 alignment iso-axis per active edge: {@link #ALIGN_AXIS_V}
-     * if the cross-field u-axis runs along this edge and v is the
-     * iso-coordinate to pin; {@link #ALIGN_AXIS_U} for the reverse;
-     * {@link #NOT_ALIGNMENT} if this edge is not in
-     * {@link CrossField#alignmentEdgeIds}, or is an interior cut edge
-     * (a feature edge that ended up on the cut cannot satisfy
-     * {@code v_p = v_q} on both sides simultaneously; see audit doc).
+     * BZK09 §5.2 alignment iso-axis per active edge: {@link #ALIGN_AXIS_V} if the
+     * cross-field u-axis runs along this edge and v is the iso-coordinate to pin;
+     * {@link #ALIGN_AXIS_U} for the reverse; {@link #NOT_ALIGNMENT} if this edge is
+     * not in {@link CrossField#alignmentEdgeIds}, or is an interior cut edge (a
+     * feature edge that ended up on the cut cannot satisfy {@code v_p = v_q} on
+     * both sides simultaneously; see audit doc).
      */
     public final int[] alignmentEdgeIsoAxis;
 
-    // ===== Pin state (mutated by the greedy rounder) =====
-
     /** True after greedy rounding has snapped final-DOF i. */
     public final boolean[] dofPinned;
-    /** Integer value pinned at final-DOF i; only valid when {@link #dofPinned}[i] is true. */
+    /**
+     * Integer value pinned at final-DOF i; only valid when {@link #dofPinned}[i] is
+     * true.
+     */
     public final double[] dofPinnedValue;
-    /** Soft-pin diagonal weight applied to each pinned DOF in {@link #applyIntegerPinPenalty}. */
-    public final double integerPinWeight;
-
-    // ===== Assembly plan + AMD perm (lazily populated by the first assemble call) =====
 
     /** Sorted (row, col) packed-long keys — slot id = array index. */
     private long[] planUpperKeys;
-    /** CSR-style: per-face upper-entry range is {@code [planPerFaceUpperStart[f], planPerFaceUpperStart[f+1])}. */
+    /**
+     * CSR-style: per-face upper-entry range is
+     * {@code [planPerFaceUpperStart[f], planPerFaceUpperStart[f+1])}.
+     */
     private int[] planPerFaceUpperStart;
     /** Flat list of upper-triangle slot indices, one per (face, contribution). */
     private int[] planPerFaceUpperSlot;
@@ -169,51 +143,44 @@ public final class SeamlessDofSystem {
     private int[] planPerFaceRhsStart;
     /** Flat list of RHS DOF indices. */
     private int[] planPerFaceRhsDof;
-    /** Per-entry RHS coefficient (sum of u + v target contributions for this face/dof). */
+    /**
+     * Per-entry RHS coefficient (sum of u + v target contributions for this
+     * face/dof).
+     */
     private double[] planPerFaceRhsCoef;
     /** Gauge-pin static diagonal contributions, length {@link #dofCount}. */
     private double[] planStaticDiagonal;
-    /** Gauge-pin static upper contributions, indexed by slot in {@link #planUpperKeys}. */
+    /**
+     * Gauge-pin static upper contributions, indexed by slot in
+     * {@link #planUpperKeys}.
+     */
     private double[] planStaticUpperValues;
     /** Cached AMD column permutation for this DOF system's SPD matrix. */
     private int[] cachedAmdPerm;
+    private SeamlessParameterization seamless;
+    private CutGraph cutGraph;
+    private HalfEdgeMesh mesh;
+    private CrossField crossField;
 
     /**
      * Build the DOF system snapshot for one seamless build.
      *
-     * @param owner the {@link SeamlessParameterization} whose mesh / cross-field
-     *              / cut-graph / per-face geometry to snapshot; the constructor
-     *              does not retain the reference
+     * @param owner the {@link SeamlessParameterization} whose mesh / cross-field /
+     *              cut-graph / per-face geometry to snapshot; the constructor does
+     *              not retain the reference
      */
-    public SeamlessDofSystem(SeamlessParameterization owner) {
-        this.mesh = owner.mesh;
-        this.crossField = owner.crossField;
-        this.cutGraph = owner.cutGraph;
-        this.faceCount = owner.faceCount;
-        this.edgeCount = owner.edgeCount;
-        this.edgeFaceA = owner.edgeFaceA;
-        this.edgeFaceB = owner.edgeFaceB;
-        this.faceArea = owner.faceArea;
-        this.faceShapeB = owner.faceShapeB;
-        this.faceShapeC = owner.faceShapeC;
-        this.faceUtxLocal = owner.faceUtxLocal;
-        this.faceUtyLocal = owner.faceUtyLocal;
-        this.faceVtxLocal = owner.faceVtxLocal;
-        this.faceVtyLocal = owner.faceVtyLocal;
-        this.h = owner.h;
-        this.integerPinWeight = owner.integerPinWeight;
-        this.useSoftSeams = owner.useSoftSeams;
-        this.softSeamWeight = owner.softSeamWeight;
-        this.edgeCornerInA = owner.edgeCornerInA;
-        this.edgeCornerInB = owner.edgeCornerInB;
-
-        this.cutEdgeSDof = new int[edgeCount];
-        this.cutEdgeTDof = new int[edgeCount];
+    public SeamlessDofSystem(SeamlessParameterization seamless, CutGraph cutGraph) {
+        this.seamless = seamless;
+        this.cutGraph = cutGraph;
+        this.cutEdgeSDof = new int[seamless.edgeCount];
+        this.cutEdgeTDof = new int[seamless.edgeCount];
+        this.mesh = seamless.mesh;
+        this.crossField = seamless.crossField;
         Arrays.fill(cutEdgeSDof, -1);
         Arrays.fill(cutEdgeTDof, -1);
         int sBase = 2 * cutGraph.primaryChartCount;
         int tBase = sBase + cutGraph.interiorCutEdgeCount;
-        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
             int dense = cutGraph.cutEdgeDenseIdx[activeEdge];
             if (dense < 0) {
                 continue;
@@ -241,13 +208,13 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Assemble the SPD matrix for the given per-face IRLS weights. First
-     * call builds the playback plan (and caches it); subsequent calls
-     * replay the plan into fresh value arrays.
+     * Assemble the SPD matrix for the given per-face IRLS weights. First call
+     * builds the playback plan (and caches it); subsequent calls replay the plan
+     * into fresh value arrays.
      *
      * @param faceWeight per-face IRLS weight, length {@link #faceCount}
-     * @return the assembled SPD matrix (without integer-pin diagonal
-     *         penalty — apply with {@link #applyIntegerPinPenalty})
+     * @return the assembled SPD matrix (without integer-pin diagonal penalty —
+     *         apply with {@link #applyIntegerPinPenalty})
      */
     public NormalMatrix assemble(double[] faceWeight) {
         if (planUpperKeys == null) {
@@ -256,7 +223,7 @@ public final class SeamlessDofSystem {
         double[] diag = planStaticDiagonal.clone();
         double[] upper = planStaticUpperValues.clone();
         double[] rhs = new double[dofCount];
-        for (int f = 0; f < faceCount; f++) {
+        for (int f = 0; f < seamless.faceCount; f++) {
             double w = faceWeight[f];
             if (w == 0.0) {
                 continue;
@@ -278,9 +245,9 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Bump the diagonal and RHS of {@code matrix} for every pinned DOF —
-     * the soft-penalty form of integer constraints. Mutates the matrix in
-     * place. No-op if no DOFs are pinned yet.
+     * Bump the diagonal and RHS of {@code matrix} for every pinned DOF — the
+     * soft-penalty form of integer constraints. Mutates the matrix in place. No-op
+     * if no DOFs are pinned yet.
      *
      * @param matrix matrix to mutate; expected to be an output of
      *               {@link #assemble(double[])}
@@ -290,8 +257,8 @@ public final class SeamlessDofSystem {
             if (!dofPinned[dofIdx]) {
                 continue;
             }
-            matrix.diagonal[dofIdx] += integerPinWeight;
-            matrix.rightHandSide[dofIdx] += integerPinWeight * dofPinnedValue[dofIdx];
+            matrix.diagonal[dofIdx] += seamless.integerPinWeight;
+            matrix.rightHandSide[dofIdx] += seamless.integerPinWeight * dofPinnedValue[dofIdx];
         }
     }
 
@@ -307,13 +274,13 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Lazily compute and cache the AMD column permutation for the SPD
-     * matrix. The permutation depends only on the matrix non-zero pattern,
-     * which is invariant across all solver calls in one build, so this
-     * runs at most once per {@link SeamlessDofSystem} instance.
+     * Lazily compute and cache the AMD column permutation for the SPD matrix. The
+     * permutation depends only on the matrix non-zero pattern, which is invariant
+     * across all solver calls in one build, so this runs at most once per
+     * {@link SeamlessDofSystem} instance.
      *
-     * @param matrix any assembled instance of the SPD system — only its
-     *               non-zero pattern is read
+     * @param matrix any assembled instance of the SPD system — only its non-zero
+     *               pattern is read
      * @return cached perm with {@code perm[newIdx] = oldIdx}
      */
     public int[] amdPermutation(NormalMatrix matrix) {
@@ -330,8 +297,8 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Evaluate one component of a chart vertex from a solution vector by
-     * summing its final-DOF expansion.
+     * Evaluate one component of a chart vertex from a solution vector by summing
+     * its final-DOF expansion.
      *
      * @param chartVertex chart vertex index
      * @param component   0 for u, 1 for v
@@ -349,9 +316,9 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Evaluate the value of a raw DOF in {@code solution}: a non-pivot raw
-     * DOF reads its dense final entry; a pivot raw DOF evaluates
-     * recursively through {@link #leftoverPivotDofs} / {@link #leftoverPivotCoefs}.
+     * Evaluate the value of a raw DOF in {@code solution}: a non-pivot raw DOF
+     * reads its dense final entry; a pivot raw DOF evaluates recursively through
+     * {@link #leftoverPivotDofs} / {@link #leftoverPivotCoefs}.
      *
      * @param rawDof   a raw-DOF index in {@code [0, rawDofCount)}
      * @param solution current solver solution
@@ -371,35 +338,34 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Decide, for every active edge in
-     * {@link CrossField#alignmentEdgeIds}, whether the cross field's
-     * u-axis or v-axis runs along it. Picks the axis whose projection
-     * onto the edge direction (in face A's local frame, post
-     * branch rotation) has the larger absolute value; the orthogonal
-     * coordinate is the iso to pin per BZK09 §5.2.
+     * Decide, for every active edge in {@link CrossField#alignmentEdgeIds}, whether
+     * the cross field's u-axis or v-axis runs along it. Picks the axis whose
+     * projection onto the edge direction (in face A's local frame, post branch
+     * rotation) has the larger absolute value; the orthogonal coordinate is the iso
+     * to pin per BZK09 §5.2.
      *
-     * <p>Interior cut edges that happen to be alignment edges are
-     * marked {@link #NOT_ALIGNMENT}: the {@code v_p = v_q} constraint
-     * cannot hold simultaneously on both sides of a rotated cut.
-     * Boundary alignment edges keep their axis because they have only
-     * one face and no seam transition.
+     * <p>
+     * Interior cut edges that happen to be alignment edges are marked
+     * {@link #NOT_ALIGNMENT}: the {@code v_p = v_q} constraint cannot hold
+     * simultaneously on both sides of a rotated cut. Boundary alignment edges keep
+     * their axis because they have only one face and no seam transition.
      *
-     * @return per active edge: {@link #ALIGN_AXIS_U},
-     *         {@link #ALIGN_AXIS_V}, or {@link #NOT_ALIGNMENT}
+     * @return per active edge: {@link #ALIGN_AXIS_U}, {@link #ALIGN_AXIS_V}, or
+     *         {@link #NOT_ALIGNMENT}
      */
     private int[] computeAlignmentEdgeIsoAxes() {
-        int[] axis = new int[edgeCount];
+        int[] axis = new int[seamless.edgeCount];
         Arrays.fill(axis, NOT_ALIGNMENT);
         Vector3f startPos = new Vector3f();
         Vector3f endPos = new Vector3f();
         Vector3f edgeDir = new Vector3f();
-        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
-            int edgeId = mesh.edgeIdAt(activeEdge);
-            if (!crossField.alignmentEdgeIds.contains(edgeId)) {
+        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
+            int edgeId = seamless.mesh.edgeIdAt(activeEdge);
+            if (!seamless.crossField.alignmentEdgeIds.contains(edgeId)) {
                 continue;
             }
-            int faceA = edgeFaceA[activeEdge];
-            int faceB = edgeFaceB[activeEdge];
+            int faceA = seamless.edgeFaceA[activeEdge];
+            int faceB = seamless.edgeFaceB[activeEdge];
             if (faceA < 0) {
                 continue;
             }
@@ -419,10 +385,9 @@ public final class SeamlessDofSystem {
                     + cutGraph.faceBranch[faceA] * (Math.PI / 2.0);
             double uTx = Math.cos(angle);
             double uTy = Math.sin(angle);
-            // v_T = R_{π/2} u_T = (-uTy, uTx)
-            double dotU = edgeX * uTx + edgeY * uTy;
-            double dotV = edgeX * (-uTy) + edgeY * uTx;
-            axis[activeEdge] = Math.abs(dotU) >= Math.abs(dotV) ? ALIGN_AXIS_V : ALIGN_AXIS_U;
+            axis[activeEdge] = Math.abs(edgeX * uTx + edgeY * uTy) >= Math.abs(edgeX * -uTy + edgeY * uTx)
+                    ? ALIGN_AXIS_V
+                    : ALIGN_AXIS_U;
         }
         return axis;
     }
@@ -430,8 +395,8 @@ public final class SeamlessDofSystem {
     /**
      * Reduce the leftover-constraint system {@code L · x = 0} to a set of
      * substitution rules, one per pivoted raw DOF, by sparse Gauss-Jordan
-     * elimination with partial pivoting on the largest-magnitude entry.
-     * Populates {@link #leftoverPivotDofs}, {@link #leftoverPivotCoefs},
+     * elimination with partial pivoting on the largest-magnitude entry. Populates
+     * {@link #leftoverPivotDofs}, {@link #leftoverPivotCoefs},
      * {@link #rawDofToFinal}.
      *
      * @return number of final DOFs after pivot elimination
@@ -525,23 +490,22 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * For every BZK09 §5.2 alignment edge with a decided iso-axis, add
-     * one equality row {@code u_p − u_q = 0} (or v) to {@code rows}.
-     * The endpoint chart vertices come from face A's corners at the
-     * canonical half-edge's start/end vertices; boundary alignment
-     * edges only have face A, interior non-cut alignment edges have
-     * both A and B unified onto the same pair of chart vertices.
+     * For every BZK09 §5.2 alignment edge with a decided iso-axis, add one equality
+     * row {@code u_p − u_q = 0} (or v) to {@code rows}. The endpoint chart vertices
+     * come from face A's corners at the canonical half-edge's start/end vertices;
+     * boundary alignment edges only have face A, interior non-cut alignment edges
+     * have both A and B unified onto the same pair of chart vertices.
      *
-     * @param rows the accumulator the §5 cut-rotation rows already
-     *             populated; this method appends to it in place
+     * @param rows the accumulator the §5 cut-rotation rows already populated; this
+     *             method appends to it in place
      */
     private void addAlignmentEqualityRows(ArrayList<HashMap<Integer, Double>> rows) {
-        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
             int axis = alignmentEdgeIsoAxis[activeEdge];
             if (axis == NOT_ALIGNMENT) {
                 continue;
             }
-            int faceA = edgeFaceA[activeEdge];
+            int faceA = seamless.edgeFaceA[activeEdge];
             int cornerStartA = -1;
             int cornerEndA = -1;
             int edgeId = mesh.edgeIdAt(activeEdge);
@@ -568,9 +532,9 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Bake the per-cut-edge substitution and leftover-row elimination into
-     * a per-chart-vertex final-DOF expansion. After this the solver works
-     * in the final DOF space directly: each chart vertex's u or v is
+     * Bake the per-cut-edge substitution and leftover-row elimination into a
+     * per-chart-vertex final-DOF expansion. After this the solver works in the
+     * final DOF space directly: each chart vertex's u or v is
      * {@code Σ coef · solution[finalDof]}.
      */
     private void buildChartVertexFinalExpansions() {
@@ -599,15 +563,14 @@ public final class SeamlessDofSystem {
 
     /**
      * Mark which final DOFs must round to integers: every per-cut-edge
-     * {@code (s, t)} pair, the {@code (u, v)} of every primary chart
-     * vertex that touches a singularity mesh vertex, and the iso-axis
-     * coordinate of every primary chart vertex on a BZK09 §5.2 alignment
-     * edge (handed off to {@link #markAlignmentIsoDofs}).
-     * Pivot-eliminated raw DOFs are skipped (their values are determined
-     * by non-eliminated free DOFs).
+     * {@code (s, t)} pair, the {@code (u, v)} of every primary chart vertex that
+     * touches a singularity mesh vertex, and the iso-axis coordinate of every
+     * primary chart vertex on a BZK09 §5.2 alignment edge (handed off to
+     * {@link #markAlignmentIsoDofs}). Pivot-eliminated raw DOFs are skipped (their
+     * values are determined by non-eliminated free DOFs).
      */
     private void markIntegerDofs() {
-        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
             if (cutEdgeSDof[activeEdge] < 0) {
                 continue;
             }
@@ -618,7 +581,7 @@ public final class SeamlessDofSystem {
         for (Singularity s : crossField.singularities) {
             singularVertexIds.add(s.vertexId());
         }
-        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+        for (int activeFace = 0; activeFace < seamless.faceCount; activeFace++) {
             int faceId = mesh.faceIdAt(activeFace);
             for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
                 if (!singularVertexIds.contains(mesh.faceVertexAt(faceId, corner))) {
@@ -633,26 +596,12 @@ public final class SeamlessDofSystem {
                 markRawDofAsInteger(2 * primaryIdx + 1);
             }
         }
-        markAlignmentIsoDofs();
-    }
-
-    /**
-     * BZK09 §5.2 integer iso-line pin: for every alignment edge whose
-     * axis was decided in {@link #computeAlignmentEdgeIsoAxes}, mark
-     * the iso-coordinate of both endpoint chart vertices as integer.
-     * The pair was tied together as equal in
-     * {@link #addAlignmentEqualityRows}, so leftover-row elimination
-     * collapses them onto a shared expansion in
-     * {@link #chartVertexFinalDofs}; the integer pin propagates through
-     * every final DOF in that expansion.
-     */
-    private void markAlignmentIsoDofs() {
-        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
             int axis = alignmentEdgeIsoAxis[activeEdge];
             if (axis == NOT_ALIGNMENT) {
                 continue;
             }
-            int faceA = edgeFaceA[activeEdge];
+            int faceA = seamless.edgeFaceA[activeEdge];
             int edgeId = mesh.edgeIdAt(activeEdge);
             int halfEdge = mesh.edgeHalfEdge(edgeId);
             int startVertex = mesh.halfEdgeVertex(halfEdge);
@@ -677,15 +626,14 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Mark every final DOF in a chart vertex's component expansion as
-     * integer. For a primary chart vertex this is a single DOF (the
-     * direct raw DOF after pivot survival); for a secondary one it
-     * walks the seam-rotation substitution {@code chartC.v = ±partner.u
-     * + (s, t)} and marks each surviving DOF. Because every coefficient
-     * in {@link #chartVertexFinalDofs} is integer (seam rotations have
-     * integer cos/sin, alignment rows have ±1 coefficients), an integer
-     * value for every term in the expansion forces the chart vertex's
-     * component to also be integer.
+     * Mark every final DOF in a chart vertex's component expansion as integer. For
+     * a primary chart vertex this is a single DOF (the direct raw DOF after pivot
+     * survival); for a secondary one it walks the seam-rotation substitution
+     * {@code chartC.v = ±partner.u
+     * + (s, t)} and marks each surviving DOF. Because every coefficient in
+     * {@link #chartVertexFinalDofs} is integer (seam rotations have integer
+     * cos/sin, alignment rows have ±1 coefficients), an integer value for every
+     * term in the expansion forces the chart vertex's component to also be integer.
      *
      * @param chartVertex chart vertex index
      * @param component   0 for u, 1 for v
@@ -702,9 +650,9 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Pre-leftover-elimination raw-DOF expansion of a chart vertex's
-     * component. Primary chart vertices expand to a single raw DOF;
-     * secondary chart vertices expand to {@code (partnerU, partnerV,
+     * Pre-leftover-elimination raw-DOF expansion of a chart vertex's component.
+     * Primary chart vertices expand to a single raw DOF; secondary chart vertices
+     * expand to {@code (partnerU, partnerV,
      * s_e or t_e)} with rotation coefficients.
      *
      * @param chartVertex chart vertex index
@@ -765,10 +713,9 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Fold one raw-DOF contribution into a final-DOF accumulator: a
-     * non-pivot raw DOF maps directly to its dense final index; a pivot
-     * raw DOF expands recursively through {@link #leftoverPivotDofs}
-     * / {@link #leftoverPivotCoefs}.
+     * Fold one raw-DOF contribution into a final-DOF accumulator: a non-pivot raw
+     * DOF maps directly to its dense final index; a pivot raw DOF expands
+     * recursively through {@link #leftoverPivotDofs} / {@link #leftoverPivotCoefs}.
      *
      * @param finalAccum final-DOF → coefficient accumulator
      * @param rawDof     the raw-DOF index whose contribution to fold in
@@ -789,8 +736,8 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Mark the final DOF corresponding to {@code rawDof} as
-     * integer-rounded. No-op if {@code rawDof} was pivot-eliminated.
+     * Mark the final DOF corresponding to {@code rawDof} as integer-rounded. No-op
+     * if {@code rawDof} was pivot-eliminated.
      *
      * @param rawDof a raw-DOF index
      */
@@ -802,29 +749,28 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Build the cached assembly playback log. Walks every face once,
-     * accumulating per-face contributions into temporary HashMaps; then
-     * compacts into CSR-style flat arrays for fast replay. Gauge-pin
-     * contributions go into the static arrays since they don't vary with
-     * face weight. Halve correction (× 0.5) is baked into upper
-     * coefficients (matches the current code's post-pass
-     * {@code replaceAll((k, v) -> v * 0.5)} which only halves the upper
-     * triangle and leaves the diagonal alone).
+     * Build the cached assembly playback log. Walks every face once, accumulating
+     * per-face contributions into temporary HashMaps; then compacts into CSR-style
+     * flat arrays for fast replay. Gauge-pin contributions go into the static
+     * arrays since they don't vary with face weight. Halve correction (× 0.5) is
+     * baked into upper coefficients (matches the current code's post-pass
+     * {@code replaceAll((k, v) -> v * 0.5)} which only halves the upper triangle
+     * and leaves the diagonal alone).
      */
     @SuppressWarnings("unchecked")
     private void buildAssemblyPlan() {
-        double edgeLengthSquared = (double) h * h;
+        double edgeLengthSquared = (double) seamless.h * seamless.h;
 
-        HashMap<Long, Double>[] perFaceUpper = new HashMap[faceCount];
-        HashMap<Integer, Double>[] perFaceDiagonal = new HashMap[faceCount];
-        HashMap<Integer, Double>[] perFaceRhs = new HashMap[faceCount];
+        HashMap<Long, Double>[] perFaceUpper = new HashMap[seamless.faceCount];
+        HashMap<Integer, Double>[] perFaceDiagonal = new HashMap[seamless.faceCount];
+        HashMap<Integer, Double>[] perFaceRhs = new HashMap[seamless.faceCount];
         HashSet<Long> uniqueUpperKeys = new HashSet<>(dofCount * AVG_NONZEROS_PER_ROW);
 
         double[] shapeGradX = new double[CORNERS_PER_FACE];
         double[] shapeGradY = new double[CORNERS_PER_FACE];
         int[] cornerChartVertex = new int[CORNERS_PER_FACE];
 
-        for (int f = 0; f < faceCount; f++) {
+        for (int f = 0; f < seamless.faceCount; f++) {
             HashMap<Long, Double> upperMap = new HashMap<>();
             HashMap<Integer, Double> diagonalMap = new HashMap<>();
             HashMap<Integer, Double> rhsMap = new HashMap<>();
@@ -832,18 +778,18 @@ public final class SeamlessDofSystem {
             perFaceDiagonal[f] = diagonalMap;
             perFaceRhs[f] = rhsMap;
 
-            double area = faceArea[f];
+            double area = seamless.faceArea[f];
             if (area <= 0) {
                 continue;
             }
             int faceCornerBase = f * CORNERS_PER_FACE;
             for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
-                shapeGradX[corner] = faceShapeB[faceCornerBase + corner];
-                shapeGradY[corner] = faceShapeC[faceCornerBase + corner];
+                shapeGradX[corner] = seamless.faceShapeB[faceCornerBase + corner];
+                shapeGradY[corner] = seamless.faceShapeC[faceCornerBase + corner];
                 cornerChartVertex[corner] = cutGraph.cornerToChartVertex[faceCornerBase + corner];
             }
-            double targetUx = faceUtxLocal[f], targetUy = faceUtyLocal[f];
-            double targetVx = faceVtxLocal[f], targetVy = faceVtyLocal[f];
+            double targetUx = seamless.faceUtxLocal[f], targetUy = seamless.faceUtyLocal[f];
+            double targetVx = seamless.faceVtxLocal[f], targetVy = seamless.faceVtyLocal[f];
 
             for (int cornerI = 0; cornerI < CORNERS_PER_FACE; cornerI++) {
                 for (int cornerJ = 0; cornerJ < CORNERS_PER_FACE; cornerJ++) {
@@ -869,9 +815,9 @@ public final class SeamlessDofSystem {
             }
 
             for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
-                double uRhsConstant = area * h
+                double uRhsConstant = area * seamless.h
                         * (shapeGradX[corner] * targetUx + shapeGradY[corner] * targetUy);
-                double vRhsConstant = area * h
+                double vRhsConstant = area * seamless.h
                         * (shapeGradX[corner] * targetVx + shapeGradY[corner] * targetVy);
                 int[] uExpDofs = chartVertexFinalDofs[cornerChartVertex[corner]][0];
                 double[] uExpCoefs = chartVertexFinalCoefs[cornerChartVertex[corner]][0];
@@ -890,24 +836,12 @@ public final class SeamlessDofSystem {
 
         HashMap<Long, Double> staticUpper = new HashMap<>();
         HashMap<Integer, Double> staticDiagonal = new HashMap<>();
-        if (useSoftSeams) {
-            addSoftSeamContributions(staticDiagonal, staticUpper);
-            // Soft-seam mode has (at least) a 2D translation nullspace:
-            // adding a constant offset δ_u to every chart vertex u-DOF
-            // leaves the soft-seam residual and orientation energy
-            // unchanged, and ditto for δ_v. Cold sparse Cholesky needs
-            // a strictly SPD matrix, so anchor DOFs 0 and 1 (chart
-            // vertex 0's u and v) with a tiny diagonal regularization.
-            // Weight 1.0 is small enough to be negligible vs the
-            // orientation energy (~h²·area per face, summed over
-            // thousands of faces) but enough to make the matrix
-            // positive-definite.
-            if (dofCount > 0) {
-                staticDiagonal.merge(0, NULLSPACE_ANCHOR_WEIGHT, Double::sum);
-            }
-            if (dofCount > 1) {
-                staticDiagonal.merge(1, NULLSPACE_ANCHOR_WEIGHT, Double::sum);
-            }
+        addSoftSeamContributions(staticDiagonal, staticUpper);
+        if (dofCount > 0) {
+            staticDiagonal.merge(0, NULLSPACE_ANCHOR_WEIGHT, Double::sum);
+        }
+        if (dofCount > 1) {
+            staticDiagonal.merge(1, NULLSPACE_ANCHOR_WEIGHT, Double::sum);
         }
         uniqueUpperKeys.addAll(staticUpper.keySet());
 
@@ -929,23 +863,23 @@ public final class SeamlessDofSystem {
         int totalUpper = 0;
         int totalDiagonal = 0;
         int totalRhs = 0;
-        for (int f = 0; f < faceCount; f++) {
+        for (int f = 0; f < seamless.faceCount; f++) {
             totalUpper += perFaceUpper[f].size();
             totalDiagonal += perFaceDiagonal[f].size();
             totalRhs += perFaceRhs[f].size();
         }
-        planPerFaceUpperStart = new int[faceCount + 1];
+        planPerFaceUpperStart = new int[seamless.faceCount + 1];
         planPerFaceUpperSlot = new int[totalUpper];
         planPerFaceUpperCoef = new double[totalUpper];
-        planPerFaceDiagonalStart = new int[faceCount + 1];
+        planPerFaceDiagonalStart = new int[seamless.faceCount + 1];
         planPerFaceDiagonalDof = new int[totalDiagonal];
         planPerFaceDiagonalCoef = new double[totalDiagonal];
-        planPerFaceRhsStart = new int[faceCount + 1];
+        planPerFaceRhsStart = new int[seamless.faceCount + 1];
         planPerFaceRhsDof = new int[totalRhs];
         planPerFaceRhsCoef = new double[totalRhs];
 
         int uCursor = 0, dCursor = 0, rCursor = 0;
-        for (int f = 0; f < faceCount; f++) {
+        for (int f = 0; f < seamless.faceCount; f++) {
             planPerFaceUpperStart[f] = uCursor;
             for (Map.Entry<Long, Double> e : perFaceUpper[f].entrySet()) {
                 planPerFaceUpperSlot[uCursor] = keyToSlot.get(e.getKey());
@@ -965,18 +899,17 @@ public final class SeamlessDofSystem {
                 rCursor++;
             }
         }
-        planPerFaceUpperStart[faceCount] = uCursor;
-        planPerFaceDiagonalStart[faceCount] = dCursor;
-        planPerFaceRhsStart[faceCount] = rCursor;
+        planPerFaceUpperStart[seamless.faceCount] = uCursor;
+        planPerFaceDiagonalStart[seamless.faceCount] = dCursor;
+        planPerFaceRhsStart[seamless.faceCount] = rCursor;
     }
 
     /**
-     * Per-face outer-product accumulation into the face's upper/diagonal
-     * maps. Matches the original {@code accumulateOuterProduct} →
-     * {@code accumulate} call shape: full 3×3 iteration with (min, max)
-     * keying for upper and immediate write for diagonal. The (i, j) +
-     * (j, i) double-count is intentional — corrected by the × 0.5
-     * baked into upper coefficients at compaction time.
+     * Per-face outer-product accumulation into the face's upper/diagonal maps.
+     * Matches the original {@code accumulateOuterProduct} → {@code accumulate} call
+     * shape: full 3×3 iteration with (min, max) keying for upper and immediate
+     * write for diagonal. The (i, j) + (j, i) double-count is intentional —
+     * corrected by the × 0.5 baked into upper coefficients at compaction time.
      *
      * @param upperMap    per-face upper accumulator
      * @param diagonalMap per-face diagonal accumulator
@@ -987,19 +920,20 @@ public final class SeamlessDofSystem {
      * @param scale       outer scaling (area × h² × shape-grad product)
      */
     /**
-     * Build the static soft-seam penalty contributions for every interior
-     * cut edge. Each cut edge with rotation {@code r}, endpoints {@code p, q},
-     * and translation DOFs {@code s_e, t_e} adds four quadratic rows to the
-     * energy:
+     * Build the static soft-seam penalty contributions for every interior cut edge.
+     * Each cut edge with rotation {@code r}, endpoints {@code p, q}, and
+     * translation DOFs {@code s_e, t_e} adds four quadratic rows to the energy:
+     * 
      * <pre>
      *   W · (chart_B_p.u − cos_r · chart_A_p.u + sin_r · chart_A_p.v − s_e)²
      *   W · (chart_B_p.v − sin_r · chart_A_p.u − cos_r · chart_A_p.v − t_e)²
      *   W · (chart_B_q.u − cos_r · chart_A_q.u + sin_r · chart_A_q.v − s_e)²
      *   W · (chart_B_q.v − sin_r · chart_A_q.u − cos_r · chart_A_q.v − t_e)²
      * </pre>
-     * Each row contributes a rank-1 outer product {@code W · vec ⊗ vec} to
-     * the Hessian, where {@code vec} is the linear-combination coefficient
-     * vector indexed by final-DOF id.
+     * 
+     * Each row contributes a rank-1 outer product {@code W · vec ⊗ vec} to the
+     * Hessian, where {@code vec} is the linear-combination coefficient vector
+     * indexed by final-DOF id.
      *
      * @param diagonal accumulator for static diagonal contributions
      * @param upper    accumulator for static upper-triangle contributions
@@ -1007,18 +941,18 @@ public final class SeamlessDofSystem {
     private void addSoftSeamContributions(HashMap<Integer, Double> diagonal,
             HashMap<Long, Double> upper) {
         int cornersPerFace = SeamlessParameterization.CORNERS_PER_FACE;
-        for (int ae = 0; ae < edgeCount; ae++) {
+        for (int ae = 0; ae < seamless.edgeCount; ae++) {
             if (!cutGraph.isCutEdge[ae]) {
                 continue;
             }
-            int faceA = edgeFaceA[ae];
-            int faceB = edgeFaceB[ae];
+            int faceA = seamless.edgeFaceA[ae];
+            int faceB = seamless.edgeFaceB[ae];
             if (faceA < 0 || faceB < 0) {
                 continue;
             }
-            int cornerAStart = edgeCornerInA[ae];
+            int cornerAStart = seamless.edgeCornerInA[ae];
             int cornerAEnd = (cornerAStart + 1) % cornersPerFace;
-            int cornerBStart = edgeCornerInB[ae];
+            int cornerBStart = seamless.edgeCornerInB[ae];
             int cornerBEnd = (cornerBStart + cornersPerFace - 1) % cornersPerFace;
             int chartAStart = cutGraph.cornerToChartVertex[faceA * cornersPerFace + cornerAStart];
             int chartAEnd = cutGraph.cornerToChartVertex[faceA * cornersPerFace + cornerAEnd];
@@ -1045,24 +979,24 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Add one rank-1 outer product {@code softSeamWeight · vec ⊗ vec} to
-     * the static-diagonal / static-upper accumulators, where {@code vec}
-     * has the form {@code [+1 at chart_B[component], cosACoef at chart_A.u,
+     * Add one rank-1 outer product {@code softSeamWeight · vec ⊗ vec} to the
+     * static-diagonal / static-upper accumulators, where {@code vec} has the form
+     * {@code [+1 at chart_B[component], cosACoef at chart_A.u,
      * sinACoef at chart_A.v, translationCoef at translationDof]}. For
-     * {@code chart_B = R_r · chart_A + (s, t)}, the residual u-equation
-     * needs {@code (-cos, +sin)} for {@code (cosACoef, sinACoef)} and the
-     * v-equation needs {@code (-sin, -cos)} — these are the coefficients
-     * that take {@code chart_A.(u, v)} to {@code -R_r · chart_A} once the
-     * {@code chart_B} row is the identity contribution.
+     * {@code chart_B = R_r · chart_A + (s, t)}, the residual u-equation needs
+     * {@code (-cos, +sin)} for {@code (cosACoef, sinACoef)} and the v-equation
+     * needs {@code (-sin, -cos)} — these are the coefficients that take
+     * {@code chart_A.(u, v)} to {@code -R_r · chart_A} once the {@code chart_B} row
+     * is the identity contribution.
      *
-     * @param diagonal       accumulator for diagonal terms
-     * @param upper          accumulator for upper-triangle terms
-     * @param chartB         chart vertex on B-side
-     * @param component      0 for u-equation, 1 for v-equation
-     * @param chartA         chart vertex on A-side
-     * @param cosACoef       coefficient on {@code chart_A.u}
-     * @param sinACoef       coefficient on {@code chart_A.v}
-     * @param translationDof translation DOF (s_e for u-eq, t_e for v-eq)
+     * @param diagonal        accumulator for diagonal terms
+     * @param upper           accumulator for upper-triangle terms
+     * @param chartB          chart vertex on B-side
+     * @param component       0 for u-equation, 1 for v-equation
+     * @param chartA          chart vertex on A-side
+     * @param cosACoef        coefficient on {@code chart_A.u}
+     * @param sinACoef        coefficient on {@code chart_A.v}
+     * @param translationDof  translation DOF (s_e for u-eq, t_e for v-eq)
      * @param translationCoef coefficient on the translation DOF (usually −1)
      */
     private void addSeamPenaltyRow(HashMap<Integer, Double> diagonal,
@@ -1116,7 +1050,7 @@ public final class SeamlessDofSystem {
 
         for (int i = 0; i < totalEntries; i++) {
             for (int j = i; j < totalEntries; j++) {
-                double value = softSeamWeight * vecCoefs[i] * vecCoefs[j];
+                double value = seamless.softSeamWeight * vecCoefs[i] * vecCoefs[j];
                 if (value == 0.0) {
                     continue;
                 }

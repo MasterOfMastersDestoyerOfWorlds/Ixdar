@@ -488,9 +488,6 @@ public class CrossField {
 
         boolean improved = true;
         int passes = 0;
-        int totalCandidates = 0;
-        int totalAccepts = 0;
-        int totalBatches = 0;
         try {
             while (improved && passes < 4) {
                 improved = false;
@@ -573,8 +570,6 @@ public class CrossField {
                     } catch (ExecutionException ee) {
                         throw new RuntimeException(ee.getCause());
                     }
-                    totalCandidates += batch.size() * LOCAL_SEARCH_DELTAS.length;
-                    totalBatches++;
 
                     results.sort((a, b) -> Integer.compare(a.eAi, b.eAi));
                     int batchAccepts = 0;
@@ -586,7 +581,6 @@ public class CrossField {
                     }
                     if (batchAccepts > 0) {
                         improved = true;
-                        totalAccepts += batchAccepts;
 
                         buildRhs(mainRhs, faceCount, edgeCount, rowOfEdge, rowFaceI, rowFaceJ,
                                 faceConstrained, faceConstraintAngle, halfPi, -1, 0);

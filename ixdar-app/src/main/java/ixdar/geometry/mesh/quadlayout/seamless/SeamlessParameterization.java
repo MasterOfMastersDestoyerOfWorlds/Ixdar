@@ -143,26 +143,6 @@ public final class SeamlessParameterization {
     public boolean exactSeams = true;
 
     /**
-     * If true, enforce the BZK09 §5 cross-boundary compatibility equations
-     * {@code chart_B = R_r · chart_A + (s, t)} as <b>soft</b> penalties in the SPD
-     * energy instead of <b>hard</b> variable elimination via the leftover-row
-     * Gauss-Jordan reduction. Each cut edge contributes
-     * {@code softSeamWeight · ‖chart_B − R_r·chart_A − (s, t)‖²} at both endpoints,
-     * leaving every chart vertex as a free DOF rather than substituting B-side
-     * chart vertices out.
-     *
-     * <p>
-     * The hypothesis: hard elimination at r ∈ {1, 3} cuts mixes u and v raw DOFs
-     * into a single block, removing the structural decoupling that lets ∇u and ∇v
-     * stay orthogonal at the energy minimum. Soft penalties keep all chart vertices
-     * independent at the DOF level; the coupling enters only via the penalty rows,
-     * which the SPD solver can trade off against the orientation energy. After this
-     * stage, MC19 (when {@link #exactSeams} is on) drives the residual to literal
-     * zero so the final output is still exactly seamless.
-     */
-    public boolean useSoftSeams = true;
-
-    /**
      * Weight on each soft seam-transition penalty row when {@link #useSoftSeams} is
      * true. Large enough that the seam residual is small but finite — leaves slack
      * for orthogonality preservation.
@@ -304,7 +284,7 @@ public final class SeamlessParameterization {
         this.faceWeight = new double[faceCount];
         Arrays.fill(faceWeight, 1.0);
 
-        this.dofSystem = new SeamlessDofSystem(this);
+        this.dofSystem = new SeamlessDofSystem(this, cutGraph);
 
         // BZK09 §5: (1) all-continuous solve, (2) BZK09 §2 greedy round
         // (j, k), singularity (u, v), and §5.2 alignment iso-coordinates
