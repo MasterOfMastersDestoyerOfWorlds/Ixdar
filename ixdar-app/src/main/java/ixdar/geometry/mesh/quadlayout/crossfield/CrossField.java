@@ -51,6 +51,8 @@ public class CrossField {
     public static final int CURVATURE_INTERVAL_FAIL_TAU = 2;
     public static final int CURVATURE_INTERVAL_FAIL_MEAN = 3;
 
+    public final float halfPi = (float) (Math.PI / 2.0);
+
     /**
      * The mesh that the cross field is built from.
      */
@@ -178,9 +180,15 @@ public class CrossField {
     public boolean[] faceConstrained;
     public float[] faceConstraintAngle;
 
+    final int[] rowFaceI;
+    final int[] rowFaceJ;
+    final double[] rowKappaPlusHalfPiP;
+    final int[] rowOfEdge;
+
     public int edgeCount;
     public int faceCount;
     public int vertexCount;
+    private int interiorRowCount;
 
     /**
      * 
@@ -216,6 +224,18 @@ public class CrossField {
 
         this.alignmentEdgeIds = new HashSet<>();
         this.targetQuadEdgeLength = targetEdgeLengthFractionOfBounds * mesh.computeBoundingBoxDiagonal();
+
+        this.interiorRowCount = 0;
+        for (int i = 0; i < edgeCount; i++) {
+            if (!mesh.isBoundaryEdge(mesh.edgeIdAt(i))) {
+                this.interiorRowCount++;
+            }
+        }
+        this.rowFaceI = new int[interiorRowCount];
+        this.rowFaceJ = new int[interiorRowCount];
+        this.rowKappaPlusHalfPiP = new double[interiorRowCount];
+        this.rowOfEdge = new int[edgeCount];
+        Arrays.fill(rowOfEdge, -1);
     }
 
     /**
@@ -240,8 +260,8 @@ public class CrossField {
          */
 
         for (int faceIndex = 0; faceIndex < mesh.faceCount(); faceIndex++) {
-            int fId = mesh.faceIdAt(faceIndex);
-            int halfEdge = mesh.faceHalfEdge(fId);
+            int faceId = mesh.faceIdAt(faceIndex);
+            int halfEdge = mesh.faceHalfEdge(faceId);
             int v0 = mesh.halfEdgeVertex(halfEdge);
             int v1 = mesh.halfEdgeEndVertex(halfEdge);
 
@@ -249,7 +269,7 @@ public class CrossField {
             Vector3f position2 = mesh.vertexPosition(v1);
             Vector3f xAxis = new Vector3f(position2).sub(position1);
 
-            Vector3f normal = mesh.faceNormal(fId);
+            Vector3f normal = mesh.faceNormal(faceId);
 
             float xDotN = xAxis.dot(normal);
             xAxis.x -= xDotN * normal.x;
@@ -276,13 +296,11 @@ public class CrossField {
          */
 
         for (int i = 0; i < mesh.edgeCount(); i++) {
-            int edge = mesh.edgeIdAt(i);
-            if (mesh.isBoundaryEdge(edge)) {
+            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(i);
+            if (mesh.isBoundaryEdge(edgeFaceIds.edgeId)) {
                 kappa[i] = 0f;
                 continue;
             }
-            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(i);
-
             Vector3f position1 = mesh.vertexPosition(edgeFaceIds.edgeStartVertex);
             Vector3f position2 = mesh.vertexPosition(edgeFaceIds.edgeEndVertex);
             Vector3f edgeDir = new Vector3f(position2).sub(position1);
@@ -296,35 +314,26 @@ public class CrossField {
             Vector3f faceNormalU = mesh.faceNormal(edgeFaceIds.faceA);
             Vector3f faceNormalV = mesh.faceNormal(edgeFaceIds.faceB);
 
-            float cosD = Math.max(-1f, Math.min(1f, faceNormalU.dot(faceNormalV)));
             Vector3f cross = new Vector3f(faceNormalU).cross(faceNormalV);
-            float sinD = cross.dot(edgeDir);
-
-            Vector3f xiTransported = new Vector3f(faceX[edgeFaceIds.faceA]);
-
-            float dihedral = (float) Math.atan2(sinD, cosD);
+            float dihedral = (float) Math.atan2(cross.dot(edgeDir),
+                    Math.max(-1f, Math.min(1f, faceNormalU.dot(faceNormalV))));
             float dihedralCos = (float) Math.cos(dihedral);
             float dihedralSin = (float) Math.sin(dihedral);
-            Vector3f kCrossV = new Vector3f();
-            edgeDir.cross(xiTransported, kCrossV);
+            Vector3f xiTransported = new Vector3f(faceX[edgeFaceIds.faceA]);
+            Vector3f kCrossV = new Vector3f(edgeDir).cross(xiTransported);
             float kDotV = edgeDir.dot(xiTransported);
             float oneMinusC = 1f - dihedralCos;
             xiTransported.x = xiTransported.x * dihedralCos + kCrossV.x * dihedralSin + edgeDir.x * kDotV * oneMinusC;
             xiTransported.y = xiTransported.y * dihedralCos + kCrossV.y * dihedralSin + edgeDir.y * kDotV * oneMinusC;
             xiTransported.z = xiTransported.z * dihedralCos + kCrossV.z * dihedralSin + edgeDir.z * kDotV * oneMinusC;
-
             float crossDirX = xiTransported.dot(faceX[edgeFaceIds.faceB]);
             float crossDirY = xiTransported.dot(faceY[edgeFaceIds.faceB]);
             kappa[i] = (float) Math.atan2(crossDirY, crossDirX);
         }
 
-        float averageEdgeLength = mesh.computeAverageEdgeLength();
-        float boundingSphereRadius = mesh.computeBoundingSphereRadius();
-        float curvatureK = curvatureScaleK / Math.max(boundingSphereRadius, EPSILON);
-
         applyFeatureEdgeConstraints();
         applyBoundaryConstraints();
-        applyCurvatureConstraints(averageEdgeLength, curvatureK);
+        applyCurvatureConstraints();
 
         int totalConstraints = 0;
         for (boolean constrained : faceConstrained) {
@@ -345,8 +354,7 @@ public class CrossField {
         system.solveGreedyMIP(lastDiagnostics);
         system.unpackInto(mesh, this);
         extractSingularities();
-
-        localSearchSingularityOptimization(faceConstrained, faceConstraintAngle);
+        localSearchSingularityOptimization();
         extractSingularities();
 
         printSolutionDiagnostics(system);
@@ -368,25 +376,12 @@ public class CrossField {
      *                            theta DOFs
      * @param faceConstraintAngle theta value held at constrained faces
      */
-    private void localSearchSingularityOptimization(boolean[] faceConstrained, float[] faceConstraintAngle) {
+    private void localSearchSingularityOptimization() {
         long deadlineMs = System.currentTimeMillis() + LOCAL_SEARCH_BUDGET_MS;
-        final float halfPi = (float) (Math.PI / 2.0);
 
-        // Count interior edges and collect per-row data for the theta-only Laplacian.
-        int interiorRowCount = 0;
-        for (int i = 0; i < edgeCount; i++) {
-            if (!mesh.isBoundaryEdge(mesh.edgeIdAt(i))) {
-                interiorRowCount++;
-            }
-        }
         if (interiorRowCount == 0) {
             return;
         }
-        final int[] rowFaceI = new int[interiorRowCount];
-        final int[] rowFaceJ = new int[interiorRowCount];
-        final double[] rowKappaPlusHalfPiP = new double[interiorRowCount];
-        final int[] rowOfEdge = new int[edgeCount];
-        Arrays.fill(rowOfEdge, -1);
         int row = 0;
         for (int i = 0; i < edgeCount; i++) {
             int edgeId = mesh.edgeIdAt(i);
@@ -427,14 +422,12 @@ public class CrossField {
         final double[] mainTheta = tlThetaScratch.get();
 
         // Initial baseline solve (no perturbation).
-        buildRhs(mainRhs, faceCount, edgeCount, rowOfEdge, rowFaceI, rowFaceJ,
-                faceConstrained, faceConstraintAngle, halfPi, /* perturbEdge */ -1, /* perturbedP */ 0);
+        buildRhs(mainRhs, -1, 0);
         DirectSolver.solveCompact(mainHandle, matrix, mainRhs, mainTheta, start, faceConstrained);
         for (int fAi = 0; fAi < faceCount; fAi++) {
             theta[fAi] = (float) mainTheta[fAi];
         }
-        double currentEnergy = energyOfTheta(mainTheta, rowOfEdge, rowFaceI, rowFaceJ,
-                halfPi, -1, 0);
+        double currentEnergy = energyOfTheta(mainTheta, -1, 0);
 
         // patchFacesByEdge expects the old per-edge face arrays — we still need those
         // for overlap detection in batching.
@@ -495,43 +488,37 @@ public class CrossField {
                 }
 
                 final double batchCurrentEnergy = currentEnergy;
-                for (int eAi : batch) {
-                    final int eAiF = eAi;
-                    final int oldP = periodJump[eAi];
+                for (int activeEdgeIndex : batch) {
+                    final int oldP = periodJump[activeEdgeIndex];
                     DirectSolver.CholeskyHandle h = tlHandle.get();
                     double[] rhsScratch = tlRhsScratch.get();
                     double[] thetaScratch = tlThetaScratch.get();
                     int bestDelta = 0;
-                    double bestTrialE = batchCurrentEnergy;
+                    double bestTrialEnergy = batchCurrentEnergy;
                     for (int delta : LOCAL_SEARCH_DELTAS) {
                         int trialP = oldP + delta;
-                        buildRhs(rhsScratch, faceCount, edgeCount, rowOfEdge, rowFaceI, rowFaceJ,
-                                faceConstrained, faceConstraintAngle, halfPi, eAiF, trialP);
+                        buildRhs(rhsScratch, activeEdgeIndex, trialP);
                         DirectSolver.solveCompact(h, matrix, rhsScratch, thetaScratch, start,
                                 faceConstrained);
-                        double e = energyOfTheta(thetaScratch, rowOfEdge, rowFaceI,
-                                rowFaceJ, halfPi, eAiF, trialP);
-                        if (e < bestTrialE) {
-                            bestTrialE = e;
+                        double energy = energyOfTheta(thetaScratch, activeEdgeIndex, trialP);
+                        if (energy < bestTrialEnergy) {
+                            bestTrialEnergy = energy;
                             bestDelta = delta;
                         }
                     }
                     if (bestDelta != 0) {
-                        periodJump[eAi] += bestDelta;
+                        periodJump[activeEdgeIndex] += bestDelta;
                         improved = true;
                     }
                 }
                 if (improved) {
-
-                    buildRhs(mainRhs, faceCount, edgeCount, rowOfEdge, rowFaceI, rowFaceJ,
-                            faceConstrained, faceConstraintAngle, halfPi, -1, 0);
+                    buildRhs(mainRhs, -1, 0);
                     DirectSolver.solveCompact(mainHandle, matrix, mainRhs, mainTheta, start,
                             faceConstrained);
                     for (int fAi = 0; fAi < faceCount; fAi++) {
                         theta[fAi] = (float) mainTheta[fAi];
                     }
-                    currentEnergy = energyOfTheta(mainTheta, rowOfEdge, rowFaceI,
-                            rowFaceJ, halfPi, -1, 0);
+                    currentEnergy = energyOfTheta(mainTheta, -1, 0);
                 }
                 remaining = deferred;
             }
@@ -548,10 +535,7 @@ public class CrossField {
      * of the RHS — {@link AdaptiveSolver#solveCompact} folds them in via the
      * {@code start} / {@code fixed} arguments.
      */
-    private void buildRhs(double[] rhs, int faceCount, int edgeCount,
-            int[] rowOfEdge, int[] rowFaceI, int[] rowFaceJ,
-            boolean[] faceConstrained, float[] faceConstraintAngle,
-            float halfPi, int perturbEdge, int perturbedP) {
+    private void buildRhs(double[] rhs, int perturbEdge, int perturbedP) {
         Arrays.fill(rhs, 0.0);
         for (int eAi = 0; eAi < edgeCount; eAi++) {
             int r = rowOfEdge[eAi];
@@ -571,8 +555,7 @@ public class CrossField {
      * lets a worker evaluate the energy as if
      * {@code periodJump[perturbEdge] == perturbedP} without mutating shared state.
      */
-    private double energyOfTheta(double[] thetaFull, int[] rowOfEdge,
-            int[] rowFaceI, int[] rowFaceJ, float halfPi, int perturbEdge, int perturbedP) {
+    private double energyOfTheta(double[] thetaFull, int perturbEdge, int perturbedP) {
         double e = 0.0;
         for (int eAi = 0; eAi < edgeCount; eAi++) {
             int r = rowOfEdge[eAi];
@@ -657,12 +640,12 @@ public class CrossField {
     /**
      * A2. Directional constraints from principal curvature
      *
-     * @param averageEdgeLength pre-computed mean edge length
-     * @param curvatureK        BZK09 §3 mean-curvature threshold
      * @return number of newly constrained faces
      */
 
-    public int applyCurvatureConstraints(float averageEdgeLength, float curvatureK) {
+    public int applyCurvatureConstraints() {
+        float averageEdgeLength = mesh.computeAverageEdgeLength();
+        float curvatureK = curvatureScaleK / Math.max(mesh.computeBoundingSphereRadius(), EPSILON);
         Vector3f vPos = new Vector3f();
         Vector3f vNormal = new Vector3f();
         Vector3f e1 = new Vector3f();
@@ -887,7 +870,9 @@ public class CrossField {
                 int he = mesh.vertexOutgoingHalfEdgeAt(u, i);
                 int w = mesh.halfEdgeEndVertex(he);
                 mesh.vertexPosition(w, b);
-                float dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+                float dx = b.x - a.x;
+                float dy = b.y - a.y;
+                float dz = b.z - a.z;
                 float wLen = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
                 float nd = node.distance + wLen;
                 if (nd > geodesicRadius) {
