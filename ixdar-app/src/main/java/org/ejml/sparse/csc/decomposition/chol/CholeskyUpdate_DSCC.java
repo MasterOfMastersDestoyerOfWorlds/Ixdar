@@ -1,18 +1,4 @@
-/*
- * Copyright (c) 2026.
- *
- * Same-package extension to EJML 0.43.1's CholeskyUpLooking_DSCC, adding
- * incremental rank-1 update of the L factor per Davis ch. 4.10. Lives in
- * org.ejml.sparse.csc.decomposition.chol so it can touch the parent's
- * package-private L, parent[], and gw fields.
- *
- * EJML itself is Apache 2.0 (LICENSE-2.0.txt); same-package extension is
- * mechanically straightforward.
- */
-
 package org.ejml.sparse.csc.decomposition.chol;
-
-import org.ejml.data.DMatrixSparseCSC;
 
 /**
  * Sparse Cholesky factorization supporting rank-1 in-place updates of the
@@ -63,61 +49,6 @@ public class CholeskyUpdate_DSCC extends CholeskyUpLooking_DSCC {
      * @throws UnsupportedOperationException if {@code sigma != 1.0} (downdate
      *         not yet implemented; IGM rounding only updates)
      */
-    public boolean rankOneUpdate(double sigma, double[] w) {
-        if (sigma != 1.0) {
-            throw new UnsupportedOperationException(
-                    "downdate (sigma = -1) not implemented; IGM rounding only updates");
-        }
-        DMatrixSparseCSC factor = this.L;
-        int n = factor.numCols;
-        for (int columnIndex = 0; columnIndex < n; columnIndex++) {
-            double alpha = w[columnIndex];
-            if (Math.abs(alpha) < WORKING_VECTOR_EPS) {
-                continue;
-            }
-            // Apply a Givens rotation that zeros w[columnIndex] against the
-            // diagonal of L. For sigma = +1 the rotation is orthogonal:
-            //   [c  s] [diagonalValue]   [newDiagonal]
-            //   [-s c] [alpha        ] = [  0        ]
-            // with c² + s² = 1. Then propagate the rotation to every row of
-            // L's column columnIndex below the diagonal.
-            int diagonalEntry = factor.col_idx[columnIndex];
-            double diagonalValue = factor.nz_values[diagonalEntry];
-            double radiusSquared = diagonalValue * diagonalValue + alpha * alpha;
-            if (radiusSquared <= 0.0) {
-                return false;
-            }
-            double newDiagonal = Math.sqrt(radiusSquared);
-            double cosTheta = diagonalValue / newDiagonal;
-            double sinTheta = alpha / newDiagonal;
-            factor.nz_values[diagonalEntry] = newDiagonal;
-            int columnEnd = factor.col_idx[columnIndex + 1];
-            for (int p = diagonalEntry + 1; p < columnEnd; p++) {
-                int row = factor.nz_rows[p];
-                double lValue = factor.nz_values[p];
-                double wValue = w[row];
-                factor.nz_values[p] = cosTheta * lValue + sinTheta * wValue;
-                w[row] = -sinTheta * lValue + cosTheta * wValue;
-            }
-            // w[columnIndex] is logically zero now; subsequent iterations
-            // advance past columnIndex so we don't need to clear it.
-        }
-        return true;
-    }
-
-    /**
-     * Convenience wrapper for the diagonal-pin case
-     * {@code A' = A + μ · e_col · e_colᵀ}: builds a single-entry working
-     * vector and calls {@link #rankOneUpdate(double, double[])} with
-     * {@code σ = +1}. Used by BZK09 greedy MI rounding when a DOF is
-     * snapped to an integer at penalty weight {@code μ}.
-     *
-     * @param col column index of the pinned DOF
-     * @param mu  positive penalty weight (the squared norm of the rank-1
-     *            update vector)
-     * @return {@code true} on success
-     * @throws IllegalArgumentException if {@code mu <= 0}
-     */
     public boolean pinDiagonal(int col, double mu) {
         if (mu <= 0.0) {
             throw new IllegalArgumentException("pin weight must be positive");
@@ -125,6 +56,30 @@ public class CholeskyUpdate_DSCC extends CholeskyUpLooking_DSCC {
         int n = L.numCols;
         double[] working = new double[n];
         working[col] = Math.sqrt(mu);
-        return rankOneUpdate(1.0, working);
+        for (int columnIndex = col; columnIndex < n; columnIndex++) {
+            double alpha = working[columnIndex];
+            if (Math.abs(alpha) < WORKING_VECTOR_EPS) {
+                continue;
+            }
+            int diagonalEntry = L.col_idx[columnIndex];
+            double diagonalValue = L.nz_values[diagonalEntry];
+            double radiusSquared = diagonalValue * diagonalValue + alpha * alpha;
+            if (radiusSquared <= 0.0) {
+                return false;
+            }
+            double newDiagonal = Math.sqrt(radiusSquared);
+            double cosTheta = diagonalValue / newDiagonal;
+            double sinTheta = alpha / newDiagonal;
+            L.nz_values[diagonalEntry] = newDiagonal;
+            int columnEnd = L.col_idx[columnIndex + 1];
+            for (int p = diagonalEntry + 1; p < columnEnd; p++) {
+                int row = L.nz_rows[p];
+                double lValue = L.nz_values[p];
+                double wValue = working[row];
+                L.nz_values[p] = cosTheta * lValue + sinTheta * wValue;
+                working[row] = -sinTheta * lValue + cosTheta * wValue;
+            }
+        }
+        return true;
     }
 }

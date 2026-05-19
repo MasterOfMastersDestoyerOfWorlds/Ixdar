@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Set;
 
@@ -471,14 +470,16 @@ public class CutGraph {
     }
 
     /**
-     * Compute the seam rotation r_e ∈ {0..3} for every edge: 0 on non-cut and
-     * boundary edges, and (g_B − g_A + p_AB) mod 4 on an interior cut edge.
+     * Compute the coordinate transition rotation r_e ∈ {0..3} for every edge: 0 on
+     * non-cut and boundary edges, and (g_A − g_B − p_AB) mod 4 on an interior cut
+     * edge.
      *
      * <p>
-     * In B's frame the discrepancy between A's and B's chosen u-axes is (θ_B +
-     * g_B·π/2) − (θ_A + g_A·π/2 + κ_AB) = (g_B − g_A + p_AB)·π/2 by the cross-field
-     * smoothness relation, hence r_e = (g_B − g_A + p_AB) mod 4. On non-cut edges
-     * {@link #propagateBranches()} chose g_B = g_A − p, making this 0.
+     * The geometric offset from transported A axes to B axes is (g_B − g_A +
+     * p_AB)·π/2 by the cross-field smoothness relation. Parameter coordinates
+     * transform by the inverse basis rotation, hence r_e = (g_A − g_B − p_AB) mod
+     * 4. On non-cut edges {@link #propagateBranches()} chose g_B = g_A − p, making
+     * this 0.
      */
     public void buildCutRotation() {
         cutRotation = new int[seamless.edgeCount];
@@ -490,7 +491,7 @@ public class CutGraph {
                 continue;
             }
             int periodJump = crossField.periodJump[activeEdge];
-            cutRotation[activeEdge] = (faceBranch[activeFaceB] - faceBranch[activeFaceA] + periodJump)
+            cutRotation[activeEdge] = (faceBranch[activeFaceA] - faceBranch[activeFaceB] - periodJump)
                     & (SeamlessParameterization.BRANCH_COUNT - 1);
         }
     }

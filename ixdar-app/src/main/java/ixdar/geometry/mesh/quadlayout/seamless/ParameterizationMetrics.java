@@ -9,8 +9,10 @@ public class ParameterizationMetrics {
 
     public static final float HALF = 0.5f;
     public static final float SVD_DET_FACTOR = 4.0f;
-    /** Indices into the 4-element {@code [u_p, v_p, u_q, v_q]} array returned by
-     *  {@link SeamlessParameterization#lookupCorners(int, int, int)}. */
+    /**
+     * Indices into the 4-element {@code [u_p, v_p, u_q, v_q]} array returned by
+     * {@link SeamlessParameterization#lookupCorners(int, int, int)}.
+     */
     public static final int IDX_UQ = 2;
     /** {@link #IDX_UQ} sibling. */
     public static final int IDX_VQ = 3;
@@ -111,7 +113,8 @@ public class ParameterizationMetrics {
      * all interior cut edges. Averages all four components (two endpoint corners ×
      * (u, v)) per edge.
      *
-     * @return the average |R·u_A + t − u_B|, or 0 if there are no interior cut edges
+     * @return the average |R·u_A + t − u_B|, or 0 if there are no interior cut
+     *         edges
      */
     public float computeMeanTransitionResidual() {
         float sum = 0.0f;
@@ -155,12 +158,11 @@ public class ParameterizationMetrics {
 
     /**
      * Mean Hormann-Lévy-Sheffer distortion across all non-degenerate faces. For
-     * each face: flatten its 3D triangle to a local 2D frame, compute the
-     * Jacobian of the (u, v) map from the three corner coordinates, and combine
-     * the signed singular values as {@code |σ₁/h − 1| + |σ₂/h − 1|}, signed by the
-     * Jacobian's orientation so flipped triangles inflate the distortion.
-     * {@code h} is {@link SeamlessParameterization#h}. Degenerate 3D triangles
-     * are skipped.
+     * each face: flatten its 3D triangle to a local 2D frame, compute the Jacobian
+     * of the (u, v) map from the three corner coordinates, and combine the signed
+     * singular values as {@code |σ₁/h − 1| + |σ₂/h − 1|}, signed by the Jacobian's
+     * orientation so flipped triangles inflate the distortion. {@code h} is
+     * {@link SeamlessParameterization#h}. Degenerate 3D triangles are skipped.
      *
      * @return the mean per-face distortion, or 0 if every face is degenerate
      */
@@ -219,11 +221,11 @@ public class ParameterizationMetrics {
     }
 
     /**
-     * Number of disconnected charts: connected components of the active-face
-     * graph where two faces are joined iff they share a non-cut interior edge.
-     * One for a typical closed input with a connected cut graph; greater than one
-     * indicates either a disconnected mesh or a cut graph that fragments the
-     * surface into separate disks.
+     * Number of disconnected charts: connected components of the active-face graph
+     * where two faces are joined iff they share a non-cut interior edge. One for a
+     * typical closed input with a connected cut graph; greater than one indicates
+     * either a disconnected mesh or a cut graph that fragments the surface into
+     * separate disks.
      *
      * @return the chart-component count, ≥ 1 for any non-empty mesh
      */
@@ -268,8 +270,8 @@ public class ParameterizationMetrics {
     }
 
     /**
-     * Count of interior edges where the BZK09 §5 branch consistency relation
-     * {@code (faceBranch[B] − faceBranch[A] + periodJump) mod 4 == cutRotation[ae]}
+     * Count of interior edges where the BZK09 §5 coordinate-transition relation
+     * {@code (faceBranch[A] − faceBranch[B] − periodJump) mod 4 == cutRotation[ae]}
      * is violated (with {@code cutRotation == 0} expected on non-cut edges). Zero
      * on a correctly built {@link CutGraph}; non-zero signals a bug in branch
      * propagation or rotation assignment.
@@ -288,7 +290,7 @@ public class ParameterizationMetrics {
             int faceB = seamless.edgeFaceB[activeEdge];
             if (faceA < 0 || faceB < 0)
                 continue;
-            int relation = (faceBranch[faceB] - faceBranch[faceA] + periodJump[activeEdge]) & branchMask;
+            int relation = (faceBranch[faceA] - faceBranch[faceB] - periodJump[activeEdge]) & branchMask;
             int expected = isCutEdge[activeEdge] ? cutRotation[activeEdge] : 0;
             if (relation != expected)
                 violations++;

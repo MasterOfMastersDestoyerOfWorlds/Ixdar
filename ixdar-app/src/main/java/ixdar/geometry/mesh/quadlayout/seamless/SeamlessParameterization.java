@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.seamless;
 
 import java.util.Arrays;
+
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.MeshTopology;
@@ -66,7 +67,7 @@ public final class SeamlessParameterization {
     static final float HALF_PI = (float) (Math.PI / 2.0);
     private static final float HALF = 0.5f;
     private static final double HALF_D = 0.5;
-    private static final double DEGENERATE_AREA_EPS = 1.0e-30;
+    private static final double DEGENERATE_AREA_EPSILON = 1.0e-30;
     private static final double SVD_DET_FACTOR = 4.0;
     /**
      * Coefficient-magnitude threshold below which a leftover-row entry is treated
@@ -147,7 +148,7 @@ public final class SeamlessParameterization {
      * true. Large enough that the seam residual is small but finite — leaves slack
      * for orthogonality preservation.
      */
-    public double softSeamWeight = 1.0;
+    public double softSeamWeight = 1.0e6;
 
     /** Cut graph. */
     public CutGraph cutGraph;
@@ -469,7 +470,7 @@ public final class SeamlessParameterization {
             double x2 = rel.dot(xAxis), y2 = rel.dot(yAxis);
 
             double twoArea = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
-            if (Math.abs(twoArea) < DEGENERATE_AREA_EPS) {
+            if (Math.abs(twoArea) < DEGENERATE_AREA_EPSILON) {
                 // Degenerate triangle: skip.
                 faceArea[af] = 0.0;
                 continue;
