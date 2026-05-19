@@ -396,6 +396,11 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return dest.set(vertexPositions[offset], vertexPositions[offset + 1], vertexPositions[offset + 2]);
     }
 
+    public Vector3f vertexPosition(int vertexId) {
+        int offset = vertexOffset(vertexId);
+        return new Vector3f(vertexPositions[offset], vertexPositions[offset + 1], vertexPositions[offset + 2]);
+    }
+
     /** {@inheritDoc}. */
     @Override
     public Vector3f vertexNormal(int vertexId, Vector3f dest) {
@@ -531,6 +536,11 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
 
         int offset = faceOffset(faceId);
         return dest.set(faceNormals[offset], faceNormals[offset + 1], faceNormals[offset + 2]);
+    }
+
+    public Vector3f faceNormal(int faceId) {
+        int offset = faceOffset(faceId);
+        return new Vector3f(faceNormals[offset], faceNormals[offset + 1], faceNormals[offset + 2]);
     }
 
     /**

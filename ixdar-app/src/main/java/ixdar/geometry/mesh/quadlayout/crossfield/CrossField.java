@@ -163,11 +163,16 @@ public class CrossField {
      */
     public Set<Integer> alignmentEdgeIds = new HashSet<>();
 
+    /**
+     * Reusable scratch for curvature-disk searches. Each search increments
+     * {@code curvatureStamp}; arrays holding that stamp are treated as part of the
+     * current disk without clearing all mesh-sized arrays between searches.
+     */
     public int[] vertexInDiskStamp;
     public int[] faceInDiskStamp;
     public int[] edgeProcessedStamp;
     public float[] vertexDistance;
-    public int[] verticesVisited;
+    public int[] visitedVertexIds;
     public int curvatureStamp = 0;
 
     /**
@@ -198,7 +203,7 @@ public class CrossField {
         this.faceInDiskStamp = new int[faceCount];
         this.edgeProcessedStamp = new int[edgeCount];
         this.vertexDistance = new float[vertexCount];
-        this.verticesVisited = new int[vertexCount];
+        this.visitedVertexIds = new int[vertexCount];
 
         this.theta = new float[faceCount];
         this.periodJump = new int[edgeCount];
@@ -219,9 +224,6 @@ public class CrossField {
          * A1. Local face frames Convention: x_f = first half-edge of f, projected onto
          * the tangent plane. y_f = n_f × x_f. Right-handed.
          */
-        Vector3f a = new Vector3f();
-        Vector3f b = new Vector3f();
-        Vector3f n = new Vector3f();
 
         for (int faceIndex = 0; faceIndex < mesh.faceCount(); faceIndex++) {
             int fId = mesh.faceIdAt(faceIndex);
@@ -229,24 +231,24 @@ public class CrossField {
             int v0 = mesh.halfEdgeVertex(halfEdge);
             int v1 = mesh.halfEdgeEndVertex(halfEdge);
 
-            mesh.vertexPosition(v0, a);
-            mesh.vertexPosition(v1, b);
-            Vector3f xAxis = new Vector3f(b).sub(a);
+            Vector3f position1 = mesh.vertexPosition(v0);
+            Vector3f position2 = mesh.vertexPosition(v1);
+            Vector3f xAxis = new Vector3f(position2).sub(position1);
 
-            mesh.faceNormal(fId, n);
+            Vector3f normal = mesh.faceNormal(fId);
 
-            float xDotN = xAxis.dot(n);
-            xAxis.x -= xDotN * n.x;
-            xAxis.y -= xDotN * n.y;
-            xAxis.z -= xDotN * n.z;
+            float xDotN = xAxis.dot(normal);
+            xAxis.x -= xDotN * normal.x;
+            xAxis.y -= xDotN * normal.y;
+            xAxis.z -= xDotN * normal.z;
             float xLen = xAxis.length();
             if (xLen < EPSILON) {
-                arbitraryTangent(n, xAxis);
+                arbitraryTangent(normal, xAxis);
             } else {
                 xAxis.div(xLen);
             }
             Vector3f yAxis = new Vector3f();
-            n.cross(xAxis, yAxis).normalize();
+            normal.cross(xAxis, yAxis).normalize();
 
             faceX[faceIndex] = xAxis;
             faceY[faceIndex] = yAxis;
@@ -258,14 +260,6 @@ public class CrossField {
          * vector in face-j's frame (faceX[j], faceY[j]): κ_ij = atan2(y-component,
          * x-component).
          */
-
-        Vector3f position1 = new Vector3f();
-        Vector3f position2 = new Vector3f();
-        Vector3f edgeDir = new Vector3f();
-        Vector3f faceNormalU = new Vector3f();
-        Vector3f faceNormalV = new Vector3f();
-        Vector3f cross = new Vector3f();
-        Vector3f xiTransported = new Vector3f();
 
         for (int i = 0; i < mesh.edgeCount(); i++) {
             int edge = mesh.edgeIdAt(i);
@@ -282,9 +276,9 @@ public class CrossField {
 
             int vertexId1 = mesh.halfEdgeVertex(halfEdge);
             int vertexId2 = mesh.halfEdgeEndVertex(halfEdge);
-            mesh.vertexPosition(vertexId1, position1);
-            mesh.vertexPosition(vertexId2, position2);
-            edgeDir.set(position2).sub(position1);
+            Vector3f position1 = mesh.vertexPosition(vertexId1);
+            Vector3f position2 = mesh.vertexPosition(vertexId2);
+            Vector3f edgeDir = new Vector3f(position2).sub(position1);
             float edgeLen = edgeDir.length();
             if (edgeLen < EPSILON) {
                 kappa[i] = 0f;
@@ -292,16 +286,16 @@ public class CrossField {
             }
             edgeDir.div(edgeLen);
 
-            mesh.faceNormal(halfEdgeFaceId1, faceNormalU);
-            mesh.faceNormal(halfEdgeFaceId2, faceNormalV);
+            Vector3f faceNormalU = mesh.faceNormal(halfEdgeFaceId1);
+            Vector3f faceNormalV = mesh.faceNormal(halfEdgeFaceId2);
 
             float cosD = Math.max(-1f, Math.min(1f, faceNormalU.dot(faceNormalV)));
-            faceNormalU.cross(faceNormalV, cross);
+            Vector3f cross = new Vector3f(faceNormalU).cross(faceNormalV);
             float sinD = cross.dot(edgeDir);
+
+            Vector3f xiTransported = new Vector3f(faceX[haldEdgeFaceIndex1]);
+
             float dihedral = (float) Math.atan2(sinD, cosD);
-
-            xiTransported.set(faceX[haldEdgeFaceIndex1]);
-
             float dihedralCos = (float) Math.cos(dihedral);
             float dihedralSin = (float) Math.sin(dihedral);
             Vector3f kCrossV = new Vector3f();
@@ -980,7 +974,7 @@ public class CrossField {
         vertexInDiskStamp[centerVertexId] = stamp;
         vertexDistance[centerVertexId] = 0f;
         int visitedCount = 0;
-        verticesVisited[visitedCount++] = centerVertexId;
+        visitedVertexIds[visitedCount++] = centerVertexId;
 
         Vector3f a = new Vector3f();
         Vector3f b = new Vector3f();
@@ -1006,7 +1000,7 @@ public class CrossField {
                 if (vertexInDiskStamp[w] != stamp) {
                     vertexInDiskStamp[w] = stamp;
                     vertexDistance[w] = nd;
-                    verticesVisited[visitedCount++] = w;
+                    visitedVertexIds[visitedCount++] = w;
                     pq.offer(new DijkstraNode(nd, w));
                 } else if (nd < vertexDistance[w]) {
                     vertexDistance[w] = nd;
@@ -1022,7 +1016,7 @@ public class CrossField {
         int facesFound = 0;
         float totalDiskArea = 0f;
         for (int vi = 0; vi < visitedCount; vi++) {
-            int vertexId = verticesVisited[vi];
+            int vertexId = visitedVertexIds[vi];
             int adjacentFaceCount = mesh.vertexFaceCount(vertexId);
             for (int i = 0; i < adjacentFaceCount; i++) {
                 int faceId = mesh.vertexFaceAt(vertexId, i);
@@ -1059,7 +1053,7 @@ public class CrossField {
         Vector3f edgeDirInTangentPlane = new Vector3f();
 
         for (int vi = 0; vi < visitedCount; vi++) {
-            int vertexId = verticesVisited[vi];
+            int vertexId = visitedVertexIds[vi];
             int incidentEdgeCount = mesh.vertexEdgeCount(vertexId);
             for (int i = 0; i < incidentEdgeCount; i++) {
                 int edgeId = mesh.vertexEdgeAt(vertexId, i);
