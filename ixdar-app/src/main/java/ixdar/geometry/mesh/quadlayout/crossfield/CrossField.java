@@ -14,6 +14,8 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.VertexFaceIds;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
@@ -117,7 +119,7 @@ public class CrossField {
      * How far the angle between two faces can be from flat to be considered a
      * feature edge (cos 90° = 0). Feature edges are aligned with the cross field.
      */
-    public float featureDihedralCos = 0f;
+    public float featureDihedralCos = 0.25f;
 
     /**
      * Maximum number of local Gauss-Seidel iterations on the AdaptiveSolver before
@@ -947,41 +949,35 @@ public class CrossField {
         for (int vi = 0; vi < visitedCount; vi++) {
             int vertexId = visitedVertexIds[vi];
             int incidentEdgeCount = mesh.vertexEdgeCount(vertexId);
-            for (int i = 0; i < incidentEdgeCount; i++) {
-                int edgeId = mesh.vertexEdgeAt(vertexId, i);
-                if (edgeProcessedStamp[edgeId] == stamp) {
+            for (int activeVertexIndex = 0; activeVertexIndex < incidentEdgeCount; activeVertexIndex++) {
+                VertexFaceIds vertexEdgeIds = mesh.vertexFaceIds(vertexId, activeVertexIndex);
+                if (edgeProcessedStamp[vertexEdgeIds.edgeId] == stamp) {
                     continue;
                 }
-                edgeProcessedStamp[edgeId] = stamp;
+                edgeProcessedStamp[vertexEdgeIds.edgeId] = stamp;
 
-                int halfEdge = mesh.edgeHalfEdge(edgeId);
-                int edgeStartVertex = mesh.halfEdgeVertex(halfEdge);
-                int edgeEndVertex = mesh.halfEdgeEndVertex(halfEdge);
-                if (vertexInDiskStamp[edgeStartVertex] != stamp
-                        || vertexInDiskStamp[edgeEndVertex] != stamp) {
+                if (vertexInDiskStamp[vertexEdgeIds.edgeStartVertex] != stamp
+                        || vertexInDiskStamp[vertexEdgeIds.edgeEndVertex] != stamp) {
                     continue;
                 }
-                if (mesh.isBoundaryEdge(edgeId)) {
+                if (mesh.isBoundaryEdge(vertexEdgeIds.edgeId)) {
                     continue;
                 }
-                int twinHalfEdge = mesh.halfEdgeTwin(halfEdge);
-                int leftFaceId = mesh.halfEdgeFace(halfEdge);
-                int rightFaceId = mesh.halfEdgeFace(twinHalfEdge);
-                if (faceInDiskStamp[leftFaceId] != stamp
-                        || faceInDiskStamp[rightFaceId] != stamp) {
+                if (faceInDiskStamp[vertexEdgeIds.faceA] != stamp
+                        || faceInDiskStamp[vertexEdgeIds.faceB] != stamp) {
                     continue;
                 }
 
-                Vector3f position0 = mesh.vertexPosition(edgeStartVertex);
-                Vector3f position1 = mesh.vertexPosition(edgeEndVertex);
+                Vector3f position0 = mesh.vertexPosition(vertexEdgeIds.edgeStartVertex);
+                Vector3f position1 = mesh.vertexPosition(vertexEdgeIds.edgeEndVertex);
                 Vector3f edgeVector = new Vector3f(position1).sub(position0);
                 float edgeLength = edgeVector.length();
                 if (edgeLength < EPSILON) {
                     continue;
                 }
 
-                Vector3f leftFaceNormal = mesh.faceNormal(leftFaceId);
-                Vector3f rightFaceNormal = mesh.faceNormal(rightFaceId);
+                Vector3f leftFaceNormal = mesh.faceNormal(vertexEdgeIds.faceA);
+                Vector3f rightFaceNormal = mesh.faceNormal(vertexEdgeIds.faceB);
                 float cosDihedral = Math.max(-1f, Math.min(1f, leftFaceNormal.dot(rightFaceNormal)));
                 Vector3f normalCross = new Vector3f(leftFaceNormal).cross(rightFaceNormal);
                 float sinDihedral = normalCross.dot(edgeVector) / edgeLength;
@@ -1068,30 +1064,26 @@ public class CrossField {
      */
     public int applyFeatureEdgeConstraints() {
         int addedConstraints = 0;
-        for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
-            int eId = mesh.edgeIdAt(eAi);
-            if (mesh.isBoundaryEdge(eId)) {
+        for (int activeEdgeIndex = 0; activeEdgeIndex < mesh.edgeCount(); activeEdgeIndex++) {
+            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(activeEdgeIndex);
+            if (mesh.isBoundaryEdge(edgeFaceIds.edgeId)) {
                 continue;
             }
-            int he = mesh.edgeHalfEdge(eId);
-            int twin = mesh.halfEdgeTwin(he);
-            int faceA = mesh.halfEdgeFace(he);
-            int faceB = mesh.halfEdgeFace(twin);
-            Vector3f faceANormal = mesh.faceNormal(faceA);
-            Vector3f faceBNormal = mesh.faceNormal(faceB);
+            Vector3f faceANormal = mesh.faceNormal(edgeFaceIds.faceA);
+            Vector3f faceBNormal = mesh.faceNormal(edgeFaceIds.faceB);
             float dot = faceANormal.dot(faceBNormal);
             if (dot >= featureDihedralCos) {
                 continue;
             }
 
-            int faceAActiveId = faceIdToActive.get(faceA);
-            int faceBActiveId = faceIdToActive.get(faceB);
-            alignmentEdgeIds.add(eId);
+            int faceAActiveId = faceIdToActive.get(edgeFaceIds.faceA);
+            int faceBActiveId = faceIdToActive.get(edgeFaceIds.faceB);
+            alignmentEdgeIds.add(edgeFaceIds.edgeId);
             if (faceConstrained[faceAActiveId] && faceConstrained[faceBActiveId]) {
                 continue;
             }
-            int v0 = mesh.halfEdgeVertex(he);
-            int v1 = mesh.halfEdgeEndVertex(he);
+            int v0 = mesh.halfEdgeVertex(edgeFaceIds.halfEdge);
+            int v1 = mesh.halfEdgeEndVertex(edgeFaceIds.halfEdge);
             Vector3f vertex0Position = mesh.vertexPosition(v0);
             Vector3f vertex1Position = mesh.vertexPosition(v1);
             Vector3f edgeDir = new Vector3f(vertex1Position).sub(vertex0Position);
@@ -1113,58 +1105,25 @@ public class CrossField {
      * cross is aligned with the edge direction so the quadrangulation follows the
      * surface boundary.
      *
-     * @return number of newly constrained faces
      */
-    public int applyBoundaryConstraints() {
-        Vector3f a = new Vector3f();
-        Vector3f b = new Vector3f();
-        int addedConstraints = 0;
+    public void applyBoundaryConstraints() {
         for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
-            int eId = mesh.edgeIdAt(eAi);
-            if (!mesh.isBoundaryEdge(eId))
+            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(eAi);
+            if (!mesh.isBoundaryEdge(edgeFaceIds.edgeId))
                 continue;
-            int he = mesh.edgeHalfEdge(eId);
-            int v0 = mesh.halfEdgeVertex(he);
-            int v1 = mesh.halfEdgeEndVertex(he);
-            mesh.vertexPosition(v0, a);
-            mesh.vertexPosition(v1, b);
-            Vector3f edgeDir = new Vector3f(b).sub(a);
-            alignmentEdgeIds.add(eId);
-            addedConstraints += constrainBothFacesOfEdge(eId, edgeDir, faceConstrained, faceConstraintAngle);
+            Vector3f edgeDir = new Vector3f(mesh.vertexPosition(edgeFaceIds.edgeEndVertex))
+                    .sub(mesh.vertexPosition(edgeFaceIds.edgeStartVertex));
+            alignmentEdgeIds.add(edgeFaceIds.edgeId);
+            for (int faceIndex : new int[] { edgeFaceIds.faceA, edgeFaceIds.faceB }) {
+                if (faceIndex == MeshTopology.NONE)
+                    continue;
+                int fAi = faceIdToActive.get(faceIndex);
+                float angle = projectDirectionToFaceAngle(edgeDir, fAi);
+                if (!faceConstrained[fAi])
+                    faceConstrained[fAi] = true;
+                faceConstraintAngle[fAi] = canonicalizeMod(angle);
+            }
         }
-        return addedConstraints;
-    }
-
-    /**
-     * Project {@code edgeDirWorld} into both incident faces of {@code eId} and
-     * record the resulting face-local angle as a constraint, marking faces as
-     * constrained if they were not already.
-     *
-     * @param eId                 edge id whose two incident faces are constrained
-     * @param edgeDirWorld        edge direction in world coordinates
-     * @param faceConstrained     per-face flag, updated for newly constrained faces
-     * @param faceConstraintAngle per-face constraint angle (face-local) overwritten
-     *                            for both incident faces
-     * @return number of newly constrained faces (0, 1, or 2)
-     */
-    public int constrainBothFacesOfEdge(int eId, Vector3f edgeDirWorld,
-            boolean[] faceConstrained,
-            float[] faceConstraintAngle) {
-        int he = mesh.edgeHalfEdge(eId);
-        int twin = mesh.halfEdgeTwin(he);
-        int addedConstraints = 0;
-        for (int hePick : new int[] { he, twin }) {
-            int fId = mesh.halfEdgeFace(hePick);
-            if (fId == MeshTopology.NONE)
-                continue;
-            int fAi = faceIdToActive.get(fId);
-            float angle = projectDirectionToFaceAngle(edgeDirWorld, fAi);
-            if (!faceConstrained[fAi])
-                addedConstraints++;
-            faceConstrained[fAi] = true;
-            faceConstraintAngle[fAi] = canonicalizeMod(angle);
-        }
-        return addedConstraints;
     }
 
     /*
@@ -1300,7 +1259,7 @@ public class CrossField {
             int faces = mesh.vertexFaceCount(vId);
             for (int i = 0; i < faces; i++) {
                 int fId = mesh.vertexFaceAt(vId, i);
-                angleSum += interiorAngleAtVertex(fId, vId, vPos, a, b);
+                angleSum += mesh.interiorAngleAtVertex(fId, vId, vPos, a, b);
             }
             float defect = (float) (2.0 * Math.PI) - angleSum;
 
@@ -1325,42 +1284,6 @@ public class CrossField {
             }
         }
         return singularities;
-    }
-
-    /**
-     * Interior angle of face {@code fId} at vertex {@code vId}.
-     *
-     * @param fId  face id
-     * @param vId  vertex id (must be a corner of {@code fId})
-     * @param vPos position of {@code vId}
-     * @param a    scratch vector overwritten with the previous-corner edge
-     *             direction
-     * @param b    scratch vector overwritten with the next-corner edge direction
-     * @return angle in radians, or 0 for degenerate triangles or when {@code vId}
-     *         is not a corner of {@code fId}
-     */
-    public float interiorAngleAtVertex(int fId, int vId, Vector3f vPos, Vector3f a, Vector3f b) {
-        int adj = mesh.faceHalfEdgeCount(fId);
-        for (int i = 0; i < adj; i++) {
-            int he = mesh.faceHalfEdgeAt(fId, i);
-            if (mesh.halfEdgeVertex(he) == vId) {
-                int prev = mesh.halfEdgePrev(he);
-                int prevStart = mesh.halfEdgeVertex(prev);
-                int nextEnd = mesh.halfEdgeEndVertex(he);
-                mesh.vertexPosition(prevStart, a);
-                mesh.vertexPosition(nextEnd, b);
-                a.sub(vPos);
-                b.sub(vPos);
-                float la = a.length();
-                float lb = b.length();
-                if (la < EPSILON || lb < EPSILON)
-                    return 0f;
-                float c = a.dot(b) / (la * lb);
-                c = Math.max(-1f, Math.min(1f, c));
-                return (float) Math.acos(c);
-            }
-        }
-        return 0f;
     }
 
     /**

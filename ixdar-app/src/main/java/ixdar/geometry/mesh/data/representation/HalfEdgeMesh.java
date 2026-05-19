@@ -1158,4 +1158,105 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return 0.5f * b.cross(c).length();
     }
 
+    /**
+     * Interior angle of face {@code fId} at vertex {@code vId}.
+     *
+     * @param fId  face id
+     * @param vId  vertex id (must be a corner of {@code fId})
+     * @param vPos position of {@code vId}
+     * @param a    scratch vector overwritten with the previous-corner edge
+     *             direction
+     * @param b    scratch vector overwritten with the next-corner edge direction
+     * @return angle in radians, or 0 for degenerate triangles or when {@code vId}
+     *         is not a corner of {@code fId}
+     */
+    public float interiorAngleAtVertex(int fId, int vId, Vector3f vPos, Vector3f a, Vector3f b) {
+        int adj = faceHalfEdgeCount(fId);
+        for (int i = 0; i < adj; i++) {
+            int he = faceHalfEdgeAt(fId, i);
+            if (halfEdgeVertex(he) == vId) {
+                int prev = halfEdgePrev(he);
+                int prevStart = halfEdgeVertex(prev);
+                int nextEnd = halfEdgeEndVertex(he);
+                vertexPosition(prevStart, a);
+                vertexPosition(nextEnd, b);
+                a.sub(vPos);
+                b.sub(vPos);
+                float la = a.length();
+                float lb = b.length();
+                float c = a.dot(b) / (la * lb);
+                c = Math.max(-1f, Math.min(1f, c));
+                return (float) Math.acos(c);
+            }
+        }
+        return 0f;
+    }
+
+    public EdgeFaceIds edgeFaceIds(int activeIndex) {
+        int eId = edgeIdAt(activeIndex);
+        int he = edgeHalfEdge(eId);
+        int edgeStartVertex = halfEdgeVertex(he);
+        int edgeEndVertex = halfEdgeEndVertex(he);
+        int twin = halfEdgeTwin(he);
+        int faceA = halfEdgeFace(he);
+        int faceB = halfEdgeFace(twin);
+        return new EdgeFaceIds(eId, edgeStartVertex, edgeEndVertex, he, twin, faceA, faceB);
+    }
+
+    public static final class EdgeFaceIds {
+        public final int edgeId;
+        public final int edgeStartVertex;
+        public final int edgeEndVertex;
+        public final int halfEdge;
+        public final int twin;
+        public final int faceA;
+        public final int faceB;
+
+        public EdgeFaceIds(int edgeId, int edgeStartVertex, int edgeEndVertex, int halfEdge, int twin, int faceA,
+                int faceB) {
+            this.edgeId = edgeId;
+            this.edgeStartVertex = edgeStartVertex;
+            this.edgeEndVertex = edgeEndVertex;
+            this.halfEdge = halfEdge;
+            this.twin = twin;
+            this.faceA = faceA;
+            this.faceB = faceB;
+        }
+    }
+
+    public VertexFaceIds vertexFaceIds(int vertexId, int activeIndex) {
+        int edgeId = vertexEdgeAt(vertexId, activeIndex);
+        int halfEdge = edgeHalfEdge(edgeId);
+        int edgeStartVertex = halfEdgeVertex(halfEdge);
+        int edgeEndVertex = halfEdgeEndVertex(halfEdge);
+        int twinHalfEdge = halfEdgeTwin(halfEdge);
+        int leftFaceId = halfEdgeFace(halfEdge);
+        int rightFaceId = halfEdgeFace(twinHalfEdge);
+        return new VertexFaceIds(vertexId, edgeId, halfEdge, edgeStartVertex, edgeEndVertex, twinHalfEdge, leftFaceId,
+                rightFaceId);
+    }
+
+    public static final class VertexFaceIds {
+        public final int vertexId;
+        public final int edgeId;
+        public final int halfEdge;
+        public final int edgeStartVertex;
+        public final int edgeEndVertex;
+        public final int twin;
+        public final int faceA;
+        public final int faceB;
+
+        public VertexFaceIds(int vertexId, int edgeId, int halfEdge, int edgeStartVertex, int edgeEndVertex, int twin,
+                int faceA, int faceB) {
+            this.vertexId = vertexId;
+            this.edgeId = edgeId;
+            this.halfEdge = halfEdge;
+            this.edgeStartVertex = edgeStartVertex;
+            this.edgeEndVertex = edgeEndVertex;
+            this.twin = twin;
+            this.faceA = faceA;
+            this.faceB = faceB;
+        }
+    }
+
 }
