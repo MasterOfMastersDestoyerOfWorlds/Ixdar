@@ -1139,4 +1139,23 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
+    /**
+     * Euclidean area of a triangular face.
+     *
+     * @param faceId face id (assumed triangular)
+     * @return Euclidean area of the triangle whose first half-edge starts the face
+     */
+    public float faceArea(int faceId) {
+        int halfEdgeId = faceHalfEdge[faceId];
+        int v0 = halfEdgeVertex[halfEdgeId];
+        int v1 = halfEdgeEndVertex(halfEdgeId);
+        int v2 = halfEdgeEndVertex(halfEdgeNext(halfEdgeId));
+        Vector3f a = vertexPosition(v0);
+        Vector3f b = vertexPosition(v1);
+        Vector3f c = vertexPosition(v2);
+        b.sub(a);
+        c.sub(a);
+        return 0.5f * b.cross(c).length();
+    }
+
 }

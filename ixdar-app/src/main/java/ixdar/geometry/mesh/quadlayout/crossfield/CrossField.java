@@ -9,11 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import org.joml.Vector3f;
 
@@ -191,16 +186,6 @@ public class CrossField {
         this.edgeCount = mesh.edgeCount();
         this.faceCount = mesh.faceCount();
         this.vertexCount = mesh.vertexCount();
-    }
-
-    /**
-     * Run the BZK09 pipeline (A1 frames + κ, A2 constraints, A3 Voronoi forest, A4
-     * greedy mixed-integer LSQ) and extract singularities.
-     *
-     * @return {@code this}, with field arrays populated and singularities filled
-     */
-    public CrossField build() {
-
         this.vertexInDiskStamp = new int[vertexCount];
         this.faceInDiskStamp = new int[faceCount];
         this.edgeProcessedStamp = new int[edgeCount];
@@ -212,7 +197,18 @@ public class CrossField {
         this.kappa = new float[edgeCount];
         this.faceX = new Vector3f[faceCount];
         this.faceY = new Vector3f[faceCount];
+
         this.alignmentEdgeIds = new HashSet<>();
+        this.targetQuadEdgeLength = targetEdgeLengthFractionOfBounds * mesh.computeBoundingBoxDiagonal();
+    }
+
+    /**
+     * Run the BZK09 pipeline (A1 frames + κ, A2 constraints, A3 Voronoi forest, A4
+     * greedy mixed-integer LSQ) and extract singularities.
+     *
+     * @return {@code this}, with field arrays populated and singularities filled
+     */
+    public CrossField build() {
 
         faceIdToActive = new HashMap<>(mesh.faceCount() * 2);
         for (int i = 0; i < mesh.faceCount(); i++) {
@@ -321,16 +317,18 @@ public class CrossField {
         float boundingSphereRadius = mesh.computeBoundingSphereRadius();
         float curvatureK = curvatureScaleK / Math.max(boundingSphereRadius, EPSILON);
 
-        float targetLength = targetEdgeLengthFractionOfBounds * mesh.computeBoundingBoxDiagonal();
-        this.targetQuadEdgeLength = targetLength > 0f ? targetLength : averageEdgeLength;
-
         applyFeatureEdgeConstraints(faceConstrained, faceConstraintAngle);
         applyBoundaryConstraints(faceConstrained, faceConstraintAngle);
         applyCurvatureConstraints(
                 faceConstrained, faceConstraintAngle, averageEdgeLength, curvatureK);
-        int totalConstraints = countTrue(faceConstrained);
-        if (totalConstraints == 0 && faceCount > 0) {
 
+        int totalConstraints = 0;
+        for (boolean constrained : faceConstrained) {
+            if (constrained) {
+                totalConstraints++;
+            }
+        }
+        if (totalConstraints == 0 && faceCount > 0) {
             faceConstrained[0] = true;
             faceConstraintAngle[0] = 0f;
             totalConstraints = 1;
@@ -703,7 +701,6 @@ public class CrossField {
         Vector3f e1 = new Vector3f();
         Vector3f e2 = new Vector3f();
         int addedConstraints = 0;
-        CurvatureConstraintStats stats = new CurvatureConstraintStats();
         float stabilityWindow = RADIUS_STABILITY_WINDOW_FRACTION * targetQuadEdgeLength;
 
         List<Float> radii = new ArrayList<>();
@@ -717,10 +714,8 @@ public class CrossField {
         }
 
         for (int vAi = 0; vAi < mesh.vertexCount(); vAi++) {
-            stats.verticesVisited++;
             int vId = mesh.vertexIdAt(vAi);
             if (mesh.isBoundaryVertex(vId)) {
-                stats.boundaryVertices++;
                 continue;
             }
             mesh.vertexPosition(vId, vPos);
@@ -772,26 +767,16 @@ public class CrossField {
                 validRadii.add(r);
             }
             if (anglesMaxDir.isEmpty()) {
-                stats.noCurvatureSamples++;
                 continue;
             }
 
             int bestIdx = -1;
             float bestJitter = Float.POSITIVE_INFINITY;
-            boolean failedTau = false;
-            boolean failedMean = false;
             for (int k = 0; k < anglesMaxDir.size(); k++) {
                 int intervalStatus = curvatureIntervalStatus(validRadii, kappaMaxList, kappaMinList, k,
                         stabilityWindow, curvatureK);
-                if (intervalStatus == CURVATURE_INTERVAL_FAIL_TAU) {
-                    failedTau = true;
-                    continue;
-                }
-                if (intervalStatus == CURVATURE_INTERVAL_FAIL_MEAN) {
-                    failedMean = true;
-                    continue;
-                }
-                if (intervalStatus != CURVATURE_INTERVAL_VALID) {
+                if (intervalStatus == CURVATURE_INTERVAL_FAIL_TAU || intervalStatus == CURVATURE_INTERVAL_FAIL_MEAN
+                        || intervalStatus != CURVATURE_INTERVAL_VALID) {
                     continue;
                 }
 
@@ -820,19 +805,8 @@ public class CrossField {
                 }
             }
             if (bestIdx < 0) {
-                if (failedTau) {
-                    stats.failedAnisotropy++;
-                } else if (failedMean) {
-                    stats.failedMeanCurvature++;
-                } else {
-                    stats.failedInterval++;
-                }
                 continue;
             }
-            stats.validIntervals++;
-            stats.jitterSum += bestJitter;
-            stats.maxJitter = Math.max(stats.maxJitter, bestJitter);
-            stats.acceptedVertices++;
 
             float constraintAngleAtV = anglesMaxDir.get(bestIdx);
             float c = (float) Math.cos(constraintAngleAtV);
@@ -851,7 +825,6 @@ public class CrossField {
                 int fId = mesh.vertexFaceAt(vId, i);
                 int fAi = faceIdToActive.get(fId);
                 if (faceConstrained[fAi]) {
-                    stats.faceCollisionCandidates++;
                     continue;
                 }
                 Vector3f n = new Vector3f();
@@ -875,11 +848,8 @@ public class CrossField {
             }
             if (newlyConstrained > 0) {
                 addedConstraints += newlyConstrained;
-            } else {
-                stats.allIncidentFacesConstrained++;
             }
         }
-        stats.addedConstraints = addedConstraints;
         return addedConstraints;
     }
 
@@ -990,7 +960,7 @@ public class CrossField {
                         && vertexInDiskStamp[faceVertex1] == stamp
                         && vertexInDiskStamp[faceVertex2] == stamp) {
                     faceInDiskStamp[faceId] = stamp;
-                    totalDiskArea += faceArea(faceId);
+                    totalDiskArea += mesh.faceArea(faceId);
                     facesFound++;
                 }
             }
@@ -1135,10 +1105,6 @@ public class CrossField {
      * @return number of newly constrained faces
      */
     public int applyFeatureEdgeConstraints(boolean[] faceConstrained, float[] faceConstraintAngle) {
-        Vector3f a = new Vector3f();
-        Vector3f b = new Vector3f();
-        Vector3f n0 = new Vector3f();
-        Vector3f n1 = new Vector3f();
         int addedConstraints = 0;
         for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
             int eId = mesh.edgeIdAt(eAi);
@@ -1147,27 +1113,27 @@ public class CrossField {
             }
             int he = mesh.edgeHalfEdge(eId);
             int twin = mesh.halfEdgeTwin(he);
-            int fi = mesh.halfEdgeFace(he);
-            int fj = mesh.halfEdgeFace(twin);
-            mesh.faceNormal(fi, n0);
-            mesh.faceNormal(fj, n1);
-            float dot = n0.dot(n1);
+            int faceA = mesh.halfEdgeFace(he);
+            int faceB = mesh.halfEdgeFace(twin);
+            Vector3f faceANormal = mesh.faceNormal(faceA);
+            Vector3f faceBNormal = mesh.faceNormal(faceB);
+            float dot = faceANormal.dot(faceBNormal);
             if (dot >= featureDihedralCos) {
                 continue;
             }
 
-            int fiAi = faceIdToActive.get(fi);
-            int fjAi = faceIdToActive.get(fj);
+            int faceAActiveId = faceIdToActive.get(faceA);
+            int faceBActiveId = faceIdToActive.get(faceB);
             alignmentEdgeIds.add(eId);
-            if (faceConstrained[fiAi] && faceConstrained[fjAi]) {
+            if (faceConstrained[faceAActiveId] && faceConstrained[faceBActiveId]) {
                 continue;
             }
             int v0 = mesh.halfEdgeVertex(he);
             int v1 = mesh.halfEdgeEndVertex(he);
-            mesh.vertexPosition(v0, a);
-            mesh.vertexPosition(v1, b);
-            Vector3f edgeDir = new Vector3f(b).sub(a);
-            for (int sideAi : new int[] { fiAi, fjAi }) {
+            Vector3f vertex0Position = mesh.vertexPosition(v0);
+            Vector3f vertex1Position = mesh.vertexPosition(v1);
+            Vector3f edgeDir = new Vector3f(vertex1Position).sub(vertex0Position);
+            for (int sideAi : new int[] { faceAActiveId, faceBActiveId }) {
                 if (faceConstrained[sideAi]) {
                     continue;
                 }
@@ -1337,7 +1303,6 @@ public class CrossField {
     public List<Singularity> extractSingularities() {
         int vertexCount = mesh.vertexCount();
         singularities.clear();
-        Vector3f vPos = new Vector3f();
         Vector3f a = new Vector3f();
         Vector3f b = new Vector3f();
 
@@ -1345,7 +1310,7 @@ public class CrossField {
             int vId = mesh.vertexIdAt(vAi);
             if (mesh.isBoundaryVertex(vId))
                 continue;
-            mesh.vertexPosition(vId, vPos);
+            Vector3f vPos = mesh.vertexPosition(vId);
 
             float angleSum = 0f;
             int faces = mesh.vertexFaceCount(vId);
@@ -1444,45 +1409,6 @@ public class CrossField {
     }
 
     /**
-     * Count the {@code true} entries in a boolean array.
-     *
-     * @param values flag array
-     * @return number of {@code true} entries in {@code values}
-     */
-    public static int countTrue(boolean[] values) {
-        int count = 0;
-        for (boolean value : values) {
-            if (value)
-                count++;
-        }
-        return count;
-    }
-
-    /**
-     * Euclidean area of a triangular face.
-     *
-     * @param fId face id (assumed triangular)
-     * @return Euclidean area of the triangle whose first half-edge starts the face
-     */
-    public float faceArea(int fId) {
-        int he = mesh.faceHalfEdge(fId);
-        int v0 = mesh.halfEdgeVertex(he);
-        int v1 = mesh.halfEdgeEndVertex(he);
-        int v2 = mesh.halfEdgeEndVertex(mesh.halfEdgeNext(he));
-        Vector3f a = new Vector3f();
-        Vector3f b = new Vector3f();
-        Vector3f c = new Vector3f();
-        mesh.vertexPosition(v0, a);
-        mesh.vertexPosition(v1, b);
-        mesh.vertexPosition(v2, c);
-        b.sub(a);
-        c.sub(a);
-        Vector3f cross = new Vector3f();
-        b.cross(c, cross);
-        return 0.5f * cross.length();
-    }
-
-    /**
      * Reduce {@code angle} into the half-open interval {@code [0, mod)}.
      *
      * @param angle angle in radians
@@ -1494,9 +1420,6 @@ public class CrossField {
         if (r < 0)
             r += mod;
         return r;
-    }
-
-    private record TrialResult(int eAi, int bestDelta, double bestEnergy) {
     }
 
     public static final class DijkstraNode implements Comparable<DijkstraNode> {
@@ -1514,26 +1437,6 @@ public class CrossField {
         @Override
         public int compareTo(DijkstraNode other) {
             return Float.compare(this.distance, other.distance);
-        }
-    }
-
-    public static final class CurvatureConstraintStats {
-        int verticesVisited;
-        int boundaryVertices;
-        int noCurvatureSamples;
-        int failedAnisotropy;
-        int failedMeanCurvature;
-        int failedInterval;
-        int validIntervals;
-        int acceptedVertices;
-        int faceCollisionCandidates;
-        int allIncidentFacesConstrained;
-        int addedConstraints;
-        double jitterSum;
-        float maxJitter;
-
-        double averageJitter() {
-            return validIntervals > 0 ? jitterSum / validIntervals : 0.0;
         }
     }
 
