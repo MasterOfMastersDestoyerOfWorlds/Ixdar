@@ -14,13 +14,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.stream.Collectors;
 
-import org.ejml.data.DMatrixRMaj;
-import org.ejml.data.DMatrixSparseCSC;
-import org.ejml.interfaces.linsol.LinearSolverSparse;
-import org.ejml.sparse.FillReducing;
-import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.MeshTopology;
@@ -28,40 +22,26 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
-import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
+import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 
 /**
  * A Cross Field is a set of angles and period jumps for each face and edge of a
  * mesh that follow the curvature of the mesh. A properly structured cross has
- * two direction vectors per face, in the face's local u, v basis. This "cross"
+ * two direction vectors per face, in the face's local x, y basis. This "cross"
  * on each face should tell us how we'd like to dissect the underlying triangle
  * mesh into quads. Singularities are vertices where there are fewer or more
  * than 4 edges incident to the singular vertex.
  */
 public class CrossField {
-    public static final float EPSILON_DEGENERATE = 1e-20f;
-    public static final float EPSILON_FP_TOLERANCE = 1e-9f;
+    public static final float EPSILON = 1e-12f;
     public static final float BASIS_AXIS_PICK_THRESHOLD = 0.9f;
     public static final float RADIUS_STABILITY_WINDOW_FRACTION = 0.25f;
     public static final float SINGLE_RADIUS_RATIO_THRESHOLD = 1.001f;
-    public static final float RADIUS_STEP_EPSILON = 1e-6f;
     public static final double NS_PER_MS = 1e6;
     public static final boolean PROFILE_BUILD = Boolean.parseBoolean(System.getProperty("crossField.profile", "false"));
-    public static final long LOCAL_SEARCH_BUDGET_NS = 3_000_000_000L;
-    public static final int LOCAL_SEARCH_MAX_PASSES = 4;
-    public static final double LOCAL_SEARCH_EPS = 0.0;
-    public static final double LOCAL_SEARCH_COUNT_ENERGY_SLACK = 1.005;
-    public static final int LOCAL_SEARCH_COUNT_REDUCTION_BUDGET = 8;
-    public static final int INITIAL_NONZEROS_PER_EDGE = 4;
+    public static final long LOCAL_SEARCH_BUDGET_MS = 3000L;
     public static final int[] LOCAL_SEARCH_DELTAS = { -1, 1, -2, 2 };
-    public static final String EIG_FORMAT = "%+.4f ";
-    public static final float QUADRATIC_DISCRIMINANT_FACTOR = 4f;
-    public static final float HALF = 0.5f;
-    public static final float EPSILON_PRINCIPAL_CURVATURE = 1e-12f;
-    public static final int RESIDUAL_HISTOGRAM_BUCKETS = 8;
-    public static final int RESIDUAL_HISTOGRAM_LAST_BUCKET = 7;
-    public static final int RESIDUAL_HISTOGRAM_BIN_DIVISOR = 32;
 
     public static volatile String lastDiagnostics = "[cross-field] no diagnostics recorded";
 
@@ -73,35 +53,36 @@ public class CrossField {
     public final HalfEdgeMesh mesh;
 
     /**
-     * θ_f : per-face angle of the cross w.r.t. that face's local x-axis, radians.
+     * Angle from this face's local x-axis to the cross field's representative
+     * x-axis, in radians.
      */
     public float[] theta;
 
     /**
-     * p_e : signed per-edge period jump, oriented in the direction of
-     * {@code edgeHalfEdge(e)}. Reading the period jump in the opposite direction
-     * means {@code -p_e}. Reduce modulo 4 only when selecting a rendered cross
-     * branch.
+     * Number of quarter-turns needed to match this edge's two neighboring cross
+     * fields after transporting them into a common frame.
      */
     public int[] periodJump;
 
-    /** Per-face local x-axis (3D unit vector). */
+    /**
+     * Per-face representative x-axis of the cross field
+     */
     public Vector3f[] faceX;
-    /** Per-face local y-axis = n_f × x. */
+    /**
+     * Per-face representative y-axis of the cross field
+     */
     public Vector3f[] faceY;
 
     /**
-     * Per-edge transport angle κ_ij (radians, in (−π, π]). Defined only for
-     * non-boundary edges; oriented in the direction of {@code edgeHalfEdge(e)}.
+     * Per-edge angle from the source triangle's transported local x-axis to the
+     * neighboring triangle's local x-axis, in radians.
      */
     public float[] kappa;
 
     /**
-     * Per-vertex singularity index times 4 (kept integer to avoid float
-     * comparisons). +1 = +π/2 = valence-3, −1 = −π/2 = valence-5. Boundary vertices
-     * left at 0.
+     * Per-vertex singularity index times 4. +1 = +π/2 = valence-3, −1 = −π/2 =
+     * valence-5. Boundary vertices left at 0.
      */
-    public int[] singularityIndexQuarter;
     public List<Singularity> singularities = new ArrayList<>();
 
     /**
@@ -269,7 +250,7 @@ public class CrossField {
             xAxis.y -= xDotN * n.y;
             xAxis.z -= xDotN * n.z;
             float xLen = xAxis.length();
-            if (xLen < EPSILON_DEGENERATE) {
+            if (xLen < EPSILON) {
                 arbitraryTangent(n, xAxis);
             } else {
                 xAxis.div(xLen);
@@ -315,7 +296,7 @@ public class CrossField {
             mesh.vertexPosition(vertexId2, position2);
             edgeDir.set(position2).sub(position1);
             float edgeLen = edgeDir.length();
-            if (edgeLen < EPSILON_DEGENERATE) {
+            if (edgeLen < EPSILON) {
                 kappa[i] = 0f;
                 continue;
             }
@@ -352,7 +333,7 @@ public class CrossField {
 
         float averageEdgeLength = mesh.computeAverageEdgeLength();
         float boundingSphereRadius = mesh.computeBoundingSphereRadius();
-        float curvatureK = curvatureScaleK / Math.max(boundingSphereRadius, EPSILON_FP_TOLERANCE);
+        float curvatureK = curvatureScaleK / Math.max(boundingSphereRadius, EPSILON);
 
         float targetLength = targetEdgeLengthFractionOfBounds * mesh.computeBoundingBoxDiagonal();
         this.h = targetLength > 0f ? targetLength : averageEdgeLength;
@@ -430,7 +411,7 @@ public class CrossField {
      * @param faceConstraintAngle theta value held at constrained faces
      */
     private void localSearchSingularityOptimization(boolean[] faceConstrained, float[] faceConstraintAngle) {
-        long deadlineNs = System.nanoTime() + LOCAL_SEARCH_BUDGET_NS;
+        long deadlineMs = System.currentTimeMillis() + LOCAL_SEARCH_BUDGET_MS;
         final int edgeCount = mesh.edgeCount();
         final int faceCount = mesh.faceCount();
         final float halfPi = (float) (Math.PI / 2.0);
@@ -527,7 +508,7 @@ public class CrossField {
         int totalAccepts = 0;
         int totalBatches = 0;
         try {
-            while (improved && passes < LOCAL_SEARCH_MAX_PASSES) {
+            while (improved && passes < 4) {
                 improved = false;
                 passes++;
                 Set<Integer> candidateEdges = new HashSet<>();
@@ -546,7 +527,7 @@ public class CrossField {
                 Collections.sort(remaining);
                 boolean[] usedFace = new boolean[faceCount];
                 while (!remaining.isEmpty()) {
-                    if (System.nanoTime() > deadlineNs) {
+                    if (System.currentTimeMillis() > deadlineMs) {
                         break;
                     }
                     Arrays.fill(usedFace, false);
@@ -589,7 +570,7 @@ public class CrossField {
                                         faceConstrained);
                                 double e = energyOfTheta(thetaScratch, edgeCount, rowOfEdge, rowFaceI,
                                         rowFaceJ, halfPi, eAiF, trialP);
-                                if (e < bestTrialE - LOCAL_SEARCH_EPS) {
+                                if (e < bestTrialE) {
                                     bestTrialE = e;
                                     bestDelta = delta;
                                 }
@@ -791,7 +772,7 @@ public class CrossField {
         if (radiusRatio <= SINGLE_RADIUS_RATIO_THRESHOLD || h <= startRadius) {
             radii.add(h);
         } else {
-            for (float r = startRadius; r <= h + RADIUS_STEP_EPSILON; r *= radiusRatio) {
+            for (float r = startRadius; r <= h + EPSILON; r *= radiusRatio) {
                 radii.add(r);
             }
         }
@@ -817,10 +798,38 @@ public class CrossField {
                 float[] T = integrateCurvatureTensor(vId, vPos, vNormal, e1, e2, r);
                 if (T == null)
                     continue;
-                float[] eig = eigSym2x2(T[0], T[1], T[2]);
-                kappaMaxList.add(eig[0]);
-                kappaMinList.add(eig[1]);
-                anglesMaxDir.add(eig[2]);
+
+                float t00 = T[0];
+                float t01 = T[1];
+                float t11 = T[2];
+                float trace = t00 + t11;
+                float diff = t00 - t11;
+                float disc = (float) Math.sqrt(diff * diff + 4f * t01 * t01);
+                float lambda1 = 0.5f * (trace + disc);
+                float lambda2 = 0.5f * (trace - disc);
+                float eigBig, eigSmall;
+                if (Math.abs(lambda1) >= Math.abs(lambda2)) {
+                    eigBig = lambda1;
+                    eigSmall = lambda2;
+                } else {
+                    eigBig = lambda2;
+                    eigSmall = lambda1;
+                }
+                float vx, vy;
+                if (Math.abs(t01) > EPSILON) {
+                    vx = eigBig - t11;
+                    vy = t01;
+                } else if (Math.abs(eigBig - t00) < Math.abs(eigBig - t11)) {
+                    vx = 1f;
+                    vy = 0f;
+                } else {
+                    vx = 0f;
+                    vy = 1f;
+                }
+                float angle = (float) Math.atan2(vy, vx);
+                kappaMaxList.add(eigBig);
+                kappaMinList.add(eigSmall);
+                anglesMaxDir.add(angle);
                 validRadii.add(r);
             }
             if (anglesMaxDir.isEmpty()) {
@@ -902,7 +911,13 @@ public class CrossField {
                         stats.faceCollisionCandidates++;
                         continue;
                     }
-                    float projectionLength = projectedDirectionLength(constraintDirWorld, fAi);
+                    Vector3f n = new Vector3f();
+                    mesh.faceNormal(mesh.faceIdAt(fAi), n);
+                    float dotN = constraintDirWorld.dot(n);
+                    float x = constraintDirWorld.x - dotN * n.x;
+                    float y = constraintDirWorld.y - dotN * n.y;
+                    float z = constraintDirWorld.z - dotN * n.z;
+                    float projectionLength = (float) Math.sqrt(x * x + y * y + z * z);
                     if (projectionLength > bestProjectionLength) {
                         bestProjectionLength = projectionLength;
                         bestFaceAi = fAi;
@@ -925,24 +940,6 @@ public class CrossField {
         stats.addedConstraints = addedConstraints;
         lastCurvatureStats = stats;
         return addedConstraints;
-    }
-
-    /**
-     * Length of {@code dirWorld} after projection onto face {@code fAi}'s tangent
-     * plane.
-     *
-     * @param dirWorld 3D direction in world coordinates
-     * @param fAi      face active index
-     * @return Euclidean length of the projected vector
-     */
-    public float projectedDirectionLength(Vector3f dirWorld, int fAi) {
-        Vector3f n = new Vector3f();
-        mesh.faceNormal(mesh.faceIdAt(fAi), n);
-        float dotN = dirWorld.dot(n);
-        float x = dirWorld.x - dotN * n.x;
-        float y = dirWorld.y - dotN * n.y;
-        float z = dirWorld.z - dotN * n.z;
-        return (float) Math.sqrt(x * x + y * y + z * z);
     }
 
     /**
@@ -1004,7 +1001,7 @@ public class CrossField {
             DijkstraNode node = pq.poll();
             int u = node.vertexOrFace;
             // Stale entry check: a better distance was found after this was queued.
-            if (node.distance > vertexDistance[u] + EPSILON_FP_TOLERANCE) {
+            if (node.distance > vertexDistance[u] + EPSILON) {
                 continue;
             }
             mesh.vertexPosition(u, a);
@@ -1057,7 +1054,7 @@ public class CrossField {
                 }
             }
         }
-        if (facesFound == 0 || totalDiskArea < EPSILON_DEGENERATE) {
+        if (facesFound == 0 || totalDiskArea < EPSILON) {
             return null;
         }
 
@@ -1106,7 +1103,7 @@ public class CrossField {
                 mesh.vertexPosition(edgeEndVertex, position1);
                 edgeVector.set(position1).sub(position0);
                 float edgeLength = edgeVector.length();
-                if (edgeLength < EPSILON_DEGENERATE) {
+                if (edgeLength < EPSILON) {
                     continue;
                 }
 
@@ -1139,46 +1136,6 @@ public class CrossField {
     }
 
     /**
-     * Eigendecomposition of [[t00, t01], [t01, t11]]. Returns [eigBig, eigSmall,
-     * angleOfBigEigenvector]; eigenvalues sorted by absolute value.
-     *
-     * @param t00 tensor entry [0,0]
-     * @param t01 tensor entry [0,1] = [1,0]
-     * @param t11 tensor entry [1,1]
-     * @return three-element array
-     *         {@code [eigBig, eigSmall, angleOfBigEigenvector]}; eigenvalues sorted
-     *         by absolute value
-     */
-    public static float[] eigSym2x2(float t00, float t01, float t11) {
-        float trace = t00 + t11;
-        float diff = t00 - t11;
-        float disc = (float) Math.sqrt(diff * diff + QUADRATIC_DISCRIMINANT_FACTOR * t01 * t01);
-        float lambda1 = HALF * (trace + disc);
-        float lambda2 = HALF * (trace - disc);
-        float eigBig, eigSmall;
-        if (Math.abs(lambda1) >= Math.abs(lambda2)) {
-            eigBig = lambda1;
-            eigSmall = lambda2;
-        } else {
-            eigBig = lambda2;
-            eigSmall = lambda1;
-        }
-        float vx, vy;
-        if (Math.abs(t01) > EPSILON_DEGENERATE) {
-            vx = eigBig - t11;
-            vy = t01;
-        } else if (Math.abs(eigBig - t00) < Math.abs(eigBig - t11)) {
-            vx = 1f;
-            vy = 0f;
-        } else {
-            vx = 0f;
-            vy = 1f;
-        }
-        float angle = (float) Math.atan2(vy, vx);
-        return new float[] { eigBig, eigSmall, angle };
-    }
-
-    /**
      * Status of the BZK09 §3 curvature stability interval centred at radius index
      * {@code k}.
      *
@@ -1207,10 +1164,10 @@ public class CrossField {
             hasSample = true;
             float kmax = kappaMaxList.get(j);
             float kmin = kappaMinList.get(j);
-            if (Math.abs(kmax) < EPSILON_PRINCIPAL_CURVATURE)
+            if (Math.abs(kmax) < EPSILON)
                 return CURVATURE_INTERVAL_FAIL_TAU;
             float tau = (Math.abs(kmax) - Math.abs(kmin)) / Math.abs(kmax);
-            float meanH = HALF * (kmax + kmin);
+            float meanH = 0.5f * (kmax + kmin);
             if (tau <= tauMin || Math.abs(meanH) <= curvatureK)
                 return tau <= tauMin
                         ? CURVATURE_INTERVAL_FAIL_TAU
@@ -1409,7 +1366,7 @@ public class CrossField {
         while (!pq.isEmpty()) {
             DijkstraNode node = pq.poll();
             int fAi = node.vertexOrFace;
-            if (node.distance > dist[fAi] + EPSILON_FP_TOLERANCE)
+            if (node.distance > dist[fAi] + EPSILON)
                 continue;
             int fId = mesh.faceIdAt(fAi);
             int adj = mesh.faceHalfEdgeCount(fId);
@@ -1470,7 +1427,6 @@ public class CrossField {
      */
     public List<Singularity> extractSingularities() {
         int vertexCount = mesh.vertexCount();
-        singularityIndexQuarter = new int[vertexCount];
         singularities.clear();
         Vector3f vPos = new Vector3f();
         Vector3f a = new Vector3f();
@@ -1506,7 +1462,6 @@ public class CrossField {
 
             float iTimes4 = (float) (((defect + signedKappaSum) * 2.0) / Math.PI) + signedPeriodSum;
             int iQuarter = Math.round(iTimes4);
-            singularityIndexQuarter[vAi] = iQuarter;
             if (iQuarter != 0) {
                 singularities.add(new Singularity(vId, iQuarter));
             }
@@ -1540,7 +1495,7 @@ public class CrossField {
                 b.sub(vPos);
                 float la = a.length();
                 float lb = b.length();
-                if (la < EPSILON_DEGENERATE || lb < EPSILON_DEGENERATE)
+                if (la < EPSILON || lb < EPSILON)
                     return 0f;
                 float c = a.dot(b) / (la * lb);
                 c = Math.max(-1f, Math.min(1f, c));
@@ -1615,7 +1570,7 @@ public class CrossField {
         c.sub(a);
         Vector3f cross = new Vector3f();
         b.cross(c, cross);
-        return HALF * cross.length();
+        return 0.5f * cross.length();
     }
 
     /**

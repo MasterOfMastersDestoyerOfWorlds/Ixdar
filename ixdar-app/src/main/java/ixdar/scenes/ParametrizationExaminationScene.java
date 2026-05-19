@@ -98,7 +98,6 @@ public class ParametrizationExaminationScene extends Scene {
                 CrossField reference = CrossFieldLoader.load(cfPath, mesh);
                 crossField.theta = reference.theta;
                 crossField.periodJump = reference.periodJump;
-                crossField.singularityIndexQuarter = reference.singularityIndexQuarter;
                 crossField.singularities.clear();
                 crossField.singularities.addAll(reference.singularities);
                 Platforms.get().log("[param-exam] using reference cross field from "
