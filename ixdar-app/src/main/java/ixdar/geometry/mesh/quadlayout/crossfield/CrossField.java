@@ -281,17 +281,10 @@ public class CrossField {
                 kappa[i] = 0f;
                 continue;
             }
-            int halfEdge = mesh.edgeHalfEdge(edge);
-            int twin = mesh.halfEdgeTwin(halfEdge);
-            int halfEdgeFaceId1 = mesh.halfEdgeFace(halfEdge);
-            int haldEdgeFaceIndex1 = faceIdToActive.get(halfEdgeFaceId1);
-            int halfEdgeFaceId2 = mesh.halfEdgeFace(twin);
-            int halfEdgeFaceIndex2 = faceIdToActive.get(halfEdgeFaceId2);
+            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(i);
 
-            int vertexId1 = mesh.halfEdgeVertex(halfEdge);
-            int vertexId2 = mesh.halfEdgeEndVertex(halfEdge);
-            Vector3f position1 = mesh.vertexPosition(vertexId1);
-            Vector3f position2 = mesh.vertexPosition(vertexId2);
+            Vector3f position1 = mesh.vertexPosition(edgeFaceIds.edgeStartVertex);
+            Vector3f position2 = mesh.vertexPosition(edgeFaceIds.edgeEndVertex);
             Vector3f edgeDir = new Vector3f(position2).sub(position1);
             float edgeLen = edgeDir.length();
             if (edgeLen < EPSILON) {
@@ -300,14 +293,14 @@ public class CrossField {
             }
             edgeDir.div(edgeLen);
 
-            Vector3f faceNormalU = mesh.faceNormal(halfEdgeFaceId1);
-            Vector3f faceNormalV = mesh.faceNormal(halfEdgeFaceId2);
+            Vector3f faceNormalU = mesh.faceNormal(edgeFaceIds.faceA);
+            Vector3f faceNormalV = mesh.faceNormal(edgeFaceIds.faceB);
 
             float cosD = Math.max(-1f, Math.min(1f, faceNormalU.dot(faceNormalV)));
             Vector3f cross = new Vector3f(faceNormalU).cross(faceNormalV);
             float sinD = cross.dot(edgeDir);
 
-            Vector3f xiTransported = new Vector3f(faceX[haldEdgeFaceIndex1]);
+            Vector3f xiTransported = new Vector3f(faceX[edgeFaceIds.faceA]);
 
             float dihedral = (float) Math.atan2(sinD, cosD);
             float dihedralCos = (float) Math.cos(dihedral);
@@ -320,8 +313,8 @@ public class CrossField {
             xiTransported.y = xiTransported.y * dihedralCos + kCrossV.y * dihedralSin + edgeDir.y * kDotV * oneMinusC;
             xiTransported.z = xiTransported.z * dihedralCos + kCrossV.z * dihedralSin + edgeDir.z * kDotV * oneMinusC;
 
-            float crossDirX = xiTransported.dot(faceX[halfEdgeFaceIndex2]);
-            float crossDirY = xiTransported.dot(faceY[halfEdgeFaceIndex2]);
+            float crossDirX = xiTransported.dot(faceX[edgeFaceIds.faceB]);
+            float crossDirY = xiTransported.dot(faceY[edgeFaceIds.faceB]);
             kappa[i] = (float) Math.atan2(crossDirY, crossDirX);
         }
 
@@ -392,7 +385,7 @@ public class CrossField {
         final int[] rowFaceI = new int[interiorRowCount];
         final int[] rowFaceJ = new int[interiorRowCount];
         final double[] rowKappaPlusHalfPiP = new double[interiorRowCount];
-        final int[] rowOfEdge = new int[edgeCount]; // -1 for boundary, row index otherwise
+        final int[] rowOfEdge = new int[edgeCount];
         Arrays.fill(rowOfEdge, -1);
         int row = 0;
         for (int i = 0; i < edgeCount; i++) {
@@ -440,7 +433,7 @@ public class CrossField {
         for (int fAi = 0; fAi < faceCount; fAi++) {
             theta[fAi] = (float) mainTheta[fAi];
         }
-        double currentEnergy = energyOfTheta(mainTheta, edgeCount, rowOfEdge, rowFaceI, rowFaceJ,
+        double currentEnergy = energyOfTheta(mainTheta, rowOfEdge, rowFaceI, rowFaceJ,
                 halfPi, -1, 0);
 
         // patchFacesByEdge expects the old per-edge face arrays — we still need those
@@ -516,7 +509,7 @@ public class CrossField {
                                 faceConstrained, faceConstraintAngle, halfPi, eAiF, trialP);
                         DirectSolver.solveCompact(h, matrix, rhsScratch, thetaScratch, start,
                                 faceConstrained);
-                        double e = energyOfTheta(thetaScratch, edgeCount, rowOfEdge, rowFaceI,
+                        double e = energyOfTheta(thetaScratch, rowOfEdge, rowFaceI,
                                 rowFaceJ, halfPi, eAiF, trialP);
                         if (e < bestTrialE) {
                             bestTrialE = e;
@@ -537,7 +530,7 @@ public class CrossField {
                     for (int fAi = 0; fAi < faceCount; fAi++) {
                         theta[fAi] = (float) mainTheta[fAi];
                     }
-                    currentEnergy = energyOfTheta(mainTheta, edgeCount, rowOfEdge, rowFaceI,
+                    currentEnergy = energyOfTheta(mainTheta, rowOfEdge, rowFaceI,
                             rowFaceJ, halfPi, -1, 0);
                 }
                 remaining = deferred;
@@ -578,7 +571,7 @@ public class CrossField {
      * lets a worker evaluate the energy as if
      * {@code periodJump[perturbEdge] == perturbedP} without mutating shared state.
      */
-    private double energyOfTheta(double[] thetaFull, int edgeCount, int[] rowOfEdge,
+    private double energyOfTheta(double[] thetaFull, int[] rowOfEdge,
             int[] rowFaceI, int[] rowFaceJ, float halfPi, int perturbEdge, int perturbedP) {
         double e = 0.0;
         for (int eAi = 0; eAi < edgeCount; eAi++) {
@@ -833,7 +826,8 @@ public class CrossField {
                 }
             }
             if (bestFaceAi >= 0) {
-                float angleInFace = projectDirectionToFaceAngle(constraintDirWorld, bestFaceAi);
+                float angleInFace = mesh.projectDirectionToFaceAngle(constraintDirWorld, bestFaceAi, faceY[bestFaceAi],
+                        faceX[bestFaceAi]);
                 faceConstrained[bestFaceAi] = true;
                 faceConstraintAngle[bestFaceAi] = canonicalizeMod(angleInFace);
                 newlyConstrained = 1;
@@ -843,26 +837,6 @@ public class CrossField {
             }
         }
         return addedConstraints;
-    }
-
-    /**
-     * Project a 3D direction into a face's local (x, y) frame and return atan2(y,
-     * x).
-     *
-     * @param dirWorld  3D direction in world coordinates
-     * @param faceIndex face active index
-     * @return signed angle of the projected direction in face-local frame, in
-     *         radians
-     */
-    public float projectDirectionToFaceAngle(Vector3f dirWorld, int faceIndex) {
-        Vector3f n = new Vector3f();
-        mesh.faceNormal(mesh.faceIdAt(faceIndex), n);
-        float dotN = dirWorld.dot(n);
-        Vector3f planar = new Vector3f(
-                dirWorld.x - dotN * n.x,
-                dirWorld.y - dotN * n.y,
-                dirWorld.z - dotN * n.z);
-        return (float) Math.atan2(planar.dot(faceY[faceIndex]), planar.dot(faceX[faceIndex]));
     }
 
     /**
@@ -1069,7 +1043,7 @@ public class CrossField {
                 if (faceConstrained[sideAi]) {
                     continue;
                 }
-                float angle = projectDirectionToFaceAngle(edgeDir, sideAi);
+                float angle = mesh.projectDirectionToFaceAngle(edgeDir, sideAi, faceY[sideAi], faceX[sideAi]);
                 faceConstrained[sideAi] = true;
                 faceConstraintAngle[sideAi] = canonicalizeMod(angle);
                 addedConstraints++;
@@ -1095,11 +1069,12 @@ public class CrossField {
             for (int faceIndex : new int[] { edgeFaceIds.faceA, edgeFaceIds.faceB }) {
                 if (faceIndex == MeshTopology.NONE)
                     continue;
-                int fAi = faceIdToActive.get(faceIndex);
-                float angle = projectDirectionToFaceAngle(edgeDir, fAi);
-                if (!faceConstrained[fAi])
-                    faceConstrained[fAi] = true;
-                faceConstraintAngle[fAi] = canonicalizeMod(angle);
+                int faceActiveIndex = faceIdToActive.get(faceIndex);
+                float angle = mesh.projectDirectionToFaceAngle(edgeDir, faceActiveIndex, faceY[faceActiveIndex],
+                        faceX[faceActiveIndex]);
+                if (!faceConstrained[faceActiveIndex])
+                    faceConstrained[faceActiveIndex] = true;
+                faceConstraintAngle[faceActiveIndex] = canonicalizeMod(angle);
             }
         }
     }

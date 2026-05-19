@@ -1192,6 +1192,26 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return 0f;
     }
 
+    /**
+     * Project a 3D direction into a face's local (x, y) frame and return atan2(y,
+     * x).
+     *
+     * @param dirWorld  3D direction in world coordinates
+     * @param faceIndex face active index
+     * @return signed angle of the projected direction in face-local frame, in
+     *         radians
+     */
+    public float projectDirectionToFaceAngle(Vector3f dirWorld, int faceIndex, Vector3f faceY, Vector3f faceX) {
+        Vector3f n = new Vector3f();
+        faceNormal(faceIdAt(faceIndex), n);
+        float dotN = dirWorld.dot(n);
+        Vector3f planar = new Vector3f(
+                dirWorld.x - dotN * n.x,
+                dirWorld.y - dotN * n.y,
+                dirWorld.z - dotN * n.z);
+        return (float) Math.atan2(planar.dot(faceY), planar.dot(faceX));
+    }
+
     public EdgeFaceIds edgeFaceIds(int activeIndex) {
         int eId = edgeIdAt(activeIndex);
         int he = edgeHalfEdge(eId);
