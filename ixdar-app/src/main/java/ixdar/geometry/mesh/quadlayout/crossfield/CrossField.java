@@ -747,15 +747,34 @@ public class CrossField {
             int bestIdx = -1;
             float bestJitter = Float.POSITIVE_INFINITY;
             for (int k = 0; k < anglesMaxDir.size(); k++) {
-                int intervalStatus = curvatureIntervalStatus(validRadii, kappaMaxList, kappaMinList, k,
-                        stabilityWindow, curvatureK);
+
+                float center = validRadii.get(k);
+                int intervalStatus = CURVATURE_INTERVAL_VALID;
+                for (int j = 0; j < validRadii.size(); j++) {
+                    if (Math.abs(validRadii.get(j) - center) > stabilityWindow) {
+                        continue;
+                    }
+                    float kmax = kappaMaxList.get(j);
+                    float kmin = kappaMinList.get(j);
+                    if (Math.abs(kmax) < EPSILON) {
+                        intervalStatus = CURVATURE_INTERVAL_FAIL_TAU;
+                        break;
+                    }
+                    float curvatureConstrast = (Math.abs(kmax) - Math.abs(kmin)) / Math.abs(kmax);
+                    float meanH = 0.5f * (kmax + kmin);
+                    if (curvatureConstrast <= minimumCurvatureContrast || Math.abs(meanH) <= curvatureK) {
+                        intervalStatus = curvatureConstrast <= minimumCurvatureContrast
+                                ? CURVATURE_INTERVAL_FAIL_TAU
+                                : CURVATURE_INTERVAL_FAIL_MEAN;
+                        break;
+                    }
+                }
                 if (intervalStatus == CURVATURE_INTERVAL_FAIL_TAU || intervalStatus == CURVATURE_INTERVAL_FAIL_MEAN
                         || intervalStatus != CURVATURE_INTERVAL_VALID) {
                     continue;
                 }
 
                 float ak = anglesMaxDir.get(k);
-                float center = validRadii.get(k);
                 float sumSq = 0f;
                 int count = 0;
                 for (int j = 0; j < anglesMaxDir.size(); j++) {
@@ -1005,47 +1024,6 @@ public class CrossField {
     }
 
     /**
-     * Status of the BZK09 §3 curvature stability interval centred at radius index
-     * {@code k}.
-     *
-     * @param radii           geometric series of disk radii
-     * @param kappaMaxList    per-radius {@code |κ_max|}
-     * @param kappaMinList    per-radius {@code |κ_min|}
-     * @param k               index in {@code radii} the interval is centred on
-     * @param stabilityWindow half-window of radii considered in the stability test
-     * @param curvatureK      BZK09 §3 mean-curvature threshold
-     * @return one of {@link #CURVATURE_INTERVAL_VALID},
-     *         {@link #CURVATURE_INTERVAL_FAIL_EMPTY},
-     *         {@link #CURVATURE_INTERVAL_FAIL_TAU}, or
-     *         {@link #CURVATURE_INTERVAL_FAIL_MEAN}
-     */
-    public int curvatureIntervalStatus(List<Float> radii,
-            List<Float> kappaMaxList,
-            List<Float> kappaMinList,
-            int k,
-            float stabilityWindow,
-            float curvatureK) {
-        float center = radii.get(k);
-        boolean hasSample = false;
-        for (int j = 0; j < radii.size(); j++) {
-            if (Math.abs(radii.get(j) - center) > stabilityWindow)
-                continue;
-            hasSample = true;
-            float kmax = kappaMaxList.get(j);
-            float kmin = kappaMinList.get(j);
-            if (Math.abs(kmax) < EPSILON)
-                return CURVATURE_INTERVAL_FAIL_TAU;
-            float curvatureConstrast = (Math.abs(kmax) - Math.abs(kmin)) / Math.abs(kmax);
-            float meanH = 0.5f * (kmax + kmin);
-            if (curvatureConstrast <= minimumCurvatureContrast || Math.abs(meanH) <= curvatureK)
-                return curvatureConstrast <= minimumCurvatureContrast
-                        ? CURVATURE_INTERVAL_FAIL_TAU
-                        : CURVATURE_INTERVAL_FAIL_MEAN;
-        }
-        return hasSample ? CURVATURE_INTERVAL_VALID : CURVATURE_INTERVAL_FAIL_EMPTY;
-    }
-
-    /**
      * BZK09 §5.2 feature-edge alignment constraints: edges whose dihedral angle
      * between the two incident face normals exceeds {@link #featureDihedralCos}
      * (default cos 30° = 0.866) are treated as sharp creases. The cross is aligned
@@ -1202,20 +1180,16 @@ public class CrossField {
         for (int eAi = 0; eAi < edgeCount; eAi++) {
             if (periodFixed[eAi])
                 continue;
-            int eId = mesh.edgeIdAt(eAi);
-            if (mesh.isBoundaryEdge(eId)) {
+            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(eAi);
+            if (mesh.isBoundaryEdge(edgeFaceIds.edgeId)) {
                 periodFixed[eAi] = true;
                 periodValue[eAi] = 0;
                 continue;
             }
-            int he = mesh.edgeHalfEdge(eId);
-            int twin = mesh.halfEdgeTwin(he);
-            int faceI = mesh.halfEdgeFace(he);
-            int faceJ = mesh.halfEdgeFace(twin);
-            int faceIIdx = faceIdToActive.get(faceI);
-            int faceJIdx = faceIdToActive.get(faceJ);
-            if (faceConstrained[faceIIdx] && faceConstrained[faceJIdx]) {
-                float diff = faceConstraintAngle[faceJIdx] - faceConstraintAngle[faceIIdx] - kappa[eAi];
+            if (faceConstrained[faceIdToActive.get(edgeFaceIds.faceA)]
+                    && faceConstrained[faceIdToActive.get(edgeFaceIds.faceB)]) {
+                float diff = faceConstraintAngle[faceIdToActive.get(edgeFaceIds.faceB)]
+                        - faceConstraintAngle[faceIdToActive.get(edgeFaceIds.faceA)] - kappa[eAi];
                 int p = Math.round(diff / (float) (Math.PI / 2.0));
                 periodFixed[eAi] = true;
                 periodValue[eAi] = p;
