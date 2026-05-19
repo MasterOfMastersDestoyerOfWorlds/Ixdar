@@ -180,8 +180,8 @@ public class CrossField {
     public boolean[] faceConstrained;
     public float[] faceConstraintAngle;
 
-    final int[] rowFaceI;
-    final int[] rowFaceJ;
+    final int[] rowFaceA;
+    final int[] rowFaceB;
     final double[] rowKappaPlusHalfPiP;
     final int[] rowOfEdge;
 
@@ -231,8 +231,8 @@ public class CrossField {
                 this.interiorRowCount++;
             }
         }
-        this.rowFaceI = new int[interiorRowCount];
-        this.rowFaceJ = new int[interiorRowCount];
+        this.rowFaceA = new int[interiorRowCount];
+        this.rowFaceB = new int[interiorRowCount];
         this.rowKappaPlusHalfPiP = new double[interiorRowCount];
         this.rowOfEdge = new int[edgeCount];
         Arrays.fill(rowOfEdge, -1);
@@ -390,15 +390,15 @@ public class CrossField {
             }
             int halfEdge = mesh.edgeHalfEdge(edgeId);
             int twin = mesh.halfEdgeTwin(halfEdge);
-            rowFaceI[row] = faceIdToActive.get(mesh.halfEdgeFace(halfEdge));
-            rowFaceJ[row] = faceIdToActive.get(mesh.halfEdgeFace(twin));
+            rowFaceA[row] = faceIdToActive.get(mesh.halfEdgeFace(halfEdge));
+            rowFaceB[row] = faceIdToActive.get(mesh.halfEdgeFace(twin));
             rowKappaPlusHalfPiP[row] = kappa[i] + halfPi * periodJump[i];
             rowOfEdge[i] = row;
             row++;
         }
 
         final NormalMatrix matrix = new NormalMatrix(faceCount, interiorRowCount,
-                rowFaceI, rowFaceJ, rowKappaPlusHalfPiP);
+                rowFaceA, rowFaceB, rowKappaPlusHalfPiP);
 
         // Coerce per-face constraint angles into a double[] for solveCompact's `start`
         // arg.
@@ -438,8 +438,8 @@ public class CrossField {
             int rowOf = rowOfEdge[eAi];
             if (rowOf < 0)
                 continue;
-            aliFi[eAi] = rowFaceI[rowOf];
-            aliFj[eAi] = rowFaceJ[rowOf];
+            aliFi[eAi] = rowFaceA[rowOf];
+            aliFj[eAi] = rowFaceB[rowOf];
             interiorEdge[eAi] = true;
         }
         final int[][] patchFacesByEdge = buildTwoHopPatchTable(edgeCount, interiorEdge, aliFi, aliFj);
@@ -535,18 +535,18 @@ public class CrossField {
      * of the RHS — {@link AdaptiveSolver#solveCompact} folds them in via the
      * {@code start} / {@code fixed} arguments.
      */
-    private void buildRhs(double[] rhs, int perturbEdge, int perturbedP) {
+    private void buildRhs(double[] rhs, int perturbEdge, int perturbedPeriodJump) {
         Arrays.fill(rhs, 0.0);
-        for (int eAi = 0; eAi < edgeCount; eAi++) {
-            int r = rowOfEdge[eAi];
-            if (r < 0)
+        for (int activeEdgeIndex = 0; activeEdgeIndex < edgeCount; activeEdgeIndex++) {
+            int row = rowOfEdge[activeEdgeIndex];
+            if (row < 0)
                 continue;
-            int fi = rowFaceI[r];
-            int fj = rowFaceJ[r];
-            int p = (eAi == perturbEdge) ? perturbedP : periodJump[eAi];
-            double k = kappa[eAi] + halfPi * p;
-            rhs[fi] -= k;
-            rhs[fj] += k;
+            int faceA = rowFaceA[row];
+            int faceB = rowFaceB[row];
+            double k = kappa[activeEdgeIndex] + halfPi * 
+                ((activeEdgeIndex == perturbEdge) ? perturbedPeriodJump : periodJump[activeEdgeIndex]);
+            rhs[faceA] -= k;
+            rhs[faceB] += k;
         }
     }
 
@@ -562,7 +562,7 @@ public class CrossField {
             if (r < 0)
                 continue;
             int p = (eAi == perturbEdge) ? perturbedP : periodJump[eAi];
-            double resid = thetaFull[rowFaceI[r]] + kappa[eAi] + halfPi * p - thetaFull[rowFaceJ[r]];
+            double resid = thetaFull[rowFaceA[r]] + kappa[eAi] + halfPi * p - thetaFull[rowFaceB[r]];
             e += resid * resid;
         }
         return e;
@@ -841,13 +841,8 @@ public class CrossField {
      */
     public float[] integrateCurvatureTensor(int centerVertexId, Vector3f centerPosition,
             Vector3f centerNormal, Vector3f tangentE1, Vector3f tangentE2, float geodesicRadius) {
-
-        // Bump stamp; entries with this value are "in this call's set", everything else
-        // is implicitly cleared from prior calls.
         final int stamp = ++curvatureStamp;
 
-        // Dijkstra over the 1-skeleton, stamp-marked. vertexInDiskStamp[v] == stamp
-        // means "visited this call"; vertexDistance[v] is the best known distance.
         PriorityQueue<DijkstraNode> pq = new PriorityQueue<>();
         pq.offer(new DijkstraNode(0f, centerVertexId));
         vertexInDiskStamp[centerVertexId] = stamp;
@@ -860,7 +855,6 @@ public class CrossField {
         while (!pq.isEmpty()) {
             DijkstraNode node = pq.poll();
             int u = node.vertexOrFace;
-            // Stale entry check: a better distance was found after this was queued.
             if (node.distance > vertexDistance[u] + EPSILON) {
                 continue;
             }
@@ -1044,8 +1038,8 @@ public class CrossField {
      *
      */
     public void applyBoundaryConstraints() {
-        for (int eAi = 0; eAi < mesh.edgeCount(); eAi++) {
-            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(eAi);
+        for (int activeEdgeIndex = 0; activeEdgeIndex < mesh.edgeCount(); activeEdgeIndex++) {
+            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(activeEdgeIndex);
             if (!mesh.isBoundaryEdge(edgeFaceIds.edgeId))
                 continue;
             Vector3f edgeDir = new Vector3f(mesh.vertexPosition(edgeFaceIds.edgeEndVertex))
