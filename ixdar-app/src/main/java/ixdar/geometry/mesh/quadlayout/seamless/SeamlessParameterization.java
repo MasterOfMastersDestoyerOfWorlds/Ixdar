@@ -116,15 +116,15 @@ public final class SeamlessParameterization {
     public int maxStiffeningIterations = 20;
 
     /**
-     * BZK09 §5.4 uniform-Laplacian smoothing passes applied to the per-face
-     * weight field after each Δλ bump. The paper recommends "a few" passes;
-     * 1 is enough on the test fixtures.
+     * BZK09 §5.4 uniform-Laplacian smoothing passes applied to the per-face weight
+     * field after each Δλ bump. The paper recommends "a few" passes; 1 is enough on
+     * the test fixtures.
      */
     public int stiffeningSmoothPasses = 1;
 
     /**
-     * BZK09 §5.4 proportionality constant for the {@code |Δλ|} bump. Paper's
-     * value: {@code c = 1}.
+     * BZK09 §5.4 proportionality constant for the {@code |Δλ|} bump. Paper's value:
+     * {@code c = 1}.
      */
     public double stiffeningC = 1.0;
 
@@ -135,37 +135,37 @@ public final class SeamlessParameterization {
     public double stiffeningD = 5;
 
     /**
-     * If true, run MC19 (Mandad–Campen 2019) exact-constraint projection after
-     * the §5.4 stiffening loop. Drives the per-cut-edge transition residual to
-     * literal zero, making the output safe to feed into Lyon 2021's T-mesh
-     * stage. Default false until the projection is proven on all fixtures.
+     * If true, run MC19 (Mandad–Campen 2019) exact-constraint projection after the
+     * §5.4 stiffening loop. Drives the per-cut-edge transition residual to literal
+     * zero, making the output safe to feed into Lyon 2021's T-mesh stage. Default
+     * false until the projection is proven on all fixtures.
      */
     public boolean exactSeams = true;
 
     /**
      * If true, enforce the BZK09 §5 cross-boundary compatibility equations
-     * {@code chart_B = R_r · chart_A + (s, t)} as <b>soft</b> penalties in
-     * the SPD energy instead of <b>hard</b> variable elimination via the
-     * leftover-row Gauss-Jordan reduction. Each cut edge contributes
-     * {@code softSeamWeight · ‖chart_B − R_r·chart_A − (s, t)‖²} at both
-     * endpoints, leaving every chart vertex as a free DOF rather than
-     * substituting B-side chart vertices out.
+     * {@code chart_B = R_r · chart_A + (s, t)} as <b>soft</b> penalties in the SPD
+     * energy instead of <b>hard</b> variable elimination via the leftover-row
+     * Gauss-Jordan reduction. Each cut edge contributes
+     * {@code softSeamWeight · ‖chart_B − R_r·chart_A − (s, t)‖²} at both endpoints,
+     * leaving every chart vertex as a free DOF rather than substituting B-side
+     * chart vertices out.
      *
-     * <p>The hypothesis: hard elimination at r ∈ {1, 3} cuts mixes u and v
-     * raw DOFs into a single block, removing the structural decoupling
-     * that lets ∇u and ∇v stay orthogonal at the energy minimum. Soft
-     * penalties keep all chart vertices independent at the DOF level; the
-     * coupling enters only via the penalty rows, which the SPD solver can
-     * trade off against the orientation energy. After this stage, MC19
-     * (when {@link #exactSeams} is on) drives the residual to literal
+     * <p>
+     * The hypothesis: hard elimination at r ∈ {1, 3} cuts mixes u and v raw DOFs
+     * into a single block, removing the structural decoupling that lets ∇u and ∇v
+     * stay orthogonal at the energy minimum. Soft penalties keep all chart vertices
+     * independent at the DOF level; the coupling enters only via the penalty rows,
+     * which the SPD solver can trade off against the orientation energy. After this
+     * stage, MC19 (when {@link #exactSeams} is on) drives the residual to literal
      * zero so the final output is still exactly seamless.
      */
     public boolean useSoftSeams = true;
 
     /**
-     * Weight on each soft seam-transition penalty row when
-     * {@link #useSoftSeams} is true. Large enough that the seam residual
-     * is small but finite — leaves slack for orthogonality preservation.
+     * Weight on each soft seam-transition penalty row when {@link #useSoftSeams} is
+     * true. Large enough that the seam residual is small but finite — leaves slack
+     * for orthogonality preservation.
      */
     public double softSeamWeight = 1.0;
 
@@ -248,7 +248,7 @@ public final class SeamlessParameterization {
         System.out.println("[seamless] Building seamless parameterization");
         this.faceCount = mesh.faceCount();
         this.edgeCount = mesh.edgeCount();
-        this.h = this.crossField.h;
+        this.h = this.crossField.targetQuadEdgeLength;
 
         edgeFaceA = new int[edgeCount];
         edgeFaceB = new int[edgeCount];

@@ -34,13 +34,17 @@ import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
  * than 4 edges incident to the singular vertex.
  */
 public class CrossField {
+    /**
+     * A small value used to avoid division by zero and other numerical issues.
+     */
     public static final float EPSILON = 1e-12f;
     public static final float BASIS_AXIS_PICK_THRESHOLD = 0.9f;
     public static final float RADIUS_STABILITY_WINDOW_FRACTION = 0.25f;
     public static final float SINGLE_RADIUS_RATIO_THRESHOLD = 1.001f;
-    public static final double NS_PER_MS = 1e6;
-    public static final boolean PROFILE_BUILD = Boolean.parseBoolean(System.getProperty("crossField.profile", "false"));
     public static final long LOCAL_SEARCH_BUDGET_MS = 3000L;
+    /**
+     * The distances to search for local minima in the smoothness energy.
+     */
     public static final int[] LOCAL_SEARCH_DELTAS = { -1, 1, -2, 2 };
 
     public static volatile String lastDiagnostics = "[cross-field] no diagnostics recorded";
@@ -50,6 +54,9 @@ public class CrossField {
     public static final int CURVATURE_INTERVAL_FAIL_TAU = 2;
     public static final int CURVATURE_INTERVAL_FAIL_MEAN = 3;
 
+    /**
+     * The mesh that the cross field is built from.
+     */
     public final HalfEdgeMesh mesh;
 
     /**
@@ -80,110 +87,93 @@ public class CrossField {
     public float[] kappa;
 
     /**
-     * Per-vertex singularity index times 4. +1 = +π/2 = valence-3, −1 = −π/2 =
-     * valence-5. Boundary vertices left at 0.
+     * All of the vertices in the cross field that have more or less than 4 edges
+     * incident to them.
      */
     public List<Singularity> singularities = new ArrayList<>();
 
     /**
-     * BZK09 §3 relative anisotropy threshold τ_min.
+     * Minimum 0-to-1 bending contrast before the strongest bend direction is
+     * trusted as a cross-field constraint. A value near 0 means the surface bends
+     * similarly in every direction; a value near 1 means one direction dominates.
      */
-    public float tauMin = 0.8f;
+    public float minimumCurvatureContrast = 0.8f;
 
     /**
-     * BZK09 §3 mean-curvature threshold K = curvatureScaleK / boundingSphereRadius.
+     * Scale used to reject nearly flat regions before adding curvature-based
+     * cross-field constraints. The actual threshold is this value divided by the
+     * mesh bounding-sphere radius, so it scales with model size.
      */
     public float curvatureScaleK = 0.1f;
 
     /**
      * BZK09 §3 geodesic-disk radius series. Paper: r ∈ [r0, r1] with r0 = average
      * edge length, r1 = h (target edge length). {@code radiusStartMul} multiplies
-     * the average edge length to produce r0; the series steps geometrically by
-     * {@link #radiusRatio}.
-     *
-     * <p>
-     * Default {@code radiusStartMul = 5.0f} mirrors libigl's
-     * {@code principal_curvature} (single-radius integration at 5·avgEdge). When
-     * {@code 5·avgEdge ≥ h} the series collapses to the single radius
-     * {@code r = h}, which is what every public BZK09 reproducer uses; sweep
-     * against the BCEAK13 NDFs prefers this over the paper's literal multi-radius
-     * reading.
+     * the average edge length to produce r0
      */
     public float radiusStartMul = 5.0f;
+
+    /**
+     * Geometric ratio between consecutive radii in the radius series.
+     */
     public float radiusRatio = (float) Math.sqrt(2.0);
 
-    /** Dihedral cosine threshold for feature-edge alignment (cos 90° = 0). */
+    /**
+     * How far the angle between two faces can be from flat to be considered a
+     * feature edge (cos 90° = 0). Feature edges are aligned with the cross field.
+     */
     public float featureDihedralCos = 0f;
 
     /**
-     * BZK09 §2.1 adaptive ladder caps. Each rounding triggers a re-solve that
-     * starts in local Gauss-Seidel; if it does not converge by
-     * {@link #solverLocalMaxIterations} it escalates to CG (capped at
-     * {@link #solverCgMaxIterations}); if CG also fails, falls through to a sparse
-     * Cholesky factorization. Lower local caps escalate sooner — wins on harder
-     * roundings where local GS would spin a long time, costs a factor of ~k extra
-     * direct solves on easy roundings.
+     * Maximum number of local Gauss-Seidel iterations on the AdaptiveSolver before
+     * falling back to a conjugate gradient solve.
      */
     public int solverLocalMaxIterations = 5000;
+
+    /**
+     * Maximum number of conjugate gradient iterations on the AdaptiveSolver before
+     * falling back to a sparse Cholesky factorization.
+     */
     public int solverCgMaxIterations = 50;
 
     /**
-     * BZK09 §3 vertex-to-face constraint expansion mode. The paper pseudocode reads
-     * "for each face f incident to v" ({@code true}) but in practice the BCEAK13
-     * supplementary NDFs are matched better by constraining only the face whose
-     * tangent plane best receives the principal direction ({@code false}). Default
-     * to the BCEAK13-faithful mode since that is what the singularity-count tests
-     * in {@code CrossFieldNdfReferenceTest} compare against.
-     */
-    public boolean curvatureConstraintAllIncidentFaces = false;
-
-    /**
-     * BZK09 target quad edge length h, expressed as a fraction of the bounding-box
-     * diagonal. Lyon 2021 recommends 1% but that requires the mesh to be fine
-     * enough that {@code 0.01 · bboxDiag > avgEdge}; for coarser meshes a larger
-     * fraction is needed for the §3 curvature integration to find any valid radius
-     * interval.
-     *
-     * <p>
-     * Default 8%: sweep against the BCEAK13 hand reference picks this as the
-     * smallest fraction at which {@code count = 40 (the reference)} with
-     * single-radius integration. The paper does not pin this number down.
+     * Target quad edge length, expressed as a fraction of the bounding-box
+     * diagonal.
      */
     public float targetEdgeLengthFractionOfBounds = 0.01f;
 
-    public CurvatureConstraintStats lastCurvatureStats = new CurvatureConstraintStats();
+    /**
+     * Target quad edge length.
+     */
+    public float targetQuadEdgeLength;
 
+    /**
+     * Map from face id to active index.
+     */
     public Map<Integer, Integer> faceIdToActive;
+    /**
+     * Map from edge id to active index.
+     */
     public Map<Integer, Integer> edgeIdToActive;
 
     /**
-     * BZK09 §5.2 alignment edges: union of sharp feature edges (dihedral test in
-     * {@link #applyFeatureEdgeConstraints}) and mesh boundary edges (from
-     * {@link #applyBoundaryConstraints}). Filled by {@link #build()} during
-     * constraint construction; downstream seamless code uses this set both to bias
-     * cut-graph routing away from these edges and to add one {@code v_p = v_q ∈ ℤ}
-     * (or {@code u_p = u_q ∈ ℤ}) constraint per edge. Keys are raw
-     * {@link HalfEdgeMesh} edge ids, not active indices.
+     * Raw mesh edge ids that should become quad edges: sharp feature edges and
+     * boundary edges. The seamless stage uses them to keep cuts away from these
+     * edges and to pin the matching parameter coordinate to an integer iso-line.
      */
     public Set<Integer> alignmentEdgeIds = new HashSet<>();
 
-    // Reusable scratch for integrateCurvatureTensor. Each call bumps
-    // `curvatureStamp`
-    // and writes that value into the per-vertex/per-face/per-edge slots it visits;
-    // reads compare against the current stamp instead of clearing arrays each call.
     public int[] vertexInDiskStamp;
     public int[] faceInDiskStamp;
     public int[] edgeProcessedStamp;
-    // Per-call scratch for Dijkstra. distance[v] is meaningful only when
-    // vertexInDiskStamp[v] == curvatureStamp; otherwise treat as "not visited."
     public float[] vertexDistance;
     public int[] verticesVisited;
     public int curvatureStamp = 0;
-    public float h;
 
     /**
      * 
-     *
+     * Cross field construction.
+     * 
      * @param mesh half-edge mesh providing geometry, topology, and active-id
      *             mapping
      */
@@ -336,7 +326,7 @@ public class CrossField {
         float curvatureK = curvatureScaleK / Math.max(boundingSphereRadius, EPSILON);
 
         float targetLength = targetEdgeLengthFractionOfBounds * mesh.computeBoundingBoxDiagonal();
-        this.h = targetLength > 0f ? targetLength : averageEdgeLength;
+        this.targetQuadEdgeLength = targetLength > 0f ? targetLength : averageEdgeLength;
 
         applyFeatureEdgeConstraints(faceConstrained, faceConstraintAngle);
         applyBoundaryConstraints(faceConstrained, faceConstraintAngle);
@@ -622,11 +612,6 @@ public class CrossField {
         } finally {
             pool.shutdownNow();
         }
-        if (PROFILE_BUILD) {
-            System.out.printf(
-                    "[cross-field profile] local search passes=%d batches=%d candidates=%d accepts=%d workers=%d%n",
-                    passes, totalBatches, totalCandidates, totalAccepts, nWorkers);
-        }
     }
 
     /**
@@ -765,14 +750,14 @@ public class CrossField {
         Vector3f e2 = new Vector3f();
         int addedConstraints = 0;
         CurvatureConstraintStats stats = new CurvatureConstraintStats();
-        float stabilityWindow = RADIUS_STABILITY_WINDOW_FRACTION * h;
+        float stabilityWindow = RADIUS_STABILITY_WINDOW_FRACTION * targetQuadEdgeLength;
 
         List<Float> radii = new ArrayList<>();
         float startRadius = radiusStartMul * averageEdgeLength;
-        if (radiusRatio <= SINGLE_RADIUS_RATIO_THRESHOLD || h <= startRadius) {
-            radii.add(h);
+        if (radiusRatio <= SINGLE_RADIUS_RATIO_THRESHOLD || targetQuadEdgeLength <= startRadius) {
+            radii.add(targetQuadEdgeLength);
         } else {
-            for (float r = startRadius; r <= h + EPSILON; r *= radiusRatio) {
+            for (float r = startRadius; r <= targetQuadEdgeLength + EPSILON; r *= radiusRatio) {
                 radii.add(r);
             }
         }
@@ -855,7 +840,26 @@ public class CrossField {
                 if (intervalStatus != CURVATURE_INTERVAL_VALID) {
                     continue;
                 }
-                float jitter = directionJitter(anglesMaxDir, validRadii, k, stabilityWindow);
+
+                float ak = anglesMaxDir.get(k);
+                float center = validRadii.get(k);
+                float sumSq = 0f;
+                int count = 0;
+                for (int j = 0; j < anglesMaxDir.size(); j++) {
+                    if (j == k)
+                        continue;
+                    if (Math.abs(validRadii.get(j) - center) > stabilityWindow)
+                        continue;
+                    float alpha = anglesMaxDir.get(j) - ak;
+                    /** Wrap an angle to (−π/2, π/2]. */
+                    float diff = (float) (alpha - Math.PI * Math.floor((alpha + Math.PI / 2.0) / Math.PI));
+                    sumSq += diff * diff;
+                    count++;
+                }
+                float jitter = 0f;
+                if (count != 0) {
+                    jitter = (float) Math.sqrt(sumSq / count);
+                }
                 if (jitter < bestJitter) {
                     bestJitter = jitter;
                     bestIdx = k;
@@ -886,50 +890,34 @@ public class CrossField {
 
             int adj = mesh.vertexFaceCount(vId);
             int newlyConstrained = 0;
-            if (curvatureConstraintAllIncidentFaces) {
 
-                for (int i = 0; i < adj; i++) {
-                    int fId = mesh.vertexFaceAt(vId, i);
-                    int fAi = faceIdToActive.get(fId);
-                    if (faceConstrained[fAi]) {
-                        stats.faceCollisionCandidates++;
-                        continue;
-                    }
-                    float angleInFace = projectDirectionToFaceAngle(constraintDirWorld, fAi);
-                    faceConstrained[fAi] = true;
-                    faceConstraintAngle[fAi] = canonicalizeMod(angleInFace, (float) (Math.PI / 2.0));
-                    newlyConstrained++;
+            int bestFaceAi = -1;
+            float bestProjectionLength = -1f;
+            for (int i = 0; i < adj; i++) {
+                int fId = mesh.vertexFaceAt(vId, i);
+                int fAi = faceIdToActive.get(fId);
+                if (faceConstrained[fAi]) {
+                    stats.faceCollisionCandidates++;
+                    continue;
                 }
-            } else {
-
-                int bestFaceAi = -1;
-                float bestProjectionLength = -1f;
-                for (int i = 0; i < adj; i++) {
-                    int fId = mesh.vertexFaceAt(vId, i);
-                    int fAi = faceIdToActive.get(fId);
-                    if (faceConstrained[fAi]) {
-                        stats.faceCollisionCandidates++;
-                        continue;
-                    }
-                    Vector3f n = new Vector3f();
-                    mesh.faceNormal(mesh.faceIdAt(fAi), n);
-                    float dotN = constraintDirWorld.dot(n);
-                    float x = constraintDirWorld.x - dotN * n.x;
-                    float y = constraintDirWorld.y - dotN * n.y;
-                    float z = constraintDirWorld.z - dotN * n.z;
-                    float projectionLength = (float) Math.sqrt(x * x + y * y + z * z);
-                    if (projectionLength > bestProjectionLength) {
-                        bestProjectionLength = projectionLength;
-                        bestFaceAi = fAi;
-                    }
+                Vector3f n = new Vector3f();
+                mesh.faceNormal(mesh.faceIdAt(fAi), n);
+                float dotN = constraintDirWorld.dot(n);
+                float x = constraintDirWorld.x - dotN * n.x;
+                float y = constraintDirWorld.y - dotN * n.y;
+                float z = constraintDirWorld.z - dotN * n.z;
+                float projectionLength = (float) Math.sqrt(x * x + y * y + z * z);
+                if (projectionLength > bestProjectionLength) {
+                    bestProjectionLength = projectionLength;
+                    bestFaceAi = fAi;
                 }
-                if (bestFaceAi >= 0) {
-                    float angleInFace = projectDirectionToFaceAngle(constraintDirWorld, bestFaceAi);
-                    faceConstrained[bestFaceAi] = true;
-                    faceConstraintAngle[bestFaceAi] = canonicalizeMod(angleInFace,
-                            (float) (Math.PI / 2.0));
-                    newlyConstrained = 1;
-                }
+            }
+            if (bestFaceAi >= 0) {
+                float angleInFace = projectDirectionToFaceAngle(constraintDirWorld, bestFaceAi);
+                faceConstrained[bestFaceAi] = true;
+                faceConstraintAngle[bestFaceAi] = canonicalizeMod(angleInFace,
+                        (float) (Math.PI / 2.0));
+                newlyConstrained = 1;
             }
             if (newlyConstrained > 0) {
                 addedConstraints += newlyConstrained;
@@ -938,7 +926,6 @@ public class CrossField {
             }
         }
         stats.addedConstraints = addedConstraints;
-        lastCurvatureStats = stats;
         return addedConstraints;
     }
 
@@ -1166,46 +1153,14 @@ public class CrossField {
             float kmin = kappaMinList.get(j);
             if (Math.abs(kmax) < EPSILON)
                 return CURVATURE_INTERVAL_FAIL_TAU;
-            float tau = (Math.abs(kmax) - Math.abs(kmin)) / Math.abs(kmax);
+            float curvatureConstrast = (Math.abs(kmax) - Math.abs(kmin)) / Math.abs(kmax);
             float meanH = 0.5f * (kmax + kmin);
-            if (tau <= tauMin || Math.abs(meanH) <= curvatureK)
-                return tau <= tauMin
+            if (curvatureConstrast <= minimumCurvatureContrast || Math.abs(meanH) <= curvatureK)
+                return curvatureConstrast <= minimumCurvatureContrast
                         ? CURVATURE_INTERVAL_FAIL_TAU
                         : CURVATURE_INTERVAL_FAIL_MEAN;
         }
         return hasSample ? CURVATURE_INTERVAL_VALID : CURVATURE_INTERVAL_FAIL_EMPTY;
-    }
-
-    /**
-     * Direction jitter at index k: angular std deviation inside the BZK09 stability
-     * interval, modulo π (κ_max direction is invariant under +π).
-     *
-     * @param angles          per-radius principal-direction angle
-     * @param radii           geometric series of disk radii
-     * @param k               index in {@code radii} the jitter is measured at
-     * @param stabilityWindow half-window of radii contributing to the std deviation
-     * @return RMS angular deviation in radians (mod π); 0 when no neighbours fall
-     *         inside the window
-     */
-    public static float directionJitter(List<Float> angles, List<Float> radii, int k, float stabilityWindow) {
-        float ak = angles.get(k);
-        float center = radii.get(k);
-        float sumSq = 0f;
-        int count = 0;
-        for (int j = 0; j < angles.size(); j++) {
-            if (j == k)
-                continue;
-            if (Math.abs(radii.get(j) - center) > stabilityWindow)
-                continue;
-            float alpha = angles.get(j) - ak;
-            /** Wrap an angle to (−π/2, π/2]. */
-            float diff = (float) (alpha - Math.PI * Math.floor((alpha + Math.PI / 2.0) / Math.PI));
-            sumSq += diff * diff;
-            count++;
-        }
-        if (count == 0)
-            return 0f;
-        return (float) Math.sqrt(sumSq / count);
     }
 
     /**
