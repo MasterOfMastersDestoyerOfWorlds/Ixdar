@@ -290,8 +290,8 @@ public final class SeamlessDofSystem {
             if (!dofPinned[dofIdx]) {
                 continue;
             }
-            matrix.diag[dofIdx] += integerPinWeight;
-            matrix.rhs[dofIdx] += integerPinWeight * dofPinnedValue[dofIdx];
+            matrix.diagonal[dofIdx] += integerPinWeight;
+            matrix.rightHandSide[dofIdx] += integerPinWeight * dofPinnedValue[dofIdx];
         }
     }
 

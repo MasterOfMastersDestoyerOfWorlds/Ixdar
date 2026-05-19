@@ -39,7 +39,8 @@
       "Bash(echo \"EXIT=$?\")",
       "Bash(find ~ -maxdepth 4 -type d \\\\\\( -name \"CoMISo\" -o -name \"OpenFlipper\" \\\\\\) 2>/dev/null | head; echo ===; find ~/.m2 ~/Code -maxdepth 5 -name \"*comiso*\" -o -name \"*CoMISo*\" 2>/dev/null | head; echo ===; ls ~/metriko/include/metriko/ 2>&1 | head -20)",
       "Read(//home/acw/**)",
-      "Read(//home/acw/.m2/**)"
+      "Read(//home/acw/.m2/**)",
+      "Bash(touch /home/acw/Code/Ixdar/ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/*.java && mvn -pl ixdar-app compile 2>&1 | tail -20)"
     ],
     "deny": [
       "Bash(cp *)",
@@ -75,7 +76,8 @@
       "Bash(rm)"
     ],
     "additionalDirectories": [
-      "/tmp"
+      "/tmp",
+      "/home/acw/Code/Ixdar/ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless"
     ]
   }
 }

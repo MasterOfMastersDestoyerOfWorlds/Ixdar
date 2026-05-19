@@ -602,7 +602,7 @@ public class CutGraph {
             if (seamless.edgeFaceA[activeEdge] < 0 || seamless.edgeFaceB[activeEdge] < 0)
                 continue;
             cutEdgeDenseIdx[activeEdge] = nextIndex++;
-        }
+            }
         interiorCutEdgeCount = nextIndex;
     }
 

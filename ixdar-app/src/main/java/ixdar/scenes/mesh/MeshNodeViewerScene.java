@@ -32,6 +32,7 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.load.ObjMeshParser;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.parsing.python.PythonLexer;
@@ -540,7 +541,7 @@ public class MeshNodeViewerScene extends Scene {
             ArrayMesh refMesh = MeshLoader.load(objPath);
             overlayRuntime = new HalfEdgeMeshRuntime();
             overlayRuntime.upload(refMesh);
-            overlayRuntime.setSolidColor(1.0f, NUM_0_6, NUM_0_2, NUM_0_35);
+            overlayRuntime.setSolidColor(ColorRGB.BLUE_WHITE.toVector4f());
             Platforms.get().log("[mesh-viewer] overlay loaded: " + objPath
                     + VERTS + refMesh.vertexCount() + FACES + refMesh.faceCount());
         } catch (IOException e) {

@@ -190,8 +190,8 @@ public final class DirectSolver {
         int[] perm = handle.perm();
         int[] fullOf = handle.fullOf();
         int[] rowStart = matrix.rowStart;
-        int[] rowCol = matrix.rowCol;
-        double[] rowVal = matrix.rowVal;
+        int[] rowCol = matrix.rowColumn;
+        double[] rowVal = matrix.rowValue;
         for (int newRow = 0; newRow < freeCount; newRow++) {
             int row = fullOf[perm[newRow]];
             double value = rhs[row];
@@ -231,7 +231,7 @@ public final class DirectSolver {
             OrderingMethod ordering) {
         CholeskyHandle handle = factorize(matrix, fixed, ordering);
         double[] out = start.clone();
-        solveCompact(handle, matrix, matrix.rhs, out, start, fixed);
+        solveCompact(handle, matrix, matrix.rightHandSide, out, start, fixed);
         return out;
     }
 
@@ -257,7 +257,7 @@ public final class DirectSolver {
             int[] perm) {
         CholeskyHandle handle = factorizeWithPerm(matrix, fixed, perm);
         double[] out = start.clone();
-        solveCompact(handle, matrix, matrix.rhs, out, start, fixed);
+        solveCompact(handle, matrix, matrix.rightHandSide, out, start, fixed);
         return out;
     }
 

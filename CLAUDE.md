@@ -1,3 +1,7 @@
+# Working with uncommitted state
+
+Never revert or overwrite uncommitted changes without an explicit yes/no from the user — including changes you made earlier in the same session. If a fix you tried looks wrong, made tests worse, or "feels safer to undo," the default is to leave it in place and investigate, not to roll back. Ask before any `git stash`, `git checkout -- <file>`, `git reset --hard`, or Edit/Write that restores a prior version of a file. "Reverting is the safe move" is never an unprompted decision.
+
 # Conventions
 
 ## Naming

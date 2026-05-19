@@ -1,4 +1,5 @@
 package ixdar.geometry.mesh.quadlayout;
+
 import java.util.Map;
 
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
@@ -10,11 +11,11 @@ public final class NormalMatrix {
     /** Low-32-bit mask used to extract the column from a packed (row, col) key. */
     public static final long KEY_COL_MASK = 0xFFFFFFFFL;
     public final int variableCount;
-    public final double[] rhs;
+    public final double[] rightHandSide;
     public final int[] rowStart;
-    public final int[] rowCol;
-    public final double[] rowVal;
-    public final double[] diag;
+    public final int[] rowColumn;
+    public final double[] rowValue;
+    public final double[] diagonal;
 
     /**
      * Constructor with chord-based rows.
@@ -32,8 +33,8 @@ public final class NormalMatrix {
     public NormalMatrix(int faceCount, int chordCount, int rowCount, int[] rowFaceI, int[] rowFaceJ, int[] rowEdgeAi,
             int[] chordOfEdge, int[] periodValue, float[] rowKappa) {
         variableCount = faceCount + chordCount;
-        diag = new double[variableCount];
-        rhs = new double[variableCount];
+        diagonal = new double[variableCount];
+        rightHandSide = new double[variableCount];
 
         int[] degree = new int[variableCount];
         for (int r = 0; r < rowCount; r++) {
@@ -55,8 +56,8 @@ public final class NormalMatrix {
         for (int i = 0; i < variableCount; i++) {
             rowStart[i + 1] = rowStart[i] + degree[i];
         }
-        rowCol = new int[rowStart[variableCount]];
-        rowVal = new double[rowStart[variableCount]];
+        rowColumn = new int[rowStart[variableCount]];
+        rowValue = new double[rowStart[variableCount]];
         int[] cursor = rowStart.clone();
         double halfPi = Math.PI * HALF;
 
@@ -68,23 +69,23 @@ public final class NormalMatrix {
             int pe = chord >= 0 ? faceCount + chord : -1;
             double k = rowKappa[r] + (chord < 0 ? halfPi * periodValue[edge] : 0.0);
 
-            diag[faceI] += 1.0;
-            diag[faceJ] += 1.0;
+            diagonal[faceI] += 1.0;
+            diagonal[faceJ] += 1.0;
 
             addOffDiagonal(cursor, faceI, faceJ, -1.0);
             addOffDiagonal(cursor, faceJ, faceI, -1.0);
 
-            rhs[faceI] -= k;
-            rhs[faceJ] += k;
+            rightHandSide[faceI] -= k;
+            rightHandSide[faceJ] += k;
             if (pe >= 0) {
-                diag[pe] += halfPi * halfPi;
+                diagonal[pe] += halfPi * halfPi;
 
                 addOffDiagonal(cursor, faceI, pe, halfPi);
                 addOffDiagonal(cursor, pe, faceI, halfPi);
                 addOffDiagonal(cursor, faceJ, pe, -halfPi);
                 addOffDiagonal(cursor, pe, faceJ, -halfPi);
 
-                rhs[pe] -= halfPi * k;
+                rightHandSide[pe] -= halfPi * k;
             }
         }
     }
@@ -110,8 +111,8 @@ public final class NormalMatrix {
     public NormalMatrix(int faceCount, int rowCount,
             int[] rowFaceI, int[] rowFaceJ, double[] rowKappaPlusHalfPiP) {
         variableCount = faceCount;
-        diag = new double[variableCount];
-        rhs = new double[variableCount];
+        diagonal = new double[variableCount];
+        rightHandSide = new double[variableCount];
 
         int[] degree = new int[variableCount];
         for (int r = 0; r < rowCount; r++) {
@@ -123,8 +124,8 @@ public final class NormalMatrix {
         for (int i = 0; i < variableCount; i++) {
             rowStart[i + 1] = rowStart[i] + degree[i];
         }
-        rowCol = new int[rowStart[variableCount]];
-        rowVal = new double[rowStart[variableCount]];
+        rowColumn = new int[rowStart[variableCount]];
+        rowValue = new double[rowStart[variableCount]];
         int[] cursor = rowStart.clone();
 
         for (int r = 0; r < rowCount; r++) {
@@ -132,14 +133,14 @@ public final class NormalMatrix {
             int fj = rowFaceJ[r];
             double k = rowKappaPlusHalfPiP[r];
 
-            diag[fi] += 1.0;
-            diag[fj] += 1.0;
+            diagonal[fi] += 1.0;
+            diagonal[fj] += 1.0;
 
             addOffDiagonal(cursor, fi, fj, -1.0);
             addOffDiagonal(cursor, fj, fi, -1.0);
 
-            rhs[fi] -= k;
-            rhs[fj] += k;
+            rightHandSide[fi] -= k;
+            rightHandSide[fj] += k;
         }
     }
 
@@ -162,8 +163,8 @@ public final class NormalMatrix {
      */
     public NormalMatrix(double[] diag, Map<Long, Double> upper, double[] rhs) {
         this.variableCount = diag.length;
-        this.diag = diag.clone();
-        this.rhs = rhs.clone();
+        this.diagonal = diag.clone();
+        this.rightHandSide = rhs.clone();
 
         int[] degree = new int[variableCount];
         for (long key : upper.keySet()) {
@@ -177,8 +178,8 @@ public final class NormalMatrix {
         for (int i = 0; i < variableCount; i++) {
             rowStart[i + 1] = rowStart[i] + degree[i];
         }
-        rowCol = new int[rowStart[variableCount]];
-        rowVal = new double[rowStart[variableCount]];
+        rowColumn = new int[rowStart[variableCount]];
+        rowValue = new double[rowStart[variableCount]];
         int[] cursor = rowStart.clone();
 
         for (Map.Entry<Long, Double> e : upper.entrySet()) {
@@ -192,24 +193,24 @@ public final class NormalMatrix {
     }
 
     /**
-     * Parallel-array accumulator constructor. Builds the CSR layout from
-     * an already-assembled SPD system in flat-array form: diagonal,
-     * sorted upper-triangle packed keys plus a value array indexed by the
-     * same slot, and an RHS vector. Equivalent to the {@code Map<Long,
-     * Double>} constructor but the caller has already paid the deduplication
-     * cost — used by the cached seamless assembly playback path where the
-     * same upper-triangle structure is reused across many solves.
+     * Parallel-array accumulator constructor. Builds the CSR layout from an
+     * already-assembled SPD system in flat-array form: diagonal, sorted
+     * upper-triangle packed keys plus a value array indexed by the same slot, and
+     * an RHS vector. Equivalent to the {@code Map<Long,
+     * Double>} constructor but the caller has already paid the deduplication cost —
+     * used by the cached seamless assembly playback path where the same
+     * upper-triangle structure is reused across many solves.
      *
-     * @param diag         diagonal values, length {@code variableCount}
-     * @param upperKeys    sorted (row, col) packed-long keys; slot index =
-     *                     array index
-     * @param upperValues  values matching {@code upperKeys}, same length
-     * @param rhs          right-hand-side, length {@code variableCount}
+     * @param diag        diagonal values, length {@code variableCount}
+     * @param upperKeys   sorted (row, col) packed-long keys; slot index = array
+     *                    index
+     * @param upperValues values matching {@code upperKeys}, same length
+     * @param rhs         right-hand-side, length {@code variableCount}
      */
     public NormalMatrix(double[] diag, long[] upperKeys, double[] upperValues, double[] rhs) {
         this.variableCount = diag.length;
-        this.diag = diag.clone();
-        this.rhs = rhs.clone();
+        this.diagonal = diag.clone();
+        this.rightHandSide = rhs.clone();
 
         int[] degree = new int[variableCount];
         for (long key : upperKeys) {
@@ -223,8 +224,8 @@ public final class NormalMatrix {
         for (int i = 0; i < variableCount; i++) {
             rowStart[i + 1] = rowStart[i] + degree[i];
         }
-        rowCol = new int[rowStart[variableCount]];
-        rowVal = new double[rowStart[variableCount]];
+        rowColumn = new int[rowStart[variableCount]];
+        rowValue = new double[rowStart[variableCount]];
         int[] cursor = rowStart.clone();
 
         for (int slot = 0; slot < upperKeys.length; slot++) {
@@ -248,8 +249,8 @@ public final class NormalMatrix {
      */
     public void addOffDiagonal(int[] cursor, int row, int col, double value) {
         int i = cursor[row]++;
-        rowCol[i] = col;
-        rowVal[i] = value;
+        rowColumn[i] = col;
+        rowValue[i] = value;
     }
 
     /**
@@ -268,7 +269,7 @@ public final class NormalMatrix {
      * @return diagonal entry
      */
     public double diag(int row) {
-        return diag[row];
+        return diagonal[row];
     }
 
     /**
@@ -298,7 +299,7 @@ public final class NormalMatrix {
      * @return column index
      */
     public int column(int cursor) {
-        return rowCol[cursor];
+        return rowColumn[cursor];
     }
 
     /**
@@ -308,7 +309,7 @@ public final class NormalMatrix {
      * @return column index
      */
     public double value(int cursor) {
-        return rowVal[cursor];
+        return rowValue[cursor];
     }
 
     /**
@@ -319,9 +320,9 @@ public final class NormalMatrix {
      * @return dot product
      */
     public double rowDot(int row, double[] x) {
-        double sum = diag[row] * x[row];
+        double sum = diagonal[row] * x[row];
         for (int cursor = rowStart[row]; cursor < rowStart[row + 1]; cursor++) {
-            sum += rowVal[cursor] * x[rowCol[cursor]];
+            sum += rowValue[cursor] * x[rowColumn[cursor]];
         }
         return sum;
     }
@@ -353,7 +354,7 @@ public final class NormalMatrix {
                 continue;
             int pRow = invPerm[compactOf[oldFull]];
             for (int c = rowStart[oldFull]; c < rowStart[oldFull + 1]; c++) {
-                int colFull = rowCol[c];
+                int colFull = rowColumn[c];
                 if (fixed[colFull])
                     continue;
                 int pCol = invPerm[compactOf[colFull]];
@@ -375,21 +376,21 @@ public final class NormalMatrix {
             int oldFull = fullOf[perm[pCol]];
             int slot = cursor[pCol]++;
             rowIdx[slot] = pCol;
-            values[slot] = diag[oldFull];
+            values[slot] = diagonal[oldFull];
         }
         for (int oldFull = 0; oldFull < variableCount; oldFull++) {
             if (fixed[oldFull])
                 continue;
             int pRow = invPerm[compactOf[oldFull]];
             for (int c = rowStart[oldFull]; c < rowStart[oldFull + 1]; c++) {
-                int colFull = rowCol[c];
+                int colFull = rowColumn[c];
                 if (fixed[colFull])
                     continue;
                 int pCol = invPerm[compactOf[colFull]];
                 if (pRow < pCol) {
                     int slot = cursor[pCol]++;
                     rowIdx[slot] = pRow;
-                    values[slot] = rowVal[c];
+                    values[slot] = rowValue[c];
                 }
             }
         }

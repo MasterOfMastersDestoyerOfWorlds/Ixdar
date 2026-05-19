@@ -32,29 +32,12 @@ import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 
 /**
- * § A. CROSS FIELD GENERATION (Bommes–Zimmer–Kobbelt 2009 — BZK09)
- * <p>
- * Pipeline (each step's gaps from the audit are explicitly resolved):
- * <ol>
- * <li>A1. Per-face local frame (x = first half-edge direction projected to
- * tangent plane; y = n × x). Per-edge transport angle κ_ij computed by
- * parallel-transporting face i's frame across the dihedral about the shared
- * edge into face j's frame.</li>
- * <li>A2. Directional constraints from principal curvature (Cohen-Steiner /
- * Alliez 2003 §2.1) and from feature/boundary edges. Boundary/feature
- * constraints OVERRIDE curvature constraints.</li>
- * <li>A3. Voronoi spanning forest in the dual graph rooted at constrained
- * faces; fix p_e := 0 on every forest edge and p_e := round(...) on dual edges
- * between two constrained faces.</li>
- * <li>A4. Greedy mixed-integer least squares solve of E_smooth = Σ (θ_i + κ_ij
- * + (π/2)·p_ij − θ_j)² using Conjugate Gradient on the SPD reduced Hessian (no
- * external solver required).</li>
- * <li>B. Singularity index per interior vertex from angle defect + signed
- * period walk.</li>
- * </ol>
- * <p>
- * All arrays are indexed by ACTIVE-INDEX into the mesh (i.e. position in
- * {@code mesh.vertexIdAt / faceIdAt / edgeIdAt}), not by raw entity id.
+ * A Cross Field is a set of angles and period jumps for each face and edge of a
+ * mesh that follow the curvature of the mesh. A properly structured cross has
+ * two direction vectors per face, in the face's local u, v basis. This "cross"
+ * on each face should tell us how we'd like to dissect the underlying triangle
+ * mesh into quads. Singularities are vertices where there are fewer or more
+ * than 4 edges incident to the singular vertex.
  */
 public class CrossField {
     public static final float EPSILON_DEGENERATE = 1e-20f;
@@ -72,12 +55,6 @@ public class CrossField {
     public static final int LOCAL_SEARCH_COUNT_REDUCTION_BUDGET = 8;
     public static final int INITIAL_NONZEROS_PER_EDGE = 4;
     public static final int[] LOCAL_SEARCH_DELTAS = { -1, 1, -2, 2 };
-    public static final Set<Integer> TRACE_VIDS = Arrays.stream(
-            System.getProperty("crossField.traceVids", "").split(","))
-            .map(String::trim)
-            .filter(s -> !s.isEmpty() && s.chars().allMatch(c -> Character.isDigit(c) || c == '-'))
-            .map(Integer::parseInt)
-            .collect(Collectors.toSet());
     public static final String EIG_FORMAT = "%+.4f ";
     public static final float QUADRATIC_DISCRIMINANT_FACTOR = 4f;
     public static final float HALF = 0.5f;
@@ -224,7 +201,7 @@ public class CrossField {
     public float h;
 
     /**
-     * Wrap a half-edge mesh; defer all field arrays until {@link #build()} runs.
+     * 
      *
      * @param mesh half-edge mesh providing geometry, topology, and active-id
      *             mapping
@@ -819,16 +796,11 @@ public class CrossField {
             }
         }
 
-        Set<Integer> traceVids = TRACE_VIDS;
         for (int vAi = 0; vAi < mesh.vertexCount(); vAi++) {
             stats.verticesVisited++;
             int vId = mesh.vertexIdAt(vAi);
-            boolean trace = traceVids.contains(vId);
             if (mesh.isBoundaryVertex(vId)) {
                 stats.boundaryVertices++;
-                if (trace) {
-                    System.err.printf("[curv-trace] vertex %d: REJECTED boundary%n", vId);
-                }
                 continue;
             }
             mesh.vertexPosition(vId, vPos);
@@ -853,31 +825,7 @@ public class CrossField {
             }
             if (anglesMaxDir.isEmpty()) {
                 stats.noCurvatureSamples++;
-                if (trace) {
-                    System.err.printf("[curv-trace] vertex %d: REJECTED no curvature samples (all radii degenerate)%n",
-                            vId);
-                }
                 continue;
-            }
-            if (trace) {
-                StringBuilder kmaxStr = new StringBuilder();
-                StringBuilder kminStr = new StringBuilder();
-                StringBuilder anisStr = new StringBuilder();
-                for (int k = 0; k < kappaMaxList.size(); k++) {
-                    float kmax = kappaMaxList.get(k);
-                    float kmin = kappaMinList.get(k);
-                    float anis = Math.abs(kmax) > EPSILON_DEGENERATE
-                            ? (Math.abs(kmax) - Math.abs(kmin)) / Math.abs(kmax)
-                            : 0f;
-                    kmaxStr.append(String.format(EIG_FORMAT, kmax));
-                    kminStr.append(String.format(EIG_FORMAT, kmin));
-                    anisStr.append(String.format("%.3f ", anis));
-                }
-                System.err.printf(
-                        "[curv-trace] vertex %d at (%.3f,%.3f,%.3f): r samples = %d%n  kappa_max: [%s]%n  kappa_min: [%s]%n  anisotropy:[%s]%n  K threshold = %.4g, tauMin = %.3f%n",
-                        vId, vPos.x, vPos.y, vPos.z, anglesMaxDir.size(),
-                        kmaxStr.toString().trim(), kminStr.toString().trim(),
-                        anisStr.toString().trim(), curvatureK, tauMin);
             }
 
             int bestIdx = -1;
@@ -907,22 +855,10 @@ public class CrossField {
             if (bestIdx < 0) {
                 if (failedTau) {
                     stats.failedAnisotropy++;
-                    if (trace)
-                        System.err.printf(
-                                "[curv-trace] vertex %d: REJECTED failedAnisotropy (no radius interval has both max & min anisotropy >= tauMin %.3f)%n",
-                                vId, tauMin);
                 } else if (failedMean) {
                     stats.failedMeanCurvature++;
-                    if (trace)
-                        System.err.printf(
-                                "[curv-trace] vertex %d: REJECTED failedMeanCurvature (no radius interval has mean curvature >= K %.4g)%n",
-                                vId, curvatureK);
                 } else {
                     stats.failedInterval++;
-                    if (trace)
-                        System.err.printf(
-                                "[curv-trace] vertex %d: REJECTED failedInterval (no radius has full window in valid range)%n",
-                                vId);
                 }
                 continue;
             }
@@ -930,9 +866,6 @@ public class CrossField {
             stats.jitterSum += bestJitter;
             stats.maxJitter = Math.max(stats.maxJitter, bestJitter);
             stats.acceptedVertices++;
-            if (trace)
-                System.err.printf("[curv-trace] vertex %d: ACCEPTED bestJitter=%.4f rad, angle=%.3f rad%n", vId,
-                        bestJitter, anglesMaxDir.get(bestIdx));
 
             float constraintAngleAtV = anglesMaxDir.get(bestIdx);
             float c = (float) Math.cos(constraintAngleAtV);
@@ -1697,21 +1630,6 @@ public class CrossField {
         if (r < 0)
             r += mod;
         return r;
-    }
-
-    /** Per-thread Cholesky solver + scratch buffers for the local search. */
-    private final class Worker {
-        final LinearSolverSparse<DMatrixSparseCSC, DMatrixRMaj> solver;
-        final DMatrixRMaj b;
-        final DMatrixRMaj x;
-
-        Worker(int freeCount, DMatrixSparseCSC csc) {
-            var s = LinearSolverFactory_DSCC
-                    .cholesky(FillReducing.IDENTITY);
-            this.solver = s.setA(csc) ? s : null;
-            this.b = new DMatrixRMaj(freeCount, 1);
-            this.x = new DMatrixRMaj(freeCount, 1);
-        }
     }
 
     private record TrialResult(int eAi, int bestDelta, double bestEnergy) {

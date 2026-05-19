@@ -151,7 +151,7 @@ public final class AdaptiveSolver {
                 continue;
             }
 
-            double residual = matrix.rhs[row] - matrix.rowDot(row, x);
+            double residual = matrix.rightHandSide[row] - matrix.rowDot(row, x);
             if (Math.abs(residual) <= options.localTolerance) {
                 continue;
             }
@@ -236,8 +236,8 @@ public final class AdaptiveSolver {
             if (fixed[i]) {
                 continue;
             }
-            r[i] = matrix.rhs[i] - matrix.rowDot(i, x);
-            rhsNormSq += matrix.rhs[i] * matrix.rhs[i];
+            r[i] = matrix.rightHandSide[i] - matrix.rowDot(i, x);
+            rhsNormSq += matrix.rightHandSide[i] * matrix.rightHandSide[i];
         }
 
         double[] z = new double[n];
@@ -361,7 +361,7 @@ public final class AdaptiveSolver {
             if (fixed[row]) {
                 return;
             }
-            double residual = Math.abs(matrix.rhs[row] - matrix.rowDot(row, x));
+            double residual = Math.abs(matrix.rightHandSide[row] - matrix.rowDot(row, x));
             if (residual > maxRef[0]) {
                 maxRef[0] = residual;
                 maxRowRef[0] = row;
@@ -376,7 +376,7 @@ public final class AdaptiveSolver {
             if (fixed[i]) {
                 continue;
             }
-            double residual = matrix.rhs[i] - matrix.rowDot(i, x);
+            double residual = matrix.rightHandSide[i] - matrix.rowDot(i, x);
             sum += residual * residual;
         }
         return Math.sqrt(sum);
@@ -394,7 +394,7 @@ public final class AdaptiveSolver {
 
     private static void validateInputs(NormalMatrix matrix, double[] warmStart, boolean[] fixed) {
         int n = matrix.size();
-        if (matrix.rhs.length != n || warmStart.length != n || fixed.length != n) {
+        if (matrix.rightHandSide.length != n || warmStart.length != n || fixed.length != n) {
             throw new IllegalArgumentException("matrix/vector size mismatch");
         }
     }

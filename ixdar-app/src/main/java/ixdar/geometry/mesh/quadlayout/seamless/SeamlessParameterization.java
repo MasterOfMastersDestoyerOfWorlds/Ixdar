@@ -391,7 +391,7 @@ public final class SeamlessParameterization {
             throw new IllegalStateException(
                     "IGM rounding: cold Cholesky factor of the base system failed");
         }
-        double[] runningRhs = baseMatrix.rhs.clone();
+        double[] runningRhs = baseMatrix.rightHandSide.clone();
 
         int rounded = 0;
         while (true) {
@@ -765,16 +765,16 @@ public final class SeamlessParameterization {
             if (faceArea[af] <= 0)
                 continue;
             int o = af * CORNERS_PER_FACE;
-        int cv0 = cutGraph.cornerToChartVertex[o];
-        int cv1 = cutGraph.cornerToChartVertex[o + 1];
-        int cv2 = cutGraph.cornerToChartVertex[o + 2];
-        double u0 = dofSystem.evaluateChartComponent(cv0, 0, solution);
-        double v0 = dofSystem.evaluateChartComponent(cv0, 1, solution);
-        double u1 = dofSystem.evaluateChartComponent(cv1, 0, solution);
-        double v1 = dofSystem.evaluateChartComponent(cv1, 1, solution);
-        double u2 = dofSystem.evaluateChartComponent(cv2, 0, solution);
-        double v2 = dofSystem.evaluateChartComponent(cv2, 1, solution);
-        double sa = HALF_D * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
+            int cv0 = cutGraph.cornerToChartVertex[o];
+            int cv1 = cutGraph.cornerToChartVertex[o + 1];
+            int cv2 = cutGraph.cornerToChartVertex[o + 2];
+            double u0 = dofSystem.evaluateChartComponent(cv0, 0, solution);
+            double v0 = dofSystem.evaluateChartComponent(cv0, 1, solution);
+            double u1 = dofSystem.evaluateChartComponent(cv1, 0, solution);
+            double v1 = dofSystem.evaluateChartComponent(cv1, 1, solution);
+            double u2 = dofSystem.evaluateChartComponent(cv2, 0, solution);
+            double v2 = dofSystem.evaluateChartComponent(cv2, 1, solution);
+            double sa = HALF_D * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
             if (sa <= 0.0)
                 flipped++;
         }
