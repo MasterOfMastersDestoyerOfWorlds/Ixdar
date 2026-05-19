@@ -168,18 +168,6 @@ public class CrossField {
      */
     public Set<Integer> alignmentEdgeIds = new HashSet<>();
 
-    /**
-     * Reusable scratch for curvature-disk searches. Each search increments
-     * {@code curvatureStamp}; arrays holding that stamp are treated as part of the
-     * current disk without clearing all mesh-sized arrays between searches.
-     */
-    public int[] vertexInDiskStamp;
-    public int[] faceInDiskStamp;
-    public int[] edgeProcessedStamp;
-    public float[] vertexDistance;
-    public int[] visitedVertexIds;
-    public int curvatureStamp = 0;
-
     public boolean[] faceConstrained;
     public float[] faceConstraintAngle;
 
@@ -210,11 +198,6 @@ public class CrossField {
         this.faceConstraintAngle = new float[faceCount];
         Arrays.fill(faceConstraintAngle, Float.NaN);
 
-        this.vertexInDiskStamp = new int[vertexCount];
-        this.faceInDiskStamp = new int[faceCount];
-        this.edgeProcessedStamp = new int[edgeCount];
-        this.vertexDistance = new float[vertexCount];
-        this.visitedVertexIds = new int[vertexCount];
 
         this.theta = new float[faceCount];
         this.periodJump = new int[edgeCount];

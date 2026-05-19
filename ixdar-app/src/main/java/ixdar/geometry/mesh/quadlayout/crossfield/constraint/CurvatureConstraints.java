@@ -222,21 +222,33 @@ public class CurvatureConstraints {
     public static float[] integrateCurvatureTensor(int centerVertexId, Vector3f centerPosition,
             Vector3f centerNormal, Vector3f tangentE1, Vector3f tangentE2, float geodesicRadius,
             HalfEdgeMesh mesh, CrossField crossField) {
-        final int stamp = ++crossField.curvatureStamp;
+
+        /**
+         * Reusable scratch for curvature-disk searches. Each search increments
+         * {@code curvatureStamp}; arrays holding that stamp are treated as part of the
+         * current disk without clearing all mesh-sized arrays between searches.
+         */
+        int[] vertexInDiskStamp = new int[crossField.vertexCount];
+        int[] faceInDiskStamp = new int[crossField.faceCount];
+        int[] edgeProcessedStamp = new int[crossField.edgeCount];
+        float[] vertexDistance = new float[crossField.vertexCount];
+        int[] visitedVertexIds = new int[crossField.vertexCount];
+        int curvatureStamp = 0;
+        final int stamp = ++curvatureStamp;
 
         PriorityQueue<DijkstraNode> pq = new PriorityQueue<>();
         pq.offer(new DijkstraNode(0f, centerVertexId));
-        crossField.vertexInDiskStamp[centerVertexId] = stamp;
-        crossField.vertexDistance[centerVertexId] = 0f;
+        vertexInDiskStamp[centerVertexId] = stamp;
+        vertexDistance[centerVertexId] = 0f;
         int visitedCount = 0;
-        crossField.visitedVertexIds[visitedCount++] = centerVertexId;
+        visitedVertexIds[visitedCount++] = centerVertexId;
 
         Vector3f a = new Vector3f();
         Vector3f b = new Vector3f();
         while (!pq.isEmpty()) {
             DijkstraNode node = pq.poll();
             int u = node.vertexOrFace;
-            if (node.distance > crossField.vertexDistance[u] + CrossField.EPSILON) {
+            if (node.distance > vertexDistance[u] + CrossField.EPSILON) {
                 continue;
             }
             mesh.vertexPosition(u, a);
@@ -253,13 +265,13 @@ public class CurvatureConstraints {
                 if (nd > geodesicRadius) {
                     continue;
                 }
-                if (crossField.vertexInDiskStamp[w] != stamp) {
-                    crossField.vertexInDiskStamp[w] = stamp;
-                    crossField.vertexDistance[w] = nd;
-                    crossField.visitedVertexIds[visitedCount++] = w;
+                if (vertexInDiskStamp[w] != stamp) {
+                    vertexInDiskStamp[w] = stamp;
+                    vertexDistance[w] = nd;
+                    visitedVertexIds[visitedCount++] = w;
                     pq.offer(new DijkstraNode(nd, w));
-                } else if (nd < crossField.vertexDistance[w]) {
-                    crossField.vertexDistance[w] = nd;
+                } else if (nd < vertexDistance[w]) {
+                    vertexDistance[w] = nd;
                     pq.offer(new DijkstraNode(nd, w));
                 }
             }
@@ -272,20 +284,20 @@ public class CurvatureConstraints {
         int facesFound = 0;
         float totalDiskArea = 0f;
         for (int vi = 0; vi < visitedCount; vi++) {
-            int vertexId = crossField.visitedVertexIds[vi];
+            int vertexId = visitedVertexIds[vi];
             int adjacentFaceCount = mesh.vertexFaceCount(vertexId);
             for (int i = 0; i < adjacentFaceCount; i++) {
                 int faceId = mesh.vertexFaceAt(vertexId, i);
-                if (crossField.faceInDiskStamp[faceId] == stamp) {
+                if (faceInDiskStamp[faceId] == stamp) {
                     continue;
                 }
                 int faceVertex0 = mesh.faceVertexAt(faceId, 0);
                 int faceVertex1 = mesh.faceVertexAt(faceId, 1);
                 int faceVertex2 = mesh.faceVertexAt(faceId, 2);
-                if (crossField.vertexInDiskStamp[faceVertex0] == stamp
-                        && crossField.vertexInDiskStamp[faceVertex1] == stamp
-                        && crossField.vertexInDiskStamp[faceVertex2] == stamp) {
-                    crossField.faceInDiskStamp[faceId] = stamp;
+                if (vertexInDiskStamp[faceVertex0] == stamp
+                        && vertexInDiskStamp[faceVertex1] == stamp
+                        && vertexInDiskStamp[faceVertex2] == stamp) {
+                    faceInDiskStamp[faceId] = stamp;
                     totalDiskArea += mesh.faceArea(faceId);
                     facesFound++;
                 }
@@ -300,24 +312,24 @@ public class CurvatureConstraints {
         float tensor11 = 0f;
 
         for (int vi = 0; vi < visitedCount; vi++) {
-            int vertexId = crossField.visitedVertexIds[vi];
+            int vertexId = visitedVertexIds[vi];
             int incidentEdgeCount = mesh.vertexEdgeCount(vertexId);
             for (int activeVertexIndex = 0; activeVertexIndex < incidentEdgeCount; activeVertexIndex++) {
                 VertexFaceIds vertexEdgeIds = mesh.vertexFaceIds(vertexId, activeVertexIndex);
-                if (crossField.edgeProcessedStamp[vertexEdgeIds.edgeId] == stamp) {
+                if (edgeProcessedStamp[vertexEdgeIds.edgeId] == stamp) {
                     continue;
                 }
-                crossField.edgeProcessedStamp[vertexEdgeIds.edgeId] = stamp;
+                edgeProcessedStamp[vertexEdgeIds.edgeId] = stamp;
 
-                if (crossField.vertexInDiskStamp[vertexEdgeIds.edgeStartVertex] != stamp
-                        || crossField.vertexInDiskStamp[vertexEdgeIds.edgeEndVertex] != stamp) {
+                if (vertexInDiskStamp[vertexEdgeIds.edgeStartVertex] != stamp
+                        || vertexInDiskStamp[vertexEdgeIds.edgeEndVertex] != stamp) {
                     continue;
                 }
                 if (mesh.isBoundaryEdge(vertexEdgeIds.edgeId)) {
                     continue;
                 }
-                if (crossField.faceInDiskStamp[vertexEdgeIds.faceA] != stamp
-                        || crossField.faceInDiskStamp[vertexEdgeIds.faceB] != stamp) {
+                if (faceInDiskStamp[vertexEdgeIds.faceA] != stamp
+                        || faceInDiskStamp[vertexEdgeIds.faceB] != stamp) {
                     continue;
                 }
 
