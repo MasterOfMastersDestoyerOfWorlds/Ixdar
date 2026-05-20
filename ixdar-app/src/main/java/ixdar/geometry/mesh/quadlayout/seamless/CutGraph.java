@@ -18,18 +18,8 @@ import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
  * The combinatorial layout induced by cutting the surface open along a seam:
  * which edges are seams, the per-face branch labels, the seam rotation
  * transitions, the chart-vertex identification, and the dense numbering of
- * interior seam edges. Every output here is pure integer combinatorics over
- * (mesh, cross field, choice of cut); the continuous parameterization is fitted
- * on top of it by {@link SeamlessParameterization}.
+ * interior seam edges.
  *
- * <p>
- * Naming convention used throughout: an <em>id</em> ({@code edgeId},
- * {@code vertexId}, {@code faceId}) is a raw {@link HalfEdgeMesh} handle and
- * may be sparse; an <em>active index</em> ({@code activeEdge},
- * {@code activeVertex}, {@code activeFace}) is the dense {@code [0, count)}
- * index the solver uses, obtained via {@link CrossField#edgeIdToActive},
- * {@link #activeVertexIndex(int)}, {@link SeamlessParameterization#edgeFaceA}
- * and friends.
  */
 public class CutGraph {
 
@@ -45,6 +35,7 @@ public class CutGraph {
      * edge.
      */
     public boolean[] isCutEdge;
+
     /**
      * Cut transition rotation r<sub>e</sub> ∈ {0,1,2,3}; valid only where
      * {@link #isCutEdge}.
@@ -72,48 +63,49 @@ public class CutGraph {
     public int[] faceBranch;
 
     /**
-     * Per chart vertex: true iff <em>primary</em> (free DOF in the BZK09 §5
-     * variable-elimination layout). A chart vertex is primary iff it sits on the
+     * A chart vertex is primary iff it sits on the
      * canonical {@code edgeFaceA} side of at least one cut edge, or it touches no
-     * cut edge at all. False ⇒ secondary, with value defined by the per-cut-edge
-     * substitution {@code u_c = R_{r_e} · u_partner + (s_e, t_e)} via
-     * {@link #secondaryEdge} / {@link #secondaryPartner}.
+     * cut edge at all.
      */
     public boolean[] chartVertexIsPrimary;
+
     /**
      * Per chart vertex: cut edge whose seam compatibility equation eliminates this
      * chart vertex by substitution; -1 if primary.
      */
     public int[] secondaryEdge;
+
     /**
      * Per chart vertex: the partner chart vertex on the "A" side at the same
      * endpoint of {@link #secondaryEdge}; -1 if primary.
      */
     public int[] secondaryPartner;
+
     /**
      * Per primary chart vertex: dense index in {@code [0, primaryChartCount)}; -1
      * if secondary.
      */
     public int[] primaryChartIndex;
+
     /** Number of primary chart vertices. */
     public int primaryChartCount;
+    
     /**
      * Leftover seam-compatibility records — seam equations not eliminated by
      * per-cut-edge substitution because the B-side chart vertex was already claimed
      * by another cut edge or is primary. Each record is
-     * {@code [activeEdge, chartA, chartB, endpoint]}; reduced exactly by
-     * {@link SeamlessParameterization#reduceLeftoverConstraints}.
+     * {@code [activeEdge, chartA, chartB, endpoint]}
      */
     public int[][] leftoverConstraints;
 
     /**
-     * Active-vertex index → number of incident edges currently in the cut graph.
-     * Built during {@link #selectCutEdges()} and retained for downstream
-     * branch-walk consumers like {@code SeamlessProjector}.
+     * Active-vertex index → number of incident edges currently in the cut graph. 
      */
     public int[] cutDegree;
 
-    /** Mesh-vertex-id → active-vertex-index, lazily built. */
+    /**
+     * Mesh-vertex-id → active-vertex-index, lazily built.
+     */
     public HashMap<Integer, Integer> vertexActiveCache;
 
     /** The mesh. */
@@ -160,8 +152,8 @@ public class CutGraph {
     private void selectCutEdges() {
         initialCutFromDualSpanningTree();
         cutDegree = computeCutDegree();
-        trimDanglingBranches(cutDegree);
-        connectDetachedSingularities(cutDegree);
+        trimDanglingBranches();
+        connectDetachedSingularities();
     }
 
     /**
@@ -186,15 +178,15 @@ public class CutGraph {
         Arrays.fill(distance, Double.POSITIVE_INFINITY);
         Arrays.fill(parentEdge, -1);
 
-        PriorityQueue<long[]> frontier = new PriorityQueue<>((a, b) -> Double.compare(
-                Double.longBitsToDouble(a[0]), Double.longBitsToDouble(b[0])));
+        PriorityQueue<double[]> frontier = new PriorityQueue<>((a, b) -> Double.compare(
+                a[0], b[0]));
         if (seamless.faceCount > 0) {
             distance[0] = 0.0;
-            frontier.add(new long[] { Double.doubleToLongBits(0.0), 0 });
+            frontier.add(new double[] { 0.0, 0 });
         }
         while (!frontier.isEmpty()) {
-            long[] top = frontier.poll();
-            double distHere = Double.longBitsToDouble(top[0]);
+            double[] top = frontier.poll();
+            double distHere = top[0];
             int activeFace = (int) top[1];
             if (distHere > distance[activeFace]) {
                 continue;
@@ -214,7 +206,7 @@ public class CutGraph {
                 if (newDistance < distance[otherActiveFace]) {
                     distance[otherActiveFace] = newDistance;
                     parentEdge[otherActiveFace] = activeEdge;
-                    frontier.add(new long[] { Double.doubleToLongBits(newDistance), otherActiveFace });
+                    frontier.add(new double[] { newDistance, otherActiveFace });
                 }
             }
         }
@@ -248,9 +240,8 @@ public class CutGraph {
      * vertex with cut-degree 1, until none remain — this strips the dead branches
      * left by the spanning-tree complement. Boundary edges are never removed.
      * 
-     * @param cutDegree the cut degree array
      */
-    private void trimDanglingBranches(int[] cutDegree) {
+    private void trimDanglingBranches() {
         Set<Integer> singularityVertexIds = new HashSet<>();
         for (Singularity singularity : crossField.singularities)
             singularityVertexIds.add(singularity.vertexId());
@@ -296,57 +287,39 @@ public class CutGraph {
      * Route every interior singularity that is not already on the cut to it along
      * the shortest mesh-edge path (BZK09 §5).
      * 
-     * @param cutDegree the cut degree array
      */
-    private void connectDetachedSingularities(int[] cutDegree) {
+    private void connectDetachedSingularities() {
         for (Singularity singularity : crossField.singularities) {
             int vertexId = singularity.vertexId();
             if (cutDegree[activeVertexIndex(vertexId)] > 0 || mesh.isBoundaryVertex(vertexId))
                 continue;
-            connectVertexToCut(vertexId, cutDegree, -1);
+            int[] pathEdges = shortestMeshPathToCut(vertexId, -1);
+            if (pathEdges == null)
+                return;
+            for (int activeEdge : pathEdges) {
+                if (isCutEdge[activeEdge])
+                    continue;
+                isCutEdge[activeEdge] = true;
+                int halfEdge = mesh.edgeHalfEdge(mesh.edgeIdAt(activeEdge));
+                cutDegree[activeVertexIndex(mesh.halfEdgeVertex(halfEdge))]++;
+                cutDegree[activeVertexIndex(mesh.halfEdgeEndVertex(halfEdge))]++;
+            }
         }
     }
-
-    /**
-     * Mark the shortest mesh-edge path from {@code startVertexId} to the cut graph
-     * as cut, keeping {@code cutDegree} in sync. No-op if {@code startVertexId}
-     * cannot reach the cut (disconnected mesh) — that chart's origin simply floats.
-     * {@code skipFirstEdge} (an active-edge index to exclude as the first hop, or
-     * -1) lets a caller force a branch away from an edge that is already on the
-     * cut.
-     * 
-     * @param startVertexId the vertex id to start from
-     * @param cutDegree     the cut degree array
-     * @param skipFirstEdge the edge to skip as the first hop
-     */
-    private void connectVertexToCut(int startVertexId, int[] cutDegree, int skipFirstEdge) {
-        int[] pathEdges = shortestMeshPathToCut(startVertexId, cutDegree, skipFirstEdge);
-        if (pathEdges == null)
-            return;
-        for (int activeEdge : pathEdges) {
-            if (isCutEdge[activeEdge])
-                continue;
-            isCutEdge[activeEdge] = true;
-            int halfEdge = mesh.edgeHalfEdge(mesh.edgeIdAt(activeEdge));
-            cutDegree[activeVertexIndex(mesh.halfEdgeVertex(halfEdge))]++;
-            cutDegree[activeVertexIndex(mesh.halfEdgeEndVertex(halfEdge))]++;
-        }
-    }
-
+  
     /**
      * Dijkstra over mesh edges weighted by Euclidean length, from
      * {@code startVertexId} until any vertex already on the cut is reached. Returns
      * the active-edge indices along that shortest path, or {@code null} if no
      * on-cut vertex is reachable. {@code skipFirstEdge} (or -1) may not be used as
      * the first hop out of {@code startVertexId}. Implementation note: the priority
-     * queue holds {@code long[]} pairs of {bit-cast distance, active vertex}.
+     * queue holds {@code double[]} pairs of {distance, active vertex}.
      * 
      * @param startVertexId the vertex id to start from
-     * @param cutDegree     the cut degree array
      * @param skipFirstEdge the edge to skip as the first hop
      * @return the active-edge indices along the shortest path
      */
-    private int[] shortestMeshPathToCut(int startVertexId, int[] cutDegree, int skipFirstEdge) {
+    private int[] shortestMeshPathToCut(int startVertexId, int skipFirstEdge) {
         int vertexCount = mesh.vertexCount();
         double[] distance = new double[vertexCount];
         int[] prevVertex = new int[vertexCount];
@@ -357,17 +330,16 @@ public class CutGraph {
         int startActiveVertex = activeVertexIndex(startVertexId);
         distance[startActiveVertex] = 0.0;
 
-        PriorityQueue<long[]> frontier = new PriorityQueue<>((a, b) -> Double.compare(
-                Double.longBitsToDouble(a[0]), Double.longBitsToDouble(b[0])));
-        frontier.add(new long[] { Double.doubleToLongBits(0.0), startActiveVertex });
+        PriorityQueue<double[]> frontier = new PriorityQueue<>((a, b) -> Double.compare(a[0], b[0]));
+        frontier.add(new double[] { 0.0, startActiveVertex });
 
         Vector3f posHere = new Vector3f();
         Vector3f posOther = new Vector3f();
 
         int reachedActiveVertex = -1;
         while (!frontier.isEmpty()) {
-            long[] top = frontier.poll();
-            double distHere = Double.longBitsToDouble(top[0]);
+            double[] top = frontier.poll();
+            double distHere = top[0];
             int activeVertex = (int) top[1];
             if (distHere > distance[activeVertex])
                 continue;
@@ -404,7 +376,7 @@ public class CutGraph {
                     distance[otherActiveVertex] = newDistance;
                     prevVertex[otherActiveVertex] = activeVertex;
                     prevEdge[otherActiveVertex] = activeEdge;
-                    frontier.add(new long[] { Double.doubleToLongBits(newDistance), otherActiveVertex });
+                    frontier.add(new double[] { newDistance, otherActiveVertex });
                 }
             }
         }
