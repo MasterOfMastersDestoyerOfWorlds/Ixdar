@@ -50,9 +50,6 @@ public class CutGraph {
      */
     public int[] cutEdgeDenseIdx;
 
-    /** The seamless parameterization owning this cut graph. */
-    public SeamlessParameterization seamless;
-
     /** Number of chart vertices. */
     public int chartVertexCount;
 
@@ -63,9 +60,8 @@ public class CutGraph {
     public int[] faceBranch;
 
     /**
-     * A chart vertex is primary iff it sits on the
-     * canonical {@code edgeFaceA} side of at least one cut edge, or it touches no
-     * cut edge at all.
+     * A chart vertex is primary iff it sits on the canonical {@code edgeFaceA} side
+     * of at least one cut edge, or it touches no cut edge at all.
      */
     public boolean[] chartVertexIsPrimary;
 
@@ -89,7 +85,7 @@ public class CutGraph {
 
     /** Number of primary chart vertices. */
     public int primaryChartCount;
-    
+
     /**
      * Leftover seam-compatibility records — seam equations not eliminated by
      * per-cut-edge substitution because the B-side chart vertex was already claimed
@@ -99,7 +95,7 @@ public class CutGraph {
     public int[][] leftoverConstraints;
 
     /**
-     * Active-vertex index → number of incident edges currently in the cut graph. 
+     * Active-vertex index → number of incident edges currently in the cut graph.
      */
     public int[] cutDegree;
 
@@ -114,6 +110,12 @@ public class CutGraph {
     /** The cross field. */
     public final CrossField crossField;
 
+    /** The seamless parameterization owning this cut graph. */
+    public SeamlessParameterization seamless;
+
+    /** Number of active vertices. */
+    public int vertexCount;
+
     /**
      * Constructor.
      * 
@@ -125,6 +127,7 @@ public class CutGraph {
         this.mesh = mesh;
         this.crossField = crossField;
         this.seamless = seamlessParameterization;
+        this.vertexCount = mesh.vertexCount();
     }
 
     /**
@@ -201,8 +204,7 @@ public class CutGraph {
                 if (otherActiveFace < 0) {
                     continue;
                 }
-                double edgeCost = crossField.alignmentEdgeIds.contains(edgeId) ? 0.0 : 1.0;
-                double newDistance = distHere + edgeCost;
+                double newDistance = distHere + (crossField.alignmentEdgeIds.contains(edgeId) ? 0.0 : 1.0);
                 if (newDistance < distance[otherActiveFace]) {
                     distance[otherActiveFace] = newDistance;
                     parentEdge[otherActiveFace] = activeEdge;
@@ -224,7 +226,7 @@ public class CutGraph {
      * @return the cut degree array
      */
     private int[] computeCutDegree() {
-        int[] cutDegree = new int[mesh.vertexCount()];
+        int[] cutDegree = new int[vertexCount];
         for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
             if (!isCutEdge[activeEdge])
                 continue;
@@ -247,25 +249,29 @@ public class CutGraph {
             singularityVertexIds.add(singularity.vertexId());
 
         ArrayDeque<Integer> trimQueue = new ArrayDeque<>();
-        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
             if (cutDegree[activeVertex] == 1 && !singularityVertexIds.contains(vertexId)
-                    && !mesh.isBoundaryVertex(vertexId))
+                    && !mesh.isBoundaryVertex(vertexId)) {
                 trimQueue.add(activeVertex);
+            }
         }
         while (!trimQueue.isEmpty()) {
             int activeVertex = trimQueue.poll();
             int vertexId = mesh.vertexIdAt(activeVertex);
-            if (cutDegree[activeVertex] != 1)
+            if (cutDegree[activeVertex] != 1) {
                 continue;
-            if (singularityVertexIds.contains(vertexId) || mesh.isBoundaryVertex(vertexId))
+            }
+            if (singularityVertexIds.contains(vertexId) || mesh.isBoundaryVertex(vertexId)) {
                 continue;
+            }
             int incidentEdgeCount = mesh.vertexEdgeCount(vertexId);
             for (int i = 0; i < incidentEdgeCount; i++) {
                 int edgeId = mesh.vertexEdgeAt(vertexId, i);
                 int activeEdge = crossField.edgeIdToActive.get(edgeId);
-                if (!isCutEdge[activeEdge] || mesh.isBoundaryEdge(edgeId))
+                if (!isCutEdge[activeEdge] || mesh.isBoundaryEdge(edgeId)) {
                     continue;
+                }
                 isCutEdge[activeEdge] = false;
                 cutDegree[activeVertex]--;
                 int halfEdge = mesh.edgeHalfEdge(edgeId);
@@ -276,8 +282,9 @@ public class CutGraph {
                 cutDegree[otherActiveVertex]--;
                 if (cutDegree[otherActiveVertex] == 1
                         && !singularityVertexIds.contains(otherVertexId)
-                        && !mesh.isBoundaryVertex(otherVertexId))
+                        && !mesh.isBoundaryVertex(otherVertexId)) {
                     trimQueue.add(otherActiveVertex);
+                }
                 break;
             }
         }
@@ -285,114 +292,91 @@ public class CutGraph {
 
     /**
      * Route every interior singularity that is not already on the cut to it along
-     * the shortest mesh-edge path (BZK09 §5).
+     * the shortest mesh-edge path.
      * 
      */
     private void connectDetachedSingularities() {
         for (Singularity singularity : crossField.singularities) {
             int vertexId = singularity.vertexId();
-            if (cutDegree[activeVertexIndex(vertexId)] > 0 || mesh.isBoundaryVertex(vertexId))
+            if (cutDegree[activeVertexIndex(vertexId)] > 0 || mesh.isBoundaryVertex(vertexId)) {
                 continue;
-            int[] pathEdges = shortestMeshPathToCut(vertexId, -1);
-            if (pathEdges == null)
-                return;
-            for (int activeEdge : pathEdges) {
-                if (isCutEdge[activeEdge])
+            }
+            double[] distance = new double[vertexCount];
+            int[] prevVertex = new int[vertexCount];
+            int[] prevEdge = new int[vertexCount];
+            Arrays.fill(distance, Double.POSITIVE_INFINITY);
+            Arrays.fill(prevVertex, -1);
+            Arrays.fill(prevEdge, -1);
+            int startActiveVertex = activeVertexIndex(vertexId);
+            distance[startActiveVertex] = 0.0;
+
+            PriorityQueue<double[]> frontier = new PriorityQueue<>((a, b) -> Double.compare(a[0], b[0]));
+            frontier.add(new double[] { 0.0, startActiveVertex });
+
+            Vector3f posHere = new Vector3f();
+            Vector3f posOther = new Vector3f();
+
+            int reachedActiveVertex = -1;
+            while (!frontier.isEmpty()) {
+                double[] top = frontier.poll();
+                double distHere = top[0];
+                int activeVertex = (int) top[1];
+                if (distHere > distance[activeVertex]) {
                     continue;
+                }
+                int activeVertexId = mesh.vertexIdAt(activeVertex);
+                if (cutDegree[activeVertex] > 0 && activeVertex != startActiveVertex) {
+                    reachedActiveVertex = activeVertex;
+                    break;
+                }
+                mesh.vertexPosition(activeVertexId, posHere);
+                int incidentEdgeCount = mesh.vertexEdgeCount(activeVertexId);
+                for (int i = 0; i < incidentEdgeCount; i++) {
+                    int edgeId = mesh.vertexEdgeAt(activeVertexId, i);
+                    int activeEdge = crossField.edgeIdToActive.get(edgeId);
+                    if (activeVertex == startActiveVertex) {
+                        continue;
+                    }
+                    int halfEdge = mesh.edgeHalfEdge(edgeId);
+                    int otherVertexId = (mesh.halfEdgeVertex(halfEdge) == activeVertexId)
+                            ? mesh.halfEdgeEndVertex(halfEdge)
+                            : mesh.halfEdgeVertex(halfEdge);
+                    int otherActiveVertex = activeVertexIndex(otherVertexId);
+                    mesh.vertexPosition(otherVertexId, posOther);
+                    double edgeLength = posHere.distance(posOther);
+                    double edgeCost = crossField.alignmentEdgeIds.contains(edgeId)
+                            ? edgeLength * ALIGNMENT_PATH_PENALTY
+                            : edgeLength;
+                    double newDistance = distHere + edgeCost;
+                    if (newDistance < distance[otherActiveVertex]) {
+                        distance[otherActiveVertex] = newDistance;
+                        prevVertex[otherActiveVertex] = activeVertex;
+                        prevEdge[otherActiveVertex] = activeEdge;
+                        frontier.add(new double[] { newDistance, otherActiveVertex });
+                    }
+                }
+            }
+            if (reachedActiveVertex < 0) {
+                return;
+            }
+            int pathLength = 0;
+            for (int v = reachedActiveVertex; v != startActiveVertex; v = prevVertex[v]) {
+                pathLength++;
+            }
+            int[] pathEdges = new int[pathLength];
+            for (int v = reachedActiveVertex, i = 0; v != startActiveVertex; v = prevVertex[v]) {
+                pathEdges[i++] = prevEdge[v];
+            }
+            for (int activeEdge : pathEdges) {
+                if (isCutEdge[activeEdge]) {
+                    continue;
+                }
                 isCutEdge[activeEdge] = true;
                 int halfEdge = mesh.edgeHalfEdge(mesh.edgeIdAt(activeEdge));
                 cutDegree[activeVertexIndex(mesh.halfEdgeVertex(halfEdge))]++;
                 cutDegree[activeVertexIndex(mesh.halfEdgeEndVertex(halfEdge))]++;
             }
         }
-    }
-  
-    /**
-     * Dijkstra over mesh edges weighted by Euclidean length, from
-     * {@code startVertexId} until any vertex already on the cut is reached. Returns
-     * the active-edge indices along that shortest path, or {@code null} if no
-     * on-cut vertex is reachable. {@code skipFirstEdge} (or -1) may not be used as
-     * the first hop out of {@code startVertexId}. Implementation note: the priority
-     * queue holds {@code double[]} pairs of {distance, active vertex}.
-     * 
-     * @param startVertexId the vertex id to start from
-     * @param skipFirstEdge the edge to skip as the first hop
-     * @return the active-edge indices along the shortest path
-     */
-    private int[] shortestMeshPathToCut(int startVertexId, int skipFirstEdge) {
-        int vertexCount = mesh.vertexCount();
-        double[] distance = new double[vertexCount];
-        int[] prevVertex = new int[vertexCount];
-        int[] prevEdge = new int[vertexCount];
-        Arrays.fill(distance, Double.POSITIVE_INFINITY);
-        Arrays.fill(prevVertex, -1);
-        Arrays.fill(prevEdge, -1);
-        int startActiveVertex = activeVertexIndex(startVertexId);
-        distance[startActiveVertex] = 0.0;
-
-        PriorityQueue<double[]> frontier = new PriorityQueue<>((a, b) -> Double.compare(a[0], b[0]));
-        frontier.add(new double[] { 0.0, startActiveVertex });
-
-        Vector3f posHere = new Vector3f();
-        Vector3f posOther = new Vector3f();
-
-        int reachedActiveVertex = -1;
-        while (!frontier.isEmpty()) {
-            double[] top = frontier.poll();
-            double distHere = top[0];
-            int activeVertex = (int) top[1];
-            if (distHere > distance[activeVertex])
-                continue;
-            int vertexId = mesh.vertexIdAt(activeVertex);
-            if (cutDegree[activeVertex] > 0 && activeVertex != startActiveVertex) {
-                reachedActiveVertex = activeVertex;
-                break;
-            }
-            mesh.vertexPosition(vertexId, posHere);
-            int incidentEdgeCount = mesh.vertexEdgeCount(vertexId);
-            for (int i = 0; i < incidentEdgeCount; i++) {
-                int edgeId = mesh.vertexEdgeAt(vertexId, i);
-                int activeEdge = crossField.edgeIdToActive.get(edgeId);
-                if (activeVertex == startActiveVertex && activeEdge == skipFirstEdge)
-                    continue;
-                int halfEdge = mesh.edgeHalfEdge(edgeId);
-                int otherVertexId = (mesh.halfEdgeVertex(halfEdge) == vertexId)
-                        ? mesh.halfEdgeEndVertex(halfEdge)
-                        : mesh.halfEdgeVertex(halfEdge);
-                int otherActiveVertex = activeVertexIndex(otherVertexId);
-                mesh.vertexPosition(otherVertexId, posOther);
-                // BZK09 §5.2: routing a singularity through an alignment edge
-                // would put that feature edge on the cut and force the
-                // {@code v_p = v_q} constraint to collapse it to a point.
-                // Hard-skipping would disconnect singularities sitting on a
-                // feature crease, so penalise instead: alignment edges are
-                // taken only when there is no non-alignment alternative.
-                double edgeLength = posHere.distance(posOther);
-                double edgeCost = crossField.alignmentEdgeIds.contains(edgeId)
-                        ? edgeLength * ALIGNMENT_PATH_PENALTY
-                        : edgeLength;
-                double newDistance = distHere + edgeCost;
-                if (newDistance < distance[otherActiveVertex]) {
-                    distance[otherActiveVertex] = newDistance;
-                    prevVertex[otherActiveVertex] = activeVertex;
-                    prevEdge[otherActiveVertex] = activeEdge;
-                    frontier.add(new double[] { newDistance, otherActiveVertex });
-                }
-            }
-        }
-
-        if (reachedActiveVertex < 0)
-            return null;
-
-        int pathLength = 0;
-        for (int v = reachedActiveVertex; v != startActiveVertex; v = prevVertex[v]) {
-            pathLength++;
-        }
-        int[] pathEdges = new int[pathLength];
-        for (int v = reachedActiveVertex, i = 0; v != startActiveVertex; v = prevVertex[v]) {
-            pathEdges[i++] = prevEdge[v];
-        }
-        return pathEdges;
     }
 
     /**
@@ -586,7 +570,6 @@ public class CutGraph {
      */
     public int activeVertexIndex(int vertexId) {
         if (vertexActiveCache == null) {
-            int vertexCount = mesh.vertexCount();
             vertexActiveCache = new HashMap<>(vertexCount * 2);
             for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++)
                 vertexActiveCache.put(mesh.vertexIdAt(activeVertex), activeVertex);

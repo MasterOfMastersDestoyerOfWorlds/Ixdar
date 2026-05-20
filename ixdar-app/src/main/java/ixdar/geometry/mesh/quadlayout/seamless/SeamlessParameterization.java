@@ -6,6 +6,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.SeamlessProjector;
@@ -69,12 +70,6 @@ public final class SeamlessParameterization {
     private static final double HALF_D = 0.5;
     private static final double DEGENERATE_AREA_EPSILON = 1.0e-30;
     private static final double SVD_DET_FACTOR = 4.0;
-    /**
-     * Coefficient-magnitude threshold below which a leftover-row entry is treated
-     * as zero during sparse Gauss-Jordan elimination. Sized to swallow round-off
-     * from {@code R · (s, t)} cancellations at singularity nodes.
-     */
-    private static final double NANOS_PER_SEC = 1.0e9;
     private static final String DIAG_PROP = "seamlessParam.diag";
     private static final String DIAG_TRUE = "true";
     private static final int DIAG_LOG_EVERY = 10;
@@ -100,28 +95,16 @@ public final class SeamlessParameterization {
 
     /** True iff every triangle has positive UV signed area. */
     public boolean injective;
-    /**
-     * Number of §5.4 stiffening re-solves performed (0 if the relaxed solve was
-     * injective).
-     */
-    public int stiffeningIterations;
 
     /**
-     * Global UV scale (BZK09 §5 "h"). Defaults to mean mesh edge length so the
-     * resulting (u, v) is in world-distance units and the {@code 1/h} gradient
+     * Global UV scale. Defaults to a small percentage of the mesh bounding box so the
+     * resulting (u, v) is in world-distance units and the {@code 1/targetEdgeLength} gradient
      * targets are well-conditioned.
      */
-    public float h;
+    public float targetEdgeLength;
 
-    /** Hard cap on §5.4 IRLS iterations. */
+    /** Hard cap on number of stiffening iterations. */
     public int maxStiffeningIterations = 20;
-
-    /**
-     * BZK09 §5.4 uniform-Laplacian smoothing passes applied to the per-face weight
-     * field after each Δλ bump. The paper recommends "a few" passes; 1 is enough on
-     * the test fixtures.
-     */
-    public int stiffeningSmoothPasses = 1;
 
     /**
      * BZK09 §5.4 proportionality constant for the {@code |Δλ|} bump. Paper's value:
@@ -218,18 +201,9 @@ public final class SeamlessParameterization {
     public SeamlessParameterization(CrossField crossField) {
         this.crossField = crossField;
         this.mesh = crossField.mesh;
-    }
-
-    /**
-     * Run the BZK09 §5 pipeline; populate the public output arrays.
-     *
-     * @return {@code this}
-     */
-    public ParameterizationMetrics build() {
-        System.out.println("[seamless] Building seamless parameterization");
         this.faceCount = mesh.faceCount();
         this.edgeCount = mesh.edgeCount();
-        this.h = this.crossField.targetQuadEdgeLength;
+        this.targetEdgeLength = this.crossField.targetQuadEdgeLength;
 
         edgeFaceA = new int[edgeCount];
         edgeFaceB = new int[edgeCount];
@@ -240,30 +214,35 @@ public final class SeamlessParameterization {
         Arrays.fill(edgeCornerInA, -1);
         Arrays.fill(edgeCornerInB, -1);
 
-        for (int ae2 = 0; ae2 < edgeCount; ae2++) {
-            int eId = mesh.edgeIdAt(ae2);
-            int hCanon = mesh.edgeHalfEdge(eId);
-            int faceAId = mesh.halfEdgeFace(hCanon);
-            int twin = mesh.halfEdgeTwin(hCanon);
-            int faceBId = (twin == MeshTopology.NONE) ? MeshTopology.NONE : mesh.halfEdgeFace(twin);
-            int vStart = mesh.halfEdgeVertex(hCanon);
+        cutGraph = new CutGraph(mesh, crossField, this);
+    }
 
-            if (faceAId != MeshTopology.NONE) {
-                edgeFaceA[ae2] = crossField.faceIdToActive.get(faceAId);
+    /**
+     * Run the BZK09 §5 pipeline; populate the public output arrays.
+     *
+     * @return {@code this}
+     */
+    public ParameterizationMetrics build() {
+        System.out.println("[seamless] Building seamless parameterization");
+        for (int ae2 = 0; ae2 < edgeCount; ae2++) {
+            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(ae2);
+
+            if (edgeFaceIds.faceA != MeshTopology.NONE) {
+                edgeFaceA[ae2] = crossField.faceIdToActive.get(edgeFaceIds.faceA);
                 int corner = -1;
                 for (int c1 = 0; c1 < CORNERS_PER_FACE; c1++) {
-                    if (mesh.faceVertexAt(faceAId, c1) == vStart) {
+                    if (mesh.faceVertexAt(edgeFaceIds.faceA, c1) == edgeFaceIds.edgeStartVertex) {
                         corner = c1;
                         break;
                     }
                 }
                 edgeCornerInA[ae2] = corner;
             }
-            if (faceBId != MeshTopology.NONE) {
-                edgeFaceB[ae2] = crossField.faceIdToActive.get(faceBId);
+            if (edgeFaceIds.faceB != MeshTopology.NONE) {
+                edgeFaceB[ae2] = crossField.faceIdToActive.get(edgeFaceIds.faceB);
                 int corner1 = -1;
                 for (int c2 = 0; c2 < CORNERS_PER_FACE; c2++) {
-                    if (mesh.faceVertexAt(faceBId, c2) == vStart) {
+                    if (mesh.faceVertexAt(edgeFaceIds.faceB, c2) == edgeFaceIds.edgeStartVertex) {
                         corner1 = c2;
                         break;
                     }
@@ -274,7 +253,6 @@ public final class SeamlessParameterization {
 
         System.out.println("[seamless] Mesh setup done, building cut graph");
 
-        cutGraph = new CutGraph(mesh, crossField, this);
         cutGraph.buildCutGraph();
 
         System.out.println("[seamless] Cut graph built, precomputing per-face geometry and targets");
@@ -287,42 +265,19 @@ public final class SeamlessParameterization {
 
         this.dofSystem = new SeamlessDofSystem(this, cutGraph);
 
-        // BZK09 §5: (1) all-continuous solve, (2) BZK09 §2 greedy round
-        // (j, k), singularity (u, v), and §5.2 alignment iso-coordinates
-        // to integers re-solving after each pin, then (3) §5.4 IRLS
-        // stiffening using the Hormann-Lévy-Sheffer distortion +
-        // uniform-Laplacian weight updates.
         System.out.println("[seamless] Solving once");
         solveOnce();
+
         System.out.println("[seamless] Running greedy integer rounding");
         runGreedyIntegerRounding();
+
         System.out.println("[seamless] Running stiffening loop");
         runStiffeningLoop();
 
         System.out.println("[seamless] Writing chart vertices from solution");
-        int totalCorners = faceCount * CORNERS_PER_FACE;
-        uCorner = new float[totalCorners];
-        vCorner = new float[totalCorners];
-        writeChartVerticesFromSolution(totalCorners);
-        cutTranslationS = new float[edgeCount];
-        cutTranslationT = new float[edgeCount];
-        writeCutTranslationsFromSolution();
-        // Re-evaluate injectivity from the float-cast outputs (cheap consistency
-        // check).
-        boolean inj = true;
-        for (int af = 0; af < faceCount; af++) {
-            int o = af * CORNERS_PER_FACE;
-            float u0 = uCorner[o], v0p = vCorner[o];
-            float u1 = uCorner[o + 1], v1 = vCorner[o + 1];
-            float u2 = uCorner[o + 2], v2 = vCorner[o + 2];
-            float sa = HALF * ((u1 - u0) * (v2 - v0p) - (u2 - u0) * (v1 - v0p));
-            if (sa <= 0f) {
-                inj = false;
-                break;
-            }
-        }
+        writeChartVerticesFromSolution();
 
-        this.injective = inj && this.injective;
+
         if (exactSeams) {
 
             System.out.println("[seamless] Projecting onto exact-seam parameterization");
@@ -524,7 +479,6 @@ public final class SeamlessParameterization {
         int initialFlipped = -1;
         int previousFlipped = -1;
         for (int iter = 0; iter <= maxStiffeningIterations; iter++) {
-            stiffeningIterations = iter;
             long t0 = System.nanoTime();
             solveOnce();
             long t1 = System.nanoTime();
@@ -589,8 +543,8 @@ public final class SeamlessParameterization {
                 double sigma2 = Math.sqrt(HALF_D * Math.max(0.0, frobeniusSquared - svdDiscriminantSqrt));
                 double orientationSign = jacobianDet >= 0 ? 1.0 : -1.0;
 
-                perFaceDistortion[activeFace] = Math.abs(orientationSign * sigma1 / h - 1.0)
-                        + Math.abs(orientationSign * sigma2 / h - 1.0);
+                perFaceDistortion[activeFace] = Math.abs(orientationSign * sigma1 / targetEdgeLength - 1.0)
+                        + Math.abs(orientationSign * sigma2 / targetEdgeLength - 1.0);
             }
 
             // Δλ on the dual mesh: mean of neighbours' distortion minus own distortion.
@@ -623,34 +577,6 @@ public final class SeamlessParameterization {
                         stiffeningD);
                 faceWeight[activeFace] += weightBump;
             }
-
-            // Smoothing passes: replace each face's weight with the average of itself
-            // and its face-neighbours' weights. Paper recommends a couple of passes.
-            if (stiffeningSmoothPasses <= 0) {
-                continue;
-            }
-            double[] smoothedWeights = new double[faceCount];
-            for (int pass = 0; pass < stiffeningSmoothPasses; pass++) {
-                for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-                    int faceId = mesh.faceIdAt(activeFace);
-                    double weightSum = faceWeight[activeFace];
-                    int neighbourCount = 1;
-                    for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
-                        int edgeId = mesh.faceEdgeAt(faceId, corner);
-                        int activeEdge = crossField.edgeIdToActive.get(edgeId);
-                        int neighbourFaceA = edgeFaceA[activeEdge];
-                        int neighbourFaceB = edgeFaceB[activeEdge];
-                        int otherFace = (neighbourFaceA == activeFace) ? neighbourFaceB : neighbourFaceA;
-                        if (otherFace < 0) {
-                            continue;
-                        }
-                        weightSum += faceWeight[otherFace];
-                        neighbourCount++;
-                    }
-                    smoothedWeights[activeFace] = weightSum / neighbourCount;
-                }
-                System.arraycopy(smoothedWeights, 0, faceWeight, 0, faceCount);
-            }
         }
     }
 
@@ -674,20 +600,17 @@ public final class SeamlessParameterization {
      *
      * @param totalCorners {@code 3 * faceCount}
      */
-    private void writeChartVerticesFromSolution(int totalCorners) {
+    private void writeChartVerticesFromSolution() {
+        int totalCorners = faceCount * CORNERS_PER_FACE;
+        uCorner = new float[totalCorners];
+        vCorner = new float[totalCorners];
         for (int corner = 0; corner < totalCorners; corner++) {
             int chartVertex = cutGraph.cornerToChartVertex[corner];
             uCorner[corner] = (float) dofSystem.evaluateChartComponent(chartVertex, 0, solution);
             vCorner[corner] = (float) dofSystem.evaluateChartComponent(chartVertex, 1, solution);
         }
-    }
-
-    /**
-     * Back-fill {@code cutTranslationS} / {@code cutTranslationT} from the raw
-     * {@code (s, t)} DOFs, evaluating through the leftover-row substitution if
-     * those DOFs were pivot-eliminated.
-     */
-    private void writeCutTranslationsFromSolution() {
+        cutTranslationS = new float[edgeCount];
+        cutTranslationT = new float[edgeCount];
         for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
             if (dofSystem.cutEdgeSDof[activeEdge] < 0) {
                 continue;
@@ -697,6 +620,20 @@ public final class SeamlessParameterization {
             cutTranslationT[activeEdge] = (float) dofSystem.evaluateRawDof(
                     dofSystem.cutEdgeTDof[activeEdge], solution);
         }
+        boolean inj = true;
+        for (int af = 0; af < faceCount; af++) {
+            int o = af * CORNERS_PER_FACE;
+            float u0 = uCorner[o], v0p = vCorner[o];
+            float u1 = uCorner[o + 1], v1 = vCorner[o + 1];
+            float u2 = uCorner[o + 2], v2 = vCorner[o + 2];
+            float sa = HALF * ((u1 - u0) * (v2 - v0p) - (u2 - u0) * (v1 - v0p));
+            if (sa <= 0f) {
+                inj = false;
+                break;
+            }
+        }
+
+        this.injective = inj && this.injective;
     }
 
     /**
@@ -732,7 +669,7 @@ public final class SeamlessParameterization {
         }
         System.out.printf("[stiffening] %s iter %2d/%d  flipped=%4d/%-4d %s  %.2fs%n",
                 bar.toString(), iter, maxStiffeningIterations,
-                flipped, initialFlipped, delta, solveNanos / NANOS_PER_SEC);
+                flipped, initialFlipped, delta, solveNanos / 1.0e9);
     }
 
     /**

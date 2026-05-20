@@ -162,14 +162,15 @@ public class ParameterizationMetrics {
      * of the (u, v) map from the three corner coordinates, and combine the signed
      * singular values as {@code |σ₁/h − 1| + |σ₂/h − 1|}, signed by the Jacobian's
      * orientation so flipped triangles inflate the distortion. {@code h} is
-     * {@link SeamlessParameterization#h}. Degenerate 3D triangles are skipped.
+     * {@link SeamlessParameterization#targetEdgeLength}. Degenerate 3D triangles
+     * are skipped.
      *
      * @return the mean per-face distortion, or 0 if every face is degenerate
      */
     public float computeMeanDistortion() {
         float sum = 0.0f;
         int counted = 0;
-        float targetScale = seamless.h;
+        float targetScale = seamless.targetEdgeLength;
         Vector3f position0 = new Vector3f();
         Vector3f position1 = new Vector3f();
         Vector3f position2 = new Vector3f();

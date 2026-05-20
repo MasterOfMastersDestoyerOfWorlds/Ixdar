@@ -131,7 +131,6 @@ public class ParametrizationExaminationScene extends Scene {
                     + " F=" + mesh.faceCount()
                     + " singularities=" + crossField.singularities.size()
                     + " flipped=" + metrics.flippedTriangleCount
-                    + " stiffeningIters=" + seamless.stiffeningIterations
                     + " injective=" + seamless.injective);
         } catch (Exception ex) {
             throw new IllegalStateException(

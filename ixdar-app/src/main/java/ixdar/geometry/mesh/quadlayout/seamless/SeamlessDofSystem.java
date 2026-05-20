@@ -759,7 +759,7 @@ public final class SeamlessDofSystem {
      */
     @SuppressWarnings("unchecked")
     private void buildAssemblyPlan() {
-        double edgeLengthSquared = (double) seamless.h * seamless.h;
+        double edgeLengthSquared = (double) seamless.targetEdgeLength * seamless.targetEdgeLength;
 
         HashMap<Long, Double>[] perFaceUpper = new HashMap[seamless.faceCount];
         HashMap<Integer, Double>[] perFaceDiagonal = new HashMap[seamless.faceCount];
@@ -815,9 +815,9 @@ public final class SeamlessDofSystem {
             }
 
             for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
-                double uRhsConstant = area * seamless.h
+                double uRhsConstant = area * seamless.targetEdgeLength
                         * (shapeGradX[corner] * targetUx + shapeGradY[corner] * targetUy);
-                double vRhsConstant = area * seamless.h
+                double vRhsConstant = area * seamless.targetEdgeLength
                         * (shapeGradX[corner] * targetVx + shapeGradY[corner] * targetVy);
                 int[] uExpDofs = chartVertexFinalDofs[cornerChartVertex[corner]][0];
                 double[] uExpCoefs = chartVertexFinalCoefs[cornerChartVertex[corner]][0];
