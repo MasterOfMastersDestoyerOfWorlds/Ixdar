@@ -37,8 +37,6 @@ public class CrossField {
      */
     public static final float EPSILON = 1e-12f;
     public static final float BASIS_AXIS_PICK_THRESHOLD = 0.9f;
-    public static final float RADIUS_STABILITY_WINDOW_FRACTION = 0.25f;
-    public static final float SINGLE_RADIUS_RATIO_THRESHOLD = 1.001f;
     public static final long LOCAL_SEARCH_BUDGET_MS = 3000L;
     /**
      * The distances to search for local minima in the smoothness energy.
@@ -96,32 +94,6 @@ public class CrossField {
      * incident to them.
      */
     public List<Singularity> singularities = new ArrayList<>();
-
-    /**
-     * Minimum 0-to-1 bending contrast before the strongest bend direction is
-     * trusted as a cross-field constraint. A value near 0 means the surface bends
-     * similarly in every direction; a value near 1 means one direction dominates.
-     */
-    public float minimumCurvatureContrast = 0.8f;
-
-    /**
-     * Scale used to reject nearly flat regions before adding curvature-based
-     * cross-field constraints. The actual threshold is this value divided by the
-     * mesh bounding-sphere radius, so it scales with model size.
-     */
-    public float curvatureScaleK = 0.1f;
-
-    /**
-     * BZK09 §3 geodesic-disk radius series. Paper: r ∈ [r0, r1] with r0 = average
-     * edge length, r1 = h (target edge length). {@code radiusStartMul} multiplies
-     * the average edge length to produce r0
-     */
-    public float radiusStartMul = 5.0f;
-
-    /**
-     * Geometric ratio between consecutive radii in the radius series.
-     */
-    public float radiusRatio = (float) Math.sqrt(2.0);
 
     /**
      * How far the angle between two faces can be from flat to be considered a

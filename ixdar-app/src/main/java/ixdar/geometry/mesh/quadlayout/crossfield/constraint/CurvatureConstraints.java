@@ -12,6 +12,28 @@ import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.crossfield.DijkstraNode;
 
 public class CurvatureConstraints {
+
+    public static final float CURVATURE_RADIUS_MULTIPLE = 5.0f;
+
+    /**
+     * Geometric ratio between consecutive radii in the radius series.
+     */
+    public static final float RADIUS_RATIO = (float) Math.sqrt(2.0);
+
+    /**
+     * Scale used to reject nearly flat regions before adding curvature-based
+     * cross-field constraints. The actual threshold is this value divided by the
+     * mesh bounding-sphere radius, so it scales with model size.
+     */
+    public static final float CURVATURE_SCALE_K = 0.1f;
+
+    /**
+     * Minimum 0-to-1 bending contrast before the strongest bend direction is
+     * trusted as a cross-field constraint. A value near 0 means the surface bends
+     * similarly in every direction; a value near 1 means one direction dominates.
+     */
+        public static final float MINIMUM_CURVATURE_CONTRAST = 0.8f;
+
     /**
      * A2. Directional constraints from principal curvature
      *
@@ -20,34 +42,28 @@ public class CurvatureConstraints {
 
     public static int applyCurvatureConstraints(HalfEdgeMesh mesh, CrossField crossField) {
         float averageEdgeLength = mesh.computeAverageEdgeLength();
-        float curvatureK = crossField.curvatureScaleK
-                / Math.max(mesh.computeBoundingSphereRadius(), CrossField.EPSILON);
+        float curvatureK = CURVATURE_SCALE_K / Math.max(mesh.computeBoundingSphereRadius(), CrossField.EPSILON);
         Vector3f vPos = new Vector3f();
         Vector3f vNormal = new Vector3f();
         Vector3f e1 = new Vector3f();
         Vector3f e2 = new Vector3f();
         int addedConstraints = 0;
-        float stabilityWindow = CrossField.RADIUS_STABILITY_WINDOW_FRACTION * crossField.targetQuadEdgeLength;
 
         List<Float> radii = new ArrayList<>();
-        float startRadius = crossField.radiusStartMul * averageEdgeLength;
-        if (crossField.radiusRatio <= CrossField.SINGLE_RADIUS_RATIO_THRESHOLD
-                || crossField.targetQuadEdgeLength <= startRadius) {
-            radii.add(crossField.targetQuadEdgeLength);
-        } else {
-            for (float r = startRadius; r <= crossField.targetQuadEdgeLength
-                    + CrossField.EPSILON; r *= crossField.radiusRatio) {
-                radii.add(r);
-            }
+        float startRadius = averageEdgeLength;
+        float endRadius = averageEdgeLength * CURVATURE_RADIUS_MULTIPLE;
+        float stabilityWindow = endRadius / 4.0f;
+        for (float r = startRadius; r <= endRadius + CrossField.EPSILON; r *= RADIUS_RATIO) {
+            radii.add(r);
         }
 
         for (int vAi = 0; vAi < mesh.vertexCount(); vAi++) {
-            int vId = mesh.vertexIdAt(vAi);
-            if (mesh.isBoundaryVertex(vId)) {
+            int vertexId = mesh.vertexIdAt(vAi);
+            if (mesh.isBoundaryVertex(vertexId)) {
                 continue;
             }
-            mesh.vertexPosition(vId, vPos);
-            mesh.vertexNormal(vId, vNormal);
+            mesh.vertexPosition(vertexId, vPos);
+            mesh.vertexNormal(vertexId, vNormal);
             CrossField.arbitraryTangent(vNormal, e1);
             vNormal.cross(e1, e2).normalize();
 
@@ -57,7 +73,7 @@ public class CurvatureConstraints {
             List<Float> validRadii = new ArrayList<>();
 
             for (float r : radii) {
-                float[] T = integrateCurvatureTensor(vId, vPos, vNormal, e1, e2, r, mesh, crossField);
+                float[] T = integrateCurvatureTensor(vertexId, vPos, vNormal, e1, e2, r, mesh, crossField);
                 if (T == null)
                     continue;
 
@@ -116,16 +132,14 @@ public class CurvatureConstraints {
                     }
                     float curvatureConstrast = (Math.abs(kmax) - Math.abs(kmin)) / Math.abs(kmax);
                     float meanH = 0.5f * (kmax + kmin);
-                    if (curvatureConstrast <= crossField.minimumCurvatureContrast || Math.abs(meanH) <= curvatureK) {
-                        intervalStatus = curvatureConstrast <= crossField.minimumCurvatureContrast
+                    if (curvatureConstrast <= MINIMUM_CURVATURE_CONTRAST || Math.abs(meanH) <= curvatureK) {
+                        intervalStatus = curvatureConstrast <= MINIMUM_CURVATURE_CONTRAST
                                 ? CrossField.CURVATURE_INTERVAL_FAIL_TAU
                                 : CrossField.CURVATURE_INTERVAL_FAIL_MEAN;
                         break;
                     }
                 }
-                if (intervalStatus == CrossField.CURVATURE_INTERVAL_FAIL_TAU
-                        || intervalStatus == CrossField.CURVATURE_INTERVAL_FAIL_MEAN
-                        || intervalStatus != CrossField.CURVATURE_INTERVAL_VALID) {
+                if (intervalStatus != CrossField.CURVATURE_INTERVAL_VALID) {
                     continue;
                 }
 
@@ -144,7 +158,10 @@ public class CurvatureConstraints {
                     count++;
                 }
                 float jitter = 0f;
-                if (count != 0) {
+                if (count == 0) {
+                    jitter = Float.POSITIVE_INFINITY;
+                }
+                else {
                     jitter = (float) Math.sqrt(sumSq / count);
                 }
                 if (jitter < bestJitter) {
@@ -163,41 +180,31 @@ public class CurvatureConstraints {
                     e1.x * c + e2.x * s,
                     e1.y * c + e2.y * s,
                     e1.z * c + e2.z * s);
-
-            int adj = mesh.vertexFaceCount(vId);
+            int adj = mesh.vertexFaceCount(vertexId);
             int newlyConstrained = 0;
-
-            int bestFaceAi = -1;
-            float bestProjectionLength = -1f;
             for (int i = 0; i < adj; i++) {
-                int fId = mesh.vertexFaceAt(vId, i);
-                int fAi = crossField.faceIdToActive.get(fId);
-                if (crossField.faceConstrained[fAi]) {
+                int faceId = mesh.vertexFaceAt(vertexId, i);
+                int faceActiveId = crossField.faceIdToActive.get(faceId);
+                if (crossField.faceConstrained[faceActiveId]) {
                     continue;
                 }
-                Vector3f n = new Vector3f();
-                mesh.faceNormal(mesh.faceIdAt(fAi), n);
+                Vector3f n = mesh.faceNormal(mesh.faceIdAt(faceActiveId));
                 float dotN = constraintDirWorld.dot(n);
-                float x = constraintDirWorld.x - dotN * n.x;
-                float y = constraintDirWorld.y - dotN * n.y;
-                float z = constraintDirWorld.z - dotN * n.z;
-                float projectionLength = (float) Math.sqrt(x * x + y * y + z * z);
-                if (projectionLength > bestProjectionLength) {
-                    bestProjectionLength = projectionLength;
-                    bestFaceAi = fAi;
+                float px = constraintDirWorld.x - dotN * n.x;
+                float py = constraintDirWorld.y - dotN * n.y;
+                float pz = constraintDirWorld.z - dotN * n.z;
+                float projectionLength = (float) Math.sqrt(px * px + py * py + pz * pz);
+                if (projectionLength < CrossField.EPSILON) {
+                    continue;
                 }
+                float angleInFace = mesh.projectDirectionToFaceAngle(constraintDirWorld, faceActiveId,
+                        crossField.faceY[faceActiveId],
+                        crossField.faceX[faceActiveId]);
+                crossField.faceConstrained[faceActiveId] = true;
+                crossField.faceConstraintAngle[faceActiveId] = CrossField.canonicalizeMod(angleInFace);
+                newlyConstrained++;
             }
-            if (bestFaceAi >= 0) {
-                float angleInFace = mesh.projectDirectionToFaceAngle(constraintDirWorld, bestFaceAi,
-                        crossField.faceY[bestFaceAi],
-                        crossField.faceX[bestFaceAi]);
-                crossField.faceConstrained[bestFaceAi] = true;
-                crossField.faceConstraintAngle[bestFaceAi] = CrossField.canonicalizeMod(angleInFace);
-                newlyConstrained = 1;
-            }
-            if (newlyConstrained > 0) {
-                addedConstraints += newlyConstrained;
-            }
+            addedConstraints += newlyConstrained;
         }
         return addedConstraints;
     }
