@@ -9,6 +9,8 @@ layout(location = 2) in vec2 aTexCoords;
 // because the values are discontinuous across BZK09 §5 cut edges and so
 // cannot share GPU vertices the way positions can.
 layout(location = 3) in vec2 aUv;
+layout(location = 4) in float aFlipped;
+out float vFlipped;
 
 out vec3 Normal;
 out vec2 TexCoords;
@@ -27,4 +29,5 @@ void main() {
     Normal = mat3(transpose(inverse(model))) * aNormal;
     TexCoords = aTexCoords;
     vUv = aUv;
+    vFlipped = aFlipped;
 }

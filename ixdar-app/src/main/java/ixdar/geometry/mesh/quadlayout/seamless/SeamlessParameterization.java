@@ -96,13 +96,6 @@ public final class SeamlessParameterization {
     /** True iff every triangle has positive UV signed area. */
     public boolean injective;
 
-    /**
-     * Global UV scale. Defaults to a small percentage of the mesh bounding box so the
-     * resulting (u, v) is in world-distance units and the {@code 1/targetEdgeLength} gradient
-     * targets are well-conditioned.
-     */
-    public float targetEdgeLength;
-
     /** Hard cap on number of stiffening iterations. */
     public int maxStiffeningIterations = 20;
 
@@ -125,13 +118,6 @@ public final class SeamlessParameterization {
      * false until the projection is proven on all fixtures.
      */
     public boolean exactSeams = true;
-
-    /**
-     * Weight on each soft seam-transition penalty row when {@link #useSoftSeams} is
-     * true. Large enough that the seam residual is small but finite — leaves slack
-     * for orthogonality preservation.
-     */
-    public double softSeamWeight = 1.0e6;
 
     /** Cut graph. */
     public CutGraph cutGraph;
@@ -193,6 +179,17 @@ public final class SeamlessParameterization {
     private double[] solution;
 
     /**
+     * Target quad edge length, expressed as a fraction of the bounding-box
+     * diagonal.
+     */
+    public float targetEdgeLengthFractionOfBounds = 0.01f;
+
+    /**
+     * Target quad edge length.
+     */
+    public float targetQuadEdgeLength;
+
+    /**
      * Adopts a built {@link CrossField}. Caller must invoke {@link #build()} to
      * actually compute the parametrization.
      *
@@ -203,7 +200,8 @@ public final class SeamlessParameterization {
         this.mesh = crossField.mesh;
         this.faceCount = mesh.faceCount();
         this.edgeCount = mesh.edgeCount();
-        this.targetEdgeLength = this.crossField.targetQuadEdgeLength;
+
+        this.targetQuadEdgeLength = targetEdgeLengthFractionOfBounds * mesh.computeBoundingBoxDiagonal();
 
         edgeFaceA = new int[edgeCount];
         edgeFaceB = new int[edgeCount];
@@ -277,7 +275,6 @@ public final class SeamlessParameterization {
         System.out.println("[seamless] Writing chart vertices from solution");
         writeChartVerticesFromSolution();
 
-
         if (exactSeams) {
 
             System.out.println("[seamless] Projecting onto exact-seam parameterization");
@@ -285,6 +282,7 @@ public final class SeamlessParameterization {
         }
         this.metrics = new ParameterizationMetrics(this, mesh);
         System.out.println("[seamless] Metrics computed, returning");
+        System.out.println("[seamless] Metrics: " + this.metrics);
         return this.metrics;
     }
 
@@ -543,8 +541,8 @@ public final class SeamlessParameterization {
                 double sigma2 = Math.sqrt(HALF_D * Math.max(0.0, frobeniusSquared - svdDiscriminantSqrt));
                 double orientationSign = jacobianDet >= 0 ? 1.0 : -1.0;
 
-                perFaceDistortion[activeFace] = Math.abs(orientationSign * sigma1 / targetEdgeLength - 1.0)
-                        + Math.abs(orientationSign * sigma2 / targetEdgeLength - 1.0);
+                perFaceDistortion[activeFace] = Math.abs(orientationSign * sigma1 * targetQuadEdgeLength - 1.0)
+                        + Math.abs(orientationSign * sigma2 * targetQuadEdgeLength - 1.0);
             }
 
             // Δλ on the dual mesh: mean of neighbours' distortion minus own distortion.

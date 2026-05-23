@@ -8,7 +8,6 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.MeshValue;
-import ixdar.common.exceptions.InvalidMeshTopologyException;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 

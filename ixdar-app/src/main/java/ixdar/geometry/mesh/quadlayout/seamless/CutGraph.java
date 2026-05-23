@@ -594,18 +594,75 @@ public class CutGraph {
      * {@link SeamlessParameterization#reduceLeftoverConstraints}.
      */
     private void classifyChartVerticesForSubstitution() {
+        final int cornersPerFace = SeamlessParameterization.CORNERS_PER_FACE;
         chartVertexIsPrimary = new boolean[chartVertexCount];
         secondaryEdge = new int[chartVertexCount];
         secondaryPartner = new int[chartVertexCount];
         Arrays.fill(secondaryEdge, -1);
         Arrays.fill(secondaryPartner, -1);
         Arrays.fill(chartVertexIsPrimary, true);
-        primaryChartIndex = new int[chartVertexCount];
-        for (int cv = 0; cv < chartVertexCount; cv++) {
-            primaryChartIndex[cv] = cv;
+    
+        // Sweep 1: mark every chart vertex on the A-side of a cut edge.
+        boolean[] onASide = new boolean[chartVertexCount];
+        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
+            if (!isCutEdge[activeEdge])
+                continue;
+            int faceA = seamless.edgeFaceA[activeEdge];
+            int faceB = seamless.edgeFaceB[activeEdge];
+            if (faceA < 0 || faceB < 0)
+                continue;
+            int cornerStartA = seamless.edgeCornerInA[activeEdge];
+            int cornerEndA = (cornerStartA + 1) % cornersPerFace;
+            onASide[cornerToChartVertex[faceA * cornersPerFace + cornerStartA]] = true;
+            onASide[cornerToChartVertex[faceA * cornersPerFace + cornerEndA]] = true;
         }
-        primaryChartCount = chartVertexCount;
-        leftoverConstraints = new int[0][];
-        return;
+    
+        // Sweep 2: bind each cut edge's two B-side chart vertices to their A-side
+        // partner via this edge's rotation; defer to a leftover record when the
+        // B-side is itself primary or already claimed secondary.
+        ArrayList<int[]> leftover = new ArrayList<>();
+        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
+            if (!isCutEdge[activeEdge])
+                continue;
+            int faceA = seamless.edgeFaceA[activeEdge];
+            int faceB = seamless.edgeFaceB[activeEdge];
+            if (faceA < 0 || faceB < 0)
+                continue;
+            int cornerStartA = seamless.edgeCornerInA[activeEdge];
+            int cornerEndA = (cornerStartA + 1) % cornersPerFace;
+            int cornerStartB = seamless.edgeCornerInB[activeEdge];
+            int cornerEndB = (cornerStartB + cornersPerFace - 1) % cornersPerFace;
+            bindOrDefer(activeEdge,
+                    cornerToChartVertex[faceA * cornersPerFace + cornerStartA],
+                    cornerToChartVertex[faceB * cornersPerFace + cornerStartB],
+                    onASide, leftover);
+            bindOrDefer(activeEdge,
+                    cornerToChartVertex[faceA * cornersPerFace + cornerEndA],
+                    cornerToChartVertex[faceB * cornersPerFace + cornerEndB],
+                    onASide, leftover);
+        }
+    
+        primaryChartIndex = new int[chartVertexCount];
+        Arrays.fill(primaryChartIndex, -1);
+        int nextPrimary = 0;
+        for (int cv = 0; cv < chartVertexCount; cv++) {
+            if (chartVertexIsPrimary[cv]) {
+                primaryChartIndex[cv] = nextPrimary++;
+            }
+        }
+        primaryChartCount = nextPrimary;
+        leftoverConstraints = leftover.toArray(new int[0][]);
+    }
+    
+    private void bindOrDefer(int activeEdge, int chartA, int chartB,
+            boolean[] onASide, ArrayList<int[]> leftover) {
+        if (onASide[chartB] || !chartVertexIsPrimary[chartB]
+                || secondaryEdge[chartB] != -1) {
+            leftover.add(new int[] { activeEdge, chartA, chartB });
+            return;
+        }
+        chartVertexIsPrimary[chartB] = false;
+        secondaryEdge[chartB] = activeEdge;
+        secondaryPartner[chartB] = chartA;
     }
 }

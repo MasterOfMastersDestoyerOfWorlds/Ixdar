@@ -170,7 +170,7 @@ public class ParameterizationMetrics {
     public float computeMeanDistortion() {
         float sum = 0.0f;
         int counted = 0;
-        float targetScale = seamless.targetEdgeLength;
+        float targetScale = seamless.targetQuadEdgeLength;
         Vector3f position0 = new Vector3f();
         Vector3f position1 = new Vector3f();
         Vector3f position2 = new Vector3f();
@@ -214,8 +214,8 @@ public class ParameterizationMetrics {
             float sigma2 = (float) Math.sqrt(Math.max(0.0f, HALF * (frobeniusSquared - discriminantSqrt)));
             float orientationSign = jacobianDet >= 0.0f ? 1.0f : -1.0f;
 
-            sum += Math.abs(orientationSign * sigma1 / targetScale - 1.0f)
-                    + Math.abs(orientationSign * sigma2 / targetScale - 1.0f);
+            sum += Math.abs(orientationSign * sigma1 * targetScale - 1.0f)
+                    + Math.abs(orientationSign * sigma2 * targetScale - 1.0f);
             counted++;
         }
         return counted == 0 ? 0.0f : sum / counted;
@@ -297,5 +297,10 @@ public class ParameterizationMetrics {
                 violations++;
         }
         return violations;
+    }
+
+    @Override
+    public String toString() {
+        return "ParameterizationMetrics [flippedTriangleCount=" + flippedTriangleCount + ", maxTransitionResidual=" + maxTransitionResidual + ", meanTransitionResidual=" + meanTransitionResidual + ", meanDistortion=" + meanDistortion + ", disconnectedChartCount=" + disconnectedChartCount + ", validBranchConsistency=" + validBranchConsistency + "]";
     }
 }

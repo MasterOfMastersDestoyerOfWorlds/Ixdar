@@ -5,6 +5,8 @@ precision highp float;
 in vec3 Normal;
 in vec2 TexCoords;
 in vec2 vUv;
+
+in float vFlipped;
 out vec4 FragColor;
 
 // Background fill where the iso-line indicators are inactive.
@@ -17,6 +19,7 @@ uniform vec4 vLineColor;
 // gradient (i.e. multiplied through fwidth(vUv) so the line stays visually
 // constant under zoom).
 uniform float lineHalfWidth;
+uniform vec4 flippedColor; 
 
 void main() {
     // Distance to the nearest integer iso-line on each axis. fract(x + 0.5)
@@ -35,5 +38,6 @@ void main() {
     vec3 colour = baseColor.rgb;
     colour = mix(colour, vLineColor.rgb, lineMask.y * vLineColor.a);
     colour = mix(colour, uLineColor.rgb, lineMask.x * uLineColor.a);
+    colour = mix(colour, flippedColor.rgb, vFlipped * flippedColor.a);
     FragColor = vec4(colour, baseColor.a);
 }

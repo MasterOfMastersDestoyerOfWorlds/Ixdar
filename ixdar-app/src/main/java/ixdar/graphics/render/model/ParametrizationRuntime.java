@@ -6,37 +6,40 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
+import org.w3c.dom.css.RGBColor;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.graphics.cameras.Camera3D;
+import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 
 /**
  * Iso-line overlay for a {@link SeamlessParameterization} result: renders the
- * mesh as a triangle-soup with per-corner {@code (u, v)} attached, fed
- * through the {@code mesh_uv} shader that draws constant-u and constant-v
- * iso-lines as anti-aliased coloured stripes. Coloured spheres at the cross
- * field's singularity vertices use the same icosphere geometry the
+ * mesh as a triangle-soup with per-corner {@code (u, v)} attached, fed through
+ * the {@code mesh_uv} shader that draws constant-u and constant-v iso-lines as
+ * anti-aliased coloured stripes. Coloured spheres at the cross field's
+ * singularity vertices use the same icosphere geometry the
  * {@link CrossFieldRuntime} uses, with the same valence-3/valence-5 colour
  * convention from BZK09 figure 4.
  *
- * <p>The parametrization viewer needs a triangle-soup mesh (no vertex
- * sharing) because per-corner {@code (u, v)} is discontinuous across BZK09
- * §5 cut edges; a shared vertex would receive multiple {@code (u, v)} values
- * from neighbouring faces and the interpolated iso-line would be garbage. We
+ * <p>
+ * The parametrization viewer needs a triangle-soup mesh (no vertex sharing)
+ * because per-corner {@code (u, v)} is discontinuous across BZK09 §5 cut edges;
+ * a shared vertex would receive multiple {@code (u, v)} values from
+ * neighbouring faces and the interpolated iso-line would be garbage. We
  * therefore upload {@code 3 * faceCount} GPU vertices and a trivial
  * {@code [0, 1, 2, 3, ...]} element buffer.
  */
 public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
 
     /**
-     * Default fragment-pixel half-width of an iso-line, picked so the line
-     * is roughly 2 px wide at typical zoom levels.
+     * Default fragment-pixel half-width of an iso-line, picked so the line is
+     * roughly 2 px wide at typical zoom levels.
      */
     public static final float DEFAULT_LINE_HALF_WIDTH = 1.0f;
     /** Fraction of the bounding-box diagonal used for singularity sphere radius. */
@@ -44,7 +47,10 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
     /** Three corners per triangle face. */
     public static final int CORNERS_PER_FACE = 3;
     /** Floats per corner in the triangle-soup VBO: pos(3) + normal(3) + uv(2). */
-    public static final int FLOATS_PER_CORNER = 8;
+    public static final int FLOATS_PER_CORNER = 9;
+    private static final int FLIP_OFFSET = 8; // float index within a corner
+    private static final int FLIP_OFFSET_BYTES = FLIP_OFFSET * Float.BYTES;
+    private static final int ATTR_FLIP = 4; // layout(location = 4)
     /** Byte offset to the normal attribute within a corner stride. */
     public static final int NORMAL_OFFSET_BYTES = 3 * Float.BYTES;
     /** Byte offset to the uv attribute within a corner stride. */
@@ -85,21 +91,24 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
     public static final float NEAR_PLANE = 0.01f;
     /** Multiplier on the bounding-box diagonal that sets the far plane. */
     public static final float FAR_PLANE_DIAG_MUL = 20f;
-    /** Sphere tint primary channel for the brighter end of the singularity palette. */
+    /**
+     * Sphere tint primary channel for the brighter end of the singularity palette.
+     */
     public static final float SPHERE_TINT_PRIMARY = 0.95f;
-    /** Sphere tint dim channel — used to push the sphere toward saturated red/cyan. */
+    /**
+     * Sphere tint dim channel — used to push the sphere toward saturated red/cyan.
+     */
     public static final float SPHERE_TINT_OFFSET = 0.2f;
-    /** Sphere tint secondary channel — slightly under primary for hue separation. */
+    /**
+     * Sphere tint secondary channel — slightly under primary for hue separation.
+     */
     public static final float SPHERE_TINT_SECONDARY_LOW = 0.85f;
     /** Default base tint used for the surface fill behind the iso-lines. */
-    public static final Vector4f DEFAULT_BASE_COLOR =
-            new Vector4f(0.55f, 0.55f, 0.60f, 1f);
+    public static final Vector4f DEFAULT_BASE_COLOR = new Vector4f(0.55f, 0.55f, 0.60f, 1f);
     /** Cyan-leaning tint for the constant-u iso-line family. */
-    public static final Vector4f DEFAULT_U_LINE_COLOR =
-            new Vector4f(0.35f, 0.85f, 0.95f, 1f);
+    public static final Vector4f DEFAULT_U_LINE_COLOR = new Vector4f(0.35f, 0.85f, 0.95f, 1f);
     /** Yellow-leaning tint for the constant-v iso-line family. */
-    public static final Vector4f DEFAULT_V_LINE_COLOR =
-            new Vector4f(0.95f, 0.85f, 0.30f, 1f);
+    public static final Vector4f DEFAULT_V_LINE_COLOR = new Vector4f(0.95f, 0.85f, 0.30f, 1f);
     /** Uniform name for the surface fill colour. */
     public static final String BASE_COLOR = "baseColor";
     /** Uniform name for the constant-u iso-line colour. */
@@ -113,23 +122,23 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
 
     /** Cyan for {@code index4 > 0} (valence-3, +π/2) per BZK09 fig. 4 caption. */
     private static final Vector4f COLOR_POSITIVE_INDEX = new Vector4f(
-            SPHERE_TINT_OFFSET, SPHERE_TINT_SECONDARY_LOW, SPHERE_TINT_PRIMARY, 1f);
+            SPHERE_TINT_OFFSET, SPHERE_TINT_SECONDARY_LOW, SPHERE_TINT_PRIMARY, 0.5f);
     /** Red for {@code index4 < 0} (valence-5, -π/2) per BZK09 fig. 4 caption. */
     private static final Vector4f COLOR_NEGATIVE_INDEX = new Vector4f(
-            SPHERE_TINT_PRIMARY, SPHERE_TINT_OFFSET, SPHERE_TINT_OFFSET, 1f);
+            SPHERE_TINT_PRIMARY, SPHERE_TINT_OFFSET, SPHERE_TINT_OFFSET, 0.5f);
 
     /** 12 unit-icosahedron vertices in xyz layout (flat). */
     private static final float[] ICO_VERTICES = {
-            -1, PHI, 0,    1, PHI, 0,    -1, -PHI, 0,    1, -PHI, 0,
-            0, -1, PHI,    0, 1, PHI,    0, -1, -PHI,    0, 1, -PHI,
-            PHI, 0, -1,    PHI, 0, 1,    -PHI, 0, -1,    -PHI, 0, 1
+            -1, PHI, 0, 1, PHI, 0, -1, -PHI, 0, 1, -PHI, 0,
+            0, -1, PHI, 0, 1, PHI, 0, -1, -PHI, 0, 1, -PHI,
+            PHI, 0, -1, PHI, 0, 1, -PHI, 0, -1, -PHI, 0, 1
     };
     /** 20 icosahedron triangles, ccw. */
     private static final int[] ICO_TRIANGLES = {
-            0, 11, 5,   0, 5, 1,    0, 1, 7,    0, 7, 10,   0, 10, 11,
-            1, 5, 9,    5, 11, 4,   11, 10, 2,  10, 7, 6,   7, 1, 8,
-            3, 9, 4,    3, 4, 2,    3, 2, 6,    3, 6, 8,    3, 8, 9,
-            4, 9, 5,    2, 4, 11,   6, 2, 10,   8, 6, 7,    9, 8, 1
+            0, 11, 5, 0, 5, 1, 0, 1, 7, 0, 7, 10, 0, 10, 11,
+            1, 5, 9, 5, 11, 4, 11, 10, 2, 10, 7, 6, 7, 1, 8,
+            3, 9, 4, 3, 4, 2, 3, 2, 6, 3, 6, 8, 3, 8, 9,
+            4, 9, 5, 2, 4, 11, 6, 2, 10, 8, 6, 7, 9, 8, 1
     };
 
     /** Iso-line shader (vec2 vUv → cyan u-lines + yellow v-lines). */
@@ -144,6 +153,8 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
     public Vector4f uLineColor = new Vector4f(DEFAULT_U_LINE_COLOR);
     /** Constant-v iso-line tint. */
     public Vector4f vLineColor = new Vector4f(DEFAULT_V_LINE_COLOR);
+    /** Flipped triangle tint. */
+    public Vector4f flippedColor = ColorRGB.MAGENTA.toVector4f();
 
     /** Triangle-soup VAO for the parametrized surface. */
     public int isoSurfaceVao;
@@ -162,7 +173,9 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
     public int singularityEbo;
     /** Index count of one icosahedron — {@link #ICO_TRIANGLES}{@code .length}. */
     public int singularityIndexCount;
-    /** Flat XYZ positions of each singularity (length {@code 3 * singularities}). */
+    /**
+     * Flat XYZ positions of each singularity (length {@code 3 * singularities}).
+     */
     public float[] singularityPositions;
     /** Per-singularity {@code index4} value, used to pick the sphere colour. */
     public int[] singularityIndex4;
@@ -187,10 +200,10 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Upload (or replace) the iso-line surface and singularity-sphere buffers
-     * from {@code seamless}. Safe to call repeatedly — frees the previous
-     * buffers before re-uploading. The seamless parametrization must have
-     * had {@link SeamlessParameterization#build()} run so {@code uCorner},
+     * Upload (or replace) the iso-line surface and singularity-sphere buffers from
+     * {@code seamless}. Safe to call repeatedly — frees the previous buffers before
+     * re-uploading. The seamless parametrization must have had
+     * {@link SeamlessParameterization#build()} run so {@code uCorner},
      * {@code vCorner}, and the cross-field's singularity list are populated.
      *
      * @param seamless the built parametrization whose iso-lines to render
@@ -219,14 +232,15 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
             computeFaceNormal(p0, p1, p2, normal);
             int cornerBase = activeFace * CORNERS_PER_FACE;
             int baseFloat = cornerBase * FLOATS_PER_CORNER;
+            float flipped = seamless.uvSignedArea(faceId) <= 0f ? 1f : 0f;
             writeCorner(interleaved, baseFloat, p0, normal,
-                    seamless.uCorner[cornerBase], seamless.vCorner[cornerBase]);
+                    seamless.uCorner[cornerBase], seamless.vCorner[cornerBase], flipped);
             writeCorner(interleaved, baseFloat + FLOATS_PER_CORNER, p1, normal,
                     seamless.uCorner[cornerBase + COMPONENT_Y],
-                    seamless.vCorner[cornerBase + COMPONENT_Y]);
+                    seamless.vCorner[cornerBase + COMPONENT_Y], flipped);
             writeCorner(interleaved, baseFloat + COMPONENT_Z * FLOATS_PER_CORNER, p2, normal,
                     seamless.uCorner[cornerBase + COMPONENT_Z],
-                    seamless.vCorner[cornerBase + COMPONENT_Z]);
+                    seamless.vCorner[cornerBase + COMPONENT_Z], flipped);
             indices[cornerBase] = cornerBase;
             indices[cornerBase + COMPONENT_Y] = cornerBase + COMPONENT_Y;
             indices[cornerBase + COMPONENT_Z] = cornerBase + COMPONENT_Z;
@@ -266,18 +280,18 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Write one corner's {@code (position, normal, uv)} into the
-     * interleaved triangle-soup buffer.
+     * Write one corner's {@code (position, normal, uv)} into the interleaved
+     * triangle-soup buffer.
      *
-     * @param buffer interleaved float buffer
-     * @param offset starting index in {@code buffer}
+     * @param buffer   interleaved float buffer
+     * @param offset   starting index in {@code buffer}
      * @param position corner position
-     * @param normal face normal (same for all three corners of a face)
-     * @param u u-coordinate
-     * @param v v-coordinate
+     * @param normal   face normal (same for all three corners of a face)
+     * @param u        u-coordinate
+     * @param v        v-coordinate
      */
     private static void writeCorner(float[] buffer, int offset, Vector3f position,
-            Vector3f normal, float u, float v) {
+            Vector3f normal, float u, float v, float flipped) {
         buffer[offset] = position.x;
         buffer[offset + COMPONENT_Y] = position.y;
         buffer[offset + COMPONENT_Z] = position.z;
@@ -286,11 +300,12 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
         buffer[offset + NORMAL_Z_OFFSET] = normal.z;
         buffer[offset + U_OFFSET] = u;
         buffer[offset + V_OFFSET] = v;
+        buffer[offset + FLIP_OFFSET] = flipped;
     }
 
     /**
-     * Replace the iso-surface VAO/VBO/EBO with freshly-allocated buffers
-     * containing {@code interleaved} attributes and {@code indices}.
+     * Replace the iso-surface VAO/VBO/EBO with freshly-allocated buffers containing
+     * {@code interleaved} attributes and {@code indices}.
      *
      * @param interleaved per-corner (pos, normal, uv) data
      * @param indices     trivial {@code [0, 1, 2, ...]} corner index sequence
@@ -320,6 +335,8 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
         gl.enableVertexAttribArray(ATTR_NORMAL);
         gl.vertexAttribPointer(ATTR_UV, 2, gl.FLOAT(), false, strideBytes, UV_OFFSET_BYTES);
         gl.enableVertexAttribArray(ATTR_UV);
+        gl.vertexAttribPointer(ATTR_FLIP, 1, gl.FLOAT(), false, strideBytes, FLIP_OFFSET_BYTES);
+        gl.enableVertexAttribArray(ATTR_FLIP);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), isoSurfaceEbo);
         IntBuffer ib = BufferUtils.createIntBuffer(indices.length);
         ib.put(indices).flip();
@@ -328,9 +345,9 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Lazily allocate the shared unit-icosahedron buffers used by every
-     * singularity sphere — the same geometry that
-     * {@link CrossFieldRuntime#renderCrossField} uses.
+     * Lazily allocate the shared unit-icosahedron buffers used by every singularity
+     * sphere — the same geometry that {@link CrossFieldRuntime#renderCrossField}
+     * uses.
      */
     private void buildIcosphereBuffers() {
         GL gl = Platforms.gl();
@@ -375,12 +392,11 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Capture singularity vertex positions and their {@code index4} values
-     * so {@link #renderParametrization(Camera3D)} can draw a coloured sphere
-     * at each.
+     * Capture singularity vertex positions and their {@code index4} values so
+     * {@link #renderParametrization(Camera3D)} can draw a coloured sphere at each.
      *
      * @param crossField cross field whose singularities to render
-     * @param mesh the underlying triangle mesh
+     * @param mesh       the underlying triangle mesh
      */
     private void captureSingularities(CrossField crossField, HalfEdgeMesh mesh) {
         int n = crossField.singularities.size();
@@ -399,8 +415,8 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Whether {@link #setSeamlessParametrization(SeamlessParameterization)}
-     * has populated the GPU buffers and there's something to render.
+     * Whether {@link #setSeamlessParametrization(SeamlessParameterization)} has
+     * populated the GPU buffers and there's something to render.
      *
      * @return {@code true} when iso-surface geometry has been uploaded
      */
@@ -409,9 +425,9 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Render the iso-line surface and singularity spheres on top of the
-     * current framebuffer. Call {@link #render(Camera3D)} (inherited) first
-     * if you want the translucent base surface drawn underneath.
+     * Render the iso-line surface and singularity spheres on top of the current
+     * framebuffer. Call {@link #render(Camera3D)} (inherited) first if you want the
+     * translucent base surface drawn underneath.
      *
      * @param camera 3D camera supplying view + fov for the projection matrix
      */
@@ -442,6 +458,7 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
         uvShader.setVec4(U_LINE_COLOR, uLineColor);
         uvShader.setVec4(V_LINE_COLOR, vLineColor);
         uvShader.setFloat(LINE_HALF_WIDTH, lineHalfWidth);
+        uvShader.setVec4("flippedColor", flippedColor);
         gl.bindVertexArray(isoSurfaceVao);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), isoSurfaceEbo);
         gl.drawElements(gl.TRIANGLES(), isoSurfaceIndexCount, gl.UNSIGNED_INT(), 0);
@@ -450,8 +467,8 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Draw one coloured sphere per singularity over the iso-line surface
-     * with a small depth bias so the spheres aren't z-fought by the surface.
+     * Draw one coloured sphere per singularity over the iso-line surface with a
+     * small depth bias so the spheres aren't z-fought by the surface.
      *
      * @param camera the 3D camera (used only for the inherited view matrix)
      * @param gl     active GL platform handle

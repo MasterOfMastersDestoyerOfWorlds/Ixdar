@@ -13,7 +13,7 @@ import ixdar.geometry.mesh.quadlayout.crossfield.DijkstraNode;
 
 public class CurvatureConstraints {
 
-    public static final float CURVATURE_RADIUS_MULTIPLE = 5.0f;
+    public static final float CURVATURE_RADIUS_MULTIPLE = 10.0f;
 
     /**
      * Geometric ratio between consecutive radii in the radius series.
@@ -32,7 +32,7 @@ public class CurvatureConstraints {
      * trusted as a cross-field constraint. A value near 0 means the surface bends
      * similarly in every direction; a value near 1 means one direction dominates.
      */
-        public static final float MINIMUM_CURVATURE_CONTRAST = 0.8f;
+    public static final float MINIMUM_CURVATURE_CONTRAST = 0.9f;
 
     /**
      * A2. Directional constraints from principal curvature

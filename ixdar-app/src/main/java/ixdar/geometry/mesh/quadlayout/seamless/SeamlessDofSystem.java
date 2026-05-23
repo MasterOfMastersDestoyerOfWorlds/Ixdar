@@ -69,7 +69,7 @@ public final class SeamlessDofSystem {
      * Diagonal regularization added to DOF 0 in soft-seam mode to break the 1D
      * translation nullspace so cold sparse Cholesky succeeds.
      */
-    private static final double NULLSPACE_ANCHOR_WEIGHT = 1.0;
+    static final double NULLSPACE_ANCHOR_WEIGHT = 1.0;
 
     /** Pre-leftover-elimination DOF count. */
     public final int rawDofCount;
@@ -759,7 +759,7 @@ public final class SeamlessDofSystem {
      */
     @SuppressWarnings("unchecked")
     private void buildAssemblyPlan() {
-        double edgeLengthSquared = (double) seamless.targetEdgeLength * seamless.targetEdgeLength;
+        double edgeLengthSquared = (double) seamless.targetQuadEdgeLength * seamless.targetQuadEdgeLength;
 
         HashMap<Long, Double>[] perFaceUpper = new HashMap[seamless.faceCount];
         HashMap<Integer, Double>[] perFaceDiagonal = new HashMap[seamless.faceCount];
@@ -815,9 +815,9 @@ public final class SeamlessDofSystem {
             }
 
             for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
-                double uRhsConstant = area * seamless.targetEdgeLength
+                double uRhsConstant = area * seamless.targetQuadEdgeLength
                         * (shapeGradX[corner] * targetUx + shapeGradY[corner] * targetUy);
-                double vRhsConstant = area * seamless.targetEdgeLength
+                double vRhsConstant = area * seamless.targetQuadEdgeLength
                         * (shapeGradX[corner] * targetVx + shapeGradY[corner] * targetVy);
                 int[] uExpDofs = chartVertexFinalDofs[cornerChartVertex[corner]][0];
                 double[] uExpCoefs = chartVertexFinalCoefs[cornerChartVertex[corner]][0];
@@ -836,12 +836,12 @@ public final class SeamlessDofSystem {
 
         HashMap<Long, Double> staticUpper = new HashMap<>();
         HashMap<Integer, Double> staticDiagonal = new HashMap<>();
-        addSoftSeamContributions(staticDiagonal, staticUpper);
-        if (dofCount > 0) {
-            staticDiagonal.merge(0, NULLSPACE_ANCHOR_WEIGHT, Double::sum);
-        }
-        if (dofCount > 1) {
-            staticDiagonal.merge(1, NULLSPACE_ANCHOR_WEIGHT, Double::sum);
+        for (int cv = 0; cv < cutGraph.chartVertexCount; cv++) {
+            if (cutGraph.chartVertexIsPrimary[cv]) {
+                staticDiagonal.merge(chartVertexFinalDofs[cv][0][0], NULLSPACE_ANCHOR_WEIGHT, Double::sum);
+                staticDiagonal.merge(chartVertexFinalDofs[cv][1][0], NULLSPACE_ANCHOR_WEIGHT, Double::sum);
+                break;
+            }
         }
         uniqueUpperKeys.addAll(staticUpper.keySet());
 
@@ -902,170 +902,6 @@ public final class SeamlessDofSystem {
         planPerFaceUpperStart[seamless.faceCount] = uCursor;
         planPerFaceDiagonalStart[seamless.faceCount] = dCursor;
         planPerFaceRhsStart[seamless.faceCount] = rCursor;
-    }
-
-    /**
-     * Per-face outer-product accumulation into the face's upper/diagonal maps.
-     * Matches the original {@code accumulateOuterProduct} → {@code accumulate} call
-     * shape: full 3×3 iteration with (min, max) keying for upper and immediate
-     * write for diagonal. The (i, j) + (j, i) double-count is intentional —
-     * corrected by the × 0.5 baked into upper coefficients at compaction time.
-     *
-     * @param upperMap    per-face upper accumulator
-     * @param diagonalMap per-face diagonal accumulator
-     * @param dofsA       expansion DOFs for the first chart vertex
-     * @param coefsA      coefficients matching {@code dofsA}
-     * @param dofsB       expansion DOFs for the second chart vertex
-     * @param coefsB      coefficients matching {@code dofsB}
-     * @param scale       outer scaling (area × h² × shape-grad product)
-     */
-    /**
-     * Build the static soft-seam penalty contributions for every interior cut edge.
-     * Each cut edge with rotation {@code r}, endpoints {@code p, q}, and
-     * translation DOFs {@code s_e, t_e} adds four quadratic rows to the energy:
-     * 
-     * <pre>
-     *   W · (chart_B_p.u − cos_r · chart_A_p.u + sin_r · chart_A_p.v − s_e)²
-     *   W · (chart_B_p.v − sin_r · chart_A_p.u − cos_r · chart_A_p.v − t_e)²
-     *   W · (chart_B_q.u − cos_r · chart_A_q.u + sin_r · chart_A_q.v − s_e)²
-     *   W · (chart_B_q.v − sin_r · chart_A_q.u − cos_r · chart_A_q.v − t_e)²
-     * </pre>
-     * 
-     * Each row contributes a rank-1 outer product {@code W · vec ⊗ vec} to the
-     * Hessian, where {@code vec} is the linear-combination coefficient vector
-     * indexed by final-DOF id.
-     *
-     * @param diagonal accumulator for static diagonal contributions
-     * @param upper    accumulator for static upper-triangle contributions
-     */
-    private void addSoftSeamContributions(HashMap<Integer, Double> diagonal,
-            HashMap<Long, Double> upper) {
-        int cornersPerFace = SeamlessParameterization.CORNERS_PER_FACE;
-        for (int ae = 0; ae < seamless.edgeCount; ae++) {
-            if (!cutGraph.isCutEdge[ae]) {
-                continue;
-            }
-            int faceA = seamless.edgeFaceA[ae];
-            int faceB = seamless.edgeFaceB[ae];
-            if (faceA < 0 || faceB < 0) {
-                continue;
-            }
-            int cornerAStart = seamless.edgeCornerInA[ae];
-            int cornerAEnd = (cornerAStart + 1) % cornersPerFace;
-            int cornerBStart = seamless.edgeCornerInB[ae];
-            int cornerBEnd = (cornerBStart + cornersPerFace - 1) % cornersPerFace;
-            int chartAStart = cutGraph.cornerToChartVertex[faceA * cornersPerFace + cornerAStart];
-            int chartAEnd = cutGraph.cornerToChartVertex[faceA * cornersPerFace + cornerAEnd];
-            int chartBStart = cutGraph.cornerToChartVertex[faceB * cornersPerFace + cornerBStart];
-            int chartBEnd = cutGraph.cornerToChartVertex[faceB * cornersPerFace + cornerBEnd];
-            int rotation = cutGraph.cutRotation[ae];
-            int cos = ExactArithmetic.integerCosine(rotation);
-            int sin = ExactArithmetic.integerSine(rotation);
-            int sDof = cutEdgeSDof[ae];
-            int tDof = cutEdgeTDof[ae];
-            // u_eq at start: chart_B_p.u − cos · chart_A_p.u + sin · chart_A_p.v − s_e = 0
-            addSeamPenaltyRow(diagonal, upper, chartBStart, 0, chartAStart, -cos, sin,
-                    sDof, -1.0);
-            // v_eq at start: chart_B_p.v − sin · chart_A_p.u − cos · chart_A_p.v − t_e = 0
-            addSeamPenaltyRow(diagonal, upper, chartBStart, 1, chartAStart, -sin, -cos,
-                    tDof, -1.0);
-            // u_eq at end
-            addSeamPenaltyRow(diagonal, upper, chartBEnd, 0, chartAEnd, -cos, sin,
-                    sDof, -1.0);
-            // v_eq at end
-            addSeamPenaltyRow(diagonal, upper, chartBEnd, 1, chartAEnd, -sin, -cos,
-                    tDof, -1.0);
-        }
-    }
-
-    /**
-     * Add one rank-1 outer product {@code softSeamWeight · vec ⊗ vec} to the
-     * static-diagonal / static-upper accumulators, where {@code vec} has the form
-     * {@code [+1 at chart_B[component], cosACoef at chart_A.u,
-     * sinACoef at chart_A.v, translationCoef at translationDof]}. For
-     * {@code chart_B = R_r · chart_A + (s, t)}, the residual u-equation needs
-     * {@code (-cos, +sin)} for {@code (cosACoef, sinACoef)} and the v-equation
-     * needs {@code (-sin, -cos)} — these are the coefficients that take
-     * {@code chart_A.(u, v)} to {@code -R_r · chart_A} once the {@code chart_B} row
-     * is the identity contribution.
-     *
-     * @param diagonal        accumulator for diagonal terms
-     * @param upper           accumulator for upper-triangle terms
-     * @param chartB          chart vertex on B-side
-     * @param component       0 for u-equation, 1 for v-equation
-     * @param chartA          chart vertex on A-side
-     * @param cosACoef        coefficient on {@code chart_A.u}
-     * @param sinACoef        coefficient on {@code chart_A.v}
-     * @param translationDof  translation DOF (s_e for u-eq, t_e for v-eq)
-     * @param translationCoef coefficient on the translation DOF (usually −1)
-     */
-    private void addSeamPenaltyRow(HashMap<Integer, Double> diagonal,
-            HashMap<Long, Double> upper,
-            int chartB, int component,
-            int chartA, double cosACoef, double sinACoef,
-            int translationRawDof, double translationCoef) {
-        int[] bDofs = chartVertexFinalDofs[chartB][component];
-        double[] bCoefs = chartVertexFinalCoefs[chartB][component];
-        int[] aUDofs = chartVertexFinalDofs[chartA][0];
-        double[] aUCoefs = chartVertexFinalCoefs[chartA][0];
-        int[] aVDofs = chartVertexFinalDofs[chartA][1];
-        double[] aVCoefs = chartVertexFinalCoefs[chartA][1];
-
-        // Translation DOFs are stored as raw DOF indices; convert to final
-        // via the pivot map so the entries we accumulate land in the
-        // dense [0, dofCount) range that planStaticDiagonal /
-        // planUpperKeys index over. The chart-vertex expansions are
-        // already in final-DOF space via chartVertexFinalDofs.
-        if (translationRawDof < 0) {
-            return;
-        }
-        int translationFinalDof = rawDofToFinal[translationRawDof];
-        if (translationFinalDof < 0) {
-            // Translation pivot-eliminated by some leftover constraint —
-            // shouldn't happen in soft-seam mode but skip defensively.
-            return;
-        }
-
-        int totalEntries = bDofs.length + aUDofs.length + aVDofs.length + 1;
-        int[] vecDofs = new int[totalEntries];
-        double[] vecCoefs = new double[totalEntries];
-        int idx = 0;
-        for (int i = 0; i < bDofs.length; i++) {
-            vecDofs[idx] = bDofs[i];
-            vecCoefs[idx] = bCoefs[i];
-            idx++;
-        }
-        for (int i = 0; i < aUDofs.length; i++) {
-            vecDofs[idx] = aUDofs[i];
-            vecCoefs[idx] = cosACoef * aUCoefs[i];
-            idx++;
-        }
-        for (int i = 0; i < aVDofs.length; i++) {
-            vecDofs[idx] = aVDofs[i];
-            vecCoefs[idx] = sinACoef * aVCoefs[i];
-            idx++;
-        }
-        vecDofs[idx] = translationFinalDof;
-        vecCoefs[idx] = translationCoef;
-
-        for (int i = 0; i < totalEntries; i++) {
-            for (int j = i; j < totalEntries; j++) {
-                double value = seamless.softSeamWeight * vecCoefs[i] * vecCoefs[j];
-                if (value == 0.0) {
-                    continue;
-                }
-                int rowI = vecDofs[i];
-                int colJ = vecDofs[j];
-                if (rowI == colJ) {
-                    diagonal.merge(rowI, value, Double::sum);
-                } else {
-                    int row = Math.min(rowI, colJ);
-                    int col = Math.max(rowI, colJ);
-                    long key = ((long) row << KEY_ROW_SHIFT) | (col & KEY_COL_MASK);
-                    upper.merge(key, value, Double::sum);
-                }
-            }
-        }
     }
 
     private static void accumulatePerFaceOuterProduct(

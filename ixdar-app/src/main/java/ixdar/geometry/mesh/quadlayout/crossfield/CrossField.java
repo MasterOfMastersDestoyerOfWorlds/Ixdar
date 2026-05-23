@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.quadlayout.crossfield;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,6 +50,11 @@ public class CrossField {
     public static final int CURVATURE_INTERVAL_FAIL_EMPTY = 1;
     public static final int CURVATURE_INTERVAL_FAIL_TAU = 2;
     public static final int CURVATURE_INTERVAL_FAIL_MEAN = 3;
+
+    /** Max geodesic (primal-edge-count) radius for pair-annihilation candidates. */
+    public static final int PAIR_ANNIHILATION_MAX_HOPS = 4;
+    /** Energy must drop by at least this (relative) amount to accept an annihilation. TODO this is a magic fing number pulled out of ass*/
+    public static final double PAIR_ANNIHILATION_MIN_REL_GAIN = 0.3;
 
     public final float halfPi = (float) (Math.PI / 2.0);
 
@@ -114,17 +120,6 @@ public class CrossField {
     public int solverCgMaxIterations = 50;
 
     /**
-     * Target quad edge length, expressed as a fraction of the bounding-box
-     * diagonal.
-     */
-    public float targetEdgeLengthFractionOfBounds = 0.01f;
-
-    /**
-     * Target quad edge length.
-     */
-    public float targetQuadEdgeLength;
-
-    /**
      * Map from face id to active index.
      */
     public Map<Integer, Integer> faceIdToActive;
@@ -178,7 +173,6 @@ public class CrossField {
         this.faceY = new Vector3f[faceCount];
 
         this.alignmentEdgeIds = new HashSet<>();
-        this.targetQuadEdgeLength = targetEdgeLengthFractionOfBounds * mesh.computeBoundingBoxDiagonal();
 
         this.interiorRowCount = 0;
         for (int i = 0; i < edgeCount; i++) {
@@ -478,9 +472,238 @@ public class CrossField {
                 }
                 remaining = deferred;
             }
-
             extractSingularities();
         }
+        int annihilated = annihilateSingularityPairs(matrix, mainHandle, start,
+            tlRhsScratch.get(), tlThetaScratch.get(),
+            mainRhs, mainTheta, currentEnergy, deadlineMs);
+        System.out.printf("[local search] annihilated %d singularity pairs%n", annihilated);
+    }
+
+
+    /**
+     * Singularity pair annihilation (BZK09 §4.2, path-based extension).
+     *
+     * <p>The single-edge local search can only shift a singularity one hop and
+     * rejects any move that raises energy. Cancelling a nearby ± pair requires
+     * dragging one singularity along a whole path of edges to meet the other;
+     * each intermediate hop raises energy, so single-edge search never crosses
+     * the barrier. This pass tries the entire path flip atomically and accepts
+     * only if the post-cancellation energy is strictly lower.
+     *
+     * <p>Must run after {@link #extractSingularities()} has populated
+     * {@link #singularities}, and after the matrix/solver scaffolding used by
+     * {@link #localSearchSingularityOptimization()} is in place. It reuses the
+     * same {@code matrix}, {@code start}, {@code faceConstrained}, and a Cholesky
+     * handle; pass them in from the caller so the factorization is shared.
+     *
+     * @return number of pairs annihilated
+     */
+    private int annihilateSingularityPairs(
+            NormalMatrix matrix,
+            DirectSolver.CholeskyHandle handle,
+            double[] start,
+            double[] rhsScratch,
+            double[] thetaScratch,
+            double[] mainRhs,
+            double[] mainTheta,
+            double currentEnergy,
+            long deadlineMs) {
+
+        int annihilated = 0;
+        boolean improved = true;
+        while (improved) {
+            improved = false;
+
+            // Snapshot singularities by vertex; find opposite-sign near pairs.
+            List<Singularity> sings = new ArrayList<>(singularities);
+            outer:
+            for (int i = 0; i < sings.size(); i++) {
+                Singularity sa = sings.get(i);
+                for (int j = i + 1; j < sings.size(); j++) {
+                    Singularity sb = sings.get(j);
+                    // Only cancel exact opposite quarter-indices (+1/-1, +2/-2).
+                    if (sa.index4() + sb.index4() != 0) {
+                        continue;
+                    }
+                    // Edge path between the two singular vertices, hop-bounded.
+                    int[] edgePath = shortestEdgePath(sa.vertexId(), sb.vertexId(),
+                            PAIR_ANNIHILATION_MAX_HOPS);
+                    if (edgePath == null) {
+                        continue;
+                    }
+                    // Build the signed period-jump deltas that transport sa's
+                    // index toward sb along the path. The transport amount is
+                    // sa.index4() quarter-turns; each edge gets ±that, signed by
+                    // whether the path traverses the edge along its canonical
+                    // half-edge (matching extractSingularities' sign rule).
+                    int transport = sa.index4();
+                    int[] deltas = new int[edgePath.length];
+                    int cursor = sa.vertexId();
+                    for (int k = 0; k < edgePath.length; k++) {
+                        int eAi = edgePath[k];
+                        int eId = mesh.edgeIdAt(eAi);
+                        int he = mesh.edgeHalfEdge(eId);
+                        int hv = mesh.halfEdgeVertex(he);
+                        int hev = mesh.halfEdgeEndVertex(he);
+                        // Determine which endpoint of this edge the walk is leaving (cursor).
+                        final int nextVertex;
+                        final int sign;
+                        if (cursor == hv) {
+                            // Walking along the canonical half-edge direction.
+                            sign = -1;
+                            nextVertex = hev;
+                        } else if (cursor == hev) {
+                            // Walking against the canonical half-edge direction.
+                            sign = 1;
+                            nextVertex = hv;
+                        } else {
+                            throw new IllegalStateException("path edge not incident to cursor: malformed path");
+                        }
+                        deltas[k] = sign * transport;
+                        cursor = nextVertex;
+                    }
+
+                    // Trial solve with all path edges perturbed atomically.
+                    buildRhsMulti(rhsScratch, edgePath, deltas);
+                    DirectSolver.solveCompact(handle, matrix, rhsScratch, thetaScratch,
+                            start, faceConstrained);
+                    double trialEnergy = energyOfThetaMulti(thetaScratch, edgePath, deltas);
+                    if (trialEnergy < currentEnergy * (1.0 + PAIR_ANNIHILATION_MIN_REL_GAIN)) {
+                        // Commit the path flip.
+                        for (int k = 0; k < edgePath.length; k++) {
+                            periodJump[edgePath[k]] += deltas[k];
+                        }
+                        // Refresh main theta + energy, re-extract singularities.
+                        buildRhs(mainRhs, -1, 0);
+                        DirectSolver.solveCompact(handle, matrix, mainRhs, mainTheta,
+                                start, faceConstrained);
+                        for (int fAi = 0; fAi < faceCount; fAi++) {
+                            theta[fAi] = (float) mainTheta[fAi];
+                        }
+                        currentEnergy = energyOfTheta(mainTheta, -1, 0);
+                        extractSingularities();
+                        annihilated++;
+                        improved = true;
+                        break outer; // singularity set changed; rescan from scratch
+                    }
+                }
+            }
+        }
+        return annihilated;
+    }
+
+
+    /**
+     * Shortest primal edge path (as active edge ids) between two vertices,
+     * bounded to {@code maxHops} edges. BFS over primal vertices crossing only
+     * interior edges. Returns the ordered edge list, or null if the target is
+     * unreachable within the hop bound.
+     */
+    private int[] shortestEdgePath(int srcVertexId, int dstVertexId, int maxHops) {
+        // BFS: parentEdge[v] = active edge id used to reach v; parentVertex[v]
+        // = predecessor vertex id. Keyed by vertex id.
+        Map<Integer, Integer> parentEdge = new HashMap<>();
+        Map<Integer, Integer> parentVertex = new HashMap<>();
+        Map<Integer, Integer> depth = new HashMap<>();
+        ArrayDeque<Integer> queue = new ArrayDeque<>();
+        queue.add(srcVertexId);
+        depth.put(srcVertexId, 0);
+        while (!queue.isEmpty()) {
+            int v = queue.poll();
+            int d = depth.get(v);
+            if (v == dstVertexId) {
+                break;
+            }
+            if (d >= maxHops) {
+                continue;
+            }
+            int outCount = mesh.vertexOutgoingHalfEdgeCount(v);
+            for (int i = 0; i < outCount; i++) {
+                int he = mesh.vertexOutgoingHalfEdgeAt(v, i);
+                int eId = mesh.halfEdgeEdge(he);
+                if (mesh.isBoundaryEdge(eId)) {
+                    continue;
+                }
+                int nbr = mesh.halfEdgeEndVertex(he);
+                if (depth.containsKey(nbr)) {
+                    continue;
+                }
+                depth.put(nbr, d + 1);
+                parentEdge.put(nbr, edgeIdToActive.get(eId));
+                parentVertex.put(nbr, v);
+                queue.add(nbr);
+            }
+        }
+        if (!parentVertex.containsKey(dstVertexId)) {
+            return null;
+        }
+        // Reconstruct, then reverse to src -> dst order.
+        List<Integer> rev = new ArrayList<>();
+        int cur = dstVertexId;
+        while (cur != srcVertexId) {
+            rev.add(parentEdge.get(cur));
+            cur = parentVertex.get(cur);
+        }
+        int[] path = new int[rev.size()];
+        for (int k = 0; k < rev.size(); k++) {
+            path[k] = rev.get(rev.size() - 1 - k);
+        }
+        return path;
+    }
+
+    /**
+     * TODO combine this with the single edge variant to avoid code duplication
+     * {@link #buildRhs} variant perturbing several edges at once:
+     * {@code periodJump[edgePath[k]]} is treated as
+     * {@code periodJump[edgePath[k]] + deltas[k]}.
+     */
+    private void buildRhsMulti(double[] rhs, int[] edgePath, int[] deltas) {
+        Arrays.fill(rhs, 0.0);
+        for (int activeEdgeIndex = 0; activeEdgeIndex < edgeCount; activeEdgeIndex++) {
+            int row = rowOfEdge[activeEdgeIndex];
+            if (row < 0) {
+                continue;
+            }
+            int faceA = rowFaceA[row];
+            int faceB = rowFaceB[row];
+            int p = periodJump[activeEdgeIndex];
+            for (int k = 0; k < edgePath.length; k++) {
+                if (edgePath[k] == activeEdgeIndex) {
+                    p += deltas[k];
+                    break;
+                }
+            }
+            double kk = kappa[activeEdgeIndex] + halfPi * p;
+            rhs[faceA] -= kk;
+            rhs[faceB] += kk;
+        }
+    }
+
+    /**
+     * 
+     * TODO combine this with the single edge variant to avoid code duplication
+     * {@link #energyOfTheta} variant evaluating energy as if each
+     * {@code edgePath[k]} period jump were offset by {@code deltas[k]}.
+     */
+    private double energyOfThetaMulti(double[] thetaFull, int[] edgePath, int[] deltas) {
+        double e = 0.0;
+        for (int eAi = 0; eAi < edgeCount; eAi++) {
+            int r = rowOfEdge[eAi];
+            if (r < 0) {
+                continue;
+            }
+            int p = periodJump[eAi];
+            for (int k = 0; k < edgePath.length; k++) {
+                if (edgePath[k] == eAi) {
+                    p += deltas[k];
+                    break;
+                }
+            }
+            double resid = thetaFull[rowFaceA[r]] + kappa[eAi] + halfPi * p - thetaFull[rowFaceB[r]];
+            e += resid * resid;
+        }
+        return e;
     }
 
     /**

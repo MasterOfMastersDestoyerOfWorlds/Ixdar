@@ -178,7 +178,7 @@
         "-Xmx4g",
         "-Dsun.awt.noerasebackground=true",
         "-Dorg.lwjgl.util.DebugLoader=true",
-        "-DcrossFieldScene.off=test/resources/quadlayout/figure_8/fandisk_in_tri.off"
+        "-DcrossFieldScene.off=test/resources/quadlayout/figure_8/rockerarm_in_tri.off"
       ],
       "cwd": "${workspaceFolder}/ixdar-app"
     },
@@ -196,7 +196,7 @@
         "-Xmx4g",
         "-Dsun.awt.noerasebackground=true",
         "-Dorg.lwjgl.util.DebugLoader=true",
-        "-Dparametrization.scene.off=test/resources/quadlayout/figure_8/elk_in_tri.off",
+        "-Dparametrization.scene.off=test/resources/quadlayout/figure_8/rockerarm_in_tri.off",
       ],
       "cwd": "${workspaceFolder}/ixdar-app"
     }
