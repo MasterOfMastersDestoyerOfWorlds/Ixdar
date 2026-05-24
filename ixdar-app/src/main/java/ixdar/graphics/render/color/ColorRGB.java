@@ -5,11 +5,6 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 public class ColorRGB implements Color {
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1 = 1f;
-    public static final int NUM_255 = 255;
-    public static final float NUM_255_2 = 255f;
-
     /** This value specifies the red component. */
     float red;
 
@@ -26,7 +21,7 @@ public class ColorRGB implements Color {
 
     /** The default color is black. */
     public ColorRGB() {
-        this(NUM_0, NUM_0, NUM_0);
+        this(0f, 0f, 0f);
     }
 
     /**
@@ -37,7 +32,7 @@ public class ColorRGB implements Color {
      * @param blue  The blue component. Range from 0f to 1f.
      */
     public ColorRGB(float red, float green, float blue) {
-        this(red, green, blue, NUM_1);
+        this(red, green, blue, 1f);
     }
 
     /**
@@ -49,7 +44,7 @@ public class ColorRGB implements Color {
      * @param name  Display name returned by {@link #getName()}.
      */
     public ColorRGB(float red, float green, float blue, String name) {
-        this(red, green, blue, NUM_1);
+        this(red, green, blue, 1f);
         this.name = name;
     }
 
@@ -93,7 +88,7 @@ public class ColorRGB implements Color {
      * @param blue  The blue component. Range from 0 to 255.
      */
     public ColorRGB(int red, int green, int blue) {
-        this(red, green, blue, NUM_255);
+        this(red, green, blue, 255);
     }
 
     /**
@@ -105,7 +100,7 @@ public class ColorRGB implements Color {
      * @param name  Display name returned by {@link #getName()}.
      */
     public ColorRGB(int red, int green, int blue, String name) {
-        this(red, green, blue, NUM_255);
+        this(red, green, blue, 255);
         this.name = name;
     }
 
@@ -183,11 +178,11 @@ public class ColorRGB implements Color {
      * @param red The red component. Range from 0f to 1f.
      */
     public void setRed(float red) {
-        if (red < NUM_0) {
-            red = NUM_0;
+        if (red < 0f) {
+            red = 0f;
         }
-        if (red > NUM_1) {
-            red = NUM_1;
+        if (red > 1f) {
+            red = 1f;
         }
         this.red = red;
     }
@@ -198,7 +193,7 @@ public class ColorRGB implements Color {
      * @param red The red component. Range from 0 to 255.
      */
     public void setRed(int red) {
-        setRed(red / NUM_255_2);
+        setRed(red / 255f);
     }
 
     /**
@@ -216,11 +211,11 @@ public class ColorRGB implements Color {
      * @param green The green component. Range from 0f to 1f.
      */
     public void setGreen(float green) {
-        if (green < NUM_0) {
-            green = NUM_0;
+        if (green < 0f) {
+            green = 0f;
         }
-        if (green > NUM_1) {
-            green = NUM_1;
+        if (green > 1f) {
+            green = 1f;
         }
         this.green = green;
     }
@@ -231,7 +226,7 @@ public class ColorRGB implements Color {
      * @param green The green component. Range from 0 to 255.
      */
     public void setGreen(int green) {
-        setGreen(green / NUM_255_2);
+        setGreen(green / 255f);
     }
 
     /**
@@ -249,11 +244,11 @@ public class ColorRGB implements Color {
      * @param blue The blue component. Range from 0f to 1f.
      */
     public void setBlue(float blue) {
-        if (blue < NUM_0) {
-            blue = NUM_0;
+        if (blue < 0f) {
+            blue = 0f;
         }
-        if (blue > NUM_1) {
-            blue = NUM_1;
+        if (blue > 1f) {
+            blue = 1f;
         }
         this.blue = blue;
     }
@@ -264,7 +259,7 @@ public class ColorRGB implements Color {
      * @param blue The blue component. Range from 0 to 255.
      */
     public void setBlue(int blue) {
-        setBlue(blue / NUM_255_2);
+        setBlue(blue / 255f);
     }
 
     /**
@@ -281,14 +276,15 @@ public class ColorRGB implements Color {
      *
      * @param alpha The transparency. Range from 0f to 1f.
      */
-    public void setAlpha(float alpha) {
-        if (alpha < NUM_0) {
-            alpha = NUM_0;
+    public Color setAlpha(float alpha) {
+        if (alpha < 0f) {
+            alpha = 0f;
         }
-        if (alpha > NUM_1) {
-            alpha = NUM_1;
+        if (alpha > 1f) {
+            alpha = 1f;
         }
         this.alpha = alpha;
+        return this;
     }
 
     /**
@@ -297,7 +293,7 @@ public class ColorRGB implements Color {
      * @param alpha The transparency. Range from 0 to 255.
      */
     public void setAlpha(int alpha) {
-        setAlpha(alpha / NUM_255_2);
+        setAlpha(alpha / 255f);
     }
 
     /**
@@ -321,8 +317,8 @@ public class ColorRGB implements Color {
     }
 
     /**
-     * String form of this color: the assigned {@code name} if non-empty,
-     * otherwise the four channel values.
+     * String form of this color: the assigned {@code name} if non-empty, otherwise
+     * the four channel values.
      *
      * @return display name or "R: ... G: ... B: ... A: ..."
      */
@@ -336,8 +332,8 @@ public class ColorRGB implements Color {
     }
 
     /**
-     * Display name supplied at construction (may be {@code null} for the
-     * unnamed constructors).
+     * Display name supplied at construction (may be {@code null} for the unnamed
+     * constructors).
      *
      * @return the configured color name.
      */

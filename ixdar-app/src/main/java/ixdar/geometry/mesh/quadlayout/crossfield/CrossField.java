@@ -53,7 +53,10 @@ public class CrossField {
 
     /** Max geodesic (primal-edge-count) radius for pair-annihilation candidates. */
     public static final int PAIR_ANNIHILATION_MAX_HOPS = 4;
-    /** Energy must drop by at least this (relative) amount to accept an annihilation. TODO this is a magic fing number pulled out of ass*/
+    /**
+     * Energy must drop by at least this (relative) amount to accept an
+     * annihilation. TODO this is a magic fing number pulled out of ass
+     */
     public static final double PAIR_ANNIHILATION_MIN_REL_GAIN = 0.3;
 
     public final float halfPi = (float) (Math.PI / 2.0);
@@ -149,6 +152,13 @@ public class CrossField {
     private int interiorRowCount;
 
     /**
+     * The curvature constraints that are applied to the cross field. builds a multi
+     * radius geodesic disk and integrates the curvature tensor over the disk to get
+     * the principal curvatures.
+     */
+    public CurvatureConstraints curvatureConstraints;
+
+    /**
      * 
      * Cross field construction.
      * 
@@ -164,7 +174,6 @@ public class CrossField {
         this.faceConstrained = new boolean[faceCount];
         this.faceConstraintAngle = new float[faceCount];
         Arrays.fill(faceConstraintAngle, Float.NaN);
-
 
         this.theta = new float[faceCount];
         this.periodJump = new int[edgeCount];
@@ -185,6 +194,8 @@ public class CrossField {
         this.rowKappaPlusHalfPiP = new double[interiorRowCount];
         this.rowOfEdge = new int[edgeCount];
         Arrays.fill(rowOfEdge, -1);
+
+        this.curvatureConstraints = new CurvatureConstraints(mesh, this);
     }
 
     /**
@@ -282,7 +293,7 @@ public class CrossField {
 
         FeatureEdgeConstraints.applyFeatureEdgeConstraints(mesh, this);
         BoundaryConstraints.applyBoundaryConstraints(mesh, this);
-        CurvatureConstraints.applyCurvatureConstraints(mesh, this);
+        curvatureConstraints.applyCurvatureConstraints();
 
         int totalConstraints = 0;
         for (boolean constrained : faceConstrained) {
@@ -475,26 +486,27 @@ public class CrossField {
             extractSingularities();
         }
         int annihilated = annihilateSingularityPairs(matrix, mainHandle, start,
-            tlRhsScratch.get(), tlThetaScratch.get(),
-            mainRhs, mainTheta, currentEnergy, deadlineMs);
+                tlRhsScratch.get(), tlThetaScratch.get(),
+                mainRhs, mainTheta, currentEnergy, deadlineMs);
         System.out.printf("[local search] annihilated %d singularity pairs%n", annihilated);
     }
-
 
     /**
      * Singularity pair annihilation (BZK09 §4.2, path-based extension).
      *
-     * <p>The single-edge local search can only shift a singularity one hop and
-     * rejects any move that raises energy. Cancelling a nearby ± pair requires
-     * dragging one singularity along a whole path of edges to meet the other;
-     * each intermediate hop raises energy, so single-edge search never crosses
-     * the barrier. This pass tries the entire path flip atomically and accepts
-     * only if the post-cancellation energy is strictly lower.
+     * <p>
+     * The single-edge local search can only shift a singularity one hop and rejects
+     * any move that raises energy. Cancelling a nearby ± pair requires dragging one
+     * singularity along a whole path of edges to meet the other; each intermediate
+     * hop raises energy, so single-edge search never crosses the barrier. This pass
+     * tries the entire path flip atomically and accepts only if the
+     * post-cancellation energy is strictly lower.
      *
-     * <p>Must run after {@link #extractSingularities()} has populated
+     * <p>
+     * Must run after {@link #extractSingularities()} has populated
      * {@link #singularities}, and after the matrix/solver scaffolding used by
-     * {@link #localSearchSingularityOptimization()} is in place. It reuses the
-     * same {@code matrix}, {@code start}, {@code faceConstrained}, and a Cholesky
+     * {@link #localSearchSingularityOptimization()} is in place. It reuses the same
+     * {@code matrix}, {@code start}, {@code faceConstrained}, and a Cholesky
      * handle; pass them in from the caller so the factorization is shared.
      *
      * @return number of pairs annihilated
@@ -517,8 +529,7 @@ public class CrossField {
 
             // Snapshot singularities by vertex; find opposite-sign near pairs.
             List<Singularity> sings = new ArrayList<>(singularities);
-            outer:
-            for (int i = 0; i < sings.size(); i++) {
+            outer: for (int i = 0; i < sings.size(); i++) {
                 Singularity sa = sings.get(i);
                 for (int j = i + 1; j < sings.size(); j++) {
                     Singularity sb = sings.get(j);
@@ -593,12 +604,11 @@ public class CrossField {
         return annihilated;
     }
 
-
     /**
-     * Shortest primal edge path (as active edge ids) between two vertices,
-     * bounded to {@code maxHops} edges. BFS over primal vertices crossing only
-     * interior edges. Returns the ordered edge list, or null if the target is
-     * unreachable within the hop bound.
+     * Shortest primal edge path (as active edge ids) between two vertices, bounded
+     * to {@code maxHops} edges. BFS over primal vertices crossing only interior
+     * edges. Returns the ordered edge list, or null if the target is unreachable
+     * within the hop bound.
      */
     private int[] shortestEdgePath(int srcVertexId, int dstVertexId, int maxHops) {
         // BFS: parentEdge[v] = active edge id used to reach v; parentVertex[v]

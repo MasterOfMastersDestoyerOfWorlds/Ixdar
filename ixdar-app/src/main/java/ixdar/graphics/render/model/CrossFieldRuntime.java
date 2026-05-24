@@ -38,22 +38,21 @@ public class CrossFieldRuntime extends HalfEdgeMeshRuntime {
     public static final int FLOATS_PER_VERTEX = 3;
     public static final int FLOATS_PER_FACE = VERTS_PER_FACE * FLOATS_PER_VERTEX;
     public static final int ICOSAHEDRON_VERTEX_COUNT = 12;
-    public static final float ONE_HALF = 0.5f;
     public static final float ONE_THIRD = 1.0f / 3.0f;
     public static final float SPHERE_TINT_OFFSET = 0.2f;
     public static final float SPHERE_TINT_PRIMARY = 0.95f;
     public static final float SPHERE_TINT_SECONDARY_LOW = 0.85f;
     public static final float SPHERE_FAR_FALLBACK = 1000f;
     public static final float ASPECT_FALLBACK = 1f;
-    /** Golden ratio φ = (1 + √5) / 2 — pre-computed to keep `√5` out of the body. */
-    public static final float PHI = (1f + 2.2360679774997896964091736687747f) * ONE_HALF;
+    /** Golden ratio φ = (1 + √5) / 2 */
+    public static final float PHI = (1f + ((float) Math.sqrt(5))) / 2f;
     public static final int IDX_VBASE_PLUS_1 = 1;
     public static final int IDX_VBASE_PLUS_2 = 2;
     public static final int IDX_VBASE_PLUS_3 = 3;
 
-    /** Cyan for {@code index4 > 0} (valence-3, +π/2) per BZK09 fig. 4 caption. */
+    /** Cyan for {@code index4 > 0} (valence-3, +π/2)*/
     private static final Vector4f COLOR_POSITIVE_INDEX = ColorRGB.CYAN.toVector4f();
-    /** Red for {@code index4 < 0} (valence-5, -π/2) per BZK09 fig. 4 caption. */
+    /** Red for {@code index4 < 0} (valence-5, -π/2) */
     private static final Vector4f COLOR_NEGATIVE_INDEX = ColorRGB.RED.toVector4f();
     /** Yellow for the u-axis arm (cos θ · f_x + sin θ · f_y). */
     private static final Vector4f COLOR_U_ARM = ColorRGB.YELLOW.toVector4f();

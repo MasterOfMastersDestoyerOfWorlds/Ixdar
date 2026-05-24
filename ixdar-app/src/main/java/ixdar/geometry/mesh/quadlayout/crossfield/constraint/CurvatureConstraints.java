@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.crossfield.constraint;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.PriorityQueue;
 
@@ -35,12 +36,43 @@ public class CurvatureConstraints {
     public static final float MINIMUM_CURVATURE_CONTRAST = 0.9f;
 
     /**
+     * Reusable scratch for curvature-disk searches. Each search increments
+     * {@code curvatureStamp}; arrays holding that stamp are treated as part of the
+     * current disk without clearing all mesh-sized arrays between searches.
+     */
+    int[] vertexInDiskStamp;
+    int[] faceInDiskStamp;
+    int[] edgeProcessedStamp;
+    float[] vertexDistance;
+    int[] visitedVertexIds;
+
+    /**
+     * The mesh that the curvature constraints are applied to.
+     */
+    HalfEdgeMesh mesh;
+
+    /**
+     * The cross field that the curvature constraints are applied to.
+     */
+    CrossField crossField;
+
+    public CurvatureConstraints(HalfEdgeMesh mesh, CrossField crossField) {
+        this.vertexInDiskStamp = new int[crossField.vertexCount];
+        this.faceInDiskStamp = new int[crossField.faceCount];
+        this.edgeProcessedStamp = new int[crossField.edgeCount];
+        this.vertexDistance = new float[crossField.vertexCount];
+        this.visitedVertexIds = new int[crossField.vertexCount];
+        this.mesh = mesh;
+        this.crossField = crossField;
+    }
+
+    /**
      * A2. Directional constraints from principal curvature
      *
      * @return number of newly constrained faces
      */
 
-    public static int applyCurvatureConstraints(HalfEdgeMesh mesh, CrossField crossField) {
+    public int applyCurvatureConstraints() {
         float averageEdgeLength = mesh.computeAverageEdgeLength();
         float curvatureK = CURVATURE_SCALE_K / Math.max(mesh.computeBoundingSphereRadius(), CrossField.EPSILON);
         Vector3f vPos = new Vector3f();
@@ -73,7 +105,7 @@ public class CurvatureConstraints {
             List<Float> validRadii = new ArrayList<>();
 
             for (float r : radii) {
-                float[] T = integrateCurvatureTensor(vertexId, vPos, vNormal, e1, e2, r, mesh, crossField);
+                float[] T = integrateCurvatureTensor(vertexId, vPos, vNormal, e1, e2, r);
                 if (T == null)
                     continue;
 
@@ -160,8 +192,7 @@ public class CurvatureConstraints {
                 float jitter = 0f;
                 if (count == 0) {
                     jitter = Float.POSITIVE_INFINITY;
-                }
-                else {
+                } else {
                     jitter = (float) Math.sqrt(sumSq / count);
                 }
                 if (jitter < bestJitter) {
@@ -226,20 +257,13 @@ public class CurvatureConstraints {
      * @return three-element {@code [T00, T01, T11]} tensor entries, or {@code null}
      *         when the disk has no usable triangles
      */
-    public static float[] integrateCurvatureTensor(int centerVertexId, Vector3f centerPosition,
-            Vector3f centerNormal, Vector3f tangentE1, Vector3f tangentE2, float geodesicRadius,
-            HalfEdgeMesh mesh, CrossField crossField) {
-
-        /**
-         * Reusable scratch for curvature-disk searches. Each search increments
-         * {@code curvatureStamp}; arrays holding that stamp are treated as part of the
-         * current disk without clearing all mesh-sized arrays between searches.
-         */
-        int[] vertexInDiskStamp = new int[crossField.vertexCount];
-        int[] faceInDiskStamp = new int[crossField.faceCount];
-        int[] edgeProcessedStamp = new int[crossField.edgeCount];
-        float[] vertexDistance = new float[crossField.vertexCount];
-        int[] visitedVertexIds = new int[crossField.vertexCount];
+    public float[] integrateCurvatureTensor(int centerVertexId, Vector3f centerPosition,
+            Vector3f centerNormal, Vector3f tangentE1, Vector3f tangentE2, float geodesicRadius) {
+        Arrays.fill(vertexInDiskStamp, 0);
+        Arrays.fill(faceInDiskStamp, 0);
+        Arrays.fill(edgeProcessedStamp, 0);
+        Arrays.fill(vertexDistance, 0f);
+        Arrays.fill(visitedVertexIds, 0);
         int curvatureStamp = 0;
         final int stamp = ++curvatureStamp;
 

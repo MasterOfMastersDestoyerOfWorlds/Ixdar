@@ -103,12 +103,6 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
      * Sphere tint secondary channel — slightly under primary for hue separation.
      */
     public static final float SPHERE_TINT_SECONDARY_LOW = 0.85f;
-    /** Default base tint used for the surface fill behind the iso-lines. */
-    public static final Vector4f DEFAULT_BASE_COLOR = new Vector4f(0.55f, 0.55f, 0.60f, 1f);
-    /** Cyan-leaning tint for the constant-u iso-line family. */
-    public static final Vector4f DEFAULT_U_LINE_COLOR = new Vector4f(0.35f, 0.85f, 0.95f, 1f);
-    /** Yellow-leaning tint for the constant-v iso-line family. */
-    public static final Vector4f DEFAULT_V_LINE_COLOR = new Vector4f(0.95f, 0.85f, 0.30f, 1f);
     /** Uniform name for the surface fill colour. */
     public static final String BASE_COLOR = "baseColor";
     /** Uniform name for the constant-u iso-line colour. */
@@ -118,14 +112,12 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
     /** Uniform name for the iso-line half-width. */
     public static final String LINE_HALF_WIDTH = "lineHalfWidth";
     /** Golden ratio φ = (1 + √5) / 2 for the icosahedron vertex coordinates. */
-    public static final float PHI = (1f + 2.2360679774997896964091736687747f) * 0.5f;
+    public static final float PHI = (1f + ((float) Math.sqrt(5))) / 2f;
 
     /** Cyan for {@code index4 > 0} (valence-3, +π/2) per BZK09 fig. 4 caption. */
-    private static final Vector4f COLOR_POSITIVE_INDEX = new Vector4f(
-            SPHERE_TINT_OFFSET, SPHERE_TINT_SECONDARY_LOW, SPHERE_TINT_PRIMARY, 0.5f);
+    private static final Vector4f COLOR_POSITIVE_INDEX = new ColorRGB(ColorRGB.CYAN).setAlpha(0.5f).toVector4f();
     /** Red for {@code index4 < 0} (valence-5, -π/2) per BZK09 fig. 4 caption. */
-    private static final Vector4f COLOR_NEGATIVE_INDEX = new Vector4f(
-            SPHERE_TINT_PRIMARY, SPHERE_TINT_OFFSET, SPHERE_TINT_OFFSET, 0.5f);
+    private static final Vector4f COLOR_NEGATIVE_INDEX = new ColorRGB(ColorRGB.RED).setAlpha(0.5f).toVector4f();
 
     /** 12 unit-icosahedron vertices in xyz layout (flat). */
     private static final float[] ICO_VERTICES = {
@@ -148,11 +140,11 @@ public class ParametrizationRuntime extends HalfEdgeMeshRuntime {
     /** Iso-line half-width passed as the {@link #LINE_HALF_WIDTH} uniform. */
     public float lineHalfWidth = DEFAULT_LINE_HALF_WIDTH;
     /** Surface fill behind the iso-lines. */
-    public Vector4f baseColor = new Vector4f(DEFAULT_BASE_COLOR);
+    public Vector4f baseColor = ColorRGB.BLUE_WHITE.toVector4f();
     /** Constant-u iso-line tint. */
-    public Vector4f uLineColor = new Vector4f(DEFAULT_U_LINE_COLOR);
+    public Vector4f uLineColor = ColorRGB.CYAN.toVector4f();
     /** Constant-v iso-line tint. */
-    public Vector4f vLineColor = new Vector4f(DEFAULT_V_LINE_COLOR);
+    public Vector4f vLineColor = ColorRGB.YELLOW.toVector4f();;
     /** Flipped triangle tint. */
     public Vector4f flippedColor = ColorRGB.MAGENTA.toVector4f();
 
