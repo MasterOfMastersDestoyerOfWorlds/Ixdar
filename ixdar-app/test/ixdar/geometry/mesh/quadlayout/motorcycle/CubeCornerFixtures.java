@@ -78,9 +78,12 @@ public final class CubeCornerFixtures {
     }
 
     private static void assignHandCraftedUv(SeamlessParameterization seamless) {
-        assignFaceUv(seamless, 0, 0f, 0f, 2f, 0f, 1f, 2f);
-        assignFaceUv(seamless, 1, 0f, 0f, 1f, 2f, 0f, 2f);
-        assignFaceUv(seamless, 2, 0f, 0f, 0f, 2f, -2f, 1f);
+        // valence-3 singularity (index4=+1) has chart cone 3π/2 (270°), three
+        // 90° wedges from 0° → 90° → 180° → 270° around the centre vertex.
+        // The three outgoing axis-aligned directions are +U, +V, -U.
+        assignFaceUv(seamless, 0, 0f, 0f, 1f, 0f, 0f, 1f);
+        assignFaceUv(seamless, 1, 0f, 0f, 0f, 1f, -1f, 0f);
+        assignFaceUv(seamless, 2, 0f, 0f, -1f, 0f, 0f, -1f);
     }
 
     private static void assignFaceUv(SeamlessParameterization seamless, int activeFace,

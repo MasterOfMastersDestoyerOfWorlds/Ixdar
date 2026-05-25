@@ -64,18 +64,24 @@ public class MotorcycleGraphTest {
         int intersection = 0;
         int boundary = 0;
         int feature = 0;
+        int truncated = 0;
         for (TMeshNode node : graph.nodes) {
             switch (node.type) {
             case TMeshNode.TYPE_SINGULARITY -> singularity++;
             case TMeshNode.TYPE_INTERSECTION -> intersection++;
             case TMeshNode.TYPE_BOUNDARY -> boundary++;
             case TMeshNode.TYPE_FEATURE -> feature++;
+            case TMeshNode.TYPE_TRUNCATED -> truncated++;
             default -> {
             }
             }
         }
-        System.out.printf("[motorcycle-test] nodes: singularity=%d intersection=%d boundary=%d feature=%d%n",
-                singularity, intersection, boundary, feature);
+        System.out.printf(
+                "[motorcycle-test] nodes: singularity=%d intersection=%d boundary=%d feature=%d truncated=%d%n",
+                singularity, intersection, boundary, feature, truncated);
+        assertEquals(0, truncated,
+                "every singularity trace must terminate via intersection / singularity / boundary, "
+                        + "not the finalizeOpenTraces safety net; got " + truncated + " TYPE_TRUNCATED nodes");
     }
 
     /**

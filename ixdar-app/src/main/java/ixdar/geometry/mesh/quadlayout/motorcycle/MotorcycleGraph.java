@@ -21,6 +21,7 @@ public final class MotorcycleGraph {
 
     public static final int MAX_TRACE_RECORDS_PER_FACE = 4;
     private static final int CORNERS = SeamlessParameterization.CORNERS_PER_FACE;
+    private static final int DIE_SAMPLE_LIMIT = 12;
     private static final int PROGRESS_BAR_WIDTH = 30;
     private static final int PROGRESS_LOG_EVERY_EVENTS = 5000;
     private static final long PROGRESS_LOG_EVERY_NANOS = 2_000_000_000L;
@@ -47,10 +48,22 @@ public final class MotorcycleGraph {
     public int spawnDeadCount;
     /** Priority-queue size after seeding singularity trace events. */
     public int initialEventQueueSize;
+    /** Diagnostics: traces that died in {@link #enqueueNextEvent} from no forward edge hit. */
+    public int dieNoForwardEdgeCount;
+    /** Diagnostics: traces that died in {@link #enqueueNextEvent} from a near-zero edge length. */
+    public int dieZeroEdgeLengthCount;
+    /** Diagnostics: traces that died in {@link #handleEdgeCrossing} re-query returning null. */
+    public int dieEdgeCrossingNullHitCount;
+    /** Diagnostic category counters for silent-die classification. */
+    public int dieCategoryAtCorner;
+    public int dieCategoryParallelToOppositeEdge;
+    public int dieCategoryAllEdgesBackward;
+    public int dieCategoryUnclassified;
 
     private int nextNodeId;
     private int nextArcId;
     private int nextTraceId;
+    private int dieSamplesPrinted;
 
     /**
      * Stores inputs for a Lyon §3 motorcycle graph build.
@@ -155,6 +168,13 @@ public final class MotorcycleGraph {
         printSimulationProgress(eventsProcessed, initialQueueSize, 0, aliveNonFeatureTraceCount(),
                 lastAlive, System.nanoTime() - simStartNanos);
 
+        System.out.printf(
+                "[motorcycle] silent-die counts: noForwardEdge=%d zeroEdgeLength=%d edgeCrossingNullHit=%d%n",
+                dieNoForwardEdgeCount, dieZeroEdgeLengthCount, dieEdgeCrossingNullHitCount);
+        System.out.printf(
+                "[motorcycle] silent-die categories: atCorner=%d parallel=%d allBackward=%d unclassified=%d%n",
+                dieCategoryAtCorner, dieCategoryParallelToOppositeEdge,
+                dieCategoryAllEdgesBackward, dieCategoryUnclassified);
         System.out.println("[motorcycle] finalizing open traces");
         finalizeOpenTraces(walker);
         System.out.println("[motorcycle] assembling patches");
@@ -306,11 +326,14 @@ public final class MotorcycleGraph {
         ChartWalker.EdgeHit edgeHit = walker.nextEdgeHit(probe);
         if (edgeHit == null) {
             trace.alive = false;
+            dieNoForwardEdgeCount++;
+            diagnoseSilentDie(trace, "enqueueNextEvent");
             return;
         }
         double edgeLength = edgeHit.parametricDelta;
         if (edgeLength < PARAMETRIC_EPS) {
             trace.alive = false;
+            dieZeroEdgeLengthCount++;
             return;
         }
         float exitU = edgeHit.exitU;
@@ -344,6 +367,7 @@ public final class MotorcycleGraph {
         ChartWalker.EdgeHit edgeHit = walker.nextEdgeHit(trace.state);
         if (edgeHit == null) {
             trace.alive = false;
+            dieEdgeCrossingNullHitCount++;
             return;
         }
         TraceSegment segment = new TraceSegment(trace.traceId, trace.state.activeFace,
@@ -352,6 +376,11 @@ public final class MotorcycleGraph {
         trace.segments.add(segment);
         segmentIndex.add(segment);
         trace.parametricLengthSoFar = event.parametricLength;
+
+        if (edgeHit.cornerLocalIndex >= 0) {
+            handleVertexCrossing(trace, event, edgeHit, walker, segmentIndex, queue);
+            return;
+        }
 
         ChartWalker.State next = new ChartWalker.State(trace.state);
         if (!walker.crossEdge(trace.state, edgeHit, next)) {
@@ -362,6 +391,28 @@ public final class MotorcycleGraph {
         }
         trace.state = next;
         enqueueNextEvent(trace, walker, segmentIndex, queue);
+    }
+
+    private void handleVertexCrossing(Trace trace, TraceEvent event, ChartWalker.EdgeHit edgeHit,
+            ChartWalker walker, FaceSegmentIndex segmentIndex, PriorityQueue<TraceEvent> queue) {
+        ChartWalker.State next = new ChartWalker.State(trace.state);
+        ChartWalker.CrossVertexResult result = walker.crossVertex(trace.state, edgeHit, next);
+        switch (result) {
+        case FAN_TRANSITION -> {
+            trace.state = next;
+            enqueueNextEvent(trace, walker, segmentIndex, queue);
+        }
+        case HIT_SINGULARITY -> handleTermination(trace, new TraceEvent(TraceEvent.TYPE_SINGULARITY,
+                event.parametricLength, trace.traceId, -1, event.activeFace,
+                edgeHit.exitU, edgeHit.exitV, null));
+        case HIT_BOUNDARY -> handleTermination(trace, new TraceEvent(TraceEvent.TYPE_BOUNDARY,
+                event.parametricLength, trace.traceId, -1, event.activeFace,
+                edgeHit.exitU, edgeHit.exitV, null));
+        case HIT_SINGULARITY_GAP -> handleTermination(trace, new TraceEvent(TraceEvent.TYPE_SINGULARITY,
+                event.parametricLength, trace.traceId, -1, event.activeFace,
+                edgeHit.exitU, edgeHit.exitV, null));
+        default -> trace.alive = false;
+        }
     }
 
     private void handleIntersection(Trace trace, TraceEvent event, ChartWalker walker,
@@ -393,6 +444,19 @@ public final class MotorcycleGraph {
         trace.recordMeeting(other, event.parametricLength, theirLength, alphaIjForTi, alphaRadians);
         other.recordMeeting(trace, theirLength, event.parametricLength, alphaJiForTj, alphaRadians);
 
+        // When Lyon stopping fires on `other` here, this intersection is its
+        // terminal node. Without recording the node and arc on `other`, its
+        // `arcNodeIds` stays size 1 and `finalizeOpenTraces` mislabels it as
+        // TYPE_TRUNCATED. (The broader bookkeeping of inserting intersection
+        // nodes into the arc chain of every trace that passes through them
+        // belongs in a post-process; this fix covers the terminate-on-meeting
+        // case only.)
+        if (!other.alive && other.arcNodeIds.size() < 2) {
+            addArc(other, intersectionNode.nodeId, theirLength);
+            other.currentNodeId = intersectionNode.nodeId;
+            other.arcNodeIds.add(intersectionNode.nodeId);
+        }
+
         if (!trace.alive) {
             return;
         }
@@ -400,6 +464,90 @@ public final class MotorcycleGraph {
         trace.state.v = event.v;
         trace.state.incomingLocalEdgeIndex = -1;
         enqueueNextEvent(trace, walker, segmentIndex, queue);
+    }
+
+    /**
+     * Classify a silent-die into one of: at-corner (corner-detection epsilon
+     * missed it), parallel-to-opposite-edge (ray and only candidate edge are
+     * collinear), all-edges-backward (every non-incoming edge intersects only
+     * behind the ray origin), or unclassified.
+     *
+     * @param trace      trace that just died
+     * @param siteLabel  label of the call site for the sample dump
+     */
+    private void diagnoseSilentDie(Trace trace, String siteLabel) {
+        int activeFace = trace.state.activeFace;
+        float[] uv = new float[6];
+        new ChartWalker(seamless).faceCornerUv(activeFace, uv);
+        double u = trace.state.u;
+        double v = trace.state.v;
+        double[] dir = trace.state.axis.direction(trace.state.sign);
+        int incoming = trace.state.incomingLocalEdgeIndex;
+
+        double maxEdgeSq = 0.0;
+        for (int e = 0; e < 3; e++) {
+            int n = (e + 1) % 3;
+            double dx = uv[n * 2] - uv[e * 2];
+            double dy = uv[n * 2 + 1] - uv[e * 2 + 1];
+            maxEdgeSq = Math.max(maxEdgeSq, dx * dx + dy * dy);
+        }
+        double cornerTolSq = 1.0e-10 * maxEdgeSq;
+        boolean atCorner = false;
+        for (int c = 0; c < 3; c++) {
+            double du = uv[c * 2] - u;
+            double dv = uv[c * 2 + 1] - v;
+            if (du * du + dv * dv <= cornerTolSq * 1.0e6) {
+                atCorner = true;
+                break;
+            }
+        }
+
+        boolean parallelToCandidate = false;
+        boolean anyForward = false;
+        for (int e = 0; e < 3; e++) {
+            if (e == incoming) {
+                continue;
+            }
+            int n = (e + 1) % 3;
+            double ax = uv[e * 2];
+            double ay = uv[e * 2 + 1];
+            double bx = uv[n * 2];
+            double by = uv[n * 2 + 1];
+            double segDx = bx - ax;
+            double segDy = by - ay;
+            double denom = dir[0] * segDy - dir[1] * segDx;
+            if (Math.abs(denom) < 1.0e-12) {
+                parallelToCandidate = true;
+                continue;
+            }
+            double t = ((ax - u) * segDy - (ay - v) * segDx) / denom;
+            if (t > ChartWalker.RAY_MIN_T) {
+                anyForward = true;
+            }
+        }
+
+        String category;
+        if (atCorner) {
+            category = "AT_CORNER";
+            dieCategoryAtCorner++;
+        } else if (parallelToCandidate && !anyForward) {
+            category = "PARALLEL_TO_OPPOSITE_EDGE";
+            dieCategoryParallelToOppositeEdge++;
+        } else if (!anyForward) {
+            category = "ALL_EDGES_BACKWARD";
+            dieCategoryAllEdgesBackward++;
+        } else {
+            category = "UNCLASSIFIED";
+            dieCategoryUnclassified++;
+        }
+
+        if (dieSamplesPrinted < DIE_SAMPLE_LIMIT) {
+            dieSamplesPrinted++;
+            System.out.printf(
+                    "[motorcycle-diag] %s trace=%d face=%d u=%.6f v=%.6f axis=%s sign=%+d incoming=%d uv=[(%.3f,%.3f),(%.3f,%.3f),(%.3f,%.3f)] category=%s%n",
+                    siteLabel, trace.traceId, activeFace, u, v, trace.state.axis, trace.state.sign, incoming,
+                    uv[0], uv[1], uv[2], uv[3], uv[4], uv[5], category);
+        }
     }
 
     private static double distanceAlongSegment(TraceSegment segment, float u, float v) {
@@ -428,6 +576,12 @@ public final class MotorcycleGraph {
     private void finalizeOpenTraces(ChartWalker walker) {
         int finalized = 0;
         for (Trace trace : traces) {
+            if (trace.featureTrace) {
+                // Feature traces seeded by seedFeatureTraces never run through the
+                // event loop (#3 still pending — feature seeding is broken). Their
+                // single synthetic segment exists only to seed FaceSegmentIndex.
+                continue;
+            }
             if (trace.arcNodeIds.size() >= 2) {
                 continue;
             }

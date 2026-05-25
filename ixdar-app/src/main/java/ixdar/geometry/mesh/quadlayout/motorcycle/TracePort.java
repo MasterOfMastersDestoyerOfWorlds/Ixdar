@@ -14,8 +14,6 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
  */
 public final class TracePort {
 
-    private static final int PORTS_PER_CORNER_SLICE = 3;
-
     public final int singularityVertexId;
     public final int activeFace;
     public final int cornerIndex;
@@ -102,51 +100,53 @@ public final class TracePort {
 
     private static void appendPortsCcw(List<TracePort> ports, int vertexId, int activeFace, int cornerIndex,
             double uu, double uv, double vu, double vv, double wu, double wv) {
-        int rotation = 0;
-        double[] direction = UvPredicates.directionR90(rotation);
-        while (UvPredicates.pointsInto(direction[0], direction[1], uu, uv, vu, vv, wu, wv)) {
-            rotation++;
-            direction = UvPredicates.directionR90(rotation);
-        }
-        for (int slice = 1; slice <= PORTS_PER_CORNER_SLICE; slice++) {
-            double[] rawDirection = UvPredicates.directionR90(rotation - slice);
-            if (UvPredicates.pointsInto(rawDirection[0], rawDirection[1], uu, uv, vu, vv, wu, wv)
-                    || UvPredicates.isCollinear(vu - uu, vv - uv, rawDirection[0], rawDirection[1])) {
-                double[] portDirection = alignCollinearPortDirection(rawDirection, uu, uv, vu, vv);
-                ports.add(portFromDirection(vertexId, activeFace, cornerIndex, portDirection));
+        for (int r = 0; r < SeamlessParameterization.BRANCH_COUNT; r++) {
+            double[] dir = UvPredicates.directionR90(r);
+            if (acceptCandidate(dir, uu, uv, vu, vv, wu, wv)) {
+                ports.add(portFromDirection(vertexId, activeFace, cornerIndex, dir));
             }
         }
     }
 
     private static void appendPortsFlipped(List<TracePort> ports, int vertexId, int activeFace, int cornerIndex,
             double uu, double uv, double vu, double vv, double wu, double wv) {
-        int rotation = 0;
-        double[] direction = UvPredicates.directionR90(rotation);
-        while (UvPredicates.pointsInto(direction[0], direction[1], uu, uv, wu, wv, vu, vv)) {
-            rotation++;
-            direction = UvPredicates.directionR90(rotation);
-        }
-        for (int slice = 1; slice <= PORTS_PER_CORNER_SLICE; slice++) {
-            double[] rawDirection = UvPredicates.directionR90(rotation + slice);
-            if (UvPredicates.pointsInto(rawDirection[0], rawDirection[1], uu, uv, wu, wv, vu, vv)
-                    || UvPredicates.isCollinear(vu - uu, vv - uv, rawDirection[0], rawDirection[1])) {
-                double[] portDirection = alignCollinearPortDirection(rawDirection, uu, uv, vu, vv);
-                ports.add(portFromDirection(vertexId, activeFace, cornerIndex, portDirection));
+        for (int r = 0; r < SeamlessParameterization.BRANCH_COUNT; r++) {
+            double[] dir = UvPredicates.directionR90(r);
+            if (acceptCandidate(dir, uu, uv, wu, wv, vu, vv)) {
+                ports.add(portFromDirection(vertexId, activeFace, cornerIndex, dir));
             }
         }
     }
 
-    private static double[] alignCollinearPortDirection(double[] direction,
-            double uu, double uv, double vu, double vv) {
+    /**
+     * A slice direction is a real port from this face iff it strictly enters the
+     * wedge from u toward v→w, or it runs along the outgoing edge u→v IN THE
+     * MATCHING DIRECTION. The opposite-direction collinear half of the pair
+     * belongs to the other face that shares this edge (where it is the
+     * outgoing-from-its-u edge), not to this face — counting it here would
+     * duplicate a port at high-valence singularities whose seam edges happen to
+     * be axis-aligned.
+     *
+     * @param dir candidate direction (axis-aligned unit vector)
+     * @param uu  u-coordinate of corner u
+     * @param uv  v-coordinate of corner u
+     * @param vu  u-coordinate of corner v (the outgoing-edge endpoint)
+     * @param vv  v-coordinate of corner v
+     * @param wu  u-coordinate of corner w (the wedge's far corner)
+     * @param wv  v-coordinate of corner w
+     * @return whether {@code dir} is a real port from this face's wedge at u
+     */
+    private static boolean acceptCandidate(double[] dir, double uu, double uv,
+            double vu, double vv, double wu, double wv) {
+        if (UvPredicates.pointsInto(dir[0], dir[1], uu, uv, vu, vv, wu, wv)) {
+            return true;
+        }
         double edgeU = vu - uu;
         double edgeV = vv - uv;
-        if (!UvPredicates.isCollinear(edgeU, edgeV, direction[0], direction[1])) {
-            return direction;
+        if (!UvPredicates.isCollinear(edgeU, edgeV, dir[0], dir[1])) {
+            return false;
         }
-        if (edgeU * direction[0] + edgeV * direction[1] < 0.0) {
-            return new double[] { -direction[0], -direction[1] };
-        }
-        return direction;
+        return edgeU * dir[0] + edgeV * dir[1] > 0.0;
     }
 
     private static TracePort portFromDirection(int vertexId, int activeFace, int cornerIndex, double[] direction) {
