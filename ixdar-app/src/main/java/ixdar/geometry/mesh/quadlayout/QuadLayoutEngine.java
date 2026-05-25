@@ -4,6 +4,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 
 public final class QuadLayoutEngine {
 
@@ -79,7 +80,13 @@ public final class QuadLayoutEngine {
         SeamlessParameterization seamless = new SeamlessParameterization(crossField);
         ParameterizationMetrics metrics = seamless.build();
 
-        // Stage 4 — Modified motorcycle graph T-mesh (Lyon 2021 §3) — not yet implemented.
+        MotorcycleGraph motorcycleGraph = new MotorcycleGraph(seamless, alpha).build();
+        System.out.println("Motorcycle graph: traces=" + motorcycleGraph.traces.size()
+                + " arcs=" + motorcycleGraph.arcs.size()
+                + " nodes=" + motorcycleGraph.nodes.size()
+                + " alive=" + motorcycleGraph.aliveTraceCount()
+                + "/" + motorcycleGraph.traces.size());
+
         // Stage 5 — ILP for quantization (Lyon 2021 §4–§5) — not yet implemented.
         // Stage 6 — Layout extraction (Lyon 2021 §6) — not yet implemented.
 

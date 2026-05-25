@@ -1,0 +1,126 @@
+package ixdar.geometry.mesh.quadlayout.motorcycle;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Per-face index of trace segments for local intersection queries.
+ */
+public final class FaceSegmentIndex {
+
+    private final List<List<TraceSegment>> segmentsByFace;
+
+    /**
+     * Allocates per-face segment lists for intersection queries.
+     *
+     * @param faceCount number of active faces
+     */
+    public FaceSegmentIndex(int faceCount) {
+        segmentsByFace = new ArrayList<>(faceCount);
+        for (int face = 0; face < faceCount; face++) {
+            segmentsByFace.add(new ArrayList<>());
+        }
+    }
+
+    /**
+     * Returns the modifiable segment list for one face.
+     *
+     * @param activeFace active face index
+     * @return modifiable segment list for that face
+     */
+    public List<TraceSegment> segmentsOnFace(int activeFace) {
+        return segmentsByFace.get(activeFace);
+    }
+
+    /**
+     * Add a segment to the face index.
+     *
+     * @param segment segment to register
+     */
+    public void add(TraceSegment segment) {
+        segmentsByFace.get(segment.activeFace).add(segment);
+    }
+
+    /**
+     * Find the earliest intersection between a candidate chord and existing
+     * segments on the same face.
+     *
+     * @param traceId    candidate trace id
+     * @param activeFace active face index
+     * @param entryU     chord entry u
+     * @param entryV     chord entry v
+     * @param exitU      chord exit u
+     * @param exitV      chord exit v
+     * @param axis       candidate axis
+     * @return intersection data {@code [otherTraceId, tAlongCandidate, iu, iv]} or
+     *         {@code null}
+     */
+    public double[] earliestIntersection(int traceId, int activeFace,
+            float entryU, float entryV, float exitU, float exitV, TraceAxis axis) {
+        double bestT = Double.POSITIVE_INFINITY;
+        int bestOther = -1;
+        double bestU = 0.0;
+        double bestV = 0.0;
+        for (TraceSegment existing : segmentsByFace.get(activeFace)) {
+            if (existing.traceId == traceId) {
+                continue;
+            }
+            double[] hit = intersectSegments(
+                    entryU, entryV, exitU, exitV, axis,
+                    existing.entryU, existing.entryV, existing.exitU, existing.exitV, existing.axis);
+            if (hit == null || hit[0] <= UvPredicates.ORIENT_COLLINEAR_EPSILON || hit[0] >= bestT) {
+                continue;
+            }
+            bestT = hit[0];
+            bestOther = existing.traceId;
+            bestU = hit[1];
+            bestV = hit[2];
+        }
+        if (bestOther < 0) {
+            return null;
+        }
+        return new double[] { bestOther, bestT, bestU, bestV };
+    }
+
+    private static double[] intersectSegments(
+            float a0u, float a0v, float a1u, float a1v, TraceAxis axisA,
+            float b0u, float b0v, float b1u, float b1v, TraceAxis axisB) {
+        if (axisA == axisB) {
+            return null;
+        }
+        float isoA = axisA.holdsUConstant() ? a0u : a0v;
+        float isoB = axisB.holdsUConstant() ? b0u : b0v;
+        float iu;
+        float iv;
+        if (axisA == TraceAxis.U) {
+            iu = isoA;
+            iv = isoB;
+        } else {
+            iu = isoB;
+            iv = isoA;
+        }
+        double tA;
+        if (axisA == TraceAxis.U) {
+            tA = Math.abs(iu - a0u);
+        } else {
+            tA = Math.abs(iv - a0v);
+        }
+        if (!withinSpan(iu, iv, a0u, a0v, a1u, a1v, axisA)) {
+            return null;
+        }
+        if (!withinSpan(iu, iv, b0u, b0v, b1u, b1v, axisB)) {
+            return null;
+        }
+        return new double[] { tA, iu, iv };
+    }
+
+    private static boolean withinSpan(float iu, float iv,
+            float e0u, float e0v, float e1u, float e1v, TraceAxis axis) {
+        float span = axis.holdsUConstant() ? iv : iu;
+        float s0 = axis.holdsUConstant() ? e0v : e0u;
+        float s1 = axis.holdsUConstant() ? e1v : e1u;
+        float lo = Math.min(s0, s1) - 1.0e-6f;
+        float hi = Math.max(s0, s1) + 1.0e-6f;
+        return span >= lo && span <= hi;
+    }
+}

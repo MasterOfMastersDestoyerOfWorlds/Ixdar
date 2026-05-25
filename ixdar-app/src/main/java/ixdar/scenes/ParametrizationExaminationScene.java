@@ -11,7 +11,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
-import ixdar.graphics.render.model.ParametrizationRuntime;
+import ixdar.graphics.render.model.QuadLayoutRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.KeyGuy;
@@ -19,28 +19,26 @@ import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.OrbitMouseTrap;
 
 /**
- * 3D scene for inspecting a seamless parametrization on a triangle mesh.
- * Loads the OFF specified by {@code -Dparametrization.scene.off=<path>}
- * (default {@link #DEFAULT_OFF}), runs the cross-field + seamless pipeline,
- * and renders the result as cyan u-iso-lines and yellow v-iso-lines drawn
- * across the mesh surface plus coloured spheres at the singularity vertices
- * — the BZK09 figure 1(c) visualisation style.
+ * 3D scene for inspecting a seamless parametrization on a triangle mesh. Loads
+ * the OFF specified by {@code -Dparametrization.scene.off=<path>} (default
+ * {@link #DEFAULT_OFF}), runs the cross-field + seamless pipeline, and renders
+ * the result as cyan u-iso-lines and yellow v-iso-lines drawn across the mesh
+ * surface plus coloured spheres at the singularity vertices — the BZK09 figure
+ * 1(c) visualisation style.
  */
 @SceneAnnotation(id = "param-exam")
 public class ParametrizationExaminationScene extends Scene {
 
-    public static final String DEFAULT_OFF =
-            "test/resources/quadlayout/figure_10/fandisk_in_tri.off";
+    public static final String DEFAULT_OFF = "test/resources/quadlayout/figure_10/fandisk_in_tri.off";
     public static final String OFF_PROPERTY = "parametrization.scene.off";
     /**
-     * Optional system property: path to an .ndf reference cross field. When
-     * set, {@link #initGL} still runs {@link CrossField#build()} to derive
-     * the per-face local frames and active-index maps, then overwrites
-     * {@code theta}, {@code periodJump}, {@code singularityIndexQuarter}
-     * and {@code singularities} with the NDF values. Lets the same
-     * seamless pipeline run on the paper's reference field so you can
-     * compare flipped-triangle counts and visual output side by side
-     * against our own solver.
+     * Optional system property: path to an .ndf reference cross field. When set,
+     * {@link #initGL} still runs {@link CrossField#build()} to derive the per-face
+     * local frames and active-index maps, then overwrites {@code theta},
+     * {@code periodJump}, {@code singularityIndexQuarter} and {@code singularities}
+     * with the NDF values. Lets the same seamless pipeline run on the paper's
+     * reference field so you can compare flipped-triangle counts and visual output
+     * side by side against our own solver.
      */
     public static final String CROSS_FIELD_PROPERTY = "parametrization.scene.cf";
     public static final String SCENE_TITLE = "Ixdar : Parametrization Examination";
@@ -49,15 +47,20 @@ public class ParametrizationExaminationScene extends Scene {
     public static final float CAMERA_DISTANCE_MIN = 1.5f;
     public static final float CAMERA_DISTANCE_RADIUS_MUL = 2.5f;
     public static final float CAMERA_DISTANCE_DEFAULT = 3.5f;
-    /** Closest zoom: 1% of mesh radius — practically lets you sit on the surface. */
+    /**
+     * Closest zoom: 1% of mesh radius — practically lets you sit on the surface.
+     */
     public static final float ZOOM_MIN_RADIUS_FRACTION = 0.01f;
     /** Farthest zoom: 5× mesh radius. */
     public static final float ZOOM_MAX_RADIUS_MUL = 5.0f;
-    /** Floor on the closest-zoom value so we never collapse to zero on degenerate meshes. */
+    /**
+     * Floor on the closest-zoom value so we never collapse to zero on degenerate
+     * meshes.
+     */
     public static final float ZOOM_MIN_FLOOR = 0.0001f;
 
     private OrbitMouseTrap orbitMouse;
-    private ParametrizationRuntime runtime;
+    private QuadLayoutRuntime runtime;
     private final Vector3f meshCenter = new Vector3f();
 
     /** Default constructor wired by the scene annotation processor. */
@@ -66,10 +69,10 @@ public class ParametrizationExaminationScene extends Scene {
     }
 
     /**
-     * Load the OFF, build the cross field and seamless parametrization, and
-     * hand them to the runtime. Frame the orbit camera on the mesh. All work
-     * runs synchronously here — meshes large enough to hitch the GL thread
-     * are acceptable for an inspector use-case.
+     * Load the OFF, build the cross field and seamless parametrization, and hand
+     * them to the runtime. Frame the orbit camera on the mesh. All work runs
+     * synchronously here — meshes large enough to hitch the GL thread are
+     * acceptable for an inspector use-case.
      *
      * @throws IllegalStateException if the mesh or parametrization fail to build
      */
@@ -108,11 +111,13 @@ public class ParametrizationExaminationScene extends Scene {
             ParameterizationMetrics metrics = seamless.build();
 
             try {
-                runtime = new ParametrizationRuntime();
+                runtime = new QuadLayoutRuntime();
             } catch (Exception ex) {
-                throw new IllegalStateException("Failed to create ParametrizationRuntime", ex);
+                throw new IllegalStateException("Failed to create QuadLayoutRuntime", ex);
             }
             runtime.upload(mesh);
+            runtime.showIsoLines = true;
+            runtime.showSingularities = true;
             runtime.setSeamlessParametrization(seamless);
             runtime.frameCamera(camera);
 
@@ -139,10 +144,10 @@ public class ParametrizationExaminationScene extends Scene {
     }
 
     /**
-     * Render the iso-line surface on top of the base mesh. The iso-surface
-     * already covers the mesh's geometry (it is the same triangle layout, in
-     * a triangle-soup form), so we do not also draw the underlying mesh —
-     * doing so would z-fight and obscure the iso-lines.
+     * Render the iso-line surface on top of the base mesh. The iso-surface already
+     * covers the mesh's geometry (it is the same triangle layout, in a
+     * triangle-soup form), so we do not also draw the underlying mesh — doing so
+     * would z-fight and obscure the iso-lines.
      */
     @Override
     public void drawScene() {
@@ -150,7 +155,7 @@ public class ParametrizationExaminationScene extends Scene {
             return;
         }
         camera.resetView();
-        runtime.renderParametrization(camera);
+        runtime.renderOverlays(camera);
     }
 
     @Override
@@ -175,13 +180,13 @@ public class ParametrizationExaminationScene extends Scene {
     }
 
     /**
-     * Desktop input binding that wires platform callbacks to our handlers —
-     * same fallback the cross-field examiner uses on desktop. The
-     * reflection-based {@code AutomationInputBinder} path is preferred on
-     * web/TeaVM; this fires on desktop.
+     * Desktop input binding that wires platform callbacks to our handlers — same
+     * fallback the cross-field examiner uses on desktop. The reflection-based
+     * {@code AutomationInputBinder} path is preferred on web/TeaVM; this fires on
+     * desktop.
      *
-     * @param platform current platform
-     * @param keys     key handler
+     * @param platform  current platform
+     * @param keys      key handler
      * @param mouseTrap mouse handler
      */
     private static void bindInputDirect(Platform platform, KeyGuy keys,

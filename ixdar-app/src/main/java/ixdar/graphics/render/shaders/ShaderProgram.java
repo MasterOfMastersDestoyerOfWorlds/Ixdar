@@ -105,26 +105,29 @@ public abstract class ShaderProgram {
 
     private final Map<Long, Allocation> idToAllocation = new HashMap<>();
 
-    /** Reusable direct buffers for uniform uploads — avoids per-call ByteBuffer.allocateDirect(). */
+    /**
+     * Reusable direct buffers for uniform uploads — avoids per-call
+     * ByteBuffer.allocateDirect().
+     */
     private IxBuffer vec2Buf;
     private IxBuffer vec3Buf;
     private IxBuffer vec4Buf;
     private IxBuffer mat4Buf;
 
     /**
-     * Asynchronously load shader sources, normalize them for the active GL
-     * backend (desktop GL3.3 vs WebGL ES 3.0), compile and link them, and
-     * call {@link #init()} when ready.
+     * Asynchronously load shader sources, normalize them for the active GL backend
+     * (desktop GL3.3 vs WebGL ES 3.0), compile and link them, and call
+     * {@link #init()} when ready.
      *
-     * @param vertexShaderLocation vertex GLSL resource path
+     * @param vertexShaderLocation   vertex GLSL resource path
      * @param fragmentShaderLocation fragment GLSL resource path
-     * @param vao vertex array object owned by this program
-     * @param vbo vertex buffer object owned by this program
-     * @param strideFloats number of floats per vertex
-     * @param useBuffer {@code true} to allocate a streaming staging buffer
-     *                  for the legacy immediate-mode draw path
+     * @param vao                    vertex array object owned by this program
+     * @param vbo                    vertex buffer object owned by this program
+     * @param strideFloats           number of floats per vertex
+     * @param useBuffer              {@code true} to allocate a streaming staging
+     *                               buffer for the legacy immediate-mode draw path
      * @throws UnsupportedEncodingException on shader source encoding error
-     * @throws IOException on shader source I/O error
+     * @throws IOException                  on shader source I/O error
      */
     public ShaderProgram(String vertexShaderLocation, String fragmentShaderLocation, VertexArrayObject vao,
             VertexBufferObject vbo, int strideFloats, boolean useBuffer)
@@ -160,7 +163,7 @@ public abstract class ShaderProgram {
                 recompileShaders(vertexShaderLocation, fragmentShaderLocation);
                 init();
             });
-        }); 
+        });
     }
 
     private int uniformLocation(String name) {
@@ -197,7 +200,7 @@ public abstract class ShaderProgram {
     /**
      * Upload a boolean uniform (encoded as 0/1 int) and cache it.
      *
-     * @param name uniform name
+     * @param name  uniform name
      * @param value boolean value
      */
     public void setBool(String name, boolean value) {
@@ -209,7 +212,7 @@ public abstract class ShaderProgram {
     /**
      * Upload an integer uniform and cache it.
      *
-     * @param name uniform name
+     * @param name  uniform name
      * @param value integer value (or sampler binding)
      */
     public void setInt(String name, int value) {
@@ -221,7 +224,7 @@ public abstract class ShaderProgram {
     /**
      * Upload a float uniform and cache it.
      *
-     * @param name uniform name
+     * @param name  uniform name
      * @param value float value
      */
     public void setFloat(String name, float value) {
@@ -235,11 +238,12 @@ public abstract class ShaderProgram {
      * per-call native allocations) and cache it.
      *
      * @param name uniform name
-     * @param mat matrix to upload
+     * @param mat  matrix to upload
      */
     public void setMat4(String name, Matrix4f mat) {
 
-        if (mat4Buf == null) mat4Buf = platform.allocateFloats(NUM_16);
+        if (mat4Buf == null)
+            mat4Buf = platform.allocateFloats(NUM_16);
         mat4Buf.clear();
 
         mat4Buf.put(mat.m00()).put(mat.m01()).put(mat.m02()).put(mat.m03());
@@ -254,7 +258,7 @@ public abstract class ShaderProgram {
     /**
      * Upload a 4x4 matrix uniform from a caller-owned, already-flipped buffer.
      *
-     * @param name uniform name
+     * @param name            uniform name
      * @param allocatedBuffer 16-float buffer ready for upload
      */
     public void setMat4(String name, IxBuffer allocatedBuffer) {
@@ -271,7 +275,8 @@ public abstract class ShaderProgram {
      */
     public void setVec2(String name, Vector2f vec2) {
 
-        if (vec2Buf == null) vec2Buf = platform.allocateFloats(2);
+        if (vec2Buf == null)
+            vec2Buf = platform.allocateFloats(2);
         vec2Buf.clear();
         vec2Buf.put(vec2.x).put(vec2.y).flip();
         gl.uniform2fv(uniformLocation(name), vec2Buf);
@@ -282,13 +287,14 @@ public abstract class ShaderProgram {
      * Upload a vec3 uniform from three components and cache it.
      *
      * @param name uniform name
-     * @param f x component
-     * @param g y component
-     * @param h z component
+     * @param f    x component
+     * @param g    y component
+     * @param h    z component
      */
     public void setVec3(String name, float f, float g, float h) {
 
-        if (vec3Buf == null) vec3Buf = platform.allocateFloats(NUM_3);
+        if (vec3Buf == null)
+            vec3Buf = platform.allocateFloats(NUM_3);
         vec3Buf.clear();
         vec3Buf.put(f).put(g).put(h).flip();
         gl.uniform3fv(uniformLocation(name), vec3Buf);
@@ -302,7 +308,8 @@ public abstract class ShaderProgram {
      * @param vec3 (x, y, z) vector
      */
     public void setVec3(String name, Vector3f vec3) {
-        if (vec3Buf == null) vec3Buf = platform.allocateFloats(NUM_3);
+        if (vec3Buf == null)
+            vec3Buf = platform.allocateFloats(NUM_3);
         vec3Buf.clear();
         vec3Buf.put(vec3.x).put(vec3.y).put(vec3.z).flip();
         gl.uniform3fv(uniformLocation(name), vec3Buf);
@@ -317,7 +324,8 @@ public abstract class ShaderProgram {
      */
     public void setVec4(String name, Vector4f vec4) {
 
-        if (vec4Buf == null) vec4Buf = platform.allocateFloats(NUM_4);
+        if (vec4Buf == null)
+            vec4Buf = platform.allocateFloats(NUM_4);
         vec4Buf.clear();
         vec4Buf.put(vec4.x).put(vec4.y).put(vec4.z).put(vec4.w).flip();
         gl.uniform4fv(uniformLocation(name), vec4Buf);
@@ -346,8 +354,8 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Read a shader source file line-by-line and append a NUL terminator on
-     * the final chunk (required by the desktop loader path).
+     * Read a shader source file line-by-line and append a NUL terminator on the
+     * final chunk (required by the desktop loader path).
      *
      * @param shaderFile file to read
      * @throws IOException on read error
@@ -372,9 +380,9 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Re-read shader files on disk and recompile/relink the program if any
-     * have changed since the last check (no-op on platforms that don't
-     * support hot reload).
+     * Re-read shader files on disk and recompile/relink the program if any have
+     * changed since the last check (no-op on platforms that don't support hot
+     * reload).
      */
     public void hotReload() {
         if (!Platforms.get().canHotReload()) {
@@ -409,10 +417,9 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Recompile and relink shaders. On success, swap in the new program,
-     * delete the old one, rebuild VAO/VBO/uniform-location caches, reapply
-     * cached uniforms, and refresh the projection matrix. On failure, keep
-     * the previous program ID.
+     * Recompile and relink shaders. On success, swap in the new program, delete the
+     * old one, rebuild VAO/VBO/uniform-location caches, reapply cached uniforms,
+     * and refresh the projection matrix. On failure, keep the previous program ID.
      *
      * @return {@code true} if the new program linked successfully
      */
@@ -435,7 +442,8 @@ public abstract class ShaderProgram {
             init();
             resetPersistentAllocations();
             reapplyUniforms();
-            updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), NUM_1);
+            updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(),
+                    NUM_1);
             return true;
         } else {
             gl.deleteProgram(ID);
@@ -445,9 +453,9 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Reload the program using a custom fragment-shader source string,
-     * reverting to the previous source if the new one fails to compile or
-     * link (used by the in-app shader editor).
+     * Reload the program using a custom fragment-shader source string, reverting to
+     * the previous source if the new one fails to compile or link (used by the
+     * in-app shader editor).
      *
      * @param src raw fragment GLSL source
      */
@@ -566,14 +574,14 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Bind {@code tex} to texture unit {@code j}, set the sampler uniform,
-     * activate texture unit {@code i}, and cache the texture by name. Lazily
-     * uploads the texture to GL if needed.
+     * Bind {@code tex} to texture unit {@code j}, set the sampler uniform, activate
+     * texture unit {@code i}, and cache the texture by name. Lazily uploads the
+     * texture to GL if needed.
      *
      * @param glslName sampler uniform name in the shader
-     * @param tex texture to bind ({@code null} caches a null binding)
-     * @param i GL texture unit constant (e.g. {@code GL_TEXTURE0 + j})
-     * @param j sampler binding slot index
+     * @param tex      texture to bind ({@code null} caches a null binding)
+     * @param i        GL texture unit constant (e.g. {@code GL_TEXTURE0 + j})
+     * @param j        sampler binding slot index
      */
     public void setTexture(String glslName, Texture tex, int i, int j) {
 
@@ -595,7 +603,7 @@ public abstract class ShaderProgram {
     /**
      * Bind a fragment-shader output to a draw-buffer color attachment.
      *
-     * @param i color attachment index
+     * @param i      color attachment index
      * @param string fragment output variable name
      */
     public void bindFragmentDataLocation(int i, String string) {
@@ -632,8 +640,8 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Upload any staged vertices and issue draws for both the legacy
-     * immediate-mode buffer and the queued persistent-region draw ranges.
+     * Upload any staged vertices and issue draws for both the legacy immediate-mode
+     * buffer and the queued persistent-region draw ranges.
      */
     public void flush() {
         if (ID < 0) {
@@ -711,8 +719,8 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Reassemble the vertex shader source as a plain string with the NUL
-     * terminator stripped (used by the shader editor / inspector).
+     * Reassemble the vertex shader source as a plain string with the NUL terminator
+     * stripped (used by the shader editor / inspector).
      *
      * @return current vertex shader source text
      */
@@ -760,7 +768,7 @@ public abstract class ShaderProgram {
      * @param x       X position of the texture
      * @param y       Y position of the texture
      * @param c       The color to use
-     * @param zIndex depth value written to gl_Position.z
+     * @param zIndex  depth value written to gl_Position.z
      */
     public void drawTexture(Texture texture, float x, float y, float zIndex, Color c) {
         /* Vertex positions */
@@ -789,7 +797,7 @@ public abstract class ShaderProgram {
      * @param regY      Y position of the texture region
      * @param regWidth  Width of the texture region
      * @param regHeight Height of the texture region
-     * @param zIndex depth value written to gl_Position.z
+     * @param zIndex    depth value written to gl_Position.z
      */
     public void drawTextureRegion(Texture texture, float x, float y, float zIndex, float regX, float regY,
             float regWidth,
@@ -809,7 +817,7 @@ public abstract class ShaderProgram {
      * @param regWidth  Width of the texture region
      * @param regHeight Height of the texture region
      * @param c         The color to use
-     * @param zIndex depth value written to gl_Position.z
+     * @param zIndex    depth value written to gl_Position.z
      */
     public void drawTextureRegion(Texture texture, float x, float y, float zIndex, float regX, float regY,
             float regWidth,
@@ -830,20 +838,20 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Draw a texture region with explicit destination corners (allows
-     * non-square stretching).
+     * Draw a texture region with explicit destination corners (allows non-square
+     * stretching).
      *
-     * @param texture source texture (used for width/height to compute uvs)
-     * @param x bottom-left destination x
-     * @param y bottom-left destination y
-     * @param x2 top-right destination x
-     * @param y2 top-right destination y
-     * @param zIndex depth value written to gl_Position.z
-     * @param regX source x in texture pixels
-     * @param regY source y in texture pixels
-     * @param regWidth source width in texture pixels
+     * @param texture   source texture (used for width/height to compute uvs)
+     * @param x         bottom-left destination x
+     * @param y         bottom-left destination y
+     * @param x2        top-right destination x
+     * @param y2        top-right destination y
+     * @param zIndex    depth value written to gl_Position.z
+     * @param regX      source x in texture pixels
+     * @param regY      source y in texture pixels
+     * @param regWidth  source width in texture pixels
      * @param regHeight source height in texture pixels
-     * @param c tint color
+     * @param c         tint color
      */
     public void drawTextureRegion(Texture texture, float x, float y, float x2, float y2, float zIndex, float regX,
             float regY, float regWidth,
@@ -863,19 +871,18 @@ public abstract class ShaderProgram {
 
     /**
      * Draw a quad with synthesized [0..1]x[0..1] uvs derived from
-     * {@code regWidth}/{@code regHeight} (no underlying texture binding
-     * assumed).
+     * {@code regWidth}/{@code regHeight} (no underlying texture binding assumed).
      *
-     * @param x bottom-left destination x
-     * @param y bottom-left destination y
-     * @param x2 top-right destination x
-     * @param y2 top-right destination y
-     * @param zIndex depth value written to gl_Position.z
-     * @param regX source x divisor for s1
-     * @param regY source y divisor for t1
-     * @param regWidth full-width divisor (scales s coordinates)
+     * @param x         bottom-left destination x
+     * @param y         bottom-left destination y
+     * @param x2        top-right destination x
+     * @param y2        top-right destination y
+     * @param zIndex    depth value written to gl_Position.z
+     * @param regX      source x divisor for s1
+     * @param regY      source y divisor for t1
+     * @param regWidth  full-width divisor (scales s coordinates)
      * @param regHeight full-height divisor (scales t coordinates)
-     * @param c tint color
+     * @param c         tint color
      */
     public void drawBlankTextureRegion(float x, float y, float x2, float y2, float zIndex, float regX,
             float regY, float regWidth,
@@ -897,14 +904,14 @@ public abstract class ShaderProgram {
      * Draws a texture region with the currently bound texture on specified
      * coordinates.
      *
-     * @param x1 Bottom left x position
-     * @param y1 Bottom left y position
-     * @param x2 Top right x position
-     * @param y2 Top right y position
-     * @param s1 Bottom left s coordinate
-     * @param t1 Bottom left t coordinate
-     * @param s2 Top right s coordinate
-     * @param t2 Top right t coordinate
+     * @param x1     Bottom left x position
+     * @param y1     Bottom left y position
+     * @param x2     Top right x position
+     * @param y2     Top right y position
+     * @param s1     Bottom left s coordinate
+     * @param t1     Bottom left t coordinate
+     * @param s2     Top right s coordinate
+     * @param t2     Top right t coordinate
      * @param zIndex depth value written to gl_Position.z
      */
     public void drawTextureRegion(float x1, float y1, float x2, float y2, float zIndex, float s1, float t1, float s2,
@@ -916,15 +923,15 @@ public abstract class ShaderProgram {
      * Draws a texture region with the currently bound texture on specified
      * coordinates.
      *
-     * @param x1 Bottom left x position
-     * @param y1 Bottom left y position
-     * @param x2 Top right x position
-     * @param y2 Top right y position
-     * @param s1 Bottom left s coordinate
-     * @param t1 Bottom left t coordinate
-     * @param s2 Top right s coordinate
-     * @param t2 Top right t coordinate
-     * @param c  The color to use
+     * @param x1     Bottom left x position
+     * @param y1     Bottom left y position
+     * @param x2     Top right x position
+     * @param y2     Top right y position
+     * @param s1     Bottom left s coordinate
+     * @param t1     Bottom left t coordinate
+     * @param s2     Top right s coordinate
+     * @param t2     Top right t coordinate
+     * @param c      The color to use
      * @param zIndex depth value written to gl_Position.z
      */
     public void drawTextureRegion(float x1, float y1, float x2, float y2, float zIndex, float s1, float t1, float s2,
@@ -956,12 +963,12 @@ public abstract class ShaderProgram {
      * Stage two triangles forming a flat-color rectangle (7-float vertex:
      * pos+color, no uv).
      *
-     * @param x1 bottom-left x
-     * @param y1 bottom-left y
-     * @param x2 top-right x
-     * @param y2 top-right y
+     * @param x1     bottom-left x
+     * @param y1     bottom-left y
+     * @param x2     top-right x
+     * @param y2     top-right y
      * @param zIndex depth value written to gl_Position.z
-     * @param c fill color
+     * @param c      fill color
      */
     public void drawColorRegion(float x1, float y1, float x2, float y2, float zIndex, Color c) {
         if (verteciesBuff.remaining() < NUM_7 * NUM_6) {
@@ -988,24 +995,23 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Stage two triangles forming an arbitrary quadrilateral with SDF
-     * texture coordinates (used for line/arrow strokes whose quads aren't
-     * axis-aligned).
+     * Stage two triangles forming an arbitrary quadrilateral with SDF texture
+     * coordinates (used for line/arrow strokes whose quads aren't axis-aligned).
      *
-     * @param x1 first vertex x
-     * @param y1 first vertex y
-     * @param x2 second vertex x
-     * @param y2 second vertex y
-     * @param x3 third vertex x
-     * @param y3 third vertex y
-     * @param x4 fourth vertex x
-     * @param y4 fourth vertex y
+     * @param x1     first vertex x
+     * @param y1     first vertex y
+     * @param x2     second vertex x
+     * @param y2     second vertex y
+     * @param x3     third vertex x
+     * @param y3     third vertex y
+     * @param x4     fourth vertex x
+     * @param y4     fourth vertex y
      * @param zIndex depth value written to gl_Position.z
-     * @param s1 left u
-     * @param t1 bottom v
-     * @param s2 right u
-     * @param t2 top v
-     * @param c tint color
+     * @param s1     left u
+     * @param t1     bottom v
+     * @param s2     right u
+     * @param t2     top v
+     * @param c      tint color
      */
     public void drawSDFRegion(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4,
             float zIndex, float s1, float t1, float s2, float t2, Color c) {
@@ -1034,24 +1040,24 @@ public abstract class ShaderProgram {
 
     /**
      * Stage two triangles for an SDF quad with a linear gradient: the first
-     * triangle gets {@code c}, the second gets {@code c2} (the GPU
-     * interpolates per-vertex colors).
+     * triangle gets {@code c}, the second gets {@code c2} (the GPU interpolates
+     * per-vertex colors).
      *
-     * @param x1 first vertex x
-     * @param y1 first vertex y
-     * @param x2 second vertex x
-     * @param y2 second vertex y
-     * @param x3 third vertex x
-     * @param y3 third vertex y
-     * @param x4 fourth vertex x
-     * @param y4 fourth vertex y
+     * @param x1     first vertex x
+     * @param y1     first vertex y
+     * @param x2     second vertex x
+     * @param y2     second vertex y
+     * @param x3     third vertex x
+     * @param y3     third vertex y
+     * @param x4     fourth vertex x
+     * @param y4     fourth vertex y
      * @param zIndex depth value written to gl_Position.z
-     * @param s1 left u
-     * @param t1 bottom v
-     * @param s2 right u
-     * @param t2 top v
-     * @param c color at the start of the gradient
-     * @param c2 color at the end of the gradient
+     * @param s1     left u
+     * @param t1     bottom v
+     * @param s2     right u
+     * @param t2     top v
+     * @param c      color at the start of the gradient
+     * @param c2     color at the end of the gradient
      */
     public void drawSDFLinearGradient(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4,
             float zIndex, float s1, float t1, float s2, float t2, Color c, Color c2) {
@@ -1086,16 +1092,16 @@ public abstract class ShaderProgram {
     /**
      * Build and upload this program's projection matrix.
      *
-     * @param framebufferWidth viewport width in pixels
+     * @param framebufferWidth  viewport width in pixels
      * @param framebufferHeight viewport height in pixels
-     * @param f DPI/zoom scale hint
+     * @param f                 DPI/zoom scale hint
      */
     public abstract void updateProjectionMatrix(int framebufferWidth, int framebufferHeight, float f);
 
     /**
-     * Allocate the staging vertex buffer (when {@code useBuffer} is on),
-     * size the GPU VBO, and reset draw bookkeeping. Subclasses override to
-     * additionally wire vertex attributes.
+     * Allocate the staging vertex buffer (when {@code useBuffer} is on), size the
+     * GPU VBO, and reset draw bookkeeping. Subclasses override to additionally wire
+     * vertex attributes.
      */
     public void init() {
         if (useBuffer) {
@@ -1137,11 +1143,12 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Get or grow this owner's persistent VBO slice. New allocations are
-     * rounded up to the next power of two, and undersized existing
-     * allocations are relocated to the next free region.
+     * Get or grow this owner's persistent VBO slice. New allocations are rounded up
+     * to the next power of two, and undersized existing allocations are relocated
+     * to the next free region.
      *
-     * @param owner identity key for the allocation (e.g. a drawable instance)
+     * @param owner             identity key for the allocation (e.g. a drawable
+     *                          instance)
      * @param minVertexCapacity required vertex capacity
      * @throws IllegalArgumentException if {@code owner} is {@code null}
      * @return existing or newly-created allocation
@@ -1182,10 +1189,10 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Variant of {@link #ensureAllocation(Object, int)} keyed by a numeric
-     * id (mapped to a stable global owner key).
+     * Variant of {@link #ensureAllocation(Object, int)} keyed by a numeric id
+     * (mapped to a stable global owner key).
      *
-     * @param id numeric allocation id
+     * @param id                numeric allocation id
      * @param minVertexCapacity required vertex capacity
      * @return existing or newly-created allocation
      */
@@ -1207,10 +1214,10 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Queue a draw of {@code vertexCount} vertices from the allocation
-     * registered under {@code id}; no-op if the id is unknown.
+     * Queue a draw of {@code vertexCount} vertices from the allocation registered
+     * under {@code id}; no-op if the id is unknown.
      *
-     * @param id allocation id
+     * @param id          allocation id
      * @param vertexCount number of vertices to draw
      */
     public void queueDraw(long id, int vertexCount) {
@@ -1221,11 +1228,11 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Upload {@code data} into the GPU buffer at the allocation's vertex
-     * offset, mark it clean, and remember the vertex count.
+     * Upload {@code data} into the GPU buffer at the allocation's vertex offset,
+     * mark it clean, and remember the vertex count.
      *
-     * @param allocation target slice in the persistent VBO
-     * @param data already-flipped float buffer of vertex data
+     * @param allocation       target slice in the persistent VBO
+     * @param data             already-flipped float buffer of vertex data
      * @param verticesToUpload number of vertices written into {@code data}
      */
     public void uploadAllocation(Allocation allocation, IxBuffer data, int verticesToUpload) {
@@ -1246,7 +1253,7 @@ public abstract class ShaderProgram {
      * Queue a draw range for the given allocation; rendered on the next
      * {@link #flush()}.
      *
-     * @param allocation slice to draw from
+     * @param allocation  slice to draw from
      * @param vertexCount number of vertices to draw
      */
     public void queueDraw(Allocation allocation, int vertexCount) {
@@ -1289,8 +1296,8 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Diagnostic: print every active uniform's current GPU value (float,
-     * vec2, vec4, sampler2D) to stdout.
+     * Diagnostic: print every active uniform's current GPU value (float, vec2,
+     * vec4, sampler2D) to stdout.
      */
     public void printCurrentUniformValues() {
         System.out.println("--- Current Uniform Values for Shader Program ID: " + ID + " ---");
@@ -1367,6 +1374,10 @@ public abstract class ShaderProgram {
 
         MeshUv(MeshShader.class, "mesh_uv.vs", "mesh_uv.fs"),
 
+        MeshUvTraces(MeshShader.class, "mesh_uv_traces.vs", "mesh_uv_traces.fs"),
+
+        MeshCrossField(MeshShader.class, "mesh_cross_field.vs", "mesh_cross_field.fs"),
+
         BezierSDF(SDFShader.class, FONT_VS, "sdf_bezier_simple.fs");
 
         public String vertexShaderLocation;
@@ -1384,12 +1395,11 @@ public abstract class ShaderProgram {
         }
 
         /**
-         * Instantiate the concrete shader subclass for this enum entry on
-         * the active GL platform and register it with the platform's shader
-         * list.
+         * Instantiate the concrete shader subclass for this enum entry on the active GL
+         * platform and register it with the platform's shader list.
          *
-         * @throws RuntimeException if the shader class is unrecognized or
-         *                          its sources fail to load
+         * @throws RuntimeException if the shader class is unrecognized or its sources
+         *                          fail to load
          */
         public void createShader() {
             ShaderProgram shader = null;
@@ -1401,10 +1411,9 @@ public abstract class ShaderProgram {
                             Platforms.get().getFrameBufferHeight());
                 } else if (shaderClass.equals(ColorShader.class)) {
                     shader = new ColorShader(vertexShaderLocation, fragmentShaderLocation);
-                }else if (shaderClass.equals(MeshShader.class)) {
+                } else if (shaderClass.equals(MeshShader.class)) {
                     shader = new MeshShader(vertexShaderLocation, fragmentShaderLocation);
-                }
-                else{
+                } else {
                     throw new RuntimeException("Unknown shader type: " + shaderClass.getName());
                 }
             } catch (IOException e) {
@@ -1428,8 +1437,8 @@ public abstract class ShaderProgram {
         }
 
         /**
-         * Get the shader for a specific platform id, initializing the
-         * platform and creating the shader on first use.
+         * Get the shader for a specific platform id, initializing the platform and
+         * creating the shader on first use.
          *
          * @param p target platform id
          * @return shader instance for that platform
@@ -1456,7 +1465,7 @@ public abstract class ShaderProgram {
         /**
          * Build an allocation describing a vertex slice in the persistent VBO.
          *
-         * @param firstVertex starting vertex index
+         * @param firstVertex    starting vertex index
          * @param vertexCapacity reserved vertex count (power of two)
          */
         public Allocation(int firstVertex, int vertexCapacity) {

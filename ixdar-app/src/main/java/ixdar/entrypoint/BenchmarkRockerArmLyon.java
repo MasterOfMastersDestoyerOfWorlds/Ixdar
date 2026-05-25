@@ -35,8 +35,8 @@ public final class BenchmarkRockerArmLyon {
 
     /**
      * CLI entry: load the rocker-arm OBJ (or {@code args[0]}), run the full
-     * quad-layout pipeline, and report load/layout timings; a daemon watchdog
-     * exits with code {@value #NUM_124} after {@link #TIMEOUT_MS} ms.
+     * quad-layout pipeline, and report load/layout timings; a daemon watchdog exits
+     * with code {@value #NUM_124} after {@link #TIMEOUT_MS} ms.
      *
      * @param args optional path to the input OBJ at index 0
      * @throws Exception propagated from mesh loading or pipeline execution
@@ -71,6 +71,7 @@ public final class BenchmarkRockerArmLyon {
             System.out.printf("[bench-lyon] mesh load=%dms %s%n",
                     tLoad, beforeTopology);
             QuadLayoutEngine.pipeline(mesh, NUM_15);
+            System.out.printf("[bench-lyon] motorcycle stage complete%n");
             TopologyStats afterTopology = TopologyStats.capture(mesh);
             if (!beforeTopology.equals(afterTopology)) {
                 System.err.printf("[bench-lyon] topology changed before=%s after=%s%n",
