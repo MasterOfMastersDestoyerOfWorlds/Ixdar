@@ -78,8 +78,6 @@ public final class QuadLayoutEngine {
 
         SeamlessParameterization seamless = new SeamlessParameterization(crossField);
         ParameterizationMetrics metrics = seamless.build();
-        System.out.println("Seamless injective: " + seamless.injective
-                + " (stiffening iters: " + seamless.stiffeningIterations + ")");
 
         // Stage 4 — Modified motorcycle graph T-mesh (Lyon 2021 §3) — not yet implemented.
         // Stage 5 — ILP for quantization (Lyon 2021 §4–§5) — not yet implemented.

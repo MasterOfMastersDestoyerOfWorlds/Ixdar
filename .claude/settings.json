@@ -73,7 +73,9 @@
       "Bash(rm -rf *)",
       "Bash(rm -rf)",
       "Bash(rm *)",
-      "Bash(rm)"
+      "Bash(rm)",
+      "Bash(unzip *)",
+      "Bash(unzip)"
     ],
     "additionalDirectories": [
       "/tmp",

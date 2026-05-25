@@ -10,6 +10,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.SeamlessProjector;
+import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.IncrementalCholeskySolver;
 
@@ -175,8 +176,25 @@ public final class SeamlessParameterization {
      */
     public SeamlessDofSystem dofSystem;
 
-    /** Last solver output (size {@code dofSystem.dofCount}). */
-    private double[] solution;
+    /**
+     * §5.4 stiffening preconditioner: the cold Cholesky factor of iter 0's matrix,
+     * reused as the preconditioner for warm-started PCG on iters ≥ 1. Null outside
+     * {@link #runStiffeningLoop}.
+     */
+    public IncrementalCholeskySolver stiffeningPreconditioner;
+
+    /**
+     * Max PCG iterations per stiffening iter ≥ 1. With a good preconditioner
+     * (iter-0 L) the matrix usually converges in well under 50 iters; if PCG hits
+     * this cap, the preconditioner has gone stale and a fresh cold factor is
+     * probably warranted.
+     */
+    public int stiffeningPcgMaxIterations = 200;
+
+    /**
+     * PCG relative residual tolerance: {@code ‖r‖² ≤ τ² · max(‖b‖², 1)}.
+     */
+    public double stiffeningPcgRelativeTolerance = 1.0e-8;
 
     /**
      * Target quad edge length, expressed as a fraction of the bounding-box
@@ -188,6 +206,9 @@ public final class SeamlessParameterization {
      * Target quad edge length.
      */
     public float targetQuadEdgeLength;
+
+    /** Last solver output (size {@code dofSystem.dofCount}). */
+    private double[] solution;
 
     /**
      * Adopts a built {@link CrossField}. Caller must invoke {@link #build()} to
@@ -264,7 +285,13 @@ public final class SeamlessParameterization {
         this.dofSystem = new SeamlessDofSystem(this, cutGraph);
 
         System.out.println("[seamless] Solving once");
-        solveOnce();
+
+        NormalMatrix matrix = dofSystem.assemble(faceWeight);
+        dofSystem.applyIntegerPinPenalty(matrix);
+        int[] perm = dofSystem.amdPermutation(matrix);
+        double[] start = new double[dofSystem.dofCount];
+        boolean[] fixed = new boolean[dofSystem.dofCount];
+        solution = DirectSolver.solveWithPerm(matrix, start, fixed, perm);
 
         System.out.println("[seamless] Running greedy integer rounding");
         runGreedyIntegerRounding();
@@ -474,11 +501,33 @@ public final class SeamlessParameterization {
      * flipped face" version exhibits.
      */
     private void runStiffeningLoop() {
+        stiffeningPreconditioner = null;
         int initialFlipped = -1;
         int previousFlipped = -1;
         for (int iter = 0; iter <= maxStiffeningIterations; iter++) {
             long t0 = System.nanoTime();
-            solveOnce();
+            NormalMatrix matrix = dofSystem.assemble(faceWeight);
+            dofSystem.applyIntegerPinPenalty(matrix);
+            int dofCount = dofSystem.dofCount;
+            if (stiffeningPreconditioner == null) {
+                int[] perm = dofSystem.amdPermutation(matrix);
+                stiffeningPreconditioner = new IncrementalCholeskySolver();
+                if (!stiffeningPreconditioner.setAWithPerm(matrix, perm)) {
+                    throw new IllegalStateException(
+                            "stiffening: cold Cholesky factor of the base system failed");
+                }
+                solution = new double[dofCount];
+                stiffeningPreconditioner.solve(matrix.rightHandSide, solution);
+                System.out.println("[stiffening pcg] iter 0 cold factor + back-solve");
+            } else {
+                AdaptiveSolver.PcgResult result = AdaptiveSolver.preconditionedConjugateGradient(
+                        matrix, solution, dofSystem.dofPinned,
+                        stiffeningPreconditioner::solve,
+                        stiffeningPcgMaxIterations, stiffeningPcgRelativeTolerance);
+                System.out.printf("[stiffening pcg] %s in %d iters%n",
+                        result.converged() ? "converged" : "DID NOT converge",
+                        result.iterations());
+            }
             long t1 = System.nanoTime();
             int flipped = countFlippedTrianglesFromSolution();
             if (initialFlipped < 0) {
@@ -576,20 +625,6 @@ public final class SeamlessParameterization {
                 faceWeight[activeFace] += weightBump;
             }
         }
-    }
-
-    /**
-     * Assemble the SPD system for the current {@link #faceWeight} via the cached
-     * {@link SeamlessDofSystem} plan, apply the integer-pin penalty, factor with
-     * the cached AMD permutation, and solve.
-     */
-    private void solveOnce() {
-        NormalMatrix matrix = dofSystem.assemble(faceWeight);
-        dofSystem.applyIntegerPinPenalty(matrix);
-        int[] perm = dofSystem.amdPermutation(matrix);
-        double[] start = new double[dofSystem.dofCount];
-        boolean[] fixed = new boolean[dofSystem.dofCount];
-        solution = DirectSolver.solveWithPerm(matrix, start, fixed, perm);
     }
 
     /**

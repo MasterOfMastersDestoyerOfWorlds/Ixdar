@@ -310,6 +310,113 @@ public final class AdaptiveSolver {
         return new CgResult(x, iteration, false);
     }
 
+    /**
+     * Preconditioned Conjugate Gradient with a caller-supplied preconditioner.
+     * Same warm-start semantics as {@link #conjugateGradient} but {@code M⁻¹} is
+     * computed by {@code preconditioner.solve(r, z)} on each iteration instead
+     * of the built-in Jacobi step. Mutates {@code x} in place.
+     *
+     * <p>
+     * The intended use case is the BZK09 §5.4 IRLS stiffening loop: cold-factor
+     * iter 0's matrix once, reuse that {@link IncrementalCholeskySolver} as the
+     * preconditioner for all subsequent stiffening iters' PCG solves. As long
+     * as the matrix doesn't drift too far, PCG converges in a handful of
+     * back-solves through the cached factor instead of paying a full cold
+     * factor per iter.
+     *
+     * <p>
+     * Norm-based termination uses
+     * {@code ‖r‖²(masked) ≤ τ² · max(‖b‖²(masked), 1)} where the mask skips
+     * entries flagged in {@code excludeFromNorms}. This keeps soft-pinned DOFs
+     * (whose huge {@code integerPinWeight}-scaled RHS entries would dominate
+     * the unconstrained norms) from artificially loosening the tolerance.
+     * Excluded DOFs are still updated normally by PCG — they just don't
+     * influence convergence detection.
+     *
+     * @param matrix             SPD system to solve
+     * @param x                  warm-start input; mutated in place into the
+     *                           solution
+     * @param excludeFromNorms   per-DOF flag for "skip in residual / b norms";
+     *                           may be null to include all entries
+     * @param preconditioner     applies {@code M⁻¹} to a residual vector
+     * @param maxIterations      cap on PCG iterations
+     * @param relativeTolerance  relative residual tolerance τ
+     * @return iteration count and converged flag
+     */
+    public static PcgResult preconditionedConjugateGradient(NormalMatrix matrix,
+            double[] x,
+            boolean[] excludeFromNorms,
+            Preconditioner preconditioner,
+            int maxIterations,
+            double relativeTolerance) {
+        int n = matrix.size();
+        double[] r = new double[n];
+        double[] z = new double[n];
+        double[] p = new double[n];
+        double[] ap = new double[n];
+
+        double bNormSq = 0.0;
+        for (int i = 0; i < n; i++) {
+            r[i] = matrix.rightHandSide[i] - matrix.rowDot(i, x);
+            if (excludeFromNorms == null || !excludeFromNorms[i]) {
+                bNormSq += matrix.rightHandSide[i] * matrix.rightHandSide[i];
+            }
+        }
+        double toleranceSq = relativeTolerance * relativeTolerance * Math.max(bNormSq, 1.0);
+        double rNormSq = 0.0;
+        for (int i = 0; i < n; i++) {
+            if (excludeFromNorms == null || !excludeFromNorms[i]) {
+                rNormSq += r[i] * r[i];
+            }
+        }
+        if (rNormSq <= toleranceSq) {
+            return new PcgResult(0, true);
+        }
+
+        preconditioner.solve(r, z);
+        System.arraycopy(z, 0, p, 0, n);
+        double rzOld = 0.0;
+        for (int i = 0; i < n; i++) {
+            rzOld += r[i] * z[i];
+        }
+
+        for (int iteration = 0; iteration < maxIterations; iteration++) {
+            for (int i = 0; i < n; i++) {
+                ap[i] = matrix.rowDot(i, p);
+            }
+            double pAp = 0.0;
+            for (int i = 0; i < n; i++) {
+                pAp += p[i] * ap[i];
+            }
+            if (Math.abs(pAp) < NUM_1e_30) {
+                return new PcgResult(iteration, false);
+            }
+            double alpha = rzOld / pAp;
+            rNormSq = 0.0;
+            for (int i = 0; i < n; i++) {
+                x[i] += alpha * p[i];
+                r[i] -= alpha * ap[i];
+                if (excludeFromNorms == null || !excludeFromNorms[i]) {
+                    rNormSq += r[i] * r[i];
+                }
+            }
+            if (rNormSq <= toleranceSq) {
+                return new PcgResult(iteration + 1, true);
+            }
+            preconditioner.solve(r, z);
+            double rzNew = 0.0;
+            for (int i = 0; i < n; i++) {
+                rzNew += r[i] * z[i];
+            }
+            double beta = rzNew / rzOld;
+            for (int i = 0; i < n; i++) {
+                p[i] = z[i] + beta * p[i];
+            }
+            rzOld = rzNew;
+        }
+        return new PcgResult(maxIterations, false);
+    }
+
     private static BootstrapResult bootstrapSolve(NormalMatrix matrix,
             double[] start,
             boolean[] fixed) {
@@ -516,6 +623,15 @@ public final class AdaptiveSolver {
      * @param stats iteration and convergence data
      */
     public record Result(double[] x, Stats stats) {
+    }
+
+    /**
+     * Result of one {@link #preconditionedConjugateGradient} call.
+     *
+     * @param iterations PCG iterations actually run
+     * @param converged  true iff the solution met the relative tolerance
+     */
+    public record PcgResult(int iterations, boolean converged) {
     }
 
     private record LocalResult(double[] x,
