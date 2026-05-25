@@ -40,14 +40,14 @@ public class CholeskyUpdate_DSCC extends CholeskyUpLooking_DSCC {
      * — they always land on rows where {@code L}'s column already has a
      * structural non-zero, so no new fill is introduced.
      *
-     * @param sigma {@code +1.0} for update, {@code -1.0} for downdate
-     * @param w     length-{@code N} working vector; mutated in place. For a
-     *              diagonal pin at column {@code col} with weight μ, the
-     *              caller pre-fills {@code w[col] = √μ} and zero elsewhere.
+     * @param col column index of the diagonal entry to pin
+     * @param mu  positive pin weight; pre-encoded into the working vector as
+     *            {@code √μ}
      * @return {@code true} if the update succeeded; {@code false} if a
      *         downdate produced a non-positive-definite matrix
-     * @throws UnsupportedOperationException if {@code sigma != 1.0} (downdate
-     *         not yet implemented; IGM rounding only updates)
+     * @throws UnsupportedOperationException if downdate is requested (not yet
+     *         implemented; IGM rounding only updates)
+     * @throws IllegalArgumentException      when {@code mu} is non-positive
      */
     public boolean pinDiagonal(int col, double mu) {
         if (mu <= 0.0) {

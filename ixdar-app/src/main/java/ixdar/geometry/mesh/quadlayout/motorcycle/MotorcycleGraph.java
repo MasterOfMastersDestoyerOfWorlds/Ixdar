@@ -24,6 +24,9 @@ public final class MotorcycleGraph {
     private static final int PROGRESS_BAR_WIDTH = 30;
     private static final int PROGRESS_LOG_EVERY_EVENTS = 5000;
     private static final long PROGRESS_LOG_EVERY_NANOS = 2_000_000_000L;
+    private static final double PARAMETRIC_EPS = 1.0e-9;
+    /** Hard cap on processed events so a stuck queue cannot run forever. */
+    private static final int MAX_SIMULATION_EVENTS = 100_000;
 
     public final SeamlessParameterization seamless;
     public final float alphaRadians;
@@ -35,6 +38,15 @@ public final class MotorcycleGraph {
 
     public int[] patchIdByActiveFace;
     public float[][] traceRecordsByFace;
+
+    /** Singularity traces that enqueued a first event during {@link #build()}. */
+    public int spawnForwardCount;
+    /**
+     * Singularity traces that died before the first event during {@link #build()}.
+     */
+    public int spawnDeadCount;
+    /** Priority-queue size after seeding singularity trace events. */
+    public int initialEventQueueSize;
 
     private int nextNodeId;
     private int nextArcId;
@@ -81,12 +93,24 @@ public final class MotorcycleGraph {
                 traces.size(), featureTraceCount, ports.size(), nodes.size());
 
         PriorityQueue<TraceEvent> queue = new PriorityQueue<>();
+        int deadAtSpawn = 0;
+        int forwardAtSpawn = 0;
         for (Trace trace : traces) {
             if (!trace.featureTrace) {
                 enqueueNextEvent(trace, walker, segmentIndex, queue);
+                if (trace.alive) {
+                    forwardAtSpawn++;
+                } else {
+                    deadAtSpawn++;
+                }
             }
         }
         int initialQueueSize = queue.size();
+        spawnForwardCount = forwardAtSpawn;
+        spawnDeadCount = deadAtSpawn;
+        initialEventQueueSize = initialQueueSize;
+        System.out.printf("[motorcycle] spawn: ports=%d forward=%d deadAtSpawn=%d%n",
+                ports.size(), forwardAtSpawn, deadAtSpawn);
         System.out.printf("[motorcycle] event simulation: queue=%d%n", initialQueueSize);
 
         long simStartNanos = System.nanoTime();
@@ -94,10 +118,19 @@ public final class MotorcycleGraph {
         int eventsProcessed = 0;
         int lastAlive = -1;
         while (!queue.isEmpty()) {
+            if (eventsProcessed >= MAX_SIMULATION_EVENTS) {
+                System.out.printf(
+                        "[motorcycle] event simulation stopped at max events=%d queue=%d alive=%d%n",
+                        MAX_SIMULATION_EVENTS, queue.size(), aliveNonFeatureTraceCount());
+                break;
+            }
             TraceEvent event = queue.poll();
             eventsProcessed++;
             Trace trace = traces.get(event.traceId);
             if (!trace.alive) {
+                continue;
+            }
+            if (event.parametricLength <= trace.parametricLengthSoFar + PARAMETRIC_EPS) {
                 continue;
             }
             switch (event.type) {
@@ -112,14 +145,14 @@ public final class MotorcycleGraph {
             long now = System.nanoTime();
             if (eventsProcessed % PROGRESS_LOG_EVERY_EVENTS == 0
                     || now - lastLogNanos >= PROGRESS_LOG_EVERY_NANOS) {
-                int alive = aliveTraceCount();
+                int alive = aliveNonFeatureTraceCount();
                 printSimulationProgress(eventsProcessed, initialQueueSize, queue.size(), alive,
                         lastAlive, now - simStartNanos);
                 lastAlive = alive;
                 lastLogNanos = now;
             }
         }
-        printSimulationProgress(eventsProcessed, initialQueueSize, 0, aliveTraceCount(),
+        printSimulationProgress(eventsProcessed, initialQueueSize, 0, aliveNonFeatureTraceCount(),
                 lastAlive, System.nanoTime() - simStartNanos);
 
         System.out.println("[motorcycle] finalizing open traces");
@@ -128,9 +161,10 @@ public final class MotorcycleGraph {
         assemblePatches(faceCount);
         buildTraceRecordBuffer(faceCount);
         System.out.printf(
-                "[motorcycle] done traces=%d arcs=%d nodes=%d patches=%d alive=%d  %.2fs%n",
+                "[motorcycle] done traces=%d arcs=%d nodes=%d patches=%d alive=%d (non-feature=%d)  %.2fs%n",
                 traces.size(), arcs.size(), nodes.size(), patches.size(),
-                aliveTraceCount(), (System.nanoTime() - buildStartNanos) / 1.0e9);
+                aliveTraceCount(), aliveNonFeatureTraceCount(),
+                (System.nanoTime() - buildStartNanos) / 1.0e9);
         return this;
     }
 
@@ -155,9 +189,25 @@ public final class MotorcycleGraph {
     }
 
     /**
+     * Counts non-feature traces whose {@link Trace#alive} flag is still set.
+     *
+     * @return number of singularity traces still marked alive (feature traces
+     *         excluded)
+     */
+    public int aliveNonFeatureTraceCount() {
+        int alive = 0;
+        for (Trace trace : traces) {
+            if (trace.alive && !trace.featureTrace) {
+                alive++;
+            }
+        }
+        return alive;
+    }
+
+    /**
      * Counts traces whose {@link Trace#alive} flag is still set.
      *
-     * @return number of traces still marked alive (should be 0 for non-feature
+     * @return number of traces still marked alive (includes immortal feature
      *         traces)
      */
     public int aliveTraceCount() {
@@ -207,7 +257,7 @@ public final class MotorcycleGraph {
             TracePort port = new TracePort(-1, activeFace, 0, TraceAxis.U, 1);
             Trace trace = spawnFeatureTrace(port, uv);
             TraceSegment segment = new TraceSegment(trace.traceId, activeFace,
-                    uv[0], uv[1], uv[2], uv[3], TraceAxis.U, 1);
+                    uv[0], uv[1], uv[2], uv[3], TraceAxis.U, 1, 0.0);
             trace.segments.add(segment);
             segmentIndex.add(segment);
         }
@@ -259,28 +309,34 @@ public final class MotorcycleGraph {
             return;
         }
         double edgeLength = edgeHit.parametricDelta;
+        if (edgeLength < PARAMETRIC_EPS) {
+            trace.alive = false;
+            return;
+        }
         float exitU = edgeHit.exitU;
         float exitV = edgeHit.exitV;
 
-        double[] intersection = segmentIndex.earliestIntersection(
+        FaceSegmentIndex.IntersectionHit intersection = segmentIndex.earliestIntersection(
                 trace.traceId, trace.state.activeFace,
                 trace.state.u, trace.state.v, exitU, exitV, trace.state.axis);
-        if (intersection != null && intersection[1] < edgeLength) {
+        if (intersection != null && intersection.tAlongCandidate < edgeLength) {
             queue.add(new TraceEvent(TraceEvent.TYPE_INTERSECTION,
-                    trace.parametricLengthSoFar + intersection[1],
-                    trace.traceId, (int) intersection[0],
-                    trace.state.activeFace, (float) intersection[2], (float) intersection[3]));
+                    trace.parametricLengthSoFar + intersection.tAlongCandidate,
+                    trace.traceId, intersection.otherSegment.traceId,
+                    trace.state.activeFace,
+                    (float) intersection.intersectionU, (float) intersection.intersectionV,
+                    intersection.otherSegment));
             return;
         }
         if (edgeHit.boundary) {
             queue.add(new TraceEvent(TraceEvent.TYPE_BOUNDARY,
                     trace.parametricLengthSoFar + edgeLength,
-                    trace.traceId, -1, trace.state.activeFace, exitU, exitV));
+                    trace.traceId, -1, trace.state.activeFace, exitU, exitV, null));
             return;
         }
         queue.add(new TraceEvent(TraceEvent.TYPE_EDGE,
                 trace.parametricLengthSoFar + edgeLength,
-                trace.traceId, -1, trace.state.activeFace, exitU, exitV));
+                trace.traceId, -1, trace.state.activeFace, exitU, exitV, null));
     }
 
     private void handleEdgeCrossing(Trace trace, TraceEvent event, ChartWalker walker,
@@ -292,7 +348,7 @@ public final class MotorcycleGraph {
         }
         TraceSegment segment = new TraceSegment(trace.traceId, trace.state.activeFace,
                 trace.state.u, trace.state.v, edgeHit.exitU, edgeHit.exitV,
-                trace.state.axis, trace.state.sign);
+                trace.state.axis, trace.state.sign, trace.parametricLengthSoFar);
         trace.segments.add(segment);
         segmentIndex.add(segment);
         trace.parametricLengthSoFar = event.parametricLength;
@@ -301,7 +357,7 @@ public final class MotorcycleGraph {
         if (!walker.crossEdge(trace.state, edgeHit, next)) {
             handleTermination(trace, new TraceEvent(TraceEvent.TYPE_BOUNDARY,
                     event.parametricLength, trace.traceId, -1, event.activeFace,
-                    edgeHit.exitU, edgeHit.exitV));
+                    edgeHit.exitU, edgeHit.exitV, null));
             return;
         }
         trace.state = next;
@@ -312,7 +368,8 @@ public final class MotorcycleGraph {
             FaceSegmentIndex segmentIndex, PriorityQueue<TraceEvent> queue) {
         Trace other = traces.get(event.otherTraceId);
         TraceSegment segment = new TraceSegment(trace.traceId, trace.state.activeFace,
-                trace.state.u, trace.state.v, event.u, event.v, trace.state.axis, trace.state.sign);
+                trace.state.u, trace.state.v, event.u, event.v,
+                trace.state.axis, trace.state.sign, trace.parametricLengthSoFar);
         trace.segments.add(segment);
         segmentIndex.add(segment);
         trace.parametricLengthSoFar = event.parametricLength;
@@ -322,21 +379,40 @@ public final class MotorcycleGraph {
         trace.currentNodeId = intersectionNode.nodeId;
         trace.arcNodeIds.add(intersectionNode.nodeId);
 
-        double theirLength = other.parametricLengthSoFar;
-        trace.recordMeeting(other, event.parametricLength, theirLength, alphaRadians);
-        other.recordMeeting(trace, theirLength, event.parametricLength, alphaRadians);
+        TraceSegment otherSegment = event.otherSegment;
+        double theirLength = otherSegment.parametricLengthAtEntry
+                + distanceAlongSegment(otherSegment, event.u, event.v);
+        double alphaIjForTi = Trace.computeAlphaIj(
+                trace.state.axis, trace.state.sign,
+                otherSegment.axis, otherSegment.sign,
+                event.parametricLength, theirLength);
+        double alphaJiForTj = Trace.computeAlphaIj(
+                otherSegment.axis, otherSegment.sign,
+                trace.state.axis, trace.state.sign,
+                theirLength, event.parametricLength);
+        trace.recordMeeting(other, event.parametricLength, theirLength, alphaIjForTi, alphaRadians);
+        other.recordMeeting(trace, theirLength, event.parametricLength, alphaJiForTj, alphaRadians);
 
         if (!trace.alive) {
             return;
         }
         trace.state.u = event.u;
         trace.state.v = event.v;
+        trace.state.incomingLocalEdgeIndex = -1;
         enqueueNextEvent(trace, walker, segmentIndex, queue);
+    }
+
+    private static double distanceAlongSegment(TraceSegment segment, float u, float v) {
+        if (segment.axis == TraceAxis.U) {
+            return Math.abs(u - segment.entryU);
+        }
+        return Math.abs(v - segment.entryV);
     }
 
     private void handleTermination(Trace trace, TraceEvent event) {
         TraceSegment segment = new TraceSegment(trace.traceId, trace.state.activeFace,
-                trace.state.u, trace.state.v, event.u, event.v, trace.state.axis, trace.state.sign);
+                trace.state.u, trace.state.v, event.u, event.v,
+                trace.state.axis, trace.state.sign, trace.parametricLengthSoFar);
         trace.segments.add(segment);
         trace.parametricLengthSoFar = event.parametricLength;
         TMeshNode endNode = new TMeshNode(nextNodeId++,

@@ -52,13 +52,12 @@ public final class FaceSegmentIndex {
      * @param exitU      chord exit u
      * @param exitV      chord exit v
      * @param axis       candidate axis
-     * @return intersection data {@code [otherTraceId, tAlongCandidate, iu, iv]} or
-     *         {@code null}
+     * @return matched segment plus the (t, iu, iv) hit data, or {@code null}
      */
-    public double[] earliestIntersection(int traceId, int activeFace,
+    public IntersectionHit earliestIntersection(int traceId, int activeFace,
             float entryU, float entryV, float exitU, float exitV, TraceAxis axis) {
         double bestT = Double.POSITIVE_INFINITY;
-        int bestOther = -1;
+        TraceSegment bestSegment = null;
         double bestU = 0.0;
         double bestV = 0.0;
         for (TraceSegment existing : segmentsByFace.get(activeFace)) {
@@ -72,14 +71,40 @@ public final class FaceSegmentIndex {
                 continue;
             }
             bestT = hit[0];
-            bestOther = existing.traceId;
+            bestSegment = existing;
             bestU = hit[1];
             bestV = hit[2];
         }
-        if (bestOther < 0) {
+        if (bestSegment == null) {
             return null;
         }
-        return new double[] { bestOther, bestT, bestU, bestV };
+        return new IntersectionHit(bestSegment, bestT, bestU, bestV);
+    }
+
+    /** Result of {@link #earliestIntersection}: matched segment plus chord hit data. */
+    public static final class IntersectionHit {
+        public final TraceSegment otherSegment;
+        public final double tAlongCandidate;
+        public final double intersectionU;
+        public final double intersectionV;
+
+        /**
+         * One earliest-intersection record between a candidate chord and an
+         * existing trace segment.
+         *
+         * @param otherSegment     matched existing segment
+         * @param tAlongCandidate  parametric distance along the candidate from
+         *                         its entry to the intersection
+         * @param intersectionU    intersection u in the face chart
+         * @param intersectionV    intersection v in the face chart
+         */
+        public IntersectionHit(TraceSegment otherSegment, double tAlongCandidate,
+                double intersectionU, double intersectionV) {
+            this.otherSegment = otherSegment;
+            this.tAlongCandidate = tAlongCandidate;
+            this.intersectionU = intersectionU;
+            this.intersectionV = intersectionV;
+        }
     }
 
     private static double[] intersectSegments(

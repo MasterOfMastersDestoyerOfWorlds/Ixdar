@@ -13,6 +13,8 @@ public class BoundaryConstraints {
      * cross is aligned with the edge direction so the quadrangulation follows the
      * surface boundary.
      *
+     * @param mesh       half-edge mesh whose boundary edges are scanned
+     * @param crossField cross field receiving the alignment-edge annotations
      */
     public static void applyBoundaryConstraints(HalfEdgeMesh mesh, CrossField crossField) {
         for (int activeEdgeIndex = 0; activeEdgeIndex < mesh.edgeCount(); activeEdgeIndex++) {

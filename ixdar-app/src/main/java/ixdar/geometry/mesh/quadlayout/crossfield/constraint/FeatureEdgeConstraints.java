@@ -19,6 +19,8 @@ public class FeatureEdgeConstraints {
      * Without this pass, sharp models like fandisk produce many spurious
      * singularities because the field has no incentive to follow features.
      *
+     * @param mesh       half-edge mesh whose dihedral angles are measured
+     * @param crossField cross field receiving the per-face constraint annotations
      * @return number of newly constrained faces
      */
       public static int applyFeatureEdgeConstraints(HalfEdgeMesh mesh, CrossField crossField) {

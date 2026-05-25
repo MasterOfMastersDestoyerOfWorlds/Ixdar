@@ -140,4 +140,68 @@ public final class UvPredicates {
     public static double signedAngle(double ax, double ay, double bx, double by) {
         return Math.atan2(ax * by - ay * bx, ax * bx + ay * by);
     }
+
+    /**
+     * True when {@code c} lies strictly to the left of directed line {@code a → b}.
+     *
+     * @param ax x-coordinate of point a
+     * @param ay y-coordinate of point a
+     * @param bx x-coordinate of point b
+     * @param by y-coordinate of point b
+     * @param cx x-coordinate of point c
+     * @param cy y-coordinate of point c
+     * @return whether the orientation is positive
+     */
+    public static boolean isCcw(double ax, double ay, double bx, double by, double cx, double cy) {
+        return orient2d(ax, ay, bx, by, cx, cy) > ORIENT_COLLINEAR_EPSILON;
+    }
+
+    /**
+     * True when vectors {@code (ax, ay)} and {@code (bx, by)} are collinear.
+     *
+     * @param ax x-component of first vector
+     * @param ay y-component of first vector
+     * @param bx x-component of second vector
+     * @param by y-component of second vector
+     * @return whether the vectors are collinear
+     */
+    public static boolean isCollinear(double ax, double ay, double bx, double by) {
+        return Math.abs(orient2d(0.0, 0.0, ax, ay, bx, by)) <= ORIENT_COLLINEAR_EPSILON;
+    }
+
+    /**
+     * QEx §4.3 {@code POINTS_INTO(d, u, v, w)}: direction {@code d} from corner
+     * {@code u} enters triangle {@code (u, v, w)}.
+     *
+     * @param dx x-component of direction d
+     * @param dy y-component of direction d
+     * @param uu u-coordinate of corner u
+     * @param uv v-coordinate of corner u
+     * @param vu u-coordinate of corner v
+     * @param vv v-coordinate of corner v
+     * @param wu u-coordinate of corner w
+     * @param wv v-coordinate of corner w
+     * @return whether d points from u into the triangle interior
+     */
+    public static boolean pointsInto(double dx, double dy,
+            double uu, double uv, double vu, double vv, double wu, double wv) {
+        return isCcw(uu, uv, vu, vv, uu + dx, uv + dy)
+                && isCcw(uu, uv, uu + dx, uv + dy, wu, wv);
+    }
+
+    /**
+     * QEx direction {@code d(r) = R_90^r · (1, 0)^T}.
+     *
+     * @param rotation quarter-turn count r
+     * @return {@code [dx, dy]}
+     */
+    public static double[] directionR90(int rotation) {
+        int r = ((rotation % 4) + 4) % 4;
+        return switch (r) {
+        case 0 -> new double[] { 1.0, 0.0 };
+        case 1 -> new double[] { 0.0, 1.0 };
+        case 2 -> new double[] { -1.0, 0.0 };
+        default -> new double[] { 0.0, -1.0 };
+        };
+    }
 }

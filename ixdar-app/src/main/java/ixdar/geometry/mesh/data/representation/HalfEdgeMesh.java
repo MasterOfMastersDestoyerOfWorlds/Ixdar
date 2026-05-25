@@ -395,6 +395,12 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return dest.set(vertexPositions[offset], vertexPositions[offset + 1], vertexPositions[offset + 2]);
     }
 
+    /**
+     * Allocating convenience form of {@link #vertexPosition(int, Vector3f)}.
+     *
+     * @param vertexId vertex id
+     * @return new {@link Vector3f} with the vertex position
+     */
     public Vector3f vertexPosition(int vertexId) {
         int offset = vertexOffset(vertexId);
         return new Vector3f(vertexPositions[offset], vertexPositions[offset + 1], vertexPositions[offset + 2]);
@@ -537,6 +543,12 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return dest.set(faceNormals[offset], faceNormals[offset + 1], faceNormals[offset + 2]);
     }
 
+    /**
+     * Allocating convenience form of {@link #faceNormal(int, Vector3f)}.
+     *
+     * @param faceId face id
+     * @return new {@link Vector3f} with the cached face normal
+     */
     public Vector3f faceNormal(int faceId) {
         int offset = faceOffset(faceId);
         return new Vector3f(faceNormals[offset], faceNormals[offset + 1], faceNormals[offset + 2]);
@@ -1197,6 +1209,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
      *
      * @param dirWorld  3D direction in world coordinates
      * @param faceIndex face active index
+     * @param faceY     face-local y basis vector
+     * @param faceX     face-local x basis vector
      * @return signed angle of the projected direction in face-local frame, in
      *         radians
      */
@@ -1211,6 +1225,12 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return (float) Math.atan2(planar.dot(faceY), planar.dot(faceX));
     }
 
+    /**
+     * Edge-incidence struct for a given active edge index.
+     *
+     * @param activeIndex active edge index
+     * @return both half-edges, both incident faces, and both endpoint vertices
+     */
     public EdgeFaceIds edgeFaceIds(int activeIndex) {
         int eId = edgeIdAt(activeIndex);
         int he = edgeHalfEdge(eId);
@@ -1222,6 +1242,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return new EdgeFaceIds(eId, edgeStartVertex, edgeEndVertex, he, twin, faceA, faceB);
     }
 
+    /** Bundled adjacency for one edge: both half-edges, both faces, both endpoints. */
     public static final class EdgeFaceIds {
         public final int edgeId;
         public final int edgeStartVertex;
@@ -1231,6 +1252,18 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         public final int faceA;
         public final int faceB;
 
+        /**
+         * Captures one edge's full incidence in one struct.
+         *
+         * @param edgeId           edge id
+         * @param edgeStartVertex  start vertex id of {@code halfEdge}
+         * @param edgeEndVertex    end vertex id of {@code halfEdge}
+         * @param halfEdge         canonical half-edge id
+         * @param twin             twin half-edge id
+         * @param faceA            face incident to {@code halfEdge}
+         * @param faceB            face incident to {@code twin}, or {@code -1} at
+         *                         boundary
+         */
         public EdgeFaceIds(int edgeId, int edgeStartVertex, int edgeEndVertex, int halfEdge, int twin, int faceA,
                 int faceB) {
             this.edgeId = edgeId;
@@ -1243,6 +1276,13 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         }
     }
 
+    /**
+     * Vertex-edge-incidence struct for one outgoing edge of a vertex.
+     *
+     * @param vertexId    vertex id
+     * @param activeIndex index into the vertex's outgoing-edge fan
+     * @return both half-edges, both incident faces, and both endpoint vertices
+     */
     public VertexFaceIds vertexFaceIds(int vertexId, int activeIndex) {
         int edgeId = vertexEdgeAt(vertexId, activeIndex);
         int halfEdge = edgeHalfEdge(edgeId);
@@ -1255,6 +1295,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
                 rightFaceId);
     }
 
+    /** Bundled adjacency for one outgoing edge of a specific vertex. */
     public static final class VertexFaceIds {
         public final int vertexId;
         public final int edgeId;
@@ -1265,6 +1306,19 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         public final int faceA;
         public final int faceB;
 
+        /**
+         * Captures one vertex-edge fan entry's full incidence in one struct.
+         *
+         * @param vertexId         vertex id at the fan center
+         * @param edgeId           edge id
+         * @param halfEdge         canonical half-edge id
+         * @param edgeStartVertex  start vertex id of {@code halfEdge}
+         * @param edgeEndVertex    end vertex id of {@code halfEdge}
+         * @param twin             twin half-edge id
+         * @param faceA            face incident to {@code halfEdge}
+         * @param faceB            face incident to {@code twin}, or {@code -1} at
+         *                         boundary
+         */
         public VertexFaceIds(int vertexId, int edgeId, int halfEdge, int edgeStartVertex, int edgeEndVertex, int twin,
                 int faceA, int faceB) {
             this.vertexId = vertexId;

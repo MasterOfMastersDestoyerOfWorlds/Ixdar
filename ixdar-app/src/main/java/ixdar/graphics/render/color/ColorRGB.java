@@ -275,6 +275,7 @@ public class ColorRGB implements Color {
      * Sets the transparency.
      *
      * @param alpha The transparency. Range from 0f to 1f.
+     * @return this colour with the clamped alpha applied
      */
     public Color setAlpha(float alpha) {
         if (alpha < 0f) {

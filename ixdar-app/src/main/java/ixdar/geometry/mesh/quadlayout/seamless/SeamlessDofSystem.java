@@ -39,6 +39,12 @@ import ixdar.geometry.mesh.quadlayout.solver.SolverPermutation;
  */
 public final class SeamlessDofSystem {
 
+    /**
+     * Diagonal regularization added to DOF 0 in soft-seam mode to break the 1D
+     * translation nullspace so cold sparse Cholesky succeeds.
+     */
+    static final double NULLSPACE_ANCHOR_WEIGHT = 1.0;
+
     /** Corners per triangular face. */
     private static final int CORNERS_PER_FACE = 3;
     /** Components per chart vertex (0 = u, 1 = v). */
@@ -65,11 +71,6 @@ public final class SeamlessDofSystem {
      * iso-coordinate to pin.
      */
     private static final int ALIGN_AXIS_U = 0;
-    /**
-     * Diagonal regularization added to DOF 0 in soft-seam mode to break the 1D
-     * translation nullspace so cold sparse Cholesky succeeds.
-     */
-    static final double NULLSPACE_ANCHOR_WEIGHT = 1.0;
 
     /** Pre-leftover-elimination DOF count. */
     public final int rawDofCount;
@@ -165,9 +166,9 @@ public final class SeamlessDofSystem {
     /**
      * Build the DOF system snapshot for one seamless build.
      *
-     * @param owner the {@link SeamlessParameterization} whose mesh / cross-field /
-     *              cut-graph / per-face geometry to snapshot; the constructor does
-     *              not retain the reference
+     * @param seamless seamless parametrization whose mesh / cross-field /
+     *                 per-face geometry to snapshot
+     * @param cutGraph cut graph whose seam edges drive the DOF layout
      */
     public SeamlessDofSystem(SeamlessParameterization seamless, CutGraph cutGraph) {
         this.seamless = seamless;

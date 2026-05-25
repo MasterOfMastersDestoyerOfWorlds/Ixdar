@@ -44,6 +44,8 @@ public final class ChartWalker {
         public float v;
         public TraceAxis axis;
         public int sign;
+        /** Local edge index entered through on {@link #activeFace}, or -1 at spawn. */
+        public int incomingLocalEdgeIndex = -1;
 
         /**
          * Captures a chart position and axis-aligned direction.
@@ -73,6 +75,7 @@ public final class ChartWalker {
             this.v = other.v;
             this.axis = other.axis;
             this.sign = other.sign;
+            this.incomingLocalEdgeIndex = other.incomingLocalEdgeIndex;
         }
 
         /**
@@ -151,6 +154,9 @@ public final class ChartWalker {
         int bestEdge = -1;
         boolean bestBoundary = false;
         for (int edge = 0; edge < CORNERS; edge++) {
+            if (edge == state.incomingLocalEdgeIndex) {
+                continue;
+            }
             int next = (edge + 1) % CORNERS;
             double ax = cornerUv[edge * 2];
             double ay = cornerUv[edge * 2 + 1];
@@ -203,6 +209,13 @@ public final class ChartWalker {
             return false;
         }
         out.activeFace = seamless.crossField.faceIdToActive.get(nextFaceId);
+        out.incomingLocalEdgeIndex = -1;
+        for (int edge = 0; edge < CORNERS; edge++) {
+            if (mesh.faceEdgeAt(nextFaceId, edge) == edgeId) {
+                out.incomingLocalEdgeIndex = edge;
+                break;
+            }
+        }
         if (!seamless.cutGraph.isCutEdge[activeEdge]) {
             return true;
         }

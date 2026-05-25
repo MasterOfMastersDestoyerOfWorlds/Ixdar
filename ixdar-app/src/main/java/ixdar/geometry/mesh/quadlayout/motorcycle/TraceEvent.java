@@ -21,6 +21,7 @@ public final class TraceEvent implements Comparable<TraceEvent> {
     public final int activeFace;
     public final float u;
     public final float v;
+    public final TraceSegment otherSegment;
 
     /**
      * Schedules one simulation event on the motorcycle priority queue.
@@ -32,9 +33,11 @@ public final class TraceEvent implements Comparable<TraceEvent> {
      * @param activeFace       face where the event occurs
      * @param u                event u
      * @param v                event v
+     * @param otherSegment     matched other-trace segment for
+     *                         {@link #TYPE_INTERSECTION} events, else {@code null}
      */
     public TraceEvent(int type, double parametricLength, int traceId, int otherTraceId,
-            int activeFace, float u, float v) {
+            int activeFace, float u, float v, TraceSegment otherSegment) {
         this.type = type;
         this.parametricLength = parametricLength;
         this.traceId = traceId;
@@ -42,6 +45,7 @@ public final class TraceEvent implements Comparable<TraceEvent> {
         this.activeFace = activeFace;
         this.u = u;
         this.v = v;
+        this.otherSegment = otherSegment;
     }
 
     @Override

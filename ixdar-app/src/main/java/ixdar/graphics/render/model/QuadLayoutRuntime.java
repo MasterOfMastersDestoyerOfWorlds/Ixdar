@@ -49,13 +49,6 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public static final int ATTR_ARM_LENGTH = 6;
     public static final float ONE_THIRD = 1.0f / 3.0f;
     public static final int ATTR_TRACE0 = 5;
-    private static final Vector4f COLOR_V_ARM = ColorRGB.CYAN.toVector4f();
-    private static final Vector4f COLOR_INTERSECTION_NODE = ColorRGB.WHITE.toVector4f();
-    private static final Vector4f COLOR_BOUNDARY_NODE = ColorRGB.YELLOW.toVector4f();
-    private static final Vector4f COLOR_FEATURE_NODE = ColorRGB.MAGENTA.toVector4f();
-    private static final String FLIPPED_COLOR_UNIFORM = "flippedColor";
-    private static final String DRAW_FULL_ISO_GRID_UNIFORM = "drawFullIsoGrid";
-
     /**
      * Default fragment-pixel half-width of an iso-line, picked so the line is
      * roughly 2 px wide at typical zoom levels.
@@ -72,11 +65,6 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public static final int ATTR_TRACE1 = 6;
     public static final int ATTR_TRACE2 = 7;
     public static final int ATTR_TRACE3 = 8;
-    private static final int TRACE0_OFFSET = FLOATS_PER_CORNER;
-    private static final int TRACE1_OFFSET = TRACE0_OFFSET + FLOATS_PER_TRACE_RECORD;
-    private static final int TRACE2_OFFSET = TRACE1_OFFSET + FLOATS_PER_TRACE_RECORD;
-    private static final int TRACE3_OFFSET = TRACE2_OFFSET + FLOATS_PER_TRACE_RECORD;
-    private static final Vector4f COLOR_U_ARM = ColorRGB.YELLOW.toVector4f();
     /** Byte offset to the normal attribute within a corner stride. */
     public static final int NORMAL_OFFSET_BYTES = 3 * Float.BYTES;
     /** Byte offset to the uv attribute within a corner stride. */
@@ -139,10 +127,22 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public static final String LINE_HALF_WIDTH = "lineHalfWidth";
     /** Golden ratio φ = (1 + √5) / 2 for the icosahedron vertex coordinates. */
     public static final float PHI = (1f + ((float) Math.sqrt(5))) / 2f;
+
     protected static final int FLIP_OFFSET = 8;
     protected static final int FLIP_OFFSET_BYTES = FLIP_OFFSET * Float.BYTES;
     protected static final int ATTR_FLIP = 4;
 
+    private static final Vector4f COLOR_V_ARM = ColorRGB.CYAN.toVector4f();
+    private static final Vector4f COLOR_INTERSECTION_NODE = ColorRGB.WHITE.toVector4f();
+    private static final Vector4f COLOR_BOUNDARY_NODE = ColorRGB.YELLOW.toVector4f();
+    private static final Vector4f COLOR_FEATURE_NODE = ColorRGB.MAGENTA.toVector4f();
+    private static final String FLIPPED_COLOR_UNIFORM = "flippedColor";
+    private static final String DRAW_FULL_ISO_GRID_UNIFORM = "drawFullIsoGrid";
+    private static final int TRACE0_OFFSET = FLOATS_PER_CORNER;
+    private static final int TRACE1_OFFSET = TRACE0_OFFSET + FLOATS_PER_TRACE_RECORD;
+    private static final int TRACE2_OFFSET = TRACE1_OFFSET + FLOATS_PER_TRACE_RECORD;
+    private static final int TRACE3_OFFSET = TRACE2_OFFSET + FLOATS_PER_TRACE_RECORD;
+    private static final Vector4f COLOR_U_ARM = ColorRGB.YELLOW.toVector4f();
     /** Cyan for {@code index4 > 0} (valence-3, +π/2) per BZK09 fig. 4 caption. */
     private static final Vector4f COLOR_POSITIVE_INDEX = new ColorRGB(ColorRGB.CYAN).setAlpha(0.5f).toVector4f();
     /** Red for {@code index4 < 0} (valence-5, -π/2) per BZK09 fig. 4 caption. */
@@ -170,6 +170,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public final ShaderProgram crossFieldShader;
     /** Unlit shader reused for singularity spheres (solid colour). */
     public final ShaderProgram unlitShader;
+
     /** Iso-line half-width passed as the {@link #LINE_HALF_WIDTH} uniform. */
     public float lineHalfWidth = DEFAULT_LINE_HALF_WIDTH;
     /** Surface fill behind the iso-lines. */
@@ -220,7 +221,11 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public MotorcycleGraph motorcycleGraph;
     public SeamlessParameterization seamlessParametrization;
 
+    protected final Matrix4f sphereModel = new Matrix4f();
+    protected final Matrix4f localProjection = new Matrix4f();
+
     protected int crossFieldIndexCount;
+
     private int crossFieldVao;
     private int crossFieldVbo;
     private int crossFieldEbo;
@@ -228,9 +233,6 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private float[] graphNodeColors;
     private int graphNodeCount;
     private float[] patchScalars;
-
-    protected final Matrix4f sphereModel = new Matrix4f();
-    protected final Matrix4f localProjection = new Matrix4f();
 
     /**
      * Build the runtime; defers parametrization upload to

@@ -84,11 +84,11 @@ public class CrossField {
     public int[] periodJump;
 
     /**
-     * Per-face representative x-axis of the cross field
+     * Per-face representative x-axis of the cross field.
      */
     public Vector3f[] faceX;
     /**
-     * Per-face representative y-axis of the cross field
+     * Per-face representative y-axis of the cross field.
      */
     public Vector3f[] faceY;
 
@@ -141,15 +141,9 @@ public class CrossField {
     public boolean[] faceConstrained;
     public float[] faceConstraintAngle;
 
-    final int[] rowFaceA;
-    final int[] rowFaceB;
-    final double[] rowKappaPlusHalfPiP;
-    final int[] rowOfEdge;
-
     public int edgeCount;
     public int faceCount;
     public int vertexCount;
-    private int interiorRowCount;
 
     /**
      * The curvature constraints that are applied to the cross field. builds a multi
@@ -157,6 +151,13 @@ public class CrossField {
      * the principal curvatures.
      */
     public CurvatureConstraints curvatureConstraints;
+
+    final int[] rowFaceA;
+    final int[] rowFaceB;
+    final double[] rowKappaPlusHalfPiP;
+    final int[] rowOfEdge;
+
+    private int interiorRowCount;
 
     /**
      * 

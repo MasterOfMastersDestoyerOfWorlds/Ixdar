@@ -56,6 +56,13 @@ public class CurvatureConstraints {
      */
     CrossField crossField;
 
+    /**
+     * Allocate per-vertex/face/edge scratch buffers sized to the cross field.
+     *
+     * @param mesh       half-edge mesh the disks are walked on
+     * @param crossField cross field whose vertex/face/edge counts size the scratch
+     *                   buffers
+     */
     public CurvatureConstraints(HalfEdgeMesh mesh, CrossField crossField) {
         this.vertexInDiskStamp = new int[crossField.vertexCount];
         this.faceInDiskStamp = new int[crossField.faceCount];

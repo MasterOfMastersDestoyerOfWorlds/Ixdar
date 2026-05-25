@@ -30,8 +30,11 @@ public class VornoiForest {
 
     public CrossField crossField;
 
-    /*
-     * A3. Voronoi spanning forest in the dual graph
+    /**
+     * BZK09 §A3 Voronoi spanning forest in the dual graph.
+     *
+     * @param mesh       half-edge mesh
+     * @param crossField cross field whose face constraints seed the forest
      */
     public VornoiForest(HalfEdgeMesh mesh, CrossField crossField) {
         this.mesh = mesh;
@@ -46,9 +49,6 @@ public class VornoiForest {
      * Multi-source Dijkstra over the dual graph rooted at every constrained face;
      * the shortest-parent edge of each non-constrained face becomes a forest edge
      * whose period jump is fixed to zero in BZK09 §A3.
-     *
-     * @param faceConstrained per-face flag indicating dual-graph sources
-     * @return active edge ids of the spanning-forest edges
      */
     public void buildVoronoiSpanningForest() {
 
