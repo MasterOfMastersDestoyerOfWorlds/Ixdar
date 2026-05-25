@@ -94,6 +94,24 @@ public final class TracePort {
             System.out.printf(
                     "[motorcycle] port count mismatch at vertex %d: got %d expected %d (index4=%d)%n",
                     vertexId, ports.size(), expected, singularity.index4());
+            for (int fanIndex = 0; fanIndex < faceCount; fanIndex++) {
+                int faceId = mesh.vertexFaceAt(vertexId, fanIndex);
+                int activeFace = crossField.faceIdToActive.get(faceId);
+                int cornerIndex = cornerOfVertex(mesh, faceId, vertexId);
+                float[] cornerUv = new float[ChartWalker.CORNER_UV_FLOATS];
+                walker.faceCornerUv(activeFace, cornerUv);
+                int nc = (cornerIndex + 1) % SeamlessParameterization.CORNERS_PER_FACE;
+                int tc = (cornerIndex + 2) % SeamlessParameterization.CORNERS_PER_FACE;
+                System.out.printf("  fan=%d face=%d corner=%d uv: u=(%.4f,%.4f) v=(%.4f,%.4f) w=(%.4f,%.4f)%n",
+                        fanIndex, activeFace, cornerIndex,
+                        cornerUv[cornerIndex * 2], cornerUv[cornerIndex * 2 + 1],
+                        cornerUv[nc * 2], cornerUv[nc * 2 + 1],
+                        cornerUv[tc * 2], cornerUv[tc * 2 + 1]);
+            }
+            for (TracePort p : ports) {
+                System.out.printf("  port face=%d corner=%d axis=%s sign=%+d%n",
+                        p.activeFace, p.cornerIndex, p.axis, p.sign);
+            }
         }
         return ports;
     }
