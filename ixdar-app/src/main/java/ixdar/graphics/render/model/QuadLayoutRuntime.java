@@ -61,10 +61,12 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     /** Floats per corner in the triangle-soup VBO: pos(3) + normal(3) + uv(2). */
     public static final int FLOATS_PER_CORNER = 9;
     public static final int FLOATS_PER_CORNER_WITH_TRACES = FLOATS_PER_CORNER
-            + TRACE_RECORDS_PER_FACE * FLOATS_PER_TRACE_RECORD;
+            + TRACE_RECORDS_PER_FACE * FLOATS_PER_TRACE_RECORD + 1;
     public static final int ATTR_TRACE1 = 6;
     public static final int ATTR_TRACE2 = 7;
     public static final int ATTR_TRACE3 = 8;
+    /** Vertex attribute layout location for the per-corner patch id. */
+    public static final int ATTR_PATCH_ID = 9;
     /** Byte offset to the normal attribute within a corner stride. */
     public static final int NORMAL_OFFSET_BYTES = 3 * Float.BYTES;
     /** Byte offset to the uv attribute within a corner stride. */
@@ -136,12 +138,16 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private static final Vector4f COLOR_INTERSECTION_NODE = ColorRGB.WHITE.toVector4f();
     private static final Vector4f COLOR_BOUNDARY_NODE = ColorRGB.YELLOW.toVector4f();
     private static final Vector4f COLOR_FEATURE_NODE = ColorRGB.MAGENTA.toVector4f();
+    private static final Vector4f COLOR_TRUNCATED_NODE = ColorRGB.ORANGE.toVector4f();
     private static final String FLIPPED_COLOR_UNIFORM = "flippedColor";
     private static final String DRAW_FULL_ISO_GRID_UNIFORM = "drawFullIsoGrid";
+    private static final String USE_PATCH_COLOR_UNIFORM = "usePatchColor";
     private static final int TRACE0_OFFSET = FLOATS_PER_CORNER;
     private static final int TRACE1_OFFSET = TRACE0_OFFSET + FLOATS_PER_TRACE_RECORD;
     private static final int TRACE2_OFFSET = TRACE1_OFFSET + FLOATS_PER_TRACE_RECORD;
     private static final int TRACE3_OFFSET = TRACE2_OFFSET + FLOATS_PER_TRACE_RECORD;
+    private static final int PATCH_ID_OFFSET = TRACE3_OFFSET + FLOATS_PER_TRACE_RECORD;
+    private static final int PATCH_ID_OFFSET_BYTES = PATCH_ID_OFFSET * Float.BYTES;
     private static final Vector4f COLOR_U_ARM = ColorRGB.YELLOW.toVector4f();
     /** Cyan for {@code index4 > 0} (valence-3, +π/2) per BZK09 fig. 4 caption. */
     private static final Vector4f COLOR_POSITIVE_INDEX = new ColorRGB(ColorRGB.CYAN).setAlpha(0.5f).toVector4f();
@@ -232,7 +238,6 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private float[] graphNodePositions;
     private float[] graphNodeColors;
     private int graphNodeCount;
-    private float[] patchScalars;
 
     /**
      * Build the runtime; defers parametrization upload to
@@ -286,7 +291,6 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         }
         uploadSeamlessSurface(seamlessParametrization, graph);
         captureGraphNodes(graph);
-        capturePatchScalars(graph);
     }
 
     /**
@@ -440,7 +444,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         setupOverlayProjection(camera);
         GL gl = Platforms.gl();
         if (drawSurface) {
-            if (showPatches && patchScalars != null) {
+            if (showPatches && motorcycleGraph != null && motorcycleGraph.patchIdByActiveFace != null) {
                 renderTraceSurfaceWithPatches(camera);
             } else if (showTraces || showFullIsoGrid) {
                 renderTraceSurface(camera);
@@ -668,14 +672,17 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             float[] traceRow = graph != null && graph.traceRecordsByFace != null
                     ? graph.traceRecordsByFace[activeFace]
                     : null;
+            float patchId = graph != null && graph.patchIdByActiveFace != null
+                    ? graph.patchIdByActiveFace[activeFace]
+                    : -1f;
             writeCornerWithTraces(interleaved, baseFloat, p0, normal,
-                    seamless.uCorner[cornerBase], seamless.vCorner[cornerBase], flipped, traceRow);
+                    seamless.uCorner[cornerBase], seamless.vCorner[cornerBase], flipped, traceRow, patchId);
             writeCornerWithTraces(interleaved, baseFloat + FLOATS_PER_CORNER_WITH_TRACES, p1, normal,
                     seamless.uCorner[cornerBase + COMPONENT_Y],
-                    seamless.vCorner[cornerBase + COMPONENT_Y], flipped, traceRow);
+                    seamless.vCorner[cornerBase + COMPONENT_Y], flipped, traceRow, patchId);
             writeCornerWithTraces(interleaved, baseFloat + COMPONENT_Z * FLOATS_PER_CORNER_WITH_TRACES, p2, normal,
                     seamless.uCorner[cornerBase + COMPONENT_Z],
-                    seamless.vCorner[cornerBase + COMPONENT_Z], flipped, traceRow);
+                    seamless.vCorner[cornerBase + COMPONENT_Z], flipped, traceRow, patchId);
             indices[cornerBase] = cornerBase;
             indices[cornerBase + COMPONENT_Y] = cornerBase + COMPONENT_Y;
             indices[cornerBase + COMPONENT_Z] = cornerBase + COMPONENT_Z;
@@ -684,7 +691,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     private static void writeCornerWithTraces(float[] buffer, int offset, Vector3f position,
-            Vector3f normal, float u, float v, float flipped, float[] traceRow) {
+            Vector3f normal, float u, float v, float flipped, float[] traceRow, float patchId) {
         buffer[offset] = position.x;
         buffer[offset + COMPONENT_Y] = position.y;
         buffer[offset + COMPONENT_Z] = position.z;
@@ -709,6 +716,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
                 buffer[traceOffset + 3] = 0f;
             }
         }
+        buffer[offset + PATCH_ID_OFFSET] = patchId;
     }
 
     private void uploadTraceSurfaceBuffers(float[] interleaved, int[] indices) {
@@ -745,6 +753,8 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         gl.enableVertexAttribArray(ATTR_TRACE2);
         gl.vertexAttribPointer(ATTR_TRACE3, 4, gl.FLOAT(), false, strideBytes, TRACE3_OFFSET * Float.BYTES);
         gl.enableVertexAttribArray(ATTR_TRACE3);
+        gl.vertexAttribPointer(ATTR_PATCH_ID, 1, gl.FLOAT(), false, strideBytes, PATCH_ID_OFFSET_BYTES);
+        gl.enableVertexAttribArray(ATTR_PATCH_ID);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), isoSurfaceEbo);
         IntBuffer ib = BufferUtils.createIntBuffer(indices.length);
         ib.put(indices).flip();
@@ -783,22 +793,10 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         if (node.type == TMeshNode.TYPE_FEATURE) {
             return COLOR_FEATURE_NODE;
         }
+        if (node.type == TMeshNode.TYPE_TRUNCATED) {
+            return COLOR_TRUNCATED_NODE;
+        }
         return COLOR_BOUNDARY_NODE;
-    }
-
-    private void capturePatchScalars(MotorcycleGraph graph) {
-        if (graph.patchIdByActiveFace == null || seamlessParametrization == null) {
-            return;
-        }
-        HalfEdgeMesh mesh = seamlessParametrization.mesh;
-        int faceCount = mesh.faceCount();
-        patchScalars = new float[faceCount * CORNERS_PER_FACE];
-        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-            float value = graph.patchIdByActiveFace[activeFace];
-            for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
-                patchScalars[activeFace * CORNERS_PER_FACE + corner] = value;
-            }
-        }
     }
 
     private void renderTraceSurfaceWithPatches(Camera3D camera) {
@@ -812,13 +810,13 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         sphereModel.identity();
         traceUvShader.setMat4(MODEL, sphereModel);
         traceUvShader.setFloat(DEPTHBIAS, 0f);
-        Vector4f patchBase = new Vector4f(0.35f, 0.45f, 0.55f, 0.85f);
-        traceUvShader.setVec4(BASE_COLOR, patchBase);
+        traceUvShader.setVec4(BASE_COLOR, baseColor);
         traceUvShader.setVec4(U_LINE_COLOR, uLineColor);
         traceUvShader.setVec4(V_LINE_COLOR, vLineColor);
         traceUvShader.setFloat(LINE_HALF_WIDTH, lineHalfWidth);
         traceUvShader.setVec4(FLIPPED_COLOR_UNIFORM, flippedColor);
         traceUvShader.setFloat(DRAW_FULL_ISO_GRID_UNIFORM, 0f);
+        traceUvShader.setFloat(USE_PATCH_COLOR_UNIFORM, 1f);
         gl.bindVertexArray(isoSurfaceVao);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), isoSurfaceEbo);
         gl.drawElements(gl.TRIANGLES(), isoSurfaceIndexCount, gl.UNSIGNED_INT(), 0);
@@ -841,6 +839,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         traceUvShader.setFloat(LINE_HALF_WIDTH, lineHalfWidth);
         traceUvShader.setVec4(FLIPPED_COLOR_UNIFORM, flippedColor);
         traceUvShader.setFloat(DRAW_FULL_ISO_GRID_UNIFORM, showFullIsoGrid ? 1f : 0f);
+        traceUvShader.setFloat(USE_PATCH_COLOR_UNIFORM, 0f);
         gl.bindVertexArray(isoSurfaceVao);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), isoSurfaceEbo);
         gl.drawElements(gl.TRIANGLES(), isoSurfaceIndexCount, gl.UNSIGNED_INT(), 0);

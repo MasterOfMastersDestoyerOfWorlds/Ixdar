@@ -426,6 +426,7 @@ public final class MotorcycleGraph {
     }
 
     private void finalizeOpenTraces(ChartWalker walker) {
+        int finalized = 0;
         for (Trace trace : traces) {
             if (trace.arcNodeIds.size() >= 2) {
                 continue;
@@ -434,7 +435,7 @@ public final class MotorcycleGraph {
                 continue;
             }
             TraceSegment last = trace.segments.get(trace.segments.size() - 1);
-            TMeshNode endNode = new TMeshNode(nextNodeId++, TMeshNode.TYPE_BOUNDARY,
+            TMeshNode endNode = new TMeshNode(nextNodeId++, TMeshNode.TYPE_TRUNCATED,
                     -1, 0, last.exitU, last.exitV,
                     liftTo3D(last.activeFace, last.exitU, last.exitV));
             nodes.add(endNode);
@@ -442,6 +443,10 @@ public final class MotorcycleGraph {
             trace.currentNodeId = endNode.nodeId;
             trace.arcNodeIds.add(endNode.nodeId);
             trace.alive = false;
+            finalized++;
+        }
+        if (finalized > 0) {
+            System.out.printf("[motorcycle] finalizeOpenTraces patched %d unfinished traces%n", finalized);
         }
     }
 
@@ -488,6 +493,7 @@ public final class MotorcycleGraph {
     }
 
     private void assemblePatches(int faceCount) {
+        boolean[] traceCrossesActiveEdge = markTraceCrossedEdges();
         patchIdByActiveFace = new int[faceCount];
         Arrays.fill(patchIdByActiveFace, -1);
         int nextPatchId = 0;
@@ -495,13 +501,55 @@ public final class MotorcycleGraph {
             if (patchIdByActiveFace[activeFace] >= 0) {
                 continue;
             }
-            floodPatch(activeFace, nextPatchId, faceCount);
+            floodPatch(activeFace, nextPatchId, traceCrossesActiveEdge);
             patches.add(new TMeshPatch(nextPatchId));
             nextPatchId++;
         }
     }
 
-    private void floodPatch(int seedFace, int patchId, int faceCount) {
+    /**
+     * Lyon §3 patches are bounded by motorcycle arcs, not by the seamless cut
+     * graph. An arc enters one face and exits another across some mesh edge; we
+     * recover those crossings by walking each trace's consecutive segments and
+     * marking the shared active edge between adjacent faces.
+     *
+     * @return per-active-edge flag, true iff at least one trace crossed it
+     */
+    private boolean[] markTraceCrossedEdges() {
+        int edgeCount = seamless.mesh.edgeCount();
+        boolean[] crossed = new boolean[edgeCount];
+        for (Trace trace : traces) {
+            for (int segmentIndex = 1; segmentIndex < trace.segments.size(); segmentIndex++) {
+                int fromFace = trace.segments.get(segmentIndex - 1).activeFace;
+                int toFace = trace.segments.get(segmentIndex).activeFace;
+                if (fromFace == toFace) {
+                    continue;
+                }
+                int sharedEdge = sharedActiveEdge(fromFace, toFace);
+                if (sharedEdge >= 0) {
+                    crossed[sharedEdge] = true;
+                }
+            }
+        }
+        return crossed;
+    }
+
+    private int sharedActiveEdge(int activeFaceA, int activeFaceB) {
+        int faceIdA = seamless.mesh.faceIdAt(activeFaceA);
+        int faceIdB = seamless.mesh.faceIdAt(activeFaceB);
+        for (int edge = 0; edge < CORNERS; edge++) {
+            int edgeId = seamless.mesh.faceEdgeAt(faceIdA, edge);
+            int activeEdge = seamless.crossField.edgeIdToActive.get(edgeId);
+            HalfEdgeMesh.EdgeFaceIds edgeFaces = seamless.mesh.edgeFaceIds(activeEdge);
+            int other = edgeFaces.faceA == faceIdA ? edgeFaces.faceB : edgeFaces.faceA;
+            if (other == faceIdB) {
+                return activeEdge;
+            }
+        }
+        return -1;
+    }
+
+    private void floodPatch(int seedFace, int patchId, boolean[] traceCrossesActiveEdge) {
         ArrayList<Integer> frontier = new ArrayList<>();
         frontier.add(seedFace);
         patchIdByActiveFace[seedFace] = patchId;
@@ -511,11 +559,11 @@ public final class MotorcycleGraph {
             int faceId = seamless.mesh.faceIdAt(activeFace);
             for (int edge = 0; edge < CORNERS; edge++) {
                 int edgeId = seamless.mesh.faceEdgeAt(faceId, edge);
-                if (seamless.cutGraph.isCutEdge[seamless.crossField.edgeIdToActive.get(edgeId)]) {
+                int activeEdge = seamless.crossField.edgeIdToActive.get(edgeId);
+                if (traceCrossesActiveEdge[activeEdge]) {
                     continue;
                 }
-                HalfEdgeMesh.EdgeFaceIds edgeFaces = seamless.mesh.edgeFaceIds(
-                        seamless.crossField.edgeIdToActive.get(edgeId));
+                HalfEdgeMesh.EdgeFaceIds edgeFaces = seamless.mesh.edgeFaceIds(activeEdge);
                 int neighborFaceId = edgeFaces.faceA == faceId ? edgeFaces.faceB : edgeFaces.faceA;
                 if (neighborFaceId < 0) {
                     continue;

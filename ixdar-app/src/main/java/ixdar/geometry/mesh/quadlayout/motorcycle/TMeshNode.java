@@ -15,6 +15,8 @@ public final class TMeshNode {
     public static final int TYPE_BOUNDARY = 2;
     /** Feature / alignment trace endpoint. */
     public static final int TYPE_FEATURE = 3;
+    /** Safety-net terminus for traces that died mid-walk (e.g. vertex degeneracy). */
+    public static final int TYPE_TRUNCATED = 4;
 
     public final int nodeId;
     public final int type;

@@ -47,13 +47,35 @@ public class MotorcycleGraphTest {
                 "motorcycle build exceeded " + BUILD_TIMEOUT_MS + "ms, took " + elapsedMs);
         assertEquals(0, graph.aliveNonFeatureTraceCount(),
                 "singularity traces should terminate during simulation");
-        assertTrue(graph.patches.size() > 0, "expected at least one patch");
+        assertTrue(graph.patches.size() > 1,
+                "Lyon §3 patches are bounded by motorcycle arcs; expected many on ELK, got "
+                        + graph.patches.size());
         assertTrue(graph.initialEventQueueSize > 100,
                 "most singularity traces should enqueue a first event, got "
                         + graph.initialEventQueueSize);
         assertTrue(graph.spawnDeadCount < graph.spawnForwardCount,
                 "forward spawn count should dominate deadAtSpawn");
         assertObservedMeetingAnglesAreGeometric(graph);
+        logNodeTypeBreakdown(graph);
+    }
+
+    private static void logNodeTypeBreakdown(MotorcycleGraph graph) {
+        int singularity = 0;
+        int intersection = 0;
+        int boundary = 0;
+        int feature = 0;
+        for (TMeshNode node : graph.nodes) {
+            switch (node.type) {
+            case TMeshNode.TYPE_SINGULARITY -> singularity++;
+            case TMeshNode.TYPE_INTERSECTION -> intersection++;
+            case TMeshNode.TYPE_BOUNDARY -> boundary++;
+            case TMeshNode.TYPE_FEATURE -> feature++;
+            default -> {
+            }
+            }
+        }
+        System.out.printf("[motorcycle-test] nodes: singularity=%d intersection=%d boundary=%d feature=%d%n",
+                singularity, intersection, boundary, feature);
     }
 
     /**
