@@ -67,7 +67,7 @@ public final class FaceSegmentIndex {
             double[] hit = intersectSegments(
                     entryU, entryV, exitU, exitV, axis,
                     existing.entryU, existing.entryV, existing.exitU, existing.exitV, existing.axis);
-            if (hit == null || hit[0] <= UvPredicates.ORIENT_COLLINEAR_EPSILON || hit[0] >= bestT) {
+            if (hit == null || hit[0] <= ChartWalker.ORIENT_COLLINEAR_EPSILON || hit[0] >= bestT) {
                 continue;
             }
             bestT = hit[0];

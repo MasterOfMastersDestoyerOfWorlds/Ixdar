@@ -10,6 +10,7 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 public final class ChartWalker {
 
     public static final double RAY_MIN_T = 1.0e-9;
+    public static final double ORIENT_COLLINEAR_EPSILON = 1.0e-12;
     /** Floats per face corner UV buffer {@code [u0,v0,u1,v1,u2,v2]}. */
     public static final int CORNER_UV_FLOATS = 6;
     /** Index of third triangle corner. */
@@ -104,8 +105,8 @@ public final class ChartWalker {
         public final int localEdgeIndex;
         public final boolean boundary;
         /**
-         * Local corner index (0/1/2) if the hit coincides with a triangle corner,
-         * else {@code -1}. Used by {@link MotorcycleGraph} to route through
+         * Local corner index (0/1/2) if the hit coincides with a triangle corner, else
+         * {@code -1}. Used by {@link MotorcycleGraph} to route through
          * {@link #crossVertex} instead of {@link #crossEdge} so vertex-degenerate
          * iso-lines do not stall.
          */
@@ -120,8 +121,8 @@ public final class ChartWalker {
          * @param localEdgeIndex   edge index on current face, or -1 at boundary
          * @param boundary         true when the hit is on a mesh boundary
          * @param cornerLocalIndex local corner index 0/1/2 if the hit lies on a
-         *                         triangle corner (within face-relative epsilon),
-         *                         else -1
+         *                         triangle corner (within face-relative epsilon), else
+         *                         -1
          */
         public EdgeHit(double parametricDelta, float exitU, float exitV, int localEdgeIndex, boolean boundary,
                 int cornerLocalIndex) {
@@ -174,7 +175,8 @@ public final class ChartWalker {
             double ay = cornerUv[edge * 2 + 1];
             double bx = cornerUv[next * 2];
             double by = cornerUv[next * 2 + 1];
-            double[] hit = UvPredicates.raySegmentIntersection(
+
+            double[] hit = raySegmentIntersection(
                     state.u, state.v, dir[0], dir[1], ax, ay, bx, by, RAY_MIN_T);
             if (hit == null || hit[0] >= bestT) {
                 continue;
@@ -192,6 +194,42 @@ public final class ChartWalker {
         }
         int cornerLocalIndex = detectCornerHit(cornerUv, bestEdge, bestU, bestV);
         return new EdgeHit(bestT, bestU, bestV, bestEdge, bestBoundary, cornerLocalIndex);
+    }
+
+    /**
+     * Intersect a ray {@code origin + t * direction} with segment {@code a→b},
+     * requiring {@code t > minT}.
+     *
+     * @param ox   ray origin x
+     * @param oy   ray origin y
+     * @param dx   ray direction x
+     * @param dy   ray direction y
+     * @param ax   segment start x
+     * @param ay   segment start y
+     * @param bx   segment end x
+     * @param by   segment end y
+     * @param minT minimum ray parameter (exclusive)
+     * @return ray parameter {@code t} and intersection point {@code [t, ix, iy]} or
+     *         {@code null}
+     */
+    public static double[] raySegmentIntersection(
+            double ox, double oy, double dx, double dy,
+            double ax, double ay, double bx, double by, double minT) {
+        double segDx = bx - ax;
+        double segDy = by - ay;
+        double denom = dx * segDy - dy * segDx;
+        if (Math.abs(denom) < ORIENT_COLLINEAR_EPSILON) {
+            return null;
+        }
+        double t = ((ax - ox) * segDy - (ay - oy) * segDx) / denom;
+        double u = ((ax - ox) * dy - (ay - oy) * dx) / denom;
+        if (t <= minT + ORIENT_COLLINEAR_EPSILON) {
+            return null;
+        }
+        if (u < -ORIENT_COLLINEAR_EPSILON || u > 1.0 + ORIENT_COLLINEAR_EPSILON) {
+            return null;
+        }
+        return new double[] { t, ox + t * dx, oy + t * dy };
     }
 
     /**
@@ -248,31 +286,35 @@ public final class ChartWalker {
      * Outcome of {@link #crossVertex(State, EdgeHit, State)}.
      */
     public enum CrossVertexResult {
-        /** Trace continued into a fan-neighbour face; {@code out} holds the new state. */
+        /**
+         * Trace continued into a fan-neighbour face; {@code out} holds the new state.
+         */
         FAN_TRANSITION,
-        /** Trace reached a singularity; it should terminate as a separatrix endpoint. */
+        /**
+         * Trace reached a singularity; it should terminate as a separatrix endpoint.
+         */
         HIT_SINGULARITY,
         /** Trace walked off the mesh boundary while traversing the fan. */
         HIT_BOUNDARY,
         /**
-         * Trace walked all the way around the fan without finding a wedge that
-         * contains the continuation direction (singularity defect cone).
+         * Trace walked all the way around the fan without finding a wedge that contains
+         * the continuation direction (singularity defect cone).
          */
         HIT_SINGULARITY_GAP
     }
 
     /**
-     * Lyon §3 vertex-aware traversal. When an iso-line exits a face exactly at
-     * one of its corners, the next face's two non-incoming edges both share that
-     * corner and {@link #nextEdgeHit} returns {@code null}. This method walks the
-     * vertex fan around the corner (composing cut transitions per crossed seam)
-     * until it finds a face whose interior wedge at {@code V} contains the
-     * transported continuation direction.
+     * Lyon §3 vertex-aware traversal. When an iso-line exits a face exactly at one
+     * of its corners, the next face's two non-incoming edges both share that corner
+     * and {@link #nextEdgeHit} returns {@code null}. This method walks the vertex
+     * fan around the corner (composing cut transitions per crossed seam) until it
+     * finds a face whose interior wedge at {@code V} contains the transported
+     * continuation direction.
      *
-     * @param state    state at the corner exit (chart position == V in {@code
+     * @param state   state at the corner exit (chart position == V in {@code
      *                 state.activeFace})
-     * @param edgeHit  hit that reported the corner ({@code cornerLocalIndex >= 0})
-     * @param out      state filled in on successful transition
+     * @param edgeHit hit that reported the corner ({@code cornerLocalIndex >= 0})
+     * @param out     state filled in on successful transition
      * @return outcome of the fan walk
      */
     public CrossVertexResult crossVertex(State state, EdgeHit edgeHit, State out) {
@@ -313,11 +355,11 @@ public final class ChartWalker {
      * the continuation direction. Reuses {@link #crossEdge} so cut transitions
      * accumulate naturally.
      *
-     * @param state       initial state at {@code V}
-     * @param vertexId    mesh vertex id of {@code V}
-     * @param firstCross  local edge of the initial face to cross first
-     * @param startFace   initial face's active index (for loop detection)
-     * @param out         filled with the resulting state on FAN_TRANSITION
+     * @param state      initial state at {@code V}
+     * @param vertexId   mesh vertex id of {@code V}
+     * @param firstCross local edge of the initial face to cross first
+     * @param startFace  initial face's active index (for loop detection)
+     * @param out        filled with the resulting state on FAN_TRANSITION
      * @return walk outcome (FAN_TRANSITION, HIT_BOUNDARY, or HIT_SINGULARITY_GAP)
      */
     private CrossVertexResult walkFan(State state, int vertexId, int firstCross, int startFace, State out) {
@@ -439,20 +481,20 @@ public final class ChartWalker {
     }
 
     /**
-     * Derive the affine chart-to-chart transition for the shared edge directly
-     * from both faces' stored corner UVs and apply it to the exit point and the
-     * trace direction. Avoids relying on {@code cutGraph.isCutEdge} or the
-     * {@code cutTranslationS/T} table — which on this codebase's seamless
-     * builds can be incomplete or inconsistent, leaving traces in a chart
-     * frame that does not match their {@code activeFace}.
+     * Derive the affine chart-to-chart transition for the shared edge directly from
+     * both faces' stored corner UVs and apply it to the exit point and the trace
+     * direction. Avoids relying on {@code cutGraph.isCutEdge} or the
+     * {@code cutTranslationS/T} table — which on this codebase's seamless builds
+     * can be incomplete or inconsistent, leaving traces in a chart frame that does
+     * not match their {@code activeFace}.
      *
-     * @param state            current state in the old face
-     * @param edgeHit          exit hit on the shared edge
-     * @param faceId           old mesh face id
-     * @param nextFaceId       new mesh face id
-     * @param nextActiveFace   new active face index
-     * @param incomingInNext   local edge index in the new face for the shared edge
-     * @param out              destination state to fill in
+     * @param state          current state in the old face
+     * @param edgeHit        exit hit on the shared edge
+     * @param faceId         old mesh face id
+     * @param nextFaceId     new mesh face id
+     * @param nextActiveFace new active face index
+     * @param incomingInNext local edge index in the new face for the shared edge
+     * @param out            destination state to fill in
      */
     private void applyChartTransition(State state, EdgeHit edgeHit, int faceId, int nextFaceId,
             int nextActiveFace, int incomingInNext, State out) {

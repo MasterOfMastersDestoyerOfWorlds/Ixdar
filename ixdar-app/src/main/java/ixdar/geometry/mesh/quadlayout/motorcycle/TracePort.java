@@ -20,6 +20,8 @@ public final class TracePort {
     public final TraceAxis axis;
     public final int sign;
 
+    public static final double ORIENT_COLLINEAR_EPSILON = 1.0e-12;
+
     /**
      * Describes an outgoing iso-line port at a singularity corner.
      *
@@ -65,20 +67,20 @@ public final class TracePort {
                 double vv = cornerUv[nextCorner * 2 + 1];
                 double wu = cornerUv[thirdCorner * 2];
                 double wv = cornerUv[thirdCorner * 2 + 1];
-                double orientation = UvPredicates.orient2d(uu, uv, vu, vv, wu, wv);
-                if (Math.abs(orientation) <= UvPredicates.ORIENT_COLLINEAR_EPSILON) {
+                double orientation = orient2d(uu, uv, vu, vv, wu, wv);
+                if (Math.abs(orientation) <= ORIENT_COLLINEAR_EPSILON) {
                     continue;
                 }
                 if (orientation > 0.0) {
                     for (int r = 0; r < SeamlessParameterization.BRANCH_COUNT; r++) {
-                        double[] dir = UvPredicates.directionR90(r);
+                        double[] dir = directionR90(r);
                         if (acceptCandidate(dir, uu, uv, vu, vv, wu, wv)) {
                             ports.add(portFromDirection(vertexId, activeFace, cornerIndex, dir));
                         }
                     }
                 } else {
                     for (int r = 0; r < SeamlessParameterization.BRANCH_COUNT; r++) {
-                        double[] dir = UvPredicates.directionR90(r);
+                        double[] dir = directionR90(r);
                         if (acceptCandidate(dir, uu, uv, wu, wv, vu, vv)) {
                             ports.add(portFromDirection(vertexId, activeFace, cornerIndex, dir));
                         }
@@ -132,12 +134,13 @@ public final class TracePort {
      */
     private static boolean acceptCandidate(double[] dir, double uu, double uv,
             double vu, double vv, double wu, double wv) {
-        if (UvPredicates.pointsInto(dir[0], dir[1], uu, uv, vu, vv, wu, wv)) {
+        if (orient2d(uu, uv, vu, vv, uu + dir[0], uv + dir[1]) > ORIENT_COLLINEAR_EPSILON
+                && orient2d(uu, uv, uu + dir[0], uv + dir[1], wu, wv) > ORIENT_COLLINEAR_EPSILON) {
             return true;
         }
         double edgeU = vu - uu;
         double edgeV = vv - uv;
-        if (!UvPredicates.isCollinear(edgeU, edgeV, dir[0], dir[1])) {
+        if (!(Math.abs(orient2d(0.0, 0.0, edgeU, edgeV, dir[0], dir[1])) <= ORIENT_COLLINEAR_EPSILON)) {
             return false;
         }
         return edgeU * dir[0] + edgeV * dir[1] > 0.0;
@@ -156,5 +159,37 @@ public final class TracePort {
             }
         }
         return 0;
+    }
+
+    /**
+     * Signed area of triangle {@code (a, b, c)}; positive iff {@code c} lies to the
+     * left of directed line {@code a → b}.
+     *
+     * @param ax x-coordinate of point a
+     * @param ay y-coordinate of point a
+     * @param bx x-coordinate of point b
+     * @param by y-coordinate of point b
+     * @param cx x-coordinate of point c
+     * @param cy y-coordinate of point c
+     * @return signed doubled triangle area
+     */
+    public static double orient2d(double ax, double ay, double bx, double by, double cx, double cy) {
+        return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+    }
+
+    /**
+     * QEx direction {@code d(r) = R_90^r · (1, 0)^T}.
+     *
+     * @param rotation quarter-turn count r
+     * @return {@code [dx, dy]}
+     */
+    public static double[] directionR90(int rotation) {
+        int r = ((rotation % 4) + 4) % 4;
+        return switch (r) {
+        case 0 -> new double[] { 1.0, 0.0 };
+        case 1 -> new double[] { 0.0, 1.0 };
+        case 2 -> new double[] { -1.0, 0.0 };
+        default -> new double[] { 0.0, -1.0 };
+        };
     }
 }
