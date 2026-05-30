@@ -3,6 +3,10 @@ package ixdar.geometry.mesh.quadlayout.motorcycle;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
@@ -57,6 +61,68 @@ public class MotorcycleGraphTest {
                 "forward spawn count should dominate deadAtSpawn");
         assertObservedMeetingAnglesAreGeometric(graph);
         logNodeTypeBreakdown(graph);
+        assertArcSubdivisionInvariants(graph);
+    }
+
+    /**
+     * After the post-build subdivision pass, every non-feature trace's
+     * {@code arcNodeIds} chain matches the start/end node ids of its arcs in order,
+     * and the chain crosses every meeting recorded on that trace.
+     *
+     * @param graph built motorcycle graph
+     */
+    private static void assertArcSubdivisionInvariants(MotorcycleGraph graph) {
+        Map<Integer, List<TraceArc>> arcsByTrace = new HashMap<>();
+        for (TraceArc arc : graph.arcs) {
+            arcsByTrace.computeIfAbsent(arc.traceId, id -> new ArrayList<>()).add(arc);
+        }
+        int chainsChecked = 0;
+        int meetingsCoveredTotal = 0;
+        for (Trace trace : graph.traces) {
+            if (trace.featureTrace) {
+                continue;
+            }
+            if (trace.arcNodeIds.size() < 2) {
+                continue;
+            }
+            java.util.List<TraceArc> arcs = arcsByTrace.getOrDefault(trace.traceId, java.util.List.of());
+            assertEquals(trace.arcNodeIds.size() - 1, arcs.size(),
+                    "trace " + trace.traceId + " should have arcNodeIds.size-1 arcs");
+            for (int k = 0; k < arcs.size(); k++) {
+                TraceArc arc = arcs.get(k);
+                assertEquals((int) trace.arcNodeIds.get(k), arc.startNodeId,
+                        "arc " + arc.arcId + " startNode must match arcNodeIds[" + k + "]");
+                assertEquals((int) trace.arcNodeIds.get(k + 1), arc.endNodeId,
+                        "arc " + arc.arcId + " endNode must match arcNodeIds[" + (k + 1) + "]");
+            }
+            java.util.Set<Integer> chainNodeSet = new java.util.HashSet<>(trace.arcNodeIds);
+            for (MetOtherTraceEntry meeting : trace.metOtherTraces) {
+                if (meeting.intersectionNodeId < 0) {
+                    continue;
+                }
+                if (!chainNodeSet.contains(meeting.intersectionNodeId)) {
+                    StringBuilder report = new StringBuilder();
+                    report.append("trace ").append(trace.traceId)
+                            .append(" arc chain missing meeting node ").append(meeting.intersectionNodeId)
+                            .append("\n  parametricLengthSoFar=").append(trace.parametricLengthSoFar)
+                            .append(" arcNodeIds=").append(trace.arcNodeIds)
+                            .append("\n  meetings (sorted by ourLength):");
+                    java.util.List<MetOtherTraceEntry> sorted = new java.util.ArrayList<>(trace.metOtherTraces);
+                    sorted.sort(java.util.Comparator.comparingDouble(e -> e.ourParametricLength));
+                    for (MetOtherTraceEntry e : sorted) {
+                        report.append("\n    nodeId=").append(e.intersectionNodeId)
+                                .append(" ours=").append(e.ourParametricLength)
+                                .append(" theirs=").append(e.theirParametricLength)
+                                .append(" otherTraceId=").append(e.otherTraceId);
+                    }
+                    org.junit.jupiter.api.Assertions.fail(report.toString());
+                }
+                meetingsCoveredTotal++;
+            }
+            chainsChecked++;
+        }
+        System.out.printf("[motorcycle-test] subdivision: chainsChecked=%d meetingsCovered=%d%n",
+                chainsChecked, meetingsCoveredTotal);
     }
 
     private static void logNodeTypeBreakdown(MotorcycleGraph graph) {
@@ -85,12 +151,12 @@ public class MotorcycleGraphTest {
     }
 
     /**
-     * Lyon §3 αij is the right-triangle angle at the singularity i, so its
-     * recorded value lives in {@code (-π/2, π/2)} and routinely takes
-     * non-axis-aligned values. The pre-fix code stored {@code signedAngleTo}
-     * (spawn-direction difference) instead, which is always exactly in
-     * {@code {0, ±π/2, π}} for axis-aligned traces — this assertion would have
-     * been impossible to satisfy before the fix.
+     * Lyon §3 αij is the right-triangle angle at the singularity i, so its recorded
+     * value lives in {@code (-π/2, π/2)} and routinely takes non-axis-aligned
+     * values. The pre-fix code stored {@code signedAngleTo} (spawn-direction
+     * difference) instead, which is always exactly in {@code {0, ±π/2, π}} for
+     * axis-aligned traces — this assertion would have been impossible to satisfy
+     * before the fix.
      *
      * @param graph built motorcycle graph
      */

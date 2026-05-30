@@ -105,6 +105,30 @@ public final class Trace {
     }
 
     /**
+     * Lyon §3 {@code ni*}: the closest meeting on this trace whose
+     * companion-trace origin sits inside ti's π/2-sector (i.e. {@code |αij| <
+     * π/4}, equivalent to {@code theirParametricLength < ourParametricLength}).
+     * This is the intersection at which Lyon §4.2's validity constraint
+     * anchors — at least one arc in {@code Si*} (origin to {@code ni*}) must
+     * quantize to ≥ 1.
+     *
+     * @return the {@link MetOtherTraceEntry} for {@code ni*}, or {@code null}
+     *         if this trace has no meeting in its π/2-sector
+     */
+    public MetOtherTraceEntry firstSectorMeeting() {
+        MetOtherTraceEntry best = null;
+        for (MetOtherTraceEntry entry : metOtherTraces) {
+            if (entry.theirParametricLength >= entry.ourParametricLength) {
+                continue;
+            }
+            if (best == null || entry.ourParametricLength < best.ourParametricLength) {
+                best = entry;
+            }
+        }
+        return best;
+    }
+
+    /**
      * Record a meeting with another trace and apply Lyon / Eppstein bookkeeping.
      *
      * @param other       other trace

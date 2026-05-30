@@ -112,9 +112,8 @@ public class MotorcycleGraphExaminationScene extends Scene {
         runtime.showPatches = false;
         runtime.showCrossField = false;
         runtime.showFullIsoGrid = false;
-        hudLine = String.format("[mcg-exam] α=%.0f° traces=%d arcs=%d nodes=%d alive=%d/%d",
-                alphaDegrees, graph.traces.size(), graph.arcs.size(), graph.nodes.size(),
-                graph.aliveTraceCount(), graph.traces.size());
+        hudLine = String.format("[mcg-exam] α=%.0f° traces=%d arcs=%d nodes=%d",
+                alphaDegrees, graph.traces.size(), graph.arcs.size(), graph.nodes.size());
         Platforms.get().log(hudLine);
     }
 

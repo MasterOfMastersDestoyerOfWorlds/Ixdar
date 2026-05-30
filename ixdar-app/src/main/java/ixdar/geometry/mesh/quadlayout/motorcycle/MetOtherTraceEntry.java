@@ -9,6 +9,13 @@ public final class MetOtherTraceEntry {
     public final double signedAngle;
     public final double ourParametricLength;
     public final double theirParametricLength;
+    /**
+     * T-mesh node id at this meeting, shared between both traces. Set by
+     * {@code MotorcycleGraph.handleIntersection} after the intersection node is
+     * created, or {@code -1} if not yet wired (e.g. recordMeeting called
+     * synthetically in unit tests).
+     */
+    public int intersectionNodeId = -1;
 
     /**
      * Records one prior trace-trace meeting for Lyon's stopping test.
