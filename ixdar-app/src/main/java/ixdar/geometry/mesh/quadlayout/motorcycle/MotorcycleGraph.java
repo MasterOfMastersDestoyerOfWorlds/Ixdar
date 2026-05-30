@@ -136,8 +136,11 @@ public final class MotorcycleGraph {
             TracePort port = new TracePort(-1, activeFace, 0, TraceAxis.U, 1);
             float startU = uv[port.cornerIndex * 2];
             float startV = uv[port.cornerIndex * 2 + 1];
+            int faceId = seamless.mesh.faceIdAt(port.activeFace);
+            Vector3f position = seamless.mesh.vertexPosition(
+                    seamless.mesh.faceVertexAt(faceId, port.cornerIndex));
             TMeshNode origin = new TMeshNode(nextNodeId++, TMeshNode.TYPE_FEATURE,
-                    -1, 0, startU, startV, vertexPosition(port));
+                    -1, 0, startU, startV, position);
             nodes.add(origin);
             Trace trace = new Trace(nextTraceId++, origin.nodeId, -1, port, startU, startV, true);
             traces.add(trace);
@@ -165,8 +168,11 @@ public final class MotorcycleGraph {
             }
 
             if (origin == null) {
+                Vector3f position = new Vector3f();
+                int faceId = seamless.mesh.faceIdAt(port.activeFace);
+                seamless.mesh.vertexPosition(seamless.mesh.faceVertexAt(faceId, port.cornerIndex), position);
                 origin = new TMeshNode(nextNodeId++, TMeshNode.TYPE_SINGULARITY,
-                        port.singularityVertexId, 0, startU, startV, vertexPosition(port));
+                        port.singularityVertexId, 0, startU, startV, position);
                 nodes.add(origin);
             }
             Trace trace = new Trace(nextTraceId++, origin.nodeId, port.singularityVertexId,
@@ -271,13 +277,6 @@ public final class MotorcycleGraph {
         System.out.printf("[motorcycle] %s events=%6d queue=%5d alive=%4d %s  %.2fs%n",
                 bar.toString(), eventsProcessed, queueSize, aliveTraces, delta,
                 elapsedNanos / 1.0e9);
-    }
-
-    private Vector3f vertexPosition(TracePort port) {
-        Vector3f position = new Vector3f();
-        int faceId = seamless.mesh.faceIdAt(port.activeFace);
-        seamless.mesh.vertexPosition(seamless.mesh.faceVertexAt(faceId, port.cornerIndex), position);
-        return position;
     }
 
     private void enqueueNextEvent(Trace trace, ChartWalker walker,

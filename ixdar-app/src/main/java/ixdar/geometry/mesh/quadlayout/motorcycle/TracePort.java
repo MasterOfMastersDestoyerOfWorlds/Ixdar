@@ -46,104 +46,80 @@ public final class TracePort {
     public static List<TracePort> spawnFromSingularities(SeamlessParameterization seamless) {
         List<TracePort> ports = new ArrayList<>();
         for (Singularity singularity : seamless.crossField.singularities) {
-            ports.addAll(spawnAtVertex(seamless, singularity));
-        }
-        return ports;
-    }
-
-    /**
-     * QEx §4.3 Algorithm 4 vertex-q-vertex port enumeration at one singularity.
-     *
-     * @param seamless    built seamless parametrization
-     * @param singularity singularity to spawn ports for
-     * @return ports in clockwise surface order
-     */
-    public static List<TracePort> spawnAtVertex(SeamlessParameterization seamless, Singularity singularity) {
-        HalfEdgeMesh mesh = seamless.mesh;
-        CrossField crossField = seamless.crossField;
-        int vertexId = singularity.vertexId();
-        int faceCount = mesh.vertexFaceCount(vertexId);
-        List<TracePort> ports = new ArrayList<>();
-        ChartWalker walker = new ChartWalker(seamless);
-        for (int fanIndex = 0; fanIndex < faceCount; fanIndex++) {
-            int faceId = mesh.vertexFaceAt(vertexId, fanIndex);
-            int activeFace = crossField.faceIdToActive.get(faceId);
-            int cornerIndex = cornerOfVertex(mesh, faceId, vertexId);
-            float[] cornerUv = new float[ChartWalker.CORNER_UV_FLOATS];
-            walker.faceCornerUv(activeFace, cornerUv);
-            int nextCorner = (cornerIndex + 1) % SeamlessParameterization.CORNERS_PER_FACE;
-            int thirdCorner = (cornerIndex + 2) % SeamlessParameterization.CORNERS_PER_FACE;
-            double uu = cornerUv[cornerIndex * 2];
-            double uv = cornerUv[cornerIndex * 2 + 1];
-            double vu = cornerUv[nextCorner * 2];
-            double vv = cornerUv[nextCorner * 2 + 1];
-            double wu = cornerUv[thirdCorner * 2];
-            double wv = cornerUv[thirdCorner * 2 + 1];
-            double orientation = UvPredicates.orient2d(uu, uv, vu, vv, wu, wv);
-            if (Math.abs(orientation) <= UvPredicates.ORIENT_COLLINEAR_EPSILON) {
-                continue;
-            }
-            if (orientation > 0.0) {
-                appendPortsCcw(ports, vertexId, activeFace, cornerIndex, uu, uv, vu, vv, wu, wv);
-            } else {
-                appendPortsFlipped(ports, vertexId, activeFace, cornerIndex, uu, uv, vu, vv, wu, wv);
-            }
-        }
-        int expected = SeamlessParameterization.BRANCH_COUNT - singularity.index4();
-        if (ports.size() != expected) {
-            System.out.printf(
-                    "[motorcycle] port count mismatch at vertex %d: got %d expected %d (index4=%d)%n",
-                    vertexId, ports.size(), expected, singularity.index4());
+            HalfEdgeMesh mesh = seamless.mesh;
+            CrossField crossField = seamless.crossField;
+            int vertexId = singularity.vertexId();
+            int faceCount = mesh.vertexFaceCount(vertexId);
+            ChartWalker walker = new ChartWalker(seamless);
             for (int fanIndex = 0; fanIndex < faceCount; fanIndex++) {
                 int faceId = mesh.vertexFaceAt(vertexId, fanIndex);
                 int activeFace = crossField.faceIdToActive.get(faceId);
                 int cornerIndex = cornerOfVertex(mesh, faceId, vertexId);
                 float[] cornerUv = new float[ChartWalker.CORNER_UV_FLOATS];
                 walker.faceCornerUv(activeFace, cornerUv);
-                int nc = (cornerIndex + 1) % SeamlessParameterization.CORNERS_PER_FACE;
-                int tc = (cornerIndex + 2) % SeamlessParameterization.CORNERS_PER_FACE;
-                System.out.printf("  fan=%d face=%d corner=%d uv: u=(%.4f,%.4f) v=(%.4f,%.4f) w=(%.4f,%.4f)%n",
-                        fanIndex, activeFace, cornerIndex,
-                        cornerUv[cornerIndex * 2], cornerUv[cornerIndex * 2 + 1],
-                        cornerUv[nc * 2], cornerUv[nc * 2 + 1],
-                        cornerUv[tc * 2], cornerUv[tc * 2 + 1]);
+                int nextCorner = (cornerIndex + 1) % SeamlessParameterization.CORNERS_PER_FACE;
+                int thirdCorner = (cornerIndex + 2) % SeamlessParameterization.CORNERS_PER_FACE;
+                double uu = cornerUv[cornerIndex * 2];
+                double uv = cornerUv[cornerIndex * 2 + 1];
+                double vu = cornerUv[nextCorner * 2];
+                double vv = cornerUv[nextCorner * 2 + 1];
+                double wu = cornerUv[thirdCorner * 2];
+                double wv = cornerUv[thirdCorner * 2 + 1];
+                double orientation = UvPredicates.orient2d(uu, uv, vu, vv, wu, wv);
+                if (Math.abs(orientation) <= UvPredicates.ORIENT_COLLINEAR_EPSILON) {
+                    continue;
+                }
+                if (orientation > 0.0) {
+                    for (int r = 0; r < SeamlessParameterization.BRANCH_COUNT; r++) {
+                        double[] dir = UvPredicates.directionR90(r);
+                        if (acceptCandidate(dir, uu, uv, vu, vv, wu, wv)) {
+                            ports.add(portFromDirection(vertexId, activeFace, cornerIndex, dir));
+                        }
+                    }
+                } else {
+                    for (int r = 0; r < SeamlessParameterization.BRANCH_COUNT; r++) {
+                        double[] dir = UvPredicates.directionR90(r);
+                        if (acceptCandidate(dir, uu, uv, wu, wv, vu, vv)) {
+                            ports.add(portFromDirection(vertexId, activeFace, cornerIndex, dir));
+                        }
+                    }
+                }
             }
-            for (TracePort p : ports) {
-                System.out.printf("  port face=%d corner=%d axis=%s sign=%+d%n",
-                        p.activeFace, p.cornerIndex, p.axis, p.sign);
+            int expected = SeamlessParameterization.BRANCH_COUNT - singularity.index4();
+            if (ports.size() != expected) {
+                System.out.printf(
+                        "[motorcycle] port count mismatch at vertex %d: got %d expected %d (index4=%d)%n",
+                        vertexId, ports.size(), expected, singularity.index4());
+                for (int fanIndex = 0; fanIndex < faceCount; fanIndex++) {
+                    int faceId = mesh.vertexFaceAt(vertexId, fanIndex);
+                    int activeFace = crossField.faceIdToActive.get(faceId);
+                    int cornerIndex = cornerOfVertex(mesh, faceId, vertexId);
+                    float[] cornerUv = new float[ChartWalker.CORNER_UV_FLOATS];
+                    walker.faceCornerUv(activeFace, cornerUv);
+                    int nc = (cornerIndex + 1) % SeamlessParameterization.CORNERS_PER_FACE;
+                    int tc = (cornerIndex + 2) % SeamlessParameterization.CORNERS_PER_FACE;
+                    System.out.printf("  fan=%d face=%d corner=%d uv: u=(%.4f,%.4f) v=(%.4f,%.4f) w=(%.4f,%.4f)%n",
+                            fanIndex, activeFace, cornerIndex,
+                            cornerUv[cornerIndex * 2], cornerUv[cornerIndex * 2 + 1],
+                            cornerUv[nc * 2], cornerUv[nc * 2 + 1],
+                            cornerUv[tc * 2], cornerUv[tc * 2 + 1]);
+                }
+                for (TracePort p : ports) {
+                    System.out.printf("  port face=%d corner=%d axis=%s sign=%+d%n",
+                            p.activeFace, p.cornerIndex, p.axis, p.sign);
+                }
             }
         }
         return ports;
     }
 
-    private static void appendPortsCcw(List<TracePort> ports, int vertexId, int activeFace, int cornerIndex,
-            double uu, double uv, double vu, double vv, double wu, double wv) {
-        for (int r = 0; r < SeamlessParameterization.BRANCH_COUNT; r++) {
-            double[] dir = UvPredicates.directionR90(r);
-            if (acceptCandidate(dir, uu, uv, vu, vv, wu, wv)) {
-                ports.add(portFromDirection(vertexId, activeFace, cornerIndex, dir));
-            }
-        }
-    }
-
-    private static void appendPortsFlipped(List<TracePort> ports, int vertexId, int activeFace, int cornerIndex,
-            double uu, double uv, double vu, double vv, double wu, double wv) {
-        for (int r = 0; r < SeamlessParameterization.BRANCH_COUNT; r++) {
-            double[] dir = UvPredicates.directionR90(r);
-            if (acceptCandidate(dir, uu, uv, wu, wv, vu, vv)) {
-                ports.add(portFromDirection(vertexId, activeFace, cornerIndex, dir));
-            }
-        }
-    }
-
     /**
      * A slice direction is a real port from this face iff it strictly enters the
      * wedge from u toward v→w, or it runs along the outgoing edge u→v IN THE
-     * MATCHING DIRECTION. The opposite-direction collinear half of the pair
-     * belongs to the other face that shares this edge (where it is the
-     * outgoing-from-its-u edge), not to this face — counting it here would
-     * duplicate a port at high-valence singularities whose seam edges happen to
-     * be axis-aligned.
+     * MATCHING DIRECTION. The opposite-direction collinear half of the pair belongs
+     * to the other face that shares this edge (where it is the outgoing-from-its-u
+     * edge), not to this face — counting it here would duplicate a port at
+     * high-valence singularities whose seam edges happen to be axis-aligned.
      *
      * @param dir candidate direction (axis-aligned unit vector)
      * @param uu  u-coordinate of corner u
