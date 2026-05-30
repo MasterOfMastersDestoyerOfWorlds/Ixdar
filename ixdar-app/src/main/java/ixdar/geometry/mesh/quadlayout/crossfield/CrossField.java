@@ -44,8 +44,6 @@ public class CrossField {
      */
     public static final int[] LOCAL_SEARCH_DELTAS = { -1, 1 };
 
-    public static volatile String lastDiagnostics = "[cross-field] no diagnostics recorded";
-
     public static final int CURVATURE_INTERVAL_VALID = 0;
     public static final int CURVATURE_INTERVAL_FAIL_EMPTY = 1;
     public static final int CURVATURE_INTERVAL_FAIL_TAU = 2;
@@ -58,6 +56,10 @@ public class CrossField {
      * annihilation. TODO this is a magic fing number pulled out of ass
      */
     public static final double PAIR_ANNIHILATION_MIN_REL_GAIN = 0.3;
+
+    public static volatile String lastDiagnostics = "[cross-field] no diagnostics recorded";
+
+    private static final String LOCAL_SEARCH_TIMEOUT_MESSAGE = "local search singularity optimization timed out";
 
     public final float halfPi = (float) (Math.PI / 2.0);
 
@@ -425,7 +427,7 @@ public class CrossField {
         boolean[] usedFace = new boolean[faceCount];
         while (!remaining.isEmpty()) {
             if (System.currentTimeMillis() > deadlineMs) {
-                throw new IllegalStateException("local search singularity optimization timed out");
+                throw new IllegalStateException(LOCAL_SEARCH_TIMEOUT_MESSAGE);
             }
             Arrays.fill(usedFace, false);
             List<Integer> batch = new ArrayList<>();
@@ -597,7 +599,7 @@ public class CrossField {
                         annihilated++;
                         improved = true;
                         if (System.currentTimeMillis() > deadlineMs) {
-                            throw new IllegalStateException("local search singularity optimization timed out");
+                            throw new IllegalStateException(LOCAL_SEARCH_TIMEOUT_MESSAGE);
                         }
                         break outer; // singularity set changed; rescan from scratch
                     }

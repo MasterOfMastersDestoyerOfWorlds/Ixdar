@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
@@ -39,6 +40,25 @@ public final class SeamlessProjector {
     private static final int U_COMPONENT = 0;
     private static final int V_COMPONENT = 1;
     private static final int ROSY_ROTATION_COUNT = 4;
+    /**
+     * MC19 §5.4: post-projection injectivity repair caps. {@code MAX_UNFLIP_PASSES}
+     * bounds the outer fixed-point loop; each pass scans the flipped face list once
+     * and attempts a single vertex move per face.
+     */
+    private static final int MAX_UNFLIP_PASSES = 20;
+    /**
+     * Padding factor on the bounding rectangle used to seed the
+     * Sutherland-Hodgman kernel-polygon clip — fraction of bbox extent added on
+     * each side so the seed contains all link vertices with margin.
+     */
+    private static final double KERNEL_BBOX_PAD_FRACTION = 0.1;
+    /**
+     * Strict-positivity margin (relative to local edge magnitude) used when
+     * accepting a kernel point; ensures the moved vertex lands strictly inside
+     * every half-plane rather than on a boundary line, avoiding zero-area
+     * follow-up triangles.
+     */
+    private static final double KERNEL_INTERIOR_MARGIN = 1.0e-9;
     public final SeamlessParameterization seamless;
     public final CutGraph cutGraph;
     public final CrossField crossField;
@@ -86,6 +106,8 @@ public final class SeamlessProjector {
         }
         double[] chartUInitial = chartU.clone();
         double[] chartVInitial = chartV.clone();
+
+        probeCollisionPair("pre-§4", chartU, chartV, totalCorners);
 
         // Phase 1: walk every branch, collecting (edges, plus-chartVertex sequence,
         // minus-chartVertex sequence, rotation, start/end nodes).
@@ -168,6 +190,9 @@ public final class SeamlessProjector {
             chartV[chartVertex] = nodeXExact[columnBase + V_COMPONENT];
         }
 
+        probeCollisionPair("post-§4", chartU, chartV, totalCorners);
+        probeChartVertexColumns(chartVertexToColumn);
+
         // Phase 6: walk each branch forward, filling non-node sector chart vertices.
         for (int b = 0; b < branchCount; b++) {
             int[] plus = branchPlusChart.get(b);
@@ -177,14 +202,22 @@ public final class SeamlessProjector {
                     chartUInitial, chartVInitial, scale);
         }
 
-        // Phase 7: overflow check — every projected value must still be in F_d.
+        // Phase 7: MC19 §5.4 injectivity repair. §5.3's exact-equality projection
+        // makes no inequality guarantee — small adjustments can introduce local
+        // foldovers. MC19 §5.4: for each inverted face, move one of its
+        // interior, non-cut chart vertices into the kernel of its 1-ring (the
+        // intersection of half-planes spanned by link edges). Repeat until
+        // either no flips remain or a pass makes no progress.
+        repairFlipsInChartSpace(chartU, chartV);
+
+        // Phase 8: overflow check — every projected value must still be in F_d.
         verifyFdRangeContained(chartU, chartV, scale);
 
-        // Phase 8: writeback to per-corner arrays and recompute (s, t) translations.
+        // Phase 9: writeback to per-corner arrays and recompute (s, t) translations.
         for (int cornerIdx = 0; cornerIdx < totalCorners; cornerIdx++) {
             int chartVertex = cutGraph.cornerToChartVertex[cornerIdx];
-            seamless.uCorner[cornerIdx] = (float) chartU[chartVertex];
-            seamless.vCorner[cornerIdx] = (float) chartV[chartVertex];
+            seamless.uCorner[cornerIdx] = chartU[chartVertex];
+            seamless.vCorner[cornerIdx] = chartV[chartVertex];
         }
         recomputeCutTranslations();
     }
@@ -428,10 +461,10 @@ public final class SeamlessProjector {
             int rotation = cutGraph.cutRotation[activeEdge];
             int cos = ExactArithmetic.integerCosine(rotation);
             int sin = ExactArithmetic.integerSine(rotation);
-            float uA = seamless.uCorner[faceA * CORNERS_PER_FACE + cornerAStart];
-            float vA = seamless.vCorner[faceA * CORNERS_PER_FACE + cornerAStart];
-            float uB = seamless.uCorner[faceB * CORNERS_PER_FACE + cornerBStart];
-            float vB = seamless.vCorner[faceB * CORNERS_PER_FACE + cornerBStart];
+            double uA = seamless.uCorner[faceA * CORNERS_PER_FACE + cornerAStart];
+            double vA = seamless.vCorner[faceA * CORNERS_PER_FACE + cornerAStart];
+            double uB = seamless.uCorner[faceB * CORNERS_PER_FACE + cornerBStart];
+            double vB = seamless.vCorner[faceB * CORNERS_PER_FACE + cornerBStart];
             seamless.cutTranslationS[activeEdge] = uB - (cos * uA - sin * vA);
             seamless.cutTranslationT[activeEdge] = vB - (sin * uA + cos * vA);
         }
@@ -442,8 +475,8 @@ public final class SeamlessProjector {
      * {@code (-d, +d)} — the only condition under which the safeDot / makeDiv
      * machinery in {@link ExactArithmetic} produces exact results. The paper's
      * §7 worst-case condition {@code ‖x − x̄‖∞ / max|x̄| < 1} is the special case
-     * where {@code d = 2·max|x̄|}; our larger {@code d} (for float-cast safety)
-     * gives correspondingly more headroom.
+     * where {@code d = 2·max|x̄|}, which matches what {@link ExactArithmetic#chooseFdScale}
+     * picks now that downstream storage is {@code double[]}.
      *
      * @param uExact projected u values
      * @param vExact projected v values
@@ -608,5 +641,381 @@ public final class SeamlessProjector {
             out[i] = list.get(i);
         }
         return out;
+    }
+
+    /**
+     * MC19 §5.4 outer loop. Each pass collects every flipped face and attempts
+     * to move one of its interior, non-cut chart vertices into the kernel of
+     * its 1-ring. Repeats until either no flips remain or a pass produces no
+     * successful move (at which point the remaining flips are stuck and will
+     * surface via the parent assertion).
+     *
+     * @param chartU mutable per-chart-vertex u, updated in place on successful
+     *               moves
+     * @param chartV mutable per-chart-vertex v, updated in place on successful
+     *               moves
+     */
+    private void repairFlipsInChartSpace(double[] chartU, double[] chartV) {
+        int initialFlipped = -1;
+        int repaired = 0;
+        for (int pass = 0; pass < MAX_UNFLIP_PASSES; pass++) {
+            List<Integer> flipped = findFlippedFaces(chartU, chartV);
+            if (initialFlipped < 0) {
+                initialFlipped = flipped.size();
+                if (initialFlipped == 0) {
+                    return;
+                }
+            }
+            if (flipped.isEmpty()) {
+                break;
+            }
+            boolean anyFixed = false;
+            for (int activeFace : flipped) {
+                if (tryUnflipFace(activeFace, chartU, chartV)) {
+                    anyFixed = true;
+                    repaired++;
+                }
+            }
+            if (!anyFixed) {
+                break;
+            }
+        }
+        if (initialFlipped > 0) {
+            int remaining = findFlippedFaces(chartU, chartV).size();
+            System.out.printf("[seamless] §5.4 repair: %d initial flips, %d moves, %d remaining%n",
+                    initialFlipped, repaired, remaining);
+        }
+    }
+
+    /**
+     * Enumerate active faces whose chart-space signed area is non-positive
+     * (flipped or degenerate).
+     *
+     * @param chartU per-chart-vertex u
+     * @param chartV per-chart-vertex v
+     * @return list of active-face indices with signed area &lt;= 0
+     */
+    private List<Integer> findFlippedFaces(double[] chartU, double[] chartV) {
+        List<Integer> out = new ArrayList<>();
+        for (int activeFace = 0; activeFace < seamless.faceCount; activeFace++) {
+            if (isFaceFlippedOrDegenerate(activeFace, chartU, chartV)) {
+                out.add(activeFace);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Test whether one active face has non-positive signed area in chart space.
+     *
+     * @param activeFace dense face index
+     * @param chartU     per-chart-vertex u
+     * @param chartV     per-chart-vertex v
+     * @return {@code true} iff the chart-space orientation is non-CCW
+     */
+    private boolean isFaceFlippedOrDegenerate(int activeFace, double[] chartU, double[] chartV) {
+        int base = activeFace * CORNERS_PER_FACE;
+        int cv0 = cutGraph.cornerToChartVertex[base];
+        int cv1 = cutGraph.cornerToChartVertex[base + 1];
+        int cv2 = cutGraph.cornerToChartVertex[base + 2];
+        return orient2dHelper(chartU[cv0], chartV[cv0],
+                chartU[cv1], chartV[cv1], chartU[cv2], chartV[cv2]) <= 0.0;
+    }
+
+    /**
+     * Walk this face's three corners, look up each corresponding chart vertex,
+     * and if the corner's mesh vertex is interior to the mesh AND not on the
+     * cut graph, attempt to compute its 1-ring kernel and move it. Returns on
+     * the first successful move.
+     *
+     * @param activeFace flipped face being repaired
+     * @param chartU     per-chart-vertex u, mutated on success
+     * @param chartV     per-chart-vertex v, mutated on success
+     * @return {@code true} iff one of the corners was successfully moved
+     */
+    private boolean tryUnflipFace(int activeFace, double[] chartU, double[] chartV) {
+        int base = activeFace * CORNERS_PER_FACE;
+        int faceId = mesh.faceIdAt(activeFace);
+        int cv0 = cutGraph.cornerToChartVertex[base];
+        int cv1 = cutGraph.cornerToChartVertex[base + 1];
+        int cv2 = cutGraph.cornerToChartVertex[base + 2];
+        boolean cornersCollapsed = cv0 == cv1 || cv1 == cv2 || cv2 == cv0;
+        for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
+            int chartVertex = cutGraph.cornerToChartVertex[base + corner];
+            int vertexId = mesh.faceVertexAt(faceId, corner);
+            String skipReason = null;
+            if (mesh.isBoundaryVertex(vertexId)) {
+                skipReason = "boundary";
+            } else {
+                int activeVertex = cutGraph.activeVertexIndex(vertexId);
+                if (cutGraph.cutDegree[activeVertex] > 0) {
+                    skipReason = "cutDegree=" + cutGraph.cutDegree[activeVertex];
+                }
+            }
+            if (skipReason != null) {
+                System.out.printf(
+                        "[seamless] §5.4 repair: face %d corner=%d cv=%d v=%d skipped (%s)%n",
+                        activeFace, corner, chartVertex, vertexId, skipReason);
+                continue;
+            }
+            double[] kernelPoint = computeOneRingKernelPoint(chartVertex, vertexId, chartU, chartV);
+            if (kernelPoint == null) {
+                System.out.printf(
+                        "[seamless] §5.4 repair: face %d corner=%d cv=%d v=%d kernel empty"
+                                + " (cornersCollapsed=%s; cv0=%d cv1=%d cv2=%d)%n",
+                        activeFace, corner, chartVertex, vertexId, cornersCollapsed,
+                        cv0, cv1, cv2);
+                continue;
+            }
+            double previousU = chartU[chartVertex];
+            double previousV = chartV[chartVertex];
+            chartU[chartVertex] = kernelPoint[0];
+            chartV[chartVertex] = kernelPoint[1];
+            if (isFaceFlippedOrDegenerate(activeFace, chartU, chartV)) {
+                // Move didn't actually un-flip — kernel computation produced a
+                // point that doesn't satisfy this face's constraint. Roll back
+                // and try the next corner so we don't oscillate.
+                System.out.printf(
+                        "[seamless] §5.4 repair: face %d corner=%d cv=%d v=%d move rolled back"
+                                + " (cornersCollapsed=%s; cv0=%d cv1=%d cv2=%d):"
+                                + " old=(%.4e,%.4e) new=(%.4e,%.4e)%n",
+                        activeFace, corner, chartVertex, vertexId, cornersCollapsed,
+                        cv0, cv1, cv2, previousU, previousV, kernelPoint[0], kernelPoint[1]);
+                chartU[chartVertex] = previousU;
+                chartV[chartVertex] = previousV;
+                continue;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * MC19 §5.4 1-ring kernel computation: the intersection of the half-planes
+     * to the left of each link edge of {@code chartVertex} in chart space. If
+     * the intersection is non-empty, return its centroid; otherwise return
+     * {@code null} (the vertex cannot be moved into a valid position).
+     *
+     * <p>Uses Sutherland-Hodgman clipping: starts with a bounding rectangle of
+     * the link vertices' positions and clips by each link edge's half-plane.
+     *
+     * @param chartVertex chart vertex to move
+     * @param vertexId    mesh vertex id this chart vertex corresponds to (since
+     *                    we filtered to non-cut interior vertices, there is
+     *                    exactly one mesh vertex per chart vertex)
+     * @param chartU      per-chart-vertex u
+     * @param chartV      per-chart-vertex v
+     * @return {@code [u, v]} of a kernel point, or {@code null} when the
+     *         intersection is empty
+     */
+    private double[] computeOneRingKernelPoint(int chartVertex, int vertexId,
+            double[] chartU, double[] chartV) {
+        int faceCount = mesh.vertexFaceCount(vertexId);
+        if (faceCount < 3) {
+            return null;
+        }
+        int[] linkAChart = new int[faceCount];
+        int[] linkBChart = new int[faceCount];
+        for (int i = 0; i < faceCount; i++) {
+            int faceId = mesh.vertexFaceAt(vertexId, i);
+            int activeFace = crossField.faceIdToActive.get(faceId);
+            int base = activeFace * CORNERS_PER_FACE;
+            int cornerCv = -1;
+            for (int c = 0; c < CORNERS_PER_FACE; c++) {
+                if (mesh.faceVertexAt(faceId, c) == vertexId) {
+                    cornerCv = c;
+                    break;
+                }
+            }
+            if (cornerCv < 0) {
+                return null;
+            }
+            int linkACorner = (cornerCv + 1) % CORNERS_PER_FACE;
+            int linkBCorner = (cornerCv + 2) % CORNERS_PER_FACE;
+            // For CCW-oriented face (cv, A, B), the link edge is A→B; chart
+            // vertex moves to the LEFT of A→B keep the face CCW.
+            linkAChart[i] = cutGraph.cornerToChartVertex[base + linkACorner];
+            linkBChart[i] = cutGraph.cornerToChartVertex[base + linkBCorner];
+        }
+
+        double minU = Double.POSITIVE_INFINITY;
+        double maxU = Double.NEGATIVE_INFINITY;
+        double minV = Double.POSITIVE_INFINITY;
+        double maxV = Double.NEGATIVE_INFINITY;
+        for (int i = 0; i < faceCount; i++) {
+            int a = linkAChart[i];
+            int b = linkBChart[i];
+            minU = Math.min(minU, Math.min(chartU[a], chartU[b]));
+            maxU = Math.max(maxU, Math.max(chartU[a], chartU[b]));
+            minV = Math.min(minV, Math.min(chartV[a], chartV[b]));
+            maxV = Math.max(maxV, Math.max(chartV[a], chartV[b]));
+        }
+        double padU = Math.max((maxU - minU), 1.0) * KERNEL_BBOX_PAD_FRACTION;
+        double padV = Math.max((maxV - minV), 1.0) * KERNEL_BBOX_PAD_FRACTION;
+        List<double[]> poly = new ArrayList<>(4);
+        poly.add(new double[] { minU - padU, minV - padV });
+        poly.add(new double[] { maxU + padU, minV - padV });
+        poly.add(new double[] { maxU + padU, maxV + padV });
+        poly.add(new double[] { minU - padU, maxV + padV });
+
+        for (int i = 0; i < faceCount; i++) {
+            int a = linkAChart[i];
+            int b = linkBChart[i];
+            double margin = KERNEL_INTERIOR_MARGIN
+                    * Math.hypot(chartU[b] - chartU[a], chartV[b] - chartV[a]);
+            poly = clipPolygonByLeftHalfPlane(poly,
+                    chartU[a], chartV[a], chartU[b], chartV[b], margin);
+            if (poly.isEmpty()) {
+                return null;
+            }
+        }
+
+        double cu = 0.0;
+        double cv = 0.0;
+        for (double[] p : poly) {
+            cu += p[0];
+            cv += p[1];
+        }
+        cu /= poly.size();
+        cv /= poly.size();
+        return new double[] { cu, cv };
+    }
+
+    /**
+     * Sutherland-Hodgman clip of {@code poly} by the half-plane strictly to the
+     * left of directed line {@code (ax, ay) → (bx, by)} with a positive
+     * {@code margin} so output points lie strictly interior to the half-plane.
+     *
+     * @param poly   convex polygon vertices in order
+     * @param ax     line start x
+     * @param ay     line start y
+     * @param bx     line end x
+     * @param by     line end y
+     * @param margin minimum orient2d value an output point must satisfy
+     * @return clipped polygon (possibly empty)
+     */
+    private static List<double[]> clipPolygonByLeftHalfPlane(List<double[]> poly,
+            double ax, double ay, double bx, double by, double margin) {
+        List<double[]> out = new ArrayList<>(poly.size() + 1);
+        int n = poly.size();
+        if (n == 0) {
+            return out;
+        }
+        for (int i = 0; i < n; i++) {
+            double[] p0 = poly.get(i);
+            double[] p1 = poly.get((i + 1) % n);
+            double c0 = orient2dHelper(ax, ay, bx, by, p0[0], p0[1]);
+            double c1 = orient2dHelper(ax, ay, bx, by, p1[0], p1[1]);
+            boolean p0In = c0 >= margin;
+            boolean p1In = c1 >= margin;
+            if (p0In) {
+                out.add(p0);
+            }
+            if (p0In != p1In) {
+                double denom = c0 - c1;
+                if (denom == 0.0) {
+                    continue;
+                }
+                double t = (c0 - margin) / denom;
+                out.add(new double[] {
+                        p0[0] + t * (p1[0] - p0[0]),
+                        p0[1] + t * (p1[1] - p0[1]),
+                });
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Diagnostic: dump full-precision {@code (u, v)} for the two chart vertices
+     * known (from prior runs) to collide on ELK, plus the list of corners that
+     * map to each. Lets us see whether the collision exists going into §4, was
+     * introduced by §4, or originates further upstream.
+     *
+     * <p>Hard-coded chart vertex ids 5539 and 1831 match the ELK debug session;
+     * the method is a temporary investigation aid and is safe on other meshes
+     * because it bounds-checks before reading.
+     *
+     * @param phase        label printed alongside the values
+     * @param chartU       per-chart-vertex u
+     * @param chartV       per-chart-vertex v
+     * @param totalCorners {@code 3 · faceCount}, the size of the corner arrays
+     */
+    private void probeCollisionPair(String phase, double[] chartU, double[] chartV, int totalCorners) {
+        int cvA = 5539;
+        int cvB = 1831;
+        if (cvA >= chartU.length || cvB >= chartU.length) {
+            return;
+        }
+        boolean identical = chartU[cvA] == chartU[cvB] && chartV[cvA] == chartV[cvB];
+        System.out.printf("[seamless] %s cv%d=(%.17g,%.17g)  cv%d=(%.17g,%.17g)  identicalDoubles=%s%n",
+                phase, cvA, chartU[cvA], chartV[cvA], cvB, chartU[cvB], chartV[cvB], identical);
+        List<Integer> cornersA = new ArrayList<>();
+        List<Integer> cornersB = new ArrayList<>();
+        for (int cornerIdx = 0; cornerIdx < totalCorners; cornerIdx++) {
+            int cv = cutGraph.cornerToChartVertex[cornerIdx];
+            if (cv == cvA) {
+                cornersA.add(cornerIdx);
+            } else if (cv == cvB) {
+                cornersB.add(cornerIdx);
+            }
+        }
+        System.out.printf("[seamless] %s cv%d cornerCount=%d cv%d cornerCount=%d  sharedCorners=%s%n",
+                phase, cvA, cornersA.size(), cvB, cornersB.size(),
+                Collections.disjoint(cornersA, cornersB) ? "no" : "YES");
+        probeChartVertexFirstCorner(phase, cvA, cornersA);
+        probeChartVertexFirstCorner(phase, cvB, cornersB);
+    }
+
+    /**
+     * Print the first (active face, corner, mesh-vertex) tuple that maps to the
+     * given chart vertex, so we can see which mesh element it represents.
+     *
+     * @param phase   diagnostic phase label
+     * @param cv      chart vertex id
+     * @param corners corner indices that map to {@code cv}
+     */
+    private void probeChartVertexFirstCorner(String phase, int cv, List<Integer> corners) {
+        if (corners.isEmpty()) {
+            return;
+        }
+        int cornerIdx = corners.get(0);
+        int activeFace = cornerIdx / CORNERS_PER_FACE;
+        int corner = cornerIdx % CORNERS_PER_FACE;
+        int faceId = mesh.faceIdAt(activeFace);
+        int vertexId = mesh.faceVertexAt(faceId, corner);
+        System.out.printf("[seamless] %s cv%d firstCorner: activeFace=%d corner=%d mesh.vertexId=%d%n",
+                phase, cv, activeFace, corner, vertexId);
+    }
+
+    /**
+     * Diagnostic: confirm cv 5539 and cv 1831 actually got distinct column
+     * indices in the §4 reduced system. If they unexpectedly map to the same
+     * column the post-§4 collision is a column-assignment bug.
+     *
+     * @param chartVertexToColumn map built during Phase 2
+     */
+    private void probeChartVertexColumns(Map<Integer, Integer> chartVertexToColumn) {
+        Integer colA = chartVertexToColumn.get(5539);
+        Integer colB = chartVertexToColumn.get(1831);
+        System.out.printf("[seamless] §4 columns: cv5539=%s cv1831=%s  sameColumn=%s%n",
+                colA, colB, (colA != null && colA.equals(colB)));
+    }
+
+    /**
+     * Signed-doubled-area orient2d, positive when {@code (px, py)} lies to the
+     * left of directed line {@code (ax, ay) → (bx, by)}.
+     *
+     * @param ax line start x
+     * @param ay line start y
+     * @param bx line end x
+     * @param by line end y
+     * @param px query x
+     * @param py query y
+     * @return signed area
+     */
+    private static double orient2dHelper(double ax, double ay, double bx, double by,
+            double px, double py) {
+        return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
     }
 }

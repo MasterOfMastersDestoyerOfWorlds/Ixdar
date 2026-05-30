@@ -18,16 +18,6 @@ class ChartWalkerTest {
     }
 
     @Test
-    void segmentIntersectionFindsCrossing() {
-        double[] hit = TracePort.segmentSegmentIntersection(
-                0, 0, 2, 0,
-                1, -1, 1, 1);
-        assertNotNull(hit);
-        assertEquals(1.0, hit[2], 1.0e-6);
-        assertEquals(0.0, hit[3], 1.0e-6);
-    }
-
-    @Test
     void raySegmentFindsForwardHit() {
         double[] hit = ChartWalker.raySegmentIntersection(
                 0, 0.5, 1, 0,

@@ -19,8 +19,8 @@ public final class TraceEvent implements Comparable<TraceEvent> {
     public final int traceId;
     public final int otherTraceId;
     public final int activeFace;
-    public final float u;
-    public final float v;
+    public final double u;
+    public final double v;
     public final TraceSegment otherSegment;
 
     /**
@@ -37,7 +37,7 @@ public final class TraceEvent implements Comparable<TraceEvent> {
      *                         {@link #TYPE_INTERSECTION} events, else {@code null}
      */
     public TraceEvent(int type, double parametricLength, int traceId, int otherTraceId,
-            int activeFace, float u, float v, TraceSegment otherSegment) {
+            int activeFace, double u, double v, TraceSegment otherSegment) {
         this.type = type;
         this.parametricLength = parametricLength;
         this.traceId = traceId;

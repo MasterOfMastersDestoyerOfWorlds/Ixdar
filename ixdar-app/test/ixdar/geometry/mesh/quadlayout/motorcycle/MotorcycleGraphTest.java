@@ -26,7 +26,7 @@ public class MotorcycleGraphTest {
 
     private static final String ELK_OFF = "test/resources/quadlayout/figure_8/elk_in_tri.off";
     private static final float ALPHA_RADIANS = (float) Math.toRadians(15.0);
-    private static final long BUILD_TIMEOUT_MS = 120_000L;
+    private static final long BUILD_TIMEOUT_MS = 10_000L;
 
     /**
      * Lyon motorcycle graph on figure-8 elk should finish with all singularity
@@ -35,7 +35,7 @@ public class MotorcycleGraphTest {
      * @throws Exception when mesh loading or pipeline build fails
      */
     @Test
-    @Timeout(value = 2, unit = TimeUnit.MINUTES)
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
     void buildOnElkCompletesWithOnlyFeatureTracesAlive() throws Exception {
         ArrayMesh arrayMesh = MeshLoader.load(ELK_OFF);
         HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(

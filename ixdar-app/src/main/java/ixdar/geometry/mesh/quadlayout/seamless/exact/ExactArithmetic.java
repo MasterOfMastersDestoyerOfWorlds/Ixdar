@@ -27,17 +27,8 @@ public final class ExactArithmetic {
     public static final int ROTATION_THREE_QUARTERS = 3;
     /** Error message prefix for invalid rotations passed to {@link #integerCosine(int)}/{@link #integerSine(int)}. */
     public static final String INVALID_ROTATION_MESSAGE = "rotation must be in {0,1,2,3}, got ";
-    /** Mantissa precision of an IEEE 754 single-precision float. */
-    public static final int FLOAT_MANTISSA_BITS = 23;
     /** Mantissa precision of an IEEE 754 double-precision float. */
     public static final int DOUBLE_MANTISSA_BITS = 52;
-    /**
-     * Headroom added to the natural {@code K} so the {@code F_d} quantum
-     * {@code 2^(K-52)} matches single-precision rather than double-precision
-     * granularity. Lets projected double values cast losslessly to floats —
-     * which the parametrization's downstream {@code float[]} storage requires.
-     */
-    public static final int FLOAT_PRECISION_HEADROOM = DOUBLE_MANTISSA_BITS - FLOAT_MANTISSA_BITS;
 
     private ExactArithmetic() {
     }
@@ -66,13 +57,15 @@ public final class ExactArithmetic {
     /**
      * Pick a power-of-two {@code d = 2^K} large enough to host every value in
      * {@code xBar}. MC19 §4.3 (line 360 of the paper) sets
-     * {@code K = max_i ceil(log2 |x̄_i|) + 1}; we add
-     * {@link #FLOAT_PRECISION_HEADROOM} so the resulting {@code F_d} quantum is
-     * at single-precision granularity instead of double, letting projected
-     * values round-trip cleanly through {@code float} downstream storage.
+     * {@code K = max_i ceil(log2 |x̄_i|) + 1}. The resulting {@code F_d}
+     * quantum is {@code 2^(K-52)} — at full double granularity, since
+     * downstream storage of (u, v) corner values is {@code double[]}. Any
+     * additional headroom would coarsen the lattice and collapse distinct
+     * post-projection chart vertices (the MC19 §5.4 repair pass assumes
+     * post-§4 values that differ pre-projection remain distinguishable).
      *
      * @param xBar the vector of input free-variable assignments
-     * @return the chosen {@code d}; at least {@code 2^FLOAT_PRECISION_HEADROOM}
+     * @return the chosen {@code d}; at least {@code 2}
      */
     public static double chooseFdScale(double[] xBar) {
         double maxAbs = 0.0;
@@ -85,7 +78,7 @@ public final class ExactArithmetic {
         int naturalExponent = maxAbs == 0.0
                 ? 0
                 : (int) Math.ceil(Math.log(maxAbs) / Math.log(2.0)) + 1;
-        return Math.pow(2.0, naturalExponent + FLOAT_PRECISION_HEADROOM);
+        return Math.pow(2.0, naturalExponent);
     }
 
     // =====================================================================

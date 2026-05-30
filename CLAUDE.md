@@ -67,6 +67,8 @@ This rule has a custom checkstyle module (`SingleCallerHelperCheck`, currently d
 
 **Never skip checkstyle.** Don't run with `-Dcheckstyle.skip=true` or comment out rules to make a build pass — fix the violations. A red checkstyle is a red build, full stop. The build is checked against `~/Code/autofix/src/main/resources/checkstyle.xml`. Beyond Javadoc, the rules that bite most often:
 
+**Always fix checkstyle violations, regardless of origin.** If the build is red on checkstyle — whether the violation is in code you just wrote, code the user just wrote, or code that's been broken for ten commits — fix it. Don't ask, don't defer, don't suggest the user fix it. Treat a red checkstyle the same way you'd treat a compiler error: it's blocking, and the next move is always to clear it. The fixes are mechanical (move a declaration, add an `@param`, extract a duplicate string to a constant) and shouldn't add visible behavior changes; if any single fix is non-mechanical, surface that one specifically before applying. Don't leave a partially-fixed build expecting the user to clean up.
+
 - **Declaration order** (`DeclarationOrder`): static fields → instance fields → constructors → methods. Within each field bucket, `public → protected → package → private`. The autofix recipe reorders this for you, but write it right the first time.
 - **Magic numbers:** literals other than `-1, 0, 1, 2` must be named constants. Field initializers and annotations are exempt.
 - **Duplicated string literals:** the same string repeated more than once should be a constant.

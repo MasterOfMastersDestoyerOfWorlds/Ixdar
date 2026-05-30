@@ -676,13 +676,14 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
                     ? graph.patchIdByActiveFace[activeFace]
                     : -1f;
             writeCornerWithTraces(interleaved, baseFloat, p0, normal,
-                    seamless.uCorner[cornerBase], seamless.vCorner[cornerBase], flipped, traceRow, patchId);
+                    (float) seamless.uCorner[cornerBase], (float) seamless.vCorner[cornerBase],
+                    flipped, traceRow, patchId);
             writeCornerWithTraces(interleaved, baseFloat + FLOATS_PER_CORNER_WITH_TRACES, p1, normal,
-                    seamless.uCorner[cornerBase + COMPONENT_Y],
-                    seamless.vCorner[cornerBase + COMPONENT_Y], flipped, traceRow, patchId);
+                    (float) seamless.uCorner[cornerBase + COMPONENT_Y],
+                    (float) seamless.vCorner[cornerBase + COMPONENT_Y], flipped, traceRow, patchId);
             writeCornerWithTraces(interleaved, baseFloat + COMPONENT_Z * FLOATS_PER_CORNER_WITH_TRACES, p2, normal,
-                    seamless.uCorner[cornerBase + COMPONENT_Z],
-                    seamless.vCorner[cornerBase + COMPONENT_Z], flipped, traceRow, patchId);
+                    (float) seamless.uCorner[cornerBase + COMPONENT_Z],
+                    (float) seamless.vCorner[cornerBase + COMPONENT_Z], flipped, traceRow, patchId);
             indices[cornerBase] = cornerBase;
             indices[cornerBase + COMPONENT_Y] = cornerBase + COMPONENT_Y;
             indices[cornerBase + COMPONENT_Z] = cornerBase + COMPONENT_Z;

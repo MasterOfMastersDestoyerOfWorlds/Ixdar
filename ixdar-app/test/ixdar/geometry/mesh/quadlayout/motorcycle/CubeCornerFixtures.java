@@ -50,8 +50,8 @@ public final class CubeCornerFixtures {
         crossField.singularities = List.of(new Singularity(CORNER_VERTEX, CORNER_INDEX4));
 
         SeamlessParameterization seamless = new SeamlessParameterization(crossField);
-        seamless.uCorner = new float[mesh.faceCount() * SeamlessParameterization.CORNERS_PER_FACE];
-        seamless.vCorner = new float[mesh.faceCount() * SeamlessParameterization.CORNERS_PER_FACE];
+        seamless.uCorner = new double[mesh.faceCount() * SeamlessParameterization.CORNERS_PER_FACE];
+        seamless.vCorner = new double[mesh.faceCount() * SeamlessParameterization.CORNERS_PER_FACE];
         assignHandCraftedUv(seamless);
         return seamless;
     }

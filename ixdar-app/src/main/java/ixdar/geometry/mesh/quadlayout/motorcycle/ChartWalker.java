@@ -11,7 +11,7 @@ public final class ChartWalker {
 
     public static final double RAY_MIN_T = 1.0e-9;
     public static final double ORIENT_COLLINEAR_EPSILON = 1.0e-12;
-    /** Floats per face corner UV buffer {@code [u0,v0,u1,v1,u2,v2]}. */
+    /** Doubles per face corner UV buffer {@code [u0,v0,u1,v1,u2,v2]}. */
     public static final int CORNER_UV_FLOATS = 6;
     /** Index of third triangle corner. */
     public static final int CORNER_TWO = 2;
@@ -41,8 +41,8 @@ public final class ChartWalker {
      */
     public static final class State {
         public int activeFace;
-        public float u;
-        public float v;
+        public double u;
+        public double v;
         public TraceAxis axis;
         public int sign;
         /** Local edge index entered through on {@link #activeFace}, or -1 at spawn. */
@@ -57,7 +57,7 @@ public final class ChartWalker {
          * @param axis       parametric axis
          * @param sign       +1 or -1 along axis
          */
-        public State(int activeFace, float u, float v, TraceAxis axis, int sign) {
+        public State(int activeFace, double u, double v, TraceAxis axis, int sign) {
             this.activeFace = activeFace;
             this.u = u;
             this.v = v;
@@ -87,7 +87,7 @@ public final class ChartWalker {
          * @param v0 start v
          * @return arc length in chart space
          */
-        public double parametricDistanceFrom(float u0, float v0) {
+        public double parametricDistanceFrom(double u0, double v0) {
             if (axis == TraceAxis.U) {
                 return Math.abs(u - u0);
             }
@@ -100,8 +100,8 @@ public final class ChartWalker {
      */
     public static final class EdgeHit {
         public final double parametricDelta;
-        public final float exitU;
-        public final float exitV;
+        public final double exitU;
+        public final double exitV;
         public final int localEdgeIndex;
         public final boolean boundary;
         /**
@@ -124,7 +124,7 @@ public final class ChartWalker {
          *                         triangle corner (within face-relative epsilon), else
          *                         -1
          */
-        public EdgeHit(double parametricDelta, float exitU, float exitV, int localEdgeIndex, boolean boundary,
+        public EdgeHit(double parametricDelta, double exitU, double exitV, int localEdgeIndex, boolean boundary,
                 int cornerLocalIndex) {
             this.parametricDelta = parametricDelta;
             this.exitU = exitU;
@@ -141,7 +141,7 @@ public final class ChartWalker {
      * @param activeFace active face index
      * @param out        length-6 buffer receiving {@code [u0,v0,u1,v1,u2,v2]}
      */
-    public void faceCornerUv(int activeFace, float[] out) {
+    public void faceCornerUv(int activeFace, double[] out) {
         int base = activeFace * CORNERS;
         out[0] = seamless.uCorner[base];
         out[1] = seamless.vCorner[base];
@@ -158,12 +158,12 @@ public final class ChartWalker {
      * @return edge hit data, or {@code null} when no forward hit exists
      */
     public EdgeHit nextEdgeHit(State state) {
-        float[] cornerUv = new float[6];
+        double[] cornerUv = new double[CORNER_UV_FLOATS];
         faceCornerUv(state.activeFace, cornerUv);
         double[] dir = state.axis.direction(state.sign);
         double bestT = Double.POSITIVE_INFINITY;
-        float bestU = state.u;
-        float bestV = state.v;
+        double bestU = state.u;
+        double bestV = state.v;
         int bestEdge = -1;
         boolean bestBoundary = false;
         for (int edge = 0; edge < CORNERS; edge++) {
@@ -182,8 +182,8 @@ public final class ChartWalker {
                 continue;
             }
             bestT = hit[0];
-            bestU = (float) hit[1];
-            bestV = (float) hit[2];
+            bestU = hit[1];
+            bestV = hit[2];
             bestEdge = edge;
             int faceId = mesh.faceIdAt(state.activeFace);
             int edgeId = mesh.faceEdgeAt(faceId, edge);
@@ -243,7 +243,7 @@ public final class ChartWalker {
      * @param exitV    v-coordinate of the exit point
      * @return local corner index 0/1/2 the hit coincides with, or -1
      */
-    private static int detectCornerHit(float[] cornerUv, int edge, float exitU, float exitV) {
+    private static int detectCornerHit(double[] cornerUv, int edge, double exitU, double exitV) {
         int next = (edge + 1) % CORNERS;
         double tolSq = cornerEpsilonSquared(cornerUv);
         double d0Sq = squaredDist(cornerUv[edge * 2], cornerUv[edge * 2 + 1], exitU, exitV);
@@ -257,7 +257,7 @@ public final class ChartWalker {
         return -1;
     }
 
-    private static double cornerEpsilonSquared(float[] cornerUv) {
+    private static double cornerEpsilonSquared(double[] cornerUv) {
         // Scale to the face's longest edge so chart magnitude doesn't matter; pick
         // 1e-5 of edge length as the proximity threshold for "this is a corner".
         double e01 = squaredDist(cornerUv[0], cornerUv[1], cornerUv[2], cornerUv[3]);
@@ -405,7 +405,7 @@ public final class ChartWalker {
     }
 
     private boolean wedgeContainsDirection(State state, int cornerInFace) {
-        float[] uv = new float[6];
+        double[] uv = new double[CORNER_UV_FLOATS];
         faceCornerUv(state.activeFace, uv);
         int aIdx = (cornerInFace + 1) % CORNERS;
         int bIdx = (cornerInFace + CORNERS - 1) % CORNERS;
@@ -507,8 +507,8 @@ public final class ChartWalker {
         int newCornerA = vertexA == newVertexP ? newCornerP : newCornerQ;
         int newCornerB = newCornerA == newCornerP ? newCornerQ : newCornerP;
 
-        float[] oldUv = new float[CORNER_UV_FLOATS];
-        float[] newUv = new float[CORNER_UV_FLOATS];
+        double[] oldUv = new double[CORNER_UV_FLOATS];
+        double[] newUv = new double[CORNER_UV_FLOATS];
         faceCornerUv(state.activeFace, oldUv);
         faceCornerUv(nextActiveFace, newUv);
         double oldAx = oldUv[oldCornerA * 2];
@@ -540,8 +540,8 @@ public final class ChartWalker {
         double newDirX = snappedCos * dirOld[0] - snappedSin * dirOld[1];
         double newDirY = snappedSin * dirOld[0] + snappedCos * dirOld[1];
 
-        out.u = (float) newExitU;
-        out.v = (float) newExitV;
+        out.u = newExitU;
+        out.v = newExitV;
         out.activeFace = nextActiveFace;
         out.incomingLocalEdgeIndex = incomingInNext;
         out.axis = TraceAxis.fromDirection(newDirX, newDirY);
@@ -565,7 +565,7 @@ public final class ChartWalker {
      * @param state trace state
      * @return iso coordinate value
      */
-    public static float isoValue(State state) {
+    public static double isoValue(State state) {
         return state.axis.holdsUConstant() ? state.u : state.v;
     }
 
@@ -575,7 +575,7 @@ public final class ChartWalker {
      * @param state trace state
      * @return varying coordinate
      */
-    public static float spanCoordinate(State state) {
+    public static double spanCoordinate(State state) {
         return state.axis.holdsUConstant() ? state.v : state.u;
     }
 }

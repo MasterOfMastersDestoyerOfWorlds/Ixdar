@@ -22,9 +22,9 @@ public class ParameterizationMetrics {
     public final int faceCount;
     public final int edgeCount;
     public int flippedTriangleCount;
-    public float maxTransitionResidual;
-    public float meanTransitionResidual;
-    public float meanDistortion;
+    public double maxTransitionResidual;
+    public double meanTransitionResidual;
+    public double meanDistortion;
     public int disconnectedChartCount;
     public int validBranchConsistency;
 
@@ -70,8 +70,8 @@ public class ParameterizationMetrics {
      *
      * @return the maximum transition residual
      */
-    public float computeMaxTransitionResidual() {
-        float worst = 0.0f;
+    public double computeMaxTransitionResidual() {
+        double worst = 0.0;
         for (int ae = 0; ae < edgeCount; ae++) {
             if (!seamless.cutGraph.isCutEdge[ae])
                 continue;
@@ -86,19 +86,19 @@ public class ParameterizationMetrics {
             int vStart = mesh.halfEdgeVertex(hCanon);
             int vEnd = mesh.halfEdgeEndVertex(hCanon);
 
-            float[] coordsA = seamless.lookupCorners(faceA, vStart, vEnd);
-            float[] coordsB = seamless.lookupCorners(faceB, vStart, vEnd);
+            double[] coordsA = seamless.lookupCorners(faceA, vStart, vEnd);
+            double[] coordsB = seamless.lookupCorners(faceB, vStart, vEnd);
 
             int r = seamless.cutGraph.cutRotation[ae];
             float cr = ExactArithmetic.integerCosine(r);
             float sr = ExactArithmetic.integerSine(r);
-            float s = seamless.cutTranslationS[ae];
-            float t = seamless.cutTranslationT[ae];
+            double s = seamless.cutTranslationS[ae];
+            double t = seamless.cutTranslationT[ae];
 
-            float upGexpected = cr * coordsA[0] - sr * coordsA[1] + s;
-            float vpGexpected = sr * coordsA[0] + cr * coordsA[1] + t;
-            float uqGexpected = cr * coordsA[IDX_UQ] - sr * coordsA[IDX_VQ] + s;
-            float vqGexpected = sr * coordsA[IDX_UQ] + cr * coordsA[IDX_VQ] + t;
+            double upGexpected = cr * coordsA[0] - sr * coordsA[1] + s;
+            double vpGexpected = sr * coordsA[0] + cr * coordsA[1] + t;
+            double uqGexpected = cr * coordsA[IDX_UQ] - sr * coordsA[IDX_VQ] + s;
+            double vqGexpected = sr * coordsA[IDX_UQ] + cr * coordsA[IDX_VQ] + t;
 
             worst = Math.max(worst, Math.abs(upGexpected - coordsB[0]));
             worst = Math.max(worst, Math.abs(vpGexpected - coordsB[1]));
@@ -116,8 +116,8 @@ public class ParameterizationMetrics {
      * @return the average |R·u_A + t − u_B|, or 0 if there are no interior cut
      *         edges
      */
-    public float computeMeanTransitionResidual() {
-        float sum = 0.0f;
+    public double computeMeanTransitionResidual() {
+        double sum = 0.0;
         int componentCount = 0;
         for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
             if (!seamless.cutGraph.isCutEdge[activeEdge])
@@ -133,19 +133,19 @@ public class ParameterizationMetrics {
             int vStart = mesh.halfEdgeVertex(halfEdge);
             int vEnd = mesh.halfEdgeEndVertex(halfEdge);
 
-            float[] coordsA = seamless.lookupCorners(faceA, vStart, vEnd);
-            float[] coordsB = seamless.lookupCorners(faceB, vStart, vEnd);
+            double[] coordsA = seamless.lookupCorners(faceA, vStart, vEnd);
+            double[] coordsB = seamless.lookupCorners(faceB, vStart, vEnd);
 
             int rotation = seamless.cutGraph.cutRotation[activeEdge];
             int cosR = ExactArithmetic.integerCosine(rotation);
             int sinR = ExactArithmetic.integerSine(rotation);
-            float translationS = seamless.cutTranslationS[activeEdge];
-            float translationT = seamless.cutTranslationT[activeEdge];
+            double translationS = seamless.cutTranslationS[activeEdge];
+            double translationT = seamless.cutTranslationT[activeEdge];
 
-            float expectedUp = cosR * coordsA[0] - sinR * coordsA[1] + translationS;
-            float expectedVp = sinR * coordsA[0] + cosR * coordsA[1] + translationT;
-            float expectedUq = cosR * coordsA[IDX_UQ] - sinR * coordsA[IDX_VQ] + translationS;
-            float expectedVq = sinR * coordsA[IDX_UQ] + cosR * coordsA[IDX_VQ] + translationT;
+            double expectedUp = cosR * coordsA[0] - sinR * coordsA[1] + translationS;
+            double expectedVp = sinR * coordsA[0] + cosR * coordsA[1] + translationT;
+            double expectedUq = cosR * coordsA[IDX_UQ] - sinR * coordsA[IDX_VQ] + translationS;
+            double expectedVq = sinR * coordsA[IDX_UQ] + cosR * coordsA[IDX_VQ] + translationT;
 
             sum += Math.abs(expectedUp - coordsB[0]);
             sum += Math.abs(expectedVp - coordsB[1]);
@@ -167,8 +167,8 @@ public class ParameterizationMetrics {
      *
      * @return the mean per-face distortion, or 0 if every face is degenerate
      */
-    public float computeMeanDistortion() {
-        float sum = 0.0f;
+    public double computeMeanDistortion() {
+        double sum = 0.0;
         int counted = 0;
         float targetScale = seamless.targetQuadEdgeLength;
         Vector3f position0 = new Vector3f();
@@ -192,33 +192,33 @@ public class ParameterizationMetrics {
             float y2 = (float) Math.sqrt(y2Squared);
 
             int cornerBase = activeFace * SeamlessParameterization.CORNERS_PER_FACE;
-            float u0 = seamless.uCorner[cornerBase];
-            float v0 = seamless.vCorner[cornerBase];
-            float u1 = seamless.uCorner[cornerBase + 1];
-            float v1 = seamless.vCorner[cornerBase + 1];
-            float u2 = seamless.uCorner[cornerBase + 2];
-            float v2 = seamless.vCorner[cornerBase + 2];
+            double u0 = seamless.uCorner[cornerBase];
+            double v0 = seamless.vCorner[cornerBase];
+            double u1 = seamless.uCorner[cornerBase + 1];
+            double v1 = seamless.vCorner[cornerBase + 1];
+            double u2 = seamless.uCorner[cornerBase + 2];
+            double v2 = seamless.vCorner[cornerBase + 2];
 
-            float duDx = (u1 - u0) / length01;
-            float duDy = (u2 - u0 - duDx * x2) / y2;
-            float dvDx = (v1 - v0) / length01;
-            float dvDy = (v2 - v0 - dvDx * x2) / y2;
+            double duDx = (u1 - u0) / length01;
+            double duDy = (u2 - u0 - duDx * x2) / y2;
+            double dvDx = (v1 - v0) / length01;
+            double dvDy = (v2 - v0 - dvDx * x2) / y2;
 
-            float jacobianDet = duDx * dvDy - duDy * dvDx;
-            float frobeniusSquared = duDx * duDx + duDy * duDy + dvDx * dvDx + dvDy * dvDy;
+            double jacobianDet = duDx * dvDy - duDy * dvDx;
+            double frobeniusSquared = duDx * duDx + duDy * duDy + dvDx * dvDx + dvDy * dvDy;
 
-            float discriminant = Math.max(0.0f,
+            double discriminant = Math.max(0.0,
                     frobeniusSquared * frobeniusSquared - SVD_DET_FACTOR * jacobianDet * jacobianDet);
-            float discriminantSqrt = (float) Math.sqrt(discriminant);
-            float sigma1 = (float) Math.sqrt(HALF * (frobeniusSquared + discriminantSqrt));
-            float sigma2 = (float) Math.sqrt(Math.max(0.0f, HALF * (frobeniusSquared - discriminantSqrt)));
-            float orientationSign = jacobianDet >= 0.0f ? 1.0f : -1.0f;
+            double discriminantSqrt = Math.sqrt(discriminant);
+            double sigma1 = Math.sqrt(HALF * (frobeniusSquared + discriminantSqrt));
+            double sigma2 = Math.sqrt(Math.max(0.0, HALF * (frobeniusSquared - discriminantSqrt)));
+            double orientationSign = jacobianDet >= 0.0 ? 1.0 : -1.0;
 
             sum += Math.abs(orientationSign * sigma1 * targetScale - 1.0f)
                     + Math.abs(orientationSign * sigma2 * targetScale - 1.0f);
             counted++;
         }
-        return counted == 0 ? 0.0f : sum / counted;
+        return counted == 0 ? 0.0 : sum / counted;
     }
 
     /**

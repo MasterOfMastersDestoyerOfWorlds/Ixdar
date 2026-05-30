@@ -81,18 +81,18 @@ public final class SeamlessParameterization {
     public final CrossField crossField;
 
     /** Per-corner u, length {@code 3 * faceCount} (active-face order). */
-    public float[] uCorner;
+    public double[] uCorner;
     /** Per-corner v, length {@code 3 * faceCount}. */
-    public float[] vCorner;
+    public double[] vCorner;
 
     /**
      * Cut transition translation s<sub>e</sub>; only valid for INTERIOR cut edges.
      */
-    public float[] cutTranslationS;
+    public double[] cutTranslationS;
     /**
      * Cut transition translation t<sub>e</sub>; only valid for INTERIOR cut edges.
      */
-    public float[] cutTranslationT;
+    public double[] cutTranslationT;
 
     /** True iff every triangle has positive UV signed area. */
     public boolean injective;
@@ -239,7 +239,11 @@ public final class SeamlessParameterization {
     /**
      * Run the BZK09 §5 pipeline; populate the public output arrays.
      *
-     * @return {@code this}
+     * @return the {@link ParameterizationMetrics} computed from the final
+     *         parametrization
+     * @throws IllegalStateException if the projected parametrization still
+     *         contains flipped triangles after MC19 §5.4 repair; downstream
+     *         motorcycle / ILP stages require an injective parametrization
      */
     public ParameterizationMetrics build() {
         System.out.println("[seamless] Building seamless parameterization");
@@ -402,7 +406,7 @@ public final class SeamlessParameterization {
      * @param cornerIdx corner index in {@code [0, 3)}
      * @return u-coordinate at the given corner
      */
-    public float u(int faceId, int cornerIdx) {
+    public double u(int faceId, int cornerIdx) {
         int activeFace = crossField.faceIdToActive.get(faceId);
         return uCorner[activeFace * CORNERS_PER_FACE + cornerIdx];
     }
@@ -414,7 +418,7 @@ public final class SeamlessParameterization {
      * @param cornerIdx corner index in {@code [0, 3)}
      * @return v-coordinate at the given corner
      */
-    public float v(int faceId, int cornerIdx) {
+    public double v(int faceId, int cornerIdx) {
         int activeFace = crossField.faceIdToActive.get(faceId);
         return vCorner[activeFace * CORNERS_PER_FACE + cornerIdx];
     }
@@ -642,31 +646,31 @@ public final class SeamlessParameterization {
      */
     private void writeChartVerticesFromSolution() {
         int totalCorners = faceCount * CORNERS_PER_FACE;
-        uCorner = new float[totalCorners];
-        vCorner = new float[totalCorners];
+        uCorner = new double[totalCorners];
+        vCorner = new double[totalCorners];
         for (int corner = 0; corner < totalCorners; corner++) {
             int chartVertex = cutGraph.cornerToChartVertex[corner];
-            uCorner[corner] = (float) dofSystem.evaluateChartComponent(chartVertex, 0, solution);
-            vCorner[corner] = (float) dofSystem.evaluateChartComponent(chartVertex, 1, solution);
+            uCorner[corner] = dofSystem.evaluateChartComponent(chartVertex, 0, solution);
+            vCorner[corner] = dofSystem.evaluateChartComponent(chartVertex, 1, solution);
         }
-        cutTranslationS = new float[edgeCount];
-        cutTranslationT = new float[edgeCount];
+        cutTranslationS = new double[edgeCount];
+        cutTranslationT = new double[edgeCount];
         for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
             if (dofSystem.cutEdgeSDof[activeEdge] < 0) {
                 continue;
             }
-            cutTranslationS[activeEdge] = (float) dofSystem.evaluateRawDof(
+            cutTranslationS[activeEdge] = dofSystem.evaluateRawDof(
                     dofSystem.cutEdgeSDof[activeEdge], solution);
-            cutTranslationT[activeEdge] = (float) dofSystem.evaluateRawDof(
+            cutTranslationT[activeEdge] = dofSystem.evaluateRawDof(
                     dofSystem.cutEdgeTDof[activeEdge], solution);
         }
         boolean inj = true;
         for (int af = 0; af < faceCount; af++) {
             int o = af * CORNERS_PER_FACE;
-            float u0 = uCorner[o], v0p = vCorner[o];
-            float u1 = uCorner[o + 1], v1 = vCorner[o + 1];
-            float u2 = uCorner[o + 2], v2 = vCorner[o + 2];
-            float sa = HALF * ((u1 - u0) * (v2 - v0p) - (u2 - u0) * (v1 - v0p));
+            double u0 = uCorner[o], v0p = vCorner[o];
+            double u1 = uCorner[o + 1], v1 = vCorner[o + 1];
+            double u2 = uCorner[o + 2], v2 = vCorner[o + 2];
+            double sa = HALF * ((u1 - u0) * (v2 - v0p) - (u2 - u0) * (v1 - v0p));
             if (sa <= 0f) {
                 inj = false;
                 break;
@@ -745,12 +749,12 @@ public final class SeamlessParameterization {
      * @param faceId mesh face id
      * @return signed UV-space triangle area
      */
-    public float uvSignedArea(int faceId) {
+    public double uvSignedArea(int faceId) {
         int activeFace = crossField.faceIdToActive.get(faceId);
         int o = activeFace * CORNERS_PER_FACE;
-        float u0 = uCorner[o], v0 = vCorner[o];
-        float u1 = uCorner[o + 1], v1 = vCorner[o + 1];
-        float u2 = uCorner[o + 2], v2 = vCorner[o + 2];
+        double u0 = uCorner[o], v0 = vCorner[o];
+        double u1 = uCorner[o + 1], v1 = vCorner[o + 1];
+        double u2 = uCorner[o + 2], v2 = vCorner[o + 2];
         return HALF * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
     }
 
@@ -762,7 +766,7 @@ public final class SeamlessParameterization {
      * @param vEnd   the end vertex id
      * @return the corners coordinates
      */
-    public float[] lookupCorners(int faceId, int vStart, int vEnd) {
+    public double[] lookupCorners(int faceId, int vStart, int vEnd) {
         int cStart = -1, cEnd = -1;
         for (int c = 0; c < SeamlessParameterization.CORNERS_PER_FACE; c++) {
             int v = mesh.faceVertexAt(faceId, c);
@@ -771,7 +775,7 @@ public final class SeamlessParameterization {
             else if (v == vEnd)
                 cEnd = c;
         }
-        return new float[] {
+        return new double[] {
                 u(faceId, cStart), v(faceId, cStart),
                 u(faceId, cEnd), v(faceId, cEnd),
         };

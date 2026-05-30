@@ -58,7 +58,7 @@ public final class TracePort {
                 int faceId = mesh.vertexFaceAt(vertexId, fanIndex);
                 int activeFace = crossField.faceIdToActive.get(faceId);
                 int cornerIndex = cornerOfVertex(mesh, faceId, vertexId);
-                float[] cornerUv = new float[ChartWalker.CORNER_UV_FLOATS];
+                double[] cornerUv = new double[ChartWalker.CORNER_UV_FLOATS];
                 walker.faceCornerUv(activeFace, cornerUv);
                 int nextCorner = (cornerIndex + 1) % SeamlessParameterization.CORNERS_PER_FACE;
                 int thirdCorner = (cornerIndex + 2) % SeamlessParameterization.CORNERS_PER_FACE;
@@ -98,7 +98,7 @@ public final class TracePort {
                     int faceId = mesh.vertexFaceAt(vertexId, fanIndex);
                     int activeFace = crossField.faceIdToActive.get(faceId);
                     int cornerIndex = cornerOfVertex(mesh, faceId, vertexId);
-                    float[] cornerUv = new float[ChartWalker.CORNER_UV_FLOATS];
+                    double[] cornerUv = new double[ChartWalker.CORNER_UV_FLOATS];
                     walker.faceCornerUv(activeFace, cornerUv);
                     int nc = (cornerIndex + 1) % SeamlessParameterization.CORNERS_PER_FACE;
                     int tc = (cornerIndex + 2) % SeamlessParameterization.CORNERS_PER_FACE;

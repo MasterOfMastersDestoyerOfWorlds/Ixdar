@@ -22,8 +22,8 @@ public final class TMeshNode {
     public final int type;
     public final int singularityVertexId;
     public final int singularityIndex4;
-    public final float u;
-    public final float v;
+    public final double u;
+    public final double v;
     public final Vector3f position;
 
     /**
@@ -38,7 +38,7 @@ public final class TMeshNode {
      * @param position            embedded 3D position
      */
     public TMeshNode(int nodeId, int type, int singularityVertexId, int singularityIndex4,
-            float u, float v, Vector3f position) {
+            double u, double v, Vector3f position) {
         this.nodeId = nodeId;
         this.type = type;
         this.singularityVertexId = singularityVertexId;

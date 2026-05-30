@@ -81,11 +81,6 @@ public final class QuadLayoutEngine {
         ParameterizationMetrics metrics = seamless.build();
 
         MotorcycleGraph motorcycleGraph = new MotorcycleGraph(seamless, alpha).build();
-        System.out.println("Motorcycle graph: traces=" + motorcycleGraph.traces.size()
-                + " arcs=" + motorcycleGraph.arcs.size()
-                + " nodes=" + motorcycleGraph.nodes.size()
-                + " alive=" + motorcycleGraph.aliveTraceCount()
-                + "/" + motorcycleGraph.traces.size());
 
         // Stage 5 — ILP for quantization (Lyon 2021 §4–§5) — not yet implemented.
         // Stage 6 — Layout extraction (Lyon 2021 §6) — not yet implemented.

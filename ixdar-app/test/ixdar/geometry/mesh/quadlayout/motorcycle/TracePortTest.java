@@ -23,8 +23,7 @@ class TracePortTest {
     @Timeout(value = 30, unit = TimeUnit.SECONDS)
     void cubeCornerEmitsThreeForwardValidPorts() {
         SeamlessParameterization seamless = CubeCornerFixtures.buildSeamless();
-        List<TracePort> ports = TracePort.spawnAtVertex(
-                seamless, seamless.crossField.singularities.get(0));
+        List<TracePort> ports = TracePort.spawnFromSingularities(seamless);
         assertEquals(CubeCornerFixtures.PORTS_PER_CORNER, ports.size(),
                 "cube corner should emit three QEx ports");
 
@@ -32,10 +31,10 @@ class TracePortTest {
         Set<String> directions = new HashSet<>();
         for (TracePort port : ports) {
             assertEquals(CubeCornerFixtures.CORNER_VERTEX, port.singularityVertexId);
-            float[] cornerUv = new float[ChartWalker.CORNER_UV_FLOATS];
+            double[] cornerUv = new double[ChartWalker.CORNER_UV_FLOATS];
             walker.faceCornerUv(port.activeFace, cornerUv);
-            float startU = cornerUv[port.cornerIndex * 2];
-            float startV = cornerUv[port.cornerIndex * 2 + 1];
+            double startU = cornerUv[port.cornerIndex * 2];
+            double startV = cornerUv[port.cornerIndex * 2 + 1];
             ChartWalker.State probe = new ChartWalker.State(
                     port.activeFace, startU, startV, port.axis, port.sign);
             assertNotNull(walker.nextEdgeHit(probe),

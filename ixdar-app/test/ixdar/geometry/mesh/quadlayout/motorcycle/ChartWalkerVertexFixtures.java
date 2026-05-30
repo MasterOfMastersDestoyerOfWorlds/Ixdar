@@ -60,16 +60,16 @@ public final class ChartWalkerVertexFixtures {
                 : List.of();
 
         SeamlessParameterization seamless = new SeamlessParameterization(crossField);
-        seamless.uCorner = new float[mesh.faceCount() * SeamlessParameterization.CORNERS_PER_FACE];
-        seamless.vCorner = new float[mesh.faceCount() * SeamlessParameterization.CORNERS_PER_FACE];
+        seamless.uCorner = new double[mesh.faceCount() * SeamlessParameterization.CORNERS_PER_FACE];
+        seamless.vCorner = new double[mesh.faceCount() * SeamlessParameterization.CORNERS_PER_FACE];
         assignFanUv(seamless);
 
         CutGraph cutGraph = new CutGraph(mesh, crossField, seamless);
         cutGraph.isCutEdge = new boolean[mesh.edgeCount()];
         cutGraph.cutRotation = new int[mesh.edgeCount()];
         seamless.cutGraph = cutGraph;
-        seamless.cutTranslationS = new float[mesh.edgeCount()];
-        seamless.cutTranslationT = new float[mesh.edgeCount()];
+        seamless.cutTranslationS = new double[mesh.edgeCount()];
+        seamless.cutTranslationT = new double[mesh.edgeCount()];
         return seamless;
     }
 

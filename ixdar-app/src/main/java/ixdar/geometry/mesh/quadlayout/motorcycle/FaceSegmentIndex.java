@@ -55,7 +55,7 @@ public final class FaceSegmentIndex {
      * @return matched segment plus the (t, iu, iv) hit data, or {@code null}
      */
     public IntersectionHit earliestIntersection(int traceId, int activeFace,
-            float entryU, float entryV, float exitU, float exitV, TraceAxis axis) {
+            double entryU, double entryV, double exitU, double exitV, TraceAxis axis) {
         double bestT = Double.POSITIVE_INFINITY;
         TraceSegment bestSegment = null;
         double bestU = 0.0;
@@ -108,18 +108,18 @@ public final class FaceSegmentIndex {
     }
 
     private static double[] intersectSegments(
-            float a0u, float a0v, float a1u, float a1v, TraceAxis axisA,
-            float b0u, float b0v, float b1u, float b1v, TraceAxis axisB) {
+            double a0u, double a0v, double a1u, double a1v, TraceAxis axisA,
+            double b0u, double b0v, double b1u, double b1v, TraceAxis axisB) {
         if (axisA == axisB) {
             return null;
         }
-        float isoA = axisA.holdsUConstant() ? a0u : a0v;
-        float isoB = axisB.holdsUConstant() ? b0u : b0v;
+        double isoA = axisA.holdsUConstant() ? a0u : a0v;
+        double isoB = axisB.holdsUConstant() ? b0u : b0v;
         // For perpendicular axis-aligned chords, the intersection sits at the
         // u-constant of whichever trace holds u constant, and the v-constant of
         // whichever trace holds v constant.
-        float iu;
-        float iv;
+        double iu;
+        double iv;
         if (axisA == TraceAxis.U) {
             iu = isoB;
             iv = isoA;
@@ -137,13 +137,13 @@ public final class FaceSegmentIndex {
         return new double[] { tA, iu, iv };
     }
 
-    private static boolean withinSpan(float iu, float iv,
-            float e0u, float e0v, float e1u, float e1v, TraceAxis axis) {
-        float span = axis.holdsUConstant() ? iv : iu;
-        float s0 = axis.holdsUConstant() ? e0v : e0u;
-        float s1 = axis.holdsUConstant() ? e1v : e1u;
-        float lo = Math.min(s0, s1) - 1.0e-6f;
-        float hi = Math.max(s0, s1) + 1.0e-6f;
+    private static boolean withinSpan(double iu, double iv,
+            double e0u, double e0v, double e1u, double e1v, TraceAxis axis) {
+        double span = axis.holdsUConstant() ? iv : iu;
+        double s0 = axis.holdsUConstant() ? e0v : e0u;
+        double s1 = axis.holdsUConstant() ? e1v : e1u;
+        double lo = Math.min(s0, s1) - 1.0e-6;
+        double hi = Math.max(s0, s1) + 1.0e-6;
         return span >= lo && span <= hi;
     }
 }

@@ -27,6 +27,14 @@ public final class MotorcycleGraph {
     private static final double PARAMETRIC_EPS = 1.0e-9;
     /** Hard cap on processed events so a stuck queue cannot run forever. */
     private static final int MAX_SIMULATION_EVENTS = 100_000;
+    /**
+     * Wall-clock budget for the simulation loop. ELK converges in well under a
+     * second when the parametrization is correct; anything over this cap means
+     * the queue is stuck (traces drifting off-axis, iso-lines that should
+     * coincide split by floating-point noise, etc.) and we should abort fast
+     * rather than burn the user's CPU.
+     */
+    private static final long MAX_SIMULATION_NANOS = 10L * 1_000_000_000L;
 
     public final SeamlessParameterization seamless;
     public final float alphaRadians;
@@ -131,11 +139,11 @@ public final class MotorcycleGraph {
                 continue;
             }
             int activeFace = seamless.crossField.faceIdToActive.get(edgeFaces.faceA);
-            float[] uv = new float[6];
+            double[] uv = new double[ChartWalker.CORNER_UV_FLOATS];
             walker.faceCornerUv(activeFace, uv);
             TracePort port = new TracePort(-1, activeFace, 0, TraceAxis.U, 1);
-            float startU = uv[port.cornerIndex * 2];
-            float startV = uv[port.cornerIndex * 2 + 1];
+            double startU = uv[port.cornerIndex * 2];
+            double startV = uv[port.cornerIndex * 2 + 1];
             int faceId = seamless.mesh.faceIdAt(port.activeFace);
             Vector3f position = seamless.mesh.vertexPosition(
                     seamless.mesh.faceVertexAt(faceId, port.cornerIndex));
@@ -153,10 +161,10 @@ public final class MotorcycleGraph {
 
         List<TracePort> ports = TracePort.spawnFromSingularities(seamless);
         for (TracePort port : ports) {
-            float[] cornerUv = new float[6];
+            double[] cornerUv = new double[ChartWalker.CORNER_UV_FLOATS];
             walker.faceCornerUv(port.activeFace, cornerUv);
-            float startU = cornerUv[port.cornerIndex * 2];
-            float startV = cornerUv[port.cornerIndex * 2 + 1];
+            double startU = cornerUv[port.cornerIndex * 2];
+            double startV = cornerUv[port.cornerIndex * 2 + 1];
 
             TMeshNode origin = null;
             for (TMeshNode node : nodes) {
@@ -211,6 +219,12 @@ public final class MotorcycleGraph {
                 System.out.printf(
                         "[motorcycle] event simulation stopped at max events=%d queue=%d",
                         MAX_SIMULATION_EVENTS, queue.size());
+                break;
+            }
+            if (System.nanoTime() - simStartNanos > MAX_SIMULATION_NANOS) {
+                System.out.printf(
+                        "[motorcycle] event simulation stopped at wall-clock cap %.1fs queue=%d events=%d%n",
+                        MAX_SIMULATION_NANOS / 1.0e9, queue.size(), eventsProcessed);
                 break;
             }
             TraceEvent event = queue.poll();
@@ -287,7 +301,7 @@ public final class MotorcycleGraph {
             trace.alive = false;
             dieNoForwardEdgeCount++;
             int activeFace = trace.state.activeFace;
-            float[] uv = new float[6];
+            double[] uv = new double[ChartWalker.CORNER_UV_FLOATS];
             new ChartWalker(seamless).faceCornerUv(activeFace, uv);
             double u = trace.state.u;
             double v = trace.state.v;
@@ -367,8 +381,8 @@ public final class MotorcycleGraph {
             dieZeroEdgeLengthCount++;
             return;
         }
-        float exitU = edgeHit.exitU;
-        float exitV = edgeHit.exitV;
+        double exitU = edgeHit.exitU;
+        double exitV = edgeHit.exitV;
 
         FaceSegmentIndex.IntersectionHit intersection = segmentIndex.earliestIntersection(
                 trace.traceId, trace.state.activeFace,
@@ -554,8 +568,8 @@ public final class MotorcycleGraph {
         }
     }
 
-    private Vector3f liftTo3D(int activeFace, float u, float v) {
-        float[] cornerUv = new float[6];
+    private Vector3f liftTo3D(int activeFace, double u, double v) {
+        double[] cornerUv = new double[ChartWalker.CORNER_UV_FLOATS];
         new ChartWalker(seamless).faceCornerUv(activeFace, cornerUv);
         int faceId = seamless.mesh.faceIdAt(activeFace);
         Vector3f p0 = new Vector3f();
@@ -564,23 +578,23 @@ public final class MotorcycleGraph {
         seamless.mesh.vertexPosition(seamless.mesh.faceVertexAt(faceId, 0), p0);
         seamless.mesh.vertexPosition(seamless.mesh.faceVertexAt(faceId, 1), p1);
         seamless.mesh.vertexPosition(seamless.mesh.faceVertexAt(faceId, 2), p2);
-        float u0 = cornerUv[0];
-        float v0 = cornerUv[1];
-        float u1 = cornerUv[2];
-        float v1 = cornerUv[3];
-        float u2 = cornerUv[4];
-        float v2 = cornerUv[5];
-        float denom = (v1 - v2) * (u0 - u2) + (u2 - u1) * (v0 - v2);
-        if (Math.abs(denom) < 1.0e-12f) {
+        double u0 = cornerUv[0];
+        double v0 = cornerUv[1];
+        double u1 = cornerUv[2];
+        double v1 = cornerUv[3];
+        double u2 = cornerUv[4];
+        double v2 = cornerUv[5];
+        double denom = (v1 - v2) * (u0 - u2) + (u2 - u1) * (v0 - v2);
+        if (Math.abs(denom) < 1.0e-12) {
             return new Vector3f(p0);
         }
-        float w0 = ((v1 - v2) * (u - u2) + (u2 - u1) * (v - v2)) / denom;
-        float w1 = ((v2 - v0) * (u - u2) + (u0 - u2) * (v - v2)) / denom;
-        float w2 = 1.0f - w0 - w1;
+        double w0 = ((v1 - v2) * (u - u2) + (u2 - u1) * (v - v2)) / denom;
+        double w1 = ((v2 - v0) * (u - u2) + (u0 - u2) * (v - v2)) / denom;
+        double w2 = 1.0 - w0 - w1;
         return new Vector3f(
-                w0 * p0.x + w1 * p1.x + w2 * p2.x,
-                w0 * p0.y + w1 * p1.y + w2 * p2.y,
-                w0 * p0.z + w1 * p1.z + w2 * p2.z);
+                (float) (w0 * p0.x + w1 * p1.x + w2 * p2.x),
+                (float) (w0 * p0.y + w1 * p1.y + w2 * p2.y),
+                (float) (w0 * p0.z + w1 * p1.z + w2 * p2.z));
     }
 
     private void addArc(Trace trace, int endNodeId, double parametricLength) {
@@ -748,9 +762,9 @@ public final class MotorcycleGraph {
                 float[] row = traceRecordsByFace[face];
                 int base = slot * 4;
                 row[base] = segment.axis.holdsUConstant() ? 1f : 0f;
-                row[base + 1] = segment.isoValue;
-                row[base + 2] = segment.spanStart;
-                row[base + 3] = segment.spanEnd;
+                row[base + 1] = (float) segment.isoValue;
+                row[base + 2] = (float) segment.spanStart;
+                row[base + 3] = (float) segment.spanEnd;
                 counts.put(face, slot + 1);
             }
         }

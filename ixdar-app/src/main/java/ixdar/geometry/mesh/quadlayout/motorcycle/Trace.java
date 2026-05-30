@@ -38,7 +38,7 @@ public final class Trace {
      * @param featureTrace        true for immortal boundary/feature traces
      */
     public Trace(int traceId, int originNodeId, int singularityVertexId, TracePort port,
-            float startU, float startV, boolean featureTrace) {
+            double startU, double startV, boolean featureTrace) {
         this.traceId = traceId;
         this.originNodeId = originNodeId;
         this.singularityVertexId = singularityVertexId;
