@@ -49,7 +49,13 @@ public class MotorcycleGraphTest {
         long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000L;
         assertTrue(elapsedMs < BUILD_TIMEOUT_MS,
                 "motorcycle build exceeded " + BUILD_TIMEOUT_MS + "ms, took " + elapsedMs);
-        assertEquals(0, graph.aliveNonFeatureTraceCount(),
+        int aliveNonFeature = 0;
+        for (Trace t : graph.traces) {
+            if (t.alive && !t.featureTrace) {
+                aliveNonFeature++;
+            }
+        }
+        assertEquals(0, aliveNonFeature,
                 "singularity traces should terminate during simulation");
         assertTrue(graph.patches.size() > 1,
                 "Lyon §3 patches are bounded by motorcycle arcs; expected many on ELK, got "

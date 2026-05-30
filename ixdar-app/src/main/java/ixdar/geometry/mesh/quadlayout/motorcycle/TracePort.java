@@ -14,13 +14,13 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
  */
 public final class TracePort {
 
+    public static final double ORIENT_COLLINEAR_EPSILON = 1.0e-12;
+
     public final int singularityVertexId;
     public final int activeFace;
     public final int cornerIndex;
     public final TraceAxis axis;
     public final int sign;
-
-    public static final double ORIENT_COLLINEAR_EPSILON = 1.0e-12;
 
     /**
      * Describes an outgoing iso-line port at a singularity corner.
@@ -48,6 +48,7 @@ public final class TracePort {
     public static List<TracePort> spawnFromSingularities(SeamlessParameterization seamless) {
         List<TracePort> ports = new ArrayList<>();
         for (Singularity singularity : seamless.crossField.singularities) {
+            int portsBeforeVertex = ports.size();
             HalfEdgeMesh mesh = seamless.mesh;
             CrossField crossField = seamless.crossField;
             int vertexId = singularity.vertexId();
@@ -87,11 +88,12 @@ public final class TracePort {
                     }
                 }
             }
+            int gained = ports.size() - portsBeforeVertex;
             int expected = SeamlessParameterization.BRANCH_COUNT - singularity.index4();
-            if (ports.size() != expected) {
+            if (gained != expected) {
                 System.out.printf(
                         "[motorcycle] port count mismatch at vertex %d: got %d expected %d (index4=%d)%n",
-                        vertexId, ports.size(), expected, singularity.index4());
+                        vertexId, gained, expected, singularity.index4());
                 for (int fanIndex = 0; fanIndex < faceCount; fanIndex++) {
                     int faceId = mesh.vertexFaceAt(vertexId, fanIndex);
                     int activeFace = crossField.faceIdToActive.get(faceId);
@@ -106,7 +108,7 @@ public final class TracePort {
                             cornerUv[nc * 2], cornerUv[nc * 2 + 1],
                             cornerUv[tc * 2], cornerUv[tc * 2 + 1]);
                 }
-                for (TracePort p : ports) {
+                for (TracePort p : ports.subList(portsBeforeVertex, ports.size())) {
                     System.out.printf("  port face=%d corner=%d axis=%s sign=%+d%n",
                             p.activeFace, p.cornerIndex, p.axis, p.sign);
                 }
