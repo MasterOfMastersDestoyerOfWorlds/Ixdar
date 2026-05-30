@@ -605,6 +605,38 @@ public final class SeamlessParameterization {
                         + Math.abs(orientationSign * sigma2 * targetQuadEdgeLength - 1.0);
             }
 
+            if (iter == 0) {
+                double minDistortion = Double.POSITIVE_INFINITY;
+                double maxDistortion = Double.NEGATIVE_INFINITY;
+                double sumDistortion = 0.0;
+                int countedFaces = 0;
+                for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+                    if (faceArea[activeFace] <= 0) {
+                        continue;
+                    }
+                    double d = perFaceDistortion[activeFace];
+                    if (d < minDistortion) {
+                        minDistortion = d;
+                    }
+                    if (d > maxDistortion) {
+                        maxDistortion = d;
+                    }
+                    sumDistortion += d;
+                    countedFaces++;
+                }
+                double meanDistortion = countedFaces == 0 ? 0.0 : sumDistortion / countedFaces;
+                System.out.printf(
+                        "[stiffening-diag] perFaceDistortion @ iter 0 (h=%.6f): min=%.6g mean=%.6g max=%.6g (%d faces)%n",
+                        targetQuadEdgeLength, minDistortion, meanDistortion, maxDistortion, countedFaces);
+                int sampleCount = Math.min(20, faceCount);
+                StringBuilder sample = new StringBuilder("[stiffening-diag] first ");
+                sample.append(sampleCount).append(" face distortions:");
+                for (int activeFace = 0; activeFace < sampleCount; activeFace++) {
+                    sample.append(String.format(" f%d=%.4g", activeFace, perFaceDistortion[activeFace]));
+                }
+                System.out.println(sample.toString());
+            }
+
             // Δλ on the dual mesh: mean of neighbours' distortion minus own distortion.
             double[] perFaceDistortionLaplacian = new double[faceCount];
             for (int activeFace = 0; activeFace < faceCount; activeFace++) {

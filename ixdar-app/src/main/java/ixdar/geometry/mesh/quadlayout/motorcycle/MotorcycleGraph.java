@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.PriorityQueue;
 
 import org.joml.Vector3f;
@@ -20,19 +21,19 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 public final class MotorcycleGraph {
 
     public static final int MAX_TRACE_RECORDS_PER_FACE = 4;
+    static final double PARAMETRIC_EPS = 1.0e-9;
     private static final int CORNERS = SeamlessParameterization.CORNERS_PER_FACE;
     private static final int DIE_SAMPLE_LIMIT = 12;
     private static final int PROGRESS_BAR_WIDTH = 30;
     private static final int PROGRESS_LOG_EVERY_EVENTS = 5000;
-    private static final double PARAMETRIC_EPS = 1.0e-9;
     /** Hard cap on processed events so a stuck queue cannot run forever. */
     private static final int MAX_SIMULATION_EVENTS = 100_000;
     /**
      * Wall-clock budget for the simulation loop. ELK converges in well under a
-     * second when the parametrization is correct; anything over this cap means
-     * the queue is stuck (traces drifting off-axis, iso-lines that should
-     * coincide split by floating-point noise, etc.) and we should abort fast
-     * rather than burn the user's CPU.
+     * second when the parametrization is correct; anything over this cap means the
+     * queue is stuck (traces drifting off-axis, iso-lines that should coincide
+     * split by floating-point noise, etc.) and we should abort fast rather than
+     * burn the user's CPU.
      */
     private static final long MAX_SIMULATION_NANOS = 10L * 1_000_000_000L;
 
@@ -225,6 +226,7 @@ public final class MotorcycleGraph {
                 System.out.printf(
                         "[motorcycle] event simulation stopped at wall-clock cap %.1fs queue=%d events=%d%n",
                         MAX_SIMULATION_NANOS / 1.0e9, queue.size(), eventsProcessed);
+                dumpStallDiagnostics(segmentIndex);
                 break;
             }
             TraceEvent event = queue.poll();
@@ -386,7 +388,8 @@ public final class MotorcycleGraph {
 
         FaceSegmentIndex.IntersectionHit intersection = segmentIndex.earliestIntersection(
                 trace.traceId, trace.state.activeFace,
-                trace.state.u, trace.state.v, exitU, exitV, trace.state.axis);
+                trace.state.u, trace.state.v, exitU, exitV, trace.state.axis,
+                trace.metOtherTraces);
         if (intersection != null && intersection.tAlongCandidate < edgeLength) {
             queue.add(new TraceEvent(TraceEvent.TYPE_INTERSECTION,
                     trace.parametricLengthSoFar + intersection.tAlongCandidate,
@@ -767,6 +770,162 @@ public final class MotorcycleGraph {
                 row[base + 3] = (float) segment.spanEnd;
                 counts.put(face, slot + 1);
             }
+        }
+    }
+
+    /**
+     * Dump alive-trace bookkeeping when the simulation hits its wall-clock cap.
+     * Prints the per-face distribution of alive traces and the per-face segment
+     * histogram so we can tell whether the queue is stuck on a single runaway trace
+     * or fanned out across many traces with no cross-axis neighbors.
+     *
+     * @param segmentIndex per-face trace segment index from the active simulation
+     */
+    private void dumpStallDiagnostics(FaceSegmentIndex segmentIndex) {
+        final int dumpLimit = 16;
+        int alivePrinted = 0;
+        int aliveCount = 0;
+        Map<Integer, List<Integer>> tracesByFace = new HashMap<>();
+        for (Trace trace : traces) {
+            if (!trace.alive || trace.featureTrace) {
+                continue;
+            }
+            aliveCount++;
+            tracesByFace.computeIfAbsent(trace.state.activeFace, f -> new ArrayList<>())
+                    .add(trace.traceId);
+        }
+        System.out.printf("[motorcycle-stall] alive non-feature traces: %d, distinct faces: %d%n",
+                aliveCount, tracesByFace.size());
+
+        int facesWithMultipleTraces = 0;
+        int facesWithCrossAxisAlive = 0;
+        for (Map.Entry<Integer, List<Integer>> entry : tracesByFace.entrySet()) {
+            if (entry.getValue().size() < 2) {
+                continue;
+            }
+            facesWithMultipleTraces++;
+            boolean seenU = false;
+            boolean seenV = false;
+            for (int traceId : entry.getValue()) {
+                Trace t = traces.get(traceId);
+                if (t.state.axis == TraceAxis.U) {
+                    seenU = true;
+                } else {
+                    seenV = true;
+                }
+            }
+            if (seenU && seenV) {
+                facesWithCrossAxisAlive++;
+            }
+        }
+        System.out.printf(
+                "[motorcycle-stall] faces with >=2 alive traces: %d, with cross-axis alive: %d%n",
+                facesWithMultipleTraces, facesWithCrossAxisAlive);
+
+        int totalSegments = 0;
+        int maxSegmentsPerFace = 0;
+        int facesWithSegments = 0;
+        int facesWithCrossAxisSegments = 0;
+        for (int face = 0; face < faceCount; face++) {
+            List<TraceSegment> faceSegments = segmentIndex.segmentsOnFace(face);
+            if (faceSegments.isEmpty()) {
+                continue;
+            }
+            facesWithSegments++;
+            totalSegments += faceSegments.size();
+            if (faceSegments.size() > maxSegmentsPerFace) {
+                maxSegmentsPerFace = faceSegments.size();
+            }
+            boolean uSeen = false;
+            boolean vSeen = false;
+            for (TraceSegment s : faceSegments) {
+                if (s.axis == TraceAxis.U) {
+                    uSeen = true;
+                } else {
+                    vSeen = true;
+                }
+            }
+            if (uSeen && vSeen) {
+                facesWithCrossAxisSegments++;
+            }
+        }
+        System.out.printf(
+                "[motorcycle-stall] segments indexed: total=%d facesWithSegments=%d maxPerFace=%d crossAxisFaces=%d totalFaces=%d%n",
+                totalSegments, facesWithSegments, maxSegmentsPerFace, facesWithCrossAxisSegments, faceCount);
+
+        int totalTraceSegments = 0;
+        int maxTraceSegments = 0;
+        int runawayTraceId = -1;
+        for (Trace t : traces) {
+            if (t.featureTrace) {
+                continue;
+            }
+            totalTraceSegments += t.segments.size();
+            if (t.segments.size() > maxTraceSegments) {
+                maxTraceSegments = t.segments.size();
+                runawayTraceId = t.traceId;
+            }
+        }
+        System.out.printf(
+                "[motorcycle-stall] trace.segments: total=%d maxPerTrace=%d (alive=%d)%n",
+                totalTraceSegments, maxTraceSegments, aliveCount);
+
+        final String segLineFmt = "[motorcycle-stall]   seg[%d] face=%d entry=(%.6f,%.6f) exit=(%.6f,%.6f) axis=%s sign=%+d L=%.6f%n";
+        if (runawayTraceId >= 0) {
+            Trace runaway = traces.get(runawayTraceId);
+            System.out.printf(
+                    "[motorcycle-stall] runaway trace=%d alive=%b feature=%b origin=%d spawnAxis=%s spawnSign=%+d"
+                            + " currentFace=%d u=%.12f v=%.12f axis=%s sign=%+d incoming=%d parametricLength=%.6f"
+                            + " arcNodes=%d metOther=%d%n",
+                    runaway.traceId, runaway.alive, runaway.featureTrace, runaway.originNodeId,
+                    runaway.spawnAxis, runaway.spawnSign,
+                    runaway.state.activeFace, runaway.state.u, runaway.state.v,
+                    runaway.state.axis, runaway.state.sign, runaway.state.incomingLocalEdgeIndex,
+                    runaway.parametricLengthSoFar,
+                    runaway.arcNodeIds.size(), runaway.metOtherTraces.size());
+            int show = Math.min(runaway.segments.size(), 24);
+            int total = runaway.segments.size();
+            System.out.printf("[motorcycle-stall] runaway first %d segments (of %d):%n", show, total);
+            for (int i = 0; i < show; i++) {
+                TraceSegment seg = runaway.segments.get(i);
+                System.out.printf(segLineFmt,
+                        i, seg.activeFace, seg.entryU, seg.entryV, seg.exitU, seg.exitV,
+                        seg.axis, seg.sign, seg.parametricLength());
+            }
+            if (total > show * 2) {
+                System.out.printf("[motorcycle-stall] runaway last %d segments (of %d):%n", show, total);
+                for (int i = total - show; i < total; i++) {
+                    TraceSegment seg = runaway.segments.get(i);
+                    System.out.printf(segLineFmt,
+                            i, seg.activeFace, seg.entryU, seg.entryV, seg.exitU, seg.exitV,
+                            seg.axis, seg.sign, seg.parametricLength());
+                }
+            }
+        }
+
+        for (Trace trace : traces) {
+            if (!trace.alive || trace.featureTrace) {
+                continue;
+            }
+            if (alivePrinted >= dumpLimit) {
+                break;
+            }
+            alivePrinted++;
+            int face = trace.state.activeFace;
+            int segmentCount = segmentIndex.segmentsOnFace(face).size();
+            int crossAxisCount = 0;
+            for (TraceSegment seg : segmentIndex.segmentsOnFace(face)) {
+                if (seg.axis != trace.state.axis) {
+                    crossAxisCount++;
+                }
+            }
+            System.out.printf(
+                    "[motorcycle-stall] trace=%d face=%d u=%.12f v=%.12f axis=%s sign=%+d"
+                            + " segmentsOnFace=%d crossAxis=%d arc=%d incoming=%d%n",
+                    trace.traceId, face, trace.state.u, trace.state.v,
+                    trace.state.axis, trace.state.sign,
+                    segmentCount, crossAxisCount,
+                    trace.arcNodeIds.size(), trace.state.incomingLocalEdgeIndex);
         }
     }
 }

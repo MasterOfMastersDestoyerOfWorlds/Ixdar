@@ -45,17 +45,23 @@ public final class FaceSegmentIndex {
      * Find the earliest intersection between a candidate chord and existing
      * segments on the same face.
      *
-     * @param traceId    candidate trace id
-     * @param activeFace active face index
-     * @param entryU     chord entry u
-     * @param entryV     chord entry v
-     * @param exitU      chord exit u
-     * @param exitV      chord exit v
-     * @param axis       candidate axis
+     * @param traceId       candidate trace id
+     * @param activeFace    active face index
+     * @param entryU        chord entry u
+     * @param entryV        chord entry v
+     * @param exitU         chord exit u
+     * @param exitV         chord exit v
+     * @param axis          candidate axis
+     * @param metOtherList  the candidate trace's already-recorded meetings;
+     *                      segments owned by traces in this list are skipped to
+     *                      prevent same-corner re-meeting loops when two
+     *                      iso-lines share a chart coordinate to within float
+     *                      precision
      * @return matched segment plus the (t, iu, iv) hit data, or {@code null}
      */
     public IntersectionHit earliestIntersection(int traceId, int activeFace,
-            double entryU, double entryV, double exitU, double exitV, TraceAxis axis) {
+            double entryU, double entryV, double exitU, double exitV, TraceAxis axis,
+            List<MetOtherTraceEntry> metOtherList) {
         double bestT = Double.POSITIVE_INFINITY;
         TraceSegment bestSegment = null;
         double bestU = 0.0;
@@ -64,10 +70,13 @@ public final class FaceSegmentIndex {
             if (existing.traceId == traceId) {
                 continue;
             }
+            if (alreadyMet(metOtherList, existing.traceId)) {
+                continue;
+            }
             double[] hit = intersectSegments(
                     entryU, entryV, exitU, exitV, axis,
                     existing.entryU, existing.entryV, existing.exitU, existing.exitV, existing.axis);
-            if (hit == null || hit[0] <= ChartWalker.ORIENT_COLLINEAR_EPSILON || hit[0] >= bestT) {
+            if (hit == null || hit[0] <= MotorcycleGraph.PARAMETRIC_EPS || hit[0] >= bestT) {
                 continue;
             }
             bestT = hit[0];
@@ -105,6 +114,28 @@ public final class FaceSegmentIndex {
             this.intersectionU = intersectionU;
             this.intersectionV = intersectionV;
         }
+    }
+
+    /**
+     * Linear-scan membership check over a trace's prior meetings. Per-call cost
+     * is O(metOtherList.size()); on ELK this peaks around a few dozen
+     * meetings per trace, much smaller than the per-face segment count we'd
+     * otherwise re-test against.
+     *
+     * @param metOtherList the trace's metOtherTraces list (may be {@code null})
+     * @param otherTraceId trace id of a candidate other-segment
+     * @return whether {@code otherTraceId} appears in {@code metOtherList}
+     */
+    private static boolean alreadyMet(List<MetOtherTraceEntry> metOtherList, int otherTraceId) {
+        if (metOtherList == null) {
+            return false;
+        }
+        for (MetOtherTraceEntry entry : metOtherList) {
+            if (entry.otherTraceId == otherTraceId) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static double[] intersectSegments(

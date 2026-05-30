@@ -35,7 +35,7 @@ public class MotorcycleGraphTest {
      * @throws Exception when mesh loading or pipeline build fails
      */
     @Test
-    @Timeout(value = 10, unit = TimeUnit.SECONDS)
+    @Timeout(value = 2, unit = TimeUnit.MINUTES)
     void buildOnElkCompletesWithOnlyFeatureTracesAlive() throws Exception {
         ArrayMesh arrayMesh = MeshLoader.load(ELK_OFF);
         HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(

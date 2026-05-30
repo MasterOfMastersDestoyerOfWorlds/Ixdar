@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
@@ -107,8 +106,6 @@ public final class SeamlessProjector {
         double[] chartUInitial = chartU.clone();
         double[] chartVInitial = chartV.clone();
 
-        probeCollisionPair("pre-§4", chartU, chartV, totalCorners);
-
         // Phase 1: walk every branch, collecting (edges, plus-chartVertex sequence,
         // minus-chartVertex sequence, rotation, start/end nodes).
         Set<Integer> singularityVertexIds = new HashSet<>();
@@ -189,9 +186,6 @@ public final class SeamlessProjector {
             chartU[chartVertex] = nodeXExact[columnBase + U_COMPONENT];
             chartV[chartVertex] = nodeXExact[columnBase + V_COMPONENT];
         }
-
-        probeCollisionPair("post-§4", chartU, chartV, totalCorners);
-        probeChartVertexColumns(chartVertexToColumn);
 
         // Phase 6: walk each branch forward, filling non-node sector chart vertices.
         for (int b = 0; b < branchCount; b++) {
@@ -924,82 +918,6 @@ public final class SeamlessProjector {
             }
         }
         return out;
-    }
-
-    /**
-     * Diagnostic: dump full-precision {@code (u, v)} for the two chart vertices
-     * known (from prior runs) to collide on ELK, plus the list of corners that
-     * map to each. Lets us see whether the collision exists going into §4, was
-     * introduced by §4, or originates further upstream.
-     *
-     * <p>Hard-coded chart vertex ids 5539 and 1831 match the ELK debug session;
-     * the method is a temporary investigation aid and is safe on other meshes
-     * because it bounds-checks before reading.
-     *
-     * @param phase        label printed alongside the values
-     * @param chartU       per-chart-vertex u
-     * @param chartV       per-chart-vertex v
-     * @param totalCorners {@code 3 · faceCount}, the size of the corner arrays
-     */
-    private void probeCollisionPair(String phase, double[] chartU, double[] chartV, int totalCorners) {
-        int cvA = 5539;
-        int cvB = 1831;
-        if (cvA >= chartU.length || cvB >= chartU.length) {
-            return;
-        }
-        boolean identical = chartU[cvA] == chartU[cvB] && chartV[cvA] == chartV[cvB];
-        System.out.printf("[seamless] %s cv%d=(%.17g,%.17g)  cv%d=(%.17g,%.17g)  identicalDoubles=%s%n",
-                phase, cvA, chartU[cvA], chartV[cvA], cvB, chartU[cvB], chartV[cvB], identical);
-        List<Integer> cornersA = new ArrayList<>();
-        List<Integer> cornersB = new ArrayList<>();
-        for (int cornerIdx = 0; cornerIdx < totalCorners; cornerIdx++) {
-            int cv = cutGraph.cornerToChartVertex[cornerIdx];
-            if (cv == cvA) {
-                cornersA.add(cornerIdx);
-            } else if (cv == cvB) {
-                cornersB.add(cornerIdx);
-            }
-        }
-        System.out.printf("[seamless] %s cv%d cornerCount=%d cv%d cornerCount=%d  sharedCorners=%s%n",
-                phase, cvA, cornersA.size(), cvB, cornersB.size(),
-                Collections.disjoint(cornersA, cornersB) ? "no" : "YES");
-        probeChartVertexFirstCorner(phase, cvA, cornersA);
-        probeChartVertexFirstCorner(phase, cvB, cornersB);
-    }
-
-    /**
-     * Print the first (active face, corner, mesh-vertex) tuple that maps to the
-     * given chart vertex, so we can see which mesh element it represents.
-     *
-     * @param phase   diagnostic phase label
-     * @param cv      chart vertex id
-     * @param corners corner indices that map to {@code cv}
-     */
-    private void probeChartVertexFirstCorner(String phase, int cv, List<Integer> corners) {
-        if (corners.isEmpty()) {
-            return;
-        }
-        int cornerIdx = corners.get(0);
-        int activeFace = cornerIdx / CORNERS_PER_FACE;
-        int corner = cornerIdx % CORNERS_PER_FACE;
-        int faceId = mesh.faceIdAt(activeFace);
-        int vertexId = mesh.faceVertexAt(faceId, corner);
-        System.out.printf("[seamless] %s cv%d firstCorner: activeFace=%d corner=%d mesh.vertexId=%d%n",
-                phase, cv, activeFace, corner, vertexId);
-    }
-
-    /**
-     * Diagnostic: confirm cv 5539 and cv 1831 actually got distinct column
-     * indices in the §4 reduced system. If they unexpectedly map to the same
-     * column the post-§4 collision is a column-assignment bug.
-     *
-     * @param chartVertexToColumn map built during Phase 2
-     */
-    private void probeChartVertexColumns(Map<Integer, Integer> chartVertexToColumn) {
-        Integer colA = chartVertexToColumn.get(5539);
-        Integer colB = chartVertexToColumn.get(1831);
-        System.out.printf("[seamless] §4 columns: cv5539=%s cv1831=%s  sameColumn=%s%n",
-                colA, colB, (colA != null && colA.equals(colB)));
     }
 
     /**
