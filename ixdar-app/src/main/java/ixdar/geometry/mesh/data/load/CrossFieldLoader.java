@@ -39,6 +39,9 @@ public final class CrossFieldLoader {
     private static final String KEY_EDGES = "Edges";
     private static final String KEY_FACES = "Faces";
     private static final String VALUE_DELIMITER = ";";
+    private static final int PERIOD_MODULUS = 4;
+    private static final double HALF_PI = Math.PI / 2.0;
+    private static final float BCEAK13_QUAD_AXIS_PHASE = (float) (Math.PI / 4.0);
 
     private CrossFieldLoader() {
     }
@@ -50,7 +53,8 @@ public final class CrossFieldLoader {
      * @param mesh    half-edge mesh whose iteration order matches the NDF arrays
      * @throws IOException              if reading the file fails
      * @throws IllegalArgumentException if section sizes disagree with the mesh
-     * @throws RuntimeException wraps any {@link IOException} thrown while re-parsing the buffered content
+     * @throws RuntimeException         wraps any {@link IOException} thrown while
+     *                                  re-parsing the buffered content
      * @return populated CrossField (only solver-output fields)
      */
     public static CrossField load(String ndfPath, HalfEdgeMesh mesh) throws IOException {
@@ -127,6 +131,49 @@ public final class CrossFieldLoader {
             }
             return cf;
         }
+    }
+
+    /**
+     * Choose period-jump lifts for a loaded NDF field that are smooth in
+     * {@code frameField}'s local frame. NDF files store a valid matching class, but
+     * jumps may differ by multiples of four; those lifts are direction-equivalent
+     * yet create artificial full-index singularities in our integer index walk.
+     *
+     * @param loadedField NDF field to mutate
+     * @param frameField  built field whose maps and kappa define the target frame
+     * @return {@code loadedField}, with {@link CrossField#periodJump} updated
+     */
+    public static CrossField alignPeriodJumpsToFrame(CrossField loadedField, CrossField frameField) {
+        HalfEdgeMesh mesh = loadedField.mesh;
+        for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
+            int edgeId = mesh.edgeIdAt(activeEdge);
+            if (mesh.isBoundaryEdge(edgeId)) {
+                continue;
+            }
+            HalfEdgeMesh.EdgeFaceIds edgeFaces = mesh.edgeFaceIds(activeEdge);
+            int faceA = frameField.faceIdToActive.get(edgeFaces.faceA);
+            int faceB = frameField.faceIdToActive.get(edgeFaces.faceB);
+            int period = loadedField.periodJump[activeEdge];
+            double targetPeriod = (loadedField.theta[faceB] - loadedField.theta[faceA]
+                    - frameField.kappa[activeEdge]) / HALF_PI;
+            int lift = (int) Math.round((targetPeriod - period) / PERIOD_MODULUS);
+            loadedField.periodJump[activeEdge] = period + PERIOD_MODULUS * lift;
+        }
+        return loadedField;
+    }
+
+    /**
+     * Convert BCEAK13 supplementary NDF theta values from their stored diagonal
+     * phase to the quad-axis convention used by our renderer and seamless solver.
+     *
+     * @param loadedField NDF field to mutate
+     * @return {@code loadedField}, with {@link CrossField#theta} phase-shifted
+     */
+    public static CrossField convertBceak13ThetaToQuadAxes(CrossField loadedField) {
+        for (int activeFace = 0; activeFace < loadedField.theta.length; activeFace++) {
+            loadedField.theta[activeFace] += BCEAK13_QUAD_AXIS_PHASE;
+        }
+        return loadedField;
     }
 
     private static void verifyCount(Map<String, String> info, String key, int actual) {

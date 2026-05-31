@@ -99,6 +99,8 @@ public class ParametrizationExaminationScene extends Scene {
             int ourSingCount = crossField.singularities.size();
             if (cfPath != null) {
                 CrossField reference = CrossFieldLoader.load(cfPath, mesh);
+                CrossFieldLoader.alignPeriodJumpsToFrame(reference, crossField);
+                CrossFieldLoader.convertBceak13ThetaToQuadAxes(reference);
                 crossField.theta = reference.theta;
                 crossField.periodJump = reference.periodJump;
                 crossField.singularities.clear();

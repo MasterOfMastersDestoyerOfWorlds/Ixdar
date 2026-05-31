@@ -118,6 +118,9 @@ public class CrossFieldExaminationScene extends Scene {
                     referenceField.faceY = oursField.faceY;
                     referenceField.faceIdToActive = oursField.faceIdToActive;
                     referenceField.edgeIdToActive = oursField.edgeIdToActive;
+                    referenceField.kappa = oursField.kappa;
+                    CrossFieldLoader.alignPeriodJumpsToFrame(referenceField, oursField);
+                    CrossFieldLoader.convertBceak13ThetaToQuadAxes(referenceField);
                     Platforms.get().log("[cross-field-exam] reference NDF loaded from " + ndfPath
                             + " (press R to toggle)");
                 } catch (Exception ex) {

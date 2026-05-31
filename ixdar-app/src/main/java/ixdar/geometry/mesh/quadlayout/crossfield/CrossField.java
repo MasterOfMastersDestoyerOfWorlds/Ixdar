@@ -148,6 +148,17 @@ public class CrossField {
     public int vertexCount;
 
     /**
+     * Target quad edge length, expressed as a fraction of the bounding-box
+     * diagonal.
+     */
+    public float targetEdgeLengthFractionOfBounds = 0.04f;
+
+    /**
+     * Target quad edge length.
+     */
+    public float targetQuadEdgeLength;
+
+    /**
      * The curvature constraints that are applied to the cross field. builds a multi
      * radius geodesic disk and integrates the curvature tensor over the disk to get
      * the principal curvatures.
@@ -198,6 +209,7 @@ public class CrossField {
         this.rowOfEdge = new int[edgeCount];
         Arrays.fill(rowOfEdge, -1);
 
+        this.targetQuadEdgeLength = targetEdgeLengthFractionOfBounds * mesh.computeBoundingBoxDiagonal();
         this.curvatureConstraints = new CurvatureConstraints(mesh, this);
     }
 
@@ -486,127 +498,6 @@ public class CrossField {
             remaining = deferred;
         }
         extractSingularities();
-
-        int annihilated = annihilateSingularityPairs(matrix, mainHandle, start,
-                tlRhsScratch.get(), tlThetaScratch.get(),
-                mainRhs, mainTheta, currentEnergy);
-        System.out.printf("[local search] annihilated %d singularity pairs%n", annihilated);
-    }
-
-    /**
-     * Singularity pair annihilation (BZK09 §4.2, path-based extension).
-     *
-     * <p>
-     * The single-edge local search can only shift a singularity one hop and rejects
-     * any move that raises energy. Cancelling a nearby ± pair requires dragging one
-     * singularity along a whole path of edges to meet the other; each intermediate
-     * hop raises energy, so single-edge search never crosses the barrier. This pass
-     * tries the entire path flip atomically and accepts only if the
-     * post-cancellation energy is strictly lower.
-     *
-     * <p>
-     * Must run after {@link #extractSingularities()} has populated
-     * {@link #singularities}, and after the matrix/solver scaffolding used by
-     * {@link #localSearchSingularityOptimization()} is in place. It reuses the same
-     * {@code matrix}, {@code start}, {@code faceConstrained}, and a Cholesky
-     * handle; pass them in from the caller so the factorization is shared.
-     *
-     * @return number of pairs annihilated
-     */
-    private int annihilateSingularityPairs(
-            NormalMatrix matrix,
-            DirectSolver.CholeskyHandle handle,
-            double[] start,
-            double[] rhsScratch,
-            double[] thetaScratch,
-            double[] mainRhs,
-            double[] mainTheta,
-            double currentEnergy) {
-
-        long deadlineMs = System.currentTimeMillis() + LOCAL_SEARCH_BUDGET_MS;
-        int annihilated = 0;
-        boolean improved = true;
-        while (improved) {
-            improved = false;
-
-            // Snapshot singularities by vertex; find opposite-sign near pairs.
-            List<Singularity> sings = new ArrayList<>(singularities);
-            outer: for (int i = 0; i < sings.size(); i++) {
-                Singularity sa = sings.get(i);
-                for (int j = i + 1; j < sings.size(); j++) {
-                    Singularity sb = sings.get(j);
-                    // Only cancel exact opposite quarter-indices (+1/-1, +2/-2).
-                    if (sa.index4() + sb.index4() != 0) {
-                        continue;
-                    }
-                    // Edge path between the two singular vertices, hop-bounded.
-                    int[] edgePath = shortestEdgePath(sa.vertexId(), sb.vertexId(),
-                            PAIR_ANNIHILATION_MAX_HOPS);
-                    if (edgePath == null) {
-                        continue;
-                    }
-                    // Build the signed period-jump deltas that transport sa's
-                    // index toward sb along the path. The transport amount is
-                    // sa.index4() quarter-turns; each edge gets ±that, signed by
-                    // whether the path traverses the edge along its canonical
-                    // half-edge (matching extractSingularities' sign rule).
-                    int transport = sa.index4();
-                    int[] deltas = new int[edgePath.length];
-                    int cursor = sa.vertexId();
-                    for (int k = 0; k < edgePath.length; k++) {
-                        int eAi = edgePath[k];
-                        int eId = mesh.edgeIdAt(eAi);
-                        int he = mesh.edgeHalfEdge(eId);
-                        int hv = mesh.halfEdgeVertex(he);
-                        int hev = mesh.halfEdgeEndVertex(he);
-                        // Determine which endpoint of this edge the walk is leaving (cursor).
-                        final int nextVertex;
-                        final int sign;
-                        if (cursor == hv) {
-                            // Walking along the canonical half-edge direction.
-                            sign = -1;
-                            nextVertex = hev;
-                        } else if (cursor == hev) {
-                            // Walking against the canonical half-edge direction.
-                            sign = 1;
-                            nextVertex = hv;
-                        } else {
-                            throw new IllegalStateException("path edge not incident to cursor: malformed path");
-                        }
-                        deltas[k] = sign * transport;
-                        cursor = nextVertex;
-                    }
-
-                    // Trial solve with all path edges perturbed atomically.
-                    buildRhsMulti(rhsScratch, edgePath, deltas);
-                    DirectSolver.solveCompact(handle, matrix, rhsScratch, thetaScratch,
-                            start, faceConstrained);
-                    double trialEnergy = energyOfThetaMulti(thetaScratch, edgePath, deltas);
-                    if (trialEnergy < currentEnergy * (1.0 + PAIR_ANNIHILATION_MIN_REL_GAIN)) {
-                        // Commit the path flip.
-                        for (int k = 0; k < edgePath.length; k++) {
-                            periodJump[edgePath[k]] += deltas[k];
-                        }
-                        // Refresh main theta + energy, re-extract singularities.
-                        buildRhs(mainRhs, -1, 0);
-                        DirectSolver.solveCompact(handle, matrix, mainRhs, mainTheta,
-                                start, faceConstrained);
-                        for (int fAi = 0; fAi < faceCount; fAi++) {
-                            theta[fAi] = (float) mainTheta[fAi];
-                        }
-                        currentEnergy = energyOfTheta(mainTheta, -1, 0);
-                        extractSingularities();
-                        annihilated++;
-                        improved = true;
-                        if (System.currentTimeMillis() > deadlineMs) {
-                            throw new IllegalStateException(LOCAL_SEARCH_TIMEOUT_MESSAGE);
-                        }
-                        break outer; // singularity set changed; rescan from scratch
-                    }
-                }
-            }
-        }
-        return annihilated;
     }
 
     /**

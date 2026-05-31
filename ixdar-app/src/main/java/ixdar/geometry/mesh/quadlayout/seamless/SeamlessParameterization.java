@@ -241,9 +241,10 @@ public final class SeamlessParameterization {
      *
      * @return the {@link ParameterizationMetrics} computed from the final
      *         parametrization
-     * @throws IllegalStateException if the projected parametrization still
-     *         contains flipped triangles after MC19 §5.4 repair; downstream
-     *         motorcycle / ILP stages require an injective parametrization
+     * @throws IllegalStateException if the projected parametrization still contains
+     *                               flipped triangles after MC19 §5.4 repair;
+     *                               downstream motorcycle / ILP stages require an
+     *                               injective parametrization
      */
     public ParameterizationMetrics build() {
         System.out.println("[seamless] Building seamless parameterization");

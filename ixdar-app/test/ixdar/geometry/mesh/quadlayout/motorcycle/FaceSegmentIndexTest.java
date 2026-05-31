@@ -31,7 +31,7 @@ class FaceSegmentIndexTest {
                 3f, 0f, 3f, 10f, TraceAxis.V, +1, 0.0));
 
         FaceSegmentIndex.IntersectionHit hit = index.earliestIntersection(
-                TRACE_A, ACTIVE_FACE, 0f, 7f, 10f, 7f, TraceAxis.U);
+                TRACE_A, ACTIVE_FACE, 0f, 7f, 10f, 7f, TraceAxis.U, null);
 
         assertNotNull(hit, "perpendicular chords through the same face should intersect");
         assertEquals(TRACE_B, hit.otherSegment.traceId);
@@ -47,7 +47,7 @@ class FaceSegmentIndexTest {
                 0f, 4f, 10f, 4f, TraceAxis.U, +1, 0.0));
 
         FaceSegmentIndex.IntersectionHit hit = index.earliestIntersection(
-                TRACE_A, ACTIVE_FACE, 6f, 0f, 6f, 10f, TraceAxis.V);
+                TRACE_A, ACTIVE_FACE, 6f, 0f, 6f, 10f, TraceAxis.V, null);
 
         assertNotNull(hit, "perpendicular chords through the same face should intersect");
         assertEquals(6.0, hit.intersectionU, TOLERANCE);
@@ -62,7 +62,7 @@ class FaceSegmentIndexTest {
                 0f, 4f, 10f, 4f, TraceAxis.U, +1, 0.0));
 
         FaceSegmentIndex.IntersectionHit hit = index.earliestIntersection(
-                TRACE_A, ACTIVE_FACE, 0f, 7f, 10f, 7f, TraceAxis.U);
+                TRACE_A, ACTIVE_FACE, 0f, 7f, 10f, 7f, TraceAxis.U, null);
 
         assertNull(hit, "parallel axis-U chords must not produce an intersection");
     }
@@ -74,7 +74,7 @@ class FaceSegmentIndexTest {
                 3f, 0f, 3f, 2f, TraceAxis.V, +1, 0.0));
 
         FaceSegmentIndex.IntersectionHit hit = index.earliestIntersection(
-                TRACE_A, ACTIVE_FACE, 0f, 7f, 10f, 7f, TraceAxis.U);
+                TRACE_A, ACTIVE_FACE, 0f, 7f, 10f, 7f, TraceAxis.U, null);
 
         assertNull(hit, "candidate at v=7 must not cross a B chord covering v in [0, 2]");
     }

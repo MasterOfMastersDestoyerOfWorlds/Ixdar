@@ -15,8 +15,10 @@ public class BoundaryConstraints {
      *
      * @param mesh       half-edge mesh whose boundary edges are scanned
      * @param crossField cross field receiving the alignment-edge annotations
+     * @return number of newly constrained faces
      */
-    public static void applyBoundaryConstraints(HalfEdgeMesh mesh, CrossField crossField) {
+    public static int applyBoundaryConstraints(HalfEdgeMesh mesh, CrossField crossField) {
+        int addedConstraints = 0;
         for (int activeEdgeIndex = 0; activeEdgeIndex < mesh.edgeCount(); activeEdgeIndex++) {
             EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(activeEdgeIndex);
             if (!mesh.isBoundaryEdge(edgeFaceIds.edgeId))
@@ -31,11 +33,14 @@ public class BoundaryConstraints {
                 float angle = mesh.projectDirectionToFaceAngle(edgeDir, faceActiveIndex,
                         crossField.faceY[faceActiveIndex],
                         crossField.faceX[faceActiveIndex]);
-                if (!crossField.faceConstrained[faceActiveIndex])
+                if (!crossField.faceConstrained[faceActiveIndex]) {
                     crossField.faceConstrained[faceActiveIndex] = true;
+                    addedConstraints++;
+                }
                 crossField.faceConstraintAngle[faceActiveIndex] = CrossField.canonicalizeMod(angle);
             }
         }
+        return addedConstraints;
     }
 
 }
