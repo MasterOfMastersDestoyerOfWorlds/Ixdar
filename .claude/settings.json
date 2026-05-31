@@ -41,7 +41,8 @@
       "Read(//home/acw/**)",
       "Read(//home/acw/.m2/**)",
       "Bash(touch /home/acw/Code/Ixdar/ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/*.java && mvn -pl ixdar-app compile 2>&1 | tail -20)",
-      "Bash(tee /tmp/motor.out)"
+      "Bash(tee /tmp/motor.out)",
+      "Bash(python3 /tmp/parse_profile.py)"
     ],
     "deny": [
       "Bash(cp *)",

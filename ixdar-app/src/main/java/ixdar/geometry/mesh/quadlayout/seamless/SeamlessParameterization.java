@@ -98,7 +98,7 @@ public final class SeamlessParameterization {
     public boolean injective;
 
     /** Hard cap on number of stiffening iterations. */
-    public int maxStiffeningIterations = 20;
+    public int maxStiffeningIterations = 30;
 
     /**
      * BZK09 §5.4 proportionality constant for the {@code |Δλ|} bump. Paper's value:

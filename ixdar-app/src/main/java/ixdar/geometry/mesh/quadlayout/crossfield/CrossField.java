@@ -60,6 +60,7 @@ public class CrossField {
     public static volatile String lastDiagnostics = "[cross-field] no diagnostics recorded";
 
     private static final String LOCAL_SEARCH_TIMEOUT_MESSAGE = "local search singularity optimization timed out";
+    private static final double NANOS_PER_SECOND = 1.0e9;
 
     public final float halfPi = (float) (Math.PI / 2.0);
 
@@ -220,6 +221,7 @@ public class CrossField {
      * @return {@code this}, with field arrays populated and singularities filled
      */
     public CrossField build() {
+        long sectionStart = System.nanoTime();
 
         faceIdToActive = new HashMap<>(mesh.faceCount() * 2);
         for (int i = 0; i < mesh.faceCount(); i++) {
@@ -229,6 +231,9 @@ public class CrossField {
         for (int i = 0; i < mesh.edgeCount(); i++) {
             edgeIdToActive.put(mesh.edgeIdAt(i), i);
         }
+        System.out.printf("[cross-field timing] active-id maps %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        sectionStart = System.nanoTime();
         /*
          * A1. Local face frames Convention: x_f = first half-edge of f, projected onto
          * the tangent plane. y_f = n_f × x_f. Right-handed.
@@ -262,6 +267,9 @@ public class CrossField {
             faceX[faceIndex] = xAxis;
             faceY[faceIndex] = yAxis;
         }
+        System.out.printf("[cross-field timing] A1 local face frames %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        sectionStart = System.nanoTime();
 
         /*
          * A1. Transport angles κ_ij Rotate face-i's x-axis about the shared edge by the
@@ -305,6 +313,9 @@ public class CrossField {
             float crossDirY = xiTransported.dot(faceY[edgeFaceIds.faceB]);
             kappa[i] = (float) Math.atan2(crossDirY, crossDirX);
         }
+        System.out.printf("[cross-field timing] A1 transport angles kappa %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        sectionStart = System.nanoTime();
 
         FeatureEdgeConstraints.applyFeatureEdgeConstraints(mesh, this);
         BoundaryConstraints.applyBoundaryConstraints(mesh, this);
@@ -321,17 +332,37 @@ public class CrossField {
             faceConstraintAngle[0] = 0f;
             totalConstraints = 1;
         }
+        System.out.printf("[cross-field timing] A2 constraints %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        sectionStart = System.nanoTime();
 
         VornoiForest vornoiForest = new VornoiForest(mesh, this);
         vornoiForest.buildVoronoiSpanningForest();
+        System.out.printf("[cross-field timing] A3 Voronoi forest %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        sectionStart = System.nanoTime();
+
         SmoothEnergySystem system = new SmoothEnergySystem(faceCount, edgeCount,
                 faceConstrained, faceConstraintAngle, vornoiForest);
         system.assemble(mesh, faceIdToActive, kappa, solverLocalMaxIterations, solverCgMaxIterations);
+        System.out.printf("[cross-field timing] A4 system assemble %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        sectionStart = System.nanoTime();
+
         system.solveGreedyMIP(lastDiagnostics);
+        System.out.printf("[cross-field timing] A4 greedy MIP solve %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        sectionStart = System.nanoTime();
+
         system.unpackInto(mesh, this);
         extractSingularities();
+        System.out.printf("[cross-field timing] unpack + extract singularities %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        sectionStart = System.nanoTime();
+
         localSearchSingularityOptimization();
-        extractSingularities();
+        System.out.printf("[cross-field timing] local search singularity optimization %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
 
         printSolutionDiagnostics(system);
         return this;
@@ -343,16 +374,13 @@ public class CrossField {
      * and re-solve theta. The Laplacian-style theta-only matrix is factorized once
      * and reused across all candidate solves (the matrix is unchanged when only
      * period jumps shift; only the RHS changes).
-     *
+     * 
      * <p>
      * Per the paper this often eliminates spurious singularities that the greedy
      * rounding placed in flat regions, dramatically reducing the count.
-     *
-     * @param faceConstrained     per-face flag; constrained faces are excluded from
-     *                            theta DOFs
-     * @param faceConstraintAngle theta value held at constrained faces
      */
     private void localSearchSingularityOptimization() {
+        
         long deadlineMs = System.currentTimeMillis() + LOCAL_SEARCH_BUDGET_MS;
 
         if (interiorRowCount == 0) {
@@ -372,244 +400,85 @@ public class CrossField {
             rowOfEdge[i] = row;
             row++;
         }
-
         final NormalMatrix matrix = new NormalMatrix(faceCount, interiorRowCount,
                 rowFaceA, rowFaceB, rowKappaPlusHalfPiP);
-
-        // Coerce per-face constraint angles into a double[] for solveCompact's `start`
-        // arg.
         final double[] start = new double[faceCount];
         for (int fAi = 0; fAi < faceCount; fAi++) {
             start[fAi] = faceConstrained[fAi] ? faceConstraintAngle[fAi] : 0.0;
         }
-
-        // Factor once. Shared across all threads — solve() is what's not thread-safe,
-        // so each thread needs its own handle. Build them lazily.
-        final ThreadLocal<DirectSolver.CholeskyHandle> tlHandle = ThreadLocal
-                .withInitial(() -> DirectSolver.factorize(matrix, faceConstrained, OrderingMethod.RCM));
-        final ThreadLocal<double[]> tlRhsScratch = ThreadLocal.withInitial(() -> new double[faceCount]);
-        final ThreadLocal<double[]> tlThetaScratch = ThreadLocal.withInitial(() -> new double[faceCount]);
-
-        final DirectSolver.CholeskyHandle mainHandle = tlHandle.get();
-        if (mainHandle.solver() == null) {
+        final DirectSolver.CholeskyHandle handle =
+                DirectSolver.factorize(matrix, faceConstrained, OrderingMethod.RCM);
+        if (handle.solver() == null) {
             return;
         }
-        final double[] mainRhs = tlRhsScratch.get();
-        final double[] mainTheta = tlThetaScratch.get();
 
-        // Initial baseline solve (no perturbation).
+        final double[] mainRhs = new double[faceCount];
+        final double[] mainTheta = new double[faceCount];
         buildRhs(mainRhs, -1, 0);
-        DirectSolver.solveCompact(mainHandle, matrix, mainRhs, mainTheta, start, faceConstrained);
-        for (int fAi = 0; fAi < faceCount; fAi++) {
-            theta[fAi] = (float) mainTheta[fAi];
+        DirectSolver.solveCompact(handle, matrix, mainRhs, mainTheta, start, faceConstrained);
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            theta[activeFace] = (float) mainTheta[activeFace];
         }
         double currentEnergy = energyOfTheta(mainTheta, -1, 0);
 
-        // patchFacesByEdge expects the old per-edge face arrays — we still need those
-        // for overlap detection in batching.
-        final int[] aliFi = new int[edgeCount];
-        final int[] aliFj = new int[edgeCount];
-        final boolean[] interiorEdge = new boolean[edgeCount];
-        for (int eAi = 0; eAi < edgeCount; eAi++) {
-            int rowOf = rowOfEdge[eAi];
-            if (rowOf < 0)
-                continue;
-            aliFi[eAi] = rowFaceA[rowOf];
-            aliFj[eAi] = rowFaceB[rowOf];
-            interiorEdge[eAi] = true;
-        }
-        final int[][] patchFacesByEdge = buildTwoHopPatchTable(edgeCount, interiorEdge, aliFi, aliFj);
-
-        boolean improved = true;
-        improved = false;
-        Set<Integer> candidateEdges = new HashSet<>();
-        for (Singularity s : singularities) {
-            int vId = s.vertexId();
-            int outCount = mesh.vertexOutgoingHalfEdgeCount(vId);
-            for (int i = 0; i < outCount; i++) {
-                int hh = mesh.vertexOutgoingHalfEdgeAt(vId, i);
-                int eId = mesh.halfEdgeEdge(hh);
-                if (!mesh.isBoundaryEdge(eId)) {
-                    candidateEdges.add(edgeIdToActive.get(eId));
+        final Set<Integer> candidateEdges = new HashSet<>();
+        for (Singularity singularity : singularities) {
+            int vertexId = singularity.vertexId();
+            int outgoingCount = mesh.vertexOutgoingHalfEdgeCount(vertexId);
+            for (int i = 0; i < outgoingCount; i++) {
+                int halfEdge = mesh.vertexOutgoingHalfEdgeAt(vertexId, i);
+                int edgeId = mesh.halfEdgeEdge(halfEdge);
+                if (!mesh.isBoundaryEdge(edgeId)) {
+                    candidateEdges.add(edgeIdToActive.get(edgeId));
                 }
             }
         }
-        List<Integer> remaining = new ArrayList<>(candidateEdges);
-        Collections.sort(remaining);
-        boolean[] usedFace = new boolean[faceCount];
-        while (!remaining.isEmpty()) {
+        List<Integer> candidates = new ArrayList<>(candidateEdges);
+        Collections.sort(candidates);
+
+        final double[] perturbationRhs = new double[faceCount];
+        final double[] zeroStart = new double[faceCount];
+        final double[] response = new double[faceCount];
+        final double[] trialTheta = new double[faceCount];
+
+        for (int activeEdge : candidates) {
             if (System.currentTimeMillis() > deadlineMs) {
                 throw new IllegalStateException(LOCAL_SEARCH_TIMEOUT_MESSAGE);
             }
-            Arrays.fill(usedFace, false);
-            List<Integer> batch = new ArrayList<>();
-            List<Integer> deferred = new ArrayList<>();
-            for (int eAi : remaining) {
-                int[] patch = patchFacesByEdge[eAi];
-                boolean overlap = false;
-                for (int f : patch) {
-                    if (usedFace[f]) {
-                        overlap = true;
-                        break;
-                    }
-                }
-                if (overlap) {
-                    deferred.add(eAi);
-                } else {
-                    batch.add(eAi);
-                    for (int f : patch)
-                        usedFace[f] = true;
-                }
-            }
+            int edgeRow = rowOfEdge[activeEdge];
+            Arrays.fill(perturbationRhs, 0.0);
+            perturbationRhs[rowFaceA[edgeRow]] = -halfPi;
+            perturbationRhs[rowFaceB[edgeRow]] = halfPi;
+            DirectSolver.solveCompact(handle, matrix, perturbationRhs, response, zeroStart,
+                    faceConstrained);
 
-            final double batchCurrentEnergy = currentEnergy;
-            for (int activeEdgeIndex : batch) {
-                final int oldP = periodJump[activeEdgeIndex];
-                DirectSolver.CholeskyHandle h = tlHandle.get();
-                double[] rhsScratch = tlRhsScratch.get();
-                double[] thetaScratch = tlThetaScratch.get();
-                int bestDelta = 0;
-                double bestTrialEnergy = batchCurrentEnergy;
-                for (int delta : LOCAL_SEARCH_DELTAS) {
-                    int trialP = oldP + delta;
-                    buildRhs(rhsScratch, activeEdgeIndex, trialP);
-                    DirectSolver.solveCompact(h, matrix, rhsScratch, thetaScratch, start,
-                            faceConstrained);
-                    double energy = energyOfTheta(thetaScratch, activeEdgeIndex, trialP);
-                    if (energy < bestTrialEnergy) {
-                        bestTrialEnergy = energy;
-                        bestDelta = delta;
-                    }
+            int oldPeriodJump = periodJump[activeEdge];
+            int bestDelta = 0;
+            double bestTrialEnergy = currentEnergy;
+            for (int delta : LOCAL_SEARCH_DELTAS) {
+                for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+                    trialTheta[activeFace] = mainTheta[activeFace] + delta * response[activeFace];
                 }
-                if (bestDelta != 0) {
-                    periodJump[activeEdgeIndex] += bestDelta;
-                    improved = true;
+                double energy = energyOfTheta(trialTheta, activeEdge, oldPeriodJump + delta);
+                if (energy < bestTrialEnergy) {
+                    bestTrialEnergy = energy;
+                    bestDelta = delta;
                 }
             }
-            if (improved) {
-                buildRhs(mainRhs, -1, 0);
-                DirectSolver.solveCompact(mainHandle, matrix, mainRhs, mainTheta, start,
-                        faceConstrained);
-                for (int fAi = 0; fAi < faceCount; fAi++) {
-                    theta[fAi] = (float) mainTheta[fAi];
+            if (bestDelta != 0) {
+                for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+                    mainTheta[activeFace] += bestDelta * response[activeFace];
                 }
-                currentEnergy = energyOfTheta(mainTheta, -1, 0);
+                periodJump[activeEdge] += bestDelta;
+                currentEnergy = bestTrialEnergy;
             }
-            remaining = deferred;
+        }
+        buildRhs(mainRhs, -1, 0);
+        DirectSolver.solveCompact(handle, matrix, mainRhs, mainTheta, start, faceConstrained);
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            theta[activeFace] = (float) mainTheta[activeFace];
         }
         extractSingularities();
-    }
-
-    /**
-     * Shortest primal edge path (as active edge ids) between two vertices, bounded
-     * to {@code maxHops} edges. BFS over primal vertices crossing only interior
-     * edges. Returns the ordered edge list, or null if the target is unreachable
-     * within the hop bound.
-     */
-    private int[] shortestEdgePath(int srcVertexId, int dstVertexId, int maxHops) {
-        // BFS: parentEdge[v] = active edge id used to reach v; parentVertex[v]
-        // = predecessor vertex id. Keyed by vertex id.
-        Map<Integer, Integer> parentEdge = new HashMap<>();
-        Map<Integer, Integer> parentVertex = new HashMap<>();
-        Map<Integer, Integer> depth = new HashMap<>();
-        ArrayDeque<Integer> queue = new ArrayDeque<>();
-        queue.add(srcVertexId);
-        depth.put(srcVertexId, 0);
-        while (!queue.isEmpty()) {
-            int v = queue.poll();
-            int d = depth.get(v);
-            if (v == dstVertexId) {
-                break;
-            }
-            if (d >= maxHops) {
-                continue;
-            }
-            int outCount = mesh.vertexOutgoingHalfEdgeCount(v);
-            for (int i = 0; i < outCount; i++) {
-                int he = mesh.vertexOutgoingHalfEdgeAt(v, i);
-                int eId = mesh.halfEdgeEdge(he);
-                if (mesh.isBoundaryEdge(eId)) {
-                    continue;
-                }
-                int nbr = mesh.halfEdgeEndVertex(he);
-                if (depth.containsKey(nbr)) {
-                    continue;
-                }
-                depth.put(nbr, d + 1);
-                parentEdge.put(nbr, edgeIdToActive.get(eId));
-                parentVertex.put(nbr, v);
-                queue.add(nbr);
-            }
-        }
-        if (!parentVertex.containsKey(dstVertexId)) {
-            return null;
-        }
-        // Reconstruct, then reverse to src -> dst order.
-        List<Integer> rev = new ArrayList<>();
-        int cur = dstVertexId;
-        while (cur != srcVertexId) {
-            rev.add(parentEdge.get(cur));
-            cur = parentVertex.get(cur);
-        }
-        int[] path = new int[rev.size()];
-        for (int k = 0; k < rev.size(); k++) {
-            path[k] = rev.get(rev.size() - 1 - k);
-        }
-        return path;
-    }
-
-    /**
-     * TODO combine this with the single edge variant to avoid code duplication
-     * {@link #buildRhs} variant perturbing several edges at once:
-     * {@code periodJump[edgePath[k]]} is treated as
-     * {@code periodJump[edgePath[k]] + deltas[k]}.
-     */
-    private void buildRhsMulti(double[] rhs, int[] edgePath, int[] deltas) {
-        Arrays.fill(rhs, 0.0);
-        for (int activeEdgeIndex = 0; activeEdgeIndex < edgeCount; activeEdgeIndex++) {
-            int row = rowOfEdge[activeEdgeIndex];
-            if (row < 0) {
-                continue;
-            }
-            int faceA = rowFaceA[row];
-            int faceB = rowFaceB[row];
-            int p = periodJump[activeEdgeIndex];
-            for (int k = 0; k < edgePath.length; k++) {
-                if (edgePath[k] == activeEdgeIndex) {
-                    p += deltas[k];
-                    break;
-                }
-            }
-            double kk = kappa[activeEdgeIndex] + halfPi * p;
-            rhs[faceA] -= kk;
-            rhs[faceB] += kk;
-        }
-    }
-
-    /**
-     * 
-     * TODO combine this with the single edge variant to avoid code duplication
-     * {@link #energyOfTheta} variant evaluating energy as if each
-     * {@code edgePath[k]} period jump were offset by {@code deltas[k]}.
-     */
-    private double energyOfThetaMulti(double[] thetaFull, int[] edgePath, int[] deltas) {
-        double e = 0.0;
-        for (int eAi = 0; eAi < edgeCount; eAi++) {
-            int r = rowOfEdge[eAi];
-            if (r < 0) {
-                continue;
-            }
-            int p = periodJump[eAi];
-            for (int k = 0; k < edgePath.length; k++) {
-                if (edgePath[k] == eAi) {
-                    p += deltas[k];
-                    break;
-                }
-            }
-            double resid = thetaFull[rowFaceA[r]] + kappa[eAi] + halfPi * p - thetaFull[rowFaceB[r]];
-            e += resid * resid;
-        }
-        return e;
     }
 
     /**
