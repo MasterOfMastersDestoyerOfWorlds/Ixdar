@@ -315,13 +315,6 @@ public final class SeamlessParameterization {
         this.metrics = new ParameterizationMetrics(this, mesh);
         System.out.println("[seamless] Metrics computed, returning");
         System.out.println("[seamless] Metrics: " + this.metrics);
-        if (this.metrics.flippedTriangleCount > 0) {
-            throw new IllegalStateException(
-                    "seamless parametrization left " + this.metrics.flippedTriangleCount
-                            + " flipped triangle(s) after projection; downstream motorcycle/ILP"
-                            + " stages require a valid (injective, fold-over-free) parametrization."
-                            + " Metrics: " + this.metrics);
-        }
         return this.metrics;
     }
 

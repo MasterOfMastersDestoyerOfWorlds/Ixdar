@@ -81,6 +81,7 @@ public class CurvatureConstraints {
      * The cross field that the curvature constraints are applied to.
      */
     CrossField crossField;
+    private int curvatureStamp = 0;
 
     /**
      * Allocate per-vertex/face/edge scratch buffers sized to the cross field.
@@ -698,12 +699,6 @@ public class CurvatureConstraints {
      */
     public float[] integrateCurvatureTensor(int centerVertexId, Vector3f centerPosition,
             Vector3f centerNormal, Vector3f tangentE1, Vector3f tangentE2, float geodesicRadius) {
-        Arrays.fill(vertexInDiskStamp, 0);
-        Arrays.fill(faceInDiskStamp, 0);
-        Arrays.fill(edgeProcessedStamp, 0);
-        Arrays.fill(vertexDistance, 0f);
-        Arrays.fill(visitedVertexIds, 0);
-        int curvatureStamp = 0;
         final int stamp = ++curvatureStamp;
 
         PriorityQueue<DijkstraNode> pq = new PriorityQueue<>();
