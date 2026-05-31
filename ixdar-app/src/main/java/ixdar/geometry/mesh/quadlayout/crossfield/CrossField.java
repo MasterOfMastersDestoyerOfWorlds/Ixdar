@@ -38,7 +38,7 @@ public class CrossField {
      */
     public static final float EPSILON = 1e-12f;
     public static final float BASIS_AXIS_PICK_THRESHOLD = 0.9f;
-    public static final long LOCAL_SEARCH_BUDGET_MS = 300000L;
+    public static final long LOCAL_SEARCH_BUDGET_MS = 3000L;
     /**
      * The distances to search for local minima in the smoothness energy.
      */
@@ -215,8 +215,9 @@ public class CrossField {
     }
 
     /**
-     * Run the BZK09 pipeline (A1 frames + κ, A2 constraints, A3 Voronoi forest, A4
-     * greedy mixed-integer LSQ) and extract singularities.
+     * Run the BZK09 pipeline (local face frames + edge transport angles κ,
+     * directional constraints, Voronoi spanning forest, greedy mixed-integer
+     * least-squares solve) and extract singularities.
      *
      * @return {@code this}, with field arrays populated and singularities filled
      */
@@ -235,8 +236,8 @@ public class CrossField {
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
         /*
-         * A1. Local face frames Convention: x_f = first half-edge of f, projected onto
-         * the tangent plane. y_f = n_f × x_f. Right-handed.
+         * Local face frames. Convention: x_f = first half-edge of f, projected onto the
+         * tangent plane. y_f = n_f × x_f. Right-handed.
          */
 
         for (int faceIndex = 0; faceIndex < mesh.faceCount(); faceIndex++) {
@@ -267,13 +268,13 @@ public class CrossField {
             faceX[faceIndex] = xAxis;
             faceY[faceIndex] = yAxis;
         }
-        System.out.printf("[cross-field timing] A1 local face frames %.3fs%n",
+        System.out.printf("[cross-field timing] local face frames %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
 
         /*
-         * A1. Transport angles κ_ij Rotate face-i's x-axis about the shared edge by the
-         * dihedral angle so it lies in face-j's tangent plane. Express the rotated
+         * Edge transport angles κ_ij. Rotate face-i's x-axis about the shared edge by
+         * the dihedral angle so it lies in face-j's tangent plane. Express the rotated
          * vector in face-j's frame (faceX[j], faceY[j]): κ_ij = atan2(y-component,
          * x-component).
          */
@@ -313,7 +314,7 @@ public class CrossField {
             float crossDirY = xiTransported.dot(faceY[edgeFaceIds.faceB]);
             kappa[i] = (float) Math.atan2(crossDirY, crossDirX);
         }
-        System.out.printf("[cross-field timing] A1 transport angles kappa %.3fs%n",
+        System.out.printf("[cross-field timing] edge transport angles kappa %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
 
@@ -332,25 +333,25 @@ public class CrossField {
             faceConstraintAngle[0] = 0f;
             totalConstraints = 1;
         }
-        System.out.printf("[cross-field timing] A2 constraints %.3fs%n",
+        System.out.printf("[cross-field timing] directional constraints %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
 
         VornoiForest vornoiForest = new VornoiForest(mesh, this);
         vornoiForest.buildVoronoiSpanningForest();
-        System.out.printf("[cross-field timing] A3 Voronoi forest %.3fs%n",
+        System.out.printf("[cross-field timing] Voronoi forest %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
 
         SmoothEnergySystem system = new SmoothEnergySystem(faceCount, edgeCount,
                 faceConstrained, faceConstraintAngle, vornoiForest);
         system.assemble(mesh, faceIdToActive, kappa, solverLocalMaxIterations, solverCgMaxIterations);
-        System.out.printf("[cross-field timing] A4 system assemble %.3fs%n",
+        System.out.printf("[cross-field timing] smooth-energy assemble %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
 
         system.solveGreedyMIP(lastDiagnostics);
-        System.out.printf("[cross-field timing] A4 greedy MIP solve %.3fs%n",
+        System.out.printf("[cross-field timing] greedy mixed-integer solve %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
 
@@ -380,7 +381,7 @@ public class CrossField {
      * rounding placed in flat regions, dramatically reducing the count.
      */
     private void localSearchSingularityOptimization() {
-        
+
         long deadlineMs = System.currentTimeMillis() + LOCAL_SEARCH_BUDGET_MS;
 
         if (interiorRowCount == 0) {
@@ -406,8 +407,7 @@ public class CrossField {
         for (int fAi = 0; fAi < faceCount; fAi++) {
             start[fAi] = faceConstrained[fAi] ? faceConstraintAngle[fAi] : 0.0;
         }
-        final DirectSolver.CholeskyHandle handle =
-                DirectSolver.factorize(matrix, faceConstrained, OrderingMethod.RCM);
+        final DirectSolver.CholeskyHandle handle = DirectSolver.factorize(matrix, faceConstrained, OrderingMethod.RCM);
         if (handle.solver() == null) {
             return;
         }
@@ -443,7 +443,8 @@ public class CrossField {
 
         for (int activeEdge : candidates) {
             if (System.currentTimeMillis() > deadlineMs) {
-                throw new IllegalStateException(LOCAL_SEARCH_TIMEOUT_MESSAGE);
+                //throw new IllegalStateException(LOCAL_SEARCH_TIMEOUT_MESSAGE);
+                break;
             }
             int edgeRow = rowOfEdge[activeEdge];
             Arrays.fill(perturbationRhs, 0.0);

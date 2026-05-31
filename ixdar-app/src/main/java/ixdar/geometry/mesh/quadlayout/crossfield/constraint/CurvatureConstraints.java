@@ -8,7 +8,7 @@ import java.util.PriorityQueue;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.VertexFaceIds;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.crossfield.DijkstraNode;
 
@@ -58,6 +58,8 @@ public class CurvatureConstraints {
      */
     public static final float CONFLICT_ANGLE_THRESHOLD = (float) (Math.PI / 8.0);
 
+    private static final double NANOS_PER_SECOND = 1.0e9;
+
     public int lastCandidateCount;
     public int lastAcceptedCount;
 
@@ -73,6 +75,57 @@ public class CurvatureConstraints {
     int[] visitedVertexIds;
 
     /**
+     * Per-disk geometry recorded once during the single max-radius walk so every
+     * radius in the series reuses it. Each is guarded by the same stamp as its
+     * index domain ({@code faceInDiskStamp} for faces, {@code edgeProcessedStamp}
+     * for edges), so stale entries from earlier walks are never read.
+     */
+    float[] faceInclusionDistance;
+    int[] diskFaceIds;
+    float[] edgeInclusionDistance;
+    float[] edgeContribution00;
+    float[] edgeContribution01;
+    float[] edgeContribution11;
+    int[] diskEdgeIds;
+
+    /**
+     * Flat per-vertex/face/edge adjacency and geometry built once by
+     * {@link #buildAdjacencyCaches()}. Each vertex, face, and edge sits in many
+     * overlapping curvature disks, so the disk walks read these arrays instead of
+     * re-calling mesh accessors. Neighbor lists are compressed-sparse-row:
+     * {@code neighborStart[v]..neighborStart[v + 1]} is vertex {@code v}'s slice of
+     * {@code neighborVertexId} / {@code neighborEdgeLength} (and likewise for the
+     * vertex→face and vertex→edge lists). The per-edge {@code edgeWeight} and unit
+     * {@code edgeDir*} hold the center-independent part of the Cohen-Steiner
+     * contribution (dihedral × length, and the edge direction); only the projection
+     * onto a disk's center frame is left for the integration.
+     */
+    int[] neighborStart;
+    int[] neighborVertexId;
+    float[] neighborEdgeLength;
+    int[] vertexFaceStart;
+    int[] vertexFaceId;
+    int[] vertexEdgeStart;
+    int[] vertexEdgeId;
+    int[] faceVertex0;
+    int[] faceVertex1;
+    int[] faceVertex2;
+    float[] faceArea;
+    int[] edgeStartVertex;
+    int[] edgeEndVertex;
+    int[] edgeFaceA;
+    int[] edgeFaceB;
+    boolean[] edgeContributes;
+    float[] edgeWeight;
+    float[] edgeDirX;
+    float[] edgeDirY;
+    float[] edgeDirZ;
+
+    int faceCount;
+    int vertexCount;
+    int edgeCount;
+
+    /**
      * The mesh that the curvature constraints are applied to.
      */
     HalfEdgeMesh mesh;
@@ -81,6 +134,13 @@ public class CurvatureConstraints {
      * The cross field that the curvature constraints are applied to.
      */
     CrossField crossField;
+
+    long walkNanos;
+    long faceCollectNanos;
+    long edgeCollectNanos;
+    long bucketNanos;
+    int integrateCalls;
+
     private int curvatureStamp = 0;
 
     /**
@@ -91,33 +151,134 @@ public class CurvatureConstraints {
      *                   buffers
      */
     public CurvatureConstraints(HalfEdgeMesh mesh, CrossField crossField) {
-        this.vertexInDiskStamp = new int[crossField.vertexCount];
-        this.faceInDiskStamp = new int[crossField.faceCount];
-        this.edgeProcessedStamp = new int[crossField.edgeCount];
-        this.vertexDistance = new float[crossField.vertexCount];
-        this.visitedVertexIds = new int[crossField.vertexCount];
+        this.faceCount = mesh.faceCount();
+        this.edgeCount = mesh.edgeCount();
+        this.vertexCount = mesh.vertexCount();
+        this.vertexInDiskStamp = new int[vertexCount];
+        this.faceInDiskStamp = new int[faceCount];
+        this.edgeProcessedStamp = new int[edgeCount];
+        this.vertexDistance = new float[vertexCount];
+        this.visitedVertexIds = new int[vertexCount];
+        this.faceInclusionDistance = new float[faceCount];
+        this.diskFaceIds = new int[faceCount];
+        this.edgeInclusionDistance = new float[edgeCount];
+        this.edgeContribution00 = new float[edgeCount];
+        this.edgeContribution01 = new float[edgeCount];
+        this.edgeContribution11 = new float[edgeCount];
+        this.diskEdgeIds = new int[edgeCount];
         this.mesh = mesh;
         this.crossField = crossField;
     }
 
     /**
-     * A2. Directional constraints from principal curvature
+     * Directional constraints from principal curvature.
      *
      * @return number of newly constrained faces
      */
-
     public int applyCurvatureConstraints() {
+
+        int addedConstraints = 0;
+        neighborStart = new int[vertexCount + 1];
+        vertexFaceStart = new int[vertexCount + 1];
+        vertexEdgeStart = new int[vertexCount + 1];
+        for (int v = 0; v < vertexCount; v++) {
+            neighborStart[v + 1] = neighborStart[v] + mesh.vertexOutgoingHalfEdgeCount(v);
+            vertexFaceStart[v + 1] = vertexFaceStart[v] + mesh.vertexFaceCount(v);
+            vertexEdgeStart[v + 1] = vertexEdgeStart[v] + mesh.vertexEdgeCount(v);
+        }
+        neighborVertexId = new int[neighborStart[vertexCount]];
+        neighborEdgeLength = new float[neighborStart[vertexCount]];
+        vertexFaceId = new int[vertexFaceStart[vertexCount]];
+        vertexEdgeId = new int[vertexEdgeStart[vertexCount]];
+
+        Vector3f from = new Vector3f();
+        Vector3f to = new Vector3f();
+        for (int v = 0; v < vertexCount; v++) {
+            mesh.vertexPosition(v, from);
+            int outCount = mesh.vertexOutgoingHalfEdgeCount(v);
+            for (int i = 0; i < outCount; i++) {
+                int halfEdge = mesh.vertexOutgoingHalfEdgeAt(v, i);
+                int neighbor = mesh.halfEdgeEndVertex(halfEdge);
+                mesh.vertexPosition(neighbor, to);
+                float dx = to.x - from.x;
+                float dy = to.y - from.y;
+                float dz = to.z - from.z;
+                neighborVertexId[neighborStart[v] + i] = neighbor;
+                neighborEdgeLength[neighborStart[v] + i] = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+            }
+            int incidentFaceCount = mesh.vertexFaceCount(v);
+            for (int i = 0; i < incidentFaceCount; i++) {
+                vertexFaceId[vertexFaceStart[v] + i] = mesh.vertexFaceAt(v, i);
+            }
+            int incidentEdgeCount = mesh.vertexEdgeCount(v);
+            for (int i = 0; i < incidentEdgeCount; i++) {
+                vertexEdgeId[vertexEdgeStart[v] + i] = mesh.vertexEdgeAt(v, i);
+            }
+        }
+
+        faceVertex0 = new int[faceCount];
+        faceVertex1 = new int[faceCount];
+        faceVertex2 = new int[faceCount];
+        faceArea = new float[faceCount];
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            int faceId = mesh.faceIdAt(activeFace);
+            faceVertex0[faceId] = mesh.faceVertexAt(faceId, 0);
+            faceVertex1[faceId] = mesh.faceVertexAt(faceId, 1);
+            faceVertex2[faceId] = mesh.faceVertexAt(faceId, 2);
+            faceArea[faceId] = mesh.faceArea(faceId);
+        }
+
+        edgeStartVertex = new int[edgeCount];
+        edgeEndVertex = new int[edgeCount];
+        edgeFaceA = new int[edgeCount];
+        edgeFaceB = new int[edgeCount];
+        edgeContributes = new boolean[edgeCount];
+        edgeWeight = new float[edgeCount];
+        edgeDirX = new float[edgeCount];
+        edgeDirY = new float[edgeCount];
+        edgeDirZ = new float[edgeCount];
+        Vector3f start = new Vector3f();
+        Vector3f end = new Vector3f();
+        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+            EdgeFaceIds edge = mesh.edgeFaceIds(activeEdge);
+            int edgeId = edge.edgeId;
+            edgeStartVertex[edgeId] = edge.edgeStartVertex;
+            edgeEndVertex[edgeId] = edge.edgeEndVertex;
+            if (mesh.isBoundaryEdge(edgeId)) {
+                continue;
+            }
+            mesh.vertexPosition(edge.edgeStartVertex, start);
+            mesh.vertexPosition(edge.edgeEndVertex, end);
+            float dx = end.x - start.x;
+            float dy = end.y - start.y;
+            float dz = end.z - start.z;
+            float edgeLength = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (edgeLength < CrossField.EPSILON) {
+                continue;
+            }
+            Vector3f leftNormal = mesh.faceNormal(edge.faceA);
+            Vector3f rightNormal = mesh.faceNormal(edge.faceB);
+            float cosDihedral = Math.max(-1f, Math.min(1f, leftNormal.dot(rightNormal)));
+            float crossX = leftNormal.y * rightNormal.z - leftNormal.z * rightNormal.y;
+            float crossY = leftNormal.z * rightNormal.x - leftNormal.x * rightNormal.z;
+            float crossZ = leftNormal.x * rightNormal.y - leftNormal.y * rightNormal.x;
+            float sinDihedral = (crossX * dx + crossY * dy + crossZ * dz) / edgeLength;
+            float dihedralAngle = (float) Math.atan2(sinDihedral, cosDihedral);
+            edgeFaceA[edgeId] = edge.faceA;
+            edgeFaceB[edgeId] = edge.faceB;
+            edgeContributes[edgeId] = true;
+            edgeWeight[edgeId] = dihedralAngle * edgeLength;
+            edgeDirX[edgeId] = dx / edgeLength;
+            edgeDirY[edgeId] = dy / edgeLength;
+            edgeDirZ[edgeId] = dz / edgeLength;
+        }
+
         float averageEdgeLength = mesh.computeAverageEdgeLength();
-        float suppressionRadius = averageEdgeLength * CANDIDATE_SUPPRESSION_RADIUS_MULTIPLE;
-        float suppressionRadiusSquared = suppressionRadius * suppressionRadius;
-        float conflictRadius = averageEdgeLength * CANDIDATE_CONFLICT_RADIUS_MULTIPLE;
-        float conflictRadiusSquared = conflictRadius * conflictRadius;
         float curvatureK = CURVATURE_SCALE_K / Math.max(mesh.computeBoundingSphereRadius(), CrossField.EPSILON);
         Vector3f vPos = new Vector3f();
         Vector3f vNormal = new Vector3f();
         Vector3f e1 = new Vector3f();
         Vector3f e2 = new Vector3f();
-        List<CurvatureConstraintCandidate> candidates = new ArrayList<>();
 
         List<Float> radii = new ArrayList<>();
         float startRadius = averageEdgeLength;
@@ -125,6 +286,10 @@ public class CurvatureConstraints {
         float stabilityWindow = endRadius / 4.0f;
         for (float r = startRadius; r <= endRadius + CrossField.EPSILON; r *= RADIUS_RATIO) {
             radii.add(r);
+        }
+        float[] radiusValues = new float[radii.size()];
+        for (int i = 0; i < radiusValues.length; i++) {
+            radiusValues[i] = radii.get(i);
         }
 
         for (int vAi = 0; vAi < mesh.vertexCount(); vAi++) {
@@ -142,8 +307,9 @@ public class CurvatureConstraints {
             List<Float> kappaMinList = new ArrayList<>();
             List<Float> validRadii = new ArrayList<>();
 
-            for (float r : radii) {
-                float[] T = integrateCurvatureTensor(vertexId, vPos, vNormal, e1, e2, r);
+            float[][] tensors = integrateCurvatureTensorAllRadii(vertexId, vNormal, e1, e2, radiusValues);
+            for (int radiusIndex = 0; radiusIndex < radiusValues.length; radiusIndex++) {
+                float[] T = tensors[radiusIndex];
                 if (T == null)
                     continue;
 
@@ -178,7 +344,7 @@ public class CurvatureConstraints {
                 kappaMaxList.add(eigBig);
                 kappaMinList.add(eigSmall);
                 anglesMaxDir.add(angle);
-                validRadii.add(r);
+                validRadii.add(radiusValues[radiusIndex]);
             }
             if (anglesMaxDir.isEmpty()) {
                 continue;
@@ -241,7 +407,6 @@ public class CurvatureConstraints {
             if (bestIdx < 0) {
                 continue;
             }
-
             float constraintAngleAtV = anglesMaxDir.get(bestIdx);
             float c = (float) Math.cos(constraintAngleAtV);
             float s = (float) Math.sin(constraintAngleAtV);
@@ -249,25 +414,15 @@ public class CurvatureConstraints {
                     e1.x * c + e2.x * s,
                     e1.y * c + e2.y * s,
                     e1.z * c + e2.z * s);
-
-            int adjacentFaceCount = mesh.vertexFaceCount(vertexId);
-            int[] candidateFaceActiveIds = new int[adjacentFaceCount];
-            float[] candidateAnglesInFace = new float[adjacentFaceCount];
-            int candidateFaceCount = 0;
-            int bestLocalFaceIndex = -1;
-            float bestFaceScore = Float.NEGATIVE_INFINITY;
-            float bestNormalAlignment = 0f;
-            for (int i = 0; i < adjacentFaceCount; i++) {
+            int adj = mesh.vertexFaceCount(vertexId);
+            int newlyConstrained = 0;
+            for (int i = 0; i < adj; i++) {
                 int faceId = mesh.vertexFaceAt(vertexId, i);
                 int faceActiveId = crossField.faceIdToActive.get(faceId);
                 if (crossField.faceConstrained[faceActiveId]) {
                     continue;
                 }
-                Vector3f n = mesh.faceNormal(faceId);
-                float normalAlignment = n.dot(vNormal);
-                if (normalAlignment < FACE_VERTEX_NORMAL_ALIGNMENT_FLOOR) {
-                    continue;
-                }
+                Vector3f n = mesh.faceNormal(mesh.faceIdAt(faceActiveId));
                 float dotN = constraintDirWorld.dot(n);
                 float px = constraintDirWorld.x - dotN * n.x;
                 float py = constraintDirWorld.y - dotN * n.y;
@@ -279,329 +434,13 @@ public class CurvatureConstraints {
                 float angleInFace = mesh.projectDirectionToFaceAngle(constraintDirWorld, faceActiveId,
                         crossField.faceY[faceActiveId],
                         crossField.faceX[faceActiveId]);
-                float faceScore = normalAlignment + projectionLength;
-                if (faceScore > bestFaceScore) {
-                    bestFaceScore = faceScore;
-                    bestLocalFaceIndex = candidateFaceCount;
-                    bestNormalAlignment = normalAlignment;
-                }
-                candidateFaceActiveIds[candidateFaceCount] = faceActiveId;
-                candidateAnglesInFace[candidateFaceCount] = CrossField.canonicalizeMod(angleInFace);
-                candidateFaceCount++;
-            }
-            if (bestLocalFaceIndex < 0) {
-                continue;
-            }
-
-            int[] selectedFaceActiveIds = new int[candidateFaceCount];
-            float[] selectedAnglesInFace = new float[candidateFaceCount];
-            int selectedCount = 0;
-            int bestFaceActiveId = candidateFaceActiveIds[bestLocalFaceIndex];
-            float bestAngleInFace = candidateAnglesInFace[bestLocalFaceIndex];
-            selectedFaceActiveIds[selectedCount] = bestFaceActiveId;
-            selectedAnglesInFace[selectedCount] = bestAngleInFace;
-            selectedCount++;
-            selectedFaceActiveIds = Arrays.copyOf(selectedFaceActiveIds, selectedCount);
-            selectedAnglesInFace = Arrays.copyOf(selectedAnglesInFace, selectedCount);
-
-            float kmax = kappaMaxList.get(bestIdx);
-            float kmin = kappaMinList.get(bestIdx);
-            float curvatureContrast = (Math.abs(kmax) - Math.abs(kmin)) / Math.abs(kmax);
-            float meanCurvature = Math.abs(0.5f * (kmax + kmin));
-            float confidence = curvatureContrast * meanCurvature * bestNormalAlignment
-                    * selectedCount / (1f + bestJitter);
-            int[] footprintVertexIds = collectVerticesWithinRadius(vertexId, endRadius);
-            int[] footprintFaceActiveIds = collectFootprintFaces(footprintVertexIds);
-            candidates.add(new CurvatureConstraintCandidate(vertexId, selectedFaceActiveIds,
-                    selectedAnglesInFace, footprintVertexIds, footprintFaceActiveIds,
-                    constraintDirWorld, vPos, confidence));
-        }
-
-        candidates.sort((a, b) -> Float.compare(b.confidence, a.confidence));
-        lastCandidateCount = candidates.size();
-        lastAcceptedCount = applySparseCandidates(candidates, suppressionRadius,
-                suppressionRadiusSquared, conflictRadiusSquared);
-        return lastAcceptedCount;
-    }
-
-    /**
-     * Apply candidate hard pins in confidence order while suppressing nearby
-     * duplicates or conflicts. This keeps BZK09's hard-constraint energy model, but
-     * makes the curvature-derived constrained set sparse and reliable.
-     *
-     * @param candidates               candidate pins sorted or unsorted
-     * @param suppressionRadius        world-space radius for local transport checks
-     * @param suppressionRadiusSquared squared world-space radius for duplicate
-     *                                 non-max suppression
-     * @param conflictRadiusSquared    squared world-space radius for rejecting
-     *                                 local incompatible candidates
-     * @return number of accepted hard pins
-     */
-    private int applySparseCandidates(List<CurvatureConstraintCandidate> candidates,
-            float suppressionRadius, float suppressionRadiusSquared,
-            float conflictRadiusSquared) {
-        List<CurvatureConstraintCandidate> accepted = new ArrayList<>();
-        for (CurvatureConstraintCandidate candidate : candidates) {
-            if (hasConstrainedFace(candidate) || hasConstrainedFootprintFace(candidate)
-                    || hasAcceptedFootprintConflict(candidate, accepted)) {
-                continue;
-            }
-            if (hasNearbyAcceptedCandidate(candidate, accepted, suppressionRadius,
-                    suppressionRadiusSquared,
-                    conflictRadiusSquared)) {
-                continue;
-            }
-            accepted.add(candidate);
-        }
-        int addedConstraints = 0;
-        for (CurvatureConstraintCandidate candidate : accepted) {
-            for (int i = 0; i < candidate.faceActiveIds.length; i++) {
-                int faceActiveId = candidate.faceActiveIds[i];
-                if (crossField.faceConstrained[faceActiveId]) {
-                    continue;
-                }
                 crossField.faceConstrained[faceActiveId] = true;
-                crossField.faceConstraintAngle[faceActiveId] = candidate.anglesInFace[i];
-                addedConstraints++;
+                crossField.faceConstraintAngle[faceActiveId] = CrossField.canonicalizeMod(angleInFace);
+                newlyConstrained++;
             }
+            addedConstraints += newlyConstrained;
         }
         return addedConstraints;
-    }
-
-    /**
-     * Check whether a candidate would overwrite an already constrained face.
-     *
-     * @param candidate candidate being tested
-     * @return true when any candidate face is already constrained
-     */
-    private boolean hasConstrainedFace(CurvatureConstraintCandidate candidate) {
-        for (int faceActiveId : candidate.faceActiveIds) {
-            if (crossField.faceConstrained[faceActiveId]) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Check whether a candidate footprint touches a previously constrained patch.
-     *
-     * @param candidate candidate being tested
-     * @return true when any footprint face is already constrained
-     */
-    private boolean hasConstrainedFootprintFace(CurvatureConstraintCandidate candidate) {
-        for (int faceActiveId : candidate.footprintFaceActiveIds) {
-            if (crossField.faceConstrained[faceActiveId]) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Reject curvature candidates whose footprint contains another accepted source
-     * vertex, or whose source vertex lies in an accepted footprint.
-     *
-     * @param candidate candidate being tested
-     * @param accepted  stronger curvature candidates already selected
-     * @return true when the candidate violates footprint exclusivity
-     */
-    private boolean hasAcceptedFootprintConflict(CurvatureConstraintCandidate candidate,
-            List<CurvatureConstraintCandidate> accepted) {
-        for (CurvatureConstraintCandidate other : accepted) {
-            if (containsVertex(candidate.footprintVertexIds, other.sourceVertexId)
-                    || containsVertex(other.footprintVertexIds, candidate.sourceVertexId)
-                    || containsAnyVertex(candidate.footprintVertexIds, other.footprintVertexIds)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Check whether a vertex id is present in a small footprint array.
-     *
-     * @param vertexIds vertex ids to scan
-     * @param vertexId  target vertex id
-     * @return true when {@code vertexId} is present
-     */
-    private boolean containsVertex(int[] vertexIds, int vertexId) {
-        for (int currentVertexId : vertexIds) {
-            if (currentVertexId == vertexId) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Check whether two footprint arrays share at least one mesh vertex id.
-     *
-     * @param firstVertexIds  first vertex id set
-     * @param secondVertexIds second vertex id set
-     * @return true when the two sets overlap
-     */
-    private boolean containsAnyVertex(int[] firstVertexIds, int[] secondVertexIds) {
-        for (int firstVertexId : firstVertexIds) {
-            if (containsVertex(secondVertexIds, firstVertexId)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Whether a stronger accepted candidate already covers the local surface patch
-     * around {@code candidate}. Nearby compatible candidates are duplicates; nearby
-     * incompatible candidates would force local period jumps.
-     *
-     * @param candidate                candidate being tested
-     * @param accepted                 stronger candidates already accepted
-     * @param suppressionRadius        world-space radius for local transport checks
-     * @param suppressionRadiusSquared squared local duplicate suppression radius
-     * @param conflictRadiusSquared    squared local conflict radius
-     * @return true when the candidate should be skipped
-     */
-    private boolean hasNearbyAcceptedCandidate(CurvatureConstraintCandidate candidate,
-            List<CurvatureConstraintCandidate> accepted, float suppressionRadius,
-            float suppressionRadiusSquared,
-            float conflictRadiusSquared) {
-        for (CurvatureConstraintCandidate other : accepted) {
-            float dx = candidate.sourcePosition.x - other.sourcePosition.x;
-            float dy = candidate.sourcePosition.y - other.sourcePosition.y;
-            float dz = candidate.sourcePosition.z - other.sourcePosition.z;
-            float distanceSquared = dx * dx + dy * dy + dz * dz;
-            if (distanceSquared > suppressionRadiusSquared) {
-                continue;
-            }
-            float transportResidual = transportResidualBetween(other.faceActiveId,
-                    other.angleInFace, candidate.faceActiveId, candidate.angleInFace,
-                    suppressionRadius);
-            if (!Float.isFinite(transportResidual)) {
-                transportResidual = crossAxisAngleDifference(candidate.directionWorld, other.directionWorld);
-            }
-            if (transportResidual <= TRANSPORT_DUPLICATE_THRESHOLD) {
-                return true;
-            }
-            if (distanceSquared <= conflictRadiusSquared
-                    && transportResidual > TRANSPORT_CONFLICT_THRESHOLD) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Transport {@code sourceAngle} from {@code sourceFaceActiveId} to
-     * {@code targetFaceActiveId} through the local dual graph, then compare it to
-     * {@code targetAngle} modulo cross symmetry.
-     *
-     * @param sourceFaceActiveId active source face index
-     * @param sourceAngle        source face angle
-     * @param targetFaceActiveId active target face index
-     * @param targetAngle        target face angle
-     * @param maxDistance        maximum dual distance to search
-     * @return residual modulo {@code pi/2}, or positive infinity if no path is
-     *         found within {@code maxDistance}
-     */
-    private float transportResidualBetween(int sourceFaceActiveId, float sourceAngle,
-            int targetFaceActiveId, float targetAngle, float maxDistance) {
-        if (sourceFaceActiveId == targetFaceActiveId) {
-            return angleDifferenceModHalfPi(sourceAngle - targetAngle);
-        }
-
-        float[] distance = new float[crossField.faceCount];
-        float[] transportedAngle = new float[crossField.faceCount];
-        Arrays.fill(distance, Float.POSITIVE_INFINITY);
-        PriorityQueue<DijkstraNode> queue = new PriorityQueue<>();
-        distance[sourceFaceActiveId] = 0f;
-        transportedAngle[sourceFaceActiveId] = sourceAngle;
-        queue.offer(new DijkstraNode(0f, sourceFaceActiveId));
-
-        Vector3f startPosition = new Vector3f();
-        Vector3f endPosition = new Vector3f();
-        while (!queue.isEmpty()) {
-            DijkstraNode node = queue.poll();
-            int faceActiveId = node.vertexOrFace;
-            if (node.distance > distance[faceActiveId] + CrossField.EPSILON) {
-                continue;
-            }
-            if (faceActiveId == targetFaceActiveId) {
-                return angleDifferenceModHalfPi(transportedAngle[faceActiveId] - targetAngle);
-            }
-            int faceId = mesh.faceIdAt(faceActiveId);
-            int halfEdgeCount = mesh.faceHalfEdgeCount(faceId);
-            for (int i = 0; i < halfEdgeCount; i++) {
-                int halfEdge = mesh.faceHalfEdgeAt(faceId, i);
-                int twin = mesh.halfEdgeTwin(halfEdge);
-                int neighborFaceId = mesh.halfEdgeFace(twin);
-                if (neighborFaceId < 0) {
-                    continue;
-                }
-                int neighborFaceActiveId = crossField.faceIdToActive.get(neighborFaceId);
-                int edgeId = mesh.halfEdgeEdge(halfEdge);
-                int edgeActiveId = crossField.edgeIdToActive.get(edgeId);
-                mesh.vertexPosition(mesh.halfEdgeVertex(halfEdge), startPosition);
-                mesh.vertexPosition(mesh.halfEdgeEndVertex(halfEdge), endPosition);
-                float edgeLength = endPosition.sub(startPosition).length();
-                float newDistance = node.distance + edgeLength;
-                if (newDistance > maxDistance || newDistance >= distance[neighborFaceActiveId]) {
-                    continue;
-                }
-                distance[neighborFaceActiveId] = newDistance;
-                transportedAngle[neighborFaceActiveId] = transportAngleAcrossEdge(
-                        transportedAngle[faceActiveId], faceId, edgeActiveId);
-                queue.offer(new DijkstraNode(newDistance, neighborFaceActiveId));
-            }
-        }
-        return Float.POSITIVE_INFINITY;
-    }
-
-    /**
-     * Transport a face angle across an edge using the same signed {@code kappa}
-     * convention as the smoothness residual.
-     *
-     * @param angle        angle in {@code fromFaceId}
-     * @param fromFaceId   source face id
-     * @param edgeActiveId active edge index crossed from source to neighbor
-     * @return transported angle, canonicalized modulo {@code pi/2}
-     */
-    private float transportAngleAcrossEdge(float angle, int fromFaceId, int edgeActiveId) {
-        HalfEdgeMesh.EdgeFaceIds edgeFaces = mesh.edgeFaceIds(edgeActiveId);
-        float signedKappa = edgeFaces.faceA == fromFaceId
-                ? crossField.kappa[edgeActiveId]
-                : -crossField.kappa[edgeActiveId];
-        return CrossField.canonicalizeMod(angle + signedKappa);
-    }
-
-    /**
-     * Smallest absolute angle difference under cross-field quarter-turn symmetry.
-     *
-     * @param angleDifference raw angle difference
-     * @return difference in {@code [0, pi/4]}
-     */
-    private float angleDifferenceModHalfPi(float angleDifference) {
-        float halfPi = (float) (Math.PI / 2.0);
-        float wrapped = CrossField.canonicalizeMod(angleDifference);
-        if (wrapped > halfPi / 2f) {
-            wrapped = halfPi - wrapped;
-        }
-        return Math.abs(wrapped);
-    }
-
-    /**
-     * Compare two world-space cross axes modulo the cross-field quarter-turn
-     * symmetry.
-     *
-     * @param first  first unit direction
-     * @param second second unit direction
-     * @return smallest angle difference to either parallel or perpendicular axes
-     */
-    private float crossAxisAngleDifference(Vector3f first, Vector3f second) {
-        float dot = Math.max(-1f, Math.min(1f, Math.abs(first.dot(second))));
-        float parallelDifference = (float) Math.acos(dot);
-        float perpendicularDifference = Math.abs((float) (Math.PI / 2.0) - parallelDifference);
-        return Math.min(parallelDifference, perpendicularDifference);
     }
 
     /**
@@ -681,25 +520,36 @@ public class CurvatureConstraints {
     }
 
     /**
-     * Cohen-Steiner integrated curvature tensor over a geodesic disk around
-     * {@code centerVertexId}. Walks all triangles whose three vertices fall within
-     * the disk and accumulates per-interior-edge dihedral contributions
-     * {@code β·|e|·(ē⊗ē)}, normalized by total triangle area. Returns
-     * {@code [T00, T01, T11]} expressed in the local tangent basis (e1, e2), or
-     * {@code null} when the disk is empty or has no usable area.
+     * Cohen-Steiner integrated curvature tensor over geodesic disks around
+     * {@code centerVertexId} at every radius in {@code radiiAscending}, in a single
+     * walk. Walks the 1-skeleton once out to the largest radius, records each
+     * face's and interior edge's inclusion radius (the smallest disk that fully
+     * contains it) and each edge's dihedral contribution {@code β·|e|·(ē⊗ē)} once,
+     * then forms the per-radius tensors by prefix sum over those inclusion radii.
+     * For radius {@code radiiAscending[i]} the entry is {@code [T00, T01, T11]} in
+     * the local tangent basis (e1, e2) normalized by the disk's triangle area, or
+     * {@code null} when that disk has no usable triangles.
      *
      * @param centerVertexId center vertex id
-     * @param centerPosition center vertex position
      * @param centerNormal   center vertex normal
      * @param tangentE1      tangent basis vector 1
      * @param tangentE2      tangent basis vector 2 (= centerNormal × tangentE1)
-     * @param geodesicRadius geodesic-disk radius (Dijkstra over 1-skeleton)
-     * @return three-element {@code [T00, T01, T11]} tensor entries, or {@code null}
-     *         when the disk has no usable triangles
+     * @param radiiAscending geodesic-disk radii in ascending order; the last is the
+     *                       walk's cutoff
+     * @return one {@code [T00, T01, T11]} per radius, parallel to
+     *         {@code radiiAscending}, each {@code null} when its disk has no usable
+     *         triangles
      */
-    public float[] integrateCurvatureTensor(int centerVertexId, Vector3f centerPosition,
-            Vector3f centerNormal, Vector3f tangentE1, Vector3f tangentE2, float geodesicRadius) {
+    public float[][] integrateCurvatureTensorAllRadii(int centerVertexId, Vector3f centerNormal, Vector3f tangentE1,
+            Vector3f tangentE2, float[] radiiAscending) {
+        int radiusCount = radiiAscending.length;
+        if (radiusCount == 0) {
+            return new float[0][];
+        }
+        float maxRadius = radiiAscending[radiusCount - 1];
         final int stamp = ++curvatureStamp;
+        integrateCalls++;
+        long sectionTime = System.nanoTime();
 
         PriorityQueue<DijkstraNode> pq = new PriorityQueue<>();
         pq.offer(new DijkstraNode(0f, centerVertexId));
@@ -708,26 +558,16 @@ public class CurvatureConstraints {
         int visitedCount = 0;
         visitedVertexIds[visitedCount++] = centerVertexId;
 
-        Vector3f a = new Vector3f();
-        Vector3f b = new Vector3f();
         while (!pq.isEmpty()) {
             DijkstraNode node = pq.poll();
             int u = node.vertexOrFace;
             if (node.distance > vertexDistance[u] + CrossField.EPSILON) {
                 continue;
             }
-            mesh.vertexPosition(u, a);
-            int outCount = mesh.vertexOutgoingHalfEdgeCount(u);
-            for (int i = 0; i < outCount; i++) {
-                int he = mesh.vertexOutgoingHalfEdgeAt(u, i);
-                int w = mesh.halfEdgeEndVertex(he);
-                mesh.vertexPosition(w, b);
-                float dx = b.x - a.x;
-                float dy = b.y - a.y;
-                float dz = b.z - a.z;
-                float wLen = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-                float nd = node.distance + wLen;
-                if (nd > geodesicRadius) {
+            for (int j = neighborStart[u]; j < neighborStart[u + 1]; j++) {
+                int w = neighborVertexId[j];
+                float nd = node.distance + neighborEdgeLength[j];
+                if (nd > maxRadius) {
                     continue;
                 }
                 if (vertexInDiskStamp[w] != stamp) {
@@ -741,96 +581,139 @@ public class CurvatureConstraints {
                 }
             }
         }
-        if (visitedCount == 0) {
-            return null;
-        }
+        long sectionNow = System.nanoTime();
+        walkNanos += sectionNow - sectionTime;
+        sectionTime = sectionNow;
 
-        // Collect faces fully inside the disk.
-        int facesFound = 0;
-        float totalDiskArea = 0f;
+        // Faces fully inside the max disk; inclusion radius = the farthest of the
+        // three vertices, so the face appears in exactly the disks at least that wide.
+        int diskFaceCount = 0;
         for (int vi = 0; vi < visitedCount; vi++) {
             int vertexId = visitedVertexIds[vi];
-            int adjacentFaceCount = mesh.vertexFaceCount(vertexId);
-            for (int i = 0; i < adjacentFaceCount; i++) {
-                int faceId = mesh.vertexFaceAt(vertexId, i);
+            for (int j = vertexFaceStart[vertexId]; j < vertexFaceStart[vertexId + 1]; j++) {
+                int faceId = vertexFaceId[j];
                 if (faceInDiskStamp[faceId] == stamp) {
                     continue;
                 }
-                int faceVertex0 = mesh.faceVertexAt(faceId, 0);
-                int faceVertex1 = mesh.faceVertexAt(faceId, 1);
-                int faceVertex2 = mesh.faceVertexAt(faceId, 2);
-                if (vertexInDiskStamp[faceVertex0] == stamp
-                        && vertexInDiskStamp[faceVertex1] == stamp
-                        && vertexInDiskStamp[faceVertex2] == stamp) {
+                int v0 = faceVertex0[faceId];
+                int v1 = faceVertex1[faceId];
+                int v2 = faceVertex2[faceId];
+                if (vertexInDiskStamp[v0] == stamp
+                        && vertexInDiskStamp[v1] == stamp
+                        && vertexInDiskStamp[v2] == stamp) {
                     faceInDiskStamp[faceId] = stamp;
-                    totalDiskArea += mesh.faceArea(faceId);
-                    facesFound++;
+                    faceInclusionDistance[faceId] = Math.max(vertexDistance[v0],
+                            Math.max(vertexDistance[v1], vertexDistance[v2]));
+                    diskFaceIds[diskFaceCount++] = faceId;
                 }
             }
         }
-        if (facesFound == 0 || totalDiskArea < CrossField.EPSILON) {
-            return null;
+
+        sectionNow = System.nanoTime();
+        faceCollectNanos += sectionNow - sectionTime;
+        sectionTime = sectionNow;
+
+        float[][] tensors = new float[radiusCount][];
+        if (diskFaceCount == 0) {
+            return tensors;
         }
 
-        float tensor00 = 0f;
-        float tensor01 = 0f;
-        float tensor11 = 0f;
-
+        // Interior edges with both faces in the disk; inclusion radius = the larger of
+        // the two faces'. The dihedral weight and edge direction are precomputed once
+        // in buildAdjacencyCaches; only the projection onto this disk's center frame is
+        // done here.
+        int diskEdgeCount = 0;
         for (int vi = 0; vi < visitedCount; vi++) {
             int vertexId = visitedVertexIds[vi];
-            int incidentEdgeCount = mesh.vertexEdgeCount(vertexId);
-            for (int activeVertexIndex = 0; activeVertexIndex < incidentEdgeCount; activeVertexIndex++) {
-                VertexFaceIds vertexEdgeIds = mesh.vertexFaceIds(vertexId, activeVertexIndex);
-                if (edgeProcessedStamp[vertexEdgeIds.edgeId] == stamp) {
+            for (int j = vertexEdgeStart[vertexId]; j < vertexEdgeStart[vertexId + 1]; j++) {
+                int edgeId = vertexEdgeId[j];
+                if (edgeProcessedStamp[edgeId] == stamp) {
                     continue;
                 }
-                edgeProcessedStamp[vertexEdgeIds.edgeId] = stamp;
-
-                if (vertexInDiskStamp[vertexEdgeIds.edgeStartVertex] != stamp
-                        || vertexInDiskStamp[vertexEdgeIds.edgeEndVertex] != stamp) {
+                edgeProcessedStamp[edgeId] = stamp;
+                if (!edgeContributes[edgeId]) {
                     continue;
                 }
-                if (mesh.isBoundaryEdge(vertexEdgeIds.edgeId)) {
+                if (vertexInDiskStamp[edgeStartVertex[edgeId]] != stamp
+                        || vertexInDiskStamp[edgeEndVertex[edgeId]] != stamp) {
                     continue;
                 }
-                if (faceInDiskStamp[vertexEdgeIds.faceA] != stamp
-                        || faceInDiskStamp[vertexEdgeIds.faceB] != stamp) {
-                    continue;
-                }
-
-                Vector3f position0 = mesh.vertexPosition(vertexEdgeIds.edgeStartVertex);
-                Vector3f position1 = mesh.vertexPosition(vertexEdgeIds.edgeEndVertex);
-                Vector3f edgeVector = new Vector3f(position1).sub(position0);
-                float edgeLength = edgeVector.length();
-                if (edgeLength < CrossField.EPSILON) {
+                int faceA = edgeFaceA[edgeId];
+                int faceB = edgeFaceB[edgeId];
+                if (faceInDiskStamp[faceA] != stamp || faceInDiskStamp[faceB] != stamp) {
                     continue;
                 }
 
-                Vector3f leftFaceNormal = mesh.faceNormal(vertexEdgeIds.faceA);
-                Vector3f rightFaceNormal = mesh.faceNormal(vertexEdgeIds.faceB);
-                float cosDihedral = Math.max(-1f, Math.min(1f, leftFaceNormal.dot(rightFaceNormal)));
-                Vector3f normalCross = new Vector3f(leftFaceNormal).cross(rightFaceNormal);
-                float sinDihedral = normalCross.dot(edgeVector) / edgeLength;
-                float dihedralAngle = (float) Math.atan2(sinDihedral, cosDihedral);
+                float dirX = edgeDirX[edgeId];
+                float dirY = edgeDirY[edgeId];
+                float dirZ = edgeDirZ[edgeId];
+                float normalComponent = dirX * centerNormal.x + dirY * centerNormal.y + dirZ * centerNormal.z;
+                float planarX = dirX - normalComponent * centerNormal.x;
+                float planarY = dirY - normalComponent * centerNormal.y;
+                float planarZ = dirZ - normalComponent * centerNormal.z;
+                float edgeComponentE1 = planarX * tangentE1.x + planarY * tangentE1.y + planarZ * tangentE1.z;
+                float edgeComponentE2 = planarX * tangentE2.x + planarY * tangentE2.y + planarZ * tangentE2.z;
 
-                Vector3f edgeDirInTangentPlane = new Vector3f(edgeVector).div(edgeLength);
-                float normalComponent = edgeDirInTangentPlane.dot(centerNormal);
-                edgeDirInTangentPlane.x -= normalComponent * centerNormal.x;
-                edgeDirInTangentPlane.y -= normalComponent * centerNormal.y;
-                edgeDirInTangentPlane.z -= normalComponent * centerNormal.z;
-                float edgeComponentE1 = edgeDirInTangentPlane.dot(tangentE1);
-                float edgeComponentE2 = edgeDirInTangentPlane.dot(tangentE2);
+                float weight = edgeWeight[edgeId];
+                edgeContribution00[edgeId] = weight * edgeComponentE1 * edgeComponentE1;
+                edgeContribution01[edgeId] = weight * edgeComponentE1 * edgeComponentE2;
+                edgeContribution11[edgeId] = weight * edgeComponentE2 * edgeComponentE2;
+                edgeInclusionDistance[edgeId] = Math.max(faceInclusionDistance[faceA],
+                        faceInclusionDistance[faceB]);
+                diskEdgeIds[diskEdgeCount++] = edgeId;
+            }
+        }
+        sectionNow = System.nanoTime();
+        edgeCollectNanos += sectionNow - sectionTime;
+        sectionTime = sectionNow;
 
-                float weight = dihedralAngle * edgeLength;
-                tensor00 += weight * edgeComponentE1 * edgeComponentE1;
-                tensor01 += weight * edgeComponentE1 * edgeComponentE2;
-                tensor11 += weight * edgeComponentE2 * edgeComponentE2;
+        // Bucket each face/edge at the smallest radius that includes it, then prefix
+        // sum up the series so every radius reuses the single walk's geometry.
+        float[] bucketArea = new float[radiusCount];
+        float[] bucketTensor00 = new float[radiusCount];
+        float[] bucketTensor01 = new float[radiusCount];
+        float[] bucketTensor11 = new float[radiusCount];
+        for (int fi = 0; fi < diskFaceCount; fi++) {
+            int faceId = diskFaceIds[fi];
+            int radiusIndex = 0;
+            while (radiusIndex < radiusCount && radiiAscending[radiusIndex] < faceInclusionDistance[faceId]) {
+                radiusIndex++;
+            }
+            if (radiusIndex < radiusCount) {
+                bucketArea[radiusIndex] += faceArea[faceId];
+            }
+        }
+        for (int ei = 0; ei < diskEdgeCount; ei++) {
+            int edgeId = diskEdgeIds[ei];
+            int radiusIndex = 0;
+            while (radiusIndex < radiusCount && radiiAscending[radiusIndex] < edgeInclusionDistance[edgeId]) {
+                radiusIndex++;
+            }
+            if (radiusIndex < radiusCount) {
+                bucketTensor00[radiusIndex] += edgeContribution00[edgeId];
+                bucketTensor01[radiusIndex] += edgeContribution01[edgeId];
+                bucketTensor11[radiusIndex] += edgeContribution11[edgeId];
             }
         }
 
-        tensor00 = tensor00 / totalDiskArea;
-        tensor01 = tensor01 / totalDiskArea;
-        tensor11 = tensor11 / totalDiskArea;
-        return new float[] { tensor00, tensor01, tensor11 };
+        float cumulativeArea = 0f;
+        float cumulativeTensor00 = 0f;
+        float cumulativeTensor01 = 0f;
+        float cumulativeTensor11 = 0f;
+        for (int radiusIndex = 0; radiusIndex < radiusCount; radiusIndex++) {
+            cumulativeArea += bucketArea[radiusIndex];
+            cumulativeTensor00 += bucketTensor00[radiusIndex];
+            cumulativeTensor01 += bucketTensor01[radiusIndex];
+            cumulativeTensor11 += bucketTensor11[radiusIndex];
+            if (cumulativeArea < CrossField.EPSILON) {
+                continue;
+            }
+            tensors[radiusIndex] = new float[] {
+                    cumulativeTensor00 / cumulativeArea,
+                    cumulativeTensor01 / cumulativeArea,
+                    cumulativeTensor11 / cumulativeArea };
+        }
+        bucketNanos += System.nanoTime() - sectionTime;
+        return tensors;
     }
 }

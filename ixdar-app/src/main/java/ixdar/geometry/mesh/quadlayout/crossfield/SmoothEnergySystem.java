@@ -142,7 +142,8 @@ public final class SmoothEnergySystem {
                 solution[faceCount + chord] = solutionPeriod[eAi];
             }
         }
-        normalMatrix = new NormalMatrix(faceCount, chordCount, rowCount, rowFaceI, rowFaceJ, rowEdgeAi, chordOfEdge, vornoiForest.periodValue, rowKappa);
+        normalMatrix = new NormalMatrix(faceCount, chordCount, rowCount, rowFaceI, rowFaceJ, rowEdgeAi, chordOfEdge,
+                vornoiForest.periodValue, rowKappa);
         adaptiveOptions = new AdaptiveSolver.Options();
         adaptiveOptions.localMaxIterations = solverLocalMaxIterations;
         adaptiveOptions.localTolerance = DEFAULT_LOCAL_TOLERANCE;
@@ -152,6 +153,7 @@ public final class SmoothEnergySystem {
 
         roundBatchSize = DEFAULT_ROUND_BATCH_SIZE;
         roundBatchTol = DEFAULT_ROUND_BATCH_TOLERANCE;
+        diagnosePinnedEdgeConsistency();   // <-- add
     }
 
     void solveGreedyMIP(String lastDiagnostics) {
@@ -318,10 +320,10 @@ public final class SmoothEnergySystem {
         solution = result.x();
         AdaptiveSolver.Stats stats = result.stats();
         switch (stats.method()) {
-            case LOCAL_GAUSS_SEIDEL -> localGsConverged++;
-            case CONJUGATE_GRADIENT -> cgConverged++;
-            case DIRECT -> directFallbacks++;
-            case FAILED -> failedSolves++;
+        case LOCAL_GAUSS_SEIDEL -> localGsConverged++;
+        case CONJUGATE_GRADIENT -> cgConverged++;
+        case DIRECT -> directFallbacks++;
+        case FAILED -> failedSolves++;
         }
         if (!stats.converged() && stats.method() != AdaptiveSolver.Method.FAILED) {
             failedSolves++;
@@ -384,5 +386,43 @@ public final class SmoothEnergySystem {
             this.edgeAi = edgeAi;
             this.roundoff = roundoff;
         }
+    }
+
+    private void diagnosePinnedEdgeConsistency() {
+        final double HALF_PI = Math.PI / 2.0;
+        int pinnedPinnedEdges = 0;
+        int forcedJumps = 0; // p* != 0 → spurious-singularity generators
+        int[] wrapBins = new int[9]; // |wrapped| over [0, π/4]
+        int[] jumpHist = new int[11]; // p* clamped to [-5, 5], index = p*+5
+
+        for (int r = 0; r < rowCount; r++) {
+            int i = rowFaceI[r];
+            int j = rowFaceJ[r];
+            if (!faceConstrained[i] || !faceConstrained[j])
+                continue;
+            pinnedPinnedEdges++;
+
+            double raw = faceConstraintAngle[i] + rowKappa[r] - faceConstraintAngle[j]; // residual at p=0
+            long pStar = Math.round(-raw / HALF_PI); // best integer period jump
+            double wrapped = raw + HALF_PI * pStar; // leftover in (−π/4, π/4]
+
+            if (pStar != 0)
+                forcedJumps++;
+            int wb = (int) Math.min(8, (Math.abs(wrapped) / (Math.PI / 4.0)) * 9.0);
+            wrapBins[wb]++;
+            jumpHist[(int) (Math.max(-5, Math.min(5, pStar)) + 5)]++;
+        }
+
+        System.err.printf("[pin-consistency] pinnedPinnedEdges=%d forcedJumps(p*!=0)=%d (%.1f%%)%n",
+                pinnedPinnedEdges, forcedJumps,
+                pinnedPinnedEdges == 0 ? 0.0 : 100.0 * forcedJumps / pinnedPinnedEdges);
+        System.err.print("[pin-consistency] |wrapped| bins [0..pi/4]: ");
+        for (int b = 0; b < wrapBins.length; b++)
+            System.err.print(wrapBins[b] + " ");
+        System.err.println();
+        System.err.print("[pin-consistency] p* hist [-5..5]: ");
+        for (int b = 0; b < jumpHist.length; b++)
+            System.err.print(jumpHist[b] + " ");
+        System.err.println();
     }
 }

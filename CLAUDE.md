@@ -73,3 +73,25 @@ This rule has a custom checkstyle module (`SingleCallerHelperCheck`, currently d
 - **Magic numbers:** literals other than `-1, 0, 1, 2` must be named constants. Field initializers and annotations are exempt.
 - **Duplicated string literals:** the same string repeated more than once should be a constant.
 - **No inline fully-qualified class names:** write `Collectors.toSet()` with an import, not `java.util.stream.Collectors.toSet()`. The only exception is genuine simple-name collisions across packages.
+
+# Profiling
+
+We profile with [async-profiler](https://github.com/async-profiler/async-profiler) (CPU, `event=cpu`), attached as an agent and dumping a flame-graph HTML. We **always** want the flame graph, so keep the capture as `.html`:
+
+```
+-agentpath:/usr/lib/libasyncProfiler.so=start,event=cpu,file=${workspaceFolder}/profile.html
+```
+
+The agent writes exactly one file per run, so don't expect a separate text dump — instead extract the textual view from that same HTML with `tools/parse_async_profile.py`:
+
+```
+python3 tools/parse_async_profile.py profile.html --top 30 [substr ...]
+```
+
+It reconstructs async-profiler's prefix-compressed `cpool` and replays the `f()/u()/n()` frame stream to report **self-time per method** (where the CPU actually was) and total samples. Trailing substrings filter an extra "inclusive / self" table to matching frames (e.g. `integrateCurvature applySparse vertexPosition`) — use this to compare a method's own cost against time spent in its callees. The parser also reads async-profiler `collapsed` (folded-stack) text if we ever capture that instead.
+
+When reading results: a high *inclusive* but low *self* number means the cost is in callees (often mesh accessors or `HashMap.getNode` from the boxing `faceIdToActive`/`edgeIdToActive` maps), not the method itself — optimize the callee or the call count, not the method body.
+
+## Picking what to optimize
+
+Do not argue about *which* thing to optimize. When I point at a specific method or target, optimize that one — even if you believe a different hotspot is the bigger win. State the bigger opportunity **once, in a single sentence**, then drop it and do what I asked. Don't re-raise it across turns, don't re-rank the options every reply, and don't treat a small absolute time as "not worth it" — if I say 2.5s is too long, it's too long. I decide priority; you make the thing I named faster.
