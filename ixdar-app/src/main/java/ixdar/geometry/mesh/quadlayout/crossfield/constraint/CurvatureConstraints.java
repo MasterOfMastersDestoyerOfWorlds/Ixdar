@@ -292,22 +292,58 @@ public class CurvatureConstraints {
             radiusValues[i] = radii.get(i);
         }
 
-        for (int vAi = 0; vAi < mesh.vertexCount(); vAi++) {
-            int vertexId = mesh.vertexIdAt(vAi);
-            if (mesh.isBoundaryVertex(vertexId)) {
+        System.err.printf("[radii] count=%d stabilityWindow=%.4g%n", radiusValues.length, stabilityWindow);
+        for (int k = 0; k < radiusValues.length; k++) {
+            int inWin = 0;
+            for (int j = 0; j < radiusValues.length; j++) {
+                if (Math.abs(radiusValues[j] - radiusValues[k]) <= stabilityWindow)
+                    inWin++;
+            }
+            System.err.printf("  r[%d]=%.4g inWindow=%d%n", k, radiusValues[k], inWin);
+        }
+
+        Vector3f p0 = new Vector3f();
+        Vector3f p1 = new Vector3f();
+        Vector3f p2 = new Vector3f();
+        Vector3f centroid = new Vector3f();
+        Vector3f fNormal = new Vector3f();
+        int[] seedVerts = new int[3];
+        float[] seedDists = new float[3];
+
+        java.util.List<Float> faceMeanH = new java.util.ArrayList<>();
+        java.util.List<Float> pinnedGap = new java.util.ArrayList<>();
+
+        for (int faceAi = 0; faceAi < faceCount; faceAi++) {
+            int faceId = mesh.faceIdAt(faceAi);
+            if (crossField.faceConstrained[faceAi]) {
+                continue; // leave feature/boundary hard pins alone
+            }
+            int fv0 = faceVertex0[faceId];
+            int fv1 = faceVertex1[faceId];
+            int fv2 = faceVertex2[faceId];
+            if (mesh.isBoundaryVertex(fv0) || mesh.isBoundaryVertex(fv1) || mesh.isBoundaryVertex(fv2)) {
                 continue;
             }
-            mesh.vertexPosition(vertexId, vPos);
-            mesh.vertexNormal(vertexId, vNormal);
-            CrossField.arbitraryTangent(vNormal, e1);
-            vNormal.cross(e1, e2).normalize();
+            mesh.vertexPosition(fv0, p0);
+            mesh.vertexPosition(fv1, p1);
+            mesh.vertexPosition(fv2, p2);
+            centroid.set(p0).add(p1).add(p2).mul(1f / 3f);
+            fNormal.set(mesh.faceNormal(faceId));
+            CrossField.arbitraryTangent(fNormal, e1);
+            fNormal.cross(e1, e2).normalize();
+            seedVerts[0] = fv0;
+            seedVerts[1] = fv1;
+            seedVerts[2] = fv2;
+            seedDists[0] = centroid.distance(p0);
+            seedDists[1] = centroid.distance(p1);
+            seedDists[2] = centroid.distance(p2);
 
             List<Float> anglesMaxDir = new ArrayList<>();
             List<Float> kappaMaxList = new ArrayList<>();
             List<Float> kappaMinList = new ArrayList<>();
             List<Float> validRadii = new ArrayList<>();
 
-            float[][] tensors = integrateCurvatureTensorAllRadii(vertexId, vNormal, e1, e2, radiusValues);
+            float[][] tensors = integrateCurvatureTensorAllRadii(seedVerts, seedDists, fNormal, e1, e2, radiusValues);
             for (int radiusIndex = 0; radiusIndex < radiusValues.length; radiusIndex++) {
                 float[] T = tensors[radiusIndex];
                 if (T == null)
@@ -345,6 +381,10 @@ public class CurvatureConstraints {
                 kappaMinList.add(eigSmall);
                 anglesMaxDir.add(angle);
                 validRadii.add(radiusValues[radiusIndex]);
+            }
+            if (!kappaMaxList.isEmpty()) {
+                int li = kappaMaxList.size() - 1; // largest radius = most averaged
+                faceMeanH.add(0.5f * (kappaMaxList.get(li) + kappaMinList.get(li)));
             }
             if (anglesMaxDir.isEmpty()) {
                 continue;
@@ -407,40 +447,46 @@ public class CurvatureConstraints {
             if (bestIdx < 0) {
                 continue;
             }
-            float constraintAngleAtV = anglesMaxDir.get(bestIdx);
-            float c = (float) Math.cos(constraintAngleAtV);
-            float s = (float) Math.sin(constraintAngleAtV);
-            Vector3f constraintDirWorld = new Vector3f(
+            float constraintAngleInFrame = anglesMaxDir.get(bestIdx);
+            float c = (float) Math.cos(constraintAngleInFrame);
+            float s = (float) Math.sin(constraintAngleInFrame);
+            Vector3f dirWorld = new Vector3f(
                     e1.x * c + e2.x * s,
                     e1.y * c + e2.y * s,
                     e1.z * c + e2.z * s);
-            int adj = mesh.vertexFaceCount(vertexId);
-            int newlyConstrained = 0;
-            for (int i = 0; i < adj; i++) {
-                int faceId = mesh.vertexFaceAt(vertexId, i);
-                int faceActiveId = crossField.faceIdToActive.get(faceId);
-                if (crossField.faceConstrained[faceActiveId]) {
-                    continue;
-                }
-                Vector3f n = mesh.faceNormal(mesh.faceIdAt(faceActiveId));
-                float dotN = constraintDirWorld.dot(n);
-                float px = constraintDirWorld.x - dotN * n.x;
-                float py = constraintDirWorld.y - dotN * n.y;
-                float pz = constraintDirWorld.z - dotN * n.z;
-                float projectionLength = (float) Math.sqrt(px * px + py * py + pz * pz);
-                if (projectionLength < CrossField.EPSILON) {
-                    continue;
-                }
-                float angleInFace = mesh.projectDirectionToFaceAngle(constraintDirWorld, faceActiveId,
-                        crossField.faceY[faceActiveId],
-                        crossField.faceX[faceActiveId]);
-                crossField.faceConstrained[faceActiveId] = true;
-                crossField.faceConstraintAngle[faceActiveId] = CrossField.canonicalizeMod(angleInFace);
-                newlyConstrained++;
-            }
-            addedConstraints += newlyConstrained;
+            float angleInFace = mesh.projectDirectionToFaceAngle(dirWorld, faceAi,
+                    crossField.faceY[faceAi], crossField.faceX[faceAi]);
+            crossField.faceConstrained[faceAi] = true;
+            crossField.faceConstraintAngle[faceAi] = CrossField.canonicalizeMod(angleInFace);
+            pinnedGap.add(kappaMaxList.get(bestIdx) - kappaMinList.get(bestIdx)); // disc = absolute gap
+            addedConstraints++;
         }
+        if (!faceMeanH.isEmpty()) {
+            float[] mh = new float[faceMeanH.size()];
+            int above = 0;
+            for (int i = 0; i < mh.length; i++) {
+                mh[i] = Math.abs(faceMeanH.get(i));
+                if (mh[i] > curvatureK)
+                    above++;
+            }
+            java.util.Arrays.sort(mh);
+            System.err.printf(
+                    "[meanH] faces=%d curvatureK=%.4g  |meanH| min=%.4g median=%.4g max=%.4g  aboveK=%d (%.1f%%)%n",
+                    mh.length, curvatureK, mh[0], mh[mh.length / 2], mh[mh.length - 1],
+                    above, 100.0 * above / mh.length);
+        }
+        if (!pinnedGap.isEmpty()) {
+            float[] g = new float[pinnedGap.size()];
+            for (int i = 0; i < g.length; i++)
+                g[i] = Math.abs(pinnedGap.get(i));
+            java.util.Arrays.sort(g);
+            System.err.printf("[pinned-gap] min=%.4g median=%.4g max=%.4g  (curvatureK=%.4g)%n",
+                    g[0], g[g.length / 2], g[g.length - 1], curvatureK);
+        }
+        System.err.printf("[constraints] addedConstraints=%d / faces=%d (%.1f%%)%n",
+                addedConstraints, faceCount, 100.0 * addedConstraints / faceCount);
         return addedConstraints;
+
     }
 
     /**
@@ -540,8 +586,8 @@ public class CurvatureConstraints {
      *         {@code radiiAscending}, each {@code null} when its disk has no usable
      *         triangles
      */
-    public float[][] integrateCurvatureTensorAllRadii(int centerVertexId, Vector3f centerNormal, Vector3f tangentE1,
-            Vector3f tangentE2, float[] radiiAscending) {
+    public float[][] integrateCurvatureTensorAllRadii(int[] seedVertexIds, float[] seedDistances,
+            Vector3f centerNormal, Vector3f tangentE1, Vector3f tangentE2, float[] radiiAscending) {
         int radiusCount = radiiAscending.length;
         if (radiusCount == 0) {
             return new float[0][];
@@ -552,11 +598,20 @@ public class CurvatureConstraints {
         long sectionTime = System.nanoTime();
 
         PriorityQueue<DijkstraNode> pq = new PriorityQueue<>();
-        pq.offer(new DijkstraNode(0f, centerVertexId));
-        vertexInDiskStamp[centerVertexId] = stamp;
-        vertexDistance[centerVertexId] = 0f;
         int visitedCount = 0;
-        visitedVertexIds[visitedCount++] = centerVertexId;
+        for (int s = 0; s < seedVertexIds.length; s++) {
+            int sv = seedVertexIds[s];
+            float sd = seedDistances[s];
+            if (vertexInDiskStamp[sv] != stamp) {
+                vertexInDiskStamp[sv] = stamp;
+                vertexDistance[sv] = sd;
+                visitedVertexIds[visitedCount++] = sv;
+                pq.offer(new DijkstraNode(sd, sv));
+            } else if (sd < vertexDistance[sv]) {
+                vertexDistance[sv] = sd;
+                pq.offer(new DijkstraNode(sd, sv));
+            }
+        }
 
         while (!pq.isEmpty()) {
             DijkstraNode node = pq.poll();
