@@ -38,6 +38,7 @@ public class BoundaryConstraints {
                     addedConstraints++;
                 }
                 crossField.faceConstraintAngle[faceActiveIndex] = CrossField.canonicalizeMod(angle);
+                crossField.faceConstraintSource[faceActiveIndex] = ConstraintSource.BOUNDARY;
             }
         }
         return addedConstraints;

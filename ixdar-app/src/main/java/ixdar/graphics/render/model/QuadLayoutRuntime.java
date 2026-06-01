@@ -10,6 +10,7 @@ import org.lwjgl.BufferUtils;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.TMeshNode;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
@@ -48,6 +49,15 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public static final int ATTR_DIR_V = 5;
     public static final int ATTR_ARM_LENGTH = 6;
     public static final float ONE_THIRD = 1.0f / 3.0f;
+    /**
+     * Fraction of a face's arm length by which the constraint glyph is floated
+     * along the face normal. On a constrained face the solved field is pinned to
+     * the constraint angle, so the two crosses coincide exactly; lifting the
+     * constraint glyph just off the surface lets it win the depth test over the
+     * coincident cross-field glyph without a global depth bias (which would pull
+     * far-side glyphs through the mesh).
+     */
+    public static final float CONSTRAINT_NORMAL_LIFT = 0.25f;
     public static final int ATTR_TRACE0 = 5;
     /**
      * Default fragment-pixel half-width of an iso-line, picked so the line is
@@ -153,6 +163,19 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private static final Vector4f COLOR_POSITIVE_INDEX = new ColorRGB(ColorRGB.CYAN).setAlpha(0.5f).toVector4f();
     /** Red for {@code index4 < 0} (valence-5, -π/2) per BZK09 fig. 4 caption. */
     private static final Vector4f COLOR_NEGATIVE_INDEX = new ColorRGB(ColorRGB.RED).setAlpha(0.5f).toVector4f();
+    /** Constraint glyph colour for boundary-edge pins. */
+    private static final Vector4f COLOR_CONSTRAINT_BOUNDARY = ColorRGB.GREEN.toVector4f();
+    /** Constraint glyph colour for sharp-crease (feature-edge) pins. */
+    private static final Vector4f COLOR_CONSTRAINT_FEATURE = ColorRGB.ORANGE.toVector4f();
+    /** Constraint glyph colour for principal-curvature pins. */
+    private static final Vector4f COLOR_CONSTRAINT_CURVATURE = ColorRGB.MAGENTA.toVector4f();
+    /** Constraint glyph colour for the arbitrary gauge anchor. */
+    private static final Vector4f COLOR_CONSTRAINT_ANCHOR = ColorRGB.WHITE.toVector4f();
+    /** Source groups drawn by {@link #renderConstraintOverlay(Camera3D)}, in upload order. */
+    private static final ConstraintSource[] CONSTRAINT_DRAW_ORDER = {
+            ConstraintSource.BOUNDARY, ConstraintSource.FEATURE,
+            ConstraintSource.CURVATURE, ConstraintSource.ANCHOR
+    };
 
     /** 12 unit-icosahedron vertices in xyz layout (flat). */
     private static final float[] ICO_VERTICES = {
@@ -191,6 +214,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public boolean showIsoLines = false;
     public boolean showSingularities = false;
     public boolean showCrossField = false;
+    public boolean showConstraints = false;
     public boolean showTraces = false;
     public boolean showNodes = false;
     public boolean showPatches = false;
@@ -235,6 +259,12 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private int crossFieldVao;
     private int crossFieldVbo;
     private int crossFieldEbo;
+    private int constraintVao;
+    private int constraintVbo;
+    private int constraintEbo;
+    private int constraintIndexCount;
+    private int[] constraintRangeStart;
+    private int[] constraintRangeCount;
     private float[] graphNodePositions;
     private float[] graphNodeColors;
     private int graphNodeCount;
@@ -435,10 +465,11 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         boolean drawSurface = hasParametrization()
                 && (showIsoLines || showTraces || showFullIsoGrid || showPatches);
         boolean drawCross = showCrossField && crossFieldIndexCount > 0;
+        boolean drawConstraints = showConstraints && constraintIndexCount > 0;
         boolean drawSingularities = showSingularities
                 && singularityIndex4 != null && singularityIndex4.length > 0;
         boolean drawNodes = showNodes && graphNodeCount > 0;
-        if (!drawSurface && !drawCross && !drawSingularities && !drawNodes) {
+        if (!drawSurface && !drawCross && !drawConstraints && !drawSingularities && !drawNodes) {
             return;
         }
         setupOverlayProjection(camera);
@@ -454,6 +485,9 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         }
         if (drawCross) {
             renderCrossFieldOverlay(camera);
+        }
+        if (drawConstraints) {
+            renderConstraintOverlay(camera);
         }
         if (drawSingularities) {
             renderSingularitySpheres(camera, gl);
@@ -514,75 +548,150 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         int faceCount = mesh.faceCount();
         float[] interleaved = new float[faceCount * CORNERS_PER_FACE * FLOATS_PER_CORNER_CROSS];
         int[] indices = new int[faceCount * CORNERS_PER_FACE];
-        Vector3f p0 = new Vector3f();
-        Vector3f p1 = new Vector3f();
-        Vector3f p2 = new Vector3f();
-        Vector3f normal = new Vector3f();
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-            int faceId = mesh.faceIdAt(activeFace);
-            int vertex0 = mesh.faceVertexAt(faceId, 0);
-            int vertex1 = mesh.faceVertexAt(faceId, 1);
-            int vertex2 = mesh.faceVertexAt(faceId, COMPONENT_Z);
-            mesh.vertexPosition(vertex0, p0);
-            mesh.vertexPosition(vertex1, p1);
-            mesh.vertexPosition(vertex2, p2);
-            computeFaceNormal(p0, p1, p2, normal);
-            float cx = (p0.x + p1.x + p2.x) * ONE_THIRD;
-            float cy = (p0.y + p1.y + p2.y) * ONE_THIRD;
-            float cz = (p0.z + p1.z + p2.z) * ONE_THIRD;
-            float ax = p1.x - p0.x;
-            float ay = p1.y - p0.y;
-            float az = p1.z - p0.z;
-            float bx = p2.x - p0.x;
-            float by = p2.y - p0.y;
-            float bz = p2.z - p0.z;
-            float crX = ay * bz - az * by;
-            float crY = az * bx - ax * bz;
-            float crZ = ax * by - ay * bx;
-            float twoArea = (float) Math.sqrt(crX * crX + crY * crY + crZ * crZ);
-            float lenA = (float) Math.sqrt(ax * ax + ay * ay + az * az);
-            float lenB = (float) Math.sqrt(bx * bx + by * by + bz * bz);
-            float ex = p2.x - p1.x;
-            float ey = p2.y - p1.y;
-            float ez = p2.z - p1.z;
-            float lenC = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
-            float perim = lenA + lenB + lenC;
-            float incircleR = perim > 0f ? twoArea / perim : 0f;
-            float armLength = Math.max(crossScale * incircleR, 1.0e-8f);
-            float cosT = (float) Math.cos(field.theta[activeFace]);
-            float sinT = (float) Math.sin(field.theta[activeFace]);
-            Vector3f fx = field.faceX[activeFace];
-            Vector3f fy = field.faceY[activeFace];
-            float dirUx = cosT * fx.x + sinT * fy.x;
-            float dirUy = cosT * fx.y + sinT * fy.y;
-            float dirUz = cosT * fx.z + sinT * fy.z;
-            float dirVx = -sinT * fx.x + cosT * fy.x;
-            float dirVy = -sinT * fx.y + cosT * fy.y;
-            float dirVz = -sinT * fx.z + cosT * fy.z;
-            float dirULen = (float) Math.sqrt(dirUx * dirUx + dirUy * dirUy + dirUz * dirUz);
-            float dirVLen = (float) Math.sqrt(dirVx * dirVx + dirVy * dirVy + dirVz * dirVz);
-            if (dirULen > 0f) {
-                dirUx /= dirULen;
-                dirUy /= dirULen;
-                dirUz /= dirULen;
-            }
-            if (dirVLen > 0f) {
-                dirVx /= dirVLen;
-                dirVy /= dirVLen;
-                dirVz /= dirVLen;
-            }
             int cornerBase = activeFace * CORNERS_PER_FACE;
-            writeCrossCorner(interleaved, cornerBase * FLOATS_PER_CORNER_CROSS, p0, normal,
-                    cx, cy, cz, dirUx, dirUy, dirUz, dirVx, dirVy, dirVz, armLength);
-            writeCrossCorner(interleaved, (cornerBase + COMPONENT_Y) * FLOATS_PER_CORNER_CROSS, p1, normal,
-                    cx, cy, cz, dirUx, dirUy, dirUz, dirVx, dirVy, dirVz, armLength);
-            writeCrossCorner(interleaved, (cornerBase + COMPONENT_Z) * FLOATS_PER_CORNER_CROSS, p2, normal,
-                    cx, cy, cz, dirUx, dirUy, dirUz, dirVx, dirVy, dirVz, armLength);
+            appendFaceGlyph(field, activeFace, field.theta[activeFace], crossScale, 0f, interleaved, cornerBase);
             indices[cornerBase] = cornerBase;
             indices[cornerBase + COMPONENT_Y] = cornerBase + COMPONENT_Y;
             indices[cornerBase + COMPONENT_Z] = cornerBase + COMPONENT_Z;
         }
         uploadCrossFieldBuffers(interleaved, indices);
+    }
+
+    /**
+     * Upload constraint glyphs: the same cross primitive as
+     * {@link #uploadCrossField(CrossField, float)} but oriented at each face's
+     * {@code faceConstraintAngle} and emitted only for faces where
+     * {@code faceConstrained} is set. Renders into the constraint buffers drawn by
+     * {@link #renderConstraintOverlay(Camera3D)}.
+     *
+     * @param field      built cross field carrying {@code faceConstrained},
+     *                   {@code faceConstraintAngle}, and {@code faceConstraintSource}
+     * @param crossScale arm length scale relative to incircle radius
+     */
+    public void uploadConstraints(CrossField field, float crossScale) {
+        if (field == null || field.faceConstrained == null || field.faceConstraintAngle == null
+                || field.faceConstraintSource == null || field.faceX == null || field.faceY == null) {
+            return;
+        }
+        HalfEdgeMesh mesh = field.mesh;
+        int faceCount = mesh.faceCount();
+        int constrainedCount = 0;
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            if (field.faceConstrained[activeFace]) {
+                constrainedCount++;
+            }
+        }
+        float[] interleaved = new float[constrainedCount * CORNERS_PER_FACE * FLOATS_PER_CORNER_CROSS];
+        int[] indices = new int[constrainedCount * CORNERS_PER_FACE];
+        int sourceCount = ConstraintSource.values().length;
+        constraintRangeStart = new int[sourceCount];
+        constraintRangeCount = new int[sourceCount];
+        int glyph = 0;
+        for (ConstraintSource source : CONSTRAINT_DRAW_ORDER) {
+            int rangeStart = glyph * CORNERS_PER_FACE;
+            constraintRangeStart[source.ordinal()] = rangeStart;
+            for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+                if (!field.faceConstrained[activeFace] || field.faceConstraintSource[activeFace] != source) {
+                    continue;
+                }
+                int cornerBase = glyph * CORNERS_PER_FACE;
+                appendFaceGlyph(field, activeFace, field.faceConstraintAngle[activeFace], crossScale,
+                        CONSTRAINT_NORMAL_LIFT, interleaved, cornerBase);
+                indices[cornerBase] = cornerBase;
+                indices[cornerBase + COMPONENT_Y] = cornerBase + COMPONENT_Y;
+                indices[cornerBase + COMPONENT_Z] = cornerBase + COMPONENT_Z;
+                glyph++;
+            }
+            constraintRangeCount[source.ordinal()] = glyph * CORNERS_PER_FACE - rangeStart;
+        }
+        uploadConstraintBuffers(interleaved, indices);
+    }
+
+    /**
+     * Compute the cross glyph for one face and write its three triangle-soup
+     * corners. The glyph is a unit-length pair of perpendicular arms in the face
+     * plane; the first arm points along {@code angle} measured in the face's local
+     * {@code (faceX, faceY)} frame, the second is its in-plane perpendicular.
+     *
+     * @param field              cross field supplying the mesh and per-face frame
+     * @param activeFace         dense active-face index of the face to glyph
+     * @param angle              first-arm direction in the face's local frame, radians
+     * @param crossScale         arm length scale relative to the face incircle radius
+     * @param normalLiftFraction fraction of arm length to float the glyph along the
+     *                           face normal (0 keeps it on the surface)
+     * @param interleaved        destination vertex buffer
+     * @param cornerBase         index of this glyph's first corner within the buffer
+     */
+    private static void appendFaceGlyph(CrossField field, int activeFace, float angle, float crossScale,
+            float normalLiftFraction, float[] interleaved, int cornerBase) {
+        HalfEdgeMesh mesh = field.mesh;
+        int faceId = mesh.faceIdAt(activeFace);
+        Vector3f p0 = new Vector3f();
+        Vector3f p1 = new Vector3f();
+        Vector3f p2 = new Vector3f();
+        Vector3f normal = new Vector3f();
+        mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), p0);
+        mesh.vertexPosition(mesh.faceVertexAt(faceId, COMPONENT_Y), p1);
+        mesh.vertexPosition(mesh.faceVertexAt(faceId, COMPONENT_Z), p2);
+        computeFaceNormal(p0, p1, p2, normal);
+        float cx = (p0.x + p1.x + p2.x) * ONE_THIRD;
+        float cy = (p0.y + p1.y + p2.y) * ONE_THIRD;
+        float cz = (p0.z + p1.z + p2.z) * ONE_THIRD;
+        float ax = p1.x - p0.x;
+        float ay = p1.y - p0.y;
+        float az = p1.z - p0.z;
+        float bx = p2.x - p0.x;
+        float by = p2.y - p0.y;
+        float bz = p2.z - p0.z;
+        float crX = ay * bz - az * by;
+        float crY = az * bx - ax * bz;
+        float crZ = ax * by - ay * bx;
+        float twoArea = (float) Math.sqrt(crX * crX + crY * crY + crZ * crZ);
+        float lenA = (float) Math.sqrt(ax * ax + ay * ay + az * az);
+        float lenB = (float) Math.sqrt(bx * bx + by * by + bz * bz);
+        float ex = p2.x - p1.x;
+        float ey = p2.y - p1.y;
+        float ez = p2.z - p1.z;
+        float lenC = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
+        float perim = lenA + lenB + lenC;
+        float incircleR = perim > 0f ? twoArea / perim : 0f;
+        float armLength = Math.max(crossScale * incircleR, 1.0e-8f);
+        float lift = normalLiftFraction * armLength;
+        cx += normal.x * lift;
+        cy += normal.y * lift;
+        cz += normal.z * lift;
+        p0.add(normal.x * lift, normal.y * lift, normal.z * lift);
+        p1.add(normal.x * lift, normal.y * lift, normal.z * lift);
+        p2.add(normal.x * lift, normal.y * lift, normal.z * lift);
+        float cosT = (float) Math.cos(angle);
+        float sinT = (float) Math.sin(angle);
+        Vector3f fx = field.faceX[activeFace];
+        Vector3f fy = field.faceY[activeFace];
+        float dirUx = cosT * fx.x + sinT * fy.x;
+        float dirUy = cosT * fx.y + sinT * fy.y;
+        float dirUz = cosT * fx.z + sinT * fy.z;
+        float dirVx = -sinT * fx.x + cosT * fy.x;
+        float dirVy = -sinT * fx.y + cosT * fy.y;
+        float dirVz = -sinT * fx.z + cosT * fy.z;
+        float dirULen = (float) Math.sqrt(dirUx * dirUx + dirUy * dirUy + dirUz * dirUz);
+        float dirVLen = (float) Math.sqrt(dirVx * dirVx + dirVy * dirVy + dirVz * dirVz);
+        if (dirULen > 0f) {
+            dirUx /= dirULen;
+            dirUy /= dirULen;
+            dirUz /= dirULen;
+        }
+        if (dirVLen > 0f) {
+            dirVx /= dirVLen;
+            dirVy /= dirVLen;
+            dirVz /= dirVLen;
+        }
+        writeCrossCorner(interleaved, cornerBase * FLOATS_PER_CORNER_CROSS, p0, normal,
+                cx, cy, cz, dirUx, dirUy, dirUz, dirVx, dirVy, dirVz, armLength);
+        writeCrossCorner(interleaved, (cornerBase + COMPONENT_Y) * FLOATS_PER_CORNER_CROSS, p1, normal,
+                cx, cy, cz, dirUx, dirUy, dirUz, dirVx, dirVy, dirVz, armLength);
+        writeCrossCorner(interleaved, (cornerBase + COMPONENT_Z) * FLOATS_PER_CORNER_CROSS, p2, normal,
+                cx, cy, cz, dirUx, dirUy, dirUz, dirVx, dirVy, dirVz, armLength);
     }
 
     private static void writeCrossCorner(float[] buffer, int offset, Vector3f position, Vector3f normal,
@@ -608,21 +717,48 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     private void uploadCrossFieldBuffers(float[] interleaved, int[] indices) {
+        int[] handles = uploadGlyphBuffers(crossFieldVao, crossFieldVbo, crossFieldEbo, interleaved, indices);
+        crossFieldVao = handles[COMPONENT_X];
+        crossFieldVbo = handles[COMPONENT_Y];
+        crossFieldEbo = handles[COMPONENT_Z];
+        crossFieldIndexCount = indices.length;
+    }
+
+    private void uploadConstraintBuffers(float[] interleaved, int[] indices) {
+        int[] handles = uploadGlyphBuffers(constraintVao, constraintVbo, constraintEbo, interleaved, indices);
+        constraintVao = handles[COMPONENT_X];
+        constraintVbo = handles[COMPONENT_Y];
+        constraintEbo = handles[COMPONENT_Z];
+        constraintIndexCount = indices.length;
+    }
+
+    /**
+     * Free the previous VAO/VBO/EBO triple, allocate fresh ones, and upload the
+     * cross-glyph vertex layout shared by the cross-field and constraint overlays.
+     *
+     * @param prevVao     existing VAO handle to free, or {@code 0} if none
+     * @param prevVbo     existing VBO handle to free, or {@code 0} if none
+     * @param prevEbo     existing EBO handle to free, or {@code 0} if none
+     * @param interleaved interleaved corner vertex data to upload
+     * @param indices     element indices to upload
+     * @return the freshly allocated {@code [vao, vbo, ebo]} handles
+     */
+    private int[] uploadGlyphBuffers(int prevVao, int prevVbo, int prevEbo, float[] interleaved, int[] indices) {
         GL gl = Platforms.gl();
-        if (crossFieldVao != 0) {
-            gl.deleteVertexArrays(crossFieldVao);
+        if (prevVao != 0) {
+            gl.deleteVertexArrays(prevVao);
         }
-        if (crossFieldVbo != 0) {
-            gl.deleteBuffers(crossFieldVbo);
+        if (prevVbo != 0) {
+            gl.deleteBuffers(prevVbo);
         }
-        if (crossFieldEbo != 0) {
-            gl.deleteBuffers(crossFieldEbo);
+        if (prevEbo != 0) {
+            gl.deleteBuffers(prevEbo);
         }
-        crossFieldVao = gl.genVertexArrays();
-        crossFieldVbo = gl.genBuffers();
-        crossFieldEbo = gl.genBuffers();
-        gl.bindVertexArray(crossFieldVao);
-        gl.bindBuffer(gl.ARRAY_BUFFER(), crossFieldVbo);
+        int vao = gl.genVertexArrays();
+        int vbo = gl.genBuffers();
+        int ebo = gl.genBuffers();
+        gl.bindVertexArray(vao);
+        gl.bindBuffer(gl.ARRAY_BUFFER(), vbo);
         gl.bufferData(gl.ARRAY_BUFFER(), interleaved, gl.STATIC_DRAW());
         int strideBytes = FLOATS_PER_CORNER_CROSS * Float.BYTES;
         gl.vertexAttribPointer(ATTR_POSITION, VEC3_SIZE, gl.FLOAT(), false, strideBytes, 0);
@@ -641,11 +777,11 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         gl.vertexAttribPointer(ATTR_ARM_LENGTH, 1, gl.FLOAT(), false, strideBytes,
                 ARM_LENGTH_OFFSET * Float.BYTES);
         gl.enableVertexAttribArray(ATTR_ARM_LENGTH);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), crossFieldEbo);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), ebo);
         IntBuffer ib = BufferUtils.createIntBuffer(indices.length);
         ib.put(indices).flip();
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), ib, gl.STATIC_DRAW());
-        crossFieldIndexCount = indices.length;
+        return new int[] {vao, vbo, ebo};
     }
 
     private void uploadSeamlessSurface(SeamlessParameterization seamless, MotorcycleGraph graph) {
@@ -865,6 +1001,42 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         gl.drawElements(gl.TRIANGLES(), crossFieldIndexCount, gl.UNSIGNED_INT(), 0);
     }
 
+    private void renderConstraintOverlay(Camera3D camera) {
+        if (constraintIndexCount <= 0 || crossFieldShader.ID < 0 || constraintRangeCount == null) {
+            return;
+        }
+        GL gl = Platforms.gl();
+        crossFieldShader.use();
+        crossFieldShader.setMat4(VIEW, camera.view);
+        crossFieldShader.setMat4(PROJECTION, localProjection);
+        sphereModel.identity();
+        crossFieldShader.setMat4(MODEL, sphereModel);
+        crossFieldShader.setFloat(DEPTHBIAS, 0f);
+        crossFieldShader.setFloat(LINE_HALF_WIDTH, lineHalfWidth);
+        gl.bindVertexArray(constraintVao);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), constraintEbo);
+        for (ConstraintSource source : CONSTRAINT_DRAW_ORDER) {
+            int count = constraintRangeCount[source.ordinal()];
+            if (count <= 0) {
+                continue;
+            }
+            Vector4f color = constraintSourceColor(source);
+            crossFieldShader.setVec4(U_LINE_COLOR, color);
+            crossFieldShader.setVec4(V_LINE_COLOR, color);
+            int offsetBytes = constraintRangeStart[source.ordinal()] * Integer.BYTES;
+            gl.drawElements(gl.TRIANGLES(), count, gl.UNSIGNED_INT(), offsetBytes);
+        }
+    }
+
+    private static Vector4f constraintSourceColor(ConstraintSource source) {
+        return switch (source) {
+            case BOUNDARY -> COLOR_CONSTRAINT_BOUNDARY;
+            case FEATURE -> COLOR_CONSTRAINT_FEATURE;
+            case CURVATURE -> COLOR_CONSTRAINT_CURVATURE;
+            default -> COLOR_CONSTRAINT_ANCHOR;
+        };
+    }
+
     private void renderGraphNodes(Camera3D camera) {
         if (graphNodeCount <= 0 || singularityVao == 0 || unlitShader.ID < 0) {
             return;
@@ -968,6 +1140,18 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         if (crossFieldEbo != 0) {
             gl.deleteBuffers(crossFieldEbo);
             crossFieldEbo = 0;
+        }
+        if (constraintVao != 0) {
+            gl.deleteVertexArrays(constraintVao);
+            constraintVao = 0;
+        }
+        if (constraintVbo != 0) {
+            gl.deleteBuffers(constraintVbo);
+            constraintVbo = 0;
+        }
+        if (constraintEbo != 0) {
+            gl.deleteBuffers(constraintEbo);
+            constraintEbo = 0;
         }
     }
 }

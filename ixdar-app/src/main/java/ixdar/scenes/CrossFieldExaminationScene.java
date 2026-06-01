@@ -17,6 +17,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
@@ -36,7 +37,11 @@ import ixdar.platform.input.MouseTrap;
  * the mesh as a translucent surface with per-triangle cross glyphs and coloured
  * spheres at the singularity vertices. Press {@code R} to swap between our
  * generated field and the BCEAK13 reference NDF when one is present beside the
- * OFF (sibling {@code *_in_cf.ndf}).
+ * OFF (sibling {@code *_in_cf.ndf}). Press {@code C} to toggle the per-face
+ * constraint glyph overlay — each cross oriented at the face's constraint angle
+ * and coloured by source (green boundary, orange feature-edge, magenta curvature,
+ * white anchor). Press {@code X} to toggle the cross field itself, so the
+ * constraints can be viewed on their own.
  */
 @SceneAnnotation(id = "cross-field-exam")
 public class CrossFieldExaminationScene extends Scene {
@@ -46,6 +51,9 @@ public class CrossFieldExaminationScene extends Scene {
     public static final String IN_TRI_OFF_SUFFIX = "_in_tri.off";
     public static final String IN_CF_NDF_SUFFIX = "_in_cf.ndf";
     public static final String SCENE_TITLE = "Ixdar : Cross Field Examination";
+    public static final String LOG_DASH = " — ";
+    public static final String LABEL_ON = "on";
+    public static final String LABEL_OFF = "off";
     public static final float CAMERA_AZIMUTH = (float) Math.toRadians(45.0);
     public static final float CAMERA_ELEVATION = (float) Math.toRadians(24.0);
     public static final float CAMERA_DISTANCE_MIN = 1.5f;
@@ -143,6 +151,7 @@ public class CrossFieldExaminationScene extends Scene {
             runtime.showCrossField = true;
             runtime.showSingularities = true;
             runtime.setCrossField(oursField, CROSS_SCALE);
+            runtime.uploadConstraints(oursField, CROSS_SCALE);
 
             meshCenter.set(he.center(new Vector3f()));
             float meshRadius = he.radius();
@@ -189,9 +198,42 @@ public class CrossFieldExaminationScene extends Scene {
         showingReference = !showingReference;
         CrossField active = showingReference ? referenceField : oursField;
         runtime.setCrossField(active, CROSS_SCALE);
+        runtime.uploadConstraints(active, CROSS_SCALE);
         Platforms.get().log("[cross-field-exam] now showing "
                 + (showingReference ? "reference (BCEAK13)" : "ours")
-                + " — " + active.singularities.size() + " singularities");
+                + LOG_DASH + active.singularities.size() + " singularities");
+    }
+
+    /** Toggle the per-face constraint glyph overlay and log the per-source counts. */
+    void toggleConstraints() {
+        runtime.showConstraints = !runtime.showConstraints;
+        CrossField active = showingReference ? referenceField : oursField;
+        int boundary = 0;
+        int feature = 0;
+        int curvature = 0;
+        int anchor = 0;
+        if (active.faceConstraintSource != null) {
+            for (ConstraintSource source : active.faceConstraintSource) {
+                switch (source) {
+                    case BOUNDARY -> boundary++;
+                    case FEATURE -> feature++;
+                    case CURVATURE -> curvature++;
+                    case ANCHOR -> anchor++;
+                    default -> { }
+                }
+            }
+        }
+        Platforms.get().log("[cross-field-exam] constraint overlay "
+                + (runtime.showConstraints ? LABEL_ON : LABEL_OFF)
+                + LOG_DASH + "boundary=" + boundary + " feature=" + feature
+                + " curvature=" + curvature + " anchor=" + anchor);
+    }
+
+    /** Toggle the cross-field glyph overlay (so the constraint overlay can be viewed alone). */
+    void toggleCrossField() {
+        runtime.showCrossField = !runtime.showCrossField;
+        Platforms.get().log("[cross-field-exam] cross-field overlay "
+                + (runtime.showCrossField ? LABEL_ON : LABEL_OFF));
     }
 
     /**
@@ -273,6 +315,12 @@ public class CrossFieldExaminationScene extends Scene {
         public void keyCallback(long window, int key, int scancode, int action, int mods) {
             if (active && action == ACTION_PRESS && key == Keys.R) {
                 scene.toggleReferenceField();
+            }
+            if (active && action == ACTION_PRESS && key == Keys.C) {
+                scene.toggleConstraints();
+            }
+            if (active && action == ACTION_PRESS && key == Keys.X) {
+                scene.toggleCrossField();
             }
             super.keyCallback(window, key, scancode, action, mods);
         }

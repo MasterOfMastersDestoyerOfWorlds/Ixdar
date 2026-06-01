@@ -18,6 +18,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.BoundaryConstraints;
+import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.CurvatureConstraints;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.FeatureEdgeConstraints;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
@@ -143,6 +144,7 @@ public class CrossField {
 
     public boolean[] faceConstrained;
     public float[] faceConstraintAngle;
+    public ConstraintSource[] faceConstraintSource;
 
     public int edgeCount;
     public int faceCount;
@@ -189,6 +191,8 @@ public class CrossField {
         this.faceConstrained = new boolean[faceCount];
         this.faceConstraintAngle = new float[faceCount];
         Arrays.fill(faceConstraintAngle, Float.NaN);
+        this.faceConstraintSource = new ConstraintSource[faceCount];
+        Arrays.fill(faceConstraintSource, ConstraintSource.NONE);
 
         this.theta = new float[faceCount];
         this.periodJump = new int[edgeCount];
@@ -331,6 +335,7 @@ public class CrossField {
         if (totalConstraints == 0 && faceCount > 0) {
             faceConstrained[0] = true;
             faceConstraintAngle[0] = 0f;
+            faceConstraintSource[0] = ConstraintSource.ANCHOR;
             totalConstraints = 1;
         }
         System.out.printf("[cross-field timing] directional constraints %.3fs%n",

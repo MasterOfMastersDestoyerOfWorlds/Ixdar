@@ -55,6 +55,7 @@ public class FeatureEdgeConstraints {
                 float angle = mesh.projectDirectionToFaceAngle(edgeDir, sideAi, crossField.faceY[sideAi], crossField.faceX[sideAi]);
                 crossField.faceConstrained[sideAi] = true;
                 crossField.faceConstraintAngle[sideAi] = CrossField.canonicalizeMod(angle);
+                crossField.faceConstraintSource[sideAi] = ConstraintSource.FEATURE;
                 addedConstraints++;
             }
         }

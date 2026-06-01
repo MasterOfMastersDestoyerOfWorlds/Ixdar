@@ -23,14 +23,14 @@ public class CurvatureConstraints {
     /**
      * Geometric ratio between consecutive radii in the radius series.
      */
-    public static final float RADIUS_RATIO = (float) Math.sqrt(2.0);
+    public static final float RADIUS_RATIO = 1.1f;
 
     /**
      * Scale used to reject nearly flat regions before adding curvature-based
      * cross-field constraints. The actual threshold is this value divided by the
      * mesh bounding-sphere radius, so it scales with model size.
      */
-    public static final float CURVATURE_SCALE_K = 0.1f;
+    public static final float CURVATURE_SCALE_K = 10f;
 
     /**
      * Minimum 0-to-1 bending contrast before the strongest bend direction is
@@ -310,8 +310,8 @@ public class CurvatureConstraints {
         int[] seedVerts = new int[3];
         float[] seedDists = new float[3];
 
-        java.util.List<Float> faceMeanH = new java.util.ArrayList<>();
-        java.util.List<Float> pinnedGap = new java.util.ArrayList<>();
+        List<Float> faceMeanH = new ArrayList<>();
+        List<Float> pinnedGap = new ArrayList<>();
 
         for (int faceAi = 0; faceAi < faceCount; faceAi++) {
             int faceId = mesh.faceIdAt(faceAi);
@@ -458,6 +458,7 @@ public class CurvatureConstraints {
                     crossField.faceY[faceAi], crossField.faceX[faceAi]);
             crossField.faceConstrained[faceAi] = true;
             crossField.faceConstraintAngle[faceAi] = CrossField.canonicalizeMod(angleInFace);
+            crossField.faceConstraintSource[faceAi] = ConstraintSource.CURVATURE;
             pinnedGap.add(kappaMaxList.get(bestIdx) - kappaMinList.get(bestIdx)); // disc = absolute gap
             addedConstraints++;
         }
@@ -469,7 +470,7 @@ public class CurvatureConstraints {
                 if (mh[i] > curvatureK)
                     above++;
             }
-            java.util.Arrays.sort(mh);
+            Arrays.sort(mh);
             System.err.printf(
                     "[meanH] faces=%d curvatureK=%.4g  |meanH| min=%.4g median=%.4g max=%.4g  aboveK=%d (%.1f%%)%n",
                     mh.length, curvatureK, mh[0], mh[mh.length / 2], mh[mh.length - 1],
@@ -479,7 +480,7 @@ public class CurvatureConstraints {
             float[] g = new float[pinnedGap.size()];
             for (int i = 0; i < g.length; i++)
                 g[i] = Math.abs(pinnedGap.get(i));
-            java.util.Arrays.sort(g);
+            Arrays.sort(g);
             System.err.printf("[pinned-gap] min=%.4g median=%.4g max=%.4g  (curvatureK=%.4g)%n",
                     g[0], g[g.length / 2], g[g.length - 1], curvatureK);
         }
@@ -566,9 +567,9 @@ public class CurvatureConstraints {
     }
 
     /**
-     * Cohen-Steiner integrated curvature tensor over geodesic disks around
-     * {@code centerVertexId} at every radius in {@code radiiAscending}, in a single
-     * walk. Walks the 1-skeleton once out to the largest radius, records each
+     * Cohen-Steiner integrated curvature tensor over geodesic disks around the
+     * seed vertices {@code seedVertexIds} at every radius in {@code radiiAscending},
+     * in a single walk. Walks the 1-skeleton once out to the largest radius, records each
      * face's and interior edge's inclusion radius (the smallest disk that fully
      * contains it) and each edge's dihedral contribution {@code β·|e|·(ē⊗ē)} once,
      * then forms the per-radius tensors by prefix sum over those inclusion radii.
@@ -576,7 +577,8 @@ public class CurvatureConstraints {
      * the local tangent basis (e1, e2) normalized by the disk's triangle area, or
      * {@code null} when that disk has no usable triangles.
      *
-     * @param centerVertexId center vertex id
+     * @param seedVertexIds  seed vertex ids the multi-source geodesic walk starts from
+     * @param seedDistances  initial geodesic distance for each seed, parallel to {@code seedVertexIds}
      * @param centerNormal   center vertex normal
      * @param tangentE1      tangent basis vector 1
      * @param tangentE2      tangent basis vector 2 (= centerNormal × tangentE1)
