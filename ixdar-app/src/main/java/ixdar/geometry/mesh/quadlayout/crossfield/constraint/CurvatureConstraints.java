@@ -23,14 +23,14 @@ public class CurvatureConstraints {
     /**
      * Geometric ratio between consecutive radii in the radius series.
      */
-    public static final float RADIUS_RATIO = 1.1f;
+    public static final float RADIUS_RATIO = (float) Math.sqrt(2.0);
 
     /**
      * Scale used to reject nearly flat regions before adding curvature-based
      * cross-field constraints. The actual threshold is this value divided by the
      * mesh bounding-sphere radius, so it scales with model size.
      */
-    public static final float CURVATURE_SCALE_K = 10f;
+    public static final float CURVATURE_SCALE_K = 0.1f;
 
     /**
      * Minimum 0-to-1 bending contrast before the strongest bend direction is
@@ -57,8 +57,6 @@ public class CurvatureConstraints {
      * cross-field axis up to one quarter-turn.
      */
     public static final float CONFLICT_ANGLE_THRESHOLD = (float) (Math.PI / 8.0);
-
-    private static final double NANOS_PER_SECOND = 1.0e9;
 
     public int lastCandidateCount;
     public int lastAcceptedCount;
@@ -173,9 +171,11 @@ public class CurvatureConstraints {
     /**
      * Directional constraints from principal curvature.
      *
+     * @param targetQuadEdgeLength target quad edge length
+     * 
      * @return number of newly constrained faces
      */
-    public int applyCurvatureConstraints() {
+    public int applyCurvatureConstraints(float targetQuadEdgeLength) {
 
         int addedConstraints = 0;
         neighborStart = new int[vertexCount + 1];
@@ -275,14 +275,12 @@ public class CurvatureConstraints {
 
         float averageEdgeLength = mesh.computeAverageEdgeLength();
         float curvatureK = CURVATURE_SCALE_K / Math.max(mesh.computeBoundingSphereRadius(), CrossField.EPSILON);
-        Vector3f vPos = new Vector3f();
-        Vector3f vNormal = new Vector3f();
         Vector3f e1 = new Vector3f();
         Vector3f e2 = new Vector3f();
 
         List<Float> radii = new ArrayList<>();
         float startRadius = averageEdgeLength;
-        float endRadius = crossField.targetQuadEdgeLength;
+        float endRadius = targetQuadEdgeLength;
         float stabilityWindow = endRadius / 4.0f;
         for (float r = startRadius; r <= endRadius + CrossField.EPSILON; r *= RADIUS_RATIO) {
             radii.add(r);
@@ -393,9 +391,8 @@ public class CurvatureConstraints {
             int bestIdx = -1;
             float bestJitter = Float.POSITIVE_INFINITY;
             for (int k = 0; k < anglesMaxDir.size(); k++) {
-
                 float center = validRadii.get(k);
-                int intervalStatus = CrossField.CURVATURE_INTERVAL_VALID;
+                boolean isValid = true;
                 for (int j = 0; j < validRadii.size(); j++) {
                     if (Math.abs(validRadii.get(j) - center) > stabilityWindow) {
                         continue;
@@ -403,19 +400,17 @@ public class CurvatureConstraints {
                     float kmax = kappaMaxList.get(j);
                     float kmin = kappaMinList.get(j);
                     if (Math.abs(kmax) < CrossField.EPSILON) {
-                        intervalStatus = CrossField.CURVATURE_INTERVAL_FAIL_TAU;
+                        isValid = false;
                         break;
                     }
                     float curvatureConstrast = (Math.abs(kmax) - Math.abs(kmin)) / Math.abs(kmax);
                     float meanH = 0.5f * (kmax + kmin);
                     if (curvatureConstrast <= MINIMUM_CURVATURE_CONTRAST || Math.abs(meanH) <= curvatureK) {
-                        intervalStatus = curvatureConstrast <= MINIMUM_CURVATURE_CONTRAST
-                                ? CrossField.CURVATURE_INTERVAL_FAIL_TAU
-                                : CrossField.CURVATURE_INTERVAL_FAIL_MEAN;
+                        isValid = false;
                         break;
                     }
                 }
-                if (intervalStatus != CrossField.CURVATURE_INTERVAL_VALID) {
+                if (!isValid) {
                     continue;
                 }
 
@@ -488,82 +483,6 @@ public class CurvatureConstraints {
                 addedConstraints, faceCount, 100.0 * addedConstraints / faceCount);
         return addedConstraints;
 
-    }
-
-    /**
-     * Collect vertices reached by a geodesic disk around a curvature source.
-     *
-     * @param centerVertexId center vertex id
-     * @param geodesicRadius maximum 1-skeleton distance
-     * @return vertex ids inside the disk
-     */
-    private int[] collectVerticesWithinRadius(int centerVertexId, float geodesicRadius) {
-        Arrays.fill(vertexInDiskStamp, 0);
-        Arrays.fill(vertexDistance, Float.POSITIVE_INFINITY);
-        Arrays.fill(visitedVertexIds, 0);
-        final int stamp = 1;
-
-        PriorityQueue<DijkstraNode> frontier = new PriorityQueue<>();
-        frontier.offer(new DijkstraNode(0f, centerVertexId));
-        vertexInDiskStamp[centerVertexId] = stamp;
-        vertexDistance[centerVertexId] = 0f;
-        int visitedCount = 0;
-        visitedVertexIds[visitedCount++] = centerVertexId;
-
-        Vector3f currentPosition = new Vector3f();
-        Vector3f nextPosition = new Vector3f();
-        while (!frontier.isEmpty()) {
-            DijkstraNode node = frontier.poll();
-            int currentVertexId = node.vertexOrFace;
-            if (node.distance > vertexDistance[currentVertexId] + CrossField.EPSILON) {
-                continue;
-            }
-            mesh.vertexPosition(currentVertexId, currentPosition);
-            int outgoingCount = mesh.vertexOutgoingHalfEdgeCount(currentVertexId);
-            for (int i = 0; i < outgoingCount; i++) {
-                int halfEdge = mesh.vertexOutgoingHalfEdgeAt(currentVertexId, i);
-                int nextVertexId = mesh.halfEdgeEndVertex(halfEdge);
-                mesh.vertexPosition(nextVertexId, nextPosition);
-                float edgeLength = nextPosition.sub(currentPosition).length();
-                float newDistance = node.distance + edgeLength;
-                if (newDistance > geodesicRadius || newDistance >= vertexDistance[nextVertexId]) {
-                    continue;
-                }
-                if (vertexInDiskStamp[nextVertexId] != stamp) {
-                    vertexInDiskStamp[nextVertexId] = stamp;
-                    visitedVertexIds[visitedCount++] = nextVertexId;
-                }
-                vertexDistance[nextVertexId] = newDistance;
-                frontier.offer(new DijkstraNode(newDistance, nextVertexId));
-            }
-        }
-        return Arrays.copyOf(visitedVertexIds, visitedCount);
-    }
-
-    /**
-     * Collect active faces incident to any vertex in a footprint.
-     *
-     * @param footprintVertexIds vertex ids in the curvature footprint
-     * @return active face ids touched by the footprint
-     */
-    private int[] collectFootprintFaces(int[] footprintVertexIds) {
-        boolean[] faceSeen = new boolean[crossField.faceCount];
-        int[] faceActiveIds = new int[crossField.faceCount];
-        int faceCount = 0;
-        for (int vertexId : footprintVertexIds) {
-            int adjacentFaceCount = mesh.vertexFaceCount(vertexId);
-            for (int i = 0; i < adjacentFaceCount; i++) {
-                int faceId = mesh.vertexFaceAt(vertexId, i);
-                int faceActiveId = crossField.faceIdToActive.get(faceId);
-                if (faceSeen[faceActiveId]) {
-                    continue;
-                }
-                faceSeen[faceActiveId] = true;
-                faceActiveIds[faceCount] = faceActiveId;
-                faceCount++;
-            }
-        }
-        return Arrays.copyOf(faceActiveIds, faceCount);
     }
 
     /**

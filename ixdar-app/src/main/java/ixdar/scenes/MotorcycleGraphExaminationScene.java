@@ -1,7 +1,5 @@
 package ixdar.scenes;
 
-import static ixdar.platform.input.Keys.ACTION_PRESS;
-
 import org.joml.Vector3f;
 
 import ixdar.annotations.scene.SceneAnnotation;
@@ -20,6 +18,7 @@ import ixdar.platform.gl.Platform;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 
 /**
@@ -64,8 +63,8 @@ public class MotorcycleGraphExaminationScene extends Scene {
         super.initGL();
         Platforms.gl().setWindowTitle(SCENE_TITLE);
 
-        keys = new ToggleKeyGuy(this, camera, this);
         orbitMouse = new OrbitMouseTrap(camera, this);
+        keys = new ToggleKeyGuy(this, orbitMouse, camera, this);
         orbitMouse.setTarget(meshCenter);
         orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE_DEFAULT);
         mouse = orbitMouse;
@@ -190,34 +189,32 @@ public class MotorcycleGraphExaminationScene extends Scene {
         platform.setKeyCallback((key, scancode, action, mods) -> keys.keyCallback(0L, key, scancode, action, mods));
     }
 
-    private final class ToggleKeyGuy extends KeyGuy {
+    private final class ToggleKeyGuy extends OrbitCameraKeyGuy {
         private final MotorcycleGraphExaminationScene scene;
 
-        ToggleKeyGuy(MotorcycleGraphExaminationScene scene, Camera camera, Canvas3D canvas) {
-            super(camera, canvas);
+        ToggleKeyGuy(MotorcycleGraphExaminationScene scene, OrbitMouseTrap orbitMouse,
+                Camera camera, Canvas3D canvas) {
+            super(orbitMouse, camera, canvas);
             this.scene = scene;
         }
 
         @Override
-        public void keyCallback(long window, int key, int scancode, int action, int mods) {
-            if (active && action == ACTION_PRESS) {
-                if (key == Keys.P) {
-                    scene.togglePatches();
-                } else if (key == Keys.T) {
-                    scene.toggleTraces();
-                } else if (key == Keys.N) {
-                    scene.toggleNodes();
-                } else if (key == Keys.W) {
-                    scene.toggleWitnesses();
-                } else if (key == Keys.E) {
-                    scene.toggleEppsteinMarkers();
-                } else if (key == Keys.COMMA) {
-                    scene.stepAlpha(-1f);
-                } else if (key == Keys.PERIOD) {
-                    scene.stepAlpha(1f);
-                }
+        protected void handleSceneKeys(int key, int mods) {
+            if (key == Keys.P) {
+                scene.togglePatches();
+            } else if (key == Keys.T) {
+                scene.toggleTraces();
+            } else if (key == Keys.N) {
+                scene.toggleNodes();
+            } else if (key == Keys.W) {
+                scene.toggleWitnesses();
+            } else if (key == Keys.E) {
+                scene.toggleEppsteinMarkers();
+            } else if (key == Keys.COMMA) {
+                scene.stepAlpha(-1f);
+            } else if (key == Keys.PERIOD) {
+                scene.stepAlpha(1f);
             }
-            super.keyCallback(window, key, scancode, action, mods);
         }
     }
 }

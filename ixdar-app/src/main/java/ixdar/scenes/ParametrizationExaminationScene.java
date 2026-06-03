@@ -16,6 +16,7 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 
 /**
@@ -81,8 +82,8 @@ public class ParametrizationExaminationScene extends Scene {
         super.initGL();
         Platforms.gl().setWindowTitle(SCENE_TITLE);
 
-        keys = new KeyGuy(camera, this);
         orbitMouse = new OrbitMouseTrap(camera, this);
+        keys = new OrbitCameraKeyGuy(orbitMouse, camera, this);
         orbitMouse.setTarget(meshCenter);
         orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE_DEFAULT);
         mouse = orbitMouse;

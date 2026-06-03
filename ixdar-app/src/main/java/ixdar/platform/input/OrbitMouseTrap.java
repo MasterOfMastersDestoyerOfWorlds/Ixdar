@@ -23,14 +23,20 @@ public class OrbitMouseTrap extends MouseTrap {
     public static final float DEFAULT_MIN_DISTANCE = 0.75f;
     public static final float DEFAULT_MAX_DISTANCE = 40.0f;
     private static final float DRAG_RADIANS_PER_PIXEL = 0.01f;
+    /** GLFW shift modifier bit; shift + left-drag pans the orbit centre. */
+    private static final int MOD_SHIFT = 0x0001;
+    /** Orbit-centre pan distance per drag pixel, as a fraction of orbit distance. */
+    private static final float PAN_DISTANCE_FRACTION_PER_PIXEL = 0.0015f;
     private static final float MIN_ELEVATION = (float) Math.toRadians(-85.0);
     private static final float MAX_ELEVATION = (float) Math.toRadians(85.0);
     private static final float ZOOM_BASE = 0.97f;
 
     private final Camera3D orbitCamera;
     private final Vector3f orbitTarget = new Vector3f();
+    private final Vector3f homeTarget = new Vector3f();
 
     private Vector2f leftMouseDownPos;
+    private boolean panningDrag;
     private float azimuth = (float) Math.toRadians(90.0);
     private float elevation = (float) Math.toRadians(20.0);
     private float distance = 3.5f;
@@ -57,6 +63,17 @@ public class OrbitMouseTrap extends MouseTrap {
      */
     public void setTarget(Vector3f target) {
         orbitTarget.set(target);
+        homeTarget.set(target);
+        applyOrbit();
+    }
+
+    /**
+     * Restore the orbit centre to the home point recorded by the last
+     * {@link #setTarget(Vector3f)} (the scene's mesh centre), undoing any
+     * shift-drag panning. Bound to {@code Ctrl+R} by {@link OrbitCameraKeyGuy}.
+     */
+    public void resetTarget() {
+        orbitTarget.set(homeTarget);
         applyOrbit();
     }
 
@@ -111,11 +128,12 @@ public class OrbitMouseTrap extends MouseTrap {
     public float getDistance() { return distance; }
 
     /**
-     * Track left-button press for drag detection; only the left button drives orbiting.
+     * Track left-button press for drag detection. The left button drives orbiting,
+     * or panning of the orbit centre when shift is held at press time.
      *
      * @param button button index
      * @param action {@code ACTION_PRESS} or {@code ACTION_RELEASE}
-     * @param mods modifier-key bitmask (unused)
+     * @param mods modifier-key bitmask; {@link #MOD_SHIFT} selects pan over orbit
      */
     @Override
     public void mouseButton(int button, int action, int mods) {
@@ -127,9 +145,11 @@ public class OrbitMouseTrap extends MouseTrap {
         float y = lastY;
         if (action == ACTION_PRESS && button == MOUSE_BUTTON_LEFT) {
             leftMouseDownPos = new Vector2f(x, y);
+            panningDrag = (mods & MOD_SHIFT) != 0;
             mousePressed(x, y);
         } else if (action == ACTION_RELEASE && button == MOUSE_BUTTON_LEFT) {
             leftMouseDownPos = null;
+            panningDrag = false;
         }
     }
 
@@ -174,8 +194,10 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * Apply the per-pixel azimuth / elevation deltas (scaled by
-     * {@link #DRAG_RADIANS_PER_PIXEL}) and reapply the camera pose.
+     * Left-drag with shift held pans the orbit centre in the screen plane (see
+     * {@link #panTarget(float, float)}); otherwise apply the per-pixel azimuth /
+     * elevation deltas (scaled by {@link #DRAG_RADIANS_PER_PIXEL}) and reapply the
+     * camera pose.
      *
      * @param x cursor x in window coordinates
      * @param y cursor y in window coordinates
@@ -191,10 +213,37 @@ public class OrbitMouseTrap extends MouseTrap {
         }
         float dx = x - lastX;
         float dy = y - lastY;
-        azimuth += dx * DRAG_RADIANS_PER_PIXEL;
-        elevation = clamp(elevation + dy * DRAG_RADIANS_PER_PIXEL, MIN_ELEVATION, MAX_ELEVATION);
+        if (panningDrag) {
+            panTarget(dx, dy);
+        } else {
+            azimuth += dx * DRAG_RADIANS_PER_PIXEL;
+            elevation = clamp(elevation + dy * DRAG_RADIANS_PER_PIXEL, MIN_ELEVATION, MAX_ELEVATION);
+        }
         mousePos(x, y);
         applyOrbit();
+    }
+
+    /**
+     * Translate the orbit centre in the screen plane opposite the mouse travel, so
+     * the grabbed scene follows the cursor. The screen right/up basis is derived from
+     * the current orbit angles; the step scales with orbit distance so panning feels
+     * consistent at any zoom.
+     *
+     * @param dx cursor x delta in pixels since the last drag sample
+     * @param dy cursor y delta in pixels since the last drag sample
+     */
+    private void panTarget(float dx, float dy) {
+        float cosElevation = (float) Math.cos(elevation);
+        Vector3f forward = new Vector3f(
+                -cosElevation * (float) Math.cos(azimuth),
+                -(float) Math.sin(elevation),
+                -cosElevation * (float) Math.sin(azimuth));
+        Vector3f right = new Vector3f();
+        forward.cross(orbitCamera.worldUp, right).normalize();
+        Vector3f up = new Vector3f();
+        right.cross(forward, up).normalize();
+        float step = distance * PAN_DISTANCE_FRACTION_PER_PIXEL;
+        orbitTarget.add(right.mul(-dx * step)).add(up.mul(dy * step));
     }
 
     /**

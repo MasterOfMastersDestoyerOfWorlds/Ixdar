@@ -216,8 +216,8 @@ public class MeshNodeViewerScene extends Scene {
         super.initGL();
         Platforms.gl().setWindowTitle("Ixdar : Mesh Node Viewer");
         MenuBox.menuVisible = false;
-        keys = new MeshViewerKeyGuy(this, camera, this);
         orbitMouse = new OrbitMouseTrap(camera, this);
+        keys = new MeshViewerKeyGuy(this, orbitMouse, camera, this);
         orbitMouse.setTarget(meshCenter);
         orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);
         mouse = orbitMouse;

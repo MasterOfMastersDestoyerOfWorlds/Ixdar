@@ -1,14 +1,13 @@
 package ixdar.scenes.mesh;
 
-import static ixdar.platform.input.Keys.ACTION_PRESS;
-
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
 import ixdar.platform.Platforms;
-import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.Keys;
+import ixdar.platform.input.OrbitCameraKeyGuy;
+import ixdar.platform.input.OrbitMouseTrap;
 
-public class MeshViewerKeyGuy extends KeyGuy {
+public class MeshViewerKeyGuy extends OrbitCameraKeyGuy {
 
     // GLFW modifier bit for the shift key.
     private static final int MOD_SHIFT = 0x0001;
@@ -16,15 +15,17 @@ public class MeshViewerKeyGuy extends KeyGuy {
     private final MeshNodeViewerScene meshScene;
 
     /**
-     * Wrap the standard {@link KeyGuy} with mesh-viewer-specific shortcuts
+     * Wrap the shared {@link OrbitCameraKeyGuy} with mesh-viewer-specific shortcuts
      * (Z, P, Shift+P, [, ], D) that operate on {@code meshScene}.
      *
-     * @param meshScene the scene whose toggles/cycles this handler drives
-     * @param camera camera passed through to the base {@link KeyGuy}
-     * @param canvas backing canvas passed through to the base {@link KeyGuy}
+     * @param meshScene  the scene whose toggles/cycles this handler drives
+     * @param orbitMouse orbit controller whose centre {@code Ctrl+R} resets
+     * @param camera     camera passed through to the base handler
+     * @param canvas     backing canvas passed through to the base handler
      */
-    public MeshViewerKeyGuy(MeshNodeViewerScene meshScene, Camera camera, Canvas3D canvas) {
-        super(camera, canvas);
+    public MeshViewerKeyGuy(MeshNodeViewerScene meshScene, OrbitMouseTrap orbitMouse,
+            Camera camera, Canvas3D canvas) {
+        super(orbitMouse, camera, canvas);
         this.meshScene = meshScene;
     }
 
@@ -32,34 +33,27 @@ public class MeshViewerKeyGuy extends KeyGuy {
      * Handle mesh-viewer key presses on key-down: Z toggles wireframe,
      * P toggles the patch overlay (Shift+P cycles shader mode instead),
      * [ / ] step backward/forward through the model catalog, and D
-     * cycles the active patch decomposer. All other keys defer to the
-     * base {@link KeyGuy}.
+     * cycles the active patch decomposer.
      *
-     * @param window GLFW window handle (unused beyond Platforms init)
-     * @param key GLFW key code
-     * @param scancode platform-specific scancode (unused)
-     * @param action GLFW action (only {@code ACTION_PRESS} is handled)
+     * @param key  GLFW key code
      * @param mods GLFW modifier bitmask (Shift is read here)
      */
     @Override
-    public void keyCallback(long window, int key, int scancode, int action, int mods) {
+    protected void handleSceneKeys(int key, int mods) {
         Platforms.init(canvas.platform.getPlatformID());
-        if (active && action == ACTION_PRESS) {
-            switch (key) {
-                case Keys.Z -> meshScene.toggleMeshWireframe();
-                case Keys.P -> {
-                    if ((mods & MOD_SHIFT) != 0) {
-                        meshScene.toggleShaderMode();
-                    } else {
-                        meshScene.togglePatchOverlay();
-                    }
+        switch (key) {
+            case Keys.Z -> meshScene.toggleMeshWireframe();
+            case Keys.P -> {
+                if ((mods & MOD_SHIFT) != 0) {
+                    meshScene.toggleShaderMode();
+                } else {
+                    meshScene.togglePatchOverlay();
                 }
-                case Keys.LEFT_BRACKET -> meshScene.prevModel();
-                case Keys.RIGHT_BRACKET -> meshScene.nextModel();
-                case Keys.D -> meshScene.toggleDecomposer();
-                default -> {}
             }
+            case Keys.LEFT_BRACKET -> meshScene.prevModel();
+            case Keys.RIGHT_BRACKET -> meshScene.nextModel();
+            case Keys.D -> meshScene.toggleDecomposer();
+            default -> { }
         }
-        super.keyCallback(window, key, scancode, action, mods);
     }
 }

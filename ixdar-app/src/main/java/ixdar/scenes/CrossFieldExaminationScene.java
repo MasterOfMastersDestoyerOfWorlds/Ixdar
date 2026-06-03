@@ -1,7 +1,5 @@
 package ixdar.scenes;
 
-import static ixdar.platform.input.Keys.ACTION_PRESS;
-
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,6 +15,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.color.ColorRGB;
@@ -25,6 +24,7 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.Keys;
+import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 
 import ixdar.platform.input.MouseTrap;
@@ -103,8 +103,8 @@ public class CrossFieldExaminationScene extends Scene {
         super.initGL();
         Platforms.gl().setWindowTitle(SCENE_TITLE);
 
-        keys = new ToggleKeyGuy(this, camera, this);
         orbitMouse = new OrbitMouseTrap(camera, this);
+        keys = new ToggleKeyGuy(this, orbitMouse, camera, this);
         orbitMouse.setTarget(meshCenter);
         orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE_DEFAULT);
         mouse = orbitMouse;
@@ -116,7 +116,7 @@ public class CrossFieldExaminationScene extends Scene {
             ArrayMesh am = MeshLoader.load(offPath);
             HalfEdgeMesh he = HalfEdgeMeshEngine.buildFromIndexedMesh(
                     am.copyPositions(), am.copyFaceIndices());
-            oursField = new CrossField(he).build();
+            oursField = new NDirectionField(he).build();
 
             String ndfPath = inferNdfPath(offPath);
             if (ndfPath != null) {
@@ -301,28 +301,25 @@ public class CrossFieldExaminationScene extends Scene {
         });
     }
 
-    /** Inline {@link KeyGuy} that adds the {@code R} reference toggle. */
-    private static final class ToggleKeyGuy extends KeyGuy {
+    /** Inline {@link OrbitCameraKeyGuy} that adds the {@code R}/{@code C}/{@code X} toggles. */
+    private static final class ToggleKeyGuy extends OrbitCameraKeyGuy {
         private final CrossFieldExaminationScene scene;
 
-        ToggleKeyGuy(CrossFieldExaminationScene scene, Camera camera,
+        ToggleKeyGuy(CrossFieldExaminationScene scene, OrbitMouseTrap orbitMouse, Camera camera,
                 Canvas3D canvas) {
-            super(camera, canvas);
+            super(orbitMouse, camera, canvas);
             this.scene = scene;
         }
 
         @Override
-        public void keyCallback(long window, int key, int scancode, int action, int mods) {
-            if (active && action == ACTION_PRESS && key == Keys.R) {
+        protected void handleSceneKeys(int key, int mods) {
+            if (key == Keys.R) {
                 scene.toggleReferenceField();
-            }
-            if (active && action == ACTION_PRESS && key == Keys.C) {
+            } else if (key == Keys.C) {
                 scene.toggleConstraints();
-            }
-            if (active && action == ACTION_PRESS && key == Keys.X) {
+            } else if (key == Keys.X) {
                 scene.toggleCrossField();
             }
-            super.keyCallback(window, key, scancode, action, mods);
         }
     }
 }

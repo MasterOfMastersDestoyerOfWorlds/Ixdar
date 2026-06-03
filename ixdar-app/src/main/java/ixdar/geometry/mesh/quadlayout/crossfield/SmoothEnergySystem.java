@@ -83,7 +83,7 @@ public final class SmoothEnergySystem {
         this.vornoiForest = vornoiForest;
     }
 
-    void assemble(HalfEdgeMesh mesh, Map<Integer, Integer> faceIdToActive, float[] kappa,
+    public void assemble(HalfEdgeMesh mesh, Map<Integer, Integer> faceIdToActive, float[] kappa,
             int solverLocalMaxIterations, int solverCgMaxIterations) {
 
         int nbCount = 0;
@@ -155,7 +155,7 @@ public final class SmoothEnergySystem {
         roundBatchTol = DEFAULT_ROUND_BATCH_TOLERANCE;
     }
 
-    void solveGreedyMIP(String lastDiagnostics) {
+    public void solveGreedyMIP() {
         lastAdaptiveMethod = "BOOTSTRAP_DIRECT_PENDING";
         lastAdaptiveResidual = Double.NaN;
         solveRelaxed(-1);
@@ -304,7 +304,7 @@ public final class SmoothEnergySystem {
      * @param roundedVariable variable index just rounded, or negative for the
      *                        bootstrap (no rounded variable yet)
      */
-    void solveRelaxed(int roundedVariable) {
+    public void solveRelaxed(int roundedVariable) {
         if (roundedVariable < 0) {
             solveRelaxed((int[]) null, 0);
             return;
@@ -312,7 +312,7 @@ public final class SmoothEnergySystem {
         solveRelaxed(new int[] { roundedVariable }, 1);
     }
 
-    void solveRelaxed(int[] roundedVariables, int roundedCount) {
+    public void solveRelaxed(int[] roundedVariables, int roundedCount) {
         AdaptiveSolver.Result result = AdaptiveSolver.solveAfterRounding(
                 normalMatrix, solution, fixedVariables,
                 roundedVariables, roundedCount, adaptiveOptions);
@@ -355,7 +355,7 @@ public final class SmoothEnergySystem {
         }
     }
 
-    void unpackInto(HalfEdgeMesh mesh, CrossField cf) {
+    public void unpackInto(HalfEdgeMesh mesh, CrossField cf) {
         cf.theta = solutionTheta.clone();
         cf.periodJump = new int[edgeCount];
         for (int eAi = 0; eAi < edgeCount; eAi++) {
