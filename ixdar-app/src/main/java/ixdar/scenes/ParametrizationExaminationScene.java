@@ -9,6 +9,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
@@ -96,7 +97,7 @@ public class ParametrizationExaminationScene extends Scene {
             ArrayMesh arrayMesh = MeshLoader.load(offPath);
             HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
                     arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
-            CrossField crossField = new CrossField(mesh).build();
+            CrossField crossField = new NDirectionField(mesh).build();
             int ourSingCount = crossField.singularities.size();
             if (cfPath != null) {
                 CrossField reference = CrossFieldLoader.load(cfPath, mesh);

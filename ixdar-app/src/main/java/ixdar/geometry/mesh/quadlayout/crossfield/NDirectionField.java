@@ -1,12 +1,13 @@
 package ixdar.geometry.mesh.quadlayout.crossfield;
 
+import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
@@ -35,8 +36,6 @@ public class NDirectionField extends CrossField {
     public Vector3f[] vertexY;
     private Vector3f[] vertexNormal;
 
-    // Per-vertex lumped mass and angle defect (2*pi - sum of incident angles).
-    private double[] mass;
     private double[] angleDefect;
 
     // angleInFrame[ packVH(vertexId, halfEdge) ] = rescaled angle of that outgoing
@@ -56,7 +55,7 @@ public class NDirectionField extends CrossField {
      * -1 = holomorphic (at points of high Gaussian curvature), 1 = anti-holomorphic
      * (at points of low Gaussian curvature).
      */
-    public final double curvatureBias = 0;
+    public final double curvatureBias = 1;
 
     /**
      * 
@@ -82,12 +81,8 @@ public class NDirectionField extends CrossField {
         super.build();
         computeVertexFrames();
         computeAngleRescaling();
-        ComplexUpper sys = assemble();
-        solveSmoothest(sys);
-        fieldAngle = new double[vertexCount];
-        for (int v = 0; v < vertexCount; v++) {
-            fieldAngle[v] = Math.atan2(uImaginary[v], uReal[v]) / n;
-        }
+        AbstractMap.SimpleEntry<ComplexUpper, ComplexUpper> sys = assemble();
+        solveSmoothest(sys.getKey(), sys.getValue());
         populate();
         return this;
     }
@@ -144,174 +139,212 @@ public class NDirectionField extends CrossField {
      * Compute the angle rescaling and per-outgoing-edge angles.
      */
     public void computeAngleRescaling() {
-        mass = new double[vertexCount];
         angleDefect = new double[vertexCount];
-
+    
         for (int v = 0; v < vertexCount; v++) {
             int vId = vertexIdOf[v];
             boolean boundary = mesh.isBoundaryVertex(vId);
             int outCount = mesh.vertexOutgoingHalfEdgeCount(vId);
+            if (outCount == 0) {
+                continue;
+            }
             Vector3f vp = mesh.vertexPosition(vId);
-
-            // Directions of outgoing edges in rotational order.
+    
+            // Spokes with their direction and angle in the vertex tangent frame.
             int[] hes = new int[outCount];
             Vector3f[] dir = new Vector3f[outCount];
+            double[] raw = new double[outCount];
             for (int i = 0; i < outCount; i++) {
                 int he = mesh.vertexOutgoingHalfEdgeAt(vId, i);
-                hes[i] = he;
                 Vector3f d = new Vector3f(mesh.vertexPosition(mesh.halfEdgeEndVertex(he))).sub(vp);
                 if (d.length() < EPS) {
                     d.set(vertexX[v]);
                 }
-                dir[i] = d.normalize();
+                d.normalize();
+                hes[i] = he;
+                dir[i] = d;
+                raw[i] = Math.atan2(d.dot(vertexY[v]), d.dot(vertexX[v]));
             }
-
-            // Gaps between consecutive outgoing edges; wrap-around only on interior.
-            int gaps = boundary ? outCount - 1 : outCount;
-            double[] gap = new double[Math.max(gaps, 0)];
-            double total = 0.0;
-            for (int i = 0; i < gaps; i++) {
-                Vector3f a = dir[i];
-                Vector3f b = dir[(i + 1) % outCount];
+    
+            // The cached list is insertion order. Sort into rotational (CCW) order.
+            Integer[] order = new Integer[outCount];
+            for (int i = 0; i < outCount; i++) {
+                order[i] = i;
+            }
+            java.util.Arrays.sort(order, (p, q) -> Double.compare(raw[p], raw[q]));
+    
+            // Corner-angle gaps between rotational neighbours (gap[k] spans sorted k -> k+1).
+            double[] gap = new double[outCount];
+            for (int k = 0; k < outCount; k++) {
+                Vector3f a = dir[order[k]];
+                Vector3f b = dir[order[(k + 1) % outCount]];
                 double c = Math.max(-1.0, Math.min(1.0, a.dot(b)));
-                gap[i] = Math.acos(c);
-                total += gap[i];
+                gap[k] = Math.acos(c);
             }
-            angleDefect[v] = boundary ? 0.0 : (2.0 * Math.PI - total);
-
-            // Eq. 11: rescale so interior angles sum to 2*pi (boundary: no rescale).
-            double scale = (boundary || total < EPS) ? 1.0 : (2.0 * Math.PI / total);
-
-            double phi = 0.0;
-            putAngle(vId, hes[0], 0.0);
-            for (int i = 0; i < gaps; i++) {
-                phi += scale * gap[i];
-                int next = (i + 1) % outCount;
-                if (next != 0) {
-                    putAngle(vId, hes[next], phi);
+    
+            // On a boundary fan the opening is not a real corner; exclude the largest gap.
+            int openingIndex = -1;
+            if (boundary) {
+                double max = -1.0;
+                for (int k = 0; k < outCount; k++) {
+                    if (gap[k] > max) {
+                        max = gap[k];
+                        openingIndex = k;
+                    }
                 }
             }
-        }
-
-        // Lumped (barycentric) mass: each triangle donates area/3 to its 3 vertices.
-        int faceCount = mesh.faceCount();
-        for (int f = 0; f < faceCount; f++) {
-            int fId = mesh.faceIdAt(f);
-            int[] vv = faceVertices(fId);
-            Vector3f p0 = mesh.vertexPosition(vv[0]);
-            Vector3f p1 = mesh.vertexPosition(vv[1]);
-            Vector3f p2 = mesh.vertexPosition(vv[2]);
-            Vector3f e1 = new Vector3f(p1).sub(p0);
-            Vector3f e2 = new Vector3f(p2).sub(p0);
-            double area = 0.5 * new Vector3f(e1).cross(e2).length();
-            double third = area / 3.0;
-            mass[activeOfVertexId.get(vv[0])] += third;
-            mass[activeOfVertexId.get(vv[1])] += third;
-            mass[activeOfVertexId.get(vv[2])] += third;
+    
+            double total = 0.0;
+            for (int k = 0; k < outCount; k++) {
+                if (k != openingIndex) {
+                    total += gap[k];
+                }
+            }
+            angleDefect[v] = boundary ? 0.0 : (2.0 * Math.PI - total);
+            double scale = (boundary || total < EPS) ? 1.0 : (2.0 * Math.PI / total);
+    
+            // Walk the fan (boundary: start just after the opening) assigning cumulative
+            // rescaled angle by sorted position.
+            int startK = boundary ? (openingIndex + 1) % outCount : 0;
+            double[] absPhi = new double[outCount];
+            double phi = 0.0;
+            for (int step = 0; step < outCount; step++) {
+                int k = (startK + step) % outCount;
+                absPhi[k] = phi;
+                phi += scale * gap[k];
+            }
+    
+            // Re-zero so the vertexX-defining spoke (outgoing index 0) reads 0.
+            int refHe = mesh.vertexOutgoingHalfEdgeAt(vId, 0);
+            double refPhi = 0.0;
+            for (int k = 0; k < outCount; k++) {
+                if (hes[order[k]] == refHe) {
+                    refPhi = absPhi[k];
+                    break;
+                }
+            }
+            for (int k = 0; k < outCount; k++) {
+                putAngle(vId, hes[order[k]], absPhi[k] - refPhi);
+            }
         }
     }
 
     /**
      * Assemble the complex Hermitian connection Laplacian (upper triangle).
      */
-    private ComplexUpper assemble() {
-        double[] diag = new double[vertexCount]; // real (Hermitian diagonal is real)
+    private AbstractMap.SimpleEntry<ComplexUpper, ComplexUpper> assemble() {
+        double[] diag = new double[vertexCount];
         Map<Long, Double> upRe = new HashMap<>();
         Map<Long, Double> upIm = new HashMap<>();
 
-        int edgeCount = mesh.edgeCount();
-        for (int e = 0; e < edgeCount; e++) {
-            EdgeFaceIds ef = mesh.edgeFaceIds(e);
-            if (mesh.isBoundaryEdge(ef.edgeId)) {
+        double[] diagMass = new double[vertexCount];
+        Map<Long, Double> massUpRe = new HashMap<>();
+        Map<Long, Double> massUpIm = new HashMap<>();
+
+        for (int f = 0; f < mesh.faceCount(); f++) {
+            int fId = mesh.faceIdAt(f);
+            int[] halfEdge = orderedFaceHalfEdges(fId); // CCW: v0->v1->v2->v0
+            int[] vertexId = new int[3];
+            int[] active = new int[3];
+            Vector3f[] position = new Vector3f[3];
+            for (int corner = 0; corner < 3; corner++) {
+                vertexId[corner] = mesh.halfEdgeVertex(halfEdge[corner]);
+                active[corner] = activeOfVertexId.get(vertexId[corner]);
+                position[corner] = mesh.vertexPosition(vertexId[corner]);
+            }
+
+            // Transport angle on each CCW directed edge, and the triangle holonomy.
+            double[] transportAngle = new double[3];
+            for (int corner = 0; corner < 3; corner++) {
+                int twin = mesh.halfEdgeTwin(halfEdge[corner]);
+                transportAngle[corner] = n * (getAngle(vertexId[(corner + 1) % 3], twin)
+                        - getAngle(vertexId[corner], halfEdge[corner]));
+            }
+            double holonomy = principal(transportAngle[0] + transportAngle[1] + transportAngle[2]);
+
+            Vector3f edge0 = new Vector3f(position[1]).sub(position[0]);
+            double area = 0.5 * new Vector3f(edge0)
+                    .cross(new Vector3f(position[2]).sub(position[0])).length();
+            if (area < EPS) {
                 continue;
             }
-            int he = ef.halfEdge; // directed p -> q
-            int twin = mesh.halfEdgeTwin(he);
-            int pId = mesh.halfEdgeVertex(he);
-            int qId = mesh.halfEdgeEndVertex(he);
-            int p = activeOfVertexId.get(pId);
-            int q = activeOfVertexId.get(qId);
 
-            // Cotan weight w = 1/2 (cot(alpha) + cot(beta)) from the two opposite angles.
-            double w = 0.5 * (cotOpposite(ef.faceA, pId, qId) + cotOpposite(ef.faceB, pId, qId));
+            // Diagonal: full stiffness (with the holonomy correction) minus the curvature
+            // term.
+            for (int corner = 0; corner < 3; corner++) {
+                Vector3f toNext = new Vector3f(position[(corner + 1) % 3]).sub(position[corner]);
+                Vector3f toPrev = new Vector3f(position[(corner + 2) % 3]).sub(position[corner]);
+                double diagStiff = SectionIntegrals.stiffnessDiagonal(holonomy,
+                        toNext.lengthSquared(), toNext.dot(toPrev), toPrev.lengthSquared());
+                diag[active[corner]] += diagStiff / area - curvatureBias * holonomy / 6.0;
+                diagMass[active[corner]] += area / 6.0;
+            }
 
-            // Transport p -> q : rho_pq = n*(theta_q - theta_p) (Eqs. 4, 12).
-            double thetaP = getAngle(pId, he);
-            double thetaQ = getAngle(qId, twin);
-            double rho = n * (thetaQ - thetaP);
+            // Off-diagonal: one per edge, from the two edges at the opposite vertex.
+            for (int corner = 0; corner < 3; corner++) {
+                int from = active[corner];
+                int to = active[(corner + 1) % 3];
+                int opposite = (corner + 2) % 3;
+                Vector3f oppToFrom = new Vector3f(position[corner]).sub(position[opposite]);
+                Vector3f oppToTo = new Vector3f(position[(corner + 1) % 3]).sub(position[opposite]);
 
-            // Energy term w*|r_pq u_p - u_q|^2 contributes:
-            // diag[p] += w, diag[q] += w,
-            // off-diagonal coeff of (conj(u_p) u_q) = -w * conj(r_pq) = -w e^{-i rho}.
-            diag[p] += w;
-            diag[q] += w;
-            double aRe = -w * Math.cos(rho);
-            double aIm = w * Math.sin(rho); // = -w * (-sin rho)
-            int lo = Math.min(p, q);
-            int hi = Math.max(p, q);
-            // stored entry is coeff of conj(u_lo) u_hi; conjugate if we flipped order
-            if (lo == p) {
-                accum(upRe, upIm, lo, hi, aRe, aIm);
-            } else {
-                accum(upRe, upIm, lo, hi, aRe, -aIm);
+                double[] stiff = SectionIntegrals.stiffnessOffDiagonal(holonomy,
+                        oppToFrom.lengthSquared(), oppToFrom.dot(oppToTo), oppToTo.lengthSquared());
+                double[] massOff = SectionIntegrals.massOffDiagonal(holonomy);
+
+                // entry before transport = stiffness/area - curvatureBias*(holonomy*mass - i/2)
+                double entryRe = stiff[0] / area - curvatureBias * holonomy * massOff[0];
+                double entryIm = stiff[1] / area - curvatureBias * (holonomy * massOff[1] - 0.5);
+
+                // multiply by the conjugate transport, e^(-i * transportAngle)
+                double cosRho = Math.cos(transportAngle[corner]);
+                double sinRho = Math.sin(transportAngle[corner]);
+                double re = entryRe * cosRho + entryIm * sinRho;
+                double im = entryIm * cosRho - entryRe * sinRho;
+
+                int low = Math.min(from, to);
+                int high = Math.max(from, to);
+                if (low == from) {
+                    accum(upRe, upIm, low, high, re, im);
+                } else {
+                    accum(upRe, upIm, low, high, re, -im);
+                }
+
+                double massRe0 = area * massOff[0];
+                double massIm0 = area * massOff[1];
+                double massRe = massRe0 * cosRho + massIm0 * sinRho; // * conjugate transport
+                double massIm = massIm0 * cosRho - massRe0 * sinRho;
+                if (low == from) {
+                    accum(massUpRe, massUpIm, low, high, massRe, massIm);
+                } else {
+                    accum(massUpRe, massUpIm, low, high, massRe, -massIm);
+                }
             }
         }
 
-        // Geometry-aware term (approximate): A_ii += -s * n * defect_i.
-        // Exact per-triangle form is paper Eq. 18 (see plan). Skipped for s == 0.
-        if (curvatureBias != 0.0) {
-            for (int v = 0; v < vertexCount; v++) {
-                diag[v] += -curvatureBias * n * angleDefect[v];
-            }
-        }
-
-        // Spectral shift A <- A + shift*M (does not change eigenvectors).
         for (int v = 0; v < vertexCount; v++) {
-            diag[v] += DEFAULT_SHIFT * mass[v];
+            diag[v] += DEFAULT_SHIFT * diagMass[v];
         }
-
-        return new ComplexUpper(diag, upRe, upIm);
+        return new AbstractMap.SimpleEntry<ComplexUpper, ComplexUpper>(new ComplexUpper(diag, upRe, upIm),
+                new ComplexUpper(diagMass, massUpRe, massUpIm));
     }
 
     /**
      * Solve the smoothest direction field.
+     * 
+     * @param mass
      */
-    public void solveSmoothest(ComplexUpper sys) {
-        int V = vertexCount;
-        int N = 2 * V;
+    public void solveSmoothest(ComplexUpper energy, ComplexUpper massSystem) {
+        int N = 2 * vertexCount;
+        NormalMatrix aReal = realify(energy);
+        NormalMatrix mReal = realify(massSystem);
 
-        // Realified diagonal and upper triangle for the [[A,-B],[B,A]] block matrix.
-        double[] diag2 = new double[N];
-        for (int v = 0; v < V; v++) {
-            diag2[v] = sys.diag[v];
-            diag2[V + v] = sys.diag[v];
-        }
-        Map<Long, Double> upper = new HashMap<>();
-        for (Map.Entry<Long, Double> en : sys.upRe.entrySet()) {
-            long k = en.getKey();
-            int i = (int) (k >>> 32);
-            int j = (int) (k & 0xFFFFFFFFL);
-            double a = en.getValue();
-            double b = sys.upIm.getOrDefault(k, 0.0);
-            put(upper, i, j, a); // (A) top-left
-            put(upper, V + i, V + j, a); // (A) bottom-right
-            put(upper, i, V + j, -b); // (-B) top-right
-            put(upper, j, V + i, b); // (-B) mirror, keeps big matrix symmetric
-        }
-
-        NormalMatrix aReal = new NormalMatrix(diag2, upper, new double[N]);
-        boolean[] fixed = new boolean[N]; // all free
+        boolean[] fixed = new boolean[N];
         DirectSolver.CholeskyHandle handle = DirectSolver.factorize(aReal, fixed, OrderingMethod.AMD);
         if (handle.solver() == null) {
-            uReal = new double[V];
-            uImaginary = new double[V];
+            uReal = new double[vertexCount];
+            uImaginary = new double[vertexCount];
             return;
-        }
-
-        double[] mass2 = new double[N];
-        for (int v = 0; v < V; v++) {
-            mass2[v] = mass[v];
-            mass2[V + v] = mass[v];
         }
 
         double[] u = new double[N];
@@ -319,36 +352,63 @@ public class NDirectionField extends CrossField {
         for (int i = 0; i < N; i++) {
             u[i] = rng.nextDouble() * 2.0 - 1.0;
         }
-        massNormalize(u, mass2);
+        massNormalize(u, mReal);
 
         double[] rhs = new double[N];
         double[] x = new double[N];
         double[] start = new double[N];
         for (int it = 0; it < DEFAULT_POWER_ITERATIONS; it++) {
             for (int i = 0; i < N; i++) {
-                rhs[i] = mass2[i] * u[i];
+                rhs[i] = mReal.rowDot(i, u); // rhs = M * u
             }
             DirectSolver.solveCompact(handle, aReal, rhs, x, start, fixed);
             System.arraycopy(x, 0, u, 0, N);
-            massNormalize(u, mass2);
+            massNormalize(u, mReal);
         }
 
-        uReal = new double[V];
-        uImaginary = new double[V];
-        for (int v = 0; v < V; v++) {
+        uReal = new double[vertexCount];
+        uImaginary = new double[vertexCount];
+        for (int v = 0; v < vertexCount; v++) {
             uReal[v] = u[v];
-            uImaginary[v] = u[V + v];
+            uImaginary[v] = u[vertexCount + v];
+        }
+        fieldAngle = new double[vertexCount];
+        for (int v = 0; v < vertexCount; v++) {
+            fieldAngle[v] = Math.atan2(uImaginary[v], uReal[v]) / n;
         }
     }
 
-    private static void massNormalize(double[] u, double[] mass2) {
-        double norm = 0.0;
-        for (int i = 0; i < u.length; i++) {
-            norm += mass2[i] * u[i] * u[i];
+    private NormalMatrix realify(ComplexUpper sys) {
+        int V = vertexCount;
+        int N = 2 * V;
+        double[] diag2 = new double[N];
+        for (int v = 0; v < V; v++) {
+            diag2[v] = sys.diag()[v];
+            diag2[V + v] = sys.diag()[v];
         }
-        norm = Math.sqrt(Math.max(norm, EPS));
-        for (int i = 0; i < u.length; i++) {
-            u[i] /= norm;
+        Map<Long, Double> upper = new HashMap<>();
+        for (Map.Entry<Long, Double> en : sys.upRe().entrySet()) {
+            long k = en.getKey();
+            int i = (int) (k >>> 32);
+            int j = (int) (k & 0xFFFFFFFFL);
+            double a = en.getValue();
+            double b = sys.upIm().getOrDefault(k, 0.0);
+            put(upper, i, j, a);
+            put(upper, V + i, V + j, a);
+            put(upper, i, V + j, -b);
+            put(upper, j, V + i, b);
+        }
+        return new NormalMatrix(diag2, upper, new double[N]);
+    }
+
+    private static void massNormalize(double[] v, NormalMatrix mass) {
+        double quadratic = 0.0;
+        for (int i = 0; i < v.length; i++) {
+            quadratic += v[i] * mass.rowDot(i, v); // v^T M v
+        }
+        double scale = Math.sqrt(Math.max(quadratic, EPS));
+        for (int i = 0; i < v.length; i++) {
+            v[i] /= scale;
         }
     }
 
@@ -402,11 +462,11 @@ public class NDirectionField extends CrossField {
      * Compute the cotangent of the opposite angle of a face.
      * 
      * @param faceId the id of the face
-     * @param pId the id of the first vertex
-     * @param qId the id of the second vertex
+     * @param pId    the id of the first vertex
+     * @param qId    the id of the second vertex
      * @return the cotangent of the opposite angle of the face
      */
-    public double cotOpposite(int faceId, int pId, int qId) {
+    public double coTangentOpposite(int faceId, int pId, int qId) {
         int[] faceVertices = faceVertices(faceId);
         int oppId = -1;
         for (int id : faceVertices) {
@@ -422,7 +482,7 @@ public class NDirectionField extends CrossField {
         return dot / Math.max(cross, EPS);
     }
 
-    private static double cotangentAt(Vector3f apex, Vector3f endA, Vector3f endB) {
+    private static double coTangentAt(Vector3f apex, Vector3f endA, Vector3f endB) {
         Vector3f toA = new Vector3f(endA).sub(apex);
         Vector3f toB = new Vector3f(endB).sub(apex);
         double dot = toA.dot(toB);
