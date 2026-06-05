@@ -1,6 +1,5 @@
 package ixdar.geometry.mesh.quadlayout.crossfield;
 
-import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -8,6 +7,7 @@ import java.util.Random;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
@@ -55,7 +55,14 @@ public class NDirectionField extends CrossField {
      * -1 = holomorphic (at points of high Gaussian curvature), 1 = anti-holomorphic
      * (at points of low Gaussian curvature).
      */
-    public final double curvatureBias = 1;
+    public final double curvatureBias = 0;
+    public NormalMatrix energyMatrix;
+    public NormalMatrix massSystemMatrix;
+    public double[] loadVector;
+    public double[] hopfField;
+    public double[] crossFieldGuidance;
+
+    public boolean useCurvatureAlignment = true;
 
     /**
      * 
@@ -74,17 +81,112 @@ public class NDirectionField extends CrossField {
             vertexIdOf[v] = vId;
             activeOfVertexId.put(vId, v);
         }
+        this.loadVector = new double[2 * vertexCount];
+        this.crossFieldGuidance = new double[2 * vertexCount];
     }
 
     @Override
     public NDirectionField build() {
         super.build();
+
+        long sectionStart = System.nanoTime();
         computeVertexFrames();
+        System.out.printf("[cross-field timing] compute vertex frames %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        sectionStart = System.nanoTime();
         computeAngleRescaling();
-        AbstractMap.SimpleEntry<ComplexUpper, ComplexUpper> sys = assemble();
-        solveSmoothest(sys.getKey(), sys.getValue());
+        System.out.printf("[cross-field timing] compute angle rescaling %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        sectionStart = System.nanoTime();
+        assemble();
+        System.out.printf("[cross-field timing] assemble %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        sectionStart = System.nanoTime();
+        if (useCurvatureAlignment) {
+            buildLoadVector();
+
+            System.out.printf("[cross-field timing] build load vector %.3fs%n",
+                    (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+            sectionStart = System.nanoTime();
+            solveForHopfField();
+            System.out.printf("[cross-field timing] solve for hopf field %.3fs%n",
+                    (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+            sectionStart = System.nanoTime();
+            solveAligned(0.0);
+            System.out.printf("[cross-field timing] solve aligned %.3fs%n",
+                    (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        } else {
+            solveSmoothest();
+            System.out.printf("[cross-field timing] solve smoothest %.3fs%n",
+                    (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        }
+        sectionStart = System.nanoTime();
         populate();
+        System.out.printf("[cross-field timing] populate %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         return this;
+    }
+
+    private void buildLoadVector() {
+        Vector3f start = new Vector3f();
+        Vector3f end = new Vector3f();
+        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+            EdgeFaceIds edge = mesh.edgeFaceIds(activeEdge);
+            int edgeId = edge.edgeId;
+            int startVertexId = edge.edgeStartVertex;
+            int endVertexId = edge.edgeEndVertex;
+            if (mesh.isBoundaryEdge(edgeId)) {
+                continue;
+            }
+            mesh.vertexPosition(edge.edgeStartVertex, start);
+            mesh.vertexPosition(edge.edgeEndVertex, end);
+            float dx = end.x - start.x;
+            float dy = end.y - start.y;
+            float dz = end.z - start.z;
+            float edgeLength = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (edgeLength < CrossField.EPSILON) {
+                continue;
+            }
+            Vector3f leftNormal = mesh.faceNormal(edge.faceA);
+            Vector3f rightNormal = mesh.faceNormal(edge.faceB);
+            float cosDihedral = Math.max(-1f, Math.min(1f, leftNormal.dot(rightNormal)));
+            float crossX = leftNormal.y * rightNormal.z - leftNormal.z * rightNormal.y;
+            float crossY = leftNormal.z * rightNormal.x - leftNormal.x * rightNormal.z;
+            float crossZ = leftNormal.x * rightNormal.y - leftNormal.y * rightNormal.x;
+            float sinDihedral = (crossX * dx + crossY * dy + crossZ * dz) / edgeLength;
+            float dihedralAngle = (float) Math.atan2(sinDihedral, cosDihedral);
+            double edgeWeight = (dihedralAngle * edgeLength) / 4.0;
+            double phase = 2.0 * getAngle(edge.edgeStartVertex, edge.halfEdge);
+            double cosPhase = Math.cos(phase);
+            double sinPhase = Math.sin(phase);
+            int activeStartVertex = activeOfVertexId.get(startVertexId);
+            int activeEndVertex = activeOfVertexId.get(endVertexId);
+            loadVector[2 * activeStartVertex] += edgeWeight * cosPhase;
+            loadVector[2 * activeStartVertex + 1] += edgeWeight * sinPhase;
+            phase = 2.0 * getAngle(edge.edgeEndVertex, edge.twin);
+            cosPhase = Math.cos(phase);
+            sinPhase = Math.sin(phase);
+            loadVector[2 * activeEndVertex] += edgeWeight * cosPhase;
+            loadVector[2 * activeEndVertex + 1] += edgeWeight * sinPhase;
+        }
+    }
+
+    private void solveForHopfField() {
+        int N = 2 * vertexCount;
+        boolean[] fixed = new boolean[N];
+        DirectSolver.CholeskyHandle handle = DirectSolver.factorize(massSystemMatrix, fixed, OrderingMethod.RCM);
+
+        this.hopfField = new double[N];
+        double[] start = new double[N];
+        DirectSolver.solveCompact(handle, massSystemMatrix, loadVector, this.hopfField, start, fixed); // loadVector =
+                                                                                                       // real RHS
+        for (int v = 0; v < vertexCount; v++) {
+            double realCurvature = hopfField[2 * v];
+            double imaginaryCurvature = hopfField[2 * v + 1];
+            // (qRe + i*qIm)^2 = (qRe^2 - qIm^2) + i*(2*qRe*qIm)
+            crossFieldGuidance[2 * v] = realCurvature * realCurvature - imaginaryCurvature * imaginaryCurvature;
+            crossFieldGuidance[2 * v + 1] = 2.0 * realCurvature * imaginaryCurvature;
+        }
     }
 
     /**
@@ -140,7 +242,7 @@ public class NDirectionField extends CrossField {
      */
     public void computeAngleRescaling() {
         angleDefect = new double[vertexCount];
-    
+
         for (int v = 0; v < vertexCount; v++) {
             int vId = vertexIdOf[v];
             boolean boundary = mesh.isBoundaryVertex(vId);
@@ -149,7 +251,7 @@ public class NDirectionField extends CrossField {
                 continue;
             }
             Vector3f vp = mesh.vertexPosition(vId);
-    
+
             // Spokes with their direction and angle in the vertex tangent frame.
             int[] hes = new int[outCount];
             Vector3f[] dir = new Vector3f[outCount];
@@ -165,15 +267,16 @@ public class NDirectionField extends CrossField {
                 dir[i] = d;
                 raw[i] = Math.atan2(d.dot(vertexY[v]), d.dot(vertexX[v]));
             }
-    
+
             // The cached list is insertion order. Sort into rotational (CCW) order.
             Integer[] order = new Integer[outCount];
             for (int i = 0; i < outCount; i++) {
                 order[i] = i;
             }
             java.util.Arrays.sort(order, (p, q) -> Double.compare(raw[p], raw[q]));
-    
-            // Corner-angle gaps between rotational neighbours (gap[k] spans sorted k -> k+1).
+
+            // Corner-angle gaps between rotational neighbours (gap[k] spans sorted k ->
+            // k+1).
             double[] gap = new double[outCount];
             for (int k = 0; k < outCount; k++) {
                 Vector3f a = dir[order[k]];
@@ -181,7 +284,7 @@ public class NDirectionField extends CrossField {
                 double c = Math.max(-1.0, Math.min(1.0, a.dot(b)));
                 gap[k] = Math.acos(c);
             }
-    
+
             // On a boundary fan the opening is not a real corner; exclude the largest gap.
             int openingIndex = -1;
             if (boundary) {
@@ -193,7 +296,7 @@ public class NDirectionField extends CrossField {
                     }
                 }
             }
-    
+
             double total = 0.0;
             for (int k = 0; k < outCount; k++) {
                 if (k != openingIndex) {
@@ -202,7 +305,7 @@ public class NDirectionField extends CrossField {
             }
             angleDefect[v] = boundary ? 0.0 : (2.0 * Math.PI - total);
             double scale = (boundary || total < EPS) ? 1.0 : (2.0 * Math.PI / total);
-    
+
             // Walk the fan (boundary: start just after the opening) assigning cumulative
             // rescaled angle by sorted position.
             int startK = boundary ? (openingIndex + 1) % outCount : 0;
@@ -213,7 +316,7 @@ public class NDirectionField extends CrossField {
                 absPhi[k] = phi;
                 phi += scale * gap[k];
             }
-    
+
             // Re-zero so the vertexX-defining spoke (outgoing index 0) reads 0.
             int refHe = mesh.vertexOutgoingHalfEdgeAt(vId, 0);
             double refPhi = 0.0;
@@ -232,7 +335,7 @@ public class NDirectionField extends CrossField {
     /**
      * Assemble the complex Hermitian connection Laplacian (upper triangle).
      */
-    private AbstractMap.SimpleEntry<ComplexUpper, ComplexUpper> assemble() {
+    private void assemble() {
         double[] diag = new double[vertexCount];
         Map<Long, Double> upRe = new HashMap<>();
         Map<Long, Double> upIm = new HashMap<>();
@@ -325,8 +428,44 @@ public class NDirectionField extends CrossField {
         for (int v = 0; v < vertexCount; v++) {
             diag[v] += DEFAULT_SHIFT * diagMass[v];
         }
-        return new AbstractMap.SimpleEntry<ComplexUpper, ComplexUpper>(new ComplexUpper(diag, upRe, upIm),
-                new ComplexUpper(diagMass, massUpRe, massUpIm));
+        ComplexUpper energyMatrixComplex = new ComplexUpper(diag, upRe, upIm);
+        ComplexUpper massSystemMatrixComplex = new ComplexUpper(diagMass, massUpRe, massUpIm);
+
+        this.energyMatrix = realify(energyMatrixComplex);
+        this.massSystemMatrix = realify(massSystemMatrixComplex);
+    }
+
+    private static void accum(Map<Long, Double> re, Map<Long, Double> im, int i, int j, double a, double b) {
+        long k = (((long) i) << 32) | (j & 0xFFFFFFFFL);
+        re.merge(k, a, Double::sum);
+        im.merge(k, b, Double::sum);
+    }
+
+    private NormalMatrix realify(ComplexUpper sys) {
+        int V = vertexCount;
+        int N = 2 * V;
+        double[] diag2 = new double[N];
+        for (int v = 0; v < V; v++) {
+            diag2[2 * v] = sys.diag()[v]; // real DOF
+            diag2[2 * v + 1] = sys.diag()[v]; // imaginary DOF
+        }
+        Map<Long, Double> upper = new HashMap<>();
+        for (Map.Entry<Long, Double> en : sys.upRe().entrySet()) {
+            long k = en.getKey();
+            int i = (int) (k >>> 32);
+            int j = (int) (k & 0xFFFFFFFFL); // i < j
+            double a = en.getValue();
+            double b = sys.upIm().getOrDefault(k, 0.0);
+
+            int ri = 2 * i, ii = 2 * i + 1; // real / imag DOFs of vertex i
+            int rj = 2 * j, ij = 2 * j + 1;
+
+            put(upper, ri, rj, a); // Re block
+            put(upper, ii, ij, a); // Re block (imag diagonal block)
+            put(upper, ri, ij, -b); // (real_i, imag_j) = -b
+            put(upper, ii, rj, b); // (imag_i, real_j) = b — note ii<rj since i<j
+        }
+        return new NormalMatrix(diag2, upper, new double[N]);
     }
 
     /**
@@ -334,13 +473,11 @@ public class NDirectionField extends CrossField {
      * 
      * @param mass
      */
-    public void solveSmoothest(ComplexUpper energy, ComplexUpper massSystem) {
+    public void solveSmoothest() {
         int N = 2 * vertexCount;
-        NormalMatrix aReal = realify(energy);
-        NormalMatrix mReal = realify(massSystem);
 
         boolean[] fixed = new boolean[N];
-        DirectSolver.CholeskyHandle handle = DirectSolver.factorize(aReal, fixed, OrderingMethod.AMD);
+        DirectSolver.CholeskyHandle handle = DirectSolver.factorize(energyMatrix, fixed, OrderingMethod.RCM);
         if (handle.solver() == null) {
             uReal = new double[vertexCount];
             uImaginary = new double[vertexCount];
@@ -348,22 +485,22 @@ public class NDirectionField extends CrossField {
         }
 
         double[] u = new double[N];
-        java.util.Random rng = new java.util.Random(12345L);
+        Random rng = new Random(12345L);
         for (int i = 0; i < N; i++) {
             u[i] = rng.nextDouble() * 2.0 - 1.0;
         }
-        massNormalize(u, mReal);
+        massNormalize(u, massSystemMatrix);
 
         double[] rhs = new double[N];
         double[] x = new double[N];
         double[] start = new double[N];
         for (int it = 0; it < DEFAULT_POWER_ITERATIONS; it++) {
             for (int i = 0; i < N; i++) {
-                rhs[i] = mReal.rowDot(i, u); // rhs = M * u
+                rhs[i] = massSystemMatrix.rowDot(i, u); // rhs = M * u
             }
-            DirectSolver.solveCompact(handle, aReal, rhs, x, start, fixed);
+            DirectSolver.solveCompact(handle, energyMatrix, rhs, x, start, fixed);
             System.arraycopy(x, 0, u, 0, N);
-            massNormalize(u, mReal);
+            massNormalize(u, massSystemMatrix);
         }
 
         uReal = new double[vertexCount];
@@ -378,27 +515,43 @@ public class NDirectionField extends CrossField {
         }
     }
 
-    private NormalMatrix realify(ComplexUpper sys) {
-        int V = vertexCount;
-        int N = 2 * V;
-        double[] diag2 = new double[N];
-        for (int v = 0; v < V; v++) {
-            diag2[v] = sys.diag()[v];
-            diag2[V + v] = sys.diag()[v];
+    private void solveAligned(double t) {
+        int N = 2 * vertexCount;
+
+        // Factor (A - tM). With t = 0 this is just A.
+        NormalMatrix shifted = (t == 0.0)
+                ? energyMatrix
+                : energyMatrix.subtract(massSystemMatrix.scale(t));
+
+        boolean[] fixed = new boolean[N];
+        DirectSolver.CholeskyHandle handle = DirectSolver.factorize(shifted, fixed, OrderingMethod.RCM);
+        if (handle.solver() == null) {
+            uReal = new double[vertexCount];
+            uImaginary = new double[vertexCount];
+            return;
         }
-        Map<Long, Double> upper = new HashMap<>();
-        for (Map.Entry<Long, Double> en : sys.upRe().entrySet()) {
-            long k = en.getKey();
-            int i = (int) (k >>> 32);
-            int j = (int) (k & 0xFFFFFFFFL);
-            double a = en.getValue();
-            double b = sys.upIm().getOrDefault(k, 0.0);
-            put(upper, i, j, a);
-            put(upper, V + i, V + j, a);
-            put(upper, i, V + j, -b);
-            put(upper, j, V + i, b);
+
+        double[] rhs = new double[N];
+        for (int i = 0; i < N; i++) {
+            rhs[i] = massSystemMatrix.rowDot(i, crossFieldGuidance); // M g
         }
-        return new NormalMatrix(diag2, upper, new double[N]);
+
+        double[] x = new double[N];
+        double[] start = new double[N];
+        DirectSolver.solveCompact(handle, shifted, rhs, x, start, fixed);
+
+        massNormalize(x, massSystemMatrix);
+
+        uReal = new double[vertexCount];
+        uImaginary = new double[vertexCount];
+        for (int v = 0; v < vertexCount; v++) {
+            uReal[v] = x[2 * v];
+            uImaginary[v] = x[2 * v + 1];
+        }
+        fieldAngle = new double[vertexCount];
+        for (int v = 0; v < vertexCount; v++) {
+            fieldAngle[v] = Math.atan2(uImaginary[v], uReal[v]) / n;
+        }
     }
 
     private static void massNormalize(double[] v, NormalMatrix mass) {
@@ -410,16 +563,6 @@ public class NDirectionField extends CrossField {
         for (int i = 0; i < v.length; i++) {
             v[i] /= scale;
         }
-    }
-
-    /**
-     * World-space representative direction at vertex {@code v} (one of the n arms).
-     */
-    public Vector3f fieldDirection(int v) {
-        double a = fieldAngle[v];
-        Vector3f d = new Vector3f(vertexX[v]).mul((float) Math.cos(a));
-        d.add(new Vector3f(vertexY[v]).mul((float) Math.sin(a)));
-        return d.normalize();
     }
 
     /**
@@ -517,12 +660,6 @@ public class NDirectionField extends CrossField {
         return r;
     }
 
-    private static void accum(Map<Long, Double> re, Map<Long, Double> im, int i, int j, double a, double b) {
-        long k = (((long) i) << 32) | (j & 0xFFFFFFFFL);
-        re.merge(k, a, Double::sum);
-        im.merge(k, b, Double::sum);
-    }
-
     private static void put(Map<Long, Double> m, int i, int j, double v) {
         m.merge((((long) i) << 32) | (j & 0xFFFFFFFFL), v, Double::sum);
     }
@@ -566,7 +703,11 @@ public class NDirectionField extends CrossField {
                 if (va == null) {
                     continue;
                 }
-                Vector3f d = fieldDirection(va); // one world-space arm
+
+                double a = fieldAngle[va];
+                Vector3f d = new Vector3f(vertexX[va]).mul((float) Math.cos(a));
+                d = d.add(new Vector3f(vertexY[va]).mul((float) Math.sin(a)));
+                d = d.normalize();
                 double alpha = Math.atan2(d.dot(fy), d.dot(fx)); // its angle in face frame
                 accRe += Math.cos(n * alpha); // collapse n-fold symmetry
                 accIm += Math.sin(n * alpha);

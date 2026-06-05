@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.quadlayout;
 
+import java.util.Arrays;
 import java.util.Map;
 
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
@@ -236,6 +237,108 @@ public final class NormalMatrix {
             addOffDiagonal(cursor, row, col, value);
             addOffDiagonal(cursor, col, row, value);
         }
+    }
+
+    /** Direct CSR constructor — assigns prebuilt arrays without reassembling. */
+    private NormalMatrix(int variableCount, int[] rowStart, int[] rowColumn,
+            double[] rowValue, double[] diagonal, double[] rightHandSide) {
+        this.variableCount = variableCount;
+        this.rowStart = rowStart;
+        this.rowColumn = rowColumn;
+        this.rowValue = rowValue;
+        this.diagonal = diagonal;
+        this.rightHandSide = rightHandSide;
+    }
+
+    /**
+     * Return {@code this - other}. General: result pattern is the union of both.
+     */
+    public NormalMatrix subtract(NormalMatrix other) {
+        if (variableCount != other.variableCount) {
+            throw new IllegalArgumentException("dimension mismatch");
+        }
+        int n = variableCount;
+
+        double[] newDiagonal = new double[n];
+        for (int i = 0; i < n; i++) {
+            newDiagonal[i] = diagonal[i] - other.diagonal[i];
+        }
+
+        // --- symbolic pass: union column count per row ---
+        int[] degree = new int[n];
+        int[] mark = new int[n];
+        Arrays.fill(mark, -1);
+        for (int i = 0; i < n; i++) {
+            int count = 0;
+            for (int c = rowStart[i]; c < rowStart[i + 1]; c++) {
+                int col = rowColumn[c];
+                if (mark[col] != i) {
+                    mark[col] = i;
+                    count++;
+                }
+            }
+            for (int c = other.rowStart[i]; c < other.rowStart[i + 1]; c++) {
+                int col = other.rowColumn[c];
+                if (mark[col] != i) {
+                    mark[col] = i;
+                    count++;
+                }
+            }
+            degree[i] = count;
+        }
+
+        int[] newRowStart = new int[n + 1];
+        for (int i = 0; i < n; i++) {
+            newRowStart[i + 1] = newRowStart[i] + degree[i];
+        }
+        int[] newRowColumn = new int[newRowStart[n]];
+        double[] newRowValue = new double[newRowStart[n]];
+
+        // --- numeric pass: accumulate this - other into the union slots ---
+        int[] cursor = newRowStart.clone();
+        int[] slotOfCol = new int[n];
+        int[] seen = new int[n];
+        Arrays.fill(seen, -1);
+        for (int i = 0; i < n; i++) {
+            for (int c = rowStart[i]; c < rowStart[i + 1]; c++) {
+                int col = rowColumn[c];
+                if (seen[col] != i) {
+                    seen[col] = i;
+                    int slot = cursor[i]++;
+                    slotOfCol[col] = slot;
+                    newRowColumn[slot] = col;
+                    newRowValue[slot] = rowValue[c];
+                } else {
+                    newRowValue[slotOfCol[col]] += rowValue[c];
+                }
+            }
+            for (int c = other.rowStart[i]; c < other.rowStart[i + 1]; c++) {
+                int col = other.rowColumn[c];
+                if (seen[col] != i) {
+                    seen[col] = i;
+                    int slot = cursor[i]++;
+                    slotOfCol[col] = slot;
+                    newRowColumn[slot] = col;
+                    newRowValue[slot] = -other.rowValue[c];
+                } else {
+                    newRowValue[slotOfCol[col]] -= other.rowValue[c];
+                }
+            }
+        }
+        return new NormalMatrix(n, newRowStart, newRowColumn, newRowValue, newDiagonal, rightHandSide);
+    }
+
+    /** Return {@code this * s}. Shares structure; scales values and diagonal. */
+    public NormalMatrix scale(double s) {
+        double[] newDiagonal = new double[variableCount];
+        for (int i = 0; i < variableCount; i++) {
+            newDiagonal[i] = diagonal[i] * s;
+        }
+        double[] newValue = new double[rowValue.length];
+        for (int c = 0; c < rowValue.length; c++) {
+            newValue[c] = rowValue[c] * s;
+        }
+        return new NormalMatrix(variableCount, rowStart, rowColumn, newValue, newDiagonal, rightHandSide);
     }
 
     /**
