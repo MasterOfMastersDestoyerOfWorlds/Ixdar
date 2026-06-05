@@ -9,8 +9,10 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
+import ixdar.geometry.mesh.quadlayout.solver.Preconditioner;
 
 public class NDirectionField extends CrossField {
 
@@ -173,13 +175,20 @@ public class NDirectionField extends CrossField {
 
     private void solveForHopfField() {
         int N = 2 * vertexCount;
-        boolean[] fixed = new boolean[N];
-        DirectSolver.CholeskyHandle handle = DirectSolver.factorize(massSystemMatrix, fixed, OrderingMethod.RCM);
 
-        this.hopfField = new double[N];
-        double[] start = new double[N];
-        DirectSolver.solveCompact(handle, massSystemMatrix, loadVector, this.hopfField, start, fixed); // loadVector =
-                                                                                                       // real RHS
+        // M q = loadVector. PCG takes its RHS from matrix.rightHandSide.
+        System.arraycopy(loadVector, 0, massSystemMatrix.rightHandSide, 0, N);
+
+        this.hopfField = new double[N]; // warm start 0; mutated in place into q
+        AdaptiveSolver.PcgResult result = AdaptiveSolver.preconditionedConjugateGradient(
+                massSystemMatrix,
+                this.hopfField,
+                null,                       // no pinned DOFs: include all in the norms
+                jacobi(massSystemMatrix),   // M is well-conditioned; Jacobi suffices
+                10000,
+                1e-8);
+        System.out.println("[hopf]    PCG iters=" + result.iterations() + " converged=" + result.converged());
+
         for (int v = 0; v < vertexCount; v++) {
             double realCurvature = hopfField[2 * v];
             double imaginaryCurvature = hopfField[2 * v + 1];
@@ -188,7 +197,20 @@ public class NDirectionField extends CrossField {
             crossFieldGuidance[2 * v + 1] = 2.0 * realCurvature * imaginaryCurvature;
         }
     }
-
+    /** Jacobi (diagonal) preconditioner: z = D^{-1} r, with D = diag(a). */
+    private static Preconditioner jacobi(NormalMatrix a) {
+        int n = a.size();
+        double[] invDiag = new double[n];
+        for (int i = 0; i < n; i++) {
+            double d = a.diag(i);
+            invDiag[i] = (d != 0.0) ? 1.0 / d : 0.0;
+        }
+        return (r, z) -> {
+            for (int i = 0; i < n; i++) {
+                z[i] = invDiag[i] * r[i];
+            }
+        };
+    }
     /**
      * Compute the per-vertex tangent frames.
      */
@@ -514,31 +536,28 @@ public class NDirectionField extends CrossField {
             fieldAngle[v] = Math.atan2(uImaginary[v], uReal[v]) / n;
         }
     }
-
     private void solveAligned(double t) {
         int N = 2 * vertexCount;
 
-        // Factor (A - tM). With t = 0 this is just A.
+        // (A - tM). With t = 0 this is just A.
         NormalMatrix shifted = (t == 0.0)
                 ? energyMatrix
                 : energyMatrix.subtract(massSystemMatrix.scale(t));
 
-        boolean[] fixed = new boolean[N];
-        DirectSolver.CholeskyHandle handle = DirectSolver.factorize(shifted, fixed, OrderingMethod.RCM);
-        if (handle.solver() == null) {
-            uReal = new double[vertexCount];
-            uImaginary = new double[vertexCount];
-            return;
-        }
-
-        double[] rhs = new double[N];
+        // RHS = M g, written into shifted.rightHandSide for PCG to read.
         for (int i = 0; i < N; i++) {
-            rhs[i] = massSystemMatrix.rowDot(i, crossFieldGuidance); // M g
+            shifted.rightHandSide[i] = massSystemMatrix.rowDot(i, crossFieldGuidance);
         }
 
-        double[] x = new double[N];
-        double[] start = new double[N];
-        DirectSolver.solveCompact(handle, shifted, rhs, x, start, fixed);
+        double[] x = new double[N]; // warm start 0; mutated in place into u
+        AdaptiveSolver.PcgResult result = AdaptiveSolver.preconditionedConjugateGradient(
+                shifted,
+                x,
+                null,
+                jacobi(shifted),    // Laplacian: try Jacobi first, upgrade to IC(0) if slow
+                5000,
+                1e-8);
+        System.out.println("[aligned] PCG iters=" + result.iterations() + " converged=" + result.converged());
 
         massNormalize(x, massSystemMatrix);
 
@@ -553,7 +572,6 @@ public class NDirectionField extends CrossField {
             fieldAngle[v] = Math.atan2(uImaginary[v], uReal[v]) / n;
         }
     }
-
     private static void massNormalize(double[] v, NormalMatrix mass) {
         double quadratic = 0.0;
         for (int i = 0; i < v.length; i++) {

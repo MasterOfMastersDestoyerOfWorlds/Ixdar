@@ -289,15 +289,6 @@ public final class SeamlessParameterization {
 
         this.dofSystem = new SeamlessDofSystem(this, cutGraph);
 
-        System.out.println("[seamless] Solving once");
-
-        NormalMatrix matrix = dofSystem.assemble(faceWeight);
-        dofSystem.applyIntegerPinPenalty(matrix);
-        int[] perm = dofSystem.amdPermutation(matrix);
-        double[] start = new double[dofSystem.dofCount];
-        boolean[] fixed = new boolean[dofSystem.dofCount];
-        solution = DirectSolver.solveWithPerm(matrix, start, fixed, perm);
-
         System.out.println("[seamless] Running greedy integer rounding");
         runGreedyIntegerRounding();
 
@@ -324,27 +315,6 @@ public final class SeamlessParameterization {
      * it to that integer, re-solve. Stop when no integer DOF is unpinned.
      */
     private void runGreedyIntegerRounding() {
-        boolean diag = DIAG_TRUE.equals(System.getProperty(DIAG_PROP));
-        int totalToRound = 0;
-        for (int i = 0; i < dofSystem.dofCount; i++)
-            if (dofSystem.dofIsInteger[i])
-                totalToRound++;
-        if (diag) {
-            System.err.printf("[seamlessParam] greedy rounding: %d integer DOFs%n", totalToRound);
-            double maxAbs = 0.0;
-            int nearZero = 0;
-            for (int i = 0; i < dofSystem.dofCount; i++) {
-                if (!dofSystem.dofIsInteger[i])
-                    continue;
-                double v = Math.abs(solution[i]);
-                if (v > maxAbs)
-                    maxAbs = v;
-                if (v < HALF_D)
-                    nearZero++;
-            }
-            System.err.printf("[seamlessParam] pre-round int DOF distribution: max|x|=%.3f  |x|<0.5: %d/%d%n",
-                    maxAbs, nearZero, totalToRound);
-        }
 
         // Cold-factor the base system once; each pin then becomes a rank-1
         // update of L instead of a full re-factor. Davis ch. 4.10. AMD perm
@@ -357,9 +327,10 @@ public final class SeamlessParameterization {
             throw new IllegalStateException(
                     "IGM rounding: cold Cholesky factor of the base system failed");
         }
+        this.solution = new double[dofSystem.dofCount];
+        incremental.solve(baseMatrix.rightHandSide, solution);
         double[] runningRhs = baseMatrix.rightHandSide.clone();
 
-        int rounded = 0;
         while (true) {
             int bestIdx = -1;
             double bestDist = Double.POSITIVE_INFINITY;
@@ -379,18 +350,14 @@ public final class SeamlessParameterization {
             if (bestIdx < 0)
                 break;
             dofSystem.pinDof(bestIdx, bestValue);
-            rounded++;
             if (!incremental.pinDof(bestIdx, integerPinWeight)) {
                 throw new IllegalStateException(
                         "IGM rounding: rank-1 update failed at DOF " + bestIdx);
             }
             runningRhs[bestIdx] += integerPinWeight * bestValue;
             incremental.solve(runningRhs, solution);
-            if (diag && (rounded % DIAG_LOG_EVERY == 0 || rounded == totalToRound)) {
-                System.err.printf("[seamlessParam] rounded %d/%d  lastDist=%.4f%n",
-                        rounded, totalToRound, bestDist);
-            }
         }
+        stiffeningPreconditioner = incremental;
     }
 
     /**
@@ -506,33 +473,19 @@ public final class SeamlessParameterization {
      * flipped face" version exhibits.
      */
     private void runStiffeningLoop() {
-        stiffeningPreconditioner = null;
         int initialFlipped = -1;
         int previousFlipped = -1;
         for (int iter = 0; iter <= maxStiffeningIterations; iter++) {
             long t0 = System.nanoTime();
             NormalMatrix matrix = dofSystem.assemble(faceWeight);
             dofSystem.applyIntegerPinPenalty(matrix);
-            int dofCount = dofSystem.dofCount;
-            if (stiffeningPreconditioner == null) {
-                int[] perm = dofSystem.amdPermutation(matrix);
-                stiffeningPreconditioner = new IncrementalCholeskySolver();
-                if (!stiffeningPreconditioner.setAWithPerm(matrix, perm)) {
-                    throw new IllegalStateException(
-                            "stiffening: cold Cholesky factor of the base system failed");
-                }
-                solution = new double[dofCount];
-                stiffeningPreconditioner.solve(matrix.rightHandSide, solution);
-                System.out.println("[stiffening pcg] iter 0 cold factor + back-solve");
-            } else {
-                AdaptiveSolver.PcgResult result = AdaptiveSolver.preconditionedConjugateGradient(
-                        matrix, solution, dofSystem.dofPinned,
-                        stiffeningPreconditioner::solve,
-                        stiffeningPcgMaxIterations, stiffeningPcgRelativeTolerance);
-                System.out.printf("[stiffening pcg] %s in %d iters%n",
-                        result.converged() ? "converged" : "DID NOT converge",
-                        result.iterations());
-            }
+            AdaptiveSolver.PcgResult result = AdaptiveSolver.preconditionedConjugateGradient(
+                    matrix, solution, dofSystem.dofPinned,
+                    stiffeningPreconditioner::solve,
+                    stiffeningPcgMaxIterations, stiffeningPcgRelativeTolerance);
+            System.out.printf("[stiffening pcg] %s in %d iters%n",
+                    result.converged() ? "converged" : "DID NOT converge",
+                    result.iterations());
             long t1 = System.nanoTime();
             int flipped = countFlippedTrianglesFromSolution();
             if (initialFlipped < 0) {
