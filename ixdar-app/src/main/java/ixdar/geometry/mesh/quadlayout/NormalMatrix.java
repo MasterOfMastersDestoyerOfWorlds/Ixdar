@@ -1,5 +1,9 @@
 package ixdar.geometry.mesh.quadlayout;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -248,6 +252,50 @@ public final class NormalMatrix {
         this.rowValue = rowValue;
         this.diagonal = diagonal;
         this.rightHandSide = rightHandSide;
+    }
+
+    /**
+     * Permuted constructor. Builds the CSR layout from a given matrix and a
+     * permutation.
+     * 
+     * @param matrix             the matrix to permute
+     * @param permutation        the permutation
+     * @param inversePermutation the inverse permutation
+     */
+    public NormalMatrix(NormalMatrix matrix, int[] permutation, int[] inversePermutation) {
+        variableCount = matrix.variableCount;
+
+        // New slot k takes old variable permutation[k].
+        diagonal = new double[variableCount];
+        rightHandSide = new double[variableCount];
+        for (int newIndex = 0; newIndex < variableCount; newIndex++) {
+            int oldIndex = permutation[newIndex];
+            diagonal[newIndex] = matrix.diagonal[oldIndex];
+            rightHandSide[newIndex] = matrix.rightHandSide[oldIndex];
+        }
+
+        // Each new row inherits the entry count of the old row it came from.
+        rowStart = new int[variableCount + 1];
+        for (int oldRow = 0; oldRow < variableCount; oldRow++) {
+            int newRow = inversePermutation[oldRow];
+            rowStart[newRow + 1] = matrix.rowStart[oldRow + 1] - matrix.rowStart[oldRow];
+        }
+        for (int row = 0; row < variableCount; row++) {
+            rowStart[row + 1] += rowStart[row];
+        }
+
+        // Copy each entry into its permuted row, remapping the column too.
+        rowColumn = new int[rowStart[variableCount]];
+        rowValue = new double[rowStart[variableCount]];
+        int[] cursor = rowStart.clone();
+        for (int oldRow = 0; oldRow < variableCount; oldRow++) {
+            int newRow = inversePermutation[oldRow];
+            for (int entry = matrix.rowStart[oldRow]; entry < matrix.rowStart[oldRow + 1]; entry++) {
+                int slot = cursor[newRow]++;
+                rowColumn[slot] = inversePermutation[matrix.rowColumn[entry]];
+                rowValue[slot] = matrix.rowValue[entry];
+            }
+        }
     }
 
     /**
@@ -502,5 +550,61 @@ public final class NormalMatrix {
     }
 
     public record CompressedSparseColumnArrays(int[] colPtr, int[] rowIdx, double[] values) {
+    }
+
+    /**
+     * Dump {@code matrix} to {@code path} in a simple token format:
+     *
+     * <pre>
+     * NORMALMATRIX v1
+     * variableCount &lt;n&gt;
+     * rowStart &lt;len&gt; v0 v1 ...
+     * rowColumn &lt;len&gt; v0 v1 ...
+     * rowValue &lt;len&gt; v0 v1 ...
+     * diagonal &lt;len&gt; v0 v1 ...
+     * rightHandSide &lt;len&gt; v0 v1 ...
+     * </pre>
+     *
+     * @param matrix the matrix to dump
+     * @param path   destination file path
+     */
+    public static void dump(NormalMatrix matrix, String path) {
+        try (PrintWriter w = new PrintWriter(new BufferedWriter(new FileWriter(path)))) {
+            w.println("NORMALMATRIX v1");
+            w.println("variableCount " + matrix.variableCount);
+            writeInts(w, "rowStart", matrix.rowStart);
+            writeInts(w, "rowColumn", matrix.rowColumn);
+            writeDoubles(w, "rowValue", matrix.rowValue);
+            writeDoubles(w, "diagonal", matrix.diagonal);
+            writeDoubles(w, "rightHandSide", matrix.rightHandSide);
+            w.flush();
+            System.err.println("[NormalMatrixIO] dumped " + matrix.variableCount
+                    + "x" + matrix.variableCount + " matrix ("
+                    + matrix.rowColumn.length + " off-diagonal entries) to " + path);
+        } catch (IOException e) {
+            throw new RuntimeException("NormalMatrixIO.dump failed for " + path, e);
+        }
+    }
+
+    private static void writeInts(PrintWriter w, String name, int[] a) {
+        w.print(name);
+        w.print(' ');
+        w.print(a.length);
+        for (int v : a) {
+            w.print(' ');
+            w.print(v);
+        }
+        w.println();
+    }
+
+    private static void writeDoubles(PrintWriter w, String name, double[] a) {
+        w.print(name);
+        w.print(' ');
+        w.print(a.length);
+        for (double v : a) {
+            w.print(' ');
+            w.print(Double.toString(v)); // round-trippable in Java
+        }
+        w.println();
     }
 }

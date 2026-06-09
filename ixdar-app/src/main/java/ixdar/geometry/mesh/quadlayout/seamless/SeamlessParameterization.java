@@ -10,8 +10,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.SeamlessProjector;
+import ixdar.geometry.mesh.quadlayout.solver.AMDOrdering;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
-import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.IncrementalCholeskySolver;
 
 /**
@@ -321,7 +321,9 @@ public final class SeamlessParameterization {
         // is shared with the stiffening loop's solveOnce calls — same
         // matrix structure across the whole build.
         NormalMatrix baseMatrix = dofSystem.assemble(faceWeight);
-        int[] perm = dofSystem.amdPermutation(baseMatrix);
+        AMDOrdering ordering = new AMDOrdering();
+        ordering.order(baseMatrix);
+        int[] perm = ordering.permutation;
         IncrementalCholeskySolver incremental = new IncrementalCholeskySolver();
         if (!incremental.setAWithPerm(baseMatrix, perm)) {
             throw new IllegalStateException(
