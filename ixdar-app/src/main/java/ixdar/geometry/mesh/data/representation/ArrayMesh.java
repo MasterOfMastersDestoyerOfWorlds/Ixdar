@@ -296,6 +296,9 @@ public final class ArrayMesh implements MeshTopology, MeshValue {
     public HalfEdgeMesh toHalfEdgeMesh() {
         HalfEdgeMesh m = HalfEdgeMesh.bulkAllocate(Arrays.copyOf(positions, positions.length),
                 Arrays.copyOf(faceIndices, faceIndices.length), vertsPerFace);
+        // Fill face normals from geometry first; the source vertex normals then
+        // overwrite the derived ones so loader-supplied shading is preserved.
+        m.computeNormals();
         int n = Math.min(normals.length, m.vertexNormals.length);
         System.arraycopy(normals, 0, m.vertexNormals, 0, n);
         return m;

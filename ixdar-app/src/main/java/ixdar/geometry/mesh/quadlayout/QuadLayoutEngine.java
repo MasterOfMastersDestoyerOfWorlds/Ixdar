@@ -2,89 +2,134 @@ package ixdar.geometry.mesh.quadlayout;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
+import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
-import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 
+/**
+ * Staged driver for the Lyon 2021 quad-layout pipeline:
+ *
+ * <ol>
+ * <li><b>Cross field</b> — Knöppel 2013 globally-optimal n-direction field
+ * ({@link NDirectionField}), curvature-aligned with soft feature/boundary
+ * guidance. (BZK09's mixed-integer field remains available as
+ * {@code BommesCrossField} for comparison but is not the default.)</li>
+ * <li><b>Singularities</b> — read off the cross field's index per vertex.</li>
+ * <li><b>Seamless parametrization</b> with these singularities (BZK09 §5),
+ * post-processed for exact seamlessness (MC19).</li>
+ * <li><b>Modified motorcycle graph T-mesh</b> — Lyon §3: traces survive
+ * crashes and stop only via the two-sided α criterion.</li>
+ * <li><b>ILP quantization</b> — Lyon §4–§5: one integer per arc, consistency +
+ * validity + layout constraints, coarseness objective.</li>
+ * <li><b>Layout extraction</b> — Lyon §6: collapse zero arcs and extend
+ * T-junctions into a conforming quad layout.</li>
+ * </ol>
+ *
+ * <p>
+ * Each {@code build*} method runs its prerequisites lazily and caches the
+ * product in the corresponding public field, so inspector scenes can run the
+ * shared pipeline exactly as far as the stage they visualize — and may mutate a
+ * stage's product (e.g. substitute a reference cross field) before asking for
+ * the next stage.
+ */
 public final class QuadLayoutEngine {
 
-    String description = """
-            The pipeline is:
+    /** Default maximum separatrix deviation α (Lyon Table 1 uses 15° on ROCKERARM). */
+    public static final float DEFAULT_ALPHA_RADIANS = (float) Math.toRadians(15.0);
 
-            1. **Cross field** on the input triangle mesh (BZK09, optionally with CIE16 directional constraints, or Diamanti DVP14 as drop-in alternative).
-            2. **Singularities** — read off the cross field's index per vertex.
-            3. **Seamless parametrization** with these singularities (BZK09), optionally post-processed for *exact* seamlessness (MC19).
-            4. **Modified motorcycle graph T-mesh** — Lyon's contribution: traces don't stop at the first crash; they continue until a stopping criterion based on user bound α is met.
-            5. **ILP for quantization** — Lyon's contribution: variables = arc lengths, constraints = consistency + validity + layout (deviation ≤ α).
-            6. **Make the layout explicit** — embed it as edge paths on the surface and (optionally) generate a quad mesh inside each patch via harmonic Coons-style mapping.
+    public final HalfEdgeMesh mesh;
 
-            Throughout, F = faces, E = edges, V = vertices; for an oriented half-edge h we
-            write `next(h)`, `prev(h)`, `twin(h)`, `face(h)`, `from(h)`, `to(h)`.
+    /** Maximum separatrix deviation α in radians, Lyon's single quality knob. */
+    public final float alphaRadians;
 
-            ```
-            ========================================================================
-            TOP-LEVEL DRIVER
-            ========================================================================
-
-            INPUT:
-                M = (V, E, F)            triangle mesh, manifold, possibly w/ boundary
-                alpha  ∈ (0, π/2)             max separatrix deviation (e.g. 5°…45°)
-                feature_edges ⊂ E        optional sharp creases the user wants preserved
-
-            OUTPUT:
-                L = quad layout (graph of nodes + arcs embedded on M)
-                Q = (optional) quad mesh refining L
-
-            ALGORITHM Lyon2021(M, alpha, feature_edges):
-                # --- 1. Cross field ----------------------------------------------------
-                ξ ← BuildCrossField(M, feature_edges)       # § A below
-                # --- 2. Singularities --------------------------------------------------
-                S ← ExtractSingularities(M, ξ)              # § B
-                # --- 3. Seamless parametrization --------------------------------------
-                (uv, transitions, cuts) ← BuildSeamlessParam(M, ξ, S, feature_edges)  # § C
-                (uv, transitions)       ← MakeExactlySeamless(uv, transitions, cuts)  # § D (MC19)
-                # --- 4. Modified motorcycle graph (T-mesh) ----------------------------
-                T  ← BuildModifiedMotorcycleGraph(M, uv, transitions, S, alpha,
-                                                   feature_edges)                     # § E
-                # T = (N nodes, A arcs, P patches), each arc has parametric length and
-                # axis (u or v). Each trace is recorded with its origin singularity and
-                # the ordered list of arcs along it.
-
-                # --- 5. ILP for quantization ------------------------------------------
-                q ← SolveQuantizationILP(T, alpha)               # § F  (one int per arc)
-
-                # --- 6. Layout extraction ---------------------------------------------
-                L ← ExtractLayout(M, uv, transitions, T, q)  # § G
-                # L is the explicit conforming quad layout (nodes = singularities,
-                # arcs = embedded paths on M).
-
-                Q ← (optional) FillPatchesWithQuads(M, uv, L, q)   # § H
-
-                return (L, Q)
-            """;
+    public CrossField crossField;
+    public SeamlessParameterization seamless;
+    public ParameterizationMetrics seamlessMetrics;
+    public MotorcycleGraph motorcycleGraph;
+    public QuantizedMeshGrid quantization;
+    public LayoutExtraction layout;
 
     /**
-     * Run the Lyon 2021 quad-layout pipeline on {@code mesh}. Currently runs
-     * stages 1–3 (cross field + singularities, seamless parametrization);
-     * remaining stages (motorcycle T-mesh, ILP quantization, layout extraction)
-     * are still stubs.
+     * Stage products start unbuilt; call the {@code build*} method of the
+     * furthest stage you need.
      *
-     * @param mesh   triangle mesh, manifold, possibly with boundary
-     * @param alpha  maximum separatrix deviation in radians (e.g. 5°…45°)
-     * @return the seamless parametrization (also exposes the cross field)
+     * @param mesh         triangle mesh, manifold, possibly with boundary
+     * @param alphaRadians maximum separatrix deviation in radians (e.g. 5°…45°)
      */
-    public static SeamlessParameterization pipeline(HalfEdgeMesh mesh, float alpha) {
-        CrossField crossField = new CrossField(mesh).build();
-        System.out.println("Singularities: " + crossField.singularities.size());
+    public QuadLayoutEngine(HalfEdgeMesh mesh, float alphaRadians) {
+        this.mesh = mesh;
+        this.alphaRadians = alphaRadians;
+    }
 
-        SeamlessParameterization seamless = new SeamlessParameterization(crossField);
-        ParameterizationMetrics metrics = seamless.build();
+    /**
+     * Stage 1–2: build the default cross field (Knöppel n-direction field with
+     * curvature alignment and soft feature/boundary guidance) and extract its
+     * singularities.
+     *
+     * @return the cached cross field
+     */
+    public CrossField buildCrossField() {
+        if (crossField == null) {
+            crossField = new NDirectionField(mesh).build();
+            System.out.println("[quad-layout] singularities: " + crossField.singularities.size());
+        }
+        return crossField;
+    }
 
-        MotorcycleGraph motorcycleGraph = new MotorcycleGraph(seamless, alpha).build();
-
-        // Stage 5 — ILP for quantization (Lyon 2021 §4–§5) — not yet implemented.
-        // Stage 6 — Layout extraction (Lyon 2021 §6) — not yet implemented.
-
+    /**
+     * Stage 3: build the seamless parametrization on top of the cross field;
+     * validation metrics land in {@link #seamlessMetrics}.
+     *
+     * @return the cached seamless parametrization
+     */
+    public SeamlessParameterization buildSeamless() {
+        if (seamless == null) {
+            buildCrossField();
+            seamless = new SeamlessParameterization(crossField);
+            seamlessMetrics = seamless.build();
+        }
         return seamless;
+    }
+
+    /**
+     * Stage 4: build the modified motorcycle-graph T-mesh (Lyon §3) over the
+     * seamless parametrization.
+     *
+     * @return the cached motorcycle graph
+     */
+    public MotorcycleGraph buildMotorcycleGraph() {
+        if (motorcycleGraph == null) {
+            buildSeamless();
+            motorcycleGraph = new MotorcycleGraph(seamless, alphaRadians).build();
+        }
+        return motorcycleGraph;
+    }
+
+    /**
+     * Stage 5: solve the Lyon §4–§5 quantization ILP over the T-mesh arcs.
+     *
+     * @return the cached quantization with one integer per arc
+     */
+    public QuantizedMeshGrid buildQuantization() {
+        if (quantization == null) {
+            buildMotorcycleGraph();
+            quantization = new QuantizedMeshGrid(motorcycleGraph, alphaRadians).build();
+        }
+        return quantization;
+    }
+
+    /**
+     * Stage 6: collapse zero-quantized arcs and extract the layout's
+     * separatrix skeleton (Lyon §6, collapse half).
+     *
+     * @return the cached layout extraction
+     */
+    public LayoutExtraction buildLayout() {
+        if (layout == null) {
+            buildQuantization();
+            layout = new LayoutExtraction(quantization).build();
+        }
+        return layout;
     }
 }

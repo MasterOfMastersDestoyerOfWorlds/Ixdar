@@ -14,8 +14,8 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
-import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.color.ColorRGB;
@@ -116,7 +116,7 @@ public class CrossFieldExaminationScene extends Scene {
             ArrayMesh am = MeshLoader.load(offPath);
             HalfEdgeMesh he = HalfEdgeMeshEngine.buildFromIndexedMesh(
                     am.copyPositions(), am.copyFaceIndices());
-            oursField = new NDirectionField(he).build();
+            oursField = new QuadLayoutEngine(he, QuadLayoutEngine.DEFAULT_ALPHA_RADIANS).buildCrossField();
 
             String ndfPath = inferNdfPath(offPath);
             if (ndfPath != null) {

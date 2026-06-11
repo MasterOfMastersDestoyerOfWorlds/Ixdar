@@ -8,8 +8,8 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
-import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
@@ -97,7 +97,8 @@ public class ParametrizationExaminationScene extends Scene {
             ArrayMesh arrayMesh = MeshLoader.load(offPath);
             HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
                     arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
-            CrossField crossField = new NDirectionField(mesh).build();
+            QuadLayoutEngine engine = new QuadLayoutEngine(mesh, QuadLayoutEngine.DEFAULT_ALPHA_RADIANS);
+            CrossField crossField = engine.buildCrossField();
             int ourSingCount = crossField.singularities.size();
             if (cfPath != null) {
                 CrossField reference = CrossFieldLoader.load(cfPath, mesh);
@@ -111,8 +112,8 @@ public class ParametrizationExaminationScene extends Scene {
                         + cfPath + " (our solver produced " + ourSingCount
                         + " singularities, reference has " + reference.singularities.size() + ")");
             }
-            SeamlessParameterization seamless = new SeamlessParameterization(crossField);
-            ParameterizationMetrics metrics = seamless.build();
+            SeamlessParameterization seamless = engine.buildSeamless();
+            ParameterizationMetrics metrics = engine.seamlessMetrics;
 
             try {
                 runtime = new QuadLayoutRuntime();

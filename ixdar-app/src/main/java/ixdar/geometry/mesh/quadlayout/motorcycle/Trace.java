@@ -13,11 +13,25 @@ public final class Trace {
     public final int singularityVertexId;
     public final TraceAxis spawnAxis;
     public final int spawnSign;
+    public final TracePort spawnPort;
     public final boolean featureTrace;
 
     public final List<MetOtherTraceEntry> metOtherTraces = new ArrayList<>();
     public final List<TraceSegment> segments = new ArrayList<>();
     public final List<Integer> arcNodeIds = new ArrayList<>();
+
+    /**
+     * Arc ids along this trace in travel order, filled by the post-build
+     * subdivision pass; {@code chainArcIds.get(k)} spans parametric lengths
+     * {@code [chainNodeLengths.get(k), chainNodeLengths.get(k + 1))}.
+     */
+    public final List<Integer> chainArcIds = new ArrayList<>();
+
+    /**
+     * Cumulative parametric length at each chain node, parallel to
+     * {@link #arcNodeIds}; one entry longer than {@link #chainArcIds}.
+     */
+    public final List<Double> chainNodeLengths = new ArrayList<>();
 
     public ChartWalker.State state;
     public double parametricLengthSoFar;
@@ -44,10 +58,35 @@ public final class Trace {
         this.singularityVertexId = singularityVertexId;
         this.spawnAxis = port.axis;
         this.spawnSign = port.sign;
+        this.spawnPort = port;
         this.featureTrace = featureTrace;
         this.state = new ChartWalker.State(port.activeFace, startU, startV, port.axis, port.sign);
         this.currentNodeId = originNodeId;
         this.arcNodeIds.add(originNodeId);
+    }
+
+    /**
+     * Locate the arc containing parametric length {@code parametricLength}
+     * along this trace, using the chain tables built by the subdivision pass.
+     *
+     * @param parametricLength distance from the trace origin in chart units
+     * @return arc id of the containing arc, or -1 when the trace has no arcs
+     */
+    public int arcAtParametricLength(double parametricLength) {
+        if (chainArcIds.isEmpty()) {
+            return -1;
+        }
+        int low = 0;
+        int high = chainArcIds.size() - 1;
+        while (low < high) {
+            int mid = (low + high + 1) >>> 1;
+            if (chainNodeLengths.get(mid) <= parametricLength) {
+                low = mid;
+            } else {
+                high = mid - 1;
+            }
+        }
+        return chainArcIds.get(low);
     }
 
     /**
@@ -138,10 +177,16 @@ public final class Trace {
      * @param alphaIj     Lyon §3 signed αij from {@code computeAlphaIj} at this
      *                    meeting
      * @param alphaBound  Lyon α in radians
+     * @param ourAxis     this trace's travel axis in the meeting face's chart
+     * @param ourSign     this trace's travel sign along {@code ourAxis}
+     * @param otherAxis   the other trace's travel axis in the same chart
+     * @param otherSign   the other trace's travel sign along {@code otherAxis}
      */
     public void recordMeeting(Trace other, double ourLength, double theirLength,
-            double alphaIj, double alphaBound) {
-        metOtherTraces.add(new MetOtherTraceEntry(other.traceId, alphaIj, ourLength, theirLength));
+            double alphaIj, double alphaBound,
+            TraceAxis ourAxis, int ourSign, TraceAxis otherAxis, int otherSign) {
+        metOtherTraces.add(new MetOtherTraceEntry(other.traceId, alphaIj, ourLength, theirLength,
+                ourAxis, ourSign, otherAxis, otherSign));
         if (!sawFirstSectorCollision && theirLength < ourLength
                 && Math.abs(alphaIj) < Math.PI / 4.0) {
             sawFirstSectorCollision = true;

@@ -1,5 +1,8 @@
 package ixdar.geometry.mesh.quadlayout.solver;
 
+import java.util.Arrays;
+import java.util.HashSet;
+
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 
 /**
@@ -32,6 +35,7 @@ public class AMDOrdering {
     public static final int EMPTY = -1;
     public static final double AMD_DEFAULT_DENSE = 10.0;
     public static final boolean AMD_DEFAULT_AGGRESSIVE = true;
+    public static final String COMMA = ",";
     public int n; /* n > 0 */
     public int[] columnStart; /* input of size n+1, not modified */
     public int[] rowIndex; /* input of size nz = Ap [n], not modified */
@@ -53,6 +57,15 @@ public class AMDOrdering {
     public int[] lastDegree;
     public int[] nextDegree;
 
+    /**
+     * Compute the approximate-minimum-degree fill-reducing ordering of the
+     * matrix's symmetric sparsity pattern and return the matrix permuted by it
+     * (AMD_1: build A+A' without duplicates/diagonal, then run AMD_2).
+     *
+     * @param matrix symmetric system matrix to order; not modified
+     * @return a new {@link NormalMatrix} with rows/columns permuted by the
+     *         computed ordering
+     */
     public NormalMatrix order(NormalMatrix matrix) {
         validateSymmetricPattern(matrix);
         n = matrix.variableCount;
@@ -61,9 +74,9 @@ public class AMDOrdering {
         columnStart = new int[n + 1];
         int[] columnDegree = new int[n];
         for (int column = 0; column < n; column++) {
-            int[] sortedRows = java.util.Arrays.copyOfRange(
+            int[] sortedRows = Arrays.copyOfRange(
                     matrix.rowColumn, matrix.rowStart[column], matrix.rowStart[column + 1]);
-            java.util.Arrays.sort(sortedRows);
+            Arrays.sort(sortedRows);
 
             int uniqueCount = 0;
             int previousRow = -1;
@@ -95,9 +108,9 @@ public class AMDOrdering {
         nextDegree = new int[n];
 
         for (int column = 0; column < n; column++) {
-            int[] sortedRows = java.util.Arrays.copyOfRange(
+            int[] sortedRows = Arrays.copyOfRange(
                     matrix.rowColumn, matrix.rowStart[column], matrix.rowStart[column + 1]);
-            java.util.Arrays.sort(sortedRows);
+            Arrays.sort(sortedRows);
 
             int writeIndex = columnStart[column];
             int previousRow = -1;
@@ -1303,14 +1316,14 @@ public class AMDOrdering {
      * @param m the matrix to validate
      */
     private void validateSymmetricPattern(NormalMatrix m) {
-        int n = m.variableCount;
-        java.util.HashSet<Long> entries = new java.util.HashSet<>();
-        for (int row = 0; row < n; row++) {
+        int variableCount = m.variableCount;
+        HashSet<Long> entries = new HashSet<>();
+        for (int row = 0; row < variableCount; row++) {
             for (int c = m.rowStart[row]; c < m.rowStart[row + 1]; c++) {
                 int col = m.rowColumn[c];
-                if (col < 0 || col >= n) {
+                if (col < 0 || col >= variableCount) {
                     throw new IllegalStateException(
-                            "AMD: column index " + col + " out of range [0," + n + ") in row " + row);
+                            "AMD: column index " + col + " out of range [0," + variableCount + ") in row " + row);
                 }
                 if (col != row)
                     entries.add(((long) row << 32) | (col & 0xFFFFFFFFL));
@@ -1321,8 +1334,8 @@ public class AMDOrdering {
             long mirror = ((long) col << 32) | (row & 0xFFFFFFFFL);
             if (!entries.contains(mirror)) {
                 throw new IllegalStateException(
-                        "AMD: pattern not structurally symmetric — (" + row + "," + col
-                                + ") present but (" + col + "," + row + ") missing. "
+                        "AMD: pattern not structurally symmetric — (" + row + COMMA + col
+                                + ") present but (" + col + COMMA + row + ") missing. "
                                 + "assemble() must mirror every off-diagonal.");
             }
         }

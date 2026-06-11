@@ -300,6 +300,10 @@ public final class NormalMatrix {
 
     /**
      * Return {@code this - other}. General: result pattern is the union of both.
+     *
+     * @param other matrix to subtract; must have the same dimension
+     * @return a new matrix holding {@code this - other} on the union pattern
+     * @throws IllegalArgumentException if the dimensions differ
      */
     public NormalMatrix subtract(NormalMatrix other) {
         if (variableCount != other.variableCount) {
@@ -376,7 +380,12 @@ public final class NormalMatrix {
         return new NormalMatrix(n, newRowStart, newRowColumn, newRowValue, newDiagonal, rightHandSide);
     }
 
-    /** Return {@code this * s}. Shares structure; scales values and diagonal. */
+    /**
+     * Return {@code this * s}. Shares structure; scales values and diagonal.
+     *
+     * @param s scalar factor applied to every entry
+     * @return a new matrix sharing this one's sparsity arrays with scaled values
+     */
     public NormalMatrix scale(double s) {
         double[] newDiagonal = new double[variableCount];
         for (int i = 0; i < variableCount; i++) {
@@ -553,7 +562,7 @@ public final class NormalMatrix {
     }
 
     /**
-     * Dump {@code matrix} to {@code path} in a simple token format:
+     * Dump {@code matrix} to {@code path} in a simple token format.
      *
      * <pre>
      * NORMALMATRIX v1
@@ -567,6 +576,7 @@ public final class NormalMatrix {
      *
      * @param matrix the matrix to dump
      * @param path   destination file path
+     * @throws RuntimeException if writing the file fails
      */
     public static void dump(NormalMatrix matrix, String path) {
         try (PrintWriter w = new PrintWriter(new BufferedWriter(new FileWriter(path)))) {

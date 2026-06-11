@@ -1,6 +1,10 @@
 package ixdar.geometry.mesh.quadlayout.crossfield;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
@@ -9,6 +13,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.quadlayout.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
@@ -27,22 +32,26 @@ public class NDirectionField extends CrossField {
     public static final float HALF_PI = (float) (Math.PI / 2.0);
     public static final double EPS = 1e-12;
 
+    /** Shared suffix of the PCG diagnostics lines printed by the two solves. */
+    public static final String PCG_CONVERGED_SUFFIX = " converged=";
+
     public final HalfEdgeMesh mesh;
 
     public final int vertexCount;
-    private final int[] vertexIdOf; // active index -> vertex id
-    private final Map<Integer, Integer> activeOfVertexId = new HashMap<>();
+
+    /** The degree of the direction field. */
+    public final int n = 4;
+
+    /**
+     * Smoothness parameter of where to put singularities in [-1, 1]; 0 = Dirichlet.
+     * -1 = holomorphic (at points of high Gaussian curvature), 1 = anti-holomorphic
+     * (at points of low Gaussian curvature).
+     */
+    public final double curvatureBias = 0;
 
     // Per-vertex tangent frame (world space).
     public Vector3f[] vertexX;
     public Vector3f[] vertexY;
-    private Vector3f[] vertexNormal;
-
-    private double[] angleDefect;
-
-    // angleInFrame[ packVH(vertexId, halfEdge) ] = rescaled angle of that outgoing
-    // half-edge in the vertex's flattened tangent frame (paper Eq. 11/12).
-    private final Map<Long, Double> angleInFrame = new HashMap<>();
 
     // Solution: per-vertex n-th power coefficient u = uRe + i*uIm.
     public double[] uReal;
@@ -50,21 +59,39 @@ public class NDirectionField extends CrossField {
     /** Representative direction angle in the vertex frame: arg(u)/n. */
     public double[] fieldAngle;
 
-    /* The degree of the direction field. */
-    public final int n = 4;
-    /**
-     * Smoothness parameter of where to put singularities in [-1, 1]; 0 = Dirichlet.
-     * -1 = holomorphic (at points of high Gaussian curvature), 1 = anti-holomorphic
-     * (at points of low Gaussian curvature).
-     */
-    public final double curvatureBias = 0;
     public NormalMatrix energyMatrix;
     public NormalMatrix massSystemMatrix;
     public double[] loadVector;
     public double[] hopfField;
     public double[] crossFieldGuidance;
 
+    /**
+     * Dual-form (already paired with the PL basis sections) alignment load from
+     * feature and boundary edges, added verbatim to the aligned solve's
+     * right-hand side; null when the mesh has no alignment edges.
+     */
+    public double[] featureAlignmentLoad;
+
+    /**
+     * Soft alignment strength for feature/boundary edges (KCP13 §5: the
+     * pointwise guidance magnitude weights alignment against smoothness). Scaled
+     * by edge length per contribution; raise it when separatrices must hug
+     * features harder.
+     */
+    public float featureAlignmentWeight = 1.0f;
+
     public boolean useCurvatureAlignment = true;
+
+    private final int[] vertexIdOf; // active index -> vertex id
+    private final Map<Integer, Integer> activeOfVertexId = new HashMap<>();
+
+    // angleInFrame[ packVH(vertexId, halfEdge) ] = rescaled angle of that outgoing
+    // half-edge in the vertex's flattened tangent frame (paper Eq. 11/12).
+    private final Map<Long, Double> angleInFrame = new HashMap<>();
+
+    private Vector3f[] vertexNormal;
+
+    private double[] angleDefect;
 
     /**
      * 
@@ -104,16 +131,25 @@ public class NDirectionField extends CrossField {
         System.out.printf("[cross-field timing] assemble %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
-        if (useCurvatureAlignment) {
-            buildLoadVector();
+        boolean hasAlignmentEdges = !alignmentEdgeIds.isEmpty();
+        if (useCurvatureAlignment || hasAlignmentEdges) {
+            if (useCurvatureAlignment) {
+                buildLoadVector();
 
-            System.out.printf("[cross-field timing] build load vector %.3fs%n",
-                    (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
-            sectionStart = System.nanoTime();
-            solveForHopfField();
-            System.out.printf("[cross-field timing] solve for hopf field %.3fs%n",
-                    (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
-            sectionStart = System.nanoTime();
+                System.out.printf("[cross-field timing] build load vector %.3fs%n",
+                        (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+                sectionStart = System.nanoTime();
+                solveForHopfField();
+                System.out.printf("[cross-field timing] solve for hopf field %.3fs%n",
+                        (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+                sectionStart = System.nanoTime();
+            }
+            if (hasAlignmentEdges) {
+                buildFeatureAlignmentLoad();
+                System.out.printf("[cross-field timing] build feature alignment load %.3fs%n",
+                        (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+                sectionStart = System.nanoTime();
+            }
             solveAligned(0.0);
             System.out.printf("[cross-field timing] solve aligned %.3fs%n",
                     (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
@@ -173,8 +209,93 @@ public class NDirectionField extends CrossField {
         }
     }
 
+    /**
+     * KCP13 §5 soft alignment with feature and boundary edges. Each edge in
+     * {@link CrossField#alignmentEdgeIds} contributes
+     * {@code featureAlignmentWeight · |e| · e^{i·n·θ}} at both endpoints, where θ
+     * is the edge's rescaled angle in the endpoint's tangent frame — the same
+     * pairing template as the Hopf-differential term in
+     * {@link #buildLoadVector()}, but injected directly at power n instead of
+     * power 2: at n = 4 the contribution is direction-insensitive because
+     * {@code e^{i·4(θ+π)} = e^{i·4θ}}. The result is dual-form (already paired
+     * with the basis sections), so it adds straight onto the aligned solve's
+     * right-hand side without a mass solve. Edge ids are visited in sorted order
+     * for run-to-run reproducibility of the floating-point accumulation.
+     */
+    private void buildFeatureAlignmentLoad() {
+        featureAlignmentLoad = new double[2 * vertexCount];
+        List<Integer> sortedAlignmentEdgeIds = new ArrayList<>(alignmentEdgeIds);
+        Collections.sort(sortedAlignmentEdgeIds);
+        Vector3f start = new Vector3f();
+        Vector3f end = new Vector3f();
+        for (int edgeId : sortedAlignmentEdgeIds) {
+            int halfEdge = mesh.edgeHalfEdge(edgeId);
+            int twin = mesh.halfEdgeTwin(halfEdge);
+            int startVertexId = mesh.halfEdgeVertex(halfEdge);
+            int endVertexId = mesh.halfEdgeEndVertex(halfEdge);
+            mesh.vertexPosition(startVertexId, start);
+            mesh.vertexPosition(endVertexId, end);
+            float dx = end.x - start.x;
+            float dy = end.y - start.y;
+            float dz = end.z - start.z;
+            float edgeLength = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (edgeLength < CrossField.EPSILON) {
+                continue;
+            }
+            double contribution = featureAlignmentWeight * edgeLength;
+            double phase = n * angleOfEdgeAtVertex(startVertexId, halfEdge, edgeId);
+            int activeStartVertex = activeOfVertexId.get(startVertexId);
+            featureAlignmentLoad[2 * activeStartVertex] += contribution * Math.cos(phase);
+            featureAlignmentLoad[2 * activeStartVertex + 1] += contribution * Math.sin(phase);
+            phase = n * angleOfEdgeAtVertex(endVertexId, twin, edgeId);
+            int activeEndVertex = activeOfVertexId.get(endVertexId);
+            featureAlignmentLoad[2 * activeEndVertex] += contribution * Math.cos(phase);
+            featureAlignmentLoad[2 * activeEndVertex + 1] += contribution * Math.sin(phase);
+        }
+        double loadNormSquared = 0.0;
+        for (double value : featureAlignmentLoad) {
+            loadNormSquared += value * value;
+        }
+        System.out.printf("[n-field] feature alignment edges=%d load norm=%.6e%n",
+                sortedAlignmentEdgeIds.size(), Math.sqrt(loadNormSquared));
+    }
+
+    /**
+     * Rescaled tangent-frame angle of {@code edgeId} at {@code vertexId}.
+     * Prefers the angle cached for {@code preferredHalfEdge}; if that handle is
+     * not one of the vertex's outgoing spokes (can happen for the twin handle of
+     * a boundary edge), falls back to the vertex's outgoing half-edge along the
+     * same edge — valid at power n since the n-fold phase is
+     * direction-insensitive for even n.
+     *
+     * @param vertexId          vertex whose tangent frame the angle is measured in
+     * @param preferredHalfEdge half-edge handle expected to originate at the vertex
+     * @param edgeId            edge whose direction is being measured
+     * @return rescaled angle in radians, or 0 if the edge is not incident
+     */
+    private double angleOfEdgeAtVertex(int vertexId, int preferredHalfEdge, int edgeId) {
+        Double cached = angleInFrame.get((((long) vertexId) << 32) | (preferredHalfEdge & 0xFFFFFFFFL));
+        if (cached != null) {
+            return cached;
+        }
+        int outgoingCount = mesh.vertexOutgoingHalfEdgeCount(vertexId);
+        for (int i = 0; i < outgoingCount; i++) {
+            int outgoingHalfEdge = mesh.vertexOutgoingHalfEdgeAt(vertexId, i);
+            if (mesh.halfEdgeEdge(outgoingHalfEdge) == edgeId) {
+                return getAngle(vertexId, outgoingHalfEdge);
+            }
+        }
+        return 0.0;
+    }
+
     private void solveForHopfField() {
         int N = 2 * vertexCount;
+
+        double loadNormSquared = 0.0;
+        for (int i = 0; i < N; i++) {
+            loadNormSquared += loadVector[i] * loadVector[i];
+        }
+        System.out.printf("[hopf]    load norm=%.6e%n", Math.sqrt(loadNormSquared));
 
         // M q = loadVector. PCG takes its RHS from matrix.rightHandSide.
         System.arraycopy(loadVector, 0, massSystemMatrix.rightHandSide, 0, N);
@@ -187,7 +308,7 @@ public class NDirectionField extends CrossField {
                 jacobi(massSystemMatrix),   // M is well-conditioned; Jacobi suffices
                 10000,
                 1e-8);
-        System.out.println("[hopf]    PCG iters=" + result.iterations() + " converged=" + result.converged());
+        System.out.println("[hopf]    PCG iters=" + result.iterations() + PCG_CONVERGED_SUFFIX + result.converged());
 
         for (int v = 0; v < vertexCount; v++) {
             double realCurvature = hopfField[2 * v];
@@ -295,7 +416,7 @@ public class NDirectionField extends CrossField {
             for (int i = 0; i < outCount; i++) {
                 order[i] = i;
             }
-            java.util.Arrays.sort(order, (p, q) -> Double.compare(raw[p], raw[q]));
+            Arrays.sort(order, (p, q) -> Double.compare(raw[p], raw[q]));
 
             // Corner-angle gaps between rotational neighbours (gap[k] spans sorted k ->
             // k+1).
@@ -491,9 +612,9 @@ public class NDirectionField extends CrossField {
     }
 
     /**
-     * Solve the smoothest direction field.
-     * 
-     * @param mass
+     * Solve for the globally smoothest direction field via inverse power
+     * iteration on the generalized eigenproblem {@code A u = lambda M u}
+     * (KCP13 Algorithm 2).
      */
     public void solveSmoothest() {
         int N = 2 * vertexCount;
@@ -544,9 +665,15 @@ public class NDirectionField extends CrossField {
                 ? energyMatrix
                 : energyMatrix.subtract(massSystemMatrix.scale(t));
 
-        // RHS = M g, written into shifted.rightHandSide for PCG to read.
+        // RHS = M g (+ dual-form feature load), written into shifted.rightHandSide
+        // for PCG to read.
         for (int i = 0; i < N; i++) {
             shifted.rightHandSide[i] = massSystemMatrix.rowDot(i, crossFieldGuidance);
+        }
+        if (featureAlignmentLoad != null) {
+            for (int i = 0; i < N; i++) {
+                shifted.rightHandSide[i] += featureAlignmentLoad[i];
+            }
         }
 
         double[] x = new double[N]; // warm start 0; mutated in place into u
@@ -557,7 +684,7 @@ public class NDirectionField extends CrossField {
                 jacobi(shifted),    // Laplacian: try Jacobi first, upgrade to IC(0) if slow
                 5000,
                 1e-8);
-        System.out.println("[aligned] PCG iters=" + result.iterations() + " converged=" + result.converged());
+        System.out.println("[aligned] PCG iters=" + result.iterations() + PCG_CONVERGED_SUFFIX + result.converged());
 
         massNormalize(x, massSystemMatrix);
 
@@ -640,14 +767,6 @@ public class NDirectionField extends CrossField {
         Vector3f b = new Vector3f(mesh.vertexPosition(qId)).sub(o);
         double dot = a.dot(b);
         double cross = new Vector3f(a).cross(b).length();
-        return dot / Math.max(cross, EPS);
-    }
-
-    private static double coTangentAt(Vector3f apex, Vector3f endA, Vector3f endB) {
-        Vector3f toA = new Vector3f(endA).sub(apex);
-        Vector3f toB = new Vector3f(endB).sub(apex);
-        double dot = toA.dot(toB);
-        double cross = new Vector3f(toA).cross(toB).length();
         return dot / Math.max(cross, EPS);
     }
 
@@ -747,5 +866,16 @@ public class NDirectionField extends CrossField {
             periodJump[eAi] = Math.round((float) (resid / HALF_PI));
         }
         extractSingularities();
+
+        int indexSum4 = 0;
+        for (Singularity singularity : singularities) {
+            indexSum4 += singularity.index4();
+        }
+        int eulerCharacteristic = vertexCount - edgeCount + faceCount;
+        // Discrete Poincaré–Hopf (KCP13 App. B): on a closed mesh the quarter
+        // indices must sum to 4χ; boundary vertices are excluded from the walk,
+        // so meshes with boundary will legitimately differ.
+        System.out.printf("[n-field] singularities=%d indexSum4=%d fourChi=%d%n",
+                singularities.size(), indexSum4, 4 * eulerCharacteristic);
     }
 }

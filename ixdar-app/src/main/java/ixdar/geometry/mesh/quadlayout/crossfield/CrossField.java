@@ -72,8 +72,11 @@ public class CrossField {
     public List<Singularity> singularities = new ArrayList<>();
 
     /**
-     * How far the angle between two faces can be from flat to be considered a
-     * feature edge (cos 90° = 0). Feature edges are aligned with the cross field.
+     * Sharp-feature threshold, stored as the cosine of the angle between the two
+     * incident face normals: an interior edge with
+     * {@code normalA.dot(normalB) < featureDihedralCos} becomes an alignment
+     * edge. The default 0.2 (≈ 78° between normals) only captures very sharp
+     * creases.
      */
     public float featureDihedralCos = 0.2f;
 
@@ -260,7 +263,32 @@ public class CrossField {
         System.out.printf("[cross-field timing] edge transport angles kappa %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
+
+        detectAlignmentEdges();
         return this;
+    }
+
+    /**
+     * Shared alignment-edge detection (BZK09 §5.2 spirit): boundary edges and
+     * sharp feature edges (dihedral test against {@link #featureDihedralCos})
+     * land in {@link #alignmentEdgeIds}. Detection lives here, independent of any
+     * particular solver, because every downstream consumer — cut-graph routing,
+     * integer iso-line pinning in the seamless stage, motorcycle feature traces —
+     * reads this set regardless of which subclass produced the field.
+     */
+    private void detectAlignmentEdges() {
+        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(activeEdge);
+            if (mesh.isBoundaryEdge(edgeFaceIds.edgeId)) {
+                alignmentEdgeIds.add(edgeFaceIds.edgeId);
+                continue;
+            }
+            Vector3f faceANormal = mesh.faceNormal(edgeFaceIds.faceA);
+            Vector3f faceBNormal = mesh.faceNormal(edgeFaceIds.faceB);
+            if (faceANormal.dot(faceBNormal) < featureDihedralCos) {
+                alignmentEdgeIds.add(edgeFaceIds.edgeId);
+            }
+        }
     }
 
     /**

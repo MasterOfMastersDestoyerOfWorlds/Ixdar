@@ -8,7 +8,6 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
-import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 
 /**
  * Lyon-Table-1 pipeline benchmark on ROCKERARM, end-to-end on our own pipeline.
@@ -26,7 +25,7 @@ import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
  */
 public final class BenchmarkRockerArmLyon {
     public static final int NUM_124 = 124;
-    public static final float NUM_15 = 15f;
+    public static final float ALPHA_DEGREES = 15f;
 
     private static final long TIMEOUT_MS = 300_000L;
 
@@ -51,7 +50,6 @@ public final class BenchmarkRockerArmLyon {
             }
             if (!finished.get()) {
                 System.err.printf("[bench-lyon] FAILED timeout=%dms%n", TIMEOUT_MS);
-                System.err.println(CrossField.lastDiagnostics);
                 System.exit(NUM_124);
             }
         }, "bench-lyon-timeout");
@@ -60,7 +58,7 @@ public final class BenchmarkRockerArmLyon {
 
         Path objPath = args.length > 0
                 ? Paths.get(args[0])
-                : Paths.get("ixdar-app/test/resources/quadlayout/baseline-rocker-arm/rocker-arm.obj");
+                : Paths.get("ixdar-app/test/resources/quadlayout/rocker-arm/rocker-arm.obj");
 
         try {
             long t0 = System.currentTimeMillis();
@@ -70,8 +68,9 @@ public final class BenchmarkRockerArmLyon {
             long tLoad = System.currentTimeMillis() - t0;
             System.out.printf("[bench-lyon] mesh load=%dms %s%n",
                     tLoad, beforeTopology);
-            QuadLayoutEngine.pipeline(mesh, NUM_15);
-            System.out.printf("[bench-lyon] motorcycle stage complete%n");
+            QuadLayoutEngine engine = new QuadLayoutEngine(mesh, (float) Math.toRadians(ALPHA_DEGREES));
+            engine.buildLayout();
+            System.out.printf("[bench-lyon] layout stage complete%n");
             TopologyStats afterTopology = TopologyStats.capture(mesh);
             if (!beforeTopology.equals(afterTopology)) {
                 System.err.printf("[bench-lyon] topology changed before=%s after=%s%n",

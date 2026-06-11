@@ -8,9 +8,9 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.quadlayout.LayoutExtraction;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
 import ixdar.platform.Platforms;
@@ -22,16 +22,20 @@ import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 
 /**
- * Inspector for Lyon 2021 modified motorcycle graphs: trace iso-lines, T-mesh
- * nodes, patch fills, and live α stepping.
+ * Final-output view of the quad-layout pipeline: runs the staged
+ * {@link QuadLayoutEngine} to its deepest implemented stage and shows the
+ * resulting coarse layout structure (T-mesh patches and arcs; quantized /
+ * extracted layout once those stages produce it). Earlier inspector scenes
+ * (cross field, parametrization, motorcycle graph) examine the intermediate
+ * stages of the same engine.
  */
-@SceneAnnotation(id = "mcg-exam")
-public class MotorcycleGraphExaminationScene extends Scene {
+@SceneAnnotation(id = "quad-layout")
+public class QuadLayoutScene extends Scene {
 
     public static final String DEFAULT_OFF = "test/resources/quadlayout/figure_8/rockerarm_in_tri.off";
-    public static final String OFF_PROPERTY = "mcgScene.off";
-    public static final String ALPHA_PROPERTY = "mcgScene.alpha";
-    public static final String SCENE_TITLE = "Ixdar : Motorcycle Graph Examination";
+    public static final String OFF_PROPERTY = "quadLayoutScene.off";
+    public static final String ALPHA_PROPERTY = "quadLayoutScene.alpha";
+    public static final String SCENE_TITLE = "Ixdar : Quad Layout";
     public static final float CAMERA_AZIMUTH = (float) Math.toRadians(45.0);
     public static final float CAMERA_ELEVATION = (float) Math.toRadians(24.0);
     public static final float CAMERA_DISTANCE_MIN = 1.5f;
@@ -45,7 +49,6 @@ public class MotorcycleGraphExaminationScene extends Scene {
     private OrbitMouseTrap orbitMouse;
     private QuadLayoutRuntime runtime;
     private HalfEdgeMesh mesh;
-    private SeamlessParameterization seamless;
     private float alphaDegrees = DEFAULT_ALPHA_DEGREES;
     private final Vector3f meshCenter = new Vector3f();
     private String hudLine = "";
@@ -53,7 +56,7 @@ public class MotorcycleGraphExaminationScene extends Scene {
     /**
      * Default constructor wired by the scene annotation processor.
      */
-    public MotorcycleGraphExaminationScene() {
+    public QuadLayoutScene() {
         super();
     }
 
@@ -79,7 +82,7 @@ public class MotorcycleGraphExaminationScene extends Scene {
             runtime = new QuadLayoutRuntime();
             runtime.upload(mesh);
             runtime.frameCamera(camera);
-            rebuildMotorcycleGraph();
+            rebuildLayout();
 
             meshCenter.set(mesh.center(new Vector3f()));
             float meshRadius = mesh.radius();
@@ -93,30 +96,39 @@ public class MotorcycleGraphExaminationScene extends Scene {
             Platforms.get().log(hudLine);
         } catch (Exception ex) {
             throw new IllegalStateException(
-                    "Failed to initialize motorcycle graph scene from " + offPath, ex);
+                    "Failed to initialize quad layout scene from " + offPath, ex);
         }
     }
 
-    private void rebuildMotorcycleGraph() {
+    /**
+     * Run the full pipeline (through quantization and zero-arc collapse) and
+     * display the resulting layout: the positive-quantized separatrix skeleton
+     * replaces the full trace web in the runtime's trace records, drawn over
+     * the patch fill.
+     */
+    private void rebuildLayout() {
         float alphaRadians = (float) Math.toRadians(alphaDegrees);
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, alphaRadians);
-        MotorcycleGraph graph = engine.buildMotorcycleGraph();
-        seamless = engine.seamless;
-        runtime.setSeamlessParametrization(seamless);
+        LayoutExtraction layout = engine.buildLayout();
+        MotorcycleGraph graph = engine.motorcycleGraph;
+        graph.traceRecordsByFace = layout.layoutRecordsByFace;
+        runtime.setSeamlessParametrization(engine.seamless);
         runtime.setMotorcycleGraph(graph);
         runtime.showTraces = true;
-        runtime.showNodes = true;
-        runtime.showPatches = false;
+        runtime.showNodes = false;
+        runtime.showPatches = true;
         runtime.showCrossField = false;
         runtime.showFullIsoGrid = false;
-        hudLine = String.format("[mcg-exam] α=%.0f° traces=%d arcs=%d nodes=%d",
-                alphaDegrees, graph.traces.size(), graph.arcs.size(), graph.nodes.size());
+        hudLine = String.format(
+                "[quad-layout] α=%.0f° skeletonArcs=%d layoutNodes=%d tJunctions=%d",
+                alphaDegrees, layout.layoutArcs.size(), layout.singularClusterCount,
+                layout.remainingTJunctionCount);
         Platforms.get().log(hudLine);
     }
 
     void stepAlpha(float deltaDegrees) {
         alphaDegrees = Math.max(1f, alphaDegrees + deltaDegrees);
-        rebuildMotorcycleGraph();
+        rebuildLayout();
     }
 
     void togglePatches() {
@@ -129,14 +141,6 @@ public class MotorcycleGraphExaminationScene extends Scene {
 
     void toggleNodes() {
         runtime.showNodes = !runtime.showNodes;
-    }
-
-    void toggleWitnesses() {
-        runtime.showWitnesses = !runtime.showWitnesses;
-    }
-
-    void toggleEppsteinMarkers() {
-        runtime.showEppsteinMarkers = !runtime.showEppsteinMarkers;
     }
 
     @Override
@@ -188,9 +192,9 @@ public class MotorcycleGraphExaminationScene extends Scene {
     }
 
     private final class ToggleKeyGuy extends OrbitCameraKeyGuy {
-        private final MotorcycleGraphExaminationScene scene;
+        private final QuadLayoutScene scene;
 
-        ToggleKeyGuy(MotorcycleGraphExaminationScene scene, OrbitMouseTrap orbitMouse,
+        ToggleKeyGuy(QuadLayoutScene scene, OrbitMouseTrap orbitMouse,
                 Camera camera, Canvas3D canvas) {
             super(orbitMouse, camera, canvas);
             this.scene = scene;
@@ -204,10 +208,6 @@ public class MotorcycleGraphExaminationScene extends Scene {
                 scene.toggleTraces();
             } else if (key == Keys.N) {
                 scene.toggleNodes();
-            } else if (key == Keys.W) {
-                scene.toggleWitnesses();
-            } else if (key == Keys.E) {
-                scene.toggleEppsteinMarkers();
             } else if (key == Keys.COMMA) {
                 scene.stepAlpha(-1f);
             } else if (key == Keys.PERIOD) {

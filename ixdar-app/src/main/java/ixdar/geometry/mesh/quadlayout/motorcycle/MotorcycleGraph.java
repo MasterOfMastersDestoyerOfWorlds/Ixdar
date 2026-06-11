@@ -2,10 +2,13 @@ package ixdar.geometry.mesh.quadlayout.motorcycle;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.Set;
 
 import org.joml.Vector3f;
 
@@ -21,7 +24,19 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 public final class MotorcycleGraph {
 
     public static final int MAX_TRACE_RECORDS_PER_FACE = 4;
-    static final double PARAMETRIC_EPS = 1.0e-9;
+    public static final double PARAMETRIC_EPS = 1.0e-9;
+    /**
+     * Minimum cosine between consecutive alignment-edge directions for them to
+     * stay in one feature chain; below this the crease turns a corner and the
+     * chain (and its iso-line) breaks.
+     */
+    static final double CHAIN_TURN_COS = Math.cos(Math.PI / 4.0);
+    /**
+     * Chart-space tolerance when snapping a boundary termination point onto the
+     * feature-chain segment it landed on (matches the span tolerance used by
+     * {@link FaceSegmentIndex}).
+     */
+    static final double TERMINATION_SNAP_EPS = 1.0e-6;
     private static final int CORNERS = SeamlessParameterization.CORNERS_PER_FACE;
     private static final int DIE_SAMPLE_LIMIT = 12;
     private static final int PROGRESS_BAR_WIDTH = 30;
@@ -47,6 +62,22 @@ public final class MotorcycleGraph {
 
     public int[] patchIdByActiveFace;
     public float[][] traceRecordsByFace;
+
+    /**
+     * Feature-chain lookup per alignment/boundary edge id: owning feature trace
+     * and the chain-length interval the edge covers. Populated by the feature
+     * seeding pass and consumed by {@link PatchBoundaryBuilder} to resolve
+     * patch-boundary stretches that run along feature curves.
+     */
+    public final Map<Integer, FeatureEdgeSpan> featureSpanByEdgeId = new HashMap<>();
+
+    /**
+     * Per active edge, the trace crossings that severed it during patch
+     * assembly (transversal crossings only — feature chains run along edges,
+     * not across them). {@link PatchBoundaryBuilder} resolves each crossing to
+     * the T-mesh arc containing its parametric length.
+     */
+    public List<List<EdgeCrossing>> crossingsByActiveEdge;
 
     /** Singularity traces that enqueued a first event during {@link #build()}. */
     public int spawnForwardCount;
@@ -83,7 +114,6 @@ public final class MotorcycleGraph {
     private int dieSamplesPrinted;
 
     private int faceCount;
-    private int edgeCount;
     private HalfEdgeMesh mesh;
     private CrossField crossField;
     private ChartWalker walker;
@@ -102,7 +132,6 @@ public final class MotorcycleGraph {
         this.mesh = seamless.mesh;
         this.crossField = seamless.crossField;
         this.faceCount = this.mesh.faceCount();
-        this.edgeCount = this.mesh.edgeCount();
         this.walker = new ChartWalker(seamless);
         this.segmentIndex = new FaceSegmentIndex(faceCount);
 
@@ -128,36 +157,7 @@ public final class MotorcycleGraph {
                     singularity.vertexId(), singularity.index4(), 0f, 0f, position);
             nodes.add(node);
         }
-        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
-            int edgeId = mesh.edgeIdAt(activeEdge);
-            boolean boundary = mesh.isBoundaryEdge(edgeId);
-            boolean alignment = seamless.crossField.alignmentEdgeIds.contains(edgeId);
-            if (!boundary && !alignment) {
-                continue;
-            }
-            HalfEdgeMesh.EdgeFaceIds edgeFaces = mesh.edgeFaceIds(activeEdge);
-            if (edgeFaces.faceA < 0) {
-                continue;
-            }
-            int activeFace = seamless.crossField.faceIdToActive.get(edgeFaces.faceA);
-            double[] uv = new double[ChartWalker.CORNER_UV_FLOATS];
-            walker.faceCornerUv(activeFace, uv);
-            TracePort port = new TracePort(-1, activeFace, 0, TraceAxis.U, 1);
-            double startU = uv[port.cornerIndex * 2];
-            double startV = uv[port.cornerIndex * 2 + 1];
-            int faceId = seamless.mesh.faceIdAt(port.activeFace);
-            Vector3f position = seamless.mesh.vertexPosition(
-                    seamless.mesh.faceVertexAt(faceId, port.cornerIndex));
-            TMeshNode origin = new TMeshNode(nextNodeId++, TMeshNode.TYPE_FEATURE,
-                    -1, 0, startU, startV, position);
-            nodes.add(origin);
-            Trace trace = new Trace(nextTraceId++, origin.nodeId, -1, port, startU, startV, true);
-            traces.add(trace);
-            TraceSegment segment = new TraceSegment(trace.traceId, activeFace,
-                    uv[0], uv[1], uv[2], uv[3], TraceAxis.U, 1, 0.0);
-            trace.segments.add(segment);
-            segmentIndex.add(segment);
-        }
+        seedFeatureChains();
         int featureTraceCount = traces.size();
 
         List<TracePort> ports = TracePort.spawnFromSingularities(seamless);
@@ -267,12 +267,237 @@ public final class MotorcycleGraph {
         subdivideArcsAtMeetings();
         System.out.println("[motorcycle] assembling patches");
         assemblePatches();
+        System.out.println("[motorcycle] resolving patch boundary arcs and sides");
+        new PatchBoundaryBuilder(this).build();
         buildTraceRecordBuffer();
         System.out.printf(
                 "[motorcycle] done traces=%d arcs=%d nodes=%d patches=%d %.2fs%n",
                 traces.size(), arcs.size(), nodes.size(), patches.size(),
                 (System.nanoTime() - buildStartNanos) / 1.0e9);
         return this;
+    }
+
+    /**
+     * Seed one immortal feature trace per maximal chain of alignment/boundary
+     * edges (Lyon §4.4: features and boundaries become T-mesh arcs). A chain
+     * extends through a vertex only when exactly two alignment edges meet
+     * there, the vertex is not a singularity, and the crease continues without
+     * turning (cosine test against {@link #CHAIN_TURN_COS}). Every chain edge
+     * contributes one {@link TraceSegment} per incident face — both charts —
+     * so motorcycles approaching from either side collide with the chain.
+     */
+    private void seedFeatureChains() {
+        List<Integer> alignmentEdgeIds = new ArrayList<>(crossField.alignmentEdgeIds);
+        Collections.sort(alignmentEdgeIds);
+        if (alignmentEdgeIds.isEmpty()) {
+            return;
+        }
+
+        Map<Integer, List<Integer>> alignmentEdgesByVertex = new HashMap<>();
+        for (int edgeId : alignmentEdgeIds) {
+            int halfEdge = mesh.edgeHalfEdge(edgeId);
+            alignmentEdgesByVertex.computeIfAbsent(mesh.halfEdgeVertex(halfEdge),
+                    vertexId -> new ArrayList<>()).add(edgeId);
+            alignmentEdgesByVertex.computeIfAbsent(mesh.halfEdgeEndVertex(halfEdge),
+                    vertexId -> new ArrayList<>()).add(edgeId);
+        }
+        Set<Integer> singularVertexIds = new HashSet<>();
+        for (Singularity singularity : crossField.singularities) {
+            singularVertexIds.add(singularity.vertexId());
+        }
+
+        Set<Integer> visitedEdgeIds = new HashSet<>();
+        int chainCount = 0;
+        for (int seedEdgeId : alignmentEdgeIds) {
+            if (visitedEdgeIds.contains(seedEdgeId)) {
+                continue;
+            }
+            int seedHalfEdge = mesh.edgeHalfEdge(seedEdgeId);
+            int chainStartVertexId = mesh.halfEdgeVertex(seedHalfEdge);
+            int firstEdgeId = seedEdgeId;
+            boolean closedLoop = false;
+            while (true) {
+                int previousEdgeId = chainContinuation(chainStartVertexId, firstEdgeId,
+                        alignmentEdgesByVertex, singularVertexIds);
+                if (previousEdgeId < 0) {
+                    break;
+                }
+                if (previousEdgeId == seedEdgeId) {
+                    closedLoop = true;
+                    break;
+                }
+                firstEdgeId = previousEdgeId;
+                chainStartVertexId = otherVertexOfEdge(previousEdgeId, chainStartVertexId);
+            }
+            if (closedLoop) {
+                chainStartVertexId = mesh.halfEdgeVertex(seedHalfEdge);
+                firstEdgeId = seedEdgeId;
+            }
+
+            List<Integer> chainVertexIds = new ArrayList<>();
+            List<Integer> chainEdgeIds = new ArrayList<>();
+            chainVertexIds.add(chainStartVertexId);
+            int walkVertexId = chainStartVertexId;
+            int walkEdgeId = firstEdgeId;
+            while (true) {
+                chainEdgeIds.add(walkEdgeId);
+                visitedEdgeIds.add(walkEdgeId);
+                walkVertexId = otherVertexOfEdge(walkEdgeId, walkVertexId);
+                chainVertexIds.add(walkVertexId);
+                if (closedLoop && walkVertexId == chainStartVertexId) {
+                    break;
+                }
+                int nextEdgeId = chainContinuation(walkVertexId, walkEdgeId,
+                        alignmentEdgesByVertex, singularVertexIds);
+                if (nextEdgeId < 0 || visitedEdgeIds.contains(nextEdgeId)) {
+                    break;
+                }
+                walkEdgeId = nextEdgeId;
+            }
+            createFeatureChainTrace(chainVertexIds, chainEdgeIds);
+            chainCount++;
+        }
+        System.out.printf("[motorcycle] feature chains=%d over %d alignment edges%n",
+                chainCount, alignmentEdgeIds.size());
+    }
+
+    /**
+     * The single alignment edge continuing the chain through {@code vertexId},
+     * or {@code -1} when the chain breaks there (junction, dead end,
+     * singularity, or crease corner).
+     */
+    private int chainContinuation(int vertexId, int viaEdgeId,
+            Map<Integer, List<Integer>> alignmentEdgesByVertex, Set<Integer> singularVertexIds) {
+        List<Integer> incidentEdgeIds = alignmentEdgesByVertex.get(vertexId);
+        if (incidentEdgeIds == null || incidentEdgeIds.size() != 2) {
+            return -1;
+        }
+        if (singularVertexIds.contains(vertexId)) {
+            return -1;
+        }
+        int nextEdgeId = incidentEdgeIds.get(0) == viaEdgeId
+                ? incidentEdgeIds.get(1)
+                : incidentEdgeIds.get(0);
+        if (nextEdgeId == viaEdgeId) {
+            return -1;
+        }
+        Vector3f sharedPosition = new Vector3f();
+        Vector3f incomingFarPosition = new Vector3f();
+        Vector3f outgoingFarPosition = new Vector3f();
+        mesh.vertexPosition(vertexId, sharedPosition);
+        mesh.vertexPosition(otherVertexOfEdge(viaEdgeId, vertexId), incomingFarPosition);
+        mesh.vertexPosition(otherVertexOfEdge(nextEdgeId, vertexId), outgoingFarPosition);
+        Vector3f incomingDirection = new Vector3f(sharedPosition).sub(incomingFarPosition).normalize();
+        Vector3f outgoingDirection = new Vector3f(outgoingFarPosition).sub(sharedPosition).normalize();
+        if (incomingDirection.dot(outgoingDirection) < CHAIN_TURN_COS) {
+            return -1;
+        }
+        return nextEdgeId;
+    }
+
+    private int otherVertexOfEdge(int edgeId, int vertexId) {
+        int halfEdge = mesh.edgeHalfEdge(edgeId);
+        int fromVertexId = mesh.halfEdgeVertex(halfEdge);
+        return fromVertexId == vertexId ? mesh.halfEdgeEndVertex(halfEdge) : fromVertexId;
+    }
+
+    /**
+     * Materialize one feature chain as an immortal trace: TYPE_FEATURE end
+     * nodes (shared when the chain is a closed loop), one chart-local segment
+     * per chain edge per incident face, and a {@link FeatureEdgeSpan} record
+     * per edge for later patch-boundary resolution. The chain's parametric
+     * length accumulates per edge from the first incident face's chart.
+     */
+    private void createFeatureChainTrace(List<Integer> chainVertexIds, List<Integer> chainEdgeIds) {
+        double[] cornerUv = new double[ChartWalker.CORNER_UV_FLOATS];
+
+        int firstEdgeId = chainEdgeIds.get(0);
+        int firstFromVertexId = chainVertexIds.get(0);
+        int firstActiveEdge = crossField.edgeIdToActive.get(firstEdgeId);
+        HalfEdgeMesh.EdgeFaceIds firstEdgeFaces = mesh.edgeFaceIds(firstActiveEdge);
+        int firstFaceId = firstEdgeFaces.faceA >= 0 ? firstEdgeFaces.faceA : firstEdgeFaces.faceB;
+        int firstActiveFace = crossField.faceIdToActive.get(firstFaceId);
+        walker.faceCornerUv(firstActiveFace, cornerUv);
+        int firstFromCorner = cornerOfVertexInFace(firstFaceId, firstFromVertexId);
+        int firstToCorner = cornerOfVertexInFace(firstFaceId, chainVertexIds.get(1));
+        double startU = cornerUv[firstFromCorner * 2];
+        double startV = cornerUv[firstFromCorner * 2 + 1];
+        double firstDeltaU = cornerUv[firstToCorner * 2] - startU;
+        double firstDeltaV = cornerUv[firstToCorner * 2 + 1] - startV;
+        TraceAxis firstAxis = TraceAxis.fromDirection(firstDeltaU, firstDeltaV);
+        int firstSign = TraceAxis.signFor(firstAxis, firstDeltaU, firstDeltaV);
+
+        TMeshNode origin = new TMeshNode(nextNodeId++, TMeshNode.TYPE_FEATURE, -1, 0,
+                startU, startV, mesh.vertexPosition(firstFromVertexId));
+        nodes.add(origin);
+        TracePort port = new TracePort(-1, firstActiveFace, firstFromCorner, firstAxis, firstSign);
+        Trace trace = new Trace(nextTraceId++, origin.nodeId, -1, port, startU, startV, true);
+        traces.add(trace);
+
+        double chainLength = 0.0;
+        for (int chainIndex = 0; chainIndex < chainEdgeIds.size(); chainIndex++) {
+            int edgeId = chainEdgeIds.get(chainIndex);
+            int fromVertexId = chainVertexIds.get(chainIndex);
+            int toVertexId = chainVertexIds.get(chainIndex + 1);
+            int activeEdge = crossField.edgeIdToActive.get(edgeId);
+            HalfEdgeMesh.EdgeFaceIds edgeFaces = mesh.edgeFaceIds(activeEdge);
+            double edgeChartLength = 0.0;
+            for (int faceId : new int[] { edgeFaces.faceA, edgeFaces.faceB }) {
+                if (faceId < 0) {
+                    continue;
+                }
+                int activeFace = crossField.faceIdToActive.get(faceId);
+                walker.faceCornerUv(activeFace, cornerUv);
+                int fromCorner = cornerOfVertexInFace(faceId, fromVertexId);
+                int toCorner = cornerOfVertexInFace(faceId, toVertexId);
+                double entryU = cornerUv[fromCorner * 2];
+                double entryV = cornerUv[fromCorner * 2 + 1];
+                double exitU = cornerUv[toCorner * 2];
+                double exitV = cornerUv[toCorner * 2 + 1];
+                TraceAxis axis = TraceAxis.fromDirection(exitU - entryU, exitV - entryV);
+                int sign = TraceAxis.signFor(axis, exitU - entryU, exitV - entryV);
+                TraceSegment segment = new TraceSegment(trace.traceId, activeFace,
+                        entryU, entryV, exitU, exitV, axis, sign, chainLength);
+                trace.segments.add(segment);
+                segmentIndex.add(segment);
+                if (edgeChartLength == 0.0) {
+                    edgeChartLength = segment.parametricLength();
+                }
+            }
+            featureSpanByEdgeId.put(edgeId, new FeatureEdgeSpan(trace.traceId, fromVertexId,
+                    chainLength, chainLength + edgeChartLength));
+            chainLength += edgeChartLength;
+        }
+
+        int lastVertexId = chainVertexIds.get(chainVertexIds.size() - 1);
+        TMeshNode terminal;
+        if (lastVertexId == chainVertexIds.get(0)) {
+            terminal = origin;
+        } else {
+            int lastEdgeId = chainEdgeIds.get(chainEdgeIds.size() - 1);
+            int lastActiveEdge = crossField.edgeIdToActive.get(lastEdgeId);
+            HalfEdgeMesh.EdgeFaceIds lastEdgeFaces = mesh.edgeFaceIds(lastActiveEdge);
+            int lastFaceId = lastEdgeFaces.faceA >= 0 ? lastEdgeFaces.faceA : lastEdgeFaces.faceB;
+            int lastActiveFace = crossField.faceIdToActive.get(lastFaceId);
+            walker.faceCornerUv(lastActiveFace, cornerUv);
+            int lastCorner = cornerOfVertexInFace(lastFaceId, lastVertexId);
+            terminal = new TMeshNode(nextNodeId++, TMeshNode.TYPE_FEATURE, -1, 0,
+                    cornerUv[lastCorner * 2], cornerUv[lastCorner * 2 + 1],
+                    mesh.vertexPosition(lastVertexId));
+            nodes.add(terminal);
+        }
+        trace.arcNodeIds.add(terminal.nodeId);
+        trace.currentNodeId = terminal.nodeId;
+        trace.parametricLengthSoFar = chainLength;
+    }
+
+    private int cornerOfVertexInFace(int faceId, int vertexId) {
+        for (int corner = 0; corner < CORNERS; corner++) {
+            if (mesh.faceVertexAt(faceId, corner) == vertexId) {
+                return corner;
+            }
+        }
+        return 0;
     }
 
     private void printSimulationProgress(int eventsProcessed, int initialQueueSize, int queueSize,
@@ -481,10 +706,13 @@ public final class MotorcycleGraph {
         trace.arcNodeIds.add(intersectionNode.nodeId);
 
         TraceSegment otherSegment = event.otherSegment;
-        double distanceAlongSegment = Math.abs(event.v - otherSegment.entryV);
-        if (segment.axis == TraceAxis.U) {
-            distanceAlongSegment = Math.abs(event.u - otherSegment.entryU);
-        }
+        // Distance from the other segment's entry, measured along the
+        // coordinate the OTHER trace varies (a U-axis trace varies u). The
+        // moving trace's axis is perpendicular, so measuring along its own
+        // axis would read the other chord's constant coordinate (always ~0).
+        double distanceAlongSegment = otherSegment.axis == TraceAxis.U
+                ? Math.abs(event.u - otherSegment.entryU)
+                : Math.abs(event.v - otherSegment.entryV);
         double theirLength = otherSegment.parametricLengthAtEntry + distanceAlongSegment;
         double alphaIjForTi = Trace.computeAlphaIj(
                 trace.state.axis, trace.state.sign,
@@ -494,8 +722,10 @@ public final class MotorcycleGraph {
                 otherSegment.axis, otherSegment.sign,
                 trace.state.axis, trace.state.sign,
                 theirLength, event.parametricLength);
-        trace.recordMeeting(other, event.parametricLength, theirLength, alphaIjForTi, alphaRadians);
-        other.recordMeeting(trace, theirLength, event.parametricLength, alphaJiForTj, alphaRadians);
+        trace.recordMeeting(other, event.parametricLength, theirLength, alphaIjForTi, alphaRadians,
+                trace.state.axis, trace.state.sign, otherSegment.axis, otherSegment.sign);
+        other.recordMeeting(trace, theirLength, event.parametricLength, alphaJiForTj, alphaRadians,
+                otherSegment.axis, otherSegment.sign, trace.state.axis, trace.state.sign);
 
         // Stamp the shared intersection node id onto the just-added meeting
         // entries on both sides so the post-build pass can rebuild each
@@ -538,15 +768,51 @@ public final class MotorcycleGraph {
         trace.currentNodeId = endNode.nodeId;
         trace.arcNodeIds.add(endNode.nodeId);
         trace.alive = false;
+        if (event.type == TraceEvent.TYPE_BOUNDARY) {
+            attachTerminationToFeatureChain(trace, event, endNode);
+        }
+    }
+
+    /**
+     * Register a boundary termination as a meeting on the feature chain it
+     * landed on, so the post-build subdivision splits the chain's arc at the
+     * termination node — the boundary side of a patch must break exactly where
+     * separatrices end on it.
+     */
+    private void attachTerminationToFeatureChain(Trace trace, TraceEvent event, TMeshNode endNode) {
+        for (TraceSegment candidate : segmentIndex.segmentsOnFace(event.activeFace)) {
+            Trace owner = traces.get(candidate.traceId);
+            if (!owner.featureTrace) {
+                continue;
+            }
+            double isoCoordinate = candidate.axis.holdsUConstant() ? event.u : event.v;
+            double spanCoordinate = candidate.axis.holdsUConstant() ? event.v : event.u;
+            if (Math.abs(isoCoordinate - candidate.isoValue) > TERMINATION_SNAP_EPS) {
+                continue;
+            }
+            if (spanCoordinate < candidate.spanStart - TERMINATION_SNAP_EPS
+                    || spanCoordinate > candidate.spanEnd + TERMINATION_SNAP_EPS) {
+                continue;
+            }
+            double entrySpan = candidate.axis.holdsUConstant() ? candidate.entryV : candidate.entryU;
+            double featureLength = candidate.parametricLengthAtEntry
+                    + Math.abs(spanCoordinate - entrySpan);
+            double alphaForFeature = Trace.computeAlphaIj(candidate.axis, candidate.sign,
+                    trace.state.axis, trace.state.sign, featureLength, event.parametricLength);
+            owner.recordMeeting(trace, featureLength, event.parametricLength,
+                    alphaForFeature, alphaRadians,
+                    candidate.axis, candidate.sign, trace.state.axis, trace.state.sign);
+            owner.metOtherTraces.get(owner.metOtherTraces.size() - 1).intersectionNodeId = endNode.nodeId;
+            return;
+        }
     }
 
     private void finalizeOpenTraces(ChartWalker walker) {
         int finalized = 0;
         for (Trace trace : traces) {
             if (trace.featureTrace) {
-                // Feature traces seeded by seedFeatureTraces never run through the
-                // event loop (#3 still pending — feature seeding is broken). Their
-                // single synthetic segment exists only to seed FaceSegmentIndex.
+                // Feature chains never run through the event loop; they get
+                // their origin and terminal nodes at seeding time.
                 continue;
             }
             if (trace.arcNodeIds.size() >= 2) {
@@ -622,9 +888,6 @@ public final class MotorcycleGraph {
         List<TraceArc> rebuilt = new ArrayList<>();
         int nextId = 0;
         for (Trace trace : traces) {
-            if (trace.featureTrace) {
-                continue;
-            }
             if (trace.arcNodeIds.size() < 2) {
                 continue;
             }
@@ -662,7 +925,13 @@ public final class MotorcycleGraph {
                 chainNodes.add(meeting.intersectionNodeId);
                 chainLengths.add(meeting.ourParametricLength);
             }
-            if (terminalNodeId != originNodeId
+            boolean closedLoop = trace.featureTrace && terminalNodeId == originNodeId;
+            if (closedLoop) {
+                // A closed feature loop ends where it began: append the origin
+                // again so the loop-closing arc back to it is emitted.
+                chainNodes.add(terminalNodeId);
+                chainLengths.add(terminalLength);
+            } else if (terminalNodeId != originNodeId
                     && chainNodes.get(chainNodes.size() - 1) != terminalNodeId) {
                 chainNodes.add(terminalNodeId);
                 chainLengths.add(terminalLength);
@@ -672,12 +941,16 @@ public final class MotorcycleGraph {
             trace.arcNodeIds.addAll(chainNodes);
             trace.currentNodeId = terminalNodeId;
 
+            trace.chainArcIds.clear();
+            trace.chainNodeLengths.clear();
+            trace.chainNodeLengths.addAll(chainLengths);
             for (int k = 0; k < chainNodes.size() - 1; k++) {
                 double length = chainLengths.get(k + 1) - chainLengths.get(k);
                 TraceArc arc = new TraceArc(nextId++, trace.traceId,
                         chainNodes.get(k), chainNodes.get(k + 1),
                         trace.spawnAxis, length);
                 rebuilt.add(arc);
+                trace.chainArcIds.add(arc.arcId);
             }
         }
         arcs.clear();
@@ -689,7 +962,18 @@ public final class MotorcycleGraph {
 
         int edgeCount = seamless.edgeCount;
         boolean[] traceCrossesActiveEdge = new boolean[edgeCount];
+        crossingsByActiveEdge = new ArrayList<>(edgeCount);
+        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+            crossingsByActiveEdge.add(new ArrayList<>());
+        }
         for (Trace trace : traces) {
+            if (trace.featureTrace) {
+                // Feature chains run along edges (and are duplicated per
+                // incident face), so the consecutive-segment walk below would
+                // mark fan spokes as crossed; their edges are marked wholesale
+                // after this loop instead.
+                continue;
+            }
             for (int segmentIndex = 1; segmentIndex < trace.segments.size(); segmentIndex++) {
                 int fromFace = trace.segments.get(segmentIndex - 1).activeFace;
                 int toFace = trace.segments.get(segmentIndex).activeFace;
@@ -711,7 +995,15 @@ public final class MotorcycleGraph {
                 }
                 if (sharedEdge >= 0) {
                     traceCrossesActiveEdge[sharedEdge] = true;
+                    crossingsByActiveEdge.get(sharedEdge).add(new EdgeCrossing(
+                            trace.traceId, trace.segments.get(segmentIndex).parametricLengthAtEntry));
                 }
+            }
+        }
+        for (int alignmentEdgeId : seamless.crossField.alignmentEdgeIds) {
+            Integer activeEdge = seamless.crossField.edgeIdToActive.get(alignmentEdgeId);
+            if (activeEdge != null) {
+                traceCrossesActiveEdge[activeEdge] = true;
             }
         }
         patchIdByActiveFace = new int[faceCount];
@@ -747,9 +1039,11 @@ public final class MotorcycleGraph {
                     frontier.add(neighborActive);
                 }
             }
-            patches.add(new TMeshPatch(nextPatchId));
             nextPatchId++;
         }
+        // patchIdByActiveFace is a display-only face coloring; the canonical
+        // patch list is rebuilt from the arrangement walk afterwards, since
+        // triangle-level regions collapse once several traces cross one face.
     }
 
     private void buildTraceRecordBuffer() {

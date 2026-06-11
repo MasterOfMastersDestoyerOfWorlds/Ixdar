@@ -11,10 +11,12 @@ public class BoundaryConstraints {
     /**
      * Add directional constraints on both faces incident to each boundary edge. The
      * cross is aligned with the edge direction so the quadrangulation follows the
-     * surface boundary.
+     * surface boundary. Detection of the boundary alignment edges themselves lives
+     * in the parent {@link CrossField}; this hard face pinning is specific to the
+     * Bommes mixed-integer solver.
      *
      * @param mesh       half-edge mesh whose boundary edges are scanned
-     * @param crossField cross field receiving the alignment-edge annotations
+     * @param crossField cross field receiving the per-face constraint annotations
      * @return number of newly constrained faces
      */
     public static int applyBoundaryConstraints(HalfEdgeMesh mesh, CrossField crossField) {
@@ -25,7 +27,6 @@ public class BoundaryConstraints {
                 continue;
             Vector3f edgeDir = new Vector3f(mesh.vertexPosition(edgeFaceIds.edgeEndVertex))
                     .sub(mesh.vertexPosition(edgeFaceIds.edgeStartVertex));
-            crossField.alignmentEdgeIds.add(edgeFaceIds.edgeId);
             for (int faceIndex : new int[] { edgeFaceIds.faceA, edgeFaceIds.faceB }) {
                 if (faceIndex == MeshTopology.NONE)
                     continue;

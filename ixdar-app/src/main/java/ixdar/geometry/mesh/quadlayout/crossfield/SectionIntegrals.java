@@ -19,96 +19,6 @@ package ixdar.geometry.mesh.quadlayout.crossfield;
  */
 public final class SectionIntegrals {
 
-    private SectionIntegrals() {
-    }
-
-    /** Diagonal mass entry for a unit-area triangle (multiply by area). */
-    public static double massDiagonal() {
-        return 1.0 / 6.0;
-    }
-
-    /** Diagonal stiffness entry (real). Arguments are the two edge vectors at this
-     *  vertex: squared length of the first, their dot product, squared length of
-     *  the second. Divide the result by area. */
-    public static double stiffnessDiagonal(double holonomy,
-            double lengthSqFirst, double edgeDot, double lengthSqSecond) {
-        return 0.25 * ((lengthSqFirst - 2.0 * edgeDot + lengthSqSecond)
-                + holonomy * holonomy * (lengthSqFirst + edgeDot + lengthSqSecond) / 90.0);
-    }
-
-    /** Off-diagonal stiffness entry (complex). Arguments are the two edge vectors
-     *  at the vertex opposite this edge: squared length, dot product, squared
-     *  length. Divide the result by area, then multiply by the transport. */
-    public static double[] stiffnessOffDiagonal(double holonomy,
-            double lengthSqFirst, double edgeDot, double lengthSqSecond) {
-        if (Math.abs(holonomy) > Math.PI) {
-            return stiffnessOffDiagonalDirect(holonomy, lengthSqFirst, edgeDot, lengthSqSecond);
-        }
-        boolean positive = holonomy > 0;
-        double t = (positive ? holonomy : -holonomy) * 2.0 / Math.PI - 1.0;
-        double re = (lengthSqFirst + lengthSqSecond) * chebyshev(t, STIFF_FIRST_REAL)
-                + edgeDot * chebyshev(t, STIFF_SECOND_REAL);
-        double im = (lengthSqFirst + lengthSqSecond) * chebyshev(t, STIFF_FIRST_IMAG)
-                + edgeDot * chebyshev(t, STIFF_SECOND_IMAG);
-        return new double[] { re, positive ? -im : im };
-    }
-
-    /** Off-diagonal mass entry (complex) for a unit-area triangle. Multiply by area
-     *  and the transport. */
-    public static double[] massOffDiagonal(double holonomy) {
-        if (Math.abs(holonomy) > Math.PI) {
-            return massOffDiagonalDirect(holonomy);
-        }
-        boolean positive = holonomy > 0;
-        double t = (positive ? holonomy : -holonomy) / Math.PI * 2.0 - 1.0;
-        double re = chebyshev(t, MASS_REAL);
-        double im = chebyshev(t, MASS_IMAG);
-        return new double[] { re, positive ? -im : im };
-    }
-
-    // ---- direct (non-Chebyshev) evaluation for |holonomy| > pi ----
-
-    private static double[] stiffnessOffDiagonalDirect(double s,
-            double gii, double gij, double gjj) {
-        double s2 = s * s;
-        double s4 = s2 * s2;
-        double a = 3 * gii + 4 * gij + 3 * gjj;
-        double b = gii + gij + gjj;
-        double d = 2 * gii + 3 * gij + 2 * gjj;
-        double e = gii + 2 * gij + gjj;
-        double f = gii - 2 * gij + gjj;
-        double cosS = Math.cos(s);
-        double sinS = Math.sin(s);
-        double mulRe = -a + s2 * e / 2.0;
-        double mulIm = s * d;
-        double prodRe = cosS * mulRe - sinS * mulIm;
-        double prodIm = cosS * mulIm + sinS * mulRe;
-        double termRe = a + prodRe;
-        double termIm = s * b - s2 * s * gij / 6.0 + prodIm;
-        return new double[] { termRe / s4 + f / 24.0, termIm / s4 - s * f / 60.0 };
-    }
-
-    private static double[] massOffDiagonalDirect(double s) {
-        double s2 = s * s;
-        double s4 = s2 * s2;
-        double denom = 3 * s4;
-        double re = 6 * Math.cos(s) - 6 + 3 * s2;
-        double im = 6 * Math.sin(s) - 6 * s + s * s2;
-        return new double[] { re / denom, im / denom };
-    }
-
-    /** Evaluate a Chebyshev series at x in [-1, 1]. */
-    private static double chebyshev(double x, double[] coefficients) {
-        double b2 = 0, b1 = 0, b0 = 0;
-        double twoX = 2 * x;
-        for (int i = coefficients.length - 1; i >= 0; i--) {
-            b2 = b1;
-            b1 = b0;
-            b0 = twoX * b1 - b2 + coefficients[i];
-        }
-        return (b0 - b2) / 2.0;
-    }
-
     private static final double[] STIFF_FIRST_REAL = {
         0.0448875760891932036595562553276,
         0.0278480909574822965157922173757,
@@ -252,4 +162,126 @@ public final class SectionIntegrals {
         3.95655079023456015736315286131e-25,
         -4.84642137915095135859812028886e-26
     };
+
+    private SectionIntegrals() {
+    }
+
+    /**
+     * Diagonal mass entry for a unit-area triangle (multiply by area).
+     *
+     * @return the reference-triangle diagonal mass value {@code 1/6}
+     */
+    public static double massDiagonal() {
+        return 1.0 / 6.0;
+    }
+
+    /**
+     * Diagonal stiffness entry (real). Arguments are the two edge vectors at this
+     * vertex: squared length of the first, their dot product, squared length of
+     * the second. Divide the result by area.
+     *
+     * @param holonomy       triangle holonomy of the connection over this triangle
+     * @param lengthSqFirst  squared length of the first edge vector at the vertex
+     * @param edgeDot        dot product of the two edge vectors at the vertex
+     * @param lengthSqSecond squared length of the second edge vector at the vertex
+     * @return real diagonal stiffness entry for a unit-area triangle
+     */
+    public static double stiffnessDiagonal(double holonomy,
+            double lengthSqFirst, double edgeDot, double lengthSqSecond) {
+        return 0.25 * ((lengthSqFirst - 2.0 * edgeDot + lengthSqSecond)
+                + holonomy * holonomy * (lengthSqFirst + edgeDot + lengthSqSecond) / 90.0);
+    }
+
+    /**
+     * Off-diagonal stiffness entry (complex). Arguments are the two edge vectors
+     * at the vertex opposite this edge: squared length, dot product, squared
+     * length. Divide the result by area, then multiply by the transport.
+     *
+     * @param holonomy       triangle holonomy of the connection over this triangle
+     * @param lengthSqFirst  squared length of the edge vector to the first endpoint
+     * @param edgeDot        dot product of the two opposite-vertex edge vectors
+     * @param lengthSqSecond squared length of the edge vector to the second endpoint
+     * @return {@code double[]{ real, imaginary }} off-diagonal stiffness entry
+     */
+    public static double[] stiffnessOffDiagonal(double holonomy,
+            double lengthSqFirst, double edgeDot, double lengthSqSecond) {
+        if (Math.abs(holonomy) > Math.PI) {
+            return stiffnessOffDiagonalDirect(holonomy, lengthSqFirst, edgeDot, lengthSqSecond);
+        }
+        boolean positive = holonomy > 0;
+        double t = (positive ? holonomy : -holonomy) * 2.0 / Math.PI - 1.0;
+        double re = (lengthSqFirst + lengthSqSecond) * chebyshev(t, STIFF_FIRST_REAL)
+                + edgeDot * chebyshev(t, STIFF_SECOND_REAL);
+        double im = (lengthSqFirst + lengthSqSecond) * chebyshev(t, STIFF_FIRST_IMAG)
+                + edgeDot * chebyshev(t, STIFF_SECOND_IMAG);
+        return new double[] { re, positive ? -im : im };
+    }
+
+    /**
+     * Off-diagonal mass entry (complex) for a unit-area triangle. Multiply by area
+     * and the transport.
+     *
+     * @param holonomy triangle holonomy of the connection over this triangle
+     * @return {@code double[]{ real, imaginary }} off-diagonal mass entry
+     */
+    public static double[] massOffDiagonal(double holonomy) {
+        if (Math.abs(holonomy) > Math.PI) {
+            return massOffDiagonalDirect(holonomy);
+        }
+        boolean positive = holonomy > 0;
+        double t = (positive ? holonomy : -holonomy) / Math.PI * 2.0 - 1.0;
+        double re = chebyshev(t, MASS_REAL);
+        double im = chebyshev(t, MASS_IMAG);
+        return new double[] { re, positive ? -im : im };
+    }
+
+    /**
+     * Direct (non-Chebyshev) off-diagonal stiffness evaluation for
+     * {@code |holonomy| > pi}, where the series is out of range but the closed
+     * form no longer suffers catastrophic cancellation.
+     */
+    private static double[] stiffnessOffDiagonalDirect(double s,
+            double gii, double gij, double gjj) {
+        double s2 = s * s;
+        double s4 = s2 * s2;
+        double a = 3 * gii + 4 * gij + 3 * gjj;
+        double b = gii + gij + gjj;
+        double d = 2 * gii + 3 * gij + 2 * gjj;
+        double e = gii + 2 * gij + gjj;
+        double f = gii - 2 * gij + gjj;
+        double cosS = Math.cos(s);
+        double sinS = Math.sin(s);
+        double mulRe = -a + s2 * e / 2.0;
+        double mulIm = s * d;
+        double prodRe = cosS * mulRe - sinS * mulIm;
+        double prodIm = cosS * mulIm + sinS * mulRe;
+        double termRe = a + prodRe;
+        double termIm = s * b - s2 * s * gij / 6.0 + prodIm;
+        return new double[] { termRe / s4 + f / 24.0, termIm / s4 - s * f / 60.0 };
+    }
+
+    /**
+     * Direct (non-Chebyshev) off-diagonal mass evaluation for
+     * {@code |holonomy| > pi}.
+     */
+    private static double[] massOffDiagonalDirect(double s) {
+        double s2 = s * s;
+        double s4 = s2 * s2;
+        double denom = 3 * s4;
+        double re = 6 * Math.cos(s) - 6 + 3 * s2;
+        double im = 6 * Math.sin(s) - 6 * s + s * s2;
+        return new double[] { re / denom, im / denom };
+    }
+
+    /** Evaluate a Chebyshev series at x in [-1, 1]. */
+    private static double chebyshev(double x, double[] coefficients) {
+        double b2 = 0, b1 = 0, b0 = 0;
+        double twoX = 2 * x;
+        for (int i = coefficients.length - 1; i >= 0; i--) {
+            b2 = b1;
+            b1 = b0;
+            b0 = twoX * b1 - b2 + coefficients[i];
+        }
+        return (b0 - b2) / 2.0;
+    }
 }

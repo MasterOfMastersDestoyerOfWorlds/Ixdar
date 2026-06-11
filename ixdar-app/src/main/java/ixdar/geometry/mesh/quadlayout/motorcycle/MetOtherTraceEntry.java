@@ -1,7 +1,10 @@
 package ixdar.geometry.mesh.quadlayout.motorcycle;
 
 /**
- * Record of a prior trace-trace meeting used by Lyon's two-sided stopping test.
+ * Record of a prior trace-trace meeting used by Lyon's two-sided stopping test
+ * and, after the build, by the arrangement walk that assembles patches (the
+ * stored axes give both traces' travel directions in the shared face chart at
+ * the meeting, which fixes the cyclic order of arcs around the node).
  */
 public final class MetOtherTraceEntry {
 
@@ -9,6 +12,19 @@ public final class MetOtherTraceEntry {
     public final double signedAngle;
     public final double ourParametricLength;
     public final double theirParametricLength;
+
+    /** Travel axis of the owning trace in the meeting face's chart. */
+    public final TraceAxis ourAxis;
+
+    /** Travel sign of the owning trace along {@link #ourAxis}. */
+    public final int ourSign;
+
+    /** Travel axis of the other trace in the same chart. */
+    public final TraceAxis otherAxis;
+
+    /** Travel sign of the other trace along {@link #otherAxis}. */
+    public final int otherSign;
+
     /**
      * T-mesh node id at this meeting, shared between both traces. Set by
      * {@code MotorcycleGraph.handleIntersection} after the intersection node is
@@ -26,12 +42,21 @@ public final class MetOtherTraceEntry {
      * @param ourParametricLength   parametric length along this trace to meeting
      * @param theirParametricLength parametric length along the other trace to
      *                              meeting
+     * @param ourAxis               owning trace's travel axis in the meeting chart
+     * @param ourSign               owning trace's travel sign along its axis
+     * @param otherAxis             other trace's travel axis in the same chart
+     * @param otherSign             other trace's travel sign along its axis
      */
     public MetOtherTraceEntry(int otherTraceId, double signedAngle,
-            double ourParametricLength, double theirParametricLength) {
+            double ourParametricLength, double theirParametricLength,
+            TraceAxis ourAxis, int ourSign, TraceAxis otherAxis, int otherSign) {
         this.otherTraceId = otherTraceId;
         this.signedAngle = signedAngle;
         this.ourParametricLength = ourParametricLength;
         this.theirParametricLength = theirParametricLength;
+        this.ourAxis = ourAxis;
+        this.ourSign = ourSign;
+        this.otherAxis = otherAxis;
+        this.otherSign = otherSign;
     }
 }

@@ -83,6 +83,21 @@ public final class SmoothEnergySystem {
         this.vornoiForest = vornoiForest;
     }
 
+    /**
+     * Build the per-interior-edge residual rows, the chord numbering of free
+     * period-jump variables (edges not fixed by the Voronoi forest), the initial
+     * solution vector, and the normal-equations matrix used by every relaxed
+     * solve.
+     *
+     * @param mesh                     half-edge mesh providing edge/face topology
+     * @param faceIdToActive           map from raw face id to dense active index
+     * @param kappa                    per-edge transport angles, indexed by active
+     *                                 edge
+     * @param solverLocalMaxIterations local Gauss-Seidel iteration cap before the
+     *                                 conjugate-gradient fallback
+     * @param solverCgMaxIterations    conjugate-gradient iteration cap before the
+     *                                 direct fallback
+     */
     public void assemble(HalfEdgeMesh mesh, Map<Integer, Integer> faceIdToActive, float[] kappa,
             int solverLocalMaxIterations, int solverCgMaxIterations) {
 
@@ -155,6 +170,12 @@ public final class SmoothEnergySystem {
         roundBatchTol = DEFAULT_ROUND_BATCH_TOLERANCE;
     }
 
+    /**
+     * BZK09 §2 greedy mixed-integer solve: bootstrap with a continuous solve,
+     * then repeatedly round the free period-jump variables closest to an integer
+     * (in non-overlapping batches up to {@link #roundBatchSize}) and re-solve the
+     * relaxed system until every period jump is fixed.
+     */
     public void solveGreedyMIP() {
         lastAdaptiveMethod = "BOOTSTRAP_DIRECT_PENDING";
         lastAdaptiveResidual = Double.NaN;
@@ -312,6 +333,15 @@ public final class SmoothEnergySystem {
         solveRelaxed(new int[] { roundedVariable }, 1);
     }
 
+    /**
+     * Continuous L2 solve after a batch of roundings, via the BZK09 adaptive
+     * ladder (local GS, then CG, then direct fallback); updates solver statistics
+     * and refreshes {@link #solutionTheta} / {@link #solutionPeriod}.
+     *
+     * @param roundedVariables variable indices rounded since the previous solve,
+     *                         or {@code null} for the bootstrap solve
+     * @param roundedCount     number of valid entries in {@code roundedVariables}
+     */
     public void solveRelaxed(int[] roundedVariables, int roundedCount) {
         AdaptiveSolver.Result result = AdaptiveSolver.solveAfterRounding(
                 normalMatrix, solution, fixedVariables,
@@ -355,6 +385,14 @@ public final class SmoothEnergySystem {
         }
     }
 
+    /**
+     * Copy the solved per-face angles and integer period jumps into the cross
+     * field's {@code theta} / {@code periodJump} arrays (boundary edges get a
+     * zero jump).
+     *
+     * @param mesh half-edge mesh used to distinguish boundary edges
+     * @param cf   cross field receiving the solution
+     */
     public void unpackInto(HalfEdgeMesh mesh, CrossField cf) {
         cf.theta = solutionTheta.clone();
         cf.periodJump = new int[edgeCount];
