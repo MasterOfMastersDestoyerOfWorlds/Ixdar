@@ -253,6 +253,16 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
 
     /**
      * Convenience wrapper for
+     * {@link HalfEdgeMeshEngine#removeFaceKeepingNormals(HalfEdgeMesh, int)}.
+     *
+     * @param faceId active face id to remove
+     */
+    public void removeFaceKeepingNormals(int faceId) {
+        HalfEdgeMeshEngine.removeFaceKeepingNormals(this, faceId);
+    }
+
+    /**
+     * Convenience wrapper for
      * {@link HalfEdgeMeshEngine#removeEdge(HalfEdgeMesh, int)}.
      *
      * @param edgeId active edge id with no incident faces

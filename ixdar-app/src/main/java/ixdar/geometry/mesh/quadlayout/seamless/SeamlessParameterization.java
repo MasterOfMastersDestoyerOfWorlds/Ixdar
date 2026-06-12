@@ -70,6 +70,14 @@ public final class SeamlessParameterization {
     private static final float HALF = 0.5f;
     private static final double HALF_D = 0.5;
     private static final double DEGENERATE_AREA_EPSILON = 1.0e-30;
+
+    /**
+     * A parametric triangle below this fraction of its expected area
+     * ({@code faceArea / targetQuadEdgeLength²}) counts as a local-injectivity
+     * violation alongside flips: collapsed triangles merge singularities and
+     * corrupt the motorcycle stage downstream.
+     */
+    private static final double DEGENERATE_UV_AREA_FRACTION = 1.0e-6;
     private static final double SVD_DET_FACTOR = 4.0;
     private static final String DIAG_PROP = "seamlessParam.diag";
     private static final String DIAG_TRUE = "true";
@@ -702,8 +710,20 @@ public final class SeamlessParameterization {
      *
      * @return the number of flipped triangles
      */
+    /**
+     * Count local-injectivity violations of the current solution: flipped
+     * triangles (negative parametric area) and collapsed ones (parametric area
+     * below {@link #DEGENERATE_UV_AREA_FRACTION} of the face's expected area
+     * {@code faceArea / h²}). A collapsed-but-oriented triangle is just as
+     * fatal downstream as a flipped one — the motorcycle stage degenerates on
+     * coincident singularities — so the stiffening loop must keep fighting
+     * until both counts are zero.
+     *
+     * @return number of flipped or collapsed triangles
+     */
     private int countFlippedTrianglesFromSolution() {
         int flipped = 0;
+        double inverseTargetAreaScale = 1.0 / (targetQuadEdgeLength * targetQuadEdgeLength);
         for (int af = 0; af < faceCount; af++) {
             if (faceArea[af] <= 0)
                 continue;
@@ -718,7 +738,8 @@ public final class SeamlessParameterization {
             double u2 = dofSystem.evaluateChartComponent(cv2, 0, solution);
             double v2 = dofSystem.evaluateChartComponent(cv2, 1, solution);
             double sa = HALF_D * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
-            if (sa <= 0.0)
+            double expectedUvArea = faceArea[af] * inverseTargetAreaScale;
+            if (sa <= DEGENERATE_UV_AREA_FRACTION * expectedUvArea)
                 flipped++;
         }
         return flipped;

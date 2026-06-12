@@ -121,7 +121,12 @@ public final class Trace {
 
     /**
      * Lyon §3 two-sided stopping test: one met trace with angle in {@code [0, α]}
-     * and one with angle in {@code [-α, 0]}.
+     * and one with angle in {@code [-α, 0]}. Only perpendicular crossings
+     * count — the paper's α_ik/α_il come from traces t_k, t_l crossing t_i;
+     * a collinear (head-on/rear-end) contact records an angle of exactly 0,
+     * which would otherwise satisfy both one-sided conditions at once and
+     * stop the trace prematurely (shortening traces well below LCK21a's
+     * Table 1 arc counts).
      *
      * @param alphaBound maximum deviation in radians
      * @return true when this trace should stop
@@ -133,6 +138,9 @@ public final class Trace {
         boolean positive = false;
         boolean negative = false;
         for (MetOtherTraceEntry entry : metOtherTraces) {
+            if (entry.ourAxis == entry.otherAxis) {
+                continue;
+            }
             if (entry.signedAngle >= 0.0 && entry.signedAngle <= alphaBound) {
                 positive = true;
             }

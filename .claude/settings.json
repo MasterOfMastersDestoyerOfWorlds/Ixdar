@@ -45,7 +45,12 @@
       "Bash(python3 /tmp/parse_profile.py)",
       "Bash(pdfinfo \"/home/acw/QuadLayoutsPapersCompleted/LCK21a | Lyon | 2021 | Quad Layouts via Constrained T‐Mesh Quantization.pdf\")",
       "Bash(git -C /home/acw/Code/Ixdar status --short)",
-      "Bash(pdfinfo \"/home/acw/QuadLayoutsPapersToRead/LCKB19 | Lyon | 2019 | Parametrization quantization with free boundaries for trimmed quad meshing.pdf\")"
+      "Bash(pdfinfo \"/home/acw/QuadLayoutsPapersToRead/LCKB19 | Lyon | 2019 | Parametrization quantization with free boundaries for trimmed quad meshing.pdf\")",
+      "Bash(perl -pe 's/[0-9]+\\\\.[0-9]+s/TIME/g; s/load=[0-9]+ms/load=Xms/; s/layout=[0-9]+ms/layout=Xms/')",
+      "Bash(pdfinfo \"/home/acw/QuadLayoutsPapersCompleted/KCP*13 | Knoppel | 2013 | Globally Optimal Direction Fields.pdf\")",
+      "Bash(pdfinfo \"/home/acw/QuadLayoutsPapersCompleted/BZK09 | Bommes | 2009 | Mixed Integer Quadrangulation.pdf\")",
+      "Bash(pdfinfo \"/home/acw/QuadLayoutsPapersToRead/CBK15 | Campen | 2015 | Quantized Global Parameterization.pdf\")",
+      "Bash(echo \"exit=$?\")"
     ],
     "deny": [
       "Bash(cp *)",

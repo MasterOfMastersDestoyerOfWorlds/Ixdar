@@ -102,7 +102,18 @@ public final class SeamlessDofSystem {
     public final int[][][] chartVertexFinalDofs;
     /** Coefficients matching {@link #chartVertexFinalDofs}. */
     public final double[][][] chartVertexFinalCoefs;
-    /** True if final-DOF i must round to an integer in IGM mode. */
+    /**
+     * True if final-DOF i must round to an integer. Deliberately all-false:
+     * LCK21a §3's input is a <em>non-quantized</em> seamless parametrization —
+     * rigid transitions are 90°k rotations plus <em>real</em> translations, and
+     * every integer is assigned later by the T-mesh quantization ILP. BZK09's
+     * iterative rounding (singularity positions, cut translations, feature
+     * isos) exists only because its map directly IS the quad mesh; CBK15 §1
+     * documents that rounding as non-robust (collapsing singularities — our
+     * rocker-arm dipole bug), and rounding cut translations to integers
+     * manufactures exact-integer holonomy, i.e. artificial saddle connections
+     * that send sibling separatrices head-on into each other mesh-wide.
+     */
     public final boolean[] dofIsInteger;
 
     /**
@@ -205,7 +216,6 @@ public final class SeamlessDofSystem {
         this.dofIsInteger = new boolean[dofCount];
         this.dofPinned = new boolean[dofCount];
         this.dofPinnedValue = new double[dofCount];
-        markIntegerDofs();
     }
 
     /**
@@ -563,94 +573,6 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Mark which final DOFs must round to integers: every per-cut-edge
-     * {@code (s, t)} pair, the {@code (u, v)} of every primary chart vertex that
-     * touches a singularity mesh vertex, and the iso-axis coordinate of every
-     * primary chart vertex on a BZK09 §5.2 alignment edge (handed off to
-     * {@link #markAlignmentIsoDofs}). Pivot-eliminated raw DOFs are skipped (their
-     * values are determined by non-eliminated free DOFs).
-     */
-    private void markIntegerDofs() {
-        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
-            if (cutEdgeSDof[activeEdge] < 0) {
-                continue;
-            }
-            markRawDofAsInteger(cutEdgeSDof[activeEdge]);
-            markRawDofAsInteger(cutEdgeTDof[activeEdge]);
-        }
-        Set<Integer> singularVertexIds = new HashSet<>();
-        for (Singularity s : crossField.singularities) {
-            singularVertexIds.add(s.vertexId());
-        }
-        for (int activeFace = 0; activeFace < seamless.faceCount; activeFace++) {
-            int faceId = mesh.faceIdAt(activeFace);
-            for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
-                if (!singularVertexIds.contains(mesh.faceVertexAt(faceId, corner))) {
-                    continue;
-                }
-                int chartVertex = cutGraph.cornerToChartVertex[activeFace * CORNERS_PER_FACE + corner];
-                if (!cutGraph.chartVertexIsPrimary[chartVertex]) {
-                    continue;
-                }
-                int primaryIdx = cutGraph.primaryChartIndex[chartVertex];
-                markRawDofAsInteger(2 * primaryIdx);
-                markRawDofAsInteger(2 * primaryIdx + 1);
-            }
-        }
-        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
-            int axis = alignmentEdgeIsoAxis[activeEdge];
-            if (axis == NOT_ALIGNMENT) {
-                continue;
-            }
-            int faceA = seamless.edgeFaceA[activeEdge];
-            int edgeId = mesh.edgeIdAt(activeEdge);
-            int halfEdge = mesh.edgeHalfEdge(edgeId);
-            int startVertex = mesh.halfEdgeVertex(halfEdge);
-            int endVertex = mesh.halfEdgeEndVertex(halfEdge);
-            int faceAId = mesh.faceIdAt(faceA);
-            int cornerStartA = -1;
-            int cornerEndA = -1;
-            for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
-                int cornerVertex = mesh.faceVertexAt(faceAId, corner);
-                if (cornerVertex == startVertex) {
-                    cornerStartA = corner;
-                } else if (cornerVertex == endVertex) {
-                    cornerEndA = corner;
-                }
-            }
-            int chartStart = cutGraph.cornerToChartVertex[faceA * CORNERS_PER_FACE + cornerStartA];
-            int chartEnd = cutGraph.cornerToChartVertex[faceA * CORNERS_PER_FACE + cornerEndA];
-            int component = axis == ALIGN_AXIS_V ? 1 : 0;
-            markChartComponentExpansionInteger(chartStart, component);
-            markChartComponentExpansionInteger(chartEnd, component);
-        }
-    }
-
-    /**
-     * Mark every final DOF in a chart vertex's component expansion as integer. For
-     * a primary chart vertex this is a single DOF (the direct raw DOF after pivot
-     * survival); for a secondary one it walks the seam-rotation substitution
-     * {@code chartC.v = ±partner.u
-     * + (s, t)} and marks each surviving DOF. Because every coefficient in
-     * {@link #chartVertexFinalDofs} is integer (seam rotations have integer
-     * cos/sin, alignment rows have ±1 coefficients), an integer value for every
-     * term in the expansion forces the chart vertex's component to also be integer.
-     *
-     * @param chartVertex chart vertex index
-     * @param component   0 for u, 1 for v
-     */
-    private void markChartComponentExpansionInteger(int chartVertex, int component) {
-        int[] dofs = chartVertexFinalDofs[chartVertex][component];
-        double[] coefs = chartVertexFinalCoefs[chartVertex][component];
-        for (int i = 0; i < dofs.length; i++) {
-            if (coefs[i] == 0.0) {
-                continue;
-            }
-            dofIsInteger[dofs[i]] = true;
-        }
-    }
-
-    /**
      * Pre-leftover-elimination raw-DOF expansion of a chart vertex's component.
      * Primary chart vertices expand to a single raw DOF; secondary chart vertices
      * expand to {@code (partnerU, partnerV,
@@ -734,19 +656,6 @@ public final class SeamlessDofSystem {
         }
         int finalDof = rawDofToFinal[rawDof];
         finalAccum.merge(finalDof, coef, Double::sum);
-    }
-
-    /**
-     * Mark the final DOF corresponding to {@code rawDof} as integer-rounded. No-op
-     * if {@code rawDof} was pivot-eliminated.
-     *
-     * @param rawDof a raw-DOF index
-     */
-    private void markRawDofAsInteger(int rawDof) {
-        if (leftoverPivotDofs[rawDof] != null) {
-            return;
-        }
-        dofIsInteger[rawDofToFinal[rawDof]] = true;
     }
 
     /**

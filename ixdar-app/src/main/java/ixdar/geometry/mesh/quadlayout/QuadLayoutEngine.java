@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.quadlayout;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
 import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
@@ -43,6 +44,9 @@ public final class QuadLayoutEngine {
     /** Maximum separatrix deviation α in radians, Lyon's single quality knob. */
     public final float alphaRadians;
 
+    /** Whether the motorcycle stage traces feature chains (off for paper parity). */
+    public boolean featureTracingEnabled = true;
+
     public CrossField crossField;
     public SeamlessParameterization seamless;
     public ParameterizationMetrics seamlessMetrics;
@@ -50,6 +54,7 @@ public final class QuadLayoutEngine {
     public QuantizedMeshGrid quantization;
     public LayoutExtraction layout;
     public TJunctionElimination conforming;
+    public LayoutEmbedding embedding;
 
     /**
      * Stage products start unbuilt; call the {@code build*} method of the
@@ -102,7 +107,9 @@ public final class QuadLayoutEngine {
     public MotorcycleGraph buildMotorcycleGraph() {
         if (motorcycleGraph == null) {
             buildSeamless();
-            motorcycleGraph = new MotorcycleGraph(seamless, alphaRadians).build();
+            motorcycleGraph = new MotorcycleGraph(seamless, alphaRadians);
+            motorcycleGraph.featureTracingEnabled = featureTracingEnabled;
+            motorcycleGraph.build();
         }
         return motorcycleGraph;
     }
@@ -146,5 +153,19 @@ public final class QuadLayoutEngine {
             conforming = new TJunctionElimination(layout).build();
         }
         return conforming;
+    }
+
+    /**
+     * Stage 8: re-embed the T-mesh as a subcomplex of a working copy of the
+     * mesh (LCBK19 §6.1) — nodes onto vertices, arcs onto edge paths.
+     *
+     * @return the cached layout embedding
+     */
+    public LayoutEmbedding buildLayoutEmbedding() {
+        if (embedding == null) {
+            buildConformingLayout();
+            embedding = new LayoutEmbedding(conforming).build();
+        }
+        return embedding;
     }
 }

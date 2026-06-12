@@ -78,6 +78,20 @@ public class HalfEdgeMeshEngine {
      * @param faceId active face id to remove
      */
     public static void removeFace(HalfEdgeMesh mesh, int faceId) {
+        removeFaceKeepingNormals(mesh, faceId);
+        computeNormals(mesh);
+    }
+
+    /**
+     * Same as {@link #removeFace} but leaves normals stale. Callers performing
+     * many local edits (incremental remeshing) batch a single
+     * {@link #computeNormals} at the end instead of paying a full-mesh normal
+     * pass per removal.
+     *
+     * @param mesh target mesh
+     * @param faceId active face id to remove
+     */
+    public static void removeFaceKeepingNormals(HalfEdgeMesh mesh, int faceId) {
 
         int[] vertices = mesh.faceVertices.get(faceId).toArray();
         int[] halfEdges = mesh.faceHalfEdges.get(faceId).toArray();
@@ -100,8 +114,6 @@ public class HalfEdgeMeshEngine {
                 removeEdge(mesh, edgeId);
             }
         }
-
-        computeNormals(mesh);
     }
 
     /**

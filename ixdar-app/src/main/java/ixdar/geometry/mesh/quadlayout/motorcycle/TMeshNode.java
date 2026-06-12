@@ -29,6 +29,12 @@ public final class TMeshNode {
     /** Mesh vertex this node sits on, or -1 for nodes in face/edge interiors. */
     public final int vertexId;
 
+    /**
+     * Active face whose chart hosts the node's (u, v) for face-interior nodes,
+     * or -1 for nodes pinned to a mesh vertex ({@code vertexId >= 0}).
+     */
+    public final int activeFace;
+
     public final int singularityIndex4;
     public final double u;
     public final double v;
@@ -40,16 +46,19 @@ public final class TMeshNode {
      * @param nodeId            unique node id
      * @param type              node type constant
      * @param vertexId          mesh vertex the node sits on, or -1
+     * @param activeFace        active face hosting (u, v), or -1 when the node
+     *                          is pinned to a mesh vertex
      * @param singularityIndex4 singularity index4, or 0
      * @param u                 chart u at node
      * @param v                 chart v at node
      * @param position          embedded 3D position
      */
-    public TMeshNode(int nodeId, int type, int vertexId, int singularityIndex4,
+    public TMeshNode(int nodeId, int type, int vertexId, int activeFace, int singularityIndex4,
             double u, double v, Vector3f position) {
         this.nodeId = nodeId;
         this.type = type;
         this.vertexId = vertexId;
+        this.activeFace = activeFace;
         this.singularityIndex4 = singularityIndex4;
         this.u = u;
         this.v = v;

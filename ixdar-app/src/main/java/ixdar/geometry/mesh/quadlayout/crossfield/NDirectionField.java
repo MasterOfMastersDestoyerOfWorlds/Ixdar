@@ -4,9 +4,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 import org.joml.Vector3f;
 
@@ -826,6 +828,15 @@ public class NDirectionField extends CrossField {
             vIdToActive.put(mesh.vertexIdAt(v), v);
         }
 
+        // Per-face angle as the complex mean of the corners' n-power
+        // directions in the face frame (KCP13's u interpolated to the face).
+        // The mean is reliable wherever the field has no zero; inside a
+        // singular triangle it cancels and its atan2 is arbitrary, which used
+        // to let the rounded period jumps split that face's ±1 winding into a
+        // phantom dipole among the face's own vertices. Singular faces (by the
+        // raw triangle index, KCP13 §6.1.3) therefore get their theta re-set
+        // below by exact transport from their most reliable neighbor.
+        double[] faceMeanMagnitude = new double[faceCount];
         for (int fAi = 0; fAi < faceCount; fAi++) {
             int fId = mesh.faceIdAt(fAi);
             Vector3f fx = faceX[fAi];
@@ -850,7 +861,9 @@ public class NDirectionField extends CrossField {
                 accIm += Math.sin(n * alpha);
             }
             theta[fAi] = (float) (Math.atan2(accIm, accRe) / n);
+            faceMeanMagnitude[fAi] = Math.hypot(accRe, accIm);
         }
+        concentrateSingularFaceWindings(faceMeanMagnitude);
         for (int eAi = 0; eAi < edgeCount; eAi++) {
             int eId = mesh.edgeIdAt(eAi);
             if (mesh.isBoundaryEdge(eId)) {
@@ -877,5 +890,100 @@ public class NDirectionField extends CrossField {
         // so meshes with boundary will legitimately differ.
         System.out.printf("[n-field] singularities=%d indexSum4=%d fourChi=%d%n",
                 singularities.size(), indexSum4, 4 * eulerCharacteristic);
+
+        // KCP13 §6.1.3 ground truth: the raw field's per-triangle indices. The
+        // converted theta/periodJump representation must reproduce them; a
+        // count mismatch means the conversion minted or lost singularities.
+        int[] triangleIndex = computeTriangleIndices();
+        int triangleNonzero = 0;
+        int triangleSum = 0;
+        for (int face = 0; face < triangleIndex.length; face++) {
+            if (triangleIndex[face] != 0) {
+                triangleNonzero++;
+                triangleSum += triangleIndex[face];
+            }
+        }
+        System.out.printf("[n-field] raw triangle indices: nonzero=%d sum=%d%n",
+                triangleNonzero, triangleSum);
+        if (triangleNonzero != singularities.size()) {
+            System.out.printf("[n-field] WARNING conversion mismatch: raw field has %d singular"
+                    + " triangles but extraction found %d vertex singularities%n",
+                    triangleNonzero, singularities.size());
+            Set<Integer> rawSingularCornerVertices = new HashSet<>();
+            for (int face = 0; face < triangleIndex.length; face++) {
+                if (triangleIndex[face] == 0) {
+                    continue;
+                }
+                int faceId = mesh.faceIdAt(face);
+                for (int corner = 0; corner < mesh.faceHalfEdgeCount(faceId); corner++) {
+                    rawSingularCornerVertices.add(mesh.faceVertexAt(faceId, corner));
+                }
+            }
+            for (Singularity singularity : singularities) {
+                if (!rawSingularCornerVertices.contains(singularity.vertexId())) {
+                    System.out.printf("[n-field]   phantom singularity vertex=%d index4=%d"
+                            + " (no raw singular triangle touches it)%n",
+                            singularity.vertexId(), singularity.index4());
+                }
+            }
+        }
+    }
+
+    /**
+     * Re-set the theta of every raw-singular face (KCP13 §6.1.3 triangle index
+     * non-zero) by exact transport from its most reliable non-singular
+     * neighbor, making the period jump across that shared edge exactly zero.
+     * A singular face's complex-mean theta is arbitrary (the field has a zero
+     * inside, the corner directions cancel), and a bad value lets the rounded
+     * period jumps split the face's ±1 winding into a phantom dipole among the
+     * face's own vertices; pinning one edge to zero concentrates the winding
+     * at the vertex opposite that edge.
+     *
+     * @param faceMeanMagnitude per-face magnitude of the corner-direction
+     *                          complex mean (reliability of that face's theta)
+     */
+    private void concentrateSingularFaceWindings(double[] faceMeanMagnitude) {
+        int[] triangleIndex = computeTriangleIndices();
+        for (int fAi = 0; fAi < faceCount; fAi++) {
+            if (triangleIndex[fAi] == 0) {
+                continue;
+            }
+            int fId = mesh.faceIdAt(fAi);
+            int bestNeighbor = -1;
+            double bestMagnitude = -1.0;
+            int bestEdgeActive = -1;
+            boolean bestCanonicalIntoFace = false;
+            for (int corner = 0; corner < mesh.faceEdgeCount(fId); corner++) {
+                int eId = mesh.faceEdgeAt(fId, corner);
+                if (mesh.isBoundaryEdge(eId)) {
+                    continue;
+                }
+                int halfEdge = mesh.edgeHalfEdge(eId);
+                int canonicalFaceId = mesh.halfEdgeFace(halfEdge);
+                int twinFaceId = mesh.halfEdgeFace(mesh.halfEdgeTwin(halfEdge));
+                int otherFaceId = canonicalFaceId == fId ? twinFaceId : canonicalFaceId;
+                if (otherFaceId < 0) {
+                    continue;
+                }
+                int otherActive = faceIdToActive.get(otherFaceId);
+                if (triangleIndex[otherActive] != 0
+                        || faceMeanMagnitude[otherActive] <= bestMagnitude) {
+                    continue;
+                }
+                bestMagnitude = faceMeanMagnitude[otherActive];
+                bestNeighbor = otherActive;
+                bestEdgeActive = edgeIdToActive.get(eId);
+                bestCanonicalIntoFace = canonicalFaceId != fId;
+            }
+            if (bestNeighbor < 0) {
+                continue;
+            }
+            // periodJump rounds theta[j] − theta[i] − kappa with i the
+            // canonical half-edge's face; zero-jump transport solves for this
+            // face's theta accordingly.
+            theta[fAi] = (float) (bestCanonicalIntoFace
+                    ? theta[bestNeighbor] + kappa[bestEdgeActive]
+                    : theta[bestNeighbor] - kappa[bestEdgeActive]);
+        }
     }
 }
