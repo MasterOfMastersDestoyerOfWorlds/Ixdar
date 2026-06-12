@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.LayoutPatchGeometry;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 
 /**
@@ -69,7 +70,8 @@ public final class BenchmarkRockerArmLyon {
             System.out.printf("[bench-lyon] mesh load=%dms %s%n",
                     tLoad, beforeTopology);
             QuadLayoutEngine engine = new QuadLayoutEngine(mesh, (float) Math.toRadians(ALPHA_DEGREES));
-            engine.buildLayout();
+            engine.buildConformingLayout();
+            new LayoutPatchGeometry(engine.conforming).build();
             System.out.printf("[bench-lyon] layout stage complete%n");
             TopologyStats afterTopology = TopologyStats.capture(mesh);
             if (!beforeTopology.equals(afterTopology)) {

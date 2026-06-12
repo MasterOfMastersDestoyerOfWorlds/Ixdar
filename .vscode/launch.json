@@ -178,7 +178,7 @@
         "-Xmx4g",
         "-Dsun.awt.noerasebackground=true",
         "-Dorg.lwjgl.util.DebugLoader=true",
-        "-DcrossFieldScene.off=test/resources/quadlayout/figure_10/fandisk_in_tri.off"
+        "-DcrossFieldScene.off=test/resources/quadlayout/figure_8/fertility_in_tri.off"
       ],
       "cwd": "${workspaceFolder}/ixdar-app"
     },
@@ -214,7 +214,7 @@
         "-Xmx4g",
         "-Dsun.awt.noerasebackground=true",
         "-Dorg.lwjgl.util.DebugLoader=true",
-        "-DmcgScene.off=test/resources/quadlayout/figure_8/elk_in_tri.off",
+        "-DmcgScene.off=test/resources/quadlayout/figure_8/fertility_in_tri.off",
         "-DmcgScene.alpha=15"
       ],
       "cwd": "${workspaceFolder}/ixdar-app"
@@ -233,7 +233,7 @@
         "-Xmx4g",
         "-Dsun.awt.noerasebackground=true",
         "-Dorg.lwjgl.util.DebugLoader=true",
-        "-DquadLayoutScene.off=test/resources/quadlayout/figure_8/rockerarm_in_tri.off",
+        "-DquadLayoutScene.off=test/resources/quadlayout/figure_8/fertility_in_tri.off",
         "-DquadLayoutScene.alpha=15"
       ],
       "cwd": "${workspaceFolder}/ixdar-app"

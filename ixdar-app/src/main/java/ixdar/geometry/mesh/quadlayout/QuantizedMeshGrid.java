@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.quadlayout;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -13,6 +14,7 @@ import org.ojalgo.optimisation.Variable;
 
 import ixdar.geometry.mesh.quadlayout.motorcycle.MetOtherTraceEntry;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
+import ixdar.geometry.mesh.quadlayout.motorcycle.TMeshNode;
 import ixdar.geometry.mesh.quadlayout.motorcycle.TMeshPatch;
 import ixdar.geometry.mesh.quadlayout.motorcycle.Trace;
 import ixdar.geometry.mesh.quadlayout.motorcycle.TraceArc;
@@ -44,6 +46,12 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.TraceArc;
  */
 public class QuantizedMeshGrid {
 
+    /** Cap on solve→collapse→cut rounds of the CBK15-style separation loop. */
+    private static final int MAX_SEPARATION_ROUNDS = 50;
+
+    /** Cap on packed cut paths generated per separation round. */
+    private static final int MAX_CUTS_PER_ROUND = 500;
+
     public final MotorcycleGraph motorcycleGraph;
     public final float alphaRadians;
 
@@ -57,8 +65,30 @@ public class QuantizedMeshGrid {
     public int consistencyConstraintCount;
     public int validityConstraintCount;
     public int layoutConstraintCount;
+
+    /** Singularity traces whose validity constraint fell back to the full chain. */
+    public int fallbackValidityConstraintCount;
+
+    /** Fallback cause: no meeting inside the trace's π/2-sector at all. */
+    public int validitySkipNoSectorMeetingCount;
+
+    /** Fallback cause: sector meeting exists but never got an intersection node. */
+    public int validitySkipNoNodeCount;
+
+    /** Prefix lookups that missed the meeting node and used the length cutoff. */
+    public int prefixFallbackCount;
+
+    /** True when the solved quantization merges two distinct singularities. */
+    public boolean singularitySeparationViolated;
+
+    /** Total CBK15-style separation cuts added across all solve rounds. */
+    public int separationCutCount;
+
     public double objectiveValue;
     public boolean optimal;
+
+    /** Per-trace constraint logging, on only for the first separation round. */
+    private boolean constraintLoggingEnabled = true;
 
     /**
      * Stores inputs for a Lyon §4–§5 quantization solve.
@@ -117,44 +147,204 @@ public class QuantizedMeshGrid {
         double[] classWeight = new double[classCount];
         accumulatePerpendicularWeights(arcs, classWeight);
 
-        ExpressionsBasedModel model = new ExpressionsBasedModel();
-        Variable[] variableByClass = new Variable[classCount];
-        for (int classIndex = 0; classIndex < classCount; classIndex++) {
-            variableByClass[classIndex] = model.newVariable("q" + classIndex)
-                    .lower(0).integer(true).weight(classWeight[classIndex]);
-        }
+        List<List<Integer>> separationCutPaths = new ArrayList<>();
+        ZeroArcCollapse collapse = null;
+        for (int round = 0; round <= MAX_SEPARATION_ROUNDS; round++) {
+            // ojAlgo models do not support re-minimising after post-solve
+            // mutation, so every separation round rebuilds the model from
+            // scratch with the accumulated cuts.
+            consistencyConstraintCount = 0;
+            validityConstraintCount = 0;
+            layoutConstraintCount = 0;
+            fallbackValidityConstraintCount = 0;
+            validitySkipNoSectorMeetingCount = 0;
+            validitySkipNoNodeCount = 0;
+            prefixFallbackCount = 0;
+            constraintLoggingEnabled = round == 0;
+            ExpressionsBasedModel model = new ExpressionsBasedModel();
+            Variable[] variableByClass = new Variable[classCount];
+            for (int classIndex = 0; classIndex < classCount; classIndex++) {
+                variableByClass[classIndex] = model.newVariable("q" + classIndex)
+                        .lower(0).integer(true).weight(classWeight[classIndex]);
+            }
+            addConsistencyConstraints(model, variableByClass);
+            addValidityConstraints(model, variableByClass);
+            addLayoutConstraints(model, variableByClass);
+            for (int cutIndex = 0; cutIndex < separationCutPaths.size(); cutIndex++) {
+                Expression expression = model.newExpression("separation_" + cutIndex);
+                setPrefixCoefficients(expression, variableByClass, separationCutPaths.get(cutIndex));
+                expression.lower(1);
+            }
+            if (round == 0) {
+                System.out.printf(
+                        "[quantize] arcs=%d classes=%d consistency=%d validity=%d"
+                                + " (fallback=%d) layout=%d prefixFallbacks=%d%n",
+                        arcCount, classCount, consistencyConstraintCount,
+                        validityConstraintCount, fallbackValidityConstraintCount,
+                        layoutConstraintCount, prefixFallbackCount);
+            }
 
-        addConsistencyConstraints(model, variableByClass);
-        addValidityConstraints(model, variableByClass);
-        addLayoutConstraints(model, variableByClass);
+            Optimisation.Result result = model.minimise();
+            if (!result.getState().isFeasible()) {
+                throw new IllegalStateException("quantization ILP " + result.getState()
+                        + " — a consistent T-mesh always admits the all-ones quantization");
+            }
+            optimal = result.getState().isOptimal();
+            objectiveValue = result.getValue();
 
-        System.out.printf(
-                "[quantize] arcs=%d classes=%d consistency=%d validity=%d layout=%d%n",
-                arcCount, classCount, consistencyConstraintCount,
-                validityConstraintCount, layoutConstraintCount);
+            quantizedLengthByArc = new int[arcCount];
+            int zeroArcs = 0;
+            for (int arcId = 0; arcId < arcCount; arcId++) {
+                quantizedLengthByArc[arcId] = (int) Math.round(
+                        result.doubleValue(variableClassByArc[arcId]));
+                if (quantizedLengthByArc[arcId] == 0) {
+                    zeroArcs++;
+                }
+            }
+            int violations = verifySolution();
+            System.out.printf(
+                    "[quantize] state=%s objective=%.3f zeroArcs=%d/%d violations=%d round=%d%n",
+                    result.getState(), objectiveValue, zeroArcs, arcCount, violations, round);
 
-        Optimisation.Result result = model.minimise();
-        if (!result.getState().isFeasible()) {
-            throw new IllegalStateException("quantization ILP " + result.getState()
-                    + " — a consistent T-mesh always admits the all-ones quantization");
-        }
-        optimal = result.getState().isOptimal();
-        objectiveValue = result.getValue();
-
-        quantizedLengthByArc = new int[arcCount];
-        int zeroArcs = 0;
-        for (int arcId = 0; arcId < arcCount; arcId++) {
-            quantizedLengthByArc[arcId] = (int) Math.round(
-                    result.doubleValue(variableClassByArc[arcId]));
-            if (quantizedLengthByArc[arcId] == 0) {
-                zeroArcs++;
+            collapse = new ZeroArcCollapse(motorcycleGraph, quantizedLengthByArc).build();
+            if (collapse.mergedSingularityVertexIdsByCluster.isEmpty()) {
+                break;
+            }
+            if (round == MAX_SEPARATION_ROUNDS) {
+                break;
+            }
+            int added = collectSeparationCuts(collapse, separationCutPaths);
+            System.out.printf("[quantize] separation round=%d mergedClusters=%d cuts=%d%n",
+                    round, collapse.mergedSingularityVertexIdsByCluster.size(), added);
+            if (added == 0) {
+                break;
             }
         }
-        int violations = verifySolution();
-        System.out.printf(
-                "[quantize] state=%s objective=%.3f zeroArcs=%d/%d violations=%d%n",
-                result.getState(), objectiveValue, zeroArcs, arcCount, violations);
+
+        singularitySeparationViolated = !collapse.mergedSingularityVertexIdsByCluster.isEmpty();
+        for (List<Integer> merged : collapse.mergedSingularityVertexIdsByCluster) {
+            System.out.printf("[quantize] VALIDITY VIOLATION merged singularity vertices=%s%n", merged);
+        }
         return this;
+    }
+
+    /**
+     * CBK15-style explicit validity cuts, used as a safety net over Lyon's
+     * Lemma 1 constraints: for every collapse cluster that merged two or more
+     * singularities, find one all-zero arc path connecting two of them and
+     * require its quantized sum to be at least one. Lemma 1 alone suffices on
+     * a fully consistent T-mesh; while some arrangement cycles remain invalid
+     * (and therefore unconstrained by eq. 2), quantized displacement is not
+     * path-independent and zero corridors can slip between the per-trace
+     * constraints — these cuts close exactly the corridors the solver found.
+     *
+     * @param collapse zero-arc collapse of the current solution
+     * @param cutPaths accumulated cut paths to append to
+     * @return number of new cut paths collected
+     */
+    private int collectSeparationCuts(ZeroArcCollapse collapse, List<List<Integer>> cutPaths) {
+        List<List<TraceArc>> zeroArcsByNode = new ArrayList<>(motorcycleGraph.nodes.size());
+        for (int nodeId = 0; nodeId < motorcycleGraph.nodes.size(); nodeId++) {
+            zeroArcsByNode.add(new ArrayList<>());
+        }
+        for (TraceArc arc : motorcycleGraph.arcs) {
+            if (quantizedLengthByArc[arc.arcId] == 0) {
+                zeroArcsByNode.get(arc.startNodeId).add(arc);
+                zeroArcsByNode.get(arc.endNodeId).add(arc);
+            }
+        }
+        int added = 0;
+        for (List<Integer> mergedVertexIds : collapse.mergedSingularityVertexIdsByCluster) {
+            // Path packing: keep extracting connecting zero paths and blocking
+            // their arcs until the cluster's singularities disconnect, so one
+            // round covers the full braid width of the corridor instead of one
+            // strand per solve.
+            boolean[] blockedArc = new boolean[motorcycleGraph.arcs.size()];
+            for (int startVertexIndex = 0; startVertexIndex < mergedVertexIds.size(); startVertexIndex++) {
+                while (added < MAX_CUTS_PER_ROUND) {
+                    List<Integer> pathArcIds = zeroPathBetweenSingularities(
+                            mergedVertexIds.get(startVertexIndex), mergedVertexIds,
+                            zeroArcsByNode, blockedArc);
+                    if (pathArcIds == null || pathArcIds.isEmpty()) {
+                        break;
+                    }
+                    for (int arcId : pathArcIds) {
+                        blockedArc[arcId] = true;
+                    }
+                    cutPaths.add(pathArcIds);
+                    separationCutCount++;
+                    added++;
+                }
+            }
+        }
+        return added;
+    }
+
+    /**
+     * BFS over zero-quantized arcs from one merged singularity to the nearest
+     * node of any other singularity vertex in the same cluster, returning the
+     * connecting arc path.
+     *
+     * @param startVertexId   singularity vertex to start from
+     * @param mergedVertexIds singularity vertex ids sharing one collapse cluster
+     * @param zeroArcsByNode  zero-arc adjacency per node id
+     * @param blockedArc      arcs already claimed by a packed path this round
+     * @return arc ids of one connecting path, or {@code null} if none found
+     */
+    private List<Integer> zeroPathBetweenSingularities(int startVertexId,
+            List<Integer> mergedVertexIds, List<List<TraceArc>> zeroArcsByNode,
+            boolean[] blockedArc) {
+        int startNodeId = -1;
+        Set<Integer> goalNodeIds = new HashSet<>();
+        for (TMeshNode node : motorcycleGraph.nodes) {
+            if (node.type != TMeshNode.TYPE_SINGULARITY || node.vertexId < 0
+                    || !mergedVertexIds.contains(node.vertexId)) {
+                continue;
+            }
+            if (node.vertexId == startVertexId) {
+                startNodeId = node.nodeId;
+            } else {
+                goalNodeIds.add(node.nodeId);
+            }
+        }
+        if (startNodeId < 0 || goalNodeIds.isEmpty()) {
+            return null;
+        }
+        int[] arcIntoNode = new int[motorcycleGraph.nodes.size()];
+        int[] cameFromNode = new int[motorcycleGraph.nodes.size()];
+        Arrays.fill(arcIntoNode, -1);
+        Arrays.fill(cameFromNode, -1);
+        List<Integer> frontier = new ArrayList<>();
+        frontier.add(startNodeId);
+        boolean[] visited = new boolean[motorcycleGraph.nodes.size()];
+        visited[startNodeId] = true;
+        int head = 0;
+        while (head < frontier.size()) {
+            int nodeId = frontier.get(head++);
+            if (goalNodeIds.contains(nodeId)) {
+                List<Integer> pathArcIds = new ArrayList<>();
+                int walk = nodeId;
+                while (walk != startNodeId) {
+                    pathArcIds.add(arcIntoNode[walk]);
+                    walk = cameFromNode[walk];
+                }
+                return pathArcIds;
+            }
+            for (TraceArc arc : zeroArcsByNode.get(nodeId)) {
+                if (blockedArc[arc.arcId]) {
+                    continue;
+                }
+                int neighbor = arc.startNodeId == nodeId ? arc.endNodeId : arc.startNodeId;
+                if (visited[neighbor]) {
+                    continue;
+                }
+                visited[neighbor] = true;
+                arcIntoNode[neighbor] = arc.arcId;
+                cameFromNode[neighbor] = nodeId;
+                frontier.add(neighbor);
+            }
+        }
+        return null;
     }
 
     /**
@@ -233,19 +423,50 @@ public class QuantizedMeshGrid {
 
     /**
      * Eq. (3): for every singularity trace with a same-sector first meeting
-     * {@code n_i*}, the prefix arcs up to it sum to at least one.
+     * {@code n_i*}, the prefix arcs up to it sum to at least one. Traces with
+     * no usable {@code n_i*} (terminated on a singularity, boundary, feature,
+     * or truncated before any sector meeting) get the conservative fallback
+     * {@code Σ chain ≥ 1} — their terminal node plays the role of
+     * {@code n_i*}, which is exactly Lyon Lemma 1's separation for
+     * singularity-terminating traces and redundant-but-harmless for
+     * feature/boundary terminations (already covered by the §4.4 α=0 layout
+     * constraints). Without this fallback the ILP can quantize a skipped
+     * trace's whole chain to zero and collapse two singularities onto each
+     * other.
      */
     private void addValidityConstraints(ExpressionsBasedModel model, Variable[] variableByClass) {
         for (Trace trace : motorcycleGraph.traces) {
-            if (trace.featureTrace || trace.chainArcIds.isEmpty()) {
+            if (trace.chainArcIds.isEmpty()) {
                 continue;
             }
-            MetOtherTraceEntry firstSector = trace.firstSectorMeeting();
+            // Feature chains take the whole-chain fallback: their end nodes
+            // are crease corners or singularities, and a chain whose arcs all
+            // quantize to zero would collapse those onto each other (and the
+            // crease itself to a point).
+            MetOtherTraceEntry firstSector = trace.featureTrace ? null : trace.firstSectorMeeting();
+            List<Integer> prefix;
             if (firstSector == null || firstSector.intersectionNodeId < 0) {
-                continue;
+                if (firstSector == null) {
+                    validitySkipNoSectorMeetingCount++;
+                } else {
+                    validitySkipNoNodeCount++;
+                }
+                if (constraintLoggingEnabled) {
+                    int terminalNodeId = trace.arcNodeIds.get(trace.arcNodeIds.size() - 1);
+                    System.out.printf(
+                            "[quantize] validity fallback trace=%d reason=%s terminalType=%d"
+                                    + " chainArcs=%d meetings=%d%n",
+                            trace.traceId,
+                            firstSector == null ? "noSectorMeeting" : "sectorMeetingWithoutNode",
+                            motorcycleGraph.nodes.get(terminalNodeId).type,
+                            trace.chainArcIds.size(), trace.metOtherTraces.size());
+                }
+                prefix = trace.chainArcIds;
+                fallbackValidityConstraintCount++;
+            } else {
+                prefix = prefixArcs(trace, firstSector.intersectionNodeId,
+                        firstSector.ourParametricLength);
             }
-            List<Integer> prefix = prefixArcs(trace, firstSector.intersectionNodeId,
-                    firstSector.ourParametricLength);
             if (prefix.isEmpty()) {
                 continue;
             }
@@ -269,6 +490,12 @@ public class QuantizedMeshGrid {
         for (Trace trace : motorcycleGraph.traces) {
             for (MetOtherTraceEntry meeting : trace.metOtherTraces) {
                 if (meeting.intersectionNodeId < 0) {
+                    continue;
+                }
+                // The l_ji/l_ij > tan α ratio is the perpendicular right-triangle
+                // form of |α_ij| > α; a collinear (head-on crash) meeting has
+                // deviation exactly zero and must not trigger it.
+                if (meeting.ourAxis == meeting.otherAxis) {
                     continue;
                 }
                 boolean triggered = trace.featureTrace
@@ -311,6 +538,7 @@ public class QuantizedMeshGrid {
                 return prefix;
             }
         }
+        prefixFallbackCount++;
         prefix.clear();
         for (int position = 0; position < trace.chainArcIds.size(); position++) {
             prefix.add(trace.chainArcIds.get(position));

@@ -49,6 +49,7 @@ public final class QuadLayoutEngine {
     public MotorcycleGraph motorcycleGraph;
     public QuantizedMeshGrid quantization;
     public LayoutExtraction layout;
+    public TJunctionElimination conforming;
 
     /**
      * Stage products start unbuilt; call the {@code build*} method of the
@@ -131,5 +132,19 @@ public final class QuadLayoutEngine {
             layout = new LayoutExtraction(quantization).build();
         }
         return layout;
+    }
+
+    /**
+     * Stage 7: extend remaining T-junctions into a conforming layout and count
+     * the final patches (Lyon §6, extension half).
+     *
+     * @return the cached T-junction elimination with {@code finalPatchCount}
+     */
+    public TJunctionElimination buildConformingLayout() {
+        if (conforming == null) {
+            buildLayout();
+            conforming = new TJunctionElimination(layout).build();
+        }
+        return conforming;
     }
 }

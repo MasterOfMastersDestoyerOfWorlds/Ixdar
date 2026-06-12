@@ -42,7 +42,10 @@
       "Read(//home/acw/.m2/**)",
       "Bash(touch /home/acw/Code/Ixdar/ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/*.java && mvn -pl ixdar-app compile 2>&1 | tail -20)",
       "Bash(tee /tmp/motor.out)",
-      "Bash(python3 /tmp/parse_profile.py)"
+      "Bash(python3 /tmp/parse_profile.py)",
+      "Bash(pdfinfo \"/home/acw/QuadLayoutsPapersCompleted/LCK21a | Lyon | 2021 | Quad Layouts via Constrained T‐Mesh Quantization.pdf\")",
+      "Bash(git -C /home/acw/Code/Ixdar status --short)",
+      "Bash(pdfinfo \"/home/acw/QuadLayoutsPapersToRead/LCKB19 | Lyon | 2019 | Parametrization quantization with free boundaries for trimmed quad meshing.pdf\")"
     ],
     "deny": [
       "Bash(cp *)",

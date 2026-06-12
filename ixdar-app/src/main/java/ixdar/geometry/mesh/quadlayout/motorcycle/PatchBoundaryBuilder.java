@@ -3,10 +3,14 @@ package ixdar.geometry.mesh.quadlayout.motorcycle;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 
 /**
  * Assembles the T-mesh patches as faces of the trace arrangement: every arc
@@ -28,14 +32,31 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  */
 public final class PatchBoundaryBuilder {
 
-    /** Normalizer keeping the within-wedge fraction of a fan sort key below one. */
+    /** Full turn used to wrap negative within-wedge angles into [0, 2π). */
     public static final double TWO_PI = Math.PI * 2.0;
 
+    private static final int CORNERS = SeamlessParameterization.CORNERS_PER_FACE;
+    /** Tolerance for port directions lying exactly on a wedge's opening edge. */
+    private static final double WEDGE_ANGLE_EPS = 1.0e-9;
+    private static final int INVALID_CYCLE_SAMPLE_LIMIT = 0;
+    /** Temporary diagnostic focus: only sample-dump cycles with this corner count. */
+    private static final int TWELVE_CORNER_FOCUS = 12;
+    /** How many sampled cycles also get their full per-node port tables dumped. */
+    private static final int PORT_TABLE_SAMPLE_LIMIT = 1;
+    private static final int INVALID_CYCLE_HOP_DUMP_LIMIT = 24;
+
     public final MotorcycleGraph graph;
+
+    /** Invalid-cycle histogram keyed by corner count. */
+    public final Map<Integer, Integer> invalidCycleCountByCornerCount = new HashMap<>();
+
+    /** Invalid cycles that traverse some arc twice (dead-end fold-backs). */
+    public int invalidCycleFoldBackCount;
 
     private final HalfEdgeMesh mesh;
     private final ChartWalker walker;
     private final Map<Integer, List<PatchPort>> portsByNode = new HashMap<>();
+    private int invalidCycleSamplesPrinted;
 
     /**
      * Prepares a builder over a finished motorcycle graph (arcs subdivided,
@@ -119,6 +140,7 @@ public final class PatchBoundaryBuilder {
                     if (!resolved) {
                         unresolvedCycles++;
                     }
+                    recordInvalidCycle(cycleArcIds, cornerPositions, resolved);
                 }
                 graph.patches.add(patch);
             }
@@ -126,13 +148,84 @@ public final class PatchBoundaryBuilder {
         System.out.printf(
                 "[motorcycle] arrangement patches: %d cycles, %d valid rectangles, %d unresolved%n",
                 graph.patches.size(), validCount, unresolvedCycles);
+        logInvalidCycleDiagnostics();
+    }
+
+    /**
+     * Classify one invalid cycle into the corner-count histogram and, for the
+     * first few, dump every hop so the failure shape (dead-end fold-back,
+     * mixed-chart corner detection, giant outer cycle) is visible in the log.
+     *
+     * @param cycleArcIds     arcs of the cycle in walk order
+     * @param cornerPositions hop indices where the walk turned
+     * @param resolved        whether the walk closed cleanly back at its start
+     */
+    private void recordInvalidCycle(List<Integer> cycleArcIds, List<Integer> cornerPositions,
+            boolean resolved) {
+        invalidCycleCountByCornerCount.merge(cornerPositions.size(), 1, Integer::sum);
+        boolean foldBack = cycleArcIds.size() != new HashSet<>(cycleArcIds).size();
+        if (foldBack) {
+            invalidCycleFoldBackCount++;
+        }
+        if (cornerPositions.size() != TWELVE_CORNER_FOCUS
+                || invalidCycleSamplesPrinted >= INVALID_CYCLE_SAMPLE_LIMIT) {
+            return;
+        }
+        invalidCycleSamplesPrinted++;
+        StringBuilder hops = new StringBuilder();
+        for (int hop = 0; hop < cycleArcIds.size() && hop < INVALID_CYCLE_HOP_DUMP_LIMIT; hop++) {
+            int arcId = cycleArcIds.get(hop);
+            TraceArc arc = graph.arcs.get(arcId);
+            int endNodeId = arc.endNodeId;
+            TMeshNode endNode = graph.nodes.get(endNodeId);
+            List<PatchPort> ports = portsByNode.get(endNodeId);
+            hops.append(String.format(" (arc=%d trace=%d node=%d type=%d ports=%d)",
+                    arcId, arc.traceId, endNodeId, endNode.type,
+                    ports == null ? 0 : ports.size()));
+        }
+        System.out.printf(
+                "[patch-diag] invalid cycle: hops=%d corners=%d resolved=%b foldBack=%b%s%n",
+                cycleArcIds.size(), cornerPositions.size(), resolved, foldBack, hops);
+        if (invalidCycleSamplesPrinted > PORT_TABLE_SAMPLE_LIMIT) {
+            return;
+        }
+        Set<Integer> dumpedNodes = new HashSet<>();
+        for (int arcId : cycleArcIds) {
+            TraceArc arc = graph.arcs.get(arcId);
+            for (int nodeId : new int[] { arc.startNodeId, arc.endNodeId }) {
+                if (!dumpedNodes.add(nodeId)) {
+                    continue;
+                }
+                StringBuilder table = new StringBuilder();
+                for (PatchPort port : portsByNode.get(nodeId)) {
+                    table.append(String.format(" (arc=%d out=%b dir=%d,%d key=%.4f)",
+                            port.arcId, port.outgoing, port.directionU, port.directionV,
+                            port.sortKey));
+                }
+                System.out.printf("[patch-diag]   node=%d ports:%s%n", nodeId, table);
+            }
+        }
+    }
+
+    /**
+     * One-line histogram of invalid cycles keyed by corner count plus the
+     * fold-back tally, emitted after the arrangement walk.
+     */
+    private void logInvalidCycleDiagnostics() {
+        if (invalidCycleCountByCornerCount.isEmpty()) {
+            return;
+        }
+        System.out.printf("[patch-diag] invalid cycles by corner count=%s foldBacks=%d%n",
+                new TreeMap<>(invalidCycleCountByCornerCount), invalidCycleFoldBackCount);
     }
 
     /**
      * Emit the two directed arc-end ports of every arc, with travel directions
      * taken from the meeting record at interior nodes, the spawn port at
      * origins, and the final walker state (or last feature segment) at
-     * terminals.
+     * terminals. Each port also carries the chart face its direction is
+     * expressed in (spawn face, meeting face, terminal face) so vertex-located
+     * nodes can fan-order ports that arrive through different charts.
      */
     private void buildPorts() {
         for (Trace trace : graph.traces) {
@@ -148,46 +241,41 @@ public final class PatchBoundaryBuilder {
             }
             for (int position = 0; position <= arcCount; position++) {
                 int nodeId = trace.arcNodeIds.get(position);
-                int[] travel = travelDirectionAt(trace, nodeId, position, meetingByNode);
+                TraceAxis axis;
+                int sign;
+                int chartFace;
+                MetOtherTraceEntry meeting = meetingByNode.get(nodeId);
+                if (position == 0) {
+                    axis = trace.spawnAxis;
+                    sign = trace.spawnSign;
+                    chartFace = trace.spawnPort.activeFace;
+                } else if (meeting != null) {
+                    axis = meeting.ourAxis;
+                    sign = meeting.ourSign;
+                    chartFace = -1;
+                } else if (trace.featureTrace) {
+                    TraceSegment lastSegment = trace.segments.get(trace.segments.size() - 1);
+                    axis = lastSegment.axis;
+                    sign = lastSegment.sign;
+                    chartFace = lastSegment.activeFace;
+                } else {
+                    axis = trace.state.axis;
+                    sign = trace.state.sign;
+                    chartFace = trace.state.activeFace;
+                }
+                double[] direction = axis.direction(sign);
+                int travelU = (int) Math.round(direction[0]);
+                int travelV = (int) Math.round(direction[1]);
                 if (position < arcCount) {
                     addPort(new PatchPort(nodeId, trace.chainArcIds.get(position), true,
-                            travel[0], travel[1], trace.traceId));
+                            travelU, travelV, trace.traceId, chartFace));
                 }
                 if (position > 0) {
                     addPort(new PatchPort(nodeId, trace.chainArcIds.get(position - 1), false,
-                            -travel[0], -travel[1], trace.traceId));
+                            -travelU, -travelV, trace.traceId, chartFace));
                 }
             }
         }
-    }
-
-    /**
-     * The trace's travel direction at one of its chain nodes, in the chart the
-     * node's other incident arcs use: meeting axes at meeting nodes (both
-     * traces recorded theirs in the shared face), the spawn port at the
-     * origin, and the last known walker state or feature segment at terminals.
-     */
-    private int[] travelDirectionAt(Trace trace, int nodeId, int position,
-            Map<Integer, MetOtherTraceEntry> meetingByNode) {
-        TraceAxis axis;
-        int sign;
-        MetOtherTraceEntry meeting = meetingByNode.get(nodeId);
-        if (position == 0) {
-            axis = trace.spawnAxis;
-            sign = trace.spawnSign;
-        } else if (meeting != null) {
-            axis = meeting.ourAxis;
-            sign = meeting.ourSign;
-        } else if (trace.featureTrace) {
-            TraceSegment lastSegment = trace.segments.get(trace.segments.size() - 1);
-            axis = lastSegment.axis;
-            sign = lastSegment.sign;
-        } else {
-            axis = trace.state.axis;
-            sign = trace.state.sign;
-        }
-        double[] direction = axis.direction(sign);
-        return new int[] { (int) Math.round(direction[0]), (int) Math.round(direction[1]) };
     }
 
     private void addPort(PatchPort port) {
@@ -196,55 +284,175 @@ public final class PatchBoundaryBuilder {
 
     /**
      * Assign cyclic sort keys per node and order its ports: chart angle at
-     * single-chart nodes, vertex-fan position plus within-wedge angle at
-     * singularity origins (whose ports live in different fan-face charts).
+     * single-chart nodes, unrolled-fan angle at vertex-located nodes
+     * (singularities, feature corners, singular-vertex terminals — their
+     * ports live in different fan-face charts, so each face's wedge is laid
+     * out flat around the vertex and a port's key is its face's accumulated
+     * base angle plus its CCW angle inside that wedge).
      */
     private void sortPorts() {
         for (Map.Entry<Integer, List<PatchPort>> entry : portsByNode.entrySet()) {
             TMeshNode node = graph.nodes.get(entry.getKey());
-            boolean singularityFan = node.type == TMeshNode.TYPE_SINGULARITY
-                    && node.singularityVertexId >= 0;
+            Map<Integer, double[]> fanFrames = node.vertexId >= 0
+                    ? unrolledFanFrames(node.vertexId)
+                    : null;
             for (PatchPort port : entry.getValue()) {
-                port.sortKey = singularityFan
-                        ? fanSortKey(node.singularityVertexId, port)
-                        : Math.atan2(port.directionV, port.directionU);
+                double[] frame = fanFrames != null && port.activeFace >= 0
+                        ? fanFrames.get(port.activeFace)
+                        : null;
+                if (frame == null) {
+                    port.sortKey = Math.atan2(port.directionV, port.directionU);
+                    continue;
+                }
+                double cross = frame[1] * port.directionV - frame[2] * port.directionU;
+                double dot = frame[1] * port.directionU + frame[2] * port.directionV;
+                double withinWedge = Math.atan2(cross, dot);
+                if (withinWedge < -WEDGE_ANGLE_EPS) {
+                    withinWedge += TWO_PI;
+                }
+                port.sortKey = frame[0] + withinWedge;
             }
             entry.getValue().sort(Comparator
                     .comparingDouble((PatchPort port) -> port.sortKey)
                     .thenComparingInt(port -> port.arcId)
                     .thenComparing(port -> port.outgoing));
         }
+        logAmbiguousPortOrderings();
     }
 
     /**
-     * Fan-order key for a port at a singularity: the index of its spawn face
-     * in the vertex's face fan, plus the CCW angle of the port direction from
-     * the spawn wedge's opening edge as a sub-unit fraction.
+     * Count nodes whose sorted ports contain near-identical sort keys — there
+     * the cyclic order degrades to the arcId tie-break, which carries no
+     * geometric meaning, and the arrangement walk fuses the surrounding
+     * patches into one big invalid cycle. Dumps the first few offenders.
      */
-    private double fanSortKey(int singularityVertexId, PatchPort port) {
-        TracePort spawnPort = graph.traces.get(port.traceId).spawnPort;
-        int spawnFaceId = mesh.faceIdAt(spawnPort.activeFace);
-        int fanIndex = 0;
-        int fanCount = mesh.vertexFaceCount(singularityVertexId);
-        for (int i = 0; i < fanCount; i++) {
-            if (mesh.vertexFaceAt(singularityVertexId, i) == spawnFaceId) {
-                fanIndex = i;
+    private void logAmbiguousPortOrderings() {
+        int ambiguousNodes = 0;
+        int printed = 0;
+        for (Map.Entry<Integer, List<PatchPort>> entry : portsByNode.entrySet()) {
+            List<PatchPort> ports = entry.getValue();
+            boolean ambiguous = false;
+            for (int i = 1; i < ports.size(); i++) {
+                if (Math.abs(ports.get(i).sortKey - ports.get(i - 1).sortKey) < WEDGE_ANGLE_EPS) {
+                    ambiguous = true;
+                    break;
+                }
+            }
+            if (!ambiguous) {
+                continue;
+            }
+            ambiguousNodes++;
+            if (printed >= INVALID_CYCLE_SAMPLE_LIMIT) {
+                continue;
+            }
+            printed++;
+            TMeshNode node = graph.nodes.get(entry.getKey());
+            StringBuilder portDump = new StringBuilder();
+            for (PatchPort port : ports) {
+                portDump.append(String.format(" (arc=%d out=%b dir=%d,%d face=%d key=%.4f)",
+                        port.arcId, port.outgoing, port.directionU, port.directionV,
+                        port.activeFace, port.sortKey));
+            }
+            System.out.printf("[patch-diag] ambiguous ports node=%d type=%d vertex=%d:%s%n",
+                    entry.getKey(), node.type, node.vertexId, portDump);
+        }
+        if (ambiguousNodes > 0) {
+            System.out.printf("[patch-diag] nodes with ambiguous port order: %d%n", ambiguousNodes);
+        }
+    }
+
+    /**
+     * Unroll the face fan around a vertex into a flat angular layout: walk
+     * the fan CCW (rewinding CW to a boundary first, when one exists), give
+     * each face a base angle equal to the accumulated wedge angles before it,
+     * and record the wedge's opening-edge direction in that face's own chart.
+     * Wedge angles and port directions are measured per face chart, so seam
+     * transitions between fan faces cancel out and the resulting keys are a
+     * consistent cyclic order even at singular cones whose total angle is not
+     * 2π.
+     *
+     * @param vertexId mesh vertex whose fan to unroll
+     * @return per active face: {base angle, opening-edge u, opening-edge v}
+     */
+    private Map<Integer, double[]> unrolledFanFrames(int vertexId) {
+        Map<Integer, double[]> frameByActiveFace = new HashMap<>();
+        int fanCount = mesh.vertexFaceCount(vertexId);
+        if (fanCount == 0) {
+            return frameByActiveFace;
+        }
+        int startActiveFace = graph.seamless.crossField.faceIdToActive
+                .get(mesh.vertexFaceAt(vertexId, 0));
+        int currentActiveFace = startActiveFace;
+        for (int step = 0; step < fanCount; step++) {
+            int clockwiseNeighbor = fanNeighbor(currentActiveFace, vertexId, false);
+            if (clockwiseNeighbor < 0 || clockwiseNeighbor == startActiveFace) {
                 break;
             }
+            currentActiveFace = clockwiseNeighbor;
         }
+        int walkStartActiveFace = currentActiveFace;
         double[] cornerUv = new double[ChartWalker.CORNER_UV_FLOATS];
-        walker.faceCornerUv(spawnPort.activeFace, cornerUv);
-        int corner = spawnPort.cornerIndex;
-        int nextCorner = (corner + 1) % 3;
-        double edgeU = cornerUv[nextCorner * 2] - cornerUv[corner * 2];
-        double edgeV = cornerUv[nextCorner * 2 + 1] - cornerUv[corner * 2 + 1];
-        double cross = edgeU * port.directionV - edgeV * port.directionU;
-        double dot = edgeU * port.directionU + edgeV * port.directionV;
-        double relativeAngle = Math.atan2(cross, dot);
-        if (relativeAngle < 0.0) {
-            relativeAngle += TWO_PI;
+        double baseAngle = 0.0;
+        for (int step = 0; step < fanCount; step++) {
+            int faceId = mesh.faceIdAt(currentActiveFace);
+            int corner = cornerOfVertexInFace(faceId, vertexId);
+            walker.faceCornerUv(currentActiveFace, cornerUv);
+            int openingCorner = (corner + 1) % CORNERS;
+            int closingCorner = (corner + 2) % CORNERS;
+            double openingU = cornerUv[openingCorner * 2] - cornerUv[corner * 2];
+            double openingV = cornerUv[openingCorner * 2 + 1] - cornerUv[corner * 2 + 1];
+            double closingU = cornerUv[closingCorner * 2] - cornerUv[corner * 2];
+            double closingV = cornerUv[closingCorner * 2 + 1] - cornerUv[corner * 2 + 1];
+            frameByActiveFace.put(currentActiveFace, new double[] { baseAngle, openingU, openingV });
+            double wedgeAngle = Math.atan2(
+                    openingU * closingV - openingV * closingU,
+                    openingU * closingU + openingV * closingV);
+            baseAngle += Math.max(wedgeAngle, WEDGE_ANGLE_EPS);
+            int counterClockwiseNeighbor = fanNeighbor(currentActiveFace, vertexId, true);
+            if (counterClockwiseNeighbor < 0 || counterClockwiseNeighbor == walkStartActiveFace) {
+                break;
+            }
+            currentActiveFace = counterClockwiseNeighbor;
         }
-        return fanIndex + relativeAngle / (TWO_PI + 1.0);
+        return frameByActiveFace;
+    }
+
+    /**
+     * The fan-adjacent face across one of the two vertex-incident edges of
+     * {@code activeFace} at {@code vertexId}. With CCW-wound faces, local edge
+     * {@code corner} (corner → corner+1) borders the clockwise neighbor and
+     * local edge {@code corner+2} (corner+2 → corner) the counter-clockwise
+     * one.
+     *
+     * @param activeFace       active face to step from
+     * @param vertexId         vertex the fan revolves around
+     * @param counterClockwise true for the CCW neighbor, false for CW
+     * @return neighbor active face, or -1 across a boundary
+     */
+    private int fanNeighbor(int activeFace, int vertexId, boolean counterClockwise) {
+        int faceId = mesh.faceIdAt(activeFace);
+        int corner = cornerOfVertexInFace(faceId, vertexId);
+        int localEdge = counterClockwise ? (corner + 2) % CORNERS : corner;
+        int edgeId = mesh.faceEdgeAt(faceId, localEdge);
+        Integer activeEdge = graph.seamless.crossField.edgeIdToActive.get(edgeId);
+        if (activeEdge == null) {
+            return -1;
+        }
+        HalfEdgeMesh.EdgeFaceIds edgeFaces = mesh.edgeFaceIds(activeEdge);
+        int neighborFaceId = edgeFaces.faceA == faceId ? edgeFaces.faceB : edgeFaces.faceA;
+        if (neighborFaceId < 0) {
+            return -1;
+        }
+        return graph.seamless.crossField.faceIdToActive.get(neighborFaceId);
+    }
+
+    private int cornerOfVertexInFace(int faceId, int vertexId) {
+        for (int corner = 0; corner < CORNERS; corner++) {
+            if (mesh.faceVertexAt(faceId, corner) == vertexId) {
+                return corner;
+            }
+        }
+        return 0;
     }
 
     private int indexOfPort(List<PatchPort> nodePorts, int arcId, boolean outgoing) {
