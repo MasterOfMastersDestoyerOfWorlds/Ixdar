@@ -10,7 +10,6 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 public final class ChartWalker {
 
     public static final double RAY_MIN_T = 1.0e-9;
-    public static final double ORIENT_COLLINEAR_EPSILON = 1.0e-12;
     /** Doubles per face corner UV buffer {@code [u0,v0,u1,v1,u2,v2]}. */
     public static final int CORNER_UV_FLOATS = 6;
     /** Index of third triangle corner. */
@@ -154,123 +153,136 @@ public final class ChartWalker {
     /**
      * Find the next edge crossing along the trace's iso-line from {@code state}.
      *
+     * <p>
+     * QEx-style sign-predicate walk: the trace is the level set {@code held ==
+     * level} with {@code level} read exactly from the state's held coordinate, and
+     * each corner's signed offset {@code cornerHeld - level} determines the
+     * topology. An edge is crossed iff its endpoint offsets strictly straddle
+     * zero; a corner with an exactly-zero offset is the Lyon §3 vertex case,
+     * reported via {@code cornerLocalIndex} so the caller routes through
+     * {@link #crossVertex}. No tolerance decides anything: the constructed exit
+     * coordinate only feeds span bookkeeping, never the choice of exit. When the
+     * trace entered through a known edge the exit is the unique other candidate
+     * (purely combinatorial); the strictly-forward filter is only needed at
+     * spawn/meeting states where the incoming edge is unknown.
+     *
      * @param state current position and direction; unchanged by this call
-     * @return edge hit data, or {@code null} when no forward hit exists
+     * @return edge hit data, or {@code null} when the level line leaves the face
+     *         only behind the current position (corner-tangent or inconsistent
+     *         state)
      */
     public EdgeHit nextEdgeHit(State state) {
         double[] cornerUv = new double[CORNER_UV_FLOATS];
         faceCornerUv(state.activeFace, cornerUv);
-        double[] dir = state.axis.direction(state.sign);
-        double bestT = Double.POSITIVE_INFINITY;
-        double bestU = state.u;
-        double bestV = state.v;
-        int bestEdge = -1;
-        boolean bestBoundary = false;
+        boolean holdsU = state.axis.holdsUConstant();
+        double level = holdsU ? state.u : state.v;
+        double currentAlong = holdsU ? state.v : state.u;
+
+        double[] heldDelta = new double[CORNERS];
+        for (int corner = 0; corner < CORNERS; corner++) {
+            double held = holdsU ? cornerUv[corner * 2] : cornerUv[corner * 2 + 1];
+            heldDelta[corner] = held - level;
+        }
+
+        int candidateCount = 0;
+        int[] candidateEdge = new int[CORNERS];
+        int[] candidateCorner = new int[CORNERS];
+        double[] candidateAlong = new double[CORNERS];
+        for (int corner = 0; corner < CORNERS; corner++) {
+            if (heldDelta[corner] != 0.0) {
+                continue;
+            }
+            candidateEdge[candidateCount] = corner;
+            candidateCorner[candidateCount] = corner;
+            candidateAlong[candidateCount] = holdsU ? cornerUv[corner * 2 + 1] : cornerUv[corner * 2];
+            candidateCount++;
+        }
         for (int edge = 0; edge < CORNERS; edge++) {
             if (edge == state.incomingLocalEdgeIndex) {
                 continue;
             }
             int next = (edge + 1) % CORNERS;
-            double ax = cornerUv[edge * 2];
-            double ay = cornerUv[edge * 2 + 1];
-            double bx = cornerUv[next * 2];
-            double by = cornerUv[next * 2 + 1];
-
-            double[] hit = raySegmentIntersection(
-                    state.u, state.v, dir[0], dir[1], ax, ay, bx, by, RAY_MIN_T);
-            if (hit == null || hit[0] >= bestT) {
+            if (!(heldDelta[edge] * heldDelta[next] < 0.0)) {
                 continue;
             }
-            bestT = hit[0];
-            bestU = hit[1];
-            bestV = hit[2];
-            bestEdge = edge;
-            int faceId = mesh.faceIdAt(state.activeFace);
-            int edgeId = mesh.faceEdgeAt(faceId, edge);
-            bestBoundary = mesh.isBoundaryEdge(edgeId);
+            double alongA = holdsU ? cornerUv[edge * 2 + 1] : cornerUv[edge * 2];
+            double alongB = holdsU ? cornerUv[next * 2 + 1] : cornerUv[next * 2];
+            double tEdge = heldDelta[edge] / (heldDelta[edge] - heldDelta[next]);
+            candidateEdge[candidateCount] = edge;
+            candidateCorner[candidateCount] = -1;
+            candidateAlong[candidateCount] = alongA + tEdge * (alongB - alongA);
+            candidateCount++;
         }
-        if (bestEdge < 0 || !Double.isFinite(bestT)) {
+
+        int best = -1;
+        if (state.incomingLocalEdgeIndex >= 0 && candidateCount == 1) {
+            best = 0;
+        } else {
+            double bestAdvance = Double.POSITIVE_INFINITY;
+            for (int i = 0; i < candidateCount; i++) {
+                double advance = (candidateAlong[i] - currentAlong) * state.sign;
+                if (advance > 0.0 && advance < bestAdvance) {
+                    bestAdvance = advance;
+                    best = i;
+                }
+            }
+        }
+        if (best < 0) {
             return null;
         }
-        int cornerLocalIndex = detectCornerHit(cornerUv, bestEdge, bestU, bestV);
-        return new EdgeHit(bestT, bestU, bestV, bestEdge, bestBoundary, cornerLocalIndex);
+        double parametricDelta = Math.abs(candidateAlong[best] - currentAlong);
+        if (candidateCorner[best] >= 0) {
+            int corner = candidateCorner[best];
+            return new EdgeHit(parametricDelta, cornerUv[corner * 2], cornerUv[corner * 2 + 1],
+                    corner, false, corner);
+        }
+        double exitU = holdsU ? level : candidateAlong[best];
+        double exitV = holdsU ? candidateAlong[best] : level;
+        int snapCorner = vertexPassCorner(cornerUv, candidateEdge[best], exitU, exitV);
+        if (snapCorner >= 0) {
+            return new EdgeHit(parametricDelta, cornerUv[snapCorner * 2], cornerUv[snapCorner * 2 + 1],
+                    snapCorner, false, snapCorner);
+        }
+        int faceId = mesh.faceIdAt(state.activeFace);
+        int edgeId = mesh.faceEdgeAt(faceId, candidateEdge[best]);
+        return new EdgeHit(parametricDelta, exitU, exitV, candidateEdge[best],
+                mesh.isBoundaryEdge(edgeId), -1);
     }
 
     /**
-     * Intersect a ray {@code origin + t * direction} with segment {@code a→b},
-     * requiring {@code t > minT}.
-     *
-     * @param ox   ray origin x
-     * @param oy   ray origin y
-     * @param dx   ray direction x
-     * @param dy   ray direction y
-     * @param ax   segment start x
-     * @param ay   segment start y
-     * @param bx   segment end x
-     * @param by   segment end y
-     * @param minT minimum ray parameter (exclusive)
-     * @return ray parameter {@code t} and intersection point {@code [t, ix, iy]} or
-     *         {@code null}
-     */
-    public static double[] raySegmentIntersection(
-            double ox, double oy, double dx, double dy,
-            double ax, double ay, double bx, double by, double minT) {
-        double segDx = bx - ax;
-        double segDy = by - ay;
-        double denom = dx * segDy - dy * segDx;
-        if (Math.abs(denom) < ORIENT_COLLINEAR_EPSILON) {
-            return null;
-        }
-        double t = ((ax - ox) * segDy - (ay - oy) * segDx) / denom;
-        double u = ((ax - ox) * dy - (ay - oy) * dx) / denom;
-        if (t <= minT + ORIENT_COLLINEAR_EPSILON) {
-            return null;
-        }
-        if (u < -ORIENT_COLLINEAR_EPSILON || u > 1.0 + ORIENT_COLLINEAR_EPSILON) {
-            return null;
-        }
-        return new double[] { t, ox + t * dx, oy + t * dy };
-    }
-
-    /**
-     * Identify whether {@code (exitU, exitV)} sits at one of the two corners of
-     * face-local edge {@code edge}. Uses a face-relative epsilon scaled to the
-     * triangle's edge magnitudes so detection is stable across UV chart sizes.
+     * Detect a vertex pass that exact level arithmetic cannot express: a real
+     * iso-line through a mesh vertex appears in floating point as an edge crossing
+     * within ulps of a corner (the level transports with one rounding per seam, so
+     * {@code cornerHeld - level} lands at ~1e-14 instead of exactly zero), and the
+     * remaining chord to the corner is below the event queue's
+     * {@link MotorcycleGraph#PARAMETRIC_EPS} resolution — un-walkable: as an edge
+     * hit it dies the zero-length check or strands a forever-stale event. Snapping
+     * to the corner routes it through the {@link #crossVertex} fan walk, which is
+     * the Lyon §3 semantic for a vertex hit. This is a resolution floor tied to
+     * the queue's own epsilon, not a geometric decision threshold: any crossing a
+     * full queue-step away from both corners stays a regular edge crossing.
      *
      * @param cornerUv flattened face corner UV buffer
-     * @param edge     local edge index
-     * @param exitU    u-coordinate of the exit point
-     * @param exitV    v-coordinate of the exit point
-     * @return local corner index 0/1/2 the hit coincides with, or -1
+     * @param edge     crossed local edge index
+     * @param exitU    u of the constructed exit point
+     * @param exitV    v of the constructed exit point
+     * @return local corner index of the passed vertex, or -1 for a regular
+     *         mid-edge crossing
      */
-    private static int detectCornerHit(double[] cornerUv, int edge, double exitU, double exitV) {
+    private static int vertexPassCorner(double[] cornerUv, int edge, double exitU, double exitV) {
+        double resolutionSq = MotorcycleGraph.PARAMETRIC_EPS * MotorcycleGraph.PARAMETRIC_EPS;
         int next = (edge + 1) % CORNERS;
-        double tolSq = cornerEpsilonSquared(cornerUv);
-        double d0Sq = squaredDist(cornerUv[edge * 2], cornerUv[edge * 2 + 1], exitU, exitV);
-        if (d0Sq <= tolSq) {
+        double duA = cornerUv[edge * 2] - exitU;
+        double dvA = cornerUv[edge * 2 + 1] - exitV;
+        if (duA * duA + dvA * dvA < resolutionSq) {
             return edge;
         }
-        double d1Sq = squaredDist(cornerUv[next * 2], cornerUv[next * 2 + 1], exitU, exitV);
-        if (d1Sq <= tolSq) {
+        double duB = cornerUv[next * 2] - exitU;
+        double dvB = cornerUv[next * 2 + 1] - exitV;
+        if (duB * duB + dvB * dvB < resolutionSq) {
             return next;
         }
         return -1;
-    }
-
-    private static double cornerEpsilonSquared(double[] cornerUv) {
-        // Scale to the face's longest edge so chart magnitude doesn't matter; pick
-        // 1e-5 of edge length as the proximity threshold for "this is a corner".
-        double e01 = squaredDist(cornerUv[0], cornerUv[1], cornerUv[2], cornerUv[3]);
-        double e12 = squaredDist(cornerUv[2], cornerUv[3], cornerUv[4], cornerUv[5]);
-        double e20 = squaredDist(cornerUv[4], cornerUv[5], cornerUv[0], cornerUv[1]);
-        double maxEdgeSq = Math.max(e01, Math.max(e12, e20));
-        return 1.0e-10 * maxEdgeSq;
-    }
-
-    private static double squaredDist(double ax, double ay, double bx, double by) {
-        double dx = bx - ax;
-        double dy = by - ay;
-        return dx * dx + dy * dy;
     }
 
     /**

@@ -689,8 +689,27 @@ public final class MotorcycleGraph {
         }
         double edgeLength = edgeHit.parametricDelta;
         if (edgeLength < PARAMETRIC_EPS) {
+            if (edgeHit.cornerLocalIndex >= 0) {
+                // A vertex pass whose remaining chord is below the queue's
+                // resolution cannot ride the event queue (the event would be
+                // born stale); cross the vertex fan immediately instead.
+                handleVertexCrossing(trace, new TraceEvent(TraceEvent.TYPE_EDGE,
+                        trace.parametricLengthSoFar + edgeLength, trace.traceId, -1,
+                        trace.state.activeFace, edgeHit.exitU, edgeHit.exitV, null),
+                        edgeHit, walker, segmentIndex, queue);
+                return;
+            }
             trace.alive = false;
             dieZeroEdgeLengthCount++;
+            if (dieSamplesPrinted < DIE_SAMPLE_LIMIT) {
+                dieSamplesPrinted++;
+                System.out.printf(
+                        "[motorcycle-diag] dieZeroEdgeLength trace=%d face=%d u=%.9f v=%.9f axis=%s sign=%+d incoming=%d delta=%.3e exit=(%.9f,%.9f) soFar=%.3f%n",
+                        trace.traceId, trace.state.activeFace, trace.state.u, trace.state.v,
+                        trace.state.axis, trace.state.sign, trace.state.incomingLocalEdgeIndex,
+                        edgeHit.parametricDelta, edgeHit.exitU, edgeHit.exitV,
+                        trace.parametricLengthSoFar);
+            }
             return;
         }
         double exitU = edgeHit.exitU;
@@ -731,6 +750,14 @@ public final class MotorcycleGraph {
         if (edgeHit == null) {
             trace.alive = false;
             dieEdgeCrossingNullHitCount++;
+            if (dieSamplesPrinted < DIE_SAMPLE_LIMIT) {
+                dieSamplesPrinted++;
+                System.out.printf(
+                        "[motorcycle-diag] dieEdgeCrossingNullHit trace=%d face=%d u=%.9f v=%.9f axis=%s sign=%+d incoming=%d eventLen=%.3f soFar=%.3f%n",
+                        trace.traceId, trace.state.activeFace, trace.state.u, trace.state.v,
+                        trace.state.axis, trace.state.sign, trace.state.incomingLocalEdgeIndex,
+                        event.parametricLength, trace.parametricLengthSoFar);
+            }
             return;
         }
         TraceSegment segment = new TraceSegment(trace.traceId, trace.state.activeFace,
@@ -793,9 +820,7 @@ public final class MotorcycleGraph {
             registerSegment(trace, duplicate);
             trace.parametricLengthSoFar = event.parametricLength;
             if (trace.alive) {
-                trace.state.u = event.u;
-                trace.state.v = event.v;
-                trace.state.incomingLocalEdgeIndex = -1;
+                advanceStateAlongLevel(trace.state, event.u, event.v);
                 enqueueNextEvent(trace, walker, segmentIndex, queue);
             }
             return;
@@ -896,10 +921,30 @@ public final class MotorcycleGraph {
         if (!trace.alive) {
             return;
         }
-        trace.state.u = event.u;
-        trace.state.v = event.v;
-        trace.state.incomingLocalEdgeIndex = -1;
+        advanceStateAlongLevel(trace.state, event.u, event.v);
         enqueueNextEvent(trace, walker, segmentIndex, queue);
+    }
+
+    /**
+     * Advance a trace state to a meeting point while preserving the exact level
+     * invariant: the held coordinate stays untouched (it IS the trace's level,
+     * transported exactly through seams), only the varying coordinate takes the
+     * constructed crossing value. Writing both from the constructed intersection
+     * would drift the level by rounding and break the sign-predicate walk in
+     * {@link ChartWalker#nextEdgeHit}. Resets the incoming edge since a meeting
+     * point is interior to the face.
+     *
+     * @param state  trace state to advance in place
+     * @param pointU u of the constructed meeting point
+     * @param pointV v of the constructed meeting point
+     */
+    private static void advanceStateAlongLevel(ChartWalker.State state, double pointU, double pointV) {
+        if (state.axis.holdsUConstant()) {
+            state.v = pointV;
+        } else {
+            state.u = pointU;
+        }
+        state.incomingLocalEdgeIndex = -1;
     }
 
     /**
