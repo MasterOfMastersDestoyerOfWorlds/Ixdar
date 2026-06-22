@@ -46,7 +46,7 @@ public final class PatchBoundaryBuilder {
     private static final int CORNERS = SeamlessParameterization.CORNERS_PER_FACE;
     /** Tolerance for port directions lying exactly on a wedge's opening edge. */
     private static final double WEDGE_ANGLE_EPS = 1.0e-9;
-    private static final int INVALID_CYCLE_SAMPLE_LIMIT = 0;
+    private static final int INVALID_CYCLE_SAMPLE_LIMIT = 4;
     /**
      * Temporary diagnostic focus: only sample-dump cycles with this corner count.
      */
@@ -117,8 +117,10 @@ public final class PatchBoundaryBuilder {
                     }
                     PatchPort arrival = nodePorts.get(arrivalIndex);
                     PatchPort departure = nodePorts.get((arrivalIndex + 1) % nodePorts.size());
-                    boolean straight = departure.directionU == -arrival.directionU
+                    boolean straight = graph.nodes.get(headNodeId).vertexId < 0
+                            && departure.directionU == -arrival.directionU
                             && departure.directionV == -arrival.directionV;
+
                     hopIsCorner.add(!straight);
                     int nextDirected = departure.arcId * 2 + (departure.outgoing ? 0 : 1);
                     if (nextDirected == directedStart) {
@@ -187,8 +189,8 @@ public final class PatchBoundaryBuilder {
             int endNodeId = arc.endNodeId;
             TMeshNode endNode = graph.nodes.get(endNodeId);
             List<PatchPort> ports = portsByNode.get(endNodeId);
-            hops.append(String.format(" (arc=%d trace=%d node=%d type=%d ports=%d)",
-                    arcId, arc.traceId, endNodeId, endNode.type,
+            hops.append(String.format(" (arc=%d trace=%d node=%d type=%s vtx=%d ports=%d)",
+                    arcId, arc.traceId, endNodeId, endNode.type, endNode.vertexId,
                     ports == null ? 0 : ports.size()));
         }
         System.out.printf(
