@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.motorcycle;
+package ixdar.geometry.mesh.quadlayout.motorcycle.records;
 
 /**
  * One directed arc-end at a T-mesh node, used by the arrangement walk that

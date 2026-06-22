@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout;
+package ixdar.geometry.mesh.quadlayout.solver;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -6,8 +6,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.Map;
-
-import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
 
 public final class NormalMatrix {
     public static final double HALF = 0.5;

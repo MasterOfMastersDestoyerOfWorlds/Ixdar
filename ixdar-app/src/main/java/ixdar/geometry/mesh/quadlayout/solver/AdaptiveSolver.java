@@ -10,8 +10,6 @@ import org.ejml.interfaces.linsol.LinearSolverSparse;
 import org.ejml.sparse.FillReducing;
 import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
 
-import ixdar.geometry.mesh.quadlayout.NormalMatrix;
-
 /**
  * Adaptive solver ladder for the mixed-integer systems described by
  * Bommes-Zimmer-Kobbelt 2009, Section 2.1.

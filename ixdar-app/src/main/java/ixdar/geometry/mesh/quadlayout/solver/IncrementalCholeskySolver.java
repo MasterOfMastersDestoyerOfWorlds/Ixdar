@@ -4,8 +4,6 @@ import org.ejml.data.DMatrixSparseCSC;
 import org.ejml.sparse.csc.decomposition.chol.CholeskyUpdate_DSCC;
 import org.ejml.sparse.csc.misc.TriangularSolver_DSCC;
 
-import ixdar.geometry.mesh.quadlayout.NormalMatrix;
-
 /**
  * Sparse Cholesky solver that supports per-DOF rank-1 diagonal updates of
  * the L factor in place, for BZK09 greedy mixed-integer rounding.

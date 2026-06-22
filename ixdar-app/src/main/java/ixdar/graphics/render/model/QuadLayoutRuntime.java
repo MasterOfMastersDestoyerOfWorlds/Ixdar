@@ -9,13 +9,13 @@ import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.LayoutPatchCurves;
-import ixdar.geometry.mesh.quadlayout.LayoutPatchGeometry;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
+import ixdar.geometry.mesh.quadlayout.quantization.LayoutPatchCurves;
+import ixdar.geometry.mesh.quadlayout.quantization.LayoutPatchGeometry;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TMeshNode;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.ColorRGB;
@@ -239,7 +239,6 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public boolean showConstraints = false;
     public boolean showTraces = false;
     public boolean showNodes = false;
-    public boolean showPatches = false;
     public boolean showFullIsoGrid = false;
     public boolean showWitnesses = false;
     public boolean showEppsteinMarkers = false;
@@ -510,7 +509,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
      */
     public void renderOverlays(Camera3D camera) {
         boolean drawSurface = hasParametrization()
-                && (showIsoLines || showTraces || showFullIsoGrid || showPatches);
+                && (showIsoLines || showTraces || showFullIsoGrid);
         boolean drawCross = showCrossField && crossFieldIndexCount > 0;
         boolean drawConstraints = showConstraints && constraintIndexCount > 0;
         boolean drawSingularities = showSingularities
@@ -526,9 +525,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         setupOverlayProjection(camera);
         GL gl = Platforms.gl();
         if (drawSurface) {
-            if (showPatches && motorcycleGraph != null && motorcycleGraph.patchIdByActiveFace != null) {
-                renderTraceSurfaceWithPatches(camera);
-            } else if (showTraces || showFullIsoGrid) {
+            if (showTraces || showFullIsoGrid) {
                 renderTraceSurface(camera);
             } else if (showIsoLines) {
                 renderIsoLines(camera);
@@ -865,18 +862,15 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             float[] traceRow = graph != null && graph.traceRecordsByFace != null
                     ? graph.traceRecordsByFace[activeFace]
                     : null;
-            float patchId = graph != null && graph.patchIdByActiveFace != null
-                    ? graph.patchIdByActiveFace[activeFace]
-                    : -1f;
             writeCornerWithTraces(interleaved, baseFloat, p0, normal,
                     (float) seamless.uCorner[cornerBase], (float) seamless.vCorner[cornerBase],
-                    flipped, traceRow, patchId);
+                    flipped, traceRow);
             writeCornerWithTraces(interleaved, baseFloat + FLOATS_PER_CORNER_WITH_TRACES, p1, normal,
                     (float) seamless.uCorner[cornerBase + COMPONENT_Y],
-                    (float) seamless.vCorner[cornerBase + COMPONENT_Y], flipped, traceRow, patchId);
+                    (float) seamless.vCorner[cornerBase + COMPONENT_Y], flipped, traceRow);
             writeCornerWithTraces(interleaved, baseFloat + COMPONENT_Z * FLOATS_PER_CORNER_WITH_TRACES, p2, normal,
                     (float) seamless.uCorner[cornerBase + COMPONENT_Z],
-                    (float) seamless.vCorner[cornerBase + COMPONENT_Z], flipped, traceRow, patchId);
+                    (float) seamless.vCorner[cornerBase + COMPONENT_Z], flipped, traceRow);
             indices[cornerBase] = cornerBase;
             indices[cornerBase + COMPONENT_Y] = cornerBase + COMPONENT_Y;
             indices[cornerBase + COMPONENT_Z] = cornerBase + COMPONENT_Z;
@@ -885,7 +879,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     private static void writeCornerWithTraces(float[] buffer, int offset, Vector3f position,
-            Vector3f normal, float u, float v, float flipped, float[] traceRow, float patchId) {
+            Vector3f normal, float u, float v, float flipped, float[] traceRow) {
         buffer[offset] = position.x;
         buffer[offset + COMPONENT_Y] = position.y;
         buffer[offset + COMPONENT_Z] = position.z;
@@ -910,7 +904,6 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
                 buffer[traceOffset + 3] = 0f;
             }
         }
-        buffer[offset + PATCH_ID_OFFSET] = patchId;
     }
 
     private void uploadTraceSurfaceBuffers(float[] interleaved, int[] indices) {
@@ -993,28 +986,6 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         return COLOR_BOUNDARY_NODE;
     }
 
-    private void renderTraceSurfaceWithPatches(Camera3D camera) {
-        if (traceUvShader.ID < 0) {
-            return;
-        }
-        GL gl = Platforms.gl();
-        traceUvShader.use();
-        traceUvShader.setMat4(VIEW, camera.view);
-        traceUvShader.setMat4(PROJECTION, localProjection);
-        sphereModel.identity();
-        traceUvShader.setMat4(MODEL, sphereModel);
-        traceUvShader.setFloat(DEPTHBIAS, 0f);
-        traceUvShader.setVec4(BASE_COLOR, baseColor);
-        traceUvShader.setVec4(U_LINE_COLOR, uLineColor);
-        traceUvShader.setVec4(V_LINE_COLOR, vLineColor);
-        traceUvShader.setFloat(LINE_HALF_WIDTH, lineHalfWidth);
-        traceUvShader.setVec4(FLIPPED_COLOR_UNIFORM, flippedColor);
-        traceUvShader.setFloat(DRAW_FULL_ISO_GRID_UNIFORM, 0f);
-        traceUvShader.setFloat(USE_PATCH_COLOR_UNIFORM, 1f);
-        gl.bindVertexArray(isoSurfaceVao);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), isoSurfaceEbo);
-        gl.drawElements(gl.TRIANGLES(), isoSurfaceIndexCount, gl.UNSIGNED_INT(), 0);
-    }
 
     private void renderTraceSurface(Camera3D camera) {
         if (traceUvShader.ID < 0) {

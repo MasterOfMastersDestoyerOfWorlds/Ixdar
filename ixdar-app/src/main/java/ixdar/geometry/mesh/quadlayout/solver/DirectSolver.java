@@ -8,8 +8,6 @@ import org.ejml.interfaces.linsol.LinearSolverSparse;
 import org.ejml.sparse.FillReducing;
 import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
 
-import ixdar.geometry.mesh.quadlayout.NormalMatrix;
-
 public final class DirectSolver {
 
     /**
@@ -147,13 +145,13 @@ public final class DirectSolver {
         NormalMatrix.CompressedSparseColumnArrays csc = matrix.toPermutedUpperCompressedSparseColumn(freeCount, fixed,
                 compactOf, fullOf,
                 perm, invPerm);
-        DMatrixSparseCSC ejmlCsc = new DMatrixSparseCSC(freeCount, freeCount, csc.values().length);
-        ejmlCsc.col_idx = csc.colPtr();
-        ejmlCsc.nz_rows = csc.rowIdx();
-        ejmlCsc.nz_values = csc.values();
-        ejmlCsc.nz_length = csc.values().length;
+        DMatrixSparseCSC CSCMatrix = new DMatrixSparseCSC(freeCount, freeCount, csc.values().length);
+        CSCMatrix.col_idx = csc.colPtr();
+        CSCMatrix.nz_rows = csc.rowIdx();
+        CSCMatrix.nz_values = csc.values();
+        CSCMatrix.nz_length = csc.values().length;
         var solver = LinearSolverFactory_DSCC.cholesky(FillReducing.NONE);
-        solver.setA(ejmlCsc);
+        solver.setA(CSCMatrix);
         DMatrixRMaj b = new DMatrixRMaj(freeCount, 1);
         DMatrixRMaj solX = new DMatrixRMaj(freeCount, 1);
         return new CholeskyHandle(n, freeCount, compactOf, fullOf, perm, invPerm, solver, b, solX);

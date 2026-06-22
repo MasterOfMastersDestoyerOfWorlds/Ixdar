@@ -7,8 +7,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.LayoutPatchGeometry;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.quadlayout.quantization.LayoutPatchGeometry;
 
 /**
  * Lyon-Table-1 pipeline benchmark on ROCKERARM, end-to-end on our own pipeline.

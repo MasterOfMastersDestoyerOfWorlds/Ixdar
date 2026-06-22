@@ -7,12 +7,12 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
-import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.SeamlessProjector;
 import ixdar.geometry.mesh.quadlayout.solver.AMDOrdering;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
 import ixdar.geometry.mesh.quadlayout.solver.IncrementalCholeskySolver;
+import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
 
 /**
  * BZK09 §5 seamless parametrization, stage 3 of the Lyon 2021 quad-layout
@@ -781,5 +781,22 @@ public final class SeamlessParameterization {
                 u(faceId, cStart), v(faceId, cStart),
                 u(faceId, cEnd), v(faceId, cEnd),
         };
+    }
+
+    /**
+     * Corner UV coordinates for an active face.
+     *
+     * @param chartWalker TODO
+     * @param activeFace active face index
+     * @param out        length-6 buffer receiving {@code [u0,v0,u1,v1,u2,v2]}
+     */
+    public void faceCornerUv(int activeFace, double[] out) {
+        int base = activeFace * CORNERS_PER_FACE;
+        out[0] = uCorner[base];
+        out[1] = vCorner[base];
+        out[2] = uCorner[base + 1];
+        out[3] = vCorner[base + 1];
+        out[4] = uCorner[base + 2];
+        out[5] = vCorner[base + 2];
     }
 }

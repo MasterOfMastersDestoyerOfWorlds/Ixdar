@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.motorcycle;
+package ixdar.geometry.mesh.quadlayout.motorcycle.records;
 
 /**
  * Chain-length interval that one alignment/boundary mesh edge covers along its

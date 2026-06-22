@@ -10,20 +10,28 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.MetOtherTraceEntry;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.PatchPort;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceAxis;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 
 /**
  * Assembles the T-mesh patches as faces of the trace arrangement: every arc
  * contributes two directed sides, each node orders its incident arc-ends
- * cyclically (by chart angle at intersection/termination nodes, by fan order
- * at singularities), and walking "arrive, then leave through the next port"
+ * cyclically (by chart angle at intersection/termination nodes, by fan order at
+ * singularities), and walking "arrive, then leave through the next port"
  * enumerates each arrangement face exactly once. This replaces any
  * triangle-level region growing, which breaks down as soon as several traces
  * cross one triangle.
  *
  * <p>
- * Each resulting cycle becomes a {@link TMeshPatch}; corners are hops where
- * the travel direction turns instead of continuing straight (T-junction
+ * Each resulting cycle becomes a {@link TMeshPatch}; corners are hops where the
+ * travel direction turns instead of continuing straight (T-junction
  * pass-throughs stay straight), and a patch with exactly four corners gets its
  * sides split for Lyon's eq. (2) consistency constraints. Known gaps that
  * surface as invalid patches rather than wrong constraints: traces terminating
@@ -39,7 +47,9 @@ public final class PatchBoundaryBuilder {
     /** Tolerance for port directions lying exactly on a wedge's opening edge. */
     private static final double WEDGE_ANGLE_EPS = 1.0e-9;
     private static final int INVALID_CYCLE_SAMPLE_LIMIT = 0;
-    /** Temporary diagnostic focus: only sample-dump cycles with this corner count. */
+    /**
+     * Temporary diagnostic focus: only sample-dump cycles with this corner count.
+     */
     private static final int TWELVE_CORNER_FOCUS = 12;
     /** How many sampled cycles also get their full per-node port tables dumped. */
     private static final int PORT_TABLE_SAMPLE_LIMIT = 1;
@@ -54,13 +64,12 @@ public final class PatchBoundaryBuilder {
     public int invalidCycleFoldBackCount;
 
     private final HalfEdgeMesh mesh;
-    private final ChartWalker walker;
     private final Map<Integer, List<PatchPort>> portsByNode = new HashMap<>();
     private int invalidCycleSamplesPrinted;
 
     /**
-     * Prepares a builder over a finished motorcycle graph (arcs subdivided,
-     * meeting axes recorded).
+     * Prepares a builder over a finished motorcycle graph (arcs subdivided, meeting
+     * axes recorded).
      *
      * @param graph built motorcycle graph whose patches get rebuilt from the
      *              arrangement
@@ -68,7 +77,6 @@ public final class PatchBoundaryBuilder {
     public PatchBoundaryBuilder(MotorcycleGraph graph) {
         this.graph = graph;
         this.mesh = graph.seamless.mesh;
-        this.walker = new ChartWalker(graph.seamless);
     }
 
     /**
@@ -152,9 +160,9 @@ public final class PatchBoundaryBuilder {
     }
 
     /**
-     * Classify one invalid cycle into the corner-count histogram and, for the
-     * first few, dump every hop so the failure shape (dead-end fold-back,
-     * mixed-chart corner detection, giant outer cycle) is visible in the log.
+     * Classify one invalid cycle into the corner-count histogram and, for the first
+     * few, dump every hop so the failure shape (dead-end fold-back, mixed-chart
+     * corner detection, giant outer cycle) is visible in the log.
      *
      * @param cycleArcIds     arcs of the cycle in walk order
      * @param cornerPositions hop indices where the walk turned
@@ -208,8 +216,8 @@ public final class PatchBoundaryBuilder {
     }
 
     /**
-     * One-line histogram of invalid cycles keyed by corner count plus the
-     * fold-back tally, emitted after the arrangement walk.
+     * One-line histogram of invalid cycles keyed by corner count plus the fold-back
+     * tally, emitted after the arrangement walk.
      */
     private void logInvalidCycleDiagnostics() {
         if (invalidCycleCountByCornerCount.isEmpty()) {
@@ -221,11 +229,11 @@ public final class PatchBoundaryBuilder {
 
     /**
      * Emit the two directed arc-end ports of every arc, with travel directions
-     * taken from the meeting record at interior nodes, the spawn port at
-     * origins, and the final walker state (or last feature segment) at
-     * terminals. Each port also carries the chart face its direction is
-     * expressed in (spawn face, meeting face, terminal face) so vertex-located
-     * nodes can fan-order ports that arrive through different charts.
+     * taken from the meeting record at interior nodes, the spawn port at origins,
+     * and the final walker state (or last feature segment) at terminals. Each port
+     * also carries the chart face its direction is expressed in (spawn face,
+     * meeting face, terminal face) so vertex-located nodes can fan-order ports that
+     * arrive through different charts.
      */
     private void buildPorts() {
         for (Trace trace : graph.traces) {
@@ -285,10 +293,10 @@ public final class PatchBoundaryBuilder {
     /**
      * Assign cyclic sort keys per node and order its ports: chart angle at
      * single-chart nodes, unrolled-fan angle at vertex-located nodes
-     * (singularities, feature corners, singular-vertex terminals — their
-     * ports live in different fan-face charts, so each face's wedge is laid
-     * out flat around the vertex and a port's key is its face's accumulated
-     * base angle plus its CCW angle inside that wedge).
+     * (singularities, feature corners, singular-vertex terminals — their ports live
+     * in different fan-face charts, so each face's wedge is laid out flat around
+     * the vertex and a port's key is its face's accumulated base angle plus its CCW
+     * angle inside that wedge).
      */
     private void sortPorts() {
         for (Map.Entry<Integer, List<PatchPort>> entry : portsByNode.entrySet()) {
@@ -321,10 +329,10 @@ public final class PatchBoundaryBuilder {
     }
 
     /**
-     * Count nodes whose sorted ports contain near-identical sort keys — there
-     * the cyclic order degrades to the arcId tie-break, which carries no
-     * geometric meaning, and the arrangement walk fuses the surrounding
-     * patches into one big invalid cycle. Dumps the first few offenders.
+     * Count nodes whose sorted ports contain near-identical sort keys — there the
+     * cyclic order degrades to the arcId tie-break, which carries no geometric
+     * meaning, and the arrangement walk fuses the surrounding patches into one big
+     * invalid cycle. Dumps the first few offenders.
      */
     private void logAmbiguousPortOrderings() {
         int ambiguousNodes = 0;
@@ -362,14 +370,13 @@ public final class PatchBoundaryBuilder {
     }
 
     /**
-     * Unroll the face fan around a vertex into a flat angular layout: walk
-     * the fan CCW (rewinding CW to a boundary first, when one exists), give
-     * each face a base angle equal to the accumulated wedge angles before it,
-     * and record the wedge's opening-edge direction in that face's own chart.
-     * Wedge angles and port directions are measured per face chart, so seam
-     * transitions between fan faces cancel out and the resulting keys are a
-     * consistent cyclic order even at singular cones whose total angle is not
-     * 2π.
+     * Unroll the face fan around a vertex into a flat angular layout: walk the fan
+     * CCW (rewinding CW to a boundary first, when one exists), give each face a
+     * base angle equal to the accumulated wedge angles before it, and record the
+     * wedge's opening-edge direction in that face's own chart. Wedge angles and
+     * port directions are measured per face chart, so seam transitions between fan
+     * faces cancel out and the resulting keys are a consistent cyclic order even at
+     * singular cones whose total angle is not 2π.
      *
      * @param vertexId mesh vertex whose fan to unroll
      * @return per active face: {base angle, opening-edge u, opening-edge v}
@@ -396,7 +403,7 @@ public final class PatchBoundaryBuilder {
         for (int step = 0; step < fanCount; step++) {
             int faceId = mesh.faceIdAt(currentActiveFace);
             int corner = cornerOfVertexInFace(faceId, vertexId);
-            walker.faceCornerUv(currentActiveFace, cornerUv);
+            graph.seamless.faceCornerUv(currentActiveFace, cornerUv);
             int openingCorner = (corner + 1) % CORNERS;
             int closingCorner = (corner + 2) % CORNERS;
             double openingU = cornerUv[openingCorner * 2] - cornerUv[corner * 2];
@@ -420,9 +427,8 @@ public final class PatchBoundaryBuilder {
     /**
      * The fan-adjacent face across one of the two vertex-incident edges of
      * {@code activeFace} at {@code vertexId}. With CCW-wound faces, local edge
-     * {@code corner} (corner → corner+1) borders the clockwise neighbor and
-     * local edge {@code corner+2} (corner+2 → corner) the counter-clockwise
-     * one.
+     * {@code corner} (corner → corner+1) borders the clockwise neighbor and local
+     * edge {@code corner+2} (corner+2 → corner) the counter-clockwise one.
      *
      * @param activeFace       active face to step from
      * @param vertexId         vertex the fan revolves around
@@ -469,8 +475,8 @@ public final class PatchBoundaryBuilder {
     }
 
     /**
-     * Split the cycle at its four corners into sides; side {@code j} runs from
-     * just after corner {@code j} through corner {@code j + 1}.
+     * Split the cycle at its four corners into sides; side {@code j} runs from just
+     * after corner {@code j} through corner {@code j + 1}.
      */
     private void splitSides(TMeshPatch patch, List<Integer> arcCycle, List<Integer> cornerPositions) {
         int cycleLength = arcCycle.size();

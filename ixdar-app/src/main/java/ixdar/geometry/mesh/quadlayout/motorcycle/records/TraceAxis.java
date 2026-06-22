@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.motorcycle;
+package ixdar.geometry.mesh.quadlayout.motorcycle.records;
 
 /**
  * Parametric axis of a motorcycle trace: constant-u (V axis motion) or

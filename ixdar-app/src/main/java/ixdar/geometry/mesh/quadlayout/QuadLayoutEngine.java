@@ -5,6 +5,9 @@ import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
 import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
+import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
+import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
+import ixdar.geometry.mesh.quadlayout.quantization.TJunctionElimination;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 
@@ -43,9 +46,6 @@ public final class QuadLayoutEngine {
 
     /** Maximum separatrix deviation α in radians, Lyon's single quality knob. */
     public final float alphaRadians;
-
-    /** Whether the motorcycle stage traces feature chains (off for paper parity). */
-    public boolean featureTracingEnabled = true;
 
     public CrossField crossField;
     public SeamlessParameterization seamless;
@@ -108,7 +108,6 @@ public final class QuadLayoutEngine {
         if (motorcycleGraph == null) {
             buildSeamless();
             motorcycleGraph = new MotorcycleGraph(seamless, alphaRadians);
-            motorcycleGraph.featureTracingEnabled = featureTracingEnabled;
             motorcycleGraph.build();
         }
         return motorcycleGraph;

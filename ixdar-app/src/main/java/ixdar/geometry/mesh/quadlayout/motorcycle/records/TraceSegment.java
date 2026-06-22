@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.motorcycle;
+package ixdar.geometry.mesh.quadlayout.motorcycle.records;
 
 /**
  * One straight iso-line chord of a trace on a single triangle, stored in that
@@ -8,6 +8,16 @@ public final class TraceSegment {
 
     public final int traceId;
     public final int activeFace;
+
+    /**
+     * Ordinal of the owning trace's face visit that laid this segment. Two
+     * sub-chords of one traversal share a visit id; a later re-entry of the same
+     * face (different level after loop holonomy) gets a new one. Together with
+     * the trace id this combinatorially identifies the chord a segment belongs
+     * to, which is what meeting dedupe keys on — a pair of chords crosses at
+     * most once, no positional epsilon needed.
+     */
+    public final int visitId;
     public final double entryU;
     public final double entryV;
     public final double exitU;
@@ -24,6 +34,7 @@ public final class TraceSegment {
      *
      * @param traceId                 owning trace id
      * @param activeFace              active face index
+     * @param visitId                 ordinal of the owning trace's face visit
      * @param entryU                  entry u
      * @param entryV                  entry v
      * @param exitU                   exit u
@@ -33,11 +44,12 @@ public final class TraceSegment {
      * @param parametricLengthAtEntry trace parametric length accumulated from the
      *                                trace origin up to this chord's entry
      */
-    public TraceSegment(int traceId, int activeFace,
+    public TraceSegment(int traceId, int activeFace, int visitId,
             double entryU, double entryV, double exitU, double exitV,
             TraceAxis axis, int sign, double parametricLengthAtEntry) {
         this.traceId = traceId;
         this.activeFace = activeFace;
+        this.visitId = visitId;
         this.entryU = entryU;
         this.entryV = entryV;
         this.exitU = exitU;

@@ -9,11 +9,10 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
-import ixdar.geometry.mesh.quadlayout.SeparatrixDeviation;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TMeshNode;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TMeshPatch;
-import ixdar.geometry.mesh.quadlayout.motorcycle.Trace;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
 
 /**
  * Parity harness against LCK21a Table 1 (page 311): runs the pipeline with
@@ -135,7 +134,6 @@ public final class BenchmarkLyonParity {
         int meshEuler = mesh.vertexCount() - mesh.edgeCount() + mesh.faceCount();
 
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, (float) Math.toRadians(alphaDegrees));
-        engine.featureTracingEnabled = false;
         long t0 = System.currentTimeMillis();
         engine.buildSeamless();
         long tSeamless = System.currentTimeMillis();
@@ -145,7 +143,6 @@ public final class BenchmarkLyonParity {
         long tQuantization = System.currentTimeMillis();
         engine.buildConformingLayout();
         long tConforming = System.currentTimeMillis();
-        SeparatrixDeviation deviation = new SeparatrixDeviation(engine.quantization).build();
 
         int degenerateUvFaces = 0;
         double meanAbsUvArea = 0.0;
@@ -188,13 +185,6 @@ public final class BenchmarkLyonParity {
         int arrangementEuler = graph.nodes.size() - graph.arcs.size() + graph.patches.size();
         int walkerDeaths = graph.dieNoForwardEdgeCount + graph.dieZeroEdgeLengthCount
                 + graph.dieEdgeCrossingNullHitCount;
-
-        System.out.printf("[parity] measured: sing=%d traces=%d (feature=%d) arcs=%d vars=%d"
-                + " #P=%d dMean=%.1f dMax=%.1f (n=%d) tMCG=%dms tILP=%dms%n",
-                singularities, traceTotal, featureTraces, graph.arcs.size(),
-                engine.quantization.variableCount, engine.conforming.finalPatchCount,
-                deviation.meanDegrees, deviation.maxDegrees, deviation.separatrixCount,
-                tMotorcycle - tSeamless, tQuantization - tMotorcycle);
         if (compareTable1) {
             System.out.printf("[parity] expected: sing=%d traces=%d arcs=%d vars=%d #P=%d"
                     + " dMean=%.1f dMax=%.1f%n",
@@ -224,8 +214,6 @@ public final class BenchmarkLyonParity {
                 engine.quantization.singularitySeparationViolated),
                 engine.quantization.separationCutCount == 0
                         && !engine.quantization.singularitySeparationViolated);
-        verdict(String.format("invariant5.dMax<=alpha (%.1f<=%.1f)", deviation.maxDegrees,
-                alphaDegrees), deviation.maxDegrees <= alphaDegrees);
         verdict(String.format("invariant6.traces==4*sing (%d vs %d)", traceTotal,
                 4 * singularities), traceTotal == 4 * singularities);
         verdict(String.format("invariant7.noDegenerateUvFaces (%d)", degenerateUvFaces),

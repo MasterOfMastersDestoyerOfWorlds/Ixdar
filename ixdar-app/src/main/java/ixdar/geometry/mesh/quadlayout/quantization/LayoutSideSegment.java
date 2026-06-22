@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout;
+package ixdar.geometry.mesh.quadlayout.quantization;
 
 /**
  * One positive-length piece of a {@link LayoutRectangle} side. Most segments

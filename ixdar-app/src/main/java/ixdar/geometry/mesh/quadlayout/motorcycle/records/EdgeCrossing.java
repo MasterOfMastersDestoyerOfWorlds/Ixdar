@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.motorcycle;
+package ixdar.geometry.mesh.quadlayout.motorcycle.records;
 
 /**
  * One transversal crossing of a mesh edge by a motorcycle trace, recorded

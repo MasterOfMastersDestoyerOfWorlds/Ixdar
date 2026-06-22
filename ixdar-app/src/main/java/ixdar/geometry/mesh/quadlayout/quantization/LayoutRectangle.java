@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout;
+package ixdar.geometry.mesh.quadlayout.quantization;
 
 import java.util.ArrayList;
 import java.util.List;

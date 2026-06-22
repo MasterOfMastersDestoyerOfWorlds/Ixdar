@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout;
+package ixdar.geometry.mesh.quadlayout.quantization;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -6,18 +6,18 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TMeshPatch;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TraceArc;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 
 /**
  * Lyon 2021 §6 second half: turn the quantized T-mesh into a conforming quad
- * layout by iteratively extending every remaining T-junction across its patch
- * — connecting it to an opposing vertex when the quantized offsets match,
+ * layout by iteratively extending every remaining T-junction across its patch —
+ * connecting it to an opposing vertex when the quantized offsets match,
  * otherwise splitting the opposite side and continuing into the next patch —
  * until no T-junctions remain (LCBK19 §6). Operates purely combinatorially on
  * the rectangle complex formed by the positive-area valid patches; inserted
- * edges have no traced geometry yet, so the final patch count {@link
- * #finalPatchCount} is the product, not a render.
+ * edges have no traced geometry yet, so the final patch count
+ * {@link #finalPatchCount} is the product, not a render.
  */
 public final class TJunctionElimination {
 
@@ -71,9 +71,9 @@ public final class TJunctionElimination {
     }
 
     /**
-     * Build the rectangle complex, run extension chains until no T-junction
-     * vertex remains (or a chain aborts at an unmapped region), and count the
-     * final patches.
+     * Build the rectangle complex, run extension chains until no T-junction vertex
+     * remains (or a chain aborts at an unmapped region), and count the final
+     * patches.
      *
      * @return this, with all public products populated
      */
@@ -101,7 +101,27 @@ public final class TJunctionElimination {
         int stepCap = MAX_STEP_MULTIPLIER * Math.max(1, initialRectangleCount);
         int steps = 0;
         while (steps < stepCap) {
-            int[] tJunction = findTJunctionVertex();
+            int[] tJunction = null;
+            for (int index = 0; index < rectangles.size(); index++) {
+                LayoutRectangle cell = rectangles.get(index);
+                if (!cell.alive) {
+                    continue;
+                }
+                for (int side = 0; side < LayoutRectangle.SIDES; side++) {
+                    List<LayoutSideSegment> segments = cell.sideSegments.get(side);
+                    List<Integer> boundaries = cell.boundaryClusters.get(side);
+                    int offset = 0;
+                    for (int boundary = 1; boundary < boundaries.size() - 1; boundary++) {
+                        offset += segments.get(boundary - 1).quantizedLength();
+                        if (degreeByCluster.get(boundaries.get(boundary)) == 3) {
+                            tJunction = new int[] { index, side, offset };
+                            side = LayoutRectangle.SIDES;
+                            index = rectangles.size();
+                            break;
+                        }
+                    }
+                }
+            }
             if (tJunction == null) {
                 break;
             }
@@ -120,9 +140,9 @@ public final class TJunctionElimination {
     }
 
     /**
-     * Convert one valid T-mesh patch into a rectangle (positive area), a
-     * portal (exactly one positive dimension — chains pass straight through),
-     * or nothing (fully collapsed).
+     * Convert one valid T-mesh patch into a rectangle (positive area), a portal
+     * (exactly one positive dimension — chains pass straight through), or nothing
+     * (fully collapsed).
      *
      * @param patch valid four-sided arrangement patch
      */
@@ -193,13 +213,13 @@ public final class TJunctionElimination {
     }
 
     /**
-     * Reconstruct the node sequence around a patch cycle from its undirected
-     * arc id list by chaining shared endpoints; entry {@code i} is the node
-     * before arc {@code i}, with one extra closing entry equal to the first.
+     * Reconstruct the node sequence around a patch cycle from its undirected arc id
+     * list by chaining shared endpoints; entry {@code i} is the node before arc
+     * {@code i}, with one extra closing entry equal to the first.
      *
      * @param cycleArcIds boundary arcs in cycle order
-     * @return node ids of size {@code cycleArcIds.size() + 1}, or {@code null}
-     *         when the arcs do not chain
+     * @return node ids of size {@code cycleArcIds.size() + 1}, or {@code null} when
+     *         the arcs do not chain
      */
     private List<Integer> chainCycleNodes(List<Integer> cycleArcIds) {
         if (cycleArcIds.size() < 2) {
@@ -234,37 +254,8 @@ public final class TJunctionElimination {
     }
 
     /**
-     * Scan live rectangles for an interior side boundary whose cluster has
-     * exactly three positive edge-ends — a T-junction vertex whose missing
-     * edge points into the rectangle.
-     *
-     * @return {rectangle index in {@link #rectangles}, side, canonical offset}
-     *         or {@code null} when none remain
-     */
-    private int[] findTJunctionVertex() {
-        for (int index = 0; index < rectangles.size(); index++) {
-            LayoutRectangle cell = rectangles.get(index);
-            if (!cell.alive) {
-                continue;
-            }
-            for (int side = 0; side < LayoutRectangle.SIDES; side++) {
-                List<LayoutSideSegment> segments = cell.sideSegments.get(side);
-                List<Integer> boundaries = cell.boundaryClusters.get(side);
-                int offset = 0;
-                for (int boundary = 1; boundary < boundaries.size() - 1; boundary++) {
-                    offset += segments.get(boundary - 1).quantizedLength();
-                    if (degreeByCluster.get(boundaries.get(boundary)) == 3) {
-                        return new int[] { index, side, offset };
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Count interior side boundaries with degree-3 clusters over live
-     * rectangles (the honest leftover count when chains aborted).
+     * Count interior side boundaries with degree-3 clusters over live rectangles
+     * (the honest leftover count when chains aborted).
      *
      * @return remaining T-junction vertices
      */
@@ -297,11 +288,10 @@ public final class TJunctionElimination {
     }
 
     /**
-     * Run one extension chain from a T-junction vertex: cross the current
-     * rectangle to its opposite side, connect when a vertex already sits at
-     * the same quantized offset, otherwise split the opposite side and
-     * continue into the neighboring rectangle, passing straight through
-     * zero-thickness portal cells.
+     * Run one extension chain from a T-junction vertex: cross the current rectangle
+     * to its opposite side, connect when a vertex already sits at the same
+     * quantized offset, otherwise split the opposite side and continue into the
+     * neighboring rectangle, passing straight through zero-thickness portal cells.
      *
      * @param startRectangle rectangle the T-junction's missing edge enters
      * @param startSide      side carrying the T-junction vertex
@@ -323,8 +313,8 @@ public final class TJunctionElimination {
             if (exitBoundary != null) {
                 int exitCluster = current.boundaryClusters.get(exitSide).get(exitBoundary[0]);
                 splitForChain(current, entrySide, entryOffset, entryCluster, exitCluster);
-                bumpDegree(entryCluster);
-                bumpDegree(exitCluster);
+                degreeByCluster.set(entryCluster, degreeByCluster.get(entryCluster) + 1);
+                degreeByCluster.set(exitCluster, degreeByCluster.get(exitCluster) + 1);
                 connectCount++;
                 return steps;
             }
@@ -349,16 +339,17 @@ public final class TJunctionElimination {
                 // back at us and this edge resolves it.
                 int exitCluster = neighbor[3];
                 splitForChain(current, entrySide, entryOffset, entryCluster, exitCluster);
-                bumpDegree(entryCluster);
-                bumpDegree(exitCluster);
+                degreeByCluster.set(entryCluster, degreeByCluster.get(entryCluster) + 1);
+                degreeByCluster.set(exitCluster, degreeByCluster.get(exitCluster) + 1);
                 connectCount++;
                 return steps;
             }
             int newCluster = nextSyntheticCluster++;
             degreeByCluster.add(2);
             splitForChain(current, entrySide, entryOffset, entryCluster, newCluster);
-            bumpDegree(entryCluster);
-            bumpDegree(newCluster);
+
+            degreeByCluster.set(entryCluster, degreeByCluster.get(entryCluster) + 1);
+            degreeByCluster.set(newCluster, degreeByCluster.get(newCluster) + 1);
             continuationSplitCount++;
             current = next;
             entrySide = neighbor[1];
@@ -369,10 +360,6 @@ public final class TJunctionElimination {
         return steps;
     }
 
-    private void bumpDegree(int cluster) {
-        degreeByCluster.set(cluster, degreeByCluster.get(cluster) + 1);
-    }
-
     /**
      * Resolve which live rectangle lies on the far side of an arc at a given
      * intrinsic position, passing straight through portal cells.
@@ -380,8 +367,8 @@ public final class TJunctionElimination {
      * @param arcId          crossed arc id
      * @param intrinsic      quantized position in the arc's own coordinates
      * @param excludePatchId root patch id of the side the chain comes from
-     * @return {rectangle index, side, canonical offset, existing vertex
-     *         cluster or -1}, or {@code null} when unmapped
+     * @return {rectangle index, side, canonical offset, existing vertex cluster or
+     *         -1}, or {@code null} when unmapped
      */
     private int[] resolveNeighbor(int arcId, int intrinsic, int excludePatchId) {
         int currentArcId = arcId;
@@ -428,16 +415,15 @@ public final class TJunctionElimination {
     }
 
     /**
-     * Carry a crossing straight through a zero-thickness portal cell: find
-     * the entry arc on one positive side, translate to the same canonical
-     * offset on the opposite positive side, and report the arc and intrinsic
-     * position there.
+     * Carry a crossing straight through a zero-thickness portal cell: find the
+     * entry arc on one positive side, translate to the same canonical offset on the
+     * opposite positive side, and report the arc and intrinsic position there.
      *
      * @param portal    portal cell (exactly one positive dimension)
      * @param arcId     arc the chain enters through
      * @param intrinsic quantized position in the entry arc's coordinates
-     * @return {exit arc id, exit intrinsic position}, or {@code null} when
-     *         the offset lands on a portal vertex or an unmapped spot
+     * @return {exit arc id, exit intrinsic position}, or {@code null} when the
+     *         offset lands on a portal vertex or an unmapped spot
      */
     private int[] portalAcross(LayoutRectangle portal, int arcId, int intrinsic) {
         int firstPositiveSide = portal.width > 0 ? 0 : 1;
@@ -468,14 +454,14 @@ public final class TJunctionElimination {
     }
 
     /**
-     * Find the live rectangle of a root patch whose side contains an arc at
-     * the given intrinsic position.
+     * Find the live rectangle of a root patch whose side contains an arc at the
+     * given intrinsic position.
      *
      * @param rootPatchId root patch to search
      * @param arcId       crossed arc id
      * @param intrinsic   quantized position in the arc's own coordinates
-     * @return {rectangle index, side, canonical offset, existing vertex
-     *         cluster or -1}, or {@code null} when unmapped
+     * @return {rectangle index, side, canonical offset, existing vertex cluster or
+     *         -1}, or {@code null} when unmapped
      */
     private int[] locateInLiveRectangles(int rootPatchId, int arcId, int intrinsic) {
         List<LayoutRectangle> candidates = liveByRootPatch.get(rootPatchId);
@@ -535,8 +521,8 @@ public final class TJunctionElimination {
      * @param cell   rectangle
      * @param side   side index
      * @param offset canonical offset
-     * @return {boundary index} or {@code null} when the offset is inside a
-     *         segment or at a corner
+     * @return {boundary index} or {@code null} when the offset is inside a segment
+     *         or at a corner
      */
     private int[] boundaryIndexAt(LayoutRectangle cell, int side, int offset) {
         List<LayoutSideSegment> segments = cell.sideSegments.get(side);
@@ -556,8 +542,8 @@ public final class TJunctionElimination {
      * @param cell   rectangle or portal
      * @param side   side index
      * @param offset canonical offset
-     * @return containing segment, or {@code null} when the offset hits a
-     *         boundary or exceeds the side
+     * @return containing segment, or {@code null} when the offset hits a boundary
+     *         or exceeds the side
      */
     private LayoutSideSegment segmentAt(LayoutRectangle cell, int side, int offset) {
         int accumulated = 0;
@@ -590,10 +576,10 @@ public final class TJunctionElimination {
     }
 
     /**
-     * Split a rectangle along the inserted edge crossing it: a vertical cut
-     * at a column when the chain entered through side 0 or 2, a horizontal
-     * cut at a row otherwise. The two cut clusters are assigned to the entry
-     * and exit side as appropriate.
+     * Split a rectangle along the inserted edge crossing it: a vertical cut at a
+     * column when the chain entered through side 0 or 2, a horizontal cut at a row
+     * otherwise. The two cut clusters are assigned to the entry and exit side as
+     * appropriate.
      *
      * @param cell         rectangle to split
      * @param entrySide    side the chain entered through
@@ -615,16 +601,16 @@ public final class TJunctionElimination {
     }
 
     /**
-     * Split a rectangle into two halves at a canonical offset measured along
-     * the given axis side (0 for a vertical cut at a column, 1 for a
-     * horizontal cut at a row). The half containing the axis side's canonical
-     * start keeps the uncut perpendicular side at offset zero; the inserted
-     * edge becomes a synthetic side of both halves.
+     * Split a rectangle into two halves at a canonical offset measured along the
+     * given axis side (0 for a vertical cut at a column, 1 for a horizontal cut at
+     * a row). The half containing the axis side's canonical start keeps the uncut
+     * perpendicular side at offset zero; the inserted edge becomes a synthetic side
+     * of both halves.
      *
-     * @param cell           rectangle to split
-     * @param axisSide       0 to cut columns, 1 to cut rows
-     * @param offset         canonical cut offset along the axis side
-     * @param axisCluster    cut cluster on the axis side
+     * @param cell            rectangle to split
+     * @param axisSide        0 to cut columns, 1 to cut rows
+     * @param offset          canonical cut offset along the axis side
+     * @param axisCluster     cut cluster on the axis side
      * @param oppositeCluster cut cluster on the axis side's opposite
      */
     private void splitCell(LayoutRectangle cell, int axisSide, int offset,
@@ -649,8 +635,10 @@ public final class TJunctionElimination {
         cutSideInto(cell, axisSide, offset, axisCluster, low, high);
         cutSideInto(cell, oppositeSide, offset, oppositeCluster, low, high);
 
-        copySide(cell, perpendicularLow, low);
-        copySide(cell, perpendicularHigh, high);
+        low.sideSegments.get(perpendicularLow).addAll(cell.sideSegments.get(perpendicularLow));
+        low.boundaryClusters.get(perpendicularLow).addAll(cell.boundaryClusters.get(perpendicularLow));
+        high.sideSegments.get(perpendicularHigh).addAll(cell.sideSegments.get(perpendicularHigh));
+        high.boundaryClusters.get(perpendicularHigh).addAll(cell.boundaryClusters.get(perpendicularHigh));
 
         // Both perpendicular sides run canonically from the side-3/side-0
         // column-or-row toward side-1/side-2: a column cut's inserted edge
@@ -676,9 +664,9 @@ public final class TJunctionElimination {
     }
 
     /**
-     * Distribute one axis-parallel side of a split rectangle onto the two
-     * halves, cutting the segment containing the offset (or splitting the
-     * boundary lists at an existing boundary).
+     * Distribute one axis-parallel side of a split rectangle onto the two halves,
+     * cutting the segment containing the offset (or splitting the boundary lists at
+     * an existing boundary).
      *
      * @param cell       rectangle being split
      * @param side       axis-parallel side to distribute
@@ -732,17 +720,5 @@ public final class TJunctionElimination {
             }
             accumulated = segmentEnd;
         }
-    }
-
-    /**
-     * Copy one perpendicular side wholesale onto a split half.
-     *
-     * @param cell rectangle being split
-     * @param side perpendicular side index
-     * @param half receiving half
-     */
-    private void copySide(LayoutRectangle cell, int side, LayoutRectangle half) {
-        half.sideSegments.get(side).addAll(cell.sideSegments.get(side));
-        half.boundaryClusters.get(side).addAll(cell.boundaryClusters.get(side));
     }
 }

@@ -1,25 +1,24 @@
-package ixdar.geometry.mesh.quadlayout;
+package ixdar.geometry.mesh.quadlayout.quantization;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import ixdar.geometry.mesh.quadlayout.motorcycle.EdgeCrossing;
-import ixdar.geometry.mesh.quadlayout.motorcycle.FaceRegionFloodFill;
-import ixdar.geometry.mesh.quadlayout.motorcycle.FeatureEdgeSpan;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.Trace;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TraceArc;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TraceSegment;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.EdgeCrossing;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.FeatureEdgeSpan;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
 
 /**
- * Lyon 2021 §6 layout extraction, first half: apply the quantization to the
+ * Layout extraction, first half: apply the quantization to the
  * T-mesh by collapsing every zero-quantized arc (union of its two end nodes —
  * the parametric distance between them is zero, so they become one layout
  * vertex) and keeping the positively quantized arcs as the layout's
  * separatrix skeleton. Reports the remaining T-junction count; connecting or
- * splitting opposite sides to clear those T-junctions (the LCBK19 re-embedding
+ * splitting opposite sides to clear those T-junctions (the re-embedding
  * half of §6) operates on this collapsed complex.
  *
  * <p>
@@ -54,11 +53,7 @@ public final class LayoutExtraction {
     /** Filtered per-face render records covering only positive arcs. */
     public float[][] layoutRecordsByFace;
 
-    /** Region id per active face when only positive arcs and features act as barriers. */
-    public int[] layoutPatchIdByActiveFace;
 
-    /** Number of distinct regions in {@link #layoutPatchIdByActiveFace}. */
-    public int layoutRegionCount;
 
     /** Feature edges whose covering arc quantized to zero (demoted from barrier). */
     public int featureEdgesOpenCount;
@@ -106,9 +101,8 @@ public final class LayoutExtraction {
         buildLayoutRegions();
         System.out.printf(
                 "[layout] clusters=%d singularClusters=%d skeletonArcs=%d tJunctions=%d"
-                        + " layoutRegions=%d featureEdgesOpen=%d%n",
-                clusterCount, singularClusterCount, layoutArcs.size(), remainingTJunctionCount,
-                layoutRegionCount, featureEdgesOpenCount);
+                        + " featureEdgesOpen=%d%n",
+                clusterCount, singularClusterCount, layoutArcs.size(), remainingTJunctionCount, featureEdgesOpenCount);
         return this;
     }
 
@@ -145,9 +139,6 @@ public final class LayoutExtraction {
                 featureEdgesOpenCount++;
             }
         }
-        FaceRegionFloodFill floodFill = new FaceRegionFloodFill(motorcycleGraph.seamless);
-        layoutPatchIdByActiveFace = floodFill.fill(barrierByActiveEdge);
-        layoutRegionCount = floodFill.regionCount;
     }
 
     /**

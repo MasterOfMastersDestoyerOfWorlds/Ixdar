@@ -4,8 +4,6 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.HashSet;
 
-import ixdar.geometry.mesh.quadlayout.NormalMatrix;
-
 /**
  * Fill-reducing permutation utilities shared between {@link DirectSolver} and
  * {@link IncrementalCholeskySolver}. Both factor SPD systems through EJML's

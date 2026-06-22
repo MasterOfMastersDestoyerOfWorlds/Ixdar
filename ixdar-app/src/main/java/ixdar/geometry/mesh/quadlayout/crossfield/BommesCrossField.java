@@ -12,13 +12,13 @@ import java.util.Set;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.BoundaryConstraints;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.FeatureEdgeConstraints;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
+import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 
 /**

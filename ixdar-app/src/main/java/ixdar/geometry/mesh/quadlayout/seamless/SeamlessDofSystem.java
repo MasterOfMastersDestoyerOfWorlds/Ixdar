@@ -10,10 +10,10 @@ import java.util.Set;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.ExactArithmetic;
+import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 import ixdar.geometry.mesh.quadlayout.solver.SolverPermutation;
 

@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout;
+package ixdar.geometry.mesh.quadlayout.quantization;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.Set;
 
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TMeshNode;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TraceArc;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 
 /**
  * Union-find collapse of T-mesh nodes connected by zero-quantized arcs. Every

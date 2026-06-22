@@ -1,8 +1,7 @@
-package ixdar.geometry.mesh.quadlayout;
+package ixdar.geometry.mesh.quadlayout.quantization;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -12,12 +11,12 @@ import org.ojalgo.optimisation.ExpressionsBasedModel;
 import org.ojalgo.optimisation.Optimisation;
 import org.ojalgo.optimisation.Variable;
 
-import ixdar.geometry.mesh.quadlayout.motorcycle.MetOtherTraceEntry;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TMeshNode;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TMeshPatch;
-import ixdar.geometry.mesh.quadlayout.motorcycle.Trace;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TraceArc;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.MetOtherTraceEntry;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 
 /**
  * Lyon 2021 §4–§5 constrained T-mesh quantization: assigns a non-negative
@@ -31,17 +30,17 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.TraceArc;
  * <li><b>Consistency (eq. 2)</b> — for every valid rectangular patch, the
  * quantized sums of opposite sides are equal; constraints whose terms fully
  * cancel after class merging are dropped.</li>
- * <li><b>Validity (eq. 3)</b> — for every singularity trace, the arcs from
- * its origin to its first same-sector intersection {@code n_i*} sum to at
- * least one, which separates all singularities (Lyon Lemma 1).</li>
+ * <li><b>Validity (eq. 3)</b> — for every singularity trace, the arcs from its
+ * origin to its first same-sector intersection {@code n_i*} sum to at least
+ * one, which separates all singularities (Lyon Lemma 1).</li>
  * <li><b>Layout (eq. 4)</b> — for every intersection whose meeting angle
- * exceeds α (ratio test {@code l_ji / l_ij > tan α}), the other trace's
- * prefix sums to at least one; meetings on feature chains use α = 0 (Lyon
- * §4.4), so every trace crossing or terminating on a feature/boundary curve is
- * separated from it.</li>
- * <li><b>Objective (eq. 5)</b> — minimize Σ l⊥·q, where an arc's l⊥
- * accumulates half the perpendicular extent of each valid patch it bounds,
- * driving the layout as coarse as the constraints allow.</li>
+ * exceeds α (ratio test {@code l_ji / l_ij > tan α}), the other trace's prefix
+ * sums to at least one; meetings on feature chains use α = 0 (Lyon §4.4), so
+ * every trace crossing or terminating on a feature/boundary curve is separated
+ * from it.</li>
+ * <li><b>Objective (eq. 5)</b> — minimize Σ l⊥·q, where an arc's l⊥ accumulates
+ * half the perpendicular extent of each valid patch it bounds, driving the
+ * layout as coarse as the constraints allow.</li>
  * </ul>
  */
 public class QuantizedMeshGrid {
@@ -102,14 +101,14 @@ public class QuantizedMeshGrid {
     }
 
     /**
-     * Assemble and solve the quantization ILP, then verify the solution
-     * against the constraint families and log a summary.
+     * Assemble and solve the quantization ILP, then verify the solution against the
+     * constraint families and log a summary.
      *
      * @return this, with {@link #quantizedLengthByArc} populated
-     * @throws IllegalStateException when the solver reports an infeasible or
-     *                               failed state (a consistent T-mesh always
-     *                               admits the all-ones solution, so this
-     *                               indicates corrupt patch structure)
+     * @throws IllegalStateException when the solver reports an infeasible or failed
+     *                               state (a consistent T-mesh always admits the
+     *                               all-ones solution, so this indicates corrupt
+     *                               patch structure)
      */
     public QuantizedMeshGrid build() {
         List<TraceArc> arcs = motorcycleGraph.arcs;
@@ -229,12 +228,12 @@ public class QuantizedMeshGrid {
     }
 
     /**
-     * CBK15-style explicit validity cuts, used as a safety net over Lyon's
-     * Lemma 1 constraints: for every collapse cluster that merged two or more
-     * singularities, find one all-zero arc path connecting two of them and
-     * require its quantized sum to be at least one. Lemma 1 alone suffices on
-     * a fully consistent T-mesh; while some arrangement cycles remain invalid
-     * (and therefore unconstrained by eq. 2), quantized displacement is not
+     * CBK15-style explicit validity cuts, used as a safety net over Lyon's Lemma 1
+     * constraints: for every collapse cluster that merged two or more
+     * singularities, find one all-zero arc path connecting two of them and require
+     * its quantized sum to be at least one. Lemma 1 alone suffices on a fully
+     * consistent T-mesh; while some arrangement cycles remain invalid (and
+     * therefore unconstrained by eq. 2), quantized displacement is not
      * path-independent and zero corridors can slip between the per-trace
      * constraints — these cuts close exactly the corridors the solver found.
      *
@@ -281,9 +280,9 @@ public class QuantizedMeshGrid {
     }
 
     /**
-     * BFS over zero-quantized arcs from one merged singularity to the nearest
-     * node of any other singularity vertex in the same cluster, returning the
-     * connecting arc path.
+     * BFS over zero-quantized arcs from one merged singularity to the nearest node
+     * of any other singularity vertex in the same cluster, returning the connecting
+     * arc path.
      *
      * @param startVertexId   singularity vertex to start from
      * @param mergedVertexIds singularity vertex ids sharing one collapse cluster
@@ -348,12 +347,11 @@ public class QuantizedMeshGrid {
     }
 
     /**
-     * Eq. (5) weights: each valid patch contributes half its perpendicular
-     * extent (mean parametric length of the two adjacent sides) to every arc
-     * on the side pair it measures across; class weights accumulate over
-     * members. Arcs only bounded by invalid cycles keep weight zero — the
-     * solver then has no coarseness pressure on them, which is harmless since
-     * zero stays feasible.
+     * Eq. (5) weights: each valid patch contributes half its perpendicular extent
+     * (mean parametric length of the two adjacent sides) to every arc on the side
+     * pair it measures across; class weights accumulate over members. Arcs only
+     * bounded by invalid cycles keep weight zero — the solver then has no
+     * coarseness pressure on them, which is harmless since zero stays feasible.
      */
     private void accumulatePerpendicularWeights(List<TraceArc> arcs, double[] classWeight) {
         for (TMeshPatch patch : motorcycleGraph.patches) {
@@ -379,9 +377,9 @@ public class QuantizedMeshGrid {
     }
 
     /**
-     * Eq. (2): per valid patch and side pair, the class-coefficient sums of
-     * the two sides must be equal; expressions that cancel completely after
-     * the §5.2 merge are skipped.
+     * Eq. (2): per valid patch and side pair, the class-coefficient sums of the two
+     * sides must be equal; expressions that cancel completely after the §5.2 merge
+     * are skipped.
      */
     private void addConsistencyConstraints(ExpressionsBasedModel model, Variable[] variableByClass) {
         int patchIndex = 0;
@@ -423,27 +421,34 @@ public class QuantizedMeshGrid {
 
     /**
      * Eq. (3): for every singularity trace with a same-sector first meeting
-     * {@code n_i*}, the prefix arcs up to it sum to at least one. Traces with
-     * no usable {@code n_i*} (terminated on a singularity, boundary, feature,
-     * or truncated before any sector meeting) get the conservative fallback
-     * {@code Σ chain ≥ 1} — their terminal node plays the role of
-     * {@code n_i*}, which is exactly Lyon Lemma 1's separation for
-     * singularity-terminating traces and redundant-but-harmless for
-     * feature/boundary terminations (already covered by the §4.4 α=0 layout
-     * constraints). Without this fallback the ILP can quantize a skipped
-     * trace's whole chain to zero and collapse two singularities onto each
-     * other.
+     * {@code n_i*}, the prefix arcs up to it sum to at least one. Traces with no
+     * usable {@code n_i*} (terminated on a singularity, boundary, feature, or
+     * truncated before any sector meeting) get the conservative fallback
+     * {@code Σ chain ≥ 1} — their terminal node plays the role of {@code n_i*},
+     * which is exactly Lyon Lemma 1's separation for singularity-terminating traces
+     * and redundant-but-harmless for feature/boundary terminations (already covered
+     * by the §4.4 α=0 layout constraints). Without this fallback the ILP can
+     * quantize a skipped trace's whole chain to zero and collapse two singularities
+     * onto each other.
      */
     private void addValidityConstraints(ExpressionsBasedModel model, Variable[] variableByClass) {
         for (Trace trace : motorcycleGraph.traces) {
             if (trace.chainArcIds.isEmpty()) {
                 continue;
             }
-            // Feature chains take the whole-chain fallback: their end nodes
-            // are crease corners or singularities, and a chain whose arcs all
-            // quantize to zero would collapse those onto each other (and the
-            // crease itself to a point).
-            MetOtherTraceEntry firstSector = trace.featureTrace ? null : trace.firstSectorMeeting();
+            MetOtherTraceEntry best = null;
+            for (MetOtherTraceEntry entry : trace.metOtherTraces) {
+                if (entry.theirParametricLength >= entry.ourParametricLength) {
+                    continue;
+                }
+                if (best == null || entry.ourParametricLength < best.ourParametricLength) {
+                    best = entry;
+                }
+            }
+            MetOtherTraceEntry firstSector = best;
+            if (trace.featureTrace) {
+                firstSector = null;
+            }
             List<Integer> prefix;
             if (firstSector == null || firstSector.intersectionNodeId < 0) {
                 if (firstSector == null) {
@@ -478,11 +483,10 @@ public class QuantizedMeshGrid {
     }
 
     /**
-     * Eq. (4) plus the §4.4 feature rule: for every recorded meeting whose
-     * angle ratio exceeds tan α — or unconditionally when the recording trace
-     * is a feature chain — the other trace's prefix up to the meeting node
-     * sums to at least one. Symmetric recordings are deduplicated by
-     * (other trace, node).
+     * Eq. (4) plus the §4.4 feature rule: for every recorded meeting whose angle
+     * ratio exceeds tan α — or unconditionally when the recording trace is a
+     * feature chain — the other trace's prefix up to the meeting node sums to at
+     * least one. Symmetric recordings are deduplicated by (other trace, node).
      */
     private void addLayoutConstraints(ExpressionsBasedModel model, Variable[] variableByClass) {
         double tanAlpha = Math.tan(alphaRadians);
@@ -526,9 +530,9 @@ public class QuantizedMeshGrid {
     }
 
     /**
-     * Arcs along {@code trace} from its origin up to {@code nodeId}; falls
-     * back to a parametric-length cutoff when the node is not on the rebuilt
-     * chain (co-located meetings can share a node id that the chain skipped).
+     * Arcs along {@code trace} from its origin up to {@code nodeId}; falls back to
+     * a parametric-length cutoff when the node is not on the rebuilt chain
+     * (co-located meetings can share a node id that the chain skipped).
      */
     private List<Integer> prefixArcs(Trace trace, int nodeId, double parametricLength) {
         List<Integer> prefix = new ArrayList<>();
@@ -542,7 +546,7 @@ public class QuantizedMeshGrid {
         prefix.clear();
         for (int position = 0; position < trace.chainArcIds.size(); position++) {
             prefix.add(trace.chainArcIds.get(position));
-            if (trace.chainNodeLengths.get(position + 1) >= parametricLength - MotorcycleGraph.PARAMETRIC_EPS) {
+            if (trace.chainNodeLengths.get(position + 1) >= parametricLength - 1e-9) {
                 return prefix;
             }
         }

@@ -14,10 +14,10 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
-import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
+import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 import ixdar.geometry.mesh.quadlayout.solver.Preconditioner;
 

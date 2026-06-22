@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.motorcycle;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceAxis;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 
 /**
@@ -9,20 +10,11 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
  */
 public final class ChartWalker {
 
-    public static final double RAY_MIN_T = 1.0e-9;
     /** Doubles per face corner UV buffer {@code [u0,v0,u1,v1,u2,v2]}. */
     public static final int CORNER_UV_FLOATS = 6;
-    /** Index of third triangle corner. */
-    public static final int CORNER_TWO = 2;
-    /** Cut rotation value for 90-degree seam twist. */
-    public static final int CUT_ROTATION_90 = 1;
-    /** Cut rotation value for 180-degree seam twist. */
-    public static final int CUT_ROTATION_180 = 2;
-    /** Cut rotation value for 270-degree seam twist. */
-    public static final int CUT_ROTATION_270 = 3;
-    private static final int CORNERS = SeamlessParameterization.CORNERS_PER_FACE;
+    public static final int CORNERS = SeamlessParameterization.CORNERS_PER_FACE;
 
-    private final SeamlessParameterization seamless;
+    public final SeamlessParameterization seamless;
     private final HalfEdgeMesh mesh;
 
     /**
@@ -77,21 +69,6 @@ public final class ChartWalker {
             this.sign = other.sign;
             this.incomingLocalEdgeIndex = other.incomingLocalEdgeIndex;
         }
-
-        /**
-         * Parametric distance from {@code (u0, v0)} to current point along the trace
-         * axis.
-         *
-         * @param u0 start u
-         * @param v0 start v
-         * @return arc length in chart space
-         */
-        public double parametricDistanceFrom(double u0, double v0) {
-            if (axis == TraceAxis.U) {
-                return Math.abs(u - u0);
-            }
-            return Math.abs(v - v0);
-        }
     }
 
     /**
@@ -135,36 +112,20 @@ public final class ChartWalker {
     }
 
     /**
-     * Corner UV coordinates for an active face.
-     *
-     * @param activeFace active face index
-     * @param out        length-6 buffer receiving {@code [u0,v0,u1,v1,u2,v2]}
-     */
-    public void faceCornerUv(int activeFace, double[] out) {
-        int base = activeFace * CORNERS;
-        out[0] = seamless.uCorner[base];
-        out[1] = seamless.vCorner[base];
-        out[2] = seamless.uCorner[base + 1];
-        out[3] = seamless.vCorner[base + 1];
-        out[4] = seamless.uCorner[base + 2];
-        out[5] = seamless.vCorner[base + 2];
-    }
-
-    /**
      * Find the next edge crossing along the trace's iso-line from {@code state}.
      *
      * <p>
      * QEx-style sign-predicate walk: the trace is the level set {@code held ==
      * level} with {@code level} read exactly from the state's held coordinate, and
      * each corner's signed offset {@code cornerHeld - level} determines the
-     * topology. An edge is crossed iff its endpoint offsets strictly straddle
-     * zero; a corner with an exactly-zero offset is the Lyon §3 vertex case,
-     * reported via {@code cornerLocalIndex} so the caller routes through
-     * {@link #crossVertex}. No tolerance decides anything: the constructed exit
-     * coordinate only feeds span bookkeeping, never the choice of exit. When the
-     * trace entered through a known edge the exit is the unique other candidate
-     * (purely combinatorial); the strictly-forward filter is only needed at
-     * spawn/meeting states where the incoming edge is unknown.
+     * topology. An edge is crossed iff its endpoint offsets strictly straddle zero;
+     * a corner with an exactly-zero offset is the Lyon §3 vertex case, reported via
+     * {@code cornerLocalIndex} so the caller routes through {@link #crossVertex}.
+     * No tolerance decides anything: the constructed exit coordinate only feeds
+     * span bookkeeping, never the choice of exit. When the trace entered through a
+     * known edge the exit is the unique other candidate (purely combinatorial); the
+     * strictly-forward filter is only needed at spawn/meeting states where the
+     * incoming edge is unknown.
      *
      * @param state current position and direction; unchanged by this call
      * @return edge hit data, or {@code null} when the level line leaves the face
@@ -173,7 +134,7 @@ public final class ChartWalker {
      */
     public EdgeHit nextEdgeHit(State state) {
         double[] cornerUv = new double[CORNER_UV_FLOATS];
-        faceCornerUv(state.activeFace, cornerUv);
+        seamless.faceCornerUv(state.activeFace, cornerUv);
         boolean holdsU = state.axis.holdsUConstant();
         double level = holdsU ? state.u : state.v;
         double currentAlong = holdsU ? state.v : state.u;
@@ -238,51 +199,10 @@ public final class ChartWalker {
         }
         double exitU = holdsU ? level : candidateAlong[best];
         double exitV = holdsU ? candidateAlong[best] : level;
-        int snapCorner = vertexPassCorner(cornerUv, candidateEdge[best], exitU, exitV);
-        if (snapCorner >= 0) {
-            return new EdgeHit(parametricDelta, cornerUv[snapCorner * 2], cornerUv[snapCorner * 2 + 1],
-                    snapCorner, false, snapCorner);
-        }
         int faceId = mesh.faceIdAt(state.activeFace);
         int edgeId = mesh.faceEdgeAt(faceId, candidateEdge[best]);
         return new EdgeHit(parametricDelta, exitU, exitV, candidateEdge[best],
                 mesh.isBoundaryEdge(edgeId), -1);
-    }
-
-    /**
-     * Detect a vertex pass that exact level arithmetic cannot express: a real
-     * iso-line through a mesh vertex appears in floating point as an edge crossing
-     * within ulps of a corner (the level transports with one rounding per seam, so
-     * {@code cornerHeld - level} lands at ~1e-14 instead of exactly zero), and the
-     * remaining chord to the corner is below the event queue's
-     * {@link MotorcycleGraph#PARAMETRIC_EPS} resolution — un-walkable: as an edge
-     * hit it dies the zero-length check or strands a forever-stale event. Snapping
-     * to the corner routes it through the {@link #crossVertex} fan walk, which is
-     * the Lyon §3 semantic for a vertex hit. This is a resolution floor tied to
-     * the queue's own epsilon, not a geometric decision threshold: any crossing a
-     * full queue-step away from both corners stays a regular edge crossing.
-     *
-     * @param cornerUv flattened face corner UV buffer
-     * @param edge     crossed local edge index
-     * @param exitU    u of the constructed exit point
-     * @param exitV    v of the constructed exit point
-     * @return local corner index of the passed vertex, or -1 for a regular
-     *         mid-edge crossing
-     */
-    private static int vertexPassCorner(double[] cornerUv, int edge, double exitU, double exitV) {
-        double resolutionSq = MotorcycleGraph.PARAMETRIC_EPS * MotorcycleGraph.PARAMETRIC_EPS;
-        int next = (edge + 1) % CORNERS;
-        double duA = cornerUv[edge * 2] - exitU;
-        double dvA = cornerUv[edge * 2 + 1] - exitV;
-        if (duA * duA + dvA * dvA < resolutionSq) {
-            return edge;
-        }
-        double duB = cornerUv[next * 2] - exitU;
-        double dvB = cornerUv[next * 2 + 1] - exitV;
-        if (duB * duB + dvB * dvB < resolutionSq) {
-            return next;
-        }
-        return -1;
     }
 
     /**
@@ -332,7 +252,14 @@ public final class ChartWalker {
     public CrossVertexResult crossVertex(State state, EdgeHit edgeHit, State out) {
         int faceId = mesh.faceIdAt(state.activeFace);
         int vertexId = mesh.faceVertexAt(faceId, edgeHit.cornerLocalIndex);
-        if (isSingularity(vertexId)) {
+        boolean isSingularity = false;
+        for (var s : seamless.crossField.singularities) {
+            if (s.vertexId() == vertexId) {
+                isSingularity = true;
+                break;
+            }
+        }
+        if (isSingularity) {
             out.activeFace = state.activeFace;
             out.u = edgeHit.exitU;
             out.v = edgeHit.exitV;
@@ -397,7 +324,19 @@ public final class ChartWalker {
             if (cornerInNext < 0) {
                 return CrossVertexResult.HIT_BOUNDARY;
             }
-            if (wedgeContainsDirection(next, cornerInNext)) {
+            double[] uv = new double[CORNER_UV_FLOATS];
+            seamless.faceCornerUv(next.activeFace, uv);
+            int aIdx = (cornerInNext + 1) % CORNERS;
+            int bIdx = (cornerInNext + CORNERS - 1) % CORNERS;
+            double aDirX = uv[aIdx * 2] - next.u;
+            double aDirY = uv[aIdx * 2 + 1] - next.v;
+            double bDirX = uv[bIdx * 2] - next.u;
+            double bDirY = uv[bIdx * 2 + 1] - next.v;
+            double[] dir = next.axis.direction(next.sign);
+            double wedgeSign = aDirX * bDirY - aDirY * bDirX;
+            double crossA = aDirX * dir[1] - aDirY * dir[0];
+            double crossB = dir[0] * bDirY - dir[1] * bDirX;
+            if (wedgeSign * crossA >= 0.0 && wedgeSign * crossB >= 0.0) {
                 out.activeFace = next.activeFace;
                 out.u = next.u;
                 out.v = next.v;
@@ -416,22 +355,6 @@ public final class ChartWalker {
         return CrossVertexResult.HIT_SINGULARITY_GAP;
     }
 
-    private boolean wedgeContainsDirection(State state, int cornerInFace) {
-        double[] uv = new double[CORNER_UV_FLOATS];
-        faceCornerUv(state.activeFace, uv);
-        int aIdx = (cornerInFace + 1) % CORNERS;
-        int bIdx = (cornerInFace + CORNERS - 1) % CORNERS;
-        double aDirX = uv[aIdx * 2] - state.u;
-        double aDirY = uv[aIdx * 2 + 1] - state.v;
-        double bDirX = uv[bIdx * 2] - state.u;
-        double bDirY = uv[bIdx * 2 + 1] - state.v;
-        double[] dir = state.axis.direction(state.sign);
-        double wedgeSign = aDirX * bDirY - aDirY * bDirX;
-        double crossA = aDirX * dir[1] - aDirY * dir[0];
-        double crossB = dir[0] * bDirY - dir[1] * bDirX;
-        return wedgeSign * crossA >= 0.0 && wedgeSign * crossB >= 0.0;
-    }
-
     private int cornerOfVertex(int faceId, int vertexId) {
         for (int corner = 0; corner < CORNERS; corner++) {
             if (mesh.faceVertexAt(faceId, corner) == vertexId) {
@@ -439,15 +362,6 @@ public final class ChartWalker {
             }
         }
         return -1;
-    }
-
-    private boolean isSingularity(int vertexId) {
-        for (var s : seamless.crossField.singularities) {
-            if (s.vertexId() == vertexId) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -487,29 +401,6 @@ public final class ChartWalker {
                 break;
             }
         }
-        applyChartTransition(state, edgeHit, faceId, nextFaceId,
-                nextActiveFace, incomingInNext, out);
-        return true;
-    }
-
-    /**
-     * Derive the affine chart-to-chart transition for the shared edge directly from
-     * both faces' stored corner UVs and apply it to the exit point and the trace
-     * direction. Avoids relying on {@code cutGraph.isCutEdge} or the
-     * {@code cutTranslationS/T} table — which on this codebase's seamless builds
-     * can be incomplete or inconsistent, leaving traces in a chart frame that does
-     * not match their {@code activeFace}.
-     *
-     * @param state          current state in the old face
-     * @param edgeHit        exit hit on the shared edge
-     * @param faceId         old mesh face id
-     * @param nextFaceId     new mesh face id
-     * @param nextActiveFace new active face index
-     * @param incomingInNext local edge index in the new face for the shared edge
-     * @param out            destination state to fill in
-     */
-    private void applyChartTransition(State state, EdgeHit edgeHit, int faceId, int nextFaceId,
-            int nextActiveFace, int incomingInNext, State out) {
         int oldCornerA = edgeHit.localEdgeIndex;
         int oldCornerB = (oldCornerA + 1) % CORNERS;
         int newCornerP = incomingInNext;
@@ -521,8 +412,8 @@ public final class ChartWalker {
 
         double[] oldUv = new double[CORNER_UV_FLOATS];
         double[] newUv = new double[CORNER_UV_FLOATS];
-        faceCornerUv(state.activeFace, oldUv);
-        faceCornerUv(nextActiveFace, newUv);
+        seamless.faceCornerUv(state.activeFace, oldUv);
+        seamless.faceCornerUv(nextActiveFace, newUv);
         double oldAx = oldUv[oldCornerA * 2];
         double oldAy = oldUv[oldCornerA * 2 + 1];
         double oldBx = oldUv[oldCornerB * 2];
@@ -541,8 +432,8 @@ public final class ChartWalker {
         double oldNewCross = oldDx * newDy - oldDy * newDx;
         double rotCos = oldNewDot / oldLenSq;
         double rotSin = oldNewCross / oldLenSq;
-        double snappedCos = snapToAxisAlignedRotation(rotCos);
-        double snappedSin = snapToAxisAlignedRotation(rotSin);
+        double snappedCos = rotCos > 0.5 ? 1.0 : (rotCos < -0.5 ? -1.0 : 0.0);
+        double snappedSin = rotSin > 0.5 ? 1.0 : (rotSin < -0.5 ? -1.0 : 0.0);
         double tx = newAx - (snappedCos * oldAx - snappedSin * oldAy);
         double ty = newAy - (snappedSin * oldAx + snappedCos * oldAy);
 
@@ -558,36 +449,7 @@ public final class ChartWalker {
         out.incomingLocalEdgeIndex = incomingInNext;
         out.axis = TraceAxis.fromDirection(newDirX, newDirY);
         out.sign = TraceAxis.signFor(out.axis, newDirX, newDirY);
+        return true;
     }
 
-    private static double snapToAxisAlignedRotation(double value) {
-        if (value > 0.5) {
-            return 1.0;
-        }
-        if (value < -0.5) {
-            return -1.0;
-        }
-        return 0.0;
-    }
-
-    /**
-     * Iso-value held constant on this face for the trace (u when axis is V, v when
-     * axis is U).
-     *
-     * @param state trace state
-     * @return iso coordinate value
-     */
-    public static double isoValue(State state) {
-        return state.axis.holdsUConstant() ? state.u : state.v;
-    }
-
-    /**
-     * Span coordinate at the current point along the varying axis.
-     *
-     * @param state trace state
-     * @return varying coordinate
-     */
-    public static double spanCoordinate(State state) {
-        return state.axis.holdsUConstant() ? state.v : state.u;
-    }
 }

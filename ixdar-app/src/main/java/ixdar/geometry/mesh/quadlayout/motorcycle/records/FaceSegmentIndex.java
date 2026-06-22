@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.motorcycle;
+package ixdar.geometry.mesh.quadlayout.motorcycle.records;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -7,26 +7,6 @@ import java.util.List;
  * Per-face index of trace segments for local intersection queries.
  */
 public final class FaceSegmentIndex {
-
-    /**
-     * Parametric tolerance for recognizing a candidate hit as a re-detection
-     * of an already-recorded meeting with the same trace. Distinct crossings
-     * of one trace pair sit whole face-chords apart, far above this.
-     */
-    public static final double RE_MEETING_EPS = 1.0e-5;
-
-    /** Chart-space tolerance for span containment. */
-    private static final double SPAN_EPS = 1.0e-6;
-
-    /**
-     * Iso-coordinate tolerance for treating two same-axis tracks as one line.
-     * Must exceed {@link ChartWalker}'s corner-snap proximity (1e-5 of an edge
-     * length): a trace that would snap-terminate onto a singular vertex runs
-     * up to that far off the vertex's own separatrix iso-line, and the two
-     * tracks must still crash instead of doubling. Distinct separatrices are
-     * separated on the order of the unit grid spacing, far above this.
-     */
-    private static final double COLLINEAR_ISO_EPS = 1.0e-4;
 
     private final List<List<TraceSegment>> segmentsByFace;
 
@@ -83,7 +63,11 @@ public final class FaceSegmentIndex {
                     fresh.entryU, fresh.entryV, fresh.exitU, fresh.exitV, fresh.axis,
                     existing.entryU, existing.entryV, existing.exitU, existing.exitV,
                     existing.axis);
-            if (hit == null || hit[0] <= MotorcycleGraph.PARAMETRIC_EPS) {
+            if (hit == null) {
+                continue;
+            }
+            if (crossingAtTraceOrigin(fresh.parametricLengthAtEntry, hit[0], existing,
+                    hit[1], hit[2])) {
                 continue;
             }
             hits.add(new IntersectionHit(existing, hit[0], hit[1], hit[2]));
@@ -95,30 +79,33 @@ public final class FaceSegmentIndex {
      * Find the earliest intersection between a candidate chord and existing
      * segments on the same face.
      *
-     * @param traceId                candidate trace id
-     * @param activeFace             active face index
-     * @param entryU                 chord entry u
-     * @param entryV                 chord entry v
-     * @param exitU                  chord exit u
-     * @param exitV                  chord exit v
-     * @param axis                   candidate axis
-     * @param parametricLengthAtEntry candidate trace's parametric length at the
-     *                               chord entry, used to compare hits against
-     *                               already-recorded meeting positions
-     * @param metOtherList           the candidate trace's already-recorded
-     *                               meetings; a hit at (approximately) the same
-     *                               parametric position as a recorded meeting
-     *                               with the same trace is skipped to prevent
-     *                               same-point re-meeting loops — two traces
-     *                               crossing again somewhere else must still
-     *                               meet, otherwise the arrangement gets an
-     *                               unnoded crossing and the four quadrants
-     *                               around it fuse into one invalid cycle
+     * @param traceId          candidate trace id
+     * @param activeFace       active face index
+     * @param entryU           chord entry u
+     * @param entryV           chord entry v
+     * @param exitU            chord exit u
+     * @param exitV            chord exit v
+     * @param axis             candidate axis
+     * @param chordStartLength candidate trace's parametric length at the chord
+     *                         entry; {@code 0.0} marks the spawn chord, whose
+     *                         entry-point crossings are origin contacts owned
+     *                         by the singularity node, not meetings
+     * @param ourVisitId       candidate trace's current face-visit ordinal; a
+     *                         hit whose chord pair (this visit, the existing
+     *                         segment's visit) is already recorded as a meeting
+     *                         is skipped — a pair of chords crosses at most
+     *                         once, so this is an exact combinatorial dedupe.
+     *                         Distinct crossings of the same trace pair (other
+     *                         faces, other visits) must still meet, otherwise
+     *                         the arrangement gets an unnoded crossing and the
+     *                         four quadrants around it fuse into one invalid
+     *                         cycle
+     * @param metOtherList     the candidate trace's already-recorded meetings
      * @return matched segment plus the (t, iu, iv) hit data, or {@code null}
      */
     public IntersectionHit earliestIntersection(int traceId, int activeFace,
             double entryU, double entryV, double exitU, double exitV, TraceAxis axis,
-            double parametricLengthAtEntry, List<MetOtherTraceEntry> metOtherList) {
+            double chordStartLength, int ourVisitId, List<MetOtherTraceEntry> metOtherList) {
         double bestT = Double.POSITIVE_INFINITY;
         TraceSegment bestSegment = null;
         double bestU = 0.0;
@@ -133,15 +120,10 @@ public final class FaceSegmentIndex {
             if (hit == null || hit[0] >= bestT) {
                 continue;
             }
-            // The parametric floor guards perpendicular re-meeting loops at one
-            // shared point; a collinear hit at t≈0 is the rider standing on
-            // another's track at face entry (segments register at face exit, so
-            // head-on opponents only ever see each other this way) and must be
-            // reported so the caller can crash the rider on the spot.
-            if (existing.axis != axis && hit[0] <= MotorcycleGraph.PARAMETRIC_EPS) {
+            if (alreadyMetChordPair(metOtherList, existing, ourVisitId)) {
                 continue;
             }
-            if (alreadyMetAt(metOtherList, existing.traceId, parametricLengthAtEntry + hit[0])) {
+            if (crossingAtTraceOrigin(chordStartLength, hit[0], existing, hit[1], hit[2])) {
                 continue;
             }
             bestT = hit[0];
@@ -153,6 +135,35 @@ public final class FaceSegmentIndex {
             return null;
         }
         return new IntersectionHit(bestSegment, bestT, bestU, bestV);
+    }
+
+    /**
+     * Whether a crossing coincides exactly with either trace's origin. Sibling
+     * separatrices spawn at bit-identical singularity coordinates, so a
+     * perpendicular sibling pair sharing a spawn face crosses at exactly the
+     * singularity point with both parametric lengths zero — recording that as
+     * a meeting mints a duplicate node inside the singularity's port fan and
+     * carries {@code alpha = atan2(0, 0) = +0.0}, which satisfies both of
+     * Lyon's one-sided stop bands at once and kills the trace at spawn.
+     * Origin contacts are owned by the singularity node (port fan) and the
+     * vertex-pass machinery; they are never meetings. All comparisons are
+     * exact — a crossing any nonzero distance from an origin is unaffected.
+     *
+     * @param chordStartLength candidate trace's parametric length at its chord
+     *                         entry ({@code 0.0} on the spawn chord)
+     * @param tAlongCandidate  hit distance from the candidate chord's entry
+     * @param existing         matched existing segment
+     * @param hitU             crossing u
+     * @param hitV             crossing v
+     * @return whether the crossing sits exactly on either trace's origin
+     */
+    private static boolean crossingAtTraceOrigin(double chordStartLength, double tAlongCandidate,
+            TraceSegment existing, double hitU, double hitV) {
+        if (chordStartLength == 0.0 && tAlongCandidate == 0.0) {
+            return true;
+        }
+        return existing.parametricLengthAtEntry == 0.0
+                && hitU == existing.entryU && hitV == existing.entryV;
     }
 
     /** Result of {@link #earliestIntersection}: matched segment plus chord hit data. */
@@ -182,26 +193,27 @@ public final class FaceSegmentIndex {
     }
 
     /**
-     * Linear-scan check whether a meeting with {@code otherTraceId} is already
-     * recorded at (approximately) the given parametric position along the
-     * candidate trace. Per-call cost is O(metOtherList.size()); on ELK this
+     * Linear-scan check whether the chord pair (candidate's current visit, the
+     * existing segment's visit) already has a recorded meeting. Exact
+     * combinatorial identity — two chords cross at most once — replacing the
+     * old positional comparison. Per-call cost is O(metOtherList.size()); this
      * peaks around a few dozen meetings per trace, much smaller than the
      * per-face segment count we'd otherwise re-test against.
      *
-     * @param metOtherList    the trace's metOtherTraces list (may be {@code null})
-     * @param otherTraceId    trace id of a candidate other-segment
-     * @param candidateLength parametric length along the candidate trace at the
-     *                        candidate hit
-     * @return whether a meeting with that trace at that position is recorded
+     * @param metOtherList the trace's metOtherTraces list (may be {@code null})
+     * @param existing     candidate other-segment
+     * @param ourVisitId   the candidate trace's current face-visit ordinal
+     * @return whether a meeting for this chord pair is recorded
      */
-    private static boolean alreadyMetAt(List<MetOtherTraceEntry> metOtherList, int otherTraceId,
-            double candidateLength) {
+    private static boolean alreadyMetChordPair(List<MetOtherTraceEntry> metOtherList,
+            TraceSegment existing, int ourVisitId) {
         if (metOtherList == null) {
             return false;
         }
         for (MetOtherTraceEntry entry : metOtherList) {
-            if (entry.otherTraceId == otherTraceId
-                    && Math.abs(entry.ourParametricLength - candidateLength) <= RE_MEETING_EPS) {
+            if (entry.otherTraceId == existing.traceId
+                    && entry.ourVisitId == ourVisitId
+                    && entry.otherVisitId == existing.visitId) {
                 return true;
             }
         }
@@ -209,14 +221,19 @@ public final class FaceSegmentIndex {
     }
 
     /**
-     * Intersection of two axis-aligned chords. Perpendicular chords meet at
-     * the obvious iso-coordinate pair. Collinear chords (same axis, same iso
-     * value within {@link #SPAN_EPS}) model a motorcycle running along an
-     * iso-line already covered by another trace — classical head-on/rear-end
-     * semantics say it crashes at the first covered point ahead, so that
-     * contact point is returned; without it, two opposing riders on one
-     * separatrix line ride through each other and the T-mesh gets a doubled,
-     * overlapping arc track.
+     * Intersection of two axis-aligned chords, decided by exact sign
+     * comparisons on the chords' levels and span endpoints — no tolerance
+     * anywhere. Perpendicular chords meet at the iso-coordinate pair {@code
+     * (levelOfUTrace, levelOfVTrace)}, which lies on both chords iff each
+     * level falls inside the other chord's closed span. Collinear chords
+     * (same axis, bit-identical level — true for sibling separatrices spawned
+     * from one vertex and transported identically, generically false for
+     * distinct iso-lines) model a motorcycle running along an iso-line
+     * already covered by another trace — classical head-on/rear-end semantics
+     * say it crashes at the first covered point ahead, so that contact point
+     * is returned; without it, two opposing riders on one separatrix line
+     * ride through each other and the T-mesh gets a doubled, overlapping arc
+     * track.
      *
      * @param a0u   candidate chord entry u
      * @param a0v   candidate chord entry v
@@ -237,7 +254,7 @@ public final class FaceSegmentIndex {
         if (axisA == axisB) {
             double isoA = axisA.holdsUConstant() ? a0u : a0v;
             double isoB = axisB.holdsUConstant() ? b0u : b0v;
-            if (Math.abs(isoA - isoB) > COLLINEAR_ISO_EPS) {
+            if (isoA != isoB) {
                 return null;
             }
             double spanStart = axisA.holdsUConstant() ? a0v : a0u;
@@ -248,12 +265,12 @@ public final class FaceSegmentIndex {
                     axisB.holdsUConstant() ? b1v : b1u);
             double contact;
             if (spanExit >= spanStart) {
-                if (otherHigh < spanStart - SPAN_EPS || otherLow > spanExit + SPAN_EPS) {
+                if (otherHigh < spanStart || otherLow > spanExit) {
                     return null;
                 }
                 contact = Math.max(spanStart, otherLow);
             } else {
-                if (otherLow > spanStart + SPAN_EPS || otherHigh < spanExit - SPAN_EPS) {
+                if (otherLow > spanStart || otherHigh < spanExit) {
                     return null;
                 }
                 contact = Math.min(spanStart, otherHigh);
@@ -286,13 +303,27 @@ public final class FaceSegmentIndex {
         return new double[] { tA, iu, iv };
     }
 
+    /**
+     * Closed-interval containment of the crossing point along one chord's
+     * varying coordinate, by exact comparison. A crossing exactly at a chord
+     * endpoint counts for both adjacent chords; the chord-pair meeting dedupe
+     * keeps that from double-noding within one visit, and across visits such
+     * exact-endpoint crossings are generically absent.
+     *
+     * @param iu  crossing u
+     * @param iv  crossing v
+     * @param e0u chord entry u
+     * @param e0v chord entry v
+     * @param e1u chord exit u
+     * @param e1v chord exit v
+     * @param axis chord axis
+     * @return whether the crossing lies within the chord's closed span
+     */
     private static boolean withinSpan(double iu, double iv,
             double e0u, double e0v, double e1u, double e1v, TraceAxis axis) {
         double span = axis.holdsUConstant() ? iv : iu;
         double s0 = axis.holdsUConstant() ? e0v : e0u;
         double s1 = axis.holdsUConstant() ? e1v : e1u;
-        double lo = Math.min(s0, s1) - SPAN_EPS;
-        double hi = Math.max(s0, s1) + SPAN_EPS;
-        return span >= lo && span <= hi;
+        return span >= Math.min(s0, s1) && span <= Math.max(s0, s1);
     }
 }

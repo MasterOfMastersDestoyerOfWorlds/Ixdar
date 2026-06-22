@@ -8,9 +8,9 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.quadlayout.LayoutExtraction;
-import ixdar.geometry.mesh.quadlayout.LayoutPatchGeometry;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
+import ixdar.geometry.mesh.quadlayout.quantization.LayoutPatchGeometry;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
@@ -115,22 +115,19 @@ public class QuadLayoutScene extends Scene {
         LayoutExtraction layout = engine.layout;
         MotorcycleGraph graph = engine.motorcycleGraph;
         graph.traceRecordsByFace = layout.layoutRecordsByFace;
-        graph.patchIdByActiveFace = layout.layoutPatchIdByActiveFace;
         runtime.setSeamlessParametrization(engine.seamless);
         runtime.setMotorcycleGraph(graph);
         runtime.setLayoutPatchGeometry(patchGeometry);
         runtime.showTraces = true;
         runtime.showNodes = false;
-        runtime.showPatches = false;
         runtime.showCrossField = false;
         runtime.showFullIsoGrid = false;
         runtime.showLayoutPatches = true;
         runtime.showLayoutBoundaries = true;
         hudLine = String.format(
-                "[quad-layout] α=%.0f° skeletonArcs=%d layoutNodes=%d regions=%d #P=%d"
+                "[quad-layout] α=%.0f° skeletonArcs=%d layoutNodes=%d #P=%d"
                         + " tJunctions=%d cleanQuads=%d",
-                alphaDegrees, layout.layoutArcs.size(), layout.singularClusterCount,
-                layout.layoutRegionCount, engine.conforming.finalPatchCount,
+                alphaDegrees, layout.layoutArcs.size(), layout.singularClusterCount, engine.conforming.finalPatchCount,
                 engine.conforming.remainingTJunctionCount, patchGeometry.cleanQuadCount);
         Platforms.get().log(hudLine);
     }
@@ -138,26 +135,6 @@ public class QuadLayoutScene extends Scene {
     void stepAlpha(float deltaDegrees) {
         alphaDegrees = Math.max(1f, alphaDegrees + deltaDegrees);
         rebuildLayout();
-    }
-
-    void togglePatches() {
-        runtime.showPatches = !runtime.showPatches;
-    }
-
-    void toggleLayoutPatches() {
-        runtime.showLayoutPatches = !runtime.showLayoutPatches;
-    }
-
-    void toggleLayoutBoundaries() {
-        runtime.showLayoutBoundaries = !runtime.showLayoutBoundaries;
-    }
-
-    void toggleTraces() {
-        runtime.showTraces = !runtime.showTraces;
-    }
-
-    void toggleNodes() {
-        runtime.showNodes = !runtime.showNodes;
     }
 
     @Override
@@ -220,15 +197,14 @@ public class QuadLayoutScene extends Scene {
         @Override
         protected void handleSceneKeys(int key, int mods) {
             if (key == Keys.P) {
-                scene.togglePatches();
             } else if (key == Keys.C) {
-                scene.toggleLayoutPatches();
+                scene.runtime.showLayoutPatches = !scene.runtime.showLayoutPatches;
             } else if (key == Keys.B) {
-                scene.toggleLayoutBoundaries();
+                scene.runtime.showLayoutBoundaries = !scene.runtime.showLayoutBoundaries;
             } else if (key == Keys.T) {
-                scene.toggleTraces();
+                scene.runtime.showTraces = !scene.runtime.showTraces;
             } else if (key == Keys.N) {
-                scene.toggleNodes();
+                scene.runtime.showNodes = !scene.runtime.showNodes;
             } else if (key == Keys.COMMA) {
                 scene.stepAlpha(-1f);
             } else if (key == Keys.PERIOD) {

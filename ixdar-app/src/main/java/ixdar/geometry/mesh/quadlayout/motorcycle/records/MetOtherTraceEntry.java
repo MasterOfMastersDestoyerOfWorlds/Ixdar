@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.motorcycle;
+package ixdar.geometry.mesh.quadlayout.motorcycle.records;
 
 /**
  * Record of a prior trace-trace meeting used by Lyon's two-sided stopping test
@@ -26,6 +26,17 @@ public final class MetOtherTraceEntry {
     public final int otherSign;
 
     /**
+     * Owning trace's face-visit ordinal at this meeting. Together with
+     * {@link #otherVisitId} this identifies the crossing combinatorially: a pair
+     * of face-visit chords crosses at most once, so meeting dedupe compares
+     * visit pairs instead of parametric positions.
+     */
+    public final int ourVisitId;
+
+    /** Other trace's face-visit ordinal at this meeting. */
+    public final int otherVisitId;
+
+    /**
      * T-mesh node id at this meeting, shared between both traces. Set by
      * {@code MotorcycleGraph.handleIntersection} after the intersection node is
      * created, or {@code -1} if not yet wired (e.g. recordMeeting called
@@ -46,10 +57,13 @@ public final class MetOtherTraceEntry {
      * @param ourSign               owning trace's travel sign along its axis
      * @param otherAxis             other trace's travel axis in the same chart
      * @param otherSign             other trace's travel sign along its axis
+     * @param ourVisitId            owning trace's face-visit ordinal at the meeting
+     * @param otherVisitId          other trace's face-visit ordinal at the meeting
      */
     public MetOtherTraceEntry(int otherTraceId, double signedAngle,
             double ourParametricLength, double theirParametricLength,
-            TraceAxis ourAxis, int ourSign, TraceAxis otherAxis, int otherSign) {
+            TraceAxis ourAxis, int ourSign, TraceAxis otherAxis, int otherSign,
+            int ourVisitId, int otherVisitId) {
         this.otherTraceId = otherTraceId;
         this.signedAngle = signedAngle;
         this.ourParametricLength = ourParametricLength;
@@ -58,5 +72,7 @@ public final class MetOtherTraceEntry {
         this.ourSign = ourSign;
         this.otherAxis = otherAxis;
         this.otherSign = otherSign;
+        this.ourVisitId = ourVisitId;
+        this.otherVisitId = otherVisitId;
     }
 }

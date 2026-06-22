@@ -8,12 +8,12 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.quadlayout.QuantizedMeshGrid;
-import ixdar.geometry.mesh.quadlayout.TJunctionElimination;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TMeshNode;
-import ixdar.geometry.mesh.quadlayout.motorcycle.Trace;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TraceArc;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
+import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
+import ixdar.geometry.mesh.quadlayout.quantization.TJunctionElimination;
 
 /**
  * LCBK19 §6.1 T-mesh re-embedding, construction half: build a working copy of
@@ -71,8 +71,7 @@ public final class LayoutEmbedding {
     }
 
     /**
-     * Copy the mesh, place nodes, and route arcs; logs the {@code [embed]}
-     * summary.
+     * Copy the mesh, place nodes, and route arcs; logs the {@code [embed]} summary.
      *
      * @return this, with all public products populated
      */
@@ -96,10 +95,10 @@ public final class LayoutEmbedding {
     }
 
     /**
-     * Give every arc-referenced T-mesh node a dedicated copy vertex:
-     * vertex-bound nodes claim their mapped copy vertex; face-interior nodes
-     * snap to a nearby unclaimed corner, split a nearby edge, or split their
-     * containing face (LCBK19 §6.1 node embedding).
+     * Give every arc-referenced T-mesh node a dedicated copy vertex: vertex-bound
+     * nodes claim their mapped copy vertex; face-interior nodes snap to a nearby
+     * unclaimed corner, split a nearby edge, or split their containing face (LCBK19
+     * §6.1 node embedding).
      */
     private void insertNodes() {
         int nodeCount = motorcycleGraph.nodes.size();
@@ -131,8 +130,8 @@ public final class LayoutEmbedding {
     }
 
     /**
-     * Place one face-interior node: locate the descendant copy face containing
-     * its position, then snap/split by proximity.
+     * Place one face-interior node: locate the descendant copy face containing its
+     * position, then snap/split by proximity.
      *
      * @param node face-interior node ({@code activeFace >= 0})
      */
@@ -208,9 +207,8 @@ public final class LayoutEmbedding {
     }
 
     /**
-     * Route every arc between its endpoint node vertices: feature arcs first
-     * (they ride the alignment edges), then positively quantized arcs, then
-     * zero arcs.
+     * Route every arc between its endpoint node vertices: feature arcs first (they
+     * ride the alignment edges), then positively quantized arcs, then zero arcs.
      */
     private void routeArcs() {
         ArcRouter router = new ArcRouter(topology, strips);
@@ -255,7 +253,7 @@ public final class LayoutEmbedding {
                 arcsFailed++;
                 continue;
             }
-            if (startVertex == endVertex && arc.parametricLength > MotorcycleGraph.PARAMETRIC_EPS) {
+            if (startVertex == endVertex && arc.parametricLength > 1e-9) {
                 selfLoopArcCount++;
                 continue;
             }
@@ -282,9 +280,9 @@ public final class LayoutEmbedding {
 
     /**
      * The descendant copy face of a source face that lies closest to a point
-     * (containment score by projected barycentrics; the point sits on the
-     * source face's surface, so the best-scoring child contains it up to
-     * refinement noise).
+     * (containment score by projected barycentrics; the point sits on the source
+     * face's surface, so the best-scoring child contains it up to refinement
+     * noise).
      *
      * @param sourceActiveFace source active face the point belongs to
      * @param point            3D query point
@@ -304,8 +302,8 @@ public final class LayoutEmbedding {
     }
 
     /**
-     * Minimum projected barycentric coordinate of the point against a copy
-     * face — positive inside, increasingly negative outside.
+     * Minimum projected barycentric coordinate of the point against a copy face —
+     * positive inside, increasingly negative outside.
      *
      * @param copyFace candidate triangle
      * @param point    query point

@@ -3,8 +3,6 @@ package ixdar.geometry.mesh.quadlayout.solver;
 import java.util.Arrays;
 import java.util.HashSet;
 
-import ixdar.geometry.mesh.quadlayout.NormalMatrix;
-
 /**
  * AMD/Source/amd_1: construct input matrix and then order with amd_2 AMD,
  * Copyright (c) 1996-2022, Timothy A. Davis, Patrick R. Amestoy, and Iain S.

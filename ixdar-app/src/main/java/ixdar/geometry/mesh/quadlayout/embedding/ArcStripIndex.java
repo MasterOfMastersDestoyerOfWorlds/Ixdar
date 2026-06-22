@@ -6,14 +6,14 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.Trace;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TraceSegment;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
 
 /**
  * Per-arc geometry index: the strip of source active faces each arc's traced
  * curve passes through, and the lifted 3D polyline of that curve. Built in one
- * two-pointer merge per trace over its ordered segments and chain arcs —
- * the per-arc clipping is the same range-versus-segments sweep as
+ * two-pointer merge per trace over its ordered segments and chain arcs — the
+ * per-arc clipping is the same range-versus-segments sweep as
  * {@code LayoutPatchGeometry.arcPolylineForRange}, batched so the whole index
  * costs O(segments + arcs) per trace instead of a quadratic per-arc scan.
  */
@@ -37,8 +37,8 @@ public final class ArcStripIndex {
     }
 
     /**
-     * Sweep every trace once, clipping each chain arc's parametric range
-     * against the trace's segments to collect faces and lifted endpoints.
+     * Sweep every trace once, clipping each chain arc's parametric range against
+     * the trace's segments to collect faces and lifted endpoints.
      *
      * @return this, with both per-arc indexes populated
      */
@@ -57,9 +57,8 @@ public final class ArcStripIndex {
     }
 
     /**
-     * Two-pointer merge of one trace's ordered segments against its ordered
-     * chain arcs, attributing each overlap's face and clipped endpoints to the
-     * arc.
+     * Two-pointer merge of one trace's ordered segments against its ordered chain
+     * arcs, attributing each overlap's face and clipped endpoints to the arc.
      *
      * @param trace trace to sweep
      */
@@ -111,7 +110,8 @@ public final class ArcStripIndex {
         double span = entrySpan + segment.sign * offsetFromEntry;
         double u = segment.axis.holdsUConstant() ? segment.isoValue : span;
         double v = segment.axis.holdsUConstant() ? span : segment.isoValue;
-        Vector3f point = motorcycleGraph.parametricLift.liftToPosition(segment.activeFace, u, v);
+        Vector3f point = MotorcycleGraph.liftToPosition(motorcycleGraph.mesh, motorcycleGraph.walker,
+                segment.activeFace, u, v);
         List<Vector3f> polyline = polylineByArc.get(arcId);
         if (!polyline.isEmpty() && polyline.get(polyline.size() - 1).distance(point) <= 0f) {
             return;

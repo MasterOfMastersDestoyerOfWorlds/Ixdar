@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout;
+package ixdar.geometry.mesh.quadlayout.quantization;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -9,19 +9,19 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.BezierFit;
 import ixdar.geometry.mesh.data.CoonsEvaluator;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TMeshPatch;
-import ixdar.geometry.mesh.quadlayout.motorcycle.Trace;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TraceArc;
-import ixdar.geometry.mesh.quadlayout.motorcycle.TraceSegment;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
 
 /**
  * Geometric realization of the conforming quad layout: traces every live
- * {@link LayoutRectangle}'s four boundary sides as 3D polylines on the
- * surface, validates that each patch really is a four-cornered quad (the
- * sides trace, the corners of adjacent sides agree), and tessellates clean
- * quads into Coons sample grids for rendering. Failures are logged per patch
- * with rectangle and root-patch ids — a patch that cannot produce four sound
- * corners is a pipeline failure, not a rendering nuisance.
+ * {@link LayoutRectangle}'s four boundary sides as 3D polylines on the surface,
+ * validates that each patch really is a four-cornered quad (the sides trace,
+ * the corners of adjacent sides agree), and tessellates clean quads into Coons
+ * sample grids for rendering. Failures are logged per patch with rectangle and
+ * root-patch ids — a patch that cannot produce four sound corners is a pipeline
+ * failure, not a rendering nuisance.
  */
 public final class LayoutPatchGeometry {
 
@@ -31,10 +31,14 @@ public final class LayoutPatchGeometry {
     /** Side shorter than this fraction of the mesh radius counts as degenerate. */
     public static final double DEGENERATE_SIDE_EPSILON_FRACTION = 1.0e-5;
 
-    /** Corner endpoint disagreement above this fraction of the radius is a mismatch. */
+    /**
+     * Corner endpoint disagreement above this fraction of the radius is a mismatch.
+     */
     public static final double CORNER_MISMATCH_EPSILON_FRACTION = 1.0e-3;
 
-    /** Consecutive polyline points closer than this fraction of the radius merge. */
+    /**
+     * Consecutive polyline points closer than this fraction of the radius merge.
+     */
     public static final double POINT_DEDUPE_EPSILON_FRACTION = 1.0e-7;
 
     /** Canonical (start corner, end corner) of each side: A→B, B→C, D→C, A→D. */
@@ -73,8 +77,8 @@ public final class LayoutPatchGeometry {
     }
 
     /**
-     * Trace, validate, and tessellate every live rectangle, then log the
-     * validation summary.
+     * Trace, validate, and tessellate every live rectangle, then log the validation
+     * summary.
      *
      * @return this, with {@link #patches} and all counters populated
      */
@@ -115,8 +119,8 @@ public final class LayoutPatchGeometry {
     }
 
     /**
-     * Trace one rectangle's four sides, resolve synthetic sides as straight
-     * lines between corners, and validate corners and side lengths.
+     * Trace one rectangle's four sides, resolve synthetic sides as straight lines
+     * between corners, and validate corners and side lengths.
      *
      * @param cell live layout rectangle
      * @return the validated curves record
@@ -210,9 +214,9 @@ public final class LayoutPatchGeometry {
     }
 
     /**
-     * Trace all four sides of an unsplit rectangle from its source T-mesh
-     * patch, whose side lists include the zero-quantized arcs that still carry
-     * real geometry between the positive ones.
+     * Trace all four sides of an unsplit rectangle from its source T-mesh patch,
+     * whose side lists include the zero-quantized arcs that still carry real
+     * geometry between the positive ones.
      *
      * @param cell unsplit live rectangle
      * @return four canonical side polylines, or {@code null} when the source
@@ -258,8 +262,8 @@ public final class LayoutPatchGeometry {
     }
 
     /**
-     * Append the traced sub-polyline of one (possibly partial) side segment in
-     * its canonical direction.
+     * Append the traced sub-polyline of one (possibly partial) side segment in its
+     * canonical direction.
      *
      * @param polyline polyline to extend
      * @param segment  real side segment with intrinsic quantized bounds
@@ -283,11 +287,11 @@ public final class LayoutPatchGeometry {
     }
 
     /**
-     * Trace the 3D polyline of one arc's parametric sub-range by clipping the
-     * range against the owning trace's segments and lifting the clipped chord
-     * endpoints (same clipping as {@code LayoutExtraction.buildLayoutRecords}).
-     * Points come out in trace travel order, i.e. from the arc's start node
-     * toward its end node.
+     * Trace the 3D polyline of one arc's parametric sub-range by clipping the range
+     * against the owning trace's segments and lifting the clipped chord endpoints
+     * (same clipping as {@code LayoutExtraction.buildLayoutRecords}). Points come
+     * out in trace travel order, i.e. from the arc's start node toward its end
+     * node.
      *
      * @param arcId         arc to trace
      * @param fractionStart sub-range start as a fraction of the arc, 0..1
@@ -327,14 +331,15 @@ public final class LayoutPatchGeometry {
     /**
      * Lift one span coordinate on a trace segment's iso-line and append it.
      *
-     * @param points polyline to extend
+     * @param points  polyline to extend
      * @param segment trace segment supplying the face chart and iso value
      * @param span    coordinate along the varying axis
      */
     private void appendLiftedPoint(List<Vector3f> points, TraceSegment segment, double span) {
         double u = segment.axis.holdsUConstant() ? segment.isoValue : span;
         double v = segment.axis.holdsUConstant() ? span : segment.isoValue;
-        appendPoint(points, motorcycleGraph.parametricLift.liftToPosition(segment.activeFace, u, v));
+        appendPoint(points,
+                MotorcycleGraph.liftToPosition(motorcycleGraph.mesh, motorcycleGraph.walker, segment.activeFace, u, v));
     }
 
     /**
@@ -366,11 +371,10 @@ public final class LayoutPatchGeometry {
     }
 
     /**
-     * Fit cubic Béziers to a clean quad's four sides and sample its Coons
-     * grid. Side-to-Coons convention: side 0 (A→B) is u at v=0, side 2
-     * canonical (D→C) is u at v=1, side 3 canonical (A→D) is v at u=0, and
-     * side 1 (B→C) is v at u=1, so all four corner identities required by
-     * {@link CoonsEvaluator} hold.
+     * Fit cubic Béziers to a clean quad's four sides and sample its Coons grid.
+     * Side-to-Coons convention: side 0 (A→B) is u at v=0, side 2 canonical (D→C) is
+     * u at v=1, side 3 canonical (A→D) is v at u=0, and side 1 (B→C) is v at u=1,
+     * so all four corner identities required by {@link CoonsEvaluator} hold.
      *
      * @param curves clean patch whose {@code coonsGrid} gets filled
      */
@@ -394,14 +398,14 @@ public final class LayoutPatchGeometry {
     }
 
     /**
-     * Reconstruct the node sequence around a patch cycle from its undirected
-     * arc id list by chaining shared endpoints; entry {@code i} is the node
-     * before arc {@code i}, with one extra closing entry equal to the first.
-     * Mirrors the private walk in {@link TJunctionElimination}.
+     * Reconstruct the node sequence around a patch cycle from its undirected arc id
+     * list by chaining shared endpoints; entry {@code i} is the node before arc
+     * {@code i}, with one extra closing entry equal to the first. Mirrors the
+     * private walk in {@link TJunctionElimination}.
      *
      * @param cycleArcIds boundary arcs in cycle order
-     * @return node ids of size {@code cycleArcIds.size() + 1}, or {@code null}
-     *         when the arcs do not chain
+     * @return node ids of size {@code cycleArcIds.size() + 1}, or {@code null} when
+     *         the arcs do not chain
      */
     private List<Integer> chainCycleNodes(List<Integer> cycleArcIds) {
         if (cycleArcIds.size() < 2) {

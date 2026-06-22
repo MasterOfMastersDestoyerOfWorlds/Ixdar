@@ -106,7 +106,6 @@ public class MotorcycleGraphExaminationScene extends Scene {
         runtime.setMotorcycleGraph(graph);
         runtime.showTraces = true;
         runtime.showNodes = true;
-        runtime.showPatches = false;
         runtime.showCrossField = false;
         runtime.showFullIsoGrid = false;
         hudLine = String.format("[mcg-exam] α=%.0f° traces=%d arcs=%d nodes=%d",
@@ -117,26 +116,6 @@ public class MotorcycleGraphExaminationScene extends Scene {
     void stepAlpha(float deltaDegrees) {
         alphaDegrees = Math.max(1f, alphaDegrees + deltaDegrees);
         rebuildMotorcycleGraph();
-    }
-
-    void togglePatches() {
-        runtime.showPatches = !runtime.showPatches;
-    }
-
-    void toggleTraces() {
-        runtime.showTraces = !runtime.showTraces;
-    }
-
-    void toggleNodes() {
-        runtime.showNodes = !runtime.showNodes;
-    }
-
-    void toggleWitnesses() {
-        runtime.showWitnesses = !runtime.showWitnesses;
-    }
-
-    void toggleEppsteinMarkers() {
-        runtime.showEppsteinMarkers = !runtime.showEppsteinMarkers;
     }
 
     @Override
@@ -198,16 +177,14 @@ public class MotorcycleGraphExaminationScene extends Scene {
 
         @Override
         protected void handleSceneKeys(int key, int mods) {
-            if (key == Keys.P) {
-                scene.togglePatches();
-            } else if (key == Keys.T) {
-                scene.toggleTraces();
+            if (key == Keys.T) {
+                scene.runtime.showTraces = !scene.runtime.showTraces;
             } else if (key == Keys.N) {
-                scene.toggleNodes();
+                scene.runtime.showNodes = !scene.runtime.showNodes;
             } else if (key == Keys.W) {
-                scene.toggleWitnesses();
+                scene.runtime.showWitnesses = !scene.runtime.showWitnesses;
             } else if (key == Keys.E) {
-                scene.toggleEppsteinMarkers();
+                scene.runtime.showEppsteinMarkers = !scene.runtime.showEppsteinMarkers;
             } else if (key == Keys.COMMA) {
                 scene.stepAlpha(-1f);
             } else if (key == Keys.PERIOD) {

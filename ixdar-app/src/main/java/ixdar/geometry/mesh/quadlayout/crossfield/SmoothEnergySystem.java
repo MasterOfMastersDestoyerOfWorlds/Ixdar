@@ -20,8 +20,8 @@ import java.util.Arrays;
 import java.util.Map;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
+import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
 
 public final class SmoothEnergySystem {
     public static final double DEFAULT_LOCAL_TOLERANCE = 1e-6;
