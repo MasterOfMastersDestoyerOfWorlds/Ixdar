@@ -186,7 +186,10 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private static final Vector4f COLOR_CONSTRAINT_CURVATURE = ColorRGB.MAGENTA.toVector4f();
     /** Constraint glyph colour for the arbitrary gauge anchor. */
     private static final Vector4f COLOR_CONSTRAINT_ANCHOR = ColorRGB.WHITE.toVector4f();
-    /** Source groups drawn by {@link #renderConstraintOverlay(Camera3D)}, in upload order. */
+    /**
+     * Source groups drawn by {@link #renderConstraintOverlay(Camera3D)}, in upload
+     * order.
+     */
     private static final ConstraintSource[] CONSTRAINT_DRAW_ORDER = {
             ConstraintSource.BOUNDARY, ConstraintSource.FEATURE,
             ConstraintSource.CURVATURE, ConstraintSource.ANCHOR
@@ -620,7 +623,8 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
      * {@link #renderConstraintOverlay(Camera3D)}.
      *
      * @param field      built cross field carrying {@code faceConstrained},
-     *                   {@code faceConstraintAngle}, and {@code faceConstraintSource}
+     *                   {@code faceConstraintAngle}, and
+     *                   {@code faceConstraintSource}
      * @param crossScale arm length scale relative to incircle radius
      */
     public void uploadConstraints(CrossField field, float crossScale) {
@@ -670,12 +674,15 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
      *
      * @param field              cross field supplying the mesh and per-face frame
      * @param activeFace         dense active-face index of the face to glyph
-     * @param angle              first-arm direction in the face's local frame, radians
-     * @param crossScale         arm length scale relative to the face incircle radius
+     * @param angle              first-arm direction in the face's local frame,
+     *                           radians
+     * @param crossScale         arm length scale relative to the face incircle
+     *                           radius
      * @param normalLiftFraction fraction of arm length to float the glyph along the
      *                           face normal (0 keeps it on the surface)
      * @param interleaved        destination vertex buffer
-     * @param cornerBase         index of this glyph's first corner within the buffer
+     * @param cornerBase         index of this glyph's first corner within the
+     *                           buffer
      */
     private static void appendFaceGlyph(CrossField field, int activeFace, float angle, float crossScale,
             float normalLiftFraction, float[] interleaved, int cornerBase) {
@@ -835,7 +842,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         IntBuffer ib = BufferUtils.createIntBuffer(indices.length);
         ib.put(indices).flip();
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), ib, gl.STATIC_DRAW());
-        return new int[] {vao, vbo, ebo};
+        return new int[] { vao, vbo, ebo };
     }
 
     private void uploadSeamlessSurface(SeamlessParameterization seamless, MotorcycleGraph graph) {
@@ -969,23 +976,22 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     private static Vector4f nodeColor(TMeshNode node) {
-        if (node.type == TMeshNode.TYPE_SINGULARITY) {
+        if (node.type == TMeshNode.Type.SINGULARITY) {
             return node.singularityIndex4 > 0
                     ? new ColorRGB(ColorRGB.CYAN).setAlpha(0.5f).toVector4f()
                     : new ColorRGB(ColorRGB.RED).setAlpha(0.5f).toVector4f();
         }
-        if (node.type == TMeshNode.TYPE_INTERSECTION) {
+        if (node.type == TMeshNode.Type.INTERSECTION) {
             return COLOR_INTERSECTION_NODE;
         }
-        if (node.type == TMeshNode.TYPE_FEATURE) {
+        if (node.type == TMeshNode.Type.FEATURE) {
             return COLOR_FEATURE_NODE;
         }
-        if (node.type == TMeshNode.TYPE_TRUNCATED) {
+        if (node.type == TMeshNode.Type.TRUNCATED) {
             return COLOR_TRUNCATED_NODE;
         }
         return COLOR_BOUNDARY_NODE;
     }
-
 
     private void renderTraceSurface(Camera3D camera) {
         if (traceUvShader.ID < 0) {
@@ -1058,10 +1064,10 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
 
     private static Vector4f constraintSourceColor(ConstraintSource source) {
         return switch (source) {
-            case BOUNDARY -> COLOR_CONSTRAINT_BOUNDARY;
-            case FEATURE -> COLOR_CONSTRAINT_FEATURE;
-            case CURVATURE -> COLOR_CONSTRAINT_CURVATURE;
-            default -> COLOR_CONSTRAINT_ANCHOR;
+        case BOUNDARY -> COLOR_CONSTRAINT_BOUNDARY;
+        case FEATURE -> COLOR_CONSTRAINT_FEATURE;
+        case CURVATURE -> COLOR_CONSTRAINT_CURVATURE;
+        default -> COLOR_CONSTRAINT_ANCHOR;
         };
     }
 
@@ -1128,10 +1134,10 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Upload the explicit layout geometry: boundary polylines as a GL_LINES
-     * buffer, clean patches' Coons grids as a triangle mesh with per-patch
-     * index ranges and palette-hashed colors, and corner marker positions.
-     * Re-uploading frees the previous buffers first.
+     * Upload the explicit layout geometry: boundary polylines as a GL_LINES buffer,
+     * clean patches' Coons grids as a triangle mesh with per-patch index ranges and
+     * palette-hashed colors, and corner marker positions. Re-uploading frees the
+     * previous buffers first.
      *
      * @param geometry traced and validated patch geometry
      */
@@ -1284,9 +1290,9 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Draw the layout boundary curves as biased GL_LINES, then a marker sphere
-     * at every patch corner — four per patch is the visual confirmation that a
-     * patch really is a quad.
+     * Draw the layout boundary curves as biased GL_LINES, then a marker sphere at
+     * every patch corner — four per patch is the visual confirmation that a patch
+     * really is a quad.
      *
      * @param camera active 3D camera
      */

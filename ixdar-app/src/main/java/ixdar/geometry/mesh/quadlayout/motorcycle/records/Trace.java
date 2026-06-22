@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import ixdar.geometry.mesh.quadlayout.motorcycle.ChartWalker;
-import ixdar.geometry.mesh.quadlayout.motorcycle.ChartWalker.State;
 
 /**
  * One motorcycle trace: iso-line state, collision history, and segment chain.

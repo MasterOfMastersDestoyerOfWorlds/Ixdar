@@ -296,7 +296,7 @@ public class QuantizedMeshGrid {
         int startNodeId = -1;
         Set<Integer> goalNodeIds = new HashSet<>();
         for (TMeshNode node : motorcycleGraph.nodes) {
-            if (node.type != TMeshNode.TYPE_SINGULARITY || node.vertexId < 0
+            if (node.type != TMeshNode.Type.SINGULARITY || node.vertexId < 0
                     || !mergedVertexIds.contains(node.vertexId)) {
                 continue;
             }
@@ -459,11 +459,11 @@ public class QuantizedMeshGrid {
                 if (constraintLoggingEnabled) {
                     int terminalNodeId = trace.arcNodeIds.get(trace.arcNodeIds.size() - 1);
                     System.out.printf(
-                            "[quantize] validity fallback trace=%d reason=%s terminalType=%d"
+                            "[quantize] validity fallback trace=%d reason=%s terminalType=%s"
                                     + " chainArcs=%d meetings=%d%n",
                             trace.traceId,
                             firstSector == null ? "noSectorMeeting" : "sectorMeetingWithoutNode",
-                            motorcycleGraph.nodes.get(terminalNodeId).type,
+                            motorcycleGraph.nodes.get(terminalNodeId).type.name(),
                             trace.chainArcIds.size(), trace.metOtherTraces.size());
                 }
                 prefix = trace.chainArcIds;

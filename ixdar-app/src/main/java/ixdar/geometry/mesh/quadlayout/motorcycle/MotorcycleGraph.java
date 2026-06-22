@@ -143,14 +143,14 @@ public final class MotorcycleGraph {
         System.out.println("[motorcycle] seeding singularity nodes and feature traces");
         for (Singularity singularity : crossField.singularities) {
             Vector3f position = mesh.vertexPosition(singularity.vertexId());
-            TMeshNode node = new TMeshNode(nextNodeId++, TMeshNode.TYPE_SINGULARITY,
+            TMeshNode node = new TMeshNode(nextNodeId++, TMeshNode.Type.SINGULARITY,
                     singularity.vertexId(), -1, singularity.index4(), 0f, 0f, position);
             nodes.add(node);
             nodeByVertexId.put(singularity.vertexId(), node);
         }
         int featureTraceCount = traces.size();
 
-        List<TracePort> ports = TracePort.spawnFromSingularities(seamless);
+        List<TracePort> ports = spawnFromSingularities();
         for (TracePort port : ports) {
             double[] cornerUv = new double[ChartWalker.CORNER_UV_FLOATS];
             seamless.faceCornerUv(port.activeFace, cornerUv);
@@ -162,7 +162,7 @@ public final class MotorcycleGraph {
                 Vector3f position = new Vector3f();
                 int faceId = seamless.mesh.faceIdAt(port.activeFace);
                 seamless.mesh.vertexPosition(seamless.mesh.faceVertexAt(faceId, port.cornerIndex), position);
-                origin = new TMeshNode(nextNodeId++, TMeshNode.TYPE_SINGULARITY,
+                origin = new TMeshNode(nextNodeId++, TMeshNode.Type.SINGULARITY,
                         port.singularityVertexId, -1, 0, startU, startV, position);
                 nodes.add(origin);
                 nodeByVertexId.put(port.singularityVertexId, origin);
@@ -373,7 +373,7 @@ public final class MotorcycleGraph {
         double theirLength = otherSegment.parametricLengthAtEntry + distanceAlongSegment;
 
         TMeshNode intersectionNode = null;
-        intersectionNode = new TMeshNode(nextNodeId++, TMeshNode.TYPE_INTERSECTION,
+        intersectionNode = new TMeshNode(nextNodeId++, TMeshNode.Type.INTERSECTION,
                 -1, event.activeFace, 0, event.u, event.v,
                 liftToPosition(mesh, walker, event.activeFace, event.u, event.v));
         nodes.add(intersectionNode);
@@ -458,7 +458,7 @@ public final class MotorcycleGraph {
         TMeshNode endNode = terminalVertexId >= 0 ? nodeByVertexId.get(terminalVertexId) : null;
         if (endNode == null) {
             endNode = new TMeshNode(nextNodeId++,
-                    event.type == TraceEvent.TYPE_BOUNDARY ? TMeshNode.TYPE_BOUNDARY : TMeshNode.TYPE_SINGULARITY,
+                    event.type == TraceEvent.TYPE_BOUNDARY ? TMeshNode.Type.BOUNDARY : TMeshNode.Type.SINGULARITY,
                     terminalVertexId, terminalVertexId >= 0 ? -1 : event.activeFace, 0,
                     event.u, event.v, liftToPosition(mesh, walker, event.activeFace, event.u, event.v));
             nodes.add(endNode);
@@ -521,7 +521,7 @@ public final class MotorcycleGraph {
                             + " meetings=%d lastFace=%d%n",
                     trace.traceId, trace.alive, trace.segments.size(), trace.parametricLengthSoFar,
                     trace.metOtherTraces.size(), last.activeFace);
-            TMeshNode endNode = new TMeshNode(nextNodeId++, TMeshNode.TYPE_TRUNCATED,
+            TMeshNode endNode = new TMeshNode(nextNodeId++, TMeshNode.Type.TRUNCATED,
                     -1, last.activeFace, 0, last.exitU, last.exitV,
                     liftToPosition(mesh, walker, last.activeFace, last.exitU, last.exitV));
             nodes.add(endNode);
@@ -590,7 +590,7 @@ public final class MotorcycleGraph {
                     ? Math.abs(hit.intersectionU - hit.otherSegment.entryU)
                     : Math.abs(hit.intersectionV - hit.otherSegment.entryV);
             double theirLength = hit.otherSegment.parametricLengthAtEntry + distanceAlongOther;
-            TMeshNode node = new TMeshNode(nextNodeId++, TMeshNode.TYPE_INTERSECTION, -1,
+            TMeshNode node = new TMeshNode(nextNodeId++, TMeshNode.Type.INTERSECTION, -1,
                     segment.activeFace, 0, hit.intersectionU, hit.intersectionV,
                     liftToPosition(mesh, walker, segment.activeFace, hit.intersectionU, hit.intersectionV));
             nodes.add(node);
@@ -822,5 +822,88 @@ public final class MotorcycleGraph {
                 (float) (w0 * position0.x + w1 * position1.x + w2 * position2.x),
                 (float) (w0 * position0.y + w1 * position1.y + w2 * position2.y),
                 (float) (w0 * position0.z + w1 * position1.z + w2 * position2.z));
+    }
+
+    /**
+     * Enumerate QEx Algorithm 4 ports at every cross-field singularity.
+     *
+     * @param seamless built seamless parametrization with populated UV corners
+     * @return ports for every singularity; valence 3/5 counts emerge from geometry
+     */
+    public List<TracePort> spawnFromSingularities() {
+        List<TracePort> ports = new ArrayList<>();
+        for (Singularity singularity : crossField.singularities) {
+            int vertexId = singularity.vertexId();
+            int faceCount = mesh.vertexFaceCount(vertexId);
+            for (int fanIndex = 0; fanIndex < faceCount; fanIndex++) {
+                int faceId = mesh.vertexFaceAt(vertexId, fanIndex);
+                int activeFace = crossField.faceIdToActive.get(faceId);
+                int cornerIndex = cornerOfVertex(mesh, faceId, vertexId);
+                double[] cornerUv = new double[ChartWalker.CORNER_UV_FLOATS];
+                seamless.faceCornerUv(activeFace, cornerUv);
+                int nextCorner = (cornerIndex + 1) % SeamlessParameterization.CORNERS_PER_FACE;
+                int thirdCorner = (cornerIndex + 2) % SeamlessParameterization.CORNERS_PER_FACE;
+                double uu = cornerUv[cornerIndex * 2];
+                double uv = cornerUv[cornerIndex * 2 + 1];
+                double vu = cornerUv[nextCorner * 2];
+                double vv = cornerUv[nextCorner * 2 + 1];
+                double wu = cornerUv[thirdCorner * 2];
+                double wv = cornerUv[thirdCorner * 2 + 1];
+                double orientation = orient2d(uu, uv, vu, vv, wu, wv);
+                if (orientation > 0.0) {
+                    for (int r = 0; r < SeamlessParameterization.BRANCH_COUNT; r++) {
+                        double[] dir = switch (((r % 4) + 4) % 4) {
+                        case 0 -> new double[] { 1.0, 0.0 };
+                        case 1 -> new double[] { 0.0, 1.0 };
+                        case 2 -> new double[] { -1.0, 0.0 };
+                        default -> new double[] { 0.0, -1.0 };
+                        };
+                        boolean acceptCandidate = false;
+
+                        double edgeU = vu - uu;
+                        double edgeV = vv - uv;
+                        if (orient2d(uu, uv, vu, vv, uu + dir[0], uv + dir[1]) > 0
+                                && orient2d(uu, uv, uu + dir[0], uv + dir[1], wu, wv) > 0) {
+                            acceptCandidate = true;
+                        } else if (!(Math.abs(orient2d(0.0, 0.0, edgeU, edgeV, dir[0], dir[1])) <= 0)) {
+                            acceptCandidate = false;
+                        } else {
+                            acceptCandidate = edgeU * dir[0] + edgeV * dir[1] > 0.0;
+                        }
+                        if (acceptCandidate) {
+                            TraceAxis axis = TraceAxis.fromDirection(dir[0], dir[1]);
+                            int sign = TraceAxis.signFor(axis, dir[0], dir[1]);
+                            ports.add(new TracePort(vertexId, activeFace, cornerIndex, axis, sign));
+                        }
+                    }
+                }
+            }
+        }
+        return ports;
+    }
+
+    private static int cornerOfVertex(HalfEdgeMesh mesh, int faceId, int vertexId) {
+        for (int corner = 0; corner < SeamlessParameterization.CORNERS_PER_FACE; corner++) {
+            if (mesh.faceVertexAt(faceId, corner) == vertexId) {
+                return corner;
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Signed area of triangle {@code (a, b, c)}; positive iff {@code c} lies to the
+     * left of directed line {@code a → b}.
+     *
+     * @param ax x-coordinate of point a
+     * @param ay y-coordinate of point a
+     * @param bx x-coordinate of point b
+     * @param by y-coordinate of point b
+     * @param cx x-coordinate of point c
+     * @param cy y-coordinate of point c
+     * @return signed doubled triangle area
+     */
+    public static double orient2d(double ax, double ay, double bx, double by, double cx, double cy) {
+        return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
     }
 }

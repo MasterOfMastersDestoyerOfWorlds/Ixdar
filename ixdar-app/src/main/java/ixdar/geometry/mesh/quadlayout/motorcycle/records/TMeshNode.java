@@ -12,26 +12,30 @@ import org.joml.Vector3f;
  */
 public final class TMeshNode {
 
-    /** Interior or boundary singularity origin. */
-    public static final int TYPE_SINGULARITY = 0;
-    /** Trace-trace intersection. */
-    public static final int TYPE_INTERSECTION = 1;
-    /** Trace terminated on mesh boundary. */
-    public static final int TYPE_BOUNDARY = 2;
-    /** Feature / alignment trace endpoint. */
-    public static final int TYPE_FEATURE = 3;
-    /** Safety-net terminus for traces that died mid-walk (e.g. vertex degeneracy). */
-    public static final int TYPE_TRUNCATED = 4;
+    public enum Type {
+        /** Interior or boundary singularity origin. */
+        SINGULARITY,
+        /** Trace-trace intersection. */
+        INTERSECTION,
+        /** Trace terminated on mesh boundary. */
+        BOUNDARY,
+        /** Feature / alignment trace endpoint. */
+        FEATURE,
+        /**
+         * Safety-net terminus for traces that died mid-walk (e.g. vertex degeneracy).
+         */
+        TRUNCATED
+    }
 
     public final int nodeId;
-    public final int type;
+    public final Type type;
 
     /** Mesh vertex this node sits on, or -1 for nodes in face/edge interiors. */
     public final int vertexId;
 
     /**
-     * Active face whose chart hosts the node's (u, v) for face-interior nodes,
-     * or -1 for nodes pinned to a mesh vertex ({@code vertexId >= 0}).
+     * Active face whose chart hosts the node's (u, v) for face-interior nodes, or
+     * -1 for nodes pinned to a mesh vertex ({@code vertexId >= 0}).
      */
     public final int activeFace;
 
@@ -46,14 +50,14 @@ public final class TMeshNode {
      * @param nodeId            unique node id
      * @param type              node type constant
      * @param vertexId          mesh vertex the node sits on, or -1
-     * @param activeFace        active face hosting (u, v), or -1 when the node
-     *                          is pinned to a mesh vertex
+     * @param activeFace        active face hosting (u, v), or -1 when the node is
+     *                          pinned to a mesh vertex
      * @param singularityIndex4 singularity index4, or 0
      * @param u                 chart u at node
      * @param v                 chart v at node
      * @param position          embedded 3D position
      */
-    public TMeshNode(int nodeId, int type, int vertexId, int activeFace, int singularityIndex4,
+    public TMeshNode(int nodeId, Type type, int vertexId, int activeFace, int singularityIndex4,
             double u, double v, Vector3f position) {
         this.nodeId = nodeId;
         this.type = type;
