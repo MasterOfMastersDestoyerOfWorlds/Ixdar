@@ -243,18 +243,13 @@ public final class PatchBoundaryBuilder {
             if (arcCount == 0) {
                 continue;
             }
-            Map<Integer, MetOtherTraceEntry> meetingByNode = new HashMap<>();
-            for (MetOtherTraceEntry meeting : trace.metOtherTraces) {
-                if (meeting.intersectionNodeId >= 0) {
-                    meetingByNode.putIfAbsent(meeting.intersectionNodeId, meeting);
-                }
-            }
             for (int position = 0; position <= arcCount; position++) {
                 int nodeId = trace.arcNodeIds.get(position);
                 TraceAxis axis;
                 int sign;
                 int chartFace;
-                MetOtherTraceEntry meeting = meetingByNode.get(nodeId);
+                MetOtherTraceEntry meeting = meetingAt(trace, nodeId,
+                        trace.chainNodeLengths.get(position));
                 if (position == 0) {
                     axis = trace.spawnAxis;
                     sign = trace.spawnSign;
@@ -286,6 +281,34 @@ public final class PatchBoundaryBuilder {
                 }
             }
         }
+    }
+
+    /**
+     * The meeting at a given node that best matches a chain position's parametric
+     * length. A trace that crosses its own path visits one node twice, at two
+     * different parametric lengths and with two different travel directions; a
+     * node-only lookup would give both chain positions the same arm's direction
+     * and fold the patch back, so the matching trace length disambiguates them.
+     *
+     * @param trace  trace whose meetings are searched
+     * @param nodeId T-mesh node id at this chain position
+     * @param length cumulative parametric length of this chain position
+     * @return the closest-length meeting recorded at that node, or {@code null}
+     */
+    private static MetOtherTraceEntry meetingAt(Trace trace, int nodeId, double length) {
+        MetOtherTraceEntry best = null;
+        double bestDifference = Double.MAX_VALUE;
+        for (MetOtherTraceEntry meeting : trace.metOtherTraces) {
+            if (meeting.intersectionNodeId != nodeId) {
+                continue;
+            }
+            double difference = Math.abs(meeting.ourParametricLength - length);
+            if (difference < bestDifference) {
+                bestDifference = difference;
+                best = meeting;
+            }
+        }
+        return best;
     }
 
     private void addPort(PatchPort port) {

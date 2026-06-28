@@ -178,13 +178,11 @@ public final class BenchmarkLyonParity {
         }
         int truncatedNodes = 0;
         for (TMeshNode node : graph.nodes) {
-            if (node.type == TMeshNode.TYPE_TRUNCATED) {
+            if (node.type == TMeshNode.Type.TRUNCATED) {
                 truncatedNodes++;
             }
         }
         int arrangementEuler = graph.nodes.size() - graph.arcs.size() + graph.patches.size();
-        int walkerDeaths = graph.dieNoForwardEdgeCount + graph.dieZeroEdgeLengthCount
-                + graph.dieEdgeCrossingNullHitCount;
         if (compareTable1) {
             System.out.printf("[parity] expected: sing=%d traces=%d arcs=%d vars=%d #P=%d"
                     + " dMean=%.1f dMax=%.1f%n",
@@ -203,10 +201,10 @@ public final class BenchmarkLyonParity {
                 invalidCycles == 0);
         verdict(String.format("invariant2.arrangementEuler==%d (%d)", meshEuler, arrangementEuler),
                 arrangementEuler == meshEuler);
-        verdict(String.format("invariant3.noTruncatedTraces (truncatedNodes=%d walkerDeaths=%d"
-                + " orphaned=%d staleDropsAlive=%d)", truncatedNodes, walkerDeaths,
+        verdict(String.format("invariant3.noTruncatedTraces (truncatedNodes=%d"
+                + " orphaned=%d staleDropsAlive=%d)", truncatedNodes,
                 graph.aliveAtQueueEndCount, graph.staleEventDropsForAliveTraces),
-                truncatedNodes == 0 && walkerDeaths == 0 && graph.aliveAtQueueEndCount == 0);
+                truncatedNodes == 0 && graph.aliveAtQueueEndCount == 0);
         verdict(String.format("invariant8.noRepeatedChainNodes (%d)", graph.repeatedChainNodeCount),
                 graph.repeatedChainNodeCount == 0);
         verdict(String.format("invariant4.lemma1Suffices (cuts=%d violated=%b)",

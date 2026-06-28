@@ -786,7 +786,6 @@ public final class SeamlessParameterization {
     /**
      * Corner UV coordinates for an active face.
      *
-     * @param chartWalker TODO
      * @param activeFace active face index
      * @param out        length-6 buffer receiving {@code [u0,v0,u1,v1,u2,v2]}
      */

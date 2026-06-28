@@ -91,6 +91,9 @@ public final class MotorcycleGraph {
     /** Trace chains containing the same node at two different positions. */
     public int repeatedChainNodeCount;
 
+    public HalfEdgeMesh mesh;
+    public ChartWalker walker;
+
     /**
      * The unique T-mesh node per mesh vertex that hosts one: singularity origins,
      * feature-chain corners, and singular-vertex terminations all resolve through
@@ -104,9 +107,7 @@ public final class MotorcycleGraph {
     private int nextTraceId;
 
     private int faceCount;
-    public HalfEdgeMesh mesh;
     private CrossField crossField;
-    public ChartWalker walker;
     private FaceSegmentIndex segmentIndex;
 
     /**
@@ -396,7 +397,15 @@ public final class MotorcycleGraph {
                 otherSegment.visitId, trace.faceVisitCount);
 
         trace.metOtherTraces.get(trace.metOtherTraces.size() - 1).intersectionNodeId = intersectionNode.nodeId;
-        other.metOtherTraces.get(other.metOtherTraces.size() - 1).intersectionNodeId = intersectionNode.nodeId;
+        if (other == trace) {
+            // A self-crossing appends both meeting entries to the one list, so the
+            // first call's entry is now second-to-last; stamp it too.
+            trace.metOtherTraces.get(trace.metOtherTraces.size() - 2).intersectionNodeId
+                    = intersectionNode.nodeId;
+        } else {
+            other.metOtherTraces.get(other.metOtherTraces.size() - 1).intersectionNodeId
+                    = intersectionNode.nodeId;
+        }
 
         registerSegment(trace, segment);
 
@@ -654,9 +663,9 @@ public final class MotorcycleGraph {
                 if (meeting.intersectionNodeId < 0) {
                     continue;
                 }
-                if (meeting.intersectionNodeId == originNodeId
-                        || meeting.intersectionNodeId == terminalNodeId) {
-
+                boolean selfMeeting = meeting.otherTraceId == trace.traceId;
+                if (!selfMeeting && (meeting.intersectionNodeId == originNodeId
+                        || meeting.intersectionNodeId == terminalNodeId)) {
                     continue;
                 }
                 int prev = chainNodes.get(chainNodes.size() - 1);
@@ -676,8 +685,15 @@ public final class MotorcycleGraph {
                 chainNodes.add(terminalNodeId);
                 chainLengths.add(terminalLength);
             }
-            Set<Integer> seenChainNodes = new HashSet<>(chainNodes.subList(0, chainNodes.size() - 1));
-            if (seenChainNodes.size() < chainNodes.size() - 1) {
+            Set<Integer> selfCrossingNodes = new HashSet<>();
+            for (MetOtherTraceEntry meeting : trace.metOtherTraces) {
+                if (meeting.otherTraceId == trace.traceId && meeting.intersectionNodeId >= 0) {
+                    selfCrossingNodes.add(meeting.intersectionNodeId);
+                }
+            }
+            List<Integer> nonSelfChain = new ArrayList<>(chainNodes.subList(0, chainNodes.size() - 1));
+            nonSelfChain.removeIf(selfCrossingNodes::contains);
+            if (new HashSet<>(nonSelfChain).size() < nonSelfChain.size()) {
                 repeatedChainNodeCount++;
                 System.out.printf("[motorcycle-diag] repeated node in chain trace=%d nodes=%s%n",
                         trace.traceId, chainNodes);
@@ -792,6 +808,8 @@ public final class MotorcycleGraph {
     /**
      * Lift a chart-space point on one triangle to its 3D surface position.
      *
+     * @param mesh       half-edge mesh supplying the triangle's vertex positions
+     * @param walker     chart walker whose seamless map gives the corner UVs
      * @param activeFace dense active face index of the containing triangle
      * @param u          chart u coordinate
      * @param v          chart v coordinate
@@ -827,7 +845,6 @@ public final class MotorcycleGraph {
     /**
      * Enumerate QEx Algorithm 4 ports at every cross-field singularity.
      *
-     * @param seamless built seamless parametrization with populated UV corners
      * @return ports for every singularity; valence 3/5 counts emerge from geometry
      */
     public List<TracePort> spawnFromSingularities() {

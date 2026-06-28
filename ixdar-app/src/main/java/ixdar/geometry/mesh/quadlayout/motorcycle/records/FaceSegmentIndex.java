@@ -8,6 +8,15 @@ import java.util.List;
  */
 public final class FaceSegmentIndex {
 
+    /**
+     * Visit-ordinal window within which two same-trace segments count as
+     * adjacent (and so cannot transversally cross). A survive-crash trace can
+     * change axis at a seam and wrap back over its own earlier path; that
+     * self-crossing must be noded, so the same-trace skip is limited to this
+     * window of consecutive face visits rather than the whole trace.
+     */
+    private static final int SELF_CROSS_ADJACENT_VISITS = 1;
+
     private final List<List<TraceSegment>> segmentsByFace;
 
     /**
@@ -55,8 +64,8 @@ public final class FaceSegmentIndex {
     public List<IntersectionHit> crossingsOf(TraceSegment fresh) {
         List<IntersectionHit> hits = new ArrayList<>();
         for (TraceSegment existing : segmentsByFace.get(fresh.activeFace)) {
-            if (existing == fresh || existing.traceId == fresh.traceId
-                    || existing.axis == fresh.axis) {
+            if (existing == fresh || existing.axis == fresh.axis
+                    || isAdjacentSelf(existing, fresh.traceId, fresh.visitId)) {
                 continue;
             }
             double[] hit = intersectSegments(
@@ -111,7 +120,7 @@ public final class FaceSegmentIndex {
         double bestU = 0.0;
         double bestV = 0.0;
         for (TraceSegment existing : segmentsByFace.get(activeFace)) {
-            if (existing.traceId == traceId) {
+            if (isAdjacentSelf(existing, traceId, ourVisitId)) {
                 continue;
             }
             double[] hit = intersectSegments(
@@ -190,6 +199,25 @@ public final class FaceSegmentIndex {
             this.intersectionU = intersectionU;
             this.intersectionV = intersectionV;
         }
+    }
+
+    /**
+     * Whether an existing segment belongs to the candidate trace's own current
+     * face visit (or an immediately adjacent one) and so cannot be a genuine
+     * transversal self-crossing. Segments of the same trace whose visit
+     * ordinals are within {@link #SELF_CROSS_ADJACENT_VISITS} share an endpoint
+     * and meet only tangentially; segments further apart along the same trace
+     * are a real wrap-back self-crossing and must be noded.
+     *
+     * @param existing         candidate other-segment on the face
+     * @param candidateTraceId the laying trace's id
+     * @param candidateVisitId the laying trace's current face-visit ordinal
+     * @return whether the existing segment is an adjacent self-segment to skip
+     */
+    private static boolean isAdjacentSelf(TraceSegment existing, int candidateTraceId,
+            int candidateVisitId) {
+        return existing.traceId == candidateTraceId
+                && Math.abs(existing.visitId - candidateVisitId) <= SELF_CROSS_ADJACENT_VISITS;
     }
 
     /**
