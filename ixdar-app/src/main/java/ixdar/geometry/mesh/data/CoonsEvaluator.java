@@ -92,6 +92,62 @@ public final class CoonsEvaluator {
     }
 
     /**
+     * Blend four pre-sampled boundary polylines into a discrete bilinear Coons
+     * grid. All four sides must have the same sample count and share exact
+     * corner points ({@code sideU0[0] == sideV0[0]}, etc.); each boundary
+     * row/column of the output then reproduces the corresponding input side
+     * verbatim, so two patches sharing a side that sample it identically get
+     * exactly coincident boundary geometry.
+     *
+     * @param sideU0 samples along u at v=0, corner₀₀ → corner₁₀
+     * @param sideU1 samples along u at v=1, corner₀₁ → corner₁₁
+     * @param sideV0 samples along v at u=0, corner₀₀ → corner₀₁
+     * @param sideV1 samples along v at u=1, corner₁₀ → corner₁₁
+     * @return packed xyz triples laid out row-major in {@code (v, u)} order,
+     *         {@code samples × samples} grid points
+     */
+    public static float[] blendGrid(Vector3f[] sideU0, Vector3f[] sideU1,
+                                    Vector3f[] sideV0, Vector3f[] sideV1) {
+        int samples = sideU0.length;
+        Vector3f c00 = sideU0[0];
+        Vector3f c10 = sideU0[samples - 1];
+        Vector3f c01 = sideU1[0];
+        Vector3f c11 = sideU1[samples - 1];
+        float[] out = new float[samples * samples * NUM_3];
+        for (int j = 0; j < samples; j++) {
+            float v = j / (float) (samples - 1);
+            Vector3f pv0 = sideV0[j];
+            Vector3f pv1 = sideV1[j];
+            for (int i = 0; i < samples; i++) {
+                float u = i / (float) (samples - 1);
+                Vector3f pu0 = sideU0[i];
+                Vector3f pu1 = sideU1[i];
+
+                float loftUx = (NUM_1 - v) * pu0.x + v * pu1.x;
+                float loftUy = (NUM_1 - v) * pu0.y + v * pu1.y;
+                float loftUz = (NUM_1 - v) * pu0.z + v * pu1.z;
+
+                float loftVx = (NUM_1 - u) * pv0.x + u * pv1.x;
+                float loftVy = (NUM_1 - u) * pv0.y + u * pv1.y;
+                float loftVz = (NUM_1 - u) * pv0.z + u * pv1.z;
+
+                float blX = (NUM_1 - u) * (NUM_1 - v) * c00.x + u * (NUM_1 - v) * c10.x
+                          + (NUM_1 - u) * v * c01.x + u * v * c11.x;
+                float blY = (NUM_1 - u) * (NUM_1 - v) * c00.y + u * (NUM_1 - v) * c10.y
+                          + (NUM_1 - u) * v * c01.y + u * v * c11.y;
+                float blZ = (NUM_1 - u) * (NUM_1 - v) * c00.z + u * (NUM_1 - v) * c10.z
+                          + (NUM_1 - u) * v * c01.z + u * v * c11.z;
+
+                int base = (j * samples + i) * NUM_3;
+                out[base]     = loftUx + loftVx - blX;
+                out[base + 1] = loftUy + loftVy - blY;
+                out[base + 2] = loftUz + loftVz - blZ;
+            }
+        }
+        return out;
+    }
+
+    /**
      * Squared distance from {@code (px, py, pz)} to the nearest point
      * in a grid produced by {@link #sampleGrid}. Linear scan — O(N²)
      * per query. Fine for the typical patch sizes we see (≤500 verts

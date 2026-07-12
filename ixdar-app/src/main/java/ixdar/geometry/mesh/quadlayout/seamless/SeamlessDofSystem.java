@@ -3,14 +3,11 @@ package ixdar.geometry.mesh.quadlayout.seamless;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.ExactArithmetic;
 import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
@@ -39,26 +36,11 @@ import ixdar.geometry.mesh.quadlayout.solver.SolverPermutation;
  */
 public final class SeamlessDofSystem {
 
-    /**
-     * Diagonal regularization added to DOF 0 in soft-seam mode to break the 1D
-     * translation nullspace so cold sparse Cholesky succeeds.
-     */
-    static final double NULLSPACE_ANCHOR_WEIGHT = 1.0;
 
     /** Corners per triangular face. */
     private static final int CORNERS_PER_FACE = 3;
     /** Components per chart vertex (0 = u, 1 = v). */
     private static final int COMPONENTS_PER_CHART_VERTEX = 2;
-    /** Bit shift used to pack (row, col) into a long key. */
-    private static final int KEY_ROW_SHIFT = 32;
-    /** Low-32 mask used to extract col from a packed (row, col) key. */
-    private static final long KEY_COL_MASK = 0xFFFFFFFFL;
-    /** Halve factor for the upper-triangle double-count correction. */
-    private static final double UPPER_HALVE_FACTOR = 0.5;
-    /** Initial-capacity hint for the upper-triangle key set during plan build. */
-    private static final int AVG_NONZEROS_PER_ROW = 8;
-    /** Tolerance for the leftover-row Gauss-Jordan pivot magnitude. */
-    private static final double LEFTOVER_REDUCE_TOLERANCE = 1.0e-10;
     /** Sentinel for "this edge is not an alignment edge". */
     private static final int NOT_ALIGNMENT = -1;
     /**
@@ -103,16 +85,16 @@ public final class SeamlessDofSystem {
     /** Coefficients matching {@link #chartVertexFinalDofs}. */
     public final double[][][] chartVertexFinalCoefs;
     /**
-     * True if final-DOF i must round to an integer. Deliberately all-false:
-     * LCK21a §3's input is a <em>non-quantized</em> seamless parametrization —
-     * rigid transitions are 90°k rotations plus <em>real</em> translations, and
-     * every integer is assigned later by the T-mesh quantization ILP. BZK09's
-     * iterative rounding (singularity positions, cut translations, feature
-     * isos) exists only because its map directly IS the quad mesh; CBK15 §1
-     * documents that rounding as non-robust (collapsing singularities — our
-     * rocker-arm dipole bug), and rounding cut translations to integers
-     * manufactures exact-integer holonomy, i.e. artificial saddle connections
-     * that send sibling separatrices head-on into each other mesh-wide.
+     * True if final-DOF i must round to an integer. Deliberately all-false: LCK21a
+     * §3's input is a <em>non-quantized</em> seamless parametrization — rigid
+     * transitions are 90°k rotations plus <em>real</em> translations, and every
+     * integer is assigned later by the T-mesh quantization ILP. BZK09's iterative
+     * rounding (singularity positions, cut translations, feature isos) exists only
+     * because its map directly IS the quad mesh; CBK15 §1 documents that rounding
+     * as non-robust (collapsing singularities — our rocker-arm dipole bug), and
+     * rounding cut translations to integers manufactures exact-integer holonomy,
+     * i.e. artificial saddle connections that send sibling separatrices head-on
+     * into each other mesh-wide.
      */
     public final boolean[] dofIsInteger;
 
@@ -134,51 +116,19 @@ public final class SeamlessDofSystem {
      */
     public final double[] dofPinnedValue;
 
-    /** Sorted (row, col) packed-long keys — slot id = array index. */
-    private long[] planUpperKeys;
-    /**
-     * CSR-style: per-face upper-entry range is
-     * {@code [planPerFaceUpperStart[f], planPerFaceUpperStart[f+1])}.
-     */
-    private int[] planPerFaceUpperStart;
-    /** Flat list of upper-triangle slot indices, one per (face, contribution). */
-    private int[] planPerFaceUpperSlot;
-    /** Per-entry coefficient (× 0.5 baked in for halve-correctness). */
-    private double[] planPerFaceUpperCoef;
-    /** CSR-style per-face diagonal-entry start. */
-    private int[] planPerFaceDiagonalStart;
-    /** Flat list of diagonal DOF indices. */
-    private int[] planPerFaceDiagonalDof;
-    /** Per-entry diagonal coefficient (no halve). */
-    private double[] planPerFaceDiagonalCoef;
-    /** CSR-style per-face RHS-entry start. */
-    private int[] planPerFaceRhsStart;
-    /** Flat list of RHS DOF indices. */
-    private int[] planPerFaceRhsDof;
-    /**
-     * Per-entry RHS coefficient (sum of u + v target contributions for this
-     * face/dof).
-     */
-    private double[] planPerFaceRhsCoef;
-    /** Gauge-pin static diagonal contributions, length {@link #dofCount}. */
-    private double[] planStaticDiagonal;
-    /**
-     * Gauge-pin static upper contributions, indexed by slot in
-     * {@link #planUpperKeys}.
-     */
-    private double[] planStaticUpperValues;
     /** Cached AMD column permutation for this DOF system's SPD matrix. */
     private int[] cachedAmdPerm;
     private SeamlessParameterization seamless;
     private CutGraph cutGraph;
     private HalfEdgeMesh mesh;
     private CrossField crossField;
+    private AssemblyPlanBuilder assemblyPlan;
 
     /**
      * Build the DOF system snapshot for one seamless build.
      *
-     * @param seamless seamless parametrization whose mesh / cross-field /
-     *                 per-face geometry to snapshot
+     * @param seamless seamless parametrization whose mesh / cross-field / per-face
+     *                 geometry to snapshot
      * @param cutGraph cut graph whose seam edges drive the DOF layout
      */
     public SeamlessDofSystem(SeamlessParameterization seamless, CutGraph cutGraph) {
@@ -228,31 +178,32 @@ public final class SeamlessDofSystem {
      *         apply with {@link #applyIntegerPinPenalty})
      */
     public NormalMatrix assemble(double[] faceWeight) {
-        if (planUpperKeys == null) {
-            buildAssemblyPlan();
+        if (assemblyPlan == null) {
+            this.assemblyPlan = new AssemblyPlanBuilder(seamless.faceCount);
+            this.assemblyPlan.build(seamless, chartVertexFinalDofs, chartVertexFinalCoefs, cutGraph, dofCount);
         }
-        double[] diag = planStaticDiagonal.clone();
-        double[] upper = planStaticUpperValues.clone();
+        double[] diag = assemblyPlan.planStaticDiagonal.clone();
+        double[] upper = assemblyPlan.planStaticUpperValues.clone();
         double[] rhs = new double[dofCount];
         for (int f = 0; f < seamless.faceCount; f++) {
             double w = faceWeight[f];
             if (w == 0.0) {
                 continue;
             }
-            int uEnd = planPerFaceUpperStart[f + 1];
-            for (int i = planPerFaceUpperStart[f]; i < uEnd; i++) {
-                upper[planPerFaceUpperSlot[i]] += w * planPerFaceUpperCoef[i];
+            int uEnd = assemblyPlan.perFaceUpperStart[f + 1];
+            for (int i = assemblyPlan.perFaceUpperStart[f]; i < uEnd; i++) {
+                upper[assemblyPlan.perFaceUpperSlot[i]] += w * assemblyPlan.perFaceUpperCoef[i];
             }
-            int dEnd = planPerFaceDiagonalStart[f + 1];
-            for (int i = planPerFaceDiagonalStart[f]; i < dEnd; i++) {
-                diag[planPerFaceDiagonalDof[i]] += w * planPerFaceDiagonalCoef[i];
+            int dEnd = assemblyPlan.perFaceDiagonalStart[f + 1];
+            for (int i = assemblyPlan.perFaceDiagonalStart[f]; i < dEnd; i++) {
+                diag[assemblyPlan.perFaceDiagonalDof[i]] += w * assemblyPlan.perFaceDiagonalCoef[i];
             }
-            int rEnd = planPerFaceRhsStart[f + 1];
-            for (int i = planPerFaceRhsStart[f]; i < rEnd; i++) {
-                rhs[planPerFaceRhsDof[i]] += w * planPerFaceRhsCoef[i];
+            int rEnd = assemblyPlan.perFaceRhsStart[f + 1];
+            for (int i = assemblyPlan.perFaceRhsStart[f]; i < rEnd; i++) {
+                rhs[assemblyPlan.perFaceRhsDof[i]] += w * assemblyPlan.perFaceRhsCoef[i];
             }
         }
-        return new NormalMatrix(diag, planUpperKeys, upper, rhs);
+        return new NormalMatrix(diag, assemblyPlan.planUpperKeys, upper, rhs);
     }
 
     /**
@@ -405,9 +356,9 @@ public final class SeamlessDofSystem {
 
     /**
      * Reduce the leftover-constraint system {@code L · x = 0} to a set of
-     * substitution rules, one per pivoted raw DOF, by sparse Gauss-Jordan
-     * elimination with partial pivoting on the largest-magnitude entry. Populates
-     * {@link #leftoverPivotDofs}, {@link #leftoverPivotCoefs},
+     * substitution rules, one per pivoted raw DOF, via
+     * {@link LeftoverConstraintEliminator}'s sparse Gauss-Jordan elimination.
+     * Populates {@link #leftoverPivotDofs}, {@link #leftoverPivotCoefs},
      * {@link #rawDofToFinal}.
      *
      * @return number of final DOFs after pivot elimination
@@ -438,59 +389,11 @@ public final class SeamlessDofSystem {
         }
         addAlignmentEqualityRows(rows);
 
-        int totalRows = rows.size();
-        boolean[] rowPivoted = new boolean[totalRows];
-        for (int processed = 0; processed < totalRows; processed++) {
-            int bestRow = -1;
-            int bestPivot = -1;
-            double bestMagnitude = 0.0;
-            for (int rowIdx = 0; rowIdx < totalRows; rowIdx++) {
-                if (rowPivoted[rowIdx]) {
-                    continue;
-                }
-                for (Map.Entry<Integer, Double> entry : rows.get(rowIdx).entrySet()) {
-                    double magnitude = Math.abs(entry.getValue());
-                    if (magnitude > bestMagnitude) {
-                        bestMagnitude = magnitude;
-                        bestRow = rowIdx;
-                        bestPivot = entry.getKey();
-                    }
-                }
-            }
-            if (bestRow < 0 || bestMagnitude < LEFTOVER_REDUCE_TOLERANCE) {
-                break;
-            }
-            HashMap<Integer, Double> pivotRow = rows.get(bestRow);
-            double pivotCoef = pivotRow.remove(bestPivot);
-            int[] subsDofs = new int[pivotRow.size()];
-            double[] subsCoefs = new double[pivotRow.size()];
-            int idx = 0;
-            for (Map.Entry<Integer, Double> entry : pivotRow.entrySet()) {
-                subsDofs[idx] = entry.getKey();
-                subsCoefs[idx] = -entry.getValue() / pivotCoef;
-                idx++;
-            }
-            leftoverPivotDofs[bestPivot] = subsDofs;
-            leftoverPivotCoefs[bestPivot] = subsCoefs;
-            rowPivoted[bestRow] = true;
-            for (int rowIdx = 0; rowIdx < totalRows; rowIdx++) {
-                if (rowIdx == bestRow) {
-                    continue;
-                }
-                HashMap<Integer, Double> otherRow = rows.get(rowIdx);
-                Double otherCoef = otherRow.remove(bestPivot);
-                if (otherCoef == null) {
-                    continue;
-                }
-                for (int i = 0; i < subsDofs.length; i++) {
-                    otherRow.merge(subsDofs[i], otherCoef * subsCoefs[i], Double::sum);
-                }
-                otherRow.entrySet().removeIf(e -> Math.abs(e.getValue()) < LEFTOVER_REDUCE_TOLERANCE);
-            }
-        }
-
+        LeftoverConstraintEliminator eliminator = new LeftoverConstraintEliminator(rows, rawDofCount);
         int nextFinal = 0;
         for (int rawDof = 0; rawDof < rawDofCount; rawDof++) {
+            leftoverPivotDofs[rawDof] = eliminator.pivotDofs[rawDof];
+            leftoverPivotCoefs[rawDof] = eliminator.pivotCoefs[rawDof];
             if (leftoverPivotDofs[rawDof] != null) {
                 rawDofToFinal[rawDof] = -1;
             } else {
@@ -656,184 +559,5 @@ public final class SeamlessDofSystem {
         }
         int finalDof = rawDofToFinal[rawDof];
         finalAccum.merge(finalDof, coef, Double::sum);
-    }
-
-    /**
-     * Build the cached assembly playback log. Walks every face once, accumulating
-     * per-face contributions into temporary HashMaps; then compacts into CSR-style
-     * flat arrays for fast replay. Gauge-pin contributions go into the static
-     * arrays since they don't vary with face weight. Halve correction (× 0.5) is
-     * baked into upper coefficients (matches the current code's post-pass
-     * {@code replaceAll((k, v) -> v * 0.5)} which only halves the upper triangle
-     * and leaves the diagonal alone).
-     */
-    @SuppressWarnings("unchecked")
-    private void buildAssemblyPlan() {
-        double edgeLengthSquared = (double) seamless.targetQuadEdgeLength * seamless.targetQuadEdgeLength;
-
-        HashMap<Long, Double>[] perFaceUpper = new HashMap[seamless.faceCount];
-        HashMap<Integer, Double>[] perFaceDiagonal = new HashMap[seamless.faceCount];
-        HashMap<Integer, Double>[] perFaceRhs = new HashMap[seamless.faceCount];
-        HashSet<Long> uniqueUpperKeys = new HashSet<>(dofCount * AVG_NONZEROS_PER_ROW);
-
-        double[] shapeGradX = new double[CORNERS_PER_FACE];
-        double[] shapeGradY = new double[CORNERS_PER_FACE];
-        int[] cornerChartVertex = new int[CORNERS_PER_FACE];
-
-        for (int f = 0; f < seamless.faceCount; f++) {
-            HashMap<Long, Double> upperMap = new HashMap<>();
-            HashMap<Integer, Double> diagonalMap = new HashMap<>();
-            HashMap<Integer, Double> rhsMap = new HashMap<>();
-            perFaceUpper[f] = upperMap;
-            perFaceDiagonal[f] = diagonalMap;
-            perFaceRhs[f] = rhsMap;
-
-            double area = seamless.faceArea[f];
-            if (area <= 0) {
-                continue;
-            }
-            int faceCornerBase = f * CORNERS_PER_FACE;
-            for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
-                shapeGradX[corner] = seamless.faceShapeB[faceCornerBase + corner];
-                shapeGradY[corner] = seamless.faceShapeC[faceCornerBase + corner];
-                cornerChartVertex[corner] = cutGraph.cornerToChartVertex[faceCornerBase + corner];
-            }
-            double targetUx = seamless.faceUtxLocal[f], targetUy = seamless.faceUtyLocal[f];
-            double targetVx = seamless.faceVtxLocal[f], targetVy = seamless.faceVtyLocal[f];
-
-            for (int cornerI = 0; cornerI < CORNERS_PER_FACE; cornerI++) {
-                for (int cornerJ = 0; cornerJ < CORNERS_PER_FACE; cornerJ++) {
-                    double stiffnessConstant = area * edgeLengthSquared
-                            * (shapeGradX[cornerI] * shapeGradX[cornerJ]
-                                    + shapeGradY[cornerI] * shapeGradY[cornerJ]);
-                    if (stiffnessConstant == 0.0) {
-                        continue;
-                    }
-                    accumulatePerFaceOuterProduct(upperMap, diagonalMap,
-                            chartVertexFinalDofs[cornerChartVertex[cornerI]][0],
-                            chartVertexFinalCoefs[cornerChartVertex[cornerI]][0],
-                            chartVertexFinalDofs[cornerChartVertex[cornerJ]][0],
-                            chartVertexFinalCoefs[cornerChartVertex[cornerJ]][0],
-                            stiffnessConstant);
-                    accumulatePerFaceOuterProduct(upperMap, diagonalMap,
-                            chartVertexFinalDofs[cornerChartVertex[cornerI]][1],
-                            chartVertexFinalCoefs[cornerChartVertex[cornerI]][1],
-                            chartVertexFinalDofs[cornerChartVertex[cornerJ]][1],
-                            chartVertexFinalCoefs[cornerChartVertex[cornerJ]][1],
-                            stiffnessConstant);
-                }
-            }
-
-            for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
-                double uRhsConstant = area * seamless.targetQuadEdgeLength
-                        * (shapeGradX[corner] * targetUx + shapeGradY[corner] * targetUy);
-                double vRhsConstant = area * seamless.targetQuadEdgeLength
-                        * (shapeGradX[corner] * targetVx + shapeGradY[corner] * targetVy);
-                int[] uExpDofs = chartVertexFinalDofs[cornerChartVertex[corner]][0];
-                double[] uExpCoefs = chartVertexFinalCoefs[cornerChartVertex[corner]][0];
-                for (int i = 0; i < uExpDofs.length; i++) {
-                    rhsMap.merge(uExpDofs[i], uRhsConstant * uExpCoefs[i], Double::sum);
-                }
-                int[] vExpDofs = chartVertexFinalDofs[cornerChartVertex[corner]][1];
-                double[] vExpCoefs = chartVertexFinalCoefs[cornerChartVertex[corner]][1];
-                for (int i = 0; i < vExpDofs.length; i++) {
-                    rhsMap.merge(vExpDofs[i], vRhsConstant * vExpCoefs[i], Double::sum);
-                }
-            }
-
-            uniqueUpperKeys.addAll(upperMap.keySet());
-        }
-
-        HashMap<Long, Double> staticUpper = new HashMap<>();
-        HashMap<Integer, Double> staticDiagonal = new HashMap<>();
-        for (int cv = 0; cv < cutGraph.chartVertexCount; cv++) {
-            if (cutGraph.chartVertexIsPrimary[cv]) {
-                staticDiagonal.merge(chartVertexFinalDofs[cv][0][0], NULLSPACE_ANCHOR_WEIGHT, Double::sum);
-                staticDiagonal.merge(chartVertexFinalDofs[cv][1][0], NULLSPACE_ANCHOR_WEIGHT, Double::sum);
-                break;
-            }
-        }
-        uniqueUpperKeys.addAll(staticUpper.keySet());
-
-        planUpperKeys = uniqueUpperKeys.stream().mapToLong(Long::longValue).sorted().toArray();
-        HashMap<Long, Integer> keyToSlot = new HashMap<>(planUpperKeys.length * 2);
-        for (int s = 0; s < planUpperKeys.length; s++) {
-            keyToSlot.put(planUpperKeys[s], s);
-        }
-
-        planStaticDiagonal = new double[dofCount];
-        planStaticUpperValues = new double[planUpperKeys.length];
-        for (Map.Entry<Integer, Double> e : staticDiagonal.entrySet()) {
-            planStaticDiagonal[e.getKey()] = e.getValue();
-        }
-        for (Map.Entry<Long, Double> e : staticUpper.entrySet()) {
-            planStaticUpperValues[keyToSlot.get(e.getKey())] = e.getValue();
-        }
-
-        int totalUpper = 0;
-        int totalDiagonal = 0;
-        int totalRhs = 0;
-        for (int f = 0; f < seamless.faceCount; f++) {
-            totalUpper += perFaceUpper[f].size();
-            totalDiagonal += perFaceDiagonal[f].size();
-            totalRhs += perFaceRhs[f].size();
-        }
-        planPerFaceUpperStart = new int[seamless.faceCount + 1];
-        planPerFaceUpperSlot = new int[totalUpper];
-        planPerFaceUpperCoef = new double[totalUpper];
-        planPerFaceDiagonalStart = new int[seamless.faceCount + 1];
-        planPerFaceDiagonalDof = new int[totalDiagonal];
-        planPerFaceDiagonalCoef = new double[totalDiagonal];
-        planPerFaceRhsStart = new int[seamless.faceCount + 1];
-        planPerFaceRhsDof = new int[totalRhs];
-        planPerFaceRhsCoef = new double[totalRhs];
-
-        int uCursor = 0, dCursor = 0, rCursor = 0;
-        for (int f = 0; f < seamless.faceCount; f++) {
-            planPerFaceUpperStart[f] = uCursor;
-            for (Map.Entry<Long, Double> e : perFaceUpper[f].entrySet()) {
-                planPerFaceUpperSlot[uCursor] = keyToSlot.get(e.getKey());
-                planPerFaceUpperCoef[uCursor] = e.getValue() * UPPER_HALVE_FACTOR;
-                uCursor++;
-            }
-            planPerFaceDiagonalStart[f] = dCursor;
-            for (Map.Entry<Integer, Double> e : perFaceDiagonal[f].entrySet()) {
-                planPerFaceDiagonalDof[dCursor] = e.getKey();
-                planPerFaceDiagonalCoef[dCursor] = e.getValue();
-                dCursor++;
-            }
-            planPerFaceRhsStart[f] = rCursor;
-            for (Map.Entry<Integer, Double> e : perFaceRhs[f].entrySet()) {
-                planPerFaceRhsDof[rCursor] = e.getKey();
-                planPerFaceRhsCoef[rCursor] = e.getValue();
-                rCursor++;
-            }
-        }
-        planPerFaceUpperStart[seamless.faceCount] = uCursor;
-        planPerFaceDiagonalStart[seamless.faceCount] = dCursor;
-        planPerFaceRhsStart[seamless.faceCount] = rCursor;
-    }
-
-    private static void accumulatePerFaceOuterProduct(
-            HashMap<Long, Double> upperMap, HashMap<Integer, Double> diagonalMap,
-            int[] dofsA, double[] coefsA, int[] dofsB, double[] coefsB, double scale) {
-        for (int a = 0; a < dofsA.length; a++) {
-            for (int b = 0; b < dofsB.length; b++) {
-                double value = scale * coefsA[a] * coefsB[b];
-                if (value == 0.0) {
-                    continue;
-                }
-                int rowA = dofsA[a];
-                int colB = dofsB[b];
-                if (rowA == colB) {
-                    diagonalMap.merge(rowA, value, Double::sum);
-                } else {
-                    int r = Math.min(rowA, colB);
-                    int c = Math.max(rowA, colB);
-                    long key = ((long) r << KEY_ROW_SHIFT) | (c & KEY_COL_MASK);
-                    upperMap.merge(key, value, Double::sum);
-                }
-            }
-        }
     }
 }

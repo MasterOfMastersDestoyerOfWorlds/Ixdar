@@ -57,28 +57,29 @@ public class AMDOrdering {
 
     /**
      * Compute the approximate-minimum-degree fill-reducing ordering of the
-     * matrix's symmetric sparsity pattern and return the matrix permuted by it
-     * (AMD_1: build A+A' without duplicates/diagonal, then run AMD_2).
+     * matrix's symmetric sparsity pattern (AMD_1: build A+A' without
+     * duplicates/diagonal, then run AMD_2). Results land in
+     * {@link #permutation} / {@link #inversePermutation}; callers that need
+     * the matrix itself permuted apply the permutation via the
+     * {@link NormalMatrix} permuting constructor — this method deliberately
+     * does not build that copy, since the dominant caller only wants the
+     * ordering.
      *
      * @param matrix symmetric system matrix to order; not modified
-     * @return a new {@link NormalMatrix} with rows/columns permuted by the
-     *         computed ordering
      */
-    public NormalMatrix order(NormalMatrix matrix) {
-        validateSymmetricPattern(matrix);
+    public void order(NormalMatrix matrix) {
         n = matrix.variableCount;
         slen = matrix.rowColumn.length + matrix.rowColumn.length / 5 + 7 * n;
         iwlen = slen - 6 * n;
         columnStart = new int[n + 1];
+        int[] sortedColumns = matrix.rowColumn.clone();
         int[] columnDegree = new int[n];
         for (int column = 0; column < n; column++) {
-            int[] sortedRows = Arrays.copyOfRange(
-                    matrix.rowColumn, matrix.rowStart[column], matrix.rowStart[column + 1]);
-            Arrays.sort(sortedRows);
-
+            Arrays.sort(sortedColumns, matrix.rowStart[column], matrix.rowStart[column + 1]);
             int uniqueCount = 0;
             int previousRow = -1;
-            for (int row : sortedRows) {
+            for (int cursor = matrix.rowStart[column]; cursor < matrix.rowStart[column + 1]; cursor++) {
+                int row = sortedColumns[cursor];
                 if (row != column && row != previousRow) {
                     uniqueCount++;
                     previousRow = row;
@@ -106,13 +107,10 @@ public class AMDOrdering {
         nextDegree = new int[n];
 
         for (int column = 0; column < n; column++) {
-            int[] sortedRows = Arrays.copyOfRange(
-                    matrix.rowColumn, matrix.rowStart[column], matrix.rowStart[column + 1]);
-            Arrays.sort(sortedRows);
-
             int writeIndex = columnStart[column];
             int previousRow = -1;
-            for (int row : sortedRows) {
+            for (int cursor = matrix.rowStart[column]; cursor < matrix.rowStart[column + 1]; cursor++) {
+                int row = sortedColumns[cursor];
                 if (row != column && row != previousRow) {
                     rowIndex[writeIndex++] = row;
                     previousRow = row;
@@ -200,8 +198,6 @@ public class AMDOrdering {
 
         System.arraycopy(lastDegree, 0, permutation, 0, n);
         System.arraycopy(nextDegree, 0, inversePermutation, 0, n);
-
-        return new NormalMatrix(matrix, permutation, inversePermutation);
     }
 
     private void orderMatrix() {

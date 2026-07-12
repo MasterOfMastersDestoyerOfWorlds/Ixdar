@@ -179,7 +179,7 @@ public class BommesCrossField extends CrossField {
             start[fAi] = faceConstrained[fAi] ? faceConstraintAngle[fAi] : 0.0;
         }
         final DirectSolver.CholeskyHandle handle = DirectSolver.factorize(matrix, faceConstrained, OrderingMethod.RCM);
-        if (handle.solver() == null) {
+        if (handle.factor() == null) {
             return;
         }
 
@@ -247,6 +247,7 @@ public class BommesCrossField extends CrossField {
         }
         buildRhs(mainRhs, -1, 0);
         DirectSolver.solveCompact(handle, matrix, mainRhs, mainTheta, start, faceConstrained);
+        DirectSolver.releaseHandle(handle);
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
             theta[activeFace] = (float) mainTheta[activeFace];
         }

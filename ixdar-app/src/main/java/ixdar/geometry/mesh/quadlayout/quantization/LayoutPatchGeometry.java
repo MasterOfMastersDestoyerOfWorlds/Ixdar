@@ -6,7 +6,6 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.BezierFit;
 import ixdar.geometry.mesh.data.CoonsEvaluator;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
@@ -43,9 +42,6 @@ public final class LayoutPatchGeometry {
 
     /** Canonical (start corner, end corner) of each side: A→B, B→C, D→C, A→D. */
     private static final int[][] SIDE_CORNERS = { { 0, 1 }, { 1, 2 }, { 3, 2 }, { 0, 3 } };
-
-    /** Floats per packed xyz point. */
-    private static final int FLOATS_PER_POINT = 3;
 
     public final TJunctionElimination conforming;
     public final MotorcycleGraph motorcycleGraph;
@@ -371,30 +367,57 @@ public final class LayoutPatchGeometry {
     }
 
     /**
-     * Fit cubic Béziers to a clean quad's four sides and sample its Coons grid.
+     * Resample a clean quad's four side polylines and blend them into a discrete
+     * Coons grid. The exact polylines are the fill boundary — two patches sharing a
+     * side resample the same lifted points, so their grids coincide along it.
      * Side-to-Coons convention: side 0 (A→B) is u at v=0, side 2 canonical (D→C) is
-     * u at v=1, side 3 canonical (A→D) is v at u=0, and side 1 (B→C) is v at u=1,
-     * so all four corner identities required by {@link CoonsEvaluator} hold.
+     * u at v=1, side 3 canonical (A→D) is v at u=0, and side 1 (B→C) is v at u=1;
+     * snapping each sampled side's endpoints to the averaged corner positions makes
+     * the four corner identities required by {@link CoonsEvaluator} exact.
      *
      * @param curves clean patch whose {@code coonsGrid} gets filled
      */
     private void tessellate(LayoutPatchCurves curves) {
-        Vector3f[][] sideBeziers = new Vector3f[LayoutRectangle.SIDES][];
+        Vector3f[][] sampledSides = new Vector3f[LayoutRectangle.SIDES][];
         for (int side = 0; side < LayoutRectangle.SIDES; side++) {
-            List<Vector3f> polyline = curves.sidePolylines.get(side);
-            float[] positions = new float[polyline.size() * FLOATS_PER_POINT];
-            int[] indices = new int[polyline.size()];
-            for (int index = 0; index < polyline.size(); index++) {
-                Vector3f point = polyline.get(index);
-                positions[index * FLOATS_PER_POINT] = point.x;
-                positions[index * FLOATS_PER_POINT + 1] = point.y;
-                positions[index * FLOATS_PER_POINT + 2] = point.z;
-                indices[index] = index;
-            }
-            sideBeziers[side] = BezierFit.fitCubic(indices, positions);
+            Vector3f[] sampled = resampleSide(curves.sidePolylines.get(side), COONS_SAMPLES);
+            sampled[0] = new Vector3f(curves.cornerPositions[SIDE_CORNERS[side][0]]);
+            sampled[COONS_SAMPLES - 1] = new Vector3f(curves.cornerPositions[SIDE_CORNERS[side][1]]);
+            sampledSides[side] = sampled;
         }
-        curves.coonsGrid = CoonsEvaluator.sampleGrid(
-                sideBeziers[0], sideBeziers[2], sideBeziers[3], sideBeziers[1], COONS_SAMPLES);
+        curves.coonsGrid = CoonsEvaluator.blendGrid(
+                sampledSides[0], sampledSides[2], sampledSides[3], sampledSides[1]);
+    }
+
+    /**
+     * Resample a side polyline at arc-length-uniform stations; the first and last
+     * samples are the polyline's exact endpoints.
+     *
+     * @param polyline side polyline with at least two points and positive length
+     * @param samples  number of stations to produce
+     * @return the resampled points in polyline order
+     */
+    private Vector3f[] resampleSide(List<Vector3f> polyline, int samples) {
+        double[] cumulative = new double[polyline.size()];
+        for (int index = 1; index < polyline.size(); index++) {
+            cumulative[index] = cumulative[index - 1]
+                    + polyline.get(index - 1).distance(polyline.get(index));
+        }
+        double total = cumulative[polyline.size() - 1];
+        Vector3f[] sampled = new Vector3f[samples];
+        int segment = 1;
+        for (int station = 0; station < samples; station++) {
+            double target = total * station / (samples - 1);
+            while (segment < polyline.size() - 1 && cumulative[segment] < target) {
+                segment++;
+            }
+            double segmentLength = cumulative[segment] - cumulative[segment - 1];
+            double fraction = segmentLength <= 0.0 ? 0.0
+                    : (target - cumulative[segment - 1]) / segmentLength;
+            sampled[station] = new Vector3f(polyline.get(segment - 1))
+                    .lerp(polyline.get(segment), (float) fraction);
+        }
+        return sampled;
     }
 
     /**

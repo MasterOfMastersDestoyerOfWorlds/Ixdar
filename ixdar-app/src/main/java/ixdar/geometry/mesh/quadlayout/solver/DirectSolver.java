@@ -2,41 +2,38 @@ package ixdar.geometry.mesh.quadlayout.solver;
 
 import java.util.Arrays;
 
-import org.ejml.data.DMatrixRMaj;
-import org.ejml.data.DMatrixSparseCSC;
-import org.ejml.interfaces.linsol.LinearSolverSparse;
-import org.ejml.sparse.FillReducing;
-import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
-
 public final class DirectSolver {
 
     /**
      * Pre-computed Cholesky factorization plus the metadata needed to apply it to a
-     * right-hand side: the RCM permutation, the free/full index mapping, and
-     * reusable {@link DMatrixRMaj} scratch buffers for the triangular solve.
+     * right-hand side: the fill-reducing permutation, the free/full index mapping,
+     * and reusable scratch vectors for the triangular solve.
      *
      * <p>
-     * Build with {@link AdaptiveSolver#factorize}. Reuse across many right-hand
-     * sides via {@link AdaptiveSolver#solveCompact}. <strong>Not
-     * thread-safe</strong>: EJML's sparse Cholesky solver keeps internal scratch
-     * state during {@code solve()}, so a handle should be used by one thread at a
-     * time (typically held in a {@link ThreadLocal}).
+     * Build with {@link DirectSolver#factorize}. Reuse across many right-hand
+     * sides via {@link DirectSolver#solveCompact}. <strong>Not thread-safe</strong>:
+     * the backing factor keeps internal scratch state during {@code solve()}, so a
+     * handle should be used by one thread at a time (typically held in a
+     * {@link ThreadLocal}). Call {@link FactorizedSystem#release()} on
+     * {@code factor} when the handle is discarded — native backends hold
+     * off-heap memory.
      *
-     * @param n         full-matrix dimension (size of the original
-     *                  {@link NormalMatrix})
-     * @param freeCount number of free (non-fixed) variables
-     * @param compactOf {@code compactOf[fullIndex]} = compact (free-only) index, or
-     *                  -1 if fixed
-     * @param fullOf    {@code fullOf[compactIndex]} = original full-matrix row/col
-     * @param perm      {@code perm[newCompactIndex]} = old compact index (RCM
-     *                  ordering)
-     * @param invPerm   {@code invPerm[oldCompactIndex]} = new compact index
-     * @param solver    factorized EJML solver; {@code null} when
-     *                  {@code freeCount == 0}
-     * @param b         reusable RHS buffer in permuted (new-compact) order;
-     *                  {@code null} when {@code freeCount == 0}
-     * @param x         reusable solution buffer in permuted (new-compact) order;
-     *                  {@code null} when {@code freeCount == 0}
+     * @param n               full-matrix dimension (size of the original
+     *                        {@link NormalMatrix})
+     * @param freeCount       number of free (non-fixed) variables
+     * @param compactOf       {@code compactOf[fullIndex]} = compact (free-only)
+     *                        index, or -1 if fixed
+     * @param fullOf          {@code fullOf[compactIndex]} = original full-matrix
+     *                        row/col
+     * @param perm            {@code perm[newCompactIndex]} = old compact index
+     *                        (fill-reducing ordering)
+     * @param invPerm         {@code invPerm[oldCompactIndex]} = new compact index
+     * @param factor          backend factorization; {@code null} when
+     *                        {@code freeCount == 0}
+     * @param rhsScratch      reusable RHS vector in permuted (new-compact) order;
+     *                        {@code null} when {@code freeCount == 0}
+     * @param solutionScratch reusable solution vector in permuted (new-compact)
+     *                        order; {@code null} when {@code freeCount == 0}
      */
     public record CholeskyHandle(
             int n,
@@ -45,15 +42,15 @@ public final class DirectSolver {
             int[] fullOf,
             int[] perm,
             int[] invPerm,
-            LinearSolverSparse<DMatrixSparseCSC, DMatrixRMaj> solver,
-            DMatrixRMaj b,
-            DMatrixRMaj x) {
+            FactorizedSystem factor,
+            double[] rhsScratch,
+            double[] solutionScratch) {
     }
 
     /**
      * Factorize the compact system for the free variables (those with
-     * {@code !fixed[i]}) using a sparse Cholesky factorization with
-     * reverse-Cuthill-McKee ordering.
+     * {@code !fixed[i]}) using a sparse Cholesky factorization with the
+     * requested fill-reducing ordering.
      *
      * @param matrix   the system matrix
      * @param fixed    the per-variable fixed flag
@@ -142,26 +139,16 @@ public final class DirectSolver {
         for (int i = 0; i < freeCount; i++) {
             invPerm[perm[i]] = i;
         }
-        NormalMatrix.CompressedSparseColumnArrays csc = matrix.toPermutedUpperCompressedSparseColumn(freeCount, fixed,
-                compactOf, fullOf,
-                perm, invPerm);
-        DMatrixSparseCSC CSCMatrix = new DMatrixSparseCSC(freeCount, freeCount, csc.values().length);
-        CSCMatrix.col_idx = csc.colPtr();
-        CSCMatrix.nz_rows = csc.rowIdx();
-        CSCMatrix.nz_values = csc.values();
-        CSCMatrix.nz_length = csc.values().length;
-        var solver = LinearSolverFactory_DSCC.cholesky(FillReducing.NONE);
-        solver.setA(CSCMatrix);
-        DMatrixRMaj b = new DMatrixRMaj(freeCount, 1);
-        DMatrixRMaj solX = new DMatrixRMaj(freeCount, 1);
-        return new CholeskyHandle(n, freeCount, compactOf, fullOf, perm, invPerm, solver, b, solX);
+        FactorizedSystem factor = CholeskyBackend.factor(matrix, freeCount, fixed,
+                compactOf, fullOf, perm, invPerm);
+        return new CholeskyHandle(n, freeCount, compactOf, fullOf, perm, invPerm,
+                factor, new double[freeCount], new double[freeCount]);
     }
 
     /**
      * Solve the compact system for the free variables (those with
-     * {@code !fixed[i]}) using a sparse Cholesky factorization with
-     * reverse-Cuthill-McKee ordering, holding the fixed entries at
-     * {@code start[i]}.
+     * {@code !fixed[i]}) through the handle's factorization, holding the fixed
+     * entries at {@code start[i]}.
      *
      * @param handle the Cholesky handle
      * @param matrix the system matrix
@@ -183,8 +170,8 @@ public final class DirectSolver {
 
         // Build the permuted RHS, folding fixed contributions into it
         // (a_ij * x_j moves from LHS to RHS when x_j is fixed).
-        double[] bData = handle.b().data;
-        double[] xData = handle.x().data;
+        double[] permutedRhs = handle.rhsScratch();
+        double[] permutedSolution = handle.solutionScratch();
         int[] perm = handle.perm();
         int[] fullOf = handle.fullOf();
         int[] rowStart = matrix.rowStart;
@@ -199,12 +186,12 @@ public final class DirectSolver {
                     value -= rowVal[c] * start[col];
                 }
             }
-            bData[newRow] = value;
+            permutedRhs[newRow] = value;
         }
 
-        handle.solver().solve(handle.b(), handle.x());
+        handle.factor().solve(permutedRhs, permutedSolution);
         for (int newRow = 0; newRow < freeCount; newRow++) {
-            out[fullOf[perm[newRow]]] = xData[newRow];
+            out[fullOf[perm[newRow]]] = permutedSolution[newRow];
         }
     }
 
@@ -213,7 +200,7 @@ public final class DirectSolver {
      * using a sparse Cholesky factorization with the requested fill-reducing
      * ordering, holding the fixed entries at {@code start[i]}. Throws when the
      * matrix is not positive definite (e.g. for closed surfaces with no
-     * anchored variable).
+     * anchored variable). The factorization is released before returning.
      *
      * @param matrix   symmetric system matrix A
      * @param start    initial values; only the fixed entries are read
@@ -230,6 +217,7 @@ public final class DirectSolver {
         CholeskyHandle handle = factorize(matrix, fixed, ordering);
         double[] out = start.clone();
         solveCompact(handle, matrix, matrix.rightHandSide, out, start, fixed);
+        releaseHandle(handle);
         return out;
     }
 
@@ -237,7 +225,8 @@ public final class DirectSolver {
      * Solve {@code A x = b} using a caller-supplied cached permutation.
      * Avoids the cost of recomputing the fill-reducing ordering on every
      * call when the matrix non-zero pattern is invariant (the seamless
-     * stage's 50 stiffening iterations).
+     * stage's 50 stiffening iterations). The factorization is released
+     * before returning.
      *
      * @param matrix symmetric system matrix A
      * @param start  initial values; only the fixed entries are read
@@ -256,7 +245,22 @@ public final class DirectSolver {
         CholeskyHandle handle = factorizeWithPerm(matrix, fixed, perm);
         double[] out = start.clone();
         solveCompact(handle, matrix, matrix.rightHandSide, out, start, fixed);
+        releaseHandle(handle);
         return out;
     }
 
+    /**
+     * Release the handle's backend factorization if it has one. Call when a
+     * handle built with {@link #factorize} / {@link #factorizeWithPerm} is no
+     * longer needed — native backends hold off-heap memory that the garbage
+     * collector only reclaims lazily.
+     *
+     * @param handle handle whose factor should be freed; tolerates the
+     *               {@code freeCount == 0} sentinel with a null factor
+     */
+    public static void releaseHandle(CholeskyHandle handle) {
+        if (handle.factor() != null) {
+            handle.factor().release();
+        }
+    }
 }

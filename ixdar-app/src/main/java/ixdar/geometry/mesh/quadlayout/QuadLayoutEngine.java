@@ -10,6 +10,7 @@ import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
 import ixdar.geometry.mesh.quadlayout.quantization.TJunctionElimination;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
 
 /**
  * Staged driver for the Lyon 2021 quad-layout pipeline:
@@ -66,6 +67,7 @@ public final class QuadLayoutEngine {
     public QuadLayoutEngine(HalfEdgeMesh mesh, float alphaRadians) {
         this.mesh = mesh;
         this.alphaRadians = alphaRadians;
+        CholeskyBackend.preloadAsync();
     }
 
     /**

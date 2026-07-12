@@ -11,8 +11,11 @@ import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.SeamlessProjector;
 import ixdar.geometry.mesh.quadlayout.solver.AMDOrdering;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
+import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.IncrementalCholeskySolver;
 import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.Preconditioner;
 
 /**
  * BZK09 §5 seamless parametrization, stage 3 of the Lyon 2021 quad-layout
@@ -192,6 +195,28 @@ public final class SeamlessParameterization {
     public IncrementalCholeskySolver stiffeningPreconditioner;
 
     /**
+     * AMD permutation computed for the rounding loop's cold factor; reused by
+     * the stiffening loop's native preconditioner factor, whose matrix shares
+     * the same non-zero pattern (pins only touch the diagonal). Null until
+     * {@link #runGreedyIntegerRounding} has run.
+     */
+    public int[] roundingAmdPermutation;
+
+    /**
+     * Native factor of the base system, created by the rounding stage's
+     * no-integer-DOFs fast path and handed to the stiffening loop as its PCG
+     * preconditioner. Null when the fast path didn't run; released (and
+     * nulled) by {@link #runStiffeningLoop}.
+     */
+    public DirectSolver.CholeskyHandle stiffeningNativeHandle;
+
+    /**
+     * Matrix backing {@link #stiffeningNativeHandle}; needed by
+     * {@code DirectSolver.solveCompact} when applying the preconditioner.
+     */
+    public NormalMatrix stiffeningNativeMatrix;
+
+    /**
      * Max PCG iterations per stiffening iter ≥ 1. With a good preconditioner
      * (iter-0 L) the matrix usually converges in well under 50 iters; if PCG hits
      * this cap, the preconditioner has gone stale and a fresh cold factor is
@@ -295,13 +320,22 @@ public final class SeamlessParameterization {
         this.faceWeight = new double[faceCount];
         Arrays.fill(faceWeight, 1.0);
 
+        long dofSystemStart = System.nanoTime();
         this.dofSystem = new SeamlessDofSystem(this, cutGraph);
+        System.out.printf("[seamless timing] dof system %.3fs%n",
+                (System.nanoTime() - dofSystemStart) / 1.0e9);
 
         System.out.println("[seamless] Running greedy integer rounding");
+        long roundingStart = System.nanoTime();
         runGreedyIntegerRounding();
+        System.out.printf("[seamless timing] greedy integer rounding %.3fs%n",
+                (System.nanoTime() - roundingStart) / 1.0e9);
 
         System.out.println("[seamless] Running stiffening loop");
+        long stiffeningStart = System.nanoTime();
         runStiffeningLoop();
+        System.out.printf("[seamless timing] stiffening loop %.3fs%n",
+                (System.nanoTime() - stiffeningStart) / 1.0e9);
 
         System.out.println("[seamless] Writing chart vertices from solution");
         writeChartVerticesFromSolution();
@@ -321,6 +355,15 @@ public final class SeamlessParameterization {
      * BZK09 §2 / §5 greedy rounding. Repeatedly: among unpinned integer DOFs, pick
      * the one whose current solution value is closest to its nearest integer, snap
      * it to that integer, re-solve. Stop when no integer DOF is unpinned.
+     *
+     * <p>
+     * When the constraint reduction already pinned every integer DOF (no
+     * rounding work at all) and the native backend is available, the EJML
+     * rank-1-updatable cold factor is skipped entirely: the base system is
+     * factored once natively for the initial solve and that handle is handed
+     * to the stiffening loop as its PCG preconditioner — the EJML cold factor
+     * of the ~200k-DOF seamless system costs seconds and would otherwise be
+     * used for exactly one solve.
      */
     private void runGreedyIntegerRounding() {
 
@@ -328,19 +371,56 @@ public final class SeamlessParameterization {
         // update of L instead of a full re-factor. Davis ch. 4.10. AMD perm
         // is shared with the stiffening loop's solveOnce calls — same
         // matrix structure across the whole build.
+        long assembleStart = System.nanoTime();
         NormalMatrix baseMatrix = dofSystem.assemble(faceWeight);
+        long amdStart = System.nanoTime();
         AMDOrdering ordering = new AMDOrdering();
         ordering.order(baseMatrix);
         int[] perm = ordering.permutation;
+        long amdEnd = System.nanoTime();
+        roundingAmdPermutation = perm;
+        this.solution = new double[dofSystem.dofCount];
+
+        boolean anyUnpinnedInteger = false;
+        for (int i = 0; i < dofSystem.dofCount; i++) {
+            if (dofSystem.dofIsInteger[i] && !dofSystem.dofPinned[i]) {
+                anyUnpinnedInteger = true;
+                break;
+            }
+        }
+        if (!anyUnpinnedInteger && CholeskyBackend.pardisoAvailable()) {
+            long nativeFactorStart = System.nanoTime();
+            boolean[] noneFixed = new boolean[dofSystem.dofCount];
+            stiffeningNativeHandle = DirectSolver.factorizeWithPerm(baseMatrix, noneFixed, perm);
+            stiffeningNativeMatrix = baseMatrix;
+            DirectSolver.solveCompact(stiffeningNativeHandle, baseMatrix,
+                    baseMatrix.rightHandSide, solution, solution, noneFixed);
+            System.out.printf(
+                    "[seamless timing] rounding assemble %.3fs, amd %.3fs, native factor+solve %.3fs"
+                            + " (n=%d, 0 integer DOFs to pin)%n",
+                    (amdStart - assembleStart) / 1.0e9,
+                    (amdEnd - amdStart) / 1.0e9,
+                    (System.nanoTime() - nativeFactorStart) / 1.0e9,
+                    dofSystem.dofCount);
+            return;
+        }
+
+        long coldFactorStart = System.nanoTime();
         IncrementalCholeskySolver incremental = new IncrementalCholeskySolver();
         if (!incremental.setAWithPerm(baseMatrix, perm)) {
             throw new IllegalStateException(
                     "IGM rounding: cold Cholesky factor of the base system failed");
         }
-        this.solution = new double[dofSystem.dofCount];
+        long pinLoopStart = System.nanoTime();
+        System.out.printf("[seamless timing] rounding assemble %.3fs, amd %.3fs, cold factor %.3fs (n=%d)%n",
+                (amdStart - assembleStart) / 1.0e9,
+                (coldFactorStart - amdStart) / 1.0e9,
+                (pinLoopStart - coldFactorStart) / 1.0e9,
+                dofSystem.dofCount);
         incremental.solve(baseMatrix.rightHandSide, solution);
         double[] runningRhs = baseMatrix.rightHandSide.clone();
 
+        int pinCount = 0;
         while (true) {
             int bestIdx = -1;
             double bestDist = Double.POSITIVE_INFINITY;
@@ -366,8 +446,12 @@ public final class SeamlessParameterization {
             }
             runningRhs[bestIdx] += integerPinWeight * bestValue;
             incremental.solve(runningRhs, solution);
+            pinCount++;
         }
+        System.out.printf("[seamless timing] rounding pin+solve loop %.3fs (%d pins)%n",
+                (System.nanoTime() - pinLoopStart) / 1.0e9, pinCount);
         stiffeningPreconditioner = incremental;
+        roundingAmdPermutation = perm;
     }
 
     /**
@@ -483,6 +567,33 @@ public final class SeamlessParameterization {
      * flipped face" version exhibits.
      */
     private void runStiffeningLoop() {
+        boolean[] noneFixed = new boolean[dofSystem.dofCount];
+        if (stiffeningNativeHandle == null
+                && stiffeningPreconditioner != null
+                && CholeskyBackend.pardisoAvailable()) {
+            long nativeFactorStart = System.nanoTime();
+            NormalMatrix pinnedMatrix = dofSystem.assemble(faceWeight);
+            dofSystem.applyIntegerPinPenalty(pinnedMatrix);
+            try {
+                stiffeningNativeHandle = DirectSolver.factorizeWithPerm(
+                        pinnedMatrix, noneFixed, roundingAmdPermutation);
+                stiffeningNativeMatrix = pinnedMatrix;
+                System.out.printf("[seamless timing] stiffening native preconditioner factor %.3fs%n",
+                        (System.nanoTime() - nativeFactorStart) / 1.0e9);
+            } catch (IllegalStateException nativeFactorFailure) {
+                System.out.println("[seamless] native preconditioner factor failed ("
+                        + nativeFactorFailure.getMessage() + "); using incremental factor");
+            }
+        }
+        Preconditioner preconditioner;
+        if (stiffeningNativeHandle != null) {
+            DirectSolver.CholeskyHandle handle = stiffeningNativeHandle;
+            NormalMatrix handleMatrix = stiffeningNativeMatrix;
+            preconditioner = (residual, output) -> DirectSolver.solveCompact(
+                    handle, handleMatrix, residual, output, output, noneFixed);
+        } else {
+            preconditioner = stiffeningPreconditioner::solve;
+        }
         int initialFlipped = -1;
         int previousFlipped = -1;
         for (int iter = 0; iter <= maxStiffeningIterations; iter++) {
@@ -491,7 +602,7 @@ public final class SeamlessParameterization {
             dofSystem.applyIntegerPinPenalty(matrix);
             AdaptiveSolver.PcgResult result = AdaptiveSolver.preconditionedConjugateGradient(
                     matrix, solution, dofSystem.dofPinned,
-                    stiffeningPreconditioner::solve,
+                    preconditioner,
                     stiffeningPcgMaxIterations, stiffeningPcgRelativeTolerance);
             System.out.printf("[stiffening pcg] %s in %d iters%n",
                     result.converged() ? "converged" : "DID NOT converge",
@@ -505,11 +616,11 @@ public final class SeamlessParameterization {
             previousFlipped = flipped;
             if (flipped == 0) {
                 injective = true;
-                return;
+                break;
             }
             if (iter == maxStiffeningIterations) {
                 injective = false;
-                return;
+                break;
             }
             // Step 1: BZK09 §5.4 Δλ-Laplacian update — penalises *boundaries* of
             // high-distortion regions, not the interiors. Damps the IRLS so it
@@ -624,6 +735,11 @@ public final class SeamlessParameterization {
                         stiffeningD);
                 faceWeight[activeFace] += weightBump;
             }
+        }
+        if (stiffeningNativeHandle != null) {
+            DirectSolver.releaseHandle(stiffeningNativeHandle);
+            stiffeningNativeHandle = null;
+            stiffeningNativeMatrix = null;
         }
     }
 

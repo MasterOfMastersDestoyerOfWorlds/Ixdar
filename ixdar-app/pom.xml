@@ -116,6 +116,7 @@
 
   <properties>
     <lwjgl.version>3.3.6</lwjgl.version>
+    <mkl.version>2025.0-1.5.11</mkl.version>
     <native.maven.plugin.version>0.9.19</native.maven.plugin.version>
     <teavm.version>0.9.2</teavm.version>
     <ixdar.audio.asset.include.pattern>**/*.wav</ixdar.audio.asset.include.pattern>
@@ -147,6 +148,23 @@
       <properties>
         <lwjgl.natives>natives-windows</lwjgl.natives>
       </properties>
+      <!-- MKL ships no mac artifacts, so the PARDISO natives are per-OS
+           profile dependencies instead of a ${...} classifier like LWJGL;
+           on mac the solver falls back to the pure-Java EJML backend. -->
+      <dependencies>
+        <dependency>
+          <groupId>org.bytedeco</groupId>
+          <artifactId>mkl</artifactId>
+          <version>${mkl.version}</version>
+          <classifier>windows-x86_64</classifier>
+        </dependency>
+        <dependency>
+          <groupId>org.bytedeco</groupId>
+          <artifactId>mkl</artifactId>
+          <version>${mkl.version}</version>
+          <classifier>windows-x86_64-redist</classifier>
+        </dependency>
+      </dependencies>
     </profile>
     <profile>
       <id>linux</id>
@@ -158,6 +176,20 @@
       <properties>
         <lwjgl.natives>natives-linux</lwjgl.natives>
       </properties>
+      <dependencies>
+        <dependency>
+          <groupId>org.bytedeco</groupId>
+          <artifactId>mkl</artifactId>
+          <version>${mkl.version}</version>
+          <classifier>linux-x86_64</classifier>
+        </dependency>
+        <dependency>
+          <groupId>org.bytedeco</groupId>
+          <artifactId>mkl</artifactId>
+          <version>${mkl.version}</version>
+          <classifier>linux-x86_64-redist</classifier>
+        </dependency>
+      </dependencies>
     </profile>
     <profile>
       <id>macos-aarch64</id>
@@ -1176,6 +1208,14 @@ or use:
       <groupId>org.ejml</groupId>
       <artifactId>ejml-dsparse</artifactId>
       <version>0.43.1</version>
+    </dependency>
+
+    <!-- PARDISO supernodal sparse Cholesky (JNI bindings; per-OS natives are
+         added by the windows/linux profiles above). -->
+    <dependency>
+      <groupId>org.bytedeco</groupId>
+      <artifactId>mkl</artifactId>
+      <version>${mkl.version}</version>
     </dependency>
 
     <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
