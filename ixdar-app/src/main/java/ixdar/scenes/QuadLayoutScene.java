@@ -133,7 +133,7 @@ public class QuadLayoutScene extends Scene {
                         + " tJunctions=%d cleanQuads=%d embedArcs=%d/%d",
                 alphaDegrees, layout.layoutArcs.size(), layout.singularClusterCount, engine.conforming.finalPatchCount,
                 engine.conforming.remainingTJunctionCount, patchGeometry.cleanQuadCount,
-                engine.embedding.arcsRouted, engine.embedding.pathByArc.length);
+                engine.embedding.carve.carvedArcCount, engine.embedding.pathByArc.length);
         Platforms.get().log(hudLine);
     }
 

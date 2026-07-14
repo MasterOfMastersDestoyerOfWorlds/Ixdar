@@ -30,6 +30,33 @@ public final class TraceSegment {
     public final double spanEnd;
 
     /**
+     * Local edge index (0/1/2) of {@link #activeFace} that the chord exits through,
+     * or {@code -1} when it ends inside the face — a trace termination, or a chord
+     * cut short by an intersection event. Local edge {@code i} runs from corner
+     * {@code i} to corner {@code (i + 1) % 3}.
+     *
+     * <p>The LCBK19 §6.1 embedding carve splits exactly this edge at exactly
+     * {@link #exitEdgeParameter}; both are computed by the walker anyway, and
+     * re-deriving them from the lifted 3D position is what forces geometric
+     * tolerances into the embedding.
+     */
+    public int exitLocalEdgeIndex = -1;
+
+    /**
+     * Exact parameter of the exit point along {@link #exitLocalEdgeIndex}, running
+     * from corner {@code exitLocalEdgeIndex} to the next corner. {@code NaN} when
+     * the chord has no exit edge.
+     */
+    public double exitEdgeParameter = Double.NaN;
+
+    /**
+     * Local corner index (0/1/2) when the chord exits exactly through a corner of
+     * {@link #activeFace}, else {@code -1}. The carve reuses that corner's existing
+     * vertex rather than splitting an edge at its endpoint.
+     */
+    public int exitAtCorner = -1;
+
+    /**
      * Stores one iso-line chord on a single triangle face.
      *
      * @param traceId                 owning trace id

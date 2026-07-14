@@ -54,7 +54,7 @@ public final class ZeroElementContraction {
     /** Re-route attempts that had to back off to an earlier path vertex. */
     public int backoffRetryCount;
 
-    private ArcRouter router;
+    private ArcRerouter rerouter;
     private List<List<Integer>> arcIdsByNode;
 
     /**
@@ -78,8 +78,7 @@ public final class ZeroElementContraction {
      */
     public ZeroElementContraction build() {
         long startNanos = System.nanoTime();
-        router = new ArcRouter(topology, embedding.strips);
-        router.markAllEmbedded();
+        rerouter = new ArcRerouter(topology);
         arcIdsByNode = new ArrayList<>(motorcycleGraph.nodes.size());
         for (int node = 0; node < motorcycleGraph.nodes.size(); node++) {
             arcIdsByNode.add(new ArrayList<>());
@@ -228,13 +227,8 @@ public final class ZeroElementContraction {
      */
     private void collapseZeroArc(int arcId, int movingNode, int targetVertex) {
         ArcEdgePath path = embedding.pathByArc[arcId];
-        List<Integer> channel;
-        if (path == null) {
-            channel = new ArrayList<>(0);
-        } else {
-            channel = new ArrayList<>(path.copyVertexPath);
-            releaseClaims(arcId, path);
-        }
+        List<Integer> channel = new ArrayList<>(path.copyVertexPath);
+        releaseClaims(arcId, path);
         moveNode(movingNode, targetVertex, channel, arcId);
         embedding.pathByArc[arcId] = pointPath(arcId, targetVertex);
         zeroArcCollapsedCount++;
@@ -257,9 +251,7 @@ public final class ZeroElementContraction {
             throw new IllegalStateException(ZERO_ARC_PREFIX + arcId
                     + " expected to be a loop at the cluster anchor");
         }
-        if (path != null) {
-            releaseClaims(arcId, path);
-        }
+        releaseClaims(arcId, path);
         embedding.pathByArc[arcId] = pointPath(arcId, anchorVertex);
         loopContractedCount++;
     }
@@ -288,20 +280,21 @@ public final class ZeroElementContraction {
                 continue;
             }
             ArcEdgePath path = embedding.pathByArc[arcId];
-            if (path == null) {
-                continue;
-            }
             TraceArc arc = motorcycleGraph.arcs.get(arcId);
             if (arc.startNodeId == arc.endNodeId) {
-                if (path.copyVertexPath.size() == 1) {
-                    embedding.pathByArc[arcId] = pointPath(arcId, targetVertex);
-                    continue;
+                if (embedding.quantization.quantizedLengthByArc[arcId] != 0) {
+                    throw new IllegalStateException("moving node " + nodeId
+                            + " carries positive loop arc " + arcId
+                            + " — a loop cannot be dragged onto a point");
                 }
-                throw new IllegalStateException("moving node " + nodeId
-                        + " carries embedded loop arc " + arcId
-                        + " — loop-carrying nodes are expected to be critical anchors");
+                releaseClaims(arcId, path);
+                embedding.pathByArc[arcId] = pointPath(arcId, targetVertex);
+                continue;
             }
             if (path.copyVertexPath.size() == 1) {
+                if (path.copyVertexPath.get(0) == targetVertex) {
+                    continue;
+                }
                 throw new IllegalStateException(ARC_PREFIX + arcId
                         + " is a point at a non-anchor vertex while node " + nodeId + " moves");
             }
@@ -340,28 +333,79 @@ public final class ZeroElementContraction {
         List<Vector3f> pull = positionsOf(vertices);
         pull.addAll(positionsOf(channel));
         for (int keep = vertices.size() - 2; keep >= 0; keep--) {
-            List<Integer> attempt = new ArrayList<>(vertices.subList(0, keep + 1));
+            List<Integer> prefix = new ArrayList<>(vertices.subList(0, keep + 1));
+            List<Integer> prefixEdges = new ArrayList<>(keep);
+            if (!rerouter.tryLegEdges(prefix, prefixEdges)) {
+                backoffRetryCount++;
+                continue;
+            }
+            ArcEdgePath prefixPath = new ArcEdgePath(arcId, prefix, prefixEdges);
+            topology.claimPath(arcId, prefixPath);
+            List<Integer> attempt = new ArrayList<>(prefix);
             Set<Integer> corridor = new HashSet<>(vertices);
             corridor.addAll(channel);
             corridor.add(targetVertex);
-            if (router.tryRoute(arcId, attempt, vertices.get(keep), targetVertex, corridor,
-                    pull, ArcRouter.REFINE_ROUND_CAP)) {
-                List<Integer> edges = new ArrayList<>(attempt.size() - 1);
-                router.rebuildLegEdges(attempt, edges);
+            if (rerouter.tryRoute(arcId, attempt, vertices.get(keep), targetVertex, corridor,
+                    pull, ArcRerouter.REFINE_ROUND_CAP)) {
+                List<Integer> edges = new ArrayList<>(prefixEdges);
+                rerouter.rebuildLegEdges(attempt, edges);
                 if (reversed) {
                     Collections.reverse(attempt);
                     Collections.reverse(edges);
                 }
                 ArcEdgePath rerouted = new ArcEdgePath(arcId, attempt, edges);
-                router.claimPath(arcId, rerouted);
+                topology.claimPath(arcId, rerouted);
                 embedding.pathByArc[arcId] = rerouted;
                 tailRerouteCount++;
                 return;
             }
+            releaseClaims(arcId, prefixPath);
             backoffRetryCount++;
         }
         throw new IllegalStateException(ARC_PREFIX + arcId + " could not be re-routed onto vertex "
-                + targetVertex + " from any back-off point of its old path");
+                + targetVertex + " from any back-off point of its old path"
+                + rerouteDiagnostic(arcId, vertices, channel, targetVertex));
+    }
+
+    /**
+     * Why a re-route had nowhere to go: the shape of the old path and collapse
+     * channel, and how many free spokes each endpoint still has.
+     *
+     * @param arcId        arc that could not be re-routed
+     * @param vertices     its old path, oriented to end at the moved node's vertex
+     * @param channel      the collapsing zero arc's released path
+     * @param targetVertex the vertex the arc had to reach
+     * @return a diagnostic suffix for the failure message
+     */
+    private String rerouteDiagnostic(int arcId, List<Integer> vertices, List<Integer> channel,
+            int targetVertex) {
+        int sourceVertex = vertices.get(vertices.size() - 1);
+        return String.format(
+                " — path=%dv channel=%dv | freeSpokes source=%d/%d target=%d/%d"
+                        + " | zeroArc=%b quantized=%d reached=%d corridor=%d",
+                vertices.size(), channel.size(),
+                freeSpokes(sourceVertex), topology.copy.vertexEdgeCount(sourceVertex),
+                freeSpokes(targetVertex), topology.copy.vertexEdgeCount(targetVertex),
+                embedding.quantization.quantizedLengthByArc[arcId] == 0,
+                embedding.quantization.quantizedLengthByArc[arcId],
+                rerouter.lastReachedCount, rerouter.lastCorridorSize);
+    }
+
+    /**
+     * How many edges at a vertex carry no arc claim.
+     *
+     * @param vertexId copy vertex
+     * @return count of unclaimed incident edges
+     */
+    private int freeSpokes(int vertexId) {
+        int free = 0;
+        for (int index = 0; index < topology.copy.vertexEdgeCount(vertexId); index++) {
+            if (topology.ownerArcByCopyEdge[topology.copy.vertexEdgeAt(vertexId, index)]
+                    == EmbeddedMeshTopology.UNCLAIMED) {
+                free++;
+            }
+        }
+        return free;
     }
 
     /**

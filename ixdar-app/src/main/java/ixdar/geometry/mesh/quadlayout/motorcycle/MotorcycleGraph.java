@@ -327,6 +327,9 @@ public final class MotorcycleGraph {
         TraceSegment segment = new TraceSegment(trace.traceId, trace.state.activeFace,
                 trace.faceVisitCount, trace.state.u, trace.state.v, edgeHit.exitU, edgeHit.exitV,
                 trace.state.axis, trace.state.sign, trace.parametricLengthSoFar);
+        segment.exitLocalEdgeIndex = edgeHit.localEdgeIndex;
+        segment.exitEdgeParameter = edgeHit.edgeParameter;
+        segment.exitAtCorner = edgeHit.cornerLocalIndex;
         trace.segments.add(segment);
         registerSegment(trace, segment);
         trace.parametricLengthSoFar = event.parametricLength;

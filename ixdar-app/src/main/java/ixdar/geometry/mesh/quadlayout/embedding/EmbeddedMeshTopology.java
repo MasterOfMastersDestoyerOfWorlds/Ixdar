@@ -26,6 +26,12 @@ public final class EmbeddedMeshTopology {
     /** Owner value for unclaimed elements. */
     public static final int UNCLAIMED = -1;
 
+    /** Corners (and edges) of a triangle. */
+    private static final int CORNERS = 3;
+
+    /** Message fragment naming a copy face. */
+    private static final String COPY_FACE = "copy face ";
+
     public final HalfEdgeMesh sourceMesh;
     public final HalfEdgeMesh copy;
 
@@ -59,6 +65,21 @@ public final class EmbeddedMeshTopology {
     public int claimConflictCount;
 
     private final Map<Integer, Integer> copyVertexBySourceVertexId = new HashMap<>();
+
+    /**
+     * Barycentric coordinate of a copy vertex within a source active face, keyed
+     * by {@link #barycentricKey}. Every copy vertex carries one entry per source
+     * face whose closure it lies in — an interior vertex has one, a vertex on an
+     * original mesh edge has two.
+     *
+     * <p>This is the exactness backbone of the LCBK19 §6.1 carve. The seamless
+     * chart is affine on each face, so a chord that is straight in chart space is
+     * straight in barycentric space: the carve intersects, splits and locates
+     * entirely in these coordinates and never projects a 3D point back onto a
+     * triangle. Minted positions are interpolated from the source face's corners,
+     * so the copy mesh cannot drift off the source surface.
+     */
+    private final Map<Long, double[]> barycentricByFaceVertex = new HashMap<>();
 
     /** Exclusive bound on allocated copy edge ids, advanced per adopted face. */
     private int edgeIdBound;
@@ -111,6 +132,192 @@ public final class EmbeddedMeshTopology {
         Arrays.fill(sourceEdgeByCopyEdge, UNCLAIMED);
         Arrays.fill(ownerNodeByCopyVertex, UNCLAIMED);
         Arrays.fill(ownerArcByCopyVertex, UNCLAIMED);
+
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            for (int corner = 0; corner < CORNERS; corner++) {
+                double[] barycentric = new double[CORNERS];
+                barycentric[corner] = 1.0;
+                registerBarycentric(activeFace, copy.faceVertexAt(activeFace, corner), barycentric);
+            }
+        }
+    }
+
+    /**
+     * Barycentric coordinate of a copy vertex within a source active face.
+     *
+     * @param sourceFace source active face index
+     * @param copyVertex copy vertex lying in that face's closure
+     * @return the barycentric triple, or {@code null} when the vertex does not lie
+     *         in that face's closure
+     */
+    public double[] barycentricOf(int sourceFace, int copyVertex) {
+        return barycentricByFaceVertex.get(barycentricKey(sourceFace, copyVertex));
+    }
+
+    /**
+     * Record a copy vertex's barycentric coordinate within a source active face.
+     *
+     * @param sourceFace  source active face index
+     * @param copyVertex  copy vertex lying in that face's closure
+     * @param barycentric barycentric triple against the source face's corners
+     */
+    public void registerBarycentric(int sourceFace, int copyVertex, double[] barycentric) {
+        barycentricByFaceVertex.put(barycentricKey(sourceFace, copyVertex), barycentric);
+    }
+
+    /**
+     * Lift a barycentric coordinate of a source active face to its 3D position on
+     * the source surface. Every minted vertex is positioned this way, so the copy
+     * mesh stays exactly on the source triangles however deeply it is refined.
+     *
+     * @param sourceFace  source active face index
+     * @param barycentric barycentric triple against the source face's corners
+     * @param destination receives the lifted position
+     * @return {@code destination}
+     */
+    public Vector3f positionFromBarycentric(int sourceFace, double[] barycentric,
+            Vector3f destination) {
+        int sourceFaceId = sourceMesh.faceIdAt(sourceFace);
+        destination.zero();
+        Vector3f corner = new Vector3f();
+        for (int index = 0; index < CORNERS; index++) {
+            sourceMesh.vertexPosition(sourceMesh.faceVertexAt(sourceFaceId, index), corner);
+            destination.fma((float) barycentric[index], corner);
+        }
+        return destination;
+    }
+
+    /**
+     * Split a copy edge at an exact parameter along it, measured from the start
+     * vertex of the edge's canonical half-edge. The minted vertex's barycentric is
+     * interpolated in every source face incident to the edge, and its position is
+     * lifted from one of them — so the split introduces no geometric error at all.
+     * This is the only edge split the LCBK19 §6.1 carve performs.
+     *
+     * @param copyEdgeId copy edge to split
+     * @param parameter  position along the edge in {@code (0, 1)}
+     * @return the minted vertex id
+     * @throws IllegalStateException when neither incident source face carries
+     *                               barycentric coordinates for both endpoints
+     */
+    public int splitEdgeAtParameter(int copyEdgeId, double parameter) {
+        int halfEdge = copy.edgeHalfEdge(copyEdgeId);
+        int vertexA = copy.halfEdgeVertex(halfEdge);
+        int vertexB = copy.halfEdgeEndVertex(halfEdge);
+        int faceA = copy.halfEdgeFace(halfEdge);
+        int faceB = copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge));
+        int sourceA = faceA >= 0 ? sourceFaceByCopyFace[faceA] : UNCLAIMED;
+        int sourceB = faceB >= 0 ? sourceFaceByCopyFace[faceB] : UNCLAIMED;
+        double[] barycentricA = interpolateBarycentric(sourceA, vertexA, vertexB, parameter);
+        double[] barycentricB = sourceB == sourceA
+                ? null
+                : interpolateBarycentric(sourceB, vertexA, vertexB, parameter);
+        if (barycentricA == null && barycentricB == null) {
+            throw new IllegalStateException("copy edge " + copyEdgeId
+                    + " has no source face with barycentric coordinates for both endpoints");
+        }
+        int carrier = barycentricA != null ? sourceA : sourceB;
+        double[] carried = barycentricA != null ? barycentricA : barycentricB;
+        int newVertex = splitEdgeAtPoint(copyEdgeId,
+                positionFromBarycentric(carrier, carried, new Vector3f()));
+        if (barycentricA != null) {
+            registerBarycentric(sourceA, newVertex, barycentricA);
+        }
+        if (barycentricB != null) {
+            registerBarycentric(sourceB, newVertex, barycentricB);
+        }
+        return newVertex;
+    }
+
+    /**
+     * Split a copy face at an exact barycentric coordinate of its source face.
+     *
+     * <p>The point must lie <em>strictly inside</em> the face, and that is checked
+     * rather than assumed. A face split registers the minted vertex's barycentric in
+     * one source face only, which is correct for an interior point and silently wrong
+     * for a point on the face's boundary: such a point lies on a source edge, is shared
+     * with the neighbouring source face, and needs a coordinate in both. Splitting a
+     * face at a boundary point therefore produces a vertex that a later walk cannot
+     * locate — the failure surfaces one carve step later, in a different face, with no
+     * trace of its cause. Refusing it here is what keeps that class of bug local.
+     *
+     * @param copyFaceId  copy face to split
+     * @param barycentric barycentric triple against the source face's corners
+     * @return the minted vertex id
+     * @throws IllegalStateException when the point is not strictly inside the face
+     */
+    public int splitFaceAtBarycentric(int copyFaceId, double[] barycentric) {
+        int sourceFace = sourceFaceByCopyFace[copyFaceId];
+        requireStrictlyInside(copyFaceId, sourceFace, barycentric);
+        int newVertex = splitFaceAtPoint(copyFaceId,
+                positionFromBarycentric(sourceFace, barycentric, new Vector3f()));
+        registerBarycentric(sourceFace, newVertex, barycentric);
+        return newVertex;
+    }
+
+    /**
+     * Assert that a barycentric point of a source face lies strictly inside one of that
+     * face's children, i.e. off every one of its three edges.
+     *
+     * @param copyFaceId  child face the point should be interior to
+     * @param sourceFace  source active face the coordinates are relative to
+     * @param barycentric the point's barycentric triple
+     * @throws IllegalStateException when the point lies on or outside an edge
+     */
+    private void requireStrictlyInside(int copyFaceId, int sourceFace, double[] barycentric) {
+        for (int corner = 0; corner < CORNERS; corner++) {
+            double[] from = barycentricOf(sourceFace, copy.faceVertexAt(copyFaceId, corner));
+            double[] to = barycentricOf(sourceFace,
+                    copy.faceVertexAt(copyFaceId, (corner + 1) % CORNERS));
+            if (from == null || to == null) {
+                throw new IllegalStateException(COPY_FACE + copyFaceId
+                        + " has a corner with no barycentric in source face " + sourceFace);
+            }
+            if (ExactBarycentricOrient.sign(from, to, barycentric) <= 0) {
+                throw new IllegalStateException(COPY_FACE + copyFaceId
+                        + " cannot be split at " + Arrays.toString(barycentric)
+                        + ": the point is not strictly inside it");
+            }
+        }
+    }
+
+    /**
+     * Barycentric coordinate of a point splitting a copy edge, within one source
+     * face.
+     *
+     * @param sourceFace source active face, or {@link #UNCLAIMED}
+     * @param vertexA    edge start vertex
+     * @param vertexB    edge end vertex
+     * @param parameter  position along the edge from {@code vertexA}
+     * @return the interpolated triple, or {@code null} when either endpoint has no
+     *         coordinate in that face
+     */
+    private double[] interpolateBarycentric(int sourceFace, int vertexA, int vertexB,
+            double parameter) {
+        if (sourceFace == UNCLAIMED) {
+            return null;
+        }
+        double[] fromA = barycentricOf(sourceFace, vertexA);
+        double[] fromB = barycentricOf(sourceFace, vertexB);
+        if (fromA == null || fromB == null) {
+            return null;
+        }
+        double[] blended = new double[CORNERS];
+        for (int index = 0; index < CORNERS; index++) {
+            blended[index] = fromA[index] + parameter * (fromB[index] - fromA[index]);
+        }
+        return blended;
+    }
+
+    /**
+     * Composite map key for a (source face, copy vertex) pair.
+     *
+     * @param sourceFace source active face index
+     * @param copyVertex copy vertex id
+     * @return the packed key
+     */
+    private static long barycentricKey(int sourceFace, int copyVertex) {
+        return ((long) sourceFace << Integer.SIZE) | (copyVertex & 0xFFFFFFFFL);
     }
 
     /**
@@ -304,6 +511,22 @@ public final class EmbeddedMeshTopology {
         ownerArcByCopyVertex[discard] = UNCLAIMED;
         edgeCollapseCount++;
         return true;
+    }
+
+    /**
+     * Claim an embedded path's edges and interior vertices for its arc. Endpoint
+     * vertices are left alone: they belong to the T-mesh nodes the arc runs between.
+     *
+     * @param arcId owning arc
+     * @param path  the arc's embedded path
+     */
+    public void claimPath(int arcId, ArcEdgePath path) {
+        for (int edgeId : path.copyEdgePath) {
+            ownerArcByCopyEdge[edgeId] = arcId;
+        }
+        for (int index = 1; index < path.copyVertexPath.size() - 1; index++) {
+            ownerArcByCopyVertex[path.copyVertexPath.get(index)] = arcId;
+        }
     }
 
     /**

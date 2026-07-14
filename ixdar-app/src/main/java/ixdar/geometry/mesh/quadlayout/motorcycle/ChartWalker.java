@@ -89,6 +89,15 @@ public final class ChartWalker {
         public final int cornerLocalIndex;
 
         /**
+         * Exact parameter of the hit along {@link #localEdgeIndex}, running from
+         * corner {@code localEdgeIndex} to corner {@code (localEdgeIndex + 1) % 3}.
+         * Zero for a corner hit. The LCBK19 §6.1 embedding carve splits the crossed
+         * mesh edge at exactly this parameter, so it must not be re-derived from the
+         * lifted 3D position.
+         */
+        public final double edgeParameter;
+
+        /**
          * Records one ray exit hit on a triangle edge.
          *
          * @param parametricDelta  distance from current point to hit
@@ -99,15 +108,17 @@ public final class ChartWalker {
          * @param cornerLocalIndex local corner index 0/1/2 if the hit lies on a
          *                         triangle corner (within face-relative epsilon), else
          *                         -1
+         * @param edgeParameter    exact parameter of the hit along the local edge
          */
         public EdgeHit(double parametricDelta, double exitU, double exitV, int localEdgeIndex, boolean boundary,
-                int cornerLocalIndex) {
+                int cornerLocalIndex, double edgeParameter) {
             this.parametricDelta = parametricDelta;
             this.exitU = exitU;
             this.exitV = exitV;
             this.localEdgeIndex = localEdgeIndex;
             this.boundary = boundary;
             this.cornerLocalIndex = cornerLocalIndex;
+            this.edgeParameter = edgeParameter;
         }
     }
 
@@ -149,6 +160,7 @@ public final class ChartWalker {
         int[] candidateEdge = new int[CORNERS];
         int[] candidateCorner = new int[CORNERS];
         double[] candidateAlong = new double[CORNERS];
+        double[] candidateParam = new double[CORNERS];
         for (int corner = 0; corner < CORNERS; corner++) {
             if (heldDelta[corner] != 0.0) {
                 continue;
@@ -156,6 +168,7 @@ public final class ChartWalker {
             candidateEdge[candidateCount] = corner;
             candidateCorner[candidateCount] = corner;
             candidateAlong[candidateCount] = holdsU ? cornerUv[corner * 2 + 1] : cornerUv[corner * 2];
+            candidateParam[candidateCount] = 0.0;
             candidateCount++;
         }
         for (int edge = 0; edge < CORNERS; edge++) {
@@ -172,6 +185,7 @@ public final class ChartWalker {
             candidateEdge[candidateCount] = edge;
             candidateCorner[candidateCount] = -1;
             candidateAlong[candidateCount] = alongA + tEdge * (alongB - alongA);
+            candidateParam[candidateCount] = tEdge;
             candidateCount++;
         }
 
@@ -195,14 +209,14 @@ public final class ChartWalker {
         if (candidateCorner[best] >= 0) {
             int corner = candidateCorner[best];
             return new EdgeHit(parametricDelta, cornerUv[corner * 2], cornerUv[corner * 2 + 1],
-                    corner, false, corner);
+                    corner, false, corner, 0.0);
         }
         double exitU = holdsU ? level : candidateAlong[best];
         double exitV = holdsU ? candidateAlong[best] : level;
         int faceId = mesh.faceIdAt(state.activeFace);
         int edgeId = mesh.faceEdgeAt(faceId, candidateEdge[best]);
         return new EdgeHit(parametricDelta, exitU, exitV, candidateEdge[best],
-                mesh.isBoundaryEdge(edgeId), -1);
+                mesh.isBoundaryEdge(edgeId), -1, candidateParam[best]);
     }
 
     /**
@@ -311,7 +325,7 @@ public final class ChartWalker {
             if (mesh.isBoundaryEdge(crossEdgeId)) {
                 return CrossVertexResult.HIT_BOUNDARY;
             }
-            EdgeHit synthetic = new EdgeHit(0.0, current.u, current.v, crossEdge, false, -1);
+            EdgeHit synthetic = new EdgeHit(0.0, current.u, current.v, crossEdge, false, -1, 0.0);
             State next = new State(current);
             if (!crossEdge(current, synthetic, next)) {
                 return CrossVertexResult.HIT_BOUNDARY;
