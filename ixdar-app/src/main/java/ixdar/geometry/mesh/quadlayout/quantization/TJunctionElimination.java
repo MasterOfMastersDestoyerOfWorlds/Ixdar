@@ -49,6 +49,12 @@ public final class TJunctionElimination {
     /** Valid patches whose opposite quantized side sums disagreed (skipped). */
     public int inconsistentPatchCount;
 
+    /** Valid patches with exactly one zero quantized dimension (not rendered). */
+    public int portalCount;
+
+    /** Valid patches with both quantized dimensions zero (dropped entirely). */
+    public int collapsedPatchCount;
+
     /** T-junction vertices still unresolved after the pass. */
     public int remainingTJunctionCount;
 
@@ -133,9 +139,10 @@ public final class TJunctionElimination {
         remainingTJunctionCount = countRemainingTJunctions();
         System.out.printf(
                 "[conform] rectangles=%d -> #P=%d connects=%d continuations=%d aborted=%d"
-                        + " inconsistent=%d tJunctionsLeft=%d%n",
+                        + " inconsistent=%d portals=%d collapsed=%d tJunctionsLeft=%d%n",
                 initialRectangleCount, finalPatchCount, connectCount, continuationSplitCount,
-                abortedExtensionCount, inconsistentPatchCount, remainingTJunctionCount);
+                abortedExtensionCount, inconsistentPatchCount, portalCount, collapsedPatchCount,
+                remainingTJunctionCount);
         return this;
     }
 
@@ -160,6 +167,7 @@ public final class TJunctionElimination {
         int width = sideSums[0];
         int height = sideSums[1];
         if (width == 0 && height == 0) {
+            collapsedPatchCount++;
             return;
         }
         List<Integer> cycleArcIds = new ArrayList<>();
@@ -202,6 +210,7 @@ public final class TJunctionElimination {
             rectangles.add(cell);
             liveByRootPatch.computeIfAbsent(patch.patchId, patchId -> new ArrayList<>()).add(cell);
         } else {
+            portalCount++;
             portalByPatchId.put(patch.patchId, cell);
         }
         for (int side = 0; side < LayoutRectangle.SIDES; side++) {

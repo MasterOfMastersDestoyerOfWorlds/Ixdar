@@ -10,6 +10,8 @@ import org.lwjgl.BufferUtils;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.Singularity;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcEdgePath;
+import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
 import ixdar.geometry.mesh.quadlayout.quantization.LayoutPatchCurves;
@@ -199,6 +201,8 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private static final Vector4f COLOR_LAYOUT_BOUNDARY = new Vector4f(1f, 1f, 1f, 0.95f);
     /** Layout corner marker tint. */
     private static final Vector4f COLOR_LAYOUT_CORNER = new Vector4f(1f, 0.25f, 0.25f, 1f);
+    /** Embedded arc edge-path tint (stage-8 re-embedding). */
+    private static final Vector4f COLOR_EMBEDDED_ARC = new Vector4f(1f, 0.55f, 0.1f, 0.95f);
     /** Line width restored after drawing layout boundary curves. */
     private static final float DEFAULT_GL_LINE_WIDTH = 1f;
 
@@ -249,6 +253,8 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public boolean showLayoutPatches = false;
     /** Draw layout boundary curves and corner marker spheres. */
     public boolean showLayoutBoundaries = false;
+    /** Draw the stage-8 embedded arc edge paths over the surface. */
+    public boolean showEmbeddedArcs = false;
 
     /** Triangle-soup VAO for the parametrized surface. */
     public int isoSurfaceVao;
@@ -299,6 +305,12 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public Vector4f[] layoutPatchColors;
     /** Flat xyz positions of layout corner markers. */
     public float[] layoutCornerPositions;
+    /** VAO of the embedded arc GL_LINES buffer. */
+    public int embeddedLineVao;
+    /** VBO of the embedded arc GL_LINES buffer. */
+    public int embeddedLineVbo;
+    /** Vertex count of the embedded arc GL_LINES buffer. */
+    public int embeddedLineVertexCount;
 
     protected final Matrix4f sphereModel = new Matrix4f();
     protected final Matrix4f localProjection = new Matrix4f();
@@ -521,8 +533,9 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         boolean drawLayoutFill = showLayoutPatches
                 && layoutPatchIndexCount != null && layoutPatchIndexCount.length > 0;
         boolean drawLayoutBoundaries = showLayoutBoundaries && layoutLineVertexCount > 0;
+        boolean drawEmbeddedArcs = showEmbeddedArcs && embeddedLineVertexCount > 0;
         if (!drawSurface && !drawCross && !drawConstraints && !drawSingularities && !drawNodes
-                && !drawLayoutFill && !drawLayoutBoundaries) {
+                && !drawLayoutFill && !drawLayoutBoundaries && !drawEmbeddedArcs) {
             return;
         }
         setupOverlayProjection(camera);
@@ -539,6 +552,9 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         }
         if (drawLayoutBoundaries) {
             renderLayoutBoundaries(camera);
+        }
+        if (drawEmbeddedArcs) {
+            renderEmbeddedArcs(camera);
         }
         if (drawCross) {
             renderCrossFieldOverlay(camera);
@@ -1248,6 +1264,50 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
+     * Upload the stage-8 embedded arc edge paths as a GL_LINES buffer: every
+     * routed arc contributes one segment per copy edge of its path, with vertex
+     * positions read from the embedding's working copy mesh.
+     *
+     * @param embedding built layout embedding with routed arc paths
+     */
+    public void setLayoutEmbedding(LayoutEmbedding embedding) {
+        GL gl = Platforms.gl();
+        deleteEmbeddedBuffers(gl);
+        int segmentCount = 0;
+        for (ArcEdgePath path : embedding.pathByArc) {
+            if (path != null && path.copyVertexPath.size() > 1) {
+                segmentCount += path.copyVertexPath.size() - 1;
+            }
+        }
+        if (segmentCount == 0) {
+            return;
+        }
+        float[] vertices = new float[segmentCount * 2 * VEC3_SIZE];
+        int cursor = 0;
+        Vector3f position = new Vector3f();
+        for (ArcEdgePath path : embedding.pathByArc) {
+            if (path == null || path.copyVertexPath.size() < 2) {
+                continue;
+            }
+            for (int index = 1; index < path.copyVertexPath.size(); index++) {
+                embedding.topology.copy.vertexPosition(path.copyVertexPath.get(index - 1), position);
+                cursor = writePoint(vertices, cursor, position);
+                embedding.topology.copy.vertexPosition(path.copyVertexPath.get(index), position);
+                cursor = writePoint(vertices, cursor, position);
+            }
+        }
+        embeddedLineVertexCount = cursor / VEC3_SIZE;
+        embeddedLineVao = gl.genVertexArrays();
+        embeddedLineVbo = gl.genBuffers();
+        gl.bindVertexArray(embeddedLineVao);
+        gl.bindBuffer(gl.ARRAY_BUFFER(), embeddedLineVbo);
+        gl.bufferData(gl.ARRAY_BUFFER(), vertices, gl.STATIC_DRAW());
+        gl.vertexAttribPointer(ATTR_POSITION, VEC3_SIZE, gl.FLOAT(), false,
+                VEC3_SIZE * Float.BYTES, 0);
+        gl.enableVertexAttribArray(ATTR_POSITION);
+    }
+
+    /**
      * Write one point's xyz into a flat float array.
      *
      * @param target flat float array
@@ -1334,6 +1394,46 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
+     * Draw the embedded arc edge paths as biased GL_LINES in the embedding tint.
+     *
+     * @param camera active 3D camera
+     */
+    private void renderEmbeddedArcs(Camera3D camera) {
+        if (unlitShader.ID < 0 || embeddedLineVertexCount == 0) {
+            return;
+        }
+        GL gl = Platforms.gl();
+        unlitShader.use();
+        unlitShader.setMat4(VIEW, camera.view);
+        unlitShader.setMat4(PROJECTION, localProjection);
+        sphereModel.identity();
+        unlitShader.setMat4(MODEL, sphereModel);
+        unlitShader.setFloat(DEPTHBIAS, LAYOUT_DEPTH_BIAS);
+        unlitShader.setVec4(SOLIDCOLOR, COLOR_EMBEDDED_ARC);
+        gl.lineWidth(LAYOUT_LINE_WIDTH);
+        gl.bindVertexArray(embeddedLineVao);
+        gl.drawArrays(gl.LINES(), 0, embeddedLineVertexCount);
+        gl.lineWidth(DEFAULT_GL_LINE_WIDTH);
+    }
+
+    /**
+     * Free the embedded arc line buffer if it exists, zeroing handles and count.
+     *
+     * @param gl active GL platform handle
+     */
+    private void deleteEmbeddedBuffers(GL gl) {
+        if (embeddedLineVao != 0) {
+            gl.deleteVertexArrays(embeddedLineVao);
+            embeddedLineVao = 0;
+        }
+        if (embeddedLineVbo != 0) {
+            gl.deleteBuffers(embeddedLineVbo);
+            embeddedLineVbo = 0;
+        }
+        embeddedLineVertexCount = 0;
+    }
+
+    /**
      * Free the layout overlay buffers (boundary lines and Coons mesh) if they
      * exist, zeroing handles and counts.
      *
@@ -1372,6 +1472,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         super.dispose();
         GL gl = Platforms.gl();
         deleteLayoutBuffers(gl);
+        deleteEmbeddedBuffers(gl);
         if (isoSurfaceVao != 0) {
             gl.deleteVertexArrays(isoSurfaceVao);
             isoSurfaceVao = 0;

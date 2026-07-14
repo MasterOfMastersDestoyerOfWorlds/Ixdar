@@ -9,6 +9,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.quantization.LayoutPatchGeometry;
+import ixdar.geometry.mesh.quadlayout.quantization.LayoutSeamAudit;
 
 /**
  * Lyon-Table-1 pipeline benchmark on ROCKERARM, end-to-end on our own pipeline.
@@ -70,8 +71,9 @@ public final class BenchmarkRockerArmLyon {
             System.out.printf("[bench-lyon] mesh load=%dms %s%n",
                     tLoad, beforeTopology);
             QuadLayoutEngine engine = new QuadLayoutEngine(mesh, (float) Math.toRadians(ALPHA_DEGREES));
-            engine.buildConformingLayout();
-            new LayoutPatchGeometry(engine.conforming).build();
+            engine.buildContraction();
+            LayoutPatchGeometry patchGeometry = new LayoutPatchGeometry(engine.conforming).build();
+            new LayoutSeamAudit(patchGeometry).build();
             System.out.printf("[bench-lyon] layout stage complete%n");
             TopologyStats afterTopology = TopologyStats.capture(mesh);
             if (!beforeTopology.equals(afterTopology)) {

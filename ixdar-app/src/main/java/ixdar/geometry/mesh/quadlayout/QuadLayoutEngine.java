@@ -3,6 +3,7 @@ package ixdar.geometry.mesh.quadlayout;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
+import ixdar.geometry.mesh.quadlayout.embedding.ZeroElementContraction;
 import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
@@ -56,6 +57,7 @@ public final class QuadLayoutEngine {
     public LayoutExtraction layout;
     public TJunctionElimination conforming;
     public LayoutEmbedding embedding;
+    public ZeroElementContraction contraction;
 
     /**
      * Stage products start unbuilt; call the {@code build*} method of the
@@ -168,5 +170,19 @@ public final class QuadLayoutEngine {
             embedding = new LayoutEmbedding(conforming).build();
         }
         return embedding;
+    }
+
+    /**
+     * Stage 9: contract every zero-quantized element of the embedded T-mesh
+     * onto points (LCBK19 §6.1 operator 1), updating the embedding in place.
+     *
+     * @return the cached contraction
+     */
+    public ZeroElementContraction buildContraction() {
+        if (contraction == null) {
+            buildLayoutEmbedding();
+            contraction = new ZeroElementContraction(embedding).build();
+        }
+        return contraction;
     }
 }

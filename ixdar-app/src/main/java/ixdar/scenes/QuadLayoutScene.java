@@ -11,6 +11,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
 import ixdar.geometry.mesh.quadlayout.quantization.LayoutPatchGeometry;
+import ixdar.geometry.mesh.quadlayout.quantization.LayoutSeamAudit;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
@@ -110,25 +111,29 @@ public class QuadLayoutScene extends Scene {
     private void rebuildLayout() {
         float alphaRadians = (float) Math.toRadians(alphaDegrees);
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, alphaRadians);
-        engine.buildConformingLayout();
+        engine.buildLayoutEmbedding();
         LayoutPatchGeometry patchGeometry = new LayoutPatchGeometry(engine.conforming).build();
+        new LayoutSeamAudit(patchGeometry).build();
         LayoutExtraction layout = engine.layout;
         MotorcycleGraph graph = engine.motorcycleGraph;
         graph.traceRecordsByFace = layout.layoutRecordsByFace;
         runtime.setSeamlessParametrization(engine.seamless);
         runtime.setMotorcycleGraph(graph);
         runtime.setLayoutPatchGeometry(patchGeometry);
+        runtime.setLayoutEmbedding(engine.embedding);
         runtime.showTraces = true;
         runtime.showNodes = false;
         runtime.showCrossField = false;
         runtime.showFullIsoGrid = false;
         runtime.showLayoutPatches = true;
         runtime.showLayoutBoundaries = true;
+        runtime.showEmbeddedArcs = true;
         hudLine = String.format(
                 "[quad-layout] α=%.0f° skeletonArcs=%d layoutNodes=%d #P=%d"
-                        + " tJunctions=%d cleanQuads=%d",
+                        + " tJunctions=%d cleanQuads=%d embedArcs=%d/%d",
                 alphaDegrees, layout.layoutArcs.size(), layout.singularClusterCount, engine.conforming.finalPatchCount,
-                engine.conforming.remainingTJunctionCount, patchGeometry.cleanQuadCount);
+                engine.conforming.remainingTJunctionCount, patchGeometry.cleanQuadCount,
+                engine.embedding.arcsRouted, engine.embedding.pathByArc.length);
         Platforms.get().log(hudLine);
     }
 
@@ -203,6 +208,8 @@ public class QuadLayoutScene extends Scene {
                 scene.runtime.showLayoutBoundaries = !scene.runtime.showLayoutBoundaries;
             } else if (key == Keys.T) {
                 scene.runtime.showTraces = !scene.runtime.showTraces;
+            } else if (key == Keys.E) {
+                scene.runtime.showEmbeddedArcs = !scene.runtime.showEmbeddedArcs;
             } else if (key == Keys.N) {
                 scene.runtime.showNodes = !scene.runtime.showNodes;
             } else if (key == Keys.COMMA) {

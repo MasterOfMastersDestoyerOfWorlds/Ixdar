@@ -32,6 +32,13 @@ public final class EmbeddedMeshTopology {
     /** Source active face index per raw copy face id; split children inherit. */
     public int[] sourceFaceByCopyFace;
 
+    /**
+     * Source active edge index per raw copy edge id, or {@link #UNCLAIMED}
+     * for minted interior edges. Edge-split children inherit the parent's
+     * tag — a trace crossing the parent may cross either half.
+     */
+    public int[] sourceEdgeByCopyEdge;
+
     /** Owning arc id per raw copy edge id, or {@link #UNCLAIMED}. */
     public int[] ownerArcByCopyEdge;
 
@@ -97,9 +104,11 @@ public final class EmbeddedMeshTopology {
         }
         edgeIdBound = copy.edgeCount();
         ownerArcByCopyEdge = new int[edgeIdBound];
+        sourceEdgeByCopyEdge = new int[edgeIdBound];
         ownerNodeByCopyVertex = new int[vertexCount];
         ownerArcByCopyVertex = new int[vertexCount];
         Arrays.fill(ownerArcByCopyEdge, UNCLAIMED);
+        Arrays.fill(sourceEdgeByCopyEdge, UNCLAIMED);
         Arrays.fill(ownerNodeByCopyVertex, UNCLAIMED);
         Arrays.fill(ownerArcByCopyVertex, UNCLAIMED);
     }
@@ -157,6 +166,7 @@ public final class EmbeddedMeshTopology {
         int faceA = copy.halfEdgeFace(halfEdge);
         int faceB = copy.halfEdgeFace(twin);
         int edgeOwner = ownerArcByCopyEdge[copyEdgeId];
+        int sourceEdge = sourceEdgeByCopyEdge[copyEdgeId];
         int oppositeA = faceA >= 0 ? oppositeVertex(faceA, vertexA, vertexB) : UNCLAIMED;
         int oppositeB = faceB >= 0 ? oppositeVertex(faceB, vertexA, vertexB) : UNCLAIMED;
         int sourceA = faceA >= 0 ? sourceFaceByCopyFace[faceA] : UNCLAIMED;
@@ -168,6 +178,7 @@ public final class EmbeddedMeshTopology {
             retireFace(faceB, sourceB);
         }
         ownerArcByCopyEdge[copyEdgeId] = UNCLAIMED;
+        sourceEdgeByCopyEdge[copyEdgeId] = UNCLAIMED;
         int newVertex = copy.addVertex(position);
         if (faceA >= 0) {
             adoptFace(copy.addFace(vertexA, newVertex, oppositeA), sourceA);
@@ -184,8 +195,27 @@ public final class EmbeddedMeshTopology {
             claimEdgeBetween(newVertex, vertexB, edgeOwner);
             ownerArcByCopyVertex[newVertex] = edgeOwner;
         }
+        if (sourceEdge != UNCLAIMED) {
+            tagSourceEdgeBetween(vertexA, newVertex, sourceEdge);
+            tagSourceEdgeBetween(newVertex, vertexB, sourceEdge);
+        }
         edgeSplitCount++;
         return newVertex;
+    }
+
+    /**
+     * Tag the copy edge between two vertices with a source active edge (split
+     * children inherit the parent's crossing tags).
+     *
+     * @param vertexA    first endpoint
+     * @param vertexB    second endpoint
+     * @param sourceEdge source active edge index
+     */
+    private void tagSourceEdgeBetween(int vertexA, int vertexB, int sourceEdge) {
+        int edgeId = edgeBetween(vertexA, vertexB);
+        if (edgeId != UNCLAIMED) {
+            sourceEdgeByCopyEdge[edgeId] = sourceEdge;
+        }
     }
 
     /**
@@ -330,9 +360,11 @@ public final class EmbeddedMeshTopology {
     private void ensureEdgeCapacity() {
         if (edgeIdBound > ownerArcByCopyEdge.length) {
             int oldLength = ownerArcByCopyEdge.length;
-            ownerArcByCopyEdge = Arrays.copyOf(ownerArcByCopyEdge,
-                    Math.max(edgeIdBound, oldLength * 2));
-            Arrays.fill(ownerArcByCopyEdge, oldLength, ownerArcByCopyEdge.length, UNCLAIMED);
+            int newLength = Math.max(edgeIdBound, oldLength * 2);
+            ownerArcByCopyEdge = Arrays.copyOf(ownerArcByCopyEdge, newLength);
+            sourceEdgeByCopyEdge = Arrays.copyOf(sourceEdgeByCopyEdge, newLength);
+            Arrays.fill(ownerArcByCopyEdge, oldLength, newLength, UNCLAIMED);
+            Arrays.fill(sourceEdgeByCopyEdge, oldLength, newLength, UNCLAIMED);
         }
     }
 

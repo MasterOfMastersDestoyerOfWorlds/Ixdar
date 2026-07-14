@@ -2,10 +2,13 @@ package ixdar.geometry.mesh.quadlayout.embedding;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.EdgeCrossing;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.FeatureEdgeSpan;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
 
@@ -27,6 +30,17 @@ public final class ArcStripIndex {
     /** Lifted 3D polyline per arc id, travel order. */
     public List<List<Vector3f>> polylineByArc;
 
+    /** Source active face per polyline point, aligned with {@link #polylineByArc}. */
+    public List<List<Integer>> polylineFaceByArc;
+
+    /**
+     * Arc ids whose traces cross each source active edge transversally (or
+     * run along it, for feature arcs). Bridge hops respect these: a bridge
+     * may not ride an edge crossed by a not-yet-embedded arc's trace, or it
+     * would occupy that arc's channel and wall it out.
+     */
+    public List<List<Integer>> crossingArcsBySourceEdge;
+
     /**
      * Stores inputs for the strip index.
      *
@@ -46,14 +60,59 @@ public final class ArcStripIndex {
         int arcCount = motorcycleGraph.arcs.size();
         stripFacesByArc = new ArrayList<>(arcCount);
         polylineByArc = new ArrayList<>(arcCount);
+        polylineFaceByArc = new ArrayList<>(arcCount);
         for (int arcId = 0; arcId < arcCount; arcId++) {
             stripFacesByArc.add(new ArrayList<>());
             polylineByArc.add(new ArrayList<>());
+            polylineFaceByArc.add(new ArrayList<>());
         }
         for (Trace trace : motorcycleGraph.traces) {
             sweepTrace(trace);
         }
+        buildCrossingIndex();
         return this;
+    }
+
+    /**
+     * Resolve every recorded trace-over-edge crossing (and feature span) to
+     * its arc, filling {@link #crossingArcsBySourceEdge}.
+     */
+    private void buildCrossingIndex() {
+        int edgeCount = motorcycleGraph.seamless.edgeCount;
+        crossingArcsBySourceEdge = new ArrayList<>(edgeCount);
+        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+            crossingArcsBySourceEdge.add(new ArrayList<>());
+        }
+        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+            for (EdgeCrossing crossing : motorcycleGraph.crossingsByActiveEdge.get(activeEdge)) {
+                Trace trace = motorcycleGraph.traces.get(crossing.traceId);
+                int arcId = trace.arcAtParametricLength(crossing.parametricLength);
+                if (arcId >= 0) {
+                    List<Integer> arcs = crossingArcsBySourceEdge.get(activeEdge);
+                    if (!arcs.contains(arcId)) {
+                        arcs.add(arcId);
+                    }
+                }
+            }
+        }
+        for (Map.Entry<Integer, FeatureEdgeSpan> entry
+                : motorcycleGraph.featureSpanByEdgeId.entrySet()) {
+            Integer activeEdge = motorcycleGraph.seamless.crossField.edgeIdToActive
+                    .get(entry.getKey());
+            if (activeEdge == null) {
+                continue;
+            }
+            FeatureEdgeSpan span = entry.getValue();
+            Trace trace = motorcycleGraph.traces.get(span.traceId);
+            int arcId = trace.arcAtParametricLength(
+                    0.5 * (span.entryLength + span.exitLength));
+            if (arcId >= 0) {
+                List<Integer> arcs = crossingArcsBySourceEdge.get(activeEdge);
+                if (!arcs.contains(arcId)) {
+                    arcs.add(arcId);
+                }
+            }
+        }
     }
 
     /**
@@ -117,5 +176,6 @@ public final class ArcStripIndex {
             return;
         }
         polyline.add(point);
+        polylineFaceByArc.get(arcId).add(segment.activeFace);
     }
 }

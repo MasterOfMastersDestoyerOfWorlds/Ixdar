@@ -386,7 +386,7 @@ public final class PatchBoundaryBuilder {
                         port.arcId, port.outgoing, port.directionU, port.directionV,
                         port.activeFace, port.sortKey));
             }
-            System.out.printf("[patch-diag] ambiguous ports node=%d type=%d vertex=%d:%s%n",
+            System.out.printf("[patch-diag] ambiguous ports node=%d type=%s vertex=%d:%s%n",
                     entry.getKey(), node.type, node.vertexId, portDump);
         }
         if (ambiguousNodes > 0) {
