@@ -24,7 +24,7 @@ import java.util.List;
  *
  * <p><b>Every geometric decision here is a sign test, and every sign test is exact.</b>
  * The walk carries no tolerance. A chord either crosses the open exit edge (the two
- * endpoints have strictly opposite {@link ExactOrient2d} signs) or it passes exactly
+ * endpoints have strictly opposite {@link ExactBarycentricOrient} signs) or it passes exactly
  * through one of them (that endpoint's sign is zero) — and those are different cases
  * with different code, not one case with a fudge factor. Because a split only ever
  * happens at a strictly transversal crossing, the split parameter lies strictly inside
@@ -38,14 +38,6 @@ public final class FaceChordWalk {
     /** Corners (and edges) of a triangle. */
     private static final int CORNERS = 3;
 
-    /**
-     * Whether a carve point may reuse a free endpoint of the edge it crosses
-     * (LCBK19's snap) instead of splitting at the exact crossing. Snapping moves the
-     * arc off its traced iso-line by up to half an edge, so the lane it lays down is
-     * no longer the chord the trace walked.
-     */
-    private static final boolean SNAP_CROSSINGS =
-            Boolean.getBoolean("embed.snapCrossings");
 
     /** Message prefix naming the arc being carved. */
     private static final String ARC = "arc ";
@@ -277,6 +269,7 @@ public final class FaceChordWalk {
         return through;
     }
 
+
     /**
      * Materialize the target on the child face that contains it, applying LCBK19's
      * availability rule: reuse a free corner the target coincides with, else reuse the
@@ -319,11 +312,6 @@ public final class FaceChordWalk {
                 continue;
             }
             requireUnclaimed(arcId, edgeId);
-            int nearer = nearerEndpoint(edgeId, parameter);
-            if (SNAP_CROSSINGS && nearer != head && isFree(nearer) && hopIsFree(head, nearer)) {
-                snappedCrossingCount++;
-                return nearer;
-            }
             splitCrossingCount++;
             return topology.splitEdgeAtParameter(edgeId, parameter);
         }
@@ -466,18 +454,6 @@ public final class FaceChordWalk {
         return parameter;
     }
 
-    /**
-     * The endpoint of an edge nearer to a parameter along it.
-     *
-     * @param edgeId    child edge
-     * @param parameter parameter from the edge's canonical start vertex
-     * @return the nearer endpoint
-     */
-    private int nearerEndpoint(int edgeId, double parameter) {
-        int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-        int start = topology.copy.halfEdgeVertex(halfEdge);
-        return parameter <= 0.5 ? start : topology.copy.halfEdgeEndVertex(halfEdge);
-    }
 
     /**
      * The edge of a triangle not incident to one of its corners.

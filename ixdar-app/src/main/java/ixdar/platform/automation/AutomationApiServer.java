@@ -16,6 +16,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
@@ -23,6 +25,9 @@ import java.util.function.Supplier;
 public class AutomationApiServer {
     public static final String CONTENT_TYPE = "Content-Type";
     public static final String APPLICATION_JSON = "application/json";
+
+    /** Leading separator required by {@code HttpServer.createContext} on every route path. */
+    public static final String PATH_SEPARATOR = "/";
     public static final int NUM_405 = 405;
     public static final int NUM_500 = 500;
     public static final int NUM_200 = 200;
@@ -91,24 +96,34 @@ public class AutomationApiServer {
     }
 
     static void registerAll(HttpServer server, AutomationRuntime runtime) {
+        Map<String, Map<String, AutomationRoute>> routesByPath = new HashMap<>();
         for (Supplier<? extends AutomationRoute> route : AutomationRouteMap.MAP.values()) {
             AutomationRoute automationRoute = route.get();
             AutomationRouteAnnotation ann = automationRoute.getClass().getAnnotation(AutomationRouteAnnotation.class);
             if (ann == null) {
                 continue;
             }
+            if (automationRoute instanceof AutomationEndpoint endpoint) {
+                endpoint.runtime = runtime;
+            }
             String path = ann.path();
-            APIMethod method = ann.method();
-            server.createContext(path, exchange -> handle(exchange, runtime, automationRoute, method));
+            if (!path.startsWith(PATH_SEPARATOR)) {
+                path = PATH_SEPARATOR + path;
+            }
+            routesByPath.computeIfAbsent(path, key -> new HashMap<>())
+                    .put(ann.method().name().toUpperCase(), automationRoute);
+        }
+        for (Map.Entry<String, Map<String, AutomationRoute>> entry : routesByPath.entrySet()) {
+            Map<String, AutomationRoute> byMethod = entry.getValue();
+            server.createContext(entry.getKey(), exchange -> handle(exchange, byMethod));
         }
     }
 
-    private static void handle(HttpExchange exchange, AutomationRuntime runtime, AutomationRoute route, APIMethod method)
+    private static void handle(HttpExchange exchange, Map<String, AutomationRoute> byMethod)
             throws IOException {
-        String want = method.name().toUpperCase();
-        String got = exchange.getRequestMethod().toUpperCase();
-        if (!want.equals(got)) {
-            writeError(exchange, NUM_405, "Method not allowed; expected " + want);
+        AutomationRoute route = byMethod.get(exchange.getRequestMethod().toUpperCase());
+        if (route == null) {
+            writeError(exchange, NUM_405, "Method not allowed; expected one of " + byMethod.keySet());
             return;
         }
         try {

@@ -230,7 +230,13 @@ public final class MotorcycleGraph {
                 lastAlive = alive;
             }
         }
-        printSimulationProgress(eventsProcessed, initialQueueSize, 0, lastAlive,
+        int aliveAtEnd = 0;
+        for (Trace trace : traces) {
+            if (trace.alive && !trace.featureTrace) {
+                aliveAtEnd++;
+            }
+        }
+        printSimulationProgress(eventsProcessed, initialQueueSize, queue.size(), aliveAtEnd,
                 lastAlive, System.nanoTime() - simStartNanos);
         for (Trace trace : traces) {
             if (!trace.alive || trace.featureTrace) {

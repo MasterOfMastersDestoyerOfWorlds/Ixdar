@@ -95,3 +95,38 @@ When reading results: a high *inclusive* but low *self* number means the cost is
 ## Picking what to optimize
 
 Do not argue about *which* thing to optimize. When I point at a specific method or target, optimize that one — even if you believe a different hotspot is the bigger win. State the bigger opportunity **once, in a single sentence**, then drop it and do what I asked. Don't re-raise it across turns, don't re-rank the options every reply, and don't treat a small absolute time as "not worth it" — if I say 2.5s is too long, it's too long. I decide priority; you make the thing I named faster.
+
+# Scenes and visual debugging
+
+Interactive 3D views are **scenes**: a class `extends Scene` (or `Canvas3D`) annotated `@SceneAnnotation(id = "...")`, auto-registered by an annotation processor (no registry list to edit — like the `@MeshNodeAnnotation` primitives). The window entry point is `ixdar.canvas.IxdarWindow`, and the scene id is `args[0]`, so `IxdarWindow embedded-tmesh` runs the scene with that id. Every scene id also has (or should have) a `.vscode/launch.json` entry — `mainClass: ixdar.canvas.IxdarWindow`, `args: <id>` — and can be run from the CLI with `mvn -q -f ixdar-app/pom.xml exec:java -Dexec.mainClass=ixdar.canvas.IxdarWindow -Dexec.args=<id>`.
+
+**Don't hand-write a new scene's boilerplate** — scaffold it. This creates the Scene `.java`, the launch.json entry, and (optionally) a Maven profile in one shot:
+
+```
+uv run ixdar-cli new-scene --name FooScene --id foo-canvas --subfolder ui \
+  --display-name "Foo" --base Scene --camera 3d [--maven-profile foo-scene] [--dry-run]
+```
+
+## Seeing a render yourself — headless scene + screenshot
+
+Any scene runs with **no visible window** via `-Dixdar.headless=true`: `IxdarWindow` then drives it against an off-screen GL context (a hidden GLFW window) while the automation HTTP server still comes up on `http://127.0.0.1:47832`. So the loop to see *any* scene is:
+
+```
+# launch (background; needs the graphical session to exist — hidden window, not truly surfaceless,
+# so a bare server needs xvfb-run):
+setsid java -Dixdar.headless=true -cp "ixdar-app/target/classes:$(cat CP)" \
+  ixdar.canvas.IxdarWindow <scene-id> >/tmp/scene.log 2>&1 &
+# wait for it, capture, shut down:
+until curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:47832/health | grep -q 200; do sleep 1; done
+uv run ixdar-cli screenshot --out /tmp/scene.png     # or: curl -XPOST .../ui/screenshot -d '{"path":"..."}'
+uv run ixdar-cli multiview /tmp/scene.png            # 8-angle grid, sized under the image limit
+uv run ixdar-cli shutdown                            # System.exit; no window to close
+```
+
+Then `Read` the PNG. This is the generic path — **do not write a per-scene headless renderer** (`RenderEmbeddedTMesh` and the like were a wrong turn); feed the scene's own `QuadLayoutRuntime`/overlays and screenshot it. `entrypoint/RenderDsl`/`RenderGrid` show the same off-screen `HeadlessPlatform` + `readPixels` → PNG pattern if you ever need a one-shot with no server.
+
+Omitting `-Dixdar.headless=true` opens a **visible** window on the desktop — only do that when you genuinely need to interact.
+
+Do not hand-roll a bespoke visualizer (an SVG unwrap, a custom exporter): the runtime already draws meshes, arcs, and node markers on the surface.
+
+> The automation server had four latent bugs (it had never actually served a request): the `Canvas3D`/`MenuBox`/`KeyGuy`/`MouseTrap` reflection pointed at the pre-move package (missing `endpoints`), `@AutomationRouteAnnotation` was `@Retention(CLASS)` instead of `RUNTIME`, `AutomationApiServer.registerAll` didn't prefix paths with `/` or group GET+POST on one path, and route `runtime` was never injected. All fixed. If automation breaks again, suspect one of these.

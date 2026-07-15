@@ -8,7 +8,7 @@ import java.lang.annotation.*;
  * {@link #path()} and {@link #method()} are read at runtime by
  * {@code AutomationApiServer} to bind the HTTP endpoint.
  */
-@Retention(RetentionPolicy.CLASS)
+@Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface AutomationRouteAnnotation {
     /**

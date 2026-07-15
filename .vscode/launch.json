@@ -214,7 +214,7 @@
         "-Xmx4g",
         "-Dsun.awt.noerasebackground=true",
         "-Dorg.lwjgl.util.DebugLoader=true",
-        "-DmcgScene.off=test/resources/quadlayout/figure_8/rockerarm_in_tri.off",
+        "-DmcgScene.off=test/resources/quadlayout/figure_8/fertility_in_tri.off",
         "-DmcgScene.alpha=15"
       ],
       "cwd": "${workspaceFolder}/ixdar-app"
@@ -235,6 +235,23 @@
         "-Dorg.lwjgl.util.DebugLoader=true",
         "-DquadLayoutScene.off=test/resources/quadlayout/figure_8/fertility_in_tri.off",
         "-DquadLayoutScene.alpha=15"
+      ],
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Embedded T-Mesh",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "embedded-tmesh",
+      "vmArgs": [
+        "${config:java.profiler.args}",
+        "-enableassertions",
+        "-XX:+IgnoreUnrecognizedVMOptions",
+        "-XstartOnFirstThread",
+        "-Xmx4g",
+        "-Dsun.awt.noerasebackground=true",
+        "-Dorg.lwjgl.util.DebugLoader=true"
       ],
       "cwd": "${workspaceFolder}/ixdar-app"
     }

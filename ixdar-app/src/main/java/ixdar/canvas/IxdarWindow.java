@@ -53,6 +53,8 @@ import org.lwjgl.system.MemoryStack;
 import ixdar.annotations.scene.SceneDrawable;
 import ixdar.graphics.render.Clock;
 import ixdar.platform.Platforms;
+import ixdar.platform.gl.headless.HeadlessGL;
+import ixdar.platform.gl.headless.HeadlessPlatform;
 import ixdar.platform.gl.lwjgl.LwjglGL;
 import ixdar.platform.gl.lwjgl.LwjglPlatform;
 
@@ -62,6 +64,18 @@ public class IxdarWindow {
     public static final int NUM_750 = 750;
     public static final int NUM_4 = 4;
     public static final int NUM_20 = 20;
+
+    /** System property that runs a scene with no visible window, for screenshot capture. */
+    public static final String HEADLESS_PROPERTY = "ixdar.headless";
+
+    /** System property overriding the headless framebuffer's square side, in pixels. */
+    public static final String HEADLESS_SIZE_PROPERTY = "ixdar.headless.size";
+
+    /** Default headless framebuffer side when {@link #HEADLESS_SIZE_PROPERTY} is unset. */
+    public static final int HEADLESS_DEFAULT_SIZE = 1024;
+
+    /** Automation platform id, matching the value the headless render entrypoints use. */
+    public static final int HEADLESS_PLATFORM_ID = 1;
 
     public static JFrame frame;
     public static float startTime;
@@ -88,7 +102,56 @@ public class IxdarWindow {
             canvasId = args[0];
         }
         startTime = Clock.time();
-        new IxdarWindow().runGLFW();
+        if (Boolean.getBoolean(HEADLESS_PROPERTY)) {
+            new IxdarWindow().runHeadless();
+        } else {
+            new IxdarWindow().runGLFW();
+        }
+    }
+
+    /**
+     * Run the selected scene against an off-screen GL context with no visible window, so a
+     * screenshot of it can be captured without anything appearing on the desktop.
+     *
+     * <p>The scene, its automation server, and the per-frame command pump are all the same
+     * as in the windowed path — the only difference is the platform. {@link HeadlessGL}
+     * still opens a GLFW window, but a hidden one, so this needs a graphical session (or an
+     * X server such as Xvfb) to exist; it is not truly surfaceless. Everything runs on this
+     * one thread, which is where {@code HeadlessGL} binds its context, so the automation
+     * server's screenshot command reads the framebuffer on the thread that drew it.
+     *
+     * <p>The loop runs until the automation {@code /shutdown} endpoint calls
+     * {@link System#exit}; there is no window to close.
+     *
+     * @throws RuntimeException when no scene is registered for the requested canvas id
+     */
+    public void runHeadless() {
+        int size = Integer.getInteger(HEADLESS_SIZE_PROPERTY, HEADLESS_DEFAULT_SIZE);
+        HeadlessPlatform platform = new HeadlessPlatform(size, size);
+        platform.setPlatformID(HEADLESS_PLATFORM_ID);
+        HeadlessGL gl = platform.getGL();
+        gl.setPlatformID(HEADLESS_PLATFORM_ID);
+        Platforms.init(platform, gl);
+        gl.enable(gl.DEPTH_TEST());
+        platform.setFrameBufferSize(size, size);
+
+        Supplier<? extends SceneDrawable> sceneSupplier = CanvasSceneMap.MAP.get(canvasId);
+        if (sceneSupplier == null) {
+            throw new RuntimeException(CANVAS3D_NOT_FOUND_FOR + canvasId);
+        }
+        canvas = (Canvas3D) sceneSupplier.get();
+        canvas.initGL();
+        System.out.println("[headless] scene '" + canvasId + "' ready at " + size + "x" + size
+                + "; automation server up, screenshot with `ixdar-cli screenshot`");
+
+        try {
+            while (true) {
+                canvas.paintGL();
+                Thread.sleep(NUM_20);
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /**

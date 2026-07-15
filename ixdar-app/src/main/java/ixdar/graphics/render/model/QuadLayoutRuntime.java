@@ -11,6 +11,9 @@ import org.lwjgl.BufferUtils;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcEdgePath;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
@@ -203,6 +206,15 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private static final Vector4f COLOR_LAYOUT_CORNER = new Vector4f(1f, 0.25f, 0.25f, 1f);
     /** Embedded arc edge-path tint (stage-8 re-embedding). */
     private static final Vector4f COLOR_EMBEDDED_ARC = new Vector4f(1f, 0.55f, 0.1f, 0.95f);
+
+    /** Tint for zero-quantized arcs, red like LCBK19 Figure 9, so collapse targets stand out. */
+    private static final Vector4f COLOR_EMBEDDED_ZERO_ARC = new Vector4f(0.95f, 0.15f, 0.15f, 0.95f);
+
+    /** Tint for an ordinary embedded T-mesh node. */
+    private static final Vector4f COLOR_EMBEDDED_NODE = new Vector4f(0.2f, 0.85f, 1f, 1f);
+
+    /** Tint for a critical embedded T-mesh node, which the operators may never move. */
+    private static final Vector4f COLOR_EMBEDDED_NODE_CRITICAL = new Vector4f(1f, 0.85f, 0.1f, 1f);
     /** Line width restored after drawing layout boundary curves. */
     private static final float DEFAULT_GL_LINE_WIDTH = 1f;
 
@@ -311,6 +323,16 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public int embeddedLineVbo;
     /** Vertex count of the embedded arc GL_LINES buffer. */
     public int embeddedLineVertexCount;
+    /** VAO of the zero-quantized arc GL_LINES buffer. */
+    public int embeddedZeroLineVao;
+    /** VBO of the zero-quantized arc GL_LINES buffer. */
+    public int embeddedZeroLineVbo;
+    /** Vertex count of the zero-quantized arc GL_LINES buffer. */
+    public int embeddedZeroLineVertexCount;
+    /** Flat xyz of each live embedded T-mesh node, for sphere markers. */
+    public float[] embeddedNodePositions;
+    /** Whether each live embedded T-mesh node is critical, parallel to {@link #embeddedNodePositions}. */
+    public boolean[] embeddedNodeCritical;
 
     protected final Matrix4f sphereModel = new Matrix4f();
     protected final Matrix4f localProjection = new Matrix4f();
@@ -533,7 +555,8 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         boolean drawLayoutFill = showLayoutPatches
                 && layoutPatchIndexCount != null && layoutPatchIndexCount.length > 0;
         boolean drawLayoutBoundaries = showLayoutBoundaries && layoutLineVertexCount > 0;
-        boolean drawEmbeddedArcs = showEmbeddedArcs && embeddedLineVertexCount > 0;
+        boolean drawEmbeddedArcs = showEmbeddedArcs && (embeddedLineVertexCount > 0
+                || embeddedZeroLineVertexCount > 0 || embeddedNodePositions != null);
         if (!drawSurface && !drawCross && !drawConstraints && !drawSingularities && !drawNodes
                 && !drawLayoutFill && !drawLayoutBoundaries && !drawEmbeddedArcs) {
             return;
@@ -1308,6 +1331,108 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
+     * Upload an embedded T-mesh for the debug overlay: its live arcs as edge-path lines
+     * (positive arcs in one buffer, zero arcs in another so collapse targets are visible),
+     * and its live nodes as sphere markers coloured by criticality. This is the view LCBK19
+     * Figure 9 draws, and it is what the collapse operators are debugged against.
+     *
+     * @param tmesh embedded T-mesh to draw; retired elements are skipped
+     */
+    public void setEmbeddedTMesh(EmbeddedTMesh tmesh) {
+        GL gl = Platforms.gl();
+        deleteEmbeddedBuffers(gl);
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        int positiveSegments = 0;
+        int zeroSegments = 0;
+        for (EmbeddedArc arc : tmesh.arcs) {
+            if (!arc.alive || arc.path.copyVertexPath.size() < 2) {
+                continue;
+            }
+            int segments = arc.path.copyVertexPath.size() - 1;
+            if (arc.quantizedLength == 0) {
+                zeroSegments += segments;
+            } else {
+                positiveSegments += segments;
+            }
+        }
+        float[] positive = new float[positiveSegments * 2 * VEC3_SIZE];
+        float[] zero = new float[zeroSegments * 2 * VEC3_SIZE];
+        int positiveCursor = 0;
+        int zeroCursor = 0;
+        Vector3f position = new Vector3f();
+        for (EmbeddedArc arc : tmesh.arcs) {
+            List<Integer> path = arc.path.copyVertexPath;
+            if (!arc.alive || path.size() < 2) {
+                continue;
+            }
+            boolean isZero = arc.quantizedLength == 0;
+            for (int index = 1; index < path.size(); index++) {
+                copy.vertexPosition(path.get(index - 1), position);
+                positiveCursor = isZero ? positiveCursor : writePoint(positive, positiveCursor, position);
+                zeroCursor = isZero ? writePoint(zero, zeroCursor, position) : zeroCursor;
+                copy.vertexPosition(path.get(index), position);
+                positiveCursor = isZero ? positiveCursor : writePoint(positive, positiveCursor, position);
+                zeroCursor = isZero ? writePoint(zero, zeroCursor, position) : zeroCursor;
+            }
+        }
+        int[] positiveBuffers = uploadLineBuffer(gl, positive);
+        embeddedLineVao = positiveBuffers[0];
+        embeddedLineVbo = positiveBuffers[1];
+        embeddedLineVertexCount = positiveCursor / VEC3_SIZE;
+        int[] zeroBuffers = uploadLineBuffer(gl, zero);
+        embeddedZeroLineVao = zeroBuffers[0];
+        embeddedZeroLineVbo = zeroBuffers[1];
+        embeddedZeroLineVertexCount = zeroCursor / VEC3_SIZE;
+
+        int liveNodes = 0;
+        for (EmbeddedNode node : tmesh.nodes) {
+            if (node.alive) {
+                liveNodes++;
+            }
+        }
+        embeddedNodePositions = new float[liveNodes * VEC3_SIZE];
+        embeddedNodeCritical = new boolean[liveNodes];
+        int nodeCursor = 0;
+        int nodeIndex = 0;
+        for (EmbeddedNode node : tmesh.nodes) {
+            if (!node.alive) {
+                continue;
+            }
+            copy.vertexPosition(node.copyVertex, position);
+            nodeCursor = writePoint(embeddedNodePositions, nodeCursor, position);
+            embeddedNodeCritical[nodeIndex] = node.critical;
+            nodeIndex++;
+        }
+        if (singularityVao == 0) {
+            buildIcosphereBuffers();
+        }
+        updateSphereRadius();
+        showEmbeddedArcs = true;
+    }
+
+    /**
+     * Upload a flat xyz array as a position-only GL_LINES buffer.
+     *
+     * @param gl       active GL platform handle
+     * @param vertices flat {@code x, y, z} triples, two per line segment
+     * @return the {@code {vao, vbo}} handles, both zero when there is nothing to upload
+     */
+    private int[] uploadLineBuffer(GL gl, float[] vertices) {
+        if (vertices.length == 0) {
+            return new int[] { 0, 0 };
+        }
+        int vao = gl.genVertexArrays();
+        int vbo = gl.genBuffers();
+        gl.bindVertexArray(vao);
+        gl.bindBuffer(gl.ARRAY_BUFFER(), vbo);
+        gl.bufferData(gl.ARRAY_BUFFER(), vertices, gl.STATIC_DRAW());
+        gl.vertexAttribPointer(ATTR_POSITION, VEC3_SIZE, gl.FLOAT(), false,
+                VEC3_SIZE * Float.BYTES, 0);
+        gl.enableVertexAttribArray(ATTR_POSITION);
+        return new int[] { vao, vbo };
+    }
+
+    /**
      * Write one point's xyz into a flat float array.
      *
      * @param target flat float array
@@ -1399,7 +1524,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
      * @param camera active 3D camera
      */
     private void renderEmbeddedArcs(Camera3D camera) {
-        if (unlitShader.ID < 0 || embeddedLineVertexCount == 0) {
+        if (unlitShader.ID < 0) {
             return;
         }
         GL gl = Platforms.gl();
@@ -1409,11 +1534,45 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         sphereModel.identity();
         unlitShader.setMat4(MODEL, sphereModel);
         unlitShader.setFloat(DEPTHBIAS, LAYOUT_DEPTH_BIAS);
-        unlitShader.setVec4(SOLIDCOLOR, COLOR_EMBEDDED_ARC);
         gl.lineWidth(LAYOUT_LINE_WIDTH);
-        gl.bindVertexArray(embeddedLineVao);
-        gl.drawArrays(gl.LINES(), 0, embeddedLineVertexCount);
+        if (embeddedLineVertexCount > 0) {
+            unlitShader.setVec4(SOLIDCOLOR, COLOR_EMBEDDED_ARC);
+            gl.bindVertexArray(embeddedLineVao);
+            gl.drawArrays(gl.LINES(), 0, embeddedLineVertexCount);
+        }
+        if (embeddedZeroLineVertexCount > 0) {
+            unlitShader.setVec4(SOLIDCOLOR, COLOR_EMBEDDED_ZERO_ARC);
+            gl.bindVertexArray(embeddedZeroLineVao);
+            gl.drawArrays(gl.LINES(), 0, embeddedZeroLineVertexCount);
+        }
         gl.lineWidth(DEFAULT_GL_LINE_WIDTH);
+        renderEmbeddedNodes(gl);
+    }
+
+    /**
+     * Draw the embedded T-mesh nodes as spheres, critical ones tinted apart.
+     *
+     * @param gl active GL platform handle
+     */
+    private void renderEmbeddedNodes(GL gl) {
+        if (embeddedNodePositions == null || singularityVao == 0) {
+            return;
+        }
+        unlitShader.setFloat(DEPTHBIAS, 0f);
+        gl.bindVertexArray(singularityVao);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), singularityEbo);
+        for (int node = 0; node < embeddedNodeCritical.length; node++) {
+            int base = node * VEC3_SIZE;
+            unlitShader.setVec4(SOLIDCOLOR, embeddedNodeCritical[node]
+                    ? COLOR_EMBEDDED_NODE_CRITICAL : COLOR_EMBEDDED_NODE);
+            sphereModel.identity()
+                    .translate(embeddedNodePositions[base],
+                            embeddedNodePositions[base + COMPONENT_Y],
+                            embeddedNodePositions[base + COMPONENT_Z])
+                    .scale(sphereRadius);
+            unlitShader.setMat4(MODEL, sphereModel);
+            gl.drawElements(gl.TRIANGLES(), singularityIndexCount, gl.UNSIGNED_INT(), 0);
+        }
     }
 
     /**
@@ -1431,6 +1590,17 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             embeddedLineVbo = 0;
         }
         embeddedLineVertexCount = 0;
+        if (embeddedZeroLineVao != 0) {
+            gl.deleteVertexArrays(embeddedZeroLineVao);
+            embeddedZeroLineVao = 0;
+        }
+        if (embeddedZeroLineVbo != 0) {
+            gl.deleteBuffers(embeddedZeroLineVbo);
+            embeddedZeroLineVbo = 0;
+        }
+        embeddedZeroLineVertexCount = 0;
+        embeddedNodePositions = null;
+        embeddedNodeCritical = null;
     }
 
     /**

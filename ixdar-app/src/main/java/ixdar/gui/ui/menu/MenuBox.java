@@ -97,7 +97,7 @@ public class MenuBox implements MouseTrap.ScrollHandler {
             automationChecked = true;
             try {
                 Class<?> cls = Class.forName(
-                        String.join(".", "ixdar", "platform", "automation", "AutomationRuntime"));
+                        String.join(".", "ixdar", "platform", "automation", "endpoints", "AutomationRuntime"));
                 automationRuntime = cls.getMethod("get").invoke(null);
             } catch (Throwable ignored) {}
         }

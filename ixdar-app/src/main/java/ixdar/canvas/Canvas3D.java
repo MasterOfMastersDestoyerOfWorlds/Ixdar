@@ -38,6 +38,7 @@ public class Canvas3D extends SceneDrawable {
     public static final String AUDIOASSETS = "AudioAssets";
     public static final String PLATFORM = "platform";
     public static final String AUTOMATION = "automation";
+    public static final String ENDPOINTS = "endpoints";
     public static final float PROJECTION_MATRIX_SCALE = 1f;
 
     public static Canvas3D instance;
@@ -177,7 +178,7 @@ public class Canvas3D extends SceneDrawable {
             automationChecked = true;
             try {
                 Class<?> cls = Class.forName(
-                        String.join(STR, IXDAR, PLATFORM, AUTOMATION, "AutomationRuntime"));
+                        String.join(STR, IXDAR, PLATFORM, AUTOMATION, ENDPOINTS, "AutomationRuntime"));
                 automationRuntime = cls.getMethod(GET).invoke(null);
             } catch (Throwable ignored) {
             }
