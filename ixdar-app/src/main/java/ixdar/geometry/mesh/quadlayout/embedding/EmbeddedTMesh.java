@@ -1,7 +1,12 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+
+import org.joml.Vector3f;
 
 /**
  * The T-mesh, embedded: one mutable structure holding the nodes, arcs and patches of the
@@ -49,6 +54,9 @@ public final class EmbeddedTMesh {
 
     /** Message fragment joining two listed ids. */
     private static final String AND = " and ";
+
+    /** Message fragment for an element absent from a patch boundary. */
+    private static final String NOT_ON_BOUNDARY = " is not on the boundary of ";
 
     public final EmbeddedMeshTopology topology;
 
@@ -392,6 +400,26 @@ public final class EmbeddedTMesh {
     }
 
     /**
+     * Retires an arc whose embedding has been abandoned — LCBK19 operator (3)'s dying arc,
+     * whose lane the surviving arc's neighbour takes over. It releases the arc's mesh claims,
+     * so the freed lane lets the neighbouring region flood across to the surviving arc, and
+     * drops it from its nodes' incidence lists.
+     *
+     * <p>Unlike {@link #removeCollapsedArc} this makes no change to any patch's boundary — the
+     * caller has already re-pointed the one patch that used the dying arc onto the survivor and
+     * retired the collapsed patch — so it does not require the arc to be a loop.
+     *
+     * @param arcId arc whose embedding is discarded
+     */
+    public void discardArc(int arcId) {
+        EmbeddedArc arc = arcs.get(arcId);
+        releaseClaims(arc);
+        arcEndsByNode.get(arc.startNodeId).removeIf(id -> id == arcId);
+        arcEndsByNode.get(arc.endNodeId).removeIf(id -> id == arcId);
+        arc.alive = false;
+    }
+
+    /**
      * Splits an arc at an interior point of its path, inserting a node there and replacing
      * the arc with the two halves, in both of the patches it bounds.
      *
@@ -457,6 +485,78 @@ public final class EmbeddedTMesh {
     }
 
     /**
+     * Cuts a patch in two along an arc that already runs across it, from a node on one side
+     * to a node on the opposite side — LCBK19 operator (2)'s split, and the same cut the
+     * LCK21a T-junction extension makes.
+     *
+     * <p>The dividing arc joins a point on side {@code s} to a point on side {@code s + 2}, so
+     * it splits the patch's boundary cycle into two four-sided halves, each bounded by part of
+     * side {@code s}, a whole neighbouring side, part of side {@code s + 2}, and the dividing
+     * arc. The originating patch is retired and the two halves are added; the dividing arc
+     * ends up bounding both of them, and every other boundary arc keeps the neighbour it had
+     * on its far side.
+     *
+     * @param patchId    patch to cut
+     * @param dividerArc arc running from a node on one side to a node on the opposite side
+     * @return the ids of the two halves
+     * @throws IllegalStateException when the arc's endpoints do not lie on opposite sides of
+     *                               the patch's boundary
+     */
+    public int[] splitPatchByArc(int patchId, int dividerArc) {
+        EmbeddedPatch patch = patches.get(patchId);
+        EmbeddedArc divider = arcs.get(dividerArc);
+        int[] endA = locateNodeOnBoundary(patch, divider.startNodeId);
+        int[] endB = locateNodeOnBoundary(patch, divider.endNodeId);
+        if ((endA[0] + 2) % EmbeddedPatch.SIDES != endB[0]) {
+            throw new IllegalStateException(ARC + dividerArc + " does not divide " + PATCH
+                    + patchId + ": its ends lie on sides " + endA[0] + AND + endB[0]
+                    + ", which are not opposite");
+        }
+        int sideA = endA[0];
+        int sideB = endB[0];
+        List<Integer> beforeA = new ArrayList<>(patch.sideArcIds.get(sideA).subList(0, endA[1]));
+        List<Integer> afterA = new ArrayList<>(
+                patch.sideArcIds.get(sideA).subList(endA[1], patch.sideArcIds.get(sideA).size()));
+        List<Integer> beforeB = new ArrayList<>(patch.sideArcIds.get(sideB).subList(0, endB[1]));
+        List<Integer> afterB = new ArrayList<>(
+                patch.sideArcIds.get(sideB).subList(endB[1], patch.sideArcIds.get(sideB).size()));
+        List<Integer> divide = List.of(dividerArc);
+
+        List<List<Integer>> firstSides = List.of(afterA,
+                new ArrayList<>(patch.sideArcIds.get((sideA + 1) % EmbeddedPatch.SIDES)),
+                beforeB, divide);
+        List<List<Integer>> secondSides = List.of(afterB,
+                new ArrayList<>(patch.sideArcIds.get((sideA + 3) % EmbeddedPatch.SIDES)),
+                beforeA, divide);
+
+        patch.alive = false;
+        int firstPatch = addPatch(patch.sourcePatchId, firstSides, divider.startNodeId);
+        int secondPatch = addPatch(patch.sourcePatchId, secondSides, divider.endNodeId);
+        return new int[] { firstPatch, secondPatch };
+    }
+
+    /**
+     * Where a node sits on a patch's boundary: which side it is on and its index within that
+     * side's node chain. A node on a corner is reported on the side it starts.
+     *
+     * @param patch  patch to look in
+     * @param nodeId node to locate
+     * @return the side index and the node's position within that side's node list
+     * @throws IllegalStateException when the node is not on the patch's boundary
+     */
+    private int[] locateNodeOnBoundary(EmbeddedPatch patch, int nodeId) {
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            List<Integer> sideNodes = patch.sideNodeIds.get(side);
+            for (int index = 0; index < sideNodes.size() - 1; index++) {
+                if (sideNodes.get(index) == nodeId) {
+                    return new int[] { side, index };
+                }
+            }
+        }
+        throw new IllegalStateException("node " + nodeId + NOT_ON_BOUNDARY + PATCH + patch.patchId);
+    }
+
+    /**
      * Swaps one arc for another on a patch's boundary. The two must run between the same
      * nodes, because the patch's node chain is not touched.
      *
@@ -515,8 +615,100 @@ public final class EmbeddedTMesh {
                 return new int[] { side, index };
             }
         }
-        throw new IllegalStateException(ARC + arcId + " is not on the boundary of "
-                + PATCH + patchId);
+        throw new IllegalStateException(ARC + arcId + NOT_ON_BOUNDARY + PATCH + patchId);
+    }
+
+    /**
+     * Re-routes the end of an arc that a moving node is dragging with it, from the node's
+     * old vertex onto its new one — LCBK19 operator (1)'s <em>"pulling its incident arcs
+     * with it, i.e. their embedding path is adjusted such that they connect to n0 at its
+     * new position"</em>.
+     *
+     * <p>The paper's mechanism, exactly: keep the longest prefix of the arc's old path that
+     * still reaches, and re-route the tail from there to the new vertex with a
+     * claims-respecting Dijkstra (the {@link ArcRerouter}), backing off to an earlier
+     * prefix when the search cannot pass, and refining the mesh with a few edge splits when
+     * a lane is walled in. The corridor is seeded with the arc's own old path and the
+     * collapsing arc's freed channel, and the search is biased onto that lane, so the
+     * re-routed arc stays close to where it was.
+     *
+     * <p>This lives here, not in the operator, because the arc's claims and its {@code path}
+     * field must move together — the multi-step back-off leaves them briefly out of step,
+     * and letting an operator poke the claim arrays during that window is how the one-to-one
+     * mapping silently breaks.
+     *
+     * @param arcId        arc whose end is being dragged
+     * @param movedVertex  the moving node's old copy vertex, an endpoint of the arc's path
+     * @param targetVertex the moving node's new copy vertex
+     * @param rerouter     the claims-respecting router
+     * @param channel      the collapsing arc's released path vertices, seeding the corridor
+     * @throws IllegalStateException when the arc's path does not end at the moved vertex, or
+     *                               when no back-off point can be re-routed to the target
+     */
+    public void dragArcEndOntoVertex(int arcId, int movedVertex, int targetVertex,
+            ArcRerouter rerouter, List<Integer> channel) {
+        EmbeddedArc arc = arcs.get(arcId);
+        List<Integer> vertices = new ArrayList<>(arc.path.copyVertexPath);
+        if (vertices.size() == 1) {
+            if (vertices.get(0) == targetVertex) {
+                return;
+            }
+            throw new IllegalStateException(ARC + arcId
+                    + " is embedded as a point away from the target while its node moves");
+        }
+        boolean reversed = vertices.get(0) == movedVertex;
+        if (reversed) {
+            Collections.reverse(vertices);
+        }
+        if (vertices.get(vertices.size() - 1) != movedVertex) {
+            throw new IllegalStateException(ARC + arcId + " path does not end at the moved node's"
+                    + " vertex " + movedVertex);
+        }
+        releaseClaims(arc.path);
+        List<Vector3f> pull = positionsOf(vertices);
+        pull.addAll(positionsOf(channel));
+        for (int keep = vertices.size() - 2; keep >= 0; keep--) {
+            List<Integer> prefix = new ArrayList<>(vertices.subList(0, keep + 1));
+            List<Integer> prefixEdges = new ArrayList<>(keep);
+            if (!rerouter.tryLegEdges(prefix, prefixEdges)) {
+                continue;
+            }
+            ArcEdgePath prefixPath = new ArcEdgePath(arcId, prefix, prefixEdges);
+            topology.claimPath(arcId, prefixPath);
+            List<Integer> attempt = new ArrayList<>(prefix);
+            Set<Integer> corridor = new HashSet<>(vertices);
+            corridor.addAll(channel);
+            corridor.add(targetVertex);
+            if (rerouter.tryRoute(arcId, attempt, vertices.get(keep), targetVertex, corridor, pull,
+                    ArcRerouter.REFINE_ROUND_CAP)) {
+                List<Integer> edges = new ArrayList<>(prefixEdges);
+                rerouter.rebuildLegEdges(attempt, edges);
+                if (reversed) {
+                    Collections.reverse(attempt);
+                    Collections.reverse(edges);
+                }
+                arc.path = new ArcEdgePath(arcId, attempt, edges);
+                topology.claimPath(arcId, arc.path);
+                return;
+            }
+            releaseClaims(prefixPath);
+        }
+        throw new IllegalStateException(ARC + arcId + " could not be re-routed onto vertex "
+                + targetVertex + " from any back-off point of its old path");
+    }
+
+    /**
+     * The copy-mesh positions of a list of vertices, in order.
+     *
+     * @param vertices copy vertices
+     * @return their positions
+     */
+    private List<Vector3f> positionsOf(List<Integer> vertices) {
+        List<Vector3f> positions = new ArrayList<>(vertices.size());
+        for (int vertexId : vertices) {
+            positions.add(topology.copy.vertexPosition(vertexId, new Vector3f()));
+        }
+        return positions;
     }
 
     /**
@@ -527,10 +719,20 @@ public final class EmbeddedTMesh {
      * @param arc arc whose claims are released
      */
     private void releaseClaims(EmbeddedArc arc) {
-        for (int edgeId : arc.path.copyEdgePath) {
+        releaseClaims(arc.path);
+    }
+
+    /**
+     * Releases the claims of a specific path, used both to free an arc's current embedding
+     * and to undo a prefix claimed during a failed re-route back-off.
+     *
+     * @param path path whose edges and interior vertices are released
+     */
+    private void releaseClaims(ArcEdgePath path) {
+        for (int edgeId : path.copyEdgePath) {
             topology.ownerArcByCopyEdge[edgeId] = EmbeddedMeshTopology.UNCLAIMED;
         }
-        List<Integer> vertices = arc.path.copyVertexPath;
+        List<Integer> vertices = path.copyVertexPath;
         for (int index = 1; index < vertices.size() - 1; index++) {
             topology.ownerArcByCopyVertex[vertices.get(index)] = EmbeddedMeshTopology.UNCLAIMED;
         }

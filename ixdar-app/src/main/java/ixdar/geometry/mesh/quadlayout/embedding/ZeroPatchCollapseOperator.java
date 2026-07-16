@@ -1,0 +1,177 @@
+package ixdar.geometry.mesh.quadlayout.embedding;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * LCBK19 §6.1 operator (3), the simple zero-patch collapse, on the embedded T-mesh.
+ *
+ * <p>The paper: <em>"A zero-patch is simple if exactly two non-zero arcs are involved. A simple
+ * zero-patch is easily collapsed (after its zero-arcs have been collapsed) by replacing the
+ * embedding of one non-zero arc with the embedding of the other one."</em>
+ *
+ * <p>By the time this runs, operator (1) has collapsed the patch's zero-length sides to points,
+ * so the patch is a bigon: its two non-zero arcs run between the same pair of nodes, one along
+ * each side of a strip that the quantization has flattened to zero width. Collapsing it keeps
+ * one arc and discards the other; the patch on the far side of the discarded arc is told to use
+ * the survivor instead, and the discarded arc's mesh claims are released so the freed strip
+ * folds into that neighbour. Nothing about the triangle mesh is collapsed — the operators move
+ * the embedding, not the mesh — so the surface loses one arc and one patch together and its
+ * Euler characteristic does not change.
+ *
+ * <p>The paper does not say which of the two arcs survives. This keeps a feature or border arc
+ * over a plain one, so a critical curve's embedding stays on the critical curve; between two
+ * arcs of the same status it keeps the lower id, to be deterministic. Two feature arcs bounding
+ * one zero-patch would be a feature curve doubling back on itself, which the input should never
+ * produce, so that throws.
+ */
+public final class ZeroPatchCollapseOperator {
+
+    public final EmbeddedTMesh tmesh;
+
+    public int collapsedCount;
+
+    /**
+     * Stores the T-mesh whose simple zero-patches are collapsed.
+     *
+     * @param tmesh embedded T-mesh to operate on
+     */
+    public ZeroPatchCollapseOperator(EmbeddedTMesh tmesh) {
+        this.tmesh = tmesh;
+    }
+
+    /**
+     * The id of a live simple zero-patch ready to collapse — a bigon of two non-zero arcs
+     * between the same two nodes, its zero sides already collapsed — or {@link EmbeddedTMesh#NONE}
+     * when none remains. The driver's "is operator (3) applicable" test.
+     *
+     * @return a collapsible simple zero-patch id, or {@link EmbeddedTMesh#NONE}
+     */
+    public int nextSimpleZeroPatch() {
+        for (EmbeddedPatch patch : tmesh.patches) {
+            if (patch.alive && isReadyBigon(patch.patchId)) {
+                return patch.patchId;
+            }
+        }
+        return EmbeddedTMesh.NONE;
+    }
+
+    /**
+     * Collapses one simple zero-patch: keeps one of its two arcs, re-points the arc's other
+     * patch onto the survivor, discards the other arc, and retires the patch.
+     *
+     * @param patchId simple zero-patch (a ready bigon) to collapse
+     * @throws IllegalStateException when the patch is not a ready bigon
+     */
+    public void collapse(int patchId) {
+        List<Integer> boundaryArcs = liveBoundaryArcs(patchId);
+        if (!isReadyBigon(patchId)) {
+            throw new IllegalStateException("patch " + patchId + " is not a simple zero-patch with"
+                    + " its zero sides collapsed; its live boundary arcs are " + boundaryArcs);
+        }
+        int survivorArc = chooseSurvivor(boundaryArcs.get(0), boundaryArcs.get(1));
+        int dyingArc = survivorArc == boundaryArcs.get(0) ? boundaryArcs.get(1) : boundaryArcs.get(0);
+
+        int farPatch = otherPatchOf(dyingArc, patchId);
+        if (farPatch != EmbeddedTMesh.NONE) {
+            tmesh.replaceArcInPatch(farPatch, dyingArc, survivorArc);
+        }
+        tmesh.removePatch(patchId);
+        tmesh.discardArc(dyingArc);
+        collapsedCount++;
+    }
+
+    /**
+     * Whether a patch is a bigon ready for operator (3): exactly two live boundary arcs, both
+     * non-zero, running between the same two nodes, on opposite sides with the other two sides
+     * empty — the shape a simple zero-patch takes once its zero sides have collapsed.
+     *
+     * @param patchId patch to test
+     * @return true when the patch is a ready bigon
+     */
+    private boolean isReadyBigon(int patchId) {
+        EmbeddedPatch patch = tmesh.patches.get(patchId);
+        int nonEmptySides = 0;
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            if (!patch.sideArcIds.get(side).isEmpty()) {
+                nonEmptySides++;
+            }
+        }
+        List<Integer> boundaryArcs = liveBoundaryArcs(patchId);
+        if (nonEmptySides != 2 || boundaryArcs.size() != 2) {
+            return false;
+        }
+        EmbeddedArc first = tmesh.arcs.get(boundaryArcs.get(0));
+        EmbeddedArc second = tmesh.arcs.get(boundaryArcs.get(1));
+        if (first.quantizedLength == 0 || second.quantizedLength == 0) {
+            return false;
+        }
+        boolean sameEnds = first.startNodeId == second.startNodeId
+                && first.endNodeId == second.endNodeId;
+        boolean reversedEnds = first.startNodeId == second.endNodeId
+                && first.endNodeId == second.startNodeId;
+        return sameEnds || reversedEnds;
+    }
+
+    /**
+     * The live arcs on a patch's boundary.
+     *
+     * @param patchId patch to read
+     * @return its live boundary arc ids
+     */
+    private List<Integer> liveBoundaryArcs(int patchId) {
+        EmbeddedPatch patch = tmesh.patches.get(patchId);
+        List<Integer> arcs = new ArrayList<>();
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            for (int arcId : patch.sideArcIds.get(side)) {
+                if (tmesh.arcs.get(arcId).alive) {
+                    arcs.add(arcId);
+                }
+            }
+        }
+        return arcs;
+    }
+
+    /**
+     * Which of a zero-patch's two arcs survives: a feature arc over a plain one, else the lower
+     * id.
+     *
+     * @param firstArc  one boundary arc
+     * @param secondArc the other
+     * @return the id of the surviving arc
+     * @throws IllegalStateException when both arcs are feature arcs, a feature curve doubling
+     *                               back on itself that the input should never produce
+     */
+    private int chooseSurvivor(int firstArc, int secondArc) {
+        boolean firstFeature = tmesh.arcs.get(firstArc).feature;
+        boolean secondFeature = tmesh.arcs.get(secondArc).feature;
+        if (firstFeature && secondFeature) {
+            throw new IllegalStateException("a zero-patch is bounded by two feature arcs "
+                    + firstArc + " and " + secondArc + "; a feature curve doubles back on itself");
+        }
+        if (firstFeature != secondFeature) {
+            return firstFeature ? firstArc : secondArc;
+        }
+        return Math.min(firstArc, secondArc);
+    }
+
+    /**
+     * The patch bordering an arc other than a given one.
+     *
+     * @param arcId  arc whose two patches are known
+     * @param notThis the patch to exclude
+     * @return the arc's other patch, or {@link EmbeddedTMesh#NONE} when it has none
+     */
+    private int otherPatchOf(int arcId, int notThis) {
+        EmbeddedArc arc = tmesh.arcs.get(arcId);
+        if (arc.leftPatchId != notThis && arc.leftPatchId != EmbeddedTMesh.NONE
+                && tmesh.patches.get(arc.leftPatchId).alive) {
+            return arc.leftPatchId;
+        }
+        if (arc.rightPatchId != notThis && arc.rightPatchId != EmbeddedTMesh.NONE
+                && tmesh.patches.get(arc.rightPatchId).alive) {
+            return arc.rightPatchId;
+        }
+        return EmbeddedTMesh.NONE;
+    }
+}
