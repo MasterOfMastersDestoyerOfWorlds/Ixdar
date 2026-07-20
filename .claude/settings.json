@@ -1,4 +1,7 @@
 {
+  "worktree": {
+    "baseRef": "head"
+  },
   "permissions": {
     "allow": [
       "Bash(find /home/acw/Code/Ixdar -maxdepth 4 -name CLAUDE.md 2>/dev/null; find /home/acw/Code -maxdepth 2 -name CLAUDE.md 2>/dev/null)",
@@ -85,7 +88,21 @@
       "Bash(rm *)",
       "Bash(rm)",
       "Bash(unzip *)",
-      "Bash(unzip)"
+      "Bash(unzip)",
+      "Bash(python -c *)",
+      "Bash(python -c)",
+      "Bash(python3 -c *)",
+      "Bash(python3 -c)",
+      "Bash(perl -e *)",
+      "Bash(perl -e)",
+      "Bash(perl -E *)",
+      "Bash(perl -E)",
+      "Bash(ruby -e *)",
+      "Bash(ruby -e)",
+      "Bash(node -e *)",
+      "Bash(node -e)",
+      "Bash(node -p *)",
+      "Bash(node -p)"
     ],
     "additionalDirectories": [
       "/tmp",
