@@ -1,6 +1,7 @@
 package ixdar.graphics.render.model;
 
 import java.nio.IntBuffer;
+import java.util.Collection;
 import java.util.List;
 
 import org.joml.Matrix4f;
@@ -11,6 +12,7 @@ import org.lwjgl.BufferUtils;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcEdgePath;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouteFailure;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
@@ -215,6 +217,46 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
 
     /** Tint for a critical embedded T-mesh node, which the operators may never move. */
     private static final Vector4f COLOR_EMBEDDED_NODE_CRITICAL = new Vector4f(1f, 0.85f, 0.1f, 1f);
+
+    /** Failure highlight: the stranded arc's body region (one of the two disconnected regions). */
+    private static final Vector4f COLOR_HIGHLIGHT_BODY = new Vector4f(0.25f, 0.5f, 1f, 1f);
+
+    /** Failure highlight: the survivor's channel region (the other disconnected region). */
+    private static final Vector4f COLOR_HIGHLIGHT_CHANNEL = new Vector4f(0.2f, 1f, 0.4f, 1f);
+
+    /** Failure highlight: the stranded arc's own edge path. */
+    private static final Vector4f COLOR_HIGHLIGHT_ARC = new Vector4f(1f, 1f, 0.1f, 1f);
+
+    /** Failure highlight: the freed collapse channel. */
+    private static final Vector4f COLOR_HIGHLIGHT_CHANNEL_LINE = new Vector4f(0.1f, 0.9f, 1f, 1f);
+
+    /** Failure highlight: the collapsing pivot node the router could not pass. */
+    private static final Vector4f COLOR_HIGHLIGHT_PIVOT = new Vector4f(1f, 0.1f, 0.1f, 1f);
+
+    /** Failure highlight: the survivor node the arc could not reach. */
+    private static final Vector4f COLOR_HIGHLIGHT_SURVIVOR = new Vector4f(1f, 0.1f, 1f, 1f);
+
+    /** Failure highlight: the claimed arc-edges fencing the body region — the wall. */
+    private static final Vector4f COLOR_HIGHLIGHT_FENCE = new Vector4f(1f, 1f, 1f, 0.95f);
+
+    /** Failure highlight: the pivot's free spokes — where the router may legally step off it. */
+    private static final Vector4f COLOR_HIGHLIGHT_SPOKE = new Vector4f(1f, 0.8f, 0f, 1f);
+
+    /** Line width for the wall/spoke highlight, thicker than an ordinary arc. */
+    private static final float HIGHLIGHT_WALL_LINE_WIDTH = 3f;
+
+    /** Line width for the channel and stranded-arc highlight lines. */
+    private static final float HIGHLIGHT_LINE_WIDTH = 5f;
+
+    /** Depth bias for highlight lines — larger than the arc bias so they draw in front of arcs. */
+    private static final float HIGHLIGHT_DEPTH_BIAS = 0.0015f;
+
+    /** Sphere scale for a region-membership dot in the failure highlight. */
+    private static final float HIGHLIGHT_REGION_SCALE = 0.22f;
+
+    /** Sphere scale for the pivot/survivor markers in the failure highlight. */
+    private static final float HIGHLIGHT_MARKER_SCALE = 2.2f;
+
     /** Line width restored after drawing layout boundary curves. */
     private static final float DEFAULT_GL_LINE_WIDTH = 1f;
 
@@ -333,6 +375,35 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public float[] embeddedNodePositions;
     /** Whether each live embedded T-mesh node is critical, parallel to {@link #embeddedNodePositions}. */
     public boolean[] embeddedNodeCritical;
+
+    /** Draw the reroute-failure highlight (two disconnected regions, pivot, survivor, arc, channel). */
+    public boolean showFailureHighlight;
+    /** Flat xyz of the stranded arc's body-region vertices. */
+    public float[] highlightBodyPositions;
+    /** Flat xyz of the survivor's channel-region vertices. */
+    public float[] highlightChannelPositions;
+    /** Flat xyz of the pivot and survivor markers, in that order. */
+    public float[] highlightMarkerPositions;
+    /** VAO of the stranded arc's edge-path GL_LINES buffer. */
+    public int highlightArcLineVao;
+    /** VBO of the stranded arc's edge-path GL_LINES buffer. */
+    public int highlightArcLineVbo;
+    /** Vertex count of the stranded arc's edge-path GL_LINES buffer. */
+    public int highlightArcLineVertexCount;
+    /** VAO of the freed channel's GL_LINES buffer. */
+    public int highlightChannelLineVao;
+    /** VBO of the freed channel's GL_LINES buffer. */
+    public int highlightChannelLineVbo;
+    /** Vertex count of the freed channel's GL_LINES buffer. */
+    public int highlightChannelLineVertexCount;
+    /** Flat xyz of the claimed vertices ringing the body region — the wall. */
+    public float[] highlightFencePositions;
+    /** VAO of the pivot free-spoke GL_LINES buffer. */
+    public int highlightSpokeLineVao;
+    /** VBO of the pivot free-spoke GL_LINES buffer. */
+    public int highlightSpokeLineVbo;
+    /** Vertex count of the pivot free-spoke GL_LINES buffer. */
+    public int highlightSpokeLineVertexCount;
 
     protected final Matrix4f sphereModel = new Matrix4f();
     protected final Matrix4f localProjection = new Matrix4f();
@@ -1573,6 +1644,222 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             unlitShader.setMat4(MODEL, sphereModel);
             gl.drawElements(gl.TRIANGLES(), singularityIndexCount, gl.UNSIGNED_INT(), 0);
         }
+    }
+
+    /**
+     * Prepares the reroute-failure highlight from a captured failure: the two disconnected
+     * unclaimed regions as coloured dot clouds, the collapsing pivot and the survivor as markers,
+     * and the stranded arc's body and the freed channel as lines. Resolves every copy vertex
+     * through the same {@code copy.vertexPosition} the arc/node render uses.
+     *
+     * @param copy    the working copy the failure's vertex ids index into
+     * @param failure the captured reroute failure
+     */
+    public void setFailureHighlight(HalfEdgeMesh copy, ArcRerouteFailure failure) {
+        GL gl = Platforms.gl();
+        deleteHighlightBuffers(gl);
+        highlightBodyPositions = resolvePositions(copy, failure.bodyComponent);
+        highlightChannelPositions = resolvePositions(copy, failure.channelComponent);
+        highlightMarkerPositions = resolvePositions(copy,
+                List.of(failure.pivotVertex, failure.survivorVertex));
+        int[] arcBuffers = uploadLineBuffer(gl, pathLineVertices(copy, failure.arcBody));
+        highlightArcLineVao = arcBuffers[0];
+        highlightArcLineVbo = arcBuffers[1];
+        highlightArcLineVertexCount = Math.max(0, failure.arcBody.size() - 1) * 2;
+        int[] channelBuffers = uploadLineBuffer(gl, pathLineVertices(copy, failure.channel));
+        highlightChannelLineVao = channelBuffers[0];
+        highlightChannelLineVbo = channelBuffers[1];
+        highlightChannelLineVertexCount = Math.max(0, failure.channel.size() - 1) * 2;
+        highlightFencePositions = resolvePositions(copy, failure.fenceVertices);
+        int[] spokeBuffers = uploadLineBuffer(gl, resolvePositions(copy, failure.pivotSpokes));
+        highlightSpokeLineVao = spokeBuffers[0];
+        highlightSpokeLineVbo = spokeBuffers[1];
+        highlightSpokeLineVertexCount = failure.pivotSpokes.size();
+        if (singularityVao == 0) {
+            buildIcosphereBuffers();
+        }
+        updateSphereRadius();
+        showFailureHighlight = true;
+    }
+
+    /**
+     * The flat xyz positions of a set of copy vertices.
+     *
+     * @param copy     the working copy
+     * @param vertices the copy vertex ids
+     * @return their positions, three floats each
+     */
+    private float[] resolvePositions(HalfEdgeMesh copy, Collection<Integer> vertices) {
+        float[] positions = new float[vertices.size() * VEC3_SIZE];
+        Vector3f point = new Vector3f();
+        int cursor = 0;
+        for (int vertexId : vertices) {
+            copy.vertexPosition(vertexId, point);
+            cursor = writePoint(positions, cursor, point);
+        }
+        return positions;
+    }
+
+    /**
+     * The GL_LINES vertices for a copy-vertex path — each consecutive pair a segment.
+     *
+     * @param copy the working copy
+     * @param path the copy vertex ids in order
+     * @return flat xyz, two points per segment
+     */
+    private float[] pathLineVertices(HalfEdgeMesh copy, List<Integer> path) {
+        float[] vertices = new float[Math.max(0, path.size() - 1) * 2 * VEC3_SIZE];
+        Vector3f point = new Vector3f();
+        int cursor = 0;
+        for (int index = 1; index < path.size(); index++) {
+            copy.vertexPosition(path.get(index - 1), point);
+            cursor = writePoint(vertices, cursor, point);
+            copy.vertexPosition(path.get(index), point);
+            cursor = writePoint(vertices, cursor, point);
+        }
+        return vertices;
+    }
+
+    /**
+     * Draw the reroute-failure highlight: the two disconnected regions as coloured dots, the
+     * stranded arc and freed channel as lines, and the pivot and survivor as large markers.
+     *
+     * @param camera active 3D camera
+     */
+    public void renderHighlights(Camera3D camera) {
+        if (!showFailureHighlight || unlitShader.ID < 0 || singularityVao == 0) {
+            return;
+        }
+        GL gl = Platforms.gl();
+        unlitShader.use();
+        unlitShader.setMat4(VIEW, camera.view);
+        unlitShader.setMat4(PROJECTION, localProjection);
+        drawHighlightRegion(gl, highlightBodyPositions, COLOR_HIGHLIGHT_BODY,
+                HIGHLIGHT_REGION_SCALE);
+        drawHighlightRegion(gl, highlightChannelPositions, COLOR_HIGHLIGHT_CHANNEL,
+                HIGHLIGHT_REGION_SCALE);
+        drawHighlightRegion(gl, highlightFencePositions, COLOR_HIGHLIGHT_FENCE,
+                HIGHLIGHT_REGION_SCALE);
+        drawHighlightLine(gl, highlightSpokeLineVao, highlightSpokeLineVertexCount,
+                COLOR_HIGHLIGHT_SPOKE, HIGHLIGHT_WALL_LINE_WIDTH);
+        drawHighlightLine(gl, highlightChannelLineVao, highlightChannelLineVertexCount,
+                COLOR_HIGHLIGHT_CHANNEL_LINE, HIGHLIGHT_LINE_WIDTH);
+        drawHighlightLine(gl, highlightArcLineVao, highlightArcLineVertexCount,
+                COLOR_HIGHLIGHT_ARC, HIGHLIGHT_LINE_WIDTH);
+        drawHighlightMarker(gl, highlightMarkerPositions, 0, COLOR_HIGHLIGHT_PIVOT);
+        drawHighlightMarker(gl, highlightMarkerPositions, VEC3_SIZE, COLOR_HIGHLIGHT_SURVIVOR);
+    }
+
+    /**
+     * Draw a flat position array as a cloud of small coloured spheres.
+     *
+     * @param gl        active GL platform handle
+     * @param positions flat xyz positions
+     * @param color     sphere colour
+     * @param scale     sphere scale relative to the shared sphere radius
+     */
+    private void drawHighlightRegion(GL gl, float[] positions, Vector4f color, float scale) {
+        if (positions == null) {
+            return;
+        }
+        unlitShader.setFloat(DEPTHBIAS, 0f);
+        unlitShader.setVec4(SOLIDCOLOR, color);
+        gl.bindVertexArray(singularityVao);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), singularityEbo);
+        for (int base = 0; base < positions.length; base += VEC3_SIZE) {
+            sphereModel.identity()
+                    .translate(positions[base], positions[base + COMPONENT_Y],
+                            positions[base + COMPONENT_Z])
+                    .scale(sphereRadius * scale);
+            unlitShader.setMat4(MODEL, sphereModel);
+            gl.drawElements(gl.TRIANGLES(), singularityIndexCount, gl.UNSIGNED_INT(), 0);
+        }
+    }
+
+    /**
+     * Draw one large marker sphere at a position within a flat array.
+     *
+     * @param gl        active GL platform handle
+     * @param positions flat xyz positions
+     * @param base      index of the first float of the marker
+     * @param color     sphere colour
+     */
+    private void drawHighlightMarker(GL gl, float[] positions, int base, Vector4f color) {
+        if (positions == null || base + VEC3_SIZE > positions.length) {
+            return;
+        }
+        unlitShader.setFloat(DEPTHBIAS, 0f);
+        unlitShader.setVec4(SOLIDCOLOR, color);
+        gl.bindVertexArray(singularityVao);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), singularityEbo);
+        sphereModel.identity()
+                .translate(positions[base], positions[base + COMPONENT_Y],
+                        positions[base + COMPONENT_Z])
+                .scale(sphereRadius * HIGHLIGHT_MARKER_SCALE);
+        unlitShader.setMat4(MODEL, sphereModel);
+        gl.drawElements(gl.TRIANGLES(), singularityIndexCount, gl.UNSIGNED_INT(), 0);
+    }
+
+    /**
+     * Draw a highlight GL_LINES buffer in a solid colour, biased forward.
+     *
+     * @param gl          active GL platform handle
+     * @param vao         line buffer VAO
+     * @param vertexCount line buffer vertex count
+     * @param color       line colour
+     * @param width       line width
+     */
+    private void drawHighlightLine(GL gl, int vao, int vertexCount, Vector4f color, float width) {
+        if (vao == 0 || vertexCount == 0) {
+            return;
+        }
+        unlitShader.setFloat(DEPTHBIAS, HIGHLIGHT_DEPTH_BIAS);
+        unlitShader.setVec4(SOLIDCOLOR, color);
+        sphereModel.identity();
+        unlitShader.setMat4(MODEL, sphereModel);
+        gl.lineWidth(width);
+        gl.bindVertexArray(vao);
+        gl.drawArrays(gl.LINES(), 0, vertexCount);
+        gl.lineWidth(DEFAULT_GL_LINE_WIDTH);
+    }
+
+    /**
+     * Free the failure-highlight line buffers and clear its position arrays.
+     *
+     * @param gl active GL platform handle
+     */
+    private void deleteHighlightBuffers(GL gl) {
+        if (highlightArcLineVao != 0) {
+            gl.deleteVertexArrays(highlightArcLineVao);
+            highlightArcLineVao = 0;
+        }
+        if (highlightArcLineVbo != 0) {
+            gl.deleteBuffers(highlightArcLineVbo);
+            highlightArcLineVbo = 0;
+        }
+        if (highlightChannelLineVao != 0) {
+            gl.deleteVertexArrays(highlightChannelLineVao);
+            highlightChannelLineVao = 0;
+        }
+        if (highlightChannelLineVbo != 0) {
+            gl.deleteBuffers(highlightChannelLineVbo);
+            highlightChannelLineVbo = 0;
+        }
+        if (highlightSpokeLineVao != 0) {
+            gl.deleteVertexArrays(highlightSpokeLineVao);
+            highlightSpokeLineVao = 0;
+        }
+        if (highlightSpokeLineVbo != 0) {
+            gl.deleteBuffers(highlightSpokeLineVbo);
+            highlightSpokeLineVbo = 0;
+        }
+        highlightArcLineVertexCount = 0;
+        highlightChannelLineVertexCount = 0;
+        highlightSpokeLineVertexCount = 0;
+        highlightBodyPositions = null;
+        highlightChannelPositions = null;
+        highlightMarkerPositions = null;
+        highlightFencePositions = null;
     }
 
     /**

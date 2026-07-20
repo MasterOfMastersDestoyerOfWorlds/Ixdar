@@ -44,7 +44,7 @@ class PatchRectangleMapTest {
         int[] cornerAt = {0, 1, 2, 3};
 
         PatchRectangleMap map = new PatchRectangleMap(positions, triangles, boundaryLoop, cornerAt,
-                1.0, 1.0).build();
+                1.0, 1.0, null).build();
 
         map.assertFoldFree();
         assertEquals(0.5, map.rectangleU[4], TOLERANCE, "centre vertex x");
@@ -74,7 +74,7 @@ class PatchRectangleMapTest {
         int[] cornerAt = {0, 2, 4, 6};
 
         PatchRectangleMap map = new PatchRectangleMap(positions, triangles, boundaryLoop, cornerAt,
-                2.0, 2.0).build();
+                2.0, 2.0, null).build();
 
         map.assertFoldFree();
         assertEquals(1.0, map.rectangleU[4], TOLERANCE, "interior vertex x");

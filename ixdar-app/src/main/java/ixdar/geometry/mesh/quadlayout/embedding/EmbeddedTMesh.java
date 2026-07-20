@@ -37,6 +37,12 @@ public final class EmbeddedTMesh {
     /** Absent id, for elements with no source and for unset patch references. */
     public static final int NONE = -1;
 
+    /** Corners of a triangular copy face. */
+    private static final int TRIANGLE_CORNERS = 3;
+
+    /** Split position for a midpoint edge split. */
+    private static final double EDGE_MIDPOINT = 0.5;
+
     /** Message fragment naming a patch. */
     private static final String PATCH = "patch ";
 
@@ -642,8 +648,9 @@ public final class EmbeddedTMesh {
      * @param targetVertex the moving node's new copy vertex
      * @param rerouter     the claims-respecting router
      * @param channel      the collapsing arc's released path vertices, seeding the corridor
-     * @throws IllegalStateException when the arc's path does not end at the moved vertex, or
-     *                               when no back-off point can be re-routed to the target
+     * @throws IllegalStateException when the arc's path does not end at the moved vertex
+     * @throws ArcRerouteFailure    when no back-off point can be re-routed to the target, carrying
+     *                              the two disconnected regions for inspection
      */
     public void dragArcEndOntoVertex(int arcId, int movedVertex, int targetVertex,
             ArcRerouter rerouter, List<Integer> channel) {
@@ -667,34 +674,200 @@ public final class EmbeddedTMesh {
         releaseClaims(arc.path);
         List<Vector3f> pull = positionsOf(vertices);
         pull.addAll(positionsOf(channel));
-        for (int keep = vertices.size() - 2; keep >= 0; keep--) {
-            List<Integer> prefix = new ArrayList<>(vertices.subList(0, keep + 1));
-            List<Integer> prefixEdges = new ArrayList<>(keep);
-            if (!rerouter.tryLegEdges(prefix, prefixEdges)) {
-                continue;
+        for (int passThrough : new int[] {EmbeddedMeshTopology.UNCLAIMED, movedVertex}) {
+            if (passThrough == movedVertex && channel.size() > 1) {
+                openPivotSpoke(movedVertex, unclaimedComponent(channel.get(1)));
             }
-            ArcEdgePath prefixPath = new ArcEdgePath(arcId, prefix, prefixEdges);
-            topology.claimPath(arcId, prefixPath);
-            List<Integer> attempt = new ArrayList<>(prefix);
-            Set<Integer> corridor = new HashSet<>(vertices);
-            corridor.addAll(channel);
-            corridor.add(targetVertex);
-            if (rerouter.tryRoute(arcId, attempt, vertices.get(keep), targetVertex, corridor, pull,
-                    ArcRerouter.REFINE_ROUND_CAP)) {
-                List<Integer> edges = new ArrayList<>(prefixEdges);
-                rerouter.rebuildLegEdges(attempt, edges);
-                if (reversed) {
-                    Collections.reverse(attempt);
-                    Collections.reverse(edges);
+            for (int keep = vertices.size() - 2; keep >= 0; keep--) {
+                List<Integer> prefix = new ArrayList<>(vertices.subList(0, keep + 1));
+                List<Integer> prefixEdges = new ArrayList<>(keep);
+                if (!rerouter.tryLegEdges(prefix, prefixEdges)) {
+                    continue;
                 }
-                arc.path = new ArcEdgePath(arcId, attempt, edges);
-                topology.claimPath(arcId, arc.path);
-                return;
+                ArcEdgePath prefixPath = new ArcEdgePath(arcId, prefix, prefixEdges);
+                topology.claimPath(arcId, prefixPath);
+                List<Integer> attempt = new ArrayList<>(prefix);
+                Set<Integer> corridor = new HashSet<>(vertices);
+                corridor.addAll(channel);
+                corridor.add(targetVertex);
+                corridor.add(movedVertex);
+                if (passThrough != EmbeddedMeshTopology.UNCLAIMED && channel.size() > 1) {
+                    corridor.addAll(unclaimedComponent(channel.get(1)));
+                }
+                if (rerouter.tryRoute(arcId, attempt, vertices.get(keep), targetVertex, corridor,
+                        pull, passThrough, ArcRerouter.REFINE_ROUND_CAP)) {
+                    List<Integer> edges = new ArrayList<>(prefixEdges);
+                    rerouter.rebuildLegEdges(attempt, edges);
+                    if (reversed) {
+                        Collections.reverse(attempt);
+                        Collections.reverse(edges);
+                    }
+                    arc.path = new ArcEdgePath(arcId, attempt, edges);
+                    topology.claimPath(arcId, arc.path);
+                    return;
+                }
+                releaseClaims(prefixPath);
             }
-            releaseClaims(prefixPath);
         }
-        throw new IllegalStateException(ARC + arcId + " could not be re-routed onto vertex "
-                + targetVertex + " from any back-off point of its old path");
+        Set<Integer> bodyComponent = unclaimedComponent(vertices.get(1));
+        Set<Integer> channelComponent = unclaimedComponent(channel.get(1));
+        String message = ARC + arcId + " could not be re-routed onto vertex "
+                + targetVertex + " from any back-off point of its old path"
+                + " (pathLen=" + vertices.size() + " channelLen=" + channel.size()
+                + " freeSpokesAtTarget=" + freeSpokeCount(targetVertex)
+                + " freeSpokesAtMoved=" + freeSpokeCount(movedVertex)
+                + " bodyComp=" + bodyComponent.size()
+                + " bodyReachesTarget=" + touchesVertex(bodyComponent, targetVertex)
+                + " channelComp=" + channelComponent.size()
+                + " channelReachesTarget=" + touchesVertex(channelComponent, targetVertex)
+                + " bodyReachesChannel=" + bodyComponent.contains(channel.get(1))
+                + " pivotTouchesBody=" + touchesVertex(bodyComponent, movedVertex)
+                + " pivotTouchesChannel=" + touchesVertex(channelComponent, movedVertex)
+                + " refineSplits=" + rerouter.refinedEdgeSplitCount + ")";
+        throw new ArcRerouteFailure(message, arcId, movedVertex, targetVertex,
+                new ArrayList<>(vertices), new ArrayList<>(channel), bodyComponent,
+                channelComponent, claimedBoundaryOf(bodyComponent), unclaimedEdgesFrom(movedVertex));
+    }
+
+    /**
+     * The claimed vertices ringing a set of unclaimed vertices — the neighbours a re-route hits
+     * and cannot step through, because a node or an arc's own path owns them. This, not any set of
+     * edges, is the wall that encloses an unclaimed region.
+     *
+     * @param vertices unclaimed region vertices
+     * @return the claimed vertices adjacent to the region
+     */
+    private Set<Integer> claimedBoundaryOf(Set<Integer> vertices) {
+        Set<Integer> boundary = new HashSet<>();
+        for (int vertex : vertices) {
+            for (int index = 0; index < topology.copy.vertexEdgeCount(vertex); index++) {
+                int neighbor = topology.otherEndpoint(topology.copy.vertexEdgeAt(vertex, index),
+                        vertex);
+                if (topology.ownerArcByCopyVertex[neighbor] != EmbeddedMeshTopology.UNCLAIMED
+                        || topology.ownerNodeByCopyVertex[neighbor] != EmbeddedMeshTopology.UNCLAIMED) {
+                    boundary.add(neighbor);
+                }
+            }
+        }
+        return boundary;
+    }
+
+    /**
+     * A vertex's unclaimed incident edges, as flat consecutive vertex pairs — the spokes a
+     * re-route may legally step out along.
+     *
+     * @param vertex copy vertex to spoke out from
+     * @return one {@code (vertex, neighbour)} pair per unclaimed incident edge
+     */
+    private List<Integer> unclaimedEdgesFrom(int vertex) {
+        List<Integer> segments = new ArrayList<>();
+        for (int index = 0; index < topology.copy.vertexEdgeCount(vertex); index++) {
+            int edgeId = topology.copy.vertexEdgeAt(vertex, index);
+            if (topology.ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED) {
+                segments.add(vertex);
+                segments.add(topology.otherEndpoint(edgeId, vertex));
+            }
+        }
+        return segments;
+    }
+
+    /**
+     * The connected set of copy vertices reachable from a start through unclaimed edges without
+     * passing through a claimed vertex — the arc-walled region a re-route may use.
+     *
+     * @param startVertex vertex to flood from
+     * @return the reachable unclaimed component, including the start
+     */
+    private Set<Integer> unclaimedComponent(int startVertex) {
+        Set<Integer> seen = new HashSet<>();
+        List<Integer> frontier = new ArrayList<>();
+        seen.add(startVertex);
+        frontier.add(startVertex);
+        while (!frontier.isEmpty()) {
+            int vertex = frontier.remove(frontier.size() - 1);
+            for (int index = 0; index < topology.copy.vertexEdgeCount(vertex); index++) {
+                int edgeId = topology.copy.vertexEdgeAt(vertex, index);
+                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                    continue;
+                }
+                int neighbor = topology.otherEndpoint(edgeId, vertex);
+                if (topology.ownerArcByCopyVertex[neighbor] == EmbeddedMeshTopology.UNCLAIMED
+                        && topology.ownerNodeByCopyVertex[neighbor] == EmbeddedMeshTopology.UNCLAIMED
+                        && seen.add(neighbor)) {
+                    frontier.add(neighbor);
+                }
+            }
+        }
+        return seen;
+    }
+
+    /**
+     * Whether an unclaimed component touches a vertex, directly or through one of its edges — a
+     * target node vertex is claimed, so it is reached at the last hop rather than contained.
+     *
+     * @param component the flooded component
+     * @param vertex    the vertex to test reachability of
+     * @return whether the component contains the vertex or an unclaimed-edge neighbour of it
+     */
+    private boolean touchesVertex(Set<Integer> component, int vertex) {
+        if (component.contains(vertex)) {
+            return true;
+        }
+        for (int index = 0; index < topology.copy.vertexEdgeCount(vertex); index++) {
+            int edgeId = topology.copy.vertexEdgeAt(vertex, index);
+            if (topology.ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED
+                    && component.contains(topology.otherEndpoint(edgeId, vertex))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Opens a free spoke from a collapsing node into a region it must reach, by splitting the edge
+     * <em>opposite</em> the node in one of its faces whose far side lies in that region. This is
+     * LCBK19's <em>"resolved by refinement with a few edge splits"</em> for the pivot: once sibling
+     * arcs have taken every existing spoke from the node into the freed channel, the node needs a
+     * fresh one, and splitting the opposite edge joins the minted vertex to the node (a new spoke)
+     * while placing it on an edge of the region (so the spoke reaches in).
+     *
+     * @param pivotVertex   the collapsing node's copy vertex
+     * @param channelRegion the unclaimed region the node must gain a spoke into
+     */
+    private void openPivotSpoke(int pivotVertex, Set<Integer> channelRegion) {
+        for (int index = 0; index < topology.copy.vertexFaceCount(pivotVertex); index++) {
+            int faceId = topology.copy.vertexFaceAt(pivotVertex, index);
+            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+                int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+                int endpointA = topology.copy.halfEdgeVertex(halfEdge);
+                int endpointB = topology.copy.halfEdgeEndVertex(halfEdge);
+                if (endpointA != pivotVertex && endpointB != pivotVertex
+                        && channelRegion.contains(endpointA) && channelRegion.contains(endpointB)
+                        && topology.ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED) {
+                    topology.splitEdgeAtParameter(edgeId, EDGE_MIDPOINT);
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * The number of a copy vertex's incident edges that no arc claims — the free spokes a
+     * re-route can leave or enter through.
+     *
+     * @param copyVertex copy vertex to count around
+     * @return count of unclaimed incident edges
+     */
+    private int freeSpokeCount(int copyVertex) {
+        int free = 0;
+        for (int index = 0; index < topology.copy.vertexEdgeCount(copyVertex); index++) {
+            int edgeId = topology.copy.vertexEdgeAt(copyVertex, index);
+            if (topology.ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED) {
+                free++;
+            }
+        }
+        return free;
     }
 
     /**

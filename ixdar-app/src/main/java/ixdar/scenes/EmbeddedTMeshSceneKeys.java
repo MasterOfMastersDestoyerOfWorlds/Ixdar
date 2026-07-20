@@ -38,6 +38,8 @@ public final class EmbeddedTMeshSceneKeys extends OrbitCameraKeyGuy {
             scene.requestSplitStep();
         } else if (key == Keys.C) {
             scene.requestFullContraction();
+        } else if (key == Keys.H) {
+            scene.toggleFailureHighlight();
         } else if (key == Keys.R) {
             scene.requestReset();
         }

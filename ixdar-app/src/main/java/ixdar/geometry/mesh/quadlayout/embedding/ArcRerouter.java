@@ -86,12 +86,15 @@ public final class ArcRerouter {
      * @param endCopyVertex   hop target
      * @param corridor        allowed vertex set, mutated by refinement and growth
      * @param pullPolyline    positions pulling the path onto the arc's old lane
+     * @param passThrough     a claimed vertex the search may transit anyway — the collapsing
+     *                        node, which the arc must follow to its new home — or
+     *                        {@link EmbeddedMeshTopology#UNCLAIMED} for none
      * @param roundCap        refine-round budget for this attempt
      * @return whether the path now ends at the target
      */
     public boolean tryRoute(int arcId, List<Integer> vertices, int startCopyVertex,
             int endCopyVertex, Set<Integer> corridor, List<Vector3f> pullPolyline,
-            int roundCap) {
+            int passThrough, int roundCap) {
         if (vertices.isEmpty()) {
             vertices.add(startCopyVertex);
         }
@@ -100,7 +103,8 @@ public final class ArcRerouter {
         int growths = 0;
         int splitBudget = SPLIT_BUDGET;
         for (int round = 0; round <= roundCap; round++) {
-            if (dijkstraSearch(vertices, startCopyVertex, endCopyVertex, corridor, pullPolyline)) {
+            if (dijkstraSearch(vertices, startCopyVertex, endCopyVertex, corridor, pullPolyline,
+                    passThrough)) {
                 if (refined) {
                     refinedRetryCount++;
                 }
@@ -175,10 +179,12 @@ public final class ArcRerouter {
      * @param endCopyVertex search target
      * @param corridor      allowed vertex set
      * @param polyline      positions pulling the hop onto a lane, or empty
+     * @param passThrough   a claimed vertex the search may transit anyway, or
+     *                      {@link EmbeddedMeshTopology#UNCLAIMED} for none
      * @return whether the target was reached
      */
     private boolean dijkstraSearch(List<Integer> vertices, int startVertex, int endCopyVertex,
-            Set<Integer> corridor, List<Vector3f> polyline) {
+            Set<Integer> corridor, List<Vector3f> polyline, int passThrough) {
         Map<Integer, Float> distance = new HashMap<>();
         Map<Integer, Integer> parentVertex = new HashMap<>();
         PriorityQueue<DijkstraNode> frontier = new PriorityQueue<>();
@@ -210,7 +216,7 @@ public final class ArcRerouter {
                     continue;
                 }
                 int neighbor = topology.otherEndpoint(edgeId, vertex);
-                if (neighbor != endCopyVertex
+                if (neighbor != endCopyVertex && neighbor != passThrough
                         && (vertexClaimed(neighbor) || !corridor.contains(neighbor))) {
                     continue;
                 }

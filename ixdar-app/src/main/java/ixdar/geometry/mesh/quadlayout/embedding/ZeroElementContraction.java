@@ -346,7 +346,7 @@ public final class ZeroElementContraction {
             corridor.addAll(channel);
             corridor.add(targetVertex);
             if (rerouter.tryRoute(arcId, attempt, vertices.get(keep), targetVertex, corridor,
-                    pull, ArcRerouter.REFINE_ROUND_CAP)) {
+                    pull, EmbeddedMeshTopology.UNCLAIMED, ArcRerouter.REFINE_ROUND_CAP)) {
                 List<Integer> edges = new ArrayList<>(prefixEdges);
                 rerouter.rebuildLegEdges(attempt, edges);
                 if (reversed) {

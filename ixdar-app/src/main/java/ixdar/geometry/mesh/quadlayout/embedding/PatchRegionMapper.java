@@ -98,7 +98,7 @@ public final class PatchRegionMapper {
         double height = Math.max(MIN_RECTANGLE_SIDE, Math.max(
                 tmesh.sideQuantizedLength(patchId, 1), tmesh.sideQuantizedLength(patchId, 3)));
         return new PatchRectangleMap(positions, triangles, toIntArray(boundaryLoop), cornerAt,
-                width, height).build();
+                width, height, toIntArray(denseCopyVertex)).build();
     }
 
     /**

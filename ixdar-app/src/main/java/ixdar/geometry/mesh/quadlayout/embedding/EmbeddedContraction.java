@@ -39,6 +39,9 @@ public final class EmbeddedContraction {
     public int patchSplitCount;
     public int patchCollapseCount;
 
+    /** The reroute failure that stopped {@link #contractToFailure}, or null if none occurred. */
+    public ArcRerouteFailure failure;
+
     /**
      * Builds the driver and its three operators over a T-mesh.
      *
@@ -73,6 +76,30 @@ public final class EmbeddedContraction {
             measure = next;
         }
         return this;
+    }
+
+    /**
+     * Contracts the T-mesh until either it is fully re-embedded or an operator hits a reroute
+     * wall, keeping the (partially mutated) T-mesh in place for inspection. Unlike {@link
+     * #contract}, a reroute failure is caught and returned rather than propagated, so a caller can
+     * render the wall it carries.
+     *
+     * @return the reroute failure that stopped the contraction, or null when it ran to completion
+     * @throws IllegalStateException when the T-mesh stops being a cell decomposition, which is a
+     *                               different, non-recoverable fault than a reroute wall
+     */
+    public ArcRerouteFailure contractToFailure() {
+        while (true) {
+            try {
+                if (!applyOneOperator()) {
+                    return null;
+                }
+            } catch (ArcRerouteFailure caught) {
+                this.failure = caught;
+                return caught;
+            }
+            tmesh.validate(expectedEulerCharacteristic);
+        }
     }
 
     /**

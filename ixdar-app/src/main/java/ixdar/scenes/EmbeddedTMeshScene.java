@@ -1,10 +1,19 @@
 package ixdar.scenes;
 
+import java.io.IOException;
+
 import org.joml.Vector3f;
 
 import ixdar.annotations.scene.SceneAnnotation;
+import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouteFailure;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMeshBuilder;
 import ixdar.geometry.mesh.quadlayout.embedding.TorusLayoutFixture;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
@@ -13,7 +22,6 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
-import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 
 /**
@@ -22,19 +30,29 @@ import ixdar.platform.input.OrbitMouseTrap;
  * orange, zero arcs red so the collapse targets are obvious), and each node as a sphere
  * (critical nodes tinted apart, since the operators may never move those).
  *
- * <p>It renders the hand-authored {@link TorusLayoutFixture} — the same Figure-9
- * configuration the operators are tested against — so that when the collapse operators are
- * added, their effect on the T-mesh can be watched rather than only asserted. The torus is
- * closed and genus 1, which is what lets the fixture stand in for Figure 9 without any of
- * the free-boundary machinery.
+ * <p>By default it renders the hand-authored {@link TorusLayoutFixture} — the Figure-9
+ * configuration the operators are tested against. Set {@code -DembeddedTMesh.off=<path>} to
+ * instead build the T-mesh from the real pipeline ({@link QuadLayoutEngine} through the carve,
+ * assembled by {@link EmbeddedTMeshBuilder}) on that mesh, which is the raw quantized layout —
+ * positive and zero arcs both present — before any contraction.
  *
- * <p>Launch with {@code IxdarWindow embedded-tmesh}.
+ * <p>Launch with {@code IxdarWindow embedded-tmesh}. SPACE steps a zero-arc collapse, PERIOD a
+ * zero-patch split, C drives all three operators to a fixed point, R rebuilds.
  */
 @SceneAnnotation(id = "embedded-tmesh")
 public class EmbeddedTMeshScene extends Scene {
 
     /** Window title. */
     public static final String SCENE_TITLE = "Ixdar : Embedded T-Mesh";
+
+    /**
+     * System property selecting a mesh file to build the T-mesh from the real pipeline; unset
+     * renders the hand-authored torus fixture instead.
+     */
+    public static final String OFF_PROPERTY = "embeddedTMesh.off";
+
+    /** System property for the pipeline's separation angle in degrees; defaults to 15. */
+    public static final String ALPHA_PROPERTY = "embeddedTMesh.alpha";
 
     /**
      * System property for how many zero-arc collapses (LCBK19 operator 1) to apply before
@@ -54,13 +72,24 @@ public class EmbeddedTMeshScene extends Scene {
      */
     public static final String CONTRACT_PROPERTY = "tmesh.contract";
 
+    /**
+     * System property that, when {@code true}, drives the operators until the first reroute failure
+     * and highlights the wall it hit — the two disconnected regions, the pivot, the survivor, the
+     * stranded arc, and the freed channel — so the failure can be seen rather than guessed. In the
+     * window, H toggles the highlight.
+     */
+    public static final String CONTRACT_FAIL_PROPERTY = "embeddedTMesh.contractFail";
+
     /** Request value meaning "apply as many as possible". */
     public static final String ALL = "all";
 
     /** Log prefix for a count of operator steps applied at startup. */
     public static final String APPLIED_PREFIX = "[embedded-tmesh] applied ";
 
-    /** Orbit azimuth the camera starts at, looking down onto the torus. */
+    /** Default pipeline separation angle, in degrees, when the mesh is built from a file. */
+    public static final double DEFAULT_ALPHA_DEGREES = 15.0;
+
+    /** Orbit azimuth the camera starts at, looking down onto the mesh. */
     public static final float CAMERA_AZIMUTH = (float) Math.toRadians(35.0);
 
     /** Orbit elevation the camera starts at. */
@@ -78,11 +107,18 @@ public class EmbeddedTMeshScene extends Scene {
     /** Nearest zoom as a fraction of the mesh radius. */
     public static final float ZOOM_MIN_RADIUS_FRACTION = 0.02f;
 
+    /** Camera distance, as a multiple of mesh radius, when framing a captured reroute failure. */
+    public static final float FAILURE_VIEW_DISTANCE_MUL = 0.55f;
+
     private OrbitMouseTrap orbitMouse;
     private QuadLayoutRuntime runtime;
-    private TorusLayoutFixture fixture;
+    private String offPath;
+    private EmbeddedTMesh tmesh;
+    private HalfEdgeMesh surfaceMesh;
+    private int eulerCharacteristic;
     private ZeroArcCollapseOperator collapseOperator;
     private ZeroPatchSplitOperator splitOperator;
+    private ArcRerouteFailure failure;
     private final Vector3f meshCenter = new Vector3f();
 
     /** Zero-arc collapses (operator 1) requested by keypress, applied on the render thread. */
@@ -91,7 +127,7 @@ public class EmbeddedTMeshScene extends Scene {
     /** Zero-patch splits (operator 2) requested by keypress, applied on the render thread. */
     private volatile int pendingSplitSteps;
 
-    /** Whether a reset to the pristine fixture was requested by keypress. */
+    /** Whether a rebuild of the layout was requested by keypress. */
     private volatile boolean pendingReset;
 
     /** Whether a full contraction (all three operators to a fixed point) was requested by keypress. */
@@ -115,43 +151,81 @@ public class EmbeddedTMeshScene extends Scene {
         bindAutomationIfAvailable(Platforms.get(), keys, mouse);
         bindInputDirect(Platforms.get(), keys, mouse);
 
+        offPath = System.getProperty(OFF_PROPERTY);
         try {
-            fixture = new TorusLayoutFixture();
-            fixture.tmesh.validate(TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC);
-            collapseOperator = new ZeroArcCollapseOperator(fixture.tmesh);
-            splitOperator = new ZeroPatchSplitOperator(fixture.tmesh);
+            assembleLayout();
             applyInitialSplits();
             applyInitialCollapses();
             applyInitialContraction();
 
             runtime = new QuadLayoutRuntime();
-            runtime.upload(fixture.torus);
+            runtime.upload(surfaceMesh);
             runtime.frameCamera(camera);
-            runtime.setEmbeddedTMesh(fixture.tmesh);
+            runtime.setEmbeddedTMesh(tmesh);
+            applyContractToFailure();
         } catch (Exception ex) {
             throw new IllegalStateException("Failed to initialize embedded T-mesh scene", ex);
         }
 
-        meshCenter.set(fixture.torus.center(new Vector3f()));
-        float meshRadius = fixture.torus.radius();
+        meshCenter.set(surfaceMesh.center(new Vector3f()));
+        float meshRadius = surfaceMesh.radius();
         float minZoom = Math.max(CAMERA_DISTANCE_MIN, meshRadius * ZOOM_MIN_RADIUS_FRACTION);
         float maxZoom = Math.max(CAMERA_DISTANCE_MIN, meshRadius * ZOOM_MAX_RADIUS_MUL);
         orbitMouse.setDistanceBounds(minZoom, maxZoom);
-        float orbitDistance = Math.max(CAMERA_DISTANCE_MIN, meshRadius * CAMERA_DISTANCE_RADIUS_MUL);
-        orbitMouse.setTarget(meshCenter);
-        orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, orbitDistance);
+        if (failure != null) {
+            aimAtFailure(meshRadius);
+        } else {
+            float orbitDistance = Math.max(CAMERA_DISTANCE_MIN,
+                    meshRadius * CAMERA_DISTANCE_RADIUS_MUL);
+            orbitMouse.setTarget(meshCenter);
+            orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, orbitDistance);
+        }
 
         Platforms.get().log(String.format(
-                "[embedded-tmesh] nodes=%d arcs=%d patches=%d",
-                fixture.tmesh.nodes.size(), fixture.tmesh.arcs.size(),
-                fixture.tmesh.patches.size()));
+                "[embedded-tmesh] source=%s nodes=%d arcs=%d patches=%d euler=%d",
+                offPath == null ? "torus-fixture" : offPath, tmesh.nodes.size(),
+                tmesh.arcs.size(), tmesh.patches.size(), eulerCharacteristic));
+    }
+
+    /**
+     * Builds the T-mesh, its surface mesh, and its Euler characteristic: from the real pipeline
+     * when {@link #OFF_PROPERTY} names a mesh, otherwise from the hand-authored torus fixture.
+     * Also wires the operators for the interactive steps.
+     */
+    private void assembleLayout() {
+        if (offPath == null) {
+            TorusLayoutFixture fixture = new TorusLayoutFixture();
+            tmesh = fixture.tmesh;
+            surfaceMesh = fixture.torus;
+            eulerCharacteristic = TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC;
+        } else {
+            double alphaDegrees = Double.parseDouble(
+                    System.getProperty(ALPHA_PROPERTY, Double.toString(DEFAULT_ALPHA_DEGREES)));
+            ArrayMesh arrayMesh;
+            try {
+                arrayMesh = MeshLoader.load(offPath);
+            } catch (IOException ex) {
+                throw new IllegalStateException("could not read mesh " + offPath, ex);
+            }
+            surfaceMesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
+                    arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
+            QuadLayoutEngine engine = new QuadLayoutEngine(
+                    surfaceMesh, (float) Math.toRadians(alphaDegrees));
+            engine.buildLayoutEmbedding();
+            EmbeddedTMeshBuilder builder = new EmbeddedTMeshBuilder(engine.embedding);
+            tmesh = builder.build();
+            eulerCharacteristic = builder.expectedEulerCharacteristic;
+        }
+        tmesh.validate(eulerCharacteristic);
+        collapseOperator = new ZeroArcCollapseOperator(tmesh);
+        splitOperator = new ZeroPatchSplitOperator(tmesh);
     }
 
     /**
      * Apply the number of zero-arc collapses requested at startup by
      * {@link #COLLAPSE_PROPERTY}: an integer, or {@code all}. This is the headless entry
      * point (a screenshot then shows that point in the collapse); once the window is open,
-     * SPACE steps one more collapse and R resets.
+     * SPACE steps one more collapse and R rebuilds.
      */
     private void applyInitialCollapses() {
         String request = System.getProperty(COLLAPSE_PROPERTY);
@@ -177,9 +251,52 @@ public class EmbeddedTMeshScene extends Scene {
         if (request == null || !ALL.equalsIgnoreCase(request.trim())) {
             return;
         }
-        EmbeddedContraction contraction = new EmbeddedContraction(
-                fixture.tmesh, TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC).contract();
+        EmbeddedContraction contraction =
+                new EmbeddedContraction(tmesh, eulerCharacteristic).contract();
         Platforms.get().log(APPLIED_PREFIX + contractionSummary(contraction));
+    }
+
+    /**
+     * Frames the captured reroute failure: targets the midpoint of the pivot and survivor and
+     * looks straight in along the surface normal there, close enough to see the wall.
+     *
+     * @param meshRadius the surface's radius, for the camera distance
+     */
+    private void aimAtFailure(float meshRadius) {
+        Vector3f pivot = tmesh.topology.copy.vertexPosition(failure.pivotVertex, new Vector3f());
+        Vector3f survivor = tmesh.topology.copy.vertexPosition(failure.survivorVertex,
+                new Vector3f());
+        Vector3f target = new Vector3f(pivot).add(survivor).mul(0.5f);
+        Vector3f outward = new Vector3f(target).sub(meshCenter).normalize();
+        float elevation = (float) Math.asin(outward.y);
+        float azimuth = (float) Math.atan2(outward.z, outward.x);
+        float distance = Math.max(CAMERA_DISTANCE_MIN, meshRadius * FAILURE_VIEW_DISTANCE_MUL);
+        orbitMouse.setTarget(target);
+        orbitMouse.setOrbit(azimuth, elevation, distance);
+    }
+
+    /**
+     * When {@link #CONTRACT_FAIL_PROPERTY} is set, drive the operators until the first reroute
+     * failure and, if one occurs, refresh the (partial) T-mesh render and highlight the wall.
+     * Runs after the runtime is up.
+     */
+    private void applyContractToFailure() {
+        if (!Boolean.parseBoolean(System.getProperty(CONTRACT_FAIL_PROPERTY, "false"))) {
+            return;
+        }
+        EmbeddedContraction contraction = new EmbeddedContraction(tmesh, eulerCharacteristic);
+        failure = contraction.contractToFailure();
+        runtime.setEmbeddedTMesh(tmesh);
+        if (failure == null) {
+            Platforms.get().log("[embedded-tmesh] contracted to a fixed point with no failure: "
+                    + contractionSummary(contraction));
+            return;
+        }
+        runtime.setFailureHighlight(tmesh.topology.copy, failure);
+        Platforms.get().log("[embedded-tmesh] stopped at reroute failure after "
+                + contractionSummary(contraction) + " | fenceVertices="
+                + failure.fenceVertices.size() + " pivotSpokes="
+                + (failure.pivotSpokes.size() / 2) + " | " + failure.getMessage());
     }
 
     /**
@@ -213,7 +330,7 @@ public class EmbeddedTMeshScene extends Scene {
                 break;
             }
             splitOperator.split(patchId);
-            fixture.tmesh.validate(TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC);
+            tmesh.validate(eulerCharacteristic);
             applied++;
         }
         Platforms.get().log(APPLIED_PREFIX + applied + " zero-patch split(s)");
@@ -231,7 +348,7 @@ public class EmbeddedTMeshScene extends Scene {
             return false;
         }
         collapseOperator.collapse(arcId);
-        fixture.tmesh.validate(TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC);
+        tmesh.validate(eulerCharacteristic);
         return true;
     }
 
@@ -251,7 +368,7 @@ public class EmbeddedTMeshScene extends Scene {
     }
 
     /**
-     * Ask to rebuild the pristine fixture; applied on the next frame, on the render thread.
+     * Ask to rebuild the layout; applied on the next frame, on the render thread.
      */
     public void requestReset() {
         pendingReset = true;
@@ -266,27 +383,25 @@ public class EmbeddedTMeshScene extends Scene {
     }
 
     /**
-     * Apply any keypress-requested collapse or reset on the render thread, where the GL
-     * context is current, and re-upload the changed T-mesh. Doing this here rather than in
-     * the key callback keeps every GL call on the thread that owns the context.
+     * Apply any keypress-requested edit on the render thread, where the GL context is current,
+     * and re-upload the changed T-mesh. Doing this here rather than in the key callback keeps
+     * every GL call on the thread that owns the context.
      */
     private void applyPendingEdits() {
         if (pendingReset) {
             pendingReset = false;
             pendingCollapseSteps = 0;
             pendingSplitSteps = 0;
-            fixture = new TorusLayoutFixture();
-            collapseOperator = new ZeroArcCollapseOperator(fixture.tmesh);
-            splitOperator = new ZeroPatchSplitOperator(fixture.tmesh);
-            runtime.setEmbeddedTMesh(fixture.tmesh);
-            Platforms.get().log("[embedded-tmesh] reset");
+            assembleLayout();
+            runtime.setEmbeddedTMesh(tmesh);
+            Platforms.get().log("[embedded-tmesh] rebuilt");
             return;
         }
         if (pendingContract) {
             pendingContract = false;
-            EmbeddedContraction contraction = new EmbeddedContraction(
-                    fixture.tmesh, TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC).contract();
-            runtime.setEmbeddedTMesh(fixture.tmesh);
+            EmbeddedContraction contraction =
+                    new EmbeddedContraction(tmesh, eulerCharacteristic).contract();
+            runtime.setEmbeddedTMesh(tmesh);
             Platforms.get().log("[embedded-tmesh] contracted to fixed point: "
                     + contractionSummary(contraction) + "; arcs=" + countLiveArcs());
             return;
@@ -300,7 +415,7 @@ public class EmbeddedTMeshScene extends Scene {
                 break;
             }
             splitOperator.split(patchId);
-            fixture.tmesh.validate(TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC);
+            tmesh.validate(eulerCharacteristic);
             changed = true;
         }
         while (pendingCollapseSteps > 0) {
@@ -313,21 +428,21 @@ public class EmbeddedTMeshScene extends Scene {
             }
         }
         if (changed) {
-            runtime.setEmbeddedTMesh(fixture.tmesh);
+            runtime.setEmbeddedTMesh(tmesh);
             Platforms.get().log("[embedded-tmesh] collapsed " + collapseOperator.collapsedCount
                     + " total; arcs=" + countLiveArcs());
         }
     }
 
     /**
-     * The number of live arcs in the fixture's T-mesh, for the status log.
+     * The number of live arcs in the T-mesh, for the status log.
      *
      * @return count of arcs still part of the layout
      */
     private int countLiveArcs() {
         int count = 0;
-        for (int arcId = 0; arcId < fixture.tmesh.arcs.size(); arcId++) {
-            if (fixture.tmesh.arcs.get(arcId).alive) {
+        for (int arcId = 0; arcId < tmesh.arcs.size(); arcId++) {
+            if (tmesh.arcs.get(arcId).alive) {
                 count++;
             }
         }
@@ -343,6 +458,16 @@ public class EmbeddedTMeshScene extends Scene {
         camera.resetView();
         runtime.render(camera);
         runtime.renderOverlays(camera);
+        runtime.renderHighlights(camera);
+    }
+
+    /**
+     * Toggle the reroute-failure highlight, applied on the render thread.
+     */
+    public void toggleFailureHighlight() {
+        if (runtime != null) {
+            runtime.showFailureHighlight = !runtime.showFailureHighlight;
+        }
     }
 
     @Override

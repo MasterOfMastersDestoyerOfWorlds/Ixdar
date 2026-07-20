@@ -51,6 +51,13 @@ public final class PatchRectangleMap {
     public final double width;
     public final double height;
 
+    /**
+     * Caller's label for each dense vertex — the copy vertex id it came from, for relating a
+     * rectangle coordinate back to the mesh. Identity {@code {0, 1, 2, ...}} when the caller
+     * works in dense indices directly.
+     */
+    public final int[] vertexLabel;
+
     /** Rectangle x-coordinate of each vertex, by dense index; filled by {@link #build()}. */
     public final double[] rectangleU;
 
@@ -72,9 +79,11 @@ public final class PatchRectangleMap {
      *                          {@code boundaryCornerAt[(s + 1) % 4]}
      * @param width             rectangle width, the extent of sides 0 and 2; must be positive
      * @param height            rectangle height, the extent of sides 1 and 3; must be positive
+     * @param vertexLabel       caller's label per dense vertex (a copy vertex id), or {@code null}
+     *                          for identity labels {@code {0, 1, 2, ...}}
      */
     public PatchRectangleMap(Vector3f[] positions, int[][] triangles, int[] boundaryLoop,
-            int[] boundaryCornerAt, double width, double height) {
+            int[] boundaryCornerAt, double width, double height, int[] vertexLabel) {
         this.positions = positions;
         this.triangles = triangles;
         this.boundaryLoop = boundaryLoop;
@@ -84,6 +93,21 @@ public final class PatchRectangleMap {
         this.rectangleU = new double[positions.length];
         this.rectangleV = new double[positions.length];
         this.onBoundary = new boolean[positions.length];
+        this.vertexLabel = vertexLabel != null ? vertexLabel : identity(positions.length);
+    }
+
+    /**
+     * Identity labels {@code {0, 1, ..., count - 1}}.
+     *
+     * @param count number of labels
+     * @return an array where entry {@code i} is {@code i}
+     */
+    private static int[] identity(int count) {
+        int[] labels = new int[count];
+        for (int index = 0; index < count; index++) {
+            labels[index] = index;
+        }
+        return labels;
     }
 
     /**
