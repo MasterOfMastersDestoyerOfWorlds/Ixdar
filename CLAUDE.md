@@ -123,7 +123,7 @@ uv run ixdar-cli multiview /tmp/scene.png            # 8-angle grid, sized under
 uv run ixdar-cli shutdown                            # System.exit; no window to close
 ```
 
-Then `Read` the PNG. This is the generic path — **do not write a per-scene headless renderer** (`RenderEmbeddedTMesh` and the like were a wrong turn); feed the scene's own `QuadLayoutRuntime`/overlays and screenshot it. `entrypoint/RenderDsl`/`RenderGrid` show the same off-screen `HeadlessPlatform` + `readPixels` → PNG pattern if you ever need a one-shot with no server.
+Then `Read` the PNG. This is the generic path — **do not write a per-scene headless renderer** (`RenderEmbeddedTMesh` and the like were a wrong turn); feed the scene's own `QuadLayoutRuntime`/overlays and screenshot it.
 
 Omitting `-Dixdar.headless=true` opens a **visible** window on the desktop — only do that when you genuinely need to interact.
 

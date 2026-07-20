@@ -1,6 +1,7 @@
 package unit.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,9 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMeshBuilder;
+import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
 
 /**
  * Drives the real pipeline into the embedded T-mesh: load a mesh, run
@@ -36,12 +40,16 @@ class EmbeddedTMeshPipelineTest {
             "test/resources/quadlayout/figure_7/sphere_base_in_tri.off";
     private static final double ALPHA_RADIANS = Math.toRadians(15.0);
 
+    /** A UV triangle below this fraction of the mean |area| counts as degenerate (LCK21a). */
+    private static final double DEGENERATE_UV_AREA_FRACTION = 1.0e-6;
+
+    /** LCK21a §5.2: the quantization stays within this many variables per trace. */
+    private static final double VARIABLES_PER_TRACE_BOUND = 1.5;
+
     @Test
     void pipelineAssemblesAValidatedTMesh() throws Exception {
         String offPath = System.getProperty(OFF_PROPERTY, DEFAULT_OFF);
-        ArrayMesh arrayMesh = MeshLoader.load(offPath);
-        HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
-                arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
+        HalfEdgeMesh mesh = loadMesh(offPath);
 
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, (float) ALPHA_RADIANS);
         engine.buildLayoutEmbedding();
@@ -58,6 +66,88 @@ class EmbeddedTMeshPipelineTest {
                 "every motorcycle-graph patch should become one embedded patch");
         assertTrue(tmesh.arcs.size() > 0, "the layout should have arcs");
         assertTrue(tmesh.nodes.size() > 0, "the layout should have nodes");
+    }
+
+    /**
+     * The structural invariants LCK21a's Table-1 parity harness checked, lifted here so they
+     * survive as a fast unit test rather than a benchmark: the motorcycle arrangement is a cell
+     * complex, every cycle is a rectangle, no trace is truncated, the quantization needs no
+     * separation cuts (Lemma 1 suffices), there are four traces per singularity, no UV triangle is
+     * degenerate, and the variable count stays within the paper's bound. These are mesh-agnostic,
+     * so they hold on the small default mesh; point the harness at a paper mesh with
+     * {@code -DtmeshPipeline.off=...} to check the same invariants there.
+     *
+     * @throws Exception propagated from mesh loading or the pipeline
+     */
+    @Test
+    void pipelineHoldsTheLyonInvariants() throws Exception {
+        String offPath = System.getProperty(OFF_PROPERTY, DEFAULT_OFF);
+        HalfEdgeMesh mesh = loadMesh(offPath);
+        int meshEuler = mesh.vertexCount() - mesh.edgeCount() + mesh.faceCount();
+
+        QuadLayoutEngine engine = new QuadLayoutEngine(mesh, (float) ALPHA_RADIANS);
+        engine.buildLayoutEmbedding();
+        MotorcycleGraph graph = engine.motorcycleGraph;
+
+        int arrangementEuler = graph.nodes.size() - graph.arcs.size() + graph.patches.size();
+        assertEquals(meshEuler, arrangementEuler, "the arrangement is a cell complex");
+
+        for (TMeshPatch patch : graph.patches) {
+            assertTrue(patch.validRectangle, "patch " + patch.patchId + " is a valid rectangle");
+        }
+        for (TMeshNode node : graph.nodes) {
+            assertFalse(node.type == TMeshNode.Type.TRUNCATED,
+                    "node " + node.nodeId + " is a truncated trace");
+        }
+        assertEquals(0, graph.aliveAtQueueEndCount, "no motorcycle left alive at the queue end");
+        assertEquals(0, graph.repeatedChainNodeCount, "no arc chain repeats a node");
+
+        assertEquals(0, engine.quantization.separationCutCount,
+                "Lemma 1 suffices: the quantization needs no separation cuts");
+        assertFalse(engine.quantization.singularitySeparationViolated,
+                "no singularity separation is violated");
+        assertTrue(engine.quantization.variableCount
+                        <= VARIABLES_PER_TRACE_BOUND * graph.traces.size(),
+                "variables=" + engine.quantization.variableCount + " stays within 1.5x traces");
+
+        assertEquals(0, degenerateUvFaceCount(engine, mesh), "no degenerate UV triangle");
+    }
+
+    /**
+     * The number of faces whose seamless UV image is degenerate — below a tiny fraction of the
+     * mean UV triangle area.
+     *
+     * @param engine the pipeline, built through the seamless stage
+     * @param mesh   the input mesh
+     * @return count of degenerate UV faces
+     */
+    private int degenerateUvFaceCount(QuadLayoutEngine engine, HalfEdgeMesh mesh) {
+        double meanAbsArea = 0.0;
+        for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
+            meanAbsArea += Math.abs(engine.seamless.uvSignedArea(mesh.faceIdAt(activeFace)));
+        }
+        meanAbsArea /= mesh.faceCount();
+        int degenerate = 0;
+        for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
+            if (Math.abs(engine.seamless.uvSignedArea(mesh.faceIdAt(activeFace)))
+                    < DEGENERATE_UV_AREA_FRACTION * meanAbsArea) {
+                degenerate++;
+            }
+        }
+        return degenerate;
+    }
+
+    /**
+     * Loads a mesh from an OFF/OBJ file into a half-edge mesh.
+     *
+     * @param offPath path to the mesh file
+     * @return the loaded half-edge mesh
+     * @throws Exception propagated from the loader
+     */
+    private HalfEdgeMesh loadMesh(String offPath) throws Exception {
+        ArrayMesh arrayMesh = MeshLoader.load(offPath);
+        return HalfEdgeMeshEngine.buildFromIndexedMesh(
+                arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
     }
 
     /**
