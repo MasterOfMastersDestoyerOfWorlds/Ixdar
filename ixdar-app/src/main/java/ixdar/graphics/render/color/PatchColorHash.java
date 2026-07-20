@@ -1,7 +1,5 @@
 package ixdar.graphics.render.color;
 
-import org.joml.Vector4f;
-
 /**
  * Java port of the {@code patchColor()} hash in {@code mesh_uv_traces.fs}:
  * a small integer hash mapped to a fixed-saturation HSV hue, so Java-side
@@ -41,7 +39,7 @@ public final class PatchColorHash {
      * @param alpha   alpha channel of the returned color
      * @return RGBA color with hashed hue at the palette's saturation and value
      */
-    public static Vector4f colorForPatch(int patchId, float alpha) {
+    public static Color colorForPatch(int patchId, float alpha) {
         int seed = patchId + 1;
         seed = (seed ^ HASH_XOR) * HASH_MULTIPLIER;
         seed ^= seed >>> HASH_SHIFT;
@@ -53,7 +51,7 @@ public final class PatchColorHash {
         int[] channelSources = SECTOR_CHANNEL_SOURCES[
                 Math.min((int) sector, SECTOR_CHANNEL_SOURCES.length - 1)];
         float offset = VALUE - chroma;
-        return new Vector4f(
+        return new ColorRGB(
                 sources[channelSources[0]] + offset,
                 sources[channelSources[1]] + offset,
                 sources[channelSources[2]] + offset,

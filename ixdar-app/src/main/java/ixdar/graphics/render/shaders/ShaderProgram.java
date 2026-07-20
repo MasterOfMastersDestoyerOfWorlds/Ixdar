@@ -332,6 +332,16 @@ public abstract class ShaderProgram {
         uniformMap.put(name, vec4);
     }
 
+    /**
+     * Upload a vec4 uniform from a {@link Color}'s RGBA channels.
+     *
+     * @param name  uniform name
+     * @param color colour whose {@code (r, g, b, a)} becomes the vec4
+     */
+    public void setVec4(String name, Color color) {
+        setVec4(name, color.toVector4f());
+    }
+
     private void checkCompileErrors(int shader, ShaderOperationType type, String location,
             CharSequence[] shaderSource) {
 

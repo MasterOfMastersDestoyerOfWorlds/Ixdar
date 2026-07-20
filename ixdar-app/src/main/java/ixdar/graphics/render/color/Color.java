@@ -4,21 +4,14 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 public interface Color {
-    public static final String NAVY_2 = "Navy";
-    public static final float NUM_255_0 = 255.0f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_6_0 = 6.0f;
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
-    public static final int NUM_5 = 5;
     public static final Color WHITE = new ColorRGB(1f, 1f, 1f, "White");
     public static final Color BLACK = new ColorRGB(0f, 0f, 0f, "Black");
     public static final Color RED = new ColorRGB(1f, 0f, 0f, "Red");
     public static final Color RED_FAINT = new ColorRGB(0.25f, 0f, 0f, 0.1f, "Red Faint");
     public static final Color GREEN = new ColorRGB(0f, 1f, 0f, "Green");
     public static final Color BLUE = new ColorRGB(0f, 0f, 1f, "Blue");
-    public static final Color LIGHT_NAVY = new ColorRGB(15, 45, 135, NAVY_2);
-    public static final Color NAVY = new ColorRGB(5, 37, 53, NAVY_2);
+    public static final Color LIGHT_NAVY = new ColorRGB(15, 45, 135, "Light Navy");
+    public static final Color NAVY = new ColorRGB(5, 37, 53, "Navy");
     public static final Color BLUE_GRAY = new ColorRGB(32, 35, 70, "Blue Gray");
     public static final Color BLUE_WHITE = new ColorRGB(98, 142, 166, "Blue White");
     public static final Color CYAN = new ColorRGB(0, 255, 255, "Cyan");
@@ -39,6 +32,13 @@ public interface Color {
     public static final Color ORANGE = new ColorRGB(210, 105, 30, "Orange");
     public static final Color COMMAND = new ColorRGB(0f, 0.75f, 0.5f, "Command");
     public static final Color PINK = new ColorRGB(255, 192, 203, "Pink");
+    public static final Color SOFT_RED = new ColorRGB(1f, 0.25f, 0.25f, "Soft Red");
+    public static final Color BRIGHT_ORANGE = new ColorRGB(1f, 0.55f, 0.1f, "Bright Orange");
+    public static final Color AMBER = new ColorRGB(1f, 0.8f, 0f, "Amber");
+    public static final Color GOLD = new ColorRGB(1f, 0.85f, 0.1f, "Gold");
+    public static final Color BRIGHT_GREEN = new ColorRGB(0.2f, 1f, 0.4f, "Bright Green");
+    public static final Color SKY_BLUE = new ColorRGB(0.2f, 0.85f, 1f, "Sky Blue");
+    public static final Color AZURE = new ColorRGB(0.25f, 0.5f, 1f, "Azure");
     public static final Color GLSL_VECTOR = new ColorRGB(0.72f, 0.58f, 0.85f, "GLSL Vector");
     public static final Color GLSL_COMMA = new ColorRGB(0.80f, 0.86f, 0.96f, "GLSL Comma");
     public static final Color GLSL_PARENTHESIS = new ColorRGB(0.88f, 0.90f, 0.96f, "GLSL Parenthesis");
@@ -84,43 +84,43 @@ public interface Color {
     public static Color HSBtoRGB(float hue, float saturation, float brightness) {
         int r = 0, g = 0, b = 0;
         if (saturation == 0) {
-            r = g = b = (int) (brightness * NUM_255_0 + NUM_0_5);
+            r = g = b = (int) (brightness * 255.0f + 0.5f);
         } else {
-            float h = (hue - (float) Math.floor(hue)) * NUM_6_0;
+            float h = (hue - (float) Math.floor(hue)) * 6.0f;
             float f = h - (float) Math.floor(h);
             float p = brightness * (1.0f - saturation);
             float q = brightness * (1.0f - saturation * f);
             float t = brightness * (1.0f - (saturation * (1.0f - f)));
             switch ((int) h) {
             case 0:
-                r = (int) (brightness * NUM_255_0 + NUM_0_5);
-                g = (int) (t * NUM_255_0 + NUM_0_5);
-                b = (int) (p * NUM_255_0 + NUM_0_5);
+                r = (int) (brightness * 255.0f + 0.5f);
+                g = (int) (t * 255.0f + 0.5f);
+                b = (int) (p * 255.0f + 0.5f);
                 break;
             case 1:
-                r = (int) (q * NUM_255_0 + NUM_0_5);
-                g = (int) (brightness * NUM_255_0 + NUM_0_5);
-                b = (int) (p * NUM_255_0 + NUM_0_5);
+                r = (int) (q * 255.0f + 0.5f);
+                g = (int) (brightness * 255.0f + 0.5f);
+                b = (int) (p * 255.0f + 0.5f);
                 break;
             case 2:
-                r = (int) (p * NUM_255_0 + NUM_0_5);
-                g = (int) (brightness * NUM_255_0 + NUM_0_5);
-                b = (int) (t * NUM_255_0 + NUM_0_5);
+                r = (int) (p * 255.0f + 0.5f);
+                g = (int) (brightness * 255.0f + 0.5f);
+                b = (int) (t * 255.0f + 0.5f);
                 break;
-            case NUM_3:
-                r = (int) (p * NUM_255_0 + NUM_0_5);
-                g = (int) (q * NUM_255_0 + NUM_0_5);
-                b = (int) (brightness * NUM_255_0 + NUM_0_5);
+            case 3:
+                r = (int) (p * 255.0f + 0.5f);
+                g = (int) (q * 255.0f + 0.5f);
+                b = (int) (brightness * 255.0f + 0.5f);
                 break;
-            case NUM_4:
-                r = (int) (t * NUM_255_0 + NUM_0_5);
-                g = (int) (p * NUM_255_0 + NUM_0_5);
-                b = (int) (brightness * NUM_255_0 + NUM_0_5);
+            case 4:
+                r = (int) (t * 255.0f + 0.5f);
+                g = (int) (p * 255.0f + 0.5f);
+                b = (int) (brightness * 255.0f + 0.5f);
                 break;
-            case NUM_5:
-                r = (int) (brightness * NUM_255_0 + NUM_0_5);
-                g = (int) (p * NUM_255_0 + NUM_0_5);
-                b = (int) (q * NUM_255_0 + NUM_0_5);
+            case 5:
+                r = (int) (brightness * 255.0f + 0.5f);
+                g = (int) (p * 255.0f + 0.5f);
+                b = (int) (q * 255.0f + 0.5f);
                 break;
             }
         }

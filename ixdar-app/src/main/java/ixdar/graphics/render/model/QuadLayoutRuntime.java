@@ -6,7 +6,6 @@ import java.util.List;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -25,6 +24,7 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.graphics.cameras.Camera3D;
+import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.color.PatchColorHash;
 import ixdar.graphics.render.shaders.ShaderProgram;
@@ -166,11 +166,11 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     protected static final int FLIP_OFFSET_BYTES = FLIP_OFFSET * Float.BYTES;
     protected static final int ATTR_FLIP = 4;
 
-    private static final Vector4f COLOR_V_ARM = ColorRGB.CYAN.toVector4f();
-    private static final Vector4f COLOR_INTERSECTION_NODE = ColorRGB.WHITE.toVector4f();
-    private static final Vector4f COLOR_BOUNDARY_NODE = ColorRGB.YELLOW.toVector4f();
-    private static final Vector4f COLOR_FEATURE_NODE = ColorRGB.MAGENTA.toVector4f();
-    private static final Vector4f COLOR_TRUNCATED_NODE = ColorRGB.ORANGE.toVector4f();
+    private static final Color COLOR_V_ARM = Color.CYAN;
+    private static final Color COLOR_INTERSECTION_NODE = Color.WHITE;
+    private static final Color COLOR_BOUNDARY_NODE = Color.YELLOW;
+    private static final Color COLOR_FEATURE_NODE = Color.MAGENTA;
+    private static final Color COLOR_TRUNCATED_NODE = Color.ORANGE;
     private static final String FLIPPED_COLOR_UNIFORM = "flippedColor";
     private static final String DRAW_FULL_ISO_GRID_UNIFORM = "drawFullIsoGrid";
     private static final String USE_PATCH_COLOR_UNIFORM = "usePatchColor";
@@ -180,19 +180,19 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private static final int TRACE3_OFFSET = TRACE2_OFFSET + FLOATS_PER_TRACE_RECORD;
     private static final int PATCH_ID_OFFSET = TRACE3_OFFSET + FLOATS_PER_TRACE_RECORD;
     private static final int PATCH_ID_OFFSET_BYTES = PATCH_ID_OFFSET * Float.BYTES;
-    private static final Vector4f COLOR_U_ARM = ColorRGB.YELLOW.toVector4f();
+    private static final Color COLOR_U_ARM = Color.YELLOW;
     /** Cyan for {@code index4 > 0} (valence-3, +π/2) per BZK09 fig. 4 caption. */
-    private static final Vector4f COLOR_POSITIVE_INDEX = new ColorRGB(ColorRGB.CYAN).setAlpha(0.5f).toVector4f();
+    private static final Color COLOR_POSITIVE_INDEX = new ColorRGB(Color.CYAN, 0.5f);
     /** Red for {@code index4 < 0} (valence-5, -π/2) per BZK09 fig. 4 caption. */
-    private static final Vector4f COLOR_NEGATIVE_INDEX = new ColorRGB(ColorRGB.RED).setAlpha(0.5f).toVector4f();
+    private static final Color COLOR_NEGATIVE_INDEX = new ColorRGB(Color.RED, 0.5f);
     /** Constraint glyph colour for boundary-edge pins. */
-    private static final Vector4f COLOR_CONSTRAINT_BOUNDARY = ColorRGB.GREEN.toVector4f();
+    private static final Color COLOR_CONSTRAINT_BOUNDARY = Color.GREEN;
     /** Constraint glyph colour for sharp-crease (feature-edge) pins. */
-    private static final Vector4f COLOR_CONSTRAINT_FEATURE = ColorRGB.ORANGE.toVector4f();
+    private static final Color COLOR_CONSTRAINT_FEATURE = Color.ORANGE;
     /** Constraint glyph colour for principal-curvature pins. */
-    private static final Vector4f COLOR_CONSTRAINT_CURVATURE = ColorRGB.MAGENTA.toVector4f();
+    private static final Color COLOR_CONSTRAINT_CURVATURE = Color.MAGENTA;
     /** Constraint glyph colour for the arbitrary gauge anchor. */
-    private static final Vector4f COLOR_CONSTRAINT_ANCHOR = ColorRGB.WHITE.toVector4f();
+    private static final Color COLOR_CONSTRAINT_ANCHOR = Color.WHITE;
     /**
      * Source groups drawn by {@link #renderConstraintOverlay(Camera3D)}, in upload
      * order.
@@ -203,44 +203,44 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     };
 
     /** Layout boundary curve tint. */
-    private static final Vector4f COLOR_LAYOUT_BOUNDARY = new Vector4f(1f, 1f, 1f, 0.95f);
+    private static final Color COLOR_LAYOUT_BOUNDARY = Color.WHITE;
     /** Layout corner marker tint. */
-    private static final Vector4f COLOR_LAYOUT_CORNER = new Vector4f(1f, 0.25f, 0.25f, 1f);
+    private static final Color COLOR_LAYOUT_CORNER = Color.SOFT_RED;
     /** Embedded arc edge-path tint (stage-8 re-embedding). */
-    private static final Vector4f COLOR_EMBEDDED_ARC = new Vector4f(1f, 0.55f, 0.1f, 0.95f);
+    private static final Color COLOR_EMBEDDED_ARC = Color.BRIGHT_ORANGE;
 
     /** Tint for zero-quantized arcs, red like LCBK19 Figure 9, so collapse targets stand out. */
-    private static final Vector4f COLOR_EMBEDDED_ZERO_ARC = new Vector4f(0.95f, 0.15f, 0.15f, 0.95f);
+    private static final Color COLOR_EMBEDDED_ZERO_ARC = Color.RED;
 
     /** Tint for an ordinary embedded T-mesh node. */
-    private static final Vector4f COLOR_EMBEDDED_NODE = new Vector4f(0.2f, 0.85f, 1f, 1f);
+    private static final Color COLOR_EMBEDDED_NODE = Color.SKY_BLUE;
 
     /** Tint for a critical embedded T-mesh node, which the operators may never move. */
-    private static final Vector4f COLOR_EMBEDDED_NODE_CRITICAL = new Vector4f(1f, 0.85f, 0.1f, 1f);
+    private static final Color COLOR_EMBEDDED_NODE_CRITICAL = Color.GOLD;
 
     /** Failure highlight: the stranded arc's body region (one of the two disconnected regions). */
-    private static final Vector4f COLOR_HIGHLIGHT_BODY = new Vector4f(0.25f, 0.5f, 1f, 1f);
+    private static final Color COLOR_HIGHLIGHT_BODY = Color.AZURE;
 
     /** Failure highlight: the survivor's channel region (the other disconnected region). */
-    private static final Vector4f COLOR_HIGHLIGHT_CHANNEL = new Vector4f(0.2f, 1f, 0.4f, 1f);
+    private static final Color COLOR_HIGHLIGHT_CHANNEL = Color.BRIGHT_GREEN;
 
     /** Failure highlight: the stranded arc's own edge path. */
-    private static final Vector4f COLOR_HIGHLIGHT_ARC = new Vector4f(1f, 1f, 0.1f, 1f);
+    private static final Color COLOR_HIGHLIGHT_ARC = Color.YELLOW;
 
     /** Failure highlight: the freed collapse channel. */
-    private static final Vector4f COLOR_HIGHLIGHT_CHANNEL_LINE = new Vector4f(0.1f, 0.9f, 1f, 1f);
+    private static final Color COLOR_HIGHLIGHT_CHANNEL_LINE = Color.CYAN;
 
     /** Failure highlight: the collapsing pivot node the router could not pass. */
-    private static final Vector4f COLOR_HIGHLIGHT_PIVOT = new Vector4f(1f, 0.1f, 0.1f, 1f);
+    private static final Color COLOR_HIGHLIGHT_PIVOT = Color.RED;
 
     /** Failure highlight: the survivor node the arc could not reach. */
-    private static final Vector4f COLOR_HIGHLIGHT_SURVIVOR = new Vector4f(1f, 0.1f, 1f, 1f);
+    private static final Color COLOR_HIGHLIGHT_SURVIVOR = Color.MAGENTA;
 
     /** Failure highlight: the claimed arc-edges fencing the body region — the wall. */
-    private static final Vector4f COLOR_HIGHLIGHT_FENCE = new Vector4f(1f, 1f, 1f, 0.95f);
+    private static final Color COLOR_HIGHLIGHT_FENCE = Color.WHITE;
 
     /** Failure highlight: the pivot's free spokes — where the router may legally step off it. */
-    private static final Vector4f COLOR_HIGHLIGHT_SPOKE = new Vector4f(1f, 0.8f, 0f, 1f);
+    private static final Color COLOR_HIGHLIGHT_SPOKE = Color.AMBER;
 
     /** Line width for the wall/spoke highlight, thicker than an ordinary arc. */
     private static final float HIGHLIGHT_WALL_LINE_WIDTH = 3f;
@@ -286,13 +286,13 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     /** Iso-line half-width passed as the {@link #LINE_HALF_WIDTH} uniform. */
     public float lineHalfWidth = DEFAULT_LINE_HALF_WIDTH;
     /** Surface fill behind the iso-lines. */
-    public Vector4f baseColor = ColorRGB.BLUE_WHITE.toVector4f();
+    public Color baseColor = Color.BLUE_WHITE;
     /** Constant-u iso-line tint. */
-    public Vector4f uLineColor = ColorRGB.CYAN.toVector4f();
+    public Color uLineColor = Color.CYAN;
     /** Constant-v iso-line tint. */
-    public Vector4f vLineColor = ColorRGB.YELLOW.toVector4f();
+    public Color vLineColor = Color.YELLOW;
     /** Flipped triangle tint. */
-    public Vector4f flippedColor = ColorRGB.MAGENTA.toVector4f();
+    public Color flippedColor = Color.MAGENTA;
 
     public boolean showIsoLines = false;
     public boolean showSingularities = false;
@@ -356,7 +356,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     /** Per-patch index count in the Coons EBO. */
     public int[] layoutPatchIndexCount;
     /** Per-patch fill color, matching the surface palette hash. */
-    public Vector4f[] layoutPatchColors;
+    public Color[] layoutPatchColors;
     /** Flat xyz positions of layout corner markers. */
     public float[] layoutCornerPositions;
     /** VAO of the embedded arc GL_LINES buffer. */
@@ -420,7 +420,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private int[] constraintRangeStart;
     private int[] constraintRangeCount;
     private float[] graphNodePositions;
-    private float[] graphNodeColors;
+    private Color[] graphNodeColors;
     private int graphNodeCount;
 
     /**
@@ -1069,27 +1069,20 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private void captureGraphNodes(MotorcycleGraph graph) {
         graphNodeCount = graph.nodes.size();
         graphNodePositions = new float[FLOATS_PER_SPHERE_VERTEX * graphNodeCount];
-        graphNodeColors = new float[4 * graphNodeCount];
+        graphNodeColors = new Color[graphNodeCount];
         for (int i = 0; i < graphNodeCount; i++) {
             TMeshNode node = graph.nodes.get(i);
             int posBase = FLOATS_PER_SPHERE_VERTEX * i;
             graphNodePositions[posBase] = node.position.x;
             graphNodePositions[posBase + COMPONENT_Y] = node.position.y;
             graphNodePositions[posBase + COMPONENT_Z] = node.position.z;
-            Vector4f color = nodeColor(node);
-            int colorBase = 4 * i;
-            graphNodeColors[colorBase] = color.x;
-            graphNodeColors[colorBase + 1] = color.y;
-            graphNodeColors[colorBase + 2] = color.z;
-            graphNodeColors[colorBase + 3] = color.w;
+            graphNodeColors[i] = nodeColor(node);
         }
     }
 
-    private static Vector4f nodeColor(TMeshNode node) {
+    private static Color nodeColor(TMeshNode node) {
         if (node.type == TMeshNode.Type.SINGULARITY) {
-            return node.singularityIndex4 > 0
-                    ? new ColorRGB(ColorRGB.CYAN).setAlpha(0.5f).toVector4f()
-                    : new ColorRGB(ColorRGB.RED).setAlpha(0.5f).toVector4f();
+            return node.singularityIndex4 > 0 ? COLOR_POSITIVE_INDEX : COLOR_NEGATIVE_INDEX;
         }
         if (node.type == TMeshNode.Type.INTERSECTION) {
             return COLOR_INTERSECTION_NODE;
@@ -1164,7 +1157,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             if (count <= 0) {
                 continue;
             }
-            Vector4f color = constraintSourceColor(source);
+            Color color = constraintSourceColor(source);
             crossFieldShader.setVec4(U_LINE_COLOR, color);
             crossFieldShader.setVec4(V_LINE_COLOR, color);
             int offsetBytes = constraintRangeStart[source.ordinal()] * Integer.BYTES;
@@ -1172,7 +1165,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         }
     }
 
-    private static Vector4f constraintSourceColor(ConstraintSource source) {
+    private static Color constraintSourceColor(ConstraintSource source) {
         return switch (source) {
         case BOUNDARY -> COLOR_CONSTRAINT_BOUNDARY;
         case FEATURE -> COLOR_CONSTRAINT_FEATURE;
@@ -1199,12 +1192,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             float pz = graphNodePositions[posBase + COMPONENT_Z];
             sphereModel.identity().translate(px, py, pz).scale(sphereRadius);
             unlitShader.setMat4(MODEL, sphereModel);
-            int colorBase = 4 * i;
-            unlitShader.setVec4(SOLIDCOLOR, new Vector4f(
-                    graphNodeColors[colorBase],
-                    graphNodeColors[colorBase + 1],
-                    graphNodeColors[colorBase + 2],
-                    graphNodeColors[colorBase + 3]));
+            unlitShader.setVec4(SOLIDCOLOR, graphNodeColors[i]);
             gl.drawElements(gl.TRIANGLES(), singularityIndexCount, gl.UNSIGNED_INT(), 0);
         }
     }
@@ -1235,7 +1223,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
                     .translate(px, py, pz)
                     .scale(sphereRadius);
             unlitShader.setMat4(MODEL, sphereModel);
-            Vector4f color = singularityIndex4[i] > 0
+            Color color = singularityIndex4[i] > 0
                     ? COLOR_POSITIVE_INDEX
                     : COLOR_NEGATIVE_INDEX;
             unlitShader.setVec4(SOLIDCOLOR, color);
@@ -1310,7 +1298,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         IntBuffer coonsIndices = BufferUtils.createIntBuffer(coonsPatchCount * indicesPerPatch);
         layoutPatchIndexStart = new int[coonsPatchCount];
         layoutPatchIndexCount = new int[coonsPatchCount];
-        layoutPatchColors = new Vector4f[coonsPatchCount];
+        layoutPatchColors = new Color[coonsPatchCount];
         int patchCursor = 0;
         int vertexBase = 0;
         for (LayoutPatchCurves patch : geometry.patches) {
@@ -1758,7 +1746,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
      * @param color     sphere colour
      * @param scale     sphere scale relative to the shared sphere radius
      */
-    private void drawHighlightRegion(GL gl, float[] positions, Vector4f color, float scale) {
+    private void drawHighlightRegion(GL gl, float[] positions, Color color, float scale) {
         if (positions == null) {
             return;
         }
@@ -1784,7 +1772,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
      * @param base      index of the first float of the marker
      * @param color     sphere colour
      */
-    private void drawHighlightMarker(GL gl, float[] positions, int base, Vector4f color) {
+    private void drawHighlightMarker(GL gl, float[] positions, int base, Color color) {
         if (positions == null || base + VEC3_SIZE > positions.length) {
             return;
         }
@@ -1809,7 +1797,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
      * @param color       line colour
      * @param width       line width
      */
-    private void drawHighlightLine(GL gl, int vao, int vertexCount, Vector4f color, float width) {
+    private void drawHighlightLine(GL gl, int vao, int vertexCount, Color color, float width) {
         if (vao == 0 || vertexCount == 0) {
             return;
         }
