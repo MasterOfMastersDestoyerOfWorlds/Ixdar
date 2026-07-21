@@ -10,7 +10,7 @@
       "request": "launch",
       "mainClass": "shell.ui.main.Main",
       "args": "djbouti",
-      "vmArgs": "-enableassertions",
+      "vmArgs": "-enableassertions -XX:ErrorFile=target/hs_err_pid%p.log",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -18,7 +18,7 @@
       "name": "Ixdar",
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
-      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -27,7 +27,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "irregular-grid-canvas",
-      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -36,7 +36,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "bouncing-line-canvas",
-      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -45,7 +45,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "circle-canvas",
-      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -54,7 +54,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "bezier-curve-canvas",
-      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -63,7 +63,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "line-canvas",
-      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -72,7 +72,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "arrow-line-canvas",
-      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -81,7 +81,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "dashed-line-canvas",
-      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -90,7 +90,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "dashed-line-round-canvas",
-      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -99,7 +99,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "dashed-line-round-end-caps-canvas",
-      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -108,7 +108,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "model-load-canvas",
-      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
       "env": {
         "IXDAR_ASSET_REPO_ROOT": "C:\\Code\\IxdarAssets"
       },
@@ -119,7 +119,7 @@
       "name": "Launch Current File",
       "request": "launch",
       "mainClass": "${file}",
-      "vmArgs": "-enableassertions",
+      "vmArgs": "-enableassertions -XX:ErrorFile=target/hs_err_pid%p.log",
       "console": "internalConsole",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
@@ -128,7 +128,7 @@
       "name": "Launch Profile",
       "request": "launch",
       "mainClass": "shell.Main",
-      "vmArgs": "-enableassertions -agentpath:Z:/VisualVM/visualvm_219/visualvm/lib/deployed/jdk16/windows-amd64/profilerinterface.dll=Z:\\VisualVM\\visualvm_219\\visualvm\\lib,5140",
+      "vmArgs": "-enableassertions -XX:ErrorFile=target/hs_err_pid%p.log -agentpath:Z:/VisualVM/visualvm_219/visualvm/lib/deployed/jdk16/windows-amd64/profilerinterface.dll=Z:\\VisualVM\\visualvm_219\\visualvm\\lib,5140",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -152,7 +152,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "icosphere-save-point-canvas",
-      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -161,7 +161,7 @@
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "args": "mesh-viewer",
-      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Xmx4g -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Xmx4g -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
       "cwd": "${workspaceFolder}/ixdar-app"
     },
     {
@@ -172,6 +172,7 @@
       "args": "cross-field-exam",
       "vmArgs": [
         "${config:java.profiler.args}",
+        "-XX:ErrorFile=target/hs_err_pid%p.log",
         "-enableassertions",
         "-XX:+IgnoreUnrecognizedVMOptions",
         "-XstartOnFirstThread",
@@ -190,6 +191,7 @@
       "args": "param-exam",
       "vmArgs": [
         "${config:java.profiler.args}",
+        "-XX:ErrorFile=target/hs_err_pid%p.log",
         "-enableassertions",
         "-XX:+IgnoreUnrecognizedVMOptions",
         "-XstartOnFirstThread",
@@ -208,6 +210,7 @@
       "args": "mcg-exam",
       "vmArgs": [
         "${config:java.profiler.args}",
+        "-XX:ErrorFile=target/hs_err_pid%p.log",
         "-enableassertions",
         "-XX:+IgnoreUnrecognizedVMOptions",
         "-XstartOnFirstThread",
@@ -227,6 +230,7 @@
       "args": "quad-layout",
       "vmArgs": [
         "${config:java.profiler.args}",
+        "-XX:ErrorFile=target/hs_err_pid%p.log",
         "-enableassertions",
         "-XX:+IgnoreUnrecognizedVMOptions",
         "-XstartOnFirstThread",
@@ -246,6 +250,7 @@
       "args": "embedded-tmesh",
       "vmArgs": [
         "${config:java.profiler.args}",
+        "-XX:ErrorFile=target/hs_err_pid%p.log",
         "-enableassertions",
         "-XX:+IgnoreUnrecognizedVMOptions",
         "-XstartOnFirstThread",
@@ -263,6 +268,7 @@
       "args": "embedded-tmesh",
       "vmArgs": [
         "${config:java.profiler.args}",
+        "-XX:ErrorFile=target/hs_err_pid%p.log",
         "-enableassertions",
         "-XX:+IgnoreUnrecognizedVMOptions",
         "-XstartOnFirstThread",
@@ -281,6 +287,7 @@
       "args": "embedded-tmesh",
       "vmArgs": [
         "${config:java.profiler.args}",
+        "-XX:ErrorFile=target/hs_err_pid%p.log",
         "-enableassertions",
         "-XX:+IgnoreUnrecognizedVMOptions",
         "-XstartOnFirstThread",

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-LAUNCH_VM_ARGS = "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true"
+LAUNCH_VM_ARGS = "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log"
 
 
 @dataclass(frozen=True)
@@ -238,6 +238,7 @@ def _upsert_maven_profile(pom_file: Path, profile_id: str, scene_id: str, *, dry
         "                <argument>-enableassertions</argument>\n"
         "                <argument>-Dsun.awt.noerasebackground=true</argument>\n"
         "                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>\n"
+        "                <argument>-XX:ErrorFile=target/hs_err_pid%p.log</argument>\n"
         "                <argument>-classpath</argument>\n"
         "                <classpath />\n"
         "                <argument>ixdar.canvas.IxdarWindow</argument>\n"

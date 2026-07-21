@@ -1,5 +1,0 @@
-[console_scripts]
-dsl-optimize = ixdar_automation_cli.dsl_optimizer:main
-ixdar-cli = ixdar_automation_cli.ixdar_cli:cli
-mesh-viewer-compare = ixdar_automation_cli.mesh_viewer_launch:main
-rebuild-krieg-web = ixdar_automation_cli.rebuild_krieg_web:main

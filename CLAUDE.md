@@ -114,7 +114,8 @@ Any scene runs with **no visible window** via `-Dixdar.headless=true`: `IxdarWin
 ```
 # launch (background; needs the graphical session to exist — hidden window, not truly surfaceless,
 # so a bare server needs xvfb-run):
-setsid java -Dixdar.headless=true -cp "ixdar-app/target/classes:$(cat CP)" \
+setsid java -Dixdar.headless=true -XX:ErrorFile=ixdar-app/target/hs_err_pid%p.log \
+  -cp "ixdar-app/target/classes:$(cat CP)" \
   ixdar.canvas.IxdarWindow <scene-id> >/tmp/scene.log 2>&1 &
 # wait for it, capture, shut down:
 until curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:47832/health | grep -q 200; do sleep 1; done
