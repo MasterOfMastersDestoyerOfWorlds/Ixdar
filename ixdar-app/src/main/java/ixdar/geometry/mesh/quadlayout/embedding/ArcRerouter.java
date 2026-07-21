@@ -41,11 +41,22 @@ public final class ArcRerouter {
     /** Corridor ring growths allowed per re-route attempt. */
     public static final int GROWTH_CAP = 4;
 
-    /** Refinement edge splits allowed per re-route attempt. */
+    /**
+     * Split allowance for the untargeted fallback refinement only. The targeted refinement takes no
+     * allowance, because the passage it walks names exactly which edges must be split; a cap there
+     * cannot bound the work, only discard the result. This one splits blocked corridor edges at
+     * large without knowing which of them obstruct anything, so it keeps a guard.
+     */
     public static final int SPLIT_BUDGET = 128;
 
     /** Split position of a midpoint refinement. */
     private static final double EDGE_MIDPOINT = 0.5;
+
+    /**
+     * Returned by the targeted refinement when the two vertices lie in different faces of the arc
+     * arrangement, which no amount of refinement can change.
+     */
+    private static final int NO_PASSAGE = -1;
 
     /** Corners (and edges) of a triangle. */
     private static final int CORNERS = 3;
@@ -80,9 +91,12 @@ public final class ArcRerouter {
     }
 
     /**
-     * Re-route an arc between two vertices: a claims-respecting corridor Dijkstra,
-     * splitting walled edges and widening the corridor once per failed round. Splits
-     * made by failed attempts stay behind as harmless refinement.
+     * Re-route an arc between two vertices: a claims-respecting corridor Dijkstra, and on failure
+     * the refinement the paper prescribes. A failed round first splits every gate on the face
+     * passage between the two vertices, which is the exact set that blocks the search; only when
+     * there is no such passage to refine does it fall back to splitting blocked corridor edges at
+     * large, and that fallback keeps a split allowance because it is a guess rather than a
+     * derivation. Splits made by failed attempts stay behind as harmless refinement.
      *
      * @param arcId           arc being re-routed, for counters
      * @param vertices        path list; the start vertex is appended when empty, and
@@ -113,16 +127,17 @@ public final class ArcRerouter {
                 }
                 return true;
             }
-            int splits = splitBudget > 0
-                    ? refineCorridorGates(startCopyVertex, endCopyVertex, corridor, passThrough,
-                            splitBudget)
-                    : 0;
+            int splits = refineCorridorGates(startCopyVertex, endCopyVertex, corridor, passThrough);
+            if (splits == NO_PASSAGE) {
+                lastCorridorSize = corridor.size();
+                return false;
+            }
             if (splits == 0 && splitBudget > 0) {
                 splits = refineBlockedEdges(corridor, refineMints, splitBudget);
+                splitBudget -= splits;
             }
             splits += mintSpoke(startCopyVertex, corridor) ? 1 : 0;
             splits += mintSpoke(endCopyVertex, corridor) ? 1 : 0;
-            splitBudget -= splits;
             boolean grew = false;
             if (growths < GROWTH_CAP) {
                 int sizeBefore = corridor.size();
@@ -177,14 +192,14 @@ public final class ArcRerouter {
     }
 
     /**
-     * Claims-respecting shortest path over unclaimed edges and unclaimed interior
-     * vertices of the corridor, biased onto the arc's old lane by the pull polyline —
-     * the paper's "restricted to not intersect (cross or touch) other arcs".
+     * Claims-respecting shortest path over unclaimed edges and unclaimed interior vertices of the
+     * corridor — the paper's <em>"restricted to not intersect (cross or touch) other arcs"</em>.
      *
-     * <p>The pull term is memoized per vertex. It depends only on the vertex's position, so it is
-     * constant for the whole search, yet a vertex is relaxed once per incoming edge — recomputing it
-     * each time walked the entire polyline again for an answer already known. On the sphere
-     * contraction that recomputation was the second-largest cost in the profile.
+     * <p>The edge weight is plain Euclidean length and nothing else. An earlier version added a term
+     * pulling the search back toward the arc's old lane; it was invented here, appears in no paper,
+     * and was the single thing preventing the sphere contraction from reaching a fixed point.
+     * Keeping an arc near its old lane is the job of the caller, which backs off along the existing
+     * path and re-routes only the tail — not of a weight on the search.
      *
      * @param vertices      path list, extended with the found hop
      * @param startVertex   search source
@@ -259,6 +274,20 @@ public final class ArcRerouter {
      * sub-triangle, building a connected lane of free vertices through the pinch instead of isolated
      * midpoints.
      *
+     * <p>This refinement takes no split allowance, because the number of splits it needs is not a
+     * matter of judgement — the passage names them. Every crossed edge contributes exactly one
+     * vertex the search can stand on: a free endpoint where it has one, the minted midpoint where it
+     * does not. Consecutive such vertices are always adjacent along an unclaimed edge, which follows
+     * from {@link EmbeddedMeshTopology#claimPath} claiming an arc's vertices as well as its edges —
+     * so a claimed edge always has both endpoints claimed, and therefore a <em>free</em> vertex
+     * never has a claimed edge. Two free endpoints of consecutive crossings are corners of their
+     * shared face and the edge between them is unclaimed; a midpoint reaches the next crossing's
+     * free endpoint, or the next midpoint, across the retriangulation. So splitting every gate on
+     * the passage is exactly what makes the following search succeed, and stopping short of that
+     * count leaves the passage shut. A cap here does not bound the work, it only discards the
+     * result: the sphere's blocked re-route reported {@code bothClaimed=189} against an allowance of
+     * 128, split 128 edges, still failed, and left every one of those splits behind.
+     *
      * <p>When no such face path exists at all and the search is allowed to transit a claimed vertex,
      * the passage runs <em>through</em> that vertex and is refined as two legs instead. The
      * collapsing node is a cut vertex: claimed arcs radiating from it divide its fan into sectors
@@ -279,17 +308,34 @@ public final class ArcRerouter {
      * Claimed vertices are admitted too and cost nothing: the search rejects them on their claim
      * regardless of corridor membership.
      *
+     * <p>When there is no passage at all the answer is {@link #NO_PASSAGE} and the caller must give
+     * up rather than refine, because nothing it can do would help. Splitting subdivides faces and
+     * edges but never <em>unclaims</em> one, so it can never merge two faces of the arc arrangement;
+     * growing the corridor only widens where the search may stand, and minting a spoke only adds an
+     * edge inside a face. A vertex path, meanwhile, always implies a face path — its interior
+     * vertices are unclaimed, an unclaimed vertex has no claimed incident edge, so the walk can
+     * always rotate around it from one crossed edge to the next. So no face passage means no vertex
+     * path, now or after any refinement. Continuing to split in that situation is how a re-route
+     * that was hopeless from the start still left thousands of splits behind it.
+     *
      * @param passThrough claimed vertex the search may transit, or
      *                    {@link EmbeddedMeshTopology#UNCLAIMED} for none
-     * @param splitBudget maximum splits this round may make
-     * @return number of blocking gates split
+     * @return number of blocking gates split, or {@link #NO_PASSAGE} when the target is
+     *         unreachable through the arrangement
      */
     private int refineCorridorGates(int startVertex, int endVertex, Set<Integer> corridor,
-            int passThrough, int splitBudget) {
+            int passThrough) {
         List<Integer> crossings = corridorGateEdges(startVertex, endVertex);
-        if (crossings.isEmpty() && passThrough != EmbeddedMeshTopology.UNCLAIMED) {
-            crossings = new ArrayList<>(corridorGateEdges(startVertex, passThrough));
-            crossings.addAll(corridorGateEdges(passThrough, endVertex));
+        if (crossings == null && passThrough != EmbeddedMeshTopology.UNCLAIMED) {
+            List<Integer> toPivot = corridorGateEdges(startVertex, passThrough);
+            List<Integer> fromPivot = corridorGateEdges(passThrough, endVertex);
+            if (toPivot != null && fromPivot != null) {
+                crossings = new ArrayList<>(toPivot);
+                crossings.addAll(fromPivot);
+            }
+        }
+        if (crossings == null) {
+            return NO_PASSAGE;
         }
         int splits = 0;
         for (int edgeId : crossings) {
@@ -301,8 +347,7 @@ public final class ArcRerouter {
             int endpointB = topology.copy.halfEdgeEndVertex(halfEdge);
             corridor.add(endpointA);
             corridor.add(endpointB);
-            if (splits >= splitBudget
-                    || topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED
+            if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED
                     || !vertexClaimed(endpointA) || !vertexClaimed(endpointB)) {
                 continue;
             }
@@ -319,7 +364,10 @@ public final class ArcRerouter {
      *
      * @param startVertex path source, whose incident faces seed the walk
      * @param endVertex   path target, reached when any of its incident faces is entered
-     * @return the crossed edges in order from source to target, empty when no such path exists
+     * @return the crossed edges in order from source to target, or {@code null} when the two lie in
+     *         different faces of the arc arrangement and no such path exists. An <em>empty</em>
+     *         list is a different answer: the two already share a face and the passage crosses
+     *         nothing.
      */
     private List<Integer> corridorGateEdges(int startVertex, int endVertex) {
         Set<Integer> targetFaces = new HashSet<>();
@@ -359,7 +407,7 @@ public final class ArcRerouter {
             }
         }
         if (reachedFace == EmbeddedMeshTopology.UNCLAIMED) {
-            return List.of();
+            return null;
         }
         List<Integer> crossings = new ArrayList<>();
         for (int walk = reachedFace; parentFace.get(walk) != EmbeddedMeshTopology.UNCLAIMED;
@@ -430,11 +478,23 @@ public final class ArcRerouter {
      * more arcs converging on it than it has free spokes, no amount of that helps. A
      * search blocked at its own endpoint is blocked for want of a spoke.
      *
+     * <p>It fires only when the vertex has no free spoke at all, which is the only situation it can
+     * help. Minting unconditionally instead raises the vertex's degree once per round whether or not
+     * spokes were ever the obstruction, and since a successful mint also counts as progress it keeps
+     * the round loop alive to mint again. That is how a re-route target reached 376 free spokes on a
+     * mesh whose vertices have six.
+     *
      * @param vertexId vertex needing another free spoke
      * @param corridor corridor vertex set; the minted vertex joins it
      * @return whether a spoke was minted
      */
     private boolean mintSpoke(int vertexId, Set<Integer> corridor) {
+        for (int index = 0; index < topology.copy.vertexEdgeCount(vertexId); index++) {
+            if (topology.ownerArcByCopyEdge[topology.copy.vertexEdgeAt(vertexId, index)]
+                    == EmbeddedMeshTopology.UNCLAIMED) {
+                return false;
+            }
+        }
         for (int index = 0; index < topology.copy.vertexFaceCount(vertexId); index++) {
             int faceId = topology.copy.vertexFaceAt(vertexId, index);
             int oppositeEdge = EmbeddedMeshTopology.UNCLAIMED;

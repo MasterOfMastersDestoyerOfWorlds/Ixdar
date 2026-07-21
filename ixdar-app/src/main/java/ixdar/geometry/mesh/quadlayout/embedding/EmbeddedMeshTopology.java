@@ -3,8 +3,10 @@ package ixdar.geometry.mesh.quadlayout.embedding;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.joml.Vector3f;
 
@@ -54,8 +56,14 @@ public final class EmbeddedMeshTopology {
     /** Owning arc id per raw copy vertex id (interior path vertices). */
     public int[] ownerArcByCopyVertex;
 
-    /** Copy face ids descending from each source active face. */
-    public final List<List<Integer>> copyFacesBySourceFace;
+    /**
+     * Copy face ids descending from each source active face. A set rather than a list because
+     * refinement retires faces constantly, and removing from a list means a linear scan with boxed
+     * comparisons over every child a source triangle has ever accumulated — which is quadratic in
+     * exactly the triangles refinement hits hardest. On fertility that single removal was 28% of all
+     * CPU. Iteration order stays insertion order so the child-face search is unchanged.
+     */
+    public final List<Set<Integer>> copyFacesBySourceFace;
 
     public int faceSplitCount;
     public int edgeSplitCount;
@@ -119,7 +127,7 @@ public final class EmbeddedMeshTopology {
         copyFacesBySourceFace = new ArrayList<>(faceCount);
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
             sourceFaceByCopyFace[activeFace] = activeFace;
-            List<Integer> children = new ArrayList<>(1);
+            Set<Integer> children = new LinkedHashSet<>();
             children.add(activeFace);
             copyFacesBySourceFace.add(children);
         }

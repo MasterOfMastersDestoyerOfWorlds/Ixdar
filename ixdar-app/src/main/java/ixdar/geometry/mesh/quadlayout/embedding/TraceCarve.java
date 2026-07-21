@@ -38,6 +38,9 @@ public final class TraceCarve {
     public final MotorcycleGraph motorcycleGraph;
     public final FaceChordWalk chordWalk;
 
+    /** Which crossings may be realized on an existing vertex rather than by splitting. */
+    public final EdgeCrossingSnap crossingSnap;
+
     /** Copy vertex per T-mesh node id, filled by the node placement stage. */
     public final int[] vertexIdByNode;
 
@@ -62,6 +65,7 @@ public final class TraceCarve {
         this.vertexIdByNode = vertexIdByNode;
         this.pathByArc = pathByArc;
         this.chordWalk = chordWalk;
+        this.crossingSnap = new EdgeCrossingSnap(chordWalk.topology, motorcycleGraph);
     }
 
     /**
@@ -103,7 +107,7 @@ public final class TraceCarve {
                 int targetVertex = nodeVertex(trace.arcNodeIds.get(nodeIndex));
                 int claimFrom = chain.size();
                 head = chordWalk.walk(arcId, segment.activeFace, head,
-                        nodeBarycentric(segment.activeFace, targetVertex), targetVertex, chain);
+                        barycentricOfVertex(segment.activeFace, targetVertex), targetVertex, chain);
                 claimStretch(arcId, chain, claimFrom);
                 chainPositionByNode[nodeIndex] = chain.size() - 1;
                 emitArc(trace, nodeIndex - 1, chain, chainPositionByNode);
@@ -114,8 +118,15 @@ public final class TraceCarve {
             }
             int arcId = trace.chainArcIds.get(nodeIndex - 1);
             int claimFrom = chain.size();
-            head = chordWalk.walk(arcId, segment.activeFace, head, crossingBarycentric(segment),
-                    EmbeddedMeshTopology.UNCLAIMED, chain);
+            int snapVertex = crossingSnap.snapCopyVertex(segment, head);
+            if (snapVertex == EmbeddedMeshTopology.UNCLAIMED) {
+                head = chordWalk.walk(arcId, segment.activeFace, head, crossingBarycentric(segment),
+                        EmbeddedMeshTopology.UNCLAIMED, chain);
+            } else {
+                chordWalk.snappedCrossingCount++;
+                head = chordWalk.walk(arcId, segment.activeFace, head,
+                        barycentricOfVertex(segment.activeFace, snapVertex), snapVertex, chain);
+            }
             claimStretch(arcId, chain, claimFrom);
         }
         if (nodeIndex < trace.arcNodeIds.size()) {
@@ -143,16 +154,17 @@ public final class TraceCarve {
     }
 
     /**
-     * Barycentric coordinate of an already-placed node's vertex in a source face.
+     * Barycentric coordinate of an existing copy vertex the walk is aiming at — a placed T-mesh
+     * node, or the mesh vertex a crossing snapped onto.
      *
      * @param sourceFace source active face the chord lies in
-     * @param nodeVertex the node's copy vertex
+     * @param copyVertex the target's copy vertex
      * @return its barycentric coordinate in that face
      */
-    private double[] nodeBarycentric(int sourceFace, int nodeVertex) {
-        double[] barycentric = topology.barycentricOf(sourceFace, nodeVertex);
+    private double[] barycentricOfVertex(int sourceFace, int copyVertex) {
+        double[] barycentric = topology.barycentricOf(sourceFace, copyVertex);
         if (barycentric == null) {
-            throw new IllegalStateException("node copy vertex " + nodeVertex
+            throw new IllegalStateException("copy vertex " + copyVertex
                     + " does not lie in source face " + sourceFace);
         }
         return barycentric;
