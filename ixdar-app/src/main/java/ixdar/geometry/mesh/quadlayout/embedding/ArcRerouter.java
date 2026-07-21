@@ -1,7 +1,9 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -65,6 +67,9 @@ public final class ArcRerouter {
     /** Corridor size at the end of the last attempt. */
     public int lastCorridorSize;
 
+    /** The corridor set of the last attempt, for diagnosing which vertices refinement could reach. */
+    public Set<Integer> lastCorridorSet;
+
     /**
      * Stores the working copy the re-routes carve into.
      *
@@ -98,6 +103,7 @@ public final class ArcRerouter {
         if (vertices.isEmpty()) {
             vertices.add(startCopyVertex);
         }
+        lastCorridorSet = corridor;
         boolean refined = false;
         Set<Integer> refineMints = new HashSet<>();
         int growths = 0;
@@ -111,8 +117,11 @@ public final class ArcRerouter {
                 return true;
             }
             int splits = splitBudget > 0
-                    ? refineBlockedEdges(corridor, refineMints, splitBudget)
+                    ? refineCorridorGates(startCopyVertex, endCopyVertex, corridor, splitBudget)
                     : 0;
+            if (splits == 0 && splitBudget > 0) {
+                splits = refineBlockedEdges(corridor, refineMints, splitBudget);
+            }
             splits += mintSpoke(startCopyVertex, corridor) ? 1 : 0;
             splits += mintSpoke(endCopyVertex, corridor) ? 1 : 0;
             splitBudget -= splits;
@@ -232,6 +241,107 @@ public final class ArcRerouter {
         }
         lastReachedCount = distance.size();
         return false;
+    }
+
+    /**
+     * LCBK19 §6.1 refinement aimed at the edges that actually block this route — the paper's
+     * <em>"a few edge splits"</em>, rather than a few hundred scattered ones.
+     *
+     * <p>Walks the shortest face path from the search's source to its target that crosses no claimed
+     * arc edge. Such a path always exists when the two lie in the same face of the arc arrangement,
+     * and it is exactly the passage the vertex search is trying to follow. Its crossing edges whose
+     * <em>both</em> endpoints are claimed are the only ones the search cannot traverse — it can stand
+     * on neither end — so those, and only those, are split.
+     *
+     * <p>Splitting them in corridor order also chains them: consecutive crossings share a face, so
+     * once one is split the next split's midpoint joins the previous one across the retriangulated
+     * sub-triangle, building a connected lane of free vertices through the pinch instead of isolated
+     * midpoints.
+     *
+     * @param startVertex source of the blocked search
+     * @param endVertex   target of the blocked search
+     * @param corridor    corridor vertex set; minted vertices join it
+     * @param splitBudget maximum splits this round may make
+     * @return number of blocking gates split
+     */
+    private int refineCorridorGates(int startVertex, int endVertex, Set<Integer> corridor,
+            int splitBudget) {
+        int splits = 0;
+        for (int edgeId : corridorGateEdges(startVertex, endVertex)) {
+            if (splits >= splitBudget) {
+                return splits;
+            }
+            if (!topology.copy.hasEdge(edgeId)
+                    || topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                continue;
+            }
+            int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+            if (!vertexClaimed(topology.copy.halfEdgeVertex(halfEdge))
+                    || !vertexClaimed(topology.copy.halfEdgeEndVertex(halfEdge))) {
+                continue;
+            }
+            corridor.add(topology.splitEdgeAtParameter(edgeId, EDGE_MIDPOINT));
+            refinedEdgeSplitCount++;
+            splits++;
+        }
+        return splits;
+    }
+
+    /**
+     * The edges crossed by the shortest face path between two vertices that never crosses a claimed
+     * arc edge — the passage through the arc arrangement the vertex search must follow.
+     *
+     * @param startVertex path source, whose incident faces seed the walk
+     * @param endVertex   path target, reached when any of its incident faces is entered
+     * @return the crossed edges in order from source to target, empty when no such path exists
+     */
+    private List<Integer> corridorGateEdges(int startVertex, int endVertex) {
+        Set<Integer> targetFaces = new HashSet<>();
+        for (int index = 0; index < topology.copy.vertexFaceCount(endVertex); index++) {
+            targetFaces.add(topology.copy.vertexFaceAt(endVertex, index));
+        }
+        Map<Integer, Integer> parentFace = new HashMap<>();
+        Map<Integer, Integer> parentEdge = new HashMap<>();
+        Deque<Integer> frontier = new ArrayDeque<>();
+        for (int index = 0; index < topology.copy.vertexFaceCount(startVertex); index++) {
+            int face = topology.copy.vertexFaceAt(startVertex, index);
+            if (parentFace.putIfAbsent(face, EmbeddedMeshTopology.UNCLAIMED) == null) {
+                frontier.add(face);
+            }
+        }
+        int reachedFace = EmbeddedMeshTopology.UNCLAIMED;
+        while (!frontier.isEmpty()) {
+            int face = frontier.poll();
+            if (targetFaces.contains(face)) {
+                reachedFace = face;
+                break;
+            }
+            for (int corner = 0; corner < CORNERS; corner++) {
+                int edgeId = topology.copy.faceEdgeAt(face, corner);
+                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                    continue;
+                }
+                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+                int neighborFace = topology.copy.halfEdgeFace(halfEdge) == face
+                        ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
+                        : topology.copy.halfEdgeFace(halfEdge);
+                if (neighborFace != EmbeddedMeshTopology.UNCLAIMED
+                        && parentFace.putIfAbsent(neighborFace, face) == null) {
+                    parentEdge.put(neighborFace, edgeId);
+                    frontier.add(neighborFace);
+                }
+            }
+        }
+        if (reachedFace == EmbeddedMeshTopology.UNCLAIMED) {
+            return List.of();
+        }
+        List<Integer> crossings = new ArrayList<>();
+        for (int walk = reachedFace; parentFace.get(walk) != EmbeddedMeshTopology.UNCLAIMED;
+                walk = parentFace.get(walk)) {
+            crossings.add(parentEdge.get(walk));
+        }
+        Collections.reverse(crossings);
+        return crossings;
     }
 
     /**

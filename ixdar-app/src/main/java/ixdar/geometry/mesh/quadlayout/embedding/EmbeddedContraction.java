@@ -42,6 +42,9 @@ public final class EmbeddedContraction {
     /** The reroute failure that stopped {@link #contractToFailure}, or null if none occurred. */
     public ArcRerouteFailure failure;
 
+    /** A description of the operator applied most recently, for reporting which step broke. */
+    public String lastStep;
+
     /**
      * Builds the driver and its three operators over a T-mesh.
      *
@@ -90,6 +93,7 @@ public final class EmbeddedContraction {
      */
     public ArcRerouteFailure contractToFailure() {
         while (true) {
+            String before = liveCounts();
             try {
                 if (!applyOneOperator()) {
                     return null;
@@ -98,8 +102,26 @@ public final class EmbeddedContraction {
                 this.failure = caught;
                 return caught;
             }
-            tmesh.validate(expectedEulerCharacteristic);
+            try {
+                tmesh.validate(expectedEulerCharacteristic);
+            } catch (IllegalStateException broken) {
+                throw new IllegalStateException(broken.getMessage() + " | broken by " + lastStep
+                        + " | counts before " + before + " after " + liveCounts(), broken);
+            }
         }
+    }
+
+    /**
+     * The live node, arc and patch counts as a compact {@code V/E/F} string, for reporting which
+     * operator broke the cell decomposition and by how much.
+     *
+     * @return the live counts
+     */
+    private String liveCounts() {
+        long liveNodes = tmesh.nodes.stream().filter(node -> node.alive).count();
+        long liveArcs = tmesh.arcs.stream().filter(arc -> arc.alive).count();
+        long livePatches = tmesh.patches.stream().filter(patch -> patch.alive).count();
+        return liveNodes + "/" + liveArcs + "/" + livePatches;
     }
 
     /**
@@ -110,18 +132,21 @@ public final class EmbeddedContraction {
     private boolean applyOneOperator() {
         int arc = collapseArc.nextCollapsibleArc();
         if (arc != EmbeddedTMesh.NONE) {
+            lastStep = "zero-arc collapse of arc " + arc;
             collapseArc.collapse(arc);
             arcCollapseCount++;
             return true;
         }
         int nonSimple = splitPatch.nextNonSimpleZeroPatch();
         if (nonSimple != EmbeddedTMesh.NONE) {
+            lastStep = "non-simple zero-patch split of patch " + nonSimple;
             splitPatch.split(nonSimple);
             patchSplitCount++;
             return true;
         }
         int simple = collapsePatch.nextSimpleZeroPatch();
         if (simple != EmbeddedTMesh.NONE) {
+            lastStep = "simple zero-patch collapse of patch " + simple;
             collapsePatch.collapse(simple);
             patchCollapseCount++;
             return true;

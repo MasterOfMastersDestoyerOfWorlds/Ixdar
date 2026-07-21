@@ -1,7 +1,11 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
  * LCBK19 §6.1 operator (1), the zero-arc collapse, on the embedded T-mesh.
@@ -83,10 +87,13 @@ public final class ZeroArcCollapseOperator {
         int movedVertex = tmesh.nodes.get(movedNodeId).copyVertex;
         int targetVertex = tmesh.nodes.get(survivingNodeId).copyVertex;
         List<Integer> channel = new ArrayList<>(arc.path.copyVertexPath);
+        int channelNeighbor = channel.get(channel.size() - 1) == movedVertex
+                ? channel.get(channel.size() - 2) : channel.get(1);
 
         tmesh.setPath(arcId, List.of(targetVertex));
-        for (int incidentArcId : new ArrayList<>(tmesh.arcEndsByNode.get(movedNodeId))) {
-            if (incidentArcId == arcId || !tmesh.arcs.get(incidentArcId).alive) {
+        for (int incidentArcId : incidentArcsInFanOrder(movedVertex, channelNeighbor, arcId,
+                movedNodeId)) {
+            if (!tmesh.arcs.get(incidentArcId).alive) {
                 continue;
             }
             tmesh.dragArcEndOntoVertex(incidentArcId, movedVertex, targetVertex, rerouter, channel);
@@ -95,6 +102,60 @@ public final class ZeroArcCollapseOperator {
         tmesh.mergeNodeInto(survivingNodeId, movedNodeId);
         tmesh.removeCollapsedArc(arcId);
         collapsedCount++;
+    }
+
+    /**
+     * The pivot's incident arcs in cyclic fan order around it, starting from the spoke adjacent to
+     * the collapsing arc's channel, so that as each is dragged onto the survivor it lies just
+     * outside the previous one and they fan out rather than fencing each other in. LCBK19 pulls a
+     * node's incident arcs with it as a fan; the arbitrary {@code arcEndsByNode} order does not
+     * preserve that fan, which is what lets an early-dragged sibling wall a later one.
+     *
+     * <p>The order comes from rotating the copy mesh's outgoing half-edges around the pivot vertex
+     * ({@code twin(prev(halfEdge))}); the copy mesh's per-vertex edge list is construction-order,
+     * not rotational, so it cannot be used for this. Any incident arc the rotation misses — a
+     * boundary fan does not close — is appended afterwards so every incident arc is still dragged.
+     *
+     * @param pivotVertex     the collapsing node's copy vertex
+     * @param channelNeighbor the channel vertex adjacent to the pivot, whose spoke starts the fan
+     * @param collapsingArcId the arc being collapsed, excluded from the fan
+     * @param movedNodeId     the collapsing node id, for its full incident-arc set
+     * @return the incident arcs (excluding the collapsing arc) in fan order
+     */
+    private List<Integer> incidentArcsInFanOrder(int pivotVertex, int channelNeighbor,
+            int collapsingArcId, int movedNodeId) {
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        int rotationCap = copy.vertexEdgeCount(pivotVertex) + 2;
+        int startHalfEdge = copy.vertexOutgoingHalfEdge(pivotVertex);
+        int probe = startHalfEdge;
+        for (int step = 0; step < rotationCap && probe >= 0; step++) {
+            if (copy.halfEdgeEndVertex(probe) == channelNeighbor) {
+                startHalfEdge = probe;
+                break;
+            }
+            probe = copy.halfEdgeTwin(copy.halfEdgePrev(probe));
+        }
+        List<Integer> ordered = new ArrayList<>();
+        Set<Integer> seen = new HashSet<>();
+        int halfEdge = startHalfEdge;
+        for (int step = 0; step < rotationCap && halfEdge >= 0; step++) {
+            int owner = tmesh.topology.ownerArcByCopyEdge[copy.halfEdgeEdge(halfEdge)];
+            if (owner != EmbeddedMeshTopology.UNCLAIMED && owner != collapsingArcId
+                    && tmesh.arcs.get(owner).alive && seen.add(owner)) {
+                ordered.add(owner);
+            }
+            halfEdge = copy.halfEdgeTwin(copy.halfEdgePrev(halfEdge));
+            if (halfEdge == startHalfEdge) {
+                break;
+            }
+        }
+        for (int incidentArcId : tmesh.arcEndsByNode.get(movedNodeId)) {
+            if (incidentArcId != collapsingArcId && tmesh.arcs.get(incidentArcId).alive
+                    && seen.add(incidentArcId)) {
+                ordered.add(incidentArcId);
+            }
+        }
+        return ordered;
     }
 
     /**
