@@ -398,6 +398,14 @@ public final class EmbeddedTMesh {
      * then coincide: that is the double corner LCBK19 Figure 9 marks with a red circle, and
      * the state operator (3) is waiting for.
      *
+     * <p>When the arc is a loop its two ends are already the same node, so {@link #mergeNodeInto}
+     * retired nothing and the complex would lose an arc without losing a cell. A loop only becomes
+     * collapsible once the region it encloses has itself shrunk to nothing — LCBK19 §6.1 counts
+     * <em>"a zero-patch without any non-zero arc… one that is supposed to be embedded onto a single
+     * point rather than a curve"</em> as <em>"already handled by the zero-arc collapse"</em> — so any
+     * bordering patch left with an empty boundary is retired here, which is what keeps the Euler
+     * characteristic fixed across the contraction.
+     *
      * @param arcId arc to remove
      * @throws IllegalStateException when the arc's ends are still two different nodes
      */
@@ -421,6 +429,12 @@ public final class EmbeddedTMesh {
         }
         arcEndsByNode.get(arc.startNodeId).removeIf(id -> id == arcId);
         arc.alive = false;
+        for (int patchId : new int[] { arc.leftPatchId, arc.rightPatchId }) {
+            if (patchId != NONE && patches.get(patchId).alive
+                    && patches.get(patchId).sideArcIds.stream().allMatch(List::isEmpty)) {
+                patches.get(patchId).alive = false;
+            }
+        }
     }
 
     /**

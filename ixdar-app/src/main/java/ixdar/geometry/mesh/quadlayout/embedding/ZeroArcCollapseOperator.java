@@ -87,8 +87,9 @@ public final class ZeroArcCollapseOperator {
         int movedVertex = tmesh.nodes.get(movedNodeId).copyVertex;
         int targetVertex = tmesh.nodes.get(survivingNodeId).copyVertex;
         List<Integer> channel = new ArrayList<>(arc.path.copyVertexPath);
-        int channelNeighbor = channel.get(channel.size() - 1) == movedVertex
-                ? channel.get(channel.size() - 2) : channel.get(1);
+        int channelNeighbor = channel.size() < 2 ? EmbeddedTMesh.NONE
+                : channel.get(channel.size() - 1) == movedVertex
+                        ? channel.get(channel.size() - 2) : channel.get(1);
 
         tmesh.setPath(arcId, List.of(targetVertex));
         for (int incidentArcId : incidentArcsInFanOrder(movedVertex, channelNeighbor, arcId,

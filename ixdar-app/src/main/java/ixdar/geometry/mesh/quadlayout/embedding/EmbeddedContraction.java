@@ -118,10 +118,10 @@ public final class EmbeddedContraction {
      * @return the live counts
      */
     private String liveCounts() {
-        long liveNodes = tmesh.nodes.stream().filter(node -> node.alive).count();
-        long liveArcs = tmesh.arcs.stream().filter(arc -> arc.alive).count();
-        long livePatches = tmesh.patches.stream().filter(patch -> patch.alive).count();
-        return liveNodes + "/" + liveArcs + "/" + livePatches;
+        return String.format("%d/%d/%d",
+                tmesh.nodes.stream().filter(node -> node.alive).count(),
+                tmesh.arcs.stream().filter(arc -> arc.alive).count(),
+                tmesh.patches.stream().filter(patch -> patch.alive).count());
     }
 
     /**
