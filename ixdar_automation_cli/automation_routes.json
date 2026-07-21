@@ -1,0 +1,900 @@
+{
+  "generatedFrom": "ixdar-app/src/main/java/ixdar/platform/automation/documentation/AutomationRouteCatalog.java",
+  "routes": [
+    {
+      "commandName": "click",
+      "path": "/input/click",
+      "method": "POST",
+      "description": "Move the cursor to a point then issue a press/release click on the active mouse handler.",
+      "sourceClass": "ixdar.platform.automation.endpoints.input.InjectClick",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectClick.java",
+      "params": [
+        {
+          "name": "x",
+          "cliName": "x",
+          "type": "float",
+          "required": false,
+          "default": "0",
+          "help": "Target X coordinate.",
+          "example": "0.5"
+        },
+        {
+          "name": "y",
+          "cliName": "y",
+          "type": "float",
+          "required": false,
+          "default": "0",
+          "help": "Target Y coordinate.",
+          "example": "0.25"
+        },
+        {
+          "name": "normalized",
+          "cliName": "normalized",
+          "type": "bool",
+          "required": false,
+          "default": "false",
+          "help": "Treat X/Y as fractions of window size rather than pixels.",
+          "example": "true"
+        },
+        {
+          "name": "button",
+          "cliName": "button",
+          "type": "int",
+          "required": false,
+          "default": "0",
+          "help": "GLFW mouse button code.",
+          "example": "1"
+        }
+      ],
+      "responseHint": "{ok, event:{xPx, yPx, xNorm, yNorm, button}}"
+    },
+    {
+      "commandName": "health",
+      "path": "/health",
+      "method": "GET",
+      "description": "Liveness probe reporting server status, recording/replaying flags, and port.",
+      "sourceClass": "ixdar.platform.automation.endpoints.Health",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/Health.java",
+      "params": [],
+      "responseHint": "{status, timestamp, recording, replaying, port}"
+    },
+    {
+      "commandName": "hover",
+      "path": "/input/hover",
+      "method": "POST",
+      "description": "Move the cursor without clicking, optionally installing a persistent hover lock.",
+      "sourceClass": "ixdar.platform.automation.endpoints.input.InjectHover",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectHover.java",
+      "params": [
+        {
+          "name": "x",
+          "cliName": "x",
+          "type": "float",
+          "required": false,
+          "default": "0",
+          "help": "Target X coordinate.",
+          "example": "0.5"
+        },
+        {
+          "name": "y",
+          "cliName": "y",
+          "type": "float",
+          "required": false,
+          "default": "0",
+          "help": "Target Y coordinate.",
+          "example": "0.25"
+        },
+        {
+          "name": "normalized",
+          "cliName": "normalized",
+          "type": "bool",
+          "required": false,
+          "default": "false",
+          "help": "Treat X/Y as fractions of window size rather than pixels.",
+          "example": "true"
+        },
+        {
+          "name": "persistent",
+          "cliName": "persistent",
+          "type": "bool",
+          "required": false,
+          "default": "true",
+          "help": "Hold the hover lock so real mouse motion cannot dislodge it; false clears it.",
+          "example": "false"
+        }
+      ],
+      "responseHint": "{ok, event:{xPx, yPx, xNorm, yNorm, persistent}}"
+    },
+    {
+      "commandName": "hover-clear",
+      "path": "/input/hover/clear",
+      "method": "POST",
+      "description": "Release the persistent automation hover lock on the active trade mouse handler.",
+      "sourceClass": "ixdar.platform.automation.endpoints.input.HoverClear",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/HoverClear.java",
+      "params": [],
+      "responseHint": "{ok}"
+    },
+    {
+      "commandName": "key",
+      "path": "/input/key",
+      "method": "POST",
+      "description": "Synthesize a single GLFW key event on the active key handler.",
+      "sourceClass": "ixdar.platform.automation.endpoints.input.InjectKey",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectKey.java",
+      "params": [
+        {
+          "name": "key",
+          "cliName": "key",
+          "type": "int",
+          "required": false,
+          "default": "0",
+          "help": "GLFW key code.",
+          "example": "65"
+        },
+        {
+          "name": "action",
+          "cliName": "action",
+          "type": "int",
+          "required": false,
+          "default": "1",
+          "help": "Event action: 1 press, 0 release, 2 repeat.",
+          "example": "0"
+        },
+        {
+          "name": "mods",
+          "cliName": "mods",
+          "type": "int",
+          "required": false,
+          "default": "0",
+          "help": "Modifier-key bitmask.",
+          "example": "8"
+        },
+        {
+          "name": "scancode",
+          "cliName": "scancode",
+          "type": "int",
+          "required": false,
+          "default": "0",
+          "help": "Platform scancode.",
+          "example": "24"
+        }
+      ],
+      "responseHint": "{ok}"
+    },
+    {
+      "commandName": "mesh-compare",
+      "path": "/mesh/compare",
+      "method": "POST",
+      "description": "Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Compare",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Compare.java",
+      "params": [
+        {
+          "name": "reference",
+          "cliName": "reference",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Path to the reference OBJ mesh to compare against.",
+          "example": "~/Blends/Hand/Hand.obj"
+        },
+        {
+          "name": "distance_type",
+          "cliName": "distance_type",
+          "type": "string",
+          "required": false,
+          "default": "hausdorff",
+          "help": "Metric label echoed back in the response.",
+          "example": "chamfer"
+        },
+        {
+          "name": "scale",
+          "cliName": "scale",
+          "type": "float",
+          "required": false,
+          "default": "1.0",
+          "help": "Scale factor applied when computing distance metrics.",
+          "example": "2.0"
+        },
+        {
+          "name": "normalize",
+          "cliName": "normalize",
+          "type": "bool",
+          "required": false,
+          "default": "false",
+          "help": "Center and unit-scale both meshes before comparing.",
+          "example": "true"
+        }
+      ],
+      "responseHint": "{ok, current_vertices, reference_vertices, hausdorff_distance, chamfer_distance, similarity_score, distance_type, scale, normalized}"
+    },
+    {
+      "commandName": "mesh-dsl",
+      "path": "/mesh/dsl",
+      "method": "POST",
+      "description": "Load and execute a named DSL skill graph, making its output geometry the active mesh.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.dsl.LoadDSL",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/LoadDSL.java",
+      "params": [
+        {
+          "name": "name",
+          "cliName": "name",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Name of the DSL skill graph to run.",
+          "example": "skeleton-decompose"
+        },
+        {
+          "name": "node",
+          "cliName": "node",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Graph node whose output geometry becomes the active mesh.",
+          "example": "output"
+        },
+        {
+          "name": "port",
+          "cliName": "port",
+          "type": "string",
+          "required": false,
+          "default": "geometry",
+          "help": "Output port on the selected node to read geometry from.",
+          "example": "geometry"
+        }
+      ],
+      "responseHint": "{ok, dsl, node, port, vertices, faces, timing...}"
+    },
+    {
+      "commandName": "mesh-dsl-timing",
+      "path": "/mesh/dsl/timing",
+      "method": "GET",
+      "description": "Report per-node execution times from the most recent DSL graph run.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.dsl.Timing",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/Timing.java",
+      "params": [],
+      "responseHint": "{ok, total_ms, nodes:[{node, ms}, ...]}"
+    },
+    {
+      "commandName": "mesh-dsl-validate",
+      "path": "/mesh/dsl/validate",
+      "method": "POST",
+      "description": "Validate DSL source text against the skill schema, optionally probing and exporting its output mesh.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.dsl.Validate",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/Validate.java",
+      "params": [
+        {
+          "name": "dsl",
+          "cliName": "dsl",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "DSL source text to validate.",
+          "example": "node loadMesh { path: \"a.obj\" }"
+        },
+        {
+          "name": "export",
+          "cliName": "export",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Optional path to export the probed output mesh as OBJ.",
+          "example": "~/probe.obj"
+        }
+      ],
+      "responseHint": "{valid, nodeCount, errors:[...], warnings:[...], meshProbe:{...}}"
+    },
+    {
+      "commandName": "mesh-fingerprint",
+      "path": "/mesh/fingerprint",
+      "method": "GET",
+      "description": "Compute the canonical SHA-256 fingerprint of the active viewer mesh.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Fingerprint",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Fingerprint.java",
+      "params": [],
+      "responseHint": "{algorithm, ok, sha256, vertexCount, faceCount, triangleCount}"
+    },
+    {
+      "commandName": "mesh-overlay",
+      "path": "/mesh/overlay",
+      "method": "POST",
+      "description": "Load an OBJ overlay onto the active viewer mesh, or clear the current overlay.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Overlay",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Overlay.java",
+      "params": [
+        {
+          "name": "path",
+          "cliName": "path",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Path to an OBJ mesh to overlay; ignored when clearing.",
+          "example": "~/Blends/Hand/overlay.obj"
+        },
+        {
+          "name": "clear",
+          "cliName": "clear",
+          "type": "bool",
+          "required": false,
+          "default": "false",
+          "help": "Remove the existing overlay instead of loading one.",
+          "example": "true"
+        }
+      ],
+      "responseHint": "{ok, action, path}"
+    },
+    {
+      "commandName": "mesh-patches-decompose",
+      "path": "/mesh/patches/decompose",
+      "method": "POST",
+      "description": "Hybrid skeleton and curvature patch decomposition of a reference mesh.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.patches.Decompose",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/patches/Decompose.java",
+      "params": [
+        {
+          "name": "path",
+          "cliName": "path",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Path to an OBJ mesh file.",
+          "example": "~/Blends/Hand/Hand.obj"
+        },
+        {
+          "name": "resolution",
+          "cliName": "resolution",
+          "type": "int",
+          "required": false,
+          "default": "128",
+          "help": "Voxel resolution for skeletonization.",
+          "example": "128"
+        }
+      ],
+      "responseHint": "{ok, vertex_count, patches:[{id, branch_id, color, centroid, ...}]}"
+    },
+    {
+      "commandName": "mesh-patches-render-flat-multiview",
+      "path": "/mesh/patches/render-flat-multiview",
+      "method": "POST",
+      "description": "Decompose a mesh into semantic patches and render a flat-shaded multiview composite PNG.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.patches.RenderFlatMultiview",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/patches/RenderFlatMultiview.java",
+      "params": [
+        {
+          "name": "path",
+          "cliName": "path",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Path to the OBJ mesh file to render.",
+          "example": "~/Blends/Hand/Hand.obj"
+        },
+        {
+          "name": "resolution",
+          "cliName": "resolution",
+          "type": "int",
+          "required": false,
+          "default": "128",
+          "help": "Voxel resolution for patch decomposition.",
+          "example": "128"
+        },
+        {
+          "name": "out_path",
+          "cliName": "out_path",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Destination PNG path; defaults to a timestamped file under screenshots/automation.",
+          "example": "~/out/patches-flat.png"
+        }
+      ],
+      "responseHint": "{ok, path, width, height, patch_count, palette:[{id, flat_color, vertex_count}]}"
+    },
+    {
+      "commandName": "mesh-patches-render-multiview",
+      "path": "/mesh/patches/render-multiview",
+      "method": "POST",
+      "description": "Decompose a mesh into semantic patches and render a shaded multiview composite PNG.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.patches.RenderMultiview",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/patches/RenderMultiview.java",
+      "params": [
+        {
+          "name": "path",
+          "cliName": "path",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Path to the OBJ mesh file to render.",
+          "example": "~/Blends/Hand/Hand.obj"
+        },
+        {
+          "name": "resolution",
+          "cliName": "resolution",
+          "type": "int",
+          "required": false,
+          "default": "128",
+          "help": "Voxel resolution for patch decomposition.",
+          "example": "128"
+        },
+        {
+          "name": "out_path",
+          "cliName": "out_path",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Destination PNG path; defaults to a timestamped file under screenshots/automation.",
+          "example": "~/out/patches.png"
+        }
+      ],
+      "responseHint": "{ok, path, width, height, patch_count}"
+    },
+    {
+      "commandName": "mesh-segmentation",
+      "path": "/mesh/segmentation",
+      "method": "POST",
+      "description": "Segment a mesh into labeled vertex groups by connected components, curvature, or spatial clustering.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Segmentation",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Segmentation.java",
+      "params": [
+        {
+          "name": "path",
+          "cliName": "path",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Path to the OBJ mesh file to segment.",
+          "example": "~/Blends/Hand/Hand.obj"
+        },
+        {
+          "name": "method",
+          "cliName": "method",
+          "type": "string",
+          "required": false,
+          "default": "spatial",
+          "help": "Segmentation strategy: components, curvature, or spatial.",
+          "example": "spatial"
+        },
+        {
+          "name": "n_clusters",
+          "cliName": "n_clusters",
+          "type": "int",
+          "required": false,
+          "default": "6",
+          "help": "Cluster count for the curvature and spatial strategies.",
+          "example": "8"
+        }
+      ],
+      "responseHint": "{ok, vertex_count, method, tags:{label:[vertexIndex, ...]}}"
+    },
+    {
+      "commandName": "mesh-skeleton-compare",
+      "path": "/mesh/skeleton/compare",
+      "method": "POST",
+      "description": "Compare TEASAR skeletons of two meshes and recommend parameter fixes.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.skeleton.Compare",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/skeleton/Compare.java",
+      "params": [
+        {
+          "name": "generated",
+          "cliName": "generated",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Path to the generated mesh OBJ.",
+          "example": "out/generated.obj"
+        },
+        {
+          "name": "reference",
+          "cliName": "reference",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Path to the reference mesh OBJ.",
+          "example": "meshes/target.obj"
+        },
+        {
+          "name": "resolution",
+          "cliName": "resolution",
+          "type": "int",
+          "required": false,
+          "default": "128",
+          "help": "Voxel grid resolution for skeleton extraction.",
+          "example": "256"
+        }
+      ],
+      "responseHint": "{ok, generated_path, reference_path, resolution, ...branchErrors}"
+    },
+    {
+      "commandName": "mesh-skeleton-compare-detailed",
+      "path": "/mesh/skeleton/compare-detailed",
+      "method": "POST",
+      "description": "Detailed skeleton comparison returning per-joint 3D position deltas.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.skeleton.CompareDetailed",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/skeleton/CompareDetailed.java",
+      "params": [
+        {
+          "name": "generated",
+          "cliName": "generated",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Path to the generated mesh OBJ.",
+          "example": "out/generated.obj"
+        },
+        {
+          "name": "reference",
+          "cliName": "reference",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Path to the reference mesh OBJ.",
+          "example": "meshes/target.obj"
+        },
+        {
+          "name": "resolution",
+          "cliName": "resolution",
+          "type": "int",
+          "required": false,
+          "default": "128",
+          "help": "Voxel grid resolution for skeleton extraction.",
+          "example": "256"
+        }
+      ],
+      "responseHint": "{ok, generated_path, reference_path, resolution, ...jointDeltas}"
+    },
+    {
+      "commandName": "mesh-skeleton-sensitivity",
+      "path": "/mesh/skeleton/sensitivity",
+      "method": "POST",
+      "description": "Compute the Jacobian of skeleton joints w.r.t. DSL parameters.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.skeleton.Sensitivity",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/skeleton/Sensitivity.java",
+      "params": [
+        {
+          "name": "dsl",
+          "cliName": "dsl",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "DSL file name, with or without extension.",
+          "example": "octopus"
+        },
+        {
+          "name": "reference",
+          "cliName": "reference",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Path to the reference mesh OBJ.",
+          "example": "meshes/target.obj"
+        },
+        {
+          "name": "resolution",
+          "cliName": "resolution",
+          "type": "int",
+          "required": false,
+          "default": "128",
+          "help": "Voxel grid resolution for skeleton extraction.",
+          "example": "256"
+        },
+        {
+          "name": "epsilon",
+          "cliName": "epsilon",
+          "type": "float",
+          "required": false,
+          "default": "0.0",
+          "help": "Finite-difference step; 0 lets the analyzer pick per parameter.",
+          "example": "0.01"
+        }
+      ],
+      "responseHint": "{ok, dsl, reference, resolution, baselineScore, projectedScore, parameterCount, jointCount, suggestedDeltas, suggestedValues, unstableParams?}"
+    },
+    {
+      "commandName": "multiview",
+      "path": "/ui/multiview",
+      "method": "POST",
+      "description": "Capture 8 orbit viewpoints and composite them into a labeled 4x2 grid PNG.",
+      "sourceClass": "ixdar.platform.automation.endpoints.ui.MultiviewScreenshot",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/MultiviewScreenshot.java",
+      "params": [
+        {
+          "name": "path",
+          "cliName": "out",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Output file path; empty writes under screenshots/automation/.",
+          "example": "/tmp/multiview.png"
+        },
+        {
+          "name": "inline",
+          "cliName": "inline",
+          "type": "bool",
+          "required": false,
+          "default": "false",
+          "help": "Also return the composite PNG as base64 in the response.",
+          "example": "true"
+        }
+      ],
+      "responseHint": "{path, width, height, views, sha256, base64?}"
+    },
+    {
+      "commandName": "orbit-get",
+      "path": "/ui/orbit",
+      "method": "GET",
+      "description": "Report the active mesh viewer\u0027s current camera orbit and mesh radius.",
+      "sourceClass": "ixdar.platform.automation.endpoints.ui.OrbitGet",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/OrbitGet.java",
+      "params": [],
+      "responseHint": "{ok, azimuth, elevation, distance, mesh_radius?}"
+    },
+    {
+      "commandName": "orbit-set",
+      "path": "/ui/orbit",
+      "method": "POST",
+      "description": "Set the active mesh viewer\u0027s camera orbit (azimuth, elevation, distance).",
+      "sourceClass": "ixdar.platform.automation.endpoints.ui.OrbitSet",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/OrbitSet.java",
+      "params": [
+        {
+          "name": "azimuth",
+          "cliName": "azimuth",
+          "type": "float",
+          "required": false,
+          "default": "0.0",
+          "help": "Orbit azimuth angle in radians.",
+          "example": "1.5708"
+        },
+        {
+          "name": "elevation",
+          "cliName": "elevation",
+          "type": "float",
+          "required": false,
+          "default": "0.0",
+          "help": "Orbit elevation angle in radians.",
+          "example": "0.6"
+        },
+        {
+          "name": "distance",
+          "cliName": "distance",
+          "type": "float",
+          "required": false,
+          "default": "3.5",
+          "help": "Camera distance from the orbit target.",
+          "example": "5.0"
+        }
+      ],
+      "responseHint": "{ok, azimuth, elevation, distance}"
+    },
+    {
+      "commandName": "projection-get",
+      "path": "/ui/projection",
+      "method": "GET",
+      "description": "Report whether the active mesh viewer is using orthographic projection.",
+      "sourceClass": "ixdar.platform.automation.endpoints.ui.ProjectionGet",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/ProjectionGet.java",
+      "params": [],
+      "responseHint": "{ok, orthographic}"
+    },
+    {
+      "commandName": "projection-set",
+      "path": "/ui/projection",
+      "method": "POST",
+      "description": "Toggle the active mesh viewer between orthographic and perspective projection.",
+      "sourceClass": "ixdar.platform.automation.endpoints.ui.ProjectionSet",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/ProjectionSet.java",
+      "params": [
+        {
+          "name": "orthographic",
+          "cliName": "orthographic",
+          "type": "bool",
+          "required": false,
+          "default": "false",
+          "help": "True selects orthographic projection; false selects perspective.",
+          "example": "true"
+        }
+      ],
+      "responseHint": "{ok, orthographic}"
+    },
+    {
+      "commandName": "record-start",
+      "path": "/record/start",
+      "method": "POST",
+      "description": "Begin a new recording session, clearing any previously buffered events.",
+      "sourceClass": "ixdar.platform.automation.endpoints.record.Start",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/record/Start.java",
+      "params": [],
+      "responseHint": "{recording, rawEventCount, abstractActionCount, startedAtIso, lastSavedFile, ok}"
+    },
+    {
+      "commandName": "record-status",
+      "path": "/record/status",
+      "method": "GET",
+      "description": "Snapshot of the recorder: recording flag, event counts, start time, saved file.",
+      "sourceClass": "ixdar.platform.automation.endpoints.record.Status",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/record/Status.java",
+      "params": [],
+      "responseHint": "{recording, rawEventCount, abstractActionCount, startedAtIso, lastSavedFile}"
+    },
+    {
+      "commandName": "record-stop",
+      "path": "/record/stop",
+      "method": "POST",
+      "description": "End the active recording session and write the captured events to disk.",
+      "sourceClass": "ixdar.platform.automation.endpoints.record.Stop",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/record/Stop.java",
+      "params": [
+        {
+          "name": "path",
+          "cliName": "path",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Output file path; empty falls back to recordings/automation/.",
+          "example": "/tmp/rec.json"
+        }
+      ],
+      "responseHint": "{recording, rawEventCount, abstractActionCount, startedAtIso, lastSavedFile, saved, file}"
+    },
+    {
+      "commandName": "replay-cancel",
+      "path": "/replay/cancel",
+      "method": "POST",
+      "description": "Signal the active replay to abort at the next event boundary; no-op if idle.",
+      "sourceClass": "ixdar.platform.automation.endpoints.replay.Cancel",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/replay/Cancel.java",
+      "params": [],
+      "responseHint": "{ok}"
+    },
+    {
+      "commandName": "replay-pause",
+      "path": "/replay/pause",
+      "method": "POST",
+      "description": "Suspend the replay engine before the next event; no-op when nothing is running.",
+      "sourceClass": "ixdar.platform.automation.endpoints.replay.Pause",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/replay/Pause.java",
+      "params": [],
+      "responseHint": "{ok, paused}"
+    },
+    {
+      "commandName": "replay-resume",
+      "path": "/replay/resume",
+      "method": "POST",
+      "description": "Clear the paused flag on the replay engine; no-op when nothing is running.",
+      "sourceClass": "ixdar.platform.automation.endpoints.replay.Resume",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/replay/Resume.java",
+      "params": [],
+      "responseHint": "{ok, paused}"
+    },
+    {
+      "commandName": "replay-start",
+      "path": "/replay/start",
+      "method": "POST",
+      "description": "Launch a replay from a previously saved recording file.",
+      "sourceClass": "ixdar.platform.automation.endpoints.replay.Start",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/replay/Start.java",
+      "params": [
+        {
+          "name": "file",
+          "cliName": "file",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Path to a saved recording JSON file.",
+          "example": "recordings/automation/session.json"
+        },
+        {
+          "name": "mode",
+          "cliName": "mode",
+          "type": "string",
+          "required": false,
+          "default": "abstract",
+          "help": "Replay mode: raw event stream or abstract actions.",
+          "example": "raw"
+        }
+      ],
+      "responseHint": "{ok, mode}"
+    },
+    {
+      "commandName": "replay-status",
+      "path": "/replay/status",
+      "method": "GET",
+      "description": "Snapshot of the replay engine: running flag, status, current file, paused flag.",
+      "sourceClass": "ixdar.platform.automation.endpoints.replay.Status",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/replay/Status.java",
+      "params": [],
+      "responseHint": "{replaying, status, file, paused}"
+    },
+    {
+      "commandName": "screenshot",
+      "path": "/ui/screenshot",
+      "method": "POST",
+      "description": "Capture a PNG screenshot of the current framebuffer to a file.",
+      "sourceClass": "ixdar.platform.automation.endpoints.ui.Screenshot",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/Screenshot.java",
+      "params": [
+        {
+          "name": "path",
+          "cliName": "out",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Output file path; empty writes under screenshots/automation/.",
+          "example": "/tmp/shot.png"
+        },
+        {
+          "name": "inline",
+          "cliName": "inline",
+          "type": "bool",
+          "required": false,
+          "default": "false",
+          "help": "Also return the PNG as base64 in the response.",
+          "example": "true"
+        }
+      ],
+      "responseHint": "{path, width, height, sha256, inlineBase64, base64?}"
+    },
+    {
+      "commandName": "scroll",
+      "path": "/input/scroll",
+      "method": "POST",
+      "description": "Deliver a synthesized scroll event to the active mouse handler.",
+      "sourceClass": "ixdar.platform.automation.endpoints.input.InjectScroll",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectScroll.java",
+      "params": [
+        {
+          "name": "delta",
+          "cliName": "delta",
+          "type": "float",
+          "required": false,
+          "default": "0",
+          "help": "Vertical scroll delta passed to the scroll callback.",
+          "example": "-1.5"
+        }
+      ],
+      "responseHint": "{ok}"
+    },
+    {
+      "commandName": "shutdown",
+      "path": "/shutdown",
+      "method": "POST",
+      "description": "Acknowledge, then asynchronously close the canvas and exit the process.",
+      "sourceClass": "ixdar.platform.automation.endpoints.Shutdown",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/Shutdown.java",
+      "params": [],
+      "responseHint": "{ok, accepted}"
+    },
+    {
+      "commandName": "type",
+      "path": "/input/type",
+      "method": "POST",
+      "description": "Synthesize character events on the active key handler, one per character of the text.",
+      "sourceClass": "ixdar.platform.automation.endpoints.input.InjectStringTyping",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectStringTyping.java",
+      "params": [
+        {
+          "name": "text",
+          "cliName": "text",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Text to type, delivered character by character.",
+          "example": "hello world"
+        }
+      ],
+      "responseHint": "{ok}"
+    },
+    {
+      "commandName": "ui-state",
+      "path": "/ui/state",
+      "method": "GET",
+      "description": "Snapshot the full UI state: window, scene, trade, mesh, text, menu, and audio.",
+      "sourceClass": "ixdar.platform.automation.endpoints.ui.State",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/State.java",
+      "params": [],
+      "responseHint": "{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, textElements, menuItems, audio}"
+    }
+  ]
+}

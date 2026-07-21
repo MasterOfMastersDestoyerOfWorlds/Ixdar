@@ -7,9 +7,10 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
 import ixdar.platform.automation.AutomationEndpoint;
 
-@AutomationRouteAnnotation(path = "replay/status", method = APIMethod.GET)
+@AutomationRouteAnnotation(id = "ReplayStatus", path = "replay/status", method = APIMethod.GET)
 public class Status extends AutomationEndpoint implements AutomationRoute {
     /**
      * {@code GET /replay/status}: snapshot of the replay engine.
@@ -28,5 +29,13 @@ public class Status extends AutomationEndpoint implements AutomationRoute {
         result.addProperty("file", runtime.replayEngine().getLastReplayFile());
         result.addProperty("paused", runtime.replayEngine().isPaused());
         return result;
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Snapshot of the replay engine: running flag, status, current file, paused flag.")
+                .responseHint("{replaying, status, file, paused}")
+                .build();
     }
 }

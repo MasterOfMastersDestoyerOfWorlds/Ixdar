@@ -7,6 +7,8 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
@@ -61,5 +63,20 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
             err.addProperty(ERROR, e.getMessage());
             return err;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .commandName("orbit-set")
+                .description("Set the active mesh viewer's camera orbit (azimuth, elevation, distance).")
+                .param(AZIMUTH, RouteParamType.FLOAT, false, String.valueOf(NUM_0),
+                        "Orbit azimuth angle in radians.", "1.5708")
+                .param(ELEVATION, RouteParamType.FLOAT, false, String.valueOf(NUM_0),
+                        "Orbit elevation angle in radians.", "0.6")
+                .param(DISTANCE, RouteParamType.FLOAT, false, String.valueOf(NUM_3_5),
+                        "Camera distance from the orbit target.", "5.0")
+                .responseHint("{ok, azimuth, elevation, distance}")
+                .build();
     }
 }

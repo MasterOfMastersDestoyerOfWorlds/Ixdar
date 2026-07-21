@@ -11,6 +11,8 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.automation.AutomationEndpoint;
 
 import ixdar.geometry.mesh.data.PatchDecomposition;
@@ -67,5 +69,20 @@ public class RenderMultiview extends AutomationEndpoint implements AutomationRou
         result.addProperty("height", composite.getHeight());
         result.addProperty("patch_count", decomposition.patches().size());
         return result;
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Decompose a mesh into semantic patches and render a shaded multiview composite PNG.")
+                .param(PATH, RouteParamType.STRING, true, "",
+                        "Path to the OBJ mesh file to render.", "~/Blends/Hand/Hand.obj")
+                .param(RESOLUTION, RouteParamType.INT, false, String.valueOf(NUM_128),
+                        "Voxel resolution for patch decomposition.", "128")
+                .param(OUT_PATH, RouteParamType.STRING, false, "",
+                        "Destination PNG path; defaults to a timestamped file under screenshots/automation.",
+                        "~/out/patches.png")
+                .responseHint("{ok, path, width, height, patch_count}")
+                .build();
     }
 }

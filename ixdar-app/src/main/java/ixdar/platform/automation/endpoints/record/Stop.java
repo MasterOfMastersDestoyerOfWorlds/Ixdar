@@ -7,6 +7,8 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "record/stop", method = APIMethod.POST)
@@ -33,5 +35,16 @@ public class Stop extends AutomationEndpoint implements AutomationRoute {
             err.addProperty("error", e.getMessage());
             return err;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("End the active recording session and write the captured events to disk.")
+                .param(PATH, RouteParamType.STRING, false, "",
+                        "Output file path; empty falls back to recordings/automation/.", "/tmp/rec.json")
+                .responseHint("{recording, rawEventCount, abstractActionCount, startedAtIso, "
+                        + "lastSavedFile, saved, file}")
+                .build();
     }
 }

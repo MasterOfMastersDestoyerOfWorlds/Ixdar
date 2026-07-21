@@ -7,6 +7,8 @@ import ixdar.annotations.automation.APIMethod;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.geometry.mesh.data.MeshSegmenter;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
@@ -75,5 +77,19 @@ public class Segmentation extends AutomationEndpoint implements AutomationRoute 
         }
         result.add("tags", tagsJson);
         return result;
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Segment a mesh into labeled vertex groups by connected components, curvature, or spatial clustering.")
+                .param(PATH, RouteParamType.STRING, true, "",
+                        "Path to the OBJ mesh file to segment.", "~/Blends/Hand/Hand.obj")
+                .param(METHOD, RouteParamType.STRING, false, SPATIAL,
+                        "Segmentation strategy: components, curvature, or spatial.", SPATIAL)
+                .param(N_CLUSTERS, RouteParamType.INT, false, String.valueOf(NUM_6),
+                        "Cluster count for the curvature and spatial strategies.", "8")
+                .responseHint("{ok, vertex_count, method, tags:{label:[vertexIndex, ...]}}")
+                .build();
     }
 }

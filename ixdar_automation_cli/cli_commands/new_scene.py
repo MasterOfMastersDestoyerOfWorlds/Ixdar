@@ -4,6 +4,9 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Annotated
+
+from ..cli_registry import CliOption, cli_command
 
 
 LAUNCH_VM_ARGS = "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log"
@@ -262,3 +265,37 @@ def _upsert_maven_profile(pom_file: Path, profile_id: str, scene_id: str, *, dry
     if not dry_run:
         pom_file.write_text(new_pom, encoding="utf-8")
     return True, "created"
+
+
+@cli_command(name="new-scene")
+def new_scene(
+    name: str,
+    id: str,
+    subfolder: str,
+    display_name: str,
+    base: Annotated[str, CliOption(choices=("Scene", "Canvas3D"))] = "Scene",
+    camera: Annotated[str, CliOption(choices=("2d", "3d"))] = "2d",
+    maven_profile: str = "",
+    dry_run: bool = False,
+) -> dict:
+    """Scaffold a new Scene class, launch.json entry, and optional Maven profile.
+
+    :param name: Scene class name.
+    :param id: Scene id used by IxdarWindow and the launch.json entry.
+    :param subfolder: Package subfolder under scenes for the new class.
+    :param display_name: Human-readable scene name.
+    :param base: Base class to extend.
+    :param camera: Camera mode for the scaffold.
+    :param maven_profile: Optional Maven profile id to add.
+    :param dry_run: Print planned changes without writing files.
+    """
+    return scaffold_new_scene(
+        name=name,
+        scene_id=id,
+        subfolder=subfolder,
+        display_name=display_name,
+        base=base,
+        camera=camera,
+        maven_profile=maven_profile,
+        dry_run=dry_run,
+    )

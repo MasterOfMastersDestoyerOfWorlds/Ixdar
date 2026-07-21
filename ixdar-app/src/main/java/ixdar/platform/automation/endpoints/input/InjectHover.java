@@ -7,6 +7,8 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.TradeMouseTrap;
@@ -19,6 +21,7 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
     public static final String PERSISTENT = "persistent";
     public static final String OK = "ok";
     public static final String ERROR = "error";
+    public static final String COMMAND = "hover";
     /**
      * {@code POST /input/hover}: move the cursor without clicking. For
      * {@link TradeMouseTrap}, optionally installs a persistent automation hover
@@ -74,7 +77,7 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
                     payload.addProperty("xNorm", normalizeX(xPos));
                     payload.addProperty("yNorm", normalizeY(yPos));
                     payload.addProperty(PERSISTENT, persistent);
-                    runtime.recorder.recordAbstract("hover", payload);
+                    runtime.recorder.recordAbstract(COMMAND, payload);
                     result.addProperty(OK, true);
                     result.add("event", payload);
                     return result;
@@ -91,5 +94,22 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
             error.addProperty(ERROR, e.getMessage());
             return error;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .commandName(COMMAND)
+                .description("Move the cursor without clicking, optionally installing a persistent hover lock.")
+                .param(X, RouteParamType.FLOAT, false, String.valueOf(0),
+                        "Target X coordinate.", "0.5")
+                .param(Y, RouteParamType.FLOAT, false, String.valueOf(0),
+                        "Target Y coordinate.", "0.25")
+                .param(NORMALIZED, RouteParamType.BOOL, false, String.valueOf(false),
+                        "Treat X/Y as fractions of window size rather than pixels.", "true")
+                .param(PERSISTENT, RouteParamType.BOOL, false, String.valueOf(true),
+                        "Hold the hover lock so real mouse motion cannot dislodge it; false clears it.", "false")
+                .responseHint("{ok, event:{xPx, yPx, xNorm, yNorm, persistent}}")
+                .build();
     }
 }

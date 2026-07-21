@@ -2,6 +2,7 @@ package ixdar.annotations;
 
 import java.io.Writer;
 import java.lang.annotation.Annotation;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -13,6 +14,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
 public abstract class RegistryProcessor extends AbstractProcessor {
@@ -75,6 +77,7 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                 out.write("\tpublic static final Map<String, Supplier<? extends " + typeClass.getName()
                         + ">> MAP = new HashMap<>();\n\n");
                 out.write("\tstatic {\n");
+                Map<String, String> seenIds = new HashMap<>();
                 for (Element element : roundEnv.getElementsAnnotatedWith(annotationClass)) {
                     if (element.getKind() == ElementKind.CLASS) {
                         String fqClassName = ((TypeElement) element).getQualifiedName().toString();
@@ -93,6 +96,13 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                                     }
                                 }
                             }
+                        }
+                        String previous = seenIds.put(id, fqClassName);
+                        if (previous != null) {
+                            processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                                    "Duplicate registry id \"" + id + "\" on " + fqClassName + " and " + previous
+                                            + "; set a distinct id() on the annotation so neither is silently dropped.",
+                                    element);
                         }
                         out.write("\t\tMAP.put(\"" + id + "\", " + fqClassName + "::new);\n");
                     }

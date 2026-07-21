@@ -7,6 +7,8 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.input.MouseTrap;
 
@@ -15,6 +17,7 @@ public class InjectScroll extends AutomationEndpoint implements AutomationRoute 
     public static final String DELTA = "delta";
     public static final String OK = "ok";
     public static final String ERROR = "error";
+    public static final String COMMAND = "scroll";
     /**
      * {@code POST /input/scroll}: deliver a synthesized scroll event to the active
      * mouse handler. Recorded as an abstract {@code "scroll"} action.
@@ -41,7 +44,7 @@ public class InjectScroll extends AutomationEndpoint implements AutomationRoute 
                 mouse.scrollCallback(delta);
                 JsonObject payload = new JsonObject();
                 payload.addProperty(DELTA, delta);
-                runtime.recorder.recordAbstract("scroll", payload);
+                runtime.recorder.recordAbstract(COMMAND, payload);
                 result.addProperty(OK, true);
                 return result;
             });
@@ -51,5 +54,16 @@ public class InjectScroll extends AutomationEndpoint implements AutomationRoute 
             error.addProperty(ERROR, e.getMessage());
             return error;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .commandName(COMMAND)
+                .description("Deliver a synthesized scroll event to the active mouse handler.")
+                .param(DELTA, RouteParamType.FLOAT, false, "0",
+                        "Vertical scroll delta passed to the scroll callback.", "-1.5")
+                .responseHint("{ok}")
+                .build();
     }
 }

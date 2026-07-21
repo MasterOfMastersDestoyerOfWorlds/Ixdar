@@ -11,6 +11,8 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.Platforms;
 import ixdar.platform.automation.AutomationEndpoint;
 
@@ -77,5 +79,18 @@ public class Screenshot extends AutomationEndpoint implements AutomationRoute {
             result.addProperty("inlineBase64", inline);
             return result;
         });
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .commandName("screenshot")
+                .description("Capture a PNG screenshot of the current framebuffer to a file.")
+                .paramAliased(PATH, "out", RouteParamType.STRING, false, "",
+                        "Output file path; empty writes under screenshots/automation/.", "/tmp/shot.png")
+                .param(INLINE, RouteParamType.BOOL, false, "false",
+                        "Also return the PNG as base64 in the response.", "true")
+                .responseHint("{path, width, height, sha256, inlineBase64, base64?}")
+                .build();
     }
 }

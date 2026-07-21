@@ -14,6 +14,8 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.geometry.mesh.data.SkeletonSensitivityAnalyzer;
 import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
@@ -158,5 +160,22 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
             err.addProperty(ERROR, e.getMessage());
             return err;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Compute the Jacobian of skeleton joints w.r.t. DSL parameters.")
+                .param(DSL, RouteParamType.STRING, true, "",
+                        "DSL file name, with or without extension.", "octopus")
+                .param(REFERENCE, RouteParamType.STRING, true, "",
+                        "Path to the reference mesh OBJ.", "meshes/target.obj")
+                .param(RESOLUTION, RouteParamType.INT, false, String.valueOf(NUM_128),
+                        "Voxel grid resolution for skeleton extraction.", "256")
+                .param(EPSILON, RouteParamType.FLOAT, false, String.valueOf(NUM_0),
+                        "Finite-difference step; 0 lets the analyzer pick per parameter.", "0.01")
+                .responseHint("{ok, dsl, reference, resolution, baselineScore, projectedScore, "
+                        + "parameterCount, jointCount, suggestedDeltas, suggestedValues, unstableParams?}")
+                .build();
     }
 }

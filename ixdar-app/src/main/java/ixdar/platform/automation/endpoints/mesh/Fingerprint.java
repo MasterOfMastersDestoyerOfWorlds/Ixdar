@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
 import ixdar.geometry.mesh.MeshCanonicalFingerprint;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.platform.automation.AutomationEndpoint;
@@ -48,5 +49,13 @@ public class Fingerprint extends AutomationEndpoint implements AutomationRoute {
             err.addProperty(ERROR, e.getMessage() == null ? "" : e.getMessage());
             return err;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Compute the canonical SHA-256 fingerprint of the active viewer mesh.")
+                .responseHint("{algorithm, ok, sha256, vertexCount, faceCount, triangleCount}")
+                .build();
     }
 }

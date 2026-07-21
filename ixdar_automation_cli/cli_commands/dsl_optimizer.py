@@ -9,7 +9,7 @@ Usage:
     uv run dsl-optimize --dsl hand.dsl --ref Hand.obj --samples 200 --rounds 3
 """
 
-import argparse
+import contextlib
 import json
 import os
 import random
@@ -19,7 +19,9 @@ import sys
 import tempfile
 import time
 
-IXDAR_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+from ..cli_registry import CliCommandResult, cli_command
+
+IXDAR_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
 MVN = shutil.which("mvn") or "/opt/homebrew/bin/mvn"
 
 
@@ -168,44 +170,59 @@ def optimize(dsl_path: str, ref_path: str, samples: int = 100, rounds: int = 1, 
     return all_results
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(prog="dsl-optimize", description="Batch parameter optimizer for mesh DSL")
-    parser.add_argument("--dsl", required=True, help="Path to the DSL file")
-    parser.add_argument("--ref", required=True, help="Path to reference OBJ file")
-    parser.add_argument("--samples", type=int, default=100, help="Number of random samples per round (default: 100)")
-    parser.add_argument("--rounds", type=int, default=1, help="Number of refinement rounds (default: 1)")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
-    parser.add_argument("--json", default="", help="Output best params to JSON file")
-    args = parser.parse_args()
+def run(dsl: str, ref: str, samples: int = 100, rounds: int = 1, seed: int = 42, json_out: str = "") -> dict:
+    """Run the optimizer and return a structured result, writing the best params to a JSON file.
 
-    results = optimize(args.dsl, args.ref, args.samples, args.rounds, args.seed)
+    Human-readable progress from ``optimize`` is redirected to stderr so the CLI's JSON stdout
+    stays valid.
+
+    :param dsl: path to the DSL file
+    :param ref: path to the reference OBJ
+    :param samples: random samples per round
+    :param rounds: refinement rounds
+    :param seed: RNG seed
+    :param json_out: path to write best params to; empty uses /tmp/dsl_best_params.json
+    :return: ``{"ok", "count", "top", "best_params", "similarity", "output_path"}`` or an error dict
+    """
+    with contextlib.redirect_stdout(sys.stderr):
+        results = optimize(dsl, ref, samples, rounds, seed)
 
     if not results:
-        print("\nNo valid results.")
-        return 1
+        return {"ok": False, "error": "No valid results (no tunable params, or no samples compared)."}
 
-    # Print top 10
-    print(f"\nTop {min(10, len(results))} Results:")
-    print(f"  {'#':<4}{'Sim':>7}{'Haus':>8}{'Chamf':>8}  Parameters")
-    print(f"  {'':4}{'-'*7}{'-'*8}{'-'*8}  {'-'*40}")
-    for i, r in enumerate(results[:10]):
-        params_str = "  ".join(f"{k}={v}" for k, v in r["params"].items())
-        print(f"  {i+1:<4}{r['similarity']:>6.1f}%{r['hausdorff']:>7.4f}{r['chamfer']:>8.4f}  {params_str}")
-
-    # Write best params to file
     best = results[0]
-    if args.json:
-        out_path = os.path.abspath(args.json)
-    else:
-        out_path = "/tmp/dsl_best_params.json"
-
+    out_path = os.path.abspath(json_out) if json_out else "/tmp/dsl_best_params.json"
     with open(out_path, "w") as f:
-        json.dump({"best_params": best["params"], "similarity": best["similarity"],
-                    "hausdorff": best["hausdorff"], "chamfer": best["chamfer"]}, f, indent=2)
-    print(f"\nBest parameters written to {out_path}")
+        json.dump(
+            {
+                "best_params": best["params"],
+                "similarity": best["similarity"],
+                "hausdorff": best["hausdorff"],
+                "chamfer": best["chamfer"],
+            },
+            f,
+            indent=2,
+        )
+    return {
+        "ok": True,
+        "count": len(results),
+        "top": results[:10],
+        "best_params": best["params"],
+        "similarity": best["similarity"],
+        "output_path": out_path,
+    }
 
-    return 0
 
+@cli_command(name="dsl-optimize")
+def dsl_optimize(dsl: str, ref: str, samples: int = 100, rounds: int = 1, seed: int = 42, json: str = "") -> CliCommandResult:
+    """Batch-optimize mesh DSL parameters against a reference OBJ.
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+    :param dsl: Path to the DSL file.
+    :param ref: Path to the reference OBJ file.
+    :param samples: Random samples per round.
+    :param rounds: Refinement rounds.
+    :param seed: Random seed.
+    :param json: Output best params to this JSON file (empty uses /tmp/dsl_best_params.json).
+    """
+    payload = run(dsl, ref, samples, rounds, seed, json)
+    return CliCommandResult(payload=payload, exit_code=0 if payload.get("ok") else 1)

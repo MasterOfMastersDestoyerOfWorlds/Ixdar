@@ -11,11 +11,11 @@ dependencies = []
 
 [project.scripts]
 ixdar-cli = "ixdar_automation_cli.ixdar_cli:cli"
-mesh-viewer-compare = "ixdar_automation_cli.mesh_viewer_launch:main"
-rebuild-krieg-web = "ixdar_automation_cli.rebuild_krieg_web:main"
-dsl-optimize = "ixdar_automation_cli.dsl_optimizer:main"
 
 [tool.setuptools]
 
 [tool.setuptools.packages.find]
 include = ["ixdar_automation_cli*"]
+
+[tool.setuptools.package-data]
+ixdar_automation_cli = ["automation_routes.json"]

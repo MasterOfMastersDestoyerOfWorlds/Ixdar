@@ -9,6 +9,8 @@ import java.util.Map;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.geometry.mesh.documentation.ValidateDsl;
 import ixdar.platform.automation.AutomationEndpoint;
 
@@ -37,5 +39,17 @@ public class Validate extends AutomationEndpoint implements AutomationRoute {
                 skillDir,
                 exportPath);
         return GSON.toJsonTree(result).getAsJsonObject();
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Validate DSL source text against the skill schema, optionally probing and exporting its output mesh.")
+                .param(DSL, RouteParamType.STRING, true, "",
+                        "DSL source text to validate.", "node loadMesh { path: \"a.obj\" }")
+                .param(EXPORT, RouteParamType.STRING, false, "",
+                        "Optional path to export the probed output mesh as OBJ.", "~/probe.obj")
+                .responseHint("{valid, nodeCount, errors:[...], warnings:[...], meshProbe:{...}}")
+                .build();
     }
 }

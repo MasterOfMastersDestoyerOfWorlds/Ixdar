@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import inspect
 import re
 from dataclasses import dataclass
@@ -191,5 +192,10 @@ def cli_command(
 
 
 def get_registry() -> dict[str, CliCommand]:
-    """Return all registered CLI commands."""
+    """Return all registered CLI commands, importing the command package on first call.
+
+    Discovery is lazy and self-guarding so command modules can import this module at module scope
+    without a cycle, and so no caller has to remember to trigger it.
+    """
+    importlib.import_module(".cli_commands", __package__).import_all_commands()
     return _REGISTRY.copy()

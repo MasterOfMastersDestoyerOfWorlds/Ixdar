@@ -110,8 +110,14 @@ public class AutomationApiServer {
             if (!path.startsWith(PATH_SEPARATOR)) {
                 path = PATH_SEPARATOR + path;
             }
-            routesByPath.computeIfAbsent(path, key -> new HashMap<>())
-                    .put(ann.method().name().toUpperCase(), automationRoute);
+            String method = ann.method().name().toUpperCase();
+            AutomationRoute previous = routesByPath.computeIfAbsent(path, key -> new HashMap<>())
+                    .put(method, automationRoute);
+            if (previous != null) {
+                throw new IllegalStateException("Duplicate automation route for " + method + " " + path
+                        + " claimed by " + previous.getClass().getName() + " and "
+                        + automationRoute.getClass().getName() + "; two routes share one (path, method) slot.");
+            }
         }
         for (Map.Entry<String, Map<String, AutomationRoute>> entry : routesByPath.entrySet()) {
             Map<String, AutomationRoute> byMethod = entry.getValue();

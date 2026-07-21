@@ -7,6 +7,8 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.geometry.mesh.data.MeshTopology;
 
 import ixdar.geometry.mesh.data.MeshDistance;
@@ -20,7 +22,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.platform.automation.endpoints.AutomationRuntime;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 
-@AutomationRouteAnnotation(path = "mesh/compare", method = APIMethod.POST)
+@AutomationRouteAnnotation(id = "MeshCompare", path = "mesh/compare", method = APIMethod.POST)
 public class Compare extends AutomationEndpoint implements AutomationRoute {
     public static final String REFERENCE = "reference";
     public static final String DISTANCE_TYPE = "distance_type";
@@ -145,5 +147,22 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
             err.addProperty(ERROR, e.getMessage());
             return err;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics.")
+                .param(REFERENCE, RouteParamType.STRING, true, "",
+                        "Path to the reference OBJ mesh to compare against.", "~/Blends/Hand/Hand.obj")
+                .param(DISTANCE_TYPE, RouteParamType.STRING, false, "hausdorff",
+                        "Metric label echoed back in the response.", "chamfer")
+                .param(SCALE, RouteParamType.FLOAT, false, "1.0",
+                        "Scale factor applied when computing distance metrics.", "2.0")
+                .param(NORMALIZE, RouteParamType.BOOL, false, "false",
+                        "Center and unit-scale both meshes before comparing.", "true")
+                .responseHint("{ok, current_vertices, reference_vertices, "
+                        + "hausdorff_distance, chamfer_distance, similarity_score, distance_type, scale, normalized}")
+                .build();
     }
 }

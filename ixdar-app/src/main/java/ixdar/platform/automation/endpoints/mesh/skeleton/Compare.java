@@ -12,6 +12,8 @@ import com.sun.net.httpserver.HttpExchange;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.geometry.mesh.data.MeshSkeletonComparator;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.load.MeshLoader;
@@ -23,7 +25,7 @@ import ixdar.platform.automation.AutomationEndpoint;
  * compute errors, and return parameter recommendations. Pure CPU — no GL
  * context needed.
  */
-@AutomationRouteAnnotation(path = "mesh/skeleton/compare", method = APIMethod.POST)
+@AutomationRouteAnnotation(id = "SkeletonCompare", path = "mesh/skeleton/compare", method = APIMethod.POST)
 public class Compare extends AutomationEndpoint implements AutomationRoute {
     public static final String GENERATED = "generated";
     public static final String REFERENCE = "reference";
@@ -105,5 +107,19 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
             err.addProperty(ERROR, e.getMessage());
             return err;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Compare TEASAR skeletons of two meshes and recommend parameter fixes.")
+                .param(GENERATED, RouteParamType.STRING, true, "",
+                        "Path to the generated mesh OBJ.", "out/generated.obj")
+                .param(REFERENCE, RouteParamType.STRING, true, "",
+                        "Path to the reference mesh OBJ.", "meshes/target.obj")
+                .param(RESOLUTION, RouteParamType.INT, false, String.valueOf(NUM_128),
+                        "Voxel grid resolution for skeleton extraction.", "256")
+                .responseHint("{ok, generated_path, reference_path, resolution, ...branchErrors}")
+                .build();
     }
 }

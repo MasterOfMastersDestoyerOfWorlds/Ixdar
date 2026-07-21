@@ -7,6 +7,8 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.input.KeyGuy;
 
@@ -62,5 +64,22 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
             error.addProperty(ERROR, e.getMessage());
             return error;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .commandName(KEY)
+                .description("Synthesize a single GLFW key event on the active key handler.")
+                .param(KEY, RouteParamType.INT, false, String.valueOf(0),
+                        "GLFW key code.", "65")
+                .param(ACTION, RouteParamType.INT, false, String.valueOf(1),
+                        "Event action: 1 press, 0 release, 2 repeat.", "0")
+                .param(MODS, RouteParamType.INT, false, String.valueOf(0),
+                        "Modifier-key bitmask.", "8")
+                .param(SCANCODE, RouteParamType.INT, false, String.valueOf(0),
+                        "Platform scancode.", "24")
+                .responseHint("{ok}")
+                .build();
     }
 }

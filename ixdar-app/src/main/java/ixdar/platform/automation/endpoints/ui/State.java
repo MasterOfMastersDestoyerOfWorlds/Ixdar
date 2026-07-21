@@ -10,6 +10,7 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
 import ixdar.audio.AudioSystem;
 import ixdar.canvas.IxdarWindow;
 import ixdar.game.City;
@@ -270,5 +271,15 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         audio.add("eventLog", audioEvents);
         root.add("audio", audio);
         return root;
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Snapshot the full UI state: window, scene, trade, mesh, text, menu, and audio.")
+                .responseHint("{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, "
+                        + "menuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, "
+                        + "textElements, menuItems, audio}")
+                .build();
     }
 }

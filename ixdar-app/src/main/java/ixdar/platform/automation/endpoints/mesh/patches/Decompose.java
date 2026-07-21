@@ -9,6 +9,8 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.automation.AutomationEndpoint;
 
 import ixdar.geometry.mesh.data.Patch;
@@ -72,5 +74,17 @@ public class Decompose extends AutomationEndpoint implements AutomationRoute {
         }
         out.add("patches", patches);
         return out;
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Hybrid skeleton and curvature patch decomposition of a reference mesh.")
+                .param(PATH, RouteParamType.STRING, true, "",
+                        "Path to an OBJ mesh file.", "~/Blends/Hand/Hand.obj")
+                .param(RESOLUTION, RouteParamType.INT, false, String.valueOf(NUM_128),
+                        "Voxel resolution for skeletonization.", "128")
+                .responseHint("{ok, vertex_count, patches:[{id, branch_id, color, centroid, ...}]}")
+                .build();
     }
 }

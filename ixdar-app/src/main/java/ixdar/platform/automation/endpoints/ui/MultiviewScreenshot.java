@@ -11,6 +11,8 @@ import com.sun.net.httpserver.HttpExchange;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.Font;
 import ixdar.platform.Platforms;
@@ -191,5 +193,18 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             err.addProperty(ERROR, e.getMessage());
             return err;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .commandName("multiview")
+                .description("Capture 8 orbit viewpoints and composite them into a labeled 4x2 grid PNG.")
+                .paramAliased(PATH, "out", RouteParamType.STRING, false, "",
+                        "Output file path; empty writes under screenshots/automation/.", "/tmp/multiview.png")
+                .param(INLINE, RouteParamType.BOOL, false, "false",
+                        "Also return the composite PNG as base64 in the response.", "true")
+                .responseHint("{path, width, height, views, sha256, base64?}")
+                .build();
     }
 }

@@ -7,10 +7,12 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.automation.AutomationReplayEngine;
 
-@AutomationRouteAnnotation(path = "replay/start", method = APIMethod.POST)
+@AutomationRouteAnnotation(id = "ReplayStart", path = "replay/start", method = APIMethod.POST)
 public class Start extends AutomationEndpoint implements AutomationRoute {
     public static final String FILE = "file";
     public static final String MODE = "mode";
@@ -44,5 +46,19 @@ public class Start extends AutomationEndpoint implements AutomationRoute {
             err.addProperty("error", e.getMessage());
             return err;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Launch a replay from a previously saved recording file.")
+                .param(FILE, RouteParamType.STRING, true, "",
+                        "Path to a saved recording JSON file.", "recordings/automation/session.json")
+                .param(MODE, RouteParamType.STRING, false,
+                        AutomationReplayEngine.ReplayMode.ABSTRACT.name().toLowerCase(),
+                        "Replay mode: raw event stream or abstract actions.",
+                        AutomationReplayEngine.ReplayMode.RAW.name().toLowerCase())
+                .responseHint("{ok, mode}")
+                .build();
     }
 }

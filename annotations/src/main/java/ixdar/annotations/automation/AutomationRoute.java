@@ -1,7 +1,6 @@
 package ixdar.annotations.automation;
 
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 /**
  * Implemented by classes annotated with {@link AutomationRouteAnnotation};
  * dispatched by {@code AutomationApiServer} when a matching HTTP request
@@ -17,4 +16,14 @@ public interface AutomationRoute {
      */
     JsonObject endpointHandler(JsonObject body) throws Exception;
 
+    /**
+     * Machine-readable documentation for this route: description, JSON body parameters, and response
+     * shape. Serialized into the automation routes manifest and rendered by the CLI. The default
+     * returns {@link RouteDoc#empty()} so un-migrated routes still export.
+     *
+     * @return this route's documentation; never {@code null}
+     */
+    default RouteDoc describe() {
+        return RouteDoc.empty();
+    }
 }

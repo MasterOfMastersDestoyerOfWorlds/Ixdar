@@ -6,7 +6,6 @@ Usage:
     uv run mesh-viewer-compare  # just launch with default skull.dsl
 """
 
-import argparse
 import json
 import os
 import signal
@@ -14,12 +13,10 @@ import subprocess
 import sys
 import time
 
-try:
-    from .automation_client import DEFAULT_BASE_URL, AutomationClient
-except ImportError:
-    from automation_client import DEFAULT_BASE_URL, AutomationClient
+from ..automation_client import DEFAULT_BASE_URL, AutomationClient
+from ..cli_registry import CliCommandResult, cli_command
 
-IXDAR_APP_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "ixdar-app"))
+IXDAR_APP_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "ixdar-app"))
 
 
 def _wait_for_server(client: AutomationClient, timeout: float = 60.0) -> bool:
@@ -58,27 +55,36 @@ def _build_maven_args(dsl: str, node: str, port: str) -> list[str]:
     return cmd
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(
-        prog="mesh-viewer-compare",
-        description="Launch Ixdar mesh-viewer with optional overlay and screenshot.",
-    )
-    parser.add_argument("--dsl", default="", help="DSL resource name (e.g. hand.dsl). Empty = skull.dsl default.")
-    parser.add_argument("--node", default="", help="Final node name in the DSL graph.")
-    parser.add_argument("--port", default="", help="Final port name on the node (default: geometry).")
-    parser.add_argument("--overlay", default="", help="Path to reference OBJ to overlay.")
-    parser.add_argument("--screenshot", default="", help="Output path for screenshot. Empty = server default.")
-    parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
-    parser.add_argument("--timeout", type=float, default=60.0, help="Seconds to wait for server startup.")
-    parser.add_argument("--no-launch", action="store_true", help="Skip launching Ixdar (assume already running).")
-    parser.add_argument("--keep-alive", action="store_true", help="Keep Ixdar running after screenshot (default: shut down).")
-    args = parser.parse_args()
+def run(
+    dsl: str = "",
+    node: str = "",
+    port: str = "",
+    overlay: str = "",
+    screenshot: str = "",
+    base_url: str = DEFAULT_BASE_URL,
+    timeout: float = 60.0,
+    no_launch: bool = False,
+    keep_alive: bool = False,
+) -> dict:
+    """Launch the mesh viewer (unless already running), optionally overlay an OBJ and screenshot.
 
-    client = AutomationClient(base_url=args.base_url)
+    All human-readable progress goes to stderr; the returned dict is the machine-readable result.
+
+    :param dsl: DSL resource name (empty uses the skull.dsl default)
+    :param node: final node name in the DSL graph
+    :param port: final port name on the node
+    :param overlay: path to a reference OBJ to overlay
+    :param screenshot: output path for the screenshot; empty uses the server default
+    :param base_url: automation server base URL
+    :param timeout: seconds to wait for server startup
+    :param no_launch: skip launching Ixdar (assume already running)
+    :param keep_alive: keep Ixdar running after the screenshot
+    :return: ``{"ok": True, "overlay"?: ..., "screenshot"?: ...}``
+    """
+    client = AutomationClient(base_url=base_url)
     proc = None
 
-    if not args.no_launch:
-        # Kill any existing instance before launching fresh
+    if not no_launch:
         try:
             health = client.health()
             if health.get("status") == "ok":
@@ -89,8 +95,7 @@ def main() -> int:
         except Exception:
             pass
 
-    if not args.no_launch:
-        maven_cmd = _build_maven_args(args.dsl, args.node, args.port)
+        maven_cmd = _build_maven_args(dsl, node, port)
         print(f"Starting mesh-viewer: {' '.join(maven_cmd)}", file=sys.stderr)
         print(f"  working dir: {IXDAR_APP_DIR}", file=sys.stderr)
 
@@ -101,14 +106,13 @@ def main() -> int:
             stderr=subprocess.PIPE,
         )
 
-        print(f"Waiting for automation server (timeout={args.timeout}s)...", file=sys.stderr)
-        if not _wait_for_server(client, args.timeout):
+        print(f"Waiting for automation server (timeout={timeout}s)...", file=sys.stderr)
+        if not _wait_for_server(client, timeout):
             print("ERROR: Automation server did not start in time.", file=sys.stderr)
             if proc:
                 proc.terminate()
-            return 1
+            return {"ok": False, "error": "Automation server did not start in time."}
         print("Server ready.", file=sys.stderr)
-        # Wait for mesh to actually load (DSL executes asynchronously)
         print("Waiting for mesh to load...", file=sys.stderr)
         mesh_deadline = time.monotonic() + 30.0
         while time.monotonic() < mesh_deadline:
@@ -127,8 +131,8 @@ def main() -> int:
 
     result = {"ok": True}
 
-    if args.overlay:
-        overlay_path = os.path.abspath(os.path.expanduser(args.overlay))
+    if overlay:
+        overlay_path = os.path.abspath(os.path.expanduser(overlay))
         print(f"Loading overlay: {overlay_path}", file=sys.stderr)
         try:
             overlay_result = client.mesh_overlay(path=overlay_path)
@@ -137,23 +141,22 @@ def main() -> int:
                 print(f"WARNING: overlay load returned: {overlay_result}", file=sys.stderr)
             else:
                 print("Overlay loaded.", file=sys.stderr)
-                time.sleep(1.0)  # let render settle
+                time.sleep(1.0)
         except Exception as e:
             result["overlay"] = {"ok": False, "error": str(e)}
             print(f"WARNING: overlay load failed: {e}", file=sys.stderr)
 
-    if args.screenshot or args.overlay or not args.no_launch:
+    if screenshot or overlay or not no_launch:
         print("Taking screenshot...", file=sys.stderr)
         try:
-            screenshot = client.screenshot(args.screenshot, inline=False)
-            result["screenshot"] = screenshot
-            path = screenshot.get("path", "")
-            print(f"Screenshot saved: {path}", file=sys.stderr)
+            shot = client.screenshot(screenshot, inline=False)
+            result["screenshot"] = shot
+            print(f"Screenshot saved: {shot.get('path', '')}", file=sys.stderr)
         except Exception as e:
             result["screenshot"] = {"ok": False, "error": str(e)}
             print(f"WARNING: screenshot failed: {e}", file=sys.stderr)
 
-    if not args.keep_alive and proc:
+    if not keep_alive and proc:
         print("Shutting down Ixdar...", file=sys.stderr)
         try:
             client.shutdown()
@@ -161,9 +164,41 @@ def main() -> int:
             pass
         proc.wait(timeout=10)
 
-    print(json.dumps(result, indent=2))
-    return 0
+    return result
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+@cli_command(name="mesh-viewer")
+def mesh_viewer(
+    client: AutomationClient,
+    dsl: str = "",
+    node: str = "",
+    port: str = "",
+    overlay: str = "",
+    screenshot: str = "",
+    timeout: float = 60.0,
+    no_launch: bool = False,
+    keep_alive: bool = False,
+) -> CliCommandResult:
+    """Launch the mesh viewer, optionally overlay a reference OBJ, and screenshot.
+
+    :param dsl: DSL resource name (empty uses the skull.dsl default).
+    :param node: Final node name in the DSL graph.
+    :param port: Final port name on the node.
+    :param overlay: Path to a reference OBJ to overlay.
+    :param screenshot: Output path for the screenshot (empty uses the server default).
+    :param timeout: Seconds to wait for server startup.
+    :param no_launch: Skip launching Ixdar (assume it is already running).
+    :param keep_alive: Keep Ixdar running after the screenshot.
+    """
+    payload = run(
+        dsl=dsl,
+        node=node,
+        port=port,
+        overlay=overlay,
+        screenshot=screenshot,
+        base_url=client.base_url,
+        timeout=timeout,
+        no_launch=no_launch,
+        keep_alive=keep_alive,
+    )
+    return CliCommandResult(payload=payload, exit_code=0 if payload.get("ok") else 1)

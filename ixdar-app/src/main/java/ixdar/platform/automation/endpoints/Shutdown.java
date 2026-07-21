@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
 import ixdar.canvas.IxdarWindow;
 import ixdar.platform.automation.AutomationEndpoint;
 
@@ -50,5 +51,13 @@ public class Shutdown extends AutomationEndpoint implements AutomationRoute {
         shutdownThread.setDaemon(true);
         shutdownThread.start();
         return result;
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Acknowledge, then asynchronously close the canvas and exit the process.")
+                .responseHint("{ok, accepted}")
+                .build();
     }
 }

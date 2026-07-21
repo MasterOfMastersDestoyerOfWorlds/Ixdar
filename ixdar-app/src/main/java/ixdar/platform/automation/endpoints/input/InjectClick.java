@@ -10,6 +10,8 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.TradeMouseTrap;
@@ -22,6 +24,7 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
     public static final String BUTTON = "button";
     public static final String OK = "ok";
     public static final String ERROR = "error";
+    public static final String COMMAND = "click";
 
     /**
      * {@code POST /input/click}: move the cursor to a target position then issue a
@@ -70,7 +73,7 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
                 payload.addProperty("xNorm", normalizeX(xPos));
                 payload.addProperty("yNorm", normalizeY(yPos));
                 payload.addProperty(BUTTON, button);
-                runtime.recordAbstractAction("click", payload);
+                runtime.recordAbstractAction(COMMAND, payload);
                 result.addProperty(OK, true);
                 result.add("event", payload);
                 return result;
@@ -81,5 +84,22 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
             error.addProperty(ERROR, e.getMessage());
             return error;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .commandName(COMMAND)
+                .description("Move the cursor to a point then issue a press/release click on the active mouse handler.")
+                .param(X, RouteParamType.FLOAT, false, String.valueOf(0),
+                        "Target X coordinate.", "0.5")
+                .param(Y, RouteParamType.FLOAT, false, String.valueOf(0),
+                        "Target Y coordinate.", "0.25")
+                .param(NORMALIZED, RouteParamType.BOOL, false, "false",
+                        "Treat X/Y as fractions of window size rather than pixels.", "true")
+                .param(BUTTON, RouteParamType.INT, false, String.valueOf(0),
+                        "GLFW mouse button code.", "1")
+                .responseHint("{ok, event:{xPx, yPx, xNorm, yNorm, button}}")
+                .build();
     }
 }

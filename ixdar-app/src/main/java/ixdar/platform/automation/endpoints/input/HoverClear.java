@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.TradeMouseTrap;
@@ -46,5 +47,14 @@ public class HoverClear extends AutomationEndpoint implements AutomationRoute {
             err.addProperty("error", e.getMessage());
             return err;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .commandName("hover-clear")
+                .description("Release the persistent automation hover lock on the active trade mouse handler.")
+                .responseHint("{ok}")
+                .build();
     }
 }

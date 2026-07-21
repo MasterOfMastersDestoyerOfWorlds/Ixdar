@@ -7,6 +7,8 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 
@@ -47,5 +49,16 @@ public class ProjectionSet extends AutomationEndpoint implements AutomationRoute
             err.addProperty(ERROR, e.getMessage());
             return err;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .commandName("projection-set")
+                .description("Toggle the active mesh viewer between orthographic and perspective projection.")
+                .param(ORTHOGRAPHIC, RouteParamType.BOOL, false, "false",
+                        "True selects orthographic projection; false selects perspective.", "true")
+                .responseHint("{ok, orthographic}")
+                .build();
     }
 }

@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
 import ixdar.platform.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "replay/pause", method = APIMethod.POST)
@@ -35,5 +36,13 @@ public class Pause extends AutomationEndpoint implements AutomationRoute {
             err.addProperty("error", e.getMessage());
             return err;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Suspend the replay engine before the next event; no-op when nothing is running.")
+                .responseHint("{ok, paused}")
+                .build();
     }
 }

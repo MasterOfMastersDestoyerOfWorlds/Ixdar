@@ -7,6 +7,8 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.automation.endpoints.AutomationRuntime;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
@@ -73,5 +75,19 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
             err.addProperty(ERROR, msg.toString());
             return err;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Load and execute a named DSL skill graph, making its output geometry the active mesh.")
+                .param(NAME, RouteParamType.STRING, true, "",
+                        "Name of the DSL skill graph to run.", "skeleton-decompose")
+                .param(NODE, RouteParamType.STRING, false, "",
+                        "Graph node whose output geometry becomes the active mesh.", "output")
+                .param(PORT, RouteParamType.STRING, false, GEOMETRY,
+                        "Output port on the selected node to read geometry from.", GEOMETRY)
+                .responseHint("{ok, dsl, node, port, vertices, faces, timing...}")
+                .build();
     }
 }

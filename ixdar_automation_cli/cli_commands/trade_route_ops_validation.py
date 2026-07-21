@@ -1,15 +1,11 @@
-#!/usr/bin/env python3
-import argparse
-import json
+"""End-to-end validation of trade route operations (place HQ, initial pipe, grow) against a live app."""
+
 import time
 import urllib.error
 
-try:
-    from .automation_client import DEFAULT_BASE_URL, KEY_G, AutomationClient, collect_trade_tooltip_lines, toolbar_button_center
-    from .trade_scenarios import create_initial_pipe, ensure_trade_scene, place_headquarters, require
-except ImportError:
-    from automation_client import DEFAULT_BASE_URL, KEY_G, AutomationClient, collect_trade_tooltip_lines, toolbar_button_center
-    from trade_scenarios import create_initial_pipe, ensure_trade_scene, place_headquarters, require
+from ..automation_client import KEY_G, AutomationClient, collect_trade_tooltip_lines, toolbar_button_center
+from ..cli_registry import CliCommandResult, cli_command
+from ..trade_scenarios import create_initial_pipe, ensure_trade_scene, place_headquarters, require
 
 
 def run_validation(base_url: str) -> tuple[int, dict]:
@@ -76,14 +72,8 @@ def run_validation(base_url: str) -> tuple[int, dict]:
         return 2, {"ok": False, "error": str(exc), "report": report}
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(prog="trade-route-ops-validation")
-    parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
-    args = parser.parse_args()
-    exit_code, payload = run_validation(args.base_url)
-    print(json.dumps(payload, indent=2))
-    return exit_code
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+@cli_command(name="validate-route-ops")
+def validate_route_ops(client: AutomationClient) -> CliCommandResult:
+    """Validate trade route operations against the running app."""
+    exit_code, payload = run_validation(client.base_url)
+    return CliCommandResult(payload=payload, exit_code=exit_code)

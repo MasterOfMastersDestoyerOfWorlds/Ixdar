@@ -28,10 +28,29 @@ class CliTest(unittest.TestCase):
     def test_build_parser_registers_decorated_commands(self):
         ixdar_cli._build_parser()
         registry = get_registry()
-        self.assertIn("health", registry)
+        self.assertIn("mesh-state", registry)
         self.assertIn("assert-tooltip", registry)
         self.assertIn("trade-hover-scan", registry)
         self.assertIn("quilt-mesh-compare", registry)
+
+    def test_registry_walks_every_command_module(self):
+        # Guards the walker: these commands live in modules nothing else imports, so a broken
+        # discovery walk drops them silently rather than failing loudly.
+        registry = get_registry()
+        for command_name in ("install-alias", "gen-docs", "dsl-optimize", "mesh-viewer",
+                             "rebuild-krieg-web", "validate-route-ops", "new-scene"):
+            self.assertIn(command_name, registry)
+
+    def test_build_parser_registers_server_routes(self):
+        ixdar_cli._build_parser()
+        server_commands = ixdar_cli._server_commands()
+        # Server commands are generated from the manifest; their names come from Java describe().
+        self.assertIn("health", server_commands)
+        self.assertIn("click", server_commands)
+        self.assertIn("mesh-patches-decompose", server_commands)
+        self.assertIn("record-start", server_commands)
+        # Names owned by a registry command (e.g. the mesh-overlay scenario) are not duplicated.
+        self.assertNotIn("mesh-overlay", server_commands)
 
     @patch("urllib.request.urlopen")
     def test_health_command(self, urlopen):
@@ -278,13 +297,13 @@ class CliTest(unittest.TestCase):
         exit_code = ixdar_cli.main(["assert-tooltip", "--contains", "Pipe (P)", "--contains", "Collapse (C)"])
         self.assertEqual(0, exit_code)
 
-    @patch("ixdar_automation_cli.ixdar_cli.run_validation")
+    @patch("ixdar_automation_cli.cli_commands.trade_route_ops_validation.run_validation")
     def test_validate_route_ops_command_invokes_validation(self, run_validation):
         run_validation.return_value = (0, {"ok": True, "report": {"steps": []}})
-        exit_code = ixdar_cli.main(["validate", "route-ops"])
+        exit_code = ixdar_cli.main(["validate-route-ops"])
         self.assertEqual(0, exit_code)
 
-    @patch("ixdar_automation_cli.ixdar_cli.scaffold_new_scene")
+    @patch("ixdar_automation_cli.cli_commands.new_scene.scaffold_new_scene")
     def test_new_scene_command_invokes_scaffolder(self, scaffold_new_scene):
         scaffold_new_scene.return_value = {"ok": True, "dryRun": True}
         exit_code = ixdar_cli.main(

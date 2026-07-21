@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
 import ixdar.platform.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "replay/cancel", method = APIMethod.POST)
@@ -24,5 +25,13 @@ public class Cancel extends AutomationEndpoint implements AutomationRoute {
         runtime.replayEngine().cancel();
         result.addProperty("ok", true);
         return result;
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Signal the active replay to abort at the next event boundary; no-op if idle.")
+                .responseHint("{ok}")
+                .build();
     }
 }

@@ -8,6 +8,7 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 
@@ -50,5 +51,13 @@ public class Timing extends AutomationEndpoint implements AutomationRoute {
         }
         result.add("nodes", nodes);
         return result;
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Report per-node execution times from the most recent DSL graph run.")
+                .responseHint("{ok, total_ms, nodes:[{node, ms}, ...]}")
+                .build();
     }
 }

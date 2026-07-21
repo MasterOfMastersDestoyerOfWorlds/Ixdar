@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
@@ -31,5 +32,14 @@ public class OrbitGet extends AutomationEndpoint implements AutomationRoute {
             result.addProperty("mesh_radius", mvs.getMeshRadius());
         }
         return result;
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .commandName("orbit-get")
+                .description("Report the active mesh viewer's current camera orbit and mesh radius.")
+                .responseHint("{ok, azimuth, elevation, distance, mesh_radius?}")
+                .build();
     }
 }

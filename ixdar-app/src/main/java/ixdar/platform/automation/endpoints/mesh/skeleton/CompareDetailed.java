@@ -11,6 +11,8 @@ import com.google.gson.JsonParser;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
+import ixdar.annotations.automation.RouteParamType;
 import ixdar.geometry.mesh.data.MeshSkeletonComparator;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.load.MeshLoader;
@@ -95,5 +97,19 @@ public class CompareDetailed extends AutomationEndpoint implements AutomationRou
             err.addProperty(ERROR, e.getMessage());
             return err;
         }
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Detailed skeleton comparison returning per-joint 3D position deltas.")
+                .param(GENERATED, RouteParamType.STRING, true, "",
+                        "Path to the generated mesh OBJ.", "out/generated.obj")
+                .param(REFERENCE, RouteParamType.STRING, true, "",
+                        "Path to the reference mesh OBJ.", "meshes/target.obj")
+                .param(RESOLUTION, RouteParamType.INT, false, String.valueOf(NUM_128),
+                        "Voxel grid resolution for skeleton extraction.", "256")
+                .responseHint("{ok, generated_path, reference_path, resolution, ...jointDeltas}")
+                .build();
     }
 }

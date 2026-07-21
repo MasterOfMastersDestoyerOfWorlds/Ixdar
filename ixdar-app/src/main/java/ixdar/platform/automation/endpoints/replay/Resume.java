@@ -8,6 +8,7 @@ import com.sun.net.httpserver.HttpExchange;
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.RouteDoc;
 import ixdar.platform.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "replay/resume", method = APIMethod.POST)
@@ -27,5 +28,13 @@ public class Resume extends AutomationEndpoint implements AutomationRoute {
         result.addProperty("paused", runtime.replayEngine().isPaused());
         return result;
 
+    }
+
+    @Override
+    public RouteDoc describe() {
+        return RouteDoc.builder()
+                .description("Clear the paused flag on the replay engine; no-op when nothing is running.")
+                .responseHint("{ok, paused}")
+                .build();
     }
 }
