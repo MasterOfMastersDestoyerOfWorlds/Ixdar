@@ -87,7 +87,7 @@ public final class ZeroPatchSplitOperator {
 
         List<Integer> routed = new ArrayList<>();
         if (!rerouter.tryRoute(EmbeddedTMesh.NONE, routed, startVertex, endVertex, corridor,
-                new ArrayList<>(), EmbeddedMeshTopology.UNCLAIMED, ArcRerouter.REFINE_ROUND_CAP)) {
+                EmbeddedMeshTopology.UNCLAIMED, ArcRerouter.REFINE_ROUND_CAP)) {
             throw new IllegalStateException("could not route a zero-arc across patch " + patchId
                     + " from node " + tjointNodeId + " to node " + oppositeNodeId);
         }

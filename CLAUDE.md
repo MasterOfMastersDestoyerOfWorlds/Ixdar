@@ -82,13 +82,20 @@ We profile with [async-profiler](https://github.com/async-profiler/async-profile
 -agentpath:/usr/lib/libasyncProfiler.so=start,event=cpu,file=${workspaceFolder}/profile.html
 ```
 
-The agent writes exactly one file per run, so don't expect a separate text dump — instead extract the textual view from that same HTML with `tools/parse_async_profile.py`:
+For a scene, don't assemble this by hand — `ixdar-cli run-scene --profile` attaches the agent, waits for the scene, shuts the JVM down cleanly (async-profiler only flushes its HTML at exit) and prints the parsed hot-method table in one command:
 
 ```
-python3 tools/parse_async_profile.py profile.html --top 30 [substr ...]
+uv run ixdar-cli run-scene --scene embedded-tmesh --profile --timeout 420 \
+  --property embeddedTMesh.off=<mesh.off> --property embeddedTMesh.contractFail=true
 ```
 
-It reconstructs async-profiler's prefix-compressed `cpool` and replays the `f()/u()/n()` frame stream to report **self-time per method** (where the CPU actually was) and total samples. Trailing substrings filter an extra "inclusive / self" table to matching frames (e.g. `integrateCurvature applySparse vertexPosition`) — use this to compare a method's own cost against time spent in its callees. The parser also reads async-profiler `collapsed` (folded-stack) text if we ever capture that instead.
+The agent writes exactly one file per run (`profile.html` at the repo root by default), so don't expect a separate text dump — the textual view is extracted from that same HTML by `ixdar_automation_cli/async_profile.py`, which `run-scene` calls for you. To re-read an existing capture without re-running:
+
+```
+python3 -m ixdar_automation_cli.async_profile profile.html --top 30 [substr ...]
+```
+
+It reconstructs async-profiler's prefix-compressed `cpool` and replays the `f()/u()/n()` frame stream to report **self-time per method** (where the CPU actually was) and total samples. Trailing substrings filter an extra "inclusive / self" table to matching frames (e.g. `integrateCurvature applySparse vertexPosition`) — use this to compare a method's own cost against time spent in its callees.
 
 When reading results: a high *inclusive* but low *self* number means the cost is in callees (often mesh accessors or `HashMap.getNode` from the boxing `faceIdToActive`/`edgeIdToActive` maps), not the method itself — optimize the callee or the call count, not the method body.
 

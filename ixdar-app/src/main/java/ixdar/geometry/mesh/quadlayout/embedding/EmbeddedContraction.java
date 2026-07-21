@@ -1,5 +1,9 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+
 /**
  * Drives LCBK19 §6.1's three re-embedding operators to a fixed point: it applies the zero-arc
  * collapse, the non-simple zero-patch split, and the simple zero-patch collapse
@@ -28,6 +32,9 @@ public final class EmbeddedContraction {
      * a split; any value above two works, and this leaves ample margin.
      */
     public static final long NON_SIMPLE_WEIGHT = 1000L;
+
+    /** Diagnostic prefix naming an arc in the torn-layout report. */
+    private static final String ARC_TAG = " a";
 
     public final EmbeddedTMesh tmesh;
     public final int expectedEulerCharacteristic;
@@ -71,6 +78,67 @@ public final class EmbeddedContraction {
         long measure = terminationMeasure();
         while (applyOneOperator()) {
             tmesh.validate(expectedEulerCharacteristic);
+            if (Boolean.getBoolean("embeddedTMesh.checkRegions")) {
+                try {
+                    new PatchRegions(tmesh).build();
+                } catch (IllegalStateException torn) {
+                    StringBuilder patchArcs = new StringBuilder();
+                    for (EmbeddedPatch patch : tmesh.patches) {
+                        if (!patch.alive) {
+                            continue;
+                        }
+                        Set<Integer> boundary = new TreeSet<>();
+                        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+                            boundary.addAll(patch.sideArcIds.get(side));
+                        }
+                        patchArcs.append(" P").append(patch.patchId).append(boundary);
+                    }
+                    StringBuilder arcPaths = new StringBuilder();
+                    for (EmbeddedArc arc : tmesh.arcs) {
+                        if (!arc.alive) {
+                            continue;
+                        }
+                        List<Integer> path = arc.path.copyVertexPath;
+                        int startVertex = tmesh.nodes.get(arc.startNodeId).copyVertex;
+                        int endVertex = tmesh.nodes.get(arc.endNodeId).copyVertex;
+                        int head = path.get(0);
+                        int tail = path.get(path.size() - 1);
+                        boolean anchored = head == startVertex && tail == endVertex
+                                || head == endVertex && tail == startVertex;
+                        if (!anchored) {
+                            arcPaths.append(ARC_TAG).append(arc.arcId).append(" DANGLES path[")
+                                    .append(head).append("..").append(tail).append("] nodes[")
+                                    .append(startVertex).append(",").append(endVertex).append("]");
+                        }
+                        if (new TreeSet<>(path).size() != path.size()) {
+                            arcPaths.append(ARC_TAG).append(arc.arcId).append(" NOT-SIMPLE").append(path);
+                        }
+                        for (int step = 1; step < path.size(); step++) {
+                            int edgeId = tmesh.topology.edgeBetween(path.get(step - 1), path.get(step));
+                            if (edgeId == EmbeddedMeshTopology.UNCLAIMED
+                                    || tmesh.topology.ownerArcByCopyEdge[edgeId] != arc.arcId) {
+                                arcPaths.append(ARC_TAG).append(arc.arcId).append(" UNCLAIMED-EDGE@")
+                                        .append(step).append("(owner=")
+                                        .append(edgeId == EmbeddedMeshTopology.UNCLAIMED ? "noEdge"
+                                                : tmesh.topology.ownerArcByCopyEdge[edgeId])
+                                        .append(")");
+                            }
+                        }
+                    }
+                    StringBuilder degrees = new StringBuilder();
+                    for (EmbeddedNode node : tmesh.nodes) {
+                        if (node.alive && tmesh.degree(node.nodeId) < 3) {
+                            degrees.append(" n").append(node.nodeId).append("deg=")
+                                    .append(tmesh.degree(node.nodeId))
+                                    .append(tmesh.arcEndsByNode.get(node.nodeId));
+                        }
+                    }
+                    arcPaths.append(" | lowDegreeNodes:").append(degrees);
+                    throw new IllegalStateException("regions torn by " + lastStep + " | "
+                            + torn.getMessage() + " | live patches:" + patchArcs
+                            + " | live arcs:" + arcPaths, torn);
+                }
+            }
             long next = terminationMeasure();
             if (next >= measure) {
                 throw new IllegalStateException("contraction did not make progress: the"

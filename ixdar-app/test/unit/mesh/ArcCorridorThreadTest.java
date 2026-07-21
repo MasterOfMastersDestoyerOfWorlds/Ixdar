@@ -83,7 +83,7 @@ class ArcCorridorThreadTest {
         Set<Integer> corridor = unclaimedVertices(topology);
         List<Integer> routed = new ArrayList<>();
         boolean reached = new ArcRerouter(topology).tryRoute(CLAIM_MARKER, routed, startVertex,
-                targetVertex, corridor, List.of(), EmbeddedMeshTopology.UNCLAIMED,
+                targetVertex, corridor, EmbeddedMeshTopology.UNCLAIMED,
                 ArcRerouter.REFINE_ROUND_CAP);
 
         assertTrue(reached, "a threadable region must be re-routable with refinement");

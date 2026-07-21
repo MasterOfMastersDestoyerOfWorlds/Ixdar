@@ -90,7 +90,6 @@ public final class ArcRerouter {
      * @param startCopyVertex hop source
      * @param endCopyVertex   hop target
      * @param corridor        allowed vertex set, mutated by refinement and growth
-     * @param pullPolyline    positions pulling the path onto the arc's old lane
      * @param passThrough     a claimed vertex the search may transit anyway — the collapsing
      *                        node, which the arc must follow to its new home — or
      *                        {@link EmbeddedMeshTopology#UNCLAIMED} for none
@@ -98,8 +97,7 @@ public final class ArcRerouter {
      * @return whether the path now ends at the target
      */
     public boolean tryRoute(int arcId, List<Integer> vertices, int startCopyVertex,
-            int endCopyVertex, Set<Integer> corridor, List<Vector3f> pullPolyline,
-            int passThrough, int roundCap) {
+            int endCopyVertex, Set<Integer> corridor, int passThrough, int roundCap) {
         if (vertices.isEmpty()) {
             vertices.add(startCopyVertex);
         }
@@ -109,8 +107,7 @@ public final class ArcRerouter {
         int growths = 0;
         int splitBudget = SPLIT_BUDGET;
         for (int round = 0; round <= roundCap; round++) {
-            if (dijkstraSearch(vertices, startCopyVertex, endCopyVertex, corridor, pullPolyline,
-                    passThrough)) {
+            if (dijkstraSearch(vertices, startCopyVertex, endCopyVertex, corridor, passThrough)) {
                 if (refined) {
                     refinedRetryCount++;
                 }
@@ -184,17 +181,21 @@ public final class ArcRerouter {
      * vertices of the corridor, biased onto the arc's old lane by the pull polyline —
      * the paper's "restricted to not intersect (cross or touch) other arcs".
      *
+     * <p>The pull term is memoized per vertex. It depends only on the vertex's position, so it is
+     * constant for the whole search, yet a vertex is relaxed once per incoming edge — recomputing it
+     * each time walked the entire polyline again for an answer already known. On the sphere
+     * contraction that recomputation was the second-largest cost in the profile.
+     *
      * @param vertices      path list, extended with the found hop
      * @param startVertex   search source
      * @param endCopyVertex search target
      * @param corridor      allowed vertex set
-     * @param polyline      positions pulling the hop onto a lane, or empty
      * @param passThrough   a claimed vertex the search may transit anyway, or
      *                      {@link EmbeddedMeshTopology#UNCLAIMED} for none
      * @return whether the target was reached
      */
     private boolean dijkstraSearch(List<Integer> vertices, int startVertex, int endCopyVertex,
-            Set<Integer> corridor, List<Vector3f> polyline, int passThrough) {
+            Set<Integer> corridor, int passThrough) {
         Map<Integer, Float> distance = new HashMap<>();
         Map<Integer, Integer> parentVertex = new HashMap<>();
         PriorityQueue<DijkstraNode> frontier = new PriorityQueue<>();
@@ -231,8 +232,7 @@ public final class ArcRerouter {
                     continue;
                 }
                 topology.copy.vertexPosition(neighbor, positionOther);
-                float newDistance = head.distance + positionHere.distance(positionOther)
-                        + distanceToPolyline(positionOther, polyline);
+                float newDistance = head.distance + positionHere.distance(positionOther);
                 if (newDistance < distance.getOrDefault(neighbor, Float.POSITIVE_INFINITY)) {
                     distance.put(neighbor, newDistance);
                     parentVertex.put(neighbor, vertex);
@@ -488,46 +488,5 @@ public final class ArcRerouter {
                 || topology.ownerArcByCopyVertex[copyVertex] != EmbeddedMeshTopology.UNCLAIMED;
     }
 
-    /**
-     * Minimum distance from a point to any segment of a pull polyline.
-     *
-     * @param position query position
-     * @param polyline pull positions in travel order
-     * @return distance to the nearest polyline segment, or zero when empty
-     */
-    private float distanceToPolyline(Vector3f position, List<Vector3f> polyline) {
-        if (polyline.isEmpty()) {
-            return 0f;
-        }
-        Vector3f projection = new Vector3f();
-        float best = position.distance(polyline.get(0));
-        for (int index = 1; index < polyline.size(); index++) {
-            best = Math.min(best, projectOntoSegment(position, polyline.get(index - 1),
-                    polyline.get(index), projection));
-        }
-        return best;
-    }
 
-    /**
-     * Project a point onto a segment, clamped to its extent.
-     *
-     * @param point      query point
-     * @param start      segment start
-     * @param end        segment end
-     * @param projection output: the clamped projection
-     * @return distance from the point to the projection
-     */
-    private float projectOntoSegment(Vector3f point, Vector3f start, Vector3f end,
-            Vector3f projection) {
-        Vector3f direction = new Vector3f(end).sub(start);
-        float lengthSquared = direction.lengthSquared();
-        if (lengthSquared < Float.MIN_NORMAL) {
-            projection.set(start);
-            return start.distance(point);
-        }
-        float parameter = new Vector3f(point).sub(start).dot(direction) / lengthSquared;
-        parameter = Math.max(0f, Math.min(1f, parameter));
-        projection.set(start).fma(parameter, direction);
-        return projection.distance(point);
-    }
 }

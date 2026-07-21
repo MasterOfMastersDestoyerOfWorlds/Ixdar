@@ -56,6 +56,9 @@ public final class EmbeddedTMesh {
     /** Diagnostic tag prefixing an arc id in a compact ownership report. */
     private static final String ARC_TAG = "a";
 
+    /** System property enabling the per-drag before/after path trace. */
+    private static final String TRACE_DRAG = "embeddedTMesh.traceDrag";
+
     /** Separator between the two ownership tags of a diagnostic gate report. */
     private static final String TAG_SEPARATOR = "/";
 
@@ -662,13 +665,20 @@ public final class EmbeddedTMesh {
      * with it, i.e. their embedding path is adjusted such that they connect to n0 at its
      * new position"</em>.
      *
-     * <p>The paper's mechanism, exactly: keep the longest prefix of the arc's old path that
-     * still reaches, and re-route the tail from there to the new vertex with a
-     * claims-respecting Dijkstra (the {@link ArcRerouter}), backing off to an earlier
-     * prefix when the search cannot pass, and refining the mesh with a few edge splits when
-     * a lane is walled in. The corridor is seeded with the arc's own old path and the
-     * collapsing arc's freed channel, and the search is biased onto that lane, so the
-     * re-routed arc stays close to where it was.
+     * <p>The mechanism is a drag, not a redraw: keep the longest prefix of the arc's old path that
+     * still reaches, and re-route only the tail from there to the new vertex with a claims-respecting
+     * Dijkstra (the {@link ArcRerouter}), backing off to an earlier prefix when the search cannot
+     * pass, and refining the mesh with a few edge splits when a lane is walled in.
+     *
+     * <p>Preferring the longest surviving prefix is what keeps the arc <em>where it was</em>. LCBK19
+     * spells this out for the border case — the dragged arc is <em>"re-embedded onto the joint edge
+     * paths of b and a"</em>, i.e. its own path extended along the collapsed one. Re-routing the whole
+     * arc between its two endpoints instead looks like the paper's <em>"Dijkstra's shortest path
+     * algorithm between the respective two vertices"</em>, but it is not safe here: at the moment of a
+     * drag the short continuation is blocked by the claims of the collapse, so the search returns a
+     * path around the <em>other</em> side. That path crosses and touches nothing and joins the right
+     * nodes, yet the arc no longer separates the two patches the T-mesh records it as separating, and
+     * the layout tears while every local check still passes.
      *
      * <p>This lives here, not in the operator, because the arc's claims and its {@code path}
      * field must move together — the multi-step back-off leaves them briefly out of step,
@@ -727,7 +737,7 @@ public final class EmbeddedTMesh {
                     corridor.addAll(unclaimedComponent(channel.get(1)));
                 }
                 if (rerouter.tryRoute(arcId, attempt, vertices.get(keep), targetVertex, corridor,
-                        pull, passThrough, ArcRerouter.REFINE_ROUND_CAP)) {
+                        passThrough, ArcRerouter.REFINE_ROUND_CAP)) {
                     List<Integer> edges = new ArrayList<>(prefixEdges);
                     rerouter.rebuildLegEdges(attempt, edges);
                     if (reversed) {
@@ -806,6 +816,117 @@ public final class EmbeddedTMesh {
         }
         return "wallArcs=" + wallArcs.size() + " incident=" + incident
                 + " incidentMoved=" + incidentMoved + " ids=" + wallArcs;
+    }
+
+    /**
+     * The vertices of the two patches an arc separates — the only ground it may be re-routed over.
+     *
+     * <p>LCBK19 restricts the re-route search <em>"to not intersect (cross or touch) other arcs in
+     * order to preserve the topology of the embedded T-mesh"</em>. Skipping claimed edges and
+     * vertices is not enough to deliver that, because a collapse releases <em>two</em> arcs — the one
+     * being dragged and the one being collapsed — and the patches they separated merge into a region
+     * wide enough to hold several non-crossing routes between the same two nodes. Those routes bound
+     * different patches, so the search can return a perfectly legal curve that no longer separates
+     * the patches the T-mesh records it as separating, and the layout tears while every local check
+     * still passes.
+     *
+     * <p>So the walls are built from the arc's <em>own</em> two patches, flooded here while the arc
+     * is still claimed and with the collapsing arc's channel also treated as a wall. Within that
+     * region the arc's two nodes lie on the boundary, so any simple route between them splits it the
+     * same way the old one did and the patches on either side are preserved by construction.
+     *
+     * @param arcVertices  the arc's current path, still claimed, whose two sides are wanted
+     * @param channel      the collapsing arc's released path, treated as a wall so its patches do
+     *                     not merge in
+     * @return every copy vertex on a face of the arc's own two patches
+     */
+    private Set<Integer> arcSideRegionVertices(List<Integer> arcVertices, List<Integer> channel) {
+        Set<Integer> blockedEdges = new HashSet<>();
+        for (int step = 1; step < channel.size(); step++) {
+            int edgeId = topology.edgeBetween(channel.get(step - 1), channel.get(step));
+            if (edgeId != EmbeddedMeshTopology.UNCLAIMED) {
+                blockedEdges.add(edgeId);
+            }
+        }
+        Set<Integer> visitedFaces = new HashSet<>();
+        Set<Integer> regionVertices = new HashSet<>(arcVertices);
+        Deque<Integer> frontier = new ArrayDeque<>();
+        for (int arcVertex : arcVertices) {
+            for (int index = 0; index < topology.copy.vertexFaceCount(arcVertex); index++) {
+                int face = topology.copy.vertexFaceAt(arcVertex, index);
+                if (visitedFaces.add(face)) {
+                    frontier.add(face);
+                }
+            }
+        }
+        while (!frontier.isEmpty()) {
+            int face = frontier.poll();
+            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+                regionVertices.add(topology.copy.faceVertexAt(face, corner));
+                int edgeId = topology.copy.faceEdgeAt(face, corner);
+                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED
+                        || blockedEdges.contains(edgeId)) {
+                    continue;
+                }
+                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+                int neighborFace = topology.copy.halfEdgeFace(halfEdge) == face
+                        ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
+                        : topology.copy.halfEdgeFace(halfEdge);
+                if (neighborFace != EmbeddedMeshTopology.UNCLAIMED && visitedFaces.add(neighborFace)) {
+                    frontier.add(neighborFace);
+                }
+            }
+        }
+        return regionVertices;
+    }
+
+    /**
+     * The vertices of the region a collapse has freed around the moving node: every corner of every
+     * face reachable from it without crossing an arc.
+     *
+     * <p>This is the ground a dragged arc is allowed to move over, and confining it matters as much
+     * as finding a short path. By the time a drag runs, the collapsing arc's claims and the dragged
+     * arc's own claims have both been released, so the patches those two arcs separated have merged
+     * into exactly one region — and the survivor lies on its boundary, being an endpoint of the
+     * collapsing arc. Any path inside it keeps the arc between the same patches it always separated.
+     *
+     * <p>A shortest path over a wider corridor does not: it can slip through a neighbouring patch and
+     * come out bounding different patches than before, which leaves the layout torn — regions no
+     * longer matching the patches that are supposed to enclose them. LCBK19's operators are
+     * <em>"local operators concerning individual zero-patches"</em>, and this is what that locality
+     * means concretely.
+     *
+     * @param seedVertex the moving node's copy vertex, inside the freed region
+     * @return every copy vertex on a face of that region
+     */
+    private Set<Integer> freedRegionVertices(int seedVertex) {
+        Set<Integer> visitedFaces = new HashSet<>();
+        Set<Integer> regionVertices = new HashSet<>();
+        Deque<Integer> frontier = new ArrayDeque<>();
+        for (int index = 0; index < topology.copy.vertexFaceCount(seedVertex); index++) {
+            int face = topology.copy.vertexFaceAt(seedVertex, index);
+            if (visitedFaces.add(face)) {
+                frontier.add(face);
+            }
+        }
+        while (!frontier.isEmpty()) {
+            int face = frontier.poll();
+            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+                regionVertices.add(topology.copy.faceVertexAt(face, corner));
+                int edgeId = topology.copy.faceEdgeAt(face, corner);
+                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                    continue;
+                }
+                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+                int neighborFace = topology.copy.halfEdgeFace(halfEdge) == face
+                        ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
+                        : topology.copy.halfEdgeFace(halfEdge);
+                if (neighborFace != EmbeddedMeshTopology.UNCLAIMED && visitedFaces.add(neighborFace)) {
+                    frontier.add(neighborFace);
+                }
+            }
+        }
+        return regionVertices;
     }
 
     /**
