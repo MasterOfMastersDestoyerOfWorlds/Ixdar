@@ -7,9 +7,12 @@ import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedContraction;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRectangleMap;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRegionMapper;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRegions;
+import ixdar.geometry.mesh.quadlayout.embedding.ThreeConnectivityRefinement;
 import ixdar.geometry.mesh.quadlayout.embedding.TorusLayoutFixture;
 
 /**
@@ -82,6 +85,67 @@ class PatchRectangleMapTest {
     }
 
     /**
+     * MPZ14 §4's precondition for Tutte's map, stated on the contracted torus:
+     * <em>"we ensure that each quad face has a 3-connected mesh, so that bijective parametrizations
+     * of the faces over a parametric-domain rectangles can be obtained using Tutte's maps. To
+     * achieve this, each edge with two vertices on the boundary is subdivided."</em>
+     *
+     * <p>Within a patch region every interior vertex is unclaimed and every boundary vertex is
+     * claimed by a bounding arc or node, so <em>"an edge with two vertices on the boundary"</em> is
+     * exactly an unclaimed copy edge whose two endpoints are both claimed. Such an edge is a chord:
+     * it is a 2-cut of the region, which breaks the 3-connectivity Tutte's theorem needs, and a
+     * triangle with all three corners on the boundary is pinned collinear on the rectangle and so
+     * has exactly zero area — which {@link PatchRectangleMap#assertFoldFree} counts as folded.
+     */
+    @Test
+    void contractedTorusHasNoBoundaryChords() {
+        TorusLayoutFixture fixture = new TorusLayoutFixture();
+        new EmbeddedContraction(fixture.tmesh, TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC)
+                .contract();
+        new ThreeConnectivityRefinement(fixture.tmesh).refine();
+
+        assertEquals(0, boundaryChordCount(fixture.tmesh),
+                "no unclaimed copy edge may join two claimed vertices — MPZ14 §4 subdivides each"
+                        + " edge with two vertices on the boundary");
+    }
+
+    /**
+     * The number of chord edges in the working copy: unclaimed edges whose two endpoints are both
+     * claimed by an arc or a node.
+     *
+     * @param tmesh embedded T-mesh whose working copy is scanned
+     * @return the count of chord edges
+     */
+    private int boundaryChordCount(EmbeddedTMesh tmesh) {
+        EmbeddedMeshTopology topology = tmesh.topology;
+        int chords = 0;
+        for (int edgeIndex = 0; edgeIndex < topology.copy.edgeCount(); edgeIndex++) {
+            int edgeId = topology.copy.edgeIdAt(edgeIndex);
+            if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                continue;
+            }
+            int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+            if (isClaimed(topology, topology.copy.halfEdgeVertex(halfEdge))
+                    && isClaimed(topology, topology.copy.halfEdgeEndVertex(halfEdge))) {
+                chords++;
+            }
+        }
+        return chords;
+    }
+
+    /**
+     * Whether a copy vertex lies on a patch boundary — owned by an arc or a node.
+     *
+     * @param topology   working copy carrying the claim arrays
+     * @param copyVertex vertex to test
+     * @return true when either ownership claim is set
+     */
+    private boolean isClaimed(EmbeddedMeshTopology topology, int copyVertex) {
+        return topology.ownerArcByCopyVertex[copyVertex] != EmbeddedMeshTopology.UNCLAIMED
+                || topology.ownerNodeByCopyVertex[copyVertex] != EmbeddedMeshTopology.UNCLAIMED;
+    }
+
+    /**
      * The gate the plan names: after contracting the Figure-9 torus to a zero-element-free layout,
      * every live patch maps bijectively onto its rectangle — no folded triangles — so a straight
      * line drawn in any patch's rectangle is guaranteed crossing-free when pulled back.
@@ -91,6 +155,7 @@ class PatchRectangleMapTest {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
         new EmbeddedContraction(fixture.tmesh, TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC)
                 .contract();
+        new ThreeConnectivityRefinement(fixture.tmesh).refine();
         PatchRegions regions = new PatchRegions(fixture.tmesh).build();
         PatchRegionMapper mapper = new PatchRegionMapper(fixture.tmesh, regions);
 

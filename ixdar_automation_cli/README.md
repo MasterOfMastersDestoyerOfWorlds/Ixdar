@@ -79,6 +79,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`probe`](#probe) | Capture the core automation probe bundle. |
 | [`quilt-mesh-compare`](#quilt-mesh-compare) | Compare mesh viewer canonical fingerprint to a reference OBJ (same algorithm as Java). |
 | [`rebuild-krieg-web`](#rebuild-krieg-web) | Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB overrides path). |
+| [`run-scene`](#run-scene) | Build, launch, wait for, optionally profile and screenshot, then shut down a scene. |
 | [`start-new-game`](#start-new-game) | Leave the menu by clicking Start New Game. |
 | [`trade-hover-scan`](#trade-hover-scan) | Scan trade cities until the requested toolbar tooltip appears. |
 | [`validate-route-ops`](#validate-route-ops) | Validate trade route operations against the running app. |
@@ -107,7 +108,7 @@ Move the cursor to a point then issue a press/release click on the active mouse 
 Liveness probe reporting server status, recording/replaying flags, and port.
 
 - **Route:** `GET /health`
-- **Response:** `{status, timestamp, recording, replaying, port}`
+- **Response:** `{status, timestamp, recording, replaying, sceneReady, port}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/health`
 
 ### `hover`
@@ -663,6 +664,26 @@ Compare mesh viewer canonical fingerprint to a reference OBJ (same algorithm as 
 
 Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB overrides path).
 
+
+### `run-scene`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scene_runner.py#L253)
+
+Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
+
+- `--scene` — Scene id passed to IxdarWindow (see @SceneAnnotation ids).
+- `--property` — Repeatable ``key=value`` JVM system property.
+- `--profile` — Capture an async-profiler CPU flame graph.
+- `--profile-path` — Profile output path (default: profile.html at the repo root).
+- `--await-log` — Regex to wait for in the scene log, in addition to readiness.
+- `--timeout` — Seconds to wait for the scene to become ready.
+- `--screenshot` — Capture a screenshot to this path once ready.
+- `--multiview` — Capture an 8-angle multiview composite to this path once ready.
+- `--log` — Path for the scene's stdout/stderr (default: /tmp/ixdar-scene-<scene>.log).
+- `--skip-build` — Do not compile first; run whatever classes are on disk.
+- `--keep-alive` — Leave the scene running instead of shutting it down.
+- `--headless` — Run without a visible window.
+- `--top` — How many hot methods to report from the profile.
 
 ### `start-new-game`
 

@@ -21,6 +21,7 @@ public class Health extends AutomationEndpoint implements AutomationRoute {
         health.addProperty("timestamp", Instant.now().toString());
         health.addProperty("recording", runtime.recorder.isRecording());
         health.addProperty("replaying", runtime.replayEngine.isReplaying());
+        health.addProperty("sceneReady", runtime.canvas != null && runtime.canvas.sceneReady);
         health.addProperty(
                 "port",
                 runtime.server == null ? -1 : runtime.server.port());
@@ -31,7 +32,7 @@ public class Health extends AutomationEndpoint implements AutomationRoute {
     public RouteDoc describe() {
         return RouteDoc.builder()
                 .description("Liveness probe reporting server status, recording/replaying flags, and port.")
-                .responseHint("{status, timestamp, recording, replaying, port}")
+                .responseHint("{status, timestamp, recording, replaying, sceneReady, port}")
                 .build();
     }
 }

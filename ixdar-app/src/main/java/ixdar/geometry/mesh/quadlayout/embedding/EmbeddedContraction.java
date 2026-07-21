@@ -94,6 +94,11 @@ public final class EmbeddedContraction {
     public ArcRerouteFailure contractToFailure() {
         while (true) {
             String before = liveCounts();
+            if (Boolean.getBoolean("embeddedTMesh.traceSteps")) {
+                System.out.println("[contract] step " + (arcCollapseCount + patchSplitCount
+                        + patchCollapseCount) + " counts=" + before + " copyV="
+                        + tmesh.topology.copy.vertexCount());
+            }
             try {
                 if (!applyOneOperator()) {
                     return null;

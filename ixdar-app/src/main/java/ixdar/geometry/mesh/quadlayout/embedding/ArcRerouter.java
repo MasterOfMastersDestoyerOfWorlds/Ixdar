@@ -117,7 +117,8 @@ public final class ArcRerouter {
                 return true;
             }
             int splits = splitBudget > 0
-                    ? refineCorridorGates(startCopyVertex, endCopyVertex, corridor, splitBudget)
+                    ? refineCorridorGates(startCopyVertex, endCopyVertex, corridor, passThrough,
+                            splitBudget)
                     : 0;
             if (splits == 0 && splitBudget > 0) {
                 splits = refineBlockedEdges(corridor, refineMints, splitBudget);
@@ -258,26 +259,51 @@ public final class ArcRerouter {
      * sub-triangle, building a connected lane of free vertices through the pinch instead of isolated
      * midpoints.
      *
+     * <p>When no such face path exists at all and the search is allowed to transit a claimed vertex,
+     * the passage runs <em>through</em> that vertex and is refined as two legs instead. The
+     * collapsing node is a cut vertex: claimed arcs radiating from it divide its fan into sectors
+     * that meet only at the vertex and never across an edge, so the arc's body and the survivor can
+     * sit in different sectors with no face path between them, while a vertex path may still step
+     * through the node — which is legal precisely because the arc being pulled is incident to it.
+     * The blocking gates then lie on the node-to-target leg, and asking only for a body-to-target
+     * corridor would find nothing and refine nothing.
+     *
      * @param startVertex source of the blocked search
      * @param endVertex   target of the blocked search
      * @param corridor    corridor vertex set; minted vertices join it
+     * <p>Every vertex the passage runs along is admitted to the corridor, not just the midpoints
+     * minted here. Splitting a gate is pointless if the search is then not allowed to stand on the
+     * ordinary vertices either side of it, and the caller's corridor is built from the arc's old
+     * path and the vacated channel — it has no reason to already contain the ground the passage
+     * crosses. A leg can need no splits at all and still be unwalkable for exactly this reason.
+     * Claimed vertices are admitted too and cost nothing: the search rejects them on their claim
+     * regardless of corridor membership.
+     *
+     * @param passThrough claimed vertex the search may transit, or
+     *                    {@link EmbeddedMeshTopology#UNCLAIMED} for none
      * @param splitBudget maximum splits this round may make
      * @return number of blocking gates split
      */
     private int refineCorridorGates(int startVertex, int endVertex, Set<Integer> corridor,
-            int splitBudget) {
+            int passThrough, int splitBudget) {
+        List<Integer> crossings = corridorGateEdges(startVertex, endVertex);
+        if (crossings.isEmpty() && passThrough != EmbeddedMeshTopology.UNCLAIMED) {
+            crossings = new ArrayList<>(corridorGateEdges(startVertex, passThrough));
+            crossings.addAll(corridorGateEdges(passThrough, endVertex));
+        }
         int splits = 0;
-        for (int edgeId : corridorGateEdges(startVertex, endVertex)) {
-            if (splits >= splitBudget) {
-                return splits;
-            }
-            if (!topology.copy.hasEdge(edgeId)
-                    || topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+        for (int edgeId : crossings) {
+            if (!topology.copy.hasEdge(edgeId)) {
                 continue;
             }
             int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-            if (!vertexClaimed(topology.copy.halfEdgeVertex(halfEdge))
-                    || !vertexClaimed(topology.copy.halfEdgeEndVertex(halfEdge))) {
+            int endpointA = topology.copy.halfEdgeVertex(halfEdge);
+            int endpointB = topology.copy.halfEdgeEndVertex(halfEdge);
+            corridor.add(endpointA);
+            corridor.add(endpointB);
+            if (splits >= splitBudget
+                    || topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED
+                    || !vertexClaimed(endpointA) || !vertexClaimed(endpointB)) {
                 continue;
             }
             corridor.add(topology.splitEdgeAtParameter(edgeId, EDGE_MIDPOINT));

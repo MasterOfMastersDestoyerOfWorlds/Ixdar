@@ -767,6 +767,7 @@ public final class EmbeddedTMesh {
                 + " faceThreadBodyToTarget="
                 + faceReachesAcrossFreeEdges(vertices.get(1), targetVertex)
                 + " body:" + faceCorridorReport(vertices.get(1), targetVertex)
+                + " bodyToPivot:" + faceCorridorReport(vertices.get(1), movedVertex)
                 + " pivot:" + faceCorridorReport(movedVertex, targetVertex) + ")";
         throw new ArcRerouteFailure(message, arcId, movedVertex, targetVertex,
                 new ArrayList<>(vertices), new ArrayList<>(channel), bodyComponent,
@@ -903,6 +904,17 @@ public final class EmbeddedTMesh {
         StringBuilder gates = new StringBuilder();
         StringBuilder detail = new StringBuilder();
         int bothClaimed = 0;
+        int freeOutsideCorridor = 0;
+        for (int edgeId : crossings) {
+            int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+            for (int endpoint : new int[] {topology.copy.halfEdgeVertex(halfEdge),
+                    topology.copy.halfEdgeEndVertex(halfEdge)}) {
+                if (!isClaimedVertex(endpoint) && diagnosticCorridor != null
+                        && !diagnosticCorridor.contains(endpoint)) {
+                    freeOutsideCorridor++;
+                }
+            }
+        }
         for (int edgeId : crossings) {
             int halfEdge = topology.copy.edgeHalfEdge(edgeId);
             int endpointA = topology.copy.halfEdgeVertex(halfEdge);
@@ -915,6 +927,7 @@ public final class EmbeddedTMesh {
             gates.append(blocked);
         }
         return "faceCorridor=" + crossings.size() + " gates=[" + gates + "] bothClaimed=" + bothClaimed
+                + " freeOutsideCorridor=" + freeOutsideCorridor
                 + " detail=[" + detail.toString().trim() + "]";
     }
 

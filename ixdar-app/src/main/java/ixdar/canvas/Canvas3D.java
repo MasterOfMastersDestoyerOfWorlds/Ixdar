@@ -55,6 +55,11 @@ public class Canvas3D extends SceneDrawable {
     // private SDFTexture logo;
     public boolean active;
 
+    /**
+     * Whether {@link #initGL()} has returned, so the scene is built and safe to drive.
+     */
+    public volatile boolean sceneReady;
+
     public Camera3D camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f, this);
     public MouseTrap mouse = new MouseTrap(null, camera, this);
     public KeyGuy keys = new KeyGuy(camera, this);

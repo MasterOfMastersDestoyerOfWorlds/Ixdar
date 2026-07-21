@@ -56,7 +56,7 @@
       "sourceClass": "ixdar.platform.automation.endpoints.Health",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/Health.java",
       "params": [],
-      "responseHint": "{status, timestamp, recording, replaying, port}"
+      "responseHint": "{status, timestamp, recording, replaying, sceneReady, port}"
     },
     {
       "commandName": "hover",

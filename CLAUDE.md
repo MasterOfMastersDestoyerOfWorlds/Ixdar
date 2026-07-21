@@ -194,6 +194,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli probe` — Capture the core automation probe bundle.
 - `ixdar-cli quilt-mesh-compare` — Compare mesh viewer canonical fingerprint to a reference OBJ (same algorithm as Java).
 - `ixdar-cli rebuild-krieg-web` — Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB overrides path).
+- `ixdar-cli run-scene` — Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 - `ixdar-cli start-new-game` — Leave the menu by clicking Start New Game.
 - `ixdar-cli trade-hover-scan` — Scan trade cities until the requested toolbar tooltip appears.
 - `ixdar-cli validate-route-ops` — Validate trade route operations against the running app.

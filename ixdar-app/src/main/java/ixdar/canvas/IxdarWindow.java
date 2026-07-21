@@ -141,6 +141,7 @@ public class IxdarWindow {
         }
         canvas = (Canvas3D) sceneSupplier.get();
         canvas.initGL();
+        canvas.sceneReady = true;
         System.out.println("[headless] scene '" + canvasId + "' ready at " + size + "x" + size
                 + "; automation server up, screenshot with `ixdar-cli screenshot`");
 
@@ -266,6 +267,7 @@ public class IxdarWindow {
         }
         canvas = (Canvas3D) cs.get();
         canvas.initGL();
+        canvas.sceneReady = true;
         if (gb != null) {
             glfwSetWindowIcon(window, gb);
         }
