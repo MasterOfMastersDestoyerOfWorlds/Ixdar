@@ -43,6 +43,9 @@ public final class ArcRerouter {
     /** Split position of a midpoint refinement. */
     private static final double EDGE_MIDPOINT = 0.5;
 
+    /** System property gating the per-split cause classification, off in production. */
+    private static final String CLASSIFY_SPLITS_PROPERTY = "embeddedTMesh.classifySplits";
+
     /**
      * Returned by the targeted refinement when the two vertices lie in different faces of the arc
      * arrangement, which no amount of refinement can change.
@@ -77,6 +80,39 @@ public final class ArcRerouter {
 
     /** Re-routes that only succeeded after refinement. */
     public int refinedRetryCount;
+
+    /**
+     * Of the gate splits, those a claims-respecting search over the <em>whole</em> unclaimed mesh
+     * would have avoided by detouring through free vertices the corridor left out.
+     */
+    public int splitCauseNarrow;
+
+    /**
+     * Of the gate splits, those whose gate is claimed by the arc being dragged itself — its own
+     * re-claimed prefix fencing the tail in, the prefix-first back-off's signature.
+     */
+    public int splitCauseBackoff;
+
+    /**
+     * Of the gate splits, those the whole-mesh search could not avoid either: no all-unclaimed-vertex
+     * path to the target exists, so a genuine 3-connectivity pinch forces the split.
+     */
+    public int splitCauseGenuine;
+
+    /** The arc a {@link #tryRoute} is re-routing, for attributing a gate split to its own claims. */
+    public int currentDragArcId = EmbeddedMeshTopology.UNCLAIMED;
+
+    /**
+     * Blind blocked-edge fallback rounds fired while a claims-respecting path over the whole mesh
+     * still existed — the corridor was too narrow to see it, and the shotgun refined anyway.
+     */
+    public int blockedFallbackAvoidable;
+
+    /** Blind blocked-edge fallback rounds fired when no free path existed anywhere. */
+    public int blockedFallbackGenuine;
+
+    /** Edges the blind blocked-edge fallback split while a free path existed. */
+    public int blockedSplitsAvoidable;
 
     /** Vertices the last search settled, and the corridor it was allowed. */
     public int lastReachedCount;
@@ -142,6 +178,7 @@ public final class ArcRerouter {
         if (vertices.isEmpty()) {
             vertices.add(startCopyVertex);
         }
+        currentDragArcId = arcId;
         lastCorridorSet = corridor;
         boolean refined = false;
         refineMints.clear();
@@ -162,7 +199,18 @@ public final class ArcRerouter {
                 return false;
             }
             if (splits == 0 && splitBudget > 0) {
+                boolean classify = Boolean.getBoolean(CLASSIFY_SPLITS_PROPERTY);
+                boolean freePath = classify
+                        && freeVertexPathExists(startCopyVertex, endCopyVertex, passThrough);
                 splits = refineBlockedEdges(corridor, splitBudget);
+                if (classify && splits > 0) {
+                    if (freePath) {
+                        blockedFallbackAvoidable++;
+                        blockedSplitsAvoidable += splits;
+                    } else {
+                        blockedFallbackGenuine++;
+                    }
+                }
                 splitBudget -= splits;
             }
             splits += mintSpoke(startCopyVertex, corridor) ? 1 : 0;
@@ -328,12 +376,81 @@ public final class ArcRerouter {
                     || !vertexClaimed(endpointA) || !vertexClaimed(endpointB)) {
                 continue;
             }
+            if (Boolean.getBoolean(CLASSIFY_SPLITS_PROPERTY)) {
+                classifyGateSplit(endpointA, endpointB, startVertex, endVertex, passThrough);
+            }
             corridor.add(topology.splitEdgeAtParameter(edgeId, EDGE_MIDPOINT));
             refinedEdgeSplitCount++;
             gateSplitCount++;
             splits++;
         }
         return splits;
+    }
+
+    /**
+     * Attributes one gate split to the candidate cause that explains it, per this session's
+     * diagnosis: genuine 3-connectivity pinch, the dragged arc's own prefix fencing the route in,
+     * or a corridor too narrow to reach a detour the whole mesh still offers.
+     *
+     * @param endpointA   one claimed endpoint of the gate being split
+     * @param endpointB   the other claimed endpoint of the gate being split
+     * @param startVertex source of the blocked search
+     * @param endVertex   target of the blocked search
+     * @param passThrough claimed vertex the search may transit, or
+     *                    {@link EmbeddedMeshTopology#UNCLAIMED} for none
+     */
+    private void classifyGateSplit(int endpointA, int endpointB, int startVertex, int endVertex,
+            int passThrough) {
+        if (!freeVertexPathExists(startVertex, endVertex, passThrough)) {
+            splitCauseGenuine++;
+            return;
+        }
+        boolean selfGate = currentDragArcId != EmbeddedMeshTopology.UNCLAIMED
+                && (topology.ownerArcByCopyVertex[endpointA] == currentDragArcId
+                        || topology.ownerArcByCopyVertex[endpointB] == currentDragArcId);
+        if (selfGate) {
+            splitCauseBackoff++;
+        } else {
+            splitCauseNarrow++;
+        }
+    }
+
+    /**
+     * Whether a claims-respecting path of unclaimed edges through unclaimed vertices reaches the
+     * target from the source, ignoring the corridor entirely — the "could this split have been
+     * avoided by a detour the corridor left out" probe.
+     *
+     * @param startVertex   search source
+     * @param endCopyVertex search target
+     * @param passThrough   a claimed vertex the search may transit, or
+     *                      {@link EmbeddedMeshTopology#UNCLAIMED} for none
+     * @return whether the target is reachable without standing on any other claimed vertex
+     */
+    private boolean freeVertexPathExists(int startVertex, int endCopyVertex, int passThrough) {
+        Deque<Integer> queue = new ArrayDeque<>();
+        Set<Integer> seen = new HashSet<>();
+        queue.add(startVertex);
+        seen.add(startVertex);
+        while (!queue.isEmpty()) {
+            int vertex = queue.poll();
+            if (vertex == endCopyVertex) {
+                return true;
+            }
+            for (int index = 0; index < topology.copy.vertexEdgeCount(vertex); index++) {
+                int edgeId = topology.copy.vertexEdgeAt(vertex, index);
+                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                    continue;
+                }
+                int neighbor = topology.otherEndpoint(edgeId, vertex);
+                if (neighbor != endCopyVertex && neighbor != passThrough && vertexClaimed(neighbor)) {
+                    continue;
+                }
+                if (seen.add(neighbor)) {
+                    queue.add(neighbor);
+                }
+            }
+        }
+        return false;
     }
 
 

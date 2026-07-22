@@ -1,6 +1,8 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 
 import org.joml.Vector3f;
@@ -54,14 +56,40 @@ public final class ZeroPatchSplitOperator {
     }
 
     /**
-     * Splits one non-simple zero-patch: extends its first T-joint across to the opposite side,
-     * inserting a zero-arc, and cuts the patch in two. The T-mesh gains one node, two arcs and
-     * one patch, leaving its Euler characteristic unchanged.
+     * Splits one non-simple zero-patch into simple ones, extending every T-joint it carries.
+     *
+     * <p>LCBK19 §6.1: <em>"this operation splits a non-simple zero-patch into several simple
+     * zero-patches"</em>. Only this patch's descendants are pursued; a neighbour made non-simple by
+     * splitting a shared boundary arc belongs to a later application.
      *
      * @param patchId non-simple zero-patch to split
-     * @throws IllegalStateException when the patch has no extendable T-joint
+     * @throws IllegalStateException when a half has no extendable T-joint
      */
     public void split(int patchId) {
+        Deque<Integer> pending = new ArrayDeque<>();
+        pending.push(patchId);
+        while (!pending.isEmpty()) {
+            int half = pending.pop();
+            if (!tmesh.patches.get(half).alive || !tmesh.isZeroPatch(half)
+                    || tmesh.nonZeroArcCount(half) <= 2) {
+                continue;
+            }
+            for (int descendant : extendOneTJoint(half)) {
+                pending.push(descendant);
+            }
+        }
+    }
+
+    /**
+     * Extends one T-joint across a non-simple zero-patch, inserting a zero-arc and cutting the
+     * patch in two. The T-mesh gains one node, two arcs and one patch, leaving its Euler
+     * characteristic unchanged.
+     *
+     * @param patchId non-simple zero-patch to cut
+     * @return the ids of the two halves
+     * @throws IllegalStateException when the patch has no extendable T-joint
+     */
+    private int[] extendOneTJoint(int patchId) {
         int[] tjoint = findTJoint(patchId);
         int side = tjoint[0];
         int tjointNodeId = tjoint[1];
@@ -82,8 +110,9 @@ public final class ZeroPatchSplitOperator {
                     + " from node " + tjointNodeId + " to node " + oppositeNodeId);
         }
         int newArc = tmesh.addArc(EmbeddedTMesh.NONE, tjointNodeId, oppositeNodeId, 0, false, routed);
-        tmesh.splitPatchByArc(patchId, newArc);
+        int[] halves = tmesh.splitPatchByArc(patchId, newArc);
         splitCount++;
+        return halves;
     }
 
     /**

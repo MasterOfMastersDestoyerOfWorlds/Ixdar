@@ -7,27 +7,32 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * Drives the three re-embedding operators to a fixed point, leaving an embedded T-mesh with no
- * zero arcs and no zero patches.
+ * Drives the three re-embedding operators to a fixed point, leaving no zero arcs or zero patches.
  *
- * <p>Operators apply in the order they depend on: zero-arc collapse, non-simple zero-patch
- * split, simple zero-patch collapse. The termination measure must strictly decrease per step.
+ * <p>The collapsing operators go first — zero-arc, then simple zero-patch — and the non-simple
+ * zero-patch split only when neither applies. The measure decreases per round.
  *
  * <p>See also: LCBK19 Appendix A.3
  */
 public final class EmbeddedContraction {
 
-    /**
-     * Weight on the non-simple-excess term of the termination measure. Must exceed two, since an
-     * operator (2) split removes one unit of excess while raising the low-order terms by two.
-     */
-    public static final long NON_SIMPLE_WEIGHT = 1000L;
+    /** How a {@link #lastStep} report names an operator (2) application. */
+    private static final String SPLIT_STEP_TAG = "non-simple zero-patch split of patch ";
 
     /** Diagnostic prefix naming an arc in the torn-layout report. */
     private static final String ARC_TAG = " a";
 
     /** Closing bracket of a bracketed diagnostic group. */
     private static final String CLOSE_GROUP = "]";
+
+    /** Opening of a patch's non-zero arc count in a diagnostic line. */
+    private static final String PATCH_NON_ZERO_TAG = "P%d(nonZero=%d";
+
+    /** Closing parenthesis of a parenthesised diagnostic group. */
+    private static final String CLOSE_PAREN = ")";
+
+    /** Divisor turning the fixed-point report's elapsed nanoseconds into milliseconds. */
+    private static final long NANOS_PER_MILLI = 1_000_000L;
 
     /** How many surviving zero-patches the fixed-point report names before truncating. */
     private static final int SURVIVOR_REPORT_CAP = 12;
@@ -75,86 +80,136 @@ public final class EmbeddedContraction {
     }
 
     /**
-     * Contracts the T-mesh until no operator applies, validating the decomposition and the
-     * termination measure after every step.
+     * Contracts the T-mesh, validating the decomposition every step and the measure every round.
+     *
+     * <p>A round is what LCBK19 Appendix A.3 measures: one operator (2) split, then operators (1)
+     * and (3) to exhaustion, against the state before the split. Operator (2) raises the measure by
+     * design; the other two lower it.
      *
      * @return this, contracted
-     * @throws IllegalStateException when the T-mesh stops being a cell decomposition or the
-     *                               termination measure fails to strictly decrease
+     * @throws IllegalStateException when the T-mesh stops being a cell decomposition or a round
+     *                               fails to strictly decrease the termination measure
      */
     public EmbeddedContraction contract() {
         long measure = terminationMeasure();
-        while (applyOneOperator()) {
-            tmesh.validate(expectedEulerCharacteristic);
-            if (Boolean.getBoolean(CHECK_REGIONS_PROPERTY)) {
-                try {
-                    new PatchRegions(tmesh).build();
-                } catch (IllegalStateException torn) {
-                    StringBuilder patchArcs = new StringBuilder();
-                    for (EmbeddedPatch patch : tmesh.patches) {
-                        if (!patch.alive) {
-                            continue;
-                        }
-                        Set<Integer> boundary = new TreeSet<>();
-                        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
-                            boundary.addAll(patch.sideArcIds.get(side));
-                        }
-                        patchArcs.append(" P").append(patch.patchId).append(boundary);
-                    }
-                    StringBuilder arcPaths = new StringBuilder();
-                    for (EmbeddedArc arc : tmesh.arcs) {
-                        if (!arc.alive) {
-                            continue;
-                        }
-                        List<Integer> path = arc.path.copyVertexPath;
-                        int startVertex = tmesh.nodes.get(arc.startNodeId).copyVertex;
-                        int endVertex = tmesh.nodes.get(arc.endNodeId).copyVertex;
-                        int head = path.get(0);
-                        int tail = path.get(path.size() - 1);
-                        boolean anchored = head == startVertex && tail == endVertex
-                                || head == endVertex && tail == startVertex;
-                        if (!anchored) {
-                            arcPaths.append(ARC_TAG).append(arc.arcId).append(" DANGLES path[")
-                                    .append(head).append("..").append(tail).append("] nodes[")
-                                    .append(startVertex).append(",").append(endVertex).append(CLOSE_GROUP);
-                        }
-                        if (new TreeSet<>(path).size() != path.size()) {
-                            arcPaths.append(ARC_TAG).append(arc.arcId).append(" NOT-SIMPLE").append(path);
-                        }
-                        for (int step = 1; step < path.size(); step++) {
-                            int edgeId = tmesh.topology.edgeBetween(path.get(step - 1), path.get(step));
-                            if (edgeId == EmbeddedMeshTopology.UNCLAIMED
-                                    || tmesh.topology.ownerArcByCopyEdge[edgeId] != arc.arcId) {
-                                arcPaths.append(ARC_TAG).append(arc.arcId).append(" UNCLAIMED-EDGE@")
-                                        .append(step).append("(owner=")
-                                        .append(edgeId == EmbeddedMeshTopology.UNCLAIMED ? "noEdge"
-                                                : tmesh.topology.ownerArcByCopyEdge[edgeId])
-                                        .append(")");
-                            }
-                        }
-                    }
-                    StringBuilder degrees = new StringBuilder();
-                    for (EmbeddedNode node : tmesh.nodes) {
-                        if (node.alive && tmesh.degree(node.nodeId) < 3) {
-                            degrees.append(" n").append(node.nodeId).append("deg=")
-                                    .append(tmesh.degree(node.nodeId))
-                                    .append(tmesh.arcEndsByNode.get(node.nodeId));
-                        }
-                    }
-                    arcPaths.append(" | lowDegreeNodes:").append(degrees);
-                    throw new IllegalStateException("regions torn by " + lastStep + FIELD_SEPARATOR
-                            + torn.getMessage() + FIELD_SEPARATOR + "live patches:" + patchArcs
-                            + FIELD_SEPARATOR + "live arcs:" + arcPaths, torn);
-                }
+        while (true) {
+            measure = collapseToExhaustion(measure, true);
+            int nonSimple = splitPatch.nextNonSimpleZeroPatch();
+            if (nonSimple == EmbeddedTMesh.NONE) {
+                return this;
             }
-            long next = terminationMeasure();
+            String termsBefore = measureTerms();
+            lastStep = SPLIT_STEP_TAG + nonSimple;
+            splitPatch.split(nonSimple);
+            patchSplitCount++;
+            checkDecomposition();
+            long next = collapseToExhaustion(measure, false);
             if (next >= measure) {
-                throw new IllegalStateException("contraction did not make progress: the"
-                        + " termination measure went from " + measure + " to " + next);
+                throw new IllegalStateException("contraction did not make progress: the round on"
+                        + FIELD_SEPARATOR + lastStep + FIELD_SEPARATOR + "left the termination"
+                        + " measure at " + next + ", up from " + measure + FIELD_SEPARATOR
+                        + "before: " + termsBefore + FIELD_SEPARATOR + "after: " + measureTerms());
             }
             measure = next;
         }
-        return this;
+    }
+
+    /**
+     * Applies operators (1) and (3) until neither does, validating after each.
+     *
+     * @param measure    the measure before the first of them
+     * @param perStep    whether each single application must strictly lower the measure, which
+     *                   holds outside a round but not inside one, where operator (2) has just
+     *                   raised it
+     * @return the measure once neither operator applies
+     * @throws IllegalStateException when {@code perStep} holds and one application does not lower
+     *                               the measure
+     */
+    private long collapseToExhaustion(long measure, boolean perStep) {
+        long running = measure;
+        while (applyCollapse()) {
+            checkDecomposition();
+            long next = terminationMeasure();
+            if (perStep && next >= running) {
+                throw new IllegalStateException("contraction did not make progress: the"
+                        + " termination measure went from " + running + " to " + next
+                        + FIELD_SEPARATOR + lastStep + FIELD_SEPARATOR + measureTerms());
+            }
+            running = next;
+        }
+        return running;
+    }
+
+    /**
+     * Checks that the T-mesh is still a cell decomposition of the surface, and optionally that its
+     * patch regions are still untorn.
+     *
+     * @throws IllegalStateException when either check fails, reporting the operator that broke it
+     */
+    private void checkDecomposition() {
+        tmesh.validate(expectedEulerCharacteristic);
+        if (!Boolean.getBoolean(CHECK_REGIONS_PROPERTY)) {
+            return;
+        }
+        try {
+            new PatchRegions(tmesh).build();
+        } catch (IllegalStateException torn) {
+            StringBuilder patchArcs = new StringBuilder();
+            for (EmbeddedPatch patch : tmesh.patches) {
+                if (!patch.alive) {
+                    continue;
+                }
+                Set<Integer> boundary = new TreeSet<>();
+                for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+                    boundary.addAll(patch.sideArcIds.get(side));
+                }
+                patchArcs.append(" P").append(patch.patchId).append(boundary);
+            }
+            StringBuilder arcPaths = new StringBuilder();
+            for (EmbeddedArc arc : tmesh.arcs) {
+                if (!arc.alive) {
+                    continue;
+                }
+                List<Integer> path = arc.path.copyVertexPath;
+                int startVertex = tmesh.nodes.get(arc.startNodeId).copyVertex;
+                int endVertex = tmesh.nodes.get(arc.endNodeId).copyVertex;
+                int head = path.get(0);
+                int tail = path.get(path.size() - 1);
+                boolean anchored = head == startVertex && tail == endVertex
+                        || head == endVertex && tail == startVertex;
+                if (!anchored) {
+                    arcPaths.append(ARC_TAG).append(arc.arcId).append(" DANGLES path[")
+                            .append(head).append("..").append(tail).append("] nodes[")
+                            .append(startVertex).append(",").append(endVertex).append(CLOSE_GROUP);
+                }
+                if (new TreeSet<>(path).size() != path.size()) {
+                    arcPaths.append(ARC_TAG).append(arc.arcId).append(" NOT-SIMPLE").append(path);
+                }
+                for (int step = 1; step < path.size(); step++) {
+                    int edgeId = tmesh.topology.edgeBetween(path.get(step - 1), path.get(step));
+                    if (edgeId == EmbeddedMeshTopology.UNCLAIMED
+                            || tmesh.topology.ownerArcByCopyEdge[edgeId] != arc.arcId) {
+                        arcPaths.append(ARC_TAG).append(arc.arcId).append(" UNCLAIMED-EDGE@")
+                                .append(step).append("(owner=")
+                                .append(edgeId == EmbeddedMeshTopology.UNCLAIMED ? "noEdge"
+                                        : tmesh.topology.ownerArcByCopyEdge[edgeId])
+                                .append(CLOSE_PAREN);
+                    }
+                }
+            }
+            StringBuilder degrees = new StringBuilder();
+            for (EmbeddedNode node : tmesh.nodes) {
+                if (node.alive && tmesh.degree(node.nodeId) < 3) {
+                    degrees.append(" n").append(node.nodeId).append("deg=")
+                            .append(tmesh.degree(node.nodeId))
+                            .append(tmesh.arcEndsByNode.get(node.nodeId));
+                }
+            }
+            arcPaths.append(" | lowDegreeNodes:").append(degrees);
+            throw new IllegalStateException("regions torn by " + lastStep + FIELD_SEPARATOR
+                    + torn.getMessage() + FIELD_SEPARATOR + "live patches:" + patchArcs
+                    + FIELD_SEPARATOR + "live arcs:" + arcPaths, torn);
+        }
     }
 
     /**
@@ -195,6 +250,7 @@ public final class EmbeddedContraction {
         System.out.println("[start] claimedV=" + claimedVertices + " ofV="
                 + tmesh.topology.copy.vertexCount() + " gates=" + gates
                 + " ofE=" + tmesh.topology.copy.edgeCount());
+        long startNanos = System.nanoTime();
         while (true) {
             String before = liveCounts();
             if (Boolean.getBoolean("embeddedTMesh.traceSteps")) {
@@ -238,7 +294,10 @@ public final class EmbeddedContraction {
                             + " F=" + tmesh.topology.copy.faceCount()
                             + refinementShare(collapseArc.rerouter, "collapse")
                             + refinementShare(splitPatch.rerouter, "split"));
-                    System.out.println("[contract] fixed point | " + survivingZeroPatchReport());
+                    System.out.println("[contract] stuck zero arcs | " + stuckZeroArcReport());
+                    System.out.println("[contract] fixed point | " + survivingZeroPatchReport()
+                            + FIELD_SEPARATOR + (System.nanoTime() - startNanos) / NANOS_PER_MILLI
+                            + "ms");
                     return null;
                 }
             } catch (ArcRerouteFailure caught) {
@@ -273,6 +332,37 @@ public final class EmbeddedContraction {
     }
 
     /**
+     * Why the live zero arcs left at the fixed point could not be collapsed, split by which of
+     * LCBK19 Def 6.2's conditions blocks each one.
+     *
+     * @return the tally as a compact string
+     */
+    private String stuckZeroArcReport() {
+        int zeroArcs = 0;
+        int bothCritical = 0;
+        int borderBlocked = 0;
+        int loops = 0;
+        for (EmbeddedArc arc : tmesh.arcs) {
+            if (!arc.alive || arc.quantizedLength != 0) {
+                continue;
+            }
+            zeroArcs++;
+            EmbeddedNode start = tmesh.nodes.get(arc.startNodeId);
+            EmbeddedNode end = tmesh.nodes.get(arc.endNodeId);
+            if (arc.startNodeId == arc.endNodeId) {
+                loops++;
+            }
+            if (start.critical && end.critical) {
+                bothCritical++;
+            } else if (!arc.feature && start.border && end.border) {
+                borderBlocked++;
+            }
+        }
+        return "liveZeroArcs=" + zeroArcs + " bothEndsCritical=" + bothCritical
+                + " borderBlocked=" + borderBlocked + " loops=" + loops;
+    }
+
+    /**
      * The live node, arc and patch counts as a compact {@code V/E/F} string, for reporting which
      * operator broke the cell decomposition and by how much.
      *
@@ -286,23 +376,38 @@ public final class EmbeddedContraction {
     }
 
     /**
-     * Applies the highest-priority applicable operator, and reports whether one applied.
+     * Applies one operator, and reports whether one applied. The collapsing operators (1) and (3)
+     * go first, so operator (2) only runs when nothing else can — which is what makes a round of
+     * {@link #contract} well defined.
      *
      * @return true when an operator was applied, false when none can be
      */
     private boolean applyOneOperator() {
+        if (applyCollapse()) {
+            return true;
+        }
+        int nonSimple = splitPatch.nextNonSimpleZeroPatch();
+        if (nonSimple != EmbeddedTMesh.NONE) {
+            lastStep = SPLIT_STEP_TAG + nonSimple;
+            splitPatch.split(nonSimple);
+            patchSplitCount++;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Applies one zero-arc collapse, or one simple zero-patch collapse when no arc is collapsible.
+     * Both lower the termination measure on their own.
+     *
+     * @return true when one of the two applied
+     */
+    private boolean applyCollapse() {
         int arc = collapseArc.nextCollapsibleArc();
         if (arc != EmbeddedTMesh.NONE) {
             lastStep = "zero-arc collapse of arc " + arc + describeArcShape(arc);
             collapseArc.collapse(arc);
             arcCollapseCount++;
-            return true;
-        }
-        int nonSimple = splitPatch.nextNonSimpleZeroPatch();
-        if (nonSimple != EmbeddedTMesh.NONE) {
-            lastStep = "non-simple zero-patch split of patch " + nonSimple;
-            splitPatch.split(nonSimple);
-            patchSplitCount++;
             return true;
         }
         int simple = collapsePatch.nextSimpleZeroPatch();
@@ -329,9 +434,9 @@ public final class EmbeddedContraction {
         List<String> survivors = new ArrayList<>();
         for (EmbeddedPatch patch : tmesh.patches) {
             if (patch.alive && tmesh.isZeroPatch(patch.patchId)) {
-                survivors.add("P" + patch.patchId + "(nonZero="
-                        + tmesh.nonZeroArcCount(patch.patchId) + " arcs="
-                        + describePatchSides(patch.patchId));
+                survivors.add(String.format(PATCH_NON_ZERO_TAG, patch.patchId,
+                        tmesh.nonZeroArcCount(patch.patchId)) + " arcs="
+                        + describePatchSides(patch.patchId) + CLOSE_PAREN);
             }
         }
         return "zeroPatchesLeft=" + survivors.size() + " "
@@ -384,18 +489,22 @@ public final class EmbeddedContraction {
     }
 
     /**
-     * The Appendix A.3 termination measure: {@code w · Σ max(0, nonZeroArcs(P) − 2)} over live
-     * zero-patches, plus the number of live zero arcs and the number of live zero patches.
+     * The two terms of {@link #terminationMeasure} separately, plus the non-simple zero-patches
+     * still outstanding, so a round that fails to make progress names what it left behind.
      *
-     * @return the measure, a non-negative integer that every operator strictly decreases
+     * @return the zero-arc and zero-patch counts and the non-simple patches among them
      */
-    public long terminationMeasure() {
-        long excess = 0;
+    private String measureTerms() {
         long zeroPatches = 0;
+        List<String> nonSimple = new ArrayList<>();
         for (EmbeddedPatch patch : tmesh.patches) {
             if (patch.alive && tmesh.isZeroPatch(patch.patchId)) {
                 zeroPatches++;
-                excess += Math.max(0, tmesh.nonZeroArcCount(patch.patchId) - 2);
+                if (tmesh.nonZeroArcCount(patch.patchId) > 2) {
+                    nonSimple.add(String.format(PATCH_NON_ZERO_TAG, patch.patchId,
+                            tmesh.nonZeroArcCount(patch.patchId)) + " sides="
+                            + describePatchSides(patch.patchId) + CLOSE_PAREN);
+                }
             }
         }
         long zeroArcs = 0;
@@ -404,6 +513,32 @@ public final class EmbeddedContraction {
                 zeroArcs++;
             }
         }
-        return NON_SIMPLE_WEIGHT * excess + zeroArcs + zeroPatches;
+        return "zeroArcs=" + zeroArcs + " zeroPatches=" + zeroPatches + " nonSimple="
+                + nonSimple.size() + nonSimple + " live=" + liveCounts();
+    }
+
+    /**
+     * The Appendix A.3 termination measure: <em>"the total number of yet-to-be-collapsed zero-arcs
+     * and zero-patches"</em>.
+     *
+     * <p>Operators (1) and (3) each lower it on their own. Operator (2) raises it deliberately, and
+     * only the round that follows it — see {@link #contract} — must bring it back down.
+     *
+     * @return the count of live zero arcs plus live zero patches
+     */
+    public long terminationMeasure() {
+        long zeroPatches = 0;
+        for (EmbeddedPatch patch : tmesh.patches) {
+            if (patch.alive && tmesh.isZeroPatch(patch.patchId)) {
+                zeroPatches++;
+            }
+        }
+        long zeroArcs = 0;
+        for (EmbeddedArc arc : tmesh.arcs) {
+            if (arc.alive && arc.quantizedLength == 0) {
+                zeroArcs++;
+            }
+        }
+        return zeroArcs + zeroPatches;
     }
 }

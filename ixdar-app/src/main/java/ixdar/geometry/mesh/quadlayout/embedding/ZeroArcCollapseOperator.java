@@ -12,7 +12,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  * dragging its incident arcs with it.
  *
  * <p>An endpoint may move when non-critical and either a non-border node or on a border
- * arc. With neither movable this throws.
+ * arc; with neither movable this throws. A loop is exempt.
  *
  * <p>See also: LCBK19 Def 6.2
  */
@@ -144,11 +144,19 @@ public final class ZeroArcCollapseOperator {
      * The endpoint of a zero arc that LCBK19 Def 6.2 permits to move, or
      * {@link EmbeddedTMesh#NONE} when neither may.
      *
+     * <p>A loop is always collapsible: both ends already sit on one point, so nothing moves.
+     * {@link #isCollapsibleFrom} would interrogate that node twice and refuse every loop on a
+     * critical one.
+     *
      * @param arc zero arc to test
      * @return the movable node's id, preferring the one with fewer incident arcs and the
-     *         lower id, or {@link EmbeddedTMesh#NONE} when both endpoints are fixed
+     *         lower id, the single node when the arc is a loop, or {@link EmbeddedTMesh#NONE}
+     *         when both endpoints are fixed
      */
     private int movingEndpoint(EmbeddedArc arc) {
+        if (arc.isLoop()) {
+            return arc.startNodeId;
+        }
         boolean startMovable = isCollapsibleFrom(arc, arc.startNodeId);
         boolean endMovable = isCollapsibleFrom(arc, arc.endNodeId);
         if (!startMovable && !endMovable) {
