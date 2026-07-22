@@ -77,6 +77,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`mesh-viewer`](#mesh-viewer) | Launch the mesh viewer, optionally overlay a reference OBJ, and screenshot. |
 | [`new-scene`](#new-scene) | Scaffold a new Scene class, launch.json entry, and optional Maven profile. |
 | [`probe`](#probe) | Capture the core automation probe bundle. |
+| [`profile-report`](#profile-report) | Report self-time hot methods from an async-profiler HTML capture. |
 | [`quilt-mesh-compare`](#quilt-mesh-compare) | Compare mesh viewer canonical fingerprint to a reference OBJ (same algorithm as Java). |
 | [`rebuild-krieg-web`](#rebuild-krieg-web) | Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB overrides path). |
 | [`run-scene`](#run-scene) | Build, launch, wait for, optionally profile and screenshot, then shut down a scene. |
@@ -650,6 +651,16 @@ Capture the core automation probe bundle.
 
 - `--out` — Output path for the probe screenshot file, or empty to use the server default.
 
+### `profile-report`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/profile_report.py#L19)
+
+Report self-time hot methods from an async-profiler HTML capture.
+
+- `--path` — Path to the async-profiler HTML capture.
+- `--top` — How many self-time rows to report.
+- `--frame` — Repeatable substring; matching frames get an inclusive-vs-self table.
+
 ### `quilt-mesh-compare`
 
 [↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L144)
@@ -667,7 +678,7 @@ Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB over
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scene_runner.py#L253)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L253)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 

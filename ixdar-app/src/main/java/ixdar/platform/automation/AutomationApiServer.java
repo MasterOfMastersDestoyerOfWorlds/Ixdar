@@ -52,9 +52,21 @@ public class AutomationApiServer {
         this.server = HttpServer.create(
                 new InetSocketAddress("127.0.0.1", port),
                 0);
-        this.executor = Executors.newCachedThreadPool();
+        this.executor = Executors.newCachedThreadPool(AutomationApiServer::newDaemonThread);
         this.server.setExecutor(executor);
         registerAll(server, runtime);
+    }
+
+    /**
+     * A daemon worker for the request executor.
+     *
+     * @param work the executor's task
+     * @return a daemon thread that will run it
+     */
+    private static Thread newDaemonThread(Runnable work) {
+        Thread worker = new Thread(work, "automation-http");
+        worker.setDaemon(true);
+        return worker;
     }
 
     /**

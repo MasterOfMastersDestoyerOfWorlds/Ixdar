@@ -81,6 +81,8 @@ public class IxdarWindow {
     public static float startTime;
 
     public static long window;
+    private static final String FATAL_PREFIX = "Exception in thread \"main\" ";
+
     private static Canvas3D canvas;
     private static String canvasId;
     private static int windowWidth;
@@ -102,10 +104,18 @@ public class IxdarWindow {
             canvasId = args[0];
         }
         startTime = Clock.time();
-        if (Boolean.getBoolean(HEADLESS_PROPERTY)) {
-            new IxdarWindow().runHeadless();
-        } else {
-            new IxdarWindow().runGLFW();
+        try {
+            if (Boolean.getBoolean(HEADLESS_PROPERTY)) {
+                new IxdarWindow().runHeadless();
+            } else {
+                new IxdarWindow().runGLFW();
+            }
+        } catch (Throwable failure) {
+            System.err.print(FATAL_PREFIX);
+            failure.printStackTrace();
+            System.out.flush();
+            System.err.flush();
+            System.exit(1);
         }
     }
 

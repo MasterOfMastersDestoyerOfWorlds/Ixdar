@@ -199,6 +199,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli mesh-viewer` — Launch the mesh viewer, optionally overlay a reference OBJ, and screenshot.
 - `ixdar-cli new-scene` — Scaffold a new Scene class, launch.json entry, and optional Maven profile.
 - `ixdar-cli probe` — Capture the core automation probe bundle.
+- `ixdar-cli profile-report` — Report self-time hot methods from an async-profiler HTML capture.
 - `ixdar-cli quilt-mesh-compare` — Compare mesh viewer canonical fingerprint to a reference OBJ (same algorithm as Java).
 - `ixdar-cli rebuild-krieg-web` — Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB overrides path).
 - `ixdar-cli run-scene` — Build, launch, wait for, optionally profile and screenshot, then shut down a scene.

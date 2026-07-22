@@ -28,10 +28,10 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     public static final int FLOATS_PER_VERTEX = 3;
 
     public final Map<Long, Integer> halfEdgesByDirection;
-    public final IntIdList activeVertexIds;
-    public final IntIdList activeEdgeIds;
-    public final IntIdList activeFaceIds;
-    public final IntIdList activeHalfEdgeIds;
+    public final ActiveIdSet activeVertexIds;
+    public final ActiveIdSet activeEdgeIds;
+    public final ActiveIdSet activeFaceIds;
+    public final ActiveIdSet activeHalfEdgeIds;
     public final ArrayList<IntIdList> vertexOutgoingHalfEdges;
     public final ArrayList<IntIdList> vertexEdges;
     public final ArrayList<IntIdList> vertexFaces;
@@ -88,10 +88,10 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         int hc = Math.max(NUM_8, halfEdgeCapacity);
 
         this.halfEdgesByDirection = new HashMap<>(hc * NUM_4 / FLOATS_PER_VERTEX + 1);
-        this.activeVertexIds = new IntIdList(vc);
-        this.activeEdgeIds = new IntIdList(ec);
-        this.activeFaceIds = new IntIdList(fc);
-        this.activeHalfEdgeIds = new IntIdList(hc);
+        this.activeVertexIds = new ActiveIdSet(vc);
+        this.activeEdgeIds = new ActiveIdSet(ec);
+        this.activeFaceIds = new ActiveIdSet(fc);
+        this.activeHalfEdgeIds = new ActiveIdSet(hc);
         this.vertexOutgoingHalfEdges = new ArrayList<>(vc);
         this.vertexEdges = new ArrayList<>(vc);
         this.vertexFaces = new ArrayList<>(vc);
@@ -144,10 +144,10 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
      */
     public HalfEdgeMesh(int maxV, int maxE, int maxF, int maxHe, int mapCapacity) {
         this.halfEdgesByDirection = new HashMap<>(mapCapacity, 1.0f);
-        this.activeVertexIds = new IntIdList(Math.max(NUM_4, maxV));
-        this.activeEdgeIds = new IntIdList(Math.max(NUM_4, maxE));
-        this.activeFaceIds = new IntIdList(Math.max(NUM_4, maxF));
-        this.activeHalfEdgeIds = new IntIdList(Math.max(NUM_4, maxHe));
+        this.activeVertexIds = new ActiveIdSet(Math.max(NUM_4, maxV));
+        this.activeEdgeIds = new ActiveIdSet(Math.max(NUM_4, maxE));
+        this.activeFaceIds = new ActiveIdSet(Math.max(NUM_4, maxF));
+        this.activeHalfEdgeIds = new ActiveIdSet(Math.max(NUM_4, maxHe));
         this.vertexOutgoingHalfEdges = new ArrayList<>(maxV);
         this.vertexEdges = new ArrayList<>(maxV);
         this.vertexFaces = new ArrayList<>(maxV);
@@ -785,7 +785,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
      */
     public void deactivateFace(int faceId) {
         faceActive[faceId] = false;
-        activeFaceIds.removeValue(faceId);
+        activeFaceIds.remove(faceId);
         faceHalfEdge[faceId] = NONE;
         setVector(faceNormals, faceId, NUM_0, NUM_0, NUM_0);
         faceHalfEdges.get(faceId).clear();
@@ -800,7 +800,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
      */
     public void deactivateEdge(int edgeId) {
         edgeActive[edgeId] = false;
-        activeEdgeIds.removeValue(edgeId);
+        activeEdgeIds.remove(edgeId);
         edgeHalfEdge[edgeId] = NONE;
     }
 
@@ -812,7 +812,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
      */
     public void deactivateHalfEdge(int halfEdgeId) {
         halfEdgeActive[halfEdgeId] = false;
-        activeHalfEdgeIds.removeValue(halfEdgeId);
+        activeHalfEdgeIds.remove(halfEdgeId);
         halfEdgeTwin[halfEdgeId] = NONE;
         halfEdgeNext[halfEdgeId] = NONE;
         halfEdgePrev[halfEdgeId] = NONE;
@@ -828,7 +828,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
      */
     public void deactivateVertex(int vertexId) {
         vertexActive[vertexId] = false;
-        activeVertexIds.removeValue(vertexId);
+        activeVertexIds.remove(vertexId);
         vertexOutgoing[vertexId] = NONE;
         setVector(vertexPositions, vertexId, NUM_0, NUM_0, NUM_0);
         setVector(vertexNormals, vertexId, NUM_0, NUM_0, NUM_0);

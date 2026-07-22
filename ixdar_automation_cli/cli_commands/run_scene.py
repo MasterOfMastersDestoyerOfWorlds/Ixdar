@@ -102,6 +102,30 @@ def _java_command(scene: str, properties: list[str], profile_path: str, headless
     return command
 
 
+CRASH_MARKER = "Exception in thread \"main\""
+
+CRASH_TRACE_LINES = 40
+
+
+def _crash_trace(log_path: str) -> list[str]:
+    """Return the scene's fatal stack trace from its log, or an empty list if it has not thrown.
+
+    Only ``main`` counts. A worker thread dying is survivable and routine; the scene's own thread
+    dying is the end of the run, and is the case that otherwise masquerades as a slow scene.
+
+    :param log_path: Path the JVM's output is being written to.
+    :return: The trace lines, capped, or ``[]``.
+    """
+    if not os.path.exists(log_path):
+        return []
+    with open(log_path, encoding="utf-8", errors="replace") as handle:
+        lines = handle.read().splitlines()
+    for index, line in enumerate(lines):
+        if line.startswith(CRASH_MARKER):
+            return [entry.rstrip() for entry in lines[index:index + CRASH_TRACE_LINES]]
+    return []
+
+
 def _await_scene(client: AutomationClient, process: subprocess.Popen, log_path: str,
                  await_log: str, timeout: float) -> dict:
     """Wait until the scene reports ready, the log shows a marker, or the process exits.
@@ -110,12 +134,19 @@ def _await_scene(client: AutomationClient, process: subprocess.Popen, log_path: 
     constructor, so the port answers while ``initGL`` is still building the scene. Treating a healthy
     port as "ready" drives — or shuts down — a half-built scene.
 
+    A scene that throws is also watched for, because it does not otherwise look like a failure. The
+    exception kills the scene's thread, not the process, and the automation server keeps answering
+    health checks that report the scene as never having become ready — so a crash and a slow scene
+    are indistinguishable until the timeout expires, and the caller is then told the wrong one. The
+    log is the only place the truth appears, so it is scanned for a Java stack trace and the wait
+    ends the moment one shows up.
+
     :param client: Automation client for health polling.
     :param process: The launched JVM.
     :param log_path: Path the JVM's output is being written to.
     :param await_log: Optional regex; matching lines are returned when seen.
     :param timeout: Seconds to wait.
-    :return: ``{"ready": bool, "exited": bool, "matched": [...], "waited": float}``
+    :return: ``{"ready": bool, "exited": bool, "matched": [...], "waited": float, "crash": [...]}``
     """
     pattern = re.compile(await_log) if await_log else None
     matched: list[str] = []
@@ -124,24 +155,28 @@ def _await_scene(client: AutomationClient, process: subprocess.Popen, log_path: 
     ready = False
     while time.monotonic() < deadline:
         if process.poll() is not None:
-            return {"ready": ready, "exited": True, "matched": matched,
+            return {"ready": ready, "exited": True, "matched": matched, "crash": _crash_trace(log_path),
+                    "waited": round(time.monotonic() - started, 1)}
+        crash = _crash_trace(log_path)
+        if crash:
+            return {"ready": ready, "exited": False, "matched": matched, "crash": crash,
                     "waited": round(time.monotonic() - started, 1)}
         if pattern and os.path.exists(log_path):
             with open(log_path, encoding="utf-8", errors="replace") as handle:
                 matched = [line.rstrip() for line in handle if pattern.search(line)]
             if matched:
-                return {"ready": ready, "exited": False, "matched": matched,
+                return {"ready": ready, "exited": False, "matched": matched, "crash": [],
                         "waited": round(time.monotonic() - started, 1)}
         try:
             if client.health().get("sceneReady"):
                 ready = True
                 if not pattern:
-                    return {"ready": True, "exited": False, "matched": matched,
+                    return {"ready": True, "exited": False, "matched": matched, "crash": [],
                             "waited": round(time.monotonic() - started, 1)}
         except Exception:
             pass
         time.sleep(1.0)
-    return {"ready": ready, "exited": False, "matched": matched,
+    return {"ready": ready, "exited": False, "matched": matched, "crash": _crash_trace(log_path),
             "waited": round(time.monotonic() - started, 1)}
 
 
@@ -224,11 +259,15 @@ def run(
         }
         if status["matched"]:
             result["matched"] = status["matched"]
+        if status.get("crash"):
+            result["crash"] = status["crash"]
         if not status["ready"] and not status["matched"]:
-            result["error"] = (
-                "scene did not become ready within timeout"
-                if not status["exited"] else "process exited before the scene was ready"
-            )
+            if status.get("crash"):
+                result["error"] = "the scene threw; see crash"
+            elif status["exited"]:
+                result["error"] = "process exited before the scene was ready"
+            else:
+                result["error"] = "scene did not become ready within timeout"
 
         if status["ready"]:
             if screenshot:

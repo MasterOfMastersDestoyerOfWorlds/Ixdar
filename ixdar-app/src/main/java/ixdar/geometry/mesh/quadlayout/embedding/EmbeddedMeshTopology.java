@@ -558,18 +558,37 @@ public final class EmbeddedMeshTopology {
     }
 
     /**
-     * Edge id between two copy vertices.
+     * Edge id between two copy vertices, found by walking the edges incident to one of them.
+     *
+     * <p>The mesh also indexes edges by vertex pair in {@code halfEdgesByDirection}, and asking that
+     * map is the obvious implementation — but it is the wrong one twice over. The key packs the two
+     * vertex ids into the halves of a {@code long}, and {@link Long#hashCode} is
+     * {@code (int) (value ^ (value >>> 32))}, which folds those halves straight back together into
+     * {@code vertexA ^ vertexB}. Endpoints of an edge have close ids — refinement mints them
+     * sequentially and joins them to each other — so the hash of nearly every edge in a refined
+     * region is a small number, thousands of distinct keys land in a few buckets, and the map
+     * degenerates those buckets into red-black trees. Profiling the fertility contraction put 31%
+     * of all CPU in {@code HashMap$TreeNode.find} underneath this one method.
+     *
+     * <p>Walking the incident edges needs no hash and no boxing, and it is what the half-edge
+     * representation is for: an element is reached through its neighbourhood, not looked up. A
+     * vertex has a handful of edges, so this is a short scan of primitives against a tree descent
+     * with {@code Long} comparisons. The adjacency it reads is maintained in lockstep with the map —
+     * {@code createEdgePair} fills both, {@code unregisterHalfEdge} clears both — so the two agree
+     * by construction.
      *
      * @param vertexA first endpoint
      * @param vertexB second endpoint
      * @return edge id, or {@link #UNCLAIMED} when not connected
      */
     public int edgeBetween(int vertexA, int vertexB) {
-        Integer halfEdge = copy.halfEdgesByDirection.get(copy.directedKey(vertexA, vertexB));
-        if (halfEdge == null) {
-            return UNCLAIMED;
+        for (int index = 0; index < copy.vertexEdgeCount(vertexA); index++) {
+            int edgeId = copy.vertexEdgeAt(vertexA, index);
+            if (otherEndpoint(edgeId, vertexA) == vertexB) {
+                return edgeId;
+            }
         }
-        return copy.halfEdgeEdge(halfEdge);
+        return UNCLAIMED;
     }
 
     /**
