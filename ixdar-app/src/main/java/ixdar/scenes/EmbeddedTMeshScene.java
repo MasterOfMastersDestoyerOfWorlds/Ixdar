@@ -161,8 +161,11 @@ public class EmbeddedTMeshScene extends Scene {
             runtime = new QuadLayoutRuntime();
             runtime.upload(surfaceMesh);
             runtime.frameCamera(camera);
-            runtime.setEmbeddedTMesh(tmesh);
             applyContractToFailure();
+            runtime.setEmbeddedTMesh(tmesh);
+            if (failure != null) {
+                runtime.setFailureHighlight(tmesh.topology.copy, failure);
+            }
         } catch (Exception ex) {
             throw new IllegalStateException("Failed to initialize embedded T-mesh scene", ex);
         }
@@ -279,6 +282,13 @@ public class EmbeddedTMeshScene extends Scene {
      * When {@link #CONTRACT_FAIL_PROPERTY} is set, drive the operators until the first reroute
      * failure and, if one occurs, refresh the (partial) T-mesh render and highlight the wall.
      * Runs after the runtime is up.
+     *
+     * <p>This touches no runtime state; the caller hands the result over afterwards. Handing a
+     * layout to the runtime builds its patch regions, and a layout that still holds zero-patches —
+     * cells embedded onto a point or a curve, enclosing no faces — has no region for them to
+     * correspond to, so that throws. Doing it before the contraction had reported discarded the one
+     * line saying how the contraction actually ended, and made a reroute failure look like a torn
+     * layout.
      */
     private void applyContractToFailure() {
         if (!Boolean.parseBoolean(System.getProperty(CONTRACT_FAIL_PROPERTY, "false"))) {
@@ -286,17 +296,15 @@ public class EmbeddedTMeshScene extends Scene {
         }
         EmbeddedContraction contraction = new EmbeddedContraction(tmesh, eulerCharacteristic);
         failure = contraction.contractToFailure();
-        runtime.setEmbeddedTMesh(tmesh);
         if (failure == null) {
             Platforms.get().log("[embedded-tmesh] contracted to a fixed point with no failure: "
                     + contractionSummary(contraction));
-            return;
+        } else {
+            Platforms.get().log("[embedded-tmesh] stopped at reroute failure after "
+                    + contractionSummary(contraction) + " | fenceVertices="
+                    + failure.fenceVertices.size() + " pivotSpokes="
+                    + (failure.pivotSpokes.size() / 2) + " | " + failure.getMessage());
         }
-        runtime.setFailureHighlight(tmesh.topology.copy, failure);
-        Platforms.get().log("[embedded-tmesh] stopped at reroute failure after "
-                + contractionSummary(contraction) + " | fenceVertices="
-                + failure.fenceVertices.size() + " pivotSpokes="
-                + (failure.pivotSpokes.size() / 2) + " | " + failure.getMessage());
     }
 
     /**

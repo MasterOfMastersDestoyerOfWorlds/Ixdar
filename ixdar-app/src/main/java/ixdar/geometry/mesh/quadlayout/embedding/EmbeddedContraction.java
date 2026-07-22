@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -35,6 +36,29 @@ public final class EmbeddedContraction {
 
     /** Diagnostic prefix naming an arc in the torn-layout report. */
     private static final String ARC_TAG = " a";
+
+    /** Closing bracket of a bracketed diagnostic group. */
+    private static final String CLOSE_GROUP = "]";
+
+    /** How many surviving zero-patches the fixed-point report names before truncating. */
+    private static final int SURVIVOR_REPORT_CAP = 12;
+
+    /**
+     * System property enabling the per-step region check.
+     *
+     * <p><b>It reports tears that are not tears, and is kept only for {@link #contract}.</b> Region
+     * correspondence — every patch matching one connected region of mesh faces — is a property of
+     * the <em>fixed point</em>, not of the states on the way to it. A zero-patch is by definition
+     * <em>"supposed to be embedded onto a single point rather than a curve"</em>, or onto a curve,
+     * so while it lives it encloses no faces at all and there is no region for it to correspond to;
+     * its neighbours' regions run together across it and appear bounded by the union of their arcs.
+     * The sphere demonstrates this: its contraction reaches a clean fixed point of 294 collapses and
+     * 84 patch-collapses, and yet this check calls it torn at collapse 37.
+     *
+     * <p>{@link #contractToFailure} therefore does not run it, and a caller wanting to know whether
+     * a layout is sound should build {@link PatchRegions} once the contraction has finished.
+     */
+    private static final String CHECK_REGIONS_PROPERTY = "embeddedTMesh.checkRegions";
 
     public final EmbeddedTMesh tmesh;
     public final int expectedEulerCharacteristic;
@@ -78,7 +102,7 @@ public final class EmbeddedContraction {
         long measure = terminationMeasure();
         while (applyOneOperator()) {
             tmesh.validate(expectedEulerCharacteristic);
-            if (Boolean.getBoolean("embeddedTMesh.checkRegions")) {
+            if (Boolean.getBoolean(CHECK_REGIONS_PROPERTY)) {
                 try {
                     new PatchRegions(tmesh).build();
                 } catch (IllegalStateException torn) {
@@ -108,7 +132,7 @@ public final class EmbeddedContraction {
                         if (!anchored) {
                             arcPaths.append(ARC_TAG).append(arc.arcId).append(" DANGLES path[")
                                     .append(head).append("..").append(tail).append("] nodes[")
-                                    .append(startVertex).append(",").append(endVertex).append("]");
+                                    .append(startVertex).append(",").append(endVertex).append(CLOSE_GROUP);
                         }
                         if (new TreeSet<>(path).size() != path.size()) {
                             arcPaths.append(ARC_TAG).append(arc.arcId).append(" NOT-SIMPLE").append(path);
@@ -169,6 +193,8 @@ public final class EmbeddedContraction {
             }
             try {
                 if (!applyOneOperator()) {
+                    tmesh.validateArcPaths();
+                    System.out.println("[contract] fixed point | " + survivingZeroPatchReport());
                     return null;
                 }
             } catch (ArcRerouteFailure caught) {
@@ -205,7 +231,7 @@ public final class EmbeddedContraction {
     private boolean applyOneOperator() {
         int arc = collapseArc.nextCollapsibleArc();
         if (arc != EmbeddedTMesh.NONE) {
-            lastStep = "zero-arc collapse of arc " + arc;
+            lastStep = "zero-arc collapse of arc " + arc + describeArcShape(arc);
             collapseArc.collapse(arc);
             arcCollapseCount++;
             return true;
@@ -225,6 +251,78 @@ public final class EmbeddedContraction {
             return true;
         }
         return false;
+    }
+
+    /**
+     * The zero-patches still alive when no operator applies any more.
+     *
+     * <p>By LCBK19 Proposition 6.1 and Corollary 6.3 there should be none: every zero-patch is
+     * claimed by one of the three operators, sorted by how many <em>non-zero</em> arcs it carries —
+     * more than two goes to the split, exactly two to the simple collapse, and none at all is
+     * <em>"already handled by the zero-arc collapse"</em>. A patch surviving here is one no operator
+     * claimed, so it stays in the final layout as a cell with no area, which is what leaves a region
+     * of the surface bounded by arcs that match no patch's boundary.
+     *
+     * @return a summary naming the survivors and how many non-zero arcs each carries
+     */
+    private String survivingZeroPatchReport() {
+        List<String> survivors = new ArrayList<>();
+        for (EmbeddedPatch patch : tmesh.patches) {
+            if (patch.alive && tmesh.isZeroPatch(patch.patchId)) {
+                survivors.add("P" + patch.patchId + "(nonZero="
+                        + tmesh.nonZeroArcCount(patch.patchId) + " arcs="
+                        + describePatchSides(patch.patchId));
+            }
+        }
+        return "zeroPatchesLeft=" + survivors.size() + " "
+                + survivors.subList(0, Math.min(survivors.size(), SURVIVOR_REPORT_CAP));
+    }
+
+    /**
+     * The shape of an arc about to be collapsed, for the report when the collapse breaks the cell
+     * decomposition. A zero-arc collapse balances one lost arc against one lost node, but that only
+     * holds when the arc runs between <em>two</em> nodes: an arc that is already a loop has nothing
+     * to merge, so it must pay for itself with a face instead. Which of the two it was, and which
+     * patches lay either side, is the whole of the diagnosis and is unrecoverable afterwards.
+     *
+     * @param arcId arc about to be collapsed
+     * @return a bracketed description, or the empty string for an ordinary two-node arc
+     */
+    private String describeArcShape(int arcId) {
+        EmbeddedArc arc = tmesh.arcs.get(arcId);
+        if (!arc.isLoop()) {
+            return "";
+        }
+        return " [already a loop at node " + arc.startNodeId + " leftPatch=" + arc.leftPatchId
+                + " rightPatch=" + arc.rightPatchId
+                + (arc.leftPatchId == arc.rightPatchId ? " SAME-PATCH-BOTH-SIDES" : "")
+                + " leftSides=" + describePatchSides(arc.leftPatchId)
+                + " rightSides=" + describePatchSides(arc.rightPatchId) + CLOSE_GROUP;
+    }
+
+    /**
+     * The per-side arc counts of a patch, so the report shows whether retiring it would have been
+     * the emptied-patch case the collapse already handles.
+     *
+     * @param patchId patch to describe, or {@link EmbeddedTMesh#NONE}
+     * @return the four side sizes, or {@code none}
+     */
+    private String describePatchSides(int patchId) {
+        if (patchId == EmbeddedTMesh.NONE || !tmesh.patches.get(patchId).alive) {
+            return "none";
+        }
+        List<String> sideSizes = new ArrayList<>(EmbeddedPatch.SIDES);
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            List<Integer> sideArcs = tmesh.patches.get(patchId).sideArcIds.get(side);
+            StringBuilder described = new StringBuilder();
+            for (int sideArcId : sideArcs) {
+                described.append(described.length() == 0 ? "" : "+").append(sideArcId)
+                        .append(tmesh.arcs.get(sideArcId).isLoop() ? "L" : "")
+                        .append(tmesh.arcs.get(sideArcId).quantizedLength == 0 ? "z" : "");
+            }
+            sideSizes.add(sideArcs.isEmpty() ? "-" : described.toString());
+        }
+        return String.join("/", sideSizes);
     }
 
     /**

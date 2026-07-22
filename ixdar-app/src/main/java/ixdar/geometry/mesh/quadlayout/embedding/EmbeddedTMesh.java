@@ -409,16 +409,37 @@ public final class EmbeddedTMesh {
      * bordering patch left with an empty boundary is retired here, which is what keeps the Euler
      * characteristic fixed across the contraction.
      *
-     * @param arcId arc to remove
+     * <p>Whether a node was merged is the caller's to say and cannot be recovered here: by this
+     * point {@link #mergeNodeInto} has run, so an arc that ran between two nodes and one that was
+     * already a loop both read as loops. The two cost different things. A merged node has already
+     * paid for the lost arc, and the patches either side must survive; an arc that was always a loop
+     * has paid nothing, and the degenerate patch it bounded has to go with it.
+     *
+     * @param arcId       arc to remove
+     * @param mergedANode whether collapsing this arc merged one node into another, which is false
+     *                    exactly when the arc was already a loop before the collapse
      * @throws IllegalStateException when the arc's ends are still two different nodes
      */
-    public void removeCollapsedArc(int arcId) {
+    public void removeCollapsedArc(int arcId, boolean mergedANode) {
         EmbeddedArc arc = arcs.get(arcId);
         if (!arc.isLoop()) {
             throw new IllegalStateException(ARC + arcId + " cannot be removed as collapsed:"
                     + " its ends are still nodes " + arc.startNodeId + AND + arc.endNodeId);
         }
         releaseClaims(arc);
+        int pinchedPatchId = mergedANode ? NONE : pinchedPatchOf(arcId);
+        if (pinchedPatchId != NONE) {
+            int farPatchId = arc.leftPatchId == pinchedPatchId ? arc.rightPatchId : arc.leftPatchId;
+            if (farPatchId != NONE && farPatchId != pinchedPatchId
+                    && patches.get(farPatchId).alive) {
+                spliceIntoPatch(farPatchId, arcId, pinchedPatchId,
+                        boundaryPathAround(pinchedPatchId, arcId));
+            }
+            removePatch(pinchedPatchId);
+            arcEndsByNode.get(arc.startNodeId).removeIf(id -> id == arcId);
+            arc.alive = false;
+            return;
+        }
         for (int patchId : new int[] { arc.leftPatchId, arc.rightPatchId }) {
             if (patchId == NONE || !patches.get(patchId).alive) {
                 continue;
@@ -438,6 +459,144 @@ public final class EmbeddedTMesh {
                 patches.get(patchId).alive = false;
             }
         }
+    }
+
+    /**
+     * The patch a collapsing loop pinches out of existence, or {@link #NONE} when it pinches none.
+     *
+     * <p>A loop with one other arc between the same two points bounds a bigon, and once the loop is
+     * gone that patch has a single arc for its whole boundary — it encloses nothing. The surface
+     * must lose it, and it must lose it <em>here</em>: an ordinary zero-arc collapse balances the
+     * arc it removes against the node it merges away, but a loop has one node and
+     * {@link #mergeNodeInto} does nothing, so the arc has to be paid for with a face instead. LCBK19
+     * §6.1 assigns exactly this case to the zero-arc collapse — a zero-patch <em>"without any
+     * non-zero arc, one that is supposed to be embedded onto a single point rather than a curve, is
+     * already handled by the zero-arc collapse"</em> — and it cannot fall to operator (3), which is
+     * defined for a bigon of two <em>non-zero</em> arcs.
+     *
+     * @param arcId the loop being collapsed
+     * @return the patch it pinches away, or {@link #NONE}
+     */
+    private int pinchedPatchOf(int arcId) {
+        EmbeddedArc arc = arcs.get(arcId);
+        for (int patchId : new int[] { arc.leftPatchId, arc.rightPatchId }) {
+            if (patchId == NONE || !patches.get(patchId).alive) {
+                continue;
+            }
+            List<Integer> remaining = boundaryArcsExcluding(patchId, arcId);
+            if (!remaining.isEmpty()
+                    && remaining.stream().allMatch(id -> arcs.get(id).quantizedLength == 0)) {
+                return patchId;
+            }
+        }
+        return NONE;
+    }
+
+    /**
+     * The pinched patch's boundary read as a path from the collapsing loop's node back to itself,
+     * going round the patch the other way.
+     *
+     * <p>Order is the whole difficulty. The far patch has the loop occupying one slot, and what
+     * replaces it has to traverse the pinched patch's boundary in the direction the loop did not —
+     * so the arcs are taken in cyclic order starting immediately <em>after</em> the loop and
+     * wrapping, rather than in side order. For a patch whose sides read {@code [in] [loop] [] [out]}
+     * that is {@code out, in}, not {@code in, out}: reading it the other way round would splice a
+     * boundary that runs backwards, which no Euler count would notice.
+     *
+     * @param patchId the patch being pinched away
+     * @param arcId   the loop being collapsed
+     * @return its remaining boundary arcs, ordered from the loop's node round to it again
+     */
+    private List<Integer> boundaryPathAround(int patchId, int arcId) {
+        List<Integer> cycle = new ArrayList<>();
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            for (int sideArcId : patches.get(patchId).sideArcIds.get(side)) {
+                if (arcs.get(sideArcId).alive) {
+                    cycle.add(sideArcId);
+                }
+            }
+        }
+        int loopIndex = cycle.indexOf(arcId);
+        List<Integer> path = new ArrayList<>(cycle.size() - 1);
+        for (int step = 1; step < cycle.size(); step++) {
+            path.add(cycle.get((loopIndex + step) % cycle.size()));
+        }
+        return path;
+    }
+
+    /**
+     * Puts a run of arcs into the slot another arc occupied on a patch's boundary.
+     *
+     * <p>{@link #replaceArcInPatch} cannot do this: it swaps one arc for another that runs between
+     * the same two nodes, and the arcs coming across from a pinched patch do not. Each side carries
+     * one more node than it carries arcs, so replacing one arc with {@code k} of them also inserts
+     * the {@code k - 1} nodes they meet at — miss those and the side's arc and node lists disagree
+     * about the boundary while every count still balances.
+     *
+     * @param patchId       patch whose boundary is being extended
+     * @param oldArcId      arc giving up its slot
+     * @param pinchedPatchId patch the replacements are coming from, whose side of them is being
+     *                       re-pointed
+     * @param replacements  the arcs to put in its place, in boundary order
+     */
+    private void spliceIntoPatch(int patchId, int oldArcId, int pinchedPatchId,
+            List<Integer> replacements) {
+        int[] position = sidePosition(patchId, oldArcId);
+        List<Integer> sideArcs = patches.get(patchId).sideArcIds.get(position[0]);
+        List<Integer> sideNodes = patches.get(patchId).sideNodeIds.get(position[0]);
+        sideArcs.remove(position[1]);
+        sideArcs.addAll(position[1], replacements);
+        for (int step = 0; step + 1 < replacements.size(); step++) {
+            sideNodes.add(position[1] + 1 + step,
+                    sharedNode(replacements.get(step), replacements.get(step + 1)));
+        }
+        for (int replacementArcId : replacements) {
+            EmbeddedArc replacement = arcs.get(replacementArcId);
+            if (replacement.leftPatchId == pinchedPatchId) {
+                replacement.leftPatchId = patchId;
+            } else if (replacement.rightPatchId == pinchedPatchId) {
+                replacement.rightPatchId = patchId;
+            }
+        }
+    }
+
+    /**
+     * The node two consecutive boundary arcs meet at.
+     *
+     * @param firstArcId  earlier arc along the boundary
+     * @param secondArcId arc following it
+     * @return the node they share
+     * @throws IllegalStateException when they share no node, so the boundary is not a path
+     */
+    private int sharedNode(int firstArcId, int secondArcId) {
+        EmbeddedArc first = arcs.get(firstArcId);
+        EmbeddedArc second = arcs.get(secondArcId);
+        for (int candidate : new int[] { first.startNodeId, first.endNodeId }) {
+            if (candidate == second.startNodeId || candidate == second.endNodeId) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException(ARC + firstArcId + AND + secondArcId
+                + " are consecutive on a patch boundary but share no node");
+    }
+
+    /**
+     * A patch's live boundary arcs other than one of them.
+     *
+     * @param patchId patch to read
+     * @param arcId   arc to leave out
+     * @return the remaining live boundary arcs, in side order
+     */
+    private List<Integer> boundaryArcsExcluding(int patchId, int arcId) {
+        List<Integer> remaining = new ArrayList<>();
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            for (int sideArcId : patches.get(patchId).sideArcIds.get(side)) {
+                if (sideArcId != arcId && arcs.get(sideArcId).alive) {
+                    remaining.add(sideArcId);
+                }
+            }
+        }
+        return remaining;
     }
 
     /**
@@ -1456,6 +1615,7 @@ public final class EmbeddedTMesh {
             }
             requirePathRunsBetweenItsNodes(arc);
         }
+
         int livePatches = 0;
         for (EmbeddedPatch patch : patches) {
             if (patch.alive) {
@@ -1488,8 +1648,29 @@ public final class EmbeddedTMesh {
                     + vertices.get(0) + TO + vertices.get(vertices.size() - 1)
                     + " but its nodes sit on " + expectedStart + AND + expectedEnd);
         }
-        for (int index = 1; index < vertices.size(); index++) {
-            requireEdge(arc.arcId, vertices.get(index - 1), vertices.get(index));
+    }
+
+    /**
+     * Checks every hop of every live arc is a real edge of the working copy.
+     *
+     * <p>Separate from {@link #validate} because it costs differently. That check is counting —
+     * cells, endpoints, Euler — and is worth paying after every operator. This one walks every
+     * vertex of every arc, so it costs the total length of the embedding, and running it per
+     * operator made the whole contraction quadratic: on fertility it was around 40% of all CPU
+     * across 3322 operators, more than the routing it was checking. Run it once when the
+     * contraction settles, or from a test.
+     *
+     * @throws IllegalStateException when consecutive path vertices share no copy edge
+     */
+    public void validateArcPaths() {
+        for (EmbeddedArc arc : arcs) {
+            if (!arc.alive) {
+                continue;
+            }
+            List<Integer> vertices = arc.path.copyVertexPath;
+            for (int index = 1; index < vertices.size(); index++) {
+                requireEdge(arc.arcId, vertices.get(index - 1), vertices.get(index));
+            }
         }
     }
 

@@ -101,7 +101,7 @@ public final class ZeroArcCollapseOperator {
         }
 
         tmesh.mergeNodeInto(survivingNodeId, movedNodeId);
-        tmesh.removeCollapsedArc(arcId);
+        tmesh.removeCollapsedArc(arcId, survivingNodeId != movedNodeId);
         collapsedCount++;
     }
 

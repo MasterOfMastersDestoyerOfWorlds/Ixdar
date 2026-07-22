@@ -1,11 +1,15 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import org.joml.Vector3f;
+
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
  * LCBK19 §6.1 operator (2), the non-simple zero-patch split, on the embedded T-mesh.
@@ -29,6 +33,9 @@ import org.joml.Vector3f;
  * satisfied by construction: the patch interior contains no other arc.
  */
 public final class ZeroPatchSplitOperator {
+
+    /** Diagnostic prefix naming a patch. */
+    private static final String PATCH_TAG = "patch ";
 
     public final EmbeddedTMesh tmesh;
     public final ArcRerouter rerouter;
@@ -80,8 +87,7 @@ public final class ZeroPatchSplitOperator {
         int oppositeOffset = tmesh.oppositeOffset(patchId, side, offset);
         int oppositeNodeId = nodeAtOffsetOrSplit(patchId, oppositeSide, oppositeOffset);
 
-        PatchRegions regions = new PatchRegions(tmesh).build();
-        Set<Integer> corridor = corridorVerticesOf(regions.copyFacesByPatch.get(patchId));
+        Set<Integer> corridor = corridorVerticesOf(patchFaces(patchId));
         int startVertex = tmesh.nodes.get(tjointNodeId).copyVertex;
         int endVertex = tmesh.nodes.get(oppositeNodeId).copyVertex;
 
@@ -120,7 +126,7 @@ public final class ZeroPatchSplitOperator {
                 }
             }
         }
-        throw new IllegalStateException("patch " + patchId + " has no extendable T-joint");
+        throw new IllegalStateException(PATCH_TAG + patchId + " has no extendable T-joint");
     }
 
     /**
@@ -209,6 +215,94 @@ public final class ZeroPatchSplitOperator {
      * @param faces the patch's copy faces
      * @return the vertices of those faces
      */
+    /**
+     * The copy faces one patch covers, found by flooding outwards from inside it and stopping at its
+     * own boundary arcs.
+     *
+     * <p>This used to come from {@link PatchRegions}, which decomposes the entire layout and asserts
+     * that every patch corresponds to one connected region of faces. That assertion only holds at
+     * the fixed point: a zero-patch is embedded onto a point or a curve, so while it lives it
+     * encloses no faces and corresponds to no region at all. Operator (2) runs precisely when
+     * zero-patches exist — that is its applicability condition — so asking the whole layout to be
+     * region-consistent was asking for something that is never true when the question is put. It
+     * threw on every mesh that ever reached a non-simple zero-patch, which is why the sphere reports
+     * {@code 0 split(s)} and fertility fails the moment it needs its first one.
+     *
+     * <p>Only this patch's faces are wanted, and they are reachable locally: its boundary arcs hold
+     * the copy edges they claim, and those edges are a wall the flood does not cross. The seed is
+     * the face on the patch's side of one of those arcs, which the arc knows — a patch traversing an
+     * arc from its start node lies to that arc's left.
+     *
+     * @param patchId patch whose faces are wanted
+     * @return the copy faces it covers
+     */
+    private List<Integer> patchFaces(int patchId) {
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        Set<Integer> wall = new HashSet<>();
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            for (int boundaryArcId : tmesh.patches.get(patchId).sideArcIds.get(side)) {
+                wall.addAll(tmesh.arcs.get(boundaryArcId).path.copyEdgePath);
+            }
+        }
+        List<Integer> faces = new ArrayList<>();
+        Set<Integer> visited = new HashSet<>();
+        Deque<Integer> frontier = new ArrayDeque<>();
+        int seed = seedFaceInside(patchId);
+        visited.add(seed);
+        frontier.add(seed);
+        while (!frontier.isEmpty()) {
+            int faceId = frontier.poll();
+            faces.add(faceId);
+            for (int corner = 0; corner < copy.faceHalfEdgeCount(faceId); corner++) {
+                int edgeId = copy.faceEdgeAt(faceId, corner);
+                if (wall.contains(edgeId)) {
+                    continue;
+                }
+                int halfEdge = copy.edgeHalfEdge(edgeId);
+                int neighbour = copy.halfEdgeFace(halfEdge) == faceId
+                        ? copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge))
+                        : copy.halfEdgeFace(halfEdge);
+                if (neighbour != EmbeddedMeshTopology.UNCLAIMED && visited.add(neighbour)) {
+                    frontier.add(neighbour);
+                }
+            }
+        }
+        return faces;
+    }
+
+    /**
+     * A copy face lying inside a patch, taken from the interior side of one of its boundary arcs.
+     *
+     * @param patchId patch to seed a flood inside
+     * @return a copy face it covers
+     * @throws IllegalStateException when the patch has no live boundary arc to take a side from
+     */
+    private int seedFaceInside(int patchId) {
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            for (int boundaryArcId : tmesh.patches.get(patchId).sideArcIds.get(side)) {
+                EmbeddedArc boundaryArc = tmesh.arcs.get(boundaryArcId);
+                List<Integer> path = boundaryArc.path.copyVertexPath;
+                if (!boundaryArc.alive || path.size() < 2) {
+                    continue;
+                }
+                boolean patchOnLeft = boundaryArc.leftPatchId == patchId;
+                int from = patchOnLeft ? path.get(0) : path.get(1);
+                int to = patchOnLeft ? path.get(1) : path.get(0);
+                int halfEdge = copy.edgeHalfEdge(tmesh.topology.edgeBetween(from, to));
+                if (copy.halfEdgeVertex(halfEdge) != from) {
+                    halfEdge = copy.halfEdgeTwin(halfEdge);
+                }
+                int faceId = copy.halfEdgeFace(halfEdge);
+                if (faceId != EmbeddedMeshTopology.UNCLAIMED) {
+                    return faceId;
+                }
+            }
+        }
+        throw new IllegalStateException(PATCH_TAG + patchId
+                + " has no live boundary arc to seed its interior from");
+    }
+
     private Set<Integer> corridorVerticesOf(List<Integer> faces) {
         Set<Integer> corridor = new HashSet<>();
         for (int faceId : faces) {
