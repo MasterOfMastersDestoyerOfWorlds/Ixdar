@@ -39,6 +39,15 @@ public class HalfEdgeMeshRuntime {
     public static final float NUM_20 = 20f;
     public static final double NUM_2_0 = 2.0;
     public static final float NUM_0_01 = 0.01f;
+
+    /** Near plane as a fraction of the camera's distance to its target. */
+    public static final float NEAR_PLANE_DISTANCE_FRACTION = 0.01f;
+
+    /** Smallest near plane, for a camera sitting on its target. */
+    public static final float NEAR_PLANE_FLOOR = 1e-4f;
+
+    /** Far plane margin beyond the target, as a multiple of the model's extent. */
+    public static final float FAR_PLANE_EXTENT_MUL = 3f;
     public static final float NUM_0 = 0f;
     public static final float NUM_0_001 = 0.001f;
     public static final float NUM_0_08 = 0.08f;
@@ -207,6 +216,32 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
+     * Near plane for a camera, scaled to its distance from its target.
+     *
+     * <p>A fixed near plane leaves the model's whole depth extent in a sliver of the range, small
+     * enough that the bias lifting overlay lines above the surface pushes far-side lines through.
+     *
+     * @param camera active camera
+     * @return the near plane distance
+     */
+    protected float nearPlaneFor(Camera3D camera) {
+        float distance = camera.position.distance(camera.target);
+        return Math.max(NEAR_PLANE_FLOOR, distance * NEAR_PLANE_DISTANCE_FRACTION);
+    }
+
+    /**
+     * Far plane for a camera, placed just beyond the model rather than at a fixed distance.
+     *
+     * @param camera active camera
+     * @param extent the model's full extent, such as its bounding-box diagonal
+     * @return the far plane distance
+     */
+    protected float farPlaneFor(Camera3D camera, float extent) {
+        float distance = camera.position.distance(camera.target);
+        return distance + Math.max(extent, NEAR_PLANE_FLOOR) * FAR_PLANE_EXTENT_MUL;
+    }
+
+    /**
      * Render the current mesh: builds the projection matrix
      * (perspective or orthographic per {@link #isOrthographic()}), picks the
      * shader for the active {@link ShaderMode}, draws either as a single
@@ -227,17 +262,18 @@ public class HalfEdgeMeshRuntime {
         int height = Platforms.get().getFrameBufferHeight();
         float aspect = width <= 0 || height <= 0 ? NUM_1 : ((float) width / (float) height);
 
-        float far = Math.max(NUM_1000, compiledMesh.radius * NUM_20);
+        float near = nearPlaneFor(camera);
+        float far = farPlaneFor(camera, compiledMesh.radius * 2f);
         if (orthographic) {
             float dist = camera.position.distance(camera.target);
             float halfH = dist * (float) Math.tan(Math.toRadians(camera.fov / NUM_2_0));
             float halfW = halfH * aspect;
-            projectionMatrix.identity().ortho(-halfW, halfW, -halfH, halfH, NUM_0_01, far);
+            projectionMatrix.identity().ortho(-halfW, halfW, -halfH, halfH, near, far);
         } else {
             projectionMatrix.identity().perspective(
                     (float) Math.toRadians((float) camera.fov),
                     aspect,
-                    NUM_0_01,
+                    near,
                     far);
         }
 

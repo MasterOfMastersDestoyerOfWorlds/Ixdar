@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -39,6 +40,9 @@ public final class EmbeddedContraction {
      * finished.
      */
     private static final String CHECK_REGIONS_PROPERTY = "embeddedTMesh.checkRegions";
+
+    /** Separator between fields of a diagnostic line. */
+    private static final String FIELD_SEPARATOR = " | ";
 
     public final EmbeddedTMesh tmesh;
     public final int expectedEulerCharacteristic;
@@ -138,9 +142,9 @@ public final class EmbeddedContraction {
                         }
                     }
                     arcPaths.append(" | lowDegreeNodes:").append(degrees);
-                    throw new IllegalStateException("regions torn by " + lastStep + " | "
-                            + torn.getMessage() + " | live patches:" + patchArcs
-                            + " | live arcs:" + arcPaths, torn);
+                    throw new IllegalStateException("regions torn by " + lastStep + FIELD_SEPARATOR
+                            + torn.getMessage() + FIELD_SEPARATOR + "live patches:" + patchArcs
+                            + FIELD_SEPARATOR + "live arcs:" + arcPaths, torn);
                 }
             }
             long next = terminationMeasure();
@@ -164,6 +168,33 @@ public final class EmbeddedContraction {
      *                               different, non-recoverable fault than a reroute wall
      */
     public ArcRerouteFailure contractToFailure() {
+        int claimedVertices = 0;
+        int gates = 0;
+        for (int vertex = 0; vertex < tmesh.topology.ownerArcByCopyVertex.length; vertex++) {
+            if (tmesh.topology.ownerArcByCopyVertex[vertex] != EmbeddedMeshTopology.UNCLAIMED
+                    || tmesh.topology.ownerNodeByCopyVertex[vertex] != EmbeddedMeshTopology.UNCLAIMED) {
+                claimedVertices++;
+            }
+        }
+        for (int index = 0; index < tmesh.topology.copy.edgeCount(); index++) {
+            int edgeId = tmesh.topology.copy.edgeIdAt(index);
+            if (tmesh.topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                continue;
+            }
+            int halfEdge = tmesh.topology.copy.edgeHalfEdge(edgeId);
+            int endA = tmesh.topology.copy.halfEdgeVertex(halfEdge);
+            int endB = tmesh.topology.copy.halfEdgeEndVertex(halfEdge);
+            boolean claimedA = tmesh.topology.ownerArcByCopyVertex[endA] != EmbeddedMeshTopology.UNCLAIMED
+                    || tmesh.topology.ownerNodeByCopyVertex[endA] != EmbeddedMeshTopology.UNCLAIMED;
+            boolean claimedB = tmesh.topology.ownerArcByCopyVertex[endB] != EmbeddedMeshTopology.UNCLAIMED
+                    || tmesh.topology.ownerNodeByCopyVertex[endB] != EmbeddedMeshTopology.UNCLAIMED;
+            if (claimedA && claimedB) {
+                gates++;
+            }
+        }
+        System.out.println("[start] claimedV=" + claimedVertices + " ofV="
+                + tmesh.topology.copy.vertexCount() + " gates=" + gates
+                + " ofE=" + tmesh.topology.copy.edgeCount());
         while (true) {
             String before = liveCounts();
             if (Boolean.getBoolean("embeddedTMesh.traceSteps")) {
@@ -174,6 +205,39 @@ public final class EmbeddedContraction {
             try {
                 if (!applyOneOperator()) {
                     tmesh.validateArcPaths();
+                    int leaked = 0;
+                    int onLivePath = 0;
+                    int liveArcs = 0;
+                    int pathTotal = 0;
+                    Set<Integer> pathVertices = new HashSet<>();
+                    for (EmbeddedArc arc : tmesh.arcs) {
+                        if (arc.alive) {
+                            liveArcs++;
+                            pathTotal += arc.path.copyVertexPath.size();
+                            pathVertices.addAll(arc.path.copyVertexPath);
+                        }
+                    }
+                    for (int v = 0; v < tmesh.topology.ownerArcByCopyVertex.length; v++) {
+                        int owner = tmesh.topology.ownerArcByCopyVertex[v];
+                        if (owner == EmbeddedMeshTopology.UNCLAIMED) {
+                            continue;
+                        }
+                        if (!tmesh.arcs.get(owner).alive || !pathVertices.contains(v)) {
+                            leaked++;
+                        } else {
+                            onLivePath++;
+                        }
+                    }
+                    System.out.println("[contract] claims | liveArcs=" + liveArcs
+                            + " pathVertexTotal=" + pathTotal
+                            + " avgPath=" + (liveArcs == 0 ? 0 : pathTotal / liveArcs)
+                            + " claimedOnLivePath=" + onLivePath + " leaked=" + leaked);
+                    System.out.println("[contract] refinement | copy V="
+                            + tmesh.topology.copy.vertexCount()
+                            + " E=" + tmesh.topology.copy.edgeCount()
+                            + " F=" + tmesh.topology.copy.faceCount()
+                            + refinementShare(collapseArc.rerouter, "collapse")
+                            + refinementShare(splitPatch.rerouter, "split"));
                     System.out.println("[contract] fixed point | " + survivingZeroPatchReport());
                     return null;
                 }
@@ -188,6 +252,24 @@ public final class EmbeddedContraction {
                         + " | counts before " + before + " after " + liveCounts(), broken);
             }
         }
+    }
+
+    /**
+     * One operator's refinement tally: edge splits broken down by the mechanism that made them,
+     * alongside the route attempts and refine rounds that drove them.
+     *
+     * @param rerouter operator's re-router
+     * @param label    operator name to prefix the tally with
+     * @return the tally as a compact string
+     */
+    private String refinementShare(ArcRerouter rerouter, String label) {
+        return FIELD_SEPARATOR + label + " splits=" + rerouter.refinedEdgeSplitCount
+                + " (gate=" + rerouter.gateSplitCount
+                + " blocked=" + rerouter.blockedSplitCount
+                + " spoke=" + rerouter.spokeSplitCount
+                + ") attempts=" + rerouter.routeAttemptCount
+                + " rounds=" + rerouter.refineRoundCount
+                + " growths=" + rerouter.corridorGrowthCount;
     }
 
     /**

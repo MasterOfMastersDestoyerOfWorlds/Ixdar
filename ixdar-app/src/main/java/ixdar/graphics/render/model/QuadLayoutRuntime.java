@@ -664,10 +664,9 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         Vector3f bMin = getBoundingBoxMin();
         Vector3f bMax = getBoundingBoxMax();
         float diag = bMax.distance(bMin);
-        float far = Math.max(SPHERE_FAR_FALLBACK, diag * FAR_PLANE_DIAG_MUL);
         localProjection.identity().perspective(
                 (float) Math.toRadians((float) camera.fov),
-                aspect, NEAR_PLANE, far);
+                aspect, nearPlaneFor(camera), farPlaneFor(camera, diag));
     }
 
     private void renderIsoLines(Camera3D camera) {

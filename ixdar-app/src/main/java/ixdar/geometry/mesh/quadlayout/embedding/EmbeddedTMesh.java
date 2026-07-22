@@ -64,6 +64,14 @@ public final class EmbeddedTMesh {
 
     public final EmbeddedMeshTopology topology;
 
+    /**
+     * Whether a patch lies left of the direction {@link #addPatch} walks its boundary.
+     *
+     * <p>Which way the walk runs is the caller's side ordering, not a property of the surface, so
+     * {@link #resolveWalkOrientation} measures it rather than assuming it.
+     */
+    public boolean interiorLeftOfWalk = true;
+
     /** Every node ever created; retired ones are still here, with {@code alive} false. */
     public final List<EmbeddedNode> nodes;
 
@@ -176,8 +184,7 @@ public final class EmbeddedTMesh {
                     throw new IllegalStateException(PATCH + patchId + SIDE + side
                             + ": arc " + arcId + " does not touch node " + walkNode);
                 }
-                boolean forward = arc.startNodeId == walkNode;
-                if (forward) {
+                if ((arc.startNodeId == walkNode) == interiorLeftOfWalk) {
                     arc.leftPatchId = patchId;
                 } else {
                     arc.rightPatchId = patchId;
@@ -192,6 +199,144 @@ public final class EmbeddedTMesh {
                     + " instead of " + firstCornerId);
         }
         return patchId;
+    }
+
+    /**
+     * Measures which side of a boundary walk the patches lie on, and restates every arc's left and
+     * right patch in those terms.
+     *
+     * <p>Call once the layout is complete: the test needs each patch bounded by its own arcs alone,
+     * true of a fresh arrangement but not of one mid-contraction.
+     *
+     * @throws IllegalStateException when patches disagree, since the walk is one convention
+     */
+    public void resolveWalkOrientation() {
+        boolean decided = false;
+        boolean leftIsInterior = true;
+        int decidedBy = NONE;
+        for (EmbeddedPatch patch : patches) {
+            if (!patch.alive) {
+                continue;
+            }
+            boolean vote = interiorLiesLeftOfWalk(patch.patchId);
+            if (!decided) {
+                leftIsInterior = vote;
+                decidedBy = patch.patchId;
+                decided = true;
+            } else if (vote != leftIsInterior) {
+                throw new IllegalStateException(PATCH + patch.patchId + " lies on the "
+                        + (vote ? "left" : "right") + " of its boundary walk but patch " + decidedBy
+                        + " lies on the other side: the layout's patch sides are not all ordered the"
+                        + " same way round, so no single convention describes them");
+            }
+        }
+        if (!decided) {
+            return;
+        }
+        interiorLeftOfWalk = leftIsInterior;
+        for (EmbeddedArc arc : arcs) {
+            arc.leftPatchId = NONE;
+            arc.rightPatchId = NONE;
+        }
+        for (EmbeddedPatch patch : patches) {
+            if (!patch.alive) {
+                continue;
+            }
+            for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+                List<Integer> sideArcs = patch.sideArcIds.get(side);
+                List<Integer> sideNodes = patch.sideNodeIds.get(side);
+                for (int index = 0; index < sideArcs.size(); index++) {
+                    EmbeddedArc arc = arcs.get(sideArcs.get(index));
+                    if ((arc.startNodeId == sideNodes.get(index)) == interiorLeftOfWalk) {
+                        arc.leftPatchId = patch.patchId;
+                    } else {
+                        arc.rightPatchId = patch.patchId;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Whether a patch covers the faces left of the direction its boundary was walked.
+     *
+     * <p>A patch's interior is bounded by its own arcs alone, so a flood that reaches an edge
+     * claimed by another arc started outside it.
+     *
+     * @param patchId patch to test
+     * @return true when the patch lies left of its walk
+     * @throws IllegalStateException when no boundary arc settles the question
+     */
+    private boolean interiorLiesLeftOfWalk(int patchId) {
+        EmbeddedPatch patch = patches.get(patchId);
+        Set<Integer> wall = new HashSet<>();
+        Set<Integer> ownArcs = new HashSet<>();
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            for (int arcId : patch.sideArcIds.get(side)) {
+                ownArcs.add(arcId);
+                wall.addAll(arcs.get(arcId).path.copyEdgePath);
+            }
+        }
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            List<Integer> sideArcs = patch.sideArcIds.get(side);
+            List<Integer> sideNodes = patch.sideNodeIds.get(side);
+            for (int index = 0; index < sideArcs.size(); index++) {
+                EmbeddedArc arc = arcs.get(sideArcs.get(index));
+                List<Integer> path = arc.path.copyVertexPath;
+                if (!arc.alive || path.size() < 2) {
+                    continue;
+                }
+                boolean forward = arc.startNodeId == sideNodes.get(index);
+                int from = forward ? path.get(0) : path.get(path.size() - 1);
+                int to = forward ? path.get(1) : path.get(path.size() - 2);
+                int halfEdge = topology.copy.edgeHalfEdge(topology.edgeBetween(from, to));
+                if (topology.copy.halfEdgeVertex(halfEdge) != from) {
+                    halfEdge = topology.copy.halfEdgeTwin(halfEdge);
+                }
+                int leftFace = topology.copy.halfEdgeFace(halfEdge);
+                if (leftFace != EmbeddedMeshTopology.UNCLAIMED) {
+                    return floodStaysInside(wall, ownArcs, leftFace);
+                }
+            }
+        }
+        throw new IllegalStateException(PATCH + patchId
+                + " has no embedded boundary arc to take a side from");
+    }
+
+    /**
+     * Whether a flood from a seed reaches only edges the patch is bounded by.
+     *
+     * @param wall    the patch's own boundary edges, which the flood stops at
+     * @param ownArcs the patch's boundary arcs
+     * @param seed    face to flood from
+     * @return true when the flood stayed inside the patch
+     */
+    private boolean floodStaysInside(Set<Integer> wall, Set<Integer> ownArcs, int seed) {
+        Set<Integer> visited = new HashSet<>();
+        Deque<Integer> frontier = new ArrayDeque<>();
+        visited.add(seed);
+        frontier.add(seed);
+        while (!frontier.isEmpty()) {
+            int faceId = frontier.poll();
+            for (int corner = 0; corner < topology.copy.faceHalfEdgeCount(faceId); corner++) {
+                int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+                if (wall.contains(edgeId)) {
+                    continue;
+                }
+                int owner = topology.ownerArcByCopyEdge[edgeId];
+                if (owner != EmbeddedMeshTopology.UNCLAIMED && !ownArcs.contains(owner)) {
+                    return false;
+                }
+                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+                int neighbour = topology.copy.halfEdgeFace(halfEdge) == faceId
+                        ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
+                        : topology.copy.halfEdgeFace(halfEdge);
+                if (neighbour != EmbeddedMeshTopology.UNCLAIMED && visited.add(neighbour)) {
+                    frontier.add(neighbour);
+                }
+            }
+        }
+        return true;
     }
 
     /**

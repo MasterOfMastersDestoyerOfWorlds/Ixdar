@@ -8,8 +8,8 @@ import ixdar.platform.input.OrbitMouseTrap;
 
 /**
  * Keyboard control for {@link EmbeddedTMeshScene}: orbit as usual, plus SPACE for one zero-arc
- * collapse, PERIOD for one split, C to run all three operators to a fixed point, and R to reset
- * to the pristine layout.
+ * collapse, PERIOD for one split, C for a checked full contraction, F for one that stops at the
+ * first reroute failure, H to highlight it, and R to reset.
  *
  * <p>See also: LCBK19 Section 6.1
  */
@@ -39,6 +39,8 @@ public final class EmbeddedTMeshSceneKeys extends OrbitCameraKeyGuy {
             scene.requestSplitStep();
         } else if (key == Keys.C) {
             scene.requestFullContraction();
+        } else if (key == Keys.F) {
+            scene.requestContractToFailure();
         } else if (key == Keys.H) {
             scene.toggleFailureHighlight();
         } else if (key == Keys.R) {

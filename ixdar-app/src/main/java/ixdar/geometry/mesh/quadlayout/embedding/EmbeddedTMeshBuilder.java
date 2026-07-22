@@ -82,6 +82,7 @@ public final class EmbeddedTMeshBuilder {
             }
             tmesh.addPatch(patch.patchId, sideArcIds, firstCorner(patch));
         }
+        tmesh.resolveWalkOrientation();
         tmesh.validate(expectedEulerCharacteristic);
         return tmesh;
     }

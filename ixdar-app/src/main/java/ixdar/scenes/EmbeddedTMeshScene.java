@@ -26,8 +26,8 @@ import ixdar.platform.input.OrbitMouseTrap;
 
 /**
  * Debug view of an embedded T-mesh: arcs as edge paths, positive orange and zero red, nodes as
- * spheres with critical ones tinted apart. SPACE collapses, PERIOD splits, C runs to a fixed
- * point, R rebuilds.
+ * spheres. SPACE collapses, PERIOD splits, C runs to a fixed point, F runs to the first reroute
+ * failure, R rebuilds.
  *
  * <p>Renders {@link TorusLayoutFixture} unless {@code -DembeddedTMesh.off} names a mesh.
  *
@@ -101,6 +101,9 @@ public class EmbeddedTMeshScene extends Scene {
     /** Camera distance, as a multiple of mesh radius, when framing a captured reroute failure. */
     public static final float FAILURE_VIEW_DISTANCE_MUL = 0.55f;
 
+    /** Separator introducing the live arc count in a contraction log line. */
+    private static final String ARC_COUNT_TAG = "; arcs=";
+
     private OrbitMouseTrap orbitMouse;
     private QuadLayoutRuntime runtime;
     private String offPath;
@@ -123,6 +126,9 @@ public class EmbeddedTMeshScene extends Scene {
 
     /** Whether a full contraction (all three operators to a fixed point) was requested by keypress. */
     private volatile boolean pendingContract;
+
+    /** Whether a contract-to-failure run was requested by keypress. */
+    private volatile boolean pendingContractToFailure;
 
     /**
      * Default constructor wired by the scene annotation processor.
@@ -377,6 +383,16 @@ public class EmbeddedTMeshScene extends Scene {
     }
 
     /**
+     * Ask to drive all three operators to a fixed point without the termination-measure check,
+     * stopping at the first reroute failure instead of throwing; applied on the next frame.
+     *
+     * <p>This is the {@code embeddedTMesh.contractFail} startup path, on a key.
+     */
+    public void requestContractToFailure() {
+        pendingContractToFailure = true;
+    }
+
+    /**
      * Apply any keypress-requested edit on the render thread, where the GL context is current,
      * and re-upload the changed T-mesh. Doing this here rather than in the key callback keeps
      * every GL call on the thread that owns the context.
@@ -391,13 +407,23 @@ public class EmbeddedTMeshScene extends Scene {
             Platforms.get().log("[embedded-tmesh] rebuilt");
             return;
         }
+        if (pendingContractToFailure) {
+            pendingContractToFailure = false;
+            EmbeddedContraction contraction = new EmbeddedContraction(tmesh, eulerCharacteristic);
+            failure = contraction.contractToFailure();
+            runtime.setEmbeddedTMesh(tmesh);
+            Platforms.get().log("[embedded-tmesh] contract-to-failure: "
+                    + contractionSummary(contraction) + ARC_COUNT_TAG + countLiveArcs()
+                    + (failure == null ? "; no failure" : "; " + failure.getMessage()));
+            return;
+        }
         if (pendingContract) {
             pendingContract = false;
             EmbeddedContraction contraction =
                     new EmbeddedContraction(tmesh, eulerCharacteristic).contract();
             runtime.setEmbeddedTMesh(tmesh);
             Platforms.get().log("[embedded-tmesh] contracted to fixed point: "
-                    + contractionSummary(contraction) + "; arcs=" + countLiveArcs());
+                    + contractionSummary(contraction) + ARC_COUNT_TAG + countLiveArcs());
             return;
         }
         boolean changed = false;

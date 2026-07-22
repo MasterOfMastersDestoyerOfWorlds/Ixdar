@@ -202,10 +202,49 @@ public final class ZeroPatchSplitOperator {
      *
      * @param patchId patch whose faces are wanted
      * @return the copy faces it covers
+     * @throws IllegalStateException when no side of any boundary arc floods an interior
      */
-    private IntIdList patchFaces(int patchId) {
-        HalfEdgeMesh copy = tmesh.topology.copy;
-        ActiveIdSet wall = new ActiveIdSet(copy.edgeCount());
+    public IntIdList patchFaces(int patchId) {
+        return floodWithin(patchWall(patchId), seedFaceInside(patchId));
+    }
+
+    /**
+     * A copy face lying inside a patch, taken from the interior side of one of its boundary arcs.
+     *
+     * <p>The interior side comes from {@code leftPatchId}, which records the direction
+     * {@code addPatch} walked rather than a fact about the surface, so a layout walked the other
+     * way seeds outside. See {@code PatchInteriorSeedTest}.
+     *
+     * @param patchId patch to seed a flood inside
+     * @return a copy face it covers
+     * @throws IllegalStateException when the patch has no live boundary arc to take a side from
+     */
+    private int seedFaceInside(int patchId) {
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            for (int boundaryArcId : tmesh.patches.get(patchId).sideArcIds.get(side)) {
+                EmbeddedArc boundaryArc = tmesh.arcs.get(boundaryArcId);
+                if (!boundaryArc.alive || boundaryArc.path.copyVertexPath.size() < 2) {
+                    continue;
+                }
+                int faceId = seedFromArc(boundaryArc, boundaryArc.leftPatchId == patchId);
+                if (faceId != EmbeddedMeshTopology.UNCLAIMED) {
+                    return faceId;
+                }
+            }
+        }
+        throw new IllegalStateException(PATCH_TAG + patchId
+                + " has no live boundary arc to seed its interior from");
+    }
+
+    /**
+     * The copy edges a patch's boundary arcs run along — the wall a flood of its interior may not
+     * cross.
+     *
+     * @param patchId patch whose boundary is wanted
+     * @return the boundary's copy edges
+     */
+    private ActiveIdSet patchWall(int patchId) {
+        ActiveIdSet wall = new ActiveIdSet(tmesh.topology.copy.edgeCount());
         for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
             for (int boundaryArcId : tmesh.patches.get(patchId).sideArcIds.get(side)) {
                 for (int edgeId : tmesh.arcs.get(boundaryArcId).path.copyEdgePath) {
@@ -213,9 +252,20 @@ public final class ZeroPatchSplitOperator {
                 }
             }
         }
+        return wall;
+    }
+
+    /**
+     * The faces reachable from a seed without crossing a wall edge.
+     *
+     * @param wall edges the flood stops at
+     * @param seed face to flood from
+     * @return the reachable faces, seed first
+     */
+    private IntIdList floodWithin(ActiveIdSet wall, int seed) {
+        HalfEdgeMesh copy = tmesh.topology.copy;
         ActiveIdSet visited = new ActiveIdSet(copy.faceCount());
         IntIdList faces = new IntIdList(copy.faceCount());
-        int seed = seedFaceInside(patchId);
         visited.add(seed);
         faces.add(seed);
         for (int cursor = 0; cursor < faces.size(); cursor++) {
@@ -239,36 +289,25 @@ public final class ZeroPatchSplitOperator {
     }
 
     /**
-     * A copy face lying inside a patch, taken from the interior side of one of its boundary arcs.
+     * The copy face on one side of a boundary arc's first hop.
      *
-     * @param patchId patch to seed a flood inside
-     * @return a copy face it covers
-     * @throws IllegalStateException when the patch has no live boundary arc to take a side from
+     * <p>A half-edge carries the face on its left, so walking the arc's path forwards yields the
+     * face to the arc's left and backwards the face to its right.
+     *
+     * @param boundaryArc arc to take a side from
+     * @param takeLeft    whether to take the face left of the arc's forward direction
+     * @return the copy face on that side, or {@link EmbeddedMeshTopology#UNCLAIMED} off the mesh
      */
-    private int seedFaceInside(int patchId) {
+    private int seedFromArc(EmbeddedArc boundaryArc, boolean takeLeft) {
         HalfEdgeMesh copy = tmesh.topology.copy;
-        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
-            for (int boundaryArcId : tmesh.patches.get(patchId).sideArcIds.get(side)) {
-                EmbeddedArc boundaryArc = tmesh.arcs.get(boundaryArcId);
-                List<Integer> path = boundaryArc.path.copyVertexPath;
-                if (!boundaryArc.alive || path.size() < 2) {
-                    continue;
-                }
-                boolean patchOnLeft = boundaryArc.leftPatchId == patchId;
-                int from = patchOnLeft ? path.get(0) : path.get(1);
-                int to = patchOnLeft ? path.get(1) : path.get(0);
-                int halfEdge = copy.edgeHalfEdge(tmesh.topology.edgeBetween(from, to));
-                if (copy.halfEdgeVertex(halfEdge) != from) {
-                    halfEdge = copy.halfEdgeTwin(halfEdge);
-                }
-                int faceId = copy.halfEdgeFace(halfEdge);
-                if (faceId != EmbeddedMeshTopology.UNCLAIMED) {
-                    return faceId;
-                }
-            }
+        List<Integer> path = boundaryArc.path.copyVertexPath;
+        int from = takeLeft ? path.get(0) : path.get(1);
+        int to = takeLeft ? path.get(1) : path.get(0);
+        int halfEdge = copy.edgeHalfEdge(tmesh.topology.edgeBetween(from, to));
+        if (copy.halfEdgeVertex(halfEdge) != from) {
+            halfEdge = copy.halfEdgeTwin(halfEdge);
         }
-        throw new IllegalStateException(PATCH_TAG + patchId
-                + " has no live boundary arc to seed its interior from");
+        return copy.halfEdgeFace(halfEdge);
     }
 
     /**

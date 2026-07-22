@@ -57,6 +57,21 @@ public final class ArcRerouter {
     /** Edges split to open a walled corridor. */
     public int refinedEdgeSplitCount;
 
+    /** Of {@link #refinedEdgeSplitCount}, those split as gates on a face passage. */
+    public int gateSplitCount;
+
+    /** Of {@link #refinedEdgeSplitCount}, those split by the untargeted blocked-edge sweep. */
+    public int blockedSplitCount;
+
+    /** Of {@link #refinedEdgeSplitCount}, those split to mint a free spoke into a vertex. */
+    public int spokeSplitCount;
+
+    /** Calls to {@link #tryRoute}. */
+    public int routeAttemptCount;
+
+    /** Refine rounds executed across all {@link #tryRoute} calls. */
+    public int refineRoundCount;
+
     /** Corridor ring growths performed. */
     public int corridorGrowthCount;
 
@@ -80,6 +95,7 @@ public final class ArcRerouter {
 
     /** Edges already examined by one {@code refineBlockedEdges} round. */
     public final ActiveIdSet seenEdges = new ActiveIdSet(0);
+
 
     /**
      * Stores the working copy the re-routes carve into.
@@ -131,7 +147,9 @@ public final class ArcRerouter {
         refineMints.clear();
         int growths = 0;
         int splitBudget = SPLIT_BUDGET;
+        routeAttemptCount++;
         for (int round = 0; round <= roundCap; round++) {
+            refineRoundCount++;
             if (dijkstraSearch(vertices, startCopyVertex, endCopyVertex, corridor, passThrough)) {
                 if (refined) {
                     refinedRetryCount++;
@@ -312,10 +330,12 @@ public final class ArcRerouter {
             }
             corridor.add(topology.splitEdgeAtParameter(edgeId, EDGE_MIDPOINT));
             refinedEdgeSplitCount++;
+            gateSplitCount++;
             splits++;
         }
         return splits;
     }
+
 
     /**
      * The edges crossed by the shortest face path between two vertices that never crosses a claimed
@@ -425,6 +445,7 @@ public final class ArcRerouter {
             refineMints.add(minted);
             corridor.add(minted);
             refinedEdgeSplitCount++;
+            blockedSplitCount++;
             splits++;
         }
         return splits;
@@ -466,6 +487,7 @@ public final class ArcRerouter {
             int minted = topology.splitEdgeAtParameter(oppositeEdge, EDGE_MIDPOINT);
             corridor.add(minted);
             refinedEdgeSplitCount++;
+            spokeSplitCount++;
             return true;
         }
         return false;
