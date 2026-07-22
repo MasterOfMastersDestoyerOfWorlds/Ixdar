@@ -21,7 +21,6 @@ public class HalfEdgeMeshEngine {
     public static final String AND = " and ";
     public static final float NUM_0 = 0f;
     public static final int NUM_3 = 3;
-    public static final int NUM_16 = 16;
     public static final int NUM_4 = 4;
     public static final float NUM_0_5 = 0.5f;
     public static final float NUM_0_25 = 0.25f;
@@ -265,8 +264,7 @@ public class HalfEdgeMeshEngine {
         int totalFaceVerts = faceIndices.length;
         int e = totalFaceVerts / 2;
         int he = totalFaceVerts;
-        int mapCap = he + NUM_16;
-        HalfEdgeMesh mesh = new HalfEdgeMesh(v, e, f, he, mapCap);
+        HalfEdgeMesh mesh = new HalfEdgeMesh(v, e, f, he);
         for (int i = 0; i < v; i++) {
             int o = i * HalfEdgeMesh.FLOATS_PER_VERTEX;
             mesh.createVertexSlot(positions[o], positions[o + 1], positions[o + 2]);
@@ -313,8 +311,7 @@ public class HalfEdgeMeshEngine {
         int f = faceVertexCounts.length;
         int e = totalFaceVerts / 2;
         int he = totalFaceVerts;
-        int mapCap = he + NUM_16;
-        HalfEdgeMesh mesh = new HalfEdgeMesh(v, e, f, he, mapCap);
+        HalfEdgeMesh mesh = new HalfEdgeMesh(v, e, f, he);
         for (int i = 0; i < v; i++) {
             int o = i * HalfEdgeMesh.FLOATS_PER_VERTEX;
             mesh.createVertexSlot(positions[o], positions[o + 1], positions[o + 2]);
@@ -353,7 +350,7 @@ public class HalfEdgeMeshEngine {
         int outV = srcV + srcE + srcF;
         int outF = srcF * NUM_4;
 
-        HalfEdgeMesh out = new HalfEdgeMesh(outV, srcE * NUM_4, outF, srcE * NUM_4, srcE * NUM_4 + NUM_16);
+        HalfEdgeMesh out = new HalfEdgeMesh(outV, srcE * NUM_4, outF, srcE * NUM_4);
 
         // Copy original vertex positions
         for (int i = 0; i < srcV; i++) {
@@ -536,13 +533,35 @@ public class HalfEdgeMeshEngine {
     }
 
     static int ensureEdgePair(HalfEdgeMesh mesh, int startVertexId, int endVertexId) {
-        Integer existing = mesh.halfEdgesByDirection.get(mesh.directedKey(startVertexId, endVertexId));
-        if (existing != null) {
+        int existing = findHalfEdge(mesh, startVertexId, endVertexId);
+        if (existing != MeshTopology.NONE) {
             return existing;
         }
-        ensureDirectedEdgeAvailable(mesh, startVertexId, endVertexId);
         int edgeId = createEdgePair(mesh, startVertexId, endVertexId);
         return mesh.edgeHalfEdge[edgeId];
+    }
+
+    /**
+     * The half-edge running from one vertex to another, or {@link MeshTopology#NONE} when the pair
+     * is not connected.
+     *
+     * <p>Walks the source vertex's outgoing adjacency, which holds every outgoing half-edge whether
+     * or not it carries a face.
+     *
+     * @param mesh          mesh to search
+     * @param startVertexId source vertex
+     * @param endVertexId   destination vertex
+     * @return the directed half-edge id, or {@link MeshTopology#NONE}
+     */
+    static int findHalfEdge(HalfEdgeMesh mesh, int startVertexId, int endVertexId) {
+        IntIdList outgoing = mesh.vertexOutgoingHalfEdges.get(startVertexId);
+        for (int index = 0; index < outgoing.size(); index++) {
+            int halfEdgeId = outgoing.get(index);
+            if (mesh.halfEdgeVertex[mesh.halfEdgeTwin[halfEdgeId]] == endVertexId) {
+                return halfEdgeId;
+            }
+        }
+        return MeshTopology.NONE;
     }
 
     static int createEdgePair(HalfEdgeMesh mesh, int startVertexId, int endVertexId) {
@@ -567,18 +586,13 @@ public class HalfEdgeMeshEngine {
             mesh.vertexOutgoing[endVertexId] = backwardHalfEdgeId;
         }
 
-        mesh.halfEdgesByDirection.put(mesh.directedKey(startVertexId, endVertexId), forwardHalfEdgeId);
-        mesh.halfEdgesByDirection.put(mesh.directedKey(endVertexId, startVertexId), backwardHalfEdgeId);
         return edgeId;
     }
 
     static void unregisterHalfEdge(HalfEdgeMesh mesh, int halfEdgeId) {
         int startVertexId = mesh.halfEdgeVertex[halfEdgeId];
-        int twinHalfEdgeId = mesh.halfEdgeTwin[halfEdgeId];
-        int endVertexId = mesh.halfEdgeVertex[twinHalfEdgeId];
         int edgeId = mesh.halfEdgeEdge[halfEdgeId];
 
-        mesh.halfEdgesByDirection.remove(mesh.directedKey(startVertexId, endVertexId));
         mesh.vertexOutgoingHalfEdges.get(startVertexId).removeValue(halfEdgeId);
         mesh.vertexEdges.get(startVertexId).removeValue(edgeId);
         if (mesh.vertexOutgoing[startVertexId] == halfEdgeId) {
@@ -590,7 +604,7 @@ public class HalfEdgeMeshEngine {
     }
 
     static void ensureDirectedEdgeAvailable(HalfEdgeMesh mesh, int startVertexId, int endVertexId) {
-        if (mesh.halfEdgesByDirection.containsKey(mesh.directedKey(startVertexId, endVertexId))) {
+        if (findHalfEdge(mesh, startVertexId, endVertexId) != MeshTopology.NONE) {
             throw new InvalidMeshTopologyException(
                     "Edge between " + startVertexId + AND + endVertexId + " already exists");
         }

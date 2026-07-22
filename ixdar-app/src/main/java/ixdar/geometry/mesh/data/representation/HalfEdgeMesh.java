@@ -2,8 +2,6 @@ package ixdar.geometry.mesh.data.representation;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.joml.Vector3f;
 
@@ -23,11 +21,8 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     public static final int NUM_8 = 8;
     public static final float NUM_0_5 = 0.5f;
     public static final float NUM_0 = 0f;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
     public static final int FLOATS_PER_VERTEX = 3;
 
-    public final Map<Long, Integer> halfEdgesByDirection;
     public final ActiveIdSet activeVertexIds;
     public final ActiveIdSet activeEdgeIds;
     public final ActiveIdSet activeFaceIds;
@@ -87,7 +82,6 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         int fc = Math.max(NUM_4, faceCapacity);
         int hc = Math.max(NUM_8, halfEdgeCapacity);
 
-        this.halfEdgesByDirection = new HashMap<>(hc * NUM_4 / FLOATS_PER_VERTEX + 1);
         this.activeVertexIds = new ActiveIdSet(vc);
         this.activeEdgeIds = new ActiveIdSet(ec);
         this.activeFaceIds = new ActiveIdSet(fc);
@@ -95,9 +89,19 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         this.vertexOutgoingHalfEdges = new ArrayList<>(vc);
         this.vertexEdges = new ArrayList<>(vc);
         this.vertexFaces = new ArrayList<>(vc);
+        for (int i = 0; i < vc; i++) {
+            this.vertexOutgoingHalfEdges.add(new IntIdList(NUM_8));
+            this.vertexEdges.add(new IntIdList(NUM_8));
+            this.vertexFaces.add(new IntIdList(NUM_8));
+        }
         this.faceHalfEdges = new ArrayList<>(fc);
         this.faceVertices = new ArrayList<>(fc);
         this.faceEdges = new ArrayList<>(fc);
+        for (int i = 0; i < fc; i++) {
+            this.faceHalfEdges.add(new IntIdList(NUM_4));
+            this.faceVertices.add(new IntIdList(NUM_4));
+            this.faceEdges.add(new IntIdList(NUM_4));
+        }
         this.vertexPositions = new float[vc * FLOATS_PER_VERTEX];
         this.vertexNormals = new float[vc * FLOATS_PER_VERTEX];
         this.vertexOutgoing = new int[vc];
@@ -128,71 +132,6 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         fillWithNone(halfEdgeVertex);
         fillWithNone(halfEdgeFace);
         fillWithNone(halfEdgeEdge);
-    }
-
-    /**
-     * Pre-sized topology for bulk quad construction (e.g. Catmull–Clark). Avoids
-     * array growth and HashMap rehash during
-     * {@link HalfEdgeMeshEngine#addFaceInternal}.
-     *
-     * @param maxV        exact vertex capacity to allocate
-     * @param maxE        exact edge capacity to allocate
-     * @param maxF        exact face capacity to allocate
-     * @param maxHe       exact half-edge capacity to allocate
-     * @param mapCapacity initial capacity for the directed-edge HashMap (load
-     *                    factor 1.0)
-     */
-    public HalfEdgeMesh(int maxV, int maxE, int maxF, int maxHe, int mapCapacity) {
-        this.halfEdgesByDirection = new HashMap<>(mapCapacity, 1.0f);
-        this.activeVertexIds = new ActiveIdSet(Math.max(NUM_4, maxV));
-        this.activeEdgeIds = new ActiveIdSet(Math.max(NUM_4, maxE));
-        this.activeFaceIds = new ActiveIdSet(Math.max(NUM_4, maxF));
-        this.activeHalfEdgeIds = new ActiveIdSet(Math.max(NUM_4, maxHe));
-        this.vertexOutgoingHalfEdges = new ArrayList<>(maxV);
-        this.vertexEdges = new ArrayList<>(maxV);
-        this.vertexFaces = new ArrayList<>(maxV);
-        for (int i = 0; i < maxV; i++) {
-            this.vertexOutgoingHalfEdges.add(new IntIdList(NUM_8));
-            this.vertexEdges.add(new IntIdList(NUM_8));
-            this.vertexFaces.add(new IntIdList(NUM_8));
-        }
-        this.faceHalfEdges = new ArrayList<>(maxF);
-        this.faceVertices = new ArrayList<>(maxF);
-        this.faceEdges = new ArrayList<>(maxF);
-        for (int i = 0; i < maxF; i++) {
-            this.faceHalfEdges.add(new IntIdList(NUM_4));
-            this.faceVertices.add(new IntIdList(NUM_4));
-            this.faceEdges.add(new IntIdList(NUM_4));
-        }
-        this.vertexPositions = new float[maxV * FLOATS_PER_VERTEX];
-        this.vertexNormals = new float[maxV * FLOATS_PER_VERTEX];
-        this.vertexOutgoing = new int[maxV];
-        Arrays.fill(this.vertexOutgoing, MeshTopology.NONE);
-        this.vertexActive = new boolean[maxV];
-        this.edgeHalfEdge = new int[maxE];
-        Arrays.fill(this.edgeHalfEdge, MeshTopology.NONE);
-        this.edgeActive = new boolean[maxE];
-        this.faceHalfEdge = new int[maxF];
-        Arrays.fill(this.faceHalfEdge, MeshTopology.NONE);
-        this.faceNormals = new float[maxF * FLOATS_PER_VERTEX];
-        this.faceActive = new boolean[maxF];
-        this.halfEdgeTwin = new int[maxHe];
-        this.halfEdgeNext = new int[maxHe];
-        this.halfEdgePrev = new int[maxHe];
-        this.halfEdgeVertex = new int[maxHe];
-        this.halfEdgeFace = new int[maxHe];
-        this.halfEdgeEdge = new int[maxHe];
-        Arrays.fill(this.halfEdgeTwin, MeshTopology.NONE);
-        Arrays.fill(this.halfEdgeNext, MeshTopology.NONE);
-        Arrays.fill(this.halfEdgePrev, MeshTopology.NONE);
-        Arrays.fill(this.halfEdgeVertex, MeshTopology.NONE);
-        Arrays.fill(this.halfEdgeFace, MeshTopology.NONE);
-        Arrays.fill(this.halfEdgeEdge, MeshTopology.NONE);
-        this.halfEdgeActive = new boolean[maxHe];
-        this.nextVertexId = 0;
-        this.nextEdgeId = 0;
-        this.nextFaceId = 0;
-        this.nextHalfEdgeId = 0;
     }
 
     /**
@@ -835,18 +774,6 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         vertexOutgoingHalfEdges.get(vertexId).clear();
         vertexEdges.get(vertexId).clear();
         vertexFaces.get(vertexId).clear();
-    }
-
-    /**
-     * Packs a directed (start, end) vertex pair into a single long for use as the
-     * {@link #halfEdgesByDirection} key.
-     *
-     * @param startIndex source vertex id (high 32 bits)
-     * @param endIndex   destination vertex id (low 32 bits)
-     * @return packed key suitable for the directed-edge map
-     */
-    public long directedKey(int startIndex, int endIndex) {
-        return (((long) startIndex) << NUM_32) | (endIndex & NUM_0xffffffff);
     }
 
     /**

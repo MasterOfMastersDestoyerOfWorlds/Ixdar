@@ -31,7 +31,7 @@ public final class ActiveIdSet {
      *
      * @param initialCapacity expected number of ids, clamped to a safe minimum
      */
-    ActiveIdSet(int initialCapacity) {
+    public ActiveIdSet(int initialCapacity) {
         int capacity = Math.max(MINIMUM_CAPACITY, initialCapacity);
         this.ids = new int[capacity];
         this.indexById = new int[capacity];
@@ -44,7 +44,7 @@ public final class ActiveIdSet {
      *
      * @return count of ids in the set
      */
-    int size() {
+    public int size() {
         return size;
     }
 
@@ -77,7 +77,7 @@ public final class ActiveIdSet {
      * @param id id to test
      * @return true when the set holds the id
      */
-    boolean contains(int id) {
+    public boolean contains(int id) {
         return id >= 0 && id < indexById.length && indexById[id] != ABSENT;
     }
 
@@ -96,6 +96,17 @@ public final class ActiveIdSet {
         ids[size] = id;
         indexById[id] = size;
         size++;
+    }
+
+    /**
+     * Empties the set, keeping the backing arrays so a scratch set can be reused without
+     * reallocating its id-space index. Costs one pass over the live ids, not over the id space.
+     */
+    public void clear() {
+        for (int index = 0; index < size; index++) {
+            indexById[ids[index]] = ABSENT;
+        }
+        size = 0;
     }
 
     /**

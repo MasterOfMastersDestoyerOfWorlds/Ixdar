@@ -1,15 +1,13 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.IntIdList;
 
 /**
  * Operator (2), the non-simple zero-patch split: extends one T-joint across the patch as a new
@@ -73,7 +71,7 @@ public final class ZeroPatchSplitOperator {
         int oppositeOffset = tmesh.oppositeOffset(patchId, side, offset);
         int oppositeNodeId = nodeAtOffsetOrSplit(patchId, oppositeSide, oppositeOffset);
 
-        Set<Integer> corridor = corridorVerticesOf(patchFaces(patchId));
+        ActiveIdSet corridor = corridorVerticesOf(patchFaces(patchId));
         int startVertex = tmesh.nodes.get(tjointNodeId).copyVertex;
         int endVertex = tmesh.nodes.get(oppositeNodeId).copyVertex;
 
@@ -205,23 +203,23 @@ public final class ZeroPatchSplitOperator {
      * @param patchId patch whose faces are wanted
      * @return the copy faces it covers
      */
-    private List<Integer> patchFaces(int patchId) {
+    private IntIdList patchFaces(int patchId) {
         HalfEdgeMesh copy = tmesh.topology.copy;
-        Set<Integer> wall = new HashSet<>();
+        ActiveIdSet wall = new ActiveIdSet(copy.edgeCount());
         for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
             for (int boundaryArcId : tmesh.patches.get(patchId).sideArcIds.get(side)) {
-                wall.addAll(tmesh.arcs.get(boundaryArcId).path.copyEdgePath);
+                for (int edgeId : tmesh.arcs.get(boundaryArcId).path.copyEdgePath) {
+                    wall.add(edgeId);
+                }
             }
         }
-        List<Integer> faces = new ArrayList<>();
-        Set<Integer> visited = new HashSet<>();
-        Deque<Integer> frontier = new ArrayDeque<>();
+        ActiveIdSet visited = new ActiveIdSet(copy.faceCount());
+        IntIdList faces = new IntIdList(copy.faceCount());
         int seed = seedFaceInside(patchId);
         visited.add(seed);
-        frontier.add(seed);
-        while (!frontier.isEmpty()) {
-            int faceId = frontier.poll();
-            faces.add(faceId);
+        faces.add(seed);
+        for (int cursor = 0; cursor < faces.size(); cursor++) {
+            int faceId = faces.get(cursor);
             for (int corner = 0; corner < copy.faceHalfEdgeCount(faceId); corner++) {
                 int edgeId = copy.faceEdgeAt(faceId, corner);
                 if (wall.contains(edgeId)) {
@@ -231,8 +229,9 @@ public final class ZeroPatchSplitOperator {
                 int neighbour = copy.halfEdgeFace(halfEdge) == faceId
                         ? copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge))
                         : copy.halfEdgeFace(halfEdge);
-                if (neighbour != EmbeddedMeshTopology.UNCLAIMED && visited.add(neighbour)) {
-                    frontier.add(neighbour);
+                if (neighbour != EmbeddedMeshTopology.UNCLAIMED && !visited.contains(neighbour)) {
+                    visited.add(neighbour);
+                    faces.add(neighbour);
                 }
             }
         }
@@ -278,9 +277,10 @@ public final class ZeroPatchSplitOperator {
      * @param faces the patch's copy faces
      * @return the vertices of those faces
      */
-    private Set<Integer> corridorVerticesOf(List<Integer> faces) {
-        Set<Integer> corridor = new HashSet<>();
-        for (int faceId : faces) {
+    private ActiveIdSet corridorVerticesOf(IntIdList faces) {
+        ActiveIdSet corridor = rerouter.freshCorridor();
+        for (int index = 0; index < faces.size(); index++) {
+            int faceId = faces.get(index);
             for (int corner = 0; corner < tmesh.topology.copy.faceHalfEdgeCount(faceId); corner++) {
                 corridor.add(tmesh.topology.copy.faceVertexAt(faceId, corner));
             }

@@ -13,6 +13,8 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.ActiveIdSet;
+import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.crossfield.DijkstraNode;
 
 /**
@@ -68,7 +70,16 @@ public final class ArcRerouter {
     public int lastCorridorSize;
 
     /** The corridor set of the last attempt, for diagnosing which vertices refinement could reach. */
-    public Set<Integer> lastCorridorSet;
+    public ActiveIdSet lastCorridorSet;
+
+    /** Corridor handed to callers by {@link #freshCorridor()}, reused across attempts. */
+    public final ActiveIdSet corridorScratch = new ActiveIdSet(0);
+
+    /** Vertices minted by refinement during one attempt. */
+    public final ActiveIdSet refineMints = new ActiveIdSet(0);
+
+    /** Edges already examined by one {@code refineBlockedEdges} round. */
+    public final ActiveIdSet seenEdges = new ActiveIdSet(0);
 
     /**
      * Stores the working copy the re-routes carve into.
@@ -77,6 +88,19 @@ public final class ArcRerouter {
      */
     public ArcRerouter(EmbeddedMeshTopology topology) {
         this.topology = topology;
+    }
+
+    /**
+     * An empty corridor to fill and hand to {@link #tryRoute}.
+     *
+     * <p>One reused set, not a fresh one — a corridor indexes the whole copy-vertex id space, so
+     * the previous attempt's contents are invalid once this is called.
+     *
+     * @return the shared corridor set, emptied
+     */
+    public ActiveIdSet freshCorridor() {
+        corridorScratch.clear();
+        return corridorScratch;
     }
 
     /**
@@ -98,13 +122,13 @@ public final class ArcRerouter {
      * @return whether the path now ends at the target
      */
     public boolean tryRoute(int arcId, List<Integer> vertices, int startCopyVertex,
-            int endCopyVertex, Set<Integer> corridor, int passThrough, int roundCap) {
+            int endCopyVertex, ActiveIdSet corridor, int passThrough, int roundCap) {
         if (vertices.isEmpty()) {
             vertices.add(startCopyVertex);
         }
         lastCorridorSet = corridor;
         boolean refined = false;
-        Set<Integer> refineMints = new HashSet<>();
+        refineMints.clear();
         int growths = 0;
         int splitBudget = SPLIT_BUDGET;
         for (int round = 0; round <= roundCap; round++) {
@@ -120,7 +144,7 @@ public final class ArcRerouter {
                 return false;
             }
             if (splits == 0 && splitBudget > 0) {
-                splits = refineBlockedEdges(corridor, refineMints, splitBudget);
+                splits = refineBlockedEdges(corridor, splitBudget);
                 splitBudget -= splits;
             }
             splits += mintSpoke(startCopyVertex, corridor) ? 1 : 0;
@@ -193,7 +217,7 @@ public final class ArcRerouter {
      * @return whether the target was reached
      */
     private boolean dijkstraSearch(List<Integer> vertices, int startVertex, int endCopyVertex,
-            Set<Integer> corridor, int passThrough) {
+            ActiveIdSet corridor, int passThrough) {
         Map<Integer, Float> distance = new HashMap<>();
         Map<Integer, Integer> parentVertex = new HashMap<>();
         PriorityQueue<DijkstraNode> frontier = new PriorityQueue<>();
@@ -258,7 +282,7 @@ public final class ArcRerouter {
      * @return number of blocking gates split, or {@link #NO_PASSAGE} when the target is
      *         unreachable through the arrangement
      */
-    private int refineCorridorGates(int startVertex, int endVertex, Set<Integer> corridor,
+    private int refineCorridorGates(int startVertex, int endVertex, ActiveIdSet corridor,
             int passThrough) {
         List<Integer> crossings = corridorGateEdges(startVertex, endVertex);
         if (crossings == null && passThrough != EmbeddedMeshTopology.UNCLAIMED) {
@@ -354,26 +378,30 @@ public final class ArcRerouter {
     }
 
     /**
-     * LCBK19 §6.1 refinement for a walled corridor — "easily resolved by refinement
-     * with a few edge splits". An unclaimed corridor edge whose endpoints are both
-     * claimed splits at its midpoint, minting a free vertex between the claimed lanes
-     * for the search to pass through.
+     * Refinement for a walled corridor: an unclaimed corridor edge whose endpoints are both
+     * claimed splits at its midpoint, minting a free vertex for the search to pass through.
+     *
+     * <p>Edges into a vertex {@link #refineMints} already holds are never re-split, which bounds
+     * the splitting.
+     *
+     * <p>See also: LCBK19 Section 6.1
      *
      * @param corridor    corridor vertex set; minted vertices join it
-     * @param refineMints vertices minted by earlier rounds of this attempt; edges into
-     *                    them are never re-split, which bounds the splitting
      * @param splitBudget maximum splits this round may make
      * @return number of edges split this round
      */
-    private int refineBlockedEdges(Set<Integer> corridor, Set<Integer> refineMints,
-            int splitBudget) {
+    private int refineBlockedEdges(ActiveIdSet corridor, int splitBudget) {
         List<Integer> blockedEdges = new ArrayList<>();
-        Set<Integer> seenEdges = new HashSet<>();
-        for (int vertex : corridor) {
+        seenEdges.clear();
+        for (int corridorIndex = 0; corridorIndex < corridor.size(); corridorIndex++) {
+            int vertex = corridor.get(corridorIndex);
             for (int index = 0; index < topology.copy.vertexEdgeCount(vertex); index++) {
                 int edgeId = topology.copy.vertexEdgeAt(vertex, index);
-                if (!seenEdges.add(edgeId)
-                        || topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                if (seenEdges.contains(edgeId)) {
+                    continue;
+                }
+                seenEdges.add(edgeId);
+                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                     continue;
                 }
                 int neighbor = topology.otherEndpoint(edgeId, vertex);
@@ -413,7 +441,7 @@ public final class ArcRerouter {
      * @param corridor corridor vertex set; the minted vertex joins it
      * @return whether a spoke was minted
      */
-    private boolean mintSpoke(int vertexId, Set<Integer> corridor) {
+    private boolean mintSpoke(int vertexId, ActiveIdSet corridor) {
         for (int index = 0; index < topology.copy.vertexEdgeCount(vertexId); index++) {
             if (topology.ownerArcByCopyEdge[topology.copy.vertexEdgeAt(vertexId, index)]
                     == EmbeddedMeshTopology.UNCLAIMED) {
@@ -448,9 +476,10 @@ public final class ArcRerouter {
      *
      * @param corridor corridor vertex set, grown in place
      */
-    private void growCorridor(Set<Integer> corridor) {
-        List<Integer> ring = new ArrayList<>();
-        for (int vertex : corridor) {
+    private void growCorridor(ActiveIdSet corridor) {
+        IntIdList ring = new IntIdList(corridor.size());
+        for (int corridorIndex = 0; corridorIndex < corridor.size(); corridorIndex++) {
+            int vertex = corridor.get(corridorIndex);
             for (int index = 0; index < topology.copy.vertexEdgeCount(vertex); index++) {
                 int neighbor = topology.otherEndpoint(topology.copy.vertexEdgeAt(vertex, index),
                         vertex);
@@ -459,7 +488,9 @@ public final class ArcRerouter {
                 }
             }
         }
-        corridor.addAll(ring);
+        for (int index = 0; index < ring.size(); index++) {
+            corridor.add(ring.get(index));
+        }
     }
 
     /**

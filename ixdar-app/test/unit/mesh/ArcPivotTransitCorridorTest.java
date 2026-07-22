@@ -3,12 +3,11 @@ package unit.mesh;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
@@ -75,7 +74,7 @@ class ArcPivotTransitCorridorTest {
         int pivotVertex = vertex(topology, SEAL_COLUMN, MIDDLE_ROW);
         int targetVertex = vertex(topology, COLUMNS - 1, MIDDLE_ROW);
 
-        Set<Integer> corridor = unclaimedVertices(topology);
+        ActiveIdSet corridor = unclaimedVertices(topology);
         corridor.add(pivotVertex);
         corridor.add(targetVertex);
         List<Integer> routed = new ArrayList<>();
@@ -122,7 +121,7 @@ class ArcPivotTransitCorridorTest {
         int pivotVertex = vertex(topology, SEAL_COLUMN, MIDDLE_ROW);
         int targetVertex = vertex(topology, COLUMNS - 1, MIDDLE_ROW);
 
-        Set<Integer> corridor = new HashSet<>();
+        ActiveIdSet corridor = new ActiveIdSet(topology.ownerArcByCopyVertex.length);
         for (int row = 0; row < ROWS; row++) {
             for (int column = SEAL_COLUMN + 1; column < COLUMNS; column++) {
                 int copyVertex = vertex(topology, column, row);
@@ -149,8 +148,8 @@ class ArcPivotTransitCorridorTest {
      * @param topology working copy carrying the claim arrays
      * @return the unclaimed copy vertices
      */
-    private Set<Integer> unclaimedVertices(EmbeddedMeshTopology topology) {
-        Set<Integer> unclaimed = new HashSet<>();
+    private ActiveIdSet unclaimedVertices(EmbeddedMeshTopology topology) {
+        ActiveIdSet unclaimed = new ActiveIdSet(topology.ownerArcByCopyVertex.length);
         for (int vertex = 0; vertex < topology.ownerArcByCopyVertex.length; vertex++) {
             if (topology.ownerArcByCopyVertex[vertex] == EmbeddedMeshTopology.UNCLAIMED
                     && topology.ownerNodeByCopyVertex[vertex] == EmbeddedMeshTopology.UNCLAIMED) {

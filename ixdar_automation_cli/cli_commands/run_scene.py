@@ -70,7 +70,13 @@ def _ensure_build(skip_build: bool) -> None:
     _run_maven(["compile"], "Compiling ixdar-app")
 
 
-def _java_command(scene: str, properties: list[str], profile_path: str, headless: bool) -> list[str]:
+def _java_command(
+    scene: str,
+    properties: list[str],
+    profile_path: str,
+    profile_event: str,
+    headless: bool,
+) -> list[str]:
     """Assemble the JVM command line for a scene.
 
     A fresh JVM is used rather than ``exec:java`` because ``exec:java`` runs in Maven's own process,
@@ -79,6 +85,7 @@ def _java_command(scene: str, properties: list[str], profile_path: str, headless
     :param scene: Scene id, passed to IxdarWindow as its argument.
     :param properties: ``key=value`` system properties.
     :param profile_path: async-profiler output path, or empty to run unprofiled.
+    :param profile_event: async-profiler event, e.g. ``cpu`` or ``alloc``.
     :param headless: Run without a visible window.
     :return: The full argv.
     """
@@ -90,7 +97,7 @@ def _java_command(scene: str, properties: list[str], profile_path: str, headless
     command.extend(f"-D{prop}" for prop in properties)
     if profile_path:
         command.append(
-            f"-agentpath:{ASYNC_PROFILER_LIB}=start,event=cpu,file={profile_path}"
+            f"-agentpath:{ASYNC_PROFILER_LIB}=start,event={profile_event},file={profile_path}"
         )
     command.extend([
         f"-XX:ErrorFile={os.path.join(IXDAR_APP_DIR, 'target', 'hs_err_pid%p.log')}",
@@ -213,6 +220,7 @@ def run(
     property: list[str] | None = None,
     profile: bool = False,
     profile_path: str = "",
+    profile_event: str = "cpu",
     await_log: str = "",
     timeout: float = 120.0,
     screenshot: str = "",
@@ -235,7 +243,7 @@ def run(
     _ensure_build(skip_build)
 
     client = AutomationClient(base_url=base_url)
-    command = _java_command(scene, properties, resolved_profile, headless)
+    command = _java_command(scene, properties, resolved_profile, profile_event, headless)
     print(f"Launching: {' '.join(command[:4])} … {scene}", file=sys.stderr)
     print(f"  log: {log_path}", file=sys.stderr)
 
@@ -296,6 +304,7 @@ def run_scene(
     property: list[str] | None = None,
     profile: bool = False,
     profile_path: str = "",
+    profile_event: str = "cpu",
     await_log: str = "",
     timeout: float = 120.0,
     screenshot: str = "",
@@ -310,8 +319,10 @@ def run_scene(
 
     :param scene: Scene id passed to IxdarWindow (see @SceneAnnotation ids).
     :param property: Repeatable ``key=value`` JVM system property.
-    :param profile: Capture an async-profiler CPU flame graph.
+    :param profile: Capture an async-profiler flame graph.
     :param profile_path: Profile output path (default: profile.html at the repo root).
+    :param profile_event: async-profiler event: ``cpu`` for time, ``alloc`` to attribute GC pressure
+        to allocation sites.
     :param await_log: Regex to wait for in the scene log, in addition to readiness.
     :param timeout: Seconds to wait for the scene to become ready.
     :param screenshot: Capture a screenshot to this path once ready.
@@ -327,6 +338,7 @@ def run_scene(
         property=property,
         profile=profile,
         profile_path=profile_path,
+        profile_event=profile_event,
         await_log=await_log,
         timeout=timeout,
         screenshot=screenshot,

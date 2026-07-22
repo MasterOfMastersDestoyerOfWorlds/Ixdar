@@ -6,8 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.joml.Vector3f;
-
+import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
@@ -321,8 +320,6 @@ public final class ZeroElementContraction {
                     + " node's vertex " + sourceVertex);
         }
         releaseClaims(arcId, path);
-        List<Vector3f> pull = positionsOf(vertices);
-        pull.addAll(positionsOf(channel));
         for (int keep = vertices.size() - 2; keep >= 0; keep--) {
             List<Integer> prefix = new ArrayList<>(vertices.subList(0, keep + 1));
             List<Integer> prefixEdges = new ArrayList<>(keep);
@@ -333,8 +330,13 @@ public final class ZeroElementContraction {
             ArcEdgePath prefixPath = new ArcEdgePath(arcId, prefix, prefixEdges);
             topology.claimPath(arcId, prefixPath);
             List<Integer> attempt = new ArrayList<>(prefix);
-            Set<Integer> corridor = new HashSet<>(vertices);
-            corridor.addAll(channel);
+            ActiveIdSet corridor = rerouter.freshCorridor();
+            for (int vertexId : vertices) {
+                corridor.add(vertexId);
+            }
+            for (int vertexId : channel) {
+                corridor.add(vertexId);
+            }
             corridor.add(targetVertex);
             if (rerouter.tryRoute(arcId, attempt, vertices.get(keep), targetVertex, corridor,
                     EmbeddedMeshTopology.UNCLAIMED, ArcRerouter.REFINE_ROUND_CAP)) {
@@ -418,20 +420,6 @@ public final class ZeroElementContraction {
                 topology.ownerArcByCopyVertex[vertex] = EmbeddedMeshTopology.UNCLAIMED;
             }
         }
-    }
-
-    /**
-     * Positions of a vertex id list on the working copy.
-     *
-     * @param vertices copy vertex ids
-     * @return their 3D positions in order
-     */
-    private List<Vector3f> positionsOf(List<Integer> vertices) {
-        List<Vector3f> positions = new ArrayList<>(vertices.size());
-        for (int vertex : vertices) {
-            positions.add(topology.copy.vertexPosition(vertex, new Vector3f()));
-        }
-        return positions;
     }
 
     /**

@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.joml.Vector3f;
+import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 
 /**
  * The quad layout's nodes, arcs and patches together with their realization on the working
@@ -83,7 +83,7 @@ public final class EmbeddedTMesh {
      * The corridor of the re-route attempt that just failed, held for the failure diagnostic.
      * Refinement splits an edge only when both endpoints are corridor members.
      */
-    public Set<Integer> diagnosticCorridor;
+    public ActiveIdSet diagnosticCorridor;
 
     /**
      * Creates an empty T-mesh over a working copy.
@@ -774,8 +774,6 @@ public final class EmbeddedTMesh {
                     + " vertex " + movedVertex);
         }
         releaseClaims(arc.path);
-        List<Vector3f> pull = positionsOf(vertices);
-        pull.addAll(positionsOf(channel));
         for (int passThrough : new int[] {EmbeddedMeshTopology.UNCLAIMED, movedVertex}) {
             if (passThrough == movedVertex && channel.size() > 1) {
                 openPivotSpoke(movedVertex, unclaimedComponent(channel.get(1)));
@@ -789,12 +787,19 @@ public final class EmbeddedTMesh {
                 ArcEdgePath prefixPath = new ArcEdgePath(arcId, prefix, prefixEdges);
                 topology.claimPath(arcId, prefixPath);
                 List<Integer> attempt = new ArrayList<>(prefix);
-                Set<Integer> corridor = new HashSet<>(vertices);
-                corridor.addAll(channel);
+                ActiveIdSet corridor = rerouter.freshCorridor();
+                for (int vertexId : vertices) {
+                    corridor.add(vertexId);
+                }
+                for (int vertexId : channel) {
+                    corridor.add(vertexId);
+                }
                 corridor.add(targetVertex);
                 corridor.add(movedVertex);
                 if (passThrough != EmbeddedMeshTopology.UNCLAIMED && channel.size() > 1) {
-                    corridor.addAll(unclaimedComponent(channel.get(1)));
+                    for (int vertexId : unclaimedComponent(channel.get(1))) {
+                        corridor.add(vertexId);
+                    }
                 }
                 if (rerouter.tryRoute(arcId, attempt, vertices.get(keep), targetVertex, corridor,
                         passThrough, ArcRerouter.REFINE_ROUND_CAP)) {
@@ -1390,20 +1395,6 @@ public final class EmbeddedTMesh {
             }
         }
         return free;
-    }
-
-    /**
-     * The copy-mesh positions of a list of vertices, in order.
-     *
-     * @param vertices copy vertices
-     * @return their positions
-     */
-    private List<Vector3f> positionsOf(List<Integer> vertices) {
-        List<Vector3f> positions = new ArrayList<>(vertices.size());
-        for (int vertexId : vertices) {
-            positions.add(topology.copy.vertexPosition(vertexId, new Vector3f()));
-        }
-        return positions;
     }
 
     /**

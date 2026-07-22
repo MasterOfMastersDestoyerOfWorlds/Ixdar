@@ -11,12 +11,22 @@ public final class IntIdList {
         this(NUM_4);
     }
 
-    IntIdList(int initialCapacity) {
+    /**
+     * Creates an empty list sized for an expected element count.
+     *
+     * @param initialCapacity expected number of elements, clamped to a safe minimum
+     */
+    public IntIdList(int initialCapacity) {
         this.values = new int[Math.max(1, initialCapacity)];
         this.size = 0;
     }
 
-    int size() {
+    /**
+     * The number of live elements.
+     *
+     * @return count of elements in the list
+     */
+    public int size() {
         return size;
     }
 

@@ -13,6 +13,7 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
@@ -80,7 +81,7 @@ class ArcCorridorThreadTest {
         assertTrue(faceThreadable(topology, startVertex, targetVertex),
                 "the band is face-threadable — no claimed edge separates the two halves");
 
-        Set<Integer> corridor = unclaimedVertices(topology);
+        ActiveIdSet corridor = unclaimedVertices(topology);
         List<Integer> routed = new ArrayList<>();
         boolean reached = new ArcRerouter(topology).tryRoute(CLAIM_MARKER, routed, startVertex,
                 targetVertex, corridor, EmbeddedMeshTopology.UNCLAIMED,
@@ -147,8 +148,8 @@ class ArcCorridorThreadTest {
      * @param topology working copy carrying the claim arrays
      * @return the unclaimed copy vertices
      */
-    private Set<Integer> unclaimedVertices(EmbeddedMeshTopology topology) {
-        Set<Integer> unclaimed = new HashSet<>();
+    private ActiveIdSet unclaimedVertices(EmbeddedMeshTopology topology) {
+        ActiveIdSet unclaimed = new ActiveIdSet(topology.ownerArcByCopyVertex.length);
         for (int vertex = 0; vertex < topology.ownerArcByCopyVertex.length; vertex++) {
             if (topology.ownerArcByCopyVertex[vertex] == EmbeddedMeshTopology.UNCLAIMED
                     && topology.ownerNodeByCopyVertex[vertex] == EmbeddedMeshTopology.UNCLAIMED) {

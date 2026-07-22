@@ -442,7 +442,7 @@ public final class EmbeddedMeshTopology {
             if (neighbor == keepVertexId || neighbor == oppositeA || neighbor == oppositeB) {
                 continue;
             }
-            if (copy.halfEdgesByDirection.containsKey(copy.directedKey(keepVertexId, neighbor))) {
+            if (edgeBetween(keepVertexId, neighbor) != UNCLAIMED) {
                 return false;
             }
         }
@@ -538,10 +538,6 @@ public final class EmbeddedMeshTopology {
 
     /**
      * Edge id between two copy vertices, found by walking the edges incident to one of them.
-     *
-     * <p>Deliberately not the {@code halfEdgesByDirection} lookup: its packed-pair keys collide
-     * heavily for the close vertex ids refinement mints. The adjacency read here is maintained in
-     * lockstep with that map, so the two agree by construction.
      *
      * @param vertexA first endpoint
      * @param vertexB second endpoint
