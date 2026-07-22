@@ -12,29 +12,13 @@ import java.util.Set;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
- * PATCH-35: Robins-Wood-Sheppard 2011 discrete-gradient field for 2D
- * triangulated piecewise-linear scalar fields. Implements the
- * lower-star homotopy-expansion pairing from <i>Theory and Algorithms
- * for Constructing Discrete Morse Complexes from Grayscale Digital
- * Images</i> (IEEE TPAMI 2011), adapted from the cubical formulation
- * to the simplicial 2-manifold case.
+ * Discrete-gradient field over a triangulated scalar field. Pairs each cell with a neighbour;
+ * unpaired cells are critical, a vertex being a minimum, an edge a saddle, a triangle a maximum.
  *
- * <p>Output: a per-cell gradient pair pointer plus the list of critical
- * cells (those left unpaired). In 2D:
- * <ul>
- *   <li>Critical 0-cell (vertex) → local minimum (no lower neighbours).</li>
- *   <li>Critical 1-cell (edge)   → saddle.</li>
- *   <li>Critical 2-cell (triangle) → local maximum.</li>
- * </ul>
- *
- * <p>The discrete gradient gives stable, combinatorially-defined V-paths
- * (gradient flow lines) that replace the noisy steepest-walks used in
- * the previous {@code MorseSmaleComplex}/{@code MscCellAssembly} pipeline.
- * V-paths are used by {@code MscQuadCells} to assemble formal MSC quad
- * cells with clean, simply-connected boundaries.
- *
- * <p>Cell-id layout: vertices [0, nv), edges [nv, nv+ne), triangles
+ * <p>Cell ids share one flat space: vertices [0, nv), edges [nv, nv+ne), triangles
  * [nv+ne, nv+ne+nt).
+ *
+ * <p>See also: Robins-Wood-Sheppard 2011
  */
 public final class DiscreteGradient {
     public static final int NUM_3 = 3;

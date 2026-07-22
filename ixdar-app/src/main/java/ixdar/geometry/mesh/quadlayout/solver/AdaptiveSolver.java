@@ -11,28 +11,12 @@ import org.ejml.sparse.FillReducing;
 import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
 
 /**
- * Adaptive solver ladder for the mixed-integer systems described by
- * Bommes-Zimmer-Kobbelt 2009, Section 2.1.
+ * Adaptive solver ladder for mixed-integer systems: a local Gauss-Seidel update
+ * around the rounded variable, escalating to warm-started conjugate gradient and
+ * then to a direct sparse solve when the cheaper step fails to converge. Inputs
+ * are an SPD matrix, a right-hand side, and a fixed mask.
  *
- * <p>
- * BZK09 solves a quadratic mixed-integer problem by repeatedly rounding one
- * integer variable, holding it fixed, and updating the remaining continuous
- * minimizer. Their adaptive strategy is:
- *
- * <ol>
- * <li>Start with a local Gauss-Seidel update seeded by the nonzero entries of
- * the rounded variable's matrix row.</li>
- * <li>If the local update does not converge, fall back to a global conjugate
- * gradient solve, warm-started from the previous solution.</li>
- * <li>If CG also fails, use a direct sparse solve.</li>
- * </ol>
- *
- * <p>
- * This class intentionally does not know about cross fields, period jumps, or
- * parametrization variables. It operates on a symmetric positive semi-definite
- * matrix plus a right-hand side, with caller-specified fixed variables. That
- * keeps it usable for both BZK09 cross-field smoothing and the later seamless
- * parametrization step.
+ * <p>See also: BZK09 Section 2.1
  */
 public final class AdaptiveSolver {
     public static final double NUM_1e_30 = 1e-30;
@@ -181,10 +165,8 @@ public final class AdaptiveSolver {
      * whether batched rounded variables are locally independent.
      *
      * <p>
-     * The caller owns {@code marked}; this method sets entries for variables in the
-     * patch and does not clear them. It returns the number of appended entries in
-     * {@code patch}. Pass a fresh or already-cleared marker array when the returned
-     * patch should be independent from previous calls.
+     * The caller owns {@code marked}: entries are set and never cleared, so pass a
+     * fresh or cleared array when the patch must be independent of earlier calls.
      *
      * @param matrix          symmetric system matrix A
      * @param roundedVariable variable considered for rounding
@@ -309,27 +291,10 @@ public final class AdaptiveSolver {
     }
 
     /**
-     * Preconditioned Conjugate Gradient with a caller-supplied preconditioner.
-     * Same warm-start semantics as {@link #conjugateGradient} but {@code M⁻¹} is
-     * computed by {@code preconditioner.solve(r, z)} on each iteration instead
-     * of the built-in Jacobi step. Mutates {@code x} in place.
-     *
-     * <p>
-     * The intended use case is the BZK09 §5.4 IRLS stiffening loop: cold-factor
-     * iter 0's matrix once, reuse that {@link IncrementalCholeskySolver} as the
-     * preconditioner for all subsequent stiffening iters' PCG solves. As long
-     * as the matrix doesn't drift too far, PCG converges in a handful of
-     * back-solves through the cached factor instead of paying a full cold
-     * factor per iter.
-     *
-     * <p>
-     * Norm-based termination uses
-     * {@code ‖r‖²(masked) ≤ τ² · max(‖b‖²(masked), 1)} where the mask skips
-     * entries flagged in {@code excludeFromNorms}. This keeps soft-pinned DOFs
-     * (whose huge {@code integerPinWeight}-scaled RHS entries would dominate
-     * the unconstrained norms) from artificially loosening the tolerance.
-     * Excluded DOFs are still updated normally by PCG — they just don't
-     * influence convergence detection.
+     * Preconditioned Conjugate Gradient with a caller-supplied preconditioner, with
+     * the warm-start semantics of {@link #conjugateGradient}. Mutates {@code x} in
+     * place. Entries flagged in {@code excludeFromNorms} are still updated but drop
+     * out of convergence detection.
      *
      * @param matrix             SPD system to solve
      * @param x                  warm-start input; mutated in place into the
@@ -507,9 +472,8 @@ public final class AdaptiveSolver {
     /**
      * Primitive-int FIFO sized for at most {@code n} entries (caller guarantees
      * deduplication via an external {@code inQueue[]} flag, so the buffer never
-     * needs to hold more than {@code n} live elements). Avoids the boxing cost of
-     * {@link ArrayDeque} on the local Gauss-Seidel hot path, which can run tens of
-     * millions of pop/push operations per build.
+     * needs to hold more than {@code n} live elements). Replaces
+     * {@link ArrayDeque} on the local Gauss-Seidel hot path.
      */
     static final class IntArrayQueue {
         private final int[] buf;

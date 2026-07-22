@@ -1,14 +1,11 @@
 package ixdar.procgen.dungeon.values;
 
 /**
- * Immutable undirected graph of edges between room indices. Produced by Delaunay triangulation,
- * filtered by the MST + extra-edge pass, and consumed by the A* corridor carving stage.
+ * Immutable undirected graph of edges between room indices, produced by Delaunay triangulation
+ * and consumed by the corridor carving stage.
  *
- * <p>{@code nodeCount} is typically the size of the source {@link RoomListValue}.
- * {@code edges} is a tightly-packed {@code int[edgeCount][2]} where each row is
- * {@code [fromRoomIdx, toRoomIdx]}. Ordering of the two indices within a row is not
- * significant (the graph is undirected), but the array is defensive-copied so consumers can
- * iterate without mutation concerns.
+ * <p>{@code edges} is an {@code int[edgeCount][2]} of {@code [fromRoomIdx, toRoomIdx]} rows,
+ * defensive-copied on construction; index order within a row carries no meaning.
  */
 public record EdgeGraphValue(int nodeCount, int[][] edges) {
 

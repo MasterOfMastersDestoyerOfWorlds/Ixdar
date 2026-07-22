@@ -13,20 +13,9 @@ import java.util.Set;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
- * Ascending-manifold segmentation built from a Morse-Smale critical-point
- * set (PATCH-24, B2 of PATCH-23). For every mesh face, walk steepest-
- * ascent vertex-by-vertex through the (smoothed) Morse function until
- * reaching a retained MAXIMUM; the max's id labels the face. This is
- * the segmentation TTK exposes as {@code AscendingManifold}; on a 2-
- * manifold it gives one cell per max, with cell boundaries naturally
- * landing on the ridge curves traced by {@link MorseSmaleComplex}'s
- * arc set.
- *
- * <p>Not formal MSC 2-cells (which are quadrilaterals bounded by
- * max-saddle-min-saddle traversal). Sufficient for B2 visualization
- * and for feeding a {@link PatchDecomposition} that the rest of the
- * pipeline (renderer / Coons-error / automation) can consume. Formal
- * quad-cell assembly is a future ticket.
+ * Ascending-manifold segmentation from a Morse-Smale critical-point set: each face is labelled by
+ * the retained maximum that steepest ascent through the smoothed Morse function reaches, giving one
+ * cell per maximum with boundaries on the ridge curves. These are not formal MSC 2-cells.
  */
 public final class MscCellAssembly {
     public static final int NUM_3 = 3;
@@ -41,15 +30,8 @@ public final class MscCellAssembly {
     private MscCellAssembly() {}
 
     /**
-     * Per-face label = id of the retained MAX it ascends to.
-     * {@code labels.length == faceCount}. Faces that fail to reach a
-     * max within the step cap fall back to the nearest reachable max
-     * by Euclidean distance of vertex positions.
-     *
-     * <p>Caller supplies the same SMOOTHED scalar field that produced
-     * the critical-point set — the field used for classification must
-     * be the field used for ascent, otherwise face-to-max assignments
-     * may not align with the cell boundaries the user sees as MSC arcs.
+     * Labels each face with the maximum it ascends to, falling back to the nearest max when the
+     * step cap is hit. {@code scalar} must be the smoothed field that produced {@code msc}.
      *
      * @param mesh input mesh
      * @param scalar smoothed Morse scalar that produced {@code msc} (must match)
@@ -62,16 +44,9 @@ public final class MscCellAssembly {
     }
 
     /**
-     * Feature-aware variant (PATCH-25). When the steepest-uphill edge
-     * from a vertex crosses a high-confidence feature edge (typically
-     * crest + saddle separators + multi-source agreement edges from
-     * SemanticPatchDecomposer's diagnostics), prefer the second-best
-     * non-crossing uphill candidate. Effect: ascending walks flow
-     * along ridges instead of crossing them, and cells get bounded by
-     * exactly the feature edges we curated through PATCH-13/14.
-     *
-     * <p>If a vertex has no non-crossing uphill option, fall back to
-     * the crossing one — better to terminate at a max than stall.
+     * Feature-aware variant: an uphill step that would cross a high-confidence edge instead takes
+     * the best non-crossing candidate, bounding cells by those edges. A vertex with no non-crossing
+     * option crosses rather than stalling.
      *
      * @param mesh input mesh
      * @param scalar smoothed Morse scalar that produced {@code msc} (must match)

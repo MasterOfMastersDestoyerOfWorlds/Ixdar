@@ -5,9 +5,8 @@ import java.math.BigInteger;
 /**
  * Result of reducing a constraint system {@code Cx = b} to integer reduced row
  * echelon form by {@link ExactArithmetic#reduceToIrref(BigInteger[][], BigInteger[])}.
- * Holds the transformed matrix and right-hand side, the column index of each
- * row's pivot, and the rank (= number of pivot rows). Rows beyond the rank are
- * all zero — those represent linear dependencies in the original system.
+ * Rows at or beyond {@link #rank} are all zero and represent linear dependencies
+ * in the original system.
  */
 public final class IrrefResult {
 

@@ -13,35 +13,10 @@ import java.util.Set;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
- * Parallel patch decomposer driven by Morse-Smale topology (PATCH-26 / B4
- * of PATCH-23). Coexists with {@link SemanticPatchDecomposer} so the
- * viewer / automation can A/B compare. Same {@code DecompositionDiagnostics}
- * shape is returned so all existing renderers and overlays work without
- * change.
- *
- * <p>Pipeline:
- * <ol>
- *   <li>Borrow {@link SemanticPatchDecomposer#decomposeWithDiagnostics}
- *       output for feature-edge sets, smoothed scalar, and the MSC result
- *       (PATCH-22 Phase A computed those during the same call). The
- *       semantic patch decomposition itself is discarded.</li>
- *   <li>Build the high-confidence edge set (saddle separators + crest +
- *       multi-source agreement edges) — same construction as the headless
- *       VerifyB2 runner used during PATCH-25.</li>
- *   <li>Run {@link MscCellAssembly#ascendingManifold} to label every face
- *       with the id of the maximum it ascends to (feature-edge-aware
- *       walker from PATCH-25).</li>
- *   <li>(B4c, see {@link #refineWithCoonsError}) recursively split any
- *       cell whose Coons p95 fit error exceeds threshold via BFS
- *       region-grow on the high-confidence cut adjacency.</li>
- *   <li>Build a {@link PatchDecomposition} from the final labels and
- *       repackage into {@link DecompositionDiagnostics}.</li>
- * </ol>
- *
- * <p>v1 calls {@code SemanticPatchDecomposer.decomposeWithDiagnostics}
- * just to get the diagnostics — wasteful (~1.7 s overhead on the skull)
- * but isolates this change. Refactoring shared feature-detection out
- * is a future cleanup ticket.
+ * Patch decomposer driven by Morse-Smale topology: it takes feature edges and the MSC result from
+ * {@link SemanticPatchDecomposer}, labels each face by the maximum it ascends to, splits cells whose
+ * Coons fit error is too large, and returns the same {@code DecompositionDiagnostics} shape as
+ * {@link SemanticPatchDecomposer} so renderers and overlays are interchangeable.
  */
 public final class MorseSmaleDecomposer {
     public static final int NUM_3 = 3;
@@ -230,13 +205,9 @@ public final class MorseSmaleDecomposer {
     }
 
     /**
-     * BFS region-grow constrained to a cell's faces. Two seeds → labels
-     * 0 / 1 for each face in the input list. Uses the supplied
-     * {@code adj} (built with {@code highConf} edges already cut to -1)
-     * so BFS naturally stops at feature edges; faces unreachable from
-     * either seed via uncut adjacency fall back to the seed whose face
-     * centroid is closer in Euclidean distance — same orphan strategy
-     * as PATCH-21.
+     * Splits a cell's faces into labels 0 and 1 by BFS from two seeds. {@code adj} must already have
+     * high-confidence edges cut to -1 so the growth stops at feature edges; faces unreachable from
+     * either seed fall back to the seed with the nearer centroid.
      */
     private static int[] bfsRegionGrowInsideCell(List<Integer> faces, int[] seedFaces,
                                                   int[][] adj) {

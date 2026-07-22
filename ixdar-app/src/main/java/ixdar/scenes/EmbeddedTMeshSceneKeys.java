@@ -7,10 +7,11 @@ import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 
 /**
- * Keyboard control for {@link EmbeddedTMeshScene}: orbit as usual, plus SPACE to apply one
- * more LCBK19 operator-(1) zero-arc collapse, PERIOD one operator-(2) split, C to drive all
- * three operators to a fixed point, and R to reset to the pristine layout, so the re-embedding
- * can be watched step by step in the window.
+ * Keyboard control for {@link EmbeddedTMeshScene}: orbit as usual, plus SPACE for one zero-arc
+ * collapse, PERIOD for one split, C to run all three operators to a fixed point, and R to reset
+ * to the pristine layout.
+ *
+ * <p>See also: LCBK19 Section 6.1
  */
 public final class EmbeddedTMeshSceneKeys extends OrbitCameraKeyGuy {
 

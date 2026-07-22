@@ -5,18 +5,11 @@ import ixdar.procgen.dungeon.values.CellType;
 import ixdar.procgen.dungeon.values.TileGridValue;
 
 /**
- * Converts a {@link TileGridValue} into an {@link ArrayMesh} of <em>hollow</em> rooms — every
- * non-empty cell contributes a floor and ceiling, plus a wall on each side adjacent to an EMPTY
- * cell or grid edge. Walls between two non-empty cells are NOT emitted, so the player can walk
- * through ROOM/HALLWAY transitions without phasing through geometry.
+ * Converts a {@link TileGridValue} into an {@link ArrayMesh} of <em>hollow</em> rooms: each
+ * non-empty cell gets a floor, a ceiling, and a wall on every side facing an EMPTY cell or the
+ * grid edge, leaving ROOM/HALLWAY transitions open.
  *
- * <p>Quad winding is INWARD (normals point into the cell), so the inside of each wall is the
- * front face. Player stands inside the dungeon and sees walls on all sides.
- *
- * <p>The mesh is centered at the world origin. All non-empty cells share a single height
- * ({@code cellSize}) — visual distinction between ROOM and HALLWAY is dropped so the geometry
- * is simple and walkable. (Per-cell-type height variation can come back via partial walls at
- * height transitions when player physics lands.)
+ * <p>Winding is INWARD, cell height is {@code cellSize}, and the mesh is origin-centered.
  */
 public final class GridToMesh2D {
     public static final int NUM_4 = 4;

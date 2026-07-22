@@ -433,13 +433,11 @@ public final class MotorcycleGraph {
     }
 
     /**
-     * Advance a trace state to a meeting point while preserving the exact level
-     * invariant: the held coordinate stays untouched (it IS the trace's level,
-     * transported exactly through seams), only the varying coordinate takes the
-     * constructed crossing value. Writing both from the constructed intersection
-     * would drift the level by rounding and break the sign-predicate walk in
-     * {@link ChartWalker#nextEdgeHit}. Resets the incoming edge since a meeting
-     * point is interior to the face.
+     * Advances a trace state to a meeting point, writing only the varying
+     * coordinate: the held coordinate is the trace's exactly-transported level, and
+     * rounding it to the constructed intersection would break the sign-predicate
+     * walk in {@link ChartWalker#nextEdgeHit}. Resets the incoming edge, since a
+     * meeting point is interior to the face.
      *
      * @param state  trace state to advance in place
      * @param pointU u of the constructed meeting point
@@ -455,11 +453,9 @@ public final class MotorcycleGraph {
     }
 
     /**
-     * Terminate a trace at the event point. When the termination lies on a mesh
-     * vertex that already owns a T-mesh node (singularity origins, feature
-     * corners), that node is reused so the arriving arc joins the vertex's port fan
-     * instead of dangling at a fresh degree-1 node — the dangling variant folds the
-     * surrounding arrangement cycle back on itself and invalidates the patch.
+     * Terminate a trace at the event point. A termination on a mesh vertex that
+     * already owns a T-mesh node reuses that node, so the arriving arc joins the
+     * vertex's port fan rather than dangling at a fresh degree-1 node.
      *
      * @param trace            trace to terminate
      * @param event            termination event carrying the end point
@@ -583,15 +579,10 @@ public final class MotorcycleGraph {
     }
 
     /**
-     * Index a freshly laid segment and retroactively node every perpendicular
-     * crossing with segments already on the face. Segments register only at face
-     * exit, so two traces traversing one face in the same time window never see
-     * each other through the event queue — without this sweep the crossing stays
-     * un-noded and the four arrangement quadrants around it fuse into one invalid
-     * 12-corner cycle. Retroactive meetings are pure bookkeeping (Lyon traces
-     * survive crossings): both traces get the meeting entry and the shared node,
-     * and the post-build subdivision threads their chains through it; no stop test
-     * is applied because the riders already drove past.
+     * Indexes a freshly laid segment and retroactively nodes every perpendicular
+     * crossing with segments already on the face, which the event queue cannot see
+     * because segments register only at face exit. Both traces get a meeting entry
+     * and share the node; no stop test is applied.
      *
      * @param trace   trace that laid the segment
      * @param segment the freshly laid segment
@@ -633,16 +624,11 @@ public final class MotorcycleGraph {
     }
 
     /**
-     * Rebuild each trace's arc chain so it passes through every meeting (not only
-     * those where the trace was the active processor). Lyon §5.1 consistency
-     * constraints and §4.2 validity constraints reference arcs as the unit of
-     * quantization, so the chain must split at every T-mesh node a trace passes
-     * through.
+     * Rebuilds each trace's arc chain so it splits at every T-mesh node the trace
+     * passes through, since arcs are the unit of quantization. Existing arcs are
+     * discarded and rebuilt with fresh ids; node ids are preserved.
      *
-     * <p>
-     * Existing {@code motorcycle.arcs} are discarded and rebuilt with fresh ids;
-     * node ids are preserved (the intersection node created for a meeting is reused
-     * on both sides via {@code MetOtherTraceEntry.intersectionNodeId}).
+     * <p>See also: Lyon 2021 Section 5.1
      */
     private void subdivideArcsAtMeetings() {
         List<TraceArc> rebuilt = new ArrayList<>();

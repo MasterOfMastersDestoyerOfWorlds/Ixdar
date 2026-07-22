@@ -2,17 +2,9 @@ package ixdar.geometry.mesh.quadlayout.solver;
 
 /**
  * A factorized SPD linear system, ready for repeated dense right-hand-side
- * solves. Implementations own whatever factor representation their backend
- * uses (EJML simplicial L, PARDISO's opaque native handle, ...) and operate
- * entirely in the caller's index space: the caller applies any fill-reducing
- * permutation and free-variable compaction <em>before</em> factorization, so
- * {@code solve} vectors are already permuted and compact.
- *
- * <p>
- * This is the solver-backend seam, mirroring the {@code ixdar.platform.gl}
- * pattern: {@link EjmlCholeskyFactor} is the permanent pure-Java reference
- * implementation and native backends are selected automatically by
- * {@link CholeskyBackend} when their libraries are loadable.
+ * solves. Fill-reducing permutation and free-variable compaction are the
+ * caller's responsibility and must be applied before factorization, so every
+ * vector crossing this interface is already permuted and compact.
  */
 public interface FactorizedSystem {
 

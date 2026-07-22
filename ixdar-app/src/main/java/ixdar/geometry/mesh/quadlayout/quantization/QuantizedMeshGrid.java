@@ -19,29 +19,12 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 
 /**
- * Lyon 2021 §4–§5 constrained T-mesh quantization: assigns a non-negative
- * integer to every T-mesh arc by solving an integer linear program.
+ * Constrained T-mesh quantization: assigns a non-negative integer to every arc by
+ * solving an integer linear program with one variable per arc equivalence class,
+ * consistency, validity and layout separation constraints, and an objective that
+ * drives the layout as coarse as those allow.
  *
- * <ul>
- * <li><b>Variables</b> — one integer per arc equivalence class. Classes come
- * from Lyon's §5.2 strip reduction: whenever a valid patch has single-arc
- * opposite sides, the two arcs must quantize identically (eq. 2 with one term
- * per side), so they share a variable via union-find.</li>
- * <li><b>Consistency (eq. 2)</b> — for every valid rectangular patch, the
- * quantized sums of opposite sides are equal; constraints whose terms fully
- * cancel after class merging are dropped.</li>
- * <li><b>Validity (eq. 3)</b> — for every singularity trace, the arcs from its
- * origin to its first same-sector intersection {@code n_i*} sum to at least
- * one, which separates all singularities (Lyon Lemma 1).</li>
- * <li><b>Layout (eq. 4)</b> — for every intersection whose meeting angle
- * exceeds α (ratio test {@code l_ji / l_ij > tan α}), the other trace's prefix
- * sums to at least one; meetings on feature chains use α = 0 (Lyon §4.4), so
- * every trace crossing or terminating on a feature/boundary curve is separated
- * from it.</li>
- * <li><b>Objective (eq. 5)</b> — minimize Σ l⊥·q, where an arc's l⊥ accumulates
- * half the perpendicular extent of each valid patch it bounds, driving the
- * layout as coarse as the constraints allow.</li>
- * </ul>
+ * <p>See also: Lyon 2021 Sections 4 and 5
  */
 public class QuantizedMeshGrid {
 
@@ -228,14 +211,11 @@ public class QuantizedMeshGrid {
     }
 
     /**
-     * CBK15-style explicit validity cuts, used as a safety net over Lyon's Lemma 1
-     * constraints: for every collapse cluster that merged two or more
-     * singularities, find one all-zero arc path connecting two of them and require
-     * its quantized sum to be at least one. Lemma 1 alone suffices on a fully
-     * consistent T-mesh; while some arrangement cycles remain invalid (and
-     * therefore unconstrained by eq. 2), quantized displacement is not
-     * path-independent and zero corridors can slip between the per-trace
-     * constraints — these cuts close exactly the corridors the solver found.
+     * Explicit validity cuts: for every collapse cluster that merged two or more
+     * singularities, finds one all-zero arc path between two of them and requires
+     * its quantized sum to be at least one.
+     *
+     * <p>See also: CBK15 Section 4
      *
      * @param collapse zero-arc collapse of the current solution
      * @param cutPaths accumulated cut paths to append to
@@ -347,11 +327,9 @@ public class QuantizedMeshGrid {
     }
 
     /**
-     * Eq. (5) weights: each valid patch contributes half its perpendicular extent
-     * (mean parametric length of the two adjacent sides) to every arc on the side
-     * pair it measures across; class weights accumulate over members. Arcs only
-     * bounded by invalid cycles keep weight zero — the solver then has no
-     * coarseness pressure on them, which is harmless since zero stays feasible.
+     * Objective weights: each valid patch contributes half its perpendicular extent
+     * to every arc on the side pair it measures across, accumulated per class. Arcs
+     * bounded only by invalid cycles keep weight zero.
      */
     private void accumulatePerpendicularWeights(List<TraceArc> arcs, double[] classWeight) {
         for (TMeshPatch patch : motorcycleGraph.patches) {
@@ -420,16 +398,11 @@ public class QuantizedMeshGrid {
     }
 
     /**
-     * Eq. (3): for every singularity trace with a same-sector first meeting
-     * {@code n_i*}, the prefix arcs up to it sum to at least one. Traces with no
-     * usable {@code n_i*} (terminated on a singularity, boundary, feature, or
-     * truncated before any sector meeting) get the conservative fallback
-     * {@code Σ chain ≥ 1} — their terminal node plays the role of {@code n_i*},
-     * which is exactly Lyon Lemma 1's separation for singularity-terminating traces
-     * and redundant-but-harmless for feature/boundary terminations (already covered
-     * by the §4.4 α=0 layout constraints). Without this fallback the ILP can
-     * quantize a skipped trace's whole chain to zero and collapse two singularities
-     * onto each other.
+     * Validity constraints: for every singularity trace with a same-sector first
+     * meeting, the prefix arcs up to it sum to at least one. A trace with no usable
+     * first meeting falls back to {@code Σ chain ≥ 1}.
+     *
+     * <p>See also: Lyon 2021 Section 4
      */
     private void addValidityConstraints(ExpressionsBasedModel model, Variable[] variableByClass) {
         for (Trace trace : motorcycleGraph.traces) {
@@ -483,10 +456,12 @@ public class QuantizedMeshGrid {
     }
 
     /**
-     * Eq. (4) plus the §4.4 feature rule: for every recorded meeting whose angle
-     * ratio exceeds tan α — or unconditionally when the recording trace is a
-     * feature chain — the other trace's prefix up to the meeting node sums to at
-     * least one. Symmetric recordings are deduplicated by (other trace, node).
+     * Layout constraints: for every recorded meeting whose angle ratio exceeds
+     * tan α, or unconditionally when the recording trace is a feature chain, the
+     * other trace's prefix up to the meeting node sums to at least one. Symmetric
+     * recordings are deduplicated by (other trace, node).
+     *
+     * <p>See also: Lyon 2021 Section 4.4
      */
     private void addLayoutConstraints(ExpressionsBasedModel model, Variable[] variableByClass) {
         double tanAlpha = Math.tan(alphaRadians);

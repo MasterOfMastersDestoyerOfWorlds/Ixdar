@@ -13,14 +13,11 @@ import ixdar.procgen.dungeon.values.RoomListValue.Room;
 import ixdar.procgen.dungeon.values.RoomListValue3D;
 
 /**
- * Minimum spanning tree over Delaunay edges weighted by Euclidean distance between room
- * centers, plus a probabilistic extra-edge pass that reintroduces non-MST Delaunay edges to
- * create loops. Stage 3 of the vazgriz dungeon pipeline.
+ * Minimum spanning tree over Delaunay edges weighted by distance between room centers, plus a
+ * probabilistic pass reintroducing non-MST edges as loops.
  *
- * <p>Determinism: the MST step is deterministic in the input edge order (priority queue ties
- * are broken by edge index). The extra-edge pass uses a separate RNG stream seeded by
- * {@code seed ^ <mix constant>} so it's reproducible independently of upstream RNG consumers
- * (e.g. room placement).
+ * <p>The MST step is deterministic in the input edge order; the extra-edge pass draws from its
+ * own RNG stream, unaffected by upstream consumers.
  */
 public final class PrimMinimumSpanningTree {
     public static final long NUM_0x9E3779B97F4A7C15 = 0x9E3779B97F4A7C15L;

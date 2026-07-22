@@ -25,23 +25,11 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
- * Curve-preserving extrude for bezier Coons cages. Unlike {@code extrude_mesh}
- * (which offsets extruded vertices along the flat cage face normal), this node
- * offsets each top-face corner along the <em>Coons surface normal</em> computed
- * at that corner's parameter on the originating face. Bezier handles on the
- * parallel top-face edges are copied from the bottom edges (a translation
- * preserves tangent directions). Vertical side-wall edges get zero handles
- * (straight radial extrusion).
+ * Curve-preserving extrude for bezier Coons cages: each top-face corner is offset
+ * along the Coons surface normal at that corner's parameter on the originating face.
  *
- * <p>Input geometry <strong>must</strong> carry bezier handle slots produced
- * by {@code assign_bezier_handles}. Input without handles is passed through
- * unchanged with a console warning; use plain {@code extrude_mesh} for
- * topology-only extrudes on unhandled meshes.
- *
- * <p>Companion to {@link CoonsInsetFacesNode}. Typical workflow:
- * {@code cube → loop_cut → assign_bezier_handles → coons_inset_faces →
- * coons_extrude_mesh(selection=inset.generated, offset=-0.1) → coons_patch →
- * merge_by_distance}.
+ * <p>Input geometry <strong>must</strong> carry bezier handle slots produced by
+ * {@code assign_bezier_handles}; input without handles passes through unchanged.
  */
 @MeshNodeAnnotation(id = "coons_extrude_mesh")
 public class CoonsExtrudeMeshNode implements MeshNode {

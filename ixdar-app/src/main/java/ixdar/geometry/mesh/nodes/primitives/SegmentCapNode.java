@@ -16,16 +16,12 @@ import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
- * Closes the open end of a {@link DualRadialSegmentNode} tube with a watertight
- * all-quad cap suitable for Catmull-Clark subdivision.
- * <p>
- * Generates concentric quad rings spiraling inward from the boundary ring to
- * a small innermost ring. Each ring has the same vertex count as the boundary,
- * preserving all-quad topology. The innermost ring uses a small non-zero radius
- * (5% of the boundary) to avoid degenerate geometry.
- * <p>
- * Intended as the terminal node in a segment chain:
- * {@code tip = segment_cap(geometry=seg_dist.geometry, cap_rings=2)}
+ * Closes the open end of a {@link DualRadialSegmentNode} tube with a watertight all-quad cap of
+ * concentric rings stepping inward from the boundary, every ring carrying the boundary's vertex
+ * count.
+ *
+ * <p>The innermost ring keeps a small non-zero radius rather than collapsing to a point, so no
+ * degenerate face reaches Catmull-Clark.
  */
 @MeshNodeAnnotation(id = "segment_cap")
 public class SegmentCapNode implements MeshNode {

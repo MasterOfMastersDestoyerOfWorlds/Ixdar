@@ -32,18 +32,13 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 
 /**
- * Shared quad-layout inspection runtime: seamless iso-lines, cross-field
- * glyphs, singularity spheres, and Lyon motorcycle trace overlays. Scenes
- * enable layers via the public {@code show*} toggles rather than using separate
- * runtime types.
+ * Shared quad-layout inspection runtime: iso-lines, cross-field glyphs, singularity spheres,
+ * and motorcycle traces, each enabled by a public {@code show*} toggle.
  *
- * <p>
- * The parametrization viewer needs a triangle-soup mesh (no vertex sharing)
- * because per-corner {@code (u, v)} is discontinuous across BZK09 §5 cut edges;
- * a shared vertex would receive multiple {@code (u, v)} values from
- * neighbouring faces and the interpolated iso-line would be garbage. We
- * therefore upload {@code 3 * faceCount} GPU vertices and a trivial
- * {@code [0, 1, 2, 3, ...]} element buffer.
+ * <p>The uploaded mesh must be triangle soup, because per-corner {@code (u, v)} is
+ * discontinuous across cut edges and a shared vertex would interpolate incompatible values.
+ *
+ * <p>See also: BZK09 Section 5
  */
 public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
 
@@ -61,12 +56,9 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public static final int ATTR_ARM_LENGTH = 6;
     public static final float ONE_THIRD = 1.0f / 3.0f;
     /**
-     * Fraction of a face's arm length by which the constraint glyph is floated
-     * along the face normal. On a constrained face the solved field is pinned to
-     * the constraint angle, so the two crosses coincide exactly; lifting the
-     * constraint glyph just off the surface lets it win the depth test over the
-     * coincident cross-field glyph without a global depth bias (which would pull
-     * far-side glyphs through the mesh).
+     * Fraction of a face's arm length by which the constraint glyph is floated along the face
+     * normal, so that it wins the depth test against the exactly coincident cross-field glyph on
+     * a constrained face.
      */
     public static final float CONSTRAINT_NORMAL_LIFT = 0.25f;
     public static final int ATTR_TRACE0 = 5;
@@ -1390,10 +1382,11 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Upload an embedded T-mesh for the debug overlay: its live arcs as edge-path lines
-     * (positive arcs in one buffer, zero arcs in another so collapse targets are visible),
-     * and its live nodes as sphere markers coloured by criticality. This is the view LCBK19
-     * Figure 9 draws, and it is what the collapse operators are debugged against.
+     * Upload an embedded T-mesh for the debug overlay: live arcs as edge-path lines, positive
+     * and zero arcs in separate buffers, and live nodes as sphere markers coloured by
+     * criticality.
+     *
+     * <p>See also: LCBK19 Figure 9
      *
      * @param tmesh embedded T-mesh to draw; retired elements are skipped
      */

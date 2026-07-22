@@ -12,14 +12,9 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
 
 /**
  * Watertightness audit of the reassembled Coons-patch surface: every boundary
- * segment of every tessellated patch grid must be shared by exactly two
- * patches, so an open (once-seen) segment is a crack in the reassembly and a
- * thrice-seen segment is a non-manifold overlap. Segments are first matched
- * exactly via a quantized-coordinate hash, then unmatched survivors get a
- * brute-force tolerant pass that absorbs corner-averaging jitter; whatever
- * remains is a genuine open seam. The audit also attributes coverage loss to
- * its upstream causes (portals, collapsed patches, inconsistent patches, and
- * not-clean rectangles) so the log says both how leaky the surface is and why.
+ * segment of a patch grid must be shared by exactly two patches, so a once-seen
+ * segment is a crack and a thrice-seen one an overlap. Matching runs exact-hash
+ * first, then a tolerant pass; survivors are genuine open seams.
  */
 public final class LayoutSeamAudit {
 

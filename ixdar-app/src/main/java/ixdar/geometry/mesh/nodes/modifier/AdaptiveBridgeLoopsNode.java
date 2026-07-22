@@ -22,36 +22,11 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 
 /**
- * Bridges two boundary edge loops, handling mismatched vertex counts.
- * <p>
- * Finds a tagged boundary loop (the source) and the nearest untagged boundary
- * loop (the target), then connects them with quad faces. If the two loops have
- * different vertex counts, the transition ring uses a mix of quads and triangles
- * to fan from the smaller loop to the larger one. Additional intermediate rings
- * (controlled by {@code segments}) are pure-quad interpolations at the larger
- * loop's vertex count.
- * <p>
- * If both {@code loop_a_tag} and {@code loop_b_tag} are provided, both loops
- * are found by tag. If only {@code loop_a_tag} is provided, the target loop is
- * auto-discovered as the nearest boundary loop to the tagged one.
- * <p>
- * <b>Recommended workflow:</b> Use {@code attach_to_surface} to create
- * attachment holes on a mesh using spherical coordinates (theta/phi). That node
- * finds the correct face automatically, insets it, removes the inner face, and
- * tags the resulting boundary loop. Then use this node to bridge a tube's tagged
- * base loop to the nearest attachment hole. This avoids manually specifying face
- * indices, which are fragile and change when upstream topology changes.
- * <pre>{@code
- * # Create hole on palm at spherical direction (theta, phi)
- * thumb_attach = attach_to_surface(geometry=palm.geometry, theta=0.0, phi=1.5708, tag="th_hole")
- * # Position tube at the attachment point
- * th_finger = transform_geometry(geometry=tube.geometry,
- *     translation=thumb_attach.attach_position, rotation=thumb_attach.attach_rotation)
- * th_tagged = tag_geometry(geometry=th_finger.geometry, tags="th_base")
- * # Join and bridge
- * joined = join_geometry(a=thumb_attach.geometry, b=th_tagged.geometry)
- * bridged = adaptive_bridge_loops(geometry=joined.geometry, loop_a_tag="th_base")
- * }</pre>
+ * Bridges two boundary edge loops of differing vertex counts: one transition ring fans from the
+ * smaller loop to the larger, and the rest are quads.
+ *
+ * <p>With both loop tags set each loop is found by tag; with only the first, the target is the
+ * nearest untagged loop.
  */
 @MeshNodeAnnotation(id = "adaptive_bridge_loops")
 public class AdaptiveBridgeLoopsNode implements MeshNode {
@@ -323,20 +298,10 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
     }
 
     /**
-     * Creates the fan transition faces from a small loop (S vertices) to a large
-     * loop (L vertices). Each small vertex fans to {@code groupSize[i]} large vertices.
-     * <p>
-     * For odd group sizes (the common case when L/S divides evenly, e.g. 12/4=3),
-     * consecutive triangle pairs are merged into "wide quads" — each spanning two
-     * large-loop edges — producing an all-quad output compatible with CC subdivision.
-     * <p>
-     * For each group of gs large vertices assigned to small vertex s:
-     * <ul>
-     * <li>gs==1: one quad (small[s], large[0], large[1 of next group], small[nextS])</li>
-     * <li>Odd gs≥3: (gs-1)/2 wide quads (small[s], l[2k], l[2k+1], l[2k+2]) +
-     *     1 inter-group quad (small[s], l[gs-1], l[gs], small[nextS])</li>
-     * <li>Even gs: (gs-2)/2 wide quads + 1 triangle + 1 inter-group quad (fallback)</li>
-     * </ul>
+     * Creates the fan transition faces from the small loop to the large loop, with small vertex
+     * {@code i} fanning to {@code groupSize[i]} large vertices. Odd group sizes emit only quads,
+     * each wide quad spanning two large-loop edges; an even group size additionally emits one
+     * triangle, so the result is not all-quad.
      */
     private static void buildFanTransition(HalfEdgeMesh mesh,
             int[] small, int[] large, int[] groupSize, int S, int L) {

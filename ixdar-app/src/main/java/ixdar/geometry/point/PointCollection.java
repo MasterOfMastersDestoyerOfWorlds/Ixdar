@@ -7,14 +7,12 @@ import ixdar.common.exceptions.TerminalParseException;
 import ixdar.platform.file.FileStringable;
 
 /**
- * Contract for any geometry the {@code add} terminal command can drop into a
- * knot file: parses itself from CLI arguments, expands to concrete
- * {@link PointND} instances, and round-trips through the {@code .ix} file
- * format.
- * <p>
- * Implementations advertise their CLI shorthand via {@link #shortName()} /
- * {@link #fullName()} (typically backed by an {@code @GeometryAnnotation id})
- * and serialize themselves with {@link FileStringable#toFileString()}.
+ * Contract for any geometry the {@code add} terminal command can drop into a knot file: parses
+ * itself from CLI arguments, expands to concrete {@link PointND} instances, and round-trips
+ * through the {@code .ix} file format.
+ *
+ * <p>Implementations advertise their CLI shorthand via {@link #shortName()} and
+ * {@link #fullName()}.
  */
 public interface PointCollection extends FileStringable, TerminalOption {
 

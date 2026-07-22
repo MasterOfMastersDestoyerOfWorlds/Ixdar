@@ -10,23 +10,11 @@ import ixdar.procgen.dungeon.physics.CapsuleShape;
 import ixdar.procgen.dungeon.values.TileGridValue3D;
 
 /**
- * Walkable first-person character driven by WASD + Space + camera yaw. One {@link #update} call
- * per frame integrates one physics step:
+ * Walkable first-person character driven by WASD, Space, and camera yaw. Each {@link #update}
+ * integrates one physics step: horizontal input relative to yaw, gravity or jump vertically,
+ * then {@link CapsuleMover#moveAndSlide}.
  *
- * <ol>
- *   <li>Compute desired horizontal velocity from WASD relative to the camera yaw — Y component
- *       stays zero so looking up doesn't make the player fly.</li>
- *   <li>Add gravity to vertical velocity. If the player jumped this frame and was grounded,
- *       set vertical velocity to {@code jumpSpeed} instead.</li>
- *   <li>Integrate position via {@link CapsuleMover#moveAndSlide} so collisions against EMPTY /
- *       out-of-grid cells are resolved.</li>
- *   <li>Detect grounded by comparing desired vs actual vertical motion: if we wanted to fall
- *       but the floor pushed us back up, we're standing on something.</li>
- * </ol>
- *
- * <p>The camera's orientation is read each frame via {@code cameraYawDegrees}; the controller
- * does NOT modify camera yaw or pitch (mouse-look is owned by the existing
- * {@code FlyCamMouseTrap}).
+ * <p>Camera orientation is read-only here; mouse-look belongs to the active mouse handler.
  */
 public class PlayerController {
     public static final float NUM_0 = 0f;

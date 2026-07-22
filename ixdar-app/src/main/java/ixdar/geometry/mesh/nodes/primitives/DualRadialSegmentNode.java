@@ -16,20 +16,12 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
- * Parametric tube segment with dual-axis (X/Y) cross-section control and G1
- * Hermite tangent matching at segment boundaries.
- * <p>
- * Each cross-section slice at parameter t ∈ [0,1] has an elliptical radius:
- * {@code r(θ,t) = √((Rx(t)·cosθ)² + (Ry(t)·sinθ)²)}
- * <p>
- * Rx(t) and Ry(t) are cubic Hermite curves defined by start/end radius and
- * tangent values. Tangent inputs are <b>spatial derivatives</b> (∂r/∂y), internally
- * scaled by segment length for Hermite evaluation. This ensures G1 continuity
- * when chaining segments of different lengths via end→start ports.
- * <p>
- * The tube extends along +Y from y=0 to y=length. Segment resolution is
- * controlled by {@code rings} (slices along length) and {@code segments}
- * (vertices per cross-section ring).
+ * Parametric tube segment along +Y whose cross-section has elliptical radius
+ * {@code r(θ,t) = √((Rx(t)·cosθ)² + (Ry(t)·sinθ)²)}, with Rx and Ry cubic Hermite curves through
+ * the start/end radius and tangent inputs.
+ *
+ * <p>Tangents are spatial derivatives (∂r/∂y), scaled by segment length internally, so chaining
+ * end to start across differing lengths stays G1.
  */
 @MeshNodeAnnotation(id = "dual_radial_segment")
 public class DualRadialSegmentNode implements MeshNode {

@@ -24,12 +24,9 @@ import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 
 /**
- * Final-output view of the quad-layout pipeline: runs the staged
- * {@link QuadLayoutEngine} to its deepest implemented stage and shows the
- * resulting coarse layout structure (T-mesh patches and arcs; quantized /
- * extracted layout once those stages produce it). Earlier inspector scenes
- * (cross field, parametrization, motorcycle graph) examine the intermediate
- * stages of the same engine.
+ * Final-output view of the quad-layout pipeline: runs the staged {@link QuadLayoutEngine} to its
+ * deepest implemented stage and shows the resulting coarse layout structure. Intermediate stages
+ * have their own inspector scenes.
  */
 @SceneAnnotation(id = "quad-layout")
 public class QuadLayoutScene extends Scene {

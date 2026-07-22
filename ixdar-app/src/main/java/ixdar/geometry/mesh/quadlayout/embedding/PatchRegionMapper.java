@@ -10,20 +10,10 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
- * Builds a {@link PatchRectangleMap} for a patch from its region of the working copy: it collects
- * the region's triangles, walks the patch's four sides into the boundary loop with its corners,
- * and sizes the rectangle from the sides' quantized lengths.
+ * Builds a {@link PatchRectangleMap} for a patch from its region of the working copy, sizing the
+ * rectangle from the sides' quantized lengths floored to {@link #MIN_RECTANGLE_SIDE}.
  *
- * <p>This is the bridge between the T-mesh (nodes, arcs, patches) and the pure Tutte engine. The
- * region comes from {@link PatchRegions}, which already proved the patches partition the surface,
- * so every boundary vertex the sides name is a vertex of the region — an absent one means the
- * region and its patch disagree, which is a torn layout and throws rather than silently dropping.
- *
- * <p>The rectangle's width is the quantized length of sides 0 and 2 and its height that of sides 1
- * and 3, each floored to one so a side that is short but present still yields a non-degenerate
- * rectangle. The map itself is geometric — the boundary spacing comes from chord length, not the
- * quantization — so the rectangle's proportions only set the parametric aspect, not whether the
- * map exists.
+ * <p>Throws when the {@link PatchRegions} region and the patch disagree on a boundary vertex.
  */
 public final class PatchRegionMapper {
 

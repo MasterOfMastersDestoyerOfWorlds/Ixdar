@@ -3,31 +3,20 @@ package ixdar.geometry.mesh.quadlayout.solver;
 import java.util.Arrays;
 import java.util.HashSet;
 
-/**
+/*
  * AMD/Source/amd_1: construct input matrix and then order with amd_2 AMD,
  * Copyright (c) 1996-2022, Timothy A. Davis, Patrick R. Amestoy, and Iain S.
  * Duff. All Rights Reserved. SPDX-License-Identifier: BSD-3-clause
- * 
- * Modified to work in Java see original source and license at:
- * 
+ *
+ * Modified to work in Java; see original source and license at:
  * https://github.com/DrTimothyAldenDavis/SuiteSparse/blob/dev/AMD/README.txt
- * 
- * AMD_1: Construct A+A' for a sparse matrix A and perform the AMD ordering.
- *
- * The n-by-n sparse matrix A can be unsymmetric. It is stored in MATLAB-style
- * compressed-column form, with sorted row indices in each column, and no
- * duplicate entries. Diagonal entries may be present, but they are ignored. Row
- * indices of column j of A are stored in Ai [Ap [j] ... Ap [j+1]-1]. Ap [0]
- * must be zero, and nz = Ap [n] is the number of entries in A. The size of the
- * matrix, n, must be greater than or equal to zero.
- *
- * This routine must be preceded by a call to AMD_aat, which computes the number
- * of entries in each row/column in A+A', excluding the diagonal. Len [j], on
- * input, is the number of entries in row/column j of A+A'. This routine
- * constructs the matrix A+A' and then calls AMD_2. No error checking is
- * performed (this was done in AMD_valid).
  */
 
+/**
+ * Approximate-minimum-degree fill-reducing ordering, a Java port of SuiteSparse
+ * AMD_1 followed by AMD_2. The input pattern is taken as unsymmetric; A+A' is
+ * built internally with duplicates and diagonal entries dropped.
+ */
 public class AMDOrdering {
 
     public static final int EMPTY = -1;
@@ -59,11 +48,9 @@ public class AMDOrdering {
      * Compute the approximate-minimum-degree fill-reducing ordering of the
      * matrix's symmetric sparsity pattern (AMD_1: build A+A' without
      * duplicates/diagonal, then run AMD_2). Results land in
-     * {@link #permutation} / {@link #inversePermutation}; callers that need
-     * the matrix itself permuted apply the permutation via the
-     * {@link NormalMatrix} permuting constructor — this method deliberately
-     * does not build that copy, since the dominant caller only wants the
-     * ordering.
+     * {@link #permutation} / {@link #inversePermutation}; the matrix itself is
+     * left unpermuted, and callers needing a permuted copy build one through the
+     * {@link NormalMatrix} permuting constructor.
      *
      * @param matrix symmetric system matrix to order; not modified
      */

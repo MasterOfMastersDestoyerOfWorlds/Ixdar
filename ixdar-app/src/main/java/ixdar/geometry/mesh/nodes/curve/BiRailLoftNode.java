@@ -22,17 +22,10 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
- * Bi-rail loft: generates a surface mesh by sweeping profile curves between two rail curves.
- * <p>
- * Algorithm:
- * <ol>
- *   <li>Resample both rails to xResolution uniform points</li>
- *   <li>Resample profile to yResolution uniform points</li>
- *   <li>For each station along the rails, compute a local frame (tangent, normal, binormal)</li>
- *   <li>Interpolate position between rail A and rail B</li>
- *   <li>Place profile cross-section at each station, scaled to match rail spacing</li>
- *   <li>Connect adjacent cross-sections into a quad mesh</li>
- * </ol>
+ * Bi-rail loft: sweeps a profile cross-section between two rail curves to build a quad mesh.
+ *
+ * <p>Rails are resampled to {@code x_resolution} stations by arc length and the profile to
+ * {@code y_resolution} points, so the two inputs need not share a sample count.
  */
 @MeshNodeAnnotation(id = "bi_rail_loft")
 public class BiRailLoftNode implements MeshNode {
@@ -326,11 +319,9 @@ public class BiRailLoftNode implements MeshNode {
     }
 
     /**
-     * Normalize profile to local 2D coordinates (U=across, V=up).
-     * Centers the profile and scales U (across) to fill [-0.5, 0.5] so the
-     * cross-section spans the gap between rails. V (up/depth) is scaled by
-     * the same factor, preserving aspect ratio — this allows the collar
-     * to extend beyond the rail spacing when the profile is taller than wide.
+     * Normalizes the profile to local 2D coordinates (U across, V up), centred and scaled so U
+     * fills [-0.5, 0.5]. V takes the same scale factor, so a profile taller than it is wide keeps
+     * its aspect ratio and extends past the rail spacing.
      */
     private static void normalizeProfile(float[] profile, int n, float[] outU, float[] outV) {
         float cx = 0, cy = 0;

@@ -19,18 +19,12 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
- * Geometry-preserving loop cut for bezier Coons cages. Splits edges aligned with
- * the given axis using exact de Casteljau subdivision, so new vertices land on
- * the original bezier curves. Cross-edge handles are derived from the linear-blend
- * Coons cross-section formula. The resulting cage produces an identical (or
- * near-identical) surface when fed to {@link CoonsPatchNode}.
+ * Geometry-preserving loop cut for bezier Coons cages: edges aligned with the
+ * given axis are split by exact de Casteljau subdivision so new vertices land on
+ * the original curves; cross-edge handles come from the Coons cross-section
+ * formula.
  *
- * <p>Typical workflow:
- * {@code cube → assign_bezier_handles → coons_loop_cut(axis=X) → coons_patch}.
- * <p>
- * Registered separately from {@code loop_cut} so behavior does not silently
- * depend on whether handle slots are attached — the agent picks explicitly.
- * For unhandled cages use {@code loop_cut}, which does straight midpoint cuts.
+ * <p>Cages without handle slots must use {@code loop_cut}.
  */
 @MeshNodeAnnotation(id = "coons_loop_cut")
 public class CoonsLoopCutNode implements MeshNode {

@@ -10,22 +10,13 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.patch.CharrotGregoryPatch;
 
 /**
- * PATCH-29 v3: N-sided generalized Coons patch sampler. For cells whose
- * boundary doesn't naturally split into 4 chains (most MSC cells on a
- * real mesh), use Charrot-Gregory N-sided evaluation instead of the
- * 4-sided Coons evaluator. The boundary chains stay shared between
- * adjacent cells, so reconstruction remains watertight regardless of
- * cell topology.
+ * N-sided generalized Coons patch sampler for cells whose boundary does not split into four
+ * chains, sampled by fan-triangulating a regular n-gon domain.
  *
- * <p>Sampling: fan-triangulate the canonical regular n-gon domain.
- * Center vertex + N "rings" of N×k vertices (kth ring), with the outer
- * ring sitting on the n-gon edges. Triangulate spoke-by-spoke.
+ * <p>Watertightness requires adjacent cells to resolve a shared boundary chain through the same
+ * canonical-key Bezier cache rather than fitting curves per cell.
  *
- * <p>Watertightness: adjacent cells share each boundary chain by
- * canonical-key Bezier cache. The Charrot-Gregory evaluator evaluated
- * exactly on the n-gon boundary returns the corresponding Bezier curve
- * point, so the boundary samples on shared chains match exactly between
- * the two cells' reconstructions.
+ * <p>See also: Charrot-Gregory 1984
  */
 public final class CharrotGregoryPatchSampler {
     public static final int NUM_3 = 3;

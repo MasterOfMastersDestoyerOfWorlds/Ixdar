@@ -1,11 +1,11 @@
 package ixdar.graphics.render.color;
 
 /**
- * Java port of the {@code patchColor()} hash in {@code mesh_uv_traces.fs}:
- * a small integer hash mapped to a fixed-saturation HSV hue, so Java-side
- * overlay colors share the shader's palette. Note the id spaces differ — the
- * surface fill hashes flood-fill region ids while the layout overlay hashes
- * root patch ids — so colors match in character, not necessarily per region.
+ * Java port of the {@code patchColor()} hash in {@code mesh_uv_traces.fs}, mapping an integer
+ * id to a fixed-saturation HSV hue so Java-side overlays share the shader's palette.
+ *
+ * <p>Surface fill and layout overlay hash different id spaces, so a shared palette does not
+ * imply a shared color for the same region.
  */
 public final class PatchColorHash {
 

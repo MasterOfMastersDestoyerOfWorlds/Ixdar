@@ -9,11 +9,8 @@ import org.bytedeco.mkl.global.mkl_rt._MKL_DSS_HANDLE_t;
 /**
  * Frees one {@link PardisoCholesky} factorization: tells PARDISO to release
  * its internal factor memory (phase -1) and deallocates the off-heap CSR /
- * parameter arrays. Registered with a {@link java.lang.ref.Cleaner} as the
- * safety net for factors that are never explicitly released, and invoked
- * eagerly by {@link PardisoCholesky#release()}; it therefore must not hold a
- * reference to the {@code PardisoCholesky} itself. The {@code Cleaner}
- * guarantees at-most-once execution.
+ * parameter arrays. Registered with a {@link java.lang.ref.Cleaner}, so it must
+ * never hold a reference to the {@code PardisoCholesky} it frees.
  */
 public final class PardisoReleaseAction implements Runnable {
 

@@ -11,13 +11,11 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 
 /**
- * Union-find collapse of T-mesh nodes connected by zero-quantized arcs. Every
- * arc lies along a parametric iso-line, so a quantized length of zero means its
- * two end nodes coincide in the quantized parametrization — a path of zero arcs
- * therefore merges all its nodes into one layout vertex (Lyon 2021 §6, collapse
- * half). A cluster containing two or more distinct singularity vertices is a
- * validity violation: Lyon Lemma 1's per-trace constraints exist precisely to
- * make singularities never coincide.
+ * Union-find collapse of T-mesh nodes connected by zero-quantized arcs: a path of
+ * zero arcs merges all its nodes into one layout vertex. A cluster containing two
+ * or more distinct singularity vertices is a quantization validity violation.
+ *
+ * <p>See also: Lyon 2021 Section 6
  */
 public final class ZeroArcCollapse {
 

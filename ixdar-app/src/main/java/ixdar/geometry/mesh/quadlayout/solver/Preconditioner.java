@@ -2,15 +2,11 @@ package ixdar.geometry.mesh.quadlayout.solver;
 
 /**
  * Preconditioner for {@link AdaptiveSolver#preconditionedConjugateGradient}:
- * applies {@code M⁻¹} to a residual vector. Common choices: Jacobi (divide
- * by {@code diag(A)}), a cached sparse Cholesky factor of an approximate
- * {@code A} (back-solve through {@code L Lᵀ}), or an incomplete
- * factorization.
+ * applies {@code M⁻¹} to a residual vector. {@link IncrementalCholeskySolver#solve}
+ * matches this signature, so a cached Cholesky factor can be passed as a method
+ * reference.
  *
- * <p>The BZK09 §5.4 IRLS stiffening loop uses the cold Cholesky factor of
- * iter 0's matrix as the preconditioner for all subsequent iters' PCG
- * solves. {@link IncrementalCholeskySolver#solve} matches this interface
- * directly, so the caller can pass a method reference.
+ * <p>See also: BZK09 Section 5.4
  */
 @FunctionalInterface
 public interface Preconditioner {

@@ -16,26 +16,8 @@ import ixdar.parsing.python.PythonParser;
  * Loads {@code .skill} files from a directory and provides their DSL function
  * definitions for injection into the node graph runtime and/or LLM context.
  *
- * <h3>File format</h3>
- * A {@code .skill} file is a text file with a YAML-style metadata header followed
- * by DSL function code:
- * <pre>
- * ---
- * name: tapered_horn
- * description: Curve sweep with radius closure for horn/tusk/claw shapes
- * technique: radius_closure
- * fitness: 91.2
- * generation: 5
- * origin_run: skull-v2
- * ---
- * def tapered_horn(length: FLOAT, base_radius: FLOAT, tip_radius: FLOAT) -> MESH:
- *     path = curve_primitive_line(length=length)
- *     profile = circle_curve(radius=base_radius, segments=12)
- *     swept = curve_sweep(curve=path.curve, profile=profile.curve)
- * end
- * </pre>
- *
- * The metadata header is optional (for backward compatibility with plain DSL function files).
+ * <p>A {@code .skill} file is DSL function code, optionally preceded by a
+ * {@code ---}-delimited YAML-style metadata header.
  */
 public final class SkillLibrary {
     public static final String STR = ": ";

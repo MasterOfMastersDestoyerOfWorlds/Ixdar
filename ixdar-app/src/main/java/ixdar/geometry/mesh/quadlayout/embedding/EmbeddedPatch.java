@@ -4,32 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A patch of the embedded T-mesh: a four-sided cell of the surface partition, bounded by
- * chains of arcs.
+ * A four-sided cell of the surface partition, bounded by four chains of arcs.
  *
- * <p>Four <em>sides</em>, not four arcs. A side is a chain, because a T-junction of the
- * neighbouring patch lands in the middle of this one's side without being a corner of it:
- * LCBK19 §4 notes that the parametric angle between consecutive arcs at a node "can only
- * be π/2 or π", and calls the halfarcs into π/2 angles <em>corners</em> and the rest
- * <em>flat</em>. A flat node is a T-junction as far as this patch is concerned, and it is
- * what makes the T-mesh non-conforming.
+ * <p>Corners count with multiplicity and a side may be empty, so the invariant is that
+ * the multiplicities sum to four. Sides {@code i} and {@code i + 2} are anti-parallel.
  *
- * <p><b>Corners count with multiplicity, and a side may be empty.</b> This is not an edge
- * case; it is the state the whole re-embedding aims at. When the quantization gives a
- * patch zero width, its parametric image is a line segment rather than a rectangle, so
- * walking its boundary you travel the bottom, turn π/2 at the end, cross a side of length
- * nothing, turn π/2 again, and come back along the top. Both of those corners are at
- * <em>one</em> node — a double corner, drawn as a red circle in LCBK19 Figure 9. Once its
- * zero arcs are collapsed such a patch is a bigon: two opposite sides empty, two corner
- * nodes of multiplicity two, and exactly two arcs left. That bigon is precisely what
- * operator (3) consumes. So the invariant is not "four distinct corner nodes" — it is
- * that the corner multiplicities sum to four.
- *
- * <p>Sides walk the boundary in one consistent cyclic direction, so
- * {@code sideNodeIds[i].last == sideNodeIds[(i + 1) % 4].first}, and sides {@code i} and
- * {@code i + 2} are anti-parallel as walked. Every question about "the corresponding
- * point on the opposite side" is therefore answered by one formula, and it lives in
- * {@link EmbeddedTMesh#oppositeOffset}.
+ * <p>See also: LCBK19 Section 4
  */
 public final class EmbeddedPatch {
 

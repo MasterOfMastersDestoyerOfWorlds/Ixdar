@@ -125,18 +125,12 @@ public final class ChartWalker {
     /**
      * Find the next edge crossing along the trace's iso-line from {@code state}.
      *
-     * <p>
-     * QEx-style sign-predicate walk: the trace is the level set {@code held ==
-     * level} with {@code level} read exactly from the state's held coordinate, and
-     * each corner's signed offset {@code cornerHeld - level} determines the
-     * topology. An edge is crossed iff its endpoint offsets strictly straddle zero;
-     * a corner with an exactly-zero offset is the Lyon §3 vertex case, reported via
-     * {@code cornerLocalIndex} so the caller routes through {@link #crossVertex}.
-     * No tolerance decides anything: the constructed exit coordinate only feeds
-     * span bookkeeping, never the choice of exit. When the trace entered through a
-     * known edge the exit is the unique other candidate (purely combinatorial); the
-     * strictly-forward filter is only needed at spawn/meeting states where the
-     * incoming edge is unknown.
+     * <p>An edge is crossed iff its endpoint offsets from the level strictly
+     * straddle zero. An exactly-zero corner offset is reported via
+     * {@code cornerLocalIndex}; the caller must then route through
+     * {@link #crossVertex}.
+     *
+     * <p>See also: Lyon 2021 Section 3
      *
      * @param state current position and direction; unchanged by this call
      * @return edge hit data, or {@code null} when the level line leaves the face
@@ -250,12 +244,11 @@ public final class ChartWalker {
     }
 
     /**
-     * Lyon §3 vertex-aware traversal. When an iso-line exits a face exactly at one
-     * of its corners, the next face's two non-incoming edges both share that corner
-     * and {@link #nextEdgeHit} returns {@code null}. This method walks the vertex
-     * fan around the corner (composing cut transitions per crossed seam) until it
-     * finds a face whose interior wedge at {@code V} contains the transported
-     * continuation direction.
+     * Continues a trace that exited a face exactly at a corner, by walking the
+     * vertex fan around that corner and composing cut transitions per crossed seam
+     * until a face's interior wedge contains the transported direction.
+     *
+     * <p>See also: Lyon 2021 Section 3
      *
      * @param state   state at the corner exit (chart position == V in {@code
      *                 state.activeFace})

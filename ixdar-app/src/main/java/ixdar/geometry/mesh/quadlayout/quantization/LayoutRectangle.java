@@ -4,13 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * One positive-area cell of the quantized layout complex. Sides are stored in
- * canonical orientation: side 0 and side 2 both run in the same parametric
- * direction (cycle order for sides 0 and 1, reversed cycle order for sides 2
- * and 3), so a column offset measured from a side's canonical start names the
- * same iso-line on the opposite side. Width is the quantized sum of sides
- * 0/2, height of sides 1/3; eq. (2) consistency guarantees opposite sides
- * agree.
+ * One positive-area cell of the quantized layout complex. Sides 0 and 2 run in
+ * the same parametric direction, so a column offset from a side's canonical start
+ * names the same iso-line on the opposite side. Width is the quantized extent of
+ * sides 0/2, height of sides 1/3.
  */
 public final class LayoutRectangle {
 

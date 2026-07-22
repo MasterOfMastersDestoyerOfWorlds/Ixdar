@@ -5,17 +5,11 @@ import ixdar.procgen.dungeon.values.CellType;
 import ixdar.procgen.dungeon.values.TileGridValue3D;
 
 /**
- * 3D analog of {@link GridToMesh2D}. Emits hollow rooms — every non-empty cell contributes a
- * face on each side adjacent to an EMPTY cell or grid edge, with INWARD-facing winding so the
- * player inside the dungeon sees the front of every wall, floor, and ceiling.
+ * 3D analog of {@link GridToMesh2D}: each non-empty cell gets an INWARD-wound face on every
+ * side facing an EMPTY cell or the grid edge.
  *
- * <p>Vertical neighbors are checked: the cell directly above and below. STAIR_UP / STAIR_DOWN
- * cells are vertically adjacent (a stair-up's ceiling = a stair-down's floor) and BOTH non-empty,
- * so the floor/ceiling between them is omitted — the player can pass through the opening from
- * one floor to the next.
- *
- * <p>All non-empty cells share a uniform height of {@code cellSize}. Visual ROOM/HALLWAY/STAIR
- * distinction by box height is dropped in favor of walkable interiors.
+ * <p>Vertical neighbors count as adjacency, so the floor between a STAIR_UP and the STAIR_DOWN
+ * above it is omitted and the opening stays passable.
  */
 public final class GridToMesh3D {
     public static final int NUM_4 = 4;
@@ -30,10 +24,8 @@ public final class GridToMesh3D {
     }
 
     /**
-     * Sweep the 3D grid and emit a face on every side of every non-empty cell that borders an
-     * EMPTY cell or grid edge, with double-sided winding. Floor/ceiling between vertically
-     * adjacent non-empty cells (e.g. STAIR_UP under STAIR_DOWN) are skipped so the player can
-     * pass through. The mesh is centered on the world origin.
+     * Sweep the 3D grid and emit a double-sided face on every side of every non-empty cell that
+     * borders an EMPTY cell or grid edge, centered on the world origin.
      *
      * @param grid     populated 3D tile grid
      * @param cellSize world-space size of a single grid cell

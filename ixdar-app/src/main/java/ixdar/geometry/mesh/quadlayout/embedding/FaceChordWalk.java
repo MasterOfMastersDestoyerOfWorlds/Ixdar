@@ -3,35 +3,13 @@ package ixdar.geometry.mesh.quadlayout.embedding;
 import java.util.List;
 
 /**
- * Exact chord walk inside one source face (LCBK19 §6.1). Connects a path head to
- * a target point of the face by walking the straight chord between them through
- * the face's current child triangulation, materializing every child edge it
- * crosses. There is no graph search: the walk is a face-to-face march driven
- * purely by the chord's geometry.
+ * Exact chord walk inside one source face: connects a path head to a target point,
+ * materializing every child edge the chord crosses.
  *
- * <p>Connectivity is a theorem, not a hope. {@link EmbeddedMeshTopology#splitEdgeAtParameter}
- * retriangulates both incident faces by joining the minted vertex to each face's
- * <em>opposite</em> corner, and the walk always exits a child face through the
- * edge opposite its head — so the minted vertex is joined to the head for free.
- * When instead the chord passes through a corner of the child face, that corner
- * shares the face with the head and is therefore adjacent for free as well. Either
- * way the next path vertex is adjacent to the previous one, which is why the paper
- * needs no routing to lay an arc down.
+ * <p>Works in barycentric coordinates, deciding every case by an exact
+ * {@link ExactBarycentricOrient} sign test, with no tolerance.
  *
- * <p>Everything happens in barycentric coordinates of the source face. The seamless
- * chart is affine on each triangle, so the traced iso-line — straight in chart space —
- * is straight in barycentric space too.
- *
- * <p><b>Every geometric decision here is a sign test, and every sign test is exact.</b>
- * The walk carries no tolerance. A chord either crosses the open exit edge (the two
- * endpoints have strictly opposite {@link ExactBarycentricOrient} signs) or it passes exactly
- * through one of them (that endpoint's sign is zero) — and those are different cases
- * with different code, not one case with a fudge factor. Because a split only ever
- * happens at a strictly transversal crossing, the split parameter lies strictly inside
- * {@code (0, 1)} as a consequence of the sign classification rather than as a clamped
- * hope, and no split can mint a vertex arbitrarily close to an existing one. That is
- * what keeps the child triangulation free of the degenerate slivers which previously
- * defeated the predicates.
+ * <p>See also: LCBK19 Section 6.1
  */
 public final class FaceChordWalk {
 
@@ -82,14 +60,9 @@ public final class FaceChordWalk {
     }
 
     /**
-     * Place a dedicated, claim-free copy vertex at an exact point of a source face,
-     * for a T-mesh node. Reuses a free corner the point coincides with, splits the
-     * edge it lies on, or splits the containing face — always landing on the point
-     * itself, so the node never moves off its traced position.
-     *
-     * <p>Node placement runs before any arc is carved, so no edge is claimed yet and
-     * the only way to run out of elements is two nodes competing for one vertex; the
-     * split then mints a fresh one, which is LCBK19's "not enough vertices" fallback.
+     * Place a claim-free copy vertex at an exact point of a source face, for a T-mesh
+     * node, by reusing a free corner, splitting an edge, or splitting the face. Must run
+     * before any arc is carved, while no edge is yet claimed.
      *
      * @param sourceFace  source active face the point lies in
      * @param barycentric the point's barycentric coordinate in that face
@@ -204,29 +177,12 @@ public final class FaceChordWalk {
     }
 
     /**
-     * Take one step of the march: leave the child face through the edge opposite the
-     * head, either by passing exactly through one of that edge's endpoints or by
-     * splitting it at the strictly transversal crossing.
+     * Take one step of the march, leaving the child face through the edge opposite the
+     * head.
      *
-     * <p>The cases are decided by the exact orientation signs of the exit edge's two
-     * endpoints against the chord line. Equal nonzero signs mean the chord never meets
-     * the edge at all, which contradicts the wedge that selected this child face, so it
-     * throws. Strictly opposite signs mean the chord crosses the edge, and the edge is
-     * split at the crossing. A zero sign means the chord runs exactly through that
-     * endpoint, and the walk steps through the vertex instead of splitting — the case a
-     * tolerance-based walk cannot see, and which, left unhandled, mints a duplicate
-     * vertex beside an existing one and seeds the degenerate slivers that then defeat
-     * every predicate downstream.
-     *
-     * <p>Passing through a vertex is not only the exactly-collinear case. The chord may
-     * cross the open edge yet miss the endpoint by so little that no double lies
-     * strictly between them: the crossing parameter then rounds to {@code 0} or
-     * {@code 1}, and the split it asks for is one the mesh cannot represent. Rather
-     * than round it back inside — which is how the duplicate vertex got minted in the
-     * first place — the walk reads it for what it is. Below the resolution of the
-     * coordinates, the chord and the vertex coincide, so the arc goes through the
-     * vertex. This is LCBK19's rule exactly: an arc snaps onto an existing vertex, and
-     * the mesh is split only when it must be.
+     * <p>That edge is split only on strictly opposite orientation signs with a crossing
+     * parameter inside {@code (0, 1)}; otherwise the step passes through an endpoint.
+     * Equal nonzero signs contradict the selecting wedge and throw.
      *
      * @param arcId             arc being carved
      * @param sourceFace        source active face
@@ -271,14 +227,9 @@ public final class FaceChordWalk {
 
 
     /**
-     * Materialize the target on the child face that contains it, applying LCBK19's
-     * availability rule: reuse a free corner the target coincides with, else reuse the
-     * free endpoint of the crossed edge on the target's own half of it, else split the
-     * edge exactly at the crossing; a target strictly inside the face splits it.
-     *
-     * <p>The farther endpoint is deliberately not a candidate. Taking it would move the
-     * crossing more than half an edge, past the midpoint, to somewhere the trace never
-     * went — and splitting is always available, so nothing is gained.
+     * Materialize the target on the child face containing it: reuse a free corner it
+     * coincides with, else split the crossed edge at the crossing, else split the face.
+     * The farther endpoint of a crossed edge is never a snap candidate.
      *
      * @param arcId             arc being carved
      * @param sourceFace        source active face
@@ -343,9 +294,9 @@ public final class FaceChordWalk {
 
     /**
      * The child face of a source face, incident to the head, whose wedge at the head
-     * contains the direction to the target. When the target coincides with the head the
-     * direction is degenerate, every sign is zero, and the first incident child face is
-     * returned — which is what the caller's coincidence check then recognizes.
+     * contains the direction to the target. A target coinciding with the head is
+     * degenerate and yields the first incident child face, which the caller's
+     * coincidence check recognizes.
      *
      * @param sourceFace        source active face
      * @param head              path head
@@ -374,10 +325,9 @@ public final class FaceChordWalk {
     }
 
     /**
-     * Whether a point coincides exactly with one corner of a child face. A point that
-     * is collinear with the corner along <em>both</em> edges leaving it can only be the
-     * corner itself, since two distinct lines meet in one point — so this is an exact
-     * equality test built from exact sign tests, with no distance and no tolerance.
+     * Whether a point coincides exactly with one corner of a child face, tested as
+     * collinearity with that corner along both edges leaving it. Exact: no distance and
+     * no tolerance.
      *
      * @param sourceFace        source active face
      * @param childFace         child face to test against
@@ -420,9 +370,8 @@ public final class FaceChordWalk {
 
     /**
      * Parameter of a point lying on a child edge, measured from that edge's canonical
-     * start vertex. The point is on the edge exactly when it is collinear with the
-     * edge's endpoints, which is an exact sign test; the parameter itself is then a
-     * projection, and it is a coordinate rather than a decision.
+     * start vertex. On-edge is decided by an exact collinearity sign test; the parameter
+     * itself is a projection.
      *
      * @param sourceFace        source active face
      * @param edgeId            child edge

@@ -145,12 +145,11 @@ public class MeshNodeViewerScene extends Scene {
     }
 
     /**
-     * Log a full state string to the terminal whenever the viewer state
-     * changes (model load, overlay toggle, shader mode toggle). macOS
-     * absolutely refuses glfwSetWindowTitle from any thread other than the
-     * actual OS main thread and even deferring to drawScene wasn't enough —
-     * drawScene is called off-thread in this platform wiring. Terminal
-     * log is thread-safe and user-visible. Proper pixel-space HUD is VIEW-8.
+     * Log a full state string to the terminal whenever the viewer state changes.
+     *
+     * <p>State must not be surfaced through the window title instead: macOS rejects
+     * {@code glfwSetWindowTitle} off the OS main thread, and {@code drawScene} runs off-thread
+     * in this platform wiring.
      */
     private void logState() {
         StringBuilder sb = new StringBuilder("[mesh-viewer] STATE ");

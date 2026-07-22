@@ -8,26 +8,13 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
 
 /**
- * Carves every traced motorcycle path into the working copy as an edge path
- * (LCBK19 §6.1). This is the paper's initial embedding, which costs nothing to
- * find: <em>"by construction, an initial embedding of regular arcs onto the input
- * surface is given by the traced motorcycle paths"</em>. There is no search and no
- * routing — the tracer already walked the surface face by face, and this stage
- * simply replays that walk, materializing each step.
+ * Carves every traced motorcycle path into the working copy as an edge path, replaying
+ * the tracer's walk rather than searching for a route.
  *
- * <p>A trace is carved as one continuous chain from its origin node to its
- * terminal node, through the T-mesh nodes it meets on the way. Its carve points
- * are the merge of two exactly-known sequences: the nodes on the trace's chain,
- * and the crossings of mesh edges recorded by the walker as
- * {@link TraceSegment#exitLocalEdgeIndex} and {@link TraceSegment#exitEdgeParameter}.
- * The merge is not optional — a chord-chord intersection node lies strictly
- * <em>inside</em> a segment of at least one of the two traces that meet there, so
- * nodes are not always segment endpoints.
+ * <p>Carve points merge the trace's chain of nodes with its recorded edge crossings,
+ * since a node need not be a segment endpoint.
  *
- * <p>Consecutive carve points are connected by {@link FaceChordWalk}, which cannot
- * fail. Every arc is carved, zero-quantized ones included: they are the paper's
- * input to the collapse operators, and leaving them out is what lets other arcs
- * colonize their channels and wall each other in.
+ * <p>See also: LCBK19 Section 6.1
  */
 public final class TraceCarve {
 

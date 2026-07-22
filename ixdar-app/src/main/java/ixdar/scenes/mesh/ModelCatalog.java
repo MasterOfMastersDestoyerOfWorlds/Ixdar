@@ -9,15 +9,11 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * VIEW-7 supporting class. Scans the model staging directory (default
- * {@code ~/.ix/ixdar-models/}, overridable via the {@code IXDAR_MODEL_DIR}
- * environment variable) and returns a list of available mesh entries.
+ * Scans the model staging directory — default {@code ~/.ix/ixdar-models/}, overridable with the
+ * {@code IXDAR_MODEL_DIR} environment variable — and lists the available mesh entries.
  *
- * The staging directory is populated by the Daud {@code sync-models} CLI
- * from multiple source locations (DSL examples, voyage OBJs, user OBJs in
- * {@code ~/Blends}). This class does not care about the sources — only the
- * aggregated view — so the future S3-backed resources ticket only changes
- * how the staging dir gets populated.
+ * <p>The directory is populated externally by the {@code sync-models} CLI; nothing here
+ * discovers models from their original sources.
  */
 public final class ModelCatalog {
     public static final String OBJ = "obj";

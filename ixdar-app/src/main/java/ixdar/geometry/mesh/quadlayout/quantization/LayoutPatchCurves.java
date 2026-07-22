@@ -5,11 +5,10 @@ import java.util.List;
 import org.joml.Vector3f;
 
 /**
- * Geometric boundary curves of one final layout patch: the four side
- * polylines traced on the surface in canonical orientation (side 0 A→B,
- * side 1 B→C, side 2 D→C, side 3 A→D), the four corner positions, and the
- * validation counters that say whether the patch is a clean four-cornered
- * quad. Clean quads also carry their tessellated Coons sample grid.
+ * Geometric boundary curves of one final layout patch: four side polylines in
+ * canonical orientation (side 0 A→B, side 1 B→C, side 2 D→C, side 3 A→D), the
+ * four corner positions, and validation counters. Clean four-cornered quads also
+ * carry a tessellated Coons sample grid.
  */
 public final class LayoutPatchCurves {
 

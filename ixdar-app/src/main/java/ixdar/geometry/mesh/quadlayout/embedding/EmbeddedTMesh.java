@@ -13,28 +13,13 @@ import java.util.Set;
 import org.joml.Vector3f;
 
 /**
- * The T-mesh, embedded: one mutable structure holding the nodes, arcs and patches of the
- * quad layout together with their realization on the working copy of the triangle mesh.
+ * The quad layout's nodes, arcs and patches together with their realization on the working
+ * copy of the triangle mesh.
  *
- * <p>There is deliberately only one of these. CBK15, which defines the T-mesh, is explicit
- * that it never embeds it — <em>"we only make use of T's topological structure — its
- * geometric embedding is of no concern"</em> — and LCBK19 §6 exists precisely to make the
- * T-mesh geometrically real on the surface, because the per-patch maps of §6.2 need patch
- * boundaries that are chains of actual triangle edges. That is why combinatorics and
- * embedding cannot live in separate structures here: every operator changes both at once,
- * and any arrangement where one half can drift out of step with the other is a bug
- * waiting to be written.
+ * <p>Elements are retired by clearing {@code alive}, never removed, so an id is always its
+ * index. This is the only writer of {@link EmbeddedMeshTopology}'s claim arrays.
  *
- * <p>Nothing is ever removed from the three lists. Elements are retired by clearing their
- * {@code alive} flag, so an id is always its index and stays valid forever. Ids are handed
- * out by appending, so operators may mint nodes and arcs freely.
- *
- * <p>This class is the only writer of the claim arrays on {@link EmbeddedMeshTopology}.
- * Those arrays are not bookkeeping — they <em>are</em> LCBK19's one-to-one mapping between
- * T-mesh elements and mesh elements, and that mapping is the entire reason the embedded
- * arcs cannot cross: two paths in a mesh's 1-skeleton that share no vertex and no edge are
- * disjoint curves. Letting several classes write those arrays independently is how the
- * mapping stops being one-to-one without anybody noticing.
+ * <p>See also: LCBK19 Section 6
  */
 public final class EmbeddedTMesh {
 
@@ -90,18 +75,13 @@ public final class EmbeddedTMesh {
 
     /**
      * Arc ends incident to each node: the id of every live arc with an end at that node,
-     * a loop appearing twice. The count is the node's degree, which is what the T-junction
-     * and collapse rules are phrased in terms of, and which the embedding otherwise has no
-     * way to ask — the topology's claim arrays record a single owner per element, not the
-     * set of arcs meeting at a vertex.
+     * a loop appearing twice. The count is the node's degree.
      */
     public final List<List<Integer>> arcEndsByNode;
 
     /**
-     * The corridor of the re-route attempt that just failed, held only so the failure diagnostic can
-     * report whether a blocked gate's endpoints were ever inside it — refinement can split an edge
-     * only when both endpoints are corridor members, so a gate outside the corridor is one the
-     * refinement never even considered.
+     * The corridor of the re-route attempt that just failed, held for the failure diagnostic.
+     * Refinement splits an edge only when both endpoints are corridor members.
      */
     public Set<Integer> diagnosticCorridor;
 
@@ -139,10 +119,8 @@ public final class EmbeddedTMesh {
      * Adds an arc between two nodes, realized by a path of copy vertices, and claims the
      * mesh elements it runs along.
      *
-     * <p>The caller gives vertices, not an {@link ArcEdgePath}, because an arc's path is
-     * stamped with the arc's own id and that id does not exist until the arc does. The
-     * edges are looked up rather than supplied, so a path that does not actually walk the
-     * mesh is rejected here rather than surviving to be discovered later.
+     * <p>The edges are looked up from the vertices, so a path that does not walk the mesh is
+     * rejected here.
      *
      * @param sourceArcId     originating {@code TraceArc} id, or {@link #NONE}
      * @param startNodeId     node the arc runs from
@@ -248,16 +226,11 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * The offset on the opposite side of a patch matching an offset on one side — the
-     * "corresponding point" that LCBK19 operator (2) and LCK21a's T-junction extension
-     * both need.
+     * The offset on the opposite side of a patch matching an offset on one side. Sides
+     * {@code i} and {@code i + 2} are walked in opposite directions, so the result is a
+     * subtraction rather than an identity.
      *
-     * <p>It is a subtraction rather than an identity because sides {@code i} and
-     * {@code i + 2} are walked in opposite directions around the patch boundary, so an
-     * offset measured from the start of one is measured from the <em>end</em> of the
-     * other. Getting this backwards silently connects a T-junction to the wrong place, and
-     * the result still looks like a valid layout, so it is written down once, here, and
-     * nowhere else.
+     * <p>See also: LCBK19 Section 6.1
      *
      * @param patchId patch to measure across
      * @param side    side the offset is measured on, in {@code [0, 4)}
@@ -272,11 +245,10 @@ public final class EmbeddedTMesh {
     /**
      * The number of a patch's live boundary arcs whose quantized length is positive.
      *
-     * <p>This is what classifies a zero-patch, and it is counted over arcs rather than
-     * sides on purpose. A side can carry both positive and zero arcs, and the node between
-     * them is a T-joint — which is exactly what makes a zero-patch <em>non-simple</em> in
-     * LCBK19's sense, and what operator (2) must extend through the patch. Counting sides
-     * would miss it.
+     * <p>Counted over arcs, not sides: a single side carrying both positive and zero arcs makes
+     * a zero-patch non-simple, and counting sides would miss it.
+     *
+     * <p>See also: LCBK19 Section 6.1
      *
      * @param patchId patch to measure
      * @return the count: zero for a point patch, two for a simple zero-patch, more for a
@@ -298,9 +270,9 @@ public final class EmbeddedTMesh {
 
     /**
      * Whether the quantization gives a patch zero parametric area, so that it must be
-     * re-embedded onto a curve or a point before the per-patch map of LCBK19 §6.2 can
-     * exist at all — a patch with a zero-area parameter domain and a positive area on the
-     * surface has no bijective map between them.
+     * re-embedded onto a curve or a point before a per-patch map can exist.
+     *
+     * <p>See also: LCBK19 Section 6.2
      *
      * @param patchId patch to test
      * @return true when either of the patch's two dimensions is zero
@@ -310,13 +282,9 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Re-routes an arc along a new path of copy vertices, releasing the mesh elements it
-     * used to hold and claiming the ones it now runs along.
-     *
-     * <p>This is what LCBK19 operator (1) means by "pulling its incident arcs with it, i.e.
-     * their embedding path is adjusted such that they connect to n0 at its new position".
-     * The release has to happen before the claim: an arc that keeps most of its old lane
-     * would otherwise collide with itself.
+     * Re-routes an arc along a new path of copy vertices, releasing the mesh elements it held
+     * before claiming the new ones — an arc keeping most of its old lane would otherwise
+     * collide with itself.
      *
      * @param arcId      arc to re-route
      * @param vertexPath copy vertices the arc now passes through, end to end
@@ -336,12 +304,8 @@ public final class EmbeddedTMesh {
 
     /**
      * Embeds one node onto another: every arc that ended at the discarded node now ends at
-     * the kept one, and the discarded node's vertex is handed back to the mesh.
-     *
-     * <p>The incident arcs' paths must already have been re-routed to reach the kept node's
-     * vertex — this changes the T-mesh's combinatorics, not its geometry, and it would
-     * happily leave an arc claiming a path that no longer reaches its own node. That is
-     * checked, so the mistake cannot survive.
+     * the kept one, and the discarded node's vertex is handed back to the mesh. The incident
+     * arcs' paths must already reach the kept node's vertex.
      *
      * @param keepNodeId    node that stays, and that everything is re-pointed at
      * @param discardNodeId node that is embedded onto it
@@ -391,29 +355,11 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Removes an arc whose two ends have become the same node, which is what a zero arc is
-     * once {@link #mergeNodeInto} has closed it up. LCBK19: "Arc a is embedded onto a single
-     * point (coincident with the nodes n0 and n1)."
+     * Removes a zero arc that {@link #mergeNodeInto} has closed into a loop. Each patch the arc
+     * bounded loses it from its side, along with the node that separated it from its neighbour
+     * there; a patch left with an empty boundary is retired.
      *
-     * <p>Each patch the arc bounded loses it from the side it lay on, and loses the node
-     * that separated it from its neighbour on that side — because that node and the one
-     * before it are now the same node. A side can end up empty, and its two bounding corners
-     * then coincide: that is the double corner LCBK19 Figure 9 marks with a red circle, and
-     * the state operator (3) is waiting for.
-     *
-     * <p>When the arc is a loop its two ends are already the same node, so {@link #mergeNodeInto}
-     * retired nothing and the complex would lose an arc without losing a cell. A loop only becomes
-     * collapsible once the region it encloses has itself shrunk to nothing — LCBK19 §6.1 counts
-     * <em>"a zero-patch without any non-zero arc… one that is supposed to be embedded onto a single
-     * point rather than a curve"</em> as <em>"already handled by the zero-arc collapse"</em> — so any
-     * bordering patch left with an empty boundary is retired here, which is what keeps the Euler
-     * characteristic fixed across the contraction.
-     *
-     * <p>Whether a node was merged is the caller's to say and cannot be recovered here: by this
-     * point {@link #mergeNodeInto} has run, so an arc that ran between two nodes and one that was
-     * already a loop both read as loops. The two cost different things. A merged node has already
-     * paid for the lost arc, and the patches either side must survive; an arc that was always a loop
-     * has paid nothing, and the degenerate patch it bounded has to go with it.
+     * <p>See also: LCBK19 Section 6.1
      *
      * @param arcId       arc to remove
      * @param mergedANode whether collapsing this arc merged one node into another, which is false
@@ -464,15 +410,10 @@ public final class EmbeddedTMesh {
     /**
      * The patch a collapsing loop pinches out of existence, or {@link #NONE} when it pinches none.
      *
-     * <p>A loop with one other arc between the same two points bounds a bigon, and once the loop is
-     * gone that patch has a single arc for its whole boundary — it encloses nothing. The surface
-     * must lose it, and it must lose it <em>here</em>: an ordinary zero-arc collapse balances the
-     * arc it removes against the node it merges away, but a loop has one node and
-     * {@link #mergeNodeInto} does nothing, so the arc has to be paid for with a face instead. LCBK19
-     * §6.1 assigns exactly this case to the zero-arc collapse — a zero-patch <em>"without any
-     * non-zero arc, one that is supposed to be embedded onto a single point rather than a curve, is
-     * already handled by the zero-arc collapse"</em> — and it cannot fall to operator (3), which is
-     * defined for a bigon of two <em>non-zero</em> arcs.
+     * <p>A loop has one node, so {@link #mergeNodeInto} retires nothing and the arc must be paid
+     * for with a face instead: the patch whose remaining boundary is all zero arcs.
+     *
+     * <p>See also: LCBK19 Section 6.1
      *
      * @param arcId the loop being collapsed
      * @return the patch it pinches away, or {@link #NONE}
@@ -496,12 +437,8 @@ public final class EmbeddedTMesh {
      * The pinched patch's boundary read as a path from the collapsing loop's node back to itself,
      * going round the patch the other way.
      *
-     * <p>Order is the whole difficulty. The far patch has the loop occupying one slot, and what
-     * replaces it has to traverse the pinched patch's boundary in the direction the loop did not —
-     * so the arcs are taken in cyclic order starting immediately <em>after</em> the loop and
-     * wrapping, rather than in side order. For a patch whose sides read {@code [in] [loop] [] [out]}
-     * that is {@code out, in}, not {@code in, out}: reading it the other way round would splice a
-     * boundary that runs backwards, which no Euler count would notice.
+     * <p>The arcs come out in cyclic order starting immediately <em>after</em> the loop and
+     * wrapping, not in side order; side order would splice a boundary that runs backwards.
      *
      * @param patchId the patch being pinched away
      * @param arcId   the loop being collapsed
@@ -527,11 +464,8 @@ public final class EmbeddedTMesh {
     /**
      * Puts a run of arcs into the slot another arc occupied on a patch's boundary.
      *
-     * <p>{@link #replaceArcInPatch} cannot do this: it swaps one arc for another that runs between
-     * the same two nodes, and the arcs coming across from a pinched patch do not. Each side carries
-     * one more node than it carries arcs, so replacing one arc with {@code k} of them also inserts
-     * the {@code k - 1} nodes they meet at — miss those and the side's arc and node lists disagree
-     * about the boundary while every count still balances.
+     * <p>A side carries one more node than it carries arcs, so replacing one arc with {@code k}
+     * of them also inserts the {@code k - 1} nodes they meet at.
      *
      * @param patchId       patch whose boundary is being extended
      * @param oldArcId      arc giving up its slot
@@ -600,14 +534,9 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Retires an arc whose embedding has been abandoned — LCBK19 operator (3)'s dying arc,
-     * whose lane the surviving arc's neighbour takes over. It releases the arc's mesh claims,
-     * so the freed lane lets the neighbouring region flood across to the surviving arc, and
-     * drops it from its nodes' incidence lists.
-     *
-     * <p>Unlike {@link #removeCollapsedArc} this makes no change to any patch's boundary — the
-     * caller has already re-pointed the one patch that used the dying arc onto the survivor and
-     * retired the collapsed patch — so it does not require the arc to be a loop.
+     * Retires an arc whose embedding has been abandoned, releasing its mesh claims and dropping
+     * it from its nodes' incidence lists. No patch boundary is changed, so the caller must
+     * already have re-pointed the patch that used the dying arc onto the survivor.
      *
      * @param arcId arc whose embedding is discarded
      */
@@ -621,11 +550,8 @@ public final class EmbeddedTMesh {
 
     /**
      * Splits an arc at an interior point of its path, inserting a node there and replacing
-     * the arc with the two halves, in both of the patches it bounds.
-     *
-     * <p>The two children carry exactly the two halves of the parent's edge path, so no new
-     * geometry is invented and both bordering patches see the split at the same vertex. That
-     * is what keeps the layout watertight: a boundary shared by two patches stays one curve.
+     * the arc with the two halves in both of the patches it bounds. The children carry the two
+     * halves of the parent's edge path, so both patches see the split at the same vertex.
      *
      * @param arcId           arc to split
      * @param quantizedOffset prescribed length of the first half, measured from the arc's
@@ -648,9 +574,8 @@ public final class EmbeddedTMesh {
                     + quantizedOffset + ": it lies outside the arc's length "
                     + arc.quantizedLength);
         }
-        // LCBK19 operator (2): the inserted node is "marked as critical, if the split arc
-        // is critical" — a point inserted on a feature or boundary curve inherits that
-        // curve's status, and so may never be moved off it.
+        // The inserted node inherits the split arc's feature status, so it may never be moved
+        // off that curve. See also: LCBK19 Section 6.1
         int splitVertex = vertices.get(pathVertexIndex);
         int splitNodeId = addNode(NONE, splitVertex, arc.feature, arc.feature);
         releaseClaims(arc);
@@ -686,15 +611,10 @@ public final class EmbeddedTMesh {
 
     /**
      * Cuts a patch in two along an arc that already runs across it, from a node on one side
-     * to a node on the opposite side — LCBK19 operator (2)'s split, and the same cut the
-     * LCK21a T-junction extension makes.
+     * to a node on the opposite side. The originating patch is retired and the two four-sided
+     * halves are added, with the dividing arc bounding both.
      *
-     * <p>The dividing arc joins a point on side {@code s} to a point on side {@code s + 2}, so
-     * it splits the patch's boundary cycle into two four-sided halves, each bounded by part of
-     * side {@code s}, a whole neighbouring side, part of side {@code s + 2}, and the dividing
-     * arc. The originating patch is retired and the two halves are added; the dividing arc
-     * ends up bounding both of them, and every other boundary arc keeps the neighbour it had
-     * on its far side.
+     * <p>See also: LCBK19 Section 6.1
      *
      * @param patchId    patch to cut
      * @param dividerArc arc running from a node on one side to a node on the opposite side
@@ -760,10 +680,9 @@ public final class EmbeddedTMesh {
      * Swaps one arc for another on a patch's boundary. The two must run between the same
      * nodes, because the patch's node chain is not touched.
      *
-     * <p>This is the whole of LCBK19 operator (3): "a simple zero-patch is easily collapsed
-     * by replacing the embedding of one non-zero arc with the embedding of the other one".
-     * The patch on the far side of the dying arc is told to use the surviving one instead,
-     * and the surviving arc inherits the neighbour the dying one had.
+     * <p>The surviving arc inherits the neighbour the dying one had.
+     *
+     * <p>See also: LCBK19 Section 6.1
      *
      * @param patchId  patch whose boundary is being changed
      * @param oldArcId arc leaving the boundary
@@ -819,30 +738,12 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Re-routes the end of an arc that a moving node is dragging with it, from the node's
-     * old vertex onto its new one — LCBK19 operator (1)'s <em>"pulling its incident arcs
-     * with it, i.e. their embedding path is adjusted such that they connect to n0 at its
-     * new position"</em>.
+     * Re-routes the end of an arc a moving node drags with it, onto the node's new vertex.
      *
-     * <p>The mechanism is a drag, not a redraw: keep the longest prefix of the arc's old path that
-     * still reaches, and re-route only the tail from there to the new vertex with a claims-respecting
-     * Dijkstra (the {@link ArcRerouter}), backing off to an earlier prefix when the search cannot
-     * pass, and refining the mesh with a few edge splits when a lane is walled in.
+     * <p>A drag, not a redraw: the longest still-reaching prefix of the old path is kept and only
+     * the tail re-routed. Re-routing the whole arc separates the wrong patches.
      *
-     * <p>Preferring the longest surviving prefix is what keeps the arc <em>where it was</em>. LCBK19
-     * spells this out for the border case — the dragged arc is <em>"re-embedded onto the joint edge
-     * paths of b and a"</em>, i.e. its own path extended along the collapsed one. Re-routing the whole
-     * arc between its two endpoints instead looks like the paper's <em>"Dijkstra's shortest path
-     * algorithm between the respective two vertices"</em>, but it is not safe here: at the moment of a
-     * drag the short continuation is blocked by the claims of the collapse, so the search returns a
-     * path around the <em>other</em> side. That path crosses and touches nothing and joins the right
-     * nodes, yet the arc no longer separates the two patches the T-mesh records it as separating, and
-     * the layout tears while every local check still passes.
-     *
-     * <p>This lives here, not in the operator, because the arc's claims and its {@code path}
-     * field must move together — the multi-step back-off leaves them briefly out of step,
-     * and letting an operator poke the claim arrays during that window is how the one-to-one
-     * mapping silently breaks.
+     * <p>See also: LCBK19 Section 6.1
      *
      * @param arcId        arc whose end is being dragged
      * @param movedVertex  the moving node's old copy vertex, an endpoint of the arc's path
@@ -945,9 +846,7 @@ public final class EmbeddedTMesh {
 
     /**
      * A summary of the arcs owning the wall around a body region: how many there are, how many are
-     * incident to the collapsing pivot node, and how many of those have already been re-routed this
-     * collapse (their path no longer touches the pivot). This tells whether the wall is a just-moved
-     * sibling — an ordering problem — or an unrelated structural arc.
+     * incident to the collapsing pivot node, and how many of those no longer touch the pivot.
      *
      * @param fence       the claimed vertices ringing the body region
      * @param pivotVertex the collapsing node's copy vertex
@@ -980,19 +879,10 @@ public final class EmbeddedTMesh {
     /**
      * The vertices of the two patches an arc separates — the only ground it may be re-routed over.
      *
-     * <p>LCBK19 restricts the re-route search <em>"to not intersect (cross or touch) other arcs in
-     * order to preserve the topology of the embedded T-mesh"</em>. Skipping claimed edges and
-     * vertices is not enough to deliver that, because a collapse releases <em>two</em> arcs — the one
-     * being dragged and the one being collapsed — and the patches they separated merge into a region
-     * wide enough to hold several non-crossing routes between the same two nodes. Those routes bound
-     * different patches, so the search can return a perfectly legal curve that no longer separates
-     * the patches the T-mesh records it as separating, and the layout tears while every local check
-     * still passes.
+     * <p>Must be called while the arc is still claimed, so the flood is walled by the arc itself
+     * and by the collapsing arc's channel.
      *
-     * <p>So the walls are built from the arc's <em>own</em> two patches, flooded here while the arc
-     * is still claimed and with the collapsing arc's channel also treated as a wall. Within that
-     * region the arc's two nodes lie on the boundary, so any simple route between them splits it the
-     * same way the old one did and the patches on either side are preserved by construction.
+     * <p>See also: LCBK19 Section 6.1
      *
      * @param arcVertices  the arc's current path, still claimed, whose two sides are wanted
      * @param channel      the collapsing arc's released path, treated as a wall so its patches do
@@ -1043,17 +933,10 @@ public final class EmbeddedTMesh {
      * The vertices of the region a collapse has freed around the moving node: every corner of every
      * face reachable from it without crossing an arc.
      *
-     * <p>This is the ground a dragged arc is allowed to move over, and confining it matters as much
-     * as finding a short path. By the time a drag runs, the collapsing arc's claims and the dragged
-     * arc's own claims have both been released, so the patches those two arcs separated have merged
-     * into exactly one region — and the survivor lies on its boundary, being an endpoint of the
-     * collapsing arc. Any path inside it keeps the arc between the same patches it always separated.
+     * <p>A dragged arc must stay inside this region; a wider corridor can leave it bounding
+     * different patches than before.
      *
-     * <p>A shortest path over a wider corridor does not: it can slip through a neighbouring patch and
-     * come out bounding different patches than before, which leaves the layout torn — regions no
-     * longer matching the patches that are supposed to enclose them. LCBK19's operators are
-     * <em>"local operators concerning individual zero-patches"</em>, and this is what that locality
-     * means concretely.
+     * <p>See also: LCBK19 Section 6.1
      *
      * @param seedVertex the moving node's copy vertex, inside the freed region
      * @return every copy vertex on a face of that region
@@ -1091,8 +974,7 @@ public final class EmbeddedTMesh {
     /**
      * The ownership of each vertex along the vacated channel path, ordered from the pivot end to the
      * survivor end. Each entry is {@code .} when the vertex is free, {@code n<id>} when a node owns
-     * it, or {@code a<id>} when an arc owns it. This shows directly whether a dragged sibling arc has
-     * re-claimed a stretch of the channel and where — the {@code closes off in the middle} test.
+     * it, or {@code a<id>} when an arc owns it.
      *
      * @param channel     the collapsing arc's vacated copy-vertex path
      * @param pivotVertex the collapsing node's copy vertex, oriented to the pivot end
@@ -1123,13 +1005,9 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * The face corridor a re-route could follow, and how blocked each of its steps is. Walks the
-     * shortest claimed-edge-free face path from one vertex to another and classifies every crossing
-     * edge by how many of its two endpoints are claimed: {@code 0} the search can walk straight
-     * across, {@code 1} it can step along the free endpoint, {@code 2} it can stand on neither end
-     * and only an edge split can thread it. A long run of {@code 2}s is a stretch the vertex search
-     * cannot traverse without refinement, which is what LCBK19's <em>"a few edge splits"</em> must
-     * open.
+     * The face corridor a re-route could follow, with each crossing edge classified by how many
+     * of its endpoints are claimed: {@code 0} walk across, {@code 1} step along the free
+     * endpoint, {@code 2} only an edge split can thread it.
      *
      * @param startVertex  corridor source vertex
      * @param targetVertex corridor target vertex
@@ -1213,9 +1091,7 @@ public final class EmbeddedTMesh {
 
     /**
      * The local structure at a blocked gate: the owners of the crossing edge's two endpoints and of
-     * the two opposite face corners, plus whether the gate edge is itself claimed. If both opposite
-     * corners are free the search could step around the gate, so a gate only truly blocks when they
-     * are claimed too — this reports which.
+     * the two opposite face corners, plus whether the gate edge is itself claimed.
      *
      * @param edgeId    the crossing edge
      * @param halfEdge  a half-edge of that edge
@@ -1335,12 +1211,8 @@ public final class EmbeddedTMesh {
 
     /**
      * Whether a face-walk from one vertex reaches another without ever crossing a claimed
-     * (arc-owned) edge — face-connectivity of the arc arrangement, blocked only by arc <em>edges</em>,
-     * free to pass beside claimed <em>vertices</em>. This is the topological test the vertex-flood
-     * {@link #unclaimedComponent(int)} cannot make: two regions can be vertex-disconnected (claimed
-     * vertices sit between them) yet face-connected (a threadable gap remains that refinement could
-     * open). If this is true while the re-route failed, the block is a refinement gap, not a real
-     * wall; if false, an arc's edge path genuinely separates the two.
+     * (arc-owned) edge. Unlike the vertex flood {@link #unclaimedComponent(int)} this passes
+     * beside claimed vertices, so it is true exactly when refinement could open a route.
      *
      * @param startVertex  walk source vertex, whose incident faces seed the flood
      * @param targetVertex walk target vertex, reached when any of its incident faces is entered
@@ -1477,11 +1349,9 @@ public final class EmbeddedTMesh {
 
     /**
      * Opens a free spoke from a collapsing node into a region it must reach, by splitting the edge
-     * <em>opposite</em> the node in one of its faces whose far side lies in that region. This is
-     * LCBK19's <em>"resolved by refinement with a few edge splits"</em> for the pivot: once sibling
-     * arcs have taken every existing spoke from the node into the freed channel, the node needs a
-     * fresh one, and splitting the opposite edge joins the minted vertex to the node (a new spoke)
-     * while placing it on an edge of the region (so the spoke reaches in).
+     * <em>opposite</em> the node in one of its faces whose far side lies in that region.
+     *
+     * <p>See also: LCBK19 Section 6.1
      *
      * @param pivotVertex   the collapsing node's copy vertex
      * @param channelRegion the unclaimed region the node must gain a spoke into
@@ -1584,11 +1454,9 @@ public final class EmbeddedTMesh {
      * Checks the T-mesh is still a cell decomposition of the surface, and throws if it is
      * not.
      *
-     * <p>The Euler characteristic is the load-bearing check. Counting live nodes, arcs and
-     * patches, {@code V - E + F} must equal the surface's characteristic, and no plausible
-     * corruption of the complex survives it: an arc lost, a patch left un-split, two nodes
-     * merged that should not have been, all move it. It costs nothing and it is run after
-     * every stage.
+     * <p>Counting live nodes, arcs and patches, {@code V - E + F} must equal the surface's
+     * characteristic. Cheap enough to run after every operator, unlike
+     * {@link #validateArcPaths()}.
      *
      * @param expectedEulerCharacteristic the surface's characteristic, {@code 2 - 2g}
      * @throws IllegalStateException when the T-mesh is no longer a cell decomposition
@@ -1653,12 +1521,8 @@ public final class EmbeddedTMesh {
     /**
      * Checks every hop of every live arc is a real edge of the working copy.
      *
-     * <p>Separate from {@link #validate} because it costs differently. That check is counting —
-     * cells, endpoints, Euler — and is worth paying after every operator. This one walks every
-     * vertex of every arc, so it costs the total length of the embedding, and running it per
-     * operator made the whole contraction quadratic: on fertility it was around 40% of all CPU
-     * across 3322 operators, more than the routing it was checking. Run it once when the
-     * contraction settles, or from a test.
+     * <p>Costs the total length of the embedding, so calling it per operator makes the whole
+     * contraction quadratic. Run it once when the contraction settles, or from a test.
      *
      * @throws IllegalStateException when consecutive path vertices share no copy edge
      */
@@ -1724,12 +1588,10 @@ public final class EmbeddedTMesh {
     /**
      * Checks a patch's opposite sides carry equal quantized length.
      *
-     * <p>This is CBK15's consistency condition — <em>"the parametric lengths of the edges
-     * on opposite sides sum up to the same value"</em> — and it is what makes the patch a
-     * rectangle in parameter space at all. The quantization is solved subject to it, so a
-     * violation here is never a rounding artefact; it means an operator has changed one
-     * side and not its opposite, which would leave the T-mesh describing a shape that is
-     * not a rectangle and cannot be mapped to one.
+     * <p>The quantization is solved subject to this, so a violation is never a rounding artefact:
+     * an operator has changed one side and not its opposite.
+     *
+     * <p>See also: CBK15
      *
      * @param patch patch to check
      */

@@ -17,14 +17,9 @@ import ixdar.parsing.python.PythonParser;
 /**
  * DAG analysis for DSL graphs: adjacency, dominator tree, and seam detection.
  *
- * A <b>seam node</b> is one where all downstream consumers depend only on that
- * node's outputs, not on anything upstream of it. The upstream subgraph at a seam
- * is self-contained and can be extracted as a reusable skill.
- *
- * Algorithm: build adjacency from {@code List<ParsedNode>}, compute dominator tree
- * via iterative dataflow (graphs are small, 20-200 nodes), identify seam nodes where
- * the dominated subgraph is >= {@code minSubgraphSize} and produces MESH or
- * GEOMETRY_BUNDLE output.
+ * <p>A <b>seam node</b> is one where all downstream consumers depend only on that
+ * node's outputs, not on anything upstream of it. The upstream subgraph is then
+ * self-contained and extractable as a reusable skill.
  */
 public final class GraphAnalyzer {
     public static final int NUM_3 = 3;
@@ -190,12 +185,8 @@ public final class GraphAnalyzer {
     }
 
     /**
-     * Find seam nodes: a node N is a seam if every path from any node in its
-     * upstream subgraph to any node outside the subgraph passes through N.
-     *
-     * Practically: collect the set of nodes dominated by N (its dominator subtree).
-     * N is a seam if no node in that subtree has an edge to a node outside the
-     * subtree, except through N itself.
+     * Find seam nodes: a node is a seam if every path from any node in its
+     * dominator subtree to a node outside that subtree passes through it.
      *
      * @param parsed          parsed nodes (for type lookup)
      * @param nodeIds         all node ids in topological order

@@ -10,34 +10,18 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
 
 /**
- * A hand-authored embedded T-mesh on a torus, carrying the configuration LCBK19 Figure 9
- * walks through: a non-simple zero-patch with a T-joint on a non-zero side, a row of zero
- * arcs, and two simple zero-patches. It is the shared fixture the operators are tested and
- * visualized against — the torus is closed and genus 1, so it needs none of the
- * free-boundary machinery and its Euler characteristic is a total correctness check, and
- * being built rather than traced it is exact and independent of the tracer, the cross
- * field and the integer program.
- *
- * <p>The layout, in the torus's (major, minor) grid. Three horizontal loops run the long
- * way at minor 0, 2 and 4; verticals run around the tube. The middle row is quantized to
- * height zero, which turns its patches into zero-patches. A stub vertical at major 2
- * crosses only the bottom row, so it stops on the loops at minor 0 and 2 — and a vertical
- * that stops is a T-junction, which is what makes the zero-patch spanning majors 0 to 4
+ * Embedded T-mesh fixture on a torus, in the (major, minor) grid below: the middle row is
+ * quantized to height zero, and the stub vertical at major 2 makes its zero-patch
  * non-simple.
  *
  * <pre>
- *   minor 4  o-------------------o-------------------o     top loop
- *            |     top row, h=1  |                   |
- *   minor 2  o---------o---------o-------------------o     middle loop
- *            |  middle row, h=0  (zero row)          |
- *   minor 0  o---------o---------o-------------------o     bottom loop
+ *   minor 4  o-------------------o-------------------o
+ *   minor 2  o---------o---------o-------------------o
+ *   minor 0  o---------o---------o-------------------o
  *          major 0     2         4                   8
  * </pre>
  *
- * <p>Three horizontal loops, not two, on purpose: with only two, each vertical loop of the
- * torus is cut into just two arcs, so collapsing the zero one would turn the other into a
- * loop of positive length — a degenerate state no real quantization produces. A third loop
- * leaves a bigon instead, the state operator (3) exists to consume.
+ * <p>See also: LCBK19 Figure 9
  */
 public final class TorusLayoutFixture {
 

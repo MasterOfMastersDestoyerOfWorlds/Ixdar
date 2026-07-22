@@ -7,32 +7,12 @@ import java.util.Map;
 
 /**
  * Sparse Gauss-Jordan elimination of the leftover seam-constraint rows
- * {@code L · x = 0} (BZK09 §5 variable elimination), producing one
- * substitution rule per pivoted raw DOF.
+ * {@code L · x = 0}, producing one substitution rule per pivoted raw DOF.
  *
  * <p>
- * Pivots are chosen per row instead of by a global magnitude search: every
- * initially-built coefficient is an exact 0/±1 (integer cosine/sine of the
- * 90°k cut rotations plus unit s/t entries), so any entry within
- * {@link #PIVOT_MAGNITUDE_GUARD} of the row's maximum is a numerically sound
- * pivot, and among those the entry whose DOF appears in the fewest rows
- * (approximate Markowitz) minimises fill. Rows live in primitive parallel
- * arrays with a DOF → referencing-rows index, so eliminating a pivot touches
- * only the rows that actually contain it. This replaces a global
- * O(rows² · entries) pivot scan over boxed hash maps that cost ~6s of the
- * ~20s seamless build on a 200k-triangle mesh; the same elimination now runs
- * in milliseconds.
- *
- * <p>
- * Substitution rules may reference DOFs pivoted by <em>later</em> rows —
- * consumers resolve chains recursively, exactly as with the previous
- * implementation — but never earlier pivots, since each pivot is eliminated
- * from every live row before the next row is processed (that forward-only
- * property is what makes the recursive expansion terminate).
- *
- * <p>
- * All work happens in the constructor; results land in {@link #pivotDofs} /
- * {@link #pivotCoefs}, indexed by raw DOF (null for non-pivots).
+ * A rule may reference DOFs pivoted by <em>later</em> rows, so consumers must
+ * resolve chains recursively; it never references an earlier pivot, which is what
+ * makes that recursion terminate.
  */
 public final class LeftoverConstraintEliminator {
 
@@ -171,10 +151,8 @@ public final class LeftoverConstraintEliminator {
     /**
      * Replace {@code pivotDof} inside one live row with its substitution:
      * remove the pivot entry and fold {@code factor · substitution} into the
-     * row, appending fill entries (and their column-index references) as
-     * needed and dropping entries that shrink below tolerance. A stale
-     * column-index reference — the row no longer contains the pivot — is a
-     * no-op.
+     * row, appending fill entries and dropping entries that shrink below
+     * tolerance. A row that no longer contains the pivot is left untouched.
      *
      * @param rowIdx            row to update
      * @param pivotDof          DOF being eliminated

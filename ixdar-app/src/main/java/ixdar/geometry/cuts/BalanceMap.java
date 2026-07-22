@@ -98,12 +98,9 @@ public class BalanceMap {
     }
 
     /**
-     * Record an external match between {@code vp} and {@code external}:
-     * increment the external balance on {@code vp}, append the closest segment
-     * to the external-matches list, and merge the two knots into a shared
-     * external group (creating, joining, or coalescing groups as needed). When
-     * a {@code superKnot} is supplied, every super-knot point outside the
-     * inner knot is also placed into that group.
+     * Record an external match between {@code vp} and {@code external}, incrementing the
+     * external balance on {@code vp} and merging both into a shared external group. When a
+     * {@code superKnot} is supplied, super-knot points outside the inner knot join that group.
      *
      * @param vp knot point on the inner knot
      * @param external the matched external knot

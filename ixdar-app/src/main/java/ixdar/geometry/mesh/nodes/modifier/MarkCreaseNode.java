@@ -17,14 +17,11 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
- * Marks edges with a crease weight for semi-sharp Catmull-Clark subdivision.
- * <p>
- * Crease weights control sharpness: 0.0 = fully smooth (default),
- * 1.0+ = sharp for that many subdivision levels (weight decrements by 1
- * each level). Weight 10.0 = effectively infinitely sharp.
- * <p>
- * Stores weights as a {@code float[]} in the GeometryBundle slot
- * {@code _crease_weights}, indexed by edge ID.
+ * Marks edges with a crease weight for semi-sharp Catmull-Clark subdivision, stored in the
+ * {@link #CREASE_WEIGHTS_SLOT} slot indexed by edge id.
+ *
+ * <p>A weight of 0 is fully smooth; a weight of n keeps the edge sharp for n subdivision levels,
+ * decrementing each level, so 10 is effectively infinitely sharp.
  */
 @MeshNodeAnnotation(id = "mark_crease")
 public class MarkCreaseNode implements MeshNode {

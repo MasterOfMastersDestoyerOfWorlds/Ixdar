@@ -4,26 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * LCBK19 §6.1 operator (3), the simple zero-patch collapse, on the embedded T-mesh.
+ * Operator (3), the simple zero-patch collapse: requires a bigon, so the patch's zero-length
+ * sides must already be collapsed.
  *
- * <p>The paper: <em>"A zero-patch is simple if exactly two non-zero arcs are involved. A simple
- * zero-patch is easily collapsed (after its zero-arcs have been collapsed) by replacing the
- * embedding of one non-zero arc with the embedding of the other one."</em>
+ * <p>A feature or border arc survives over a plain one, ties to the lower id; the other's
+ * claims are released. Two feature arcs bounding one zero-patch throw.
  *
- * <p>By the time this runs, operator (1) has collapsed the patch's zero-length sides to points,
- * so the patch is a bigon: its two non-zero arcs run between the same pair of nodes, one along
- * each side of a strip that the quantization has flattened to zero width. Collapsing it keeps
- * one arc and discards the other; the patch on the far side of the discarded arc is told to use
- * the survivor instead, and the discarded arc's mesh claims are released so the freed strip
- * folds into that neighbour. Nothing about the triangle mesh is collapsed — the operators move
- * the embedding, not the mesh — so the surface loses one arc and one patch together and its
- * Euler characteristic does not change.
- *
- * <p>The paper does not say which of the two arcs survives. This keeps a feature or border arc
- * over a plain one, so a critical curve's embedding stays on the critical curve; between two
- * arcs of the same status it keeps the lower id, to be deterministic. Two feature arcs bounding
- * one zero-patch would be a feature curve doubling back on itself, which the input should never
- * produce, so that throws.
+ * <p>See also: LCBK19 Section 6.1
  */
 public final class ZeroPatchCollapseOperator {
 

@@ -94,16 +94,9 @@ public final class NormalMatrix {
     }
 
     /**
-     * Theta-only Laplacian constructor for the local-search post-process. One
-     * variable per face; one row per interior edge. Each interior edge between
-     * faces (i, j) contributes +1 to diag[i] and diag[j], -1 at off-diagonals (i,
-     * j) and (j, i), and -k / +k to rhs[i] / rhs[j] where k = kappa_ij + (pi/2) *
-     * p_ij is precomputed by the caller.
-     *
-     * <p>
-     * No chord variables, no constrained-face elimination — fixed faces are handled
-     * at solve time by {@link AdaptiveSolver}, same convention as the MIP
-     * constructor.
+     * Theta-only Laplacian constructor for the local-search post-process: one
+     * variable per face, one row per interior edge. Fixed faces are not eliminated
+     * here; {@link AdaptiveSolver} handles them at solve time.
      *
      * @param faceCount           number of face variables (variableCount)
      * @param rowCount            number of interior-edge rows
@@ -148,16 +141,10 @@ public final class NormalMatrix {
     }
 
     /**
-     * Accumulator constructor. Builds the CSR layout from an already-assembled SPD
-     * system expressed as a diagonal vector plus an upper-triangle map (key =
-     * ((long) row << 32) | (col & 0xFFFFFFFFL) with row ≤ col) plus an rhs. The
-     * off-diagonal map's values are mirrored to both (row, col) and (col, row) to
-     * satisfy {@code NormalMatrix}'s full-symmetric storage convention.
-     *
-     * <p>
-     * Used by callers that build their matrix by accumulating outer-product
-     * contributions (e.g. seamless parameterization's per-face and per-cut-edge
-     * penalty terms) rather than by walking a fixed row-row structure.
+     * Accumulator constructor: builds the CSR layout from a diagonal vector, an
+     * upper-triangle map keyed by {@code (row << 32) | col} with row ≤ col, and an
+     * rhs. Off-diagonal values are mirrored into both triangles to satisfy this
+     * class's full-symmetric storage convention.
      *
      * @param diag  diagonal values, length {@code variableCount}
      * @param upper off-diagonals; key packs (row, col) with row &lt; col, value is
@@ -199,10 +186,8 @@ public final class NormalMatrix {
      * Parallel-array accumulator constructor. Builds the CSR layout from an
      * already-assembled SPD system in flat-array form: diagonal, sorted
      * upper-triangle packed keys plus a value array indexed by the same slot, and
-     * an RHS vector. Equivalent to the {@code Map<Long,
-     * Double>} constructor but the caller has already paid the deduplication cost —
-     * used by the cached seamless assembly playback path where the same
-     * upper-triangle structure is reused across many solves.
+     * an RHS vector. Equivalent to the {@code Map<Long, Double>} constructor, except
+     * that the caller must have already deduplicated and sorted the keys.
      *
      * @param diag        diagonal values, length {@code variableCount}
      * @param upperKeys   sorted (row, col) packed-long keys; slot index = array
@@ -560,10 +545,8 @@ public final class NormalMatrix {
      * Permuted-upper-triangle Compressed Sparse Row: row-pointer / column-index
      * / value arrays for the free-variable submatrix in the supplied
      * permutation, packing only the upper triangle (col ≥ row in the permuted
-     * order) with <em>ascending column indices within each row</em> — the SPD
-     * input format PARDISO requires. The fill pass walks permuted columns in
-     * ascending order and appends by symmetry, which yields the sorted rows
-     * without an explicit sort.
+     * order) with <em>ascending column indices within each row</em>, the SPD input
+     * format PARDISO requires.
      *
      * @param freeCount size of the compact problem
      * @param fixed     full-size fixed-variable mask

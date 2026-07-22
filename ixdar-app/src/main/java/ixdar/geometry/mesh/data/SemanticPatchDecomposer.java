@@ -27,26 +27,11 @@ import org.joml.Vector3f;
  * Feature-edge + concavity patch decomposer.
  *
  * <ol>
- *   <li>Skeleton partition: each vertex assigned to the nearest skeleton
- *       branch (joint radius weighted).</li>
- *   <li>Per-edge dihedral map: shared basis for vertex curvature, feature
- *       detection, and face adjacency.</li>
- *   <li>Concavity carve-out: per-vertex Gaussian curvature via angle-defect
- *       locates bowls/sockets; connected components of strongly-negative
- *       curvature become dedicated patches before the region-growing pass
- *       runs. Stops eye sockets, nasal cavity, and foramen magnum from being
- *       absorbed by surrounding bone.</li>
- *   <li>Feature-edge-aware region growing: face-face adjacency where edges
- *       with dihedral above {@code T_FEATURE_RAD} break the connection. A
- *       BFS within each skeleton bucket then finds connected components —
- *       each one is a patch co-bounded by skeleton buckets and feature
- *       ridges. Replaces the prior k-means-on-[curvature,position] Step 2
- *       whose cuts landed at positional centroids rather than on actual
- *       geometric features.</li>
- *   <li>Small-component merge: anything under {@code MIN_PATCH_FACES} folds
- *       into its dominant non-small neighbour via the full (non-feature-cut)
- *       adjacency, so a tiny island can cross back through a ridge to merge
- *       with the region on the far side.</li>
+ *   <li>Skeleton partition, radius-weighted to the nearest branch.</li>
+ *   <li>Per-edge dihedral map.</li>
+ *   <li>Concavity carve-out of strongly-negative Gaussian curvature components.</li>
+ *   <li>Region growing per skeleton bucket, cutting edges above {@code T_FEATURE_RAD}.</li>
+ *   <li>Merge of patches under {@code MIN_PATCH_FACES} across the uncut adjacency.</li>
  * </ol>
  */
 public final class SemanticPatchDecomposer {
@@ -871,15 +856,11 @@ public final class SemanticPatchDecomposer {
     }
 
     /**
-     * Meyer 2003 cotangent-Laplacian mean curvature:
-     * <pre>
-     *   H_v · n_v = (1/(2A_v)) · Σ_{j ∈ N(v)} (cot α_ij + cot β_ij) · (p_j - p_i)
-     *   H_v = ½ · |H_v · n_v|,   signed positive when the curvature vector points
-     *   along the outward normal (convex) and negative when it points against
-     *   (concave).
-     * </pre>
-     * α_ij, β_ij are the two angles opposite edge ij in the pair of triangles
-     * sharing that edge. On a boundary edge only one cotangent contributes.
+     * Cotangent-Laplacian mean curvature, signed positive where the curvature vector runs along the
+     * outward normal and negative where it opposes it. A boundary edge contributes only one
+     * cotangent.
+     *
+     * <p>See also: Meyer 2003
      *
      * @param mesh triangle mesh (used only for vertex count)
      * @param positions packed XYZ vertex positions
@@ -1367,27 +1348,10 @@ public final class SemanticPatchDecomposer {
     }
 
     /**
-     * PATCH-6 quality-based split. For each candidate patch we score three
-     * geometric metrics:
-     *
-     * <ul>
-     *   <li>curvature_stddev — stddev of per-vertex mean dihedral across the
-     *       patch. Low = flat surface, good Coons candidate. High = bumpy.</li>
-     *   <li>side_count — number of boundary vertices where the two adjacent
-     *       boundary edges turn by more than {@link #T_CORNER_RAD}. ≈4 = Coons
-     *       ideal; much higher means the boundary has too many "sides".</li>
-     *   <li>iso_ratio — 4π·area / perimeter², measuring how circular the
-     *       patch is. Low = long/snaking/concave.</li>
-     * </ul>
-     *
-     * A patch passes (no split) when it is flat AND close to 4 sides AND not
-     * pathologically elongated. Otherwise we split via positional k-means with
-     * k chosen from whichever metric deviated most (side count → ceil(sides/4);
-     * bumpy + big → ceil(verts / 2000)).
-     *
-     * {@link #HARD_MAX_PATCH_VERTS} is an absolute safety ceiling that
-     * overrides the scorer: no patch ever survives with more than that many
-     * vertices, no matter how flat and Coons-shaped the scorer claims it is.
+     * Splits patches that score badly on curvature spread, boundary side count, or isoperimetric
+     * ratio, using positional k-means with k taken from whichever metric deviated most. A patch
+     * survives only if it is flat, close to four sides, and not elongated;
+     * {@link #HARD_MAX_PATCH_VERTS} overrides the scorer as an absolute vertex ceiling.
      *
      * @param facePatch per-face patch id
      * @param patchCount number of patches
@@ -1680,18 +1644,9 @@ public final class SemanticPatchDecomposer {
     }
 
     /**
-     * PATCH-21: feature-aware multi-source BFS that replaces Euclidean
-     * k-means when the split is Coons-error-triggered. Each face in the
-     * patch is assigned to the seed face that reaches it first via
-     * {@code adjCrestOnly} (face adjacency with saddle + crest edges
-     * severed). Grown regions therefore cannot cross high-confidence
-     * anatomical boundaries, so the split respects ridges and tooth gaps
-     * by construction rather than cutting perpendicular to them.
-     *
-     * <p>Faces the BFS can't reach from any seed (orphans — fully
-     * enclosed by saddle/crest walls inside the patch) fall back to the
-     * nearest seed by face-centroid Euclidean distance, so every face
-     * still gets labeled.
+     * Feature-aware multi-source BFS that assigns each face to the seed reaching it first over
+     * {@code adjCrestOnly}, so grown regions cannot cross saddle or crest edges. Faces walled off
+     * from every seed fall back to the nearest seed centroid, so every face is labelled.
      *
      * @param faces patch's faces in list order; {@code labels[i]}
      *              corresponds to {@code faces.get(i)}.
@@ -1871,25 +1826,10 @@ public final class SemanticPatchDecomposer {
     }
 
     /**
-     * Per-stage edge sets and the final face→patch mapping, for diagnosis.
-     * Edge encoding matches {@link #edgeKey(int, int)}: low-endpoint in high
-     * 32 bits, high-endpoint in low 32 bits.
-     *
-     * <ul>
-     *   <li>{@code dihedralFeatureEdges} — edges whose dihedral exceeds the
-     *       adaptive feature threshold used by {@code featureCutAdjacency}.</li>
-     *   <li>{@code principalFeatureEdges} — edges promoted by the per-vertex
-     *       principal-curvature magnitude test (both endpoints κ₁ or κ₂ above
-     *       {@code T_PRINCIPAL}).</li>
-     *   <li>{@code crestEdges} — edges on a traced ridge/valley polyline from
-     *       {@link CrestLineDetector}.</li>
-     *   <li>{@code unionFeatureEdges} — the union of the three sets above,
-     *       i.e. everything {@code featureCutAdjacency} will cut on.</li>
-     *   <li>{@code patchBoundaryEdges} — edges where the two adjacent faces
-     *       ended up in different final patches. Overlaying this with the
-     *       three above shows which feature signals were honored by the
-     *       decomposition and which were overridden downstream.</li>
-     * </ul>
+     * Per-stage edge sets and the final face-to-patch mapping, for diagnosis. Edges are keyed by
+     * {@link #edgeKey(int, int)}. The dihedral, principal and crest sets are the per-source
+     * detections; {@code unionFeatureEdges} is what {@code featureCutAdjacency} cuts on, and
+     * {@code patchBoundaryEdges} is where adjacent faces ended in different patches.
      */
     public static record DecompositionDiagnostics(
             PatchDecomposition decomposition,

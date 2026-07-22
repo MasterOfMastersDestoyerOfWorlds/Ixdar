@@ -12,20 +12,13 @@ import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 
 /**
- * Reads .ndf cross-field files from the BCEAK13 supplementary material into a
- * {@link CrossField}. Populates the solver-output arrays only:
- * {@link CrossField#theta}, {@link CrossField#periodJump},
- * {@link CrossField#singularityIndexQuarter}, {@link CrossField#singularities}.
- * Geometry-derived fields (faceX/Y, kappa, faceIdToActive, edgeIdToActive) are
- * left null; call {@link CrossField#build()} on a sibling instance if those are
- * needed.
+ * Reads .ndf cross-field files into a {@link CrossField}. Only the solver-output arrays are
+ * populated; geometry-derived fields are left null.
  *
- * <p>
- * NDF arrays are positionally indexed in OpenMesh's iteration order. The
- * supplied {@link HalfEdgeMesh} is assumed to be in the same order — typically
- * the mesh built directly from the matching {@code *_in_tri.off}. Mismatched
- * orderings will produce a {@link CrossField} whose values are silently
- * permuted; ordering reconciliation is a separate concern.
+ * <p>NDF arrays are positionally indexed in OpenMesh iteration order and the supplied
+ * {@link HalfEdgeMesh} must match it; a mismatch yields silently permuted values.
+ *
+ * <p>See also: BCEAK13
  */
 public final class CrossFieldLoader {
     private static final String SECTION_INFORMATION = "[Information]";

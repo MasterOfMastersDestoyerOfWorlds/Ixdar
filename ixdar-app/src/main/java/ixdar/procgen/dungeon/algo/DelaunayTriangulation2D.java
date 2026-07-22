@@ -12,16 +12,12 @@ import ixdar.procgen.dungeon.values.EdgeGraphValue;
 import ixdar.procgen.dungeon.values.RoomListValue;
 
 /**
- * Delaunay triangulation over 2D room centers via Bowyer-Watson incremental insertion. Stage 2
- * of the vazgriz dungeon pipeline — produces the candidate edge set the MST pass filters.
+ * Delaunay triangulation over 2D room centers via Bowyer-Watson incremental insertion,
+ * producing the candidate edge set the MST stage filters.
  *
- * <p>Output edges are always sorted lexicographically by (min-idx, max-idx) so results are
- * byte-deterministic for identical inputs. The input {@link RoomListValue} must have at least
- * three rooms for a meaningful triangulation; fewer rooms degenerate to a trivial edge set.
- *
- * <p>Implementation uses the in-circle determinant test on doubles to minimize precision loss
- * when room centers happen to land near a circumcircle (a common artifact of integer-grid
- * placement). O(N^2) per insertion, fine for dungeon-scale N &lt; 200.
+ * <p>Output edges are sorted lexicographically by (min-idx, max-idx). At least three rooms are
+ * needed for a meaningful triangulation; fewer degenerate to a trivial edge set. Insertion is
+ * O(N^2).
  */
 public final class DelaunayTriangulation2D {
     public static final int NUM_3 = 3;

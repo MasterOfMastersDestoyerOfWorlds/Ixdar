@@ -1,10 +1,8 @@
 package ixdar.geometry.mesh.data;
 
 /**
- * Shared RGB constants for feature-edge overlays. Used by {@link PatchRenderer}'s
- * CPU PNG diagnostic and by the live GL viewer so the CPU screenshot and the
- * desktop overlay always show the same color story — change a color here and
- * both paths pick it up.
+ * Shared RGB constants for feature-edge overlays, used by both {@link PatchRenderer}'s CPU PNG
+ * diagnostic and the live GL viewer.
  *
  * <p>Values are 0x00RRGGBB with no alpha channel.
  */

@@ -26,14 +26,9 @@ import ixdar.geometry.mesh.graph.OptimizableParameter;
 import ixdar.parsing.python.PythonParser;
 
 /**
- * General-purpose skeleton-to-parameter sensitivity analyzer.
- *
- * <p>Computes a finite-difference Jacobian by perturbing each DSL input parameter,
- * regenerating the mesh + skeleton, and measuring how each skeleton joint moves.
- * Uses damped least-squares (Levenberg-Marquardt) to solve for parameter adjustments
- * that minimize joint position errors against a reference skeleton.
- *
- * <p>Topology-agnostic: works for any DSL mesh, not hand-specific.
+ * Skeleton-to-parameter sensitivity analyzer for any DSL mesh. Builds a finite-difference Jacobian
+ * by perturbing each input parameter and remeasuring joint positions, then solves by damped least
+ * squares for the parameter adjustments that best match a reference skeleton.
  */
 public final class SkeletonSensitivityAnalyzer {
     public static final int NUM_3 = 3;

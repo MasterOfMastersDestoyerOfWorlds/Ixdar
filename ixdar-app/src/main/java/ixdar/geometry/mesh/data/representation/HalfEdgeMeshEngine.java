@@ -280,14 +280,9 @@ public class HalfEdgeMeshEngine {
     }
 
     /**
-     * Bulk-allocate with mixed polygon sizes. Each face's vertex count is given
-     * by {@code faceVertexCounts[i]}, and {@code faceIndicesFlat} packs all
-     * faces' indices end-to-end (face 0 occupies indices 0..counts[0]-1, etc.).
-     *
-     * <p>Used by the coons_cage pipeline when a single output mesh contains
-     * both quad inner regions and triangular or pentagonal central fills from
-     * 3+ cage-corner merges (MESH-47). The uniform {@link #bulkAllocate}
-     * variant stays the fast path for all-quad / all-tri meshes.
+     * Bulk-allocate with mixed polygon sizes. Each face's vertex count is given by
+     * {@code faceVertexCounts[i]}, and {@code faceIndicesFlat} packs all faces' indices
+     * end-to-end. Use {@link #bulkAllocate} instead when every face has the same size.
      *
      * @param positions packed xyz triples
      * @param faceVertexCounts per-face vertex count (each &ge; 3)

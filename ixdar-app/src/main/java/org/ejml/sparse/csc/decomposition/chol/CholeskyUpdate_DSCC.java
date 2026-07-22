@@ -1,29 +1,12 @@
 package org.ejml.sparse.csc.decomposition.chol;
 
 /**
- * Sparse Cholesky factorization supporting rank-1 in-place updates of the
- * L factor, by extending EJML 0.43.1's {@link CholeskyUpLooking_DSCC}.
+ * Sparse Cholesky factorization supporting rank-1 in-place updates of L.
  *
- * <p>BZK09's greedy mixed-integer rounder pins one DOF at a time. Each pin
- * is a diagonal perturbation {@code A' = A + μ · eᵢ · eᵢᵀ} of the previous
- * system — exactly a rank-1 update. The Cholesky factor L evolves
- * incrementally along a path in the elimination tree from column {@code i}
- * to the root, costing {@code O(|path|)} ≈ {@code O(√N)} rather than the
- * {@code O(N^1.5)} of a fresh factorization. On meshes with hundreds of
- * integer DOFs (fandisk ≈ 600), this turns minutes of re-factorization into
- * seconds of incremental updates.
+ * <p>Pinning a DOF is a diagonal perturbation, so L is updated along the elimination-tree path
+ * from that column to the root, introducing no new fill. Downdate is not implemented.
  *
- * <p>The algorithm is Davis, <em>Direct Methods for Sparse Linear
- * Systems</em>, ch. 4.10 (rank-1 update / downdate of LL<sup>T</sup>):
- * walk the elimination tree from the first non-zero of {@code w} to the
- * root, applying one Givens rotation per visited column. For
- * single-entry {@code w = √μ · eᵢ} (the diagonal-pin case), the rotation
- * only needs to walk L's structurally non-zero rows in each visited column
- * — no new fill is introduced, since {@code A}'s non-zero pattern is
- * unchanged.
- *
- * <p>Downdate ({@code σ = -1}) is supported for completeness but unused by
- * the IGM rounder, which only adds pins.
+ * <p>See also: Davis, Direct Methods for Sparse Linear Systems Section 4.10
  */
 public class CholeskyUpdate_DSCC extends CholeskyUpLooking_DSCC {
 
@@ -31,14 +14,9 @@ public class CholeskyUpdate_DSCC extends CholeskyUpLooking_DSCC {
     public static final double WORKING_VECTOR_EPS = 1.0e-15;
 
     /**
-     * Apply {@code A' = A + σ · w · wᵀ} to the existing L factor in place,
-     * mutating {@code L.nz_values} and the working vector {@code w}. The
-     * algorithm walks each row {@code j} where {@code w[j] ≠ 0} in order,
-     * applying a Givens (or hyperbolic, for downdate) rotation that zeros
-     * {@code w[j]} and updates {@code L}'s column {@code j} below the
-     * diagonal. Subsequent rows of {@code w} are filled in by the rotation
-     * — they always land on rows where {@code L}'s column already has a
-     * structural non-zero, so no new fill is introduced.
+     * Apply {@code A' = A + σ · w · wᵀ} to the existing L factor in place, mutating
+     * {@code L.nz_values}, by rotating away each non-zero of the working vector in column order.
+     * Rotation fill always lands on structurally non-zero rows of {@code L}.
      *
      * @param col column index of the diagonal entry to pin
      * @param mu  positive pin weight; pre-encoded into the working vector as

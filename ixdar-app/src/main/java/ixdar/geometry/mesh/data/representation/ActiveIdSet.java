@@ -3,25 +3,11 @@ package ixdar.geometry.mesh.data.representation;
 import java.util.Arrays;
 
 /**
- * A dense set of live element ids that supports removal without searching for the id.
+ * A dense set of live element ids over {@code [0, size)}, with an inverse index-by-id map so
+ * that removal is a lookup rather than a scan.
  *
- * <p>The mesh needs two things at once from its live vertices, edges, faces and half-edges: a
- * positional lookup, so {@code faceIdAt(activeIndex)} can walk {@code [0, faceCount())}, and
- * removal, so deactivating an element takes it out of that walk. A plain list gives the first and
- * makes the second a linear scan of every live element, plus an array copy to close the gap. That
- * is quadratic in the size of the mesh, and it is the wrong shape for a half-edge mesh, whose whole
- * premise is that an element is reached by pointer rather than by looking for it.
- *
- * <p>This keeps the dense array and adds the inverse map beside it — where each id sits in that
- * array — so removal is a lookup, not a search. The removed slot is filled by moving the last id
- * into it, which costs one write and one index fix.
- *
- * <p><b>Order is not preserved.</b> Because removal fills the hole with the last id, the dense
- * order is not ascending in id and an element's position changes when an unrelated element is
- * removed. That is what {@link ixdar.geometry.mesh.data.MeshTopology} already promises and no more:
- * a <em>stable id</em> at a dense position, never a stable position or a sorted order. Callers that
- * need a deterministic emission order must sort at that boundary, as the canonical mesh fingerprint
- * does.
+ * <p><b>Order is not preserved.</b> Removal moves the last id into the hole, so a position is
+ * valid only until the next removal.
  */
 public final class ActiveIdSet {
 

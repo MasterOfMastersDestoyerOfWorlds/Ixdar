@@ -3,27 +3,11 @@ package ixdar.geometry.mesh.data;
 import org.joml.Vector3f;
 
 /**
- * Standalone bilinear Coons patch evaluator. Given 4 cubic Bezier
- * sides arranged as a quadrilateral (u=0, u=1, v=0, v=1 boundaries),
- * samples the Coons surface on a regular UV grid.
- *
- * <p>Replicates the math used by {@code CoonsPatchNode.evalFaceEdge} +
- * the bilinear Coons blend. Factored out here because PATCH-16 needs
- * to build Coons patches from raw Bezier control points (fit to a
- * mesh patch's boundary polylines) without going through the DSL node
- * ecosystem.
- *
- * <p>Conventions:
- * <ul>
- *   <li>{@code sideU0} runs from corner₀₀ to corner₁₀ along u at v=0.</li>
- *   <li>{@code sideU1} runs from corner₀₁ to corner₁₁ along u at v=1.</li>
- *   <li>{@code sideV0} runs from corner₀₀ to corner₀₁ along v at u=0.</li>
- *   <li>{@code sideV1} runs from corner₁₀ to corner₁₁ along v at u=1.</li>
- * </ul>
- * The 4 sides must share corners: {@code sideU0[0] == sideV0[0]},
- * {@code sideU0[3] == sideV1[0]}, etc. Corner positions are averaged
- * defensively in case the two sides share a corner with slightly
- * differing control points.
+ * Bilinear Coons patch evaluator over four cubic Bezier sides forming a quadrilateral, sampled
+ * on a regular UV grid. Side orientation is fixed: {@code sideU0} corner₀₀→corner₁₀,
+ * {@code sideU1} corner₀₁→corner₁₁, {@code sideV0} corner₀₀→corner₀₁, {@code sideV1}
+ * corner₁₀→corner₁₁, and adjacent sides must meet at a shared corner. Near-equal corner control
+ * points are averaged rather than rejected.
  */
 public final class CoonsEvaluator {
     public static final int NUM_3 = 3;
@@ -92,12 +76,9 @@ public final class CoonsEvaluator {
     }
 
     /**
-     * Blend four pre-sampled boundary polylines into a discrete bilinear Coons
-     * grid. All four sides must have the same sample count and share exact
-     * corner points ({@code sideU0[0] == sideV0[0]}, etc.); each boundary
-     * row/column of the output then reproduces the corresponding input side
-     * verbatim, so two patches sharing a side that sample it identically get
-     * exactly coincident boundary geometry.
+     * Blend four pre-sampled boundary polylines into a discrete bilinear Coons grid. All four
+     * sides must have the same sample count and share exact corner points; each boundary
+     * row/column of the output then reproduces its input side verbatim.
      *
      * @param sideU0 samples along u at v=0, corner₀₀ → corner₁₀
      * @param sideU1 samples along u at v=1, corner₀₁ → corner₁₁

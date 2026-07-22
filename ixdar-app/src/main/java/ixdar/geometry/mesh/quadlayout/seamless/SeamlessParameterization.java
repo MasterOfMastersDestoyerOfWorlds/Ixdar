@@ -18,48 +18,15 @@ import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.Preconditioner;
 
 /**
- * BZK09 §5 seamless parametrization, stage 3 of the Lyon 2021 quad-layout
- * pipeline.
- *
- * <p>
- * Given a {@link CrossField} (per-face θ, per-edge period jumps, singularities,
- * local frames), produces per-corner (u, v) on the triangle mesh whose
- * gradients follow the cross-field directions and that is <em>seamless</em>
- * across cuts: across each cut edge,
+ * Turns a {@link CrossField} into per-corner (u, v) satisfying
  *
  * <pre>
  *   (u', v') = R<sub>r_e · π/2</sub>(u, v) + (s<sub>e</sub>, t<sub>e</sub>)
  * </pre>
  *
- * with rotation r<sub>e</sub> ∈ {0,1,2,3} fixed by the cross field and real
- * translation (s<sub>e</sub>, t<sub>e</sub>). The output is the input the Lyon
- * 2021 §3 motorcycle T-mesh expects.
+ * across every cut edge, with r<sub>e</sub> fixed by the cross field.
  *
- * <p>
- * Algorithm verbatim from BZK09 §5: an all-continuous solve, then BZK09 §2
- * greedy mixed-integer rounding of (a) every singularity's chart-vertex (u, v)
- * and (b) every cut edge's translation (j, k), then optional §5.4 IRLS
- * stiffening. The (j, k) ∈ ℤ and integer-pinned singularities make the result
- * an integer-grid map of the surface, exactly the seamless input Lyon 2021's
- * motorcycle T-mesh stage expects.
- *
- * <h3>Pipeline</h3>
- * <ol>
- * <li><b>C1 cut graph</b>: dual spanning tree → primal cuts → trim dangling
- * paths → connect each interior singularity by Dijkstra path to the cut.
- * <li><b>C2 branch propagation</b>: BFS over non-cut edges assigns a per-face
- * branch g_f ∈ {0,1,2,3} so neighbouring faces share an oriented cross.
- * <li><b>C3 chart vertices</b>: union-find over corners across non-cut edges.
- * Each (mesh-vertex, chart) pair gets one chart-vertex id with two real DOFs
- * (u, v).
- * <li><b>C4 system assembly</b>: per-triangle gradient-target energy plus
- * per-cut-edge soft transition penalty plus a gauge pin on chart-vertex 0.
- * <li><b>C5 solve</b>: sparse SPD normal equations via EJML's
- * {@code LinearSolverFactory_DSCC.cholesky}.
- * <li><b>C6 stiffening</b>: if any face flipped, double its IRLS weight and
- * re-solve, capped at {@link #maxStiffeningIterations}.
- * <li><b>C7 project</b>: chart-vertex DOFs → per-corner (u, v).
- * </ol>
+ * <p>See also: BZK09 Section 5
  *
  * @see CrossField
  */
@@ -77,8 +44,7 @@ public final class SeamlessParameterization {
     /**
      * A parametric triangle below this fraction of its expected area
      * ({@code faceArea / targetQuadEdgeLength²}) counts as a local-injectivity
-     * violation alongside flips: collapsed triangles merge singularities and
-     * corrupt the motorcycle stage downstream.
+     * violation alongside flips, because collapsed triangles merge singularities.
      */
     private static final double DEGENERATE_UV_AREA_FRACTION = 1.0e-6;
     private static final double SVD_DET_FACTOR = 4.0;
@@ -352,18 +318,12 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * BZK09 §2 / §5 greedy rounding. Repeatedly: among unpinned integer DOFs, pick
-     * the one whose current solution value is closest to its nearest integer, snap
-     * it to that integer, re-solve. Stop when no integer DOF is unpinned.
+     * Greedy rounding: repeatedly snap the unpinned integer DOF closest to an
+     * integer and re-solve. When constraint reduction already pinned every integer
+     * DOF, the base system is factored natively instead and that handle becomes the
+     * stiffening loop's preconditioner.
      *
-     * <p>
-     * When the constraint reduction already pinned every integer DOF (no
-     * rounding work at all) and the native backend is available, the EJML
-     * rank-1-updatable cold factor is skipped entirely: the base system is
-     * factored once natively for the initial solve and that handle is handed
-     * to the stiffening loop as its PCG preconditioner — the EJML cold factor
-     * of the ~200k-DOF seamless system costs seconds and would otherwise be
-     * used for exactly one solve.
+     * <p>See also: BZK09 Section 5
      */
     private void runGreedyIntegerRounding() {
 
@@ -543,28 +503,12 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * BZK09 §5.4 weight update — verbatim from the paper.
+     * IRLS weight update: form the per-triangle distortion
+     * {@code λ(T) = |τ·σ₁/h − 1| + |τ·σ₂/h − 1|}, take its dual-mesh Laplacian
+     * {@code Δλ}, bump {@code w(T) ← w(T) + min(|Δλ|, 5)}, then smooth. Following
+     * {@code Δλ} rather than λ keeps uniform stretch from triggering reweighting.
      *
-     * <p>
-     * For every triangle T:
-     * <ol>
-     * <li>Compute the parametric Jacobian
-     * {@code J = [[∂u/∂x, ∂u/∂y], [∂v/∂x, ∂v/∂y]]} in the local face frame, its
-     * singular values σ₁ ≥ σ₂, and the orientation sign {@code τ = sign(det J)}.
-     * <li>Distortion {@code λ(T) = |τ·σ₁/h − 1| + |τ·σ₂/h − 1|} (paper Eq. between
-     * §5.4 and §6).
-     * <li>{@code Δλ(T)} = uniform Laplacian of λ on the dual mesh (i.e. mean of λ
-     * over T's face-neighbours minus λ(T)).
-     * <li>{@code w(T) ← w(T) + min(c · |Δλ|, d)} with paper-prescribed {@code c=1,
-     *       d=5}. Then a couple of uniform smoothing passes over {@code w}.
-     * </ol>
-     *
-     * <p>
-     * Using {@code Δλ} (not λ itself) is the paper's key insight: a globally
-     * uniform stretch is OK and shouldn't trigger reweighting; only LOCAL spikes in
-     * distortion (boundaries of high-distortion regions, isolated flipped faces)
-     * get bumped. This is what stops the IRLS oscillations the naive "bump every
-     * flipped face" version exhibits.
+     * <p>See also: BZK09 Section 5.4
      */
     private void runStiffeningLoop() {
         boolean[] noneFixed = new boolean[dofSystem.dofCount];
@@ -822,18 +766,10 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * Counts the number of flipped triangles from the solution.
-     *
-     * @return the number of flipped triangles
-     */
-    /**
      * Count local-injectivity violations of the current solution: flipped
      * triangles (negative parametric area) and collapsed ones (parametric area
      * below {@link #DEGENERATE_UV_AREA_FRACTION} of the face's expected area
-     * {@code faceArea / h²}). A collapsed-but-oriented triangle is just as
-     * fatal downstream as a flipped one — the motorcycle stage degenerates on
-     * coincident singularities — so the stiffening loop must keep fighting
-     * until both counts are zero.
+     * {@code faceArea / h²}). Both counts must reach zero.
      *
      * @return number of flipped or collapsed triangles
      */

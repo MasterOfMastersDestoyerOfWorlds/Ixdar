@@ -9,21 +9,10 @@ import java.util.List;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
- * PATCH-35: ascending/descending V-path face labelling using
- * {@link DiscreteGradient}. Each face F is assigned to a quad cell
- * identified by {@code (asc_max, desc_min)} where:
- * <ul>
- *   <li>{@code asc_max} = critical 2-cell reached from F by V-path in
- *       the gradient field of {@code +scalar}.</li>
- *   <li>{@code desc_min} = critical 2-cell reached from F by V-path in
- *       the gradient field of {@code −scalar} (which equals the original
- *       descending manifold's destination 0-cell, expressed as a
- *       triangle for symmetry with ascending).</li>
- * </ul>
- *
- * <p>Same intersection-of-manifolds logic as PATCH-29 v2 but with
- * stable combinatorial V-paths instead of steepest-walks → cells have
- * clean simply-connected boundaries.
+ * Ascending/descending V-path face labelling over a {@link DiscreteGradient}. Each face is
+ * assigned to the quad cell keyed by the pair of critical 2-cells its V-paths reach in the
+ * gradient fields of {@code +scalar} and {@code −scalar}, the descending destination being
+ * expressed as a triangle for symmetry with the ascending one.
  */
 public final class DiscreteGradientCells {
     public static final int NUM_32 = 32;

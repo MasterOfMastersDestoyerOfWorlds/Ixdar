@@ -15,22 +15,13 @@ import ixdar.geometry.mesh.quadlayout.seamless.CutGraph;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 
 /**
- * MC19 (Mandad–Campen 2019, "Exact Constraint Satisfaction for Truly Seamless
- * Parametrization") projection of an approximately-seamless parametrization
- * onto the exactly-seamless solution space. After {@link #project()}, the seam
- * transition equation across every interior cut edge is satisfied exactly in
- * real arithmetic, with every output still representable as a standard
- * {@code float}.
+ * Projects an approximately-seamless parametrization onto the exactly-seamless
+ * solution space. After {@link #project()}, the seam transition equation across
+ * every interior cut edge holds exactly in real arithmetic, with every output
+ * still representable as a standard {@code float}. Results are written back into
+ * the parent {@link SeamlessParameterization}.
  *
- * <p>Implements the §5.3.1 specialization: enumerate branches by walking the
- * cut graph in place, build a tiny reduced constraint matrix {@code C̄} over
- * node-sector variables only (one row per branch per component), apply §4 to
- * that, then derive non-node sector values per-branch by walking forward from
- * the start-node value with the rotation-by-{@code r·π/2} transition formula.
- *
- * <p>Mirrors the role of {@code crossfield.SmoothEnergySystem} in the cross-field
- * pipeline: owns matrix construction, the projection algorithm, and the
- * writeback into the parent {@link SeamlessParameterization}.
+ * <p>See also: MC19 Section 5.3.1
  */
 public final class SeamlessProjector {
 
@@ -308,15 +299,9 @@ public final class SeamlessProjector {
     }
 
     /**
-     * Compute the rotation from the {@code +} sector to the {@code -} sector for
-     * one edge in a chain. {@link CutGraph#cutRotation} stores the rotation from
-     * the canonical {@code A} face to the canonical {@code B} face; if the chain
-     * happens to label {@code A} as plus the stored value applies directly,
-     * otherwise the chain rotation is its inverse {@code (4 - r) mod 4}. Without
-     * this swap, half the chain edges (those where chart-vertex continuity
-     * forced plus = canonical B) would carry the wrong rotation, mixing u and v
-     * components at every cut with r ∈ {1, 3} and producing the ribbon artifact
-     * at chart seams in the MC19 output.
+     * Rotation from the {@code +} sector to the {@code -} sector for one chain edge.
+     * {@link CutGraph#cutRotation} is stored A-to-B, so it applies directly only
+     * when the chain labels {@code A} as plus; otherwise the answer is its inverse.
      *
      * @param activeEdge      dense edge index in the chain
      * @param plusActiveFace  active face that has been labeled the {@code +}
@@ -466,11 +451,10 @@ public final class SeamlessProjector {
 
     /**
      * Check that every projected value still lies in the chosen F_d range
-     * {@code (-d, +d)} — the only condition under which the safeDot / makeDiv
-     * machinery in {@link ExactArithmetic} produces exact results. The paper's
-     * §7 worst-case condition {@code ‖x − x̄‖∞ / max|x̄| < 1} is the special case
-     * where {@code d = 2·max|x̄|}, which matches what {@link ExactArithmetic#chooseFdScale}
-     * picks now that downstream storage is {@code double[]}.
+     * {@code (-d, +d)}, the only condition under which {@link ExactArithmetic}
+     * produces exact results.
+     *
+     * <p>See also: MC19 Section 7
      *
      * @param uExact projected u values
      * @param vExact projected v values
@@ -638,11 +622,11 @@ public final class SeamlessProjector {
     }
 
     /**
-     * MC19 §5.4 outer loop. Each pass collects every flipped face and attempts
-     * to move one of its interior, non-cut chart vertices into the kernel of
-     * its 1-ring. Repeats until either no flips remain or a pass produces no
-     * successful move (at which point the remaining flips are stuck and will
-     * surface via the parent assertion).
+     * Each pass collects every flipped face and attempts to move one of its
+     * interior, non-cut chart vertices into the kernel of its 1-ring, until no
+     * flips remain or a pass produces no successful move.
+     *
+     * <p>See also: MC19 Section 5.4
      *
      * @param chartU mutable per-chart-vertex u, updated in place on successful
      *               moves
@@ -785,13 +769,11 @@ public final class SeamlessProjector {
     }
 
     /**
-     * MC19 §5.4 1-ring kernel computation: the intersection of the half-planes
-     * to the left of each link edge of {@code chartVertex} in chart space. If
-     * the intersection is non-empty, return its centroid; otherwise return
-     * {@code null} (the vertex cannot be moved into a valid position).
+     * Centroid of the 1-ring kernel: the intersection of the half-planes left of
+     * each link edge of {@code chartVertex} in chart space, computed by
+     * Sutherland-Hodgman clipping of a bounding rectangle.
      *
-     * <p>Uses Sutherland-Hodgman clipping: starts with a bounding rectangle of
-     * the link vertices' positions and clips by each link edge's half-plane.
+     * <p>See also: MC19 Section 5.4
      *
      * @param chartVertex chart vertex to move
      * @param vertexId    mesh vertex id this chart vertex corresponds to (since

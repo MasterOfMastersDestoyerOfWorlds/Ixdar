@@ -14,30 +14,10 @@ import java.util.Set;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
- * Morse-Smale complex (MSC) on a triangle mesh (PATCH-22 Phase A —
- * diagnostic only). Given a per-vertex scalar ("Morse function" H, e.g.
- * signed mean curvature), classifies vertices as local maxima / minima
- * / saddles and traces integral arcs connecting saddles to the nearest
- * max and min via steepest ascent / descent.
- *
- * <p>Phase A ships a simplified pipeline:
- * <ul>
- *   <li>Classifier: local comparison on 1-ring + Gaussian-curvature
- *       sign test for saddle disambiguation. Doesn't yet count lower-
- *       link connected components (requires ordered 1-ring); good
- *       enough to see whether MSC matches anatomy on the skull.</li>
- *   <li>Filter: prominence threshold per extremum family. Replaced by
- *       proper persistence pairing only if Phase A visual output shows
- *       too many spurious dots.</li>
- *   <li>Arc tracing: steepest ascent / descent on the mesh graph,
- *       terminating at the first retained critical point reached or a
- *       hard step cap.</li>
- * </ul>
- *
- * <p>Phase B (separate ticket PATCH-23) will build a real decomposer on
- * top of this infrastructure; Phase A just renders arcs + critical
- * points so we can see them before committing to MSC as the
- * foundation.
+ * Morse-Smale complex on a triangle mesh. Classifies vertices of a per-vertex Morse scalar as
+ * maxima, minima or saddles, filters them by prominence, then traces integral arcs by steepest
+ * ascent and descent from each saddle. Tracing is step-capped, so an arc may stop short of a
+ * critical point.
  */
 public final class MorseSmaleComplex {
     public static final int NUM_50 = 50;
@@ -63,12 +43,9 @@ public final class MorseSmaleComplex {
      * @param mesh the input mesh
      * @param scalarIn raw per-vertex Morse scalar (e.g. signed mean curvature); smoothed before classification
      * @param gaussKIn raw per-vertex Gaussian curvature; smoothed alongside the scalar (used by the legacy A path)
-     * @param ed edge/dihedral map; we reuse its {@code edgeFaces} to build
-     *        a 1-ring neighbour list cheaply.
-     * @param prominenceFrac extrema kept only if their scalar value
-     *        deviates from the mesh mean by at least this fraction of
-     *        the scalar's p5..p95 range. 0.10 ≈ "top/bottom decile
-     *        bumps only." Tune based on Phase A screenshots.
+     * @param ed edge/dihedral map whose {@code edgeFaces} supplies the 1-ring neighbour lists
+     * @param prominenceFrac extrema are kept only if their scalar deviates from the mesh mean by at
+     *        least this fraction of the scalar's p5..p95 range
      * @return critical points, integral arcs, and the smoothed scalar field that produced them
      */
     public static Result compute(ArrayMesh mesh, float[] scalarIn, float[] gaussKIn,
@@ -77,13 +54,10 @@ public final class MorseSmaleComplex {
     }
 
     /**
-     * Phase B1 entry point. {@code useB1Classifier} switches between the
-     * Phase A simplified classifier (1-ring + Gauss test + 2-ring NMS,
-     * approximate but fast) and the Phase B1 classifier (ordered 1-ring
-     * with lower-link connected-component count, correct on multi-
-     * saddles). Defaults to B1 once it lands; the Phase A path stays
-     * available behind the flag for A/B comparison and as a fallback on
-     * meshes the B1 ordered-ring builder bails on (e.g. non-manifold).
+     * Computes the complex with a choice of classifier: the lower-link component classifier, which
+     * needs an ordered 1-ring and is correct on multi-saddles, or the 1-ring plus Gaussian-curvature
+     * classifier, which is approximate but tolerates non-manifold fans where the ordered-ring
+     * builder gives up.
      *
      * @param mesh the input mesh
      * @param scalarIn raw per-vertex Morse scalar; smoothed via 50 Laplacian iterations before classification
@@ -216,12 +190,9 @@ public final class MorseSmaleComplex {
     }
 
     /**
-     * Pick the two best seed neighbours of {@code saddle} on either the
-     * ascending or descending side (depending on {@code ascending}).
-     * Returns two vertex ids or -1 for slots where no suitable neighbour
-     * exists. The two seeds attempt to land on opposite arms of the
-     * saddle by picking the highest/lowest, then the next-best whose
-     * edge vector isn't parallel to the first seed's edge vector.
+     * Picks two seed neighbours of {@code saddle} intended to lie on opposite arms: the
+     * highest (or lowest) neighbour, then the next best one whose edge vector is not parallel to
+     * the first.
      *
      * @param ring 1-ring neighbours of {@code saddle}
      * @param scalar per-vertex Morse scalar
@@ -509,12 +480,10 @@ public final class MorseSmaleComplex {
     }
 
     /**
-     * Count connected components of the lower (or upper) link of
-     * vertex {@code v} using its cyclic ordered 1-ring. A component is
-     * a maximal run of consecutive ring vertices whose scalar is below
-     * (lower=true) or above (lower=false) {@code scalar[v]}; the cycle
-     * wraps so the last and first runs may merge. Tie-breaking by
-     * vertex index keeps classification deterministic on plateaus.
+     * Counts connected components of the lower (or upper) link of {@code v}: maximal runs of
+     * consecutive ordered-ring vertices on the chosen side of {@code scalar[v]}, with the first and
+     * last run merged because the ring is cyclic. Equal scalars break by vertex index so plateaus
+     * classify deterministically.
      *
      * @param v vertex whose link is being analyzed
      * @param ord cyclic ordered 1-ring of {@code v}
@@ -636,12 +605,9 @@ public final class MorseSmaleComplex {
     }
 
     /**
-     * Build an ORDERED 1-ring per vertex by walking incident faces in
-     * cyclic order. Returns a 2D array where {@code orderedRing[v]} is
-     * the cyclic sequence of v's 1-ring neighbours (or {@code null} if
-     * v's incident faces don't form a clean cycle, e.g. boundary or
-     * non-manifold). The ring is used by the lower-link component
-     * classifier, which depends on the cyclic order.
+     * Builds a cyclically ordered 1-ring per vertex by walking incident faces. A vertex whose
+     * incident faces do not close into a single cycle — boundary or non-manifold — gets
+     * {@code null}, and callers that need the cyclic order must handle that.
      *
      * @param mesh input triangle mesh
      * @param ed edge/dihedral map providing edge→face adjacency

@@ -42,13 +42,12 @@ public class SDFBezier extends ShaderDrawable {
     }
 
     /**
-     * Compute the oriented bounding box that tightly encloses the quadratic
-     * Bezier through {@code pA}, {@code pControl}, {@code pB} (per Vlad
-     * Jukov / iq), then expand outward by {@code edgeDistUnits} so the SDF
-     * shader has a margin to anti-alias the edge. Updates the four corner
-     * vectors and the {@code uAxis} / {@code vAxis} basis used by the base
-     * class to emit a quad, plus the texture-space control points consumed
-     * by {@link #setUniforms()}.
+     * Compute the oriented bounding box enclosing the quadratic Bezier through {@code pA},
+     * {@code pControl}, {@code pB}, expanded by {@code edgeDistUnits} to leave the shader an
+     * anti-aliasing margin.
+     *
+     * <p>Writes the corner vectors, the {@code uAxis}/{@code vAxis} basis, and the
+     * texture-space control points that {@link #setUniforms()} reads.
      */
     @Override
     public void calculateQuad() {

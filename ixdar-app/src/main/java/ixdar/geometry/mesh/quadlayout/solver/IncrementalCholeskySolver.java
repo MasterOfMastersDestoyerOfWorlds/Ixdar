@@ -5,29 +5,11 @@ import org.ejml.sparse.csc.decomposition.chol.CholeskyUpdate_DSCC;
 import org.ejml.sparse.csc.misc.TriangularSolver_DSCC;
 
 /**
- * Sparse Cholesky solver that supports per-DOF rank-1 diagonal updates of
- * the L factor in place, for BZK09 greedy mixed-integer rounding.
+ * Sparse Cholesky solver supporting per-DOF rank-1 diagonal updates of the L
+ * factor in place, for greedy mixed-integer rounding. The permutation is held
+ * internally, so callers always pass natural-order DOF indices.
  *
- * <p>BZK09 §2 / §5 IGM rounding pins one DOF at a time. Each pin is a
- * diagonal perturbation {@code A' = A + μ · eᵢ · eᵢᵀ} of the previous
- * system. Re-factoring per pin is {@code O(N^1.5)}; the equivalent rank-1
- * update of L is {@code O(|elimination-tree path|)} ≈ {@code O(√N)}. For
- * fandisk (~14 k faces, ~600 integer DOFs), this turns minutes per pin
- * into milliseconds.
- *
- * <p>This wrapper:
- * <ul>
- *   <li>{@link #setA(NormalMatrix, OrderingMethod)} cold-factors the SPD
- *       system after applying the caller-chosen fill-reducing permutation
- *       (typically {@link OrderingMethod#AMD} for mesh Laplacians — shorter
- *       columns of L mean cheaper per-pin rank-1 updates).</li>
- *   <li>{@link #pinDof(int, double)} translates the caller's
- *       natural-order DOF index through the permutation and rank-1 updates
- *       L in place.</li>
- *   <li>{@link #solve(double[], double[])} permutes the RHS into the
- *       factored matrix's order, forward + backward substitutes, then
- *       un-permutes the solution back to natural order.</li>
- * </ul>
+ * <p>See also: BZK09 Section 5
  */
 public final class IncrementalCholeskySolver {
 
@@ -72,14 +54,10 @@ public final class IncrementalCholeskySolver {
     }
 
     /**
-     * Cold-factor the SPD system using a caller-supplied permutation. Use
-     * when the matrix non-zero pattern matches a prior {@link #setA} call so
-     * the fill-reducing ordering can be reused — invariant across all 50
-     * stiffening iterations of one seamless build, so paying for AMD once
-     * and reusing it across solver instantiations saves real time.
-     *
-     * <p>The caller is responsible for invalidating the cached perm if the
-     * matrix pattern (mesh topology, cut graph, integer-pin set) changes.
+     * Cold-factor the SPD system using a caller-supplied permutation, valid
+     * only when the matrix non-zero pattern matches the prior call the
+     * permutation came from. The caller must discard the cached permutation
+     * whenever mesh topology, cut graph, or integer-pin set changes.
      *
      * @param matrix the SPD system to factor; only the upper triangle is
      *               used

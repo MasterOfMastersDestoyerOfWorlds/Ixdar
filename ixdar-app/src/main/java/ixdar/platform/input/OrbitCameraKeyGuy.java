@@ -6,12 +6,11 @@ import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
 
 /**
- * Shared key handler for orbit/mesh scenes. Adds the common {@code Ctrl+R} binding
- * that recentres the orbit camera on its home target via
- * {@link OrbitMouseTrap#resetTarget()}, and exposes {@link #handleSceneKeys(int, int)}
- * for scene-specific keys so every mesh scene inherits the same camera controls
- * without duplicating them. The shift-drag pan that moves the orbit centre lives in
- * {@link OrbitMouseTrap}.
+ * Shared key handler for orbit/mesh scenes, binding {@code Ctrl+R} to
+ * {@link OrbitMouseTrap#resetTarget()}.
+ *
+ * <p>Subclasses add their own keys by overriding {@link #handleSceneKeys(int, int)} rather than
+ * the base dispatch, which would drop the shared bindings.
  */
 public class OrbitCameraKeyGuy extends KeyGuy {
 

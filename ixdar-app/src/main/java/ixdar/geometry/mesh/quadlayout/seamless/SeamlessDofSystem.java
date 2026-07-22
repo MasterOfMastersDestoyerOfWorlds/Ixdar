@@ -15,24 +15,13 @@ import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 import ixdar.geometry.mesh.quadlayout.solver.SolverPermutation;
 
 /**
- * DOF state plus cached SPD assembly plan for one BZK09 §5 seamless build. Owns
- * the per-cut-edge translation DOF assignment, the leftover-row Gauss-Jordan
- * elimination state, the per-chart-vertex final-DOF expansions, the integer-pin
- * tracking, the cached AMD column permutation, and the per-face assembly
- * playback log that lets the 50 §5.4 stiffening iterations skip rebuilding the
- * SPD upper triangle from scratch.
+ * DOF state plus cached SPD assembly plan for one seamless build.
  *
  * <p>
- * The non-zero pattern of the SPD matrix is invariant across all solver calls
- * within one build — only per-face IRLS weights and integer-pin diagonal bumps
- * change values. {@link #assemble(double[])} builds the playback log on its
- * first call and replays it on every subsequent call: zero-and-refill values
- * into the cached per-slot arrays, no hashing.
- *
- * <p>
- * One instance per {@link SeamlessParameterization#build()} invocation. Pin
- * state is mutated by the greedy rounder; everything else is post-construction
- * immutable.
+ * The SPD non-zero pattern is invariant within one build, so
+ * {@link #assemble(double[])} records a playback log on its first call and refills
+ * values in place afterwards. One instance per
+ * {@link SeamlessParameterization#build()}; only pin state is mutable.
  */
 public final class SeamlessDofSystem {
 
@@ -85,26 +74,22 @@ public final class SeamlessDofSystem {
     /** Coefficients matching {@link #chartVertexFinalDofs}. */
     public final double[][][] chartVertexFinalCoefs;
     /**
-     * True if final-DOF i must round to an integer. Deliberately all-false: LCK21a
-     * §3's input is a <em>non-quantized</em> seamless parametrization — rigid
-     * transitions are 90°k rotations plus <em>real</em> translations, and every
-     * integer is assigned later by the T-mesh quantization ILP. BZK09's iterative
-     * rounding (singularity positions, cut translations, feature isos) exists only
-     * because its map directly IS the quad mesh; CBK15 §1 documents that rounding
-     * as non-robust (collapsing singularities — our rocker-arm dipole bug), and
-     * rounding cut translations to integers manufactures exact-integer holonomy,
-     * i.e. artificial saddle connections that send sibling separatrices head-on
-     * into each other mesh-wide.
+     * True if final-DOF i must round to an integer. All entries are false: the
+     * downstream stage requires a non-quantized seamless parametrization, whose
+     * transitions are 90°k rotations plus real translations, with every integer
+     * assigned later by the T-mesh quantization ILP.
+     *
+     * <p>See also: LCK21a Section 3
      */
     public final boolean[] dofIsInteger;
 
     /**
-     * BZK09 §5.2 alignment iso-axis per active edge: {@link #ALIGN_AXIS_V} if the
-     * cross-field u-axis runs along this edge and v is the iso-coordinate to pin;
-     * {@link #ALIGN_AXIS_U} for the reverse; {@link #NOT_ALIGNMENT} if this edge is
-     * not in {@link CrossField#alignmentEdgeIds}, or is an interior cut edge (a
-     * feature edge that ended up on the cut cannot satisfy {@code v_p = v_q} on
-     * both sides simultaneously; see audit doc).
+     * Alignment iso-axis per active edge: {@link #ALIGN_AXIS_V} if the cross-field
+     * u-axis runs along this edge and v is the iso-coordinate to pin,
+     * {@link #ALIGN_AXIS_U} for the reverse, {@link #NOT_ALIGNMENT} if the edge is
+     * not in {@link CrossField#alignmentEdgeIds} or is an interior cut edge.
+     *
+     * <p>See also: BZK09 Section 5.2
      */
     public final int[] alignmentEdgeIsoAxis;
 
@@ -300,17 +285,12 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Decide, for every active edge in {@link CrossField#alignmentEdgeIds}, whether
-     * the cross field's u-axis or v-axis runs along it. Picks the axis whose
-     * projection onto the edge direction (in face A's local frame, post branch
-     * rotation) has the larger absolute value; the orthogonal coordinate is the iso
-     * to pin per BZK09 §5.2.
+     * Decide, for every edge in {@link CrossField#alignmentEdgeIds}, whether the
+     * cross field's u-axis or v-axis runs along it; the orthogonal coordinate is the
+     * iso to pin. Interior cut edges are marked {@link #NOT_ALIGNMENT}, since
+     * {@code v_p = v_q} cannot hold on both sides of a rotated cut.
      *
-     * <p>
-     * Interior cut edges that happen to be alignment edges are marked
-     * {@link #NOT_ALIGNMENT}: the {@code v_p = v_q} constraint cannot hold
-     * simultaneously on both sides of a rotated cut. Boundary alignment edges keep
-     * their axis because they have only one face and no seam transition.
+     * <p>See also: BZK09 Section 5.2
      *
      * @return per active edge: {@link #ALIGN_AXIS_U}, {@link #ALIGN_AXIS_V}, or
      *         {@link #NOT_ALIGNMENT}
@@ -404,13 +384,13 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * For every BZK09 §5.2 alignment edge with a decided iso-axis, add one equality
-     * row {@code u_p − u_q = 0} (or v) to {@code rows}. The endpoint chart vertices
-     * come from face A's corners at the canonical half-edge's start/end vertices;
-     * boundary alignment edges only have face A, interior non-cut alignment edges
-     * have both A and B unified onto the same pair of chart vertices.
+     * For every alignment edge with a decided iso-axis, add one equality row
+     * {@code u_p − u_q = 0} (or v) to {@code rows}. The endpoint chart vertices come
+     * from face A's corners at the canonical half-edge's start and end vertices.
      *
-     * @param rows the accumulator the §5 cut-rotation rows already populated; this
+     * <p>See also: BZK09 Section 5.2
+     *
+     * @param rows the accumulator already holding the cut-rotation rows; this
      *             method appends to it in place
      */
     private void addAlignmentEqualityRows(ArrayList<HashMap<Integer, Double>> rows) {

@@ -281,21 +281,9 @@ public class CoonsPatchNode implements MeshNode {
     }
 
     /**
-     * Emit a Charrot-Gregory-subdivided n-sided fill patch for {@code fid}.
-     * Produces {@code N} triangles for the centroid fan at each subdivision
-     * ring; with subdivision level {@code n} that's {@code N · n} triangles
-     * and {@code 1 + N · n} vertices per face.
-     *
-     * <p>Sampling pattern:
-     * <ul>
-     *   <li>1 centroid vertex at canonical domain origin.
-     *   <li>N·n boundary-step vertices — {@code n} evenly spaced samples
-     *       along each canonical edge (from its start corner, excluding the
-     *       end corner which belongs to the next edge).
-     *   <li>Fan triangles: {@code (centroid, prev-sample, next-sample)} for
-     *       each adjacent pair of boundary samples, wrapping to sample 0 of
-     *       the next edge after the last sample of the current edge.
-     * </ul>
+     * Emit a Charrot-Gregory-subdivided n-sided fill patch for {@code fid}: one
+     * centroid vertex plus {@code n} evenly spaced samples along each of the
+     * {@code N} canonical edges, fanned into {@code N · n} triangles.
      */
     private static void emitGregoryFan(MeshTopology mesh, float[] hStart, float[] hEnd,
                                        int fid, int N, int n,
@@ -418,14 +406,10 @@ public class CoonsPatchNode implements MeshNode {
 
     /**
      * Evaluates the cubic bezier on undirected edge {@code eid} so that {@code t=0}
-     * is at {@code expectedStartVertex} (one of the edge endpoints), matching face
-     * winding.
-     * <p>
-     * Control points are always set up in canonical half-edge direction (ca → cb).
-     * When the face traverses the edge in reverse, the parameter is flipped to
-     * {@code 1-t} instead of reversing the control points. This guarantees both
-     * faces sharing an edge produce bitwise-identical positions, making
-     * merge-by-distance reliable.
+     * is at {@code expectedStartVertex}, matching face winding. When the face
+     * traverses the edge against the canonical half-edge direction the parameter
+     * is flipped to {@code 1-t} rather than the control points reversed, so both
+     * faces sharing the edge produce bitwise-identical positions.
      */
     private static void evalFaceEdge(
             MeshTopology mesh,

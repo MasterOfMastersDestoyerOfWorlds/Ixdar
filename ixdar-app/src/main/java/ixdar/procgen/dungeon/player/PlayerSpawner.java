@@ -8,14 +8,9 @@ import ixdar.procgen.dungeon.values.RoomListValue3D.Room;
 /**
  * Picks a {@link SpawnPoint} for the player at scene load.
  *
- * <p>Heuristic (this version): {@code RoomPlacer3D} guarantees room[0] is a start room at the
- * grid center, so we spawn at room[0]'s center. Yaw points toward room[1]'s center if it
- * exists (gives the player something to walk toward), otherwise faces along {@code +X}.
- *
- * <p>{@link RoomListValue3D.Room#centerY()} sits in the middle of the room's vertical extent.
- * The capsule center should rest with its bottom on the room floor:
- * {@code centerY = floorY + halfHeight + radius}. This method returns the spawn position the
- * caller should pass to a {@link PlayerController} of the given capsule dimensions.
+ * <p>The spawn sits at room[0]'s center, which {@code RoomPlacer3D} guarantees to be the start
+ * room, facing room[1] when one exists. The returned position is a capsule center resting on
+ * the floor, so it only suits a {@link PlayerController} of the same capsule dimensions.
  */
 public final class PlayerSpawner {
     public static final float NUM_0_5 = 0.5f;

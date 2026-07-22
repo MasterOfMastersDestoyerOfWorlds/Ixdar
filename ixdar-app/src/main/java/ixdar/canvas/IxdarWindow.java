@@ -120,18 +120,11 @@ public class IxdarWindow {
     }
 
     /**
-     * Run the selected scene against an off-screen GL context with no visible window, so a
-     * screenshot of it can be captured without anything appearing on the desktop.
+     * Run the selected scene against an off-screen GL context with no visible window.
      *
-     * <p>The scene, its automation server, and the per-frame command pump are all the same
-     * as in the windowed path — the only difference is the platform. {@link HeadlessGL}
-     * still opens a GLFW window, but a hidden one, so this needs a graphical session (or an
-     * X server such as Xvfb) to exist; it is not truly surfaceless. Everything runs on this
-     * one thread, which is where {@code HeadlessGL} binds its context, so the automation
-     * server's screenshot command reads the framebuffer on the thread that drew it.
-     *
-     * <p>The loop runs until the automation {@code /shutdown} endpoint calls
-     * {@link System#exit}; there is no window to close.
+     * <p>{@link HeadlessGL} still opens a hidden GLFW window, so a graphical session or an X
+     * server must exist. Everything runs on the calling thread, and the loop only ends when the
+     * automation {@code /shutdown} endpoint calls {@link System#exit}.
      *
      * @throws RuntimeException when no scene is registered for the requested canvas id
      */

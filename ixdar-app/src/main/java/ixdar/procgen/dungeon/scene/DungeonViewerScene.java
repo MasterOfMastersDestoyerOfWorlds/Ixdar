@@ -29,20 +29,11 @@ import ixdar.procgen.dungeon.values.TileGridValue3D;
 import ixdar.scenes.Scene;
 
 /**
- * Viewer for procedural dungeons. Two interaction modes:
+ * Viewer for procedural dungeons, switching with <kbd>F</kbd> between walking a collided player
+ * capsule and flying the camera freely. Override the DSL with {@code -Dmesh.dsl=dungeon_3d}.
  *
- * <ul>
- *   <li><b>Player mode</b> (default): WASD walks the player capsule with gravity + jump,
- *       camera follows the capsule's eye level. Toggle with <kbd>F</kbd>.</li>
- *   <li><b>Fly-cam mode</b>: WASD flies the camera freely, no gravity or collision.</li>
- * </ul>
- *
- * <p>Mouse-look (drag-to-rotate) works in both modes via {@link FlyCamMouseTrap}. The DSL is
- * loaded once at scene init via {@link NodeGraphRuntime}; the same mesh feeds the renderer and
- * the player's collision world (3D dungeons only — 2D dungeons fall back to fly-cam since
- * there's no 3D grid for collision).
- *
- * <p>Launch: {@code mvn -P dungeon-viewer}. Override the DSL with {@code -Dmesh.dsl=dungeon_3d}.
+ * <p>The DSL mesh feeds both the renderer and the collision world, so only 3D dungeons support
+ * player mode; 2D ones fall back to fly-cam.
  */
 @SceneAnnotation(id = "dungeon-viewer")
 public class DungeonViewerScene extends Scene {

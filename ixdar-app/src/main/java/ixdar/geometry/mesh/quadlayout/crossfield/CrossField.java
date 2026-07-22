@@ -17,12 +17,10 @@ import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.CurvatureConstraints;
 
 /**
- * A Cross Field is a set of angles and period jumps for each face and edge of a
- * mesh that follow the curvature of the mesh. A properly structured cross has
- * two direction vectors per face, in the face's local x, y basis. This "cross"
- * on each face should tell us how we'd like to dissect the underlying triangle
- * mesh into quads. Singularities are vertices where there are fewer or more
- * than 4 edges incident to the singular vertex.
+ * Per-face angles and per-edge period jumps describing a 4-symmetric direction
+ * field that follows mesh curvature. Each face carries two direction vectors in
+ * its local x, y basis; singular vertices are those whose incident crosses close
+ * up to a turn other than a full one.
  */
 public class CrossField {
     /**
@@ -269,12 +267,10 @@ public class CrossField {
     }
 
     /**
-     * Shared alignment-edge detection (BZK09 §5.2 spirit): boundary edges and
-     * sharp feature edges (dihedral test against {@link #featureDihedralCos})
-     * land in {@link #alignmentEdgeIds}. Detection lives here, independent of any
-     * particular solver, because every downstream consumer — cut-graph routing,
-     * integer iso-line pinning in the seamless stage, motorcycle feature traces —
-     * reads this set regardless of which subclass produced the field.
+     * Fills {@link #alignmentEdgeIds} with boundary edges and sharp feature edges,
+     * the latter by a dihedral test against {@link #featureDihedralCos}.
+     *
+     * <p>See also: BZK09 Section 5.2
      */
     private void detectAlignmentEdges() {
         for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {

@@ -3,23 +3,12 @@ package ixdar.geometry.mesh.quadlayout.seamless.exact;
 import java.math.BigInteger;
 
 /**
- * Exact-arithmetic toolbox for MC19 (Mandad–Campen 2019, "Exact Constraint
- * Satisfaction for Truly Seamless Parametrization"). Contains the paper's five
- * algorithms — fraction-free integer Gauss + Jordan elimination (§4.1), the
- * fixed-point truncation primitive (§4.3), Algorithm 4 {@code makeDiv} for
- * snapping free variables, Algorithm 5 {@code safeDot} for an order-of-summation
- * safe dot product, and Algorithm 3's evaluation routine.
+ * Exact-arithmetic toolbox for seamless constraint satisfaction: fraction-free
+ * integer elimination in {@link BigInteger}, plus double arithmetic confined to the
+ * {@code F_d} fixed-point subset of IEEE 754, the multiples of {@code 2^(K-52)} for
+ * {@code d = 2^K}. Results stay bit-exact while they remain in {@code (-d, +d)}.
  *
- * <p>All routines are static. Integer matrix work is in {@link BigInteger} (no
- * external dependency required); float work is in standard {@code double}, using
- * the {@code F_d} fixed-point subset of IEEE 754 to make sums, products, and the
- * implied-variable divisions bit-exact.
- *
- * <p>Terminology recap: {@code F_d} is the subset of doubles representing
- * multiples of {@code 2^(K - k)} for exponent {@code k <= K} with all lower-order
- * bits zero, where {@code K = max log2|x̄_i| + 1} and {@code d = 2^K}. Arithmetic
- * on values in {@code F_d} stays exact in standard floats as long as the result
- * is in {@code (-d, +d)}.
+ * <p>See also: MC19 Section 4
  */
 public final class ExactArithmetic {
 
@@ -56,13 +45,11 @@ public final class ExactArithmetic {
 
     /**
      * Pick a power-of-two {@code d = 2^K} large enough to host every value in
-     * {@code xBar}. MC19 §4.3 (line 360 of the paper) sets
-     * {@code K = max_i ceil(log2 |x̄_i|) + 1}. The resulting {@code F_d}
-     * quantum is {@code 2^(K-52)} — at full double granularity, since
-     * downstream storage of (u, v) corner values is {@code double[]}. Any
-     * additional headroom would coarsen the lattice and collapse distinct
-     * post-projection chart vertices (the MC19 §5.4 repair pass assumes
-     * post-§4 values that differ pre-projection remain distinguishable).
+     * {@code xBar}, as {@code K = max_i ceil(log2 |x̄_i|) + 1}. No extra headroom
+     * may be added: a coarser lattice merges chart vertices that the downstream
+     * repair pass requires to stay distinguishable.
+     *
+     * <p>See also: MC19 Section 4.3
      *
      * @param xBar the vector of input free-variable assignments
      * @return the chosen {@code d}; at least {@code 2}
@@ -87,13 +74,12 @@ public final class ExactArithmetic {
 
     /**
      * Reduce {@code (matrix, rhs)} to integer reduced row echelon form via
-     * fraction-free Gauss (Alg 1) then fraction-free Jordan (Alg 2), with
-     * common-factor cleanup after every row update. All arithmetic in
-     * {@link BigInteger}; no rounding. Both arrays are mutated in place; the
-     * returned {@link IrrefResult} aliases them.
+     * fraction-free Gauss then fraction-free Jordan, with common-factor cleanup
+     * after every row update. Both arrays are mutated in place and the returned
+     * {@link IrrefResult} aliases them. Rank-deficient rectangular matrices are
+     * accepted; surplus rows end up all zero.
      *
-     * <p>Handles rank-deficient rectangular matrices: rows beyond the rank end up
-     * all zero and pivot columns are tracked separately from row index.
+     * <p>See also: MC19 Section 4.1
      *
      * @param matrix mutable {@code m × n} integer matrix, transformed in place
      * @param rhs    mutable length-{@code m} integer right-hand side, transformed
@@ -242,16 +228,12 @@ public final class ExactArithmetic {
     }
 
     /**
-     * Algorithm 5 ({@code safeDot}): evaluate {@code Σ coefficients[i]·values[i]}
-     * by greedily reordering the summation so intermediate partial sums never
-     * exceed the final magnitude. Each {@code coefficients[i] * values[i]} term
-     * is conceptually expanded into {@code |coefficients[i]|} copies of
-     * {@code ±|values[i]|}, then sums and differences are taken alternately
-     * (positive while the running sum is non-positive, negative while it is
-     * non-negative) so the running sum stays inside {@code (-d, +d)} throughout.
+     * Evaluate {@code Σ coefficients[i]·values[i]}, reordering the summation so no
+     * partial sum leaves {@code (-d, +d)} and the result is therefore exact.
+     * Requires every {@code values[i]} to be in {@code F_d} and the true result to
+     * lie in {@code (-d, +d)}.
      *
-     * <p>Precondition: every {@code values[i]} is in {@code F_d}, and the true
-     * mathematical result is in {@code (-d, +d)}.
+     * <p>See also: MC19 Algorithm 5
      *
      * @param coefficients integer coefficients
      * @param values       paired values, each in {@code F_d}
@@ -372,13 +354,11 @@ public final class ExactArithmetic {
     // =====================================================================
 
     /**
-     * Algorithm 3 (Evaluation): given an integer reduced row echelon form
-     * {@code irref} and an input vector {@code xBar}, produce a vector {@code x}
-     * exactly satisfying the original {@code Cx = b} in real arithmetic, with
-     * every entry in {@code F_d}. Walks columns from right to left; free
-     * variables (no pivot in their column) are snapped via {@code makeDiv}, then
-     * implied variables (those whose column hosts a pivot) are computed by
-     * {@code safeDot} of the row's coefficients with the already-decided values.
+     * Given an integer reduced row echelon form and an approximate input vector,
+     * produce a vector exactly satisfying the original {@code Cx = b} in real
+     * arithmetic, with every entry in {@code F_d}.
+     *
+     * <p>See also: MC19 Algorithm 3
      *
      * @param irref the reduced system from {@link #reduceToIrref}
      * @param xBar  approximate input values for every column (length {@code n})
@@ -482,11 +462,9 @@ public final class ExactArithmetic {
 
     /**
      * Integer cosine of {@code rotation · π/2} for an integer rotation in
-     * {@code {0, 1, 2, 3}}. Use in place of {@code (float) Math.cos(r * π/2)}:
-     * because {@code float} {@code π/2} isn't exactly half-π, {@code cos(π/2)}
-     * returns ~−4.4e-8 instead of 0, and that error scales with input values
-     * downstream — masking exact zero residuals in MC19's output by a spurious
-     * roundoff at the float quantum.
+     * {@code {0, 1, 2, 3}}. Must be used in place of {@code Math.cos(r * π/2)},
+     * whose roundoff at the float quantum masks the exact zero residuals this
+     * package's output depends on.
      *
      * @param rotation integer rotation in {@code {0, 1, 2, 3}}
      * @return the integer cosine in {@code {-1, 0, +1}}

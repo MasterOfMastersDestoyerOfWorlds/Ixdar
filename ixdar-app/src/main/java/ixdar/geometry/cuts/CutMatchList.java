@@ -106,12 +106,9 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * Add a two-cut/two-match entry: cuts are taken from {@code segments}
-     * (filtered against {@code c.balanceMap.cuts}), {@code matchSegment2} is
-     * always added and {@code matchSegment1} is added when {@code match1} is
-     * {@code true}. Internal results from {@code cml} are merged with the
-     * same knot-aware rules as {@link #addCutMatch}, then segments not on the
-     * super-knot are pruned and the deltas refreshed.
+     * Add a two-cut/two-match entry, taking cuts from {@code segments} filtered against
+     * {@code c.balanceMap.cuts} and merging the results of {@code cml} by the same knot-aware
+     * rules as {@link #addCutMatch}. Cuts off the super-knot and matches on it are pruned.
      *
      * @param cutSegment unused legacy parameter retained for signature stability
      * @param segments candidate cut segments to add (deduplicated against the entry and balance map)
@@ -175,13 +172,10 @@ public class CutMatchList implements FileStringable {
     }
 
     /**
-     * Append a new {@link CutMatch} for a one-step move: every entry of
-     * {@code cutSegments} is added as a cut and every non-degenerate entry of
-     * {@code matchSegments} is added as a match. The entry's {@code kp1}/{@code kp2}
-     * come from {@code c}; a {@code null} {@code kp2} signals an unbalanced
-     * configuration and triggers a {@link SegmentBalanceException}. Cuts not
-     * on the super-knot and matches that already are on it are pruned, then
-     * the deltas refresh.
+     * Append a new {@link CutMatch} for a one-step move, recording every {@code cutSegments}
+     * entry as a cut and every non-degenerate {@code matchSegments} entry as a match. Cuts off
+     * the super-knot and matches on it are pruned. A {@code null} {@code kp2} on {@code c} is an
+     * unbalanced configuration and throws.
      *
      * @param cutSegments segments to record as cuts on the new entry
      * @param matchSegments segments to record as matches on the new entry (degenerates skipped)

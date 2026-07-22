@@ -25,19 +25,13 @@ import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.OrbitMouseTrap;
 
 /**
- * Debug view of an embedded T-mesh, drawn on its mesh the way LCBK19 Figure 9 draws one:
- * the surface underneath, each arc as the jagged edge path it snapped onto (positive arcs
- * orange, zero arcs red so the collapse targets are obvious), and each node as a sphere
- * (critical nodes tinted apart, since the operators may never move those).
+ * Debug view of an embedded T-mesh: arcs as edge paths, positive orange and zero red, nodes as
+ * spheres with critical ones tinted apart. SPACE collapses, PERIOD splits, C runs to a fixed
+ * point, R rebuilds.
  *
- * <p>By default it renders the hand-authored {@link TorusLayoutFixture} — the Figure-9
- * configuration the operators are tested against. Set {@code -DembeddedTMesh.off=<path>} to
- * instead build the T-mesh from the real pipeline ({@link QuadLayoutEngine} through the carve,
- * assembled by {@link EmbeddedTMeshBuilder}) on that mesh, which is the raw quantized layout —
- * positive and zero arcs both present — before any contraction.
+ * <p>Renders {@link TorusLayoutFixture} unless {@code -DembeddedTMesh.off} names a mesh.
  *
- * <p>Launch with {@code IxdarWindow embedded-tmesh}. SPACE steps a zero-arc collapse, PERIOD a
- * zero-patch split, C drives all three operators to a fixed point, R rebuilds.
+ * <p>See also: LCBK19 Figure 9
  */
 @SceneAnnotation(id = "embedded-tmesh")
 public class EmbeddedTMeshScene extends Scene {
@@ -66,17 +60,14 @@ public class EmbeddedTMeshScene extends Scene {
 
     /**
      * System property that, when set to {@code all}, drives all three operators to a fixed point
-     * at startup via {@link EmbeddedContraction} — the fully re-embedded T-mesh, no zero arcs and
-     * no zero patches — so a headless screenshot shows the final layout. In the window, C does the
-     * same on demand.
+     * at startup via {@link EmbeddedContraction}, leaving no zero arcs and no zero patches. In
+     * the window, C does the same on demand.
      */
     public static final String CONTRACT_PROPERTY = "tmesh.contract";
 
     /**
-     * System property that, when {@code true}, drives the operators until the first reroute failure
-     * and highlights the wall it hit — the two disconnected regions, the pivot, the survivor, the
-     * stranded arc, and the freed channel — so the failure can be seen rather than guessed. In the
-     * window, H toggles the highlight.
+     * System property that, when {@code true}, drives the operators until the first reroute
+     * failure and highlights the wall it hit. In the window, H toggles the highlight.
      */
     public static final String CONTRACT_FAIL_PROPERTY = "embeddedTMesh.contractFail";
 
@@ -280,15 +271,10 @@ public class EmbeddedTMeshScene extends Scene {
 
     /**
      * When {@link #CONTRACT_FAIL_PROPERTY} is set, drive the operators until the first reroute
-     * failure and, if one occurs, refresh the (partial) T-mesh render and highlight the wall.
-     * Runs after the runtime is up.
+     * failure and, if one occurs, refresh the partial T-mesh render and highlight the wall.
      *
-     * <p>This touches no runtime state; the caller hands the result over afterwards. Handing a
-     * layout to the runtime builds its patch regions, and a layout that still holds zero-patches —
-     * cells embedded onto a point or a curve, enclosing no faces — has no region for them to
-     * correspond to, so that throws. Doing it before the contraction had reported discarded the one
-     * line saying how the contraction actually ended, and made a reroute failure look like a torn
-     * layout.
+     * <p>Must run before the layout reaches the runtime: building patch regions from a layout
+     * that still holds zero-patches throws.
      */
     private void applyContractToFailure() {
         if (!Boolean.parseBoolean(System.getProperty(CONTRACT_FAIL_PROPERTY, "false"))) {

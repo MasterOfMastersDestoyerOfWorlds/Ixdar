@@ -10,14 +10,12 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 
 /**
- * Lyon 2021 §6 second half: turn the quantized T-mesh into a conforming quad
- * layout by iteratively extending every remaining T-junction across its patch —
- * connecting it to an opposing vertex when the quantized offsets match,
- * otherwise splitting the opposite side and continuing into the next patch —
- * until no T-junctions remain (LCBK19 §6). Operates purely combinatorially on
- * the rectangle complex formed by the positive-area valid patches; inserted
- * edges have no traced geometry yet, so the final patch count
- * {@link #finalPatchCount} is the product, not a render.
+ * Turns the quantized T-mesh into a conforming quad layout by extending every
+ * remaining T-junction across its patch until none remain. Operates purely
+ * combinatorially on the rectangle complex; inserted edges carry no traced
+ * geometry.
+ *
+ * <p>See also: Lyon 2021 Section 6
  */
 public final class TJunctionElimination {
 
@@ -610,11 +608,9 @@ public final class TJunctionElimination {
     }
 
     /**
-     * Split a rectangle into two halves at a canonical offset measured along the
-     * given axis side (0 for a vertical cut at a column, 1 for a horizontal cut at
-     * a row). The half containing the axis side's canonical start keeps the uncut
-     * perpendicular side at offset zero; the inserted edge becomes a synthetic side
-     * of both halves.
+     * Split a rectangle into two halves at a canonical offset along the given axis
+     * side. The half containing that side's canonical start keeps the uncut
+     * perpendicular side; the inserted edge becomes a synthetic side of both halves.
      *
      * @param cell            rectangle to split
      * @param axisSide        0 to cut columns, 1 to cut rows

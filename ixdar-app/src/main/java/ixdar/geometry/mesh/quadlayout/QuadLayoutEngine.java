@@ -14,30 +14,14 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
 
 /**
- * Staged driver for the Lyon 2021 quad-layout pipeline:
+ * Staged driver for the quad-layout pipeline: cross field, singularities,
+ * seamless parametrization, motorcycle-graph T-mesh, ILP quantization, layout
+ * extraction.
  *
- * <ol>
- * <li><b>Cross field</b> — Knöppel 2013 globally-optimal n-direction field
- * ({@link NDirectionField}), curvature-aligned with soft feature/boundary
- * guidance. (BZK09's mixed-integer field remains available as
- * {@code BommesCrossField} for comparison but is not the default.)</li>
- * <li><b>Singularities</b> — read off the cross field's index per vertex.</li>
- * <li><b>Seamless parametrization</b> with these singularities (BZK09 §5),
- * post-processed for exact seamlessness (MC19).</li>
- * <li><b>Modified motorcycle graph T-mesh</b> — Lyon §3: traces survive
- * crashes and stop only via the two-sided α criterion.</li>
- * <li><b>ILP quantization</b> — Lyon §4–§5: one integer per arc, consistency +
- * validity + layout constraints, coarseness objective.</li>
- * <li><b>Layout extraction</b> — Lyon §6: collapse zero arcs and extend
- * T-junctions into a conforming quad layout.</li>
- * </ol>
+ * <p>Each {@code build*} method runs its prerequisites lazily and caches its
+ * product, so a caller can run the pipeline only as far as the stage it needs.
  *
- * <p>
- * Each {@code build*} method runs its prerequisites lazily and caches the
- * product in the corresponding public field, so inspector scenes can run the
- * shared pipeline exactly as far as the stage they visualize — and may mutate a
- * stage's product (e.g. substitute a reference cross field) before asking for
- * the next stage.
+ * <p>See also: Lyon 2021
  */
 public final class QuadLayoutEngine {
 

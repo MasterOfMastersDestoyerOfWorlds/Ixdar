@@ -5,25 +5,10 @@ import java.util.Arrays;
 import java.util.HashSet;
 
 /**
- * Fill-reducing permutation utilities shared between {@link DirectSolver} and
- * {@link IncrementalCholeskySolver}. Both factor SPD systems through EJML's
- * sparse Cholesky, which is much faster (and produces a sparser L) when the
- * matrix is first reordered. The cold-factor path needs this, and so does
- * the BZK09 incremental path, where every pin walks a column of L from a
- * leaf to the elimination-tree root — shorter columns mean cheaper per-pin
- * updates.
- *
- * <p>Three orderings are supported via {@link OrderingMethod}:
- * <ul>
- *   <li>{@link OrderingMethod#NATURAL} — identity; no graph build, no
- *       reorder.</li>
- *   <li>{@link OrderingMethod#RCM} — reverse Cuthill-McKee. Bandwidth-minimizing
- *       BFS used by the cross-field stage.</li>
- *   <li>{@link OrderingMethod#AMD} — quotient-graph minimum-degree ordering
- *       (Davis, <em>Direct Methods</em>, ch. 7). Used by the seamless stage
- *       where nnz(L) is the bottleneck on the 50 stiffening-loop cold
- *       factors.</li>
- * </ul>
+ * Fill-reducing permutations for the SPD systems factored by
+ * {@link DirectSolver} and {@link IncrementalCholeskySolver}, selected through
+ * {@link OrderingMethod}: identity, reverse Cuthill-McKee, or approximate
+ * minimum degree.
  */
 public final class SolverPermutation {
 
@@ -178,29 +163,12 @@ public final class SolverPermutation {
 
     /**
      * Approximate minimum-degree ordering via quotient-graph element
-     * absorption (Davis, <em>Direct Methods for Sparse Linear Systems</em>,
-     * ch. 7; CSparse {@code cs_amd}). At each step the variable of minimum
-     * current degree is eliminated; its remaining variable-neighbours form
-     * a new clique, and the eliminated variable becomes an "element" that
-     * absorbs the clique implicitly so we don't have to materialise every
-     * pairwise edge.
+     * absorption: at each step the variable of minimum approximate degree is
+     * eliminated, and its surviving neighbours become a clique represented
+     * implicitly by a new element that absorbs the eliminated variable's old
+     * elements.
      *
-     * <p>Per-variable state:
-     * <ul>
-     *   <li>{@code variableNeighbours[i]} — variables that share an
-     *       off-diagonal entry with {@code i} (no elements).</li>
-     *   <li>{@code elementMembership[i]} — element ids whose clique
-     *       includes {@code i}.</li>
-     *   <li>{@code elementVariables[e]} — variables in the clique
-     *       represented by element {@code e}.</li>
-     *   <li>{@code degree[i]} — upper-bound approximate degree, recomputed
-     *       lazily for variables whose neighbourhood changed.</li>
-     * </ul>
-     *
-     * <p>Element absorption: when eliminating {@code k}, every old element
-     * {@code e} already in {@code k}'s element list is folded into the new
-     * element representing {@code k}'s clique. The old element is then
-     * deleted. This keeps the element count bounded.
+     * <p>See also: Davis, Direct Methods for Sparse Linear Systems, Chapter 7
      *
      * @param adj per-vertex neighbour lists, length {@code n}; entries are
      *            old (input) indices
@@ -284,15 +252,10 @@ public final class SolverPermutation {
     }
 
     /**
-     * Form the new clique created when {@code pivot} is eliminated: all
-     * still-alive variables reachable from {@code pivot} through its
-     * variable-neighbours or through any element it was a member of.
-     * Old elements that become subsumed are killed in place — their
-     * variable list is rolled into the new element's, and the absorbed
-     * element's id is removed from every former member's
-     * {@code elementMembership}. The cleanup is what keeps
-     * {@link #recomputeApproximateDegrees} cheap: degree recomputes only
-     * walk alive elements, never piles of dead ids.
+     * Form the clique created when {@code pivot} is eliminated: every alive
+     * variable reachable through its neighbours or elements. Subsumed elements are
+     * killed and unlinked from their members in place, so degree recomputation
+     * never sees a dead id.
      *
      * @param pivot              the variable being eliminated
      * @param variableNeighbours per-variable variable-neighbour sets

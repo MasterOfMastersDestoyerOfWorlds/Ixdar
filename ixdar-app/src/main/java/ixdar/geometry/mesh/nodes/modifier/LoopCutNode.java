@@ -17,15 +17,11 @@ import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
- * Adds edge loops along a world-space axis. Splits each quad face's edges
- * aligned with the axis, producing {@code cuts+1} strip quads per face.
- * Faces with no aligned edges pass through unchanged.
- * <p>
- * Topology-only: straight midpoint cuts. If input carries bezier handle slots,
- * the new vertices land on the STRAIGHT EDGE MIDPOINT (not on the Bezier
- * curve) and existing handle slots are passed through unchanged — they become
- * stale for new edges. Use {@code coons_loop_cut} for curve-preserving cuts
- * on handled cages.
+ * Adds edge loops along a world-space axis, splitting each quad's axis-aligned edges; faces with
+ * no aligned edge pass through unchanged.
+ *
+ * <p>Cuts land on straight edge midpoints, so on a cage carrying Bezier handle slots the new
+ * vertices sit off the curve and the handles go stale — use {@code coons_loop_cut} there.
  */
 @MeshNodeAnnotation(id = "loop_cut")
 public class LoopCutNode implements MeshNode {

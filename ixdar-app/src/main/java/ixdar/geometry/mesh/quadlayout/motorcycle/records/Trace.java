@@ -108,16 +108,11 @@ public final class Trace {
     }
 
     /**
-     * Lyon 2021 §3 signed angle αij at the start of trace ti.
+     * Signed αij at the start of trace ti: the ccw angle from ti's forward
+     * direction to {@code lij · ti.forward − lji · tj.forward}, positive when j
+     * lies on ti's ccw side.
      *
-     * <p>
-     * αij is the signed (ccw) angle of the right triangle whose legs Sij (length
-     * {@code lij} along ti's forward) and Sji (length {@code lji} along tj's
-     * forward) meet at the intersection node. Equivalently it is the signed angle
-     * from ti's forward direction to the vector from singularity i to singularity
-     * j, i.e. {@code lij · ti.forward − lji ·
-     * tj.forward}. Positive when j lies on ti's ccw side; in (−π/2, π/2) for
-     * non-collinear configurations.
+     * <p>See also: Lyon 2021 Section 3
      *
      * @param tiAxis parametric axis of trace ti at the intersection face
      * @param tiSign sign of ti along {@code tiAxis}

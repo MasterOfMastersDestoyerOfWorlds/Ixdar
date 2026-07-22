@@ -1,14 +1,9 @@
 package ixdar.geometry.mesh.quadlayout.solver;
 
 /**
- * Fill-reducing column ordering for sparse Cholesky factorization. Kept
- * separate from EJML's {@code FillReducing} enum so callers aren't locked
- * into the library's options.
- *
- * <p>Picking the right ordering matters a lot for sparse Cholesky on
- * mesh-derived matrices: the wrong choice can grow nnz(L) by an order of
- * magnitude, and incremental rank-1 updates pay the price on every pin
- * because they walk L's columns.
+ * Fill-reducing column ordering for sparse Cholesky factorization. The choice
+ * determines nnz(L), and so the cost of every incremental rank-1 update that
+ * walks a column of L.
  */
 public enum OrderingMethod {
 
@@ -19,9 +14,8 @@ public enum OrderingMethod {
     NATURAL,
 
     /**
-     * Reverse Cuthill-McKee. Minimises matrix bandwidth — appropriate for
-     * band solvers and for the cross-field stage where the original
-     * AdaptiveSolver pipeline was tuned around RCM.
+     * Reverse Cuthill-McKee. Minimises matrix bandwidth; appropriate for band
+     * solvers and for the cross-field stage.
      */
     RCM,
 

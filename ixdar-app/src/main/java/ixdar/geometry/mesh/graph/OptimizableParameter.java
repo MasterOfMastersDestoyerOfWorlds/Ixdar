@@ -1,9 +1,8 @@
 package ixdar.geometry.mesh.graph;
 
 /**
- * Unified parameter descriptor for the skeleton sensitivity optimizer.
- * Wraps both {@link InputParameterDescriptor} (user-declared input nodes) and
- * {@link LiteralParameterDescriptor} (hardcoded literal arguments).
+ * Parameter descriptor for the skeleton sensitivity optimizer, covering both
+ * {@link InputParameterDescriptor} and {@link LiteralParameterDescriptor}.
  *
  * <p>{@link #overrideKey()} is the key used in the overrides map passed to
  * {@link NodeGraphRuntime#executeGraphResult}:

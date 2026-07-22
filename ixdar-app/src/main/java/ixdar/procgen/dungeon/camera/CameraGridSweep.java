@@ -9,12 +9,11 @@ import ixdar.procgen.dungeon.values.CellType;
 import ixdar.procgen.dungeon.values.TileGridValue3D;
 
 /**
- * Casts a sphere of {@code cameraRadius} from {@code pivot} toward {@code desired} and stops
- * when the sphere first overlaps an obstacle cell. Returns the clipped endpoint, biased back
- * toward the pivot by {@code padding} so the camera doesn't sit exactly against the wall.
+ * Casts a sphere of {@code cameraRadius} from {@code pivot} toward {@code desired}, stopping at
+ * the first obstacle cell and backing off by {@code padding}.
  *
- * <p>This is intentionally a hard-stop sweep, not a slide: third-person convention is to pull
- * the camera in along the line of sight rather than let it skate sideways into adjacent cells.
+ * <p>The sweep hard-stops rather than sliding, so the result always lies on the
+ * pivot-to-desired line.
  */
 public final class CameraGridSweep {
     public static final float NUM_0 = 0f;

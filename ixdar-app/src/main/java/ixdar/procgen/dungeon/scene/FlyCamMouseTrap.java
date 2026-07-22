@@ -13,18 +13,11 @@ import ixdar.platform.Platforms;
 import ixdar.platform.input.MouseTrap;
 
 /**
- * Mouse-look trap with two operating modes (selected by {@code captureSupplier}):
+ * Mouse-look trap that rotates only while the left button is held, or on every cursor delta
+ * when {@code captureSupplier} reports true. Capture mode expects the platform cursor in
+ * {@link ixdar.platform.gl.Platform.CursorMode#CAPTURED}.
  *
- * <ul>
- *   <li><b>Drag-to-rotate</b> ({@code false}): hold left mouse and move to rotate. Used in fly-cam.</li>
- *   <li><b>Capture</b> ({@code true}): every cursor delta rotates without a button press. Used in
- *       player mode together with {@link ixdar.platform.gl.Platform.CursorMode#CAPTURED}.</li>
- * </ul>
- *
- * <p>Where the deltas go is decided by the caller via {@code onDelta} — first-person sends them
- * to the camera's mouse-look math; third-person sends them to a {@link
- * ixdar.procgen.dungeon.camera.ThirdPersonCamera}'s azimuth / elevation. Scroll ticks are routed
- * through {@code onScroll} (only meaningful in third-person zoom).
+ * <p>Deltas and scroll ticks go to the caller's callbacks; no camera is touched here.
  */
 public class FlyCamMouseTrap extends MouseTrap {
 

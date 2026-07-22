@@ -1011,18 +1011,12 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
     }
 
     /**
-     * The {@code Hex} class defines a point specified in the triangular grid with
-     * {@code integer} precision. we use three coordinates to represent the grid and
-     * some points are represented by multiple mappings
+     * A point on the triangular grid at integer precision, in cube coordinates
+     * {@code (q, r, s)} — positive toward the right, toward up-and-right, and toward up-and-left
+     * respectively.
      *
-     * (q, r, s) q - left is negative, right is positive r - down and left is
-     * negative, up and right is positive s - down and right is negative, up and
-     * left is positive
-     *
-     * under this scheme point A (0,2,0) is the same as point B (1,1,1); although if
-     * you traced the paths used to get to the point, point A is the shortest of the
-     * two. There should always be a coordinate that is zero if you put it in
-     * shortest path form.
+     * <p>The mapping is not injective: {@code (0, 2, 0)} and {@code (1, 1, 1)} denote the same
+     * point. Shortest-path form always has one zero coordinate.
      */
     public static class Hex extends PointND implements Serializable {
         public static final int NUM_3 = 3;

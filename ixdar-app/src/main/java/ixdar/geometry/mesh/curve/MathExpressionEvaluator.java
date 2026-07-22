@@ -4,21 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Lightweight recursive-descent math expression evaluator with a single variable {@code x}.
- * <p>
- * Supports arithmetic ({@code + - * / ^}), constants ({@code pi e tau}), and a broad set of
- * functions useful for procedural modeling curve definitions. Used by
- * {@link ixdar.geometry.mesh.nodes.curve.FunctionCurveNode} to sample a mathematical function
- * into a {@link FloatCurveKernel}.
- * <p>
- * Grammar (precedence low → high):
- * <pre>
- *   expr   → term (('+' | '-') term)*
- *   term   → power (('*' | '/') power)*
- *   power  → unary ('^' power)?          // right-associative
- *   unary  → ('-' | '+')? atom
- *   atom   → NUMBER | IDENT | IDENT '(' args ')' | '(' expr ')'
- * </pre>
+ * Recursive-descent evaluator for math expressions in the single variable {@code x}.
+ *
+ * <p>Supports arithmetic ({@code + - * / ^}), constants ({@code pi e tau}) and a broad set of
+ * functions for procedural curve definitions. Exponentiation is right-associative; unary sign
+ * binds tighter than any binary operator.
  */
 public final class MathExpressionEvaluator {
     public static final String AT_POSITION = "' at position ";

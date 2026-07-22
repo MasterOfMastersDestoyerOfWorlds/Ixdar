@@ -41,11 +41,9 @@ public class CurvatureConstraints {
 
     /**
      * Minimum {@code faceNormal · vertexNormal} required before a curvature
-     * constraint at the vertex pins the face. Below this, V_C's tangent plane
-     * differs enough from F's plane that V_C's curvature direction can't be
-     * consistently projected into F's frame relative to its neighbors — adjacent
-     * pinned faces from the same source then have a forced smoothness residual that
-     * emits ± period-jump pairs. cos(15°) ≈ 0.966.
+     * constraint at the vertex pins the face. Below this the tangent planes diverge
+     * enough that the projected direction is inconsistent between adjacent pinned
+     * faces. cos(15°) ≈ 0.966.
      */
     public static final float FACE_VERTEX_NORMAL_ALIGNMENT_FLOOR = 0.966f;
 
@@ -88,15 +86,11 @@ public class CurvatureConstraints {
 
     /**
      * Flat per-vertex/face/edge adjacency and geometry built once by
-     * {@link #buildAdjacencyCaches()}. Each vertex, face, and edge sits in many
-     * overlapping curvature disks, so the disk walks read these arrays instead of
-     * re-calling mesh accessors. Neighbor lists are compressed-sparse-row:
+     * {@link #buildAdjacencyCaches()}. Neighbor lists are compressed-sparse-row:
      * {@code neighborStart[v]..neighborStart[v + 1]} is vertex {@code v}'s slice of
-     * {@code neighborVertexId} / {@code neighborEdgeLength} (and likewise for the
-     * vertex→face and vertex→edge lists). The per-edge {@code edgeWeight} and unit
+     * the parallel neighbor arrays. The per-edge {@code edgeWeight} and unit
      * {@code edgeDir*} hold the center-independent part of the Cohen-Steiner
-     * contribution (dihedral × length, and the edge direction); only the projection
-     * onto a disk's center frame is left for the integration.
+     * contribution.
      */
     int[] neighborStart;
     int[] neighborVertexId;
@@ -486,15 +480,10 @@ public class CurvatureConstraints {
     }
 
     /**
-     * Cohen-Steiner integrated curvature tensor over geodesic disks around the
-     * seed vertices {@code seedVertexIds} at every radius in {@code radiiAscending},
-     * in a single walk. Walks the 1-skeleton once out to the largest radius, records each
-     * face's and interior edge's inclusion radius (the smallest disk that fully
-     * contains it) and each edge's dihedral contribution {@code β·|e|·(ē⊗ē)} once,
-     * then forms the per-radius tensors by prefix sum over those inclusion radii.
-     * For radius {@code radiiAscending[i]} the entry is {@code [T00, T01, T11]} in
-     * the local tangent basis (e1, e2) normalized by the disk's triangle area, or
-     * {@code null} when that disk has no usable triangles.
+     * Cohen-Steiner integrated curvature tensor over geodesic disks at every radius
+     * in {@code radiiAscending}, from one walk out to the largest radius. Entry
+     * {@code i} is {@code [T00, T01, T11]} in the tangent basis, normalized by disk
+     * triangle area, or {@code null} when that disk has no usable triangles.
      *
      * @param seedVertexIds  seed vertex ids the multi-source geodesic walk starts from
      * @param seedDistances  initial geodesic distance for each seed, parallel to {@code seedVertexIds}

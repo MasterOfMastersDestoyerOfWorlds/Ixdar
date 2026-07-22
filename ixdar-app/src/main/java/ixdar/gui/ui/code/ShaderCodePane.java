@@ -67,11 +67,9 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     private boolean loaded = false;
 
     /**
-     * Wire this pane up: resolve the target shader (preferring {@code shader}, falling back
-     * to {@code provider}'s shader, then to the font shader), install resize callbacks that
-     * snap the view to half-width when code is shown and full-width when hidden, register
-     * the pane bounds in {@code webViews}, build the show/hide button plus FPS/mouse readout,
-     * and subscribe to scroll and click events through {@link MouseTrap}.
+     * Wire this pane up, resolving the target shader from {@code shader}, then {@code provider},
+     * then the font shader, and registering its bounds, resize callbacks, and {@link MouseTrap}
+     * scroll and click subscriptions.
      *
      * @param parentBounds host region that the pane lays itself out within
      * @param webViews registry of named bounds keyed by view id; this pane registers itself

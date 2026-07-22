@@ -3,41 +3,14 @@ package ixdar.geometry.mesh.quadlayout.embedding;
 import java.math.BigDecimal;
 
 /**
- * Sign-exact orientation predicate for points given in barycentric coordinates of a
- * source face, used by {@link FaceChordWalk} to decide every geometric case of the
- * LCBK19 §6.1 carve.
+ * Sign-exact orientation predicate for points in barycentric coordinates of a source
+ * face, deciding every geometric case of the {@link FaceChordWalk} carve.
  *
- * <p>Neither LCBK19 nor LCK21a discusses numerics; this class is an engineering
- * addition, and it exists because both of the obvious alternatives are unsound.
- *
- * <p>The first alternative — comparing a signed area against an absolute constant, as
- * the carve used to — is scale-dependent nonsense. A signed area scales with the
- * product of the two edge lengths it spans, so in a triangle of barycentric extent
- * {@code 1e-7} every orientation value falls below a {@code 1e-9} threshold and the
- * triangle "contains" every point in the plane.
- *
- * <p>The second alternative — projecting to 2D by dropping the first barycentric
- * coordinate, then running an exact 2D predicate — is exact about the wrong thing. The
- * information that a point lies on the face's boundary is carried by a coordinate being
- * exactly zero, and the projection throws that coordinate away. A crossing on the edge
- * opposite corner 0 is built as {@code (0, 1 - p, p)}, but {@code (1 - p) + p} is not
- * {@code 1.0} in IEEE arithmetic, so the projected point misses the edge by an ulp. An
- * exact predicate then faithfully reports it as interior, the walk splits a face rather
- * than an edge, and the resulting vertex is registered in only one of the two source
- * faces that share the crossing — which is a crash, one carve step later, in a
- * different face.
- *
- * <p>The full 3x3 determinant of the three barycentric triples has neither defect. It
- * is the same signed area, but computed in coordinates that keep the constraint: the
- * orientation of the two corners opposite corner {@code k} against a point {@code b}
- * evaluates to exactly {@code b[k]}. So "on that edge" is exactly "{@code b[k] == 0}",
- * which is representable, is what the carve actually constructs, and is preserved
- * exactly by the interpolation that mints split vertices.
- *
- * <p>Evaluation is a floating-point determinant guarded by its own forward error bound,
+ * <p>Evaluates the 3x3 determinant in floating point under a forward error bound,
  * falling back to exact {@link BigDecimal} arithmetic when the bound cannot certify the
- * sign. Doubles convert to {@code BigDecimal} without loss, so the fallback is exact
- * rather than merely more precise.
+ * sign.
+ *
+ * <p>See also: LCBK19 Section 6.1
  */
 public final class ExactBarycentricOrient {
 

@@ -11,17 +11,12 @@ import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 
 public class FeatureEdgeConstraints {
     /**
-     * BZK09 §5.2 feature-edge alignment constraints: for every interior edge in
-     * {@link CrossField#alignmentEdgeIds} (detected by the parent cross field's
-     * dihedral test), align the cross in both incident faces with the edge
-     * direction. This hard face pinning is specific to the Bommes mixed-integer
-     * solver; the Knöppel path aligns softly via its guidance field instead.
-     * Edge ids are visited in sorted order so the pinning outcome is
-     * deterministic when a face touches several feature edges.
+     * Hard-pins the cross in both faces incident to every interior edge in
+     * {@link CrossField#alignmentEdgeIds} to that edge's direction. Edge ids are
+     * visited in sorted order so the outcome is deterministic when a face touches
+     * several feature edges.
      *
-     * <p>
-     * Without this pass, sharp models like fandisk produce many spurious
-     * singularities because the field has no incentive to follow features.
+     * <p>See also: BZK09 Section 5.2
      *
      * @param mesh       half-edge mesh providing edge geometry
      * @param crossField cross field receiving the per-face constraint annotations

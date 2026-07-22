@@ -14,22 +14,11 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
 
 /**
- * Tags all vertices in a geometry with one or more comma-separated labels.
- * <p>
- * Tags are stored in a {@code "__tags"} slot as a {@code Map<String, boolean[]>}
- * where each key is a tag name and the value is a per-vertex membership mask.
- * A vertex can belong to multiple tags simultaneously (e.g., "arm", "hand", "thumb").
- * <p>
- * If the incoming geometry already has tags from upstream, new tags are merged
- * (existing tags are preserved, new ones are added).
- * <p>
- * Tags are best applied as a final annotation step after geometry is finalized,
- * since nodes that change vertex count (boolean, subdivide) will invalidate
- * tag arrays.
+ * Tags all vertices with one or more comma-separated labels, stored in {@link #TAGS_SLOT} as one
+ * per-vertex membership mask per tag and merged with any tags already present upstream.
  *
- * <pre>
- * tagged = tag_geometry(geometry=thumb.geometry, tags="arm,hand,thumb")
- * </pre>
+ * <p>Apply tags only once the vertex count is final: any later node that adds or removes vertices
+ * invalidates the masks.
  */
 @MeshNodeAnnotation(id = "tag_geometry")
 public class TagGeometryNode implements MeshNode {

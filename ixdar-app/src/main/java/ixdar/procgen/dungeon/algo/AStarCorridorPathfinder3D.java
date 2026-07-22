@@ -11,20 +11,12 @@ import ixdar.procgen.dungeon.values.RoomListValue3D.Room;
 import ixdar.procgen.dungeon.values.TileGridValue3D;
 
 /**
- * 3D corridor carving with stair transitions between floors. The horizontal flavor of
- * {@link AStarCorridorPathfinder2D} extended with a single stair-move primitive that lets the
- * pathfinder ascend or descend exactly one floor per stair.
+ * 3D corridor carving: {@link AStarCorridorPathfinder2D} movement per floor plus a stair move
+ * that changes floor by exactly one.
  *
- * <p>Stair model (1:2 rise:run, simplified): a stair move takes the pathfinder from
- * {@code (x, y, z)} to {@code (x + 2*dx, y±1, z + 2*dz)} where {@code (dx, dz)} is one of the
- * four cardinal horizontal directions. The two intermediate cells along the stair —
- * {@code (x + dx, y, z + dz)} and {@code (x + dx, y±1, z + dz)} — must be EMPTY at the moment
- * of the move (no carving through rooms or other corridors). After the path commits, the
- * lower intermediate cell becomes {@link CellType#STAIR_UP} and the upper becomes
- * {@link CellType#STAIR_DOWN}. The two endpoint cells become {@link CellType#HALLWAY}.
- *
- * <p>Movement is 4-connected horizontally on each floor plus the stair-jump for vertical
- * transitions. No diagonal moves.
+ * <p>A stair runs from {@code (x, y, z)} to {@code (x + 2*dx, y±1, z + 2*dz)}; both intermediate
+ * cells must be EMPTY, and on commit become {@link CellType#STAIR_UP} and
+ * {@link CellType#STAIR_DOWN}.
  */
 public final class AStarCorridorPathfinder3D {
     public static final int NUM_4 = 4;

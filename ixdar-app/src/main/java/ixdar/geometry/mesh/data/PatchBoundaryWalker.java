@@ -11,20 +11,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Walk a patch's boundary into an ordered ring and slice the ring at
- * corners (turn angle > {@code T_CORNER_RAD}). Used by PATCH-16 to
- * convert a mesh patch's outline into the four sides a Coons fit
- * expects.
- *
- * <p>PATCH-20 extended the walker to handle patches with holes
- * (multiple disconnected boundary rings) and with vertices that have
- * more than two boundary neighbours (patch pinch points, three-way
- * junctions). For multi-ring patches we keep only the outermost ring —
- * the one with the most boundary vertices — on the assumption that
- * inner rings bound concavity-carved holes we don't want to fit. For
- * multi-neighbour vertices the walker picks the next step that makes
- * the sharpest turn consistent with a simple ring; this breaks ties
- * deterministically but may still miss pathological boundaries.
+ * Walks a patch's boundary into an ordered ring and slices it at corners into the four sides a Coons
+ * fit expects. Of several disconnected rings only the largest is kept, and junctions resolve to the
+ * step that best continues the ring.
  */
 public final class PatchBoundaryWalker {
     public static final int NUM_3 = 3;
@@ -135,12 +124,8 @@ public final class PatchBoundaryWalker {
     }
 
     /**
-     * Walk one closed ring starting at {@code start} using the
-     * neighbour map. At each step picks the neighbour that (a) hasn't
-     * been visited in this ring already (except closing back to start)
-     * and (b) minimises the direction change from the previous edge,
-     * to keep multi-neighbour junctions tracking the smoother local
-     * boundary. Returns {@code null} if the ring can't close.
+     * Walks one closed ring from {@code start}, stepping to the unvisited neighbour that least
+     * changes direction so junctions follow the smoother local boundary.
      *
      * @param start vertex id to begin the walk from
      * @param neighbours boundary adjacency map (vertex to ordered neighbour list)

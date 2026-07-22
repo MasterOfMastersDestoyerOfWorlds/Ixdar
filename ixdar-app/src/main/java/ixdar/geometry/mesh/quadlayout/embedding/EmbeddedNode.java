@@ -1,20 +1,11 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
 /**
- * A node of the embedded T-mesh: one T-mesh node, sitting on one vertex of the working
- * copy of the triangle mesh.
+ * One T-mesh node, sitting on one vertex of the working copy.
  *
- * <p>Criticality is LCBK19 Def 6.2's, and it is the whole of what decides which way a
- * zero arc may collapse: a critical node holds an integer position the quantization
- * prescribed — a singularity, or a point on a feature curve — and must never be moved.
- * Border is Def 6.1's: a node embedded in the surface boundary, which may slide along
- * that boundary but never into the interior. On a closed surface no node is ever a
- * border node, and the flag exists so the operators can state the paper's rule rather
- * than a closed-surface special case of it.
- *
- * <p>A node is retired by clearing {@link #alive} rather than being removed, so that ids
- * stay equal to list indices forever. Every parallel array in the pipeline depends on
- * that.
+ * <p>A critical node must never be moved; a border node may slide along the boundary but
+ * not into the interior. Retire a node by clearing {@link #alive}, never by removing it:
+ * ids are list indices.
  */
 public final class EmbeddedNode {
 

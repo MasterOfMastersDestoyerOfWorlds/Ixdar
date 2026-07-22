@@ -6,27 +6,12 @@ import ixdar.procgen.dungeon.values.CellType;
 import ixdar.procgen.dungeon.values.TileGridValue3D;
 
 /**
- * Resolves a capsule's desired motion against a {@link TileGridValue3D} of tile-grid solid cells.
- * Empty cells (per {@link CellType#EMPTY}) and out-of-grid cells are obstacles; any other cell
- * type ({@link CellType#ROOM}, {@link CellType#HALLWAY}, {@link CellType#STAIR_UP},
- * {@link CellType#STAIR_DOWN}) is walkable interior — the capsule can pass freely through them.
+ * Resolves a capsule's desired motion against a {@link TileGridValue3D}, sub-stepping to avoid
+ * tunneling and sliding along contacts. {@link CellType#EMPTY} and out-of-grid cells are
+ * obstacles; every other cell type is walkable.
  *
- * <p>Algorithm:
- * <ul>
- *   <li>Sub-step the desired delta into pieces small enough to avoid tunneling
- *       (each piece &lt;= {@code radius * 0.5}).</li>
- *   <li>After applying each piece, query the grid cells that the capsule's bounding sphere can
- *       overlap and accumulate MTVs from {@link CapsuleAabbTest#penetration} on each obstacle
- *       cell. Apply, repeat up to a fixed iteration cap (4) until residual penetration is
- *       negligible.</li>
- *   <li>Return the resolved end position. Any component of the original delta that pointed
- *       into a wall is consumed by the MTV; the perpendicular components survive (slide).</li>
- * </ul>
- *
- * <p>The grid is centered at the world origin per {@code GridToMesh3D}'s convention:
- * cell {@code (x, y, z)} occupies world AABB {@code [offsetX + x*cs, offsetX + (x+1)*cs] x
- * [offsetY + y*cs, offsetY + (y+1)*cs] x [offsetZ + z*cs, offsetZ + (z+1)*cs]} where
- * {@code offsetX = -gridW * cs / 2} (and analogously for Y, Z).
+ * <p>Cells are placed with {@code GridToMesh3D}'s origin-centered convention, so the two must
+ * agree on {@code cellSize} and grid dimensions.
  */
 public final class CapsuleMover {
     public static final float NUM_0 = 0f;

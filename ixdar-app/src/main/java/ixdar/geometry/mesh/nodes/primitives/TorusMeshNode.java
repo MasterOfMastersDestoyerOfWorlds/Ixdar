@@ -12,21 +12,11 @@ import ixdar.annotations.meshnode.PortType;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
- * Torus primitive: a closed, boundary-free surface of genus 1 with a fully regular
- * grid of faces and no poles, no caps, and no extraordinary vertices.
+ * Torus primitive: a closed, boundary-free genus-1 surface with a regular grid of faces and no
+ * poles, caps or extraordinary vertices, so V - E + F = 0 holds for any cell decomposition over
+ * it.
  *
- * <p>Every other primitive here has either a boundary, a pole, or an irregular vertex
- * somewhere. The torus has none, which makes it the natural substrate for testing the
- * quad-layout stages: its Euler characteristic is exactly zero, so
- * {@code V - E + F = 0} is a total, cheap correctness check on any cell decomposition
- * built over it; it is closed, so none of the free-boundary machinery (virtual arcs,
- * border arcs, sub-rectangular patches) is in play; and its regular grid makes it
- * possible to place a T-mesh configuration at exactly known positions rather than
- * wherever a tracer happens to put one.
- *
- * <p>Set {@code triangulate} to feed the quad-layout pipeline, which works on triangle
- * meshes. Each quad is split along one diagonal, so the face count doubles and the
- * genus is of course unchanged.
+ * <p>Set triangulate to feed the quad-layout pipeline, which requires triangles.
  */
 @MeshNodeAnnotation(id = "torus")
 public class TorusMeshNode implements MeshNode {
@@ -135,12 +125,9 @@ public class TorusMeshNode implements MeshNode {
     }
 
     /**
-     * Build the torus as a regular grid, wrapping in both directions so no seam, pole or
-     * boundary is ever created.
-     *
-     * <p>Faces wind so their normals point away from the tube's core: a face is emitted
-     * by stepping around the tube first and around the ring second, because the reverse
-     * order yields the inward normal.
+     * Builds the torus as a regular grid, wrapping in both directions so no seam, pole or
+     * boundary is created. Faces step around the tube first and around the ring second; the
+     * reverse order winds the normals inward.
      *
      * @param majorRadius   distance from the origin to the centre of the tube
      * @param minorRadius   radius of the tube

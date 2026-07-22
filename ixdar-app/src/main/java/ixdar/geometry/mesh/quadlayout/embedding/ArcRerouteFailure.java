@@ -5,13 +5,10 @@ import java.util.Set;
 
 /**
  * Thrown when {@link EmbeddedTMesh#dragArcEndOntoVertex} cannot re-route an arc onto the survivor
- * node of a zero-arc collapse. It carries the geometry of the wall so a scene can render it: the
- * arc that could not move, the collapsing pivot and the survivor vertices, the freed channel, and
- * the two disconnected unclaimed regions the router was stuck between — the arc's body region and
- * the survivor's channel region, joined only through the pivot.
+ * node of a zero-arc collapse, carrying the geometry of the wall so a scene can render it.
  *
- * <p>It extends {@link IllegalStateException} so callers that only catch the general failure (and
- * tests that assert one) are unaffected; callers that want the structured context catch this type.
+ * <p>Extends {@link IllegalStateException}, so callers catching only the general failure still
+ * see it.
  */
 public final class ArcRerouteFailure extends IllegalStateException {
 

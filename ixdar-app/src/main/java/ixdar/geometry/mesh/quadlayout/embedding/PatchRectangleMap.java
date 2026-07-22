@@ -13,29 +13,11 @@ import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 
 /**
  * Tutte's barycentric embedding of one patch's triangulated region onto an axis-aligned
- * rectangle: a bijective map from the surface region to the parametric domain, with the four
- * sides pinned to the four rectangle edges.
+ * rectangle, with the four sides pinned to the four rectangle edges.
  *
- * <p>The theorem (W. T. Tutte, <em>"How to draw a graph"</em>, Proc. London Math. Soc. 13 (1963)
- * 743–767): for a triangulated disk whose boundary is fixed to a <em>convex</em> polygon, if
- * every interior vertex is placed at a positive-weight average of its neighbours, the resulting
- * linear system has a unique solution and that solution is crossing-free with every face convex —
- * i.e. no triangle folds over. A rectangle is convex, so pinning the four sides to its edges meets
- * the hypothesis. The weights here are uniform (barycentric), which are unconditionally positive,
- * so the fold-free guarantee holds without qualification; a cotangent/mean-value variant could
- * lower distortion later but would have to keep the weights positive to keep the guarantee.
+ * <p>The interior weights must stay positive for the map to remain fold-free.
  *
- * <p>This is the engine MPZ14 §7.3 calls for — <em>"parametrize bijectively each quad on a
- * rectangle, using a positive-weights discrete harmonic map, and trace a straight line between the
- * end points to be connected"</em> — because a straight segment drawn inside a bijective map
- * cannot cross anything when pulled back to the surface. Operator (2)'s new arcs, the T-junction
- * extension, and the final quad grid are all straight lines or grids in this rectangle.
- *
- * <p>The map takes primitive geometry — vertex positions, triangles, and the boundary loop with
- * its four corners — so it is independent of the T-mesh classes and testable on its own; see
- * {@link PatchRegionMapper} for the adapter that extracts those from a patch. Boundary vertices
- * are distributed along each rectangle edge by cumulative chord length within that side, so the
- * pinned boundary reflects the region's own geometry rather than an arbitrary spacing.
+ * <p>See also: Tutte 1963; MPZ14 Section 7.3
  */
 public final class PatchRectangleMap {
 

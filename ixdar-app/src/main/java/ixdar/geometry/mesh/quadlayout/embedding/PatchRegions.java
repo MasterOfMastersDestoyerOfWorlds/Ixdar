@@ -10,16 +10,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The region of the working copy each patch occupies: the set of copy faces bounded by that
- * patch's arcs. Found by flooding the copy mesh's faces, crossing only edges no arc claims —
- * so the flood stops exactly at the layout's arcs — and matching each connected component to
- * the patch whose boundary arcs enclose it.
+ * The set of copy faces each patch occupies, flooding across only the edges no arc claims.
  *
- * <p>This is what lets the collapse operators route a new arc <em>through</em> a patch without
- * leaving it: the search is confined to one region's faces. It is also the proof that the
- * patches partition the surface — every face is assigned, the number of regions equals the
- * number of live patches, and each region is enclosed by exactly one patch's arcs — so a
- * failure here is a torn layout, and it throws rather than returning a broken map.
+ * <p>Verifies that the patches partition the surface and throws rather than returning a partial
+ * map, so it is meaningful only at the contraction's fixed point.
  */
 public final class PatchRegions {
 

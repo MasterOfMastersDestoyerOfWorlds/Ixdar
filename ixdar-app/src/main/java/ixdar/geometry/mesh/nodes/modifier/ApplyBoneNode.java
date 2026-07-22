@@ -22,15 +22,11 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
- * Rotates weighted vertices around a pivot point for forward-kinematics posing.
- * <p>
- * Reads the {@code _bone_weight_{bone_name}} float[] slot written by
- * {@link SetBoneWeightNode}. For each vertex with weight &gt; 0, rotates it
- * around {@code pivot} by {@code rotation} (Euler XYZ radians), interpolated
- * by the vertex weight.
- * <p>
- * Chain tip-to-root for FK: apply_bone(dist) → apply_bone(mid) → apply_bone(prox).
- * Each bone's weight should cover its segment AND all descendant segments.
+ * Rotates each vertex weighted for the named bone around {@code pivot} by {@code rotation} (Euler
+ * XYZ radians), scaled by the vertex weight from the slot {@link SetBoneWeightNode} wrote.
+ *
+ * <p>Chain these tip-to-root, and give each bone a weight covering its own segment and all
+ * descendant segments.
  */
 @MeshNodeAnnotation(id = "apply_bone")
 public class ApplyBoneNode implements MeshNode {

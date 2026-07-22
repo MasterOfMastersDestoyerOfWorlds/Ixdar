@@ -17,17 +17,9 @@ import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
- * Deforms curve points using a float curve closure. For each point:
- * <ol>
- *   <li>Read the source_axis coordinate</li>
- *   <li>Map it from [from_min, from_max] to [0, 1]</li>
- *   <li>Evaluate the closure at that parameter</li>
- *   <li>Multiply by amplitude</li>
- *   <li>Add the result to the target_axis coordinate</li>
- * </ol>
- * This replaces the Blender pipeline of input_position → separate_xyz → map_range →
- * evaluate_closure → combine_xyz → set_position for curve geometry, without needing
- * the field context system.
+ * Deforms curve points with a float curve closure: each point's {@code source_axis} coordinate is
+ * remapped from [{@code from_min}, {@code from_max}] to [0, 1], evaluated through the closure,
+ * scaled by {@code amplitude}, and added to its {@code target_axis} coordinate.
  */
 @MeshNodeAnnotation(id = "curve_deform")
 public class CurveDeformNode implements MeshNode {

@@ -11,14 +11,10 @@ import ixdar.geometry.mesh.data.MeshTopology;
 /**
  * Shared utilities for nodes that preserve bezier handle metadata through topology edits.
  * <p>
- * Pattern: collect per-directed-edge handle offsets into a {@link Map} keyed by
- * {@link #dirPack(int, int)}, then {@link #flushDirectedHandles(MeshTopology, Map)}
+ * Collect per-directed-edge handle offsets into a {@link Map} keyed by
+ * {@link #dirPack(int, int)}, then call {@link #flushDirectedHandles(MeshTopology, Map)}
  * to realize them as {@code _bezier_handles_start / _bezier_handles_end} float arrays
  * indexed by the output mesh's edge IDs.
- * <p>
- * Consumers: {@link CoonsLoopCutNode} (existing), and upcoming curve-preserving
- * variants of {@code extrude_mesh}, {@code inset_faces}, {@code mirror_geometry},
- * {@code merge_by_distance}, {@code transform_geometry}.
  */
 public final class CoonsHandleBuilder {
     public static final int NUM_32 = 32;
@@ -105,13 +101,9 @@ public final class CoonsHandleBuilder {
 
     /**
      * Returns the four cubic bezier control points of the curve on edge
-     * {@code eid}, oriented so that {@code P0} is at {@code fromVid} and
-     * {@code P3} is at the other endpoint.
-     * <p>
-     * Reads handle offsets from {@code hStart} / {@code hEnd} (both indexed by
-     * {@code eid * 3}). The canonical direction of the edge is defined by its
-     * half-edge — if {@code fromVid} is the canonical end, the returned array is
-     * reversed (and handle offsets swapped) to match the requested direction.
+     * {@code eid}, oriented so that {@code P0} is at {@code fromVid}. When
+     * {@code fromVid} is the canonical half-edge's end vertex, the points and
+     * their handle offsets are reversed to match the requested direction.
      *
      * @param mesh source topology
      * @param hStart start-handle slot data ({@code 3 * eid} indexed)
@@ -166,17 +158,12 @@ public final class CoonsHandleBuilder {
     }
 
     /**
-     * Rebuilds bezier handle slots after a vertex-welding operation (e.g.,
-     * {@code merge_by_distance}). Given the input mesh + its handle arrays, and
-     * the output mesh produced by welding, maps each input edge to the
-     * corresponding output edge by matching welded endpoint positions (nearest
-     * neighbour within {@code 2 * weldDist}) and copies the input edge's
-     * handles onto a directed-handle map, then flushes into fresh output
-     * handle arrays.
+     * Rebuilds bezier handle slots after a vertex-welding operation such as
+     * {@code merge_by_distance}, pairing input to output edges by nearest
+     * welded endpoint within {@code 2 * weldDist}.
      * <p>
-     * Edges that collapse into a single vertex during the weld are skipped.
-     * When two input edges map onto the same output edge (duplicates), the
-     * first one wins.
+     * Edges that collapse into a single vertex are skipped, and when two input
+     * edges map onto the same output edge the first one wins.
      *
      * @param inHStart start-handle data on the input mesh, indexed by input edge id
      * @param inHEnd end-handle data on the input mesh, indexed by input edge id
@@ -335,12 +322,10 @@ public final class CoonsHandleBuilder {
     }
 
     /**
-     * Samples the cubic Bezier on undirected edge {@code eid} so that
-     * {@code t=0} is at {@code expectedStartVid} (one of the edge endpoints),
-     * regardless of the underlying half-edge direction. When the half-edge
-     * canonical direction disagrees, the parameter is flipped rather than the
-     * control points, guaranteeing bitwise-identical output for the two faces
-     * sharing this edge. Mirrors the convention in CoonsPatchNode.
+     * Samples the cubic Bezier on undirected edge {@code eid} so that {@code t=0}
+     * is at {@code expectedStartVid}. When the canonical half-edge direction
+     * disagrees the parameter is flipped rather than the control points, so the
+     * two faces sharing the edge get bitwise-identical samples.
      *
      * @param mesh source topology
      * @param hStart start-handle slot data
@@ -377,16 +362,10 @@ public final class CoonsHandleBuilder {
     }
 
     /**
-     * Coons surface normal at parameter {@code (u, v)} on a quad face:
-     * {@code (∂S/∂u × ∂S/∂v)} computed by symmetric finite difference on
-     * {@link #evalCoonsSurface}. Returns a unit vector; zero-length result is
-     * returned untouched so the caller can detect a degenerate face.
-     * <p>
-     * The sign is chosen so the normal points in the same half-space as the
-     * face's flat-polygon normal (cross of two adjacent edge vectors at v0),
-     * which is the "outward" direction for a typical cage. For corners on the
-     * boundary of the parameter square, the finite difference is one-sided
-     * toward the interior.
+     * Coons surface normal at parameter {@code (u, v)} on a quad face, by
+     * symmetric finite difference on {@link #evalCoonsSurface}, one-sided at the
+     * parameter-square boundary. Signed to match the face's flat-polygon normal;
+     * a zero-length result signals a degenerate face.
      *
      * @param mesh source topology
      * @param hStart start-handle slot data
@@ -439,14 +418,9 @@ public final class CoonsHandleBuilder {
 
     /**
      * Evaluates the Coons-patch surface S(u, v) for a quad face with
-     * bezier-handled boundary edges. The 4 corner vertices are v0, v1, v2, v3
-     * in face-winding order; the 4 edges {@code e0..e3} likewise, with
-     * {@code e0} being the v0→v1 edge.
-     * <p>
-     * {@code (u=0, v=0)} is at v0; {@code (u=1, v=0)} is at v1;
-     * {@code (u=1, v=1)} is at v2; {@code (u=0, v=1)} is at v3.
-     * Matches {@link CoonsPatchNode}'s bilinear blend with smootherStep
-     * easing.
+     * bezier-handled boundary edges. Corners v0..v3 and edges {@code e0..e3} are
+     * in face-winding order with {@code e0} the v0→v1 edge, so {@code (0, 0)} is
+     * at v0, {@code (1, 0)} at v1, {@code (1, 1)} at v2 and {@code (0, 1)} at v3.
      *
      * @param mesh source topology
      * @param hStart start-handle slot data

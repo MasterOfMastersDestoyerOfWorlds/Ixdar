@@ -10,41 +10,18 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 
 /**
- * A hand-authored embedded T-mesh on a flat grid, carrying LCBK19 Figure 9's configuration on a
- * surface that, like the figure's, <em>has a boundary</em>.
- *
- * <p>{@link TorusLayoutFixture} models the same combinatorics on a closed torus, which keeps the
- * arithmetic simple but cannot reach the case the figure is actually about. LCBK19 is a
- * free-boundary paper: every panel of Figure 9 has the trimmed boundary running down its right-hand
- * side, and Appendix A.3 shows that of the three kinds of non-collapsible zero-arc, the only kind
- * that can occur at all is <em>"a non-border zero-arc a between two non-critical border nodes"</em>,
- * whose ends <em>"will eventually be collapsed onto a common point on the surface boundary"</em> so
- * that <em>"the arc a thereby turns into a loop (same start and end point), which can be contracted
- * to a point"</em>. Loops are a boundary phenomenon, and a closed fixture cannot produce one on
- * purpose.
- *
- * <p>The layout below is Figure 9(a) reduced to its load-bearing parts. The blue zero-patch of the
- * figure is the upper cell here: its two vertical sides are quantized zero, so it is a zero-patch,
- * and its horizontal sides carry three non-zero arcs between them — 1 and 3 along the bottom, 4
- * along the top — which is exactly the paper's test for <em>non-simple</em>: <em>"more than two
- * non-zero arcs are involved, i.e. if there are flat arcs, corresponding to T-joints along the
- * patch's non-zero sides."</em> The T-joint sits at the middle node, where the figure's mismatched
- * side lengths (4 against 3) come from.
+ * Embedded T-mesh fixture on a bounded flat grid, the boundary counterpart to
+ * {@link TorusLayoutFixture}: the upper cell's vertical arcs are quantized zero, and the T-joint
+ * at E makes that zero-patch non-simple.
  *
  * <pre>
- *   row 4   G-----------------------------H      top     (arc 4)
- *           |   zero-patch, width 0       |
- *   row 2   D---------E-------------------F      middle  (arcs 1, 3 — T-joint at E)
- *           |         |                   |
- *   row 0   A---------B-------------------C      bottom  (arcs 1, 3)
+ *   row 4   G-----------------------------H
+ *   row 2   D---------E-------------------F
+ *   row 0   A---------B-------------------C
  *         col 0       4                   8
  * </pre>
  *
- * <p>The vertical arcs {@code D–G} and {@code F–H} are quantized zero, which is what flattens the
- * upper cell. The complex is a disk: eight nodes, ten arcs and three patches give
- * {@code V - E + F = 1}, so the Euler characteristic is as complete a correctness check here as it
- * is on the torus, and the outer arcs bound one patch each rather than two, as a trimmed surface's
- * do.
+ * <p>See also: LCBK19 Figure 9
  */
 public final class PlaneLayoutFixture {
 

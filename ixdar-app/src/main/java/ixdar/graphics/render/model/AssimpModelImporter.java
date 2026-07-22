@@ -23,12 +23,9 @@ public class AssimpModelImporter {
 
     /**
      * Load a model file with Assimp and produce interleaved
-     * {@code (px, py, pz, nx, ny, nz, u, v)} vertices plus triangle indices.
-     * Triangulates, joins identical vertices, and generates smooth normals if
-     * the source lacks them. Multiple meshes in the scene are concatenated.
-     * UVs default to {@code (0, 0)} when the source has no texture coords.
-     * The bounding sphere is computed from the union AABB and a radius pass
-     * over all vertices.
+     * {@code (px, py, pz, nx, ny, nz, u, v)} vertices plus triangle indices, triangulating,
+     * joining identical vertices, and generating smooth normals when the source lacks them.
+     * Multiple meshes in the scene are concatenated and missing UVs default to {@code (0, 0)}.
      *
      * @param absoluteModelPath filesystem path passed to {@code aiImportFile}
      * @throws IOException if Assimp fails to load the file or the imported scene contains no geometry

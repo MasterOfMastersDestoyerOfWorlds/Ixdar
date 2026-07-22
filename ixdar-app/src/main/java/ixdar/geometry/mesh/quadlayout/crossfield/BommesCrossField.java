@@ -22,12 +22,11 @@ import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 
 /**
- * A Cross Field is a set of angles and period jumps for each face and edge of a
- * mesh that follow the curvature of the mesh. A properly structured cross has
- * two direction vectors per face, in the face's local x, y basis. This "cross"
- * on each face should tell us how we'd like to dissect the underlying triangle
- * mesh into quads. Singularities are vertices where there are fewer or more
- * than 4 edges incident to the singular vertex.
+ * Cross field solved as a mixed-integer problem over per-face angles and
+ * per-edge period jumps, with greedy rounding followed by a local search over
+ * period jumps.
+ *
+ * <p>See also: BZK09 Section 4
  */
 public class BommesCrossField extends CrossField {
     public static final long LOCAL_SEARCH_BUDGET_MS = 3000L;
@@ -141,15 +140,12 @@ public class BommesCrossField extends CrossField {
     }
 
     /**
-     * BZK09 §4.2 "Local Search Singularity Optimization" post-process. For each
-     * edge incident to a current singularity, try changing the period jump by ±1
-     * and re-solve theta. The Laplacian-style theta-only matrix is factorized once
-     * and reused across all candidate solves (the matrix is unchanged when only
-     * period jumps shift; only the RHS changes).
-     * 
-     * <p>
-     * Per the paper this often eliminates spurious singularities that the greedy
-     * rounding placed in flat regions, dramatically reducing the count.
+     * For each edge incident to a current singularity, tries changing the period
+     * jump by ±1 and re-solves theta, keeping the improvement. The theta-only
+     * matrix is factorized once and reused: shifting period jumps changes only the
+     * right-hand side.
+     *
+     * <p>See also: BZK09 Section 4.2
      */
     private void localSearchSingularityOptimization() {
 
@@ -255,12 +251,11 @@ public class BommesCrossField extends CrossField {
     }
 
     /**
-     * Build the right-hand-side for the theta-only Laplacian, walking interior
-     * edges and accumulating ±(κ + (π/2)·p) into the two incident faces. If
-     * {@code perturbEdge >= 0}, that edge uses {@code perturbedP} instead of
-     * {@code periodJump[perturbEdge]}. Constrained-face contributions are left out
-     * of the RHS — {@link AdaptiveSolver#solveCompact} folds them in via the
-     * {@code start} / {@code fixed} arguments.
+     * Builds the right-hand side for the theta-only Laplacian by accumulating
+     * ±(κ + (π/2)·p) over interior edges into the two incident faces, using
+     * {@code perturbedPeriodJump} for {@code perturbEdge} when that is non-negative.
+     * Constrained-face contributions are omitted here;
+     * {@link AdaptiveSolver#solveCompact} folds them in.
      */
     private void buildRhs(double[] rhs, int perturbEdge, int perturbedPeriodJump) {
         Arrays.fill(rhs, 0.0);

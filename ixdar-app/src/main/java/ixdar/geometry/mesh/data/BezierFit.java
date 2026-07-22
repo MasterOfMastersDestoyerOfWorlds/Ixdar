@@ -5,15 +5,8 @@ import org.joml.Vector3f;
 /**
  * Least-squares fit of a cubic Bezier curve to a polyline sample.
  *
- * <p>Endpoints P₀ and P₃ are pinned to the polyline's first and last
- * points. Interior control points P₁ and P₂ are solved by minimising
- * Σ‖Pᵢ − B(tᵢ)‖² where tᵢ is the chord-length parameterisation and
- * B(t) is the cubic Bernstein expansion. Per-axis the system reduces
- * to a 2×2 linear solve, so this is closed-form arithmetic with no
- * external linear-algebra dependency.
- *
- * <p>Used by PATCH-16 (Coons reconstruction-error base case) to turn
- * each patch boundary side into a smooth curve before the Coons blend.
+ * <p>Endpoints P₀ and P₃ are pinned to the polyline's first and last points; interior control
+ * points P₁ and P₂ minimise Σ‖Pᵢ − B(tᵢ)‖² over the chord-length parameterisation.
  */
 public final class BezierFit {
     public static final int NUM_3 = 3;

@@ -8,27 +8,13 @@ import java.util.Set;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
- * LCBK19 §6.1 operator (1), the zero-arc collapse, on the embedded T-mesh.
+ * Operator (1), the zero-arc collapse: one endpoint node is embedded onto the other,
+ * dragging its incident arcs with it.
  *
- * <p>The paper: <em>"Let a be an arc collapsible from n0 to n1. Its collapse changes the
- * T-mesh embedding: n0 is embedded onto n1, pulling its incident arcs with it (their
- * embedding path is adjusted such that they connect to n0 at its new position). Arc a is
- * embedded onto a single point (coincident with the nodes n0 and n1). If n0 now lies at a
- * critical point, it is subsequently considered critical."</em>
+ * <p>An endpoint may move when non-critical and either a non-border node or on a border
+ * arc. With neither movable this throws.
  *
- * <p>Collapsibility is LCBK19 Def 6.2: a zero-arc {@code a} is collapsible in the direction
- * {@code n0 → n1} iff {@code n0} is non-critical, and either {@code a} is a border arc or
- * {@code n0} is a non-border node. Critical nodes hold prescribed integer positions and are
- * never moved; that restriction is what guarantees singularities and feature points stay
- * where the quantization put them. On a closed surface no node is a border node, so the
- * condition reduces to "the moving node is non-critical", but the border clause is honoured
- * so the same operator serves the trimmed case.
- *
- * <p>When both endpoints are movable the paper does not say which to move; this moves the
- * one with fewer incident arcs (a cheaper re-route), breaking ties toward the lower node id
- * so the choice is deterministic. When neither endpoint is movable — a zero arc between two
- * critical nodes — the quantization has placed two prescribed points at zero distance, which
- * its separation test is meant to forbid, so this throws rather than silently accepting it.
+ * <p>See also: LCBK19 Def 6.2
  */
 public final class ZeroArcCollapseOperator {
 
@@ -106,16 +92,11 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * The pivot's incident arcs in cyclic fan order around it, starting from the spoke adjacent to
-     * the collapsing arc's channel, so that as each is dragged onto the survivor it lies just
-     * outside the previous one and they fan out rather than fencing each other in. LCBK19 pulls a
-     * node's incident arcs with it as a fan; the arbitrary {@code arcEndsByNode} order does not
-     * preserve that fan, which is what lets an early-dragged sibling wall a later one.
+     * The pivot's incident arcs in cyclic fan order, starting from the spoke adjacent to the
+     * collapsing arc's channel, so a dragged arc cannot fence in a later one.
      *
-     * <p>The order comes from rotating the copy mesh's outgoing half-edges around the pivot vertex
-     * ({@code twin(prev(halfEdge))}); the copy mesh's per-vertex edge list is construction-order,
-     * not rotational, so it cannot be used for this. Any incident arc the rotation misses — a
-     * boundary fan does not close — is appended afterwards so every incident arc is still dragged.
+     * <p>Rotates the copy mesh's half-edges around the pivot rather than reading
+     * {@code arcEndsByNode}; arcs the rotation misses are appended.
      *
      * @param pivotVertex     the collapsing node's copy vertex
      * @param channelNeighbor the channel vertex adjacent to the pivot, whose spoke starts the fan

@@ -4,14 +4,9 @@ import org.bytedeco.javacpp.Loader;
 import org.bytedeco.mkl.global.mkl_rt;
 
 /**
- * Always-auto Cholesky backend selection, the solver-package analogue of the
- * {@code ixdar.platform.gl} launcher choosing {@code LwjglGL} vs
- * {@code HeadlessGL}: here the discriminator is native-library availability
- * rather than the entry point, so the choice lives in this one factory
- * instead of the launchers. There is deliberately no flag or property — every
- * factorization uses the fastest backend that can load, and
- * {@link EjmlCholeskyFactor} is the permanent pure-Java fallback (used on
- * mac, where MKL ships no artifacts, and anywhere the natives fail to load).
+ * Cholesky backend selection by native-library availability. There is no flag or
+ * property: every factorization uses the fastest backend that loads, falling back
+ * to {@link EjmlCholeskyFactor} when the natives are unavailable.
  */
 public final class CholeskyBackend {
 
@@ -22,11 +17,10 @@ public final class CholeskyBackend {
     }
 
     /**
-     * Kick off the native-library probe on a background daemon thread so the
-     * ~0.7s MKL load overlaps earlier pipeline stages instead of stalling the
-     * first factorization. Safe to call repeatedly; only the first call
-     * spawns a thread, and {@link #pardisoAvailable()} is synchronized so a
-     * concurrent foreground probe simply waits for the same load.
+     * Kick off the native-library probe on a background daemon thread so the MKL
+     * load overlaps earlier pipeline stages. Safe to call repeatedly; only the
+     * first call spawns a thread, and a concurrent foreground
+     * {@link #pardisoAvailable()} waits for the same load.
      */
     public static synchronized void preloadAsync() {
         if (preloadStarted) {

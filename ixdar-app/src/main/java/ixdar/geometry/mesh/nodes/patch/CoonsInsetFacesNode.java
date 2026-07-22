@@ -24,24 +24,12 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
- * Curve-preserving inset for bezier Coons cages. Unlike {@code inset_faces}
- * (which places the inner vertices by lerping each cage corner toward the
- * face centroid — a flat-cage operation), this node evaluates the Coons
- * surface at inner-corner parameters and places vertices <em>on the surface
- * itself</em>. New edges carry handles derived from sub-curves of the face's
- * iso-curves, so the subsequent {@code coons_patch} reproduces the original
- * smooth surface everywhere except inside the inset, which becomes a proper
- * depression in the surface rather than a collection of bumpy quads (the
- * "cheese grater" artifact).
+ * Curve-preserving inset for bezier Coons cages: inner vertices are placed by
+ * evaluating the Coons surface at inner-corner parameters, and new edges carry
+ * handles taken from sub-curves of the face's iso-curves.
  *
- * <p>Input geometry <strong>must</strong> carry bezier handle slots produced
- * by {@code assign_bezier_handles}. Input without handles is passed through
- * unchanged with a console warning; use plain {@code inset_faces} for
- * topology-only insets on unhandled meshes.
- *
- * <p>Typical workflow:
- * {@code cube → loop_cut → assign_bezier_handles → coons_inset_faces →
- * coons_patch → merge_by_distance}.
+ * <p>Input geometry <strong>must</strong> carry bezier handle slots produced by
+ * {@code assign_bezier_handles}; input without handles passes through unchanged.
  */
 @MeshNodeAnnotation(id = "coons_inset_faces")
 public class CoonsInsetFacesNode implements MeshNode {
@@ -539,11 +527,10 @@ public class CoonsInsetFacesNode implements MeshNode {
     }
 
     /**
-     * Dry-run equivalent of the fan walk below. Returns whether the fan
-     * would close on the starting face without actually allocating cyan
-     * dots. Used to determine which 3+ corners will successfully allocate
-     * before doing the 2-face merge pass — so partial-merge non-manifold
-     * output is avoided at shared edges adjacent to failed 3+ corners.
+     * Dry run of the fan walk in {@link #allocate3PlusCorner}: whether the fan
+     * around {@code denseVid} closes on its starting face, allocating nothing.
+     * Corners that fail here must be skipped by the 2-face merge pass, which
+     * would otherwise emit non-manifold output at their shared edges.
      */
     private static boolean fanCompletes(MeshTopology in, int denseVid,
                                         List<int[]> atV, Set<Integer> sharedEdgeIds,
@@ -584,12 +571,10 @@ public class CoonsInsetFacesNode implements MeshNode {
     }
 
     /**
-     * Allocate cyan-dot verts + central-fill corner list for a 3+ cage
-     * vertex where 3 or more selected faces meet pairwise along shared cage
-     * edges. Walks the selected-face fan CCW around the vertex via shared
-     * edges; bails (leaving the corner face-local at all participating faces
-     * via a default fallback) if the fan doesn't form a complete pairwise-
-     * adjacent cycle.
+     * Allocates the shared inner vertices and central-fill corner list for a cage
+     * vertex where three or more selected faces meet along shared edges. Leaves
+     * the corner face-local at every participating face when the fan is not a
+     * complete pairwise-adjacent cycle.
      */
     private static void allocate3PlusCorner(MeshTopology in, float[] hStart, float[] hEnd,
             int denseVid, List<int[]> atV, Set<Integer> sharedEdgeIds,
@@ -719,9 +704,7 @@ public class CoonsInsetFacesNode implements MeshNode {
      * (u,v) params for the point {@code s=t} along an edge incident to corner
      * {@code k}. The "fwd" edge is {@code faceEdgeAt(fid, k)} (from corner k to
      * k+1); the "back" edge is {@code faceEdgeAt(fid, (k+3)%4)} (from corner
-     * k-1 to k). Used when the inner vert at this corner is merged onto the
-     * shared edge's bezier curve — the resulting point lies on the Coons
-     * surface by construction.
+     * k-1 to k).
      */
     private static float[] edgePointUV(int k, float t, boolean fwdEdge) {
         if (fwdEdge) {
@@ -806,10 +789,8 @@ public class CoonsInsetFacesNode implements MeshNode {
     /**
      * Writes directed handles for a radial edge from an outer cage corner at
      * parameter {@code (uStart, vStart)} to an inner corner at
-     * {@code (uEnd, vEnd)}. The path traces a diagonal through the Coons
-     * surface; we fit a cubic bezier using tangent samples at both endpoints
-     * (finite difference along the diagonal direction) with magnitude = chord
-     * length / 3, the standard cubic approximation.
+     * {@code (uEnd, vEnd)}, fitting a cubic bezier to the diagonal through the
+     * Coons surface from finite-difference tangents of magnitude chord/3.
      */
     private static void addRadialHandles(
             MeshTopology mesh, float[] hStart, float[] hEnd,

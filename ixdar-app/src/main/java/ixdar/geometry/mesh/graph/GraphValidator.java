@@ -16,14 +16,10 @@ import ixdar.annotations.meshnode.PortType;
 import ixdar.parsing.python.PythonParser;
 
 /**
- * Static validation pass over a parsed DSL graph. Catches the errors that would
- * otherwise blow up at runtime: duplicate node ids, unknown node types (with a
- * fuzzy "did you mean..." suggestion), unknown input port names, unknown source
- * nodes/ports on edges, and edge type mismatches.
+ * Static validation pass over a parsed DSL graph: duplicate ids, unknown node types
+ * and input ports, unknown edge sources, and edge type mismatches.
  *
- * <p>Type compatibility is intentionally permissive: FLOAT⇄INT, MESH⇄GEOMETRY_BUNDLE
- * and CLOSURE⇄CLOSURE are all considered legal, matching the runtime's coercion
- * behaviour.
+ * <p>Type compatibility is permissive: FLOAT⇄INT and MESH⇄GEOMETRY_BUNDLE are legal.
  */
 public final class GraphValidator {
     public static final String LINE = "Line ";

@@ -11,25 +11,12 @@ import ixdar.geometry.mesh.data.SemanticPatchDecomposer.EdgeDihedrals;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
- * Saddle-point separator detection (PATCH-13).
+ * Saddle-point separator detection: at vertices where one principal curvature is strongly
+ * positive and the other strongly negative, cuts a short chain of edges along the
+ * positive-curvature direction, bisecting the perpendicular valley.
  *
- * <p>Complements {@link CrestLineDetector} for a case the Yoshizawa ridge
- * tracer geometrically cannot handle: adjacent teeth on a mandible. The
- * valley between two adjacent teeth runs ALONG the gum line, not ACROSS
- * the inter-tooth gap. Yoshizawa NMS walks along the min-curvature
- * direction, so it traces the gum-line valley but never produces the
- * perpendicular cuts needed to separate two teeth from each other.
- *
- * <p>At the bottom of an inter-tooth valley the surface is a saddle:
- * one principal curvature is strongly positive (sweeping up onto the
- * tooth to either side), the other strongly negative (the valley
- * running along the row). A short cut ALONG the positive-curvature
- * direction from that saddle bisects the inter-tooth gap.
- *
- * <p>Output is a set of "separator edges" that {@link SemanticPatchDecomposer}
- * unions into {@code allFeatureEdges} and {@code crest.crestEdges} so
- * region-growing cannot cross them and the small-patch merge cannot
- * stitch across them.
+ * <p>{@link SemanticPatchDecomposer} unions these edges into both the feature-edge and
+ * crest-edge sets, blocking region growing and small-patch merging alike.
  */
 public final class SaddlePointDetector {
     public static final int NUM_3 = 3;

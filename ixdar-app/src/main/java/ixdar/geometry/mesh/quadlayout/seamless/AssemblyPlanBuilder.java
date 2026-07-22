@@ -6,19 +6,12 @@ import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
 
 /**
  * Primitive-array accumulator for {@link SeamlessDofSystem}'s cached assembly
- * playback plan. Replaces the previous per-face boxed
- * {@code HashMap<Long, Double>} accumulation (three map allocations per face
- * and a ~million-entry boxed key→slot map — the second-largest GC source in the
- * seamless build) with per-face scratch arrays deduplicated by linear scan
- * (per-face entry counts are tiny) and slot resolution by binary search into
- * the sorted unique key array.
+ * playback plan.
  *
  * <p>
- * Usage: {@code beginFace()} … {@code addOuterProduct}/{@code addRhsExpansion}
- * … {@code endFace(face)} per face in order, then {@code finish(upperScale)}
- * once; results are read from the public plan arrays. Accumulation order per
- * key matches the previous implementation call-for-call, so assembled values
- * are bit-identical.
+ * Call {@code beginFace()}, then {@code addOuterProduct} / {@code addRhsExpansion},
+ * then {@code endFace(face)} for each face in order, then {@code finish(upperScale)}
+ * once. Results are read from the public plan arrays.
  */
 public final class AssemblyPlanBuilder {
 
@@ -315,12 +308,10 @@ public final class AssemblyPlanBuilder {
     }
 
     /**
-     * Build the cached assembly playback log. Walks every face once, accumulating
-     * per-face contributions through {@link AssemblyPlanBuilder}'s primitive
-     * scratch arrays; the builder compacts into the CSR-style flat arrays used for
-     * fast replay. Gauge-pin contributions go into the static arrays since they
-     * don't vary with face weight. Halve correction (× {@link #UPPER_HALVE_FACTOR})
-     * is baked into the upper coefficients by the builder's finish step.
+     * Build the cached assembly playback log, walking every face once and compacting
+     * into the CSR-style flat arrays used for replay. Gauge-pin contributions go
+     * into the static arrays because they do not vary with face weight, and the
+     * {@link #UPPER_HALVE_FACTOR} correction is baked into the upper coefficients.
      *
      * @param seamless              seamless build providing per-face geometry,
      *                              areas, and gradient targets

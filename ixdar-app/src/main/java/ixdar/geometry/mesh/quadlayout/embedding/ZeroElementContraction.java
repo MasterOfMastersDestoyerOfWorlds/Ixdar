@@ -13,18 +13,13 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
 
 /**
- * LCBK19 §6.1 zero-arc collapse (operator 1) over the embedded T-mesh: every
- * zero-quantized arc is re-embedded onto a single point by moving its movable
- * node onto the other (Def 6.2 — critical nodes never move, feature-bound
- * nodes move only along feature arcs), pulling the incident arcs' paths with
- * it via claims-respecting re-routing. Collapse-clusters come from the
- * combinatorial {@link LayoutExtraction}; each cluster contracts onto one
- * anchor vertex (the critical member's vertex when one exists), member by
- * member along a spanning search of its zero arcs, and leftover intra-cluster
- * zero arcs — loops at the anchor after both endpoints merged — contract by
- * releasing their claims. After {@link #build}, every zero arc's path is a
- * single vertex and every positive arc's path connects its endpoint nodes'
- * current vertices.
+ * Zero-arc collapse (operator 1): every zero-quantized arc is re-embedded onto a
+ * point by moving its movable node onto the other, dragging the incident arcs'
+ * paths. Critical nodes never move.
+ *
+ * <p>After {@link #build}, every zero arc's path is a single vertex.
+ *
+ * <p>See also: LCBK19 Section 6.1
  */
 public final class ZeroElementContraction {
 
@@ -124,12 +119,9 @@ public final class ZeroElementContraction {
     }
 
     /**
-     * Contract one cluster: pick the anchor (a critical member's vertex when
-     * one exists, else the lowest node id's), collapse zero arcs outward from
-     * the anchor moving each newly reached member onto it, then contract the
-     * remaining intra-cluster zero arcs as loops. Throws when two critical
-     * members would have to merge (a quantization separation violation) or a
-     * member cannot be reached over movable arcs.
+     * Contract one cluster onto an anchor vertex — a critical member's when one
+     * exists, else the lowest node id's — then contract the remaining
+     * intra-cluster zero arcs as loops.
      *
      * @param members  node ids in the cluster
      * @param zeroArcs zero-quantized arc ids within the cluster
@@ -306,10 +298,9 @@ public final class ZeroElementContraction {
 
     /**
      * Re-route the end of an arc's path from the moved node's old vertex onto
-     * the target: keep a prefix of the old path, route from its last kept
-     * vertex to the target through a corridor seeded with the old path and
-     * the collapse channel, backing off to an earlier prefix when the search
-     * cannot pass. The stored path keeps its start-node-first orientation.
+     * the target, keeping a prefix of the old path and backing off to an earlier
+     * prefix when the search cannot pass. The stored path keeps its
+     * start-node-first orientation.
      *
      * @param arcId        arc whose path follows the moved node
      * @param path         current embedded path

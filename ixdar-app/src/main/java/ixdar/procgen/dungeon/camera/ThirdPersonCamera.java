@@ -7,14 +7,12 @@ import ixdar.procgen.dungeon.player.PlayerController;
 import ixdar.procgen.dungeon.values.TileGridValue3D;
 
 /**
- * Orbits the camera around a pivot point above the player's body. Mouse deltas drive
- * azimuth (Y-rotation) and elevation; scroll wheel drives the desired distance. Each frame,
- * {@link #update} writes back into the shared {@link Camera3D}'s position / yaw / pitch and
- * sweeps the camera in toward the pivot using {@link CameraGridSweep} so it doesn't clip walls.
+ * Orbits the camera around a pivot above the player's body: mouse deltas drive azimuth and
+ * elevation, scroll drives distance, and {@link #update} writes position, yaw and pitch back
+ * into the shared {@link Camera3D} after sweeping in with {@link CameraGridSweep}.
  *
- * <p>Convention: matches {@code Camera3D.yaw} (atan2-based) so the existing
- * {@code PlayerController.update(camera.yaw)} contract continues to work — WASD movement is
- * relative to the on-screen horizontal direction without any extra plumbing.
+ * <p>Yaw follows {@code Camera3D}'s atan2 convention, which is what
+ * {@code PlayerController.update} expects.
  */
 public final class ThirdPersonCamera {
     public static final double NUM_90_0 = 90.0;

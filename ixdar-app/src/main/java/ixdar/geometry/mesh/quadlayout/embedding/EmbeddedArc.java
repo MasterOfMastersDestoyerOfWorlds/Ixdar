@@ -1,18 +1,11 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
 /**
- * An arc of the embedded T-mesh: one T-mesh arc, realized as a path of edges in the
- * working copy of the triangle mesh, running from its start node's vertex to its end
- * node's vertex.
+ * One T-mesh arc, realized as a path of edges in the working copy from its start node's
+ * vertex to its end node's vertex.
  *
- * <p>The quantized length is the arc's prescribed parametric length, and it is the only
- * length that matters to the operators; the arc's geometric length on the surface is
- * irrelevant to them. An arc quantized to zero still has a real, positive extent on the
- * mesh — it is a curve that the quantization has decided should be a point, and closing
- * that gap is exactly what LCBK19's operators do.
- *
- * <p>An arc bounds two patches. Which is "left" and which is "right" is fixed by the
- * arc's own direction, from start node to end node.
+ * <p>The operators consider only the quantized parametric length; an arc quantized to
+ * zero still has positive extent on the mesh.
  */
 public final class EmbeddedArc {
 

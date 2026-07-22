@@ -1,21 +1,14 @@
 package ixdar.geometry.mesh.quadlayout.crossfield;
 
 /**
- * Closed-form per-(reference-)triangle entries of the finite-element connection
- * Laplacian and mass matrix from Knoeppel et al., "Globally Optimal Direction
- * Fields" (SIGGRAPH 2013). Ported from the reference implementation's
- * SectionIntegrals.cpp: the stiffness and mass off-diagonals are functions of
- * the triangle holonomy, evaluated by Chebyshev series for |holonomy| <= pi and
- * by a direct formula beyond that, so they stay accurate as a triangle flattens
- * (where naive evaluation divides by holonomy^4).
+ * Closed-form per-triangle entries of the finite-element connection Laplacian and
+ * mass matrix, as functions of the triangle holonomy.
  *
- * <p>All entries are for a unit-area reference triangle: the caller multiplies
- * the mass entries by the triangle area and divides the stiffness entries by it,
- * then applies the edge transport coefficient. Complex results are returned as
- * {@code double[]{ real, imaginary }}.
+ * <p>All entries are for a unit-area reference triangle: the caller scales mass
+ * entries by triangle area and stiffness entries by its inverse, then applies the
+ * transport coefficient.
  *
- * <p>The Chebyshev coefficient tables are numeric constants (computed by the
- * paper's authors); the evaluation routines are reimplemented here.
+ * <p>See also: KCP*13 Section 3
  */
 public final class SectionIntegrals {
 

@@ -12,23 +12,11 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 
 /**
- * Assembles an {@link EmbeddedTMesh} from the real pipeline: the motorcycle-graph T-mesh (nodes,
- * arcs, four-sided patches), the ILP quantization (an integer length per arc), and the carve (an
- * {@link ArcEdgePath} per arc, plus the node→copy-vertex correspondence and per-node/per-arc
- * classification). This is the raw quantized T-mesh — zero arcs and zero patches present — that
- * the {@link EmbeddedContraction} operators then re-embed, so it replaces the old combinatorial
- * extraction/T-junction/contraction fork with the LCBK19 §6.1 operators instead.
+ * Assembles an {@link EmbeddedTMesh} from the motorcycle-graph T-mesh, the ILP quantization and
+ * the carve. Zero arcs and zero patches survive for {@link EmbeddedContraction} to remove.
  *
- * <p>It reuses the carve's own working copy ({@link LayoutEmbedding#topology}) rather than a fresh
- * one, because the carved paths reference copy vertices the carve created by splitting, which only
- * exist in that copy. The carve claimed the copy keyed by source ids; as each arc is added the
- * claims are re-keyed to the embedded ids, so every arc in a patch must be added or a stale claim
- * would remain — which is why the builder adds exactly the arcs the patches bound, and their
- * endpoint nodes, and nothing dangling.
- *
- * <p>Every patch must be a valid rectangle (one boundary cycle, four corners). A patch that is not
- * throws rather than being dropped: a dropped patch is a hole in the partition that the region
- * flood-fill would later report as a tear, far from its cause.
+ * <p>Reuses the carve's working copy, re-keying its claims from source to embedded ids, so
+ * exactly the arcs the patches bound must be added.
  */
 public final class EmbeddedTMeshBuilder {
 

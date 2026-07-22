@@ -212,17 +212,12 @@ public class NDirectionField extends CrossField {
     }
 
     /**
-     * KCP13 §5 soft alignment with feature and boundary edges. Each edge in
-     * {@link CrossField#alignmentEdgeIds} contributes
-     * {@code featureAlignmentWeight · |e| · e^{i·n·θ}} at both endpoints, where θ
-     * is the edge's rescaled angle in the endpoint's tangent frame — the same
-     * pairing template as the Hopf-differential term in
-     * {@link #buildLoadVector()}, but injected directly at power n instead of
-     * power 2: at n = 4 the contribution is direction-insensitive because
-     * {@code e^{i·4(θ+π)} = e^{i·4θ}}. The result is dual-form (already paired
-     * with the basis sections), so it adds straight onto the aligned solve's
-     * right-hand side without a mass solve. Edge ids are visited in sorted order
-     * for run-to-run reproducibility of the floating-point accumulation.
+     * Soft alignment load for feature and boundary edges, contributing
+     * {@code featureAlignmentWeight · |e| · e^{i·n·θ}} at both endpoints of each
+     * edge in {@link CrossField#alignmentEdgeIds}. The result is dual-form, so it
+     * adds straight onto the aligned solve's right-hand side.
+     *
+     * <p>See also: KCP*13 Section 5
      */
     private void buildFeatureAlignmentLoad() {
         featureAlignmentLoad = new double[2 * vertexCount];
@@ -263,12 +258,10 @@ public class NDirectionField extends CrossField {
     }
 
     /**
-     * Rescaled tangent-frame angle of {@code edgeId} at {@code vertexId}.
-     * Prefers the angle cached for {@code preferredHalfEdge}; if that handle is
-     * not one of the vertex's outgoing spokes (can happen for the twin handle of
-     * a boundary edge), falls back to the vertex's outgoing half-edge along the
-     * same edge — valid at power n since the n-fold phase is
-     * direction-insensitive for even n.
+     * Rescaled tangent-frame angle of {@code edgeId} at {@code vertexId}. Prefers
+     * the angle cached for {@code preferredHalfEdge}, falling back to the vertex's
+     * own outgoing half-edge along the same edge; the fallback is only valid at
+     * even n, where the n-fold phase is direction-insensitive.
      *
      * @param vertexId          vertex whose tangent frame the angle is measured in
      * @param preferredHalfEdge half-edge handle expected to originate at the vertex
@@ -931,14 +924,12 @@ public class NDirectionField extends CrossField {
     }
 
     /**
-     * Re-set the theta of every raw-singular face (KCP13 §6.1.3 triangle index
-     * non-zero) by exact transport from its most reliable non-singular
-     * neighbor, making the period jump across that shared edge exactly zero.
-     * A singular face's complex-mean theta is arbitrary (the field has a zero
-     * inside, the corner directions cancel), and a bad value lets the rounded
-     * period jumps split the face's ±1 winding into a phantom dipole among the
-     * face's own vertices; pinning one edge to zero concentrates the winding
-     * at the vertex opposite that edge.
+     * Re-sets the theta of every face with non-zero triangle index by exact
+     * transport from its most reliable non-singular neighbor, zeroing the period
+     * jump across that shared edge and concentrating the face's winding at the
+     * vertex opposite it.
+     *
+     * <p>See also: KCP*13 Section 6.1.3
      *
      * @param faceMeanMagnitude per-face magnitude of the corner-direction
      *                          complex mean (reliability of that face's theta)

@@ -13,20 +13,13 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 
 /**
- * Auto-tag the faces a node just generated with the DSL author's left-hand-side
- * variable name. Invoked by {@link NodeGraphRuntime} immediately after each
- * {@code node.evaluate(ctx)} call.
+ * Auto-tags the faces a node just generated with the DSL left-hand-side variable
+ * name. Called by {@link NodeGraphRuntime} after each {@code node.evaluate(ctx)}.
  *
- * <p>Applicability is decided by port signature, not by node class — any node
- * that exposes both a {@link PortType#BOOLEAN} output named {@code "generated"}
- * and a {@link PortType#GEOMETRY_BUNDLE} output named {@code "geometry"} gets
- * auto-tagging transparently. Today that covers {@code coons_inset_faces},
- * {@code coons_extrude_mesh}, {@code inset_faces}, and {@code extrude_mesh};
- * future feature-creating nodes pick it up without a code change.
- *
- * <p>The resulting per-vertex mask is stored in the geometry bundle's
- * {@link TagGeometryNode#TAGS_SLOT} slot under the LHS name, merged with any
- * pre-existing tags so chained features accumulate.
+ * <p>Applies to any node exposing a {@link PortType#BOOLEAN} output
+ * {@code "generated"} beside a {@link PortType#GEOMETRY_BUNDLE} output
+ * {@code "geometry"}; the merged per-vertex mask is written to
+ * {@link TagGeometryNode#TAGS_SLOT}.
  */
 public final class AutoTagHook {
     public static final String GENERATED = "generated";
@@ -35,13 +28,10 @@ public final class AutoTagHook {
     private AutoTagHook() {}
 
     /**
-     * If {@code node} exposes the {@code generated}+{@code geometry} output pair
-     * and {@code lhs} is non-empty, projects the per-face {@code generated} mask
-     * to a per-vertex mask, merges it (under tag name {@code lhs}) with any
-     * existing tags in the geometry bundle, and writes the updated bundle back
-     * to the {@code geometry} output. No-op when the node doesn't have those
-     * outputs, when the mask is empty or all-false, or when the output mesh has
-     * no vertices/faces.
+     * Projects the node's per-face {@code generated} mask to a per-vertex mask
+     * and merges it under tag name {@code lhs} into the geometry bundle's tags.
+     * No-op when the node lacks that output pair, when the mask is empty or
+     * all-false, or when the output mesh is empty.
      *
      * @param node node that just finished evaluating
      * @param ctx its evaluation context (read outputs / write merged geometry)

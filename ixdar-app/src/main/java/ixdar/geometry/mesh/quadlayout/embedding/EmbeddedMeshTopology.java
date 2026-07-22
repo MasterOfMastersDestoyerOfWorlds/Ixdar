@@ -14,14 +14,13 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 
 /**
- * Working copy of the input mesh for LCBK19 §6 re-embedding, following the
- * mesh-nodes pattern: positions and faces are extracted from the source and
- * rebuilt into a fresh {@link HalfEdgeMesh}; the source is never mutated. All
- * local remeshing (face splits, edge splits, edge collapses) goes through this
- * class so the provenance and claim bookkeeping stays consistent: every copy
- * face knows which source active face it descends from (Dijkstra corridors
- * stay well defined across refinement), and every copy edge/vertex knows which
- * T-mesh arc or node owns it.
+ * Working copy of the input mesh for the re-embedding, rebuilt into a fresh
+ * {@link HalfEdgeMesh}; the source is never mutated.
+ *
+ * <p>All local remeshing must go through this class, which maintains each copy
+ * face's source face and each copy edge's and vertex's owning arc or node.
+ *
+ * <p>See also: LCBK19 Section 6
  */
 public final class EmbeddedMeshTopology {
 
@@ -57,11 +56,8 @@ public final class EmbeddedMeshTopology {
     public int[] ownerArcByCopyVertex;
 
     /**
-     * Copy face ids descending from each source active face. A set rather than a list because
-     * refinement retires faces constantly, and removing from a list means a linear scan with boxed
-     * comparisons over every child a source triangle has ever accumulated — which is quadratic in
-     * exactly the triangles refinement hits hardest. On fertility that single removal was 28% of all
-     * CPU. Iteration order stays insertion order so the child-face search is unchanged.
+     * Copy face ids descending from each source active face, in insertion order, which the
+     * child-face search relies on.
      */
     public final List<Set<Integer>> copyFacesBySourceFace;
 
@@ -76,16 +72,8 @@ public final class EmbeddedMeshTopology {
 
     /**
      * Barycentric coordinate of a copy vertex within a source active face, keyed
-     * by {@link #barycentricKey}. Every copy vertex carries one entry per source
-     * face whose closure it lies in — an interior vertex has one, a vertex on an
-     * original mesh edge has two.
-     *
-     * <p>This is the exactness backbone of the LCBK19 §6.1 carve. The seamless
-     * chart is affine on each face, so a chord that is straight in chart space is
-     * straight in barycentric space: the carve intersects, splits and locates
-     * entirely in these coordinates and never projects a 3D point back onto a
-     * triangle. Minted positions are interpolated from the source face's corners,
-     * so the copy mesh cannot drift off the source surface.
+     * by {@link #barycentricKey}. One entry per source face whose closure the
+     * vertex lies in, so a vertex on an original mesh edge has two.
      */
     private final Map<Long, double[]> barycentricByFaceVertex = new HashMap<>();
 
@@ -198,9 +186,8 @@ public final class EmbeddedMeshTopology {
     /**
      * Split a copy edge at an exact parameter along it, measured from the start
      * vertex of the edge's canonical half-edge. The minted vertex's barycentric is
-     * interpolated in every source face incident to the edge, and its position is
-     * lifted from one of them — so the split introduces no geometric error at all.
-     * This is the only edge split the LCBK19 §6.1 carve performs.
+     * interpolated in every source face incident to the edge and its position is
+     * lifted from one of them, so the split introduces no geometric error.
      *
      * @param copyEdgeId copy edge to split
      * @param parameter  position along the edge in {@code (0, 1)}
@@ -240,14 +227,9 @@ public final class EmbeddedMeshTopology {
     /**
      * Split a copy face at an exact barycentric coordinate of its source face.
      *
-     * <p>The point must lie <em>strictly inside</em> the face, and that is checked
-     * rather than assumed. A face split registers the minted vertex's barycentric in
-     * one source face only, which is correct for an interior point and silently wrong
-     * for a point on the face's boundary: such a point lies on a source edge, is shared
-     * with the neighbouring source face, and needs a coordinate in both. Splitting a
-     * face at a boundary point therefore produces a vertex that a later walk cannot
-     * locate — the failure surfaces one carve step later, in a different face, with no
-     * trace of its cause. Refusing it here is what keeps that class of bug local.
+     * <p>The point must lie <em>strictly inside</em> the face, since the split registers a
+     * barycentric in one source face only. Use {@link #splitEdgeAtParameter} for a point on
+     * the boundary.
      *
      * @param copyFaceId  copy face to split
      * @param barycentric barycentric triple against the source face's corners
@@ -434,13 +416,10 @@ public final class EmbeddedMeshTopology {
     }
 
     /**
-     * Collapse a copy edge onto one of its endpoints (LCBK19 §6.1 zero-arc
-     * contraction step). Fails without mutating when the link condition is
-     * violated (the endpoints share a neighbor besides the two opposite
-     * vertices of the collapsed edge); the caller then splits and retries.
-     * Claims of edges around the discarded vertex transfer to the substituted
-     * edges; node ownership of the discarded vertex transfers to the kept one
-     * when the kept vertex is unowned.
+     * Collapse a copy edge onto one of its endpoints. Fails without mutating when the
+     * link condition is violated; the caller then splits and retries. Claims around the
+     * discarded vertex transfer to the substituted edges, and its node ownership to the
+     * kept vertex when that one is unowned.
      *
      * @param copyEdgeId   copy edge to collapse
      * @param keepVertexId endpoint that survives
@@ -560,22 +539,9 @@ public final class EmbeddedMeshTopology {
     /**
      * Edge id between two copy vertices, found by walking the edges incident to one of them.
      *
-     * <p>The mesh also indexes edges by vertex pair in {@code halfEdgesByDirection}, and asking that
-     * map is the obvious implementation — but it is the wrong one twice over. The key packs the two
-     * vertex ids into the halves of a {@code long}, and {@link Long#hashCode} is
-     * {@code (int) (value ^ (value >>> 32))}, which folds those halves straight back together into
-     * {@code vertexA ^ vertexB}. Endpoints of an edge have close ids — refinement mints them
-     * sequentially and joins them to each other — so the hash of nearly every edge in a refined
-     * region is a small number, thousands of distinct keys land in a few buckets, and the map
-     * degenerates those buckets into red-black trees. Profiling the fertility contraction put 31%
-     * of all CPU in {@code HashMap$TreeNode.find} underneath this one method.
-     *
-     * <p>Walking the incident edges needs no hash and no boxing, and it is what the half-edge
-     * representation is for: an element is reached through its neighbourhood, not looked up. A
-     * vertex has a handful of edges, so this is a short scan of primitives against a tree descent
-     * with {@code Long} comparisons. The adjacency it reads is maintained in lockstep with the map —
-     * {@code createEdgePair} fills both, {@code unregisterHalfEdge} clears both — so the two agree
-     * by construction.
+     * <p>Deliberately not the {@code halfEdgesByDirection} lookup: its packed-pair keys collide
+     * heavily for the close vertex ids refinement mints. The adjacency read here is maintained in
+     * lockstep with that map, so the two agree by construction.
      *
      * @param vertexA first endpoint
      * @param vertexB second endpoint

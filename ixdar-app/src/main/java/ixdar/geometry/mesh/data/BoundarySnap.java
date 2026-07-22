@@ -14,27 +14,13 @@ import java.util.Set;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
- * PATCH-28: post-assembly feature-edge boundary snap (Dong 2005 §4).
- * Reroutes adjacent-cell-pair boundaries through high-confidence
- * feature edges via banded Dijkstra. MSC topology stays intact; cell
- * geometry snaps to detected creases (teeth gum line, eye-socket rim,
- * mandible ridge, etc.).
+ * Post-assembly feature-edge boundary snap: reroutes cell-pair boundaries onto high-confidence
+ * feature edges by banded Dijkstra, moving geometry while leaving MSC topology intact.
  *
- * <p>Pipeline:
- * <ol>
- *   <li>B5a — find cell corners (vertices where ≥3 cell labels meet)
- *       and group boundary edges into chains delimited by corners.</li>
- *   <li>B5b — for each chain, build a band of A∪B-only territory and
- *       run Dijkstra with feature-favoring edge costs from one corner
- *       to the other.</li>
- *   <li>B5c — collect the final per-curve edge sets, flood-fill faces
- *       across non-boundary adjacency, and label each component by
- *       the majority of its constituent old labels.</li>
- * </ol>
+ * <p>A closed-loop curve, where one cell fully encloses another, has no corners to route between
+ * and keeps its original edges.
  *
- * <p>Closed-loop curves (cell fully enclosed by one neighbour) keep
- * their original edges in v1; the synthetic-corner heuristic in the
- * plan would let us snap them too but isn't required for the skull.
+ * <p>See also: Dong 2005 Section 4
  */
 public final class BoundarySnap {
     public static final int NUM_3 = 3;

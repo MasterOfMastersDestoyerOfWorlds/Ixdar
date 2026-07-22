@@ -12,18 +12,11 @@ import ixdar.procgen.dungeon.values.EdgeGraphValue;
 import ixdar.procgen.dungeon.values.RoomListValue3D;
 
 /**
- * 3D Delaunay tetrahedralization over room centers via incremental Bowyer-Watson. Returns the
- * unique edges of the resulting tetrahedral complex as an {@link EdgeGraphValue} indexed by
- * room id. This is the candidate edge set the MST stage filters in 3D pipelines.
+ * 3D Delaunay tetrahedralization over room centers via incremental Bowyer-Watson, returning the
+ * complex's unique edges as an {@link EdgeGraphValue} indexed by room id.
  *
- * <p>The algorithm mirrors {@link DelaunayTriangulation2D}: build a super-tetrahedron enclosing
- * all input points, insert points one at a time (find tetrahedra whose circumsphere contains the
- * new point, remove them, retriangulate the polyhedral hole with the new point), then strip
- * tetrahedra that still touch the super-vertices and emit edges.
- *
- * <p>In-sphere test uses the standard 4x4 determinant on doubles. Tetrahedra are stored with
- * positive signed volume; orientation is repaired at insertion time so the determinant sign
- * reading is consistent.
+ * <p>Tetrahedra are stored with positive signed volume, orientation being repaired at insertion
+ * so the in-sphere determinant sign reads consistently.
  */
 public final class DelaunayTriangulation3D {
     public static final int NUM_4 = 4;

@@ -3,35 +3,12 @@ package ixdar.geometry.mesh.nodes.patch;
 import org.joml.Vector3f;
 
 /**
- * N-sided Charrot–Gregory patch evaluator. Given N cubic Bézier boundary
- * curves forming a closed loop (C_i(1) = C_{i+1}(0) for each i), produces a
- * smooth parametric surface that interpolates all N boundaries using only
- * positional information (no cross-derivative constraints required).
+ * N-sided Charrot–Gregory patch evaluator: given N cubic Bézier boundary curves
+ * forming a closed loop ({@code C_i(1) == C_{i+1}(0)} for each i), produces a
+ * smooth parametric surface interpolating all N boundaries from positional data
+ * alone. Domain points are given in the canonical regular n-gon.
  *
- * <p>Direct Java port of the Blender-Procedural-Human implementation
- * ({@code procedural_human/geo_node_groups/charrot_gregory_patch.py}),
- * following the formulation from Salvi 2020 ("A multi-sided generalization
- * of the C0 Coons patch", arXiv:2002.11347). The math:
- * <ul>
- *   <li>Wachspress-style coordinates parameterize each domain point by per-edge
- *       perpendicular distances in a regular n-gon.
- *   <li>One Coons ribbon is formed over each consecutive triple of edges
- *       (C_{i-1}, C_i, C_{i+1}), with an "opposite" curve reconstructed from
- *       the tangents of C_{i-2} and C_{i+2}.
- *   <li>The final position is a (1-d_i)^2-weighted blend of the N ribbons,
- *       normalised by the weight sum.
- * </ul>
- *
- * <p>For n=3 the "opposite" curve degenerates to a point (C_{i+1}(1) = C_{i-1}(0))
- * — the construction handles this case automatically because tan_ip2 and
- * tan_im2 are the short edges of a degenerate bezier.
- *
- * <p>The Blender impl applies a quintic smoother-step to s_i and d_i before
- * the ribbon evaluation — this is a quality improvement over the paper's
- * raw formulation and we replicate it for parity.
- *
- * <p>Pure math, no dependency on Ixdar mesh types — kept testable in isolation
- * against fixtures exported from the Blender reference.
+ * <p>See also: Salvi 2020
  */
 public final class CharrotGregoryPatch {
     public static final int NUM_3 = 3;

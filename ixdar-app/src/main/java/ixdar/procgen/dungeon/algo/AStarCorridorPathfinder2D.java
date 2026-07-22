@@ -10,16 +10,11 @@ import ixdar.procgen.dungeon.values.RoomListValue.Room;
 import ixdar.procgen.dungeon.values.TileGridValue;
 
 /**
- * A* corridor carving over a 2D grid. Stage 4 of the vazgriz dungeon pipeline. For each edge
- * in the input MST+extras graph, runs grid A* from the center of one room to the other and
- * marks traversed empty cells as HALLWAY. Cost weights favor reusing existing corridors and
- * going around rooms rather than through them.
+ * A* corridor carving over a 2D grid: for each input edge, runs grid A* between the two room
+ * centers and marks traversed empty cells as HALLWAY.
  *
- * <p>The pathfinder mutates a working grid in order of input edges. Later edges benefit from
- * the {@code hallwayReuseCost} incentive, so multiple corridors naturally consolidate onto a
- * shared trunk rather than cutting parallel paths. For this to be stable across runs, callers
- * must feed edges in a deterministic order (the output of {@link PrimMinimumSpanningTree} is
- * sorted by Delaunay index).
+ * <p>Edges carve into a shared working grid in input order, so callers must supply edges
+ * deterministically.
  */
 public final class AStarCorridorPathfinder2D {
     public static final int NUM_4 = 4;

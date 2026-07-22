@@ -3,12 +3,9 @@ package ixdar.geometry.mesh.quadlayout.motorcycle.records;
 import org.joml.Vector3f;
 
 /**
- * Node of the motorcycle T-mesh arrangement. Nodes that sit exactly on a mesh
- * vertex (singularity origins, feature-chain corners, traces terminating on a
- * singular vertex) record that vertex in {@link #vertexId} and are shared by
- * everything arriving there — one mesh vertex never owns two T-mesh nodes,
- * otherwise the arrangement walk finds degree-1 dead ends and the surrounding
- * patches stop being rectangles.
+ * Node of the motorcycle T-mesh arrangement. A node sitting exactly on a mesh
+ * vertex records it in {@link #vertexId} and must be shared by everything
+ * arriving there: one mesh vertex never owns two T-mesh nodes.
  */
 public final class TMeshNode {
 

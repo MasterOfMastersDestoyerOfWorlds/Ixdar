@@ -16,11 +16,9 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
 /**
  * Geometric realization of the conforming quad layout: traces every live
  * {@link LayoutRectangle}'s four boundary sides as 3D polylines on the surface,
- * validates that each patch really is a four-cornered quad (the sides trace,
- * the corners of adjacent sides agree), and tessellates clean quads into Coons
- * sample grids for rendering. Failures are logged per patch with rectangle and
- * root-patch ids — a patch that cannot produce four sound corners is a pipeline
- * failure, not a rendering nuisance.
+ * checks that adjacent sides agree at their shared corners, and tessellates
+ * clean quads into Coons sample grids. Failures are logged per patch with
+ * rectangle and root-patch ids.
  */
 public final class LayoutPatchGeometry {
 
@@ -367,13 +365,10 @@ public final class LayoutPatchGeometry {
     }
 
     /**
-     * Resample a clean quad's four side polylines and blend them into a discrete
-     * Coons grid. The exact polylines are the fill boundary — two patches sharing a
-     * side resample the same lifted points, so their grids coincide along it.
-     * Side-to-Coons convention: side 0 (A→B) is u at v=0, side 2 canonical (D→C) is
-     * u at v=1, side 3 canonical (A→D) is v at u=0, and side 1 (B→C) is v at u=1;
-     * snapping each sampled side's endpoints to the averaged corner positions makes
-     * the four corner identities required by {@link CoonsEvaluator} exact.
+     * Resample a clean quad's four side polylines and blend them into a Coons grid.
+     * Side 0 is u at v=0, side 2 u at v=1, side 3 v at u=0, side 1 v at u=1.
+     * Sampled endpoints snap to the averaged corners, making
+     * {@link CoonsEvaluator}'s corner identities exact.
      *
      * @param curves clean patch whose {@code coonsGrid} gets filled
      */

@@ -12,25 +12,12 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
- * LCBK19 §6.1 operator (2), the non-simple zero-patch split, on the embedded T-mesh.
+ * Operator (2), the non-simple zero-patch split: extends one T-joint across the patch as a new
+ * zero-arc. A half still carrying a T-joint is split again later.
  *
- * <p>The paper: <em>"A zero-patch is non-simple if more than two non-zero arcs are involved,
- * i.e. if there are flat arcs, corresponding to T-joints along the patch's non-zero sides.
- * The T-joints are extended through the patch to the corresponding point on the opposite side
- * by inserting a new zero-arc. This means, if there is a node on the opposite side which has
- * the same quantized distance to either end of the zero-patch, the new arc is connected to
- * this node; otherwise a new node is inserted by splitting an arc at the corresponding
- * location (and marked as critical, if the split arc is critical). The inserted zero-arcs can
- * then be collapsed by operator (1). Note that this operation splits a non-simple zero-patch
- * into several simple zero-patches."</em>
+ * <p>The new arc is quantized to zero but routed as an edge path inside the patch.
  *
- * <p>Each application extends one T-joint and cuts the patch in two; a half that still carries
- * a T-joint is split again on the driver's next pass, so the patch is reduced to simple
- * zero-patches one cut at a time. The new arc is quantized to zero — it exists only to be
- * collapsed by operator (1) — but it is embedded as a real edge path across the patch, routed
- * by the claims-respecting {@link ArcRerouter} confined to the patch's own faces (via
- * {@link PatchRegions}), which is LCBK19's <em>"restricted to not intersect other arcs"</em>
- * satisfied by construction: the patch interior contains no other arc.
+ * <p>See also: LCBK19 Section 6.1
  */
 public final class ZeroPatchSplitOperator {
 
@@ -70,9 +57,8 @@ public final class ZeroPatchSplitOperator {
 
     /**
      * Splits one non-simple zero-patch: extends its first T-joint across to the opposite side,
-     * inserting a zero-arc, and cuts the patch in two. The T-mesh gains one node (the split
-     * point), two arcs (the split of the opposite arc, and the new zero-arc), and one patch,
-     * so its Euler characteristic is unchanged.
+     * inserting a zero-arc, and cuts the patch in two. The T-mesh gains one node, two arcs and
+     * one patch, leaving its Euler characteristic unchanged.
      *
      * @param patchId non-simple zero-patch to split
      * @throws IllegalStateException when the patch has no extendable T-joint
@@ -131,9 +117,9 @@ public final class ZeroPatchSplitOperator {
 
     /**
      * The node at a quantized offset along a patch side, inserting one by splitting an arc
-     * when no node sits exactly there — LCBK19: <em>"if there is a node on the opposite side
-     * which has the same quantized distance… the new arc is connected to this node; otherwise
-     * a new node is inserted by splitting an arc at the corresponding location"</em>.
+     * when no node sits exactly there.
+     *
+     * <p>See also: LCBK19 Section 6.1
      *
      * @param patchId patch the side belongs to
      * @param side    side to walk
@@ -210,28 +196,11 @@ public final class ZeroPatchSplitOperator {
     }
 
     /**
-     * The set of copy vertices bounding a patch's faces, seeding the re-route corridor.
-     *
-     * @param faces the patch's copy faces
-     * @return the vertices of those faces
-     */
-    /**
      * The copy faces one patch covers, found by flooding outwards from inside it and stopping at its
      * own boundary arcs.
      *
-     * <p>This used to come from {@link PatchRegions}, which decomposes the entire layout and asserts
-     * that every patch corresponds to one connected region of faces. That assertion only holds at
-     * the fixed point: a zero-patch is embedded onto a point or a curve, so while it lives it
-     * encloses no faces and corresponds to no region at all. Operator (2) runs precisely when
-     * zero-patches exist — that is its applicability condition — so asking the whole layout to be
-     * region-consistent was asking for something that is never true when the question is put. It
-     * threw on every mesh that ever reached a non-simple zero-patch, which is why the sphere reports
-     * {@code 0 split(s)} and fertility fails the moment it needs its first one.
-     *
-     * <p>Only this patch's faces are wanted, and they are reachable locally: its boundary arcs hold
-     * the copy edges they claim, and those edges are a wall the flood does not cross. The seed is
-     * the face on the patch's side of one of those arcs, which the arc knows — a patch traversing an
-     * arc from its start node lies to that arc's left.
+     * <p>Local by necessity: a live zero-patch encloses no faces, so {@link PatchRegions} cannot
+     * answer this while operator (2) applies.
      *
      * @param patchId patch whose faces are wanted
      * @return the copy faces it covers
@@ -303,6 +272,12 @@ public final class ZeroPatchSplitOperator {
                 + " has no live boundary arc to seed its interior from");
     }
 
+    /**
+     * The set of copy vertices bounding a patch's faces, seeding the re-route corridor.
+     *
+     * @param faces the patch's copy faces
+     * @return the vertices of those faces
+     */
     private Set<Integer> corridorVerticesOf(List<Integer> faces) {
         Set<Integer> corridor = new HashSet<>();
         for (int faceId : faces) {

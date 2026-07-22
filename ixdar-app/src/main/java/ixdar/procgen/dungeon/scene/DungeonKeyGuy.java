@@ -8,17 +8,11 @@ import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.Keys;
 
 /**
- * Dungeon-viewer key handler. Adds three behaviors on top of base {@link KeyGuy}:
+ * Dungeon-viewer key handler: edge-detected <kbd>F</kbd> toggles fly-cam versus player-walk and
+ * <kbd>V</kbd> toggles first- versus third-person, both through caller-supplied callbacks.
  *
- * <ul>
- *   <li>Edge-detected <kbd>F</kbd> press toggles between fly-cam and player-walk modes via the
- *       supplied callback (only fires on the leading edge — holding F doesn't repeat).</li>
- *   <li>Edge-detected <kbd>V</kbd> press swaps between first- and third-person view inside
- *       player mode (no-op in fly-cam).</li>
- *   <li>When in player mode, the parent's WASD-to-camera-move loop is suppressed so the
- *       {@code PlayerController} owns horizontal motion. Otherwise behaves like base
- *       {@link KeyGuy} (fly-cam fallback).</li>
- * </ul>
+ * <p>In player mode the base {@link KeyGuy} WASD-to-camera loop is suppressed, so a
+ * {@code PlayerController} must be driving horizontal motion or the player cannot move.
  */
 public class DungeonKeyGuy extends KeyGuy {
 

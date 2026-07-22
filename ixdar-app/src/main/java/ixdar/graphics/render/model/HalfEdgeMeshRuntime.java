@@ -367,14 +367,9 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
-     * Upload a feature-edge overlay to be drawn in STAGES or CREST_VS_BOUNDARY
-     * modes. Categories draw in the order provided, so later ones overpaint
-     * earlier ones where they share an edge. Colors are 0x00RRGGBB — see
-     * {@link ixdar.geometry.mesh.data.FeatureEdgeColors}.
-     *
-     * <p>Callers usually derive categories from {@code
-     * SemanticPatchDecomposer.DecompositionDiagnostics} so the on-screen
-     * colors match the offline PNG diagnostic pixel-for-pixel.
+     * Upload a feature-edge overlay to be drawn in STAGES or CREST_VS_BOUNDARY modes. Categories
+     * draw in the order given, so later ones overpaint earlier ones on shared edges. Colors are
+     * 0x00RRGGBB — see {@link ixdar.geometry.mesh.data.FeatureEdgeColors}.
      *
      * @param categories ordered list of overlay categories, each pairing an
      *                   sRGB color with the edge keys to draw in that color;
@@ -429,19 +424,11 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
-     * Upload a per-vertex scalar buffer for the SCALAR shader mode.
-     * Values are passed verbatim to the GPU; the fragment shader maps the
-     * per-vertex interpolated result through a dark→bright ramp using the
-     * provided {@code min} / {@code max} as the normalization range. To
-     * autoscale, pass {@code min=Float.NaN} and the runtime will compute
-     * the min/max from the array.
+     * Upload a per-vertex scalar buffer for the SCALAR shader mode, normalized to the color ramp
+     * by {@code min} and {@code max}; passing {@code Float.NaN} for {@code min} autoscales from
+     * the array.
      *
-     * <p>The VBO is bound to attribute location 3 in the VAO; other
-     * shader modes ignore the attribute (their vertex shaders don't declare
-     * a location=3 input).
-     *
-     * <p>Size must equal the current mesh vertex count; shorter arrays are
-     * ignored with a no-op.
+     * <p>The call is a no-op when {@code values} is shorter than the current vertex count.
      *
      * @param values per-vertex scalar values; length must be at least the
      *               current vertex count, or the call is a no-op
@@ -930,23 +917,11 @@ public class HalfEdgeMeshRuntime {
      * Shading mode for the main mesh draw.
      * <ul>
      *   <li>{@link #LAMBERT} — default lit look.</li>
-     *   <li>{@link #FLAT} — unlit; every fragment writes its tag's exact color
-     *       so VLMs / pixel samplers can map (x,y) → patch deterministically.</li>
-     *   <li>{@link #STAGES} — LAMBERT base + feature-edge overlay showing
-     *       which detector fires where (dihedral / principal / crest /
-     *       saddle / multi-source).</li>
-     *   <li>{@link #CREST_VS_BOUNDARY} — FLAT base + overlay of patch
-     *       boundaries vs crest edges, categorized as boundary-only (not
-     *       crest-backed), crest-ignored, or crest-honored.</li>
-     *   <li>{@link #SCALAR} — per-vertex scalar value mapped to a thermal
-     *       ramp (deep indigo → orange → pale yellow). Value comes from
-     *       {@link #setPerVertexScalar(float[])} and is interpolated
-     *       across the triangle. Used for heat-map diagnostics such as
-     *       Coons reconstruction error or curvature magnitude.</li>
-     *   <li>{@link #MSC} — Morse-Smale complex overlay (PATCH-23): arcs
-     *       drawn as black polylines through the feature-edge overlay
-     *       infrastructure so they get PATCH-17 depth-aware occlusion.
-     *       Critical-point dots are still CPU-only for now.</li>
+     *   <li>{@link #FLAT} — unlit, each fragment writing its tag's exact color.</li>
+     *   <li>{@link #STAGES} — LAMBERT plus the feature-edge overlay.</li>
+     *   <li>{@link #CREST_VS_BOUNDARY} — FLAT plus boundaries against crests.</li>
+     *   <li>{@link #SCALAR} — ramp over {@link #setPerVertexScalar(float[])}.</li>
+     *   <li>{@link #MSC} — Morse-Smale arcs; critical points stay CPU-only.</li>
      * </ul>
      */
     public enum ShaderMode { LAMBERT, FLAT, STAGES, CREST_VS_BOUNDARY, SCALAR, MSC }

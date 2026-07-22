@@ -11,20 +11,13 @@ import ixdar.geometry.mesh.data.SemanticPatchDecomposer.EdgeDihedrals;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
- * Yoshizawa-Belyaev-style crest-line detection (PATCH-11).
+ * Crest-line detection from a {@link PrincipalDirectionField}: marks vertices where a principal
+ * curvature is a local extremum along its eigenvector, traces them into polylines, and emits
+ * edges joining two points of one trace as crest edges.
  *
- * <p>Given a {@link PrincipalDirectionField}, identifies the vertices where
- * one of the principal curvatures is a local extremum perpendicular to its
- * eigenvector, and traces those ridge points into polylines. Mesh edges
- * whose endpoints are both ridge points (or both valley points) of the
- * same trace are emitted as "crest edges" — these feed into the
- * feature-edge set consumed by {@code SemanticPatchDecomposer} so the
- * region-growing pass cannot cross a ridge.
+ * <p>{@code SemanticPatchDecomposer} treats those edges as a barrier to region growing.
  *
- * <p>Not a full Ohtake 2004 / Yoshizawa 2005 implementation (no implicit
- * surface fitting, no Moreton-Sequin MVS sharpness) but enough of the
- * core idea — local NMS along the perpendicular eigenvector — to catch
- * anatomical ridges on organic meshes like the skull.
+ * <p>See also: Yoshizawa 2005
  */
 public final class CrestLineDetector {
     public static final int NUM_3 = 3;
@@ -122,11 +115,10 @@ public final class CrestLineDetector {
     }
 
     /**
-     * True when v's |kappa| is ≥ |kappa| of both 1-ring neighbours most
-     * parallel / antiparallel to the eigenvector. The curvature along the
-     * ridge is roughly constant; the curvature across it peaks at the
-     * ridge. We test across-the-ridge — dirMax for ridges (max curvature
-     * direction); v passes only if it locally maximizes that curvature.
+     * True when v's |kappa| is ≥ |kappa| of both 1-ring neighbours most parallel and
+     * antiparallel to {@code dir}. The caller must pass the across-the-ridge eigenvector
+     * (dirMax for ridges, dirMin for valleys); along-ridge curvature is near constant and
+     * would admit every vertex on the trace.
      */
     private static boolean isLocalExtremum(int v, int[] ring, float[] positions,
                                            PrincipalDirectionField pdf, float[] dir,

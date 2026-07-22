@@ -21,12 +21,11 @@ import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 
 /**
- * 3D scene for inspecting a seamless parametrization on a triangle mesh. Loads
- * the OFF specified by {@code -Dparametrization.scene.off=<path>} (default
- * {@link #DEFAULT_OFF}), runs the cross-field + seamless pipeline, and renders
- * the result as cyan u-iso-lines and yellow v-iso-lines drawn across the mesh
- * surface plus coloured spheres at the singularity vertices — the BZK09 figure
- * 1(c) visualisation style.
+ * 3D scene for inspecting a seamless parametrization on a triangle mesh: loads the OFF given by
+ * {@code -Dparametrization.scene.off=<path>}, runs the cross-field and seamless pipeline, and
+ * draws cyan u-iso-lines, yellow v-iso-lines, and singularity spheres.
+ *
+ * <p>See also: BZK09 Figure 1(c)
  */
 @SceneAnnotation(id = "param-exam")
 public class ParametrizationExaminationScene extends Scene {
@@ -34,13 +33,10 @@ public class ParametrizationExaminationScene extends Scene {
     public static final String DEFAULT_OFF = "test/resources/quadlayout/figure_10/fandisk_in_tri.off";
     public static final String OFF_PROPERTY = "parametrization.scene.off";
     /**
-     * Optional system property: path to an .ndf reference cross field. When set,
-     * {@link #initGL} still runs {@link CrossField#build()} to derive the per-face
-     * local frames and active-index maps, then overwrites {@code theta},
-     * {@code periodJump}, {@code singularityIndexQuarter} and {@code singularities}
-     * with the NDF values. Lets the same seamless pipeline run on the paper's
-     * reference field so you can compare flipped-triangle counts and visual output
-     * side by side against our own solver.
+     * Optional system property naming an .ndf reference cross field. When set, {@link #initGL}
+     * still runs {@link CrossField#build()} for the per-face frames and active-index maps, then
+     * overwrites {@code theta}, {@code periodJump}, {@code singularityIndexQuarter} and
+     * {@code singularities} from the NDF.
      */
     public static final String CROSS_FIELD_PROPERTY = "parametrization.scene.cf";
     public static final String SCENE_TITLE = "Ixdar : Parametrization Examination";

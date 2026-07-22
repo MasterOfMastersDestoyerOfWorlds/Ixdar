@@ -20,13 +20,9 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
- * Per-face selection: true when the face normal, dotted with a user-supplied
- * {@code direction}, exceeds {@code threshold}. {@code direction} is
- * normalized; {@code threshold} defaults to 0.7 (≈ 45° alignment).
- * <p>
- * Typical use: selecting all top-facing faces with {@code direction=<0,1,0>},
- * or all outward-facing faces of a cage with the outward axis. Compose with
- * {@code boolean_math} or {@code select_by_distance} to refine.
+ * Per-face selection: true when the face normal dotted with {@code direction} exceeds
+ * {@code threshold}. {@code direction} is normalized before the test, and {@code threshold}
+ * defaults to 0.7, roughly 45 degrees of alignment.
  */
 @MeshNodeAnnotation(id = "select_by_normal")
 public class SelectByNormalNode implements MeshNode {

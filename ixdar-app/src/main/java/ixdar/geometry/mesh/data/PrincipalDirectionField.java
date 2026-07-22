@@ -8,23 +8,11 @@ import ixdar.geometry.mesh.data.SemanticPatchDecomposer.EdgeDihedrals;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
- * Per-vertex principal curvatures and their 3D tangent directions, built
- * by estimating the tangent-plane shape operator from 1-ring normal
- * variation (Meyer-style second-fundamental-form).
+ * Per-vertex principal curvatures {@code κMax ≥ κMin} and their directions, estimated from the shape
+ * operator over the 1-ring. The directions are unit tangent vectors, mutually orthogonal and
+ * orthogonal to the vertex normal; a ridge runs along {@code dirMin}.
  *
- * <p>For each vertex v we report {@code (κMax, dirMax, κMin, dirMin)}:
- * <ul>
- *   <li>{@code κMax ≥ κMin} — principal curvatures.</li>
- *   <li>{@code dirMax}, {@code dirMin} — unit 3D vectors in v's tangent
- *       plane, orthogonal to each other and to the vertex normal. They
- *       point along the directions of maximum and minimum normal curvature
- *       respectively, so a ridge runs along {@code dirMin} (the direction
- *       the surface bends least) while the curvature peaks across
- *       {@code dirMax}.</li>
- * </ul>
- *
- * <p>Used by {@link CrestLineDetector} (PATCH-11) for non-maximum
- * suppression and polyline tracing.
+ * <p>See also: Meyer 2003
  */
 public final class PrincipalDirectionField {
     public static final int NUM_3 = 3;

@@ -10,13 +10,11 @@ import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 
 /**
- * Emit a {@link CrossField} in the .ndf format consumed by
- * {@link CrossFieldLoader}. The format mirrors the BCEAK13 supplementary
- * NDFs: five INI-style sections ({@code [Comments]}, {@code [Information]},
- * {@code [Pjumps]}, {@code [Theta]}, {@code [Singularities]}) where the
- * value lists are quoted, semicolon-delimited strings with a trailing
- * semicolon. Arrays are written in the same OpenMesh-style iteration order
- * the loader expects, i.e. positional active-index order.
+ * Emit a {@link CrossField} in the .ndf format consumed by {@link CrossFieldLoader}: INI-style
+ * sections whose value lists are quoted, semicolon-delimited and semicolon-terminated. Arrays
+ * are written in positional active-index order, which is what the loader assumes.
+ *
+ * <p>See also: BCEAK13
  */
 public final class CrossFieldWriter {
     private static final String VALUE_DELIMITER = ";";

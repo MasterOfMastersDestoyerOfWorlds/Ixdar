@@ -164,12 +164,8 @@ public class Knot extends SDFCircle {
     }
 
     /**
-     * Compute the lowest-cost cut/match move that would attach {@code o} to this
-     * knot. Three cases are handled: both singletons (a single shared segment
-     * is doubled as both match endpoints), one singleton (the cheapest
-     * manifold edge of the non-singleton is split through the singleton), and
-     * two non-singletons (the best pair of manifold edges is cut and replaced
-     * by two pipe segments).
+     * Compute the lowest-cost cut/match move that would attach {@code o} to this knot, splitting
+     * on how many of the two knots are singletons.
      *
      * @param o the other knot to evaluate against
      * @return a {@link CutMatch} describing the cuts and matches plus the delta

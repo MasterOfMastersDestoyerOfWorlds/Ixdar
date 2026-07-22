@@ -10,16 +10,11 @@ import ixdar.procgen.dungeon.values.RoomListValue3D;
 import ixdar.procgen.dungeon.values.RoomListValue3D.Room;
 
 /**
- * 3D analog of {@link RoomPlacer}. Places non-overlapping axis-aligned 3D rooms
- * on an integer
- * grid with a 1-unit buffer between rooms. Rooms are 1 cell tall by default
- * (single floor) and
- * placed at integer floor levels [0, gridH).
+ * 3D analog of {@link RoomPlacer}. Places non-overlapping axis-aligned 3D rooms on an integer
+ * grid with a 1-unit buffer between rooms. Rooms are 1 cell tall by default and sit at integer
+ * floor levels [0, gridH).
  *
- * <p>
- * Per-attempt RNG draws: width, depth, x, y (floor), z. Six draws per attempt.
- * The result
- * may contain fewer than {@code roomCount} rooms if {@code maxAttempts} is
+ * <p>The result may contain fewer than {@code roomCount} rooms when {@code maxAttempts} is
  * exhausted.
  */
 public final class RoomPlacer3D {
@@ -32,18 +27,11 @@ public final class RoomPlacer3D {
     }
 
     /**
-     * Insert a centered START room on the middle floor as room[0], then
-     * reject-sample additional
-     * rooms across all floors until {@code roomCount} have been placed (with a
-     * 1-unit buffer)
-     * or {@code maxAttempts} is exhausted.
+     * Insert a centered START room on the middle floor as room[0], then reject-sample rooms
+     * across all floors until {@code roomCount} are placed or {@code maxAttempts} is exhausted.
      *
-     * Always insert a START room as room[0] at the grid center on the middle floor.
-     * Size is clamped to the requested [minSize, maxSize] but defaults to 4.
-     * After GridToMesh3D centers the mesh at world origin, an even-sized centered
-     * start room straddles
-     * the origin precisely — so the player can spawn at (0, 0, 0) and find walkable
-     * space.
+     * <p>The START room is even-sized so it straddles the world origin once
+     * {@link GridToMesh3D} recenters the mesh, making (0, 0, 0) a valid spawn point.
      *
      * @param seed        PRNG seed
      * @param gridW       grid width (X) in cells

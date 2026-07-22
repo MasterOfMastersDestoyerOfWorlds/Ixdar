@@ -9,23 +9,13 @@ import org.bytedeco.mkl.global.mkl_rt;
 import org.bytedeco.mkl.global.mkl_rt._MKL_DSS_HANDLE_t;
 
 /**
- * Native supernodal {@link FactorizedSystem} backed by Intel MKL's PARDISO
- * (via the bytedeco JNI bindings). Factors the upper-CSR SPD system once in
- * the constructor (PARDISO phases 11+12: analysis + numerical factorization)
- * and serves repeated dense solves through phase 33.
+ * Native supernodal {@link FactorizedSystem} backed by Intel MKL's PARDISO,
+ * factoring the upper-CSR SPD system once in the constructor.
  *
  * <p>
- * The caller's fill-reducing permutation is already baked into the CSR
- * arrays by {@link NormalMatrix#toPermutedUpperCompressedSparseRow}, so
- * PARDISO is handed the <em>identity</em> as a user permutation
- * ({@code iparm[4] = 1}) — it must not reorder again, keeping fill identical
- * to the EJML reference backend. Switching to PARDISO's built-in METIS
- * nested dissection later is just dropping that flag.
- *
- * <p>
- * Off-heap state (the CSR copy, parameter arrays, and PARDISO's internal
- * factor) is freed by {@link #release()}, with a {@link Cleaner}-registered
- * {@link PardisoReleaseAction} as the safety net for leaked factors.
+ * The caller's permutation is baked into the CSR arrays, so PARDISO gets the
+ * identity as a user permutation and must not reorder. {@link #release()} frees
+ * off-heap state, backstopped by a {@link Cleaner}.
  */
 public final class PardisoCholesky implements FactorizedSystem {
 
@@ -46,13 +36,9 @@ public final class PardisoCholesky implements FactorizedSystem {
     /** iparm index (0-based) of the zero-based-indexing switch. */
     public static final int IPARM_INDEX_ZERO_BASED_INDEXING = 34;
     /**
-     * iparm index (0-based) of the maximum iterative-refinement step count.
-     * MKL's {@code pardisoinit} default performs 2 refinement steps per
-     * solve — tripling the triangular-solve work — which measured ~1.5x
-     * slower than EJML's simplicial back-substitution on the seamless
-     * systems. The systems this backend serves are clean SPD (no pivot
-     * perturbation), so refinement is disabled; the equivalence unit test
-     * pins the accuracy against EJML.
+     * iparm index (0-based) of the maximum iterative-refinement step count. Set to
+     * zero here: the systems this backend serves are clean SPD with no pivot
+     * perturbation, so MKL's default refinement steps are pure overhead.
      */
     public static final int IPARM_INDEX_MAX_REFINEMENT_STEPS = 7;
 

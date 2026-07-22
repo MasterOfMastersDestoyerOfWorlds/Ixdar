@@ -5,18 +5,13 @@ import java.util.Arrays;
 public final class DirectSolver {
 
     /**
-     * Pre-computed Cholesky factorization plus the metadata needed to apply it to a
-     * right-hand side: the fill-reducing permutation, the free/full index mapping,
-     * and reusable scratch vectors for the triangular solve.
+     * Pre-computed Cholesky factorization plus the permutation, index mapping, and
+     * scratch vectors needed to apply it to a right-hand side.
      *
      * <p>
-     * Build with {@link DirectSolver#factorize}. Reuse across many right-hand
-     * sides via {@link DirectSolver#solveCompact}. <strong>Not thread-safe</strong>:
-     * the backing factor keeps internal scratch state during {@code solve()}, so a
-     * handle should be used by one thread at a time (typically held in a
-     * {@link ThreadLocal}). Call {@link FactorizedSystem#release()} on
-     * {@code factor} when the handle is discarded — native backends hold
-     * off-heap memory.
+     * <strong>Not thread-safe</strong>: the backing factor holds scratch state during
+     * {@code solve()}. {@link FactorizedSystem#release()} must be called when the
+     * handle is discarded, since native backends hold off-heap memory.
      *
      * @param n               full-matrix dimension (size of the original
      *                        {@link NormalMatrix})
@@ -84,16 +79,10 @@ public final class DirectSolver {
     }
 
     /**
-     * Factorize using a caller-supplied permutation. Use when the matrix
-     * non-zero pattern is identical to a prior {@link #factorize} call so
-     * the fill-reducing ordering can be reused — the seamless stage's 50
-     * stiffening iterations all share the same pattern (only per-face
-     * weights change), so paying for AMD once and reusing it across all
-     * factorizations saves ~30% of total wall time.
-     *
-     * <p>The caller is responsible for invalidating their cached
-     * {@code perm} when the matrix non-zero pattern, the {@code fixed}
-     * mask, or the desired ordering changes.
+     * Factorize using a caller-supplied permutation, valid only when the matrix
+     * non-zero pattern is identical to the {@link #factorize} call the permutation
+     * came from. The caller must discard the cached {@code perm} whenever that
+     * pattern, the {@code fixed} mask, or the desired ordering changes.
      *
      * @param matrix the system matrix (same non-zero pattern as the
      *               originating call)
@@ -198,9 +187,8 @@ public final class DirectSolver {
     /**
      * Solve {@code A x = b} for the free variables (those with {@code !fixed[i]})
      * using a sparse Cholesky factorization with the requested fill-reducing
-     * ordering, holding the fixed entries at {@code start[i]}. Throws when the
-     * matrix is not positive definite (e.g. for closed surfaces with no
-     * anchored variable). The factorization is released before returning.
+     * ordering, holding the fixed entries at {@code start[i]}. The factorization is
+     * released before returning.
      *
      * @param matrix   symmetric system matrix A
      * @param start    initial values; only the fixed entries are read

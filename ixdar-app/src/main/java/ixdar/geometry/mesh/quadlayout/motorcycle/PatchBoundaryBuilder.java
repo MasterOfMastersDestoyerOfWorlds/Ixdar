@@ -21,22 +21,12 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 
 /**
- * Assembles the T-mesh patches as faces of the trace arrangement: every arc
- * contributes two directed sides, each node orders its incident arc-ends
- * cyclically (by chart angle at intersection/termination nodes, by fan order at
- * singularities), and walking "arrive, then leave through the next port"
- * enumerates each arrangement face exactly once. This replaces any
- * triangle-level region growing, which breaks down as soon as several traces
- * cross one triangle.
+ * Assembles the T-mesh patches as faces of the trace arrangement: every arc gives
+ * two directed sides, each node orders its arc-ends cyclically, and walking
+ * "arrive, leave through the next port" enumerates each face once as a
+ * {@link TMeshPatch}, cornered where travel turns.
  *
- * <p>
- * Each resulting cycle becomes a {@link TMeshPatch}; corners are hops where the
- * travel direction turns instead of continuing straight (T-junction
- * pass-throughs stay straight), and a patch with exactly four corners gets its
- * sides split for Lyon's eq. (2) consistency constraints. Known gaps that
- * surface as invalid patches rather than wrong constraints: traces terminating
- * exactly on singular vertices create disconnected terminal nodes, and
- * truncated traces leave dangling arcs whose cycles fold back on themselves.
+ * <p>See also: Lyon 2021 Section 4
  */
 public final class PatchBoundaryBuilder {
 
@@ -230,12 +220,10 @@ public final class PatchBoundaryBuilder {
     }
 
     /**
-     * Emit the two directed arc-end ports of every arc, with travel directions
-     * taken from the meeting record at interior nodes, the spawn port at origins,
-     * and the final walker state (or last feature segment) at terminals. Each port
-     * also carries the chart face its direction is expressed in (spawn face,
-     * meeting face, terminal face) so vertex-located nodes can fan-order ports that
-     * arrive through different charts.
+     * Emits the two directed arc-end ports of every arc, taking travel directions
+     * from the meeting record at interior nodes, the spawn port at origins, and the
+     * final walker state at terminals. Each port carries the chart face its
+     * direction is expressed in, so vertex-located nodes can fan-order them.
      */
     private void buildPorts() {
         for (Trace trace : graph.traces) {
@@ -285,10 +273,9 @@ public final class PatchBoundaryBuilder {
 
     /**
      * The meeting at a given node that best matches a chain position's parametric
-     * length. A trace that crosses its own path visits one node twice, at two
-     * different parametric lengths and with two different travel directions; a
-     * node-only lookup would give both chain positions the same arm's direction
-     * and fold the patch back, so the matching trace length disambiguates them.
+     * length. A self-crossing trace visits one node twice with different travel
+     * directions, so the length is required to disambiguate the two chain
+     * positions.
      *
      * @param trace  trace whose meetings are searched
      * @param nodeId T-mesh node id at this chain position
@@ -316,12 +303,10 @@ public final class PatchBoundaryBuilder {
     }
 
     /**
-     * Assign cyclic sort keys per node and order its ports: chart angle at
-     * single-chart nodes, unrolled-fan angle at vertex-located nodes
-     * (singularities, feature corners, singular-vertex terminals — their ports live
-     * in different fan-face charts, so each face's wedge is laid out flat around
-     * the vertex and a port's key is its face's accumulated base angle plus its CCW
-     * angle inside that wedge).
+     * Assigns cyclic sort keys per node and orders its ports: chart angle at
+     * single-chart nodes, unrolled-fan angle at vertex-located nodes, whose ports
+     * live in different fan-face charts and are keyed by their face's accumulated
+     * base angle plus the CCW angle inside that wedge.
      */
     private void sortPorts() {
         for (Map.Entry<Integer, List<PatchPort>> entry : portsByNode.entrySet()) {
@@ -395,13 +380,10 @@ public final class PatchBoundaryBuilder {
     }
 
     /**
-     * Unroll the face fan around a vertex into a flat angular layout: walk the fan
-     * CCW (rewinding CW to a boundary first, when one exists), give each face a
-     * base angle equal to the accumulated wedge angles before it, and record the
-     * wedge's opening-edge direction in that face's own chart. Wedge angles and
-     * port directions are measured per face chart, so seam transitions between fan
-     * faces cancel out and the resulting keys are a consistent cyclic order even at
-     * singular cones whose total angle is not 2π.
+     * Unrolls the face fan around a vertex into a flat angular layout: each face
+     * gets a base angle equal to the accumulated wedge angles before it, plus its
+     * wedge's opening-edge direction. Everything is measured per face chart, so the
+     * order stays consistent at singular cones.
      *
      * @param vertexId mesh vertex whose fan to unroll
      * @return per active face: {base angle, opening-edge u, opening-edge v}

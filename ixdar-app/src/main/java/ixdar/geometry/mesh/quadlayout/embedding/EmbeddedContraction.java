@@ -6,31 +6,19 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * Drives LCBK19 §6.1's three re-embedding operators to a fixed point: it applies the zero-arc
- * collapse, the non-simple zero-patch split, and the simple zero-patch collapse
- * <em>"until none can be applied anymore"</em>, and the result — by LCBK19 Proposition 6.1 — is
- * an embedded T-mesh with no zero arcs and no zero patches, ready for a per-patch map.
+ * Drives the three re-embedding operators to a fixed point, leaving an embedded T-mesh with no
+ * zero arcs and no zero patches.
  *
- * <p>Priority is operator (1) over (2) over (3), which is not a heuristic but the order the
- * operators depend on: operator (2) says its inserted zero-arcs are <em>"then collapsed by
- * operator (1)"</em>, and operator (3) runs <em>"after its zero-arcs have been collapsed"</em>.
- * So the driver always collapses an available zero arc first, splits a non-simple zero-patch
- * only when no zero arc remains to collapse, and collapses a simple zero-patch last.
+ * <p>Operators apply in the order they depend on: zero-arc collapse, non-simple zero-patch
+ * split, simple zero-patch collapse. The termination measure must strictly decrease per step.
  *
- * <p>Termination is not assumed, it is checked. Appendix A.3 proves the process terminates by a
- * strictly decreasing measure, and this computes that measure — a weighted count of the excess
- * arcs on non-simple zero-patches, plus the number of zero arcs and zero patches — after every
- * operator and throws if it did not fall. Since the measure is a non-negative integer, a
- * strict decrease per step bounds the number of steps, so a non-terminating bug surfaces
- * immediately rather than as a hang.
+ * <p>See also: LCBK19 Appendix A.3
  */
 public final class EmbeddedContraction {
 
     /**
-     * Weight on the non-simple-excess term of the termination measure. An operator (2) split
-     * adds one zero arc and one zero patch (the low-order terms rise by two) while removing one
-     * unit of non-simple excess, so the weight must exceed two for the measure to still fall on
-     * a split; any value above two works, and this leaves ample margin.
+     * Weight on the non-simple-excess term of the termination measure. Must exceed two, since an
+     * operator (2) split removes one unit of excess while raising the low-order terms by two.
      */
     public static final long NON_SIMPLE_WEIGHT = 1000L;
 
@@ -46,17 +34,9 @@ public final class EmbeddedContraction {
     /**
      * System property enabling the per-step region check.
      *
-     * <p><b>It reports tears that are not tears, and is kept only for {@link #contract}.</b> Region
-     * correspondence — every patch matching one connected region of mesh faces — is a property of
-     * the <em>fixed point</em>, not of the states on the way to it. A zero-patch is by definition
-     * <em>"supposed to be embedded onto a single point rather than a curve"</em>, or onto a curve,
-     * so while it lives it encloses no faces at all and there is no region for it to correspond to;
-     * its neighbours' regions run together across it and appear bounded by the union of their arcs.
-     * The sphere demonstrates this: its contraction reaches a clean fixed point of 294 collapses and
-     * 84 patch-collapses, and yet this check calls it torn at collapse 37.
-     *
-     * <p>{@link #contractToFailure} therefore does not run it, and a caller wanting to know whether
-     * a layout is sound should build {@link PatchRegions} once the contraction has finished.
+     * <p>Region correspondence holds only at the fixed point, so intermediate states report tears
+     * that are not tears. To judge a layout, build {@link PatchRegions} after the contraction has
+     * finished.
      */
     private static final String CHECK_REGIONS_PROPERTY = "embeddedTMesh.checkRegions";
 
@@ -256,12 +236,10 @@ public final class EmbeddedContraction {
     /**
      * The zero-patches still alive when no operator applies any more.
      *
-     * <p>By LCBK19 Proposition 6.1 and Corollary 6.3 there should be none: every zero-patch is
-     * claimed by one of the three operators, sorted by how many <em>non-zero</em> arcs it carries —
-     * more than two goes to the split, exactly two to the simple collapse, and none at all is
-     * <em>"already handled by the zero-arc collapse"</em>. A patch surviving here is one no operator
-     * claimed, so it stays in the final layout as a cell with no area, which is what leaves a region
-     * of the surface bounded by arcs that match no patch's boundary.
+     * <p>There should be none: a survivor is a patch no operator claimed, and it stays in the final
+     * layout as a cell with no area.
+     *
+     * <p>See also: LCBK19 Proposition 6.1, Corollary 6.3
      *
      * @return a summary naming the survivors and how many non-zero arcs each carries
      */
@@ -280,10 +258,8 @@ public final class EmbeddedContraction {
 
     /**
      * The shape of an arc about to be collapsed, for the report when the collapse breaks the cell
-     * decomposition. A zero-arc collapse balances one lost arc against one lost node, but that only
-     * holds when the arc runs between <em>two</em> nodes: an arc that is already a loop has nothing
-     * to merge, so it must pay for itself with a face instead. Which of the two it was, and which
-     * patches lay either side, is the whole of the diagnosis and is unrecoverable afterwards.
+     * decomposition. An arc that is already a loop has no node to merge, so it must pay for itself
+     * with a face instead.
      *
      * @param arcId arc about to be collapsed
      * @return a bracketed description, or the empty string for an ordinary two-node arc

@@ -145,12 +145,9 @@ public class CutGraph {
     }
 
     /**
-     * Choose the seam edge set: start from the complement of a min-cost dual
-     * spanning tree biased to absorb {@link CrossField#alignmentEdgeIds} (so the
-     * cut opens the surface into a disk while keeping feature edges non-cut), trim
-     * the dead "whiskers" that leaves behind, then route every interior singularity
-     * onto the cut. BZK09's full pipeline integer-pins singularity (u, v) once the
-     * parametrization runs, so a single cut-degree is sufficient.
+     * Choose the seam edge set: complement of a min-cost dual spanning tree biased
+     * to absorb {@link CrossField#alignmentEdgeIds}, then trim dangling whiskers,
+     * then route every interior singularity onto the cut at cut-degree one.
      */
     private void selectCutEdges() {
         initialCutFromDualSpanningTree();
@@ -160,17 +157,12 @@ public class CutGraph {
     }
 
     /**
-     * Initialize the seam set to the complement of a min-cost dual spanning tree:
-     * mark every edge cut, then run a Dijkstra-style traversal of the dual graph
-     * where alignment edges have cost {@code 0} and all other interior edges have
-     * cost {@code 1}. Tree edges (the parents in the resulting spanning forest) are
-     * un-cut. Boundary edges stay cut.
+     * Initialize the seam set to the complement of a min-cost dual spanning tree.
+     * Alignment edges cost zero so they end up non-cut wherever topology allows: a
+     * feature edge on the cut with rotation {@code r ≠ 0} would collapse to a point.
+     * Boundary edges stay cut.
      *
-     * <p>
-     * BZK09 §5.2 requires alignment edges to be non-cut: if a feature edge ended up
-     * on the cut with rotation {@code r ≠ 0}, satisfying {@code v_p = v_q} on both
-     * sides would collapse the edge to a point. Biasing the spanning tree to absorb
-     * alignment edges keeps them non-cut whenever the surface topology allows.
+     * <p>See also: BZK09 Section 5.2
      */
     private void initialCutFromDualSpanningTree() {
         isCutEdge = new boolean[seamless.edgeCount];
@@ -384,11 +376,8 @@ public class CutGraph {
      * interior edges, seeding each connected component at 0.
      *
      * <p>
-     * BZK09 §5 convention: the cross-field smoothness energy is (θ_A + κ_AB +
-     * (π/2)·p_AB − θ_B)² with {@code edgeHalfEdge} oriented A→B, so a (u, v) basis
-     * aligned with g_f stays continuous across a non-cut edge when g_B = (g_A −
-     * p_AB) mod 4 in that canonical direction; traversing B→A flips the sign of the
-     * period jump.
+     * {@code edgeHalfEdge} is oriented A→B, so continuity means g_B = (g_A − p_AB)
+     * mod 4; traversing B→A flips the period jump's sign.
      */
     private void propagateBranches() {
         faceBranch = new int[seamless.faceCount];
@@ -428,14 +417,8 @@ public class CutGraph {
     /**
      * Compute the coordinate transition rotation r_e ∈ {0..3} for every edge: 0 on
      * non-cut and boundary edges, and (g_A − g_B − p_AB) mod 4 on an interior cut
-     * edge.
-     *
-     * <p>
-     * The geometric offset from transported A axes to B axes is (g_B − g_A +
-     * p_AB)·π/2 by the cross-field smoothness relation. Parameter coordinates
-     * transform by the inverse basis rotation, hence r_e = (g_A − g_B − p_AB) mod
-     * 4. On non-cut edges {@link #propagateBranches()} chose g_B = g_A − p, making
-     * this 0.
+     * edge. Parameter coordinates transform by the inverse of the basis rotation
+     * (g_B − g_A + p_AB)·π/2.
      */
     public void buildCutRotation() {
         cutRotation = new int[seamless.edgeCount];
@@ -453,15 +436,10 @@ public class CutGraph {
     }
 
     /**
-     * Identify chart vertices: union the two corners on each endpoint of every
-     * non-cut interior edge (so corners that map to the same point in the unfolded
-     * chart merge), then compact the union-find roots to a dense
-     * {@code [0, chartVertexCount)} numbering in {@link #cornerToChartVertex}.
-     *
-     * <p>
-     * The half-edge in face B runs opposite to the one in face A across a shared
-     * edge, so face A's corner {@code start} pairs with face B's corner
-     * {@code start}, and face A's corner {@code start+1} with face B's corner
+     * Identify chart vertices: union the corners on each endpoint of every non-cut
+     * interior edge, then compact the union-find roots into
+     * {@link #cornerToChartVertex}. Face B's half-edge runs opposite face A's, so
+     * corner {@code start} pairs with {@code start} and {@code start+1} with
      * {@code start−1}.
      */
     private void buildChartVertices() {
@@ -581,17 +559,10 @@ public class CutGraph {
     }
 
     /**
-     * BZK09 §5 chart-vertex classification for variable elimination.
-     *
-     * <p>
-     * A chart vertex is primary iff it appears on the canonical {@code edgeFaceA}
-     * side of at least one cut edge, or it never touches a cut edge at all. Else it
-     * is secondary — the first cut edge that has it on its {@code edgeFaceB} side
-     * owns the substitution {@code u_c = R_{r_e} · u_partner + (s_e, t_e)}.
-     * Subsequent cut edges that would also substitute the same chart vertex, and
-     * any cut edge whose B-side chart vertex turns out to be primary (also on some
-     * A-side), contribute a leftover record to be reduced exactly by
-     * {@link SeamlessParameterization#reduceLeftoverConstraints}.
+     * Classify chart vertices for variable elimination. A chart vertex is primary if
+     * it sits on the canonical {@code edgeFaceA} side of some cut edge or touches
+     * none; otherwise the first cut edge holding it on its B side owns its
+     * substitution, and further such edges produce leftover records.
      */
     private void classifyChartVerticesForSubstitution() {
         final int cornersPerFace = SeamlessParameterization.CORNERS_PER_FACE;

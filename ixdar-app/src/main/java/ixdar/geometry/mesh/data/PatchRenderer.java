@@ -142,11 +142,8 @@ public final class PatchRenderer {
     }
 
     /**
-     * Flat-shaded render: every face is written with a globally-unique RGB
-     * derived from its patch id (golden-ratio hue), no Lambert shading.
-     * A VLM labeler can pixel-sample this image to determine which patch
-     * covers any (x, y) point exactly, without the ambiguity Lambert shading
-     * introduces when two palette colours look similar at grazing angles.
+     * Flat-shaded render: every face gets a globally unique RGB derived from its patch id, with no
+     * Lambert shading, so a pixel's colour identifies its patch exactly.
      *
      * @param mesh source mesh
      * @param decomposition patch assignment whose ids drive the flat unique colours
@@ -626,13 +623,9 @@ public final class PatchRenderer {
     }
 
     /**
-     * Render a per-vertex scalar field as a thermal heatmap multiview
-     * (PATCH-15 infra). Scalar values are interpolated barycentrically
-     * across each triangle and mapped through the same dark→bright
-     * thermal ramp as the GL {@code mesh_scalar.fs} shader, keeping the
-     * CPU PNG diagnostic pixel-congruent with the live viewer's SCALAR
-     * mode. Pass {@code scalarMin == scalarMax == NaN} to autoscale
-     * from the array.
+     * Renders a per-vertex scalar field as a thermal heatmap multiview, interpolating
+     * barycentrically per triangle through the same ramp as the {@code mesh_scalar.fs} shader.
+     * Pass NaN for both bounds to autoscale from the array.
      *
      * @param mesh source mesh
      * @param vertexScalar one scalar value per vertex (length must be at least {@code mesh.vertexCount()})
@@ -1041,14 +1034,10 @@ public final class PatchRenderer {
     public record MultiviewResult(BufferedImage composite, BufferedImage[] perView, String[] labels) {}
 
     /**
-     * Feature-edge overlay diagnostic modes. {@link #STAGES} renders a
-     * grey Lambert-shaded mesh and overlays each per-source edge set in a
-     * distinct color, so you can see where dihedral / principal / crest
-     * each fire (or don't). {@link #PATCHES_VS_CREST} renders the flat
-     * patch decomposition and overlays crest edges vs. actual patch
-     * boundaries in three categories (crest only / boundary only / both),
-     * so you can see at a glance which crest signals were honored and
-     * which were overridden downstream.
+     * Feature-edge overlay diagnostic modes. {@link #STAGES} overlays each per-source edge set
+     * (dihedral, principal, crest) on a grey shaded mesh in its own colour; {@link #PATCHES_VS_CREST}
+     * overlays crest edges against actual patch boundaries on the flat decomposition, categorised as
+     * crest only, boundary only, or both.
      */
     public enum OverlayMode { STAGES, PATCHES_VS_CREST, MSC }
 

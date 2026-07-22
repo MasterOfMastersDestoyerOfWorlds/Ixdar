@@ -157,13 +157,10 @@ public class ParameterizationMetrics {
     }
 
     /**
-     * Mean Hormann-Lévy-Sheffer distortion across all non-degenerate faces. For
-     * each face: flatten its 3D triangle to a local 2D frame, compute the Jacobian
-     * of the (u, v) map from the three corner coordinates, and combine the signed
-     * singular values as {@code |σ₁/h − 1| + |σ₂/h − 1|}, signed by the Jacobian's
-     * orientation so flipped triangles inflate the distortion. {@code h} is
-     * {@link SeamlessParameterization#targetEdgeLength}. Degenerate 3D triangles
-     * are skipped.
+     * Mean Hormann-Lévy-Sheffer distortion {@code |σ₁/h − 1| + |σ₂/h − 1|} over all
+     * non-degenerate faces, signed by the Jacobian's orientation so flipped
+     * triangles inflate the result. {@code h} is
+     * {@link SeamlessParameterization#targetEdgeLength}.
      *
      * @return the mean per-face distortion, or 0 if every face is degenerate
      */
@@ -223,10 +220,9 @@ public class ParameterizationMetrics {
 
     /**
      * Number of disconnected charts: connected components of the active-face graph
-     * where two faces are joined iff they share a non-cut interior edge. One for a
-     * typical closed input with a connected cut graph; greater than one indicates
-     * either a disconnected mesh or a cut graph that fragments the surface into
-     * separate disks.
+     * where two faces are joined iff they share a non-cut interior edge. More than
+     * one means either a disconnected mesh or a cut graph that fragments the
+     * surface.
      *
      * @return the chart-component count, ≥ 1 for any non-empty mesh
      */

@@ -28,13 +28,10 @@ import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
 import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
 
 /**
- * Insets selected faces by creating a smaller inner face connected to the
- * original boundary by side quads.
- * <p>
- * For each selected face, creates inner vertices by lerping each vertex
- * toward the face center. The original face is replaced by the inner face,
- * and side quads connect the original boundary to the inner boundary.
- * All-quad topology is preserved when input is all-quad.
+ * Insets selected faces: each face's vertices are lerped toward its centre to form an inner face,
+ * and side quads bridge the original boundary to the inner boundary.
+ *
+ * <p>An all-quad input stays all-quad.
  */
 @MeshNodeAnnotation(id = "inset_faces")
 public class InsetFacesNode implements MeshNode {
@@ -200,19 +197,11 @@ public class InsetFacesNode implements MeshNode {
     }
 
     /**
-     * Quad-only fast path that merges inner verts along cage edges shared by
-     * two selected faces (MESH-46). Two adjacent selected faces produce a
-     * topologically connected inset region: their inner quads become
-     * edge-adjacent along the shared cage edge, replacing the two per-face
-     * side quads that would otherwise sit across it.
+     * Quad-only fast path merging inner vertices along cage edges shared by two selected faces, so
+     * adjacent faces yield one connected inset region rather than two side quads across the edge.
      *
-     * <p>Merge position: {@code P_v + (P_other - P_v) * inset} along the shared
-     * cage edge from each 2-face-corner endpoint — a straight lerp, consistent
-     * with this node's flat-lerp semantics.
-     *
-     * <p>Three-or-more cage-vertex corners (where 3+ selected faces meet) are
-     * <em>not</em> merged in this pass; each face keeps its face-local
-     * centroid-lerp inner vert at those corners. See MESH-47 follow-up.
+     * <p>Corners where three or more selected faces meet stay unmerged, keeping a face-local
+     * centroid-lerp inner vertex per face.
      */
     private static MeshTopology insetFacesQuadWithSharedEdgeMerge(
             MeshTopology topology, float[] srcPos, int[] srcFaces,
@@ -534,11 +523,9 @@ public class InsetFacesNode implements MeshNode {
     }
 
     /**
-     * 3+ corner allocation for plain inset_faces (flat-lerp). Mirror of the
-     * Coons variant in CoonsInsetFacesNode — walks the selected-face fan
-     * around the vertex via shared edges and emits N cyan dots on the shared
-     * cage edges + central fill face. Returns false if the fan doesn't form
-     * a complete pairwise-adjacent cycle (caller falls back to face-local).
+     * Allocates flat-lerp inset vertices at a corner where three or more selected faces meet: one
+     * vertex per shared cage edge plus a central fill face. Returns false when the fan around the
+     * vertex is not a complete cycle, leaving the caller to fall back to face-local corners.
      */
     private static boolean allocate3PlusCornerFlat(MeshTopology topology,
             int denseVid, List<int[]> atV, Set<Integer> sharedEdgeIds,

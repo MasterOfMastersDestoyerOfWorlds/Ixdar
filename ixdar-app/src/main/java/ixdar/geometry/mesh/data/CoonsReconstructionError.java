@@ -7,15 +7,9 @@ import java.util.List;
 import org.joml.Vector3f;
 
 /**
- * Orchestrator for PATCH-16: given one mesh patch, return per-vertex
- * reconstruction error against a 4-sided cubic Coons patch fit to its
- * boundary. Per-vertex errors are distances from each patch vertex to
- * the nearest sampled point on the Coons surface.
- *
- * <p>Composition of three helpers: {@link PatchBoundaryWalker} to turn
- * the patch faces into 4 ordered boundary polylines, {@link BezierFit}
- * to turn each polyline into a cubic Bezier, and {@link CoonsEvaluator}
- * to sample the Coons blend.
+ * Per-vertex reconstruction error of one mesh patch against a 4-sided cubic Coons patch fit to
+ * its boundary. Each error is the distance from a patch vertex to the nearest sampled point on
+ * the Coons surface, so it is only as fine as the sampling resolution requested.
  */
 public final class CoonsReconstructionError {
     public static final int NUM_4 = 4;

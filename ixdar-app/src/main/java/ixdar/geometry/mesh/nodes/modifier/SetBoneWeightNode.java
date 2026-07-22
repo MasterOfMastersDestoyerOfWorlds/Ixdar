@@ -16,15 +16,11 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
- * Assigns bone weights to vertices using standard face selections.
- * <p>
- * Reuses the same {@link PortType#BOOLEAN} selection socket as extrude, inset,
- * and crease nodes — no new tagging mechanism. For each face where selection is
- * true, all vertices of that face receive the specified weight for the named bone.
- * <p>
- * Weights are stored as {@code float[]} in the GeometryBundle slot
- * {@code _bone_weight_{boneName}}, indexed by vertex ID.
- * Multiple calls for the same bone name accumulate via max.
+ * Assigns a bone weight to every vertex of each selected face, stored in the GeometryBundle slot
+ * {@link #BONE_WEIGHT_PREFIX} + bone name, indexed by vertex id.
+ *
+ * <p>Selection uses the same {@link PortType#BOOLEAN} socket as extrude, inset and crease.
+ * Repeated calls for one bone name accumulate by maximum, never by sum.
  */
 @MeshNodeAnnotation(id = "set_bone_weight")
 public class SetBoneWeightNode implements MeshNode {

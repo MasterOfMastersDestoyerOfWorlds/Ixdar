@@ -19,14 +19,11 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
- * Boolean (CSG) operations on two meshes: union, difference, or intersect.
- * <p>
- * Uses ray-casting (odd-crossing rule) to classify each face's centroid as
- * inside or outside the other solid, then selects faces based on the operation.
- * <p>
- * This is a face-classification approach — it does not split triangles at
- * intersection boundaries. Results are clean when one mesh fully contains
- * the overlapping region of the other (e.g., subtracting a sphere from a cube).
+ * Boolean (CSG) union, difference or intersect of two meshes, classifying each face centroid
+ * against the other solid by the odd-crossing rule.
+ *
+ * <p>Faces are never split at intersection boundaries, so the seam is clean only when one mesh
+ * fully contains the overlapping region of the other.
  */
 @MeshNodeAnnotation(id = "mesh_boolean")
 public class MeshBooleanNode implements MeshNode {

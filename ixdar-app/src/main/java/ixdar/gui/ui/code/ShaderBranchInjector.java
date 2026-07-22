@@ -51,14 +51,9 @@ public class ShaderBranchInjector {
     }
 
     /**
-     * Rewrite {@link #originalFragmentSource} so the fragment output is replaced with a
-     * preview expression derived from the variable assigned at {@code lineIndex}, then
-     * push the rewritten source back into {@link #targetShader}. Bails out silently when
-     * the line is not an assignment or {@code main} cannot be located. When the clicked
-     * line lives inside an {@code if/else} pair, both branches are emitted so the active
-     * branch shows the preview while the other clears to opaque black; otherwise the
-     * function is truncated after the clicked line and a single preview assignment is
-     * appended via {@link #simpleTruncate}.
+     * Rewrite {@link #originalFragmentSource} so the fragment output previews the variable
+     * assigned at {@code lineIndex}, and push the result into {@link #targetShader}. Returns
+     * silently when the line is not an assignment or {@code main} cannot be located.
      *
      * @param lineIndex zero-based index into the split source lines that the user clicked
      */

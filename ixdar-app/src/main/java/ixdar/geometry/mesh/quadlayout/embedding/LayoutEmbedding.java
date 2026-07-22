@@ -12,21 +12,11 @@ import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
 import ixdar.geometry.mesh.quadlayout.quantization.TJunctionElimination;
 
 /**
- * LCBK19 §6.1 T-mesh re-embedding, construction half: build a working copy of the
- * input mesh (the source is never mutated), give every T-mesh node a dedicated copy
- * vertex, and carve every traced arc into the copy as an edge path.
+ * T-mesh re-embedding, construction half: builds a working copy of the input mesh, gives
+ * every T-mesh node a copy vertex, and carves every traced arc into the copy as an edge
+ * path. Zero-quantized arcs are carved too; {@link ZeroElementContraction} consumes them.
  *
- * <p>The embedding is not searched for, it is replayed. The paper's initial
- * embedding is free — <em>"by construction, an initial embedding of regular arcs
- * onto the input surface is given by the traced motorcycle paths"</em> — so
- * {@link TraceCarve} simply walks each trace's recorded crossings and materializes
- * them. Dijkstra belongs only to the collapse operators, which re-route an arc whose
- * endpoint has just moved; it has no business laying an arc down.
- *
- * <p>Every arc is carved, zero-quantized ones included. They are the input to the
- * {@link ZeroElementContraction} operators, and while they exist they reserve their
- * own channels — which is exactly what stops the surviving arcs from colonizing each
- * other's corridors and walling each other in.
+ * <p>See also: LCBK19 Section 6.1
  */
 public final class LayoutEmbedding {
 

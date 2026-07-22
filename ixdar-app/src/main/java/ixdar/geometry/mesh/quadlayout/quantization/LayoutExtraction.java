@@ -13,20 +13,14 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
 
 /**
- * Layout extraction, first half: apply the quantization to the
- * T-mesh by collapsing every zero-quantized arc (union of its two end nodes —
- * the parametric distance between them is zero, so they become one layout
- * vertex) and keeping the positively quantized arcs as the layout's
- * separatrix skeleton. Reports the remaining T-junction count; connecting or
- * splitting opposite sides to clear those T-junctions (the re-embedding
- * half of §6) operates on this collapsed complex.
+ * Applies the quantization to the T-mesh: every zero-quantized arc is collapsed,
+ * unioning its two end nodes into one layout vertex, leaving the positive arcs as
+ * the layout's separatrix skeleton.
  *
- * <p>
- * Also produces a per-face render buffer in the same format as
- * {@code MotorcycleGraph.traceRecordsByFace} but containing only the segment
- * stretches covered by positive arcs, clipped to their parametric ranges — the
- * final-output scene swaps it in to draw the layout instead of the full
- * trace web.
+ * <p>Also produces a per-face render buffer shaped like
+ * {@code MotorcycleGraph.traceRecordsByFace}, clipped to the positive arcs.
+ *
+ * <p>See also: Lyon 2021 Section 6
  */
 public final class LayoutExtraction {
 

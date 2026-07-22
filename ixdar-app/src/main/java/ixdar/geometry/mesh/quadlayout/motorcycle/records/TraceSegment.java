@@ -10,12 +10,10 @@ public final class TraceSegment {
     public final int activeFace;
 
     /**
-     * Ordinal of the owning trace's face visit that laid this segment. Two
-     * sub-chords of one traversal share a visit id; a later re-entry of the same
-     * face (different level after loop holonomy) gets a new one. Together with
-     * the trace id this combinatorially identifies the chord a segment belongs
-     * to, which is what meeting dedupe keys on — a pair of chords crosses at
-     * most once, no positional epsilon needed.
+     * Ordinal of the owning trace's face visit that laid this segment. Sub-chords
+     * of one traversal share a visit id; a later re-entry of the same face gets a
+     * new one. With the trace id this identifies the chord, and meeting dedupe
+     * keys on that pair.
      */
     public final int visitId;
     public final double entryU;
@@ -30,15 +28,12 @@ public final class TraceSegment {
     public final double spanEnd;
 
     /**
-     * Local edge index (0/1/2) of {@link #activeFace} that the chord exits through,
-     * or {@code -1} when it ends inside the face — a trace termination, or a chord
-     * cut short by an intersection event. Local edge {@code i} runs from corner
-     * {@code i} to corner {@code (i + 1) % 3}.
+     * Local edge index (0/1/2) of {@link #activeFace} the chord exits through, or
+     * {@code -1} when it ends inside the face; local edge {@code i} runs from corner
+     * {@code i} to corner {@code (i + 1) % 3}. The embedding carve splits exactly
+     * this edge at exactly {@link #exitEdgeParameter}.
      *
-     * <p>The LCBK19 §6.1 embedding carve splits exactly this edge at exactly
-     * {@link #exitEdgeParameter}; both are computed by the walker anyway, and
-     * re-deriving them from the lifted 3D position is what forces geometric
-     * tolerances into the embedding.
+     * <p>See also: LCBK19 Section 6.1
      */
     public int exitLocalEdgeIndex = -1;
 

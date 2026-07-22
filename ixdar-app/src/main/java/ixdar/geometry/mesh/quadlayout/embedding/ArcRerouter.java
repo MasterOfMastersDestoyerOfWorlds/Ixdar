@@ -16,22 +16,13 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.quadlayout.crossfield.DijkstraNode;
 
 /**
- * Re-embeds an arc whose endpoint node has just moved, for the LCBK19 §6.1
- * collapse operators. This is the <em>only</em> place the paper uses a graph
- * search: <em>"in operators (1) and (2) edge paths to (re-)embed arcs are
- * determined simply using Dijkstra's shortest path algorithm between the
- * respective two vertices on the triangle mesh. The graph search is restricted
- * to not intersect (cross or touch) other arcs in order to preserve the topology
- * of the embedded T-mesh."</em>
+ * Re-embeds an arc whose endpoint node has just moved, by a Dijkstra search
+ * restricted to cross or touch no other arc. Laying an arc down for the first
+ * time is {@link TraceCarve}'s job.
  *
- * <p>Laying an arc down in the first place is not a search problem — the traced
- * path already is the embedding, and {@link TraceCarve} carves it directly. Using
- * Dijkstra for that instead is what walls arcs in inside a dense zero web.
+ * <p>Each failed round splits the corridor edges walled in by claims.
  *
- * <p>When the claim-respecting search finds no path, the remedy is the paper's:
- * <em>"this is easily resolved by refinement with a few edge splits"</em>. Each
- * failed round splits the corridor edges walled in by claims and widens the
- * corridor by one vertex ring.
+ * <p>See also: LCBK19 Section 6.1
  */
 public final class ArcRerouter {
 
@@ -42,10 +33,8 @@ public final class ArcRerouter {
     public static final int GROWTH_CAP = 4;
 
     /**
-     * Split allowance for the untargeted fallback refinement only. The targeted refinement takes no
-     * allowance, because the passage it walks names exactly which edges must be split; a cap there
-     * cannot bound the work, only discard the result. This one splits blocked corridor edges at
-     * large without knowing which of them obstruct anything, so it keeps a guard.
+     * Split allowance for the untargeted fallback refinement only; the targeted refinement takes
+     * no allowance.
      */
     public static final int SPLIT_BUDGET = 128;
 
@@ -91,12 +80,10 @@ public final class ArcRerouter {
     }
 
     /**
-     * Re-route an arc between two vertices: a claims-respecting corridor Dijkstra, and on failure
-     * the refinement the paper prescribes. A failed round first splits every gate on the face
-     * passage between the two vertices, which is the exact set that blocks the search; only when
-     * there is no such passage to refine does it fall back to splitting blocked corridor edges at
-     * large, and that fallback keeps a split allowance because it is a guess rather than a
-     * derivation. Splits made by failed attempts stay behind as harmless refinement.
+     * Re-route an arc between two vertices by a claims-respecting corridor Dijkstra, refining on
+     * failure. A failed round splits every gate on the face passage between the two vertices, or,
+     * when there is no such passage, blocked corridor edges at large under {@link #SPLIT_BUDGET}.
+     * Splits made by failed attempts stay behind.
      *
      * @param arcId           arc being re-routed, for counters
      * @param vertices        path list; the start vertex is appended when empty, and
@@ -193,13 +180,9 @@ public final class ArcRerouter {
 
     /**
      * Claims-respecting shortest path over unclaimed edges and unclaimed interior vertices of the
-     * corridor — the paper's <em>"restricted to not intersect (cross or touch) other arcs"</em>.
+     * corridor, weighted by plain Euclidean length.
      *
-     * <p>The edge weight is plain Euclidean length and nothing else. An earlier version added a term
-     * pulling the search back toward the arc's old lane; it was invented here, appears in no paper,
-     * and was the single thing preventing the sphere contraction from reaching a fixed point.
-     * Keeping an arc near its old lane is the job of the caller, which backs off along the existing
-     * path and re-routes only the tail — not of a weight on the search.
+     * <p>Keeping an arc near its old lane is the caller's job, not a weight on this search.
      *
      * @param vertices      path list, extended with the found hop
      * @param startVertex   search source
@@ -260,64 +243,16 @@ public final class ArcRerouter {
     }
 
     /**
-     * LCBK19 §6.1 refinement aimed at the edges that actually block this route — the paper's
-     * <em>"a few edge splits"</em>, rather than a few hundred scattered ones.
+     * Splits the gates blocking this route: the edges with both endpoints claimed along the
+     * shortest face path from source to target, in corridor order.
      *
-     * <p>Walks the shortest face path from the search's source to its target that crosses no claimed
-     * arc edge. Such a path always exists when the two lie in the same face of the arc arrangement,
-     * and it is exactly the passage the vertex search is trying to follow. Its crossing edges whose
-     * <em>both</em> endpoints are claimed are the only ones the search cannot traverse — it can stand
-     * on neither end — so those, and only those, are split.
-     *
-     * <p>Splitting them in corridor order also chains them: consecutive crossings share a face, so
-     * once one is split the next split's midpoint joins the previous one across the retriangulated
-     * sub-triangle, building a connected lane of free vertices through the pinch instead of isolated
-     * midpoints.
-     *
-     * <p>This refinement takes no split allowance, because the number of splits it needs is not a
-     * matter of judgement — the passage names them. Every crossed edge contributes exactly one
-     * vertex the search can stand on: a free endpoint where it has one, the minted midpoint where it
-     * does not. Consecutive such vertices are always adjacent along an unclaimed edge, which follows
-     * from {@link EmbeddedMeshTopology#claimPath} claiming an arc's vertices as well as its edges —
-     * so a claimed edge always has both endpoints claimed, and therefore a <em>free</em> vertex
-     * never has a claimed edge. Two free endpoints of consecutive crossings are corners of their
-     * shared face and the edge between them is unclaimed; a midpoint reaches the next crossing's
-     * free endpoint, or the next midpoint, across the retriangulation. So splitting every gate on
-     * the passage is exactly what makes the following search succeed, and stopping short of that
-     * count leaves the passage shut. A cap here does not bound the work, it only discards the
-     * result: the sphere's blocked re-route reported {@code bothClaimed=189} against an allowance of
-     * 128, split 128 edges, still failed, and left every one of those splits behind.
-     *
-     * <p>When no such face path exists at all and the search is allowed to transit a claimed vertex,
-     * the passage runs <em>through</em> that vertex and is refined as two legs instead. The
-     * collapsing node is a cut vertex: claimed arcs radiating from it divide its fan into sectors
-     * that meet only at the vertex and never across an edge, so the arc's body and the survivor can
-     * sit in different sectors with no face path between them, while a vertex path may still step
-     * through the node — which is legal precisely because the arc being pulled is incident to it.
-     * The blocking gates then lie on the node-to-target leg, and asking only for a body-to-target
-     * corridor would find nothing and refine nothing.
+     * <p>Every gate must be split, so this takes no split allowance. {@link #NO_PASSAGE} means the
+     * caller must give up rather than refine, since refinement never unclaims anything.
      *
      * @param startVertex source of the blocked search
      * @param endVertex   target of the blocked search
-     * @param corridor    corridor vertex set; minted vertices join it
-     * <p>Every vertex the passage runs along is admitted to the corridor, not just the midpoints
-     * minted here. Splitting a gate is pointless if the search is then not allowed to stand on the
-     * ordinary vertices either side of it, and the caller's corridor is built from the arc's old
-     * path and the vacated channel — it has no reason to already contain the ground the passage
-     * crosses. A leg can need no splits at all and still be unwalkable for exactly this reason.
-     * Claimed vertices are admitted too and cost nothing: the search rejects them on their claim
-     * regardless of corridor membership.
-     *
-     * <p>When there is no passage at all the answer is {@link #NO_PASSAGE} and the caller must give
-     * up rather than refine, because nothing it can do would help. Splitting subdivides faces and
-     * edges but never <em>unclaims</em> one, so it can never merge two faces of the arc arrangement;
-     * growing the corridor only widens where the search may stand, and minting a spoke only adds an
-     * edge inside a face. A vertex path, meanwhile, always implies a face path — its interior
-     * vertices are unclaimed, an unclaimed vertex has no claimed incident edge, so the walk can
-     * always rotate around it from one crossed edge to the next. So no face passage means no vertex
-     * path, now or after any refinement. Continuing to split in that situation is how a re-route
-     * that was hopeless from the start still left thousands of splits behind it.
-     *
+     * @param corridor    corridor vertex set; every vertex the passage runs along joins it, minted
+     *                    or not, since the search must be allowed to stand either side of a gate
      * @param passThrough claimed vertex the search may transit, or
      *                    {@link EmbeddedMeshTopology#UNCLAIMED} for none
      * @return number of blocking gates split, or {@link #NO_PASSAGE} when the target is
@@ -469,20 +404,10 @@ public final class ArcRerouter {
 
     /**
      * Mint a fresh free spoke into a vertex by splitting the edge <em>opposite</em> it
-     * in one of its incident faces — the retriangulation joins the new vertex to it,
-     * so its degree grows by one.
+     * in one of its incident faces, raising its degree by one.
      *
-     * <p>This is LCBK19 §6.1's "not enough edges" case, and it is the only refinement
-     * that answers it. Splitting an edge <em>incident</em> to the vertex replaces one
-     * spoke with another and leaves the degree unchanged, so when a cluster anchor has
-     * more arcs converging on it than it has free spokes, no amount of that helps. A
-     * search blocked at its own endpoint is blocked for want of a spoke.
-     *
-     * <p>It fires only when the vertex has no free spoke at all, which is the only situation it can
-     * help. Minting unconditionally instead raises the vertex's degree once per round whether or not
-     * spokes were ever the obstruction, and since a successful mint also counts as progress it keeps
-     * the round loop alive to mint again. That is how a re-route target reached 376 free spokes on a
-     * mesh whose vertices have six.
+     * <p>Fires only when the vertex has no free spoke at all; minting unconditionally
+     * counts as progress and so keeps the round loop alive forever.
      *
      * @param vertexId vertex needing another free spoke
      * @param corridor corridor vertex set; the minted vertex joins it

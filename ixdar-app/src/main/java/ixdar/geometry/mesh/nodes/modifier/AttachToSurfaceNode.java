@@ -23,15 +23,11 @@ import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
- * Creates an attachment hole on a mesh surface using spherical coordinates.
- * <p>
- * Finds the face nearest to the direction specified by (theta, phi) from the
- * mesh centroid, insets it, and removes the inner face to create a boundary
- * loop suitable for bridging. Outputs the attachment position, surface normal,
- * and Euler rotation for aligning a +Y-oriented tube.
- * <p>
- * If {@code radius > 0}, all faces whose centroid falls within that distance
- * of the hit point are selected, creating a larger hole.
+ * Creates an attachment hole where the spherical direction (theta, phi) from the mesh centroid
+ * meets the surface: the hit face is inset and its inner face removed, leaving a boundary loop to
+ * bridge to. A positive radius widens the hole.
+ *
+ * <p>The output rotation aligns a +Y tube.
  */
 @MeshNodeAnnotation(id = "attach_to_surface")
 public class AttachToSurfaceNode implements MeshNode {

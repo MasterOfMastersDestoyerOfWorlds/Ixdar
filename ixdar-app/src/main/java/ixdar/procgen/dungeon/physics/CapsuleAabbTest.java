@@ -3,19 +3,11 @@ package ixdar.procgen.dungeon.physics;
 import org.joml.Vector3f;
 
 /**
- * Static collision queries between a vertical {@link CapsuleShape} and an {@link AabbBox}.
+ * Static collision queries between a vertical {@link CapsuleShape} and an {@link AabbBox},
+ * reporting a minimum-translation vector that separates the two flush.
  *
- * <p>Algorithm:
- * <ol>
- *   <li>Find the closest point P on the capsule's central vertical segment to the AABB.</li>
- *   <li>Find the closest point Q on the AABB to P (just clamp P into the AABB).</li>
- *   <li>If {@code dist(P, Q) < radius} the capsule intersects the AABB.</li>
- *   <li>The minimum-translation vector (MTV) pushes the capsule center along {@code P - Q} by
- *       {@code radius - dist} so the new distance is exactly {@code radius} (flush, no overlap).</li>
- *   <li>Edge case: if P lies inside the AABB (the capsule's segment passes through the box),
- *       there's no well-defined direction from {@code P - Q}; pick the AABB face nearest to P
- *       and push out along its outward normal by {@code distToFace + radius}.</li>
- * </ol>
+ * <p>When the capsule's central segment passes through the box the separation direction is
+ * degenerate, and the MTV instead points out along the nearest face normal.
  */
 public final class CapsuleAabbTest {
     public static final int NUM_3 = 3;

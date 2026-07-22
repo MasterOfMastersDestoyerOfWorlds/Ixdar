@@ -9,11 +9,10 @@ import java.util.List;
 public final class FaceSegmentIndex {
 
     /**
-     * Visit-ordinal window within which two same-trace segments count as
-     * adjacent (and so cannot transversally cross). A survive-crash trace can
-     * change axis at a seam and wrap back over its own earlier path; that
-     * self-crossing must be noded, so the same-trace skip is limited to this
-     * window of consecutive face visits rather than the whole trace.
+     * Visit-ordinal window within which two same-trace segments count as adjacent
+     * and so cannot transversally cross. The skip is limited to this window rather
+     * than the whole trace so that a trace wrapping back over its earlier path
+     * still gets noded.
      */
     private static final int SELF_CROSS_ADJACENT_VISITS = 1;
 
@@ -51,11 +50,10 @@ public final class FaceSegmentIndex {
     }
 
     /**
-     * All perpendicular crossings between a freshly laid segment and the
-     * segments already on its face. Segments register only when a trace exits
-     * a face, so two traces traversing one face in the same time window are
-     * mutually blind in the event queue — this retroactive sweep is how such
-     * crossings get noded at all.
+     * All perpendicular crossings between a freshly laid segment and the segments
+     * already on its face. Segments register only on face exit, so this
+     * retroactive sweep is the only way crossings between concurrent traversals of
+     * one face get noded.
      *
      * @param fresh segment that was just laid (already added to the index)
      * @return one hit per crossing, with {@code tAlongCandidate} measured from
@@ -147,16 +145,10 @@ public final class FaceSegmentIndex {
     }
 
     /**
-     * Whether a crossing coincides exactly with either trace's origin. Sibling
-     * separatrices spawn at bit-identical singularity coordinates, so a
-     * perpendicular sibling pair sharing a spawn face crosses at exactly the
-     * singularity point with both parametric lengths zero — recording that as
-     * a meeting mints a duplicate node inside the singularity's port fan and
-     * carries {@code alpha = atan2(0, 0) = +0.0}, which satisfies both of
-     * Lyon's one-sided stop bands at once and kills the trace at spawn.
-     * Origin contacts are owned by the singularity node (port fan) and the
-     * vertex-pass machinery; they are never meetings. All comparisons are
-     * exact — a crossing any nonzero distance from an origin is unaffected.
+     * Whether a crossing coincides exactly with either trace's origin. Such
+     * contacts are owned by the singularity node's port fan and the vertex-pass
+     * machinery and are never meetings. All comparisons are exact, so a crossing
+     * any nonzero distance from an origin is unaffected.
      *
      * @param chordStartLength candidate trace's parametric length at its chord
      *                         entry ({@code 0.0} on the spawn chord)
@@ -203,11 +195,9 @@ public final class FaceSegmentIndex {
 
     /**
      * Whether an existing segment belongs to the candidate trace's own current
-     * face visit (or an immediately adjacent one) and so cannot be a genuine
-     * transversal self-crossing. Segments of the same trace whose visit
-     * ordinals are within {@link #SELF_CROSS_ADJACENT_VISITS} share an endpoint
-     * and meet only tangentially; segments further apart along the same trace
-     * are a real wrap-back self-crossing and must be noded.
+     * face visit or one within {@link #SELF_CROSS_ADJACENT_VISITS} of it, in which
+     * case the two share an endpoint and meet only tangentially. Segments further
+     * apart along the same trace are real self-crossings and must be noded.
      *
      * @param existing         candidate other-segment on the face
      * @param candidateTraceId the laying trace's id
@@ -221,12 +211,9 @@ public final class FaceSegmentIndex {
     }
 
     /**
-     * Linear-scan check whether the chord pair (candidate's current visit, the
-     * existing segment's visit) already has a recorded meeting. Exact
-     * combinatorial identity — two chords cross at most once — replacing the
-     * old positional comparison. Per-call cost is O(metOtherList.size()); this
-     * peaks around a few dozen meetings per trace, much smaller than the
-     * per-face segment count we'd otherwise re-test against.
+     * Whether the chord pair (candidate's current visit, the existing segment's
+     * visit) already has a recorded meeting. Two chords cross at most once, so
+     * this identity is an exact dedupe rather than a tolerance test.
      *
      * @param metOtherList the trace's metOtherTraces list (may be {@code null})
      * @param existing     candidate other-segment
@@ -249,19 +236,10 @@ public final class FaceSegmentIndex {
     }
 
     /**
-     * Intersection of two axis-aligned chords, decided by exact sign
-     * comparisons on the chords' levels and span endpoints — no tolerance
-     * anywhere. Perpendicular chords meet at the iso-coordinate pair {@code
-     * (levelOfUTrace, levelOfVTrace)}, which lies on both chords iff each
-     * level falls inside the other chord's closed span. Collinear chords
-     * (same axis, bit-identical level — true for sibling separatrices spawned
-     * from one vertex and transported identically, generically false for
-     * distinct iso-lines) model a motorcycle running along an iso-line
-     * already covered by another trace — classical head-on/rear-end semantics
-     * say it crashes at the first covered point ahead, so that contact point
-     * is returned; without it, two opposing riders on one separatrix line
-     * ride through each other and the T-mesh gets a doubled, overlapping arc
-     * track.
+     * Intersection of two axis-aligned chords, by exact comparison of levels and
+     * span endpoints with no tolerance. Perpendicular chords meet where each level
+     * falls inside the other's closed span; chords with bit-identical levels meet
+     * at the first covered point ahead.
      *
      * @param a0u   candidate chord entry u
      * @param a0v   candidate chord entry v

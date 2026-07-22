@@ -9,13 +9,10 @@ import ixdar.procgen.dungeon.values.RoomListValue.Room;
 
 /**
  * Deterministic seeded random placement of non-overlapping rooms on an integer grid, with a
- * 1-unit buffer between rooms to prevent adjacency. Stage 1 of the vazgriz dungeon pipeline.
+ * 1-unit buffer between rooms to prevent adjacency.
  *
- * <p>Placements are attempted up to {@code maxAttempts} times; each attempt consumes three
- * draws from the RNG (width, height, candidate position). If a candidate collides with any
- * already-placed room (including buffer), it is discarded and the loop continues. The result
- * may contain fewer rooms than {@code roomCount} if {@code maxAttempts} is exceeded — callers
- * choosing low attempt caps should check the returned list size.
+ * <p>The result may contain fewer rooms than {@code roomCount} when {@code maxAttempts} is
+ * exhausted, so callers must check the returned list size.
  */
 public final class RoomPlacer {
     public static final float NUM_2 = 2f;
