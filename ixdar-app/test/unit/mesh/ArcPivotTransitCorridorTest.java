@@ -88,16 +88,10 @@ class ArcPivotTransitCorridorTest {
     }
 
     /**
-     * The near leg of the transit must be walkable too, even when the caller's corridor never
-     * admitted it.
-     *
-     * <p>{@link EmbeddedTMesh#dragArcEndOntoVertex} builds its corridor from the arc's own old path,
-     * the vacated channel and the channel's unclaimed component — it does not include the region the
-     * arc's body sits in. On the sphere that is what stops arc 429: the pivot-to-target leg is fully
-     * admissible and its gates are split, but the body-to-pivot leg needs no splits at all and still
-     * fails, because 18 free vertices along it are outside the corridor and the search may not stand
-     * on them. Refining a passage is not enough; the search has to be allowed to walk the passage
-     * that was refined.
+     * Both legs of a pivot transit must route. The search over unclaimed vertices is unconfined (the
+     * corridor gates only where refinement splits edges, per LCBK19 §6.1), so the near body-to-pivot
+     * leg — which needs no splits — must still be walked after the far pivot-to-target leg is refined.
+     * This reproduces the sphere's arc 429, where the near leg is fully free yet the drag must reach it.
      */
     @Test
     void reRouteAdmitsThePassageItRefinedIntoTheCorridor() {

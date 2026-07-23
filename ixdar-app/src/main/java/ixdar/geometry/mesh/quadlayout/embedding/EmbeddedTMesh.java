@@ -894,15 +894,13 @@ public final class EmbeddedTMesh {
      * @param movedVertex  the moving node's old copy vertex, an endpoint of the arc's path
      * @param targetVertex the moving node's new copy vertex
      * @param rerouter     the claims-respecting router
-     * @param channel      the collapsing arc's released path vertices, seeding the corridor
-     * @param region       the ground the re-route may use — the arc's two patches plus the channel to
-     *                     the target — pre-computed on the intact mesh so it is gap-free
+     * @param channel      the collapsing arc's released path vertices, opening the pivot spoke
      * @throws IllegalStateException when the arc's path does not end at the moved vertex
      * @throws ArcRerouteFailure    when no back-off point can be re-routed to the target, carrying
      *                              the two disconnected regions for inspection
      */
     public void dragArcEndOntoVertex(int arcId, int movedVertex, int targetVertex,
-            ArcRerouter rerouter, List<Integer> channel, Set<Integer> region) {
+            ArcRerouter rerouter, List<Integer> channel) {
         EmbeddedArc arc = arcs.get(arcId);
         List<Integer> vertices = new ArrayList<>(arc.path.copyVertexPath);
         if (vertices.size() == 1) {
@@ -935,9 +933,6 @@ public final class EmbeddedTMesh {
                 topology.claimPath(arcId, prefixPath);
                 List<Integer> attempt = new ArrayList<>(prefix);
                 ActiveIdSet corridor = rerouter.freshCorridor();
-                for (int vertexId : region) {
-                    corridor.add(vertexId);
-                }
                 if (rerouter.tryRoute(arcId, attempt, vertices.get(keep), targetVertex, corridor,
                         passThrough, ArcRerouter.REFINE_ROUND_CAP)) {
                     List<Integer> edges = new ArrayList<>(prefixEdges);
@@ -1015,62 +1010,6 @@ public final class EmbeddedTMesh {
         }
         return "wallArcs=" + wallArcs.size() + " incident=" + incident
                 + " incidentMoved=" + incidentMoved + " ids=" + wallArcs;
-    }
-
-    /**
-     * The vertices of the two patches an arc separates, seeded from the faces straddling its edges
-     * (not its endpoint nodes, which touch other patches). Correct only on the intact mesh, so the
-     * collapse pre-computes it before a drag opens a gap.
-     *
-     * <p>See also: LCBK19 Section 6.1
-     *
-     * @param arcVertices the arc's current path, still claimed, whose two sides are wanted
-     * @param channel     the collapsing arc's path, walled so its far patch stays out
-     * @return every copy vertex on a face of the arc's own two patches
-     */
-    public Set<Integer> arcSideRegionVertices(List<Integer> arcVertices, List<Integer> channel) {
-        Set<Integer> blockedEdges = new HashSet<>();
-        for (int step = 1; step < channel.size(); step++) {
-            int edgeId = topology.edgeBetween(channel.get(step - 1), channel.get(step));
-            if (edgeId != EmbeddedMeshTopology.UNCLAIMED) {
-                blockedEdges.add(edgeId);
-            }
-        }
-        Set<Integer> visitedFaces = new HashSet<>();
-        Set<Integer> regionVertices = new HashSet<>(arcVertices);
-        Deque<Integer> frontier = new ArrayDeque<>();
-        for (int step = 1; step < arcVertices.size(); step++) {
-            int edgeId = topology.edgeBetween(arcVertices.get(step - 1), arcVertices.get(step));
-            if (edgeId == EmbeddedMeshTopology.UNCLAIMED) {
-                continue;
-            }
-            int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-            for (int face : new int[] {topology.copy.halfEdgeFace(halfEdge),
-                    topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))}) {
-                if (face != EmbeddedMeshTopology.UNCLAIMED && visitedFaces.add(face)) {
-                    frontier.add(face);
-                }
-            }
-        }
-        while (!frontier.isEmpty()) {
-            int face = frontier.poll();
-            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-                regionVertices.add(topology.copy.faceVertexAt(face, corner));
-                int edgeId = topology.copy.faceEdgeAt(face, corner);
-                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED
-                        || blockedEdges.contains(edgeId)) {
-                    continue;
-                }
-                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-                int neighborFace = topology.copy.halfEdgeFace(halfEdge) == face
-                        ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
-                        : topology.copy.halfEdgeFace(halfEdge);
-                if (neighborFace != EmbeddedMeshTopology.UNCLAIMED && visitedFaces.add(neighborFace)) {
-                    frontier.add(neighborFace);
-                }
-            }
-        }
-        return regionVertices;
     }
 
     /**

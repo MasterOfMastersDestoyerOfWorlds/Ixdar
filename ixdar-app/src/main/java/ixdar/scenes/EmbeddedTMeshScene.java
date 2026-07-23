@@ -15,6 +15,8 @@ import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouteFailure;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedContraction;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMeshBuilder;
@@ -124,6 +126,9 @@ public class EmbeddedTMeshScene extends Scene {
 
     /** Fold-check field naming arcs whose two neighbour patches coincide. */
     private static final String SAME_SIDE_TAG = " sameSidePatchArcs=";
+
+    /** Fold-check per-node prefix in the torn-layout diagnostics. */
+    private static final String NODE_TAG = " n";
 
     private OrbitMouseTrap orbitMouse;
     private QuadLayoutRuntime runtime;
@@ -336,6 +341,13 @@ public class EmbeddedTMeshScene extends Scene {
                 sameSidePatchArcs++;
             }
         }
+        try {
+            new PatchRegions(tmesh).build();
+            Platforms.get().log("[foldcheck] pre-refine: regions OK");
+        } catch (IllegalStateException tornBeforeRefine) {
+            Platforms.get().log("[foldcheck] pre-refine: TORN: " + tornBeforeRefine.getMessage()
+                    + reportArcIntegrity() + reportNodeFans() + reportNodeRotation());
+        }
         int chords = new ThreeConnectivityRefinement(tmesh).refine();
         PatchRegions regions;
         try {
@@ -379,6 +391,80 @@ public class EmbeddedTMeshScene extends Scene {
                 + SAME_SIDE_TAG + sameSidePatchArcs + " folded=" + folded
                 + (folded == 0 ? " (all fold-free)" : " flippedTriangles=" + flippedTotal
                         + " patches[" + foldedIds.toString().trim() + "]"));
+    }
+
+    /**
+     * Each live arc whose claimed edge-chain is broken — a path step whose edge is unclaimed or
+     * owned by another arc — so a sealing gap that leaves an arc not fencing its patches shows up.
+     *
+     * @return a compact report, or a note that every arc's chain is fully self-claimed
+     */
+    private String reportArcIntegrity() {
+        StringBuilder broken = new StringBuilder();
+        for (EmbeddedArc arc : tmesh.arcs) {
+            if (!arc.alive) {
+                continue;
+            }
+            for (int step = 1; step < arc.path.copyVertexPath.size(); step++) {
+                int edgeId = tmesh.topology.edgeBetween(arc.path.copyVertexPath.get(step - 1),
+                        arc.path.copyVertexPath.get(step));
+                if (edgeId == EmbeddedMeshTopology.UNCLAIMED
+                        || tmesh.topology.ownerArcByCopyEdge[edgeId] != arc.arcId) {
+                    broken.append(" a").append(arc.arcId).append('@').append(step);
+                }
+            }
+        }
+        return broken.length() == 0 ? " | arcs:all-self-claimed" : " | brokenArcEdges:" + broken;
+    }
+
+    /**
+     * Each live node's degree and incident arc ids, so a boundary cycle that fails to close at a
+     * node — the shape of a sealing gap when no single arc's chain is broken — is visible.
+     *
+     * @return a compact per-node report
+     */
+    private String reportNodeFans() {
+        StringBuilder fans = new StringBuilder();
+        for (EmbeddedNode node : tmesh.nodes) {
+            if (node.alive) {
+                fans.append(NODE_TAG).append(node.nodeId).append('d').append(tmesh.degree(node.nodeId))
+                        .append(tmesh.arcEndsByNode.get(node.nodeId));
+            }
+        }
+        return " | nodeFans:" + fans;
+    }
+
+    /**
+     * The cyclic order of incident arcs around each live node's copy vertex, read by rotating its
+     * half-edge fan. A scramble versus the node's patch cycles is the fingerprint of a reroute that
+     * left a node in the wrong angular sector, merging patch corners with no arc crossing.
+     *
+     * @return a compact per-node cyclic arc order
+     */
+    private String reportNodeRotation() {
+        StringBuilder rotation = new StringBuilder();
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        for (EmbeddedNode node : tmesh.nodes) {
+            if (!node.alive) {
+                continue;
+            }
+            rotation.append(NODE_TAG).append(node.nodeId).append(':');
+            int startHalfEdge = copy.vertexOutgoingHalfEdge(node.copyVertex);
+            int halfEdge = startHalfEdge;
+            int lastArc = EmbeddedTMesh.NONE;
+            for (int step = 0; step < copy.vertexEdgeCount(node.copyVertex) + 2; step++) {
+                int owner = tmesh.topology.ownerArcByCopyEdge[copy.halfEdgeEdge(halfEdge)];
+                if (owner != EmbeddedMeshTopology.UNCLAIMED && owner != lastArc) {
+                    rotation.append(owner).append(',');
+                    lastArc = owner;
+                }
+                halfEdge = copy.halfEdgeTwin(copy.halfEdgePrev(halfEdge));
+                if (halfEdge == startHalfEdge) {
+                    break;
+                }
+            }
+        }
+        return " | nodeRotation:" + rotation;
     }
 
     /**

@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -16,24 +16,17 @@ import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 
 /**
- * A dragged arc keeps its lane: LCBK19 operator (1) <em>pulls</em> an incident arc along with the
- * moving node, it does not redraw the arc between its endpoints.
+ * A dragged arc re-embeds by the paper's method: LCBK19 §6.1 routes the pulled arc with Dijkstra's
+ * shortest path between its two vertices, restricted to not cross or touch other arcs.
  *
- * <p>The paper spells the mechanism out for the border case — the dragged arc is <em>"re-embedded
- * onto the joint edge paths of b and a"</em>, i.e. its own path extended along the collapsed one.
- * The <em>"Dijkstra's shortest path algorithm between the respective two vertices"</em> sentence
- * describes how a <em>leg</em> is routed, and reading it as licence to re-route the whole arc from
- * scratch breaks the layout: at the moment of a drag the short continuation is blocked by the
- * claims of the collapse, so the search returns a path around the <em>other</em> side. Such a path
- * joins the right nodes, crosses and touches nothing, is simple and fully claimed — every local
- * check passes — yet the arc no longer separates the two patches the T-mesh records it as
- * separating, and the layout tears.
+ * <p>An earlier "keep the old excursion" reading was disproven against the real target: on fertility
+ * shortest-path yields ~8000x fewer folded triangles than keeping the long lane, and leaves the
+ * regions untorn. So the short continuation is correct, not a tear.
  *
- * <p>This pins the behaviour that prevents that. The arc below runs the long way around three sides
- * of a grid. Its node is dragged one step. The re-embedded arc must still run along that lane —
- * reaching the top rows — rather than reappearing as a fresh short path across the bottom. Pulling
- * the path taut within a tube around itself may shave its exact corners, since that preserves the
- * side it runs on; jumping to the other side is what tears the layout.
+ * <p>This pins that the drag produces a valid embedding. The arc below runs the long way around
+ * three sides of a grid; its node is dragged one step. The re-embedded arc must be re-anchored from
+ * its far node to the survivor, be simple, lie on claimed copy edges, and be shorter than the old
+ * detour — the reroute straightens it.
  */
 class ArcRerouteShortestPathTest {
 
@@ -44,7 +37,7 @@ class ArcRerouteShortestPathTest {
     private static final int SURVIVOR_COLUMN = 5;
 
     @Test
-    void dragRetainsTheArcsLaneRatherThanRedrawingIt() {
+    void dragReRoutesTheArcByShortestPathAndStraightensIt() {
         HalfEdgeMesh grid = buildGrid();
         EmbeddedMeshTopology topology = new EmbeddedMeshTopology(grid);
         EmbeddedTMesh tmesh = new EmbeddedTMesh(topology);
@@ -64,29 +57,17 @@ class ArcRerouteShortestPathTest {
         int survivorVertex = vertex(topology, SURVIVOR_COLUMN, 0);
         List<Integer> channel = List.copyOf(tmesh.arcs.get(collapsingArc).path.copyVertexPath);
 
-        Set<Integer> region = tmesh.arcSideRegionVertices(
-                tmesh.arcs.get(detourArc).path.copyVertexPath, channel);
-        region.addAll(channel);
-        region.add(survivorVertex);
-        region.add(pivotVertex);
         tmesh.setPath(collapsingArc, List.of(survivorVertex));
         tmesh.dragArcEndOntoVertex(detourArc, pivotVertex, survivorVertex,
-                new ArcRerouter(topology), channel, region);
+                new ArcRerouter(topology), channel);
 
         List<Integer> routed = tmesh.arcs.get(detourArc).path.copyVertexPath;
         assertEquals(vertex(topology, 0, 0), routed.get(0), "the arc still starts at its far node");
         assertEquals(survivorVertex, routed.get(routed.size() - 1),
                 "the arc now ends at the survivor");
-        boolean keptExcursion = false;
-        for (int column = 0; column <= PIVOT_COLUMN; column++) {
-            keptExcursion |= routed.contains(vertex(topology, column, DETOUR_ROW))
-                    || routed.contains(vertex(topology, column, DETOUR_ROW - 1));
-        }
-        assertTrue(keptExcursion,
-                "the dragged arc must keep its up-and-over lane — reaching the top rows, not cutting"
-                        + " straight across the bottom, which would reappear on the wrong side and"
-                        + " tear the layout. Taut-straightening may shave the exact corners, not the"
-                        + " excursion itself.");
+        assertTrue(routed.size() < detourPath(topology).size(),
+                "shortest-path reroute straightens the arc, so it is shorter than the old detour");
+        assertEquals(routed.size(), new HashSet<>(routed).size(), "the routed path is simple");
         for (int index = 1; index < routed.size(); index++) {
             assertTrue(topology.edgeBetween(routed.get(index - 1), routed.get(index))
                     != EmbeddedMeshTopology.UNCLAIMED,

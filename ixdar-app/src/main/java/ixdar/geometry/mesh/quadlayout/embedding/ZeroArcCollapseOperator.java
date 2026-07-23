@@ -1,10 +1,8 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -79,28 +77,13 @@ public final class ZeroArcCollapseOperator {
                 : channel.get(channel.size() - 1) == movedVertex
                         ? channel.get(channel.size() - 2) : channel.get(1);
 
-        Map<Integer, Set<Integer>> regionByArc = new HashMap<>();
-        for (int incidentArcId : tmesh.arcEndsByNode.get(movedNodeId)) {
-            if (incidentArcId == arcId || !tmesh.arcs.get(incidentArcId).alive
-                    || regionByArc.containsKey(incidentArcId)) {
-                continue;
-            }
-            Set<Integer> region = tmesh.arcSideRegionVertices(
-                    tmesh.arcs.get(incidentArcId).path.copyVertexPath, channel);
-            region.addAll(channel);
-            region.add(targetVertex);
-            region.add(movedVertex);
-            regionByArc.put(incidentArcId, region);
-        }
-
         tmesh.setPath(arcId, List.of(targetVertex));
         for (int incidentArcId : incidentArcsInFanOrder(movedVertex, channelNeighbor, arcId,
                 movedNodeId)) {
             if (!tmesh.arcs.get(incidentArcId).alive) {
                 continue;
             }
-            tmesh.dragArcEndOntoVertex(incidentArcId, movedVertex, targetVertex, rerouter, channel,
-                    regionByArc.get(incidentArcId));
+            tmesh.dragArcEndOntoVertex(incidentArcId, movedVertex, targetVertex, rerouter, channel);
         }
 
         tmesh.mergeNodeInto(survivingNodeId, movedNodeId);

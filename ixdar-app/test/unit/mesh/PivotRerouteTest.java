@@ -66,13 +66,8 @@ class PivotRerouteTest {
         int survivorVertex = vertex(topology, 3, 1);
         List<Integer> channel = List.copyOf(tmesh.arcs.get(arcA).path.copyVertexPath);
 
-        java.util.Set<Integer> region = tmesh.arcSideRegionVertices(
-                tmesh.arcs.get(arcB).path.copyVertexPath, channel);
-        region.addAll(channel);
-        region.add(survivorVertex);
-        region.add(pivotVertex);
         tmesh.setPath(arcA, List.of(survivorVertex));
-        tmesh.dragArcEndOntoVertex(arcB, pivotVertex, survivorVertex, rerouter, channel, region);
+        tmesh.dragArcEndOntoVertex(arcB, pivotVertex, survivorVertex, rerouter, channel);
 
         List<Integer> path = tmesh.arcs.get(arcB).path.copyVertexPath;
         assertEquals(vertex(topology, 1, 1), path.get(0), "b still starts at m");
