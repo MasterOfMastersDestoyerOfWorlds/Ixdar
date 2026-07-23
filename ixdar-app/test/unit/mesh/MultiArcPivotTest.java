@@ -63,13 +63,38 @@ class MultiArcPivotTest {
         int pivotVertex = vertex(topology, 3, 1);
         int survivorVertex = vertex(topology, 5, 1);
         List<Integer> channel = List.copyOf(tmesh.arcs.get(arcA).path.copyVertexPath);
+        java.util.Set<Integer> regionB1 = dragRegion(tmesh, arcB1, channel, survivorVertex,
+                pivotVertex);
+        java.util.Set<Integer> regionB2 = dragRegion(tmesh, arcB2, channel, survivorVertex,
+                pivotVertex);
         tmesh.setPath(arcA, List.of(survivorVertex));
 
-        tmesh.dragArcEndOntoVertex(arcB1, pivotVertex, survivorVertex, rerouter, channel);
-        tmesh.dragArcEndOntoVertex(arcB2, pivotVertex, survivorVertex, rerouter, channel);
+        tmesh.dragArcEndOntoVertex(arcB1, pivotVertex, survivorVertex, rerouter, channel, regionB1);
+        tmesh.dragArcEndOntoVertex(arcB2, pivotVertex, survivorVertex, rerouter, channel, regionB2);
 
         assertEquals(survivorVertex, lastVertexOf(tmesh, arcB1), "b1 reaches the survivor");
         assertEquals(survivorVertex, lastVertexOf(tmesh, arcB2), "b2 also reaches the survivor");
+    }
+
+    /**
+     * The pre-computed re-route region for a dragged arc — its two patches plus the channel to the
+     * survivor, as {@code ZeroArcCollapseOperator} builds it before dragging.
+     *
+     * @param tmesh     the T-mesh
+     * @param arcId     arc to be dragged
+     * @param channel   the collapsing arc's path
+     * @param survivor  survivor copy vertex
+     * @param pivot     pivot copy vertex
+     * @return the region the drag may re-route over
+     */
+    private java.util.Set<Integer> dragRegion(EmbeddedTMesh tmesh, int arcId, List<Integer> channel,
+            int survivor, int pivot) {
+        java.util.Set<Integer> region = tmesh.arcSideRegionVertices(
+                tmesh.arcs.get(arcId).path.copyVertexPath, channel);
+        region.addAll(channel);
+        region.add(survivor);
+        region.add(pivot);
+        return region;
     }
 
     /**

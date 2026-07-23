@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -63,9 +64,14 @@ class ArcRerouteShortestPathTest {
         int survivorVertex = vertex(topology, SURVIVOR_COLUMN, 0);
         List<Integer> channel = List.copyOf(tmesh.arcs.get(collapsingArc).path.copyVertexPath);
 
+        Set<Integer> region = tmesh.arcSideRegionVertices(
+                tmesh.arcs.get(detourArc).path.copyVertexPath, channel);
+        region.addAll(channel);
+        region.add(survivorVertex);
+        region.add(pivotVertex);
         tmesh.setPath(collapsingArc, List.of(survivorVertex));
         tmesh.dragArcEndOntoVertex(detourArc, pivotVertex, survivorVertex,
-                new ArcRerouter(topology), channel);
+                new ArcRerouter(topology), channel, region);
 
         List<Integer> routed = tmesh.arcs.get(detourArc).path.copyVertexPath;
         assertEquals(vertex(topology, 0, 0), routed.get(0), "the arc still starts at its far node");

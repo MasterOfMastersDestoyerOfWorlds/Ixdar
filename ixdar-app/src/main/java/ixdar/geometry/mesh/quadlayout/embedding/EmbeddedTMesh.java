@@ -895,12 +895,14 @@ public final class EmbeddedTMesh {
      * @param targetVertex the moving node's new copy vertex
      * @param rerouter     the claims-respecting router
      * @param channel      the collapsing arc's released path vertices, seeding the corridor
+     * @param region       the ground the re-route may use — the arc's two patches plus the channel to
+     *                     the target — pre-computed on the intact mesh so it is gap-free
      * @throws IllegalStateException when the arc's path does not end at the moved vertex
      * @throws ArcRerouteFailure    when no back-off point can be re-routed to the target, carrying
      *                              the two disconnected regions for inspection
      */
     public void dragArcEndOntoVertex(int arcId, int movedVertex, int targetVertex,
-            ArcRerouter rerouter, List<Integer> channel) {
+            ArcRerouter rerouter, List<Integer> channel, Set<Integer> region) {
         EmbeddedArc arc = arcs.get(arcId);
         List<Integer> vertices = new ArrayList<>(arc.path.copyVertexPath);
         if (vertices.size() == 1) {
@@ -923,7 +925,7 @@ public final class EmbeddedTMesh {
             if (passThrough == movedVertex && channel.size() > 1) {
                 openPivotSpoke(movedVertex, unclaimedComponent(channel.get(1)));
             }
-            for (int keep = vertices.size() - 2; keep >= 0; keep--) {
+            for (int keep = 0; keep <= vertices.size() - 2; keep++) {
                 List<Integer> prefix = new ArrayList<>(vertices.subList(0, keep + 1));
                 List<Integer> prefixEdges = new ArrayList<>(keep);
                 if (!rerouter.tryLegEdges(prefix, prefixEdges)) {
@@ -933,18 +935,8 @@ public final class EmbeddedTMesh {
                 topology.claimPath(arcId, prefixPath);
                 List<Integer> attempt = new ArrayList<>(prefix);
                 ActiveIdSet corridor = rerouter.freshCorridor();
-                for (int vertexId : vertices) {
+                for (int vertexId : region) {
                     corridor.add(vertexId);
-                }
-                for (int vertexId : channel) {
-                    corridor.add(vertexId);
-                }
-                corridor.add(targetVertex);
-                corridor.add(movedVertex);
-                if (passThrough != EmbeddedMeshTopology.UNCLAIMED && channel.size() > 1) {
-                    for (int vertexId : unclaimedComponent(channel.get(1))) {
-                        corridor.add(vertexId);
-                    }
                 }
                 if (rerouter.tryRoute(arcId, attempt, vertices.get(keep), targetVertex, corridor,
                         passThrough, ArcRerouter.REFINE_ROUND_CAP)) {
@@ -956,7 +948,6 @@ public final class EmbeddedTMesh {
                     }
                     arc.path = new ArcEdgePath(arcId, attempt, edges);
                     topology.claimPath(arcId, arc.path);
-                    shortenArcPath(arcId);
                     return;
                 }
                 releaseClaims(prefixPath);
@@ -995,75 +986,6 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Pulls an arc's path taut within a one-ring tube around itself, replacing it with the
-     * fewest-hop route through that tube — shorter, but homotopic, since a one-ring tube around a
-     * curve is a disk and every route inside stays on the same side of every other arc.
-     *
-     * @param arcId arc whose path is straightened after a drag
-     */
-    private void shortenArcPath(int arcId) {
-        EmbeddedArc arc = arcs.get(arcId);
-        List<Integer> path = new ArrayList<>(arc.path.copyVertexPath);
-        if (path.size() < 3) {
-            return;
-        }
-        Set<Integer> tube = new HashSet<>(path);
-        for (int pathVertex : path) {
-            for (int index = 0; index < topology.copy.vertexFaceCount(pathVertex); index++) {
-                int faceId = topology.copy.vertexFaceAt(pathVertex, index);
-                for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-                    tube.add(topology.copy.faceVertexAt(faceId, corner));
-                }
-            }
-        }
-        releaseClaims(arc.path);
-        List<Integer> taut = tautPathWithin(path.get(0), path.get(path.size() - 1), tube);
-        setPath(arcId, taut != null && taut.size() < path.size() ? taut : path);
-    }
-
-    /**
-     * The fewest-hop path between two vertices over unclaimed edges and vertices confined to a tube,
-     * or {@code null} when none stays inside it.
-     *
-     * @param start source vertex
-     * @param end   target vertex, reachable even though claimed
-     * @param tube  the vertices the search may stand on
-     * @return the fewest-hop vertex path, or {@code null}
-     */
-    private List<Integer> tautPathWithin(int start, int end, Set<Integer> tube) {
-        Map<Integer, Integer> parent = new HashMap<>();
-        Deque<Integer> queue = new ArrayDeque<>();
-        parent.put(start, start);
-        queue.add(start);
-        while (!queue.isEmpty()) {
-            int vertex = queue.poll();
-            if (vertex == end) {
-                List<Integer> path = new ArrayList<>();
-                for (int walk = end; walk != start; walk = parent.get(walk)) {
-                    path.add(walk);
-                }
-                path.add(start);
-                Collections.reverse(path);
-                return path;
-            }
-            for (int index = 0; index < topology.copy.vertexEdgeCount(vertex); index++) {
-                int edgeId = topology.copy.vertexEdgeAt(vertex, index);
-                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
-                    continue;
-                }
-                int neighbor = topology.otherEndpoint(edgeId, vertex);
-                if (!tube.contains(neighbor) || neighbor != end && isClaimedVertex(neighbor)) {
-                    continue;
-                }
-                if (parent.putIfAbsent(neighbor, vertex) == null) {
-                    queue.add(neighbor);
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
      * A summary of the arcs owning the wall around a body region: how many there are, how many are
      * incident to the collapsing pivot node, and how many of those no longer touch the pivot.
      *
@@ -1096,19 +1018,17 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * The vertices of the two patches an arc separates — the only ground it may be re-routed over.
-     *
-     * <p>Must be called while the arc is still claimed, so the flood is walled by the arc itself
-     * and by the collapsing arc's channel.
+     * The vertices of the two patches an arc separates, seeded from the faces straddling its edges
+     * (not its endpoint nodes, which touch other patches). Correct only on the intact mesh, so the
+     * collapse pre-computes it before a drag opens a gap.
      *
      * <p>See also: LCBK19 Section 6.1
      *
-     * @param arcVertices  the arc's current path, still claimed, whose two sides are wanted
-     * @param channel      the collapsing arc's released path, treated as a wall so its patches do
-     *                     not merge in
+     * @param arcVertices the arc's current path, still claimed, whose two sides are wanted
+     * @param channel     the collapsing arc's path, walled so its far patch stays out
      * @return every copy vertex on a face of the arc's own two patches
      */
-    private Set<Integer> arcSideRegionVertices(List<Integer> arcVertices, List<Integer> channel) {
+    public Set<Integer> arcSideRegionVertices(List<Integer> arcVertices, List<Integer> channel) {
         Set<Integer> blockedEdges = new HashSet<>();
         for (int step = 1; step < channel.size(); step++) {
             int edgeId = topology.edgeBetween(channel.get(step - 1), channel.get(step));
@@ -1119,10 +1039,15 @@ public final class EmbeddedTMesh {
         Set<Integer> visitedFaces = new HashSet<>();
         Set<Integer> regionVertices = new HashSet<>(arcVertices);
         Deque<Integer> frontier = new ArrayDeque<>();
-        for (int arcVertex : arcVertices) {
-            for (int index = 0; index < topology.copy.vertexFaceCount(arcVertex); index++) {
-                int face = topology.copy.vertexFaceAt(arcVertex, index);
-                if (visitedFaces.add(face)) {
+        for (int step = 1; step < arcVertices.size(); step++) {
+            int edgeId = topology.edgeBetween(arcVertices.get(step - 1), arcVertices.get(step));
+            if (edgeId == EmbeddedMeshTopology.UNCLAIMED) {
+                continue;
+            }
+            int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+            for (int face : new int[] {topology.copy.halfEdgeFace(halfEdge),
+                    topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))}) {
+                if (face != EmbeddedMeshTopology.UNCLAIMED && visitedFaces.add(face)) {
                     frontier.add(face);
                 }
             }

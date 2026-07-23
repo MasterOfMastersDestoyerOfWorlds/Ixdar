@@ -1,6 +1,8 @@
 package ixdar.scenes;
 
 import java.io.IOException;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.joml.Vector3f;
 
@@ -11,9 +13,15 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouteFailure;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedContraction;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMeshBuilder;
+import ixdar.geometry.mesh.quadlayout.embedding.PatchRectangleMap;
+import ixdar.geometry.mesh.quadlayout.embedding.PatchRegionMapper;
+import ixdar.geometry.mesh.quadlayout.embedding.PatchRegions;
+import ixdar.geometry.mesh.quadlayout.embedding.ThreeConnectivityRefinement;
 import ixdar.geometry.mesh.quadlayout.embedding.TorusLayoutFixture;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
@@ -71,6 +79,13 @@ public class EmbeddedTMeshScene extends Scene {
      */
     public static final String CONTRACT_FAIL_PROPERTY = "embeddedTMesh.contractFail";
 
+    /**
+     * System property that, when {@code true}, judges a clean fixed point: refine to
+     * 3-connectivity, build patch regions, and map every patch to its rectangle, logging whether
+     * the regions partition the surface and whether every patch is fold-free.
+     */
+    public static final String FOLD_CHECK_PROPERTY = "embeddedTMesh.foldCheck";
+
     /** Request value meaning "apply as many as possible". */
     public static final String ALL = "all";
 
@@ -103,6 +118,12 @@ public class EmbeddedTMeshScene extends Scene {
 
     /** Separator introducing the live arc count in a contraction log line. */
     private static final String ARC_COUNT_TAG = "; arcs=";
+
+    /** Boolean-property default meaning the feature is off unless explicitly enabled. */
+    private static final String FALSE = "false";
+
+    /** Fold-check field naming arcs whose two neighbour patches coincide. */
+    private static final String SAME_SIDE_TAG = " sameSidePatchArcs=";
 
     private OrbitMouseTrap orbitMouse;
     private QuadLayoutRuntime runtime;
@@ -283,7 +304,7 @@ public class EmbeddedTMeshScene extends Scene {
      * that still holds zero-patches throws.
      */
     private void applyContractToFailure() {
-        if (!Boolean.parseBoolean(System.getProperty(CONTRACT_FAIL_PROPERTY, "false"))) {
+        if (!Boolean.parseBoolean(System.getProperty(CONTRACT_FAIL_PROPERTY, FALSE))) {
             return;
         }
         EmbeddedContraction contraction = new EmbeddedContraction(tmesh, eulerCharacteristic);
@@ -291,12 +312,73 @@ public class EmbeddedTMeshScene extends Scene {
         if (failure == null) {
             Platforms.get().log("[embedded-tmesh] contracted to a fixed point with no failure: "
                     + contractionSummary(contraction));
+            reportFixedPointValidity();
         } else {
             Platforms.get().log("[embedded-tmesh] stopped at reroute failure after "
                     + contractionSummary(contraction) + " | fenceVertices="
                     + failure.fenceVertices.size() + " pivotSpokes="
                     + (failure.pivotSpokes.size() / 2) + " | " + failure.getMessage());
         }
+    }
+
+    /**
+     * Judges the contracted layout at its fixed point, gated by {@link #FOLD_CHECK_PROPERTY}:
+     * refines to 3-connectivity, builds patch regions, and maps every patch to its rectangle,
+     * logging whether the regions partition the surface and how many patches fold.
+     */
+    private void reportFixedPointValidity() {
+        if (!Boolean.parseBoolean(System.getProperty(FOLD_CHECK_PROPERTY, FALSE))) {
+            return;
+        }
+        int sameSidePatchArcs = 0;
+        for (EmbeddedArc arc : tmesh.arcs) {
+            if (arc.alive && arc.leftPatchId == arc.rightPatchId) {
+                sameSidePatchArcs++;
+            }
+        }
+        int chords = new ThreeConnectivityRefinement(tmesh).refine();
+        PatchRegions regions;
+        try {
+            regions = new PatchRegions(tmesh).build();
+        } catch (IllegalStateException torn) {
+            StringBuilder patchArcs = new StringBuilder();
+            for (EmbeddedPatch patch : tmesh.patches) {
+                if (!patch.alive) {
+                    continue;
+                }
+                Set<Integer> boundary = new TreeSet<>();
+                for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+                    boundary.addAll(patch.sideArcIds.get(side));
+                }
+                patchArcs.append(" P").append(patch.patchId).append(boundary);
+            }
+            Platforms.get().log("[foldcheck] TORN after refine (chords=" + chords
+                    + SAME_SIDE_TAG + sameSidePatchArcs + "): " + torn.getMessage()
+                    + " | live patches:" + patchArcs);
+            return;
+        }
+        PatchRegionMapper mapper = new PatchRegionMapper(tmesh, regions);
+        int mapped = 0;
+        int folded = 0;
+        int flippedTotal = 0;
+        StringBuilder foldedIds = new StringBuilder();
+        for (EmbeddedPatch patch : tmesh.patches) {
+            if (!patch.alive) {
+                continue;
+            }
+            mapped++;
+            PatchRectangleMap map = mapper.mapPatch(patch.patchId);
+            int flipped = map.flippedTriangleCount();
+            if (flipped > 0) {
+                folded++;
+                flippedTotal += flipped;
+                foldedIds.append(' ').append(patch.patchId).append('(').append(flipped).append(')');
+            }
+        }
+        Platforms.get().log("[foldcheck] regions OK: " + mapped + " patches, chords=" + chords
+                + SAME_SIDE_TAG + sameSidePatchArcs + " folded=" + folded
+                + (folded == 0 ? " (all fold-free)" : " flippedTriangles=" + flippedTotal
+                        + " patches[" + foldedIds.toString().trim() + "]"));
     }
 
     /**

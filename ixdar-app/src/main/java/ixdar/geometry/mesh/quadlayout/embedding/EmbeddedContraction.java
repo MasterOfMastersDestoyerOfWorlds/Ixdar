@@ -7,12 +7,16 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * Drives the three re-embedding operators to a fixed point, leaving no zero arcs or zero patches.
+ * Drives the three re-embedding operators to a fixed point, leaving no zero
+ * arcs or zero patches.
  *
- * <p>The collapsing operators go first — zero-arc, then simple zero-patch — and the non-simple
- * zero-patch split only when neither applies. The measure decreases per round.
+ * <p>
+ * The collapsing operators go first — zero-arc, then simple zero-patch — and
+ * the non-simple zero-patch split only when neither applies. The measure
+ * decreases per round.
  *
- * <p>See also: LCBK19 Appendix A.3
+ * <p>
+ * See also: LCBK19 Appendix A.3
  */
 public final class EmbeddedContraction {
 
@@ -31,18 +35,25 @@ public final class EmbeddedContraction {
     /** Closing parenthesis of a parenthesised diagnostic group. */
     private static final String CLOSE_PAREN = ")";
 
-    /** Divisor turning the fixed-point report's elapsed nanoseconds into milliseconds. */
+    /**
+     * Divisor turning the fixed-point report's elapsed nanoseconds into
+     * milliseconds.
+     */
     private static final long NANOS_PER_MILLI = 1_000_000L;
 
-    /** How many surviving zero-patches the fixed-point report names before truncating. */
+    /**
+     * How many surviving zero-patches the fixed-point report names before
+     * truncating.
+     */
     private static final int SURVIVOR_REPORT_CAP = 12;
 
     /**
      * System property enabling the per-step region check.
      *
-     * <p>Region correspondence holds only at the fixed point, so intermediate states report tears
-     * that are not tears. To judge a layout, build {@link PatchRegions} after the contraction has
-     * finished.
+     * <p>
+     * Region correspondence holds only at the fixed point, so intermediate states
+     * report tears that are not tears. To judge a layout, build
+     * {@link PatchRegions} after the contraction has finished.
      */
     private static final String CHECK_REGIONS_PROPERTY = "embeddedTMesh.checkRegions";
 
@@ -59,17 +70,24 @@ public final class EmbeddedContraction {
     public int patchSplitCount;
     public int patchCollapseCount;
 
-    /** The reroute failure that stopped {@link #contractToFailure}, or null if none occurred. */
+    /**
+     * The reroute failure that stopped {@link #contractToFailure}, or null if none
+     * occurred.
+     */
     public ArcRerouteFailure failure;
 
-    /** A description of the operator applied most recently, for reporting which step broke. */
+    /**
+     * A description of the operator applied most recently, for reporting which step
+     * broke.
+     */
     public String lastStep;
 
     /**
      * Builds the driver and its three operators over a T-mesh.
      *
      * @param tmesh                       embedded T-mesh to contract
-     * @param expectedEulerCharacteristic the surface's characteristic, checked after each step
+     * @param expectedEulerCharacteristic the surface's characteristic, checked
+     *                                    after each step
      */
     public EmbeddedContraction(EmbeddedTMesh tmesh, int expectedEulerCharacteristic) {
         this.tmesh = tmesh;
@@ -80,15 +98,18 @@ public final class EmbeddedContraction {
     }
 
     /**
-     * Contracts the T-mesh, validating the decomposition every step and the measure every round.
+     * Contracts the T-mesh, validating the decomposition every step and the measure
+     * every round.
      *
-     * <p>A round is what LCBK19 Appendix A.3 measures: one operator (2) split, then operators (1)
-     * and (3) to exhaustion, against the state before the split. Operator (2) raises the measure by
-     * design; the other two lower it.
+     * <p>
+     * A round is what LCBK19 Appendix A.3 measures: one operator (2) split, then
+     * operators (1) and (3) to exhaustion, against the state before the split.
+     * Operator (2) raises the measure by design; the other two lower it.
      *
      * @return this, contracted
-     * @throws IllegalStateException when the T-mesh stops being a cell decomposition or a round
-     *                               fails to strictly decrease the termination measure
+     * @throws IllegalStateException when the T-mesh stops being a cell
+     *                               decomposition or a round fails to strictly
+     *                               decrease the termination measure
      */
     public EmbeddedContraction contract() {
         long measure = terminationMeasure();
@@ -105,10 +126,9 @@ public final class EmbeddedContraction {
             checkDecomposition();
             long next = collapseToExhaustion(measure, false);
             if (next >= measure) {
-                throw new IllegalStateException("contraction did not make progress: the round on"
-                        + FIELD_SEPARATOR + lastStep + FIELD_SEPARATOR + "left the termination"
-                        + " measure at " + next + ", up from " + measure + FIELD_SEPARATOR
-                        + "before: " + termsBefore + FIELD_SEPARATOR + "after: " + measureTerms());
+                throw new IllegalStateException(String.format(
+                        "contraction did not make progress: the round on | %s | left the termination measure at %d , up from %d | before: %s | after: %s",
+                        lastStep, next, measure, termsBefore, measureTerms()));
             }
             measure = next;
         }
@@ -117,13 +137,13 @@ public final class EmbeddedContraction {
     /**
      * Applies operators (1) and (3) until neither does, validating after each.
      *
-     * @param measure    the measure before the first of them
-     * @param perStep    whether each single application must strictly lower the measure, which
-     *                   holds outside a round but not inside one, where operator (2) has just
-     *                   raised it
+     * @param measure the measure before the first of them
+     * @param perStep whether each single application must strictly lower the
+     *                measure, which holds outside a round but not inside one, where
+     *                operator (2) has just raised it
      * @return the measure once neither operator applies
-     * @throws IllegalStateException when {@code perStep} holds and one application does not lower
-     *                               the measure
+     * @throws IllegalStateException when {@code perStep} holds and one application
+     *                               does not lower the measure
      */
     private long collapseToExhaustion(long measure, boolean perStep) {
         long running = measure;
@@ -141,10 +161,11 @@ public final class EmbeddedContraction {
     }
 
     /**
-     * Checks that the T-mesh is still a cell decomposition of the surface, and optionally that its
-     * patch regions are still untorn.
+     * Checks that the T-mesh is still a cell decomposition of the surface, and
+     * optionally that its patch regions are still untorn.
      *
-     * @throws IllegalStateException when either check fails, reporting the operator that broke it
+     * @throws IllegalStateException when either check fails, reporting the operator
+     *                               that broke it
      */
     private void checkDecomposition() {
         tmesh.validate(expectedEulerCharacteristic);
@@ -213,14 +234,16 @@ public final class EmbeddedContraction {
     }
 
     /**
-     * Contracts the T-mesh until either it is fully re-embedded or an operator hits a reroute
-     * wall, keeping the (partially mutated) T-mesh in place for inspection. Unlike {@link
-     * #contract}, a reroute failure is caught and returned rather than propagated, so a caller can
-     * render the wall it carries.
+     * Contracts the T-mesh until either it is fully re-embedded or an operator hits
+     * a reroute wall, keeping the (partially mutated) T-mesh in place for
+     * inspection. Unlike {@link #contract}, a reroute failure is caught and
+     * returned rather than propagated, so a caller can render the wall it carries.
      *
-     * @return the reroute failure that stopped the contraction, or null when it ran to completion
-     * @throws IllegalStateException when the T-mesh stops being a cell decomposition, which is a
-     *                               different, non-recoverable fault than a reroute wall
+     * @return the reroute failure that stopped the contraction, or null when it ran
+     *         to completion
+     * @throws IllegalStateException when the T-mesh stops being a cell
+     *                               decomposition, which is a different,
+     *                               non-recoverable fault than a reroute wall
      */
     public ArcRerouteFailure contractToFailure() {
         int claimedVertices = 0;
@@ -314,8 +337,9 @@ public final class EmbeddedContraction {
     }
 
     /**
-     * One operator's refinement tally: edge splits broken down by the mechanism that made them,
-     * alongside the route attempts and refine rounds that drove them.
+     * One operator's refinement tally: edge splits broken down by the mechanism
+     * that made them, alongside the route attempts and refine rounds that drove
+     * them.
      *
      * @param rerouter operator's re-router
      * @param label    operator name to prefix the tally with
@@ -330,8 +354,8 @@ public final class EmbeddedContraction {
     }
 
     /**
-     * Why the live zero arcs left at the fixed point could not be collapsed, split by which of
-     * LCBK19 Def 6.2's conditions blocks each one.
+     * Why the live zero arcs left at the fixed point could not be collapsed, split
+     * by which of LCBK19 Def 6.2's conditions blocks each one.
      *
      * @return the tally as a compact string
      */
@@ -361,8 +385,8 @@ public final class EmbeddedContraction {
     }
 
     /**
-     * The live node, arc and patch counts as a compact {@code V/E/F} string, for reporting which
-     * operator broke the cell decomposition and by how much.
+     * The live node, arc and patch counts as a compact {@code V/E/F} string, for
+     * reporting which operator broke the cell decomposition and by how much.
      *
      * @return the live counts
      */
@@ -374,9 +398,9 @@ public final class EmbeddedContraction {
     }
 
     /**
-     * Applies one operator, and reports whether one applied. The collapsing operators (1) and (3)
-     * go first, so operator (2) only runs when nothing else can — which is what makes a round of
-     * {@link #contract} well defined.
+     * Applies one operator, and reports whether one applied. The collapsing
+     * operators (1) and (3) go first, so operator (2) only runs when nothing else
+     * can — which is what makes a round of {@link #contract} well defined.
      *
      * @return true when an operator was applied, false when none can be
      */
@@ -395,8 +419,8 @@ public final class EmbeddedContraction {
     }
 
     /**
-     * Applies one zero-arc collapse, or one simple zero-patch collapse when no arc is collapsible.
-     * Both lower the termination measure on their own.
+     * Applies one zero-arc collapse, or one simple zero-patch collapse when no arc
+     * is collapsible. Both lower the termination measure on their own.
      *
      * @return true when one of the two applied
      */
@@ -421,20 +445,22 @@ public final class EmbeddedContraction {
     /**
      * The zero-patches still alive when no operator applies any more.
      *
-     * <p>There should be none: a survivor is a patch no operator claimed, and it stays in the final
-     * layout as a cell with no area.
+     * <p>
+     * There should be none: a survivor is a patch no operator claimed, and it stays
+     * in the final layout as a cell with no area.
      *
-     * <p>See also: LCBK19 Proposition 6.1, Corollary 6.3
+     * <p>
+     * See also: LCBK19 Proposition 6.1, Corollary 6.3
      *
-     * @return a summary naming the survivors and how many non-zero arcs each carries
+     * @return a summary naming the survivors and how many non-zero arcs each
+     *         carries
      */
     private String survivingZeroPatchReport() {
         List<String> survivors = new ArrayList<>();
         for (EmbeddedPatch patch : tmesh.patches) {
             if (patch.alive && tmesh.isZeroPatch(patch.patchId)) {
-                survivors.add(String.format(PATCH_NON_ZERO_TAG, patch.patchId,
-                        tmesh.nonZeroArcCount(patch.patchId)) + " arcs="
-                        + describePatchSides(patch.patchId) + CLOSE_PAREN);
+                survivors.add(String.format("P%d(nonZero= %d arcs= %s)", patch.patchId,
+                        tmesh.nonZeroArcCount(patch.patchId), describePatchSides(patch.patchId)));
             }
         }
         return "zeroPatchesLeft=" + survivors.size() + " "
@@ -442,12 +468,13 @@ public final class EmbeddedContraction {
     }
 
     /**
-     * The shape of an arc about to be collapsed, for the report when the collapse breaks the cell
-     * decomposition. An arc that is already a loop has no node to merge, so it must pay for itself
-     * with a face instead.
+     * The shape of an arc about to be collapsed, for the report when the collapse
+     * breaks the cell decomposition. An arc that is already a loop has no node to
+     * merge, so it must pay for itself with a face instead.
      *
      * @param arcId arc about to be collapsed
-     * @return a bracketed description, or the empty string for an ordinary two-node arc
+     * @return a bracketed description, or the empty string for an ordinary two-node
+     *         arc
      */
     private String describeArcShape(int arcId) {
         EmbeddedArc arc = tmesh.arcs.get(arcId);
@@ -462,8 +489,8 @@ public final class EmbeddedContraction {
     }
 
     /**
-     * The per-side arc counts of a patch, so the report shows whether retiring it would have been
-     * the emptied-patch case the collapse already handles.
+     * The per-side arc counts of a patch, so the report shows whether retiring it
+     * would have been the emptied-patch case the collapse already handles.
      *
      * @param patchId patch to describe, or {@link EmbeddedTMesh#NONE}
      * @return the four side sizes, or {@code none}
@@ -487,10 +514,12 @@ public final class EmbeddedContraction {
     }
 
     /**
-     * The two terms of {@link #terminationMeasure} separately, plus the non-simple zero-patches
-     * still outstanding, so a round that fails to make progress names what it left behind.
+     * The two terms of {@link #terminationMeasure} separately, plus the non-simple
+     * zero-patches still outstanding, so a round that fails to make progress names
+     * what it left behind.
      *
-     * @return the zero-arc and zero-patch counts and the non-simple patches among them
+     * @return the zero-arc and zero-patch counts and the non-simple patches among
+     *         them
      */
     private String measureTerms() {
         long zeroPatches = 0;
@@ -516,11 +545,13 @@ public final class EmbeddedContraction {
     }
 
     /**
-     * The Appendix A.3 termination measure: <em>"the total number of yet-to-be-collapsed zero-arcs
-     * and zero-patches"</em>.
+     * The Appendix A.3 termination measure: <em>"the total number of
+     * yet-to-be-collapsed zero-arcs and zero-patches"</em>.
      *
-     * <p>Operators (1) and (3) each lower it on their own. Operator (2) raises it deliberately, and
-     * only the round that follows it — see {@link #contract} — must bring it back down.
+     * <p>
+     * Operators (1) and (3) each lower it on their own. Operator (2) raises it
+     * deliberately, and only the round that follows it — see {@link #contract} —
+     * must bring it back down.
      *
      * @return the count of live zero arcs plus live zero patches
      */
