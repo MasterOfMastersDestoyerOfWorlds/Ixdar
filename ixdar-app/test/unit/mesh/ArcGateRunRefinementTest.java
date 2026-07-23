@@ -43,6 +43,9 @@ class ArcGateRunRefinementTest {
     private static final int UPPER_ARC = 8;
     private static final int ROUTED_ARC = 9;
 
+    /** A gate run at least this long outruns any single-pass split allowance a refinement might cap at. */
+    private static final int LONG_GATE_RUN = 128;
+
     @Test
     void reRouteThreadsAGateRunLongerThanAnyFixedSplitAllowance() {
         HalfEdgeMesh grid = buildGrid();
@@ -63,7 +66,7 @@ class ArcGateRunRefinementTest {
         int startVertex = vertex(topology, 0, LOWER_ROW);
         int targetVertex = vertex(topology, COLUMNS - 1, UPPER_ROW);
 
-        assertTrue(gateRunLength(topology) > ArcRerouter.SPLIT_BUDGET,
+        assertTrue(gateRunLength(topology) > LONG_GATE_RUN,
                 "the channel must need more splits than any fixed allowance, or the test proves"
                         + " nothing about the allowance");
 

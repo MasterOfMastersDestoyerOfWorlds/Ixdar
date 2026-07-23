@@ -324,11 +324,9 @@ public final class EmbeddedContraction {
     private String refinementShare(ArcRerouter rerouter, String label) {
         return FIELD_SEPARATOR + label + " splits=" + rerouter.refinedEdgeSplitCount
                 + " (gate=" + rerouter.gateSplitCount
-                + " blocked=" + rerouter.blockedSplitCount
                 + " spoke=" + rerouter.spokeSplitCount
                 + ") attempts=" + rerouter.routeAttemptCount
-                + " rounds=" + rerouter.refineRoundCount
-                + " growths=" + rerouter.corridorGrowthCount;
+                + " rounds=" + rerouter.refineRoundCount;
     }
 
     /**

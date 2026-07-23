@@ -980,7 +980,6 @@ public final class EmbeddedTMesh {
                 + " refineSplits=" + rerouter.refinedEdgeSplitCount
                 + " lastReached=" + rerouter.lastReachedCount
                 + " lastCorridor=" + rerouter.lastCorridorSize
-                + " growths=" + rerouter.corridorGrowthCount
                 + " " + wallArcSummary(fence, movedVertex)
                 + " " + channelOwnerReport(channel, movedVertex)
                 + " faceThreadPivotToTarget=" + faceReachesAcrossFreeEdges(movedVertex, targetVertex)
