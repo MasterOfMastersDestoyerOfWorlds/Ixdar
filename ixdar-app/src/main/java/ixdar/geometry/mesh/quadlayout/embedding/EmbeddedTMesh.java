@@ -956,6 +956,7 @@ public final class EmbeddedTMesh {
                     }
                     arc.path = new ArcEdgePath(arcId, attempt, edges);
                     topology.claimPath(arcId, arc.path);
+                    shortenArcPath(arcId);
                     return;
                 }
                 releaseClaims(prefixPath);
@@ -991,6 +992,75 @@ public final class EmbeddedTMesh {
         throw new ArcRerouteFailure(message, arcId, movedVertex, targetVertex,
                 new ArrayList<>(vertices), new ArrayList<>(channel), bodyComponent,
                 channelComponent, fence, unclaimedEdgesFrom(movedVertex));
+    }
+
+    /**
+     * Pulls an arc's path taut within a one-ring tube around itself, replacing it with the
+     * fewest-hop route through that tube — shorter, but homotopic, since a one-ring tube around a
+     * curve is a disk and every route inside stays on the same side of every other arc.
+     *
+     * @param arcId arc whose path is straightened after a drag
+     */
+    private void shortenArcPath(int arcId) {
+        EmbeddedArc arc = arcs.get(arcId);
+        List<Integer> path = new ArrayList<>(arc.path.copyVertexPath);
+        if (path.size() < 3) {
+            return;
+        }
+        Set<Integer> tube = new HashSet<>(path);
+        for (int pathVertex : path) {
+            for (int index = 0; index < topology.copy.vertexFaceCount(pathVertex); index++) {
+                int faceId = topology.copy.vertexFaceAt(pathVertex, index);
+                for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+                    tube.add(topology.copy.faceVertexAt(faceId, corner));
+                }
+            }
+        }
+        releaseClaims(arc.path);
+        List<Integer> taut = tautPathWithin(path.get(0), path.get(path.size() - 1), tube);
+        setPath(arcId, taut != null && taut.size() < path.size() ? taut : path);
+    }
+
+    /**
+     * The fewest-hop path between two vertices over unclaimed edges and vertices confined to a tube,
+     * or {@code null} when none stays inside it.
+     *
+     * @param start source vertex
+     * @param end   target vertex, reachable even though claimed
+     * @param tube  the vertices the search may stand on
+     * @return the fewest-hop vertex path, or {@code null}
+     */
+    private List<Integer> tautPathWithin(int start, int end, Set<Integer> tube) {
+        Map<Integer, Integer> parent = new HashMap<>();
+        Deque<Integer> queue = new ArrayDeque<>();
+        parent.put(start, start);
+        queue.add(start);
+        while (!queue.isEmpty()) {
+            int vertex = queue.poll();
+            if (vertex == end) {
+                List<Integer> path = new ArrayList<>();
+                for (int walk = end; walk != start; walk = parent.get(walk)) {
+                    path.add(walk);
+                }
+                path.add(start);
+                Collections.reverse(path);
+                return path;
+            }
+            for (int index = 0; index < topology.copy.vertexEdgeCount(vertex); index++) {
+                int edgeId = topology.copy.vertexEdgeAt(vertex, index);
+                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                    continue;
+                }
+                int neighbor = topology.otherEndpoint(edgeId, vertex);
+                if (!tube.contains(neighbor) || neighbor != end && isClaimedVertex(neighbor)) {
+                    continue;
+                }
+                if (parent.putIfAbsent(neighbor, vertex) == null) {
+                    queue.add(neighbor);
+                }
+            }
+        }
+        return null;
     }
 
     /**

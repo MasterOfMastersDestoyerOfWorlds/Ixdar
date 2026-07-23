@@ -29,10 +29,10 @@ import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
  * separating, and the layout tears.
  *
  * <p>This pins the behaviour that prevents that. The arc below runs the long way around three sides
- * of a grid. Its node is dragged one step. The re-embedded arc must still run where it ran before —
- * keeping its excursion — rather than reappearing as a fresh short path on the other side. The arc
- * being longer than strictly necessary is not a defect here: a zero arc is zero only in the
- * quantization, and LCBK19 Figure 9 shows zero arcs as long as any other.
+ * of a grid. Its node is dragged one step. The re-embedded arc must still run along that lane —
+ * reaching the top rows — rather than reappearing as a fresh short path across the bottom. Pulling
+ * the path taut within a tube around itself may shave its exact corners, since that preserves the
+ * side it runs on; jumping to the other side is what tears the layout.
  */
 class ArcRerouteShortestPathTest {
 
@@ -71,10 +71,16 @@ class ArcRerouteShortestPathTest {
         assertEquals(vertex(topology, 0, 0), routed.get(0), "the arc still starts at its far node");
         assertEquals(survivorVertex, routed.get(routed.size() - 1),
                 "the arc now ends at the survivor");
-        assertTrue(routed.contains(vertex(topology, 0, DETOUR_ROW)),
-                "the arc must be dragged along its existing lane, keeping the excursion it already"
-                        + " had — redrawing it between its endpoints is what lets an arc reappear on"
-                        + " the wrong side and tear the layout");
+        boolean keptExcursion = false;
+        for (int column = 0; column <= PIVOT_COLUMN; column++) {
+            keptExcursion |= routed.contains(vertex(topology, column, DETOUR_ROW))
+                    || routed.contains(vertex(topology, column, DETOUR_ROW - 1));
+        }
+        assertTrue(keptExcursion,
+                "the dragged arc must keep its up-and-over lane — reaching the top rows, not cutting"
+                        + " straight across the bottom, which would reappear on the wrong side and"
+                        + " tear the layout. Taut-straightening may shave the exact corners, not the"
+                        + " excursion itself.");
         for (int index = 1; index < routed.size(); index++) {
             assertTrue(topology.edgeBetween(routed.get(index - 1), routed.get(index))
                     != EmbeddedMeshTopology.UNCLAIMED,
