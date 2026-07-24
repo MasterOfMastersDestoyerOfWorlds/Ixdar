@@ -13,13 +13,16 @@ import java.util.Set;
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 
 /**
- * The quad layout's nodes, arcs and patches together with their realization on the working
- * copy of the triangle mesh.
+ * The quad layout's nodes, arcs and patches together with their realization on
+ * the working copy of the triangle mesh.
  *
- * <p>Elements are retired by clearing {@code alive}, never removed, so an id is always its
- * index. This is the only writer of {@link EmbeddedMeshTopology}'s claim arrays.
+ * <p>
+ * Elements are retired by clearing {@code alive}, never removed, so an id is
+ * always its index. This is the only writer of {@link EmbeddedMeshTopology}'s
+ * claim arrays.
  *
- * <p>See also: LCBK19 Section 6
+ * <p>
+ * See also: LCBK19 Section 6
  */
 public final class EmbeddedTMesh {
 
@@ -32,16 +35,16 @@ public final class EmbeddedTMesh {
     /** Split position for a midpoint edge split. */
     private static final double EDGE_MIDPOINT = 0.5;
 
-    /** System property enabling the per-drag before/after path trace. */
-    private static final String TRACE_DRAG = "embeddedTMesh.traceDrag";
-
     public final EmbeddedMeshTopology topology;
 
     /**
-     * Whether a patch lies left of the direction {@link #addPatch} walks its boundary.
+     * Whether a patch lies left of the direction {@link #addPatch} walks its
+     * boundary.
      *
-     * <p>Which way the walk runs is the caller's side ordering, not a property of the surface, so
-     * {@link #resolveWalkOrientation} measures it rather than assuming it.
+     * <p>
+     * Which way the walk runs is the caller's side ordering, not a property of the
+     * surface, so {@link #resolveWalkOrientation} measures it rather than assuming
+     * it.
      */
     public boolean interiorLeftOfWalk = true;
 
@@ -58,8 +61,9 @@ public final class EmbeddedTMesh {
     public final List<List<Integer>> arcEndsByNode;
 
     /**
-     * The corridor of the re-route attempt that just failed, held for the failure diagnostic.
-     * Refinement splits an edge only when both endpoints are corridor members.
+     * The corridor of the re-route attempt that just failed, held for the failure
+     * diagnostic. Refinement splits an edge only when both endpoints are corridor
+     * members.
      */
     public ActiveIdSet diagnosticCorridor;
 
@@ -81,8 +85,10 @@ public final class EmbeddedTMesh {
      *
      * @param sourceNodeId originating {@code TMeshNode} id, or {@link #NONE}
      * @param copyVertex   vertex of the working copy the node sits on
-     * @param critical     whether the node's position is prescribed (LCBK19 Def 6.2)
-     * @param border       whether the node lies in the surface boundary (LCBK19 Def 6.1)
+     * @param critical     whether the node's position is prescribed (LCBK19 Def
+     *                     6.2)
+     * @param border       whether the node lies in the surface boundary (LCBK19 Def
+     *                     6.1)
      * @return the new node's id
      */
     public int addNode(int sourceNodeId, int copyVertex, boolean critical, boolean border) {
@@ -94,21 +100,22 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Adds an arc between two nodes, realized by a path of copy vertices, and claims the
-     * mesh elements it runs along.
+     * Adds an arc between two nodes, realized by a path of copy vertices, and
+     * claims the mesh elements it runs along.
      *
-     * <p>The edges are looked up from the vertices, so a path that does not walk the mesh is
-     * rejected here.
+     * <p>
+     * The edges are looked up from the vertices, so a path that does not walk the
+     * mesh is rejected here.
      *
      * @param sourceArcId     originating {@code TraceArc} id, or {@link #NONE}
      * @param startNodeId     node the arc runs from
      * @param endNodeId       node the arc runs to
      * @param quantizedLength prescribed parametric length, never negative
      * @param feature         whether the arc lies on a feature or boundary curve
-     * @param vertexPath      copy vertices the arc passes through, from its start node's
-     *                        vertex to its end node's vertex
-     * @throws IllegalStateException when consecutive vertices of the path are not joined
-     *                               by an edge of the working copy
+     * @param vertexPath      copy vertices the arc passes through, from its start
+     *                        node's vertex to its end node's vertex
+     * @throws IllegalStateException when consecutive vertices of the path are not
+     *                               joined by an edge of the working copy
      * @return the new arc's id
      */
     public int addArc(int sourceArcId, int startNodeId, int endNodeId, int quantizedLength,
@@ -129,14 +136,18 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Adds a patch whose sides are given as chains of arcs, walking the boundary in one
-     * consistent cyclic direction. The node chain of each side is derived from the arcs,
-     * so the caller does not state it twice and cannot state it inconsistently.
+     * Adds a patch whose sides are given as chains of arcs, walking the boundary in
+     * one consistent cyclic direction. The node chain of each side is derived from
+     * the arcs, so the caller does not state it twice and cannot state it
+     * inconsistently.
      *
      * @param sourcePatchId originating {@code TMeshPatch} id, or {@link #NONE}
-     * @param sideArcIds    four sides, each a list of arc ids in the side's walking order
-     * @param firstCornerId node the first side starts at, which fixes the walk's direction
-     * @throws IllegalStateException when the given arcs do not chain into a closed boundary
+     * @param sideArcIds    four sides, each a list of arc ids in the side's walking
+     *                      order
+     * @param firstCornerId node the first side starts at, which fixes the walk's
+     *                      direction
+     * @throws IllegalStateException when the given arcs do not chain into a closed
+     *                               boundary
      * @return the new patch's id
      */
     public int addPatch(int sourcePatchId, List<List<Integer>> sideArcIds, int firstCornerId) {
@@ -172,13 +183,15 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Measures which side of a boundary walk the patches lie on, and restates every arc's left and
-     * right patch in those terms.
+     * Measures which side of a boundary walk the patches lie on, and restates every
+     * arc's left and right patch in those terms.
      *
-     * <p>Call once the layout is complete: the test needs each patch bounded by its own arcs alone,
-     * true of a fresh arrangement but not of one mid-contraction.
+     * <p>
+     * Call once the layout is complete: the test needs each patch bounded by its
+     * own arcs alone, true of a fresh arrangement but not of one mid-contraction.
      *
-     * @throws IllegalStateException when patches disagree, since the walk is one convention
+     * @throws IllegalStateException when patches disagree, since the walk is one
+     *                               convention
      */
     public void resolveWalkOrientation() {
         boolean decided = false;
@@ -228,10 +241,12 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Whether a patch covers the faces left of the direction its boundary was walked.
+     * Whether a patch covers the faces left of the direction its boundary was
+     * walked.
      *
-     * <p>A patch's interior is bounded by its own arcs alone, so a flood that reaches an edge
-     * claimed by another arc started outside it.
+     * <p>
+     * A patch's interior is bounded by its own arcs alone, so a flood that reaches
+     * an edge claimed by another arc started outside it.
      *
      * @param patchId patch to test
      * @throws IllegalStateException when no boundary arc settles the question
@@ -341,11 +356,12 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * The offset on the opposite side of a patch matching an offset on one side. Sides
-     * {@code i} and {@code i + 2} are walked in opposite directions, so the result is a
-     * subtraction rather than an identity.
+     * The offset on the opposite side of a patch matching an offset on one side.
+     * Sides {@code i} and {@code i + 2} are walked in opposite directions, so the
+     * result is a subtraction rather than an identity.
      *
-     * <p>See also: LCBK19 Section 6.1
+     * <p>
+     * See also: LCBK19 Section 6.1
      *
      * @param patchId patch to measure across
      * @param side    side the offset is measured on, in {@code [0, 4)}
@@ -358,16 +374,19 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * The number of a patch's live boundary arcs whose quantized length is positive.
+     * The number of a patch's live boundary arcs whose quantized length is
+     * positive.
      *
-     * <p>Counted over arcs, not sides: a single side carrying both positive and zero arcs makes
-     * a zero-patch non-simple, and counting sides would miss it.
+     * <p>
+     * Counted over arcs, not sides: a single side carrying both positive and zero
+     * arcs makes a zero-patch non-simple, and counting sides would miss it.
      *
-     * <p>See also: LCBK19 Section 6.1
+     * <p>
+     * See also: LCBK19 Section 6.1
      *
      * @param patchId patch to measure
-     * @return the count: zero for a point patch, two for a simple zero-patch, more for a
-     *         non-simple one
+     * @return the count: zero for a point patch, two for a simple zero-patch, more
+     *         for a non-simple one
      */
     public int nonZeroArcCount(int patchId) {
         int count = 0;
@@ -384,10 +403,11 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Whether the quantization gives a patch zero parametric area, so that it must be
-     * re-embedded onto a curve or a point before a per-patch map can exist.
+     * Whether the quantization gives a patch zero parametric area, so that it must
+     * be re-embedded onto a curve or a point before a per-patch map can exist.
      *
-     * <p>See also: LCBK19 Section 6.2
+     * <p>
+     * See also: LCBK19 Section 6.2
      *
      * @param patchId patch to test
      * @return true when either of the patch's two dimensions is zero
@@ -397,13 +417,14 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Re-routes an arc along a new path of copy vertices, releasing the mesh elements it held
-     * before claiming the new ones — an arc keeping most of its old lane would otherwise
-     * collide with itself.
+     * Re-routes an arc along a new path of copy vertices, releasing the mesh
+     * elements it held before claiming the new ones — an arc keeping most of its
+     * old lane would otherwise collide with itself.
      *
      * @param arcId      arc to re-route
      * @param vertexPath copy vertices the arc now passes through, end to end
-     * @throws IllegalStateException when consecutive vertices are not joined by an edge
+     * @throws IllegalStateException when consecutive vertices are not joined by an
+     *                               edge
      */
     public void setPath(int arcId, List<Integer> vertexPath) {
         EmbeddedArc arc = arcs.get(arcId);
@@ -418,13 +439,14 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Embeds one node onto another: every arc that ended at the discarded node now ends at
-     * the kept one, and the discarded node's vertex is handed back to the mesh. The incident
-     * arcs' paths must already reach the kept node's vertex.
+     * Embeds one node onto another: every arc that ended at the discarded node now
+     * ends at the kept one, and the discarded node's vertex is handed back to the
+     * mesh. The incident arcs' paths must already reach the kept node's vertex.
      *
      * @param keepNodeId    node that stays, and that everything is re-pointed at
      * @param discardNodeId node that is embedded onto it
-     * @throws IllegalStateException when an arc at the discarded node has not been re-routed
+     * @throws IllegalStateException when an arc at the discarded node has not been
+     *                               re-routed
      */
     public void mergeNodeInto(int keepNodeId, int discardNodeId) {
         if (keepNodeId == discardNodeId) {
@@ -470,16 +492,20 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Removes a zero arc that {@link #mergeNodeInto} has closed into a loop. Each patch the arc
-     * bounded loses it from its side, along with the node that separated it from its neighbour
-     * there; a patch left with an empty boundary is retired.
+     * Removes a zero arc that {@link #mergeNodeInto} has closed into a loop. Each
+     * patch the arc bounded loses it from its side, along with the node that
+     * separated it from its neighbour there; a patch left with an empty boundary is
+     * retired.
      *
-     * <p>See also: LCBK19 Section 6.1
+     * <p>
+     * See also: LCBK19 Section 6.1
      *
      * @param arcId       arc to remove
-     * @param mergedANode whether collapsing this arc merged one node into another, which is false
-     *                    exactly when the arc was already a loop before the collapse
-     * @throws IllegalStateException when the arc's ends are still two different nodes
+     * @param mergedANode whether collapsing this arc merged one node into another,
+     *                    which is false exactly when the arc was already a loop
+     *                    before the collapse
+     * @throws IllegalStateException when the arc's ends are still two different
+     *                               nodes
      */
     public void removeCollapsedArc(int arcId, boolean mergedANode) {
         EmbeddedArc arc = arcs.get(arcId);
@@ -523,12 +549,16 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * The patch a collapsing loop pinches out of existence, or {@link #NONE} when it pinches none.
+     * The patch a collapsing loop pinches out of existence, or {@link #NONE} when
+     * it pinches none.
      *
-     * <p>A loop has one node, so {@link #mergeNodeInto} retires nothing and the arc must be paid
-     * for with a face instead: the patch whose remaining boundary is all zero arcs.
+     * <p>
+     * A loop has one node, so {@link #mergeNodeInto} retires nothing and the arc
+     * must be paid for with a face instead: the patch whose remaining boundary is
+     * all zero arcs.
      *
-     * <p>See also: LCBK19 Section 6.1
+     * <p>
+     * See also: LCBK19 Section 6.1
      *
      * @param arcId the loop being collapsed
      * @return the patch it pinches away, or {@link #NONE}
@@ -549,15 +579,18 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * The pinched patch's boundary read as a path from the collapsing loop's node back to itself,
-     * going round the patch the other way.
+     * The pinched patch's boundary read as a path from the collapsing loop's node
+     * back to itself, going round the patch the other way.
      *
-     * <p>The arcs come out in cyclic order starting immediately <em>after</em> the loop and
-     * wrapping, not in side order; side order would splice a boundary that runs backwards.
+     * <p>
+     * The arcs come out in cyclic order starting immediately <em>after</em> the
+     * loop and wrapping, not in side order; side order would splice a boundary that
+     * runs backwards.
      *
      * @param patchId the patch being pinched away
      * @param arcId   the loop being collapsed
-     * @return its remaining boundary arcs, ordered from the loop's node round to it again
+     * @return its remaining boundary arcs, ordered from the loop's node round to it
+     *         again
      */
     private List<Integer> boundaryPathAround(int patchId, int arcId) {
         List<Integer> cycle = new ArrayList<>();
@@ -579,14 +612,15 @@ public final class EmbeddedTMesh {
     /**
      * Puts a run of arcs into the slot another arc occupied on a patch's boundary.
      *
-     * <p>A side carries one more node than it carries arcs, so replacing one arc with {@code k}
-     * of them also inserts the {@code k - 1} nodes they meet at.
+     * <p>
+     * A side carries one more node than it carries arcs, so replacing one arc with
+     * {@code k} of them also inserts the {@code k - 1} nodes they meet at.
      *
-     * @param patchId       patch whose boundary is being extended
-     * @param oldArcId      arc giving up its slot
-     * @param pinchedPatchId patch the replacements are coming from, whose side of them is being
-     *                       re-pointed
-     * @param replacements  the arcs to put in its place, in boundary order
+     * @param patchId        patch whose boundary is being extended
+     * @param oldArcId       arc giving up its slot
+     * @param pinchedPatchId patch the replacements are coming from, whose side of
+     *                       them is being re-pointed
+     * @param replacements   the arcs to put in its place, in boundary order
      */
     private void spliceIntoPatch(int patchId, int oldArcId, int pinchedPatchId,
             List<Integer> replacements) {
@@ -614,7 +648,8 @@ public final class EmbeddedTMesh {
      *
      * @param firstArcId  earlier arc along the boundary
      * @param secondArcId arc following it
-     * @throws IllegalStateException when they share no node, so the boundary is not a path
+     * @throws IllegalStateException when they share no node, so the boundary is not
+     *                               a path
      * @return the node they share
      */
     private int sharedNode(int firstArcId, int secondArcId) {
@@ -649,9 +684,10 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Retires an arc whose embedding has been abandoned, releasing its mesh claims and dropping
-     * it from its nodes' incidence lists. No patch boundary is changed, so the caller must
-     * already have re-pointed the patch that used the dying arc onto the survivor.
+     * Retires an arc whose embedding has been abandoned, releasing its mesh claims
+     * and dropping it from its nodes' incidence lists. No patch boundary is
+     * changed, so the caller must already have re-pointed the patch that used the
+     * dying arc onto the survivor.
      *
      * @param arcId arc whose embedding is discarded
      */
@@ -664,16 +700,19 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Splits an arc at an interior point of its path, inserting a node there and replacing
-     * the arc with the two halves in both of the patches it bounds. The children carry the two
-     * halves of the parent's edge path, so both patches see the split at the same vertex.
+     * Splits an arc at an interior point of its path, inserting a node there and
+     * replacing the arc with the two halves in both of the patches it bounds. The
+     * children carry the two halves of the parent's edge path, so both patches see
+     * the split at the same vertex.
      *
      * @param arcId           arc to split
-     * @param quantizedOffset prescribed length of the first half, measured from the arc's
-     *                        start node; the second half takes the remainder
-     * @param pathVertexIndex index into the arc's vertex path of the vertex the node lands
-     *                        on; must be strictly interior, so that both halves are real
-     * @throws IllegalStateException when the offset or the vertex would make a half empty
+     * @param quantizedOffset prescribed length of the first half, measured from the
+     *                        arc's start node; the second half takes the remainder
+     * @param pathVertexIndex index into the arc's vertex path of the vertex the
+     *                        node lands on; must be strictly interior, so that both
+     *                        halves are real
+     * @throws IllegalStateException when the offset or the vertex would make a half
+     *                               empty
      * @return the ids of the two child arcs, in the parent's direction
      */
     public int[] splitArc(int arcId, int quantizedOffset, int pathVertexIndex) {
@@ -689,7 +728,8 @@ public final class EmbeddedTMesh {
                     + quantizedOffset + ": it lies outside the arc's length "
                     + arc.quantizedLength);
         }
-        // The inserted node inherits the split arc's feature status, so it may never be moved
+        // The inserted node inherits the split arc's feature status, so it may never be
+        // moved
         // off that curve. See also: LCBK19 Section 6.1
         int splitVertex = vertices.get(pathVertexIndex);
         int splitNodeId = addNode(NONE, splitVertex, arc.feature, arc.feature);
@@ -725,23 +765,36 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Cuts a patch in two along an arc that already runs across it, from a node on one side
-     * to a node on the opposite side. The originating patch is retired and the two four-sided
-     * halves are added, with the dividing arc bounding both.
+     * Cuts a patch in two along an arc that already runs across it, from a node on
+     * one side to a node on the opposite side. The originating patch is retired and
+     * the two four-sided halves are added, with the dividing arc bounding both.
      *
-     * <p>See also: LCBK19 Section 6.1
+     * <p>
+     * See also: LCBK19 Section 6.1
      *
      * @param patchId    patch to cut
-     * @param dividerArc arc running from a node on one side to a node on the opposite side
-     * @throws IllegalStateException when the arc's endpoints do not lie on opposite sides of
-     *                               the patch's boundary
+     * @param dividerArc arc running from a node on one side to a node on the
+     *                   opposite side
+     * @throws IllegalStateException when the arc's endpoints do not lie on opposite
+     *                               sides of the patch's boundary
      * @return the ids of the two halves
      */
     public int[] splitPatchByArc(int patchId, int dividerArc) {
         EmbeddedPatch patch = patches.get(patchId);
         EmbeddedArc divider = arcs.get(dividerArc);
-        int[] endA = locateNodeOnBoundary(patch, divider.startNodeId);
-        int[] endB = locateNodeOnBoundary(patch, divider.endNodeId);
+        int[] endA = null;
+        int[] endB = null;
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            List<Integer> sideNodes = patch.sideNodeIds.get(side);
+            for (int index = 0; index < sideNodes.size() - 1; index++) {
+                if (sideNodes.get(index) == divider.startNodeId && endA == null) {
+                    endA = new int[] { side, index };
+                }
+                if (sideNodes.get(index) == divider.endNodeId && endB == null) {
+                    endB = new int[] { side, index };
+                }
+            }
+        }
         if ((endA[0] + 2) % EmbeddedPatch.SIDES != endB[0]) {
             throw new IllegalStateException("arc " + dividerArc + " does not divide " + "patch "
                     + patchId + ": its ends lie on sides " + endA[0] + " and " + endB[0]
@@ -771,33 +824,14 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Where a node sits on a patch's boundary: which side it is on and its index within that
-     * side's node chain. A node on a corner is reported on the side it starts.
+     * Swaps one arc for another on a patch's boundary. The two must run between the
+     * same nodes, because the patch's node chain is not touched.
      *
-     * @param patch  patch to look in
-     * @param nodeId node to locate
-     * @throws IllegalStateException when the node is not on the patch's boundary
-     * @return the side index and the node's position within that side's node list
-     */
-    private int[] locateNodeOnBoundary(EmbeddedPatch patch, int nodeId) {
-        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
-            List<Integer> sideNodes = patch.sideNodeIds.get(side);
-            for (int index = 0; index < sideNodes.size() - 1; index++) {
-                if (sideNodes.get(index) == nodeId) {
-                    return new int[] { side, index };
-                }
-            }
-        }
-        throw new IllegalStateException("node " + nodeId + " is not on the boundary of " + "patch " + patch.patchId);
-    }
-
-    /**
-     * Swaps one arc for another on a patch's boundary. The two must run between the same
-     * nodes, because the patch's node chain is not touched.
+     * <p>
+     * The surviving arc inherits the neighbour the dying one had.
      *
-     * <p>The surviving arc inherits the neighbour the dying one had.
-     *
-     * <p>See also: LCBK19 Section 6.1
+     * <p>
+     * See also: LCBK19 Section 6.1
      *
      * @param patchId  patch whose boundary is being changed
      * @param oldArcId arc leaving the boundary
@@ -853,21 +887,29 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Re-routes the end of an arc a moving node drags with it, onto the node's new vertex.
+     * Re-routes the end of an arc a moving node drags with it, onto the node's new
+     * vertex.
      *
-     * <p>A drag, not a redraw: the longest still-reaching prefix of the old path is kept and only
-     * the tail re-routed. Re-routing the whole arc separates the wrong patches.
+     * <p>
+     * A drag, not a redraw: the longest still-reaching prefix of the old path is
+     * kept and only the tail re-routed. Re-routing the whole arc separates the
+     * wrong patches.
      *
-     * <p>See also: LCBK19 Section 6.1
+     * <p>
+     * See also: LCBK19 Section 6.1
      *
      * @param arcId        arc whose end is being dragged
-     * @param movedVertex  the moving node's old copy vertex, an endpoint of the arc's path
+     * @param movedVertex  the moving node's old copy vertex, an endpoint of the
+     *                     arc's path
      * @param targetVertex the moving node's new copy vertex
      * @param rerouter     the claims-respecting router
-     * @param channel      the collapsing arc's released path vertices, opening the pivot spoke
-     * @throws IllegalStateException when the arc's path does not end at the moved vertex
-     * @throws ArcRerouteFailure    when no back-off point can be re-routed to the target, carrying
-     *                              the two disconnected regions for inspection
+     * @param channel      the collapsing arc's released path vertices, opening the
+     *                     pivot spoke
+     * @throws IllegalStateException when the arc's path does not end at the moved
+     *                               vertex
+     * @throws ArcRerouteFailure     when no back-off point can be re-routed to the
+     *                               target, carrying the two disconnected regions
+     *                               for inspection
      */
     public void dragArcEndOntoVertex(int arcId, int movedVertex, int targetVertex,
             ArcRerouter rerouter, List<Integer> channel) {
@@ -889,13 +931,16 @@ public final class EmbeddedTMesh {
                     + " vertex " + movedVertex);
         }
         releaseClaims(arc.path);
-        for (int passThrough : new int[] {EmbeddedMeshTopology.UNCLAIMED, movedVertex}) {
+        for (int passThrough : new int[] { EmbeddedMeshTopology.UNCLAIMED, movedVertex }) {
             if (passThrough == movedVertex && channel.size() > 1) {
                 openPivotSpoke(movedVertex, unclaimedComponent(channel.get(1)));
             }
-            // keep >= 1 preserves the arc's first edge at the fixed far node, so a shortest reroute
-            // cannot leave the node in a wrong angular sector and swap the cyclic arc order — a tear
-            // with no arc crossing that LCBK19's no-cross/no-touch does not prevent. keep == 0
+            // keep >= 1 preserves the arc's first edge at the fixed far node, so a shortest
+            // reroute
+            // cannot leave the node in a wrong angular sector and swap the cyclic arc order
+            // — a tear
+            // with no arc crossing that LCBK19's no-cross/no-touch does not prevent. keep
+            // == 0
             // (rerouting from the node itself) is the last resort. See LCBK19 Section 6.1.
             for (int keepRank = 0; keepRank <= vertices.size() - 2; keepRank++) {
                 int keep = keepRank < vertices.size() - 2 ? keepRank + 1 : 0;
@@ -956,12 +1001,14 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * A summary of the arcs owning the wall around a body region: how many there are, how many are
-     * incident to the collapsing pivot node, and how many of those no longer touch the pivot.
+     * A summary of the arcs owning the wall around a body region: how many there
+     * are, how many are incident to the collapsing pivot node, and how many of
+     * those no longer touch the pivot.
      *
      * @param fence       the claimed vertices ringing the body region
      * @param pivotVertex the collapsing node's copy vertex
-     * @return a compact {@code wallArcs=… incident=… incidentMoved=… ids=[…]} summary
+     * @return a compact {@code wallArcs=… incident=… incidentMoved=… ids=[…]}
+     *         summary
      */
     private String wallArcSummary(Set<Integer> fence, int pivotVertex) {
         int pivotNode = topology.ownerNodeByCopyVertex[pivotVertex];
@@ -988,12 +1035,14 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * The ownership of each vertex along the vacated channel path, ordered from the pivot end to the
-     * survivor end. Each entry is {@code .} when the vertex is free, {@code n<id>} when a node owns
-     * it, or {@code a<id>} when an arc owns it.
+     * The ownership of each vertex along the vacated channel path, ordered from the
+     * pivot end to the survivor end. Each entry is {@code .} when the vertex is
+     * free, {@code n<id>} when a node owns it, or {@code a<id>} when an arc owns
+     * it.
      *
      * @param channel     the collapsing arc's vacated copy-vertex path
-     * @param pivotVertex the collapsing node's copy vertex, oriented to the pivot end
+     * @param pivotVertex the collapsing node's copy vertex, oriented to the pivot
+     *                    end
      * @return a compact {@code channel=[…]} ownership strip from pivot to survivor
      */
     private String channelOwnerReport(List<Integer> channel, int pivotVertex) {
@@ -1021,13 +1070,14 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * The face corridor a re-route could follow, with each crossing edge classified by how many
-     * of its endpoints are claimed: {@code 0} walk across, {@code 1} step along the free
-     * endpoint, {@code 2} only an edge split can thread it.
+     * The face corridor a re-route could follow, with each crossing edge classified
+     * by how many of its endpoints are claimed: {@code 0} walk across, {@code 1}
+     * step along the free endpoint, {@code 2} only an edge split can thread it.
      *
      * @param startVertex  corridor source vertex
      * @param targetVertex corridor target vertex
-     * @return a {@code faceCorridor=… gates=[…] bothClaimed=…} report, or {@code none}
+     * @return a {@code faceCorridor=… gates=[…] bothClaimed=…} report, or
+     *         {@code none}
      */
     private String faceCorridorReport(int startVertex, int targetVertex) {
         Set<Integer> targetFaces = new HashSet<>();
@@ -1070,8 +1120,8 @@ public final class EmbeddedTMesh {
             return "faceCorridor=none";
         }
         List<Integer> crossings = new ArrayList<>();
-        for (int walk = reachedFace; parentFace.get(walk) != EmbeddedMeshTopology.UNCLAIMED;
-                walk = parentFace.get(walk)) {
+        for (int walk = reachedFace; parentFace.get(walk) != EmbeddedMeshTopology.UNCLAIMED; walk = parentFace
+                .get(walk)) {
             crossings.add(parentEdge.get(walk));
         }
         Collections.reverse(crossings);
@@ -1081,8 +1131,8 @@ public final class EmbeddedTMesh {
         int freeOutsideCorridor = 0;
         for (int edgeId : crossings) {
             int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-            for (int endpoint : new int[] {topology.copy.halfEdgeVertex(halfEdge),
-                    topology.copy.halfEdgeEndVertex(halfEdge)}) {
+            for (int endpoint : new int[] { topology.copy.halfEdgeVertex(halfEdge),
+                    topology.copy.halfEdgeEndVertex(halfEdge) }) {
                 if (!isClaimedVertex(endpoint) && diagnosticCorridor != null
                         && !diagnosticCorridor.contains(endpoint)) {
                     freeOutsideCorridor++;
@@ -1106,8 +1156,9 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * The local structure at a blocked gate: the owners of the crossing edge's two endpoints and of
-     * the two opposite face corners, plus whether the gate edge is itself claimed.
+     * The local structure at a blocked gate: the owners of the crossing edge's two
+     * endpoints and of the two opposite face corners, plus whether the gate edge is
+     * itself claimed.
      *
      * @param edgeId    the crossing edge
      * @param halfEdge  a half-edge of that edge
@@ -1123,7 +1174,8 @@ public final class EmbeddedTMesh {
                 + "/" + ownerTag(oppositeCorner(topology.copy.halfEdgeFace(twin), endpointA,
                         endpointB))
                 + "|edge " + (topology.ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED
-                        ? "free" : "a" + topology.ownerArcByCopyEdge[edgeId])
+                        ? "free"
+                        : "a" + topology.ownerArcByCopyEdge[edgeId])
                 + "|inCorridor " + inLastCorridor(endpointA) + "/"
                 + inLastCorridor(endpointB)
                 + "|freeNbrs " + freeNeighbourCount(endpointA) + "/"
@@ -1136,9 +1188,10 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Whether a vertex was inside the corridor of the re-route attempt that just failed. Refinement
-     * splits an edge only when both endpoints are corridor members, so a gate endpoint reporting
-     * {@code NO} is one the refinement never considered splitting.
+     * Whether a vertex was inside the corridor of the re-route attempt that just
+     * failed. Refinement splits an edge only when both endpoints are corridor
+     * members, so a gate endpoint reporting {@code NO} is one the refinement never
+     * considered splitting.
      *
      * @param copyVertex vertex to test, or {@link EmbeddedMeshTopology#UNCLAIMED}
      * @return {@code yes}, {@code NO}, or {@code ?} when no corridor was recorded
@@ -1151,11 +1204,13 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * How many of a vertex's neighbours are unclaimed — how much free ground touches it. A pocket
-     * whose every corner reports zero is sealed off from the free region, so a midpoint minted
-     * inside it is unreachable by the vertex search no matter how many edges are split.
+     * How many of a vertex's neighbours are unclaimed — how much free ground
+     * touches it. A pocket whose every corner reports zero is sealed off from the
+     * free region, so a midpoint minted inside it is unreachable by the vertex
+     * search no matter how many edges are split.
      *
-     * @param copyVertex vertex to measure, or {@link EmbeddedMeshTopology#UNCLAIMED}
+     * @param copyVertex vertex to measure, or
+     *                   {@link EmbeddedMeshTopology#UNCLAIMED}
      * @return the count of unclaimed neighbours, or -1 when the vertex is absent
      */
     private int freeNeighbourCount(int copyVertex) {
@@ -1176,10 +1231,11 @@ public final class EmbeddedTMesh {
     /**
      * The corner of a triangular face that is neither of two given vertices.
      *
-     * @param faceId  face to inspect
-     * @param exclude first vertex to skip
+     * @param faceId   face to inspect
+     * @param exclude  first vertex to skip
      * @param exclude2 second vertex to skip
-     * @return the remaining corner, or {@link EmbeddedMeshTopology#UNCLAIMED} when the face is absent
+     * @return the remaining corner, or {@link EmbeddedMeshTopology#UNCLAIMED} when
+     *         the face is absent
      */
     private int oppositeCorner(int faceId, int exclude, int exclude2) {
         if (faceId == EmbeddedMeshTopology.UNCLAIMED) {
@@ -1195,8 +1251,8 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * A copy vertex's ownership as a short tag: {@code n<id>} for a node, {@code a<id>} for an arc,
-     * {@code .} when free.
+     * A copy vertex's ownership as a short tag: {@code n<id>} for a node,
+     * {@code a<id>} for an arc, {@code .} when free.
      *
      * @param copyVertex vertex to describe
      * @return the ownership tag
@@ -1226,12 +1282,14 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Whether a face-walk from one vertex reaches another without ever crossing a claimed
-     * (arc-owned) edge. Unlike the vertex flood {@link #unclaimedComponent(int)} this passes
-     * beside claimed vertices, so it is true exactly when refinement could open a route.
+     * Whether a face-walk from one vertex reaches another without ever crossing a
+     * claimed (arc-owned) edge. Unlike the vertex flood
+     * {@link #unclaimedComponent(int)} this passes beside claimed vertices, so it
+     * is true exactly when refinement could open a route.
      *
      * @param startVertex  walk source vertex, whose incident faces seed the flood
-     * @param targetVertex walk target vertex, reached when any of its incident faces is entered
+     * @param targetVertex walk target vertex, reached when any of its incident
+     *                     faces is entered
      * @return true when a claimed-edge-free face path connects the two vertices
      */
     private boolean faceReachesAcrossFreeEdges(int startVertex, int targetVertex) {
@@ -1270,9 +1328,10 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * The claimed vertices ringing a set of unclaimed vertices — the neighbours a re-route hits
-     * and cannot step through, because a node or an arc's own path owns them. This, not any set of
-     * edges, is the wall that encloses an unclaimed region.
+     * The claimed vertices ringing a set of unclaimed vertices — the neighbours a
+     * re-route hits and cannot step through, because a node or an arc's own path
+     * owns them. This, not any set of edges, is the wall that encloses an unclaimed
+     * region.
      *
      * @param vertices unclaimed region vertices
      * @return the claimed vertices adjacent to the region
@@ -1293,8 +1352,8 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * A vertex's unclaimed incident edges, as flat consecutive vertex pairs — the spokes a
-     * re-route may legally step out along.
+     * A vertex's unclaimed incident edges, as flat consecutive vertex pairs — the
+     * spokes a re-route may legally step out along.
      *
      * @param vertex copy vertex to spoke out from
      * @return one {@code (vertex, neighbour)} pair per unclaimed incident edge
@@ -1312,8 +1371,9 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * The connected set of copy vertices reachable from a start through unclaimed edges without
-     * passing through a claimed vertex — the arc-walled region a re-route may use.
+     * The connected set of copy vertices reachable from a start through unclaimed
+     * edges without passing through a claimed vertex — the arc-walled region a
+     * re-route may use.
      *
      * @param startVertex vertex to flood from
      * @return the reachable unclaimed component, including the start
@@ -1342,12 +1402,14 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Whether an unclaimed component touches a vertex, directly or through one of its edges — a
-     * target node vertex is claimed, so it is reached at the last hop rather than contained.
+     * Whether an unclaimed component touches a vertex, directly or through one of
+     * its edges — a target node vertex is claimed, so it is reached at the last hop
+     * rather than contained.
      *
      * @param component the flooded component
      * @param vertex    the vertex to test reachability of
-     * @return whether the component contains the vertex or an unclaimed-edge neighbour of it
+     * @return whether the component contains the vertex or an unclaimed-edge
+     *         neighbour of it
      */
     private boolean touchesVertex(Set<Integer> component, int vertex) {
         if (component.contains(vertex)) {
@@ -1364,10 +1426,12 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Opens a free spoke from a collapsing node into a region it must reach, by splitting the edge
-     * <em>opposite</em> the node in one of its faces whose far side lies in that region.
+     * Opens a free spoke from a collapsing node into a region it must reach, by
+     * splitting the edge <em>opposite</em> the node in one of its faces whose far
+     * side lies in that region.
      *
-     * <p>See also: LCBK19 Section 6.1
+     * <p>
+     * See also: LCBK19 Section 6.1
      *
      * @param pivotVertex   the collapsing node's copy vertex
      * @param channelRegion the unclaimed region the node must gain a spoke into
@@ -1391,8 +1455,8 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * The number of a copy vertex's incident edges that no arc claims — the free spokes a
-     * re-route can leave or enter through.
+     * The number of a copy vertex's incident edges that no arc claims — the free
+     * spokes a re-route can leave or enter through.
      *
      * @param copyVertex copy vertex to count around
      * @return count of unclaimed incident edges
@@ -1409,9 +1473,9 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Hands back every mesh element an arc holds, so the elements are free for another arc
-     * to take. The arc's own nodes keep their vertices: those belong to the nodes, not to
-     * the arc.
+     * Hands back every mesh element an arc holds, so the elements are free for
+     * another arc to take. The arc's own nodes keep their vertices: those belong to
+     * the nodes, not to the arc.
      *
      * @param arc arc whose claims are released
      */
@@ -1420,8 +1484,8 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Releases the claims of a specific path, used both to free an arc's current embedding
-     * and to undo a prefix claimed during a failed re-route back-off.
+     * Releases the claims of a specific path, used both to free an arc's current
+     * embedding and to undo a prefix claimed during a failed re-route back-off.
      *
      * @param path path whose edges and interior vertices are released
      */
@@ -1436,8 +1500,8 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Checks that an end of an arc's path has been re-routed onto the vertex its node is
-     * about to move to.
+     * Checks that an end of an arc's path has been re-routed onto the vertex its
+     * node is about to move to.
      *
      * @param arc            arc being re-pointed
      * @param pathEndVertex  vertex the arc's path currently ends on
@@ -1453,15 +1517,18 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Checks the T-mesh is still a cell decomposition of the surface, and throws if it is
-     * not.
+     * Checks the T-mesh is still a cell decomposition of the surface, and throws if
+     * it is not.
      *
-     * <p>Counting live nodes, arcs and patches, {@code V - E + F} must equal the surface's
-     * characteristic. Cheap enough to run after every operator, unlike
+     * <p>
+     * Counting live nodes, arcs and patches, {@code V - E + F} must equal the
+     * surface's characteristic. Cheap enough to run after every operator, unlike
      * {@link #validateArcPaths()}.
      *
-     * @param expectedEulerCharacteristic the surface's characteristic, {@code 2 - 2g}
-     * @throws IllegalStateException when the T-mesh is no longer a cell decomposition
+     * @param expectedEulerCharacteristic the surface's characteristic,
+     *                                    {@code 2 - 2g}
+     * @throws IllegalStateException when the T-mesh is no longer a cell
+     *                               decomposition
      */
     public void validate(int expectedEulerCharacteristic) {
         int liveNodes = 0;
@@ -1490,8 +1557,32 @@ public final class EmbeddedTMesh {
         for (EmbeddedPatch patch : patches) {
             if (patch.alive) {
                 livePatches++;
-                requireSidesClose(patch);
-                requireOppositeSidesAgree(patch);
+                for (int side1 = 0; side1 < EmbeddedPatch.SIDES; side1++) {
+                    List<Integer> sideNodes = patch.sideNodeIds.get(side1);
+                    List<Integer> sideArcs = patch.sideArcIds.get(side1);
+                    if (sideNodes.size() != sideArcs.size() + 1) {
+                        throw new IllegalStateException("patch " + patch.patchId + " side " + side1
+                                + " has " + sideArcs.size() + " arcs but " + sideNodes.size()
+                                + " nodes; a side has one more node than it has arcs");
+                    }
+                    int nextSide = (side1 + 1) % EmbeddedPatch.SIDES;
+                    int endOfThisSide = sideNodes.get(sideNodes.size() - 1);
+                    int startOfNextSide = patch.sideNodeIds.get(nextSide).get(0);
+                    if (endOfThisSide != startOfNextSide) {
+                        throw new IllegalStateException("patch " + patch.patchId + " side " + side1
+                                + " ends on node " + endOfThisSide + " but side " + nextSide
+                                + " starts on node " + startOfNextSide);
+                    }
+                }
+                for (int side = 0; side < 2; side++) {
+                    int here = sideQuantizedLength(patch.patchId, side);
+                    int opposite = sideQuantizedLength(patch.patchId, side + 2);
+                    if (here != opposite) {
+                        throw new IllegalStateException("patch " + patch.patchId
+                                + " is not a rectangle: side " + side + " has quantized length " + here
+                                + " but the opposite side " + (side + 2) + " has " + opposite);
+                    }
+                }
             }
         }
         int characteristic = liveNodes - liveArcs + livePatches;
@@ -1503,8 +1594,8 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Checks an arc's edge path really does run between its two nodes' vertices, and that
-     * every step of it is a real edge of the working copy.
+     * Checks an arc's edge path really does run between its two nodes' vertices,
+     * and that every step of it is a real edge of the working copy.
      *
      * @param arc arc to check
      */
@@ -1521,31 +1612,13 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * Checks every hop of every live arc is a real edge of the working copy.
-     *
-     * <p>Costs the total length of the embedding, so calling it per operator makes the whole
-     * contraction quadratic. Run it once when the contraction settles, or from a test.
-     *
-     * @throws IllegalStateException when consecutive path vertices share no copy edge
-     */
-    public void validateArcPaths() {
-        for (EmbeddedArc arc : arcs) {
-            if (!arc.alive) {
-                continue;
-            }
-            List<Integer> vertices = arc.path.copyVertexPath;
-            for (int index = 1; index < vertices.size(); index++) {
-                requireEdge(arc.arcId, vertices.get(index - 1), vertices.get(index));
-            }
-        }
-    }
-
-    /**
-     * The edge of the working copy joining two consecutive vertices of an arc's path.
-     *
-     * <p>An arc that does not walk the mesh is not an embedding of anything, so a missing
-     * edge is refused here rather than being discovered later by whatever tries to use the
+     * The edge of the working copy joining two consecutive vertices of an arc's
      * path.
+     *
+     * <p>
+     * An arc that does not walk the mesh is not an embedding of anything, so a
+     * missing edge is refused here rather than being discovered later by whatever
+     * tries to use the path.
      *
      * @param arcId      arc whose path is being checked, for the message
      * @param fromVertex vertex the step leaves
@@ -1560,52 +1633,5 @@ public final class EmbeddedTMesh {
                     + " to " + toVertex + " with no edge between them");
         }
         return edgeId;
-    }
-
-    /**
-     * Checks a patch's four sides chain end-to-end and close back on the first corner.
-     *
-     * @param patch patch to check
-     */
-    private void requireSidesClose(EmbeddedPatch patch) {
-        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
-            List<Integer> sideNodes = patch.sideNodeIds.get(side);
-            List<Integer> sideArcs = patch.sideArcIds.get(side);
-            if (sideNodes.size() != sideArcs.size() + 1) {
-                throw new IllegalStateException("patch " + patch.patchId + " side " + side
-                        + " has " + sideArcs.size() + " arcs but " + sideNodes.size()
-                        + " nodes; a side has one more node than it has arcs");
-            }
-            int nextSide = (side + 1) % EmbeddedPatch.SIDES;
-            int endOfThisSide = sideNodes.get(sideNodes.size() - 1);
-            int startOfNextSide = patch.sideNodeIds.get(nextSide).get(0);
-            if (endOfThisSide != startOfNextSide) {
-                throw new IllegalStateException("patch " + patch.patchId + " side " + side
-                        + " ends on node " + endOfThisSide + " but side " + nextSide
-                        + " starts on node " + startOfNextSide);
-            }
-        }
-    }
-
-    /**
-     * Checks a patch's opposite sides carry equal quantized length.
-     *
-     * <p>The quantization is solved subject to this, so a violation is never a rounding artefact:
-     * an operator has changed one side and not its opposite.
-     *
-     * <p>See also: CBK15
-     *
-     * @param patch patch to check
-     */
-    private void requireOppositeSidesAgree(EmbeddedPatch patch) {
-        for (int side = 0; side < 2; side++) {
-            int here = sideQuantizedLength(patch.patchId, side);
-            int opposite = sideQuantizedLength(patch.patchId, side + 2);
-            if (here != opposite) {
-                throw new IllegalStateException("patch " + patch.patchId
-                        + " is not a rectangle: side " + side + " has quantized length " + here
-                        + " but the opposite side " + (side + 2) + " has " + opposite);
-            }
-        }
     }
 }

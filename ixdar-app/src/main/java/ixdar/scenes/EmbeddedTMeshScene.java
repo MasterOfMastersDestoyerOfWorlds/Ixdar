@@ -1,7 +1,6 @@
 package ixdar.scenes;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,11 +15,8 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
-import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouteFailure;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedContraction;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedMeshTopology;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMeshBuilder;
@@ -28,8 +24,6 @@ import ixdar.geometry.mesh.quadlayout.embedding.PatchRectangleMap;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRegionMapper;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRegions;
 import ixdar.geometry.mesh.quadlayout.embedding.ThreeConnectivityRefinement;
-import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
-import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.Platform;
@@ -38,12 +32,15 @@ import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.OrbitMouseTrap;
 
 /**
- * Debug view of an embedded T-mesh: arcs as edge paths, positive orange and zero red, nodes as
- * spheres. Keys are bound by {@link EmbeddedTMeshSceneKeys}.
+ * Debug view of an embedded T-mesh: arcs as edge paths, positive orange and
+ * zero red, nodes as spheres. Keys are bound by {@link EmbeddedTMeshSceneKeys}.
  *
- * <p>Builds from {@code -DembeddedTMesh.off}, defaulting to {@link #DEFAULT_TEST_MODEL}.
+ * <p>
+ * Builds from {@code -DembeddedTMesh.off}, defaulting to
+ * {@link #DEFAULT_TEST_MODEL}.
  *
- * <p>See also: LCBK19 Figure 9
+ * <p>
+ * See also: LCBK19 Figure 9
  */
 @SceneAnnotation(id = "embedded-tmesh")
 public class EmbeddedTMeshScene extends Scene {
@@ -52,43 +49,16 @@ public class EmbeddedTMeshScene extends Scene {
     public static final String SCENE_TITLE = "Ixdar : Embedded T-Mesh";
 
     /**
-     * System property selecting the mesh file the T-mesh is built from; unset falls back to
-     * {@link #DEFAULT_TEST_MODEL}.
+     * System property selecting the mesh file the T-mesh is built from; unset falls
+     * back to {@link #DEFAULT_TEST_MODEL}.
      */
     public static final String OFF_PROPERTY = "embeddedTMesh.off";
 
-    /** System property for the pipeline's separation angle in degrees; defaults to 15. */
+    /**
+     * System property for the pipeline's separation angle in degrees; defaults to
+     * 15.
+     */
     public static final String ALPHA_PROPERTY = "embeddedTMesh.alpha";
-
-    /**
-     * System property for how many zero-arc collapses (LCBK19 operator 1) to apply before
-     * rendering: an integer, or {@code all} to collapse every collapsible zero arc. Lets a
-     * screenshot show the layout at a chosen point in the collapse.
-     */
-    public static final String COLLAPSE_PROPERTY = "tmesh.collapse";
-
-    /** System property for how many operator-(2) splits to apply at startup: integer or {@code all}. */
-    public static final String SPLIT_PROPERTY = "tmesh.split";
-
-    /**
-     * System property that, when set to {@code all}, drives all three operators to a fixed point
-     * at startup via {@link EmbeddedContraction}, leaving no zero arcs and no zero patches. In
-     * the window, C does the same on demand.
-     */
-    public static final String CONTRACT_PROPERTY = "tmesh.contract";
-
-    /**
-     * System property that, when {@code true}, drives the operators until the first reroute
-     * failure and highlights the wall it hit. In the window, H toggles the highlight.
-     */
-    public static final String CONTRACT_FAIL_PROPERTY = "embeddedTMesh.contractFail";
-
-    /**
-     * System property that, when {@code true}, judges a clean fixed point: refine to
-     * 3-connectivity, build patch regions, and map every patch to its rectangle, logging whether
-     * the regions partition the surface and whether every patch is fold-free.
-     */
-    public static final String FOLD_CHECK_PROPERTY = "embeddedTMesh.foldCheck";
 
     /** Request value meaning "apply as many as possible". */
     public static final String ALL = "all";
@@ -96,7 +66,10 @@ public class EmbeddedTMeshScene extends Scene {
     /** Log prefix for a count of operator steps applied at startup. */
     public static final String APPLIED_PREFIX = "[embedded-tmesh] applied ";
 
-    /** Default pipeline separation angle, in degrees, when the mesh is built from a file. */
+    /**
+     * Default pipeline separation angle, in degrees, when the mesh is built from a
+     * file.
+     */
     public static final double DEFAULT_ALPHA_DEGREES = 15.0;
 
     /** Orbit azimuth the camera starts at, looking down onto the mesh. */
@@ -117,11 +90,11 @@ public class EmbeddedTMeshScene extends Scene {
     /** Nearest zoom as a fraction of the mesh radius. */
     public static final float ZOOM_MIN_RADIUS_FRACTION = 0.02f;
 
-    /** Camera distance, as a multiple of mesh radius, when framing a captured reroute failure. */
+    /**
+     * Camera distance, as a multiple of mesh radius, when framing a captured
+     * reroute failure.
+     */
     public static final float FAILURE_VIEW_DISTANCE_MUL = 0.55f;
-
-    /** Boolean-property default meaning the feature is off unless explicitly enabled. */
-    private static final String FALSE = "false";
 
     /** How many patches to map between fold-check progress log lines. */
     private static final int PATCH_PROGRESS_INTERVAL = 64;
@@ -140,28 +113,19 @@ public class EmbeddedTMeshScene extends Scene {
     private EmbeddedTMesh tmesh;
     private HalfEdgeMesh surfaceMesh;
     private int eulerCharacteristic;
-    private ZeroArcCollapseOperator collapseOperator;
-    private ZeroPatchSplitOperator splitOperator;
-    private ArcRerouteFailure failure;
     private final Vector3f meshCenter = new Vector3f();
 
-    /** Zero-arc collapses (operator 1) requested by keypress, applied on the render thread. */
-    private volatile int pendingCollapseSteps;
-
-    /** Zero-patch splits (operator 2) requested by keypress, applied on the render thread. */
-    private volatile int pendingSplitSteps;
-
-    /** Whether a rebuild of the layout was requested by keypress. */
-    private volatile boolean pendingReset;
-
-    /** Whether a full contraction (all three operators to a fixed point) was requested by keypress. */
-    private volatile boolean pendingContract;
-
-    /** Whether a contract-to-failure run was requested by keypress. */
-    private volatile boolean pendingContractToFailure;
+    /**
+     * Whether a full contraction (all three operators to a fixed point) was
+     * requested by keypress.
+     */
+    public volatile boolean pendingContract;
 
     /** Whether the folded-patch magenta view was toggled by keypress. */
-    private volatile boolean pendingFoldFlip;
+    public volatile boolean pendingFoldFlip;
+
+    /** The angle to stop motorcycle crashes at */
+    public double alphaDegrees;
 
     /**
      * Default constructor wired by the scene annotation processor.
@@ -182,20 +146,19 @@ public class EmbeddedTMeshScene extends Scene {
         bindInputDirect(Platforms.get(), keys, mouse);
 
         offPath = System.getProperty(OFF_PROPERTY);
+        if (offPath == null) {
+            offPath = DEFAULT_TEST_MODEL;
+        }
+        alphaDegrees = Double.parseDouble(
+                System.getProperty(ALPHA_PROPERTY, Double.toString(DEFAULT_ALPHA_DEGREES)));
+
         try {
             assembleLayout();
-            applyInitialSplits();
-            applyInitialCollapses();
-            applyInitialContraction();
 
             runtime = new QuadLayoutRuntime();
             runtime.upload(surfaceMesh);
             runtime.frameCamera(camera);
-            applyContractToFailure();
             runtime.setEmbeddedTMesh(tmesh);
-            if (failure != null) {
-                runtime.setFailureHighlight(tmesh.topology.copy, failure);
-            }
         } catch (Exception ex) {
             throw new IllegalStateException("Failed to initialize embedded T-mesh scene", ex);
         }
@@ -205,15 +168,10 @@ public class EmbeddedTMeshScene extends Scene {
         float minZoom = Math.max(CAMERA_DISTANCE_MIN, meshRadius * ZOOM_MIN_RADIUS_FRACTION);
         float maxZoom = Math.max(CAMERA_DISTANCE_MIN, meshRadius * ZOOM_MAX_RADIUS_MUL);
         orbitMouse.setDistanceBounds(minZoom, maxZoom);
-        if (failure != null) {
-            aimAtFailure(meshRadius);
-        } else {
-            float orbitDistance = Math.max(CAMERA_DISTANCE_MIN,
-                    meshRadius * CAMERA_DISTANCE_RADIUS_MUL);
-            orbitMouse.setTarget(meshCenter);
-            orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, orbitDistance);
-        }
-
+        float orbitDistance = Math.max(CAMERA_DISTANCE_MIN,
+                meshRadius * CAMERA_DISTANCE_RADIUS_MUL);
+        orbitMouse.setTarget(meshCenter);
+        orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, orbitDistance);
         Platforms.get().log(String.format(
                 "[embedded-tmesh] source=%s nodes=%d arcs=%d patches=%d euler=%d",
                 offPath, tmesh.nodes.size(),
@@ -221,22 +179,15 @@ public class EmbeddedTMeshScene extends Scene {
     }
 
     /**
-     * Builds the T-mesh, its surface mesh, and its Euler characteristic: from the real pipeline
-     * when {@link #OFF_PROPERTY} names a mesh, otherwise from the hand-authored torus fixture.
-     * Also wires the operators for the interactive steps.
+     * Builds the T-mesh, its surface mesh, and its Euler characteristic: from the
+     * real pipeline when {@link #OFF_PROPERTY} names a mesh, otherwise from the
+     * hand-authored torus fixture. Also wires the operators for the interactive
+     * steps.
+     * 
+     * @throws IOException thows if we couldnt load the mesh.
      */
-    private void assembleLayout() {
-        double alphaDegrees = Double.parseDouble(
-                System.getProperty(ALPHA_PROPERTY, Double.toString(DEFAULT_ALPHA_DEGREES)));
-        ArrayMesh arrayMesh;
-        try {
-            if(offPath == null){
-                offPath = DEFAULT_TEST_MODEL;
-            }
-            arrayMesh = MeshLoader.load(offPath);
-        } catch (IOException ex) {
-            throw new IllegalStateException("could not read mesh " + offPath, ex);
-        }
+    private void assembleLayout() throws IOException {
+        ArrayMesh arrayMesh = MeshLoader.load(offPath);
         surfaceMesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
         QuadLayoutEngine engine = new QuadLayoutEngine(
@@ -246,95 +197,13 @@ public class EmbeddedTMeshScene extends Scene {
         tmesh = builder.build();
         eulerCharacteristic = builder.expectedEulerCharacteristic;
         tmesh.validate(eulerCharacteristic);
-        collapseOperator = new ZeroArcCollapseOperator(tmesh);
-        splitOperator = new ZeroPatchSplitOperator(tmesh);
     }
 
     /**
-     * Apply the number of zero-arc collapses requested at startup by
-     * {@link #COLLAPSE_PROPERTY}: an integer, or {@code all}. This is the headless entry
-     * point (a screenshot then shows that point in the collapse); once the window is open,
-     * SPACE steps one more collapse and R rebuilds.
-     */
-    private void applyInitialCollapses() {
-        String request = System.getProperty(COLLAPSE_PROPERTY);
-        if (request == null || request.isBlank()) {
-            return;
-        }
-        int limit = ALL.equalsIgnoreCase(request.trim())
-                ? Integer.MAX_VALUE : Integer.parseInt(request.trim());
-        int applied = 0;
-        while (applied < limit && collapseOneZeroArc()) {
-            applied++;
-        }
-        Platforms.get().log(APPLIED_PREFIX + applied + " zero-arc collapse(s)");
-    }
-
-    /**
-     * Drive all three operators to a fixed point at startup when {@link #CONTRACT_PROPERTY} is
-     * {@code all}, via {@link EmbeddedContraction}, so a headless screenshot shows the fully
-     * re-embedded T-mesh. Runs after any requested splits and collapses.
-     */
-    private void applyInitialContraction() {
-        String request = System.getProperty(CONTRACT_PROPERTY);
-        if (request == null || !ALL.equalsIgnoreCase(request.trim())) {
-            return;
-        }
-        EmbeddedContraction contraction =
-                new EmbeddedContraction(tmesh, eulerCharacteristic).contract();
-        Platforms.get().log(APPLIED_PREFIX + contractionSummary(contraction));
-    }
-
-    /**
-     * Frames the captured reroute failure: targets the midpoint of the pivot and survivor and
-     * looks straight in along the surface normal there, close enough to see the wall.
-     *
-     * @param meshRadius the surface's radius, for the camera distance
-     */
-    private void aimAtFailure(float meshRadius) {
-        Vector3f pivot = tmesh.topology.copy.vertexPosition(failure.pivotVertex, new Vector3f());
-        Vector3f survivor = tmesh.topology.copy.vertexPosition(failure.survivorVertex,
-                new Vector3f());
-        Vector3f target = new Vector3f(pivot).add(survivor).mul(0.5f);
-        Vector3f outward = new Vector3f(target).sub(meshCenter).normalize();
-        float elevation = (float) Math.asin(outward.y);
-        float azimuth = (float) Math.atan2(outward.z, outward.x);
-        float distance = Math.max(CAMERA_DISTANCE_MIN, meshRadius * FAILURE_VIEW_DISTANCE_MUL);
-        orbitMouse.setTarget(target);
-        orbitMouse.setOrbit(azimuth, elevation, distance);
-    }
-
-    /**
-     * When {@link #CONTRACT_FAIL_PROPERTY} is set, drive the operators until the first reroute
-     * failure and, if one occurs, refresh the partial T-mesh render and highlight the wall.
-     *
-     * <p>Must run before the layout reaches the runtime: building patch regions from a layout
-     * that still holds zero-patches throws.
-     */
-    private void applyContractToFailure() {
-        if (!Boolean.parseBoolean(System.getProperty(CONTRACT_FAIL_PROPERTY, FALSE))) {
-            return;
-        }
-        EmbeddedContraction contraction = new EmbeddedContraction(tmesh, eulerCharacteristic);
-        failure = contraction.contractToFailure();
-        if (failure == null) {
-            Platforms.get().log("[embedded-tmesh] contracted to a fixed point with no failure: "
-                    + contractionSummary(contraction));
-            if (Boolean.parseBoolean(System.getProperty(FOLD_CHECK_PROPERTY, FALSE))) {
-                showFoldFlips();
-            }
-        } else {
-            Platforms.get().log("[embedded-tmesh] stopped at reroute failure after "
-                    + contractionSummary(contraction) + " | fenceVertices="
-                    + failure.fenceVertices.size() + " pivotSpokes="
-                    + (failure.pivotSpokes.size() / 2) + " | " + failure.getMessage());
-        }
-    }
-
-    /**
-     * Judges the contracted layout and shows it: refines to 3-connectivity, builds patch regions,
-     * maps every patch, logs the fold count, and paints each folded patch magenta on the
-     * iso-surface. Only meaningful once no zero-patches remain.
+     * Judges the contracted layout and shows it: refines to 3-connectivity, builds
+     * patch regions, maps every patch, logs the fold count, and paints each folded
+     * patch magenta on the iso-surface. Only meaningful once no zero-patches
+     * remain.
      */
     private void showFoldFlips() {
         int sameSidePatchArcs = 0;
@@ -347,8 +216,7 @@ public class EmbeddedTMeshScene extends Scene {
             new PatchRegions(tmesh).build();
             Platforms.get().log("[foldcheck] pre-refine: regions OK");
         } catch (IllegalStateException tornBeforeRefine) {
-            Platforms.get().log("[foldcheck] pre-refine: TORN: " + tornBeforeRefine.getMessage()
-                    + reportArcIntegrity() + reportNodeFans() + reportNodeRotation());
+            Platforms.get().log("[foldcheck] pre-refine: TORN: " + tornBeforeRefine.getMessage());
         }
         Platforms.get().log("[foldcheck] refining to 3-connectivity (a large mesh takes a minute)...");
         int chords = new ThreeConnectivityRefinement(tmesh).refine();
@@ -405,8 +273,20 @@ public class EmbeddedTMeshScene extends Scene {
                 Platforms.get().log("[foldcheck] fold P" + patch.patchId + " flips=" + flipped
                         + diagnosePatchFold(map));
             }
-            assemblePatchFlipSurface(map, flipped > 0, regions.copyFacesByPatch.get(patch.patchId),
-                    activeByFaceId, cornerU, cornerV, faceFlipped);
+            List<Integer> regionFaces = regions.copyFacesByPatch.get(patch.patchId);
+            for (int faceIndex = 0; faceIndex < regionFaces.size(); faceIndex++) {
+                Integer activeFace = activeByFaceId.get(regionFaces.get(faceIndex));
+                if (activeFace == null) {
+                    continue;
+                }
+                int[] triangle = map.triangles[faceIndex];
+                faceFlipped[activeFace] = flipped > 0;
+                int base = activeFace * PatchRegionMapper.TRIANGLE_CORNERS;
+                for (int corner = 0; corner < PatchRegionMapper.TRIANGLE_CORNERS; corner++) {
+                    cornerU[base + corner] = map.rectangleU[triangle[corner]];
+                    cornerV[base + corner] = map.rectangleV[triangle[corner]];
+                }
+            }
         }
         runtime.uploadPatchParametrization(copy, cornerU, cornerV, faceFlipped);
         runtime.showTraces = false;
@@ -415,46 +295,16 @@ public class EmbeddedTMeshScene extends Scene {
                 + " showIsoLines=" + runtime.showIsoLines);
         Platforms.get().log("[foldcheck] regions OK: " + mapped + " patches, chords=" + chords
                 + " sameSidePatchArcs=" + sameSidePatchArcs + " folded=" + folded
-                + (folded == 0 ? " (all fold-free)" : " flippedTriangles=" + flippedTotal
-                        + " patches[" + foldedIds.toString().trim() + "]"));
+                + (folded == 0 ? " (all fold-free)"
+                        : " flippedTriangles=" + flippedTotal
+                                + " patches[" + foldedIds.toString().trim() + "]"));
     }
 
     /**
-     * Fills one patch's contribution to the flip-render arrays: each face gets its three corner
-     * rectangle coordinates, and when the patch folds its whole region is flagged so it shows as one
-     * magenta area, since single folded triangles are too small to see.
-     *
-     * @param map            the patch's solved rectangle map
-     * @param patchHasFold   whether the patch has any folded triangle
-     * @param regionFaces    the patch's copy face ids, parallel to {@code map.triangles}
-     * @param activeByFaceId copy face id to active face index
-     * @param cornerU        per-corner rectangle x to fill, indexed by active face
-     * @param cornerV        per-corner rectangle y to fill, parallel to {@code cornerU}
-     * @param faceFlipped    per-face fold flag to fill, indexed by active face
-     */
-    private void assemblePatchFlipSurface(PatchRectangleMap map, boolean patchHasFold,
-            List<Integer> regionFaces, Map<Integer, Integer> activeByFaceId, double[] cornerU,
-            double[] cornerV, boolean[] faceFlipped) {
-        for (int faceIndex = 0; faceIndex < regionFaces.size(); faceIndex++) {
-            Integer activeFace = activeByFaceId.get(regionFaces.get(faceIndex));
-            if (activeFace == null) {
-                continue;
-            }
-            int[] triangle = map.triangles[faceIndex];
-            faceFlipped[activeFace] = patchHasFold;
-            int base = activeFace * PatchRegionMapper.TRIANGLE_CORNERS;
-            for (int corner = 0; corner < PatchRegionMapper.TRIANGLE_CORNERS; corner++) {
-                cornerU[base + corner] = map.rectangleU[triangle[corner]];
-                cornerV[base + corner] = map.rectangleV[triangle[corner]];
-            }
-        }
-    }
-
-    /**
-     * Tests Tutte's fold-free preconditions on a folded patch's region: a repeated boundary-loop
-     * vertex is a non-simple boundary pinned to two rectangle spots, a vertex with more than two
-     * boundary edges is a non-manifold pinch, and an Euler characteristic other than one means the
-     * region is not a disk.
+     * Tests Tutte's fold-free preconditions on a folded patch's region: a repeated
+     * boundary-loop vertex is a non-simple boundary pinned to two rectangle spots,
+     * a vertex with more than two boundary edges is a non-manifold pinch, and an
+     * Euler characteristic other than one means the region is not a disk.
      *
      * @param map the folded patch's solved rectangle map
      * @return a compact report of which preconditions the region violates
@@ -497,68 +347,15 @@ public class EmbeddedTMeshScene extends Scene {
         int euler = vertexCount - edgeUse.size() + map.triangles.length;
         return " repeatedBoundaryVerts=" + repeatedBoundary + " pinchVerts=" + pinchVertices
                 + " nonManifoldEdges=" + nonManifoldEdges + " euler=" + euler + " (disk=1)"
-                + " V=" + vertexCount + " E=" + edgeUse.size() + " F=" + map.triangles.length
-                + diagnoseFoldAreas(map);
+                + " V=" + vertexCount + " E=" + edgeUse.size() + " F=" + map.triangles.length;
     }
 
     /**
-     * Splits a folded patch's flipped triangles into degenerate slivers (rectangle area exactly
-     * zero) and true inversions (opposite winding), and sizes the worst inversion against the median
-     * triangle area — so a tiny ratio means numerical slivers, a ratio near one a real overlap.
+     * Increments the shared use-count of the undirected dense edge between two
+     * vertices.
      *
-     * @param map the folded patch's solved rectangle map
-     * @return a compact report of the flip area distribution
-     */
-    private static String diagnoseFoldAreas(PatchRectangleMap map) {
-        double referenceArea = 0.0;
-        for (int[] triangle : map.triangles) {
-            double area = triangleRectangleArea(map, triangle);
-            if (Math.abs(area) > Math.abs(referenceArea)) {
-                referenceArea = area;
-            }
-        }
-        boolean referencePositive = referenceArea > 0.0;
-        double[] absAreas = new double[map.triangles.length];
-        int zeroSlivers = 0;
-        double worstInversion = 0.0;
-        for (int index = 0; index < map.triangles.length; index++) {
-            double area = triangleRectangleArea(map, map.triangles[index]);
-            absAreas[index] = Math.abs(area);
-            if (area == 0.0) {
-                zeroSlivers++;
-            } else if ((area > 0.0) != referencePositive) {
-                worstInversion = Math.max(worstInversion, Math.abs(area));
-            }
-        }
-        Arrays.sort(absAreas);
-        double medianArea = absAreas[absAreas.length / 2];
-        double inversionRatio = medianArea > 0.0 ? worstInversion / medianArea : 0.0;
-        return " zeroSlivers=" + zeroSlivers
-                + String.format(" worstInversion/median=%.2e medianArea=%.2e", inversionRatio,
-                        medianArea);
-    }
-
-    /**
-     * Twice the signed area of a map triangle in its rectangle; the sign gives the winding.
-     *
-     * @param map      the patch's rectangle map
-     * @param triangle three dense vertex indices in winding order
-     * @return the signed area measure
-     */
-    private static double triangleRectangleArea(PatchRectangleMap map, int[] triangle) {
-        double ux = map.rectangleU[triangle[0]];
-        double uy = map.rectangleV[triangle[0]];
-        double vx = map.rectangleU[triangle[1]];
-        double vy = map.rectangleV[triangle[1]];
-        double wx = map.rectangleU[triangle[2]];
-        double wy = map.rectangleV[triangle[2]];
-        return (vx - ux) * (wy - uy) - (wx - ux) * (vy - uy);
-    }
-
-    /**
-     * Increments the shared use-count of the undirected dense edge between two vertices.
-     *
-     * @param edgeUse map from packed undirected edge key to the number of triangles using it
+     * @param edgeUse map from packed undirected edge key to the number of triangles
+     *                using it
      * @param first   one dense vertex of the edge
      * @param second  the other dense vertex
      */
@@ -569,212 +366,22 @@ public class EmbeddedTMeshScene extends Scene {
     }
 
     /**
-     * Each live arc whose claimed edge-chain is broken — a path step whose edge is unclaimed or
-     * owned by another arc — so a sealing gap that leaves an arc not fencing its patches shows up.
-     *
-     * @return a compact report, or a note that every arc's chain is fully self-claimed
+     * Apply any keypress-requested edit on the render thread, where the GL context
+     * is current, and re-upload the changed T-mesh. Doing this here rather than in
+     * the key callback keeps every GL call on the thread that owns the context.
+     * 
+     * @throws IOException reee
      */
-    private String reportArcIntegrity() {
-        StringBuilder broken = new StringBuilder();
-        for (EmbeddedArc arc : tmesh.arcs) {
-            if (!arc.alive) {
-                continue;
-            }
-            for (int step = 1; step < arc.path.copyVertexPath.size(); step++) {
-                int edgeId = tmesh.topology.edgeBetween(arc.path.copyVertexPath.get(step - 1),
-                        arc.path.copyVertexPath.get(step));
-                if (edgeId == EmbeddedMeshTopology.UNCLAIMED
-                        || tmesh.topology.ownerArcByCopyEdge[edgeId] != arc.arcId) {
-                    broken.append(" a").append(arc.arcId).append('@').append(step);
-                }
-            }
-        }
-        return broken.length() == 0 ? " | arcs:all-self-claimed" : " | brokenArcEdges:" + broken;
-    }
+    private void applyPendingEdits() throws IOException {
 
-    /**
-     * Each live node's degree and incident arc ids, so a boundary cycle that fails to close at a
-     * node — the shape of a sealing gap when no single arc's chain is broken — is visible.
-     *
-     * @return a compact per-node report
-     */
-    private String reportNodeFans() {
-        StringBuilder fans = new StringBuilder();
-        for (EmbeddedNode node : tmesh.nodes) {
-            if (node.alive) {
-                fans.append(" n").append(node.nodeId).append('d').append(tmesh.degree(node.nodeId))
-                        .append(tmesh.arcEndsByNode.get(node.nodeId));
-            }
-        }
-        return " | nodeFans:" + fans;
-    }
-
-    /**
-     * The cyclic order of incident arcs around each live node's copy vertex, read by rotating its
-     * half-edge fan. A scramble versus the node's patch cycles is the fingerprint of a reroute that
-     * left a node in the wrong angular sector, merging patch corners with no arc crossing.
-     *
-     * @return a compact per-node cyclic arc order
-     */
-    private String reportNodeRotation() {
-        StringBuilder rotation = new StringBuilder();
-        HalfEdgeMesh copy = tmesh.topology.copy;
-        for (EmbeddedNode node : tmesh.nodes) {
-            if (!node.alive) {
-                continue;
-            }
-            rotation.append(" n").append(node.nodeId).append(':');
-            int startHalfEdge = copy.vertexOutgoingHalfEdge(node.copyVertex);
-            int halfEdge = startHalfEdge;
-            int lastArc = EmbeddedTMesh.NONE;
-            for (int step = 0; step < copy.vertexEdgeCount(node.copyVertex) + 2; step++) {
-                int owner = tmesh.topology.ownerArcByCopyEdge[copy.halfEdgeEdge(halfEdge)];
-                if (owner != EmbeddedMeshTopology.UNCLAIMED && owner != lastArc) {
-                    rotation.append(owner).append(',');
-                    lastArc = owner;
-                }
-                halfEdge = copy.halfEdgeTwin(copy.halfEdgePrev(halfEdge));
-                if (halfEdge == startHalfEdge) {
-                    break;
-                }
-            }
-        }
-        return " | nodeRotation:" + rotation;
-    }
-
-    /**
-     * A one-line summary of how many of each operator a contraction applied.
-     *
-     * @param contraction a finished contraction
-     * @return "{@code N collapse(s), M split(s), K patch-collapse(s)}"
-     */
-    private static String contractionSummary(EmbeddedContraction contraction) {
-        return contraction.arcCollapseCount + " collapse(s), "
-                + contraction.patchSplitCount + " split(s), "
-                + contraction.patchCollapseCount + " patch-collapse(s)";
-    }
-
-    /**
-     * Apply the number of non-simple zero-patch splits requested at startup by
-     * {@code -Dtmesh.split} (an integer, or {@code all}), before any collapses, so a headless
-     * screenshot can show operator (2)'s effect. In the window, PERIOD steps one split.
-     */
-    private void applyInitialSplits() {
-        String request = System.getProperty(SPLIT_PROPERTY);
-        if (request == null || request.isBlank()) {
-            return;
-        }
-        int limit = ALL.equalsIgnoreCase(request.trim())
-                ? Integer.MAX_VALUE : Integer.parseInt(request.trim());
-        int applied = 0;
-        while (applied < limit) {
-            int patchId = splitOperator.nextNonSimpleZeroPatch();
-            if (patchId == EmbeddedTMesh.NONE) {
-                break;
-            }
-            splitOperator.split(patchId);
-            tmesh.validate(eulerCharacteristic);
-            applied++;
-        }
-        Platforms.get().log(APPLIED_PREFIX + applied + " zero-patch split(s)");
-    }
-
-    /**
-     * Collapse the next collapsible zero arc, validating the result, and report whether one
-     * was found.
-     *
-     * @return true when an arc was collapsed, false when none remains
-     */
-    private boolean collapseOneZeroArc() {
-        int arcId = collapseOperator.nextCollapsibleArc();
-        if (arcId == EmbeddedTMesh.NONE) {
-            return false;
-        }
-        collapseOperator.collapse(arcId);
-        tmesh.validate(eulerCharacteristic);
-        return true;
-    }
-
-    /**
-     * Ask for one more zero-arc collapse; applied on the next frame, on the render thread.
-     */
-    public void requestCollapseStep() {
-        pendingCollapseSteps++;
-    }
-
-    /**
-     * Ask for one more non-simple zero-patch split; applied on the next frame, on the render
-     * thread.
-     */
-    public void requestSplitStep() {
-        pendingSplitSteps++;
-    }
-
-    /**
-     * Ask to rebuild the layout; applied on the next frame, on the render thread.
-     */
-    public void requestReset() {
-        pendingReset = true;
-    }
-
-    /**
-     * Ask to drive all three operators to a fixed point; applied on the next frame, on the
-     * render thread.
-     */
-    public void requestFullContraction() {
-        pendingContract = true;
-    }
-
-    /**
-     * Ask to drive all three operators to a fixed point without the termination-measure check,
-     * stopping at the first reroute failure instead of throwing; applied on the next frame.
-     *
-     * <p>This is the {@code embeddedTMesh.contractFail} startup path, on a key.
-     */
-    public void requestContractToFailure() {
-        pendingContractToFailure = true;
-    }
-
-    /**
-     * Ask to toggle the folded-patch magenta view on the current layout; applied on the next frame,
-     * on the render thread. Contract to a fixed point (C or F) first, or it reports it cannot map.
-     */
-    public void requestFoldFlipView() {
-        pendingFoldFlip = true;
-    }
-
-    /**
-     * Apply any keypress-requested edit on the render thread, where the GL context is current,
-     * and re-upload the changed T-mesh. Doing this here rather than in the key callback keeps
-     * every GL call on the thread that owns the context.
-     */
-    private void applyPendingEdits() {
-        if (pendingReset) {
-            pendingReset = false;
-            pendingCollapseSteps = 0;
-            pendingSplitSteps = 0;
-            assembleLayout();
-            runtime.setEmbeddedTMesh(tmesh);
-            Platforms.get().log("[embedded-tmesh] rebuilt");
-            return;
-        }
-        if (pendingContractToFailure) {
-            pendingContractToFailure = false;
-            EmbeddedContraction contraction = new EmbeddedContraction(tmesh, eulerCharacteristic);
-            failure = contraction.contractToFailure();
-            runtime.setEmbeddedTMesh(tmesh);
-            Platforms.get().log("[embedded-tmesh] contract-to-failure: "
-                    + contractionSummary(contraction) + "; arcs=" + countLiveArcs()
-                    + (failure == null ? "; no failure" : "; " + failure.getMessage()));
-            return;
-        }
         if (pendingContract) {
             pendingContract = false;
-            EmbeddedContraction contraction =
-                    new EmbeddedContraction(tmesh, eulerCharacteristic).contract();
+            EmbeddedContraction contraction = new EmbeddedContraction(tmesh, eulerCharacteristic).contract();
             runtime.setEmbeddedTMesh(tmesh);
             Platforms.get().log("[embedded-tmesh] contracted to fixed point: "
-                    + contractionSummary(contraction) + "; arcs=" + countLiveArcs());
+                    + contraction.arcCollapseCount + " collapse(s), "
+                    + contraction.patchSplitCount + " split(s), "
+                    + contraction.patchCollapseCount + " patch-collapse(s)");
             return;
         }
         if (pendingFoldFlip) {
@@ -792,47 +399,6 @@ public class EmbeddedTMeshScene extends Scene {
             }
             return;
         }
-        boolean changed = false;
-        while (pendingSplitSteps > 0) {
-            pendingSplitSteps--;
-            int patchId = splitOperator.nextNonSimpleZeroPatch();
-            if (patchId == EmbeddedTMesh.NONE) {
-                Platforms.get().log("[embedded-tmesh] no non-simple zero-patch remains");
-                break;
-            }
-            splitOperator.split(patchId);
-            tmesh.validate(eulerCharacteristic);
-            changed = true;
-        }
-        while (pendingCollapseSteps > 0) {
-            pendingCollapseSteps--;
-            if (collapseOneZeroArc()) {
-                changed = true;
-            } else {
-                Platforms.get().log("[embedded-tmesh] no collapsible zero arc remains");
-                break;
-            }
-        }
-        if (changed) {
-            runtime.setEmbeddedTMesh(tmesh);
-            Platforms.get().log("[embedded-tmesh] collapsed " + collapseOperator.collapsedCount
-                    + " total; arcs=" + countLiveArcs());
-        }
-    }
-
-    /**
-     * The number of live arcs in the T-mesh, for the status log.
-     *
-     * @return count of arcs still part of the layout
-     */
-    private int countLiveArcs() {
-        int count = 0;
-        for (int arcId = 0; arcId < tmesh.arcs.size(); arcId++) {
-            if (tmesh.arcs.get(arcId).alive) {
-                count++;
-            }
-        }
-        return count;
     }
 
     @Override
@@ -840,22 +406,17 @@ public class EmbeddedTMeshScene extends Scene {
         if (runtime == null) {
             return;
         }
-        applyPendingEdits();
+        try {
+            applyPendingEdits();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         camera.resetView();
         if (!runtime.showIsoLines) {
             runtime.render(camera);
         }
         runtime.renderOverlays(camera);
         runtime.renderHighlights(camera);
-    }
-
-    /**
-     * Toggle the reroute-failure highlight, applied on the render thread.
-     */
-    public void toggleFailureHighlight() {
-        if (runtime != null) {
-            runtime.showFailureHighlight = !runtime.showFailureHighlight;
-        }
     }
 
     @Override

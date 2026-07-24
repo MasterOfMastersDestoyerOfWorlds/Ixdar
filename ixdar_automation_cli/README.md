@@ -586,7 +586,8 @@ Report duplicated code ranked by how much repetition factoring it out would remo
 
 - `--min-tokens` — Shortest token run counted as a clone; lower finds more and noisier matches.
 - `--package-filter` — Dotted or slashed package prefix; keeps clones with a site under it.
-- `--top` — How many clone classes to detail.
+- `--top` — How many clone classes to detail in the text report; the HTML lists them all.
+- `--html` — Path for the browsable HTML report; defaults to target/cpd-report.html.
 - `--xml` — Reuse an existing CPD report instead of re-running PMD.
 
 ### `gen-docs`
