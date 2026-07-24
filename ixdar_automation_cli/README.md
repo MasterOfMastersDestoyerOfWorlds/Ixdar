@@ -71,6 +71,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`dsl-optimize`](#dsl-optimize) | Batch-optimize mesh DSL parameters against a reference OBJ. |
 | [`gen-docs`](#gen-docs) | Regenerate the CLAUDE.md command list and the CLI README from the manifest and registry. |
 | [`install-alias`](#install-alias) | Install a global ixdar-cli wrapper into ~/.local/bin. |
+| [`list-meshes`](#list-meshes) | List mesh files a scene can load, with the short names run-scene resolves. |
 | [`mesh-overlay`](#mesh-overlay) | Load a reference OBJ as a semi-transparent overlay, or clear it. |
 | [`mesh-probe`](#mesh-probe) | Capture the mesh-focused automation probe bundle. |
 | [`mesh-state`](#mesh-state) | Extract the mesh viewer state from the UI snapshot. |
@@ -591,6 +592,15 @@ Regenerate the CLAUDE.md command list and the CLI README from the manifest and r
 Install a global ixdar-cli wrapper into ~/.local/bin.
 
 
+### `list-meshes`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/list_meshes.py#L19)
+
+List mesh files a scene can load, with the short names run-scene resolves.
+
+- `--all` — Include the ``_out_quad`` results and unloadable binary files, not just the inputs.
+- `--name` — Substring filter over the mesh name.
+
 ### `mesh-overlay`
 
 [↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L183)
@@ -690,12 +700,13 @@ Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB over
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L445)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L463)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 
 - `--scene` — Scene id passed to IxdarWindow (see @SceneAnnotation ids).
-- `--property` — Repeatable ``key=value`` JVM system property.
+- `--property` — Repeatable ``key=value`` JVM system property; a ``*.off`` value may be a mesh
+- `--mesh` — Mesh name, alias or path for this scene's ``*.off`` property (see list-meshes).
 - `--profile` — Capture an async-profiler flame graph.
 - `--profile-path` — Profile output path (default: profile.html at the repo root).
 - `--profile-event` — async-profiler event: ``cpu`` for time, ``alloc`` to attribute GC pressure

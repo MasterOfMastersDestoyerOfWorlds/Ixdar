@@ -24,6 +24,7 @@ from ..async_profile import format_hot_methods
 from ..automation_client import DEFAULT_BASE_URL, AutomationClient
 from ..cli_registry import CliCommandResult, cli_command
 from ..jacoco_coverage import DEFAULT_PACKAGE_FILTER, agent_argument, build_report, format_coverage
+from ..mesh_catalog import resolve_mesh, resolve_off_properties
 
 REPO_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
 IXDAR_APP_DIR = os.path.join(REPO_DIR, "ixdar-app")
@@ -37,6 +38,14 @@ COVERAGE_XML_PATH = os.path.join(REPO_DIR, "target", "jacoco", "coverage.xml")
 COVERAGE_HTML_DIR = os.path.join(REPO_DIR, "target", "jacoco", "html")
 ASYNC_PROFILER_LIB = "/usr/lib/libasyncProfiler.so"
 AUTOMATION_PORT = 47832
+
+SCENE_OFF_PROPERTIES = {
+    "embedded-tmesh": "embeddedTMesh.off",
+    "quad-layout": "quadLayoutScene.off",
+    "cross-field-exam": "crossFieldScene.off",
+    "mcg-exam": "mcgScene.off",
+    "param-exam": "parametrization.scene.off",
+}
 
 NAMED_KEYS = {
     "SPACE": 32, "PERIOD": 46, "COMMA": 44, "MINUS": 45, "EQUAL": 61,
@@ -338,6 +347,7 @@ def _terminate(process: subprocess.Popen, client: AutomationClient) -> None:
 def run(
     scene: str,
     property: list[str] | None = None,
+    mesh: str = "",
     profile: bool = False,
     profile_path: str = "",
     profile_event: str = "cpu",
@@ -361,7 +371,13 @@ def run(
 
     :return: Result dict with the log path, readiness, matched lines and profile summary.
     """
-    properties = list(property or [])
+    properties = resolve_off_properties(list(property or []))
+    if mesh:
+        off_property = SCENE_OFF_PROPERTIES.get(scene)
+        if off_property is None:
+            raise ValueError(f"--mesh is not wired for scene {scene!r}; known scenes: "
+                             + ", ".join(sorted(SCENE_OFF_PROPERTIES)))
+        properties.append(f"{off_property}={resolve_mesh(mesh)}")
     key_specs = list(key or [])
     for spec in key_specs:
         _key_code(spec.partition("=")[0])
@@ -449,6 +465,7 @@ def run_scene(
     client: AutomationClient,
     scene: str = "embedded-tmesh",
     property: list[str] | None = None,
+    mesh: str = "",
     profile: bool = False,
     profile_path: str = "",
     profile_event: str = "cpu",
@@ -470,7 +487,9 @@ def run_scene(
     """Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 
     :param scene: Scene id passed to IxdarWindow (see @SceneAnnotation ids).
-    :param property: Repeatable ``key=value`` JVM system property.
+    :param property: Repeatable ``key=value`` JVM system property; a ``*.off`` value may be a mesh
+        name such as ``fertility`` and is resolved to a full path.
+    :param mesh: Mesh name, alias or path for this scene's ``*.off`` property (see list-meshes).
     :param profile: Capture an async-profiler flame graph.
     :param profile_path: Profile output path (default: profile.html at the repo root).
     :param profile_event: async-profiler event: ``cpu`` for time, ``alloc`` to attribute GC pressure
@@ -495,6 +514,7 @@ def run_scene(
     payload = run(
         scene=scene,
         property=property,
+        mesh=mesh,
         profile=profile,
         profile_path=profile_path,
         profile_event=profile_event,

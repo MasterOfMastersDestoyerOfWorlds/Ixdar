@@ -194,6 +194,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli dsl-optimize` — Batch-optimize mesh DSL parameters against a reference OBJ.
 - `ixdar-cli gen-docs` — Regenerate the CLAUDE.md command list and the CLI README from the manifest and registry.
 - `ixdar-cli install-alias` — Install a global ixdar-cli wrapper into ~/.local/bin.
+- `ixdar-cli list-meshes` — List mesh files a scene can load, with the short names run-scene resolves.
 - `ixdar-cli mesh-overlay` — Load a reference OBJ as a semi-transparent overlay, or clear it.
 - `ixdar-cli mesh-probe` — Capture the mesh-focused automation probe bundle.
 - `ixdar-cli mesh-state` — Extract the mesh viewer state from the UI snapshot.

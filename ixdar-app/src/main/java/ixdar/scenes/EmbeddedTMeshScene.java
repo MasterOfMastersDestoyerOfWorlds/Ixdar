@@ -39,10 +39,9 @@ import ixdar.platform.input.OrbitMouseTrap;
 
 /**
  * Debug view of an embedded T-mesh: arcs as edge paths, positive orange and zero red, nodes as
- * spheres. SPACE collapses, PERIOD splits, C runs to a fixed point, F runs to the first reroute
- * failure, R rebuilds.
+ * spheres. Keys are bound by {@link EmbeddedTMeshSceneKeys}.
  *
- * <p>Renders {@link TorusLayoutFixture} unless {@code -DembeddedTMesh.off} names a mesh.
+ * <p>Builds from {@code -DembeddedTMesh.off}, defaulting to {@link #DEFAULT_TEST_MODEL}.
  *
  * <p>See also: LCBK19 Figure 9
  */
@@ -53,8 +52,8 @@ public class EmbeddedTMeshScene extends Scene {
     public static final String SCENE_TITLE = "Ixdar : Embedded T-Mesh";
 
     /**
-     * System property selecting a mesh file to build the T-mesh from the real pipeline; unset
-     * renders the hand-authored torus fixture instead.
+     * System property selecting the mesh file the T-mesh is built from; unset falls back to
+     * {@link #DEFAULT_TEST_MODEL}.
      */
     public static final String OFF_PROPERTY = "embeddedTMesh.off";
 
@@ -226,7 +225,7 @@ public class EmbeddedTMeshScene extends Scene {
 
         Platforms.get().log(String.format(
                 "[embedded-tmesh] source=%s nodes=%d arcs=%d patches=%d euler=%d",
-                offPath == null ? "test/resources/quadlayout/figure_8/fertility_in_tri.off" : offPath, tmesh.nodes.size(),
+                offPath, tmesh.nodes.size(),
                 tmesh.arcs.size(), tmesh.patches.size(), eulerCharacteristic));
     }
 

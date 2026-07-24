@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.data.load;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
@@ -24,13 +25,21 @@ public final class MeshLoader {
 
     public static final int FLOATS_PER_VERTEX = 3;
 
+    /**
+     * Module directory a relative path is retried against. Scene resource constants are written
+     * relative to it because every {@code launch.json} entry runs with it as the working directory,
+     * so a launcher that starts at the repository root instead would otherwise miss every default.
+     */
+    public static final String MODULE_DIRECTORY = "ixdar-app";
+
     private MeshLoader() {
     }
 
     /**
-     * Load a mesh from OBJ or PLY file. Auto-detects format by extension.
+     * Load a mesh from OBJ, PLY or OFF file. Auto-detects format by extension.
      *
-     * @param path File path to OBJ or PLY file
+     * @param path File path, absolute or relative to either the working directory or
+     *             {@link #MODULE_DIRECTORY}
      * @throws IOException              if file cannot be read or parsed
      * @throws IllegalArgumentException if {@code path} is null/empty or has an
      *                                  unsupported extension
@@ -41,7 +50,11 @@ public final class MeshLoader {
             throw new IllegalArgumentException("File path cannot be empty");
         }
         String lower = path.toLowerCase();
-        String content = Files.readString(Paths.get(path));
+        Path file = Paths.get(path);
+        if (!Files.exists(file) && Files.exists(Paths.get(MODULE_DIRECTORY, path))) {
+            file = Paths.get(MODULE_DIRECTORY, path);
+        }
+        String content = Files.readString(file);
         if (lower.endsWith(".obj")) {
             return ObjMeshParser.load(content);
         } else if (lower.endsWith(".ply")) {
