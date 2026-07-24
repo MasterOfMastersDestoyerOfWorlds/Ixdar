@@ -367,10 +367,9 @@ public class EmbeddedTMeshScene extends Scene {
      * Apply any keypress-requested edit on the render thread, where the GL context
      * is current, and re-upload the changed T-mesh. Doing this here rather than in
      * the key callback keeps every GL call on the thread that owns the context.
-     * 
-     * @throws IOException reee
+     * @throws Exception 
      */
-    private void applyPendingEdits() throws IOException {
+    private void applyPendingEdits() throws Exception {
 
         if (pendingContract) {
             pendingContract = false;
@@ -406,7 +405,7 @@ public class EmbeddedTMeshScene extends Scene {
         }
         try {
             applyPendingEdits();
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
         camera.resetView();

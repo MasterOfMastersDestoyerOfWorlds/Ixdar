@@ -1,20 +1,24 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
- * Operator (1), the zero-arc collapse: one endpoint node is embedded onto the other,
- * dragging its incident arcs with it.
+ * Operator (1), the zero-arc collapse: one endpoint node is embedded onto the
+ * other, dragging its incident arcs with it.
  *
- * <p>An endpoint may move when non-critical and either a non-border node or on a border
- * arc; with neither movable this throws. A loop is exempt.
+ * <p>
+ * An endpoint may move when non-critical and either a non-border node or on a
+ * border arc; with neither movable this throws. A loop is exempt.
  *
- * <p>See also: LCBK19 Def 6.2
+ * <p>
+ * See also: LCBK19 Def 6.2
  */
 public final class ZeroArcCollapseOperator {
 
@@ -24,7 +28,8 @@ public final class ZeroArcCollapseOperator {
     public int collapsedCount;
 
     /**
-     * Stores the T-mesh to operate on and builds the re-router over its working copy.
+     * Stores the T-mesh to operate on and builds the re-router over its working
+     * copy.
      *
      * @param tmesh embedded T-mesh whose zero arcs are collapsed
      */
@@ -34,8 +39,8 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * The id of a live, collapsible zero arc, or {@link EmbeddedTMesh#NONE} when none
-     * remains — the driver's "is operator (1) applicable" test.
+     * The id of a live, collapsible zero arc, or {@link EmbeddedTMesh#NONE} when
+     * none remains — the driver's "is operator (1) applicable" test.
      *
      * @return a collapsible zero arc id, or {@link EmbeddedTMesh#NONE}
      */
@@ -49,19 +54,21 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * Collapses one zero arc: moves its movable node onto the other, dragging every other
-     * incident arc along, embeds the arc onto that point, and retires the moved node and the
-     * arc. The T-mesh loses one node and one arc together, so its Euler characteristic is
-     * unchanged.
+     * Collapses one zero arc: moves its movable node onto the other, dragging every
+     * other incident arc along, embeds the arc onto that point, and retires the
+     * moved node and the arc. The T-mesh loses one node and one arc together, so
+     * its Euler characteristic is unchanged.
      *
      * @param arcId zero arc to collapse
+     * @throws Exception 
      * @throws IllegalStateException when the arc is not a collapsible zero arc
      */
-    public void collapse(int arcId) {
+    public void collapse(int arcId) throws Exception {
         EmbeddedArc arc = tmesh.arcs.get(arcId);
         if (!arc.alive || arc.quantizedLength != 0) {
-            throw new IllegalStateException(EmbeddedTMesh.NONE == arcId ? "no arc" : "arc " + arcId
-                    + " is not a live zero arc");
+            throw new IllegalStateException(EmbeddedTMesh.NONE == arcId ? "no arc"
+                    : "arc " + arcId
+                            + " is not a live zero arc");
         }
         int movedNodeId = movingEndpoint(arc);
         if (movedNodeId == EmbeddedTMesh.NONE) {
@@ -75,7 +82,8 @@ public final class ZeroArcCollapseOperator {
         List<Integer> channel = new ArrayList<>(arc.path.copyVertexPath);
         int channelNeighbor = channel.size() < 2 ? EmbeddedTMesh.NONE
                 : channel.get(channel.size() - 1) == movedVertex
-                        ? channel.get(channel.size() - 2) : channel.get(1);
+                        ? channel.get(channel.size() - 2)
+                        : channel.get(1);
 
         tmesh.setPath(arcId, List.of(targetVertex));
         for (int incidentArcId : incidentArcsInFanOrder(movedVertex, channelNeighbor, arcId,
@@ -83,7 +91,7 @@ public final class ZeroArcCollapseOperator {
             if (!tmesh.arcs.get(incidentArcId).alive) {
                 continue;
             }
-            tmesh.dragArcEndOntoVertex(incidentArcId, movedVertex, targetVertex, rerouter, channel);
+            dragArcEndOntoVertex(incidentArcId, movedVertex, targetVertex, rerouter, channel);
         }
 
         tmesh.mergeNodeInto(survivingNodeId, movedNodeId);
@@ -92,14 +100,103 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * The pivot's incident arcs in cyclic fan order, starting from the spoke adjacent to the
-     * collapsing arc's channel, so a dragged arc cannot fence in a later one.
+     * Re-routes the end of an arc a moving node drags with it, onto the node's new
+     * vertex.
      *
-     * <p>Rotates the copy mesh's half-edges around the pivot rather than reading
+     * <p>
+     * A drag, not a redraw: the longest still-reaching prefix of the old path is
+     * kept and only the tail re-routed. Re-routing the whole arc separates the
+     * wrong patches.
+     *
+     * <p>
+     * See also: LCBK19 Section 6.1
+     *
+     * @param arcId        arc whose end is being dragged
+     * @param movedVertex  the moving node's old copy vertex, an endpoint of the
+     *                     arc's path
+     * @param targetVertex the moving node's new copy vertex
+     * @param rerouter     the claims-respecting router
+     * @param channel      the collapsing arc's released path vertices, opening the
+     *                     pivot spoke
+     * @throws Exception
+     * @throws IllegalStateException when the arc's path does not end at the moved
+     *                               vertex
+     */
+    public void dragArcEndOntoVertex(int arcId, int movedVertex, int targetVertex,
+            ArcRerouter rerouter, List<Integer> channel) throws Exception {
+        EmbeddedArc arc = tmesh.arcs.get(arcId);
+        List<Integer> vertices = new ArrayList<>(arc.path.copyVertexPath);
+        if (vertices.size() == 1) {
+            if (vertices.get(0) == targetVertex) {
+                return;
+            }
+            throw new IllegalStateException("arc " + arcId
+                    + " is embedded as a point away from the target while its node moves");
+        }
+        boolean reversed = vertices.get(0) == movedVertex;
+        if (reversed) {
+            Collections.reverse(vertices);
+        }
+        if (vertices.get(vertices.size() - 1) != movedVertex) {
+            throw new IllegalStateException("arc " + arcId + " path does not end at the moved node's"
+                    + " vertex " + movedVertex);
+        }
+        tmesh.releaseClaims(arc.path);
+        for (int passThrough : new int[] { EmbeddedMeshTopology.UNCLAIMED, movedVertex }) {
+            if (passThrough == movedVertex && channel.size() > 1) {
+                tmesh.openPivotSpoke(movedVertex, tmesh.unclaimedComponent(channel.get(1)));
+            }
+            // keep >= 1 preserves the arc's first edge at the fixed far node, so a shortest
+            // reroute
+            // cannot leave the node in a wrong angular sector and swap the cyclic arc order
+            // — a tear
+            // with no arc crossing that LCBK19's no-cross/no-touch does not prevent. keep
+            // == 0
+            // (rerouting from the node itself) is the last resort. See LCBK19 Section 6.1.
+            for (int keepRank = 0; keepRank <= vertices.size() - 2; keepRank++) {
+                int keep = keepRank < vertices.size() - 2 ? keepRank + 1 : 0;
+                List<Integer> prefix = new ArrayList<>(vertices.subList(0, keep + 1));
+                List<Integer> prefixEdges = new ArrayList<>(keep);
+                if (!rerouter.tryLegEdges(prefix, prefixEdges)) {
+                    continue;
+                }
+                ArcEdgePath prefixPath = new ArcEdgePath(arcId, prefix, prefixEdges);
+                tmesh.topology.claimPath(arcId, prefixPath);
+                List<Integer> attempt = new ArrayList<>(prefix);
+                ActiveIdSet corridor = rerouter.freshCorridor();
+                if (rerouter.tryRoute(arcId, attempt, vertices.get(keep), targetVertex, corridor,
+                        passThrough, ArcRerouter.REFINE_ROUND_CAP)) {
+                    List<Integer> edges = new ArrayList<>(prefixEdges);
+                    rerouter.rebuildLegEdges(attempt, edges);
+                    if (reversed) {
+                        Collections.reverse(attempt);
+                        Collections.reverse(edges);
+                    }
+                    arc.path = new ArcEdgePath(arcId, attempt, edges);
+                    tmesh.topology.claimPath(arcId, arc.path);
+                    return;
+                }
+                tmesh.releaseClaims(prefixPath);
+            }
+        }
+
+        String message = "arc " + arcId + " could not be re-routed onto vertex "
+                + targetVertex + " from any back-off point of its old path";
+        throw new Exception(message);
+    }
+
+    /**
+     * The pivot's incident arcs in cyclic fan order, starting from the spoke
+     * adjacent to the collapsing arc's channel, so a dragged arc cannot fence in a
+     * later one.
+     *
+     * <p>
+     * Rotates the copy mesh's half-edges around the pivot rather than reading
      * {@code arcEndsByNode}; arcs the rotation misses are appended.
      *
      * @param pivotVertex     the collapsing node's copy vertex
-     * @param channelNeighbor the channel vertex adjacent to the pivot, whose spoke starts the fan
+     * @param channelNeighbor the channel vertex adjacent to the pivot, whose spoke
+     *                        starts the fan
      * @param collapsingArcId the arc being collapsed, excluded from the fan
      * @param movedNodeId     the collapsing node id, for its full incident-arc set
      * @return the incident arcs (excluding the collapsing arc) in fan order
@@ -144,14 +241,15 @@ public final class ZeroArcCollapseOperator {
      * The endpoint of a zero arc that LCBK19 Def 6.2 permits to move, or
      * {@link EmbeddedTMesh#NONE} when neither may.
      *
-     * <p>A loop is always collapsible: both ends already sit on one point, so nothing moves.
-     * {@link #isCollapsibleFrom} would interrogate that node twice and refuse every loop on a
-     * critical one.
+     * <p>
+     * A loop is always collapsible: both ends already sit on one point, so nothing
+     * moves. {@link #isCollapsibleFrom} would interrogate that node twice and
+     * refuse every loop on a critical one.
      *
      * @param arc zero arc to test
-     * @return the movable node's id, preferring the one with fewer incident arcs and the
-     *         lower id, the single node when the arc is a loop, or {@link EmbeddedTMesh#NONE}
-     *         when both endpoints are fixed
+     * @return the movable node's id, preferring the one with fewer incident arcs
+     *         and the lower id, the single node when the arc is a loop, or
+     *         {@link EmbeddedTMesh#NONE} when both endpoints are fixed
      */
     private int movingEndpoint(EmbeddedArc arc) {
         if (arc.isLoop()) {
@@ -174,9 +272,9 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * Whether a zero arc is collapsible in the direction that moves the given node, per
-     * LCBK19 Def 6.2: the node must be non-critical, and either the arc is a border arc or
-     * the node is not a border node.
+     * Whether a zero arc is collapsible in the direction that moves the given node,
+     * per LCBK19 Def 6.2: the node must be non-critical, and either the arc is a
+     * border arc or the node is not a border node.
      *
      * @param arc    zero arc
      * @param nodeId endpoint that would move
