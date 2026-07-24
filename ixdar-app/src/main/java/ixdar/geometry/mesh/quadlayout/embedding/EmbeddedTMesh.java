@@ -1018,48 +1018,6 @@ public final class EmbeddedTMesh {
     }
 
     /**
-     * The vertices of the region a collapse has freed around the moving node: every corner of every
-     * face reachable from it without crossing an arc.
-     *
-     * <p>A dragged arc must stay inside this region; a wider corridor can leave it bounding
-     * different patches than before.
-     *
-     * <p>See also: LCBK19 Section 6.1
-     *
-     * @param seedVertex the moving node's copy vertex, inside the freed region
-     * @return every copy vertex on a face of that region
-     */
-    private Set<Integer> freedRegionVertices(int seedVertex) {
-        Set<Integer> visitedFaces = new HashSet<>();
-        Set<Integer> regionVertices = new HashSet<>();
-        Deque<Integer> frontier = new ArrayDeque<>();
-        for (int index = 0; index < topology.copy.vertexFaceCount(seedVertex); index++) {
-            int face = topology.copy.vertexFaceAt(seedVertex, index);
-            if (visitedFaces.add(face)) {
-                frontier.add(face);
-            }
-        }
-        while (!frontier.isEmpty()) {
-            int face = frontier.poll();
-            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-                regionVertices.add(topology.copy.faceVertexAt(face, corner));
-                int edgeId = topology.copy.faceEdgeAt(face, corner);
-                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
-                    continue;
-                }
-                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-                int neighborFace = topology.copy.halfEdgeFace(halfEdge) == face
-                        ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
-                        : topology.copy.halfEdgeFace(halfEdge);
-                if (neighborFace != EmbeddedMeshTopology.UNCLAIMED && visitedFaces.add(neighborFace)) {
-                    frontier.add(neighborFace);
-                }
-            }
-        }
-        return regionVertices;
-    }
-
-    /**
      * The ownership of each vertex along the vacated channel path, ordered from the pivot end to the
      * survivor end. Each entry is {@code .} when the vertex is free, {@code n<id>} when a node owns
      * it, or {@code a<id>} when an arc owns it.
