@@ -14,7 +14,6 @@ import java.util.Set;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
-import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.crossfield.DijkstraNode;
 
 /**

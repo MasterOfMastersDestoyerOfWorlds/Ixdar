@@ -1,32 +1,49 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
 
 /**
- * Carves every traced motorcycle path into the working copy as an edge path, replaying
- * the tracer's walk rather than searching for a route.
+ * Carves every traced motorcycle path into the working copy as an edge path,
+ * replaying the tracer's walk rather than searching for a route.
  *
- * <p>Carve points merge the trace's chain of nodes with its recorded edge crossings,
- * since a node need not be a segment endpoint.
+ * <p>
+ * Carve points merge the trace's chain of nodes with its recorded edge
+ * crossings, since a node need not be a segment endpoint.
  *
- * <p>See also: LCBK19 Section 6.1
+ * <p>
+ * See also: LCBK19 Section 6.1
  */
 public final class TraceCarve {
 
     /** Corners (and edges) of a triangle. */
     private static final int CORNERS = 3;
 
+    /** A crossing may only snap onto the endpoint of its own half of the edge. */
+    private static final double NEARER_HALF = 0.5;
+
+    public final HalfEdgeMesh sourceMesh;
+
+    /**
+     * Source vertex each snappable crossing may move onto, keyed by the segment
+     * that records it.
+     */
+    public final Map<TraceSegment, Integer> snapSourceVertexBySegment;
+
+    /** Recorded crossings the plan considered. */
+    public int crossingCount;
+
     public final EmbeddedMeshTopology topology;
     public final MotorcycleGraph motorcycleGraph;
     public final FaceChordWalk chordWalk;
-
-    /** Which crossings may be realized on an existing vertex rather than by splitting. */
-    public final EdgeCrossingSnap crossingSnap;
 
     /** Copy vertex per T-mesh node id, filled by the node placement stage. */
     public final int[] vertexIdByNode;
@@ -52,7 +69,42 @@ public final class TraceCarve {
         this.vertexIdByNode = vertexIdByNode;
         this.pathByArc = pathByArc;
         this.chordWalk = chordWalk;
-        this.crossingSnap = new EdgeCrossingSnap(chordWalk.topology, motorcycleGraph);
+        this.sourceMesh = motorcycleGraph.seamless.mesh;
+        this.snapSourceVertexBySegment = new IdentityHashMap<>();
+
+        Map<Long, TraceSegment> extremalTowardStart = new HashMap<>();
+        Map<Long, TraceSegment> extremalTowardEnd = new HashMap<>();
+        for (Trace trace : motorcycleGraph.traces) {
+            for (TraceSegment segment : trace.segments) {
+                if (segment.exitLocalEdgeIndex < 0 || Double.isNaN(segment.exitEdgeParameter)) {
+                    continue;
+                }
+                crossingCount++;
+                long edgeKey = edgeKey(segment);
+                double parameter = canonicalParameter(segment);
+                TraceSegment towardStart = extremalTowardStart.get(edgeKey);
+                if (towardStart == null || parameter < canonicalParameter(towardStart)) {
+                    extremalTowardStart.put(edgeKey, segment);
+                }
+                TraceSegment towardEnd = extremalTowardEnd.get(edgeKey);
+                if (towardEnd == null || parameter > canonicalParameter(towardEnd)) {
+                    extremalTowardEnd.put(edgeKey, segment);
+                }
+            }
+        }
+
+        for (Map.Entry<Long, TraceSegment> entry : extremalTowardStart.entrySet()) {
+            TraceSegment segment = entry.getValue();
+            if (canonicalParameter(segment) < NEARER_HALF) {
+                snapSourceVertexBySegment.put(segment, (int) (entry.getKey() >> Integer.SIZE));
+            }
+        }
+        for (Map.Entry<Long, TraceSegment> entry : extremalTowardEnd.entrySet()) {
+            TraceSegment segment = entry.getValue();
+            if (canonicalParameter(segment) > NEARER_HALF) {
+                snapSourceVertexBySegment.put(segment, (int) (entry.getKey() & 0xFFFFFFFFL));
+            }
+        }
     }
 
     /**
@@ -80,7 +132,7 @@ public final class TraceCarve {
     private void carveTrace(Trace trace) {
         List<Integer> chain = new ArrayList<>();
         int[] chainPositionByNode = new int[trace.arcNodeIds.size()];
-        int head = nodeVertex(trace.arcNodeIds.get(0));
+        int head = vertexIdByNode[trace.arcNodeIds.get(0)];
         chain.add(head);
         int nodeIndex = 1;
         for (TraceSegment segment : trace.segments) {
@@ -91,10 +143,10 @@ public final class TraceCarve {
             while (nodeIndex < trace.arcNodeIds.size()
                     && trace.chainNodeLengths.get(nodeIndex) <= exitLength) {
                 int arcId = trace.chainArcIds.get(nodeIndex - 1);
-                int targetVertex = nodeVertex(trace.arcNodeIds.get(nodeIndex));
+                int targetVertex = vertexIdByNode[trace.arcNodeIds.get(nodeIndex)];
                 int claimFrom = chain.size();
-                head = chordWalk.walk(arcId, segment.activeFace, head,
-                        barycentricOfVertex(segment.activeFace, targetVertex), targetVertex, chain);
+                double[] barycentric = topology.barycentricOf(segment.activeFace, targetVertex);
+                head = chordWalk.walk(arcId, segment.activeFace, head, barycentric, targetVertex, chain);
                 claimStretch(arcId, chain, claimFrom);
                 chainPositionByNode[nodeIndex] = chain.size() - 1;
                 emitArc(trace, nodeIndex - 1, chain, chainPositionByNode);
@@ -105,14 +157,30 @@ public final class TraceCarve {
             }
             int arcId = trace.chainArcIds.get(nodeIndex - 1);
             int claimFrom = chain.size();
-            int snapVertex = crossingSnap.snapCopyVertex(segment, head);
+            int snapVertex = EmbeddedMeshTopology.UNCLAIMED;
+            Integer sourceVertexId = snapSourceVertexBySegment.get(segment);
+            if (sourceVertexId != null) {
+                int copyVertex = topology.copyVertexForSourceVertexId(sourceVertexId);
+                if (copyVertex == EmbeddedMeshTopology.UNCLAIMED
+                        || topology.ownerNodeByCopyVertex[copyVertex] != EmbeddedMeshTopology.UNCLAIMED
+                        || topology.ownerArcByCopyVertex[copyVertex] != EmbeddedMeshTopology.UNCLAIMED) {
+                    snapVertex = EmbeddedMeshTopology.UNCLAIMED;
+                } else {
+                    snapVertex = copyVertex;
+                }
+            }
             if (snapVertex == EmbeddedMeshTopology.UNCLAIMED) {
-                head = chordWalk.walk(arcId, segment.activeFace, head, crossingBarycentric(segment),
+                double[] barycentric = new double[CORNERS];
+                int localEdge = segment.exitLocalEdgeIndex;
+                double parameter = segment.exitEdgeParameter;
+                barycentric[localEdge] = 1.0 - parameter;
+                barycentric[(localEdge + 1) % CORNERS] = parameter;
+                head = chordWalk.walk(arcId, segment.activeFace, head, barycentric,
                         EmbeddedMeshTopology.UNCLAIMED, chain);
             } else {
                 chordWalk.snappedCrossingCount++;
-                head = chordWalk.walk(arcId, segment.activeFace, head,
-                        barycentricOfVertex(segment.activeFace, snapVertex), snapVertex, chain);
+                double[] barycentric = topology.barycentricOf(segment.activeFace, snapVertex);
+                head = chordWalk.walk(arcId, segment.activeFace, head, barycentric, snapVertex, chain);
             }
             claimStretch(arcId, chain, claimFrom);
         }
@@ -123,58 +191,9 @@ public final class TraceCarve {
     }
 
     /**
-     * Barycentric coordinate, in the segment's face, of the mesh-edge crossing the
-     * walker recorded when the chord left that face. Local edge {@code e} runs from
-     * corner {@code e} to corner {@code e + 1}, so the crossing's coordinate is read
-     * straight off the recorded parameter — exactly, with no projection.
-     *
-     * @param segment chord leaving its face through a mesh edge
-     * @return the crossing's barycentric coordinate
-     */
-    private double[] crossingBarycentric(TraceSegment segment) {
-        double[] barycentric = new double[CORNERS];
-        int localEdge = segment.exitLocalEdgeIndex;
-        double parameter = segment.exitEdgeParameter;
-        barycentric[localEdge] = 1.0 - parameter;
-        barycentric[(localEdge + 1) % CORNERS] = parameter;
-        return barycentric;
-    }
-
-    /**
-     * Barycentric coordinate of an existing copy vertex the walk is aiming at — a placed T-mesh
-     * node, or the mesh vertex a crossing snapped onto.
-     *
-     * @param sourceFace source active face the chord lies in
-     * @param copyVertex the target's copy vertex
-     * @return its barycentric coordinate in that face
-     */
-    private double[] barycentricOfVertex(int sourceFace, int copyVertex) {
-        double[] barycentric = topology.barycentricOf(sourceFace, copyVertex);
-        if (barycentric == null) {
-            throw new IllegalStateException("copy vertex " + copyVertex
-                    + " does not lie in source face " + sourceFace);
-        }
-        return barycentric;
-    }
-
-    /**
-     * The copy vertex a node was placed on.
-     *
-     * @param nodeId T-mesh node id
-     * @return its copy vertex
-     */
-    private int nodeVertex(int nodeId) {
-        int vertexId = vertexIdByNode[nodeId];
-        if (vertexId == EmbeddedMeshTopology.UNCLAIMED) {
-            throw new IllegalStateException("T-mesh node " + nodeId + " was never placed");
-        }
-        return vertexId;
-    }
-
-    /**
      * Claim the stretch of chain an arc just carved, so the walk cannot snap back
-     * onto its own lane and later arcs see it as taken. Node vertices keep their node
-     * ownership.
+     * onto its own lane and later arcs see it as taken. Node vertices keep their
+     * node ownership.
      *
      * @param arcId     arc that carved the stretch
      * @param chain     the trace's vertex chain
@@ -215,5 +234,58 @@ public final class TraceCarve {
         }
         pathByArc[arcId] = new ArcEdgePath(arcId, vertices, edges);
         carvedArcCount++;
+    }
+
+    /**
+     * Identity of the source edge a crossing lies on, orientation-independent so
+     * that the two faces sharing the edge agree on it.
+     *
+     * @param segment segment whose exit crossing is being keyed
+     * @return the edge's two source vertex ids packed lower-first into a long
+     */
+    private long edgeKey(TraceSegment segment) {
+        int fromVertexId = exitFromVertexId(segment);
+        int toVertexId = exitToVertexId(segment);
+        int lower = Math.min(fromVertexId, toVertexId);
+        int upper = Math.max(fromVertexId, toVertexId);
+        return ((long) lower << Integer.SIZE) | (upper & 0xFFFFFFFFL);
+    }
+
+    /**
+     * Parameter of a crossing along its source edge, measured from the edge's
+     * lower-id endpoint so that crossings recorded from either incident face are
+     * directly comparable.
+     *
+     * @param segment segment whose exit crossing is being measured
+     * @return the crossing's parameter in the edge's canonical direction
+     */
+    private double canonicalParameter(TraceSegment segment) {
+        return exitFromVertexId(segment) < exitToVertexId(segment)
+                ? segment.exitEdgeParameter
+                : 1.0 - segment.exitEdgeParameter;
+    }
+
+    /**
+     * Source vertex the exit edge's parameter is measured from, in the recording
+     * face's own orientation.
+     *
+     * @param segment segment whose exit edge is being read
+     * @return the source vertex id at parameter zero
+     */
+    private int exitFromVertexId(TraceSegment segment) {
+        return sourceMesh.faceVertexAt(sourceMesh.faceIdAt(segment.activeFace),
+                segment.exitLocalEdgeIndex);
+    }
+
+    /**
+     * Source vertex the exit edge's parameter runs toward, in the recording face's
+     * own orientation.
+     *
+     * @param segment segment whose exit edge is being read
+     * @return the source vertex id at parameter one
+     */
+    private int exitToVertexId(TraceSegment segment) {
+        return sourceMesh.faceVertexAt(sourceMesh.faceIdAt(segment.activeFace),
+                (segment.exitLocalEdgeIndex + 1) % CORNERS);
     }
 }
