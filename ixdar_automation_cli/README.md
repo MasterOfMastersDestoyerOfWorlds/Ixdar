@@ -67,6 +67,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`audio-log`](#audio-log) | Return recent audio log events. |
 | [`audio-state`](#audio-state) | Extract the audio state from the UI snapshot. |
 | [`click-scan`](#click-scan) | Click through a grid until the scene leaves the menu. |
+| [`coverage-report`](#coverage-report) | Merge JaCoCo exec files and report the code they never executed. |
 | [`dsl-optimize`](#dsl-optimize) | Batch-optimize mesh DSL parameters against a reference OBJ. |
 | [`gen-docs`](#gen-docs) | Regenerate the CLAUDE.md command list and the CLI README from the manifest and registry. |
 | [`install-alias`](#install-alias) | Install a global ixdar-cli wrapper into ~/.local/bin. |
@@ -551,6 +552,17 @@ Click through a grid until the scene leaves the menu.
 - `--y-step` — Y increment between scan attempts.
 - `--button` — Mouse button index to press.
 
+### `coverage-report`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/coverage_report.py#L35)
+
+Merge JaCoCo exec files and report the code they never executed.
+
+- `--exec-file` — Repeatable path to a ``.exec`` file; several are merged (default: jacoco.exec).
+- `--package-filter` — Dotted package prefix the summary is restricted to.
+- `--top` — How many partly-covered classes to detail with their never-entered methods.
+- `--out-dir` — Directory for the generated XML and browsable HTML report.
+
 ### `dsl-optimize`
 
 [↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/dsl_optimizer.py#L216)
@@ -678,14 +690,20 @@ Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB over
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L253)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L445)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 
 - `--scene` — Scene id passed to IxdarWindow (see @SceneAnnotation ids).
 - `--property` — Repeatable ``key=value`` JVM system property.
-- `--profile` — Capture an async-profiler CPU flame graph.
+- `--profile` — Capture an async-profiler flame graph.
 - `--profile-path` — Profile output path (default: profile.html at the repo root).
+- `--profile-event` — async-profiler event: ``cpu`` for time, ``alloc`` to attribute GC pressure
+- `--coverage` — Record JaCoCo line coverage and report which code the run never executed.
+- `--coverage-path` — Coverage exec output path (default: jacoco.exec at the repo root).
+- `--coverage-filter` — Dotted package prefix the coverage summary is restricted to.
+- `--key` — Repeatable ``NAME`` or ``NAME=REGEX`` keypress to send once the scene is ready; the
+- `--key-settle` — Seconds to pause after a key that carries no regex.
 - `--await-log` — Regex to wait for in the scene log, in addition to readiness.
 - `--timeout` — Seconds to wait for the scene to become ready.
 - `--screenshot` — Capture a screenshot to this path once ready.
@@ -694,7 +712,7 @@ Build, launch, wait for, optionally profile and screenshot, then shut down a sce
 - `--skip-build` — Do not compile first; run whatever classes are on disk.
 - `--keep-alive` — Leave the scene running instead of shutting it down.
 - `--headless` — Run without a visible window.
-- `--top` — How many hot methods to report from the profile.
+- `--top` — How many hot methods or partly-covered classes to report.
 
 ### `start-new-game`
 

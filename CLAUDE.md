@@ -190,6 +190,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli audio-log` — Return recent audio log events.
 - `ixdar-cli audio-state` — Extract the audio state from the UI snapshot.
 - `ixdar-cli click-scan` — Click through a grid until the scene leaves the menu.
+- `ixdar-cli coverage-report` — Merge JaCoCo exec files and report the code they never executed.
 - `ixdar-cli dsl-optimize` — Batch-optimize mesh DSL parameters against a reference OBJ.
 - `ixdar-cli gen-docs` — Regenerate the CLAUDE.md command list and the CLI README from the manifest and registry.
 - `ixdar-cli install-alias` — Install a global ixdar-cli wrapper into ~/.local/bin.

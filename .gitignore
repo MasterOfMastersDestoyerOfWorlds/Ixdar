@@ -37,3 +37,4 @@ quad_layout_text/*
 profile.html
 .claude/worktrees/*
 profile-alloc.html
+jacoco.exec

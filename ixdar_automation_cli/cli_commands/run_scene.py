@@ -9,6 +9,8 @@ Usage:
     uv run ixdar-cli run-scene --scene embedded-tmesh
     uv run ixdar-cli run-scene --scene embedded-tmesh --profile --timeout 400 \
         --property embeddedTMesh.off=path/to/mesh.off --property embeddedTMesh.contractFail=true
+    uv run ixdar-cli run-scene --scene embedded-tmesh --coverage \
+        --key "C=contracted to fixed point" --key "M=flip-surface uploaded|cannot show flips"
 """
 
 import os
@@ -21,15 +23,32 @@ import time
 from ..async_profile import format_hot_methods
 from ..automation_client import DEFAULT_BASE_URL, AutomationClient
 from ..cli_registry import CliCommandResult, cli_command
+from ..jacoco_coverage import DEFAULT_PACKAGE_FILTER, agent_argument, build_report, format_coverage
 
 REPO_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
 IXDAR_APP_DIR = os.path.join(REPO_DIR, "ixdar-app")
 POM_PATH = os.path.join(IXDAR_APP_DIR, "pom.xml")
 CLASSPATH_FILE = os.path.join(REPO_DIR, "CP")
 CLASSES_DIR = os.path.join(IXDAR_APP_DIR, "target", "classes")
+SOURCES_DIR = os.path.join(IXDAR_APP_DIR, "src", "main", "java")
 DEFAULT_PROFILE_PATH = os.path.join(REPO_DIR, "profile.html")
+DEFAULT_COVERAGE_PATH = os.path.join(REPO_DIR, "jacoco.exec")
+COVERAGE_XML_PATH = os.path.join(REPO_DIR, "target", "jacoco", "coverage.xml")
+COVERAGE_HTML_DIR = os.path.join(REPO_DIR, "target", "jacoco", "html")
 ASYNC_PROFILER_LIB = "/usr/lib/libasyncProfiler.so"
 AUTOMATION_PORT = 47832
+
+NAMED_KEYS = {
+    "SPACE": 32, "PERIOD": 46, "COMMA": 44, "MINUS": 45, "EQUAL": 61,
+    "ESCAPE": 256, "ENTER": 257, "TAB": 258, "BACKSPACE": 259,
+    "UP": 265, "DOWN": 264, "LEFT": 263, "RIGHT": 262,
+}
+
+ACTION_PRESS = 1
+
+ACTION_RELEASE = 0
+
+DEFAULT_KEY_SETTLE_SECONDS = 3.0
 
 
 def _run_maven(args: list[str], description: str) -> None:
@@ -75,6 +94,7 @@ def _java_command(
     properties: list[str],
     profile_path: str,
     profile_event: str,
+    coverage_path: str,
     headless: bool,
 ) -> list[str]:
     """Assemble the JVM command line for a scene.
@@ -86,6 +106,7 @@ def _java_command(
     :param properties: ``key=value`` system properties.
     :param profile_path: async-profiler output path, or empty to run unprofiled.
     :param profile_event: async-profiler event, e.g. ``cpu`` or ``alloc``.
+    :param coverage_path: JaCoCo ``.exec`` output path, or empty to run without coverage.
     :param headless: Run without a visible window.
     :return: The full argv.
     """
@@ -99,6 +120,8 @@ def _java_command(
         command.append(
             f"-agentpath:{ASYNC_PROFILER_LIB}=start,event={profile_event},file={profile_path}"
         )
+    if coverage_path:
+        command.append(agent_argument(coverage_path))
     command.extend([
         f"-XX:ErrorFile={os.path.join(IXDAR_APP_DIR, 'target', 'hs_err_pid%p.log')}",
         "-cp",
@@ -187,6 +210,103 @@ def _await_scene(client: AutomationClient, process: subprocess.Popen, log_path: 
             "waited": round(time.monotonic() - started, 1)}
 
 
+def _key_code(name: str) -> int:
+    """Resolve a key name to its GLFW code, matching ``ixdar.platform.input.Keys``.
+
+    Letters and digits are their ASCII uppercase codes, which is how GLFW numbers them, so only the
+    non-printing keys need a table.
+
+    :param name: A key name (``C``, ``SPACE``), a single character, or a raw integer code.
+    :return: The GLFW key code.
+    :raises ValueError: When the name is not a known key.
+    """
+    token = name.strip().upper()
+    if token.isdigit():
+        return int(token)
+    if token in NAMED_KEYS:
+        return NAMED_KEYS[token]
+    if len(token) == 1 and token.isalnum():
+        return ord(token)
+    raise ValueError(f"unknown key {name!r}; use a letter, a digit, a code, or one of "
+                     + ", ".join(sorted(NAMED_KEYS)))
+
+
+def _await_log_beyond(log_path: str, pattern: re.Pattern, offset: int,
+                      process: subprocess.Popen, timeout: float) -> tuple[str, int]:
+    """Wait for a regex to appear in the scene log past a byte offset.
+
+    Matching only past the offset is what makes a repeated key honest: pressing C twice would
+    otherwise re-match the first press's log line and return instantly.
+
+    :param log_path: Path the JVM's output is being written to.
+    :param pattern: Regex to look for.
+    :param offset: Byte offset to start reading from.
+    :param process: The launched JVM, so a dead scene ends the wait.
+    :param timeout: Seconds to wait.
+    :return: ``(matched line or "", new offset)``.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if os.path.exists(log_path):
+            with open(log_path, "rb") as handle:
+                handle.seek(offset)
+                chunk = handle.read()
+            consumed = 0
+            for raw_line in chunk.split(b"\n")[:-1]:
+                consumed += len(raw_line) + 1
+                line = raw_line.decode("utf-8", "replace")
+                if pattern.search(line):
+                    return line.rstrip(), offset + consumed
+            offset += consumed
+        if process.poll() is not None:
+            return "", offset
+        time.sleep(0.5)
+    return "", offset
+
+
+def _drive_keys(client: AutomationClient, process: subprocess.Popen, log_path: str,
+                key_specs: list[str], settle: float, timeout: float) -> list[dict]:
+    """Send keypresses to the ready scene, waiting for each one's work to land.
+
+    A scene applies keypress-requested edits on its render thread, so the press returns long before
+    the work finishes — a contraction on a real mesh runs for a minute. Each spec may therefore carry
+    a regex the scene logs when that key's work is done; without one the command can only wait a
+    fixed settle time, which on a big mesh will under-wait.
+
+    :param client: Automation client used to synthesize the key events.
+    :param process: The launched JVM.
+    :param log_path: Path the JVM's output is being written to.
+    :param key_specs: ``NAME`` or ``NAME=REGEX`` entries, applied in order.
+    :param settle: Seconds to pause after a key that carries no regex.
+    :param timeout: Seconds to wait for a key's regex before moving on.
+    :return: One result dict per key, with what was matched or why it was not.
+    """
+    results: list[dict] = []
+    offset = os.path.getsize(log_path) if os.path.exists(log_path) else 0
+    for spec in key_specs:
+        name, separator, expression = spec.partition("=")
+        code = _key_code(name)
+        print(f"  key {name.strip().upper()}"
+              + (f" → awaiting /{expression}/" if separator else ""), file=sys.stderr)
+        client.key(code, action=ACTION_PRESS)
+        client.key(code, action=ACTION_RELEASE)
+        entry: dict = {"key": name.strip().upper()}
+        if separator and expression:
+            matched, offset = _await_log_beyond(
+                log_path, re.compile(expression), offset, process, timeout)
+            entry["matched"] = matched
+            if not matched:
+                entry["error"] = "regex never appeared; the key's work may be unfinished"
+        else:
+            time.sleep(settle)
+            offset = os.path.getsize(log_path) if os.path.exists(log_path) else offset
+        results.append(entry)
+        if process.poll() is not None:
+            entry["error"] = "the scene exited while driving keys"
+            break
+    return results
+
+
 def _terminate(process: subprocess.Popen, client: AutomationClient) -> None:
     """Shut the scene down cleanly, then by PID — never by name.
 
@@ -221,6 +341,11 @@ def run(
     profile: bool = False,
     profile_path: str = "",
     profile_event: str = "cpu",
+    coverage: bool = False,
+    coverage_path: str = "",
+    coverage_filter: str = DEFAULT_PACKAGE_FILTER,
+    key: list[str] | None = None,
+    key_settle: float = DEFAULT_KEY_SETTLE_SECONDS,
     await_log: str = "",
     timeout: float = 120.0,
     screenshot: str = "",
@@ -237,13 +362,19 @@ def run(
     :return: Result dict with the log path, readiness, matched lines and profile summary.
     """
     properties = list(property or [])
+    key_specs = list(key or [])
+    for spec in key_specs:
+        _key_code(spec.partition("=")[0])
     resolved_profile = (profile_path or DEFAULT_PROFILE_PATH) if (profile or profile_path) else ""
+    resolved_coverage = ((coverage_path or DEFAULT_COVERAGE_PATH)
+                         if (coverage or coverage_path) else "")
     log_path = log or os.path.join("/tmp", f"ixdar-scene-{scene}.log")
 
     _ensure_build(skip_build)
 
     client = AutomationClient(base_url=base_url)
-    command = _java_command(scene, properties, resolved_profile, profile_event, headless)
+    command = _java_command(scene, properties, resolved_profile, profile_event,
+                            resolved_coverage, headless)
     print(f"Launching: {' '.join(command[:4])} … {scene}", file=sys.stderr)
     print(f"  log: {log_path}", file=sys.stderr)
 
@@ -278,6 +409,9 @@ def run(
                 result["error"] = "scene did not become ready within timeout"
 
         if status["ready"]:
+            if key_specs:
+                result["keys"] = _drive_keys(
+                    client, process, log_path, key_specs, key_settle, timeout)
             if screenshot:
                 result["screenshot"] = client.screenshot(out_path=os.path.abspath(screenshot))
             if multiview:
@@ -294,6 +428,19 @@ def run(
             result["hotMethods"] = format_hot_methods(resolved_profile, top=top)
         else:
             result["profileError"] = "async-profiler wrote no file (was the JVM shut down cleanly?)"
+
+    if resolved_coverage and not keep_alive:
+        result["coverage"] = resolved_coverage
+        if os.path.exists(resolved_coverage):
+            os.makedirs(os.path.dirname(COVERAGE_XML_PATH), exist_ok=True)
+            build_report([resolved_coverage], CLASSES_DIR, SOURCES_DIR,
+                         COVERAGE_XML_PATH, COVERAGE_HTML_DIR)
+            result["coverageHtml"] = os.path.join(COVERAGE_HTML_DIR, "index.html")
+            result["coverageReport"] = format_coverage(
+                COVERAGE_XML_PATH, package_filter=coverage_filter, top=top,
+                html_dir=COVERAGE_HTML_DIR).splitlines()
+        else:
+            result["coverageError"] = "JaCoCo wrote no exec file (was the JVM shut down cleanly?)"
     return result
 
 
@@ -305,6 +452,11 @@ def run_scene(
     profile: bool = False,
     profile_path: str = "",
     profile_event: str = "cpu",
+    coverage: bool = False,
+    coverage_path: str = "",
+    coverage_filter: str = DEFAULT_PACKAGE_FILTER,
+    key: list[str] | None = None,
+    key_settle: float = DEFAULT_KEY_SETTLE_SECONDS,
     await_log: str = "",
     timeout: float = 120.0,
     screenshot: str = "",
@@ -323,6 +475,13 @@ def run_scene(
     :param profile_path: Profile output path (default: profile.html at the repo root).
     :param profile_event: async-profiler event: ``cpu`` for time, ``alloc`` to attribute GC pressure
         to allocation sites.
+    :param coverage: Record JaCoCo line coverage and report which code the run never executed.
+    :param coverage_path: Coverage exec output path (default: jacoco.exec at the repo root).
+    :param coverage_filter: Dotted package prefix the coverage summary is restricted to.
+    :param key: Repeatable ``NAME`` or ``NAME=REGEX`` keypress to send once the scene is ready; the
+        regex is awaited in the scene log before the next key, since a key's work runs on the render
+        thread long after the press returns.
+    :param key_settle: Seconds to pause after a key that carries no regex.
     :param await_log: Regex to wait for in the scene log, in addition to readiness.
     :param timeout: Seconds to wait for the scene to become ready.
     :param screenshot: Capture a screenshot to this path once ready.
@@ -331,7 +490,7 @@ def run_scene(
     :param skip_build: Do not compile first; run whatever classes are on disk.
     :param keep_alive: Leave the scene running instead of shutting it down.
     :param headless: Run without a visible window.
-    :param top: How many hot methods to report from the profile.
+    :param top: How many hot methods or partly-covered classes to report.
     """
     payload = run(
         scene=scene,
@@ -339,6 +498,11 @@ def run_scene(
         profile=profile,
         profile_path=profile_path,
         profile_event=profile_event,
+        coverage=coverage,
+        coverage_path=coverage_path,
+        coverage_filter=coverage_filter,
+        key=key,
+        key_settle=key_settle,
         await_log=await_log,
         timeout=timeout,
         screenshot=screenshot,
