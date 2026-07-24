@@ -615,7 +615,7 @@ public class NDirectionField extends CrossField {
         int N = 2 * vertexCount;
 
         boolean[] fixed = new boolean[N];
-        DirectSolver.CholeskyHandle handle = DirectSolver.factorize(energyMatrix, fixed, OrderingMethod.RCM);
+        DirectSolver.CholeskyHandle handle = DirectSolver.factorize(energyMatrix, fixed, OrderingMethod.AMD);
         if (handle.factor() == null) {
             uReal = new double[vertexCount];
             uImaginary = new double[vertexCount];

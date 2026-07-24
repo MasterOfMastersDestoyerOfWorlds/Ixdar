@@ -14,17 +14,17 @@ public enum OrderingMethod {
     NATURAL,
 
     /**
-     * Reverse Cuthill-McKee. Minimises matrix bandwidth; appropriate for band
-     * solvers and for the cross-field stage.
+     * Reverse Cuthill-McKee. Minimises matrix bandwidth; kept as an option for
+     * band solvers, but no longer the default — prefer {@link #AMD}.
      */
     RCM,
 
     /**
-     * Approximate Minimum Degree (Amestoy, Davis, Duff). Greedy elimination
-     * of the lowest-degree variable at each step, with approximate degree
-     * updates via quotient-graph element absorption. The standard choice
-     * for sparse Cholesky on mesh Laplacians — typically reduces nnz(L) by
-     * 2-3× over RCM on the matrices we factor in the seamless stage.
+     * Approximate Minimum Degree (Amestoy, Davis, Duff), via the SuiteSparse
+     * {@link AMDOrdering} port. Greedy elimination of the lowest-degree variable
+     * at each step, with approximate degree updates via quotient-graph element
+     * absorption. <strong>The default</strong> fill-reducing ordering for sparse
+     * Cholesky on our mesh Laplacians — typically reduces nnz(L) by 2-3× over RCM.
      */
     AMD
 }

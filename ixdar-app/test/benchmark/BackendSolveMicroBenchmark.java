@@ -57,7 +57,7 @@ public final class BackendSolveMicroBenchmark {
         for (int i = 0; i < n; i++) {
             identity[i] = i;
         }
-        int[] perm = SolverPermutation.computePermutation(matrix, fixed, identity, n, OrderingMethod.RCM);
+        int[] perm = SolverPermutation.computePermutation(matrix, fixed, identity, n, OrderingMethod.AMD);
         int[] invPerm = new int[n];
         for (int i = 0; i < n; i++) {
             invPerm[perm[i]] = i;

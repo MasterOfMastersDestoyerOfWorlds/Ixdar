@@ -923,7 +923,12 @@ public final class EmbeddedTMesh {
             if (passThrough == movedVertex && channel.size() > 1) {
                 openPivotSpoke(movedVertex, unclaimedComponent(channel.get(1)));
             }
-            for (int keep = 0; keep <= vertices.size() - 2; keep++) {
+            // keep >= 1 preserves the arc's first edge at the fixed far node, so a shortest reroute
+            // cannot leave the node in a wrong angular sector and swap the cyclic arc order — a tear
+            // with no arc crossing that LCBK19's no-cross/no-touch does not prevent. keep == 0
+            // (rerouting from the node itself) is the last resort. See LCBK19 Section 6.1.
+            for (int keepRank = 0; keepRank <= vertices.size() - 2; keepRank++) {
+                int keep = keepRank < vertices.size() - 2 ? keepRank + 1 : 0;
                 List<Integer> prefix = new ArrayList<>(vertices.subList(0, keep + 1));
                 List<Integer> prefixEdges = new ArrayList<>(keep);
                 if (!rerouter.tryLegEdges(prefix, prefixEdges)) {

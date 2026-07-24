@@ -191,9 +191,15 @@ public final class PatchRectangleMap {
             accumulateEdge(triangle[1], triangle[2], diagonal, upper, seenEdges);
             accumulateEdge(triangle[2], triangle[0], diagonal, upper, seenEdges);
         }
-        NormalMatrix matrix = new NormalMatrix(diagonal, upper, new double[n]);
-        double[] solvedU = DirectSolver.solve(matrix, rectangleU, onBoundary, OrderingMethod.RCM);
-        double[] solvedV = DirectSolver.solve(matrix, rectangleV, onBoundary, OrderingMethod.RCM);
+        double[] rightHandSide = new double[n];
+        NormalMatrix matrix = new NormalMatrix(diagonal, upper, rightHandSide);
+        DirectSolver.CholeskyHandle handle =
+                DirectSolver.factorize(matrix, onBoundary, OrderingMethod.AMD);
+        double[] solvedU = rectangleU.clone();
+        DirectSolver.solveCompact(handle, matrix, rightHandSide, solvedU, rectangleU, onBoundary);
+        double[] solvedV = rectangleV.clone();
+        DirectSolver.solveCompact(handle, matrix, rightHandSide, solvedV, rectangleV, onBoundary);
+        DirectSolver.releaseHandle(handle);
         System.arraycopy(solvedU, 0, rectangleU, 0, n);
         System.arraycopy(solvedV, 0, rectangleV, 0, n);
     }

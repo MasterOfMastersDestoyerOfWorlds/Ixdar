@@ -2,7 +2,8 @@ package ixdar.geometry.mesh.quadlayout.solver;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Fill-reducing permutations for the SPD systems factored by
@@ -12,8 +13,8 @@ import java.util.HashSet;
  */
 public final class SolverPermutation {
 
-    /** Initial-capacity multiplier for the AMD per-variable neighbour sets. */
-    private static final int AMD_NEIGHBOUR_SET_GROWTH = 2;
+    /** Placeholder off-diagonal value; the ordering reads only the pattern, not the values. */
+    private static final double PATTERN_ENTRY = 1.0;
 
     private SolverPermutation() {
     }
@@ -22,7 +23,7 @@ public final class SolverPermutation {
      * Build the adjacency list of the compact (free-only) submatrix. Each
      * entry holds the off-diagonal neighbours of a free variable in compact
      * index space — exactly what {@link #reverseCuthillMcKee(int[][])} and
-     * {@link #approximateMinimumDegree(int[][])} consume.
+     * {@link #amdOrdering(int[][])} consume.
      *
      * <p>For the all-free case (no constraints), pass an all-{@code false}
      * {@code fixed} mask, identity {@code compactOf}, and {@code freeCount
@@ -103,9 +104,34 @@ public final class SolverPermutation {
         int[][] adj = buildAdjacency(matrix, fixed, compactOf, freeCount);
         return switch (ordering) {
             case RCM -> reverseCuthillMcKee(adj);
-            case AMD -> approximateMinimumDegree(adj);
+            case AMD -> amdOrdering(adj);
             default -> throw new IllegalStateException("unreachable: " + ordering);
         };
+    }
+
+    /**
+     * Approximate-minimum-degree fill-reducing ordering of the compact free-variable subgraph, via
+     * the SuiteSparse {@link AMDOrdering} port the seamless stage uses. The adjacency is packed into
+     * a pattern-only {@link NormalMatrix} — the ordering reads only the non-zero pattern — and
+     * handed to {@link AMDOrdering#order}.
+     *
+     * @param adj per-vertex neighbour lists for the compact problem, entries in the same index space
+     * @return {@code perm[newIndex] = oldIndex}, length {@code adj.length}
+     */
+    public static int[] amdOrdering(int[][] adj) {
+        int n = adj.length;
+        Map<Long, Double> upper = new HashMap<>();
+        for (int vertex = 0; vertex < n; vertex++) {
+            for (int neighbour : adj[vertex]) {
+                if (neighbour > vertex) {
+                    upper.put(((long) vertex << NormalMatrix.KEY_ROW_SHIFT) | neighbour, PATTERN_ENTRY);
+                }
+            }
+        }
+        NormalMatrix pattern = new NormalMatrix(new double[n], upper, new double[n]);
+        AMDOrdering ordering = new AMDOrdering();
+        ordering.order(pattern);
+        return ordering.permutation;
     }
 
     /**
@@ -161,166 +187,4 @@ public final class SolverPermutation {
         return reversed;
     }
 
-    /**
-     * Approximate minimum-degree ordering via quotient-graph element
-     * absorption: at each step the variable of minimum approximate degree is
-     * eliminated, and its surviving neighbours become a clique represented
-     * implicitly by a new element that absorbs the eliminated variable's old
-     * elements.
-     *
-     * <p>See also: Davis, Direct Methods for Sparse Linear Systems, Chapter 7
-     *
-     * @param adj per-vertex neighbour lists, length {@code n}; entries are
-     *            old (input) indices
-     * @return {@code perm[newIndex] = oldIndex}, length {@code adj.length}
-     */
-    @SuppressWarnings("unchecked")
-    public static int[] approximateMinimumDegree(int[][] adj) {
-        int n = adj.length;
-        HashSet<Integer>[] variableNeighbours = new HashSet[n];
-        HashSet<Integer>[] elementMembership = new HashSet[n];
-        for (int i = 0; i < n; i++) {
-            variableNeighbours[i] = new HashSet<>(adj[i].length * AMD_NEIGHBOUR_SET_GROWTH);
-            for (int j : adj[i]) {
-                variableNeighbours[i].add(j);
-            }
-            elementMembership[i] = new HashSet<>();
-        }
-
-        HashSet<Integer>[] elementVariables = new HashSet[n];
-        boolean[] elementAlive = new boolean[n];
-        boolean[] eliminated = new boolean[n];
-        int[] approximateDegree = new int[n];
-        for (int i = 0; i < n; i++) {
-            approximateDegree[i] = variableNeighbours[i].size();
-        }
-
-        int[] perm = new int[n];
-        for (int step = 0; step < n; step++) {
-            int pivot = findMinimumDegree(eliminated, approximateDegree, n);
-            perm[step] = pivot;
-            eliminated[pivot] = true;
-
-            HashSet<Integer> cliqueMembers = collectCliqueMembers(
-                    pivot, variableNeighbours, elementMembership,
-                    elementVariables, elementAlive, eliminated);
-
-            int newElement = pivot;
-            elementVariables[newElement] = cliqueMembers;
-            elementAlive[newElement] = true;
-
-            for (int member : cliqueMembers) {
-                variableNeighbours[member].remove(pivot);
-                elementMembership[member].add(newElement);
-            }
-
-            recomputeApproximateDegrees(cliqueMembers,
-                    variableNeighbours, elementMembership,
-                    elementVariables, elementAlive, approximateDegree);
-
-            variableNeighbours[pivot] = null;
-            elementMembership[pivot] = null;
-        }
-        return perm;
-    }
-
-    /**
-     * Scan for the unvisited variable of minimum current approximate
-     * degree. Ties are broken by ascending index (first found wins).
-     *
-     * @param eliminated         mask of already-eliminated variables
-     * @param approximateDegree  current approximate degrees
-     * @param n                  total variable count
-     * @return index of the next variable to eliminate
-     */
-    private static int findMinimumDegree(boolean[] eliminated,
-            int[] approximateDegree,
-            int n) {
-        int best = -1;
-        int bestDegree = Integer.MAX_VALUE;
-        for (int i = 0; i < n; i++) {
-            if (eliminated[i]) {
-                continue;
-            }
-            int degree = approximateDegree[i];
-            if (degree < bestDegree) {
-                bestDegree = degree;
-                best = i;
-            }
-        }
-        return best;
-    }
-
-    /**
-     * Form the clique created when {@code pivot} is eliminated: every alive
-     * variable reachable through its neighbours or elements. Subsumed elements are
-     * killed and unlinked from their members in place, so degree recomputation
-     * never sees a dead id.
-     *
-     * @param pivot              the variable being eliminated
-     * @param variableNeighbours per-variable variable-neighbour sets
-     * @param elementMembership  per-variable element memberships
-     * @param elementVariables   per-element variable lists
-     * @param elementAlive       per-element liveness flag
-     * @param eliminated         per-variable eliminated flag
-     * @return the new clique's variable set (excluding the pivot)
-     */
-    private static HashSet<Integer> collectCliqueMembers(int pivot,
-            HashSet<Integer>[] variableNeighbours,
-            HashSet<Integer>[] elementMembership,
-            HashSet<Integer>[] elementVariables,
-            boolean[] elementAlive,
-            boolean[] eliminated) {
-        HashSet<Integer> clique = new HashSet<>(variableNeighbours[pivot].size() * AMD_NEIGHBOUR_SET_GROWTH);
-        for (int neighbour : variableNeighbours[pivot]) {
-            if (!eliminated[neighbour]) {
-                clique.add(neighbour);
-            }
-        }
-        for (int element : elementMembership[pivot]) {
-            if (!elementAlive[element]) {
-                continue;
-            }
-            for (int v : elementVariables[element]) {
-                if (v != pivot && !eliminated[v]) {
-                    clique.add(v);
-                    elementMembership[v].remove(element);
-                }
-            }
-            elementAlive[element] = false;
-            elementVariables[element] = null;
-        }
-        return clique;
-    }
-
-    /**
-     * Recompute the approximate degree of every variable in the new clique.
-     * Approximate degree of variable {@code v} is bounded by the sum of
-     * the sizes of its variable-neighbour set and its alive-element
-     * memberships, with the variable itself excluded — this is the
-     * classic "external degree" upper bound used by AMD.
-     *
-     * @param cliqueMembers      members of the just-formed clique
-     * @param variableNeighbours per-variable variable-neighbour sets
-     * @param elementMembership  per-variable element memberships
-     * @param elementVariables   per-element variable lists
-     * @param elementAlive       per-element liveness flag
-     * @param approximateDegree  output: updated approximate degrees
-     */
-    private static void recomputeApproximateDegrees(HashSet<Integer> cliqueMembers,
-            HashSet<Integer>[] variableNeighbours,
-            HashSet<Integer>[] elementMembership,
-            HashSet<Integer>[] elementVariables,
-            boolean[] elementAlive,
-            int[] approximateDegree) {
-        for (int v : cliqueMembers) {
-            int degree = variableNeighbours[v].size();
-            for (int element : elementMembership[v]) {
-                if (elementAlive[element]) {
-                    degree += elementVariables[element].size() - 1;
-                }
-            }
-            approximateDegree[v] = degree;
-        }
-    }
 }

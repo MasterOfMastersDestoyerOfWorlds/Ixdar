@@ -1,6 +1,10 @@
 package ixdar.scenes;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -130,6 +134,15 @@ public class EmbeddedTMeshScene extends Scene {
     /** Fold-check per-node prefix in the torn-layout diagnostics. */
     private static final String NODE_TAG = " n";
 
+    /** How many patches to map between fold-check progress log lines. */
+    private static final int PATCH_PROGRESS_INTERVAL = 64;
+
+    /** Bit shift packing a dense edge's low vertex into an undirected-edge key. */
+    private static final int FOLD_EDGE_KEY_SHIFT = 32;
+
+    /** Low-word mask recovering a dense edge's high vertex from its key. */
+    private static final long FOLD_EDGE_KEY_MASK = 0xFFFFFFFFL;
+
     private OrbitMouseTrap orbitMouse;
     private QuadLayoutRuntime runtime;
     private String offPath;
@@ -155,6 +168,9 @@ public class EmbeddedTMeshScene extends Scene {
 
     /** Whether a contract-to-failure run was requested by keypress. */
     private volatile boolean pendingContractToFailure;
+
+    /** Whether the folded-patch magenta view was toggled by keypress. */
+    private volatile boolean pendingFoldFlip;
 
     /**
      * Default constructor wired by the scene annotation processor.
@@ -317,7 +333,9 @@ public class EmbeddedTMeshScene extends Scene {
         if (failure == null) {
             Platforms.get().log("[embedded-tmesh] contracted to a fixed point with no failure: "
                     + contractionSummary(contraction));
-            reportFixedPointValidity();
+            if (Boolean.parseBoolean(System.getProperty(FOLD_CHECK_PROPERTY, FALSE))) {
+                showFoldFlips();
+            }
         } else {
             Platforms.get().log("[embedded-tmesh] stopped at reroute failure after "
                     + contractionSummary(contraction) + " | fenceVertices="
@@ -327,14 +345,11 @@ public class EmbeddedTMeshScene extends Scene {
     }
 
     /**
-     * Judges the contracted layout at its fixed point, gated by {@link #FOLD_CHECK_PROPERTY}:
-     * refines to 3-connectivity, builds patch regions, and maps every patch to its rectangle,
-     * logging whether the regions partition the surface and how many patches fold.
+     * Judges the contracted layout and shows it: refines to 3-connectivity, builds patch regions,
+     * maps every patch, logs the fold count, and paints each folded patch magenta on the
+     * iso-surface. Only meaningful once no zero-patches remain.
      */
-    private void reportFixedPointValidity() {
-        if (!Boolean.parseBoolean(System.getProperty(FOLD_CHECK_PROPERTY, FALSE))) {
-            return;
-        }
+    private void showFoldFlips() {
         int sameSidePatchArcs = 0;
         for (EmbeddedArc arc : tmesh.arcs) {
             if (arc.alive && arc.leftPatchId == arc.rightPatchId) {
@@ -348,7 +363,10 @@ public class EmbeddedTMeshScene extends Scene {
             Platforms.get().log("[foldcheck] pre-refine: TORN: " + tornBeforeRefine.getMessage()
                     + reportArcIntegrity() + reportNodeFans() + reportNodeRotation());
         }
+        Platforms.get().log("[foldcheck] refining to 3-connectivity (a large mesh takes a minute)...");
         int chords = new ThreeConnectivityRefinement(tmesh).refine();
+        Platforms.get().log("[foldcheck] refined chords=" + chords + " faces="
+                + tmesh.topology.copy.faceCount() + "; mapping patches...");
         PatchRegions regions;
         try {
             regions = new PatchRegions(tmesh).build();
@@ -370,6 +388,15 @@ public class EmbeddedTMeshScene extends Scene {
             return;
         }
         PatchRegionMapper mapper = new PatchRegionMapper(tmesh, regions);
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        int faceCount = copy.faceCount();
+        Map<Integer, Integer> activeByFaceId = new HashMap<>();
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            activeByFaceId.put(copy.faceIdAt(activeFace), activeFace);
+        }
+        double[] cornerU = new double[faceCount * PatchRegionMapper.TRIANGLE_CORNERS];
+        double[] cornerV = new double[faceCount * PatchRegionMapper.TRIANGLE_CORNERS];
+        boolean[] faceFlipped = new boolean[faceCount];
         int mapped = 0;
         int folded = 0;
         int flippedTotal = 0;
@@ -379,18 +406,179 @@ public class EmbeddedTMeshScene extends Scene {
                 continue;
             }
             mapped++;
+            if (mapped % PATCH_PROGRESS_INTERVAL == 0) {
+                Platforms.get().log("[foldcheck] mapped " + mapped + " patches...");
+            }
             PatchRectangleMap map = mapper.mapPatch(patch.patchId);
             int flipped = map.flippedTriangleCount();
             if (flipped > 0) {
                 folded++;
                 flippedTotal += flipped;
                 foldedIds.append(' ').append(patch.patchId).append('(').append(flipped).append(')');
+                Platforms.get().log("[foldcheck] fold P" + patch.patchId + " flips=" + flipped
+                        + diagnosePatchFold(map));
             }
+            assemblePatchFlipSurface(map, flipped > 0, regions.copyFacesByPatch.get(patch.patchId),
+                    activeByFaceId, cornerU, cornerV, faceFlipped);
         }
+        runtime.uploadPatchParametrization(copy, cornerU, cornerV, faceFlipped);
+        runtime.showTraces = false;
+        runtime.showIsoLines = true;
+        Platforms.get().log("[foldcheck] flip-surface uploaded isoIdx=" + runtime.isoSurfaceIndexCount
+                + " showIsoLines=" + runtime.showIsoLines);
         Platforms.get().log("[foldcheck] regions OK: " + mapped + " patches, chords=" + chords
                 + SAME_SIDE_TAG + sameSidePatchArcs + " folded=" + folded
                 + (folded == 0 ? " (all fold-free)" : " flippedTriangles=" + flippedTotal
                         + " patches[" + foldedIds.toString().trim() + "]"));
+    }
+
+    /**
+     * Fills one patch's contribution to the flip-render arrays: each face gets its three corner
+     * rectangle coordinates, and when the patch folds its whole region is flagged so it shows as one
+     * magenta area, since single folded triangles are too small to see.
+     *
+     * @param map            the patch's solved rectangle map
+     * @param patchHasFold   whether the patch has any folded triangle
+     * @param regionFaces    the patch's copy face ids, parallel to {@code map.triangles}
+     * @param activeByFaceId copy face id to active face index
+     * @param cornerU        per-corner rectangle x to fill, indexed by active face
+     * @param cornerV        per-corner rectangle y to fill, parallel to {@code cornerU}
+     * @param faceFlipped    per-face fold flag to fill, indexed by active face
+     */
+    private void assemblePatchFlipSurface(PatchRectangleMap map, boolean patchHasFold,
+            List<Integer> regionFaces, Map<Integer, Integer> activeByFaceId, double[] cornerU,
+            double[] cornerV, boolean[] faceFlipped) {
+        for (int faceIndex = 0; faceIndex < regionFaces.size(); faceIndex++) {
+            Integer activeFace = activeByFaceId.get(regionFaces.get(faceIndex));
+            if (activeFace == null) {
+                continue;
+            }
+            int[] triangle = map.triangles[faceIndex];
+            faceFlipped[activeFace] = patchHasFold;
+            int base = activeFace * PatchRegionMapper.TRIANGLE_CORNERS;
+            for (int corner = 0; corner < PatchRegionMapper.TRIANGLE_CORNERS; corner++) {
+                cornerU[base + corner] = map.rectangleU[triangle[corner]];
+                cornerV[base + corner] = map.rectangleV[triangle[corner]];
+            }
+        }
+    }
+
+    /**
+     * Tests Tutte's fold-free preconditions on a folded patch's region: a repeated boundary-loop
+     * vertex is a non-simple boundary pinned to two rectangle spots, a vertex with more than two
+     * boundary edges is a non-manifold pinch, and an Euler characteristic other than one means the
+     * region is not a disk.
+     *
+     * @param map the folded patch's solved rectangle map
+     * @return a compact report of which preconditions the region violates
+     */
+    private static String diagnosePatchFold(PatchRectangleMap map) {
+        int vertexCount = map.positions.length;
+        int[] boundaryLoopCount = new int[vertexCount];
+        for (int dense : map.boundaryLoop) {
+            boundaryLoopCount[dense]++;
+        }
+        int repeatedBoundary = 0;
+        for (int count : boundaryLoopCount) {
+            if (count > 1) {
+                repeatedBoundary++;
+            }
+        }
+        Map<Long, Integer> edgeUse = new HashMap<>();
+        for (int[] triangle : map.triangles) {
+            countEdge(edgeUse, triangle[0], triangle[1]);
+            countEdge(edgeUse, triangle[1], triangle[2]);
+            countEdge(edgeUse, triangle[2], triangle[0]);
+        }
+        int[] boundaryEdgesAt = new int[vertexCount];
+        int nonManifoldEdges = 0;
+        for (Map.Entry<Long, Integer> entry : edgeUse.entrySet()) {
+            if (entry.getValue() == 1) {
+                long key = entry.getKey();
+                boundaryEdgesAt[(int) (key >>> FOLD_EDGE_KEY_SHIFT)]++;
+                boundaryEdgesAt[(int) (key & FOLD_EDGE_KEY_MASK)]++;
+            } else if (entry.getValue() > 2) {
+                nonManifoldEdges++;
+            }
+        }
+        int pinchVertices = 0;
+        for (int count : boundaryEdgesAt) {
+            if (count > 2) {
+                pinchVertices++;
+            }
+        }
+        int euler = vertexCount - edgeUse.size() + map.triangles.length;
+        return " repeatedBoundaryVerts=" + repeatedBoundary + " pinchVerts=" + pinchVertices
+                + " nonManifoldEdges=" + nonManifoldEdges + " euler=" + euler + " (disk=1)"
+                + " V=" + vertexCount + " E=" + edgeUse.size() + " F=" + map.triangles.length
+                + diagnoseFoldAreas(map);
+    }
+
+    /**
+     * Splits a folded patch's flipped triangles into degenerate slivers (rectangle area exactly
+     * zero) and true inversions (opposite winding), and sizes the worst inversion against the median
+     * triangle area — so a tiny ratio means numerical slivers, a ratio near one a real overlap.
+     *
+     * @param map the folded patch's solved rectangle map
+     * @return a compact report of the flip area distribution
+     */
+    private static String diagnoseFoldAreas(PatchRectangleMap map) {
+        double referenceArea = 0.0;
+        for (int[] triangle : map.triangles) {
+            double area = triangleRectangleArea(map, triangle);
+            if (Math.abs(area) > Math.abs(referenceArea)) {
+                referenceArea = area;
+            }
+        }
+        boolean referencePositive = referenceArea > 0.0;
+        double[] absAreas = new double[map.triangles.length];
+        int zeroSlivers = 0;
+        double worstInversion = 0.0;
+        for (int index = 0; index < map.triangles.length; index++) {
+            double area = triangleRectangleArea(map, map.triangles[index]);
+            absAreas[index] = Math.abs(area);
+            if (area == 0.0) {
+                zeroSlivers++;
+            } else if ((area > 0.0) != referencePositive) {
+                worstInversion = Math.max(worstInversion, Math.abs(area));
+            }
+        }
+        Arrays.sort(absAreas);
+        double medianArea = absAreas[absAreas.length / 2];
+        double inversionRatio = medianArea > 0.0 ? worstInversion / medianArea : 0.0;
+        return " zeroSlivers=" + zeroSlivers
+                + String.format(" worstInversion/median=%.2e medianArea=%.2e", inversionRatio,
+                        medianArea);
+    }
+
+    /**
+     * Twice the signed area of a map triangle in its rectangle; the sign gives the winding.
+     *
+     * @param map      the patch's rectangle map
+     * @param triangle three dense vertex indices in winding order
+     * @return the signed area measure
+     */
+    private static double triangleRectangleArea(PatchRectangleMap map, int[] triangle) {
+        double ux = map.rectangleU[triangle[0]];
+        double uy = map.rectangleV[triangle[0]];
+        double vx = map.rectangleU[triangle[1]];
+        double vy = map.rectangleV[triangle[1]];
+        double wx = map.rectangleU[triangle[2]];
+        double wy = map.rectangleV[triangle[2]];
+        return (vx - ux) * (wy - uy) - (wx - ux) * (vy - uy);
+    }
+
+    /**
+     * Increments the shared use-count of the undirected dense edge between two vertices.
+     *
+     * @param edgeUse map from packed undirected edge key to the number of triangles using it
+     * @param first   one dense vertex of the edge
+     * @param second  the other dense vertex
+     */
+    private static void countEdge(Map<Long, Integer> edgeUse, int first, int second) {
+        int low = Math.min(first, second);
+        int high = Math.max(first, second);
+        edgeUse.merge(((long) low << FOLD_EDGE_KEY_SHIFT) | high, 1, Integer::sum);
     }
 
     /**
@@ -561,6 +749,14 @@ public class EmbeddedTMeshScene extends Scene {
     }
 
     /**
+     * Ask to toggle the folded-patch magenta view on the current layout; applied on the next frame,
+     * on the render thread. Contract to a fixed point (C or F) first, or it reports it cannot map.
+     */
+    public void requestFoldFlipView() {
+        pendingFoldFlip = true;
+    }
+
+    /**
      * Apply any keypress-requested edit on the render thread, where the GL context is current,
      * and re-upload the changed T-mesh. Doing this here rather than in the key callback keeps
      * every GL call on the thread that owns the context.
@@ -592,6 +788,21 @@ public class EmbeddedTMeshScene extends Scene {
             runtime.setEmbeddedTMesh(tmesh);
             Platforms.get().log("[embedded-tmesh] contracted to fixed point: "
                     + contractionSummary(contraction) + ARC_COUNT_TAG + countLiveArcs());
+            return;
+        }
+        if (pendingFoldFlip) {
+            pendingFoldFlip = false;
+            if (runtime.showIsoLines) {
+                runtime.showIsoLines = false;
+                Platforms.get().log("[foldcheck] flip view off");
+            } else {
+                try {
+                    showFoldFlips();
+                } catch (IllegalStateException notReady) {
+                    Platforms.get().log("[foldcheck] cannot show flips (contract to a fixed point"
+                            + " first with C or F): " + notReady.getMessage());
+                }
+            }
             return;
         }
         boolean changed = false;
@@ -644,7 +855,9 @@ public class EmbeddedTMeshScene extends Scene {
         }
         applyPendingEdits();
         camera.resetView();
-        runtime.render(camera);
+        if (!runtime.showIsoLines) {
+            runtime.render(camera);
+        }
         runtime.renderOverlays(camera);
         runtime.renderHighlights(camera);
     }

@@ -986,6 +986,49 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         uploadTraceSurfaceBuffers(interleaved, indices);
     }
 
+    /**
+     * Upload a per-patch rectangle parametrization as the iso-surface, shading each caller-flagged
+     * folded face with {@link #flippedColor}. Takes raw per-corner UVs and per-face flip flags, so it
+     * shows the embedded T-mesh's per-patch maps, which have no {@link CrossField}.
+     *
+     * @param mesh        the copy mesh whose faces the arrays index, one corner triple per face
+     * @param cornerU     rectangle x per face corner, length {@code 3 * mesh.faceCount()}
+     * @param cornerV     rectangle y per face corner, parallel to {@code cornerU}
+     * @param faceFlipped whether each face folds in its patch's map, indexed by active face
+     */
+    public void uploadPatchParametrization(HalfEdgeMesh mesh, double[] cornerU, double[] cornerV,
+            boolean[] faceFlipped) {
+        int faceCount = mesh.faceCount();
+        float[] interleaved = new float[faceCount * CORNERS_PER_FACE * FLOATS_PER_CORNER_WITH_TRACES];
+        int[] indices = new int[faceCount * CORNERS_PER_FACE];
+        Vector3f p0 = new Vector3f();
+        Vector3f p1 = new Vector3f();
+        Vector3f p2 = new Vector3f();
+        Vector3f normal = new Vector3f();
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            int faceId = mesh.faceIdAt(activeFace);
+            mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), p0);
+            mesh.vertexPosition(mesh.faceVertexAt(faceId, 1), p1);
+            mesh.vertexPosition(mesh.faceVertexAt(faceId, COMPONENT_Z), p2);
+            computeFaceNormal(p0, p1, p2, normal);
+            int cornerBase = activeFace * CORNERS_PER_FACE;
+            int baseFloat = cornerBase * FLOATS_PER_CORNER_WITH_TRACES;
+            float flipped = faceFlipped[activeFace] ? 1f : 0f;
+            writeCornerWithTraces(interleaved, baseFloat, p0, normal,
+                    (float) cornerU[cornerBase], (float) cornerV[cornerBase], flipped, null);
+            writeCornerWithTraces(interleaved, baseFloat + FLOATS_PER_CORNER_WITH_TRACES, p1, normal,
+                    (float) cornerU[cornerBase + COMPONENT_Y], (float) cornerV[cornerBase + COMPONENT_Y],
+                    flipped, null);
+            writeCornerWithTraces(interleaved, baseFloat + COMPONENT_Z * FLOATS_PER_CORNER_WITH_TRACES,
+                    p2, normal, (float) cornerU[cornerBase + COMPONENT_Z],
+                    (float) cornerV[cornerBase + COMPONENT_Z], flipped, null);
+            indices[cornerBase] = cornerBase;
+            indices[cornerBase + COMPONENT_Y] = cornerBase + COMPONENT_Y;
+            indices[cornerBase + COMPONENT_Z] = cornerBase + COMPONENT_Z;
+        }
+        uploadTraceSurfaceBuffers(interleaved, indices);
+    }
+
     private static void writeCornerWithTraces(float[] buffer, int offset, Vector3f position,
             Vector3f normal, float u, float v, float flipped, float[] traceRow) {
         buffer[offset] = position.x;

@@ -174,7 +174,7 @@ public class BommesCrossField extends CrossField {
         for (int fAi = 0; fAi < faceCount; fAi++) {
             start[fAi] = faceConstrained[fAi] ? faceConstraintAngle[fAi] : 0.0;
         }
-        final DirectSolver.CholeskyHandle handle = DirectSolver.factorize(matrix, faceConstrained, OrderingMethod.RCM);
+        final DirectSolver.CholeskyHandle handle = DirectSolver.factorize(matrix, faceConstrained, OrderingMethod.AMD);
         if (handle.factor() == null) {
             return;
         }

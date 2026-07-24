@@ -106,7 +106,7 @@ public final class CholeskyBackendEquivalenceTest {
             compactOf[i] = i;
             fullOf[i] = i;
         }
-        int[] perm = SolverPermutation.computePermutation(matrix, fixed, compactOf, n, OrderingMethod.RCM);
+        int[] perm = SolverPermutation.computePermutation(matrix, fixed, compactOf, n, OrderingMethod.AMD);
         int[] invPerm = new int[n];
         for (int i = 0; i < n; i++) {
             invPerm[perm[i]] = i;

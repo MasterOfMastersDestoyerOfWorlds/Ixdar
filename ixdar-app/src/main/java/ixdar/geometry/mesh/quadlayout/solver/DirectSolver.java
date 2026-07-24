@@ -50,10 +50,9 @@ public final class DirectSolver {
      * @param matrix   the system matrix
      * @param fixed    the per-variable fixed flag
      * @param ordering fill-reducing column ordering applied before the cold
-     *                 factor; pick {@link OrderingMethod#RCM} for the
-     *                 cross-field bandwidth-minimising path or
-     *                 {@link OrderingMethod#AMD} for the seamless stage where
-     *                 nnz(L) dominates
+     *                 factor; default to {@link OrderingMethod#AMD}, and reach
+     *                 for {@link OrderingMethod#RCM} only when a bandwidth-minimising
+     *                 order is specifically wanted
      * @return the Cholesky handle
      */
     public static CholeskyHandle factorize(NormalMatrix matrix, boolean[] fixed,
