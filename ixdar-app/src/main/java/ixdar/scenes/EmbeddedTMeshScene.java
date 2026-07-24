@@ -28,7 +28,6 @@ import ixdar.geometry.mesh.quadlayout.embedding.PatchRectangleMap;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRegionMapper;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRegions;
 import ixdar.geometry.mesh.quadlayout.embedding.ThreeConnectivityRefinement;
-import ixdar.geometry.mesh.quadlayout.embedding.TorusLayoutFixture;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
@@ -143,6 +142,8 @@ public class EmbeddedTMeshScene extends Scene {
     /** Low-word mask recovering a dense edge's high vertex from its key. */
     private static final long FOLD_EDGE_KEY_MASK = 0xFFFFFFFFL;
 
+    private static final String DEFAULT_TEST_MODEL = "test/resources/quadlayout/figure_8/fertility_in_tri.off";
+
     private OrbitMouseTrap orbitMouse;
     private QuadLayoutRuntime runtime;
     private String offPath;
@@ -225,7 +226,7 @@ public class EmbeddedTMeshScene extends Scene {
 
         Platforms.get().log(String.format(
                 "[embedded-tmesh] source=%s nodes=%d arcs=%d patches=%d euler=%d",
-                offPath == null ? "torus-fixture" : offPath, tmesh.nodes.size(),
+                offPath == null ? "test/resources/quadlayout/figure_8/fertility_in_tri.off" : offPath, tmesh.nodes.size(),
                 tmesh.arcs.size(), tmesh.patches.size(), eulerCharacteristic));
     }
 
@@ -235,29 +236,25 @@ public class EmbeddedTMeshScene extends Scene {
      * Also wires the operators for the interactive steps.
      */
     private void assembleLayout() {
-        if (offPath == null) {
-            TorusLayoutFixture fixture = new TorusLayoutFixture();
-            tmesh = fixture.tmesh;
-            surfaceMesh = fixture.torus;
-            eulerCharacteristic = TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC;
-        } else {
-            double alphaDegrees = Double.parseDouble(
-                    System.getProperty(ALPHA_PROPERTY, Double.toString(DEFAULT_ALPHA_DEGREES)));
-            ArrayMesh arrayMesh;
-            try {
-                arrayMesh = MeshLoader.load(offPath);
-            } catch (IOException ex) {
-                throw new IllegalStateException("could not read mesh " + offPath, ex);
+        double alphaDegrees = Double.parseDouble(
+                System.getProperty(ALPHA_PROPERTY, Double.toString(DEFAULT_ALPHA_DEGREES)));
+        ArrayMesh arrayMesh;
+        try {
+            if(offPath == null){
+                offPath = DEFAULT_TEST_MODEL;
             }
-            surfaceMesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
-                    arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
-            QuadLayoutEngine engine = new QuadLayoutEngine(
-                    surfaceMesh, (float) Math.toRadians(alphaDegrees));
-            engine.buildLayoutEmbedding();
-            EmbeddedTMeshBuilder builder = new EmbeddedTMeshBuilder(engine.embedding);
-            tmesh = builder.build();
-            eulerCharacteristic = builder.expectedEulerCharacteristic;
+            arrayMesh = MeshLoader.load(offPath);
+        } catch (IOException ex) {
+            throw new IllegalStateException("could not read mesh " + offPath, ex);
         }
+        surfaceMesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
+                arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
+        QuadLayoutEngine engine = new QuadLayoutEngine(
+                surfaceMesh, (float) Math.toRadians(alphaDegrees));
+        engine.buildLayoutEmbedding();
+        EmbeddedTMeshBuilder builder = new EmbeddedTMeshBuilder(engine.embedding);
+        tmesh = builder.build();
+        eulerCharacteristic = builder.expectedEulerCharacteristic;
         tmesh.validate(eulerCharacteristic);
         collapseOperator = new ZeroArcCollapseOperator(tmesh);
         splitOperator = new ZeroPatchSplitOperator(tmesh);

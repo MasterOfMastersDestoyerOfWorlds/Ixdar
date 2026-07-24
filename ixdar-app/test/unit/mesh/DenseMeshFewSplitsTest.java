@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedContraction;
-import ixdar.geometry.mesh.quadlayout.embedding.ScaledTorusLayoutFixture;
 
 /**
  * Refining the triangle mesh under a fixed layout must not multiply the edge splits the contraction

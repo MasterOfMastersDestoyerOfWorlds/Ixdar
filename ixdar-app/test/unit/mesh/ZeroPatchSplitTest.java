@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
-import ixdar.geometry.mesh.quadlayout.embedding.TorusLayoutFixture;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
 
 /**

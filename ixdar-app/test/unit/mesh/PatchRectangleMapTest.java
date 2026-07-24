@@ -13,7 +13,6 @@ import ixdar.geometry.mesh.quadlayout.embedding.PatchRectangleMap;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRegionMapper;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRegions;
 import ixdar.geometry.mesh.quadlayout.embedding.ThreeConnectivityRefinement;
-import ixdar.geometry.mesh.quadlayout.embedding.TorusLayoutFixture;
 
 /**
  * The Tutte engine ({@link PatchRectangleMap}) and its patch adapter ({@link PatchRegionMapper}).

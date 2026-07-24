@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRegions;
-import ixdar.geometry.mesh.quadlayout.embedding.TorusLayoutFixture;
 
 /**
  * The patches must partition the working copy: every face assigned, one region per live

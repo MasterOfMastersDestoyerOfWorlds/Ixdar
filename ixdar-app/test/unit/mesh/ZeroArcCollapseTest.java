@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
-import ixdar.geometry.mesh.quadlayout.embedding.TorusLayoutFixture;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 
 /**

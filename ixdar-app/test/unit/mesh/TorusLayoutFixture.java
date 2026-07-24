@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.embedding;
+package unit.mesh;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -8,33 +8,41 @@ import java.util.Map;
 import ixdar.annotations.meshnode.MapNodeContext;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 
 /**
- * {@link TorusLayoutFixture}'s layout on a torus refined by an integer scale.
+ * Embedded T-mesh fixture on a torus, in the (major, minor) grid below: the middle row is
+ * quantized to height zero, and the stub vertical at major 2 makes its zero-patch
+ * non-simple.
  *
- * <p>Coordinates and arc segment counts multiply by the scale, so the same T-mesh sits on a
- * triangle mesh that many times finer — isolating density from layout.
+ * <pre>
+ *   minor 4  o-------------------o-------------------o
+ *   minor 2  o---------o---------o-------------------o
+ *   minor 0  o---------o---------o-------------------o
+ *          major 0     2         4                   8
+ * </pre>
  *
  * <p>See also: LCBK19 Figure 9
  */
-public final class ScaledTorusLayoutFixture {
+public final class TorusLayoutFixture {
+
+    /** Face divisions the long way around the torus. */
+    public static final int MAJOR_SEGMENTS = 12;
+
+    /** Face divisions around the tube. */
+    public static final int MINOR_SEGMENTS = 8;
 
     /** A torus is genus 1, so V - E + F is zero for any cell decomposition of it. */
     public static final int TORUS_EULER_CHARACTERISTIC = 0;
 
-    /** Base face divisions the long way around the torus, before scaling. */
-    private static final int BASE_MAJOR_SEGMENTS = 12;
-
-    /** Base face divisions around the tube, before scaling. */
-    private static final int BASE_MINOR_SEGMENTS = 8;
-
-    /** Minor coordinate of the lowest horizontal loop, before scaling. */
+    /** Minor coordinate of the lowest horizontal loop. */
     private static final int LOOP_BOTTOM = 0;
 
-    /** Minor coordinate of the middle horizontal loop, before scaling. */
+    /** Minor coordinate of the middle horizontal loop. */
     private static final int LOOP_MIDDLE = 2;
 
-    /** Minor coordinate of the highest horizontal loop, before scaling. */
+    /** Minor coordinate of the highest horizontal loop. */
     private static final int LOOP_TOP = 4;
 
     /** Quantized height of the bottom row, the one the stub vertical crosses. */
@@ -55,9 +63,6 @@ public final class ScaledTorusLayoutFixture {
     /** Quantized width of the column spanning majors 0 to 4, which the stub halves. */
     private static final int SPLIT_COLUMN = 2;
 
-    public final int scale;
-    public final int majorSegments;
-    public final int minorSegments;
     public final HalfEdgeMesh torus;
     public final EmbeddedMeshTopology topology;
     public final EmbeddedTMesh tmesh;
@@ -66,18 +71,13 @@ public final class ScaledTorusLayoutFixture {
     private final Map<Long, Integer> nodeAt = new HashMap<>();
 
     /**
-     * Builds the torus at the given refinement scale, the working copy over it, and the T-mesh.
-     *
-     * @param scale integer refinement, one being {@link TorusLayoutFixture}
+     * Builds the torus, the working copy over it, and the hand-authored T-mesh.
      */
-    public ScaledTorusLayoutFixture(int scale) {
-        this.scale = scale;
-        this.majorSegments = BASE_MAJOR_SEGMENTS * scale;
-        this.minorSegments = BASE_MINOR_SEGMENTS * scale;
+    public TorusLayoutFixture() {
         TorusMeshNode node = new TorusMeshNode();
         MapNodeContext context = new MapNodeContext(node);
-        context.setInput(TorusMeshNode.MAJOR_SEGMENTS_2, majorSegments);
-        context.setInput(TorusMeshNode.MINOR_SEGMENTS_2, minorSegments);
+        context.setInput(TorusMeshNode.MAJOR_SEGMENTS_2, MAJOR_SEGMENTS);
+        context.setInput(TorusMeshNode.MINOR_SEGMENTS_2, MINOR_SEGMENTS);
         context.setInput(TorusMeshNode.TRIANGULATE_2, true);
         node.evaluate(context);
         this.torus = context.getOutput(TorusMeshNode.MESH_2, HalfEdgeMesh.class);
@@ -87,7 +87,18 @@ public final class ScaledTorusLayoutFixture {
     }
 
     /**
-     * Lays the nodes, arcs and patches onto the torus, every coordinate scaled up.
+     * The node id at a grid position, for callers that want to reach into the fixture.
+     *
+     * @param major major grid coordinate
+     * @param minor minor grid coordinate
+     * @return the node id there
+     */
+    public int nodeIdAt(int major, int minor) {
+        return nodeAt.get(key(major, minor));
+    }
+
+    /**
+     * Lays the nodes, arcs and patches onto the torus.
      */
     private void build() {
         for (int major : new int[] { 0, 2, 4, 8 }) {
@@ -148,10 +159,10 @@ public final class ScaledTorusLayoutFixture {
     }
 
     /**
-     * Registers a T-mesh node at a base grid position, scaled onto the refined torus.
+     * Registers a T-mesh node at a grid position of the torus.
      *
-     * @param major base major grid coordinate
-     * @param minor base minor grid coordinate
+     * @param major major grid coordinate
+     * @param minor minor grid coordinate
      */
     private void addNode(int major, int minor) {
         int nodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(major, minor), false, false);
@@ -159,45 +170,42 @@ public final class ScaledTorusLayoutFixture {
     }
 
     /**
-     * Adds an arc running the long way around the torus, walking every refined vertex between the
-     * scaled endpoints.
+     * Adds an arc running the long way around the torus at a fixed minor coordinate.
      *
-     * @param minor           base minor coordinate the arc runs along
-     * @param fromMajor        base major coordinate the arc starts at
-     * @param toMajor          base major coordinate the arc ends at, possibly through the wrap
+     * @param minor           minor coordinate the arc runs along
+     * @param fromMajor       major coordinate the arc starts at
+     * @param toMajor         major coordinate the arc ends at, possibly through the wrap
      * @param quantizedLength the arc's prescribed parametric length
      * @return the new arc's id
      */
     private int horizontalArc(int minor, int fromMajor, int toMajor, int quantizedLength) {
         List<Integer> path = new ArrayList<>();
-        int major = fromMajor * scale;
-        int end = toMajor * scale;
-        path.add(scaledVertex(major, minor * scale));
-        while (major != end) {
-            major = (major + 1) % majorSegments;
-            path.add(scaledVertex(major, minor * scale));
+        int major = fromMajor;
+        path.add(copyVertex(major, minor));
+        while (major != toMajor) {
+            major = (major + 1) % MAJOR_SEGMENTS;
+            path.add(copyVertex(major, minor));
         }
         return tmesh.addArc(EmbeddedTMesh.NONE, nodeAt.get(key(fromMajor, minor)),
                 nodeAt.get(key(toMajor, minor)), quantizedLength, false, path);
     }
 
     /**
-     * Adds an arc running around the tube, walking every refined vertex between the scaled endpoints.
+     * Adds an arc running around the tube at a fixed major coordinate.
      *
-     * @param major           base major coordinate the arc runs along
-     * @param fromMinor        base minor coordinate the arc starts at
-     * @param toMinor          base minor coordinate the arc ends at, possibly through the wrap
+     * @param major           major coordinate the arc runs along
+     * @param fromMinor       minor coordinate the arc starts at
+     * @param toMinor         minor coordinate the arc ends at, possibly through the wrap
      * @param quantizedLength the arc's prescribed parametric length
      * @return the new arc's id
      */
     private int verticalArc(int major, int fromMinor, int toMinor, int quantizedLength) {
         List<Integer> path = new ArrayList<>();
-        int minor = fromMinor * scale;
-        int end = toMinor * scale;
-        path.add(scaledVertex(major * scale, minor));
-        while (minor != end) {
-            minor = (minor + 1) % minorSegments;
-            path.add(scaledVertex(major * scale, minor));
+        int minor = fromMinor;
+        path.add(copyVertex(major, minor));
+        while (minor != toMinor) {
+            minor = (minor + 1) % MINOR_SEGMENTS;
+            path.add(copyVertex(major, minor));
         }
         return tmesh.addArc(EmbeddedTMesh.NONE, nodeAt.get(key(major, fromMinor)),
                 nodeAt.get(key(major, toMinor)), quantizedLength, false, path);
@@ -206,8 +214,8 @@ public final class ScaledTorusLayoutFixture {
     /**
      * Adds a patch, given its four sides walked counter-clockwise from a corner.
      *
-     * @param cornerMajor base major coordinate of the corner the walk starts at
-     * @param cornerMinor base minor coordinate of the corner the walk starts at
+     * @param cornerMajor major coordinate of the corner the walk starts at
+     * @param cornerMinor minor coordinate of the corner the walk starts at
      * @param bottom      arcs of the side walked first
      * @param right       arcs of the side walked second
      * @param top         arcs of the side walked third
@@ -220,32 +228,22 @@ public final class ScaledTorusLayoutFixture {
     }
 
     /**
-     * The refined copy vertex at a base grid position.
+     * The working copy's vertex at a grid position of the torus. The primitive adds vertices
+     * major-outer and minor-inner, so the source vertex id follows directly.
      *
-     * @param major base major grid coordinate
-     * @param minor base minor grid coordinate
+     * @param major major grid coordinate
+     * @param minor minor grid coordinate
      * @return the copy vertex there
      */
     private int copyVertex(int major, int minor) {
-        return scaledVertex(major * scale, minor * scale);
+        return topology.copyVertexForSourceVertexId(major * MINOR_SEGMENTS + minor);
     }
 
     /**
-     * The copy vertex at a refined grid position.
+     * A map key for a grid position.
      *
-     * @param major refined major grid coordinate
-     * @param minor refined minor grid coordinate
-     * @return the copy vertex there
-     */
-    private int scaledVertex(int major, int minor) {
-        return topology.copyVertexForSourceVertexId(major * minorSegments + minor);
-    }
-
-    /**
-     * A map key for a base grid position.
-     *
-     * @param major base major grid coordinate
-     * @param minor base minor grid coordinate
+     * @param major major grid coordinate
+     * @param minor minor grid coordinate
      * @return the packed key
      */
     private static long key(int major, int minor) {

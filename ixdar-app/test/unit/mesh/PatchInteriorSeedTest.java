@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
-import ixdar.geometry.mesh.quadlayout.embedding.PlaneLayoutFixture;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
 
 /**
