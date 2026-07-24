@@ -18,8 +18,7 @@ import ixdar.geometry.mesh.quadlayout.crossfield.DijkstraNode;
 
 /**
  * Re-embeds an arc whose endpoint node has just moved, by a Dijkstra search
- * restricted to cross or touch no other arc. Laying an arc down for the first
- * time is {@link TraceCarve}'s job.
+ * restricted to cross or touch no other arc.
  *
  * <p>Each failed round splits the corridor edges walled in by claims.
  *
