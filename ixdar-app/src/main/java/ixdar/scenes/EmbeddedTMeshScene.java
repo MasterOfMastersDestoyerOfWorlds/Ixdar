@@ -112,7 +112,6 @@ public class EmbeddedTMeshScene extends Scene {
     private String offPath;
     private EmbeddedTMesh tmesh;
     private HalfEdgeMesh surfaceMesh;
-    private int eulerCharacteristic;
     private final Vector3f meshCenter = new Vector3f();
 
     /**
@@ -173,9 +172,9 @@ public class EmbeddedTMeshScene extends Scene {
         orbitMouse.setTarget(meshCenter);
         orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, orbitDistance);
         Platforms.get().log(String.format(
-                "[embedded-tmesh] source=%s nodes=%d arcs=%d patches=%d euler=%d",
+                "[embedded-tmesh] source=%s nodes=%d arcs=%d patches=%d",
                 offPath, tmesh.nodes.size(),
-                tmesh.arcs.size(), tmesh.patches.size(), eulerCharacteristic));
+                tmesh.arcs.size(), tmesh.patches.size()));
     }
 
     /**
@@ -195,8 +194,7 @@ public class EmbeddedTMeshScene extends Scene {
         engine.buildLayoutEmbedding();
         EmbeddedTMeshBuilder builder = new EmbeddedTMeshBuilder(engine.embedding);
         tmesh = builder.build();
-        eulerCharacteristic = builder.expectedEulerCharacteristic;
-        tmesh.validate(eulerCharacteristic);
+        tmesh.validate();
     }
 
     /**
@@ -376,12 +374,12 @@ public class EmbeddedTMeshScene extends Scene {
 
         if (pendingContract) {
             pendingContract = false;
-            EmbeddedContraction contraction = new EmbeddedContraction(tmesh, eulerCharacteristic).contract();
+            tmesh.contract();
             runtime.setEmbeddedTMesh(tmesh);
             Platforms.get().log("[embedded-tmesh] contracted to fixed point: "
-                    + contraction.arcCollapseCount + " collapse(s), "
-                    + contraction.patchSplitCount + " split(s), "
-                    + contraction.patchCollapseCount + " patch-collapse(s)");
+                    + tmesh.arcCollapseCount + " collapse(s), "
+                    + tmesh.patchSplitCount + " split(s), "
+                    + tmesh.patchCollapseCount + " patch-collapse(s)");
             return;
         }
         if (pendingFoldFlip) {

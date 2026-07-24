@@ -30,9 +30,6 @@ public final class EmbeddedTMeshBuilder {
     /** Embedded arc id for each source arc id, or {@link EmbeddedTMesh#NONE} until added. */
     public final int[] embeddedArcBySource;
 
-    /** Surface Euler characteristic the assembled T-mesh must match. */
-    public final int expectedEulerCharacteristic;
-
     /**
      * Prepares a builder over a finished carve. Call {@link #build()} to assemble the T-mesh.
      *
@@ -46,9 +43,6 @@ public final class EmbeddedTMeshBuilder {
         this.embeddedArcBySource = new int[motorcycleGraph.arcs.size()];
         Arrays.fill(embeddedNodeBySource, EmbeddedTMesh.NONE);
         Arrays.fill(embeddedArcBySource, EmbeddedTMesh.NONE);
-        HalfEdgeMesh source = embedding.topology.sourceMesh;
-        this.expectedEulerCharacteristic =
-                source.vertexCount() - source.edgeCount() + source.faceCount();
     }
 
     /**
@@ -80,7 +74,7 @@ public final class EmbeddedTMeshBuilder {
             tmesh.addPatch(patch.patchId, sideArcIds, firstCorner(patch));
         }
         tmesh.resolveWalkOrientation();
-        tmesh.validate(expectedEulerCharacteristic);
+        tmesh.validate();
         return tmesh;
     }
 

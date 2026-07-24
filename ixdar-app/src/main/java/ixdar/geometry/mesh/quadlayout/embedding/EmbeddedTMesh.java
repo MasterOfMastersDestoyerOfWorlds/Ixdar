@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
  * The quad layout's nodes, arcs and patches together with their realization on
@@ -24,7 +25,7 @@ import ixdar.geometry.mesh.data.representation.ActiveIdSet;
  * <p>
  * See also: LCBK19 Section 6
  */
-public final class EmbeddedTMesh {
+public class EmbeddedTMesh {
 
     /** Absent id, for elements with no source and for unset patch references. */
     public static final int NONE = -1;
@@ -67,6 +68,18 @@ public final class EmbeddedTMesh {
      */
     public ActiveIdSet diagnosticCorridor;
 
+    private ZeroArcCollapseOperator collapseArc;
+
+    private ZeroPatchSplitOperator splitPatch;
+
+    private ZeroPatchCollapseOperator collapsePatch;
+
+    private int expectedEulerCharacteristic;
+
+    public int arcCollapseCount;
+    public int patchSplitCount;
+    public int patchCollapseCount;
+
     /**
      * Creates an empty T-mesh over a working copy.
      *
@@ -78,6 +91,11 @@ public final class EmbeddedTMesh {
         this.arcs = new ArrayList<>();
         this.patches = new ArrayList<>();
         this.arcEndsByNode = new ArrayList<>();
+        HalfEdgeMesh source = topology.sourceMesh;
+        this.expectedEulerCharacteristic = source.vertexCount() - source.edgeCount() + source.faceCount();
+        this.collapseArc = new ZeroArcCollapseOperator(this);
+        this.splitPatch = new ZeroPatchSplitOperator(this);
+        this.collapsePatch = new ZeroPatchCollapseOperator(this);
     }
 
     /**
@@ -1524,13 +1542,11 @@ public final class EmbeddedTMesh {
      * Counting live nodes, arcs and patches, {@code V - E + F} must equal the
      * surface's characteristic. Cheap enough to run after every operator, unlike
      * {@link #validateArcPaths()}.
-     *
-     * @param expectedEulerCharacteristic the surface's characteristic,
      *                                    {@code 2 - 2g}
      * @throws IllegalStateException when the T-mesh is no longer a cell
      *                               decomposition
      */
-    public void validate(int expectedEulerCharacteristic) {
+    public void validate() {
         int liveNodes = 0;
         for (EmbeddedNode node : nodes) {
             if (node.alive) {
@@ -1633,5 +1649,84 @@ public final class EmbeddedTMesh {
                     + " to " + toVertex + " with no edge between them");
         }
         return edgeId;
+    }
+
+    /**
+     * Contracts the T-mesh, validating the decomposition every step and the measure
+     * every round.
+     *
+     * <p>
+     * A round is what LCBK19 Appendix A.3 measures: one operator (2) split, then
+     * operators (1) and (3) to exhaustion, against the state before the split.
+     * Operator (2) raises the measure by design; the other two lower it.
+     *
+     * @throws IllegalStateException when the T-mesh stops being a cell
+     *                               decomposition or a round fails to strictly
+     *                               decrease the termination measure
+     * @return this, contracted
+     */
+    public EmbeddedTMesh contract() {
+        while (true) {
+            while (applyCollapse()) {
+                validate();
+                terminationMeasure();
+            }
+            int nonSimple = splitPatch.nextNonSimpleZeroPatch();
+            if (nonSimple == NONE) {
+                return this;
+            }
+            splitPatch.split(nonSimple);
+            patchSplitCount++;
+            validate();
+        }
+    }
+
+    /**
+     * Applies one zero-arc collapse, or one simple zero-patch collapse when no arc
+     * is collapsible. Both lower the termination measure on their own.
+     *
+     * @return true when one of the two applied
+     */
+    private boolean applyCollapse() {
+        int arc = collapseArc.nextCollapsibleArc();
+        if (arc != NONE) {
+            collapseArc.collapse(arc);
+            arcCollapseCount++;
+            return true;
+        }
+        int simple = collapsePatch.nextSimpleZeroPatch();
+        if (simple != NONE) {
+            collapsePatch.collapse(simple);
+            patchCollapseCount++;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * The Appendix A.3 termination measure: <em>"the total number of
+     * yet-to-be-collapsed zero-arcs and zero-patches"</em>.
+     *
+     * <p>
+     * Operators (1) and (3) each lower it on their own. Operator (2) raises it
+     * deliberately, and only the round that follows it — see {@link #contract} —
+     * must bring it back down.
+     *
+     * @return the count of live zero arcs plus live zero patches
+     */
+    public long terminationMeasure() {
+        long zeroPatches = 0;
+        for (EmbeddedPatch patch : patches) {
+            if (patch.alive && isZeroPatch(patch.patchId)) {
+                zeroPatches++;
+            }
+        }
+        long zeroArcs = 0;
+        for (EmbeddedArc arc : arcs) {
+            if (arc.alive && arc.quantizedLength == 0) {
+                zeroArcs++;
+            }
+        }
+        return zeroArcs + zeroPatches;
     }
 }
