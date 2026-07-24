@@ -74,7 +74,7 @@ public final class MeshCanonicalFingerprint {
      */
     public static String sha256Hex(MeshTopology mesh) {
         if (mesh == null) {
-            return sha256HexEmpty();
+            return sha256HexBytes(new byte[0]);
         }
         HalfEdgeCompiledMeshData data = ((HalfEdgeMesh) mesh).compileSurfaceData();
         return sha256HexFromCompiled(data);
@@ -145,9 +145,5 @@ public final class MeshCanonicalFingerprint {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }
-    }
-
-    private static String sha256HexEmpty() {
-        return sha256HexBytes(new byte[0]);
     }
 }

@@ -22,7 +22,7 @@ public final class NormalMatrix {
 
     /**
      * Constructor with chord-based rows.
-     * 
+     *
      * @param faceCount   number of faces
      * @param chordCount  number of chords
      * @param rowCount    number of rows
@@ -240,7 +240,7 @@ public final class NormalMatrix {
     /**
      * Permuted constructor. Builds the CSR layout from a given matrix and a
      * permutation.
-     * 
+     *
      * @param matrix             the matrix to permute
      * @param permutation        the permutation
      * @param inversePermutation the inverse permutation
@@ -285,8 +285,8 @@ public final class NormalMatrix {
      * Return {@code this - other}. General: result pattern is the union of both.
      *
      * @param other matrix to subtract; must have the same dimension
-     * @return a new matrix holding {@code this - other} on the union pattern
      * @throws IllegalArgumentException if the dimensions differ
+     * @return a new matrix holding {@code this - other} on the union pattern
      */
     public NormalMatrix subtract(NormalMatrix other) {
         if (variableCount != other.variableCount) {
@@ -398,7 +398,7 @@ public final class NormalMatrix {
 
     /**
      * Get the number of variables.
-     * 
+     *
      * @return number of variables
      */
     public int size() {
@@ -407,7 +407,7 @@ public final class NormalMatrix {
 
     /**
      * Get the diagonal entry of the row.
-     * 
+     *
      * @param row row index
      * @return diagonal entry
      */
@@ -417,7 +417,7 @@ public final class NormalMatrix {
 
     /**
      * Get the start index of the row.
-     * 
+     *
      * @param row row index
      * @return start index
      */
@@ -427,7 +427,7 @@ public final class NormalMatrix {
 
     /**
      * Get the end index of the row.
-     * 
+     *
      * @param row row index
      * @return end index
      */
@@ -437,7 +437,7 @@ public final class NormalMatrix {
 
     /**
      * Get the column index of the entry at the given cursor.
-     * 
+     *
      * @param cursor cursor index
      * @return column index
      */
@@ -447,7 +447,7 @@ public final class NormalMatrix {
 
     /**
      * Get the column index of the entry at the given cursor.
-     * 
+     *
      * @param cursor cursor index
      * @return column index
      */
@@ -457,7 +457,7 @@ public final class NormalMatrix {
 
     /**
      * Compute the dot product of the row with the vector x.
-     * 
+     *
      * @param row row index
      * @param x   vector
      * @return dot product
@@ -474,7 +474,7 @@ public final class NormalMatrix {
      * Permuted-upper-triangle Compressed Sparse Column: column-pointer / row-index
      * / value arrays for the free-variable submatrix in the supplied permutation,
      * packing only the upper triangle (col ≥ row in the permuted order).
-     * 
+     *
      * @param freeCount size of the compact problem
      * @param fixed     full-size fixed-variable mask
      * @param compactOf full-index → compact-index, or -1 if fixed
@@ -608,9 +608,6 @@ public final class NormalMatrix {
         return new CompressedSparseRowArrays(rowPtr, colIdx, values);
     }
 
-    public record CompressedSparseColumnArrays(int[] colPtr, int[] rowIdx, double[] values) {
-    }
-
     /**
      * Dump {@code matrix} to {@code path} in a simple token format.
      *
@@ -666,5 +663,8 @@ public final class NormalMatrix {
             w.print(Double.toString(v)); // round-trippable in Java
         }
         w.println();
+    }
+
+    public record CompressedSparseColumnArrays(int[] colPtr, int[] rowIdx, double[] values) {
     }
 }

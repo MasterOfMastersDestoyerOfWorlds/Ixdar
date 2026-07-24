@@ -20,9 +20,6 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
  */
 public final class EmbeddedTMeshBuilder {
 
-    /** Message fragment naming an arc. */
-    private static final String ARC = "arc ";
-
     public final LayoutEmbedding embedding;
     public final MotorcycleGraph motorcycleGraph;
     public final EmbeddedTMesh tmesh;
@@ -57,10 +54,10 @@ public final class EmbeddedTMeshBuilder {
     /**
      * Assembles the T-mesh and validates it against the surface's Euler characteristic.
      *
-     * @return the assembled, validated {@link EmbeddedTMesh}
      * @throws IllegalStateException when a patch is not a valid rectangle, an arc in a patch was
      *                               not carved, a node in an arc was not placed, or the assembled
      *                               complex is not a cell decomposition of the surface
+     * @return the assembled, validated {@link EmbeddedTMesh}
      */
     public EmbeddedTMesh build() {
         for (TMeshPatch patch : motorcycleGraph.patches) {
@@ -91,9 +88,9 @@ public final class EmbeddedTMeshBuilder {
      * Adds an arc and its two endpoint nodes if not already added.
      *
      * @param sourceArcId source arc id to add
-     * @return the embedded arc id
      * @throws IllegalStateException when the arc was not carved or its carved path does not run
      *                               between its two nodes' vertices
+     * @return the embedded arc id
      */
     private int ensureArc(int sourceArcId) {
         if (embeddedArcBySource[sourceArcId] != EmbeddedTMesh.NONE) {
@@ -104,7 +101,7 @@ public final class EmbeddedTMeshBuilder {
         int endNode = ensureNode(arc.endNodeId);
         ArcEdgePath carved = embedding.pathByArc[sourceArcId];
         if (carved == null) {
-            throw new IllegalStateException(ARC + sourceArcId + " bounds a patch but was never"
+            throw new IllegalStateException("arc " + sourceArcId + " bounds a patch but was never"
                     + " carved; the carve and the patch structure disagree");
         }
         List<Integer> vertexPath = orientedPath(sourceArcId, carved, arc);
@@ -123,8 +120,8 @@ public final class EmbeddedTMeshBuilder {
      * @param sourceArcId arc the path belongs to, for the error message
      * @param carved      the carved path
      * @param arc         the source arc, for its node ids
-     * @return the path's copy vertices, reversed if the carve laid them end-to-start
      * @throws IllegalStateException when the path's ends are not the arc's two node vertices
+     * @return the path's copy vertices, reversed if the carve laid them end-to-start
      */
     private List<Integer> orientedPath(int sourceArcId, ArcEdgePath carved, TraceArc arc) {
         int startVertex = embedding.vertexIdByNode[arc.startNodeId];
@@ -140,7 +137,7 @@ public final class EmbeddedTMeshBuilder {
             Collections.reverse(reversed);
             return reversed;
         }
-        throw new IllegalStateException(ARC + sourceArcId + " carved path runs " + first + ".."
+        throw new IllegalStateException("arc " + sourceArcId + " carved path runs " + first + ".."
                 + last + " but its nodes sit on vertices " + startVertex + " and " + endVertex);
     }
 
@@ -148,8 +145,8 @@ public final class EmbeddedTMeshBuilder {
      * Adds a node if not already added.
      *
      * @param sourceNodeId source node id to add
-     * @return the embedded node id
      * @throws IllegalStateException when the node was never placed on a copy vertex
+     * @return the embedded node id
      */
     private int ensureNode(int sourceNodeId) {
         if (embeddedNodeBySource[sourceNodeId] != EmbeddedTMesh.NONE) {

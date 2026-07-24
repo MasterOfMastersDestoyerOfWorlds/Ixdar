@@ -120,17 +120,8 @@ public class EmbeddedTMeshScene extends Scene {
     /** Camera distance, as a multiple of mesh radius, when framing a captured reroute failure. */
     public static final float FAILURE_VIEW_DISTANCE_MUL = 0.55f;
 
-    /** Separator introducing the live arc count in a contraction log line. */
-    private static final String ARC_COUNT_TAG = "; arcs=";
-
     /** Boolean-property default meaning the feature is off unless explicitly enabled. */
     private static final String FALSE = "false";
-
-    /** Fold-check field naming arcs whose two neighbour patches coincide. */
-    private static final String SAME_SIDE_TAG = " sameSidePatchArcs=";
-
-    /** Fold-check per-node prefix in the torn-layout diagnostics. */
-    private static final String NODE_TAG = " n";
 
     /** How many patches to map between fold-check progress log lines. */
     private static final int PATCH_PROGRESS_INTERVAL = 64;
@@ -379,7 +370,7 @@ public class EmbeddedTMeshScene extends Scene {
                 patchArcs.append(" P").append(patch.patchId).append(boundary);
             }
             Platforms.get().log("[foldcheck] TORN after refine (chords=" + chords
-                    + SAME_SIDE_TAG + sameSidePatchArcs + "): " + torn.getMessage()
+                    + " sameSidePatchArcs=" + sameSidePatchArcs + "): " + torn.getMessage()
                     + " | live patches:" + patchArcs);
             return;
         }
@@ -423,7 +414,7 @@ public class EmbeddedTMeshScene extends Scene {
         Platforms.get().log("[foldcheck] flip-surface uploaded isoIdx=" + runtime.isoSurfaceIndexCount
                 + " showIsoLines=" + runtime.showIsoLines);
         Platforms.get().log("[foldcheck] regions OK: " + mapped + " patches, chords=" + chords
-                + SAME_SIDE_TAG + sameSidePatchArcs + " folded=" + folded
+                + " sameSidePatchArcs=" + sameSidePatchArcs + " folded=" + folded
                 + (folded == 0 ? " (all fold-free)" : " flippedTriangles=" + flippedTotal
                         + " patches[" + foldedIds.toString().trim() + "]"));
     }
@@ -611,7 +602,7 @@ public class EmbeddedTMeshScene extends Scene {
         StringBuilder fans = new StringBuilder();
         for (EmbeddedNode node : tmesh.nodes) {
             if (node.alive) {
-                fans.append(NODE_TAG).append(node.nodeId).append('d').append(tmesh.degree(node.nodeId))
+                fans.append(" n").append(node.nodeId).append('d').append(tmesh.degree(node.nodeId))
                         .append(tmesh.arcEndsByNode.get(node.nodeId));
             }
         }
@@ -632,7 +623,7 @@ public class EmbeddedTMeshScene extends Scene {
             if (!node.alive) {
                 continue;
             }
-            rotation.append(NODE_TAG).append(node.nodeId).append(':');
+            rotation.append(" n").append(node.nodeId).append(':');
             int startHalfEdge = copy.vertexOutgoingHalfEdge(node.copyVertex);
             int halfEdge = startHalfEdge;
             int lastArc = EmbeddedTMesh.NONE;
@@ -773,7 +764,7 @@ public class EmbeddedTMeshScene extends Scene {
             failure = contraction.contractToFailure();
             runtime.setEmbeddedTMesh(tmesh);
             Platforms.get().log("[embedded-tmesh] contract-to-failure: "
-                    + contractionSummary(contraction) + ARC_COUNT_TAG + countLiveArcs()
+                    + contractionSummary(contraction) + "; arcs=" + countLiveArcs()
                     + (failure == null ? "; no failure" : "; " + failure.getMessage()));
             return;
         }
@@ -783,7 +774,7 @@ public class EmbeddedTMeshScene extends Scene {
                     new EmbeddedContraction(tmesh, eulerCharacteristic).contract();
             runtime.setEmbeddedTMesh(tmesh);
             Platforms.get().log("[embedded-tmesh] contracted to fixed point: "
-                    + contractionSummary(contraction) + ARC_COUNT_TAG + countLiveArcs());
+                    + contractionSummary(contraction) + "; arcs=" + countLiveArcs());
             return;
         }
         if (pendingFoldFlip) {

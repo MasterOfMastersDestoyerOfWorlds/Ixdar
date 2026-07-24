@@ -259,7 +259,7 @@ public class NodeGraphRuntime {
                     context.setInputValue(resolved.getKey(), resolved.getValue());
                 }
 
-                if (overrides.containsKey(parsedData.id) && isInputParameterNode(parsedData.type)) {
+                if (overrides.containsKey(parsedData.id) && ( "input_float".equals(parsedData.type) || "input_int".equals(parsedData.type) || "input_boolean".equals(parsedData.type))) {
                     context.setInputValue("default", overrides.get(parsedData.id));
                 }
 
@@ -417,10 +417,6 @@ public class NodeGraphRuntime {
             throw new RuntimeException(FUNCTION + funcDef.name + "' has empty body");
         }
         return lastContext;
-    }
-
-    private static boolean isInputParameterNode(String type) {
-        return "input_float".equals(type) || "input_int".equals(type) || "input_boolean".equals(type);
     }
 
     private static MeshTopology meshFromNodeOutputs(GraphNodeContext context) {

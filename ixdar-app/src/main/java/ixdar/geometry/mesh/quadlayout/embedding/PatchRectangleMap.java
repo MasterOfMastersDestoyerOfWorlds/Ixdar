@@ -95,9 +95,9 @@ public final class PatchRectangleMap {
     /**
      * Places the boundary on the rectangle and solves for the interior vertices.
      *
-     * @return this, solved
      * @throws IllegalStateException when a side has no geometric extent (an un-contracted patch)
      *                               or the Tutte system is not positive definite
+     * @return this, solved
      */
     public PatchRectangleMap build() {
         placeBoundary();

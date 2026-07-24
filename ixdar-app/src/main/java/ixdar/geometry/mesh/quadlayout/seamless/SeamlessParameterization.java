@@ -238,12 +238,12 @@ public final class SeamlessParameterization {
     /**
      * Run the BZK09 §5 pipeline; populate the public output arrays.
      *
-     * @return the {@link ParameterizationMetrics} computed from the final
-     *         parametrization
      * @throws IllegalStateException if the projected parametrization still contains
      *                               flipped triangles after MC19 §5.4 repair;
      *                               downstream motorcycle / ILP stages require an
      *                               injective parametrization
+     * @return the {@link ParameterizationMetrics} computed from the final
+     *         parametrization
      */
     public ParameterizationMetrics build() {
         System.out.println("[seamless] Building seamless parameterization");
@@ -690,8 +690,6 @@ public final class SeamlessParameterization {
     /**
      * Materialise per-corner {@code uCorner} / {@code vCorner} from the current
      * {@link #solution} via each chart vertex's final-DOF expansion.
-     *
-     * @param totalCorners {@code 3 * faceCount}
      */
     private void writeChartVerticesFromSolution() {
         int totalCorners = faceCount * CORNERS_PER_FACE;
@@ -814,7 +812,7 @@ public final class SeamlessParameterization {
 
     /**
      * Returns [u_p, v_p, u_q, v_q] for face's corners at vStart and vEnd.
-     * 
+     *
      * @param faceId the face id
      * @param vStart the start vertex id
      * @param vEnd   the end vertex id

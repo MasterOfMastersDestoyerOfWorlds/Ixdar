@@ -39,10 +39,10 @@ public final class PatchRegions {
     /**
      * Computes the regions and verifies they partition the surface.
      *
-     * @return this, populated
      * @throws IllegalStateException when the regions do not partition the surface: a
      *                               component enclosed by no single patch's arcs, a patch
      *                               with no region, or a face left unassigned
+     * @return this, populated
      */
     public PatchRegions build() {
         Map<Set<Integer>, Integer> patchByBoundaryArcs = indexPatchesByBoundaryArcs();
@@ -84,9 +84,9 @@ public final class PatchRegions {
      * The boundary arc set of every live patch, keyed for matching against a flooded
      * component's boundary arcs.
      *
-     * @return map from a patch's boundary arc set to its patch id
      * @throws IllegalStateException when two patches share the same boundary arc set, which
      *                               would make the region match ambiguous
+     * @return map from a patch's boundary arc set to its patch id
      */
     private Map<Set<Integer>, Integer> indexPatchesByBoundaryArcs() {
         Map<Set<Integer>, Integer> index = new HashMap<>();

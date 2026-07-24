@@ -85,9 +85,9 @@ public final class SolverPermutation {
      *                  the all-free case
      * @param freeCount number of free variables (size of the compact problem)
      * @param ordering  which ordering to compute
-     * @return {@code perm[newIndex] = oldIndex}, length {@code freeCount}
      * @throws IllegalStateException if a future enum value is added and not
      *                               wired into this dispatcher
+     * @return {@code perm[newIndex] = oldIndex}, length {@code freeCount}
      */
     public static int[] computePermutation(NormalMatrix matrix,
             boolean[] fixed,

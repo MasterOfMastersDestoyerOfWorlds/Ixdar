@@ -135,8 +135,8 @@ public final class MotorcycleGraph {
     /**
      * Build the modified motorcycle graph T-mesh.
      *
-     * @return this graph with populated nodes, arcs, patches, and traces
      * @throws IllegalStateException when {@code seamless} has not been built
+     * @return this graph with populated nodes, arcs, patches, and traces
      */
     public MotorcycleGraph build() {
         long buildStartNanos = System.nanoTime();

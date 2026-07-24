@@ -25,21 +25,6 @@ public final class AdaptiveSolver {
     private AdaptiveSolver() {
     }
 
-    /** Per-thread Cholesky solver + scratch buffers for the local search. */
-    public final class SolverWorker {
-        final LinearSolverSparse<DMatrixSparseCSC, DMatrixRMaj> solver;
-        final DMatrixRMaj b;
-        final DMatrixRMaj x;
-
-        SolverWorker(int freeCount, DMatrixSparseCSC csc) {
-            var s = LinearSolverFactory_DSCC
-                    .cholesky(FillReducing.IDENTITY);
-            this.solver = s.setA(csc) ? s : null;
-            this.b = new DMatrixRMaj(freeCount, 1);
-            this.x = new DMatrixRMaj(freeCount, 1);
-        }
-    }
-
     /**
      * Solve after one or more independent integer variables have been rounded and
      * fixed. The local Gauss-Seidel seed is the union of each rounded variable's
@@ -466,6 +451,21 @@ public final class AdaptiveSolver {
         int n = matrix.size();
         if (matrix.rightHandSide.length != n || warmStart.length != n || fixed.length != n) {
             throw new IllegalArgumentException("matrix/vector size mismatch");
+        }
+    }
+
+    /** Per-thread Cholesky solver + scratch buffers for the local search. */
+    public final class SolverWorker {
+        final LinearSolverSparse<DMatrixSparseCSC, DMatrixRMaj> solver;
+        final DMatrixRMaj b;
+        final DMatrixRMaj x;
+
+        SolverWorker(int freeCount, DMatrixSparseCSC csc) {
+            var s = LinearSolverFactory_DSCC
+                    .cholesky(FillReducing.IDENTITY);
+            this.solver = s.setA(csc) ? s : null;
+            this.b = new DMatrixRMaj(freeCount, 1);
+            this.x = new DMatrixRMaj(freeCount, 1);
         }
     }
 

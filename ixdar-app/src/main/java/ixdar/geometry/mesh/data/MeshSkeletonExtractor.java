@@ -96,7 +96,7 @@ public final class MeshSkeletonExtractor {
         Vector3f bmax = mesh.boundsMax(new Vector3f());
         float extX = bmax.x - bmin.x, extY = bmax.y - bmin.y, extZ = bmax.z - bmin.z;
         float maxExt = Math.max(extX, Math.max(extY, extZ));
-        if (maxExt < NUM_1e_6) return empty(resolution);
+        if (maxExt < NUM_1e_6) return new SkeletonResult(resolution, 0, new float[MIN_PATH_LENGTH], List.of(), List.of());
 
         float vs = maxExt / resolution;
         float pad = 2 * vs;
@@ -512,10 +512,6 @@ public final class MeshSkeletonExtractor {
     private static float dist3(float[] a, float[] b) {
         float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
-    private static SkeletonResult empty(int resolution) {
-        return new SkeletonResult(resolution, 0, new float[MIN_PATH_LENGTH], List.of(), List.of());
     }
 
     /**

@@ -118,9 +118,9 @@ public class CrossField {
     public int interiorRowCount;
 
     /**
-     * 
+     *
      * Cross field construction.
-     * 
+     *
      * @param mesh half-edge mesh providing geometry, topology, and active-id
      *             mapping
      */

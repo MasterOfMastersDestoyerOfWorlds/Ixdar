@@ -69,6 +69,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`click-scan`](#click-scan) | Click through a grid until the scene leaves the menu. |
 | [`coverage-report`](#coverage-report) | Merge JaCoCo exec files and report the code they never executed. |
 | [`dsl-optimize`](#dsl-optimize) | Batch-optimize mesh DSL parameters against a reference OBJ. |
+| [`duplication-report`](#duplication-report) | Report duplicated code ranked by how much repetition factoring it out would remove. |
 | [`gen-docs`](#gen-docs) | Regenerate the CLAUDE.md command list and the CLI README from the manifest and registry. |
 | [`install-alias`](#install-alias) | Install a global ixdar-cli wrapper into ~/.local/bin. |
 | [`list-meshes`](#list-meshes) | List mesh files a scene can load, with the short names run-scene resolves. |
@@ -576,6 +577,17 @@ Batch-optimize mesh DSL parameters against a reference OBJ.
 - `--rounds` — Refinement rounds.
 - `--seed` — Random seed.
 - `--json` — Output best params to this JSON file (empty uses /tmp/dsl_best_params.json).
+
+### `duplication-report`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/duplication_report.py#L22)
+
+Report duplicated code ranked by how much repetition factoring it out would remove.
+
+- `--min-tokens` — Shortest token run counted as a clone; lower finds more and noisier matches.
+- `--package-filter` — Dotted or slashed package prefix; keeps clones with a site under it.
+- `--top` — How many clone classes to detail.
+- `--xml` — Reuse an existing CPD report instead of re-running PMD.
 
 ### `gen-docs`
 

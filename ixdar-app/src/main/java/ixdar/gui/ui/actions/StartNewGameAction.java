@@ -43,8 +43,21 @@ public class StartNewGameAction implements Action {
         // Generate 8-12 random cities
         int numCities = NUM_8 + random.nextInt(NUM_5);
 
-        String[] cityNames = cityNames();
-        String[][] resourcePairs = resourcePairs();
+        String[] cityNames = new String[] {
+                "Port Royal", "Kingston", "Nassau", "Havana", "Tortuga",
+                "Cartagena", "San Juan", "Barbados", "Trinidad", "Martinique",
+                "Santo Domingo", "Santiago", "Vera Cruz", "Panama City", "Portobelo"
+        };
+        String[][] resourcePairs = new String[][] {
+                { "sugar", "rum" },
+                { "tobacco", "cigars" },
+                { "cotton", "textiles" },
+                { "coffee", "spices" },
+                { "lumber", "ships" },
+                { "grain", "bread" },
+                { "ore", "tools" },
+                { "fish", "salt" }
+        };
 
         // Spread cities across a reasonable map area
         float mapWidth = NUM_800;
@@ -72,27 +85,6 @@ public class StartNewGameAction implements Action {
         }
 
         return cities;
-    }
-
-    private String[] cityNames() {
-        return new String[] {
-                "Port Royal", "Kingston", "Nassau", "Havana", "Tortuga",
-                "Cartagena", "San Juan", "Barbados", "Trinidad", "Martinique",
-                "Santo Domingo", "Santiago", "Vera Cruz", "Panama City", "Portobelo"
-        };
-    }
-
-    private String[][] resourcePairs() {
-        return new String[][] {
-                { "sugar", "rum" },
-                { "tobacco", "cigars" },
-                { "cotton", "textiles" },
-                { "coffee", "spices" },
-                { "lumber", "ships" },
-                { "grain", "bread" },
-                { "ore", "tools" },
-                { "fish", "salt" }
-        };
     }
 
 }

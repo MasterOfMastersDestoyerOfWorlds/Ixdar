@@ -21,11 +21,11 @@ public class CholeskyUpdate_DSCC extends CholeskyUpLooking_DSCC {
      * @param col column index of the diagonal entry to pin
      * @param mu  positive pin weight; pre-encoded into the working vector as
      *            {@code √μ}
-     * @return {@code true} if the update succeeded; {@code false} if a
-     *         downdate produced a non-positive-definite matrix
      * @throws UnsupportedOperationException if downdate is requested (not yet
      *         implemented; IGM rounding only updates)
      * @throws IllegalArgumentException      when {@code mu} is non-positive
+     * @return {@code true} if the update succeeded; {@code false} if a
+     *         downdate produced a non-positive-definite matrix
      */
     public boolean pinDiagonal(int col, double mu) {
         if (mu <= 0.0) {

@@ -41,9 +41,9 @@ public final class PatchRegionMapper {
      * Builds and solves the rectangle map for one patch.
      *
      * @param patchId patch to map
-     * @return the solved {@link PatchRectangleMap}
      * @throws IllegalStateException when the patch has no region, a boundary vertex is missing
      *                               from the region, or a face is not a triangle
+     * @return the solved {@link PatchRectangleMap}
      */
     public PatchRectangleMap mapPatch(int patchId) {
         List<Integer> regionFaces = regions.copyFacesByPatch.get(patchId);

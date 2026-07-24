@@ -37,9 +37,9 @@ public final class ThreeConnectivityRefinement {
      * <p>Because subdividing retriangulates the two faces on either side of each chord, any
      * {@link PatchRegions} built before this call is stale and must be rebuilt afterwards.
      *
-     * @return the number of chords subdivided
      * @throws IllegalStateException when a chord survives the pass, which would mean the refinement
      *                               created one and the single-pass argument above is wrong
+     * @return the number of chords subdivided
      */
     public int refine() {
         EmbeddedMeshTopology topology = tmesh.topology;

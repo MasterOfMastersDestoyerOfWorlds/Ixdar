@@ -125,9 +125,9 @@ public final class ZeroPatchCollapseOperator {
      *
      * @param firstArc  one boundary arc
      * @param secondArc the other
-     * @return the id of the surviving arc
      * @throws IllegalStateException when both arcs are feature arcs, a feature curve doubling
      *                               back on itself that the input should never produce
+     * @return the id of the surviving arc
      */
     private int chooseSurvivor(int firstArc, int secondArc) {
         boolean firstFeature = tmesh.arcs.get(firstArc).feature;

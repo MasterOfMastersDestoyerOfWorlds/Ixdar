@@ -120,7 +120,7 @@ public final class MathExpressionEvaluator {
             expect(')');
             return v;
         }
-        if (isAlpha(peek())) {
+        if (isAlpha(( pos < s.length() ? s.charAt(pos) : '\0'))) {
             String ident = parseIdent();
             skipWs();
             if (match('(')) {
@@ -133,9 +133,117 @@ public final class MathExpressionEvaluator {
                     }
                 }
                 expect(')');
-                return applyFunction(ident, args);
+                return switch (ident.toLowerCase()) {
+            // 1-arg: trig
+            case "sin" -> { requireArgs(ident, args, 1); yield Math.sin(args.get(0)); }
+            case "cos" -> { requireArgs(ident, args, 1); yield Math.cos(args.get(0)); }
+            case "tan" -> { requireArgs(ident, args, 1); yield Math.tan(args.get(0)); }
+            case "asin" -> { requireArgs(ident, args, 1); yield Math.asin(args.get(0)); }
+            case "acos" -> { requireArgs(ident, args, 1); yield Math.acos(args.get(0)); }
+            case "atan" -> { requireArgs(ident, args, 1); yield Math.atan(args.get(0)); }
+            // 1-arg: hyperbolic
+            case "sinh" -> { requireArgs(ident, args, 1); yield Math.sinh(args.get(0)); }
+            case "cosh" -> { requireArgs(ident, args, 1); yield Math.cosh(args.get(0)); }
+            case "tanh" -> { requireArgs(ident, args, 1); yield Math.tanh(args.get(0)); }
+            // 1-arg: rounding / sign
+            case "floor" -> { requireArgs(ident, args, 1); yield Math.floor(args.get(0)); }
+            case "ceil" -> { requireArgs(ident, args, 1); yield Math.ceil(args.get(0)); }
+            case "round" -> { requireArgs(ident, args, 1); yield Math.round(args.get(0)); }
+            case "sign" -> { requireArgs(ident, args, 1); yield Math.signum(args.get(0)); }
+            case "abs" -> { requireArgs(ident, args, 1); yield Math.abs(args.get(0)); }
+            case "fract" -> { requireArgs(ident, args, 1); double a = args.get(0); yield a - Math.floor(a); }
+            // 1-arg: exponential / logarithmic
+            case "exp" -> { requireArgs(ident, args, 1); yield Math.exp(args.get(0)); }
+            case "log" -> { requireArgs(ident, args, 1); yield Math.log(args.get(0)); }
+            case "log2" -> { requireArgs(ident, args, 1); yield Math.log(args.get(0)) / Math.log(NUM_2_0); }
+            case "log10" -> { requireArgs(ident, args, 1); yield Math.log10(args.get(0)); }
+            case "sqrt" -> { requireArgs(ident, args, 1); yield Math.sqrt(args.get(0)); }
+            // 1-arg: easing (quadratic, defined over [0,1])
+            case "ease_in" -> { requireArgs(ident, args, 1); double t = args.get(0); yield t * t; }
+            case "ease_out" -> { requireArgs(ident, args, 1); double t = args.get(0); yield 1.0 - (1.0 - t) * (1.0 - t); }
+            case "ease_in_out" -> {
+                requireArgs(ident, args, 1);
+                double t = args.get(0);
+                yield t < NUM_0_5 ? NUM_2_0 * t * t : 1.0 - NUM_2_0 * (1.0 - t) * (1.0 - t);
             }
-            return resolveVariable(ident);
+            // 2-arg
+            case "pow" -> { requireArgs(ident, args, 2); yield Math.pow(args.get(0), args.get(1)); }
+            case "min" -> { requireArgs(ident, args, 2); yield Math.min(args.get(0), args.get(1)); }
+            case "max" -> { requireArgs(ident, args, 2); yield Math.max(args.get(0), args.get(1)); }
+            case "mod" -> { requireArgs(ident, args, 2); yield args.get(0) % args.get(1); }
+            case "atan2" -> { requireArgs(ident, args, 2); yield Math.atan2(args.get(0), args.get(1)); }
+            case "step" -> {
+                requireArgs(ident, args, 2);
+                yield args.get(1) < args.get(0) ? 0.0 : 1.0;
+            }
+            case "pingpong" -> {
+                requireArgs(ident, args, 2);
+                double v = args.get(0);
+                double len = args.get(1);
+                if (len == 0.0) yield 0.0;
+                double t = v % (len * NUM_2_0);
+                if (t < 0.0) t += len * NUM_2_0;
+                yield len - Math.abs(t - len);
+            }
+            // 3-arg: interpolation / easing
+            case "clamp" -> {
+                requireArgs(ident, args, NUM_3);
+                yield Math.max(args.get(1), Math.min(args.get(2), args.get(0)));
+            }
+            case "smoothstep" -> {
+                requireArgs(ident, args, NUM_3);
+                double edge0 = args.get(0), edge1 = args.get(1), v = args.get(2);
+                if (edge0 == edge1) yield v < edge0 ? 0.0 : 1.0;
+                double t = (v - edge0) / (edge1 - edge0);
+                t = Math.max(0.0, Math.min(1.0, t));
+                yield t * t * (NUM_3_0 - NUM_2_0 * t);
+            }
+            case "smootherstep" -> {
+                requireArgs(ident, args, NUM_3);
+                double edge0 = args.get(0), edge1 = args.get(1), v = args.get(2);
+                if (edge0 == edge1) yield v < edge0 ? 0.0 : 1.0;
+                double t = (v - edge0) / (edge1 - edge0);
+                t = Math.max(0.0, Math.min(1.0, t));
+                yield t * t * t * (t * (t * NUM_6_0 - NUM_15_0) + NUM_10_0);
+            }
+            case "lerp" -> {
+                requireArgs(ident, args, NUM_3);
+                double a = args.get(0), b = args.get(1), t = args.get(2);
+                yield a + (b - a) * t;
+            }
+            case "inverselerp" -> {
+                requireArgs(ident, args, NUM_3);
+                double a = args.get(0), b = args.get(1), v = args.get(2);
+                if (a == b) yield 0.0;
+                yield (v - a) / (b - a);
+            }
+            case "smin" -> {
+                requireArgs(ident, args, NUM_3);
+                double a = args.get(0), b = args.get(1), k = args.get(2);
+                if (k <= 0.0) yield Math.min(a, b);
+                double h = Math.max(0.0, Math.min(1.0, NUM_0_5 + NUM_0_5 * (b - a) / k));
+                yield a * h + b * (1.0 - h) - k * h * (1.0 - h);
+            }
+            // 5-arg
+            case "remap" -> {
+                requireArgs(ident, args, NUM_5);
+                double v = args.get(0);
+                double inLo = args.get(1), inHi = args.get(2);
+                double outLo = args.get(NUM_3), outHi = args.get(NUM_4);
+                if (inLo == inHi) yield outLo;
+                double t = (v - inLo) / (inHi - inLo);
+                yield outLo + (outHi - outLo) * t;
+            }
+            default -> throw new IllegalArgumentException("Unknown function: " + ident);
+        };
+            }
+            return switch (ident.toLowerCase()) {
+            case "x" -> xValue;
+            case "pi" -> Math.PI;
+            case "e" -> Math.E;
+            case "tau" -> Math.PI * NUM_2_0;
+            default -> throw new IllegalArgumentException("Unknown variable: " + ident);
+        };
         }
         return parseNumber();
     }
@@ -165,126 +273,6 @@ public final class MathExpressionEvaluator {
             pos++;
         }
         return s.substring(start, pos);
-    }
-
-    // ── Variables & Constants ────────────────────────────────────────
-
-    private double resolveVariable(String name) {
-        return switch (name.toLowerCase()) {
-            case "x" -> xValue;
-            case "pi" -> Math.PI;
-            case "e" -> Math.E;
-            case "tau" -> Math.PI * NUM_2_0;
-            default -> throw new IllegalArgumentException("Unknown variable: " + name);
-        };
-    }
-
-    // ── Functions ────────────────────────────────────────────────────
-
-    private double applyFunction(String name, List<Double> args) {
-        return switch (name.toLowerCase()) {
-            // 1-arg: trig
-            case "sin" -> { requireArgs(name, args, 1); yield Math.sin(args.get(0)); }
-            case "cos" -> { requireArgs(name, args, 1); yield Math.cos(args.get(0)); }
-            case "tan" -> { requireArgs(name, args, 1); yield Math.tan(args.get(0)); }
-            case "asin" -> { requireArgs(name, args, 1); yield Math.asin(args.get(0)); }
-            case "acos" -> { requireArgs(name, args, 1); yield Math.acos(args.get(0)); }
-            case "atan" -> { requireArgs(name, args, 1); yield Math.atan(args.get(0)); }
-            // 1-arg: hyperbolic
-            case "sinh" -> { requireArgs(name, args, 1); yield Math.sinh(args.get(0)); }
-            case "cosh" -> { requireArgs(name, args, 1); yield Math.cosh(args.get(0)); }
-            case "tanh" -> { requireArgs(name, args, 1); yield Math.tanh(args.get(0)); }
-            // 1-arg: rounding / sign
-            case "floor" -> { requireArgs(name, args, 1); yield Math.floor(args.get(0)); }
-            case "ceil" -> { requireArgs(name, args, 1); yield Math.ceil(args.get(0)); }
-            case "round" -> { requireArgs(name, args, 1); yield Math.round(args.get(0)); }
-            case "sign" -> { requireArgs(name, args, 1); yield Math.signum(args.get(0)); }
-            case "abs" -> { requireArgs(name, args, 1); yield Math.abs(args.get(0)); }
-            case "fract" -> { requireArgs(name, args, 1); double a = args.get(0); yield a - Math.floor(a); }
-            // 1-arg: exponential / logarithmic
-            case "exp" -> { requireArgs(name, args, 1); yield Math.exp(args.get(0)); }
-            case "log" -> { requireArgs(name, args, 1); yield Math.log(args.get(0)); }
-            case "log2" -> { requireArgs(name, args, 1); yield Math.log(args.get(0)) / Math.log(NUM_2_0); }
-            case "log10" -> { requireArgs(name, args, 1); yield Math.log10(args.get(0)); }
-            case "sqrt" -> { requireArgs(name, args, 1); yield Math.sqrt(args.get(0)); }
-            // 1-arg: easing (quadratic, defined over [0,1])
-            case "ease_in" -> { requireArgs(name, args, 1); double t = args.get(0); yield t * t; }
-            case "ease_out" -> { requireArgs(name, args, 1); double t = args.get(0); yield 1.0 - (1.0 - t) * (1.0 - t); }
-            case "ease_in_out" -> {
-                requireArgs(name, args, 1);
-                double t = args.get(0);
-                yield t < NUM_0_5 ? NUM_2_0 * t * t : 1.0 - NUM_2_0 * (1.0 - t) * (1.0 - t);
-            }
-            // 2-arg
-            case "pow" -> { requireArgs(name, args, 2); yield Math.pow(args.get(0), args.get(1)); }
-            case "min" -> { requireArgs(name, args, 2); yield Math.min(args.get(0), args.get(1)); }
-            case "max" -> { requireArgs(name, args, 2); yield Math.max(args.get(0), args.get(1)); }
-            case "mod" -> { requireArgs(name, args, 2); yield args.get(0) % args.get(1); }
-            case "atan2" -> { requireArgs(name, args, 2); yield Math.atan2(args.get(0), args.get(1)); }
-            case "step" -> {
-                requireArgs(name, args, 2);
-                yield args.get(1) < args.get(0) ? 0.0 : 1.0;
-            }
-            case "pingpong" -> {
-                requireArgs(name, args, 2);
-                double v = args.get(0);
-                double len = args.get(1);
-                if (len == 0.0) yield 0.0;
-                double t = v % (len * NUM_2_0);
-                if (t < 0.0) t += len * NUM_2_0;
-                yield len - Math.abs(t - len);
-            }
-            // 3-arg: interpolation / easing
-            case "clamp" -> {
-                requireArgs(name, args, NUM_3);
-                yield Math.max(args.get(1), Math.min(args.get(2), args.get(0)));
-            }
-            case "smoothstep" -> {
-                requireArgs(name, args, NUM_3);
-                double edge0 = args.get(0), edge1 = args.get(1), v = args.get(2);
-                if (edge0 == edge1) yield v < edge0 ? 0.0 : 1.0;
-                double t = (v - edge0) / (edge1 - edge0);
-                t = Math.max(0.0, Math.min(1.0, t));
-                yield t * t * (NUM_3_0 - NUM_2_0 * t);
-            }
-            case "smootherstep" -> {
-                requireArgs(name, args, NUM_3);
-                double edge0 = args.get(0), edge1 = args.get(1), v = args.get(2);
-                if (edge0 == edge1) yield v < edge0 ? 0.0 : 1.0;
-                double t = (v - edge0) / (edge1 - edge0);
-                t = Math.max(0.0, Math.min(1.0, t));
-                yield t * t * t * (t * (t * NUM_6_0 - NUM_15_0) + NUM_10_0);
-            }
-            case "lerp" -> {
-                requireArgs(name, args, NUM_3);
-                double a = args.get(0), b = args.get(1), t = args.get(2);
-                yield a + (b - a) * t;
-            }
-            case "inverselerp" -> {
-                requireArgs(name, args, NUM_3);
-                double a = args.get(0), b = args.get(1), v = args.get(2);
-                if (a == b) yield 0.0;
-                yield (v - a) / (b - a);
-            }
-            case "smin" -> {
-                requireArgs(name, args, NUM_3);
-                double a = args.get(0), b = args.get(1), k = args.get(2);
-                if (k <= 0.0) yield Math.min(a, b);
-                double h = Math.max(0.0, Math.min(1.0, NUM_0_5 + NUM_0_5 * (b - a) / k));
-                yield a * h + b * (1.0 - h) - k * h * (1.0 - h);
-            }
-            // 5-arg
-            case "remap" -> {
-                requireArgs(name, args, NUM_5);
-                double v = args.get(0);
-                double inLo = args.get(1), inHi = args.get(2);
-                double outLo = args.get(NUM_3), outHi = args.get(NUM_4);
-                if (inLo == inHi) yield outLo;
-                double t = (v - inLo) / (inHi - inLo);
-                yield outLo + (outHi - outLo) * t;
-            }
-            default -> throw new IllegalArgumentException("Unknown function: " + name);
-        };
     }
 
     private static void requireArgs(String name, List<Double> args, int expected) {
@@ -317,10 +305,6 @@ public final class MathExpressionEvaluator {
             throw new IllegalArgumentException("Expected '" + c + AT_POSITION + pos);
         }
         pos++;
-    }
-
-    private char peek() {
-        return pos < s.length() ? s.charAt(pos) : '\0';
     }
 
     private boolean peekIs(char c) {

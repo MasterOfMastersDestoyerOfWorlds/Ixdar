@@ -166,7 +166,7 @@ public class CurvatureConstraints {
      * Directional constraints from principal curvature.
      *
      * @param targetQuadEdgeLength target quad edge length
-     * 
+     *
      * @return number of newly constrained faces
      */
     public int applyCurvatureConstraints(float targetQuadEdgeLength) {

@@ -653,7 +653,8 @@ public final class MorseSmaleComplex {
                     firstNeighbour = leftV;
                 }
                 ringList.add(rightV);
-                long key = edgeKey(v, rightV);
+                long key = v < rightV ? ((long) v << NUM_32) | (rightV & NUM_0xffffffff)
+                     : ((long) rightV << NUM_32) | (v & NUM_0xffffffff);
                 int[] adj = edgeFaces.get(key);
                 if (adj == null) { out[v] = null; break; }
                 int nextFace = (adj[0] == curFace) ? adj[1] : adj[0];
@@ -687,11 +688,6 @@ public final class MorseSmaleComplex {
             }
         }
         return out;
-    }
-
-    private static long edgeKey(int u, int v) {
-        return u < v ? ((long) u << NUM_32) | (v & NUM_0xffffffff)
-                     : ((long) v << NUM_32) | (u & NUM_0xffffffff);
     }
 
     private static int[][] buildOneRing(EdgeDihedrals ed, int nv) {

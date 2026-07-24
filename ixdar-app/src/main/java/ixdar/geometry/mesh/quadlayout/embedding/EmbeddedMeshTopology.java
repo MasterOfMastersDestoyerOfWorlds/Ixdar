@@ -30,9 +30,6 @@ public final class EmbeddedMeshTopology {
     /** Corners (and edges) of a triangle. */
     private static final int CORNERS = 3;
 
-    /** Message fragment naming a copy face. */
-    private static final String COPY_FACE = "copy face ";
-
     public final HalfEdgeMesh sourceMesh;
     public final HalfEdgeMesh copy;
 
@@ -191,9 +188,9 @@ public final class EmbeddedMeshTopology {
      *
      * @param copyEdgeId copy edge to split
      * @param parameter  position along the edge in {@code (0, 1)}
-     * @return the minted vertex id
      * @throws IllegalStateException when neither incident source face carries
      *                               barycentric coordinates for both endpoints
+     * @return the minted vertex id
      */
     public int splitEdgeAtParameter(int copyEdgeId, double parameter) {
         int halfEdge = copy.edgeHalfEdge(copyEdgeId);
@@ -233,8 +230,8 @@ public final class EmbeddedMeshTopology {
      *
      * @param copyFaceId  copy face to split
      * @param barycentric barycentric triple against the source face's corners
-     * @return the minted vertex id
      * @throws IllegalStateException when the point is not strictly inside the face
+     * @return the minted vertex id
      */
     public int splitFaceAtBarycentric(int copyFaceId, double[] barycentric) {
         int sourceFace = sourceFaceByCopyFace[copyFaceId];
@@ -260,11 +257,11 @@ public final class EmbeddedMeshTopology {
             double[] to = barycentricOf(sourceFace,
                     copy.faceVertexAt(copyFaceId, (corner + 1) % CORNERS));
             if (from == null || to == null) {
-                throw new IllegalStateException(COPY_FACE + copyFaceId
+                throw new IllegalStateException("copy face " + copyFaceId
                         + " has a corner with no barycentric in source face " + sourceFace);
             }
             if (ExactBarycentricOrient.sign(from, to, barycentric) <= 0) {
-                throw new IllegalStateException(COPY_FACE + copyFaceId
+                throw new IllegalStateException("copy face " + copyFaceId
                         + " cannot be split at " + Arrays.toString(barycentric)
                         + ": the point is not strictly inside it");
             }

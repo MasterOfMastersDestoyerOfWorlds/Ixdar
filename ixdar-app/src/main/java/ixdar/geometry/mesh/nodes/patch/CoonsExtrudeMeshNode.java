@@ -313,7 +313,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
 
         for (Map.Entry<Long, List<int[]>> e : vertIncidence.entrySet()) {
             long key = e.getKey();
-            int origVid = unpackVid(key);
+            int origVid = (int) (key >>> NUM_32);
             List<int[]> uses = e.getValue();
 
             Vector3f avgN = new Vector3f();
@@ -450,10 +450,6 @@ public class CoonsExtrudeMeshNode implements MeshNode {
     /** Packs (vertexId, componentId) into a long for use as a hash map key. */
     private static long packVidComp(int vid, int compId) {
         return ((long) vid << NUM_32) | (compId & NUM_0xFFFFFFFF);
-    }
-
-    private static int unpackVid(long key) {
-        return (int) (key >>> NUM_32);
     }
 
     // ----------------------------------------------------------------------
@@ -710,11 +706,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         int twin = in.halfEdgeTwin(he);
         int f1 = in.halfEdgeFace(he);
         int f2 = twin >= 0 ? in.halfEdgeFace(twin) : MeshTopology.NONE;
-        return !bothSelected(f1, f2, in, selected);
-    }
-
-    private static boolean bothSelected(int fid1, int fid2, MeshTopology in, boolean[] selected) {
-        return isFaceSelected(fid1, in, selected) && isFaceSelected(fid2, in, selected);
+        return !( isFaceSelected(f1, in, selected) && isFaceSelected(f2, in, selected));
     }
 
     private static boolean isFaceSelected(int fid, MeshTopology in, boolean[] selected) {

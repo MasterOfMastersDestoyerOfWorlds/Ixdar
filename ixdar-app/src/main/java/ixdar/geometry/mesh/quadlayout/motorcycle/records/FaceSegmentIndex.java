@@ -167,32 +167,6 @@ public final class FaceSegmentIndex {
                 && hitU == existing.entryU && hitV == existing.entryV;
     }
 
-    /** Result of {@link #earliestIntersection}: matched segment plus chord hit data. */
-    public static final class IntersectionHit {
-        public final TraceSegment otherSegment;
-        public final double tAlongCandidate;
-        public final double intersectionU;
-        public final double intersectionV;
-
-        /**
-         * One earliest-intersection record between a candidate chord and an
-         * existing trace segment.
-         *
-         * @param otherSegment     matched existing segment
-         * @param tAlongCandidate  parametric distance along the candidate from
-         *                         its entry to the intersection
-         * @param intersectionU    intersection u in the face chart
-         * @param intersectionV    intersection v in the face chart
-         */
-        public IntersectionHit(TraceSegment otherSegment, double tAlongCandidate,
-                double intersectionU, double intersectionV) {
-            this.otherSegment = otherSegment;
-            this.tAlongCandidate = tAlongCandidate;
-            this.intersectionU = intersectionU;
-            this.intersectionV = intersectionV;
-        }
-    }
-
     /**
      * Whether an existing segment belongs to the candidate trace's own current
      * face visit or one within {@link #SELF_CROSS_ADJACENT_VISITS} of it, in which
@@ -331,5 +305,31 @@ public final class FaceSegmentIndex {
         double s0 = axis.holdsUConstant() ? e0v : e0u;
         double s1 = axis.holdsUConstant() ? e1v : e1u;
         return span >= Math.min(s0, s1) && span <= Math.max(s0, s1);
+    }
+
+    /** Result of {@link #earliestIntersection}: matched segment plus chord hit data. */
+    public static final class IntersectionHit {
+        public final TraceSegment otherSegment;
+        public final double tAlongCandidate;
+        public final double intersectionU;
+        public final double intersectionV;
+
+        /**
+         * One earliest-intersection record between a candidate chord and an
+         * existing trace segment.
+         *
+         * @param otherSegment     matched existing segment
+         * @param tAlongCandidate  parametric distance along the candidate from
+         *                         its entry to the intersection
+         * @param intersectionU    intersection u in the face chart
+         * @param intersectionV    intersection v in the face chart
+         */
+        public IntersectionHit(TraceSegment otherSegment, double tAlongCandidate,
+                double intersectionU, double intersectionV) {
+            this.otherSegment = otherSegment;
+            this.tAlongCandidate = tAlongCandidate;
+            this.intersectionU = intersectionU;
+            this.intersectionV = intersectionV;
+        }
     }
 }

@@ -30,12 +30,6 @@ public final class LayoutSeamAudit {
     /** Floats per packed xyz grid point. */
     private static final int VEC3_COMPONENTS = 3;
 
-    /** Separator between the two endpoint keys of a segment key. */
-    private static final String ENDPOINT_SEPARATOR = "|";
-
-    /** Separator between the cell coordinates of a point key. */
-    private static final String COORDINATE_SEPARATOR = ",";
-
     public final LayoutPatchGeometry geometry;
 
     /** Patches with a tessellated grid that entered the audit. */
@@ -216,8 +210,8 @@ public final class LayoutSeamAudit {
         String first = pointKey(segment.start, cellSize);
         String second = pointKey(segment.end, cellSize);
         return first.compareTo(second) <= 0
-                ? first + ENDPOINT_SEPARATOR + second
-                : second + ENDPOINT_SEPARATOR + first;
+                ? first + "|" + second
+                : second + "|" + first;
     }
 
     /**
@@ -228,8 +222,8 @@ public final class LayoutSeamAudit {
      * @return cell coordinate key of the point
      */
     private static String pointKey(Vector3f point, double cellSize) {
-        return Math.round(point.x / cellSize) + COORDINATE_SEPARATOR
-                + Math.round(point.y / cellSize) + COORDINATE_SEPARATOR
+        return Math.round(point.x / cellSize) + ","
+                + Math.round(point.y / cellSize) + ","
                 + Math.round(point.z / cellSize);
     }
 }

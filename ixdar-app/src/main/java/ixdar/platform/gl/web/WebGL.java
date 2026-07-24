@@ -380,7 +380,7 @@ public class WebGL implements GL {
     /** {@inheritDoc}. */
     @Override
     public void bindTexture2D(int id) {
-        gl.bindTexture(WebGLRenderingContext.TEXTURE_2D, texture(id));
+        gl.bindTexture(WebGLRenderingContext.TEXTURE_2D, textureMap.get(id));
     }
 
     /** {@inheritDoc}. */
@@ -544,10 +544,6 @@ public class WebGL implements GL {
 
     private WebGLBuffer buffer(int id) {
         return bufferMap.get(id);
-    }
-
-    private WebGLTexture texture(int id) {
-        return textureMap.get(id);
     }
 
     private WebGLUniformLocation uniform(int id) {

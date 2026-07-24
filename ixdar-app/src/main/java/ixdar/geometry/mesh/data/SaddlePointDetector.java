@@ -134,7 +134,7 @@ public final class SaddlePointDetector {
                 }
             }
             if (best < 0) break;
-            out.add(edgeKey(v, best));
+            out.add(( v < best ? ((long) v << NUM_32) | (best & NUM_0xffffffff) : ((long) best << NUM_32) | (v & NUM_0xffffffff)));
             float ex = positions[best * NUM_3]     - positions[v * NUM_3];
             float ey = positions[best * NUM_3 + 1] - positions[v * NUM_3 + 1];
             float ez = positions[best * NUM_3 + 2] - positions[v * NUM_3 + 2];
@@ -176,10 +176,6 @@ public final class SaddlePointDetector {
             out[i] = arr;
         }
         return out;
-    }
-
-    private static long edgeKey(int u, int v) {
-        return u < v ? ((long) u << NUM_32) | (v & NUM_0xffffffff) : ((long) v << NUM_32) | (u & NUM_0xffffffff);
     }
 
     /** Separator edges + seed vertex ids for diagnostic overlay. */

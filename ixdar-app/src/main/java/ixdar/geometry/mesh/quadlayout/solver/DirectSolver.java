@@ -5,44 +5,6 @@ import java.util.Arrays;
 public final class DirectSolver {
 
     /**
-     * Pre-computed Cholesky factorization plus the permutation, index mapping, and
-     * scratch vectors needed to apply it to a right-hand side.
-     *
-     * <p>
-     * <strong>Not thread-safe</strong>: the backing factor holds scratch state during
-     * {@code solve()}. {@link FactorizedSystem#release()} must be called when the
-     * handle is discarded, since native backends hold off-heap memory.
-     *
-     * @param n               full-matrix dimension (size of the original
-     *                        {@link NormalMatrix})
-     * @param freeCount       number of free (non-fixed) variables
-     * @param compactOf       {@code compactOf[fullIndex]} = compact (free-only)
-     *                        index, or -1 if fixed
-     * @param fullOf          {@code fullOf[compactIndex]} = original full-matrix
-     *                        row/col
-     * @param perm            {@code perm[newCompactIndex]} = old compact index
-     *                        (fill-reducing ordering)
-     * @param invPerm         {@code invPerm[oldCompactIndex]} = new compact index
-     * @param factor          backend factorization; {@code null} when
-     *                        {@code freeCount == 0}
-     * @param rhsScratch      reusable RHS vector in permuted (new-compact) order;
-     *                        {@code null} when {@code freeCount == 0}
-     * @param solutionScratch reusable solution vector in permuted (new-compact)
-     *                        order; {@code null} when {@code freeCount == 0}
-     */
-    public record CholeskyHandle(
-            int n,
-            int freeCount,
-            int[] compactOf,
-            int[] fullOf,
-            int[] perm,
-            int[] invPerm,
-            FactorizedSystem factor,
-            double[] rhsScratch,
-            double[] solutionScratch) {
-    }
-
-    /**
      * Factorize the compact system for the free variables (those with
      * {@code !fixed[i]}) using a sparse Cholesky factorization with the
      * requested fill-reducing ordering.
@@ -90,9 +52,9 @@ public final class DirectSolver {
      * @param perm   cached {@code perm[newCompactIndex] = oldCompactIndex}
      *               from a prior {@link SolverPermutation#computePermutation}
      *               call
-     * @return the Cholesky handle
      * @throws IllegalArgumentException if {@code perm.length} does not
      *                                  match the free-variable count
+     * @return the Cholesky handle
      */
     public static CholeskyHandle factorizeWithPerm(NormalMatrix matrix,
             boolean[] fixed, int[] perm) {
@@ -249,5 +211,43 @@ public final class DirectSolver {
         if (handle.factor() != null) {
             handle.factor().release();
         }
+    }
+
+    /**
+     * Pre-computed Cholesky factorization plus the permutation, index mapping, and
+     * scratch vectors needed to apply it to a right-hand side.
+     *
+     * <p>
+     * <strong>Not thread-safe</strong>: the backing factor holds scratch state during
+     * {@code solve()}. {@link FactorizedSystem#release()} must be called when the
+     * handle is discarded, since native backends hold off-heap memory.
+     *
+     * @param n               full-matrix dimension (size of the original
+     *                        {@link NormalMatrix})
+     * @param freeCount       number of free (non-fixed) variables
+     * @param compactOf       {@code compactOf[fullIndex]} = compact (free-only)
+     *                        index, or -1 if fixed
+     * @param fullOf          {@code fullOf[compactIndex]} = original full-matrix
+     *                        row/col
+     * @param perm            {@code perm[newCompactIndex]} = old compact index
+     *                        (fill-reducing ordering)
+     * @param invPerm         {@code invPerm[oldCompactIndex]} = new compact index
+     * @param factor          backend factorization; {@code null} when
+     *                        {@code freeCount == 0}
+     * @param rhsScratch      reusable RHS vector in permuted (new-compact) order;
+     *                        {@code null} when {@code freeCount == 0}
+     * @param solutionScratch reusable solution vector in permuted (new-compact)
+     *                        order; {@code null} when {@code freeCount == 0}
+     */
+    public record CholeskyHandle(
+            int n,
+            int freeCount,
+            int[] compactOf,
+            int[] fullOf,
+            int[] perm,
+            int[] invPerm,
+            FactorizedSystem factor,
+            double[] rhsScratch,
+            double[] solutionScratch) {
     }
 }

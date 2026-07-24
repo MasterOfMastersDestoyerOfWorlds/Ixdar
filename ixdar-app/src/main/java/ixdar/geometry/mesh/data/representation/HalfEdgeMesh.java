@@ -1179,6 +1179,25 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return new EdgeFaceIds(eId, edgeStartVertex, edgeEndVertex, he, twin, faceA, faceB);
     }
 
+    /**
+     * Vertex-edge-incidence struct for one outgoing edge of a vertex.
+     *
+     * @param vertexId    vertex id
+     * @param activeIndex index into the vertex's outgoing-edge fan
+     * @return both half-edges, both incident faces, and both endpoint vertices
+     */
+    public VertexFaceIds vertexFaceIds(int vertexId, int activeIndex) {
+        int edgeId = vertexEdgeAt(vertexId, activeIndex);
+        int halfEdge = edgeHalfEdge(edgeId);
+        int edgeStartVertex = halfEdgeVertex(halfEdge);
+        int edgeEndVertex = halfEdgeEndVertex(halfEdge);
+        int twinHalfEdge = halfEdgeTwin(halfEdge);
+        int leftFaceId = halfEdgeFace(halfEdge);
+        int rightFaceId = halfEdgeFace(twinHalfEdge);
+        return new VertexFaceIds(vertexId, edgeId, halfEdge, edgeStartVertex, edgeEndVertex, twinHalfEdge, leftFaceId,
+                rightFaceId);
+    }
+
     /** Bundled adjacency for one edge: both half-edges, both faces, both endpoints. */
     public static final class EdgeFaceIds {
         public final int edgeId;
@@ -1211,25 +1230,6 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
             this.faceA = faceA;
             this.faceB = faceB;
         }
-    }
-
-    /**
-     * Vertex-edge-incidence struct for one outgoing edge of a vertex.
-     *
-     * @param vertexId    vertex id
-     * @param activeIndex index into the vertex's outgoing-edge fan
-     * @return both half-edges, both incident faces, and both endpoint vertices
-     */
-    public VertexFaceIds vertexFaceIds(int vertexId, int activeIndex) {
-        int edgeId = vertexEdgeAt(vertexId, activeIndex);
-        int halfEdge = edgeHalfEdge(edgeId);
-        int edgeStartVertex = halfEdgeVertex(halfEdge);
-        int edgeEndVertex = halfEdgeEndVertex(halfEdge);
-        int twinHalfEdge = halfEdgeTwin(halfEdge);
-        int leftFaceId = halfEdgeFace(halfEdge);
-        int rightFaceId = halfEdgeFace(twinHalfEdge);
-        return new VertexFaceIds(vertexId, edgeId, halfEdge, edgeStartVertex, edgeEndVertex, twinHalfEdge, leftFaceId,
-                rightFaceId);
     }
 
     /** Bundled adjacency for one outgoing edge of a specific vertex. */

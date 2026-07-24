@@ -238,11 +238,11 @@ public final class ExactArithmetic {
      * @param coefficients integer coefficients
      * @param values       paired values, each in {@code F_d}
      * @param d            the {@code F_d} scale
-     * @return the exact dot product, in {@code F_d}
      * @throws IllegalArgumentException if {@code coefficients} and {@code values}
      *         have different lengths
      * @throws ArithmeticException if a partial sum would exceed {@code (-d, +d)},
      *         indicating the input violated the safeDot range precondition
+     * @return the exact dot product, in {@code F_d}
      */
     public static double safeDot(BigInteger[] coefficients, double[] values, double d) {
         if (coefficients.length != values.length) {
@@ -426,9 +426,9 @@ public final class ExactArithmetic {
      * @param row       the row whose pivot lies at {@code pivotColumn}
      * @param pivotColumn the implied-variable's column index
      * @param d         the {@code F_d} scale
-     * @return the exact value for {@code x[pivotColumn]}
      * @throws ArithmeticException if a non-divisible coefficient or right-hand
      *         side is encountered (signals an inconsistent reduced system)
+     * @return the exact value for {@code x[pivotColumn]}
      */
     private static double computeImpliedValue(IrrefResult irref, double[] x,
             int row, int pivotColumn, double d) {
@@ -467,8 +467,8 @@ public final class ExactArithmetic {
      * package's output depends on.
      *
      * @param rotation integer rotation in {@code {0, 1, 2, 3}}
-     * @return the integer cosine in {@code {-1, 0, +1}}
      * @throws IllegalArgumentException if {@code rotation} is not in {@code {0, 1, 2, 3}}
+     * @return the integer cosine in {@code {-1, 0, +1}}
      */
     public static int integerCosine(int rotation) {
         switch (rotation) {
@@ -491,8 +491,8 @@ public final class ExactArithmetic {
      * instead of {@code Math.sin}.
      *
      * @param rotation integer rotation in {@code {0, 1, 2, 3}}
-     * @return the integer sine in {@code {-1, 0, +1}}
      * @throws IllegalArgumentException if {@code rotation} is not in {@code {0, 1, 2, 3}}
+     * @return the integer sine in {@code {-1, 0, +1}}
      */
     public static int integerSine(int rotation) {
         switch (rotation) {

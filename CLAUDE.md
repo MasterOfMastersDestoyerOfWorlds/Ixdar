@@ -53,7 +53,7 @@ Methods are the opposite default: `private` unless the class genuinely exposes t
 
 ### Single-caller private methods
 
-Default: **don't extract them.** A private method that is only ever called from one place earns its existence only by being (a) a complete logical unit you can name without referring to its caller, and (b) substantial — roughly 10+ lines, or non-trivial enough that inlining would meaningfully hurt readability. "I like helper methods" is not a reason; the helper is then just an indirection layer hiding the real flow.
+Default: **don't extract them.** A private method that is only ever called from one place earns its existence only by being (a) a complete logical unit you can name without referring to its caller, and (b) substantial — roughly 20+ lines, or non-trivial enough that inlining would meaningfully hurt readability. "I like helper methods" is not a reason; the helper is then just an indirection layer hiding the real flow.
 
 **A loop body is not a helper.** Extracting `perFooThing(int i)` so the caller can write `for (...) perFooThing(i)` adds no information — the loop and its body already say "do this per element." Keep the work inline. Helpers exist to name a *concept*, not to shave lines off a loop. The same goes for `if`-branch bodies: don't extract a 6-line method just because it's the body of one branch.
 
@@ -72,7 +72,7 @@ This rule has a custom checkstyle module (`SingleCallerHelperCheck`, currently d
 
 - **Declaration order** (`DeclarationOrder`): static fields → instance fields → constructors → methods. Within each field bucket, `public → protected → package → private`. The autofix recipe reorders this for you, but write it right the first time.
 - **Magic numbers:** literals other than `-1, 0, 1, 2` must be named constants. Field initializers and annotations are exempt.
-- **Duplicated string literals:** the same string repeated more than once should be a constant.
+- **Duplicated string literals:** a repeated string that *carries meaning* — a map key, a format string, a system-property name, a file path — should be a constant. A repeated string that is only **string-assembly glue** — an operand of `+`, or an `append(...)` argument — stays inline, however often it repeats. `ARC = "arc "`, `AND = " and "`, `CLOSE_PAREN = ")"` name nothing; they are punctuation wearing a constant's clothes, and they push the declarations a reader actually needs off the top of the file. Usage decides this, not length: `KEY_FACES = "Faces"` is real and `" and "` is glue at the same character count. `MeaningfulDuplicateStringLiteralsCheck` enforces exactly this, and `InlineGlueStringConstantsRecipe` inlines glue constants back automatically.
 - **No inline fully-qualified class names:** write `Collectors.toSet()` with an import, not `java.util.stream.Collectors.toSet()`. The only exception is genuine simple-name collisions across packages.
 
 # Profiling
@@ -192,6 +192,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli click-scan` — Click through a grid until the scene leaves the menu.
 - `ixdar-cli coverage-report` — Merge JaCoCo exec files and report the code they never executed.
 - `ixdar-cli dsl-optimize` — Batch-optimize mesh DSL parameters against a reference OBJ.
+- `ixdar-cli duplication-report` — Report duplicated code ranked by how much repetition factoring it out would remove.
 - `ixdar-cli gen-docs` — Regenerate the CLAUDE.md command list and the CLI README from the manifest and registry.
 - `ixdar-cli install-alias` — Install a global ixdar-cli wrapper into ~/.local/bin.
 - `ixdar-cli list-meshes` — List mesh files a scene can load, with the short names run-scene resolves.

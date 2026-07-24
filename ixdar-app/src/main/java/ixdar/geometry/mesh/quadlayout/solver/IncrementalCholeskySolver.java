@@ -63,9 +63,9 @@ public final class IncrementalCholeskySolver {
      *               used
      * @param perm   cached column permutation from a prior
      *               {@link SolverPermutation#computePermutation} call
+     * @throws IllegalArgumentException if {@code perm.length != matrix.size()}
      * @return {@code true} iff the matrix was positive definite and the
      *         factor succeeded
-     * @throws IllegalArgumentException if {@code perm.length != matrix.size()}
      */
     public boolean setAWithPerm(NormalMatrix matrix, int[] perm) {
         dimension = matrix.size();

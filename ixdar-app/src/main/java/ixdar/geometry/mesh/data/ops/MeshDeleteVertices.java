@@ -64,7 +64,7 @@ public final class MeshDeleteVertices {
             }
         }
         if (!any) {
-            return copyMesh(mesh);
+            return MeshVertexOffset.apply(mesh, new Vector3Value(0f, 0f, 0f));
         }
 
         if (mesh instanceof ArrayMesh am) {
@@ -114,9 +114,5 @@ public final class MeshDeleteVertices {
             }
         }
         return -1;
-    }
-
-    private static MeshTopology copyMesh(MeshTopology mesh) {
-        return MeshVertexOffset.apply(mesh, new Vector3Value(0f, 0f, 0f));
     }
 }

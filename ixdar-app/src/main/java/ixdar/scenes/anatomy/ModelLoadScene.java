@@ -30,7 +30,7 @@ public class ModelLoadScene extends Scene {
             Platforms.get().log("[ModelLoadScene] Loaded " + MODEL_FILE_NAME + " via ASSIMP"
                     + " vertices=" + model.vertexCount
                     + " triangles=" + model.triangleCount
-                    + " center=" + vec3(model.center) + " radius=" + model.radius
+                    + " center=" + String.format("(%.3f, %.3f, %.3f)", model.center.x, model.center.y, model.center.z) + " radius=" + model.radius
                     + " path=" + assetPath);
             modelLoaded = true;
         } catch (Exception e) {
@@ -67,9 +67,5 @@ public class ModelLoadScene extends Scene {
             model = null;
             modelLoaded = false;
         }
-    }
-
-    private String vec3(Vector3f v) {
-        return String.format("(%.3f, %.3f, %.3f)", v.x, v.y, v.z);
     }
 }

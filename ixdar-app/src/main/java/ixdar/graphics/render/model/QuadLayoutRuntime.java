@@ -1191,21 +1191,17 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             if (count <= 0) {
                 continue;
             }
-            Color color = constraintSourceColor(source);
-            crossFieldShader.setVec4(U_LINE_COLOR, color);
-            crossFieldShader.setVec4(V_LINE_COLOR, color);
-            int offsetBytes = constraintRangeStart[source.ordinal()] * Integer.BYTES;
-            gl.drawElements(gl.TRIANGLES(), count, gl.UNSIGNED_INT(), offsetBytes);
-        }
-    }
-
-    private static Color constraintSourceColor(ConstraintSource source) {
-        return switch (source) {
+            Color color = switch (source) {
         case BOUNDARY -> COLOR_CONSTRAINT_BOUNDARY;
         case FEATURE -> COLOR_CONSTRAINT_FEATURE;
         case CURVATURE -> COLOR_CONSTRAINT_CURVATURE;
         default -> COLOR_CONSTRAINT_ANCHOR;
         };
+            crossFieldShader.setVec4(U_LINE_COLOR, color);
+            crossFieldShader.setVec4(V_LINE_COLOR, color);
+            int offsetBytes = constraintRangeStart[source.ordinal()] * Integer.BYTES;
+            gl.drawElements(gl.TRIANGLES(), count, gl.UNSIGNED_INT(), offsetBytes);
+        }
     }
 
     private void renderGraphNodes(Camera3D camera) {

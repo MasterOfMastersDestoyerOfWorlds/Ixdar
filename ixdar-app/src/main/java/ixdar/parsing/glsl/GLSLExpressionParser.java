@@ -845,7 +845,7 @@ public class GLSLExpressionParser {
             expect(')');
             return v;
         }
-        if (isAlpha(peek())) {
+        if (isAlpha(( pos < s.length() ? s.charAt(pos) : '\0'))) {
             String ident = parseIdent();
             skipWs();
             if (match('(')) {
@@ -1154,10 +1154,6 @@ public class GLSLExpressionParser {
     private void expect(char c) {
         if (!match(c))
             throw new RuntimeException("Expected '" + c + "' at " + pos);
-    }
-
-    private char peek() {
-        return pos < s.length() ? s.charAt(pos) : '\0';
     }
 
     private boolean peekIs(char c) {

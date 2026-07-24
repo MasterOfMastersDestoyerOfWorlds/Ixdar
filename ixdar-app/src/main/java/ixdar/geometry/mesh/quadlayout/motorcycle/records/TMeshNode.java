@@ -9,21 +9,6 @@ import org.joml.Vector3f;
  */
 public final class TMeshNode {
 
-    public enum Type {
-        /** Interior or boundary singularity origin. */
-        SINGULARITY,
-        /** Trace-trace intersection. */
-        INTERSECTION,
-        /** Trace terminated on mesh boundary. */
-        BOUNDARY,
-        /** Feature / alignment trace endpoint. */
-        FEATURE,
-        /**
-         * Safety-net terminus for traces that died mid-walk (e.g. vertex degeneracy).
-         */
-        TRUNCATED
-    }
-
     public final int nodeId;
     public final Type type;
 
@@ -64,5 +49,20 @@ public final class TMeshNode {
         this.u = u;
         this.v = v;
         this.position = position;
+    }
+
+    public enum Type {
+        /** Interior or boundary singularity origin. */
+        SINGULARITY,
+        /** Trace-trace intersection. */
+        INTERSECTION,
+        /** Trace terminated on mesh boundary. */
+        BOUNDARY,
+        /** Feature / alignment trace endpoint. */
+        FEATURE,
+        /**
+         * Safety-net terminus for traces that died mid-walk (e.g. vertex degeneracy).
+         */
+        TRUNCATED
     }
 }

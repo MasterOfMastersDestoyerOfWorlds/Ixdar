@@ -19,7 +19,6 @@ import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
  * which edges are seams, the per-face branch labels, the seam rotation
  * transitions, the chart-vertex identification, and the dense numbering of
  * interior seam edges.
- *
  */
 public class CutGraph {
 
@@ -118,7 +117,7 @@ public class CutGraph {
 
     /**
      * Constructor.
-     * 
+     *
      * @param mesh                     the mesh
      * @param crossField               the cross field
      * @param seamlessParameterization the seamless parameterization
@@ -214,7 +213,7 @@ public class CutGraph {
 
     /**
      * Count, per active vertex, how many of its incident edges are currently cut.
-     * 
+     *
      * @return the cut degree array
      */
     private int[] computeCutDegree() {
@@ -233,7 +232,6 @@ public class CutGraph {
      * Repeatedly remove the lone cut edge at any non-singularity, non-boundary
      * vertex with cut-degree 1, until none remain — this strips the dead branches
      * left by the spanning-tree complement. Boundary edges are never removed.
-     * 
      */
     private void trimDanglingBranches() {
         Set<Integer> singularityVertexIds = new HashSet<>();
@@ -285,7 +283,6 @@ public class CutGraph {
     /**
      * Route every interior singularity that is not already on the cut to it along
      * the shortest mesh-edge path.
-     * 
      */
     private void connectDetachedSingularities() {
         for (Singularity singularity : crossField.singularities) {
@@ -483,7 +480,7 @@ public class CutGraph {
 
     /**
      * Union-find {@code find} with path halving.
-     * 
+     *
      * @param parent the parent array
      * @param corner the corner to find
      * @return the root of the corner
@@ -498,7 +495,7 @@ public class CutGraph {
 
     /**
      * Union-find {@code union} by rank.
-     * 
+     *
      * @param parent  the parent array
      * @param rank    the rank array
      * @param cornerA the first corner
@@ -542,8 +539,8 @@ public class CutGraph {
      * Map a {@link HalfEdgeMesh} vertex id to its dense active-vertex index. The
      * lookup table is built on first call (the mesh may have holes, so id ≠ index).
      *
-     * @throws IllegalStateException if {@code vertexId} is not a live mesh vertex
      * @param vertexId the vertex id to map
+     * @throws IllegalStateException if {@code vertexId} is not a live mesh vertex
      * @return the dense active-vertex index
      */
     public int activeVertexIndex(int vertexId) {

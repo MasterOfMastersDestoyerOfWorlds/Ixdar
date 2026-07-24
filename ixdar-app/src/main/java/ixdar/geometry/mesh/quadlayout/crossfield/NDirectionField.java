@@ -96,9 +96,9 @@ public class NDirectionField extends CrossField {
     private double[] angleDefect;
 
     /**
-     * 
+     *
      * Cross field construction.
-     * 
+     *
      * @param mesh half-edge mesh providing geometry, topology, and active-id
      *             mapping
      */
@@ -708,7 +708,7 @@ public class NDirectionField extends CrossField {
 
     /**
      * Compute the per-triangle singularity index.
-     * 
+     *
      * @return the index in {-1,0,1} for each face (in {@code faceIdAt} order).
      */
     public int[] computeTriangleIndices() {
@@ -744,7 +744,7 @@ public class NDirectionField extends CrossField {
 
     /**
      * Compute the cotangent of the opposite angle of a face.
-     * 
+     *
      * @param faceId the id of the face
      * @param pId    the id of the first vertex
      * @param qId    the id of the second vertex
@@ -803,10 +803,6 @@ public class NDirectionField extends CrossField {
 
     private double getAngle(int vId, int he) {
         return angleInFrame.getOrDefault((((long) vId) << 32) | (he & 0xFFFFFFFFL), 0.0);
-    }
-
-    /** Upper-triangle complex matrix in coordinate form (real diagonal). */
-    private record ComplexUpper(double[] diag, Map<Long, Double> upRe, Map<Long, Double> upIm) {
     }
 
     /**
@@ -977,5 +973,9 @@ public class NDirectionField extends CrossField {
                     ? theta[bestNeighbor] + kappa[bestEdgeActive]
                     : theta[bestNeighbor] - kappa[bestEdgeActive]);
         }
+    }
+
+    /** Upper-triangle complex matrix in coordinate form (real diagonal). */
+    private record ComplexUpper(double[] diag, Map<Long, Double> upRe, Map<Long, Double> upIm) {
     }
 }

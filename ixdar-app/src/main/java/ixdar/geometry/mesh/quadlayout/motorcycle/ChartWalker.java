@@ -28,101 +28,6 @@ public final class ChartWalker {
     }
 
     /**
-     * Mutable chart position and axis-aligned direction of one trace.
-     */
-    public static final class State {
-        public int activeFace;
-        public double u;
-        public double v;
-        public TraceAxis axis;
-        public int sign;
-        /** Local edge index entered through on {@link #activeFace}, or -1 at spawn. */
-        public int incomingLocalEdgeIndex = -1;
-
-        /**
-         * Captures a chart position and axis-aligned direction.
-         *
-         * @param activeFace active face index
-         * @param u          current u
-         * @param v          current v
-         * @param axis       parametric axis
-         * @param sign       +1 or -1 along axis
-         */
-        public State(int activeFace, double u, double v, TraceAxis axis, int sign) {
-            this.activeFace = activeFace;
-            this.u = u;
-            this.v = v;
-            this.axis = axis;
-            this.sign = sign;
-        }
-
-        /**
-         * Copy constructor.
-         *
-         * @param other state to copy
-         */
-        public State(State other) {
-            this.activeFace = other.activeFace;
-            this.u = other.u;
-            this.v = other.v;
-            this.axis = other.axis;
-            this.sign = other.sign;
-            this.incomingLocalEdgeIndex = other.incomingLocalEdgeIndex;
-        }
-    }
-
-    /**
-     * Result of advancing until the next triangle-edge or boundary hit.
-     */
-    public static final class EdgeHit {
-        public final double parametricDelta;
-        public final double exitU;
-        public final double exitV;
-        public final int localEdgeIndex;
-        public final boolean boundary;
-        /**
-         * Local corner index (0/1/2) if the hit coincides with a triangle corner, else
-         * {@code -1}. Used by {@link MotorcycleGraph} to route through
-         * {@link #crossVertex} instead of {@link #crossEdge} so vertex-degenerate
-         * iso-lines do not stall.
-         */
-        public final int cornerLocalIndex;
-
-        /**
-         * Exact parameter of the hit along {@link #localEdgeIndex}, running from
-         * corner {@code localEdgeIndex} to corner {@code (localEdgeIndex + 1) % 3}.
-         * Zero for a corner hit. The LCBK19 §6.1 embedding carve splits the crossed
-         * mesh edge at exactly this parameter, so it must not be re-derived from the
-         * lifted 3D position.
-         */
-        public final double edgeParameter;
-
-        /**
-         * Records one ray exit hit on a triangle edge.
-         *
-         * @param parametricDelta  distance from current point to hit
-         * @param exitU            u at intersection
-         * @param exitV            v at intersection
-         * @param localEdgeIndex   edge index on current face, or -1 at boundary
-         * @param boundary         true when the hit is on a mesh boundary
-         * @param cornerLocalIndex local corner index 0/1/2 if the hit lies on a
-         *                         triangle corner (within face-relative epsilon), else
-         *                         -1
-         * @param edgeParameter    exact parameter of the hit along the local edge
-         */
-        public EdgeHit(double parametricDelta, double exitU, double exitV, int localEdgeIndex, boolean boundary,
-                int cornerLocalIndex, double edgeParameter) {
-            this.parametricDelta = parametricDelta;
-            this.exitU = exitU;
-            this.exitV = exitV;
-            this.localEdgeIndex = localEdgeIndex;
-            this.boundary = boundary;
-            this.cornerLocalIndex = cornerLocalIndex;
-            this.edgeParameter = edgeParameter;
-        }
-    }
-
-    /**
      * Find the next edge crossing along the trace's iso-line from {@code state}.
      *
      * <p>An edge is crossed iff its endpoint offsets from the level strictly
@@ -211,36 +116,6 @@ public final class ChartWalker {
         int edgeId = mesh.faceEdgeAt(faceId, candidateEdge[best]);
         return new EdgeHit(parametricDelta, exitU, exitV, candidateEdge[best],
                 mesh.isBoundaryEdge(edgeId), -1, candidateParam[best]);
-    }
-
-    /**
-     * Cross the given local edge, applying a cut transition when needed, and write
-     * the resulting state into {@code out}.
-     *
-     * @param state   current state before crossing
-     * @param edgeHit edge hit from {@link #nextEdgeHit(State)}
-     * @param out     destination state after crossing
-     * @return {@code false} when crossing hits boundary or no adjacent face exists
-     */
-    /**
-     * Outcome of {@link #crossVertex(State, EdgeHit, State)}.
-     */
-    public enum CrossVertexResult {
-        /**
-         * Trace continued into a fan-neighbour face; {@code out} holds the new state.
-         */
-        FAN_TRANSITION,
-        /**
-         * Trace reached a singularity; it should terminate as a separatrix endpoint.
-         */
-        HIT_SINGULARITY,
-        /** Trace walked off the mesh boundary while traversing the fan. */
-        HIT_BOUNDARY,
-        /**
-         * Trace walked all the way around the fan without finding a wedge that contains
-         * the continuation direction (singularity defect cone).
-         */
-        HIT_SINGULARITY_GAP
     }
 
     /**
@@ -457,6 +332,131 @@ public final class ChartWalker {
         out.axis = TraceAxis.fromDirection(newDirX, newDirY);
         out.sign = TraceAxis.signFor(out.axis, newDirX, newDirY);
         return true;
+    }
+
+    /**
+     * Mutable chart position and axis-aligned direction of one trace.
+     */
+    public static final class State {
+        public int activeFace;
+        public double u;
+        public double v;
+        public TraceAxis axis;
+        public int sign;
+        /** Local edge index entered through on {@link #activeFace}, or -1 at spawn. */
+        public int incomingLocalEdgeIndex = -1;
+
+        /**
+         * Captures a chart position and axis-aligned direction.
+         *
+         * @param activeFace active face index
+         * @param u          current u
+         * @param v          current v
+         * @param axis       parametric axis
+         * @param sign       +1 or -1 along axis
+         */
+        public State(int activeFace, double u, double v, TraceAxis axis, int sign) {
+            this.activeFace = activeFace;
+            this.u = u;
+            this.v = v;
+            this.axis = axis;
+            this.sign = sign;
+        }
+
+        /**
+         * Copy constructor.
+         *
+         * @param other state to copy
+         */
+        public State(State other) {
+            this.activeFace = other.activeFace;
+            this.u = other.u;
+            this.v = other.v;
+            this.axis = other.axis;
+            this.sign = other.sign;
+            this.incomingLocalEdgeIndex = other.incomingLocalEdgeIndex;
+        }
+    }
+
+    /**
+     * Result of advancing until the next triangle-edge or boundary hit.
+     */
+    public static final class EdgeHit {
+        public final double parametricDelta;
+        public final double exitU;
+        public final double exitV;
+        public final int localEdgeIndex;
+        public final boolean boundary;
+        /**
+         * Local corner index (0/1/2) if the hit coincides with a triangle corner, else
+         * {@code -1}. Used by {@link MotorcycleGraph} to route through
+         * {@link #crossVertex} instead of {@link #crossEdge} so vertex-degenerate
+         * iso-lines do not stall.
+         */
+        public final int cornerLocalIndex;
+
+        /**
+         * Exact parameter of the hit along {@link #localEdgeIndex}, running from
+         * corner {@code localEdgeIndex} to corner {@code (localEdgeIndex + 1) % 3}.
+         * Zero for a corner hit. The LCBK19 §6.1 embedding carve splits the crossed
+         * mesh edge at exactly this parameter, so it must not be re-derived from the
+         * lifted 3D position.
+         */
+        public final double edgeParameter;
+
+        /**
+         * Records one ray exit hit on a triangle edge.
+         *
+         * @param parametricDelta  distance from current point to hit
+         * @param exitU            u at intersection
+         * @param exitV            v at intersection
+         * @param localEdgeIndex   edge index on current face, or -1 at boundary
+         * @param boundary         true when the hit is on a mesh boundary
+         * @param cornerLocalIndex local corner index 0/1/2 if the hit lies on a
+         *                         triangle corner (within face-relative epsilon), else
+         *                         -1
+         * @param edgeParameter    exact parameter of the hit along the local edge
+         */
+        public EdgeHit(double parametricDelta, double exitU, double exitV, int localEdgeIndex, boolean boundary,
+                int cornerLocalIndex, double edgeParameter) {
+            this.parametricDelta = parametricDelta;
+            this.exitU = exitU;
+            this.exitV = exitV;
+            this.localEdgeIndex = localEdgeIndex;
+            this.boundary = boundary;
+            this.cornerLocalIndex = cornerLocalIndex;
+            this.edgeParameter = edgeParameter;
+        }
+    }
+
+    /**
+     * Cross the given local edge, applying a cut transition when needed, and write
+     * the resulting state into {@code out}.
+     *
+     * @param state   current state before crossing
+     * @param edgeHit edge hit from {@link #nextEdgeHit(State)}
+     * @param out     destination state after crossing
+     * @return {@code false} when crossing hits boundary or no adjacent face exists
+     */
+    /**
+     * Outcome of {@link #crossVertex(State, EdgeHit, State)}.
+     */
+    public enum CrossVertexResult {
+        /**
+         * Trace continued into a fan-neighbour face; {@code out} holds the new state.
+         */
+        FAN_TRANSITION,
+        /**
+         * Trace reached a singularity; it should terminate as a separatrix endpoint.
+         */
+        HIT_SINGULARITY,
+        /** Trace walked off the mesh boundary while traversing the fan. */
+        HIT_BOUNDARY,
+        /**
+         * Trace walked all the way around the fan without finding a wedge that contains
+         * the continuation direction (singularity defect cone).
+         */
+        HIT_SINGULARITY_GAP
     }
 
 }

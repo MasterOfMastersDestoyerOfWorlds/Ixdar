@@ -20,9 +20,6 @@ import ixdar.geometry.mesh.quadlayout.quantization.TJunctionElimination;
  */
 public final class LayoutEmbedding {
 
-    /** Message prefix naming an arc. */
-    private static final String ARC = "arc ";
-
     public final TJunctionElimination conforming;
     public final MotorcycleGraph motorcycleGraph;
     public final QuantizedMeshGrid quantization;
@@ -232,18 +229,18 @@ public final class LayoutEmbedding {
         for (TraceArc arc : motorcycleGraph.arcs) {
             ArcEdgePath path = pathByArc[arc.arcId];
             if (path == null) {
-                throw new IllegalStateException(ARC + arc.arcId + " was never carved");
+                throw new IllegalStateException("arc " + arc.arcId + " was never carved");
             }
             if (path.copyVertexPath.get(0) != vertexIdByNode[arc.startNodeId]
                     || path.copyVertexPath.get(path.copyVertexPath.size() - 1)
                             != vertexIdByNode[arc.endNodeId]) {
-                throw new IllegalStateException(ARC + arc.arcId
+                throw new IllegalStateException("arc " + arc.arcId
                         + " does not run between its endpoint nodes' vertices");
             }
             for (int index = 1; index < path.copyVertexPath.size(); index++) {
                 if (topology.edgeBetween(path.copyVertexPath.get(index - 1),
                         path.copyVertexPath.get(index)) == EmbeddedMeshTopology.UNCLAIMED) {
-                    throw new IllegalStateException(ARC + arc.arcId
+                    throw new IllegalStateException("arc " + arc.arcId
                             + " has a hop with no copy edge behind it");
                 }
             }

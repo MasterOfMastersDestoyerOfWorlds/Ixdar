@@ -21,9 +21,6 @@ import ixdar.geometry.mesh.data.representation.IntIdList;
  */
 public final class ZeroPatchSplitOperator {
 
-    /** Diagnostic prefix naming a patch. */
-    private static final String PATCH_TAG = "patch ";
-
     public final EmbeddedTMesh tmesh;
     public final ArcRerouter rerouter;
 
@@ -86,8 +83,8 @@ public final class ZeroPatchSplitOperator {
      * characteristic unchanged.
      *
      * @param patchId non-simple zero-patch to cut
-     * @return the ids of the two halves
      * @throws IllegalStateException when the patch has no extendable T-joint
+     * @return the ids of the two halves
      */
     private int[] extendOneTJoint(int patchId) {
         int[] tjoint = findTJoint(patchId);
@@ -120,8 +117,8 @@ public final class ZeroPatchSplitOperator {
      * sides, with the node's quantized offset from that side's start.
      *
      * @param patchId patch to search
-     * @return {@code {side, nodeId, offset}}
      * @throws IllegalStateException when the patch has no interior node on a non-zero side
+     * @return {@code {side, nodeId, offset}}
      */
     private int[] findTJoint(int patchId) {
         EmbeddedPatch patch = tmesh.patches.get(patchId);
@@ -139,7 +136,7 @@ public final class ZeroPatchSplitOperator {
                 }
             }
         }
-        throw new IllegalStateException(PATCH_TAG + patchId + " has no extendable T-joint");
+        throw new IllegalStateException("patch " + patchId + " has no extendable T-joint");
     }
 
     /**
@@ -151,8 +148,8 @@ public final class ZeroPatchSplitOperator {
      * @param patchId patch the side belongs to
      * @param side    side to walk
      * @param offset  quantized offset from the side's start
-     * @return the node id at that offset
      * @throws IllegalStateException when the offset lies outside the side
+     * @return the node id at that offset
      */
     private int nodeAtOffsetOrSplit(int patchId, int side, int offset) {
         EmbeddedPatch patch = tmesh.patches.get(patchId);
@@ -191,8 +188,8 @@ public final class ZeroPatchSplitOperator {
      *
      * @param arc      arc to split
      * @param fraction fraction of the arc's length, in {@code (0, 1)}
-     * @return the index of the nearest strictly interior path vertex
      * @throws IllegalStateException when the arc's path has no interior vertex to split at
+     * @return the index of the nearest strictly interior path vertex
      */
     private int interiorPathVertexAtFraction(EmbeddedArc arc, double fraction) {
         List<Integer> vertices = arc.path.copyVertexPath;
@@ -230,8 +227,8 @@ public final class ZeroPatchSplitOperator {
      * answer this while operator (2) applies.
      *
      * @param patchId patch whose faces are wanted
-     * @return the copy faces it covers
      * @throws IllegalStateException when no side of any boundary arc floods an interior
+     * @return the copy faces it covers
      */
     public IntIdList patchFaces(int patchId) {
         return floodWithin(patchWall(patchId), seedFaceInside(patchId));
@@ -245,8 +242,8 @@ public final class ZeroPatchSplitOperator {
      * way seeds outside. See {@code PatchInteriorSeedTest}.
      *
      * @param patchId patch to seed a flood inside
-     * @return a copy face it covers
      * @throws IllegalStateException when the patch has no live boundary arc to take a side from
+     * @return a copy face it covers
      */
     private int seedFaceInside(int patchId) {
         for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
@@ -261,7 +258,7 @@ public final class ZeroPatchSplitOperator {
                 }
             }
         }
-        throw new IllegalStateException(PATCH_TAG + patchId
+        throw new IllegalStateException("patch " + patchId
                 + " has no live boundary arc to seed its interior from");
     }
 

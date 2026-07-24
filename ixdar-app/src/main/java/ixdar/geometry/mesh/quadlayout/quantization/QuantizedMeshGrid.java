@@ -87,11 +87,11 @@ public class QuantizedMeshGrid {
      * Assemble and solve the quantization ILP, then verify the solution against the
      * constraint families and log a summary.
      *
-     * @return this, with {@link #quantizedLengthByArc} populated
      * @throws IllegalStateException when the solver reports an infeasible or failed
      *                               state (a consistent T-mesh always admits the
      *                               all-ones solution, so this indicates corrupt
      *                               patch structure)
+     * @return this, with {@link #quantizedLengthByArc} populated
      */
     public QuantizedMeshGrid build() {
         List<TraceArc> arcs = motorcycleGraph.arcs;

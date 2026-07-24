@@ -98,5 +98,49 @@
         </plugins>
       </build>
     </profile>
+    <!--
+      One-shot single-caller helper sweep. Not part of the normal build: a helper having one
+      caller is a style smell, not a build error, and running this every time would fight anyone
+      who just wrote one deliberately. Narrow it with -Dinline.helpers.package to keep the diff
+      reviewable, e.g. -Dinline.helpers.package=ixdar/geometry/mesh/quadlayout/embedding
+    -->
+    <profile>
+      <id>inline-helpers</id>
+      <properties>
+        <inline.helpers.package></inline.helpers.package>
+      </properties>
+      <dependencies>
+        <dependency>
+          <groupId>IXDAR</groupId>
+          <artifactId>autofix-tool</artifactId>
+          <version>0.0.1</version>
+        </dependency>
+      </dependencies>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.5.0</version>
+            <executions>
+              <execution>
+                <id>run-inline-helpers</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+                <configuration>
+                  <mainClass>ixdar.autofix.InlineHelpers</mainClass>
+                  <arguments>
+                    <argument>${project.basedir}</argument>
+                    <argument>${inline.helpers.package}</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
 </project>

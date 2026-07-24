@@ -20,20 +20,8 @@ import java.util.TreeSet;
  */
 public final class EmbeddedContraction {
 
-    /** How a {@link #lastStep} report names an operator (2) application. */
-    private static final String SPLIT_STEP_TAG = "non-simple zero-patch split of patch ";
-
-    /** Diagnostic prefix naming an arc in the torn-layout report. */
-    private static final String ARC_TAG = " a";
-
-    /** Closing bracket of a bracketed diagnostic group. */
-    private static final String CLOSE_GROUP = "]";
-
     /** Opening of a patch's non-zero arc count in a diagnostic line. */
     private static final String PATCH_NON_ZERO_TAG = "P%d(nonZero=%d";
-
-    /** Closing parenthesis of a parenthesised diagnostic group. */
-    private static final String CLOSE_PAREN = ")";
 
     /**
      * Divisor turning the fixed-point report's elapsed nanoseconds into
@@ -56,9 +44,6 @@ public final class EmbeddedContraction {
      * {@link PatchRegions} after the contraction has finished.
      */
     private static final String CHECK_REGIONS_PROPERTY = "embeddedTMesh.checkRegions";
-
-    /** Separator between fields of a diagnostic line. */
-    private static final String FIELD_SEPARATOR = " | ";
 
     public final EmbeddedTMesh tmesh;
     public final int expectedEulerCharacteristic;
@@ -106,10 +91,10 @@ public final class EmbeddedContraction {
      * operators (1) and (3) to exhaustion, against the state before the split.
      * Operator (2) raises the measure by design; the other two lower it.
      *
-     * @return this, contracted
      * @throws IllegalStateException when the T-mesh stops being a cell
      *                               decomposition or a round fails to strictly
      *                               decrease the termination measure
+     * @return this, contracted
      */
     public EmbeddedContraction contract() {
         long measure = terminationMeasure();
@@ -120,7 +105,7 @@ public final class EmbeddedContraction {
                 return this;
             }
             String termsBefore = measureTerms();
-            lastStep = SPLIT_STEP_TAG + nonSimple;
+            lastStep = "non-simple zero-patch split of patch " + nonSimple;
             splitPatch.split(nonSimple);
             patchSplitCount++;
             checkDecomposition();
@@ -141,9 +126,9 @@ public final class EmbeddedContraction {
      * @param perStep whether each single application must strictly lower the
      *                measure, which holds outside a round but not inside one, where
      *                operator (2) has just raised it
-     * @return the measure once neither operator applies
      * @throws IllegalStateException when {@code perStep} holds and one application
      *                               does not lower the measure
+     * @return the measure once neither operator applies
      */
     private long collapseToExhaustion(long measure, boolean perStep) {
         long running = measure;
@@ -153,7 +138,7 @@ public final class EmbeddedContraction {
             if (perStep && next >= running) {
                 throw new IllegalStateException("contraction did not make progress: the"
                         + " termination measure went from " + running + " to " + next
-                        + FIELD_SEPARATOR + lastStep + FIELD_SEPARATOR + measureTerms());
+                        + " | " + lastStep + " | " + measureTerms());
             }
             running = next;
         }
@@ -199,22 +184,22 @@ public final class EmbeddedContraction {
                 boolean anchored = head == startVertex && tail == endVertex
                         || head == endVertex && tail == startVertex;
                 if (!anchored) {
-                    arcPaths.append(ARC_TAG).append(arc.arcId).append(" DANGLES path[")
+                    arcPaths.append(" a").append(arc.arcId).append(" DANGLES path[")
                             .append(head).append("..").append(tail).append("] nodes[")
-                            .append(startVertex).append(",").append(endVertex).append(CLOSE_GROUP);
+                            .append(startVertex).append(",").append(endVertex).append("]");
                 }
                 if (new TreeSet<>(path).size() != path.size()) {
-                    arcPaths.append(ARC_TAG).append(arc.arcId).append(" NOT-SIMPLE").append(path);
+                    arcPaths.append(" a").append(arc.arcId).append(" NOT-SIMPLE").append(path);
                 }
                 for (int step = 1; step < path.size(); step++) {
                     int edgeId = tmesh.topology.edgeBetween(path.get(step - 1), path.get(step));
                     if (edgeId == EmbeddedMeshTopology.UNCLAIMED
                             || tmesh.topology.ownerArcByCopyEdge[edgeId] != arc.arcId) {
-                        arcPaths.append(ARC_TAG).append(arc.arcId).append(" UNCLAIMED-EDGE@")
+                        arcPaths.append(" a").append(arc.arcId).append(" UNCLAIMED-EDGE@")
                                 .append(step).append("(owner=")
                                 .append(edgeId == EmbeddedMeshTopology.UNCLAIMED ? "noEdge"
                                         : tmesh.topology.ownerArcByCopyEdge[edgeId])
-                                .append(CLOSE_PAREN);
+                                .append(")");
                     }
                 }
             }
@@ -227,9 +212,9 @@ public final class EmbeddedContraction {
                 }
             }
             arcPaths.append(" | lowDegreeNodes:").append(degrees);
-            throw new IllegalStateException("regions torn by " + lastStep + FIELD_SEPARATOR
-                    + torn.getMessage() + FIELD_SEPARATOR + "live patches:" + patchArcs
-                    + FIELD_SEPARATOR + "live arcs:" + arcPaths, torn);
+            throw new IllegalStateException("regions torn by " + lastStep + " | "
+                    + torn.getMessage() + " | " + "live patches:" + patchArcs
+                    + " | " + "live arcs:" + arcPaths, torn);
         }
     }
 
@@ -239,11 +224,11 @@ public final class EmbeddedContraction {
      * inspection. Unlike {@link #contract}, a reroute failure is caught and
      * returned rather than propagated, so a caller can render the wall it carries.
      *
-     * @return the reroute failure that stopped the contraction, or null when it ran
-     *         to completion
      * @throws IllegalStateException when the T-mesh stops being a cell
      *                               decomposition, which is a different,
      *                               non-recoverable fault than a reroute wall
+     * @return the reroute failure that stopped the contraction, or null when it ran
+     *         to completion
      */
     public ArcRerouteFailure contractToFailure() {
         int claimedVertices = 0;
@@ -319,7 +304,7 @@ public final class EmbeddedContraction {
                             + refinementShare(splitPatch.rerouter, "split"));
                     System.out.println("[contract] stuck zero arcs | " + stuckZeroArcReport());
                     System.out.println("[contract] fixed point | " + survivingZeroPatchReport()
-                            + FIELD_SEPARATOR + (System.nanoTime() - startNanos) / NANOS_PER_MILLI
+                            + " | " + (System.nanoTime() - startNanos) / NANOS_PER_MILLI
                             + "ms");
                     return null;
                 }
@@ -346,7 +331,7 @@ public final class EmbeddedContraction {
      * @return the tally as a compact string
      */
     private String refinementShare(ArcRerouter rerouter, String label) {
-        return FIELD_SEPARATOR + label + " splits=" + rerouter.refinedEdgeSplitCount
+        return " | " + label + " splits=" + rerouter.refinedEdgeSplitCount
                 + " (gate=" + rerouter.gateSplitCount
                 + " spoke=" + rerouter.spokeSplitCount
                 + ") attempts=" + rerouter.routeAttemptCount
@@ -410,7 +395,7 @@ public final class EmbeddedContraction {
         }
         int nonSimple = splitPatch.nextNonSimpleZeroPatch();
         if (nonSimple != EmbeddedTMesh.NONE) {
-            lastStep = SPLIT_STEP_TAG + nonSimple;
+            lastStep = "non-simple zero-patch split of patch " + nonSimple;
             splitPatch.split(nonSimple);
             patchSplitCount++;
             return true;
@@ -485,7 +470,7 @@ public final class EmbeddedContraction {
                 + " rightPatch=" + arc.rightPatchId
                 + (arc.leftPatchId == arc.rightPatchId ? " SAME-PATCH-BOTH-SIDES" : "")
                 + " leftSides=" + describePatchSides(arc.leftPatchId)
-                + " rightSides=" + describePatchSides(arc.rightPatchId) + CLOSE_GROUP;
+                + " rightSides=" + describePatchSides(arc.rightPatchId) + "]";
     }
 
     /**
@@ -530,7 +515,7 @@ public final class EmbeddedContraction {
                 if (tmesh.nonZeroArcCount(patch.patchId) > 2) {
                     nonSimple.add(String.format(PATCH_NON_ZERO_TAG, patch.patchId,
                             tmesh.nonZeroArcCount(patch.patchId)) + " sides="
-                            + describePatchSides(patch.patchId) + CLOSE_PAREN);
+                            + describePatchSides(patch.patchId) + ")");
                 }
             }
         }

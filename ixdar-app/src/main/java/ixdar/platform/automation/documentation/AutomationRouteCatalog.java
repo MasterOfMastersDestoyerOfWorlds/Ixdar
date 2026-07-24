@@ -42,8 +42,6 @@ public final class AutomationRouteCatalog {
     public static final String GENERATED_FROM = "generatedFrom";
 
     private static final String PATH_SEPARATOR = "/";
-    private static final String SOURCE_ROOT = "ixdar-app/src/main/java/";
-    private static final String JAVA_EXTENSION = ".java";
 
     private AutomationRouteCatalog() {
     }
@@ -52,8 +50,8 @@ public final class AutomationRouteCatalog {
      * Serialize the whole automation route registry to a JSON manifest, sorted by command name
      * for stable diffs.
      *
-     * @return JSON document with {@code generatedFrom} and a {@code routes} array
      * @throws IllegalStateException if two routes resolve to the same CLI command name
+     * @return JSON document with {@code generatedFrom} and a {@code routes} array
      */
     public static String toJsonFromAnnotationRegistry() {
         List<Map<String, Object>> routes = new ArrayList<>();
@@ -82,14 +80,14 @@ public final class AutomationRouteCatalog {
             entry.put(METHOD, ann.method().name().toUpperCase());
             entry.put(DESCRIPTION, doc.description);
             entry.put(SOURCE_CLASS, fqcn);
-            entry.put(SOURCE_PATH, SOURCE_ROOT + fqcn.replace('.', '/') + JAVA_EXTENSION);
+            entry.put(SOURCE_PATH, "ixdar-app/src/main/java/" + fqcn.replace('.', '/') + ".java");
             entry.put(PARAMS, serializeParams(doc.parameters));
             entry.put(RESPONSE_HINT, doc.responseHint);
             routes.add(entry);
         }
         routes.sort(Comparator.comparing((Map<String, Object> entry) -> (String) entry.get(COMMAND_NAME)));
         Map<String, Object> root = new LinkedHashMap<>();
-        root.put(GENERATED_FROM, SOURCE_ROOT + "ixdar/platform/automation/documentation/AutomationRouteCatalog" + JAVA_EXTENSION);
+        root.put(GENERATED_FROM, "ixdar-app/src/main/java/" + "ixdar/platform/automation/documentation/AutomationRouteCatalog" + ".java");
         root.put(ROUTES, routes);
         return new GsonBuilder().setPrettyPrinting().serializeNulls().create().toJson(root);
     }

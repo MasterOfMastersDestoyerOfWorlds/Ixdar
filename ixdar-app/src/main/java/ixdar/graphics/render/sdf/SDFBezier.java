@@ -55,7 +55,7 @@ public class SDFBezier extends ShaderDrawable {
         Vector2f dirB = new Vector2f(pB).sub(pA);
         Vector2f normalizedDirB = new Vector2f(dirB).normalize();
         Vector2f xAxis = new Vector2f(NUM_1, NUM_0);
-        float sinB = wedge(normalizedDirB, xAxis);
+        float sinB = normalizedDirB.x * xAxis.y - normalizedDirB.y * xAxis.x;
         float cosB = new Vector2f(pB).sub(pA).normalize().dot(xAxis);
 
         Vector2f dirControl = new Vector2f(pControl).sub(pA);
@@ -120,10 +120,6 @@ public class SDFBezier extends ShaderDrawable {
 
     private Vector2f rot(Vector2f p, float cosb, float sinb) {
         return new Vector2f(cosb * p.x - sinb * p.y, sinb * p.x + cosb * p.y);
-    }
-
-    private float wedge(Vector2f v1, Vector2f v2) {
-        return v1.x * v2.y - v1.y * v2.x;
     }
 
     private float clamp(float t) {

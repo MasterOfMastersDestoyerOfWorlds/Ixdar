@@ -32,35 +32,8 @@ public final class EmbeddedTMesh {
     /** Split position for a midpoint edge split. */
     private static final double EDGE_MIDPOINT = 0.5;
 
-    /** Message fragment naming a patch. */
-    private static final String PATCH = "patch ";
-
-    /** Message fragment naming an arc. */
-    private static final String ARC = "arc ";
-
-    /** Diagnostic tag prefixing an arc id in a compact ownership report. */
-    private static final String ARC_TAG = "a";
-
     /** System property enabling the per-drag before/after path trace. */
     private static final String TRACE_DRAG = "embeddedTMesh.traceDrag";
-
-    /** Separator between the two ownership tags of a diagnostic gate report. */
-    private static final String TAG_SEPARATOR = "/";
-
-    /** Message fragment naming a side of a patch. */
-    private static final String SIDE = " side ";
-
-    /** Message fragment joining two ids. */
-    private static final String TO = " to ";
-
-    /** Message fragment introducing a count. */
-    private static final String HAS = " has ";
-
-    /** Message fragment joining two listed ids. */
-    private static final String AND = " and ";
-
-    /** Message fragment for an element absent from a patch boundary. */
-    private static final String NOT_ON_BOUNDARY = " is not on the boundary of ";
 
     public final EmbeddedMeshTopology topology;
 
@@ -72,19 +45,16 @@ public final class EmbeddedTMesh {
      */
     public boolean interiorLeftOfWalk = true;
 
-    /** Every node ever created; retired ones are still here, with {@code alive} false. */
+    /** Every node ever created, including those since merged away. */
     public final List<EmbeddedNode> nodes;
 
-    /** Every arc ever created; retired ones are still here, with {@code alive} false. */
+    /** Every arc ever created, including those since collapsed. */
     public final List<EmbeddedArc> arcs;
 
-    /** Every patch ever created; retired ones are still here, with {@code alive} false. */
+    /** Every patch ever created, including those since removed. */
     public final List<EmbeddedPatch> patches;
 
-    /**
-     * Arc ends incident to each node: the id of every live arc with an end at that node,
-     * a loop appearing twice. The count is the node's degree.
-     */
+    /** Arc ends incident to each node, indexed by node id. */
     public final List<List<Integer>> arcEndsByNode;
 
     /**
@@ -137,9 +107,9 @@ public final class EmbeddedTMesh {
      * @param feature         whether the arc lies on a feature or boundary curve
      * @param vertexPath      copy vertices the arc passes through, from its start node's
      *                        vertex to its end node's vertex
-     * @return the new arc's id
      * @throws IllegalStateException when consecutive vertices of the path are not joined
      *                               by an edge of the working copy
+     * @return the new arc's id
      */
     public int addArc(int sourceArcId, int startNodeId, int endNodeId, int quantizedLength,
             boolean feature, List<Integer> vertexPath) {
@@ -166,8 +136,8 @@ public final class EmbeddedTMesh {
      * @param sourcePatchId originating {@code TMeshPatch} id, or {@link #NONE}
      * @param sideArcIds    four sides, each a list of arc ids in the side's walking order
      * @param firstCornerId node the first side starts at, which fixes the walk's direction
-     * @return the new patch's id
      * @throws IllegalStateException when the given arcs do not chain into a closed boundary
+     * @return the new patch's id
      */
     public int addPatch(int sourcePatchId, List<List<Integer>> sideArcIds, int firstCornerId) {
         int patchId = patches.size();
@@ -181,7 +151,7 @@ public final class EmbeddedTMesh {
             for (int arcId : sideArcs) {
                 EmbeddedArc arc = arcs.get(arcId);
                 if (arc.startNodeId != walkNode && arc.endNodeId != walkNode) {
-                    throw new IllegalStateException(PATCH + patchId + SIDE + side
+                    throw new IllegalStateException("patch " + patchId + " side " + side
                             + ": arc " + arcId + " does not touch node " + walkNode);
                 }
                 if ((arc.startNodeId == walkNode) == interiorLeftOfWalk) {
@@ -194,7 +164,7 @@ public final class EmbeddedTMesh {
             }
         }
         if (walkNode != firstCornerId) {
-            throw new IllegalStateException(PATCH + patchId
+            throw new IllegalStateException("patch " + patchId
                     + " boundary does not close: walked back to node " + walkNode
                     + " instead of " + firstCornerId);
         }
@@ -224,7 +194,7 @@ public final class EmbeddedTMesh {
                 decidedBy = patch.patchId;
                 decided = true;
             } else if (vote != leftIsInterior) {
-                throw new IllegalStateException(PATCH + patch.patchId + " lies on the "
+                throw new IllegalStateException("patch " + patch.patchId + " lies on the "
                         + (vote ? "left" : "right") + " of its boundary walk but patch " + decidedBy
                         + " lies on the other side: the layout's patch sides are not all ordered the"
                         + " same way round, so no single convention describes them");
@@ -264,8 +234,8 @@ public final class EmbeddedTMesh {
      * claimed by another arc started outside it.
      *
      * @param patchId patch to test
-     * @return true when the patch lies left of its walk
      * @throws IllegalStateException when no boundary arc settles the question
+     * @return true when the patch lies left of its walk
      */
     private boolean interiorLiesLeftOfWalk(int patchId) {
         EmbeddedPatch patch = patches.get(patchId);
@@ -299,7 +269,7 @@ public final class EmbeddedTMesh {
                 }
             }
         }
-        throw new IllegalStateException(PATCH + patchId
+        throw new IllegalStateException("patch " + patchId
                 + " has no embedded boundary arc to take a side from");
     }
 
@@ -514,8 +484,8 @@ public final class EmbeddedTMesh {
     public void removeCollapsedArc(int arcId, boolean mergedANode) {
         EmbeddedArc arc = arcs.get(arcId);
         if (!arc.isLoop()) {
-            throw new IllegalStateException(ARC + arcId + " cannot be removed as collapsed:"
-                    + " its ends are still nodes " + arc.startNodeId + AND + arc.endNodeId);
+            throw new IllegalStateException("arc " + arcId + " cannot be removed as collapsed:"
+                    + " its ends are still nodes " + arc.startNodeId + " and " + arc.endNodeId);
         }
         releaseClaims(arc);
         int pinchedPatchId = mergedANode ? NONE : pinchedPatchOf(arcId);
@@ -644,8 +614,8 @@ public final class EmbeddedTMesh {
      *
      * @param firstArcId  earlier arc along the boundary
      * @param secondArcId arc following it
-     * @return the node they share
      * @throws IllegalStateException when they share no node, so the boundary is not a path
+     * @return the node they share
      */
     private int sharedNode(int firstArcId, int secondArcId) {
         EmbeddedArc first = arcs.get(firstArcId);
@@ -655,7 +625,7 @@ public final class EmbeddedTMesh {
                 return candidate;
             }
         }
-        throw new IllegalStateException(ARC + firstArcId + AND + secondArcId
+        throw new IllegalStateException("arc " + firstArcId + " and " + secondArcId
                 + " are consecutive on a patch boundary but share no node");
     }
 
@@ -703,19 +673,19 @@ public final class EmbeddedTMesh {
      *                        start node; the second half takes the remainder
      * @param pathVertexIndex index into the arc's vertex path of the vertex the node lands
      *                        on; must be strictly interior, so that both halves are real
-     * @return the ids of the two child arcs, in the parent's direction
      * @throws IllegalStateException when the offset or the vertex would make a half empty
+     * @return the ids of the two child arcs, in the parent's direction
      */
     public int[] splitArc(int arcId, int quantizedOffset, int pathVertexIndex) {
         EmbeddedArc arc = arcs.get(arcId);
         List<Integer> vertices = arc.path.copyVertexPath;
         if (pathVertexIndex <= 0 || pathVertexIndex >= vertices.size() - 1) {
-            throw new IllegalStateException(ARC + arcId + " cannot be split at path vertex "
+            throw new IllegalStateException("arc " + arcId + " cannot be split at path vertex "
                     + pathVertexIndex + ": the split must be strictly inside a path of "
                     + vertices.size() + " vertices");
         }
         if (quantizedOffset < 0 || quantizedOffset > arc.quantizedLength) {
-            throw new IllegalStateException(ARC + arcId + " cannot be split at offset "
+            throw new IllegalStateException("arc " + arcId + " cannot be split at offset "
                     + quantizedOffset + ": it lies outside the arc's length "
                     + arc.quantizedLength);
         }
@@ -763,9 +733,9 @@ public final class EmbeddedTMesh {
      *
      * @param patchId    patch to cut
      * @param dividerArc arc running from a node on one side to a node on the opposite side
-     * @return the ids of the two halves
      * @throws IllegalStateException when the arc's endpoints do not lie on opposite sides of
      *                               the patch's boundary
+     * @return the ids of the two halves
      */
     public int[] splitPatchByArc(int patchId, int dividerArc) {
         EmbeddedPatch patch = patches.get(patchId);
@@ -773,8 +743,8 @@ public final class EmbeddedTMesh {
         int[] endA = locateNodeOnBoundary(patch, divider.startNodeId);
         int[] endB = locateNodeOnBoundary(patch, divider.endNodeId);
         if ((endA[0] + 2) % EmbeddedPatch.SIDES != endB[0]) {
-            throw new IllegalStateException(ARC + dividerArc + " does not divide " + PATCH
-                    + patchId + ": its ends lie on sides " + endA[0] + AND + endB[0]
+            throw new IllegalStateException("arc " + dividerArc + " does not divide " + "patch "
+                    + patchId + ": its ends lie on sides " + endA[0] + " and " + endB[0]
                     + ", which are not opposite");
         }
         int sideA = endA[0];
@@ -806,8 +776,8 @@ public final class EmbeddedTMesh {
      *
      * @param patch  patch to look in
      * @param nodeId node to locate
-     * @return the side index and the node's position within that side's node list
      * @throws IllegalStateException when the node is not on the patch's boundary
+     * @return the side index and the node's position within that side's node list
      */
     private int[] locateNodeOnBoundary(EmbeddedPatch patch, int nodeId) {
         for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
@@ -818,7 +788,7 @@ public final class EmbeddedTMesh {
                 }
             }
         }
-        throw new IllegalStateException("node " + nodeId + NOT_ON_BOUNDARY + PATCH + patch.patchId);
+        throw new IllegalStateException("node " + nodeId + " is not on the boundary of " + "patch " + patch.patchId);
     }
 
     /**
@@ -842,8 +812,8 @@ public final class EmbeddedTMesh {
         boolean reversedEnds = oldArc.startNodeId == newArc.endNodeId
                 && oldArc.endNodeId == newArc.startNodeId;
         if (!sameEnds && !reversedEnds) {
-            throw new IllegalStateException(ARC + newArcId + " cannot replace arc " + oldArcId
-                    + " in " + PATCH + patchId + ": they run between different nodes");
+            throw new IllegalStateException("arc " + newArcId + " cannot replace arc " + oldArcId
+                    + " in " + "patch " + patchId + ": they run between different nodes");
         }
         int[] position = sidePosition(patchId, oldArcId);
         patches.get(patchId).sideArcIds.get(position[0]).set(position[1], newArcId);
@@ -868,8 +838,8 @@ public final class EmbeddedTMesh {
      *
      * @param patchId patch to look in
      * @param arcId   arc to find
-     * @return the side index and the position within that side
      * @throws IllegalStateException when the arc is not on that patch's boundary
+     * @return the side index and the position within that side
      */
     private int[] sidePosition(int patchId, int arcId) {
         EmbeddedPatch patch = patches.get(patchId);
@@ -879,7 +849,7 @@ public final class EmbeddedTMesh {
                 return new int[] { side, index };
             }
         }
-        throw new IllegalStateException(ARC + arcId + NOT_ON_BOUNDARY + PATCH + patchId);
+        throw new IllegalStateException("arc " + arcId + " is not on the boundary of " + "patch " + patchId);
     }
 
     /**
@@ -907,7 +877,7 @@ public final class EmbeddedTMesh {
             if (vertices.get(0) == targetVertex) {
                 return;
             }
-            throw new IllegalStateException(ARC + arcId
+            throw new IllegalStateException("arc " + arcId
                     + " is embedded as a point away from the target while its node moves");
         }
         boolean reversed = vertices.get(0) == movedVertex;
@@ -915,7 +885,7 @@ public final class EmbeddedTMesh {
             Collections.reverse(vertices);
         }
         if (vertices.get(vertices.size() - 1) != movedVertex) {
-            throw new IllegalStateException(ARC + arcId + " path does not end at the moved node's"
+            throw new IllegalStateException("arc " + arcId + " path does not end at the moved node's"
                     + " vertex " + movedVertex);
         }
         releaseClaims(arc.path);
@@ -957,7 +927,7 @@ public final class EmbeddedTMesh {
         Set<Integer> bodyComponent = unclaimedComponent(vertices.get(1));
         Set<Integer> channelComponent = unclaimedComponent(channel.get(1));
         Set<Integer> fence = claimedBoundaryOf(bodyComponent);
-        String message = ARC + arcId + " could not be re-routed onto vertex "
+        String message = "arc " + arcId + " could not be re-routed onto vertex "
                 + targetVertex + " from any back-off point of its old path"
                 + " (pathLen=" + vertices.size() + " channelLen=" + channel.size()
                 + " freeSpokesAtTarget=" + freeSpokeCount(targetVertex)
@@ -1147,20 +1117,20 @@ public final class EmbeddedTMesh {
      */
     private String gateDetail(int edgeId, int halfEdge, int endpointA, int endpointB) {
         int twin = topology.copy.halfEdgeTwin(halfEdge);
-        return "{" + ownerTag(endpointA) + TAG_SEPARATOR + ownerTag(endpointB)
+        return "{" + ownerTag(endpointA) + "/" + ownerTag(endpointB)
                 + "|opp " + ownerTag(oppositeCorner(topology.copy.halfEdgeFace(halfEdge), endpointA,
                         endpointB))
-                + TAG_SEPARATOR + ownerTag(oppositeCorner(topology.copy.halfEdgeFace(twin), endpointA,
+                + "/" + ownerTag(oppositeCorner(topology.copy.halfEdgeFace(twin), endpointA,
                         endpointB))
                 + "|edge " + (topology.ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED
-                        ? "free" : ARC_TAG + topology.ownerArcByCopyEdge[edgeId])
-                + "|inCorridor " + inLastCorridor(endpointA) + TAG_SEPARATOR
+                        ? "free" : "a" + topology.ownerArcByCopyEdge[edgeId])
+                + "|inCorridor " + inLastCorridor(endpointA) + "/"
                 + inLastCorridor(endpointB)
-                + "|freeNbrs " + freeNeighbourCount(endpointA) + TAG_SEPARATOR
-                + freeNeighbourCount(endpointB) + TAG_SEPARATOR
+                + "|freeNbrs " + freeNeighbourCount(endpointA) + "/"
+                + freeNeighbourCount(endpointB) + "/"
                 + freeNeighbourCount(oppositeCorner(topology.copy.halfEdgeFace(halfEdge), endpointA,
                         endpointB))
-                + TAG_SEPARATOR + freeNeighbourCount(oppositeCorner(
+                + "/" + freeNeighbourCount(oppositeCorner(
                         topology.copy.halfEdgeFace(twin), endpointA, endpointB))
                 + "}";
     }
@@ -1239,7 +1209,7 @@ public final class EmbeddedTMesh {
             return "n" + topology.ownerNodeByCopyVertex[copyVertex];
         }
         if (topology.ownerArcByCopyVertex[copyVertex] != EmbeddedMeshTopology.UNCLAIMED) {
-            return ARC_TAG + topology.ownerArcByCopyVertex[copyVertex];
+            return "a" + topology.ownerArcByCopyVertex[copyVertex];
         }
         return ".";
     }
@@ -1476,7 +1446,7 @@ public final class EmbeddedTMesh {
      */
     private void requireEndOfPathIsAt(EmbeddedArc arc, int pathEndVertex, int nodeCopyVertex) {
         if (pathEndVertex != nodeCopyVertex) {
-            throw new IllegalStateException(ARC + arc.arcId + " was re-pointed at a node on "
+            throw new IllegalStateException("arc " + arc.arcId + " was re-pointed at a node on "
                     + "copy vertex " + nodeCopyVertex + " but its path still ends on "
                     + pathEndVertex + "; re-route the arc before merging its node");
         }
@@ -1507,11 +1477,11 @@ public final class EmbeddedTMesh {
             }
             liveArcs++;
             if (arc.quantizedLength < 0) {
-                throw new IllegalStateException(ARC + arc.arcId
-                        + HAS + "negative quantized length " + arc.quantizedLength);
+                throw new IllegalStateException("arc " + arc.arcId
+                        + " has " + "negative quantized length " + arc.quantizedLength);
             }
             if (!nodes.get(arc.startNodeId).alive || !nodes.get(arc.endNodeId).alive) {
-                throw new IllegalStateException(ARC + arc.arcId + " ends on a retired node");
+                throw new IllegalStateException("arc " + arc.arcId + " ends on a retired node");
             }
             requirePathRunsBetweenItsNodes(arc);
         }
@@ -1544,9 +1514,9 @@ public final class EmbeddedTMesh {
         int expectedEnd = nodes.get(arc.endNodeId).copyVertex;
         if (vertices.get(0) != expectedStart
                 || vertices.get(vertices.size() - 1) != expectedEnd) {
-            throw new IllegalStateException(ARC + arc.arcId + " path runs from "
-                    + vertices.get(0) + TO + vertices.get(vertices.size() - 1)
-                    + " but its nodes sit on " + expectedStart + AND + expectedEnd);
+            throw new IllegalStateException("arc " + arc.arcId + " path runs from "
+                    + vertices.get(0) + " to " + vertices.get(vertices.size() - 1)
+                    + " but its nodes sit on " + expectedStart + " and " + expectedEnd);
         }
     }
 
@@ -1580,14 +1550,14 @@ public final class EmbeddedTMesh {
      * @param arcId      arc whose path is being checked, for the message
      * @param fromVertex vertex the step leaves
      * @param toVertex   vertex the step arrives at
-     * @return the edge between them
      * @throws IllegalStateException when the two vertices are not joined by an edge
+     * @return the edge between them
      */
     private int requireEdge(int arcId, int fromVertex, int toVertex) {
         int edgeId = topology.edgeBetween(fromVertex, toVertex);
         if (edgeId == EmbeddedMeshTopology.UNCLAIMED) {
-            throw new IllegalStateException(ARC + arcId + " path steps from " + fromVertex
-                    + TO + toVertex + " with no edge between them");
+            throw new IllegalStateException("arc " + arcId + " path steps from " + fromVertex
+                    + " to " + toVertex + " with no edge between them");
         }
         return edgeId;
     }
@@ -1602,15 +1572,15 @@ public final class EmbeddedTMesh {
             List<Integer> sideNodes = patch.sideNodeIds.get(side);
             List<Integer> sideArcs = patch.sideArcIds.get(side);
             if (sideNodes.size() != sideArcs.size() + 1) {
-                throw new IllegalStateException(PATCH + patch.patchId + SIDE + side
-                        + HAS + sideArcs.size() + " arcs but " + sideNodes.size()
+                throw new IllegalStateException("patch " + patch.patchId + " side " + side
+                        + " has " + sideArcs.size() + " arcs but " + sideNodes.size()
                         + " nodes; a side has one more node than it has arcs");
             }
             int nextSide = (side + 1) % EmbeddedPatch.SIDES;
             int endOfThisSide = sideNodes.get(sideNodes.size() - 1);
             int startOfNextSide = patch.sideNodeIds.get(nextSide).get(0);
             if (endOfThisSide != startOfNextSide) {
-                throw new IllegalStateException(PATCH + patch.patchId + SIDE + side
+                throw new IllegalStateException("patch " + patch.patchId + " side " + side
                         + " ends on node " + endOfThisSide + " but side " + nextSide
                         + " starts on node " + startOfNextSide);
             }
@@ -1632,9 +1602,9 @@ public final class EmbeddedTMesh {
             int here = sideQuantizedLength(patch.patchId, side);
             int opposite = sideQuantizedLength(patch.patchId, side + 2);
             if (here != opposite) {
-                throw new IllegalStateException(PATCH + patch.patchId
+                throw new IllegalStateException("patch " + patch.patchId
                         + " is not a rectangle: side " + side + " has quantized length " + here
-                        + " but the opposite side " + (side + 2) + HAS + opposite);
+                        + " but the opposite side " + (side + 2) + " has " + opposite);
             }
         }
     }

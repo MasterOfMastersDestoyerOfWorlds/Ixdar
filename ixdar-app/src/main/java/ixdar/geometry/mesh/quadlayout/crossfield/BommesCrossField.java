@@ -64,9 +64,9 @@ public class BommesCrossField extends CrossField {
     public float targetQuadEdgeLength;
 
     /**
-     * 
+     *
      * Cross field construction.
-     * 
+     *
      * @param mesh half-edge mesh providing geometry, topology, and active-id
      *             mapping
      */

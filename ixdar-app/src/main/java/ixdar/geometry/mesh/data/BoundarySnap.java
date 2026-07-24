@@ -78,7 +78,8 @@ public final class BoundarySnap {
             if (fp[1] < 0) continue;
             int la = faceLabels[fp[0]], lb = faceLabels[fp[1]];
             if (la == lb) continue;
-            long pairK = pairKey(la, lb);
+            long pairK = la < lb ? ((long) la << NUM_32) | (lb & NUM_0xffffffff)
+                     : ((long) lb << NUM_32) | (la & NUM_0xffffffff);
             edgesByPair.computeIfAbsent(pairK, k -> new ArrayList<>()).add(e.getKey());
         }
 
@@ -441,11 +442,6 @@ public final class BoundarySnap {
     private static long edgeKey(int u, int v) {
         return u < v ? ((long) u << NUM_32) | (v & NUM_0xffffffff)
                      : ((long) v << NUM_32) | (u & NUM_0xffffffff);
-    }
-
-    private static long pairKey(int a, int b) {
-        return a < b ? ((long) a << NUM_32) | (b & NUM_0xffffffff)
-                     : ((long) b << NUM_32) | (a & NUM_0xffffffff);
     }
 
     private static boolean pathEquals(List<Integer> a, List<Integer> b) {

@@ -1293,7 +1293,7 @@ public class AMDOrdering {
      * AMD requires a structurally symmetric, in-range pattern (the AMD_valid step
      * the C code assumes was already run). NormalMatrix is supposed to be
      * symmetric; if it isn't, Len is wrong and the A+A' build corrupts.
-     * 
+     *
      * @param m the matrix to validate
      */
     private void validateSymmetricPattern(NormalMatrix m) {

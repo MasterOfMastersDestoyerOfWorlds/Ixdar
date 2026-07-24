@@ -16,17 +16,6 @@ public final class FaceChordWalk {
     /** Corners (and edges) of a triangle. */
     private static final int CORNERS = 3;
 
-
-    /** Message prefix naming the arc being carved. */
-    private static final String ARC = "arc ";
-
-    /** Message fragment naming a copy vertex. */
-    private static final String COPY_VERTEX = "copy vertex ";
-
-    /** Message fragment for a mesh element that is not available to take. */
-    private static final String ALREADY_CLAIMED =
-            ", which another T-mesh element already claims";
-
     public final EmbeddedMeshTopology topology;
 
     /** Carve points that reused an existing free vertex (LCBK19's snap). */
@@ -66,10 +55,10 @@ public final class FaceChordWalk {
      *
      * @param sourceFace  source active face the point lies in
      * @param barycentric the point's barycentric coordinate in that face
-     * @return a copy vertex at the point, owned by nobody
      * @throws IllegalStateException when the node's point coincides with a copy vertex
      *                               another T-mesh element already claims, which no
      *                               split can resolve because the point is the vertex
+     * @return a copy vertex at the point, owned by nobody
      */
     public int placeVertex(int sourceFace, double[] barycentric) {
         int childFace = locateChildFace(sourceFace, barycentric);
@@ -79,8 +68,8 @@ public final class FaceChordWalk {
                 continue;
             }
             if (!isFree(vertex)) {
-                throw new IllegalStateException("T-mesh node sits exactly on " + COPY_VERTEX
-                        + vertex + ALREADY_CLAIMED + "; two nodes cannot share one mesh vertex");
+                throw new IllegalStateException("T-mesh node sits exactly on " + "copy vertex "
+                        + vertex + ", which another T-mesh element already claims" + "; two nodes cannot share one mesh vertex");
             }
             placedBySnapCount++;
             return vertex;
@@ -104,9 +93,9 @@ public final class FaceChordWalk {
      *
      * @param sourceFace  source active face
      * @param barycentric the point's barycentric coordinate in that face
-     * @return the containing child face
      * @throws IllegalStateException when the point lies in no child face, which means
      *                               it was never inside the source face
+     * @return the containing child face
      */
     public int locateChildFace(int sourceFace, double[] barycentric) {
         for (int childFace : topology.copyFacesBySourceFace.get(sourceFace)) {
@@ -130,11 +119,11 @@ public final class FaceChordWalk {
      *                          when the target must still be materialized
      * @param pathVertices      path vertices, extended in place with every vertex the
      *                          walk reaches
-     * @return the copy vertex the walk ended on
      * @throws IllegalStateException when the chord leaves the face, fails to converge,
      *                               or crosses a foreign arc's lane — all upstream
      *                               invariant violations, since consecutive carve
      *                               points bound a chord that meets no other trace
+     * @return the copy vertex the walk ended on
      */
     public int walk(int arcId, int sourceFace, int startVertex, double[] targetBarycentric,
             int targetVertex, List<Integer> pathVertices) {
@@ -147,8 +136,8 @@ public final class FaceChordWalk {
             double[] headBarycentric = requireBarycentric(sourceFace, head);
             int childFace = childFaceTowards(sourceFace, head, headBarycentric, targetBarycentric);
             if (childFace == EmbeddedMeshTopology.UNCLAIMED) {
-                throw new IllegalStateException(ARC + arcId + " chord leaves source face "
-                        + sourceFace + " at " + COPY_VERTEX + head);
+                throw new IllegalStateException("arc " + arcId + " chord leaves source face "
+                        + sourceFace + " at " + "copy vertex " + head);
             }
             if (isAtCorner(sourceFace, childFace, cornerOf(childFace, head), targetBarycentric)) {
                 return head;
@@ -160,8 +149,8 @@ public final class FaceChordWalk {
             }
             if (targetContainedBy(sourceFace, childFace, targetBarycentric)) {
                 if (targetVertex != EmbeddedMeshTopology.UNCLAIMED) {
-                    throw new IllegalStateException(ARC + arcId + " target node "
-                            + COPY_VERTEX + targetVertex + " lies in copy face " + childFace
+                    throw new IllegalStateException("arc " + arcId + " target node "
+                            + "copy vertex " + targetVertex + " lies in copy face " + childFace
                             + " without being one of its corners, so a second copy vertex sits"
                             + " within rounding distance of the node's position");
                 }
@@ -172,8 +161,8 @@ public final class FaceChordWalk {
             head = advance(arcId, sourceFace, childFace, head, headBarycentric,
                     targetBarycentric, pathVertices);
         }
-        throw new IllegalStateException(ARC + arcId + " chord walk did not converge in source face "
-                + sourceFace + " from " + COPY_VERTEX + startVertex);
+        throw new IllegalStateException("arc " + arcId + " chord walk did not converge in source face "
+                + sourceFace + " from " + "copy vertex " + startVertex);
     }
 
     /**
@@ -204,7 +193,7 @@ public final class FaceChordWalk {
         int fromSign = orientSign(headBarycentric, targetBarycentric, fromBarycentric);
         int toSign = orientSign(headBarycentric, targetBarycentric, toBarycentric);
         if (fromSign != 0 && fromSign == toSign) {
-            throw new IllegalStateException(ARC + arcId + " chord misses the exit edge of copy face "
+            throw new IllegalStateException("arc " + arcId + " chord misses the exit edge of copy face "
                     + childFace + " in source face " + sourceFace);
         }
         double fromArea = ExactBarycentricOrient.area(
@@ -252,8 +241,8 @@ public final class FaceChordWalk {
                 snappedCrossingCount++;
                 return vertex;
             }
-            throw new IllegalStateException(ARC + arcId + " carve point coincides with "
-                    + COPY_VERTEX + vertex + ALREADY_CLAIMED
+            throw new IllegalStateException("arc " + arcId + " carve point coincides with "
+                    + "copy vertex " + vertex + ", which another T-mesh element already claims"
                     + "; the trace passes exactly through it but cannot share it");
         }
         for (int corner = 0; corner < CORNERS; corner++) {
@@ -285,7 +274,7 @@ public final class FaceChordWalk {
         }
         int edgeId = topology.edgeBetween(from, to);
         if (edgeId == EmbeddedMeshTopology.UNCLAIMED) {
-            throw new IllegalStateException(ARC + arcId + " walk stepped from " + COPY_VERTEX
+            throw new IllegalStateException("arc " + arcId + " walk stepped from " + "copy vertex "
                     + from + " to " + to + " with no edge between them");
         }
         requireUnclaimed(arcId, edgeId);
@@ -430,7 +419,7 @@ public final class FaceChordWalk {
             }
         }
         throw new IllegalStateException(
-                COPY_VERTEX + vertexId + " is not a corner of copy face " + faceId);
+                "copy vertex " + vertexId + " is not a corner of copy face " + faceId);
     }
 
     /**
@@ -485,7 +474,7 @@ public final class FaceChordWalk {
     private void requireUnclaimed(int arcId, int edgeId) {
         int owner = topology.ownerArcByCopyEdge[edgeId];
         if (owner != EmbeddedMeshTopology.UNCLAIMED && owner != arcId) {
-            throw new IllegalStateException(ARC + arcId + " chord crosses copy edge " + edgeId
+            throw new IllegalStateException("arc " + arcId + " chord crosses copy edge " + edgeId
                     + " already claimed by arc " + owner);
         }
     }
@@ -501,7 +490,7 @@ public final class FaceChordWalk {
     private double[] requireBarycentric(int sourceFace, int copyVertex) {
         double[] barycentric = topology.barycentricOf(sourceFace, copyVertex);
         if (barycentric == null) {
-            throw new IllegalStateException(COPY_VERTEX + copyVertex
+            throw new IllegalStateException("copy vertex " + copyVertex
                     + " has no barycentric coordinate in source face " + sourceFace);
         }
         return barycentric;
