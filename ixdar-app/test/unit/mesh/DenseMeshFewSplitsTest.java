@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedContraction;
 
 /**
  * Refining the triangle mesh under a fixed layout must not multiply the edge splits the contraction
@@ -58,8 +57,7 @@ class DenseMeshFewSplitsTest {
         ScaledTorusLayoutFixture fixture = new ScaledTorusLayoutFixture(scale);
         int verticesBefore = fixture.topology.copy.vertexCount();
         long liveArcs = fixture.tmesh.arcs.stream().filter(arc -> arc.alive).count();
-        new EmbeddedContraction(fixture.tmesh,
-                ScaledTorusLayoutFixture.TORUS_EULER_CHARACTERISTIC).contract();
+        fixture.tmesh.contract();
 
         int splits = fixture.topology.copy.vertexCount() - verticesBefore;
         if (requireMuchDenser) {

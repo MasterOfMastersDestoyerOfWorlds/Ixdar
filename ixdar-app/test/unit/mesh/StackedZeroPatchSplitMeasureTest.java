@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
@@ -104,8 +103,7 @@ class StackedZeroPatchSplitMeasureTest {
     void theDriverContractsTheStackedFixtureWithoutAbortingOnTheMeasure() {
         StackedZeroRowTorusFixture fixture = new StackedZeroRowTorusFixture();
 
-        new EmbeddedContraction(fixture.tmesh,
-                StackedZeroRowTorusFixture.TORUS_EULER_CHARACTERISTIC).contract();
+        fixture.tmesh.contract();
 
         for (int arcId = 0; arcId < fixture.tmesh.arcs.size(); arcId++) {
             assertTrue(!fixture.tmesh.arcs.get(arcId).alive

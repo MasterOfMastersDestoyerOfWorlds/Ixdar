@@ -17,7 +17,7 @@ class PlaneLayoutFixtureTest {
     void fixtureIsADiskCarryingANonSimpleZeroPatch() {
         PlaneLayoutFixture fixture = new PlaneLayoutFixture();
 
-        fixture.tmesh.validate(PlaneLayoutFixture.PLANE_EULER_CHARACTERISTIC);
+        fixture.tmesh.validate();
 
         long liveNodes = fixture.tmesh.nodes.stream().filter(node -> node.alive).count();
         long liveArcs = fixture.tmesh.arcs.stream().filter(arc -> arc.alive).count();

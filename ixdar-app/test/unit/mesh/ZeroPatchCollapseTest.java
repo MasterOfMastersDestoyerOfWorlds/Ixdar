@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchCollapseOperator;
@@ -23,8 +22,7 @@ class ZeroPatchCollapseTest {
     void drivingAllThreeOperatorsClearsEveryZeroElement() {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
 
-        new EmbeddedContraction(fixture.tmesh, TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC)
-                .contract();
+        fixture.tmesh.contract();
 
         for (int arcId = 0; arcId < fixture.tmesh.arcs.size(); arcId++) {
             var arc = fixture.tmesh.arcs.get(arcId);
@@ -64,7 +62,7 @@ class ZeroPatchCollapseTest {
                 assertNotEquals(EmbeddedTMesh.NONE, nonSimple, "a bigon should become reachable");
                 splitPatch.split(nonSimple);
             }
-            fixture.tmesh.validate(TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC);
+            fixture.tmesh.validate();
             if (++guard > 100) {
                 throw new AssertionError("never reached a bigon");
             }
@@ -75,7 +73,7 @@ class ZeroPatchCollapseTest {
 
         collapsePatch.collapse(collapsePatch.nextSimpleZeroPatch());
 
-        fixture.tmesh.validate(TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC);
+        fixture.tmesh.validate();
         assertEquals(liveArcsBefore - 1, countLive(fixture.tmesh.arcs.size(), fixture.tmesh, true),
                 "operator (3) discards exactly one arc");
         assertEquals(livePatchesBefore - 1,

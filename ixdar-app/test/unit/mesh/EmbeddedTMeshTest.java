@@ -114,7 +114,7 @@ class EmbeddedTMeshTest {
 
         // Throws unless V - E + F equals the torus's characteristic, unless every patch
         // closes, and unless every patch's opposite sides carry equal quantized length.
-        tmesh.validate(TORUS_EULER_CHARACTERISTIC);
+        tmesh.validate();
     }
 
     @Test
@@ -243,12 +243,12 @@ class EmbeddedTMeshTest {
     @Test
     void validateRejectsAPatchWhoseOppositeSidesDisagree() {
         build();
-        tmesh.validate(TORUS_EULER_CHARACTERISTIC);
+        tmesh.validate();
 
         tmesh.arcs.get(0).quantizedLength += 1;
 
         IllegalStateException failure = assertThrows(IllegalStateException.class,
-                () -> tmesh.validate(TORUS_EULER_CHARACTERISTIC));
+                () -> tmesh.validate());
         assertTrue(failure.getMessage().contains("not a rectangle"),
                 "expected the consistency check to fire, got: " + failure.getMessage());
     }
@@ -260,12 +260,12 @@ class EmbeddedTMeshTest {
     @Test
     void validateRejectsALostArc() {
         build();
-        tmesh.validate(TORUS_EULER_CHARACTERISTIC);
+        tmesh.validate();
 
         tmesh.arcs.get(0).alive = false;
 
         IllegalStateException failure = assertThrows(IllegalStateException.class,
-                () -> tmesh.validate(TORUS_EULER_CHARACTERISTIC));
+                () -> tmesh.validate());
         assertTrue(failure.getMessage().contains("cell decomposition"),
                 "expected the Euler check to fire, got: " + failure.getMessage());
     }
@@ -319,7 +319,7 @@ class EmbeddedTMeshTest {
 
         // A node and an arc are both gained, so the characteristic is unmoved: the split
         // refines the complex without changing the surface it decomposes.
-        tmesh.validate(TORUS_EULER_CHARACTERISTIC);
+        tmesh.validate();
 
         // Degree two, not three. A freshly split node carries only the two halves of the
         // arc it was cut from, so it is flat on BOTH of the patches that share that arc —

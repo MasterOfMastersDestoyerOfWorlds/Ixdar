@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRectangleMap;
@@ -99,8 +98,7 @@ class PatchRectangleMapTest {
     @Test
     void contractedTorusHasNoBoundaryChords() {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
-        new EmbeddedContraction(fixture.tmesh, TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC)
-                .contract();
+        fixture.tmesh.contract();
         new ThreeConnectivityRefinement(fixture.tmesh).refine();
 
         assertEquals(0, boundaryChordCount(fixture.tmesh),
@@ -156,8 +154,7 @@ class PatchRectangleMapTest {
     @Test
     void everyContractedPatchMapsFoldFree() {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
-        new EmbeddedContraction(fixture.tmesh, TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC)
-                .contract();
+        fixture.tmesh.contract();
         new ThreeConnectivityRefinement(fixture.tmesh).refine();
         PatchRegions regions = new PatchRegions(fixture.tmesh).build();
         PatchRegionMapper mapper = new PatchRegionMapper(fixture.tmesh, regions);

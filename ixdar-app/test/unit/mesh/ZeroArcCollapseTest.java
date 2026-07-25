@@ -34,7 +34,7 @@ class ZeroArcCollapseTest {
 
         operator.collapse(arcId);
 
-        fixture.tmesh.validate(TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC);
+        fixture.tmesh.validate();
         assertTrue(fixture.tmesh.arcs.get(arcId).alive == false,
                 "the collapsed arc is retired");
         assertEquals(liveArcsBefore - 1, countLive(fixture.tmesh),
@@ -56,7 +56,7 @@ class ZeroArcCollapseTest {
         for (int arcId = operator.nextCollapsibleArc(); arcId != EmbeddedTMesh.NONE;
                 arcId = operator.nextCollapsibleArc()) {
             operator.collapse(arcId);
-            fixture.tmesh.validate(TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC);
+            fixture.tmesh.validate();
             if (++guard > fixture.tmesh.arcs.size()) {
                 throw new AssertionError("collapse did not terminate");
             }

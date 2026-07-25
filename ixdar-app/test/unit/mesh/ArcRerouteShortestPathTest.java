@@ -58,7 +58,7 @@ class ArcRerouteShortestPathTest {
         List<Integer> channel = List.copyOf(tmesh.arcs.get(collapsingArc).path.copyVertexPath);
 
         tmesh.setPath(collapsingArc, List.of(survivorVertex));
-        tmesh.dragArcEndOntoVertex(detourArc, pivotVertex, survivorVertex,
+        tmesh.collapseArc.dragArcEndOntoVertex(detourArc, pivotVertex, survivorVertex,
                 new ArcRerouter(topology), channel);
 
         List<Integer> routed = tmesh.arcs.get(detourArc).path.copyVertexPath;

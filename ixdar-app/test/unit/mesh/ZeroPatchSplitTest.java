@@ -33,7 +33,7 @@ class ZeroPatchSplitTest {
 
         operator.split(patchId);
 
-        fixture.tmesh.validate(TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC);
+        fixture.tmesh.validate();
         assertEquals(EmbeddedTMesh.NONE, operator.nextNonSimpleZeroPatch(),
                 "the two halves must both be simple zero-patches");
         assertEquals(liveArcsBefore + 2, countLiveArcs(fixture.tmesh),
@@ -89,7 +89,7 @@ class ZeroPatchSplitTest {
         for (int patchId = splitter.nextNonSimpleZeroPatch(); patchId != EmbeddedTMesh.NONE;
                 patchId = splitter.nextNonSimpleZeroPatch()) {
             splitter.split(patchId);
-            fixture.tmesh.validate(TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC);
+            fixture.tmesh.validate();
         }
 
         var collapser = new ixdar.geometry.mesh.quadlayout.embedding
@@ -98,7 +98,7 @@ class ZeroPatchSplitTest {
         for (int arcId = collapser.nextCollapsibleArc(); arcId != EmbeddedTMesh.NONE;
                 arcId = collapser.nextCollapsibleArc()) {
             collapser.collapse(arcId);
-            fixture.tmesh.validate(TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC);
+            fixture.tmesh.validate();
             if (++guard > fixture.tmesh.arcs.size()) {
                 throw new AssertionError("collapse did not terminate");
             }

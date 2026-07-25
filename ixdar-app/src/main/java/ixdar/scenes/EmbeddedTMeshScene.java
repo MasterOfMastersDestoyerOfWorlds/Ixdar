@@ -190,7 +190,7 @@ public class EmbeddedTMeshScene extends Scene {
         QuadLayoutEngine engine = new QuadLayoutEngine(
                 surfaceMesh, (float) Math.toRadians(alphaDegrees));
         engine.buildLayoutEmbedding();
-        tmesh = new EmbeddedTMesh(engine.embedding).build();
+        tmesh = new EmbeddedTMesh(engine.embedding.topology).build(engine.embedding);
         tmesh.validate();
         tmesh.contract();
     }

@@ -47,7 +47,7 @@ class ZeroPatchSplitCorridorTest {
 
         operator.split(nonSimple);
 
-        fixture.tmesh.validate(PlaneLayoutFixture.PLANE_EULER_CHARACTERISTIC);
+        fixture.tmesh.validate();
         assertEquals(patchesBefore + 1,
                 fixture.tmesh.patches.stream().filter(patch -> patch.alive).count(),
                 "extending the T-joint across the patch cuts it in two");

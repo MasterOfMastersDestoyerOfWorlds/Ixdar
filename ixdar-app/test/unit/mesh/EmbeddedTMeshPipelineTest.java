@@ -12,7 +12,6 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMeshBuilder;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
@@ -54,13 +53,13 @@ class EmbeddedTMeshPipelineTest {
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, (float) ALPHA_RADIANS);
         engine.buildLayoutEmbedding();
 
-        EmbeddedTMeshBuilder builder = new EmbeddedTMeshBuilder(engine.embedding);
-        EmbeddedTMesh tmesh = builder.build();
+        EmbeddedTMesh tmesh = new EmbeddedTMesh(engine.embedding.topology)
+                .build(engine.embedding);
 
         System.out.printf(
                 "[tmesh-pipeline] %s | nodes=%d arcs=%d (zero=%d) patches=%d | euler=%d%n",
                 offPath, tmesh.nodes.size(), tmesh.arcs.size(), countZeroArcs(tmesh),
-                tmesh.patches.size(), builder.expectedEulerCharacteristic);
+                tmesh.patches.size(), tmesh.expectedEulerCharacteristic);
 
         assertEquals(engine.motorcycleGraph.patches.size(), tmesh.patches.size(),
                 "every motorcycle-graph patch should become one embedded patch");

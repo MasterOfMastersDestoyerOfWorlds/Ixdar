@@ -81,45 +81,26 @@ public class EmbeddedTMesh {
 
     public ZeroPatchSplitOperator splitPatch;
 
+    public ZeroArcCollapseOperator collapseArc;
+
+    public ZeroPatchCollapseOperator collapsePatch;
+
     public int arcCollapseCount;
     public int patchSplitCount;
     public int patchCollapseCount;
 
-    public final LayoutEmbedding embedding;
-    public final MotorcycleGraph motorcycleGraph;
+    /** The source surface's {@code V - E + F}, which every {@link #validate} checks. */
+    public final int expectedEulerCharacteristic;
 
     /**
-     * Embedded node id for each source node id, or {@link EmbeddedTMesh#NONE} until
-     * added.
-     */
-    public final int[] embeddedNodeBySource;
-
-    /**
-     * Embedded arc id for each source arc id, or {@link EmbeddedTMesh#NONE} until
-     * added.
-     */
-    public final int[] embeddedArcBySource;
-
-    private ZeroArcCollapseOperator collapseArc;
-
-    private ZeroPatchCollapseOperator collapsePatch;
-
-    private int expectedEulerCharacteristic;
-
-    /**
-     * Creates an empty T-mesh over a working copy.
+     * Creates an empty T-mesh over a working copy. Production callers assemble it
+     * from a carve with {@link #build}; fixtures add nodes, arcs and patches by
+     * hand. The expected Euler characteristic is read off the source mesh.
      *
-     * @param embedding construction-half embedding whose working copy the T-mesh is embedded in
+     * @param topology working copy the T-mesh is embedded in
      */
-    public EmbeddedTMesh(LayoutEmbedding embedding) {
-
-        this.embedding = embedding;
-        this.motorcycleGraph = embedding.motorcycleGraph;
-        this.embeddedNodeBySource = new int[motorcycleGraph.nodes.size()];
-        this.embeddedArcBySource = new int[motorcycleGraph.arcs.size()];
-        Arrays.fill(embeddedNodeBySource, EmbeddedTMesh.NONE);
-        Arrays.fill(embeddedArcBySource, EmbeddedTMesh.NONE);
-        this.topology = embedding.topology;
+    public EmbeddedTMesh(EmbeddedMeshTopology topology) {
+        this.topology = topology;
         this.nodes = new ArrayList<>();
         this.arcs = new ArrayList<>();
         this.patches = new ArrayList<>();
@@ -132,16 +113,24 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * Assembles the T-mesh and validates it against the surface's Euler
-     * characteristic.
+     * Assembles the T-mesh from a finished carve and validates it against the
+     * surface's Euler characteristic.
      *
+     * @param embedding construction-half embedding whose motorcycle graph,
+     *                  quantization and carved paths are assembled; its working
+     *                  copy must be this T-mesh's {@link #topology}
      * @throws IllegalStateException when a patch is not a valid rectangle, an arc
      *                               in a patch was not carved, a node in an arc was
      *                               not placed, or the assembled complex is not a
      *                               cell decomposition of the surface
      * @return the assembled, validated {@link EmbeddedTMesh}
      */
-    public EmbeddedTMesh build() {
+    public EmbeddedTMesh build(LayoutEmbedding embedding) {
+        MotorcycleGraph motorcycleGraph = embedding.motorcycleGraph;
+        int[] embeddedNodeBySource = new int[motorcycleGraph.nodes.size()];
+        int[] embeddedArcBySource = new int[motorcycleGraph.arcs.size()];
+        Arrays.fill(embeddedNodeBySource, EmbeddedTMesh.NONE);
+        Arrays.fill(embeddedArcBySource, EmbeddedTMesh.NONE);
         for (TMeshPatch patch : motorcycleGraph.patches) {
             if (!patch.validRectangle || patch.sides.size() != EmbeddedPatch.SIDES) {
                 throw new IllegalStateException("patch " + patch.patchId + " is not a valid rectangle:"
@@ -153,8 +142,8 @@ public class EmbeddedTMesh {
                         continue;
                     }
                     TraceArc arc = motorcycleGraph.arcs.get(sourceArcId);
-                    int startNode = ensureNode(arc.startNodeId);
-                    int endNode = ensureNode(arc.endNodeId);
+                    int startNode = ensureNode(embedding, embeddedNodeBySource, arc.startNodeId);
+                    int endNode = ensureNode(embedding, embeddedNodeBySource, arc.endNodeId);
                     ArcEdgePath carved = embedding.pathByArc[sourceArcId];
                     if (carved == null) {
                         throw new IllegalStateException("arc " + sourceArcId + " bounds a patch but was never"
@@ -213,11 +202,15 @@ public class EmbeddedTMesh {
     /**
      * Adds a node if not already added.
      *
-     * @param sourceNodeId source node id to add
+     * @param embedding            construction-half embedding being assembled
+     * @param embeddedNodeBySource embedded node id per source node id, updated in
+     *                             place
+     * @param sourceNodeId         source node id to add
      * @throws IllegalStateException when the node was never placed on a copy vertex
      * @return the embedded node id
      */
-    private int ensureNode(int sourceNodeId) {
+    private int ensureNode(LayoutEmbedding embedding, int[] embeddedNodeBySource,
+            int sourceNodeId) {
         if (embeddedNodeBySource[sourceNodeId] != EmbeddedTMesh.NONE) {
             return embeddedNodeBySource[sourceNodeId];
         }
@@ -226,7 +219,7 @@ public class EmbeddedTMesh {
             throw new IllegalStateException("node " + sourceNodeId + " bounds an arc but was never"
                     + " placed on a copy vertex");
         }
-        TMeshNode node = motorcycleGraph.nodes.get(sourceNodeId);
+        TMeshNode node = embedding.motorcycleGraph.nodes.get(sourceNodeId);
         boolean critical = embedding.criticalByNode[sourceNodeId];
         boolean border = node.type == TMeshNode.Type.BOUNDARY;
         int embeddedNodeId = addNode(sourceNodeId, copyVertex, critical, border);
