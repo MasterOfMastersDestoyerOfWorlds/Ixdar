@@ -60,10 +60,9 @@ public final class ZeroArcCollapseOperator {
      * its Euler characteristic is unchanged.
      *
      * @param arcId zero arc to collapse
-     * @throws Exception 
      * @throws IllegalStateException when the arc is not a collapsible zero arc
      */
-    public void collapse(int arcId) throws Exception {
+    public void collapse(int arcId) {
         EmbeddedArc arc = tmesh.arcs.get(arcId);
         if (!arc.alive || arc.quantizedLength != 0) {
             throw new IllegalStateException(EmbeddedTMesh.NONE == arcId ? "no arc"
@@ -123,7 +122,7 @@ public final class ZeroArcCollapseOperator {
      *                               vertex
      */
     public void dragArcEndOntoVertex(int arcId, int movedVertex, int targetVertex,
-            ArcRerouter rerouter, List<Integer> channel) throws Exception {
+            ArcRerouter rerouter, List<Integer> channel) {
         EmbeddedArc arc = tmesh.arcs.get(arcId);
         List<Integer> vertices = new ArrayList<>(arc.path.copyVertexPath);
         if (vertices.size() == 1) {
@@ -182,7 +181,7 @@ public final class ZeroArcCollapseOperator {
 
         String message = "arc " + arcId + " could not be re-routed onto vertex "
                 + targetVertex + " from any back-off point of its old path";
-        throw new Exception(message);
+        throw new IllegalStateException(message);
     }
 
     /**

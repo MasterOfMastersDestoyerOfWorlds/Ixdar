@@ -16,10 +16,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMeshBuilder;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRectangleMap;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRegionMapper;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRegions;
@@ -192,9 +190,9 @@ public class EmbeddedTMeshScene extends Scene {
         QuadLayoutEngine engine = new QuadLayoutEngine(
                 surfaceMesh, (float) Math.toRadians(alphaDegrees));
         engine.buildLayoutEmbedding();
-        EmbeddedTMeshBuilder builder = new EmbeddedTMeshBuilder(engine.embedding);
-        tmesh = builder.build();
+        tmesh = new EmbeddedTMesh(engine.embedding).build();
         tmesh.validate();
+        tmesh.contract();
     }
 
     /**

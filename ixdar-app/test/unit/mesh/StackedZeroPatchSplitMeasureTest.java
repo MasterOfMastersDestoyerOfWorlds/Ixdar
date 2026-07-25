@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedContraction;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
 
@@ -33,21 +35,46 @@ import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
  */
 class StackedZeroPatchSplitMeasureTest {
 
+        /**
+     * The Appendix A.3 termination measure: <em>"the total number of
+     * yet-to-be-collapsed zero-arcs and zero-patches"</em>.
+     *
+     * <p>
+     * Operators (1) and (3) each lower it on their own. Operator (2) raises it
+     * deliberately, and only the round that follows it — see {@link #contract} —
+     * must bring it back down.
+     *
+     * @return the count of live zero arcs plus live zero patches
+     */
+    public long terminationMeasure(EmbeddedTMesh tmesh) {
+        long zeroPatches = 0;
+        for (EmbeddedPatch patch : tmesh.patches) {
+            if (patch.alive && tmesh.isZeroPatch(patch.patchId)) {
+                zeroPatches++;
+            }
+        }
+        long zeroArcs = 0;
+        for (EmbeddedArc arc : tmesh.arcs) {
+            if (arc.alive && arc.quantizedLength == 0) {
+                zeroArcs++;
+            }
+        }
+        return zeroArcs + zeroPatches;
+    }
+
     @Test
     void aSplitMayRaiseTheMeasureButTheRoundAroundItMustLowerIt() {
-        StackedZeroRowTorusFixture fixture = new StackedZeroRowTorusFixture();
-        EmbeddedContraction contraction = new EmbeddedContraction(fixture.tmesh,
-                StackedZeroRowTorusFixture.TORUS_EULER_CHARACTERISTIC);
-        ZeroPatchSplitOperator splitter = contraction.splitPatch;
+        StackedZeroRowTorusFixture fixture = new StackedZeroRowTorusFixture(); 
+        ZeroPatchSplitOperator splitter = fixture.tmesh.splitPatch;
 
         assertEquals(fixture.nonSimplePatchId, splitter.nextNonSimpleZeroPatch(),
                 "the lower zero row's major 0 to 4 patch is the fixture's only non-simple one");
-        long before = contraction.terminationMeasure();
+        long before = terminationMeasure(fixture.tmesh);
 
         splitter.split(fixture.nonSimplePatchId);
-        fixture.tmesh.validate(StackedZeroRowTorusFixture.TORUS_EULER_CHARACTERISTIC);
+        fixture.tmesh.validate();
 
-        assertTrue(contraction.terminationMeasure() > before,
+        assertTrue(terminationMeasure(fixture.tmesh) > before,
                 "the split mints a zero-arc and a zero-patch, so it raises the measure on its own —"
                         + " measuring progress per operator asserts more than Appendix A.3 does");
         assertNotEquals(EmbeddedTMesh.NONE, splitter.nextNonSimpleZeroPatch(),
@@ -55,14 +82,14 @@ class StackedZeroPatchSplitMeasureTest {
                         + " why the excess does not simply go away on this step");
 
         int guard = 0;
-        while (collapseOneArcOrPatch(contraction)) {
-            fixture.tmesh.validate(StackedZeroRowTorusFixture.TORUS_EULER_CHARACTERISTIC);
+        while (collapseOneArcOrPatch(fixture.tmesh)) {
+            fixture.tmesh.validate();
             if (++guard > fixture.tmesh.arcs.size() + fixture.tmesh.patches.size()) {
                 throw new AssertionError("operators 1 and 3 did not reach a fixed point");
             }
         }
 
-        assertTrue(contraction.terminationMeasure() < before,
+        assertTrue(terminationMeasure(fixture.tmesh) < before,
                 "after operators 1 and 3 have collapsed what the split minted, the measure must be"
                         + " strictly below where it was before the split — that is the invariant"
                         + " Appendix A.3 actually proves, and it is what the driver should check");
@@ -96,7 +123,7 @@ class StackedZeroPatchSplitMeasureTest {
      * @param contraction contraction whose operators are driven
      * @return true when one of the two operators applied
      */
-    private boolean collapseOneArcOrPatch(EmbeddedContraction contraction) {
+    private boolean collapseOneArcOrPatch(EmbeddedTMesh contraction) {
         int arcId = contraction.collapseArc.nextCollapsibleArc();
         if (arcId != EmbeddedTMesh.NONE) {
             contraction.collapseArc.collapse(arcId);

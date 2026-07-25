@@ -2,16 +2,19 @@ package ixdar.geometry.mesh.quadlayout.embedding;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 
 /**
  * The quad layout's nodes, arcs and patches together with their realization on
@@ -70,7 +73,7 @@ public class EmbeddedTMesh {
 
     private ZeroArcCollapseOperator collapseArc;
 
-    private ZeroPatchSplitOperator splitPatch;
+    public ZeroPatchSplitOperator splitPatch;
 
     private ZeroPatchCollapseOperator collapsePatch;
 
@@ -80,13 +83,35 @@ public class EmbeddedTMesh {
     public int patchSplitCount;
     public int patchCollapseCount;
 
+    public final LayoutEmbedding embedding;
+    public final MotorcycleGraph motorcycleGraph;
+
+    /**
+     * Embedded node id for each source node id, or {@link EmbeddedTMesh#NONE} until
+     * added.
+     */
+    public final int[] embeddedNodeBySource;
+
+    /**
+     * Embedded arc id for each source arc id, or {@link EmbeddedTMesh#NONE} until
+     * added.
+     */
+    public final int[] embeddedArcBySource;
+
     /**
      * Creates an empty T-mesh over a working copy.
      *
      * @param topology working copy the T-mesh is embedded in
      */
-    public EmbeddedTMesh(EmbeddedMeshTopology topology) {
-        this.topology = topology;
+    public EmbeddedTMesh(LayoutEmbedding embedding) {
+
+        this.embedding = embedding;
+        this.motorcycleGraph = embedding.motorcycleGraph;
+        this.embeddedNodeBySource = new int[motorcycleGraph.nodes.size()];
+        this.embeddedArcBySource = new int[motorcycleGraph.arcs.size()];
+        Arrays.fill(embeddedNodeBySource, EmbeddedTMesh.NONE);
+        Arrays.fill(embeddedArcBySource, EmbeddedTMesh.NONE);
+        this.topology = embedding.topology;
         this.nodes = new ArrayList<>();
         this.arcs = new ArrayList<>();
         this.patches = new ArrayList<>();
@@ -96,6 +121,109 @@ public class EmbeddedTMesh {
         this.collapseArc = new ZeroArcCollapseOperator(this);
         this.splitPatch = new ZeroPatchSplitOperator(this);
         this.collapsePatch = new ZeroPatchCollapseOperator(this);
+    }
+
+    /**
+     * Assembles the T-mesh and validates it against the surface's Euler
+     * characteristic.
+     *
+     * @throws IllegalStateException when a patch is not a valid rectangle, an arc
+     *                               in a patch was not carved, a node in an arc was
+     *                               not placed, or the assembled complex is not a
+     *                               cell decomposition of the surface
+     * @return the assembled, validated {@link EmbeddedTMesh}
+     */
+    public EmbeddedTMesh build() {
+        for (TMeshPatch patch : motorcycleGraph.patches) {
+            if (!patch.validRectangle || patch.sides.size() != EmbeddedPatch.SIDES) {
+                throw new IllegalStateException("patch " + patch.patchId + " is not a valid rectangle:"
+                        + " validRectangle=" + patch.validRectangle + " sides=" + patch.sides.size());
+            }
+            for (List<Integer> side : patch.sides) {
+                for (int sourceArcId : side) {
+                    if (embeddedArcBySource[sourceArcId] != EmbeddedTMesh.NONE) {
+                        continue;
+                    }
+                    TraceArc arc = motorcycleGraph.arcs.get(sourceArcId);
+                    int startNode = ensureNode(arc.startNodeId);
+                    int endNode = ensureNode(arc.endNodeId);
+                    ArcEdgePath carved = embedding.pathByArc[sourceArcId];
+                    if (carved == null) {
+                        throw new IllegalStateException("arc " + sourceArcId + " bounds a patch but was never"
+                                + " carved; the carve and the patch structure disagree");
+                    }
+                    int startVertex = embedding.vertexIdByNode[arc.startNodeId];
+                    int endVertex = embedding.vertexIdByNode[arc.endNodeId];
+                    List<Integer> path = carved.copyVertexPath;
+                    int first = path.get(0);
+                    int last = path.get(path.size() - 1);
+                    List<Integer> vertexPath = null;
+                    if (first == startVertex && last == endVertex) {
+                        vertexPath = path;
+                    } else if (first == endVertex && last == startVertex) {
+                        List<Integer> reversed = new ArrayList<>(path);
+                        Collections.reverse(reversed);
+                        vertexPath = reversed;
+                    } else {
+                        throw new IllegalStateException("arc " + sourceArcId + " carved path runs " + first + ".."
+                                + last + " but its nodes sit on vertices " + startVertex + " and " + endVertex);
+                    }
+                    int quantizedLength = embedding.quantization.quantizedLengthByArc[sourceArcId];
+                    boolean feature = embedding.featureByArc[sourceArcId];
+                    int embeddedArcId = addArc(sourceArcId, startNode, endNode, quantizedLength, feature,
+                            vertexPath);
+                    embeddedArcBySource[sourceArcId] = embeddedArcId;
+                }
+            }
+        }
+        for (TMeshPatch patch : motorcycleGraph.patches) {
+            List<List<Integer>> sideArcIds = new ArrayList<>(EmbeddedPatch.SIDES);
+            for (List<Integer> side : patch.sides) {
+                List<Integer> embeddedSide = new ArrayList<>(side.size());
+                for (int sourceArcId : side) {
+                    embeddedSide.add(embeddedArcBySource[sourceArcId]);
+                }
+                sideArcIds.add(embeddedSide);
+            }
+            int firstSideFirstArc = embeddedArcBySource[patch.sides.get(0).get(0)];
+            List<Integer> lastSide = patch.sides.get(EmbeddedPatch.SIDES - 1);
+            int lastSideLastArc = embeddedArcBySource[lastSide.get(lastSide.size() - 1)];
+            EmbeddedArc entering = arcs.get(firstSideFirstArc);
+            EmbeddedArc leaving = arcs.get(lastSideLastArc);
+            int firstCorner = entering.endNodeId;
+            if (entering.startNodeId == leaving.startNodeId
+                    || entering.startNodeId == leaving.endNodeId) {
+                firstCorner = entering.startNodeId;
+            }
+            addPatch(patch.patchId, sideArcIds, firstCorner);
+        }
+        resolveWalkOrientation();
+        validate();
+        return this;
+    }
+
+    /**
+     * Adds a node if not already added.
+     *
+     * @param sourceNodeId source node id to add
+     * @throws IllegalStateException when the node was never placed on a copy vertex
+     * @return the embedded node id
+     */
+    private int ensureNode(int sourceNodeId) {
+        if (embeddedNodeBySource[sourceNodeId] != EmbeddedTMesh.NONE) {
+            return embeddedNodeBySource[sourceNodeId];
+        }
+        int copyVertex = embedding.vertexIdByNode[sourceNodeId];
+        if (copyVertex < 0) {
+            throw new IllegalStateException("node " + sourceNodeId + " bounds an arc but was never"
+                    + " placed on a copy vertex");
+        }
+        TMeshNode node = motorcycleGraph.nodes.get(sourceNodeId);
+        boolean critical = embedding.criticalByNode[sourceNodeId];
+        boolean border = node.type == TMeshNode.Type.BOUNDARY;
+        int embeddedNodeId = addNode(sourceNodeId, copyVertex, critical, border);
+        embeddedNodeBySource[sourceNodeId] = embeddedNodeId;
+        return embeddedNodeId;
     }
 
     /**
@@ -935,7 +1063,6 @@ public class EmbeddedTMesh {
         return seen;
     }
 
-
     /**
      * Opens a free spoke from a collapsing node into a region it must reach, by
      * splitting the edge <em>opposite</em> the node in one of its faces whose far
@@ -1016,8 +1143,8 @@ public class EmbeddedTMesh {
      * <p>
      * Counting live nodes, arcs and patches, {@code V - E + F} must equal the
      * surface's characteristic. Cheap enough to run after every operator, unlike
-     * {@link #validateArcPaths()}.
-     *                                    {@code 2 - 2g}
+     * {@link #validateArcPaths()}. {@code 2 - 2g}
+     * 
      * @throws IllegalStateException when the T-mesh is no longer a cell
      *                               decomposition
      */
@@ -1135,17 +1262,12 @@ public class EmbeddedTMesh {
      * operators (1) and (3) to exhaustion, against the state before the split.
      * Operator (2) raises the measure by design; the other two lower it.
      *
-     * @throws IllegalStateException when the T-mesh stops being a cell
-     *                               decomposition or a round fails to strictly
-     *                               decrease the termination measure
      * @return this, contracted
-     * @throws Exception 
      */
-    public EmbeddedTMesh contract() throws Exception {
+    public EmbeddedTMesh contract() {
         while (true) {
             while (applyCollapse()) {
                 validate();
-                terminationMeasure();
             }
             int nonSimple = splitPatch.nextNonSimpleZeroPatch();
             if (nonSimple == NONE) {
@@ -1162,9 +1284,8 @@ public class EmbeddedTMesh {
      * is collapsible. Both lower the termination measure on their own.
      *
      * @return true when one of the two applied
-     * @throws Exception 
      */
-    private boolean applyCollapse() throws Exception {
+    private boolean applyCollapse() {
         int arc = collapseArc.nextCollapsibleArc();
         if (arc != NONE) {
             collapseArc.collapse(arc);
@@ -1178,32 +1299,5 @@ public class EmbeddedTMesh {
             return true;
         }
         return false;
-    }
-
-    /**
-     * The Appendix A.3 termination measure: <em>"the total number of
-     * yet-to-be-collapsed zero-arcs and zero-patches"</em>.
-     *
-     * <p>
-     * Operators (1) and (3) each lower it on their own. Operator (2) raises it
-     * deliberately, and only the round that follows it — see {@link #contract} —
-     * must bring it back down.
-     *
-     * @return the count of live zero arcs plus live zero patches
-     */
-    public long terminationMeasure() {
-        long zeroPatches = 0;
-        for (EmbeddedPatch patch : patches) {
-            if (patch.alive && isZeroPatch(patch.patchId)) {
-                zeroPatches++;
-            }
-        }
-        long zeroArcs = 0;
-        for (EmbeddedArc arc : arcs) {
-            if (arc.alive && arc.quantizedLength == 0) {
-                zeroArcs++;
-            }
-        }
-        return zeroArcs + zeroPatches;
     }
 }
