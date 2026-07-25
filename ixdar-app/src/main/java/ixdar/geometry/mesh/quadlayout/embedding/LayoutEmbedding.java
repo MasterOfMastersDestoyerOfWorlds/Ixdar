@@ -20,6 +20,9 @@ import ixdar.geometry.mesh.quadlayout.quantization.TJunctionElimination;
  */
 public final class LayoutEmbedding {
 
+    /** Nanoseconds per second, for the timing log. */
+    private static final double NANOS_PER_SECOND = 1.0e9;
+
     public final TJunctionElimination conforming;
     public final MotorcycleGraph motorcycleGraph;
     public final QuantizedMeshGrid quantization;
@@ -77,20 +80,26 @@ public final class LayoutEmbedding {
     public LayoutEmbedding build() {
         long startNanos = System.nanoTime();
         topology = new EmbeddedMeshTopology(motorcycleGraph.seamless.mesh);
+        long copyDoneNanos = System.nanoTime();
         chordWalk = new FaceChordWalk(topology);
         tagSourceEdges();
         markCriticality();
         insertNodes();
         pathByArc = new ArcEdgePath[motorcycleGraph.arcs.size()];
+        long nodesDoneNanos = System.nanoTime();
         carve = new TraceCarve(chordWalk, motorcycleGraph, vertexIdByNode, pathByArc).build();
+        long carveDoneNanos = System.nanoTime();
         topology.copy.computeNormals();
+        long normalsDoneNanos = System.nanoTime();
         assertSubcomplex();
+        long checkDoneNanos = System.nanoTime();
         int carvePoints = chordWalk.snappedCrossingCount + chordWalk.splitCrossingCount;
         System.out.printf(
                 "[embed] nodes onVertex=%d snap=%d edgeSplit=%d faceSplit=%d |"
                         + " arcs carved=%d/%d traces=%d |"
                         + " carve points=%d (snapped=%d split=%d) interiorSplits=%d |"
-                        + " copy V=%d E=%d F=%d (+%d faceSplits +%d edgeSplits) %.2fs%n",
+                        + " copy V=%d E=%d F=%d (+%d faceSplits +%d edgeSplits) %.2fs"
+                        + " (copy %.2f nodes %.2f carve %.2f normals %.2f check %.2f)%n",
                 nodesOnMeshVertexCount, chordWalk.placedBySnapCount,
                 chordWalk.placedByEdgeSplitCount, chordWalk.placedByFaceSplitCount,
                 carve.carvedArcCount, motorcycleGraph.arcs.size(), carve.carvedTraceCount,
@@ -98,7 +107,12 @@ public final class LayoutEmbedding {
                 chordWalk.interiorSplitCount,
                 topology.copy.vertexCount(), topology.copy.edgeCount(), topology.copy.faceCount(),
                 topology.faceSplitCount, topology.edgeSplitCount,
-                (System.nanoTime() - startNanos) / 1.0e9);
+                (checkDoneNanos - startNanos) / NANOS_PER_SECOND,
+                (copyDoneNanos - startNanos) / NANOS_PER_SECOND,
+                (nodesDoneNanos - copyDoneNanos) / NANOS_PER_SECOND,
+                (carveDoneNanos - nodesDoneNanos) / NANOS_PER_SECOND,
+                (normalsDoneNanos - carveDoneNanos) / NANOS_PER_SECOND,
+                (checkDoneNanos - normalsDoneNanos) / NANOS_PER_SECOND);
         return this;
     }
 

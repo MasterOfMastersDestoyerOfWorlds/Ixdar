@@ -105,13 +105,6 @@ public class EmbeddedTMeshScene extends Scene {
 
     private static final String DEFAULT_TEST_MODEL = "test/resources/quadlayout/figure_8/fertility_in_tri.off";
 
-    private OrbitMouseTrap orbitMouse;
-    private QuadLayoutRuntime runtime;
-    private String offPath;
-    private EmbeddedTMesh tmesh;
-    private HalfEdgeMesh surfaceMesh;
-    private final Vector3f meshCenter = new Vector3f();
-
     /**
      * Whether a full contraction (all three operators to a fixed point) was
      * requested by keypress.
@@ -121,8 +114,15 @@ public class EmbeddedTMeshScene extends Scene {
     /** Whether the folded-patch magenta view was toggled by keypress. */
     public volatile boolean pendingFoldFlip;
 
-    /** The angle to stop motorcycle crashes at */
+    /** The angle to stop motorcycle crashes at. */
     public double alphaDegrees;
+
+    private OrbitMouseTrap orbitMouse;
+    private QuadLayoutRuntime runtime;
+    private String offPath;
+    private EmbeddedTMesh tmesh;
+    private HalfEdgeMesh surfaceMesh;
+    private final Vector3f meshCenter = new Vector3f();
 
     /**
      * Default constructor wired by the scene annotation processor.
@@ -365,7 +365,8 @@ public class EmbeddedTMeshScene extends Scene {
      * Apply any keypress-requested edit on the render thread, where the GL context
      * is current, and re-upload the changed T-mesh. Doing this here rather than in
      * the key callback keeps every GL call on the thread that owns the context.
-     * @throws Exception 
+     *
+     * @throws Exception when a requested edit or its re-upload fails
      */
     private void applyPendingEdits() throws Exception {
 

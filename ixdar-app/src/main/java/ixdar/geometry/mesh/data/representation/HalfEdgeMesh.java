@@ -182,6 +182,18 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
 
     /**
      * Convenience wrapper for
+     * {@link HalfEdgeMeshEngine#splitEdge(HalfEdgeMesh, int, float, float, float)}.
+     *
+     * @param edgeId   active edge to split; each incident face must be a triangle
+     * @param position 3D position of the split point
+     * @return id of the newly created vertex on the split point
+     */
+    public int splitEdge(int edgeId, Vector3f position) {
+        return HalfEdgeMeshEngine.splitEdge(this, edgeId, position.x, position.y, position.z);
+    }
+
+    /**
+     * Convenience wrapper for
      * {@link HalfEdgeMeshEngine#removeFace(HalfEdgeMesh, int)}.
      *
      * @param faceId active face id to remove

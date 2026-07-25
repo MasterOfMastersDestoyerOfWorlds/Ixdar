@@ -43,6 +43,7 @@ If a method needs a paragraph of Javadoc to explain a single parameter, the para
 
 - **One top-level class per file.** No exceptions for "small" companion classes.
 - **Avoid nested classes.** Inner classes, static nested classes, and anonymous classes hide structure inside other files and resist refactoring. If you need a nested class, that's the signal to promote it to its own top-level file.
+- **Scratch state is fields, not classes.** Reusable working state (distance arrays, visit stamps, queues) belongs as primitive-array fields at the top of the class that uses them — a companion "Scratch"/"State" class is an indirection, not a concept. Class extraction is for named concepts, not buffers.
 - **Avoid records.** Prefer a regular class with `public final` fields. (Records read fine in isolation but in practice they accumulate carve-outs — custom `equals`, validation in compact constructors, escape-analysis worries on hot paths — at which point they're a normal class wearing a costume.)
 
 ### Field visibility

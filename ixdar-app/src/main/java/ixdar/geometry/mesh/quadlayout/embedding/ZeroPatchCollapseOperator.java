@@ -19,6 +19,12 @@ public final class ZeroPatchCollapseOperator {
     public int collapsedCount;
 
     /**
+     * List returned by {@link #liveBoundaryArcs}, reused across calls; each call
+     * clears and refills it, so callers must not hold it across another call.
+     */
+    public final List<Integer> boundaryArcsScratch = new ArrayList<>();
+
+    /**
      * Stores the T-mesh whose simple zero-patches are collapsed.
      *
      * @param tmesh embedded T-mesh to operate on
@@ -51,11 +57,12 @@ public final class ZeroPatchCollapseOperator {
      * @throws IllegalStateException when the patch is not a ready bigon
      */
     public void collapse(int patchId) {
-        List<Integer> boundaryArcs = liveBoundaryArcs(patchId);
         if (!isReadyBigon(patchId)) {
             throw new IllegalStateException("patch " + patchId + " is not a simple zero-patch with"
-                    + " its zero sides collapsed; its live boundary arcs are " + boundaryArcs);
+                    + " its zero sides collapsed; its live boundary arcs are "
+                    + liveBoundaryArcs(patchId));
         }
+        List<Integer> boundaryArcs = liveBoundaryArcs(patchId);
         int survivorArc = chooseSurvivor(boundaryArcs.get(0), boundaryArcs.get(1));
         int dyingArc = survivorArc == boundaryArcs.get(0) ? boundaryArcs.get(1) : boundaryArcs.get(0);
 
@@ -101,22 +108,25 @@ public final class ZeroPatchCollapseOperator {
     }
 
     /**
-     * The live arcs on a patch's boundary.
+     * The live arcs on a patch's boundary, in the reused
+     * {@link #boundaryArcsScratch} list.
      *
      * @param patchId patch to read
-     * @return its live boundary arc ids
+     * @return its live boundary arc ids, valid until the next call
      */
     private List<Integer> liveBoundaryArcs(int patchId) {
         EmbeddedPatch patch = tmesh.patches.get(patchId);
-        List<Integer> arcs = new ArrayList<>();
+        boundaryArcsScratch.clear();
         for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
-            for (int arcId : patch.sideArcIds.get(side)) {
+            List<Integer> sideArcs = patch.sideArcIds.get(side);
+            for (int index = 0; index < sideArcs.size(); index++) {
+                int arcId = sideArcs.get(index);
                 if (tmesh.arcs.get(arcId).alive) {
-                    arcs.add(arcId);
+                    boundaryArcsScratch.add(arcId);
                 }
             }
         }
-        return arcs;
+        return boundaryArcsScratch;
     }
 
     /**

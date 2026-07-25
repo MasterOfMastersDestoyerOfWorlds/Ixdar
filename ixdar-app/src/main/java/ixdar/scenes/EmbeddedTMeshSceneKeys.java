@@ -7,8 +7,7 @@ import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 
 /**
- * Keyboard control for {@link EmbeddedTMeshScene}
- * 
+ * Keyboard control for {@link EmbeddedTMeshScene}.
  */
 public final class EmbeddedTMeshSceneKeys extends OrbitCameraKeyGuy {
 

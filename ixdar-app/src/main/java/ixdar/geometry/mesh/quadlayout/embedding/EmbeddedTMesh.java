@@ -33,6 +33,14 @@ public class EmbeddedTMesh {
     /** Absent id, for elements with no source and for unset patch references. */
     public static final int NONE = -1;
 
+    /**
+     * Debug switch: when true, {@link #contract} runs the full {@link #validate}
+     * sweep after every collapse and enables the operators' scan cross-checks.
+     * Flip by hand when localizing a contraction bug; the sweep is O(elements)
+     * per collapse and dominates contraction time.
+     */
+    public static final boolean VALIDATE_EVERY_COLLAPSE = false;
+
     /** Corners of a triangular copy face. */
     private static final int TRIANGLE_CORNERS = 3;
 
@@ -71,13 +79,7 @@ public class EmbeddedTMesh {
      */
     public ActiveIdSet diagnosticCorridor;
 
-    private ZeroArcCollapseOperator collapseArc;
-
     public ZeroPatchSplitOperator splitPatch;
-
-    private ZeroPatchCollapseOperator collapsePatch;
-
-    private int expectedEulerCharacteristic;
 
     public int arcCollapseCount;
     public int patchSplitCount;
@@ -98,10 +100,16 @@ public class EmbeddedTMesh {
      */
     public final int[] embeddedArcBySource;
 
+    private ZeroArcCollapseOperator collapseArc;
+
+    private ZeroPatchCollapseOperator collapsePatch;
+
+    private int expectedEulerCharacteristic;
+
     /**
      * Creates an empty T-mesh over a working copy.
      *
-     * @param topology working copy the T-mesh is embedded in
+     * @param embedding construction-half embedding whose working copy the T-mesh is embedded in
      */
     public EmbeddedTMesh(LayoutEmbedding embedding) {
 
@@ -585,9 +593,10 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * Embeds one node onto another: every arc that ended at the discarded node now
-     * ends at the kept one, and the discarded node's vertex is handed back to the
-     * mesh. The incident arcs' paths must already reach the kept node's vertex.
+     * Embeds one node onto another: arcs ending at the discarded node are
+     * re-pointed at the kept one, whose paths must already reach it. Only the
+     * incident arcs' patches are relabelled — every side-referenced node is an
+     * endpoint of a boundary arc.
      *
      * @param keepNodeId    node that stays, and that everything is re-pointed at
      * @param discardNodeId node that is embedded onto it
@@ -600,6 +609,16 @@ public class EmbeddedTMesh {
         }
         EmbeddedNode keep = nodes.get(keepNodeId);
         EmbeddedNode discard = nodes.get(discardNodeId);
+        List<Integer> touchedPatchIds = new ArrayList<>();
+        for (int arcId : arcEndsByNode.get(discardNodeId)) {
+            EmbeddedArc arc = arcs.get(arcId);
+            for (int patchId : new int[] { arc.leftPatchId, arc.rightPatchId }) {
+                if (patchId != NONE && patches.get(patchId).alive
+                        && !touchedPatchIds.contains(patchId)) {
+                    touchedPatchIds.add(patchId);
+                }
+            }
+        }
         for (int arcId : arcEndsByNode.get(discardNodeId)) {
             EmbeddedArc arc = arcs.get(arcId);
             if (!arc.alive) {
@@ -618,15 +637,27 @@ public class EmbeddedTMesh {
             arcEndsByNode.get(keepNodeId).add(arcId);
         }
         arcEndsByNode.get(discardNodeId).clear();
-        for (EmbeddedPatch patch : patches) {
-            if (!patch.alive) {
-                continue;
-            }
+        for (int touchedIndex = 0; touchedIndex < touchedPatchIds.size(); touchedIndex++) {
+            EmbeddedPatch patch = patches.get(touchedPatchIds.get(touchedIndex));
             for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
                 List<Integer> sideNodes = patch.sideNodeIds.get(side);
                 for (int index = 0; index < sideNodes.size(); index++) {
                     if (sideNodes.get(index) == discardNodeId) {
                         sideNodes.set(index, keepNodeId);
+                    }
+                }
+            }
+        }
+        if (VALIDATE_EVERY_COLLAPSE) {
+            for (EmbeddedPatch patch : patches) {
+                if (!patch.alive) {
+                    continue;
+                }
+                for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+                    if (patch.sideNodeIds.get(side).contains(discardNodeId)) {
+                        throw new IllegalStateException("patch " + patch.patchId
+                                + " still references merged-away node " + discardNodeId
+                                + " but no live arc at that node borders it");
                     }
                 }
             }
@@ -1254,21 +1285,24 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * Contracts the T-mesh, validating the decomposition every step and the measure
-     * every round.
+     * Contracts the T-mesh, validating every round — every step when
+     * {@link #VALIDATE_EVERY_COLLAPSE} is set.
      *
      * <p>
      * A round is what LCBK19 Appendix A.3 measures: one operator (2) split, then
-     * operators (1) and (3) to exhaustion, against the state before the split.
-     * Operator (2) raises the measure by design; the other two lower it.
+     * operators (1) and (3) to exhaustion. Operator (2) raises the measure; the
+     * other two lower it.
      *
      * @return this, contracted
      */
     public EmbeddedTMesh contract() {
         while (true) {
             while (applyCollapse()) {
-                validate();
+                if (VALIDATE_EVERY_COLLAPSE) {
+                    validate();
+                }
             }
+            validate();
             int nonSimple = splitPatch.nextNonSimpleZeroPatch();
             if (nonSimple == NONE) {
                 return this;

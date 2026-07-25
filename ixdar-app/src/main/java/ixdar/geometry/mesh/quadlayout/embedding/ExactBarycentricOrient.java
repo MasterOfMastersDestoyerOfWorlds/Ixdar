@@ -54,7 +54,27 @@ public final class ExactBarycentricOrient {
         if (Math.abs(determinant) > ERROR_BOUND * magnitude) {
             return determinant > 0.0 ? 1 : -1;
         }
+        if (first[0] == 0.0 && second[0] == 0.0 && third[0] == 0.0
+                || first[1] == 0.0 && second[1] == 0.0 && third[1] == 0.0
+                || first[2] == 0.0 && second[2] == 0.0 && third[2] == 0.0) {
+            return 0;
+        }
+        if (samePoint(first, second) || samePoint(second, third) || samePoint(first, third)) {
+            return 0;
+        }
         return exactSign(first, second, third);
+    }
+
+    /**
+     * Whether two barycentric triples are element-wise equal, making any determinant
+     * containing both rows exactly zero without exact evaluation.
+     *
+     * @param left  first triple
+     * @param right second triple
+     * @return true when all three components are equal
+     */
+    private static boolean samePoint(double[] left, double[] right) {
+        return left[0] == right[0] && left[1] == right[1] && left[2] == right[2];
     }
 
     /**

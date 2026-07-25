@@ -1,15 +1,10 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.PriorityQueue;
-import java.util.Set;
 
 import org.joml.Vector3f;
 
@@ -72,6 +67,43 @@ public final class ArcRerouter {
 
     /** Corridor handed to callers by {@link #freshCorridor()}, reused across attempts. */
     public final ActiveIdSet corridorScratch = new ActiveIdSet(0);
+
+    /**
+     * Reusable Dijkstra frontier, cleared per search. The same queue type as
+     * before the primitive-scratch rewrite, so pop order among equal distances
+     * is unchanged.
+     */
+    public final PriorityQueue<DijkstraNode> frontier = new PriorityQueue<>();
+
+    /** Tentative distance per copy vertex, valid where {@link #vertexVisitStampByVertex} matches. */
+    public float[] distanceByVertex = new float[0];
+
+    /** Dijkstra parent per copy vertex, valid where {@link #vertexVisitStampByVertex} matches. */
+    public int[] parentVertexByVertex = new int[0];
+
+    /** Search generation that last wrote each vertex's distance and parent. */
+    public int[] vertexVisitStampByVertex = new int[0];
+
+    /** Walk generation that last visited each copy face. */
+    public int[] faceVisitStampByFace = new int[0];
+
+    /** BFS parent face per copy face, valid where {@link #faceVisitStampByFace} matches. */
+    public int[] parentFaceByFace = new int[0];
+
+    /** Edge crossed into each copy face, valid where {@link #faceVisitStampByFace} matches. */
+    public int[] parentEdgeByFace = new int[0];
+
+    /** Walk generation whose target-vertex faces each copy face belongs to. */
+    public int[] targetFaceStampByFace = new int[0];
+
+    /** FIFO face queue of the current face walk; every face is enqueued at most once. */
+    public int[] faceQueue = new int[0];
+
+    /**
+     * Generation counter shared by the stamped scratch arrays; a stamp mismatch
+     * means unvisited, so searches never clear the arrays.
+     */
+    public int visitStamp;
 
     /**
      * Stores the working copy the re-routes carve into.
@@ -197,17 +229,24 @@ public final class ArcRerouter {
      */
     private boolean dijkstraSearch(List<Integer> vertices, int startVertex, int endCopyVertex,
             ActiveIdSet corridor, int passThrough) {
-        Map<Integer, Float> distance = new HashMap<>();
-        Map<Integer, Integer> parentVertex = new HashMap<>();
-        PriorityQueue<DijkstraNode> frontier = new PriorityQueue<>();
-        distance.put(startVertex, 0f);
+        int vertexIdBound = topology.ownerArcByCopyVertex.length;
+        if (distanceByVertex.length < vertexIdBound) {
+            distanceByVertex = Arrays.copyOf(distanceByVertex, vertexIdBound);
+            parentVertexByVertex = Arrays.copyOf(parentVertexByVertex, vertexIdBound);
+            vertexVisitStampByVertex = Arrays.copyOf(vertexVisitStampByVertex, vertexIdBound);
+        }
+        int stamp = nextVisitStamp();
+        frontier.clear();
+        distanceByVertex[startVertex] = 0f;
+        vertexVisitStampByVertex[startVertex] = stamp;
+        int reachedCount = 1;
         frontier.add(new DijkstraNode(0f, startVertex));
         Vector3f positionHere = new Vector3f();
         Vector3f positionOther = new Vector3f();
         while (!frontier.isEmpty()) {
             DijkstraNode head = frontier.poll();
             int vertex = head.vertexOrFace;
-            if (head.distance > distance.getOrDefault(vertex, Float.POSITIVE_INFINITY)) {
+            if (head.distance > distanceByVertex[vertex]) {
                 continue;
             }
             if (vertex == endCopyVertex) {
@@ -215,7 +254,7 @@ public final class ArcRerouter {
                 int walk = endCopyVertex;
                 while (walk != startVertex) {
                     hopVertices.add(walk);
-                    walk = parentVertex.get(walk);
+                    walk = parentVertexByVertex[walk];
                 }
                 Collections.reverse(hopVertices);
                 vertices.addAll(hopVertices);
@@ -234,15 +273,38 @@ public final class ArcRerouter {
                 }
                 topology.copy.vertexPosition(neighbor, positionOther);
                 float newDistance = head.distance + positionHere.distance(positionOther);
-                if (newDistance < distance.getOrDefault(neighbor, Float.POSITIVE_INFINITY)) {
-                    distance.put(neighbor, newDistance);
-                    parentVertex.put(neighbor, vertex);
+                boolean reached = vertexVisitStampByVertex[neighbor] == stamp;
+                if (newDistance < (reached ? distanceByVertex[neighbor]
+                        : Float.POSITIVE_INFINITY)) {
+                    if (!reached) {
+                        vertexVisitStampByVertex[neighbor] = stamp;
+                        reachedCount++;
+                    }
+                    distanceByVertex[neighbor] = newDistance;
+                    parentVertexByVertex[neighbor] = vertex;
                     frontier.add(new DijkstraNode(newDistance, neighbor));
                 }
             }
         }
-        lastReachedCount = distance.size();
+        lastReachedCount = reachedCount;
         return false;
+    }
+
+    /**
+     * Advances the shared scratch-array generation, wrapping all stamp arrays back
+     * to zero before overflow so a stale stamp can never collide with a live one.
+     *
+     * @return the fresh generation value to stamp this search's writes with
+     */
+    private int nextVisitStamp() {
+        if (visitStamp == Integer.MAX_VALUE) {
+            Arrays.fill(vertexVisitStampByVertex, 0);
+            Arrays.fill(faceVisitStampByFace, 0);
+            Arrays.fill(targetFaceStampByFace, 0);
+            visitStamp = 0;
+        }
+        visitStamp++;
+        return visitStamp;
     }
 
     /**
@@ -351,23 +413,34 @@ public final class ArcRerouter {
      *         nothing.
      */
     private List<Integer> corridorGateEdges(int startVertex, int endVertex) {
-        Set<Integer> targetFaces = new HashSet<>();
-        for (int index = 0; index < topology.copy.vertexFaceCount(endVertex); index++) {
-            targetFaces.add(topology.copy.vertexFaceAt(endVertex, index));
+        int faceIdBound = topology.sourceFaceByCopyFace.length;
+        if (faceVisitStampByFace.length < faceIdBound) {
+            faceVisitStampByFace = Arrays.copyOf(faceVisitStampByFace, faceIdBound);
+            targetFaceStampByFace = Arrays.copyOf(targetFaceStampByFace, faceIdBound);
+            parentFaceByFace = Arrays.copyOf(parentFaceByFace, faceIdBound);
+            parentEdgeByFace = Arrays.copyOf(parentEdgeByFace, faceIdBound);
+            faceQueue = Arrays.copyOf(faceQueue, faceIdBound);
         }
-        Map<Integer, Integer> parentFace = new HashMap<>();
-        Map<Integer, Integer> parentEdge = new HashMap<>();
-        Deque<Integer> frontier = new ArrayDeque<>();
+        int stamp = nextVisitStamp();
+        for (int index = 0; index < topology.copy.vertexFaceCount(endVertex); index++) {
+            targetFaceStampByFace[topology.copy.vertexFaceAt(endVertex, index)] = stamp;
+        }
+        int queueHead = 0;
+        int queueTail = 0;
         for (int index = 0; index < topology.copy.vertexFaceCount(startVertex); index++) {
             int face = topology.copy.vertexFaceAt(startVertex, index);
-            if (parentFace.putIfAbsent(face, EmbeddedMeshTopology.UNCLAIMED) == null) {
-                frontier.add(face);
+            if (faceVisitStampByFace[face] != stamp) {
+                faceVisitStampByFace[face] = stamp;
+                parentFaceByFace[face] = EmbeddedMeshTopology.UNCLAIMED;
+                faceQueue[queueTail] = face;
+                queueTail++;
             }
         }
         int reachedFace = EmbeddedMeshTopology.UNCLAIMED;
-        while (!frontier.isEmpty()) {
-            int face = frontier.poll();
-            if (targetFaces.contains(face)) {
+        while (queueHead < queueTail) {
+            int face = faceQueue[queueHead];
+            queueHead++;
+            if (targetFaceStampByFace[face] == stamp) {
                 reachedFace = face;
                 break;
             }
@@ -381,9 +454,12 @@ public final class ArcRerouter {
                         ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
                         : topology.copy.halfEdgeFace(halfEdge);
                 if (neighborFace != EmbeddedMeshTopology.UNCLAIMED
-                        && parentFace.putIfAbsent(neighborFace, face) == null) {
-                    parentEdge.put(neighborFace, edgeId);
-                    frontier.add(neighborFace);
+                        && faceVisitStampByFace[neighborFace] != stamp) {
+                    faceVisitStampByFace[neighborFace] = stamp;
+                    parentFaceByFace[neighborFace] = face;
+                    parentEdgeByFace[neighborFace] = edgeId;
+                    faceQueue[queueTail] = neighborFace;
+                    queueTail++;
                 }
             }
         }
@@ -391,9 +467,9 @@ public final class ArcRerouter {
             return null;
         }
         List<Integer> crossings = new ArrayList<>();
-        for (int walk = reachedFace; parentFace.get(walk) != EmbeddedMeshTopology.UNCLAIMED;
-                walk = parentFace.get(walk)) {
-            crossings.add(parentEdge.get(walk));
+        for (int walk = reachedFace; parentFaceByFace[walk] != EmbeddedMeshTopology.UNCLAIMED;
+                walk = parentFaceByFace[walk]) {
+            crossings.add(parentEdgeByFace[walk]);
         }
         Collections.reverse(crossings);
         return crossings;

@@ -28,6 +28,14 @@ public final class ZeroArcCollapseOperator {
     public int collapsedCount;
 
     /**
+     * First arc id the collapsible scan starts at. Only ever advanced past dead or
+     * non-zero arcs, which can never become collapsible ({@code alive} is set only
+     * in the constructor and {@code quantizedLength} never changes), so the scan
+     * skips the growing retired prefix without missing a candidate.
+     */
+    public int collapsibleScanStart;
+
+    /**
      * Stores the T-mesh to operate on and builds the re-router over its working
      * copy.
      *
@@ -39,18 +47,46 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * The id of a live, collapsible zero arc, or {@link EmbeddedTMesh#NONE} when
-     * none remains — the driver's "is operator (1) applicable" test.
+     * The id of the lowest-id live, collapsible zero arc, or
+     * {@link EmbeddedTMesh#NONE} when none remains — the driver's "is operator (1)
+     * applicable" test. Scans from {@link #collapsibleScanStart}; with
+     * {@link EmbeddedTMesh#VALIDATE_EVERY_COLLAPSE} set, the result is
+     * cross-checked against a full scan.
      *
-     * @return a collapsible zero arc id, or {@link EmbeddedTMesh#NONE}
+     * @return the lowest collapsible zero arc id, or {@link EmbeddedTMesh#NONE}
+     * @throws IllegalStateException when the cross-check disagrees with the scan
      */
     public int nextCollapsibleArc() {
-        for (EmbeddedArc arc : tmesh.arcs) {
+        while (collapsibleScanStart < tmesh.arcs.size()) {
+            EmbeddedArc lead = tmesh.arcs.get(collapsibleScanStart);
+            if (lead.alive && lead.quantizedLength == 0) {
+                break;
+            }
+            collapsibleScanStart++;
+        }
+        int found = EmbeddedTMesh.NONE;
+        for (int arcId = collapsibleScanStart; arcId < tmesh.arcs.size(); arcId++) {
+            EmbeddedArc arc = tmesh.arcs.get(arcId);
             if (arc.alive && arc.quantizedLength == 0 && movingEndpoint(arc) != EmbeddedTMesh.NONE) {
-                return arc.arcId;
+                found = arcId;
+                break;
             }
         }
-        return EmbeddedTMesh.NONE;
+        if (EmbeddedTMesh.VALIDATE_EVERY_COLLAPSE) {
+            int fullScan = EmbeddedTMesh.NONE;
+            for (EmbeddedArc arc : tmesh.arcs) {
+                if (arc.alive && arc.quantizedLength == 0
+                        && movingEndpoint(arc) != EmbeddedTMesh.NONE) {
+                    fullScan = arc.arcId;
+                    break;
+                }
+            }
+            if (fullScan != found) {
+                throw new IllegalStateException("collapsible-arc scan from " + collapsibleScanStart
+                        + " found arc " + found + " but the full scan found " + fullScan);
+            }
+        }
+        return found;
     }
 
     /**
@@ -117,7 +153,6 @@ public final class ZeroArcCollapseOperator {
      * @param rerouter     the claims-respecting router
      * @param channel      the collapsing arc's released path vertices, opening the
      *                     pivot spoke
-     * @throws Exception
      * @throws IllegalStateException when the arc's path does not end at the moved
      *                               vertex
      */

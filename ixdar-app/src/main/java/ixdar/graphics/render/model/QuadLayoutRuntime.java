@@ -11,7 +11,6 @@ import org.lwjgl.BufferUtils;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcEdgePath;
-import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouteFailure;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
@@ -1666,42 +1665,6 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Prepares the reroute-failure highlight from a captured failure: the two disconnected
-     * unclaimed regions as coloured dot clouds, the collapsing pivot and the survivor as markers,
-     * and the stranded arc's body and the freed channel as lines. Resolves every copy vertex
-     * through the same {@code copy.vertexPosition} the arc/node render uses.
-     *
-     * @param copy    the working copy the failure's vertex ids index into
-     * @param failure the captured reroute failure
-     */
-    public void setFailureHighlight(HalfEdgeMesh copy, ArcRerouteFailure failure) {
-        GL gl = Platforms.gl();
-        deleteHighlightBuffers(gl);
-        highlightBodyPositions = resolvePositions(copy, failure.bodyComponent);
-        highlightChannelPositions = resolvePositions(copy, failure.channelComponent);
-        highlightMarkerPositions = resolvePositions(copy,
-                List.of(failure.pivotVertex, failure.survivorVertex));
-        int[] arcBuffers = uploadLineBuffer(gl, pathLineVertices(copy, failure.arcBody));
-        highlightArcLineVao = arcBuffers[0];
-        highlightArcLineVbo = arcBuffers[1];
-        highlightArcLineVertexCount = Math.max(0, failure.arcBody.size() - 1) * 2;
-        int[] channelBuffers = uploadLineBuffer(gl, pathLineVertices(copy, failure.channel));
-        highlightChannelLineVao = channelBuffers[0];
-        highlightChannelLineVbo = channelBuffers[1];
-        highlightChannelLineVertexCount = Math.max(0, failure.channel.size() - 1) * 2;
-        highlightFencePositions = resolvePositions(copy, failure.fenceVertices);
-        int[] spokeBuffers = uploadLineBuffer(gl, resolvePositions(copy, failure.pivotSpokes));
-        highlightSpokeLineVao = spokeBuffers[0];
-        highlightSpokeLineVbo = spokeBuffers[1];
-        highlightSpokeLineVertexCount = failure.pivotSpokes.size();
-        if (singularityVao == 0) {
-            buildIcosphereBuffers();
-        }
-        updateSphereRadius();
-        showFailureHighlight = true;
-    }
-
-    /**
      * The flat xyz positions of a set of copy vertices.
      *
      * @param copy     the working copy
@@ -1840,45 +1803,6 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         gl.bindVertexArray(vao);
         gl.drawArrays(gl.LINES(), 0, vertexCount);
         gl.lineWidth(DEFAULT_GL_LINE_WIDTH);
-    }
-
-    /**
-     * Free the failure-highlight line buffers and clear its position arrays.
-     *
-     * @param gl active GL platform handle
-     */
-    private void deleteHighlightBuffers(GL gl) {
-        if (highlightArcLineVao != 0) {
-            gl.deleteVertexArrays(highlightArcLineVao);
-            highlightArcLineVao = 0;
-        }
-        if (highlightArcLineVbo != 0) {
-            gl.deleteBuffers(highlightArcLineVbo);
-            highlightArcLineVbo = 0;
-        }
-        if (highlightChannelLineVao != 0) {
-            gl.deleteVertexArrays(highlightChannelLineVao);
-            highlightChannelLineVao = 0;
-        }
-        if (highlightChannelLineVbo != 0) {
-            gl.deleteBuffers(highlightChannelLineVbo);
-            highlightChannelLineVbo = 0;
-        }
-        if (highlightSpokeLineVao != 0) {
-            gl.deleteVertexArrays(highlightSpokeLineVao);
-            highlightSpokeLineVao = 0;
-        }
-        if (highlightSpokeLineVbo != 0) {
-            gl.deleteBuffers(highlightSpokeLineVbo);
-            highlightSpokeLineVbo = 0;
-        }
-        highlightArcLineVertexCount = 0;
-        highlightChannelLineVertexCount = 0;
-        highlightSpokeLineVertexCount = 0;
-        highlightBodyPositions = null;
-        highlightChannelPositions = null;
-        highlightMarkerPositions = null;
-        highlightFencePositions = null;
     }
 
     /**

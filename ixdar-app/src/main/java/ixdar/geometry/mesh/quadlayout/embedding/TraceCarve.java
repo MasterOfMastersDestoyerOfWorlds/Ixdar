@@ -161,11 +161,12 @@ public final class TraceCarve {
             Integer sourceVertexId = snapSourceVertexBySegment.get(segment);
             if (sourceVertexId != null) {
                 int copyVertex = topology.copyVertexForSourceVertexId(sourceVertexId);
-                if (copyVertex == EmbeddedMeshTopology.UNCLAIMED
-                        || topology.ownerNodeByCopyVertex[copyVertex] != EmbeddedMeshTopology.UNCLAIMED
-                        || topology.ownerArcByCopyVertex[copyVertex] != EmbeddedMeshTopology.UNCLAIMED) {
-                    snapVertex = EmbeddedMeshTopology.UNCLAIMED;
-                } else {
+                if (copyVertex != EmbeddedMeshTopology.UNCLAIMED
+                        && (copyVertex == head
+                                || (topology.ownerNodeByCopyVertex[copyVertex]
+                                        == EmbeddedMeshTopology.UNCLAIMED
+                                        && topology.ownerArcByCopyVertex[copyVertex]
+                                                == EmbeddedMeshTopology.UNCLAIMED))) {
                     snapVertex = copyVertex;
                 }
             }

@@ -68,11 +68,15 @@ public final class EmbeddedMeshTopology {
     private final Map<Integer, Integer> copyVertexBySourceVertexId = new HashMap<>();
 
     /**
-     * Barycentric coordinate of a copy vertex within a source active face, keyed
-     * by {@link #barycentricKey}. One entry per source face whose closure the
-     * vertex lies in, so a vertex on an original mesh edge has two.
+     * Source active faces carrying a barycentric for each copy vertex, parallel
+     * entry-for-entry to {@link #barycentricTriplesByVertex}. A vertex has one
+     * entry per source face whose closure it lies in — a handful at most — so
+     * lookups scan linearly with no hashing or boxing.
      */
-    private final Map<Long, double[]> barycentricByFaceVertex = new HashMap<>();
+    private final List<int[]> barycentricFacesByVertex = new ArrayList<>();
+
+    /** Barycentric triples of each copy vertex, one per registered source face. */
+    private final List<double[][]> barycentricTriplesByVertex = new ArrayList<>();
 
     /** Exclusive bound on allocated copy edge ids, advanced per adopted face. */
     private int edgeIdBound;
@@ -144,7 +148,19 @@ public final class EmbeddedMeshTopology {
      *         in that face's closure
      */
     public double[] barycentricOf(int sourceFace, int copyVertex) {
-        return barycentricByFaceVertex.get(barycentricKey(sourceFace, copyVertex));
+        if (copyVertex >= barycentricFacesByVertex.size()) {
+            return null;
+        }
+        int[] faces = barycentricFacesByVertex.get(copyVertex);
+        if (faces == null) {
+            return null;
+        }
+        for (int index = 0; index < faces.length; index++) {
+            if (faces[index] == sourceFace) {
+                return barycentricTriplesByVertex.get(copyVertex)[index];
+            }
+        }
+        return null;
     }
 
     /**
@@ -155,7 +171,29 @@ public final class EmbeddedMeshTopology {
      * @param barycentric barycentric triple against the source face's corners
      */
     public void registerBarycentric(int sourceFace, int copyVertex, double[] barycentric) {
-        barycentricByFaceVertex.put(barycentricKey(sourceFace, copyVertex), barycentric);
+        while (barycentricFacesByVertex.size() <= copyVertex) {
+            barycentricFacesByVertex.add(null);
+            barycentricTriplesByVertex.add(null);
+        }
+        int[] faces = barycentricFacesByVertex.get(copyVertex);
+        if (faces == null) {
+            barycentricFacesByVertex.set(copyVertex, new int[] { sourceFace });
+            barycentricTriplesByVertex.set(copyVertex, new double[][] { barycentric });
+            return;
+        }
+        double[][] triples = barycentricTriplesByVertex.get(copyVertex);
+        for (int index = 0; index < faces.length; index++) {
+            if (faces[index] == sourceFace) {
+                triples[index] = barycentric;
+                return;
+            }
+        }
+        int[] grownFaces = Arrays.copyOf(faces, faces.length + 1);
+        double[][] grownTriples = Arrays.copyOf(triples, triples.length + 1);
+        grownFaces[faces.length] = sourceFace;
+        grownTriples[faces.length] = barycentric;
+        barycentricFacesByVertex.set(copyVertex, grownFaces);
+        barycentricTriplesByVertex.set(copyVertex, grownTriples);
     }
 
     /**
@@ -297,17 +335,6 @@ public final class EmbeddedMeshTopology {
     }
 
     /**
-     * Composite map key for a (source face, copy vertex) pair.
-     *
-     * @param sourceFace source active face index
-     * @param copyVertex copy vertex id
-     * @return the packed key
-     */
-    private static long barycentricKey(int sourceFace, int copyVertex) {
-        return ((long) sourceFace << Integer.SIZE) | (copyVertex & 0xFFFFFFFFL);
-    }
-
-    /**
      * Copy vertex corresponding to a source mesh vertex.
      *
      * @param sourceVertexId raw source vertex id
@@ -354,62 +381,35 @@ public final class EmbeddedMeshTopology {
      */
     public int splitEdgeAtPoint(int copyEdgeId, Vector3f position) {
         int halfEdge = copy.edgeHalfEdge(copyEdgeId);
-        int twin = copy.halfEdgeTwin(halfEdge);
-        int vertexA = copy.halfEdgeVertex(halfEdge);
         int vertexB = copy.halfEdgeEndVertex(halfEdge);
         int faceA = copy.halfEdgeFace(halfEdge);
-        int faceB = copy.halfEdgeFace(twin);
+        int faceB = copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge));
         int edgeOwner = ownerArcByCopyEdge[copyEdgeId];
         int sourceEdge = sourceEdgeByCopyEdge[copyEdgeId];
-        int oppositeA = faceA >= 0 ? oppositeVertex(faceA, vertexA, vertexB) : UNCLAIMED;
-        int oppositeB = faceB >= 0 ? oppositeVertex(faceB, vertexA, vertexB) : UNCLAIMED;
         int sourceA = faceA >= 0 ? sourceFaceByCopyFace[faceA] : UNCLAIMED;
         int sourceB = faceB >= 0 ? sourceFaceByCopyFace[faceB] : UNCLAIMED;
-        if (faceA >= 0) {
-            retireFace(faceA, sourceA);
+        int newVertex = copy.splitEdge(copyEdgeId, position);
+        int tailEdge = edgeBetween(newVertex, vertexB);
+        int tailForward = copy.edgeHalfEdge(tailEdge);
+        int childFaceA = copy.halfEdgeFace(tailForward);
+        int childFaceB = copy.halfEdgeFace(copy.halfEdgeTwin(tailForward));
+        if (childFaceA != UNCLAIMED) {
+            adoptFace(childFaceA, sourceA);
         }
-        if (faceB >= 0) {
-            retireFace(faceB, sourceB);
-        }
-        ownerArcByCopyEdge[copyEdgeId] = UNCLAIMED;
-        sourceEdgeByCopyEdge[copyEdgeId] = UNCLAIMED;
-        int newVertex = copy.addVertex(position);
-        if (faceA >= 0) {
-            adoptFace(copy.addFace(vertexA, newVertex, oppositeA), sourceA);
-            adoptFace(copy.addFace(newVertex, vertexB, oppositeA), sourceA);
-        }
-        if (faceB >= 0) {
-            adoptFace(copy.addFace(vertexB, newVertex, oppositeB), sourceB);
-            adoptFace(copy.addFace(newVertex, vertexA, oppositeB), sourceB);
+        if (childFaceB != UNCLAIMED) {
+            adoptFace(childFaceB, sourceB);
         }
         ensureVertexCapacity(newVertex);
         ensureEdgeCapacity();
         if (edgeOwner != UNCLAIMED) {
-            claimEdgeBetween(vertexA, newVertex, edgeOwner);
-            claimEdgeBetween(newVertex, vertexB, edgeOwner);
+            ownerArcByCopyEdge[tailEdge] = edgeOwner;
             ownerArcByCopyVertex[newVertex] = edgeOwner;
         }
         if (sourceEdge != UNCLAIMED) {
-            tagSourceEdgeBetween(vertexA, newVertex, sourceEdge);
-            tagSourceEdgeBetween(newVertex, vertexB, sourceEdge);
+            sourceEdgeByCopyEdge[tailEdge] = sourceEdge;
         }
         edgeSplitCount++;
         return newVertex;
-    }
-
-    /**
-     * Tag the copy edge between two vertices with a source active edge (split
-     * children inherit the parent's crossing tags).
-     *
-     * @param vertexA    first endpoint
-     * @param vertexB    second endpoint
-     * @param sourceEdge source active edge index
-     */
-    private void tagSourceEdgeBetween(int vertexA, int vertexB, int sourceEdge) {
-        int edgeId = edgeBetween(vertexA, vertexB);
-        if (edgeId != UNCLAIMED) {
-            sourceEdgeByCopyEdge[edgeId] = sourceEdge;
-        }
     }
 
     /**
@@ -543,21 +543,4 @@ public final class EmbeddedMeshTopology {
         }
     }
 
-    /**
-     * The vertex of a triangle face that is neither of the two given ones.
-     *
-     * @param faceId  triangle face
-     * @param vertexA first excluded vertex
-     * @param vertexB second excluded vertex
-     * @return the remaining vertex
-     */
-    private int oppositeVertex(int faceId, int vertexA, int vertexB) {
-        for (int corner = 0; corner < 3; corner++) {
-            int vertex = copy.faceVertexAt(faceId, corner);
-            if (vertex != vertexA && vertex != vertexB) {
-                return vertex;
-            }
-        }
-        return UNCLAIMED;
-    }
 }

@@ -91,28 +91,201 @@ public class HalfEdgeMeshEngine {
      * @param faceId active face id to remove
      */
     public static void removeFaceKeepingNormals(HalfEdgeMesh mesh, int faceId) {
-
-        int[] vertices = mesh.faceVertices.get(faceId).toArray();
-        int[] halfEdges = mesh.faceHalfEdges.get(faceId).toArray();
-        int[] edges = mesh.faceEdges.get(faceId).toArray();
-
-        for (int vertexId : vertices) {
-            mesh.vertexFaces.get(vertexId).removeValue(faceId);
+        IntIdList vertices = mesh.faceVertices.get(faceId);
+        for (int index = 0; index < vertices.size(); index++) {
+            mesh.vertexFaces.get(vertices.get(index)).removeValue(faceId);
         }
 
-        for (int halfEdgeId : halfEdges) {
+        IntIdList halfEdges = mesh.faceHalfEdges.get(faceId);
+        for (int index = 0; index < halfEdges.size(); index++) {
+            int halfEdgeId = halfEdges.get(index);
             mesh.halfEdgeFace[halfEdgeId] = MeshTopology.NONE;
             mesh.halfEdgeNext[halfEdgeId] = MeshTopology.NONE;
             mesh.halfEdgePrev[halfEdgeId] = MeshTopology.NONE;
         }
 
-        mesh.deactivateFace(faceId);
-
-        for (int edgeId : edges) {
+        IntIdList edges = mesh.faceEdges.get(faceId);
+        for (int index = 0; index < edges.size(); index++) {
+            int edgeId = edges.get(index);
             if (mesh.hasEdge(edgeId) && isIsolatedEdge(mesh, edgeId)) {
                 removeEdge(mesh, edgeId);
             }
         }
+
+        mesh.deactivateFace(faceId);
+    }
+
+    /**
+     * Splits an edge of a triangle mesh in place at the given position: the edge
+     * keeps its id as the half toward its canonical start vertex, a new edge forms
+     * the other half, and each incident face is bisected by a new spoke — two new
+     * faces, no retired slots.
+     *
+     * @param mesh   target mesh
+     * @param edgeId active edge to split; each incident face must be a triangle
+     * @param x      x coordinate of the split point
+     * @param y      y coordinate of the split point
+     * @param z      z coordinate of the split point
+     * @throws InvalidMeshTopologyException if an incident face is not a triangle
+     * @return id of the newly created vertex on the split point
+     */
+    public static int splitEdge(HalfEdgeMesh mesh, int edgeId, float x, float y, float z) {
+        int halfEdge = mesh.edgeHalfEdge[edgeId];
+        int twin = mesh.halfEdgeTwin[halfEdge];
+        int vertexA = mesh.halfEdgeVertex[halfEdge];
+        int vertexB = mesh.halfEdgeVertex[twin];
+        int faceA = mesh.halfEdgeFace[halfEdge];
+        int faceB = mesh.halfEdgeFace[twin];
+        if (faceA != MeshTopology.NONE && mesh.faceVertexCount(faceA) != NUM_3
+                || faceB != MeshTopology.NONE && mesh.faceVertexCount(faceB) != NUM_3) {
+            throw new InvalidMeshTopologyException(EDGE + edgeId
+                    + " cannot be split in place: an incident face is not a triangle");
+        }
+        int nextA = mesh.halfEdgeNext[halfEdge];
+        int prevA = mesh.halfEdgePrev[halfEdge];
+        int nextB = mesh.halfEdgeNext[twin];
+        int prevB = mesh.halfEdgePrev[twin];
+
+        int newVertex = mesh.createVertexSlot(x, y, z);
+
+        mesh.halfEdgeVertex[twin] = newVertex;
+        mesh.vertexOutgoingHalfEdges.get(vertexB).removeValue(twin);
+        mesh.vertexOutgoingHalfEdges.get(newVertex).add(twin);
+        mesh.vertexEdges.get(vertexB).removeValue(edgeId);
+        mesh.vertexEdges.get(newVertex).addUnique(edgeId);
+        if (mesh.vertexOutgoing[vertexB] == twin) {
+            mesh.vertexOutgoing[vertexB] = MeshTopology.NONE;
+        }
+        mesh.vertexOutgoing[newVertex] = twin;
+
+        int tailEdge = createEdgePair(mesh, newVertex, vertexB);
+        int tailForward = mesh.edgeHalfEdge[tailEdge];
+        int tailBackward = mesh.halfEdgeTwin[tailForward];
+
+        if (faceA != MeshTopology.NONE) {
+            int oppositeA = mesh.halfEdgeVertex[prevA];
+            int spokeEdgeA = createEdgePair(mesh, newVertex, oppositeA);
+            int spokeForwardA = mesh.edgeHalfEdge[spokeEdgeA];
+            int spokeBackwardA = mesh.halfEdgeTwin[spokeForwardA];
+            int newFaceA = mesh.createFaceSlot();
+
+            mesh.halfEdgeNext[halfEdge] = spokeForwardA;
+            mesh.halfEdgePrev[spokeForwardA] = halfEdge;
+            mesh.halfEdgeNext[spokeForwardA] = prevA;
+            mesh.halfEdgePrev[prevA] = spokeForwardA;
+            mesh.halfEdgeFace[spokeForwardA] = faceA;
+            mesh.faceHalfEdge[faceA] = halfEdge;
+            IntIdList faceHalfEdges = mesh.faceHalfEdges.get(faceA);
+            IntIdList faceVertices = mesh.faceVertices.get(faceA);
+            IntIdList faceEdges = mesh.faceEdges.get(faceA);
+            faceHalfEdges.clear();
+            faceVertices.clear();
+            faceEdges.clear();
+            faceHalfEdges.add(halfEdge);
+            faceHalfEdges.add(spokeForwardA);
+            faceHalfEdges.add(prevA);
+            faceVertices.add(vertexA);
+            faceVertices.add(newVertex);
+            faceVertices.add(oppositeA);
+            faceEdges.add(edgeId);
+            faceEdges.add(spokeEdgeA);
+            faceEdges.add(mesh.halfEdgeEdge[prevA]);
+
+            mesh.halfEdgeFace[tailForward] = newFaceA;
+            mesh.halfEdgeFace[nextA] = newFaceA;
+            mesh.halfEdgeFace[spokeBackwardA] = newFaceA;
+            mesh.halfEdgeNext[tailForward] = nextA;
+            mesh.halfEdgePrev[nextA] = tailForward;
+            mesh.halfEdgeNext[nextA] = spokeBackwardA;
+            mesh.halfEdgePrev[spokeBackwardA] = nextA;
+            mesh.halfEdgeNext[spokeBackwardA] = tailForward;
+            mesh.halfEdgePrev[tailForward] = spokeBackwardA;
+            mesh.faceHalfEdge[newFaceA] = tailForward;
+            IntIdList newFaceHalfEdges = mesh.faceHalfEdges.get(newFaceA);
+            IntIdList newFaceVertices = mesh.faceVertices.get(newFaceA);
+            IntIdList newFaceEdges = mesh.faceEdges.get(newFaceA);
+            newFaceHalfEdges.add(tailForward);
+            newFaceHalfEdges.add(nextA);
+            newFaceHalfEdges.add(spokeBackwardA);
+            newFaceVertices.add(newVertex);
+            newFaceVertices.add(vertexB);
+            newFaceVertices.add(oppositeA);
+            newFaceEdges.add(tailEdge);
+            newFaceEdges.add(mesh.halfEdgeEdge[nextA]);
+            newFaceEdges.add(spokeEdgeA);
+
+            mesh.vertexFaces.get(vertexB).removeValue(faceA);
+            mesh.vertexFaces.get(vertexB).add(newFaceA);
+            mesh.vertexFaces.get(newVertex).add(faceA);
+            mesh.vertexFaces.get(newVertex).add(newFaceA);
+            mesh.vertexFaces.get(oppositeA).add(newFaceA);
+        }
+
+        if (faceB != MeshTopology.NONE) {
+            int oppositeB = mesh.halfEdgeVertex[prevB];
+            int spokeEdgeB = createEdgePair(mesh, newVertex, oppositeB);
+            int spokeForwardB = mesh.edgeHalfEdge[spokeEdgeB];
+            int spokeBackwardB = mesh.halfEdgeTwin[spokeForwardB];
+            int newFaceB = mesh.createFaceSlot();
+
+            mesh.halfEdgeNext[nextB] = spokeBackwardB;
+            mesh.halfEdgePrev[spokeBackwardB] = nextB;
+            mesh.halfEdgeNext[spokeBackwardB] = twin;
+            mesh.halfEdgePrev[twin] = spokeBackwardB;
+            mesh.halfEdgeFace[spokeBackwardB] = faceB;
+            mesh.faceHalfEdge[faceB] = twin;
+            IntIdList faceHalfEdges = mesh.faceHalfEdges.get(faceB);
+            IntIdList faceVertices = mesh.faceVertices.get(faceB);
+            IntIdList faceEdges = mesh.faceEdges.get(faceB);
+            faceHalfEdges.clear();
+            faceVertices.clear();
+            faceEdges.clear();
+            faceHalfEdges.add(twin);
+            faceHalfEdges.add(nextB);
+            faceHalfEdges.add(spokeBackwardB);
+            faceVertices.add(newVertex);
+            faceVertices.add(vertexA);
+            faceVertices.add(oppositeB);
+            faceEdges.add(edgeId);
+            faceEdges.add(mesh.halfEdgeEdge[nextB]);
+            faceEdges.add(spokeEdgeB);
+
+            mesh.halfEdgeFace[tailBackward] = newFaceB;
+            mesh.halfEdgeFace[spokeForwardB] = newFaceB;
+            mesh.halfEdgeFace[prevB] = newFaceB;
+            mesh.halfEdgeNext[tailBackward] = spokeForwardB;
+            mesh.halfEdgePrev[spokeForwardB] = tailBackward;
+            mesh.halfEdgeNext[spokeForwardB] = prevB;
+            mesh.halfEdgePrev[prevB] = spokeForwardB;
+            mesh.halfEdgeNext[prevB] = tailBackward;
+            mesh.halfEdgePrev[tailBackward] = prevB;
+            mesh.faceHalfEdge[newFaceB] = tailBackward;
+            IntIdList newFaceHalfEdges = mesh.faceHalfEdges.get(newFaceB);
+            IntIdList newFaceVertices = mesh.faceVertices.get(newFaceB);
+            IntIdList newFaceEdges = mesh.faceEdges.get(newFaceB);
+            newFaceHalfEdges.add(tailBackward);
+            newFaceHalfEdges.add(spokeForwardB);
+            newFaceHalfEdges.add(prevB);
+            newFaceVertices.add(vertexB);
+            newFaceVertices.add(newVertex);
+            newFaceVertices.add(oppositeB);
+            newFaceEdges.add(tailEdge);
+            newFaceEdges.add(spokeEdgeB);
+            newFaceEdges.add(mesh.halfEdgeEdge[prevB]);
+
+            mesh.vertexFaces.get(vertexB).removeValue(faceB);
+            mesh.vertexFaces.get(vertexB).add(newFaceB);
+            mesh.vertexFaces.get(newVertex).add(faceB);
+            mesh.vertexFaces.get(newVertex).add(newFaceB);
+            mesh.vertexFaces.get(oppositeB).add(newFaceB);
+        }
+
+        if (mesh.vertexOutgoing[vertexB] == MeshTopology.NONE) {
+            mesh.vertexOutgoing[vertexB] = mesh.vertexOutgoingHalfEdges.get(vertexB).isEmpty()
+                    ? MeshTopology.NONE
+                    : mesh.vertexOutgoingHalfEdges.get(vertexB).get(0);
+        }
+        return newVertex;
     }
 
     /**
@@ -229,12 +402,19 @@ public class HalfEdgeMeshEngine {
             throw new IllegalArgumentException("Face indices must be triangles");
         }
 
-        HalfEdgeMesh mesh = new HalfEdgeMesh();
+        int vertexCapacity = positions.length / HalfEdgeMesh.FLOATS_PER_VERTEX;
+        int faceCapacity = faceIndices.length / NUM_3;
+        HalfEdgeMesh mesh = new HalfEdgeMesh(vertexCapacity, faceIndices.length / 2,
+                faceCapacity, faceIndices.length);
         for (int i = 0; i < positions.length; i += HalfEdgeMesh.FLOATS_PER_VERTEX) {
             addVertex(mesh, positions[i], positions[i + 1], positions[i + 2]);
         }
+        int[] face = new int[NUM_3];
         for (int i = 0; i < faceIndices.length; i += NUM_3) {
-            addFaceInternal(mesh, new int[] { faceIndices[i], faceIndices[i + 1], faceIndices[i + 2] }, false);
+            face[0] = faceIndices[i];
+            face[1] = faceIndices[i + 1];
+            face[2] = faceIndices[i + 2];
+            addFaceInternal(mesh, face, false);
         }
         computeNormals(mesh);
         return mesh;
