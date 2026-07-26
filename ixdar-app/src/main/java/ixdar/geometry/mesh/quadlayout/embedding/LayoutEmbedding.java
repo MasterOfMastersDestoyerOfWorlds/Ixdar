@@ -119,6 +119,15 @@ public final class LayoutEmbedding {
                 (carveDoneNanos - nodesDoneNanos) / NANOS_PER_SECOND,
                 (normalsDoneNanos - carveDoneNanos) / NANOS_PER_SECOND,
                 (checkDoneNanos - normalsDoneNanos) / NANOS_PER_SECOND);
+        System.out.printf(
+                "[decimate] passes=%d capHit=%b snapBack=%d kept=%d"
+                        + " (nodeOwned=%d laneEdgeClaimed=%d structureMissing=%d"
+                        + " targetClaimed=%d noOriginalNeighbor=%d)%n",
+                decimation.passCount, decimation.passCapHit,
+                decimation.snappedVertexCount, decimation.keptVertexCount,
+                decimation.keptNodeOwnedCount, decimation.keptLaneEdgeClaimedCount,
+                decimation.keptStructureMissingCount, decimation.keptTargetClaimedCount,
+                decimation.keptNoOriginalNeighborCount);
         return this;
     }
 

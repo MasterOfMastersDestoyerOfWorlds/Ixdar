@@ -181,6 +181,7 @@ public final class ZeroArcCollapseOperator {
         }
         tmesh.releaseClaims(arc.path);
         for (int passThrough : new int[] { EmbeddedMeshTopology.UNCLAIMED, movedVertex }) {
+            rerouter.clearFailureMemory();
             if (passThrough == movedVertex && channel.size() > 1) {
                 tmesh.openPivotSpoke(movedVertex, tmesh.unclaimedComponent(channel.get(1)));
             }
@@ -193,6 +194,11 @@ public final class ZeroArcCollapseOperator {
             // (rerouting from the node itself) is the last resort. See LCBK19 Section 6.1.
             for (int keepRank = 0; keepRank <= vertices.size() - 2; keepRank++) {
                 int keep = keepRank < vertices.size() - 2 ? keepRank + 1 : 0;
+                // keep == 0 claims a SHORTER prefix than the failed attempts, so the
+                // unreachability proof does not transfer to the last resort.
+                if (keep != 0 && rerouter.settledInExhaustedFailure(vertices.get(keep))) {
+                    continue;
+                }
                 List<Integer> prefix = new ArrayList<>(vertices.subList(0, keep + 1));
                 List<Integer> prefixEdges = new ArrayList<>(keep);
                 if (!rerouter.tryLegEdges(prefix, prefixEdges)) {

@@ -53,6 +53,18 @@ public final class EmbeddedMeshTopology {
     public int[] ownerArcByCopyVertex;
 
     /**
+     * Memoized length per raw copy edge id, {@link Float#NaN} until computed;
+     * invalidated when an edge id is minted or reused.
+     */
+    public float[] lengthByCopyEdge;
+
+    /** Endpoint scratch for {@link #edgeLength}. */
+    public final Vector3f edgeLengthScratchA = new Vector3f();
+
+    /** Endpoint scratch for {@link #edgeLength}. */
+    public final Vector3f edgeLengthScratchB = new Vector3f();
+
+    /**
      * Copy face ids descending from each source active face, in insertion order, which the
      * child-face search relies on.
      */
@@ -124,10 +136,12 @@ public final class EmbeddedMeshTopology {
         edgeIdBound = copy.edgeCount();
         ownerArcByCopyEdge = new int[edgeIdBound];
         sourceEdgeByCopyEdge = new int[edgeIdBound];
+        lengthByCopyEdge = new float[edgeIdBound];
         ownerNodeByCopyVertex = new int[vertexCount];
         ownerArcByCopyVertex = new int[vertexCount];
         Arrays.fill(ownerArcByCopyEdge, UNCLAIMED);
         Arrays.fill(sourceEdgeByCopyEdge, UNCLAIMED);
+        Arrays.fill(lengthByCopyEdge, Float.NaN);
         Arrays.fill(ownerNodeByCopyVertex, UNCLAIMED);
         Arrays.fill(ownerArcByCopyVertex, UNCLAIMED);
 
@@ -528,8 +542,10 @@ public final class EmbeddedMeshTopology {
             int newLength = Math.max(edgeIdBound, oldLength * 2);
             ownerArcByCopyEdge = Arrays.copyOf(ownerArcByCopyEdge, newLength);
             sourceEdgeByCopyEdge = Arrays.copyOf(sourceEdgeByCopyEdge, newLength);
+            lengthByCopyEdge = Arrays.copyOf(lengthByCopyEdge, newLength);
             Arrays.fill(ownerArcByCopyEdge, oldLength, newLength, UNCLAIMED);
             Arrays.fill(sourceEdgeByCopyEdge, oldLength, newLength, UNCLAIMED);
+            Arrays.fill(lengthByCopyEdge, oldLength, newLength, Float.NaN);
         }
     }
 
@@ -580,8 +596,31 @@ public final class EmbeddedMeshTopology {
             copyFacesBySourceFace.get(sourceFace).add(copyFaceId);
         }
         for (int corner = 0; corner < 3; corner++) {
-            edgeIdBound = Math.max(edgeIdBound, copy.faceEdgeAt(copyFaceId, corner) + 1);
+            int edgeId = copy.faceEdgeAt(copyFaceId, corner);
+            edgeIdBound = Math.max(edgeIdBound, edgeId + 1);
+            if (edgeId < lengthByCopyEdge.length) {
+                lengthByCopyEdge[edgeId] = Float.NaN;
+            }
         }
+    }
+
+    /**
+     * Length of a copy edge, memoized: vertex positions never move once minted,
+     * so a computed length stays valid until the edge id is reused.
+     *
+     * @param copyEdgeId copy edge id
+     * @return Euclidean distance between the edge's endpoints
+     */
+    public float edgeLength(int copyEdgeId) {
+        float length = lengthByCopyEdge[copyEdgeId];
+        if (Float.isNaN(length)) {
+            int halfEdge = copy.edgeHalfEdge(copyEdgeId);
+            copy.vertexPosition(copy.halfEdgeVertex(halfEdge), edgeLengthScratchA);
+            copy.vertexPosition(copy.halfEdgeEndVertex(halfEdge), edgeLengthScratchB);
+            length = edgeLengthScratchA.distance(edgeLengthScratchB);
+            lengthByCopyEdge[copyEdgeId] = length;
+        }
+        return length;
     }
 
 }

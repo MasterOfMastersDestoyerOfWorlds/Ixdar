@@ -12,8 +12,8 @@ import java.util.List;
  */
 public final class ArrangementDecimation {
 
-    /** Fixpoint passes allowed; each pass scans every arc path once. */
-    private static final int PASS_CAP = 8;
+    /** Backstop on fixpoint passes; each pass scans every arc path once. */
+    private static final int PASS_CAP = 64;
 
     public final EmbeddedMeshTopology topology;
 
@@ -28,6 +28,27 @@ public final class ArrangementDecimation {
 
     /** Minted path vertices left in place — no legal snap target. */
     public int keptVertexCount;
+
+    /** Passes executed before the fixed point (or the backstop cap). */
+    public int passCount;
+
+    /** Whether the pass backstop stopped the sweep while it was still snapping. */
+    public boolean passCapHit;
+
+    /** Of {@link #keptVertexCount}, vertices owned by a T-mesh node — never snappable. */
+    public int keptNodeOwnedCount;
+
+    /** Of {@link #keptVertexCount}, vertices with no original neighbor at all. */
+    public int keptNoOriginalNeighborCount;
+
+    /** Of {@link #keptVertexCount}, vertices whose every original neighbor is claimed. */
+    public int keptTargetClaimedCount;
+
+    /** Of {@link #keptVertexCount}, vertices with a free target but no two-face detour. */
+    public int keptStructureMissingCount;
+
+    /** Of {@link #keptVertexCount}, vertices whose detour edges are claimed by another lane. */
+    public int keptLaneEdgeClaimedCount;
 
     /**
      * Stores the arrangement to decimate.
@@ -58,7 +79,9 @@ public final class ArrangementDecimation {
                     changed |= snapPath(path);
                 }
             }
+            passCount++;
         }
+        passCapHit = changed;
         for (ArcEdgePath path : pathByArc) {
             if (path == null) {
                 continue;
@@ -66,10 +89,55 @@ public final class ArrangementDecimation {
             for (int index = 1; index < path.copyVertexPath.size() - 1; index++) {
                 if (path.copyVertexPath.get(index) >= originalVertexCount) {
                     keptVertexCount++;
+                    classifyKeptVertex(path.copyVertexPath.get(index - 1),
+                            path.copyVertexPath.get(index), path.copyVertexPath.get(index + 1));
                 }
             }
         }
         return this;
+    }
+
+    /**
+     * Tally why a kept vertex could not snap, crediting the most nearly successful
+     * candidate: detour edges claimed beats missing faces beats claimed targets
+     * beats having no original neighbor at all.
+     *
+     * @param previous path vertex before the kept vertex
+     * @param vertex   kept minted path vertex
+     * @param next     path vertex after the kept vertex
+     */
+    private void classifyKeptVertex(int previous, int vertex, int next) {
+        if (topology.ownerNodeByCopyVertex[vertex] != EmbeddedMeshTopology.UNCLAIMED) {
+            keptNodeOwnedCount++;
+            return;
+        }
+        boolean sawOriginal = false;
+        boolean sawFree = false;
+        boolean sawStructure = false;
+        for (int index = 0; index < topology.copy.vertexEdgeCount(vertex); index++) {
+            int candidate = topology.otherEndpoint(topology.copy.vertexEdgeAt(vertex, index), vertex);
+            if (candidate >= originalVertexCount) {
+                continue;
+            }
+            sawOriginal = true;
+            if (topology.ownerNodeByCopyVertex[candidate] != EmbeddedMeshTopology.UNCLAIMED
+                    || topology.ownerArcByCopyVertex[candidate] != EmbeddedMeshTopology.UNCLAIMED) {
+                continue;
+            }
+            sawFree = true;
+            if (faceExists(previous, vertex, candidate) && faceExists(vertex, next, candidate)) {
+                sawStructure = true;
+            }
+        }
+        if (sawStructure) {
+            keptLaneEdgeClaimedCount++;
+        } else if (sawFree) {
+            keptStructureMissingCount++;
+        } else if (sawOriginal) {
+            keptTargetClaimedCount++;
+        } else {
+            keptNoOriginalNeighborCount++;
+        }
     }
 
     /**

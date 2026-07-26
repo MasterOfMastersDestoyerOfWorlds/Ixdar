@@ -4,12 +4,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.PriorityQueue;
 
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
-import ixdar.geometry.mesh.quadlayout.crossfield.DijkstraNode;
 
 /**
  * Re-embeds an arc whose endpoint node has just moved, by one split-aware
@@ -38,6 +36,15 @@ public final class ArcRerouter {
 
     /** Halves a summed pair of positions into a midpoint. */
     private static final float MIDPOINT_SCALE = 0.5f;
+
+    /** Starting capacity of the frontier heap; grows by doubling. */
+    private static final int FRONTIER_INITIAL_CAPACITY = 1024;
+
+    /** Bit offset of the cost half of a packed frontier entry. */
+    private static final int COST_BITS_SHIFT = 32;
+
+    /** Mask of the node-id half of a packed frontier entry. */
+    private static final long NODE_ID_MASK = 0xFFFFFFFFL;
 
     public final EmbeddedMeshTopology topology;
 
@@ -95,11 +102,14 @@ public final class ArcRerouter {
     public final ActiveIdSet corridorScratch = new ActiveIdSet(0);
 
     /**
-     * Reusable Dijkstra frontier, cleared per search. The same queue type as
-     * before the primitive-scratch rewrite, so pop order among equal distances
-     * is unchanged.
+     * Reusable allocation-free Dijkstra frontier: a binary min-heap of packed
+     * entries, cost bits high and node id low, so entries order by cost first
+     * and node id among equal costs.
      */
-    public final PriorityQueue<DijkstraNode> frontier = new PriorityQueue<>();
+    public long[] frontierHeap = new long[FRONTIER_INITIAL_CAPACITY];
+
+    /** Live entry count of {@link #frontierHeap}. */
+    public int frontierSize;
 
     /** Tentative cost per search node, valid where {@link #vertexVisitStampByVertex} matches. */
     public float[] distanceByVertex = new float[0];
@@ -110,11 +120,20 @@ public final class ArcRerouter {
     /** Search generation that last wrote each node's cost and parent. */
     public int[] vertexVisitStampByVertex = new int[0];
 
+    /** Search generation that settled each node; a settled node is final and never re-expanded. */
+    public int[] settledStampByVertex = new int[0];
+
     /**
      * Generation counter shared by the stamped scratch arrays; a stamp mismatch
      * means unvisited, so searches never clear the arrays.
      */
     public int visitStamp;
+
+    /**
+     * Stamp of the last exhaustive failed search, or zero for none; its settled
+     * set provably cannot reach the target under any stricter claim state.
+     */
+    public int exhaustedFailureStamp;
 
     /**
      * Stores the working copy the re-routes carve into.
@@ -170,6 +189,7 @@ public final class ArcRerouter {
             distanceByVertex = Arrays.copyOf(distanceByVertex, nodeIdBound);
             parentVertexByVertex = Arrays.copyOf(parentVertexByVertex, nodeIdBound);
             vertexVisitStampByVertex = Arrays.copyOf(vertexVisitStampByVertex, nodeIdBound);
+            settledStampByVertex = Arrays.copyOf(settledStampByVertex, nodeIdBound);
         }
         Vector3f positionHere = new Vector3f();
         Vector3f positionA = new Vector3f();
@@ -181,90 +201,95 @@ public final class ArcRerouter {
         for (int phase = 0; phase < 2 && !reachedTarget; phase++) {
             boolean virtualMoves = phase == 1;
             stamp = nextVisitStamp();
-            frontier.clear();
+            frontierSize = 0;
             distanceByVertex[startCopyVertex] = 0f;
             vertexVisitStampByVertex[startCopyVertex] = stamp;
             reachedCount++;
-            frontier.add(new DijkstraNode(0f, startCopyVertex));
-            while (!frontier.isEmpty()) {
-            DijkstraNode head = frontier.poll();
-            int node = head.vertexOrFace;
-            if (head.distance > distanceByVertex[node]) {
-                continue;
-            }
-            if (node == endCopyVertex) {
-                reachedTarget = true;
-                break;
-            }
-            if (node < vertexIdBound) {
-                topology.copy.vertexPosition(node, positionHere);
-                for (int index = 0; index < topology.copy.vertexEdgeCount(node); index++) {
-                    int edgeId = topology.copy.vertexEdgeAt(node, index);
-                    if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED
-                            || !edgeInRestriction(edgeId)) {
-                        continue;
-                    }
-                    int neighbor = topology.otherEndpoint(edgeId, node);
-                    if (realAdmissible(neighbor, endCopyVertex, passThrough)) {
-                        topology.copy.vertexPosition(neighbor, positionCandidate);
-                        reachedCount += relax(node, neighbor, head.distance
-                                + positionHere.distance(positionCandidate), stamp);
-                    }
+            frontierPush(0f, startCopyVertex);
+            while (frontierSize > 0) {
+                long entry = frontierPop();
+                int node = (int) (entry & NODE_ID_MASK);
+                if (settledStampByVertex[node] == stamp) {
+                    continue;
                 }
-                for (int index = 0; virtualMoves
-                        && index < topology.copy.vertexFaceCount(node); index++) {
-                    int faceId = topology.copy.vertexFaceAt(node, index);
-                    if (!faceInRestriction(faceId)) {
-                        continue;
-                    }
-                    for (int corner = 0; corner < CORNERS; corner++) {
-                        int edgeId = topology.copy.faceEdgeAt(faceId, corner);
-                        int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-                        if (topology.copy.halfEdgeVertex(halfEdge) == node
-                                || topology.copy.halfEdgeEndVertex(halfEdge) == node
-                                || !virtualAdmissible(edgeId)) {
+                settledStampByVertex[node] = stamp;
+                if (node == endCopyVertex) {
+                    reachedTarget = true;
+                    break;
+                }
+                float headDistance = distanceByVertex[node];
+                if (node < vertexIdBound) {
+                    for (int index = 0; index < topology.copy.vertexEdgeCount(node); index++) {
+                        int edgeId = topology.copy.vertexEdgeAt(node, index);
+                        if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED
+                                || !edgeInRestriction(edgeId)) {
                             continue;
                         }
-                        midpointPosition(halfEdge, positionA, positionB, positionCandidate);
-                        reachedCount += relax(node, vertexIdBound + edgeId, head.distance
-                                + splitPremium + positionHere.distance(positionCandidate), stamp);
-                    }
-                }
-            } else {
-                int nodeEdge = node - vertexIdBound;
-                int nodeHalfEdge = topology.copy.edgeHalfEdge(nodeEdge);
-                midpointPosition(nodeHalfEdge, positionA, positionB, positionHere);
-                for (int side = 0; side < 2; side++) {
-                    int faceId = side == 0 ? topology.copy.halfEdgeFace(nodeHalfEdge)
-                            : topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(nodeHalfEdge));
-                    if (faceId < 0 || !faceInRestriction(faceId)) {
-                        continue;
-                    }
-                    for (int corner = 0; corner < CORNERS; corner++) {
-                        int neighbor = topology.copy.faceVertexAt(faceId, corner);
+                        int neighbor = topology.otherEndpoint(edgeId, node);
                         if (realAdmissible(neighbor, endCopyVertex, passThrough)) {
-                            topology.copy.vertexPosition(neighbor, positionCandidate);
-                            reachedCount += relax(node, neighbor, head.distance
-                                    + positionHere.distance(positionCandidate), stamp);
+                            reachedCount += relax(node, neighbor, headDistance
+                                    + topology.edgeLength(edgeId), stamp);
                         }
-                        int edgeId = topology.copy.faceEdgeAt(faceId, corner);
-                        if (edgeId == nodeEdge || !virtualAdmissible(edgeId)) {
+                    }
+                    if (virtualMoves) {
+                        topology.copy.vertexPosition(node, positionHere);
+                    }
+                    for (int index = 0; virtualMoves
+                            && index < topology.copy.vertexFaceCount(node); index++) {
+                        int faceId = topology.copy.vertexFaceAt(node, index);
+                        if (!faceInRestriction(faceId)) {
                             continue;
                         }
-                        midpointPosition(topology.copy.edgeHalfEdge(edgeId),
-                                positionA, positionB, positionCandidate);
-                        reachedCount += relax(node, vertexIdBound + edgeId, head.distance
-                                + splitPremium + positionHere.distance(positionCandidate), stamp);
+                        for (int corner = 0; corner < CORNERS; corner++) {
+                            int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+                            int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+                            if (topology.copy.halfEdgeVertex(halfEdge) == node
+                                    || topology.copy.halfEdgeEndVertex(halfEdge) == node
+                                    || !virtualAdmissible(edgeId)) {
+                                continue;
+                            }
+                            midpointPosition(halfEdge, positionA, positionB, positionCandidate);
+                            reachedCount += relax(node, vertexIdBound + edgeId, headDistance
+                                    + splitPremium + positionHere.distance(positionCandidate), stamp);
+                        }
+                    }
+                } else {
+                    int nodeEdge = node - vertexIdBound;
+                    int nodeHalfEdge = topology.copy.edgeHalfEdge(nodeEdge);
+                    midpointPosition(nodeHalfEdge, positionA, positionB, positionHere);
+                    for (int side = 0; side < 2; side++) {
+                        int faceId = side == 0 ? topology.copy.halfEdgeFace(nodeHalfEdge)
+                                : topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(nodeHalfEdge));
+                        if (faceId < 0 || !faceInRestriction(faceId)) {
+                            continue;
+                        }
+                        for (int corner = 0; corner < CORNERS; corner++) {
+                            int neighbor = topology.copy.faceVertexAt(faceId, corner);
+                            if (realAdmissible(neighbor, endCopyVertex, passThrough)) {
+                                topology.copy.vertexPosition(neighbor, positionCandidate);
+                                reachedCount += relax(node, neighbor, headDistance
+                                        + positionHere.distance(positionCandidate), stamp);
+                            }
+                            int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+                            if (edgeId == nodeEdge || !virtualAdmissible(edgeId)) {
+                                continue;
+                            }
+                            midpointPosition(topology.copy.edgeHalfEdge(edgeId),
+                                    positionA, positionB, positionCandidate);
+                            reachedCount += relax(node, vertexIdBound + edgeId, headDistance
+                                    + splitPremium + positionHere.distance(positionCandidate), stamp);
+                        }
                     }
                 }
-            }
             }
         }
         lastReachedCount = reachedCount;
         if (!reachedTarget) {
+            exhaustedFailureStamp = stamp;
             lastCorridorSize = corridor.size();
             return false;
         }
+        exhaustedFailureStamp = 0;
         List<Integer> nodePath = new ArrayList<>();
         for (int walk = endCopyVertex; walk != startCopyVertex; walk = parentVertexByVertex[walk]) {
             nodePath.add(walk);
@@ -290,6 +315,27 @@ public final class ArcRerouter {
     }
 
     /**
+     * Whether a vertex was settled by the last exhaustive failed search — from
+     * there the target stays unreachable under any equal-or-stricter claim state,
+     * so a back-off attempt starting on it can be skipped.
+     *
+     * @param copyVertex candidate search start
+     * @return true when the vertex provably cannot reach the last failed target
+     */
+    public boolean settledInExhaustedFailure(int copyVertex) {
+        return exhaustedFailureStamp != 0
+                && vertexVisitStampByVertex[copyVertex] == exhaustedFailureStamp;
+    }
+
+    /**
+     * Forget the last failed search, required whenever claims are released —
+     * a grown graph invalidates the unreachability proof.
+     */
+    public void clearFailureMemory() {
+        exhaustedFailureStamp = 0;
+    }
+
+    /**
      * Relax one search move, stamping and queueing the node when it improves.
      *
      * @param fromNode  move source
@@ -306,8 +352,58 @@ public final class ArcRerouter {
         vertexVisitStampByVertex[toNode] = stamp;
         distanceByVertex[toNode] = newCost;
         parentVertexByVertex[toNode] = fromNode;
-        frontier.add(new DijkstraNode(newCost, toNode));
+        frontierPush(newCost, toNode);
         return seen ? 0 : 1;
+    }
+
+    /**
+     * Push a search node onto the frontier heap. Costs are non-negative, so the
+     * packed entry orders by cost as a signed long.
+     *
+     * @param cost tentative cost, the heap priority
+     * @param node real or virtual search node id
+     */
+    private void frontierPush(float cost, int node) {
+        if (frontierSize == frontierHeap.length) {
+            frontierHeap = Arrays.copyOf(frontierHeap, frontierHeap.length * 2);
+        }
+        long entry = (long) Float.floatToRawIntBits(cost) << COST_BITS_SHIFT
+                | node & NODE_ID_MASK;
+        int hole = frontierSize++;
+        while (hole > 0) {
+            int parent = (hole - 1) / 2;
+            if (frontierHeap[parent] <= entry) {
+                break;
+            }
+            frontierHeap[hole] = frontierHeap[parent];
+            hole = parent;
+        }
+        frontierHeap[hole] = entry;
+    }
+
+    /**
+     * Pop the cheapest entry off the frontier heap.
+     *
+     * @return the packed entry, cost bits high and node id low
+     */
+    private long frontierPop() {
+        long top = frontierHeap[0];
+        long moved = frontierHeap[--frontierSize];
+        int hole = 0;
+        int child = 1;
+        while (child < frontierSize) {
+            if (child + 1 < frontierSize && frontierHeap[child + 1] < frontierHeap[child]) {
+                child++;
+            }
+            if (frontierHeap[child] >= moved) {
+                break;
+            }
+            frontierHeap[hole] = frontierHeap[child];
+            hole = child;
+            child = 2 * hole + 1;
+        }
+        frontierHeap[hole] = moved;
+        return top;
     }
 
     /**
@@ -397,6 +493,7 @@ public final class ArcRerouter {
     private int nextVisitStamp() {
         if (visitStamp == Integer.MAX_VALUE) {
             Arrays.fill(vertexVisitStampByVertex, 0);
+            Arrays.fill(settledStampByVertex, 0);
             visitStamp = 0;
         }
         visitStamp++;
