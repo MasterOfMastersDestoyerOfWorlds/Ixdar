@@ -178,8 +178,7 @@
         "-XstartOnFirstThread",
         "-Xmx4g",
         "-Dsun.awt.noerasebackground=true",
-        "-Dorg.lwjgl.util.DebugLoader=true",
-        "-DcrossFieldScene.off=test/resources/quadlayout/figure_8/fertility_in_tri.off"
+        "-Dorg.lwjgl.util.DebugLoader=true"
       ],
       "cwd": "${workspaceFolder}/ixdar-app"
     },
@@ -197,8 +196,7 @@
         "-XstartOnFirstThread",
         "-Xmx4g",
         "-Dsun.awt.noerasebackground=true",
-        "-Dorg.lwjgl.util.DebugLoader=true",
-        "-Dparametrization.scene.off=test/resources/quadlayout/figure_8/rockerarm_in_tri.off"
+        "-Dorg.lwjgl.util.DebugLoader=true"
       ],
       "cwd": "${workspaceFolder}/ixdar-app"
     },
@@ -217,7 +215,6 @@
         "-Xmx4g",
         "-Dsun.awt.noerasebackground=true",
         "-Dorg.lwjgl.util.DebugLoader=true",
-        "-DmcgScene.off=test/resources/quadlayout/figure_8/fertility_in_tri.off",
         "-DmcgScene.alpha=15"
       ],
       "cwd": "${workspaceFolder}/ixdar-app"
@@ -237,7 +234,6 @@
         "-Xmx4g",
         "-Dsun.awt.noerasebackground=true",
         "-Dorg.lwjgl.util.DebugLoader=true",
-        "-DquadLayoutScene.off=test/resources/quadlayout/figure_8/fertility_in_tri.off",
         "-DquadLayoutScene.alpha=15"
       ],
       "cwd": "${workspaceFolder}/ixdar-app"
@@ -256,10 +252,9 @@
         "-XstartOnFirstThread",
         "-Xmx4g",
         "-Dsun.awt.noerasebackground=true",
-        "-Dorg.lwjgl.util.DebugLoader=true",
-        "-DembeddedTMesh.off=test/resources/quadlayout/figure_8/fertility_in_tri.off"
+        "-Dorg.lwjgl.util.DebugLoader=true"
       ],
       "cwd": "${workspaceFolder}/ixdar-app"
-    },
+    }
   ]
 }

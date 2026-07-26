@@ -46,10 +46,12 @@ import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.KeyGuy;
 
 import ixdar.platform.gl.Platform;
-import ixdar.scenes.Scene;
+import ixdar.scenes.model.ControlHint;
+import ixdar.scenes.model.ModelChoice;
+import ixdar.scenes.model.ModelScene;
 
 @SceneAnnotation(id = "mesh-viewer")
-public class MeshNodeViewerScene extends Scene {
+public class MeshNodeViewerScene extends ModelScene {
     public static final String PATCHES = "  patches=";
     public static final String DSL = ".dsl";
     public static final String STR = ": ";
@@ -94,16 +96,18 @@ public class MeshNodeViewerScene extends Scene {
 
     private final Vector3f meshCenter = new Vector3f();
 
-    private OrbitMouseTrap orbitMouse;
     private MeshTopology mesh;
     private volatile HalfEdgeMeshRuntime meshRuntime;
     private HalfEdgeMeshRuntime overlayRuntime;
     private NodeGraphRuntime lastGraphRuntime;
 
     // VIEW-7: catalog + per-mesh decomposition cache + overlay state
-    private ModelCatalog modelCatalog;
+    private ModelCatalog viewerCatalog;
     private String currentModelKey;  // absolutePath for staging-dir entries, or "" for initial load
     private String currentModelDisplayName = "(initial)";
+
+    /** Model path requested by the ESC menu or {@code model} command, applied on the render thread. */
+    private volatile String pendingModelPath;
     private SemanticPatchDecomposer.DecompositionDiagnostics cachedDiagnostics;
     private String cachedDiagnosticsKey;
     private boolean patchOverlayEnabled = false;
@@ -162,9 +166,9 @@ public class MeshNodeViewerScene extends Scene {
                 sb.append(PATCHES).append(cachedDiagnostics.decomposition().patches().size());
             }
         }
-        if (modelCatalog != null && !modelCatalog.entries().isEmpty()) {
-            sb.append("  [").append(modelCatalog.currentIndex() + 1)
-              .append('/').append(modelCatalog.entries().size()).append(']');
+        if (viewerCatalog != null && !viewerCatalog.entries().isEmpty()) {
+            sb.append("  [").append(viewerCatalog.currentIndex() + 1)
+              .append('/').append(viewerCatalog.entries().size()).append(']');
         }
         Platforms.get().log(sb.toString());
     }
@@ -211,9 +215,34 @@ public class MeshNodeViewerScene extends Scene {
      * @throws IllegalStateException if mesh runtime construction or DSL execution fails
      */
     @Override
-    public void initGL() {
-        super.initGL();
-        Platforms.gl().setWindowTitle("Ixdar : Mesh Node Viewer");
+    public String windowTitle() {
+        return "Ixdar : Mesh Node Viewer";
+    }
+
+    @Override
+    public String terminalRoot() {
+        return viewerCatalog.root().toString();
+    }
+
+    /** Scan the staging directory for selectable models and log the catalog state. */
+    @Override
+    public void createCatalog() {
+        viewerCatalog = new ModelCatalog();
+        int catalogSize = viewerCatalog.entries().size();
+        Platforms.get().log(
+                "[mesh-viewer] model catalog: " + catalogSize + " entries in " + viewerCatalog.root()
+                        + " (populate via 'uv run sync-models')");
+        if (catalogSize > 0) {
+            Platforms.get().log("[mesh-viewer] cycle models with [ and ]; P = patch overlay; "
+                    + "Shift+P cycles shader mode "
+                    + "(LAMBERT \u2192 FLAT \u2192 STAGES \u2192 CREST_VS_BOUNDARY \u2192 SCALAR/Coons-error \u2192 MSC); "
+                    + "D toggles decomposer (SEMANTIC \u2194 MORSE_SMALE)");
+        }
+        logState();
+    }
+
+    @Override
+    public void initInput() {
         MenuBox.menuVisible = false;
         orbitMouse = new OrbitMouseTrap(camera, this);
         keys = new MeshViewerKeyGuy(this, orbitMouse, camera, this);
@@ -223,42 +252,45 @@ public class MeshNodeViewerScene extends Scene {
         bindAutomationIfAvailable(Platforms.get(), keys, mouse);
         // Fallback: if reflection-based binding failed (TeaVM), wire callbacks directly
         bindInputDirect(Platforms.get(), keys, mouse);
+    }
 
-        // VIEW-7: scan the staging directory for selectable models.
-        modelCatalog = new ModelCatalog();
-        int catalogSize = modelCatalog.entries().size();
-        Platforms.get().log(
-                "[mesh-viewer] model catalog: " + catalogSize + " entries in " + modelCatalog.root()
-                        + " (populate via 'uv run sync-models')");
-        if (catalogSize > 0) {
-            Platforms.get().log("[mesh-viewer] cycle models with [ and ]; P = patch overlay; "
-                    + "Shift+P cycles shader mode "
-                    + "(LAMBERT \u2192 FLAT \u2192 STAGES \u2192 CREST_VS_BOUNDARY \u2192 SCALAR/Coons-error \u2192 MSC); "
-                    + "D toggles decomposer (SEMANTIC \u2194 MORSE_SMALE)");
+    @Override
+    public HalfEdgeMeshRuntime createRuntime() {
+        try {
+            meshRuntime = new HalfEdgeMeshRuntime();
+        } catch (Exception ex) {
+            throw new IllegalStateException(FAILED_TO_CREATE_MESH_GL_RUNTIME, ex);
         }
-        logState();
+        return meshRuntime;
+    }
 
+    /**
+     * Asynchronously load the configured DSL graph (or OBJ file). The mesh runtime holds a
+     * placeholder until the async load completes so the chrome renders meanwhile.
+     */
+    @Override
+    public void initModel() {
+        runtime = createRuntime();
         if (objResource != null) {
             initObjViewer();
             return;
         }
-
         try {
             Platforms.get().loadSourceAsync(DSL_FOLDER, dslResource, Platforms.gl().getPlatformID(), dslCode -> {
                 PythonLexer lexer = new PythonLexer(dslCode);
                 PythonParser parser = new PythonParser(lexer);
                 List<PythonParser.ParsedNode> ast = parser.parseGraph();
 
-                NodeGraphRuntime runtime = new NodeGraphRuntime();
-                runtime.registerAllFromAnnotationRegistry();
-                runtime.registerFunctionDefs(parser.functionDefs());
-                lastGraphRuntime = runtime;
+                NodeGraphRuntime graphRuntime = new NodeGraphRuntime();
+                graphRuntime.registerAllFromAnnotationRegistry();
+                graphRuntime.registerFunctionDefs(parser.functionDefs());
+                lastGraphRuntime = graphRuntime;
                 // If no final node specified, use the last node in the graph
                 String resolvedNode = (dslFinalNode != null && !dslFinalNode.isEmpty())
                         ? dslFinalNode
                         : ast.get(ast.size() - 1).id;
                 try {
-                    mesh = runtime.executeGraphToMesh(ast, resolvedNode, dslFinalPort);
+                    mesh = graphRuntime.executeGraphToMesh(ast, resolvedNode, dslFinalPort);
                 } catch (Exception e) {
                     for (Throwable t = e; t != null; t = t.getCause()) {
                         Platforms.get().log("[mesh-viewer] " + t.getClass().getName() + STR + t.getMessage());
@@ -268,7 +300,7 @@ public class MeshNodeViewerScene extends Scene {
                                     + " port=" + dslFinalPort,
                             e);
                 }
-                logTiming(runtime);
+                logTiming(graphRuntime);
                 try {
                     meshRuntime = new HalfEdgeMeshRuntime();
                 } catch (Exception e) {
@@ -334,7 +366,7 @@ public class MeshNodeViewerScene extends Scene {
      * disabled so the underlying surface remains visible.
      */
     @Override
-    public void drawScene() {
+    public void renderScene() {
         if (meshRuntime == null) {
             return;
         }
@@ -349,6 +381,24 @@ public class MeshNodeViewerScene extends Scene {
             overlayRuntime.render(camera);
             gl.depthMask(true);
             gl.disable(gl.BLEND());
+        }
+    }
+
+    @Override
+    public void applyPendingModel() {
+        if (pendingModelPath == null) {
+            return;
+        }
+        String path = pendingModelPath;
+        pendingModelPath = null;
+        if (viewerCatalog == null) {
+            return;
+        }
+        int index = viewerCatalog.indexOfPath(path);
+        if (index >= 0) {
+            loadModelEntry(viewerCatalog.select(index));
+        } else {
+            Platforms.get().log("[mesh-viewer] no catalog entry for " + path);
         }
     }
 
@@ -642,13 +692,48 @@ public class MeshNodeViewerScene extends Scene {
 
     // ==================== VIEW-7 model switching + patch overlay ====================
 
+    @Override
+    public List<ModelChoice> availableModels() {
+        List<ModelChoice> out = new ArrayList<>();
+        if (viewerCatalog != null) {
+            for (ModelCatalog.ModelEntry entry : viewerCatalog.entries()) {
+                out.add(new ModelChoice(entry.displayName(), entry.absolutePath().toString()));
+            }
+        }
+        return out;
+    }
+
+    @Override
+    public ModelChoice currentModel() {
+        if (currentModelKey == null || currentModelKey.isEmpty()) {
+            return null;
+        }
+        return new ModelChoice(currentModelDisplayName, currentModelKey);
+    }
+
+    @Override
+    public void requestModelLoad(String path) {
+        pendingModelPath = path;
+    }
+
+    @Override
+    public void setControls() {
+        controls.add(new ControlHint("[", "previous model", this::prevModel));
+        controls.add(new ControlHint("]", "next model", this::nextModel));
+        controls.add(new ControlHint("Z", "toggle wireframe", this::toggleMeshWireframe));
+        controls.add(new ControlHint("P", "toggle patch overlay", this::togglePatchOverlay));
+        controls.add(new ControlHint("Shift+P", "cycle shader mode", this::toggleShaderMode));
+        controls.add(new ControlHint("D", "cycle decomposer", this::toggleDecomposer));
+        super.setControls();
+    }
+
     /**
      * Catalog of selectable models scanned from the staging directory.
      *
      * @return the catalog, or {@code null} before {@link #initGL()} runs
      */
     public ModelCatalog getModelCatalog() {
-        return modelCatalog;
+        return viewerCatalog;
     }
 
     /**
@@ -656,8 +741,8 @@ public class MeshNodeViewerScene extends Scene {
      * catalog is empty.
      */
     public void nextModel() {
-        if (modelCatalog == null || modelCatalog.entries().isEmpty()) return;
-        loadModelEntry(modelCatalog.next());
+        if (viewerCatalog == null || viewerCatalog.entries().isEmpty()) return;
+        loadModelEntry(viewerCatalog.next());
     }
 
     /**
@@ -665,8 +750,8 @@ public class MeshNodeViewerScene extends Scene {
      * if the catalog is empty.
      */
     public void prevModel() {
-        if (modelCatalog == null || modelCatalog.entries().isEmpty()) return;
-        loadModelEntry(modelCatalog.prev());
+        if (viewerCatalog == null || viewerCatalog.entries().isEmpty()) return;
+        loadModelEntry(viewerCatalog.prev());
     }
 
     /**

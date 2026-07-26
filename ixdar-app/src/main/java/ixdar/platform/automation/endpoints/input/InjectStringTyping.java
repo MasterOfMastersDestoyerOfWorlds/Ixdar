@@ -11,6 +11,7 @@ import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.input.KeyGuy;
+import ixdar.platform.input.Keys;
 
 @AutomationRouteAnnotation(path = "input/type", method = APIMethod.POST)
 public class InjectStringTyping extends AutomationEndpoint implements AutomationRoute {
@@ -20,7 +21,9 @@ public class InjectStringTyping extends AutomationEndpoint implements Automation
     public static final String COMMAND = "type";
     /**
      * {@code POST /input/type}: synthesize a sequence of character events on the
-     * active key handler, one {@code charCallback} per character. Recorded as an
+     * active key handler, one {@code charCallback} per character. A space is sent as a
+     * {@code SPACE} key press/release instead, because {@code Terminal.type} ignores blank
+     * character input (a real keyboard delivers the space through its key event). Recorded as an
      * abstract {@code "type"} action.
      *
      * @param body JSON body with {@code text} (string, default {@code ""})
@@ -43,7 +46,13 @@ public class InjectStringTyping extends AutomationEndpoint implements Automation
                         return result;
                     }
                     for (int i = 0; i < text.length(); i++) {
-                        keys.charCallback(0L, text.charAt(i));
+                        char typed = text.charAt(i);
+                        if (typed == ' ') {
+                            keys.keyCallback(0L, Keys.SPACE, 0, Keys.ACTION_PRESS, 0);
+                            keys.keyCallback(0L, Keys.SPACE, 0, Keys.ACTION_RELEASE, 0);
+                        } else {
+                            keys.charCallback(0L, typed);
+                        }
                     }
                     JsonObject payload = new JsonObject();
                     payload.addProperty(TEXT, text);

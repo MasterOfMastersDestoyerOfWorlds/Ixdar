@@ -116,26 +116,17 @@ uv run ixdar-cli new-scene --name FooScene --id foo-canvas --subfolder ui \
   --display-name "Foo" --base Scene --camera 3d [--maven-profile foo-scene] [--dry-run]
 ```
 
-## Seeing a render yourself — headless scene + screenshot
+## Seeing a render yourself — always `ixdar-cli run-scene`
 
-Any scene runs with **no visible window** via `-Dixdar.headless=true`: `IxdarWindow` then drives it against an off-screen GL context (a hidden GLFW window) while the automation HTTP server still comes up on `http://127.0.0.1:47832`. So the loop to see *any* scene is:
+**Never hand-roll a JVM launch.** Do NOT `setsid java … ixdar.canvas.IxdarWindow <id>`, `mvn exec:java`, or a raw `curl`/`until` health-poll loop to bring a scene up. `run-scene` is the one supported entry point: it builds, launches, waits for `sceneReady` (not just an open port), screenshots, and shuts the JVM down cleanly — no orphaned processes, no port collisions, no stale-classpath surprises. Hand-rolled `java` also picks up whatever `.class` files the IDE's incremental (ECJ) build last wrote, which can be broken even when `mvn` is green.
 
 ```
-# launch (background; needs the graphical session to exist — hidden window, not truly surfaceless,
-# so a bare server needs xvfb-run):
-setsid java -Dixdar.headless=true -XX:ErrorFile=ixdar-app/target/hs_err_pid%p.log \
-  -cp "ixdar-app/target/classes:$(cat CP)" \
-  ixdar.canvas.IxdarWindow <scene-id> >/tmp/scene.log 2>&1 &
-# wait for it, capture, shut down:
-until curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:47832/health | grep -q 200; do sleep 1; done
-uv run ixdar-cli screenshot --out /tmp/scene.png     # or: curl -XPOST .../ui/screenshot -d '{"path":"..."}'
-uv run ixdar-cli multiview /tmp/scene.png            # 8-angle grid, sized under the image limit
-uv run ixdar-cli shutdown                            # System.exit; no window to close
+uv run ixdar-cli run-scene --scene <scene-id> [--property key=value ...] [--mesh <name>]
 ```
 
-Then `Read` the PNG. This is the generic path — **do not write a per-scene headless renderer** (`RenderEmbeddedTMesh` and the like were a wrong turn); feed the scene's own `QuadLayoutRuntime`/overlays and screenshot it.
+It runs **non-headless by default** (a real window on the desktop). Pick the model with `--property ixdar.model=<token>` or `--mesh <name>`. Run `uv run ixdar-cli run-scene --help` for the flags — output path, `--timeout`, `--profile` (see Profiling), and how to keep the scene alive when you need to inject input (`ixdar-cli key`/`type`/`click`/`screenshot` against the running server) rather than a one-shot capture.
 
-Omitting `-Dixdar.headless=true` opens a **visible** window on the desktop — only do that when you genuinely need to interact.
+Then `Read` the PNG. **Do not write a per-scene headless renderer** (`RenderEmbeddedTMesh` and the like were a wrong turn); feed the scene's own `QuadLayoutRuntime`/overlays and screenshot it. `ixdar-cli multiview <png>` composites an 8-angle grid under the image limit.
 
 Do not hand-roll a bespoke visualizer (an SVG unwrap, a custom exporter): the runtime already draws meshes, arcs, and node markers on the surface.
 

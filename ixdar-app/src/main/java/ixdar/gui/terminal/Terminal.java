@@ -29,6 +29,7 @@ import ixdar.platform.file.TextFile;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.MouseTrap;
 import ixdar.scenes.main.MainScene;
+import ixdar.scenes.model.ModelScene;
 
 /**
  * The editor's interactive REPL: keeps the command/tool/point-collection registries,
@@ -45,6 +46,13 @@ public class Terminal implements MouseTrap.ScrollHandler {
     public static HashMap<Class<Tool>, Tool> toolClassMap = new HashMap<>();
     public static ArrayList<PointCollection> pointCollectionList;
     public static HashMap<Class<? extends Geometry>, PointCollection> pointCollectionClassMap = new HashMap<>();
+
+    /**
+     * The terminal that currently receives keyboard input and argument-less command
+     * dispatch. {@link ixdar.scenes.main.MainScene} sets this to its terminal; the model
+     * scenes set it to their own, so {@code Terminal} is no longer hard-wired to MainScene.
+     */
+    public static Terminal current;
     static {
         if (commandList == null) {
             commandList = new ArrayList<>();
@@ -80,6 +88,10 @@ public class Terminal implements MouseTrap.ScrollHandler {
     public float scrollOffsetY = 0;
     public float SCROLL_SPEED = 300f;
     public TextFile loadedFile;
+
+    /** Model scene this terminal drives, so the {@code model} command can switch models; {@code null} in MainScene. */
+    public ModelScene modelScene;
+
     ArrayList<String> commandHistory;
     String storedCommandLine;
     int commandHistoryIdx;
@@ -98,24 +110,42 @@ public class Terminal implements MouseTrap.ScrollHandler {
      * @param file currently loaded file that anchors this terminal's directory context
      */
     public Terminal(TextFile file) {
+        initState();
+        this.directory = new File(file.path).getParent();
+        this.loadedFile = file;
+    }
+
+    /**
+     * Build a terminal anchored at a directory rather than a loaded file — used by the
+     * model scenes, which have a working directory but no {@code .ix} file. {@link #loadedFile}
+     * stays {@code null}.
+     *
+     * @param directory working directory this terminal's {@code cd}/{@code ls} start from
+     */
+    public Terminal(String directory) {
+        initState();
+        this.directory = directory;
+        this.loadedFile = null;
+    }
+
+    private void initState() {
         storedCommandLine = "";
         commandLine = "";
         commandLineInstruct = "";
         nextLogicalCommand = new String[] {};
         nextLogicalCommandIdx = 0;
         scrollToCommandLine = false;
-        this.directory = new File(file.path).getParent();
-        this.loadedFile = file;
         history = new HyperString();
         commandHistory = new ArrayList<>();
         commandHistoryIdx = -1;
-
     }
 
     /**
      * Reflectively scan {@code packageName} for non-abstract, non-enum classes that extend
      * {@code type}, instantiate each via its no-arg constructor, and register the instances
-     * into both {@code list} and {@code classMap}.
+     * into both {@code list} and {@code classMap}. Classes with no no-arg constructor (tools
+     * that need scene state handed in, e.g. {@code RoutePlanningTool}) are not registry
+     * -instantiable and are skipped silently.
      *
      * @param <E> base type implemented by every discovered class
      * @param packageName fully-qualified package to scan (dotted form)
@@ -148,8 +178,10 @@ public class Terminal implements MouseTrap.ScrollHandler {
                     E e = (E) c.getConstructor().newInstance();
                     list.add(e);
                     classMap.put((Class<E>) e.getClass(), e);
+                } catch (NoSuchMethodException notRegistryInstantiable) {
+                    continue;
                 } catch (InstantiationException | IllegalAccessException | IllegalArgumentException
-                        | InvocationTargetException | NoSuchMethodException | SecurityException e) {
+                        | InvocationTargetException | SecurityException e) {
                     e.printStackTrace();
                 }
             }
@@ -279,7 +311,8 @@ public class Terminal implements MouseTrap.ScrollHandler {
      * Append a typed character to the command line and reset the history-browse index so the
      * next up-arrow starts again from the most recent entry.
      *
-     * @param typedCharacter character text from the OS input event; ignored if blank
+     * @param typedCharacter character text from the OS input event; ignored if blank, since a
+     *     space arrives as its own {@link #keyPress} and would otherwise be inserted twice
      */
     public void type(String typedCharacter) {
         if (Compat.isBlank(typedCharacter)) {
@@ -432,8 +465,9 @@ public class Terminal implements MouseTrap.ScrollHandler {
      */
     public static <E extends TerminalCommand> void runNoArgs(Class<E> cmd) {
         TerminalCommand tc = (TerminalCommand) commandClassMap.get(cmd);
-        if (tc.argLength() <= 0) {
-            tc.run(new String[] {}, 0, MainScene.terminal);
+        Terminal target = current != null ? current : MainScene.terminal;
+        if (target != null && tc.argLength() <= 0) {
+            tc.run(new String[] {}, 0, target);
         }
     }
 }

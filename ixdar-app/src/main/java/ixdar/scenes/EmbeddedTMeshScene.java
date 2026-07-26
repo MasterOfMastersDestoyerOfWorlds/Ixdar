@@ -7,13 +7,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
-import org.joml.Vector3f;
-
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.geometry.mesh.data.load.MeshLoader;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
@@ -22,77 +17,23 @@ import ixdar.geometry.mesh.quadlayout.embedding.PatchRectangleMap;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRegionMapper;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchRegions;
 import ixdar.geometry.mesh.quadlayout.embedding.ThreeConnectivityRefinement;
+import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
 import ixdar.platform.Platforms;
-import ixdar.platform.gl.Platform;
-import ixdar.platform.input.KeyGuy;
-import ixdar.platform.input.MouseTrap;
-import ixdar.platform.input.OrbitMouseTrap;
+import ixdar.platform.input.Keys;
+import ixdar.scenes.model.ControlHint;
+import ixdar.scenes.model.ModelScene;
 
 /**
  * Debug view of an embedded T-mesh: arcs as edge paths, positive orange and
- * zero red, nodes as spheres. Keys are bound by {@link EmbeddedTMeshSceneKeys}.
- *
- * <p>
- * Builds from {@code -DembeddedTMesh.off}, defaulting to
- * {@link #DEFAULT_TEST_MODEL}.
+ * zero red, nodes as spheres. {@code C} contracts to a fixed point; {@code M}
+ * toggles the folded-patch view.
  *
  * <p>
  * See also: LCBK19 Figure 9
  */
 @SceneAnnotation(id = "embedded-tmesh")
-public class EmbeddedTMeshScene extends Scene {
-
-    /** Window title. */
-    public static final String SCENE_TITLE = "Ixdar : Embedded T-Mesh";
-
-    /**
-     * System property selecting the mesh file the T-mesh is built from; unset falls
-     * back to {@link #DEFAULT_TEST_MODEL}.
-     */
-    public static final String OFF_PROPERTY = "embeddedTMesh.off";
-
-    /**
-     * System property for the pipeline's separation angle in degrees; defaults to
-     * 15.
-     */
-    public static final String ALPHA_PROPERTY = "embeddedTMesh.alpha";
-
-    /** Request value meaning "apply as many as possible". */
-    public static final String ALL = "all";
-
-    /** Log prefix for a count of operator steps applied at startup. */
-    public static final String APPLIED_PREFIX = "[embedded-tmesh] applied ";
-
-    /**
-     * Default pipeline separation angle, in degrees, when the mesh is built from a
-     * file.
-     */
-    public static final double DEFAULT_ALPHA_DEGREES = 15.0;
-
-    /** Orbit azimuth the camera starts at, looking down onto the mesh. */
-    public static final float CAMERA_AZIMUTH = (float) Math.toRadians(35.0);
-
-    /** Orbit elevation the camera starts at. */
-    public static final float CAMERA_ELEVATION = (float) Math.toRadians(35.0);
-
-    /** Nearest the camera may zoom, as a floor independent of mesh size. */
-    public static final float CAMERA_DISTANCE_MIN = 0.5f;
-
-    /** Camera distance as a multiple of the mesh radius. */
-    public static final float CAMERA_DISTANCE_RADIUS_MUL = 2.5f;
-
-    /** Farthest the camera may zoom, as a multiple of the mesh radius. */
-    public static final float ZOOM_MAX_RADIUS_MUL = 5.0f;
-
-    /** Nearest zoom as a fraction of the mesh radius. */
-    public static final float ZOOM_MIN_RADIUS_FRACTION = 0.02f;
-
-    /**
-     * Camera distance, as a multiple of mesh radius, when framing a captured
-     * reroute failure.
-     */
-    public static final float FAILURE_VIEW_DISTANCE_MUL = 0.55f;
+public class EmbeddedTMeshScene extends ModelScene {
 
     /** How many patches to map between fold-check progress log lines. */
     private static final int PATCH_PROGRESS_INTERVAL = 64;
@@ -103,26 +44,17 @@ public class EmbeddedTMeshScene extends Scene {
     /** Low-word mask recovering a dense edge's high vertex from its key. */
     private static final long FOLD_EDGE_KEY_MASK = 0xFFFFFFFFL;
 
-    private static final String DEFAULT_TEST_MODEL = "test/resources/quadlayout/figure_8/fertility_in_tri.off";
-
-    /**
-     * Whether a full contraction (all three operators to a fixed point) was
-     * requested by keypress.
-     */
+    /** Whether a full contraction (all three operators to a fixed point) was requested by keypress. */
     public volatile boolean pendingContract;
 
     /** Whether the folded-patch magenta view was toggled by keypress. */
     public volatile boolean pendingFoldFlip;
 
     /** The angle to stop motorcycle crashes at. */
-    public double alphaDegrees;
+    public double alphaDegrees = 15;
 
-    private OrbitMouseTrap orbitMouse;
-    private QuadLayoutRuntime runtime;
-    private String offPath;
+    private QuadLayoutRuntime quadRuntime;
     private EmbeddedTMesh tmesh;
-    private HalfEdgeMesh surfaceMesh;
-    private final Vector3f meshCenter = new Vector3f();
 
     /**
      * Default constructor wired by the scene annotation processor.
@@ -132,67 +64,77 @@ public class EmbeddedTMeshScene extends Scene {
     }
 
     @Override
-    public void initGL() {
-        super.initGL();
-        Platforms.gl().setWindowTitle(SCENE_TITLE);
+    public HalfEdgeMeshRuntime createRuntime() {
+        quadRuntime = new QuadLayoutRuntime();
+        runtime = quadRuntime;
+        return runtime;
+    }
 
-        orbitMouse = new OrbitMouseTrap(camera, this);
-        keys = new EmbeddedTMeshSceneKeys(this, orbitMouse, camera, this);
-        mouse = orbitMouse;
-        bindAutomationIfAvailable(Platforms.get(), keys, mouse);
-        bindInputDirect(Platforms.get(), keys, mouse);
-
-        offPath = System.getProperty(OFF_PROPERTY);
-        if (offPath == null) {
-            offPath = DEFAULT_TEST_MODEL;
-        }
-        alphaDegrees = Double.parseDouble(
-                System.getProperty(ALPHA_PROPERTY, Double.toString(DEFAULT_ALPHA_DEGREES)));
-
-        try {
-            assembleLayout();
-
-            runtime = new QuadLayoutRuntime();
-            runtime.upload(surfaceMesh);
-            runtime.frameCamera(camera);
-            runtime.setEmbeddedTMesh(tmesh);
-        } catch (Exception ex) {
-            throw new IllegalStateException("Failed to initialize embedded T-mesh scene", ex);
-        }
-
-        meshCenter.set(surfaceMesh.center(new Vector3f()));
-        float meshRadius = surfaceMesh.radius();
-        float minZoom = Math.max(CAMERA_DISTANCE_MIN, meshRadius * ZOOM_MIN_RADIUS_FRACTION);
-        float maxZoom = Math.max(CAMERA_DISTANCE_MIN, meshRadius * ZOOM_MAX_RADIUS_MUL);
-        orbitMouse.setDistanceBounds(minZoom, maxZoom);
-        float orbitDistance = Math.max(CAMERA_DISTANCE_MIN,
-                meshRadius * CAMERA_DISTANCE_RADIUS_MUL);
-        orbitMouse.setTarget(meshCenter);
-        orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, orbitDistance);
-        Platforms.get().log(String.format(
-                "[embedded-tmesh] source=%s nodes=%d arcs=%d patches=%d",
-                offPath, tmesh.nodes.size(),
-                tmesh.arcs.size(), tmesh.patches.size()));
+    @Override
+    public String windowTitle() {
+        return "Ixdar : Embedded T-Mesh";
     }
 
     /**
-     * Builds the T-mesh, its surface mesh, and its Euler characteristic: from the
-     * real pipeline when {@link #OFF_PROPERTY} names a mesh, otherwise from the
-     * hand-authored torus fixture. Also wires the operators for the interactive
-     * steps.
-     * 
-     * @throws IOException thows if we couldnt load the mesh.
+     * Load {@code path}, then build and contract the embedded T-mesh from the loaded surface.
+     *
+     * @param path mesh file path to load
+     * @throws IOException if the mesh file cannot be read
      */
-    private void assembleLayout() throws IOException {
-        ArrayMesh arrayMesh = MeshLoader.load(offPath);
-        surfaceMesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
-                arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
+    @Override
+    public void loadModel(String path) throws IOException {
+        super.loadModel(path);
         QuadLayoutEngine engine = new QuadLayoutEngine(
-                surfaceMesh, (float) Math.toRadians(alphaDegrees));
+                halfEdgeMesh, (float) Math.toRadians(alphaDegrees));
         engine.buildLayoutEmbedding();
         tmesh = new EmbeddedTMesh(engine.embedding.topology).build(engine.embedding);
         tmesh.validate();
         tmesh.contract();
+        quadRuntime.setEmbeddedTMesh(tmesh);
+        Platforms.get().log(String.format(
+                "[embedded-tmesh] source=%s nodes=%d arcs=%d patches=%d",
+                offPath, tmesh.nodes.size(), tmesh.arcs.size(), tmesh.patches.size()));
+    }
+
+    @Override
+    public void setControls() {
+        controls.add(new ControlHint(Keys.C, "C", "contract to a fixed point",
+                () -> pendingContract = true));
+        controls.add(new ControlHint(Keys.M, "M", "toggle fold-flip view",
+                () -> pendingFoldFlip = true));
+        super.setControls();
+    }
+
+    /**
+     * Apply a pending model switch, then any keypress-requested contraction or fold-flip toggle,
+     * on the render thread where the GL context is current.
+     */
+    @Override
+    public void applyPendingModel() {
+        super.applyPendingModel();
+        if (pendingContract) {
+            pendingContract = false;
+            tmesh.contract();
+            quadRuntime.setEmbeddedTMesh(tmesh);
+            Platforms.get().log("[embedded-tmesh] contracted to fixed point: "
+                    + tmesh.arcCollapseCount + " collapse(s), "
+                    + tmesh.patchSplitCount + " split(s), "
+                    + tmesh.patchCollapseCount + " patch-collapse(s)");
+        }
+        if (pendingFoldFlip) {
+            pendingFoldFlip = false;
+            if (quadRuntime.showIsoLines) {
+                quadRuntime.showIsoLines = false;
+                Platforms.get().log("[foldcheck] flip view off");
+            } else {
+                try {
+                    showFoldFlips();
+                } catch (IllegalStateException notReady) {
+                    Platforms.get().log("[foldcheck] cannot show flips (contract to a fixed point"
+                            + " first with C): " + notReady.getMessage());
+                }
+            }
+        }
     }
 
     /**
@@ -284,11 +226,11 @@ public class EmbeddedTMeshScene extends Scene {
                 }
             }
         }
-        runtime.uploadPatchParametrization(copy, cornerU, cornerV, faceFlipped);
-        runtime.showTraces = false;
-        runtime.showIsoLines = true;
-        Platforms.get().log("[foldcheck] flip-surface uploaded isoIdx=" + runtime.isoSurfaceIndexCount
-                + " showIsoLines=" + runtime.showIsoLines);
+        quadRuntime.uploadPatchParametrization(copy, cornerU, cornerV, faceFlipped);
+        quadRuntime.showTraces = false;
+        quadRuntime.showIsoLines = true;
+        Platforms.get().log("[foldcheck] flip-surface uploaded isoIdx=" + quadRuntime.isoSurfaceIndexCount
+                + " showIsoLines=" + quadRuntime.showIsoLines);
         Platforms.get().log("[foldcheck] regions OK: " + mapped + " patches, chords=" + chords
                 + " sameSidePatchArcs=" + sameSidePatchArcs + " folded=" + folded
                 + (folded == 0 ? " (all fold-free)"
@@ -361,95 +303,13 @@ public class EmbeddedTMeshScene extends Scene {
         edgeUse.merge(((long) low << FOLD_EDGE_KEY_SHIFT) | high, 1, Integer::sum);
     }
 
-    /**
-     * Apply any keypress-requested edit on the render thread, where the GL context
-     * is current, and re-upload the changed T-mesh. Doing this here rather than in
-     * the key callback keeps every GL call on the thread that owns the context.
-     *
-     * @throws Exception when a requested edit or its re-upload fails
-     */
-    private void applyPendingEdits() throws Exception {
-
-        if (pendingContract) {
-            pendingContract = false;
-            tmesh.contract();
-            runtime.setEmbeddedTMesh(tmesh);
-            Platforms.get().log("[embedded-tmesh] contracted to fixed point: "
-                    + tmesh.arcCollapseCount + " collapse(s), "
-                    + tmesh.patchSplitCount + " split(s), "
-                    + tmesh.patchCollapseCount + " patch-collapse(s)");
-            return;
-        }
-        if (pendingFoldFlip) {
-            pendingFoldFlip = false;
-            if (runtime.showIsoLines) {
-                runtime.showIsoLines = false;
-                Platforms.get().log("[foldcheck] flip view off");
-            } else {
-                try {
-                    showFoldFlips();
-                } catch (IllegalStateException notReady) {
-                    Platforms.get().log("[foldcheck] cannot show flips (contract to a fixed point"
-                            + " first with C or F): " + notReady.getMessage());
-                }
-            }
-            return;
-        }
-    }
-
     @Override
-    public void drawScene() {
-        if (runtime == null) {
-            return;
-        }
-        try {
-            applyPendingEdits();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    public void renderScene() {
         camera.resetView();
-        if (!runtime.showIsoLines) {
-            runtime.render(camera);
+        if (!quadRuntime.showIsoLines) {
+            quadRuntime.render(camera);
         }
-        runtime.renderOverlays(camera);
-        runtime.renderHighlights(camera);
-    }
-
-    @Override
-    public void activate(boolean state) {
-        super.activate(state);
-        if (!state) {
-            disposeRuntime();
-        }
-    }
-
-    @Override
-    public void shutdown() {
-        disposeRuntime();
-        super.shutdown();
-    }
-
-    private void disposeRuntime() {
-        if (runtime != null) {
-            runtime.dispose();
-            runtime = null;
-        }
-    }
-
-    /**
-     * Route raw platform input to the scene's key and mouse handlers.
-     *
-     * @param platform  active platform
-     * @param keyGuy    key handler
-     * @param mouseTrap mouse handler
-     */
-    private static void bindInputDirect(Platform platform, KeyGuy keyGuy, MouseTrap mouseTrap) {
-        platform.setCursorPosCallback(
-                (window, x, y) -> mouseTrap.moveOrDrag(window, (float) x, (float) y));
-        platform.setMouseButtonCallback(
-                (button, action, mods) -> mouseTrap.mouseButton(button, action, mods));
-        platform.setScrollCallback((xoff, yoff) -> mouseTrap.scrollCallback(yoff));
-        platform.setKeyCallback(
-                (key, scancode, action, mods) -> keyGuy.keyCallback(0L, key, scancode, action, mods));
+        quadRuntime.renderOverlays(camera);
+        quadRuntime.renderHighlights(camera);
     }
 }

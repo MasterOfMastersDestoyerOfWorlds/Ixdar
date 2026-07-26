@@ -97,12 +97,8 @@ public class HalfEdgeMeshRuntime {
     private int ebo;
     private int edgeEbo;
     private int edgeCount;
-    // Feature-edge overlay buffer: all categories concatenated, ranges recorded.
     private int featureEdgeEbo;
     private List<FeatureEdgeRange> featureEdgeRanges = List.of();
-    // PATCH-15: per-vertex scalar for heat-map diagnostics. Populated by
-    // setPerVertexScalar; bound at attribute location 3 only when SCALAR
-    // shader mode is active.
     private int scalarVbo;
     private boolean scalarUploaded = false;
     private float scalarMin = 0f;
@@ -110,9 +106,6 @@ public class HalfEdgeMeshRuntime {
     private boolean wireframe = false;
     private volatile boolean orthographic = false;
     private boolean xray = true;
-
-    // Tagged rendering (VIEW-5). When tagRanges is empty, the mesh draws as
-    // one draw call with the {@code solidColor} uniform — original behaviour.
     private final Map<String, Vector4f> tagColorOverrides = new HashMap<>();
     private List<TagRange> tagRanges = List.of();
     private ShaderMode shaderMode = ShaderMode.LAMBERT;
@@ -122,10 +115,8 @@ public class HalfEdgeMeshRuntime {
      * unlit, scalar), the shared VAO/VBO, and the EBO names for triangles,
      * wireframe edges, feature-edge overlays, and the per-vertex scalar
      * attribute. No mesh is uploaded yet — call {@link #upload(MeshTopology)}.
-     *
-     * @throws Exception if any of the mesh shader programs fails to compile or link
      */
-    public HalfEdgeMeshRuntime() throws Exception {
+    public HalfEdgeMeshRuntime() {
         this.meshShader = ShaderProgram.ShaderType.Mesh.getShader();
         this.meshUnlitShader = ShaderProgram.ShaderType.MeshUnlit.getShader();
         this.meshScalarShader = ShaderProgram.ShaderType.MeshScalar.getShader();

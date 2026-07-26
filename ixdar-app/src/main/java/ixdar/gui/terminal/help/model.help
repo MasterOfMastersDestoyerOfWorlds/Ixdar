@@ -1,0 +1,3 @@
+example: ml fertility switches the active scene to the fertility input mesh and recomputes its
+layout in place — no restart. The token matches a model's display name exactly first, then any
+model whose display name or file path contains it. The same list appears in the ESC menu.

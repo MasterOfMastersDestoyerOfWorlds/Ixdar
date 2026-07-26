@@ -41,6 +41,7 @@ public class MouseTrap {
     public int lastX = Integer.MIN_VALUE;
     public int lastY = Integer.MIN_VALUE;
     public Camera camera;
+    public Canvas3D canvas;
     public boolean active = true;
     public float normalizedPosX;
     public float normalizedPosY;
@@ -53,7 +54,6 @@ public class MouseTrap {
 
     float leftMouseDown = -1;
     Vector2f leftMouseDownPos;
-    private Canvas3D canvas;
 
     /**
      * Build a mouse controller bound to a scene, camera, and canvas.

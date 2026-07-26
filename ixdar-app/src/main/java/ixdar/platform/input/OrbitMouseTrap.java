@@ -8,7 +8,9 @@ import org.joml.Vector2f;
 import org.joml.Vector3f;
 
 import ixdar.canvas.Canvas3D;
+import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.cameras.Camera3D;
+import ixdar.graphics.render.text.HyperString;
 import ixdar.platform.Platforms;
 
 /**
@@ -148,8 +150,17 @@ public class OrbitMouseTrap extends MouseTrap {
             panningDrag = (mods & MOD_SHIFT) != 0;
             mousePressed(x, y);
         } else if (action == ACTION_RELEASE && button == MOUSE_BUTTON_LEFT) {
+            boolean wasClick = leftMouseDownPos != null && leftMouseDownPos.distance(x, y) <= NUM_3;
             leftMouseDownPos = null;
             panningDrag = false;
+            if (wasClick && canvas != null && canvas.camera2D != null) {
+                Camera2D overlayCamera = canvas.camera2D;
+                float overlayX = overlayCamera.getNormalizePosX(x);
+                float overlayY = overlayCamera.getNormalizePosY(y);
+                for (HyperString hyperString : hyperStrings) {
+                    hyperString.click(overlayX, overlayY);
+                }
+            }
         }
     }
 

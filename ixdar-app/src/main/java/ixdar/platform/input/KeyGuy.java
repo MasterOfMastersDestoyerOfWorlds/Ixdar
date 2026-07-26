@@ -168,8 +168,8 @@ public class KeyGuy extends Camera2DInputController{
                 }
             }
         }
-        if (Toggle.IsTerminalFocused.value) {
-            MainScene.terminal.keyPress(key, mods, controlMask);
+        if (Toggle.IsTerminalFocused.value && Terminal.current != null) {
+            Terminal.current.keyPress(key, mods, controlMask);
         }
         if (KeyActions.Back.keyPressed(pressedKeys) && MainScene.active) {
             Terminal.runNoArgs(ExitCommand.class);
@@ -191,7 +191,7 @@ public class KeyGuy extends Camera2DInputController{
         if (main != null && MainScene.active) {
 
         } else if (canvas.active) {
-            if (KeyActions.Back.keyPressed(pressedKeys)) {
+            if (KeyActions.Back.keyPressed(pressedKeys) && canvas.menu != null) {
                 canvas.menu.back();
             }
             if (KeyActions.Reset.keyPressed(pressedKeys)) {
@@ -270,8 +270,11 @@ public class KeyGuy extends Camera2DInputController{
         Platforms.init(canvas.platform.getPlatformID());
         String currentText = "" + (char) codepoint;
         recordAbstractAction("char_input", "text", currentText, "codepoint", codepoint);
-        if (Toggle.IsTerminalFocused.value) {
-            MainScene.terminal.type(currentText);
+        if (codepoint == '`' || codepoint == '~') {
+            return;
+        }
+        if (Toggle.IsTerminalFocused.value && Terminal.current != null) {
+            Terminal.current.type(currentText);
         }
     }
 

@@ -156,6 +156,7 @@ public class MainScene {
             file = FileManagement.getFile(fileName);
             retTup = FileManagement.importFromFile(file.getPath());
             terminal = new Terminal(file);
+            Terminal.current = terminal;
         }
         for (String comment : retTup.comments) {
             terminal.history.addLine(comment, Color.BLUE_WHITE);

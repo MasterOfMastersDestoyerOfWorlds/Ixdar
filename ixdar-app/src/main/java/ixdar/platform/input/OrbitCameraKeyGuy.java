@@ -2,33 +2,52 @@ package ixdar.platform.input;
 
 import static ixdar.platform.input.Keys.ACTION_PRESS;
 
+import java.util.List;
+
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
+import ixdar.scenes.model.ControlHint;
 
 /**
  * Shared key handler for orbit/mesh scenes, binding {@code Ctrl+R} to
- * {@link OrbitMouseTrap#resetTarget()}.
- *
- * <p>Subclasses add their own keys by overriding {@link #handleSceneKeys(int, int)} rather than
- * the base dispatch, which would drop the shared bindings.
+ * {@link OrbitMouseTrap#resetTarget()} and dispatching each scene's {@link ControlHint} actions
+ * by their key code.
  */
 public class OrbitCameraKeyGuy extends KeyGuy {
 
     /** GLFW control modifier bit. */
     public static final int MOD_CONTROL = 0x0002;
 
-    protected final OrbitMouseTrap orbitMouse;
+    public final OrbitMouseTrap orbitMouse;
+
+    /** Scene controls dispatched on key press, or {@code null} when the scene binds none. */
+    public final List<ControlHint> controls;
 
     /**
-     * Wire the key handler to the orbit controller it recentres.
+     * Wire the key handler to the orbit controller it recentres, with no scene controls.
      *
      * @param orbitMouse orbit controller whose centre {@code Ctrl+R} resets
      * @param camera     camera driven by this handler
      * @param canvas     owning canvas
      */
     public OrbitCameraKeyGuy(OrbitMouseTrap orbitMouse, Camera camera, Canvas3D canvas) {
+        this(orbitMouse, camera, canvas, null);
+    }
+
+    /**
+     * Wire the key handler to the orbit controller and the scene's controls, firing a control's
+     * action when its {@link ControlHint#keyCode} is pressed.
+     *
+     * @param orbitMouse orbit controller whose centre {@code Ctrl+R} resets
+     * @param camera     camera driven by this handler
+     * @param canvas     owning canvas
+     * @param controls   scene controls to dispatch, or {@code null} for none
+     */
+    public OrbitCameraKeyGuy(OrbitMouseTrap orbitMouse, Camera camera, Canvas3D canvas,
+            List<ControlHint> controls) {
         super(camera, canvas);
         this.orbitMouse = orbitMouse;
+        this.controls = controls;
     }
 
     /**
@@ -55,12 +74,21 @@ public class OrbitCameraKeyGuy extends KeyGuy {
     }
 
     /**
-     * Scene-specific key handling, invoked on key-press for non-{@code Ctrl+R} keys.
-     * The default is a no-op; scenes override to add their own toggles.
+     * Fire the first control whose {@link ControlHint#keyCode} matches {@code key}. Scenes bind
+     * keys by adding controls, not by overriding this.
      *
      * @param key  pressed key code
      * @param mods modifier-key bitmask
      */
-    protected void handleSceneKeys(int key, int mods) {
+    public void handleSceneKeys(int key, int mods) {
+        if (controls == null) {
+            return;
+        }
+        for (ControlHint hint : controls) {
+            if (hint.keyCode == key && hint.keyCode != ControlHint.NO_KEY && hint.action != null) {
+                hint.action.perform();
+                return;
+            }
+        }
     }
 }

@@ -421,7 +421,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
      * @throws Exception if the inherited {@link HalfEdgeMeshRuntime} or the
      *                   {@code MeshUv} shader fails to initialise
      */
-    public QuadLayoutRuntime() throws Exception {
+    public QuadLayoutRuntime() {
         super();
         this.uvShader = ShaderProgram.ShaderType.MeshUv.getShader();
         this.uvShader.init();

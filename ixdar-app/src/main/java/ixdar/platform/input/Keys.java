@@ -57,13 +57,14 @@ public final class Keys {
     public static final int X = 88;
     public static final int Y = 89;
     public static final int Z = 90;
-    public static final int MINUS = 45; // '-'
-    public static final int EQUAL = 61; // '='
-    public static final int COMMA = 44; // ','
-    public static final int PERIOD = 46; // '.'
-    public static final int LEFT_BRACKET = 91; // '['
+    public static final int MINUS = 45;
+    public static final int EQUAL = 61;
+    public static final int COMMA = 44;
+    public static final int PERIOD = 46;
+    public static final int LEFT_BRACKET = 91;
     public static final int RIGHT_BRACKET = 93;
+    public static final int GRAVE = 96;
 
     private Keys() {
-    } // ']'
+    }
 }
