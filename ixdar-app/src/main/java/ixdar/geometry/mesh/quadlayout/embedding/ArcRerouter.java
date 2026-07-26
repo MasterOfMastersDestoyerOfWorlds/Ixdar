@@ -12,23 +12,23 @@ import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.quadlayout.crossfield.DijkstraNode;
 
 /**
- * Re-embeds an arc whose endpoint node has just moved, by a Dijkstra search
- * restricted to cross or touch no other arc.
- *
- * <p>Each failed round splits the corridor edges walled in by claims.
+ * Re-embeds an arc whose endpoint node has just moved, by one split-aware
+ * Dijkstra restricted to cross or touch no other arc: virtual midpoints of
+ * splittable edges join the graph at a premium, and only the winning path's
+ * midpoints are materialized.
  *
  * <p>See also: LCBK19 Section 6.1
  */
 public final class ArcRerouter {
 
-    /** Refine rounds allowed per re-route attempt. */
+    /** Retained for callers; the split-aware search needs no refine rounds. */
     public static final int REFINE_ROUND_CAP = 16;
 
     /**
-     * Gate count beyond which a face passage is a wrong-homotopy detour around
-     * the surface, not a route to open — treated as no passage at all.
+     * Split premium as a multiple of the mesh radius: splits are dearer than
+     * any local detour yet cheaper than a tour around the surface.
      */
-    public static final int PASSAGE_GATE_BOUND = 100_000;
+    private static final float SPLIT_PREMIUM_RADIUS_FACTOR = 2f;
 
     /** Split position of a midpoint refinement. */
     private static final double EDGE_MIDPOINT = 0.5;
@@ -36,7 +36,16 @@ public final class ArcRerouter {
     /** Corners (and edges) of a triangle. */
     private static final int CORNERS = 3;
 
+    /** Halves a summed pair of positions into a midpoint. */
+    private static final float MIDPOINT_SCALE = 0.5f;
+
     public final EmbeddedMeshTopology topology;
+
+    /**
+     * Split premium, fixed at construction: refinement vertices are convex
+     * combinations of existing ones, so the mesh radius never grows.
+     */
+    public final float splitPremium;
 
     /**
      * Stamp per source face admitting it to the current carve search; empty for
@@ -58,9 +67,6 @@ public final class ArcRerouter {
     /** Edges split to open a walled corridor. */
     public int refinedEdgeSplitCount;
 
-    /** Passages discarded as oversized wrong-homotopy detours. */
-    public int passageOverflowCount;
-
     /** Of {@link #refinedEdgeSplitCount}, those split as gates on a face passage. */
     public int gateSplitCount;
 
@@ -73,7 +79,7 @@ public final class ArcRerouter {
     /** Refine rounds executed across all {@link #tryRoute} calls. */
     public int refineRoundCount;
 
-    /** Re-routes that only succeeded after refinement. */
+    /** Re-routes that only succeeded by materializing splits. */
     public int refinedRetryCount;
 
     /** Vertices the last search settled, and the corridor it was allowed. */
@@ -95,29 +101,14 @@ public final class ArcRerouter {
      */
     public final PriorityQueue<DijkstraNode> frontier = new PriorityQueue<>();
 
-    /** Tentative distance per copy vertex, valid where {@link #vertexVisitStampByVertex} matches. */
+    /** Tentative cost per search node, valid where {@link #vertexVisitStampByVertex} matches. */
     public float[] distanceByVertex = new float[0];
 
-    /** Dijkstra parent per copy vertex, valid where {@link #vertexVisitStampByVertex} matches. */
+    /** Search parent per node, valid where {@link #vertexVisitStampByVertex} matches. */
     public int[] parentVertexByVertex = new int[0];
 
-    /** Search generation that last wrote each vertex's distance and parent. */
+    /** Search generation that last wrote each node's cost and parent. */
     public int[] vertexVisitStampByVertex = new int[0];
-
-    /** Walk generation that last visited each copy face. */
-    public int[] faceVisitStampByFace = new int[0];
-
-    /** BFS parent face per copy face, valid where {@link #faceVisitStampByFace} matches. */
-    public int[] parentFaceByFace = new int[0];
-
-    /** Edge crossed into each copy face, valid where {@link #faceVisitStampByFace} matches. */
-    public int[] parentEdgeByFace = new int[0];
-
-    /** Walk generation whose target-vertex faces each copy face belongs to. */
-    public int[] targetFaceStampByFace = new int[0];
-
-    /** FIFO face queue of the current face walk; every face is enqueued at most once. */
-    public int[] faceQueue = new int[0];
 
     /**
      * Generation counter shared by the stamped scratch arrays; a stamp mismatch
@@ -132,6 +123,7 @@ public final class ArcRerouter {
      */
     public ArcRerouter(EmbeddedMeshTopology topology) {
         this.topology = topology;
+        this.splitPremium = SPLIT_PREMIUM_RADIUS_FACTOR * topology.copy.radius();
     }
 
     /**
@@ -148,21 +140,21 @@ public final class ArcRerouter {
     }
 
     /**
-     * Re-route an arc between two vertices by a claims-respecting corridor Dijkstra, refining on
-     * failure. A failed round splits every gate on the face passage between the two vertices, or,
-     * when there is no such passage, blocked corridor edges at large under {@link #SPLIT_BUDGET}.
-     * Splits made by failed attempts stay behind.
+     * Route an arc between two vertices by one split-aware Dijkstra: real moves
+     * walk unclaimed edges through free vertices; virtual moves stand on the
+     * midpoint of a splittable edge at a premium. The cheapest path wins, and
+     * only its midpoints are split.
      *
      * @param arcId           arc being re-routed, for counters
      * @param vertices        path list; the start vertex is appended when empty, and
      *                        the routed continuation follows it
      * @param startCopyVertex hop source
      * @param endCopyVertex   hop target
-     * @param corridor        allowed vertex set, mutated by refinement and growth
+     * @param corridor        reached-path set, grown with the routed vertices
      * @param passThrough     a claimed vertex the search may transit anyway — the collapsing
      *                        node, which the arc must follow to its new home — or
      *                        {@link EmbeddedMeshTopology#UNCLAIMED} for none
-     * @param roundCap        refine-round budget for this attempt
+     * @param roundCap        unused; retained for caller stability
      * @return whether the path now ends at the target
      */
     public boolean tryRoute(int arcId, List<Integer> vertices, int startCopyVertex,
@@ -172,194 +164,193 @@ public final class ArcRerouter {
         }
         lastCorridorSet = corridor;
         routeAttemptCount++;
-        if (dijkstraSearch(vertices, startCopyVertex, endCopyVertex, corridor, passThrough)) {
-            return true;
+        int vertexIdBound = topology.ownerArcByCopyVertex.length;
+        int nodeIdBound = vertexIdBound + topology.ownerArcByCopyEdge.length;
+        if (distanceByVertex.length < nodeIdBound) {
+            distanceByVertex = Arrays.copyOf(distanceByVertex, nodeIdBound);
+            parentVertexByVertex = Arrays.copyOf(parentVertexByVertex, nodeIdBound);
+            vertexVisitStampByVertex = Arrays.copyOf(vertexVisitStampByVertex, nodeIdBound);
         }
-        List<Integer> toPivot = null;
-        List<Integer> fromPivot = corridorGateEdges(startCopyVertex, endCopyVertex);
-        if (fromPivot == null && passThrough != EmbeddedMeshTopology.UNCLAIMED) {
-            toPivot = corridorGateEdges(startCopyVertex, passThrough);
-            fromPivot = toPivot == null ? null : corridorGateEdges(passThrough, endCopyVertex);
+        Vector3f positionHere = new Vector3f();
+        Vector3f positionA = new Vector3f();
+        Vector3f positionB = new Vector3f();
+        Vector3f positionCandidate = new Vector3f();
+        int reachedCount = 0;
+        int stamp = 0;
+        boolean reachedTarget = false;
+        for (int phase = 0; phase < 2 && !reachedTarget; phase++) {
+            boolean virtualMoves = phase == 1;
+            stamp = nextVisitStamp();
+            frontier.clear();
+            distanceByVertex[startCopyVertex] = 0f;
+            vertexVisitStampByVertex[startCopyVertex] = stamp;
+            reachedCount++;
+            frontier.add(new DijkstraNode(0f, startCopyVertex));
+            while (!frontier.isEmpty()) {
+            DijkstraNode head = frontier.poll();
+            int node = head.vertexOrFace;
+            if (head.distance > distanceByVertex[node]) {
+                continue;
+            }
+            if (node == endCopyVertex) {
+                reachedTarget = true;
+                break;
+            }
+            if (node < vertexIdBound) {
+                topology.copy.vertexPosition(node, positionHere);
+                for (int index = 0; index < topology.copy.vertexEdgeCount(node); index++) {
+                    int edgeId = topology.copy.vertexEdgeAt(node, index);
+                    if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED
+                            || !edgeInRestriction(edgeId)) {
+                        continue;
+                    }
+                    int neighbor = topology.otherEndpoint(edgeId, node);
+                    if (realAdmissible(neighbor, endCopyVertex, passThrough)) {
+                        topology.copy.vertexPosition(neighbor, positionCandidate);
+                        reachedCount += relax(node, neighbor, head.distance
+                                + positionHere.distance(positionCandidate), stamp);
+                    }
+                }
+                for (int index = 0; virtualMoves
+                        && index < topology.copy.vertexFaceCount(node); index++) {
+                    int faceId = topology.copy.vertexFaceAt(node, index);
+                    if (!faceInRestriction(faceId)) {
+                        continue;
+                    }
+                    for (int corner = 0; corner < CORNERS; corner++) {
+                        int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+                        int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+                        if (topology.copy.halfEdgeVertex(halfEdge) == node
+                                || topology.copy.halfEdgeEndVertex(halfEdge) == node
+                                || !virtualAdmissible(edgeId)) {
+                            continue;
+                        }
+                        midpointPosition(halfEdge, positionA, positionB, positionCandidate);
+                        reachedCount += relax(node, vertexIdBound + edgeId, head.distance
+                                + splitPremium + positionHere.distance(positionCandidate), stamp);
+                    }
+                }
+            } else {
+                int nodeEdge = node - vertexIdBound;
+                int nodeHalfEdge = topology.copy.edgeHalfEdge(nodeEdge);
+                midpointPosition(nodeHalfEdge, positionA, positionB, positionHere);
+                for (int side = 0; side < 2; side++) {
+                    int faceId = side == 0 ? topology.copy.halfEdgeFace(nodeHalfEdge)
+                            : topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(nodeHalfEdge));
+                    if (faceId < 0 || !faceInRestriction(faceId)) {
+                        continue;
+                    }
+                    for (int corner = 0; corner < CORNERS; corner++) {
+                        int neighbor = topology.copy.faceVertexAt(faceId, corner);
+                        if (realAdmissible(neighbor, endCopyVertex, passThrough)) {
+                            topology.copy.vertexPosition(neighbor, positionCandidate);
+                            reachedCount += relax(node, neighbor, head.distance
+                                    + positionHere.distance(positionCandidate), stamp);
+                        }
+                        int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+                        if (edgeId == nodeEdge || !virtualAdmissible(edgeId)) {
+                            continue;
+                        }
+                        midpointPosition(topology.copy.edgeHalfEdge(edgeId),
+                                positionA, positionB, positionCandidate);
+                        reachedCount += relax(node, vertexIdBound + edgeId, head.distance
+                                + splitPremium + positionHere.distance(positionCandidate), stamp);
+                    }
+                }
+            }
+            }
         }
-        if (fromPivot == null) {
+        lastReachedCount = reachedCount;
+        if (!reachedTarget) {
             lastCorridorSize = corridor.size();
             return false;
         }
-        openPassageGates(fromPivot, corridor);
-        if (toPivot != null) {
-            openPassageGates(toPivot, corridor);
+        List<Integer> nodePath = new ArrayList<>();
+        for (int walk = endCopyVertex; walk != startCopyVertex; walk = parentVertexByVertex[walk]) {
+            nodePath.add(walk);
         }
-        if (fromPivot.isEmpty() && toPivot == null) {
-            splitSharedFace(startCopyVertex, endCopyVertex, corridor);
-        }
-        mintSpoke(startCopyVertex, corridor);
-        mintSpoke(endCopyVertex, corridor);
-        if (dijkstraSearch(vertices, startCopyVertex, endCopyVertex, corridor, passThrough)) {
-            refinedRetryCount++;
-            lastCorridorSize = corridor.size();
-            return true;
-        }
-        boolean viaPivot = toPivot != null;
-        List<List<Integer>> passages = new ArrayList<>();
-        List<Integer> legTargets = new ArrayList<>();
-        if (viaPivot) {
-            passages.add(corridorGateEdges(startCopyVertex, passThrough));
-            legTargets.add(passThrough);
-            passages.add(corridorGateEdges(passThrough, endCopyVertex));
-        } else {
-            passages.add(corridorGateEdges(startCopyVertex, endCopyVertex));
-        }
-        legTargets.add(endCopyVertex);
-        List<Integer> chain = new ArrayList<>();
-        boolean realized = !passages.contains(null);
-        int position = startCopyVertex;
-        for (int leg = 0; realized && leg < passages.size(); leg++) {
-            List<Integer> crossings = passages.get(leg);
-            int legTarget = legTargets.get(leg);
-            for (int index = 0; realized && index < crossings.size(); index++) {
-                int edgeId = crossings.get(index);
-                if (!topology.copy.hasEdge(edgeId)
-                        || topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
-                    realized = false;
-                    break;
-                }
-                boolean last = index == crossings.size() - 1;
-                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-                int next = chainableEndpoint(position, topology.copy.halfEdgeVertex(halfEdge),
-                        last ? legTarget : EmbeddedMeshTopology.UNCLAIMED);
-                if (next == EmbeddedMeshTopology.UNCLAIMED) {
-                    next = chainableEndpoint(position,
-                            topology.copy.halfEdgeEndVertex(halfEdge),
-                            last ? legTarget : EmbeddedMeshTopology.UNCLAIMED);
-                }
-                if (next == EmbeddedMeshTopology.UNCLAIMED) {
-                    next = topology.splitEdgeAtParameter(edgeId, EDGE_MIDPOINT);
-                    refinedEdgeSplitCount++;
-                    gateSplitCount++;
-                }
-                corridor.add(next);
-                chain.add(next);
-                position = next;
-            }
-            if (!realized || position == legTarget) {
-                continue;
-            }
-            int finalEdge = topology.edgeBetween(position, legTarget);
-            if (finalEdge == EmbeddedMeshTopology.UNCLAIMED
-                    || topology.ownerArcByCopyEdge[finalEdge] != EmbeddedMeshTopology.UNCLAIMED) {
-                int minted = splitSharedFaceBetween(position, legTarget);
-                if (minted == EmbeddedMeshTopology.UNCLAIMED) {
-                    realized = false;
-                    continue;
-                }
-                corridor.add(minted);
-                chain.add(minted);
-            }
-            corridor.add(legTarget);
-            chain.add(legTarget);
-            position = legTarget;
-        }
-        if (realized) {
-            refinedRetryCount++;
-            vertices.addAll(chain);
-        }
-        lastCorridorSize = corridor.size();
-        return realized;
-    }
-
-    /**
-     * Open one committed passage for the vertex search: split every gate with
-     * both endpoints blocked, and admit every passage vertex to the corridor.
-     *
-     * @param crossings crossed edges of the passage, in order
-     * @param corridor  corridor vertex set, extended along the passage
-     */
-    private void openPassageGates(List<Integer> crossings, ActiveIdSet corridor) {
-        for (int edgeId : crossings) {
-            if (!topology.copy.hasEdge(edgeId)) {
-                continue;
-            }
-            int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-            int endpointA = topology.copy.halfEdgeVertex(halfEdge);
-            int endpointB = topology.copy.halfEdgeEndVertex(halfEdge);
-            corridor.add(endpointA);
-            corridor.add(endpointB);
-            if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED
-                    || !blockedVertex(endpointA) || !blockedVertex(endpointB)) {
-                continue;
-            }
-            corridor.add(topology.splitEdgeAtParameter(edgeId, EDGE_MIDPOINT));
-            refinedEdgeSplitCount++;
-            gateSplitCount++;
-        }
-    }
-
-    /**
-     * A crossed edge's endpoint usable as the next chain vertex: free (or the
-     * chain's final target with a free onward hop), joined to the position by an
-     * unclaimed edge.
-     *
-     * @param position    current chain vertex
-     * @param endpoint    crossed-edge endpoint to test
-     * @param finalTarget chain end when this is the last crossing, else
-     *                    {@link EmbeddedMeshTopology#UNCLAIMED}
-     * @return the endpoint, or {@link EmbeddedMeshTopology#UNCLAIMED}
-     */
-    private int chainableEndpoint(int position, int endpoint, int finalTarget) {
-        boolean free = topology.ownerNodeByCopyVertex[endpoint] == EmbeddedMeshTopology.UNCLAIMED
-                && topology.ownerArcByCopyVertex[endpoint] == EmbeddedMeshTopology.UNCLAIMED;
-        if (!free && endpoint != finalTarget) {
-            return EmbeddedMeshTopology.UNCLAIMED;
-        }
-        int connectingEdge = topology.edgeBetween(position, endpoint);
-        if (connectingEdge == EmbeddedMeshTopology.UNCLAIMED
-                || topology.ownerArcByCopyEdge[connectingEdge] != EmbeddedMeshTopology.UNCLAIMED) {
-            return EmbeddedMeshTopology.UNCLAIMED;
-        }
-        if (free && finalTarget != EmbeddedMeshTopology.UNCLAIMED && endpoint != finalTarget) {
-            int onwardEdge = topology.edgeBetween(endpoint, finalTarget);
-            if (onwardEdge == EmbeddedMeshTopology.UNCLAIMED
-                    || topology.ownerArcByCopyEdge[onwardEdge] != EmbeddedMeshTopology.UNCLAIMED) {
-                return EmbeddedMeshTopology.UNCLAIMED;
-            }
-        }
-        return endpoint;
-    }
-
-    /**
-     * Open the hop between two vertices sharing a face whose direct edge is
-     * claimed or missing: split a free edge of that face, minting a midpoint
-     * adjacent to both.
-     *
-     * @param fromVertex hop source
-     * @param toVertex   hop target, sharing a face with the source
-     * @return the minted midpoint, or {@link EmbeddedMeshTopology#UNCLAIMED}
-     */
-    private int splitSharedFaceBetween(int fromVertex, int toVertex) {
-        for (int faceIndex = 0; faceIndex < topology.copy.vertexFaceCount(fromVertex);
-                faceIndex++) {
-            int faceId = topology.copy.vertexFaceAt(fromVertex, faceIndex);
-            if (!faceInRestriction(faceId)) {
-                continue;
-            }
-            boolean touchesEnd = false;
-            for (int corner = 0; corner < CORNERS; corner++) {
-                touchesEnd |= topology.copy.faceVertexAt(faceId, corner) == toVertex;
-            }
-            if (!touchesEnd) {
-                continue;
-            }
-            for (int corner = 0; corner < CORNERS; corner++) {
-                int edgeId = topology.copy.faceEdgeAt(faceId, corner);
-                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
-                    continue;
-                }
+        Collections.reverse(nodePath);
+        boolean split = false;
+        for (int node : nodePath) {
+            int realVertex = node;
+            if (node >= vertexIdBound) {
+                realVertex = topology.splitEdgeAtParameter(node - vertexIdBound, EDGE_MIDPOINT);
                 refinedEdgeSplitCount++;
                 gateSplitCount++;
-                return topology.splitEdgeAtParameter(edgeId, EDGE_MIDPOINT);
+                split = true;
             }
+            corridor.add(realVertex);
+            vertices.add(realVertex);
         }
-        return EmbeddedMeshTopology.UNCLAIMED;
+        if (split) {
+            refinedRetryCount++;
+        }
+        lastCorridorSize = corridor.size();
+        return true;
+    }
+
+    /**
+     * Relax one search move, stamping and queueing the node when it improves.
+     *
+     * @param fromNode  move source
+     * @param toNode    move target, real or virtual
+     * @param newCost   cost of reaching the target through the source
+     * @param stamp     current search generation
+     * @return one when the node was reached first, else zero
+     */
+    private int relax(int fromNode, int toNode, float newCost, int stamp) {
+        boolean seen = vertexVisitStampByVertex[toNode] == stamp;
+        if (newCost >= (seen ? distanceByVertex[toNode] : Float.POSITIVE_INFINITY)) {
+            return 0;
+        }
+        vertexVisitStampByVertex[toNode] = stamp;
+        distanceByVertex[toNode] = newCost;
+        parentVertexByVertex[toNode] = fromNode;
+        frontier.add(new DijkstraNode(newCost, toNode));
+        return seen ? 0 : 1;
+    }
+
+    /**
+     * Whether the search may stand on a real vertex: the target, the permitted
+     * pass-through, or a free (and, under {@link #interiorOnly}, interior) one.
+     *
+     * @param vertex        candidate copy vertex
+     * @param endCopyVertex search target, always admissible
+     * @param passThrough   permitted claimed transit vertex
+     * @return true when the vertex is admissible
+     */
+    private boolean realAdmissible(int vertex, int endCopyVertex, int passThrough) {
+        return vertex == endCopyVertex || vertex == passThrough
+                || !(vertexClaimed(vertex) || interiorOnly && boundaryVertex(vertex));
+    }
+
+    /**
+     * Whether an edge's midpoint may serve as a virtual search node: unclaimed,
+     * admitted by the face restriction, and interior under {@link #interiorOnly}.
+     *
+     * @param edgeId candidate copy edge
+     * @return true when the midpoint is admissible
+     */
+    private boolean virtualAdmissible(int edgeId) {
+        return topology.ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED
+                && edgeInRestriction(edgeId)
+                && !(interiorOnly
+                        && topology.sourceEdgeByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED);
+    }
+
+    /**
+     * Midpoint of an edge, from its two endpoint positions.
+     *
+     * @param halfEdge  a half-edge of the edge
+     * @param scratchA  scratch for the first endpoint
+     * @param scratchB  scratch for the second endpoint
+     * @param out       receives the midpoint
+     */
+    private void midpointPosition(int halfEdge, Vector3f scratchA, Vector3f scratchB,
+            Vector3f out) {
+        topology.copy.vertexPosition(topology.copy.halfEdgeVertex(halfEdge), scratchA);
+        topology.copy.vertexPosition(topology.copy.halfEdgeEndVertex(halfEdge), scratchB);
+        out.set(scratchA).add(scratchB).mul(MIDPOINT_SCALE);
     }
 
     /**
@@ -398,91 +389,6 @@ public final class ArcRerouter {
     }
 
     /**
-     * Claims-respecting shortest path over unclaimed edges and unclaimed interior vertices of the
-     * corridor, weighted by plain Euclidean length.
-     *
-     * <p>Keeping an arc near its old lane is the caller's job, not a weight on this search.
-     *
-     * @param vertices      path list, extended with the found hop
-     * @param startVertex   search source
-     * @param endCopyVertex search target
-     * @param corridor      allowed vertex set
-     * @param passThrough   a claimed vertex the search may transit anyway, or
-     *                      {@link EmbeddedMeshTopology#UNCLAIMED} for none
-     * @return whether the target was reached
-     */
-    private boolean dijkstraSearch(List<Integer> vertices, int startVertex, int endCopyVertex,
-            ActiveIdSet corridor, int passThrough) {
-        int vertexIdBound = topology.ownerArcByCopyVertex.length;
-        if (distanceByVertex.length < vertexIdBound) {
-            distanceByVertex = Arrays.copyOf(distanceByVertex, vertexIdBound);
-            parentVertexByVertex = Arrays.copyOf(parentVertexByVertex, vertexIdBound);
-            vertexVisitStampByVertex = Arrays.copyOf(vertexVisitStampByVertex, vertexIdBound);
-        }
-        int stamp = nextVisitStamp();
-        frontier.clear();
-        distanceByVertex[startVertex] = 0f;
-        vertexVisitStampByVertex[startVertex] = stamp;
-        int reachedCount = 1;
-        if (interiorOnly) {
-            corridor.add(startVertex);
-        }
-        frontier.add(new DijkstraNode(0f, startVertex));
-        Vector3f positionHere = new Vector3f();
-        Vector3f positionOther = new Vector3f();
-        while (!frontier.isEmpty()) {
-            DijkstraNode head = frontier.poll();
-            int vertex = head.vertexOrFace;
-            if (head.distance > distanceByVertex[vertex]) {
-                continue;
-            }
-            if (vertex == endCopyVertex) {
-                List<Integer> hopVertices = new ArrayList<>();
-                int walk = endCopyVertex;
-                while (walk != startVertex) {
-                    hopVertices.add(walk);
-                    walk = parentVertexByVertex[walk];
-                }
-                Collections.reverse(hopVertices);
-                vertices.addAll(hopVertices);
-                return true;
-            }
-            topology.copy.vertexPosition(vertex, positionHere);
-            for (int index = 0; index < topology.copy.vertexEdgeCount(vertex); index++) {
-                int edgeId = topology.copy.vertexEdgeAt(vertex, index);
-                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED
-                        || !edgeInRestriction(edgeId)) {
-                    continue;
-                }
-                int neighbor = topology.otherEndpoint(edgeId, vertex);
-                if (neighbor != endCopyVertex && neighbor != passThrough
-                        && (vertexClaimed(neighbor)
-                                || interiorOnly && boundaryVertex(neighbor))) {
-                    continue;
-                }
-                topology.copy.vertexPosition(neighbor, positionOther);
-                float newDistance = head.distance + positionHere.distance(positionOther);
-                boolean reached = vertexVisitStampByVertex[neighbor] == stamp;
-                if (newDistance < (reached ? distanceByVertex[neighbor]
-                        : Float.POSITIVE_INFINITY)) {
-                    if (!reached) {
-                        vertexVisitStampByVertex[neighbor] = stamp;
-                        reachedCount++;
-                        if (interiorOnly) {
-                            corridor.add(neighbor);
-                        }
-                    }
-                    distanceByVertex[neighbor] = newDistance;
-                    parentVertexByVertex[neighbor] = vertex;
-                    frontier.add(new DijkstraNode(newDistance, neighbor));
-                }
-            }
-        }
-        lastReachedCount = reachedCount;
-        return false;
-    }
-
-    /**
      * Advances the shared scratch-array generation, wrapping all stamp arrays back
      * to zero before overflow so a stale stamp can never collide with a live one.
      *
@@ -491,235 +397,10 @@ public final class ArcRerouter {
     private int nextVisitStamp() {
         if (visitStamp == Integer.MAX_VALUE) {
             Arrays.fill(vertexVisitStampByVertex, 0);
-            Arrays.fill(faceVisitStampByFace, 0);
-            Arrays.fill(targetFaceStampByFace, 0);
             visitStamp = 0;
         }
         visitStamp++;
         return visitStamp;
-    }
-
-    /**
-     * Opens a route whose source and target are corners of one triangle whose edge between them
-     * belongs to another arc, by splitting an arc-free edge of that shared face; the midpoint is
-     * adjacent to both ends.
-     *
-     * <p>The boxed-vertex case gate refinement cannot express. See {@code BoxedVertexRerouteTest}.
-     *
-     * @param startVertex re-route source
-     * @param endVertex   re-route target, a corner of a face the source also touches
-     * @param corridor    corridor vertex set; the minted vertex and its neighbours join it
-     * @return one when an edge was split, or zero when the shared face is entirely arc edges
-     */
-    private int splitSharedFace(int startVertex, int endVertex, ActiveIdSet corridor) {
-        for (int faceIndex = 0; faceIndex < topology.copy.vertexFaceCount(startVertex); faceIndex++) {
-            int faceId = topology.copy.vertexFaceAt(startVertex, faceIndex);
-            if (!faceInRestriction(faceId)) {
-                continue;
-            }
-            boolean touchesEnd = false;
-            for (int corner = 0; corner < CORNERS; corner++) {
-                touchesEnd |= topology.copy.faceVertexAt(faceId, corner) == endVertex;
-            }
-            if (!touchesEnd) {
-                continue;
-            }
-            for (int corner = 0; corner < CORNERS; corner++) {
-                int edgeId = topology.copy.faceEdgeAt(faceId, corner);
-                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
-                    continue;
-                }
-                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-                corridor.add(topology.copy.halfEdgeVertex(halfEdge));
-                corridor.add(topology.copy.halfEdgeEndVertex(halfEdge));
-                corridor.add(topology.splitEdgeAtParameter(edgeId, EDGE_MIDPOINT));
-                refinedEdgeSplitCount++;
-                gateSplitCount++;
-                return 1;
-            }
-        }
-        return 0;
-    }
-
-    /**
-     * The edges crossed by the shortest face path between two vertices that never crosses a claimed
-     * arc edge — the passage through the arc arrangement the vertex search must follow.
-     *
-     * @param startVertex path source, whose incident faces seed the walk
-     * @param endVertex   path target, reached when any of its incident faces is entered
-     * @return the crossed edges in order from source to target, or {@code null} when the two lie in
-     *         different faces of the arc arrangement and no such path exists. An <em>empty</em>
-     *         list is a different answer: the two already share a face and the passage crosses
-     *         nothing.
-     */
-    private List<Integer> corridorGateEdges(int startVertex, int endVertex) {
-        int faceIdBound = topology.sourceFaceByCopyFace.length;
-        if (faceVisitStampByFace.length < faceIdBound) {
-            faceVisitStampByFace = Arrays.copyOf(faceVisitStampByFace, faceIdBound);
-            targetFaceStampByFace = Arrays.copyOf(targetFaceStampByFace, faceIdBound);
-            parentFaceByFace = Arrays.copyOf(parentFaceByFace, faceIdBound);
-            parentEdgeByFace = Arrays.copyOf(parentEdgeByFace, faceIdBound);
-            faceQueue = Arrays.copyOf(faceQueue, faceIdBound);
-        }
-        int stamp = nextVisitStamp();
-        for (int index = 0; index < topology.copy.vertexFaceCount(endVertex); index++) {
-            int face = topology.copy.vertexFaceAt(endVertex, index);
-            if (faceInRestriction(face)) {
-                targetFaceStampByFace[face] = stamp;
-            }
-        }
-        PriorityQueue<double[]> frontierFaces = new PriorityQueue<>(
-                (left, right) -> Double.compare(left[0], right[0]));
-        Vector3f centroid = new Vector3f();
-        Vector3f neighborCentroid = new Vector3f();
-        for (int index = 0; index < topology.copy.vertexFaceCount(startVertex); index++) {
-            int face = topology.copy.vertexFaceAt(startVertex, index);
-            if (faceInRestriction(face) && faceVisitStampByFace[face] != stamp) {
-                faceVisitStampByFace[face] = stamp;
-                parentFaceByFace[face] = EmbeddedMeshTopology.UNCLAIMED;
-                frontierFaces.add(new double[] {0.0, face});
-            }
-        }
-        int reachedFace = EmbeddedMeshTopology.UNCLAIMED;
-        while (!frontierFaces.isEmpty()) {
-            double[] entry = frontierFaces.poll();
-            int face = (int) entry[1];
-            if (targetFaceStampByFace[face] == stamp) {
-                reachedFace = face;
-                break;
-            }
-            faceCentroid(face, centroid);
-            double distance = entry[0];
-            for (int corner = 0; corner < CORNERS; corner++) {
-                int edgeId = topology.copy.faceEdgeAt(face, corner);
-                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
-                    continue;
-                }
-                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-                int neighborFace = topology.copy.halfEdgeFace(halfEdge) == face
-                        ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
-                        : topology.copy.halfEdgeFace(halfEdge);
-                if (neighborFace != EmbeddedMeshTopology.UNCLAIMED
-                        && faceInRestriction(neighborFace)
-                        && faceVisitStampByFace[neighborFace] != stamp) {
-                    faceVisitStampByFace[neighborFace] = stamp;
-                    parentFaceByFace[neighborFace] = face;
-                    parentEdgeByFace[neighborFace] = edgeId;
-                    double step = faceCentroid(neighborFace, neighborCentroid)
-                            .distance(centroid);
-                    frontierFaces.add(new double[] {distance + step, neighborFace});
-                }
-            }
-        }
-        if (reachedFace == EmbeddedMeshTopology.UNCLAIMED) {
-            return null;
-        }
-        List<Integer> crossings = new ArrayList<>();
-        for (int walk = reachedFace; parentFaceByFace[walk] != EmbeddedMeshTopology.UNCLAIMED;
-                walk = parentFaceByFace[walk]) {
-            crossings.add(parentEdgeByFace[walk]);
-        }
-        Collections.reverse(crossings);
-        if (crossings != null && crossings.size() > PASSAGE_GATE_BOUND) {
-            passageOverflowCount++;
-            return null;
-        }
-        return crossings;
-    }
-
-    /**
-     * Centroid of a copy face, for the passage search's distance weights.
-     *
-     * @param faceId copy face to average
-     * @param out    receives the centroid
-     * @return {@code out}
-     */
-    private Vector3f faceCentroid(int faceId, Vector3f out) {
-        out.zero();
-        Vector3f cornerPosition = new Vector3f();
-        for (int corner = 0; corner < CORNERS; corner++) {
-            topology.copy.vertexPosition(topology.copy.faceVertexAt(faceId, corner),
-                    cornerPosition);
-            out.add(cornerPosition);
-        }
-        return out.div(CORNERS);
-    }
-
-    /**
-     * Mint a fresh free spoke into a vertex by splitting the edge <em>opposite</em> it
-     * in one of its incident faces, raising its degree by one.
-     *
-     * <p>Fires only when the vertex has no free spoke at all; minting unconditionally
-     * counts as progress and so keeps the round loop alive forever.
-     *
-     * @param vertexId vertex needing another free spoke
-     * @param corridor corridor vertex set; the minted vertex joins it
-     * @return whether a spoke was minted
-     */
-    private boolean mintSpoke(int vertexId, ActiveIdSet corridor) {
-        for (int index = 0; index < topology.copy.vertexEdgeCount(vertexId); index++) {
-            int edgeId = topology.copy.vertexEdgeAt(vertexId, index);
-            if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
-                continue;
-            }
-            if (!interiorOnly) {
-                return false;
-            }
-            int neighbor = topology.otherEndpoint(edgeId, vertexId);
-            if (!vertexClaimed(neighbor) && !boundaryVertex(neighbor)) {
-                return false;
-            }
-        }
-        for (int preferReached = 1; preferReached >= 0; preferReached--) {
-            for (int index = 0; index < topology.copy.vertexFaceCount(vertexId); index++) {
-                int faceId = topology.copy.vertexFaceAt(vertexId, index);
-                if (!faceInRestriction(faceId)) {
-                    continue;
-                }
-                if (preferReached == 1 && !faceTouchesCorridor(faceId, vertexId, corridor)) {
-                    continue;
-                }
-                int oppositeEdge = EmbeddedMeshTopology.UNCLAIMED;
-                for (int corner = 0; corner < CORNERS; corner++) {
-                    int edgeId = topology.copy.faceEdgeAt(faceId, corner);
-                    int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-                    if (topology.copy.halfEdgeVertex(halfEdge) != vertexId
-                            && topology.copy.halfEdgeEndVertex(halfEdge) != vertexId) {
-                        oppositeEdge = edgeId;
-                    }
-                }
-                if (oppositeEdge == EmbeddedMeshTopology.UNCLAIMED
-                        || topology.ownerArcByCopyEdge[oppositeEdge]
-                                != EmbeddedMeshTopology.UNCLAIMED) {
-                    continue;
-                }
-                int minted = topology.splitEdgeAtParameter(oppositeEdge, EDGE_MIDPOINT);
-                corridor.add(minted);
-                refinedEdgeSplitCount++;
-                spokeSplitCount++;
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Whether one of a fan face's other corners was already reached by the
-     * search, so a spoke minted there connects to explored territory.
-     *
-     * @param faceId   fan face to test
-     * @param vertexId fan apex, excluded from the test
-     * @param corridor reached and refined vertex set
-     * @return true when a corner is in the corridor
-     */
-    private boolean faceTouchesCorridor(int faceId, int vertexId, ActiveIdSet corridor) {
-        for (int corner = 0; corner < CORNERS; corner++) {
-            int cornerVertex = topology.copy.faceVertexAt(faceId, corner);
-            if (cornerVertex != vertexId && corridor.contains(cornerVertex)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -731,18 +412,6 @@ public final class ArcRerouter {
     private boolean vertexClaimed(int copyVertex) {
         return topology.ownerNodeByCopyVertex[copyVertex] != EmbeddedMeshTopology.UNCLAIMED
                 || topology.ownerArcByCopyVertex[copyVertex] != EmbeddedMeshTopology.UNCLAIMED;
-    }
-
-    /**
-     * Whether the search may not stand on a vertex: claimed, or banned as a
-     * boundary vertex under {@link #interiorOnly}. Such vertices count as gate
-     * endpoints for refinement.
-     *
-     * @param copyVertex copy vertex to test
-     * @return true when the vertex blocks the search
-     */
-    private boolean blockedVertex(int copyVertex) {
-        return vertexClaimed(copyVertex) || interiorOnly && boundaryVertex(copyVertex);
     }
 
     /**
