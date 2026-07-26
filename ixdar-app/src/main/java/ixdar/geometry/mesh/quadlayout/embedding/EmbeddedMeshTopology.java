@@ -441,8 +441,8 @@ public final class EmbeddedMeshTopology {
         int vertexB = copy.halfEdgeEndVertex(halfEdge);
         int faceA = copy.halfEdgeFace(halfEdge);
         int faceB = copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge));
-        int vertexC = cornerOpposite(faceA, vertexA, vertexB);
-        int vertexD = cornerOpposite(faceB, vertexA, vertexB);
+        int vertexC = copy.faceOppositeCorner(faceA, vertexA, vertexB);
+        int vertexD = copy.faceOppositeCorner(faceB, vertexA, vertexB);
         int sourceFace = sourceFaceByCopyFace[faceA];
         retireFace(faceA, sourceFace);
         retireFace(faceB, sourceFaceByCopyFace[faceB]);
@@ -451,25 +451,6 @@ public final class EmbeddedMeshTopology {
         ensureEdgeCapacity();
         edgeFlipCount++;
         return edgeBetween(vertexC, vertexD);
-    }
-
-    /**
-     * The corner of a triangle that is neither given vertex.
-     *
-     * @param faceId  copy face to read
-     * @param vertexA first excluded corner
-     * @param vertexB second excluded corner
-     * @return the remaining corner
-     */
-    private int cornerOpposite(int faceId, int vertexA, int vertexB) {
-        for (int corner = 0; corner < CORNERS; corner++) {
-            int vertex = copy.faceVertexAt(faceId, corner);
-            if (vertex != vertexA && vertex != vertexB) {
-                return vertex;
-            }
-        }
-        throw new IllegalStateException("copy face " + faceId
-                + " has no corner besides " + vertexA + " and " + vertexB);
     }
 
     /**

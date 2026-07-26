@@ -395,9 +395,10 @@ public final class FaceChordWalk {
                 || topology.sourceFaceByCopyFace[farFace] != sourceFace) {
             return false;
         }
-        int farVertex = isCornerOf(nearFace, head)
-                ? oppositeCorner(farFace, exitEdge)
-                : oppositeCorner(nearFace, exitEdge);
+        int farVertex = topology.copy.faceOppositeCorner(
+                isCornerOf(nearFace, head) ? farFace : nearFace,
+                topology.copy.halfEdgeVertex(halfEdge),
+                topology.copy.halfEdgeEndVertex(halfEdge));
         double[] farBarycentric = topology.barycentricOf(sourceFace, farVertex);
         if (farBarycentric == null) {
             return false;
@@ -411,27 +412,6 @@ public final class FaceChordWalk {
         int headSide = orientSign(fromBarycentric, toBarycentric, headBarycentric);
         int farSide = orientSign(fromBarycentric, toBarycentric, farBarycentric);
         return headSide != 0 && farSide != 0 && headSide != farSide;
-    }
-
-    /**
-     * The corner of a triangle not on one of its edges.
-     *
-     * @param faceId copy face to read
-     * @param edgeId edge whose endpoints are excluded
-     * @return the corner opposite the edge
-     */
-    private int oppositeCorner(int faceId, int edgeId) {
-        int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-        int vertexA = topology.copy.halfEdgeVertex(halfEdge);
-        int vertexB = topology.copy.halfEdgeEndVertex(halfEdge);
-        for (int corner = 0; corner < CORNERS; corner++) {
-            int vertex = topology.copy.faceVertexAt(faceId, corner);
-            if (vertex != vertexA && vertex != vertexB) {
-                return vertex;
-            }
-        }
-        throw new IllegalStateException("copy face " + faceId
-                + " has no corner off edge " + edgeId);
     }
 
     /**

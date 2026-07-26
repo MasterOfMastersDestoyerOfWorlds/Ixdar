@@ -193,6 +193,26 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     }
 
     /**
+     * The corner of a triangle that is neither given vertex.
+     *
+     * @param faceId  triangle face to read
+     * @param vertexA first excluded corner
+     * @param vertexB second excluded corner
+     * @throws IllegalStateException when the face has no third corner
+     * @return the remaining corner
+     */
+    public int faceOppositeCorner(int faceId, int vertexA, int vertexB) {
+        for (int corner = 0; corner < 3; corner++) {
+            int vertex = faceVertexAt(faceId, corner);
+            if (vertex != vertexA && vertex != vertexB) {
+                return vertex;
+            }
+        }
+        throw new IllegalStateException("face " + faceId + " has no corner besides "
+                + vertexA + " and " + vertexB);
+    }
+
+    /**
      * Convenience wrapper for
      * {@link HalfEdgeMeshEngine#removeFace(HalfEdgeMesh, int)}.
      *
