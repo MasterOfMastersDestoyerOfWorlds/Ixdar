@@ -132,7 +132,7 @@ public abstract class Scene extends Canvas3D {
      */
     public void setControls() {
         controls.add(
-                new ControlHint(Keys.GRAVE, "~", "toggle the model scene menu", () -> {
+                new ControlHint(Keys.GRAVE, "~", "toggle the terminal", () -> {
                     boolean focusTerminal = !Toggle.IsTerminalFocused.value;
                     Toggle.setPanelFocus(focusTerminal ? PaneTypes.Terminal : PaneTypes.KnotView);
                 }));

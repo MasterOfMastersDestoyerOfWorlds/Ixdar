@@ -713,7 +713,7 @@ Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB over
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L463)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L460)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 
@@ -735,7 +735,6 @@ Build, launch, wait for, optionally profile and screenshot, then shut down a sce
 - `--log` — Path for the scene's stdout/stderr (default: /tmp/ixdar-scene-<scene>.log).
 - `--skip-build` — Do not compile first; run whatever classes are on disk.
 - `--keep-alive` — Leave the scene running instead of shutting it down.
-- `--headless` — Run without a visible window.
 - `--top` — How many hot methods or partly-covered classes to report.
 
 ### `start-new-game`

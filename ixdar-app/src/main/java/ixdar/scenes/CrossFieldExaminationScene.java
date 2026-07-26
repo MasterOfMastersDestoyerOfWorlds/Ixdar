@@ -9,7 +9,6 @@ import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.load.CrossFieldLoader;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
-import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
 import ixdar.platform.Platforms;
@@ -135,9 +134,6 @@ public class CrossFieldExaminationScene extends ModelScene {
         CrossField active = showingReference ? referenceField : oursField;
         quadRuntime.setCrossField(active, CROSS_SCALE);
         quadRuntime.uploadConstraints(active, CROSS_SCALE);
-        Platforms.get().log("[cross-field-exam] now showing "
-                + (showingReference ? "reference (BCEAK13)" : "ours")
-                + " — " + active.singularities.size() + " singularities");
     }
 
     /**
@@ -145,27 +141,6 @@ public class CrossFieldExaminationScene extends ModelScene {
      */
     void toggleConstraints() {
         quadRuntime.showConstraints = !quadRuntime.showConstraints;
-        CrossField active = showingReference ? referenceField : oursField;
-        int boundary = 0;
-        int feature = 0;
-        int curvature = 0;
-        int anchor = 0;
-        if (active.faceConstraintSource != null) {
-            for (ConstraintSource source : active.faceConstraintSource) {
-                switch (source) {
-                case BOUNDARY -> boundary++;
-                case FEATURE -> feature++;
-                case CURVATURE -> curvature++;
-                case ANCHOR -> anchor++;
-                default -> {
-                }
-                }
-            }
-        }
-        Platforms.get().log("[cross-field-exam] constraint overlay "
-                + (quadRuntime.showConstraints ? "on" : "off")
-                + " — " + "boundary=" + boundary + " feature=" + feature
-                + " curvature=" + curvature + " anchor=" + anchor);
     }
 
     /**

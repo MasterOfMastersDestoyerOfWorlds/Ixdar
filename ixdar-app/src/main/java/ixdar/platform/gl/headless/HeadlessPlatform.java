@@ -8,6 +8,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.nio.file.Files;
 
 import java.nio.charset.StandardCharsets;
@@ -18,10 +20,14 @@ import java.util.stream.Collectors;
 
 import javax.imageio.ImageIO;
 
+import org.lwjgl.BufferUtils;
+import org.lwjgl.stb.STBImage;
+
 import com.google.gson.Gson;
 
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.text.FontAtlasDTO;
+import ixdar.platform.Platforms;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.gl.IxBuffer;
@@ -35,6 +41,7 @@ import ixdar.platform.gl.Platform;
 public class HeadlessPlatform implements Platform {
     public static final String SRC = "src/";
     public static final int NUM_512 = 512;
+    public static final int NUM_4 = 4;
     public static final double NUM_1e9 = 1e9;
     public static final int NUM_24 = 24;
     public static final int NUM_0xF = 0xFF;
@@ -150,10 +157,43 @@ public class HeadlessPlatform implements Platform {
         return new Gson().fromJson(json, FontAtlasDTO.class);
     }
 
-    /** No-op: textures aren't currently loaded for headless tests. */
+    /**
+     * Load {@code res/<resourceName>} from the classpath and decode it via STB into a
+     * {@link Texture}, so headless screenshots render fonts and sprites. Reading from the classpath
+     * (not a CWD-relative file) keeps it working regardless of the launch directory. GL upload is
+     * deferred to {@link Texture#initGL()}.
+     *
+     * @param resourceName texture file under {@code res/}
+     * @param platformId platform id the created texture binds to
+     * @param callback receiver of the loaded texture
+     */
     @Override
     public void loadTexture(String resourceName, int platformId, Consumer<Texture> callback) {
-        // no-op for headless
+        byte[] encoded;
+        try (InputStream in = HeadlessPlatform.class.getClassLoader()
+                .getResourceAsStream("res/" + resourceName)) {
+            if (in == null) {
+                System.out.println("Can't load file " + resourceName + " (not on classpath)");
+                return;
+            }
+            encoded = in.readAllBytes();
+        } catch (IOException ex) {
+            System.out.println("Can't load file " + resourceName + " " + ex.getMessage());
+            return;
+        }
+        ByteBuffer encodedBuffer = BufferUtils.createByteBuffer(encoded.length);
+        encodedBuffer.put(encoded).flip();
+        STBImage.stbi_set_flip_vertically_on_load(true);
+        IntBuffer width = BufferUtils.createIntBuffer(1);
+        IntBuffer height = BufferUtils.createIntBuffer(1);
+        IntBuffer channels = BufferUtils.createIntBuffer(1);
+        ByteBuffer image = STBImage.stbi_load_from_memory(encodedBuffer, width, height, channels, NUM_4);
+        if (image == null) {
+            System.out.println("Can't load file " + resourceName + " " + STBImage.stbi_failure_reason());
+            return;
+        }
+        Platforms.init(platformId);
+        callback.accept(new Texture(resourceName, image, width.get(0), height.get(0)));
     }
 
     /** {@inheritDoc}. */

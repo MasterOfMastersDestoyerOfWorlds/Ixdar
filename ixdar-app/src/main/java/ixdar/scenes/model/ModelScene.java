@@ -96,7 +96,6 @@ public abstract class ModelScene extends Scene {
         super.initGL();
         Platforms.gl().setWindowTitle(windowTitle());
 
-        setControls();
         initInput();
         createCatalog();
         sceneTerminal = new Terminal(terminalRoot());
@@ -162,9 +161,17 @@ public abstract class ModelScene extends Scene {
         applyPendingModel();
         renderScene();
         super.drawScene();
+    }
+
+    /**
+     * Draw the base chrome (terminal), then the ESC model menu when visible.
+     */
+    @Override
+    public void drawUI() {
+        super.drawUI();
         if (sceneModelMenu != null && sceneModelMenu.isVisible()) {
             camera2D.updateView(VIEW_SCENE_MENU);
-            chromeBackground.draw(Color.MAGENTA, camera2D);
+            chromeBackground.draw(Color.DARK_GRAY, camera2D);
             sceneModelMenu.draw(camera2D);
             camera2D.resetView();
         }

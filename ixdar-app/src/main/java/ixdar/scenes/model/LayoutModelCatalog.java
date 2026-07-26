@@ -8,6 +8,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
+import ixdar.geometry.mesh.data.load.MeshLoader;
+
 /**
  * The shared model list for the layout scenes: every input triangle mesh
  * ({@code *_in_tri.off}) under {@code test/resources/quadlayout}. Only the {@code _in_tri}
@@ -25,19 +27,46 @@ public final class LayoutModelCatalog {
     private final List<ModelChoice> choices;
 
     /**
-     * Build the catalog by scanning {@link #QUADLAYOUT_DIR}.
+     * Build the catalog by scanning {@link #QUADLAYOUT_DIR}, falling back to the same
+     * {@code ixdar-app} module prefix {@link MeshLoader} uses when launched from the repo root.
      */
     public LayoutModelCatalog() {
         this(Path.of(QUADLAYOUT_DIR));
     }
 
     /**
-     * Build the catalog by scanning {@code root} for {@code *_in_tri.off} files.
+     * Build the catalog by scanning {@code root} for {@code *_in_tri.off} files, falling back to
+     * {@code root} under {@link MeshLoader#MODULE_DIRECTORY} when launched from the repo root. Each
+     * stored path is expressed relative to {@code root} so it feeds {@link MeshLoader#load}
+     * unchanged regardless of where the corpus was found.
      *
      * @param root directory to scan
      */
     public LayoutModelCatalog(Path root) {
-        this.choices = scan(root);
+        Path scanRoot = Files.isDirectory(root)
+                ? root
+                : Path.of(MeshLoader.MODULE_DIRECTORY, root.toString());
+        List<ModelChoice> found = new ArrayList<>();
+        if (Files.isDirectory(scanRoot)) {
+            try (Stream<Path> stream = Files.walk(scanRoot)) {
+                stream
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(IN_TRI_SUFFIX))
+                    .forEach(path -> {
+                        Path bare = root.resolve(scanRoot.relativize(path));
+                        String fileName = bare.getFileName().toString();
+                        String baseName = fileName.substring(0, fileName.length() - IN_TRI_SUFFIX.length());
+                        Path parent = bare.getParent();
+                        String figure = parent == null ? "" : parent.getFileName().toString();
+                        String display = figure.isEmpty() ? baseName : baseName + " (" + figure + ")";
+                        found.add(new ModelChoice(display, bare.toString().replace('\\', '/')));
+                    });
+            } catch (IOException ignored) {
+                found.clear();
+            }
+        }
+        found.sort(Comparator.comparing(choice -> choice.displayName));
+        this.choices = List.copyOf(found);
     }
 
     /**
@@ -70,32 +99,5 @@ public final class LayoutModelCatalog {
             }
         }
         return null;
-    }
-
-    private static List<ModelChoice> scan(Path root) {
-        List<ModelChoice> out = new ArrayList<>();
-        if (!Files.isDirectory(root)) {
-            return List.of();
-        }
-        try (Stream<Path> stream = Files.walk(root)) {
-            stream
-                .filter(Files::isRegularFile)
-                .filter(path -> path.getFileName().toString().endsWith(IN_TRI_SUFFIX))
-                .forEach(path -> out.add(buildChoice(path)));
-        } catch (IOException ignored) {
-            return List.of();
-        }
-        out.sort(Comparator.comparing(choice -> choice.displayName));
-        return List.copyOf(out);
-    }
-
-    private static ModelChoice buildChoice(Path file) {
-        String fileName = file.getFileName().toString();
-        String baseName = fileName.substring(0, fileName.length() - IN_TRI_SUFFIX.length());
-        Path parent = file.getParent();
-        String figure = parent == null ? "" : parent.getFileName().toString();
-        String display = figure.isEmpty() ? baseName : baseName + " (" + figure + ")";
-        String path = file.toString().replace('\\', '/');
-        return new ModelChoice(display, path);
     }
 }

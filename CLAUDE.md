@@ -124,7 +124,7 @@ uv run ixdar-cli new-scene --name FooScene --id foo-canvas --subfolder ui \
 uv run ixdar-cli run-scene --scene <scene-id> [--property key=value ...] [--mesh <name>]
 ```
 
-It runs **non-headless by default** (a real window on the desktop). Pick the model with `--property ixdar.model=<token>` or `--mesh <name>`. Run `uv run ixdar-cli run-scene --help` for the flags — output path, `--timeout`, `--profile` (see Profiling), and how to keep the scene alive when you need to inject input (`ixdar-cli key`/`type`/`click`/`screenshot` against the running server) rather than a one-shot capture.
+It **always runs headless** — an off-screen GL context, never a window on the desktop, so it can't interrupt whatever you're doing. The headless platform loads textures and fonts, so screenshots render text (terminal, ESC menu) just like the desktop window. Pick the model with `--property ixdar.model=<token>` or `--mesh <name>`. Run `uv run ixdar-cli run-scene --help` for the flags — output path, `--timeout`, `--profile` (see Profiling), and how to keep the scene alive (`--keep-alive`) when you need to inject input (`ixdar-cli key`/`type`/`click`/`screenshot` against the running server) rather than a one-shot capture.
 
 Then `Read` the PNG. **Do not write a per-scene headless renderer** (`RenderEmbeddedTMesh` and the like were a wrong turn); feed the scene's own `QuadLayoutRuntime`/overlays and screenshot it. `ixdar-cli multiview <png>` composites an 8-angle grid under the image limit.
 

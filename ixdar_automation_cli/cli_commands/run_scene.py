@@ -104,26 +104,24 @@ def _java_command(
     profile_path: str,
     profile_event: str,
     coverage_path: str,
-    headless: bool,
 ) -> list[str]:
     """Assemble the JVM command line for a scene.
 
     A fresh JVM is used rather than ``exec:java`` because ``exec:java`` runs in Maven's own process,
-    which would attach the profiler agent to Maven instead of the scene.
+    which would attach the profiler agent to Maven instead of the scene. The scene always runs on
+    the off-screen (headless) platform so it never pops a window onto the desktop; the headless
+    platform still loads textures and fonts, so screenshots render text.
 
     :param scene: Scene id, passed to IxdarWindow as its argument.
     :param properties: ``key=value`` system properties.
     :param profile_path: async-profiler output path, or empty to run unprofiled.
     :param profile_event: async-profiler event, e.g. ``cpu`` or ``alloc``.
     :param coverage_path: JaCoCo ``.exec`` output path, or empty to run without coverage.
-    :param headless: Run without a visible window.
     :return: The full argv.
     """
     with open(CLASSPATH_FILE, encoding="utf-8") as handle:
         classpath = handle.read().strip()
-    command = ["java"]
-    if headless:
-        command.append("-Dixdar.headless=true")
+    command = ["java", "-Dixdar.headless=true"]
     command.extend(f"-D{prop}" for prop in properties)
     if profile_path:
         command.append(
@@ -363,7 +361,6 @@ def run(
     log: str = "",
     skip_build: bool = False,
     keep_alive: bool = False,
-    headless: bool = True,
     top: int = 25,
     base_url: str = DEFAULT_BASE_URL,
 ) -> dict:
@@ -390,7 +387,7 @@ def run(
 
     client = AutomationClient(base_url=base_url)
     command = _java_command(scene, properties, resolved_profile, profile_event,
-                            resolved_coverage, headless)
+                            resolved_coverage)
     print(f"Launching: {' '.join(command[:4])} … {scene}", file=sys.stderr)
     print(f"  log: {log_path}", file=sys.stderr)
 
@@ -481,7 +478,6 @@ def run_scene(
     log: str = "",
     skip_build: bool = False,
     keep_alive: bool = False,
-    headless: bool = True,
     top: int = 25,
 ) -> CliCommandResult:
     """Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
@@ -508,7 +504,6 @@ def run_scene(
     :param log: Path for the scene's stdout/stderr (default: /tmp/ixdar-scene-<scene>.log).
     :param skip_build: Do not compile first; run whatever classes are on disk.
     :param keep_alive: Leave the scene running instead of shutting it down.
-    :param headless: Run without a visible window.
     :param top: How many hot methods or partly-covered classes to report.
     """
     payload = run(
@@ -530,7 +525,6 @@ def run_scene(
         log=log,
         skip_build=skip_build,
         keep_alive=keep_alive,
-        headless=headless,
         top=top,
         base_url=client.base_url,
     )

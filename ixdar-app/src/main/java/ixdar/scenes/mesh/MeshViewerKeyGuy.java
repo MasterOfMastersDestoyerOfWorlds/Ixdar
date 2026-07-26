@@ -39,7 +39,7 @@ public class MeshViewerKeyGuy extends OrbitCameraKeyGuy {
      * @param mods GLFW modifier bitmask (Shift is read here)
      */
     @Override
-    protected void handleSceneKeys(int key, int mods) {
+    public void handleSceneKeys(int key, int mods) {
         Platforms.init(canvas.platform.getPlatformID());
         switch (key) {
             case Keys.Z -> meshScene.toggleMeshWireframe();

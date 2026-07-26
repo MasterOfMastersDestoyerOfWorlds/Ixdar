@@ -19,7 +19,6 @@ import ixdar.scenes.model.ModelScene;
  */
 @SceneAnnotation(id = "mcg-exam")
 public class MotorcycleGraphExaminationScene extends ModelScene {
-    public static final String SCENE_TITLE = "Ixdar : Motorcycle Graph Examination";
     private QuadLayoutRuntime quadRuntime;
     private SeamlessParameterization seamless;
     private float alphaDegrees = 15f;
