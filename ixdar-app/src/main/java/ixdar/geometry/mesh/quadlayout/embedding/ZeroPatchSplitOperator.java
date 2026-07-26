@@ -65,11 +65,18 @@ public final class ZeroPatchSplitOperator {
     public void split(int patchId) {
         Deque<Integer> pending = new ArrayDeque<>();
         pending.push(patchId);
+        int extensionBudget = tmesh.arcs.size();
         while (!pending.isEmpty()) {
             int half = pending.pop();
             if (!tmesh.patches.get(half).alive || !tmesh.isZeroPatch(half)
                     || tmesh.nonZeroArcCount(half) <= 2) {
                 continue;
+            }
+            if (extensionBudget-- <= 0) {
+                throw new IllegalStateException("zero-patch split of patch " + patchId
+                        + " exceeded " + tmesh.arcs.size() + " T-joint extensions; a half keeps"
+                        + " re-qualifying (currently patch " + half + " with "
+                        + tmesh.nonZeroArcCount(half) + " non-zero arcs)");
             }
             for (int descendant : extendOneTJoint(half)) {
                 pending.push(descendant);

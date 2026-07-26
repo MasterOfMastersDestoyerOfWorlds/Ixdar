@@ -35,9 +35,9 @@ public class EmbeddedTMesh {
 
     /**
      * Debug switch: when true, {@link #contract} runs the full {@link #validate}
-     * sweep after every collapse and enables the operators' scan cross-checks.
-     * Flip by hand when localizing a contraction bug; the sweep is O(elements)
-     * per collapse and dominates contraction time.
+     * sweep after every collapse and enables the operators' scan cross-checks. Flip
+     * by hand when localizing a contraction bug; the sweep is O(elements) per
+     * collapse and dominates contraction time.
      */
     public static final boolean VALIDATE_EVERY_COLLAPSE = false;
 
@@ -89,7 +89,9 @@ public class EmbeddedTMesh {
     public int patchSplitCount;
     public int patchCollapseCount;
 
-    /** The source surface's {@code V - E + F}, which every {@link #validate} checks. */
+    /**
+     * The source surface's {@code V - E + F}, which every {@link #validate} checks.
+     */
     public final int expectedEulerCharacteristic;
 
     /**

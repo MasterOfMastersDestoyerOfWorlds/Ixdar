@@ -61,6 +61,7 @@ public final class EmbeddedMeshTopology {
     public int faceSplitCount;
     public int edgeSplitCount;
     public int edgeCollapseCount;
+    public int edgeFlipCount;
 
     /** Claim-transfer conflicts during collapses (kept existing claim). */
     public int claimConflictCount;
@@ -425,6 +426,50 @@ public final class EmbeddedMeshTopology {
         }
         edgeSplitCount++;
         return newVertex;
+    }
+
+    /**
+     * Flip a free untagged diagonal shared by two children of one source face,
+     * replacing it with the opposite diagonal (LCBK19 §6.1 chord insertion).
+     *
+     * @param copyEdgeId unclaimed, untagged interior diagonal to flip
+     * @return the new diagonal's edge id
+     */
+    public int flipEdge(int copyEdgeId) {
+        int halfEdge = copy.edgeHalfEdge(copyEdgeId);
+        int vertexA = copy.halfEdgeVertex(halfEdge);
+        int vertexB = copy.halfEdgeEndVertex(halfEdge);
+        int faceA = copy.halfEdgeFace(halfEdge);
+        int faceB = copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge));
+        int vertexC = cornerOpposite(faceA, vertexA, vertexB);
+        int vertexD = cornerOpposite(faceB, vertexA, vertexB);
+        int sourceFace = sourceFaceByCopyFace[faceA];
+        retireFace(faceA, sourceFace);
+        retireFace(faceB, sourceFaceByCopyFace[faceB]);
+        adoptFace(copy.addFace(vertexA, vertexD, vertexC), sourceFace);
+        adoptFace(copy.addFace(vertexD, vertexB, vertexC), sourceFace);
+        ensureEdgeCapacity();
+        edgeFlipCount++;
+        return edgeBetween(vertexC, vertexD);
+    }
+
+    /**
+     * The corner of a triangle that is neither given vertex.
+     *
+     * @param faceId  copy face to read
+     * @param vertexA first excluded corner
+     * @param vertexB second excluded corner
+     * @return the remaining corner
+     */
+    private int cornerOpposite(int faceId, int vertexA, int vertexB) {
+        for (int corner = 0; corner < CORNERS; corner++) {
+            int vertex = copy.faceVertexAt(faceId, corner);
+            if (vertex != vertexA && vertex != vertexB) {
+                return vertex;
+            }
+        }
+        throw new IllegalStateException("copy face " + faceId
+                + " has no corner besides " + vertexA + " and " + vertexB);
     }
 
     /**

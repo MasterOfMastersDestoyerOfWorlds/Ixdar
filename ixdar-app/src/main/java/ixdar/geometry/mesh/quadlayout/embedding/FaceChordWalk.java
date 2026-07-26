@@ -49,6 +49,9 @@ public final class FaceChordWalk {
     /** Walks finished by the terminal free-edge search after rounding collapse. */
     public int terminalFanSearchCount;
 
+    /** Crossed diagonals inserted by an edge flip instead of a split. */
+    public int flipInsertCount;
+
     /**
      * Stores the working copy the walk carves into.
      *
@@ -343,6 +346,11 @@ public final class FaceChordWalk {
                 return EmbeddedMeshTopology.UNCLAIMED;
             }
             requireUnclaimed(arcId, exitEdge);
+            if (flippable(sourceFace, exitEdge, head, fromBarycentric, toBarycentric)) {
+                topology.flipEdge(exitEdge);
+                flipInsertCount++;
+                return head;
+            }
             interiorSplitCount++;
             int minted = topology.splitEdgeAtParameter(exitEdge, parameter);
             hop(arcId, pathVertices, head, minted);
@@ -359,6 +367,71 @@ public final class FaceChordWalk {
         vertexCrossingCount++;
         hop(arcId, pathVertices, head, through);
         return through;
+    }
+
+    /**
+     * Whether a crossed diagonal may be flipped out of the chord's way: free,
+     * untagged, both faces in the source face, and its quad strictly convex —
+     * so the flip's new diagonal leaves the head and cannot cross the chord.
+     *
+     * @param sourceFace      source active face of the chord
+     * @param exitEdge        crossed diagonal, opposite the head
+     * @param head            path head, on the chord
+     * @param fromBarycentric crossed diagonal's start corner barycentric
+     * @param toBarycentric   crossed diagonal's end corner barycentric
+     * @return true when the flip is legal and strictly convex
+     */
+    private boolean flippable(int sourceFace, int exitEdge, int head,
+            double[] fromBarycentric, double[] toBarycentric) {
+        if (topology.ownerArcByCopyEdge[exitEdge] != EmbeddedMeshTopology.UNCLAIMED
+                || topology.sourceEdgeByCopyEdge[exitEdge] != EmbeddedMeshTopology.UNCLAIMED) {
+            return false;
+        }
+        int halfEdge = topology.copy.edgeHalfEdge(exitEdge);
+        int nearFace = topology.copy.halfEdgeFace(halfEdge);
+        int farFace = topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge));
+        if (nearFace < 0 || farFace < 0
+                || topology.sourceFaceByCopyFace[nearFace] != sourceFace
+                || topology.sourceFaceByCopyFace[farFace] != sourceFace) {
+            return false;
+        }
+        int farVertex = isCornerOf(nearFace, head)
+                ? oppositeCorner(farFace, exitEdge)
+                : oppositeCorner(nearFace, exitEdge);
+        double[] farBarycentric = topology.barycentricOf(sourceFace, farVertex);
+        if (farBarycentric == null) {
+            return false;
+        }
+        double[] headBarycentric = requireBarycentric(sourceFace, head);
+        int fromSide = orientSign(headBarycentric, farBarycentric, fromBarycentric);
+        int toSide = orientSign(headBarycentric, farBarycentric, toBarycentric);
+        if (fromSide == 0 || toSide == 0 || fromSide == toSide) {
+            return false;
+        }
+        int headSide = orientSign(fromBarycentric, toBarycentric, headBarycentric);
+        int farSide = orientSign(fromBarycentric, toBarycentric, farBarycentric);
+        return headSide != 0 && farSide != 0 && headSide != farSide;
+    }
+
+    /**
+     * The corner of a triangle not on one of its edges.
+     *
+     * @param faceId copy face to read
+     * @param edgeId edge whose endpoints are excluded
+     * @return the corner opposite the edge
+     */
+    private int oppositeCorner(int faceId, int edgeId) {
+        int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+        int vertexA = topology.copy.halfEdgeVertex(halfEdge);
+        int vertexB = topology.copy.halfEdgeEndVertex(halfEdge);
+        for (int corner = 0; corner < CORNERS; corner++) {
+            int vertex = topology.copy.faceVertexAt(faceId, corner);
+            if (vertex != vertexA && vertex != vertexB) {
+                return vertex;
+            }
+        }
+        throw new IllegalStateException("copy face " + faceId
+                + " has no corner off edge " + edgeId);
     }
 
     /**

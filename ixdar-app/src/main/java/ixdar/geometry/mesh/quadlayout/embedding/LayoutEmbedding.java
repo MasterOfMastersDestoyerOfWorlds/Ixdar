@@ -36,6 +36,9 @@ public final class LayoutEmbedding {
     /** The carve, for its counters. */
     public TraceCarve carve;
 
+    /** The post-carve snap pass, for its counters. */
+    public ArrangementDecimation decimation;
+
     /** Copy vertex per T-mesh node id, or -1 for nodes no arc references. */
     public int[] vertexIdByNode;
 
@@ -88,6 +91,8 @@ public final class LayoutEmbedding {
         pathByArc = new ArcEdgePath[motorcycleGraph.arcs.size()];
         long nodesDoneNanos = System.nanoTime();
         carve = new TraceCarve(topology, motorcycleGraph, vertexIdByNode, pathByArc).build();
+        decimation = new ArrangementDecimation(topology, pathByArc,
+                motorcycleGraph.seamless.mesh.vertexCount()).build();
         long carveDoneNanos = System.nanoTime();
         topology.copy.computeNormals();
         long normalsDoneNanos = System.nanoTime();
@@ -97,13 +102,15 @@ public final class LayoutEmbedding {
         System.out.printf(
                 "[embed] nodes onVertex=%d faceSplit=%d |"
                         + " arcs carved=%d/%d traces=%d |"
-                        + " carve points=%d (snapped=%d split=%d) chordSplits=%d |"
+                        + " carve points=%d (snapped=%d split=%d) chordSplits=%d flips=%d"
+                        + " snapBack=%d kept=%d |"
                         + " copy V=%d E=%d F=%d (+%d faceSplits +%d edgeSplits) %.2fs"
                         + " (copy %.2f nodes %.2f carve %.2f normals %.2f check %.2f)%n",
                 nodesOnMeshVertexCount, nodePlacement.chordWalk.placedByFaceSplitCount,
                 carve.carvedArcCount, motorcycleGraph.arcs.size(), carve.carvedTraceCount,
                 carvePoints, carve.snappedCrossingCount, carve.splitCrossingCount,
-                carve.chordWalk.interiorSplitCount,
+                carve.chordWalk.interiorSplitCount, carve.chordWalk.flipInsertCount,
+                decimation.snappedVertexCount, decimation.keptVertexCount,
                 topology.copy.vertexCount(), topology.copy.edgeCount(), topology.copy.faceCount(),
                 topology.faceSplitCount, topology.edgeSplitCount,
                 (checkDoneNanos - startNanos) / NANOS_PER_SECOND,

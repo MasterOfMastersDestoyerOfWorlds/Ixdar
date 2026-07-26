@@ -24,6 +24,12 @@ public final class ArcRerouter {
     /** Refine rounds allowed per re-route attempt. */
     public static final int REFINE_ROUND_CAP = 16;
 
+    /**
+     * Gate count beyond which a face passage is a wrong-homotopy detour around
+     * the surface, not a route to open — treated as no passage at all.
+     */
+    public static final int PASSAGE_GATE_BOUND = 100_000;
+
     /** Split position of a midpoint refinement. */
     private static final double EDGE_MIDPOINT = 0.5;
 
@@ -57,6 +63,9 @@ public final class ArcRerouter {
 
     /** Edges split to open a walled corridor. */
     public int refinedEdgeSplitCount;
+
+    /** Passages discarded as oversized wrong-homotopy detours. */
+    public int passageOverflowCount;
 
     /** Of {@link #refinedEdgeSplitCount}, those split as gates on a face passage. */
     public int gateSplitCount;
@@ -456,25 +465,28 @@ public final class ArcRerouter {
                 targetFaceStampByFace[face] = stamp;
             }
         }
-        int queueHead = 0;
-        int queueTail = 0;
+        PriorityQueue<double[]> frontierFaces = new PriorityQueue<>(
+                (left, right) -> Double.compare(left[0], right[0]));
+        Vector3f centroid = new Vector3f();
+        Vector3f neighborCentroid = new Vector3f();
         for (int index = 0; index < topology.copy.vertexFaceCount(startVertex); index++) {
             int face = topology.copy.vertexFaceAt(startVertex, index);
             if (faceInRestriction(face) && faceVisitStampByFace[face] != stamp) {
                 faceVisitStampByFace[face] = stamp;
                 parentFaceByFace[face] = EmbeddedMeshTopology.UNCLAIMED;
-                faceQueue[queueTail] = face;
-                queueTail++;
+                frontierFaces.add(new double[] {0.0, face});
             }
         }
         int reachedFace = EmbeddedMeshTopology.UNCLAIMED;
-        while (queueHead < queueTail) {
-            int face = faceQueue[queueHead];
-            queueHead++;
+        while (!frontierFaces.isEmpty()) {
+            double[] entry = frontierFaces.poll();
+            int face = (int) entry[1];
             if (targetFaceStampByFace[face] == stamp) {
                 reachedFace = face;
                 break;
             }
+            faceCentroid(face, centroid);
+            double distance = entry[0];
             for (int corner = 0; corner < CORNERS; corner++) {
                 int edgeId = topology.copy.faceEdgeAt(face, corner);
                 if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
@@ -490,8 +502,9 @@ public final class ArcRerouter {
                     faceVisitStampByFace[neighborFace] = stamp;
                     parentFaceByFace[neighborFace] = face;
                     parentEdgeByFace[neighborFace] = edgeId;
-                    faceQueue[queueTail] = neighborFace;
-                    queueTail++;
+                    double step = faceCentroid(neighborFace, neighborCentroid)
+                            .distance(centroid);
+                    frontierFaces.add(new double[] {distance + step, neighborFace});
                 }
             }
         }
@@ -504,7 +517,29 @@ public final class ArcRerouter {
             crossings.add(parentEdgeByFace[walk]);
         }
         Collections.reverse(crossings);
+        if (crossings != null && crossings.size() > PASSAGE_GATE_BOUND) {
+            passageOverflowCount++;
+            return null;
+        }
         return crossings;
+    }
+
+    /**
+     * Centroid of a copy face, for the passage search's distance weights.
+     *
+     * @param faceId copy face to average
+     * @param out    receives the centroid
+     * @return {@code out}
+     */
+    private Vector3f faceCentroid(int faceId, Vector3f out) {
+        out.zero();
+        Vector3f cornerPosition = new Vector3f();
+        for (int corner = 0; corner < CORNERS; corner++) {
+            topology.copy.vertexPosition(topology.copy.faceVertexAt(faceId, corner),
+                    cornerPosition);
+            out.add(cornerPosition);
+        }
+        return out.div(CORNERS);
     }
 
     /**

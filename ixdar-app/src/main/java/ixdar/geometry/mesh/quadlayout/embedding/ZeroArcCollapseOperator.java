@@ -218,9 +218,36 @@ public final class ZeroArcCollapseOperator {
             }
         }
 
-        String message = "arc " + arcId + " could not be re-routed onto vertex "
-                + targetVertex + " from any back-off point of its old path";
-        throw new IllegalStateException(message);
+        throw new IllegalStateException("arc " + arcId + " could not be re-routed onto vertex "
+                + targetVertex + " from any back-off point of its old path; moved vertex "
+                + movedVertex + " path " + vertices + " channel " + channel
+                + fanReport(movedVertex) + fanReport(targetVertex));
+    }
+
+    /**
+     * Neighborhood report of a blocked drag endpoint: its incident faces with
+     * corner owners, for seal diagnostics.
+     *
+     * @param vertexId blocked endpoint
+     * @return a multi-line diagnostic block
+     */
+    private String fanReport(int vertexId) {
+        EmbeddedMeshTopology topology = tmesh.topology;
+        StringBuilder detail = new StringBuilder("\n vertex ").append(vertexId)
+                .append(" ownerNode ").append(topology.ownerNodeByCopyVertex[vertexId])
+                .append(" ownerArc ").append(topology.ownerArcByCopyVertex[vertexId]);
+        for (int index = 0; index < topology.copy.vertexFaceCount(vertexId); index++) {
+            int faceId = topology.copy.vertexFaceAt(vertexId, index);
+            detail.append("\n  face ").append(faceId).append(" corners");
+            for (int corner = 0; corner < 3; corner++) {
+                int cornerVertex = topology.copy.faceVertexAt(faceId, corner);
+                detail.append(' ').append(cornerVertex)
+                        .append("(n").append(topology.ownerNodeByCopyVertex[cornerVertex])
+                        .append(",a").append(topology.ownerArcByCopyVertex[cornerVertex])
+                        .append(')');
+            }
+        }
+        return detail.toString();
     }
 
     /**
