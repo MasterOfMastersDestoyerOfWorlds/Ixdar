@@ -38,6 +38,23 @@ public final class ArcRerouter {
 
     public final EmbeddedMeshTopology topology;
 
+    /**
+     * Stamp per source face admitting it to the current carve search; empty for
+     * the unrestricted re-routes of the contraction operators. A carve stretch
+     * never leaves its segment's source face.
+     */
+    public int[] sourceFaceStampBySourceFace = new int[0];
+
+    /** Stamp value marking the admitted faces in {@link #sourceFaceStampBySourceFace}. */
+    public int sourceFaceStamp;
+
+    /**
+     * Whether searches may only pass through face-interior vertices — the carve
+     * sets this, since a traced course touches the face boundary solely at its
+     * own crossings. Endpoints are always exempt.
+     */
+    public boolean interiorOnly;
+
     /** Edges split to open a walled corridor. */
     public int refinedEdgeSplitCount;
 
@@ -240,6 +257,9 @@ public final class ArcRerouter {
         distanceByVertex[startVertex] = 0f;
         vertexVisitStampByVertex[startVertex] = stamp;
         int reachedCount = 1;
+        if (interiorOnly) {
+            corridor.add(startVertex);
+        }
         frontier.add(new DijkstraNode(0f, startVertex));
         Vector3f positionHere = new Vector3f();
         Vector3f positionOther = new Vector3f();
@@ -263,12 +283,14 @@ public final class ArcRerouter {
             topology.copy.vertexPosition(vertex, positionHere);
             for (int index = 0; index < topology.copy.vertexEdgeCount(vertex); index++) {
                 int edgeId = topology.copy.vertexEdgeAt(vertex, index);
-                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED
+                        || !edgeInRestriction(edgeId)) {
                     continue;
                 }
                 int neighbor = topology.otherEndpoint(edgeId, vertex);
                 if (neighbor != endCopyVertex && neighbor != passThrough
-                        && vertexClaimed(neighbor)) {
+                        && (vertexClaimed(neighbor)
+                                || interiorOnly && boundaryVertex(neighbor))) {
                     continue;
                 }
                 topology.copy.vertexPosition(neighbor, positionOther);
@@ -279,6 +301,9 @@ public final class ArcRerouter {
                     if (!reached) {
                         vertexVisitStampByVertex[neighbor] = stamp;
                         reachedCount++;
+                        if (interiorOnly) {
+                            corridor.add(neighbor);
+                        }
                     }
                     distanceByVertex[neighbor] = newDistance;
                     parentVertexByVertex[neighbor] = vertex;
@@ -351,7 +376,7 @@ public final class ArcRerouter {
             corridor.add(endpointA);
             corridor.add(endpointB);
             if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED
-                    || !vertexClaimed(endpointA) || !vertexClaimed(endpointB)) {
+                    || !blockedVertex(endpointA) || !blockedVertex(endpointB)) {
                 continue;
             }
             corridor.add(topology.splitEdgeAtParameter(edgeId, EDGE_MIDPOINT));
@@ -377,6 +402,9 @@ public final class ArcRerouter {
     private int splitSharedFace(int startVertex, int endVertex, ActiveIdSet corridor) {
         for (int faceIndex = 0; faceIndex < topology.copy.vertexFaceCount(startVertex); faceIndex++) {
             int faceId = topology.copy.vertexFaceAt(startVertex, faceIndex);
+            if (!faceInRestriction(faceId)) {
+                continue;
+            }
             boolean touchesEnd = false;
             for (int corner = 0; corner < CORNERS; corner++) {
                 touchesEnd |= topology.copy.faceVertexAt(faceId, corner) == endVertex;
@@ -423,13 +451,16 @@ public final class ArcRerouter {
         }
         int stamp = nextVisitStamp();
         for (int index = 0; index < topology.copy.vertexFaceCount(endVertex); index++) {
-            targetFaceStampByFace[topology.copy.vertexFaceAt(endVertex, index)] = stamp;
+            int face = topology.copy.vertexFaceAt(endVertex, index);
+            if (faceInRestriction(face)) {
+                targetFaceStampByFace[face] = stamp;
+            }
         }
         int queueHead = 0;
         int queueTail = 0;
         for (int index = 0; index < topology.copy.vertexFaceCount(startVertex); index++) {
             int face = topology.copy.vertexFaceAt(startVertex, index);
-            if (faceVisitStampByFace[face] != stamp) {
+            if (faceInRestriction(face) && faceVisitStampByFace[face] != stamp) {
                 faceVisitStampByFace[face] = stamp;
                 parentFaceByFace[face] = EmbeddedMeshTopology.UNCLAIMED;
                 faceQueue[queueTail] = face;
@@ -454,6 +485,7 @@ public final class ArcRerouter {
                         ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
                         : topology.copy.halfEdgeFace(halfEdge);
                 if (neighborFace != EmbeddedMeshTopology.UNCLAIMED
+                        && faceInRestriction(neighborFace)
                         && faceVisitStampByFace[neighborFace] != stamp) {
                     faceVisitStampByFace[neighborFace] = stamp;
                     parentFaceByFace[neighborFace] = face;
@@ -488,31 +520,66 @@ public final class ArcRerouter {
      */
     private boolean mintSpoke(int vertexId, ActiveIdSet corridor) {
         for (int index = 0; index < topology.copy.vertexEdgeCount(vertexId); index++) {
-            if (topology.ownerArcByCopyEdge[topology.copy.vertexEdgeAt(vertexId, index)]
-                    == EmbeddedMeshTopology.UNCLAIMED) {
+            int edgeId = topology.copy.vertexEdgeAt(vertexId, index);
+            if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                continue;
+            }
+            if (!interiorOnly) {
+                return false;
+            }
+            int neighbor = topology.otherEndpoint(edgeId, vertexId);
+            if (!vertexClaimed(neighbor) && !boundaryVertex(neighbor)) {
                 return false;
             }
         }
-        for (int index = 0; index < topology.copy.vertexFaceCount(vertexId); index++) {
-            int faceId = topology.copy.vertexFaceAt(vertexId, index);
-            int oppositeEdge = EmbeddedMeshTopology.UNCLAIMED;
-            for (int corner = 0; corner < CORNERS; corner++) {
-                int edgeId = topology.copy.faceEdgeAt(faceId, corner);
-                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-                if (topology.copy.halfEdgeVertex(halfEdge) != vertexId
-                        && topology.copy.halfEdgeEndVertex(halfEdge) != vertexId) {
-                    oppositeEdge = edgeId;
+        for (int preferReached = 1; preferReached >= 0; preferReached--) {
+            for (int index = 0; index < topology.copy.vertexFaceCount(vertexId); index++) {
+                int faceId = topology.copy.vertexFaceAt(vertexId, index);
+                if (!faceInRestriction(faceId)) {
+                    continue;
                 }
+                if (preferReached == 1 && !faceTouchesCorridor(faceId, vertexId, corridor)) {
+                    continue;
+                }
+                int oppositeEdge = EmbeddedMeshTopology.UNCLAIMED;
+                for (int corner = 0; corner < CORNERS; corner++) {
+                    int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+                    int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+                    if (topology.copy.halfEdgeVertex(halfEdge) != vertexId
+                            && topology.copy.halfEdgeEndVertex(halfEdge) != vertexId) {
+                        oppositeEdge = edgeId;
+                    }
+                }
+                if (oppositeEdge == EmbeddedMeshTopology.UNCLAIMED
+                        || topology.ownerArcByCopyEdge[oppositeEdge]
+                                != EmbeddedMeshTopology.UNCLAIMED) {
+                    continue;
+                }
+                int minted = topology.splitEdgeAtParameter(oppositeEdge, EDGE_MIDPOINT);
+                corridor.add(minted);
+                refinedEdgeSplitCount++;
+                spokeSplitCount++;
+                return true;
             }
-            if (oppositeEdge == EmbeddedMeshTopology.UNCLAIMED
-                    || topology.ownerArcByCopyEdge[oppositeEdge] != EmbeddedMeshTopology.UNCLAIMED) {
-                continue;
+        }
+        return false;
+    }
+
+    /**
+     * Whether one of a fan face's other corners was already reached by the
+     * search, so a spoke minted there connects to explored territory.
+     *
+     * @param faceId   fan face to test
+     * @param vertexId fan apex, excluded from the test
+     * @param corridor reached and refined vertex set
+     * @return true when a corner is in the corridor
+     */
+    private boolean faceTouchesCorridor(int faceId, int vertexId, ActiveIdSet corridor) {
+        for (int corner = 0; corner < CORNERS; corner++) {
+            int cornerVertex = topology.copy.faceVertexAt(faceId, corner);
+            if (cornerVertex != vertexId && corridor.contains(cornerVertex)) {
+                return true;
             }
-            int minted = topology.splitEdgeAtParameter(oppositeEdge, EDGE_MIDPOINT);
-            corridor.add(minted);
-            refinedEdgeSplitCount++;
-            spokeSplitCount++;
-            return true;
         }
         return false;
     }
@@ -528,5 +595,62 @@ public final class ArcRerouter {
                 || topology.ownerArcByCopyVertex[copyVertex] != EmbeddedMeshTopology.UNCLAIMED;
     }
 
+    /**
+     * Whether the search may not stand on a vertex: claimed, or banned as a
+     * boundary vertex under {@link #interiorOnly}. Such vertices count as gate
+     * endpoints for refinement.
+     *
+     * @param copyVertex copy vertex to test
+     * @return true when the vertex blocks the search
+     */
+    private boolean blockedVertex(int copyVertex) {
+        return vertexClaimed(copyVertex) || interiorOnly && boundaryVertex(copyVertex);
+    }
 
+    /**
+     * Whether a copy vertex sits on a source edge — an original vertex or a
+     * fragment split — recognizable by an incident source-tagged edge.
+     *
+     * @param copyVertex copy vertex to test
+     * @return true when the vertex lies on a source edge
+     */
+    private boolean boundaryVertex(int copyVertex) {
+        for (int index = 0; index < topology.copy.vertexEdgeCount(copyVertex); index++) {
+            if (topology.sourceEdgeByCopyEdge[topology.copy.vertexEdgeAt(copyVertex, index)]
+                    != EmbeddedMeshTopology.UNCLAIMED) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether an edge may be traversed or split under the current face
+     * restriction: unrestricted, or incident to an admitted face.
+     *
+     * @param edgeId copy edge to test
+     * @return true when the edge is admissible
+     */
+    private boolean edgeInRestriction(int edgeId) {
+        if (sourceFaceStampBySourceFace.length == 0) {
+            return true;
+        }
+        int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+        int faceA = topology.copy.halfEdgeFace(halfEdge);
+        int faceB = topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge));
+        return faceA >= 0 && faceInRestriction(faceA) || faceB >= 0 && faceInRestriction(faceB);
+    }
+
+    /**
+     * Whether a face may be walked or refined under the current face
+     * restriction.
+     *
+     * @param faceId copy face to test
+     * @return true when the face is admissible
+     */
+    private boolean faceInRestriction(int faceId) {
+        return sourceFaceStampBySourceFace.length == 0
+                || sourceFaceStampBySourceFace[topology.sourceFaceByCopyFace[faceId]]
+                        == sourceFaceStamp;
+    }
 }

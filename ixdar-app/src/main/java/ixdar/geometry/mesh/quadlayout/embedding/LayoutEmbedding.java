@@ -30,8 +30,8 @@ public final class LayoutEmbedding {
     /** Working copy with provenance and claims. */
     public EmbeddedMeshTopology topology;
 
-    /** The exact in-face walk, shared by node placement and the carve. */
-    public FaceChordWalk chordWalk;
+    /** Combinatorial node placement onto the working copy. */
+    public NodePlacement nodePlacement;
 
     /** The carve, for its counters. */
     public TraceCarve carve;
@@ -81,30 +81,29 @@ public final class LayoutEmbedding {
         long startNanos = System.nanoTime();
         topology = new EmbeddedMeshTopology(motorcycleGraph.seamless.mesh);
         long copyDoneNanos = System.nanoTime();
-        chordWalk = new FaceChordWalk(topology);
+        nodePlacement = new NodePlacement(topology);
         tagSourceEdges();
         markCriticality();
         insertNodes();
         pathByArc = new ArcEdgePath[motorcycleGraph.arcs.size()];
         long nodesDoneNanos = System.nanoTime();
-        carve = new TraceCarve(chordWalk, motorcycleGraph, vertexIdByNode, pathByArc).build();
+        carve = new TraceCarve(topology, motorcycleGraph, vertexIdByNode, pathByArc).build();
         long carveDoneNanos = System.nanoTime();
         topology.copy.computeNormals();
         long normalsDoneNanos = System.nanoTime();
         assertSubcomplex();
         long checkDoneNanos = System.nanoTime();
-        int carvePoints = chordWalk.snappedCrossingCount + chordWalk.splitCrossingCount;
+        int carvePoints = carve.snappedCrossingCount + carve.splitCrossingCount;
         System.out.printf(
-                "[embed] nodes onVertex=%d snap=%d edgeSplit=%d faceSplit=%d |"
+                "[embed] nodes onVertex=%d faceSplit=%d |"
                         + " arcs carved=%d/%d traces=%d |"
-                        + " carve points=%d (snapped=%d split=%d) interiorSplits=%d |"
+                        + " carve points=%d (snapped=%d split=%d) chordSplits=%d |"
                         + " copy V=%d E=%d F=%d (+%d faceSplits +%d edgeSplits) %.2fs"
                         + " (copy %.2f nodes %.2f carve %.2f normals %.2f check %.2f)%n",
-                nodesOnMeshVertexCount, chordWalk.placedBySnapCount,
-                chordWalk.placedByEdgeSplitCount, chordWalk.placedByFaceSplitCount,
+                nodesOnMeshVertexCount, nodePlacement.chordWalk.placedByFaceSplitCount,
                 carve.carvedArcCount, motorcycleGraph.arcs.size(), carve.carvedTraceCount,
-                carvePoints, chordWalk.snappedCrossingCount, chordWalk.splitCrossingCount,
-                chordWalk.interiorSplitCount,
+                carvePoints, carve.snappedCrossingCount, carve.splitCrossingCount,
+                carve.chordWalk.interiorSplitCount,
                 topology.copy.vertexCount(), topology.copy.edgeCount(), topology.copy.faceCount(),
                 topology.faceSplitCount, topology.edgeSplitCount,
                 (checkDoneNanos - startNanos) / NANOS_PER_SECOND,
@@ -162,10 +161,9 @@ public final class LayoutEmbedding {
 
     /**
      * Give every arc-referenced T-mesh node a dedicated copy vertex: vertex-bound
-     * nodes claim their mapped copy vertex, and face-interior nodes are placed exactly
-     * at their traced position by {@link FaceChordWalk#placeVertex}. One mesh vertex
-     * never owns two T-mesh nodes, so a claim conflict throws rather than dropping a
-     * node.
+     * nodes claim their mapped copy vertex, and face-interior nodes mint a fresh
+     * vertex via {@link NodePlacement#placeVertex}. One mesh vertex never owns
+     * two T-mesh nodes, so a claim conflict throws rather than dropping a node.
      */
     private void insertNodes() {
         int nodeCount = motorcycleGraph.nodes.size();
@@ -196,7 +194,7 @@ public final class LayoutEmbedding {
                 }
                 nodesOnMeshVertexCount++;
             } else {
-                copyVertex = chordWalk.placeVertex(node.activeFace,
+                copyVertex = nodePlacement.placeVertex(node.activeFace,
                         chartToBarycentric(node.activeFace, node.u, node.v));
             }
             topology.ownerNodeByCopyVertex[copyVertex] = node.nodeId;

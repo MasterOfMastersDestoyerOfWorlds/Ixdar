@@ -1,6 +1,10 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Exact chord walk inside one source face: connects a path head to a target point,
@@ -15,6 +19,9 @@ public final class FaceChordWalk {
 
     /** Corners (and edges) of a triangle. */
     private static final int CORNERS = 3;
+
+    /** Split position for corridor checkpoints. */
+    private static final double HALFWAY = 0.5;
 
     public final EmbeddedMeshTopology topology;
 
@@ -38,6 +45,9 @@ public final class FaceChordWalk {
 
     /** Nodes placed by splitting the face they lie inside. */
     public int placedByFaceSplitCount;
+
+    /** Walks finished by the terminal free-edge search after rounding collapse. */
+    public int terminalFanSearchCount;
 
     /**
      * Stores the working copy the walk carves into.
@@ -136,11 +146,17 @@ public final class FaceChordWalk {
             double[] headBarycentric = requireBarycentric(sourceFace, head);
             int childFace = childFaceTowards(sourceFace, head, headBarycentric, targetBarycentric);
             if (childFace == EmbeddedMeshTopology.UNCLAIMED) {
+                if (targetVertex != EmbeddedMeshTopology.UNCLAIMED) {
+                    return finishByFanSearch(arcId, sourceFace, head, targetVertex, pathVertices);
+                }
                 throw new IllegalStateException("arc " + arcId + " chord leaves source face "
                         + sourceFace + " at " + "copy vertex " + head);
             }
             if (isAtCorner(sourceFace, childFace, cornerOf(childFace, head), targetBarycentric)) {
-                return head;
+                if (targetVertex == EmbeddedMeshTopology.UNCLAIMED || head == targetVertex) {
+                    return head;
+                }
+                return finishByFanSearch(arcId, sourceFace, head, targetVertex, pathVertices);
             }
             if (targetVertex != EmbeddedMeshTopology.UNCLAIMED
                     && isCornerOf(childFace, targetVertex)) {
@@ -149,29 +165,143 @@ public final class FaceChordWalk {
             }
             if (targetContainedBy(sourceFace, childFace, targetBarycentric)) {
                 if (targetVertex != EmbeddedMeshTopology.UNCLAIMED) {
-                    throw new IllegalStateException("arc " + arcId + " target node "
-                            + "copy vertex " + targetVertex + " lies in copy face " + childFace
-                            + " without being one of its corners, so a second copy vertex sits"
-                            + " within rounding distance of the node's position");
+                    return finishByFanSearch(arcId, sourceFace, head, targetVertex, pathVertices);
                 }
                 int reached = materialize(arcId, sourceFace, childFace, head, targetBarycentric);
                 hop(arcId, pathVertices, head, reached);
                 return reached;
             }
-            head = advance(arcId, sourceFace, childFace, head, headBarycentric,
-                    targetBarycentric, pathVertices);
+            int stepped = advance(arcId, sourceFace, childFace, head, headBarycentric,
+                    targetBarycentric, pathVertices, targetVertex);
+            if (stepped == EmbeddedMeshTopology.UNCLAIMED) {
+                return finishByFanSearch(arcId, sourceFace, head, targetVertex, pathVertices);
+            }
+            head = stepped;
         }
         throw new IllegalStateException("arc " + arcId + " chord walk did not converge in source face "
                 + sourceFace + " from " + "copy vertex " + startVertex);
     }
 
     /**
-     * Take one step of the march, leaving the child face through the edge opposite the
-     * head.
+     * Finish a walk whose exact march collapsed near its pre-placed target: a
+     * face corridor through free edges only, so the completion crosses no lane.
      *
-     * <p>That edge is split only on strictly opposite orientation signs with a crossing
-     * parameter inside {@code (0, 1)}; otherwise the step passes through an endpoint.
-     * Equal nonzero signs contradict the selecting wedge and throw.
+     * @param arcId        arc being carved
+     * @param sourceFace   source active face confining the search
+     * @param head         path head the march stopped on
+     * @param targetVertex pre-placed vertex the walk must reach
+     * @param pathVertices path vertices, extended in place
+     * @throws IllegalStateException when no free corridor to the target exists
+     * @return the target vertex
+     */
+    private int finishByFanSearch(int arcId, int sourceFace, int head, int targetVertex,
+            List<Integer> pathVertices) {
+        terminalFanSearchCount++;
+        Map<Integer, int[]> parentByFace = new HashMap<>();
+        ArrayDeque<Integer> queue = new ArrayDeque<>();
+        for (int index = 0; index < topology.copy.vertexFaceCount(targetVertex); index++) {
+            int faceId = topology.copy.vertexFaceAt(targetVertex, index);
+            if (topology.sourceFaceByCopyFace[faceId] == sourceFace
+                    && isCornerOf(faceId, head)) {
+                hop(arcId, pathVertices, head, targetVertex);
+                return targetVertex;
+            }
+        }
+        for (int index = 0; index < topology.copy.vertexFaceCount(head); index++) {
+            int faceId = topology.copy.vertexFaceAt(head, index);
+            if (topology.sourceFaceByCopyFace[faceId] == sourceFace) {
+                parentByFace.put(faceId, null);
+                queue.add(faceId);
+            }
+        }
+        while (!queue.isEmpty()) {
+            int faceId = queue.poll();
+            for (int corner = 0; corner < CORNERS; corner++) {
+                int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                    continue;
+                }
+                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+                int neighborFace = topology.copy.halfEdgeFace(halfEdge) == faceId
+                        ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
+                        : topology.copy.halfEdgeFace(halfEdge);
+                if (neighborFace < 0 || parentByFace.containsKey(neighborFace)
+                        || topology.sourceFaceByCopyFace[neighborFace] != sourceFace) {
+                    continue;
+                }
+                parentByFace.put(neighborFace, new int[] {faceId, edgeId});
+                if (isCornerOf(neighborFace, targetVertex)) {
+                    return realizeCorridor(arcId, head, targetVertex, neighborFace,
+                            parentByFace, pathVertices);
+                }
+                queue.add(neighborFace);
+            }
+        }
+        throw new IllegalStateException("arc " + arcId + " has no free corridor to its carve point "
+                + targetVertex + " from copy vertex " + head + " in source face " + sourceFace
+                + fanReport(head) + fanReport(targetVertex));
+    }
+
+    /**
+     * Realize a face corridor: split every crossed free edge at its midpoint and
+     * hop checkpoint to checkpoint from the head to the target.
+     *
+     * @param arcId        arc being carved
+     * @param head         path head the corridor starts at
+     * @param targetVertex pre-placed vertex the corridor ends at
+     * @param lastFace     corridor face containing the target
+     * @param parentByFace BFS parents: face to {parent face, crossed edge}
+     * @param pathVertices path vertices, extended in place
+     * @return the target vertex
+     */
+    private int realizeCorridor(int arcId, int head, int targetVertex, int lastFace,
+            Map<Integer, int[]> parentByFace, List<Integer> pathVertices) {
+        List<Integer> crossedEdges = new ArrayList<>();
+        for (int[] link = parentByFace.get(lastFace); link != null;
+                link = parentByFace.get(link[0])) {
+            crossedEdges.add(link[1]);
+        }
+        int current = head;
+        for (int position = crossedEdges.size() - 1; position >= 0; position--) {
+            int minted = topology.splitEdgeAtParameter(crossedEdges.get(position), HALFWAY);
+            hop(arcId, pathVertices, current, minted);
+            current = minted;
+        }
+        hop(arcId, pathVertices, current, targetVertex);
+        return targetVertex;
+    }
+
+    /**
+     * Neighborhood report of a blocked carve point: its incident faces with
+     * corner owners, for seal diagnostics.
+     *
+     * @param vertexId blocked carve point
+     * @return a multi-line diagnostic block
+     */
+    private String fanReport(int vertexId) {
+        StringBuilder detail = new StringBuilder("\n vertex ").append(vertexId)
+                .append(" ownerNode ").append(topology.ownerNodeByCopyVertex[vertexId])
+                .append(" ownerArc ").append(topology.ownerArcByCopyVertex[vertexId]);
+        for (int index = 0; index < topology.copy.vertexFaceCount(vertexId); index++) {
+            int faceId = topology.copy.vertexFaceAt(vertexId, index);
+            detail.append("\n  face ").append(faceId)
+                    .append(" source ").append(topology.sourceFaceByCopyFace[faceId])
+                    .append(" corners");
+            for (int corner = 0; corner < CORNERS; corner++) {
+                int cornerVertex = topology.copy.faceVertexAt(faceId, corner);
+                detail.append(' ').append(cornerVertex)
+                        .append("(n").append(topology.ownerNodeByCopyVertex[cornerVertex])
+                        .append(",a").append(topology.ownerArcByCopyVertex[cornerVertex])
+                        .append(')');
+            }
+        }
+        return detail.toString();
+    }
+
+    /**
+     * Take one step of the march: split the exit edge at the chord's crossing,
+     * else pass through an endpoint. With a pre-placed target, rounding collapse
+     * (degenerate signs, foreign claims) reports for the caller's fan search.
      *
      * @param arcId             arc being carved
      * @param sourceFace        source active face
@@ -180,10 +310,14 @@ public final class FaceChordWalk {
      * @param headBarycentric   head's barycentric in the source face
      * @param targetBarycentric target's barycentric in the source face
      * @param pathVertices      path vertices, extended in place
-     * @return the vertex the step landed on, the new head
+     * @param targetVertex      pre-placed target vertex, or
+     *                          {@link EmbeddedMeshTopology#UNCLAIMED}
+     * @return the new head, or {@link EmbeddedMeshTopology#UNCLAIMED} on collapse
      */
     private int advance(int arcId, int sourceFace, int childFace, int head,
-            double[] headBarycentric, double[] targetBarycentric, List<Integer> pathVertices) {
+            double[] headBarycentric, double[] targetBarycentric, List<Integer> pathVertices,
+            int targetVertex) {
+        boolean recoverable = targetVertex != EmbeddedMeshTopology.UNCLAIMED;
         int exitEdge = oppositeEdge(childFace, head);
         int halfEdge = topology.copy.edgeHalfEdge(exitEdge);
         int from = topology.copy.halfEdgeVertex(halfEdge);
@@ -193,6 +327,9 @@ public final class FaceChordWalk {
         int fromSign = orientSign(headBarycentric, targetBarycentric, fromBarycentric);
         int toSign = orientSign(headBarycentric, targetBarycentric, toBarycentric);
         if (fromSign != 0 && fromSign == toSign) {
+            if (recoverable) {
+                return EmbeddedMeshTopology.UNCLAIMED;
+            }
             throw new IllegalStateException("arc " + arcId + " chord misses the exit edge of copy face "
                     + childFace + " in source face " + sourceFace);
         }
@@ -202,6 +339,9 @@ public final class FaceChordWalk {
                 headBarycentric, targetBarycentric, toBarycentric);
         double parameter = fromArea / (fromArea - toArea);
         if (fromSign != 0 && toSign != 0 && parameter > 0.0 && parameter < 1.0) {
+            if (recoverable && foreignClaim(arcId, exitEdge)) {
+                return EmbeddedMeshTopology.UNCLAIMED;
+            }
             requireUnclaimed(arcId, exitEdge);
             interiorSplitCount++;
             int minted = topology.splitEdgeAtParameter(exitEdge, parameter);
@@ -209,9 +349,40 @@ public final class FaceChordWalk {
             return minted;
         }
         int through = Math.abs(fromArea) <= Math.abs(toArea) ? from : to;
+        boolean throughBlocked = through != targetVertex
+                && (topology.ownerNodeByCopyVertex[through] != EmbeddedMeshTopology.UNCLAIMED
+                        || foreignVertexClaim(arcId, through)
+                        || !hopIsFree(head, through));
+        if (recoverable && throughBlocked) {
+            return EmbeddedMeshTopology.UNCLAIMED;
+        }
         vertexCrossingCount++;
         hop(arcId, pathVertices, head, through);
         return through;
+    }
+
+    /**
+     * Whether a vertex carries another arc's claim.
+     *
+     * @param arcId    arc being carved
+     * @param vertexId copy vertex to test
+     * @return true when a foreign arc owns the vertex
+     */
+    private boolean foreignVertexClaim(int arcId, int vertexId) {
+        int owner = topology.ownerArcByCopyVertex[vertexId];
+        return owner != EmbeddedMeshTopology.UNCLAIMED && owner != arcId;
+    }
+
+    /**
+     * Whether an edge carries another arc's claim.
+     *
+     * @param arcId  arc being carved
+     * @param edgeId child edge to test
+     * @return true when a foreign arc owns the edge
+     */
+    private boolean foreignClaim(int arcId, int edgeId) {
+        int owner = topology.ownerArcByCopyEdge[edgeId];
+        return owner != EmbeddedMeshTopology.UNCLAIMED && owner != arcId;
     }
 
 

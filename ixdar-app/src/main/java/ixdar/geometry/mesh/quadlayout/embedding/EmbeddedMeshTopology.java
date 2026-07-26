@@ -290,20 +290,35 @@ public final class EmbeddedMeshTopology {
      * @throws IllegalStateException when the point lies on or outside an edge
      */
     private void requireStrictlyInside(int copyFaceId, int sourceFace, double[] barycentric) {
+        if (!strictlyInside(copyFaceId, sourceFace, barycentric)) {
+            throw new IllegalStateException("copy face " + copyFaceId
+                    + " cannot be split at " + Arrays.toString(barycentric)
+                    + ": the point is not strictly inside it");
+        }
+    }
+
+    /**
+     * Whether a barycentric point of a source face lies strictly inside one of that
+     * face's children, decided by the exact orientation predicate.
+     *
+     * @param copyFaceId  child face the point is tested against
+     * @param sourceFace  source active face the coordinates are relative to
+     * @param barycentric the point's barycentric triple
+     * @return true when the point is strictly off every edge, on the inner side
+     */
+    public boolean strictlyInside(int copyFaceId, int sourceFace, double[] barycentric) {
         for (int corner = 0; corner < CORNERS; corner++) {
             double[] from = barycentricOf(sourceFace, copy.faceVertexAt(copyFaceId, corner));
             double[] to = barycentricOf(sourceFace,
                     copy.faceVertexAt(copyFaceId, (corner + 1) % CORNERS));
             if (from == null || to == null) {
-                throw new IllegalStateException("copy face " + copyFaceId
-                        + " has a corner with no barycentric in source face " + sourceFace);
+                return false;
             }
             if (ExactBarycentricOrient.sign(from, to, barycentric) <= 0) {
-                throw new IllegalStateException("copy face " + copyFaceId
-                        + " cannot be split at " + Arrays.toString(barycentric)
-                        + ": the point is not strictly inside it");
+                return false;
             }
         }
+        return true;
     }
 
     /**

@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 /**
  * Sign-exact orientation predicate for points in barycentric coordinates of a source
- * face, deciding every geometric case of the {@link FaceChordWalk} carve.
+ * face, used by the strictly-inside assertion of face splits.
  *
  * <p>Evaluates the 3x3 determinant in floating point under a forward error bound,
  * falling back to exact {@link BigDecimal} arithmetic when the bound cannot certify the

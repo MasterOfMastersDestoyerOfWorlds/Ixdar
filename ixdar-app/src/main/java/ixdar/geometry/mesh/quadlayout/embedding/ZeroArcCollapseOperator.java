@@ -123,10 +123,14 @@ public final class ZeroArcCollapseOperator {
         tmesh.setPath(arcId, List.of(targetVertex));
         for (int incidentArcId : incidentArcsInFanOrder(movedVertex, channelNeighbor, arcId,
                 movedNodeId)) {
-            if (!tmesh.arcs.get(incidentArcId).alive) {
+            EmbeddedArc incidentArc = tmesh.arcs.get(incidentArcId);
+            if (!incidentArc.alive) {
                 continue;
             }
             dragArcEndOntoVertex(incidentArcId, movedVertex, targetVertex, rerouter, channel);
+            if (incidentArc.isLoop() && incidentArc.startNodeId == movedNodeId) {
+                dragArcEndOntoVertex(incidentArcId, movedVertex, targetVertex, rerouter, channel);
+            }
         }
 
         tmesh.mergeNodeInto(survivingNodeId, movedNodeId);
