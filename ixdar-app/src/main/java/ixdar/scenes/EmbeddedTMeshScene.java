@@ -119,7 +119,8 @@ public class EmbeddedTMeshScene extends ModelScene {
             Platforms.get().log("[embedded-tmesh] contracted to fixed point: "
                     + tmesh.arcCollapseCount + " collapse(s), "
                     + tmesh.patchSplitCount + " split(s), "
-                    + tmesh.patchCollapseCount + " patch-collapse(s)");
+                    + tmesh.patchCollapseCount + " patch-collapse(s), copy V="
+                    + tmesh.topology.copy.vertexCount());
         }
         if (pendingFoldFlip) {
             pendingFoldFlip = false;

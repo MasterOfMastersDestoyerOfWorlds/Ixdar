@@ -1,18 +1,18 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
-import java.math.BigDecimal;
-
 /**
  * Sign-exact orientation predicate for points in barycentric coordinates of a source
  * face, used by the strictly-inside assertion of face splits.
  *
  * <p>Evaluates the 3x3 determinant in floating point under a forward error bound,
- * falling back to exact {@link BigDecimal} arithmetic when the bound cannot certify the
- * sign.
+ * falling back to exact expansion arithmetic when the bound cannot certify the sign.
  *
  * <p>See also: LCBK19 Section 6.1
  */
 public final class ExactBarycentricOrient {
+
+    /** Exact evaluations taken since startup, a filter-miss diagnostic. */
+    public static long exactSignCallCount;
 
     /** Machine epsilon for IEEE 754 double precision, {@code 2^-53}. */
     private static final double EPSILON = Math.ulp(1.0) / 2.0;
@@ -24,6 +24,12 @@ public final class ExactBarycentricOrient {
      * is a wrong answer.
      */
     private static final double ERROR_BOUND = 16.0 * EPSILON;
+
+    /**
+     * Expansion component bound: six triple products of four components each, with
+     * headroom — grow-expansion never lengthens past one component per addend.
+     */
+    private static final int EXPANSION_CAPACITY = 26;
 
     private ExactBarycentricOrient() {
     }
@@ -94,8 +100,11 @@ public final class ExactBarycentricOrient {
     }
 
     /**
-     * Sign of the orientation determinant evaluated in exact arithmetic, for the triples
-     * the floating-point filter could not certify.
+     * Sign of the orientation determinant evaluated exactly in floating-point
+     * expansion arithmetic (Shewchuk 1997): each of the six triple products is
+     * decomposed into exact double components via fused multiply-add, and all
+     * components are folded into one nonoverlapping expansion whose largest
+     * component carries the sign.
      *
      * @param first  first point's barycentric triple
      * @param second second point's barycentric triple
@@ -103,23 +112,72 @@ public final class ExactBarycentricOrient {
      * @return the exact sign of the determinant
      */
     private static int exactSign(double[] first, double[] second, double[] third) {
-        BigDecimal minorA = product(second[1], third[2]).subtract(product(second[2], third[1]));
-        BigDecimal minorB = product(second[0], third[2]).subtract(product(second[2], third[0]));
-        BigDecimal minorC = product(second[0], third[1]).subtract(product(second[1], third[0]));
-        return new BigDecimal(first[0]).multiply(minorA)
-                .subtract(new BigDecimal(first[1]).multiply(minorB))
-                .add(new BigDecimal(first[2]).multiply(minorC))
-                .signum();
+        exactSignCallCount++;
+        double[] expansion = new double[EXPANSION_CAPACITY];
+        int size = 0;
+        size = accumulateTripleProduct(expansion, size, first[0], second[1], third[2], 1.0);
+        size = accumulateTripleProduct(expansion, size, first[0], second[2], third[1], -1.0);
+        size = accumulateTripleProduct(expansion, size, first[1], second[0], third[2], -1.0);
+        size = accumulateTripleProduct(expansion, size, first[1], second[2], third[0], 1.0);
+        size = accumulateTripleProduct(expansion, size, first[2], second[0], third[1], 1.0);
+        size = accumulateTripleProduct(expansion, size, first[2], second[1], third[0], -1.0);
+        return size == 0 ? 0 : expansion[size - 1] > 0.0 ? 1 : -1;
     }
 
     /**
-     * Exact product of two doubles.
+     * Fold one signed triple product into the expansion as four exact double
+     * components: {@code a*b = p + pError} by fused multiply-add, then each half
+     * times {@code c} splits the same way.
      *
-     * @param left  first factor
-     * @param right second factor
-     * @return their product, without rounding
+     * @param expansion nonoverlapping expansion accumulator, ascending magnitude
+     * @param size      live component count of {@code expansion}
+     * @param factorA   first factor
+     * @param factorB   second factor
+     * @param factorC   third factor
+     * @param sign      {@code 1.0} to add the product, {@code -1.0} to subtract it
+     * @return the expansion's new component count
      */
-    private static BigDecimal product(double left, double right) {
-        return new BigDecimal(left).multiply(new BigDecimal(right));
+    private static int accumulateTripleProduct(double[] expansion, int size, double factorA,
+            double factorB, double factorC, double sign) {
+        double product = factorA * factorB;
+        double productError = Math.fma(factorA, factorB, -product);
+        double high = product * factorC;
+        double highError = Math.fma(product, factorC, -high);
+        double low = productError * factorC;
+        double lowError = Math.fma(productError, factorC, -low);
+        int grown = growExpansion(expansion, size, sign * lowError);
+        grown = growExpansion(expansion, grown, sign * low);
+        grown = growExpansion(expansion, grown, sign * highError);
+        return growExpansion(expansion, grown, sign * high);
     }
+
+    /**
+     * Shewchuk's GROW-EXPANSION with zero elimination: add one double to a
+     * nonoverlapping expansion, keeping it nonoverlapping and zero-free.
+     *
+     * @param expansion expansion components in ascending magnitude order
+     * @param size      live component count of {@code expansion}
+     * @param value     double to add
+     * @return the expansion's new component count
+     */
+    private static int growExpansion(double[] expansion, int size, double value) {
+        double carry = value;
+        int written = 0;
+        for (int index = 0; index < size; index++) {
+            double component = expansion[index];
+            double sum = carry + component;
+            double componentVirtual = sum - carry;
+            double carryVirtual = sum - componentVirtual;
+            double error = (carry - carryVirtual) + (component - componentVirtual);
+            if (error != 0.0) {
+                expansion[written++] = error;
+            }
+            carry = sum;
+        }
+        if (carry != 0.0) {
+            expansion[written++] = carry;
+        }
+        return written;
+    }
+
 }

@@ -17,10 +17,12 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
  * Working copy of the input mesh for the re-embedding, rebuilt into a fresh
  * {@link HalfEdgeMesh}; the source is never mutated.
  *
- * <p>All local remeshing must go through this class, which maintains each copy
+ * <p>
+ * All local remeshing must go through this class, which maintains each copy
  * face's source face and each copy edge's and vertex's owning arc or node.
  *
- * <p>See also: LCBK19 Section 6
+ * <p>
+ * See also: LCBK19 Section 6
  */
 public final class EmbeddedMeshTopology {
 
@@ -33,13 +35,19 @@ public final class EmbeddedMeshTopology {
     public final HalfEdgeMesh sourceMesh;
     public final HalfEdgeMesh copy;
 
+    /**
+     * Copy vertices below this id are originals of the source mesh; the rest are
+     * minted.
+     */
+    public final int originalVertexBound;
+
     /** Source active face index per raw copy face id; split children inherit. */
     public int[] sourceFaceByCopyFace;
 
     /**
-     * Source active edge index per raw copy edge id, or {@link #UNCLAIMED}
-     * for minted interior edges. Edge-split children inherit the parent's
-     * tag — a trace crossing the parent may cross either half.
+     * Source active edge index per raw copy edge id, or {@link #UNCLAIMED} for
+     * minted interior edges. Edge-split children inherit the parent's tag — a trace
+     * crossing the parent may cross either half.
      */
     public int[] sourceEdgeByCopyEdge;
 
@@ -65,8 +73,8 @@ public final class EmbeddedMeshTopology {
     public final Vector3f edgeLengthScratchB = new Vector3f();
 
     /**
-     * Copy face ids descending from each source active face, in insertion order, which the
-     * child-face search relies on.
+     * Copy face ids descending from each source active face, in insertion order,
+     * which the child-face search relies on.
      */
     public final List<Set<Integer>> copyFacesBySourceFace;
 
@@ -102,6 +110,7 @@ public final class EmbeddedMeshTopology {
     public EmbeddedMeshTopology(HalfEdgeMesh sourceMesh) {
         this.sourceMesh = sourceMesh;
         int vertexCount = sourceMesh.vertexCount();
+        this.originalVertexBound = vertexCount;
         int faceCount = sourceMesh.faceCount();
         float[] positions = new float[vertexCount * 3];
         Map<Integer, Integer> denseBySourceVertexId = new HashMap<>(vertexCount * 2);
@@ -277,9 +286,10 @@ public final class EmbeddedMeshTopology {
     /**
      * Split a copy face at an exact barycentric coordinate of its source face.
      *
-     * <p>The point must lie <em>strictly inside</em> the face, since the split registers a
-     * barycentric in one source face only. Use {@link #splitEdgeAtParameter} for a point on
-     * the boundary.
+     * <p>
+     * The point must lie <em>strictly inside</em> the face, since the split
+     * registers a barycentric in one source face only. Use
+     * {@link #splitEdgeAtParameter} for a point on the boundary.
      *
      * @param copyFaceId  copy face to split
      * @param barycentric barycentric triple against the source face's corners
@@ -296,8 +306,8 @@ public final class EmbeddedMeshTopology {
     }
 
     /**
-     * Assert that a barycentric point of a source face lies strictly inside one of that
-     * face's children, i.e. off every one of its three edges.
+     * Assert that a barycentric point of a source face lies strictly inside one of
+     * that face's children, i.e. off every one of its three edges.
      *
      * @param copyFaceId  child face the point should be interior to
      * @param sourceFace  source active face the coordinates are relative to
@@ -400,10 +410,10 @@ public final class EmbeddedMeshTopology {
     }
 
     /**
-     * Split a copy edge at the given position, retriangulating both incident
-     * faces (LCBK19 §6.1 refinement / lane creation). Children inherit their
-     * respective parents' source faces; the split edge's claim, if any, is
-     * transferred to both halves.
+     * Split a copy edge at the given position, retriangulating both incident faces
+     * (LCBK19 §6.1 refinement / lane creation). Children inherit their respective
+     * parents' source faces; the split edge's claim, if any, is transferred to both
+     * halves.
      *
      * @param copyEdgeId copy edge to split
      * @param position   3D position of the new vertex
@@ -469,7 +479,8 @@ public final class EmbeddedMeshTopology {
 
     /**
      * Claim an embedded path's edges and interior vertices for its arc. Endpoint
-     * vertices are left alone: they belong to the T-mesh nodes the arc runs between.
+     * vertices are left alone: they belong to the T-mesh nodes the arc runs
+     * between.
      *
      * @param arcId owning arc
      * @param path  the arc's embedded path
@@ -484,8 +495,8 @@ public final class EmbeddedMeshTopology {
     }
 
     /**
-     * Claim the edge between two copy vertices for an arc; an existing claim
-     * by a different arc is kept and counted as a conflict.
+     * Claim the edge between two copy vertices for an arc; an existing claim by a
+     * different arc is kept and counted as a conflict.
      *
      * @param vertexA first endpoint
      * @param vertexB second endpoint
@@ -504,7 +515,8 @@ public final class EmbeddedMeshTopology {
     }
 
     /**
-     * Edge id between two copy vertices, found by walking the edges incident to one of them.
+     * Edge id between two copy vertices, found by walking the edges incident to one
+     * of them.
      *
      * @param vertexA first endpoint
      * @param vertexB second endpoint
@@ -605,8 +617,8 @@ public final class EmbeddedMeshTopology {
     }
 
     /**
-     * Length of a copy edge, memoized: vertex positions never move once minted,
-     * so a computed length stays valid until the edge id is reused.
+     * Length of a copy edge, memoized: vertex positions never move once minted, so
+     * a computed length stays valid until the edge id is reused.
      *
      * @param copyEdgeId copy edge id
      * @return Euclidean distance between the edge's endpoints

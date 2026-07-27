@@ -41,6 +41,15 @@ public class EmbeddedTMesh {
      */
     public static final boolean VALIDATE_EVERY_COLLAPSE = false;
 
+    /** Collapses between [contract] progress log lines. */
+    private static final int CONTRACT_PROGRESS_INTERVAL = 500;
+
+    /**
+     * Longest quiet stretch between [contract] lines, so a grinding collapse stays
+     * visible.
+     */
+    private static final long CONTRACT_PROGRESS_NANOS = 2_000_000_000L;
+
     /** Corners of a triangular copy face. */
     private static final int TRIANGLE_CORNERS = 3;
 
@@ -87,6 +96,11 @@ public class EmbeddedTMesh {
 
     public int arcCollapseCount;
     public int patchSplitCount;
+
+    /**
+     * Timestamp of the last [contract] progress line, for the time-based fallback.
+     */
+    public long lastContractProgressNanos;
     public int patchCollapseCount;
 
     /**
@@ -1319,6 +1333,18 @@ public class EmbeddedTMesh {
         if (arc != NONE) {
             collapseArc.collapse(arc);
             arcCollapseCount++;
+            long now = System.nanoTime();
+            if (arcCollapseCount % CONTRACT_PROGRESS_INTERVAL == 0
+                    || now - lastContractProgressNanos > CONTRACT_PROGRESS_NANOS) {
+                lastContractProgressNanos = now;
+                System.out.printf(
+                        "[contract] collapses=%d exactSigns=%d"
+                                + " V=%d F=%d",
+                        arcCollapseCount,
+                        ExactBarycentricOrient.exactSignCallCount,
+                        topology.copy.vertexCount(),
+                        topology.copy.faceCount());
+            }
             return true;
         }
         int simple = collapsePatch.nextSimpleZeroPatch();
