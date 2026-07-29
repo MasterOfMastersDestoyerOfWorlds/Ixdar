@@ -23,9 +23,8 @@ import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedMeshTopology;
  * splits are stepping stones rather than waste, and their count must equal the number of minted
  * vertices on the resulting path.
  *
- * <p>This guards the property the fertility counters report: 576,695 of 576,786 gate splits are
- * used by the route that follows. Refinement that split a passage the route then ignored would
- * grow the working mesh permanently for nothing.
+ * <p>Refinement that split a passage the route then ignored would grow the working mesh permanently
+ * for nothing, and the working mesh never shrinks again.
  *
  * <p>See also: LCBK19 Section 6.1
  */
@@ -66,7 +65,7 @@ class GatePassageMinimalityTest {
         List<Integer> routed = new ArrayList<>();
         ArcRerouter rerouter = new ArcRerouter(topology);
         boolean reached = rerouter.tryRoute(ROUTED_ARC, routed, startVertex, targetVertex, corridor,
-                EmbeddedMeshTopology.UNCLAIMED, ArcRerouter.REFINE_ROUND_CAP);
+                EmbeddedMeshTopology.UNCLAIMED);
 
         assertTrue(reached, "the channel is a threadable passage, so the route must be found");
         int mintedOnRoute = 0;
@@ -77,7 +76,7 @@ class GatePassageMinimalityTest {
         }
         assertTrue(mintedOnRoute > 0, "threading the channel has to stand on minted midpoints,"
                 + " or the fixture is not exercising gate refinement at all");
-        assertEquals(mintedOnRoute, rerouter.gateSplitCount,
+        assertEquals(mintedOnRoute, rerouter.refinedEdgeSplitCount,
                 "every gate split must be a midpoint the route stands on: a split the route ignores"
                         + " grows the working mesh permanently for nothing");
     }

@@ -23,6 +23,13 @@ public final class LayoutEmbedding {
     /** Nanoseconds per second, for the timing log. */
     private static final double NANOS_PER_SECOND = 1.0e9;
 
+    /**
+     * How far below zero a chart inversion's barycentric may round before its point counts
+     * as genuinely outside the face. A node on a face edge inverts to a coordinate a couple
+     * of ULP negative, because that coordinate is derived by subtraction.
+     */
+    private static final double CHART_INVERSION_SLACK = 8.0 * Math.ulp(1.0);
+
     public final TJunctionElimination conforming;
     public final MotorcycleGraph motorcycleGraph;
     public final QuantizedMeshGrid quantization;
@@ -219,13 +226,17 @@ public final class LayoutEmbedding {
     }
 
     /**
-     * Barycentric coordinate of a chart point within its source face. The seamless
-     * parametrization is affine on each triangle, so inverting it is an exact 2x2
-     * solve against the face's corner chart coordinates — no projection, no search.
+     * Barycentric coordinate of a chart point within its source face, with a coordinate
+     * that rounded below zero snapped onto the face edge it belongs to.
+     *
+     * <p>The parametrization is affine per triangle, so the inversion is a 2x2 solve. Only
+     * rounding is absorbed; a point truly outside its face throws.
      *
      * @param activeFace source active face the point lies in
      * @param u          chart u of the point
      * @param v          chart v of the point
+     * @throws IllegalStateException when the chart is degenerate, or the point lies outside
+     *                               the face by more than the inversion could have rounded
      * @return the point's barycentric coordinate in that face
      */
     private double[] chartToBarycentric(int activeFace, double u, double v) {
@@ -244,7 +255,20 @@ public final class LayoutEmbedding {
         double offsetV = v - cornerUv[1];
         double second = (offsetU * secondV - offsetV * secondU) / determinant;
         double third = (firstU * offsetV - firstV * offsetU) / determinant;
-        return new double[] { 1.0 - second - third, second, third };
+        double[] barycentric = { 1.0 - second - third, second, third };
+        for (int corner = 0; corner < barycentric.length; corner++) {
+            if (barycentric[corner] >= 0.0) {
+                continue;
+            }
+            if (barycentric[corner] < -CHART_INVERSION_SLACK) {
+                throw new IllegalStateException("T-mesh node at chart (" + u + ", " + v
+                        + ") inverts to barycentric " + Arrays.toString(barycentric)
+                        + ", outside source active face " + activeFace + " by "
+                        + -barycentric[corner] + "; its chart position and its face disagree");
+            }
+            barycentric[corner] = 0.0;
+        }
+        return barycentric;
     }
 
     /**

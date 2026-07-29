@@ -79,7 +79,7 @@ class ArcPivotTransitCorridorTest {
         corridor.add(targetVertex);
         List<Integer> routed = new ArrayList<>();
         boolean reached = new ArcRerouter(topology).tryRoute(CLAIM_MARKER, routed, startVertex,
-                targetVertex, corridor, pivotVertex, ArcRerouter.REFINE_ROUND_CAP);
+                targetVertex, corridor, pivotVertex);
 
         assertTrue(reached, "a route that transits the collapsing node must be found: the blocking"
                 + " gates lie on the pivot-to-target leg, not on any body-to-target corridor");
@@ -130,7 +130,7 @@ class ArcPivotTransitCorridorTest {
 
         List<Integer> routed = new ArrayList<>();
         boolean reached = new ArcRerouter(topology).tryRoute(CLAIM_MARKER, routed, startVertex,
-                targetVertex, corridor, pivotVertex, ArcRerouter.REFINE_ROUND_CAP);
+                targetVertex, corridor, pivotVertex);
 
         assertTrue(reached, "the near leg of the transit must be admitted to the corridor: it needs"
                 + " no splits, but the search may not stand on it unless the passage is admitted");

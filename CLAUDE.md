@@ -65,6 +65,14 @@ When a single-caller helper genuinely is warranted (see `CutGraph.java` for the 
 
 This rule has a custom checkstyle module (`SingleCallerHelperCheck`, currently disabled in `~/Code/autofix`) — treat it as the policy regardless.
 
+## No system properties
+
+**Never add a `System.getProperty` knob.** Properties are a hack: they move a decision out of the code into an invocation nobody will remember, they are untyped and unchecked, they never show up in a stack trace or a test, and each one is a branch that silently rots.
+
+When two behaviours genuinely both need to exist, they are a **public field with a named enum** on the owning class, and the caller sets it. When one of them is just the loser of an experiment, delete it and let the commit message hold the result.
+
+The existing `ixdar.model` / `tmeshPipeline.off` / `benchmark.off` properties are entry points choosing an *input file*, which is the one case this does not cover. Anything that changes *behaviour* is a field.
+
 ## Other checkstyle rules to know
 
 **Never skip checkstyle.** Don't run with `-Dcheckstyle.skip=true` or comment out rules to make a build pass — fix the violations. A red checkstyle is a red build, full stop. The build is checked against `~/Code/autofix/src/main/resources/checkstyle.xml`. Beyond Javadoc, the rules that bite most often:

@@ -78,8 +78,7 @@ class MiddleArcChannelRouteTest {
 
         List<Integer> routed = new ArrayList<>();
         boolean reached = rerouter.tryRoute(MIDDLE_ARC, routed, startVertex, endVertex,
-                rerouter.freshCorridor(), EmbeddedMeshTopology.UNCLAIMED,
-                ArcRerouter.REFINE_ROUND_CAP);
+                rerouter.freshCorridor(), EmbeddedMeshTopology.UNCLAIMED);
 
         assertTrue(reached, "the middle arc must carve between its two bounding lanes;"
                 + " the gate edges connecting them are its routing fabric");
@@ -120,8 +119,7 @@ class MiddleArcChannelRouteTest {
 
         List<Integer> routed = new ArrayList<>();
         boolean reached = rerouter.tryRoute(MIDDLE_ARC, routed, startVertex, endVertex,
-                rerouter.freshCorridor(), EmbeddedMeshTopology.UNCLAIMED,
-                ArcRerouter.REFINE_ROUND_CAP);
+                rerouter.freshCorridor(), EmbeddedMeshTopology.UNCLAIMED);
 
         assertTrue(!reached, "a transversal lane from the restriction boundary across the"
                 + " channel severs it; no amount of refinement may claim to route through");

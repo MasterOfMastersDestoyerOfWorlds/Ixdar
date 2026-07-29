@@ -204,6 +204,9 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private static final Color COLOR_EMBEDDED_ZERO_ARC = Color.RED;
 
     /** Tint for an ordinary embedded T-mesh node. */
+    /** Working-copy triangle outlines, dim so dense regions read as shading rather than clutter. */
+    private static final Color COLOR_COPY_WIREFRAME = new ColorRGB(Color.WHITE, 0.25f);
+
     private static final Color COLOR_EMBEDDED_NODE = Color.SKY_BLUE;
 
     /** Tint for a critical embedded T-mesh node, which the operators may never move. */
@@ -300,6 +303,17 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public boolean showLayoutBoundaries = false;
     /** Draw the stage-8 embedded arc edge paths over the surface. */
     public boolean showEmbeddedArcs = false;
+    /** Draw every triangle of the refined working copy, so refinement density is visible. */
+    public boolean showCopyWireframe = false;
+
+    /** Line VAO of the working copy's triangle outlines. */
+    public int copyWireframeVao;
+
+    /** Line VBO of the working copy's triangle outlines. */
+    public int copyWireframeVbo;
+
+    /** Vertex count of {@link #copyWireframeVao}; two per drawn edge. */
+    public int copyWireframeVertexCount;
 
     /** Triangle-soup VAO for the parametrized surface. */
     public int isoSurfaceVao;
@@ -619,12 +633,17 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         boolean drawLayoutBoundaries = showLayoutBoundaries && layoutLineVertexCount > 0;
         boolean drawEmbeddedArcs = showEmbeddedArcs && (embeddedLineVertexCount > 0
                 || embeddedZeroLineVertexCount > 0 || embeddedNodePositions != null);
+        boolean drawCopyWireframe = showCopyWireframe && copyWireframeVertexCount > 0;
         if (!drawSurface && !drawCross && !drawConstraints && !drawSingularities && !drawNodes
-                && !drawLayoutFill && !drawLayoutBoundaries && !drawEmbeddedArcs) {
+                && !drawLayoutFill && !drawLayoutBoundaries && !drawEmbeddedArcs
+                && !drawCopyWireframe) {
             return;
         }
         setupOverlayProjection(camera);
         GL gl = Platforms.gl();
+        if (drawCopyWireframe) {
+            renderCopyWireframe(camera);
+        }
         if (drawSurface) {
             if (showTraces || showFullIsoGrid) {
                 renderTraceSurface(camera);
@@ -1416,6 +1435,79 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         gl.vertexAttribPointer(ATTR_POSITION, VEC3_SIZE, gl.FLOAT(), false,
                 VEC3_SIZE * Float.BYTES, 0);
         gl.enableVertexAttribArray(ATTR_POSITION);
+    }
+
+    /**
+     * Upload every triangle of the working copy as outlines, so a screenshot shows where
+     * refinement made the mesh dense and where it left it untouched.
+     *
+     * @param copy refined working copy to outline; pass {@code null} to drop the buffer
+     */
+    public void setCopyWireframe(HalfEdgeMesh copy) {
+        GL gl = Platforms.gl();
+        deleteCopyWireframeBuffers(gl);
+        if (copy == null) {
+            return;
+        }
+        float[] outlines = new float[copy.faceCount() * CORNERS_PER_FACE * 2 * VEC3_SIZE];
+        int cursor = 0;
+        Vector3f corner = new Vector3f();
+        Vector3f nextCorner = new Vector3f();
+        for (int activeFace = 0; activeFace < copy.faceCount(); activeFace++) {
+            int faceId = copy.faceIdAt(activeFace);
+            for (int index = 0; index < CORNERS_PER_FACE; index++) {
+                copy.vertexPosition(copy.faceVertexAt(faceId, index), corner);
+                copy.vertexPosition(
+                        copy.faceVertexAt(faceId, (index + 1) % CORNERS_PER_FACE), nextCorner);
+                cursor = writePoint(outlines, cursor, corner);
+                cursor = writePoint(outlines, cursor, nextCorner);
+            }
+        }
+        int[] handles = uploadLineBuffer(gl, outlines);
+        copyWireframeVao = handles[0];
+        copyWireframeVbo = handles[1];
+        copyWireframeVertexCount = outlines.length / VEC3_SIZE;
+        showCopyWireframe = true;
+    }
+
+    /**
+     * Release the working copy's outline buffers.
+     *
+     * @param gl active GL platform handle
+     */
+    private void deleteCopyWireframeBuffers(GL gl) {
+        if (copyWireframeVao != 0) {
+            gl.deleteVertexArrays(copyWireframeVao);
+            copyWireframeVao = 0;
+        }
+        if (copyWireframeVbo != 0) {
+            gl.deleteBuffers(copyWireframeVbo);
+            copyWireframeVbo = 0;
+        }
+        copyWireframeVertexCount = 0;
+        showCopyWireframe = false;
+    }
+
+    /**
+     * Draw the working copy's triangle outlines as biased GL_LINES.
+     *
+     * @param camera active 3D camera
+     */
+    private void renderCopyWireframe(Camera3D camera) {
+        if (unlitShader.ID < 0) {
+            return;
+        }
+        GL gl = Platforms.gl();
+        unlitShader.use();
+        unlitShader.setMat4(VIEW, camera.view);
+        unlitShader.setMat4(PROJECTION, localProjection);
+        sphereModel.identity();
+        unlitShader.setMat4(MODEL, sphereModel);
+        unlitShader.setFloat(DEPTHBIAS, LAYOUT_DEPTH_BIAS);
+        unlitShader.setVec4(SOLIDCOLOR, COLOR_COPY_WIREFRAME);
+        gl.lineWidth(DEFAULT_GL_LINE_WIDTH);
+        gl.bindVertexArray(copyWireframeVao);
+        gl.drawArrays(gl.LINES(), 0, copyWireframeVertexCount);
     }
 
     /**

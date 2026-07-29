@@ -20,30 +20,18 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedMeshTopology;
 
 /**
- * Reproduces the operator-(1) re-route failure that stalls the sphere at arc 18: the re-route
- * refinement spends its split budget on edges that do not block the path, and never splits the ones
- * that do.
+ * Reproduces the operator-(1) re-route failure that stalled the sphere at arc 18: a region the face
+ * flood says is threadable, which the vertex search could not enter.
  *
- * <p>The obstruction is not a wall. The sphere's failure diagnostic reports
- * {@code faceThreadBodyToTarget=true}: a face path to the survivor exists that crosses no claimed
- * arc <em>edge</em>, so the region is threadable and LCBK19's <em>"resolved by refinement with a few
- * edge splits"</em> should open it. What blocks the vertex search is a short run of crossing edges
- * whose <em>both</em> endpoints are claimed — it can stand on neither end — and those edges are
- * never split even though the diagnostic confirms both endpoints are inside the corridor.
+ * <p>The obstruction is not a wall. A face path to the survivor exists that crosses no claimed arc
+ * <em>edge</em>, so the region is threadable and LCBK19's <em>"resolved by refinement with a few edge
+ * splits"</em> should open it. What blocks the vertex search is a crossing edge whose <em>both</em>
+ * endpoints are claimed — it can stand on neither end.
  *
- * <p>The reason is {@link ArcRerouter}'s refinement policy, not the geometry.
- * {@code refineBlockedEdges} gathers every blocked edge in the whole corridor and then splits only
- * the first {@code SPLIT_BUDGET} of them, in the arbitrary order the corridor set iterates, with no
- * notion of which edges lie between the search and its target. Once the corridor holds more blocked
- * edges than the budget, the few that actually block the route are statistically unlikely to be
- * chosen, so the budget is burnt scattershot and the route still fails.
- *
- * <p>This test pins that: the wall geometry below is fixed, and the <em>only</em> variable is how
- * long the wall is. With a short wall the corridor's blocked edges fit inside the budget, every one
- * is split including the blocking gate, and the re-route succeeds. Past roughly sixty rows the
- * blocked edges outnumber the budget and the same re-route fails — identical geometry, identical
- * topology, different outcome purely from budget starvation. That size dependence is the signature
- * of the bug, and nothing about the shape of the wall explains it.
+ * <p>The wall's length is the only variable here, and the outcome must not depend on it. A policy
+ * that refines a bounded number of edges chosen without regard to where the route runs succeeds on a
+ * short wall and fails on a long one from identical geometry; {@link ArcRerouter} instead names the
+ * blocking edge from the corridor it is about to walk, so length is irrelevant.
  *
  * <p>The wall is a single claimed column whose vertical edges are all claimed except one, so the sole
  * crossing is that free edge; both of its endpoints and both opposite face corners are claimed, which
@@ -84,8 +72,7 @@ class ArcCorridorThreadTest {
         ActiveIdSet corridor = unclaimedVertices(topology);
         List<Integer> routed = new ArrayList<>();
         boolean reached = new ArcRerouter(topology).tryRoute(CLAIM_MARKER, routed, startVertex,
-                targetVertex, corridor, EmbeddedMeshTopology.UNCLAIMED,
-                ArcRerouter.REFINE_ROUND_CAP);
+                targetVertex, corridor, EmbeddedMeshTopology.UNCLAIMED);
 
         assertTrue(reached, "a threadable region must be re-routable with refinement");
         assertFalse(routed.isEmpty(), "a reached route has vertices");

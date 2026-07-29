@@ -10,26 +10,19 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 
 /**
- * Re-embeds an arc whose endpoint node has just moved, by one split-aware
- * Dijkstra restricted to cross or touch no other arc: virtual midpoints of
- * splittable edges join the graph at a premium, and only the winning path's
- * midpoints are materialized.
+ * Re-embeds an arc whose endpoint node has just moved, restricted to cross or
+ * touch no other arc, splitting the fewest edges any such route can: never one
+ * where an unrefined detour exists, however long that detour is.
  *
  * <p>See also: LCBK19 Section 6.1
  */
 public final class ArcRerouter {
 
-    /** Retained for callers; the split-aware search needs no refine rounds. */
-    public static final int REFINE_ROUND_CAP = 16;
-
-    /**
-     * Split premium as a multiple of the mesh radius: splits are dearer than
-     * any local detour yet cheaper than a tour around the surface.
-     */
-    private static final float SPLIT_PREMIUM_RADIUS_FACTOR = 2f;
-
     /** Split position of a midpoint refinement. */
     private static final double EDGE_MIDPOINT = 0.5;
+
+    /** Potential of a search node no gate pass reached — nothing may step onto it. */
+    private static final int UNREACHED = -1;
 
     /** Corners (and edges) of a triangle. */
     private static final int CORNERS = 3;
@@ -47,12 +40,6 @@ public final class ArcRerouter {
     private static final long NODE_ID_MASK = 0xFFFFFFFFL;
 
     public final EmbeddedMeshTopology topology;
-
-    /**
-     * Split premium, fixed at construction: refinement vertices are convex
-     * combinations of existing ones, so the mesh radius never grows.
-     */
-    public final float splitPremium;
 
     /**
      * Stamp per source face admitting it to the current carve search; empty for
@@ -74,17 +61,17 @@ public final class ArcRerouter {
     /** Edges split to open a walled corridor. */
     public int refinedEdgeSplitCount;
 
-    /** Of {@link #refinedEdgeSplitCount}, those split as gates on a face passage. */
-    public int gateSplitCount;
+    /** Chords flipped instead of split, which costs the working mesh nothing. */
+    public int chordFlipCount;
 
-    /** Of {@link #refinedEdgeSplitCount}, those split to mint a free spoke into a vertex. */
-    public int spokeSplitCount;
+    /**
+     * Most edges any one route had to split. The paper's blockage costs a few splits, so
+     * a large value means some hop is threading a channel rather than rounding it.
+     */
+    public int mostSplitsInOneRoute;
 
     /** Calls to {@link #tryRoute}. */
     public int routeAttemptCount;
-
-    /** Refine rounds executed across all {@link #tryRoute} calls. */
-    public int refineRoundCount;
 
     /** Re-routes that only succeeded by materializing splits. */
     public int refinedRetryCount;
@@ -129,9 +116,33 @@ public final class ArcRerouter {
      */
     public int visitStamp;
 
+    /** Splits still needed from each node, valid where {@link #gateStampByNode} matches. */
+    public int[] splitPotentialByNode = new int[0];
+
+    /** Gate-pass generation that last wrote each node's potential. */
+    public int[] gateStampByNode = new int[0];
+
+    /** Generation counter for {@link #gateStampByNode}. */
+    public int gateStamp;
+
+    /** Nodes reached at the split count the gate pass is draining. */
+    public int[] gateBucket = new int[FRONTIER_INITIAL_CAPACITY];
+
+    /** Live entry count of {@link #gateBucket}. */
+    public int gateBucketSize;
+
+    /** Nodes reached at one split more than the bucket being drained. */
+    public int[] nextGateBucket = new int[FRONTIER_INITIAL_CAPACITY];
+
+    /** Live entry count of {@link #nextGateBucket}. */
+    public int nextGateBucketSize;
+
+    /** Exclusive bound on real search nodes; a virtual midpoint node sits at this plus its edge id. */
+    public int vertexIdBound;
+
     /**
-     * Stamp of the last exhaustive failed search, or zero for none; its settled
-     * set provably cannot reach the target under any stricter claim state.
+     * Gate stamp of the last failed pass, or zero for none; every vertex it left
+     * unstamped provably cannot reach that target under any stricter claim state.
      */
     public int exhaustedFailureStamp;
 
@@ -142,7 +153,6 @@ public final class ArcRerouter {
      */
     public ArcRerouter(EmbeddedMeshTopology topology) {
         this.topology = topology;
-        this.splitPremium = SPLIT_PREMIUM_RADIUS_FACTOR * topology.copy.radius();
     }
 
     /**
@@ -159,10 +169,11 @@ public final class ArcRerouter {
     }
 
     /**
-     * Route an arc between two vertices by one split-aware Dijkstra: real moves
-     * walk unclaimed edges through free vertices; virtual moves stand on the
-     * midpoint of a splittable edge at a premium. The cheapest path wins, and
-     * only its midpoints are split.
+     * Route an arc between two vertices without crossing or touching another arc,
+     * splitting the fewest edges such a route can: a free pass first, and only
+     * where that fails a gate pass and a refined pass confined to its corridor.
+     *
+     * <p>See also: LCBK19 Section 6.1
      *
      * @param arcId           arc being re-routed, for counters
      * @param vertices        path list; the start vertex is appended when empty, and
@@ -173,17 +184,18 @@ public final class ArcRerouter {
      * @param passThrough     a claimed vertex the search may transit anyway — the collapsing
      *                        node, which the arc must follow to its new home — or
      *                        {@link EmbeddedMeshTopology#UNCLAIMED} for none
-     * @param roundCap        unused; retained for caller stability
      * @return whether the path now ends at the target
+     * @throws IllegalStateException when the gate pass promised a corridor the refined
+     *                               pass could not walk, which means the two disagree
      */
     public boolean tryRoute(int arcId, List<Integer> vertices, int startCopyVertex,
-            int endCopyVertex, ActiveIdSet corridor, int passThrough, int roundCap) {
+            int endCopyVertex, ActiveIdSet corridor, int passThrough) {
         if (vertices.isEmpty()) {
             vertices.add(startCopyVertex);
         }
         lastCorridorSet = corridor;
         routeAttemptCount++;
-        int vertexIdBound = topology.ownerArcByCopyVertex.length;
+        vertexIdBound = topology.ownerArcByCopyVertex.length;
         int nodeIdBound = vertexIdBound + topology.ownerArcByCopyEdge.length;
         if (distanceByVertex.length < nodeIdBound) {
             distanceByVertex = Arrays.copyOf(distanceByVertex, nodeIdBound);
@@ -198,8 +210,14 @@ public final class ArcRerouter {
         int reachedCount = 0;
         int stamp = 0;
         boolean reachedTarget = false;
-        for (int phase = 0; phase < 2 && !reachedTarget; phase++) {
-            boolean virtualMoves = phase == 1;
+        for (int pass = 0; pass < 2 && !reachedTarget; pass++) {
+            boolean refined = pass == 1;
+            if (refined && gatePass(startCopyVertex, endCopyVertex, passThrough) == UNREACHED) {
+                lastReachedCount = reachedCount;
+                exhaustedFailureStamp = gateStamp;
+                lastCorridorSize = corridor.size();
+                return false;
+            }
             stamp = nextVisitStamp();
             frontierSize = 0;
             distanceByVertex[startCopyVertex] = 0f;
@@ -219,6 +237,7 @@ public final class ArcRerouter {
                 }
                 float headDistance = distanceByVertex[node];
                 if (node < vertexIdBound) {
+                    int headPotential = refined ? nodePotential(node) : 0;
                     for (int index = 0; index < topology.copy.vertexEdgeCount(node); index++) {
                         int edgeId = topology.copy.vertexEdgeAt(node, index);
                         if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED
@@ -226,35 +245,45 @@ public final class ArcRerouter {
                             continue;
                         }
                         int neighbor = topology.otherEndpoint(edgeId, node);
-                        if (realAdmissible(neighbor, endCopyVertex, passThrough)) {
+                        if (realAdmissible(neighbor, endCopyVertex, passThrough)
+                                && (!refined || tightStep(headPotential, nodePotential(neighbor), 0))) {
                             reachedCount += relax(node, neighbor, headDistance
                                     + topology.edgeLength(edgeId), stamp);
                         }
                     }
-                    if (virtualMoves) {
+                    if (refined) {
                         topology.copy.vertexPosition(node, positionHere);
                     }
-                    for (int index = 0; virtualMoves
+                    for (int index = 0; refined
                             && index < topology.copy.vertexFaceCount(node); index++) {
                         int faceId = topology.copy.vertexFaceAt(node, index);
                         if (!faceInRestriction(faceId)) {
                             continue;
+                        }
+                        int partner = flipPartner(node, faceId, endCopyVertex, passThrough);
+                        if (partner != EmbeddedMeshTopology.UNCLAIMED
+                                && tightStep(headPotential, nodePotential(partner), 0)) {
+                            topology.copy.vertexPosition(partner, positionCandidate);
+                            reachedCount += relax(node, partner,
+                                    headDistance + positionHere.distance(positionCandidate), stamp);
                         }
                         for (int corner = 0; corner < CORNERS; corner++) {
                             int edgeId = topology.copy.faceEdgeAt(faceId, corner);
                             int halfEdge = topology.copy.edgeHalfEdge(edgeId);
                             if (topology.copy.halfEdgeVertex(halfEdge) == node
                                     || topology.copy.halfEdgeEndVertex(halfEdge) == node
-                                    || !virtualAdmissible(edgeId)) {
+                                    || !virtualAdmissible(edgeId)
+                                    || !tightStep(headPotential, nodePotential(vertexIdBound + edgeId), 1)) {
                                 continue;
                             }
                             midpointPosition(halfEdge, positionA, positionB, positionCandidate);
                             reachedCount += relax(node, vertexIdBound + edgeId, headDistance
-                                    + splitPremium + positionHere.distance(positionCandidate), stamp);
+                                    + positionHere.distance(positionCandidate), stamp);
                         }
                     }
                 } else {
                     int nodeEdge = node - vertexIdBound;
+                    int headPotential = nodePotential(node);
                     int nodeHalfEdge = topology.copy.edgeHalfEdge(nodeEdge);
                     midpointPosition(nodeHalfEdge, positionA, positionB, positionHere);
                     for (int side = 0; side < 2; side++) {
@@ -265,27 +294,35 @@ public final class ArcRerouter {
                         }
                         for (int corner = 0; corner < CORNERS; corner++) {
                             int neighbor = topology.copy.faceVertexAt(faceId, corner);
-                            if (realAdmissible(neighbor, endCopyVertex, passThrough)) {
+                            if (realAdmissible(neighbor, endCopyVertex, passThrough)
+                                    && tightStep(headPotential, nodePotential(neighbor), 0)) {
                                 topology.copy.vertexPosition(neighbor, positionCandidate);
                                 reachedCount += relax(node, neighbor, headDistance
                                         + positionHere.distance(positionCandidate), stamp);
                             }
                             int edgeId = topology.copy.faceEdgeAt(faceId, corner);
-                            if (edgeId == nodeEdge || !virtualAdmissible(edgeId)) {
+                            if (edgeId == nodeEdge || !virtualAdmissible(edgeId)
+                                    || !tightStep(headPotential, nodePotential(vertexIdBound + edgeId), 1)) {
                                 continue;
                             }
                             midpointPosition(topology.copy.edgeHalfEdge(edgeId),
                                     positionA, positionB, positionCandidate);
                             reachedCount += relax(node, vertexIdBound + edgeId, headDistance
-                                    + splitPremium + positionHere.distance(positionCandidate), stamp);
+                                    + positionHere.distance(positionCandidate), stamp);
                         }
                     }
                 }
             }
+            if (!reachedTarget && refined) {
+                throw new IllegalStateException("gate pass reached start vertex " + startCopyVertex
+                        + " from target " + endCopyVertex + " at "
+                        + nodePotential(startCopyVertex) + " split(s), but the refined pass could"
+                        + " not walk that corridor; the two passes disagree about which moves the"
+                        + " claims allow");
+            }
         }
         lastReachedCount = reachedCount;
         if (!reachedTarget) {
-            exhaustedFailureStamp = stamp;
             lastCorridorSize = corridor.size();
             return false;
         }
@@ -295,36 +332,334 @@ public final class ArcRerouter {
             nodePath.add(walk);
         }
         Collections.reverse(nodePath);
-        boolean split = false;
+        int routeSplitCount = 0;
+        int previousVertex = startCopyVertex;
         for (int node : nodePath) {
             int realVertex = node;
             if (node >= vertexIdBound) {
                 realVertex = topology.splitEdgeAtParameter(node - vertexIdBound, EDGE_MIDPOINT);
                 refinedEdgeSplitCount++;
-                gateSplitCount++;
-                split = true;
+                routeSplitCount++;
+            } else if (topology.edgeBetween(previousVertex, realVertex)
+                    == EmbeddedMeshTopology.UNCLAIMED) {
+                flipChordBetween(previousVertex, realVertex);
             }
             corridor.add(realVertex);
             vertices.add(realVertex);
+            previousVertex = realVertex;
         }
-        if (split) {
+        if (routeSplitCount > 0) {
             refinedRetryCount++;
+            mostSplitsInOneRoute = Math.max(mostSplitsInOneRoute, routeSplitCount);
         }
         lastCorridorSize = corridor.size();
         return true;
     }
 
     /**
-     * Whether a vertex was settled by the last exhaustive failed search — from
-     * there the target stays unreachable under any equal-or-stricter claim state,
-     * so a back-off attempt starting on it can be skipped.
+     * Flood back from the target over the moves the refined pass walks, recording how many
+     * splits a route from each node still needs.
      *
-     * @param copyVertex candidate search start
+     * <p>Reaching the source ends the flood: no node the refined pass can stand on costs
+     * more. See also: LCBK19 Section 6.1
+     *
+     * @param startCopyVertex hop source, whose potential the refined pass starts from
+     * @param endCopyVertex   hop target, the flood's seed
+     * @param passThrough     permitted claimed transit vertex
+     * @return splits the start still needs, or {@link #UNREACHED} when no corridor reaches it
+     */
+    private int gatePass(int startCopyVertex, int endCopyVertex, int passThrough) {
+        int nodeIdBound = vertexIdBound + topology.ownerArcByCopyEdge.length;
+        if (gateStampByNode.length < nodeIdBound) {
+            splitPotentialByNode = Arrays.copyOf(splitPotentialByNode, nodeIdBound);
+            gateStampByNode = Arrays.copyOf(gateStampByNode, nodeIdBound);
+        }
+        gateStamp = nextGateStamp();
+        gateBucketSize = 0;
+        nextGateBucketSize = 0;
+        reachGateNode(endCopyVertex, 0);
+        int splitCount = 0;
+        while (gateBucketSize > 0) {
+            while (gateBucketSize > 0) {
+                int node = gateBucket[--gateBucketSize];
+                if (splitPotentialByNode[node] != splitCount) {
+                    continue;
+                }
+                if (node < vertexIdBound) {
+                    for (int index = 0; index < topology.copy.vertexEdgeCount(node); index++) {
+                        int edgeId = topology.copy.vertexEdgeAt(node, index);
+                        int neighbor = topology.otherEndpoint(edgeId, node);
+                        if (topology.ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED
+                                && edgeInRestriction(edgeId)
+                                && gateAdmissible(neighbor, startCopyVertex, endCopyVertex,
+                                        passThrough)) {
+                            reachGateNode(neighbor, splitCount);
+                        }
+                    }
+                    for (int index = 0; index < topology.copy.vertexFaceCount(node); index++) {
+                        int faceId = topology.copy.vertexFaceAt(node, index);
+                        if (!faceInRestriction(faceId)) {
+                            continue;
+                        }
+                        int partner = flipPartner(node, faceId, endCopyVertex, passThrough);
+                        if (partner != EmbeddedMeshTopology.UNCLAIMED) {
+                            reachGateNode(partner, splitCount);
+                        }
+                        for (int corner = 0; corner < CORNERS; corner++) {
+                            int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+                            if (virtualAdmissible(edgeId)) {
+                                reachGateNode(vertexIdBound + edgeId, splitCount);
+                            }
+                        }
+                    }
+                } else {
+                    int nodeEdge = node - vertexIdBound;
+                    int nodeHalfEdge = topology.copy.edgeHalfEdge(nodeEdge);
+                    int nodeTail = topology.copy.halfEdgeVertex(nodeHalfEdge);
+                    int nodeHead = topology.copy.halfEdgeEndVertex(nodeHalfEdge);
+                    for (int side = 0; side < 2; side++) {
+                        int faceId = side == 0 ? topology.copy.halfEdgeFace(nodeHalfEdge)
+                                : topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(nodeHalfEdge));
+                        if (faceId < 0 || !faceInRestriction(faceId)) {
+                            continue;
+                        }
+                        for (int corner = 0; corner < CORNERS; corner++) {
+                            int cornerVertex = topology.copy.faceVertexAt(faceId, corner);
+                            if (cornerVertex != nodeTail && cornerVertex != nodeHead
+                                    && gateAdmissible(cornerVertex, startCopyVertex, endCopyVertex,
+                                            passThrough)) {
+                                reachGateNodeLater(cornerVertex, splitCount + 1);
+                            }
+                            int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+                            if (edgeId != nodeEdge && virtualAdmissible(edgeId)) {
+                                reachGateNodeLater(vertexIdBound + edgeId, splitCount + 1);
+                            }
+                        }
+                    }
+                }
+            }
+            if (nodePotential(startCopyVertex) != UNREACHED
+                    && splitPotentialByNode[startCopyVertex] <= splitCount) {
+                break;
+            }
+            splitCount++;
+            int[] drained = gateBucket;
+            gateBucket = nextGateBucket;
+            nextGateBucket = drained;
+            gateBucketSize = nextGateBucketSize;
+            nextGateBucketSize = 0;
+        }
+        return nodePotential(startCopyVertex);
+    }
+
+    /**
+     * Record a node the gate pass reached at the count it is draining, and queue it for
+     * expansion in that same bucket.
+     *
+     * @param node       search node reached, real or virtual
+     * @param splitCount splits still needed from there
+     */
+    private void reachGateNode(int node, int splitCount) {
+        if (gateStampByNode[node] == gateStamp && splitPotentialByNode[node] <= splitCount) {
+            return;
+        }
+        gateStampByNode[node] = gateStamp;
+        splitPotentialByNode[node] = splitCount;
+        if (gateBucketSize == gateBucket.length) {
+            gateBucket = Arrays.copyOf(gateBucket, gateBucket.length * 2);
+        }
+        gateBucket[gateBucketSize++] = node;
+    }
+
+    /**
+     * Record a node one split further out than the count being drained, and queue it for
+     * the next bucket.
+     *
+     * @param node       search node reached, real or virtual
+     * @param splitCount splits still needed from there
+     */
+    private void reachGateNodeLater(int node, int splitCount) {
+        if (gateStampByNode[node] == gateStamp && splitPotentialByNode[node] <= splitCount) {
+            return;
+        }
+        gateStampByNode[node] = gateStamp;
+        splitPotentialByNode[node] = splitCount;
+        if (nextGateBucketSize == nextGateBucket.length) {
+            nextGateBucket = Arrays.copyOf(nextGateBucket, nextGateBucket.length * 2);
+        }
+        nextGateBucket[nextGateBucketSize++] = node;
+    }
+
+    /**
+     * The corner a flip would connect a vertex to, across the chord opposite it.
+     *
+     * <p>A flip crosses a chord for nothing where a split costs a vertex forever, so it
+     * needs one source face and a strictly convex quad. See also: LCBK19 Section 6.1
+     *
+     * @param copyVertex    vertex the search stands on
+     * @param faceId        one of its faces, whose opposite edge is the candidate chord
+     * @param endCopyVertex search target, always standable
+     * @param passThrough   permitted claimed transit vertex
+     * @return the corner across the flip, or {@link EmbeddedMeshTopology#UNCLAIMED} for none
+     */
+    private int flipPartner(int copyVertex, int faceId, int endCopyVertex, int passThrough) {
+        int edgeId = oppositeEdge(faceId, copyVertex);
+        if (edgeId == EmbeddedMeshTopology.UNCLAIMED || !virtualAdmissible(edgeId)
+                || !chordEdge(edgeId, endCopyVertex, passThrough)) {
+            return EmbeddedMeshTopology.UNCLAIMED;
+        }
+        int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+        int twinFace = topology.copy.halfEdgeFace(halfEdge) == faceId
+                ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
+                : topology.copy.halfEdgeFace(halfEdge);
+        int sourceFace = topology.sourceFaceByCopyFace[faceId];
+        if (twinFace < 0 || !faceInRestriction(twinFace)
+                || sourceFace == EmbeddedMeshTopology.UNCLAIMED
+                || sourceFace != topology.sourceFaceByCopyFace[twinFace]) {
+            return EmbeddedMeshTopology.UNCLAIMED;
+        }
+        int chordTail = topology.copy.halfEdgeVertex(halfEdge);
+        int chordHead = topology.copy.halfEdgeEndVertex(halfEdge);
+        int partner = topology.copy.faceOppositeCorner(twinFace, chordTail, chordHead);
+        if (!realAdmissible(partner, endCopyVertex, passThrough)) {
+            return EmbeddedMeshTopology.UNCLAIMED;
+        }
+        double[] here = topology.barycentricOf(sourceFace, copyVertex);
+        double[] across = topology.barycentricOf(sourceFace, partner);
+        double[] tailSide = topology.barycentricOf(sourceFace, chordTail);
+        double[] headSide = topology.barycentricOf(sourceFace, chordHead);
+        if (here == null || across == null || tailSide == null || headSide == null) {
+            return EmbeddedMeshTopology.UNCLAIMED;
+        }
+        int tailSign = ExactBarycentricOrient.sign(here, across, tailSide);
+        int headSign = ExactBarycentricOrient.sign(here, across, headSide);
+        return tailSign == 0 || headSign == 0 || tailSign == headSign
+                ? EmbeddedMeshTopology.UNCLAIMED : partner;
+    }
+
+    /**
+     * Whether an edge can only be crossed by leaving it: neither endpoint is a vertex the
+     * search may stand on. This is MPZ14's chord, the witness that the region between the
+     * arcs is not 3-connected.
+     *
+     * @param edgeId        candidate copy edge
+     * @param endCopyVertex search target, always standable
+     * @param passThrough   permitted claimed transit vertex
+     * @return true when neither endpoint is standable
+     */
+    private boolean chordEdge(int edgeId, int endCopyVertex, int passThrough) {
+        int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+        return !realAdmissible(topology.copy.halfEdgeVertex(halfEdge), endCopyVertex, passThrough)
+                && !realAdmissible(topology.copy.halfEdgeEndVertex(halfEdge), endCopyVertex,
+                        passThrough);
+    }
+
+    /**
+     * The edge of a triangle that does not touch one of its corners.
+     *
+     * @param faceId   triangle to read
+     * @param vertexId corner to exclude
+     * @return the opposite edge, or {@link EmbeddedMeshTopology#UNCLAIMED} when the corner
+     *         is not on the face
+     */
+    private int oppositeEdge(int faceId, int vertexId) {
+        for (int corner = 0; corner < CORNERS; corner++) {
+            int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+            int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+            if (topology.copy.halfEdgeVertex(halfEdge) != vertexId
+                    && topology.copy.halfEdgeEndVertex(halfEdge) != vertexId) {
+                return edgeId;
+            }
+        }
+        return EmbeddedMeshTopology.UNCLAIMED;
+    }
+
+    /**
+     * Flip the chord separating two routed vertices, so the step between them becomes a
+     * real edge. Recomputed against the live mesh, since an earlier flip on the same route
+     * may have retriangulated the quad.
+     *
+     * @param fromVertex step source
+     * @param toVertex   step target, which no edge yet reaches
+     * @throws IllegalStateException when no flippable chord joins them
+     */
+    private void flipChordBetween(int fromVertex, int toVertex) {
+        for (int index = 0; index < topology.copy.vertexFaceCount(fromVertex); index++) {
+            int faceId = topology.copy.vertexFaceAt(fromVertex, index);
+            int edgeId = oppositeEdge(faceId, fromVertex);
+            if (edgeId == EmbeddedMeshTopology.UNCLAIMED
+                    || topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                continue;
+            }
+            int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+            int twinFace = topology.copy.halfEdgeFace(halfEdge) == faceId
+                    ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
+                    : topology.copy.halfEdgeFace(halfEdge);
+            if (twinFace < 0) {
+                continue;
+            }
+            int chordTail = topology.copy.halfEdgeVertex(halfEdge);
+            int chordHead = topology.copy.halfEdgeEndVertex(halfEdge);
+            if (topology.copy.faceOppositeCorner(twinFace, chordTail, chordHead) == toVertex) {
+                topology.flipEdge(edgeId);
+                chordFlipCount++;
+                return;
+            }
+        }
+        throw new IllegalStateException("routed step from " + fromVertex + " to " + toVertex
+                + " has no edge and no flippable chord between them; the search took a move"
+                + " the working mesh cannot realize");
+    }
+
+    /**
+     * Splits still needed from a search node, per the last gate pass.
+     *
+     * @param node search node, real or virtual
+     * @return the count, or {@link #UNREACHED} when no corridor reached it
+     */
+    private int nodePotential(int node) {
+        return gateStampByNode[node] == gateStamp ? splitPotentialByNode[node] : UNREACHED;
+    }
+
+    /**
+     * Whether the gate pass may stand on a vertex. The hop source counts however it is
+     * claimed, since the route pass begins standing on it.
+     *
+     * @param vertex          candidate copy vertex
+     * @param startCopyVertex hop source, where the route pass already stands
+     * @param endCopyVertex   search target, always admissible
+     * @param passThrough     permitted claimed transit vertex
+     * @return true when the vertex is admissible
+     */
+    private boolean gateAdmissible(int vertex, int startCopyVertex, int endCopyVertex,
+            int passThrough) {
+        return vertex == startCopyVertex || realAdmissible(vertex, endCopyVertex, passThrough);
+    }
+
+    /**
+     * Whether a move stays on a corridor of fewest splits: it must spend exactly the
+     * splits it costs and no more, so the whole route spends the gate pass's minimum.
+     *
+     * @param fromPotential splits still needed at the move's source
+     * @param toPotential   splits still needed at its target
+     * @param splitCost     splits the move itself spends, zero or one
+     * @return true when the move may be taken
+     */
+    private boolean tightStep(int fromPotential, int toPotential, int splitCost) {
+        return toPotential != UNREACHED && toPotential == fromPotential - splitCost;
+    }
+
+    /**
+     * Whether a vertex was left unreached by the last failed gate pass — from there the
+     * target stays unreachable under any equal-or-stricter claim state, so a back-off
+     * attempt starting on it can be skipped.
+     *
+     * @param copyVertex candidate search start, always a real copy vertex
      * @return true when the vertex provably cannot reach the last failed target
      */
     public boolean settledInExhaustedFailure(int copyVertex) {
-        return exhaustedFailureStamp != 0
-                && vertexVisitStampByVertex[copyVertex] == exhaustedFailureStamp;
+        return exhaustedFailureStamp != 0 && copyVertex < gateStampByNode.length
+                && gateStampByNode[copyVertex] != exhaustedFailureStamp;
     }
 
     /**
@@ -498,6 +833,21 @@ public final class ArcRerouter {
         }
         visitStamp++;
         return visitStamp;
+    }
+
+    /**
+     * Advances the gate-pass generation, wrapping its stamp arrays back to zero before
+     * overflow so a stale stamp can never collide with a live one.
+     *
+     * @return the fresh generation value to stamp this gate pass's writes with
+     */
+    private int nextGateStamp() {
+        if (gateStamp == Integer.MAX_VALUE) {
+            Arrays.fill(gateStampByNode, 0);
+            gateStamp = 0;
+        }
+        gateStamp++;
+        return gateStamp;
     }
 
     /**

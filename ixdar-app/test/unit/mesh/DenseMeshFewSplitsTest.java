@@ -11,10 +11,10 @@ import org.junit.jupiter.api.Test;
  * should refine almost none of them — the number of splits is a property of the layout, not of how
  * finely the surface is triangulated.
  *
- * <p>This is the counterfactual behind the fertility slowdown: there the working copy inflates 18×
- * during contraction, which would be inevitable if splits scaled with mesh size. They do not, so
- * that inflation is a real defect elsewhere (arc paths bloating as they are dragged), not the cost
- * of a fine mesh.
+ * <p>This is the counterfactual behind the fertility slowdown: there the working copy still inflates
+ * roughly 4× during contraction, which would be inevitable if splits scaled with mesh size. They do
+ * not, so that inflation is a real defect elsewhere — a handful of hops thread a channel of
+ * thousands of rungs instead of rounding it — not the cost of a fine mesh.
  *
  * <p>The layout is on a closed torus rather than a planar disk because contracting a bounded surface
  * needs LCBK19 §6.1's border rule, which drags a border arc onto a joint path — currently

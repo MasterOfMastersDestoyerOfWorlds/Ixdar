@@ -52,8 +52,7 @@ class BoxedVertexRerouteTest {
         routed.add(source);
 
         boolean reached = rerouter.tryRoute(EmbeddedMeshTopology.UNCLAIMED, routed, source, target,
-                rerouter.freshCorridor(), EmbeddedMeshTopology.UNCLAIMED,
-                ArcRerouter.REFINE_ROUND_CAP);
+                rerouter.freshCorridor(), EmbeddedMeshTopology.UNCLAIMED);
 
         assertTrue(reached, "a target one arc-claimed diagonal away, with both other corners claimed,"
                 + " must still be reached by splitting an arc-free edge of the shared face");

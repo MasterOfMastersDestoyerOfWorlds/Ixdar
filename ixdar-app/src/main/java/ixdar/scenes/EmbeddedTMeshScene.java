@@ -43,12 +43,27 @@ public class EmbeddedTMeshScene extends ModelScene {
 
     /** Low-word mask recovering a dense edge's high vertex from its key. */
     private static final long FOLD_EDGE_KEY_MASK = 0xFFFFFFFFL;
+ 
+    /** Corners of a source triangle. */
+    private static final int TRIANGLE_CORNERS = 3;
+
+    /** Powers-of-two buckets the refinement-density histogram reports. */
+    private static final int DENSITY_BUCKETS = 16;
 
     /** Whether a full contraction (all three operators to a fixed point) was requested by keypress. */
     public volatile boolean pendingContract;
 
     /** Whether the folded-patch magenta view was toggled by keypress. */
     public volatile boolean pendingFoldFlip;
+
+    /** Whether the refinement-density heat map was toggled by keypress. */
+    public volatile boolean pendingSplitDensity;
+
+    /** Whether the working copy's triangle outlines were toggled by keypress. */
+    public volatile boolean pendingWireframe;
+
+    /** How many single contraction steps were requested by keypress but not yet applied. */
+    public volatile int pendingContractSteps;
 
     /** The angle to stop motorcycle crashes at. */
     public double alphaDegrees = 15;
@@ -89,7 +104,8 @@ public class EmbeddedTMeshScene extends ModelScene {
         engine.buildLayoutEmbedding();
         tmesh = new EmbeddedTMesh(engine.embedding.topology).build(engine.embedding);
         tmesh.validate();
-        tmesh.contract();
+
+            tmesh.contract();
         quadRuntime.setEmbeddedTMesh(tmesh);
         Platforms.get().log(String.format(
                 "[embedded-tmesh] source=%s nodes=%d arcs=%d patches=%d",
@@ -102,6 +118,12 @@ public class EmbeddedTMeshScene extends ModelScene {
                 () -> pendingContract = true));
         controls.add(new ControlHint(Keys.M, "M", "toggle fold-flip view",
                 () -> pendingFoldFlip = true));
+        controls.add(new ControlHint(Keys.R, "R", "toggle refinement-density heat map",
+                () -> pendingSplitDensity = true));
+        controls.add(new ControlHint(Keys.N, "N", "advance one contraction step",
+                () -> pendingContractSteps++));
+        controls.add(new ControlHint(Keys.W, "W", "toggle working-copy triangle outlines",
+                () -> pendingWireframe = true));
         super.setControls();
     }
 
@@ -122,6 +144,37 @@ public class EmbeddedTMeshScene extends ModelScene {
                     + tmesh.patchCollapseCount + " patch-collapse(s), copy V="
                     + tmesh.topology.copy.vertexCount());
         }
+        while (pendingContractSteps > 0) {
+            pendingContractSteps--;
+            String applied = tmesh.contractStep();
+            quadRuntime.setEmbeddedTMesh(tmesh);
+            if (quadRuntime.showCopyWireframe) {
+                quadRuntime.setCopyWireframe(tmesh.topology.copy);
+            }
+            Platforms.get().log("[step] " + (applied == null ? "fixed point reached" : applied));
+        }
+        if (pendingWireframe) {
+            pendingWireframe = false;
+            if (quadRuntime.showCopyWireframe) {
+                quadRuntime.setCopyWireframe(null);
+                Platforms.get().log("[wireframe] outlines off");
+            } else {
+                quadRuntime.setCopyWireframe(tmesh.topology.copy);
+                Platforms.get().log("[wireframe] outlines on: copy V="
+                        + tmesh.topology.copy.vertexCount() + " F="
+                        + tmesh.topology.copy.faceCount());
+            }
+        }
+        if (pendingSplitDensity) {
+            pendingSplitDensity = false;
+            if (quadRuntime.hasPerVertexScalar()) {
+                quadRuntime.clearPerVertexScalar();
+                quadRuntime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.LAMBERT);
+                Platforms.get().log("[refinement] density map off");
+            } else {
+                showSplitDensity();
+            }
+        }
         if (pendingFoldFlip) {
             pendingFoldFlip = false;
             if (quadRuntime.showIsoLines) {
@@ -136,6 +189,61 @@ public class EmbeddedTMeshScene extends ModelScene {
                 }
             }
         }
+    }
+
+    /**
+     * Paints each source triangle by how many times the contraction doubled it, and logs
+     * that distribution with the worst offender.
+     *
+     * <p>Refinement never leaves a source triangle, so this is where the splits landed.
+     * The scale counts doublings because the tail spans four orders of magnitude.
+     */
+    private void showSplitDensity() {
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        int sourceFaceCount = halfEdgeMesh.faceCount();
+        Map<Integer, Integer> denseByVertexId = new HashMap<>(halfEdgeMesh.vertexCount() * 2);
+        for (int dense = 0; dense < halfEdgeMesh.vertexCount(); dense++) {
+            denseByVertexId.put(halfEdgeMesh.vertexIdAt(dense), dense);
+        }
+        float[] childrenByVertex = new float[halfEdgeMesh.vertexCount()];
+        int[] childrenByFace = new int[sourceFaceCount];
+        int worstFace = 0;
+        for (int sourceFace = 0; sourceFace < sourceFaceCount; sourceFace++) {
+            childrenByFace[sourceFace] = tmesh.topology.copyFacesBySourceFace.get(sourceFace).size();
+            if (childrenByFace[sourceFace] > childrenByFace[worstFace]) {
+                worstFace = sourceFace;
+            }
+            int faceId = halfEdgeMesh.faceIdAt(sourceFace);
+            float doublings = (float) (Math.log(childrenByFace[sourceFace]) / Math.log(2));
+            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+                Integer dense = denseByVertexId.get(halfEdgeMesh.faceVertexAt(faceId, corner));
+                if (dense != null) {
+                    childrenByVertex[dense] = Math.max(childrenByVertex[dense], doublings);
+                }
+            }
+        }
+        int[] histogram = new int[DENSITY_BUCKETS];
+        for (int children : childrenByFace) {
+            int bucket = 0;
+            while (bucket < DENSITY_BUCKETS - 1 && children > (1 << bucket)) {
+                bucket++;
+            }
+            histogram[bucket]++;
+        }
+        StringBuilder report = new StringBuilder("[refinement] source faces by copy-face count:");
+        for (int bucket = 0; bucket < DENSITY_BUCKETS; bucket++) {
+            if (histogram[bucket] > 0) {
+                report.append(" <=").append(1 << bucket).append(':').append(histogram[bucket]);
+            }
+        }
+        report.append(" worstSourceFace=").append(worstFace)
+                .append(" children=").append(childrenByFace[worstFace])
+                .append(" copyV=").append(copy.vertexCount())
+                .append(" sourceV=").append(tmesh.topology.originalVertexBound);
+        Platforms.get().log(report.toString());
+        quadRuntime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.SCALAR);
+        quadRuntime.setPerVertexScalar(childrenByVertex, 0f, Float.NaN);
+        Platforms.get().log("[refinement] density map on");
     }
 
     /**

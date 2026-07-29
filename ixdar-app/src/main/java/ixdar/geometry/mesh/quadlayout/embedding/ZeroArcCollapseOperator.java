@@ -47,43 +47,27 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * The id of the lowest-id live, collapsible zero arc, or
-     * {@link EmbeddedTMesh#NONE} when none remains — the driver's "is operator (1)
-     * applicable" test. Scans from {@link #collapsibleScanStart}; with
-     * {@link EmbeddedTMesh#VALIDATE_EVERY_COLLAPSE} set, the result is
-     * cross-checked against a full scan.
+     * The collapsible zero arc whose collapsing node has the fewest or the most arcs
+     * meeting on it, per {@link #collapseOrder}. Ties keep the lowest arc id, so the
+     * choice stays reproducible.
      *
-     * @return the lowest collapsible zero arc id, or {@link EmbeddedTMesh#NONE}
-     * @throws IllegalStateException when the cross-check disagrees with the scan
+     * @return the chosen zero arc id, or {@link EmbeddedTMesh#NONE} when none remains
      */
-    public int nextCollapsibleArc() {
-        while (collapsibleScanStart < tmesh.arcs.size()) {
-            EmbeddedArc lead = tmesh.arcs.get(collapsibleScanStart);
-            if (lead.alive && lead.quantizedLength == 0) {
-                break;
-            }
-            collapsibleScanStart++;
-        }
+    public int mostContendedArc() {
         int found = EmbeddedTMesh.NONE;
-        for (int arcId = collapsibleScanStart; arcId < tmesh.arcs.size(); arcId++) {
-            EmbeddedArc arc = tmesh.arcs.get(arcId);
-            if (arc.alive && arc.quantizedLength == 0 && movingEndpoint(arc) != EmbeddedTMesh.NONE) {
-                found = arcId;
-                break;
+        int bestValence = 0;
+        for (EmbeddedArc arc : tmesh.arcs) {
+            if (!arc.alive || arc.quantizedLength != 0) {
+                continue;
             }
-        }
-        if (EmbeddedTMesh.VALIDATE_EVERY_COLLAPSE) {
-            int fullScan = EmbeddedTMesh.NONE;
-            for (EmbeddedArc arc : tmesh.arcs) {
-                if (arc.alive && arc.quantizedLength == 0
-                        && movingEndpoint(arc) != EmbeddedTMesh.NONE) {
-                    fullScan = arc.arcId;
-                    break;
-                }
+            int movedNodeId = movingEndpoint(arc);
+            if (movedNodeId == EmbeddedTMesh.NONE) {
+                continue;
             }
-            if (fullScan != found) {
-                throw new IllegalStateException("collapsible-arc scan from " + collapsibleScanStart
-                        + " found arc " + found + " but the full scan found " + fullScan);
+            int valence = tmesh.arcEndsByNode.get(movedNodeId).size();
+            if (found == EmbeddedTMesh.NONE || valence > bestValence) {
+                found = arc.arcId;
+                bestValence = valence;
             }
         }
         return found;
@@ -139,16 +123,11 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * Re-routes the end of an arc a moving node drags with it, onto the node's new
-     * vertex.
+     * Re-routes the dragged end of an arc onto its moving node's new vertex.
      *
      * <p>
-     * A drag, not a redraw: the longest still-reaching prefix of the old path is
-     * kept and only the tail re-routed. Re-routing the whole arc separates the
-     * wrong patches.
-     *
-     * <p>
-     * See also: LCBK19 Section 6.1
+     * Only the tail past the longest still-reaching prefix is re-routed, or the
+     * wrong patches separate. See also: LCBK19 Section 6.1
      *
      * @param arcId        arc whose end is being dragged
      * @param movedVertex  the moving node's old copy vertex, an endpoint of the
@@ -168,8 +147,14 @@ public final class ZeroArcCollapseOperator {
             if (vertices.get(0) == targetVertex) {
                 return;
             }
-            throw new IllegalStateException("arc " + arcId
-                    + " is embedded as a point away from the target while its node moves");
+            if (vertices.get(0) == movedVertex) {
+                tmesh.setPath(arcId, List.of(targetVertex));
+                return;
+            }
+            throw new IllegalStateException("arc " + arcId + " is embedded as the point "
+                    + vertices.get(0) + ", which is neither the moving node's vertex "
+                    + movedVertex + " nor its target " + targetVertex
+                    + "; a point-embedded arc must sit on the node it belongs to");
         }
         boolean reversed = vertices.get(0) == movedVertex;
         if (reversed) {
@@ -209,7 +194,7 @@ public final class ZeroArcCollapseOperator {
                 List<Integer> attempt = new ArrayList<>(prefix);
                 ActiveIdSet corridor = rerouter.freshCorridor();
                 if (rerouter.tryRoute(arcId, attempt, vertices.get(keep), targetVertex, corridor,
-                        passThrough, ArcRerouter.REFINE_ROUND_CAP)) {
+                        passThrough)) {
                     List<Integer> edges = new ArrayList<>(prefixEdges);
                     rerouter.rebuildLegEdges(attempt, edges);
                     if (reversed) {

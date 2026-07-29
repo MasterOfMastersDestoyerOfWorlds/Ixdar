@@ -1323,13 +1323,53 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * Applies one zero-arc collapse, or one simple zero-patch collapse when no arc
-     * is collapsible. Both lower the termination measure on their own.
+     * Applies exactly one operator and stops, for stepping the contraction by hand.
+     * Prefers the two measure-lowering operators and falls back to a patch split.
+     *
+     * @return a one-line description of what applied, or {@code null} at the fixed point
+     */
+    public String contractStep() {
+        int verticesBefore = topology.copy.vertexCount();
+        int splitsBefore = collapseArc.rerouter.refinedEdgeSplitCount
+                + splitPatch.rerouter.refinedEdgeSplitCount;
+        String operator;
+        if (applyCollapse()) {
+            operator = "collapse";
+        } else {
+            int nonSimple = splitPatch.nextNonSimpleZeroPatch();
+            if (nonSimple == NONE) {
+                return null;
+            }
+            splitPatch.split(nonSimple);
+            patchSplitCount++;
+            operator = "patchSplit " + nonSimple;
+        }
+        validate();
+        return String.format("%s collapses=%d patchSplits=%d edgeSplits=+%d V=%d(+%d) F=%d",
+                operator, arcCollapseCount, patchSplitCount,
+                collapseArc.rerouter.refinedEdgeSplitCount
+                        + splitPatch.rerouter.refinedEdgeSplitCount - splitsBefore,
+                topology.copy.vertexCount(), topology.copy.vertexCount() - verticesBefore,
+                topology.copy.faceCount());
+    }
+
+    /**
+     * Applies one simple zero-patch collapse, or a zero-arc collapse when no patch is ready.
+     *
+     * <p>
+     * Operator (3) goes first because it alone hands mesh back, and a standing bigon is a
+     * chord channel every later re-route pays to cross. See also: LCBK19 Figure 9g
      *
      * @return true when one of the two applied
      */
     private boolean applyCollapse() {
-        int arc = collapseArc.nextCollapsibleArc();
+        int simple = collapsePatch.nextSimpleZeroPatch();
+        if (simple != NONE) {
+            collapsePatch.collapse(simple);
+            patchCollapseCount++;
+            return true;
+        }
+        int arc = collapseArc.mostContendedArc();
         if (arc != NONE) {
             collapseArc.collapse(arc);
             arcCollapseCount++;
@@ -1338,19 +1378,18 @@ public class EmbeddedTMesh {
                     || now - lastContractProgressNanos > CONTRACT_PROGRESS_NANOS) {
                 lastContractProgressNanos = now;
                 System.out.printf(
-                        "[contract] collapses=%d exactSigns=%d"
-                                + " V=%d F=%d",
+                        "[contract] collapses=%d exactSigns=%d splits=%d flips=%d worstRoute=%d"
+                                + " V=%d F=%d\n",
                         arcCollapseCount,
                         ExactBarycentricOrient.exactSignCallCount,
+                        collapseArc.rerouter.refinedEdgeSplitCount
+                                + splitPatch.rerouter.refinedEdgeSplitCount,
+                        collapseArc.rerouter.chordFlipCount + splitPatch.rerouter.chordFlipCount,
+                        Math.max(collapseArc.rerouter.mostSplitsInOneRoute,
+                                splitPatch.rerouter.mostSplitsInOneRoute),
                         topology.copy.vertexCount(),
                         topology.copy.faceCount());
             }
-            return true;
-        }
-        int simple = collapsePatch.nextSimpleZeroPatch();
-        if (simple != NONE) {
-            collapsePatch.collapse(simple);
-            patchCollapseCount++;
             return true;
         }
         return false;

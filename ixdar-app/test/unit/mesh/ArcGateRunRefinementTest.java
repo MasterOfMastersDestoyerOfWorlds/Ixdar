@@ -75,8 +75,7 @@ class ArcGateRunRefinementTest {
         corridor.add(targetVertex);
         List<Integer> routed = new ArrayList<>();
         boolean reached = new ArcRerouter(topology).tryRoute(ROUTED_ARC, routed, startVertex,
-                targetVertex, corridor, EmbeddedMeshTopology.UNCLAIMED,
-                ArcRerouter.REFINE_ROUND_CAP);
+                targetVertex, corridor, EmbeddedMeshTopology.UNCLAIMED);
 
         assertTrue(reached, "the channel is a threadable passage, so the re-route must find it");
         assertFalse(routed.isEmpty(), "a reached route has vertices");

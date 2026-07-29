@@ -116,7 +116,14 @@ public final class FaceChordWalk {
                 return childFace;
             }
         }
-        throw new IllegalStateException("point lies in no child face of source face " + sourceFace);
+        double outside = 0;
+        for (double coordinate : barycentric) {
+            outside = Math.min(outside, coordinate);
+        }
+        throw new IllegalStateException("point lies in no child face of source face " + sourceFace
+                + "; its barycentric is (" + barycentric[0] + ", " + barycentric[1] + ", "
+                + barycentric[2] + "), outside the face by " + -outside + " across "
+                + topology.copyFacesBySourceFace.get(sourceFace).size() + " child face(s)");
     }
 
     /**
