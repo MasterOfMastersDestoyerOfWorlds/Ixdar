@@ -122,7 +122,7 @@ class StackedZeroPatchSplitMeasureTest {
      * @return true when one of the two operators applied
      */
     private boolean collapseOneArcOrPatch(EmbeddedTMesh contraction) {
-        int arcId = contraction.collapseArc.nextCollapsibleArc();
+        int arcId = contraction.collapseArc.mostContendedArc();
         if (arcId != EmbeddedTMesh.NONE) {
             contraction.collapseArc.collapse(arcId);
             return true;

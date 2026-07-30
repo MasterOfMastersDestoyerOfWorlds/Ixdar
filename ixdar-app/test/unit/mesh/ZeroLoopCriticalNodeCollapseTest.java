@@ -56,7 +56,7 @@ class ZeroLoopCriticalNodeCollapseTest {
         int eulerBefore = eulerCharacteristic(tmesh);
         ZeroArcCollapseOperator collapse = new ZeroArcCollapseOperator(tmesh);
 
-        int offered = collapse.nextCollapsibleArc();
+        int offered = collapse.mostContendedArc();
         assertNotEquals(EmbeddedTMesh.NONE, offered,
                 "a zero loop needs no endpoint to move, so a critical node must not withhold it —"
                         + " withholding it strands every late-forming loop, since collapses union"

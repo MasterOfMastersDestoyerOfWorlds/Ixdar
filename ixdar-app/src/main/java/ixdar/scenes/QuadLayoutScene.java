@@ -5,8 +5,6 @@ import java.io.IOException;
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
-import ixdar.geometry.mesh.quadlayout.quantization.LayoutPatchGeometry;
-import ixdar.geometry.mesh.quadlayout.quantization.LayoutSeamAudit;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
@@ -77,29 +75,28 @@ public class QuadLayoutScene extends ModelScene {
     private void rebuildLayout() {
         float alphaRadians = (float) Math.toRadians(alphaDegrees);
         QuadLayoutEngine engine = new QuadLayoutEngine(halfEdgeMesh, alphaRadians);
-        engine.buildLayoutEmbedding();
-        LayoutPatchGeometry patchGeometry = new LayoutPatchGeometry(engine.conforming).build();
-        new LayoutSeamAudit(patchGeometry).build();
+        engine.buildContractedTMesh();
         LayoutExtraction layout = engine.layout;
         MotorcycleGraph graph = engine.motorcycleGraph;
         graph.traceRecordsByFace = layout.layoutRecordsByFace;
         quadRuntime.setSeamlessParametrization(engine.seamless);
         quadRuntime.setMotorcycleGraph(graph);
-        quadRuntime.setLayoutPatchGeometry(patchGeometry);
-        quadRuntime.setLayoutEmbedding(engine.embedding);
+        quadRuntime.setEmbeddedTMesh(engine.tmesh);
         quadRuntime.showTraces = true;
         quadRuntime.showNodes = false;
         quadRuntime.showCrossField = false;
         quadRuntime.showFullIsoGrid = false;
-        quadRuntime.showLayoutPatches = true;
-        quadRuntime.showLayoutBoundaries = true;
+        quadRuntime.showLayoutPatches = false;
+        quadRuntime.showLayoutBoundaries = false;
         quadRuntime.showEmbeddedArcs = true;
         String hudLine = String.format(
-                "[quad-layout] α=%.0f° skeletonArcs=%d layoutNodes=%d #P=%d"
-                        + " tJunctions=%d cleanQuads=%d embedArcs=%d/%d",
-                alphaDegrees, layout.layoutArcs.size(), layout.singularClusterCount, engine.conforming.finalPatchCount,
-                engine.conforming.remainingTJunctionCount, patchGeometry.cleanQuadCount,
-                engine.embedding.carve.carvedArcCount, engine.embedding.pathByArc.length);
+                "[quad-layout] α=%.0f° skeletonArcs=%d layoutNodes=%d nodes=%d arcs=%d patches=%d"
+                        + " collapses=%d embedArcs=%d/%d copyV=%d",
+                alphaDegrees, layout.layoutArcs.size(), layout.singularClusterCount,
+                engine.tmesh.nodes.size(), engine.tmesh.arcs.size(), engine.tmesh.patches.size(),
+                engine.tmesh.arcCollapseCount,
+                engine.embedding.carve.carvedArcCount, engine.embedding.pathByArc.length,
+                engine.tmesh.topology.copy.vertexCount());
         Platforms.get().log(hudLine);
     }
 

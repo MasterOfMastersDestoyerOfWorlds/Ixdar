@@ -2,12 +2,12 @@ package ixdar.geometry.mesh.quadlayout;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
 import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
 import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
-import ixdar.geometry.mesh.quadlayout.quantization.TJunctionElimination;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
@@ -38,8 +38,10 @@ public final class QuadLayoutEngine {
     public MotorcycleGraph motorcycleGraph;
     public QuantizedMeshGrid quantization;
     public LayoutExtraction layout;
-    public TJunctionElimination conforming;
     public LayoutEmbedding embedding;
+
+    /** The embedded T-mesh, contracted to a fixed point: the pipeline's output. */
+    public EmbeddedTMesh tmesh;
 
     /**
      * Stage products start unbuilt; call the {@code build*} method of the
@@ -127,30 +129,47 @@ public final class QuadLayoutEngine {
     }
 
     /**
-     * Stage 7: extend remaining T-junctions into a conforming layout and count
-     * the final patches (Lyon §6, extension half).
-     *
-     * @return the cached T-junction elimination with {@code finalPatchCount}
-     */
-    public TJunctionElimination buildConformingLayout() {
-        if (conforming == null) {
-            buildLayout();
-            conforming = new TJunctionElimination(layout).build();
-        }
-        return conforming;
-    }
-
-    /**
-     * Stage 8: re-embed the T-mesh as a subcomplex of a working copy of the
+     * Stage 7: re-embed the T-mesh as a subcomplex of a working copy of the
      * mesh (LCBK19 §6.1) — nodes onto vertices, arcs onto edge paths.
      *
      * @return the cached layout embedding
      */
     public LayoutEmbedding buildLayoutEmbedding() {
         if (embedding == null) {
-            buildConformingLayout();
-            embedding = new LayoutEmbedding(conforming).build();
+            buildLayout();
+            embedding = new LayoutEmbedding(layout).build();
         }
         return embedding;
+    }
+
+    /**
+     * Stage 8: assemble the embedded T-mesh from the carve and validate it against the
+     * surface's Euler characteristic. Zero arcs and patches are still present.
+     *
+     * @return the cached embedded T-mesh, uncontracted
+     */
+    public EmbeddedTMesh buildTMesh() {
+        if (tmesh == null) {
+            buildLayoutEmbedding();
+            tmesh = new EmbeddedTMesh(embedding.topology).build(embedding);
+            tmesh.validate();
+        }
+        return tmesh;
+    }
+
+    /**
+     * Stage 9: contract the embedded T-mesh to a fixed point, leaving no zero-quantized
+     * arc or patch (LCBK19 §6.1 operators 1–3).
+     *
+     * <p>
+     * LCK21a §6's T-junction extension belongs after this, on the embedded T-mesh; until
+     * it exists the layout left here is still non-conforming.
+     *
+     * @return the cached T-mesh, contracted
+     */
+    public EmbeddedTMesh buildContractedTMesh() {
+        buildTMesh();
+        tmesh.contract();
+        return tmesh;
     }
 }

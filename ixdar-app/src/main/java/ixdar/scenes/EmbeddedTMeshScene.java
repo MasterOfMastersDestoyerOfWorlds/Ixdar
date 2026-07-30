@@ -101,11 +101,7 @@ public class EmbeddedTMeshScene extends ModelScene {
         super.loadModel(path);
         QuadLayoutEngine engine = new QuadLayoutEngine(
                 halfEdgeMesh, (float) Math.toRadians(alphaDegrees));
-        engine.buildLayoutEmbedding();
-        tmesh = new EmbeddedTMesh(engine.embedding.topology).build(engine.embedding);
-        tmesh.validate();
-
-            tmesh.contract();
+        tmesh = engine.buildContractedTMesh();
         quadRuntime.setEmbeddedTMesh(tmesh);
         Platforms.get().log(String.format(
                 "[embedded-tmesh] source=%s nodes=%d arcs=%d patches=%d",

@@ -95,8 +95,8 @@ class ZeroPatchSplitTest {
         var collapser = new ixdar.geometry.mesh.quadlayout.embedding
                 .ZeroArcCollapseOperator(fixture.tmesh);
         int guard = 0;
-        for (int arcId = collapser.nextCollapsibleArc(); arcId != EmbeddedTMesh.NONE;
-                arcId = collapser.nextCollapsibleArc()) {
+        for (int arcId = collapser.mostContendedArc(); arcId != EmbeddedTMesh.NONE;
+                arcId = collapser.mostContendedArc()) {
             collapser.collapse(arcId);
             fixture.tmesh.validate();
             if (++guard > fixture.tmesh.arcs.size()) {

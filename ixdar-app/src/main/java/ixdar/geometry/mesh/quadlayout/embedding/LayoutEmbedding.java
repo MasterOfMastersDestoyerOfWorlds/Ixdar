@@ -8,8 +8,8 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
+import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
 import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
-import ixdar.geometry.mesh.quadlayout.quantization.TJunctionElimination;
 
 /**
  * T-mesh re-embedding, construction half: builds a working copy of the input mesh, gives
@@ -30,7 +30,7 @@ public final class LayoutEmbedding {
      */
     private static final double CHART_INVERSION_SLACK = 8.0 * Math.ulp(1.0);
 
-    public final TJunctionElimination conforming;
+    public final LayoutExtraction layout;
     public final MotorcycleGraph motorcycleGraph;
     public final QuantizedMeshGrid quantization;
 
@@ -73,12 +73,12 @@ public final class LayoutEmbedding {
     /**
      * Stores inputs for the re-embedding construction.
      *
-     * @param conforming T-junction-eliminated layout over the T-mesh to embed
+     * @param layout quantized layout whose T-mesh is embedded
      */
-    public LayoutEmbedding(TJunctionElimination conforming) {
-        this.conforming = conforming;
-        this.motorcycleGraph = conforming.motorcycleGraph;
-        this.quantization = conforming.quantization;
+    public LayoutEmbedding(LayoutExtraction layout) {
+        this.layout = layout;
+        this.motorcycleGraph = layout.motorcycleGraph;
+        this.quantization = layout.quantization;
     }
 
     /**

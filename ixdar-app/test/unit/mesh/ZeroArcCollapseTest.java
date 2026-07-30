@@ -28,7 +28,7 @@ class ZeroArcCollapseTest {
         ZeroArcCollapseOperator operator = new ZeroArcCollapseOperator(fixture.tmesh);
 
         int liveArcsBefore = countLive(fixture.tmesh);
-        int arcId = operator.nextCollapsibleArc();
+        int arcId = operator.mostContendedArc();
         assertNotEquals(EmbeddedTMesh.NONE, arcId, "the zero row must offer a collapsible arc");
         assertEquals(0, fixture.tmesh.arcs.get(arcId).quantizedLength, "it must be a zero arc");
 
@@ -53,8 +53,8 @@ class ZeroArcCollapseTest {
         ZeroArcCollapseOperator operator = new ZeroArcCollapseOperator(fixture.tmesh);
 
         int guard = 0;
-        for (int arcId = operator.nextCollapsibleArc(); arcId != EmbeddedTMesh.NONE;
-                arcId = operator.nextCollapsibleArc()) {
+        for (int arcId = operator.mostContendedArc(); arcId != EmbeddedTMesh.NONE;
+                arcId = operator.mostContendedArc()) {
             operator.collapse(arcId);
             fixture.tmesh.validate();
             if (++guard > fixture.tmesh.arcs.size()) {

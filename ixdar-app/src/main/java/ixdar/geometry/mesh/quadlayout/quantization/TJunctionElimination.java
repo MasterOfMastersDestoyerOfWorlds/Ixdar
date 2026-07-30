@@ -2,8 +2,10 @@ package ixdar.geometry.mesh.quadlayout.quantization;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
@@ -21,6 +23,9 @@ public final class TJunctionElimination {
 
     /** Hard cap multiplier on total extension steps, a runaway backstop. */
     public static final int MAX_STEP_MULTIPLIER = 10;
+
+    /** No T-junction cluster selected this round. */
+    private static final int STALLED_NONE = -1;
 
     public final LayoutExtraction layout;
     public final QuantizedMeshGrid quantization;
@@ -104,8 +109,10 @@ public final class TJunctionElimination {
 
         int stepCap = MAX_STEP_MULTIPLIER * Math.max(1, initialRectangleCount);
         int steps = 0;
+        Set<Integer> stalledClusters = new HashSet<>();
         while (steps < stepCap) {
             int[] tJunction = null;
+            int tJunctionCluster = STALLED_NONE;
             for (int index = 0; index < rectangles.size(); index++) {
                 LayoutRectangle cell = rectangles.get(index);
                 if (!cell.alive) {
@@ -117,8 +124,11 @@ public final class TJunctionElimination {
                     int offset = 0;
                     for (int boundary = 1; boundary < boundaries.size() - 1; boundary++) {
                         offset += segments.get(boundary - 1).quantizedLength();
-                        if (degreeByCluster.get(boundaries.get(boundary)) == 3) {
+                        int cluster = boundaries.get(boundary);
+                        if (degreeByCluster.get(cluster) == 3
+                                && !stalledClusters.contains(cluster)) {
                             tJunction = new int[] { index, side, offset };
+                            tJunctionCluster = cluster;
                             side = LayoutRectangle.SIDES;
                             index = rectangles.size();
                             break;
@@ -129,8 +139,14 @@ public final class TJunctionElimination {
             if (tJunction == null) {
                 break;
             }
+            int splitsBefore = connectCount + continuationSplitCount;
             steps += runExtensionChain(rectangles.get(tJunction[0]), tJunction[1], tJunction[2],
                     stepCap - steps);
+            if (connectCount + continuationSplitCount > splitsBefore) {
+                stalledClusters.clear();
+            } else {
+                stalledClusters.add(tJunctionCluster);
+            }
         }
 
         finalPatchCount = countLive();

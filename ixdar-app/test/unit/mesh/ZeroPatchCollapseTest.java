@@ -54,7 +54,7 @@ class ZeroPatchCollapseTest {
 
         int guard = 0;
         while (collapsePatch.nextSimpleZeroPatch() == EmbeddedTMesh.NONE) {
-            int arc = collapseArc.nextCollapsibleArc();
+            int arc = collapseArc.mostContendedArc();
             if (arc != EmbeddedTMesh.NONE) {
                 collapseArc.collapse(arc);
             } else {

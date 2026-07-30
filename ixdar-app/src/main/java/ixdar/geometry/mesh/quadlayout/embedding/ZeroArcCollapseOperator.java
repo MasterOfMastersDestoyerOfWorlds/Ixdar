@@ -47,9 +47,9 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * The collapsible zero arc whose collapsing node has the fewest or the most arcs
-     * meeting on it, per {@link #collapseOrder}. Ties keep the lowest arc id, so the
-     * choice stays reproducible.
+     * The collapsible zero arc whose collapsing node has the most arcs meeting on it, so
+     * the crowded fans clear while the mesh around them is still coarse. Ties keep the
+     * lowest arc id, so the choice stays reproducible.
      *
      * @return the chosen zero arc id, or {@link EmbeddedTMesh#NONE} when none remains
      */

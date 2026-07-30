@@ -304,6 +304,16 @@ public final class FaceChordWalk {
                         .append(",a").append(topology.ownerArcByCopyVertex[cornerVertex])
                         .append(')');
             }
+            detail.append(" edges");
+            for (int corner = 0; corner < CORNERS; corner++) {
+                int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+                detail.append(' ').append(topology.copy.halfEdgeVertex(halfEdge))
+                        .append('-').append(topology.copy.halfEdgeEndVertex(halfEdge))
+                        .append("(a").append(topology.ownerArcByCopyEdge[edgeId])
+                        .append(",src").append(topology.sourceEdgeByCopyEdge[edgeId])
+                        .append(')');
+            }
         }
         return detail.toString();
     }
