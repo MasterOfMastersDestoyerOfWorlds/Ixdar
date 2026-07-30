@@ -34,19 +34,47 @@ public final class ZeroPatchCollapseOperator {
     }
 
     /**
-     * The id of a live simple zero-patch ready to collapse — a bigon of two non-zero arcs
-     * between the same two nodes, its zero sides already collapsed — or {@link EmbeddedTMesh#NONE}
-     * when none remains. The driver's "is operator (3) applicable" test.
+     * The lowest-id live bigon of two non-zero arcs between the same two nodes, or
+     * {@link EmbeddedTMesh#NONE} when none remains. Only {@link EmbeddedTMesh#changedPatches} is
+     * tested, since an untouched patch cannot have newly become one; ready patches keep their
+     * stamp, so repeating the query repeats the answer.
      *
+     * @throws IllegalStateException when {@link EmbeddedTMesh#VALIDATE_EVERY_COLLAPSE} is set and
+     *                               a full scan disagrees, meaning some mutator does not call
+     *                               {@link EmbeddedTMesh#markPatchChanged}
      * @return a collapsible simple zero-patch id, or {@link EmbeddedTMesh#NONE}
      */
     public int nextSimpleZeroPatch() {
-        for (EmbeddedPatch patch : tmesh.patches) {
-            if (patch.alive && isReadyBigon(patch.patchId)) {
-                return patch.patchId;
+        int found = EmbeddedTMesh.NONE;
+        int keep = 0;
+        for (int index = 0; index < tmesh.changedPatchCount; index++) {
+            int patchId = tmesh.changedPatches[index];
+            EmbeddedPatch patch = tmesh.patches.get(patchId);
+            if (patch.alive && isReadyBigon(patch)) {
+                tmesh.changedPatches[keep++] = patchId;
+                if (found == EmbeddedTMesh.NONE || patchId < found) {
+                    found = patchId;
+                }
+            } else {
+                tmesh.patchIsChanged[patchId] = false;
             }
         }
-        return EmbeddedTMesh.NONE;
+        tmesh.changedPatchCount = keep;
+        if (EmbeddedTMesh.VALIDATE_EVERY_COLLAPSE) {
+            int scanned = EmbeddedTMesh.NONE;
+            for (EmbeddedPatch patch : tmesh.patches) {
+                if (patch.alive && isReadyBigon(patch)) {
+                    scanned = patch.patchId;
+                    break;
+                }
+            }
+            if (scanned != found) {
+                throw new IllegalStateException("the changed-patch set answers operator (3) with "
+                        + found + " but a full scan finds " + scanned + "; a mutator that can turn"
+                        + " a patch into a bigon is not calling markPatchChanged");
+            }
+        }
+        return found;
     }
 
     /**
@@ -57,12 +85,13 @@ public final class ZeroPatchCollapseOperator {
      * @throws IllegalStateException when the patch is not a ready bigon
      */
     public void collapse(int patchId) {
-        if (!isReadyBigon(patchId)) {
+        EmbeddedPatch patch = tmesh.patches.get(patchId);
+        if (!isReadyBigon(patch)) {
             throw new IllegalStateException("patch " + patchId + " is not a simple zero-patch with"
                     + " its zero sides collapsed; its live boundary arcs are "
-                    + liveBoundaryArcs(patchId));
+                    + liveBoundaryArcs(patch));
         }
-        List<Integer> boundaryArcs = liveBoundaryArcs(patchId);
+        List<Integer> boundaryArcs = liveBoundaryArcs(patch);
         int survivorArc = chooseSurvivor(boundaryArcs.get(0), boundaryArcs.get(1));
         int dyingArc = survivorArc == boundaryArcs.get(0) ? boundaryArcs.get(1) : boundaryArcs.get(0);
 
@@ -80,11 +109,10 @@ public final class ZeroPatchCollapseOperator {
      * non-zero, running between the same two nodes, on opposite sides with the other two sides
      * empty — the shape a simple zero-patch takes once its zero sides have collapsed.
      *
-     * @param patchId patch to test
+     * @param patch patch to test
      * @return true when the patch is a ready bigon
      */
-    private boolean isReadyBigon(int patchId) {
-        EmbeddedPatch patch = tmesh.patches.get(patchId);
+    private boolean isReadyBigon(EmbeddedPatch patch) {
         int nonEmptySides = 0;
         for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
             if (!patch.sideArcIds.get(side).isEmpty()) {
@@ -94,7 +122,7 @@ public final class ZeroPatchCollapseOperator {
         if (nonEmptySides != 2) {
             return false;
         }
-        List<Integer> boundaryArcs = liveBoundaryArcs(patchId);
+        List<Integer> boundaryArcs = liveBoundaryArcs(patch);
         if (boundaryArcs.size() != 2) {
             return false;
         }
@@ -114,11 +142,10 @@ public final class ZeroPatchCollapseOperator {
      * The live arcs on a patch's boundary, in the reused
      * {@link #boundaryArcsScratch} list.
      *
-     * @param patchId patch to read
+     * @param patch patch to read
      * @return its live boundary arc ids, valid until the next call
      */
-    private List<Integer> liveBoundaryArcs(int patchId) {
-        EmbeddedPatch patch = tmesh.patches.get(patchId);
+    private List<Integer> liveBoundaryArcs(EmbeddedPatch patch) {
         boundaryArcsScratch.clear();
         for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
             List<Integer> sideArcs = patch.sideArcIds.get(side);

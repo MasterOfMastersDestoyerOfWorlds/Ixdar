@@ -56,6 +56,9 @@ public class EmbeddedTMesh {
     /** Split position for a midpoint edge split. */
     private static final double EDGE_MIDPOINT = 0.5;
 
+    /** First allocation of {@link #changedPatches}. */
+    private static final int CHANGED_PATCH_INITIAL_CAPACITY = 16;
+
     public final EmbeddedMeshTopology topology;
 
     /**
@@ -80,6 +83,19 @@ public class EmbeddedTMesh {
 
     /** Arc ends incident to each node, indexed by node id. */
     public final List<List<Integer>> arcEndsByNode;
+
+    /**
+     * Patches whose boundary or boundary-arc endpoints changed since operator (3)
+     * last looked, so a patch absent here cannot have newly become a bigon. May hold
+     * retired patches.
+     */
+    public int[] changedPatches = new int[0];
+
+    /** Live entry count of {@link #changedPatches}. */
+    public int changedPatchCount;
+
+    /** Membership stamp for {@link #changedPatches}, indexed by patch id. */
+    public boolean[] patchIsChanged = new boolean[0];
 
     /**
      * The corridor of the re-route attempt that just failed, held for the failure
@@ -342,7 +358,34 @@ public class EmbeddedTMesh {
                     + " boundary does not close: walked back to node " + walkNode
                     + " instead of " + firstCornerId);
         }
+        markPatchChanged(patchId);
         return patchId;
+    }
+
+    /**
+     * Stamps a patch for operator (3) to re-test, because its side arcs or their
+     * endpoints changed. Every mutator that can create a bigon must call this: an
+     * unstamped patch is never looked at again.
+     *
+     * @param patchId patch to re-test, or {@link #NONE} to record nothing
+     */
+    public void markPatchChanged(int patchId) {
+        if (patchId == NONE) {
+            return;
+        }
+        if (patchId >= patchIsChanged.length) {
+            patchIsChanged = Arrays.copyOf(patchIsChanged,
+                    Math.max(patchId + 1, patchIsChanged.length * 2));
+        }
+        if (patchIsChanged[patchId]) {
+            return;
+        }
+        patchIsChanged[patchId] = true;
+        if (changedPatchCount == changedPatches.length) {
+            changedPatches = Arrays.copyOf(changedPatches,
+                    Math.max(CHANGED_PATCH_INITIAL_CAPACITY, changedPatchCount * 2));
+        }
+        changedPatches[changedPatchCount++] = patchId;
     }
 
     /**
@@ -660,6 +703,7 @@ public class EmbeddedTMesh {
         arcEndsByNode.get(discardNodeId).clear();
         for (int touchedIndex = 0; touchedIndex < touchedPatchIds.size(); touchedIndex++) {
             EmbeddedPatch patch = patches.get(touchedPatchIds.get(touchedIndex));
+            markPatchChanged(patch.patchId);
             for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
                 List<Integer> sideNodes = patch.sideNodeIds.get(side);
                 for (int index = 0; index < sideNodes.size(); index++) {
@@ -712,6 +756,8 @@ public class EmbeddedTMesh {
                     + " its ends are still nodes " + arc.startNodeId + " and " + arc.endNodeId);
         }
         releaseClaims(arc);
+        markPatchChanged(arc.leftPatchId);
+        markPatchChanged(arc.rightPatchId);
         int pinchedPatchId = mergedANode ? NONE : pinchedPatchOf(arcId);
         if (pinchedPatchId != NONE) {
             int farPatchId = arc.leftPatchId == pinchedPatchId ? arc.rightPatchId : arc.leftPatchId;
@@ -827,6 +873,7 @@ public class EmbeddedTMesh {
         List<Integer> sideNodes = patches.get(patchId).sideNodeIds.get(position[0]);
         sideArcs.remove(position[1]);
         sideArcs.addAll(position[1], replacements);
+        markPatchChanged(patchId);
         for (int step = 0; step + 1 < replacements.size(); step++) {
             sideNodes.add(position[1] + 1 + step,
                     sharedNode(replacements.get(step), replacements.get(step + 1)));
@@ -895,6 +942,8 @@ public class EmbeddedTMesh {
         arcEndsByNode.get(arc.startNodeId).removeIf(id -> id == arcId);
         arcEndsByNode.get(arc.endNodeId).removeIf(id -> id == arcId);
         arc.alive = false;
+        markPatchChanged(arc.leftPatchId);
+        markPatchChanged(arc.rightPatchId);
     }
 
     /**
@@ -958,6 +1007,7 @@ public class EmbeddedTMesh {
             sideArcs.set(position[1], forward ? firstArcId : secondArcId);
             sideArcs.add(position[1] + 1, forward ? secondArcId : firstArcId);
             sideNodes.add(position[1] + 1, splitNodeId);
+            markPatchChanged(patchId);
         }
         return new int[] { firstArcId, secondArcId };
     }
@@ -1049,6 +1099,7 @@ public class EmbeddedTMesh {
         }
         int[] position = sidePosition(patchId, oldArcId);
         patches.get(patchId).sideArcIds.get(position[0]).set(position[1], newArcId);
+        markPatchChanged(patchId);
         if (newArc.leftPatchId == oldArc.leftPatchId || newArc.leftPatchId == oldArc.rightPatchId) {
             newArc.leftPatchId = patchId;
         } else {
