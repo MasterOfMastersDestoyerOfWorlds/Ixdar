@@ -1445,7 +1445,8 @@ public class EmbeddedTMesh {
                 lastContractProgressNanos = now;
                 System.out.printf(
                         "[contract] collapses=%d exactSigns=%d splits=%d flips=%d worstRoute=%d"
-                                + " V=%d F=%d\n",
+                                + " V=%d F=%d | routes=%d gates=%d gateExpand=%d(virtual=%d)"
+                                + " freeSettle=%d refinedSettle=%d\n",
                         arcCollapseCount,
                         ExactBarycentricOrient.exactSignCallCount,
                         collapseArc.rerouter.refinedEdgeSplitCount
@@ -1454,7 +1455,17 @@ public class EmbeddedTMesh {
                         Math.max(collapseArc.rerouter.mostSplitsInOneRoute,
                                 splitPatch.rerouter.mostSplitsInOneRoute),
                         topology.copy.vertexCount(),
-                        topology.copy.faceCount());
+                        topology.copy.faceCount(),
+                        collapseArc.rerouter.routeAttemptCount
+                                + splitPatch.rerouter.routeAttemptCount,
+                        collapseArc.rerouter.gatePassCount + splitPatch.rerouter.gatePassCount,
+                        collapseArc.rerouter.gateExpansionCount
+                                + splitPatch.rerouter.gateExpansionCount,
+                        collapseArc.rerouter.gateVirtualExpansionCount
+                                + splitPatch.rerouter.gateVirtualExpansionCount,
+                        collapseArc.rerouter.freeSettleCount + splitPatch.rerouter.freeSettleCount,
+                        collapseArc.rerouter.refinedSettleCount
+                                + splitPatch.rerouter.refinedSettleCount);
             }
             return true;
         }
