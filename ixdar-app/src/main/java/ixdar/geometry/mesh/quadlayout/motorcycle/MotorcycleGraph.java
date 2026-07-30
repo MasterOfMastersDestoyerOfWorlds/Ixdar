@@ -44,11 +44,19 @@ public final class MotorcycleGraph {
     private static final int PROGRESS_BAR_WIDTH = 30;
     private static final int PROGRESS_LOG_EVERY_EVENTS = 5000;
     /** Hard cap on processed events so a stuck queue cannot run forever. */
-    private static final int MAX_SIMULATION_EVENTS = 100_000;
+    /**
+     * Event backstop per source face. Every event either crosses a face edge or nodes a
+     * crossing, so the arrangement cannot need more than a small multiple of the face count;
+     * a flat cap starves a large mesh and truncates its traces mid-flight.
+     */
+    private static final int MAX_EVENTS_PER_FACE = 8;
     /**
      * Wall-clock budget for the simulation loop.
      */
-    private static final long MAX_SIMULATION_NANOS = 10L * 1_000_000_000L;
+    private static final long MAX_SIMULATION_NANOS = 300L * 1_000_000_000L;
+
+    /** Nanoseconds per second, for the backstop message. */
+    private static final double NANOS_PER_SECOND = 1.0e9;
 
     public final SeamlessParameterization seamless;
     public final float alphaRadians;
@@ -90,6 +98,29 @@ public final class MotorcycleGraph {
 
     /** Trace chains containing the same node at two different positions. */
     public int repeatedChainNodeCount;
+
+    /** Crossing events whose chord pair was already met, so no node was made. */
+    public int dedupedMeetingCount;
+
+    /**
+     * Crossings where the other trace was still alive, so the intersection node joined only
+     * the candidate's chain. The other trace's boundary is left to the subdivision pass.
+     */
+    public int liveOtherNoArcCount;
+
+    /**
+     * Traces whose last {@code arcNodeIds} entry is really an interior crossing, because its
+     * node was appended after the trace had terminated. Such a node is no longer treated as
+     * the trace's end, so the arc spanning that crossing keeps a boundary at it.
+     */
+    public int droppedInteriorMeetingCount;
+
+    /**
+     * Traces whose chain node lengths are not monotonic. A node appended to the chain after
+     * the trace has run past its crossing lands out of order, and the arc spanning that
+     * crossing then keeps no boundary at it.
+     */
+    public int nonMonotonicChainCount;
 
     public HalfEdgeMesh mesh;
     public ChartWalker walker;
@@ -189,12 +220,19 @@ public final class MotorcycleGraph {
         int eventsProcessed = 0;
         int lastAlive = -1;
         while (!queue.isEmpty()) {
-            if (eventsProcessed >= MAX_SIMULATION_EVENTS ||
-                    System.nanoTime() - simStartNanos > MAX_SIMULATION_NANOS) {
-                System.out.printf(
-                        "[motorcycle] event simulation stopped at wall-clock cap %.1fs queue=%d events=%d%n",
-                        MAX_SIMULATION_NANOS / 1.0e9, queue.size(), eventsProcessed);
-                break;
+            boolean outOfEvents = eventsProcessed >= MAX_EVENTS_PER_FACE * faceCount;
+            long elapsedNanos = System.nanoTime() - simStartNanos;
+            if (outOfEvents || elapsedNanos > MAX_SIMULATION_NANOS) {
+                throw new IllegalStateException("motorcycle simulation hit its "
+                        + (outOfEvents ? "event" : "wall-clock") + " backstop after "
+                        + eventsProcessed + " events and " + elapsedNanos / NANOS_PER_SECOND
+                        + "s with " + queue.size() + " still queued, from " + traces.size()
+                        + " traces over " + faceCount + " faces; every trace still in flight"
+                        + " would be truncated into a dangling arc, and LCBK19 Section 3.1"
+                        + " guarantees a closed surface partitions into four-sided patches"
+                        + " only, so continuing would silently build a non-rectangular"
+                        + " arrangement. Raise MAX_EVENTS_PER_FACE or MAX_SIMULATION_NANOS,"
+                        + " or find why the simulation is not converging");
             }
             TraceEvent event = queue.poll();
             eventsProcessed++;
@@ -356,7 +394,6 @@ public final class MotorcycleGraph {
             FaceSegmentIndex segmentIndex, PriorityQueue<TraceEvent> queue) {
         Trace other = traces.get(event.otherTraceId);
         if (meetingAlreadyRecorded(trace, event.otherSegment, trace.faceVisitCount)) {
-
             TraceSegment duplicate = new TraceSegment(trace.traceId, trace.state.activeFace,
                     trace.faceVisitCount, trace.state.u, trace.state.v, event.u, event.v,
                     trace.state.axis, trace.state.sign, trace.parametricLengthSoFar);
@@ -589,7 +626,7 @@ public final class MotorcycleGraph {
      */
     private void registerSegment(Trace trace, TraceSegment segment) {
         segmentIndex.add(segment);
-        for (FaceSegmentIndex.IntersectionHit hit : segmentIndex.crossingsOf(segment)) {
+        for (FaceSegmentIndex.IntersectionHit hit : segmentIndex.contactsOf(segment)) {
             double ourLength = segment.parametricLengthAtEntry + hit.tAlongCandidate;
             Trace other = traces.get(hit.otherSegment.traceId);
             if (meetingAlreadyRecorded(trace, hit.otherSegment, segment.visitId)) {
@@ -650,6 +687,16 @@ public final class MotorcycleGraph {
                 return Integer.compare(a.otherTraceId, b.otherTraceId);
             });
 
+            boolean terminalIsInterior = false;
+            for (MetOtherTraceEntry meeting : sortedMeetings) {
+                if (meeting.intersectionNodeId == terminalNodeId
+                        && meeting.otherTraceId != trace.traceId
+                        && meeting.ourParametricLength < terminalLength) {
+                    terminalIsInterior = true;
+                    droppedInteriorMeetingCount++;
+                }
+            }
+
             List<Integer> chainNodes = new ArrayList<>();
             List<Double> chainLengths = new ArrayList<>();
             chainNodes.add(originNodeId);
@@ -659,8 +706,11 @@ public final class MotorcycleGraph {
                     continue;
                 }
                 boolean selfMeeting = meeting.otherTraceId == trace.traceId;
-                if (!selfMeeting && (meeting.intersectionNodeId == originNodeId
-                        || meeting.intersectionNodeId == terminalNodeId)) {
+                boolean atOrigin = meeting.intersectionNodeId == originNodeId
+                        && meeting.ourParametricLength <= 0.0;
+                boolean atTerminal = meeting.intersectionNodeId == terminalNodeId
+                        && meeting.ourParametricLength >= terminalLength;
+                if (!selfMeeting && (atOrigin || atTerminal)) {
                     continue;
                 }
                 int prev = chainNodes.get(chainNodes.size() - 1);
@@ -675,7 +725,7 @@ public final class MotorcycleGraph {
 
                 chainNodes.add(terminalNodeId);
                 chainLengths.add(terminalLength);
-            } else if (terminalNodeId != originNodeId
+            } else if (terminalNodeId != originNodeId && !terminalIsInterior
                     && chainNodes.get(chainNodes.size() - 1) != terminalNodeId) {
                 chainNodes.add(terminalNodeId);
                 chainLengths.add(terminalLength);

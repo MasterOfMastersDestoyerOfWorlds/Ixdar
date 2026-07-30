@@ -5,6 +5,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 
 /**
  * Exact chord walk inside one source face: connects a path head to a target point,
@@ -24,6 +27,13 @@ public final class FaceChordWalk {
     private static final double HALFWAY = 0.5;
 
     public final EmbeddedMeshTopology topology;
+
+    /**
+     * Traced arcs by id, for the failure diagnostic only; {@code null} when the walker
+     * places nodes rather than carving. An arc conflict is only readable once you can see
+     * which trace and which nodes each claimed lane belongs to.
+     */
+    public List<TraceArc> arcsById;
 
     /** Carve points that reused an existing free vertex (LCBK19's snap). */
     public int snappedCrossingCount;
@@ -247,8 +257,10 @@ public final class FaceChordWalk {
                 queue.add(neighborFace);
             }
         }
-        throw new IllegalStateException("arc " + arcId + " has no free corridor to its carve point "
+        throw new IllegalStateException("arc " + arcId + arcOrigin(arcId)
+                + " has no free corridor to its carve point "
                 + targetVertex + " from copy vertex " + head + " in source face " + sourceFace
+                + sourceFaceReport(sourceFace, parentByFace.keySet())
                 + fanReport(head) + fanReport(targetVertex));
     }
 
@@ -308,14 +320,64 @@ public final class FaceChordWalk {
             for (int corner = 0; corner < CORNERS; corner++) {
                 int edgeId = topology.copy.faceEdgeAt(faceId, corner);
                 int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+                int owner = topology.ownerArcByCopyEdge[edgeId];
                 detail.append(' ').append(topology.copy.halfEdgeVertex(halfEdge))
                         .append('-').append(topology.copy.halfEdgeEndVertex(halfEdge))
-                        .append("(a").append(topology.ownerArcByCopyEdge[edgeId])
+                        .append("(a").append(owner)
+                        .append(arcOrigin(owner))
                         .append(",src").append(topology.sourceEdgeByCopyEdge[edgeId])
                         .append(')');
             }
         }
         return detail.toString();
+    }
+
+    /**
+     * Every child face of a source face, marking which ones the corridor search reached.
+     * Only the whole child set shows whether a corridor exists at all, and if one does, which
+     * claim or provenance mismatch kept the search out of it.
+     *
+     * @param sourceFace source active face whose children are listed
+     * @param reached    child faces the corridor search visited
+     * @return a multi-line report
+     */
+    private String sourceFaceReport(int sourceFace, Set<Integer> reached) {
+        StringBuilder detail = new StringBuilder("\n source face ").append(sourceFace)
+                .append(" children=").append(topology.copyFacesBySourceFace.get(sourceFace).size())
+                .append(" reached=").append(reached.size());
+        for (int childFace : topology.copyFacesBySourceFace.get(sourceFace)) {
+            detail.append("\n  child ").append(childFace)
+                    .append(reached.contains(childFace) ? " REACHED" : " unreached")
+                    .append(" src").append(topology.sourceFaceByCopyFace[childFace])
+                    .append(" corners");
+            for (int corner = 0; corner < CORNERS; corner++) {
+                detail.append(' ').append(topology.copy.faceVertexAt(childFace, corner));
+            }
+            detail.append(" edges");
+            for (int corner = 0; corner < CORNERS; corner++) {
+                int edgeId = topology.copy.faceEdgeAt(childFace, corner);
+                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+                detail.append(' ').append(topology.copy.halfEdgeVertex(halfEdge))
+                        .append('-').append(topology.copy.halfEdgeEndVertex(halfEdge))
+                        .append("(a").append(topology.ownerArcByCopyEdge[edgeId]).append(')');
+            }
+        }
+        return detail.toString();
+    }
+
+    /**
+     * The trace and nodes an arc came from, for the failure diagnostic.
+     *
+     * @param arcId owning arc, or {@link EmbeddedMeshTopology#UNCLAIMED}
+     * @return {@code /tTRACE:START-END}, or empty when unknown
+     */
+    private String arcOrigin(int arcId) {
+        if (arcsById == null || arcId == EmbeddedMeshTopology.UNCLAIMED
+                || arcId >= arcsById.size()) {
+            return "";
+        }
+        TraceArc arc = arcsById.get(arcId);
+        return "/t" + arc.traceId + ":" + arc.startNodeId + "-" + arc.endNodeId;
     }
 
     /**

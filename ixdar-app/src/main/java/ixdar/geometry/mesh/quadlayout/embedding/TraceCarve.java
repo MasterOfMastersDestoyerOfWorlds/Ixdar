@@ -28,6 +28,9 @@ public final class TraceCarve {
     /** Fallback split position when a crossing's local parameter degenerates. */
     private static final double EDGE_MIDPOINT = 0.5;
 
+    /** Stranded node events logged before the report goes quiet. */
+    private static final int STRANDED_SAMPLE_LIMIT = 8;
+
     public final HalfEdgeMesh sourceMesh;
 
     /**
@@ -58,6 +61,11 @@ public final class TraceCarve {
     public int carvedTraceCount;
 
     /**
+     * Node events whose parametric length precedes the segment they were taken in.
+     */
+    public int strandedNodeEventCount;
+
+    /**
      * Stores the inputs for the carve and builds its chord walker.
      *
      * @param topology        working copy with provenance and claims
@@ -73,12 +81,13 @@ public final class TraceCarve {
         this.pathByArc = pathByArc;
         this.sourceMesh = motorcycleGraph.seamless.mesh;
         this.chordWalk = new FaceChordWalk(topology);
+        this.chordWalk.arcsById = motorcycleGraph.arcs;
     }
 
     /**
-     * Carve every trace, all interleaved in trace-parametric order — the
-     * motorcycle simulation's own clock — so no lane can pre-seal a channel a
-     * later stretch of another trace was traced through.
+     * Carve every trace, all interleaved in trace-parametric order — the motorcycle
+     * simulation's own clock — so no lane can pre-seal a channel a later stretch of
+     * another trace was traced through.
      *
      * @return this, with {@link #pathByArc} populated for every arc
      */
@@ -108,10 +117,10 @@ public final class TraceCarve {
     }
 
     /**
-     * Materialize and claim every crossing vertex the carve will use, walking
-     * each trace's chain the same way the cursors will. Reserving all waypoints
-     * before any chord means no arc can take another's passage. A crossing
-     * coinciding with a chain node is not reserved — the node is the waypoint.
+     * Materialize and claim every crossing vertex the carve will use, walking each
+     * trace's chain the same way the cursors will. Reserving all waypoints before
+     * any chord means no arc can take another's passage. A crossing coinciding with
+     * a chain node is not reserved — the node is the waypoint.
      */
     private void reserveCrossings() {
         for (Trace trace : motorcycleGraph.traces) {
@@ -148,8 +157,8 @@ public final class TraceCarve {
      * current segment, else the segment's exit crossing, else the next segment.
      *
      * @param cursor cursor to advance
-     * @throws IllegalStateException when the trace runs out of segments with
-     *                               chain nodes left to reach
+     * @throws IllegalStateException when the trace runs out of segments with chain
+     *                               nodes left to reach
      */
     private void advanceToNextEvent(TraceCursor cursor) {
         Trace trace = cursor.trace;
@@ -160,9 +169,20 @@ public final class TraceCarve {
             }
             TraceSegment segment = trace.segments.get(cursor.segmentIndex);
             double exitLength = segment.parametricLengthAtEntry + segment.parametricLength();
-            if (trace.chainNodeLengths.get(cursor.nodeIndex) <= exitLength) {
+            double nodeLength = trace.chainNodeLengths.get(cursor.nodeIndex);
+            if (nodeLength <= exitLength) {
+                if (nodeLength < segment.parametricLengthAtEntry) {
+                    strandedNodeEventCount++;
+                    if (strandedNodeEventCount <= STRANDED_SAMPLE_LIMIT) {
+                        System.out.printf("[carve-diag] trace %d node index %d at %.6f precedes"
+                                + " segment %d entry %.6f (face %d); the chord would be walked in"
+                                + " the wrong face%n", trace.traceId, cursor.nodeIndex, nodeLength,
+                                cursor.segmentIndex, segment.parametricLengthAtEntry,
+                                segment.activeFace);
+                    }
+                }
                 cursor.nextEventIsNode = true;
-                cursor.nextEventParameter = trace.chainNodeLengths.get(cursor.nodeIndex);
+                cursor.nextEventParameter = nodeLength;
                 return;
             }
             if (waypointBySegment.containsKey(segment)) {
@@ -180,9 +200,9 @@ public final class TraceCarve {
     }
 
     /**
-     * Carve a cursor's pending stretch: walk the straight chord to the chain
-     * node or reserved crossing, claim the lane, and emit the arc when a chain
-     * node completes it.
+     * Carve a cursor's pending stretch: walk the straight chord to the chain node
+     * or reserved crossing, claim the lane, and emit the arc when a chain node
+     * completes it.
      *
      * @param cursor cursor whose pending event is carved
      */
@@ -191,8 +211,8 @@ public final class TraceCarve {
         int arcId = cursor.trace.chainArcIds.get(cursor.nodeIndex - 1);
         int claimFrom = cursor.chain.size();
         if (cursor.nextEventIsNode) {
-            int targetVertex = vertexIdByNode[cursor.trace.arcNodeIds.get(cursor.nodeIndex)];
-            cursor.head = walkStretch(arcId, segment.activeFace, cursor.head, targetVertex,
+            int targetVertex1 = vertexIdByNode[cursor.trace.arcNodeIds.get(cursor.nodeIndex)];
+            cursor.head = walkStretch(arcId, segment.activeFace, cursor.head, targetVertex1,
                     cursor.chain);
             claimStretch(arcId, cursor.chain, claimFrom);
             cursor.chainPositionByNode[cursor.nodeIndex] = cursor.chain.size() - 1;
@@ -239,8 +259,8 @@ public final class TraceCarve {
 
     /**
      * The copy vertex realizing a segment's exit crossing: an existing vertex of
-     * the crossed edge's fragment chain exactly at the crossing's parameter, or
-     * a fresh vertex split from the containing fragment. Coincidences with an
+     * the crossed edge's fragment chain exactly at the crossing's parameter, or a
+     * fresh vertex split from the containing fragment. Coincidences with an
      * unusable vertex perturb the parameter into the fragment, never share.
      *
      * @param segment segment whose recorded exit crossing is being carved
@@ -344,8 +364,8 @@ public final class TraceCarve {
 
     /**
      * The source active edge index of a segment's crossed edge, resolved from the
-     * cross field's edge map so fragment edges can be recognized by their
-     * inherited tag.
+     * cross field's edge map so fragment edges can be recognized by their inherited
+     * tag.
      *
      * @param segment      segment whose exit edge is being resolved
      * @param fromVertexId source vertex the exit parameter is measured from
@@ -374,8 +394,8 @@ public final class TraceCarve {
     }
 
     /**
-     * Whether a crossing of an arc may land on a copy vertex: no node owns it,
-     * and no arc other than the crossing's own has claimed it.
+     * Whether a crossing of an arc may land on a copy vertex: no node owns it, and
+     * no arc other than the crossing's own has claimed it.
      *
      * @param copyVertex copy vertex to test
      * @param arcId      arc whose crossing wants the vertex
@@ -388,8 +408,8 @@ public final class TraceCarve {
     }
 
     /**
-     * Claim the stretch of chain an arc just carved, so later arcs see the lane
-     * as taken. Node vertices keep their node ownership.
+     * Claim the stretch of chain an arc just carved, so later arcs see the lane as
+     * taken. Node vertices keep their node ownership.
      *
      * @param arcId     arc that carved the stretch
      * @param chain     the trace's vertex chain

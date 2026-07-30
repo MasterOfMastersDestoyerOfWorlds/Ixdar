@@ -488,19 +488,31 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * The number of live arc ends at a node.
+     * The number of live arc ends at a node, read straight off the node's fan since
+     * a retiring arc always leaves it.
      *
      * @param nodeId node to measure
+     * @throws IllegalStateException under {@link #VALIDATE_EVERY_COLLAPSE} when a
+     *                               dead arc is still in the fan, which would
+     *                               overstate the degree
      * @return the node's degree, a loop counting twice
      */
     public int degree(int nodeId) {
-        int degree = 0;
-        for (int arcId : arcEndsByNode.get(nodeId)) {
-            if (arcs.get(arcId).alive) {
-                degree++;
+        List<Integer> ends = arcEndsByNode.get(nodeId);
+        if (VALIDATE_EVERY_COLLAPSE) {
+            int live = 0;
+            for (int index = 0; index < ends.size(); index++) {
+                if (arcs.get(ends.get(index)).alive) {
+                    live++;
+                }
+            }
+            if (live != ends.size()) {
+                throw new IllegalStateException("node " + nodeId + " has a fan of " + ends.size()
+                        + " arcs but only " + live + " are live; every retiring arc is meant to"
+                        + " leave its nodes' fans, and the O(1) degree relies on that");
             }
         }
-        return degree;
+        return ends.size();
     }
 
     /**
@@ -1326,7 +1338,8 @@ public class EmbeddedTMesh {
      * Applies exactly one operator and stops, for stepping the contraction by hand.
      * Prefers the two measure-lowering operators and falls back to a patch split.
      *
-     * @return a one-line description of what applied, or {@code null} at the fixed point
+     * @return a one-line description of what applied, or {@code null} at the fixed
+     *         point
      */
     public String contractStep() {
         int verticesBefore = topology.copy.vertexCount();
@@ -1354,11 +1367,13 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * Applies one simple zero-patch collapse, or a zero-arc collapse when no patch is ready.
+     * Applies one simple zero-patch collapse, or a zero-arc collapse when no patch
+     * is ready.
      *
      * <p>
-     * Operator (3) goes first because it alone hands mesh back, and a standing bigon is a
-     * chord channel every later re-route pays to cross. See also: LCBK19 Figure 9g
+     * Operator (3) goes first because it alone hands mesh back, and a standing
+     * bigon is a chord channel every later re-route pays to cross. See also: LCBK19
+     * Figure 9g
      *
      * @return true when one of the two applied
      */

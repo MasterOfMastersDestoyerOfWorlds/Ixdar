@@ -40,7 +40,6 @@ public final class PatchBoundaryBuilder {
     /**
      * Temporary diagnostic focus: only sample-dump cycles with this corner count.
      */
-    private static final int TWELVE_CORNER_FOCUS = 12;
     /** How many sampled cycles also get their full per-node port tables dumped. */
     private static final int PORT_TABLE_SAMPLE_LIMIT = 1;
     private static final int INVALID_CYCLE_HOP_DUMP_LIMIT = 24;
@@ -167,8 +166,7 @@ public final class PatchBoundaryBuilder {
         if (foldBack) {
             invalidCycleFoldBackCount++;
         }
-        if (cornerPositions.size() != TWELVE_CORNER_FOCUS
-                || invalidCycleSamplesPrinted >= INVALID_CYCLE_SAMPLE_LIMIT) {
+        if (invalidCycleSamplesPrinted >= INVALID_CYCLE_SAMPLE_LIMIT) {
             return;
         }
         invalidCycleSamplesPrinted++;

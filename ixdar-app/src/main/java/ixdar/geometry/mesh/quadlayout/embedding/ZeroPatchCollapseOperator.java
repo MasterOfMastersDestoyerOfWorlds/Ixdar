@@ -91,8 +91,11 @@ public final class ZeroPatchCollapseOperator {
                 nonEmptySides++;
             }
         }
+        if (nonEmptySides != 2) {
+            return false;
+        }
         List<Integer> boundaryArcs = liveBoundaryArcs(patchId);
-        if (nonEmptySides != 2 || boundaryArcs.size() != 2) {
+        if (boundaryArcs.size() != 2) {
             return false;
         }
         EmbeddedArc first = tmesh.arcs.get(boundaryArcs.get(0));

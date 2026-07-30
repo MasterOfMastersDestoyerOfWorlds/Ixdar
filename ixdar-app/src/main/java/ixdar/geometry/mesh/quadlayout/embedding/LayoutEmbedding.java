@@ -98,6 +98,9 @@ public final class LayoutEmbedding {
         pathByArc = new ArcEdgePath[motorcycleGraph.arcs.size()];
         long nodesDoneNanos = System.nanoTime();
         carve = new TraceCarve(topology, motorcycleGraph, vertexIdByNode, pathByArc).build();
+        if (carve.strandedNodeEventCount > 0) {
+            System.out.printf("[carve-diag] strandedNodeEvents=%d%n", carve.strandedNodeEventCount);
+        }
         decimation = new ArrangementDecimation(topology, pathByArc,
                 motorcycleGraph.seamless.mesh.vertexCount()).build();
         long carveDoneNanos = System.nanoTime();

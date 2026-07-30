@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -22,6 +23,9 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  */
 public final class ZeroArcCollapseOperator {
 
+    /** Starting capacity of the zero-arc candidate list; grows by doubling. */
+    private static final int CANDIDATE_INITIAL_CAPACITY = 256;
+
     public final EmbeddedTMesh tmesh;
     public final ArcRerouter rerouter;
 
@@ -35,6 +39,15 @@ public final class ZeroArcCollapseOperator {
      */
     public int collapsibleScanStart;
 
+    /** Live zero arcs still worth testing, compacted as arcs die. */
+    public int[] zeroArcCandidates = new int[0];
+
+    /** Live entry count of {@link #zeroArcCandidates}. */
+    public int zeroArcCandidateCount;
+
+    /** Arc-list size already swept for new zero arcs; the split operator adds more. */
+    public int scannedArcBound;
+
     /**
      * Stores the T-mesh to operate on and builds the re-router over its working
      * copy.
@@ -47,29 +60,49 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * The collapsible zero arc whose collapsing node has the most arcs meeting on it, so
-     * the crowded fans clear while the mesh around them is still coarse. Ties keep the
-     * lowest arc id, so the choice stays reproducible.
+     * The collapsible zero arc whose node has the most arcs on it, so crowded fans clear
+     * while the mesh is still coarse. Ties keep the lowest arc id.
+     *
+     * <p>
+     * Only zero arcs qualify and {@code alive} never returns, so candidates are appended
+     * once per new arc and compacted as arcs die.
      *
      * @return the chosen zero arc id, or {@link EmbeddedTMesh#NONE} when none remains
      */
     public int mostContendedArc() {
-        int found = EmbeddedTMesh.NONE;
-        int bestValence = 0;
-        for (EmbeddedArc arc : tmesh.arcs) {
-            if (!arc.alive || arc.quantizedLength != 0) {
+        for (int arcId = scannedArcBound; arcId < tmesh.arcs.size(); arcId++) {
+            if (tmesh.arcs.get(arcId).quantizedLength != 0) {
                 continue;
             }
+            if (zeroArcCandidateCount == zeroArcCandidates.length) {
+                zeroArcCandidates = Arrays.copyOf(zeroArcCandidates,
+                        Math.max(CANDIDATE_INITIAL_CAPACITY, zeroArcCandidateCount * 2));
+            }
+            zeroArcCandidates[zeroArcCandidateCount++] = arcId;
+        }
+        scannedArcBound = tmesh.arcs.size();
+
+        int found = EmbeddedTMesh.NONE;
+        int bestValence = 0;
+        int keep = 0;
+        for (int index = 0; index < zeroArcCandidateCount; index++) {
+            int arcId = zeroArcCandidates[index];
+            EmbeddedArc arc = tmesh.arcs.get(arcId);
+            if (!arc.alive) {
+                continue;
+            }
+            zeroArcCandidates[keep++] = arcId;
             int movedNodeId = movingEndpoint(arc);
             if (movedNodeId == EmbeddedTMesh.NONE) {
                 continue;
             }
             int valence = tmesh.arcEndsByNode.get(movedNodeId).size();
             if (found == EmbeddedTMesh.NONE || valence > bestValence) {
-                found = arc.arcId;
+                found = arcId;
                 bestValence = valence;
             }
         }
+        zeroArcCandidateCount = keep;
         return found;
     }
 

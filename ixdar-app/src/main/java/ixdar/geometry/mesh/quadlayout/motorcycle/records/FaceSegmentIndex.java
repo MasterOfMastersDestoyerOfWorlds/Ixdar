@@ -9,6 +9,32 @@ import java.util.List;
 public final class FaceSegmentIndex {
 
     /**
+     * Crossings rejected because they fell just outside a chord's span. The containment
+     * test is exact on inexact chart coordinates, so a near-miss is a crossing the
+     * simulation should have noded and did not.
+     */
+    public static long spanNearMissCount;
+
+    /** Worst near-miss seen, as a fraction of the chord's extent. */
+    public static double worstSpanNearMissFraction;
+
+    /** Crossings skipped because the candidate sits on its own spawn point. */
+    public static long ownOriginSkipCount;
+
+    /**
+     * Crossings skipped because they land exactly on <em>another</em> trace's spawn point
+     * while the candidate is already under way. A trace reaching a foreign singularity has
+     * to be noded there, so a nonzero count is a suspected missed crash.
+     */
+    public static long foreignOriginSkipCount;
+
+    /**
+     * How close to a chord end a rejected crossing must land, as a fraction of that
+     * chord's extent, to count as a rounding near-miss rather than a real miss.
+     */
+    private static final double SPAN_NEAR_MISS_FRACTION = 1.0e-9;
+
+    /**
      * Visit-ordinal window within which two same-trace segments count as adjacent
      * and so cannot transversally cross. The skip is limited to this window rather
      * than the whole trace so that a trace wrapping back over its earlier path
@@ -47,6 +73,34 @@ public final class FaceSegmentIndex {
      */
     public void add(TraceSegment segment) {
         segmentsByFace.get(segment.activeFace).add(segment);
+    }
+
+    /**
+     * Every contact between a segment and the others on its face, collinear overlaps
+     * included. {@link #crossingsOf} drops same-axis pairs, so it cannot see a collinear
+     * overlap; {@link #earliestIntersection} can, which makes this the honest set for an
+     * audit of what should have been noded.
+     *
+     * @param fresh segment to test against its face
+     * @return one hit per contact, origin contacts and own adjacent chords excluded
+     */
+    public List<IntersectionHit> contactsOf(TraceSegment fresh) {
+        List<IntersectionHit> hits = new ArrayList<>();
+        for (TraceSegment existing : segmentsByFace.get(fresh.activeFace)) {
+            if (existing == fresh || isAdjacentSelf(existing, fresh.traceId, fresh.visitId)) {
+                continue;
+            }
+            double[] hit = intersectSegments(
+                    fresh.entryU, fresh.entryV, fresh.exitU, fresh.exitV, fresh.axis,
+                    existing.entryU, existing.entryV, existing.exitU, existing.exitV,
+                    existing.axis);
+            if (hit == null || crossingAtTraceOrigin(fresh.parametricLengthAtEntry, hit[0],
+                    existing, hit[1], hit[2])) {
+                continue;
+            }
+            hits.add(new IntersectionHit(existing, hit[0], hit[1], hit[2]));
+        }
+        return hits;
     }
 
     /**
@@ -161,10 +215,15 @@ public final class FaceSegmentIndex {
     private static boolean crossingAtTraceOrigin(double chordStartLength, double tAlongCandidate,
             TraceSegment existing, double hitU, double hitV) {
         if (chordStartLength == 0.0 && tAlongCandidate == 0.0) {
+            ownOriginSkipCount++;
             return true;
         }
-        return existing.parametricLengthAtEntry == 0.0
-                && hitU == existing.entryU && hitV == existing.entryV;
+        if (existing.parametricLengthAtEntry == 0.0
+                && hitU == existing.entryU && hitV == existing.entryV) {
+            foreignOriginSkipCount++;
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -304,7 +363,18 @@ public final class FaceSegmentIndex {
         double span = axis.holdsUConstant() ? iv : iu;
         double s0 = axis.holdsUConstant() ? e0v : e0u;
         double s1 = axis.holdsUConstant() ? e1v : e1u;
-        return span >= Math.min(s0, s1) && span <= Math.max(s0, s1);
+        double low = Math.min(s0, s1);
+        double high = Math.max(s0, s1);
+        if (span >= low && span <= high) {
+            return true;
+        }
+        double outside = span < low ? low - span : span - high;
+        double extent = high - low;
+        if (extent > 0.0 && outside <= SPAN_NEAR_MISS_FRACTION * extent) {
+            spanNearMissCount++;
+            worstSpanNearMissFraction = Math.max(worstSpanNearMissFraction, outside / extent);
+        }
+        return false;
     }
 
     /** Result of {@link #earliestIntersection}: matched segment plus chord hit data. */
