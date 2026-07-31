@@ -24,12 +24,32 @@ public final class PatchRectangleMap {
     /** Uniform (barycentric) edge weight — positive, so Tutte's fold-free guarantee is unconditional. */
     public static final double UNIFORM_WEIGHT = 1.0;
 
+    /**
+     * Share of each arc's boundary spacing taken uniformly rather than by chord length. Tutte's
+     * theorem needs the boundary strictly ordered around a convex polygon, and two copy vertices
+     * at the same position tie on chord length alone, pinning a triangle to zero area.
+     */
+    public static final double UNIFORM_SPACING_SHARE = 1.0e-3;
+
     private static final int KEY_ROW_SHIFT = 32;
 
     public final Vector3f[] positions;
     public final int[][] triangles;
     public final int[] boundaryLoop;
-    public final int[] boundaryCornerAt;
+
+    /**
+     * Per side, the {@code boundaryLoop} indices where the side's arcs begin and end, from the
+     * side's own corner to the next one, so entry {@code 0} is the corner and the last entry is
+     * the next corner.
+     */
+    public final int[][] sideBreakLoopIndex;
+
+    /**
+     * Per side, the quantized offset of each entry of {@link #sideBreakLoopIndex} from the side's
+     * start, so the first is {@code 0} and the last is the side's quantized length.
+     */
+    public final int[][] sideBreakOffset;
+
     public final double width;
     public final double height;
 
@@ -52,24 +72,25 @@ public final class PatchRectangleMap {
     /**
      * Prepares a map over primitive geometry. Call {@link #build()} to solve it.
      *
-     * @param positions        3D position of each vertex, indexed by dense vertex index
-     * @param triangles        each triangle as three dense vertex indices in winding order
-     * @param boundaryLoop      dense vertex indices around the region boundary, one consistent
-     *                          direction, each boundary vertex once, not repeating the first
-     * @param boundaryCornerAt  four indices into {@code boundaryLoop} marking where sides 0..3
-     *                          start; side {@code s} runs from {@code boundaryCornerAt[s]} to
-     *                          {@code boundaryCornerAt[(s + 1) % 4]}
-     * @param width             rectangle width, the extent of sides 0 and 2; must be positive
-     * @param height            rectangle height, the extent of sides 1 and 3; must be positive
-     * @param vertexLabel       caller's label per dense vertex (a copy vertex id), or {@code null}
-     *                          for identity labels {@code {0, 1, 2, ...}}
+     * @param positions          3D position of each vertex, indexed by dense vertex index
+     * @param triangles          each triangle as three dense vertex indices in winding order
+     * @param boundaryLoop       dense vertex indices around the region boundary, one consistent
+     *                           direction, each boundary vertex once, not repeating the first
+     * @param sideBreakLoopIndex per side, the loop indices of its arc endpoints, corner first
+     * @param sideBreakOffset    per side, the quantized offset of each of those endpoints
+     * @param width              rectangle width, the extent of sides 0 and 2; must be positive
+     * @param height             rectangle height, the extent of sides 1 and 3; must be positive
+     * @param vertexLabel        caller's label per dense vertex (a copy vertex id), or {@code null}
+     *                           for identity labels {@code {0, 1, 2, ...}}
      */
     public PatchRectangleMap(Vector3f[] positions, int[][] triangles, int[] boundaryLoop,
-            int[] boundaryCornerAt, double width, double height, int[] vertexLabel) {
+            int[][] sideBreakLoopIndex, int[][] sideBreakOffset, double width, double height,
+            int[] vertexLabel) {
         this.positions = positions;
         this.triangles = triangles;
         this.boundaryLoop = boundaryLoop;
-        this.boundaryCornerAt = boundaryCornerAt;
+        this.sideBreakLoopIndex = sideBreakLoopIndex;
+        this.sideBreakOffset = sideBreakOffset;
         this.width = width;
         this.height = height;
         this.rectangleU = new double[positions.length];
@@ -106,44 +127,60 @@ public final class PatchRectangleMap {
     }
 
     /**
-     * Pins each boundary vertex to a rectangle edge, spaced by cumulative chord length within
-     * its side, with the four corners at the rectangle's corners.
+     * Pins each boundary vertex to a rectangle edge one arc at a time, so adjacent patches place
+     * the integers identically along a shared arc.
      *
-     * @throws IllegalStateException when a side collapses to a point, so its vertices cannot be
-     *                               distributed by chord-length ratio
+     * <p>See also: LCBK19 Section 6.2
+     *
+     * @throws IllegalStateException when an arc has no quantized length or no geometric extent, so
+     *                               its vertices cannot be distributed
      */
     private void placeBoundary() {
         double[] cornerX = {0.0, width, width, 0.0};
         double[] cornerY = {0.0, 0.0, height, height};
         int loopLength = boundaryLoop.length;
         for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
-            int startIndex = boundaryCornerAt[side];
-            int endIndex = boundaryCornerAt[(side + 1) % EmbeddedPatch.SIDES];
-            int count = walkLength(startIndex, endIndex, loopLength);
-            double total = 0.0;
-            double[] cumulative = new double[count];
-            int previous = boundaryLoop[startIndex];
-            int index = startIndex;
-            for (int step = 1; step < count; step++) {
-                index = (index + 1) % loopLength;
-                int here = boundaryLoop[index];
-                total += positions[here].distance(positions[previous]);
-                cumulative[step] = total;
-                previous = here;
-            }
-            if (total == 0.0) {
-                throw new IllegalStateException("patch side " + side + " has no geometric extent;"
-                        + " its boundary vertices cannot be spaced by chord length");
+            int[] breakLoopIndex = sideBreakLoopIndex[side];
+            int[] breakOffset = sideBreakOffset[side];
+            int sideLength = breakOffset[breakOffset.length - 1];
+            if (sideLength <= 0) {
+                throw new IllegalStateException("patch side " + side + " has quantized length "
+                        + sideLength + "; a rectangle side must be at least one quantum");
             }
             int nextSide = (side + 1) % EmbeddedPatch.SIDES;
-            index = startIndex;
-            for (int step = 0; step < count; step++) {
-                double fraction = cumulative[step] / total;
-                int dense = boundaryLoop[index];
-                rectangleU[dense] = cornerX[side] + fraction * (cornerX[nextSide] - cornerX[side]);
-                rectangleV[dense] = cornerY[side] + fraction * (cornerY[nextSide] - cornerY[side]);
-                onBoundary[dense] = true;
-                index = (index + 1) % loopLength;
+            for (int arcIndex = 0; arcIndex < breakLoopIndex.length - 1; arcIndex++) {
+                int startIndex = breakLoopIndex[arcIndex];
+                int endIndex = breakLoopIndex[arcIndex + 1];
+                int count = walkLength(startIndex, endIndex, loopLength);
+                double total = 0.0;
+                double[] cumulative = new double[count];
+                int previous = boundaryLoop[startIndex];
+                int index = startIndex;
+                for (int step = 1; step < count; step++) {
+                    index = (index + 1) % loopLength;
+                    int here = boundaryLoop[index];
+                    total += positions[here].distance(positions[previous]);
+                    cumulative[step] = total;
+                    previous = here;
+                }
+                if (total == 0.0) {
+                    throw new IllegalStateException("arc " + arcIndex + " of patch side " + side
+                            + " has no geometric extent; its boundary vertices cannot be spaced by"
+                            + " chord length");
+                }
+                double arcStart = breakOffset[arcIndex] / (double) sideLength;
+                double arcEnd = breakOffset[arcIndex + 1] / (double) sideLength;
+                index = startIndex;
+                for (int step = 0; step < count; step++) {
+                    double fraction = (1.0 - UNIFORM_SPACING_SHARE) * cumulative[step] / total
+                            + UNIFORM_SPACING_SHARE * step / (count - 1.0);
+                    double along = arcStart + fraction * (arcEnd - arcStart);
+                    int dense = boundaryLoop[index];
+                    rectangleU[dense] = cornerX[side] + along * (cornerX[nextSide] - cornerX[side]);
+                    rectangleV[dense] = cornerY[side] + along * (cornerY[nextSide] - cornerY[side]);
+                    onBoundary[dense] = true;
+                    index = (index + 1) % loopLength;
+                }
             }
         }
     }
@@ -260,10 +297,46 @@ public final class PatchRectangleMap {
      */
     public void assertFoldFree() {
         int flipped = flippedTriangleCount();
-        if (flipped > 0) {
-            throw new IllegalStateException("Tutte map is not bijective: " + flipped + " of "
-                    + triangles.length + " triangles fold over");
+        if (flipped == 0) {
+            return;
         }
+        throw new IllegalStateException("Tutte map is not bijective: " + flipped + " of "
+                + triangles.length + " triangles fold over on the " + width + "x" + height
+                + " rectangle; first is " + describeFirstFold());
+    }
+
+    /**
+     * The first folded triangle as its dense indices, rectangle coordinates and boundary flags —
+     * a zero-area triangle with three boundary corners is an un-subdivided chord, while a
+     * reversed one with an interior corner is a broken solve.
+     *
+     * @return a one-line description, or {@code "none"} when no triangle folds
+     */
+    private String describeFirstFold() {
+        double referenceArea = 0.0;
+        for (int[] triangle : triangles) {
+            if (Math.abs(signedArea(triangle)) > Math.abs(referenceArea)) {
+                referenceArea = signedArea(triangle);
+            }
+        }
+        boolean referencePositive = referenceArea > 0.0;
+        for (int[] triangle : triangles) {
+            double area = signedArea(triangle);
+            if (area != 0.0 && (area > 0.0) == referencePositive) {
+                continue;
+            }
+            StringBuilder description = new StringBuilder(area == 0.0 ? "degenerate" : "reversed");
+            description.append(" area=").append(area);
+            for (int corner = 0; corner < triangle.length; corner++) {
+                int dense = triangle[corner];
+                description.append(" v").append(vertexLabel[dense])
+                        .append(onBoundary[dense] ? "(boundary)" : "(interior)")
+                        .append("=(").append(rectangleU[dense]).append(", ")
+                        .append(rectangleV[dense]).append(')');
+            }
+            return description.toString();
+        }
+        return "none";
     }
 
     /**

@@ -4,8 +4,6 @@ import java.io.IOException;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
-import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
-import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
 import ixdar.platform.Platforms;
@@ -14,16 +12,19 @@ import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.model.ModelScene;
 
 /**
- * Final-output view of the quad-layout pipeline: runs the staged
- * {@link QuadLayoutEngine} to its deepest implemented stage and shows the
- * resulting coarse layout structure. Intermediate stages have their own
- * inspector scenes.
+ * Final-output view of the quad-layout pipeline: runs {@link QuadLayoutEngine} to the conforming
+ * layout and shows the quad mesh it prescribes, over colour-hashed layout patches. Intermediate
+ * stages have their own inspector scenes.
  */
 @SceneAnnotation(id = "quad-layout")
 public class QuadLayoutScene extends ModelScene {
 
     private QuadLayoutRuntime quadRuntime;
     private float alphaDegrees = 15f;
+    private boolean coonsFill;
+
+    /** The engine of the last build, held so the fill can be swapped without rebuilding. */
+    private QuadLayoutEngine engine;
 
     /**
      * Default constructor wired by the scene annotation processor.
@@ -51,12 +52,13 @@ public class QuadLayoutScene extends ModelScene {
 
     @Override
     public void setControls() {
-        controls.add(new ControlHint(Keys.C, "C", "toggle layout patches",
+        controls.add(new ControlHint(Keys.C, "C", "toggle Coons fill", this::toggleCoonsFill));
+        controls.add(new ControlHint(Keys.Q, "Q", "toggle quad grid",
+                () -> quadRuntime.showQuadGrid = !quadRuntime.showQuadGrid));
+        controls.add(new ControlHint(Keys.P, "P", "toggle patch fill",
                 () -> quadRuntime.showLayoutPatches = !quadRuntime.showLayoutPatches));
-        controls.add(new ControlHint(Keys.B, "B", "toggle layout boundaries",
+        controls.add(new ControlHint(Keys.B, "B", "toggle layout arcs",
                 () -> quadRuntime.showLayoutBoundaries = !quadRuntime.showLayoutBoundaries));
-        controls.add(new ControlHint(Keys.T, "T", "toggle traces",
-                () -> quadRuntime.showTraces = !quadRuntime.showTraces));
         controls.add(new ControlHint(Keys.E, "E", "toggle embedded arcs",
                 () -> quadRuntime.showEmbeddedArcs = !quadRuntime.showEmbeddedArcs));
         controls.add(new ControlHint(Keys.N, "N", "toggle nodes",
@@ -67,37 +69,45 @@ public class QuadLayoutScene extends ModelScene {
     }
 
     /**
-     * Run the full pipeline (through quantization and zero-arc collapse) and
-     * display the resulting layout: the positive-quantized separatrix skeleton
-     * replaces the full trace web in the runtime's trace records, drawn over the
-     * patch fill.
+     * Runs the pipeline through the conforming layout and its per-patch grids, and uploads the
+     * result: the quad mesh over the patch fill, with the layout arcs drawn on top.
      */
     private void rebuildLayout() {
         float alphaRadians = (float) Math.toRadians(alphaDegrees);
         QuadLayoutEngine engine = new QuadLayoutEngine(halfEdgeMesh, alphaRadians);
-        engine.buildContractedTMesh();
-        LayoutExtraction layout = engine.layout;
-        MotorcycleGraph graph = engine.motorcycleGraph;
-        graph.traceRecordsByFace = layout.layoutRecordsByFace;
+        engine.buildPatchSurfaces();
         quadRuntime.setSeamlessParametrization(engine.seamless);
-        quadRuntime.setMotorcycleGraph(graph);
+        quadRuntime.setMotorcycleGraph(engine.motorcycleGraph);
         quadRuntime.setEmbeddedTMesh(engine.tmesh);
-        quadRuntime.showTraces = true;
+        quadRuntime.setLayoutPatchSurfaces(engine.patchSurfaces, coonsFill);
+        quadRuntime.showTraces = false;
         quadRuntime.showNodes = false;
         quadRuntime.showCrossField = false;
         quadRuntime.showFullIsoGrid = false;
-        quadRuntime.showLayoutPatches = false;
-        quadRuntime.showLayoutBoundaries = false;
-        quadRuntime.showEmbeddedArcs = true;
+        quadRuntime.showLayoutPatches = true;
+        quadRuntime.showQuadGrid = true;
+        quadRuntime.showLayoutBoundaries = true;
+        quadRuntime.showEmbeddedArcs = false;
         String hudLine = String.format(
-                "[quad-layout] α=%.0f° skeletonArcs=%d layoutNodes=%d nodes=%d arcs=%d patches=%d"
-                        + " collapses=%d embedArcs=%d/%d copyV=%d",
-                alphaDegrees, layout.layoutArcs.size(), layout.singularClusterCount,
-                engine.tmesh.nodes.size(), engine.tmesh.arcs.size(), engine.tmesh.patches.size(),
-                engine.tmesh.arcCollapseCount,
-                engine.embedding.carve.carvedArcCount, engine.embedding.pathByArc.length,
+                "[quad-layout] α=%.0f° patches=%d quads=%d extensions=%d collapses=%d"
+                        + " nodes=%d arcs=%d copyV=%d",
+                alphaDegrees, engine.livePatchCount(), engine.quadGrid.quadCount,
+                engine.tmesh.extendTJunction.extensionCount, engine.tmesh.arcCollapseCount,
+                engine.tmesh.nodes.size(), engine.tmesh.arcs.size(),
                 engine.tmesh.topology.copy.vertexCount());
         Platforms.get().log(hudLine);
+        this.engine = engine;
+    }
+
+    /**
+     * Swaps the patch fill between each patch's Coons blend and its quad grid on the surface,
+     * re-uploading because the two grids share one buffer.
+     */
+    private void toggleCoonsFill() {
+        coonsFill = !coonsFill;
+        if (engine != null) {
+            quadRuntime.setLayoutPatchSurfaces(engine.patchSurfaces, coonsFill);
+        }
     }
 
     void stepAlpha(float deltaDegrees) {
@@ -108,6 +118,7 @@ public class QuadLayoutScene extends ModelScene {
     @Override
     public void renderScene() {
         camera.resetView();
+        quadRuntime.render(camera);
         quadRuntime.renderOverlays(camera);
     }
 }

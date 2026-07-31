@@ -47,8 +47,6 @@ public final class LayoutExtraction {
     /** Filtered per-face render records covering only positive arcs. */
     public float[][] layoutRecordsByFace;
 
-
-
     /** Feature edges whose covering arc quantized to zero (demoted from barrier). */
     public int featureEdgesOpenCount;
 
@@ -92,7 +90,7 @@ public final class LayoutExtraction {
         }
 
         buildLayoutRecords();
-        buildLayoutRegions();
+        countOpenFeatureEdges();
         System.out.printf(
                 "[layout] clusters=%d singularClusters=%d skeletonArcs=%d tJunctions=%d"
                         + " featureEdgesOpen=%d%n",
@@ -101,35 +99,19 @@ public final class LayoutExtraction {
     }
 
     /**
-     * Flood-fill faces into final layout regions: a mesh edge separates two
-     * regions only when a trace crossing through it (or a feature span running
-     * along it) belongs to a positively quantized arc — zero arcs collapse and
-     * therefore no longer cut the surface.
+     * Counts the feature edges the layout no longer holds: the arc covering the feature span
+     * quantized to zero, so it collapses and stops cutting the surface there.
      */
-    private void buildLayoutRegions() {
-        boolean[] barrierByActiveEdge = new boolean[motorcycleGraph.seamless.edgeCount];
-        for (int activeEdge = 0; activeEdge < barrierByActiveEdge.length; activeEdge++) {
-            for (EdgeCrossing crossing : motorcycleGraph.crossingsByActiveEdge.get(activeEdge)) {
-                Trace trace = motorcycleGraph.traces.get(crossing.traceId);
-                int arcId = trace.arcAtParametricLength(crossing.parametricLength);
-                if (arcId >= 0 && quantization.quantizedLengthByArc[arcId] > 0) {
-                    barrierByActiveEdge[activeEdge] = true;
-                    break;
-                }
-            }
-        }
+    private void countOpenFeatureEdges() {
         featureEdgesOpenCount = 0;
         for (Map.Entry<Integer, FeatureEdgeSpan> entry : motorcycleGraph.featureSpanByEdgeId.entrySet()) {
-            Integer activeEdge = motorcycleGraph.seamless.crossField.edgeIdToActive.get(entry.getKey());
-            if (activeEdge == null) {
+            if (!motorcycleGraph.seamless.crossField.edgeIdToActive.containsKey(entry.getKey())) {
                 continue;
             }
             FeatureEdgeSpan span = entry.getValue();
             Trace trace = motorcycleGraph.traces.get(span.traceId);
             int arcId = trace.arcAtParametricLength(0.5 * (span.entryLength + span.exitLength));
-            if (arcId >= 0 && quantization.quantizedLengthByArc[arcId] > 0) {
-                barrierByActiveEdge[activeEdge] = true;
-            } else {
+            if (arcId < 0 || quantization.quantizedLengthByArc[arcId] == 0) {
                 featureEdgesOpenCount++;
             }
         }

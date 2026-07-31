@@ -9,6 +9,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
@@ -110,6 +112,8 @@ public class EmbeddedTMesh {
 
     public ZeroPatchCollapseOperator collapsePatch;
 
+    public TJunctionExtension extendTJunction;
+
     public int arcCollapseCount;
     public int patchSplitCount;
 
@@ -142,6 +146,7 @@ public class EmbeddedTMesh {
         this.collapseArc = new ZeroArcCollapseOperator(this);
         this.splitPatch = new ZeroPatchSplitOperator(this);
         this.collapsePatch = new ZeroPatchCollapseOperator(this);
+        this.extendTJunction = new TJunctionExtension(this);
     }
 
     /**
@@ -1013,6 +1018,87 @@ public class EmbeddedTMesh {
     }
 
     /**
+     * The node at a quantized offset along a patch side, inserting one by splitting an
+     * arc when no node sits exactly there.
+     *
+     * <p>
+     * See also: LCBK19 Section 6.1
+     *
+     * @param patchId patch the side belongs to
+     * @param side    side to walk, in {@code [0, 4)}
+     * @param offset  quantized offset from the side's start
+     * @throws IllegalStateException when the offset lies outside the side
+     * @return the node id at that offset
+     */
+    public int nodeAtOffsetOrSplit(int patchId, int side, int offset) {
+        EmbeddedPatch patch = patches.get(patchId);
+        List<Integer> sideArcs = patch.sideArcIds.get(side);
+        List<Integer> sideNodes = patch.sideNodeIds.get(side);
+        int cumulative = 0;
+        if (offset == 0) {
+            return sideNodes.get(0);
+        }
+        for (int index = 0; index < sideArcs.size(); index++) {
+            int arcId = sideArcs.get(index);
+            EmbeddedArc arc = arcs.get(arcId);
+            int nextCumulative = cumulative + arc.quantizedLength;
+            if (offset == nextCumulative) {
+                return sideNodes.get(index + 1);
+            }
+            if (offset < nextCumulative) {
+                int offsetIntoArc = offset - cumulative;
+                boolean forward = sideNodes.get(index) == arc.startNodeId;
+                int arcOffset = forward ? offsetIntoArc : arc.quantizedLength - offsetIntoArc;
+                int pathVertexIndex = interiorPathVertexAtFraction(arc,
+                        (double) arcOffset / arc.quantizedLength);
+                int[] halves = splitArc(arcId, arcOffset, pathVertexIndex);
+                return arcs.get(halves[0]).endNodeId;
+            }
+            cumulative = nextCumulative;
+        }
+        throw new IllegalStateException("offset " + offset + " lies beyond side " + side
+                + " of patch " + patchId);
+    }
+
+    /**
+     * The interior path vertex of an arc nearest a fraction of its 3D arc length — LCBK19
+     * operator (2) places the split node "at the corresponding location", and 3D arc length
+     * is the only intrinsic parameter a rerouted arc still carries.
+     *
+     * @param arc      arc to split
+     * @param fraction fraction of the arc's length, in {@code (0, 1)}
+     * @throws IllegalStateException when the arc's path has no interior vertex to split at
+     * @return the index of the nearest strictly interior path vertex
+     */
+    private int interiorPathVertexAtFraction(EmbeddedArc arc, double fraction) {
+        List<Integer> vertices = arc.path.copyVertexPath;
+        if (vertices.size() < 3) {
+            throw new IllegalStateException(arc.arcId + " is a single-edge arc and cannot host a"
+                    + " split node without mesh refinement");
+        }
+        double[] cumulative = new double[vertices.size()];
+        Vector3f here = new Vector3f();
+        Vector3f previous = new Vector3f();
+        topology.copy.vertexPosition(vertices.get(0), previous);
+        for (int index = 1; index < vertices.size(); index++) {
+            topology.copy.vertexPosition(vertices.get(index), here);
+            cumulative[index] = cumulative[index - 1] + previous.distance(here);
+            previous.set(here);
+        }
+        double target = fraction * cumulative[vertices.size() - 1];
+        int best = 1;
+        double bestDistance = Double.POSITIVE_INFINITY;
+        for (int index = 1; index < vertices.size() - 1; index++) {
+            double distance = Math.abs(cumulative[index] - target);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = index;
+            }
+        }
+        return best;
+    }
+
+    /**
      * Cuts a patch in two along an arc that already runs across it, from a node on
      * one side to a node on the opposite side. The originating patch is retired and
      * the two four-sided halves are added, with the dividing arc bounding both.
@@ -1382,6 +1468,49 @@ public class EmbeddedTMesh {
             splitPatch.split(nonSimple);
             patchSplitCount++;
             validate();
+        }
+    }
+
+    /**
+     * Extends every surviving T-junction across its patch, leaving a conforming layout, and
+     * validates the result.
+     *
+     * <p>
+     * Run on a contracted T-mesh: an extension arc carries the patch's orthogonal extent, which
+     * is only meaningful once no patch has a zero side.
+     *
+     * <p>
+     * See also: LCK21a Section 6
+     *
+     * @return this, conforming
+     */
+    public EmbeddedTMesh conform() {
+        extendTJunction.extendAll();
+        validate();
+        requireNoTJunction();
+        return this;
+    }
+
+    /**
+     * Checks no live patch still carries a T-junction, the post-condition
+     * {@link TJunctionExtension} exists to establish.
+     *
+     * @throws IllegalStateException when an interior side node still carries a third arc
+     */
+    private void requireNoTJunction() {
+        for (EmbeddedPatch patch : patches) {
+            if (!patch.alive) {
+                continue;
+            }
+            for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+                List<Integer> sideNodes = patch.sideNodeIds.get(side);
+                for (int index = 1; index < sideNodes.size() - 1; index++) {
+                    if (degree(sideNodes.get(index)) > 2) {
+                        throw new IllegalStateException("patch " + patch.patchId + " side " + side
+                                + " still carries a T-junction at node " + sideNodes.get(index));
+                    }
+                }
+            }
         }
     }
 

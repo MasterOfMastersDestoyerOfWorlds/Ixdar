@@ -14,11 +14,12 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
+import ixdar.geometry.mesh.quadlayout.embedding.LayoutPatchCurves;
+import ixdar.geometry.mesh.quadlayout.embedding.LayoutPatchSurfaces;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
-import ixdar.geometry.mesh.quadlayout.quantization.LayoutPatchCurves;
-import ixdar.geometry.mesh.quadlayout.quantization.LayoutPatchGeometry;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
@@ -197,6 +198,8 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private static final Color COLOR_LAYOUT_BOUNDARY = Color.WHITE;
     /** Layout corner marker tint. */
     private static final Color COLOR_LAYOUT_CORNER = Color.SOFT_RED;
+    /** Quad mesh edge tint, darker than the layout arcs it sits between. */
+    private static final Color COLOR_QUAD_GRID = Color.DARK_GRAY;
     /** Embedded arc edge-path tint (stage-8 re-embedding). */
     private static final Color COLOR_EMBEDDED_ARC = Color.BRIGHT_ORANGE;
 
@@ -301,6 +304,9 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public boolean showLayoutPatches = false;
     /** Draw layout boundary curves and corner marker spheres. */
     public boolean showLayoutBoundaries = false;
+
+    /** Whether the quad mesh's own edges are drawn over the patch fill. */
+    public boolean showQuadGrid = false;
     /** Draw the stage-8 embedded arc edge paths over the surface. */
     public boolean showEmbeddedArcs = false;
     /** Draw every triangle of the refined working copy, so refinement density is visible. */
@@ -350,6 +356,9 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public int layoutLineVbo;
     /** Vertex count of the layout boundary GL_LINES buffer. */
     public int layoutLineVertexCount;
+
+    /** Quad grid line vertices, laid out after the boundary lines in the same buffer. */
+    public int layoutGridLineVertexCount;
     /** VAO of the Coons patch fill mesh. */
     public int layoutCoonsVao;
     /** VBO of the Coons patch fill mesh. */
@@ -631,11 +640,12 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         boolean drawLayoutFill = showLayoutPatches
                 && layoutPatchIndexCount != null && layoutPatchIndexCount.length > 0;
         boolean drawLayoutBoundaries = showLayoutBoundaries && layoutLineVertexCount > 0;
+        boolean drawQuadGrid = showQuadGrid && layoutGridLineVertexCount > 0;
         boolean drawEmbeddedArcs = showEmbeddedArcs && (embeddedLineVertexCount > 0
                 || embeddedZeroLineVertexCount > 0 || embeddedNodePositions != null);
         boolean drawCopyWireframe = showCopyWireframe && copyWireframeVertexCount > 0;
         if (!drawSurface && !drawCross && !drawConstraints && !drawSingularities && !drawNodes
-                && !drawLayoutFill && !drawLayoutBoundaries && !drawEmbeddedArcs
+                && !drawLayoutFill && !drawLayoutBoundaries && !drawQuadGrid && !drawEmbeddedArcs
                 && !drawCopyWireframe) {
             return;
         }
@@ -653,6 +663,9 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         }
         if (drawLayoutFill) {
             renderLayoutPatchFill(camera);
+        }
+        if (drawQuadGrid) {
+            renderQuadGridLines(camera);
         }
         if (drawLayoutBoundaries) {
             renderLayoutBoundaries(camera);
@@ -1280,41 +1293,37 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Upload the explicit layout geometry: boundary polylines as a GL_LINES buffer,
-     * clean patches' Coons grids as a triangle mesh with per-patch index ranges and
-     * palette-hashed colors, and corner marker positions. Re-uploading frees the
-     * previous buffers first.
+     * Upload the finished layout: boundary polylines then quad grid edges in one GL_LINES buffer,
+     * every patch's grid as a triangle mesh with per-patch index ranges and palette-hashed colors,
+     * and corner markers. Re-uploading is how the fill switches between the two grids.
      *
-     * @param geometry traced and validated patch geometry
+     * @param surfaces      the layout's per-patch render records
+     * @param useCoonsGrid  whether the fill comes from each patch's Coons blend rather than its
+     *                      quad grid on the surface
      */
-    public void setLayoutPatchGeometry(LayoutPatchGeometry geometry) {
+    public void setLayoutPatchSurfaces(LayoutPatchSurfaces surfaces, boolean useCoonsGrid) {
         GL gl = Platforms.gl();
         deleteLayoutBuffers(gl);
 
-        int lineFloatCount = 0;
-        int coonsPatchCount = 0;
-        int cornerCount = 0;
-        for (LayoutPatchCurves patch : geometry.patches) {
+        int boundaryVertexCount = 0;
+        int gridLineVertexCount = 0;
+        int gridVertexTotal = 0;
+        int gridIndexTotal = 0;
+        for (LayoutPatchCurves patch : surfaces.patches) {
             for (List<Vector3f> polyline : patch.sidePolylines) {
-                if (polyline.size() > 1) {
-                    lineFloatCount += (polyline.size() - 1) * 2 * VEC3_SIZE;
-                }
+                boundaryVertexCount += Math.max(0, polyline.size() - 1) * 2;
             }
-            if (patch.coonsGrid != null) {
-                coonsPatchCount++;
-            }
-            for (Vector3f corner : patch.cornerPositions) {
-                if (corner != null) {
-                    cornerCount++;
-                }
-            }
+            gridLineVertexCount += gridLineVertices(patch);
+            gridVertexTotal += patch.gridColumns * patch.gridRows;
+            gridIndexTotal += (patch.gridColumns - 1) * (patch.gridRows - 1) * INDICES_PER_GRID_CELL;
         }
 
-        float[] lineVertices = new float[lineFloatCount];
-        layoutCornerPositions = new float[cornerCount * VEC3_SIZE];
+        float[] lineVertices =
+                new float[(boundaryVertexCount + gridLineVertexCount) * VEC3_SIZE];
+        layoutCornerPositions = new float[surfaces.patches.size() * EmbeddedPatch.SIDES * VEC3_SIZE];
         int lineCursor = 0;
         int cornerCursor = 0;
-        for (LayoutPatchCurves patch : geometry.patches) {
+        for (LayoutPatchCurves patch : surfaces.patches) {
             for (List<Vector3f> polyline : patch.sidePolylines) {
                 for (int index = 1; index < polyline.size(); index++) {
                     lineCursor = writePoint(lineVertices, lineCursor, polyline.get(index - 1));
@@ -1322,13 +1331,16 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
                 }
             }
             for (Vector3f corner : patch.cornerPositions) {
-                if (corner != null) {
-                    cornerCursor = writePoint(layoutCornerPositions, cornerCursor, corner);
-                }
+                cornerCursor = writePoint(layoutCornerPositions, cornerCursor, corner);
             }
         }
         layoutLineVertexCount = lineCursor / VEC3_SIZE;
-        if (layoutLineVertexCount > 0) {
+        for (LayoutPatchCurves patch : surfaces.patches) {
+            lineCursor = writeGridLines(lineVertices, lineCursor, patch,
+                    useCoonsGrid ? patch.coonsGrid : patch.surfaceGrid);
+        }
+        layoutGridLineVertexCount = lineCursor / VEC3_SIZE - layoutLineVertexCount;
+        if (lineCursor > 0) {
             layoutLineVao = gl.genVertexArrays();
             layoutLineVbo = gl.genBuffers();
             gl.bindVertexArray(layoutLineVao);
@@ -1339,58 +1351,110 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             gl.enableVertexAttribArray(ATTR_POSITION);
         }
 
-        int samples = LayoutPatchGeometry.COONS_SAMPLES;
-        int verticesPerPatch = samples * samples;
-        int indicesPerPatch = (samples - 1) * (samples - 1) * INDICES_PER_GRID_CELL;
-        float[] coonsVertices = new float[coonsPatchCount * verticesPerPatch * VEC3_SIZE];
-        IntBuffer coonsIndices = BufferUtils.createIntBuffer(coonsPatchCount * indicesPerPatch);
-        layoutPatchIndexStart = new int[coonsPatchCount];
-        layoutPatchIndexCount = new int[coonsPatchCount];
-        layoutPatchColors = new Color[coonsPatchCount];
+        float[] gridVertices = new float[gridVertexTotal * VEC3_SIZE];
+        IntBuffer gridIndices = BufferUtils.createIntBuffer(gridIndexTotal);
+        layoutPatchIndexStart = new int[surfaces.patches.size()];
+        layoutPatchIndexCount = new int[surfaces.patches.size()];
+        layoutPatchColors = new Color[surfaces.patches.size()];
         int patchCursor = 0;
         int vertexBase = 0;
-        for (LayoutPatchCurves patch : geometry.patches) {
-            if (patch.coonsGrid == null) {
-                continue;
-            }
-            System.arraycopy(patch.coonsGrid, 0, coonsVertices,
-                    vertexBase * VEC3_SIZE, patch.coonsGrid.length);
-            layoutPatchIndexStart[patchCursor] = coonsIndices.position();
-            for (int row = 0; row < samples - 1; row++) {
-                for (int column = 0; column < samples - 1; column++) {
-                    int corner00 = vertexBase + row * samples + column;
+        for (LayoutPatchCurves patch : surfaces.patches) {
+            float[] source = useCoonsGrid ? patch.coonsGrid : patch.surfaceGrid;
+            System.arraycopy(source, 0, gridVertices, vertexBase * VEC3_SIZE, source.length);
+            layoutPatchIndexStart[patchCursor] = gridIndices.position();
+            for (int row = 0; row < patch.gridRows - 1; row++) {
+                for (int column = 0; column < patch.gridColumns - 1; column++) {
+                    int corner00 = vertexBase + row * patch.gridColumns + column;
                     int corner10 = corner00 + 1;
-                    int corner01 = corner00 + samples;
+                    int corner01 = corner00 + patch.gridColumns;
                     int corner11 = corner01 + 1;
-                    coonsIndices.put(corner00).put(corner10).put(corner01);
-                    coonsIndices.put(corner10).put(corner11).put(corner01);
+                    gridIndices.put(corner00).put(corner10).put(corner01);
+                    gridIndices.put(corner10).put(corner11).put(corner01);
                 }
             }
-            layoutPatchIndexCount[patchCursor] = indicesPerPatch;
+            layoutPatchIndexCount[patchCursor] =
+                    gridIndices.position() - layoutPatchIndexStart[patchCursor];
             layoutPatchColors[patchCursor] = PatchColorHash.colorForPatch(
-                    patch.rootPatchId, LAYOUT_PATCH_ALPHA);
+                    patch.patchId, LAYOUT_PATCH_ALPHA);
             patchCursor++;
-            vertexBase += verticesPerPatch;
+            vertexBase += patch.gridColumns * patch.gridRows;
         }
-        if (coonsPatchCount > 0) {
-            coonsIndices.flip();
+        if (gridVertexTotal > 0) {
+            gridIndices.flip();
             layoutCoonsVao = gl.genVertexArrays();
             layoutCoonsVbo = gl.genBuffers();
             layoutCoonsEbo = gl.genBuffers();
             gl.bindVertexArray(layoutCoonsVao);
             gl.bindBuffer(gl.ARRAY_BUFFER(), layoutCoonsVbo);
-            gl.bufferData(gl.ARRAY_BUFFER(), coonsVertices, gl.STATIC_DRAW());
+            gl.bufferData(gl.ARRAY_BUFFER(), gridVertices, gl.STATIC_DRAW());
             gl.vertexAttribPointer(ATTR_POSITION, VEC3_SIZE, gl.FLOAT(), false,
                     VEC3_SIZE * Float.BYTES, 0);
             gl.enableVertexAttribArray(ATTR_POSITION);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), layoutCoonsEbo);
-            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), coonsIndices, gl.STATIC_DRAW());
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), gridIndices, gl.STATIC_DRAW());
         }
 
         if (singularityVao == 0) {
             buildIcosphereBuffers();
         }
         updateSphereRadius();
+    }
+
+    /**
+     * The number of line-buffer vertices one patch's quad edges contribute: two per segment of
+     * every interior quad edge, the patch's own boundary coming from the traced polylines.
+     *
+     * @param patch patch to measure
+     * @return the vertex count its quad edges need
+     */
+    private static int gridLineVertices(LayoutPatchCurves patch) {
+        int alongRows = Math.max(0, patch.gridRows - 2) * (patch.gridColumns - 1);
+        int alongColumns = Math.max(0, patch.gridColumns - 2) * (patch.gridRows - 1);
+        return (alongRows + alongColumns) * 2;
+    }
+
+    /**
+     * Writes one patch's interior quad edges into the line buffer, following the surface samples
+     * between quad corners rather than chording straight across.
+     *
+     * @param target packed line vertex buffer
+     * @param cursor write position in floats
+     * @param patch  patch whose quad edges are written
+     * @param grid   the grid to read, packed xyz row-major
+     * @return the new write position
+     */
+    private static int writeGridLines(float[] target, int cursor, LayoutPatchCurves patch,
+            float[] grid) {
+        for (int row = 1; row < patch.gridRows - 1; row++) {
+            for (int column = 0; column < patch.gridColumns - 1; column++) {
+                cursor = writeGridPoint(target, cursor, grid, row * patch.gridColumns + column);
+                cursor = writeGridPoint(target, cursor, grid, row * patch.gridColumns + column + 1);
+            }
+        }
+        for (int column = 1; column < patch.gridColumns - 1; column++) {
+            for (int row = 0; row < patch.gridRows - 1; row++) {
+                cursor = writeGridPoint(target, cursor, grid, row * patch.gridColumns + column);
+                cursor = writeGridPoint(target, cursor, grid,
+                        (row + 1) * patch.gridColumns + column);
+            }
+        }
+        return cursor;
+    }
+
+    /**
+     * Copies one packed grid point into the line buffer.
+     *
+     * @param target packed line vertex buffer
+     * @param cursor write position in floats
+     * @param grid   the grid to read, packed xyz
+     * @param index  grid point index
+     * @return the new write position
+     */
+    private static int writeGridPoint(float[] target, int cursor, float[] grid, int index) {
+        target[cursor] = grid[index * VEC3_SIZE];
+        target[cursor + 1] = grid[index * VEC3_SIZE + 1];
+        target[cursor + 2] = grid[index * VEC3_SIZE + 2];
+        return cursor + VEC3_SIZE;
     }
 
     /**
@@ -1653,6 +1717,28 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             gl.drawElements(gl.TRIANGLES(), layoutPatchIndexCount[patch], gl.UNSIGNED_INT(),
                     layoutPatchIndexStart[patch] * Integer.BYTES);
         }
+    }
+
+    /**
+     * Draw the quad mesh's own edges as biased GL_LINES, from the range of the line buffer that
+     * follows the patch boundaries.
+     *
+     * @param camera active 3D camera
+     */
+    private void renderQuadGridLines(Camera3D camera) {
+        if (unlitShader.ID < 0) {
+            return;
+        }
+        GL gl = Platforms.gl();
+        unlitShader.use();
+        unlitShader.setMat4(VIEW, camera.view);
+        unlitShader.setMat4(PROJECTION, localProjection);
+        sphereModel.identity();
+        unlitShader.setMat4(MODEL, sphereModel);
+        unlitShader.setFloat(DEPTHBIAS, LAYOUT_DEPTH_BIAS);
+        unlitShader.setVec4(SOLIDCOLOR, COLOR_QUAD_GRID);
+        gl.bindVertexArray(layoutLineVao);
+        gl.drawArrays(gl.LINES(), layoutLineVertexCount, layoutGridLineVertexCount);
     }
 
     /**

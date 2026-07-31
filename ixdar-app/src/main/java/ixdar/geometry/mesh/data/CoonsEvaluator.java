@@ -76,31 +76,32 @@ public final class CoonsEvaluator {
     }
 
     /**
-     * Blend four pre-sampled boundary polylines into a discrete bilinear Coons grid. All four
-     * sides must have the same sample count and share exact corner points; each boundary
-     * row/column of the output then reproduces its input side verbatim.
+     * Blend four pre-sampled boundary polylines into a discrete bilinear Coons grid, reproducing
+     * each input side verbatim along its own border. Opposite sides must have matching sample
+     * counts and adjacent ones must share exact corner points.
      *
      * @param sideU0 samples along u at v=0, corner₀₀ → corner₁₀
      * @param sideU1 samples along u at v=1, corner₀₁ → corner₁₁
      * @param sideV0 samples along v at u=0, corner₀₀ → corner₀₁
      * @param sideV1 samples along v at u=1, corner₁₀ → corner₁₁
      * @return packed xyz triples laid out row-major in {@code (v, u)} order,
-     *         {@code samples × samples} grid points
+     *         {@code sideU0.length} columns by {@code sideV0.length} rows
      */
     public static float[] blendGrid(Vector3f[] sideU0, Vector3f[] sideU1,
                                     Vector3f[] sideV0, Vector3f[] sideV1) {
-        int samples = sideU0.length;
+        int columns = sideU0.length;
+        int rows = sideV0.length;
         Vector3f c00 = sideU0[0];
-        Vector3f c10 = sideU0[samples - 1];
+        Vector3f c10 = sideU0[columns - 1];
         Vector3f c01 = sideU1[0];
-        Vector3f c11 = sideU1[samples - 1];
-        float[] out = new float[samples * samples * NUM_3];
-        for (int j = 0; j < samples; j++) {
-            float v = j / (float) (samples - 1);
+        Vector3f c11 = sideU1[columns - 1];
+        float[] out = new float[columns * rows * NUM_3];
+        for (int j = 0; j < rows; j++) {
+            float v = j / (float) (rows - 1);
             Vector3f pv0 = sideV0[j];
             Vector3f pv1 = sideV1[j];
-            for (int i = 0; i < samples; i++) {
-                float u = i / (float) (samples - 1);
+            for (int i = 0; i < columns; i++) {
+                float u = i / (float) (columns - 1);
                 Vector3f pu0 = sideU0[i];
                 Vector3f pu1 = sideU1[i];
 
@@ -119,7 +120,7 @@ public final class CoonsEvaluator {
                 float blZ = (NUM_1 - u) * (NUM_1 - v) * c00.z + u * (NUM_1 - v) * c10.z
                           + (NUM_1 - u) * v * c01.z + u * v * c11.z;
 
-                int base = (j * samples + i) * NUM_3;
+                int base = (j * columns + i) * NUM_3;
                 out[base]     = loftUx + loftVx - blX;
                 out[base + 1] = loftUy + loftVy - blY;
                 out[base + 2] = loftUz + loftVz - blZ;

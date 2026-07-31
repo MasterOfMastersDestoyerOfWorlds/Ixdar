@@ -14,7 +14,7 @@ import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
 /**
  * T-mesh re-embedding, construction half: builds a working copy of the input mesh, gives
  * every T-mesh node a copy vertex, and carves every traced arc into the copy as an edge
- * path. Zero-quantized arcs are carved too; {@link ZeroElementContraction} consumes them.
+ * path. Zero-quantized arcs are carved too; {@link EmbeddedTMesh#contract} consumes them.
  *
  * <p>See also: LCBK19 Section 6.1
  */

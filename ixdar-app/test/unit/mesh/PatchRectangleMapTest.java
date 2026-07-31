@@ -42,10 +42,11 @@ class PatchRectangleMapTest {
         };
         int[][] triangles = {{0, 1, 4}, {1, 2, 4}, {2, 3, 4}, {3, 0, 4}};
         int[] boundaryLoop = {0, 1, 2, 3};
-        int[] cornerAt = {0, 1, 2, 3};
+        int[][] breakLoopIndex = {{0, 1}, {1, 2}, {2, 3}, {3, 0}};
+        int[][] breakOffset = {{0, 1}, {0, 1}, {0, 1}, {0, 1}};
 
-        PatchRectangleMap map = new PatchRectangleMap(positions, triangles, boundaryLoop, cornerAt,
-                1.0, 1.0, null).build();
+        PatchRectangleMap map = new PatchRectangleMap(positions, triangles, boundaryLoop,
+                breakLoopIndex, breakOffset, 1.0, 1.0, null).build();
 
         map.assertFoldFree();
         assertEquals(0.5, map.rectangleU[4], TOLERANCE, "centre vertex x");
@@ -72,14 +73,45 @@ class PatchRectangleMapTest {
             {4, 5, 8}, {4, 8, 7},
         };
         int[] boundaryLoop = {0, 1, 2, 5, 8, 7, 6, 3};
-        int[] cornerAt = {0, 2, 4, 6};
+        int[][] breakLoopIndex = {{0, 2}, {2, 4}, {4, 6}, {6, 0}};
+        int[][] breakOffset = {{0, 2}, {0, 2}, {0, 2}, {0, 2}};
 
-        PatchRectangleMap map = new PatchRectangleMap(positions, triangles, boundaryLoop, cornerAt,
-                2.0, 2.0, null).build();
+        PatchRectangleMap map = new PatchRectangleMap(positions, triangles, boundaryLoop,
+                breakLoopIndex, breakOffset, 2.0, 2.0, null).build();
 
         map.assertFoldFree();
         assertEquals(1.0, map.rectangleU[4], TOLERANCE, "interior vertex x");
         assertEquals(1.0, map.rectangleV[4], TOLERANCE, "interior vertex y");
+    }
+
+    /**
+     * LCBK19 §6.2 fixes the rectangle boundary map <em>"compatibly between adjacent patches"</em>,
+     * and the only thing two patches sharing an arc agree on is that arc's quantized length. So a
+     * side of two equally quantized arcs must put their shared node at the side's midpoint even
+     * when the two arcs are wildly different lengths on the surface — chord-length spacing over
+     * the whole side would put it at 1.8 of 2 here, and the neighbour reading the short arc alone
+     * would disagree.
+     */
+    @Test
+    void sideOfTwoArcsSpacesTheSharedNodeByQuantizationNotChordLength() {
+        Vector3f[] positions = {
+            new Vector3f(0f, 0f, 0f),
+            new Vector3f(0.9f, 0f, 0f),
+            new Vector3f(1f, 0f, 0f),
+            new Vector3f(1f, 1f, 0f),
+            new Vector3f(0f, 1f, 0f),
+            new Vector3f(0.5f, 0.5f, 0f),
+        };
+        int[][] triangles = {{0, 1, 5}, {1, 2, 5}, {2, 3, 5}, {3, 4, 5}, {4, 0, 5}};
+        int[] boundaryLoop = {0, 1, 2, 3, 4};
+        int[][] breakLoopIndex = {{0, 1, 2}, {2, 3}, {3, 4}, {4, 0}};
+        int[][] breakOffset = {{0, 1, 2}, {0, 1}, {0, 2}, {0, 1}};
+
+        PatchRectangleMap map = new PatchRectangleMap(positions, triangles, boundaryLoop,
+                breakLoopIndex, breakOffset, 2.0, 1.0, null).build();
+
+        assertEquals(1.0, map.rectangleU[1], TOLERANCE, "shared node x");
+        assertEquals(0.0, map.rectangleV[1], TOLERANCE, "shared node y");
     }
 
     /**
