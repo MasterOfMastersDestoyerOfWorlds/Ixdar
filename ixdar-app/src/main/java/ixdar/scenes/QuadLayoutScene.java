@@ -23,6 +23,9 @@ public class QuadLayoutScene extends ModelScene {
     private float alphaDegrees = 15f;
     private boolean coonsFill;
 
+    /** Whether the displayed grid is the pre-relaxation map instead of the relaxed one. */
+    private boolean showInitialGrid;
+
     /** The engine of the last build, held so the fill can be swapped without rebuilding. */
     private QuadLayoutEngine engine;
 
@@ -53,11 +56,13 @@ public class QuadLayoutScene extends ModelScene {
     @Override
     public void setControls() {
         controls.add(new ControlHint(Keys.C, "C", "toggle Coons fill", this::toggleCoonsFill));
+        controls.add(new ControlHint(Keys.O, "O", "toggle pre-relaxation grid",
+                this::toggleInitialGrid));
         controls.add(new ControlHint(Keys.Q, "Q", "toggle quad grid",
                 () -> quadRuntime.showQuadGrid = !quadRuntime.showQuadGrid));
         controls.add(new ControlHint(Keys.P, "P", "toggle patch fill",
                 () -> quadRuntime.showLayoutPatches = !quadRuntime.showLayoutPatches));
-        controls.add(new ControlHint(Keys.B, "B", "toggle layout arcs",
+        controls.add(new ControlHint(Keys.B, "B", "toggle layout boundaries",
                 () -> quadRuntime.showLayoutBoundaries = !quadRuntime.showLayoutBoundaries));
         controls.add(new ControlHint(Keys.E, "E", "toggle embedded arcs",
                 () -> quadRuntime.showEmbeddedArcs = !quadRuntime.showEmbeddedArcs));
@@ -79,7 +84,8 @@ public class QuadLayoutScene extends ModelScene {
         quadRuntime.setSeamlessParametrization(engine.seamless);
         quadRuntime.setMotorcycleGraph(engine.motorcycleGraph);
         quadRuntime.setEmbeddedTMesh(engine.tmesh);
-        quadRuntime.setLayoutPatchSurfaces(engine.patchSurfaces, coonsFill);
+        this.engine = engine;
+        uploadSurfaces();
         quadRuntime.showTraces = false;
         quadRuntime.showNodes = false;
         quadRuntime.showCrossField = false;
@@ -88,15 +94,16 @@ public class QuadLayoutScene extends ModelScene {
         quadRuntime.showQuadGrid = true;
         quadRuntime.showLayoutBoundaries = true;
         quadRuntime.showEmbeddedArcs = false;
-        String hudLine = String.format(
-                "[quad-layout] α=%.0f° patches=%d quads=%d extensions=%d collapses=%d"
-                        + " nodes=%d arcs=%d copyV=%d",
-                alphaDegrees, engine.livePatchCount(), engine.quadGrid.quadCount,
-                engine.tmesh.extendTJunction.extensionCount, engine.tmesh.arcCollapseCount,
-                engine.tmesh.nodes.size(), engine.tmesh.arcs.size(),
-                engine.tmesh.topology.copy.vertexCount());
-        Platforms.get().log(hudLine);
-        this.engine = engine;
+    }
+
+    /**
+     * Uploads the selected map's render products: the grid extraction and the arc isolines, from
+     * the relaxed map or the pre-relaxation one when the comparison toggle holds it, with the
+     * current fill mode.
+     */
+    private void uploadSurfaces() {
+        quadRuntime.setLayoutPatchSurfaces(
+                showInitialGrid ? engine.patchSurfacesInitial : engine.patchSurfaces, coonsFill);
     }
 
     /**
@@ -106,7 +113,20 @@ public class QuadLayoutScene extends ModelScene {
     private void toggleCoonsFill() {
         coonsFill = !coonsFill;
         if (engine != null) {
-            quadRuntime.setLayoutPatchSurfaces(engine.patchSurfaces, coonsFill);
+            uploadSurfaces();
+        }
+    }
+
+    /**
+     * Swaps the displayed grid between the pre-relaxation map and the relaxed one, so the
+     * relaxation's effect is visible in place.
+     */
+    private void toggleInitialGrid() {
+        showInitialGrid = !showInitialGrid;
+        if (engine != null) {
+            uploadSurfaces();
+            Platforms.get().log("[quad-layout] showing "
+                    + (showInitialGrid ? "PRE-relaxation" : "relaxed") + " grid");
         }
     }
 

@@ -57,9 +57,8 @@ public final class LayoutPatchSurfaces {
             List<List<Vector3f>> sidePolylines = new ArrayList<>(EmbeddedPatch.SIDES);
             Vector3f[] cornerPositions = new Vector3f[EmbeddedPatch.SIDES];
             for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
-                sidePolylines.add(sidePolyline(patch, side));
-                cornerPositions[side] = tmesh.topology.copy.vertexPosition(
-                        tmesh.nodes.get(patch.cornerNodeId(side)).copyVertex);
+                sidePolylines.add(sidePolyline(grid, side, columns, rows));
+                cornerPositions[side] = grid[quadGrid.borderIndex(side, 0, columns, rows)];
             }
             patches.add(new LayoutPatchCurves(patch.patchId, sidePolylines, cornerPositions,
                     columns, rows, surfaceGrid, coonsBlend(grid, columns, rows)));
@@ -69,28 +68,19 @@ public final class LayoutPatchSurfaces {
 
     /**
      * The boundary of one side of a patch at the quad grid's own resolution, from its corner to
-     * the next.
+     * the next, read from the extracted grid border so it always matches the quads it bounds.
      *
-     * <p>The arc's carved edge path zig-zags along triangle edges; the layout arc a reader sees
-     * is the chain of quad edges along it, which is what the sample points give.
-     *
-     * @param patch patch to read
-     * @param side  side index in {@code [0, 4)}
+     * @param grid    the patch's extracted grid, row-major
+     * @param side    side index in {@code [0, 4)}
+     * @param columns grid columns
+     * @param rows    grid rows
      * @return the side's sample positions in walking order
      */
-    private List<Vector3f> sidePolyline(EmbeddedPatch patch, int side) {
-        List<Integer> sideArcs = patch.sideArcIds.get(side);
-        List<Integer> sideNodes = patch.sideNodeIds.get(side);
+    private List<Vector3f> sidePolyline(Vector3f[] grid, int side, int columns, int rows) {
+        int sideLength = side % 2 == 0 ? columns - 1 : rows - 1;
         List<Vector3f> polyline = new ArrayList<>();
-        polyline.add(tmesh.topology.copy.vertexPosition(
-                tmesh.nodes.get(sideNodes.get(0)).copyVertex));
-        for (int arcIndex = 0; arcIndex < sideArcs.size(); arcIndex++) {
-            EmbeddedArc arc = tmesh.arcs.get(sideArcs.get(arcIndex));
-            Vector3f[] points = quadGrid.pointsByArc[arc.arcId];
-            boolean forward = arc.startNodeId == sideNodes.get(arcIndex);
-            for (int sample = 1; sample < points.length; sample++) {
-                polyline.add(points[forward ? sample : points.length - 1 - sample]);
-            }
+        for (int offset = 0; offset <= sideLength; offset++) {
+            polyline.add(grid[quadGrid.borderIndex(side, offset, columns, rows)]);
         }
         return polyline;
     }

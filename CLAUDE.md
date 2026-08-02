@@ -69,7 +69,7 @@ This rule has a custom checkstyle module (`SingleCallerHelperCheck`, currently d
 
 **Never add a `System.getProperty` knob.** Properties are a hack: they move a decision out of the code into an invocation nobody will remember, they are untyped and unchecked, they never show up in a stack trace or a test, and each one is a branch that silently rots.
 
-When two behaviours genuinely both need to exist, they are a **public field with a named enum** on the owning class, and the caller sets it. When one of them is just the loser of an experiment, delete it and let the commit message hold the result.
+When two behaviours genuinely both need to exist, they are a **public field on the owning class**, and the caller sets it. For a two-state switch that is a `public boolean` with a behavior-describing name (`coupleSeams`, `freeRegularNodes`) — do not mint a two-member enum for it. An enum is for three or more states, or when neither state is a natural default the boolean's `false` can carry. Never add a speculative switch: if nothing sets the field yet, the field shouldn't exist. When one behaviour is just the loser of an experiment, delete it and let the commit message hold the result.
 
 The existing `ixdar.model` / `tmeshPipeline.off` / `benchmark.off` properties are entry points choosing an *input file*, which is the one case this does not cover. Anything that changes *behaviour* is a field.
 

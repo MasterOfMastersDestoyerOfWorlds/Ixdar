@@ -56,6 +56,8 @@
       "Bash(echo \"exit=$?\")"
     ],
     "deny": [
+      "Bash(pdftotext *)",
+      "Bash(pdftotext)",
       "Bash(cp *)",
       "Bash(cat > * .java)",
       "Bash(git show * >)",

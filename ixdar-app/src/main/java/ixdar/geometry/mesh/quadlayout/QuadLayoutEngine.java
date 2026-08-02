@@ -1,14 +1,18 @@
 package ixdar.geometry.mesh.quadlayout;
 
+import java.util.Set;
+
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
-import ixdar.geometry.mesh.quadlayout.embedding.ArcParametricLength;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.GlobalGridMap;
+import ixdar.geometry.mesh.quadlayout.embedding.GridMapDofSystem;
+import ixdar.geometry.mesh.quadlayout.embedding.GridMapOptimizer;
+import ixdar.geometry.mesh.quadlayout.embedding.IntegerGridMap;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutPatchMaps;
-import ixdar.geometry.mesh.quadlayout.embedding.LayoutQualityReport;
-import ixdar.geometry.mesh.quadlayout.embedding.LayoutStripSizing;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutPatchSurfaces;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchGridExtraction;
 import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
@@ -18,25 +22,30 @@ import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
+import ixdar.platform.Platforms;
 
 /**
  * Staged driver for the quad-layout pipeline: cross field, singularities,
  * seamless parametrization, motorcycle-graph T-mesh, ILP quantization, layout
  * extraction.
  *
- * <p>Each {@code build*} method runs its prerequisites lazily and caches its
+ * <p>
+ * Each {@code build*} method runs its prerequisites lazily and caches its
  * product, so a caller can run the pipeline only as far as the stage it needs.
  *
- * <p>See also: Lyon 2021
+ * <p>
+ * See also: Lyon 2021
  */
 public final class QuadLayoutEngine {
 
-    /** Default maximum separatrix deviation α (Lyon Table 1 uses 15° on ROCKERARM). */
+    /**
+     * Default maximum separatrix deviation α (Lyon Table 1 uses 15° on ROCKERARM).
+     */
     public static final float DEFAULT_ALPHA_RADIANS = (float) Math.toRadians(15.0);
 
     /**
-     * Default parametric length one quad edge spans. The seamless parametrization is scaled so
-     * that one unit is one quad edge, so this is its own unit.
+     * Default parametric length one quad edge spans. The seamless parametrization
+     * is scaled so that one unit is one quad edge, so this is its own unit.
      */
     public static final double DEFAULT_TARGET_EDGE_LENGTH = 1.0;
 
@@ -51,7 +60,10 @@ public final class QuadLayoutEngine {
     /** Maximum separatrix deviation α in radians, Lyon's single quality knob. */
     public final float alphaRadians;
 
-    /** Parametric length one quad edge spans; set before {@link #buildConformingTMesh()}. */
+    /**
+     * Parametric length one quad edge spans; set before
+     * {@link #buildConformingTMesh()}.
+     */
     public double targetEdgeLength = DEFAULT_TARGET_EDGE_LENGTH;
 
     public CrossField crossField;
@@ -65,22 +77,62 @@ public final class QuadLayoutEngine {
     /** The embedded T-mesh, contracted and conforming: the pipeline's output. */
     public EmbeddedTMesh tmesh;
 
-    public LayoutQualityReport quality;
-    public ArcParametricLength arcLength;
-    public LayoutStripSizing sizing;
     public LayoutPatchMaps patchMaps;
+
+    /**
+     * Common grid framing the patch maps, so their union is an integer grid map.
+     */
+    public IntegerGridMap integerGrid;
+
+    /**
+     * The patch maps carried into that common grid; what the re-parametrization
+     * optimizes.
+     */
+    public GlobalGridMap globalGrid;
+
+    /** Which grid coordinates the re-parametrization may move. */
+    public GridMapDofSystem gridDofs;
+
+    /** The relaxation that frees patch boundaries from their rectangles. */
+    public GridMapOptimizer gridOptimizer;
+
+    /**
+     * Wall-clock budget handed to the relaxation; zero skips it, keeping the
+     * harmonic maps.
+     */
+    public long relaxationBudgetMilliseconds = 500_000;
+
+    /**
+     * Extraction of the map before the relaxation, kept so the scene can compare
+     * the two.
+     */
+    public PatchGridExtraction quadGridInitial;
+
+    /**
+     * Render records of the pre-relaxation extraction, for the scene's comparison
+     * toggle.
+     */
+    public LayoutPatchSurfaces patchSurfacesInitial;
+
     public PatchGridExtraction quadGrid;
     public LayoutPatchSurfaces patchSurfaces;
 
-    /** Whether {@link #buildContractedTMesh()} has run; the T-mesh is mutated in place. */
+    /**
+     * Whether {@link #buildContractedTMesh()} has run; the T-mesh is mutated in
+     * place.
+     */
     public boolean contracted;
 
-    /** Whether {@link #buildConformingTMesh()} has run; the T-mesh is mutated in place. */
+    /**
+     * Whether {@link #buildConformingTMesh()} has run; the T-mesh is mutated in
+     * place.
+     */
     public boolean conforming;
 
+
     /**
-     * Stage products start unbuilt; call the {@code build*} method of the
-     * furthest stage you need.
+     * Stage products start unbuilt; call the {@code build*} method of the furthest
+     * stage you need.
      *
      * @param mesh         triangle mesh, manifold, possibly with boundary
      * @param alphaRadians maximum separatrix deviation in radians (e.g. 5°…45°)
@@ -150,8 +202,8 @@ public final class QuadLayoutEngine {
     }
 
     /**
-     * Stage 6: collapse zero-quantized arcs and extract the layout's
-     * separatrix skeleton (Lyon §6, collapse half).
+     * Stage 6: collapse zero-quantized arcs and extract the layout's separatrix
+     * skeleton (Lyon §6, collapse half).
      *
      * @return the cached layout extraction
      */
@@ -164,8 +216,8 @@ public final class QuadLayoutEngine {
     }
 
     /**
-     * Stage 7: re-embed the T-mesh as a subcomplex of a working copy of the
-     * mesh (LCBK19 §6.1) — nodes onto vertices, arcs onto edge paths.
+     * Stage 7: re-embed the T-mesh as a subcomplex of a working copy of the mesh
+     * (LCBK19 §6.1) — nodes onto vertices, arcs onto edge paths.
      *
      * @return the cached layout embedding
      */
@@ -178,8 +230,8 @@ public final class QuadLayoutEngine {
     }
 
     /**
-     * Stage 8: assemble the embedded T-mesh from the carve and validate it against the
-     * surface's Euler characteristic. Zero arcs and patches are still present.
+     * Stage 8: assemble the embedded T-mesh from the carve and validate it against
+     * the surface's Euler characteristic. Zero arcs and patches are still present.
      *
      * @return the cached embedded T-mesh, uncontracted
      */
@@ -188,14 +240,14 @@ public final class QuadLayoutEngine {
             buildLayoutEmbedding();
             tmesh = new EmbeddedTMesh(embedding.topology).build(embedding);
             tmesh.validate();
-            new ArcParametricLength(tmesh, seamless, motorcycleGraph, "assembled").build();
         }
         return tmesh;
     }
 
     /**
-     * Stage 9: contract the embedded T-mesh to a fixed point, leaving no zero-quantized
-     * arc or patch (LCBK19 §6.1 operators 1–3). The layout is still non-conforming.
+     * Stage 9: contract the embedded T-mesh to a fixed point, leaving no
+     * zero-quantized arc or patch (LCBK19 §6.1 operators 1–3). The layout is still
+     * non-conforming.
      *
      * @return the cached T-mesh, contracted
      */
@@ -203,68 +255,81 @@ public final class QuadLayoutEngine {
         if (!contracted) {
             buildTMesh();
             tmesh.contract();
-            contracted = true;
-            ArcParametricLength contractedLength =
-                    new ArcParametricLength(tmesh, seamless, motorcycleGraph, STAGE_CONTRACTED).build();
-            new LayoutQualityReport(tmesh, STAGE_CONTRACTED, contractedLength.lengthByArc,
-                    motorcycleGraph).build();
-        }
-        return tmesh;
-    }
-
-    /**
-     * Stage 10: extend every surviving T-junction across its patch, leaving a conforming
-     * layout of four-sided patches (LCK21a §6).
-     *
-     * @return the cached T-mesh, conforming
-     */
-    public EmbeddedTMesh buildConformingTMesh() {
-        if (!conforming) {
-            buildContractedTMesh();
             tmesh.conform();
-            conforming = true;
-            System.out.println("[quad-layout] conforming: extensions="
-                    + tmesh.extendTJunction.extensionCount + " (opposite splits="
-                    + tmesh.extendTJunction.oppositeSplitCount + ") patches=" + livePatchCount());
-            arcLength = new ArcParametricLength(tmesh, seamless, motorcycleGraph, STAGE_CONFORMING).build();
-            quality = new LayoutQualityReport(tmesh, STAGE_CONFORMING, arcLength.lengthByArc,
-                    motorcycleGraph).build();
-            sizing = new LayoutStripSizing(tmesh, arcLength.lengthByArc, targetEdgeLength).build();
+            contracted = true;
         }
         return tmesh;
     }
 
     /**
-     * Stage 11: map every layout patch onto its quantized rectangle with a Tutte embedding
-     * (LCBK19 §6.2).
+     * Stage 11: map every layout patch onto its quantized rectangle with a harmonic
+     * embedding, and frame the patches in one common grid so their union is an
+     * integer grid map (LCBK19 §6.2).
      *
      * @return the cached per-patch rectangle maps
      */
     public LayoutPatchMaps buildPatchMaps() {
         if (patchMaps == null) {
-            buildConformingTMesh();
-            patchMaps = new LayoutPatchMaps(tmesh).build();
+            buildContractedTMesh();
+            patchMaps = new LayoutPatchMaps(tmesh);
+            patchMaps.build();
+            integerGrid = new IntegerGridMap(tmesh).build();
         }
         return patchMaps;
     }
 
     /**
-     * Stage 12: place the quad mesh's vertices on the surface by inverting each patch's
-     * rectangle map at the integer lattice (LCK21a §6, "map a regular quad patch").
+     * Stage 12: carry every patch's map into one common integer grid, the object
+     * the re-parametrization optimizes (LCBK19 §6.2, Figure 10d).
+     *
+     * @return the cached global grid map
+     */
+    public GlobalGridMap buildGlobalGridMap() {
+
+        if (globalGrid == null) {
+            buildPatchMaps();
+            globalGrid = new GlobalGridMap(patchMaps, integerGrid).build();
+            gridDofs = new GridMapDofSystem(globalGrid);
+            gridDofs.seamCouplingPinned = false;
+            gridDofs.nodeFreedomPinned = false;
+            gridDofs.build();
+            GridMapOptimizer probe = new GridMapOptimizer(gridDofs, seamless);
+            Set<Integer> sick = probe.findCrushedPatches(1.0e-3);
+            System.out.println("[grid-optimize] crushed patches (" + sick.size() + "): " + sick);
+            for (int patchId : sick) {
+                System.out.println("[grid-reee]: " + patchId);
+                GridMapOptimizer local = new GridMapOptimizer(gridDofs, seamless);
+                local.focusPatchIds = Set.of(patchId);
+                local.timeBudgetMilliseconds = 4_000;
+                local.build();
+            }
+            gridOptimizer = new GridMapOptimizer(gridDofs, seamless);
+            gridOptimizer.timeBudgetMilliseconds = relaxationBudgetMilliseconds;
+            gridOptimizer.build();
+        }
+        return globalGrid;
+    }
+
+    /**
+     * Stage 13: place the quad mesh's vertices on the surface by inverting each
+     * patch's rectangle map at the integer lattice (LCK21a §6, "map a regular quad
+     * patch").
      *
      * @return the cached per-patch quad grids
      */
     public PatchGridExtraction buildQuadGrid() {
         if (quadGrid == null) {
-            buildPatchMaps();
-            quadGrid = new PatchGridExtraction(patchMaps, sizing).build();
+            buildGlobalGridMap();
+            PatchGridExtraction extraction = new PatchGridExtraction(patchMaps, targetEdgeLength);
+            extraction.optimizedGrid = globalGrid;
+            quadGrid = extraction.build();
         }
         return quadGrid;
     }
 
     /**
-     * Stage 13: the render-ready surfaces — four boundary polylines, the extracted quad grid
-     * and a Coons blend of the sides — one per layout patch.
+     * Stage 14: the render-ready surfaces — four boundary polylines, the extracted
+     * quad grid and a Coons blend of the sides — one per layout patch.
      *
      * @return the cached patch surfaces
      */
@@ -272,7 +337,14 @@ public final class QuadLayoutEngine {
         if (patchSurfaces == null) {
             buildQuadGrid();
             patchSurfaces = new LayoutPatchSurfaces(quadGrid).build();
+            patchSurfacesInitial = new LayoutPatchSurfaces(quadGridInitial).build();
         }
+        String hudLine = String.format(
+                "[quad-layout] patches=%d quads=%d | relax %.2e→%.2e it=%d",
+                livePatchCount() , quadGrid.quadCount,
+                gridOptimizer.energyBefore, gridOptimizer.energyAfter,
+                gridOptimizer.iterationCount);
+        Platforms.get().log(hudLine);
         return patchSurfaces;
     }
 
@@ -281,7 +353,7 @@ public final class QuadLayoutEngine {
      *
      * @return the count of live patches in the T-mesh
      */
-    public int livePatchCount() {
+    private int livePatchCount() {
         int live = 0;
         for (EmbeddedPatch patch : tmesh.patches) {
             if (patch.alive) {

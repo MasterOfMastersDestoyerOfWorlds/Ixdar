@@ -133,6 +133,20 @@ public final class Trace {
     }
 
     /**
+     * Whether a meeting is one of the sector meetings LCK21a §3 defines {@code n_i*} by: another
+     * trace, reaching the intersection closer to its own origin, starting inside this trace's
+     * π/2-sector. The tracing stop and the validity constraint both select {@code n_i*}.
+     *
+     * @param meeting meeting recorded on this trace
+     * @return true when the meeting qualifies
+     */
+    public boolean isSectorMeeting(MetOtherTraceEntry meeting) {
+        return meeting.otherTraceId != traceId
+                && meeting.theirParametricLength < meeting.ourParametricLength
+                && Math.abs(meeting.signedAngle) < Math.PI / 4.0;
+    }
+
+    /**
      * Record a meeting with another trace and apply stopping test bookkeeping.
      *
      * @param other        other trace
@@ -152,16 +166,16 @@ public final class Trace {
             double alphaIj, double alphaBound,
             TraceAxis ourAxis, int ourSign, TraceAxis otherAxis, int otherSign,
             int ourVisitId, int otherVisitId) {
-        metOtherTraces.add(new MetOtherTraceEntry(other.traceId, alphaIj, ourLength, theirLength,
-                ourAxis, ourSign, otherAxis, otherSign, ourVisitId, otherVisitId));
+        MetOtherTraceEntry meeting = new MetOtherTraceEntry(other.traceId, alphaIj, ourLength,
+                theirLength, ourAxis, ourSign, otherAxis, otherSign, ourVisitId, otherVisitId);
+        metOtherTraces.add(meeting);
         if (other == this) {
             // A trace crossing its own earlier path must be noded (recorded
             // above) but is not a meeting with a nearby singularity, so it does
             // not count toward Lyon's two-sided α stop.
             return;
         }
-        if (!sawFirstSectorCollision && theirLength < ourLength
-                && Math.abs(alphaIj) < Math.PI / 4.0) {
+        if (!sawFirstSectorCollision && isSectorMeeting(meeting)) {
             sawFirstSectorCollision = true;
             if (Double.isNaN(eppsteinStopLength)) {
                 eppsteinStopLength = ourLength;

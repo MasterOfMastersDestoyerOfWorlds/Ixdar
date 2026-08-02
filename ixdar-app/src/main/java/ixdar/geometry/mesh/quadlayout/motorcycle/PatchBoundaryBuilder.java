@@ -44,6 +44,12 @@ public final class PatchBoundaryBuilder {
     private static final int PORT_TABLE_SAMPLE_LIMIT = 1;
     private static final int INVALID_CYCLE_HOP_DUMP_LIMIT = 24;
 
+    /** Sides of a rectangular patch. */
+    private static final int SIDES = 4;
+
+    /** Relative gap between opposite parametric side lengths that still counts as a rectangle. */
+    private static final double RECTANGULARITY_TOLERANCE = 1.0e-6;
+
     public final MotorcycleGraph graph;
 
     /** Invalid-cycle histogram keyed by corner count. */
@@ -51,6 +57,33 @@ public final class PatchBoundaryBuilder {
 
     /** Invalid cycles that traverse some arc twice (dead-end fold-backs). */
     public int invalidCycleFoldBackCount;
+
+    /**
+     * Hops away from a singularity whose turn is neither flat nor a counter-clockwise π/2 corner,
+     * so LCBK19 §4's direction law fails and the cycle bounding them is not a rectangle.
+     */
+    public int cornerLawViolationCount;
+
+    /** Hops away from a singularity that carry straight on in the same parametric direction. */
+    public int flatHopCount;
+
+    /** Hops away from a singularity that turn counter-clockwise by π/2. */
+    public int ccwCornerHopCount;
+
+    /** Hops away from a singularity that turn clockwise by π/2. */
+    public int cwCornerHopCount;
+
+    /** Hops at a singularity, where the cone angle is not π/2 and the law does not apply. */
+    public int singularityHopCount;
+
+    /**
+     * Opposite side pairs whose parametric lengths differ by more than
+     * {@link #RECTANGULARITY_TOLERANCE}, so the patch is not the rectangle LCBK19 Def 3.1 requires.
+     */
+    public int rectangularityViolationCount;
+
+    /** Largest relative gap between a patch's opposite parametric side lengths. */
+    public double worstRectangularityError;
 
     private final HalfEdgeMesh mesh;
     private final Map<Integer, List<PatchPort>> portsByNode = new HashMap<>();
@@ -106,9 +139,30 @@ public final class PatchBoundaryBuilder {
                     }
                     PatchPort arrival = nodePorts.get(arrivalIndex);
                     PatchPort departure = nodePorts.get((arrivalIndex + 1) % nodePorts.size());
-                    boolean straight = graph.nodes.get(headNodeId).vertexId < 0
-                            && departure.directionU == -arrival.directionU
-                            && departure.directionV == -arrival.directionV;
+                    // The in-port points back along the arrival, so the incoming travel is its
+                    // negation. LCBK19 §4: a flat halfarc keeps that direction, a corner rotates
+                    // it counter-clockwise by π/2. A singularity is always a corner, and the cone
+                    // angle there is not π/2, so the law is only meaningful away from one.
+                    int incomingU = -arrival.directionU;
+                    int incomingV = -arrival.directionV;
+                    boolean atSingularity = graph.nodes.get(headNodeId).vertexId >= 0;
+                    boolean flat = departure.directionU == incomingU
+                            && departure.directionV == incomingV;
+                    boolean turnsCcw = departure.directionU == -incomingV
+                            && departure.directionV == incomingU;
+                    boolean turnsCw = departure.directionU == incomingV
+                            && departure.directionV == -incomingU;
+                    if (!atSingularity) {
+                        flatHopCount += flat ? 1 : 0;
+                        ccwCornerHopCount += turnsCcw ? 1 : 0;
+                        cwCornerHopCount += turnsCw ? 1 : 0;
+                        if (!flat && !turnsCcw && !turnsCw) {
+                            cornerLawViolationCount++;
+                        }
+                    } else {
+                        singularityHopCount++;
+                    }
+                    boolean straight = !atSingularity && flat;
 
                     hopIsCorner.add(!straight);
                     int nextDirected = departure.arcId * 2 + (departure.outgoing ? 0 : 1);
@@ -147,6 +201,14 @@ public final class PatchBoundaryBuilder {
         System.out.printf(
                 "[motorcycle] arrangement patches: %d cycles, %d valid rectangles, %d unresolved%n",
                 graph.patches.size(), validCount, unresolvedCycles);
+        System.out.printf(
+                "[motorcycle] hop turns: flat=%d ccwCorner=%d cwCorner=%d atSingularity=%d"
+                        + " lawViolations=%d%n",
+                flatHopCount, ccwCornerHopCount, cwCornerHopCount, singularityHopCount,
+                cornerLawViolationCount);
+        System.out.printf(
+                "[motorcycle] Def 3.1 rectangularity: violations=%d worstRelativeError=%.6f%n",
+                rectangularityViolationCount, worstRectangularityError);
         logInvalidCycleDiagnostics();
     }
 
@@ -498,6 +560,38 @@ public final class PatchBoundaryBuilder {
                 position = (position + 1) % cycleLength;
             }
             patch.sides.add(side);
+        }
+        measureRectangularity(patch);
+    }
+
+    /**
+     * Checks LCBK19 Definition 3.1 on a split patch: opposite sides must carry equal parametric
+     * length, since the patch is meant to map onto an axis-aligned rectangle.
+     *
+     * <p>Nothing else verifies this, and the quantization's objective averages the two opposite
+     * sides, which is exactly the operation that hides an unequal pair.
+     *
+     * @param patch patch whose four sides have just been filled
+     */
+    private void measureRectangularity(TMeshPatch patch) {
+        double[] sideLength = new double[SIDES];
+        for (int side = 0; side < SIDES; side++) {
+            for (int arcId : patch.sides.get(side)) {
+                sideLength[side] += graph.arcs.get(arcId).parametricLength;
+            }
+        }
+        for (int side = 0; side < 2; side++) {
+            double here = sideLength[side];
+            double opposite = sideLength[side + 2];
+            double larger = Math.max(here, opposite);
+            if (larger <= 0.0) {
+                continue;
+            }
+            double error = Math.abs(here - opposite) / larger;
+            worstRectangularityError = Math.max(worstRectangularityError, error);
+            if (error > RECTANGULARITY_TOLERANCE) {
+                rectangularityViolationCount++;
+            }
         }
     }
 }

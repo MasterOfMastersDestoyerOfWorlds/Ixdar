@@ -25,7 +25,8 @@ public final class LayoutPatchMaps {
     /**
      * Stores the T-mesh whose patches are mapped.
      *
-     * @param tmesh conforming embedded T-mesh
+     * @param tmesh     conforming embedded T-mesh
+     * @param arcLength chart measure backing {@link BoundarySpacing#PARAMETRIC}, or {@code null}
      */
     public LayoutPatchMaps(EmbeddedTMesh tmesh) {
         this.tmesh = tmesh;
@@ -40,7 +41,6 @@ public final class LayoutPatchMaps {
      * @return this, solved
      */
     public LayoutPatchMaps build() {
-        subdividedChordCount = new ThreeConnectivityRefinement(tmesh).refine();
         regions = new PatchRegions(tmesh).build();
         PatchRegionMapper mapper = new PatchRegionMapper(tmesh, regions);
         mapByPatchId = new PatchRectangleMap[tmesh.patches.size()];
@@ -58,6 +58,8 @@ public final class LayoutPatchMaps {
             mapByPatchId[patch.patchId] = map;
             mappedPatchCount++;
         }
+        System.out.println("[patch-maps] patches=" + mappedPatchCount + " subdividedChords="
+                + subdividedChordCount);
         return this;
     }
 }
