@@ -163,6 +163,26 @@ public final class SeamlessDofSystem {
      *         apply with {@link #applyIntegerPinPenalty})
      */
     public NormalMatrix assemble(double[] faceWeight) {
+        return assemble(faceWeight, null, null, null);
+    }
+
+    /**
+     * Assemble the SPD matrix with extra quadratic-penalty contributions merged
+     * in, extending the non-zero pattern where a penalty couples DOFs the face
+     * energies do not.
+     *
+     * @param faceWeight    per-face IRLS weight, length {@code faceCount}
+     * @param extraDiagonal added to the diagonal, length {@link #dofCount}; null
+     *                      for none
+     * @param extraUpper    strict-upper additions keyed
+     *                      {@code (row << 32) | column}; null for none
+     * @param extraRhs      added to the right-hand side, length {@link #dofCount};
+     *                      null for none
+     * @return the assembled SPD matrix (without integer-pin diagonal penalty —
+     *         apply with {@link #applyIntegerPinPenalty})
+     */
+    public NormalMatrix assemble(double[] faceWeight, double[] extraDiagonal,
+            Map<Long, Double> extraUpper, double[] extraRhs) {
         if (assemblyPlan == null) {
             this.assemblyPlan = new AssemblyPlanBuilder(seamless.faceCount);
             this.assemblyPlan.build(seamless, chartVertexFinalDofs, chartVertexFinalCoefs, cutGraph, dofCount);
@@ -188,7 +208,38 @@ public final class SeamlessDofSystem {
                 rhs[assemblyPlan.perFaceRhsDof[i]] += w * assemblyPlan.perFaceRhsCoef[i];
             }
         }
-        return new NormalMatrix(diag, assemblyPlan.planUpperKeys, upper, rhs);
+        if (extraDiagonal != null) {
+            for (int i = 0; i < dofCount; i++) {
+                diag[i] += extraDiagonal[i];
+            }
+        }
+        if (extraRhs != null) {
+            for (int i = 0; i < dofCount; i++) {
+                rhs[i] += extraRhs[i];
+            }
+        }
+        if (extraUpper == null || extraUpper.isEmpty()) {
+            return new NormalMatrix(diag, assemblyPlan.planUpperKeys, upper, rhs);
+        }
+        long[] baseKeys = assemblyPlan.planUpperKeys;
+        long[] mergedKeys = new long[baseKeys.length + extraUpper.size()];
+        System.arraycopy(baseKeys, 0, mergedKeys, 0, baseKeys.length);
+        int mergedCount = baseKeys.length;
+        for (long key : extraUpper.keySet()) {
+            if (Arrays.binarySearch(baseKeys, key) < 0) {
+                mergedKeys[mergedCount++] = key;
+            }
+        }
+        mergedKeys = Arrays.copyOf(mergedKeys, mergedCount);
+        Arrays.sort(mergedKeys);
+        double[] mergedValues = new double[mergedCount];
+        for (int i = 0; i < baseKeys.length; i++) {
+            mergedValues[Arrays.binarySearch(mergedKeys, baseKeys[i])] = upper[i];
+        }
+        for (Map.Entry<Long, Double> entry : extraUpper.entrySet()) {
+            mergedValues[Arrays.binarySearch(mergedKeys, entry.getKey())] += entry.getValue();
+        }
+        return new NormalMatrix(diag, mergedKeys, mergedValues, rhs);
     }
 
     /**

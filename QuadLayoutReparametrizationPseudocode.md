@@ -78,15 +78,22 @@ Implemented:
 
 Deviations & missing:
 
-- **MISSING — BCE13 (4) injectivity constraints.** We run BZK09 §5.4 stiffening instead.
-  BCE13 §2.1 is precise about the limits: stiffening satisfactorily handles flips from
-  suboptimal singularity *positions* (their "first issue") but **cannot** handle the
-  integer-related degeneracies introduced by rounding (their "second issue") — and our
-  seamless stage does round translation DOFs. LCKB19 §7 states its input
-  parametrizations used BCE13's constraints. Downstream proof that our `F` is not
-  injective: `GridMapOptimizer` counts `oppositeOrientationCount` (reference triangles
-  read from `F` with negative determinant), `degenerateReferenceCount`, and
-  `unreadableSourceCount` — all of which would be structurally zero under (4).
+- **IMPLEMENTED 2026-08-02 — BCE13 (4) injectivity constraints** replace the BZK09 §5.4
+  stiffening loop. `InjectivityConstraints` builds the paper-exact constraint set
+  (target-shape reference triangles, first Fermat point by the equilateral-apex
+  construction, bisector trisector rays, ε = 1 % smallest reference edge, δ
+  normalization to one at the reference, virtual altitude split past 100°);
+  `SeamlessParameterization#runInjectivityConstraintLoop` runs BCE13 §3.4's lazy
+  activation (violated + normalized < 0.5). **Solver substitution, flagged**: instead of
+  IPOPT, active constraints are enforced by escalating quadratic penalties pulled to the
+  activation threshold (CBK15 §7.1's λ-penalty precedent, SPH17 §5.3's ×10 schedule),
+  re-solved by direct Cholesky per round; validity is still checked exactly each round.
+  On fertility: 17 violated at round 0, zero after one penalty round, `flipped=0`,
+  metrics `flippedTriangleCount=0` after the MC19 projection. The optimizer's 189-bad-
+  reference audit has not yet been re-reached: the now-different layout contracts into a
+  patch of 62 649 triangles on a 1×1 rectangle whose harmonic interior collapses below
+  double precision (slivers at 1e-13), and the Tutte stage fails loudly there — the
+  contraction-drag-locality problem, the next open front.
 - **Compatibility (verified against MC19, not folklore):** adding BCE13's inequalities
   does not disturb the motorcycle phase. The inequalities constrain only the `(u,v)`
   values; every transition's rotation `r_ij` is fixed a priori (MC19 §5.1, BCE13 (1)),
@@ -148,11 +155,18 @@ for each live patch P with quantized sides w × h:                 [LCKB19 §6.2
                                                                    patch's nodes to the origin"]
     arc endpoints at their quantized integer offsets              [LCKB19 §6.2 → all nodes integer]
     intra-arc boundary vertices: any monotone distribution        [unspecified by the papers]
+  REQUIRE the boundary loop simple (no repeated vertex): a pinch
+    means the region is not a disk and no bijective map exists    [Tutte 1963 precondition]
+  REQUIRE opposite sides equal and positive                       [LCKB19 Def 3.1]
   solve interior by convex-combination (Tutte) map                [Tutte 1963; LCKB19 §6.2]
     weights: cotangent                                            [RPP17 §6]
-    if any triangle flipped → re-solve with uniform weights       [RPP17 §6: "guaranteed to give
+    if the system is indefinite or any triangle flipped →
+      re-solve with uniform weights                               [RPP17 §6: "guaranteed to give
                                                                    us a valid starting point"]
-  result is bijective and flip-free                               [Tutte 1963; LCKB19 §6.2]
+  result is bijective and flip-free — the papers have NO repair
+    past uniform weights; a surviving fold means the input violates
+    Tutte's preconditions or is a configuration the paper pipeline
+    never produces (fail loudly, fix upstream)                    [Tutte 1963; LCKB19 §6.2]
 ```
 
 Implemented:
@@ -241,6 +255,14 @@ iterate (projected Newton):                                       [LCKB19 §7 "N
 until converged                                                    [criterion unspecified by papers]
 write back into the grid map                                       [→ GridMapDofSystem#writeBack]
 ```
+
+**Handedness caveat (discovered 2026-08-02):** the layout's patch cycles run
+*clockwise* — `PatchBoundaryBuilder`'s corner-law audit reports `ccwCorner=0`, where
+LCBK19 §4's direction law turns counter-clockwise — so every patch chart is the mirror
+of `F`'s. `GridMapOptimizer#sourceCorners` negates the chart's v axis, one **global**
+reflection aligning the conventions; a reference still negatively oriented after it is a
+genuine injectivity failure and throws. Fixing the cycle orientation upstream (in the
+motorcycle boundary walk) would retire this adapter — tracked with Stage 0.
 
 Implemented (paper-conformant pieces to keep):
 
@@ -353,13 +375,14 @@ value or is flagged.
 | virtual-split threshold | 100° | *(missing)* | BCE13 §3.1 — **required, absent** |
 | lazy-add threshold | normalized value < 0.5 | *(missing)* | BCE13 §3.4 — **required, absent** |
 | `EDGE_MIDPOINT` | 0.5 | `ThreeConnectivityRefinement` | split-point choice, unspecified by papers (benign) |
-| `MINIMUM_HARMONIC_WEIGHT` | 1e-3 | `PatchRectangleMap` | `NOT IN ANY PAPER` — replace with RPP17 §6 uniform fallback |
-| `UNIFORM_SPACING_SHARE` | 1.0 | `PatchRectangleMap` | `NOT IN ANY PAPER` — silently disables `BoundarySpacing.PARAMETRIC` |
+| `MINIMUM_HARMONIC_WEIGHT` | — | `PatchRectangleMap` | REMOVED — raw cotangent with RPP17 §6 uniform-weight fallback implemented |
+| `UNIFORM_SPACING_SHARE` | — | `PatchRectangleMap` | REMOVED — boundary spacing is plainly uniform (unspecified by the papers) |
 | fold-area floor | 1e-12·w·h | `PatchRectangleMap#flippedTriangleCount` | AUDIT |
+| `constraintPenaltyBaseWeight` / escalation / cap | 1e2 / ×10 / 1e12 | `SeamlessParameterization` | ENGINEERING — CBK15 §7.1 λ-penalty precedent, SPH17 §5.3 schedule |
 | `INTEGER_TOLERANCE` | 1e-6 | `GlobalGridMap` | AUDIT of BCE13 (2) |
 | `AGREEMENT_TOLERANCE` | 1e-9 | `GridMapDofSystem` | AUDIT |
-| quarter-turn snap of `Q` | — | `GridMapOptimizer#gatherTriangles` / `ParameterizationEnergy.target` | `NOT IN ANY PAPER` — energy itself is invented |
-| `MAX_STEP_MARGIN` | 0.95 | `GridMapOptimizer` | DEVIATION — RPP17 §3 says 0.8 |
+| quarter-turn snap of `Q` | — | *(deleted)* | REMOVED — energy is `SymmetricDirichletEnergy` w.r.t. F references (RPP17 Eq. 11) |
+| `MAX_STEP_MARGIN` | 0.8 | `GridMapOptimizer` | RPP17 §3 (`min(1, 0.8·alphaMax)`) |
 | `ARMIJO_SLOPE` | 1e-4 | `GridMapOptimizer` | Nocedal & Wright c₁ (cited by SPH17 §5) |
 | `BACKTRACK` | 0.5 | `GridMapOptimizer` | mechanism SS15 §3.3/SPH17 §5; factor value `NOT IN ANY PAPER` |
 | `MAX_BACKTRACKS` | 20 | `GridMapOptimizer` | ENGINEERING |
@@ -367,17 +390,17 @@ value or is flagged.
 | `STALL_LIMIT` | 200 | `GridMapOptimizer` | ENGINEERING |
 | `maxIterations` | 10 000 | `GridMapOptimizer` | ENGINEERING |
 | `timeBudgetMilliseconds` | 500 000 | `GridMapOptimizer` | ENGINEERING |
-| `FULL_NEWTON_PERIOD` | 20 | `GridMapOptimizer` | `NOT IN ANY PAPER` — block direction has no paper |
-| `DAMPING` | 1e-6 | `GridMapOptimizer` | `NOT IN ANY PAPER` |
+| `FULL_NEWTON_PERIOD` | — | `GridMapOptimizer` | REMOVED — full projected Newton every iteration (SPH17 §5) |
+| `DAMPING` | — | `GridMapOptimizer` | REMOVED |
 | `RIDGE_FLOOR` | 1e-12 | `GridMapOptimizer` | `NOT IN ANY PAPER` |
-| `STEP_CAP` | 0.5 | `GridMapOptimizer` | `NOT IN ANY PAPER` |
-| `foldClamp` factor | 0.8 per slot | `GridMapOptimizer#foldClamp` | `NOT IN ANY PAPER` |
-| `REFERENCE_HEIGHT_FLOOR` | 1e-4 | `GridMapOptimizer` | `NOT IN ANY PAPER` — compensation for non-injective F |
-| reference reflection | det < 0 flip | `GridMapOptimizer#gatherTriangles` | `NOT IN ANY PAPER` — compensation |
-| degenerate-grid gate | 1e-8·\|det\| | `GridMapOptimizer#gatherTriangles` | `NOT IN ANY PAPER` — compensation |
-| degenerate-Jacobian gate | det ≤ 1e-9 | `GridMapOptimizer#gatherTriangles` | `NOT IN ANY PAPER` — compensation |
-| `normalizeReferenceScale` | median ratio | `GridMapOptimizer` | `NOT IN ANY PAPER` |
-| crushed-patch threshold | 1e-3 | `QuadLayoutEngine#buildGlobalGridMap` | `NOT IN ANY PAPER` — workaround |
-| crushed-patch budget | 4 000 ms | `QuadLayoutEngine#buildGlobalGridMap` | `NOT IN ANY PAPER` — workaround |
+| `STEP_CAP` | — | `GridMapOptimizer` | REMOVED |
+| `foldClamp` factor | — | *(deleted)* | REMOVED |
+| `REFERENCE_HEIGHT_FLOOR` | — | `GridMapOptimizer` | REMOVED — non-injective F references now throw, naming Stage 0 |
+| reference reflection | — | `GridMapOptimizer#gatherTriangles` | REMOVED — negative reference determinant throws |
+| degenerate-grid gate | — | `GridMapOptimizer#gatherTriangles` | REMOVED — a folded start throws |
+| degenerate-Jacobian gate | — | `GridMapOptimizer#gatherTriangles` | REMOVED |
+| `normalizeReferenceScale` | — | `GridMapOptimizer` | REMOVED — F is at grid scale (1 unit = 1 quad edge) by construction |
+| crushed-patch threshold | — | *(deleted)* | REMOVED — RPP17: flip-free start + barrier need no local pre-repair |
+| crushed-patch budget | — | *(deleted)* | REMOVED |
 | `JACOBI_SWEEPS` | 6 | `SymmetricDirichletEnergy` | numerics for SPH17 §5 / Teran 2005 projection; value ENGINEERING |
 | `JACOBI_TOLERANCE` | 1e-12 | `SymmetricDirichletEnergy` | ENGINEERING |

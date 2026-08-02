@@ -22,11 +22,13 @@ public final class LayoutPatchMaps {
     /** Patches mapped. */
     public int mappedPatchCount;
 
+    /** Patches whose cotangent solve folded and were re-solved with uniform weights. */
+    public int uniformFallbackPatchCount;
+
     /**
      * Stores the T-mesh whose patches are mapped.
      *
-     * @param tmesh     conforming embedded T-mesh
-     * @param arcLength chart measure backing {@link BoundarySpacing#PARAMETRIC}, or {@code null}
+     * @param tmesh conforming embedded T-mesh
      */
     public LayoutPatchMaps(EmbeddedTMesh tmesh) {
         this.tmesh = tmesh;
@@ -34,13 +36,15 @@ public final class LayoutPatchMaps {
 
     /**
      * Refines the working copy, recomputes the patch regions and solves every patch's map,
-     * asserting each one is fold-free.
+     * asserting each one is fold-free. A patch whose cotangent solve folds is re-solved with
+     * uniform weights, which Tutte's theorem guarantees valid (RPP17 §6).
      *
-     * @throws IllegalStateException when a region is not 3-connected enough for Tutte's guarantee,
-     *                               or the regions do not partition the surface
+     * @throws IllegalStateException when a patch folds under uniform weights too, or the regions
+     *                               do not partition the surface
      * @return this, solved
      */
     public LayoutPatchMaps build() {
+        subdividedChordCount = new ThreeConnectivityRefinement(tmesh).refine();
         regions = new PatchRegions(tmesh).build();
         PatchRegionMapper mapper = new PatchRegionMapper(tmesh, regions);
         mapByPatchId = new PatchRectangleMap[tmesh.patches.size()];
@@ -49,6 +53,10 @@ public final class LayoutPatchMaps {
                 continue;
             }
             PatchRectangleMap map = mapper.mapPatch(patch.patchId);
+            if (map.flippedTriangleCount() > 0) {
+                uniformFallbackPatchCount++;
+                map.solveUniform();
+            }
             try {
                 map.assertFoldFree();
             } catch (IllegalStateException broken) {
@@ -59,7 +67,7 @@ public final class LayoutPatchMaps {
             mappedPatchCount++;
         }
         System.out.println("[patch-maps] patches=" + mappedPatchCount + " subdividedChords="
-                + subdividedChordCount);
+                + subdividedChordCount + " uniformFallbacks=" + uniformFallbackPatchCount);
         return this;
     }
 }

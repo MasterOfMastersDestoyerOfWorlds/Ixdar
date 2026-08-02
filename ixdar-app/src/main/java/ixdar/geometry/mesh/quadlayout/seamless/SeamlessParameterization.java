@@ -1,6 +1,8 @@
 package ixdar.geometry.mesh.quadlayout.seamless;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.joml.Vector3f;
 
@@ -10,12 +12,11 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.SeamlessProjector;
 import ixdar.geometry.mesh.quadlayout.solver.AMDOrdering;
-import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
 import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.IncrementalCholeskySolver;
 import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.Preconditioner;
+import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 
 /**
  * Turns a {@link CrossField} into per-corner (u, v) satisfying
@@ -47,12 +48,6 @@ public final class SeamlessParameterization {
      * violation alongside flips, because collapsed triangles merge singularities.
      */
     private static final double DEGENERATE_UV_AREA_FRACTION = 1.0e-6;
-    private static final double SVD_DET_FACTOR = 4.0;
-    private static final String DIAG_PROP = "seamlessParam.diag";
-    private static final String DIAG_TRUE = "true";
-    private static final int DIAG_LOG_EVERY = 10;
-    /** Width in characters of the §5.4 stiffening progress bar. */
-    private static final int PROGRESS_BAR_WIDTH = 30;
 
     public final HalfEdgeMesh mesh;
     public final CrossField crossField;
@@ -74,26 +69,30 @@ public final class SeamlessParameterization {
     /** True iff every triangle has positive UV signed area. */
     public boolean injective;
 
-    /** Hard cap on number of stiffening iterations. */
-    public int maxStiffeningIterations = 30;
+    /** Hard cap on lazy-constraint rounds (BCE13 §3.4's outer iterations). */
+    public int maxConstraintRounds = 30;
 
     /**
-     * BZK09 §5.4 proportionality constant for the {@code |Δλ|} bump. Paper's value:
-     * {@code c = 1}.
+     * Starting quadratic-penalty weight on a newly activated BCE13 Equation 4
+     * constraint. The escalation ladder absorbs the scale, so only the order
+     * matters.
      */
-    public double stiffeningC = 1.0;
+    public double constraintPenaltyBaseWeight = 1.0e2;
 
     /**
-     * BZK09 §5.4 hard cap on the per-iteration weight bump. Paper's value:
-     * {@code d = 5}.
+     * Factor a still-violated constraint's penalty grows by each round, the SPH17
+     * §5.3 schedule.
      */
-    public double stiffeningD = 5;
+    public double constraintPenaltyEscalation = 10.0;
+
+    /** Ceiling on any single constraint's penalty weight. */
+    public double constraintPenaltyCap = 1.0e12;
 
     /**
      * If true, run MC19 (Mandad–Campen 2019) exact-constraint projection after the
-     * §5.4 stiffening loop. Drives the per-cut-edge transition residual to literal
-     * zero, making the output safe to feed into Lyon 2021's T-mesh stage. Default
-     * false until the projection is proven on all fixtures.
+     * injectivity-constraint solve. Drives the per-cut-edge transition residual to
+     * literal zero, making the output safe to feed into Lyon 2021's T-mesh stage;
+     * the BCE13 ε margin absorbs the projection's adjustment (MC19 §7).
      */
     public boolean exactSeams = true;
 
@@ -154,46 +153,17 @@ public final class SeamlessParameterization {
     public SeamlessDofSystem dofSystem;
 
     /**
-     * §5.4 stiffening preconditioner: the cold Cholesky factor of iter 0's matrix,
-     * reused as the preconditioner for warm-started PCG on iters ≥ 1. Null outside
-     * {@link #runStiffeningLoop}.
-     */
-    public IncrementalCholeskySolver stiffeningPreconditioner;
-
-    /**
-     * AMD permutation computed for the rounding loop's cold factor; reused by
-     * the stiffening loop's native preconditioner factor, whose matrix shares
-     * the same non-zero pattern (pins only touch the diagonal). Null until
-     * {@link #runGreedyIntegerRounding} has run.
-     */
-    public int[] roundingAmdPermutation;
-
-    /**
      * Native factor of the base system, created by the rounding stage's
-     * no-integer-DOFs fast path and handed to the stiffening loop as its PCG
-     * preconditioner. Null when the fast path didn't run; released (and
-     * nulled) by {@link #runStiffeningLoop}.
+     * no-integer-DOFs fast path. Released by the injectivity loop, which
+     * refactorizes per round because each active set changes the pattern.
      */
-    public DirectSolver.CholeskyHandle stiffeningNativeHandle;
+    public DirectSolver.CholeskyHandle baseFactorHandle;
 
     /**
-     * Matrix backing {@link #stiffeningNativeHandle}; needed by
-     * {@code DirectSolver.solveCompact} when applying the preconditioner.
+     * Matrix backing {@link #baseFactorHandle}; needed by
+     * {@code DirectSolver.solveCompact} when solving through the handle.
      */
-    public NormalMatrix stiffeningNativeMatrix;
-
-    /**
-     * Max PCG iterations per stiffening iter ≥ 1. With a good preconditioner
-     * (iter-0 L) the matrix usually converges in well under 50 iters; if PCG hits
-     * this cap, the preconditioner has gone stale and a fresh cold factor is
-     * probably warranted.
-     */
-    public int stiffeningPcgMaxIterations = 200;
-
-    /**
-     * PCG relative residual tolerance: {@code ‖r‖² ≤ τ² · max(‖b‖², 1)}.
-     */
-    public double stiffeningPcgRelativeTolerance = 1.0e-8;
+    public NormalMatrix baseFactorMatrix;
 
     /**
      * Target quad edge length, expressed as a fraction of the bounding-box
@@ -297,11 +267,11 @@ public final class SeamlessParameterization {
         System.out.printf("[seamless timing] greedy integer rounding %.3fs%n",
                 (System.nanoTime() - roundingStart) / 1.0e9);
 
-        System.out.println("[seamless] Running stiffening loop");
-        long stiffeningStart = System.nanoTime();
-        runStiffeningLoop();
-        System.out.printf("[seamless timing] stiffening loop %.3fs%n",
-                (System.nanoTime() - stiffeningStart) / 1.0e9);
+        System.out.println("[seamless] Running BCE13 injectivity-constraint loop");
+        long constraintStart = System.nanoTime();
+        runInjectivityConstraintLoop();
+        System.out.printf("[seamless timing] injectivity loop %.3fs%n",
+                (System.nanoTime() - constraintStart) / 1.0e9);
 
         System.out.println("[seamless] Writing chart vertices from solution");
         writeChartVerticesFromSolution();
@@ -320,17 +290,14 @@ public final class SeamlessParameterization {
     /**
      * Greedy rounding: repeatedly snap the unpinned integer DOF closest to an
      * integer and re-solve. When constraint reduction already pinned every integer
-     * DOF, the base system is factored natively instead and that handle becomes the
-     * stiffening loop's preconditioner.
+     * DOF, the base system is factored natively once and solved directly.
      *
      * <p>See also: BZK09 Section 5
      */
     private void runGreedyIntegerRounding() {
 
         // Cold-factor the base system once; each pin then becomes a rank-1
-        // update of L instead of a full re-factor. Davis ch. 4.10. AMD perm
-        // is shared with the stiffening loop's solveOnce calls — same
-        // matrix structure across the whole build.
+        // update of L instead of a full re-factor. Davis ch. 4.10.
         long assembleStart = System.nanoTime();
         NormalMatrix baseMatrix = dofSystem.assemble(faceWeight);
         long amdStart = System.nanoTime();
@@ -338,7 +305,6 @@ public final class SeamlessParameterization {
         ordering.order(baseMatrix);
         int[] perm = ordering.permutation;
         long amdEnd = System.nanoTime();
-        roundingAmdPermutation = perm;
         this.solution = new double[dofSystem.dofCount];
 
         boolean anyUnpinnedInteger = false;
@@ -351,9 +317,9 @@ public final class SeamlessParameterization {
         if (!anyUnpinnedInteger && CholeskyBackend.pardisoAvailable()) {
             long nativeFactorStart = System.nanoTime();
             boolean[] noneFixed = new boolean[dofSystem.dofCount];
-            stiffeningNativeHandle = DirectSolver.factorizeWithPerm(baseMatrix, noneFixed, perm);
-            stiffeningNativeMatrix = baseMatrix;
-            DirectSolver.solveCompact(stiffeningNativeHandle, baseMatrix,
+            baseFactorHandle = DirectSolver.factorizeWithPerm(baseMatrix, noneFixed, perm);
+            baseFactorMatrix = baseMatrix;
+            DirectSolver.solveCompact(baseFactorHandle, baseMatrix,
                     baseMatrix.rightHandSide, solution, solution, noneFixed);
             System.out.printf(
                     "[seamless timing] rounding assemble %.3fs, amd %.3fs, native factor+solve %.3fs"
@@ -410,8 +376,6 @@ public final class SeamlessParameterization {
         }
         System.out.printf("[seamless timing] rounding pin+solve loop %.3fs (%d pins)%n",
                 (System.nanoTime() - pinLoopStart) / 1.0e9, pinCount);
-        stiffeningPreconditioner = incremental;
-        roundingAmdPermutation = perm;
     }
 
     /**
@@ -503,188 +467,84 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * IRLS weight update: form the per-triangle distortion
-     * {@code λ(T) = |τ·σ₁/h − 1| + |τ·σ₂/h − 1|}, take its dual-mesh Laplacian
-     * {@code Δλ}, bump {@code w(T) ← w(T) + min(|Δλ|, 5)}, then smooth. Following
-     * {@code Δλ} rather than λ keeps uniform stretch from triggering reweighting.
-     *
-     * <p>See also: BZK09 Section 5.4
+     * BCE13 §3.4's lazy-constraint loop: evaluate every Equation 4 inequality,
+     * activate the violated plus every one below the activation threshold, enforce
+     * the active set by escalating quadratic penalties, and re-solve until no
+     * constraint is violated or the round cap is reached.
      */
-    private void runStiffeningLoop() {
+    private void runInjectivityConstraintLoop() {
         boolean[] noneFixed = new boolean[dofSystem.dofCount];
-        if (stiffeningNativeHandle == null
-                && stiffeningPreconditioner != null
-                && CholeskyBackend.pardisoAvailable()) {
-            long nativeFactorStart = System.nanoTime();
-            NormalMatrix pinnedMatrix = dofSystem.assemble(faceWeight);
-            dofSystem.applyIntegerPinPenalty(pinnedMatrix);
-            try {
-                stiffeningNativeHandle = DirectSolver.factorizeWithPerm(
-                        pinnedMatrix, noneFixed, roundingAmdPermutation);
-                stiffeningNativeMatrix = pinnedMatrix;
-                System.out.printf("[seamless timing] stiffening native preconditioner factor %.3fs%n",
-                        (System.nanoTime() - nativeFactorStart) / 1.0e9);
-            } catch (IllegalStateException nativeFactorFailure) {
-                System.out.println("[seamless] native preconditioner factor failed ("
-                        + nativeFactorFailure.getMessage() + "); using incremental factor");
-            }
+        if (baseFactorHandle != null) {
+            DirectSolver.releaseHandle(baseFactorHandle);
+            baseFactorHandle = null;
+            baseFactorMatrix = null;
         }
-        Preconditioner preconditioner;
-        if (stiffeningNativeHandle != null) {
-            DirectSolver.CholeskyHandle handle = stiffeningNativeHandle;
-            NormalMatrix handleMatrix = stiffeningNativeMatrix;
-            preconditioner = (residual, output) -> DirectSolver.solveCompact(
-                    handle, handleMatrix, residual, output, output, noneFixed);
-        } else {
-            preconditioner = stiffeningPreconditioner::solve;
-        }
-        int initialFlipped = -1;
-        int previousFlipped = -1;
-        for (int iter = 0; iter <= maxStiffeningIterations; iter++) {
-            long t0 = System.nanoTime();
-            NormalMatrix matrix = dofSystem.assemble(faceWeight);
-            dofSystem.applyIntegerPinPenalty(matrix);
-            AdaptiveSolver.PcgResult result = AdaptiveSolver.preconditionedConjugateGradient(
-                    matrix, solution, dofSystem.dofPinned,
-                    preconditioner,
-                    stiffeningPcgMaxIterations, stiffeningPcgRelativeTolerance);
-            System.out.printf("[stiffening pcg] %s in %d iters%n",
-                    result.converged() ? "converged" : "DID NOT converge",
-                    result.iterations());
-            long t1 = System.nanoTime();
-            int flipped = countFlippedTrianglesFromSolution();
-            if (initialFlipped < 0) {
-                initialFlipped = flipped;
+        InjectivityConstraints constraints = new InjectivityConstraints(this).build();
+        double[] values = new double[constraints.constraintCount];
+        double[] weightByConstraint = new double[constraints.constraintCount];
+        int violated = -1;
+        for (int round = 0; round <= maxConstraintRounds; round++) {
+            constraints.evaluateNormalized(solution, values);
+            violated = 0;
+            int active = 0;
+            double worst = Double.POSITIVE_INFINITY;
+            for (int constraint = 0; constraint < constraints.constraintCount; constraint++) {
+                worst = Math.min(worst, values[constraint]);
+                violated += values[constraint] < 0.0 ? 1 : 0;
+                active += weightByConstraint[constraint] > 0.0 ? 1 : 0;
             }
-            printStiffeningProgress(iter, flipped, initialFlipped, previousFlipped, t1 - t0);
-            previousFlipped = flipped;
-            if (flipped == 0) {
-                injective = true;
+            System.out.printf("[injectivity] round %d violated=%d active=%d worst=%.4f%n",
+                    round, violated, active, worst);
+            if (violated == 0 || round == maxConstraintRounds) {
                 break;
             }
-            if (iter == maxStiffeningIterations) {
-                injective = false;
-                break;
-            }
-            // Step 1: BZK09 §5.4 Δλ-Laplacian update — penalises *boundaries* of
-            // high-distortion regions, not the interiors. Damps the IRLS so it
-            // doesn't oscillate.
-            double[] perFaceDistortion = new double[faceCount];
-            for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-                if (faceArea[activeFace] <= 0) {
-                    perFaceDistortion[activeFace] = 0.0;
+            for (int constraint = 0; constraint < constraints.constraintCount; constraint++) {
+                if (values[constraint] >= InjectivityConstraints.ACTIVATION_THRESHOLD) {
                     continue;
                 }
-                int faceCornerBase = activeFace * CORNERS_PER_FACE;
-                int chartVertex0 = cutGraph.cornerToChartVertex[faceCornerBase];
-                int chartVertex1 = cutGraph.cornerToChartVertex[faceCornerBase + 1];
-                int chartVertex2 = cutGraph.cornerToChartVertex[faceCornerBase + 2];
-
-                double u0 = dofSystem.evaluateChartComponent(chartVertex0, 0, solution);
-                double v0 = dofSystem.evaluateChartComponent(chartVertex0, 1, solution);
-                double u1 = dofSystem.evaluateChartComponent(chartVertex1, 0, solution);
-                double v1 = dofSystem.evaluateChartComponent(chartVertex1, 1, solution);
-                double u2 = dofSystem.evaluateChartComponent(chartVertex2, 0, solution);
-                double v2 = dofSystem.evaluateChartComponent(chartVertex2, 1, solution);
-
-                double shapeGradX0 = faceShapeB[faceCornerBase];
-                double shapeGradX1 = faceShapeB[faceCornerBase + 1];
-                double shapeGradX2 = faceShapeB[faceCornerBase + 2];
-                double shapeGradY0 = faceShapeC[faceCornerBase];
-                double shapeGradY1 = faceShapeC[faceCornerBase + 1];
-                double shapeGradY2 = faceShapeC[faceCornerBase + 2];
-
-                // Jacobian of the (u, v) map in face-local (x, y) coords.
-                double duDx = shapeGradX0 * u0 + shapeGradX1 * u1 + shapeGradX2 * u2;
-                double duDy = shapeGradY0 * u0 + shapeGradY1 * u1 + shapeGradY2 * u2;
-                double dvDx = shapeGradX0 * v0 + shapeGradX1 * v1 + shapeGradX2 * v2;
-                double dvDy = shapeGradY0 * v0 + shapeGradY1 * v1 + shapeGradY2 * v2;
-
-                double jacobianDet = duDx * dvDy - duDy * dvDx;
-                double frobeniusSquared = duDx * duDx + duDy * duDy + dvDx * dvDx + dvDy * dvDy;
-
-                // Singular values of a 2×2 matrix from the relations
-                // σ₁² + σ₂² = ‖J‖²_F and σ₁²·σ₂² = det(J)².
-                // Solving the quadratic in σ² gives the closed-form below.
-                double svdDiscriminant = Math.max(0.0,
-                        frobeniusSquared * frobeniusSquared - SVD_DET_FACTOR * jacobianDet * jacobianDet);
-                double svdDiscriminantSqrt = Math.sqrt(svdDiscriminant);
-                double sigma1 = Math.sqrt(HALF_D * (frobeniusSquared + svdDiscriminantSqrt));
-                double sigma2 = Math.sqrt(HALF_D * Math.max(0.0, frobeniusSquared - svdDiscriminantSqrt));
-                double orientationSign = jacobianDet >= 0 ? 1.0 : -1.0;
-
-                perFaceDistortion[activeFace] = Math.abs(orientationSign * sigma1 * targetQuadEdgeLength - 1.0)
-                        + Math.abs(orientationSign * sigma2 * targetQuadEdgeLength - 1.0);
-            }
-
-            if (iter == 0) {
-                double minDistortion = Double.POSITIVE_INFINITY;
-                double maxDistortion = Double.NEGATIVE_INFINITY;
-                double sumDistortion = 0.0;
-                int countedFaces = 0;
-                for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-                    if (faceArea[activeFace] <= 0) {
-                        continue;
-                    }
-                    double d = perFaceDistortion[activeFace];
-                    if (d < minDistortion) {
-                        minDistortion = d;
-                    }
-                    if (d > maxDistortion) {
-                        maxDistortion = d;
-                    }
-                    sumDistortion += d;
-                    countedFaces++;
+                if (weightByConstraint[constraint] == 0.0) {
+                    weightByConstraint[constraint] = constraintPenaltyBaseWeight;
+                } else if (values[constraint] < 0.0) {
+                    weightByConstraint[constraint] = Math.min(constraintPenaltyCap,
+                            weightByConstraint[constraint] * constraintPenaltyEscalation);
                 }
-                double meanDistortion = countedFaces == 0 ? 0.0 : sumDistortion / countedFaces;
-                System.out.printf(
-                        "[stiffening-diag] perFaceDistortion @ iter 0 (h=%.6f): min=%.6g mean=%.6g max=%.6g (%d faces)%n",
-                        targetQuadEdgeLength, minDistortion, meanDistortion, maxDistortion, countedFaces);
-                int sampleCount = Math.min(20, faceCount);
-                StringBuilder sample = new StringBuilder("[stiffening-diag] first ");
-                sample.append(sampleCount).append(" face distortions:");
-                for (int activeFace = 0; activeFace < sampleCount; activeFace++) {
-                    sample.append(String.format(" f%d=%.4g", activeFace, perFaceDistortion[activeFace]));
-                }
-                System.out.println(sample.toString());
             }
-
-            // Δλ on the dual mesh: mean of neighbours' distortion minus own distortion.
-            double[] perFaceDistortionLaplacian = new double[faceCount];
-            for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-                int faceId = mesh.faceIdAt(activeFace);
-                double neighbourDistortionSum = 0.0;
-                int neighbourCount = 0;
-                for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
-                    int edgeId = mesh.faceEdgeAt(faceId, corner);
-                    int activeEdge = crossField.edgeIdToActive.get(edgeId);
-                    int neighbourFaceA = edgeFaceA[activeEdge];
-                    int neighbourFaceB = edgeFaceB[activeEdge];
-                    int otherFace = (neighbourFaceA == activeFace) ? neighbourFaceB : neighbourFaceA;
-                    if (otherFace < 0) {
-                        continue;
+            double[] extraDiagonal = new double[dofSystem.dofCount];
+            double[] extraRhs = new double[dofSystem.dofCount];
+            Map<Long, Double> extraUpper = new HashMap<>();
+            for (int constraint = 0; constraint < constraints.constraintCount; constraint++) {
+                double weight = weightByConstraint[constraint];
+                if (weight == 0.0) {
+                    continue;
+                }
+                int[] dofs = constraints.gradientDofs(constraint);
+                double[] coefs = constraints.gradientCoefs(constraint);
+                // The normalized constraint is a·x − δε; the penalty pulls it to the
+                // activation threshold, safely inside the feasible sector.
+                double target = InjectivityConstraints.ACTIVATION_THRESHOLD
+                        + constraints.normalizer[constraint] * constraints.rawThreshold[constraint];
+                for (int i = 0; i < dofs.length; i++) {
+                    extraRhs[dofs[i]] += weight * target * coefs[i];
+                    extraDiagonal[dofs[i]] += weight * coefs[i] * coefs[i];
+                    for (int j = i + 1; j < dofs.length; j++) {
+                        long key = ((long) Math.min(dofs[i], dofs[j]) << NormalMatrix.KEY_ROW_SHIFT)
+                                | Math.max(dofs[i], dofs[j]);
+                        extraUpper.merge(key, weight * coefs[i] * coefs[j], Double::sum);
                     }
-                    neighbourDistortionSum += perFaceDistortion[otherFace];
-                    neighbourCount++;
                 }
-                perFaceDistortionLaplacian[activeFace] = (neighbourCount == 0)
-                        ? 0.0
-                        : (neighbourDistortionSum / neighbourCount - perFaceDistortion[activeFace]);
             }
-
-            // Apply the paper's additive bump: w(T) += min(c · |Δλ|, d).
-            for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-                double weightBump = Math.min(
-                        stiffeningC * Math.abs(perFaceDistortionLaplacian[activeFace]),
-                        stiffeningD);
-                faceWeight[activeFace] += weightBump;
-            }
+            NormalMatrix matrix = dofSystem.assemble(faceWeight, extraDiagonal, extraUpper,
+                    extraRhs);
+            dofSystem.applyIntegerPinPenalty(matrix);
+            DirectSolver.CholeskyHandle handle = DirectSolver.factorize(matrix, noneFixed,
+                    OrderingMethod.AMD);
+            DirectSolver.solveCompact(handle, matrix, matrix.rightHandSide, solution, solution,
+                    noneFixed);
+            DirectSolver.releaseHandle(handle);
         }
-        if (stiffeningNativeHandle != null) {
-            DirectSolver.releaseHandle(stiffeningNativeHandle);
-            stiffeningNativeHandle = null;
-            stiffeningNativeMatrix = null;
-        }
+        injective = violated == 0;
+        System.out.printf("[injectivity] done violated=%d flippedTriangles=%d%n", violated,
+                countFlippedTrianglesFromSolution());
     }
 
     /**
@@ -725,42 +585,6 @@ public final class SeamlessParameterization {
         }
 
         this.injective = inj && this.injective;
-    }
-
-    /**
-     * Print one §5.4 stiffening iteration's progress: iteration number,
-     * flipped-triangle bar with initial-vs-current scale, signed delta since
-     * previous iteration, and solve time. Output goes to stdout so it interleaves
-     * with the rest of the build log.
-     *
-     * @param iter            zero-based iteration index
-     * @param flipped         current flipped-triangle count
-     * @param initialFlipped  flipped count at iter 0 (denominator of the bar)
-     * @param previousFlipped flipped count one iteration ago, or -1 on iter 0
-     * @param solveNanos      elapsed nanoseconds for this iteration's solve
-     */
-    private void printStiffeningProgress(int iter, int flipped, int initialFlipped,
-            int previousFlipped, long solveNanos) {
-        int barWidth = PROGRESS_BAR_WIDTH;
-        int filled = initialFlipped == 0 ? 0
-                : Math.max(0, Math.min(barWidth, (int) Math.round(
-                        (double) flipped * barWidth / Math.max(1, initialFlipped))));
-        StringBuilder bar = new StringBuilder(barWidth + 2);
-        bar.append('[');
-        for (int i = 0; i < barWidth; i++) {
-            bar.append(i < filled ? '#' : '.');
-        }
-        bar.append(']');
-        String delta;
-        if (previousFlipped < 0) {
-            delta = "(initial)";
-        } else {
-            int d = flipped - previousFlipped;
-            delta = String.format("(%+d)", d);
-        }
-        System.out.printf("[stiffening] %s iter %2d/%d  flipped=%4d/%-4d %s  %.2fs%n",
-                bar.toString(), iter, maxStiffeningIterations,
-                flipped, initialFlipped, delta, solveNanos / 1.0e9);
     }
 
     /**

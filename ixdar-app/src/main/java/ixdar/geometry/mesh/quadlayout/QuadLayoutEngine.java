@@ -1,10 +1,7 @@
 package ixdar.geometry.mesh.quadlayout;
 
-import java.util.Set;
-
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
-import ixdar.geometry.mesh.quadlayout.embedding.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.GlobalGridMap;
@@ -22,7 +19,6 @@ import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
-import ixdar.platform.Platforms;
 
 /**
  * Staged driver for the quad-layout pipeline: cross field, singularities,
@@ -245,11 +241,11 @@ public final class QuadLayoutEngine {
     }
 
     /**
-     * Stage 9: contract the embedded T-mesh to a fixed point, leaving no
-     * zero-quantized arc or patch (LCBK19 §6.1 operators 1–3). The layout is still
-     * non-conforming.
+     * Stage 9–10: contract the embedded T-mesh to a fixed point, leaving no
+     * zero-quantized arc or patch (LCBK19 §6.1 operators 1–3), then extend every
+     * surviving T-junction across its patch so the layout conforms (LCK21a §6).
      *
-     * @return the cached T-mesh, contracted
+     * @return the cached T-mesh, contracted and conforming
      */
     public EmbeddedTMesh buildContractedTMesh() {
         if (!contracted) {
@@ -285,7 +281,6 @@ public final class QuadLayoutEngine {
      * @return the cached global grid map
      */
     public GlobalGridMap buildGlobalGridMap() {
-
         if (globalGrid == null) {
             buildPatchMaps();
             globalGrid = new GlobalGridMap(patchMaps, integerGrid).build();
@@ -293,16 +288,9 @@ public final class QuadLayoutEngine {
             gridDofs.seamCouplingPinned = false;
             gridDofs.nodeFreedomPinned = false;
             gridDofs.build();
-            GridMapOptimizer probe = new GridMapOptimizer(gridDofs, seamless);
-            Set<Integer> sick = probe.findCrushedPatches(1.0e-3);
-            System.out.println("[grid-optimize] crushed patches (" + sick.size() + "): " + sick);
-            for (int patchId : sick) {
-                System.out.println("[grid-reee]: " + patchId);
-                GridMapOptimizer local = new GridMapOptimizer(gridDofs, seamless);
-                local.focusPatchIds = Set.of(patchId);
-                local.timeBudgetMilliseconds = 4_000;
-                local.build();
-            }
+            PatchGridExtraction initialExtraction = new PatchGridExtraction(patchMaps);
+            initialExtraction.optimizedGrid = globalGrid;
+            quadGridInitial = initialExtraction.build();
             gridOptimizer = new GridMapOptimizer(gridDofs, seamless);
             gridOptimizer.timeBudgetMilliseconds = relaxationBudgetMilliseconds;
             gridOptimizer.build();
@@ -320,7 +308,7 @@ public final class QuadLayoutEngine {
     public PatchGridExtraction buildQuadGrid() {
         if (quadGrid == null) {
             buildGlobalGridMap();
-            PatchGridExtraction extraction = new PatchGridExtraction(patchMaps, targetEdgeLength);
+            PatchGridExtraction extraction = new PatchGridExtraction(patchMaps);
             extraction.optimizedGrid = globalGrid;
             quadGrid = extraction.build();
         }
@@ -339,12 +327,6 @@ public final class QuadLayoutEngine {
             patchSurfaces = new LayoutPatchSurfaces(quadGrid).build();
             patchSurfacesInitial = new LayoutPatchSurfaces(quadGridInitial).build();
         }
-        String hudLine = String.format(
-                "[quad-layout] patches=%d quads=%d | relax %.2e→%.2e it=%d",
-                livePatchCount() , quadGrid.quadCount,
-                gridOptimizer.energyBefore, gridOptimizer.energyAfter,
-                gridOptimizer.iterationCount);
-        Platforms.get().log(hudLine);
         return patchSurfaces;
     }
 
@@ -353,7 +335,7 @@ public final class QuadLayoutEngine {
      *
      * @return the count of live patches in the T-mesh
      */
-    private int livePatchCount() {
+    public int livePatchCount() {
         int live = 0;
         for (EmbeddedPatch patch : tmesh.patches) {
             if (patch.alive) {

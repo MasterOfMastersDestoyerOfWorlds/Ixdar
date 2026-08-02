@@ -1,15 +1,13 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import org.joml.Vector3f;
 
 /**
  * The quad mesh the quantization prescribes, placed on the surface: one grid
- * per layout patch, at the integer lattice of that patch's rectangle map.
+ * per layout patch at its rectangle's integer lattice, each arc spanning its
+ * quantized length in quads (LCK21a §5).
  *
  * <p>
  * See also: LCK21a Section 6; LCBK19 Section 6.2
@@ -61,56 +59,14 @@ public final class PatchGridExtraction {
     /** Quads in the extracted mesh, the sum over patches of width times height. */
     public int quadCount;
 
-    /** Strip id of an arc not yet assigned to one. */
-    public static final int UNASSIGNED = -1;
-
-    /** Parametric length of each arc, indexed by arc id. */
-    public double[] lengthByArc;
-
-    /** Parametric length one quad edge should span. */
-    public final double targetEdgeLength;
-
-    /**
-     * Strip each arc belongs to, indexed by arc id; {@link #UNASSIGNED} for a
-     * retired arc.
-     */
-    public int[] stripByArc;
-
-    /** Quads laid along each arc, indexed by arc id; zero for a retired arc. */
-    public int[] quadsByArc;
-
-    /** Number of strips found. */
-    public int stripCount;
-
-    /**
-     * Largest ratio of a strip's longest arc to its mean. Consistency forces one
-     * count on the whole strip, so a spread far above one means no assignment can
-     * size that strip well.
-     */
-    public double worstStripSpread;
-
-    /** Arcs in the strip that set {@link #worstStripSpread}. */
-    public int worstStripArcCount;
-
-    /** Shortest arc of the strip that set {@link #worstStripSpread}. */
-    public double worstStripShortest;
-
-    /** Longest arc of the strip that set {@link #worstStripSpread}. */
-    public double worstStripLongest;
-
-    /** Quads the strip that set {@link #worstStripSpread} had to settle on. */
-    public int worstStripQuads;
-
     /**
      * Stores the solved patch maps the grid is extracted from.
      *
      * @param patchMaps per-patch rectangle maps of a conforming layout
-     * @param sizing    quads to lay along each arc
      */
-    public PatchGridExtraction(LayoutPatchMaps patchMaps, double targetEdgeLength) {
+    public PatchGridExtraction(LayoutPatchMaps patchMaps) {
         this.patchMaps = patchMaps;
         this.tmesh = patchMaps.tmesh;
-        this.targetEdgeLength = targetEdgeLength;
     }
 
     /**
@@ -142,7 +98,7 @@ public final class PatchGridExtraction {
      * @return this, populated
      */
     public PatchGridExtraction build() {
-        layoutStripSizing();
+        requireSingleArcSides();
         placeArcPoints();
         gridByPatchId = new Vector3f[tmesh.patches.size()][];
         widthByPatchId = new int[tmesh.patches.size()];
@@ -151,8 +107,8 @@ public final class PatchGridExtraction {
             if (!patch.alive) {
                 continue;
             }
-            widthByPatchId[patch.patchId] = quadsByArc[patch.sideArcIds.get(0).get(0)];
-            heightByPatchId[patch.patchId] = quadsByArc[patch.sideArcIds.get(1).get(0)];
+            widthByPatchId[patch.patchId] = tmesh.sideQuantizedLength(patch.patchId, 0);
+            heightByPatchId[patch.patchId] = tmesh.sideQuantizedLength(patch.patchId, 1);
             int columns = gridColumns(patch.patchId);
             int rows = gridRows(patch.patchId);
             Vector3f[] grid = new Vector3f[columns * rows];
@@ -174,13 +130,12 @@ public final class PatchGridExtraction {
     }
 
     /**
-     * Groups the arcs into strips and gives each strip one quad count.
+     * Checks every live patch side carries exactly one arc; opposite-side equality
+     * is already enforced when the rectangle maps are built.
      *
-     * @throws IllegalStateException when a patch side carries more than one arc,
-     *                               which leaves the strips ill-defined
-     * @return this, sized
+     * @throws IllegalStateException when a side carries more than one arc
      */
-    public void layoutStripSizing() {
+    private void requireSingleArcSides() {
         for (EmbeddedPatch patch : tmesh.patches) {
             if (!patch.alive) {
                 continue;
@@ -189,66 +144,18 @@ public final class PatchGridExtraction {
                 int arcCount = patch.sideArcIds.get(side).size();
                 if (arcCount != 1) {
                     throw new IllegalStateException("patch " + patch.patchId + " side " + side
-                            + " carries " + arcCount + " arcs; the strips are only well defined"
+                            + " carries " + arcCount + " arcs; the grid is only well defined"
                             + " once every side is one arc, so a degree-two node interior to a"
                             + " side has to be merged away first");
                 }
             }
         }
-        stripByArc = new int[tmesh.arcs.size()];
-        quadsByArc = new int[tmesh.arcs.size()];
-        Arrays.fill(stripByArc, UNASSIGNED);
-        List<List<Integer>> arcsByStrip = new ArrayList<>();
-        for (EmbeddedArc arc : tmesh.arcs) {
-            if (!arc.alive || stripByArc[arc.arcId] != UNASSIGNED) {
-                continue;
-            }
-            arcsByStrip.add(floodStrip(arc.arcId, stripCount++));
-        }
-        //TODO: this needs to come from the quantization according to LCK21a
-    }
-
-    /**
-     * Collects one strip: the arcs reachable from a seed by stepping to the
-     * opposite side of an incident patch, which are exactly the arcs a rectangle
-     * forces to carry the same count.
-     *
-     * @param seedArcId arc to start from
-     * @param strip     strip id to stamp
-     * @return the strip's member arc ids
-     */
-    private List<Integer> floodStrip(int seedArcId, int strip) {
-        List<Integer> frontier = new ArrayList<>();
-        stripByArc[seedArcId] = strip;
-        frontier.add(seedArcId);
-        for (int cursor = 0; cursor < frontier.size(); cursor++) {
-            int arcId = frontier.get(cursor);
-            EmbeddedArc arc = tmesh.arcs.get(arcId);
-            for (int patchId : new int[] { arc.leftPatchId, arc.rightPatchId }) {
-                if (patchId == EmbeddedTMesh.NONE || !tmesh.patches.get(patchId).alive) {
-                    continue;
-                }
-                EmbeddedPatch patch = tmesh.patches.get(patchId);
-                for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
-                    if (patch.sideArcIds.get(side).get(0) != arcId) {
-                        continue;
-                    }
-                    int oppositeArcId = patch.sideArcIds
-                            .get((side + 2) % EmbeddedPatch.SIDES).get(0);
-                    if (stripByArc[oppositeArcId] == UNASSIGNED) {
-                        stripByArc[oppositeArcId] = strip;
-                        frontier.add(oppositeArcId);
-                    }
-                }
-            }
-        }
-        return frontier;
     }
 
     /**
      * Distributes each arc's sample points along its edge path by chord length, so
      * that the arc itself owns them and both incident patches read the same
-     * positions.
+     * positions. An arc carries one sample per quantized quad edge.
      */
     private void placeArcPoints() {
         pointsByArc = new Vector3f[tmesh.arcs.size()][];
@@ -267,7 +174,7 @@ public final class PatchGridExtraction {
                 }
             }
             double total = cumulative[path.size() - 1];
-            int samples = quadsByArc[arc.arcId];
+            int samples = arc.quantizedLength;
             Vector3f[] points = new Vector3f[samples + 1];
             points[0] = new Vector3f(pathPositions[0]);
             points[samples] = new Vector3f(pathPositions[path.size() - 1]);
@@ -303,7 +210,7 @@ public final class PatchGridExtraction {
                 EmbeddedArc arc = tmesh.arcs.get(sideArcs.get(arcIndex));
                 Vector3f[] points = pointsByArc[arc.arcId];
                 boolean forward = arc.startNodeId == sideNodes.get(arcIndex);
-                int samples = quadsByArc[arc.arcId];
+                int samples = arc.quantizedLength;
                 for (int sample = 0; sample <= samples; sample++) {
                     grid[borderIndex(side, offset + sample, columns, rows)] = points[forward ? sample
                             : samples - sample];

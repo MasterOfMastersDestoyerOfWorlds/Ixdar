@@ -22,6 +22,9 @@ public final class GlobalGridMap {
     /** Depth of the non-seam patch neighbourhood searched for sites the relaxation moved away. */
     public static final int NEIGHBOUR_DEPTH = 2;
 
+    /** Off-grid nodes named individually in the audit log before the counter takes over. */
+    public static final int OFF_GRID_SAMPLES_LISTED = 4;
+
     public final EmbeddedTMesh tmesh;
     public final LayoutPatchMaps patchMaps;
     public final IntegerGridMap frames;
@@ -91,6 +94,7 @@ public final class GlobalGridMap {
      * quantization's assigned lengths meaningful in the map.
      */
     private void measureNodes() {
+        int samplesPrinted = 0;
         for (EmbeddedPatch patch : tmesh.patches) {
             if (!patch.alive) {
                 continue;
@@ -102,10 +106,20 @@ public final class GlobalGridMap {
                     if (position == null) {
                         continue;
                     }
+                    boolean offGrid = false;
                     for (int axis = 0; axis < GRID_COORDINATES; axis++) {
                         double deviation = Math.abs(position[axis] - Math.round(position[axis]));
                         worstNodeIntegerDeviation = Math.max(worstNodeIntegerDeviation, deviation);
+                        offGrid |= deviation > INTEGER_TOLERANCE;
                         offGridNodeCount += deviation > INTEGER_TOLERANCE ? 1 : 0;
+                    }
+                    if (offGrid && samplesPrinted < OFF_GRID_SAMPLES_LISTED) {
+                        samplesPrinted++;
+                        System.out.printf(
+                                "[global-grid]   off-grid node=%d patch=%d side=%d sideArcs=%d"
+                                        + " sideNodes=%d at (%.4f, %.4f)%n",
+                                nodeId, patch.patchId, side, patch.sideArcIds.get(side).size(),
+                                sideNodes.size(), position[0], position[1]);
                     }
                 }
             }

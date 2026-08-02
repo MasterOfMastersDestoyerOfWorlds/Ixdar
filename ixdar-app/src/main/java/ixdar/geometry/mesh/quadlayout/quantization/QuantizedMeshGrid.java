@@ -477,8 +477,14 @@ public class QuantizedMeshGrid {
                 if (meeting.ourAxis == meeting.otherAxis) {
                     continue;
                 }
-                boolean triggered = trace.featureTrace
-                        || meeting.theirParametricLength > tanAlpha * meeting.ourParametricLength;
+                // Section 4.3 orients each crossing pair as l_ij >= l_ji and adds one
+                // constraint, on the shorter trace's prefix S_ji. Read from the shorter
+                // side the ratio test is vacuously true, so emitting both directions
+                // would separate every crossing unconditionally.
+                boolean orientedPair =
+                        meeting.ourParametricLength >= meeting.theirParametricLength;
+                boolean triggered = trace.featureTrace || (orientedPair
+                        && meeting.theirParametricLength > tanAlpha * meeting.ourParametricLength);
                 if (!triggered) {
                     continue;
                 }

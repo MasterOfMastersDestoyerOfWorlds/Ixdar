@@ -19,6 +19,12 @@ import ixdar.scenes.model.ModelScene;
 @SceneAnnotation(id = "quad-layout")
 public class QuadLayoutScene extends ModelScene {
 
+    /**
+     * Relaxation wall-clock budget fitting the scene's own run budget, so a
+     * headless capture with {@code --timeout 330} sees the relaxed map.
+     */
+    public static final long RELAXATION_BUDGET_MILLISECONDS = 150_000;
+
     private QuadLayoutRuntime quadRuntime;
     private float alphaDegrees = 15f;
     private boolean coonsFill;
@@ -80,7 +86,13 @@ public class QuadLayoutScene extends ModelScene {
     private void rebuildLayout() {
         float alphaRadians = (float) Math.toRadians(alphaDegrees);
         QuadLayoutEngine engine = new QuadLayoutEngine(halfEdgeMesh, alphaRadians);
+        engine.relaxationBudgetMilliseconds = RELAXATION_BUDGET_MILLISECONDS;
         engine.buildPatchSurfaces();
+        Platforms.get().log(String.format(
+                "[quad-layout] patches=%d quads=%d | relax %.2e→%.2e it=%d",
+                engine.livePatchCount(), engine.quadGrid.quadCount,
+                engine.gridOptimizer.energyBefore, engine.gridOptimizer.energyAfter,
+                engine.gridOptimizer.iterationCount));
         quadRuntime.setSeamlessParametrization(engine.seamless);
         quadRuntime.setMotorcycleGraph(engine.motorcycleGraph);
         quadRuntime.setEmbeddedTMesh(engine.tmesh);

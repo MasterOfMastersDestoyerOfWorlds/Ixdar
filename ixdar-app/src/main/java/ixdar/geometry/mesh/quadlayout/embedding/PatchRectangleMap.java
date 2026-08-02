@@ -22,20 +22,8 @@ import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
  */
 public final class PatchRectangleMap {
 
-    /**
-     * Floor on a harmonic edge weight. Cotangents turn negative on obtuse triangles
-     * and Tutte's fold-free guarantee needs every weight positive; they are
-     * scale-invariant, so this is absolute.
-     */
-    public static final double MINIMUM_HARMONIC_WEIGHT = 1.0e-3;
-
-    /**
-     * Share of each arc's boundary spacing taken uniformly rather than by chord
-     * length. Tutte's theorem needs the boundary strictly ordered around a convex
-     * polygon, and two copy vertices at the same position tie on chord length
-     * alone, pinning a triangle to zero area.
-     */
-    public static final double UNIFORM_SPACING_SHARE = 1.0;
+    /** Fold floor as a fraction of the rectangle's area. */
+    public static final double FOLD_FLOOR_FRACTION = 1.0e-12;
 
     private static final int KEY_ROW_SHIFT = 32;
 
@@ -103,9 +91,6 @@ public final class PatchRectangleMap {
      * @param vertexLabel        caller's label per dense vertex (a copy vertex id),
      *                           or {@code null} for identity labels
      *                           {@code {0, 1, 2, ...}}
-     * @param boundaryStepLength length of the boundary step arriving at each loop
-     *                           entry, or {@code null} to space the boundary by 3D
-     *                           chord length
      */
     public PatchRectangleMap(Vector3f[] positions, int[][] triangles, int[] boundaryLoop,
             int[][] sideBreakLoopIndex, int[][] sideBreakOffset, double width, double height,
@@ -138,29 +123,42 @@ public final class PatchRectangleMap {
     }
 
     /**
-     * Places the boundary on the rectangle and solves for the interior vertices.
+     * Places the boundary on the rectangle and solves for the interior vertices
+     * with cotangent weights, falling back to uniform weights when obtuse
+     * cotangents leave the system indefinite (RPP17 §6).
      *
-     * @throws IllegalStateException when a side has no geometric extent (an
-     *                               un-contracted patch) or the Tutte system is not
-     *                               positive definite
+     * @throws IllegalStateException when a side has no quantized length
      * @return this, solved
      */
     public PatchRectangleMap build() {
         placeBoundary();
-        solveInterior();
+        try {
+            solveInterior(cotangentEdgeWeights());
+        } catch (IllegalStateException notPositiveDefinite) {
+            solveUniform();
+        }
         return this;
     }
 
     /**
-     * Pins each boundary vertex to a rectangle edge one arc at a time, so adjacent
-     * patches place the integers identically along a shared arc.
+     * Re-solves the interior with uniform weights, the RPP17 §6 fallback when the
+     * cotangent solve folds: uniform weights are a true convex combination, so
+     * Tutte's theorem makes the result fold-free unconditionally.
+     */
+    public void solveUniform() {
+        solveInterior(uniformEdgeWeights());
+    }
+
+    /**
+     * Pins each boundary vertex to a rectangle edge one arc at a time — the arc
+     * endpoints at their quantized integer offsets, the vertices between them
+     * spaced uniformly — so adjacent patches place a shared arc identically.
      *
      * <p>
      * See also: LCBK19 Section 6.2
      *
-     * @throws IllegalStateException when an arc has no quantized length or no
-     *                               geometric extent, so its vertices cannot be
-     *                               distributed
+     * @throws IllegalStateException when a side has no quantized length, so its
+     *                               vertices cannot be distributed
      */
     private void placeBoundary() {
         double[] cornerX = { 0.0, width, width, 0.0 };
@@ -179,28 +177,11 @@ public final class PatchRectangleMap {
                 int startIndex = breakLoopIndex[arcIndex];
                 int endIndex = breakLoopIndex[arcIndex + 1];
                 int count = walkLength(startIndex, endIndex, loopLength);
-                double total = 0.0;
-                double[] cumulative = new double[count];
-                int previous = boundaryLoop[startIndex];
-                int index = startIndex;
-                for (int step = 1; step < count; step++) {
-                    index = (index + 1) % loopLength;
-                    int here = boundaryLoop[index];
-                    total += positions[here].distance(positions[previous]);
-                    cumulative[step] = total;
-                    previous = here;
-                }
-                if (total == 0.0) {
-                    throw new IllegalStateException("arc " + arcIndex + " of patch side " + side
-                            + " has no extent; its boundary vertices cannot be spaced along the"
-                            + " rectangle side");
-                }
                 double arcStart = breakOffset[arcIndex] / (double) sideLength;
                 double arcEnd = breakOffset[arcIndex + 1] / (double) sideLength;
-                index = startIndex;
+                int index = startIndex;
                 for (int step = 0; step < count; step++) {
-                    double fraction = (1.0 - UNIFORM_SPACING_SHARE) * cumulative[step] / total
-                            + UNIFORM_SPACING_SHARE * step / (count - 1.0);
+                    double fraction = step / (count - 1.0);
                     double along = arcStart + fraction * (arcEnd - arcStart);
                     int dense = boundaryLoop[index];
                     rectangleU[dense] = cornerX[side] + along * (cornerX[nextSide] - cornerX[side]);
@@ -233,9 +214,11 @@ public final class PatchRectangleMap {
      * Solves the harmonic system for the interior vertices, holding the boundary
      * fixed, once for the x-coordinate and once for the y.
      *
+     * @param weightByEdge weight per undirected edge, keyed
+     *                     {@code (min << 32) | max}
      * @throws IllegalStateException when the system is not positive definite
      */
-    private void solveInterior() {
+    private void solveInterior(Map<Long, Double> weightByEdge) {
         boolean anyFree = false;
         for (boolean pinned : onBoundary) {
             if (!pinned) {
@@ -249,7 +232,7 @@ public final class PatchRectangleMap {
         int n = positions.length;
         double[] diagonal = new double[n];
         Map<Long, Double> upper = new HashMap<>();
-        for (Map.Entry<Long, Double> edge : cotangentEdgeWeights().entrySet()) {
+        for (Map.Entry<Long, Double> edge : weightByEdge.entrySet()) {
             long key = edge.getKey();
             double weight = edge.getValue();
             diagonal[(int) (key >>> KEY_ROW_SHIFT)] += weight;
@@ -270,12 +253,8 @@ public final class PatchRectangleMap {
 
     /**
      * The harmonic weight of every graph edge: the cotangent of each opposite
-     * angle, summed over the triangles on both sides, floored at
-     * {@link #MINIMUM_HARMONIC_WEIGHT}.
-     *
-     * <p>
-     * The customary factor of one half is dropped — the interior system is
-     * homogeneous, so scaling every weight alike leaves the solution unchanged.
+     * angle, summed over both incident triangles. Can go negative on obtuse
+     * configurations, the case {@link #uniformEdgeWeights()} covers.
      *
      * @return weight per undirected edge, keyed {@code (min << 32) | max}
      */
@@ -298,21 +277,44 @@ public final class PatchRectangleMap {
                 weightByEdge.merge(((long) low << KEY_ROW_SHIFT) | high, cotangent, Double::sum);
             }
         }
-        weightByEdge.replaceAll((key, weight) -> Math.max(MINIMUM_HARMONIC_WEIGHT, weight));
         return weightByEdge;
     }
 
-    // in solveInterior(), replace cotangentEdgeWeights() with:
+    /**
+     * Weight one on every graph edge, the convex combination Tutte's theorem
+     * guarantees fold-free on a 3-connected region with a convex boundary.
+     *
+     * @return weight per undirected edge, keyed {@code (min << 32) | max}
+     */
     private Map<Long, Double> uniformEdgeWeights() {
         Map<Long, Double> weightByEdge = new HashMap<>();
         for (int[] triangle : triangles) {
             for (int corner = 0; corner < triangle.length; corner++) {
-                int low = Math.min(triangle[(corner + 1) % 3], triangle[(corner + 2) % 3]);
-                int high = Math.max(triangle[(corner + 1) % 3], triangle[(corner + 2) % 3]);
+                int first = triangle[(corner + 1) % triangle.length];
+                int second = triangle[(corner + 2) % triangle.length];
+                int low = Math.min(first, second);
+                int high = Math.max(first, second);
                 weightByEdge.put(((long) low << KEY_ROW_SHIFT) | high, 1.0);
             }
         }
         return weightByEdge;
+    }
+
+    /**
+     * The signed area of the map's largest triangle, whose sign is the majority
+     * orientation.
+     *
+     * @return the reference signed area measure
+     */
+    private double referenceArea() {
+        double reference = 0.0;
+        for (int[] triangle : triangles) {
+            double area = signedArea(triangle);
+            if (Math.abs(area) > Math.abs(reference)) {
+                reference = area;
+            }
+        }
+        return reference;
     }
 
     /**
@@ -324,15 +326,8 @@ public final class PatchRectangleMap {
      * @return count of folded or degenerate triangles
      */
     public int flippedTriangleCount() {
-        double floor = 1.0e-12 * width * height;
-        double referenceArea = 0.0;
-        for (int[] triangle : triangles) {
-            double area = signedArea(triangle);
-            if (Math.abs(area) > Math.abs(referenceArea)) {
-                referenceArea = area;
-            }
-        }
-        boolean referencePositive = referenceArea > 0.0;
+        double floor = FOLD_FLOOR_FRACTION * width * height;
+        boolean referencePositive = referenceArea() > 0.0;
         int flipped = 0;
         for (int[] triangle : triangles) {
             double area = signedArea(triangle);
@@ -368,15 +363,8 @@ public final class PatchRectangleMap {
      * @return a one-line description, or {@code "none"} when no triangle folds
      */
     private String describeFirstFold() {
-        double referenceArea = 0.0;
-        for (int[] triangle : triangles) {
-            if (Math.abs(signedArea(triangle)) > Math.abs(referenceArea)) {
-                referenceArea = signedArea(triangle);
-            }
-        }
-        double floor = 1.0e-12 * width * height;
-
-        boolean referencePositive = referenceArea > 0.0;
+        double floor = FOLD_FLOOR_FRACTION * width * height;
+        boolean referencePositive = referenceArea() > 0.0;
         for (int[] triangle : triangles) {
             double area = signedArea(triangle);
             if (Math.abs(area) > floor && (area > 0.0) == referencePositive) {
