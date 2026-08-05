@@ -13,12 +13,26 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
  * Exact chord walk inside one source face: connects a path head to a target point,
  * materializing every child edge the chord crosses.
  *
- * <p>Works in barycentric coordinates, deciding every case by an exact
- * {@link ExactBarycentricOrient} sign test, with no tolerance.
+ * <p>Every side test is an exact {@link ExactBarycentricOrient} sign. Only the
+ * split-or-snap dispatch carries a tolerance: {@link #MINIMUM_SEPARATION}.
  *
  * <p>See also: LCBK19 Section 6.1
  */
 public final class FaceChordWalk {
+
+    /**
+     * Closest a new carve point may be placed to an existing one. A split this near
+     * an existing vertex buys nothing, so the carve snaps to that vertex instead
+     * (LCBK19 §6.1). A placement convenience, not a claim about precision.
+     */
+    public static final double MINIMUM_SEPARATION = 1.0e-9;
+
+    /**
+     * Barycentric gap below which two points interpolate to one chart position in
+     * double, so nothing downstream can tell them apart. Far tighter than
+     * {@link #MINIMUM_SEPARATION}: this one is about representability.
+     */
+    public static final double COINCIDENT_SEPARATION = 1.0e-13;
 
     /** Corners (and edges) of a triangle. */
     private static final int CORNERS = 3;
@@ -46,6 +60,18 @@ public final class FaceChordWalk {
 
     /** Retriangulation corners the chord passed exactly through. */
     public int vertexCrossingCount;
+
+    /**
+     * Crossings that fell within {@link #MINIMUM_SEPARATION} of an endpoint, so the
+     * chord snapped through the endpoint rather than minting a vertex on top of it.
+     */
+    public int unsplittableCrossingCount;
+
+    /**
+     * Crossings of a child face so thin that the split point would have landed on
+     * the head itself, so the chord crossed through a corner instead.
+     */
+    public int collapsedCrossingCount;
 
     /** Nodes placed on an existing free vertex they coincide with. */
     public int placedBySnapCount;
@@ -420,7 +446,11 @@ public final class FaceChordWalk {
         double toArea = ExactBarycentricOrient.area(
                 headBarycentric, targetBarycentric, toBarycentric);
         double parameter = fromArea / (fromArea - toArea);
-        if (fromSign != 0 && toSign != 0 && parameter > 0.0 && parameter < 1.0) {
+        boolean separable = parameter > MINIMUM_SEPARATION && parameter < 1.0 - MINIMUM_SEPARATION;
+        if (fromSign != 0 && toSign != 0 && parameter > 0.0 && parameter < 1.0 && !separable) {
+            unsplittableCrossingCount++;
+        }
+        if (fromSign != 0 && toSign != 0 && separable) {
             if (recoverable && foreignClaim(arcId, exitEdge)) {
                 return EmbeddedMeshTopology.UNCLAIMED;
             }
@@ -430,10 +460,19 @@ public final class FaceChordWalk {
                 flipInsertCount++;
                 return head;
             }
-            interiorSplitCount++;
-            int minted = topology.splitEdgeAtParameter(exitEdge, parameter);
-            hop(arcId, pathVertices, head, minted);
-            return minted;
+            double[] crossing = new double[CORNERS];
+            for (int corner = 0; corner < CORNERS; corner++) {
+                crossing[corner] = fromBarycentric[corner]
+                        + parameter * (toBarycentric[corner] - fromBarycentric[corner]);
+            }
+            if (isWithinSeparation(crossing, headBarycentric, COINCIDENT_SEPARATION)) {
+                collapsedCrossingCount++;
+            } else {
+                interiorSplitCount++;
+                int minted = topology.splitEdgeAtParameter(exitEdge, parameter);
+                hop(arcId, pathVertices, head, minted);
+                return minted;
+            }
         }
         int through = Math.abs(fromArea) <= Math.abs(toArea) ? from : to;
         boolean throughBlocked = through != targetVertex
@@ -617,9 +656,9 @@ public final class FaceChordWalk {
     }
 
     /**
-     * Whether a point coincides exactly with one corner of a child face, tested as
-     * collinearity with that corner along both edges leaving it. Exact: no distance and
-     * no tolerance.
+     * Whether a point is one corner of a child face: collinear with it along both
+     * edges leaving it, or within {@link #MINIMUM_SEPARATION} of it, which no split
+     * could separate anyway.
      *
      * @param sourceFace        source active face
      * @param childFace         child face to test against
@@ -631,12 +670,32 @@ public final class FaceChordWalk {
             double[] targetBarycentric) {
         double[] at = requireBarycentric(sourceFace,
                 topology.copy.faceVertexAt(childFace, corner));
+        if (isWithinSeparation(at, targetBarycentric, MINIMUM_SEPARATION)) {
+            return true;
+        }
         double[] after = requireBarycentric(sourceFace,
                 topology.copy.faceVertexAt(childFace, (corner + 1) % CORNERS));
         double[] before = requireBarycentric(sourceFace,
                 topology.copy.faceVertexAt(childFace, (corner + 2) % CORNERS));
         return orientSign(at, after, targetBarycentric) == 0
                 && orientSign(at, before, targetBarycentric) == 0;
+    }
+
+    /**
+     * Whether two barycentric points agree within a separation, componentwise.
+     *
+     * @param at         one point's barycentric in a source face
+     * @param target     the other point's barycentric in the same source face
+     * @param separation gap the two must stay inside to count as one point
+     * @return true when every component agrees within the separation
+     */
+    public static boolean isWithinSeparation(double[] at, double[] target, double separation) {
+        for (int corner = 0; corner < CORNERS; corner++) {
+            if (Math.abs(at[corner] - target[corner]) >= separation) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

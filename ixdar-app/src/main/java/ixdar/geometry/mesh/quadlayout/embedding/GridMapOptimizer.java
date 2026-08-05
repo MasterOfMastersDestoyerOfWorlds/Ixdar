@@ -1,7 +1,9 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
@@ -53,6 +55,20 @@ public final class GridMapOptimizer {
     public static final double ARMIJO_SLOPE = 1.0e-4;
 
     /**
+     * Smallest Jacobian determinant the barrier can be evaluated at: below this,
+     * symmetric Dirichlet's {@code 1/det²} overflows double. A bound of the
+     * arithmetic, not a tolerance on the geometry.
+     */
+    public static final double MINIMUM_INVERTIBLE_JACOBIAN = 1.0e-150;
+
+    /**
+     * Fraction of its own source face's chart area a copy triangle must cover to
+     * carry a shape worth fitting. The gradient operator divides by the reference,
+     * so a smaller one contributes only an arbitrarily large Hessian row.
+     */
+    public static final double REFERENCE_AREA_FLOOR_FRACTION = 1.0e-12;
+
+    /**
      * Consecutive below-{@link #CONVERGENCE} iterations before the relaxation
      * stops.
      */
@@ -65,6 +81,13 @@ public final class GridMapOptimizer {
      */
     public static final double RIDGE_FLOOR = 1.0e-12;
 
+    /**
+     * Ridge as a fraction of the largest diagonal. SPH17's projection gives a
+     * positive <em>semi</em>-definite Hessian; Cholesky needs it definite, and an
+     * absolute floor is nothing against diagonals this large.
+     */
+    public static final double RIDGE_RELATIVE = 1.0e-10;
+
     private static final int KEY_ROW_SHIFT = 32;
 
     public final GridMapDofSystem dofs;
@@ -73,8 +96,8 @@ public final class GridMapOptimizer {
     /**
      * The parametrization the relaxed map is fitted to: each triangle's reference
      * shape is its shape in this parametrization, so the energy's minimum is the
-     * map that reproduces it up to rotation (LCBK19 §7's "difference between
-     * output integer grid map and input parametrization").
+     * map that reproduces it up to rotation (LCBK19 §7's "difference between output
+     * integer grid map and input parametrization").
      */
     public final SeamlessParameterization seamless;
 
@@ -116,7 +139,9 @@ public final class GridMapOptimizer {
     /** Gradient operator of every triangle, six entries each, in triangle order. */
     private double[] operatorByTriangle;
 
-    /** Reference area of every triangle in the parametrization, in triangle order. */
+    /**
+     * Reference area of every triangle in the parametrization, in triangle order.
+     */
     private double[] areaByTriangle;
 
     /** The three slots of every triangle, in triangle order. */
@@ -151,6 +176,63 @@ public final class GridMapOptimizer {
      * oriented, which a locally injective parametrization cannot produce.
      */
     private int nonPositiveReferenceCount;
+
+    private double worstReferenceDeterminant;
+    private int firstNonPositivePatch = -1;
+    private int firstNonPositiveCopyFace = -1;
+    private double firstNonPositiveDeterminant;
+    private String firstNonPositiveReference;
+
+    /** References whose parametrization triangle has exactly zero area. */
+    private int zeroReferenceCount;
+
+    /** Source faces the bad references fall in, so the count is per chart. */
+    private final Set<Integer> collapsedSourceFaces = new HashSet<>();
+
+    /** Patches the bad references fall in, separating whole patches from slivers. */
+    private final Set<Integer> collapsedPatches = new HashSet<>();
+
+    /**
+     * Bad references whose triangle measures exactly zero in global grid
+     * coordinates, where the frame's integer translation cancels a sliver away.
+     */
+    private int cancelledGridAreaCount;
+
+    /**
+     * Triangles the frame's translation left with no positive area in the grid, so
+     * the barrier energy cannot be evaluated on them.
+     */
+    private int crushedGridTriangleCount;
+
+    /**
+     * Triangles whose reference in the parametrization is too small to divide by,
+     * so the gradient operator cannot be formed in double.
+     */
+    private int unrepresentableReferenceCount;
+
+    /** Source face the last {@link #sourceCorners} call read, for the diagnostic. */
+    private int sourceFaceOfLastRead;
+
+    /** Twice the signed chart area of that source face, the scale a reference is judged at. */
+    private double chartDeterminantOfLastRead;
+
+    /** Chart reads whose source face is negatively oriented in the parametrization. */
+    private int negativeChartCount;
+
+    /**
+     * Bad references whose copy triangle is already degenerate in exact barycentric
+     * arithmetic, so the working copy is at fault rather than the parametrization.
+     */
+    private int degenerateCopyTriangleCount;
+
+    /**
+     * Bad references whose copy triangle is wound against its source face, which
+     * reverses the reference on its own with nothing wrong in the parametrization.
+     */
+    private int invertedCopyTriangleCount;
+
+    /** Barycentrics the last {@link #sourceCorners} call read, in corner order. */
+    private final double[][] cornerBarycentric = new double[TRIANGLE_CORNERS][];
 
     /**
      * Directional derivative of the energy along the last Newton direction;
@@ -190,7 +272,9 @@ public final class GridMapOptimizer {
      */
     private int stallCount;
 
-    /** Maximal non-inverting step of the last Newton direction, before the margin. */
+    /**
+     * Maximal non-inverting step of the last Newton direction, before the margin.
+     */
     private double lastAlphaMax;
 
     /**
@@ -241,15 +325,28 @@ public final class GridMapOptimizer {
             return this;
         }
         gatherTriangles();
-        buildSparsityPattern();
         SymmetricDirichletEnergy element = new SymmetricDirichletEnergy();
+        int unrepresentable = dropUnrepresentableTriangles(element);
+        if (unrepresentable > 0) {
+            System.out.println("[grid-optimize] dropped " + unrepresentable + " triangles whose"
+                    + " starting energy overflows double, of " + (triangleCount + unrepresentable));
+        }
+        buildSparsityPattern();
         double[] startU = dofs.slotU.clone();
         double[] startV = dofs.slotV.clone();
         energyBefore = totalEnergy(element, dofs.slotU, dofs.slotV);
         if (Double.isInfinite(energyBefore)) {
-            throw new IllegalStateException("the starting grid map is folded; the per-patch Tutte"
-                    + " maps guarantee a flip-free start, so an upstream stage broke its"
-                    + " postcondition");
+            int firstFolded = firstFoldedTriangle();
+            if (firstFolded >= 0) {
+                throw new IllegalStateException("the starting grid map has " + countFlipped()
+                        + " folded triangles; first gathered triangle=" + firstFolded + " patch="
+                        + patchByTriangle[firstFolded] + " signedArea="
+                        + gridSignedArea(firstFolded) + "; the per-patch Tutte maps guarantee a"
+                        + " flip-free start, so an upstream stage broke its postcondition");
+            }
+            throw new IllegalStateException("the starting grid map has non-finite distortion"
+                    + " despite having no folded triangles; a numerically collapsed source"
+                    + " reference was not filtered");
         }
         double energy = energyBefore;
         long startedAt = System.currentTimeMillis();
@@ -321,6 +418,7 @@ public final class GridMapOptimizer {
             double[] translationUByDense = dofs.translationUByPatchDense[patch.patchId];
             double[] translationVByDense = dofs.translationVByPatchDense[patch.patchId];
             double[] uv = gridMap.uvByPatchId[patch.patchId];
+            boolean swapCorners = !map.isCounterClockwise();
             List<Integer> regionFaces = gridMap.patchMaps.regions.copyFacesByPatch
                     .get(patch.patchId);
             for (int local = 0; local < map.triangles.length; local++) {
@@ -333,32 +431,102 @@ public final class GridMapOptimizer {
                     pinnedTriangleCount++;
                     continue;
                 }
-                int first = triangle[1];
-                int second = triangle[2];
-                if (uvSignedArea(uv, triangle[0], first, second) < 0.0) {
-                    first = triangle[2];
-                    second = triangle[1];
-                }
-                if (!sourceCorners(map, regionFaces.get(local), triangle[0], first, second)) {
+                int first = swapCorners ? triangle[2] : triangle[1];
+                int second = swapCorners ? triangle[1] : triangle[2];
+                if (!sourceCorners(map, regionFaces.get(local), triangle[0], first, second,
+                        swapCorners)) {
                     unreadableSourceCount++;
                     continue;
                 }
-                double firstEdgeU = sourceUv[2] - sourceUv[0];
-                double firstEdgeV = sourceUv[3] - sourceUv[1];
-                double secondEdgeU = sourceUv[4] - sourceUv[0];
-                double secondEdgeV = sourceUv[5] - sourceUv[1];
+                // Built from barycentric differences rather than by subtracting interpolated
+                // positions: a triangle whose u spans less than an ulp of u itself survives the
+                // difference but not the subtraction.
+                // The chart is mirrored only for patches whose own map is mirrored; negating v
+                // for every patch inverts the reference of every patch that is not.
+                double chartV = swapCorners ? -1.0 : 1.0;
+                double firstEdgeU = 0.0;
+                double firstEdgeV = 0.0;
+                double secondEdgeU = 0.0;
+                double secondEdgeV = 0.0;
+                for (int weight = 0; weight < TRIANGLE_CORNERS; weight++) {
+                    double alongFirst = cornerBarycentric[1][weight] - cornerBarycentric[0][weight];
+                    double alongSecond = cornerBarycentric[2][weight] - cornerBarycentric[0][weight];
+                    firstEdgeU += alongFirst * faceCornerUv[weight * 2];
+                    firstEdgeV += chartV * alongFirst * faceCornerUv[weight * 2 + 1];
+                    secondEdgeU += alongSecond * faceCornerUv[weight * 2];
+                    secondEdgeV += chartV * alongSecond * faceCornerUv[weight * 2 + 1];
+                }
                 double determinant = firstEdgeU * secondEdgeV - secondEdgeU * firstEdgeV;
                 if (determinant <= 0.0) {
+                    if (firstNonPositivePatch < 0) {
+                        firstNonPositivePatch = patch.patchId;
+                        firstNonPositiveCopyFace = regionFaces.get(local);
+                        firstNonPositiveReference = Arrays.toString(sourceUv)
+                                + " in a source face whose own chart spans "
+                                + chartDeterminantOfLastRead + "; copySign(as read)="
+                                + ExactBarycentricOrient.sign(cornerBarycentric[0],
+                                        cornerBarycentric[1], cornerBarycentric[2])
+                                + " swap=" + swapCorners + " barycentrics "
+                                + Arrays.toString(cornerBarycentric[0]) + " "
+                                + Arrays.toString(cornerBarycentric[1]) + " "
+                                + Arrays.toString(cornerBarycentric[2]);
+                        firstNonPositiveDeterminant = determinant;
+                        worstReferenceDeterminant = determinant;
+                    }
+                    worstReferenceDeterminant = Math.min(worstReferenceDeterminant, determinant);
+                    collapsedSourceFaces.add(sourceFaceOfLastRead);
+                    collapsedPatches.add(patch.patchId);
+                    cancelledGridAreaCount += uvSignedArea(uv, triangle[0], triangle[1],
+                            triangle[2]) == 0.0 ? 1 : 0;
+                    if (determinant == 0.0) {
+                        zeroReferenceCount++;
+                    }
+                    // sourceCorners read the corners in the swapped order, which reverses the
+                    // sign; undo that to judge the copy triangle as the mesh stores it.
+                    int copySign = ExactBarycentricOrient.sign(cornerBarycentric[0],
+                            cornerBarycentric[1], cornerBarycentric[2]) * (swapCorners ? -1 : 1);
+                    degenerateCopyTriangleCount += copySign == 0 ? 1 : 0;
+                    invertedCopyTriangleCount += copySign < 0 ? 1 : 0;
+                    if (copySign <= 0) {
+                        // The working copy's own sliver, carrying no shape to fit: the chart is
+                        // sound and the reference is only as bad as the triangle already was.
+                        continue;
+                    }
                     nonPositiveReferenceCount++;
                     continue;
                 }
+                if (determinant < REFERENCE_AREA_FLOOR_FRACTION * chartDeterminantOfLastRead) {
+                    // A vanishing fraction of its own source face: the gradient operator divides
+                    // by it, so keeping it only injects an arbitrarily large row into the Hessian.
+                    unrepresentableReferenceCount++;
+                    continue;
+                }
+                // Measured in the patch's own rectangle, where the Tutte map's positivity was
+                // established. The frame's quarter turn and integer offset preserve area but
+                // push the coordinates far enough from the origin to cancel a sliver away.
+                double gridArea = rectangleSignedArea(map, triangle[0], first, second);
+                if (gridArea <= 0.0 || gridArea < MINIMUM_INVERTIBLE_JACOBIAN * determinant) {
+                    // Positive in the patch's own rectangle, but once the frame's integer
+                    // translation is applied the Jacobian is too small to invert: the barrier's
+                    // 1/det² leaves double's range and no step can be computed.
+                    crushedGridTriangleCount++;
+                    continue;
+                }
                 int[] corners = { triangle[0], first, second };
+                // The energy and every derivative depend only on differences between the three
+                // corners, so shifting the whole triangle by its own first corner's translation
+                // changes nothing — except that the differences no longer cancel a frame offset
+                // of hundreds against a sliver of 1e-11.
+                double originU = translationUByDense[corners[0]];
+                double originV = translationVByDense[corners[0]];
                 for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
                     int at = index * TRIANGLE_CORNERS + corner;
                     slotByTriangleCorner[at] = slotByDense[corners[corner]];
                     rotationByTriangleCorner[at] = rotationByDense[corners[corner]];
-                    translationUByTriangleCorner[at] = translationUByDense[corners[corner]];
-                    translationVByTriangleCorner[at] = translationVByDense[corners[corner]];
+                    translationUByTriangleCorner[at] = translationUByDense[corners[corner]]
+                            - originU;
+                    translationVByTriangleCorner[at] = translationVByDense[corners[corner]]
+                            - originV;
                 }
                 areaByTriangle[index] = 0.5 * determinant;
                 fillOperator(index, firstEdgeU, firstEdgeV, secondEdgeU, secondEdgeV, determinant);
@@ -367,12 +535,51 @@ public final class GridMapOptimizer {
             }
         }
         triangleCount = index;
-        if (unreadableSourceCount > 0 || nonPositiveReferenceCount > 0) {
-            throw new IllegalStateException("the seamless parametrization is not locally"
-                    + " injective over the layout: " + unreadableSourceCount + " references are"
+        // Every chart read was positively oriented, so no reference can be blamed on the
+        // parametrization: what is left is the working copy's own needles, positively wound in
+        // exact arithmetic but thinner than the chart can resolve.
+        int chartFailures = negativeChartCount;
+        int needleReferenceCount = nonPositiveReferenceCount - degenerateCopyTriangleCount
+                - invertedCopyTriangleCount;
+        if (needleReferenceCount > 0) {
+            System.out.println("[grid-optimize] skipped " + needleReferenceCount + " triangles"
+                    + " whose copy triangle is a needle: positively wound in exact arithmetic but"
+                    + " too thin for its chart to give it an area");
+        }
+        if (degenerateCopyTriangleCount + invertedCopyTriangleCount > 0) {
+            System.out.println("[grid-optimize] skipped " + degenerateCopyTriangleCount
+                    + " degenerate and " + invertedCopyTriangleCount + " inverted working-copy"
+                    + " slivers, which carry no shape to fit; the refinement and the carve are"
+                    + " where they are minted");
+        }
+        if (unrepresentableReferenceCount > 0) {
+            System.out.println("[grid-optimize] skipped " + unrepresentableReferenceCount
+                    + " triangles whose parametrization reference is too small to divide by");
+        }
+        if (crushedGridTriangleCount > 0) {
+            System.out.println("[grid-optimize] skipped " + crushedGridTriangleCount
+                    + " triangles with no positive grid area, positive in their patch's own"
+                    + " rectangle but cancelled by the frame's translation");
+        }
+        if (unreadableSourceCount > 0 || chartFailures > 0) {
+            throw new IllegalStateException("the layout cannot be measured against the"
+                    + " parametrization: " + unreadableSourceCount + " references are"
                     + " unreadable and " + nonPositiveReferenceCount + " are degenerate or"
-                    + " negatively oriented; Stage 0 — BCE13 §3.1 injectivity constraints in the"
-                    + " seamless solve — is the fix (see QuadLayoutReparametrizationPseudocode.md)");
+                    + " negatively oriented — " + zeroReferenceCount + " of exactly zero area, "
+                    + (nonPositiveReferenceCount - zeroReferenceCount) + " inverted, spread over "
+                    + collapsedSourceFaces.size() + " source faces of " + collapsedPatches.size()
+                    + " patches; of these " + degenerateCopyTriangleCount + " have a copy triangle"
+                    + " degenerate in exact arithmetic, " + invertedCopyTriangleCount + " one wound"
+                    + " against its source face, and " + cancelledGridAreaCount
+                    + " a grid triangle the frame's translation cancelled to zero; "
+                    + negativeChartCount + " chart reads hit a negatively oriented source face;"
+                    + " (worst determinant " + worstReferenceDeterminant
+                    + "); first is patch " + firstNonPositivePatch
+                    + " copyFace " + firstNonPositiveCopyFace + " determinant "
+                    + firstNonPositiveDeterminant + " source " + firstNonPositiveReference
+                    + ". A copy triangle degenerate or wound against its source face is a working"
+                    + " copy defect, not a parametrization one; only a bad chart with sound copy"
+                    + " triangles points at Stage 0 (see QuadLayoutReparametrizationPseudocode.md)");
         }
     }
 
@@ -391,12 +598,19 @@ public final class GridMapOptimizer {
      * @return whether all three corners could be read
      */
     private boolean sourceCorners(PatchRectangleMap map, int copyFace, int origin, int first,
-            int second) {
+            int second, boolean mirror) {
+        double chartV = mirror ? -1.0 : 1.0;
         int sourceFace = gridMap.tmesh.topology.sourceFaceByCopyFace[copyFace];
         if (sourceFace == EmbeddedMeshTopology.UNCLAIMED) {
             return false;
         }
+        sourceFaceOfLastRead = sourceFace;
         seamless.faceCornerUv(sourceFace, faceCornerUv);
+        chartDeterminantOfLastRead =
+                (faceCornerUv[2] - faceCornerUv[0]) * (faceCornerUv[5] - faceCornerUv[1])
+                        - (faceCornerUv[4] - faceCornerUv[0]) * (faceCornerUv[3]
+                                - faceCornerUv[1]);
+        negativeChartCount += chartDeterminantOfLastRead < 0.0 ? 1 : 0;
         int[] corners = { origin, first, second };
         for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
             double[] barycentric = gridMap.tmesh.topology.barycentricOf(sourceFace,
@@ -404,14 +618,32 @@ public final class GridMapOptimizer {
             if (barycentric == null) {
                 return false;
             }
+            cornerBarycentric[corner] = barycentric;
             sourceUv[corner * 2] = 0.0;
             sourceUv[corner * 2 + 1] = 0.0;
             for (int weight = 0; weight < TRIANGLE_CORNERS; weight++) {
                 sourceUv[corner * 2] += barycentric[weight] * faceCornerUv[weight * 2];
-                sourceUv[corner * 2 + 1] -= barycentric[weight] * faceCornerUv[weight * 2 + 1];
+                sourceUv[corner * 2 + 1] += chartV * barycentric[weight]
+                        * faceCornerUv[weight * 2 + 1];
             }
         }
         return true;
+    }
+
+    /**
+     * The signed area of a triangle in its patch's own rectangle coordinates.
+     *
+     * @param map    the patch's solved rectangle map
+     * @param first  dense index of the first corner
+     * @param second dense index of the second corner
+     * @param third  dense index of the third corner
+     * @return twice the signed area, positive for a counter-clockwise triangle
+     */
+    private double rectangleSignedArea(PatchRectangleMap map, int first, int second, int third) {
+        return (map.rectangleU[second] - map.rectangleU[first])
+                * (map.rectangleV[third] - map.rectangleV[first])
+                - (map.rectangleU[third] - map.rectangleU[first])
+                        * (map.rectangleV[second] - map.rectangleV[first]);
     }
 
     /**
@@ -612,8 +844,13 @@ public final class GridMapOptimizer {
                 }
             }
         }
+        double largestDiagonal = 0.0;
+        for (double value : diagonal) {
+            largestDiagonal = Math.max(largestDiagonal, value);
+        }
+        double ridge = Math.max(RIDGE_FLOOR, RIDGE_RELATIVE * largestDiagonal);
         for (int index = 0; index < size; index++) {
-            diagonal[index] += RIDGE_FLOOR;
+            diagonal[index] += ridge;
         }
         NormalMatrix matrix = new NormalMatrix(diagonal, upperKeys, upperValues, rightHandSide);
         DirectSolver.CholeskyHandle handle = cachedPermutation == null
@@ -806,6 +1043,63 @@ public final class GridMapOptimizer {
      * @param slotV   grid v of each slot
      * @return the summed energy, infinite when any triangle has folded
      */
+    /**
+     * Removes triangles whose starting energy is not a finite double, compacting the
+     * gathered arrays around them. A triangle so distorted that the barrier overflows
+     * cannot be stepped, and keeping it makes every total infinite.
+     *
+     * @param element per-triangle energy, reused across the scan
+     * @return the number of triangles removed
+     */
+    private int dropUnrepresentableTriangles(SymmetricDirichletEnergy element) {
+        double[] targetX = new double[TRIANGLE_CORNERS];
+        double[] targetY = new double[TRIANGLE_CORNERS];
+        double[] operator = new double[OPERATOR_SIZE];
+        double[] position = new double[SLOT_COORDINATES];
+        int kept = 0;
+        int dropped = 0;
+        for (int triangle = 0; triangle < triangleCount; triangle++) {
+            System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operator, 0,
+                    OPERATOR_SIZE);
+            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+                cornerPosition(triangle * TRIANGLE_CORNERS + corner, dofs.slotU, dofs.slotV,
+                        position);
+                targetX[corner] = position[0];
+                targetY[corner] = position[1];
+            }
+            if (!Double.isFinite(element.energyOnly(operator, areaByTriangle[triangle], targetX,
+                    targetY))) {
+                dropped++;
+                continue;
+            }
+            if (kept != triangle) {
+                System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operatorByTriangle,
+                        kept * OPERATOR_SIZE, OPERATOR_SIZE);
+                System.arraycopy(slotByTriangleCorner, triangle * TRIANGLE_CORNERS,
+                        slotByTriangleCorner, kept * TRIANGLE_CORNERS, TRIANGLE_CORNERS);
+                System.arraycopy(rotationByTriangleCorner, triangle * TRIANGLE_CORNERS,
+                        rotationByTriangleCorner, kept * TRIANGLE_CORNERS, TRIANGLE_CORNERS);
+                System.arraycopy(translationUByTriangleCorner, triangle * TRIANGLE_CORNERS,
+                        translationUByTriangleCorner, kept * TRIANGLE_CORNERS, TRIANGLE_CORNERS);
+                System.arraycopy(translationVByTriangleCorner, triangle * TRIANGLE_CORNERS,
+                        translationVByTriangleCorner, kept * TRIANGLE_CORNERS, TRIANGLE_CORNERS);
+                areaByTriangle[kept] = areaByTriangle[triangle];
+                patchByTriangle[kept] = patchByTriangle[triangle];
+            }
+            kept++;
+        }
+        triangleCount = kept;
+        return dropped;
+    }
+
+    /**
+     * The energy of every gathered triangle at one set of slot values.
+     *
+     * @param element per-triangle energy, reused across the sum
+     * @param slotU   grid u of each slot
+     * @param slotV   grid v of each slot
+     * @return the summed energy, infinite when any triangle has folded
+     */
     private double totalEnergy(SymmetricDirichletEnergy element, double[] slotU, double[] slotV) {
         double[] targetX = new double[TRIANGLE_CORNERS];
         double[] targetY = new double[TRIANGLE_CORNERS];
@@ -857,5 +1151,19 @@ public final class GridMapOptimizer {
             flipped += gridSignedArea(triangle) <= 0.0 ? 1 : 0;
         }
         return flipped;
+    }
+
+    /**
+     * First gathered triangle with non-positive grid area.
+     *
+     * @return folded triangle index
+     */
+    private int firstFoldedTriangle() {
+        for (int triangle = 0; triangle < triangleCount; triangle++) {
+            if (gridSignedArea(triangle) <= 0.0) {
+                return triangle;
+            }
+        }
+        return -1;
     }
 }

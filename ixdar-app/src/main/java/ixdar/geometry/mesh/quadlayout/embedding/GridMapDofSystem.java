@@ -379,7 +379,7 @@ public final class GridMapDofSystem {
             if (!arc.alive || !(frames.seamByArcId[arc.arcId] || oneSided)) {
                 continue;
             }
-            if (seamCouplingPinned == true && !oneSided && couplable(arc)) {
+            if (seamCouplingPinned == false && !oneSided && couplable(arc)) {
                 continue;
             }
             pinned.addAll(arc.path.copyVertexPath);

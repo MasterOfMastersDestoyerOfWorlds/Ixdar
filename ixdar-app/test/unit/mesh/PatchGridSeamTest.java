@@ -8,42 +8,53 @@ import java.util.List;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutPatchMaps;
+import ixdar.geometry.mesh.quadlayout.embedding.LayoutResolution;
 import ixdar.geometry.mesh.quadlayout.embedding.PatchGridExtraction;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 
 /**
- * The property LCBK19 §6.2 names when it says the union of the per-patch maps <em>"is guaranteed
- * to form a global integer grid map"</em>: the two patches meeting at an arc must read the same
- * quad-mesh vertices along it, or the extracted mesh is torn at every seam.
+ * The property LCBK19 §6.2 names when it says the union of the per-patch maps
+ * <em>"is guaranteed to form a global integer grid map"</em>: the two patches
+ * meeting at an arc must read the same quad-mesh vertices along it, or the
+ * extracted mesh is torn at every seam.
  */
 class PatchGridSeamTest {
 
-    /** Positions this far apart are the same point; the grids are built from the same floats. */
+    /**
+     * Positions this far apart are the same point; the grids are built from the
+     * same floats.
+     */
     private static final float TOLERANCE = 1e-6f;
 
-    /** Factor on every arc's quantized length, so the seam check sees intra-arc points too. */
-    private static final int QUANTIZATION_SCALE = 3;
+    /**
+     * Quads the shortest arc is sized to, which fixes the target edge length so
+     * every arc carries interior points and the seam check sees more than its two
+     * end nodes.
+     */
+    private static final int QUADS_ON_SHORTEST_ARC = 3;
 
     /**
-     * Every arc of the conformed torus carries the same grid points into both of its patches.
+     * Every arc of the conformed torus carries the same grid points into both of
+     * its patches.
      */
     @Test
     void adjacentPatchesShareTheirSeamPoints() {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
         fixture.tmesh.contract();
         fixture.tmesh.conform();
-        for (EmbeddedArc arc : fixture.tmesh.arcs) {
-            if (arc.alive) {
-                arc.quantizedLength *= QUANTIZATION_SCALE;
-            }
-        }
-        PatchGridExtraction grid =
-                new PatchGridExtraction(new LayoutPatchMaps(fixture.tmesh).build()).build();
+        SeamlessParameterization seamless = new QuadLayoutEngine(fixture.torus, 0f).buildSeamless();
+        double targetEdgeLength =
+                shortestArcLength(fixture.tmesh, seamless) / QUADS_ON_SHORTEST_ARC;
+        PatchGridExtraction grid = new PatchGridExtraction(
+                new LayoutPatchMaps(fixture.tmesh, seamless, targetEdgeLength).build()).build();
 
         int checkedArcs = 0;
+        int checkedInteriorPoints = 0;
         for (EmbeddedArc arc : fixture.tmesh.arcs) {
             if (!arc.alive || arc.leftPatchId == EmbeddedTMesh.NONE
                     || arc.rightPatchId == EmbeddedTMesh.NONE) {
@@ -61,13 +72,36 @@ class PatchGridSeamTest {
                                 + fromRight[lattice] + " in patch " + arc.rightPatchId);
             }
             checkedArcs++;
+            checkedInteriorPoints += Math.max(0, fromLeft.length - 2);
         }
         assertTrue(checkedArcs > 0, "the conformed torus should have arcs between two patches");
+        assertTrue(checkedInteriorPoints > 0,
+                "every arc carried only its two end nodes, so the check never compared a point"
+                        + " the two patches had to agree on independently");
     }
 
     /**
-     * The grid points a patch carries along one of its boundary arcs, read out of the patch's own
-     * grid and oriented from the arc's start node to its end node.
+     * The shortest live arc's length in the parametrization, which sets a target
+     * edge length no arc can round below one quad.
+     *
+     * @param tmesh    the conformed T-mesh
+     * @param seamless the parametrization to measure in
+     * @return the shortest arc's parametric length
+     */
+    private double shortestArcLength(EmbeddedTMesh tmesh, SeamlessParameterization seamless) {
+        LayoutResolution measured = new LayoutResolution(tmesh, seamless, 1.0).build();
+        double shortest = Double.MAX_VALUE;
+        for (EmbeddedArc arc : tmesh.arcs) {
+            if (arc.alive) {
+                shortest = Math.min(shortest, measured.parametricLengthByArc[arc.arcId]);
+            }
+        }
+        return shortest;
+    }
+
+    /**
+     * The grid points a patch carries along one of its boundary arcs, read out of
+     * the patch's own grid and oriented from the arc's start node to its end node.
      *
      * @param tmesh   the conformed T-mesh
      * @param grid    the extracted grids
@@ -86,7 +120,7 @@ class PatchGridSeamTest {
             List<Integer> sideNodes = patch.sideNodeIds.get(side);
             int offset = 0;
             for (int arcIndex = 0; arcIndex < sideArcs.size(); arcIndex++) {
-                int samples = tmesh.arcs.get(sideArcs.get(arcIndex)).quantizedLength;
+                int samples = tmesh.arcs.get(sideArcs.get(arcIndex)).quadCount;
                 if (sideArcs.get(arcIndex) != arc.arcId) {
                     offset += samples;
                     continue;
@@ -116,10 +150,14 @@ class PatchGridSeamTest {
      */
     private int borderIndex(int side, int offset, int columns, int rows) {
         switch (side) {
-            case 0: return offset;
-            case 1: return offset * columns + columns - 1;
-            case 2: return (rows - 1) * columns + (columns - 1 - offset);
-            default: return (rows - 1 - offset) * columns;
+        case 0:
+            return offset;
+        case 1:
+            return offset * columns + columns - 1;
+        case 2:
+            return (rows - 1) * columns + (columns - 1 - offset);
+        default:
+            return (rows - 1 - offset) * columns;
         }
     }
 }

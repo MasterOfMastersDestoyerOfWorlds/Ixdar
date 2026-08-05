@@ -27,15 +27,20 @@ public abstract class RegistryProcessor extends AbstractProcessor {
     private String collectionName;
 
     /**
-     * Configure the processor to scan for {@code annotationClass} and emit a registry
-     * class whose {@code MAP} is keyed by id and produces instances of {@code typeClass}.
+     * Configure the processor to scan for {@code annotationClass} and emit a
+     * registry class whose {@code MAP} is keyed by id and produces instances of
+     * {@code typeClass}.
      *
-     * @param annotationClass marker annotation whose {@code @interface} declares an {@code id} element;
-     *        every class carrying this annotation contributes one entry to the generated map
-     * @param typeClass common supertype of the registered classes; used as the value bound on the
-     *        generated {@code Map<String, Supplier<? extends T>>}
-     * @param collectionName suffix appended to the processor's class name to form the generated
-     *        registry's simple name (e.g. {@code "Commands"} yields {@code XxxRegistry_Commands})
+     * @param annotationClass marker annotation whose {@code @interface} declares an
+     *                        {@code id} element; every class carrying this
+     *                        annotation contributes one entry to the generated map
+     * @param typeClass       common supertype of the registered classes; used as
+     *                        the value bound on the generated
+     *                        {@code Map<String, Supplier<? extends T>>}
+     * @param collectionName  suffix appended to the processor's class name to form
+     *                        the generated registry's simple name (e.g.
+     *                        {@code "Commands"} yields
+     *                        {@code XxxRegistry_Commands})
      */
     public RegistryProcessor(Class<? extends Annotation> annotationClass, Class<?> typeClass,
             String collectionName) {
@@ -46,16 +51,13 @@ public abstract class RegistryProcessor extends AbstractProcessor {
     }
 
     /**
-     * Generate the registry source file on the first round that has work to do. Walks every class
-     * annotated with {@code annotationClass} and writes a {@code static} initializer that puts
-     * {@code id -> ClassName::new} into a {@code Map<String, Supplier<? extends T>>}. The id
-     * defaults to the simple class name and is overridden by the annotation's {@code id} element
-     * when non-blank.
+     * Generates one registry source file from annotated classes, keyed by explicit
+     * annotation id or the class name.
      *
-     * @param annotations annotation types requested for this round (unused; the configured
-     *        {@code annotationClass} drives discovery)
-     * @param roundEnv round environment used to collect elements annotated with the configured
-     *        annotation
+     * @param annotations annotation types requested for this round (unused; the
+     *                    configured {@code annotationClass} drives discovery)
+     * @param roundEnv    round environment used to collect elements annotated with
+     *                    the configured annotation
      * @return {@code true} to claim the supported annotations for this round
      */
     @Override

@@ -88,8 +88,8 @@ public class EmbeddedTMesh {
 
     /**
      * Patches whose boundary or boundary-arc endpoints changed since operator (3)
-     * last looked, so a patch absent here cannot have newly become a bigon. May hold
-     * retired patches.
+     * last looked, so a patch absent here cannot have newly become a bigon. May
+     * hold retired patches.
      */
     public int[] changedPatches = new int[0];
 
@@ -579,6 +579,22 @@ public class EmbeddedTMesh {
     }
 
     /**
+     * The total quad count of one side of a patch, the extent its rectangle is
+     * built at.
+     *
+     * @param patchId patch to measure
+     * @param side    side index in {@code [0, 4)}
+     * @return the sum of the side's arcs' quad counts; zero for an empty side
+     */
+    public int sideQuadCount(int patchId, int side) {
+        int total = 0;
+        for (int arcId : patches.get(patchId).sideArcIds.get(side)) {
+            total += arcs.get(arcId).quadCount;
+        }
+        return total;
+    }
+
+    /**
      * The offset on the opposite side of a patch matching an offset on one side.
      * Sides {@code i} and {@code i + 2} are walked in opposite directions, so the
      * result is a subtraction rather than an identity.
@@ -1018,8 +1034,8 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * The node at a quantized offset along a patch side, inserting one by splitting an
-     * arc when no node sits exactly there.
+     * The node at a quantized offset along a patch side, inserting one by splitting
+     * an arc when no node sits exactly there.
      *
      * <p>
      * See also: LCBK19 Section 6.1
@@ -1061,13 +1077,15 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * The interior path vertex of an arc nearest a fraction of its 3D arc length — LCBK19
-     * operator (2) places the split node "at the corresponding location", and 3D arc length
-     * is the only intrinsic parameter a rerouted arc still carries.
+     * The interior path vertex of an arc nearest a fraction of its 3D arc length —
+     * LCBK19 operator (2) places the split node "at the corresponding location",
+     * and 3D arc length is the only intrinsic parameter a rerouted arc still
+     * carries.
      *
      * @param arc      arc to split
      * @param fraction fraction of the arc's length, in {@code (0, 1)}
-     * @throws IllegalStateException when the arc's path has no interior vertex to split at
+     * @throws IllegalStateException when the arc's path has no interior vertex to
+     *                               split at
      * @return the index of the nearest strictly interior path vertex
      */
     private int interiorPathVertexAtFraction(EmbeddedArc arc, double fraction) {
@@ -1472,12 +1490,12 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * Extends every surviving T-junction across its patch, leaving a conforming layout, and
-     * validates the result.
+     * Extends every surviving T-junction across its patch, leaving a conforming
+     * layout, and validates the result.
      *
      * <p>
-     * Run on a contracted T-mesh: an extension arc carries the patch's orthogonal extent, which
-     * is only meaningful once no patch has a zero side.
+     * Run on a contracted T-mesh: an extension arc carries the patch's orthogonal
+     * extent, which is only meaningful once no patch has a zero side.
      *
      * <p>
      * See also: LCK21a Section 6
@@ -1492,10 +1510,24 @@ public class EmbeddedTMesh {
     }
 
     /**
+     * Replays this T-mesh's live arrangement on a clean copy of the original
+     * surface mesh, preserving patch combinatorics and surface curves while
+     * discarding contraction triangulation debris.
+     *
+     * @param originalMesh source triangle mesh to rebuild the working copy from
+     * @return a fresh T-mesh with the same live layout over a less dense working
+     *         copy
+     */
+    public EmbeddedTMesh recarve(HalfEdgeMesh originalMesh) {
+        return new EmbeddedTMeshRecarve(this, originalMesh).build();
+    }
+
+    /**
      * Checks no live patch still carries a T-junction, the post-condition
      * {@link TJunctionExtension} exists to establish.
      *
-     * @throws IllegalStateException when an interior side node still carries a third arc
+     * @throws IllegalStateException when an interior side node still carries a
+     *                               third arc
      */
     private void requireNoTJunction() {
         for (EmbeddedPatch patch : patches) {

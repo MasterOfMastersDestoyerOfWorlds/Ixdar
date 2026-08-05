@@ -6,6 +6,8 @@ cites the paper/section/equation it implements. Everything already implemented n
 Java class and method. **Every weight, bias, or tolerance that no paper calls out is
 flagged `NOT IN ANY PAPER` — each such flag means we are missing something.**
 
+Papers in ~/QuadLayoutsPapersCompleted and ~/QuadLayoutsPapersToRead
+
 Papers (short keys used throughout):
 
 | Key | Paper |

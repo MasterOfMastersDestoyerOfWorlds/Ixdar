@@ -5,9 +5,9 @@ import java.util.List;
 import org.joml.Vector3f;
 
 /**
- * The quad mesh the quantization prescribes, placed on the surface: one grid
- * per layout patch at its rectangle's integer lattice, each arc spanning its
- * quantized length in quads (LCK21a §5).
+ * The quad mesh the layout prescribes, placed on the surface: one grid per
+ * layout patch at its rectangle's integer lattice, each arc spanning the quads
+ * {@link LayoutResolution} measured for it.
  *
  * <p>
  * See also: LCK21a Section 6; LCBK19 Section 6.2
@@ -98,7 +98,6 @@ public final class PatchGridExtraction {
      * @return this, populated
      */
     public PatchGridExtraction build() {
-        requireSingleArcSides();
         placeArcPoints();
         gridByPatchId = new Vector3f[tmesh.patches.size()][];
         widthByPatchId = new int[tmesh.patches.size()];
@@ -107,8 +106,8 @@ public final class PatchGridExtraction {
             if (!patch.alive) {
                 continue;
             }
-            widthByPatchId[patch.patchId] = tmesh.sideQuantizedLength(patch.patchId, 0);
-            heightByPatchId[patch.patchId] = tmesh.sideQuantizedLength(patch.patchId, 1);
+            widthByPatchId[patch.patchId] = tmesh.sideQuadCount(patch.patchId, 0);
+            heightByPatchId[patch.patchId] = tmesh.sideQuadCount(patch.patchId, 1);
             int columns = gridColumns(patch.patchId);
             int rows = gridRows(patch.patchId);
             Vector3f[] grid = new Vector3f[columns * rows];
@@ -129,33 +128,11 @@ public final class PatchGridExtraction {
         return this;
     }
 
-    /**
-     * Checks every live patch side carries exactly one arc; opposite-side equality
-     * is already enforced when the rectangle maps are built.
-     *
-     * @throws IllegalStateException when a side carries more than one arc
-     */
-    private void requireSingleArcSides() {
-        for (EmbeddedPatch patch : tmesh.patches) {
-            if (!patch.alive) {
-                continue;
-            }
-            for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
-                int arcCount = patch.sideArcIds.get(side).size();
-                if (arcCount != 1) {
-                    throw new IllegalStateException("patch " + patch.patchId + " side " + side
-                            + " carries " + arcCount + " arcs; the grid is only well defined"
-                            + " once every side is one arc, so a degree-two node interior to a"
-                            + " side has to be merged away first");
-                }
-            }
-        }
-    }
 
     /**
      * Distributes each arc's sample points along its edge path by chord length, so
      * that the arc itself owns them and both incident patches read the same
-     * positions. An arc carries one sample per quantized quad edge.
+     * positions. An arc carries one sample per quad edge.
      */
     private void placeArcPoints() {
         pointsByArc = new Vector3f[tmesh.arcs.size()][];
@@ -174,7 +151,7 @@ public final class PatchGridExtraction {
                 }
             }
             double total = cumulative[path.size() - 1];
-            int samples = arc.quantizedLength;
+            int samples = arc.quadCount;
             Vector3f[] points = new Vector3f[samples + 1];
             points[0] = new Vector3f(pathPositions[0]);
             points[samples] = new Vector3f(pathPositions[path.size() - 1]);
@@ -210,7 +187,7 @@ public final class PatchGridExtraction {
                 EmbeddedArc arc = tmesh.arcs.get(sideArcs.get(arcIndex));
                 Vector3f[] points = pointsByArc[arc.arcId];
                 boolean forward = arc.startNodeId == sideNodes.get(arcIndex);
-                int samples = arc.quantizedLength;
+                int samples = arc.quadCount;
                 for (int sample = 0; sample <= samples; sample++) {
                     grid[borderIndex(side, offset + sample, columns, rows)] = points[forward ? sample
                             : samples - sample];
@@ -246,7 +223,9 @@ public final class PatchGridExtraction {
 
     /**
      * Fills a patch's still-empty lattice sites from one source patch's triangles,
-     * inverting the piecewise-linear map exactly by barycentric containment.
+     * inverting the piecewise-linear map exactly by barycentric containment. The
+     * rectangle and the lattice share one scale — a patch's rectangle is its quad
+     * count — so a chart coordinate is already a lattice coordinate.
      *
      * @param framePatchId  patch whose grid and frame the sites live in
      * @param sourcePatchId patch whose triangles and surface positions are read
@@ -260,10 +239,7 @@ public final class PatchGridExtraction {
      */
     private void placeLatticePoints(int framePatchId, int sourcePatchId, int quarterTurns,
             int translationU, int translationV, int columns, int rows, Vector3f[] grid) {
-        PatchRectangleMap frameMap = patchMaps.mapByPatchId[framePatchId];
         PatchRectangleMap map = patchMaps.mapByPatchId[sourcePatchId];
-        double scaleU = (columns - 1) / frameMap.width;
-        double scaleV = (rows - 1) / frameMap.height;
         double[] local = new double[2];
         double[] cornerU = new double[TRIANGLE_CORNERS];
         double[] cornerV = new double[TRIANGLE_CORNERS];
@@ -271,8 +247,8 @@ public final class PatchGridExtraction {
             for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
                 patchLocal(framePatchId, sourcePatchId, quarterTurns, translationU, translationV,
                         map, triangle[corner], local);
-                cornerU[corner] = local[0] * scaleU;
-                cornerV[corner] = local[1] * scaleV;
+                cornerU[corner] = local[0];
+                cornerV[corner] = local[1];
             }
             double ux = cornerU[0];
             double uy = cornerV[0];

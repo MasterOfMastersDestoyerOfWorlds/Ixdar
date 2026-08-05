@@ -19,7 +19,8 @@ public interface MeshNode {
     List<OutputPort> outputs();
 
     /**
-     * Run the node: read inputs from {@code ctx}, compute, and publish outputs back to {@code ctx}.
+     * Run the node: read inputs from {@code ctx}, compute, and publish outputs back
+     * to {@code ctx}.
      *
      * @param ctx runtime context bound to this node's port shape
      */
@@ -28,15 +29,17 @@ public interface MeshNode {
     /**
      * Static metadata snapshot of this node's port shape and lifecycle flags.
      *
-     * @return schema derived from {@link #inputs()}, {@link #outputs()}, {@link #destructive()},
-     *         {@link #consumes()}, and {@link #socketDocs()}
+     * @return schema derived from {@link #inputs()}, {@link #outputs()},
+     *         {@link #destructive()}, {@link #consumes()}, and
+     *         {@link #socketDocs()}
      */
     default MeshNodeSchema schema() {
         return MeshNodeSchema.from(this);
     }
 
     /**
-     * Human-readable summary of what this node does, shown in editor tooltips and documentation.
+     * Human-readable summary of what this node does, shown in editor tooltips and
+     * documentation.
      *
      * @return short description; empty string when none is supplied
      */
@@ -45,9 +48,9 @@ public interface MeshNode {
     }
 
     /**
-     * True if this node consumes geometry bundle slots (e.g., bezier handle metadata)
-     * and drops them from the output. Downstream nodes that depend on those slots
-     * will not see them after a destructive node runs.
+     * True if this node consumes geometry bundle slots (e.g., bezier handle
+     * metadata) and drops them from the output. Downstream nodes that depend on
+     * those slots will not see them after a destructive node runs.
      *
      * @return {@code true} if the node strips slots from its output bundle
      */
@@ -59,24 +62,16 @@ public interface MeshNode {
      * Names of geometry bundle slots this node consumes (removes from output).
      * Empty list if not destructive or if it only adds slots.
      *
-     * @return slot names dropped from the output bundle; empty when nothing is consumed
+     * @return slot names dropped from the output bundle; empty when nothing is
+     *         consumed
      */
     default List<String> consumes() {
         return List.of();
     }
 
     /**
-     * Per-socket documentation: map from port name (as returned by
-     * {@link #inputs()} or {@link #outputs()}) to a short description of what
-     * that port does, what units it's in, and any non-obvious semantics.
-     * <p>
-     * Every port declared by a node must have a corresponding entry. This is
-     * enforced by {@code unit.mesh.MeshNodePortDocumentationTest}, which
-     * fails the build on missing or empty entries.
-     * <p>
-     * The default empty map is provided so the interface compile doesn't
-     * break during migration; nodes without overrides will fail the
-     * documentation test until each port is described.
+     * Documentation for every declared input and output port, including units and
+     * non-obvious semantics. Undocumented ports fail the registry test.
      *
      * @return port name to description map; empty by default
      */

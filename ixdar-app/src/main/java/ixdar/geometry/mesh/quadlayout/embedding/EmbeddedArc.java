@@ -4,8 +4,8 @@ package ixdar.geometry.mesh.quadlayout.embedding;
  * One T-mesh arc, realized as a path of edges in the working copy from its start node's
  * vertex to its end node's vertex.
  *
- * <p>The operators consider only the quantized parametric length; an arc quantized to
- * zero still has positive extent on the mesh.
+ * <p>{@link #quantizedLength} fixes connectivity and {@link #quadCount} fixes
+ * resolution; an arc quantized to zero still has positive extent on the mesh.
  */
 public final class EmbeddedArc {
 
@@ -30,6 +30,12 @@ public final class EmbeddedArc {
 
     /** Prescribed parametric length, never negative. Zero arcs are collapsed away. */
     public int quantizedLength;
+
+    /**
+     * Quads laid along the arc, measured from the parametrization by
+     * {@link LayoutResolution} once the layout conforms. Zero until then.
+     */
+    public int quadCount;
 
     /** LCBK19 Def 6.1: the arc lies on a feature or boundary curve, so it is critical. */
     public boolean feature;

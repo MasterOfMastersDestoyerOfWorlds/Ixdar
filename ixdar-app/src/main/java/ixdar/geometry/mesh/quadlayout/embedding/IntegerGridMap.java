@@ -250,8 +250,8 @@ public final class IntegerGridMap {
      */
     public boolean arcLocalCoordinates(int patchId, int arcId, int[] atStart, int[] atEnd) {
         EmbeddedPatch patch = tmesh.patches.get(patchId);
-        int width = tmesh.sideQuantizedLength(patchId, 0);
-        int height = tmesh.sideQuantizedLength(patchId, 1);
+        int width = tmesh.sideQuadCount(patchId, 0);
+        int height = tmesh.sideQuadCount(patchId, 1);
         for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
             List<Integer> sideArcs = patch.sideArcIds.get(side);
             List<Integer> sideNodes = patch.sideNodeIds.get(side);
@@ -259,7 +259,7 @@ public final class IntegerGridMap {
             for (int arcIndex = 0; arcIndex < sideArcs.size(); arcIndex++) {
                 EmbeddedArc arc = tmesh.arcs.get(sideArcs.get(arcIndex));
                 int walkedFrom = offset;
-                offset += arc.quantizedLength;
+                offset += arc.quadCount;
                 if (sideArcs.get(arcIndex) != arcId) {
                     continue;
                 }

@@ -93,12 +93,6 @@ public final class QuadLayoutEngine {
     public GridMapOptimizer gridOptimizer;
 
     /**
-     * Wall-clock budget handed to the relaxation; zero skips it, keeping the
-     * harmonic maps.
-     */
-    public long relaxationBudgetMilliseconds = 500_000;
-
-    /**
      * Extraction of the map before the relaxation, kept so the scene can compare
      * the two.
      */
@@ -124,7 +118,6 @@ public final class QuadLayoutEngine {
      * place.
      */
     public boolean conforming;
-
 
     /**
      * Stage products start unbuilt; call the {@code build*} method of the furthest
@@ -251,6 +244,7 @@ public final class QuadLayoutEngine {
         if (!contracted) {
             buildTMesh();
             tmesh.contract();
+            tmesh = tmesh.recarve(mesh);
             tmesh.conform();
             contracted = true;
         }
@@ -267,7 +261,7 @@ public final class QuadLayoutEngine {
     public LayoutPatchMaps buildPatchMaps() {
         if (patchMaps == null) {
             buildContractedTMesh();
-            patchMaps = new LayoutPatchMaps(tmesh);
+            patchMaps = new LayoutPatchMaps(tmesh, seamless, targetEdgeLength);
             patchMaps.build();
             integerGrid = new IntegerGridMap(tmesh).build();
         }
@@ -292,7 +286,6 @@ public final class QuadLayoutEngine {
             initialExtraction.optimizedGrid = globalGrid;
             quadGridInitial = initialExtraction.build();
             gridOptimizer = new GridMapOptimizer(gridDofs, seamless);
-            gridOptimizer.timeBudgetMilliseconds = relaxationBudgetMilliseconds;
             gridOptimizer.build();
         }
         return globalGrid;

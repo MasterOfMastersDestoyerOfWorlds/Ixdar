@@ -1,7 +1,12 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.joml.Vector3f;
 
@@ -21,9 +26,6 @@ import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
  * See also: Tutte 1963; MPZ14 Section 7.3; LCK21a Section 6
  */
 public final class PatchRectangleMap {
-
-    /** Fold floor as a fraction of the rectangle's area. */
-    public static final double FOLD_FLOOR_FRACTION = 1.0e-12;
 
     private static final int KEY_ROW_SHIFT = 32;
 
@@ -71,6 +73,13 @@ public final class PatchRectangleMap {
     public final boolean[] onBoundary;
 
     /**
+     * Bit per rectangle side each boundary vertex was pinned to, by dense index;
+     * zero for an interior vertex. A corner carries both of its sides, so two
+     * vertices share a side exactly when their masks intersect.
+     */
+    public final int[] sideMaskByVertex;
+
+    /**
      * Prepares a map over primitive geometry. Call {@link #build()} to solve it.
      *
      * @param positions          3D position of each vertex, indexed by dense vertex
@@ -105,6 +114,7 @@ public final class PatchRectangleMap {
         this.rectangleU = new double[positions.length];
         this.rectangleV = new double[positions.length];
         this.onBoundary = new boolean[positions.length];
+        this.sideMaskByVertex = new int[positions.length];
         this.vertexLabel = vertexLabel != null ? vertexLabel : identity(positions.length);
     }
 
@@ -150,15 +160,15 @@ public final class PatchRectangleMap {
     }
 
     /**
-     * Pins each boundary vertex to a rectangle edge one arc at a time — the arc
-     * endpoints at their quantized integer offsets, the vertices between them
-     * spaced uniformly — so adjacent patches place a shared arc identically.
+     * Pins each boundary vertex to a rectangle edge one arc at a time: arc endpoints
+     * at their integer offsets, the vertices between them spaced evenly, so adjacent
+     * patches place a shared arc identically.
      *
      * <p>
-     * See also: LCBK19 Section 6.2
+     * See also: LCBK19 Section 6.2, which leaves the intra-arc distribution open
      *
-     * @throws IllegalStateException when a side has no quantized length, so its
-     *                               vertices cannot be distributed
+     * @throws IllegalStateException when a side has no length, so its vertices
+     *                               cannot be distributed
      */
     private void placeBoundary() {
         double[] cornerX = { 0.0, width, width, 0.0 };
@@ -169,8 +179,8 @@ public final class PatchRectangleMap {
             int[] breakOffset = sideBreakOffset[side];
             int sideLength = breakOffset[breakOffset.length - 1];
             if (sideLength <= 0) {
-                throw new IllegalStateException("patch side " + side + " has quantized length "
-                        + sideLength + "; a rectangle side must be at least one quantum");
+                throw new IllegalStateException("patch side " + side + " spans " + sideLength
+                        + " quads; a rectangle side must be at least one quad");
             }
             int nextSide = (side + 1) % EmbeddedPatch.SIDES;
             for (int arcIndex = 0; arcIndex < breakLoopIndex.length - 1; arcIndex++) {
@@ -187,6 +197,7 @@ public final class PatchRectangleMap {
                     rectangleU[dense] = cornerX[side] + along * (cornerX[nextSide] - cornerX[side]);
                     rectangleV[dense] = cornerY[side] + along * (cornerY[nextSide] - cornerY[side]);
                     onBoundary[dense] = true;
+                    sideMaskByVertex[dense] |= 1 << side;
                     index = (index + 1) % loopLength;
                 }
             }
@@ -318,24 +329,70 @@ public final class PatchRectangleMap {
     }
 
     /**
-     * The number of triangles that fold over in the map — zero area, or the
-     * opposite winding from the majority. Tutte's theorem promises this is zero for
-     * a convex boundary and positive weights, so a non-zero count is a broken map,
-     * not a tolerance to accept.
+     * Whether the solved map winds counter-clockwise, taken from its largest
+     * triangle. {@link #assertFoldFree()} makes this one winding shared by every
+     * triangle, so it is a property of the patch rather than of any triangle — and
+     * unlike a per-triangle test it survives a sliver being translated into global
+     * grid coordinates.
      *
-     * @return count of folded or degenerate triangles
+     * @return true when the map preserves orientation
+     */
+    public boolean isCounterClockwise() {
+        return referenceArea() > 0.0;
+    }
+
+    /**
+     * The number of triangles that fold over in the map: exactly zero area, or the
+     * opposite winding from the majority. A thin triangle is not a fold — Tutte's
+     * theorem bounds no area from below, and a region whose modulus does not match
+     * its rectangle compresses without inverting anything.
+     *
+     * @return count of inverted or exactly degenerate triangles
      */
     public int flippedTriangleCount() {
-        double floor = FOLD_FLOOR_FRACTION * width * height;
         boolean referencePositive = referenceArea() > 0.0;
         int flipped = 0;
         for (int[] triangle : triangles) {
             double area = signedArea(triangle);
-            if (Math.abs(area) <= floor || (area > 0.0) != referencePositive) {
+            if (area == 0.0 || (area > 0.0) != referencePositive) {
                 flipped++;
             }
         }
         return flipped;
+    }
+
+    /**
+     * Interior vertices whose every neighbour is a boundary vertex of one rectangle
+     * side. Such a vertex is a convex combination of points sharing a coordinate, so
+     * no weights can lift it off that side's line.
+     *
+     * @return count of interior vertices pinned onto a side by their neighbourhood
+     */
+    public int collinearNeighbourhoodCount() {
+        List<Set<Integer>> neighbours = new ArrayList<>(positions.length);
+        for (int dense = 0; dense < positions.length; dense++) {
+            neighbours.add(new HashSet<>());
+        }
+        for (int[] triangle : triangles) {
+            for (int corner = 0; corner < triangle.length; corner++) {
+                int from = triangle[corner];
+                int to = triangle[(corner + 1) % triangle.length];
+                neighbours.get(from).add(to);
+                neighbours.get(to).add(from);
+            }
+        }
+        int collapsed = 0;
+        for (int dense = 0; dense < positions.length; dense++) {
+            if (onBoundary[dense] || neighbours.get(dense).isEmpty()) {
+                continue;
+            }
+            int shared = (1 << EmbeddedPatch.SIDES) - 1;
+            for (int neighbour : neighbours.get(dense)) {
+                shared &= sideMaskByVertex[neighbour];
+            }
+            collapsed += shared != 0 ? 1 : 0;
+        }
+        return collapsed;
     }
 
     /**
@@ -349,28 +406,44 @@ public final class PatchRectangleMap {
         if (flipped == 0) {
             return;
         }
+        boolean referencePositive = referenceArea() > 0.0;
+        int degenerate = 0;
+        int inverted = 0;
+        for (int[] triangle : triangles) {
+            double area = signedArea(triangle);
+            if (area == 0.0) {
+                degenerate++;
+            } else if ((area > 0.0) != referencePositive) {
+                inverted++;
+            }
+        }
         throw new IllegalStateException("Tutte map is not bijective: " + flipped + " of "
                 + triangles.length + " triangles fold over on the " + width + "x" + height
-                + " rectangle; first is " + describeFirstFold());
+                + " rectangle — " + inverted + " wound against the majority, " + degenerate
+                + " of exactly zero area, " + collinearNeighbourhoodCount()
+                + " interior vertices pinned onto a side by their whole neighbourhood;"
+                + " majority winding is "
+                + (referencePositive ? "counter-clockwise" : "clockwise") + "; first is "
+                + describeFirstFold());
     }
 
     /**
-     * The first folded triangle as its dense indices, rectangle coordinates and
-     * boundary flags — a zero-area triangle with three boundary corners is an
-     * un-subdivided chord, while a reversed one with an interior corner is a broken
-     * solve.
+     * The first folded triangle, labelled by which test caught it, with its
+     * rectangle coordinates and boundary flags. A degenerate triangle with three
+     * boundary corners is an un-subdivided chord; an inverted one with an interior
+     * corner is a broken solve.
      *
      * @return a one-line description, or {@code "none"} when no triangle folds
      */
     private String describeFirstFold() {
-        double floor = FOLD_FLOOR_FRACTION * width * height;
         boolean referencePositive = referenceArea() > 0.0;
         for (int[] triangle : triangles) {
             double area = signedArea(triangle);
-            if (Math.abs(area) > floor && (area > 0.0) == referencePositive) {
+            boolean degenerate = area == 0.0;
+            if (!degenerate && (area > 0.0) == referencePositive) {
                 continue;
             }
-            StringBuilder description = new StringBuilder(area == 0.0 ? "degenerate" : "reversed");
+            StringBuilder description = new StringBuilder(degenerate ? "degenerate" : "inverted");
             description.append(" area=").append(area);
             for (int corner = 0; corner < triangle.length; corner++) {
                 int dense = triangle[corner];

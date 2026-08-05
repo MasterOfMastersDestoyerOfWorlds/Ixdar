@@ -81,6 +81,33 @@ public final class PatchRegions {
     }
 
     /**
+     * Finds the first face component whose boundary is not one live patch.
+     *
+     * @param boundaryArcs receives the unmatched component's boundary arc ids
+     * @return unmatched component faces, or an empty list when every component matches
+     */
+    public List<Integer> findFirstUnmatchedRegion(Set<Integer> boundaryArcs) {
+        boundaryArcs.clear();
+        Map<Set<Integer>, Integer> patchByBoundaryArcs = indexPatchesByBoundaryArcs();
+        Set<Integer> visited = new HashSet<>();
+        EmbeddedMeshTopology topology = tmesh.topology;
+        for (int faceIndex = 0; faceIndex < topology.copy.faceCount(); faceIndex++) {
+            int seedFace = topology.copy.faceIdAt(faceIndex);
+            if (!visited.add(seedFace)) {
+                continue;
+            }
+            List<Integer> component = new ArrayList<>();
+            Set<Integer> componentBoundary = new HashSet<>();
+            floodComponent(seedFace, visited, component, componentBoundary);
+            if (!patchByBoundaryArcs.containsKey(componentBoundary)) {
+                boundaryArcs.addAll(componentBoundary);
+                return component;
+            }
+        }
+        return List.of();
+    }
+
+    /**
      * The boundary arc set of every live patch, keyed for matching against a flooded
      * component's boundary arcs.
      *

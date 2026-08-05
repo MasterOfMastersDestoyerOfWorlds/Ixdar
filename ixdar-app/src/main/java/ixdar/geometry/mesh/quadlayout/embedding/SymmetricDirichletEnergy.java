@@ -1,12 +1,15 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
 /**
- * One triangle's symmetric Dirichlet energy {@code A·‖J‖²_F·(1 + 1/det²)}, with its analytic
- * gradient and its Hessian projected to positive semi-definite.
+ * One triangle's symmetric Dirichlet energy {@code A·‖J‖²_F·(1 + 1/det²)}, with
+ * its analytic gradient and its Hessian projected to positive semi-definite.
  *
- * <p>The energy diverges as a triangle collapses, which is what keeps the map locally injective.
+ * <p>
+ * The energy diverges as a triangle collapses, which is what keeps the map
+ * locally injective.
  *
- * <p>See also: LCBK19 Section 6.2
+ * <p>
+ * See also: LCBK19 Section 6.2
  */
 public final class SymmetricDirichletEnergy {
 
@@ -23,8 +26,9 @@ public final class SymmetricDirichletEnergy {
     public static final double JACOBI_TOLERANCE = 1.0e-12;
 
     /**
-     * Whether {@link #evaluate} clamps the Hessian's negative eigenvalues. Only a test comparing
-     * against finite differences wants the raw Hessian; the Newton step needs the projection.
+     * Whether {@link #evaluate} clamps the Hessian's negative eigenvalues. Only a
+     * test comparing against finite differences wants the raw Hessian; the Newton
+     * step needs the projection.
      */
     public boolean projectHessian = true;
 
@@ -37,7 +41,9 @@ public final class SymmetricDirichletEnergy {
     /** Hessian over the same ordering, projected to positive semi-definite. */
     public final double[][] hessian = new double[VARIABLES][VARIABLES];
 
-    /** Signed area of the triangle in the target, negative when it has folded over. */
+    /**
+     * Signed area of the triangle in the target, negative when it has folded over.
+     */
     public double signedArea;
 
     private final double[][] eigenvectors = new double[VARIABLES][VARIABLES];
@@ -46,8 +52,8 @@ public final class SymmetricDirichletEnergy {
     /**
      * Evaluates the energy, gradient and projected Hessian of one triangle.
      *
-     * @param gradientOperator the constant {@code 2×3} operator taking corner coordinates to a row
-     *                         of the Jacobian, row-major
+     * @param gradientOperator the constant {@code 2×3} operator taking corner
+     *                         coordinates to a row of the Jacobian, row-major
      * @param area             source area weighting the triangle
      * @param targetX          the three corners' first target coordinate
      * @param targetY          the three corners' second target coordinate
@@ -115,13 +121,15 @@ public final class SymmetricDirichletEnergy {
     }
 
     /**
-     * The energy alone, without the derivatives, for the line search's trial points.
+     * The energy alone, without the derivatives, for the line search's trial
+     * points.
      *
      * @param gradientOperator the constant {@code 2×3} operator, row-major
      * @param area             source area weighting the triangle
      * @param targetX          the three corners' first target coordinate
      * @param targetY          the three corners' second target coordinate
-     * @return the energy, or {@link Double#POSITIVE_INFINITY} where the triangle has folded
+     * @return the energy, or {@link Double#POSITIVE_INFINITY} where the triangle
+     *         has folded
      */
     public double energyOnly(double[] gradientOperator, double area, double[] targetX,
             double[] targetY) {
@@ -138,7 +146,8 @@ public final class SymmetricDirichletEnergy {
     }
 
     /**
-     * One row of the Jacobian, which is the gradient operator applied to one target coordinate.
+     * One row of the Jacobian, which is the gradient operator applied to one target
+     * coordinate.
      *
      * @param gradientOperator the {@code 2×3} operator, row-major
      * @param jacobianRow      row to take, {@code 0} or {@code 1}
@@ -147,14 +156,18 @@ public final class SymmetricDirichletEnergy {
      */
     private double row(double[] gradientOperator, int jacobianRow, double[] target) {
         int base = jacobianRow * TRIANGLE_CORNERS;
-        return gradientOperator[base] * target[0] + gradientOperator[base + 1] * target[1]
-                + gradientOperator[base + 2] * target[2];
+        // The operator's first entry is minus the other two, so this is the same value as
+        // summing all three products — but the corner differences are taken first, which is
+        // exact for nearby doubles. Summing instead cancels a grid offset of hundreds against
+        // a triangle spanning 1e-11 and leaves nothing.
+        return gradientOperator[base + 1] * (target[1] - target[0])
+                + gradientOperator[base + 2] * (target[2] - target[0]);
     }
 
     /**
-     * Clamps the Hessian's negative eigenvalues to zero, which the Newton step needs because the
-     * true Hessian is indefinite away from the minimum and Cholesky requires positive
-     * semi-definiteness.
+     * Clamps the Hessian's negative eigenvalues to zero, which the Newton step
+     * needs because the true Hessian is indefinite away from the minimum and
+     * Cholesky requires positive semi-definiteness.
      */
     private void projectToPositiveSemiDefinite() {
         for (int row = 0; row < VARIABLES; row++) {
@@ -169,13 +182,8 @@ public final class SymmetricDirichletEnergy {
                 }
             }
         }
-        boolean anyNegative = false;
         for (int index = 0; index < VARIABLES; index++) {
             eigenvalues[index] = hessian[index][index];
-            anyNegative |= eigenvalues[index] < 0.0;
-        }
-        if (!anyNegative) {
-            return;
         }
         for (int row = 0; row < VARIABLES; row++) {
             for (int column = row; column < VARIABLES; column++) {
@@ -193,8 +201,8 @@ public final class SymmetricDirichletEnergy {
     }
 
     /**
-     * One Jacobi rotation zeroing a symmetric off-diagonal pair of the Hessian, accumulating the
-     * rotation into the eigenvector basis.
+     * One Jacobi rotation zeroing a symmetric off-diagonal pair of the Hessian,
+     * accumulating the rotation into the eigenvector basis.
      *
      * @param pivotRow    row of the entry to zero
      * @param pivotColumn column of the entry to zero

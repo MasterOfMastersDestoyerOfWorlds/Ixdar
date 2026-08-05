@@ -11,8 +11,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
  * Builds a {@link PatchRectangleMap} for a patch from its region of the working
- * copy, sizing the rectangle from the sides' quantized lengths, which LCBK19
- * Definition 3.1 requires equal on opposite sides.
+ * copy, sizing the rectangle from the sides' quad counts, which LCBK19 Definition
+ * 3.1 requires equal on opposite sides.
  *
  * <p>
  * Throws when the {@link PatchRegions} region and the patch disagree on a
@@ -92,7 +92,7 @@ public final class PatchRegionMapper {
                     boundaryLoop.add(denseBoundaryVertex(patchId, side, copyVertex,
                             denseByCopyVertex));
                 }
-                offset += arc.quantizedLength;
+                offset += arc.quadCount;
                 sideBreakLoopIndex[side][arcIndex + 1] = boundaryLoop.size() - 1;
                 sideBreakOffset[side][arcIndex + 1] = offset;
             }
@@ -138,23 +138,22 @@ public final class PatchRegionMapper {
     }
 
     /**
-     * The quantized length of an opposite side pair, which LCBK19 Definition 3.1
-     * requires equal and positive — the contraction must have collapsed anything
-     * smaller.
+     * The quad count of an opposite side pair, which LCBK19 Definition 3.1 requires
+     * equal and positive — {@link LayoutResolution}'s strips exist to guarantee it.
      *
      * @param patchId patch to measure
      * @param side    first side of the pair, {@code 0} or {@code 1}
      * @throws IllegalStateException when the pair disagrees or is not positive
-     * @return the pair's common quantized length
+     * @return the pair's common quad count
      */
     private int requireOppositeSidesEqual(int patchId, int side) {
-        int here = tmesh.sideQuantizedLength(patchId, side);
-        int opposite = tmesh.sideQuantizedLength(patchId, side + 2);
+        int here = tmesh.sideQuadCount(patchId, side);
+        int opposite = tmesh.sideQuadCount(patchId, side + 2);
         if (here != opposite || here <= 0) {
             throw new IllegalStateException("patch " + patchId + " sides " + side + " and "
-                    + (side + 2) + " quantize to " + here + " and " + opposite + "; LCBK19"
-                    + " Definition 3.1 requires equal positive opposite sides, so an upstream"
-                    + " stage broke the layout");
+                    + (side + 2) + " carry " + here + " and " + opposite + " quads; LCBK19"
+                    + " Definition 3.1 requires equal positive opposite sides, so the strip"
+                    + " sizing in LayoutResolution broke");
         }
         return here;
     }
