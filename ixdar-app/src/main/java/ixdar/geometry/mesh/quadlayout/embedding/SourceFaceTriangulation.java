@@ -95,7 +95,7 @@ public final class SourceFaceTriangulation {
             pending = deferred;
         }
         for (List<Integer> region : regions) {
-            earClip(region);
+            triangles.addAll(new EarClipping(barycentric, region).build().triangles);
         }
         return this;
     }
@@ -207,68 +207,4 @@ public final class SourceFaceTriangulation {
         return false;
     }
 
-    /**
-     * Ear-clips one region, testing ears with the exact orientation predicate so a
-     * region bent at an interior vertex is triangulated without inverting anything.
-     *
-     * @param region local indices around the region, in the face's winding
-     * @throws IllegalStateException when no ear can be found, so the region is not a
-     *                               simple polygon
-     */
-    private void earClip(List<Integer> region) {
-        List<Integer> remaining = new ArrayList<>(region);
-        while (remaining.size() > CORNERS) {
-            int clipped = NONE;
-            for (int corner = 0; corner < remaining.size(); corner++) {
-                int previous = remaining.get((corner + remaining.size() - 1) % remaining.size());
-                int at = remaining.get(corner);
-                int next = remaining.get((corner + 1) % remaining.size());
-                if (!isEar(remaining, previous, at, next)) {
-                    continue;
-                }
-                triangles.add(new int[] { previous, at, next });
-                remaining.remove(corner);
-                clipped = at;
-                break;
-            }
-            if (clipped == NONE) {
-                throw new IllegalStateException("region " + remaining + " has no ear; the cut"
-                        + " produced a polygon that is not simple");
-            }
-        }
-        if (remaining.size() == CORNERS) {
-            triangles.add(new int[] { remaining.get(0), remaining.get(1), remaining.get(2) });
-        }
-    }
-
-    /**
-     * Whether three consecutive region vertices form an ear: wound like the face, and
-     * containing no other vertex of the region.
-     *
-     * @param remaining region vertices still to be clipped
-     * @param previous  local index before the candidate
-     * @param at        candidate local index
-     * @param next      local index after the candidate
-     * @return true when the triangle may be clipped off
-     */
-    private boolean isEar(List<Integer> remaining, int previous, int at, int next) {
-        if (ExactBarycentricOrient.sign(barycentric[previous], barycentric[at],
-                barycentric[next]) <= 0) {
-            return false;
-        }
-        for (int other : remaining) {
-            if (other == previous || other == at || other == next) {
-                continue;
-            }
-            if (ExactBarycentricOrient.sign(barycentric[previous], barycentric[at],
-                            barycentric[other]) >= 0
-                    && ExactBarycentricOrient.sign(barycentric[at], barycentric[next],
-                            barycentric[other]) >= 0
-                    && ExactBarycentricOrient.sign(barycentric[next], barycentric[previous],
-                            barycentric[other]) >= 0) {
-                return false;
-            }
-        }
-        return true;
-    }
 }

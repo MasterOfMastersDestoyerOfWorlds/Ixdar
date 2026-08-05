@@ -478,6 +478,256 @@ public final class EmbeddedMeshTopology {
     }
 
     /**
+     * Join two vertices of one source face by an edge, retiring the strip of child faces
+     * the segment crosses and rebuilding it with the segment as an edge (LCBK19 §6.1 arc
+     * snapping). Mints no vertex and leaves the face count unchanged.
+     *
+     * @param sourceFace source active face both vertices lie in the closure of
+     * @param fromVertex copy vertex the chord leaves
+     * @param toVertex   copy vertex the chord reaches
+     * @param arcId      arc the chord carries, claimed on every edge it lays down
+     * @throws IllegalStateException when the segment would cross a source edge or a chord
+     *                               another arc holds, so the chords crossing this face
+     *                               are not a non-crossing family
+     * @return the copy vertices from {@code fromVertex} to {@code toVertex} inclusive
+     */
+    public List<Integer> insertChord(int sourceFace, int fromVertex, int toVertex, int arcId) {
+        List<Integer> chain = new ArrayList<>();
+        chain.add(fromVertex);
+        int head = fromVertex;
+        while (head != toVertex) {
+            head = layStraightSegment(sourceFace, head, toVertex, arcId);
+            chain.add(head);
+        }
+        return chain;
+    }
+
+    /**
+     * Lays the piece of a chord running from one vertex up to the first vertex the segment
+     * meets, which is the target itself unless the segment passes exactly through another.
+     *
+     * @param sourceFace source active face the segment runs in
+     * @param fromVertex copy vertex the piece leaves
+     * @param toVertex   copy vertex the whole chord aims at
+     * @param arcId      arc the chord carries
+     * @return the copy vertex this piece reached
+     */
+    private int layStraightSegment(int sourceFace, int fromVertex, int toVertex, int arcId) {
+        List<Integer> crossedFaces = new ArrayList<>();
+        List<Integer> leftChain = new ArrayList<>();
+        List<Integer> rightChain = new ArrayList<>();
+        int reached = walkStrip(sourceFace, fromVertex, toVertex, crossedFaces, leftChain,
+                rightChain);
+        if (!crossedFaces.isEmpty()) {
+            rebuildStrip(sourceFace, fromVertex, reached, crossedFaces, leftChain, rightChain);
+        }
+        claimEdgeBetween(fromVertex, reached, arcId);
+        return reached;
+    }
+
+    /**
+     * Walks the child faces the segment crosses, collecting them and the vertices it leaves
+     * to either side. Every decision is an exact orientation, so a segment running exactly
+     * through a vertex ends the walk there rather than being nudged past it.
+     *
+     * @param sourceFace  source active face the segment runs in
+     * @param fromVertex  copy vertex the segment leaves
+     * @param toVertex    copy vertex the segment aims at
+     * @param crossedFaces receives the crossed child faces, in travel order
+     * @param leftChain   receives the vertices left of the segment, in travel order
+     * @param rightChain  receives the vertices right of the segment, in travel order
+     * @throws IllegalStateException when the walk leaves the source face or runs longer
+     *                               than the face has children
+     * @return the copy vertex the walk reached
+     */
+    private int walkStrip(int sourceFace, int fromVertex, int toVertex,
+            List<Integer> crossedFaces, List<Integer> leftChain, List<Integer> rightChain) {
+        double[] from = requireBarycentric(sourceFace, fromVertex);
+        double[] to = requireBarycentric(sourceFace, toVertex);
+        if (edgeBetween(fromVertex, toVertex) != UNCLAIMED) {
+            return toVertex;
+        }
+        int face = enteredFace(sourceFace, fromVertex, from, to);
+        int left = UNCLAIMED;
+        int right = UNCLAIMED;
+        for (int corner = 0; corner < CORNERS; corner++) {
+            int vertexId = copy.faceVertexAt(face, corner);
+            if (vertexId == fromVertex) {
+                continue;
+            }
+            int side = ExactBarycentricOrient.sign(from, to,
+                    requireBarycentric(sourceFace, vertexId));
+            if (side == 0) {
+                return vertexId;
+            }
+            left = side > 0 ? vertexId : left;
+            right = side < 0 ? vertexId : right;
+        }
+        crossedFaces.add(face);
+        leftChain.add(left);
+        rightChain.add(right);
+        int bound = copyFacesBySourceFace.get(sourceFace).size();
+        while (crossedFaces.size() <= bound) {
+            face = acrossFreeEdge(face, left, right, sourceFace);
+            crossedFaces.add(face);
+            int opposite = copy.faceOppositeCorner(face, left, right);
+            if (opposite == toVertex) {
+                return toVertex;
+            }
+            int side = ExactBarycentricOrient.sign(from, to,
+                    requireBarycentric(sourceFace, opposite));
+            if (side == 0) {
+                return opposite;
+            }
+            if (side > 0) {
+                left = opposite;
+                leftChain.add(opposite);
+            } else {
+                right = opposite;
+                rightChain.add(opposite);
+            }
+        }
+        throw new IllegalStateException("the chord from copy vertex " + fromVertex + " to "
+                + toVertex + " crossed more than the " + bound + " children of source face "
+                + sourceFace + ", so the walk is not converging on its target");
+    }
+
+    /**
+     * The child face at a vertex whose interior the segment enters, found by the wedge its
+     * two other corners span.
+     *
+     * @param sourceFace source active face the segment runs in
+     * @param fromVertex copy vertex the segment leaves
+     * @param from       that vertex's barycentric
+     * @param to         the target's barycentric
+     * @throws IllegalStateException when no child face at the vertex opens toward the target
+     * @return the child face the segment enters
+     */
+    private int enteredFace(int sourceFace, int fromVertex, double[] from, double[] to) {
+        for (int index = 0; index < copy.vertexFaceCount(fromVertex); index++) {
+            int face = copy.vertexFaceAt(fromVertex, index);
+            if (sourceFaceByCopyFace[face] != sourceFace) {
+                continue;
+            }
+            int at = 0;
+            while (copy.faceVertexAt(face, at) != fromVertex) {
+                at++;
+            }
+            double[] ahead = requireBarycentric(sourceFace,
+                    copy.faceVertexAt(face, (at + 1) % CORNERS));
+            double[] behind = requireBarycentric(sourceFace,
+                    copy.faceVertexAt(face, (at + 2) % CORNERS));
+            if (ExactBarycentricOrient.sign(from, ahead, to) >= 0
+                    && ExactBarycentricOrient.sign(from, to, behind) >= 0) {
+                return face;
+            }
+        }
+        throw new IllegalStateException("no child face of source face " + sourceFace + " at copy"
+                + " vertex " + fromVertex + " opens toward the chord's target");
+    }
+
+    /**
+     * The child face across an edge the chord may cross. A source edge or an edge another
+     * arc holds may not be crossed: the chords through one face are a non-crossing family
+     * by construction, so meeting one means the construction upstream is wrong.
+     *
+     * @param face       child face the chord is leaving
+     * @param left       endpoint of the crossed edge left of the segment
+     * @param right      endpoint of the crossed edge right of the segment
+     * @param sourceFace source active face the segment runs in
+     * @throws IllegalStateException when the edge is tagged, claimed, or has no far face
+     * @return the child face on the far side
+     */
+    private int acrossFreeEdge(int face, int left, int right, int sourceFace) {
+        int edgeId = edgeBetween(left, right);
+        if (sourceEdgeByCopyEdge[edgeId] != UNCLAIMED) {
+            throw new IllegalStateException("a chord in source face " + sourceFace + " would"
+                    + " cross copy edge " + edgeId + ", which lies on source edge "
+                    + sourceEdgeByCopyEdge[edgeId]);
+        }
+        if (ownerArcByCopyEdge[edgeId] != UNCLAIMED) {
+            throw new IllegalStateException("a chord in source face " + sourceFace + " would"
+                    + " cross copy edge " + edgeId + ", already held by arc "
+                    + ownerArcByCopyEdge[edgeId]);
+        }
+        int halfEdge = copy.edgeHalfEdge(edgeId);
+        int nearSide = copy.halfEdgeFace(halfEdge);
+        int farSide = nearSide == face
+                ? copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge))
+                : nearSide;
+        if (farSide == UNCLAIMED || sourceFaceByCopyFace[farSide] != sourceFace) {
+            throw new IllegalStateException("a chord in source face " + sourceFace + " would"
+                    + " leave it across copy edge " + edgeId);
+        }
+        return farSide;
+    }
+
+    /**
+     * Replaces the crossed strip with a triangulation of the two polygons either side of
+     * the chord. The strip's union has {@code crossed + 2} vertices, so the rebuild yields
+     * {@code crossed} triangles and the face count is unchanged.
+     *
+     * @param sourceFace   source active face the strip belongs to
+     * @param fromVertex   copy vertex the chord leaves
+     * @param toVertex     copy vertex the chord reaches
+     * @param crossedFaces the crossed child faces, in travel order
+     * @param leftChain    vertices left of the segment, in travel order
+     * @param rightChain   vertices right of the segment, in travel order
+     */
+    private void rebuildStrip(int sourceFace, int fromVertex, int toVertex,
+            List<Integer> crossedFaces, List<Integer> leftChain, List<Integer> rightChain) {
+        List<Integer> copyVertices = new ArrayList<>();
+        copyVertices.add(fromVertex);
+        copyVertices.add(toVertex);
+        copyVertices.addAll(rightChain);
+        copyVertices.addAll(leftChain);
+        double[][] barycentric = new double[copyVertices.size()][];
+        for (int local = 0; local < copyVertices.size(); local++) {
+            barycentric[local] = requireBarycentric(sourceFace, copyVertices.get(local));
+        }
+        List<Integer> rightSide = new ArrayList<>();
+        rightSide.add(0);
+        for (int index = 0; index < rightChain.size(); index++) {
+            rightSide.add(2 + index);
+        }
+        rightSide.add(1);
+        List<Integer> leftSide = new ArrayList<>();
+        leftSide.add(1);
+        for (int index = leftChain.size() - 1; index >= 0; index--) {
+            leftSide.add(2 + rightChain.size() + index);
+        }
+        leftSide.add(0);
+        List<int[]> triangles = new EarClipping(barycentric, rightSide).build().triangles;
+        triangles.addAll(new EarClipping(barycentric, leftSide).build().triangles);
+        for (int crossed : crossedFaces) {
+            retireFace(crossed, sourceFace);
+        }
+        for (int[] triangle : triangles) {
+            adoptFace(copy.addFace(copyVertices.get(triangle[0]), copyVertices.get(triangle[1]),
+                    copyVertices.get(triangle[2])), sourceFace);
+        }
+        ensureEdgeCapacity();
+    }
+
+    /**
+     * The barycentric a copy vertex must have in a source face for the chord walk to place
+     * it.
+     *
+     * @param sourceFace source active face
+     * @param copyVertex copy vertex expected to lie in its closure
+     * @throws IllegalStateException when the vertex carries no coordinate there
+     * @return its barycentric triple
+     */
+    private double[] requireBarycentric(int sourceFace, int copyVertex) {
+        double[] barycentric = barycentricOf(sourceFace, copyVertex);
+        if (barycentric == null) {
+            throw new IllegalStateException("copy vertex " + copyVertex + " has no barycentric"
+                    + " in source face " + sourceFace + ", so no chord there can reach it");
+        }
+        return barycentric;
+    }
+
+    /**
      * Claim an embedded path's edges and interior vertices for its arc. Endpoint
      * vertices are left alone: they belong to the T-mesh nodes the arc runs
      * between.

@@ -244,7 +244,6 @@ public final class QuadLayoutEngine {
         if (!contracted) {
             buildTMesh();
             tmesh.contract();
-            tmesh = tmesh.recarve(mesh);
             tmesh.conform();
             contracted = true;
         }

@@ -2,12 +2,11 @@ package unit.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -16,161 +15,152 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedMeshTopology;
 
 /**
- * Five arcs running the length of a five-triangle strip, each between its own pair of
- * nodes, packed into the bottom thousandth of the strip. Every arc crosses every face,
- * so all five compete for the same interior, which is what makes the carve cascade.
+ * A vertex minted on a source edge is minted once and serves both faces that share it.
+ * This is what links an arc's chord into a face with its chord out of the next one: the two
+ * passages read the same vertex rather than each getting one of their own.
  */
 class ArcLaneStripTest {
 
     /** Corners of a triangle. */
     private static final int CORNERS = 3;
 
-    /** Arcs running the strip; each contributes two nodes. */
-    private static final int ARCS = 5;
+    /** Columns of the strip; two rows of this many vertices. */
+    private static final int COLUMNS = 4;
 
-    /** Quads along the strip, each cut into two triangles but one crossed per arc. */
-    private static final int COLUMNS = 3;
-
-    /** Faces of the strip, which every arc must traverse. */
+    /** Faces of the strip. */
     private static final int FACES = 5;
 
-    /** Height of the lowest arc above the strip's bottom edge. */
-    private static final double PACKING = 1.0e-3;
+    /** Source active face on one side of the edge under test. */
+    private static final int NEAR_FACE = 0;
+
+    /** Source active face on the other side of it. */
+    private static final int FAR_FACE = 1;
+
+    /** Arc the chords under test belong to. */
+    private static final int ARC = 3;
 
     /**
-     * Least share of its source face's area a copy triangle may cover: the floor
-     * {@code GridMapOptimizer} divides the parametrization reference by.
-     */
-    private static final double MINIMUM_AREA_FRACTION = 1.0e-9;
-
-    /**
-     * The five packed arcs are carved as five vertex-disjoint edge paths across the
-     * strip, and no copy triangle falls below the optimizer's area floor.
+     * A lane minted on a shared edge carries a barycentric in both source faces, so a
+     * chord approaching from either side can reach it. Without this the passage out of a
+     * face could not end where the passage into the next one begins.
      */
     @Test
-    void packedArcsCarveDisjointPathsWithoutCollapsing() {
-        HalfEdgeMesh strip = buildStrip();
-        SnappingCarve carve = new SnappingCarve(strip);
-        int[][] pathPoints = new int[ARCS][FACES + 1];
-        for (int arc = 0; arc < ARCS; arc++) {
-            double height = PACKING * (arc + 1);
-            for (int crossing = 0; crossing <= FACES; crossing++) {
-                int bottom = strip.vertexIdAt((crossing + 1) / 2);
-                int top = strip.vertexIdAt(COLUMNS + 1 + crossing / 2);
-                int edgeId = edgeBetween(strip, bottom, top);
-                boolean fromBottom =
-                        strip.halfEdgeVertex(strip.edgeHalfEdge(edgeId)) == bottom;
-                pathPoints[arc][crossing] = carve.addEdgePoint(edgeId,
-                        fromBottom ? height : 1.0 - height);
-            }
-            for (int face = 0; face < FACES; face++) {
-                carve.addChord(face, pathPoints[arc][face], pathPoints[arc][face + 1], arc, arc);
-            }
-        }
-        EmbeddedMeshTopology topology = carve.build().topology;
+    void aLaneOnASharedEdgeIsReadableFromBothFaces() {
+        EmbeddedMeshTopology topology = strip();
 
-        Set<Integer> seenVertices = new HashSet<>();
-        for (int arc = 0; arc < ARCS; arc++) {
-            List<Integer> path = carve.pathByArc[arc].copyVertexPath;
-            assertEquals(FACES + 1, path.size(), "arc " + arc + " path length");
-            for (int step = 1; step < path.size(); step++) {
-                assertNotEquals(EmbeddedMeshTopology.UNCLAIMED,
-                        topology.edgeBetween(path.get(step - 1), path.get(step)),
-                        "arc " + arc + " hop " + step + " has no copy edge behind it");
-            }
-            for (int vertexId : path) {
-                assertTrue(seenVertices.add(vertexId),
-                        "copy vertex " + vertexId + " is shared by two arcs");
-            }
-        }
+        int lane = topology.splitEdgeAtParameter(sharedEdge(topology), 0.5);
 
-        for (int faceIndex = 0; faceIndex < topology.copy.faceCount(); faceIndex++) {
-            int copyFace = topology.copy.faceIdAt(faceIndex);
-            int sourceFace = topology.sourceFaceByCopyFace[copyFace];
-            assertNotEquals(EmbeddedMeshTopology.UNCLAIMED, sourceFace,
-                    "copy face " + copyFace + " has no source face");
-            double fraction = Math.abs(barycentricArea(topology, sourceFace, copyFace));
-            assertTrue(fraction >= MINIMUM_AREA_FRACTION, "copy face " + copyFace + " covers "
-                    + fraction + " of source face " + sourceFace
-                    + ", below the optimizer's floor " + MINIMUM_AREA_FRACTION);
-        }
+        assertNotNull(topology.barycentricOf(NEAR_FACE, lane),
+            "the lane has no barycentric in the face on one side of its edge");
+        assertNotNull(topology.barycentricOf(FAR_FACE, lane),
+            "the lane has no barycentric in the face on the other side of its edge");
     }
 
     /**
-     * Twice the signed area of a copy face in its source face's barycentric frame,
-     * which is its share of that face.
-     *
-     * @param topology   the carved working copy
-     * @param sourceFace source face the corners are read in
-     * @param copyFace   copy face to measure
-     * @return its signed share of the source face
+     * Both faces sharing the edge gain the lane as a corner, so exactly one vertex is
+     * minted for the two passages rather than one each.
      */
-    private double barycentricArea(EmbeddedMeshTopology topology, int sourceFace, int copyFace) {
-        double[][] corner = new double[CORNERS][];
-        for (int index = 0; index < CORNERS; index++) {
-            corner[index] = topology.barycentricOf(sourceFace,
-                    topology.copy.faceVertexAt(copyFace, index));
-            assertTrue(corner[index] != null, "copy face " + copyFace + " corner " + index
-                    + " has no barycentric in source face " + sourceFace);
-        }
-        return (corner[1][1] - corner[0][1]) * (corner[2][2] - corner[0][2])
-                - (corner[2][1] - corner[0][1]) * (corner[1][2] - corner[0][2]);
+    @Test
+    void oneMintServesBothSidesOfTheEdge() {
+        EmbeddedMeshTopology topology = strip();
+        int vertices = topology.copy.vertexCount();
+
+        int lane = topology.splitEdgeAtParameter(sharedEdge(topology), 0.5);
+
+        assertEquals(vertices + 1, topology.copy.vertexCount(),
+            "the shared edge minted more than the one vertex both faces need");
+        assertTrue(holdsAsCorner(topology, NEAR_FACE, lane),
+            "the face on one side of the edge does not carry the lane");
+        assertTrue(holdsAsCorner(topology, FAR_FACE, lane),
+            "the face on the other side of the edge does not carry the lane");
     }
 
     /**
-     * The edge joining two vertices of a mesh.
-     *
-     * @param mesh mesh to search
-     * @param from one endpoint's vertex id
-     * @param to   the other endpoint's vertex id
-     * @return the edge id
+     * A chord ending at the lane may be laid from either side, which is the passage-in
+     * meets passage-out case stated directly.
      */
-    private int edgeBetween(HalfEdgeMesh mesh, int from, int to) {
-        for (int index = 0; index < mesh.vertexEdgeCount(from); index++) {
-            int edgeId = mesh.vertexEdgeAt(from, index);
-            int halfEdge = mesh.edgeHalfEdge(edgeId);
-            int start = mesh.halfEdgeVertex(halfEdge);
-            int other = start == from ? mesh.halfEdgeEndVertex(halfEdge) : start;
-            if (other == to) {
-                return edgeId;
+    @Test
+    void chordsFromEitherSideEndAtTheSameLane() {
+        EmbeddedMeshTopology topology = strip();
+        int lane = topology.splitEdgeAtParameter(sharedEdge(topology), 0.5);
+        int intoFace = topology.copyVertexForSourceVertexId(
+            topology.sourceMesh.faceVertexAt(topology.sourceMesh.faceIdAt(NEAR_FACE), 0));
+        int outOfFace = topology.copyVertexForSourceVertexId(
+            topology.sourceMesh.faceVertexAt(topology.sourceMesh.faceIdAt(FAR_FACE), 2));
+
+        List<Integer> arriving = topology.insertChord(NEAR_FACE, intoFace, lane, ARC);
+        List<Integer> leaving = topology.insertChord(FAR_FACE, lane, outOfFace, ARC);
+
+        assertEquals(lane, arriving.get(arriving.size() - 1),
+            "the passage into the face does not end at the lane");
+        assertEquals(lane, leaving.get(0), "the passage out of the face does not start there");
+        assertNotEquals(EmbeddedMeshTopology.UNCLAIMED, topology.edgeBetween(intoFace, lane),
+            "the arriving chord left no edge behind it");
+        assertNotEquals(EmbeddedMeshTopology.UNCLAIMED, topology.edgeBetween(lane, outOfFace),
+            "the leaving chord left no edge behind it");
+    }
+
+    /**
+     * Whether a source face has a copy vertex as a corner of one of its children.
+     *
+     * @param topology   working copy to look in
+     * @param sourceFace source active face to search
+     * @param copyVertex copy vertex to find
+     * @return true when some child of that face has it as a corner
+     */
+    private boolean holdsAsCorner(EmbeddedMeshTopology topology, int sourceFace, int copyVertex) {
+        for (int child : topology.copyFacesBySourceFace.get(sourceFace)) {
+            for (int corner = 0; corner < CORNERS; corner++) {
+                if (topology.copy.faceVertexAt(child, corner) == copyVertex) {
+                    return true;
+                }
             }
         }
-        throw new IllegalStateException("no edge joins vertices " + from + " and " + to);
+        return false;
     }
 
     /**
-     * A strip of five triangles between two rows of vertices, wide enough that an
-     * arc running its length crosses every face.
+     * The copy edge the strip's first two faces share, which is the one a lane on it must
+     * serve from both sides.
      *
-     * @return the strip
+     * @param topology working copy to look in
+     * @return that copy edge's id
      */
-    private HalfEdgeMesh buildStrip() {
-        int columns = COLUMNS + 1;
-        float[] positions = new float[columns * 2 * CORNERS];
-        for (int column = 0; column < columns; column++) {
+    private int sharedEdge(EmbeddedMeshTopology topology) {
+        return topology.edgeBetween(
+            topology.copyVertexForSourceVertexId(topology.sourceMesh.vertexIdAt(1)),
+            topology.copyVertexForSourceVertexId(topology.sourceMesh.vertexIdAt(COLUMNS)));
+    }
+
+    /**
+     * A strip of five triangles between two rows of four vertices.
+     *
+     * @return a working copy of that strip
+     */
+    private EmbeddedMeshTopology strip() {
+        float[] positions = new float[COLUMNS * 2 * CORNERS];
+        for (int column = 0; column < COLUMNS; column++) {
             positions[column * CORNERS] = column;
-            positions[(columns + column) * CORNERS] = column;
-            positions[(columns + column) * CORNERS + 1] = 1.0f;
+            positions[(COLUMNS + column) * CORNERS] = column;
+            positions[(COLUMNS + column) * CORNERS + 1] = 1.0f;
         }
         List<Integer> faces = new ArrayList<>();
-        for (int column = 0; column < COLUMNS; column++) {
+        for (int column = 0; column < COLUMNS - 1 && faces.size() / CORNERS < FACES; column++) {
             faces.add(column);
             faces.add(column + 1);
-            faces.add(columns + column);
+            faces.add(COLUMNS + column);
             if (faces.size() / CORNERS >= FACES) {
                 break;
             }
-            faces.add(columns + column);
+            faces.add(COLUMNS + column);
             faces.add(column + 1);
-            faces.add(columns + column + 1);
-            if (faces.size() / CORNERS >= FACES) {
-                break;
-            }
+            faces.add(COLUMNS + column + 1);
         }
         int[] faceIndices = new int[faces.size()];
         for (int index = 0; index < faces.size(); index++) {
             faceIndices[index] = faces.get(index);
         }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faceIndices);
+        HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faceIndices);
+        return new EmbeddedMeshTopology(mesh);
     }
 }
