@@ -61,9 +61,6 @@ public final class ArcRerouter {
     /** Edges split to open a walled corridor. */
     public int refinedEdgeSplitCount;
 
-    /** Chords flipped instead of split, which costs the working mesh nothing. */
-    public int chordFlipCount;
-
     /**
      * Most edges any one route had to split. The paper's blockage costs a few splits, so
      * a large value means some hop is threading a channel rather than rounding it.
@@ -280,7 +277,6 @@ public final class ArcRerouter {
                         if (!faceInRestriction(faceId)) {
                             continue;
                         }
-                        int oppositeEdgeId = EmbeddedMeshTopology.UNCLAIMED;
                         for (int corner = 0; corner < CORNERS; corner++) {
                             int edgeId = topology.copy.faceEdgeAt(faceId, corner);
                             int halfEdge = topology.copy.edgeHalfEdge(edgeId);
@@ -289,7 +285,6 @@ public final class ArcRerouter {
                             if (tail == node || head == node) {
                                 continue;
                             }
-                            oppositeEdgeId = edgeId;
                             if (!splitAdmissible(edgeId, tail, head, endCopyVertex, passThrough)
                                     || !tightStep(headPotential, nodePotential(vertexIdBound + edgeId), 1)) {
                                 continue;
@@ -297,14 +292,6 @@ public final class ArcRerouter {
                             midpointPosition(halfEdge, positionA, positionB, positionCandidate);
                             reachedCount += relax(node, vertexIdBound + edgeId, headDistance
                                     + positionHere.distance(positionCandidate), stamp);
-                        }
-                        int partner = flipPartner(node, faceId, oppositeEdgeId, endCopyVertex,
-                                passThrough);
-                        if (partner != EmbeddedMeshTopology.UNCLAIMED
-                                && tightStep(headPotential, nodePotential(partner), 0)) {
-                            topology.copy.vertexPosition(partner, positionCandidate);
-                            reachedCount += relax(node, partner,
-                                    headDistance + positionHere.distance(positionCandidate), stamp);
                         }
                     }
                 } else {
@@ -369,7 +356,9 @@ public final class ArcRerouter {
                 routeSplitCount++;
             } else if (topology.edgeBetween(previousVertex, realVertex)
                     == EmbeddedMeshTopology.UNCLAIMED) {
-                flipChordBetween(previousVertex, realVertex);
+                throw new IllegalStateException("routed step from " + previousVertex + " to "
+                        + realVertex + " has no edge between them; every move the search makes"
+                        + " is now along an edge or through an edge midpoint");
             }
             corridor.add(realVertex);
             vertices.add(realVertex);
@@ -433,23 +422,14 @@ public final class ArcRerouter {
                         if (!faceInRestriction(faceId)) {
                             continue;
                         }
-                        int oppositeEdgeId = EmbeddedMeshTopology.UNCLAIMED;
                         for (int corner = 0; corner < CORNERS; corner++) {
                             int edgeId = topology.copy.faceEdgeAt(faceId, corner);
                             int halfEdge = topology.copy.edgeHalfEdge(edgeId);
                             int tail = topology.copy.halfEdgeVertex(halfEdge);
                             int head = topology.copy.halfEdgeEndVertex(halfEdge);
-                            if (tail != node && head != node) {
-                                oppositeEdgeId = edgeId;
-                            }
                             if (splitAdmissible(edgeId, tail, head, endCopyVertex, passThrough)) {
                                 reachGateNode(vertexIdBound + edgeId, splitCount);
                             }
-                        }
-                        int partner = flipPartner(node, faceId, oppositeEdgeId, endCopyVertex,
-                                passThrough);
-                        if (partner != EmbeddedMeshTopology.UNCLAIMED) {
-                            reachGateNode(partner, splitCount);
                         }
                     }
                 } else {
@@ -529,129 +509,6 @@ public final class ArcRerouter {
             nextGateBucket = Arrays.copyOf(nextGateBucket, nextGateBucket.length * 2);
         }
         nextGateBucket[nextGateBucketSize++] = node;
-    }
-
-    /**
-     * The corner a flip would connect a vertex to, across the chord opposite it.
-     *
-     * <p>A flip crosses a chord for nothing where a split costs a vertex forever, so it
-     * needs one source face and a strictly convex quad. See also: LCBK19 Section 6.1
-     *
-     * @param copyVertex    vertex the search stands on
-     * @param faceId        one of its faces, whose opposite edge is the candidate chord
-     * @param edgeId        that face's edge opposite the vertex, read by the caller's corner
-     *                      loop, or {@link EmbeddedMeshTopology#UNCLAIMED} when it has none
-     * @param endCopyVertex search target, always standable
-     * @param passThrough   permitted claimed transit vertex
-     * @return the corner across the flip, or {@link EmbeddedMeshTopology#UNCLAIMED} for none
-     */
-    private int flipPartner(int copyVertex, int faceId, int edgeId, int endCopyVertex,
-            int passThrough) {
-        if (edgeId == EmbeddedMeshTopology.UNCLAIMED || !virtualAdmissible(edgeId)
-                || !chordEdge(edgeId, endCopyVertex, passThrough)) {
-            return EmbeddedMeshTopology.UNCLAIMED;
-        }
-        int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-        int twinFace = topology.copy.halfEdgeFace(halfEdge) == faceId
-                ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
-                : topology.copy.halfEdgeFace(halfEdge);
-        int sourceFace = topology.sourceFaceByCopyFace[faceId];
-        if (twinFace < 0 || !faceInRestriction(twinFace)
-                || sourceFace == EmbeddedMeshTopology.UNCLAIMED
-                || sourceFace != topology.sourceFaceByCopyFace[twinFace]) {
-            return EmbeddedMeshTopology.UNCLAIMED;
-        }
-        int chordTail = topology.copy.halfEdgeVertex(halfEdge);
-        int chordHead = topology.copy.halfEdgeEndVertex(halfEdge);
-        int partner = topology.copy.faceOppositeCorner(twinFace, chordTail, chordHead);
-        if (!realAdmissible(partner, endCopyVertex, passThrough)) {
-            return EmbeddedMeshTopology.UNCLAIMED;
-        }
-        double[] here = topology.barycentricOf(sourceFace, copyVertex);
-        double[] across = topology.barycentricOf(sourceFace, partner);
-        double[] tailSide = topology.barycentricOf(sourceFace, chordTail);
-        double[] headSide = topology.barycentricOf(sourceFace, chordHead);
-        if (here == null || across == null || tailSide == null || headSide == null) {
-            return EmbeddedMeshTopology.UNCLAIMED;
-        }
-        int tailSign = ExactBarycentricOrient.sign(here, across, tailSide);
-        int headSign = ExactBarycentricOrient.sign(here, across, headSide);
-        return tailSign == 0 || headSign == 0 || tailSign == headSign
-                ? EmbeddedMeshTopology.UNCLAIMED : partner;
-    }
-
-    /**
-     * Whether an edge can only be crossed by leaving it: neither endpoint is a vertex the
-     * search may stand on. This is MPZ14's chord, the witness that the region between the
-     * arcs is not 3-connected.
-     *
-     * @param edgeId        candidate copy edge
-     * @param endCopyVertex search target, always standable
-     * @param passThrough   permitted claimed transit vertex
-     * @return true when neither endpoint is standable
-     */
-    private boolean chordEdge(int edgeId, int endCopyVertex, int passThrough) {
-        int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-        return !realAdmissible(topology.copy.halfEdgeVertex(halfEdge), endCopyVertex, passThrough)
-                && !realAdmissible(topology.copy.halfEdgeEndVertex(halfEdge), endCopyVertex,
-                        passThrough);
-    }
-
-    /**
-     * The edge of a triangle that does not touch one of its corners.
-     *
-     * @param faceId   triangle to read
-     * @param vertexId corner to exclude
-     * @return the opposite edge, or {@link EmbeddedMeshTopology#UNCLAIMED} when the corner
-     *         is not on the face
-     */
-    private int oppositeEdge(int faceId, int vertexId) {
-        for (int corner = 0; corner < CORNERS; corner++) {
-            int edgeId = topology.copy.faceEdgeAt(faceId, corner);
-            int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-            if (topology.copy.halfEdgeVertex(halfEdge) != vertexId
-                    && topology.copy.halfEdgeEndVertex(halfEdge) != vertexId) {
-                return edgeId;
-            }
-        }
-        return EmbeddedMeshTopology.UNCLAIMED;
-    }
-
-    /**
-     * Flip the chord separating two routed vertices, so the step between them becomes a
-     * real edge. Recomputed against the live mesh, since an earlier flip on the same route
-     * may have retriangulated the quad.
-     *
-     * @param fromVertex step source
-     * @param toVertex   step target, which no edge yet reaches
-     * @throws IllegalStateException when no flippable chord joins them
-     */
-    private void flipChordBetween(int fromVertex, int toVertex) {
-        for (int index = 0; index < topology.copy.vertexFaceCount(fromVertex); index++) {
-            int faceId = topology.copy.vertexFaceAt(fromVertex, index);
-            int edgeId = oppositeEdge(faceId, fromVertex);
-            if (edgeId == EmbeddedMeshTopology.UNCLAIMED
-                    || topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
-                continue;
-            }
-            int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-            int twinFace = topology.copy.halfEdgeFace(halfEdge) == faceId
-                    ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
-                    : topology.copy.halfEdgeFace(halfEdge);
-            if (twinFace < 0) {
-                continue;
-            }
-            int chordTail = topology.copy.halfEdgeVertex(halfEdge);
-            int chordHead = topology.copy.halfEdgeEndVertex(halfEdge);
-            if (topology.copy.faceOppositeCorner(twinFace, chordTail, chordHead) == toVertex) {
-                topology.flipEdge(edgeId);
-                chordFlipCount++;
-                return;
-            }
-        }
-        throw new IllegalStateException("routed step from " + fromVertex + " to " + toVertex
-                + " has no edge and no flippable chord between them; the search took a move"
-                + " the working mesh cannot realize");
     }
 
     /**

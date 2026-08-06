@@ -194,6 +194,8 @@ public interface Platform {
      */
     void log(String msg);
 
+    void log(String format, Object... args);
+
     /**
      * Whether this platform supports hot reload of resources.
      *

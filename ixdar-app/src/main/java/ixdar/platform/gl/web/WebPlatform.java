@@ -53,12 +53,12 @@ public class WebPlatform implements Platform {
     private int shadersToLoad;
 
     /**
-     * Build a {@link WebPlatform} bound to a specific HTML canvas; the supplied {@code id}
-     * lets {@link Platforms} route input/render calls back to the right canvas when several
-     * are mounted on the same page.
+     * Build a {@link WebPlatform} bound to a specific HTML canvas; the supplied
+     * {@code id} lets {@link Platforms} route input/render calls back to the right
+     * canvas when several are mounted on the same page.
      *
      * @param canvas DOM canvas this platform owns
-     * @param id stable identifier for this canvas (typically its DOM id)
+     * @param id     stable identifier for this canvas (typically its DOM id)
      */
     public WebPlatform(HTMLCanvasElement canvas, String id) {
         this.currentCanvasId = id;
@@ -217,7 +217,8 @@ public class WebPlatform implements Platform {
     /**
      * {@inheritDoc}.
      *
-     * @param callback handler invoked for typed character input from keypress events
+     * @param callback handler invoked for typed character input from keypress
+     *                 events
      */
     @Override
     public void setCharCallback(CharCallback callback) {
@@ -228,7 +229,8 @@ public class WebPlatform implements Platform {
     /**
      * {@inheritDoc}.
      *
-     * @param callback handler invoked with canvas-relative mouse coordinates on mousemove
+     * @param callback handler invoked with canvas-relative mouse coordinates on
+     *                 mousemove
      */
     @Override
     public void setCursorPosCallback(CursorPosCallback callback) {
@@ -258,14 +260,16 @@ public class WebPlatform implements Platform {
     /**
      * {@inheritDoc}.
      *
-     * @param mode {@code CAPTURED} requests pointer lock, {@code NORMAL} releases it
+     * @param mode {@code CAPTURED} requests pointer lock, {@code NORMAL} releases
+     *             it
      */
     @Override
     public void setCursorMode(CursorMode mode) {
-        if (canvas == null) return;
+        if (canvas == null)
+            return;
         switch (mode) {
-            case CAPTURED -> requestPointerLock(canvas);
-            case NORMAL -> exitPointerLock();
+        case CAPTURED -> requestPointerLock(canvas);
+        case NORMAL -> exitPointerLock();
         }
     }
 
@@ -282,8 +286,10 @@ public class WebPlatform implements Platform {
      * {@inheritDoc}.
      *
      * @param json msdf-atlas-gen JSON descriptor for the font
-     * @throws IllegalArgumentException if {@code json} is null/empty or fails to parse
-     * @return populated {@link FontAtlasDTO} with atlas info, metrics, and glyph entries
+     * @throws IllegalArgumentException if {@code json} is null/empty or fails to
+     *                                  parse
+     * @return populated {@link FontAtlasDTO} with atlas info, metrics, and glyph
+     *         entries
      */
     @Override
     public FontAtlasDTO parseFontAtlas(String json) {
@@ -357,8 +363,9 @@ public class WebPlatform implements Platform {
      * {@inheritDoc}.
      *
      * @param resourceName image filename under {@code /ixdar/res/}
-     * @param platformId platform context to re-bind before invoking the callback
-     * @param callback receives the decoded {@link Texture} once pixels have been read
+     * @param platformId   platform context to re-bind before invoking the callback
+     * @param callback     receives the decoded {@link Texture} once pixels have
+     *                     been read
      */
     @Override
     public void loadTexture(String resourceName, int platformId, Consumer<Texture> callback) {
@@ -397,9 +404,10 @@ public class WebPlatform implements Platform {
      * {@inheritDoc}.
      *
      * @param resourceFolder folder under {@code /ixdar/} that holds the shader file
-     * @param filename shader source file name
-     * @param platformId platform context to re-bind before invoking the callback
-     * @param callback receives the loaded shader source text
+     * @param filename       shader source file name
+     * @param platformId     platform context to re-bind before invoking the
+     *                       callback
+     * @param callback       receives the loaded shader source text
      */
     @Override
     public void loadShaderSourceAsync(String resourceFolder, String filename, int platformId,
@@ -416,7 +424,7 @@ public class WebPlatform implements Platform {
      * {@inheritDoc}.
      *
      * @param resourceFolder ignored; synchronous loading is unsupported on web
-     * @param filename ignored; synchronous loading is unsupported on web
+     * @param filename       ignored; synchronous loading is unsupported on web
      * @return always {@code null}; callers must use the async variant
      */
     @Override
@@ -428,9 +436,11 @@ public class WebPlatform implements Platform {
      * {@inheritDoc}.
      *
      * @param resourceFolder folder under {@code /ixdar/} that holds the file
-     * @param filename text resource file name to fetch
-     * @param platformId platform context to re-bind before invoking the callback
-     * @param callback receives the fetched text (empty string on fetch failure)
+     * @param filename       text resource file name to fetch
+     * @param platformId     platform context to re-bind before invoking the
+     *                       callback
+     * @param callback       receives the fetched text (empty string on fetch
+     *                       failure)
      */
     @Override
     public void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
@@ -454,7 +464,8 @@ public class WebPlatform implements Platform {
      * {@inheritDoc}.
      *
      * @param path ignored; included in the error message
-     * @throws IOException always, since synchronous file loading is not supported on web
+     * @throws IOException always, since synchronous file loading is not supported
+     *                     on web
      * @return never returns; always throws
      */
     @Override
@@ -466,7 +477,8 @@ public class WebPlatform implements Platform {
      * {@inheritDoc}.
      *
      * @param absolutePath ignored; included in the error message
-     * @throws IOException always, since external filesystem access is unavailable on web
+     * @throws IOException always, since external filesystem access is unavailable
+     *                     on web
      * @return never returns; always throws
      */
     @Override
@@ -509,7 +521,7 @@ public class WebPlatform implements Platform {
      * Fetch {@code url} as an image, decode it via {@code createImageBitmap}, and
      * deliver its RGBA pixel data to {@code callback}.
      *
-     * @param url image URL to fetch
+     * @param url      image URL to fetch
      * @param callback receives the decoded width, height, and RGBA pixel buffer
      */
     @JSBody(params = { "url", "callback" }, script = "fetch(url)" +
@@ -529,7 +541,7 @@ public class WebPlatform implements Platform {
     /**
      * {@inheritDoc}.
      *
-     * @param file ignored; the web platform cannot write to local files
+     * @param file   ignored; the web platform cannot write to local files
      * @param append ignored; the web platform cannot write to local files
      * @throws IOException never; this implementation is a silent no-op
      */
@@ -546,6 +558,12 @@ public class WebPlatform implements Platform {
     @Override
     public void log(String msg) {
         WebPlatform.jsLog(msg);
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public void log(String fmt, Object... obj) {
+        WebPlatform.jsLog(String.format(fmt, obj));
     }
 
     @JSBody(params = { "msg" }, script = "console.log(msg == null ? '(null)' : msg);")
@@ -617,7 +635,8 @@ public class WebPlatform implements Platform {
     /**
      * {@inheritDoc}.
      *
-     * @param p platform id assigned by {@link Platforms}; {@code null} clears it to {@code -1}
+     * @param p platform id assigned by {@link Platforms}; {@code null} clears it to
+     *          {@code -1}
      */
     @Override
     public void setPlatformID(Integer p) {
@@ -627,7 +646,8 @@ public class WebPlatform implements Platform {
     /**
      * Indicates whether all in-flight shader fetches have completed.
      *
-     * @return {@code true} once every shader requested via {@link #loadShaderSourceAsync} has resolved
+     * @return {@code true} once every shader requested via
+     *         {@link #loadShaderSourceAsync} has resolved
      */
     public boolean loadedShaders() {
         return shadersToLoad == 0;
@@ -647,7 +667,8 @@ public class WebPlatform implements Platform {
     /**
      * {@inheritDoc}.
      *
-     * @throws UnsupportedOperationException always; the web platform delivers input synchronously via DOM events
+     * @throws UnsupportedOperationException always; the web platform delivers input
+     *                                       synchronously via DOM events
      */
     @Override
     public void processInputQueue() {
@@ -774,7 +795,8 @@ public class WebPlatform implements Platform {
         /**
          * {@inheritDoc}.
          *
-         * @return Y-axis origin convention used by the atlas (e.g. {@code bottom}, {@code top})
+         * @return Y-axis origin convention used by the atlas (e.g. {@code bottom},
+         *         {@code top})
          */
         @JSProperty("yOrigin")
         String getYOrigin();
@@ -870,11 +892,12 @@ public class WebPlatform implements Platform {
     @JSFunctor
     public interface ImagePixelsCallback extends JSObject {
         /**
-         * Invoked once {@code createImageBitmap} has decoded the image and pixels have been read.
+         * Invoked once {@code createImageBitmap} has decoded the image and pixels have
+         * been read.
          *
-         * @param width decoded image width in pixels
+         * @param width  decoded image width in pixels
          * @param height decoded image height in pixels
-         * @param data RGBA byte data laid out row by row
+         * @param data   RGBA byte data laid out row by row
          */
         void onPixels(int width, int height, Uint8ClampedArray data);
     }

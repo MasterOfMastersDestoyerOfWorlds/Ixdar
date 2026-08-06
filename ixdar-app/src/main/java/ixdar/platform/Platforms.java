@@ -63,6 +63,20 @@ public final class Platforms {
     }
 
     /**
+     * Currently active platform adapter.
+     *
+     * @throws IllegalStateException if {@link #init} has not run yet
+     * @return the registered {@link Platform}
+     */
+    public static void log(String str) {
+        get().log(str);
+    }
+
+    public static void log(String str, Object... objs) {
+        get().log(str, objs);
+    }
+
+    /**
      * Currently active GL backend.
      *
      * @throws IllegalStateException if {@link #init} has not run yet

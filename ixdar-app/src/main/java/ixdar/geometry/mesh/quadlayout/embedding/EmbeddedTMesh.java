@@ -123,6 +123,48 @@ public class EmbeddedTMesh {
     public long lastContractProgressNanos;
     public int patchCollapseCount;
 
+    /** Working-copy vertices the carve and the operators minted, filled by {@link #measureDensity}. */
+    public int mintedVertexCount;
+
+    /** Of those, vertices a live node owns. */
+    public int nodeMintedVertexCount;
+
+    /** Of those, vertices a live arc owns but no live node does. */
+    public int arcMintedVertexCount;
+
+    /**
+     * Of those, vertices no live node and no live arc owns — refinement the finished
+     * layout does not touch, which the re-carve exists to drive to zero.
+     */
+    public int debrisVertexCount;
+
+    /** Working-copy faces beyond the source mesh's own. */
+    public int faceGrowthCount;
+
+    /** Source faces no live arc passes through, filled by {@link #measureFaceContention}. */
+    public int untouchedSourceFaceCount;
+
+    /** Source faces exactly one live arc passes through, where a chord needs no lane. */
+    public int singleArcSourceFaceCount;
+
+    /** Source faces exactly two live arcs pass through. */
+    public int twoArcSourceFaceCount;
+
+    /** Source faces three or more live arcs pass through. */
+    public int crowdedSourceFaceCount;
+
+    /** Most live arcs any one source face carries. */
+    public int mostArcsOnASourceFace;
+
+    /** The source face carrying {@link #mostArcsOnASourceFace}. */
+    public int worstArcSourceFace = NONE;
+
+    /** Source faces holding at least one live node vertex, which subdivides them. */
+    public int nodeBearingSourceFaceCount;
+
+    /** Most live node vertices any one source face holds. */
+    public int mostNodesOnASourceFace;
+
     /**
      * The source surface's {@code V - E + F}, which every {@link #validate} checks.
      */
@@ -1547,6 +1589,179 @@ public class EmbeddedTMesh {
     }
 
     /**
+     * Counts how far the working copy has drifted from the source mesh and who owns
+     * the difference.
+     *
+     * @return this, with the density counters filled
+     */
+    public EmbeddedTMesh measureDensity() {
+        mintedVertexCount = 0;
+        nodeMintedVertexCount = 0;
+        arcMintedVertexCount = 0;
+        debrisVertexCount = 0;
+        faceGrowthCount = topology.copy.faceCount() - topology.sourceMesh.faceCount();
+        for (int index = 0; index < topology.copy.vertexCount(); index++) {
+            int copyVertex = topology.copy.vertexIdAt(index);
+            if (copyVertex < topology.originalVertexBound) {
+                continue;
+            }
+            mintedVertexCount++;
+            if (ownedByLiveNode(copyVertex)) {
+                nodeMintedVertexCount++;
+            } else if (ownedByLiveArc(copyVertex)) {
+                arcMintedVertexCount++;
+            } else {
+                debrisVertexCount++;
+            }
+        }
+        return this;
+    }
+
+    /**
+     * Whether a live T-mesh node holds a working-copy vertex.
+     *
+     * @param copyVertex working-copy vertex to test
+     * @return true when its owning node exists and is alive
+     */
+    private boolean ownedByLiveNode(int copyVertex) {
+        if (copyVertex >= topology.ownerNodeByCopyVertex.length) {
+            return false;
+        }
+        int nodeId = topology.ownerNodeByCopyVertex[copyVertex];
+        return nodeId != EmbeddedMeshTopology.UNCLAIMED && nodes.get(nodeId).alive;
+    }
+
+    /**
+     * Whether a live T-mesh arc holds a working-copy vertex.
+     *
+     * @param copyVertex working-copy vertex to test
+     * @return true when its owning arc exists and is alive
+     */
+    private boolean ownedByLiveArc(int copyVertex) {
+        if (copyVertex >= topology.ownerArcByCopyVertex.length) {
+            return false;
+        }
+        int arcId = topology.ownerArcByCopyVertex[copyVertex];
+        return arcId != EmbeddedMeshTopology.UNCLAIMED && arcs.get(arcId).alive;
+    }
+
+    /**
+     * Measures the working copy and prints one {@code [density]} line naming the stage.
+     *
+     * @param stage pipeline stage the measurement was taken at
+     * @return this, measured
+     */
+    public EmbeddedTMesh reportDensity(String stage) {
+        measureDensity();
+        System.out.printf("[density] %s: V=%d (source %d, minted %d = %.1f%%) F=%d (source %d,"
+                + " +%d) | minted by node=%d arc=%d debris=%d%n",
+                stage, topology.copy.vertexCount(), topology.originalVertexBound,
+                mintedVertexCount,
+                100.0 * mintedVertexCount / Math.max(1, topology.originalVertexBound),
+                topology.copy.faceCount(), topology.sourceMesh.faceCount(), faceGrowthCount,
+                nodeMintedVertexCount, arcMintedVertexCount, debrisVertexCount);
+        return this;
+    }
+
+    /**
+     * Counts how many live arcs share each source face, which decides whether re-carving that
+     * face needs lanes or only a single chord.
+     *
+     * @return this, with the contention counters filled
+     */
+    public EmbeddedTMesh measureFaceContention() {
+        int sourceFaceCount = topology.sourceMesh.faceCount();
+        int[] arcCountBySourceFace = new int[sourceFaceCount];
+        int[] lastArcSeenBySourceFace = new int[sourceFaceCount];
+        Arrays.fill(lastArcSeenBySourceFace, NONE);
+        for (EmbeddedArc arc : arcs) {
+            if (!arc.alive) {
+                continue;
+            }
+            List<Integer> path = arc.path.copyVertexPath;
+            for (int step = 1; step < path.size(); step++) {
+                int sourceFace = topology.sharedSourceFace(path.get(step - 1), path.get(step));
+                if (sourceFace == EmbeddedMeshTopology.UNCLAIMED
+                        || lastArcSeenBySourceFace[sourceFace] == arc.arcId) {
+                    continue;
+                }
+                lastArcSeenBySourceFace[sourceFace] = arc.arcId;
+                arcCountBySourceFace[sourceFace]++;
+            }
+        }
+        untouchedSourceFaceCount = 0;
+        singleArcSourceFaceCount = 0;
+        twoArcSourceFaceCount = 0;
+        crowdedSourceFaceCount = 0;
+        mostArcsOnASourceFace = 0;
+        worstArcSourceFace = NONE;
+        for (int sourceFace = 0; sourceFace < sourceFaceCount; sourceFace++) {
+            int count = arcCountBySourceFace[sourceFace];
+            untouchedSourceFaceCount += count == 0 ? 1 : 0;
+            singleArcSourceFaceCount += count == 1 ? 1 : 0;
+            twoArcSourceFaceCount += count == 2 ? 1 : 0;
+            crowdedSourceFaceCount += count > 2 ? 1 : 0;
+            if (count > mostArcsOnASourceFace) {
+                mostArcsOnASourceFace = count;
+                worstArcSourceFace = sourceFace;
+            }
+        }
+        measureNodesPerSourceFace(sourceFaceCount);
+        return this;
+    }
+
+    /**
+     * Counts the live node vertices each source face holds, which is how much inserting the
+     * nodes subdivides it before any arc is laid.
+     *
+     * @param sourceFaceCount number of source active faces
+     */
+    private void measureNodesPerSourceFace(int sourceFaceCount) {
+        int[] nodeCountBySourceFace = new int[sourceFaceCount];
+        int[] lastNodeSeenBySourceFace = new int[sourceFaceCount];
+        Arrays.fill(lastNodeSeenBySourceFace, NONE);
+        for (EmbeddedNode node : nodes) {
+            if (!node.alive) {
+                continue;
+            }
+            for (int index = 0; index < topology.copy.vertexFaceCount(node.copyVertex); index++) {
+                int sourceFace = topology.sourceFaceByCopyFace[
+                        topology.copy.vertexFaceAt(node.copyVertex, index)];
+                if (sourceFace == EmbeddedMeshTopology.UNCLAIMED
+                        || lastNodeSeenBySourceFace[sourceFace] == node.nodeId) {
+                    continue;
+                }
+                lastNodeSeenBySourceFace[sourceFace] = node.nodeId;
+                nodeCountBySourceFace[sourceFace]++;
+            }
+        }
+        nodeBearingSourceFaceCount = 0;
+        mostNodesOnASourceFace = 0;
+        for (int count : nodeCountBySourceFace) {
+            nodeBearingSourceFaceCount += count > 0 ? 1 : 0;
+            mostNodesOnASourceFace = Math.max(mostNodesOnASourceFace, count);
+        }
+    }
+
+    /**
+     * Measures arc contention and prints one {@code [contention]} line naming the stage.
+     *
+     * @param stage pipeline stage the measurement was taken at
+     * @return this, measured
+     */
+    public EmbeddedTMesh reportFaceContention(String stage) {
+        measureFaceContention();
+        System.out.printf("[contention] %s: of %d source faces, %d carry no live arc, %d carry"
+                + " one, %d carry two, %d carry three or more (worst face %d with %d)"
+                + " | %d faces hold a live node, most %d%n",
+                stage, topology.sourceMesh.faceCount(), untouchedSourceFaceCount,
+                singleArcSourceFaceCount, twoArcSourceFaceCount, crowdedSourceFaceCount,
+                worstArcSourceFace, mostArcsOnASourceFace, nodeBearingSourceFaceCount,
+                mostNodesOnASourceFace);
+        return this;
+    }
+
+    /**
      * Applies exactly one operator and stops, for stepping the contraction by hand.
      * Prefers the two measure-lowering operators and falls back to a patch split.
      *
@@ -1605,14 +1820,13 @@ public class EmbeddedTMesh {
                     || now - lastContractProgressNanos > CONTRACT_PROGRESS_NANOS) {
                 lastContractProgressNanos = now;
                 System.out.printf(
-                        "[contract] collapses=%d exactSigns=%d splits=%d flips=%d worstRoute=%d"
+                        "[contract] collapses=%d exactSigns=%d splits=%d worstRoute=%d"
                                 + " V=%d F=%d | routes=%d gates=%d gateExpand=%d(virtual=%d)"
                                 + " freeSettle=%d refinedSettle=%d\n",
                         arcCollapseCount,
                         ExactBarycentricOrient.exactSignCallCount,
                         collapseArc.rerouter.refinedEdgeSplitCount
                                 + splitPatch.rerouter.refinedEdgeSplitCount,
-                        collapseArc.rerouter.chordFlipCount + splitPatch.rerouter.chordFlipCount,
                         Math.max(collapseArc.rerouter.mostSplitsInOneRoute,
                                 splitPatch.rerouter.mostSplitsInOneRoute),
                         topology.copy.vertexCount(),

@@ -61,11 +61,11 @@ public class LwjglPlatform implements Platform {
     private float frameBufferSizeY;
     private int platformId;
 
-        /**
-         * Construct a LwjglPlatform.
-         *
-         * @param window constructor argument
-         */
+    /**
+     * Construct a LwjglPlatform.
+     *
+     * @param window constructor argument
+     */
     public LwjglPlatform(long window) {
         this.window = window;
     }
@@ -152,15 +152,15 @@ public class LwjglPlatform implements Platform {
     @Override
     public void setCursorMode(CursorMode mode) {
         switch (mode) {
-            case CAPTURED -> {
-                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-                // Raw motion bypasses OS cursor acceleration — better for FPS look. Not all
-                // hardware supports it; falls through silently when unavailable.
-                if (glfwRawMouseMotionSupported()) {
-                    glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
-                }
+        case CAPTURED -> {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            // Raw motion bypasses OS cursor acceleration — better for FPS look. Not all
+            // hardware supports it; falls through silently when unavailable.
+            if (glfwRawMouseMotionSupported()) {
+                glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
             }
-            case NORMAL -> glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        }
+        case NORMAL -> glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         }
     }
 
@@ -296,6 +296,12 @@ public class LwjglPlatform implements Platform {
     @Override
     public void log(String msg) {
         System.out.println(msg);
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public void log(String fmt, Object... obj) {
+        System.out.println(String.format(fmt, obj));
     }
 
     /** {@inheritDoc}. */

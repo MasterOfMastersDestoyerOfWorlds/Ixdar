@@ -26,8 +26,18 @@ public final class FaceStripPath {
     /** Source active face each passage lies in, which is its exact barycentric frame. */
     public final List<Integer> passageSourceFaces = new ArrayList<>();
 
-    /** Constraint edge crossed between consecutive passages, as an endpoint vertex pair. */
+    /**
+     * Constraint edge crossed between consecutive passages, as an endpoint vertex pair, or
+     * {@code null} where the route runs exactly through a vertex instead.
+     */
     public final List<int[]> crossedEdges = new ArrayList<>();
+
+    /**
+     * Constraint vertex the route runs exactly through at each crossing, or
+     * {@link EmbeddedMeshTopology#UNCLAIMED} where it crosses an edge. Such a crossing needs no
+     * lane: the vertex it wants is already there.
+     */
+    public final List<Integer> crossedVertices = new ArrayList<>();
 
     /** Traced position along each crossed edge, measured from its first recorded endpoint. */
     public final List<Double> crossingParameters = new ArrayList<>();
@@ -44,8 +54,9 @@ public final class FaceStripPath {
     }
 
     /**
-     * Refines one traced passage across a source face into the constraint faces it really
-     * crosses, recording each edge it crosses and where the trace crossed it.
+     * Refines one passage across a source face into the constraint faces it crosses, recording
+     * each crossed edge. A passage starting where the last ended continues it, so a bend inside
+     * one face records nothing.
      *
      * @param sourceFace source active face the passage runs in
      * @param from       barycentric the passage enters at
@@ -57,20 +68,34 @@ public final class FaceStripPath {
         int face = enteredChild(sourceFace, from, to);
         int entryFirst = EmbeddedMeshTopology.UNCLAIMED;
         int entrySecond = EmbeddedMeshTopology.UNCLAIMED;
-        if (!passageFaces.isEmpty()) {
-            recordEntry(sourceFace, passageFaces.get(passageFaces.size() - 1), face, from);
+        if (passageFaces.isEmpty() || passageFaces.get(passageFaces.size() - 1) != face) {
+            if (!passageFaces.isEmpty()) {
+                recordEntry(sourceFace, passageFaces.get(passageFaces.size() - 1), face, from);
+            }
+            append(face, sourceFace);
         }
         int bound = topology.copyFacesBySourceFace.get(sourceFace).size();
         for (int step = 0; step <= bound; step++) {
-            append(face, sourceFace);
             if (holdsClosed(sourceFace, face, to)) {
                 return;
+            }
+            int through = cornerOnSegment(sourceFace, face, from, to, entryFirst);
+            if (through != EmbeddedMeshTopology.UNCLAIMED) {
+                crossedEdges.add(null);
+                crossedVertices.add(through);
+                crossingParameters.add(0.0);
+                entryFirst = through;
+                entrySecond = EmbeddedMeshTopology.UNCLAIMED;
+                face = enteredChild(sourceFace, topology.barycentricOf(sourceFace, through), to);
+                append(face, sourceFace);
+                continue;
             }
             int exit = exitCorner(sourceFace, face, from, to, entryFirst, entrySecond);
             entryFirst = topology.copy.faceVertexAt(face, exit);
             entrySecond = topology.copy.faceVertexAt(face, (exit + 1) % CORNERS);
             recordCrossing(sourceFace, entryFirst, entrySecond, from, to);
             face = across(face, entryFirst, entrySecond, sourceFace);
+            append(face, sourceFace);
         }
         throw new IllegalStateException("the passage of arc " + arcId + " across source face "
                 + sourceFace + " crossed more of its children than it has");
@@ -90,12 +115,72 @@ public final class FaceStripPath {
         }
         int[] here = crossedEdges.get(crossing);
         int[] next = crossedEdges.get(crossing + 1);
+        if (here == null || next == null) {
+            return EmbeddedMeshTopology.UNCLAIMED;
+        }
         for (int end : here) {
             if (end == next[0] || end == next[1]) {
                 return end;
             }
         }
         return EmbeddedMeshTopology.UNCLAIMED;
+    }
+
+    /**
+     * Drops the route's first crossing along with the passage before it, for a crossing on an
+     * edge the route's own start node already sits on.
+     *
+     * @throws IllegalStateException when there is no crossing to drop
+     */
+    public void removeFirstCrossing() {
+        requireCrossingToRemove();
+        crossedEdges.remove(0);
+        crossedVertices.remove(0);
+        crossingParameters.remove(0);
+        passageFaces.remove(0);
+        passageSourceFaces.remove(0);
+    }
+
+    /**
+     * Drops the route's last crossing along with the passage after it, for a crossing on an
+     * edge the route's own end node already sits on.
+     *
+     * @throws IllegalStateException when there is no crossing to drop
+     */
+    public void removeLastCrossing() {
+        requireCrossingToRemove();
+        crossedEdges.remove(crossedEdges.size() - 1);
+        crossedVertices.remove(crossedVertices.size() - 1);
+        crossingParameters.remove(crossingParameters.size() - 1);
+        passageFaces.remove(passageFaces.size() - 1);
+        passageSourceFaces.remove(passageSourceFaces.size() - 1);
+    }
+
+    /**
+     * Checks the route still has a crossing, so dropping one keeps a passage behind.
+     *
+     * @throws IllegalStateException when the route has no crossing
+     */
+    private void requireCrossingToRemove() {
+        if (crossedEdges.isEmpty()) {
+            throw new IllegalStateException("arc " + arcId + " has no crossing to drop");
+        }
+    }
+
+    /**
+     * Whether one crossing sits on an edge that already has a vertex as an endpoint, or runs
+     * exactly through it.
+     *
+     * @param crossing index into {@link #crossedEdges}
+     * @param vertexId copy vertex to test against
+     * @return true when the crossing touches that vertex
+     */
+    public boolean crossingTouches(int crossing, int vertexId) {
+        int[] edge = crossedEdges.get(crossing);
+        if (edge == null) {
+            return crossedVertices.get(crossing) == vertexId;
+        }
+        return edge[0] == vertexId || edge[1] == vertexId;
     }
 
     /**
@@ -131,11 +216,21 @@ public final class FaceStripPath {
             int low = Math.min(first, second);
             int high = Math.max(first, second);
             crossedEdges.add(new int[] { low, high });
+            crossedVertices.add(EmbeddedMeshTopology.UNCLAIMED);
             crossingParameters.add(alongEdge(sourceFace, low, high, at));
             return;
         }
+        for (int corner = 0; corner < CORNERS; corner++) {
+            int shared = topology.copy.faceVertexAt(entering, corner);
+            if (holdsCorner(leaving, shared)) {
+                crossedEdges.add(null);
+                crossedVertices.add(shared);
+                crossingParameters.add(0.0);
+                return;
+            }
+        }
         throw new IllegalStateException("arc " + arcId + " passes from constraint face "
-                + leaving + " to " + entering + ", which share no edge");
+                + leaving + " to " + entering + ", which share neither an edge nor a corner");
     }
 
     /**
@@ -245,6 +340,51 @@ public final class FaceStripPath {
     }
 
     /**
+     * A corner of a constraint face the route runs exactly through, strictly between where it
+     * entered and where it is headed. It leaves the face through a vertex, not an edge.
+     *
+     * @param sourceFace source active face the coordinates are in
+     * @param face       constraint face being crossed
+     * @param from       barycentric the passage enters at
+     * @param to         barycentric the passage leaves at
+     * @param entered    corner the route already came through, excluded, or
+     *                   {@link EmbeddedMeshTopology#UNCLAIMED}
+     * @return that corner's copy vertex, or {@link EmbeddedMeshTopology#UNCLAIMED} for none
+     */
+    private int cornerOnSegment(int sourceFace, int face, double[] from, double[] to,
+            int entered) {
+        for (int corner = 0; corner < CORNERS; corner++) {
+            int vertexId = topology.copy.faceVertexAt(face, corner);
+            double[] at = topology.barycentricOf(sourceFace, vertexId);
+            if (vertexId == entered || at == null
+                    || ExactBarycentricOrient.sign(from, to, at) != 0
+                    || !strictlyBetween(from, at, to)) {
+                continue;
+            }
+            return vertexId;
+        }
+        return EmbeddedMeshTopology.UNCLAIMED;
+    }
+
+    /**
+     * Whether a point collinear with two others lies strictly between them.
+     *
+     * @param from   segment start barycentric
+     * @param middle point tested
+     * @param to     segment end barycentric
+     * @return true when it is strictly inside the open segment
+     */
+    private static boolean strictlyBetween(double[] from, double[] middle, double[] to) {
+        double fromSide = 0.0;
+        double toSide = 0.0;
+        for (int index = 0; index < CORNERS; index++) {
+            fromSide += (middle[index] - from[index]) * (to[index] - from[index]);
+            toSide += (middle[index] - to[index]) * (from[index] - to[index]);
+        }
+        return fromSide > 0.0 && toSide > 0.0;
+    }
+
+    /**
      * The local edge a passage leaves a constraint face through: the one whose endpoints
      * the traced segment separates, other than the edge it came in on.
      *
@@ -299,6 +439,7 @@ public final class FaceStripPath {
         double atHigh = ExactBarycentricOrient.area(from, to, topology.barycentricOf(sourceFace,
                 high));
         crossedEdges.add(new int[] { low, high });
+        crossedVertices.add(EmbeddedMeshTopology.UNCLAIMED);
         crossingParameters.add(atLow / (atLow - atHigh));
     }
 

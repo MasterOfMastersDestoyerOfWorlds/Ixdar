@@ -113,12 +113,12 @@ public class EmbeddedTMeshScene extends ModelScene {
         if (pendingContract) {
             pendingContract = false;
             tmesh.contract();
+            tmesh.conform();
+            tmesh = tmesh.recarve(halfEdgeMesh);
             quadRuntime.setEmbeddedTMesh(tmesh);
-            Platforms.get().log("[embedded-tmesh] contracted to fixed point: "
-                    + tmesh.arcCollapseCount + " collapse(s), "
-                    + tmesh.patchSplitCount + " split(s), "
-                    + tmesh.patchCollapseCount + " patch-collapse(s), copy V="
-                    + tmesh.topology.copy.vertexCount());
+            if (quadRuntime.showCopyWireframe) {
+                quadRuntime.setCopyWireframe(tmesh.topology.copy);
+            }
         }
         while (pendingContractSteps > 0) {
             pendingContractSteps--;

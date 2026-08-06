@@ -1,388 +1,323 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.platform.Platforms;
 
 /**
  * Rebuilds a contracted live T-mesh on a clean copy of the original surface
- * mesh, preserving patch combinatorics and surface curves while discarding
- * contraction triangulation debris.
+ * mesh, keeping only where its arcs cross the faces of that mesh once the
+ * layout's nodes are inserted.
+ *
+ * <p>
+ * See also: LCBK19 Section 6.1
  */
 public final class EmbeddedTMeshRecarve {
 
     /** Nanoseconds per second, for the timing log. */
     private static final double NANOS_PER_SECOND = 1.0e9;
 
-    private final EmbeddedTMesh source;
-    private final HalfEdgeMesh originalMesh;
-    private final EmbeddedMeshTopology sourceTopology;
-    private final Set<Integer> routedOldArcIds;
+    public final EmbeddedTMesh source;
+    public final HalfEdgeMesh originalMesh;
+
+    /** Clean working copy of the original mesh the layout is rebuilt on. */
+    public EmbeddedMeshTopology fresh;
+
+    /** The carve that lays the arcs down, reused from the initial embedding. */
+    public SnappingCarve snapping;
+
+    /** The re-carved T-mesh over the clean copy. */
+    public EmbeddedTMesh freshTmesh;
 
     /**
-     * Old path steps whose two ends are one point, left behind by the contraction
-     * and not replayed onto the fresh copy.
+     * Dense node id per old node id, or {@link EmbeddedTMesh#NONE} for a retired
+     * node.
      */
-    private int collapsedReplayStepCount;
+    public int[] denseNodeIdByOldId;
 
-    private EmbeddedMeshTopology freshTopology;
-    private EmbeddedTMesh freshTmesh;
-    private FaceChordWalk chordWalk;
-    private ArcRerouter rerouter;
-    private PatchRegions sourceRegions;
-    private List<Set<Integer>> sourceFacesByPatch;
+    /** Old node id per dense node id. */
+    public int[] oldNodeIdByDenseId;
 
-    private int[] nodeByOldIdLive;
-    private int[] arcByOldIdLive;
-    private int[] oldArcByNewId;
+    /**
+     * Dense arc id per old arc id, or {@link EmbeddedTMesh#NONE} for a retired arc.
+     */
+    public int[] denseArcIdByOldId;
+
+    /** Old arc id per dense arc id. */
+    public int[] oldArcIdByDenseId;
+
+    /**
+     * Layout nodes the original mesh already had a vertex for, which cost nothing.
+     */
+    public int reusedNodeVertexCount;
+
+    /** Layout nodes that had to be minted on the clean copy. */
+    public int placedNodeVertexCount;
+
+    /**
+     * Contracted path steps read, before the faces they cross reduce them to
+     * crossings.
+     */
+    public int replayedStepCount;
+
+    /**
+     * End crossings dropped for sitting on an edge the route's own node already
+     * sits on.
+     */
+    public int trimmedEndCrossingCount;
+
+    /**
+     * Interior path vertices a live node other than the arc's own endpoints holds.
+     * Every one is a contracted arc touching a foreign node, which LCBK19 Section
+     * 6.1 forbids.
+     */
+    public int foreignNodeOnPathCount;
+
+    /** The first foreign-node touch found, described for the report. */
+    public String firstForeignNodeOnPath;
 
     /**
      * Stores the contracted T-mesh and the original mesh to rebuild onto.
      *
-     * @param source       contracted live T-mesh whose arrangement is replayed
+     * @param source       contracted live T-mesh whose arrangement is re-carved
      * @param originalMesh source triangle mesh the working copy is rebuilt from
      */
     public EmbeddedTMeshRecarve(EmbeddedTMesh source, HalfEdgeMesh originalMesh) {
-        this(source, originalMesh, Set.of());
-    }
-
-    /**
-     * Stores a rebuild attempt and the old arcs that must be routed afresh.
-     *
-     * @param source          contracted live T-mesh whose arrangement is replayed
-     * @param originalMesh    source triangle mesh the working copy is rebuilt from
-     * @param routedOldArcIds old arc ids routed instead of replayed exactly
-     */
-    private EmbeddedTMeshRecarve(EmbeddedTMesh source, HalfEdgeMesh originalMesh,
-            Set<Integer> routedOldArcIds) {
         this.source = source;
         this.originalMesh = originalMesh;
-        this.sourceTopology = source.topology;
-        this.routedOldArcIds = routedOldArcIds;
     }
 
     /**
-     * Replays the live arrangement on a fresh working copy and validates the
-     * result.
+     * Re-carves the live arrangement onto a clean copy and validates the result.
      *
-     * @throws IllegalStateException when no routed restart produces a valid patch
-     *                               partition
-     * @return the rebuilt T-mesh over a clean copy of {@code originalMesh}
+     * @throws IllegalStateException when the rebuild is not the same arrangement
+     * @return the rebuilt T-mesh
      */
     public EmbeddedTMesh build() {
         long startNanos = System.nanoTime();
-        int oldVertices = sourceTopology.copy.vertexCount();
-        int oldFaces = sourceTopology.copy.faceCount();
-        sourceRegions = new PatchRegions(source).build();
-        indexSourceFacesByPatch();
+        if (source.topology.sourceMesh != originalMesh) {
+            throw new IllegalStateException("the contracted T-mesh was carved from a different"
+                    + " mesh than the one being re-carved onto, so their vertex numbering does"
+                    + " not correspond");
+        }
+        int oldVertices = source.topology.copy.vertexCount();
+        int oldFaces = source.topology.copy.faceCount();
+        numberLiveElements();
 
-        freshTopology = new EmbeddedMeshTopology(originalMesh);
-        freshTmesh = new EmbeddedTMesh(freshTopology);
-        chordWalk = new FaceChordWalk(freshTopology);
-        rerouter = new ArcRerouter(freshTopology);
-        rerouter.sourceFaceStampBySourceFace = new int[originalMesh.faceCount()];
-
-        nodeByOldIdLive = new int[source.nodes.size()];
-        Arrays.fill(nodeByOldIdLive, EmbeddedTMesh.NONE);
+        fresh = new EmbeddedMeshTopology(originalMesh);
+        snapping = new SnappingCarve(fresh);
+        tagSourceEdges();
         placeLiveNodes();
+        refineLiveArcs();
+        snapping.carve();
 
-        arcByOldIdLive = new int[source.arcs.size()];
-        Arrays.fill(arcByOldIdLive, EmbeddedTMesh.NONE);
-        oldArcByNewId = new int[source.arcs.size()];
-        Arrays.fill(oldArcByNewId, EmbeddedTMesh.NONE);
-        carveLiveArcs();
-
-        wireLivePatches();
-
+        fresh.copy.computeNormals();
+        freshTmesh = new EmbeddedTMesh(fresh);
+        addLiveNodes();
+        addLiveArcs();
+        addLivePatches();
         freshTmesh.resolveWalkOrientation();
         freshTmesh.validate();
-        Set<Integer> unmatchedBoundaryArcs = new HashSet<>();
-        List<Integer> unmatchedFaces = new PatchRegions(freshTmesh)
-                .findFirstUnmatchedRegion(unmatchedBoundaryArcs);
-        if (!unmatchedFaces.isEmpty()) {
-            int candidateNewArcId = unmatchedBoundaryArcs.stream()
-                    .mapToInt(Integer::intValue).max().orElseThrow();
-            int candidateOldArcId = oldArcByNewId[candidateNewArcId];
-            if (routedOldArcIds.contains(candidateOldArcId)) {
-                throw new IllegalStateException("freshly routed old arc " + candidateOldArcId
-                        + " still bounds an unmatched region of " + unmatchedFaces.size()
-                        + " faces with arcs " + unmatchedBoundaryArcs);
-            }
-            Set<Integer> nextRoutedOldArcIds = new HashSet<>(routedOldArcIds);
-            nextRoutedOldArcIds.add(candidateOldArcId);
-            System.out.println("[recarve] restarting with old arc " + candidateOldArcId
-                    + " routed to remove unmatched region of " + unmatchedFaces.size() + " faces");
-            return new EmbeddedTMeshRecarve(source, originalMesh, nextRoutedOldArcIds).build();
-        }
-        new PatchRegions(freshTmesh).build();
 
-        System.out.printf(
-                "[recarve] nodes=%d arcs=%d patches=%d | copy V=%d->%d F=%d->%d"
-                        + " (splits face=%d edge=%d)"
-                        + " snapped=%d unsplittable=%d collapsedCrossings=%d collapsedSteps=%d",
-                liveNodeCount(), liveArcCount(), livePatchCount(),
-                oldVertices, freshTopology.copy.vertexCount(),
-                oldFaces, freshTopology.copy.faceCount(),
-                freshTopology.faceSplitCount, freshTopology.edgeSplitCount,
-                chordWalk.snappedCrossingCount, chordWalk.unsplittableCrossingCount,
-                chordWalk.collapsedCrossingCount, collapsedReplayStepCount);
+        if (foreignNodeOnPathCount > 0) {
+            Platforms.log("[recarve] " + foreignNodeOnPathCount + " contracted path vertices"
+                    + " are held by a foreign node; first: " + firstForeignNodeOnPath);
+        }
+        snapping.report();
+        requireNoClaimConflict();
+        requirePartition();
+        Platforms.log("[recarve] nodes=%d arcs=%d patches=%d | copy V=%d->%d F=%d->%d"
+                + " | nodes reused=%d placed=%d, path steps read=%d | %.2fs%n",
+                oldNodeIdByDenseId.length, oldArcIdByDenseId.length, freshTmesh.patches.size(),
+                oldVertices, fresh.copy.vertexCount(), oldFaces, fresh.copy.faceCount(),
+                reusedNodeVertexCount, placedNodeVertexCount, replayedStepCount,
+                (System.nanoTime() - startNanos) / NANOS_PER_SECOND);
         return freshTmesh;
     }
 
     /**
-     * Places every live node on the fresh working copy.
+     * Assigns dense ids to the live nodes and arcs, keeping their relative order.
+     */
+    private void numberLiveElements() {
+        denseNodeIdByOldId = new int[source.nodes.size()];
+        denseArcIdByOldId = new int[source.arcs.size()];
+        List<Integer> liveNodes = new ArrayList<>();
+        List<Integer> liveArcs = new ArrayList<>();
+        for (EmbeddedNode node : source.nodes) {
+            denseNodeIdByOldId[node.nodeId] = EmbeddedTMesh.NONE;
+            if (node.alive) {
+                denseNodeIdByOldId[node.nodeId] = liveNodes.size();
+                liveNodes.add(node.nodeId);
+            }
+        }
+        for (EmbeddedArc arc : source.arcs) {
+            denseArcIdByOldId[arc.arcId] = EmbeddedTMesh.NONE;
+            if (arc.alive) {
+                denseArcIdByOldId[arc.arcId] = liveArcs.size();
+                liveArcs.add(arc.arcId);
+            }
+        }
+        oldNodeIdByDenseId = toIntArray(liveNodes);
+        oldArcIdByDenseId = toIntArray(liveArcs);
+    }
+
+    /**
+     * Tags every edge of the clean copy with the source edge it is, so a chord that
+     * would cross one is refused rather than laid. Runs before any split; split
+     * children inherit the tag.
+     */
+    private void tagSourceEdges() {
+        for (int activeEdge = 0; activeEdge < originalMesh.edgeCount(); activeEdge++) {
+            int halfEdge = originalMesh.edgeHalfEdge(originalMesh.edgeIdAt(activeEdge));
+            int copyEdge = fresh.edgeBetween(
+                    fresh.copyVertexForSourceVertexId(originalMesh.halfEdgeVertex(halfEdge)),
+                    fresh.copyVertexForSourceVertexId(originalMesh.halfEdgeEndVertex(halfEdge)));
+            if (copyEdge != EmbeddedMeshTopology.UNCLAIMED) {
+                fresh.sourceEdgeByCopyEdge[copyEdge] = activeEdge;
+            }
+        }
+    }
+
+    /**
+     * Gives every surviving node a vertex of the clean copy, reusing an original
+     * vertex where the node already sits on one. Afterwards no face of the copy
+     * holds a vertex inside it, so a chord across a face cannot pass anything.
+     *
+     * @throws IllegalStateException when two nodes land on one vertex
      */
     private void placeLiveNodes() {
-        for (EmbeddedNode node : source.nodes) {
-            if (!node.alive) {
-                continue;
+        FaceChordWalk placer = new FaceChordWalk(fresh);
+        snapping.nodeCount = oldNodeIdByDenseId.length;
+        snapping.vertexIdByNode = new int[oldNodeIdByDenseId.length];
+        Arrays.fill(snapping.vertexIdByNode, EmbeddedMeshTopology.UNCLAIMED);
+        for (int denseNodeId = 0; denseNodeId < oldNodeIdByDenseId.length; denseNodeId++) {
+            EmbeddedNode node = source.nodes.get(oldNodeIdByDenseId[denseNodeId]);
+            int copyVertex;
+            if (node.copyVertex < source.topology.originalVertexBound) {
+                copyVertex = fresh.copyVertexForSourceVertexId(
+                        originalMesh.vertexIdAt(node.copyVertex));
+                reusedNodeVertexCount++;
+            } else {
+                int sourceFace = nodeSourceFace(node);
+                copyVertex = placer.placeVertex(sourceFace,
+                        source.topology.barycentricOf(sourceFace, node.copyVertex).clone());
+                placedNodeVertexCount++;
             }
-            int sourceFace = anySourceFace(sourceTopology, node.copyVertex);
-            double[] barycentric = sourceTopology.barycentricOf(sourceFace, node.copyVertex);
-            int copyVertex = chordWalk.placeVertex(sourceFace, barycentric);
-            int newNodeId = freshTmesh.addNode(node.sourceNodeId, copyVertex, node.critical,
-                    node.border);
-            nodeByOldIdLive[node.nodeId] = newNodeId;
+            int owner = fresh.ownerNodeByCopyVertex[copyVertex];
+            if (owner != EmbeddedMeshTopology.UNCLAIMED && owner != denseNodeId) {
+                throw new IllegalStateException("re-carved nodes " + owner + " and " + denseNodeId
+                        + " both landed on copy vertex " + copyVertex
+                        + "; one mesh vertex never owns two T-mesh nodes");
+            }
+            fresh.ownerNodeByCopyVertex[copyVertex] = denseNodeId;
+            snapping.vertexIdByNode[denseNodeId] = copyVertex;
         }
+        snapping.constraintVertexCount = fresh.copy.vertexCount();
+        snapping.constraintFaceCount = fresh.copy.faceCount();
+        snapping.nodesOnVertexCount = reusedNodeVertexCount;
     }
 
     /**
-     * Re-carves every live arc once, claiming each stretch before another walk can
-     * flip or split its edges.
+     * Refines every surviving arc's contracted path onto the node-inserted copy,
+     * one step at a time. Only the faces the path crosses survive: a bend inside
+     * one face records no crossing, so the arc becomes a straight run per face it
+     * passes through.
      */
-    private void carveLiveArcs() {
-        Set<Integer> carved = new HashSet<>();
-        for (EmbeddedPatch patch : source.patches) {
-            if (!patch.alive) {
-                continue;
-            }
-            for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
-                for (int oldArcId : patch.sideArcIds.get(side)) {
-                    if (carved.add(oldArcId)) {
-                        carveArc(oldArcId);
-                    }
+    private void refineLiveArcs() {
+        snapping.stripByArc = new ArrayList<>(oldArcIdByDenseId.length);
+        snapping.startNodeByArc = new int[oldArcIdByDenseId.length];
+        snapping.endNodeByArc = new int[oldArcIdByDenseId.length];
+        snapping.passageCountBySourceFace = new int[originalMesh.faceCount()];
+        for (int denseArcId = 0; denseArcId < oldArcIdByDenseId.length; denseArcId++) {
+            EmbeddedArc arc = source.arcs.get(oldArcIdByDenseId[denseArcId]);
+            List<Integer> path = arc.path.copyVertexPath;
+            requireCurve(arc.arcId, path);
+            snapping.startNodeByArc[denseArcId] = denseNodeIdByOldId[arc.startNodeId];
+            snapping.endNodeByArc[denseArcId] = denseNodeIdByOldId[arc.endNodeId];
+            FaceStripPath strip = new FaceStripPath(fresh, denseArcId);
+            snapping.stripByArc.add(strip);
+            for (int step = 1; step < path.size(); step++) {
+                int sourceFace = stepSourceFace(arc.arcId, path, step);
+                strip.addPassage(sourceFace,
+                        source.topology.barycentricOf(sourceFace, path.get(step - 1)),
+                        source.topology.barycentricOf(sourceFace, path.get(step)));
+                replayedStepCount++;
+                if (step < path.size() - 1) {
+                    auditForeignNode(arc, path.get(step));
                 }
             }
+            trimEndCrossings(strip, denseArcId);
+            for (int sourceFace : strip.passageSourceFaces) {
+                snapping.passageCountBySourceFace[sourceFace]++;
+            }
+        }
+        for (int count : snapping.passageCountBySourceFace) {
+            snapping.contestedFaceCount += count > 1 ? 1 : 0;
+            snapping.mostPassagesOnAFace = Math.max(snapping.mostPassagesOnAFace, count);
         }
     }
 
     /**
-     * Replays one contracted arc's barycentric polyline. Interior waypoints are
-     * materialized afresh; only the terminal T-mesh node is passed as a pre-placed
-     * target, so fan recovery cannot jump to an unrelated interior vertex.
+     * Drops the crossings at either end of a route that sit on an edge its own node
+     * sits on: the arc runs along that edge into the node, so a lane there would
+     * collide.
      *
-     * @param oldArcId arc id in the contracted mesh
+     * @param strip      the route to trim
+     * @param denseArcId arc the route belongs to, for its endpoint vertices
      */
-    private void carveArc(int oldArcId) {
-        EmbeddedArc arc = source.arcs.get(oldArcId);
-        int newArcId = freshTmesh.arcs.size();
-        int startNode = nodeByOldIdLive[arc.startNodeId];
-        int endNode = nodeByOldIdLive[arc.endNodeId];
-        int startVertex = freshTmesh.nodes.get(startNode).copyVertex;
-        int endVertex = freshTmesh.nodes.get(endNode).copyVertex;
-        List<Integer> freshPath;
-        if (routedOldArcIds.contains(oldArcId)) {
-            freshPath = new ArrayList<>();
-            admitSourceFaces(arc);
-            if (!rerouter.tryRoute(newArcId, freshPath, startVertex, endVertex,
-                    rerouter.freshCorridor(), EmbeddedMeshTopology.UNCLAIMED)) {
-                throw new IllegalStateException("could not route old arc " + oldArcId
-                        + " while rebuilding an unmatched patch boundary");
-            }
-        } else {
-            freshPath = replayExactPath(arc, newArcId, startVertex, endVertex);
+    private void trimEndCrossings(FaceStripPath strip, int denseArcId) {
+        int startVertex = snapping.vertexIdByNode[snapping.startNodeByArc[denseArcId]];
+        int endVertex = snapping.vertexIdByNode[snapping.endNodeByArc[denseArcId]];
+        while (!strip.crossedEdges.isEmpty()
+                && strip.crossingTouches(strip.crossedEdges.size() - 1, endVertex)) {
+            strip.removeLastCrossing();
+            trimmedEndCrossingCount++;
         }
-        requireConnectedPath(newArcId, freshPath);
-        requireSeparatedPath(oldArcId, newArcId, freshPath,
-                routedOldArcIds.contains(oldArcId));
-        int addedArcId = freshTmesh.addArc(arc.sourceArcId, startNode, endNode,
-                arc.quantizedLength, arc.feature, freshPath);
-        if (addedArcId != newArcId) {
-            throw new IllegalStateException("re-carved arc id changed from " + newArcId
-                    + " to " + addedArcId + " while being added");
+        while (!strip.crossedEdges.isEmpty() && strip.crossingTouches(0, startVertex)) {
+            strip.removeFirstCrossing();
+            trimmedEndCrossingCount++;
         }
-        arcByOldIdLive[oldArcId] = addedArcId;
-        oldArcByNewId[addedArcId] = oldArcId;
     }
 
     /**
-     * Replays one contracted arc's barycentric polyline, trimming any zero-area
-     * tail after the curve first reaches its end node.
+     * Adds every surviving node onto the vertex the carve placed it on.
+     */
+    private void addLiveNodes() {
+        for (int denseNodeId = 0; denseNodeId < oldNodeIdByDenseId.length; denseNodeId++) {
+            EmbeddedNode node = source.nodes.get(oldNodeIdByDenseId[denseNodeId]);
+            requireStableId("node", denseNodeId, freshTmesh.addNode(node.sourceNodeId,
+                    snapping.vertexIdByNode[denseNodeId], node.critical, node.border));
+        }
+    }
+
+    /**
+     * Adds every surviving arc along the path the carve laid for it.
      *
-     * @param arc         contracted arc to replay
-     * @param newArcId    fresh arc id reserved for claims
-     * @param startVertex fresh start-node vertex
-     * @param endVertex   fresh end-node vertex
-     * @return connected fresh copy-vertex path
+     * @throws IllegalStateException when an arc was never laid or its id shifts
      */
-    private List<Integer> replayExactPath(EmbeddedArc arc, int newArcId, int startVertex,
-            int endVertex) {
-        List<Integer> oldPath = arc.path.copyVertexPath;
-        int oldEndVertex = source.nodes.get(arc.endNodeId).copyVertex;
-        List<Integer> freshPath = new ArrayList<>();
-        freshPath.add(startVertex);
-        int head = startVertex;
-        for (int step = 1; step < oldPath.size(); step++) {
-            int oldFrom = oldPath.get(step - 1);
-            int oldTo = oldPath.get(step);
-            int sourceFace = sharedSourceFace(sourceTopology, oldFrom, oldTo);
-            if (sourceFace == EmbeddedMeshTopology.UNCLAIMED) {
-                throw new IllegalStateException("arc " + arc.arcId + " old path step "
-                        + oldFrom + ".." + oldTo + " has no shared source face");
+    private void addLiveArcs() {
+        for (int denseArcId = 0; denseArcId < oldArcIdByDenseId.length; denseArcId++) {
+            EmbeddedArc arc = source.arcs.get(oldArcIdByDenseId[denseArcId]);
+            ArcEdgePath path = snapping.pathByArc[denseArcId];
+            if (path == null) {
+                throw new IllegalStateException("re-carved arc " + denseArcId + " (old "
+                        + arc.arcId + ") was never laid down; its path crossed no face");
             }
-            double[] fromBarycentric = sourceTopology.barycentricOf(sourceFace, oldFrom);
-            double[] toBarycentric = sourceTopology.barycentricOf(sourceFace, oldTo);
-            if (step < oldPath.size() - 1
-                    && FaceChordWalk.isWithinSeparation(fromBarycentric, toBarycentric,
-                            FaceChordWalk.COINCIDENT_SEPARATION)) {
-                collapsedReplayStepCount++;
-                continue;
-            }
-            double[] endBarycentric = sourceTopology.barycentricOf(sourceFace, oldEndVertex);
-            boolean reachesEnd = endBarycentric != null
-                    && liesOnSegment(fromBarycentric, endBarycentric, toBarycentric);
-            boolean terminal = reachesEnd || step == oldPath.size() - 1;
-            double[] targetBarycentric = reachesEnd ? endBarycentric : toBarycentric;
-            int claimFrom = freshPath.size();
-            int targetVertex = terminal ? endVertex : EmbeddedMeshTopology.UNCLAIMED;
-            try {
-                head = walkStretch(newArcId, sourceFace, head, targetVertex,
-                        targetBarycentric, freshPath);
-            } catch (IllegalStateException blockedChord) {
-                while (freshPath.size() > claimFrom) {
-                    freshPath.remove(freshPath.size() - 1);
-                }
-                refreshClaims(newArcId, freshPath);
-                boolean detoured = false;
-                for (int candidateStep = step; candidateStep < oldPath.size(); candidateStep++) {
-                    int candidateOldVertex = oldPath.get(candidateStep);
-                    int candidateSourceFace = sharedSourceFace(sourceTopology,
-                            oldPath.get(candidateStep - 1), candidateOldVertex);
-                    if (candidateSourceFace == EmbeddedMeshTopology.UNCLAIMED) {
-                        continue;
-                    }
-                    boolean candidateTerminal = candidateStep == oldPath.size() - 1;
-                    int materializedTarget;
-                    try {
-                        materializedTarget = candidateTerminal ? endVertex
-                                : chordWalk.placeVertex(candidateSourceFace,
-                                        sourceTopology.barycentricOf(candidateSourceFace,
-                                                candidateOldVertex));
-                    } catch (IllegalStateException occupiedTarget) {
-                        continue;
-                    }
-                    admitSourceFaces(arc);
-                    List<Integer> detour = new ArrayList<>();
-                    if (!rerouter.tryRoute(newArcId, detour, head, materializedTarget,
-                            rerouter.freshCorridor(), EmbeddedMeshTopology.UNCLAIMED)) {
-                        continue;
-                    }
-                    for (int index = 1; index < detour.size(); index++) {
-                        freshPath.add(detour.get(index));
-                    }
-                    head = materializedTarget;
-                    step = candidateStep;
-                    reachesEnd = candidateTerminal;
-                    detoured = true;
-                    break;
-                }
-                if (!detoured) {
-                    throw new IllegalStateException("could not detour re-carved arc " + arc.arcId
-                            + " around a blocked stretch in source face " + sourceFace,
-                            blockedChord);
-                }
-            }
-            int reachedEndAt = freshPath.subList(claimFrom, freshPath.size()).indexOf(endVertex);
-            if (reachedEndAt >= 0) {
-                reachedEndAt += claimFrom;
-                while (freshPath.size() > reachedEndAt + 1) {
-                    freshPath.remove(freshPath.size() - 1);
-                }
-                head = endVertex;
-                reachesEnd = true;
-            }
-            eraseLoops(freshPath);
-            refreshClaims(newArcId, freshPath);
-            if (reachesEnd) {
-                break;
-            }
-        }
-        requireConnectedPath(newArcId, freshPath);
-        return freshPath;
-    }
-
-    /**
-     * Indexes the original source faces touched by each contracted patch region.
-     */
-    private void indexSourceFacesByPatch() {
-        sourceFacesByPatch = new ArrayList<>(source.patches.size());
-        for (int patchId = 0; patchId < source.patches.size(); patchId++) {
-            Set<Integer> sourceFaces = new HashSet<>();
-            List<Integer> copyFaces = sourceRegions.copyFacesByPatch.get(patchId);
-            if (copyFaces != null) {
-                for (int copyFace : copyFaces) {
-                    sourceFaces.add(sourceTopology.sourceFaceByCopyFace[copyFace]);
-                }
-            }
-            sourceFacesByPatch.add(sourceFaces);
+            requireStableId("arc", denseArcId, freshTmesh.addArc(arc.sourceArcId,
+                    snapping.startNodeByArc[denseArcId], snapping.endNodeByArc[denseArcId],
+                    arc.quantizedLength, arc.feature, path.copyVertexPath));
         }
     }
 
     /**
-     * Restricts a blocked stretch to the source faces of its adjacent patches.
-     *
-     * @param arc contracted arc whose patch corridor is admitted
+     * Rebuilds every surviving patch's side wiring against the dense ids.
      */
-    private void admitSourceFaces(EmbeddedArc arc) {
-        rerouter.sourceFaceStamp++;
-        admitPatchSourceFaces(arc.leftPatchId);
-        admitPatchSourceFaces(arc.rightPatchId);
-    }
-
-    /**
-     * Admits one patch's source faces to the current route.
-     *
-     * @param patchId contracted patch id, or {@link EmbeddedTMesh#NONE}
-     */
-    private void admitPatchSourceFaces(int patchId) {
-        if (patchId == EmbeddedTMesh.NONE) {
-            return;
-        }
-        for (int sourceFace : sourceFacesByPatch.get(patchId)) {
-            rerouter.sourceFaceStampBySourceFace[sourceFace] = rerouter.sourceFaceStamp;
-        }
-    }
-
-    /**
-     * Releases provisional claims left by an exact replay that encountered another
-     * established lane.
-     *
-     * @param arcId provisional fresh arc id
-     */
-    private void clearClaims(int arcId) {
-        for (int edgeId = 0; edgeId < freshTopology.ownerArcByCopyEdge.length; edgeId++) {
-            if (freshTopology.ownerArcByCopyEdge[edgeId] == arcId) {
-                freshTopology.ownerArcByCopyEdge[edgeId] = EmbeddedMeshTopology.UNCLAIMED;
-            }
-        }
-        for (int vertexId = 0; vertexId < freshTopology.ownerArcByCopyVertex.length; vertexId++) {
-            if (freshTopology.ownerArcByCopyVertex[vertexId] == arcId) {
-                freshTopology.ownerArcByCopyVertex[vertexId] = EmbeddedMeshTopology.UNCLAIMED;
-            }
-        }
-    }
-
-    /**
-     * Rebuilds patch side wiring on the fresh T-mesh.
-     */
-    private void wireLivePatches() {
+    private void addLivePatches() {
         for (EmbeddedPatch patch : source.patches) {
             if (!patch.alive) {
                 continue;
@@ -391,328 +326,189 @@ public final class EmbeddedTMeshRecarve {
             for (List<Integer> side : patch.sideArcIds) {
                 List<Integer> remapped = new ArrayList<>(side.size());
                 for (int oldArcId : side) {
-                    remapped.add(arcByOldIdLive[oldArcId]);
+                    remapped.add(denseArcIdByOldId[oldArcId]);
                 }
                 sideArcIds.add(remapped);
             }
-            int firstCorner = nodeByOldIdLive[patch.cornerNodeId(0)];
-            freshTmesh.addPatch(patch.sourcePatchId, sideArcIds, firstCorner);
+            freshTmesh.addPatch(patch.sourcePatchId, sideArcIds,
+                    denseNodeIdByOldId[patch.cornerNodeId(0)]);
         }
     }
 
     /**
-     * A source face whose closure contains both copy vertices.
+     * The source face a path step runs in.
      *
-     * @param topology   working copy carrying provenance
-     * @param fromVertex copy vertex the step leaves
-     * @param toVertex   copy vertex the step arrives at
-     * @return the shared source face, or {@link EmbeddedMeshTopology#UNCLAIMED}
+     * @param oldArcId arc the path belongs to, for the message
+     * @param path     the arc's contracted copy-vertex path
+     * @param step     index of the step's far end
+     * @throws IllegalStateException when no source face holds the step
+     * @return that source face
      */
-    private static int sharedSourceFace(EmbeddedMeshTopology topology, int fromVertex,
-            int toVertex) {
-        HalfEdgeMesh copy = topology.copy;
-        int copyEdge = topology.edgeBetween(fromVertex, toVertex);
-        if (copyEdge == EmbeddedMeshTopology.UNCLAIMED) {
-            return EmbeddedMeshTopology.UNCLAIMED;
+    private int stepSourceFace(int oldArcId, List<Integer> path, int step) {
+        int sourceFace = source.topology.sharedSourceFace(path.get(step - 1), path.get(step));
+        if (sourceFace == EmbeddedMeshTopology.UNCLAIMED) {
+            throw new IllegalStateException("arc " + oldArcId + " steps from copy vertex "
+                    + path.get(step - 1) + " to " + path.get(step) + " with no source face"
+                    + " holding both, so that step is not a chord of any source triangle");
         }
-        int halfEdge = copy.edgeHalfEdge(copyEdge);
-        for (int side = 0; side < 2; side++) {
-            int copyFace = copy.halfEdgeFace(side == 0 ? halfEdge : copy.halfEdgeTwin(halfEdge));
-            if (copyFace == EmbeddedMeshTopology.UNCLAIMED) {
+        return sourceFace;
+    }
+
+    /**
+     * The source face a node can be measured in, read from a step of one of its
+     * arcs.
+     *
+     * @param node surviving node to locate
+     * @throws IllegalStateException when no live arc reaches it
+     * @return that source face
+     */
+    private int nodeSourceFace(EmbeddedNode node) {
+        for (int oldArcId : source.arcEndsByNode.get(node.nodeId)) {
+            EmbeddedArc arc = source.arcs.get(oldArcId);
+            if (!arc.alive) {
                 continue;
             }
-            int sourceFace = topology.sourceFaceByCopyFace[copyFace];
-            if (topology.barycentricOf(sourceFace, fromVertex) != null
-                    && topology.barycentricOf(sourceFace, toVertex) != null) {
-                return sourceFace;
-            }
+            List<Integer> path = arc.path.copyVertexPath;
+            requireCurve(oldArcId, path);
+            return stepSourceFace(oldArcId, path,
+                    path.get(0) == node.copyVertex ? 1 : path.size() - 1);
         }
-        return EmbeddedMeshTopology.UNCLAIMED;
+        throw new IllegalStateException("live node " + node.nodeId + " has no live arc, so there"
+                + " is no source face to measure its position in");
     }
 
     /**
-     * Any source face registering a barycentric for a copy vertex.
+     * Checks a surviving arc is embedded as a curve rather than a point.
      *
-     * @param topology   working copy carrying provenance
-     * @param copyVertex vertex to locate
-     * @return a source face index
+     * @param oldArcId arc being read
+     * @param path     its contracted copy-vertex path
+     * @throws IllegalStateException when the path is a single point
      */
-    private static int anySourceFace(EmbeddedMeshTopology topology, int copyVertex) {
-        for (int sourceFace = 0; sourceFace < topology.copyFacesBySourceFace.size(); sourceFace++) {
-            if (topology.barycentricOf(sourceFace, copyVertex) != null) {
-                return sourceFace;
-            }
-        }
-        throw new IllegalStateException("copy vertex " + copyVertex
-                + " carries no registered barycentric on any source face");
-    }
-
-    /**
-     * Walks one chord stretch between consecutive carve points.
-     *
-     * @param arcId             arc being carved
-     * @param sourceFace        source active face the stretch lies in
-     * @param startVertex       copy vertex the stretch leaves
-     * @param targetVertex      pre-placed target, or
-     *                          {@link EmbeddedMeshTopology#UNCLAIMED}
-     * @param targetBarycentric target barycentric in the source face
-     * @param vertexPath        path vertices, extended in place
-     * @return the copy vertex the walk ended on
-     */
-    private int walkStretch(int arcId, int sourceFace, int startVertex, int targetVertex,
-            double[] targetBarycentric, List<Integer> vertexPath) {
-        if (startVertex == targetVertex) {
-            return targetVertex;
-        }
-        int reached = chordWalk.walk(arcId, sourceFace, startVertex, targetBarycentric,
-                targetVertex, vertexPath);
-        if (targetVertex != EmbeddedMeshTopology.UNCLAIMED && reached != targetVertex) {
-            throw new IllegalStateException("arc " + arcId + " chord walk ended on copy vertex "
-                    + reached + " instead of " + targetVertex + " in source face " + sourceFace);
-        }
-        return reached;
-    }
-
-    /**
-     * Whether the middle point lies on the closed segment between the endpoints.
-     *
-     * @param from   segment start barycentric
-     * @param middle point tested
-     * @param to     segment end barycentric
-     * @return true when the three points are collinear and {@code middle} is between
-     */
-    private static boolean liesOnSegment(double[] from, double[] middle, double[] to) {
-        if (ExactBarycentricOrient.sign(from, middle, to) != 0) {
-            return false;
-        }
-        double dot = 0.0;
-        for (int coordinate = 0; coordinate < from.length; coordinate++) {
-            dot += (middle[coordinate] - from[coordinate])
-                    * (middle[coordinate] - to[coordinate]);
-        }
-        return dot <= 0.0;
-    }
-
-    /**
-     * Erases cycles whenever a walk revisits an earlier path vertex.
-     *
-     * @param path path simplified in place
-     */
-    private static void eraseLoops(List<Integer> path) {
-        List<Integer> simple = new ArrayList<>(path.size());
-        Map<Integer, Integer> indexByVertex = new HashMap<>();
-        for (int vertexId : path) {
-            Integer repeatedAt = indexByVertex.get(vertexId);
-            if (repeatedAt == null) {
-                indexByVertex.put(vertexId, simple.size());
-                simple.add(vertexId);
-                continue;
-            }
-            while (simple.size() > repeatedAt + 1) {
-                indexByVertex.remove(simple.remove(simple.size() - 1));
-            }
-        }
-        path.clear();
-        path.addAll(simple);
-    }
-
-    /**
-     * Replaces provisional claims with the current loop-erased path.
-     *
-     * @param arcId fresh arc id that owns the path
-     * @param path  current connected path
-     */
-    private void refreshClaims(int arcId, List<Integer> path) {
-        repairClaimedSplits(arcId, path);
-        requireConnectedPath(arcId, path);
-        clearClaims(arcId);
-        for (int index = 1; index < path.size(); index++) {
-            int fromVertex = path.get(index - 1);
-            int toVertex = path.get(index);
-            freshTopology.claimEdgeBetween(fromVertex, toVertex, arcId);
-            if (freshTopology.ownerNodeByCopyVertex[toVertex]
-                    == EmbeddedMeshTopology.UNCLAIMED) {
-                freshTopology.ownerArcByCopyVertex[toVertex] = arcId;
-            }
+    private void requireCurve(int oldArcId, List<Integer> path) {
+        if (path.size() < 2) {
+            throw new IllegalStateException("live arc " + oldArcId + " is embedded as the single"
+                    + " point " + path + "; the contraction should have retired it");
         }
     }
 
     /**
-     * Inserts replacement lane vertices when a later stretch split an earlier edge
-     * owned by the same provisional arc.
+     * Records an arc whose contracted path runs through a live node that is not one
+     * of its own endpoints — a touch LCBK19 Section 6.1 forbids.
      *
-     * @param arcId provisional fresh arc id
-     * @param path  path repaired in place
+     * @param arc       arc whose path is being read
+     * @param oldVertex interior path vertex to test
      */
-    private void repairClaimedSplits(int arcId, List<Integer> path) {
-        for (int index = 1; index < path.size(); index++) {
-            int fromVertex = path.get(index - 1);
-            int toVertex = path.get(index);
-            if (freshTopology.edgeBetween(fromVertex, toVertex)
-                    != EmbeddedMeshTopology.UNCLAIMED) {
-                continue;
-            }
-            List<Integer> replacement = ownedPath(arcId, fromVertex, toVertex);
-            if (replacement.isEmpty()) {
-                throw new IllegalStateException("arc " + arcId + " lost its claimed lane from "
-                        + fromVertex + " to " + toVertex);
-            }
-            path.remove(index);
-            path.addAll(index, replacement);
-            index += replacement.size() - 1;
+    private void auditForeignNode(EmbeddedArc arc, int oldVertex) {
+        int nodeId = source.topology.ownerNodeByCopyVertex[oldVertex];
+        if (nodeId == EmbeddedMeshTopology.UNCLAIMED || !source.nodes.get(nodeId).alive
+                || nodeId == arc.startNodeId || nodeId == arc.endNodeId) {
+            return;
+        }
+        foreignNodeOnPathCount++;
+        if (firstForeignNodeOnPath == null) {
+            firstForeignNodeOnPath = "arc " + arc.arcId + " (nodes " + arc.startNodeId + ".."
+                    + arc.endNodeId + ", quantized " + arc.quantizedLength
+                    + ") runs through copy vertex " + oldVertex + " held by node " + nodeId;
         }
     }
 
     /**
-     * Finds a path through edges still owned by one provisional arc.
+     * Checks no mesh element ended up claimed by two arcs, which
+     * {@code claimEdgeBetween} counts rather than throws on.
      *
-     * @param arcId      provisional fresh arc id
-     * @param fromVertex search start
-     * @param toVertex   search target
-     * @return vertices after the start through the target, or an empty list
+     * @throws IllegalStateException when any element is doubly claimed
      */
-    private List<Integer> ownedPath(int arcId, int fromVertex, int toVertex) {
-        Map<Integer, Integer> parentByVertex = new HashMap<>();
-        ArrayDeque<Integer> frontier = new ArrayDeque<>();
-        parentByVertex.put(fromVertex, EmbeddedMeshTopology.UNCLAIMED);
-        frontier.add(fromVertex);
-        while (!frontier.isEmpty() && !parentByVertex.containsKey(toVertex)) {
-            int vertexId = frontier.removeFirst();
-            for (int index = 0; index < freshTopology.copy.vertexEdgeCount(vertexId); index++) {
-                int edgeId = freshTopology.copy.vertexEdgeAt(vertexId, index);
-                if (freshTopology.ownerArcByCopyEdge[edgeId] != arcId) {
-                    continue;
-                }
-                int neighbor = freshTopology.otherEndpoint(edgeId, vertexId);
-                if (parentByVertex.putIfAbsent(neighbor, vertexId) == null) {
-                    frontier.addLast(neighbor);
-                }
-            }
-        }
-        if (!parentByVertex.containsKey(toVertex)) {
-            return List.of();
-        }
-        List<Integer> reverse = new ArrayList<>();
-        for (int vertexId = toVertex; vertexId != fromVertex;
-                vertexId = parentByVertex.get(vertexId)) {
-            reverse.add(vertexId);
-        }
-        List<Integer> replacement = new ArrayList<>(reverse.size());
-        for (int index = reverse.size() - 1; index >= 0; index--) {
-            replacement.add(reverse.get(index));
-        }
-        return replacement;
-    }
-
-    /**
-     * Checks no two consecutive vertices of a re-carved path are the same point,
-     * which nothing downstream could tell apart, and names the surrounding path so
-     * the producing step is identifiable.
-     *
-     * @param oldArcId  arc id in the contracted mesh
-     * @param newArcId  arc id on the fresh copy
-     * @param path      the re-carved path
-     * @param wasRouted whether the path came from a fresh route rather than a replay
-     * @throws IllegalStateException when two consecutive vertices coincide
-     */
-    private void requireSeparatedPath(int oldArcId, int newArcId, List<Integer> path,
-            boolean wasRouted) {
-        for (int index = 1; index < path.size(); index++) {
-            int fromVertex = path.get(index - 1);
-            int toVertex = path.get(index);
-            int sourceFace = sharedSourceFace(freshTopology, fromVertex, toVertex);
-            if (sourceFace == EmbeddedMeshTopology.UNCLAIMED) {
-                continue;
-            }
-            double[] fromBarycentric = freshTopology.barycentricOf(sourceFace, fromVertex);
-            double[] toBarycentric = freshTopology.barycentricOf(sourceFace, toVertex);
-            if (!FaceChordWalk.isWithinSeparation(fromBarycentric, toBarycentric,
-                    FaceChordWalk.COINCIDENT_SEPARATION)) {
-                continue;
-            }
-            throw new IllegalStateException("re-carved arc " + newArcId + " (old " + oldArcId
-                    + (wasRouted ? ", routed" : ", replayed") + ") puts copy vertices "
-                    + fromVertex + " and " + toVertex + " at one point of source face "
-                    + sourceFace + " at path step " + index + " of " + path.size()
-                    + "; neighbours " + pathNeighbourhood(path, index)
-                    + "; barycentrics " + Arrays.toString(fromBarycentric) + " and "
-                    + Arrays.toString(toBarycentric));
+    private void requireNoClaimConflict() {
+        if (fresh.claimConflictCount != 0) {
+            throw new IllegalStateException(fresh.claimConflictCount + " re-carved copy elements"
+                    + " are claimed by two T-mesh elements at once, so two arcs were laid over"
+                    + " one another; first: " + fresh.firstClaimConflict
+                    + describeArcEnds(fresh.firstClaimConflictHolder)
+                    + describeArcEnds(fresh.firstClaimConflictClaimant));
         }
     }
 
     /**
-     * The path vertices around one step, for locating which carve step produced a
-     * pair of coincident vertices.
+     * Names an arc's endpoint nodes and the vertices they sit on, so a conflict
+     * between two arcs shows at once whether they share an end.
      *
-     * @param path  the re-carved path
-     * @param index step index the pair ends at
-     * @return the surrounding vertex ids
+     * @param denseArcId re-carved arc id, or {@link EmbeddedMeshTopology#UNCLAIMED}
+     * @return the description, or an empty string when there is no such arc
      */
-    private String pathNeighbourhood(List<Integer> path, int index) {
-        int from = Math.max(0, index - 2);
-        int to = Math.min(path.size(), index + 3);
-        return path.subList(from, to).toString() + " at " + from + ".." + (to - 1);
+    private String describeArcEnds(int denseArcId) {
+        if (denseArcId == EmbeddedMeshTopology.UNCLAIMED) {
+            return "";
+        }
+        int startNode = snapping.startNodeByArc[denseArcId];
+        int endNode = snapping.endNodeByArc[denseArcId];
+        FaceStripPath strip = snapping.stripByArc.get(denseArcId);
+        StringBuilder detail = new StringBuilder("\n  arc ").append(denseArcId)
+                .append(" runs from node ").append(startNode).append(" (vertex ")
+                .append(snapping.vertexIdByNode[startNode]).append(") to node ").append(endNode)
+                .append(" (vertex ").append(snapping.vertexIdByNode[endNode])
+                .append("), chosen ").append(snapping.chosenVertexByArc.get(denseArcId))
+                .append("\n    path ").append(snapping.pathByArc[denseArcId] == null ? "none"
+                        : snapping.pathByArc[denseArcId].copyVertexPath);
+        for (int crossing = 0; crossing < strip.crossedEdges.size(); crossing++) {
+            int[] edge = strip.crossedEdges.get(crossing);
+            detail.append("\n    crossing ").append(crossing).append(" in source face ")
+                    .append(strip.passageSourceFaces.get(crossing)).append(edge == null
+                            ? " through vertex " + strip.crossedVertices.get(crossing)
+                            : " on edge " + edge[0] + ".." + edge[1] + " at "
+                                    + strip.crossingParameters.get(crossing));
+        }
+        return detail.toString();
     }
 
     /**
-     * Checks every consecutive pair in an arc path is joined by a copy edge.
+     * Checks the re-carved arcs cut the clean copy into exactly the patches the
+     * contracted layout has.
      *
-     * @param arcId      arc whose path is being checked
-     * @param vertexPath vertex path on the fresh working copy
+     * @throws IllegalStateException when any region matches no live patch
      */
-    private void requireConnectedPath(int arcId, List<Integer> vertexPath) {
-        for (int index = 1; index < vertexPath.size(); index++) {
-            int fromVertex = vertexPath.get(index - 1);
-            int toVertex = vertexPath.get(index);
-            if (freshTopology.edgeBetween(fromVertex, toVertex) == EmbeddedMeshTopology.UNCLAIMED) {
-                throw new IllegalStateException("arc " + arcId + " replay path steps from "
-                        + fromVertex + " to " + toVertex + " with no edge between them");
+    private void requirePartition() {
+        Set<Integer> boundaryArcs = new HashSet<>();
+        List<Integer> unmatched = new PatchRegions(freshTmesh)
+                .findFirstUnmatchedRegion(boundaryArcs);
+        if (!unmatched.isEmpty()) {
+            StringBuilder detail = new StringBuilder("the re-carved arrangement leaves a region of "
+                    + unmatched.size() + " faces " + unmatched + " bounded by arcs " + boundaryArcs
+                    + " that matches no live patch");
+            for (int denseArcId : boundaryArcs) {
+                detail.append(describeArcEnds(denseArcId));
             }
+            throw new IllegalStateException(detail.toString());
+        }
+        new PatchRegions(freshTmesh).build();
+    }
+
+    /**
+     * Checks a re-carved element kept the dense id everything else was built
+     * against.
+     *
+     * @param kind     element kind, for the message
+     * @param expected dense id it was numbered with
+     * @param added    id the fresh T-mesh handed back
+     * @throws IllegalStateException when the two differ
+     */
+    private void requireStableId(String kind, int expected, int added) {
+        if (added != expected) {
+            throw new IllegalStateException("re-carved " + kind + " id changed from " + expected
+                    + " to " + added + " while being added");
         }
     }
 
     /**
-     * Counts live nodes in the contracted source T-mesh.
+     * Copies a list of integers into a primitive array.
      *
-     * @return number of live nodes
+     * @param values integer list
+     * @return an {@code int[]} with the same values in order
      */
-    private int liveNodeCount() {
-        int live = 0;
-        for (EmbeddedNode node : source.nodes) {
-            if (node.alive) {
-                live++;
-            }
+    private static int[] toIntArray(List<Integer> values) {
+        int[] array = new int[values.size()];
+        for (int index = 0; index < values.size(); index++) {
+            array[index] = values.get(index);
         }
-        return live;
-    }
-
-    /**
-     * Counts live arcs in the contracted source T-mesh.
-     *
-     * @return number of live arcs
-     */
-    private int liveArcCount() {
-        int live = 0;
-        for (EmbeddedArc arc : source.arcs) {
-            if (arc.alive) {
-                live++;
-            }
-        }
-        return live;
-    }
-
-    /**
-     * Counts live patches in the contracted source T-mesh.
-     *
-     * @return number of live patches
-     */
-    private int livePatchCount() {
-        int live = 0;
-        for (EmbeddedPatch patch : source.patches) {
-            if (patch.alive) {
-                live++;
-            }
-        }
-        return live;
+        return array;
     }
 }

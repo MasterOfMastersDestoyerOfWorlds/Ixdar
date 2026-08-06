@@ -2,6 +2,12 @@
 
 Never revert or overwrite uncommitted changes without an explicit yes/no from the user — including changes you made earlier in the same session. If a fix you tried looks wrong, made tests worse, or "feels safer to undo," the default is to leave it in place and investigate, not to roll back. Ask before any `git stash`, `git checkout -- <file>`, `git reset --hard`, or Edit/Write that restores a prior version of a file. "Reverting is the safe move" is never an unprompted decision.
 
+**You never perform the revert yourself — you name the files and I run it.** `git checkout`, `git clean`, `git reset` and shell overwrites of working-tree files are on the deny list, and that deny stands even when I have already agreed the revert should happen: agreeing to a revert is not agreeing that you should be the one to do it. So when a revert is the right move, say so and print exactly two lists — **restore to HEAD** (tracked files) and **delete** (untracked files) — then stop and wait.
+
+Do not route around the denial. `git show HEAD:path > path`, `cp` from a scratchpad copy, and Write-tool restores of prior file contents are all the denied operation wearing a different hat; a second attempt through a different tool is worse than the first, not better. The one exception is a file you created earlier in this same session that nothing else has touched — deleting or rewriting your own scratch output is not a revert.
+
+Sequence the work so the tree never sits broken across the handoff: land whatever rewrite removes the dependency on the code being reverted **first**, so that by the time the list reaches me, applying it leaves the build green. If that is not possible, say plainly that the build will be red between the revert and the follow-up.
+
 # Conventions
 
 ## Naming

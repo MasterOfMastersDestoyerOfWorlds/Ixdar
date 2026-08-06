@@ -9,6 +9,7 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
+import ixdar.platform.Platforms;
 
 /**
  * LCBK19 §6.2's re-parametrization: projected Newton on the symmetric Dirichlet
@@ -189,7 +190,9 @@ public final class GridMapOptimizer {
     /** Source faces the bad references fall in, so the count is per chart. */
     private final Set<Integer> collapsedSourceFaces = new HashSet<>();
 
-    /** Patches the bad references fall in, separating whole patches from slivers. */
+    /**
+     * Patches the bad references fall in, separating whole patches from slivers.
+     */
     private final Set<Integer> collapsedPatches = new HashSet<>();
 
     /**
@@ -210,13 +213,20 @@ public final class GridMapOptimizer {
      */
     private int unrepresentableReferenceCount;
 
-    /** Source face the last {@link #sourceCorners} call read, for the diagnostic. */
+    /**
+     * Source face the last {@link #sourceCorners} call read, for the diagnostic.
+     */
     private int sourceFaceOfLastRead;
 
-    /** Twice the signed chart area of that source face, the scale a reference is judged at. */
+    /**
+     * Twice the signed chart area of that source face, the scale a reference is
+     * judged at.
+     */
     private double chartDeterminantOfLastRead;
 
-    /** Chart reads whose source face is negatively oriented in the parametrization. */
+    /**
+     * Chart reads whose source face is negatively oriented in the parametrization.
+     */
     private int negativeChartCount;
 
     /**
@@ -376,11 +386,11 @@ public final class GridMapOptimizer {
         }
         dofs.writeBack();
         flippedTriangleCount = countFlipped();
-        System.out.printf("[grid-optimize] energy %.4e -> %.4e (%.1f%%) iterations=%d"
+        Platforms.get().log(String.format("[grid-optimize] energy %.4e -> %.4e (%.1f%%) iterations=%d"
                 + " flipped=%d/%d pinned=%d worstMove=%.4f%n", energyBefore, energyAfter,
                 100.0 * (energyBefore - energyAfter) / Math.max(1.0e-30, energyBefore),
                 iterationCount, flippedTriangleCount, triangleCount, pinnedTriangleCount,
-                worstVertexMove);
+                worstVertexMove));
         return this;
     }
 
@@ -535,8 +545,10 @@ public final class GridMapOptimizer {
             }
         }
         triangleCount = index;
-        // Every chart read was positively oriented, so no reference can be blamed on the
-        // parametrization: what is left is the working copy's own needles, positively wound in
+        // Every chart read was positively oriented, so no reference can be blamed on
+        // the
+        // parametrization: what is left is the working copy's own needles, positively
+        // wound in
         // exact arithmetic but thinner than the chart can resolve.
         int chartFailures = negativeChartCount;
         int needleReferenceCount = nonPositiveReferenceCount - degenerateCopyTriangleCount
@@ -606,10 +618,9 @@ public final class GridMapOptimizer {
         }
         sourceFaceOfLastRead = sourceFace;
         seamless.faceCornerUv(sourceFace, faceCornerUv);
-        chartDeterminantOfLastRead =
-                (faceCornerUv[2] - faceCornerUv[0]) * (faceCornerUv[5] - faceCornerUv[1])
-                        - (faceCornerUv[4] - faceCornerUv[0]) * (faceCornerUv[3]
-                                - faceCornerUv[1]);
+        chartDeterminantOfLastRead = (faceCornerUv[2] - faceCornerUv[0]) * (faceCornerUv[5] - faceCornerUv[1])
+                - (faceCornerUv[4] - faceCornerUv[0]) * (faceCornerUv[3]
+                        - faceCornerUv[1]);
         negativeChartCount += chartDeterminantOfLastRead < 0.0 ? 1 : 0;
         int[] corners = { origin, first, second };
         for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
@@ -1044,9 +1055,9 @@ public final class GridMapOptimizer {
      * @return the summed energy, infinite when any triangle has folded
      */
     /**
-     * Removes triangles whose starting energy is not a finite double, compacting the
-     * gathered arrays around them. A triangle so distorted that the barrier overflows
-     * cannot be stepped, and keeping it makes every total infinite.
+     * Removes triangles whose starting energy is not a finite double, compacting
+     * the gathered arrays around them. A triangle so distorted that the barrier
+     * overflows cannot be stepped, and keeping it makes every total infinite.
      *
      * @param element per-triangle energy, reused across the scan
      * @return the number of triangles removed

@@ -83,8 +83,17 @@ public final class EmbeddedMeshTopology {
     public int edgeCollapseCount;
     public int edgeFlipCount;
 
-    /** Claim-transfer conflicts during collapses (kept existing claim). */
+    /** Edges a second arc tried to claim while another held them (the existing claim is kept). */
     public int claimConflictCount;
+
+    /** The first such conflict, described for the report. */
+    public String firstClaimConflict;
+
+    /** Arc already holding the edge of {@link #firstClaimConflict}. */
+    public int firstClaimConflictHolder = UNCLAIMED;
+
+    /** Arc that wanted the edge of {@link #firstClaimConflict} as well. */
+    public int firstClaimConflictClaimant = UNCLAIMED;
 
     private final Map<Integer, Integer> copyVertexBySourceVertexId = new HashMap<>();
 
@@ -759,9 +768,29 @@ public final class EmbeddedMeshTopology {
         }
         if (ownerArcByCopyEdge[edgeId] != UNCLAIMED && ownerArcByCopyEdge[edgeId] != arcId) {
             claimConflictCount++;
+            if (firstClaimConflict == null) {
+                firstClaimConflictHolder = ownerArcByCopyEdge[edgeId];
+                firstClaimConflictClaimant = arcId;
+                firstClaimConflict = "copy edge " + edgeId + " from " + describeVertex(vertexA)
+                        + " to " + describeVertex(vertexB) + " is held by arc "
+                        + ownerArcByCopyEdge[edgeId] + " and arc " + arcId + " wants it too";
+            }
             return;
         }
         ownerArcByCopyEdge[edgeId] = arcId;
+    }
+
+    /**
+     * Names a copy vertex with its provenance and owner, for a conflict report.
+     *
+     * @param copyVertex vertex to describe
+     * @return the description
+     */
+    public String describeVertex(int copyVertex) {
+        return "vertex " + copyVertex
+                + (copyVertex < originalVertexBound ? "(original" : "(minted")
+                + ",node" + ownerNodeByCopyVertex[copyVertex]
+                + ",arc" + ownerArcByCopyVertex[copyVertex] + ")";
     }
 
     /**
@@ -777,6 +806,35 @@ public final class EmbeddedMeshTopology {
             int edgeId = copy.vertexEdgeAt(vertexA, index);
             if (otherEndpoint(edgeId, vertexA) == vertexB) {
                 return edgeId;
+            }
+        }
+        return UNCLAIMED;
+    }
+
+    /**
+     * The source face holding the edge between two copy vertices, read from the faces on
+     * either side of it, so the segment between them really is a chord of that face.
+     *
+     * @param fromVertex one endpoint
+     * @param toVertex   the other endpoint
+     * @return that source face, or {@link #UNCLAIMED} when they share no edge or no face
+     *         registers a barycentric for both
+     */
+    public int sharedSourceFace(int fromVertex, int toVertex) {
+        int copyEdge = edgeBetween(fromVertex, toVertex);
+        if (copyEdge == UNCLAIMED) {
+            return UNCLAIMED;
+        }
+        int halfEdge = copy.edgeHalfEdge(copyEdge);
+        for (int side = 0; side < 2; side++) {
+            int copyFace = copy.halfEdgeFace(side == 0 ? halfEdge : copy.halfEdgeTwin(halfEdge));
+            if (copyFace == UNCLAIMED) {
+                continue;
+            }
+            int sourceFace = sourceFaceByCopyFace[copyFace];
+            if (barycentricOf(sourceFace, fromVertex) != null
+                    && barycentricOf(sourceFace, toVertex) != null) {
+                return sourceFace;
             }
         }
         return UNCLAIMED;

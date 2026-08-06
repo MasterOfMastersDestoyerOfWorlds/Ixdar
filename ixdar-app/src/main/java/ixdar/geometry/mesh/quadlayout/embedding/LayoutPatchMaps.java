@@ -55,6 +55,12 @@ public final class LayoutPatchMaps {
     public int uniformFallbackPatchCount;
 
     /**
+     * Patches still folded after the uniform re-solve. Tutte's theorem forbids this,
+     * so a non-zero count names a broken precondition upstream, not a solver problem.
+     */
+    public int foldedPatchCount;
+
+    /**
      * Stores the T-mesh whose patches are mapped and the parametrization their
      * rectangles are measured from.
      *
@@ -72,12 +78,11 @@ public final class LayoutPatchMaps {
 
     /**
      * Refines the working copy, measures the layout's resolution, recomputes the
-     * patch regions and solves every patch's map, asserting each one is fold-free. A
-     * patch whose cotangent solve folds is re-solved with uniform weights, which
-     * Tutte's theorem guarantees valid (RPP17 §6).
+     * patch regions and solves every patch's map. A patch whose cotangent solve folds
+     * is re-solved with uniform weights, which Tutte's theorem guarantees valid
+     * (RPP17 §6); one still folded afterwards is counted, not repaired.
      *
-     * @throws IllegalStateException when a patch folds under uniform weights too,
-     *                               or the regions do not partition the surface
+     * @throws IllegalStateException when the regions do not partition the surface
      * @return this, solved
      */
     public LayoutPatchMaps build() {
@@ -99,17 +104,19 @@ public final class LayoutPatchMaps {
                 uniformFallbackPatchCount++;
                 map.solveUniform();
             }
-            // try {
-            //     map.assertFoldFree();
-            // } catch (IllegalStateException broken) {
-            //     throw new IllegalStateException("patch " + patch.patchId + ": "
-            //             + broken.getMessage(), broken);
-            // }
+            try {
+                map.assertFoldFree();
+            } catch (IllegalStateException stillFolded) {
+                foldedPatchCount++;
+                System.out.println("[patch-maps] patch=" + patch.patchId + ": "
+                        + stillFolded.getMessage());
+            }
             mapByPatchId[patch.patchId] = map;
             mappedPatchCount++;
         }
         System.out.println("[patch-maps] patches=" + mappedPatchCount + " subdividedChords="
-                + subdividedChordCount + " uniformFallbacks=" + uniformFallbackPatchCount);
+                + subdividedChordCount + " uniformFallbacks=" + uniformFallbackPatchCount
+                + " stillFolded=" + foldedPatchCount);
         return this;
     }
 

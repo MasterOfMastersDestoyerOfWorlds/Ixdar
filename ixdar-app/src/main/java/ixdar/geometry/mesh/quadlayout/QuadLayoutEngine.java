@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.quadlayout;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.embedding.CopyMeshNeedles;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.GlobalGridMap;
@@ -45,11 +46,6 @@ public final class QuadLayoutEngine {
      */
     public static final double DEFAULT_TARGET_EDGE_LENGTH = 1.0;
 
-    /** Diagnostic stage label for the T-mesh at the contraction's fixed point. */
-    public static final String STAGE_CONTRACTED = "contracted";
-
-    /** Diagnostic stage label for the T-mesh once no T-junction is left. */
-    public static final String STAGE_CONFORMING = "conforming";
 
     public final HalfEdgeMesh mesh;
 
@@ -245,7 +241,9 @@ public final class QuadLayoutEngine {
             buildTMesh();
             tmesh.contract();
             tmesh.conform();
+            tmesh = tmesh.recarve(mesh);
             contracted = true;
+            conforming = true;
         }
         return tmesh;
     }

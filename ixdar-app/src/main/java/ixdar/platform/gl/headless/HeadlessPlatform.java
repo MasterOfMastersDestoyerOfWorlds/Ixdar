@@ -34,9 +34,9 @@ import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.gl.Platform;
 
 /**
- * Headless platform for offscreen rendering using LWJGL GLFW.
- * Creates an invisible window for OpenGL rendering.
- * Works on macOS and Linux (with display server like Xvfb in CI).
+ * Headless platform for offscreen rendering using LWJGL GLFW. Creates an
+ * invisible window for OpenGL rendering. Works on macOS and Linux (with display
+ * server like Xvfb in CI).
  */
 public class HeadlessPlatform implements Platform {
     public static final String SRC = "src/";
@@ -64,10 +64,10 @@ public class HeadlessPlatform implements Platform {
     }
 
     /**
-     * Build a headless platform sized {@code width x height}; window and framebuffer dimensions
-     * are both initialized to that size.
+     * Build a headless platform sized {@code width x height}; window and
+     * framebuffer dimensions are both initialized to that size.
      *
-     * @param width window/framebuffer width in pixels
+     * @param width  window/framebuffer width in pixels
      * @param height window/framebuffer height in pixels
      */
     public HeadlessPlatform(int width, int height) {
@@ -158,14 +158,14 @@ public class HeadlessPlatform implements Platform {
     }
 
     /**
-     * Load {@code res/<resourceName>} from the classpath and decode it via STB into a
-     * {@link Texture}, so headless screenshots render fonts and sprites. Reading from the classpath
-     * (not a CWD-relative file) keeps it working regardless of the launch directory. GL upload is
-     * deferred to {@link Texture#initGL()}.
+     * Load {@code res/<resourceName>} from the classpath and decode it via STB into
+     * a {@link Texture}, so headless screenshots render fonts and sprites. Reading
+     * from the classpath (not a CWD-relative file) keeps it working regardless of
+     * the launch directory. GL upload is deferred to {@link Texture#initGL()}.
      *
      * @param resourceName texture file under {@code res/}
-     * @param platformId platform id the created texture binds to
-     * @param callback receiver of the loaded texture
+     * @param platformId   platform id the created texture binds to
+     * @param callback     receiver of the loaded texture
      */
     @Override
     public void loadTexture(String resourceName, int platformId, Consumer<Texture> callback) {
@@ -212,7 +212,7 @@ public class HeadlessPlatform implements Platform {
      * Read {@code resourceFolder/filename} from the classpath synchronously.
      *
      * @param resourceFolder folder under the classpath (e.g. {@code "glsl"})
-     * @param filename file within {@code resourceFolder}
+     * @param filename       file within {@code resourceFolder}
      * @return file contents, or {@code null} if missing
      */
     @Override
@@ -230,7 +230,9 @@ public class HeadlessPlatform implements Platform {
         }
     }
 
-    /** Resolves synchronously via the classpath; falls back to {@code ""} on miss. */
+    /**
+     * Resolves synchronously via the classpath; falls back to {@code ""} on miss.
+     */
     @Override
     public void loadSourceAsync(String resourceFolder, String filename, int platformId, Consumer<String> callback) {
         String sync = trySyncLoadSource(resourceFolder, filename);
@@ -241,7 +243,9 @@ public class HeadlessPlatform implements Platform {
         callback.accept("");
     }
 
-    /** Force shader sources to be loaded from the {@code glsl/} classpath folder. */
+    /**
+     * Force shader sources to be loaded from the {@code glsl/} classpath folder.
+     */
     @Override
     public void loadShaderSourceAsync(String resourceFolder, String filename, int platformId,
             Consumer<String> callback) {
@@ -249,8 +253,9 @@ public class HeadlessPlatform implements Platform {
     }
 
     /**
-     * Load a classpath resource as a {@link TextFile}, accommodating the test layout where
-     * paths may begin with {@code ./src/main/resources/} or be relative to {@code src/}.
+     * Load a classpath resource as a {@link TextFile}, accommodating the test
+     * layout where paths may begin with {@code ./src/main/resources/} or be
+     * relative to {@code src/}.
      *
      * @param path resource path
      * @throws IOException if the resource cannot be located
@@ -295,7 +300,7 @@ public class HeadlessPlatform implements Platform {
     /**
      * Write {@code file} to disk, creating parent directories as needed.
      *
-     * @param file file (path + lines) to persist
+     * @param file   file (path + lines) to persist
      * @param append true to append, false to truncate
      * @throws IOException on filesystem failure
      */
@@ -320,6 +325,12 @@ public class HeadlessPlatform implements Platform {
     @Override
     public void log(String msg) {
         System.out.println(msg);
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public void log(String fmt, Object... obj) {
+        System.out.println(String.format(fmt, obj));
     }
 
     /** {@code false}: no live resource reloading in headless tests. */
@@ -375,8 +386,9 @@ public class HeadlessPlatform implements Platform {
     }
 
     /**
-     * Read the framebuffer back via {@link HeadlessGL#readPixels} and write the result to a PNG
-     * file (Y-flipping from GL's bottom-left origin to AWT's top-left).
+     * Read the framebuffer back via {@link HeadlessGL#readPixels} and write the
+     * result to a PNG file (Y-flipping from GL's bottom-left origin to AWT's
+     * top-left).
      *
      * @param outputPath PNG output path (parent dirs are created)
      * @throws IOException if GL is not initialized or PNG encoding fails
@@ -385,22 +397,21 @@ public class HeadlessPlatform implements Platform {
         if (gl == null) {
             throw new IOException("HeadlessGL not initialized");
         }
-        
+
         HeadlessGL headlessGL = gl;
         int width = headlessGL.getWidth();
         int height = headlessGL.getHeight();
-        
+
         // Read pixels from framebuffer
         int[] pixels = headlessGL.readPixels(
-            0, 0, width, height,
-            headlessGL.RGBA(),
-            headlessGL.UNSIGNED_BYTE(),
-            0
-        );
-        
+                0, 0, width, height,
+                headlessGL.RGBA(),
+                headlessGL.UNSIGNED_BYTE(),
+                0);
+
         // Create BufferedImage (AWT uses top-left origin, OpenGL uses bottom-left)
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        
+
         // Flip Y and copy pixels
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
@@ -414,7 +425,7 @@ public class HeadlessPlatform implements Platform {
                 image.setRGB(x, height - 1 - y, awtPixel);
             }
         }
-        
+
         // Write PNG
         File outputFile = new File(outputPath);
         File parent = outputFile.getParentFile();
@@ -422,7 +433,7 @@ public class HeadlessPlatform implements Platform {
             parent.mkdirs();
         }
         ImageIO.write(image, "png", outputFile);
-        
+
         log("[HeadlessPlatform] Screenshot saved: " + outputPath);
     }
 

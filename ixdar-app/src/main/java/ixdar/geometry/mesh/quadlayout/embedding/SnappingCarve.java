@@ -31,10 +31,23 @@ public final class SnappingCarve {
     /** Slack allowed when a rebuilt barycentric triple is checked to sum to one. */
     private static final double BARYCENTRIC_TOLERANCE = 1.0e-9;
 
+    /**
+     * Traced graph the routes come from, or {@code null} when the caller supplied the routes
+     * itself — the re-carve reads them off a contracted layout instead.
+     */
     public final MotorcycleGraph motorcycleGraph;
 
     /** Working copy the arcs are embedded into. */
     public final EmbeddedMeshTopology topology;
+
+    /** T-mesh nodes the carve places, for the report. */
+    public int nodeCount;
+
+    /** Node each arc runs from, indexed by arc id. */
+    public int[] startNodeByArc;
+
+    /** Node each arc runs to, indexed by arc id. */
+    public int[] endNodeByArc;
 
     /** Copy vertex per T-mesh node id, or {@link EmbeddedMeshTopology#UNCLAIMED}. */
     public int[] vertexIdByNode;
@@ -81,6 +94,9 @@ public final class SnappingCarve {
     /** Crossings served by a vertex minted on the edge. */
     public int lanesMintedCount;
 
+    /** Corners handed back because the arc had already taken them at an earlier crossing. */
+    public int repeatedCornerReleaseCount;
+
     /** Most lanes minted on any one constraint edge. */
     public int mostLanesOnAnEdge;
 
@@ -110,6 +126,17 @@ public final class SnappingCarve {
     }
 
     /**
+     * Stores a working copy whose nodes and routes the caller places and refines itself, then
+     * runs {@link #carve()} over them. The re-carve enters this way.
+     *
+     * @param topology working copy, standing as the constraint mesh
+     */
+    public SnappingCarve(EmbeddedMeshTopology topology) {
+        this.motorcycleGraph = null;
+        this.topology = topology;
+    }
+
+    /**
      * Gives every T-mesh node a copy vertex, splitting eagerly. Afterwards the working copy
      * is the constraint mesh: every node is one of its corners, so no face of it holds a
      * vertex in its interior.
@@ -118,6 +145,7 @@ public final class SnappingCarve {
      * @return this, with the nodes placed
      */
     public SnappingCarve placeNodes() {
+        nodeCount = motorcycleGraph.nodes.size();
         vertexIdByNode = new int[motorcycleGraph.nodes.size()];
         Arrays.fill(vertexIdByNode, EmbeddedMeshTopology.UNCLAIMED);
         for (TMeshNode node : motorcycleGraph.nodes) {
@@ -148,8 +176,12 @@ public final class SnappingCarve {
      */
     public SnappingCarve sliceArcs() {
         stripByArc = new ArrayList<>(motorcycleGraph.arcs.size());
+        startNodeByArc = new int[motorcycleGraph.arcs.size()];
+        endNodeByArc = new int[motorcycleGraph.arcs.size()];
         for (int arc = 0; arc < motorcycleGraph.arcs.size(); arc++) {
             stripByArc.add(new FaceStripPath(topology, arc));
+            startNodeByArc[arc] = motorcycleGraph.arcs.get(arc).startNodeId;
+            endNodeByArc[arc] = motorcycleGraph.arcs.get(arc).endNodeId;
         }
         for (Trace trace : motorcycleGraph.traces) {
             for (int step = 0; step < trace.chainArcIds.size(); step++) {
@@ -287,9 +319,35 @@ public final class SnappingCarve {
     public SnappingCarve carve() {
         collectCrossings();
         grantCorners();
+        releaseRepeatedCorners();
         mintLanes();
         layChords();
         return this;
+    }
+
+    /**
+     * Takes back a corner an arc chose at two crossings that are not consecutive. Its path
+     * would revisit that vertex and pinch a region off the layout, so the later crossing gives
+     * the corner up and takes a minted lane instead.
+     */
+    private void releaseRepeatedCorners() {
+        Map<Integer, Integer> lastCrossingByVertex = new HashMap<>();
+        for (List<Integer> chosen : chosenVertexByArc) {
+            lastCrossingByVertex.clear();
+            for (int crossing = 0; crossing < chosen.size(); crossing++) {
+                int vertex = chosen.get(crossing);
+                if (vertex == EmbeddedMeshTopology.UNCLAIMED) {
+                    continue;
+                }
+                Integer previous = lastCrossingByVertex.get(vertex);
+                if (previous != null && previous < crossing - 1) {
+                    chosen.set(crossing, EmbeddedMeshTopology.UNCLAIMED);
+                    repeatedCornerReleaseCount++;
+                    continue;
+                }
+                lastCrossingByVertex.put(vertex, crossing);
+            }
+        }
     }
 
     /**
@@ -301,12 +359,47 @@ public final class SnappingCarve {
         for (FaceStripPath strip : stripByArc) {
             List<Integer> chosen = new ArrayList<>(strip.crossedEdges.size());
             for (int crossing = 0; crossing < strip.crossedEdges.size(); crossing++) {
+                if (strip.crossedEdges.get(crossing) == null) {
+                    chosen.add(claimPassedVertex(strip.arcId, strip.crossedVertices.get(crossing)));
+                    continue;
+                }
                 chosen.add(EmbeddedMeshTopology.UNCLAIMED);
                 crossingsByEdge.computeIfAbsent(edgeKey(strip.crossedEdges.get(crossing)),
                         key -> new ArrayList<>()).add(new int[] { strip.arcId, crossing });
             }
             chosenVertexByArc.add(chosen);
         }
+    }
+
+    /**
+     * Takes the vertex an arc's route runs exactly through. No lane can be minted for such a
+     * crossing, so a vertex another element already holds is a tear, not a contention.
+     *
+     * @param arcId      arc whose route passes through the vertex
+     * @param copyVertex the vertex it passes through
+     * @throws IllegalStateException when a node or another arc already holds it
+     * @return the same vertex, now claimed
+     */
+    private int claimPassedVertex(int arcId, int copyVertex) {
+        int nodeOwner = topology.ownerNodeByCopyVertex[copyVertex];
+        int arcOwner = topology.ownerArcByCopyVertex[copyVertex];
+        if (nodeOwner != EmbeddedMeshTopology.UNCLAIMED
+                && (vertexIdByNode[startNodeByArc[arcId]] == copyVertex
+                        || vertexIdByNode[endNodeByArc[arcId]] == copyVertex)) {
+            cornersGrantedCount++;
+            return copyVertex;
+        }
+        if (nodeOwner != EmbeddedMeshTopology.UNCLAIMED
+                || arcOwner != EmbeddedMeshTopology.UNCLAIMED && arcOwner != arcId) {
+            throw new IllegalStateException("arc " + arcId + " runs exactly through copy vertex "
+                    + copyVertex + (copyVertex < topology.originalVertexBound ? " (an original"
+                            + " mesh vertex)" : " (minted)") + ", which node " + nodeOwner
+                    + " / arc " + arcOwner
+                    + " already holds; two T-mesh elements cannot share one mesh vertex");
+        }
+        topology.ownerArcByCopyVertex[copyVertex] = arcId;
+        cornersGrantedCount++;
+        return copyVertex;
     }
 
     /**
@@ -436,29 +529,29 @@ public final class SnappingCarve {
     private void layChords() {
         verticesBeforeChords = topology.copy.vertexCount();
         facesBeforeChords = topology.copy.faceCount();
-        pathByArc = new ArcEdgePath[motorcycleGraph.arcs.size()];
-        for (TraceArc arc : motorcycleGraph.arcs) {
-            FaceStripPath strip = stripByArc.get(arc.arcId);
+        pathByArc = new ArcEdgePath[stripByArc.size()];
+        for (int arcId = 0; arcId < stripByArc.size(); arcId++) {
+            FaceStripPath strip = stripByArc.get(arcId);
             if (strip.passageFaces.isEmpty()) {
                 continue;
             }
-            List<Integer> chosen = chosenVertexByArc.get(arc.arcId);
+            List<Integer> chosen = chosenVertexByArc.get(arcId);
             List<Integer> path = new ArrayList<>();
-            int previous = vertexIdByNode[arc.startNodeId];
+            int previous = vertexIdByNode[startNodeByArc[arcId]];
             path.add(previous);
             for (int crossing = 0; crossing < chosen.size(); crossing++) {
                 if (chosen.get(crossing) != previous) {
                     appendChord(path, strip.passageSourceFaces.get(crossing), previous,
-                            chosen.get(crossing), arc.arcId);
+                            chosen.get(crossing), arcId);
                     previous = chosen.get(crossing);
                 }
             }
-            int endVertex = vertexIdByNode[arc.endNodeId];
+            int endVertex = vertexIdByNode[endNodeByArc[arcId]];
             if (endVertex != previous) {
                 appendChord(path, strip.passageSourceFaces.get(
-                        strip.passageSourceFaces.size() - 1), previous, endVertex, arc.arcId);
+                        strip.passageSourceFaces.size() - 1), previous, endVertex, arcId);
             }
-            pathByArc[arc.arcId] = recordPath(arc.arcId, path);
+            pathByArc[arcId] = recordPath(arcId, path);
         }
     }
 
@@ -672,7 +765,7 @@ public final class SnappingCarve {
     public void report() {
         System.out.printf("[snap] nodes=%d onVertex=%d edgeSplit=%d faceSplit=%d |"
                 + " constraint mesh V=%d F=%d (source V=%d F=%d)%n",
-                motorcycleGraph.nodes.size(), nodesOnVertexCount, nodesByEdgeSplitCount,
+                nodeCount, nodesOnVertexCount, nodesByEdgeSplitCount,
                 nodesByFaceSplitCount, constraintVertexCount, constraintFaceCount,
                 topology.sourceMesh.vertexCount(), topology.sourceMesh.faceCount());
         if (stripByArc == null) {
