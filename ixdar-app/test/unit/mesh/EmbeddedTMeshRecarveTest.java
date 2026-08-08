@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
-import ixdar.geometry.mesh.quadlayout.embedding.PatchRegions;
+import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
 
 /**
  * Re-carving a contracted T-mesh onto a clean copy of the original surface must

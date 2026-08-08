@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.embedding;
+package ixdar.geometry.mesh.quadlayout.gridmap;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -7,6 +7,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 
 /**
  * Which grid coordinates the re-parametrization may move, as solver slots: one shared slot per free
@@ -34,6 +39,12 @@ public final class GridMapDofSystem {
 
     /** Regular nodes kept pinned because their patch fan could not be chart-connected. */
     public int fanFailedNodeCount;
+
+    /**
+     * Regular nodes kept pinned because the transitions around their fan do not compose to the
+     * identity. Such a node is a singularity of the grid map, which BCE13 (2) holds at an integer.
+     */
+    public int holonomyPinnedNodeCount;
 
     /** Freed nodes whose patch copies disagree through their fan transforms. Must be zero. */
     public int disagreeingFreedNodeCount;
@@ -199,6 +210,7 @@ public final class GridMapDofSystem {
         System.out.println("[grid-dof] slots=" + slotCount + " free=" + freeSlotCount
                 + " pinnedVertices=" + pinned.size() + " coupledSeamArcs=" + coupledSeamArcCount
                 + " freedNodes=" + freedNodeCount + " fanFailed=" + fanFailedNodeCount
+                + " holonomyPinned=" + holonomyPinnedNodeCount
                 + " disagreeingShared=" + disagreeingSharedVertexCount + " disagreeingSeam="
                 + disagreeingSeamVertexCount + " disagreeingNode=" + disagreeingFreedNodeCount
                 + " worstDisagreement=" + worstSharedDisagreement);
@@ -313,14 +325,47 @@ public final class GridMapDofSystem {
                     frontier.add(other);
                 }
             }
-            if (fan.size() == patches.size()) {
+            if (fan.size() != patches.size()) {
+                fanFailedNodeCount++;
+            } else if (!fanHolonomyTrivial(fan, incidentArcs)) {
+                holonomyPinnedNodeCount++;
+            } else {
                 fans.put(node.copyVertex, fan);
                 freedNodeCount++;
-            } else {
-                fanFailedNodeCount++;
             }
         }
         return fans;
+    }
+
+    /**
+     * Whether every arc of a node's fan agrees with the spanning-tree transforms the fan was built
+     * from, which is the fan closing up rather than opening a wedge when the node moves.
+     *
+     * <p>See also: BCE13 (2)
+     *
+     * @param fan          transform into the primary chart by patch id
+     * @param incidentArcs arcs meeting at the node
+     * @return whether the transitions compose to the identity around the fan
+     */
+    private boolean fanHolonomyTrivial(Map<Integer, int[]> fan, List<Integer> incidentArcs) {
+        for (int arcId : incidentArcs) {
+            EmbeddedArc arc = tmesh.arcs.get(arcId);
+            int[] leftToPrimary = fan.get(arc.leftPatchId);
+            int[] rightToPrimary = fan.get(arc.rightPatchId);
+            if (leftToPrimary == null || rightToPrimary == null
+                    || frames.transitionQuarterTurnsByArcId[arcId] == IntegerGridMap.NOT_PLACED) {
+                continue;
+            }
+            int[] expected = composeTransform(leftToPrimary,
+                    new int[] {frames.transitionQuarterTurnsByArcId[arcId],
+                            frames.transitionTranslationUByArcId[arcId],
+                            frames.transitionTranslationVByArcId[arcId]});
+            if (expected[0] != rightToPrimary[0] || expected[1] != rightToPrimary[1]
+                    || expected[2] != rightToPrimary[2]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

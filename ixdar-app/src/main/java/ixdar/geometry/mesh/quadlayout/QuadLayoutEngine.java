@@ -2,18 +2,17 @@ package ixdar.geometry.mesh.quadlayout;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
-import ixdar.geometry.mesh.quadlayout.embedding.CopyMeshNeedles;
+import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
-import ixdar.geometry.mesh.quadlayout.embedding.GlobalGridMap;
-import ixdar.geometry.mesh.quadlayout.embedding.GridMapDofSystem;
-import ixdar.geometry.mesh.quadlayout.embedding.GridMapOptimizer;
-import ixdar.geometry.mesh.quadlayout.embedding.IntegerGridMap;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
-import ixdar.geometry.mesh.quadlayout.embedding.LayoutPatchMaps;
-import ixdar.geometry.mesh.quadlayout.embedding.LayoutPatchSurfaces;
-import ixdar.geometry.mesh.quadlayout.embedding.PatchGridExtraction;
-import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
+import ixdar.geometry.mesh.quadlayout.extraction.LayoutPatchSurfaces;
+import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;
+import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
+import ixdar.geometry.mesh.quadlayout.gridmap.GridMapDofSystem;
+import ixdar.geometry.mesh.quadlayout.gridmap.GridMapOptimizer;
+import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
+import ixdar.geometry.mesh.quadlayout.gridmap.LayoutPatchMaps;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
 import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
@@ -279,11 +278,13 @@ public final class QuadLayoutEngine {
             gridDofs.seamCouplingPinned = false;
             gridDofs.nodeFreedomPinned = false;
             gridDofs.build();
+            globalGrid.reportRectangleFit("framed");
             PatchGridExtraction initialExtraction = new PatchGridExtraction(patchMaps);
             initialExtraction.optimizedGrid = globalGrid;
             quadGridInitial = initialExtraction.build();
             gridOptimizer = new GridMapOptimizer(gridDofs, seamless);
             gridOptimizer.build();
+            globalGrid.reportRectangleFit("relaxed");
         }
         return globalGrid;
     }

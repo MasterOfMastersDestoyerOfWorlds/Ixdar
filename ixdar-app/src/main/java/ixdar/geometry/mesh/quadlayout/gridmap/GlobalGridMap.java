@@ -1,9 +1,13 @@
-package ixdar.geometry.mesh.quadlayout.embedding;
+package ixdar.geometry.mesh.quadlayout.gridmap;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 
 /**
  * Every patch's map carried into one common grid, which is LCBK19 Figure 10(d) as a single object
@@ -87,6 +91,60 @@ public final class GlobalGridMap {
         System.out.printf("[global-grid] patches=%d offGridNodes=%d worstNodeDeviation=%.3e%n",
                 frames.placedPatchCount, offGridNodeCount, worstNodeIntegerDeviation);
         return this;
+    }
+
+    /**
+     * Reports how far the patches' boundaries sit from the rectangles the quantization assigned
+     * them, which is what the per-patch lattice extraction inverts.
+     *
+     * <p>See also: LCBK19 Section 7 "preserving ... assigned integer values"
+     *
+     * @param stage name of the pipeline stage the measurement is taken at
+     */
+    public void reportRectangleFit(String stage) {
+        double worstDeviation = 0.0;
+        double totalDeviation = 0.0;
+        int boundaryVertexCount = 0;
+        int offRectanglePatchCount = 0;
+        int worstPatchId = EmbeddedTMesh.NONE;
+        double[] local = new double[GRID_COORDINATES];
+        for (EmbeddedPatch patch : tmesh.patches) {
+            if (!patch.alive) {
+                continue;
+            }
+            PatchRectangleMap map = patchMaps.mapByPatchId[patch.patchId];
+            double[] uv = uvByPatchId[patch.patchId];
+            double worstHere = 0.0;
+            for (int dense = 0; dense < map.positions.length; dense++) {
+                if (!map.onBoundary[dense]) {
+                    continue;
+                }
+                frames.toLocal(patch.patchId, uv[dense * GRID_COORDINATES],
+                        uv[dense * GRID_COORDINATES + 1], local);
+                double insideU = Math.min(local[0], map.width - local[0]);
+                double insideV = Math.min(local[1], map.height - local[1]);
+                double deviation = insideU < 0 || insideV < 0
+                        ? Math.hypot(Math.min(insideU, 0), Math.min(insideV, 0))
+                        : Math.min(insideU, insideV);
+                worstHere = Math.max(worstHere, deviation);
+                totalDeviation += deviation;
+                boundaryVertexCount++;
+            }
+            if (worstHere > INTEGER_TOLERANCE) {
+                offRectanglePatchCount++;
+            }
+            if (worstHere > worstDeviation) {
+                worstDeviation = worstHere;
+                worstPatchId = patch.patchId;
+            }
+        }
+        System.out.printf("[rectangle-fit] %s: %d of %d patches have a boundary off their"
+                + " rectangle; worst %.4f on patch %d (rectangle %dx%d), mean %.4f over %d"
+                + " boundary vertices%n", stage, offRectanglePatchCount, frames.placedPatchCount,
+                worstDeviation, worstPatchId,
+                worstPatchId == EmbeddedTMesh.NONE ? 0 : tmesh.sideQuadCount(worstPatchId, 0),
+                worstPatchId == EmbeddedTMesh.NONE ? 0 : tmesh.sideQuadCount(worstPatchId, 1),
+                totalDeviation / Math.max(1, boundaryVertexCount), boundaryVertexCount);
     }
 
     /**

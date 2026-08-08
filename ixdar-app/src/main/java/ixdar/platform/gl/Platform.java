@@ -194,6 +194,12 @@ public interface Platform {
      */
     void log(String msg);
 
+    /**
+     * Diagnostic logger taking a {@link String#format} pattern and its arguments.
+     *
+     * @param format format string
+     * @param args   arguments the format string consumes
+     */
     void log(String format, Object... args);
 
     /**

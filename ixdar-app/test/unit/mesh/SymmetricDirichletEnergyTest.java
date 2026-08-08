@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.SymmetricDirichletEnergy;
+import ixdar.geometry.mesh.quadlayout.gridmap.SymmetricDirichletEnergy;
 
 /**
  * The optimizer's element kernel against finite differences: the analytic gradient and raw

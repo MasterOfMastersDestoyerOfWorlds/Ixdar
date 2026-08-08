@@ -63,15 +63,22 @@ public final class Platforms {
     }
 
     /**
-     * Currently active platform adapter.
+     * Logs one message through the active platform adapter.
      *
+     * @param str message to log
      * @throws IllegalStateException if {@link #init} has not run yet
-     * @return the registered {@link Platform}
      */
     public static void log(String str) {
         get().log(str);
     }
 
+    /**
+     * Logs a {@link String#format} pattern through the active platform adapter.
+     *
+     * @param str  format string
+     * @param objs arguments the format string consumes
+     * @throws IllegalStateException if {@link #init} has not run yet
+     */
     public static void log(String str, Object... objs) {
         get().log(str, objs);
     }

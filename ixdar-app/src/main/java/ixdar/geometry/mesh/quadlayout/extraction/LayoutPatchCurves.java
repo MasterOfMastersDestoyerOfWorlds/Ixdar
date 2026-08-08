@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.embedding;
+package ixdar.geometry.mesh.quadlayout.extraction;
 
 import java.util.List;
 

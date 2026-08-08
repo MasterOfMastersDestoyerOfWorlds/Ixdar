@@ -1,8 +1,18 @@
-package ixdar.geometry.mesh.quadlayout.embedding;
+package ixdar.geometry.mesh.quadlayout.extraction;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.joml.Vector3f;
+
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
+import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
+import ixdar.geometry.mesh.quadlayout.gridmap.LayoutPatchMaps;
+import ixdar.geometry.mesh.quadlayout.gridmap.LayoutResolution;
+import ixdar.geometry.mesh.quadlayout.gridmap.PatchRectangleMap;
 
 /**
  * The quad mesh the layout prescribes, placed on the surface: one grid per
@@ -331,8 +341,91 @@ public final class PatchGridExtraction {
                 throw new IllegalStateException("patch " + patchId + " has no surface point for"
                         + " grid site (" + index % columns + ", " + index / columns + ") of its "
                         + columns + "x" + rows + " grid; a fold-free map covers every lattice"
-                        + " point");
+                        + " point; " + describeCoverage(patchId, index % columns, index / columns));
             }
         }
+    }
+
+    /**
+     * How close the searched charts come to covering one lattice site, separating a site missed by
+     * rounding from one the relaxation carried outside every chart.
+     *
+     * @param framePatchId patch whose grid the site belongs to
+     * @param column       the site's grid column
+     * @param row          the site's grid row
+     * @return the best barycentric slack, the chart holding it, and the searched extents
+     */
+    private String describeCoverage(int framePatchId, int column, int row) {
+        List<int[]> charts = new ArrayList<>();
+        charts.add(new int[] {framePatchId, 0, 0, 0});
+        if (optimizedGrid != null) {
+            charts.addAll(optimizedGrid.chartNeighbourhood(framePatchId));
+        }
+        double[] local = new double[2];
+        double[] cornerU = new double[TRIANGLE_CORNERS];
+        double[] cornerV = new double[TRIANGLE_CORNERS];
+        double[] ownExtent = {Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY,
+                Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY};
+        double[] searchedExtent = {Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY,
+                Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY};
+        double bestSlack = Double.NEGATIVE_INFINITY;
+        int bestPatchId = EmbeddedTMesh.NONE;
+        for (int[] chart : charts) {
+            PatchRectangleMap map = patchMaps.mapByPatchId[chart[0]];
+            double chartSlack = Double.NEGATIVE_INFINITY;
+            double[] chartExtent = {Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY,
+                    Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY};
+            for (int[] triangle : map.triangles) {
+                for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+                    patchLocal(framePatchId, chart[0], chart[1], chart[2], chart[3], map,
+                            triangle[corner], local);
+                    cornerU[corner] = local[0];
+                    cornerV[corner] = local[1];
+                    growExtent(searchedExtent, local[0], local[1]);
+                    growExtent(chartExtent, local[0], local[1]);
+                    if (chart[0] == framePatchId) {
+                        growExtent(ownExtent, local[0], local[1]);
+                    }
+                }
+                double doubleArea = (cornerU[1] - cornerU[0]) * (cornerV[2] - cornerV[0])
+                        - (cornerU[2] - cornerU[0]) * (cornerV[1] - cornerV[0]);
+                if (doubleArea == 0.0) {
+                    continue;
+                }
+                double first = ((cornerU[1] - column) * (cornerV[2] - row)
+                        - (cornerU[2] - column) * (cornerV[1] - row)) / doubleArea;
+                double second = ((cornerU[2] - column) * (cornerV[0] - row)
+                        - (cornerU[0] - column) * (cornerV[2] - row)) / doubleArea;
+                double slack = Math.min(Math.min(first, second), 1.0 - first - second);
+                chartSlack = Math.max(chartSlack, slack);
+                if (slack > bestSlack) {
+                    bestSlack = slack;
+                    bestPatchId = chart[0];
+                }
+            }
+            System.out.printf("[quad-grid]   chart patch=%d turns=%d translation=(%d, %d)"
+                    + " misses by %.3e, spans u[%.4f, %.4f] v[%.4f, %.4f]%n", chart[0], chart[1],
+                    chart[2], chart[3], -chartSlack, chartExtent[0], chartExtent[1], chartExtent[2],
+                    chartExtent[3]);
+        }
+        return String.format("closest chart triangle misses it by %.3e in patch %d, of %d chart(s)"
+                + " searched; own image spans u[%.4f, %.4f] v[%.4f, %.4f], the search spans"
+                + " u[%.4f, %.4f] v[%.4f, %.4f]", -bestSlack, bestPatchId, charts.size(),
+                ownExtent[0], ownExtent[1], ownExtent[2], ownExtent[3], searchedExtent[0],
+                searchedExtent[1], searchedExtent[2], searchedExtent[3]);
+    }
+
+    /**
+     * Widens an extent to hold one chart position.
+     *
+     * @param extent  the extent as {@code {lowU, highU, lowV, highV}}, updated in place
+     * @param chartU  the position's chart u
+     * @param chartV  the position's chart v
+     */
+    private void growExtent(double[] extent, double chartU, double chartV) {
+        extent[0] = Math.min(extent[0], chartU);
+        extent[1] = Math.max(extent[1], chartU);
+        extent[2] = Math.min(extent[2], chartV);
+        extent[3] = Math.max(extent[3], chartV);
     }
 }

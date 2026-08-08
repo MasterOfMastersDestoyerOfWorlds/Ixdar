@@ -1,10 +1,14 @@
-package ixdar.geometry.mesh.quadlayout.embedding;
+package ixdar.geometry.mesh.quadlayout.gridmap;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
+
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 
 /**
  * The frame of every layout patch in one common integer grid, which turns the separate per-patch

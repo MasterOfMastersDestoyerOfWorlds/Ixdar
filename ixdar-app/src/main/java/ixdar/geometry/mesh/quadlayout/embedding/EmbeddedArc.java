@@ -1,5 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
+import ixdar.geometry.mesh.quadlayout.gridmap.LayoutResolution;
+
 /**
  * One T-mesh arc, realized as a path of edges in the working copy from its start node's
  * vertex to its end node's vertex.

@@ -26,7 +26,7 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
  *
  * <p>Contracting this raw T-mesh with the operators is a separate, later step: on dense pipeline
  * meshes the operator-(1) Dijkstra re-route cannot always find an unclaimed corridor, so routing
- * moves into the {@link ixdar.geometry.mesh.quadlayout.embedding.PatchRectangleMap} rectangle,
+ * moves into the {@link ixdar.geometry.mesh.quadlayout.gridmap.PatchRectangleMap} rectangle,
  * which is not yet wired into the operators. This test therefore stops at the validated build.
  *
  * <p>The default mesh is small so the test stays cheap; point it at the paper benchmarks with

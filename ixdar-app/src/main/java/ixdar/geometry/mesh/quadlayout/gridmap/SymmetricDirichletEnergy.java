@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.embedding;
+package ixdar.geometry.mesh.quadlayout.gridmap;
 
 /**
  * One triangle's symmetric Dirichlet energy {@code A·‖J‖²_F·(1 + 1/det²)}, with

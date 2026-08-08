@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.platform.Platforms;
+import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
 
 /**
  * Rebuilds a contracted live T-mesh on a clean copy of the original surface
@@ -125,13 +125,13 @@ public final class EmbeddedTMeshRecarve {
         freshTmesh.validate();
 
         if (foreignNodeOnPathCount > 0) {
-            Platforms.log("[recarve] " + foreignNodeOnPathCount + " contracted path vertices"
+            System.out.println("[recarve] " + foreignNodeOnPathCount + " contracted path vertices"
                     + " are held by a foreign node; first: " + firstForeignNodeOnPath);
         }
         snapping.report();
         requireNoClaimConflict();
         requirePartition();
-        Platforms.log("[recarve] nodes=%d arcs=%d patches=%d | copy V=%d->%d F=%d->%d"
+        System.out.printf("[recarve] nodes=%d arcs=%d patches=%d | copy V=%d->%d F=%d->%d"
                 + " | nodes reused=%d placed=%d, path steps read=%d | %.2fs%n",
                 oldNodeIdByDenseId.length, oldArcIdByDenseId.length, freshTmesh.patches.size(),
                 oldVertices, fresh.copy.vertexCount(), oldFaces, fresh.copy.faceCount(),

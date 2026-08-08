@@ -12,9 +12,9 @@ import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
-import ixdar.geometry.mesh.quadlayout.embedding.LayoutPatchMaps;
-import ixdar.geometry.mesh.quadlayout.embedding.LayoutResolution;
-import ixdar.geometry.mesh.quadlayout.embedding.PatchGridExtraction;
+import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;
+import ixdar.geometry.mesh.quadlayout.gridmap.LayoutPatchMaps;
+import ixdar.geometry.mesh.quadlayout.gridmap.LayoutResolution;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 
 /**
