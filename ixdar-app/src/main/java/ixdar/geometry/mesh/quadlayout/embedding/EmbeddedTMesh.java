@@ -52,9 +52,6 @@ public class EmbeddedTMesh {
      */
     private static final long CONTRACT_PROGRESS_NANOS = 2_000_000_000L;
 
-    /** Corners of a triangular copy face. */
-    private static final int TRIANGLE_CORNERS = 3;
-
     /** Split position for a midpoint edge split. */
     private static final double EDGE_MIDPOINT = 0.5;
 
@@ -1326,7 +1323,7 @@ public class EmbeddedTMesh {
     void openPivotSpoke(int pivotVertex, Set<Integer> channelRegion) {
         for (int index = 0; index < topology.copy.vertexFaceCount(pivotVertex); index++) {
             int faceId = topology.copy.vertexFaceAt(pivotVertex, index);
-            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+            for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
                 int edgeId = topology.copy.faceEdgeAt(faceId, corner);
                 int halfEdge = topology.copy.edgeHalfEdge(edgeId);
                 int endpointA = topology.copy.halfEdgeVertex(halfEdge);

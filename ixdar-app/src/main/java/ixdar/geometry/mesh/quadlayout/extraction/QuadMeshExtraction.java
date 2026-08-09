@@ -31,9 +31,6 @@ import ixdar.geometry.mesh.quadlayout.gridmap.LayoutPatchMaps;
  */
 public final class QuadMeshExtraction {
 
-    /** Corners of a chart triangle. */
-    private static final int TRIANGLE_CORNERS = 3;
-
     /** Iso-line directions leaving a regular grid point. */
     private static final int AXIS_DIRECTIONS = 4;
 
@@ -179,8 +176,8 @@ public final class QuadMeshExtraction {
     private void generateQuadVertices() {
         Set<Integer> seenVertices = new HashSet<>();
         Set<Integer> seenEdges = new HashSet<>();
-        double[] cornerU = new double[TRIANGLE_CORNERS];
-        double[] cornerV = new double[TRIANGLE_CORNERS];
+        double[] cornerU = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
+        double[] cornerV = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         for (EmbeddedPatch patch : tmesh.patches) {
             if (!patch.alive) {
                 continue;
@@ -189,7 +186,7 @@ public final class QuadMeshExtraction {
                     gridMap.denseByCopyVertexByPatchId[patch.patchId];
             double[] uv = gridMap.uvByPatchId[patch.patchId];
             for (int faceId : patchMaps.regions.copyFacesByPatch.get(patch.patchId)) {
-                for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+                for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
                     int copyVertex = copy.faceVertexAt(faceId, corner);
                     int dense = denseByCopyVertex.get(copyVertex);
                     cornerU[corner] = uv[dense * GlobalGridMap.GRID_COORDINATES];
@@ -205,7 +202,7 @@ public final class QuadMeshExtraction {
                         vertexPreimageCount++;
                     }
                 }
-                for (int edgeIndex = 0; edgeIndex < TRIANGLE_CORNERS; edgeIndex++) {
+                for (int edgeIndex = 0; edgeIndex < HalfEdgeMesh.TRIANGLE_CORNERS; edgeIndex++) {
                     int edgeId = copy.faceEdgeAt(faceId, edgeIndex);
                     if (seenEdges.add(edgeId)) {
                         generateEdgePreimages(patch.patchId, faceId, edgeIndex, edgeId,
@@ -231,7 +228,7 @@ public final class QuadMeshExtraction {
      */
     private void generateEdgePreimages(int patchId, int faceId, int edgeIndex, int edgeId,
             double[] cornerU, double[] cornerV) {
-        int nextCorner = (edgeIndex + 1) % TRIANGLE_CORNERS;
+        int nextCorner = (edgeIndex + 1) % HalfEdgeMesh.TRIANGLE_CORNERS;
         double startU = cornerU[edgeIndex];
         double startV = cornerV[edgeIndex];
         double endU = cornerU[nextCorner];
@@ -305,8 +302,8 @@ public final class QuadMeshExtraction {
                 candidate[0] = u;
                 candidate[1] = v;
                 boolean inside = true;
-                for (int side = 0; side < TRIANGLE_CORNERS && inside; side++) {
-                    int next = (side + 1) % TRIANGLE_CORNERS;
+                for (int side = 0; side < HalfEdgeMesh.TRIANGLE_CORNERS && inside; side++) {
+                    int next = (side + 1) % HalfEdgeMesh.TRIANGLE_CORNERS;
                     first[0] = cornerU[side];
                     first[1] = cornerV[side];
                     second[0] = cornerU[next];
@@ -326,7 +323,7 @@ public final class QuadMeshExtraction {
                 float x = 0f;
                 float y = 0f;
                 float z = 0f;
-                for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+                for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
                     double opposite = corner == 0 ? area12 : corner == 1 ? area20 : area01;
                     float weight = (float) (opposite / total);
                     copy.vertexPosition(copy.faceVertexAt(faceId, corner), cornerPosition);
@@ -435,7 +432,7 @@ public final class QuadMeshExtraction {
         boolean counterClockwise = verification.counterClockwiseByPatch[patchId];
         Map<Integer, Integer> denseByCopyVertex = gridMap.denseByCopyVertexByPatchId[patchId];
         double[] uv = gridMap.uvByPatchId[patchId];
-        for (int chartCorner = 0; chartCorner < TRIANGLE_CORNERS; chartCorner++) {
+        for (int chartCorner = 0; chartCorner < HalfEdgeMesh.TRIANGLE_CORNERS; chartCorner++) {
             int copyVertex = copy.faceVertexAt(faceId,
                     faceCornerIndex(chartCorner, counterClockwise));
             int dense = denseByCopyVertex.get(copyVertex);
@@ -569,8 +566,8 @@ public final class QuadMeshExtraction {
         int edgeId = anchorEntityId[quadVertex];
         int halfEdge = copy.edgeHalfEdge(edgeId);
         double[] apex = new double[GlobalGridMap.GRID_COORDINATES];
-        double[] cornerU = new double[TRIANGLE_CORNERS];
-        double[] cornerV = new double[TRIANGLE_CORNERS];
+        double[] cornerU = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
+        double[] cornerV = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         for (int side = 0; side < 2; side++) {
             int faceId = copy.halfEdgeFace(side == 0 ? halfEdge : copy.halfEdgeTwin(halfEdge));
             if (faceId < 0) {
@@ -586,11 +583,11 @@ public final class QuadMeshExtraction {
             boolean counterClockwise = verification.counterClockwiseByPatch[patchId];
             readChartCorners(patchId, faceId, cornerU, cornerV);
             int chartEdge = 0;
-            while (chartEdge < TRIANGLE_CORNERS
+            while (chartEdge < HalfEdgeMesh.TRIANGLE_CORNERS
                     && chartEdgeCopyEdge(faceId, chartEdge, counterClockwise) != edgeId) {
                 chartEdge++;
             }
-            int nextCorner = (chartEdge + 1) % TRIANGLE_CORNERS;
+            int nextCorner = (chartEdge + 1) % HalfEdgeMesh.TRIANGLE_CORNERS;
             wedgePorts(quadVertex, faceId, apex[0], apex[1], cornerU[nextCorner],
                     cornerV[nextCorner], cornerU[chartEdge], cornerV[chartEdge]);
         }
@@ -607,8 +604,8 @@ public final class QuadMeshExtraction {
     private void vertexPorts(int quadVertex) {
         int copyVertex = anchorEntityId[quadVertex];
         int startFace = copy.vertexFaceAt(copyVertex, 0);
-        double[] cornerU = new double[TRIANGLE_CORNERS];
-        double[] cornerV = new double[TRIANGLE_CORNERS];
+        double[] cornerU = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
+        double[] cornerV = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         int faceId = startFace;
         int guard = copy.vertexFaceCount(copyVertex) + 1;
         do {
@@ -616,12 +613,12 @@ public final class QuadMeshExtraction {
             boolean counterClockwise = verification.counterClockwiseByPatch[patchId];
             readChartCorners(patchId, faceId, cornerU, cornerV);
             int chartCorner = 0;
-            while (chartCorner < TRIANGLE_CORNERS && copy.faceVertexAt(faceId,
+            while (chartCorner < HalfEdgeMesh.TRIANGLE_CORNERS && copy.faceVertexAt(faceId,
                     faceCornerIndex(chartCorner, counterClockwise)) != copyVertex) {
                 chartCorner++;
             }
-            int clockwiseCorner = (chartCorner + 1) % TRIANGLE_CORNERS;
-            int counterClockwiseCorner = (chartCorner + 2) % TRIANGLE_CORNERS;
+            int clockwiseCorner = (chartCorner + 1) % HalfEdgeMesh.TRIANGLE_CORNERS;
+            int counterClockwiseCorner = (chartCorner + 2) % HalfEdgeMesh.TRIANGLE_CORNERS;
             wedgePorts(quadVertex, faceId, cornerU[chartCorner], cornerV[chartCorner],
                     cornerU[clockwiseCorner], cornerV[clockwiseCorner],
                     cornerU[counterClockwiseCorner], cornerV[counterClockwiseCorner]);
@@ -783,8 +780,8 @@ public final class QuadMeshExtraction {
         int accumulatedTurns = 0;
         int accumulatedU = 0;
         int accumulatedV = 0;
-        double[] cornerU = new double[TRIANGLE_CORNERS];
-        double[] cornerV = new double[TRIANGLE_CORNERS];
+        double[] cornerU = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
+        double[] cornerV = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] first = {0.0, 0.0, 1.0};
         double[] second = {0.0, 0.0, 1.0};
         double[] third = {0.0, 0.0, 1.0};
@@ -792,8 +789,8 @@ public final class QuadMeshExtraction {
             readChartCorners(patchId, faceId, cornerU, cornerV);
             int insideCount = 0;
             int zeroMask = 0;
-            for (int side = 0; side < TRIANGLE_CORNERS; side++) {
-                int next = (side + 1) % TRIANGLE_CORNERS;
+            for (int side = 0; side < HalfEdgeMesh.TRIANGLE_CORNERS; side++) {
+                int next = (side + 1) % HalfEdgeMesh.TRIANGLE_CORNERS;
                 first[0] = cornerU[side];
                 first[1] = cornerV[side];
                 second[0] = cornerU[next];
@@ -807,7 +804,7 @@ public final class QuadMeshExtraction {
                     zeroMask |= 1 << side;
                 }
             }
-            if (insideCount + Integer.bitCount(zeroMask) == TRIANGLE_CORNERS) {
+            if (insideCount + Integer.bitCount(zeroMask) == HalfEdgeMesh.TRIANGLE_CORNERS) {
                 connectArrival(port, patchId, faceId, turns, segmentEnd, zeroMask,
                         accumulatedTurns, accumulatedU, accumulatedV);
                 return;
@@ -906,11 +903,11 @@ public final class QuadMeshExtraction {
         second[1] = segmentEnd[1];
         int bestEdge = ExtractedQuadMesh.NONE;
         int bestZeros = Integer.MAX_VALUE;
-        for (int chartEdge = 0; chartEdge < TRIANGLE_CORNERS; chartEdge++) {
+        for (int chartEdge = 0; chartEdge < HalfEdgeMesh.TRIANGLE_CORNERS; chartEdge++) {
             if (chartEdgeCopyEdge(faceId, chartEdge, counterClockwise) == entryEdgeId) {
                 continue;
             }
-            int next = (chartEdge + 1) % TRIANGLE_CORNERS;
+            int next = (chartEdge + 1) % HalfEdgeMesh.TRIANGLE_CORNERS;
             third[0] = cornerU[chartEdge];
             third[1] = cornerV[chartEdge];
             int signFrom = ExactBarycentricOrient.sign(first, second, third);
@@ -1088,8 +1085,8 @@ public final class QuadMeshExtraction {
      * @return the shared corner's chart index
      */
     private static int sharedZeroCorner(int zeroMask) {
-        for (int side = 0; side < TRIANGLE_CORNERS; side++) {
-            int previous = (side + TRIANGLE_CORNERS - 1) % TRIANGLE_CORNERS;
+        for (int side = 0; side < HalfEdgeMesh.TRIANGLE_CORNERS; side++) {
+            int previous = (side + HalfEdgeMesh.TRIANGLE_CORNERS - 1) % HalfEdgeMesh.TRIANGLE_CORNERS;
             if ((zeroMask & 1 << side) != 0 && (zeroMask & 1 << previous) != 0) {
                 return side;
             }
@@ -1116,7 +1113,7 @@ public final class QuadMeshExtraction {
             return new int[] {chartEdgeCopyEdge(faceId, chartEdge, counterClockwise)};
         }
         int sharedCorner = sharedZeroCorner(zeroMask);
-        int previous = (sharedCorner + TRIANGLE_CORNERS - 1) % TRIANGLE_CORNERS;
+        int previous = (sharedCorner + HalfEdgeMesh.TRIANGLE_CORNERS - 1) % HalfEdgeMesh.TRIANGLE_CORNERS;
         return new int[] {chartEdgeCopyEdge(faceId, sharedCorner, counterClockwise),
                 chartEdgeCopyEdge(faceId, previous, counterClockwise)};
     }

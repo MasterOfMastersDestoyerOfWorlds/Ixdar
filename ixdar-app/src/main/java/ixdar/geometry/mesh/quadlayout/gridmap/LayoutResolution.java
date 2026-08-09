@@ -20,9 +20,6 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
  */
 public final class LayoutResolution {
 
-    /** Corners of a triangle; the copy mesh is triangulated. */
-    public static final int TRIANGLE_CORNERS = 3;
-
     /** Corner {@code (u, v)} pairs one source face's chart is read into. */
     public static final int CORNER_UV_SIZE = 6;
 
@@ -234,7 +231,7 @@ public final class LayoutResolution {
         double[] fromBarycentric = tmesh.topology.barycentricOf(sourceFace, fromVertex);
         double[] toBarycentric = tmesh.topology.barycentricOf(sourceFace, toVertex);
         double widest = 0.0;
-        for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+        for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
             widest = Math.max(widest, Math.abs(fromBarycentric[corner] - toBarycentric[corner]));
         }
         double chartArea = 0.5 * ((cornerUv[2] - cornerUv[0]) * (cornerUv[5] - cornerUv[1])
@@ -293,7 +290,7 @@ public final class LayoutResolution {
         double[] barycentric = tmesh.topology.barycentricOf(sourceFace, copyVertex);
         out[0] = 0.0;
         out[1] = 0.0;
-        for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+        for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
             out[0] += barycentric[corner] * cornerUv[corner * 2];
             out[1] += barycentric[corner] * cornerUv[corner * 2 + 1];
         }

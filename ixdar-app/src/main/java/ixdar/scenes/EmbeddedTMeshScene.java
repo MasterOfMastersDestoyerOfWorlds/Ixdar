@@ -25,12 +25,6 @@ import ixdar.scenes.model.ModelScene;
  */
 @SceneAnnotation(id = "embedded-tmesh")
 public class EmbeddedTMeshScene extends ModelScene {
- 
-    /** Corners of a source triangle. */
-    private static final int TRIANGLE_CORNERS = 3;
-
-    /** Powers-of-two buckets the refinement-density histogram reports. */
-    private static final int DENSITY_BUCKETS = 16;
 
     /** Whether a full contraction (all three operators to a fixed point) was requested by keypress. */
     public volatile boolean pendingContract;
@@ -161,7 +155,6 @@ public class EmbeddedTMeshScene extends ModelScene {
      * The scale counts doublings because the tail spans four orders of magnitude.
      */
     private void showSplitDensity() {
-        HalfEdgeMesh copy = tmesh.topology.copy;
         int sourceFaceCount = halfEdgeMesh.faceCount();
         Map<Integer, Integer> denseByVertexId = new HashMap<>(halfEdgeMesh.vertexCount() * 2);
         for (int dense = 0; dense < halfEdgeMesh.vertexCount(); dense++) {
@@ -177,32 +170,13 @@ public class EmbeddedTMeshScene extends ModelScene {
             }
             int faceId = halfEdgeMesh.faceIdAt(sourceFace);
             float doublings = (float) (Math.log(childrenByFace[sourceFace]) / Math.log(2));
-            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+            for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
                 Integer dense = denseByVertexId.get(halfEdgeMesh.faceVertexAt(faceId, corner));
                 if (dense != null) {
                     childrenByVertex[dense] = Math.max(childrenByVertex[dense], doublings);
                 }
             }
         }
-        int[] histogram = new int[DENSITY_BUCKETS];
-        for (int children : childrenByFace) {
-            int bucket = 0;
-            while (bucket < DENSITY_BUCKETS - 1 && children > (1 << bucket)) {
-                bucket++;
-            }
-            histogram[bucket]++;
-        }
-        StringBuilder report = new StringBuilder("[refinement] source faces by copy-face count:");
-        for (int bucket = 0; bucket < DENSITY_BUCKETS; bucket++) {
-            if (histogram[bucket] > 0) {
-                report.append(" <=").append(1 << bucket).append(':').append(histogram[bucket]);
-            }
-        }
-        report.append(" worstSourceFace=").append(worstFace)
-                .append(" children=").append(childrenByFace[worstFace])
-                .append(" copyV=").append(copy.vertexCount())
-                .append(" sourceV=").append(tmesh.topology.originalVertexBound);
-        Platforms.get().log(report.toString());
         quadRuntime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.SCALAR);
         quadRuntime.setPerVertexScalar(childrenByVertex, 0f, Float.NaN);
         Platforms.get().log("[refinement] density map on");

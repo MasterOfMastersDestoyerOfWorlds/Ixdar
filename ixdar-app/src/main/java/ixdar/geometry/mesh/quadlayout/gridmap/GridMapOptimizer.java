@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
@@ -27,9 +28,6 @@ public final class GridMapOptimizer {
 
     /** Coordinates each slot contributes to the system. */
     public static final int SLOT_COORDINATES = 2;
-
-    /** Corners of a triangle. */
-    public static final int TRIANGLE_CORNERS = 3;
 
     /**
      * Entries of a triangle's gradient operator: two Jacobian rows over three
@@ -245,7 +243,7 @@ public final class GridMapOptimizer {
     private int invertedCopyTriangleCount;
 
     /** Barycentrics the last {@link #sourceCorners} call read, in corner order. */
-    private final double[][] cornerBarycentric = new double[TRIANGLE_CORNERS][];
+    private final double[][] cornerBarycentric = new double[HalfEdgeMesh.TRIANGLE_CORNERS][];
 
     /**
      * Directional derivative of the energy along the last Newton direction;
@@ -306,10 +304,10 @@ public final class GridMapOptimizer {
      * One triangle's three corners in the parametrization, as
      * {@code u0, v0, u1, v1, u2, v2}.
      */
-    private final double[] sourceUv = new double[TRIANGLE_CORNERS * SLOT_COORDINATES];
+    private final double[] sourceUv = new double[HalfEdgeMesh.TRIANGLE_CORNERS * SLOT_COORDINATES];
 
     /** One source face's three corner {@code (u, v)} pairs. */
-    private final double[] faceCornerUv = new double[TRIANGLE_CORNERS * SLOT_COORDINATES];
+    private final double[] faceCornerUv = new double[HalfEdgeMesh.TRIANGLE_CORNERS * SLOT_COORDINATES];
 
     /**
      * Stores the slot system whose free coordinates are relaxed.
@@ -416,10 +414,10 @@ public final class GridMapOptimizer {
         operatorByTriangle = new double[triangleCount * OPERATOR_SIZE];
         areaByTriangle = new double[triangleCount];
         patchByTriangle = new int[triangleCount];
-        slotByTriangleCorner = new int[triangleCount * TRIANGLE_CORNERS];
-        rotationByTriangleCorner = new int[triangleCount * TRIANGLE_CORNERS];
-        translationUByTriangleCorner = new double[triangleCount * TRIANGLE_CORNERS];
-        translationVByTriangleCorner = new double[triangleCount * TRIANGLE_CORNERS];
+        slotByTriangleCorner = new int[triangleCount * HalfEdgeMesh.TRIANGLE_CORNERS];
+        rotationByTriangleCorner = new int[triangleCount * HalfEdgeMesh.TRIANGLE_CORNERS];
+        translationUByTriangleCorner = new double[triangleCount * HalfEdgeMesh.TRIANGLE_CORNERS];
+        translationVByTriangleCorner = new double[triangleCount * HalfEdgeMesh.TRIANGLE_CORNERS];
         int index = 0;
         for (EmbeddedPatch patch : gridMap.tmesh.patches) {
             if (!patch.alive) {
@@ -461,7 +459,7 @@ public final class GridMapOptimizer {
                 double firstEdgeV = 0.0;
                 double secondEdgeU = 0.0;
                 double secondEdgeV = 0.0;
-                for (int weight = 0; weight < TRIANGLE_CORNERS; weight++) {
+                for (int weight = 0; weight < HalfEdgeMesh.TRIANGLE_CORNERS; weight++) {
                     double alongFirst = cornerBarycentric[1][weight] - cornerBarycentric[0][weight];
                     double alongSecond = cornerBarycentric[2][weight] - cornerBarycentric[0][weight];
                     firstEdgeU += alongFirst * faceCornerUv[weight * 2];
@@ -532,8 +530,8 @@ public final class GridMapOptimizer {
                 // of hundreds against a sliver of 1e-11.
                 double originU = translationUByDense[corners[0]];
                 double originV = translationVByDense[corners[0]];
-                for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-                    int at = index * TRIANGLE_CORNERS + corner;
+                for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
+                    int at = index * HalfEdgeMesh.TRIANGLE_CORNERS + corner;
                     slotByTriangleCorner[at] = slotByDense[corners[corner]];
                     rotationByTriangleCorner[at] = rotationByDense[corners[corner]];
                     translationUByTriangleCorner[at] = translationUByDense[corners[corner]]
@@ -626,7 +624,7 @@ public final class GridMapOptimizer {
                         - faceCornerUv[1]);
         negativeChartCount += chartDeterminantOfLastRead < 0.0 ? 1 : 0;
         int[] corners = { origin, first, second };
-        for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+        for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
             double[] barycentric = gridMap.tmesh.topology.barycentricOf(sourceFace,
                     map.vertexLabel[corners[corner]]);
             if (barycentric == null) {
@@ -635,7 +633,7 @@ public final class GridMapOptimizer {
             cornerBarycentric[corner] = barycentric;
             sourceUv[corner * 2] = 0.0;
             sourceUv[corner * 2 + 1] = 0.0;
-            for (int weight = 0; weight < TRIANGLE_CORNERS; weight++) {
+            for (int weight = 0; weight < HalfEdgeMesh.TRIANGLE_CORNERS; weight++) {
                 sourceUv[corner * 2] += barycentric[weight] * faceCornerUv[weight * 2];
                 sourceUv[corner * 2 + 1] += chartV * barycentric[weight]
                         * faceCornerUv[weight * 2 + 1];
@@ -709,9 +707,9 @@ public final class GridMapOptimizer {
         double[] origin = new double[SLOT_COORDINATES];
         double[] along = new double[SLOT_COORDINATES];
         double[] across = new double[SLOT_COORDINATES];
-        cornerPosition(triangle * TRIANGLE_CORNERS, dofs.slotU, dofs.slotV, origin);
-        cornerPosition(triangle * TRIANGLE_CORNERS + 1, dofs.slotU, dofs.slotV, along);
-        cornerPosition(triangle * TRIANGLE_CORNERS + 2, dofs.slotU, dofs.slotV, across);
+        cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS, dofs.slotU, dofs.slotV, origin);
+        cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 1, dofs.slotU, dofs.slotV, along);
+        cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 2, dofs.slotU, dofs.slotV, across);
         return (along[0] - origin[0]) * (across[1] - origin[1])
                 - (across[0] - origin[0]) * (along[1] - origin[1]);
     }
@@ -739,9 +737,9 @@ public final class GridMapOptimizer {
         operatorByTriangle[at] = -(firstRowSecond + firstRowThird);
         operatorByTriangle[at + 1] = firstRowSecond;
         operatorByTriangle[at + 2] = firstRowThird;
-        operatorByTriangle[at + TRIANGLE_CORNERS] = -(secondRowSecond + secondRowThird);
-        operatorByTriangle[at + TRIANGLE_CORNERS + 1] = secondRowSecond;
-        operatorByTriangle[at + TRIANGLE_CORNERS + 2] = secondRowThird;
+        operatorByTriangle[at + HalfEdgeMesh.TRIANGLE_CORNERS] = -(secondRowSecond + secondRowThird);
+        operatorByTriangle[at + HalfEdgeMesh.TRIANGLE_CORNERS + 1] = secondRowSecond;
+        operatorByTriangle[at + HalfEdgeMesh.TRIANGLE_CORNERS + 2] = secondRowThird;
     }
 
     /**
@@ -752,7 +750,7 @@ public final class GridMapOptimizer {
     private void buildSparsityPattern() {
         int size = dofs.slotCount * SLOT_COORDINATES;
         boolean[] touchedBySlot = new boolean[dofs.slotCount];
-        for (int corner = 0; corner < triangleCount * TRIANGLE_CORNERS; corner++) {
+        for (int corner = 0; corner < triangleCount * HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
             touchedBySlot[slotByTriangleCorner[corner]] = true;
         }
         fixedByVariable = new boolean[size];
@@ -812,10 +810,10 @@ public final class GridMapOptimizer {
      * @param variable receives the variable indices
      */
     private void triangleVariables(int triangle, int[] variable) {
-        for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-            int slot = slotByTriangleCorner[triangle * TRIANGLE_CORNERS + corner];
+        for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
+            int slot = slotByTriangleCorner[triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner];
             variable[corner] = slot * SLOT_COORDINATES;
-            variable[TRIANGLE_CORNERS + corner] = slot * SLOT_COORDINATES + 1;
+            variable[HalfEdgeMesh.TRIANGLE_CORNERS + corner] = slot * SLOT_COORDINATES + 1;
         }
     }
 
@@ -833,8 +831,8 @@ public final class GridMapOptimizer {
         double[] diagonal = new double[size];
         double[] rightHandSide = new double[size];
         Arrays.fill(upperValues, 0.0);
-        double[] targetX = new double[TRIANGLE_CORNERS];
-        double[] targetY = new double[TRIANGLE_CORNERS];
+        double[] targetX = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
+        double[] targetY = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] operator = new double[OPERATOR_SIZE];
         int[] variable = new int[SymmetricDirichletEnergy.VARIABLES];
         int at = 0;
@@ -898,26 +896,26 @@ public final class GridMapOptimizer {
      */
     private void rotateElementToSlots(int triangle, SymmetricDirichletEnergy element) {
         double[] rotated = new double[SLOT_COORDINATES];
-        for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-            int rotation = rotationByTriangleCorner[triangle * TRIANGLE_CORNERS + corner];
+        for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
+            int rotation = rotationByTriangleCorner[triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner];
             if (rotation == 0) {
                 continue;
             }
             int inverse = (IntegerGridMap.QUARTER_TURNS - rotation)
                     % IntegerGridMap.QUARTER_TURNS;
             IntegerGridMap.rotate(inverse, element.gradient[corner],
-                    element.gradient[TRIANGLE_CORNERS + corner], rotated);
+                    element.gradient[HalfEdgeMesh.TRIANGLE_CORNERS + corner], rotated);
             element.gradient[corner] = rotated[0];
-            element.gradient[TRIANGLE_CORNERS + corner] = rotated[1];
+            element.gradient[HalfEdgeMesh.TRIANGLE_CORNERS + corner] = rotated[1];
             for (int column = 0; column < SymmetricDirichletEnergy.VARIABLES; column++) {
                 IntegerGridMap.rotate(inverse, element.hessian[corner][column],
-                        element.hessian[TRIANGLE_CORNERS + corner][column], rotated);
+                        element.hessian[HalfEdgeMesh.TRIANGLE_CORNERS + corner][column], rotated);
                 element.hessian[corner][column] = rotated[0];
-                element.hessian[TRIANGLE_CORNERS + corner][column] = rotated[1];
+                element.hessian[HalfEdgeMesh.TRIANGLE_CORNERS + corner][column] = rotated[1];
             }
         }
-        for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-            int rotation = rotationByTriangleCorner[triangle * TRIANGLE_CORNERS + corner];
+        for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
+            int rotation = rotationByTriangleCorner[triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner];
             if (rotation == 0) {
                 continue;
             }
@@ -925,9 +923,9 @@ public final class GridMapOptimizer {
                     % IntegerGridMap.QUARTER_TURNS;
             for (int row = 0; row < SymmetricDirichletEnergy.VARIABLES; row++) {
                 IntegerGridMap.rotate(inverse, element.hessian[row][corner],
-                        element.hessian[row][TRIANGLE_CORNERS + corner], rotated);
+                        element.hessian[row][HalfEdgeMesh.TRIANGLE_CORNERS + corner], rotated);
                 element.hessian[row][corner] = rotated[0];
-                element.hessian[row][TRIANGLE_CORNERS + corner] = rotated[1];
+                element.hessian[row][HalfEdgeMesh.TRIANGLE_CORNERS + corner] = rotated[1];
             }
         }
     }
@@ -950,12 +948,12 @@ public final class GridMapOptimizer {
         double[] alongMove = new double[SLOT_COORDINATES];
         double[] acrossMove = new double[SLOT_COORDINATES];
         for (int triangle = 0; triangle < triangleCount; triangle++) {
-            cornerPosition(triangle * TRIANGLE_CORNERS, dofs.slotU, dofs.slotV, origin);
-            cornerPosition(triangle * TRIANGLE_CORNERS + 1, dofs.slotU, dofs.slotV, along);
-            cornerPosition(triangle * TRIANGLE_CORNERS + 2, dofs.slotU, dofs.slotV, across);
-            cornerMove(triangle * TRIANGLE_CORNERS, delta, originMove);
-            cornerMove(triangle * TRIANGLE_CORNERS + 1, delta, alongMove);
-            cornerMove(triangle * TRIANGLE_CORNERS + 2, delta, acrossMove);
+            cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS, dofs.slotU, dofs.slotV, origin);
+            cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 1, dofs.slotU, dofs.slotV, along);
+            cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 2, dofs.slotU, dofs.slotV, across);
+            cornerMove(triangle * HalfEdgeMesh.TRIANGLE_CORNERS, delta, originMove);
+            cornerMove(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 1, delta, alongMove);
+            cornerMove(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 2, delta, acrossMove);
             double edgeOneU = along[0] - origin[0];
             double edgeOneV = along[1] - origin[1];
             double edgeTwoU = across[0] - origin[0];
@@ -1066,8 +1064,8 @@ public final class GridMapOptimizer {
      * @return the number of triangles removed
      */
     private int dropUnrepresentableTriangles(SymmetricDirichletEnergy element) {
-        double[] targetX = new double[TRIANGLE_CORNERS];
-        double[] targetY = new double[TRIANGLE_CORNERS];
+        double[] targetX = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
+        double[] targetY = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] operator = new double[OPERATOR_SIZE];
         double[] position = new double[SLOT_COORDINATES];
         int kept = 0;
@@ -1075,8 +1073,8 @@ public final class GridMapOptimizer {
         for (int triangle = 0; triangle < triangleCount; triangle++) {
             System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operator, 0,
                     OPERATOR_SIZE);
-            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-                cornerPosition(triangle * TRIANGLE_CORNERS + corner, dofs.slotU, dofs.slotV,
+            for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
+                cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner, dofs.slotU, dofs.slotV,
                         position);
                 targetX[corner] = position[0];
                 targetY[corner] = position[1];
@@ -1089,14 +1087,14 @@ public final class GridMapOptimizer {
             if (kept != triangle) {
                 System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operatorByTriangle,
                         kept * OPERATOR_SIZE, OPERATOR_SIZE);
-                System.arraycopy(slotByTriangleCorner, triangle * TRIANGLE_CORNERS,
-                        slotByTriangleCorner, kept * TRIANGLE_CORNERS, TRIANGLE_CORNERS);
-                System.arraycopy(rotationByTriangleCorner, triangle * TRIANGLE_CORNERS,
-                        rotationByTriangleCorner, kept * TRIANGLE_CORNERS, TRIANGLE_CORNERS);
-                System.arraycopy(translationUByTriangleCorner, triangle * TRIANGLE_CORNERS,
-                        translationUByTriangleCorner, kept * TRIANGLE_CORNERS, TRIANGLE_CORNERS);
-                System.arraycopy(translationVByTriangleCorner, triangle * TRIANGLE_CORNERS,
-                        translationVByTriangleCorner, kept * TRIANGLE_CORNERS, TRIANGLE_CORNERS);
+                System.arraycopy(slotByTriangleCorner, triangle * HalfEdgeMesh.TRIANGLE_CORNERS,
+                        slotByTriangleCorner, kept * HalfEdgeMesh.TRIANGLE_CORNERS, HalfEdgeMesh.TRIANGLE_CORNERS);
+                System.arraycopy(rotationByTriangleCorner, triangle * HalfEdgeMesh.TRIANGLE_CORNERS,
+                        rotationByTriangleCorner, kept * HalfEdgeMesh.TRIANGLE_CORNERS, HalfEdgeMesh.TRIANGLE_CORNERS);
+                System.arraycopy(translationUByTriangleCorner, triangle * HalfEdgeMesh.TRIANGLE_CORNERS,
+                        translationUByTriangleCorner, kept * HalfEdgeMesh.TRIANGLE_CORNERS, HalfEdgeMesh.TRIANGLE_CORNERS);
+                System.arraycopy(translationVByTriangleCorner, triangle * HalfEdgeMesh.TRIANGLE_CORNERS,
+                        translationVByTriangleCorner, kept * HalfEdgeMesh.TRIANGLE_CORNERS, HalfEdgeMesh.TRIANGLE_CORNERS);
                 areaByTriangle[kept] = areaByTriangle[triangle];
                 patchByTriangle[kept] = patchByTriangle[triangle];
             }
@@ -1115,16 +1113,16 @@ public final class GridMapOptimizer {
      * @return the summed energy, infinite when any triangle has folded
      */
     private double totalEnergy(SymmetricDirichletEnergy element, double[] slotU, double[] slotV) {
-        double[] targetX = new double[TRIANGLE_CORNERS];
-        double[] targetY = new double[TRIANGLE_CORNERS];
+        double[] targetX = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
+        double[] targetY = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] operator = new double[OPERATOR_SIZE];
         double[] position = new double[SLOT_COORDINATES];
         double total = 0.0;
         for (int triangle = 0; triangle < triangleCount; triangle++) {
             System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operator, 0,
                     OPERATOR_SIZE);
-            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-                cornerPosition(triangle * TRIANGLE_CORNERS + corner, slotU, slotV, position);
+            for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
+                cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner, slotU, slotV, position);
                 targetX[corner] = position[0];
                 targetY[corner] = position[1];
             }
@@ -1147,8 +1145,8 @@ public final class GridMapOptimizer {
     private void loadTriangle(int triangle, double[] operator, double[] targetX, double[] targetY) {
         System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operator, 0, OPERATOR_SIZE);
         double[] position = new double[SLOT_COORDINATES];
-        for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
-            cornerPosition(triangle * TRIANGLE_CORNERS + corner, dofs.slotU, dofs.slotV, position);
+        for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
+            cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner, dofs.slotU, dofs.slotV, position);
             targetX[corner] = position[0];
             targetY[corner] = position[1];
         }

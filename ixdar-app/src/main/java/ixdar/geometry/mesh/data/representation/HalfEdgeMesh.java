@@ -22,6 +22,7 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
     public static final float NUM_0_5 = 0.5f;
     public static final float NUM_0 = 0f;
     public static final int FLOATS_PER_VERTEX = 3;
+    public static final int TRIANGLE_CORNERS = 3;
 
     public final ActiveIdSet activeVertexIds;
     public final ActiveIdSet activeEdgeIds;

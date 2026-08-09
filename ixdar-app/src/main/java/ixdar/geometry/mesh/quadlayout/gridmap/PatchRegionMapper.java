@@ -23,9 +23,6 @@ import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
  */
 public final class PatchRegionMapper {
 
-    /** Corners of a triangle; the copy mesh is triangulated. */
-    public static final int TRIANGLE_CORNERS = 3;
-
     public final EmbeddedTMesh tmesh;
     public final PatchRegions regions;
 
@@ -57,14 +54,14 @@ public final class PatchRegionMapper {
         HalfEdgeMesh copy = tmesh.topology.copy;
         Map<Integer, Integer> denseByCopyVertex = new HashMap<>();
         List<Integer> denseCopyVertex = new ArrayList<>();
-        int[][] triangles = new int[regionFaces.size()][TRIANGLE_CORNERS];
+        int[][] triangles = new int[regionFaces.size()][HalfEdgeMesh.TRIANGLE_CORNERS];
         for (int faceIndex = 0; faceIndex < regionFaces.size(); faceIndex++) {
             int faceId = regionFaces.get(faceIndex);
-            if (copy.faceVertexCount(faceId) != TRIANGLE_CORNERS) {
+            if (copy.faceVertexCount(faceId) != HalfEdgeMesh.TRIANGLE_CORNERS) {
                 throw new IllegalStateException("copy face " + faceId + " is not a triangle;"
                         + " the region map needs a triangulated region");
             }
-            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+            for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
                 int copyVertex = copy.faceVertexAt(faceId, corner);
                 triangles[faceIndex][corner] = denseOf(copyVertex, denseByCopyVertex, denseCopyVertex);
             }

@@ -1,5 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.gridmap;
 
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+
 /**
  * One triangle's symmetric Dirichlet energy {@code A·‖J‖²_F·(1 + 1/det²)}, with
  * its analytic gradient and its Hessian projected to positive semi-definite.
@@ -12,9 +14,6 @@ package ixdar.geometry.mesh.quadlayout.gridmap;
  * See also: LCBK19 Section 6.2
  */
 public final class SymmetricDirichletEnergy {
-
-    /** Corners of a triangle. */
-    public static final int TRIANGLE_CORNERS = 3;
 
     /** Variables per triangle: three corners in two coordinates. */
     public static final int VARIABLES = 6;
@@ -72,13 +71,13 @@ public final class SymmetricDirichletEnergy {
 
         double[] frobeniusGradient = new double[VARIABLES];
         double[] determinantGradient = new double[VARIABLES];
-        for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+        for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
             double first = gradientOperator[corner];
-            double second = gradientOperator[TRIANGLE_CORNERS + corner];
+            double second = gradientOperator[HalfEdgeMesh.TRIANGLE_CORNERS + corner];
             frobeniusGradient[corner] = 2.0 * (firstU * first + secondU * second);
-            frobeniusGradient[TRIANGLE_CORNERS + corner] = 2.0 * (firstV * first + secondV * second);
+            frobeniusGradient[HalfEdgeMesh.TRIANGLE_CORNERS + corner] = 2.0 * (firstV * first + secondV * second);
             determinantGradient[corner] = secondV * first - firstV * second;
-            determinantGradient[TRIANGLE_CORNERS + corner] = firstU * second - secondU * first;
+            determinantGradient[HalfEdgeMesh.TRIANGLE_CORNERS + corner] = firstU * second - secondU * first;
         }
 
         double scale = 1.0 + inverseSquared;
@@ -92,21 +91,21 @@ public final class SymmetricDirichletEnergy {
         }
         for (int row = 0; row < VARIABLES; row++) {
             for (int column = 0; column < VARIABLES; column++) {
-                double frobeniusHessian = row / TRIANGLE_CORNERS == column / TRIANGLE_CORNERS
-                        ? 2.0 * (gradientOperator[row % TRIANGLE_CORNERS]
-                                * gradientOperator[column % TRIANGLE_CORNERS]
-                                + gradientOperator[TRIANGLE_CORNERS + row % TRIANGLE_CORNERS]
-                                        * gradientOperator[TRIANGLE_CORNERS
-                                                + column % TRIANGLE_CORNERS])
+                double frobeniusHessian = row / HalfEdgeMesh.TRIANGLE_CORNERS == column / HalfEdgeMesh.TRIANGLE_CORNERS
+                        ? 2.0 * (gradientOperator[row % HalfEdgeMesh.TRIANGLE_CORNERS]
+                                * gradientOperator[column % HalfEdgeMesh.TRIANGLE_CORNERS]
+                                + gradientOperator[HalfEdgeMesh.TRIANGLE_CORNERS + row % HalfEdgeMesh.TRIANGLE_CORNERS]
+                                        * gradientOperator[HalfEdgeMesh.TRIANGLE_CORNERS
+                                                + column % HalfEdgeMesh.TRIANGLE_CORNERS])
                         : 0.0;
                 double determinantHessian = 0.0;
-                if (row / TRIANGLE_CORNERS != column / TRIANGLE_CORNERS) {
-                    int xIndex = row < TRIANGLE_CORNERS ? row : column;
-                    int yIndex = row < TRIANGLE_CORNERS ? column : row;
-                    yIndex -= TRIANGLE_CORNERS;
-                    determinantHessian = gradientOperator[TRIANGLE_CORNERS + yIndex]
+                if (row / HalfEdgeMesh.TRIANGLE_CORNERS != column / HalfEdgeMesh.TRIANGLE_CORNERS) {
+                    int xIndex = row < HalfEdgeMesh.TRIANGLE_CORNERS ? row : column;
+                    int yIndex = row < HalfEdgeMesh.TRIANGLE_CORNERS ? column : row;
+                    yIndex -= HalfEdgeMesh.TRIANGLE_CORNERS;
+                    determinantHessian = gradientOperator[HalfEdgeMesh.TRIANGLE_CORNERS + yIndex]
                             * gradientOperator[xIndex]
-                            - gradientOperator[yIndex] * gradientOperator[TRIANGLE_CORNERS + xIndex];
+                            - gradientOperator[yIndex] * gradientOperator[HalfEdgeMesh.TRIANGLE_CORNERS + xIndex];
                 }
                 hessian[row][column] = area * (scale * frobeniusHessian
                         + crossFactor * (frobeniusGradient[row] * determinantGradient[column]
@@ -155,10 +154,13 @@ public final class SymmetricDirichletEnergy {
      * @return the Jacobian entry
      */
     private double row(double[] gradientOperator, int jacobianRow, double[] target) {
-        int base = jacobianRow * TRIANGLE_CORNERS;
-        // The operator's first entry is minus the other two, so this is the same value as
-        // summing all three products — but the corner differences are taken first, which is
-        // exact for nearby doubles. Summing instead cancels a grid offset of hundreds against
+        int base = jacobianRow * HalfEdgeMesh.TRIANGLE_CORNERS;
+        // The operator's first entry is minus the other two, so this is the same value
+        // as
+        // summing all three products — but the corner differences are taken first,
+        // which is
+        // exact for nearby doubles. Summing instead cancels a grid offset of hundreds
+        // against
         // a triangle spanning 1e-11 and leaves nothing.
         return gradientOperator[base + 1] * (target[1] - target[0])
                 + gradientOperator[base + 2] * (target[2] - target[0]);

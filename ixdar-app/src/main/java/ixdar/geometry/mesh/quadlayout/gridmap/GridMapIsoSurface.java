@@ -14,9 +14,6 @@ import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
  */
 public final class GridMapIsoSurface {
 
-    /** Corners of a copy triangle. */
-    private static final int TRIANGLE_CORNERS = 3;
-
     public final LayoutPatchMaps patchMaps;
 
     /** The map state read at build time, {@code {u0, v0, u1, v1, ...}} per patch. */
@@ -54,8 +51,8 @@ public final class GridMapIsoSurface {
     public GridMapIsoSurface build() {
         HalfEdgeMesh copy = patchMaps.tmesh.topology.copy;
         int faceCount = copy.faceCount();
-        cornerU = new double[faceCount * TRIANGLE_CORNERS];
-        cornerV = new double[faceCount * TRIANGLE_CORNERS];
+        cornerU = new double[faceCount * HalfEdgeMesh.TRIANGLE_CORNERS];
+        cornerV = new double[faceCount * HalfEdgeMesh.TRIANGLE_CORNERS];
         faceFlipped = new boolean[faceCount];
         Map<Integer, Integer> activeByFaceId = new HashMap<>(faceCount * 2);
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
@@ -72,8 +69,8 @@ public final class GridMapIsoSurface {
             for (int faceIndex = 0; faceIndex < regionFaces.size(); faceIndex++) {
                 int activeFace = activeByFaceId.get(regionFaces.get(faceIndex));
                 int[] triangle = map.triangles[faceIndex];
-                int base = activeFace * TRIANGLE_CORNERS;
-                for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+                int base = activeFace * HalfEdgeMesh.TRIANGLE_CORNERS;
+                for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
                     int dense = triangle[corner];
                     cornerU[base + corner] = uv[dense * GlobalGridMap.GRID_COORDINATES];
                     cornerV[base + corner] = uv[dense * GlobalGridMap.GRID_COORDINATES + 1];

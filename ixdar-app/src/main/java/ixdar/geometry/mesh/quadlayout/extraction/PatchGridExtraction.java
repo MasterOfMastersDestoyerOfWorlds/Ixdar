@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
@@ -24,8 +25,6 @@ import ixdar.geometry.mesh.quadlayout.gridmap.PatchRectangleMap;
  */
 public final class PatchGridExtraction {
 
-    /** Corners of a triangle; the copy mesh is triangulated. */
-    public static final int TRIANGLE_CORNERS = 3;
 
     /**
      * Barycentric slack when testing whether a lattice point lies in a triangle. A
@@ -251,10 +250,10 @@ public final class PatchGridExtraction {
             int translationU, int translationV, int columns, int rows, Vector3f[] grid) {
         PatchRectangleMap map = patchMaps.mapByPatchId[sourcePatchId];
         double[] local = new double[2];
-        double[] cornerU = new double[TRIANGLE_CORNERS];
-        double[] cornerV = new double[TRIANGLE_CORNERS];
+        double[] cornerU = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
+        double[] cornerV = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         for (int[] triangle : map.triangles) {
-            for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+            for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
                 patchLocal(framePatchId, sourcePatchId, quarterTurns, translationU, translationV,
                         map, triangle[corner], local);
                 cornerU[corner] = local[0];
