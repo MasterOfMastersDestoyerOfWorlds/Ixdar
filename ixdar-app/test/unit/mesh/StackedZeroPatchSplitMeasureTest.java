@@ -6,10 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 
 /**
  * Operator (2) may raise the termination measure on its own; only the round that follows it must

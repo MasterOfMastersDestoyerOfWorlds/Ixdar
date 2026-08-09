@@ -9,6 +9,8 @@ import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 
 /**
  * Operator (1), the zero-arc collapse: one endpoint node is embedded onto the

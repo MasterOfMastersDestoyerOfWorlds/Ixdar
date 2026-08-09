@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
 
 /**

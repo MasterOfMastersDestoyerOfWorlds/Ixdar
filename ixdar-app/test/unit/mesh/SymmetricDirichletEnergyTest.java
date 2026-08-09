@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.gridmap.SymmetricDirichletEnergy;
 
 /**
@@ -111,10 +112,10 @@ class SymmetricDirichletEnergyTest {
             double displacement) {
         double[] targetX = TARGET_X.clone();
         double[] targetY = TARGET_Y.clone();
-        if (variable < SymmetricDirichletEnergy.TRIANGLE_CORNERS) {
+        if (variable < HalfEdgeMesh.TRIANGLE_CORNERS) {
             targetX[variable] += displacement;
         } else {
-            targetY[variable - SymmetricDirichletEnergy.TRIANGLE_CORNERS] += displacement;
+            targetY[variable - HalfEdgeMesh.TRIANGLE_CORNERS] += displacement;
         }
         return element.energyOnly(OPERATOR, AREA, targetX, targetY);
     }
@@ -131,10 +132,10 @@ class SymmetricDirichletEnergyTest {
             double displacement) {
         double[] targetX = TARGET_X.clone();
         double[] targetY = TARGET_Y.clone();
-        if (variable < SymmetricDirichletEnergy.TRIANGLE_CORNERS) {
+        if (variable < HalfEdgeMesh.TRIANGLE_CORNERS) {
             targetX[variable] += displacement;
         } else {
-            targetY[variable - SymmetricDirichletEnergy.TRIANGLE_CORNERS] += displacement;
+            targetY[variable - HalfEdgeMesh.TRIANGLE_CORNERS] += displacement;
         }
         element.evaluate(OPERATOR, AREA, targetX, targetY);
         return element.gradient.clone();

@@ -6,9 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
 
 /**

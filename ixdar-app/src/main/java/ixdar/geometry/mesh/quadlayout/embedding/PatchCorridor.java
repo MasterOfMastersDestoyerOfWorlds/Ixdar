@@ -5,6 +5,7 @@ import java.util.List;
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
 
 /**

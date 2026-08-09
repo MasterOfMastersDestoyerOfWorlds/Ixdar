@@ -6,9 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 
 /**
  * LCBK19 §6.1 operator (1) on the Figure-9 torus fixture: collapsing a zero arc must remove

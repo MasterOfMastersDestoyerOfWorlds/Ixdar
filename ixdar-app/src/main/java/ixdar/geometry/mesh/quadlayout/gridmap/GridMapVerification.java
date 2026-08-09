@@ -8,10 +8,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 
 /**
  * Makes the relaxed grid map numerically consistent and proves the extraction's

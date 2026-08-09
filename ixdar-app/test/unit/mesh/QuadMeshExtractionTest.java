@@ -7,8 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedPatchGrids;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedQuadMesh;
 import ixdar.geometry.mesh.quadlayout.extraction.QuadMeshExtraction;
@@ -68,7 +68,7 @@ class QuadMeshExtractionTest {
         LayoutPatchMaps patchMaps = new LayoutPatchMaps(fixture.tmesh, seamless,
                 targetEdgeLength).build();
         IntegerGridMap frames = new IntegerGridMap(fixture.tmesh).build();
-        GlobalGridMap gridMap = new GlobalGridMap(patchMaps, frames).build();
+        GlobalGridMap gridMap = new GlobalGridMap(patchMaps, frames, seamless).build();
         if (relax) {
             GridMapDofSystem dofs = new GridMapDofSystem(gridMap);
             dofs.build();

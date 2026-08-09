@@ -1,5 +1,6 @@
-package ixdar.geometry.mesh.quadlayout.embedding;
+package ixdar.geometry.mesh.quadlayout.embedding.records;
 
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.gridmap.LayoutResolution;
 
 /**

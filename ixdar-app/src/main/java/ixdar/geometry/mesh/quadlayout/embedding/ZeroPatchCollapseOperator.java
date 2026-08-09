@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.quadlayout.embedding;
 import java.util.ArrayList;
 import java.util.List;
 
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+
 /**
  * Operator (3), the simple zero-patch collapse: requires a bigon, so the patch's zero-length
  * sides must already be collapsed.

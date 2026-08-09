@@ -10,10 +10,10 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
 import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
 import ixdar.geometry.mesh.quadlayout.gridmap.LayoutPatchMaps;

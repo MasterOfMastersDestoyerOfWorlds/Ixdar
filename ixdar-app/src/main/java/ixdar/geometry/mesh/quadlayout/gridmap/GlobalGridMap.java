@@ -5,9 +5,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedPatchGrids;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedQuadMesh;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;
@@ -66,7 +66,7 @@ public final class GlobalGridMap {
     /** Largest distance from an integer over every layout node's coordinates. */
     public double worstNodeIntegerDeviation;
 
-    private GridMapDofSystem gridDofs;
+    public GridMapDofSystem gridDofs;
 
     public PatchGridExtraction quadGridInitial;
 
@@ -76,19 +76,20 @@ public final class GlobalGridMap {
 
     public GridMapIsoSurface isoSurfaceRelaxed;
 
-    private GridMapVerification gridVerification;
+    public GridMapVerification gridVerification;
 
     public ExtractedQuadMesh quadMesh;
 
     public ExtractedPatchGrids extractedGrids;
 
-    private SeamlessParameterization seamless;
+    public SeamlessParameterization seamless;
 
     /**
      * Stores the per-patch maps and the frames that place them in one grid.
      *
      * @param patchMaps solved per-patch rectangle maps
      * @param frames    the patches' quarter turns and integer origins
+     * @param seamless the seamless parameterization to constrain the global grid map against
      */
     public GlobalGridMap(LayoutPatchMaps patchMaps, IntegerGridMap frames, SeamlessParameterization seamless) {
         this.patchMaps = patchMaps;

@@ -10,12 +10,12 @@ import org.lwjgl.BufferUtils;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.Singularity;
-import ixdar.geometry.mesh.quadlayout.embedding.ArcEdgePath;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
+import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.extraction.LayoutPatchCurves;
 import ixdar.geometry.mesh.quadlayout.extraction.LayoutPatchSurfaces;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;

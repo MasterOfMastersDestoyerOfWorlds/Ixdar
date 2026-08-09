@@ -2,6 +2,8 @@ package ixdar.geometry.mesh.quadlayout.embedding;
 
 import java.util.List;
 
+import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
+
 /**
  * LCBK19's snap as decimation of the finished arrangement: each minted path
  * vertex whose lane can shift onto an adjacent free original vertex is snapped

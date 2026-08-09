@@ -12,6 +12,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
 
 /**
  * Working copy of the input mesh for the re-embedding, rebuilt into a fresh
