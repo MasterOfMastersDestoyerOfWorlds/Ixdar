@@ -1078,8 +1078,9 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * The node at a quantized offset along a patch side, inserting one by splitting
-     * an arc when no node sits exactly there.
+     * The node at a quantized offset along a patch side, splitting an arc to insert
+     * one when no node sits there. A single-edge arc is refined first, so the new
+     * node has a vertex to sit on.
      *
      * <p>
      * See also: LCBK19 Section 6.1
@@ -1109,6 +1110,14 @@ public class EmbeddedTMesh {
                 int offsetIntoArc = offset - cumulative;
                 boolean forward = sideNodes.get(index) == arc.startNodeId;
                 int arcOffset = forward ? offsetIntoArc : arc.quantizedLength - offsetIntoArc;
+                List<Integer> path = arc.path.copyVertexPath;
+                if (path.size() == 2) {
+                    int minted = topology.splitEdgeAtParameter(arc.path.copyEdgePath.get(0),
+                            EDGE_MIDPOINT);
+                    path.add(1, minted);
+                    arc.path.copyEdgePath.set(0, topology.edgeBetween(path.get(0), minted));
+                    arc.path.copyEdgePath.add(1, topology.edgeBetween(minted, path.get(2)));
+                }
                 int pathVertexIndex = interiorPathVertexAtFraction(arc,
                         (double) arcOffset / arc.quantizedLength);
                 int[] halves = splitArc(arcId, arcOffset, pathVertexIndex);
@@ -1128,15 +1137,16 @@ public class EmbeddedTMesh {
      *
      * @param arc      arc to split
      * @param fraction fraction of the arc's length, in {@code (0, 1)}
-     * @throws IllegalStateException when the arc's path has no interior vertex to
-     *                               split at
+     * @throws IllegalStateException when the arc is collapsed to a point, so it has no
+     *                               interior vertex and refining it would mint nothing
      * @return the index of the nearest strictly interior path vertex
      */
     private int interiorPathVertexAtFraction(EmbeddedArc arc, double fraction) {
         List<Integer> vertices = arc.path.copyVertexPath;
         if (vertices.size() < 3) {
-            throw new IllegalStateException(arc.arcId + " is a single-edge arc and cannot host a"
-                    + " split node without mesh refinement");
+            throw new IllegalStateException("arc " + arc.arcId + " has a path of "
+                    + vertices.size() + " vertices, so it is collapsed and cannot host a"
+                    + " split node");
         }
         double[] cumulative = new double[vertices.size()];
         Vector3f here = new Vector3f();
