@@ -389,11 +389,11 @@ public final class GridMapOptimizer {
         }
         dofs.writeBack();
         flippedTriangleCount = countFlipped();
-        Platforms.get().log(String.format("[grid-optimize] energy %.4e -> %.4e (%.1f%%) iterations=%d"
+        System.out.printf("[grid-optimize] energy %.4e -> %.4e (%.1f%%) iterations=%d"
                 + " flipped=%d/%d pinned=%d worstMove=%.4f%n", energyBefore, energyAfter,
                 100.0 * (energyBefore - energyAfter) / Math.max(1.0e-30, energyBefore),
                 iterationCount, flippedTriangleCount, triangleCount, pinnedTriangleCount,
-                worstVertexMove));
+                worstVertexMove);
         return this;
     }
 

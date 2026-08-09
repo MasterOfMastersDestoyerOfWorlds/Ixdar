@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.quadlayout.gridmap.GridMapIsoSurface;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
 import ixdar.platform.Platforms;
@@ -19,12 +20,27 @@ import ixdar.scenes.model.ModelScene;
 @SceneAnnotation(id = "quad-layout")
 public class QuadLayoutScene extends ModelScene {
 
+    /** Grid-map paint off; the iso surface holds the seamless parametrization. */
+    private static final int GRID_MAP_VIEW_OFF = 0;
+
+    /** Grid-map paint showing the pre-relaxation integer grid map. */
+    private static final int GRID_MAP_VIEW_INITIAL = 1;
+
+    /** Grid-map paint showing the relaxed integer grid map. */
+    private static final int GRID_MAP_VIEW_RELAXED = 2;
+
+    /** States the grid-map paint toggle cycles through. */
+    private static final int GRID_MAP_VIEW_COUNT = 3;
+
     private QuadLayoutRuntime quadRuntime;
     private float alphaDegrees = 15f;
     private boolean coonsFill;
 
     /** Whether the displayed grid is the pre-relaxation map instead of the relaxed one. */
     private boolean showInitialGrid;
+
+    /** Which integer grid map is painted on the surface, one of the view constants. */
+    private int gridMapView;
 
     /** The engine of the last build, held so the fill can be swapped without rebuilding. */
     private QuadLayoutEngine engine;
@@ -68,6 +84,8 @@ public class QuadLayoutScene extends ModelScene {
                 () -> quadRuntime.showEmbeddedArcs = !quadRuntime.showEmbeddedArcs));
         controls.add(new ControlHint(Keys.N, "N", "toggle nodes",
                 () -> quadRuntime.showNodes = !quadRuntime.showNodes));
+        controls.add(new ControlHint(Keys.G, "G", "cycle grid map paint (off/initial/relaxed)",
+                this::cycleGridMapView));
         controls.add(new ControlHint(Keys.COMMA, ",", "decrease alpha", () -> stepAlpha(-1f)));
         controls.add(new ControlHint(Keys.PERIOD, ".", "increase alpha", () -> stepAlpha(1f)));
         super.setControls();
@@ -133,6 +151,33 @@ public class QuadLayoutScene extends ModelScene {
             Platforms.get().log("[quad-layout] showing "
                     + (showInitialGrid ? "PRE-relaxation" : "relaxed") + " grid");
         }
+    }
+
+    /**
+     * Cycles the surface paint through off, the pre-relaxation integer grid map, and the
+     * relaxed one, so the Newton solve's effect on the map is judged directly on the
+     * surface rather than through the extraction.
+     */
+    private void cycleGridMapView() {
+        gridMapView = (gridMapView + 1) % GRID_MAP_VIEW_COUNT;
+        if (engine == null) {
+            return;
+        }
+        if (gridMapView == GRID_MAP_VIEW_OFF) {
+            quadRuntime.showFullIsoGrid = false;
+            quadRuntime.setSeamlessParametrization(engine.seamless);
+            Platforms.get().log("[quad-layout] grid map paint off");
+            return;
+        }
+        GridMapIsoSurface isoSurface = gridMapView == GRID_MAP_VIEW_INITIAL
+                ? engine.isoSurfaceInitial
+                : engine.isoSurfaceRelaxed;
+        quadRuntime.uploadPatchParametrization(engine.tmesh.topology.copy,
+                isoSurface.cornerU, isoSurface.cornerV, isoSurface.faceFlipped);
+        quadRuntime.showFullIsoGrid = true;
+        Platforms.get().log("[quad-layout] grid map paint: "
+                + (gridMapView == GRID_MAP_VIEW_INITIAL ? "INITIAL" : "RELAXED")
+                + " flippedFaces=" + isoSurface.flippedFaceCount);
     }
 
     void stepAlpha(float deltaDegrees) {

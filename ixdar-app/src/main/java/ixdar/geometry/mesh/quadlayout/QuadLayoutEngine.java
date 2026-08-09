@@ -6,10 +6,15 @@ import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
+import ixdar.geometry.mesh.quadlayout.extraction.ExtractedPatchGrids;
+import ixdar.geometry.mesh.quadlayout.extraction.ExtractedQuadMesh;
 import ixdar.geometry.mesh.quadlayout.extraction.LayoutPatchSurfaces;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;
+import ixdar.geometry.mesh.quadlayout.extraction.QuadMeshExtraction;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
 import ixdar.geometry.mesh.quadlayout.gridmap.GridMapDofSystem;
+import ixdar.geometry.mesh.quadlayout.gridmap.GridMapIsoSurface;
+import ixdar.geometry.mesh.quadlayout.gridmap.GridMapVerification;
 import ixdar.geometry.mesh.quadlayout.gridmap.GridMapOptimizer;
 import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
 import ixdar.geometry.mesh.quadlayout.gridmap.LayoutPatchMaps;
@@ -86,6 +91,21 @@ public final class QuadLayoutEngine {
 
     /** The relaxation that frees patch boundaries from their rectangles. */
     public GridMapOptimizer gridOptimizer;
+
+    /** The integer grid painted on the surface, baked before the relaxation. */
+    public GridMapIsoSurface isoSurfaceInitial;
+
+    /** The integer grid painted on the surface, baked after the relaxation. */
+    public GridMapIsoSurface isoSurfaceRelaxed;
+
+    /** The relaxed map canonicalized and proven ready for quad extraction. */
+    public GridMapVerification gridVerification;
+
+    /** The quad mesh extracted from the relaxed map. */
+    public ExtractedQuadMesh quadMesh;
+
+    /** The extracted mesh regrouped onto the layout: nodes, arcs, patch grids. */
+    public ExtractedPatchGrids extractedGrids;
 
     /**
      * Extraction of the map before the relaxation, kept so the scene can compare
@@ -282,26 +302,35 @@ public final class QuadLayoutEngine {
             PatchGridExtraction initialExtraction = new PatchGridExtraction(patchMaps);
             initialExtraction.optimizedGrid = globalGrid;
             quadGridInitial = initialExtraction.build();
+            isoSurfaceInitial = new GridMapIsoSurface(patchMaps, globalGrid.uvByPatchId).build();
             gridOptimizer = new GridMapOptimizer(gridDofs, seamless);
             gridOptimizer.build();
             globalGrid.reportRectangleFit("relaxed");
+            isoSurfaceRelaxed = new GridMapIsoSurface(patchMaps, globalGrid.uvByPatchId).build();
+            gridVerification = new GridMapVerification(globalGrid).build();
+            QuadMeshExtraction extraction = new QuadMeshExtraction(globalGrid, gridVerification);
+            extraction.expectedQuadCount = quadGridInitial.quadCount;
+            quadMesh = extraction.build();
+            extractedGrids = new ExtractedPatchGrids(quadMesh, globalGrid).build();
         }
         return globalGrid;
     }
 
     /**
-     * Stage 13: place the quad mesh's vertices on the surface by inverting each
-     * patch's rectangle map at the integer lattice (LCK21a §6, "map a regular quad
-     * patch").
+     * Stage 13: the per-patch quad grids of the relaxed map, regrouped from the
+     * QEx extraction (LCK21a §7, "QEx to extract the quad mesh from the final
+     * parametrization").
      *
      * @return the cached per-patch quad grids
      */
     public PatchGridExtraction buildQuadGrid() {
         if (quadGrid == null) {
             buildGlobalGridMap();
-            PatchGridExtraction extraction = new PatchGridExtraction(patchMaps);
-            extraction.optimizedGrid = globalGrid;
-            quadGrid = extraction.build();
+            quadGrid = new PatchGridExtraction(patchMaps);
+            quadGrid.gridByPatchId = extractedGrids.gridByPatchId;
+            quadGrid.widthByPatchId = extractedGrids.widthByPatchId;
+            quadGrid.heightByPatchId = extractedGrids.heightByPatchId;
+            quadGrid.quadCount = quadMesh.quadCount;
         }
         return quadGrid;
     }
