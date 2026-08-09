@@ -3,8 +3,8 @@ package ixdar.geometry.mesh.quadlayout.gridmap;
 import java.util.ArrayList;
 import java.util.List;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
  * Makes each patch region 3-connected, as {@link PatchRectangleMap} requires, by subdividing every

@@ -8,8 +8,8 @@ import java.util.Map;
 import ixdar.annotations.meshnode.MapNodeContext;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
  * {@link TorusLayoutFixture} with a second zero row (minor 4 to 6) stacked on its first, so the

@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.embedding;
+package ixdar.geometry.mesh.quadlayout.embedding.records;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -12,7 +12,8 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
+import ixdar.geometry.mesh.quadlayout.embedding.EarClipping;
+import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
 
 /**
  * Working copy of the input mesh for the re-embedding, rebuilt into a fresh
@@ -122,23 +123,23 @@ public final class EmbeddedMeshTopology {
         int vertexCount = sourceMesh.vertexCount();
         this.originalVertexBound = vertexCount;
         int faceCount = sourceMesh.faceCount();
-        float[] positions = new float[vertexCount * 3];
+        float[] positions = new float[vertexCount * HalfEdgeMesh.FLOATS_PER_VERTEX];
         Map<Integer, Integer> denseBySourceVertexId = new HashMap<>(vertexCount * 2);
         Vector3f position = new Vector3f();
         for (int dense = 0; dense < vertexCount; dense++) {
             int sourceVertexId = sourceMesh.vertexIdAt(dense);
             sourceMesh.vertexPosition(sourceVertexId, position);
-            positions[dense * 3] = position.x;
-            positions[dense * 3 + 1] = position.y;
-            positions[dense * 3 + 2] = position.z;
+            positions[dense * HalfEdgeMesh.FLOATS_PER_VERTEX] = position.x;
+            positions[dense * HalfEdgeMesh.FLOATS_PER_VERTEX + 1] = position.y;
+            positions[dense * HalfEdgeMesh.FLOATS_PER_VERTEX + 2] = position.z;
             denseBySourceVertexId.put(sourceVertexId, dense);
             copyVertexBySourceVertexId.put(sourceVertexId, dense);
         }
-        int[] faceIndices = new int[faceCount * 3];
+        int[] faceIndices = new int[faceCount * HalfEdgeMesh.TRIANGLE_CORNERS];
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
             int sourceFaceId = sourceMesh.faceIdAt(activeFace);
-            for (int corner = 0; corner < 3; corner++) {
-                faceIndices[activeFace * 3 + corner] = denseBySourceVertexId
+            for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
+                faceIndices[activeFace * HalfEdgeMesh.TRIANGLE_CORNERS + corner] = denseBySourceVertexId
                         .get(sourceMesh.faceVertexAt(sourceFaceId, corner));
             }
         }

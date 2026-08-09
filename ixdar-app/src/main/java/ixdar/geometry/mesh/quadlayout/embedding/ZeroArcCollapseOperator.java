@@ -11,6 +11,7 @@ import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 
 /**
@@ -203,9 +204,6 @@ public final class ZeroArcCollapseOperator {
         tmesh.releaseClaims(arc.path);
         for (int passThrough : new int[] { EmbeddedMeshTopology.UNCLAIMED, movedVertex }) {
             rerouter.clearFailureMemory();
-            // if (passThrough == movedVertex && channel.size() > 1) {
-            //     tmesh.openPivotSpoke(movedVertex, tmesh.unclaimedComponent(channel.get(1)));
-            // }
             // keep >= 1 preserves the arc's first edge at the fixed far node, so a shortest
             // reroute
             // cannot leave the node in a wrong angular sector and swap the cyclic arc order

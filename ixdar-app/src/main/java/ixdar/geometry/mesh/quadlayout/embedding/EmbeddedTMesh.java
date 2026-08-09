@@ -15,6 +15,7 @@ import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
@@ -1311,35 +1312,6 @@ public class EmbeddedTMesh {
             }
         }
         return seen;
-    }
-
-    /**
-     * Opens a free spoke from a collapsing node into a region it must reach, by
-     * splitting the edge <em>opposite</em> the node in one of its faces whose far
-     * side lies in that region.
-     *
-     * <p>
-     * See also: LCBK19 Section 6.1
-     *
-     * @param pivotVertex   the collapsing node's copy vertex
-     * @param channelRegion the unclaimed region the node must gain a spoke into
-     */
-    void openPivotSpoke(int pivotVertex, Set<Integer> channelRegion) {
-        for (int index = 0; index < topology.copy.vertexFaceCount(pivotVertex); index++) {
-            int faceId = topology.copy.vertexFaceAt(pivotVertex, index);
-            for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
-                int edgeId = topology.copy.faceEdgeAt(faceId, corner);
-                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-                int endpointA = topology.copy.halfEdgeVertex(halfEdge);
-                int endpointB = topology.copy.halfEdgeEndVertex(halfEdge);
-                if (endpointA != pivotVertex && endpointB != pivotVertex
-                        && channelRegion.contains(endpointA) && channelRegion.contains(endpointB)
-                        && topology.ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED) {
-                    topology.splitEdgeAtParameter(edgeId, EDGE_MIDPOINT);
-                    return;
-                }
-            }
-        }
     }
 
     /**

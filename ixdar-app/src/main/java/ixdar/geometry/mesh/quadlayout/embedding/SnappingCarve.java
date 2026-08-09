@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;

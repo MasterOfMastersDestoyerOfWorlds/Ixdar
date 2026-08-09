@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.quadlayout.embedding;
 import java.util.ArrayList;
 import java.util.List;
 
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
+
 /**
  * One arc's traced route refined onto the constraint mesh. No face of that mesh holds a
  * vertex inside it, so a chord across a passage cannot leave it.

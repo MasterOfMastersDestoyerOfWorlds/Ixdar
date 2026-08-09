@@ -8,6 +8,7 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
  * Re-embeds an arc whose endpoint node has just moved, restricted to cross or
