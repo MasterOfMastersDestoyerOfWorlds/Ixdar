@@ -8,10 +8,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedNode;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
 /**
  * Which grid coordinates the re-parametrization may move, as solver slots: one shared slot per free

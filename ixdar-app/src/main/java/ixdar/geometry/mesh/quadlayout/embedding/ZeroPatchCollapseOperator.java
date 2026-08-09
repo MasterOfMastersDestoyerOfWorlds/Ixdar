@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
 /**
  * Operator (3), the simple zero-patch collapse: requires a bigon, so the patch's zero-length

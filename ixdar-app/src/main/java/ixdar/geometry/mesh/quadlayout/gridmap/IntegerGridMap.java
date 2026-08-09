@@ -6,9 +6,9 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
 /**
  * The frame of every layout patch in one common integer grid, which turns the separate per-patch

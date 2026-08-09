@@ -7,8 +7,8 @@ import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedMeshTopology;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;

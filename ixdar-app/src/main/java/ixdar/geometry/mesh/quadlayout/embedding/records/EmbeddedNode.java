@@ -1,4 +1,6 @@
-package ixdar.geometry.mesh.quadlayout.embedding;
+package ixdar.geometry.mesh.quadlayout.embedding.records;
+
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 
 /**
  * One T-mesh node, sitting on one vertex of the working copy.

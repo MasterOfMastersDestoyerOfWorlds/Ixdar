@@ -7,8 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedPatchGrids;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedQuadMesh;
 import ixdar.geometry.mesh.quadlayout.extraction.QuadMeshExtraction;

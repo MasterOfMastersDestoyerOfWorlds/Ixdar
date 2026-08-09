@@ -7,6 +7,8 @@ import java.util.List;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.IntIdList;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.records.PatchCorridor;
 
 /**
  * Operator (2), the non-simple zero-patch split: extends one T-joint across the patch as a new

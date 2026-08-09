@@ -11,6 +11,7 @@ import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 
 /**
  * Operator (1), the zero-arc collapse: one endpoint node is embedded onto the

@@ -5,9 +5,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedPatchGrids;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedQuadMesh;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;

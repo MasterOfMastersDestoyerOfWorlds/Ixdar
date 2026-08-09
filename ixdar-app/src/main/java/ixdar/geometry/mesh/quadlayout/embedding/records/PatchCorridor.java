@@ -1,11 +1,13 @@
-package ixdar.geometry.mesh.quadlayout.embedding;
+package ixdar.geometry.mesh.quadlayout.embedding.records;
 
 import java.util.List;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
 
 /**

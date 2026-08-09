@@ -7,6 +7,8 @@ import java.util.List;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.records.PatchCorridor;
 
 /**
  * Extends every surviving T-junction across its patch to the matching offset on the opposite

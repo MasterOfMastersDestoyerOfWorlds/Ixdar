@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
 /**
  * Per-corner grid coordinates of the integer grid map over the working copy,

@@ -9,9 +9,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.IntIdList;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
 /**
  * A patch's face flood must land inside the patch whichever way its boundary was walked.

@@ -6,8 +6,8 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.CoonsEvaluator;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
 /**
  * Render records for the finished layout: per patch, its four traced boundary polylines, the

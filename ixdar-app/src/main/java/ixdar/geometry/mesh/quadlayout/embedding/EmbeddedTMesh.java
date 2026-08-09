@@ -15,6 +15,8 @@ import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;

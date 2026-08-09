@@ -1,7 +1,9 @@
-package ixdar.geometry.mesh.quadlayout.embedding;
+package ixdar.geometry.mesh.quadlayout.embedding.records;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 
 /**
  * A four-sided cell of the surface partition, bounded by four chains of arcs.
