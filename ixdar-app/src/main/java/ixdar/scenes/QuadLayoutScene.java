@@ -13,9 +13,10 @@ import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.model.ModelScene;
 
 /**
- * Final-output view of the quad-layout pipeline: runs {@link QuadLayoutEngine} to the conforming
- * layout and shows the quad mesh it prescribes, over colour-hashed layout patches. Intermediate
- * stages have their own inspector scenes.
+ * Final-output view of the quad-layout pipeline: runs {@link QuadLayoutEngine}
+ * to the conforming layout and shows the quad mesh it prescribes, over
+ * colour-hashed layout patches. Intermediate stages have their own inspector
+ * scenes.
  */
 @SceneAnnotation(id = "quad-layout")
 public class QuadLayoutScene extends ModelScene {
@@ -36,13 +37,21 @@ public class QuadLayoutScene extends ModelScene {
     private float alphaDegrees = 15f;
     private boolean coonsFill;
 
-    /** Whether the displayed grid is the pre-relaxation map instead of the relaxed one. */
+    /**
+     * Whether the displayed grid is the pre-relaxation map instead of the relaxed
+     * one.
+     */
     private boolean showInitialGrid;
 
-    /** Which integer grid map is painted on the surface, one of the view constants. */
+    /**
+     * Which integer grid map is painted on the surface, one of the view constants.
+     */
     private int gridMapView;
 
-    /** The engine of the last build, held so the fill can be swapped without rebuilding. */
+    /**
+     * The engine of the last build, held so the fill can be swapped without
+     * rebuilding.
+     */
     private QuadLayoutEngine engine;
 
     /**
@@ -92,18 +101,14 @@ public class QuadLayoutScene extends ModelScene {
     }
 
     /**
-     * Runs the pipeline through the conforming layout and its per-patch grids, and uploads the
-     * result: the quad mesh over the patch fill, with the layout arcs drawn on top.
+     * Runs the pipeline through the conforming layout and its per-patch grids, and
+     * uploads the result: the quad mesh over the patch fill, with the layout arcs
+     * drawn on top.
      */
     private void rebuildLayout() {
         float alphaRadians = (float) Math.toRadians(alphaDegrees);
         QuadLayoutEngine engine = new QuadLayoutEngine(halfEdgeMesh, alphaRadians);
         engine.buildPatchSurfaces();
-        Platforms.get().log(String.format(
-                "[quad-layout] patches=%d quads=%d | relax %.2e→%.2e it=%d",
-                engine.livePatchCount(), engine.quadGrid.quadCount,
-                engine.gridOptimizer.energyBefore, engine.gridOptimizer.energyAfter,
-                engine.gridOptimizer.iterationCount));
         quadRuntime.setSeamlessParametrization(engine.seamless);
         quadRuntime.setMotorcycleGraph(engine.motorcycleGraph);
         quadRuntime.setEmbeddedTMesh(engine.tmesh);
@@ -120,9 +125,9 @@ public class QuadLayoutScene extends ModelScene {
     }
 
     /**
-     * Uploads the selected map's render products: the grid extraction and the arc isolines, from
-     * the relaxed map or the pre-relaxation one when the comparison toggle holds it, with the
-     * current fill mode.
+     * Uploads the selected map's render products: the grid extraction and the arc
+     * isolines, from the relaxed map or the pre-relaxation one when the comparison
+     * toggle holds it, with the current fill mode.
      */
     private void uploadSurfaces() {
         quadRuntime.setLayoutPatchSurfaces(
@@ -130,8 +135,8 @@ public class QuadLayoutScene extends ModelScene {
     }
 
     /**
-     * Swaps the patch fill between each patch's Coons blend and its quad grid on the surface,
-     * re-uploading because the two grids share one buffer.
+     * Swaps the patch fill between each patch's Coons blend and its quad grid on
+     * the surface, re-uploading because the two grids share one buffer.
      */
     private void toggleCoonsFill() {
         coonsFill = !coonsFill;
@@ -141,8 +146,8 @@ public class QuadLayoutScene extends ModelScene {
     }
 
     /**
-     * Swaps the displayed grid between the pre-relaxation map and the relaxed one, so the
-     * relaxation's effect is visible in place.
+     * Swaps the displayed grid between the pre-relaxation map and the relaxed one,
+     * so the relaxation's effect is visible in place.
      */
     private void toggleInitialGrid() {
         showInitialGrid = !showInitialGrid;
@@ -154,9 +159,9 @@ public class QuadLayoutScene extends ModelScene {
     }
 
     /**
-     * Cycles the surface paint through off, the pre-relaxation integer grid map, and the
-     * relaxed one, so the Newton solve's effect on the map is judged directly on the
-     * surface rather than through the extraction.
+     * Cycles the surface paint through off, the pre-relaxation integer grid map,
+     * and the relaxed one, so the Newton solve's effect on the map is judged
+     * directly on the surface rather than through the extraction.
      */
     private void cycleGridMapView() {
         gridMapView = (gridMapView + 1) % GRID_MAP_VIEW_COUNT;
@@ -170,8 +175,8 @@ public class QuadLayoutScene extends ModelScene {
             return;
         }
         GridMapIsoSurface isoSurface = gridMapView == GRID_MAP_VIEW_INITIAL
-                ? engine.isoSurfaceInitial
-                : engine.isoSurfaceRelaxed;
+                ? engine.globalGrid.isoSurfaceInitial
+                : engine.globalGrid.isoSurfaceRelaxed;
         quadRuntime.uploadPatchParametrization(engine.tmesh.topology.copy,
                 isoSurface.cornerU, isoSurface.cornerV, isoSurface.faceFlipped);
         quadRuntime.showFullIsoGrid = true;

@@ -42,7 +42,7 @@ public final class GridMapOptimizer {
     public static final double BACKTRACK = 0.5;
 
     /** Backtracks tried before the iteration gives up. */
-    public static final int MAX_BACKTRACKS = 20;
+    public static final int MAX_BACKTRACKS = 5;
 
     /** Relative energy drop below which the relaxation is called converged. */
     public static final double CONVERGENCE = 1.0e-4;
@@ -74,7 +74,7 @@ public final class GridMapOptimizer {
      * Consecutive below-{@link #CONVERGENCE} iterations before the relaxation
      * stops.
      */
-    public static final int STALL_LIMIT = 200;
+    public static final int STALL_LIMIT = 3;
 
     /**
      * Absolute ridge keeping a row with no triangle contribution — or a gauge

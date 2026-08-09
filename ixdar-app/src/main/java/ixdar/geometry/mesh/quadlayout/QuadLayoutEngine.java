@@ -3,19 +3,13 @@ package ixdar.geometry.mesh.quadlayout;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedPatchGrids;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedQuadMesh;
 import ixdar.geometry.mesh.quadlayout.extraction.LayoutPatchSurfaces;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;
-import ixdar.geometry.mesh.quadlayout.extraction.QuadMeshExtraction;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
-import ixdar.geometry.mesh.quadlayout.gridmap.GridMapDofSystem;
-import ixdar.geometry.mesh.quadlayout.gridmap.GridMapIsoSurface;
-import ixdar.geometry.mesh.quadlayout.gridmap.GridMapVerification;
-import ixdar.geometry.mesh.quadlayout.gridmap.GridMapOptimizer;
 import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
 import ixdar.geometry.mesh.quadlayout.gridmap.LayoutPatchMaps;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
@@ -49,7 +43,6 @@ public final class QuadLayoutEngine {
      * is scaled so that one unit is one quad edge, so this is its own unit.
      */
     public static final double DEFAULT_TARGET_EDGE_LENGTH = 1.0;
-
 
     public final HalfEdgeMesh mesh;
 
@@ -85,27 +78,6 @@ public final class QuadLayoutEngine {
      * optimizes.
      */
     public GlobalGridMap globalGrid;
-
-    /** Which grid coordinates the re-parametrization may move. */
-    public GridMapDofSystem gridDofs;
-
-    /** The relaxation that frees patch boundaries from their rectangles. */
-    public GridMapOptimizer gridOptimizer;
-
-    /** The integer grid painted on the surface, baked before the relaxation. */
-    public GridMapIsoSurface isoSurfaceInitial;
-
-    /** The integer grid painted on the surface, baked after the relaxation. */
-    public GridMapIsoSurface isoSurfaceRelaxed;
-
-    /** The relaxed map canonicalized and proven ready for quad extraction. */
-    public GridMapVerification gridVerification;
-
-    /** The quad mesh extracted from the relaxed map. */
-    public ExtractedQuadMesh quadMesh;
-
-    /** The extracted mesh regrouped onto the layout: nodes, arcs, patch grids. */
-    public ExtractedPatchGrids extractedGrids;
 
     /**
      * Extraction of the map before the relaxation, kept so the scene can compare
@@ -258,11 +230,8 @@ public final class QuadLayoutEngine {
     public EmbeddedTMesh buildContractedTMesh() {
         if (!contracted) {
             buildTMesh();
-            tmesh.contract();
-            tmesh.conform();
-            tmesh = tmesh.recarve(mesh);
+            tmesh = tmesh.contract();
             contracted = true;
-            conforming = true;
         }
         return tmesh;
     }
@@ -293,32 +262,14 @@ public final class QuadLayoutEngine {
     public GlobalGridMap buildGlobalGridMap() {
         if (globalGrid == null) {
             buildPatchMaps();
-            globalGrid = new GlobalGridMap(patchMaps, integerGrid).build();
-            gridDofs = new GridMapDofSystem(globalGrid);
-            gridDofs.seamCouplingPinned = false;
-            gridDofs.nodeFreedomPinned = false;
-            gridDofs.build();
-            globalGrid.reportRectangleFit("framed");
-            PatchGridExtraction initialExtraction = new PatchGridExtraction(patchMaps);
-            initialExtraction.optimizedGrid = globalGrid;
-            quadGridInitial = initialExtraction.build();
-            isoSurfaceInitial = new GridMapIsoSurface(patchMaps, globalGrid.uvByPatchId).build();
-            gridOptimizer = new GridMapOptimizer(gridDofs, seamless);
-            gridOptimizer.build();
-            globalGrid.reportRectangleFit("relaxed");
-            isoSurfaceRelaxed = new GridMapIsoSurface(patchMaps, globalGrid.uvByPatchId).build();
-            gridVerification = new GridMapVerification(globalGrid).build();
-            QuadMeshExtraction extraction = new QuadMeshExtraction(globalGrid, gridVerification);
-            extraction.expectedQuadCount = quadGridInitial.quadCount;
-            quadMesh = extraction.build();
-            extractedGrids = new ExtractedPatchGrids(quadMesh, globalGrid).build();
+            globalGrid = new GlobalGridMap(patchMaps, integerGrid, seamless).build();
         }
         return globalGrid;
     }
 
     /**
-     * Stage 13: the per-patch quad grids of the relaxed map, regrouped from the
-     * QEx extraction (LCK21a §7, "QEx to extract the quad mesh from the final
+     * Stage 13: the per-patch quad grids of the relaxed map, regrouped from the QEx
+     * extraction (LCK21a §7, "QEx to extract the quad mesh from the final
      * parametrization").
      *
      * @return the cached per-patch quad grids
@@ -327,10 +278,10 @@ public final class QuadLayoutEngine {
         if (quadGrid == null) {
             buildGlobalGridMap();
             quadGrid = new PatchGridExtraction(patchMaps);
-            quadGrid.gridByPatchId = extractedGrids.gridByPatchId;
-            quadGrid.widthByPatchId = extractedGrids.widthByPatchId;
-            quadGrid.heightByPatchId = extractedGrids.heightByPatchId;
-            quadGrid.quadCount = quadMesh.quadCount;
+            quadGrid.gridByPatchId = globalGrid.extractedGrids.gridByPatchId;
+            quadGrid.widthByPatchId = globalGrid.extractedGrids.widthByPatchId;
+            quadGrid.heightByPatchId = globalGrid.extractedGrids.heightByPatchId;
+            quadGrid.quadCount = globalGrid.quadMesh.quadCount;
         }
         return quadGrid;
     }
@@ -345,23 +296,8 @@ public final class QuadLayoutEngine {
         if (patchSurfaces == null) {
             buildQuadGrid();
             patchSurfaces = new LayoutPatchSurfaces(quadGrid).build();
-            patchSurfacesInitial = new LayoutPatchSurfaces(quadGridInitial).build();
+            patchSurfacesInitial = new LayoutPatchSurfaces(globalGrid.quadGridInitial).build();
         }
         return patchSurfaces;
-    }
-
-    /**
-     * The number of patches in the layout, LCK21a Table 1's {@code #P}.
-     *
-     * @return the count of live patches in the T-mesh
-     */
-    public int livePatchCount() {
-        int live = 0;
-        for (EmbeddedPatch patch : tmesh.patches) {
-            if (patch.alive) {
-                live++;
-            }
-        }
-        return live;
     }
 }

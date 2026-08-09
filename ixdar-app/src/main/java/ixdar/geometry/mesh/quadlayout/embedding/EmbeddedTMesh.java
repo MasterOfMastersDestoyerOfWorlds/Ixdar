@@ -1520,12 +1520,15 @@ public class EmbeddedTMesh {
             validate();
             int nonSimple = splitPatch.nextNonSimpleZeroPatch();
             if (nonSimple == NONE) {
-                return this;
+                break;
             }
             splitPatch.split(nonSimple);
             patchSplitCount++;
             validate();
         }
+        conform();
+        EmbeddedTMesh recarved = recarve(topology.sourceMesh);
+        return recarved;
     }
 
     /**

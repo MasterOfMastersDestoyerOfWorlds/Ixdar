@@ -8,25 +8,41 @@ import java.util.Map;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.extraction.ExtractedPatchGrids;
+import ixdar.geometry.mesh.quadlayout.extraction.ExtractedQuadMesh;
+import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;
+import ixdar.geometry.mesh.quadlayout.extraction.QuadMeshExtraction;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.platform.Platforms;
 
 /**
- * Every patch's map carried into one common grid, which is LCBK19 Figure 10(d) as a single object
- * and the variable vector the optimization moves.
+ * Every patch's map carried into one common grid, which is LCBK19 Figure 10(d)
+ * as a single object and the variable vector the optimization moves.
  *
- * <p>See also: LCBK19 Section 6.2
+ * <p>
+ * See also: LCBK19 Section 6.2
  */
 public final class GlobalGridMap {
 
     /** Coordinates of a grid position. */
     public static final int GRID_COORDINATES = 2;
 
-    /** A layout node this far from an integer is off the grid, breaking EBCK13 Constraint 2. */
+    /**
+     * A layout node this far from an integer is off the grid, breaking EBCK13
+     * Constraint 2.
+     */
     public static final double INTEGER_TOLERANCE = 1.0e-6;
 
-    /** Depth of the non-seam patch neighbourhood searched for sites the relaxation moved away. */
+    /**
+     * Depth of the non-seam patch neighbourhood searched for sites the relaxation
+     * moved away.
+     */
     public static final int NEIGHBOUR_DEPTH = 2;
 
-    /** Off-grid nodes named individually in the audit log before the counter takes over. */
+    /**
+     * Off-grid nodes named individually in the audit log before the counter takes
+     * over.
+     */
     public static final int OFF_GRID_SAMPLES_LISTED = 4;
 
     public final EmbeddedTMesh tmesh;
@@ -39,7 +55,9 @@ public final class GlobalGridMap {
      */
     public double[][] uvByPatchId;
 
-    /** Dense index of each copy vertex within a patch's map, indexed by patch id. */
+    /**
+     * Dense index of each copy vertex within a patch's map, indexed by patch id.
+     */
     public Map<Integer, Integer>[] denseByCopyVertexByPatchId;
 
     /** Layout-node coordinates found off the integer grid. */
@@ -48,21 +66,40 @@ public final class GlobalGridMap {
     /** Largest distance from an integer over every layout node's coordinates. */
     public double worstNodeIntegerDeviation;
 
+    private GridMapDofSystem gridDofs;
+
+    public PatchGridExtraction quadGridInitial;
+
+    public GridMapOptimizer gridOptimizer;
+
+    public GridMapIsoSurface isoSurfaceInitial;
+
+    public GridMapIsoSurface isoSurfaceRelaxed;
+
+    private GridMapVerification gridVerification;
+
+    public ExtractedQuadMesh quadMesh;
+
+    public ExtractedPatchGrids extractedGrids;
+
+    private SeamlessParameterization seamless;
+
     /**
      * Stores the per-patch maps and the frames that place them in one grid.
      *
      * @param patchMaps solved per-patch rectangle maps
      * @param frames    the patches' quarter turns and integer origins
      */
-    public GlobalGridMap(LayoutPatchMaps patchMaps, IntegerGridMap frames) {
+    public GlobalGridMap(LayoutPatchMaps patchMaps, IntegerGridMap frames, SeamlessParameterization seamless) {
         this.patchMaps = patchMaps;
         this.frames = frames;
         this.tmesh = patchMaps.tmesh;
+        this.seamless = seamless;
     }
 
     /**
-     * Carries every patch's rectangle coordinates through its frame, then checks the layout's nodes
-     * landed on integers.
+     * Carries every patch's rectangle coordinates through its frame, then checks
+     * the layout's nodes landed on integers.
      *
      * @return this, populated
      */
@@ -90,66 +127,32 @@ public final class GlobalGridMap {
         measureNodes();
         System.out.printf("[global-grid] patches=%d offGridNodes=%d worstNodeDeviation=%.3e%n",
                 frames.placedPatchCount, offGridNodeCount, worstNodeIntegerDeviation);
+
+        gridDofs = new GridMapDofSystem(this);
+        gridDofs.seamCouplingPinned = false;
+        gridDofs.nodeFreedomPinned = false;
+        gridDofs.build();
+        quadGridInitial = new PatchGridExtraction(patchMaps);
+        quadGridInitial.optimizedGrid = this;
+        quadGridInitial = quadGridInitial.build();
+        isoSurfaceInitial = new GridMapIsoSurface(patchMaps, this.uvByPatchId).build();
+        gridOptimizer = new GridMapOptimizer(gridDofs, seamless);
+        gridOptimizer.build();
+        isoSurfaceRelaxed = new GridMapIsoSurface(patchMaps, this.uvByPatchId).build();
+        gridVerification = new GridMapVerification(this).build();
+        QuadMeshExtraction extraction = new QuadMeshExtraction(this, gridVerification);
+        extraction.expectedQuadCount = quadGridInitial.quadCount;
+        quadMesh = extraction.build();
+        extractedGrids = new ExtractedPatchGrids(quadMesh, this).build();
+        Platforms.get().log(String.format(
+                "[global-grid] relax %.2e→%.2e it=%d", gridOptimizer.energyBefore, gridOptimizer.energyAfter,
+                gridOptimizer.iterationCount));
         return this;
     }
 
     /**
-     * Reports how far the patches' boundaries sit from the rectangles the quantization assigned
-     * them, which is what the per-patch lattice extraction inverts.
-     *
-     * <p>See also: LCBK19 Section 7 "preserving ... assigned integer values"
-     *
-     * @param stage name of the pipeline stage the measurement is taken at
-     */
-    public void reportRectangleFit(String stage) {
-        double worstDeviation = 0.0;
-        double totalDeviation = 0.0;
-        int boundaryVertexCount = 0;
-        int offRectanglePatchCount = 0;
-        int worstPatchId = EmbeddedTMesh.NONE;
-        double[] local = new double[GRID_COORDINATES];
-        for (EmbeddedPatch patch : tmesh.patches) {
-            if (!patch.alive) {
-                continue;
-            }
-            PatchRectangleMap map = patchMaps.mapByPatchId[patch.patchId];
-            double[] uv = uvByPatchId[patch.patchId];
-            double worstHere = 0.0;
-            for (int dense = 0; dense < map.positions.length; dense++) {
-                if (!map.onBoundary[dense]) {
-                    continue;
-                }
-                frames.toLocal(patch.patchId, uv[dense * GRID_COORDINATES],
-                        uv[dense * GRID_COORDINATES + 1], local);
-                double insideU = Math.min(local[0], map.width - local[0]);
-                double insideV = Math.min(local[1], map.height - local[1]);
-                double deviation = insideU < 0 || insideV < 0
-                        ? Math.hypot(Math.min(insideU, 0), Math.min(insideV, 0))
-                        : Math.min(insideU, insideV);
-                worstHere = Math.max(worstHere, deviation);
-                totalDeviation += deviation;
-                boundaryVertexCount++;
-            }
-            if (worstHere > INTEGER_TOLERANCE) {
-                offRectanglePatchCount++;
-            }
-            if (worstHere > worstDeviation) {
-                worstDeviation = worstHere;
-                worstPatchId = patch.patchId;
-            }
-        }
-        System.out.printf("[rectangle-fit] %s: %d of %d patches have a boundary off their"
-                + " rectangle; worst %.4f on patch %d (rectangle %dx%d), mean %.4f over %d"
-                + " boundary vertices%n", stage, offRectanglePatchCount, frames.placedPatchCount,
-                worstDeviation, worstPatchId,
-                worstPatchId == EmbeddedTMesh.NONE ? 0 : tmesh.sideQuadCount(worstPatchId, 0),
-                worstPatchId == EmbeddedTMesh.NONE ? 0 : tmesh.sideQuadCount(worstPatchId, 1),
-                totalDeviation / Math.max(1, boundaryVertexCount), boundaryVertexCount);
-    }
-
-    /**
-     * Checks every layout node sits on an integer of the common grid, which is what makes the
-     * quantization's assigned lengths meaningful in the map.
+     * Checks every layout node sits on an integer of the common grid, which is what
+     * makes the quantization's assigned lengths meaningful in the map.
      */
     private void measureNodes() {
         int samplesPrinted = 0;
@@ -185,18 +188,19 @@ public final class GlobalGridMap {
     }
 
     /**
-     * The live patches within {@link #NEIGHBOUR_DEPTH} arcs of a patch, each with the composed
-     * grid automorphism carrying its chart into the patch's own. Entries are deduplicated by
-     * patch and transform together, because holonomy around a singular node can legitimately
-     * reach one patch under two transforms.
+     * The live patches within {@link #NEIGHBOUR_DEPTH} arcs of a patch, each with
+     * the composed grid automorphism carrying its chart into the patch's own.
+     * Entries are deduplicated by patch and transform together, because holonomy
+     * around a singular node can legitimately reach one patch under two transforms.
      *
      * @param patchId patch whose neighbourhood is walked
-     * @return entries {@code {patchId, quarterTurns, translationU, translationV}}, nearest first
+     * @return entries {@code {patchId, quarterTurns, translationU, translationV}},
+     *         nearest first
      */
     public List<int[]> chartNeighbourhood(int patchId) {
         List<int[]> reached = new ArrayList<>();
         double[] rotated = new double[GRID_COORDINATES];
-        reached.add(new int[] {patchId, 0, 0, 0});
+        reached.add(new int[] { patchId, 0, 0, 0 });
         int frontierStart = 0;
         for (int depth = 0; depth < NEIGHBOUR_DEPTH; depth++) {
             int frontierEnd = reached.size();
@@ -237,7 +241,7 @@ public final class GlobalGridMap {
                             }
                         }
                         if (!seen) {
-                            reached.add(new int[] {other, composedTurns, composedU, composedV});
+                            reached.add(new int[] { other, composedTurns, composedU, composedV });
                         }
                     }
                 }
@@ -252,7 +256,8 @@ public final class GlobalGridMap {
      *
      * @param patchId patch to read in
      * @param nodeId  node to locate
-     * @return the node's {@code (u, v)}, or null when the node is not in the patch's map
+     * @return the node's {@code (u, v)}, or null when the node is not in the
+     *         patch's map
      */
     public double[] nodePosition(int patchId, int nodeId) {
         Integer dense = denseByCopyVertexByPatchId[patchId].get(tmesh.nodes.get(nodeId).copyVertex);
@@ -260,6 +265,6 @@ public final class GlobalGridMap {
             return null;
         }
         double[] uv = uvByPatchId[patchId];
-        return new double[] {uv[dense * GRID_COORDINATES], uv[dense * GRID_COORDINATES + 1]};
+        return new double[] { uv[dense * GRID_COORDINATES], uv[dense * GRID_COORDINATES + 1] };
     }
 }
