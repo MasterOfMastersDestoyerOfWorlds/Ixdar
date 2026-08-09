@@ -63,6 +63,12 @@ public final class SnappingCarve {
     /** Nodes placed by splitting the face they lie inside. */
     public int nodesByFaceSplitCount;
 
+    /**
+     * Nodes that landed within {@link FaceChordWalk#MINIMUM_SEPARATION} of a corner of the
+     * child holding them and took it, rather than cutting a sliver beside it.
+     */
+    public int nodesSnappedToCornerCount;
+
     /** Vertices of the constraint mesh, the working copy once the nodes are placed. */
     public int constraintVertexCount;
 
@@ -328,13 +334,15 @@ public final class SnappingCarve {
     }
 
     /**
-     * Takes back a corner an arc chose at two crossings that are not consecutive. Its path
-     * would revisit that vertex and pinch a region off the layout, so the later crossing gives
-     * the corner up and takes a minted lane instead.
+     * Takes back a corner an arc chose at two crossings that are not consecutive, so its path
+     * cannot revisit that vertex and pinch a region off the layout. A crossing the route runs
+     * exactly through keeps its vertex: it is on no edge, so no lane can replace it.
      */
     private void releaseRepeatedCorners() {
         Map<Integer, Integer> lastCrossingByVertex = new HashMap<>();
-        for (List<Integer> chosen : chosenVertexByArc) {
+        for (int arcId = 0; arcId < chosenVertexByArc.size(); arcId++) {
+            List<Integer> chosen = chosenVertexByArc.get(arcId);
+            FaceStripPath strip = stripByArc.get(arcId);
             lastCrossingByVertex.clear();
             for (int crossing = 0; crossing < chosen.size(); crossing++) {
                 int vertex = chosen.get(crossing);
@@ -342,7 +350,8 @@ public final class SnappingCarve {
                     continue;
                 }
                 Integer previous = lastCrossingByVertex.get(vertex);
-                if (previous != null && previous < crossing - 1) {
+                if (previous != null && previous < crossing - 1
+                        && strip.crossedEdges.get(crossing) != null) {
                     chosen.set(crossing, EmbeddedMeshTopology.UNCLAIMED);
                     repeatedCornerReleaseCount++;
                     continue;
@@ -645,9 +654,9 @@ public final class SnappingCarve {
     }
 
     /**
-     * Mints a copy vertex at a node's position inside its source face, splitting the
-     * child face that holds it, or the child edge when it lies on one. Which case
-     * applies is decided by exact orientation, never by a distance.
+     * Mints a copy vertex at a node's position inside its source face: a face split, an edge
+     * split, or the corner it lands on. A node a rounding step off an edge is placed on that
+     * edge rather than cutting a sliver beside it.
      *
      * @param node        node to place
      * @param barycentric its barycentric in its source face
@@ -657,24 +666,33 @@ public final class SnappingCarve {
     private int mintInside(TMeshNode node, double[] barycentric) {
         for (int childFace : topology.copyFacesBySourceFace.get(node.activeFace)) {
             double[][] corner = childCorners(node.activeFace, childFace);
-            int onEdge = EmbeddedMeshTopology.UNCLAIMED;
-            int zeros = 0;
             boolean inside = true;
             for (int edge = 0; edge < CORNERS && inside; edge++) {
-                int sign = ExactBarycentricOrient.sign(corner[edge],
-                        corner[(edge + 1) % CORNERS], barycentric);
-                inside = sign >= 0;
-                zeros += sign == 0 ? 1 : 0;
-                onEdge = sign == 0 ? edge : onEdge;
+                inside = ExactBarycentricOrient.sign(corner[edge],
+                        corner[(edge + 1) % CORNERS], barycentric) >= 0;
             }
             if (!inside) {
                 continue;
             }
-            if (zeros >= 2) {
-                return topology.copy.faceVertexAt(childFace, (onEdge + 1) % CORNERS);
+            double childArea = ExactBarycentricOrient.area(corner[0], corner[1], corner[2]);
+            if (childArea <= 0.0) {
+                continue;
             }
-            if (zeros == 1) {
-                nodesByEdgeSplitCount++;
+            int onEdge = EmbeddedMeshTopology.UNCLAIMED;
+            int offEdge = EmbeddedMeshTopology.UNCLAIMED;
+            int touching = 0;
+            for (int edge = 0; edge < CORNERS; edge++) {
+                double local = ExactBarycentricOrient.area(corner[edge],
+                        corner[(edge + 1) % CORNERS], barycentric) / childArea;
+                touching += local < FaceChordWalk.MINIMUM_SEPARATION ? 1 : 0;
+                onEdge = local < FaceChordWalk.MINIMUM_SEPARATION ? edge : onEdge;
+                offEdge = local < FaceChordWalk.MINIMUM_SEPARATION ? offEdge : edge;
+            }
+            if (touching >= 2) {
+                nodesSnappedToCornerCount++;
+                return topology.copy.faceVertexAt(childFace, (offEdge + 2) % CORNERS);
+            }
+            if (touching == 1) {
                 return splitChildEdge(childFace, onEdge, corner, barycentric);
             }
             nodesByFaceSplitCount++;
@@ -686,14 +704,15 @@ public final class SnappingCarve {
     }
 
     /**
-     * Splits a child face's edge at the position a node lands on it, measured along the
-     * edge in that face's own frame.
+     * Splits a child face's edge where a node lands on it. A node within
+     * {@link FaceChordWalk#MINIMUM_SEPARATION} of an end takes that end instead: splitting
+     * there mints a vertex on top of an existing one.
      *
      * @param childFace child face carrying the edge
      * @param localEdge local edge index the node lies on
      * @param corner    the child face's three corner barycentrics
      * @param at        the node's barycentric
-     * @return the minted copy vertex
+     * @return the minted copy vertex, or the end it snapped to
      */
     private int splitChildEdge(int childFace, int localEdge, double[][] corner, double[] at) {
         int from = topology.copy.faceVertexAt(childFace, localEdge);
@@ -708,6 +727,12 @@ public final class SnappingCarve {
             along += reach * step;
         }
         double parameter = along / span;
+        if (parameter <= FaceChordWalk.MINIMUM_SEPARATION
+                || parameter >= 1.0 - FaceChordWalk.MINIMUM_SEPARATION) {
+            nodesSnappedToCornerCount++;
+            return parameter <= FaceChordWalk.MINIMUM_SEPARATION ? from : to;
+        }
+        nodesByEdgeSplitCount++;
         int canonicalStart = topology.copy.halfEdgeVertex(topology.copy.edgeHalfEdge(copyEdge));
         return topology.splitEdgeAtParameter(copyEdge,
                 canonicalStart == from ? parameter : 1.0 - parameter);
@@ -765,10 +790,11 @@ public final class SnappingCarve {
      * that the copy mesh is being refined no further than the layout needs.
      */
     public void report() {
-        System.out.printf("[snap] nodes=%d onVertex=%d edgeSplit=%d faceSplit=%d |"
+        System.out.printf("[snap] nodes=%d onVertex=%d edgeSplit=%d faceSplit=%d snapped=%d |"
                 + " constraint mesh V=%d F=%d (source V=%d F=%d)%n",
                 nodeCount, nodesOnVertexCount, nodesByEdgeSplitCount,
-                nodesByFaceSplitCount, constraintVertexCount, constraintFaceCount,
+                nodesByFaceSplitCount, nodesSnappedToCornerCount, constraintVertexCount,
+                constraintFaceCount,
                 topology.sourceMesh.vertexCount(), topology.sourceMesh.faceCount());
         if (stripByArc == null) {
             return;

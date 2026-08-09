@@ -41,7 +41,7 @@ public abstract class ModelScene extends Scene {
      */
     public static final String COMMON_MODEL_PROPERTY = "ixdar.model";
 
-    public static final String DEFAULT_OFF = "test/resources/quadlayout/figure_8/fertility_in_tri.off";
+    public static final String DEFAULT_OFF = "test/resources/quadlayout/figure_8/elk_in_tri.off";
 
     /** Named view for the right-side ESC menu strip. */
     public static final String VIEW_SCENE_MENU = "SCENE_MENU";
