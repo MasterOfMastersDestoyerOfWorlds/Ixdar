@@ -96,6 +96,31 @@ public final class DirectSolver {
     }
 
     /**
+     * Recompute the handle's numeric factor from {@code matrix}'s values,
+     * reusing the symbolic analysis. Valid only when the matrix non-zero
+     * pattern and {@code fixed} mask are identical to the factorizing call.
+     *
+     * @param handle handle whose factor is refactorized in place
+     * @param matrix system matrix with new values on the identical pattern
+     * @param fixed  per-variable fixed flag (must match the factorizing call)
+     */
+    public static void refactorizeHandle(CholeskyHandle handle, NormalMatrix matrix,
+            boolean[] fixed) {
+        if (handle.freeCount() == 0) {
+            return;
+        }
+        if (CholeskyBackend.pardisoAvailable()) {
+            handle.factor().refactorize(matrix.toPermutedUpperCompressedSparseRow(
+                    handle.freeCount(), fixed, handle.compactOf(), handle.fullOf(),
+                    handle.perm(), handle.invPerm()).values);
+        } else {
+            handle.factor().refactorize(matrix.toPermutedUpperCompressedSparseColumn(
+                    handle.freeCount(), fixed, handle.compactOf(), handle.fullOf(),
+                    handle.perm(), handle.invPerm()).values());
+        }
+    }
+
+    /**
      * Solve the compact system for the free variables (those with
      * {@code !fixed[i]}) through the handle's factorization, holding the fixed
      * entries at {@code start[i]}.

@@ -20,6 +20,15 @@ public interface FactorizedSystem {
     void solve(double[] rhs, double[] out);
 
     /**
+     * Replace the matrix values (exact layout given at construction, identical
+     * non-zero pattern) and recompute the numeric factor reusing the symbolic
+     * analysis.
+     *
+     * @param values new non-zero values in the construction-time layout
+     */
+    void refactorize(double[] values);
+
+    /**
      * Free any native resources backing the factor. Idempotent; the object
      * must not be used after release. Pure-Java implementations may no-op.
      */

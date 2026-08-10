@@ -1,8 +1,6 @@
 package ixdar.geometry.mesh.quadlayout.seamless;
 
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.joml.Vector3f;
 
@@ -15,8 +13,8 @@ import ixdar.geometry.mesh.quadlayout.solver.AMDOrdering;
 import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.IncrementalCholeskySolver;
+import ixdar.geometry.mesh.quadlayout.solver.InteriorPointQp;
 import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 
 /**
  * Turns a {@link CrossField} into per-corner (u, v) satisfying
@@ -70,23 +68,7 @@ public final class SeamlessParameterization {
     public boolean injective;
 
     /** Hard cap on lazy-constraint rounds (BCE13 §3.4's outer iterations). */
-    public int maxConstraintRounds = 30;
-
-    /**
-     * Starting quadratic-penalty weight on a newly activated BCE13 Equation 4
-     * constraint. The escalation ladder absorbs the scale, so only the order
-     * matters.
-     */
-    public double constraintPenaltyBaseWeight = 1.0e2;
-
-    /**
-     * Factor a still-violated constraint's penalty grows by each round, the SPH17
-     * §5.3 schedule.
-     */
-    public double constraintPenaltyEscalation = 10.0;
-
-    /** Ceiling on any single constraint's penalty weight. */
-    public double constraintPenaltyCap = 1.0e12;
+    public int maxConstraintRounds = 60;
 
     /**
      * If true, run MC19 (Mandad–Campen 2019) exact-constraint projection after the
@@ -148,14 +130,14 @@ public final class SeamlessParameterization {
     public double integerPinWeight = 1.0e10;
 
     /**
-     * DOF state + cached assembly plan + AMD perm. Constructed in {@link #build}.
+     * DOF state + cached assembly plan. Constructed in {@link #build}.
      */
     public SeamlessDofSystem dofSystem;
 
     /**
      * Native factor of the base system, created by the rounding stage's
-     * no-integer-DOFs fast path. Released by the injectivity loop, which
-     * refactorizes per round because each active set changes the pattern.
+     * no-integer-DOFs fast path. Released by the injectivity loop, which owns
+     * its own handle on the fixed superset pattern.
      */
     public DirectSolver.CholeskyHandle baseFactorHandle;
 
@@ -468,12 +450,12 @@ public final class SeamlessParameterization {
 
     /**
      * BCE13 §3.4's lazy-constraint loop: evaluate every Equation 4 inequality,
-     * activate the violated plus every one below the activation threshold, enforce
-     * the active set by escalating quadratic penalties, and re-solve until no
-     * constraint is violated or the round cap is reached.
+     * activate the violated plus every one below the activation threshold, and
+     * re-solve the hard-constrained convex QP over the active set with
+     * {@link InteriorPointQp} until no constraint is violated or the round cap
+     * is reached.
      */
     private void runInjectivityConstraintLoop() {
-        boolean[] noneFixed = new boolean[dofSystem.dofCount];
         if (baseFactorHandle != null) {
             DirectSolver.releaseHandle(baseFactorHandle);
             baseFactorHandle = null;
@@ -481,66 +463,54 @@ public final class SeamlessParameterization {
         }
         InjectivityConstraints constraints = new InjectivityConstraints(this).build();
         double[] values = new double[constraints.constraintCount];
-        double[] weightByConstraint = new double[constraints.constraintCount];
+        boolean[] constraintActive = new boolean[constraints.constraintCount];
+        int activeCount = 0;
+        NormalMatrix baseMatrix = dofSystem.assemble(faceWeight);
+        dofSystem.applyIntegerPinPenalty(baseMatrix);
         int violated = -1;
         for (int round = 0; round <= maxConstraintRounds; round++) {
             constraints.evaluateNormalized(solution, values);
             violated = 0;
-            int active = 0;
             double worst = Double.POSITIVE_INFINITY;
             for (int constraint = 0; constraint < constraints.constraintCount; constraint++) {
                 worst = Math.min(worst, values[constraint]);
                 violated += values[constraint] < 0.0 ? 1 : 0;
-                active += weightByConstraint[constraint] > 0.0 ? 1 : 0;
             }
             System.out.printf("[injectivity] round %d violated=%d active=%d worst=%.4f%n",
-                    round, violated, active, worst);
+                    round, violated, activeCount, worst);
             if (violated == 0 || round == maxConstraintRounds) {
                 break;
             }
+            long roundStart = System.nanoTime();
             for (int constraint = 0; constraint < constraints.constraintCount; constraint++) {
-                if (values[constraint] >= InjectivityConstraints.ACTIVATION_THRESHOLD) {
-                    continue;
-                }
-                if (weightByConstraint[constraint] == 0.0) {
-                    weightByConstraint[constraint] = constraintPenaltyBaseWeight;
-                } else if (values[constraint] < 0.0) {
-                    weightByConstraint[constraint] = Math.min(constraintPenaltyCap,
-                            weightByConstraint[constraint] * constraintPenaltyEscalation);
+                if (!constraintActive[constraint]
+                        && values[constraint] < InjectivityConstraints.ACTIVATION_THRESHOLD) {
+                    constraintActive[constraint] = true;
+                    activeCount++;
                 }
             }
-            double[] extraDiagonal = new double[dofSystem.dofCount];
-            double[] extraRhs = new double[dofSystem.dofCount];
-            Map<Long, Double> extraUpper = new HashMap<>();
+            int[][] activeDofs = new int[activeCount][];
+            double[][] activeCoefs = new double[activeCount][];
+            double[] activeBound = new double[activeCount];
+            int activeCursor = 0;
             for (int constraint = 0; constraint < constraints.constraintCount; constraint++) {
-                double weight = weightByConstraint[constraint];
-                if (weight == 0.0) {
+                if (!constraintActive[constraint]) {
                     continue;
                 }
-                int[] dofs = constraints.gradientDofs(constraint);
-                double[] coefs = constraints.gradientCoefs(constraint);
-                // The normalized constraint is a·x − δε; the penalty pulls it to the
-                // activation threshold, safely inside the feasible sector.
-                double target = InjectivityConstraints.ACTIVATION_THRESHOLD
-                        + constraints.normalizer[constraint] * constraints.rawThreshold[constraint];
-                for (int i = 0; i < dofs.length; i++) {
-                    extraRhs[dofs[i]] += weight * target * coefs[i];
-                    extraDiagonal[dofs[i]] += weight * coefs[i] * coefs[i];
-                    for (int j = i + 1; j < dofs.length; j++) {
-                        long key = ((long) Math.min(dofs[i], dofs[j]) << NormalMatrix.KEY_ROW_SHIFT)
-                                | Math.max(dofs[i], dofs[j]);
-                        extraUpper.merge(key, weight * coefs[i] * coefs[j], Double::sum);
-                    }
-                }
+                activeDofs[activeCursor] = constraints.gradientDofs(constraint);
+                activeCoefs[activeCursor] = constraints.gradientCoefs(constraint);
+                // The normalized constraint a·x − δε ≥ 0 becomes a·x ≥ δε.
+                activeBound[activeCursor] = constraints.normalizer[constraint]
+                        * constraints.rawThreshold[constraint];
+                activeCursor++;
             }
-            NormalMatrix matrix = dofSystem.assemble(faceWeight, extraDiagonal, extraUpper,
-                    extraRhs);
-            dofSystem.applyIntegerPinPenalty(matrix);
-            DirectSolver.CholeskyHandle handle = DirectSolver.factorize(matrix, noneFixed,
-                    OrderingMethod.AMD);
-            DirectSolver.solveCompact(handle, matrix, matrix.rightHandSide, solution, solution,
-                    noneFixed);
-            DirectSolver.releaseHandle(handle);
+            InteriorPointQp qp = new InteriorPointQp(baseMatrix, activeDofs, activeCoefs,
+                    activeBound);
+            qp.solve(solution);
+            System.out.printf(
+                    "[seamless timing] injectivity round %d %.3fs (ipIterations=%d, factorizations=%d, converged=%b)%n",
+                    round, (System.nanoTime() - roundStart) / 1.0e9, qp.iterationCount,
+                    qp.factorizationCount, qp.converged);
         }
         injective = violated == 0;
         System.out.printf("[injectivity] done violated=%d flippedTriangles=%d%n", violated,

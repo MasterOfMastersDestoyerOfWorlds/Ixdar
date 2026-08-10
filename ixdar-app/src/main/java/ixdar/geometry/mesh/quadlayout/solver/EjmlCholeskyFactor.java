@@ -15,6 +15,7 @@ import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
 public final class EjmlCholeskyFactor implements FactorizedSystem {
 
     public final LinearSolverSparse<DMatrixSparseCSC, DMatrixRMaj> solver;
+    public final DMatrixSparseCSC systemMatrix;
     public final DMatrixRMaj rhsBuffer;
     public final DMatrixRMaj solutionBuffer;
 
@@ -30,13 +31,13 @@ public final class EjmlCholeskyFactor implements FactorizedSystem {
      *                               not positive definite)
      */
     public EjmlCholeskyFactor(NormalMatrix.CompressedSparseColumnArrays upperCsc, int dimension) {
-        DMatrixSparseCSC cscMatrix = new DMatrixSparseCSC(dimension, dimension, upperCsc.values().length);
-        cscMatrix.col_idx = upperCsc.colPtr();
-        cscMatrix.nz_rows = upperCsc.rowIdx();
-        cscMatrix.nz_values = upperCsc.values();
-        cscMatrix.nz_length = upperCsc.values().length;
+        this.systemMatrix = new DMatrixSparseCSC(dimension, dimension, upperCsc.values().length);
+        systemMatrix.col_idx = upperCsc.colPtr();
+        systemMatrix.nz_rows = upperCsc.rowIdx();
+        systemMatrix.nz_values = upperCsc.values();
+        systemMatrix.nz_length = upperCsc.values().length;
         this.solver = LinearSolverFactory_DSCC.cholesky(FillReducing.NONE);
-        if (!this.solver.setA(cscMatrix)) {
+        if (!this.solver.setA(systemMatrix)) {
             throw new IllegalStateException("EJML Cholesky factorization failed (matrix not SPD?)");
         }
         this.rhsBuffer = new DMatrixRMaj(dimension, 1);
@@ -48,6 +49,14 @@ public final class EjmlCholeskyFactor implements FactorizedSystem {
         System.arraycopy(rhs, 0, rhsBuffer.data, 0, rhsBuffer.numRows);
         solver.solve(rhsBuffer, solutionBuffer);
         System.arraycopy(solutionBuffer.data, 0, out, 0, solutionBuffer.numRows);
+    }
+
+    @Override
+    public void refactorize(double[] values) {
+        System.arraycopy(values, 0, systemMatrix.nz_values, 0, values.length);
+        if (!solver.setA(systemMatrix)) {
+            throw new IllegalStateException("EJML Cholesky refactorization failed (matrix not SPD?)");
+        }
     }
 
     @Override

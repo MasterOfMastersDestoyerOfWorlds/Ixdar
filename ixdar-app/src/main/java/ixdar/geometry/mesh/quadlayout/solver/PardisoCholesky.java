@@ -25,6 +25,8 @@ public final class PardisoCholesky implements FactorizedSystem {
     public static final int PHASE_RELEASE_ALL = -1;
     /** PARDISO phase running analysis + numerical factorization together. */
     public static final int PHASE_ANALYZE_AND_FACTOR = 12;
+    /** PARDISO phase recomputing the numeric factor with the existing analysis. */
+    public static final int PHASE_FACTOR_ONLY = 22;
     /** PARDISO phase solving with the existing factor. */
     public static final int PHASE_SOLVE = 33;
     /** Slot count of the opaque PARDISO handle ({@code void *pt[64]}). */
@@ -119,6 +121,13 @@ public final class PardisoCholesky implements FactorizedSystem {
         phaseNative.put(0, PHASE_SOLVE);
         callPardiso();
         solutionNative.get(out, 0, dimension);
+    }
+
+    @Override
+    public void refactorize(double[] values) {
+        valuesNative.put(values, 0, values.length);
+        phaseNative.put(0, PHASE_FACTOR_ONLY);
+        callPardiso();
     }
 
     @Override

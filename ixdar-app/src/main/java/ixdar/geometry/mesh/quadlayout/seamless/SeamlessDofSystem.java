@@ -11,20 +11,17 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.ExactArithmetic;
 import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
-import ixdar.geometry.mesh.quadlayout.solver.SolverPermutation;
 
 /**
  * DOF state plus cached SPD assembly plan for one seamless build.
  *
  * <p>
  * The SPD non-zero pattern is invariant within one build, so
- * {@link #assemble(double[])} records a playback log on its first call and refills
- * values in place afterwards. One instance per
+ * {@link #assemble(double[])} records a playback log on its first call and
+ * refills values in place afterwards. One instance per
  * {@link SeamlessParameterization#build()}; only pin state is mutable.
  */
 public final class SeamlessDofSystem {
-
 
     /** Corners per triangular face. */
     private static final int CORNERS_PER_FACE = 3;
@@ -79,7 +76,8 @@ public final class SeamlessDofSystem {
      * transitions are 90°k rotations plus real translations, with every integer
      * assigned later by the T-mesh quantization ILP.
      *
-     * <p>See also: LCK21a Section 3
+     * <p>
+     * See also: LCK21a Section 3
      */
     public final boolean[] dofIsInteger;
 
@@ -89,7 +87,8 @@ public final class SeamlessDofSystem {
      * {@link #ALIGN_AXIS_U} for the reverse, {@link #NOT_ALIGNMENT} if the edge is
      * not in {@link CrossField#alignmentEdgeIds} or is an interior cut edge.
      *
-     * <p>See also: BZK09 Section 5.2
+     * <p>
+     * See also: BZK09 Section 5.2
      */
     public final int[] alignmentEdgeIsoAxis;
 
@@ -101,8 +100,6 @@ public final class SeamlessDofSystem {
      */
     public final double[] dofPinnedValue;
 
-    /** Cached AMD column permutation for this DOF system's SPD matrix. */
-    private int[] cachedAmdPerm;
     private SeamlessParameterization seamless;
     private CutGraph cutGraph;
     private HalfEdgeMesh mesh;
@@ -163,26 +160,6 @@ public final class SeamlessDofSystem {
      *         apply with {@link #applyIntegerPinPenalty})
      */
     public NormalMatrix assemble(double[] faceWeight) {
-        return assemble(faceWeight, null, null, null);
-    }
-
-    /**
-     * Assemble the SPD matrix with extra quadratic-penalty contributions merged
-     * in, extending the non-zero pattern where a penalty couples DOFs the face
-     * energies do not.
-     *
-     * @param faceWeight    per-face IRLS weight, length {@code faceCount}
-     * @param extraDiagonal added to the diagonal, length {@link #dofCount}; null
-     *                      for none
-     * @param extraUpper    strict-upper additions keyed
-     *                      {@code (row << 32) | column}; null for none
-     * @param extraRhs      added to the right-hand side, length {@link #dofCount};
-     *                      null for none
-     * @return the assembled SPD matrix (without integer-pin diagonal penalty —
-     *         apply with {@link #applyIntegerPinPenalty})
-     */
-    public NormalMatrix assemble(double[] faceWeight, double[] extraDiagonal,
-            Map<Long, Double> extraUpper, double[] extraRhs) {
         if (assemblyPlan == null) {
             this.assemblyPlan = new AssemblyPlanBuilder(seamless.faceCount);
             this.assemblyPlan.build(seamless, chartVertexFinalDofs, chartVertexFinalCoefs, cutGraph, dofCount);
@@ -208,38 +185,7 @@ public final class SeamlessDofSystem {
                 rhs[assemblyPlan.perFaceRhsDof[i]] += w * assemblyPlan.perFaceRhsCoef[i];
             }
         }
-        if (extraDiagonal != null) {
-            for (int i = 0; i < dofCount; i++) {
-                diag[i] += extraDiagonal[i];
-            }
-        }
-        if (extraRhs != null) {
-            for (int i = 0; i < dofCount; i++) {
-                rhs[i] += extraRhs[i];
-            }
-        }
-        if (extraUpper == null || extraUpper.isEmpty()) {
-            return new NormalMatrix(diag, assemblyPlan.planUpperKeys, upper, rhs);
-        }
-        long[] baseKeys = assemblyPlan.planUpperKeys;
-        long[] mergedKeys = new long[baseKeys.length + extraUpper.size()];
-        System.arraycopy(baseKeys, 0, mergedKeys, 0, baseKeys.length);
-        int mergedCount = baseKeys.length;
-        for (long key : extraUpper.keySet()) {
-            if (Arrays.binarySearch(baseKeys, key) < 0) {
-                mergedKeys[mergedCount++] = key;
-            }
-        }
-        mergedKeys = Arrays.copyOf(mergedKeys, mergedCount);
-        Arrays.sort(mergedKeys);
-        double[] mergedValues = new double[mergedCount];
-        for (int i = 0; i < baseKeys.length; i++) {
-            mergedValues[Arrays.binarySearch(mergedKeys, baseKeys[i])] = upper[i];
-        }
-        for (Map.Entry<Long, Double> entry : extraUpper.entrySet()) {
-            mergedValues[Arrays.binarySearch(mergedKeys, entry.getKey())] += entry.getValue();
-        }
-        return new NormalMatrix(diag, mergedKeys, mergedValues, rhs);
+        return new NormalMatrix(diag, assemblyPlan.planUpperKeys, upper, rhs);
     }
 
     /**
@@ -269,29 +215,6 @@ public final class SeamlessDofSystem {
     public void pinDof(int dofIdx, double value) {
         dofPinned[dofIdx] = true;
         dofPinnedValue[dofIdx] = value;
-    }
-
-    /**
-     * Lazily compute and cache the AMD column permutation for the SPD matrix. The
-     * permutation depends only on the matrix non-zero pattern, which is invariant
-     * across all solver calls in one build, so this runs at most once per
-     * {@link SeamlessDofSystem} instance.
-     *
-     * @param matrix any assembled instance of the SPD system — only its non-zero
-     *               pattern is read
-     * @return cached perm with {@code perm[newIdx] = oldIdx}
-     */
-    public int[] amdPermutation(NormalMatrix matrix) {
-        if (cachedAmdPerm == null) {
-            boolean[] noneFixed = new boolean[dofCount];
-            int[] identityCompactOf = new int[dofCount];
-            for (int i = 0; i < dofCount; i++) {
-                identityCompactOf[i] = i;
-            }
-            cachedAmdPerm = SolverPermutation.computePermutation(
-                    matrix, noneFixed, identityCompactOf, dofCount, OrderingMethod.AMD);
-        }
-        return cachedAmdPerm;
     }
 
     /**
@@ -337,11 +260,12 @@ public final class SeamlessDofSystem {
 
     /**
      * Decide, for every edge in {@link CrossField#alignmentEdgeIds}, whether the
-     * cross field's u-axis or v-axis runs along it; the orthogonal coordinate is the
-     * iso to pin. Interior cut edges are marked {@link #NOT_ALIGNMENT}, since
+     * cross field's u-axis or v-axis runs along it; the orthogonal coordinate is
+     * the iso to pin. Interior cut edges are marked {@link #NOT_ALIGNMENT}, since
      * {@code v_p = v_q} cannot hold on both sides of a rotated cut.
      *
-     * <p>See also: BZK09 Section 5.2
+     * <p>
+     * See also: BZK09 Section 5.2
      *
      * @return per active edge: {@link #ALIGN_AXIS_U}, {@link #ALIGN_AXIS_V}, or
      *         {@link #NOT_ALIGNMENT}
@@ -436,10 +360,12 @@ public final class SeamlessDofSystem {
 
     /**
      * For every alignment edge with a decided iso-axis, add one equality row
-     * {@code u_p − u_q = 0} (or v) to {@code rows}. The endpoint chart vertices come
-     * from face A's corners at the canonical half-edge's start and end vertices.
+     * {@code u_p − u_q = 0} (or v) to {@code rows}. The endpoint chart vertices
+     * come from face A's corners at the canonical half-edge's start and end
+     * vertices.
      *
-     * <p>See also: BZK09 Section 5.2
+     * <p>
+     * See also: BZK09 Section 5.2
      *
      * @param rows the accumulator already holding the cut-rotation rows; this
      *             method appends to it in place
