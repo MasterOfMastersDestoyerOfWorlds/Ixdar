@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMeshRecarve;
 import ixdar.geometry.mesh.quadlayout.embedding.FaceStripPath;
 import ixdar.geometry.mesh.quadlayout.embedding.SnappingCarve;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
@@ -112,15 +113,16 @@ class RecarveTautStripsTest {
         assertEquals(CORNERS, inner.crossedEdges.size(), "inner route's crossings");
         assertEquals(2, outer.crossedEdges.size(), "outer route's crossings");
 
-        snapping.pullStripsTaut().carve();
+        EmbeddedTMeshRecarve recarve = pullTaut(topology, snapping);
+        snapping.carve();
 
         assertEquals(0, topology.claimConflictCount,
                 "the nested dips were laid over one another on the shared edge; first: "
                         + topology.firstClaimConflict);
-        assertEquals(2, snapping.dipCrossingsRemovedCount, "the inner dip removed");
-        assertEquals(CORNERS, snapping.endCrossingsTrimmedCount,
+        assertEquals(2, recarve.dipCrossingsRemovedCount, "the inner dip removed");
+        assertEquals(CORNERS, recarve.endCrossingsTrimmedCount,
                 "the exposed crossings on the arcs' own node edges trimmed");
-        assertEquals(0, snapping.fanSlideCrossingsRemovedCount, "no fan wind here");
+        assertEquals(0, recarve.fanSlideCrossingsRemovedCount, "no fan wind here");
         assertEquals(List.of(VERTEX_TOP_MIDDLE, VERTEX_BOTTOM_MIDDLE),
                 snapping.pathByArc[1].copyVertexPath,
                 "the outer arc's taut route runs straight along the contested edge");
@@ -156,14 +158,31 @@ class RecarveTautStripsTest {
         assertEquals(2, fan.crossedEdges.size(), "fan route's crossings");
         assertEquals(CORNERS, dipper.crossedEdges.size(), "dipper route's crossings");
 
-        snapping.pullStripsTaut().carve();
+        EmbeddedTMeshRecarve recarve = pullTaut(topology, snapping);
+        snapping.carve();
 
         assertEquals(0, topology.claimConflictCount,
                 "the fan wind walked the incident edge over the dipper's lanes; first: "
                         + topology.firstClaimConflict);
-        assertEquals(2, snapping.dipCrossingsRemovedCount, "the dipper's dip removed");
-        assertEquals(1, snapping.fanSlideCrossingsRemovedCount,
+        assertEquals(2, recarve.dipCrossingsRemovedCount, "the dipper's dip removed");
+        assertEquals(1, recarve.fanSlideCrossingsRemovedCount,
                 "the fan crossing slid into its vertex");
+    }
+
+    /**
+     * Runs the re-carve's taut pass over hand-built strips, the way {@code build()} runs it
+     * between refining the arcs and carving.
+     *
+     * @param topology working copy the strips lie on
+     * @param snapping carve holding the strips and node placements
+     * @return the re-carve wrapper, for its removal counters
+     */
+    private EmbeddedTMeshRecarve pullTaut(EmbeddedMeshTopology topology,
+            SnappingCarve snapping) {
+        EmbeddedTMeshRecarve recarve = new EmbeddedTMeshRecarve(null, topology.sourceMesh);
+        recarve.snapping = snapping;
+        recarve.pullStripsTaut();
+        return recarve;
     }
 
     /**

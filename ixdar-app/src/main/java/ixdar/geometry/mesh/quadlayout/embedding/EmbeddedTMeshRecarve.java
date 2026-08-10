@@ -540,15 +540,14 @@ public final class EmbeddedTMeshRecarve {
         return array;
     }
 
-        /**
+    /**
      * Pulls every strip taut before the carve, removing dips, fan winds and exposed
-     * end crossings whose swept span is clear. Only the re-carve calls this —
-     * replayed contracted paths wiggle, traced routes never do.
+     * end crossings whose swept span is clear. Replayed contracted paths wiggle,
+     * traced routes never do.
      *
      * @throws IllegalStateException when a dip or fan-wind pair survives because
      *                               another crossing blocks its span, which no
      *                               chord can lay
-     * @return this, with every strip taut
      */
     public void pullStripsTaut() {
         boolean removed = true;
