@@ -135,12 +135,7 @@ public final class FaceStripPath {
      * @throws IllegalStateException when there is no crossing to drop
      */
     public void removeFirstCrossing() {
-        requireCrossingToRemove();
-        crossedEdges.remove(0);
-        crossedVertices.remove(0);
-        crossingParameters.remove(0);
-        passageFaces.remove(0);
-        passageSourceFaces.remove(0);
+        removeCrossingWithPassageBefore(0);
     }
 
     /**
@@ -150,22 +145,51 @@ public final class FaceStripPath {
      * @throws IllegalStateException when there is no crossing to drop
      */
     public void removeLastCrossing() {
-        requireCrossingToRemove();
-        crossedEdges.remove(crossedEdges.size() - 1);
-        crossedVertices.remove(crossedVertices.size() - 1);
-        crossingParameters.remove(crossingParameters.size() - 1);
-        passageFaces.remove(passageFaces.size() - 1);
-        passageSourceFaces.remove(passageSourceFaces.size() - 1);
+        removeCrossingWithPassageAfter(crossedEdges.size() - 1);
     }
 
     /**
-     * Checks the route still has a crossing, so dropping one keeps a passage behind.
+     * Drops one crossing together with the passage entered just before it, for a crossing
+     * sliding along its edge into the vertex the previous crossing runs through.
      *
-     * @throws IllegalStateException when the route has no crossing
+     * @param crossing index into {@link #crossedEdges}
+     * @throws IllegalStateException when there is no such crossing
      */
-    private void requireCrossingToRemove() {
-        if (crossedEdges.isEmpty()) {
-            throw new IllegalStateException("arc " + arcId + " has no crossing to drop");
+    public void removeCrossingWithPassageBefore(int crossing) {
+        requireCrossing(crossing);
+        crossedEdges.remove(crossing);
+        crossedVertices.remove(crossing);
+        crossingParameters.remove(crossing);
+        passageFaces.remove(crossing);
+        passageSourceFaces.remove(crossing);
+    }
+
+    /**
+     * Drops one crossing together with the passage entered just after it, for the far
+     * crossing of a fan wind or, applied twice, for a dip's two crossings.
+     *
+     * @param crossing index into {@link #crossedEdges}
+     * @throws IllegalStateException when there is no such crossing
+     */
+    public void removeCrossingWithPassageAfter(int crossing) {
+        requireCrossing(crossing);
+        crossedEdges.remove(crossing);
+        crossedVertices.remove(crossing);
+        crossingParameters.remove(crossing);
+        passageFaces.remove(crossing + 1);
+        passageSourceFaces.remove(crossing + 1);
+    }
+
+    /**
+     * Checks a crossing index is in range, so a removal keeps a passage behind.
+     *
+     * @param crossing index into {@link #crossedEdges}
+     * @throws IllegalStateException when the route has no such crossing
+     */
+    private void requireCrossing(int crossing) {
+        if (crossing < 0 || crossing >= crossedEdges.size()) {
+            throw new IllegalStateException(
+                    "arc " + arcId + " has no crossing " + crossing + " to drop");
         }
     }
 

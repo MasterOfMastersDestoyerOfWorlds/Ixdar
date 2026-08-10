@@ -16,8 +16,8 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
 
 /**
- * Embeds every layout arc as one chosen vertex per crossed edge of the constraint mesh,
- * joined passage by passage by chords that mint nothing.
+ * Embeds every layout arc as one chosen vertex per crossed edge of the
+ * constraint mesh, joined passage by passage by chords that mint nothing.
  *
  * <p>
  * See also: LCBK19 Section 6.1
@@ -34,8 +34,8 @@ public final class SnappingCarve {
     private static final double BARYCENTRIC_TOLERANCE = 1.0e-9;
 
     /**
-     * Traced graph the routes come from, or {@code null} when the caller supplied the routes
-     * itself — the re-carve reads them off a contracted layout instead.
+     * Traced graph the routes come from, or {@code null} when the caller supplied
+     * the routes itself — the re-carve reads them off a contracted layout instead.
      */
     public final MotorcycleGraph motorcycleGraph;
 
@@ -51,7 +51,9 @@ public final class SnappingCarve {
     /** Node each arc runs to, indexed by arc id. */
     public int[] endNodeByArc;
 
-    /** Copy vertex per T-mesh node id, or {@link EmbeddedMeshTopology#UNCLAIMED}. */
+    /**
+     * Copy vertex per T-mesh node id, or {@link EmbeddedMeshTopology#UNCLAIMED}.
+     */
     public int[] vertexIdByNode;
 
     /** Nodes that claimed an existing mesh vertex outright. */
@@ -64,12 +66,15 @@ public final class SnappingCarve {
     public int nodesByFaceSplitCount;
 
     /**
-     * Nodes that landed within {@link FaceChordWalk#MINIMUM_SEPARATION} of a corner of the
-     * child holding them and took it, rather than cutting a sliver beside it.
+     * Nodes that landed within {@link FaceChordWalk#MINIMUM_SEPARATION} of a corner
+     * of the child holding them and took it, rather than cutting a sliver beside
+     * it.
      */
     public int nodesSnappedToCornerCount;
 
-    /** Vertices of the constraint mesh, the working copy once the nodes are placed. */
+    /**
+     * Vertices of the constraint mesh, the working copy once the nodes are placed.
+     */
     public int constraintVertexCount;
 
     /** Faces of the constraint mesh. */
@@ -84,10 +89,16 @@ public final class SnappingCarve {
     /** Embedded path per arc id; null for an arc that crosses no face. */
     public ArcEdgePath[] pathByArc;
 
-    /** Crossings on each constraint edge as {@code {arcId, crossingIndex}}, keyed by edge. */
+    /**
+     * Crossings on each constraint edge as {@code {arcId, crossingIndex}}, keyed by
+     * edge.
+     */
     public final Map<Long, List<int[]>> crossingsByEdge = new HashMap<>();
 
-    /** How many arc passages each source active face carries, indexed by active face. */
+    /**
+     * How many arc passages each source active face carries, indexed by active
+     * face.
+     */
     public int[] passageCountBySourceFace;
 
     /** Source faces more than one arc passes through. */
@@ -102,7 +113,10 @@ public final class SnappingCarve {
     /** Crossings served by a vertex minted on the edge. */
     public int lanesMintedCount;
 
-    /** Corners handed back because the arc had already taken them at an earlier crossing. */
+    /**
+     * Corners handed back because the arc had already taken them at an earlier
+     * crossing.
+     */
     public int repeatedCornerReleaseCount;
 
     /** Most lanes minted on any one constraint edge. */
@@ -114,17 +128,23 @@ public final class SnappingCarve {
     /** Chords an edge of the working copy already provided. */
     public int chordsAlreadyPresentCount;
 
-    /** Copy vertex count before any chord was laid, which laying them must not change. */
+    /**
+     * Copy vertex count before any chord was laid, which laying them must not
+     * change.
+     */
     public int verticesBeforeChords;
 
-    /** Copy face count before any chord was laid, which laying them must not change. */
+    /**
+     * Copy face count before any chord was laid, which laying them must not change.
+     */
     public int facesBeforeChords;
 
     /** Cross-field active index per source edge id, for tagging fragments. */
     public Map<Integer, Integer> activeEdgeBySourceEdge;
 
     /**
-     * Stores the traced graph and builds the working copy the arcs are embedded into.
+     * Stores the traced graph and builds the working copy the arcs are embedded
+     * into.
      *
      * @param motorcycleGraph traced T-mesh whose arcs are embedded
      */
@@ -134,8 +154,8 @@ public final class SnappingCarve {
     }
 
     /**
-     * Stores a working copy whose nodes and routes the caller places and refines itself, then
-     * runs {@link #carve()} over them. The re-carve enters this way.
+     * Stores a working copy whose nodes and routes the caller places and refines
+     * itself, then runs {@link #carve()} over them. The re-carve enters this way.
      *
      * @param topology working copy, standing as the constraint mesh
      */
@@ -145,9 +165,9 @@ public final class SnappingCarve {
     }
 
     /**
-     * Gives every T-mesh node a copy vertex, splitting eagerly. Afterwards the working copy
-     * is the constraint mesh: every node is one of its corners, so no face of it holds a
-     * vertex in its interior.
+     * Gives every T-mesh node a copy vertex, splitting eagerly. Afterwards the
+     * working copy is the constraint mesh: every node is one of its corners, so no
+     * face of it holds a vertex in its interior.
      *
      * @throws IllegalStateException when two nodes land on one copy vertex
      * @return this, with the nodes placed
@@ -175,10 +195,10 @@ public final class SnappingCarve {
     }
 
     /**
-     * Refines every arc's traced route onto the constraint mesh. An arc is the parametric
-     * slice {@code [chainNodeLengths[k], chainNodeLengths[k+1])} of its trace, so its
-     * passages are the trace segments overlapping that slice, each cut further at the edges
-     * the node vertices introduced.
+     * Refines every arc's traced route onto the constraint mesh. An arc is the
+     * parametric slice {@code [chainNodeLengths[k], chainNodeLengths[k+1])} of its
+     * trace, so its passages are the trace segments overlapping that slice, each
+     * cut further at the edges the node vertices introduced.
      *
      * @return this, with {@link #stripByArc} filled
      */
@@ -210,8 +230,8 @@ public final class SnappingCarve {
     }
 
     /**
-     * Walks one arc's trace segments in order, handing each to its strip as a passage from
-     * where the arc entered that face to where it leaves it.
+     * Walks one arc's trace segments in order, handing each to its strip as a
+     * passage from where the arc entered that face to where it leaves it.
      *
      * @param trace trace carrying the arc
      * @param step  index of the arc within the trace's chain
@@ -246,9 +266,10 @@ public final class SnappingCarve {
     }
 
     /**
-     * A T-mesh node's position as a barycentric of a source face, read from the coordinate
-     * its vertex was registered with. A node on a mesh vertex has no face of its own, so
-     * asking its vertex rather than its chart position covers both kinds at once.
+     * A T-mesh node's position as a barycentric of a source face, read from the
+     * coordinate its vertex was registered with. A node on a mesh vertex has no
+     * face of its own, so asking its vertex rather than its chart position covers
+     * both kinds at once.
      *
      * @param nodeId     node whose position is wanted
      * @param sourceFace source active face it must be measured in
@@ -265,9 +286,9 @@ public final class SnappingCarve {
     }
 
     /**
-     * Where a trace segment leaves its face, as a barycentric of whichever face is asked
-     * for. Both faces sharing that edge can read the point, which is what lets one passage
-     * end exactly where the next begins.
+     * Where a trace segment leaves its face, as a barycentric of whichever face is
+     * asked for. Both faces sharing that edge can read the point, which is what
+     * lets one passage end exactly where the next begins.
      *
      * @param segment segment whose recorded exit is converted
      * @param inFace  source active face to measure it in
@@ -319,8 +340,8 @@ public final class SnappingCarve {
     }
 
     /**
-     * Runs the carve: one vertex chosen per crossing, minted only where no corner is to be
-     * had, then one chord laid per passage.
+     * Runs the carve: one vertex chosen per crossing, minted only where no corner
+     * is to be had, then one chord laid per passage.
      *
      * @return this, carved
      */
@@ -334,9 +355,10 @@ public final class SnappingCarve {
     }
 
     /**
-     * Takes back a corner an arc chose at two crossings that are not consecutive, so its path
-     * cannot revisit that vertex and pinch a region off the layout. A crossing the route runs
-     * exactly through keeps its vertex: it is on no edge, so no lane can replace it.
+     * Takes back a corner an arc chose at two crossings that are not consecutive,
+     * so its path cannot revisit that vertex and pinch a region off the layout. A
+     * crossing the route runs exactly through keeps its vertex: it is on no edge,
+     * so no lane can replace it.
      */
     private void releaseRepeatedCorners() {
         Map<Integer, Integer> lastCrossingByVertex = new HashMap<>();
@@ -362,8 +384,8 @@ public final class SnappingCarve {
     }
 
     /**
-     * Gathers the crossings each constraint edge carries, which is what the assignment
-     * along that edge is ordered over.
+     * Gathers the crossings each constraint edge carries, which is what the
+     * assignment along that edge is ordered over.
      */
     private void collectCrossings() {
         chosenVertexByArc = new ArrayList<>(stripByArc.size());
@@ -383,8 +405,9 @@ public final class SnappingCarve {
     }
 
     /**
-     * Takes the vertex an arc's route runs exactly through. No lane can be minted for such a
-     * crossing, so a vertex another element already holds is a tear, not a contention.
+     * Takes the vertex an arc's route runs exactly through. No lane can be minted
+     * for such a crossing, so a vertex another element already holds is a tear, not
+     * a contention.
      *
      * @param arcId      arc whose route passes through the vertex
      * @param copyVertex the vertex it passes through
@@ -404,7 +427,8 @@ public final class SnappingCarve {
                 || arcOwner != EmbeddedMeshTopology.UNCLAIMED && arcOwner != arcId) {
             throw new IllegalStateException("arc " + arcId + " runs exactly through copy vertex "
                     + copyVertex + (copyVertex < topology.originalVertexBound ? " (an original"
-                            + " mesh vertex)" : " (minted)") + ", which node " + nodeOwner
+                            + " mesh vertex)" : " (minted)")
+                    + ", which node " + nodeOwner
                     + " / arc " + arcOwner
                     + " already holds; two T-mesh elements cannot share one mesh vertex");
         }
@@ -414,9 +438,10 @@ public final class SnappingCarve {
     }
 
     /**
-     * Gives an existing corner of a constraint edge to the crossings at either end of its
-     * traced order, which are the only two that can take one without the assignment along
-     * the edge ceasing to be monotone and the chords in a face crossing each other.
+     * Gives an existing corner of a constraint edge to the crossings at either end
+     * of its traced order, which are the only two that can take one without the
+     * assignment along the edge ceasing to be monotone and the chords in a face
+     * crossing each other.
      */
     private void grantCorners() {
         for (Map.Entry<Long, List<int[]>> entry : crossingsByEdge.entrySet()) {
@@ -430,8 +455,8 @@ public final class SnappingCarve {
     }
 
     /**
-     * Gives one crossing a corner, when that is the corner its route prefers and no node or
-     * other arc holds it.
+     * Gives one crossing a corner, when that is the corner its route prefers and no
+     * node or other arc holds it.
      *
      * @param crossing the crossing as {@code {arcId, crossingIndex}}
      * @param corner   copy vertex of the corner on offer
@@ -451,8 +476,9 @@ public final class SnappingCarve {
     }
 
     /**
-     * The corner an arc would rather take at one crossing: the one shared with its next
-     * crossed edge, or at its last crossing the end its traced route passes nearer.
+     * The corner an arc would rather take at one crossing: the one shared with its
+     * next crossed edge, or at its last crossing the end its traced route passes
+     * nearer.
      *
      * @param crossing the crossing as {@code {arcId, crossingIndex}}
      * @return that corner's copy vertex
@@ -468,16 +494,16 @@ public final class SnappingCarve {
     }
 
     /**
-     * Mints a vertex on each constraint edge for every crossing no corner could serve,
-     * evenly spaced so the smallest fragment is {@code 1/(demand+1)} whatever the traced
-     * positions were, and hands them out in traced order so the assignment stays monotone.
+     * Mints a vertex on each constraint edge for every crossing no corner could
+     * serve, evenly spaced so the smallest fragment is {@code 1/(demand+1)}
+     * whatever the traced positions were, and hands them out in traced order so the
+     * assignment stays monotone.
      */
     private void mintLanes() {
         for (Map.Entry<Long, List<int[]>> entry : crossingsByEdge.entrySet()) {
             List<int[]> demanding = new ArrayList<>();
             for (int[] crossing : entry.getValue()) {
-                if (chosenVertexByArc.get(crossing[0]).get(crossing[1])
-                        == EmbeddedMeshTopology.UNCLAIMED) {
+                if (chosenVertexByArc.get(crossing[0]).get(crossing[1]) == EmbeddedMeshTopology.UNCLAIMED) {
                     demanding.add(crossing);
                 }
             }
@@ -499,14 +525,15 @@ public final class SnappingCarve {
     }
 
     /**
-     * Splits one constraint edge into {@code count + 1} uniform fragments, minting a carve
-     * point at each {@code i/(count+1)}.
+     * Splits one constraint edge into {@code count + 1} uniform fragments, minting
+     * a carve point at each {@code i/(count+1)}.
      *
-     * @param fromVertex copy vertex the edge runs from, which positions are measured from
+     * @param fromVertex copy vertex the edge runs from, which positions are
+     *                   measured from
      * @param toVertex   copy vertex it runs to
      * @param count      carve points to place along it
-     * @throws IllegalStateException when the edge is already broken, so its fragments would
-     *                               not divide evenly
+     * @throws IllegalStateException when the edge is already broken, so its
+     *                               fragments would not divide evenly
      * @return the minted copy vertices, ordered from {@code fromVertex}
      */
     public List<Integer> splitEdgeIntoLanes(int fromVertex, int toVertex, int count) {
@@ -533,9 +560,9 @@ public final class SnappingCarve {
     }
 
     /**
-     * Joins each arc's chosen vertices passage by passage, one chord each. Chords mint no
-     * vertex and rebuild every crossed strip into as many triangles as it had, so neither
-     * count moves from here on.
+     * Joins each arc's chosen vertices passage by passage, one chord each. Chords
+     * mint no vertex and rebuild every crossed strip into as many triangles as it
+     * had, so neither count moves from here on.
      */
     private void layChords() {
         verticesBeforeChords = topology.copy.vertexCount();
@@ -570,7 +597,8 @@ public final class SnappingCarve {
      * Lays one passage's chord and appends the copy vertices it runs through.
      *
      * @param path       the arc's path so far, appended to
-     * @param sourceFace source active face holding the passage, its barycentric frame
+     * @param sourceFace source active face holding the passage, its barycentric
+     *                   frame
      * @param from       copy vertex the passage enters at
      * @param to         copy vertex the passage leaves at
      * @param arcId      arc the passage belongs to
@@ -586,12 +614,13 @@ public final class SnappingCarve {
     }
 
     /**
-     * Records a laid arc's path and claims the vertices along it, leaving its two node
-     * vertices to the nodes.
+     * Records a laid arc's path and claims the vertices along it, leaving its two
+     * node vertices to the nodes.
      *
      * @param arcId    arc that was laid
      * @param vertices its copy vertex path
-     * @throws IllegalStateException when a hop of the path has no copy edge behind it
+     * @throws IllegalStateException when a hop of the path has no copy edge behind
+     *                               it
      * @return the recorded path
      */
     private ArcEdgePath recordPath(int arcId, List<Integer> vertices) {
@@ -606,8 +635,7 @@ public final class SnappingCarve {
             edges.add(edgeId);
         }
         for (int index = 1; index < vertices.size() - 1; index++) {
-            if (topology.ownerNodeByCopyVertex[vertices.get(index)]
-                    == EmbeddedMeshTopology.UNCLAIMED) {
+            if (topology.ownerNodeByCopyVertex[vertices.get(index)] == EmbeddedMeshTopology.UNCLAIMED) {
                 topology.ownerArcByCopyVertex[vertices.get(index)] = arcId;
             }
         }
@@ -615,14 +643,14 @@ public final class SnappingCarve {
     }
 
     /**
-     * Where an arc's traced route crossed a constraint edge, used only to order the arcs
-     * along it. Ordering must follow the trace or two arcs' chords would cross inside a
-     * face; the positions themselves come from the count, never from this.
+     * Where an arc's traced route crossed a constraint edge, used only to order the
+     * arcs along it. Ordering must follow the trace or two arcs' chords would cross
+     * inside a face; the positions themselves come from the count, never from this.
      *
      * @param crossing the crossing as {@code {arcId, crossingIndex}}
      * @return the traced parameter from the edge's first recorded endpoint
      */
-    private double tracedPositionOf(int[] crossing) {
+    double tracedPositionOf(int[] crossing) {
         return stripByArc.get(crossing[0]).crossingParameters.get(crossing[1]);
     }
 
@@ -632,7 +660,7 @@ public final class SnappingCarve {
      * @param endpoints the edge's endpoint copy vertices, lower first
      * @return the packed key
      */
-    private static long edgeKey(int[] endpoints) {
+    static long edgeKey(int[] endpoints) {
         return (long) endpoints[0] << Integer.SIZE | endpoints[1] & 0xFFFFFFFFL;
     }
 
@@ -654,9 +682,9 @@ public final class SnappingCarve {
     }
 
     /**
-     * Mints a copy vertex at a node's position inside its source face: a face split, an edge
-     * split, or the corner it lands on. A node a rounding step off an edge is placed on that
-     * edge rather than cutting a sliver beside it.
+     * Mints a copy vertex at a node's position inside its source face: a face
+     * split, an edge split, or the corner it lands on. A node a rounding step off
+     * an edge is placed on that edge rather than cutting a sliver beside it.
      *
      * @param node        node to place
      * @param barycentric its barycentric in its source face
@@ -705,8 +733,8 @@ public final class SnappingCarve {
 
     /**
      * Splits a child face's edge where a node lands on it. A node within
-     * {@link FaceChordWalk#MINIMUM_SEPARATION} of an end takes that end instead: splitting
-     * there mints a vertex on top of an existing one.
+     * {@link FaceChordWalk#MINIMUM_SEPARATION} of an end takes that end instead:
+     * splitting there mints a vertex on top of an existing one.
      *
      * @param childFace child face carrying the edge
      * @param localEdge local edge index the node lies on
@@ -739,7 +767,8 @@ public final class SnappingCarve {
     }
 
     /**
-     * The three corner barycentrics of a child face, read in its source face's frame.
+     * The three corner barycentrics of a child face, read in its source face's
+     * frame.
      *
      * @param sourceFace source active face the child descends from
      * @param childFace  child copy face
@@ -786,8 +815,8 @@ public final class SnappingCarve {
     }
 
     /**
-     * Reports what the carve minted and what it only rearranged, which is the first check
-     * that the copy mesh is being refined no further than the layout needs.
+     * Reports what the carve minted and what it only rearranged, which is the first
+     * check that the copy mesh is being refined no further than the layout needs.
      */
     public void report() {
         System.out.printf("[snap] nodes=%d onVertex=%d edgeSplit=%d faceSplit=%d snapped=%d |"
