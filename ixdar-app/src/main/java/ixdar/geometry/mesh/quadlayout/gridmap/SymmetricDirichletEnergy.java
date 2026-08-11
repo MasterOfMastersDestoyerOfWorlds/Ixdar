@@ -4,30 +4,31 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
  * One triangle's symmetric Dirichlet energy {@code A·‖J‖²_F·(1 + 1/det²)}, with
- * its analytic gradient and its Hessian projected to positive semi-definite.
+ * its analytic gradient and SPH17's composite-majorization positive
+ * semi-definite Hessian.
  *
  * <p>
  * The energy diverges as a triangle collapses, which is what keeps the map
  * locally injective.
  *
  * <p>
- * See also: LCBK19 Section 6.2
+ * See also: LCBK19 Section 6.2; SPH17 Sections 3-4
  */
 public final class SymmetricDirichletEnergy {
 
     /** Variables per triangle: three corners in two coordinates. */
     public static final int VARIABLES = 6;
 
-    /** Sweeps of the Jacobi rotation used to project the Hessian. */
-    public static final int JACOBI_SWEEPS = 6;
-
-    /** Off-diagonal entries below this are treated as already zero. */
-    public static final double JACOBI_TOLERANCE = 1.0e-12;
+    /**
+     * Fraction of {@code ‖α‖+‖β‖} smoothing a curvature weight's {@code 0/0}
+     * cone point toward its analytic limit {@code h_ΣΣ+h_σσ}.
+     */
+    public static final double DEGENERATE_NORM_FRACTION = 1.0e-8;
 
     /**
-     * Whether {@link #evaluate} clamps the Hessian's negative eigenvalues. Only a
-     * test comparing against finite differences wants the raw Hessian; the Newton
-     * step needs the projection.
+     * Whether {@link #evaluate} builds the composite-majorization PSD Hessian.
+     * Only a test comparing against finite differences wants the raw Hessian;
+     * the Newton step needs positive semi-definiteness.
      */
     public boolean projectHessian = true;
 
@@ -37,7 +38,7 @@ public final class SymmetricDirichletEnergy {
     /** Gradient by variable, ordered {@code x0, x1, x2, y0, y1, y2}. */
     public final double[] gradient = new double[VARIABLES];
 
-    /** Hessian over the same ordering, projected to positive semi-definite. */
+    /** Hessian over the same ordering, positive semi-definite by majorization. */
     public final double[][] hessian = new double[VARIABLES][VARIABLES];
 
     /**
@@ -45,8 +46,12 @@ public final class SymmetricDirichletEnergy {
      */
     public double signedArea;
 
-    private final double[][] eigenvectors = new double[VARIABLES][VARIABLES];
-    private final double[] eigenvalues = new double[VARIABLES];
+    private final double[] frobeniusGradient = new double[VARIABLES];
+    private final double[] determinantGradient = new double[VARIABLES];
+    private final double[] largestSingularGradient = new double[VARIABLES];
+    private final double[] smallestSingularGradient = new double[VARIABLES];
+    private final double[] alphaRotatedDirection = new double[VARIABLES];
+    private final double[] betaRotatedDirection = new double[VARIABLES];
 
     /**
      * Evaluates the energy, gradient and projected Hessian of one triangle.
@@ -69,8 +74,6 @@ public final class SymmetricDirichletEnergy {
         double inverseSquared = 1.0 / (determinant * determinant);
         energy = area * frobenius * (1.0 + inverseSquared);
 
-        double[] frobeniusGradient = new double[VARIABLES];
-        double[] determinantGradient = new double[VARIABLES];
         for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
             double first = gradientOperator[corner];
             double second = gradientOperator[HalfEdgeMesh.TRIANGLE_CORNERS + corner];
@@ -88,6 +91,10 @@ public final class SymmetricDirichletEnergy {
             gradient[row] = area
                     * (scale * frobeniusGradient[row] + frobenius * crossFactor
                             * determinantGradient[row]);
+        }
+        if (projectHessian) {
+            composeMajorizedHessian(gradientOperator, area, firstU, secondU, firstV, secondV);
+            return;
         }
         for (int row = 0; row < VARIABLES; row++) {
             for (int column = 0; column < VARIABLES; column++) {
@@ -114,8 +121,85 @@ public final class SymmetricDirichletEnergy {
                         + frobenius * crossFactor * determinantHessian);
             }
         }
-        if (projectHessian) {
-            projectToPositiveSemiDefinite();
+    }
+
+    /**
+     * Builds SPH17's composite-majorization PSD Hessian into {@link #hessian}:
+     * four rank-one terms from the singular-value gradients and the rotated
+     * similarity directions (Eq. 9/17/22/23 with Eq. 18 term gathering).
+     *
+     * @param gradientOperator the constant {@code 2×3} operator, row-major
+     * @param area             source area weighting the triangle
+     * @param firstU           Jacobian entry {@code ∂x/∂u}
+     * @param secondU          Jacobian entry {@code ∂x/∂v}
+     * @param firstV           Jacobian entry {@code ∂y/∂u}
+     * @param secondV          Jacobian entry {@code ∂y/∂v}
+     */
+    private void composeMajorizedHessian(double[] gradientOperator, double area,
+            double firstU, double secondU, double firstV, double secondV) {
+        double alphaFirst = (firstU + secondV) / 2.0;
+        double alphaSecond = (firstV - secondU) / 2.0;
+        double betaFirst = (firstU - secondV) / 2.0;
+        double betaSecond = (firstV + secondU) / 2.0;
+        double alphaNorm = Math.sqrt(alphaFirst * alphaFirst + alphaSecond * alphaSecond);
+        double betaNorm = Math.sqrt(betaFirst * betaFirst + betaSecond * betaSecond);
+        double largest = alphaNorm + betaNorm;
+        double smallest = alphaNorm - betaNorm;
+
+        double normFloor = DEGENERATE_NORM_FRACTION * largest;
+        double alphaUnitFirst = alphaNorm > 0.0 ? alphaFirst / alphaNorm : 1.0;
+        double alphaUnitSecond = alphaNorm > 0.0 ? alphaSecond / alphaNorm : 0.0;
+        double betaUnitFirst = betaNorm > 0.0 ? betaFirst / betaNorm : 1.0;
+        double betaUnitSecond = betaNorm > 0.0 ? betaSecond / betaNorm : 0.0;
+        for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
+            double first = gradientOperator[corner];
+            double second = gradientOperator[HalfEdgeMesh.TRIANGLE_CORNERS + corner];
+            double alphaGradientX = (first * alphaUnitFirst - second * alphaUnitSecond) / 2.0;
+            double alphaGradientY = (second * alphaUnitFirst + first * alphaUnitSecond) / 2.0;
+            double betaGradientX = (first * betaUnitFirst + second * betaUnitSecond) / 2.0;
+            double betaGradientY = (-second * betaUnitFirst + first * betaUnitSecond) / 2.0;
+            largestSingularGradient[corner] = alphaGradientX + betaGradientX;
+            largestSingularGradient[HalfEdgeMesh.TRIANGLE_CORNERS + corner] = alphaGradientY
+                    + betaGradientY;
+            smallestSingularGradient[corner] = alphaGradientX - betaGradientX;
+            smallestSingularGradient[HalfEdgeMesh.TRIANGLE_CORNERS + corner] = alphaGradientY
+                    - betaGradientY;
+            alphaRotatedDirection[corner] = -(first * alphaUnitSecond + second * alphaUnitFirst)
+                    / 2.0;
+            alphaRotatedDirection[HalfEdgeMesh.TRIANGLE_CORNERS + corner] = (first * alphaUnitFirst
+                    - second * alphaUnitSecond) / 2.0;
+            betaRotatedDirection[corner] = (second * betaUnitFirst - first * betaUnitSecond) / 2.0;
+            betaRotatedDirection[HalfEdgeMesh.TRIANGLE_CORNERS + corner] = (first * betaUnitFirst
+                    + second * betaUnitSecond) / 2.0;
+        }
+
+        double largestFourth = largest * largest * largest * largest;
+        double smallestFourth = smallest * smallest * smallest * smallest;
+        double largestSecondDerivative = area * (2.0 + 6.0 / largestFourth);
+        double smallestSecondDerivative = area * (2.0 + 6.0 / smallestFourth);
+        double largestFirstDerivative = area * 2.0 * (largest - 1.0 / (largest * largest * largest));
+        double smallestFirstDerivative = area * 2.0
+                * (smallest - 1.0 / (smallest * smallest * smallest));
+        double curvatureLimit = largestSecondDerivative + smallestSecondDerivative;
+        double alphaCurvatureWeight = (Math.max(largestFirstDerivative, 0.0)
+                + Math.max(smallestFirstDerivative, 0.0) + curvatureLimit * normFloor)
+                / (alphaNorm + normFloor);
+        double betaCurvatureWeight = (Math.max(largestFirstDerivative, 0.0)
+                + Math.max(-smallestFirstDerivative, 0.0) + curvatureLimit * normFloor)
+                / (betaNorm + normFloor);
+        for (int row = 0; row < VARIABLES; row++) {
+            for (int column = row; column < VARIABLES; column++) {
+                double value = largestSecondDerivative
+                        * largestSingularGradient[row] * largestSingularGradient[column]
+                        + smallestSecondDerivative
+                                * smallestSingularGradient[row] * smallestSingularGradient[column]
+                        + alphaCurvatureWeight
+                                * alphaRotatedDirection[row] * alphaRotatedDirection[column]
+                        + betaCurvatureWeight
+                                * betaRotatedDirection[row] * betaRotatedDirection[column];
+                hessian[row][column] = value;
+                hessian[column][row] = value;
+            }
         }
     }
 
@@ -166,79 +250,4 @@ public final class SymmetricDirichletEnergy {
                 + gradientOperator[base + 2] * (target[2] - target[0]);
     }
 
-    /**
-     * Clamps the Hessian's negative eigenvalues to zero, which the Newton step
-     * needs because the true Hessian is indefinite away from the minimum and
-     * Cholesky requires positive semi-definiteness.
-     */
-    private void projectToPositiveSemiDefinite() {
-        for (int row = 0; row < VARIABLES; row++) {
-            for (int column = 0; column < VARIABLES; column++) {
-                eigenvectors[row][column] = row == column ? 1.0 : 0.0;
-            }
-        }
-        for (int sweep = 0; sweep < JACOBI_SWEEPS; sweep++) {
-            for (int row = 0; row < VARIABLES - 1; row++) {
-                for (int column = row + 1; column < VARIABLES; column++) {
-                    rotate(row, column);
-                }
-            }
-        }
-        for (int index = 0; index < VARIABLES; index++) {
-            eigenvalues[index] = hessian[index][index];
-        }
-        for (int row = 0; row < VARIABLES; row++) {
-            for (int column = row; column < VARIABLES; column++) {
-                double sum = 0.0;
-                for (int index = 0; index < VARIABLES; index++) {
-                    if (eigenvalues[index] <= 0.0) {
-                        continue;
-                    }
-                    sum += eigenvalues[index] * eigenvectors[row][index] * eigenvectors[column][index];
-                }
-                hessian[row][column] = sum;
-                hessian[column][row] = sum;
-            }
-        }
-    }
-
-    /**
-     * One Jacobi rotation zeroing a symmetric off-diagonal pair of the Hessian,
-     * accumulating the rotation into the eigenvector basis.
-     *
-     * @param pivotRow    row of the entry to zero
-     * @param pivotColumn column of the entry to zero
-     */
-    private void rotate(int pivotRow, int pivotColumn) {
-        double offDiagonal = hessian[pivotRow][pivotColumn];
-        if (Math.abs(offDiagonal) < JACOBI_TOLERANCE) {
-            return;
-        }
-        double difference = hessian[pivotColumn][pivotColumn] - hessian[pivotRow][pivotRow];
-        double theta = difference / (2.0 * offDiagonal);
-        double tangent = Math.signum(theta) / (Math.abs(theta) + Math.sqrt(theta * theta + 1.0));
-        if (theta == 0.0) {
-            tangent = 1.0;
-        }
-        double cosine = 1.0 / Math.sqrt(tangent * tangent + 1.0);
-        double sine = tangent * cosine;
-        for (int index = 0; index < VARIABLES; index++) {
-            double atRow = hessian[pivotRow][index];
-            double atColumn = hessian[pivotColumn][index];
-            hessian[pivotRow][index] = cosine * atRow - sine * atColumn;
-            hessian[pivotColumn][index] = sine * atRow + cosine * atColumn;
-        }
-        for (int index = 0; index < VARIABLES; index++) {
-            double atRow = hessian[index][pivotRow];
-            double atColumn = hessian[index][pivotColumn];
-            hessian[index][pivotRow] = cosine * atRow - sine * atColumn;
-            hessian[index][pivotColumn] = sine * atRow + cosine * atColumn;
-        }
-        for (int index = 0; index < VARIABLES; index++) {
-            double atRow = eigenvectors[index][pivotRow];
-            double atColumn = eigenvectors[index][pivotColumn];
-            eigenvectors[index][pivotRow] = cosine * atRow - sine * atColumn;
-            eigenvectors[index][pivotColumn] = sine * atRow + cosine * atColumn;
-        }
-    }
 }

@@ -21,6 +21,12 @@ public final class NormalMatrix {
     public final double[] diagonal;
 
     /**
+     * Two {@link #rowValue} positions per upper slot, enabling
+     * {@link #refreshValues}; only the sorted-keys constructor fills it.
+     */
+    public int[] rowValuePositionBySlot;
+
+    /**
      * Constructor with chord-based rows.
      *
      * @param faceCount   number of faces
@@ -216,12 +222,15 @@ public final class NormalMatrix {
         rowValue = new double[rowStart[variableCount]];
         int[] cursor = rowStart.clone();
 
+        rowValuePositionBySlot = new int[upperKeys.length * 2];
         for (int slot = 0; slot < upperKeys.length; slot++) {
             long key = upperKeys[slot];
             int row = (int) (key >>> KEY_ROW_SHIFT);
             int col = (int) (key & KEY_COL_MASK);
             double value = upperValues[slot];
+            rowValuePositionBySlot[slot * 2] = cursor[row];
             addOffDiagonal(cursor, row, col, value);
+            rowValuePositionBySlot[slot * 2 + 1] = cursor[col];
             addOffDiagonal(cursor, col, row, value);
         }
     }
@@ -278,6 +287,29 @@ public final class NormalMatrix {
                 rowColumn[slot] = inversePermutation[matrix.rowColumn[entry]];
                 rowValue[slot] = matrix.rowValue[entry];
             }
+        }
+    }
+
+    /**
+     * Overwrites the diagonal, off-diagonal, and right-hand-side values in
+     * place, keeping the sparsity structure; slot order must match construction.
+     *
+     * @param diag        new diagonal values, length {@code variableCount}
+     * @param upperValues new off-diagonal values in the construction slot order
+     * @param rhs         new right-hand side, length {@code variableCount}
+     * @throws IllegalStateException when the matrix was not built from sorted
+     *                               keys
+     */
+    public void refreshValues(double[] diag, double[] upperValues, double[] rhs) {
+        if (rowValuePositionBySlot == null) {
+            throw new IllegalStateException("only a sorted-keys matrix can refresh values");
+        }
+        System.arraycopy(diag, 0, diagonal, 0, variableCount);
+        System.arraycopy(rhs, 0, rightHandSide, 0, variableCount);
+        for (int slot = 0; slot < upperValues.length; slot++) {
+            double value = upperValues[slot];
+            rowValue[rowValuePositionBySlot[slot * 2]] = value;
+            rowValue[rowValuePositionBySlot[slot * 2 + 1]] = value;
         }
     }
 

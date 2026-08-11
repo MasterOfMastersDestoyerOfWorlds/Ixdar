@@ -4,6 +4,10 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
@@ -16,7 +20,8 @@ import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 import ixdar.platform.Platforms;
 
 /**
- * LCBK19 §6.2's re-parametrization: projected Newton on the symmetric Dirichlet
+ * LCBK19 §6.2's re-parametrization: Newton with SPH17's composite-majorization
+ * PSD Hessian on the symmetric Dirichlet
  * energy of the map from the seamless parametrization to the grid, freeing the
  * vertices the per-patch maps pinned.
  *
@@ -84,11 +89,17 @@ public final class GridMapOptimizer {
     public static final double RIDGE_FLOOR = 1.0e-12;
 
     /**
-     * Ridge as a fraction of the largest diagonal. SPH17's projection gives a
-     * positive <em>semi</em>-definite Hessian; Cholesky needs it definite, and an
-     * absolute floor is nothing against diagonals this large.
+     * Ridge as a fraction of the largest diagonal. SPH17's composite majorization
+     * gives a positive <em>semi</em>-definite Hessian; Cholesky needs it definite,
+     * and an absolute floor is nothing against diagonals this large.
      */
     public static final double RIDGE_RELATIVE = 1.0e-10;
+
+    /** Iterations between progress lines when {@link #verboseIterations} is off. */
+    public static final int ITERATION_LOG_STRIDE = 1;
+
+    /** Cap on the worker threads assembling the Newton system. */
+    public static final int MAX_WORKER_THREADS = 8;
 
     private static final int KEY_ROW_SHIFT = 32;
 
@@ -114,6 +125,19 @@ public final class GridMapOptimizer {
      * budget.
      */
     public long timeBudgetMilliseconds = 500_000;
+
+    /**
+     * Whether every iteration logs a progress line; off, only every
+     * {@link #ITERATION_LOG_STRIDE}th does.
+     */
+    public boolean verboseIterations;
+
+    /**
+     * Worker threads assembling the Newton system; one worker reproduces the
+     * serial summation order exactly.
+     */
+    public int workerThreads = Math.min(Runtime.getRuntime().availableProcessors(),
+            MAX_WORKER_THREADS);
 
     /** Symmetric Dirichlet energy of the grid map before the relaxation. */
     public double energyBefore;
@@ -268,10 +292,28 @@ public final class GridMapOptimizer {
     private int[] scatterByTriangleEntry;
 
     /**
-     * AMD permutation of the first factorization, reused while the pattern is
-     * unchanged.
+     * Cholesky handle retained across Newton iterations; the pattern never
+     * changes, so later iterations refactorize numerically in place.
      */
-    private int[] cachedPermutation;
+    private DirectSolver.CholeskyHandle newtonFactorHandle;
+
+    /** Reduced Hessian diagonal, reused across Newton iterations. */
+    private double[] newtonDiagonal;
+
+    /** Reduced negative gradient, reused across Newton iterations. */
+    private double[] newtonRightHandSide;
+
+    /** All-zero held values for the compact solve; only fixed entries are read. */
+    private double[] newtonHeldStart;
+
+    /** System matrix retained across Newton iterations; values refreshed in place. */
+    private NormalMatrix newtonMatrix;
+
+    /** Backend values-buffer sources for the retained factor, built once. */
+    private int[] newtonValueSources;
+
+    /** Reusable backend values buffer for the numeric refactorization. */
+    private double[] newtonFactorValues;
 
     /**
      * Whether each system variable is held, hoisted because the mask never changes.
@@ -294,11 +336,23 @@ public final class GridMapOptimizer {
      */
     private int blockingTriangle;
 
-    /**
-     * Gradient of the last direction computation, negative RHS for Newton
-     * iterations.
-     */
-    private double[] gradientScratch;
+    /** Workers the assembly actually uses, at most one per gathered triangle. */
+    private int assemblyWorkerCount;
+
+    /** Fixed pool running the per-triangle Newton assembly. */
+    private ExecutorService assemblyPool;
+
+    /** Per-worker element evaluators, thread-confined. */
+    private SymmetricDirichletEnergy[] elementByWorker;
+
+    /** Per-worker negative-gradient accumulators, reduced in worker order. */
+    private double[][] rightHandSideByWorker;
+
+    /** Per-worker Hessian-diagonal accumulators, reduced in worker order. */
+    private double[][] diagonalByWorker;
+
+    /** Per-worker strict-upper accumulators, reduced in worker order. */
+    private double[][] upperValuesByWorker;
 
     /**
      * One triangle's three corners in the parametrization, as
@@ -308,6 +362,7 @@ public final class GridMapOptimizer {
 
     /** One source face's three corner {@code (u, v)} pairs. */
     private final double[] faceCornerUv = new double[HalfEdgeMesh.TRIANGLE_CORNERS * SLOT_COORDINATES];
+
 
     /**
      * Stores the slot system whose free coordinates are relaxed.
@@ -332,20 +387,38 @@ public final class GridMapOptimizer {
      */
     public GridMapOptimizer build() {
         if (timeBudgetMilliseconds <= 0) {
-            System.out.println("[grid-optimize] skipped: no time budget");
+            Platforms.log("[grid-optimize] skipped: no time budget");
             return this;
         }
         gatherTriangles();
         SymmetricDirichletEnergy element = new SymmetricDirichletEnergy();
         int unrepresentable = dropUnrepresentableTriangles(element);
         if (unrepresentable > 0) {
-            System.out.println("[grid-optimize] dropped " + unrepresentable + " triangles whose"
+            Platforms.log("[grid-optimize] dropped " + unrepresentable + " triangles whose"
                     + " starting energy overflows double, of " + (triangleCount + unrepresentable));
         }
         buildSparsityPattern();
         double[] startU = dofs.slotU.clone();
         double[] startV = dofs.slotV.clone();
-        energyBefore = totalEnergy(element, dofs.slotU, dofs.slotV);
+        int size = dofs.slotCount * SLOT_COORDINATES;
+        assemblyWorkerCount = Math.max(1,
+                Math.min(Math.min(workerThreads, MAX_WORKER_THREADS), triangleCount));
+        assemblyPool = Executors.newFixedThreadPool(assemblyWorkerCount, runnable -> {
+            Thread thread = new Thread(runnable, "grid-optimize-assembly");
+            thread.setDaemon(true);
+            return thread;
+        });
+        elementByWorker = new SymmetricDirichletEnergy[assemblyWorkerCount];
+        rightHandSideByWorker = new double[assemblyWorkerCount][size];
+        diagonalByWorker = new double[assemblyWorkerCount][size];
+        upperValuesByWorker = new double[assemblyWorkerCount][upperKeys.length];
+        newtonDiagonal = new double[size];
+        newtonRightHandSide = new double[size];
+        newtonHeldStart = new double[size];
+        for (int worker = 0; worker < assemblyWorkerCount; worker++) {
+            elementByWorker[worker] = new SymmetricDirichletEnergy();
+        }
+        energyBefore = totalEnergy(dofs.slotU, dofs.slotV);
         if (Double.isInfinite(energyBefore)) {
             int firstFolded = firstFoldedTriangle();
             if (firstFolded >= 0) {
@@ -363,16 +436,18 @@ public final class GridMapOptimizer {
         long startedAt = System.currentTimeMillis();
         for (int iteration = 0; iteration < maxIterations
                 && System.currentTimeMillis() - startedAt < timeBudgetMilliseconds; iteration++) {
-            double[] delta = newtonDirection(element);
+            double[] delta = newtonDirection();
             if (delta == null) {
                 break;
             }
-            double stepped = takeStep(element, delta, energy);
+            double stepped = takeStep(delta, energy);
             iterationCount++;
-            System.out.printf("[grid-optimize]   iteration %d energy %.6e (%.3f%%)"
-                    + " step=%.3e alphaMax=%.3e blocking=%d%n", iteration, stepped,
-                    100.0 * (energy - stepped) / Math.max(1.0e-30, energy), acceptedStep,
-                    lastAlphaMax, blockingTriangle);
+            if (verboseIterations || iteration % ITERATION_LOG_STRIDE == 0) {
+                Platforms.log("[grid-optimize]   iteration %d energy %.6e (%.3f%%)"
+                        + " step=%.3e alphaMax=%.3e blocking=%d%n", iteration, stepped,
+                        100.0 * (energy - stepped) / Math.max(1.0e-30, energy), acceptedStep,
+                        lastAlphaMax, blockingTriangle);
+            }
             boolean noProgress = stepped >= energy * (1.0 - CONVERGENCE);
             stallCount = noProgress ? stallCount + 1 : 0;
             energy = stepped;
@@ -380,6 +455,14 @@ public final class GridMapOptimizer {
                 break;
             }
         }
+        assemblyPool.shutdown();
+        if (newtonFactorHandle != null) {
+            DirectSolver.releaseHandle(newtonFactorHandle);
+            newtonFactorHandle = null;
+        }
+        newtonMatrix = null;
+        newtonValueSources = null;
+        newtonFactorValues = null;
         energyAfter = energy;
         for (int slot = 0; slot < dofs.slotCount; slot++) {
             worstVertexMove = Math.max(worstVertexMove, Math.hypot(dofs.slotU[slot] - startU[slot],
@@ -387,7 +470,7 @@ public final class GridMapOptimizer {
         }
         dofs.writeBack();
         flippedTriangleCount = countFlipped();
-        System.out.printf("[grid-optimize] energy %.4e -> %.4e (%.1f%%) iterations=%d"
+        Platforms.log("[grid-optimize] energy %.4e -> %.4e (%.1f%%) iterations=%d"
                 + " flipped=%d/%d pinned=%d worstMove=%.4f%n", energyBefore, energyAfter,
                 100.0 * (energyBefore - energyAfter) / Math.max(1.0e-30, energyBefore),
                 iterationCount, flippedTriangleCount, triangleCount, pinnedTriangleCount,
@@ -555,22 +638,22 @@ public final class GridMapOptimizer {
         int needleReferenceCount = nonPositiveReferenceCount - degenerateCopyTriangleCount
                 - invertedCopyTriangleCount;
         if (needleReferenceCount > 0) {
-            System.out.println("[grid-optimize] skipped " + needleReferenceCount + " triangles"
+            Platforms.log("[grid-optimize] skipped " + needleReferenceCount + " triangles"
                     + " whose copy triangle is a needle: positively wound in exact arithmetic but"
                     + " too thin for its chart to give it an area");
         }
         if (degenerateCopyTriangleCount + invertedCopyTriangleCount > 0) {
-            System.out.println("[grid-optimize] skipped " + degenerateCopyTriangleCount
+            Platforms.log("[grid-optimize] skipped " + degenerateCopyTriangleCount
                     + " degenerate and " + invertedCopyTriangleCount + " inverted working-copy"
                     + " slivers, which carry no shape to fit; the refinement and the carve are"
                     + " where they are minted");
         }
         if (unrepresentableReferenceCount > 0) {
-            System.out.println("[grid-optimize] skipped " + unrepresentableReferenceCount
+            Platforms.log("[grid-optimize] skipped " + unrepresentableReferenceCount
                     + " triangles whose parametrization reference is too small to divide by");
         }
         if (crushedGridTriangleCount > 0) {
-            System.out.println("[grid-optimize] skipped " + crushedGridTriangleCount
+            Platforms.log("[grid-optimize] skipped " + crushedGridTriangleCount
                     + " triangles with no positive grid area, positive in their patch's own"
                     + " rectangle but cancelled by the frame's translation");
         }
@@ -818,26 +901,109 @@ public final class GridMapOptimizer {
     }
 
     /**
-     * Assembles the projected Hessian and gradient over every triangle and solves
-     * for the Newton displacement of the free coordinates, reusing the fixed
-     * pattern and cached ordering (SPH17 §5's projected Newton).
+     * Assembles the projected Hessian and gradient over every triangle on the
+     * worker pool and solves for the Newton displacement of the free coordinates,
+     * reusing the fixed pattern and retained factorization handle (SPH17's
+     * composite-majorization Newton).
+     * Per-worker sums reduce in fixed chunk order, so the result is deterministic
+     * run-to-run.
      *
-     * @param element per-triangle evaluator
+     * @throws IllegalStateException when an assembly worker fails or the wait for
+     *                               it is interrupted
      * @return the displacement of every coordinate, or null when the system could
      *         not be solved
      */
-    private double[] newtonDirection(SymmetricDirichletEnergy element) {
+    private double[] newtonDirection() {
         int size = dofs.slotCount * SLOT_COORDINATES;
-        double[] diagonal = new double[size];
-        double[] rightHandSide = new double[size];
+        int chunk = (triangleCount + assemblyWorkerCount - 1) / assemblyWorkerCount;
+        Future<?>[] pending = new Future<?>[assemblyWorkerCount];
+        for (int worker = 0; worker < assemblyWorkerCount; worker++) {
+            int workerIndex = worker;
+            int firstTriangle = Math.min(triangleCount, worker * chunk);
+            int endTriangle = Math.min(triangleCount, firstTriangle + chunk);
+            pending[worker] = assemblyPool
+                    .submit(() -> accumulateTriangleRange(workerIndex, firstTriangle, endTriangle));
+        }
+        awaitWorkers(pending, "Newton assembly");
+        double[] diagonal = newtonDiagonal;
+        double[] rightHandSide = newtonRightHandSide;
+        Arrays.fill(diagonal, 0.0);
+        Arrays.fill(rightHandSide, 0.0);
         Arrays.fill(upperValues, 0.0);
+        for (int worker = 0; worker < assemblyWorkerCount; worker++) {
+            double[] workerRightHandSide = rightHandSideByWorker[worker];
+            double[] workerDiagonal = diagonalByWorker[worker];
+            double[] workerUpperValues = upperValuesByWorker[worker];
+            for (int index = 0; index < size; index++) {
+                rightHandSide[index] += workerRightHandSide[index];
+                diagonal[index] += workerDiagonal[index];
+            }
+            for (int index = 0; index < upperValues.length; index++) {
+                upperValues[index] += workerUpperValues[index];
+            }
+        }
+        double largestDiagonal = 0.0;
+        for (double value : diagonal) {
+            largestDiagonal = Math.max(largestDiagonal, value);
+        }
+        double ridge = Math.max(RIDGE_FLOOR, RIDGE_RELATIVE * largestDiagonal);
+        for (int index = 0; index < size; index++) {
+            diagonal[index] += ridge;
+        }
+        if (newtonMatrix == null) {
+            newtonMatrix = new NormalMatrix(diagonal, upperKeys, upperValues, rightHandSide);
+            newtonFactorHandle = DirectSolver.factorize(newtonMatrix, fixedByVariable,
+                    OrderingMethod.AMD);
+            newtonValueSources = DirectSolver.valueSources(newtonFactorHandle, newtonMatrix,
+                    fixedByVariable, upperKeys);
+            newtonFactorValues = new double[newtonValueSources.length];
+        } else {
+            newtonMatrix.refreshValues(diagonal, upperValues, rightHandSide);
+            DirectSolver.refactorizeHandleValues(newtonFactorHandle, newtonMatrix.diagonal,
+                    upperValues, newtonValueSources, newtonFactorValues);
+        }
+        double[] delta = new double[size];
+        DirectSolver.solveCompact(newtonFactorHandle, newtonMatrix, rightHandSide, delta,
+                newtonHeldStart, fixedByVariable);
+        gradientDotDirection = 0.0;
+        for (int index = 0; index < size; index++) {
+            gradientDotDirection -= rightHandSide[index] * delta[index];
+        }
+        return delta;
+    }
+
+    /**
+     * Evaluates and scatters a contiguous triangle range into one worker's
+     * accumulation buffers; every mutable it touches is confined to that worker.
+     *
+     * @param worker        worker index owning the buffers
+     * @param firstTriangle first triangle of the range, inclusive
+     * @param endTriangle   end of the range, exclusive
+     */
+    private void accumulateTriangleRange(int worker, int firstTriangle, int endTriangle) {
+        SymmetricDirichletEnergy element = elementByWorker[worker];
+        double[] rightHandSide = rightHandSideByWorker[worker];
+        double[] diagonal = diagonalByWorker[worker];
+        double[] upperValuesLocal = upperValuesByWorker[worker];
+        Arrays.fill(rightHandSide, 0.0);
+        Arrays.fill(diagonal, 0.0);
+        Arrays.fill(upperValuesLocal, 0.0);
         double[] targetX = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] targetY = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] operator = new double[OPERATOR_SIZE];
+        double[] position = new double[SLOT_COORDINATES];
         int[] variable = new int[SymmetricDirichletEnergy.VARIABLES];
-        int at = 0;
-        for (int triangle = 0; triangle < triangleCount; triangle++) {
-            loadTriangle(triangle, operator, targetX, targetY);
+        int at = firstTriangle * SymmetricDirichletEnergy.VARIABLES
+                * SymmetricDirichletEnergy.VARIABLES;
+        for (int triangle = firstTriangle; triangle < endTriangle; triangle++) {
+            System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operator, 0,
+                    OPERATOR_SIZE);
+            for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
+                cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner, dofs.slotU,
+                        dofs.slotV, position);
+                targetX[corner] = position[0];
+                targetY[corner] = position[1];
+            }
             element.evaluate(operator, areaByTriangle[triangle], targetX, targetY);
             rotateElementToSlots(triangle, element);
             triangleVariables(triangle, variable);
@@ -851,39 +1017,11 @@ public final class GridMapOptimizer {
                     if (destination < 0) {
                         diagonal[-destination - 1] += element.hessian[row][column];
                     } else {
-                        upperValues[destination] += element.hessian[row][column];
+                        upperValuesLocal[destination] += element.hessian[row][column];
                     }
                 }
             }
         }
-        double largestDiagonal = 0.0;
-        for (double value : diagonal) {
-            largestDiagonal = Math.max(largestDiagonal, value);
-        }
-        double ridge = Math.max(RIDGE_FLOOR, RIDGE_RELATIVE * largestDiagonal);
-        for (int index = 0; index < size; index++) {
-            diagonal[index] += ridge;
-        }
-        NormalMatrix matrix = new NormalMatrix(diagonal, upperKeys, upperValues, rightHandSide);
-        DirectSolver.CholeskyHandle handle = cachedPermutation == null
-                ? DirectSolver.factorize(matrix, fixedByVariable, OrderingMethod.AMD)
-                : DirectSolver.factorizeWithPerm(matrix, fixedByVariable, cachedPermutation);
-        if (cachedPermutation == null) {
-            cachedPermutation = handle.perm();
-        }
-        double[] delta = new double[size];
-        DirectSolver.solveCompact(handle, matrix, rightHandSide, delta, new double[size],
-                fixedByVariable);
-        DirectSolver.releaseHandle(handle);
-        gradientDotDirection = 0.0;
-        for (int index = 0; index < size; index++) {
-            gradientDotDirection -= rightHandSide[index] * delta[index];
-        }
-        gradientScratch = new double[size];
-        for (int index = 0; index < size; index++) {
-            gradientScratch[index] = -rightHandSide[index];
-        }
-        return delta;
     }
 
     /**
@@ -895,23 +1033,38 @@ public final class GridMapOptimizer {
      * @param element  evaluator holding the chart-coordinate gradient and Hessian
      */
     private void rotateElementToSlots(int triangle, SymmetricDirichletEnergy element) {
-        double[] rotated = new double[SLOT_COORDINATES];
         for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
             int rotation = rotationByTriangleCorner[triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner];
             if (rotation == 0) {
                 continue;
             }
-            int inverse = (IntegerGridMap.QUARTER_TURNS - rotation)
-                    % IntegerGridMap.QUARTER_TURNS;
-            IntegerGridMap.rotate(inverse, element.gradient[corner],
-                    element.gradient[HalfEdgeMesh.TRIANGLE_CORNERS + corner], rotated);
-            element.gradient[corner] = rotated[0];
-            element.gradient[HalfEdgeMesh.TRIANGLE_CORNERS + corner] = rotated[1];
+            int inverse = IntegerGridMap.QUARTER_TURNS - rotation;
+            int second = HalfEdgeMesh.TRIANGLE_CORNERS + corner;
+            double atFirst = element.gradient[corner];
+            double atSecond = element.gradient[second];
+            if (inverse == 1) {
+                element.gradient[corner] = -atSecond;
+                element.gradient[second] = atFirst;
+            } else if (inverse == 2) {
+                element.gradient[corner] = -atFirst;
+                element.gradient[second] = -atSecond;
+            } else {
+                element.gradient[corner] = atSecond;
+                element.gradient[second] = -atFirst;
+            }
             for (int column = 0; column < SymmetricDirichletEnergy.VARIABLES; column++) {
-                IntegerGridMap.rotate(inverse, element.hessian[corner][column],
-                        element.hessian[HalfEdgeMesh.TRIANGLE_CORNERS + corner][column], rotated);
-                element.hessian[corner][column] = rotated[0];
-                element.hessian[HalfEdgeMesh.TRIANGLE_CORNERS + corner][column] = rotated[1];
+                atFirst = element.hessian[corner][column];
+                atSecond = element.hessian[second][column];
+                if (inverse == 1) {
+                    element.hessian[corner][column] = -atSecond;
+                    element.hessian[second][column] = atFirst;
+                } else if (inverse == 2) {
+                    element.hessian[corner][column] = -atFirst;
+                    element.hessian[second][column] = -atSecond;
+                } else {
+                    element.hessian[corner][column] = atSecond;
+                    element.hessian[second][column] = -atFirst;
+                }
             }
         }
         for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
@@ -919,13 +1072,21 @@ public final class GridMapOptimizer {
             if (rotation == 0) {
                 continue;
             }
-            int inverse = (IntegerGridMap.QUARTER_TURNS - rotation)
-                    % IntegerGridMap.QUARTER_TURNS;
+            int inverse = IntegerGridMap.QUARTER_TURNS - rotation;
+            int second = HalfEdgeMesh.TRIANGLE_CORNERS + corner;
             for (int row = 0; row < SymmetricDirichletEnergy.VARIABLES; row++) {
-                IntegerGridMap.rotate(inverse, element.hessian[row][corner],
-                        element.hessian[row][HalfEdgeMesh.TRIANGLE_CORNERS + corner], rotated);
-                element.hessian[row][corner] = rotated[0];
-                element.hessian[row][HalfEdgeMesh.TRIANGLE_CORNERS + corner] = rotated[1];
+                double atFirst = element.hessian[row][corner];
+                double atSecond = element.hessian[row][second];
+                if (inverse == 1) {
+                    element.hessian[row][corner] = -atSecond;
+                    element.hessian[row][second] = atFirst;
+                } else if (inverse == 2) {
+                    element.hessian[row][corner] = -atFirst;
+                    element.hessian[row][second] = -atSecond;
+                } else {
+                    element.hessian[row][corner] = atSecond;
+                    element.hessian[row][second] = -atFirst;
+                }
             }
         }
     }
@@ -940,14 +1101,51 @@ public final class GridMapOptimizer {
      *         degenerates
      */
     private double maximumStep(double[] delta) {
+        int chunk = (triangleCount + assemblyWorkerCount - 1) / assemblyWorkerCount;
+        double[] rootByWorker = new double[assemblyWorkerCount];
+        int[] triangleByWorker = new int[assemblyWorkerCount];
+        Future<?>[] pending = new Future<?>[assemblyWorkerCount];
+        for (int worker = 0; worker < assemblyWorkerCount; worker++) {
+            int workerIndex = worker;
+            int firstTriangle = Math.min(triangleCount, worker * chunk);
+            int endTriangle = Math.min(triangleCount, firstTriangle + chunk);
+            pending[worker] = assemblyPool.submit(() -> maximumStepOfRange(workerIndex,
+                    firstTriangle, endTriangle, delta, rootByWorker, triangleByWorker));
+        }
+        awaitWorkers(pending, "maximal-step");
         double alphaMax = Double.POSITIVE_INFINITY;
+        for (int worker = 0; worker < assemblyWorkerCount; worker++) {
+            if (rootByWorker[worker] < alphaMax) {
+                alphaMax = rootByWorker[worker];
+                blockingTriangle = triangleByWorker[worker];
+            }
+        }
+        lastAlphaMax = alphaMax;
+        return alphaMax;
+    }
+
+    /**
+     * The smallest positive degeneracy root over one contiguous triangle range,
+     * written into the worker's reduction slots; thread-confined.
+     *
+     * @param worker           worker index owning the reduction slots
+     * @param firstTriangle    first triangle of the range, inclusive
+     * @param endTriangle      end of the range, exclusive
+     * @param delta            the displacement of every coordinate
+     * @param rootByWorker     receives the range's smallest root
+     * @param triangleByWorker receives the triangle setting that root
+     */
+    private void maximumStepOfRange(int worker, int firstTriangle, int endTriangle, double[] delta,
+            double[] rootByWorker, int[] triangleByWorker) {
+        double alphaMax = Double.POSITIVE_INFINITY;
+        int blocking = -1;
         double[] origin = new double[SLOT_COORDINATES];
         double[] along = new double[SLOT_COORDINATES];
         double[] across = new double[SLOT_COORDINATES];
         double[] originMove = new double[SLOT_COORDINATES];
         double[] alongMove = new double[SLOT_COORDINATES];
         double[] acrossMove = new double[SLOT_COORDINATES];
-        for (int triangle = 0; triangle < triangleCount; triangle++) {
+        for (int triangle = firstTriangle; triangle < endTriangle; triangle++) {
             cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS, dofs.slotU, dofs.slotV, origin);
             cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 1, dofs.slotU, dofs.slotV, along);
             cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 2, dofs.slotU, dofs.slotV, across);
@@ -987,11 +1185,31 @@ public final class GridMapOptimizer {
             }
             if (root < alphaMax) {
                 alphaMax = root;
-                blockingTriangle = triangle;
+                blocking = triangle;
             }
         }
-        lastAlphaMax = alphaMax;
-        return alphaMax;
+        rootByWorker[worker] = alphaMax;
+        triangleByWorker[worker] = blocking;
+    }
+
+    /**
+     * Awaits every submitted worker task, unwrapping failures.
+     *
+     * @param pending the submitted tasks
+     * @param stage   label naming the waiting stage in failure messages
+     */
+    private void awaitWorkers(Future<?>[] pending, String stage) {
+        for (Future<?> future : pending) {
+            try {
+                future.get();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("interrupted waiting for the " + stage + " workers",
+                        interrupted);
+            } catch (ExecutionException failure) {
+                throw new IllegalStateException("a " + stage + " worker failed", failure);
+            }
+        }
     }
 
     /**
@@ -1015,12 +1233,11 @@ public final class GridMapOptimizer {
      * sufficient-decrease test (SPH17 §5). The energy's own barrier in
      * {@link SymmetricDirichletEnergy#energyOnly} is the roundoff backstop.
      *
-     * @param element per-triangle evaluator
      * @param delta   the Newton displacement of every coordinate
      * @param current the energy being improved on
      * @return the energy reached
      */
-    private double takeStep(SymmetricDirichletEnergy element, double[] delta, double current) {
+    private double takeStep(double[] delta, double current) {
         double step = Math.min(1.0, MAX_STEP_MARGIN * maximumStep(delta));
         if (!(step > 0.0)) {
             acceptedStep = 0.0;
@@ -1033,7 +1250,7 @@ public final class GridMapOptimizer {
                 trialU[slot] = dofs.slotU[slot] + step * delta[slot * SLOT_COORDINATES];
                 trialV[slot] = dofs.slotV[slot] + step * delta[slot * SLOT_COORDINATES + 1];
             }
-            double trial = totalEnergy(element, trialU, trialV);
+            double trial = totalEnergy(trialU, trialV);
             if (trial <= current + ARMIJO_SLOPE * step * gradientDotDirection) {
                 System.arraycopy(trialU, 0, dofs.slotU, 0, dofs.slotCount);
                 System.arraycopy(trialV, 0, dofs.slotV, 0, dofs.slotCount);
@@ -1046,15 +1263,6 @@ public final class GridMapOptimizer {
         return current;
     }
 
-    /**
-     * The symmetric Dirichlet energy of the whole map at one assignment of grid
-     * positions.
-     *
-     * @param element per-triangle evaluator
-     * @param slotU   grid u of each slot
-     * @param slotV   grid v of each slot
-     * @return the summed energy, infinite when any triangle has folded
-     */
     /**
      * Removes triangles whose starting energy is not a finite double, compacting
      * the gathered arrays around them. A triangle so distorted that the barrier
@@ -1105,20 +1313,52 @@ public final class GridMapOptimizer {
     }
 
     /**
-     * The energy of every gathered triangle at one set of slot values.
+     * The energy of every gathered triangle at one set of slot values, summed on
+     * the worker pool in fixed chunk order so the result is deterministic.
      *
-     * @param element per-triangle energy, reused across the sum
-     * @param slotU   grid u of each slot
-     * @param slotV   grid v of each slot
+     * @param slotU grid u of each slot
+     * @param slotV grid v of each slot
      * @return the summed energy, infinite when any triangle has folded
      */
-    private double totalEnergy(SymmetricDirichletEnergy element, double[] slotU, double[] slotV) {
+    private double totalEnergy(double[] slotU, double[] slotV) {
+        int chunk = (triangleCount + assemblyWorkerCount - 1) / assemblyWorkerCount;
+        double[] energyByWorker = new double[assemblyWorkerCount];
+        Future<?>[] pending = new Future<?>[assemblyWorkerCount];
+        for (int worker = 0; worker < assemblyWorkerCount; worker++) {
+            int workerIndex = worker;
+            int firstTriangle = Math.min(triangleCount, worker * chunk);
+            int endTriangle = Math.min(triangleCount, firstTriangle + chunk);
+            pending[worker] = assemblyPool.submit(() -> energyByWorker[workerIndex] =
+                    energyOfTriangleRange(workerIndex, firstTriangle, endTriangle, slotU, slotV));
+        }
+        awaitWorkers(pending, "trial-energy");
+        double total = 0.0;
+        for (int worker = 0; worker < assemblyWorkerCount; worker++) {
+            total += energyByWorker[worker];
+        }
+        return total;
+    }
+
+    /**
+     * The summed energy of one contiguous triangle range, using the worker's own
+     * evaluator; thread-confined.
+     *
+     * @param worker        worker index owning the evaluator
+     * @param firstTriangle first triangle of the range, inclusive
+     * @param endTriangle   end of the range, exclusive
+     * @param slotU         grid u of each slot
+     * @param slotV         grid v of each slot
+     * @return the range's summed energy, infinite when a triangle has folded
+     */
+    private double energyOfTriangleRange(int worker, int firstTriangle, int endTriangle,
+            double[] slotU, double[] slotV) {
+        SymmetricDirichletEnergy element = elementByWorker[worker];
         double[] targetX = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] targetY = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] operator = new double[OPERATOR_SIZE];
         double[] position = new double[SLOT_COORDINATES];
         double total = 0.0;
-        for (int triangle = 0; triangle < triangleCount; triangle++) {
+        for (int triangle = firstTriangle; triangle < endTriangle; triangle++) {
             System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operator, 0,
                     OPERATOR_SIZE);
             for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
@@ -1132,24 +1372,6 @@ public final class GridMapOptimizer {
             }
         }
         return total;
-    }
-
-    /**
-     * Reads one triangle's operator and its corners' current grid positions.
-     *
-     * @param triangle triangle index
-     * @param operator receives the gradient operator
-     * @param targetX  receives the corners' grid u
-     * @param targetY  receives the corners' grid v
-     */
-    private void loadTriangle(int triangle, double[] operator, double[] targetX, double[] targetY) {
-        System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operator, 0, OPERATOR_SIZE);
-        double[] position = new double[SLOT_COORDINATES];
-        for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
-            cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner, dofs.slotU, dofs.slotV, position);
-            targetX[corner] = position[0];
-            targetY[corner] = position[1];
-        }
     }
 
     /**

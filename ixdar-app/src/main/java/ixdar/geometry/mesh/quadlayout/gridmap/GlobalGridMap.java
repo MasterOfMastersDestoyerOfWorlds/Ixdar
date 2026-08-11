@@ -126,7 +126,7 @@ public final class GlobalGridMap {
             denseByCopyVertexByPatchId[patch.patchId] = denseByCopyVertex;
         }
         measureNodes();
-        System.out.printf("[global-grid] patches=%d offGridNodes=%d worstNodeDeviation=%.3e%n",
+        Platforms.log("[global-grid] patches=%d offGridNodes=%d worstNodeDeviation=%.3e%n",
                 frames.placedPatchCount, offGridNodeCount, worstNodeIntegerDeviation);
 
         gridDofs = new GridMapDofSystem(this);
@@ -145,9 +145,8 @@ public final class GlobalGridMap {
         extraction.expectedQuadCount = quadGridInitial.quadCount;
         quadMesh = extraction.build();
         extractedGrids = new ExtractedPatchGrids(quadMesh, this).build();
-        Platforms.get().log(String.format(
-                "[global-grid] relax %.2e→%.2e it=%d", gridOptimizer.energyBefore, gridOptimizer.energyAfter,
-                gridOptimizer.iterationCount));
+        Platforms.log("[global-grid] relax %.2e→%.2e it=%d%n", gridOptimizer.energyBefore,
+                gridOptimizer.energyAfter, gridOptimizer.iterationCount);
         return this;
     }
 
@@ -177,7 +176,7 @@ public final class GlobalGridMap {
                     }
                     if (offGrid && samplesPrinted < OFF_GRID_SAMPLES_LISTED) {
                         samplesPrinted++;
-                        System.out.printf(
+                        Platforms.log(
                                 "[global-grid]   off-grid node=%d patch=%d side=%d sideArcs=%d"
                                         + " sideNodes=%d at (%.4f, %.4f)%n",
                                 nodeId, patch.patchId, side, patch.sideArcIds.get(side).size(),

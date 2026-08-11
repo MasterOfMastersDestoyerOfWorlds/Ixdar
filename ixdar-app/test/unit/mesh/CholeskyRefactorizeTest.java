@@ -160,6 +160,60 @@ public final class CholeskyRefactorizeTest {
     }
 
     @Test
+    public void valuesOnlyRefactorizeMatchesFreshSolve() {
+        int n = GRID_SIDE * GRID_SIDE;
+        int edgeCount = 2 * GRID_SIDE * (GRID_SIDE - 1);
+        long[] upperKeys = new long[edgeCount];
+        double[] firstDiagonal = new double[n];
+        double[] secondDiagonal = new double[n];
+        double[] rhs = new double[n];
+        Random random = new Random(RHS_SEED);
+        int edge = 0;
+        for (int y = 0; y < GRID_SIDE; y++) {
+            for (int x = 0; x < GRID_SIDE; x++) {
+                int i = y * GRID_SIDE + x;
+                rhs[i] = random.nextDouble() * 2.0 - 1.0;
+                if (x + 1 < GRID_SIDE) {
+                    upperKeys[edge++] = ((long) i << NormalMatrix.KEY_ROW_SHIFT) | (i + 1);
+                }
+                if (y + 1 < GRID_SIDE) {
+                    upperKeys[edge++] = ((long) i << NormalMatrix.KEY_ROW_SHIFT)
+                            | (i + GRID_SIDE);
+                }
+                int neighborCount = (x > 0 ? 1 : 0) + (x + 1 < GRID_SIDE ? 1 : 0)
+                        + (y > 0 ? 1 : 0) + (y + 1 < GRID_SIDE ? 1 : 0);
+                firstDiagonal[i] = 1.0 + neighborCount * FIRST_EDGE_WEIGHT;
+                secondDiagonal[i] = 1.0 + neighborCount * SECOND_EDGE_WEIGHT;
+            }
+        }
+        double[] firstUpperValues = new double[edgeCount];
+        double[] secondUpperValues = new double[edgeCount];
+        Arrays.fill(firstUpperValues, -FIRST_EDGE_WEIGHT);
+        Arrays.fill(secondUpperValues, -SECOND_EDGE_WEIGHT);
+        boolean[] fixed = new boolean[n];
+        NormalMatrix matrix = new NormalMatrix(firstDiagonal, upperKeys, firstUpperValues, rhs);
+        DirectSolver.CholeskyHandle handle = DirectSolver.factorize(matrix, fixed,
+                OrderingMethod.AMD);
+        int[] sources = DirectSolver.valueSources(handle, matrix, fixed, upperKeys);
+        double[] valuesBuffer = new double[sources.length];
+
+        matrix.refreshValues(secondDiagonal, secondUpperValues, rhs);
+        DirectSolver.refactorizeHandleValues(handle, matrix.diagonal, secondUpperValues,
+                sources, valuesBuffer);
+        double[] refactorizedSolution = new double[n];
+        DirectSolver.solveCompact(handle, matrix, matrix.rightHandSide, refactorizedSolution,
+                refactorizedSolution, fixed);
+        DirectSolver.releaseHandle(handle);
+
+        double[] freshSolution = DirectSolver.solve(buildGridLaplacian(SECOND_EDGE_WEIGHT),
+                new double[n], fixed, OrderingMethod.AMD);
+        for (int i = 0; i < n; i++) {
+            assertEquals(freshSolution[i], refactorizedSolution[i], TOLERANCE,
+                    "values-only refactorized solution mismatch at index " + i);
+        }
+    }
+
+    @Test
     public void refactorizeHandleMatchesFreshSolve() {
         NormalMatrix first = buildGridLaplacian(FIRST_EDGE_WEIGHT);
         NormalMatrix second = buildGridLaplacian(SECOND_EDGE_WEIGHT);

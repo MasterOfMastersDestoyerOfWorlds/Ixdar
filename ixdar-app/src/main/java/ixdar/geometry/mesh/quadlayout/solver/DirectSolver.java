@@ -121,6 +121,103 @@ public final class DirectSolver {
     }
 
     /**
+     * Per-position value sources of the handle's backend buffer: an upper slot
+     * index, or a diagonal index encoded as {@code -(index + 1)}.
+     *
+     * @param handle    handle whose permuted layout the map describes
+     * @param matrix    the matrix the handle factorized
+     * @param fixed     per-variable fixed flag, must match the factorizing call
+     * @param upperKeys sorted packed keys the matrix was built from
+     * @return one encoded source per backend values position
+     * @throws IllegalStateException when a backend entry has no matching key
+     */
+    public static int[] valueSources(CholeskyHandle handle, NormalMatrix matrix,
+            boolean[] fixed, long[] upperKeys) {
+        int freeCount = handle.freeCount();
+        if (freeCount == 0) {
+            return new int[0];
+        }
+        int[] perm = handle.perm();
+        int[] fullOf = handle.fullOf();
+        if (CholeskyBackend.pardisoAvailable()) {
+            CompressedSparseRowArrays upperCsr = matrix.toPermutedUpperCompressedSparseRow(
+                    freeCount, fixed, handle.compactOf(), fullOf, perm, handle.invPerm());
+            int[] sources = new int[upperCsr.values.length];
+            for (int permutedRow = 0; permutedRow < freeCount; permutedRow++) {
+                for (int position = upperCsr.rowPtr[permutedRow];
+                        position < upperCsr.rowPtr[permutedRow + 1]; position++) {
+                    sources[position] = valueSourceOf(permutedRow, upperCsr.colIdx[position],
+                            perm, fullOf, upperKeys);
+                }
+            }
+            return sources;
+        }
+        NormalMatrix.CompressedSparseColumnArrays upperCsc = matrix
+                .toPermutedUpperCompressedSparseColumn(freeCount, fixed, handle.compactOf(),
+                        fullOf, perm, handle.invPerm());
+        int[] sources = new int[upperCsc.values().length];
+        for (int permutedColumn = 0; permutedColumn < freeCount; permutedColumn++) {
+            for (int position = upperCsc.colPtr()[permutedColumn];
+                    position < upperCsc.colPtr()[permutedColumn + 1]; position++) {
+                sources[position] = valueSourceOf(upperCsc.rowIdx()[position], permutedColumn,
+                        perm, fullOf, upperKeys);
+            }
+        }
+        return sources;
+    }
+
+    /**
+     * Encoded source of one backend position: {@code -(variable + 1)} for a
+     * diagonal entry, else the upper slot of the entry's unpermuted key.
+     *
+     * @param permutedRow    entry row in the permuted free index space
+     * @param permutedColumn entry column in the permuted free index space
+     * @param perm           free-index permutation of the handle
+     * @param fullOf         compact-to-full variable map of the handle
+     * @param upperKeys      sorted packed keys the matrix was built from
+     * @return the encoded source index
+     * @throws IllegalStateException when the entry has no matching key
+     */
+    private static int valueSourceOf(int permutedRow, int permutedColumn, int[] perm,
+            int[] fullOf, long[] upperKeys) {
+        int rowVariable = fullOf[perm[permutedRow]];
+        int columnVariable = fullOf[perm[permutedColumn]];
+        if (rowVariable == columnVariable) {
+            return -rowVariable - 1;
+        }
+        long key = ((long) Math.min(rowVariable, columnVariable) << NormalMatrix.KEY_ROW_SHIFT)
+                | Math.max(rowVariable, columnVariable);
+        int slot = Arrays.binarySearch(upperKeys, key);
+        if (slot < 0) {
+            throw new IllegalStateException(
+                    "backend entry (" + rowVariable + ", " + columnVariable + ") has no key");
+        }
+        return slot;
+    }
+
+    /**
+     * Numeric-only refactorize from raw diagonal and upper values through a
+     * precomputed source map, skipping the permuted extraction entirely.
+     *
+     * @param handle       handle with a live factor
+     * @param diagonal     current diagonal values, full variable indexing
+     * @param upperValues  current upper values in the map's slot order
+     * @param sources      map from {@link #valueSources}
+     * @param valuesBuffer reusable buffer, length {@code sources.length}
+     */
+    public static void refactorizeHandleValues(CholeskyHandle handle, double[] diagonal,
+            double[] upperValues, int[] sources, double[] valuesBuffer) {
+        if (handle.freeCount() == 0) {
+            return;
+        }
+        for (int position = 0; position < sources.length; position++) {
+            int source = sources[position];
+            valuesBuffer[position] = source < 0 ? diagonal[-source - 1] : upperValues[source];
+        }
+        handle.factor().refactorize(valuesBuffer);
+    }
+
+    /**
      * Solve the compact system for the free variables (those with
      * {@code !fixed[i]}) through the handle's factorization, holding the fixed
      * entries at {@code start[i]}.
