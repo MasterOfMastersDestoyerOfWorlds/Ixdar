@@ -550,25 +550,50 @@ public final class EmbeddedTMeshRecarve {
      *                               chord can lay
      */
     public void pullStripsTaut() {
-        boolean removed = true;
         List<FaceStripPath> stripByArc = snapping.stripByArc;
-        while (removed) {
-            Map<Long, List<int[]>> view = tracedCrossingsByEdge();
-            removed = false;
-            for (FaceStripPath strip : stripByArc) {
+        Map<Long, List<int[]>> view = new HashMap<>();
+        List<List<int[]>> entriesByStrip = new ArrayList<>(stripByArc.size());
+        for (FaceStripPath strip : stripByArc) {
+            List<int[]> entries = new ArrayList<>(strip.crossedEdges.size());
+            for (int crossing = 0; crossing < strip.crossedEdges.size(); crossing++) {
+                int[] endpoints = strip.crossedEdges.get(crossing);
+                int[] entry = endpoints == null ? null : new int[] { strip.arcId, crossing };
+                if (entry != null) {
+                    view.computeIfAbsent(SnappingCarve.edgeKey(endpoints),
+                            key -> new ArrayList<>()).add(entry);
+                }
+                entries.add(entry);
+            }
+            entriesByStrip.add(entries);
+        }
+        int stripsSinceRemoval = 0;
+        for (int stripCursor = 0;
+                !stripByArc.isEmpty() && stripsSinceRemoval < stripByArc.size();
+                stripCursor = (stripCursor + 1) % stripByArc.size()) {
+            FaceStripPath strip = stripByArc.get(stripCursor);
+            List<int[]> entries = entriesByStrip.get(stripCursor);
+            boolean removedInStrip = false;
+            boolean removed = true;
+            while (removed) {
+                removed = false;
                 if (!strip.crossedEdges.isEmpty()) {
-                    if (strip.crossingTouches(0, snapping.vertexIdByNode[snapping.startNodeByArc[strip.arcId]])) {
+                    if (strip.crossingTouches(0,
+                            snapping.vertexIdByNode[snapping.startNodeByArc[strip.arcId]])) {
+                        removeCrossingEntry(strip, entries, 0, view);
                         strip.removeFirstCrossing();
                         endCrossingsTrimmedCount++;
+                        removedInStrip = true;
                         removed = true;
-                        break;
+                        continue;
                     }
                     if (strip.crossingTouches(strip.crossedEdges.size() - 1,
                             snapping.vertexIdByNode[snapping.endNodeByArc[strip.arcId]])) {
+                        removeCrossingEntry(strip, entries, strip.crossedEdges.size() - 1, view);
                         strip.removeLastCrossing();
                         endCrossingsTrimmedCount++;
+                        removedInStrip = true;
                         removed = true;
-                        break;
+                        continue;
                     }
                 }
                 for (int crossing = 0; crossing + 1 < strip.crossedEdges.size(); crossing++) {
@@ -582,25 +607,28 @@ public final class EmbeddedTMeshRecarve {
                         continue;
                     }
                     if (strip.crossedEdges.get(crossing) == null) {
+                        removeCrossingEntry(strip, entries, crossing + 1, view);
                         strip.removeCrossingWithPassageBefore(crossing + 1);
                         fanSlideCrossingsRemovedCount++;
                     } else if (strip.crossedEdges.get(crossing + 1) == null) {
+                        removeCrossingEntry(strip, entries, crossing, view);
                         strip.removeCrossingWithPassageAfter(crossing);
                         fanSlideCrossingsRemovedCount++;
                     } else {
+                        removeCrossingEntry(strip, entries, crossing, view);
                         strip.removeCrossingWithPassageAfter(crossing);
+                        removeCrossingEntry(strip, entries, crossing, view);
                         strip.removeCrossingWithPassageAfter(crossing);
                         dipCrossingsRemovedCount += 2;
                     }
+                    removedInStrip = true;
                     removed = true;
                     break;
                 }
-                if (removed) {
-                    break;
-                }
             }
+            stripsSinceRemoval = removedInStrip ? 0 : stripsSinceRemoval + 1;
         }
-        Map<Long, List<int[]>> view = tracedCrossingsByEdge();
+        Map<Long, List<int[]>> settledView = tracedCrossingsByEdge();
         for (FaceStripPath strip : stripByArc) {
             for (int crossing = 0; crossing + 1 < strip.crossedEdges.size(); crossing++) {
                 double[] span = slackSpanAt(strip, crossing);
@@ -609,8 +637,8 @@ public final class EmbeddedTMeshRecarve {
                 }
                 int[] edge = strip.crossedEdges.get(crossing);
                 edge = edge != null ? edge : strip.crossedEdges.get(crossing + 1);
-                int[] blocker = blockingCrossingInside(view.get(SnappingCarve.edgeKey(edge)), span[0],
-                        span[1]);
+                int[] blocker = blockingCrossingInside(settledView.get(SnappingCarve.edgeKey(edge)),
+                        span[0], span[1]);
                 throw new IllegalStateException("arc " + strip.arcId + " crossings " + crossing
                         + " and " + (crossing + 1) + " sweep constraint edge " + edge[0] + ".."
                         + edge[1] + " over [" + span[0] + ", " + span[1] + "]"
@@ -620,6 +648,30 @@ public final class EmbeddedTMeshRecarve {
                                         + " at " + snapping.tracedPositionOf(blocker) + " blocks it")
                         + "; laying it would run a chord along the edge over another arc's"
                         + " lanes");
+            }
+        }
+    }
+
+    /**
+     * Unhooks one crossing from the maintained per-edge view before the strip drops
+     * it, sliding the strip's later entry indices down by one. Call before the
+     * strip mutation, while the crossing's edge is still readable.
+     *
+     * @param strip    strip the crossing belongs to
+     * @param entries  the strip's view entries, parallel to its crossings
+     * @param crossing index of the crossing being dropped
+     * @param view     the per-edge crossing view being maintained
+     */
+    private void removeCrossingEntry(FaceStripPath strip, List<int[]> entries, int crossing,
+            Map<Long, List<int[]>> view) {
+        int[] entry = entries.remove(crossing);
+        if (entry != null) {
+            view.get(SnappingCarve.edgeKey(strip.crossedEdges.get(crossing))).remove(entry);
+        }
+        for (int follower = crossing; follower < entries.size(); follower++) {
+            int[] following = entries.get(follower);
+            if (following != null) {
+                following[1]--;
             }
         }
     }
