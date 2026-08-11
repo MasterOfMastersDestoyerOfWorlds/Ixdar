@@ -105,7 +105,7 @@ public final class ZeroPatchSplitOperator {
         int oppositeOffset = tmesh.oppositeOffset(patchId, side, offset);
         int oppositeNodeId = tmesh.nodeAtOffsetOrSplit(patchId, oppositeSide, oppositeOffset);
 
-        ActiveIdSet searchCorridor = corridor.corridorVertices(patchId, rerouter);
+        ActiveIdSet searchCorridor = rerouter.freshCorridor();
         int startVertex = tmesh.nodes.get(tjointNodeId).copyVertex;
         int endVertex = tmesh.nodes.get(oppositeNodeId).copyVertex;
 

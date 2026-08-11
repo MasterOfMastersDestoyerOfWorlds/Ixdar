@@ -5,7 +5,6 @@ import java.util.List;
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
-import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
 
@@ -38,27 +37,6 @@ public final class PatchCorridor {
      */
     public IntIdList patchFaces(int patchId) {
         return floodWithin(patchWall(patchId), seedFaceInside(patchId));
-    }
-
-    /**
-     * The copy vertices bounding a patch's faces, as a fresh re-route corridor.
-     *
-     * @param patchId  patch to enclose
-     * @param rerouter router whose scratch corridor is filled
-     * @throws IllegalStateException when the patch has no live boundary arc to take a side from
-     * @return the corridor the router may search inside
-     */
-    public ActiveIdSet corridorVertices(int patchId, ArcRerouter rerouter) {
-        IntIdList faces = patchFaces(patchId);
-        ActiveIdSet corridor = rerouter.freshCorridor();
-        HalfEdgeMesh copy = tmesh.topology.copy;
-        for (int index = 0; index < faces.size(); index++) {
-            int faceId = faces.get(index);
-            for (int corner = 0; corner < copy.faceHalfEdgeCount(faceId); corner++) {
-                corridor.add(copy.faceVertexAt(faceId, corner));
-            }
-        }
-        return corridor;
     }
 
     /**

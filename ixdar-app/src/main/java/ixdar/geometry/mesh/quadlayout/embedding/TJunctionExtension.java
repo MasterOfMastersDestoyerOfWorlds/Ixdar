@@ -132,7 +132,7 @@ public final class TJunctionExtension {
             oppositeSplitCount++;
         }
 
-        ActiveIdSet searchCorridor = corridor.corridorVertices(patchId, rerouter);
+        ActiveIdSet searchCorridor = rerouter.freshCorridor();
         int startVertex = tmesh.nodes.get(tjunctionNodeId).copyVertex;
         int endVertex = tmesh.nodes.get(oppositeNodeId).copyVertex;
         List<Integer> routed = new ArrayList<>();
