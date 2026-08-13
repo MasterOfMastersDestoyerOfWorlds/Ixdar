@@ -1,8 +1,8 @@
 package ixdar.geometry.mesh.quadlayout.embedding.records;
 
+import java.util.Arrays;
 import java.util.List;
 
-import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
@@ -19,6 +19,21 @@ public final class PatchCorridor {
 
     public final EmbeddedTMesh tmesh;
 
+    /** Faces of the patch flooded last, refilled per call; see {@link #patchFaces}. */
+    public final IntIdList faceScratch = new IntIdList(0);
+
+    /** Generation per copy edge marking the walled boundary of the patch being flooded. */
+    public int[] wallStampByCopyEdge = new int[0];
+
+    /** Current generation of {@link #wallStampByCopyEdge}. */
+    public int wallStamp;
+
+    /** Generation per copy face marking the faces the current flood has reached. */
+    public int[] visitStampByCopyFace = new int[0];
+
+    /** Current generation of {@link #visitStampByCopyFace}. */
+    public int visitStamp;
+
     /**
      * Stores the T-mesh whose patches are enclosed.
      *
@@ -29,14 +44,40 @@ public final class PatchCorridor {
     }
 
     /**
-     * The copy faces one patch covers.
+     * The copy faces one patch covers, in {@link #faceScratch}: a shared buffer, so the answer
+     * is only valid until the next call.
      *
      * @param patchId patch whose faces are wanted
      * @throws IllegalStateException when no side of any boundary arc floods an interior
      * @return the copy faces it covers
      */
     public IntIdList patchFaces(int patchId) {
-        return floodWithin(patchWall(patchId), seedFaceInside(patchId));
+        growStamps();
+        patchWall(patchId);
+        return floodWithin(seedFaceInside(patchId));
+    }
+
+    /**
+     * Sizes the stamp arrays to the copy's id bounds, which grow as re-routes refine it, and
+     * restarts the generations when one is about to overflow.
+     */
+    private void growStamps() {
+        int faceIdBound = tmesh.topology.sourceFaceByCopyFace.length;
+        if (visitStampByCopyFace.length < faceIdBound) {
+            visitStampByCopyFace = Arrays.copyOf(visitStampByCopyFace, faceIdBound);
+        }
+        int edgeIdBound = tmesh.topology.ownerArcByCopyEdge.length;
+        if (wallStampByCopyEdge.length < edgeIdBound) {
+            wallStampByCopyEdge = Arrays.copyOf(wallStampByCopyEdge, edgeIdBound);
+        }
+        if (visitStamp == Integer.MAX_VALUE) {
+            Arrays.fill(visitStampByCopyFace, 0);
+            visitStamp = 0;
+        }
+        if (wallStamp == Integer.MAX_VALUE) {
+            Arrays.fill(wallStampByCopyEdge, 0);
+            wallStamp = 0;
+        }
     }
 
     /**
@@ -68,55 +109,53 @@ public final class PatchCorridor {
     }
 
     /**
-     * The copy edges a patch's boundary arcs run along — the wall a flood of its interior may not
-     * cross.
+     * Stamps the copy edges a patch's boundary arcs run along — the wall a flood of its interior
+     * may not cross.
      *
      * @param patchId patch whose boundary is wanted
-     * @return the boundary's copy edges
      */
-    private ActiveIdSet patchWall(int patchId) {
-        ActiveIdSet wall = new ActiveIdSet(tmesh.topology.copy.edgeCount());
+    private void patchWall(int patchId) {
+        wallStamp++;
         for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
             for (int boundaryArcId : tmesh.patches.get(patchId).sideArcIds.get(side)) {
                 for (int edgeId : tmesh.arcs.get(boundaryArcId).path.copyEdgePath) {
-                    wall.add(edgeId);
+                    wallStampByCopyEdge[edgeId] = wallStamp;
                 }
             }
         }
-        return wall;
     }
 
     /**
-     * The faces reachable from a seed without crossing a wall edge.
+     * The faces reachable from a seed without crossing an edge of the stamped wall.
      *
-     * @param wall edges the flood stops at
      * @param seed face to flood from
      * @return the reachable faces, seed first
      */
-    private IntIdList floodWithin(ActiveIdSet wall, int seed) {
+    private IntIdList floodWithin(int seed) {
         HalfEdgeMesh copy = tmesh.topology.copy;
-        ActiveIdSet visited = new ActiveIdSet(copy.faceCount());
-        IntIdList faces = new IntIdList(copy.faceCount());
-        visited.add(seed);
-        faces.add(seed);
-        for (int cursor = 0; cursor < faces.size(); cursor++) {
-            int faceId = faces.get(cursor);
+        visitStamp++;
+        faceScratch.clear();
+        visitStampByCopyFace[seed] = visitStamp;
+        faceScratch.add(seed);
+        for (int cursor = 0; cursor < faceScratch.size(); cursor++) {
+            int faceId = faceScratch.get(cursor);
             for (int corner = 0; corner < copy.faceHalfEdgeCount(faceId); corner++) {
                 int edgeId = copy.faceEdgeAt(faceId, corner);
-                if (wall.contains(edgeId)) {
+                if (wallStampByCopyEdge[edgeId] == wallStamp) {
                     continue;
                 }
                 int halfEdge = copy.edgeHalfEdge(edgeId);
                 int neighbour = copy.halfEdgeFace(halfEdge) == faceId
                         ? copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge))
                         : copy.halfEdgeFace(halfEdge);
-                if (neighbour != EmbeddedMeshTopology.UNCLAIMED && !visited.contains(neighbour)) {
-                    visited.add(neighbour);
-                    faces.add(neighbour);
+                if (neighbour != EmbeddedMeshTopology.UNCLAIMED
+                        && visitStampByCopyFace[neighbour] != visitStamp) {
+                    visitStampByCopyFace[neighbour] = visitStamp;
+                    faceScratch.add(neighbour);
                 }
             }
         }
-        return faces;
+        return faceScratch;
     }
 
     /**

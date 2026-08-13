@@ -4,8 +4,15 @@ import java.util.Arrays;
 
 public final class IntIdList {
     public static final int NUM_4 = 4;
-    private int[] values;
-    private int size;
+
+    /**
+     * Backing storage, reallocated on growth: a hot loop may read it directly, but
+     * only for as long as it does not add to the list.
+     */
+    public int[] values;
+
+    /** Live element count, the bound for a direct {@link #values} read. */
+    public int size;
 
     IntIdList() {
         this(NUM_4);

@@ -23,6 +23,12 @@ public final class TJunctionExtension {
     public final ArcRerouter rerouter;
     public final PatchCorridor corridor;
 
+    /**
+     * Extensions with no route inside the patch they cut, which retried across the
+     * whole surface; a non-zero count means the patch cover no longer describes it.
+     */
+    public int unrestrictedExtensionCount;
+
     /** Arcs inserted across a patch, one per extension. */
     public int extensionCount;
 
@@ -136,8 +142,25 @@ public final class TJunctionExtension {
         int startVertex = tmesh.nodes.get(tjunctionNodeId).copyVertex;
         int endVertex = tmesh.nodes.get(oppositeNodeId).copyVertex;
         List<Integer> routed = new ArrayList<>();
-        if (!rerouter.tryRoute(EmbeddedTMesh.NONE, routed, startVertex, endVertex, searchCorridor,
-                EmbeddedMeshTopology.UNCLAIMED)) {
+        // An extension arc cuts one patch from a T-joint to the side opposite, so it
+        // may only run inside that patch; leaving it merges two patch interiors into a
+        // region the arrangement can no longer match. See LCK21a Section 6.
+        rerouter.beginPatchRestriction();
+        rerouter.admitPatch(tmesh.topology.resolvePatch(patchId));
+        boolean reached;
+        try {
+            reached = rerouter.tryRoute(EmbeddedTMesh.NONE, routed, startVertex, endVertex,
+                    searchCorridor, EmbeddedMeshTopology.UNCLAIMED);
+        } finally {
+            rerouter.clearPatchRestriction();
+        }
+        if (!reached) {
+            unrestrictedExtensionCount++;
+            routed.clear();
+            reached = rerouter.tryRoute(EmbeddedTMesh.NONE, routed, startVertex, endVertex,
+                    rerouter.freshCorridor(), EmbeddedMeshTopology.UNCLAIMED);
+        }
+        if (!reached) {
             throw new IllegalStateException("could not route a T-junction extension across patch "
                     + patchId + " from node " + tjunctionNodeId + " to node " + oppositeNodeId);
         }

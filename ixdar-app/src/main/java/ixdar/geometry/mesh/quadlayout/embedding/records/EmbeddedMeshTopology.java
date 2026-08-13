@@ -47,6 +47,29 @@ public final class EmbeddedMeshTopology {
     public int[] sourceFaceByCopyFace;
 
     /**
+     * Patch id covering each raw copy face, or {@link #UNCLAIMED}; empty until the
+     * contraction labels the covers. Split children inherit, so refinement never
+     * invalidates a label.
+     */
+    public int[] patchByCopyFace = new int[0];
+
+    /**
+     * Union-find parent per patch id, so a patch absorbed by a neighbour keeps its
+     * face labels and resolves to the survivor instead of being relabeled.
+     */
+    public int[] patchAliasByPatch = new int[0];
+
+    /**
+     * Generation per copy edge marking a dragged arc's released path, the wall a
+     * swept-pocket relabel stops at. Edge-split children inherit it, so the wall
+     * survives the refinement a re-route makes along it.
+     */
+    public int[] sweepWallStampByCopyEdge = new int[0];
+
+    /** Current generation of {@link #sweepWallStampByCopyEdge}; zero marks none. */
+    public int sweepWallStamp;
+
+    /**
      * Source active edge index per raw copy edge id, or {@link #UNCLAIMED} for
      * minted interior edges. Edge-split children inherit the parent's tag — a trace
      * crossing the parent may cross either half.
@@ -409,11 +432,12 @@ public final class EmbeddedMeshTopology {
         int vertex1 = copy.faceVertexAt(copyFaceId, 1);
         int vertex2 = copy.faceVertexAt(copyFaceId, 2);
         int sourceFace = sourceFaceByCopyFace[copyFaceId];
+        int patchId = patchLabelOf(copyFaceId);
         retireFace(copyFaceId, sourceFace);
         int newVertex = copy.addVertex(position);
-        adoptFace(copy.addFace(vertex0, vertex1, newVertex), sourceFace);
-        adoptFace(copy.addFace(vertex1, vertex2, newVertex), sourceFace);
-        adoptFace(copy.addFace(vertex2, vertex0, newVertex), sourceFace);
+        adoptFace(copy.addFace(vertex0, vertex1, newVertex), sourceFace, patchId);
+        adoptFace(copy.addFace(vertex1, vertex2, newVertex), sourceFace, patchId);
+        adoptFace(copy.addFace(vertex2, vertex0, newVertex), sourceFace, patchId);
         ensureVertexCapacity(newVertex);
         ensureEdgeCapacity();
         faceSplitCount++;
@@ -437,18 +461,21 @@ public final class EmbeddedMeshTopology {
         int faceB = copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge));
         int edgeOwner = ownerArcByCopyEdge[copyEdgeId];
         int sourceEdge = sourceEdgeByCopyEdge[copyEdgeId];
+        boolean sweepWall = onSweepWall(copyEdgeId);
         int sourceA = faceA >= 0 ? sourceFaceByCopyFace[faceA] : UNCLAIMED;
         int sourceB = faceB >= 0 ? sourceFaceByCopyFace[faceB] : UNCLAIMED;
+        int patchA = faceA >= 0 ? patchLabelOf(faceA) : UNCLAIMED;
+        int patchB = faceB >= 0 ? patchLabelOf(faceB) : UNCLAIMED;
         int newVertex = copy.splitEdge(copyEdgeId, position);
         int tailEdge = edgeBetween(newVertex, vertexB);
         int tailForward = copy.edgeHalfEdge(tailEdge);
         int childFaceA = copy.halfEdgeFace(tailForward);
         int childFaceB = copy.halfEdgeFace(copy.halfEdgeTwin(tailForward));
         if (childFaceA != UNCLAIMED) {
-            adoptFace(childFaceA, sourceA);
+            adoptFace(childFaceA, sourceA, patchA);
         }
         if (childFaceB != UNCLAIMED) {
-            adoptFace(childFaceB, sourceB);
+            adoptFace(childFaceB, sourceB, patchB);
         }
         ensureVertexCapacity(newVertex);
         ensureEdgeCapacity();
@@ -458,6 +485,9 @@ public final class EmbeddedMeshTopology {
         }
         if (sourceEdge != UNCLAIMED) {
             sourceEdgeByCopyEdge[tailEdge] = sourceEdge;
+        }
+        if (sweepWall) {
+            sweepWallStampByCopyEdge[tailEdge] = sweepWallStamp;
         }
         edgeSplitCount++;
         return newVertex;
@@ -479,10 +509,11 @@ public final class EmbeddedMeshTopology {
         int vertexC = copy.faceOppositeCorner(faceA, vertexA, vertexB);
         int vertexD = copy.faceOppositeCorner(faceB, vertexA, vertexB);
         int sourceFace = sourceFaceByCopyFace[faceA];
+        int patchId = patchLabelOf(faceA);
         retireFace(faceA, sourceFace);
         retireFace(faceB, sourceFaceByCopyFace[faceB]);
-        adoptFace(copy.addFace(vertexA, vertexD, vertexC), sourceFace);
-        adoptFace(copy.addFace(vertexD, vertexB, vertexC), sourceFace);
+        adoptFace(copy.addFace(vertexA, vertexD, vertexC), sourceFace, patchId);
+        adoptFace(copy.addFace(vertexD, vertexB, vertexC), sourceFace, patchId);
         ensureEdgeCapacity();
         edgeFlipCount++;
         return edgeBetween(vertexC, vertexD);
@@ -710,12 +741,13 @@ public final class EmbeddedMeshTopology {
         leftSide.add(0);
         List<int[]> triangles = new EarClipping(barycentric, rightSide).build().triangles;
         triangles.addAll(new EarClipping(barycentric, leftSide).build().triangles);
+        int stripPatchId = crossedFaces.isEmpty() ? UNCLAIMED : patchLabelOf(crossedFaces.get(0));
         for (int crossed : crossedFaces) {
             retireFace(crossed, sourceFace);
         }
         for (int[] triangle : triangles) {
             adoptFace(copy.addFace(copyVertices.get(triangle[0]), copyVertices.get(triangle[1]),
-                    copyVertices.get(triangle[2])), sourceFace);
+                    copyVertices.get(triangle[2])), sourceFace, stripPatchId);
         }
         ensureEdgeCapacity();
     }
@@ -865,6 +897,7 @@ public final class EmbeddedMeshTopology {
             ownerArcByCopyEdge = Arrays.copyOf(ownerArcByCopyEdge, newLength);
             sourceEdgeByCopyEdge = Arrays.copyOf(sourceEdgeByCopyEdge, newLength);
             lengthByCopyEdge = Arrays.copyOf(lengthByCopyEdge, newLength);
+            sweepWallStampByCopyEdge = Arrays.copyOf(sweepWallStampByCopyEdge, newLength);
             Arrays.fill(ownerArcByCopyEdge, oldLength, newLength, UNCLAIMED);
             Arrays.fill(sourceEdgeByCopyEdge, oldLength, newLength, UNCLAIMED);
             Arrays.fill(lengthByCopyEdge, oldLength, newLength, Float.NaN);
@@ -901,12 +934,104 @@ public final class EmbeddedMeshTopology {
     }
 
     /**
-     * Register a freshly added copy face under its source face.
+     * Opens a fresh sweep wall along a path, retiring the previous one.
+     *
+     * @param edgeIds edges of the released route the wall follows
+     */
+    public void openSweepWall(List<Integer> edgeIds) {
+        if (sweepWallStampByCopyEdge.length < ownerArcByCopyEdge.length) {
+            sweepWallStampByCopyEdge = Arrays.copyOf(sweepWallStampByCopyEdge,
+                    ownerArcByCopyEdge.length);
+        }
+        if (sweepWallStamp == Integer.MAX_VALUE) {
+            Arrays.fill(sweepWallStampByCopyEdge, 0);
+            sweepWallStamp = 0;
+        }
+        sweepWallStamp++;
+        for (int edgeId : edgeIds) {
+            sweepWallStampByCopyEdge[edgeId] = sweepWallStamp;
+        }
+    }
+
+    /**
+     * Whether a copy edge belongs to the open sweep wall.
+     *
+     * @param copyEdgeId copy edge to test
+     * @return true when the edge walls a swept-pocket relabel
+     */
+    public boolean onSweepWall(int copyEdgeId) {
+        return sweepWallStamp != 0 && copyEdgeId < sweepWallStampByCopyEdge.length
+                && sweepWallStampByCopyEdge[copyEdgeId] == sweepWallStamp;
+    }
+
+    /** Closes the open sweep wall, so no edge walls a later flood. */
+    public void closeSweepWall() {
+        sweepWallStamp = 0;
+    }
+
+    /**
+     * The patch covering a copy face, or {@link #UNCLAIMED} when the covers are
+     * unlabeled or the face lies off every patch interior.
+     *
+     * @param copyFaceId copy face to read
+     * @return its patch id, or {@link #UNCLAIMED}
+     */
+    public int patchLabelOf(int copyFaceId) {
+        return copyFaceId < patchByCopyFace.length ? patchByCopyFace[copyFaceId] : UNCLAIMED;
+    }
+
+    /**
+     * The live patch an absorbed patch id resolves to, with path halving.
+     *
+     * @param patchId patch id to resolve, or {@link #UNCLAIMED}
+     * @return the surviving patch id, or {@link #UNCLAIMED}
+     */
+    public int resolvePatch(int patchId) {
+        if (patchId < 0 || patchId >= patchAliasByPatch.length) {
+            return patchId;
+        }
+        int walk = patchId;
+        while (patchAliasByPatch[walk] != walk) {
+            patchAliasByPatch[walk] = patchAliasByPatch[patchAliasByPatch[walk]];
+            walk = patchAliasByPatch[walk];
+        }
+        return walk;
+    }
+
+    /**
+     * Records that one patch's cover has been absorbed by another, so its face
+     * labels resolve to the survivor without a re-flood.
+     *
+     * @param absorbedPatchId patch whose faces now belong to the survivor
+     * @param survivorPatchId patch taking them over
+     * @param patchCount      patch ids minted so far, which the table must span
+     */
+    public void aliasPatchInto(int absorbedPatchId, int survivorPatchId, int patchCount) {
+        if (patchAliasByPatch.length == 0 || absorbedPatchId < 0 || survivorPatchId < 0) {
+            return;
+        }
+        if (patchAliasByPatch.length < patchCount) {
+            int oldLength = patchAliasByPatch.length;
+            patchAliasByPatch = Arrays.copyOf(patchAliasByPatch, patchCount);
+            for (int patchId = oldLength; patchId < patchCount; patchId++) {
+                patchAliasByPatch[patchId] = patchId;
+            }
+        }
+        int absorbed = resolvePatch(absorbedPatchId);
+        int survivor = resolvePatch(survivorPatchId);
+        if (absorbed != survivor) {
+            patchAliasByPatch[absorbed] = survivor;
+        }
+    }
+
+    /**
+     * Register a freshly added copy face under its source face and patch cover.
      *
      * @param copyFaceId newly added copy face
      * @param sourceFace source active face it descends from
+     * @param patchId    patch cover it inherits, or {@link #UNCLAIMED}
      */
-    private void adoptFace(int copyFaceId, int sourceFace) {
+    private void adoptFace(int copyFaceId, int sourceFace, int patchId) {
         if (copyFaceId >= sourceFaceByCopyFace.length) {
             int oldLength = sourceFaceByCopyFace.length;
             sourceFaceByCopyFace = Arrays.copyOf(sourceFaceByCopyFace,
@@ -914,6 +1039,15 @@ public final class EmbeddedMeshTopology {
             Arrays.fill(sourceFaceByCopyFace, oldLength, sourceFaceByCopyFace.length, UNCLAIMED);
         }
         sourceFaceByCopyFace[copyFaceId] = sourceFace;
+        if (patchByCopyFace.length > 0) {
+            if (copyFaceId >= patchByCopyFace.length) {
+                int oldPatchLength = patchByCopyFace.length;
+                patchByCopyFace = Arrays.copyOf(patchByCopyFace,
+                        Math.max(copyFaceId + 1, oldPatchLength * 2));
+                Arrays.fill(patchByCopyFace, oldPatchLength, patchByCopyFace.length, UNCLAIMED);
+            }
+            patchByCopyFace[copyFaceId] = patchId;
+        }
         if (sourceFace >= 0) {
             copyFacesBySourceFace.get(sourceFace).add(copyFaceId);
         }

@@ -147,6 +147,7 @@ public final class ScaledTorusLayoutFixture {
                 List.of(topRow4));
         addPatch(8, LOOP_TOP, List.of(top80), List.of(topRow0), List.of(bottom80),
                 List.of(topRow8));
+        tmesh.resolveWalkOrientation();
     }
 
     /**

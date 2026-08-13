@@ -7,13 +7,15 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
 /**
- * Operator (3), the simple zero-patch collapse: requires a bigon, so the patch's zero-length
- * sides must already be collapsed.
+ * Operator (3), the simple zero-patch collapse: requires a bigon, so the
+ * patch's zero-length sides must already be collapsed.
  *
- * <p>A feature or border arc survives over a plain one, ties to the lower id; the other's
- * claims are released. Two feature arcs bounding one zero-patch throw.
+ * <p>
+ * A feature or border arc survives over a plain one, ties to the lower id; the
+ * other's claims are released. Two feature arcs bounding one zero-patch throw.
  *
- * <p>See also: LCBK19 Section 6.1
+ * <p>
+ * See also: LCBK19 Section 6.1
  */
 public final class ZeroPatchCollapseOperator {
 
@@ -38,12 +40,15 @@ public final class ZeroPatchCollapseOperator {
 
     /**
      * The lowest-id live bigon of two non-zero arcs between the same two nodes, or
-     * {@link EmbeddedTMesh#NONE} when none remains. Only {@link EmbeddedTMesh#changedPatches} is
-     * tested, since an untouched patch cannot have newly become one; ready patches keep their
-     * stamp, so repeating the query repeats the answer.
+     * {@link EmbeddedTMesh#NONE} when none remains. Only
+     * {@link EmbeddedTMesh#changedPatches} is tested, since an untouched patch
+     * cannot have newly become one; ready patches keep their stamp, so repeating
+     * the query repeats the answer.
      *
-     * @throws IllegalStateException when {@link EmbeddedTMesh#VALIDATE_EVERY_COLLAPSE} is set and
-     *                               a full scan disagrees, meaning some mutator does not call
+     * @throws IllegalStateException when
+     *                               {@link EmbeddedTMesh#VALIDATE_EVERY_COLLAPSE}
+     *                               is set and a full scan disagrees, meaning some
+     *                               mutator does not call
      *                               {@link EmbeddedTMesh#markPatchChanged}
      * @return a collapsible simple zero-patch id, or {@link EmbeddedTMesh#NONE}
      */
@@ -81,8 +86,9 @@ public final class ZeroPatchCollapseOperator {
     }
 
     /**
-     * Collapses one simple zero-patch: keeps one of its two arcs, re-points the arc's other
-     * patch onto the survivor, discards the other arc, and retires the patch.
+     * Collapses one simple zero-patch: keeps one of its two arcs, re-points the
+     * arc's other patch onto the survivor, discards the other arc, and retires the
+     * patch.
      *
      * @param patchId simple zero-patch (a ready bigon) to collapse
      * @throws IllegalStateException when the patch is not a ready bigon
@@ -101,6 +107,7 @@ public final class ZeroPatchCollapseOperator {
         int farPatch = otherPatchOf(dyingArc, patchId);
         if (farPatch != EmbeddedTMesh.NONE) {
             tmesh.replaceArcInPatch(farPatch, dyingArc, survivorArc);
+            tmesh.topology.aliasPatchInto(patchId, farPatch, tmesh.patches.size());
         }
         tmesh.removePatch(patchId);
         tmesh.discardArc(dyingArc);
@@ -108,9 +115,10 @@ public final class ZeroPatchCollapseOperator {
     }
 
     /**
-     * Whether a patch is a bigon ready for operator (3): exactly two live boundary arcs, both
-     * non-zero, running between the same two nodes, on opposite sides with the other two sides
-     * empty — the shape a simple zero-patch takes once its zero sides have collapsed.
+     * Whether a patch is a bigon ready for operator (3): exactly two live boundary
+     * arcs, both non-zero, running between the same two nodes, on opposite sides
+     * with the other two sides empty — the shape a simple zero-patch takes once its
+     * zero sides have collapsed.
      *
      * @param patch patch to test
      * @return true when the patch is a ready bigon
@@ -163,13 +171,14 @@ public final class ZeroPatchCollapseOperator {
     }
 
     /**
-     * Which of a zero-patch's two arcs survives: a feature arc over a plain one, else the lower
-     * id.
+     * Which of a zero-patch's two arcs survives: a feature arc over a plain one,
+     * else the lower id.
      *
      * @param firstArc  one boundary arc
      * @param secondArc the other
-     * @throws IllegalStateException when both arcs are feature arcs, a feature curve doubling
-     *                               back on itself that the input should never produce
+     * @throws IllegalStateException when both arcs are feature arcs, a feature
+     *                               curve doubling back on itself that the input
+     *                               should never produce
      * @return the id of the surviving arc
      */
     private int chooseSurvivor(int firstArc, int secondArc) {
@@ -188,7 +197,7 @@ public final class ZeroPatchCollapseOperator {
     /**
      * The patch bordering an arc other than a given one.
      *
-     * @param arcId  arc whose two patches are known
+     * @param arcId   arc whose two patches are known
      * @param notThis the patch to exclude
      * @return the arc's other patch, or {@link EmbeddedTMesh#NONE} when it has none
      */

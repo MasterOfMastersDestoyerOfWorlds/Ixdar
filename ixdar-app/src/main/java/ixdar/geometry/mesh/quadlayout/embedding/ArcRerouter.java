@@ -8,6 +8,7 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
+import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
@@ -40,6 +41,9 @@ public final class ArcRerouter {
     /** Mask of the node-id half of a packed frontier entry. */
     private static final long NODE_ID_MASK = 0xFFFFFFFFL;
 
+    /** Stands in for a fan the free pass never walks, so the loop reads one empty list. */
+    private static final IntIdList EMPTY_ADJACENCY = new IntIdList(0);
+
     public final EmbeddedMeshTopology topology;
 
     /**
@@ -58,6 +62,20 @@ public final class ArcRerouter {
      * own crossings. Endpoints are always exempt.
      */
     public boolean interiorOnly;
+
+
+    /**
+     * Stamp per patch id admitting every face that patch covers; the collapse
+     * operators admit the patches flanking the arcs they release, which is the
+     * region LCBK19's no-cross rule allows a re-route to use.
+     */
+    public int[] patchStampByPatch = new int[0];
+
+    /** Stamp value marking the admitted patches in {@link #patchStampByPatch}. */
+    public int patchStamp;
+
+    /** Whether the search honors {@link #patchStampByPatch}. */
+    public boolean patchRestrictionActive;
 
     /** Edges split to open a walled corridor. */
     public int refinedEdgeSplitCount;
@@ -85,6 +103,15 @@ public final class ArcRerouter {
 
     /** Nodes the free passes settled, the cost of proving no unrefined route exists. */
     public long freeSettleCount;
+
+    /** Free passes that found no split-free route, so the gate and refined passes ran. */
+    public int freePassFailureCount;
+
+    /** Of {@link #freeSettleCount}, the settles spent on those failed passes. */
+    public long freeSettleOnFailureCount;
+
+    /** Routes the free pass itself produced, needing no gate flood. */
+    public int freePassRouteCount;
 
     /** Nodes the refined passes settled, the cost of walking the minimum-split corridor. */
     public long refinedSettleCount;
@@ -182,6 +209,57 @@ public final class ArcRerouter {
     }
 
     /**
+     * Opens a fresh patch restriction, retiring the previous one; until
+     * {@link #clearPatchRestriction} the search may only walk faces covered by a
+     * patch passed to {@link #admitPatch}.
+     */
+    public void beginPatchRestriction() {
+        if (patchStamp == Integer.MAX_VALUE) {
+            Arrays.fill(patchStampByPatch, 0);
+            patchStamp = 0;
+        }
+        patchStamp++;
+        patchRestrictionActive = true;
+    }
+
+    /**
+     * Admits every face a patch covers, by id — the maintained cover labels make
+     * this O(1) rather than a flood.
+     *
+     * @param patchId patch to admit; negative ids are ignored
+     */
+    public void admitPatch(int patchId) {
+        if (patchId < 0) {
+            return;
+        }
+        if (patchId >= patchStampByPatch.length) {
+            patchStampByPatch = Arrays.copyOf(patchStampByPatch, patchId + 1);
+        }
+        patchStampByPatch[patchId] = patchStamp;
+    }
+
+    /** Closes the patch restriction, returning the search to the whole copy. */
+    public void clearPatchRestriction() {
+        patchRestrictionActive = false;
+    }
+
+    /**
+     * Whether a face lies in a patch the current restriction admits.
+     *
+     * @param copyFaceId copy face to test
+     * @return true when unrestricted, unlabeled, or covered by an admitted patch
+     */
+    private boolean inAdmittedPatch(int copyFaceId) {
+        if (!patchRestrictionActive) {
+            return true;
+        }
+        int patchId = topology.resolvePatch(topology.patchLabelOf(copyFaceId));
+        return patchId < 0 || patchId < patchStampByPatch.length
+                && patchStampByPatch[patchId] == patchStamp;
+    }
+
+
+    /**
      * Route an arc between two vertices without crossing or touching another arc,
      * splitting the fewest edges such a route can: a free pass first, and only
      * where that fails a gate pass and a refined pass confined to its corridor.
@@ -223,8 +301,13 @@ public final class ArcRerouter {
         int reachedCount = 0;
         int stamp = 0;
         boolean reachedTarget = false;
+        long settlesBeforePass = freeSettleCount;
         for (int pass = 0; pass < 2 && !reachedTarget; pass++) {
             boolean refined = pass == 1;
+            if (refined) {
+                freePassFailureCount++;
+                freeSettleOnFailureCount += freeSettleCount - settlesBeforePass;
+            }
             if (refined && gatePass(startCopyVertex, endCopyVertex, passThrough) == UNREACHED) {
                 lastReachedCount = reachedCount;
                 exhaustedFailureStamp = gateStamp;
@@ -251,13 +334,16 @@ public final class ArcRerouter {
                 }
                 if (node == endCopyVertex) {
                     reachedTarget = true;
+                    freePassRouteCount += refined ? 0 : 1;
                     break;
                 }
                 float headDistance = distanceByVertex[node];
                 if (node < vertexIdBound) {
                     int headPotential = refined ? nodePotential(node) : 0;
-                    for (int index = 0; index < topology.copy.vertexEdgeCount(node); index++) {
-                        int edgeId = topology.copy.vertexEdgeAt(node, index);
+                    IntIdList incidentEdges = topology.copy.vertexEdges.get(node);
+                    int[] incidentEdgeIds = incidentEdges.values;
+                    for (int index = 0; index < incidentEdges.size; index++) {
+                        int edgeId = incidentEdgeIds[index];
                         if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED
                                 || !edgeInRestriction(edgeId)) {
                             continue;
@@ -272,14 +358,17 @@ public final class ArcRerouter {
                     if (refined) {
                         topology.copy.vertexPosition(node, positionHere);
                     }
-                    for (int index = 0; refined
-                            && index < topology.copy.vertexFaceCount(node); index++) {
-                        int faceId = topology.copy.vertexFaceAt(node, index);
+                    IntIdList incidentFaces = refined
+                            ? topology.copy.vertexFaces.get(node) : EMPTY_ADJACENCY;
+                    int[] incidentFaceIds = incidentFaces.values;
+                    for (int index = 0; index < incidentFaces.size; index++) {
+                        int faceId = incidentFaceIds[index];
                         if (!faceInRestriction(faceId)) {
                             continue;
                         }
+                        int[] faceEdgeIds = topology.copy.faceEdges.get(faceId).values;
                         for (int corner = 0; corner < CORNERS; corner++) {
-                            int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+                            int edgeId = faceEdgeIds[corner];
                             int halfEdge = topology.copy.edgeHalfEdge(edgeId);
                             int tail = topology.copy.halfEdgeVertex(halfEdge);
                             int head = topology.copy.halfEdgeEndVertex(halfEdge);
@@ -306,6 +395,7 @@ public final class ArcRerouter {
                         if (faceId < 0 || !faceInRestriction(faceId)) {
                             continue;
                         }
+                        int[] faceEdgeIds = topology.copy.faceEdges.get(faceId).values;
                         for (int corner = 0; corner < CORNERS; corner++) {
                             int neighbor = topology.copy.faceVertexAt(faceId, corner);
                             if (realAdmissible(neighbor, endCopyVertex, passThrough)
@@ -314,7 +404,7 @@ public final class ArcRerouter {
                                 reachedCount += relax(node, neighbor, headDistance
                                         + positionHere.distance(positionCandidate), stamp);
                             }
-                            int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+                            int edgeId = faceEdgeIds[corner];
                             if (edgeId == nodeEdge
                                     || !splitAdmissible(edgeId, endCopyVertex, passThrough)
                                     || !tightStep(headPotential, nodePotential(vertexIdBound + edgeId), 1)) {
@@ -408,8 +498,10 @@ public final class ArcRerouter {
                     gateVirtualExpansionCount++;
                 }
                 if (node < vertexIdBound) {
-                    for (int index = 0; index < topology.copy.vertexEdgeCount(node); index++) {
-                        int edgeId = topology.copy.vertexEdgeAt(node, index);
+                    IntIdList incidentEdges = topology.copy.vertexEdges.get(node);
+                    int[] incidentEdgeIds = incidentEdges.values;
+                    for (int index = 0; index < incidentEdges.size; index++) {
+                        int edgeId = incidentEdgeIds[index];
                         int neighbor = topology.otherEndpoint(edgeId, node);
                         if (topology.ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED
                                 && edgeInRestriction(edgeId)
@@ -418,13 +510,16 @@ public final class ArcRerouter {
                             reachGateNode(neighbor, splitCount);
                         }
                     }
-                    for (int index = 0; index < topology.copy.vertexFaceCount(node); index++) {
-                        int faceId = topology.copy.vertexFaceAt(node, index);
+                    IntIdList incidentFaces = topology.copy.vertexFaces.get(node);
+                    int[] incidentFaceIds = incidentFaces.values;
+                    for (int index = 0; index < incidentFaces.size; index++) {
+                        int faceId = incidentFaceIds[index];
                         if (!faceInRestriction(faceId)) {
                             continue;
                         }
+                        int[] faceEdgeIds = topology.copy.faceEdges.get(faceId).values;
                         for (int corner = 0; corner < CORNERS; corner++) {
-                            int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+                            int edgeId = faceEdgeIds[corner];
                             int halfEdge = topology.copy.edgeHalfEdge(edgeId);
                             int tail = topology.copy.halfEdgeVertex(halfEdge);
                             int head = topology.copy.halfEdgeEndVertex(halfEdge);
@@ -444,6 +539,7 @@ public final class ArcRerouter {
                         if (faceId < 0 || !faceInRestriction(faceId)) {
                             continue;
                         }
+                        int[] faceEdgeIds = topology.copy.faceEdges.get(faceId).values;
                         for (int corner = 0; corner < CORNERS; corner++) {
                             int cornerVertex = topology.copy.faceVertexAt(faceId, corner);
                             if (cornerVertex != nodeTail && cornerVertex != nodeHead
@@ -451,7 +547,7 @@ public final class ArcRerouter {
                                             passThrough)) {
                                 reachGateNodeLater(cornerVertex, splitCount + 1);
                             }
-                            int edgeId = topology.copy.faceEdgeAt(faceId, corner);
+                            int edgeId = faceEdgeIds[corner];
                             if (edgeId != nodeEdge
                                     && splitAdmissible(edgeId, endCopyVertex, passThrough)) {
                                 reachGateNodeLater(vertexIdBound + edgeId, splitCount + 1);
@@ -835,7 +931,7 @@ public final class ArcRerouter {
      * @return true when the edge is admissible
      */
     private boolean edgeInRestriction(int edgeId) {
-        if (sourceFaceStampBySourceFace.length == 0) {
+        if (sourceFaceStampBySourceFace.length == 0 && !patchRestrictionActive) {
             return true;
         }
         int halfEdge = topology.copy.edgeHalfEdge(edgeId);
@@ -852,6 +948,9 @@ public final class ArcRerouter {
      * @return true when the face is admissible
      */
     private boolean faceInRestriction(int faceId) {
+        if (!inAdmittedPatch(faceId)) {
+            return false;
+        }
         return sourceFaceStampBySourceFace.length == 0
                 || sourceFaceStampBySourceFace[topology.sourceFaceByCopyFace[faceId]]
                         == sourceFaceStamp;

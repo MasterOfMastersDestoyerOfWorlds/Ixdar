@@ -9,6 +9,7 @@ import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
@@ -30,10 +31,32 @@ public final class ZeroArcCollapseOperator {
     /** Starting capacity of the zero-arc candidate list; grows by doubling. */
     private static final int CANDIDATE_INITIAL_CAPACITY = 256;
 
+    /** Corners (and edges) of a triangle. */
+    private static final int CORNERS = 3;
+
     public final EmbeddedTMesh tmesh;
     public final ArcRerouter rerouter;
 
     public int collapsedCount;
+
+    /**
+     * Flanking patches of the arc being collapsed, admitted to every drag it
+     * drives.
+     */
+    public int collapsingLeftPatchId = EmbeddedTMesh.NONE;
+
+    /** The collapsing arc's other flank; see {@link #collapsingLeftPatchId}. */
+    public int collapsingRightPatchId = EmbeddedTMesh.NONE;
+
+    /**
+     * Drags no route inside the flanking patches served, which retried
+     * unrestricted; a non-zero count means the cover labels no longer describe the
+     * surface.
+     */
+    public int unrestrictedDragCount;
+
+    /** Frontier of the swept-pocket relabel, reused across drags. */
+    public final IntIdList pocketFaces = new IntIdList(0);
 
     /**
      * First arc id the collapsible scan starts at. Only ever advanced past dead or
@@ -49,7 +72,9 @@ public final class ZeroArcCollapseOperator {
     /** Live entry count of {@link #zeroArcCandidates}. */
     public int zeroArcCandidateCount;
 
-    /** Arc-list size already swept for new zero arcs; the split operator adds more. */
+    /**
+     * Arc-list size already swept for new zero arcs; the split operator adds more.
+     */
     public int scannedArcBound;
 
     /**
@@ -64,14 +89,15 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * The collapsible zero arc whose node has the most arcs on it, so crowded fans clear
-     * while the mesh is still coarse. Ties keep the lowest arc id.
+     * The collapsible zero arc whose node has the most arcs on it, so crowded fans
+     * clear while the mesh is still coarse. Ties keep the lowest arc id.
      *
      * <p>
-     * Only zero arcs qualify and {@code alive} never returns, so candidates are appended
-     * once per new arc and compacted as arcs die.
+     * Only zero arcs qualify and {@code alive} never returns, so candidates are
+     * appended once per new arc and compacted as arcs die.
      *
-     * @return the chosen zero arc id, or {@link EmbeddedTMesh#NONE} when none remains
+     * @return the chosen zero arc id, or {@link EmbeddedTMesh#NONE} when none
+     *         remains
      */
     public int mostContendedArc() {
         for (int arcId = scannedArcBound; arcId < tmesh.arcs.size(); arcId++) {
@@ -142,6 +168,8 @@ public final class ZeroArcCollapseOperator {
                         : channel.get(1);
 
         tmesh.setPath(arcId, List.of(targetVertex));
+        collapsingLeftPatchId = arc.leftPatchId;
+        collapsingRightPatchId = arc.rightPatchId;
         for (int incidentArcId : incidentArcsInFanOrder(movedVertex, channelNeighbor, arcId,
                 movedNodeId)) {
             EmbeddedArc incidentArc = tmesh.arcs.get(incidentArcId);
@@ -201,23 +229,97 @@ public final class ZeroArcCollapseOperator {
             throw new IllegalStateException("arc " + arcId + " path does not end at the moved node's"
                     + " vertex " + movedVertex);
         }
+        tmesh.topology.openSweepWall(arc.path.copyEdgePath);
         tmesh.releaseClaims(arc.path);
-        for (int passThrough : new int[] { EmbeddedMeshTopology.UNCLAIMED, movedVertex }) {
-            rerouter.clearFailureMemory();
-            // keep >= 1 preserves the arc's first edge at the fixed far node, so a shortest
-            // reroute
-            // cannot leave the node in a wrong angular sector and swap the cyclic arc order
-            // — a tear
-            // with no arc crossing that LCBK19's no-cross/no-touch does not prevent. keep
-            // == 0
-            // (rerouting from the node itself) is the last resort. See LCBK19 Section 6.1.
-            for (int keepRank = 0; keepRank <= vertices.size() - 2; keepRank++) {
-                int keep = keepRank < vertices.size() - 2 ? keepRank + 1 : 0;
-                // keep == 0 claims a SHORTER prefix than the failed attempts, so the
-                // unreachability proof does not transfer to the last resort.
-                if (keep != 0 && rerouter.settledInExhaustedFailure(vertices.get(keep))) {
+        rerouter.beginPatchRestriction();
+        int resolved = tmesh.topology.resolvePatch(arc.leftPatchId);
+        if (resolved != EmbeddedTMesh.NONE && tmesh.patches.get(resolved).alive) {
+            rerouter.admitPatch(resolved);
+        }
+        int resolved1 = tmesh.topology.resolvePatch(arc.rightPatchId);
+        if (resolved1 != EmbeddedTMesh.NONE && tmesh.patches.get(resolved1).alive) {
+            rerouter.admitPatch(resolved1);
+        }
+        try {
+            if (routeDraggedTail(arcId, vertices, reversed, movedVertex, targetVertex)) {
+                return;
+            }
+            rerouter.clearPatchRestriction();
+            unrestrictedDragCount++;
+            if (routeDraggedTail(arcId, vertices, reversed, movedVertex, targetVertex)) {
+                return;
+            }
+        } finally {
+            rerouter.clearPatchRestriction();
+            tmesh.topology.closeSweepWall();
+        }
+
+        throw new IllegalStateException("arc " + arcId + " could not be re-routed onto vertex "
+                + targetVertex + " from any back-off point of its old path; moved vertex "
+                + movedVertex + " path " + vertices + " channel " + channel
+                + fanReport(movedVertex) + fanReport(targetVertex));
+    }
+
+    /**
+     * Relabels one swept pocket from a face the drag invalidated; a face already
+     * carrying the right patch seeds nothing.
+     *
+     * @param seedFace face beside the arc's new route, or a negative id off the
+     *                 mesh
+     * @param patchId  patch that side of the route now belongs to
+     */
+    private void floodPocket(int seedFace, int patchId) {
+        if (seedFace < 0 || patchId == EmbeddedTMesh.NONE
+                || tmesh.topology.resolvePatch(tmesh.topology.patchLabelOf(seedFace)) == patchId) {
+            return;
+        }
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        pocketFaces.clear();
+        pocketFaces.add(seedFace);
+        tmesh.topology.patchByCopyFace[seedFace] = patchId;
+        for (int cursor = 0; cursor < pocketFaces.size(); cursor++) {
+            int faceId = pocketFaces.get(cursor);
+            for (int corner = 0; corner < CORNERS; corner++) {
+                int edgeId = copy.faceEdgeAt(faceId, corner);
+                if (tmesh.topology.onSweepWall(edgeId)
+                        || tmesh.topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                     continue;
                 }
+                int halfEdge = copy.edgeHalfEdge(edgeId);
+                int neighbour = copy.halfEdgeFace(halfEdge) == faceId
+                        ? copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge))
+                        : copy.halfEdgeFace(halfEdge);
+                if (neighbour >= 0
+                        && tmesh.topology.resolvePatch(tmesh.topology.patchLabelOf(neighbour)) != patchId) {
+                    tmesh.topology.patchByCopyFace[neighbour] = patchId;
+                    pocketFaces.add(neighbour);
+                }
+            }
+        }
+    }
+
+    /**
+     * Runs the drag's back-off ladder under the router's current restriction,
+     * claiming the routed path on success.
+     *
+     * @param arcId        arc whose end is being dragged
+     * @param vertices     the arc's old path, normalized to end at the moved vertex
+     * @param reversed     whether the stored path was reversed for normalization
+     * @param movedVertex  the moving node's old copy vertex
+     * @param targetVertex the moving node's new copy vertex
+     * @return whether some attempt routed and claimed the dragged path
+     */
+    private boolean routeDraggedTail(int arcId, List<Integer> vertices, boolean reversed,
+            int movedVertex, int targetVertex) {
+        EmbeddedArc arc = tmesh.arcs.get(arcId);
+        for (int passThrough : new int[] { EmbeddedMeshTopology.UNCLAIMED, movedVertex }) {
+            rerouter.clearFailureMemory();
+            // The arc separates its two patches, so a route confined to their union
+            // cannot cross to the far side of any arc bounding them: the cyclic order at
+            // both endpoints survives without pinning a path prefix, which is what used
+            // to force routes to thread congested fans. See LCBK19 Section 6.1.
+            for (int keepRank = 0; keepRank <= 0; keepRank++) {
+                int keep = 0;
                 List<Integer> prefix = new ArrayList<>(vertices.subList(0, keep + 1));
                 List<Integer> prefixEdges = new ArrayList<>(keep);
                 if (!rerouter.tryLegEdges(prefix, prefixEdges)) {
@@ -237,16 +339,31 @@ public final class ZeroArcCollapseOperator {
                     }
                     arc.path = new ArcEdgePath(arcId, attempt, edges);
                     tmesh.topology.claimPath(arcId, arc.path);
-                    return;
+                    if (tmesh.topology.patchByCopyFace.length != 0) {
+
+                        HalfEdgeMesh copy = tmesh.topology.copy;
+                        List<Integer> path = arc.path.copyVertexPath;
+                        for (int hop = 1; hop < path.size(); hop++) {
+                            int edgeId = tmesh.topology.edgeBetween(path.get(hop - 1), path.get(hop));
+                            if (edgeId == EmbeddedMeshTopology.UNCLAIMED) {
+                                continue;
+                            }
+                            int halfEdge = copy.edgeHalfEdge(edgeId);
+                            if (copy.halfEdgeVertex(halfEdge) != path.get(hop - 1)) {
+                                halfEdge = copy.halfEdgeTwin(halfEdge);
+                            }
+                            floodPocket(copy.halfEdgeFace(halfEdge),
+                                    tmesh.topology.resolvePatch(arc.leftPatchId));
+                            floodPocket(copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge)),
+                                    tmesh.topology.resolvePatch(arc.rightPatchId));
+                        }
+                    }
+                    return true;
                 }
                 tmesh.releaseClaims(prefixPath);
             }
         }
-
-        throw new IllegalStateException("arc " + arcId + " could not be re-routed onto vertex "
-                + targetVertex + " from any back-off point of its old path; moved vertex "
-                + movedVertex + " path " + vertices + " channel " + channel
-                + fanReport(movedVertex) + fanReport(targetVertex));
+        return false;
     }
 
     /**

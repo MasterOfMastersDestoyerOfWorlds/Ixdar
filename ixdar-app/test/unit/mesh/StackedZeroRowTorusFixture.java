@@ -173,6 +173,7 @@ public final class StackedZeroRowTorusFixture {
                 List.of(roofRow4));
         addPatch(8, LOOP_ROOF, List.of(roof80), List.of(roofRow0), List.of(bottom80),
                 List.of(roofRow8));
+        tmesh.resolveWalkOrientation();
     }
 
     /**

@@ -13,11 +13,13 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
@@ -48,6 +50,13 @@ public class EmbeddedTMesh {
      */
     public static final boolean VALIDATE_EVERY_COLLAPSE = false;
 
+    /**
+     * Debug switch: when true, every collapse checks the arcs still cut the copy
+     * into exactly the live patches, so a torn arrangement names the collapse that
+     * tore it instead of surfacing in the re-carve.
+     */
+    public static final boolean VALIDATE_PARTITION_EVERY_COLLAPSE = false;
+
     /** Collapses between [contract] progress log lines. */
     private static final int CONTRACT_PROGRESS_INTERVAL = 500;
 
@@ -56,6 +65,11 @@ public class EmbeddedTMesh {
      * visible.
      */
     private static final long CONTRACT_PROGRESS_NANOS = 2_000_000_000L;
+
+    /**
+     * Divisor turning elapsed nanoseconds into the seconds the log lines report.
+     */
+    private static final double NANOS_PER_SECOND = 1.0e9;
 
     /** Split position for a midpoint edge split. */
     private static final double EDGE_MIDPOINT = 0.5;
@@ -125,7 +139,10 @@ public class EmbeddedTMesh {
     public long lastContractProgressNanos;
     public int patchCollapseCount;
 
-    /** Working-copy vertices the carve and the operators minted, filled by {@link #measureDensity}. */
+    /**
+     * Working-copy vertices the carve and the operators minted, filled by
+     * {@link #measureDensity}.
+     */
     public int mintedVertexCount;
 
     /** Of those, vertices a live node owns. */
@@ -135,18 +152,24 @@ public class EmbeddedTMesh {
     public int arcMintedVertexCount;
 
     /**
-     * Of those, vertices no live node and no live arc owns — refinement the finished
-     * layout does not touch, which the re-carve exists to drive to zero.
+     * Of those, vertices no live node and no live arc owns — refinement the
+     * finished layout does not touch, which the re-carve exists to drive to zero.
      */
     public int debrisVertexCount;
 
     /** Working-copy faces beyond the source mesh's own. */
     public int faceGrowthCount;
 
-    /** Source faces no live arc passes through, filled by {@link #measureFaceContention}. */
+    /**
+     * Source faces no live arc passes through, filled by
+     * {@link #measureFaceContention}.
+     */
     public int untouchedSourceFaceCount;
 
-    /** Source faces exactly one live arc passes through, where a chord needs no lane. */
+    /**
+     * Source faces exactly one live arc passes through, where a chord needs no
+     * lane.
+     */
     public int singleArcSourceFaceCount;
 
     /** Source faces exactly two live arcs pass through. */
@@ -161,7 +184,9 @@ public class EmbeddedTMesh {
     /** The source face carrying {@link #mostArcsOnASourceFace}. */
     public int worstArcSourceFace = NONE;
 
-    /** Source faces holding at least one live node vertex, which subdivides them. */
+    /**
+     * Source faces holding at least one live node vertex, which subdivides them.
+     */
     public int nodeBearingSourceFaceCount;
 
     /** Most live node vertices any one source face holds. */
@@ -830,6 +855,7 @@ public class EmbeddedTMesh {
                     && patches.get(farPatchId).alive) {
                 spliceIntoPatch(farPatchId, arcId, pinchedPatchId,
                         boundaryPathAround(pinchedPatchId, arcId));
+                topology.aliasPatchInto(pinchedPatchId, farPatchId, patches.size());
             }
             removePatch(pinchedPatchId);
             arcEndsByNode.get(arc.startNodeId).removeIf(id -> id == arcId);
@@ -1137,8 +1163,9 @@ public class EmbeddedTMesh {
      *
      * @param arc      arc to split
      * @param fraction fraction of the arc's length, in {@code (0, 1)}
-     * @throws IllegalStateException when the arc is collapsed to a point, so it has no
-     *                               interior vertex and refining it would mint nothing
+     * @throws IllegalStateException when the arc is collapsed to a point, so it has
+     *                               no interior vertex and refining it would mint
+     *                               nothing
      * @return the index of the nearest strictly interior path vertex
      */
     private int interiorPathVertexAtFraction(EmbeddedArc arc, double fraction) {
@@ -1226,6 +1253,13 @@ public class EmbeddedTMesh {
         patch.alive = false;
         int firstPatch = addPatch(patch.sourcePatchId, firstSides, divider.startNodeId);
         int secondPatch = addPatch(patch.sourcePatchId, secondSides, divider.endNodeId);
+        topology.aliasPatchInto(patchId, firstPatch, patches.size());
+        if (topology.patchByCopyFace.length > 0) {
+            IntIdList secondFaces = splitPatch.corridor.patchFaces(secondPatch);
+            for (int index = 0; index < secondFaces.size(); index++) {
+                topology.patchByCopyFace[secondFaces.get(index)] = secondPatch;
+            }
+        }
         return new int[] { firstPatch, secondPatch };
     }
 
@@ -1486,6 +1520,67 @@ public class EmbeddedTMesh {
     }
 
     /**
+     * Checks the live arcs still cut the copy into exactly the live patches, naming
+     * the operator that broke it.
+     *
+     * @param operator description of the operator just applied
+     * @throws IllegalStateException when a region matches no live patch
+     */
+    private void requireArrangementMatchesPatches(String operator) {
+        Set<Integer> boundaryArcs = new HashSet<>();
+        List<Integer> unmatched = new PatchRegions(this).findFirstUnmatchedRegion(boundaryArcs);
+        if (!unmatched.isEmpty()) {
+            throw new IllegalStateException("after " + operator + " (collapse "
+                    + arcCollapseCount + ", patchCollapse " + patchCollapseCount
+                    + ", split " + patchSplitCount + ") the arrangement leaves a region of "
+                    + unmatched.size() + " faces bounded by arcs " + boundaryArcs
+                    + " that matches no live patch");
+        }
+    }
+
+    /**
+     * Labels every copy face with the patch covering it, so a re-route can be held
+     * to a patch union by id instead of flooding. Unusable covers are dropped,
+     * which leaves the re-routes unrestricted.
+     */
+    public void labelPatchCovers() {
+        long startNanos = System.nanoTime();
+        int[] labels = new int[topology.sourceFaceByCopyFace.length];
+        Arrays.fill(labels, NONE);
+        topology.patchByCopyFace = new int[0];
+        topology.patchAliasByPatch = new int[patches.size()];
+        for (int patchId = 0; patchId < patches.size(); patchId++) {
+            topology.patchAliasByPatch[patchId] = patchId;
+        }
+        int labeledCount = 0;
+        int overlapCount = 0;
+        for (EmbeddedPatch patch : patches) {
+            if (!patch.alive) {
+                continue;
+            }
+            IntIdList faces = splitPatch.corridor.patchFaces(patch.patchId);
+            for (int index = 0; index < faces.size(); index++) {
+                int copyFace = faces.get(index);
+                overlapCount += labels[copyFace] == NONE ? 0 : 1;
+                labels[copyFace] = patch.patchId;
+                labeledCount++;
+            }
+        }
+        // Patch interiors tile the copy, so a face claimed twice means a flood leaked
+        // its patch and every label is then suspect.
+        if (overlapCount > 0) {
+            topology.patchAliasByPatch = new int[0];
+            System.out.printf("[contract] patch covers unusable: %d of %d faces claimed twice%n",
+                    overlapCount, topology.copy.faceCount());
+            return;
+        }
+        topology.patchByCopyFace = labels;
+        System.out.printf("[contract] patch covers labeled: faces=%d of %d patches=%d | %.3fs%n",
+                labeledCount, topology.copy.faceCount(), patches.size(),
+                (System.nanoTime() - startNanos) / NANOS_PER_SECOND);
+    }
+
+    /**
      * Contracts the T-mesh, validating every round — every step when
      * {@link #VALIDATE_EVERY_COLLAPSE} is set.
      *
@@ -1497,6 +1592,7 @@ public class EmbeddedTMesh {
      * @return this, contracted
      */
     public EmbeddedTMesh contract() {
+        labelPatchCovers();
         while (true) {
             while (applyCollapse()) {
                 if (VALIDATE_EVERY_COLLAPSE) {
@@ -1511,8 +1607,14 @@ public class EmbeddedTMesh {
             splitPatch.split(nonSimple);
             patchSplitCount++;
             validate();
+            if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
+                requireArrangementMatchesPatches("patch split " + nonSimple);
+            }
         }
         conform();
+        if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
+            requireArrangementMatchesPatches("conform");
+        }
         EmbeddedTMesh recarved = recarve(topology.sourceMesh);
         return recarved;
     }
@@ -1632,7 +1734,8 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * Measures the working copy and prints one {@code [density]} line naming the stage.
+     * Measures the working copy and prints one {@code [density]} line naming the
+     * stage.
      *
      * @param stage pipeline stage the measurement was taken at
      * @return this, measured
@@ -1650,8 +1753,8 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * Counts how many live arcs share each source face, which decides whether re-carving that
-     * face needs lanes or only a single chord.
+     * Counts how many live arcs share each source face, which decides whether
+     * re-carving that face needs lanes or only a single chord.
      *
      * @return this, with the contention counters filled
      */
@@ -1697,8 +1800,8 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * Counts the live node vertices each source face holds, which is how much inserting the
-     * nodes subdivides it before any arc is laid.
+     * Counts the live node vertices each source face holds, which is how much
+     * inserting the nodes subdivides it before any arc is laid.
      *
      * @param sourceFaceCount number of source active faces
      */
@@ -1711,8 +1814,7 @@ public class EmbeddedTMesh {
                 continue;
             }
             for (int index = 0; index < topology.copy.vertexFaceCount(node.copyVertex); index++) {
-                int sourceFace = topology.sourceFaceByCopyFace[
-                        topology.copy.vertexFaceAt(node.copyVertex, index)];
+                int sourceFace = topology.sourceFaceByCopyFace[topology.copy.vertexFaceAt(node.copyVertex, index)];
                 if (sourceFace == EmbeddedMeshTopology.UNCLAIMED
                         || lastNodeSeenBySourceFace[sourceFace] == node.nodeId) {
                     continue;
@@ -1730,7 +1832,8 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * Measures arc contention and prints one {@code [contention]} line naming the stage.
+     * Measures arc contention and prints one {@code [contention]} line naming the
+     * stage.
      *
      * @param stage pipeline stage the measurement was taken at
      * @return this, measured
@@ -1795,12 +1898,18 @@ public class EmbeddedTMesh {
         if (simple != NONE) {
             collapsePatch.collapse(simple);
             patchCollapseCount++;
+            if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
+                requireArrangementMatchesPatches("patch collapse " + simple);
+            }
             return true;
         }
         int arc = collapseArc.mostContendedArc();
         if (arc != NONE) {
             collapseArc.collapse(arc);
             arcCollapseCount++;
+            if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
+                requireArrangementMatchesPatches("arc collapse " + arc);
+            }
             long now = System.nanoTime();
             if (arcCollapseCount % CONTRACT_PROGRESS_INTERVAL == 0
                     || now - lastContractProgressNanos > CONTRACT_PROGRESS_NANOS) {
@@ -1808,7 +1917,8 @@ public class EmbeddedTMesh {
                 System.out.printf(
                         "[contract] collapses=%d exactSigns=%d splits=%d worstRoute=%d"
                                 + " V=%d F=%d | routes=%d gates=%d gateExpand=%d(virtual=%d)"
-                                + " freeSettle=%d refinedSettle=%d\n",
+                                + " freeSettle=%d(failed=%d) refinedSettle=%d"
+                                + " freeRoutes=%d freeFails=%d escapes=%d\n",
                         arcCollapseCount,
                         ExactBarycentricOrient.exactSignCallCount,
                         collapseArc.rerouter.refinedEdgeSplitCount
@@ -1825,8 +1935,15 @@ public class EmbeddedTMesh {
                         collapseArc.rerouter.gateVirtualExpansionCount
                                 + splitPatch.rerouter.gateVirtualExpansionCount,
                         collapseArc.rerouter.freeSettleCount + splitPatch.rerouter.freeSettleCount,
+                        collapseArc.rerouter.freeSettleOnFailureCount
+                                + splitPatch.rerouter.freeSettleOnFailureCount,
                         collapseArc.rerouter.refinedSettleCount
-                                + splitPatch.rerouter.refinedSettleCount);
+                                + splitPatch.rerouter.refinedSettleCount,
+                        collapseArc.rerouter.freePassRouteCount
+                                + splitPatch.rerouter.freePassRouteCount,
+                        collapseArc.rerouter.freePassFailureCount
+                                + splitPatch.rerouter.freePassFailureCount,
+                        collapseArc.unrestrictedDragCount);
             }
             return true;
         }
