@@ -18,6 +18,7 @@ import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
+import ixdar.platform.Platforms;
 
 /**
  * Staged driver for the quad-layout pipeline: cross field, singularities,
@@ -43,6 +44,9 @@ public final class QuadLayoutEngine {
      * is scaled so that one unit is one quad edge, so this is its own unit.
      */
     public static final double DEFAULT_TARGET_EDGE_LENGTH = 1.0;
+
+    /** Nanoseconds per second, for the per-stage timing log. */
+    public static final double NANOS_PER_SECOND = 1.0e9;
 
     public final HalfEdgeMesh mesh;
 
@@ -120,6 +124,18 @@ public final class QuadLayoutEngine {
     }
 
     /**
+     * Logs one stage's own wall time, measured from after its prerequisite stages
+     * ran, so nested {@code build*} calls never double-count.
+     *
+     * @param stage      stage name for the log line
+     * @param startNanos {@link System#nanoTime()} taken when the stage's own work began
+     */
+    private void logStageTime(String stage, long startNanos) {
+        Platforms.log("[quad-layout] %s %.3fs%n", stage,
+                (System.nanoTime() - startNanos) / NANOS_PER_SECOND);
+    }
+
+    /**
      * Stage 1–2: build the default cross field (Knöppel n-direction field with
      * curvature alignment and soft feature/boundary guidance) and extract its
      * singularities.
@@ -128,8 +144,10 @@ public final class QuadLayoutEngine {
      */
     public CrossField buildCrossField() {
         if (crossField == null) {
+            long startNanos = System.nanoTime();
             crossField = new NDirectionField(mesh).build();
             System.out.println("[quad-layout] singularities: " + crossField.singularities.size());
+            logStageTime("cross field", startNanos);
         }
         return crossField;
     }
@@ -143,8 +161,10 @@ public final class QuadLayoutEngine {
     public SeamlessParameterization buildSeamless() {
         if (seamless == null) {
             buildCrossField();
+            long startNanos = System.nanoTime();
             seamless = new SeamlessParameterization(crossField);
             seamlessMetrics = seamless.build();
+            logStageTime("seamless", startNanos);
         }
         return seamless;
     }
@@ -158,8 +178,10 @@ public final class QuadLayoutEngine {
     public MotorcycleGraph buildMotorcycleGraph() {
         if (motorcycleGraph == null) {
             buildSeamless();
+            long startNanos = System.nanoTime();
             motorcycleGraph = new MotorcycleGraph(seamless, alphaRadians);
             motorcycleGraph.build();
+            logStageTime("motorcycle graph", startNanos);
         }
         return motorcycleGraph;
     }
@@ -172,7 +194,9 @@ public final class QuadLayoutEngine {
     public QuantizedMeshGrid buildQuantization() {
         if (quantization == null) {
             buildMotorcycleGraph();
+            long startNanos = System.nanoTime();
             quantization = new QuantizedMeshGrid(motorcycleGraph, alphaRadians).build();
+            logStageTime("quantization", startNanos);
         }
         return quantization;
     }
@@ -186,7 +210,9 @@ public final class QuadLayoutEngine {
     public LayoutExtraction buildLayout() {
         if (layout == null) {
             buildQuantization();
+            long startNanos = System.nanoTime();
             layout = new LayoutExtraction(quantization).build();
+            logStageTime("layout extraction", startNanos);
         }
         return layout;
     }
@@ -200,7 +226,9 @@ public final class QuadLayoutEngine {
     public LayoutEmbedding buildLayoutEmbedding() {
         if (embedding == null) {
             buildLayout();
+            long startNanos = System.nanoTime();
             embedding = new LayoutEmbedding(layout).build();
+            logStageTime("carve", startNanos);
         }
         return embedding;
     }
@@ -214,8 +242,10 @@ public final class QuadLayoutEngine {
     public EmbeddedTMesh buildTMesh() {
         if (tmesh == null) {
             buildLayoutEmbedding();
+            long startNanos = System.nanoTime();
             tmesh = new EmbeddedTMesh(embedding.topology).build(embedding);
             tmesh.validate();
+            logStageTime("tmesh assembly", startNanos);
         }
         return tmesh;
     }
@@ -230,8 +260,10 @@ public final class QuadLayoutEngine {
     public EmbeddedTMesh buildContractedTMesh() {
         if (!contracted) {
             buildTMesh();
+            long startNanos = System.nanoTime();
             tmesh = tmesh.contract();
             contracted = true;
+            logStageTime("contract", startNanos);
         }
         return tmesh;
     }
@@ -246,9 +278,11 @@ public final class QuadLayoutEngine {
     public LayoutPatchMaps buildPatchMaps() {
         if (patchMaps == null) {
             buildContractedTMesh();
+            long startNanos = System.nanoTime();
             patchMaps = new LayoutPatchMaps(tmesh, seamless, targetEdgeLength);
             patchMaps.build();
             integerGrid = new IntegerGridMap(tmesh).build();
+            logStageTime("patch maps", startNanos);
         }
         return patchMaps;
     }
@@ -262,7 +296,9 @@ public final class QuadLayoutEngine {
     public GlobalGridMap buildGlobalGridMap() {
         if (globalGrid == null) {
             buildPatchMaps();
+            long startNanos = System.nanoTime();
             globalGrid = new GlobalGridMap(patchMaps, integerGrid, seamless).build();
+            logStageTime("global grid map", startNanos);
         }
         return globalGrid;
     }
@@ -295,8 +331,10 @@ public final class QuadLayoutEngine {
     public LayoutPatchSurfaces buildPatchSurfaces() {
         if (patchSurfaces == null) {
             buildQuadGrid();
+            long startNanos = System.nanoTime();
             patchSurfaces = new LayoutPatchSurfaces(quadGrid).build();
             patchSurfacesInitial = new LayoutPatchSurfaces(globalGrid.quadGridInitial).build();
+            logStageTime("patch surfaces", startNanos);
         }
         return patchSurfaces;
     }
