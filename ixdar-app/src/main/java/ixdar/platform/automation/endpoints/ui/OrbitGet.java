@@ -11,6 +11,7 @@ import ixdar.annotations.automation.RouteDoc;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
+import ixdar.scenes.model.ModelScene;
 
 @AutomationRouteAnnotation(path = "ui/orbit", method = APIMethod.GET)
 public class OrbitGet extends AutomationEndpoint implements AutomationRoute {
@@ -18,17 +19,17 @@ public class OrbitGet extends AutomationEndpoint implements AutomationRoute {
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject result = new JsonObject();
-        if (!(runtime.canvas instanceof MeshNodeViewerScene mvs)) {
+        if (!(runtime.canvas instanceof ModelScene modelScene)) {
             result.addProperty(OK, false);
-            result.addProperty("error", "MeshNodeViewerScene is not active");
+            result.addProperty("error", "no ModelScene is active");
             return result;
         }
-        OrbitMouseTrap orbit = mvs.getOrbitMouse();
+        OrbitMouseTrap orbit = modelScene.orbitMouse;
         result.addProperty(OK, true);
         result.addProperty("azimuth", orbit.getAzimuth());
         result.addProperty("elevation", orbit.getElevation());
         result.addProperty("distance", orbit.getDistance());
-        if (mvs.getMesh() != null) {
+        if (modelScene instanceof MeshNodeViewerScene mvs && mvs.getMesh() != null) {
             result.addProperty("mesh_radius", mvs.getMeshRadius());
         }
         return result;

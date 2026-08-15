@@ -8,6 +8,7 @@ import java.util.List;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;

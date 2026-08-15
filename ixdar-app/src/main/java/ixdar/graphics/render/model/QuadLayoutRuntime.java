@@ -1,6 +1,7 @@
 package ixdar.graphics.render.model;
 
 import java.nio.IntBuffer;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -9,7 +10,9 @@ import org.joml.Vector3f;
 import org.lwjgl.BufferUtils;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.Singularity;
+import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnostic;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
@@ -50,6 +53,10 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public static final int DIR_U_OFFSET = 9;
     public static final int DIR_V_OFFSET = 12;
     public static final int ARM_LENGTH_OFFSET = 15;
+
+    /** Colour names of the group palette in assignment order, for log lines. */
+    public static final String GROUP_PALETTE_ORDER =
+            "yellow, green, magenta, cyan, purple, white, red, azure";
     public static final int ATTR_CENTROID = 3;
     public static final int ATTR_DIR_U = 4;
     public static final int ATTR_DIR_V = 5;
@@ -215,34 +222,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     /** Tint for a critical embedded T-mesh node, which the operators may never move. */
     private static final Color COLOR_EMBEDDED_NODE_CRITICAL = Color.GOLD;
 
-    /** Failure highlight: the stranded arc's body region (one of the two disconnected regions). */
-    private static final Color COLOR_HIGHLIGHT_BODY = Color.AZURE;
-
-    /** Failure highlight: the survivor's channel region (the other disconnected region). */
-    private static final Color COLOR_HIGHLIGHT_CHANNEL = Color.BRIGHT_GREEN;
-
-    /** Failure highlight: the stranded arc's own edge path. */
-    private static final Color COLOR_HIGHLIGHT_ARC = Color.YELLOW;
-
-    /** Failure highlight: the freed collapse channel. */
-    private static final Color COLOR_HIGHLIGHT_CHANNEL_LINE = Color.CYAN;
-
-    /** Failure highlight: the collapsing pivot node the router could not pass. */
-    private static final Color COLOR_HIGHLIGHT_PIVOT = Color.RED;
-
-    /** Failure highlight: the survivor node the arc could not reach. */
-    private static final Color COLOR_HIGHLIGHT_SURVIVOR = Color.MAGENTA;
-
-    /** Failure highlight: the claimed arc-edges fencing the body region — the wall. */
-    private static final Color COLOR_HIGHLIGHT_FENCE = Color.WHITE;
-
-    /** Failure highlight: the pivot's free spokes — where the router may legally step off it. */
-    private static final Color COLOR_HIGHLIGHT_SPOKE = Color.AMBER;
-
-    /** Line width for the wall/spoke highlight, thicker than an ordinary arc. */
-    private static final float HIGHLIGHT_WALL_LINE_WIDTH = 3f;
-
-    /** Line width for the channel and stranded-arc highlight lines. */
+    /** Line width for diagnostic path-group lines. */
     private static final float HIGHLIGHT_LINE_WIDTH = 5f;
 
     /** Depth bias for highlight lines — larger than the arc bias so they draw in front of arcs. */
@@ -250,6 +230,16 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
 
     /** Sphere scale for a region-membership dot in the failure highlight. */
     private static final float HIGHLIGHT_REGION_SCALE = 0.22f;
+
+    /** Cap on the shared sphere radius inside a diagnostic spotlight, in region radii. */
+    private static final float TEAR_SPHERE_REGION_FRACTION = 0.02f;
+
+    /** Colours assigned to dot clouds and diagnostic groups, cycled in order. */
+    private static final Color[] GROUP_PALETTE = { Color.YELLOW, Color.BRIGHT_GREEN,
+            Color.MAGENTA, Color.CYAN, Color.LIGHT_PURPLE, Color.WHITE, Color.RED, Color.AZURE };
+
+    /** Dot scale of the updated-patch clouds: node-sized, so they read from mesh distance. */
+    private static final float PATCH_CLOUD_SCALE = 1f;
 
     /** Sphere scale for the pivot/survivor markers in the failure highlight. */
     private static final float HIGHLIGHT_MARKER_SCALE = 2.2f;
@@ -346,6 +336,16 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public int[] singularityIndex4;
     /** Sphere radius derived from the mesh bounding-box diagonal. */
     public float sphereRadius;
+    /** Ceiling on {@link #sphereRadius} surviving every recompute; zero leaves it uncapped. */
+    public float sphereRadiusCap;
+    /** Whether the embedded T-mesh node spheres are drawn. */
+    public boolean showEmbeddedNodes = true;
+    /** Whether the updated-patch dot clouds are drawn. */
+    public boolean showPatchClouds;
+    /** One flat-xyz dot cloud per updated patch, coloured in palette order. */
+    public final List<float[]> patchCloudPositions = new ArrayList<>();
+    /** World-space dot radius per cloud, parallel to {@link #patchCloudPositions}. */
+    public float[] patchCloudDotRadii = new float[0];
 
     public MotorcycleGraph motorcycleGraph;
     public SeamlessParameterization seamlessParametrization;
@@ -389,35 +389,23 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public float[] embeddedNodePositions;
     /** Whether each live embedded T-mesh node is critical, parallel to {@link #embeddedNodePositions}. */
     public boolean[] embeddedNodeCritical;
+    /** Marker radius per live node: half its shortest incident copy edge, so spheres never overlap. */
+    public float[] embeddedNodeRadii;
 
-    /** Draw the reroute-failure highlight (two disconnected regions, pivot, survivor, arc, channel). */
-    public boolean showFailureHighlight;
-    /** Flat xyz of the stranded arc's body-region vertices. */
-    public float[] highlightBodyPositions;
-    /** Flat xyz of the survivor's channel-region vertices. */
-    public float[] highlightChannelPositions;
-    /** Flat xyz of the pivot and survivor markers, in that order. */
-    public float[] highlightMarkerPositions;
-    /** VAO of the stranded arc's edge-path GL_LINES buffer. */
-    public int highlightArcLineVao;
-    /** VBO of the stranded arc's edge-path GL_LINES buffer. */
-    public int highlightArcLineVbo;
-    /** Vertex count of the stranded arc's edge-path GL_LINES buffer. */
-    public int highlightArcLineVertexCount;
-    /** VAO of the freed channel's GL_LINES buffer. */
-    public int highlightChannelLineVao;
-    /** VBO of the freed channel's GL_LINES buffer. */
-    public int highlightChannelLineVbo;
-    /** Vertex count of the freed channel's GL_LINES buffer. */
-    public int highlightChannelLineVertexCount;
-    /** Flat xyz of the claimed vertices ringing the body region — the wall. */
-    public float[] highlightFencePositions;
-    /** VAO of the pivot free-spoke GL_LINES buffer. */
-    public int highlightSpokeLineVao;
-    /** VBO of the pivot free-spoke GL_LINES buffer. */
-    public int highlightSpokeLineVbo;
-    /** Vertex count of the pivot free-spoke GL_LINES buffer. */
-    public int highlightSpokeLineVertexCount;
+    /** Whether the diagnostic overlay's groups are drawn. */
+    public boolean showDiagnostic;
+    /** One flat-xyz face-centre cloud per diagnostic face group, in palette order. */
+    public final List<float[]> diagnosticFaceGroupCenters = new ArrayList<>();
+    /** Radius of the last uploaded diagnostic's geometry around its centroid, for region caps. */
+    public float diagnosticRegionRadius;
+    /** One flat-xyz marker set per diagnostic marker group, coloured after the path groups. */
+    public final List<float[]> diagnosticMarkerGroupPositions = new ArrayList<>();
+    /** Line VAO per diagnostic path group. */
+    public int[] diagnosticLineVaos = new int[0];
+    /** Line VBO per diagnostic path group, parallel to {@link #diagnosticLineVaos}. */
+    public int[] diagnosticLineVbos = new int[0];
+    /** Line vertex count per diagnostic path group, parallel to {@link #diagnosticLineVaos}. */
+    public int[] diagnosticLineVertexCounts = new int[0];
 
     protected final Matrix4f sphereModel = new Matrix4f();
     protected final Matrix4f localProjection = new Matrix4f();
@@ -588,6 +576,22 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         float bbz = bMax.z - bMin.z;
         float bboxDiag = (float) Math.sqrt(bbx * bbx + bby * bby + bbz * bbz);
         sphereRadius = SPHERE_RADIUS_FRACTION_OF_BBOX * bboxDiag;
+        if (sphereRadiusCap > 0) {
+            sphereRadius = Math.min(sphereRadius, sphereRadiusCap);
+        }
+    }
+
+    /**
+     * Installs a ceiling on the marker sphere radius and applies it immediately, so node dots
+     * stay sized to the embedded geometry rather than the mesh bounding box.
+     *
+     * @param cap ceiling in world units, or zero to remove it
+     */
+    public void setSphereRadiusCap(float cap) {
+        sphereRadiusCap = cap;
+        if (cap > 0) {
+            sphereRadius = Math.min(sphereRadius, cap);
+        }
     }
 
     /**
@@ -1575,9 +1579,8 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Upload an embedded T-mesh for the debug overlay: live arcs as edge-path lines, positive
-     * and zero arcs in separate buffers, and live nodes as sphere markers coloured by
-     * criticality.
+     * Upload an embedded T-mesh: arcs as lines split positive/zero, nodes as spheres capped to
+     * the mean arc hop, the copy wireframe refreshed when shown — one call per mutation.
      *
      * <p>See also: LCBK19 Figure 9
      *
@@ -1604,7 +1607,10 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         float[] zero = new float[zeroSegments * 2 * VEC3_SIZE];
         int positiveCursor = 0;
         int zeroCursor = 0;
+        Vector3f segmentStart = new Vector3f();
         Vector3f position = new Vector3f();
+        double totalHopLength = 0;
+        int hopCount = 0;
         for (EmbeddedArc arc : tmesh.arcs) {
             List<Integer> path = arc.path.copyVertexPath;
             if (!arc.alive || path.size() < 2) {
@@ -1612,12 +1618,15 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             }
             boolean isZero = arc.quantizedLength == 0;
             for (int index = 1; index < path.size(); index++) {
-                copy.vertexPosition(path.get(index - 1), position);
-                positiveCursor = isZero ? positiveCursor : writePoint(positive, positiveCursor, position);
-                zeroCursor = isZero ? writePoint(zero, zeroCursor, position) : zeroCursor;
+                copy.vertexPosition(path.get(index - 1), segmentStart);
+                positiveCursor = isZero ? positiveCursor
+                        : writePoint(positive, positiveCursor, segmentStart);
+                zeroCursor = isZero ? writePoint(zero, zeroCursor, segmentStart) : zeroCursor;
                 copy.vertexPosition(path.get(index), position);
                 positiveCursor = isZero ? positiveCursor : writePoint(positive, positiveCursor, position);
                 zeroCursor = isZero ? writePoint(zero, zeroCursor, position) : zeroCursor;
+                totalHopLength += segmentStart.distance(position);
+                hopCount++;
             }
         }
         int[] positiveBuffers = uploadLineBuffer(gl, positive);
@@ -1637,6 +1646,9 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         }
         embeddedNodePositions = new float[liveNodes * VEC3_SIZE];
         embeddedNodeCritical = new boolean[liveNodes];
+        embeddedNodeRadii = new float[liveNodes];
+        Vector3f edgeStart = new Vector3f();
+        Vector3f edgeEnd = new Vector3f();
         int nodeCursor = 0;
         int nodeIndex = 0;
         for (EmbeddedNode node : tmesh.nodes) {
@@ -1646,12 +1658,29 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             copy.vertexPosition(node.copyVertex, position);
             nodeCursor = writePoint(embeddedNodePositions, nodeCursor, position);
             embeddedNodeCritical[nodeIndex] = node.critical;
+            float shortestEdge = Float.MAX_VALUE;
+            for (int adjacency = 0; adjacency < copy.vertexEdgeCount(node.copyVertex);
+                    adjacency++) {
+                int halfEdge = copy.edgeHalfEdge(copy.vertexEdgeAt(node.copyVertex, adjacency));
+                copy.vertexPosition(copy.halfEdgeVertex(halfEdge), edgeStart);
+                copy.vertexPosition(copy.halfEdgeVertex(copy.halfEdgeTwin(halfEdge)), edgeEnd);
+                shortestEdge = Math.min(shortestEdge, edgeStart.distance(edgeEnd));
+            }
+            embeddedNodeRadii[nodeIndex] = shortestEdge == Float.MAX_VALUE
+                    ? 0f
+                    : shortestEdge / 2f;
             nodeIndex++;
         }
         if (singularityVao == 0) {
             buildIcosphereBuffers();
         }
+        // The mean hop is the embedded feature scale: node dots sized to it stay legible
+        // however coarse the bounding box says the surface is.
+        setSphereRadiusCap(hopCount == 0 ? 0f : (float) (totalHopLength / hopCount));
         updateSphereRadius();
+        if (showCopyWireframe) {
+            setCopyWireframe(copy);
+        }
         showEmbeddedArcs = true;
     }
 
@@ -1822,7 +1851,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
      * @param gl active GL platform handle
      */
     private void renderEmbeddedNodes(GL gl) {
-        if (embeddedNodePositions == null || singularityVao == 0) {
+        if (!showEmbeddedNodes || embeddedNodePositions == null || singularityVao == 0) {
             return;
         }
         unlitShader.setFloat(DEPTHBIAS, 0f);
@@ -1832,14 +1861,205 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             int base = node * VEC3_SIZE;
             unlitShader.setVec4(SOLIDCOLOR, embeddedNodeCritical[node]
                     ? COLOR_EMBEDDED_NODE_CRITICAL : COLOR_EMBEDDED_NODE);
+            float nodeRadius = embeddedNodeRadii != null && node < embeddedNodeRadii.length
+                    && embeddedNodeRadii[node] > 0
+                            ? Math.min(sphereRadius, embeddedNodeRadii[node])
+                            : sphereRadius;
             sphereModel.identity()
                     .translate(embeddedNodePositions[base],
                             embeddedNodePositions[base + COMPONENT_Y],
                             embeddedNodePositions[base + COMPONENT_Z])
-                    .scale(sphereRadius);
+                    .scale(nodeRadius);
             unlitShader.setMat4(MODEL, sphereModel);
             gl.drawElements(gl.TRIANGLES(), singularityIndexCount, gl.UNSIGNED_INT(), 0);
         }
+    }
+
+    /**
+     * Uploads one diagnostic's geometry groups for palette-coloured rendering, replacing and
+     * freeing whatever the previous diagnostic uploaded.
+     *
+     * @param copy       the working copy the payload's face and vertex ids index into
+     * @param diagnostic groups to draw: face groups as centre-dot clouds, path groups as lines,
+     *                   marker groups as large markers, palette-coloured in that order
+     */
+    public void setDiagnostic(HalfEdgeMesh copy, ArrangementDiagnostic diagnostic) {
+        GL gl = Platforms.gl();
+        deleteDiagnosticBuffers(gl);
+        diagnosticFaceGroupCenters.clear();
+        for (int[] faceGroup : diagnostic.faceGroups) {
+            diagnosticFaceGroupCenters.add(faceCenters(copy, faceGroup));
+        }
+        diagnosticMarkerGroupPositions.clear();
+        for (int[] markerGroup : diagnostic.markerGroups) {
+            List<Integer> vertices = new ArrayList<>(markerGroup.length);
+            for (int vertexId : markerGroup) {
+                vertices.add(vertexId);
+            }
+            diagnosticMarkerGroupPositions.add(resolvePositions(copy, vertices));
+        }
+        int pathGroupCount = diagnostic.pathGroups.size();
+        diagnosticLineVaos = new int[pathGroupCount];
+        diagnosticLineVbos = new int[pathGroupCount];
+        diagnosticLineVertexCounts = new int[pathGroupCount];
+        List<float[]> regionClouds = new ArrayList<>(diagnosticFaceGroupCenters);
+        regionClouds.addAll(diagnosticMarkerGroupPositions);
+        for (int index = 0; index < pathGroupCount; index++) {
+            List<Integer> path = diagnostic.pathGroups.get(index);
+            float[] lineVertices = pathLineVertices(copy, path);
+            int[] handles = uploadLineBuffer(gl, lineVertices);
+            diagnosticLineVaos[index] = handles[0];
+            diagnosticLineVbos[index] = handles[1];
+            diagnosticLineVertexCounts[index] = Math.max(0, path.size() - 1) * 2;
+            regionClouds.add(lineVertices);
+        }
+        Vector3f centroid = new Vector3f();
+        Vector3f point = new Vector3f();
+        int pointCount = 0;
+        for (float[] cloud : regionClouds) {
+            for (int base = 0; base < cloud.length; base += VEC3_SIZE) {
+                centroid.add(cloud[base], cloud[base + 1], cloud[base + 2]);
+                pointCount++;
+            }
+        }
+        centroid.div(Math.max(1, pointCount));
+        diagnosticRegionRadius = 0f;
+        for (float[] cloud : regionClouds) {
+            for (int base = 0; base < cloud.length; base += VEC3_SIZE) {
+                point.set(cloud[base], cloud[base + 1], cloud[base + 2]);
+                diagnosticRegionRadius = Math.max(diagnosticRegionRadius,
+                        centroid.distance(point));
+            }
+        }
+        if (singularityVao == 0) {
+            buildIcosphereBuffers();
+        }
+        updateSphereRadius();
+        showDiagnostic = true;
+    }
+
+    /** Hides the diagnostic overlay and frees its line buffers. */
+    public void clearDiagnostic() {
+        deleteDiagnosticBuffers(Platforms.gl());
+        diagnosticFaceGroupCenters.clear();
+        diagnosticMarkerGroupPositions.clear();
+        showDiagnostic = false;
+    }
+
+    /**
+     * Caps the shared sphere radius so diagnostic dots stay legible inside a spotlighted region
+     * far smaller than the mesh.
+     *
+     * @param regionRadius world-space radius of the region, or non-positive to keep the cap
+     */
+    public void capDiagnosticRegion(float regionRadius) {
+        if (regionRadius > 0) {
+            float regionCap = regionRadius * TEAR_SPHERE_REGION_FRACTION;
+            setSphereRadiusCap(sphereRadiusCap > 0
+                    ? Math.min(sphereRadiusCap, regionCap)
+                    : regionCap);
+        }
+        updateSphereRadius();
+    }
+
+    /**
+     * Shows the cover of each given patch as a dot cloud from a fresh corridor flood, with the
+     * dot radius half the shortest covered edge so a dot never swallows an edge.
+     *
+     * @param tmesh    embedded T-mesh whose covers are flooded
+     * @param patchIds live patches to show, coloured in palette order
+     */
+    public void showPatchCovers(EmbeddedTMesh tmesh, List<Integer> patchIds) {
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        List<float[]> clouds = new ArrayList<>();
+        float[] dotRadii = new float[patchIds.size()];
+        Vector3f cornerStart = new Vector3f();
+        Vector3f cornerEnd = new Vector3f();
+        for (int index = 0; index < patchIds.size(); index++) {
+            IntIdList faces = tmesh.splitPatch.corridor.patchFaces(patchIds.get(index));
+            int[] faceIds = new int[faces.size()];
+            for (int cursor = 0; cursor < faceIds.length; cursor++) {
+                faceIds[cursor] = faces.get(cursor);
+            }
+            clouds.add(faceCenters(copy, faceIds));
+            float smallest = Float.MAX_VALUE;
+            for (int faceId : faceIds) {
+                int corners = copy.faceHalfEdgeCount(faceId);
+                for (int corner = 0; corner < corners; corner++) {
+                    copy.vertexPosition(copy.faceVertexAt(faceId, corner), cornerStart);
+                    copy.vertexPosition(copy.faceVertexAt(faceId, (corner + 1) % corners),
+                            cornerEnd);
+                    smallest = Math.min(smallest, cornerStart.distance(cornerEnd));
+                }
+            }
+            dotRadii[index] = smallest == Float.MAX_VALUE ? 0f : smallest / 2f;
+        }
+        setPatchClouds(clouds, dotRadii);
+    }
+
+    /**
+     * The centre of every listed face: a patch covers faces, so a dot per face marks a region
+     * without touching the shared vertices on its boundary.
+     *
+     * @param copy    the working copy
+     * @param faceIds copy face ids to centre
+     * @return flat xyz face centres, in the given order
+     */
+    private float[] faceCenters(HalfEdgeMesh copy, int[] faceIds) {
+        float[] centers = new float[faceIds.length * VEC3_SIZE];
+        Vector3f corner = new Vector3f();
+        Vector3f center = new Vector3f();
+        for (int index = 0; index < faceIds.length; index++) {
+            int faceId = faceIds[index];
+            int corners = copy.faceHalfEdgeCount(faceId);
+            center.zero();
+            for (int cornerIndex = 0; cornerIndex < corners; cornerIndex++) {
+                copy.vertexPosition(copy.faceVertexAt(faceId, cornerIndex), corner);
+                center.add(corner);
+            }
+            center.div(Math.max(1, corners));
+            writePoint(centers, index * VEC3_SIZE, center);
+        }
+        return centers;
+    }
+
+    /**
+     * Frees the diagnostic path-group line buffers, zeroing the parallel arrays.
+     *
+     * @param gl active GL platform handle
+     */
+    private void deleteDiagnosticBuffers(GL gl) {
+        for (int vao : diagnosticLineVaos) {
+            if (vao != 0) {
+                gl.deleteVertexArrays(vao);
+            }
+        }
+        for (int vbo : diagnosticLineVbos) {
+            if (vbo != 0) {
+                gl.deleteBuffers(vbo);
+            }
+        }
+        diagnosticLineVaos = new int[0];
+        diagnosticLineVbos = new int[0];
+        diagnosticLineVertexCounts = new int[0];
+    }
+
+    /**
+     * Shows one dot cloud per updated patch cover, coloured in palette order; an empty list
+     * hides the clouds. Positions are face centres, since faces are what a patch covers.
+     *
+     * @param clouds    one flat-xyz dot cloud per patch, in the order to colour
+     * @param dotRadii  world-space dot radius per cloud, parallel to {@code clouds}
+     */
+    public void setPatchClouds(List<float[]> clouds, float[] dotRadii) {
+        patchCloudPositions.clear();
+        patchCloudPositions.addAll(clouds);
+        patchCloudDotRadii = dotRadii;
+        if (singularityVao == 0) {
+            buildIcosphereBuffers();
+        }
+        updateSphereRadius();
+        showPatchClouds = !patchCloudPositions.isEmpty();
     }
 
     /**
@@ -1881,33 +2101,54 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Draw the reroute-failure highlight: the two disconnected regions as coloured dots, the
-     * stranded arc and freed channel as lines, and the pivot and survivor as large markers.
+     * Draw the patch-cover dot clouds and the diagnostic overlay's groups: face groups as dot
+     * clouds, path groups as lines, marker groups as large markers, palette-coloured in that
+     * order.
      *
      * @param camera active 3D camera
      */
     public void renderHighlights(Camera3D camera) {
-        if (!showFailureHighlight || unlitShader.ID < 0 || singularityVao == 0) {
+        if ((!showDiagnostic && !showPatchClouds) || unlitShader.ID < 0
+                || singularityVao == 0) {
             return;
         }
         GL gl = Platforms.gl();
         unlitShader.use();
         unlitShader.setMat4(VIEW, camera.view);
         unlitShader.setMat4(PROJECTION, localProjection);
-        drawHighlightRegion(gl, highlightBodyPositions, COLOR_HIGHLIGHT_BODY,
-                HIGHLIGHT_REGION_SCALE);
-        drawHighlightRegion(gl, highlightChannelPositions, COLOR_HIGHLIGHT_CHANNEL,
-                HIGHLIGHT_REGION_SCALE);
-        drawHighlightRegion(gl, highlightFencePositions, COLOR_HIGHLIGHT_FENCE,
-                HIGHLIGHT_REGION_SCALE);
-        drawHighlightLine(gl, highlightSpokeLineVao, highlightSpokeLineVertexCount,
-                COLOR_HIGHLIGHT_SPOKE, HIGHLIGHT_WALL_LINE_WIDTH);
-        drawHighlightLine(gl, highlightChannelLineVao, highlightChannelLineVertexCount,
-                COLOR_HIGHLIGHT_CHANNEL_LINE, HIGHLIGHT_LINE_WIDTH);
-        drawHighlightLine(gl, highlightArcLineVao, highlightArcLineVertexCount,
-                COLOR_HIGHLIGHT_ARC, HIGHLIGHT_LINE_WIDTH);
-        drawHighlightMarker(gl, highlightMarkerPositions, 0, COLOR_HIGHLIGHT_PIVOT);
-        drawHighlightMarker(gl, highlightMarkerPositions, VEC3_SIZE, COLOR_HIGHLIGHT_SURVIVOR);
+        if (showPatchClouds) {
+            for (int index = 0; index < patchCloudPositions.size(); index++) {
+                float dotRadius = index < patchCloudDotRadii.length
+                        ? patchCloudDotRadii[index]
+                        : 0f;
+                if (dotRadius <= 0 || sphereRadius <= 0) {
+                    continue;
+                }
+                drawHighlightRegion(gl, patchCloudPositions.get(index),
+                        GROUP_PALETTE[index % GROUP_PALETTE.length],
+                        Math.min(PATCH_CLOUD_SCALE, dotRadius / sphereRadius));
+            }
+        }
+        if (!showDiagnostic) {
+            return;
+        }
+        int paletteCursor = 0;
+        for (float[] centers : diagnosticFaceGroupCenters) {
+            drawHighlightRegion(gl, centers,
+                    GROUP_PALETTE[paletteCursor++ % GROUP_PALETTE.length],
+                    HIGHLIGHT_REGION_SCALE);
+        }
+        for (int index = 0; index < diagnosticLineVaos.length; index++) {
+            drawHighlightLine(gl, diagnosticLineVaos[index], diagnosticLineVertexCounts[index],
+                    GROUP_PALETTE[paletteCursor++ % GROUP_PALETTE.length],
+                    HIGHLIGHT_LINE_WIDTH);
+        }
+        for (float[] markers : diagnosticMarkerGroupPositions) {
+            Color markerColor = GROUP_PALETTE[paletteCursor++ % GROUP_PALETTE.length];
+            for (int base = 0; base + VEC3_SIZE <= markers.length; base += VEC3_SIZE) {
+                drawHighlightMarker(gl, markers, base, markerColor);
+            }
+        }
     }
 
     /**
@@ -2008,6 +2249,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         }
         embeddedZeroLineVertexCount = 0;
         embeddedNodePositions = null;
+        embeddedNodeRadii = null;
         embeddedNodeCritical = null;
     }
 
@@ -2051,6 +2293,8 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         GL gl = Platforms.gl();
         deleteLayoutBuffers(gl);
         deleteEmbeddedBuffers(gl);
+        deleteDiagnosticBuffers(gl);
+        deleteCopyWireframeBuffers(gl);
         if (isoSurfaceVao != 0) {
             gl.deleteVertexArrays(isoSurfaceVao);
             isoSurfaceVao = 0;

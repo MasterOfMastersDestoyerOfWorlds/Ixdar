@@ -8,6 +8,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.quadlayout.embedding.fixtures.PlaneLayoutFixture;
 import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;

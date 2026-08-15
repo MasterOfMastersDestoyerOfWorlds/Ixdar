@@ -1,7 +1,10 @@
 package ixdar.geometry.mesh.quadlayout.embedding.records;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
@@ -21,12 +24,6 @@ public final class PatchCorridor {
 
     /** Faces of the patch flooded last, refilled per call; see {@link #patchFaces}. */
     public final IntIdList faceScratch = new IntIdList(0);
-
-    /** Generation per copy edge marking the walled boundary of the patch being flooded. */
-    public int[] wallStampByCopyEdge = new int[0];
-
-    /** Current generation of {@link #wallStampByCopyEdge}. */
-    public int wallStamp;
 
     /** Generation per copy face marking the faces the current flood has reached. */
     public int[] visitStampByCopyFace = new int[0];
@@ -53,8 +50,88 @@ public final class PatchCorridor {
      */
     public IntIdList patchFaces(int patchId) {
         growStamps();
-        patchWall(patchId);
         return floodWithin(seedFaceInside(patchId));
+    }
+
+    /**
+     * Whether a patch has a boundary arc a flood of it can start from. A patch whose every
+     * boundary arc is dead or embedded as a point encloses nothing to find.
+     *
+     * @param patchId patch to test
+     * @return true when {@link #patchFaces} can seed inside it
+     */
+    public boolean hasSeedableBoundary(int patchId) {
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            for (int boundaryArcId : tmesh.patches.get(patchId).sideArcIds.get(side)) {
+                EmbeddedArc boundaryArc = tmesh.arcs.get(boundaryArcId);
+                if (boundaryArc.alive && boundaryArc.path.copyVertexPath.size() >= 2) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * A side of the patch with the last flood on both of its sides: the flood ran round that arc
+     * instead of stopping at it, so what it found is not the patch's cover. An arc with the same
+     * patch either side separates nothing and is skipped.
+     *
+     * @param patchId patch that was flooded
+     * @return the arc the flood ran around, or {@link EmbeddedTMesh#NONE} when it stayed inside
+     */
+    public int foreignArcOnLastFlood(int patchId) {
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            for (int boundaryArcId : tmesh.patches.get(patchId).sideArcIds.get(side)) {
+                EmbeddedArc boundaryArc = tmesh.arcs.get(boundaryArcId);
+                if (tmesh.topology.resolvePatch(boundaryArc.leftPatchId)
+                        == tmesh.topology.resolvePatch(boundaryArc.rightPatchId)) {
+                    continue;
+                }
+                for (int edgeId : boundaryArc.path.copyEdgePath) {
+                    int halfEdge = copy.edgeHalfEdge(edgeId);
+                    if (flooded(copy.halfEdgeFace(halfEdge))
+                            && flooded(copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge)))) {
+                        return boundaryArcId;
+                    }
+                }
+            }
+        }
+        return EmbeddedTMesh.NONE;
+    }
+
+    /**
+     * The arcs whose claims bound the flood {@link #patchFaces} ran last, which says whose cell
+     * the flood actually filled — a flood seeded on the wrong side of a boundary arc reports the
+     * neighbouring patch's bounding arcs, not its own.
+     *
+     * @return the owning arc ids of every claimed edge touching a flooded face, ascending
+     */
+    public List<Integer> boundingArcsOfLastFlood() {
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        Set<Integer> owners = new TreeSet<>();
+        for (int cursor = 0; cursor < faceScratch.size(); cursor++) {
+            int faceId = faceScratch.get(cursor);
+            for (int corner = 0; corner < copy.faceHalfEdgeCount(faceId); corner++) {
+                int ownerArcId = tmesh.topology.ownerArcByCopyEdge[copy.faceEdgeAt(faceId, corner)];
+                if (ownerArcId != EmbeddedMeshTopology.UNCLAIMED) {
+                    owners.add(ownerArcId);
+                }
+            }
+        }
+        return new ArrayList<>(owners);
+    }
+
+    /**
+     * Whether a copy face lies in the flood {@link #patchFaces} ran last.
+     *
+     * @param copyFaceId copy face to test
+     * @return true when that flood reached the face
+     */
+    private boolean flooded(int copyFaceId) {
+        return copyFaceId >= 0 && copyFaceId < visitStampByCopyFace.length
+                && visitStampByCopyFace[copyFaceId] == visitStamp;
     }
 
     /**
@@ -66,17 +143,9 @@ public final class PatchCorridor {
         if (visitStampByCopyFace.length < faceIdBound) {
             visitStampByCopyFace = Arrays.copyOf(visitStampByCopyFace, faceIdBound);
         }
-        int edgeIdBound = tmesh.topology.ownerArcByCopyEdge.length;
-        if (wallStampByCopyEdge.length < edgeIdBound) {
-            wallStampByCopyEdge = Arrays.copyOf(wallStampByCopyEdge, edgeIdBound);
-        }
         if (visitStamp == Integer.MAX_VALUE) {
             Arrays.fill(visitStampByCopyFace, 0);
             visitStamp = 0;
-        }
-        if (wallStamp == Integer.MAX_VALUE) {
-            Arrays.fill(wallStampByCopyEdge, 0);
-            wallStamp = 0;
         }
     }
 
@@ -109,24 +178,9 @@ public final class PatchCorridor {
     }
 
     /**
-     * Stamps the copy edges a patch's boundary arcs run along — the wall a flood of its interior
-     * may not cross.
-     *
-     * @param patchId patch whose boundary is wanted
-     */
-    private void patchWall(int patchId) {
-        wallStamp++;
-        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
-            for (int boundaryArcId : tmesh.patches.get(patchId).sideArcIds.get(side)) {
-                for (int edgeId : tmesh.arcs.get(boundaryArcId).path.copyEdgePath) {
-                    wallStampByCopyEdge[edgeId] = wallStamp;
-                }
-            }
-        }
-    }
-
-    /**
-     * The faces reachable from a seed without crossing an edge of the stamped wall.
+     * The faces reachable from a seed without crossing an arc. Every arc bounds patches and none
+     * runs through one, so the claims are the wall — including arcs the patch does not list,
+     * which is what closes its boundary while a collapse has one of its corners half moved.
      *
      * @param seed face to flood from
      * @return the reachable faces, seed first
@@ -141,7 +195,7 @@ public final class PatchCorridor {
             int faceId = faceScratch.get(cursor);
             for (int corner = 0; corner < copy.faceHalfEdgeCount(faceId); corner++) {
                 int edgeId = copy.faceEdgeAt(faceId, corner);
-                if (wallStampByCopyEdge[edgeId] == wallStamp) {
+                if (tmesh.topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                     continue;
                 }
                 int halfEdge = copy.edgeHalfEdge(edgeId);

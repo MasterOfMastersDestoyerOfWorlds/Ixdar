@@ -130,6 +130,28 @@ public class OrbitMouseTrap extends MouseTrap {
     public float getDistance() { return distance; }
 
     /**
+     * Current orbit centre, for saving a pose across a reload.
+     *
+     * @param out receives the orbit centre
+     * @return {@code out}, set to the current orbit centre
+     */
+    public Vector3f getTarget(Vector3f out) { return out.set(orbitTarget); }
+
+    /**
+     * Closest the camera may sit to the orbit target.
+     *
+     * @return current minimum orbit distance
+     */
+    public float getMinDistance() { return minDistance; }
+
+    /**
+     * Farthest the camera may sit from the orbit target.
+     *
+     * @return current maximum orbit distance
+     */
+    public float getMaxDistance() { return maxDistance; }
+
+    /**
      * Track left-button press for drag detection. The left button drives orbiting,
      * or panning of the orbit centre when shift is held at press time.
      *

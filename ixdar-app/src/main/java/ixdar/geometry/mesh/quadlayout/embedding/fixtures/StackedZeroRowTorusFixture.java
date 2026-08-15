@@ -1,4 +1,4 @@
-package unit.mesh;
+package ixdar.geometry.mesh.quadlayout.embedding.fixtures;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -12,20 +12,13 @@ import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * Embedded T-mesh fixture on a torus, in the (major, minor) grid below: the middle row is
- * quantized to height zero, and the stub vertical at major 2 makes its zero-patch
- * non-simple.
+ * {@link TorusLayoutFixture} with a second zero row (minor 4 to 6) stacked on its first, so the
+ * non-simple zero-patch's opposite side is shared with another zero-patch instead of an ordinary
+ * one. The stub vertical at major 2 still makes the lower row non-simple.
  *
- * <pre>
- *   minor 4  o-------------------o-------------------o
- *   minor 2  o---------o---------o-------------------o
- *   minor 0  o---------o---------o-------------------o
- *          major 0     2         4                   8
- * </pre>
- *
- * <p>See also: LCBK19 Figure 9
+ * <p>See also: LCBK19 Section 6.1, Appendix A.3
  */
-public final class TorusLayoutFixture {
+public final class StackedZeroRowTorusFixture implements LayoutFixture {
 
     /** Face divisions the long way around the torus. */
     public static final int MAJOR_SEGMENTS = 12;
@@ -39,20 +32,23 @@ public final class TorusLayoutFixture {
     /** Minor coordinate of the lowest horizontal loop. */
     private static final int LOOP_BOTTOM = 0;
 
-    /** Minor coordinate of the middle horizontal loop. */
+    /** Minor coordinate of the loop below both zero rows. */
     private static final int LOOP_MIDDLE = 2;
 
-    /** Minor coordinate of the highest horizontal loop. */
+    /** Minor coordinate of the loop between the two zero rows. */
     private static final int LOOP_TOP = 4;
+
+    /** Minor coordinate of the loop above both zero rows. */
+    private static final int LOOP_ROOF = 6;
 
     /** Quantized height of the bottom row, the one the stub vertical crosses. */
     private static final int BOTTOM_ROW_HEIGHT = 2;
 
-    /** Quantized height of the middle row, which is what makes its patches zero-patches. */
+    /** Quantized height of the two stacked rows that are zero-patches. */
     private static final int ZERO_ROW_HEIGHT = 0;
 
-    /** Quantized height of the top row. */
-    private static final int TOP_ROW_HEIGHT = 1;
+    /** Quantized height of the roof row, which closes the tube. */
+    private static final int ROOF_ROW_HEIGHT = 1;
 
     /** Quantized width of the column spanning majors 4 to 8. */
     private static final int WIDE_COLUMN = 3;
@@ -63,9 +59,15 @@ public final class TorusLayoutFixture {
     /** Quantized width of the column spanning majors 0 to 4, which the stub halves. */
     private static final int SPLIT_COLUMN = 2;
 
-    public final HalfEdgeMesh torus;
-    public final EmbeddedMeshTopology topology;
-    public final EmbeddedTMesh tmesh;
+    public HalfEdgeMesh torus;
+    public EmbeddedMeshTopology topology;
+    public EmbeddedTMesh tmesh;
+
+    /** The non-simple zero-patch of the lower zero row, the one operator (2) must split. */
+    public int nonSimplePatchId;
+
+    /** The simple zero-patch stacked directly above it, sharing the arc that gets split. */
+    public int stackedPatchId;
 
     /** Node id at each (major, minor) grid position that carries one. */
     private final Map<Long, Integer> nodeAt = new HashMap<>();
@@ -73,7 +75,17 @@ public final class TorusLayoutFixture {
     /**
      * Builds the torus, the working copy over it, and the hand-authored T-mesh.
      */
-    public TorusLayoutFixture() {
+    public StackedZeroRowTorusFixture() {
+        build();
+    }
+
+    @Override
+    public String displayName() {
+        return "Stacked zero row torus";
+    }
+
+    @Override
+    public EmbeddedTMesh build() {
         TorusMeshNode node = new TorusMeshNode();
         MapNodeContext context = new MapNodeContext(node);
         context.setInput(TorusMeshNode.MAJOR_SEGMENTS_2, MAJOR_SEGMENTS);
@@ -83,7 +95,9 @@ public final class TorusLayoutFixture {
         this.torus = context.getOutput(TorusMeshNode.MESH_2, HalfEdgeMesh.class);
         this.topology = new EmbeddedMeshTopology(torus);
         this.tmesh = new EmbeddedTMesh(topology);
-        build();
+        nodeAt.clear();
+        layOutTMesh();
+        return tmesh;
     }
 
     /**
@@ -100,13 +114,14 @@ public final class TorusLayoutFixture {
     /**
      * Lays the nodes, arcs and patches onto the torus.
      */
-    private void build() {
+    private void layOutTMesh() {
         for (int major : new int[] { 0, 2, 4, 8 }) {
             addNode(major, LOOP_BOTTOM);
             addNode(major, LOOP_MIDDLE);
         }
         for (int major : new int[] { 0, 4, 8 }) {
             addNode(major, LOOP_TOP);
+            addNode(major, LOOP_ROOF);
         }
 
         int bottom02 = horizontalArc(LOOP_BOTTOM, 0, 2, 1);
@@ -120,19 +135,26 @@ public final class TorusLayoutFixture {
         int top04 = horizontalArc(LOOP_TOP, 0, 4, SPLIT_COLUMN);
         int top48 = horizontalArc(LOOP_TOP, 4, 8, WIDE_COLUMN);
         int top80 = horizontalArc(LOOP_TOP, 8, 0, WRAP_COLUMN);
+        int roof04 = horizontalArc(LOOP_ROOF, 0, 4, SPLIT_COLUMN);
+        int roof48 = horizontalArc(LOOP_ROOF, 4, 8, WIDE_COLUMN);
+        int roof80 = horizontalArc(LOOP_ROOF, 8, 0, WRAP_COLUMN);
 
         int bottomRow0 = verticalArc(0, LOOP_BOTTOM, LOOP_MIDDLE, BOTTOM_ROW_HEIGHT);
         int bottomRow2 = verticalArc(2, LOOP_BOTTOM, LOOP_MIDDLE, BOTTOM_ROW_HEIGHT);
         int bottomRow4 = verticalArc(4, LOOP_BOTTOM, LOOP_MIDDLE, BOTTOM_ROW_HEIGHT);
         int bottomRow8 = verticalArc(8, LOOP_BOTTOM, LOOP_MIDDLE, BOTTOM_ROW_HEIGHT);
 
-        int zeroRow0 = verticalArc(0, LOOP_MIDDLE, LOOP_TOP, ZERO_ROW_HEIGHT);
-        int zeroRow4 = verticalArc(4, LOOP_MIDDLE, LOOP_TOP, ZERO_ROW_HEIGHT);
-        int zeroRow8 = verticalArc(8, LOOP_MIDDLE, LOOP_TOP, ZERO_ROW_HEIGHT);
+        int lowerZero0 = verticalArc(0, LOOP_MIDDLE, LOOP_TOP, ZERO_ROW_HEIGHT);
+        int lowerZero4 = verticalArc(4, LOOP_MIDDLE, LOOP_TOP, ZERO_ROW_HEIGHT);
+        int lowerZero8 = verticalArc(8, LOOP_MIDDLE, LOOP_TOP, ZERO_ROW_HEIGHT);
 
-        int topRow0 = verticalArc(0, LOOP_TOP, LOOP_BOTTOM, TOP_ROW_HEIGHT);
-        int topRow4 = verticalArc(4, LOOP_TOP, LOOP_BOTTOM, TOP_ROW_HEIGHT);
-        int topRow8 = verticalArc(8, LOOP_TOP, LOOP_BOTTOM, TOP_ROW_HEIGHT);
+        int upperZero0 = verticalArc(0, LOOP_TOP, LOOP_ROOF, ZERO_ROW_HEIGHT);
+        int upperZero4 = verticalArc(4, LOOP_TOP, LOOP_ROOF, ZERO_ROW_HEIGHT);
+        int upperZero8 = verticalArc(8, LOOP_TOP, LOOP_ROOF, ZERO_ROW_HEIGHT);
+
+        int roofRow0 = verticalArc(0, LOOP_ROOF, LOOP_BOTTOM, ROOF_ROW_HEIGHT);
+        int roofRow4 = verticalArc(4, LOOP_ROOF, LOOP_BOTTOM, ROOF_ROW_HEIGHT);
+        int roofRow8 = verticalArc(8, LOOP_ROOF, LOOP_BOTTOM, ROOF_ROW_HEIGHT);
 
         addPatch(0, LOOP_BOTTOM, List.of(bottom02), List.of(bottomRow2), List.of(middle02),
                 List.of(bottomRow0));
@@ -143,19 +165,26 @@ public final class TorusLayoutFixture {
         addPatch(8, LOOP_BOTTOM, List.of(bottom80), List.of(bottomRow0), List.of(middle80),
                 List.of(bottomRow8));
 
-        addPatch(0, LOOP_MIDDLE, List.of(middle02, middle24), List.of(zeroRow4), List.of(top04),
-                List.of(zeroRow0));
-        addPatch(4, LOOP_MIDDLE, List.of(middle48), List.of(zeroRow8), List.of(top48),
-                List.of(zeroRow4));
-        addPatch(8, LOOP_MIDDLE, List.of(middle80), List.of(zeroRow0), List.of(top80),
-                List.of(zeroRow8));
+        nonSimplePatchId = addPatch(0, LOOP_MIDDLE, List.of(middle02, middle24),
+                List.of(lowerZero4), List.of(top04), List.of(lowerZero0));
+        addPatch(4, LOOP_MIDDLE, List.of(middle48), List.of(lowerZero8), List.of(top48),
+                List.of(lowerZero4));
+        addPatch(8, LOOP_MIDDLE, List.of(middle80), List.of(lowerZero0), List.of(top80),
+                List.of(lowerZero8));
 
-        addPatch(0, LOOP_TOP, List.of(top04), List.of(topRow4), List.of(bottom24, bottom02),
-                List.of(topRow0));
-        addPatch(4, LOOP_TOP, List.of(top48), List.of(topRow8), List.of(bottom48),
-                List.of(topRow4));
-        addPatch(8, LOOP_TOP, List.of(top80), List.of(topRow0), List.of(bottom80),
-                List.of(topRow8));
+        stackedPatchId = addPatch(0, LOOP_TOP, List.of(top04), List.of(upperZero4),
+                List.of(roof04), List.of(upperZero0));
+        addPatch(4, LOOP_TOP, List.of(top48), List.of(upperZero8), List.of(roof48),
+                List.of(upperZero4));
+        addPatch(8, LOOP_TOP, List.of(top80), List.of(upperZero0), List.of(roof80),
+                List.of(upperZero8));
+
+        addPatch(0, LOOP_ROOF, List.of(roof04), List.of(roofRow4), List.of(bottom24, bottom02),
+                List.of(roofRow0));
+        addPatch(4, LOOP_ROOF, List.of(roof48), List.of(roofRow8), List.of(bottom48),
+                List.of(roofRow4));
+        addPatch(8, LOOP_ROOF, List.of(roof80), List.of(roofRow0), List.of(bottom80),
+                List.of(roofRow8));
         tmesh.resolveWalkOrientation();
     }
 
@@ -221,10 +250,11 @@ public final class TorusLayoutFixture {
      * @param right       arcs of the side walked second
      * @param top         arcs of the side walked third
      * @param left        arcs of the side walked fourth
+     * @return the new patch's id
      */
-    private void addPatch(int cornerMajor, int cornerMinor, List<Integer> bottom,
+    private int addPatch(int cornerMajor, int cornerMinor, List<Integer> bottom,
             List<Integer> right, List<Integer> top, List<Integer> left) {
-        tmesh.addPatch(EmbeddedTMesh.NONE, List.of(bottom, right, top, left),
+        return tmesh.addPatch(EmbeddedTMesh.NONE, List.of(bottom, right, top, left),
                 nodeAt.get(key(cornerMajor, cornerMinor)));
     }
 

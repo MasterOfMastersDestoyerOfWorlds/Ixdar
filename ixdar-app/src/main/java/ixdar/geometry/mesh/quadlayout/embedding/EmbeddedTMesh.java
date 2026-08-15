@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -116,6 +117,12 @@ public class EmbeddedTMesh {
     public boolean[] patchIsChanged = new boolean[0];
 
     /**
+     * Recorder of every {@link #markPatchChanged} call, with duplicates, cleared at the start of
+     * each {@link #contractStep}; {@link #stepUpdatedPatches} reads it.
+     */
+    public final IntIdList stepPatchLog = new IntIdList(0);
+
+    /**
      * The corridor of the re-route attempt that just failed, held for the failure
      * diagnostic. Refinement splits an edge only when both endpoints are corridor
      * members.
@@ -138,6 +145,9 @@ public class EmbeddedTMesh {
      */
     public long lastContractProgressNanos;
     public int patchCollapseCount;
+
+    /** The last operator {@link #applyCollapse} applied, naming it in stepped diagnostics. */
+    public String lastOperatorDescription = "";
 
     /**
      * Working-copy vertices the carve and the operators minted, filled by
@@ -447,6 +457,7 @@ public class EmbeddedTMesh {
         if (patchId == NONE) {
             return;
         }
+        stepPatchLog.add(patchId);
         if (patchId >= patchIsChanged.length) {
             patchIsChanged = Arrays.copyOf(patchIsChanged,
                     Math.max(patchId + 1, patchIsChanged.length * 2));
@@ -825,9 +836,8 @@ public class EmbeddedTMesh {
 
     /**
      * Removes a zero arc that {@link #mergeNodeInto} has closed into a loop. Each
-     * patch the arc bounded loses it from its side, along with the node that
-     * separated it from its neighbour there; a patch left with an empty boundary is
-     * retired.
+     * flank loses it from its side; a flank left with an empty boundary retires,
+     * aliased into the opposite flank so its cover resolves there.
      *
      * <p>
      * See also: LCBK19 Section 6.1
@@ -851,11 +861,12 @@ public class EmbeddedTMesh {
         int pinchedPatchId = mergedANode ? NONE : pinchedPatchOf(arcId);
         if (pinchedPatchId != NONE) {
             int farPatchId = arc.leftPatchId == pinchedPatchId ? arc.rightPatchId : arc.leftPatchId;
-            if (farPatchId != NONE && farPatchId != pinchedPatchId
-                    && patches.get(farPatchId).alive) {
-                spliceIntoPatch(farPatchId, arcId, pinchedPatchId,
+            int resolvedFarId = farPatchId == NONE ? NONE : topology.resolvePatch(farPatchId);
+            if (resolvedFarId != NONE && resolvedFarId != pinchedPatchId
+                    && patches.get(resolvedFarId).alive) {
+                spliceIntoPatch(resolvedFarId, arcId, pinchedPatchId,
                         boundaryPathAround(pinchedPatchId, arcId));
-                topology.aliasPatchInto(pinchedPatchId, farPatchId, patches.size());
+                topology.aliasPatchInto(pinchedPatchId, resolvedFarId, patches.size());
             }
             removePatch(pinchedPatchId);
             arcEndsByNode.get(arc.startNodeId).removeIf(id -> id == arcId);
@@ -878,9 +889,101 @@ public class EmbeddedTMesh {
         for (int patchId : new int[] { arc.leftPatchId, arc.rightPatchId }) {
             if (patchId != NONE && patches.get(patchId).alive
                     && patches.get(patchId).sideArcIds.stream().allMatch(List::isEmpty)) {
+                int otherFlankId = patchId == arc.leftPatchId ? arc.rightPatchId : arc.leftPatchId;
+                int absorberId = otherFlankId == NONE ? NONE : topology.resolvePatch(otherFlankId);
+                if (absorberId != NONE && absorberId != patchId
+                        && patches.get(absorberId).alive) {
+                    topology.aliasPatchInto(patchId, absorberId, patches.size());
+                }
                 patches.get(patchId).alive = false;
             }
         }
+    }
+
+    /**
+     * Retires a live arc whose embedding degenerated to a point, merging or retiring its
+     * flanks — a point separates nothing, so its flanks are already one cell.
+     *
+     * @param arcId arc embedded on a single vertex, its nodes already merged
+     * @throws IllegalStateException when a flank keeps non-zero boundary, where the arc had
+     *                               to be embedded as a real loop instead
+     */
+    public void retirePointEmbeddedArc(int arcId) {
+        EmbeddedArc arc = arcs.get(arcId);
+        // Flank records can be stale on a degenerated arc; the side lists are ground truth
+        // for which cells the point still pretends to bound.
+        List<Integer> owners = new ArrayList<>();
+        for (EmbeddedPatch patch : patches) {
+            if (patch.alive
+                    && patch.sideArcIds.stream().anyMatch(side -> side.contains(arcId))) {
+                owners.add(patch.patchId);
+            }
+        }
+        arc.leftPatchId = owners.isEmpty() ? NONE : owners.get(0);
+        arc.rightPatchId = owners.size() < 2 ? NONE : owners.get(1);
+        if (pinchedPatchOf(arcId) != NONE) {
+            removeCollapsedArc(arcId, false);
+            return;
+        }
+        List<Integer> realFlanks = new ArrayList<>();
+        for (int patchId : owners) {
+            if (!boundaryArcsExcluding(patchId, arcId).isEmpty()) {
+                realFlanks.add(patchId);
+            }
+        }
+        if (realFlanks.size() > 1) {
+            throw new IllegalStateException("arc " + arcId + " is embedded on a point but both"
+                    + " its flanks " + realFlanks + " keep non-zero boundary: it had to be"
+                    + " embedded as a loop enclosing its cell, not collapsed to a point");
+        }
+        releaseClaims(arc);
+        if (realFlanks.size() == 1) {
+            EmbeddedPatch real = patches.get(realFlanks.get(0));
+            for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+                int index = real.sideArcIds.get(side).indexOf(arcId);
+                while (index >= 0) {
+                    real.sideArcIds.get(side).remove(index);
+                    real.sideNodeIds.get(side).remove(index + 1);
+                    index = real.sideArcIds.get(side).indexOf(arcId);
+                }
+            }
+            markPatchChanged(realFlanks.get(0));
+        }
+        // With no real flank the point's cells vanish entirely; the cover label beside the
+        // point names the enclosing cell their stale labels must resolve into.
+        int enclosingPatchId = NONE;
+        if (realFlanks.isEmpty() && topology.patchByCopyFace.length > 0) {
+            int pointVertex = arc.path.copyVertexPath.get(0);
+            for (int spoke = 0; spoke < topology.copy.vertexEdgeCount(pointVertex)
+                    && enclosingPatchId == NONE; spoke++) {
+                int halfEdge = topology.copy.edgeHalfEdge(
+                        topology.copy.vertexEdgeAt(pointVertex, spoke));
+                for (int faceId : new int[] { topology.copy.halfEdgeFace(halfEdge),
+                        topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge)) }) {
+                    int labelId = faceId < 0 ? NONE
+                            : topology.resolvePatch(topology.patchLabelOf(faceId));
+                    if (labelId >= 0 && labelId < patches.size() && !owners.contains(labelId)
+                            && patches.get(labelId).alive) {
+                        enclosingPatchId = labelId;
+                        break;
+                    }
+                }
+            }
+        }
+        for (int patchId : owners) {
+            if (realFlanks.contains(patchId)) {
+                continue;
+            }
+            if (realFlanks.size() == 1) {
+                topology.aliasPatchInto(patchId, realFlanks.get(0), patches.size());
+            } else if (enclosingPatchId != NONE) {
+                topology.aliasPatchInto(patchId, enclosingPatchId, patches.size());
+            }
+            markPatchChanged(patchId);
+            removePatch(patchId);
+        }
+        arcEndsByNode.get(arc.startNodeId).removeIf(id -> id == arcId);
+        arc.alive = false;
     }
 
     /**
@@ -1539,6 +1642,236 @@ public class EmbeddedTMesh {
     }
 
     /**
+     * Checks every live arc lies between the patches it claims to separate, naming the operator
+     * that left one saying otherwise. A drag reads those two ids to bound its search, so an arc
+     * that names a patch it no longer touches searches half a region.
+     *
+     * @param operator description of the operator just applied
+     * @throws ArrangementDiagnosticException when an arc's flanks disagree with the covers
+     *                                        beside it
+     */
+    private void requireArcFlanksMatchCovers(String operator) {
+        ArrangementDiagnosticException tear = flankTearFailure(operator);
+        if (tear != null) {
+            throw tear;
+        }
+    }
+
+    /**
+     * Scans every live arc for the first one whose recorded flanks disagree with the covers
+     * along its path, packaged as a throwable failure carrying the covers and paths to show.
+     *
+     * @param operator description of the operator just applied
+     * @return the first tear found, or {@code null} when the arrangement is coherent
+     */
+    public ArrangementDiagnosticException flankTearFailure(String operator) {
+        if (topology.patchByCopyFace.length == 0) {
+            return null;
+        }
+        for (EmbeddedArc arc : arcs) {
+            if (!arc.alive || arc.path.copyVertexPath.size() < 2) {
+                continue;
+            }
+            int left = topology.resolvePatch(arc.leftPatchId);
+            int right = topology.resolvePatch(arc.rightPatchId);
+            for (int hop = 0; hop < arc.path.copyVertexPath.size() - 1; hop++) {
+                int halfEdge = orientedHopHalfEdge(arc, hop);
+                int coverLeft = topology.resolvePatch(
+                        topology.patchLabelOf(topology.copy.halfEdgeFace(halfEdge)));
+                int coverRight = topology.resolvePatch(topology.patchLabelOf(
+                        topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))));
+                if (coverLeft != left || coverRight != right) {
+                    return flankTearException(operator, arc, hop, coverLeft, coverRight);
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Packages one flank tear as message text plus the geometry groups that show it: the named,
+     * actual and intact covers, the torn arc, and the boundary between named and actual.
+     *
+     * @param operator   description of the operator just applied
+     * @param arc        arc whose flanks disagree with the covers beside it
+     * @param hop        index of the first disagreeing hop along its path
+     * @param coverLeft  resolved patch covering the face left of that hop
+     * @param coverRight resolved patch covering the face right of that hop
+     * @return the throwable failure
+     */
+    private ArrangementDiagnosticException flankTearException(String operator, EmbeddedArc arc,
+            int hop, int coverLeft, int coverRight) {
+        int left = topology.resolvePatch(arc.leftPatchId);
+        int right = topology.resolvePatch(arc.rightPatchId);
+        int besideFace = topology.copy.halfEdgeFace(orientedHopHalfEdge(arc, hop));
+        int namedPatchId = coverLeft != left ? left : right;
+        int intactPatchId = coverLeft != left ? right : left;
+        int actualPatchId = coverLeft != left ? coverLeft : coverRight;
+        ArrangementDiagnostic diagnostic = new ArrangementDiagnostic();
+        diagnostic.addFaceGroup("named cover", patchCoverFaces(namedPatchId));
+        diagnostic.addFaceGroup("actual cover", patchCoverFaces(actualPatchId));
+        diagnostic.addFaceGroup("intact cover", patchCoverFaces(intactPatchId));
+        diagnostic.addPathGroup("torn arc", arc.path.copyVertexPath);
+        diagnostic.addPathGroup("patch boundary",
+                boundaryPathBetween(actualPatchId, namedPatchId));
+        diagnostic.addMarkerGroup("torn arc start",
+                new int[] { arc.path.copyVertexPath.get(0) });
+        diagnostic.addMarkerGroup("torn arc end",
+                new int[] { arc.path.copyVertexPath.get(arc.path.copyVertexPath.size() - 1) });
+        return new ArrangementDiagnosticException("after " + operator + " (collapse "
+                + arcCollapseCount + ", patchCollapse " + patchCollapseCount
+                + ", split " + patchSplitCount + ") arc " + arc.arcId
+                + " says it separates patches " + left + "|" + right
+                + " but the covers beside hop " + hop + " of "
+                + (arc.path.copyVertexPath.size() - 1) + " are " + coverLeft + "|"
+                + coverRight + "; alive: " + left + "=" + patchAliveText(left)
+                + ", " + right + "=" + patchAliveText(right) + ", " + coverLeft
+                + "=" + patchAliveText(coverLeft) + ", " + coverRight + "="
+                + patchAliveText(coverRight)
+                + floodReport(left, besideFace)
+                + floodReport(right, besideFace)
+                + floodReport(coverLeft, besideFace)
+                + floodReport(coverRight, besideFace)
+                + sideReport(left) + sideReport(right) + sideReport(coverLeft), diagnostic);
+    }
+
+    /**
+     * A patch's liveness for the tear message, tolerating an unlabeled cover.
+     *
+     * @param patchId patch to describe, or {@link #NONE}
+     * @return {@code true}/{@code false}, or {@code unlabeled} for {@link #NONE}
+     */
+    private String patchAliveText(int patchId) {
+        return patchId == NONE ? "unlabeled" : String.valueOf(patches.get(patchId).alive);
+    }
+
+    /**
+     * A patch's cover flood as a plain face-id array, for a diagnostic group; empty when the
+     * patch is unlabeled, retired, or has nothing to flood from.
+     *
+     * @param patchId patch to flood, or {@link #NONE}
+     * @return the copy face ids its cover holds
+     */
+    private int[] patchCoverFaces(int patchId) {
+        if (patchId == NONE || !patches.get(patchId).alive
+                || !splitPatch.corridor.hasSeedableBoundary(patchId)) {
+            return new int[0];
+        }
+        IntIdList faces = splitPatch.corridor.patchFaces(patchId);
+        int[] faceIds = new int[faces.size()];
+        for (int index = 0; index < faceIds.length; index++) {
+            faceIds[index] = faces.get(index);
+        }
+        return faceIds;
+    }
+
+    /**
+     * The embedded path of a boundary arc between two patches, taken from the first patch's
+     * sides.
+     *
+     * @param patchId      patch whose sides are searched
+     * @param otherPatchId patch the wanted side arc must flank
+     * @return the boundary arc's copy-vertex path, or an empty list when no side arc flanks both
+     */
+    private List<Integer> boundaryPathBetween(int patchId, int otherPatchId) {
+        if (patchId == NONE) {
+            return List.of();
+        }
+        EmbeddedPatch patch = patches.get(patchId);
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            for (int sideArcId : patch.sideArcIds.get(side)) {
+                EmbeddedArc sideArc = arcs.get(sideArcId);
+                if (topology.resolvePatch(sideArc.leftPatchId) == otherPatchId
+                        || topology.resolvePatch(sideArc.rightPatchId) == otherPatchId) {
+                    return sideArc.path.copyVertexPath;
+                }
+            }
+        }
+        return List.of();
+    }
+
+    /**
+     * The half-edge of one hop of an arc's path, oriented along the path so its face is the one
+     * on the arc's left.
+     *
+     * @param arc arc whose path is being walked
+     * @param hop index of the hop along the path
+     * @return the half-edge from the hop's start vertex to its end vertex
+     */
+    private int orientedHopHalfEdge(EmbeddedArc arc, int hop) {
+        int halfEdge = topology.copy.edgeHalfEdge(topology.edgeBetween(
+                arc.path.copyVertexPath.get(hop), arc.path.copyVertexPath.get(hop + 1)));
+        if (topology.copy.halfEdgeVertex(halfEdge) != arc.path.copyVertexPath.get(hop)) {
+            halfEdge = topology.copy.halfEdgeTwin(halfEdge);
+        }
+        return halfEdge;
+    }
+
+    /**
+     * How big a patch floods and whether that flood holds a given face, which says whether a
+     * disagreement is the arc naming the wrong patch or the labels having been painted over.
+     *
+     * @param patchId patch to flood
+     * @param faceId  face to look for in it
+     * @return a one-line description
+     */
+    private String floodReport(int patchId, int faceId) {
+        if (patchId == NONE || !patches.get(patchId).alive
+                || !splitPatch.corridor.hasSeedableBoundary(patchId)) {
+            return "; patch " + patchId + " floods nothing";
+        }
+        IntIdList faces = splitPatch.corridor.patchFaces(patchId);
+        boolean holdsFace = false;
+        for (int index = 0; index < faces.size(); index++) {
+            holdsFace |= faces.get(index) == faceId;
+        }
+        int foreignArcId = splitPatch.corridor.foreignArcOnLastFlood(patchId);
+        String leak = "";
+        if (foreignArcId != NONE) {
+            EmbeddedArc foreignArc = arcs.get(foreignArcId);
+            leak = ", flood runs round its side " + foreignArcId + " (patches "
+                    + foreignArc.leftPatchId + "|" + foreignArc.rightPatchId + ", path size "
+                    + foreignArc.path.copyVertexPath.size() + ", alive=" + foreignArc.alive + ")";
+        }
+        return "; patch " + patchId + " floods " + faces.size() + " faces, holds " + faceId + "="
+                + holdsFace + ", bounded by arcs " + splitPatch.corridor.boundingArcsOfLastFlood()
+                + leak;
+    }
+
+    /**
+     * One patch's boundary arcs with each arc's flanks, liveness and embedded path length, which
+     * is what says whether its cover can leak through a side that claims no edges.
+     *
+     * @param patchId patch whose sides are described
+     * @return a one-line description
+     */
+    private String sideReport(int patchId) {
+        if (patchId == NONE) {
+            return "";
+        }
+        StringBuilder text = new StringBuilder("; patch " + patchId + " sides [");
+        for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+            for (int sideArcId : patches.get(patchId).sideArcIds.get(side)) {
+                EmbeddedArc sideArc = arcs.get(sideArcId);
+                int ownedEdges = 0;
+                for (int edgeId : sideArc.path.copyEdgePath) {
+                    if (edgeId < topology.ownerArcByCopyEdge.length
+                            && topology.ownerArcByCopyEdge[edgeId] == sideArcId) {
+                        ownedEdges++;
+                    }
+                }
+                text.append(" arc ").append(sideArcId).append('(')
+                        .append(sideArc.leftPatchId).append('|').append(sideArc.rightPatchId)
+                        .append(", path ").append(sideArc.path.copyVertexPath.size())
+                        .append(", owns ").append(ownedEdges).append('/')
+                        .append(sideArc.path.copyEdgePath.size())
+                        .append(sideArc.alive ? "" : ", dead").append(')');
+            }
+        }
+        return text.append(" ]").toString();
+    }
+
+    /**
      * Labels every copy face with the patch covering it, so a re-route can be held
      * to a patch union by id instead of flooding. Unusable covers are dropped,
      * which leaves the re-routes unrestricted.
@@ -1581,6 +1914,64 @@ public class EmbeddedTMesh {
     }
 
     /**
+     * Re-reads one patch's cover from the arrangement, so an operator that moved its boundary
+     * leaves the labels saying what a flood of the patch would say. Call only once the
+     * arrangement is whole again — mid-collapse cells are transient merges no label fits.
+     *
+     * @param patchId patch whose boundary moved, live or already absorbed, or {@link #NONE}
+     * @throws IllegalStateException when the flood escapes the patch, which means its boundary
+     *                               no longer encloses it
+     */
+    public void relabelPatchCover(int patchId) {
+        if (topology.patchByCopyFace.length == 0 || patchId == NONE) {
+            return;
+        }
+        int resolved = topology.resolvePatch(patchId);
+        if (resolved == NONE || !patches.get(resolved).alive) {
+            return;
+        }
+        // A patch pinched until every side is a point encloses nothing to read; one whose
+        // sides still run along edges must enclose exactly what its boundary walls in.
+        if (!splitPatch.corridor.hasSeedableBoundary(resolved)) {
+            return;
+        }
+        IntIdList faces = splitPatch.corridor.patchFaces(resolved);
+        int foreignArc = splitPatch.corridor.foreignArcOnLastFlood(resolved);
+        if (foreignArc != NONE) {
+            throw new IllegalStateException("the " + faces.size() + " faces flooded for patch "
+                    + resolved + " are not its cover: the flood runs round its side " + foreignArc
+                    + " (patches " + arcs.get(foreignArc).leftPatchId + "|"
+                    + arcs.get(foreignArc).rightPatchId + ") instead of stopping at it — the"
+                    + " patch's sides are " + patches.get(resolved).sideArcIds
+                    + pointEmbeddedArcReport(foreignArc));
+        }
+        for (int index = 0; index < faces.size(); index++) {
+            topology.patchByCopyFace[faces.get(index)] = resolved;
+        }
+    }
+
+    /**
+     * The arcs meeting a leaked-past arc's nodes that carry no edges, since an arc embedded as a
+     * point merges the two sectors it used to separate and lets a cover flood round it.
+     *
+     * @param arcId arc a cover flood ran around
+     * @return a description of the point-embedded arcs at its ends
+     */
+    private String pointEmbeddedArcReport(int arcId) {
+        StringBuilder detail = new StringBuilder("; point-embedded arcs at its nodes:");
+        for (int nodeId : new int[] { arcs.get(arcId).startNodeId, arcs.get(arcId).endNodeId }) {
+            for (int incidentArcId : arcEndsByNode.get(nodeId)) {
+                EmbeddedArc incidentArc = arcs.get(incidentArcId);
+                if (incidentArc.alive && incidentArc.path.copyVertexPath.size() < 2) {
+                    detail.append(' ').append(incidentArcId).append("(node ").append(nodeId)
+                            .append(')');
+                }
+            }
+        }
+        return detail.toString();
+    }
+
+    /**
      * Contracts the T-mesh, validating every round — every step when
      * {@link #VALIDATE_EVERY_COLLAPSE} is set.
      *
@@ -1600,6 +1991,7 @@ public class EmbeddedTMesh {
                 }
             }
             validate();
+            requireArcFlanksMatchCovers("collapse round");
             int nonSimple = splitPatch.nextNonSimpleZeroPatch();
             if (nonSimple == NONE) {
                 break;
@@ -1607,6 +1999,7 @@ public class EmbeddedTMesh {
             splitPatch.split(nonSimple);
             patchSplitCount++;
             validate();
+            requireArcFlanksMatchCovers("patch split " + nonSimple);
             if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
                 requireArrangementMatchesPatches("patch split " + nonSimple);
             }
@@ -1851,6 +2244,34 @@ public class EmbeddedTMesh {
     }
 
     /**
+     * The live, floodable patches the last {@link #contractStep} touched, in first-touch order:
+     * every {@code markPatchChanged} call it made, plus the whole touched set of an arc collapse.
+     *
+     * @param arcCollapsesBefore the arc-collapse count before the step, which says whether the
+     *                           step was an arc collapse
+     * @return the resolved patch ids, deduplicated
+     */
+    public List<Integer> stepUpdatedPatches(int arcCollapsesBefore) {
+        Set<Integer> resolved = new LinkedHashSet<>();
+        for (int index = 0; index < stepPatchLog.size(); index++) {
+            resolved.add(topology.resolvePatch(stepPatchLog.get(index)));
+        }
+        if (arcCollapseCount > arcCollapsesBefore) {
+            for (int index = 0; index < collapseArc.touchedPatchCount; index++) {
+                resolved.add(topology.resolvePatch(collapseArc.touchedPatches[index]));
+            }
+        }
+        List<Integer> updated = new ArrayList<>();
+        for (int patchId : resolved) {
+            if (patchId != NONE && patches.get(patchId).alive
+                    && splitPatch.corridor.hasSeedableBoundary(patchId)) {
+                updated.add(patchId);
+            }
+        }
+        return updated;
+    }
+
+    /**
      * Applies exactly one operator and stops, for stepping the contraction by hand.
      * Prefers the two measure-lowering operators and falls back to a patch split.
      *
@@ -1858,12 +2279,13 @@ public class EmbeddedTMesh {
      *         point
      */
     public String contractStep() {
+        stepPatchLog.clear();
         int verticesBefore = topology.copy.vertexCount();
         int splitsBefore = collapseArc.rerouter.refinedEdgeSplitCount
                 + splitPatch.rerouter.refinedEdgeSplitCount;
         String operator;
         if (applyCollapse()) {
-            operator = "collapse";
+            operator = lastOperatorDescription;
         } else {
             int nonSimple = splitPatch.nextNonSimpleZeroPatch();
             if (nonSimple == NONE) {
@@ -1874,6 +2296,9 @@ public class EmbeddedTMesh {
             operator = "patchSplit " + nonSimple;
         }
         validate();
+        // Stepping is the debug path: unlike contract()'s per-round check, a stepped tear
+        // names the exact operator that tore the covers.
+        requireArcFlanksMatchCovers(operator);
         return String.format("%s collapses=%d patchSplits=%d edgeSplits=+%d V=%d(+%d) F=%d",
                 operator, arcCollapseCount, patchSplitCount,
                 collapseArc.rerouter.refinedEdgeSplitCount
@@ -1898,8 +2323,9 @@ public class EmbeddedTMesh {
         if (simple != NONE) {
             collapsePatch.collapse(simple);
             patchCollapseCount++;
+            lastOperatorDescription = "patch collapse " + simple;
             if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
-                requireArrangementMatchesPatches("patch collapse " + simple);
+                requireArrangementMatchesPatches(lastOperatorDescription);
             }
             return true;
         }
@@ -1907,8 +2333,9 @@ public class EmbeddedTMesh {
         if (arc != NONE) {
             collapseArc.collapse(arc);
             arcCollapseCount++;
+            lastOperatorDescription = "arc collapse " + arc;
             if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
-                requireArrangementMatchesPatches("arc collapse " + arc);
+                requireArrangementMatchesPatches(lastOperatorDescription);
             }
             long now = System.nanoTime();
             if (arcCollapseCount % CONTRACT_PROGRESS_INTERVAL == 0
@@ -1918,7 +2345,7 @@ public class EmbeddedTMesh {
                         "[contract] collapses=%d exactSigns=%d splits=%d worstRoute=%d"
                                 + " V=%d F=%d | routes=%d gates=%d gateExpand=%d(virtual=%d)"
                                 + " freeSettle=%d(failed=%d) refinedSettle=%d"
-                                + " freeRoutes=%d freeFails=%d escapes=%d\n",
+                                + " freeRoutes=%d freeFails=%d blocked=%d\n",
                         arcCollapseCount,
                         ExactBarycentricOrient.exactSignCallCount,
                         collapseArc.rerouter.refinedEdgeSplitCount
@@ -1943,7 +2370,7 @@ public class EmbeddedTMesh {
                                 + splitPatch.rerouter.freePassRouteCount,
                         collapseArc.rerouter.freePassFailureCount
                                 + splitPatch.rerouter.freePassFailureCount,
-                        collapseArc.unrestrictedDragCount);
+                        collapseArc.blockedDragCount);
             }
             return true;
         }

@@ -11,7 +11,7 @@ import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.input.OrbitMouseTrap;
-import ixdar.scenes.mesh.MeshNodeViewerScene;
+import ixdar.scenes.model.ModelScene;
 
 @AutomationRouteAnnotation(path = "ui/orbit", method = APIMethod.POST)
 public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
@@ -36,15 +36,15 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
         try {
             // First call: set orbit (runs at end of frame N)
             runtime.runOnMainThread(() -> {
-                if (!(runtime.canvas instanceof MeshNodeViewerScene mvs)) {
+                if (!(runtime.canvas instanceof ModelScene modelScene)) {
                     JsonObject err = new JsonObject();
                     err.addProperty(OK, false);
                     err.addProperty(
                             ERROR,
-                            "MeshNodeViewerScene is not active");
+                            "no ModelScene is active");
                     return err;
                 }
-                OrbitMouseTrap orbit = mvs.getOrbitMouse();
+                OrbitMouseTrap orbit = modelScene.orbitMouse;
                 orbit.setOrbit(azimuth, elevation, distance);
                 return null;
             });

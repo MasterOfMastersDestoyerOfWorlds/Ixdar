@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.quadlayout.embedding.fixtures.PlaneLayoutFixture;
+
 /**
  * The planar Figure 9 fixture must be a valid cell decomposition of a disk before anything is
  * concluded from driving operators across it, and it must actually carry the configuration the

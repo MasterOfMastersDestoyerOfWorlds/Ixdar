@@ -1,12 +1,12 @@
-package unit.mesh;
+package ixdar.geometry.mesh.quadlayout.embedding.fixtures;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import ixdar.annotations.meshnode.MapNodeContext;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
@@ -25,7 +25,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
  *
  * <p>See also: LCBK19 Figure 9
  */
-public final class PlaneLayoutFixture {
+public final class PlaneLayoutFixture implements LayoutFixture {
 
     /** Grid tiles along each axis; enough resolution to carve the arcs onto distinct vertices. */
     public static final int TILES = 16;
@@ -57,9 +57,9 @@ public final class PlaneLayoutFixture {
     /** Grid column the right-hand chain of nodes sits at. */
     private static final int COLUMN_RIGHT = 8;
 
-    public final HalfEdgeMesh plane;
-    public final EmbeddedMeshTopology topology;
-    public final EmbeddedTMesh tmesh;
+    public HalfEdgeMesh plane;
+    public EmbeddedMeshTopology topology;
+    public EmbeddedTMesh tmesh;
 
     /** Node id by packed grid position. */
     private final Map<Long, Integer> nodeAt = new HashMap<>();
@@ -68,47 +68,28 @@ public final class PlaneLayoutFixture {
      * Builds the grid, the working copy over it, and the hand-authored T-mesh.
      */
     public PlaneLayoutFixture() {
-        this.plane = buildTriangulatedGrid();
-        this.topology = new EmbeddedMeshTopology(plane);
-        this.tmesh = new EmbeddedTMesh(topology);
         build();
     }
 
-    /**
-     * Builds the triangulated grid the T-mesh is laid onto.
-     *
-     * <p>Built here rather than taken from {@link GridMeshNode} because that primitive emits quads
-     * and {@link EmbeddedMeshTopology} reads three corners per face. Row-major vertex ids keep
-     * {@link #copyVertex} a plain arithmetic lookup.
-     *
-     * @return the grid as a half-edge mesh
-     */
-    private static HalfEdgeMesh buildTriangulatedGrid() {
-        int side = TILES + 1;
-        float[] positions = new float[side * side * 3];
-        for (int row = 0; row < side; row++) {
-            for (int column = 0; column < side; column++) {
-                int base = (row * side + column) * 3;
-                positions[base] = column;
-                positions[base + 1] = row;
-                positions[base + 2] = 0f;
-            }
-        }
-        int[] faces = new int[TILES * TILES * 2 * 3];
-        int cursor = 0;
-        for (int row = 0; row < TILES; row++) {
-            for (int column = 0; column < TILES; column++) {
-                int lowerLeft = row * side + column;
-                int upperLeft = lowerLeft + side;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = lowerLeft + 1;
-                faces[cursor++] = upperLeft + 1;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = upperLeft + 1;
-                faces[cursor++] = upperLeft;
-            }
-        }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+    @Override
+    public String displayName() {
+        return "Plane layout";
+    }
+
+    @Override
+    public EmbeddedTMesh build() {
+        GridMeshNode node = new GridMeshNode();
+        MapNodeContext context = new MapNodeContext(node);
+        context.setInput(GridMeshNode.U_TILES_2, TILES);
+        context.setInput(GridMeshNode.V_TILES_2, TILES);
+        context.setInput(GridMeshNode.TRIANGULATE_2, true);
+        node.evaluate(context);
+        this.plane = context.getOutput(GridMeshNode.MESH_2, HalfEdgeMesh.class);
+        this.topology = new EmbeddedMeshTopology(plane);
+        this.tmesh = new EmbeddedTMesh(topology);
+        nodeAt.clear();
+        layOutTMesh();
+        return tmesh;
     }
 
     /**
@@ -125,7 +106,7 @@ public final class PlaneLayoutFixture {
     /**
      * Lays the nodes, arcs and patches onto the grid.
      */
-    private void build() {
+    private void layOutTMesh() {
         for (int column : new int[] { 0, COLUMN_JOINT, COLUMN_RIGHT }) {
             addNode(column, ROW_BOTTOM);
             addNode(column, ROW_MIDDLE);

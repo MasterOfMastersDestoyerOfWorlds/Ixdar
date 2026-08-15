@@ -58,6 +58,9 @@ public final class ExtractedPatchGrids {
     /** Regular nodes discovered off their original copy vertex, re-fitted by the walk. */
     public int refitNodeCount;
 
+    /** Direct matches whose chain walk contradicted the layout, dropped as impostors. */
+    public int rejectedMatchCount;
+
     /** Port list rotation per clockwise ring step, {@code +1} or {@code -1}. */
     private int ringStepClockwise;
 
@@ -101,9 +104,9 @@ public final class ExtractedPatchGrids {
         completeAnchoredNodes();
         walkArcs();
         fillPatchGrids();
-        System.out.printf("[patch-grids] patches=%d directMatches=%d ringCompleted=%d"
-                + " refitNodes=%d%n", livePatchCount(), directMatchCount, ringCompletedCount,
-                refitNodeCount);
+        System.out.printf("[patch-grids] patches=%d directMatches=%d rejected=%d"
+                + " ringCompleted=%d refitNodes=%d%n", livePatchCount(), directMatchCount,
+                rejectedMatchCount, ringCompletedCount, refitNodeCount);
         return this;
     }
 
@@ -228,6 +231,10 @@ public final class ExtractedPatchGrids {
                     int turns = directionTurns(toU - fromU, toV - fromV);
                     int port = findPortInPatch(quadVertex, patchId, turns);
                     if (port != ExtractedQuadMesh.NONE) {
+                        if (!chainArrivalConsistent(arc, atStart, port)) {
+                            rejectedMatchCount++;
+                            continue;
+                        }
                         quadVertexByNodeId[node.nodeId] = quadVertex;
                         assignPort(arcEnd, port);
                         directMatchCount++;
@@ -280,6 +287,50 @@ public final class ExtractedPatchGrids {
             }
         }
         return ExtractedQuadMesh.NONE;
+    }
+
+    /**
+     * Whether walking an arc's quad chain from a candidate port stays regular and arrives at
+     * the far node's quad vertex when that vertex is known. A relaxed separatrix can leave a
+     * vertex through a neighbouring region, so a face-and-direction match can name an
+     * impostor; the walk is the arbiter.
+     *
+     * @param arc     arc whose chain is walked
+     * @param atStart whether the walk leaves the arc's start node
+     * @param port    candidate port at the walked end
+     * @return true when the chain is consistent with the layout
+     */
+    private boolean chainArrivalConsistent(EmbeddedArc arc, boolean atStart, int port) {
+        if (arc.quadCount == 0) {
+            return true;
+        }
+        int current = port;
+        int arrival = ExtractedQuadMesh.NONE;
+        for (int step = 1; step <= arc.quadCount; step++) {
+            arrival = quadMesh.portConnection[current];
+            if (arrival == ExtractedQuadMesh.NONE) {
+                return false;
+            }
+            if (step < arc.quadCount) {
+                int owner = quadMesh.portOwner[arrival];
+                int span = quadMesh.portStart[owner + 1] - quadMesh.portStart[owner];
+                if (span != REGULAR_VALENCE) {
+                    return false;
+                }
+                current = clockwiseStep(clockwiseStep(arrival, 1), 1);
+            }
+        }
+        int farNodeId = atStart ? arc.endNodeId : arc.startNodeId;
+        int farVertex = quadMesh.portOwner[arrival];
+        if (quadVertexByNodeId[farNodeId] != ExtractedQuadMesh.NONE) {
+            return quadVertexByNodeId[farNodeId] == farVertex;
+        }
+        EmbeddedNode farNode = tmesh.nodes.get(farNodeId);
+        if (farNode.critical || farNode.border) {
+            Integer pinnedVertex = quadVertexByCopyVertex.get(farNode.copyVertex);
+            return pinnedVertex != null && pinnedVertex == farVertex;
+        }
+        return true;
     }
 
     /**
@@ -388,7 +439,9 @@ public final class ExtractedPatchGrids {
                 if (step == 0) {
                     throw new IllegalStateException("ring-adjacent ports " + port + " and "
                             + neighborPort + " at node " + node.nodeId + " are " + offset
-                            + " apart, not adjacent");
+                            + " apart, not adjacent; arc " + arcId + " holds " + port
+                            + ", ring-next arc " + neighborEnd / 2 + " holds " + neighborPort
+                            + portRingReport(owner) + arcEndPortReport(node.nodeId));
                 }
                 if (ringStepClockwise == 0) {
                     ringStepClockwise = step;
@@ -402,6 +455,48 @@ public final class ExtractedPatchGrids {
             throw new IllegalStateException("no anchored node has two directly matched"
                     + " ring-adjacent arc ends; the ring orientation is undecidable");
         }
+    }
+
+    /**
+     * One line per port of a quad vertex: its face's region patch and its direction, the
+     * evidence a ring-step mismatch needs.
+     *
+     * @param quadVertex quad vertex whose port ring is reported
+     * @return the report, starting with a newline
+     */
+    private String portRingReport(int quadVertex) {
+        StringBuilder report = new StringBuilder("\n port ring of quad vertex " + quadVertex
+                + ":");
+        for (int port = quadMesh.portStart[quadVertex];
+                port < quadMesh.portStart[quadVertex + 1]; port++) {
+            Integer facePatch = patchMaps.regions.patchIdByCopyFace
+                    .get(quadMesh.portFace[port]);
+            report.append(" p").append(port).append("(face ").append(quadMesh.portFace[port])
+                    .append(" patch ").append(facePatch).append(" turns ")
+                    .append(quadMesh.portDirectionTurns[port]).append(')');
+        }
+        return report.toString();
+    }
+
+    /**
+     * One line per live arc end at a node: the port it holds, or NONE, so a wrong direct
+     * match is visible beside the port ring.
+     *
+     * @param nodeId node whose arc ends are reported
+     * @return the report, starting with a newline
+     */
+    private String arcEndPortReport(int nodeId) {
+        StringBuilder report = new StringBuilder("\n arc ends at node " + nodeId + ":");
+        for (int arcId : tmesh.arcEndsByNode.get(nodeId)) {
+            EmbeddedArc arc = tmesh.arcs.get(arcId);
+            if (!arc.alive) {
+                continue;
+            }
+            report.append(" arc ").append(arcId).append("(").append(arc.leftPatchId)
+                    .append('|').append(arc.rightPatchId).append(")->port ")
+                    .append(portByArcEnd[arcEndIndex(arcId, arc.startNodeId == nodeId)]);
+        }
+        return report.toString();
     }
 
     /**

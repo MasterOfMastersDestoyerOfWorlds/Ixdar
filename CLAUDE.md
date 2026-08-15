@@ -90,6 +90,14 @@ The existing `ixdar.model` / `tmeshPipeline.off` / `benchmark.off` properties ar
 - **Duplicated string literals:** a repeated string that *carries meaning* — a map key, a format string, a system-property name, a file path — should be a constant. A repeated string that is only **string-assembly glue** — an operand of `+`, or an `append(...)` argument — stays inline, however often it repeats. `ARC = "arc "`, `AND = " and "`, `CLOSE_PAREN = ")"` name nothing; they are punctuation wearing a constant's clothes, and they push the declarations a reader actually needs off the top of the file. Usage decides this, not length: `KEY_FACES = "Faces"` is real and `" and "` is glue at the same character count. `MeaningfulDuplicateStringLiteralsCheck` enforces exactly this, and `InlineGlueStringConstantsRecipe` inlines glue constants back automatically.
 - **No inline fully-qualified class names:** write `Collectors.toSet()` with an import, not `java.util.stream.Collectors.toSet()`. The only exception is genuine simple-name collisions across packages.
 
+# Unit tests
+
+**A `unit.mesh.*Test` never loads a mesh file and never runs the pipeline.** No `.off`, no `.obj`, no `QuadLayoutEngine` run — a unit test must be far faster than a pipeline stage. The reproducer is a hand-authored fixture in `ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/embedding/fixtures/` (`TorusLayoutFixture`, `StackedZeroRowTorusFixture`, `ScaledTorusLayoutFixture`, `PlaneLayoutFixture` are the pattern — src/main so scenes can register them in the model menu, tests stay in `test/unit/mesh/`): an explicit grid of nodes, arcs, quantized lengths and four-sided patches, implementing `LayoutFixture` so `build()` returns fresh state. If no fixture reproduces the bug, **write one** — that is part of the work, not a reason to reach for a mesh.
+
+Reproducing a bug **on** a real mesh is the right way to find out what the fixture must contain. Load botijo or rockerarm, measure what actually goes wrong, then encode that configuration in a fixture. What is disallowed is shipping the mesh run as the test.
+
+Mesh-backed checks belong in `ixdar-app/test/benchmark/`, which is run deliberately with `-Dtest=...`, never in the unit suite.
+
 # Profiling
 
 We profile with [async-profiler](https://github.com/async-profiler/async-profiler) (CPU, `event=cpu`), attached as an agent and dumping a flame-graph HTML. We **always** want the flame graph, so keep the capture as `.html`:

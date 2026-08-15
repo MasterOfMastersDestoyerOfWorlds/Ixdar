@@ -77,6 +77,25 @@ public final class ArcRerouter {
     /** Whether the search honors {@link #patchStampByPatch}. */
     public boolean patchRestrictionActive;
 
+    /**
+     * Stamp per face id forbidding the route's final approach through it — a ring wedge whose
+     * flanks contradict the dragged arc's, banned before the search; transit stays legal.
+     */
+    public int[] bannedApproachStampByFace = new int[0];
+
+    /** Stamp value marking the banned approach faces in {@link #bannedApproachStampByFace}. */
+    public int bannedApproachStamp;
+
+    /**
+     * Stamp per face id forbidding the route's departure through it — the start-side twin of
+     * {@link #bannedApproachStampByFace}, banned before the search; transit stays legal.
+     */
+    public int[] bannedDepartureStampByFace = new int[0];
+
+    /** Stamp value marking the banned departure faces in {@link #bannedDepartureStampByFace}. */
+    public int bannedDepartureStamp;
+
+
     /** Edges split to open a walled corridor. */
     public int refinedEdgeSplitCount;
 
@@ -219,7 +238,49 @@ public final class ArcRerouter {
             patchStamp = 0;
         }
         patchStamp++;
+        if (bannedApproachStamp == Integer.MAX_VALUE) {
+            Arrays.fill(bannedApproachStampByFace, 0);
+            bannedApproachStamp = 0;
+        }
+        bannedApproachStamp++;
+        if (bannedDepartureStamp == Integer.MAX_VALUE) {
+            Arrays.fill(bannedDepartureStampByFace, 0);
+            bannedDepartureStamp = 0;
+        }
+        bannedDepartureStamp++;
         patchRestrictionActive = true;
+    }
+
+    /**
+     * Forbids the route's final approach through one face until the next
+     * {@link #beginPatchRestriction}; transit that never touches an endpoint stays legal.
+     *
+     * @param faceId copy face the approach may not run through; negative ids are ignored
+     */
+    public void banApproachFace(int faceId) {
+        if (faceId < 0) {
+            return;
+        }
+        if (faceId >= bannedApproachStampByFace.length) {
+            bannedApproachStampByFace = Arrays.copyOf(bannedApproachStampByFace, faceId + 1);
+        }
+        bannedApproachStampByFace[faceId] = bannedApproachStamp;
+    }
+
+    /**
+     * Forbids the route's departure through one face until the next
+     * {@link #beginPatchRestriction}; transit that never touches an endpoint stays legal.
+     *
+     * @param faceId copy face the departure may not run through; negative ids are ignored
+     */
+    public void banDepartureFace(int faceId) {
+        if (faceId < 0) {
+            return;
+        }
+        if (faceId >= bannedDepartureStampByFace.length) {
+            bannedDepartureStampByFace = Arrays.copyOf(bannedDepartureStampByFace, faceId + 1);
+        }
+        bannedDepartureStampByFace[faceId] = bannedDepartureStamp;
     }
 
     /**
@@ -244,7 +305,61 @@ public final class ArcRerouter {
     }
 
     /**
-     * Whether a face lies in a patch the current restriction admits.
+     * Whether one face is a banned final approach.
+     *
+     * @param faceId copy face to test; negative ids are never banned
+     * @return true when the face is banned
+     */
+    private boolean approachBanned(int faceId) {
+        return faceId >= 0 && faceId < bannedApproachStampByFace.length
+                && bannedApproachStampByFace[faceId] == bannedApproachStamp;
+    }
+
+    /**
+     * Whether an edge may carry the route's final hop: some incident face is not a banned
+     * approach. An unclaimed spoke's faces share one ring wedge, so this is exact.
+     *
+     * @param edgeId copy edge of the candidate final hop
+     * @return true when the hop is allowed
+     */
+    private boolean approachAllowedViaEdge(int edgeId) {
+        int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+        int faceA = topology.copy.halfEdgeFace(halfEdge);
+        int faceB = topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge));
+        return faceA >= 0 && !approachBanned(faceA) || faceB >= 0 && !approachBanned(faceB)
+                || faceA < 0 && faceB < 0;
+    }
+
+    /**
+     * Whether one face is a banned departure.
+     *
+     * @param faceId copy face to test; negative ids are never banned
+     * @return true when the face is banned
+     */
+    private boolean departureBanned(int faceId) {
+        return faceId >= 0 && faceId < bannedDepartureStampByFace.length
+                && bannedDepartureStampByFace[faceId] == bannedDepartureStamp;
+    }
+
+    /**
+     * Whether an edge may carry the route's first hop: some incident face is not a banned
+     * departure. An unclaimed spoke's faces share one ring wedge, so this is exact.
+     *
+     * @param edgeId copy edge of the candidate first hop
+     * @return true when the hop is allowed
+     */
+    private boolean departureAllowedViaEdge(int edgeId) {
+        int halfEdge = topology.copy.edgeHalfEdge(edgeId);
+        int faceA = topology.copy.halfEdgeFace(halfEdge);
+        int faceB = topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge));
+        return faceA >= 0 && !departureBanned(faceA) || faceB >= 0 && !departureBanned(faceB)
+                || faceA < 0 && faceB < 0;
+    }
+
+    /**
+     * Whether a face lies in a patch the current restriction admits. There is deliberately no
+     * label-free escape: an unadmitted sector's face crosses no claim, so admitting it would let
+     * a drag arrive in the wrong cyclic slot (the botijo sliver-pinch tear).
      *
      * @param copyFaceId copy face to test
      * @return true when unrestricted, unlabeled, or covered by an admitted patch
@@ -349,6 +464,12 @@ public final class ArcRerouter {
                             continue;
                         }
                         int neighbor = topology.otherEndpoint(edgeId, node);
+                        if (neighbor == endCopyVertex && !approachAllowedViaEdge(edgeId)) {
+                            continue;
+                        }
+                        if (node == startCopyVertex && !departureAllowedViaEdge(edgeId)) {
+                            continue;
+                        }
                         if (realAdmissible(neighbor, endCopyVertex, passThrough)
                                 && (!refined || tightStep(headPotential, nodePotential(neighbor), 0))) {
                             reachedCount += relax(node, neighbor, headDistance
@@ -363,7 +484,8 @@ public final class ArcRerouter {
                     int[] incidentFaceIds = incidentFaces.values;
                     for (int index = 0; index < incidentFaces.size; index++) {
                         int faceId = incidentFaceIds[index];
-                        if (!faceInRestriction(faceId)) {
+                        if (!faceInRestriction(faceId)
+                                || node == startCopyVertex && departureBanned(faceId)) {
                             continue;
                         }
                         int[] faceEdgeIds = topology.copy.faceEdges.get(faceId).values;
@@ -372,7 +494,9 @@ public final class ArcRerouter {
                             int halfEdge = topology.copy.edgeHalfEdge(edgeId);
                             int tail = topology.copy.halfEdgeVertex(halfEdge);
                             int head = topology.copy.halfEdgeEndVertex(halfEdge);
-                            if (tail == node || head == node) {
+                            // The start alone may mint across its own incident edges: when its
+                            // claims wall it in, the only escape crossings touch it.
+                            if ((tail == node || head == node) && node != startCopyVertex) {
                                 continue;
                             }
                             if (!splitAdmissible(edgeId, tail, head, endCopyVertex, passThrough)
@@ -398,7 +522,8 @@ public final class ArcRerouter {
                         int[] faceEdgeIds = topology.copy.faceEdges.get(faceId).values;
                         for (int corner = 0; corner < CORNERS; corner++) {
                             int neighbor = topology.copy.faceVertexAt(faceId, corner);
-                            if (realAdmissible(neighbor, endCopyVertex, passThrough)
+                            if (!(neighbor == endCopyVertex && approachBanned(faceId))
+                                    && realAdmissible(neighbor, endCopyVertex, passThrough)
                                     && tightStep(headPotential, nodePotential(neighbor), 0)) {
                                 topology.copy.vertexPosition(neighbor, positionCandidate);
                                 reachedCount += relax(node, neighbor, headDistance
@@ -503,6 +628,13 @@ public final class ArcRerouter {
                     for (int index = 0; index < incidentEdges.size; index++) {
                         int edgeId = incidentEdgeIds[index];
                         int neighbor = topology.otherEndpoint(edgeId, node);
+                        if (node == endCopyVertex && !approachAllowedViaEdge(edgeId)) {
+                            continue;
+                        }
+                        if ((node == startCopyVertex || neighbor == startCopyVertex)
+                                && !departureAllowedViaEdge(edgeId)) {
+                            continue;
+                        }
                         if (topology.ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED
                                 && edgeInRestriction(edgeId)
                                 && gateAdmissible(neighbor, startCopyVertex, endCopyVertex,
@@ -514,7 +646,9 @@ public final class ArcRerouter {
                     int[] incidentFaceIds = incidentFaces.values;
                     for (int index = 0; index < incidentFaces.size; index++) {
                         int faceId = incidentFaceIds[index];
-                        if (!faceInRestriction(faceId)) {
+                        if (!faceInRestriction(faceId)
+                                || node == endCopyVertex && approachBanned(faceId)
+                                || node == startCopyVertex && departureBanned(faceId)) {
                             continue;
                         }
                         int[] faceEdgeIds = topology.copy.faceEdges.get(faceId).values;
@@ -542,7 +676,11 @@ public final class ArcRerouter {
                         int[] faceEdgeIds = topology.copy.faceEdges.get(faceId).values;
                         for (int corner = 0; corner < CORNERS; corner++) {
                             int cornerVertex = topology.copy.faceVertexAt(faceId, corner);
-                            if (cornerVertex != nodeTail && cornerVertex != nodeHead
+                            // Mirror of the route pass's start exemption: the flood may land on
+                            // the start from a midpoint of the start's own incident edge.
+                            if ((cornerVertex != nodeTail && cornerVertex != nodeHead
+                                    || cornerVertex == startCopyVertex)
+                                    && !(cornerVertex == startCopyVertex && departureBanned(faceId))
                                     && gateAdmissible(cornerVertex, startCopyVertex, endCopyVertex,
                                             passThrough)) {
                                 reachGateNodeLater(cornerVertex, splitCount + 1);

@@ -65,8 +65,10 @@ class MultiArcPivotTest {
         List<Integer> channel = List.copyOf(tmesh.arcs.get(arcA).path.copyVertexPath);
         tmesh.setPath(arcA, List.of(survivorVertex));
 
-        tmesh.collapseArc.dragArcEndOntoVertex(arcB1, pivotVertex, survivorVertex, rerouter, channel);
-        tmesh.collapseArc.dragArcEndOntoVertex(arcB2, pivotVertex, survivorVertex, rerouter, channel);
+        tmesh.collapseArc.dragArcEndOntoVertex(arcB1, pivotVertex, survivorVertex, rerouter,
+                channel, true, false);
+        tmesh.collapseArc.dragArcEndOntoVertex(arcB2, pivotVertex, survivorVertex, rerouter,
+                channel, true, false);
 
         assertEquals(survivorVertex, lastVertexOf(tmesh, arcB1), "b1 reaches the survivor");
         assertEquals(survivorVertex, lastVertexOf(tmesh, arcB2), "b2 also reaches the survivor");

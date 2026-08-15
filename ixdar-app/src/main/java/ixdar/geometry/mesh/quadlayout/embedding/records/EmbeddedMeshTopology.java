@@ -60,14 +60,14 @@ public final class EmbeddedMeshTopology {
     public int[] patchAliasByPatch = new int[0];
 
     /**
-     * Generation per copy edge marking a dragged arc's released path, the wall a
-     * swept-pocket relabel stops at. Edge-split children inherit it, so the wall
-     * survives the refinement a re-route makes along it.
+     * Generation per copy edge marking the channel a collapsing arc has vacated. Nothing claims
+     * it until the drags re-fence it, so meanwhile it stands in for the arc as the wall between
+     * its two patches. Edge-split children inherit it, since a re-route may refine along it.
      */
-    public int[] sweepWallStampByCopyEdge = new int[0];
+    public int[] vacatedWallStampByCopyEdge = new int[0];
 
-    /** Current generation of {@link #sweepWallStampByCopyEdge}; zero marks none. */
-    public int sweepWallStamp;
+    /** Current generation of {@link #vacatedWallStampByCopyEdge}; zero marks none. */
+    public int vacatedWallStamp;
 
     /**
      * Source active edge index per raw copy edge id, or {@link #UNCLAIMED} for
@@ -461,7 +461,7 @@ public final class EmbeddedMeshTopology {
         int faceB = copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge));
         int edgeOwner = ownerArcByCopyEdge[copyEdgeId];
         int sourceEdge = sourceEdgeByCopyEdge[copyEdgeId];
-        boolean sweepWall = onSweepWall(copyEdgeId);
+        boolean vacatedWall = onVacatedWall(copyEdgeId);
         int sourceA = faceA >= 0 ? sourceFaceByCopyFace[faceA] : UNCLAIMED;
         int sourceB = faceB >= 0 ? sourceFaceByCopyFace[faceB] : UNCLAIMED;
         int patchA = faceA >= 0 ? patchLabelOf(faceA) : UNCLAIMED;
@@ -486,8 +486,8 @@ public final class EmbeddedMeshTopology {
         if (sourceEdge != UNCLAIMED) {
             sourceEdgeByCopyEdge[tailEdge] = sourceEdge;
         }
-        if (sweepWall) {
-            sweepWallStampByCopyEdge[tailEdge] = sweepWallStamp;
+        if (vacatedWall) {
+            vacatedWallStampByCopyEdge[tailEdge] = vacatedWallStamp;
         }
         edgeSplitCount++;
         return newVertex;
@@ -897,7 +897,7 @@ public final class EmbeddedMeshTopology {
             ownerArcByCopyEdge = Arrays.copyOf(ownerArcByCopyEdge, newLength);
             sourceEdgeByCopyEdge = Arrays.copyOf(sourceEdgeByCopyEdge, newLength);
             lengthByCopyEdge = Arrays.copyOf(lengthByCopyEdge, newLength);
-            sweepWallStampByCopyEdge = Arrays.copyOf(sweepWallStampByCopyEdge, newLength);
+            vacatedWallStampByCopyEdge = Arrays.copyOf(vacatedWallStampByCopyEdge, newLength);
             Arrays.fill(ownerArcByCopyEdge, oldLength, newLength, UNCLAIMED);
             Arrays.fill(sourceEdgeByCopyEdge, oldLength, newLength, UNCLAIMED);
             Arrays.fill(lengthByCopyEdge, oldLength, newLength, Float.NaN);
@@ -934,39 +934,39 @@ public final class EmbeddedMeshTopology {
     }
 
     /**
-     * Opens a fresh sweep wall along a path, retiring the previous one.
+     * Opens the channel a collapsing arc vacates as a wall, retiring any previous one.
      *
-     * @param edgeIds edges of the released route the wall follows
+     * @param edgeIds edges of the collapsing arc's released path
      */
-    public void openSweepWall(List<Integer> edgeIds) {
-        if (sweepWallStampByCopyEdge.length < ownerArcByCopyEdge.length) {
-            sweepWallStampByCopyEdge = Arrays.copyOf(sweepWallStampByCopyEdge,
+    public void openVacatedWall(List<Integer> edgeIds) {
+        if (vacatedWallStampByCopyEdge.length < ownerArcByCopyEdge.length) {
+            vacatedWallStampByCopyEdge = Arrays.copyOf(vacatedWallStampByCopyEdge,
                     ownerArcByCopyEdge.length);
         }
-        if (sweepWallStamp == Integer.MAX_VALUE) {
-            Arrays.fill(sweepWallStampByCopyEdge, 0);
-            sweepWallStamp = 0;
+        if (vacatedWallStamp == Integer.MAX_VALUE) {
+            Arrays.fill(vacatedWallStampByCopyEdge, 0);
+            vacatedWallStamp = 0;
         }
-        sweepWallStamp++;
+        vacatedWallStamp++;
         for (int edgeId : edgeIds) {
-            sweepWallStampByCopyEdge[edgeId] = sweepWallStamp;
+            vacatedWallStampByCopyEdge[edgeId] = vacatedWallStamp;
         }
     }
 
     /**
-     * Whether a copy edge belongs to the open sweep wall.
+     * Whether a copy edge belongs to the open vacated channel.
      *
      * @param copyEdgeId copy edge to test
-     * @return true when the edge walls a swept-pocket relabel
+     * @return true when the edge stands in for the collapsing arc
      */
-    public boolean onSweepWall(int copyEdgeId) {
-        return sweepWallStamp != 0 && copyEdgeId < sweepWallStampByCopyEdge.length
-                && sweepWallStampByCopyEdge[copyEdgeId] == sweepWallStamp;
+    public boolean onVacatedWall(int copyEdgeId) {
+        return vacatedWallStamp != 0 && copyEdgeId < vacatedWallStampByCopyEdge.length
+                && vacatedWallStampByCopyEdge[copyEdgeId] == vacatedWallStamp;
     }
 
-    /** Closes the open sweep wall, so no edge walls a later flood. */
-    public void closeSweepWall() {
-        sweepWallStamp = 0;
+    /** Closes the vacated channel, once the drags have re-fenced it. */
+    public void closeVacatedWall() {
+        vacatedWallStamp = 0;
     }
 
     /**

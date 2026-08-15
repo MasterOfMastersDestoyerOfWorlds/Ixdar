@@ -1,6 +1,7 @@
 package ixdar.scenes.model;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.joml.Vector3f;
@@ -9,6 +10,8 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.fixtures.LayoutFixture;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
@@ -41,7 +44,13 @@ public abstract class ModelScene extends Scene {
      */
     public static final String COMMON_MODEL_PROPERTY = "ixdar.model";
 
-    public static final String DEFAULT_OFF = "test/resources/quadlayout/figure_8/botijo_in_tri.off";
+    public static final String DEFAULT_OFF = "test/resources/quadlayout/figure_8/rockerarm_in_tri.off";
+
+    /**
+     * Prefix marking a {@link ModelChoice#path} as a registered fixture's display name rather
+     * than a mesh file path.
+     */
+    public static final String FIXTURE_PREFIX = "fixture:";
 
     /** Named view for the right-side ESC menu strip. */
     public static final String VIEW_SCENE_MENU = "SCENE_MENU";
@@ -66,8 +75,20 @@ public abstract class ModelScene extends Scene {
     public static final float CAMERA_DISTANCE_RADIUS_MUL = 2.5f;
     public static final float CAMERA_DISTANCE_DEFAULT = 3.5f;
 
+    /** Orbit distance of {@link #focusOrbitOn}, in framed-region radii. */
+    public static final float FOCUS_ORBIT_RADIUS_MUL = 3f;
+
+    /** Closest orbit approach of {@link #focusOrbitOn}, in framed-region radii. */
+    public static final float FOCUS_ORBIT_MIN_MUL = 0.5f;
+
+    /** Floats per point in a flat-xyz position array. */
+    private static final int VEC3_COMPONENTS = 3;
+
     /** ESC menu of this scene's models. */
     public SceneModelMenu sceneModelMenu;
+
+    /** Fixtures registered for the model menu, in registration order. */
+    public final List<LayoutFixture> fixtures = new ArrayList<>();
 
     public LayoutModelCatalog modelCatalog;
 
@@ -131,7 +152,7 @@ public abstract class ModelScene extends Scene {
         runtime = createRuntime();
         offPath = resolveInitialModel();
         try {
-            loadModel(offPath);
+            loadModelOrFixture(offPath);
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to load initial model " + offPath, ex);
         }
@@ -248,6 +269,66 @@ public abstract class ModelScene extends Scene {
         halfEdgeMesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
         runtime.upload(halfEdgeMesh);
+        frameLoadedModel();
+        updateCurrentChoice();
+    }
+
+    /**
+     * Dispatch a loader token: a {@link #FIXTURE_PREFIX} token loads the registered fixture of
+     * that display name through {@link #loadFixture}, anything else goes through
+     * {@link #loadModel}. A fixture token must never enter a scene's file pipeline, which is why
+     * the split happens here and not inside {@code loadModel} overrides.
+     *
+     * @param path loader token: a mesh file path or {@code fixture:<display name>}
+     * @throws IOException if a mesh file cannot be read or no fixture matches the token
+     */
+    public void loadModelOrFixture(String path) throws IOException {
+        if (path != null && path.startsWith(FIXTURE_PREFIX)) {
+            String displayName = path.substring(FIXTURE_PREFIX.length());
+            for (LayoutFixture fixture : fixtures) {
+                if (fixture.displayName().equals(displayName)) {
+                    loadFixture(fixture);
+                    return;
+                }
+            }
+            throw new IOException("no registered fixture named " + displayName);
+        }
+        loadModel(path);
+    }
+
+    /**
+     * Load a registered fixture to its pre-state the way {@link #loadModel} loads a file: build
+     * it fresh, upload its carrier surface, and frame the camera. Scenes override to hand the
+     * built T-mesh to their runtime (calling {@code super.loadFixture} first).
+     *
+     * @param fixture registered fixture to build and show
+     * @return the freshly built T-mesh, for the override to consume
+     */
+    public EmbeddedTMesh loadFixture(LayoutFixture fixture) {
+        EmbeddedTMesh built = fixture.build();
+        offPath = FIXTURE_PREFIX + fixture.displayName();
+        halfEdgeMesh = built.topology.copy;
+        runtime.upload(halfEdgeMesh);
+        frameLoadedModel();
+        updateCurrentChoice();
+        return built;
+    }
+
+    /**
+     * Registers a fixture for the model menu; subclasses call this from their constructor the
+     * way they add {@code ControlHint} rows.
+     *
+     * @param fixture fixture to list and load by display name
+     */
+    public void registerFixture(LayoutFixture fixture) {
+        fixtures.add(fixture);
+    }
+
+    /**
+     * Frame the orbit camera and zoom bounds around {@link #halfEdgeMesh}, shared by the file
+     * and fixture load paths.
+     */
+    public void frameLoadedModel() {
         runtime.setSolidColor(ColorRGB.BLUE_GRAY.toVector4f());
         runtime.frameCamera(camera);
         meshCenter.set(halfEdgeMesh.center(new Vector3f()));
@@ -258,7 +339,37 @@ public abstract class ModelScene extends Scene {
         float orbitDist = Math.max(CAMERA_DISTANCE_MIN, meshRadius * CAMERA_DISTANCE_RADIUS_MUL);
         orbitMouse.setTarget(meshCenter);
         orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, orbitDist);
-        updateCurrentChoice();
+    }
+
+    /**
+     * Re-centres the orbit on a group of dot clouds and pulls the camera in to frame them.
+     *
+     * @param clouds flat-xyz position arrays to frame together
+     * @return the framed region's radius: the farthest point's distance from the centroid
+     */
+    public float focusOrbitOn(List<float[]> clouds) {
+        Vector3f centroid = new Vector3f();
+        Vector3f point = new Vector3f();
+        int pointCount = 0;
+        for (float[] cloud : clouds) {
+            for (int base = 0; base < cloud.length; base += VEC3_COMPONENTS) {
+                centroid.add(cloud[base], cloud[base + 1], cloud[base + 2]);
+                pointCount++;
+            }
+        }
+        centroid.div(Math.max(1, pointCount));
+        float radius = 0f;
+        for (float[] cloud : clouds) {
+            for (int base = 0; base < cloud.length; base += VEC3_COMPONENTS) {
+                point.set(cloud[base], cloud[base + 1], cloud[base + 2]);
+                radius = Math.max(radius, centroid.distance(point));
+            }
+        }
+        orbitMouse.setTarget(centroid);
+        orbitMouse.setDistanceBounds(radius * FOCUS_ORBIT_MIN_MUL,
+                Math.max(CAMERA_DISTANCE_MIN, halfEdgeMesh.radius() * CAMERA_DISTANCE_RADIUS_MUL));
+        orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, radius * FOCUS_ORBIT_RADIUS_MUL);
+        return radius;
     }
 
     /**
@@ -271,7 +382,7 @@ public abstract class ModelScene extends Scene {
         String path = pendingModelPath;
         pendingModelPath = null;
         try {
-            loadModel(path);
+            loadModelOrFixture(path);
             Platforms.get().log(" loaded " + path);
         } catch (Exception ex) {
             Platforms.get().log(" failed to load " + path + ": " + ex.getMessage());
@@ -279,13 +390,13 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Match {@link #offPath} against the catalog to set the highlighted current
-     * model. Scenes that track the current model differently override
+     * Match {@link #offPath} against the models list, fixtures included, to set the highlighted
+     * current model. Scenes that track the current model differently override
      * {@link #currentModel()} instead.
      */
     public void updateCurrentChoice() {
         currentChoice = null;
-        for (ModelChoice choice : modelCatalog.choices()) {
+        for (ModelChoice choice : availableModels()) {
             if (choice.path.equals(offPath)) {
                 currentChoice = choice;
                 return;
@@ -295,12 +406,18 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Models this scene can switch between, in display order.
+     * Models this scene can switch between, in display order: the catalog's files followed by
+     * the registered fixtures.
      *
      * @return the model list (never {@code null}; may be empty)
      */
     public List<ModelChoice> availableModels() {
-        return modelCatalog.choices();
+        List<ModelChoice> choices = new ArrayList<>(modelCatalog.choices());
+        for (LayoutFixture fixture : fixtures) {
+            choices.add(new ModelChoice(fixture.displayName(),
+                    FIXTURE_PREFIX + fixture.displayName()));
+        }
+        return choices;
     }
 
     /**

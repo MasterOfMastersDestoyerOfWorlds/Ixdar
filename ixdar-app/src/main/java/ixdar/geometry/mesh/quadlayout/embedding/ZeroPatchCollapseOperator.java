@@ -105,9 +105,12 @@ public final class ZeroPatchCollapseOperator {
         int dyingArc = survivorArc == boundaryArcs.get(0) ? boundaryArcs.get(1) : boundaryArcs.get(0);
 
         int farPatch = otherPatchOf(dyingArc, patchId);
-        if (farPatch != EmbeddedTMesh.NONE) {
-            tmesh.replaceArcInPatch(farPatch, dyingArc, survivorArc);
-            tmesh.topology.aliasPatchInto(patchId, farPatch, tmesh.patches.size());
+        int resolvedFarPatch = farPatch == EmbeddedTMesh.NONE ? EmbeddedTMesh.NONE
+                : tmesh.topology.resolvePatch(farPatch);
+        if (resolvedFarPatch != EmbeddedTMesh.NONE && resolvedFarPatch != patchId
+                && tmesh.patches.get(resolvedFarPatch).alive) {
+            tmesh.replaceArcInPatch(resolvedFarPatch, dyingArc, survivorArc);
+            tmesh.topology.aliasPatchInto(patchId, resolvedFarPatch, tmesh.patches.size());
         }
         tmesh.removePatch(patchId);
         tmesh.discardArc(dyingArc);

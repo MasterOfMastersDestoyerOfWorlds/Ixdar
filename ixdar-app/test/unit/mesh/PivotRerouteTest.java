@@ -67,7 +67,8 @@ class PivotRerouteTest {
         List<Integer> channel = List.copyOf(tmesh.arcs.get(arcA).path.copyVertexPath);
 
         tmesh.setPath(arcA, List.of(survivorVertex));
-        tmesh.collapseArc.dragArcEndOntoVertex(arcB, pivotVertex, survivorVertex, rerouter, channel);
+        tmesh.collapseArc.dragArcEndOntoVertex(arcB, pivotVertex, survivorVertex, rerouter,
+                channel, true, false);
 
         List<Integer> path = tmesh.arcs.get(arcB).path.copyVertexPath;
         assertEquals(vertex(topology, 1, 1), path.get(0), "b still starts at m");

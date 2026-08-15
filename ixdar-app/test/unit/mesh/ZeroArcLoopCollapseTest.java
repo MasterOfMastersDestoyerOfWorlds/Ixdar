@@ -1,7 +1,7 @@
 package unit.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.List;
 
@@ -14,21 +14,18 @@ import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * A zero-arc collapse must leave the Euler characteristic alone, including when the arc it collapses
- * has become a loop.
+ * A zero-arc collapse must leave the Euler characteristic alone, including when it disposes of a
+ * whole degenerate bigon at once.
  *
  * <p>Two zero arcs running between the same pair of nodes bound a degenerate bigon. Collapsing the
- * first merges one node into the other, which turns the second arc into a loop (same start and end
- * node) and shrinks the bigon to nothing. Collapsing that loop then removes an arc but — because
- * {@code mergeNodeInto} is a no-op when the two node ids coincide — no node, so the count only
- * balances if the emptied patch is retired with it.
+ * first merges one node into the other; the second arc's far node is then the survivor, so the drag
+ * embeds it onto a point and the collapse retires it and the bigon together — one node, two arcs
+ * and one patch gone in a single operator, which balances.
  *
- * <p>LCBK19 covers this: Appendix A.3 notes the arc <em>"turns into a loop (same start and end
- * point), which can be contracted to a point"</em>, and §6.1 states that a zero-patch without any
- * non-zero arc, <em>"one that is supposed to be embedded onto a single point rather than a curve,
- * is already handled by the zero-arc collapse"</em>. Handling it means the collapse disposes of the
- * degenerate patch too; otherwise the surface gains a face it no longer has, which is what tears the
- * sphere's contraction after the re-route refinement lets it get this far.
+ * <p>LCBK19 covers this: §6.1 states that a zero-patch without any non-zero arc, <em>"one that is
+ * supposed to be embedded onto a single point rather than a curve, is already handled by the
+ * zero-arc collapse"</em>. Handling it means the collapse disposes of the degenerate patch too;
+ * otherwise the surface keeps a face it no longer has.
  */
 class ZeroArcLoopCollapseTest {
 
@@ -53,17 +50,15 @@ class ZeroArcLoopCollapseTest {
                 List.of(List.of(straightArc), List.of(), List.of(detourArc), List.of()), startNode);
 
         ZeroArcCollapseOperator operator = new ZeroArcCollapseOperator(tmesh);
+        int eulerBefore = eulerCharacteristic(tmesh);
         operator.collapse(straightArc);
 
-        assertTrue(tmesh.arcs.get(detourArc).isLoop(),
-                "collapsing one of two parallel zero arcs turns the other into a loop");
-
-        int eulerBefore = eulerCharacteristic(tmesh);
-        operator.collapse(detourArc);
+        assertFalse(tmesh.arcs.get(detourArc).alive,
+                "the parallel arc's far node is the survivor, so it is embedded onto a point"
+                        + " and retired with the bigon");
 
         assertEquals(eulerBefore, eulerCharacteristic(tmesh),
-                "collapsing a loop zero arc must retire the degenerate patch it bounded, so that"
-                        + " losing an arc without losing a node still balances");
+                "one collapse disposes of one node, two arcs and the bigon patch, which balances");
     }
 
     /**

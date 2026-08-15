@@ -1,4 +1,4 @@
-package unit.mesh;
+package ixdar.geometry.mesh.quadlayout.embedding.fixtures;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,7 +19,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
  *
  * <p>See also: LCBK19 Figure 9
  */
-public final class ScaledTorusLayoutFixture {
+public final class ScaledTorusLayoutFixture implements LayoutFixture {
 
     /** A torus is genus 1, so V - E + F is zero for any cell decomposition of it. */
     public static final int TORUS_EULER_CHARACTERISTIC = 0;
@@ -60,9 +60,9 @@ public final class ScaledTorusLayoutFixture {
     public final int scale;
     public final int majorSegments;
     public final int minorSegments;
-    public final HalfEdgeMesh torus;
-    public final EmbeddedMeshTopology topology;
-    public final EmbeddedTMesh tmesh;
+    public HalfEdgeMesh torus;
+    public EmbeddedMeshTopology topology;
+    public EmbeddedTMesh tmesh;
 
     /** Node id at each (major, minor) grid position that carries one. */
     private final Map<Long, Integer> nodeAt = new HashMap<>();
@@ -76,6 +76,16 @@ public final class ScaledTorusLayoutFixture {
         this.scale = scale;
         this.majorSegments = BASE_MAJOR_SEGMENTS * scale;
         this.minorSegments = BASE_MINOR_SEGMENTS * scale;
+        build();
+    }
+
+    @Override
+    public String displayName() {
+        return "Scaled torus x" + scale;
+    }
+
+    @Override
+    public EmbeddedTMesh build() {
         TorusMeshNode node = new TorusMeshNode();
         MapNodeContext context = new MapNodeContext(node);
         context.setInput(TorusMeshNode.MAJOR_SEGMENTS_2, majorSegments);
@@ -85,13 +95,15 @@ public final class ScaledTorusLayoutFixture {
         this.torus = context.getOutput(TorusMeshNode.MESH_2, HalfEdgeMesh.class);
         this.topology = new EmbeddedMeshTopology(torus);
         this.tmesh = new EmbeddedTMesh(topology);
-        build();
+        nodeAt.clear();
+        layOutTMesh();
+        return tmesh;
     }
 
     /**
      * Lays the nodes, arcs and patches onto the torus, every coordinate scaled up.
      */
-    private void build() {
+    private void layOutTMesh() {
         for (int major : new int[] { 0, 2, 4, 8 }) {
             addNode(major, LOOP_BOTTOM);
             addNode(major, LOOP_MIDDLE);

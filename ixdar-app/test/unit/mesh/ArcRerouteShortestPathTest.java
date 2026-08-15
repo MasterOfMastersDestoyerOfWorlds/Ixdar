@@ -59,7 +59,7 @@ class ArcRerouteShortestPathTest {
 
         tmesh.setPath(collapsingArc, List.of(survivorVertex));
         tmesh.collapseArc.dragArcEndOntoVertex(detourArc, pivotVertex, survivorVertex,
-                new ArcRerouter(topology), channel);
+                new ArcRerouter(topology), channel, true, false);
 
         List<Integer> routed = tmesh.arcs.get(detourArc).path.copyVertexPath;
         assertEquals(vertex(topology, 0, 0), routed.get(0), "the arc still starts at its far node");

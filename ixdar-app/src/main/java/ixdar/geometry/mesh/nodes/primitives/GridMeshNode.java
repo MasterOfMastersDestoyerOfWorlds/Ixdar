@@ -19,6 +19,7 @@ public class GridMeshNode implements MeshNode {
     public static final String V_TILE_SIZE_2 = "v_tile_size";
     public static final String U_TOTAL_SIZE_2 = "u_total_size";
     public static final String V_TOTAL_SIZE_2 = "v_total_size";
+    public static final String TRIANGULATE_2 = "triangulate";
     public static final String MESH_2 = "mesh";
     public static final float NUM_1e_6 = 1e-6f;
     public static final float NUM_0_5 = 0.5f;
@@ -31,11 +32,13 @@ public class GridMeshNode implements MeshNode {
     private static final InputPort U_TOTAL_SIZE = new InputPort(U_TOTAL_SIZE_2, PortType.FLOAT, 0.0f, 0f, 1000f);
     /** When positive, per-tile V size is {@code v_total_size / v_tiles} and overrides {@code v_tile_size}. */
     private static final InputPort V_TOTAL_SIZE = new InputPort(V_TOTAL_SIZE_2, PortType.FLOAT, 0.0f, 0f, 1000f);
+    private static final InputPort TRIANGULATE = new InputPort(TRIANGULATE_2, PortType.BOOLEAN, false);
     private static final OutputPort MESH = new OutputPort(MESH_2, PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(U_TILES, V_TILES, U_TILE_SIZE, V_TILE_SIZE, U_TOTAL_SIZE, V_TOTAL_SIZE);
+        return List.of(U_TILES, V_TILES, U_TILE_SIZE, V_TILE_SIZE, U_TOTAL_SIZE, V_TOTAL_SIZE,
+                TRIANGULATE);
     }
 
     @Override
@@ -57,7 +60,11 @@ public class GridMeshNode implements MeshNode {
                 V_TILE_SIZE_2, "Per-tile edge length along V. Grid extent along Z = v_tiles × v_tile_size, vertices at ±extent/2. Ignored when v_total_size > 0.",
                 U_TOTAL_SIZE_2, "Total extent along U. When > 0, per-tile U size becomes u_total_size / u_tiles (overrides u_tile_size).",
                 V_TOTAL_SIZE_2, "Total extent along V. When > 0, per-tile V size becomes v_total_size / v_tiles (overrides v_tile_size).",
-                MESH_2, "Flat quad grid on XZ plane, centered at origin, Y=0."
+                TRIANGULATE_2, "Split each quad into two triangles along the v00-v11 diagonal."
+                        + " Needed by the quad-layout pipeline, which consumes triangle meshes."
+                        + " Default false.",
+                MESH_2, "Flat grid on XZ plane, centered at origin, Y=0; quads, or triangles when"
+                        + " triangulate is set."
         );
     }
 
@@ -74,6 +81,8 @@ public class GridMeshNode implements MeshNode {
 
         uTiles = Math.max(1, uTiles);
         vTiles = Math.max(1, vTiles);
+        Boolean triangulateInput = ctx.getInput(TRIANGULATE_2, Boolean.class);
+        boolean triangulate = triangulateInput != null && triangulateInput;
 
         Number uTotalNum = ctx.getInput(U_TOTAL_SIZE_2, Number.class);
         Number vTotalNum = ctx.getInput(V_TOTAL_SIZE_2, Number.class);
@@ -114,7 +123,12 @@ public class GridMeshNode implements MeshNode {
                 int v10 = vid[i + 1][j];
                 int v11 = vid[i + 1][j + 1];
                 int v01 = vid[i][j + 1];
-                mesh.addFace(v00, v01, v11, v10);
+                if (triangulate) {
+                    mesh.addFace(v00, v01, v11);
+                    mesh.addFace(v00, v11, v10);
+                } else {
+                    mesh.addFace(v00, v01, v11, v10);
+                }
             }
         }
 
