@@ -14,6 +14,7 @@ import java.nio.file.Files;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -25,9 +26,17 @@ import org.lwjgl.stb.STBImage;
 
 import com.google.gson.Gson;
 
+import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
+import ixdar.geometry.mesh.quadlayout.quantization.OjAlgoIntegerProgram;
+import ixdar.geometry.mesh.quadlayout.solver.NativeCholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.PardisoBackend;
 import ixdar.graphics.render.Texture;
+import ixdar.graphics.render.model.AssimpModelRuntime;
+import ixdar.graphics.render.model.ModelRuntime;
 import ixdar.graphics.render.text.FontAtlasDTO;
 import ixdar.platform.Platforms;
+import ixdar.platform.concurrent.ThreadWorkerPool;
+import ixdar.platform.concurrent.WorkerPool;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.gl.IxBuffer;
@@ -48,6 +57,7 @@ public class HeadlessPlatform implements Platform {
     public static final int NUM_16 = 16;
     public static final int NUM_8 = 8;
 
+    private final PardisoBackend pardisoBackend = new PardisoBackend();
     private int platformId;
     private float startTime;
     private int windowWidth = 800;
@@ -228,6 +238,60 @@ public class HeadlessPlatform implements Platform {
         } catch (IOException e) {
             return null;
         }
+    }
+
+    /**
+     * Probe the real filesystem, the same as the desktop backend.
+     *
+     * @param path filesystem path, absolute or relative to the working directory
+     * @return {@code true} when the file exists and is readable
+     */
+    @Override
+    public boolean fileExists(String path) {
+        return path != null && !path.isEmpty() && Files.isReadable(Paths.get(path));
+    }
+
+    /**
+     * Load models through Assimp, the same as the desktop backend.
+     *
+     * @throws Exception if Assimp cannot be initialized
+     * @return a new Assimp-backed model runtime
+     */
+    @Override
+    public ModelRuntime newModelRuntime() throws Exception {
+        return new AssimpModelRuntime();
+    }
+
+    /**
+     * Accelerate solves with PARDISO, the same as the desktop backend.
+     *
+     * @return the MKL-backed native Cholesky backend
+     */
+    @Override
+    public NativeCholeskyBackend nativeCholeskyBackend() {
+        return pardisoBackend;
+    }
+
+    /**
+     * Solve integer programs with ojAlgo, the same as the desktop backend.
+     *
+     * @return a new ojAlgo-backed integer program
+     */
+    @Override
+    public IntegerProgram newIntegerProgram() {
+        return new OjAlgoIntegerProgram();
+    }
+
+    /**
+     * Fan work out across real threads, the same as the desktop backend.
+     *
+     * @param workerCount number of threads
+     * @param threadName name given to each thread
+     * @return a new thread-backed pool
+     */
+    @Override
+    public WorkerPool newWorkerPool(int workerCount, String threadName) {
+        return new ThreadWorkerPool(workerCount, threadName);
     }
 
     /**

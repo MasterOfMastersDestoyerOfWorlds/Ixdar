@@ -20,6 +20,7 @@ import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
 import ixdar.geometry.mesh.quadlayout.gridmap.GridMapVerification;
 import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
 import ixdar.geometry.mesh.quadlayout.gridmap.LayoutPatchMaps;
+import ixdar.platform.Platforms;
 
 /**
  * Extracts the quad mesh of the relaxed integer grid map: vertices at the

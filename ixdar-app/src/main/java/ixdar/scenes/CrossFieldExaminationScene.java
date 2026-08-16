@@ -120,8 +120,7 @@ public class CrossFieldExaminationScene extends ModelScene {
         }
         String stem = offPath.substring(0, offPath.length() - IN_TRI_OFF_SUFFIX.length());
         String candidate = stem + IN_CF_NDF_SUFFIX;
-        Path p = new File(candidate).toPath();
-        return Files.exists(p) ? candidate : null;
+        return Platforms.get().fileExists(candidate) ? candidate : null;
     }
 
     /** Reload the cross-field overlay using the reference field if available. */

@@ -15,6 +15,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
+import ixdar.platform.Platforms;
 
 /**
  * Rebuilds a contracted live T-mesh on a clean copy of the original surface

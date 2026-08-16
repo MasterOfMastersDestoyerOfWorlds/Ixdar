@@ -6,11 +6,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.ojalgo.optimisation.Expression;
-import org.ojalgo.optimisation.ExpressionsBasedModel;
-import org.ojalgo.optimisation.Optimisation;
-import org.ojalgo.optimisation.Variable;
-
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.MetOtherTraceEntry;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
@@ -145,18 +140,16 @@ public class QuantizedMeshGrid {
             validitySkipNoNodeCount = 0;
             prefixFallbackCount = 0;
             constraintLoggingEnabled = round == 0;
-            ExpressionsBasedModel model = new ExpressionsBasedModel();
-            Variable[] variableByClass = new Variable[classCount];
+            IntegerProgram model = Platforms.get().newIntegerProgram();
             for (int classIndex = 0; classIndex < classCount; classIndex++) {
-                variableByClass[classIndex] = model.newVariable("q" + classIndex)
-                        .lower(0).integer(true).weight(classWeight[classIndex]);
+                model.addVariable("q" + classIndex, classWeight[classIndex]);
             }
-            addConsistencyConstraints(model, variableByClass);
-            addValidityConstraints(model, variableByClass);
-            addLayoutConstraints(model, variableByClass);
+            addConsistencyConstraints(model);
+            addValidityConstraints(model);
+            addLayoutConstraints(model);
             for (int cutIndex = 0; cutIndex < separationCutPaths.size(); cutIndex++) {
-                Expression expression = model.newExpression("separation_" + cutIndex);
-                setPrefixCoefficients(expression, variableByClass, separationCutPaths.get(cutIndex));
+                IntegerProgramExpression expression = model.newExpression("separation_" + cutIndex);
+                setPrefixCoefficients(expression, separationCutPaths.get(cutIndex));
                 expression.lower(1);
             }
             if (round == 0) {
@@ -168,19 +161,19 @@ public class QuantizedMeshGrid {
                         layoutConstraintCount, prefixFallbackCount);
             }
 
-            Optimisation.Result result = model.minimise();
-            if (!result.getState().isFeasible()) {
-                throw new IllegalStateException("quantization ILP " + result.getState()
+            IntegerProgramSolution result = model.minimise();
+            if (!result.feasible) {
+                throw new IllegalStateException("quantization ILP " + result.state
                         + " — a consistent T-mesh always admits the all-ones quantization");
             }
-            optimal = result.getState().isOptimal();
-            objectiveValue = result.getValue();
+            optimal = result.optimal;
+            objectiveValue = result.objectiveValue;
 
             quantizedLengthByArc = new int[arcCount];
             int zeroArcs = 0;
             for (int arcId = 0; arcId < arcCount; arcId++) {
                 quantizedLengthByArc[arcId] = (int) Math.round(
-                        result.doubleValue(variableClassByArc[arcId]));
+                        result.variableValues[variableClassByArc[arcId]]);
                 if (quantizedLengthByArc[arcId] == 0) {
                     zeroArcs++;
                 }
@@ -188,7 +181,7 @@ public class QuantizedMeshGrid {
             int violations = verifySolution();
             Platforms.log(
                     "[quantize] state=%s objective=%.3f zeroArcs=%d/%d violations=%d round=%d%n",
-                    result.getState(), objectiveValue, zeroArcs, arcCount, violations, round);
+                    result.state, objectiveValue, zeroArcs, arcCount, violations, round);
 
             collapse = new ZeroArcCollapse(motorcycleGraph, quantizedLengthByArc).build();
             if (collapse.mergedSingularityVertexIdsByCluster.isEmpty()) {
@@ -362,7 +355,7 @@ public class QuantizedMeshGrid {
      * sides must be equal; expressions that cancel completely after the §5.2 merge
      * are skipped.
      */
-    private void addConsistencyConstraints(ExpressionsBasedModel model, Variable[] variableByClass) {
+    private void addConsistencyConstraints(IntegerProgram model) {
         int patchIndex = 0;
         for (TMeshPatch patch : motorcycleGraph.patches) {
             patchIndex++;
@@ -370,7 +363,7 @@ public class QuantizedMeshGrid {
                 continue;
             }
             for (int sideIndex = 0; sideIndex < 2; sideIndex++) {
-                double[] coefficientByClass = new double[variableByClass.length];
+                double[] coefficientByClass = new double[variableCount];
                 for (int arcId : patch.sides.get(sideIndex)) {
                     coefficientByClass[variableClassByArc[arcId]] += 1.0;
                 }
@@ -387,11 +380,11 @@ public class QuantizedMeshGrid {
                 if (!nonTrivial) {
                     continue;
                 }
-                Expression expression = model.newExpression(
+                IntegerProgramExpression expression = model.newExpression(
                         "consistency_" + patchIndex + "_" + sideIndex);
                 for (int classIndex = 0; classIndex < coefficientByClass.length; classIndex++) {
                     if (coefficientByClass[classIndex] != 0.0) {
-                        expression.set(variableByClass[classIndex], coefficientByClass[classIndex]);
+                        expression.set(classIndex, coefficientByClass[classIndex]);
                     }
                 }
                 expression.level(0);
@@ -408,7 +401,7 @@ public class QuantizedMeshGrid {
      * <p>
      * See also: Lyon 2021 Section 4
      */
-    private void addValidityConstraints(ExpressionsBasedModel model, Variable[] variableByClass) {
+    private void addValidityConstraints(IntegerProgram model) {
         for (Trace trace : motorcycleGraph.traces) {
             if (trace.chainArcIds.isEmpty()) {
                 continue;
@@ -452,8 +445,8 @@ public class QuantizedMeshGrid {
             if (prefix.isEmpty()) {
                 continue;
             }
-            Expression expression = model.newExpression("validity_" + trace.traceId);
-            setPrefixCoefficients(expression, variableByClass, prefix);
+            IntegerProgramExpression expression = model.newExpression("validity_" + trace.traceId);
+            setPrefixCoefficients(expression, prefix);
             expression.lower(1);
             validityConstraintCount++;
         }
@@ -468,7 +461,7 @@ public class QuantizedMeshGrid {
      * <p>
      * See also: Lyon 2021 Section 4.4
      */
-    private void addLayoutConstraints(ExpressionsBasedModel model, Variable[] variableByClass) {
+    private void addLayoutConstraints(IntegerProgram model) {
         double tanAlpha = Math.tan(alphaRadians);
         Set<Long> emitted = new HashSet<>();
         for (Trace trace : motorcycleGraph.traces) {
@@ -506,8 +499,8 @@ public class QuantizedMeshGrid {
                 if (prefix.isEmpty()) {
                     continue;
                 }
-                Expression expression = model.newExpression("layout_" + key);
-                setPrefixCoefficients(expression, variableByClass, prefix);
+                IntegerProgramExpression expression = model.newExpression("layout_" + key);
+                setPrefixCoefficients(expression, prefix);
                 expression.lower(1);
                 layoutConstraintCount++;
             }
@@ -542,15 +535,15 @@ public class QuantizedMeshGrid {
      * Accumulate +1 per prefix arc onto its class variable in the expression
      * (duplicate classes in one prefix sum their coefficients).
      */
-    private void setPrefixCoefficients(Expression expression, Variable[] variableByClass,
+    private void setPrefixCoefficients(IntegerProgramExpression expression,
             List<Integer> prefixArcIds) {
-        double[] coefficientByClass = new double[variableByClass.length];
+        double[] coefficientByClass = new double[variableCount];
         for (int arcId : prefixArcIds) {
             coefficientByClass[variableClassByArc[arcId]] += 1.0;
         }
         for (int classIndex = 0; classIndex < coefficientByClass.length; classIndex++) {
             if (coefficientByClass[classIndex] != 0.0) {
-                expression.set(variableByClass[classIndex], coefficientByClass[classIndex]);
+                expression.set(classIndex, coefficientByClass[classIndex]);
             }
         }
     }

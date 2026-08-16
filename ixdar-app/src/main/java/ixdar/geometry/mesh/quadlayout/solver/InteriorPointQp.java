@@ -379,10 +379,11 @@ public final class InteriorPointQp {
         for (int i = 0; i < n; i++) {
             inversePermutation[permutation[i]] = i;
         }
-        if (CholeskyBackend.pardisoAvailable() && !forcePureJavaBackend) {
+        NativeCholeskyBackend nativeBackend = forcePureJavaBackend ? null : CholeskyBackend.nativeBackend();
+        if (nativeBackend != null) {
             CompressedSparseRowArrays upperCsr = condensed.toPermutedUpperCompressedSparseRow(
                     n, noneFixed, identityIndices, identityIndices, permutation, inversePermutation);
-            factor = new PardisoCholesky(upperCsr, n);
+            factor = nativeBackend.factorUpper(upperCsr, n);
             factorValueSource = new int[upperCsr.values.length];
             for (int permutedRow = 0; permutedRow < n; permutedRow++) {
                 for (int position = upperCsr.rowPtr[permutedRow]; position < upperCsr.rowPtr[permutedRow + 1]; position++) {

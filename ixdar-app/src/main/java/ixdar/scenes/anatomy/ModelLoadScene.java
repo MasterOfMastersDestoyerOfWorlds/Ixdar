@@ -1,14 +1,11 @@
 package ixdar.scenes.anatomy;
 
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.graphics.render.model.AssimpModelRuntime;
 import ixdar.graphics.render.model.ModelHandle;
 import ixdar.graphics.render.model.ModelRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.file.FileManagement;
 import ixdar.scenes.Scene;
-
-import org.joml.Vector3f;
 
 @SceneAnnotation(id = "model-load-canvas")
 public class ModelLoadScene extends Scene {
@@ -22,7 +19,7 @@ public class ModelLoadScene extends Scene {
     public void initGL() {
         super.initGL();
         try {
-            modelRuntime = new AssimpModelRuntime();
+            modelRuntime = Platforms.get().newModelRuntime();
             model = modelRuntime.loadFromAssetRepo(MODEL_FILE_NAME);
             modelRuntime.frameCamera(model, camera);
             String assetPath = FileManagement.resolveAssetPath(MODEL_FILE_NAME);

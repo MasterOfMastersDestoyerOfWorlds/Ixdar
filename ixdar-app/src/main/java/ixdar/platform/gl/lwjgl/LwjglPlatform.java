@@ -28,6 +28,7 @@ import java.nio.file.Files;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
@@ -41,9 +42,17 @@ import org.lwjgl.system.MemoryStack;
 import com.google.gson.Gson;
 
 import ixdar.canvas.IxdarWindow;
+import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
+import ixdar.geometry.mesh.quadlayout.quantization.OjAlgoIntegerProgram;
+import ixdar.geometry.mesh.quadlayout.solver.NativeCholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.PardisoBackend;
 import ixdar.graphics.render.Texture;
+import ixdar.graphics.render.model.AssimpModelRuntime;
+import ixdar.graphics.render.model.ModelRuntime;
 import ixdar.graphics.render.text.FontAtlasDTO;
 import ixdar.platform.Platforms;
+import ixdar.platform.concurrent.ThreadWorkerPool;
+import ixdar.platform.concurrent.WorkerPool;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.gl.IxBuffer;
@@ -57,6 +66,7 @@ public class LwjglPlatform implements Platform {
     private static final ConcurrentLinkedQueue<Runnable> inputQueue = new ConcurrentLinkedQueue<>();
 
     private final long window;
+    private final PardisoBackend pardisoBackend = new PardisoBackend();
     private float frameBufferSizeX;
     private float frameBufferSizeY;
     private int platformId;
@@ -218,6 +228,36 @@ public class LwjglPlatform implements Platform {
         } catch (IOException e) {
             return null;
         }
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public boolean fileExists(String path) {
+        return path != null && !path.isEmpty() && Files.isReadable(Paths.get(path));
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public ModelRuntime newModelRuntime() throws Exception {
+        return new AssimpModelRuntime();
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public NativeCholeskyBackend nativeCholeskyBackend() {
+        return pardisoBackend;
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public IntegerProgram newIntegerProgram() {
+        return new OjAlgoIntegerProgram();
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public WorkerPool newWorkerPool(int workerCount, String threadName) {
+        return new ThreadWorkerPool(workerCount, threadName);
     }
 
     /** {@inheritDoc}. */

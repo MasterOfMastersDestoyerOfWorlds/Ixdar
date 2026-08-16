@@ -10,8 +10,6 @@ import org.teavm.jso.JSBody;
 import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.dom.html.HTMLDocument;
 
-import org.lwjgl.system.Configuration;
-
 import ixdar.annotations.scene.SceneDrawable;
 import ixdar.graphics.render.Clock;
 import ixdar.platform.Platforms;
@@ -64,10 +62,6 @@ public final class WebLauncher {
             NoSuchMethodException, SecurityException, UnsupportedEncodingException, IOException {
         startTime = Clock.time();
         System.setProperty("joml.format", "false");
-        try {
-            Configuration.DEBUG_STREAM.set(System.err);
-        } catch (Throwable ignored) {
-        }
 
         HTMLDocument document = Window.current().getDocument();
         canvasElements = new HTMLCanvasElement[args.length];

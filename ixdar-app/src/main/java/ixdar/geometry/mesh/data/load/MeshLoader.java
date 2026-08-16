@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.data.load;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -54,7 +55,7 @@ public final class MeshLoader {
         if (!Files.exists(file) && Files.exists(Paths.get(MODULE_DIRECTORY, path))) {
             file = Paths.get(MODULE_DIRECTORY, path);
         }
-        String content = Files.readString(file);
+        String content = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
         if (lower.endsWith(".obj")) {
             return ObjMeshParser.load(content);
         } else if (lower.endsWith(".ply")) {

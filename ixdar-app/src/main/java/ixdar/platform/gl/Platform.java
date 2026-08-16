@@ -3,8 +3,12 @@ package ixdar.platform.gl;
 import java.io.IOException;
 import java.util.function.Consumer;
 
+import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
+import ixdar.geometry.mesh.quadlayout.solver.NativeCholeskyBackend;
 import ixdar.graphics.render.Texture;
+import ixdar.graphics.render.model.ModelRuntime;
 import ixdar.graphics.render.text.FontAtlasDTO;
+import ixdar.platform.concurrent.WorkerPool;
 import ixdar.platform.file.TextFile;
 
 /**
@@ -142,6 +146,15 @@ public interface Platform {
     String trySyncLoadSource(String resourceFolder, String filename);
 
     /**
+     * Desktop/headless: whether {@code path} names an existing file on disk. Web: always false, since the
+     * browser has no filesystem to probe.
+     *
+     * @param path filesystem path, absolute or relative to the working directory
+     * @return {@code true} when the file exists and is readable
+     */
+    boolean fileExists(String path);
+
+    /**
      * Asynchronously load a shader source from the {@code glsl/} resource folder.
      *
      * @param resourceFolder ignored on most backends (always reads from {@code glsl/})
@@ -179,6 +192,44 @@ public interface Platform {
      * @throws IOException on filesystem failure
      */
     void writeTextFile(TextFile path, boolean append) throws IOException;
+
+    /**
+     * Backend that loads and draws asset-repo model files. Desktop and headless go through Assimp;
+     * web has no equivalent, so the browser backend refuses rather than linking a native importer
+     * into the JavaScript build.
+     *
+     * @throws Exception if the backend's importer cannot be initialized
+     * @return a new model runtime owned by the caller
+     */
+    ModelRuntime newModelRuntime() throws Exception;
+
+    /**
+     * Native acceleration for the quad-layout Cholesky solves, or {@code null} when the platform has
+     * none and the pure-Java path should be used. Naming the implementation here rather than in the
+     * solver is what keeps MKL and JavaCPP out of the browser build.
+     *
+     * @return the platform's native backend, or {@code null}
+     */
+    NativeCholeskyBackend nativeCholeskyBackend();
+
+    /**
+     * A fresh integer-program builder for the quantization solve. Naming the solver here rather than
+     * in the quantization code is what keeps ojAlgo — whose static initializers reach for executors
+     * and {@code ManagementFactory} — out of the browser build.
+     *
+     * @return a new, empty integer program
+     */
+    IntegerProgram newIntegerProgram();
+
+    /**
+     * A pool for fanning identical work out across {@code workerCount} slices. Backends without
+     * threads return one that runs every task inline.
+     *
+     * @param workerCount number of workers the caller will submit per round, at least one
+     * @param threadName name for the pool's threads, for profiler and stack-trace readability
+     * @return a new pool the caller must shut down
+     */
+    WorkerPool newWorkerPool(int workerCount, String threadName);
 
     /**
      * Wall-clock time the application started.

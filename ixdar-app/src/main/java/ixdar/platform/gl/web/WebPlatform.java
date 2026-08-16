@@ -20,9 +20,14 @@ import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.typedarrays.Uint8ClampedArray;
 
 import ixdar.canvas.WebLauncher;
+import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
+import ixdar.geometry.mesh.quadlayout.solver.NativeCholeskyBackend;
 import ixdar.graphics.render.Texture;
+import ixdar.graphics.render.model.ModelRuntime;
 import ixdar.graphics.render.text.FontAtlasDTO;
 import ixdar.platform.Platforms;
+import ixdar.platform.concurrent.InlineWorkerPool;
+import ixdar.platform.concurrent.WorkerPool;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.gl.Platform;
@@ -430,6 +435,74 @@ public class WebPlatform implements Platform {
     @Override
     public String trySyncLoadSource(String resourceFolder, String filename) {
         return null;
+    }
+
+    /**
+     * {@inheritDoc}.
+     *
+     * @param path ignored; the browser has no filesystem to probe
+     * @return always {@code false}
+     */
+    @Override
+    public boolean fileExists(String path) {
+        return false;
+    }
+
+    /**
+     * {@inheritDoc}.
+     *
+     * <p>Assimp is a native importer with no browser counterpart. Refusing here is what keeps it out
+     * of the JavaScript build: the web launcher only ever reaches this backend, so the desktop one —
+     * and the whole LWJGL native stack behind it — never enters TeaVM's reachability graph.
+     *
+     * @return never returns
+     * @throws UnsupportedOperationException always
+     */
+    @Override
+    public ModelRuntime newModelRuntime() {
+        throw new UnsupportedOperationException("Asset-repo model loading is desktop-only; "
+                + "use a data-obj or data-dsl canvas on web");
+    }
+
+    /**
+     * {@inheritDoc}.
+     *
+     * <p>Returning null is what keeps MKL and JavaCPP out of the JavaScript output: the web launcher
+     * only ever reaches this backend, so no native solver enters TeaVM's reachability graph.
+     *
+     * @return always {@code null}; solves take the pure-Java EJML path
+     */
+    @Override
+    public NativeCholeskyBackend nativeCholeskyBackend() {
+        return null;
+    }
+
+    /**
+     * {@inheritDoc}.
+     *
+     * <p>Refusing here is what keeps ojAlgo out of the JavaScript output; the quad-layout
+     * quantization is a desktop pipeline stage and never runs in the browser.
+     *
+     * @return never returns
+     * @throws UnsupportedOperationException always
+     */
+    @Override
+    public IntegerProgram newIntegerProgram() {
+        throw new UnsupportedOperationException("Integer programming is desktop-only");
+    }
+
+    /**
+     * {@inheritDoc}.
+     *
+     * <p>JavaScript has no threads, so every task runs inline on the caller.
+     *
+     * @param workerCount ignored; the inline pool has no threads to size
+     * @param threadName ignored; no thread is created
+     * @return a pool that runs each task on the calling thread
+     */
+    @Override
+    public WorkerPool newWorkerPool(int workerCount, String threadName) {
+        return new InlineWorkerPool();
     }
 
     /**

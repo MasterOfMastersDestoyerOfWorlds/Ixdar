@@ -1,8 +1,5 @@
 package ixdar.geometry.mesh.quadlayout.solver;
 
-import org.bytedeco.javacpp.Loader;
-import org.bytedeco.mkl.global.mkl_rt;
-
 import ixdar.platform.Platforms;
 
 /**
@@ -12,26 +9,18 @@ import ixdar.platform.Platforms;
  */
 public final class CholeskyBackend {
 
-    private static Boolean pardisoLoadable;
-    private static boolean preloadStarted;
-
     private CholeskyBackend() {
     }
 
     /**
-     * Kick off the native-library probe on a background daemon thread so the MKL
-     * load overlaps earlier pipeline stages. Safe to call repeatedly; only the
-     * first call spawns a thread, and a concurrent foreground
-     * {@link #pardisoAvailable()} waits for the same load.
+     * Kick off the native-library probe on a background daemon thread so the load
+     * overlaps earlier pipeline stages. No-op on platforms without a native backend.
      */
-    public static synchronized void preloadAsync() {
-        if (preloadStarted) {
-            return;
+    public static void preloadAsync() {
+        NativeCholeskyBackend backend = Platforms.get().nativeCholeskyBackend();
+        if (backend != null) {
+            backend.preloadAsync();
         }
-        preloadStarted = true;
-        Thread preload = new Thread(CholeskyBackend::pardisoAvailable, "pardiso-preload");
-        preload.setDaemon(true);
-        preload.start();
     }
 
     /**
@@ -49,8 +38,9 @@ public final class CholeskyBackend {
      */
     public static FactorizedSystem factor(NormalMatrix matrix, int freeCount, boolean[] fixed,
             int[] compactOf, int[] fullOf, int[] perm, int[] invPerm) {
-        if (pardisoAvailable()) {
-            return new PardisoCholesky(
+        NativeCholeskyBackend backend = nativeBackend();
+        if (backend != null) {
+            return backend.factorUpper(
                     matrix.toPermutedUpperCompressedSparseRow(
                             freeCount, fixed, compactOf, fullOf, perm, invPerm),
                     freeCount);
@@ -62,27 +52,22 @@ public final class CholeskyBackend {
     }
 
     /**
-     * Probe once whether the MKL natives can load on this machine. The probe must
-     * never crash the app — any load failure just means the pure-Java backend is
-     * used — so it catches every linkage/extraction failure mode JavaCPP's loader
-     * produces.
+     * Whether factorizations will take the native path, which also decides the storage callers must
+     * hand to {@link FactorizedSystem#refactorize}: row-major for native, column-major for EJML.
      *
-     * @return true iff the PARDISO (MKL) native backend is usable
+     * @return true iff the platform supplies a native backend whose libraries loaded
      */
-    public static synchronized boolean pardisoAvailable() {
-        if (pardisoLoadable == null) {
-            long loadStart = System.nanoTime();
-            try {
-                Loader.load(mkl_rt.class);
-                pardisoLoadable = Boolean.TRUE;
-                Platforms.log("[solver] PARDISO (MKL) native backend loaded in %.3fs%n",
-                        (System.nanoTime() - loadStart) / 1.0e9);
-            } catch (LinkageError | RuntimeException loadFailure) {
-                pardisoLoadable = Boolean.FALSE;
-                System.out.println("[solver] PARDISO natives unavailable ("
-                        + loadFailure.getMessage() + "); using pure-Java EJML backend");
-            }
-        }
-        return pardisoLoadable;
+    public static boolean pardisoAvailable() {
+        return nativeBackend() != null;
+    }
+
+    /**
+     * The platform's native backend when its libraries loaded, else {@code null}.
+     *
+     * @return usable native backend, or {@code null} to use the pure-Java path
+     */
+    public static NativeCholeskyBackend nativeBackend() {
+        NativeCholeskyBackend backend = Platforms.get().nativeCholeskyBackend();
+        return backend != null && backend.available() ? backend : null;
     }
 }

@@ -4,10 +4,6 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
@@ -18,6 +14,7 @@ import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 import ixdar.platform.Platforms;
+import ixdar.platform.concurrent.WorkerPool;
 
 /**
  * LCBK19 §6.2's re-parametrization: Newton with SPH17's composite-majorization
@@ -340,7 +337,7 @@ public final class GridMapOptimizer {
     private int assemblyWorkerCount;
 
     /** Fixed pool running the per-triangle Newton assembly. */
-    private ExecutorService assemblyPool;
+    private WorkerPool assemblyPool;
 
     /** Per-worker element evaluators, thread-confined. */
     private SymmetricDirichletEnergy[] elementByWorker;
@@ -403,11 +400,7 @@ public final class GridMapOptimizer {
         int size = dofs.slotCount * SLOT_COORDINATES;
         assemblyWorkerCount = Math.max(1,
                 Math.min(Math.min(workerThreads, MAX_WORKER_THREADS), triangleCount));
-        assemblyPool = Executors.newFixedThreadPool(assemblyWorkerCount, runnable -> {
-            Thread thread = new Thread(runnable, "grid-optimize-assembly");
-            thread.setDaemon(true);
-            return thread;
-        });
+        assemblyPool = Platforms.get().newWorkerPool(assemblyWorkerCount, "grid-optimize-assembly");
         elementByWorker = new SymmetricDirichletEnergy[assemblyWorkerCount];
         rightHandSideByWorker = new double[assemblyWorkerCount][size];
         diagonalByWorker = new double[assemblyWorkerCount][size];
@@ -916,15 +909,14 @@ public final class GridMapOptimizer {
     private double[] newtonDirection() {
         int size = dofs.slotCount * SLOT_COORDINATES;
         int chunk = (triangleCount + assemblyWorkerCount - 1) / assemblyWorkerCount;
-        Future<?>[] pending = new Future<?>[assemblyWorkerCount];
+        Runnable[] tasks = new Runnable[assemblyWorkerCount];
         for (int worker = 0; worker < assemblyWorkerCount; worker++) {
             int workerIndex = worker;
             int firstTriangle = Math.min(triangleCount, worker * chunk);
             int endTriangle = Math.min(triangleCount, firstTriangle + chunk);
-            pending[worker] = assemblyPool
-                    .submit(() -> accumulateTriangleRange(workerIndex, firstTriangle, endTriangle));
+            tasks[worker] = () -> accumulateTriangleRange(workerIndex, firstTriangle, endTriangle);
         }
-        awaitWorkers(pending, "Newton assembly");
+        assemblyPool.runAll(tasks, "Newton assembly");
         double[] diagonal = newtonDiagonal;
         double[] rightHandSide = newtonRightHandSide;
         Arrays.fill(diagonal, 0.0);
@@ -1104,15 +1096,15 @@ public final class GridMapOptimizer {
         int chunk = (triangleCount + assemblyWorkerCount - 1) / assemblyWorkerCount;
         double[] rootByWorker = new double[assemblyWorkerCount];
         int[] triangleByWorker = new int[assemblyWorkerCount];
-        Future<?>[] pending = new Future<?>[assemblyWorkerCount];
+        Runnable[] tasks = new Runnable[assemblyWorkerCount];
         for (int worker = 0; worker < assemblyWorkerCount; worker++) {
             int workerIndex = worker;
             int firstTriangle = Math.min(triangleCount, worker * chunk);
             int endTriangle = Math.min(triangleCount, firstTriangle + chunk);
-            pending[worker] = assemblyPool.submit(() -> maximumStepOfRange(workerIndex,
-                    firstTriangle, endTriangle, delta, rootByWorker, triangleByWorker));
+            tasks[worker] = () -> maximumStepOfRange(workerIndex,
+                    firstTriangle, endTriangle, delta, rootByWorker, triangleByWorker);
         }
-        awaitWorkers(pending, "maximal-step");
+        assemblyPool.runAll(tasks, "maximal-step");
         double alphaMax = Double.POSITIVE_INFINITY;
         for (int worker = 0; worker < assemblyWorkerCount; worker++) {
             if (rootByWorker[worker] < alphaMax) {
@@ -1190,26 +1182,6 @@ public final class GridMapOptimizer {
         }
         rootByWorker[worker] = alphaMax;
         triangleByWorker[worker] = blocking;
-    }
-
-    /**
-     * Awaits every submitted worker task, unwrapping failures.
-     *
-     * @param pending the submitted tasks
-     * @param stage   label naming the waiting stage in failure messages
-     */
-    private void awaitWorkers(Future<?>[] pending, String stage) {
-        for (Future<?> future : pending) {
-            try {
-                future.get();
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("interrupted waiting for the " + stage + " workers",
-                        interrupted);
-            } catch (ExecutionException failure) {
-                throw new IllegalStateException("a " + stage + " worker failed", failure);
-            }
-        }
     }
 
     /**
@@ -1323,15 +1295,15 @@ public final class GridMapOptimizer {
     private double totalEnergy(double[] slotU, double[] slotV) {
         int chunk = (triangleCount + assemblyWorkerCount - 1) / assemblyWorkerCount;
         double[] energyByWorker = new double[assemblyWorkerCount];
-        Future<?>[] pending = new Future<?>[assemblyWorkerCount];
+        Runnable[] tasks = new Runnable[assemblyWorkerCount];
         for (int worker = 0; worker < assemblyWorkerCount; worker++) {
             int workerIndex = worker;
             int firstTriangle = Math.min(triangleCount, worker * chunk);
             int endTriangle = Math.min(triangleCount, firstTriangle + chunk);
-            pending[worker] = assemblyPool.submit(() -> energyByWorker[workerIndex] =
-                    energyOfTriangleRange(workerIndex, firstTriangle, endTriangle, slotU, slotV));
+            tasks[worker] = () -> energyByWorker[workerIndex] =
+                    energyOfTriangleRange(workerIndex, firstTriangle, endTriangle, slotU, slotV);
         }
-        awaitWorkers(pending, "trial-energy");
+        assemblyPool.runAll(tasks, "trial-energy");
         double total = 0.0;
         for (int worker = 0; worker < assemblyWorkerCount; worker++) {
             total += energyByWorker[worker];
