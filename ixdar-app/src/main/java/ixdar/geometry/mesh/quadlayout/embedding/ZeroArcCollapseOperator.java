@@ -64,20 +64,33 @@ public final class ZeroArcCollapseOperator {
     /** Departure wedges the last drag banned as flank-inconsistent at its fixed vertex. */
     public int bannedDepartureWedgeCount;
 
-    /**
-     * Vertices the last routable-space flood reached; see {@link #floodFreeSpace}.
-     */
-    public final Set<Integer> freeRegion = new HashSet<>();
+    /** Faces the last {@link #floodFreeSpace} reached, in flood order. */
+    public final IntIdList freeRegionFaces = new IntIdList(0);
+
+    /** Visit stamps of {@link #floodFreeSpace}, indexed by copy face. */
+    public int[] freeRegionStampByCopyFace = new int[0];
+
+    /** Current stamp generation of {@link #freeRegionStampByCopyFace}. */
+    public int freeRegionStamp;
 
     /**
      * Patches the running collapse touches: the flanks of the arc it collapses and
-     * of every arc it drags. They are the covers the collapse must re-read once the
-     * merge is done.
+     * of every arc it drags. They are what a mid-collapse route may be admitted to.
      */
     public int[] touchedPatches = new int[0];
 
     /** Live entry count of {@link #touchedPatches}. */
     public int touchedPatchCount;
+
+    /**
+     * Of {@link #touchedPatches}, the flanks of arcs a route actually moved — the
+     * only covers whose faces changed, so the only ones {@link #finishCollapse}
+     * re-reads. Alias-only merges keep their faces and resolve through the covers.
+     */
+    public int[] dirtyPatches = new int[0];
+
+    /** Live entry count of {@link #dirtyPatches}. */
+    public int dirtyPatchCount;
 
     /**
      * Arc the in-flight collapse is collapsing, or {@link EmbeddedTMesh#NONE} when
@@ -254,6 +267,7 @@ public final class ZeroArcCollapseOperator {
         lastDraggedArcId = EmbeddedTMesh.NONE;
         lastDraggedPreviousPath.clear();
         touchedPatchCount = 0;
+        dirtyPatchCount = 0;
         rememberTouchedPatch(arc.leftPatchId);
         rememberTouchedPatch(arc.rightPatchId);
         for (int incidentArcId : fan) {
@@ -354,9 +368,9 @@ public final class ZeroArcCollapseOperator {
             }
         }
         // The drags never relabel — mid-collapse cells are transient merges no label fits —
-        // so every touched cover is re-read here, once the arrangement is whole again.
-        for (int index = 0; index < touchedPatchCount; index++) {
-            tmesh.relabelPatchCover(touchedPatches[index]);
+        // so every cover a route moved is re-read here, once the arrangement is whole again.
+        for (int index = 0; index < dirtyPatchCount; index++) {
+            tmesh.relabelPatchCover(dirtyPatches[index]);
         }
         collapsedCount++;
         collapsingArcId = EmbeddedTMesh.NONE;
@@ -418,6 +432,28 @@ public final class ZeroArcCollapseOperator {
                     Math.max(TOUCHED_PATCH_INITIAL_CAPACITY, touchedPatchCount * 2));
         }
         touchedPatches[touchedPatchCount++] = patchId;
+    }
+
+    /**
+     * Records a patch whose faces a routed drag moved, for the relabel that follows
+     * the collapse.
+     *
+     * @param patchId flanking patch of the rerouted arc, or {@link EmbeddedTMesh#NONE}
+     */
+    private void rememberDirtyPatch(int patchId) {
+        if (patchId == EmbeddedTMesh.NONE) {
+            return;
+        }
+        for (int index = 0; index < dirtyPatchCount; index++) {
+            if (dirtyPatches[index] == patchId) {
+                return;
+            }
+        }
+        if (dirtyPatchCount == dirtyPatches.length) {
+            dirtyPatches = Arrays.copyOf(dirtyPatches,
+                    Math.max(TOUCHED_PATCH_INITIAL_CAPACITY, dirtyPatchCount * 2));
+        }
+        dirtyPatches[dirtyPatchCount++] = patchId;
     }
 
     /**
@@ -522,6 +558,8 @@ public final class ZeroArcCollapseOperator {
         boolean departureConsistent = !routed
                 || departureWedgeConsistent(arcId, vertices.get(0));
         if (routed && departureConsistent && fanStillReachesTarget(movedVertex, targetVertex)) {
+            rememberDirtyPatch(arc.leftPatchId);
+            rememberDirtyPatch(arc.rightPatchId);
             return true;
         }
         List<Integer> discardedRoute = routed ? List.copyOf(arc.path.copyVertexPath) : List.of();
@@ -532,10 +570,9 @@ public final class ZeroArcCollapseOperator {
         blockedDragCount++;
         Set<Integer> boundaryArcs = new HashSet<>();
         boolean reachedTarget = floodFreeSpace(vertices.get(0), targetVertex, boundaryArcs);
-        int[] freeFaces = new int[freeRegion.size()];
-        int freeCursor = 0;
-        for (int faceId : freeRegion) {
-            freeFaces[freeCursor++] = faceId;
+        int[] freeFaces = new int[freeRegionFaces.size()];
+        for (int index = 0; index < freeFaces.length; index++) {
+            freeFaces[index] = freeRegionFaces.get(index);
         }
         ArrangementDiagnostic diagnostic = new ArrangementDiagnostic();
         diagnostic.addFaceGroup("free region", freeFaces);
@@ -553,7 +590,7 @@ public final class ZeroArcCollapseOperator {
                 + vertices + " channel " + channel
                 + coverReport(vertices.get(0)) + coverReport(targetVertex)
                 + fanReport(vertices.get(0)) + fanReport(targetVertex)
-                + "\n free region from " + vertices.get(0) + " reaches " + freeRegion.size()
+                + "\n free region from " + vertices.get(0) + " reaches " + freeRegionFaces.size()
                 + " faces, target reached " + reachedTarget
                 + ", bounded by arcs " + boundaryArcs
                 + "\n arrival wedges allowed " + allowedArrivalWedges + ", banned as"
@@ -893,30 +930,38 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * Floods the faces around a vertex into {@link #freeRegion}, crossing only
-     * edges no arc holds. Faces rather than vertices, because the search can split
-     * its way between two arcs but can never cross one, so this is the region a
-     * route could still reach.
+     * Floods the faces a route could still reach into {@link #freeRegionFaces},
+     * crossing only edges no arc holds.
      *
      * @param startVertex  vertex to flood from
      * @param targetVertex vertex to look for
-     * @param boundaryArcs receives the arcs the flood stopped at, or null to skip
-     *                     them
+     * @param boundaryArcs receives the arcs the flood stopped at, or null to stop at
+     *                     first target contact, leaving {@link #freeRegionFaces} partial
      * @return whether the flood reached a face on the target
      */
     private boolean floodFreeSpace(int startVertex, int targetVertex, Set<Integer> boundaryArcs) {
         EmbeddedMeshTopology topology = tmesh.topology;
         HalfEdgeMesh copy = topology.copy;
-        freeRegion.clear();
-        List<Integer> frontier = new ArrayList<>();
+        int faceIdBound = topology.sourceFaceByCopyFace.length;
+        if (freeRegionStampByCopyFace.length < faceIdBound) {
+            freeRegionStampByCopyFace = Arrays.copyOf(freeRegionStampByCopyFace,
+                    Math.max(faceIdBound, freeRegionStampByCopyFace.length * 2));
+        }
+        freeRegionStamp++;
+        freeRegionFaces.clear();
+        boolean stopAtTarget = boundaryArcs == null;
         for (int index = 0; index < copy.vertexFaceCount(startVertex); index++) {
             int faceId = copy.vertexFaceAt(startVertex, index);
-            if (freeRegion.add(faceId)) {
-                frontier.add(faceId);
+            if (freeRegionStampByCopyFace[faceId] != freeRegionStamp) {
+                freeRegionStampByCopyFace[faceId] = freeRegionStamp;
+                freeRegionFaces.add(faceId);
+                if (stopAtTarget && faceTouchesVertex(faceId, targetVertex)) {
+                    return true;
+                }
             }
         }
-        for (int cursor = 0; cursor < frontier.size(); cursor++) {
-            int faceId = frontier.get(cursor);
+        for (int cursor = 0; cursor < freeRegionFaces.size(); cursor++) {
+            int faceId = freeRegionFaces.get(cursor);
             for (int corner = 0; corner < copy.faceHalfEdgeCount(faceId); corner++) {
                 int edgeId = copy.faceEdgeAt(faceId, corner);
                 if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
@@ -929,13 +974,36 @@ public final class ZeroArcCollapseOperator {
                 int neighbour = copy.halfEdgeFace(halfEdge) == faceId
                         ? copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge))
                         : copy.halfEdgeFace(halfEdge);
-                if (neighbour >= 0 && freeRegion.add(neighbour)) {
-                    frontier.add(neighbour);
+                if (neighbour >= 0 && freeRegionStampByCopyFace[neighbour] != freeRegionStamp) {
+                    freeRegionStampByCopyFace[neighbour] = freeRegionStamp;
+                    freeRegionFaces.add(neighbour);
+                    if (stopAtTarget && faceTouchesVertex(neighbour, targetVertex)) {
+                        return true;
+                    }
                 }
             }
         }
         for (int index = 0; index < copy.vertexFaceCount(targetVertex); index++) {
-            if (freeRegion.contains(copy.vertexFaceAt(targetVertex, index))) {
+            int faceId = copy.vertexFaceAt(targetVertex, index);
+            if (faceId >= 0 && faceId < freeRegionStampByCopyFace.length
+                    && freeRegionStampByCopyFace[faceId] == freeRegionStamp) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether one face has a vertex, read off the copy's face adjacency.
+     *
+     * @param faceId   face to test
+     * @param vertexId vertex looked for
+     * @return true when the face touches the vertex
+     */
+    private boolean faceTouchesVertex(int faceId, int vertexId) {
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        for (int index = 0; index < copy.faceVertexCount(faceId); index++) {
+            if (copy.faceVertexAt(faceId, index) == vertexId) {
                 return true;
             }
         }

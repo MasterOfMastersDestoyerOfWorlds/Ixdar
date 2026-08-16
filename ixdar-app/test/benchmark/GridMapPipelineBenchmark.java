@@ -9,6 +9,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.platform.Platforms;
 
 /**
  * Wall-clock benchmark of the pipeline through the grid-map relaxation,
@@ -21,8 +22,8 @@ public final class GridMapPipelineBenchmark {
     private static final double NANOS_PER_SECOND = 1.0e9;
 
     /**
-     * Runs the engine through {@code buildGlobalGridMap} and prints the wall
-     * time of each stage group plus the grid-map stage on its own.
+     * Runs the engine through {@code buildGlobalGridMap} and prints the wall time
+     * of each stage group plus the grid-map stage on its own.
      *
      * @throws IOException when the mesh file cannot be read
      */
@@ -44,9 +45,9 @@ public final class GridMapPipelineBenchmark {
         engine.buildGlobalGridMap();
         long gridMapEnd = System.nanoTime();
 
-        System.out.printf("[benchmark] %s V=%d F=%d%n", offPath, mesh.vertexCount(),
+        Platforms.log("[benchmark] %s V=%d F=%d%n", offPath, mesh.vertexCount(),
                 mesh.faceCount());
-        System.out.printf(
+        Platforms.log(
                 "[benchmark] cross field+seamless %.3fs, contract %.3fs, patch maps %.3fs,"
                         + " grid map %.3fs, total %.3fs%n",
                 (seamlessEnd - start) / NANOS_PER_SECOND,
@@ -54,7 +55,7 @@ public final class GridMapPipelineBenchmark {
                 (patchMapsEnd - contractedEnd) / NANOS_PER_SECOND,
                 (gridMapEnd - patchMapsEnd) / NANOS_PER_SECOND,
                 (gridMapEnd - start) / NANOS_PER_SECOND);
-        System.out.printf("[benchmark] grid-optimize energy %.6e -> %.6e iterations=%d"
+        Platforms.log("[benchmark] grid-optimize energy %.6e -> %.6e iterations=%d"
                 + " flipped=%d%n",
                 engine.globalGrid.gridOptimizer.energyBefore,
                 engine.globalGrid.gridOptimizer.energyAfter,

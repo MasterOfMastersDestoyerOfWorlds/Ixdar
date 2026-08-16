@@ -9,6 +9,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.platform.Platforms;
 
 /**
  * The Tutte map of every patch of a conforming layout onto the rectangle its
@@ -31,7 +32,9 @@ public final class LayoutPatchMaps {
     /** Parametric length one quad edge should span. */
     public final double targetEdgeLength;
 
-    /** Quads per arc and the boundary parameter, measured from the parametrization. */
+    /**
+     * Quads per arc and the boundary parameter, measured from the parametrization.
+     */
     public LayoutResolution resolution;
 
     /**
@@ -57,8 +60,9 @@ public final class LayoutPatchMaps {
     public int uniformFallbackPatchCount;
 
     /**
-     * Patches still folded after the uniform re-solve. Tutte's theorem forbids this,
-     * so a non-zero count names a broken precondition upstream, not a solver problem.
+     * Patches still folded after the uniform re-solve. Tutte's theorem forbids
+     * this, so a non-zero count names a broken precondition upstream, not a solver
+     * problem.
      */
     public int foldedPatchCount;
 
@@ -80,9 +84,9 @@ public final class LayoutPatchMaps {
 
     /**
      * Refines the working copy, measures the layout's resolution, recomputes the
-     * patch regions and solves every patch's map. A patch whose cotangent solve folds
-     * is re-solved with uniform weights, which Tutte's theorem guarantees valid
-     * (RPP17 §6); one still folded afterwards is counted, not repaired.
+     * patch regions and solves every patch's map. A patch whose cotangent solve
+     * folds is re-solved with uniform weights, which Tutte's theorem guarantees
+     * valid (RPP17 §6); one still folded afterwards is counted, not repaired.
      *
      * @throws IllegalStateException when the regions do not partition the surface
      * @return this, solved
@@ -145,11 +149,11 @@ public final class LayoutPatchMaps {
                     tmesh.sideQuadCount(patch.patchId, 1) });
         }
         byArea.sort((first, second) -> Double.compare(second[0], first[0]));
-        System.out.printf("[patch-maps] region balance: faces=%d area=%.4f over %d patches;"
+        Platforms.log("[patch-maps] region balance: faces=%d area=%.4f over %d patches;"
                 + " largest by area:%n", totalFaces, totalArea, byArea.size());
         for (int index = 0; index < Math.min(LARGEST_REGIONS_LISTED, byArea.size()); index++) {
             double[] entry = byArea.get(index);
-            System.out.printf("[patch-maps]   patch %d: %.2f%% of area, %d faces, rectangle %dx%d%n",
+            Platforms.log("[patch-maps]   patch %d: %.2f%% of area, %d faces, rectangle %dx%d%n",
                     (int) entry[1], 100.0 * entry[0] / Math.max(1.0e-30, totalArea),
                     (int) entry[2], (int) entry[3], (int) entry[4]);
         }

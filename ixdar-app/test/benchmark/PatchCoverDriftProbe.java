@@ -19,14 +19,18 @@ import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.records.PatchCorridor;
+import ixdar.platform.Platforms;
 
 /**
- * Measures how far the contraction's maintained patch-cover labels drift from the covers a fresh
- * flood finds, on a real mesh; pick it with {@code -Dbenchmark.off}.
+ * Measures how far the contraction's maintained patch-cover labels drift from
+ * the covers a fresh flood finds, on a real mesh; pick it with
+ * {@code -Dbenchmark.off}.
  *
- * <p>The drags are restricted to the two patches flanking the arc being dragged, and the ones with
- * no route there escape to an unrestricted search. This reports what the labels look like at the
- * end of the contraction, which is the evidence for what a fixture must reproduce.
+ * <p>
+ * The drags are restricted to the two patches flanking the arc being dragged,
+ * and the ones with no route there escape to an unrestricted search. This
+ * reports what the labels look like at the end of the contraction, which is the
+ * evidence for what a fixture must reproduce.
  */
 public final class PatchCoverDriftProbe {
 
@@ -40,8 +44,8 @@ public final class PatchCoverDriftProbe {
     private static final int REPORTED_THIEVES = 3;
 
     /**
-     * Contracts the mesh's T-mesh and reports its escapes, orphaned labels and per-patch cover
-     * drift.
+     * Contracts the mesh's T-mesh and reports its escapes, orphaned labels and
+     * per-patch cover drift.
      *
      * @throws IOException when the mesh file cannot be read
      */
@@ -57,7 +61,7 @@ public final class PatchCoverDriftProbe {
 
         EmbeddedMeshTopology topology = tmesh.topology;
         HalfEdgeMesh copy = topology.copy;
-        System.out.printf("[drift] %s blocked=%d unrestrictedExtensions=%d%n", offPath,
+        Platforms.log("[drift] %s blocked=%d unrestrictedExtensions=%d%n", offPath,
                 tmesh.collapseArc.blockedDragCount,
                 tmesh.extendTJunction.unrestrictedExtensionCount);
 
@@ -77,7 +81,7 @@ public final class PatchCoverDriftProbe {
             }
             labeledCountByPatch.merge(label, 1, Integer::sum);
         }
-        System.out.printf("[drift] faces=%d unlabeled=%d orphanedToDeadPatch=%d%n",
+        Platforms.log("[drift] faces=%d unlabeled=%d orphanedToDeadPatch=%d%n",
                 copy.faceCount(), unlabeled, orphaned);
 
         PatchCorridor corridor = new PatchCorridor(tmesh);
@@ -109,19 +113,20 @@ public final class PatchCoverDriftProbe {
                 thievesByPatch.put(patch.patchId, thieves);
             }
         }
-        System.out.printf("[drift] alivePatches=%d driftingPatches=%d stolenFaces=%d%n",
+        Platforms.log("[drift] alivePatches=%d driftingPatches=%d stolenFaces=%d%n",
                 alivePatches, drifting.size(), stolenTotal);
 
         drifting.sort(Comparator.comparingInt((int[] entry) -> -entry[3]));
         for (int index = 0; index < Math.min(REPORTED_PATCHES, drifting.size()); index++) {
             int[] entry = drifting.get(index);
-            System.out.printf("[drift]   patch %d: trueFaces=%d labeledFaces=%d stolen=%d by %s%n",
+            Platforms.log("[drift]   patch %d: trueFaces=%d labeledFaces=%d stolen=%d by %s%n",
                     entry[0], entry[1], entry[2], entry[3], worstThieves(thievesByPatch.get(entry[0])));
         }
     }
 
     /**
-     * The patches holding the most of one patch's faces, as {@code patch=count} text.
+     * The patches holding the most of one patch's faces, as {@code patch=count}
+     * text.
      *
      * @param thieves count of stolen faces per labelling patch
      * @return a short description of the biggest thieves

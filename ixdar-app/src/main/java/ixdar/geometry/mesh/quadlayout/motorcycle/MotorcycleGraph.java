@@ -26,6 +26,7 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceEvent;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TracePort;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.platform.Platforms;
 
 /**
  * Lyon 2021 §3 modified motorcycle graph T-mesh: traces, nodes, arcs, and
@@ -45,9 +46,10 @@ public final class MotorcycleGraph {
     private static final int PROGRESS_LOG_EVERY_EVENTS = 5000;
     /** Hard cap on processed events so a stuck queue cannot run forever. */
     /**
-     * Event backstop per source face. Every event either crosses a face edge or nodes a
-     * crossing, so the arrangement cannot need more than a small multiple of the face count;
-     * a flat cap starves a large mesh and truncates its traces mid-flight.
+     * Event backstop per source face. Every event either crosses a face edge or
+     * nodes a crossing, so the arrangement cannot need more than a small multiple
+     * of the face count; a flat cap starves a large mesh and truncates its traces
+     * mid-flight.
      */
     private static final int MAX_EVENTS_PER_FACE = 8;
     /**
@@ -103,22 +105,24 @@ public final class MotorcycleGraph {
     public int dedupedMeetingCount;
 
     /**
-     * Crossings where the other trace was still alive, so the intersection node joined only
-     * the candidate's chain. The other trace's boundary is left to the subdivision pass.
+     * Crossings where the other trace was still alive, so the intersection node
+     * joined only the candidate's chain. The other trace's boundary is left to the
+     * subdivision pass.
      */
     public int liveOtherNoArcCount;
 
     /**
-     * Traces whose last {@code arcNodeIds} entry is really an interior crossing, because its
-     * node was appended after the trace had terminated. Such a node is no longer treated as
-     * the trace's end, so the arc spanning that crossing keeps a boundary at it.
+     * Traces whose last {@code arcNodeIds} entry is really an interior crossing,
+     * because its node was appended after the trace had terminated. Such a node is
+     * no longer treated as the trace's end, so the arc spanning that crossing keeps
+     * a boundary at it.
      */
     public int droppedInteriorMeetingCount;
 
     /**
-     * Traces whose chain node lengths are not monotonic. A node appended to the chain after
-     * the trace has run past its crossing lands out of order, and the arc spanning that
-     * crossing then keeps no boundary at it.
+     * Traces whose chain node lengths are not monotonic. A node appended to the
+     * chain after the trace has run past its crossing lands out of order, and the
+     * arc spanning that crossing then keeps no boundary at it.
      */
     public int nonMonotonicChainCount;
 
@@ -203,7 +207,7 @@ public final class MotorcycleGraph {
                     port, startU, startV, false);
             traces.add(trace);
         }
-        System.out.printf("[motorcycle] traces=%d (feature=%d singularity=%d) nodes=%d%n",
+        Platforms.log("[motorcycle] traces=%d (feature=%d singularity=%d) nodes=%d%n",
                 traces.size(), featureTraceCount, ports.size(), nodes.size());
 
         PriorityQueue<TraceEvent> queue = new PriorityQueue<>();
@@ -214,7 +218,7 @@ public final class MotorcycleGraph {
         }
         int initialQueueSize = queue.size();
         initialEventQueueSize = initialQueueSize;
-        System.out.printf("[motorcycle] event simulation: ports=%d queue=%d%n", ports.size(), initialQueueSize);
+        Platforms.log("[motorcycle] event simulation: ports=%d queue=%d%n", ports.size(), initialQueueSize);
 
         long simStartNanos = System.nanoTime();
         int eventsProcessed = 0;
@@ -282,7 +286,7 @@ public final class MotorcycleGraph {
             }
             aliveAtQueueEndCount++;
             if (aliveAtQueueEndCount <= DIE_SAMPLE_LIMIT) {
-                System.out.printf(
+                Platforms.log(
                         "[motorcycle-diag] orphaned trace=%d soFar=%.5f segments=%d meetings=%d"
                                 + " face=%d u=%.5f v=%.5f axis=%s sign=%+d%n",
                         trace.traceId, trace.parametricLengthSoFar, trace.segments.size(),
@@ -291,7 +295,7 @@ public final class MotorcycleGraph {
             }
         }
         if (staleEventDropsForAliveTraces > 0 || aliveAtQueueEndCount > 0) {
-            System.out.printf("[motorcycle-diag] staleDropsAlive=%d orphanedAtQueueEnd=%d%n",
+            Platforms.log("[motorcycle-diag] staleDropsAlive=%d orphanedAtQueueEnd=%d%n",
                     staleEventDropsForAliveTraces, aliveAtQueueEndCount);
         }
         System.out.println("[motorcycle] finalizing open traces");
@@ -303,7 +307,7 @@ public final class MotorcycleGraph {
         System.out.println("[motorcycle] resolving patch boundary arcs and sides");
         new PatchBoundaryBuilder(this).build();
         buildTraceRecordBuffer();
-        System.out.printf(
+        Platforms.log(
                 "[motorcycle] done traces=%d arcs=%d nodes=%d patches=%d"
                         + " retroactiveCrossings=%d %.2fs%n",
                 traces.size(), arcs.size(), nodes.size(), patches.size(),
@@ -326,7 +330,7 @@ public final class MotorcycleGraph {
         bar.append(']');
         String delta = previousAlive < 0 ? "(start)"
                 : String.format("(%+d)", aliveTraces - previousAlive);
-        System.out.printf("[motorcycle] %s events=%6d queue=%5d alive=%4d %s  %.2fs%n",
+        Platforms.log("[motorcycle] %s events=%6d queue=%5d alive=%4d %s  %.2fs%n",
                 bar.toString(), eventsProcessed, queueSize, aliveTraces, delta,
                 elapsedNanos / 1.0e9);
     }
@@ -446,11 +450,9 @@ public final class MotorcycleGraph {
         if (other == trace) {
             // A self-crossing appends both meeting entries to the one list, so the
             // first call's entry is now second-to-last; stamp it too.
-            trace.metOtherTraces.get(trace.metOtherTraces.size() - 2).intersectionNodeId
-                    = intersectionNode.nodeId;
+            trace.metOtherTraces.get(trace.metOtherTraces.size() - 2).intersectionNodeId = intersectionNode.nodeId;
         } else {
-            other.metOtherTraces.get(other.metOtherTraces.size() - 1).intersectionNodeId
-                    = intersectionNode.nodeId;
+            other.metOtherTraces.get(other.metOtherTraces.size() - 1).intersectionNodeId = intersectionNode.nodeId;
         }
 
         registerSegment(trace, segment);
@@ -567,7 +569,7 @@ public final class MotorcycleGraph {
                 continue;
             }
             TraceSegment last = trace.segments.get(trace.segments.size() - 1);
-            System.out.printf(
+            Platforms.log(
                     "[motorcycle-diag] truncated trace=%d alive=%b segments=%d lengthSoFar=%.5f"
                             + " meetings=%d lastFace=%d%n",
                     trace.traceId, trace.alive, trace.segments.size(), trace.parametricLengthSoFar,
@@ -583,7 +585,7 @@ public final class MotorcycleGraph {
             finalized++;
         }
         if (finalized > 0) {
-            System.out.printf("[motorcycle] finalizeOpenTraces patched %d unfinished traces%n", finalized);
+            Platforms.log("[motorcycle] finalizeOpenTraces patched %d unfinished traces%n", finalized);
         }
     }
 
@@ -665,7 +667,8 @@ public final class MotorcycleGraph {
      * passes through, since arcs are the unit of quantization. Existing arcs are
      * discarded and rebuilt with fresh ids; node ids are preserved.
      *
-     * <p>See also: Lyon 2021 Section 5.1
+     * <p>
+     * See also: Lyon 2021 Section 5.1
      */
     private void subdivideArcsAtMeetings() {
         List<TraceArc> rebuilt = new ArrayList<>();
@@ -740,7 +743,7 @@ public final class MotorcycleGraph {
             nonSelfChain.removeIf(selfCrossingNodes::contains);
             if (new HashSet<>(nonSelfChain).size() < nonSelfChain.size()) {
                 repeatedChainNodeCount++;
-                System.out.printf("[motorcycle-diag] repeated node in chain trace=%d nodes=%s%n",
+                Platforms.log("[motorcycle-diag] repeated node in chain trace=%d nodes=%s%n",
                         trace.traceId, chainNodes);
                 Set<Integer> reported = new HashSet<>();
                 for (int position = 0; position < chainNodes.size(); position++) {
@@ -752,7 +755,7 @@ public final class MotorcycleGraph {
                         if (meeting.intersectionNodeId != nodeId) {
                             continue;
                         }
-                        System.out.printf("[motorcycle-diag]   node=%d meeting other=%d"
+                        Platforms.log("[motorcycle-diag]   node=%d meeting other=%d"
                                 + " ourLen=%.5f theirLen=%.5f collinear=%b%n",
                                 nodeId, meeting.otherTraceId, meeting.ourParametricLength,
                                 meeting.theirParametricLength,

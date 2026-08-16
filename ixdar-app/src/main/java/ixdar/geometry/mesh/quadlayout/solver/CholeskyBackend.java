@@ -3,10 +3,12 @@ package ixdar.geometry.mesh.quadlayout.solver;
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.mkl.global.mkl_rt;
 
+import ixdar.platform.Platforms;
+
 /**
- * Cholesky backend selection by native-library availability. There is no flag or
- * property: every factorization uses the fastest backend that loads, falling back
- * to {@link EjmlCholeskyFactor} when the natives are unavailable.
+ * Cholesky backend selection by native-library availability. There is no flag
+ * or property: every factorization uses the fastest backend that loads, falling
+ * back to {@link EjmlCholeskyFactor} when the natives are unavailable.
  */
 public final class CholeskyBackend {
 
@@ -41,10 +43,8 @@ public final class CholeskyBackend {
      * @param fixed     full-size fixed-variable mask
      * @param compactOf full-index → compact-index, or -1 if fixed
      * @param fullOf    compact-index → full-index, length {@code freeCount}
-     * @param perm      permuted-index → old compact-index, length
-     *                  {@code freeCount}
-     * @param invPerm   old compact-index → permuted-index, length
-     *                  {@code freeCount}
+     * @param perm      permuted-index → old compact-index, length {@code freeCount}
+     * @param invPerm   old compact-index → permuted-index, length {@code freeCount}
      * @return the factorized system operating in permuted compact index space
      */
     public static FactorizedSystem factor(NormalMatrix matrix, int freeCount, boolean[] fixed,
@@ -62,10 +62,10 @@ public final class CholeskyBackend {
     }
 
     /**
-     * Probe once whether the MKL natives can load on this machine. The probe
-     * must never crash the app — any load failure just means the pure-Java
-     * backend is used — so it catches every linkage/extraction failure mode
-     * JavaCPP's loader produces.
+     * Probe once whether the MKL natives can load on this machine. The probe must
+     * never crash the app — any load failure just means the pure-Java backend is
+     * used — so it catches every linkage/extraction failure mode JavaCPP's loader
+     * produces.
      *
      * @return true iff the PARDISO (MKL) native backend is usable
      */
@@ -75,7 +75,7 @@ public final class CholeskyBackend {
             try {
                 Loader.load(mkl_rt.class);
                 pardisoLoadable = Boolean.TRUE;
-                System.out.printf("[solver] PARDISO (MKL) native backend loaded in %.3fs%n",
+                Platforms.log("[solver] PARDISO (MKL) native backend loaded in %.3fs%n",
                         (System.nanoTime() - loadStart) / 1.0e9);
             } catch (LinkageError | RuntimeException loadFailure) {
                 pardisoLoadable = Boolean.FALSE;

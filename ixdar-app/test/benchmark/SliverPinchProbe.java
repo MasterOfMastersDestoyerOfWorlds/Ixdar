@@ -17,11 +17,13 @@ import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.platform.Platforms;
 
 /**
- * Dumps the structure around botijo's sliver-cover tear at arc collapse 3: the patches and arcs at
- * the pinch, the cyclic ring around the surviving vertex before and after each drag, and the
- * per-hop covers of every dragged arc. Pick the mesh with {@code -Dbenchmark.off}.
+ * Dumps the structure around botijo's sliver-cover tear at arc collapse 3: the
+ * patches and arcs at the pinch, the cyclic ring around the surviving vertex
+ * before and after each drag, and the per-hop covers of every dragged arc. Pick
+ * the mesh with {@code -Dbenchmark.off}.
  */
 public final class SliverPinchProbe {
 
@@ -38,8 +40,8 @@ public final class SliverPinchProbe {
     private static final int[] PROBED_ARCS = { 1, 2, 3, 148, 149, 150, 277, 278, 281 };
 
     /**
-     * Replays to just before the failing collapse, dumps the pinch structure, then steps the
-     * collapse drag by drag with ring and cover dumps between.
+     * Replays to just before the failing collapse, dumps the pinch structure, then
+     * steps the collapse drag by drag with ring and cover dumps between.
      *
      * @throws IOException when the mesh file cannot be read
      */
@@ -59,7 +61,7 @@ public final class SliverPinchProbe {
         ZeroArcCollapseOperator collapseArc = tmesh.collapseArc;
         int collapsingArcId = collapseArc.mostContendedArc();
         collapseArc.beginCollapse(collapsingArcId);
-        System.out.printf("[probe] collapsing arc %d: moved node %d (vertex %d) -> surviving"
+        Platforms.log("[probe] collapsing arc %d: moved node %d (vertex %d) -> surviving"
                 + " node %d (vertex %d), channel %s, fan %s%n", collapsingArcId,
                 collapseArc.movedNodeId, collapseArc.movedVertex, collapseArc.survivingNodeId,
                 collapseArc.targetVertex, collapseArc.channel, collapseArc.fan);
@@ -67,7 +69,7 @@ public final class SliverPinchProbe {
         for (int index = 0; index < collapseArc.touchedPatchCount; index++) {
             touched.append(index == 0 ? "" : ", ").append(collapseArc.touchedPatches[index]);
         }
-        System.out.printf("[probe] touched union [%s]%n", touched);
+        Platforms.log("[probe] touched union [%s]%n", touched);
 
         for (int patchId : PROBED_PATCHES) {
             describePatch(tmesh, patchId, collapseArc.targetVertex);
@@ -79,7 +81,7 @@ public final class SliverPinchProbe {
 
         while (collapseArc.dragNextArc()) {
             int draggedArcId = collapseArc.lastDraggedArcId;
-            System.out.printf("[probe] dragged arc %d: previous %s%n", draggedArcId,
+            Platforms.log("[probe] dragged arc %d: previous %s%n", draggedArcId,
                     collapseArc.lastDraggedPreviousPath);
             describeHops(tmesh, draggedArcId);
             describeRing(tmesh, collapseArc.targetVertex, "after drag of arc " + draggedArcId);
@@ -90,12 +92,12 @@ public final class SliverPinchProbe {
         }
         describeRing(tmesh, collapseArc.targetVertex, "after finish");
         ArrangementDiagnosticException tear = tmesh.flankTearFailure("probe");
-        System.out.printf("[probe] tear: %s%n", tear == null ? "none" : tear.getMessage());
+        Platforms.log("[probe] tear: %s%n", tear == null ? "none" : tear.getMessage());
     }
 
     /**
-     * Prints one patch's sides, per-side quantized lengths, cover size, and whether its cover
-     * touches the surviving vertex.
+     * Prints one patch's sides, per-side quantized lengths, cover size, and whether
+     * its cover touches the surviving vertex.
      *
      * @param tmesh        T-mesh being probed
      * @param patchId      patch to describe
@@ -119,14 +121,14 @@ public final class SliverPinchProbe {
                 coverAtTarget |= copy.faceVertexAt(faceId, corner) == targetVertex;
             }
         }
-        System.out.printf("[probe] patch %d (resolved %d, alive %b): sides %s"
+        Platforms.log("[probe] patch %d (resolved %d, alive %b): sides %s"
                 + " | cover %d faces, touchesTarget %b%n", patchId, patch.patchId, patch.alive,
                 sides, cover.size(), coverAtTarget);
     }
 
     /**
-     * Prints one arc's endpoints, quantized length, flanks, path extent and whether the path
-     * reaches the surviving vertex.
+     * Prints one arc's endpoints, quantized length, flanks, path extent and whether
+     * the path reaches the surviving vertex.
      *
      * @param tmesh        T-mesh being probed
      * @param arcId        arc to describe
@@ -135,7 +137,7 @@ public final class SliverPinchProbe {
     private void describeArc(EmbeddedTMesh tmesh, int arcId, int targetVertex) {
         EmbeddedArc arc = tmesh.arcs.get(arcId);
         List<Integer> path = arc.path.copyVertexPath;
-        System.out.printf("[probe] arc %d (alive %b): q=%d nodes %d->%d flanks %d|%d"
+        Platforms.log("[probe] arc %d (alive %b): q=%d nodes %d->%d flanks %d|%d"
                 + " path %d verts [%d..%d] reachesTarget %b%n", arcId, arc.alive,
                 arc.quantizedLength, arc.startNodeId, arc.endNodeId,
                 tmesh.topology.resolvePatch(arc.leftPatchId),
@@ -144,8 +146,8 @@ public final class SliverPinchProbe {
     }
 
     /**
-     * Prints the claimed spokes and face labels around a vertex in cyclic half-edge order, which
-     * is the slot structure a dragged arc must arrive into.
+     * Prints the claimed spokes and face labels around a vertex in cyclic half-edge
+     * order, which is the slot structure a dragged arc must arrive into.
      *
      * @param tmesh    T-mesh being probed
      * @param vertexId copy vertex whose ring is walked
@@ -172,13 +174,13 @@ public final class SliverPinchProbe {
             halfEdge = copy.halfEdgeTwin(copy.halfEdgeNext(copy.halfEdgeNext(halfEdge)));
             spokes++;
         } while (halfEdge != start && spokes < copy.vertexEdgeCount(vertexId) + 1);
-        System.out.printf("[probe] ring of vertex %d %s (%d spokes):%s%n", vertexId, moment,
+        Platforms.log("[probe] ring of vertex %d %s (%d spokes):%s%n", vertexId, moment,
                 spokes, ring);
     }
 
     /**
-     * Prints an arc's path with the resolved cover labels flanking every hop, the direct
-     * evidence of which cells the route ran between.
+     * Prints an arc's path with the resolved cover labels flanking every hop, the
+     * direct evidence of which cells the route ran between.
      *
      * @param tmesh T-mesh being probed
      * @param arcId arc whose hops are labelled
@@ -200,6 +202,6 @@ public final class SliverPinchProbe {
             hops.append(" ").append(path.get(hop)).append("-(").append(left).append("|")
                     .append(right).append(")-").append(path.get(hop + 1));
         }
-        System.out.printf("[probe] arc %d hops:%s%n", arcId, hops);
+        Platforms.log("[probe] arc %d hops:%s%n", arcId, hops);
     }
 }

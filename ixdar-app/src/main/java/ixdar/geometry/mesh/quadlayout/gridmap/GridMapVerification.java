@@ -12,6 +12,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
+import ixdar.platform.Platforms;
 
 /**
  * Makes the relaxed grid map numerically consistent and proves the extraction's
@@ -24,7 +25,10 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
  */
 public final class GridMapVerification {
 
-    /** Residual within which a recovered transition is accepted before exact rounding. */
+    /**
+     * Residual within which a recovered transition is accepted before exact
+     * rounding.
+     */
     public static final double TRANSITION_TOLERANCE = 1.0e-6;
 
     public final GlobalGridMap gridMap;
@@ -45,7 +49,10 @@ public final class GridMapVerification {
     /** Grid v translation of the resolved transition, paired with the turns. */
     public int[] transitionTranslationVByArcId;
 
-    /** Whether each live patch's chart winds counter-clockwise in stored corner order. */
+    /**
+     * Whether each live patch's chart winds counter-clockwise in stored corner
+     * order.
+     */
     public boolean[] counterClockwiseByPatch;
 
     /** Arcs whose transition the frames left unsolved and this pass recovered. */
@@ -90,7 +97,7 @@ public final class GridMapVerification {
         canonicalizeNodes();
         requireOrientation();
         requireArcConsistency();
-        System.out.printf("[grid-verify] recoveredLoops=%d truncatedVertices=%d integerNodes=%d"
+        Platforms.log("[grid-verify] recoveredLoops=%d truncatedVertices=%d integerNodes=%d"
                 + " pathVertices=%d triangles=%d%n", recoveredLoopTransitionCount,
                 truncatedVertexCount, integerNodeCount, verifiedPathVertexCount,
                 verifiedTriangleCount);
@@ -133,12 +140,9 @@ public final class GridMapVerification {
                         + arc.leftPatchId + ", which the region boundary walk forbids");
             }
             if (frames.transitionQuarterTurnsByArcId[arc.arcId] != IntegerGridMap.NOT_PLACED) {
-                transitionTurnsByArcId[arc.arcId] =
-                        frames.transitionQuarterTurnsByArcId[arc.arcId];
-                transitionTranslationUByArcId[arc.arcId] =
-                        frames.transitionTranslationUByArcId[arc.arcId];
-                transitionTranslationVByArcId[arc.arcId] =
-                        frames.transitionTranslationVByArcId[arc.arcId];
+                transitionTurnsByArcId[arc.arcId] = frames.transitionQuarterTurnsByArcId[arc.arcId];
+                transitionTranslationUByArcId[arc.arcId] = frames.transitionTranslationUByArcId[arc.arcId];
+                transitionTranslationVByArcId[arc.arcId] = frames.transitionTranslationVByArcId[arc.arcId];
                 continue;
             }
             recoverTransition(arc);
@@ -146,9 +150,9 @@ public final class GridMapVerification {
     }
 
     /**
-     * Derives an arc's transition from its path vertices' positions in both
-     * charts: the unique quarter turn whose induced integer translation carries
-     * every right-chart copy onto its left-chart copy within tolerance.
+     * Derives an arc's transition from its path vertices' positions in both charts:
+     * the unique quarter turn whose induced integer translation carries every
+     * right-chart copy onto its left-chart copy within tolerance.
      *
      * @param arc crossable arc whose frames transition is unsolved
      * @throws IllegalStateException when no quarter turn fits or two do
@@ -202,9 +206,9 @@ public final class GridMapVerification {
     /**
      * One coordinate of a copy vertex in a patch's chart.
      *
-     * @param patchId patch whose chart is read
+     * @param patchId    patch whose chart is read
      * @param copyVertex copy vertex to look up
-     * @param axis {@code 0} for u, {@code 1} for v
+     * @param axis       {@code 0} for u, {@code 1} for v
      * @throws IllegalStateException when the patch's map does not hold the vertex
      * @return the stored grid coordinate
      */
@@ -220,10 +224,10 @@ public final class GridMapVerification {
     /**
      * Writes one chart copy of a copy vertex.
      *
-     * @param patchId patch whose chart is written
+     * @param patchId    patch whose chart is written
      * @param copyVertex copy vertex to write
-     * @param chartU grid u to store
-     * @param chartV grid v to store
+     * @param chartU     grid u to store
+     * @param chartV     grid v to store
      */
     private void writeChartCopy(int patchId, int copyVertex, double chartU, double chartV) {
         int dense = gridMap.denseByCopyVertexByPatchId[patchId].get(copyVertex);
@@ -245,8 +249,8 @@ public final class GridMapVerification {
     }
 
     /**
-     * The power of two bounding every chart copy's magnitude of one shared
-     * vertex, the truncation granularity scale of EBC13 Algorithm 1.
+     * The power of two bounding every chart copy's magnitude of one shared vertex,
+     * the truncation granularity scale of EBC13 Algorithm 1.
      *
      * @param magnitude largest coordinate magnitude over the vertex's copies
      * @return {@code 2^ceil(log2(magnitude))}, at least one
@@ -355,18 +359,18 @@ public final class GridMapVerification {
      * arcs' transitions, writing each patch copy exactly once and checking any
      * revisit bitwise.
      *
-     * @param node node whose fan is walked
-     * @param fanArcs crossable arcs meeting at the node
+     * @param node           node whose fan is walked
+     * @param fanArcs        crossable arcs meeting at the node
      * @param canonicalPatch patch holding the already-written canonical copy
-     * @param canonicalU the canonical grid u
-     * @param canonicalV the canonical grid v
-     * @param rotated scratch pair for rotations
+     * @param canonicalU     the canonical grid u
+     * @param canonicalV     the canonical grid v
+     * @param rotated        scratch pair for rotations
      * @throws IllegalStateException when a revisited copy disagrees bitwise
      */
     private void propagateNodeFan(EmbeddedNode node, List<EmbeddedArc> fanArcs,
             int canonicalPatch, double canonicalU, double canonicalV, double[] rotated) {
         Map<Integer, double[]> valueByPatch = new HashMap<>();
-        valueByPatch.put(canonicalPatch, new double[] {canonicalU, canonicalV});
+        valueByPatch.put(canonicalPatch, new double[] { canonicalU, canonicalV });
         List<Integer> frontier = new ArrayList<>();
         frontier.add(canonicalPatch);
         for (int cursor = 0; cursor < frontier.size(); cursor++) {
@@ -404,7 +408,7 @@ public final class GridMapVerification {
                     }
                     continue;
                 }
-                valueByPatch.put(other, new double[] {otherU, otherV});
+                valueByPatch.put(other, new double[] { otherU, otherV });
                 writeChartCopy(other, node.copyVertex, otherU, otherV);
                 frontier.add(other);
             }
@@ -420,9 +424,9 @@ public final class GridMapVerification {
      */
     private void requireOrientation() {
         counterClockwiseByPatch = new boolean[tmesh.patches.size()];
-        double[] first = new double[] {0.0, 0.0, 1.0};
-        double[] second = new double[] {0.0, 0.0, 1.0};
-        double[] third = new double[] {0.0, 0.0, 1.0};
+        double[] first = new double[] { 0.0, 0.0, 1.0 };
+        double[] second = new double[] { 0.0, 0.0, 1.0 };
+        double[] third = new double[] { 0.0, 0.0, 1.0 };
         for (int patchId = 0; patchId < tmesh.patches.size(); patchId++) {
             if (!tmesh.patches.get(patchId).alive) {
                 continue;

@@ -1332,20 +1332,20 @@ public abstract class ShaderProgram {
             if (type == gl.FLOAT()) {
                 IxBuffer val = platform.allocateFloats(1);
                 gl.getUniformfv(ID, location, val);
-                System.out.printf("  '%s' (float): %f%n", name, val.get(0));
+                Platforms.log("  '%s' (float): %f%n", name, val.get(0));
             } else if (type == gl.FLOAT_VEC2()) {
                 IxBuffer val = platform.allocateFloats(2);
                 gl.getUniformfv(ID, location, val);
-                System.out.printf("  '%s' (vec2): (%f, %f)%n", name, val.get(0), val.get(1));
+                Platforms.log("  '%s' (vec2): (%f, %f)%n", name, val.get(0), val.get(1));
             } else if (type == gl.FLOAT_VEC4()) {
                 IxBuffer val = platform.allocateFloats(NUM_4);
                 gl.getUniformfv(ID, location, val);
-                System.out.printf("  '%s' (vec4): (%f, %f, %f, %f)%n", name, val.get(0), val.get(1), val.get(2),
+                Platforms.log("  '%s' (vec4): (%f, %f, %f, %f)%n", name, val.get(0), val.get(1), val.get(2),
                         val.get(NUM_3));
             } else if (type == gl.SAMPLER_2D()) {
-                System.out.printf("  '%s' (sampler2D): [Texture Sampler]%n", name);
+                Platforms.log("  '%s' (sampler2D): [Texture Sampler]%n", name);
             } else {
-                System.out.printf("  '%s': [Unhandled Type: 0x%X]%n", name, type);
+                Platforms.log("  '%s': [Unhandled Type: 0x%X]%n", name, type);
             }
         }
         System.out.println("---------------------------------------------------------");

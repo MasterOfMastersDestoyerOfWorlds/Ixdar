@@ -1,10 +1,9 @@
 package ixdar.geometry.mesh.nodes.curve;
 
 import java.util.List;
+import java.util.Map;
 
 import ixdar.annotations.meshnode.InputPort;
-
-import java.util.Map;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
@@ -13,7 +12,6 @@ import ixdar.annotations.meshnode.PortType;
 import ixdar.annotations.meshnode.Vector3Value;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 
 /**
  * Circle curve primitive: generates a closed circular polyline as a CurveGeometry.

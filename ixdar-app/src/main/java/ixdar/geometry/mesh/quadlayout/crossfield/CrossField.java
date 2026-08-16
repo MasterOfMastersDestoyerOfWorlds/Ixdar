@@ -15,12 +15,13 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.CurvatureConstraints;
+import ixdar.platform.Platforms;
 
 /**
  * Per-face angles and per-edge period jumps describing a 4-symmetric direction
  * field that follows mesh curvature. Each face carries two direction vectors in
- * its local x, y basis; singular vertices are those whose incident crosses close
- * up to a turn other than a full one.
+ * its local x, y basis; singular vertices are those whose incident crosses
+ * close up to a turn other than a full one.
  */
 public class CrossField {
     /**
@@ -72,9 +73,8 @@ public class CrossField {
     /**
      * Sharp-feature threshold, stored as the cosine of the angle between the two
      * incident face normals: an interior edge with
-     * {@code normalA.dot(normalB) < featureDihedralCos} becomes an alignment
-     * edge. The default 0.2 (≈ 78° between normals) only captures very sharp
-     * creases.
+     * {@code normalA.dot(normalB) < featureDihedralCos} becomes an alignment edge.
+     * The default 0.2 (≈ 78° between normals) only captures very sharp creases.
      */
     public float featureDihedralCos = 0.2f;
 
@@ -176,7 +176,7 @@ public class CrossField {
         for (int i = 0; i < mesh.edgeCount(); i++) {
             edgeIdToActive.put(mesh.edgeIdAt(i), i);
         }
-        System.out.printf("[cross-field timing] active-id maps %.3fs%n",
+        Platforms.log("[cross-field timing] active-id maps %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
         /*
@@ -212,7 +212,7 @@ public class CrossField {
             faceX[faceIndex] = xAxis;
             faceY[faceIndex] = yAxis;
         }
-        System.out.printf("[cross-field timing] local face frames %.3fs%n",
+        Platforms.log("[cross-field timing] local face frames %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
 
@@ -258,7 +258,7 @@ public class CrossField {
             float crossDirY = xiTransported.dot(faceY[edgeFaceIds.faceB]);
             kappa[i] = (float) Math.atan2(crossDirY, crossDirX);
         }
-        System.out.printf("[cross-field timing] edge transport angles kappa %.3fs%n",
+        Platforms.log("[cross-field timing] edge transport angles kappa %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
 
@@ -270,7 +270,8 @@ public class CrossField {
      * Fills {@link #alignmentEdgeIds} with boundary edges and sharp feature edges,
      * the latter by a dihedral test against {@link #featureDihedralCos}.
      *
-     * <p>See also: BZK09 Section 5.2
+     * <p>
+     * See also: BZK09 Section 5.2
      */
     private void detectAlignmentEdges() {
         for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {

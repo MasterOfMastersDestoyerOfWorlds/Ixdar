@@ -18,11 +18,13 @@ public final class Platforms {
     }
 
     /**
-     * Register {@code platform} + {@code gl} under the GL's platform ID and make them current.
-     * Used at startup so subsequent {@link #get()}/{@link #gl()} calls resolve to this pairing.
+     * Register {@code platform} + {@code gl} under the GL's platform ID and make
+     * them current. Used at startup so subsequent {@link #get()}/{@link #gl()}
+     * calls resolve to this pairing.
      *
      * @param platform windowing / OS adapter to register
-     * @param gl GL backend providing the platform ID; both sides are stamped with that ID
+     * @param gl       GL backend providing the platform ID; both sides are stamped
+     *                 with that ID
      */
     public static void init(Platform platform, GL gl) {
         instance = platform;
@@ -35,8 +37,8 @@ public final class Platforms {
     }
 
     /**
-     * Switch the current platform/GL pair to a previously registered one (web supports multiple
-     * canvases; this picks which one input/render calls bind to).
+     * Switch the current platform/GL pair to a previously registered one (web
+     * supports multiple canvases; this picks which one input/render calls bind to).
      *
      * @param p platform ID previously registered via {@link #init(Platform, GL)}
      * @throws IllegalStateException if {@code p} was never registered
@@ -63,8 +65,8 @@ public final class Platforms {
     }
 
     /**
-     * Logs one message through the active platform adapter, or standard out
-     * before any platform is initialized (headless tests, early boot).
+     * Logs one message through the active platform adapter, or standard out before
+     * any platform is initialized (headless tests, early boot).
      *
      * @param str message to log
      */
@@ -77,8 +79,8 @@ public final class Platforms {
     }
 
     /**
-     * Logs a {@link String#format} pattern through the active platform adapter,
-     * or standard out before any platform is initialized.
+     * Logs a {@link String#format} pattern through the active platform adapter, or
+     * standard out before any platform is initialized.
      *
      * @param str  format string
      * @param objs arguments the format string consumes

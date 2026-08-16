@@ -12,13 +12,12 @@ public class ColorText<T> {
     public ArrayList<HyperWord> subWords;
 
     /**
-     * Build a colored phrase by splitting {@code text} on spaces; every word
-     * gets the same color. {@code data} is an opaque payload tied to this
-     * phrase.
+     * Build a colored phrase by splitting {@code text} on spaces; every word gets
+     * the same color. {@code data} is an opaque payload tied to this phrase.
      *
-     * @param text whitespace-separated string
+     * @param text  whitespace-separated string
      * @param color color applied to every word
-     * @param data caller-defined payload
+     * @param data  caller-defined payload
      */
     public ColorText(String text, Color color, T data) {
         this.text = new ArrayList<>();
@@ -26,7 +25,7 @@ public class ColorText<T> {
             this.text.add(s);
         }
         this.color = new ArrayList<>();
-        for (String s : this.text) {
+        for (int i = 0; i < this.text.size(); i++) {
             this.color.add(color);
         }
         this.data = data;
@@ -48,7 +47,7 @@ public class ColorText<T> {
     /**
      * Build a colored phrase with no payload.
      *
-     * @param text whitespace-separated string
+     * @param text  whitespace-separated string
      * @param color color applied to every word
      */
     public ColorText(String text, Color color) {
@@ -59,7 +58,7 @@ public class ColorText<T> {
      * Build a phrase coloured with the default scalar palette and a payload.
      *
      * @param scalarString whitespace-separated string
-     * @param value caller-defined payload
+     * @param value        caller-defined payload
      */
     public ColorText(String scalarString, T value) {
         this(scalarString, Color.BLUE_WHITE, value);
@@ -128,7 +127,7 @@ public class ColorText<T> {
     /**
      * Append a single word with its own color.
      *
-     * @param word word text
+     * @param word      word text
      * @param wordColor color for this word
      */
     public void addWord(String word, Color wordColor) {

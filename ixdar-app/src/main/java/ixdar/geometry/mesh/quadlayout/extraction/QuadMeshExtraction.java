@@ -35,13 +35,13 @@ public final class QuadMeshExtraction {
     private static final int AXIS_DIRECTIONS = 4;
 
     /** Grid u step of each direction, indexed by quarter turns from {@code +u}. */
-    private static final int[] DIRECTION_U = {1, 0, -1, 0};
+    private static final int[] DIRECTION_U = { 1, 0, -1, 0 };
 
     /** Grid v step of each direction, indexed by quarter turns from {@code +u}. */
-    private static final int[] DIRECTION_V = {0, 1, 0, -1};
+    private static final int[] DIRECTION_V = { 0, 1, 0, -1 };
 
     /** Chart corner to face vertex index when the patch chart winds clockwise. */
-    private static final int[] CLOCKWISE_CORNER_PERMUTATION = {0, 2, 1};
+    private static final int[] CLOCKWISE_CORNER_PERMUTATION = { 0, 2, 1 };
 
     public final GlobalGridMap gridMap;
     public final GridMapVerification verification;
@@ -58,7 +58,9 @@ public final class QuadMeshExtraction {
     /** Preimages found strictly inside copy faces. */
     public int facePreimageCount;
 
-    /** Expected quad count from the pre-relaxation extraction; NONE skips the check. */
+    /**
+     * Expected quad count from the pre-relaxation extraction; NONE skips the check.
+     */
     public int expectedQuadCount = ExtractedQuadMesh.NONE;
 
     /** Traces that connected to an opposite port found across a collinear edge. */
@@ -91,7 +93,9 @@ public final class QuadMeshExtraction {
     private float[] positionY = new float[16];
     private float[] positionZ = new float[16];
 
-    /** Ports over all quad vertices, clockwise per vertex; valid up to portCount. */
+    /**
+     * Ports over all quad vertices, clockwise per vertex; valid up to portCount.
+     */
     private int portCount;
 
     private int[] portStart;
@@ -144,7 +148,7 @@ public final class QuadMeshExtraction {
         traceAllPorts();
         extractQuads();
         requireInvariants();
-        System.out.printf("[quad-extract] preimages: vertex=%d edge=%d face=%d total=%d"
+        Platforms.log("[quad-extract] preimages: vertex=%d edge=%d face=%d total=%d"
                 + " | ports=%d fanFallbacks=%d quads=%d euler=%d%n",
                 vertexPreimageCount, edgePreimageCount, facePreimageCount, quadVertexCount,
                 portCount, fanFallbackConnectionCount, quadCount,
@@ -182,8 +186,7 @@ public final class QuadMeshExtraction {
             if (!patch.alive) {
                 continue;
             }
-            Map<Integer, Integer> denseByCopyVertex =
-                    gridMap.denseByCopyVertexByPatchId[patch.patchId];
+            Map<Integer, Integer> denseByCopyVertex = gridMap.denseByCopyVertexByPatchId[patch.patchId];
             double[] uv = gridMap.uvByPatchId[patch.patchId];
             for (int faceId : patchMaps.regions.copyFacesByPatch.get(patch.patchId)) {
                 for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
@@ -220,8 +223,8 @@ public final class QuadMeshExtraction {
      *
      * @param patchId   patch whose chart the edge is read in
      * @param faceId    region face providing the corner coordinates
-     * @param edgeIndex edge position within the face, endpoints at {@code edgeIndex}
-     *                  and the next corner
+     * @param edgeIndex edge position within the face, endpoints at
+     *                  {@code edgeIndex} and the next corner
      * @param edgeId    the copy edge the preimages anchor to
      * @param cornerU   the face's corner grid u values
      * @param cornerV   the face's corner grid v values
@@ -240,9 +243,9 @@ public final class QuadMeshExtraction {
         double endOther = dominantIsU ? endV : endU;
         double low = Math.min(startDominant, endDominant);
         double high = Math.max(startDominant, endDominant);
-        double[] first = {startU, startV, 1.0};
-        double[] second = {endU, endV, 1.0};
-        double[] candidate = {0.0, 0.0, 1.0};
+        double[] first = { startU, startV, 1.0 };
+        double[] second = { endU, endV, 1.0 };
+        double[] candidate = { 0.0, 0.0, 1.0 };
         Vector3f startPosition = copy.vertexPosition(copy.faceVertexAt(faceId, edgeIndex));
         Vector3f endPosition = copy.vertexPosition(copy.faceVertexAt(faceId, nextCorner));
         for (double dominant = Math.floor(low) + 1.0; dominant < high; dominant += 1.0) {
@@ -252,8 +255,7 @@ public final class QuadMeshExtraction {
             double fraction = (dominant - startDominant) / (endDominant - startDominant);
             double other = startOther + fraction * (endOther - startOther);
             double floorOther = Math.floor(other);
-            for (double candidateOther = floorOther; candidateOther <= floorOther + 1.0;
-                    candidateOther += 1.0) {
+            for (double candidateOther = floorOther; candidateOther <= floorOther + 1.0; candidateOther += 1.0) {
                 candidate[0] = dominantIsU ? dominant : candidateOther;
                 candidate[1] = dominantIsU ? candidateOther : dominant;
                 if (ExactBarycentricOrient.sign(first, second, candidate) != 0) {
@@ -293,9 +295,9 @@ public final class QuadMeshExtraction {
         double highU = Math.floor(Math.max(cornerU[0], Math.max(cornerU[1], cornerU[2])));
         double lowV = Math.ceil(Math.min(cornerV[0], Math.min(cornerV[1], cornerV[2])));
         double highV = Math.floor(Math.max(cornerV[0], Math.max(cornerV[1], cornerV[2])));
-        double[] first = {0.0, 0.0, 1.0};
-        double[] second = {0.0, 0.0, 1.0};
-        double[] candidate = {0.0, 0.0, 1.0};
+        double[] first = { 0.0, 0.0, 1.0 };
+        double[] second = { 0.0, 0.0, 1.0 };
+        double[] candidate = { 0.0, 0.0, 1.0 };
         Vector3f cornerPosition = new Vector3f();
         for (double u = lowU; u <= highU; u += 1.0) {
             for (double v = lowV; v <= highV; v += 1.0) {
@@ -398,7 +400,7 @@ public final class QuadMeshExtraction {
      * The face vertex index sitting at one chart corner, undoing the corner swap
      * that presents a clockwise chart as counter-clockwise.
      *
-     * @param chartCorner corner in normalized chart order
+     * @param chartCorner      corner in normalized chart order
      * @param counterClockwise whether the patch chart winds counter-clockwise
      * @return the face vertex adjacency index
      */
@@ -410,8 +412,8 @@ public final class QuadMeshExtraction {
      * The copy edge under one normalized chart edge, which runs from the chart
      * corner to its successor.
      *
-     * @param faceId copy face holding the edge
-     * @param chartEdge edge index in normalized chart order
+     * @param faceId           copy face holding the edge
+     * @param chartEdge        edge index in normalized chart order
      * @param counterClockwise whether the patch chart winds counter-clockwise
      * @return the copy edge id
      */
@@ -424,7 +426,7 @@ public final class QuadMeshExtraction {
      * corners always wind counter-clockwise.
      *
      * @param patchId patch whose chart is read
-     * @param faceId copy face to read
+     * @param faceId  copy face to read
      * @param cornerU receives the corner grid u values
      * @param cornerV receives the corner grid v values
      */
@@ -444,7 +446,7 @@ public final class QuadMeshExtraction {
     /**
      * The patch on the other side of an arc.
      *
-     * @param arcId arc crossed
+     * @param arcId     arc crossed
      * @param fromPatch patch being left
      * @return the opposite patch id
      */
@@ -462,9 +464,9 @@ public final class QuadMeshExtraction {
     /**
      * Maps a chart point across an arc's transition, exactly, in place.
      *
-     * @param arcId arc crossed
+     * @param arcId     arc crossed
      * @param fromPatch patch the point is currently expressed in
-     * @param pointUv the point, replaced by its image in the opposite chart
+     * @param pointUv   the point, replaced by its image in the opposite chart
      */
     private void mapPointAcrossArc(int arcId, int fromPatch, double[] pointUv) {
         EmbeddedArc arc = tmesh.arcs.get(arcId);
@@ -485,9 +487,9 @@ public final class QuadMeshExtraction {
     /**
      * Maps a direction's quarter turns across an arc's transition.
      *
-     * @param arcId arc crossed
+     * @param arcId     arc crossed
      * @param fromPatch patch the direction is currently expressed in
-     * @param turns direction as quarter turns
+     * @param turns     direction as quarter turns
      * @return the direction's quarter turns in the opposite chart
      */
     private int mapTurnsAcrossArc(int arcId, int fromPatch, int turns) {
@@ -501,8 +503,8 @@ public final class QuadMeshExtraction {
     }
 
     /**
-     * EBC13 Algorithm 4: enumerates each quad vertex's outgoing iso-line
-     * directions clockwise, checking the count against the T-mesh valence.
+     * EBC13 Algorithm 4: enumerates each quad vertex's outgoing iso-line directions
+     * clockwise, checking the count against the T-mesh valence.
      *
      * @throws IllegalStateException when a vertex's port count is wrong
      */
@@ -642,9 +644,9 @@ public final class QuadMeshExtraction {
      * direction outside the wedge (EBC13 Algorithm 4).
      *
      * @param quadVertex owning quad vertex
-     * @param faceId copy face whose chart the directions live in
-     * @param apexU the vertex's grid u in that chart
-     * @param apexV the vertex's grid v in that chart
+     * @param faceId     copy face whose chart the directions live in
+     * @param apexU      the vertex's grid u in that chart
+     * @param apexV      the vertex's grid v in that chart
      * @param clockwiseU grid u of the clockwise wedge boundary point
      * @param clockwiseV grid v of the clockwise wedge boundary point
      * @param counterUcw grid u of the counter-clockwise wedge boundary point
@@ -680,21 +682,21 @@ public final class QuadMeshExtraction {
      * collinear with the clockwise boundary and pointing the same way. The
      * counter-clockwise boundary belongs to the neighbouring wedge.
      *
-     * @param turns direction as quarter turns
-     * @param apexU wedge apex grid u
-     * @param apexV wedge apex grid v
+     * @param turns      direction as quarter turns
+     * @param apexU      wedge apex grid u
+     * @param apexV      wedge apex grid v
      * @param clockwiseU clockwise boundary point grid u
      * @param clockwiseV clockwise boundary point grid v
-     * @param counterU counter-clockwise boundary point grid u
-     * @param counterV counter-clockwise boundary point grid v
+     * @param counterU   counter-clockwise boundary point grid u
+     * @param counterV   counter-clockwise boundary point grid v
      * @return whether the direction belongs to this wedge
      */
     private static boolean wedgeClaims(int turns, double apexU, double apexV, double clockwiseU,
             double clockwiseV, double counterU, double counterV) {
-        double[] apex = {apexU, apexV, 1.0};
-        double[] tip = {apexU + DIRECTION_U[turns], apexV + DIRECTION_V[turns], 1.0};
-        double[] clockwiseBoundary = {clockwiseU, clockwiseV, 1.0};
-        double[] counterBoundary = {counterU, counterV, 1.0};
+        double[] apex = { apexU, apexV, 1.0 };
+        double[] tip = { apexU + DIRECTION_U[turns], apexV + DIRECTION_V[turns], 1.0 };
+        double[] clockwiseBoundary = { clockwiseU, clockwiseV, 1.0 };
+        double[] counterBoundary = { counterU, counterV, 1.0 };
         int sideClockwise = ExactBarycentricOrient.sign(apex, clockwiseBoundary, tip);
         int sideCounter = ExactBarycentricOrient.sign(apex, tip, counterBoundary);
         if (sideClockwise > 0 && sideCounter > 0) {
@@ -712,11 +714,11 @@ public final class QuadMeshExtraction {
     /**
      * Appends one port to the growth arrays.
      *
-     * @param owner owning quad vertex
+     * @param owner  owning quad vertex
      * @param faceId copy face whose chart holds the direction
-     * @param turns direction as quarter turns in that chart
-     * @param apexU the owner's grid u in that chart
-     * @param apexV the owner's grid v in that chart
+     * @param turns  direction as quarter turns in that chart
+     * @param apexU  the owner's grid u in that chart
+     * @param apexV  the owner's grid v in that chart
      */
     private void emitPort(int owner, int faceId, int turns, double apexU, double apexV) {
         if (portCount == portOwner.length) {
@@ -773,18 +775,18 @@ public final class QuadMeshExtraction {
         int patchId = patchByCopyFace.get(portFace[port]);
         int faceId = portFace[port];
         int turns = portDirectionTurns[port];
-        double[] segmentStart = {portChartU[port], portChartV[port]};
-        double[] segmentEnd = {segmentStart[0] + DIRECTION_U[turns],
-                segmentStart[1] + DIRECTION_V[turns]};
+        double[] segmentStart = { portChartU[port], portChartV[port] };
+        double[] segmentEnd = { segmentStart[0] + DIRECTION_U[turns],
+                segmentStart[1] + DIRECTION_V[turns] };
         int entryEdgeId = ExtractedQuadMesh.NONE;
         int accumulatedTurns = 0;
         int accumulatedU = 0;
         int accumulatedV = 0;
         double[] cornerU = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] cornerV = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
-        double[] first = {0.0, 0.0, 1.0};
-        double[] second = {0.0, 0.0, 1.0};
-        double[] third = {0.0, 0.0, 1.0};
+        double[] first = { 0.0, 0.0, 1.0 };
+        double[] second = { 0.0, 0.0, 1.0 };
+        double[] third = { 0.0, 0.0, 1.0 };
         for (int step = 0; step < 2 * copy.faceCount(); step++) {
             readChartCorners(patchId, faceId, cornerU, cornerV);
             int insideCount = 0;
@@ -849,8 +851,8 @@ public final class QuadMeshExtraction {
     /**
      * The accumulated automorphism's quarter turns after crossing an arc.
      *
-     * @param arcId arc crossed
-     * @param fromPatch patch being left
+     * @param arcId            arc crossed
+     * @param fromPatch        patch being left
      * @param accumulatedTurns quarter turns accumulated so far
      * @return the composed quarter turns
      */
@@ -862,34 +864,34 @@ public final class QuadMeshExtraction {
      * The accumulated automorphism's translation after crossing an arc, the
      * crossing applied on the outside of the existing transform.
      *
-     * @param arcId arc crossed
-     * @param fromPatch patch being left
+     * @param arcId        arc crossed
+     * @param fromPatch    patch being left
      * @param accumulatedU translation grid u accumulated so far
      * @param accumulatedV translation grid v accumulated so far
      * @return the composed translation as {@code {u, v}}
      */
     private int[] crossingTranslation(int arcId, int fromPatch, int accumulatedU,
             int accumulatedV) {
-        double[] mapped = {accumulatedU, accumulatedV};
+        double[] mapped = { accumulatedU, accumulatedV };
         mapPointAcrossArc(arcId, fromPatch, mapped);
-        return new int[] {(int) mapped[0], (int) mapped[1]};
+        return new int[] { (int) mapped[0], (int) mapped[1] };
     }
 
     /**
      * EBC13's PickNextEdge: the chart edge the directed segment leaves through,
-     * preferring the candidate with fewest corners exactly on the segment's line
-     * so a collinear mesh edge is pivoted past rather than slid along.
+     * preferring the candidate with fewest corners exactly on the segment's line so
+     * a collinear mesh edge is pivoted past rather than slid along.
      *
-     * @param faceId face being traversed, for the error message
-     * @param patchId patch whose chart is current, for the error message
-     * @param entryEdgeId copy edge the segment entered through, excluded
+     * @param faceId       face being traversed, for the error message
+     * @param patchId      patch whose chart is current, for the error message
+     * @param entryEdgeId  copy edge the segment entered through, excluded
      * @param segmentStart segment start in the current chart
-     * @param segmentEnd segment end in the current chart
-     * @param cornerU the face's corner grid u values in chart order
-     * @param cornerV the face's corner grid v values in chart order
-     * @param first scratch triple
-     * @param second scratch triple
-     * @param third scratch triple
+     * @param segmentEnd   segment end in the current chart
+     * @param cornerU      the face's corner grid u values in chart order
+     * @param cornerV      the face's corner grid v values in chart order
+     * @param first        scratch triple
+     * @param second       scratch triple
+     * @param third        scratch triple
      * @throws IllegalStateException when no edge admits the segment
      * @return the exit edge's chart index
      */
@@ -933,19 +935,19 @@ public final class QuadMeshExtraction {
 
     /**
      * Connects a traced port to the opposite port at its arrival point: classify
-     * the point onto its entity, look up the quad vertex, and find the port
-     * holding the reverse direction, following a collinear edge when the reverse
-     * wedge lies in a neighbouring chart.
+     * the point onto its entity, look up the quad vertex, and find the port holding
+     * the reverse direction, following a collinear edge when the reverse wedge lies
+     * in a neighbouring chart.
      *
-     * @param port port whose trace arrived
-     * @param patchId chart the segment ended in
-     * @param faceId face the segment ended in
-     * @param turns traced direction in that chart
-     * @param segmentEnd arrival point in that chart
-     * @param zeroMask bit per chart side the point lies exactly on
+     * @param port             port whose trace arrived
+     * @param patchId          chart the segment ended in
+     * @param faceId           face the segment ended in
+     * @param turns            traced direction in that chart
+     * @param segmentEnd       arrival point in that chart
+     * @param zeroMask         bit per chart side the point lies exactly on
      * @param accumulatedTurns automorphism turns from the port's chart to this one
-     * @param accumulatedU automorphism grid u translation
-     * @param accumulatedV automorphism grid v translation
+     * @param accumulatedU     automorphism grid u translation
+     * @param accumulatedV     automorphism grid v translation
      * @throws IllegalStateException when no quad vertex or opposite port matches
      */
     private void connectArrival(int port, int patchId, int faceId, int turns,
@@ -1019,13 +1021,13 @@ public final class QuadMeshExtraction {
 
     /**
      * The quad vertex at a trace's arrival point, classified by which chart sides
-     * the point lies exactly on: none is a face preimage, one an edge preimage,
-     * two the shared corner's vertex preimage.
+     * the point lies exactly on: none is a face preimage, one an edge preimage, two
+     * the shared corner's vertex preimage.
      *
-     * @param patchId chart the point is expressed in
-     * @param faceId face containing the point
-     * @param segmentEnd the arrival point
-     * @param zeroMask bit per chart side the point lies exactly on
+     * @param patchId          chart the point is expressed in
+     * @param faceId           face containing the point
+     * @param segmentEnd       the arrival point
+     * @param zeroMask         bit per chart side the point lies exactly on
      * @param counterClockwise whether the patch chart winds counter-clockwise
      * @throws IllegalStateException when no generated quad vertex matches
      * @return the arrival quad vertex id
@@ -1098,8 +1100,8 @@ public final class QuadMeshExtraction {
      * The copy edges of the arrival face incident to the arrival entity, the
      * candidates a collinear reverse direction may have been claimed across.
      *
-     * @param faceId face the trace ended in
-     * @param zeroMask bit per chart side the point lies exactly on
+     * @param faceId           face the trace ended in
+     * @param zeroMask         bit per chart side the point lies exactly on
      * @param counterClockwise whether the patch chart winds counter-clockwise
      * @return the candidate copy edge ids
      */
@@ -1110,20 +1112,20 @@ public final class QuadMeshExtraction {
         }
         if (zeroCount == 1) {
             int chartEdge = Integer.numberOfTrailingZeros(zeroMask);
-            return new int[] {chartEdgeCopyEdge(faceId, chartEdge, counterClockwise)};
+            return new int[] { chartEdgeCopyEdge(faceId, chartEdge, counterClockwise) };
         }
         int sharedCorner = sharedZeroCorner(zeroMask);
         int previous = (sharedCorner + HalfEdgeMesh.TRIANGLE_CORNERS - 1) % HalfEdgeMesh.TRIANGLE_CORNERS;
-        return new int[] {chartEdgeCopyEdge(faceId, sharedCorner, counterClockwise),
-                chartEdgeCopyEdge(faceId, previous, counterClockwise)};
+        return new int[] { chartEdgeCopyEdge(faceId, sharedCorner, counterClockwise),
+                chartEdgeCopyEdge(faceId, previous, counterClockwise) };
     }
 
     /**
      * The port of a quad vertex holding one direction in one face's chart.
      *
      * @param quadVertex quad vertex whose ports are scanned
-     * @param faceId required port face
-     * @param turns required direction as quarter turns
+     * @param faceId     required port face
+     * @param turns      required direction as quarter turns
      * @return the port id, or {@link ExtractedQuadMesh#NONE}
      */
     private int findPort(int quadVertex, int faceId, int turns) {
@@ -1136,9 +1138,9 @@ public final class QuadMeshExtraction {
     }
 
     /**
-     * EBC13 Algorithm 6: extracts the quads by cycling connections, turning left
-     * at every vertex by taking the next port in its clockwise list. The
-     * fold-free map forces every cycle to close after exactly four corners.
+     * EBC13 Algorithm 6: extracts the quads by cycling connections, turning left at
+     * every vertex by taking the next port in its clockwise list. The fold-free map
+     * forces every cycle to close after exactly four corners.
      *
      * @throws IllegalStateException when a cycle is not a quad
      */
@@ -1235,12 +1237,9 @@ public final class QuadMeshExtraction {
         mesh.chartV = Arrays.copyOf(chartV, quadVertexCount);
         mesh.positions = new float[quadVertexCount * ExtractedQuadMesh.POSITION_FLOATS];
         for (int quadVertex = 0; quadVertex < quadVertexCount; quadVertex++) {
-            mesh.positions[quadVertex * ExtractedQuadMesh.POSITION_FLOATS] =
-                    positionX[quadVertex];
-            mesh.positions[quadVertex * ExtractedQuadMesh.POSITION_FLOATS + 1] =
-                    positionY[quadVertex];
-            mesh.positions[quadVertex * ExtractedQuadMesh.POSITION_FLOATS + 2] =
-                    positionZ[quadVertex];
+            mesh.positions[quadVertex * ExtractedQuadMesh.POSITION_FLOATS] = positionX[quadVertex];
+            mesh.positions[quadVertex * ExtractedQuadMesh.POSITION_FLOATS + 1] = positionY[quadVertex];
+            mesh.positions[quadVertex * ExtractedQuadMesh.POSITION_FLOATS + 2] = positionZ[quadVertex];
         }
         mesh.portCount = portCount;
         mesh.portStart = portStart;

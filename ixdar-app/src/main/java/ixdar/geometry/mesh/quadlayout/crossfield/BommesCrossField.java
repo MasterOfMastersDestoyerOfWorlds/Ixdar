@@ -9,8 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.joml.Vector3f;
-
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.BoundaryConstraints;
@@ -20,13 +18,15 @@ import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
+import ixdar.platform.Platforms;
 
 /**
  * Cross field solved as a mixed-integer problem over per-face angles and
  * per-edge period jumps, with greedy rounding followed by a local search over
  * period jumps.
  *
- * <p>See also: BZK09 Section 4
+ * <p>
+ * See also: BZK09 Section 4
  */
 public class BommesCrossField extends CrossField {
     public static final long LOCAL_SEARCH_BUDGET_MS = 3000L;
@@ -103,36 +103,36 @@ public class BommesCrossField extends CrossField {
             faceConstraintSource[0] = ConstraintSource.ANCHOR;
             totalConstraints = 1;
         }
-        System.out.printf("[cross-field timing] directional constraints %.3fs%n",
+        Platforms.log("[cross-field timing] directional constraints %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
 
         VornoiForest vornoiForest = new VornoiForest(mesh, this);
         vornoiForest.buildVoronoiSpanningForest();
-        System.out.printf("[cross-field timing] Voronoi forest %.3fs%n",
+        Platforms.log("[cross-field timing] Voronoi forest %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
 
         SmoothEnergySystem system = new SmoothEnergySystem(faceCount, edgeCount,
                 faceConstrained, faceConstraintAngle, vornoiForest);
         system.assemble(mesh, faceIdToActive, kappa, solverLocalMaxIterations, solverCgMaxIterations);
-        System.out.printf("[cross-field timing] smooth-energy assemble %.3fs%n",
+        Platforms.log("[cross-field timing] smooth-energy assemble %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
 
         system.solveGreedyMIP();
-        System.out.printf("[cross-field timing] greedy mixed-integer solve %.3fs%n",
+        Platforms.log("[cross-field timing] greedy mixed-integer solve %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
 
         system.unpackInto(mesh, this);
         extractSingularities();
-        System.out.printf("[cross-field timing] unpack + extract singularities %.3fs%n",
+        Platforms.log("[cross-field timing] unpack + extract singularities %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
 
         localSearchSingularityOptimization();
-        System.out.printf("[cross-field timing] local search singularity optimization %.3fs%n",
+        Platforms.log("[cross-field timing] local search singularity optimization %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
 
         printSolutionDiagnostics(system);
@@ -145,7 +145,8 @@ public class BommesCrossField extends CrossField {
      * matrix is factorized once and reused: shifting period jumps changes only the
      * right-hand side.
      *
-     * <p>See also: BZK09 Section 4.2
+     * <p>
+     * See also: BZK09 Section 4.2
      */
     private void localSearchSingularityOptimization() {
 
@@ -251,10 +252,10 @@ public class BommesCrossField extends CrossField {
     }
 
     /**
-     * Builds the right-hand side for the theta-only Laplacian by accumulating
-     * ±(κ + (π/2)·p) over interior edges into the two incident faces, using
-     * {@code perturbedPeriodJump} for {@code perturbEdge} when that is non-negative.
-     * Constrained-face contributions are omitted here;
+     * Builds the right-hand side for the theta-only Laplacian by accumulating ±(κ +
+     * (π/2)·p) over interior edges into the two incident faces, using
+     * {@code perturbedPeriodJump} for {@code perturbEdge} when that is
+     * non-negative. Constrained-face contributions are omitted here;
      * {@link AdaptiveSolver#solveCompact} folds them in.
      */
     private void buildRhs(double[] rhs, int perturbEdge, int perturbedPeriodJump) {
@@ -303,7 +304,7 @@ public class BommesCrossField extends CrossField {
         double avgInitialQueue = system.batchCount > 0
                 ? (double) system.totalLocalInitialQueueSize / system.batchCount
                 : 0.0;
-        System.out.printf(
+        Platforms.log(
                 "[cross-field] adaptive localGS=%d cg=%d direct=%d failed=%d localIters=%d cgIters=%d localCapHits=%d capFace=%d capChord=%d maxCapResidual=%.6g avgSeedQueue=%.3f maxQueue=%d batches=%d avgBatch=%.3f maxBatch=%d rejectOverlap=%d rejectRoundoff=%d%n",
                 system.localGsConverged, system.cgConverged, system.directFallbacks,
                 system.failedSolves, system.totalLocalGsIterations, system.totalCgIterations,
@@ -316,7 +317,7 @@ public class BommesCrossField extends CrossField {
         for (Singularity s : singularities) {
             histogram.merge(s.index4(), 1, Integer::sum);
         }
-        System.out.printf("[cross-field] singularityHistogram=%s%n", histogram);
+        Platforms.log("[cross-field] singularityHistogram=%s%n", histogram);
     }
 
     /**

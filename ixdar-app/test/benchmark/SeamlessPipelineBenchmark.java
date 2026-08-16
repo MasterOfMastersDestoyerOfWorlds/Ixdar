@@ -9,6 +9,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.platform.Platforms;
 
 /**
  * Headless timing harness for the cross-field + seamless stages — not part of
@@ -20,8 +21,8 @@ import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
  * </pre>
  *
  * Stage wall times come from the {@code [seamless timing]} /
- * {@code [cross-field timing]} console lines; this harness adds the totals
- * and the final metrics line for regression comparison. Add
+ * {@code [cross-field timing]} console lines; this harness adds the totals and
+ * the final metrics line for regression comparison. Add
  * {@code -Dorg.bytedeco.javacpp.platform=none} to force the PARDISO probe to
  * fail and measure the pure-Java EJML baseline on the same code.
  */
@@ -44,8 +45,8 @@ public final class SeamlessPipelineBenchmark {
         engine.buildSeamless();
         long seamlessEnd = System.nanoTime();
 
-        System.out.printf("[benchmark] %s V=%d F=%d%n", offPath, mesh.vertexCount(), mesh.faceCount());
-        System.out.printf("[benchmark] cross field total %.3fs, seamless total %.3fs%n",
+        Platforms.log("[benchmark] %s V=%d F=%d%n", offPath, mesh.vertexCount(), mesh.faceCount());
+        Platforms.log("[benchmark] cross field total %.3fs, seamless total %.3fs%n",
                 (seamlessStart - crossFieldStart) / 1.0e9,
                 (seamlessEnd - seamlessStart) / 1.0e9);
         System.out.println("[benchmark] singularities=" + engine.crossField.singularities.size()

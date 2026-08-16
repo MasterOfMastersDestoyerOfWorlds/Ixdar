@@ -1,6 +1,5 @@
 package ixdar.geometry.mesh.quadlayout.extraction;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.joml.Vector3f;

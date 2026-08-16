@@ -11,13 +11,16 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
 import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
+import ixdar.platform.Platforms;
 
 /**
- * T-mesh re-embedding, construction half: builds a working copy of the input mesh, gives
- * every T-mesh node a copy vertex, and carves every traced arc into the copy as an edge
- * path. Zero-quantized arcs are carved too; {@link EmbeddedTMesh#contract} consumes them.
+ * T-mesh re-embedding, construction half: builds a working copy of the input
+ * mesh, gives every T-mesh node a copy vertex, and carves every traced arc into
+ * the copy as an edge path. Zero-quantized arcs are carved too;
+ * {@link EmbeddedTMesh#contract} consumes them.
  *
- * <p>See also: LCBK19 Section 6.1
+ * <p>
+ * See also: LCBK19 Section 6.1
  */
 public final class LayoutEmbedding {
 
@@ -43,15 +46,16 @@ public final class LayoutEmbedding {
     /**
      * LCBK19 Def 6.2 criticality per node id: singularity and feature nodes hold
      * prescribed integer positions and must never be moved by the contraction
-     * operators. A non-critical node collapsed onto a critical point becomes critical
-     * (the contraction stage updates this in place).
+     * operators. A non-critical node collapsed onto a critical point becomes
+     * critical (the contraction stage updates this in place).
      */
     public boolean[] criticalByNode;
 
     /**
-     * Whether each arc rides a feature trace — the closed-surface analog of LCBK19's
-     * border arcs: nodes on a feature curve may only move along it, so a zero feature
-     * arc is collapsible while a zero regular arc into a feature-bound node is not.
+     * Whether each arc rides a feature trace — the closed-surface analog of
+     * LCBK19's border arcs: nodes on a feature curve may only move along it, so a
+     * zero feature arc is collapsible while a zero regular arc into a feature-bound
+     * node is not.
      */
     public boolean[] featureByArc;
 
@@ -70,8 +74,8 @@ public final class LayoutEmbedding {
     }
 
     /**
-     * Copy the mesh, place nodes, carve every trace, and check the result really is a
-     * subcomplex; logs the {@code [embed]} summary.
+     * Copy the mesh, place nodes, carve every trace, and check the result really is
+     * a subcomplex; logs the {@code [embed]} summary.
      *
      * @return this, with all public products populated
      */
@@ -89,7 +93,7 @@ public final class LayoutEmbedding {
         snapping.report();
         assertSubcomplex();
         long checkDoneNanos = System.nanoTime();
-        System.out.printf("[embed] arcs=%d copy V=%d E=%d F=%d %.2fs (carve %.2f check %.2f)%n",
+        Platforms.log("[embed] arcs=%d copy V=%d E=%d F=%d %.2fs (carve %.2f check %.2f)%n",
                 motorcycleGraph.arcs.size(), topology.copy.vertexCount(),
                 topology.copy.edgeCount(), topology.copy.faceCount(),
                 (checkDoneNanos - startNanos) / NANOS_PER_SECOND,
@@ -100,9 +104,10 @@ public final class LayoutEmbedding {
 
     /**
      * Mark LCBK19 Def 6.2 criticality: singularity and feature nodes are critical
-     * (their integer positions are prescribed by the quantization), and feature-trace
-     * arcs are critical curves. Trace-crossing intersection nodes stay non-critical
-     * until a contraction collapse lands them on a critical point.
+     * (their integer positions are prescribed by the quantization), and
+     * feature-trace arcs are critical curves. Trace-crossing intersection nodes
+     * stay non-critical until a contraction collapse lands them on a critical
+     * point.
      */
     private void markCriticality() {
         criticalByNode = new boolean[motorcycleGraph.nodes.size()];
@@ -121,10 +126,10 @@ public final class LayoutEmbedding {
     }
 
     /**
-     * Check that the carve really produced a subcomplex of the working copy: every arc
-     * embedded, every hop a real edge, and no two T-mesh elements sharing a mesh
-     * element. A violation here is an upstream invariant break, so it throws rather
-     * than being papered over.
+     * Check that the carve really produced a subcomplex of the working copy: every
+     * arc embedded, every hop a real edge, and no two T-mesh elements sharing a
+     * mesh element. A violation here is an upstream invariant break, so it throws
+     * rather than being papered over.
      */
     private void assertSubcomplex() {
         for (TraceArc arc : motorcycleGraph.arcs) {
@@ -133,8 +138,7 @@ public final class LayoutEmbedding {
                 throw new IllegalStateException("arc " + arc.arcId + " was never carved");
             }
             if (path.copyVertexPath.get(0) != vertexIdByNode[arc.startNodeId]
-                    || path.copyVertexPath.get(path.copyVertexPath.size() - 1)
-                            != vertexIdByNode[arc.endNodeId]) {
+                    || path.copyVertexPath.get(path.copyVertexPath.size() - 1) != vertexIdByNode[arc.endNodeId]) {
                 throw new IllegalStateException("arc " + arc.arcId
                         + " does not run between its endpoint nodes' vertices");
             }

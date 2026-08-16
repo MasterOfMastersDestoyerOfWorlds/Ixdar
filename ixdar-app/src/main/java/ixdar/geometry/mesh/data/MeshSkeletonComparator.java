@@ -336,7 +336,6 @@ public final class MeshSkeletonComparator {
 
         // Thumb detection: the finger with the most divergent direction from the trunk
         // (typically extends along a different axis). Use X-component of direction as heuristic.
-        float xDir = Math.abs(branch.direction()[0]);
         boolean likelyThumb = false;
         if (allFingers.size() >= NUM_5) {
             // If this branch has the highest |X direction| among all fingers, it's probably the thumb

@@ -15,6 +15,7 @@ import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.IncrementalCholeskySolver;
 import ixdar.geometry.mesh.quadlayout.solver.InteriorPointQp;
 import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
+import ixdar.platform.Platforms;
 
 /**
  * Turns a {@link CrossField} into per-corner (u, v) satisfying
@@ -25,7 +26,8 @@ import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
  *
  * across every cut edge, with r<sub>e</sub> fixed by the cross field.
  *
- * <p>See also: BZK09 Section 5
+ * <p>
+ * See also: BZK09 Section 5
  *
  * @see CrossField
  */
@@ -136,8 +138,8 @@ public final class SeamlessParameterization {
 
     /**
      * Native factor of the base system, created by the rounding stage's
-     * no-integer-DOFs fast path. Released by the injectivity loop, which owns
-     * its own handle on the fixed superset pattern.
+     * no-integer-DOFs fast path. Released by the injectivity loop, which owns its
+     * own handle on the fixed superset pattern.
      */
     public DirectSolver.CholeskyHandle baseFactorHandle;
 
@@ -240,19 +242,19 @@ public final class SeamlessParameterization {
 
         long dofSystemStart = System.nanoTime();
         this.dofSystem = new SeamlessDofSystem(this, cutGraph);
-        System.out.printf("[seamless timing] dof system %.3fs%n",
+        Platforms.log("[seamless timing] dof system %.3fs%n",
                 (System.nanoTime() - dofSystemStart) / 1.0e9);
 
         System.out.println("[seamless] Running greedy integer rounding");
         long roundingStart = System.nanoTime();
         runGreedyIntegerRounding();
-        System.out.printf("[seamless timing] greedy integer rounding %.3fs%n",
+        Platforms.log("[seamless timing] greedy integer rounding %.3fs%n",
                 (System.nanoTime() - roundingStart) / 1.0e9);
 
         System.out.println("[seamless] Running BCE13 injectivity-constraint loop");
         long constraintStart = System.nanoTime();
         runInjectivityConstraintLoop();
-        System.out.printf("[seamless timing] injectivity loop %.3fs%n",
+        Platforms.log("[seamless timing] injectivity loop %.3fs%n",
                 (System.nanoTime() - constraintStart) / 1.0e9);
 
         System.out.println("[seamless] Writing chart vertices from solution");
@@ -274,7 +276,8 @@ public final class SeamlessParameterization {
      * integer and re-solve. When constraint reduction already pinned every integer
      * DOF, the base system is factored natively once and solved directly.
      *
-     * <p>See also: BZK09 Section 5
+     * <p>
+     * See also: BZK09 Section 5
      */
     private void runGreedyIntegerRounding() {
 
@@ -303,7 +306,7 @@ public final class SeamlessParameterization {
             baseFactorMatrix = baseMatrix;
             DirectSolver.solveCompact(baseFactorHandle, baseMatrix,
                     baseMatrix.rightHandSide, solution, solution, noneFixed);
-            System.out.printf(
+            Platforms.log(
                     "[seamless timing] rounding assemble %.3fs, amd %.3fs, native factor+solve %.3fs"
                             + " (n=%d, 0 integer DOFs to pin)%n",
                     (amdStart - assembleStart) / 1.0e9,
@@ -320,7 +323,7 @@ public final class SeamlessParameterization {
                     "IGM rounding: cold Cholesky factor of the base system failed");
         }
         long pinLoopStart = System.nanoTime();
-        System.out.printf("[seamless timing] rounding assemble %.3fs, amd %.3fs, cold factor %.3fs (n=%d)%n",
+        Platforms.log("[seamless timing] rounding assemble %.3fs, amd %.3fs, cold factor %.3fs (n=%d)%n",
                 (amdStart - assembleStart) / 1.0e9,
                 (coldFactorStart - amdStart) / 1.0e9,
                 (pinLoopStart - coldFactorStart) / 1.0e9,
@@ -356,7 +359,7 @@ public final class SeamlessParameterization {
             incremental.solve(runningRhs, solution);
             pinCount++;
         }
-        System.out.printf("[seamless timing] rounding pin+solve loop %.3fs (%d pins)%n",
+        Platforms.log("[seamless timing] rounding pin+solve loop %.3fs (%d pins)%n",
                 (System.nanoTime() - pinLoopStart) / 1.0e9, pinCount);
     }
 
@@ -452,8 +455,8 @@ public final class SeamlessParameterization {
      * BCE13 §3.4's lazy-constraint loop: evaluate every Equation 4 inequality,
      * activate the violated plus every one below the activation threshold, and
      * re-solve the hard-constrained convex QP over the active set with
-     * {@link InteriorPointQp} until no constraint is violated or the round cap
-     * is reached.
+     * {@link InteriorPointQp} until no constraint is violated or the round cap is
+     * reached.
      */
     private void runInjectivityConstraintLoop() {
         if (baseFactorHandle != null) {
@@ -476,7 +479,7 @@ public final class SeamlessParameterization {
                 worst = Math.min(worst, values[constraint]);
                 violated += values[constraint] < 0.0 ? 1 : 0;
             }
-            System.out.printf("[injectivity] round %d violated=%d active=%d worst=%.4f%n",
+            Platforms.log("[injectivity] round %d violated=%d active=%d worst=%.4f%n",
                     round, violated, activeCount, worst);
             if (violated == 0 || round == maxConstraintRounds) {
                 break;
@@ -507,13 +510,13 @@ public final class SeamlessParameterization {
             InteriorPointQp qp = new InteriorPointQp(baseMatrix, activeDofs, activeCoefs,
                     activeBound);
             qp.solve(solution);
-            System.out.printf(
+            Platforms.log(
                     "[seamless timing] injectivity round %d %.3fs (ipIterations=%d, factorizations=%d, converged=%b)%n",
                     round, (System.nanoTime() - roundStart) / 1.0e9, qp.iterationCount,
                     qp.factorizationCount, qp.converged);
         }
         injective = violated == 0;
-        System.out.printf("[injectivity] done violated=%d flippedTriangles=%d%n", violated,
+        Platforms.log("[injectivity] done violated=%d flippedTriangles=%d%n", violated,
                 countFlippedTrianglesFromSolution());
     }
 
@@ -558,9 +561,9 @@ public final class SeamlessParameterization {
     }
 
     /**
-     * Count local-injectivity violations of the current solution: flipped
-     * triangles (negative parametric area) and collapsed ones (parametric area
-     * below {@link #DEGENERATE_UV_AREA_FRACTION} of the face's expected area
+     * Count local-injectivity violations of the current solution: flipped triangles
+     * (negative parametric area) and collapsed ones (parametric area below
+     * {@link #DEGENERATE_UV_AREA_FRACTION} of the face's expected area
      * {@code faceArea / h²}). Both counts must reach zero.
      *
      * @return number of flipped or collapsed triangles

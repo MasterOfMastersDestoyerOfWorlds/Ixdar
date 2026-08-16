@@ -25,6 +25,7 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
+import ixdar.platform.Platforms;
 
 /**
  * The quad layout's nodes, arcs and patches together with their realization on
@@ -139,6 +140,15 @@ public class EmbeddedTMesh {
 
     public int arcCollapseCount;
     public int patchSplitCount;
+
+    /** Cover refloods {@link #relabelPatchCover} performed, counting only calls that flooded. */
+    public int relabelCallCount;
+
+    /** Total faces repainted across all {@link #relabelPatchCover} floods. */
+    public int relabelFacesFlooded;
+
+    /** Wall nanos spent inside {@link #relabelPatchCover} floods. */
+    public long relabelNanos;
 
     /**
      * Timestamp of the last [contract] progress line, for the time-based fallback.
@@ -1903,12 +1913,12 @@ public class EmbeddedTMesh {
         // its patch and every label is then suspect.
         if (overlapCount > 0) {
             topology.patchAliasByPatch = new int[0];
-            System.out.printf("[contract] patch covers unusable: %d of %d faces claimed twice%n",
+            Platforms.log("[contract] patch covers unusable: %d of %d faces claimed twice%n",
                     overlapCount, topology.copy.faceCount());
             return;
         }
         topology.patchByCopyFace = labels;
-        System.out.printf("[contract] patch covers labeled: faces=%d of %d patches=%d | %.3fs%n",
+        Platforms.log("[contract] patch covers labeled: faces=%d of %d patches=%d | %.3fs%n",
                 labeledCount, topology.copy.faceCount(), patches.size(),
                 (System.nanoTime() - startNanos) / NANOS_PER_SECOND);
     }
@@ -1935,6 +1945,7 @@ public class EmbeddedTMesh {
         if (!splitPatch.corridor.hasSeedableBoundary(resolved)) {
             return;
         }
+        long startNanos = System.nanoTime();
         IntIdList faces = splitPatch.corridor.patchFaces(resolved);
         int foreignArc = splitPatch.corridor.foreignArcOnLastFlood(resolved);
         if (foreignArc != NONE) {
@@ -1948,6 +1959,9 @@ public class EmbeddedTMesh {
         for (int index = 0; index < faces.size(); index++) {
             topology.patchByCopyFace[faces.get(index)] = resolved;
         }
+        relabelCallCount++;
+        relabelFacesFlooded += faces.size();
+        relabelNanos += System.nanoTime() - startNanos;
     }
 
     /**
@@ -2004,6 +2018,8 @@ public class EmbeddedTMesh {
                 requireArrangementMatchesPatches("patch split " + nonSimple);
             }
         }
+        Platforms.log("[contract] relabel floods=%d faces=%d | %.3fs%n",
+                relabelCallCount, relabelFacesFlooded, relabelNanos / NANOS_PER_SECOND);
         conform();
         if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
             requireArrangementMatchesPatches("conform");
@@ -2135,7 +2151,7 @@ public class EmbeddedTMesh {
      */
     public EmbeddedTMesh reportDensity(String stage) {
         measureDensity();
-        System.out.printf("[density] %s: V=%d (source %d, minted %d = %.1f%%) F=%d (source %d,"
+        Platforms.log("[density] %s: V=%d (source %d, minted %d = %.1f%%) F=%d (source %d,"
                 + " +%d) | minted by node=%d arc=%d debris=%d%n",
                 stage, topology.copy.vertexCount(), topology.originalVertexBound,
                 mintedVertexCount,
@@ -2233,7 +2249,7 @@ public class EmbeddedTMesh {
      */
     public EmbeddedTMesh reportFaceContention(String stage) {
         measureFaceContention();
-        System.out.printf("[contention] %s: of %d source faces, %d carry no live arc, %d carry"
+        Platforms.log("[contention] %s: of %d source faces, %d carry no live arc, %d carry"
                 + " one, %d carry two, %d carry three or more (worst face %d with %d)"
                 + " | %d faces hold a live node, most %d%n",
                 stage, topology.sourceMesh.faceCount(), untouchedSourceFaceCount,
@@ -2341,11 +2357,12 @@ public class EmbeddedTMesh {
             if (arcCollapseCount % CONTRACT_PROGRESS_INTERVAL == 0
                     || now - lastContractProgressNanos > CONTRACT_PROGRESS_NANOS) {
                 lastContractProgressNanos = now;
-                System.out.printf(
+                Platforms.log(
                         "[contract] collapses=%d exactSigns=%d splits=%d worstRoute=%d"
                                 + " V=%d F=%d | routes=%d gates=%d gateExpand=%d(virtual=%d)"
                                 + " freeSettle=%d(failed=%d) refinedSettle=%d"
-                                + " freeRoutes=%d freeFails=%d blocked=%d\n",
+                                + " freeRoutes=%d freeFails=%d blocked=%d"
+                                + " relabels=%d(faces=%d %.2fs)\n",
                         arcCollapseCount,
                         ExactBarycentricOrient.exactSignCallCount,
                         collapseArc.rerouter.refinedEdgeSplitCount
@@ -2370,7 +2387,9 @@ public class EmbeddedTMesh {
                                 + splitPatch.rerouter.freePassRouteCount,
                         collapseArc.rerouter.freePassFailureCount
                                 + splitPatch.rerouter.freePassFailureCount,
-                        collapseArc.blockedDragCount);
+                        collapseArc.blockedDragCount,
+                        relabelCallCount, relabelFacesFlooded,
+                        relabelNanos / NANOS_PER_SECOND);
             }
             return true;
         }

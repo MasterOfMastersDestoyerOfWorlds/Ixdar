@@ -17,6 +17,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
 import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
 import ixdar.geometry.mesh.quadlayout.gridmap.LayoutPatchMaps;
+import ixdar.platform.Platforms;
 
 /**
  * Assigns the extracted quad mesh back to the T-mesh layout: nodes to re-fitted
@@ -40,7 +41,9 @@ public final class ExtractedPatchGrids {
     /** Quads across each live patch in its first direction, indexed by patch id. */
     public int[] widthByPatchId;
 
-    /** Quads across each live patch in its second direction, indexed by patch id. */
+    /**
+     * Quads across each live patch in its second direction, indexed by patch id.
+     */
     public int[] heightByPatchId;
 
     /** The layout patch owning each extracted quad. */
@@ -55,10 +58,16 @@ public final class ExtractedPatchGrids {
     /** Arc-end ports completed by walking the node's arc ring. */
     public int ringCompletedCount;
 
-    /** Regular nodes discovered off their original copy vertex, re-fitted by the walk. */
+    /**
+     * Regular nodes discovered off their original copy vertex, re-fitted by the
+     * walk.
+     */
     public int refitNodeCount;
 
-    /** Direct matches whose chain walk contradicted the layout, dropped as impostors. */
+    /**
+     * Direct matches whose chain walk contradicted the layout, dropped as
+     * impostors.
+     */
     public int rejectedMatchCount;
 
     /** Port list rotation per clockwise ring step, {@code +1} or {@code -1}. */
@@ -67,7 +76,9 @@ public final class ExtractedPatchGrids {
     /** Port of each arc end, indexed {@code 2 * arcId} at the start node end. */
     private int[] portByArcEnd;
 
-    /** Quad vertex chain of each live arc from its start node, indexed by arc id. */
+    /**
+     * Quad vertex chain of each live arc from its start node, indexed by arc id.
+     */
     private int[][] chainByArc;
 
     /** Quad id by packed directed corner pair, for the grid strip walk. */
@@ -104,7 +115,7 @@ public final class ExtractedPatchGrids {
         completeAnchoredNodes();
         walkArcs();
         fillPatchGrids();
-        System.out.printf("[patch-grids] patches=%d directMatches=%d rejected=%d"
+        Platforms.log("[patch-grids] patches=%d directMatches=%d rejected=%d"
                 + " ringCompleted=%d refitNodes=%d%n", livePatchCount(), directMatchCount,
                 rejectedMatchCount, ringCompletedCount, refitNodeCount);
         return this;
@@ -124,8 +135,8 @@ public final class ExtractedPatchGrids {
     }
 
     /**
-     * Builds the copy-vertex and directed-edge lookups over the extracted mesh,
-     * and refuses loop arcs, which the ring walk does not support.
+     * Builds the copy-vertex and directed-edge lookups over the extracted mesh, and
+     * refuses loop arcs, which the ring walk does not support.
      *
      * @throws IllegalStateException when a live arc is a loop
      */
@@ -277,8 +288,7 @@ public final class ExtractedPatchGrids {
      * @return the port id, or {@link ExtractedQuadMesh#NONE}
      */
     private int findPortInPatch(int quadVertex, int patchId, int turns) {
-        for (int port = quadMesh.portStart[quadVertex];
-                port < quadMesh.portStart[quadVertex + 1]; port++) {
+        for (int port = quadMesh.portStart[quadVertex]; port < quadMesh.portStart[quadVertex + 1]; port++) {
             Integer facePatch = patchMaps.regions.patchIdByCopyFace
                     .get(quadMesh.portFace[port]);
             if (facePatch != null && facePatch == patchId
@@ -290,10 +300,10 @@ public final class ExtractedPatchGrids {
     }
 
     /**
-     * Whether walking an arc's quad chain from a candidate port stays regular and arrives at
-     * the far node's quad vertex when that vertex is known. A relaxed separatrix can leave a
-     * vertex through a neighbouring region, so a face-and-direction match can name an
-     * impostor; the walk is the arbiter.
+     * Whether walking an arc's quad chain from a candidate port stays regular and
+     * arrives at the far node's quad vertex when that vertex is known. A relaxed
+     * separatrix can leave a vertex through a neighbouring region, so a
+     * face-and-direction match can name an impostor; the walk is the arbiter.
      *
      * @param arc     arc whose chain is walked
      * @param atStart whether the walk leaves the arc's start node
@@ -360,8 +370,8 @@ public final class ExtractedPatchGrids {
     }
 
     /**
-     * The ring-adjacent arc end at a node, one rotational step from an arc
-     * through the patch they bound together.
+     * The ring-adjacent arc end at a node, one rotational step from an arc through
+     * the patch they bound together.
      *
      * @param nodeId  node whose ring is stepped
      * @param arcId   arc being left
@@ -407,8 +417,8 @@ public final class ExtractedPatchGrids {
 
     /**
      * Determines whether one ring step advances the clockwise port list by one or
-     * minus one, from any anchored node with two directly matched ring-adjacent
-     * arc ends.
+     * minus one, from any anchored node with two directly matched ring-adjacent arc
+     * ends.
      *
      * @throws IllegalStateException when no pair decides it or two pairs disagree
      */
@@ -458,8 +468,8 @@ public final class ExtractedPatchGrids {
     }
 
     /**
-     * One line per port of a quad vertex: its face's region patch and its direction, the
-     * evidence a ring-step mismatch needs.
+     * One line per port of a quad vertex: its face's region patch and its
+     * direction, the evidence a ring-step mismatch needs.
      *
      * @param quadVertex quad vertex whose port ring is reported
      * @return the report, starting with a newline
@@ -467,8 +477,7 @@ public final class ExtractedPatchGrids {
     private String portRingReport(int quadVertex) {
         StringBuilder report = new StringBuilder("\n port ring of quad vertex " + quadVertex
                 + ":");
-        for (int port = quadMesh.portStart[quadVertex];
-                port < quadMesh.portStart[quadVertex + 1]; port++) {
+        for (int port = quadMesh.portStart[quadVertex]; port < quadMesh.portStart[quadVertex + 1]; port++) {
             Integer facePatch = patchMaps.regions.patchIdByCopyFace
                     .get(quadMesh.portFace[port]);
             report.append(" p").append(port).append("(face ").append(quadMesh.portFace[port])
@@ -479,8 +488,8 @@ public final class ExtractedPatchGrids {
     }
 
     /**
-     * One line per live arc end at a node: the port it holds, or NONE, so a wrong direct
-     * match is visible beside the port ring.
+     * One line per live arc end at a node: the port it holds, or NONE, so a wrong
+     * direct match is visible beside the port ring.
      *
      * @param nodeId node whose arc ends are reported
      * @return the report, starting with a newline
@@ -530,8 +539,7 @@ public final class ExtractedPatchGrids {
     }
 
     /**
-     * Completes one node's arc-end ports by ring propagation from any assigned
-     * end.
+     * Completes one node's arc-end ports by ring propagation from any assigned end.
      *
      * @param nodeId node to complete
      * @throws IllegalStateException when no end is assigned or counts disagree
@@ -623,8 +631,8 @@ public final class ExtractedPatchGrids {
     }
 
     /**
-     * Walks one arc's chain of quad edges and registers the far node's quad
-     * vertex, completing its ring when it is met for the first time.
+     * Walks one arc's chain of quad edges and registers the far node's quad vertex,
+     * completing its ring when it is met for the first time.
      *
      * @param arc     arc to walk
      * @param atStart whether the walk leaves the arc's start node
@@ -716,8 +724,7 @@ public final class ExtractedPatchGrids {
     }
 
     /**
-     * The quad vertex chain along one patch side, walking the side's arcs in
-     * order.
+     * The quad vertex chain along one patch side, walking the side's arcs in order.
      *
      * @param patch patch whose side is walked
      * @param side  side index in {@code [0, 4)}
@@ -857,7 +864,7 @@ public final class ExtractedPatchGrids {
                 return new int[] {
                         quadMesh.quadCorner[base + (corner + 2) % ExtractedQuadMesh.QUAD_CORNERS],
                         quadMesh.quadCorner[base + (corner + 3)
-                                % ExtractedQuadMesh.QUAD_CORNERS]};
+                                % ExtractedQuadMesh.QUAD_CORNERS] };
             }
         }
         throw new IllegalStateException("quad " + quad + " does not walk corners " + from

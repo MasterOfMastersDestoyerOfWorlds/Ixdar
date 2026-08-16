@@ -10,11 +10,12 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.platform.Platforms;
 
 /**
- * Runs the contraction operator by operator until the fixed point or the first diagnostic,
- * reporting how far it got — the ground truth the rewind workflow's C press sees. Pick the
- * mesh with {@code -Dbenchmark.off}.
+ * Runs the contraction operator by operator until the fixed point or the first
+ * diagnostic, reporting how far it got — the ground truth the rewind workflow's
+ * C press sees. Pick the mesh with {@code -Dbenchmark.off}.
  */
 public final class ContractProgressProbe {
 
@@ -25,8 +26,8 @@ public final class ContractProgressProbe {
     private static final int PROGRESS_INTERVAL = 100;
 
     /**
-     * Steps the contraction to the end or the first thrown diagnostic, printing the operator
-     * count either way.
+     * Steps the contraction to the end or the first thrown diagnostic, printing the
+     * operator count either way.
      *
      * @throws IOException when the mesh file cannot be read
      */
@@ -44,14 +45,14 @@ public final class ContractProgressProbe {
             while (tmesh.contractStep() != null) {
                 op++;
                 if (op % PROGRESS_INTERVAL == 0) {
-                    System.out.printf("[probe] %d operators applied%n", op);
+                    Platforms.log("[probe] %d operators applied%n", op);
                 }
             }
-            System.out.printf("[probe] contraction reached its fixed point after %d operators"
+            Platforms.log("[probe] contraction reached its fixed point after %d operators"
                     + " (collapses=%d patchCollapses=%d patchSplits=%d)%n", op,
                     tmesh.arcCollapseCount, tmesh.patchCollapseCount, tmesh.patchSplitCount);
         } catch (RuntimeException failure) {
-            System.out.printf("[probe] failed after %d operators: %s%n", op,
+            Platforms.log("[probe] failed after %d operators: %s%n", op,
                     failure.getMessage());
         }
     }

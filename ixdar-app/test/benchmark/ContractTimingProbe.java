@@ -9,10 +9,12 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.platform.Platforms;
 
 /**
- * Wall-clock probe of the pipeline through contraction only, printing the elapsed time and
- * whether contraction completed; pick the mesh with {@code -Dbenchmark.off}.
+ * Wall-clock probe of the pipeline through contraction only, printing the
+ * elapsed time and whether contraction completed; pick the mesh with
+ * {@code -Dbenchmark.off}.
  */
 public final class ContractTimingProbe {
 
@@ -21,8 +23,8 @@ public final class ContractTimingProbe {
     private static final double NANOS_PER_SECOND = 1.0e9;
 
     /**
-     * Runs the engine through {@code buildContractedTMesh} and prints the wall time, or the
-     * failure and the wall time when contraction throws.
+     * Runs the engine through {@code buildContractedTMesh} and prints the wall
+     * time, or the failure and the wall time when contraction throws.
      *
      * @throws IOException when the mesh file cannot be read
      */
@@ -37,10 +39,10 @@ public final class ContractTimingProbe {
         long start = System.nanoTime();
         try {
             engine.buildContractedTMesh();
-            System.out.printf("[timing] %s contraction COMPLETE in %.3fs%n", offPath,
+            Platforms.log("[timing] %s contraction COMPLETE in %.3fs%n", offPath,
                     (System.nanoTime() - start) / NANOS_PER_SECOND);
         } catch (RuntimeException failure) {
-            System.out.printf("[timing] %s contraction FAILED in %.3fs: %s%n", offPath,
+            Platforms.log("[timing] %s contraction FAILED in %.3fs: %s%n", offPath,
                     (System.nanoTime() - start) / NANOS_PER_SECOND, failure.getMessage());
         }
     }

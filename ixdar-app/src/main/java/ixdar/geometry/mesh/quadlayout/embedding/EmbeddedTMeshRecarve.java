@@ -85,7 +85,6 @@ public final class EmbeddedTMeshRecarve {
      */
     public int foreignNodeOnPathCount;
 
-
     /**
      * Crossings removed as halves of a same-edge dip by {@link #pullStripsTaut}.
      */
@@ -156,7 +155,7 @@ public final class EmbeddedTMeshRecarve {
         snapping.report();
         requireNoClaimConflict();
         requirePartition();
-        System.out.printf("[recarve] nodes=%d arcs=%d patches=%d | copy V=%d->%d F=%d->%d"
+        Platforms.log("[recarve] nodes=%d arcs=%d patches=%d | copy V=%d->%d F=%d->%d"
                 + " | nodes reused=%d placed=%d, path steps read=%d"
                 + " | taut dipRemoved=%d fanSlid=%d endTrimmed=%d | %.2fs%n",
                 oldNodeIdByDenseId.length, oldArcIdByDenseId.length, freshTmesh.patches.size(),
@@ -567,9 +566,8 @@ public final class EmbeddedTMeshRecarve {
             entriesByStrip.add(entries);
         }
         int stripsSinceRemoval = 0;
-        for (int stripCursor = 0;
-                !stripByArc.isEmpty() && stripsSinceRemoval < stripByArc.size();
-                stripCursor = (stripCursor + 1) % stripByArc.size()) {
+        for (int stripCursor = 0; !stripByArc.isEmpty()
+                && stripsSinceRemoval < stripByArc.size(); stripCursor = (stripCursor + 1) % stripByArc.size()) {
             FaceStripPath strip = stripByArc.get(stripCursor);
             List<int[]> entries = entriesByStrip.get(stripCursor);
             boolean removedInStrip = false;

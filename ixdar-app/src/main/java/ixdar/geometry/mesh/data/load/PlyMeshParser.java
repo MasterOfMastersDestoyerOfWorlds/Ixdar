@@ -1,7 +1,6 @@
 package ixdar.geometry.mesh.data.load;
 
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -88,7 +87,6 @@ public final class PlyMeshParser {
             String line;
             boolean readVertices = false;
             boolean readFaces = false;
-            int vertexCount = 0;
 
             while ((line = stringReader.readLine()) != null) {
                 line = line.trim();
@@ -102,12 +100,6 @@ public final class PlyMeshParser {
                 }
 
                 if (!readVertices) {
-                    if (line.startsWith(MeshLoader.ELEMENT_VERTEX)) {
-                        String[] parts = line.split(MeshLoader.S);
-                        if (parts.length >= 2) {
-                            vertexCount = Integer.parseInt(parts[1]);
-                        }
-                    }
                 } else if (!readFaces) {
                     // Parse vertex data
                     String[] parts = line.split(MeshLoader.S);

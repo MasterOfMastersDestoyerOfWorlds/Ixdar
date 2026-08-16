@@ -15,7 +15,6 @@ import ixdar.graphics.render.sdf.SDFTexture;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
 import ixdar.platform.Platforms;
-import ixdar.platform.gl.GL;
 
 public class Font {
     public static final String RES = "res";

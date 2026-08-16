@@ -17,12 +17,13 @@ import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.platform.Platforms;
 
 /**
- * Localizes botijo's operator-755 mid-path tear: replays the contraction watching the torn
- * arc's hop covers and the named patches for the first divergence, then steps the failing
- * collapse and traces who last owned the mislabeled face. Pick the mesh with
- * {@code -Dbenchmark.off}.
+ * Localizes botijo's operator-755 mid-path tear: replays the contraction
+ * watching the torn arc's hop covers and the named patches for the first
+ * divergence, then steps the failing collapse and traces who last owned the
+ * mislabeled face. Pick the mesh with {@code -Dbenchmark.off}.
  */
 public final class StaleCoverProbe {
 
@@ -32,7 +33,10 @@ public final class StaleCoverProbe {
     /** Operators replayed before the failing collapse, from the B-rewind count. */
     private static final int REPLAYED_OPS = 754;
 
-    /** Arcs named in the tear diagnostic: the collapsing arc, the torn arc, its bigon twin. */
+    /**
+     * Arcs named in the tear diagnostic: the collapsing arc, the torn arc, its
+     * bigon twin.
+     */
     private static final int[] PROBED_ARCS = { 1047, 1048, 1049 };
 
     /** Patches named in the tear diagnostic. */
@@ -45,8 +49,8 @@ public final class StaleCoverProbe {
     private final String[] patchSignatures = new String[PROBED_PATCHES.length];
 
     /**
-     * Replays the contraction reporting probed-arc and probed-patch changes, then steps the
-     * failing collapse drag by drag with cover forensics on the torn hop.
+     * Replays the contraction reporting probed-arc and probed-patch changes, then
+     * steps the failing collapse drag by drag with cover forensics on the torn hop.
      *
      * @throws IOException when the mesh file cannot be read
      */
@@ -67,11 +71,11 @@ public final class StaleCoverProbe {
         ZeroArcCollapseOperator collapseArc = tmesh.collapseArc;
         int collapsingArcId = collapseArc.mostContendedArc();
         collapseArc.beginCollapse(collapsingArcId);
-        System.out.printf("[probe] failing collapse of arc %d: moved node %d (vertex %d) ->"
+        Platforms.log("[probe] failing collapse of arc %d: moved node %d (vertex %d) ->"
                 + " surviving node %d (vertex %d), channel %s, fan %s%n", collapsingArcId,
                 collapseArc.movedNodeId, collapseArc.movedVertex, collapseArc.survivingNodeId,
                 collapseArc.targetVertex, collapseArc.channel, collapseArc.fan);
-        System.out.printf("[probe] touched patches:%s%n", touchedPatchText(tmesh, collapseArc));
+        Platforms.log("[probe] touched patches:%s%n", touchedPatchText(tmesh, collapseArc));
         for (int arcId : PROBED_ARCS) {
             describeHops(tmesh, arcId, "before drags");
         }
@@ -88,7 +92,7 @@ public final class StaleCoverProbe {
             if (!collapseArc.dragNextArc()) {
                 break;
             }
-            System.out.printf("[probe] dragged arc %d (banned wedges %d, routeAttempts +%d,"
+            Platforms.log("[probe] dragged arc %d (banned wedges %d, routeAttempts +%d,"
                     + " gatePasses +%d, splits +%d): previous %s%n",
                     collapseArc.lastDraggedArcId, collapseArc.bannedArrivalWedgeCount,
                     collapseArc.rerouter.routeAttemptCount - routeAttemptsBefore,
@@ -98,7 +102,7 @@ public final class StaleCoverProbe {
             describeHops(tmesh, collapseArc.lastDraggedArcId, "after its drag");
         }
         collapseArc.finishCollapse();
-        System.out.printf("[probe] touched patches after finish:%s%n",
+        Platforms.log("[probe] touched patches after finish:%s%n",
                 touchedPatchText(tmesh, collapseArc));
         describeRing(tmesh, collapseArc.movedVertex, "after finish");
         describeRing(tmesh, collapseArc.targetVertex, "after finish");
@@ -112,12 +116,12 @@ public final class StaleCoverProbe {
             describeTornHop(tmesh, arcId, collapseArc);
         }
         ArrangementDiagnosticException tear = tmesh.flankTearFailure("probe");
-        System.out.printf("[probe] tear: %s%n", tear == null ? "none" : tear.getMessage());
+        Platforms.log("[probe] tear: %s%n", tear == null ? "none" : tear.getMessage());
     }
 
     /**
-     * Prints every probed arc or patch whose signature changed under the operator just
-     * applied, keeping the replay log to the moments that matter.
+     * Prints every probed arc or patch whose signature changed under the operator
+     * just applied, keeping the replay log to the moments that matter.
      *
      * @param tmesh T-mesh being probed
      * @param op    operator ordinal just applied, for the caption
@@ -127,22 +131,22 @@ public final class StaleCoverProbe {
             String signature = arcSignature(tmesh, PROBED_ARCS[index]);
             if (!signature.equals(arcSignatures[index])) {
                 arcSignatures[index] = signature;
-                System.out.printf("[probe] op %d arc %d: %s%n", op, PROBED_ARCS[index], signature);
+                Platforms.log("[probe] op %d arc %d: %s%n", op, PROBED_ARCS[index], signature);
             }
         }
         for (int index = 0; index < PROBED_PATCHES.length; index++) {
             String signature = patchSignature(tmesh, PROBED_PATCHES[index]);
             if (!signature.equals(patchSignatures[index])) {
                 patchSignatures[index] = signature;
-                System.out.printf("[probe] op %d patch %d: %s%n", op, PROBED_PATCHES[index],
+                Platforms.log("[probe] op %d patch %d: %s%n", op, PROBED_PATCHES[index],
                         signature);
             }
         }
     }
 
     /**
-     * One probed arc's watch signature: liveness, raw and resolved flanks, path, and the
-     * resolved cover labels beside every hop.
+     * One probed arc's watch signature: liveness, raw and resolved flanks, path,
+     * and the resolved cover labels beside every hop.
      *
      * @param tmesh T-mesh being probed
      * @param arcId arc to sign
@@ -179,8 +183,8 @@ public final class StaleCoverProbe {
     }
 
     /**
-     * The collapse's touched-patch union with each entry's current alias resolution, the set
-     * the finishing relabel repaints.
+     * The collapse's touched-patch union with each entry's current alias
+     * resolution, the set the finishing relabel repaints.
      *
      * @param tmesh       T-mesh being probed
      * @param collapseArc operator holding the touched union
@@ -197,7 +201,8 @@ public final class StaleCoverProbe {
     }
 
     /**
-     * Prints a probed patch's current cover flood as its face ids, or why it cannot flood.
+     * Prints a probed patch's current cover flood as its face ids, or why it cannot
+     * flood.
      *
      * @param tmesh   T-mesh being probed
      * @param patchId patch to flood
@@ -206,7 +211,7 @@ public final class StaleCoverProbe {
         int resolved = tmesh.topology.resolvePatch(patchId);
         if (resolved != patchId || !tmesh.patches.get(resolved).alive
                 || !tmesh.splitPatch.corridor.hasSeedableBoundary(resolved)) {
-            System.out.printf("[probe] patch %d flood: unavailable (resolved %d, alive %s)%n",
+            Platforms.log("[probe] patch %d flood: unavailable (resolved %d, alive %s)%n",
                     patchId, resolved, tmesh.patches.get(resolved).alive);
             return;
         }
@@ -215,13 +220,14 @@ public final class StaleCoverProbe {
         for (int cursor = 0; cursor < faces.size(); cursor++) {
             text.append(" ").append(faces.get(cursor));
         }
-        System.out.printf("[probe] patch %d flood (%d faces):%s%n", patchId, faces.size(), text);
+        Platforms.log("[probe] patch %d flood (%d faces):%s%n", patchId, faces.size(), text);
     }
 
     /**
-     * Finds an arc's first hop whose resolved cover labels disagree with its resolved flanks
-     * and runs forensics on both flanking faces: raw label, membership in the finished
-     * collapse's touched union, and every alive patch whose flood holds the face.
+     * Finds an arc's first hop whose resolved cover labels disagree with its
+     * resolved flanks and runs forensics on both flanking faces: raw label,
+     * membership in the finished collapse's touched union, and every alive patch
+     * whose flood holds the face.
      *
      * @param tmesh       T-mesh being probed
      * @param arcId       arc to scan
@@ -253,7 +259,7 @@ public final class StaleCoverProbe {
                 if (resolved == expected[side]) {
                     continue;
                 }
-                System.out.printf("[probe] arc %d torn at hop %d: face %d labeled %d"
+                Platforms.log("[probe] arc %d torn at hop %d: face %d labeled %d"
                         + " (resolved %d) but this side's flank is %d, expected patch touched"
                         + " by the collapse: %s, floods holding the face:%s%n", arcId, hop,
                         faceId, label, resolved, expected[side],
@@ -264,8 +270,8 @@ public final class StaleCoverProbe {
     }
 
     /**
-     * Whether the finished collapse's touched union resolves onto the given patch, which
-     * decides whether the finishing relabel repainted its cover.
+     * Whether the finished collapse's touched union resolves onto the given patch,
+     * which decides whether the finishing relabel repainted its cover.
      *
      * @param tmesh       T-mesh being probed
      * @param collapseArc operator holding the touched union
@@ -283,8 +289,8 @@ public final class StaleCoverProbe {
     }
 
     /**
-     * Every alive, unaliased, seedable patch whose cover flood holds a face — the face's
-     * actual owners, independent of the possibly stale label painted on it.
+     * Every alive, unaliased, seedable patch whose cover flood holds a face — the
+     * face's actual owners, independent of the possibly stale label painted on it.
      *
      * @param tmesh  T-mesh being probed
      * @param faceId copy face to locate
@@ -310,8 +316,8 @@ public final class StaleCoverProbe {
     }
 
     /**
-     * Prints an arc's path with the resolved cover labels flanking every hop, the direct
-     * evidence of which cells the route ran between.
+     * Prints an arc's path with the resolved cover labels flanking every hop, the
+     * direct evidence of which cells the route ran between.
      *
      * @param tmesh  T-mesh being probed
      * @param arcId  arc whose hops are labelled
@@ -319,10 +325,10 @@ public final class StaleCoverProbe {
      */
     private void describeHops(EmbeddedTMesh tmesh, int arcId, String moment) {
         if (arcId >= tmesh.arcs.size() || !tmesh.arcs.get(arcId).alive) {
-            System.out.printf("[probe] arc %d %s: dead or absent%n", arcId, moment);
+            Platforms.log("[probe] arc %d %s: dead or absent%n", arcId, moment);
             return;
         }
-        System.out.printf("[probe] arc %d hops %s:%s%n", arcId, moment, hopText(tmesh, arcId));
+        Platforms.log("[probe] arc %d hops %s:%s%n", arcId, moment, hopText(tmesh, arcId));
     }
 
     /**
@@ -353,8 +359,8 @@ public final class StaleCoverProbe {
     }
 
     /**
-     * Prints the claimed spokes and face labels around a vertex in cyclic half-edge order,
-     * which is the slot structure the dragged arcs arrive into.
+     * Prints the claimed spokes and face labels around a vertex in cyclic half-edge
+     * order, which is the slot structure the dragged arcs arrive into.
      *
      * @param tmesh    T-mesh being probed
      * @param vertexId copy vertex whose ring is walked
@@ -381,7 +387,7 @@ public final class StaleCoverProbe {
             halfEdge = copy.halfEdgeTwin(copy.halfEdgeNext(copy.halfEdgeNext(halfEdge)));
             spokes++;
         } while (halfEdge != start && spokes < copy.vertexEdgeCount(vertexId) + 1);
-        System.out.printf("[probe] ring of vertex %d %s (%d spokes):%s%n", vertexId, moment,
+        Platforms.log("[probe] ring of vertex %d %s (%d spokes):%s%n", vertexId, moment,
                 spokes, ring);
     }
 }

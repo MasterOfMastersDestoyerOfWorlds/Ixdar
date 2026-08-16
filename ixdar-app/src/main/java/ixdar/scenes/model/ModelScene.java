@@ -44,7 +44,7 @@ public abstract class ModelScene extends Scene {
      */
     public static final String COMMON_MODEL_PROPERTY = "ixdar.model";
 
-    public static final String DEFAULT_OFF = "test/resources/quadlayout/figure_8/rockerarm_in_tri.off";
+    public static final String DEFAULT_OFF = "test/resources/quadlayout/figure_8/fertility_in_tri.off";
 
     /**
      * Prefix marking a {@link ModelChoice#path} as a registered fixture's display name rather

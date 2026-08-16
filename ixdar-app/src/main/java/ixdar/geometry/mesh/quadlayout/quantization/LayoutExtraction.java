@@ -6,21 +6,23 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.EdgeCrossing;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.FeatureEdgeSpan;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
+import ixdar.platform.Platforms;
 
 /**
- * Applies the quantization to the T-mesh: every zero-quantized arc is collapsed,
- * unioning its two end nodes into one layout vertex, leaving the positive arcs as
- * the layout's separatrix skeleton.
+ * Applies the quantization to the T-mesh: every zero-quantized arc is
+ * collapsed, unioning its two end nodes into one layout vertex, leaving the
+ * positive arcs as the layout's separatrix skeleton.
  *
- * <p>Also produces a per-face render buffer shaped like
+ * <p>
+ * Also produces a per-face render buffer shaped like
  * {@code MotorcycleGraph.traceRecordsByFace}, clipped to the positive arcs.
  *
- * <p>See also: Lyon 2021 Section 6
+ * <p>
+ * See also: Lyon 2021 Section 6
  */
 public final class LayoutExtraction {
 
@@ -47,7 +49,9 @@ public final class LayoutExtraction {
     /** Filtered per-face render records covering only positive arcs. */
     public float[][] layoutRecordsByFace;
 
-    /** Feature edges whose covering arc quantized to zero (demoted from barrier). */
+    /**
+     * Feature edges whose covering arc quantized to zero (demoted from barrier).
+     */
     public int featureEdgesOpenCount;
 
     /**
@@ -91,7 +95,7 @@ public final class LayoutExtraction {
 
         buildLayoutRecords();
         countOpenFeatureEdges();
-        System.out.printf(
+        Platforms.log(
                 "[layout] clusters=%d singularClusters=%d skeletonArcs=%d tJunctions=%d"
                         + " featureEdgesOpen=%d%n",
                 clusterCount, singularClusterCount, layoutArcs.size(), remainingTJunctionCount, featureEdgesOpenCount);
@@ -99,8 +103,9 @@ public final class LayoutExtraction {
     }
 
     /**
-     * Counts the feature edges the layout no longer holds: the arc covering the feature span
-     * quantized to zero, so it collapses and stops cutting the surface there.
+     * Counts the feature edges the layout no longer holds: the arc covering the
+     * feature span quantized to zero, so it collapses and stops cutting the surface
+     * there.
      */
     private void countOpenFeatureEdges() {
         featureEdgesOpenCount = 0;
@@ -118,9 +123,9 @@ public final class LayoutExtraction {
     }
 
     /**
-     * Per-trace positive parametric ranges, then per-face records for every
-     * segment stretch inside a positive range, clipped to the range and capped
-     * at the renderer's records-per-face limit.
+     * Per-trace positive parametric ranges, then per-face records for every segment
+     * stretch inside a positive range, clipped to the range and capped at the
+     * renderer's records-per-face limit.
      */
     private void buildLayoutRecords() {
         int faceCount = motorcycleGraph.seamless.mesh.faceCount();

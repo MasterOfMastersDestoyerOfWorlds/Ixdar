@@ -1,20 +1,20 @@
 package ixdar.graphics.render.model;
 
-import ixdar.graphics.cameras.Camera3D;
-import ixdar.graphics.render.Texture;
-import ixdar.graphics.render.shaders.MeshShader;
-import ixdar.graphics.render.shaders.ShaderProgram;
-import ixdar.graphics.render.shaders.VertexArrayObject;
-import ixdar.graphics.render.shaders.VertexBufferObject;
-import ixdar.platform.Platforms;
-import ixdar.platform.file.FileManagement;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
 
-import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
+import ixdar.graphics.cameras.Camera3D;
+import ixdar.graphics.render.Texture;
+import ixdar.graphics.render.shaders.ShaderProgram;
+import ixdar.graphics.render.shaders.VertexArrayObject;
+import ixdar.graphics.render.shaders.VertexBufferObject;
+import ixdar.platform.Platforms;
+import ixdar.platform.file.FileManagement;
 
 public class AssimpModelRuntime implements ModelRuntime {
     public static final String USETEXTURE = "useTexture";

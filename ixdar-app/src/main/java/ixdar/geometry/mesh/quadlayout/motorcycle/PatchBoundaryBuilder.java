@@ -19,14 +19,16 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceAxis;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.platform.Platforms;
 
 /**
- * Assembles the T-mesh patches as faces of the trace arrangement: every arc gives
- * two directed sides, each node orders its arc-ends cyclically, and walking
- * "arrive, leave through the next port" enumerates each face once as a
+ * Assembles the T-mesh patches as faces of the trace arrangement: every arc
+ * gives two directed sides, each node orders its arc-ends cyclically, and
+ * walking "arrive, leave through the next port" enumerates each face once as a
  * {@link TMeshPatch}, cornered where travel turns.
  *
- * <p>See also: Lyon 2021 Section 4
+ * <p>
+ * See also: Lyon 2021 Section 4
  */
 public final class PatchBoundaryBuilder {
 
@@ -47,7 +49,10 @@ public final class PatchBoundaryBuilder {
     /** Sides of a rectangular patch. */
     private static final int SIDES = 4;
 
-    /** Relative gap between opposite parametric side lengths that still counts as a rectangle. */
+    /**
+     * Relative gap between opposite parametric side lengths that still counts as a
+     * rectangle.
+     */
     private static final double RECTANGULARITY_TOLERANCE = 1.0e-6;
 
     public final MotorcycleGraph graph;
@@ -59,12 +64,16 @@ public final class PatchBoundaryBuilder {
     public int invalidCycleFoldBackCount;
 
     /**
-     * Hops away from a singularity whose turn is neither flat nor a counter-clockwise π/2 corner,
-     * so LCBK19 §4's direction law fails and the cycle bounding them is not a rectangle.
+     * Hops away from a singularity whose turn is neither flat nor a
+     * counter-clockwise π/2 corner, so LCBK19 §4's direction law fails and the
+     * cycle bounding them is not a rectangle.
      */
     public int cornerLawViolationCount;
 
-    /** Hops away from a singularity that carry straight on in the same parametric direction. */
+    /**
+     * Hops away from a singularity that carry straight on in the same parametric
+     * direction.
+     */
     public int flatHopCount;
 
     /** Hops away from a singularity that turn counter-clockwise by π/2. */
@@ -73,12 +82,16 @@ public final class PatchBoundaryBuilder {
     /** Hops away from a singularity that turn clockwise by π/2. */
     public int cwCornerHopCount;
 
-    /** Hops at a singularity, where the cone angle is not π/2 and the law does not apply. */
+    /**
+     * Hops at a singularity, where the cone angle is not π/2 and the law does not
+     * apply.
+     */
     public int singularityHopCount;
 
     /**
      * Opposite side pairs whose parametric lengths differ by more than
-     * {@link #RECTANGULARITY_TOLERANCE}, so the patch is not the rectangle LCBK19 Def 3.1 requires.
+     * {@link #RECTANGULARITY_TOLERANCE}, so the patch is not the rectangle LCBK19
+     * Def 3.1 requires.
      */
     public int rectangularityViolationCount;
 
@@ -198,15 +211,15 @@ public final class PatchBoundaryBuilder {
                 graph.patches.add(patch);
             }
         }
-        System.out.printf(
+        Platforms.log(
                 "[motorcycle] arrangement patches: %d cycles, %d valid rectangles, %d unresolved%n",
                 graph.patches.size(), validCount, unresolvedCycles);
-        System.out.printf(
+        Platforms.log(
                 "[motorcycle] hop turns: flat=%d ccwCorner=%d cwCorner=%d atSingularity=%d"
                         + " lawViolations=%d%n",
                 flatHopCount, ccwCornerHopCount, cwCornerHopCount, singularityHopCount,
                 cornerLawViolationCount);
-        System.out.printf(
+        Platforms.log(
                 "[motorcycle] Def 3.1 rectangularity: violations=%d worstRelativeError=%.6f%n",
                 rectangularityViolationCount, worstRectangularityError);
         logInvalidCycleDiagnostics();
@@ -243,7 +256,7 @@ public final class PatchBoundaryBuilder {
                     arcId, arc.traceId, endNodeId, endNode.type, endNode.vertexId,
                     ports == null ? 0 : ports.size()));
         }
-        System.out.printf(
+        Platforms.log(
                 "[patch-diag] invalid cycle: hops=%d corners=%d resolved=%b foldBack=%b%s%n",
                 cycleArcIds.size(), cornerPositions.size(), resolved, foldBack, hops);
         if (invalidCycleSamplesPrinted > PORT_TABLE_SAMPLE_LIMIT) {
@@ -262,7 +275,7 @@ public final class PatchBoundaryBuilder {
                             port.arcId, port.outgoing, port.directionU, port.directionV,
                             port.sortKey));
                 }
-                System.out.printf("[patch-diag]   node=%d ports:%s%n", nodeId, table);
+                Platforms.log("[patch-diag]   node=%d ports:%s%n", nodeId, table);
             }
         }
     }
@@ -275,7 +288,7 @@ public final class PatchBoundaryBuilder {
         if (invalidCycleCountByCornerCount.isEmpty()) {
             return;
         }
-        System.out.printf("[patch-diag] invalid cycles by corner count=%s foldBacks=%d%n",
+        Platforms.log("[patch-diag] invalid cycles by corner count=%s foldBacks=%d%n",
                 new TreeMap<>(invalidCycleCountByCornerCount), invalidCycleFoldBackCount);
     }
 
@@ -431,11 +444,11 @@ public final class PatchBoundaryBuilder {
                         port.arcId, port.outgoing, port.directionU, port.directionV,
                         port.activeFace, port.sortKey));
             }
-            System.out.printf("[patch-diag] ambiguous ports node=%d type=%s vertex=%d:%s%n",
+            Platforms.log("[patch-diag] ambiguous ports node=%d type=%s vertex=%d:%s%n",
                     entry.getKey(), node.type, node.vertexId, portDump);
         }
         if (ambiguousNodes > 0) {
-            System.out.printf("[patch-diag] nodes with ambiguous port order: %d%n", ambiguousNodes);
+            Platforms.log("[patch-diag] nodes with ambiguous port order: %d%n", ambiguousNodes);
         }
     }
 
@@ -565,11 +578,13 @@ public final class PatchBoundaryBuilder {
     }
 
     /**
-     * Checks LCBK19 Definition 3.1 on a split patch: opposite sides must carry equal parametric
-     * length, since the patch is meant to map onto an axis-aligned rectangle.
+     * Checks LCBK19 Definition 3.1 on a split patch: opposite sides must carry
+     * equal parametric length, since the patch is meant to map onto an axis-aligned
+     * rectangle.
      *
-     * <p>Nothing else verifies this, and the quantization's objective averages the two opposite
-     * sides, which is exactly the operation that hides an unequal pair.
+     * <p>
+     * Nothing else verifies this, and the quantization's objective averages the two
+     * opposite sides, which is exactly the operation that hides an unequal pair.
      *
      * @param patch patch whose four sides have just been filled
      */

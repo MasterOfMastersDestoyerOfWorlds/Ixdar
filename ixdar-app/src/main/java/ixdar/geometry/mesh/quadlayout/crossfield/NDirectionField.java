@@ -20,6 +20,7 @@ import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 import ixdar.geometry.mesh.quadlayout.solver.Preconditioner;
+import ixdar.platform.Platforms;
 
 public class NDirectionField extends CrossField {
 
@@ -69,16 +70,15 @@ public class NDirectionField extends CrossField {
 
     /**
      * Dual-form (already paired with the PL basis sections) alignment load from
-     * feature and boundary edges, added verbatim to the aligned solve's
-     * right-hand side; null when the mesh has no alignment edges.
+     * feature and boundary edges, added verbatim to the aligned solve's right-hand
+     * side; null when the mesh has no alignment edges.
      */
     public double[] featureAlignmentLoad;
 
     /**
-     * Soft alignment strength for feature/boundary edges (KCP13 §5: the
-     * pointwise guidance magnitude weights alignment against smoothness). Scaled
-     * by edge length per contribution; raise it when separatrices must hug
-     * features harder.
+     * Soft alignment strength for feature/boundary edges (KCP13 §5: the pointwise
+     * guidance magnitude weights alignment against smoothness). Scaled by edge
+     * length per contribution; raise it when separatrices must hug features harder.
      */
     public float featureAlignmentWeight = 1.0f;
 
@@ -122,15 +122,15 @@ public class NDirectionField extends CrossField {
 
         long sectionStart = System.nanoTime();
         computeVertexFrames();
-        System.out.printf("[cross-field timing] compute vertex frames %.3fs%n",
+        Platforms.log("[cross-field timing] compute vertex frames %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
         computeAngleRescaling();
-        System.out.printf("[cross-field timing] compute angle rescaling %.3fs%n",
+        Platforms.log("[cross-field timing] compute angle rescaling %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
         assemble();
-        System.out.printf("[cross-field timing] assemble %.3fs%n",
+        Platforms.log("[cross-field timing] assemble %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
         boolean hasAlignmentEdges = !alignmentEdgeIds.isEmpty();
@@ -138,31 +138,31 @@ public class NDirectionField extends CrossField {
             if (useCurvatureAlignment) {
                 buildLoadVector();
 
-                System.out.printf("[cross-field timing] build load vector %.3fs%n",
+                Platforms.log("[cross-field timing] build load vector %.3fs%n",
                         (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
                 sectionStart = System.nanoTime();
                 solveForHopfField();
-                System.out.printf("[cross-field timing] solve for hopf field %.3fs%n",
+                Platforms.log("[cross-field timing] solve for hopf field %.3fs%n",
                         (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
                 sectionStart = System.nanoTime();
             }
             if (hasAlignmentEdges) {
                 buildFeatureAlignmentLoad();
-                System.out.printf("[cross-field timing] build feature alignment load %.3fs%n",
+                Platforms.log("[cross-field timing] build feature alignment load %.3fs%n",
                         (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
                 sectionStart = System.nanoTime();
             }
             solveAligned(0.0);
-            System.out.printf("[cross-field timing] solve aligned %.3fs%n",
+            Platforms.log("[cross-field timing] solve aligned %.3fs%n",
                     (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         } else {
             solveSmoothest();
-            System.out.printf("[cross-field timing] solve smoothest %.3fs%n",
+            Platforms.log("[cross-field timing] solve smoothest %.3fs%n",
                     (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         }
         sectionStart = System.nanoTime();
         populate();
-        System.out.printf("[cross-field timing] populate %.3fs%n",
+        Platforms.log("[cross-field timing] populate %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         return this;
     }
@@ -217,7 +217,8 @@ public class NDirectionField extends CrossField {
      * edge in {@link CrossField#alignmentEdgeIds}. The result is dual-form, so it
      * adds straight onto the aligned solve's right-hand side.
      *
-     * <p>See also: KCP*13 Section 5
+     * <p>
+     * See also: KCP*13 Section 5
      */
     private void buildFeatureAlignmentLoad() {
         featureAlignmentLoad = new double[2 * vertexCount];
@@ -253,7 +254,7 @@ public class NDirectionField extends CrossField {
         for (double value : featureAlignmentLoad) {
             loadNormSquared += value * value;
         }
-        System.out.printf("[n-field] feature alignment edges=%d load norm=%.6e%n",
+        Platforms.log("[n-field] feature alignment edges=%d load norm=%.6e%n",
                 sortedAlignmentEdgeIds.size(), Math.sqrt(loadNormSquared));
     }
 
@@ -290,7 +291,7 @@ public class NDirectionField extends CrossField {
         for (int i = 0; i < N; i++) {
             loadNormSquared += loadVector[i] * loadVector[i];
         }
-        System.out.printf("[hopf]    load norm=%.6e%n", Math.sqrt(loadNormSquared));
+        Platforms.log("[hopf]    load norm=%.6e%n", Math.sqrt(loadNormSquared));
 
         // M q = loadVector. PCG takes its RHS from matrix.rightHandSide.
         System.arraycopy(loadVector, 0, massSystemMatrix.rightHandSide, 0, N);
@@ -299,8 +300,8 @@ public class NDirectionField extends CrossField {
         AdaptiveSolver.PcgResult result = AdaptiveSolver.preconditionedConjugateGradient(
                 massSystemMatrix,
                 this.hopfField,
-                null,                       // no pinned DOFs: include all in the norms
-                jacobi(massSystemMatrix),   // M is well-conditioned; Jacobi suffices
+                null, // no pinned DOFs: include all in the norms
+                jacobi(massSystemMatrix), // M is well-conditioned; Jacobi suffices
                 10000,
                 1e-8);
         System.out.println("[hopf]    PCG iters=" + result.iterations() + PCG_CONVERGED_SUFFIX + result.converged());
@@ -313,6 +314,7 @@ public class NDirectionField extends CrossField {
             crossFieldGuidance[2 * v + 1] = 2.0 * realCurvature * imaginaryCurvature;
         }
     }
+
     /** Jacobi (diagonal) preconditioner: z = D^{-1} r, with D = diag(a). */
     private static Preconditioner jacobi(NormalMatrix a) {
         int n = a.size();
@@ -327,6 +329,7 @@ public class NDirectionField extends CrossField {
             }
         };
     }
+
     /**
      * Compute the per-vertex tangent frames.
      */
@@ -607,9 +610,8 @@ public class NDirectionField extends CrossField {
     }
 
     /**
-     * Solve for the globally smoothest direction field via inverse power
-     * iteration on the generalized eigenproblem {@code A u = lambda M u}
-     * (KCP13 Algorithm 2).
+     * Solve for the globally smoothest direction field via inverse power iteration
+     * on the generalized eigenproblem {@code A u = lambda M u} (KCP13 Algorithm 2).
      */
     public void solveSmoothest() {
         int N = 2 * vertexCount;
@@ -653,6 +655,7 @@ public class NDirectionField extends CrossField {
             fieldAngle[v] = Math.atan2(uImaginary[v], uReal[v]) / n;
         }
     }
+
     private void solveAligned(double t) {
         int N = 2 * vertexCount;
 
@@ -677,7 +680,7 @@ public class NDirectionField extends CrossField {
                 shifted,
                 x,
                 null,
-                jacobi(shifted),    // Laplacian: try Jacobi first, upgrade to IC(0) if slow
+                jacobi(shifted), // Laplacian: try Jacobi first, upgrade to IC(0) if slow
                 5000,
                 1e-8);
         System.out.println("[aligned] PCG iters=" + result.iterations() + PCG_CONVERGED_SUFFIX + result.converged());
@@ -695,6 +698,7 @@ public class NDirectionField extends CrossField {
             fieldAngle[v] = Math.atan2(uImaginary[v], uReal[v]) / n;
         }
     }
+
     private static void massNormalize(double[] v, NormalMatrix mass) {
         double quadratic = 0.0;
         for (int i = 0; i < v.length; i++) {
@@ -878,7 +882,7 @@ public class NDirectionField extends CrossField {
         // Discrete Poincaré–Hopf (KCP13 App. B): on a closed mesh the quarter
         // indices must sum to 4χ; boundary vertices are excluded from the walk,
         // so meshes with boundary will legitimately differ.
-        System.out.printf("[n-field] singularities=%d indexSum4=%d fourChi=%d%n",
+        Platforms.log("[n-field] singularities=%d indexSum4=%d fourChi=%d%n",
                 singularities.size(), indexSum4, 4 * eulerCharacteristic);
 
         // KCP13 §6.1.3 ground truth: the raw field's per-triangle indices. The
@@ -893,10 +897,10 @@ public class NDirectionField extends CrossField {
                 triangleSum += triangleIndex[face];
             }
         }
-        System.out.printf("[n-field] raw triangle indices: nonzero=%d sum=%d%n",
+        Platforms.log("[n-field] raw triangle indices: nonzero=%d sum=%d%n",
                 triangleNonzero, triangleSum);
         if (triangleNonzero != singularities.size()) {
-            System.out.printf("[n-field] WARNING conversion mismatch: raw field has %d singular"
+            Platforms.log("[n-field] WARNING conversion mismatch: raw field has %d singular"
                     + " triangles but extraction found %d vertex singularities%n",
                     triangleNonzero, singularities.size());
             Set<Integer> rawSingularCornerVertices = new HashSet<>();
@@ -911,7 +915,7 @@ public class NDirectionField extends CrossField {
             }
             for (Singularity singularity : singularities) {
                 if (!rawSingularCornerVertices.contains(singularity.vertexId())) {
-                    System.out.printf("[n-field]   phantom singularity vertex=%d index4=%d"
+                    Platforms.log("[n-field]   phantom singularity vertex=%d index4=%d"
                             + " (no raw singular triangle touches it)%n",
                             singularity.vertexId(), singularity.index4());
                 }
@@ -925,10 +929,11 @@ public class NDirectionField extends CrossField {
      * jump across that shared edge and concentrating the face's winding at the
      * vertex opposite it.
      *
-     * <p>See also: KCP*13 Section 6.1.3
+     * <p>
+     * See also: KCP*13 Section 6.1.3
      *
-     * @param faceMeanMagnitude per-face magnitude of the corner-direction
-     *                          complex mean (reliability of that face's theta)
+     * @param faceMeanMagnitude per-face magnitude of the corner-direction complex
+     *                          mean (reliability of that face's theta)
      */
     private void concentrateSingularFaceWindings(double[] faceMeanMagnitude) {
         int[] triangleIndex = computeTriangleIndices();

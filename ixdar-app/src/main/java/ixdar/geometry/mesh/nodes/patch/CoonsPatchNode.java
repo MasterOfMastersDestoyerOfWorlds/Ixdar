@@ -1,7 +1,6 @@
 package ixdar.geometry.mesh.nodes.patch;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -374,7 +373,6 @@ public class CoonsPatchNode implements MeshNode {
                                                     int eid, int startVid, int endVid) {
         int he = mesh.edgeHalfEdge(eid);
         int ca = mesh.halfEdgeVertex(he);
-        int cb = mesh.halfEdgeEndVertex(he);
         int o = eid * NUM_3;
         Vector3f p0 = new Vector3f();
         Vector3f p3 = new Vector3f();

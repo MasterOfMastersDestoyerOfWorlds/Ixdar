@@ -14,7 +14,6 @@ import ixdar.geometry.mesh.data.Face;
 import ixdar.geometry.mesh.data.FaceState;
 import ixdar.geometry.mesh.standalone.Icosphere;
 import ixdar.graphics.cameras.Camera3D;
-import ixdar.graphics.render.shaders.MeshShader;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.graphics.render.shaders.VertexArrayObject;
 import ixdar.graphics.render.shaders.VertexBufferObject;

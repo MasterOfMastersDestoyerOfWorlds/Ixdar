@@ -14,6 +14,7 @@ import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 import ixdar.geometry.mesh.quadlayout.solver.PardisoCholesky;
 import ixdar.geometry.mesh.quadlayout.solver.SolverPermutation;
+import ixdar.platform.Platforms;
 
 /**
  * Micro-benchmark separating backend factor time from repeated-solve time at
@@ -76,7 +77,7 @@ public final class BackendSolveMicroBenchmark {
             ejml.solve(permutedRhs, solution);
         }
         long ejmlSolvesEnd = System.nanoTime();
-        System.out.printf("[micro] ejml    n=%d factor %.3fs, %d solves %.3fs (%.1fms each)%n",
+        Platforms.log("[micro] ejml    n=%d factor %.3fs, %d solves %.3fs (%.1fms each)%n",
                 n, (ejmlFactorEnd - ejmlFactorStart) / 1.0e9, SOLVE_REPETITIONS,
                 (ejmlSolvesEnd - ejmlFactorEnd) / 1.0e9,
                 (ejmlSolvesEnd - ejmlFactorEnd) / 1.0e6 / SOLVE_REPETITIONS);
@@ -90,7 +91,7 @@ public final class BackendSolveMicroBenchmark {
             pardiso.solve(permutedRhs, solution);
         }
         long pardisoSolvesEnd = System.nanoTime();
-        System.out.printf("[micro] pardiso n=%d factor %.3fs, %d solves %.3fs (%.1fms each)%n",
+        Platforms.log("[micro] pardiso n=%d factor %.3fs, %d solves %.3fs (%.1fms each)%n",
                 n, (pardisoFactorEnd - pardisoFactorStart) / 1.0e9, SOLVE_REPETITIONS,
                 (pardisoSolvesEnd - pardisoFactorEnd) / 1.0e9,
                 (pardisoSolvesEnd - pardisoFactorEnd) / 1.0e6 / SOLVE_REPETITIONS);

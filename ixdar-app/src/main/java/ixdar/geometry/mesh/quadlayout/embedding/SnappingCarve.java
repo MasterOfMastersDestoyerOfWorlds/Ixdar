@@ -14,6 +14,7 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
+import ixdar.platform.Platforms;
 
 /**
  * Embeds every layout arc as one chosen vertex per crossed edge of the
@@ -819,7 +820,7 @@ public final class SnappingCarve {
      * check that the copy mesh is being refined no further than the layout needs.
      */
     public void report() {
-        System.out.printf("[snap] nodes=%d onVertex=%d edgeSplit=%d faceSplit=%d snapped=%d |"
+        Platforms.log("[snap] nodes=%d onVertex=%d edgeSplit=%d faceSplit=%d snapped=%d |"
                 + " constraint mesh V=%d F=%d (source V=%d F=%d)%n",
                 nodeCount, nodesOnVertexCount, nodesByEdgeSplitCount,
                 nodesByFaceSplitCount, nodesSnappedToCornerCount, constraintVertexCount,
@@ -834,16 +835,16 @@ public final class SnappingCarve {
             passages += strip.passageFaces.size();
             longestArc = Math.max(longestArc, strip.passageFaces.size());
         }
-        System.out.printf("[snap] arcs=%d passages=%d longestArc=%d | contestedFaces=%d of %d"
+        Platforms.log("[snap] arcs=%d passages=%d longestArc=%d | contestedFaces=%d of %d"
                 + " mostPassagesOnAFace=%d%n", stripByArc.size(), passages, longestArc,
                 contestedFaceCount, passageCountBySourceFace.length, mostPassagesOnAFace);
         if (pathByArc == null) {
             return;
         }
-        System.out.printf("[snap] crossings served by corner=%d by minted lane=%d (most=%d on"
+        Platforms.log("[snap] crossings served by corner=%d by minted lane=%d (most=%d on"
                 + " one edge, over %d constraint edges)%n", cornersGrantedCount, lanesMintedCount,
                 mostLanesOnAnEdge, crossingsByEdge.size());
-        System.out.printf("[snap] chords laid=%d alreadyPresent=%d | copy V=%d F=%d, unchanged"
+        Platforms.log("[snap] chords laid=%d alreadyPresent=%d | copy V=%d F=%d, unchanged"
                 + " by chords: V %s F %s%n", chordsInsertedCount, chordsAlreadyPresentCount,
                 topology.copy.vertexCount(), topology.copy.faceCount(),
                 verticesBeforeChords == topology.copy.vertexCount(),

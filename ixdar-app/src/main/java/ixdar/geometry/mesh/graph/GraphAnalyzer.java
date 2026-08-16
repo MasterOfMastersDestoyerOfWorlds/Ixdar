@@ -11,7 +11,6 @@ import java.util.Set;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeSchema;
 import ixdar.annotations.meshnode.OutputPort;
-import ixdar.annotations.meshnode.PortType;
 import ixdar.parsing.python.PythonParser;
 
 /**

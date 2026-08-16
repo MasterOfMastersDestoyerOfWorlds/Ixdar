@@ -262,7 +262,8 @@ public final class ArcRerouter {
             return;
         }
         if (faceId >= bannedApproachStampByFace.length) {
-            bannedApproachStampByFace = Arrays.copyOf(bannedApproachStampByFace, faceId + 1);
+            bannedApproachStampByFace = Arrays.copyOf(bannedApproachStampByFace,
+                    Math.max(faceId + 1, bannedApproachStampByFace.length * 2));
         }
         bannedApproachStampByFace[faceId] = bannedApproachStamp;
     }
@@ -278,7 +279,8 @@ public final class ArcRerouter {
             return;
         }
         if (faceId >= bannedDepartureStampByFace.length) {
-            bannedDepartureStampByFace = Arrays.copyOf(bannedDepartureStampByFace, faceId + 1);
+            bannedDepartureStampByFace = Arrays.copyOf(bannedDepartureStampByFace,
+                    Math.max(faceId + 1, bannedDepartureStampByFace.length * 2));
         }
         bannedDepartureStampByFace[faceId] = bannedDepartureStamp;
     }
@@ -294,7 +296,8 @@ public final class ArcRerouter {
             return;
         }
         if (patchId >= patchStampByPatch.length) {
-            patchStampByPatch = Arrays.copyOf(patchStampByPatch, patchId + 1);
+            patchStampByPatch = Arrays.copyOf(patchStampByPatch,
+                    Math.max(patchId + 1, patchStampByPatch.length * 2));
         }
         patchStampByPatch[patchId] = patchStamp;
     }

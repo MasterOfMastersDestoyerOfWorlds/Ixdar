@@ -10,6 +10,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.platform.Platforms;
 
 /**
  * The number of quads each layout arc carries, measured from the seamless
@@ -53,7 +54,9 @@ public final class LayoutResolution {
     /** Strips found. */
     public int stripCount;
 
-    /** Arc path steps whose two ends hold one chart position, so they measure zero. */
+    /**
+     * Arc path steps whose two ends hold one chart position, so they measure zero.
+     */
     public int collapsedStepCount;
 
     /** The first collapsed step found, described for the failure message. */
@@ -89,7 +92,7 @@ public final class LayoutResolution {
         requireSingleArcSides();
         measureArcLengths();
         sizeStrips();
-        System.out.printf("[grid-sizing] strips=%d target=%.4f worstStripSpread=%.1f%n",
+        Platforms.log("[grid-sizing] strips=%d target=%.4f worstStripSpread=%.1f%n",
                 stripCount, targetEdgeLength, worstStripSpread);
         reportWorstSizedPatches();
         return this;
@@ -97,9 +100,9 @@ public final class LayoutResolution {
 
     /**
      * Reports the patches whose rectangle aspect disagrees most with the aspect
-     * their sides actually measure. A patch listed here is asked to map a shape onto
-     * a rectangle of the wrong proportions, which its Tutte map can only absorb as
-     * crowding.
+     * their sides actually measure. A patch listed here is asked to map a shape
+     * onto a rectangle of the wrong proportions, which its Tutte map can only
+     * absorb as crowding.
      */
     private void reportWorstSizedPatches() {
         List<double[]> byMismatch = new ArrayList<>();
@@ -121,7 +124,7 @@ public final class LayoutResolution {
         System.out.println("[grid-sizing] worst aspect mismatches:");
         for (int index = 0; index < Math.min(WORST_PATCHES_LISTED, byMismatch.size()); index++) {
             double[] entry = byMismatch.get(index);
-            System.out.printf("[grid-sizing]   patch %d: measured %.2fx%.2f -> rectangle %dx%d"
+            Platforms.log("[grid-sizing]   patch %d: measured %.2fx%.2f -> rectangle %dx%d"
                     + " (aspect off by %.1fx)%n", (int) entry[1], entry[2], entry[3],
                     (int) entry[4], (int) entry[5], entry[0]);
         }

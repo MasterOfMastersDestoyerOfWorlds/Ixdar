@@ -13,15 +13,17 @@ import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.CutGraph;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.platform.Platforms;
 
 /**
  * Projects an approximately-seamless parametrization onto the exactly-seamless
  * solution space. After {@link #project()}, the seam transition equation across
  * every interior cut edge holds exactly in real arithmetic, with every output
- * still representable as a standard {@code float}. Results are written back into
- * the parent {@link SeamlessParameterization}.
+ * still representable as a standard {@code float}. Results are written back
+ * into the parent {@link SeamlessParameterization}.
  *
- * <p>See also: MC19 Section 5.3.1
+ * <p>
+ * See also: MC19 Section 5.3.1
  */
 public final class SeamlessProjector {
 
@@ -37,16 +39,16 @@ public final class SeamlessProjector {
      */
     private static final int MAX_UNFLIP_PASSES = 20;
     /**
-     * Padding factor on the bounding rectangle used to seed the
-     * Sutherland-Hodgman kernel-polygon clip — fraction of bbox extent added on
-     * each side so the seed contains all link vertices with margin.
+     * Padding factor on the bounding rectangle used to seed the Sutherland-Hodgman
+     * kernel-polygon clip — fraction of bbox extent added on each side so the seed
+     * contains all link vertices with margin.
      */
     private static final double KERNEL_BBOX_PAD_FRACTION = 0.1;
     /**
      * Strict-positivity margin (relative to local edge magnitude) used when
      * accepting a kernel point; ensures the moved vertex lands strictly inside
-     * every half-plane rather than on a boundary line, avoiding zero-area
-     * follow-up triangles.
+     * every half-plane rather than on a boundary line, avoiding zero-area follow-up
+     * triangles.
      */
     private static final double KERNEL_INTERIOR_MARGIN = 1.0e-9;
     public final SeamlessParameterization seamless;
@@ -61,8 +63,8 @@ public final class SeamlessProjector {
      * {@link #project()} is called.
      *
      * @param seamless the parametrization to project onto the exact-constraint
-     *                 manifold; must have already had {@link
-     *                 SeamlessParameterization#build()} run
+     *                 manifold; must have already had
+     *                 {@link SeamlessParameterization#build()} run
      */
     public SeamlessProjector(SeamlessParameterization seamless) {
         this.seamless = seamless;
@@ -76,9 +78,9 @@ public final class SeamlessProjector {
      * {@code seamless.vCorner}, {@code seamless.cutTranslationS}, and
      * {@code seamless.cutTranslationT}.
      *
-     * @throws ArithmeticException if any projected value lands outside the
-     *         chosen F_d range {@code (-d, +d)}, breaking the exact-arithmetic
-     *         guarantee (MC19 §7 overflow)
+     * @throws ArithmeticException if any projected value lands outside the chosen
+     *                             F_d range {@code (-d, +d)}, breaking the
+     *                             exact-arithmetic guarantee (MC19 §7 overflow)
      */
     public void project() {
         int chartVertexCount = cutGraph.chartVertexCount;
@@ -212,19 +214,21 @@ public final class SeamlessProjector {
      * necessary, recording its edges and per-position plus/minus chart vertices
      * into the three lists. Marks every visited edge in {@code walkedCutEdge}.
      *
-     * @param seedEdge              an unwalked interior cut edge
-     * @param singularityVertexIds  set of mesh vertex ids that are singularities
-     * @param walkedCutEdge         per-active-edge marker, updated as edges are visited
-     * @param branchPlusChart       accumulator: chain of {@code +}-side chart vertex IDs
-     * @param branchMinusChart      accumulator: chain of {@code -}-side chart vertex IDs
-     * @param branchRotation        accumulator: branch rotation r ∈ {0..3}
+     * @param seedEdge             an unwalked interior cut edge
+     * @param singularityVertexIds set of mesh vertex ids that are singularities
+     * @param walkedCutEdge        per-active-edge marker, updated as edges are
+     *                             visited
+     * @param branchPlusChart      accumulator: chain of {@code +}-side chart vertex
+     *                             IDs
+     * @param branchMinusChart     accumulator: chain of {@code -}-side chart vertex
+     *                             IDs
+     * @param branchRotation       accumulator: branch rotation r ∈ {0..3}
      */
     private void walkBranchFromSeed(int seedEdge, Set<Integer> singularityVertexIds,
             boolean[] walkedCutEdge, List<int[]> branchPlusChart,
             List<int[]> branchMinusChart, List<Integer> branchRotation) {
         int[] seedEndpoints = edgeEndpointsActive(seedEdge);
         int activeVertexA = seedEndpoints[0];
-        int activeVertexB = seedEndpoints[1];
 
         // Walk backward from one endpoint to find the start node (or detect a loop).
         int backwardSeedEdge = seedEdge;
@@ -299,15 +303,15 @@ public final class SeamlessProjector {
     }
 
     /**
-     * Rotation from the {@code +} sector to the {@code -} sector for one chain edge.
-     * {@link CutGraph#cutRotation} is stored A-to-B, so it applies directly only
-     * when the chain labels {@code A} as plus; otherwise the answer is its inverse.
+     * Rotation from the {@code +} sector to the {@code -} sector for one chain
+     * edge. {@link CutGraph#cutRotation} is stored A-to-B, so it applies directly
+     * only when the chain labels {@code A} as plus; otherwise the answer is its
+     * inverse.
      *
-     * @param activeEdge      dense edge index in the chain
-     * @param plusActiveFace  active face that has been labeled the {@code +}
-     *                        side at this edge
-     * @return rotation r ∈ {0..3} such that f_minus = R_r · f_plus + t on this
-     *         edge
+     * @param activeEdge     dense edge index in the chain
+     * @param plusActiveFace active face that has been labeled the {@code +} side at
+     *                       this edge
+     * @return rotation r ∈ {0..3} such that f_minus = R_r · f_plus + t on this edge
      */
     private int effectivePlusToMinusRotation(int activeEdge, int plusActiveFace) {
         int edgeRotation = cutGraph.cutRotation[activeEdge];
@@ -319,16 +323,21 @@ public final class SeamlessProjector {
 
     /**
      * Fill the two-row block in {@code reducedMatrix} for one branch's
-     * {@code T_{m-1}} equation: {@code R_r · (u_0^+ − u_m^+) − (u_0^- − u_m^-) = 0}.
+     * {@code T_{m-1}} equation:
+     * {@code R_r · (u_0^+ − u_m^+) − (u_0^- − u_m^-) = 0}.
      *
-     * @param reducedMatrix         the {@code C̄} matrix being filled
-     * @param rowU                  index of this branch's u-component row
-     * @param chartVertexToColumn   chart-vertex → column-index-of-node map
-     * @param plusStart             chart vertex of the {@code +} sector at the start node
-     * @param plusEnd               chart vertex of the {@code +} sector at the end node
-     * @param minusStart            chart vertex of the {@code -} sector at the start node
-     * @param minusEnd              chart vertex of the {@code -} sector at the end node
-     * @param rotation              the branch's integer rotation r ∈ {0..3}
+     * @param reducedMatrix       the {@code C̄} matrix being filled
+     * @param rowU                index of this branch's u-component row
+     * @param chartVertexToColumn chart-vertex → column-index-of-node map
+     * @param plusStart           chart vertex of the {@code +} sector at the start
+     *                            node
+     * @param plusEnd             chart vertex of the {@code +} sector at the end
+     *                            node
+     * @param minusStart          chart vertex of the {@code -} sector at the start
+     *                            node
+     * @param minusEnd            chart vertex of the {@code -} sector at the end
+     *                            node
+     * @param rotation            the branch's integer rotation r ∈ {0..3}
      */
     private static void fillBranchReducedRows(BigInteger[][] reducedMatrix, int rowU,
             Map<Integer, Integer> chartVertexToColumn,
@@ -365,19 +374,21 @@ public final class SeamlessProjector {
     }
 
     /**
-     * Walk one branch forward, filling its non-node positions: snap each
-     * {@code +} sector to F_d (it stays a free variable), then derive each
-     * {@code -} sector from the previous via
+     * Walk one branch forward, filling its non-node positions: snap each {@code +}
+     * sector to F_d (it stays a free variable), then derive each {@code -} sector
+     * from the previous via
      * {@code (u^-_k, v^-_k) = (u^-_{k-1}, v^-_{k-1}) + R_r · ((u^+_k, v^+_k) − (u^+_{k-1}, v^+_{k-1}))}.
      *
-     * @param plusChart    {@code +} sector chart vertex per position, length m+1
-     * @param minusChart   {@code -} sector chart vertex per position, length m+1
-     * @param rotation     branch rotation r ∈ {0..3}
-     * @param chartU       mutable per-chart-vertex u array; node entries already set
-     * @param chartV       mutable per-chart-vertex v array; node entries already set
+     * @param plusChart     {@code +} sector chart vertex per position, length m+1
+     * @param minusChart    {@code -} sector chart vertex per position, length m+1
+     * @param rotation      branch rotation r ∈ {0..3}
+     * @param chartU        mutable per-chart-vertex u array; node entries already
+     *                      set
+     * @param chartV        mutable per-chart-vertex v array; node entries already
+     *                      set
      * @param chartUInitial original u values, for snapping non-node {@code +} sides
      * @param chartVInitial original v values
-     * @param scale        F_d scale {@code d}
+     * @param scale         F_d scale {@code d}
      */
     private static void backSubstituteBranch(int[] plusChart, int[] minusChart, int rotation,
             double[] chartU, double[] chartV,
@@ -454,7 +465,8 @@ public final class SeamlessProjector {
      * {@code (-d, +d)}, the only condition under which {@link ExactArithmetic}
      * produces exact results.
      *
-     * <p>See also: MC19 Section 7
+     * <p>
+     * See also: MC19 Section 7
      *
      * @param uExact projected u values
      * @param vExact projected v values
@@ -475,8 +487,8 @@ public final class SeamlessProjector {
      * Test whether an active vertex is a node in the MC19 §5.3 sense (cut-degree
      * not equal to 2, or a singularity).
      *
-     * @param activeVertex          dense vertex index
-     * @param singularityVertexIds  set of mesh vertex ids that are singularities
+     * @param activeVertex         dense vertex index
+     * @param singularityVertexIds set of mesh vertex ids that are singularities
      * @return {@code true} iff the vertex is a node
      */
     private boolean isNode(int activeVertex, Set<Integer> singularityVertexIds) {
@@ -539,8 +551,8 @@ public final class SeamlessProjector {
     /**
      * Chart vertex of a face's corner at a given active vertex.
      *
-     * @param activeFace    dense face index
-     * @param activeVertex  dense vertex index
+     * @param activeFace   dense face index
+     * @param activeVertex dense vertex index
      * @return chart vertex id at the (face, vertex) corner
      */
     private int chartVertexOfFaceAtActiveVertex(int activeFace, int activeVertex) {
@@ -559,9 +571,9 @@ public final class SeamlessProjector {
      * Pick which of {@code activeEdge}'s two faces lies on the {@code +} side of
      * the branch, by matching chart-vertex continuity at {@code activeVertex}.
      *
-     * @param activeEdge          dense edge index
-     * @param activeVertex        dense vertex index
-     * @param plusChartAtVertex   the {@code +} sector chart vertex at this vertex
+     * @param activeEdge        dense edge index
+     * @param activeVertex      dense vertex index
+     * @param plusChartAtVertex the {@code +} sector chart vertex at this vertex
      * @return length-2 array {@code [plusFace, minusFace]} (active face indices)
      */
     private int[] facesPlusMinusForEdgeAtVertex(int activeEdge, int activeVertex, int plusChartAtVertex) {
@@ -581,8 +593,8 @@ public final class SeamlessProjector {
     }
 
     /**
-     * Assign a column index to a chart vertex in the reduced node-only system
-     * if it does not already have one.
+     * Assign a column index to a chart vertex in the reduced node-only system if it
+     * does not already have one.
      *
      * @param chartVertexToColumn the map being built
      * @param chartVertex         the chart vertex to register
@@ -626,7 +638,8 @@ public final class SeamlessProjector {
      * interior, non-cut chart vertices into the kernel of its 1-ring, until no
      * flips remain or a pass produces no successful move.
      *
-     * <p>See also: MC19 Section 5.4
+     * <p>
+     * See also: MC19 Section 5.4
      *
      * @param chartU mutable per-chart-vertex u, updated in place on successful
      *               moves
@@ -660,14 +673,14 @@ public final class SeamlessProjector {
         }
         if (initialFlipped > 0) {
             int remaining = findFlippedFaces(chartU, chartV).size();
-            System.out.printf("[seamless] §5.4 repair: %d initial flips, %d moves, %d remaining%n",
+            Platforms.log("[seamless] §5.4 repair: %d initial flips, %d moves, %d remaining%n",
                     initialFlipped, repaired, remaining);
         }
     }
 
     /**
-     * Enumerate active faces whose chart-space signed area is non-positive
-     * (flipped or degenerate).
+     * Enumerate active faces whose chart-space signed area is non-positive (flipped
+     * or degenerate).
      *
      * @param chartU per-chart-vertex u
      * @param chartV per-chart-vertex v
@@ -701,10 +714,10 @@ public final class SeamlessProjector {
     }
 
     /**
-     * Walk this face's three corners, look up each corresponding chart vertex,
-     * and if the corner's mesh vertex is interior to the mesh AND not on the
-     * cut graph, attempt to compute its 1-ring kernel and move it. Returns on
-     * the first successful move.
+     * Walk this face's three corners, look up each corresponding chart vertex, and
+     * if the corner's mesh vertex is interior to the mesh AND not on the cut graph,
+     * attempt to compute its 1-ring kernel and move it. Returns on the first
+     * successful move.
      *
      * @param activeFace flipped face being repaired
      * @param chartU     per-chart-vertex u, mutated on success
@@ -731,14 +744,14 @@ public final class SeamlessProjector {
                 }
             }
             if (skipReason != null) {
-                System.out.printf(
+                Platforms.log(
                         "[seamless] §5.4 repair: face %d corner=%d cv=%d v=%d skipped (%s)%n",
                         activeFace, corner, chartVertex, vertexId, skipReason);
                 continue;
             }
             double[] kernelPoint = computeOneRingKernelPoint(chartVertex, vertexId, chartU, chartV);
             if (kernelPoint == null) {
-                System.out.printf(
+                Platforms.log(
                         "[seamless] §5.4 repair: face %d corner=%d cv=%d v=%d kernel empty"
                                 + " (cornersCollapsed=%s; cv0=%d cv1=%d cv2=%d)%n",
                         activeFace, corner, chartVertex, vertexId, cornersCollapsed,
@@ -753,7 +766,7 @@ public final class SeamlessProjector {
                 // Move didn't actually un-flip — kernel computation produced a
                 // point that doesn't satisfy this face's constraint. Roll back
                 // and try the next corner so we don't oscillate.
-                System.out.printf(
+                Platforms.log(
                         "[seamless] §5.4 repair: face %d corner=%d cv=%d v=%d move rolled back"
                                 + " (cornersCollapsed=%s; cv0=%d cv1=%d cv2=%d):"
                                 + " old=(%.4e,%.4e) new=(%.4e,%.4e)%n",
@@ -773,12 +786,13 @@ public final class SeamlessProjector {
      * each link edge of {@code chartVertex} in chart space, computed by
      * Sutherland-Hodgman clipping of a bounding rectangle.
      *
-     * <p>See also: MC19 Section 5.4
+     * <p>
+     * See also: MC19 Section 5.4
      *
      * @param chartVertex chart vertex to move
-     * @param vertexId    mesh vertex id this chart vertex corresponds to (since
-     *                    we filtered to non-cut interior vertices, there is
-     *                    exactly one mesh vertex per chart vertex)
+     * @param vertexId    mesh vertex id this chart vertex corresponds to (since we
+     *                    filtered to non-cut interior vertices, there is exactly
+     *                    one mesh vertex per chart vertex)
      * @param chartU      per-chart-vertex u
      * @param chartV      per-chart-vertex v
      * @return {@code [u, v]} of a kernel point, or {@code null} when the
@@ -903,8 +917,8 @@ public final class SeamlessProjector {
     }
 
     /**
-     * Signed-doubled-area orient2d, positive when {@code (px, py)} lies to the
-     * left of directed line {@code (ax, ay) → (bx, by)}.
+     * Signed-doubled-area orient2d, positive when {@code (px, py)} lies to the left
+     * of directed line {@code (ax, ay) → (bx, by)}.
      *
      * @param ax line start x
      * @param ay line start y

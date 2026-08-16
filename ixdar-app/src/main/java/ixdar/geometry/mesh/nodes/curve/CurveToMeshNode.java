@@ -1,10 +1,8 @@
 package ixdar.geometry.mesh.nodes.curve;
 
 import java.util.List;
-
-import org.joml.Quaternionf;
-
 import java.util.Map;
+
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.InputPort;
@@ -13,11 +11,11 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
+import ixdar.geometry.mesh.curve.FloatCurveKernel;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.curve.FloatCurveKernel;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
@@ -152,7 +150,6 @@ public class CurveToMeshNode implements MeshNode {
 
             float closedEps = NUM_1e_5;
             if (nPts > 2) {
-                float diag = pts[0].distance(pts[nPts - 1]);
                 float pathLen = 0;
                 for (int i = 1; i < nPts; i++) pathLen += pts[i].distance(pts[i - 1]);
                 closedEps = Math.max(NUM_1e_5, pathLen * NUM_1e_4);

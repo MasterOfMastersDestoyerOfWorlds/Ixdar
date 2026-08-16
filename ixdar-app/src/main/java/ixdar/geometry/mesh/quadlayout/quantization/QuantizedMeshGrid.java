@@ -17,14 +17,16 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
+import ixdar.platform.Platforms;
 
 /**
- * Constrained T-mesh quantization: assigns a non-negative integer to every arc by
- * solving an integer linear program with one variable per arc equivalence class,
- * consistency, validity and layout separation constraints, and an objective that
- * drives the layout as coarse as those allow.
+ * Constrained T-mesh quantization: assigns a non-negative integer to every arc
+ * by solving an integer linear program with one variable per arc equivalence
+ * class, consistency, validity and layout separation constraints, and an
+ * objective that drives the layout as coarse as those allow.
  *
- * <p>See also: Lyon 2021 Sections 4 and 5
+ * <p>
+ * See also: Lyon 2021 Sections 4 and 5
  */
 public class QuantizedMeshGrid {
 
@@ -158,7 +160,7 @@ public class QuantizedMeshGrid {
                 expression.lower(1);
             }
             if (round == 0) {
-                System.out.printf(
+                Platforms.log(
                         "[quantize] arcs=%d classes=%d consistency=%d validity=%d"
                                 + " (fallback=%d) layout=%d prefixFallbacks=%d%n",
                         arcCount, classCount, consistencyConstraintCount,
@@ -184,7 +186,7 @@ public class QuantizedMeshGrid {
                 }
             }
             int violations = verifySolution();
-            System.out.printf(
+            Platforms.log(
                     "[quantize] state=%s objective=%.3f zeroArcs=%d/%d violations=%d round=%d%n",
                     result.getState(), objectiveValue, zeroArcs, arcCount, violations, round);
 
@@ -196,7 +198,7 @@ public class QuantizedMeshGrid {
                 break;
             }
             int added = collectSeparationCuts(collapse, separationCutPaths);
-            System.out.printf("[quantize] separation round=%d mergedClusters=%d cuts=%d%n",
+            Platforms.log("[quantize] separation round=%d mergedClusters=%d cuts=%d%n",
                     round, collapse.mergedSingularityVertexIdsByCluster.size(), added);
             if (added == 0) {
                 break;
@@ -205,7 +207,7 @@ public class QuantizedMeshGrid {
 
         singularitySeparationViolated = !collapse.mergedSingularityVertexIdsByCluster.isEmpty();
         for (List<Integer> merged : collapse.mergedSingularityVertexIdsByCluster) {
-            System.out.printf("[quantize] VALIDITY VIOLATION merged singularity vertices=%s%n", merged);
+            Platforms.log("[quantize] VALIDITY VIOLATION merged singularity vertices=%s%n", merged);
         }
         return this;
     }
@@ -215,7 +217,8 @@ public class QuantizedMeshGrid {
      * singularities, finds one all-zero arc path between two of them and requires
      * its quantized sum to be at least one.
      *
-     * <p>See also: CBK15 Section 4
+     * <p>
+     * See also: CBK15 Section 4
      *
      * @param collapse zero-arc collapse of the current solution
      * @param cutPaths accumulated cut paths to append to
@@ -402,7 +405,8 @@ public class QuantizedMeshGrid {
      * meeting, the prefix arcs up to it sum to at least one. A trace with no usable
      * first meeting falls back to {@code Σ chain ≥ 1}.
      *
-     * <p>See also: Lyon 2021 Section 4
+     * <p>
+     * See also: Lyon 2021 Section 4
      */
     private void addValidityConstraints(ExpressionsBasedModel model, Variable[] variableByClass) {
         for (Trace trace : motorcycleGraph.traces) {
@@ -431,7 +435,7 @@ public class QuantizedMeshGrid {
                 }
                 if (constraintLoggingEnabled) {
                     int terminalNodeId = trace.arcNodeIds.get(trace.arcNodeIds.size() - 1);
-                    System.out.printf(
+                    Platforms.log(
                             "[quantize] validity fallback trace=%d reason=%s terminalType=%s"
                                     + " chainArcs=%d meetings=%d%n",
                             trace.traceId,
@@ -456,12 +460,13 @@ public class QuantizedMeshGrid {
     }
 
     /**
-     * Layout constraints: for every recorded meeting whose angle ratio exceeds
-     * tan α, or unconditionally when the recording trace is a feature chain, the
-     * other trace's prefix up to the meeting node sums to at least one. Symmetric
+     * Layout constraints: for every recorded meeting whose angle ratio exceeds tan
+     * α, or unconditionally when the recording trace is a feature chain, the other
+     * trace's prefix up to the meeting node sums to at least one. Symmetric
      * recordings are deduplicated by (other trace, node).
      *
-     * <p>See also: Lyon 2021 Section 4.4
+     * <p>
+     * See also: Lyon 2021 Section 4.4
      */
     private void addLayoutConstraints(ExpressionsBasedModel model, Variable[] variableByClass) {
         double tanAlpha = Math.tan(alphaRadians);
@@ -481,8 +486,7 @@ public class QuantizedMeshGrid {
                 // constraint, on the shorter trace's prefix S_ji. Read from the shorter
                 // side the ratio test is vacuously true, so emitting both directions
                 // would separate every crossing unconditionally.
-                boolean orientedPair =
-                        meeting.ourParametricLength >= meeting.theirParametricLength;
+                boolean orientedPair = meeting.ourParametricLength >= meeting.theirParametricLength;
                 boolean triggered = trace.featureTrace || (orientedPair
                         && meeting.theirParametricLength > tanAlpha * meeting.ourParametricLength);
                 if (!triggered) {

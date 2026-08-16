@@ -59,7 +59,6 @@ public abstract class ShaderDrawable {
 
     protected Vector2f vAxis;
 
-    private ShaderProgram.Allocation allocation;
     private boolean geometryDirty = true;
     private boolean colorDirty = true;
 

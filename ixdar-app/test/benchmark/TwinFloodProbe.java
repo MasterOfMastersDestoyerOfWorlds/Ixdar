@@ -19,12 +19,13 @@ import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.platform.Platforms;
 
 /**
- * Localizes botijo's operator-16 twin-flood tear: replays the contraction one operator at a
- * time, reporting after each when patches 6, 7 and 8 first flood coinciding cells and when any
- * probed arc's raw flank ids diverge from their resolved patches. Pick the mesh with
- * {@code -Dbenchmark.off}.
+ * Localizes botijo's operator-16 twin-flood tear: replays the contraction one
+ * operator at a time, reporting after each when patches 6, 7 and 8 first flood
+ * coinciding cells and when any probed arc's raw flank ids diverge from their
+ * resolved patches. Pick the mesh with {@code -Dbenchmark.off}.
  */
 public final class TwinFloodProbe {
 
@@ -41,8 +42,8 @@ public final class TwinFloodProbe {
     private static final int[] PROBED_ARCS = { 17, 18, 20, 22, 23, 25 };
 
     /**
-     * Replays the contraction operator by operator with flood-identity and flank-staleness
-     * checks between, then steps the failing collapse drag by drag.
+     * Replays the contraction operator by operator with flood-identity and
+     * flank-staleness checks between, then steps the failing collapse drag by drag.
      *
      * @throws IOException when the mesh file cannot be read
      */
@@ -57,7 +58,7 @@ public final class TwinFloodProbe {
         tmesh.labelPatchCovers();
         for (int op = 1; op <= REPLAYED_OPS; op++) {
             String applied = tmesh.contractStep();
-            System.out.printf("[probe] op %d: %s%n", op, applied);
+            Platforms.log("[probe] op %d: %s%n", op, applied);
             reportFloodIdentity(tmesh, op);
             reportStaleFlanks(tmesh, op);
         }
@@ -65,13 +66,13 @@ public final class TwinFloodProbe {
         ZeroArcCollapseOperator collapseArc = tmesh.collapseArc;
         int collapsingArcId = collapseArc.mostContendedArc();
         collapseArc.beginCollapse(collapsingArcId);
-        System.out.printf("[probe] failing collapse of arc %d: moved node %d (vertex %d) ->"
+        Platforms.log("[probe] failing collapse of arc %d: moved node %d (vertex %d) ->"
                 + " surviving node %d (vertex %d), channel %s, fan %s%n", collapsingArcId,
                 collapseArc.movedNodeId, collapseArc.movedVertex, collapseArc.survivingNodeId,
                 collapseArc.targetVertex, collapseArc.channel, collapseArc.fan);
         describeRing(tmesh, collapseArc.targetVertex, "before drags");
         while (collapseArc.dragNextArc()) {
-            System.out.printf("[probe] dragged arc %d: previous %s%n", collapseArc.lastDraggedArcId,
+            Platforms.log("[probe] dragged arc %d: previous %s%n", collapseArc.lastDraggedArcId,
                     collapseArc.lastDraggedPreviousPath);
             describeHops(tmesh, collapseArc.lastDraggedArcId);
             describeRing(tmesh, collapseArc.targetVertex,
@@ -81,12 +82,12 @@ public final class TwinFloodProbe {
         describeRing(tmesh, collapseArc.targetVertex, "after finish");
         reportFloodIdentity(tmesh, REPLAYED_OPS + 1);
         ArrangementDiagnosticException tear = tmesh.flankTearFailure("probe");
-        System.out.printf("[probe] tear: %s%n", tear == null ? "none" : tear.getMessage());
+        Platforms.log("[probe] tear: %s%n", tear == null ? "none" : tear.getMessage());
     }
 
     /**
-     * Prints each probed patch's flood signature after an operator, flagging any two alive
-     * probed patches whose floods coincide.
+     * Prints each probed patch's flood signature after an operator, flagging any
+     * two alive probed patches whose floods coincide.
      *
      * @param tmesh T-mesh being probed
      * @param op    operator ordinal just applied, for the caption
@@ -96,7 +97,7 @@ public final class TwinFloodProbe {
         for (int index = 0; index < PROBED_PATCHES.length; index++) {
             for (int other = index + 1; other < PROBED_PATCHES.length; other++) {
                 if (floods[index] != null && floods[index].equals(floods[other])) {
-                    System.out.printf("[probe]   op %d TWIN FLOOD: patches %d and %d both flood"
+                    Platforms.log("[probe]   op %d TWIN FLOOD: patches %d and %d both flood"
                             + " %d faces%n", op, PROBED_PATCHES[index], PROBED_PATCHES[other],
                             floods[index].size());
                 }
@@ -105,8 +106,8 @@ public final class TwinFloodProbe {
     }
 
     /**
-     * The probed patches' current cover floods as sets, null for a patch that is retired,
-     * aliased away, or unseedable.
+     * The probed patches' current cover floods as sets, null for a patch that is
+     * retired, aliased away, or unseedable.
      *
      * @param tmesh T-mesh being probed
      * @return one flood set per entry of {@link #PROBED_PATCHES}
@@ -130,8 +131,8 @@ public final class TwinFloodProbe {
     }
 
     /**
-     * Prints every probed arc whose raw flank ids no longer equal their resolved patches, the
-     * staleness operator (3)'s aliasing leaves behind.
+     * Prints every probed arc whose raw flank ids no longer equal their resolved
+     * patches, the staleness operator (3)'s aliasing leaves behind.
      *
      * @param tmesh T-mesh being probed
      * @param op    operator ordinal just applied, for the caption
@@ -145,7 +146,7 @@ public final class TwinFloodProbe {
             int resolvedLeft = tmesh.topology.resolvePatch(arc.leftPatchId);
             int resolvedRight = tmesh.topology.resolvePatch(arc.rightPatchId);
             if (resolvedLeft != arc.leftPatchId || resolvedRight != arc.rightPatchId) {
-                System.out.printf("[probe]   op %d STALE FLANK: arc %d raw %d|%d resolved"
+                Platforms.log("[probe]   op %d STALE FLANK: arc %d raw %d|%d resolved"
                         + " %d|%d%n", op, arcId, arc.leftPatchId, arc.rightPatchId,
                         resolvedLeft, resolvedRight);
             }
@@ -154,17 +155,17 @@ public final class TwinFloodProbe {
             int resolved = tmesh.topology.resolvePatch(patchId);
             EmbeddedPatch patch = tmesh.patches.get(resolved);
             if (resolved != patchId) {
-                System.out.printf("[probe]   op %d patch %d aliased into %d%n", op, patchId,
+                Platforms.log("[probe]   op %d patch %d aliased into %d%n", op, patchId,
                         resolved);
             } else if (!patch.alive) {
-                System.out.printf("[probe]   op %d patch %d retired%n", op, patchId);
+                Platforms.log("[probe]   op %d patch %d retired%n", op, patchId);
             }
         }
     }
 
     /**
-     * Prints the claimed spokes and face labels around a vertex in cyclic half-edge order, which
-     * is the slot structure the dragged arcs arrive into.
+     * Prints the claimed spokes and face labels around a vertex in cyclic half-edge
+     * order, which is the slot structure the dragged arcs arrive into.
      *
      * @param tmesh    T-mesh being probed
      * @param vertexId copy vertex whose ring is walked
@@ -191,13 +192,13 @@ public final class TwinFloodProbe {
             halfEdge = copy.halfEdgeTwin(copy.halfEdgeNext(copy.halfEdgeNext(halfEdge)));
             spokes++;
         } while (halfEdge != start && spokes < copy.vertexEdgeCount(vertexId) + 1);
-        System.out.printf("[probe] ring of vertex %d %s (%d spokes):%s%n", vertexId, moment,
+        Platforms.log("[probe] ring of vertex %d %s (%d spokes):%s%n", vertexId, moment,
                 spokes, ring);
     }
 
     /**
-     * Prints an arc's path with the resolved cover labels flanking every hop, the direct
-     * evidence of which cells the route ran between.
+     * Prints an arc's path with the resolved cover labels flanking every hop, the
+     * direct evidence of which cells the route ran between.
      *
      * @param tmesh T-mesh being probed
      * @param arcId arc whose hops are labelled
@@ -219,6 +220,6 @@ public final class TwinFloodProbe {
             hops.append(" ").append(path.get(hop)).append("-(").append(left).append("|")
                     .append(right).append(")-").append(path.get(hop + 1));
         }
-        System.out.printf("[probe] arc %d hops:%s%n", arcId, hops);
+        Platforms.log("[probe] arc %d hops:%s%n", arcId, hops);
     }
 }

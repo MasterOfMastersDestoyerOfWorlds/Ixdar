@@ -1,11 +1,9 @@
 package ixdar.geometry.mesh.nodes.modifier;
 
-import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import ixdar.annotations.meshnode.InputPort;
-
-import java.util.Map;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
