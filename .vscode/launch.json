@@ -255,6 +255,16 @@
         "-Dorg.lwjgl.util.DebugLoader=true"
       ],
       "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Mesh Boolean",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "mesh-boolean",
+      "vmArgs": "-enableassertions -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
+      "cwd": "${workspaceFolder}/ixdar-app"
     }
+
   ]
 }

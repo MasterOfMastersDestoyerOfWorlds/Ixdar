@@ -20,6 +20,7 @@ import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.typedarrays.Uint8ClampedArray;
 
 import ixdar.canvas.WebLauncher;
+import ixdar.geometry.mesh.csg.MeshBooleanBackend;
 import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
 import ixdar.geometry.mesh.quadlayout.solver.NativeCholeskyBackend;
 import ixdar.graphics.render.Texture;
@@ -503,6 +504,20 @@ public class WebPlatform implements Platform {
     @Override
     public WorkerPool newWorkerPool(int workerCount, String threadName) {
         return new InlineWorkerPool();
+    }
+
+    /**
+     * {@inheritDoc}.
+     *
+     * <p>Refusing here keeps the CSG kernel's natives out of the JavaScript output; mesh booleans
+     * are a desktop authoring operation.
+     *
+     * @return never returns
+     * @throws UnsupportedOperationException always
+     */
+    @Override
+    public MeshBooleanBackend meshBooleanBackend() {
+        throw new UnsupportedOperationException("Mesh booleans are desktop-only");
     }
 
     /**

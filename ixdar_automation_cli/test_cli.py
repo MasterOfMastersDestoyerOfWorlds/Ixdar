@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from ixdar_automation_cli import ixdar_cli
 from ixdar_automation_cli import quilt_mesh_fingerprint
+from ixdar_automation_cli.cli_commands import new_scene
 from ixdar_automation_cli.cli_registry import cli_command, get_registry
 
 
@@ -324,6 +325,27 @@ class CliTest(unittest.TestCase):
         )
         self.assertEqual(0, exit_code)
         scaffold_new_scene.assert_called_once()
+
+    def test_scaffolded_scene_binds_automation_reflectively(self):
+        # A direct AutomationInputBinder call drags the desktop automation stack, and gson behind
+        # it, into the TeaVM web build, where they fail to link and the whole output is dropped.
+        for camera in ("2d", "3d"):
+            for base in ("Scene", "Canvas3D"):
+                spec = new_scene.SceneSpec(
+                    name="ProbeScene",
+                    scene_id="probe-scene",
+                    subfolder="ui",
+                    display_name="Probe",
+                    base=base,
+                    camera=camera,
+                    maven_profile="",
+                    dry_run=True,
+                )
+                source = new_scene._scene_template(spec)
+                with self.subTest(camera=camera, base=base):
+                    self.assertIn("bindAutomationIfAvailable(Platforms.get(), keys, mouse);", source)
+                    self.assertNotIn("AutomationInputBinder.bind(", source)
+                    self.assertNotIn("import ixdar.platform.automation.AutomationInputBinder;", source)
 
     def test_subcommand_help_is_generated_from_docstrings(self):
         captured = io.StringIO()

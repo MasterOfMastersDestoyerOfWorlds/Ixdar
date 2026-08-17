@@ -26,6 +26,8 @@ import org.lwjgl.stb.STBImage;
 
 import com.google.gson.Gson;
 
+import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
+import ixdar.geometry.mesh.csg.MeshBooleanBackend;
 import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
 import ixdar.geometry.mesh.quadlayout.quantization.OjAlgoIntegerProgram;
 import ixdar.geometry.mesh.quadlayout.solver.NativeCholeskyBackend;
@@ -58,6 +60,7 @@ public class HeadlessPlatform implements Platform {
     public static final int NUM_8 = 8;
 
     private final PardisoBackend pardisoBackend = new PardisoBackend();
+    private final ManifoldMeshBooleanBackend manifoldBooleanBackend = new ManifoldMeshBooleanBackend();
     private int platformId;
     private float startTime;
     private int windowWidth = 800;
@@ -292,6 +295,16 @@ public class HeadlessPlatform implements Platform {
     @Override
     public WorkerPool newWorkerPool(int workerCount, String threadName) {
         return new ThreadWorkerPool(workerCount, threadName);
+    }
+
+    /**
+     * Boolean meshes with the Manifold kernel, the same as the desktop backend.
+     *
+     * @return the Manifold-backed boolean backend
+     */
+    @Override
+    public MeshBooleanBackend meshBooleanBackend() {
+        return manifoldBooleanBackend;
     }
 
     /**

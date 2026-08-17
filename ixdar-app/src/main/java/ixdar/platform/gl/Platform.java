@@ -3,6 +3,7 @@ package ixdar.platform.gl;
 import java.io.IOException;
 import java.util.function.Consumer;
 
+import ixdar.geometry.mesh.csg.MeshBooleanBackend;
 import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
 import ixdar.geometry.mesh.quadlayout.solver.NativeCholeskyBackend;
 import ixdar.graphics.render.Texture;
@@ -230,6 +231,14 @@ public interface Platform {
      * @return a new pool the caller must shut down
      */
     WorkerPool newWorkerPool(int workerCount, String threadName);
+
+    /**
+     * Exact triangle-mesh boolean backend. Naming the CSG kernel here rather than in the geometry
+     * code is what keeps its natives out of the browser build.
+     *
+     * @return the platform's boolean backend
+     */
+    MeshBooleanBackend meshBooleanBackend();
 
     /**
      * Wall-clock time the application started.

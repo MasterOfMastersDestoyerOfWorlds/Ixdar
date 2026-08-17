@@ -163,6 +163,15 @@
     <ixdar.asset.repo.root>${project.basedir}/../../IxdarAssets</ixdar.asset.repo.root>
   </properties>
 
+  <repositories>
+    <!-- manifold3d's Java bindings publish here, not to Maven Central. -->
+    <repository>
+      <id>clojars</id>
+      <name>Clojars</name>
+      <url>https://repo.clojars.org</url>
+    </repository>
+  </repositories>
+
   <pluginRepositories>
     <pluginRepository>
       <id>graalvm-native-build-tools-snapshots</id>
@@ -1156,8 +1165,19 @@
       <version>0.3.0</version>
     </dependency>
     <!--
-      Compile-only: JomlWebTransformer is built against the TeaVM class model, but the transformer
-      runs inside the TeaVM compiler, never at desktop runtime.
+      Manifold CSG (JavaCPP bindings), for exact triangle-mesh booleans. Pinned to 3.0.7: from 3.2 on
+      the bindings compile with preview features enabled, whose class files only load on the exact
+      JDK that produced them. Natives ride inside the jar, so there is no classifier.
+    -->
+    <dependency>
+      <groupId>com.github.madhephaestus</groupId>
+      <artifactId>manifold3d</artifactId>
+      <version>3.0.7</version>
+    </dependency>
+
+    <!--
+      Compile-only: the TeaVM transformers are built against the TeaVM class model, but they run
+      inside the TeaVM compiler, never at desktop runtime.
     -->
     <dependency>
       <groupId>org.teavm</groupId>

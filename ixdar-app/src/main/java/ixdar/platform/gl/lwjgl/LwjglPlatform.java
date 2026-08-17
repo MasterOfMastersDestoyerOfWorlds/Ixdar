@@ -42,6 +42,8 @@ import org.lwjgl.system.MemoryStack;
 import com.google.gson.Gson;
 
 import ixdar.canvas.IxdarWindow;
+import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
+import ixdar.geometry.mesh.csg.MeshBooleanBackend;
 import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
 import ixdar.geometry.mesh.quadlayout.quantization.OjAlgoIntegerProgram;
 import ixdar.geometry.mesh.quadlayout.solver.NativeCholeskyBackend;
@@ -67,6 +69,7 @@ public class LwjglPlatform implements Platform {
 
     private final long window;
     private final PardisoBackend pardisoBackend = new PardisoBackend();
+    private final ManifoldMeshBooleanBackend manifoldBooleanBackend = new ManifoldMeshBooleanBackend();
     private float frameBufferSizeX;
     private float frameBufferSizeY;
     private int platformId;
@@ -258,6 +261,12 @@ public class LwjglPlatform implements Platform {
     @Override
     public WorkerPool newWorkerPool(int workerCount, String threadName) {
         return new ThreadWorkerPool(workerCount, threadName);
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public MeshBooleanBackend meshBooleanBackend() {
+        return manifoldBooleanBackend;
     }
 
     /** {@inheritDoc}. */
