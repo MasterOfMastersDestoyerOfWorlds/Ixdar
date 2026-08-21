@@ -29,7 +29,9 @@ from ..mesh_catalog import resolve_mesh, resolve_off_properties
 REPO_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
 IXDAR_APP_DIR = os.path.join(REPO_DIR, "ixdar-app")
 POM_PATH = os.path.join(IXDAR_APP_DIR, "pom.xml")
-CLASSPATH_FILE = os.path.join(REPO_DIR, "CP")
+PARENT_POM = os.path.join(REPO_DIR, "pom.xml")
+ANNOTATIONS_CLASSES = os.path.join(REPO_DIR, "annotations", "target", "classes")
+CLASSPATH_FILE = os.path.join(IXDAR_APP_DIR, "target", "CP")
 CLASSES_DIR = os.path.join(IXDAR_APP_DIR, "target", "classes")
 SOURCES_DIR = os.path.join(IXDAR_APP_DIR, "src", "main", "java")
 DEFAULT_PROFILE_PATH = os.path.join(REPO_DIR, "profile.html")
@@ -60,15 +62,16 @@ ACTION_RELEASE = 0
 DEFAULT_KEY_SETTLE_SECONDS = 3.0
 
 
-def _run_maven(args: list[str], description: str) -> None:
+def _run_maven(args: list[str], description: str, pom: str = POM_PATH) -> None:
     """Run Maven and raise on failure, so a stale build is loud rather than silent.
 
     :param args: Maven arguments after the executable.
     :param description: Human-readable step name for the error message.
+    :param pom: POM to build, defaulting to the app module.
     """
     print(f"{description}...", file=sys.stderr)
     completed = subprocess.run(
-        ["mvn", "-q", "-f", POM_PATH, *args],
+        ["mvn", "-q", "-f", pom, *args],
         cwd=REPO_DIR,
         capture_output=True,
         text=True,
@@ -79,23 +82,24 @@ def _run_maven(args: list[str], description: str) -> None:
 
 
 def _ensure_build(skip_build: bool) -> None:
-    """Compile the app and refresh the classpath file when it is older than the POM.
+    """Build both modules and refresh the classpath file.
 
-    Running against ``target/classes`` is only trustworthy if those classes are current, so this
-    compiles by default rather than assuming. The classpath file is only regenerated when the POM is
-    newer, since resolving dependencies is far slower than an incremental compile.
+    ``clean`` rather than a bare ``compile``: an incremental compile reruns the annotation processors
+    over only the changed sources, which prunes the generated registries and then dies in
+    ``export-automation-routes``. Both modules are built because the classpath file names the
+    installed ``annotations`` jar, and a stale one surfaces as a ``NoSuchMethodError`` in the scene
+    that reads like a code bug.
 
     :param skip_build: Skip both steps and use whatever is on disk.
     """
     if skip_build:
         print("Skipping build (--skip-build).", file=sys.stderr)
         return
-    if not os.path.exists(CLASSPATH_FILE) or os.path.getmtime(POM_PATH) > os.path.getmtime(CLASSPATH_FILE):
-        _run_maven(
-            ["dependency:build-classpath", f"-Dmdep.outputFile={CLASSPATH_FILE}"],
-            "Refreshing classpath (CP)",
-        )
-    _run_maven(["compile"], "Compiling ixdar-app")
+    _run_maven(["clean", "compile", "-pl", "annotations,ixdar-app"], "Building", pom=PARENT_POM)
+    _run_maven(
+        ["dependency:build-classpath", f"-Dmdep.outputFile={CLASSPATH_FILE}"],
+        "Refreshing classpath (CP)",
+    )
 
 
 def _java_command(
@@ -122,6 +126,10 @@ def _java_command(
     with open(CLASSPATH_FILE, encoding="utf-8") as handle:
         classpath = handle.read().strip()
     command = ["java", "-Dixdar.headless=true"]
+    if sys.platform == "darwin":
+        # GLFW refuses to initialise unless main() is on the process's first thread, and the JVM
+        # otherwise starts main() on a spawned one. Headless still goes through GLFW.
+        command.append("-XstartOnFirstThread")
     command.extend(f"-D{prop}" for prop in properties)
     if profile_path:
         command.append(
@@ -132,7 +140,7 @@ def _java_command(
     command.extend([
         f"-XX:ErrorFile={os.path.join(IXDAR_APP_DIR, 'target', 'hs_err_pid%p.log')}",
         "-cp",
-        f"{CLASSES_DIR}:{classpath}",
+        f"{CLASSES_DIR}:{ANNOTATIONS_CLASSES}:{classpath}",
         "ixdar.canvas.IxdarWindow",
         scene,
     ])

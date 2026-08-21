@@ -3,6 +3,7 @@ package ixdar.scenes.model;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 import org.joml.Vector3f;
 
@@ -363,6 +364,27 @@ public abstract class ModelScene extends Scene {
                 ? Math.max(CAMERA_DISTANCE_MIN, meshRadius * CAMERA_DISTANCE_RADIUS_MUL)
                 : CAMERA_DISTANCE_DEFAULT;
         orbitMouse.setOrbit(orbitAzimuth, orbitElevation, orbitDist);
+    }
+
+    /**
+     * Reload without yanking the camera. Saves the orbit orientation and zoom, runs {@code reload},
+     * and puts them back if it succeeded. The reload sets the target and bounds from the new mesh.
+     *
+     * @param reload work that replaces the displayed mesh, reporting whether it succeeded
+     * @return whatever {@code reload} reported
+     */
+    public boolean preserveOrbit(BooleanSupplier reload) {
+        if (orbitMouse == null) {
+            return reload.getAsBoolean();
+        }
+        float savedAzimuth = orbitMouse.getAzimuth();
+        float savedElevation = orbitMouse.getElevation();
+        float savedDistance = orbitMouse.getDistance();
+        boolean loaded = reload.getAsBoolean();
+        if (loaded) {
+            orbitMouse.setOrbit(savedAzimuth, savedElevation, savedDistance);
+        }
+        return loaded;
     }
 
     /**

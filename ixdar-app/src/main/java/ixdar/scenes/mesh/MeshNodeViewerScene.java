@@ -728,11 +728,6 @@ public class MeshNodeViewerScene extends ModelScene {
     public void loadModelEntry(ModelCatalog.ModelEntry entry) {
         if (entry == null)
             return;
-        // Preserve current orbit across the reload so the user doesn't get
-        // yanked back to the default camera on every switch.
-        float savedAz = orbitMouse != null ? orbitMouse.getAzimuth() : CAMERA_AZIMUTH;
-        float savedEl = orbitMouse != null ? orbitMouse.getElevation() : CAMERA_ELEVATION;
-        float savedDist = orbitMouse != null ? orbitMouse.getDistance() : CAMERA_DISTANCE_DEFAULT;
         // Invalidate any cached decomposition — the mesh is changing.
         cachedDiagnostics = null;
         cachedDiagnosticsKey = null;
@@ -740,14 +735,17 @@ public class MeshNodeViewerScene extends ModelScene {
         currentModelKey = entry.absolutePath().toString();
         currentModelDisplayName = entry.displayName();
         Platforms.get().log("[mesh-viewer] loading " + entry.displayName());
-        switch (entry.type()) {
-        case DSL -> loadDslFromAbsolutePath(entry.absolutePath().toString(), savedAz, savedEl, savedDist);
-        case OBJ -> loadObjFromAbsolutePath(entry.absolutePath().toString(), savedAz, savedEl, savedDist);
-        }
+        preserveOrbit(() -> {
+            switch (entry.type()) {
+                case DSL -> loadDslFromAbsolutePath(entry.absolutePath().toString());
+                case OBJ -> loadObjFromAbsolutePath(entry.absolutePath().toString());
+            }
+            return true;
+        });
         logState();
     }
 
-    private void loadDslFromAbsolutePath(String absolutePath, float az, float el, float dist) {
+    private void loadDslFromAbsolutePath(String absolutePath) {
         // loadDsl() expects a resource-relative name, but the staging dir
         // contains symlinks — read the file directly and execute the graph.
         try {
@@ -765,20 +763,14 @@ public class MeshNodeViewerScene extends ModelScene {
             if (mesh != null) {
                 Platforms.get().log("[mesh-viewer] dsl loaded: " + absolutePath + VERTS + mesh.vertexCount()
                         + FACES + mesh.faceCount());
-                meshCenter.set(mesh.center(new Vector3f()));
-            } else {
-                meshCenter.set(NUM_0, NUM_0, NUM_0);
             }
-            if (orbitMouse != null) {
-                orbitMouse.setTarget(meshCenter);
-                orbitMouse.setOrbit(az, el, dist);
-            }
+            frameMesh(mesh);
         } catch (Exception e) {
             Platforms.get().log("[mesh-viewer] DSL load failed for " + absolutePath + STR + e.getMessage());
         }
     }
 
-    private void loadObjFromAbsolutePath(String absolutePath, float az, float el, float dist) {
+    private void loadObjFromAbsolutePath(String absolutePath) {
         try {
             ArrayMesh arrayMesh = MeshLoader.load(absolutePath);
             disposeMeshRuntime();
@@ -788,11 +780,7 @@ public class MeshNodeViewerScene extends ModelScene {
             meshRuntime.frameCamera(camera);
             Platforms.get().log("[mesh-viewer] obj loaded: " + absolutePath
                     + VERTS + arrayMesh.vertexCount() + FACES + arrayMesh.faceCount());
-            meshCenter.set(arrayMesh.center(new Vector3f()));
-            if (orbitMouse != null) {
-                orbitMouse.setTarget(meshCenter);
-                orbitMouse.setOrbit(az, el, dist);
-            }
+            frameMesh(arrayMesh);
         } catch (Exception e) {
             Platforms.get().log("[mesh-viewer] OBJ load failed for " + absolutePath + STR + e.getMessage());
         }

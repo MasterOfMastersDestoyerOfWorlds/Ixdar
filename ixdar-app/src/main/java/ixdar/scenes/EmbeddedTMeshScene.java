@@ -380,21 +380,18 @@ public class EmbeddedTMeshScene extends ModelScene {
             Platforms.get().log("[rewind] no recorded failure; press C first");
             return;
         }
-        Vector3f savedTarget = orbitMouse.getTarget(new Vector3f());
-        float savedAzimuth = orbitMouse.getAzimuth();
-        float savedElevation = orbitMouse.getElevation();
-        float savedDistance = orbitMouse.getDistance();
-        float savedMinDistance = orbitMouse.getMinDistance();
-        float savedMaxDistance = orbitMouse.getMaxDistance();
-        try {
-            loadModelOrFixture(currentModel().path);
-        } catch (IOException failure) {
-            Platforms.get().log("[rewind] reload failed: " + failure.getMessage());
+        boolean reloaded = preserveOrbit(() -> {
+            try {
+                loadModelOrFixture(currentModel().path);
+                return true;
+            } catch (IOException failure) {
+                Platforms.get().log("[rewind] reload failed: " + failure.getMessage());
+                return false;
+            }
+        });
+        if (!reloaded) {
             return;
         }
-        orbitMouse.setTarget(savedTarget);
-        orbitMouse.setDistanceBounds(savedMinDistance, savedMaxDistance);
-        orbitMouse.setOrbit(savedAzimuth, savedElevation, savedDistance);
         tmesh.labelPatchCovers();
         for (int op = 0; op < failedContractOps; op++) {
             tmesh.contractStep();
