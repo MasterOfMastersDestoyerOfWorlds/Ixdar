@@ -15,6 +15,7 @@ import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
 import ixdar.annotations.meshnode.Vector3Value;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
 
 /**
@@ -36,6 +37,22 @@ public class NodeGraphRuntime {
     public static final String FUNCTION = "Function '";
     public static final String IN_FUNCTION = "In function '";
     public static final int NUM_1_000_000 = 1_000_000;
+
+    /**
+     * Id-to-class view of the generated node registry, built once at class load. Building it
+     * instantiates one probe per registered node, so it is cached rather than rebuilt per graph.
+     */
+    public static final Map<String, Class<? extends MeshNode>> REGISTRY_CLASSES;
+
+    static {
+        Map<String, Class<? extends MeshNode>> out = new HashMap<>();
+        for (Map.Entry<String, Supplier<? extends MeshNode>> e : MeshNodeRegistry_MeshNodes.MAP.entrySet()) {
+            MeshNode probe = e.getValue().get();
+            out.put(e.getKey(), probe.getClass());
+        }
+        REGISTRY_CLASSES = Collections.unmodifiableMap(out);
+    }
+
     private final Map<String, Class<? extends MeshNode>> nodeRegistry = new HashMap<>();
     private final Map<String, PythonParser.FunctionDef> functionDefs = new HashMap<>();
 
@@ -102,16 +119,10 @@ public class NodeGraphRuntime {
     /**
      * Map of DSL id to node class from the generated {@code MeshNodeRegistry_MeshNodes.MAP}.
      *
-     * @return unmodifiable id-to-class view; one probe instance per id is created during the lookup
+     * @return unmodifiable id-to-class view, cached in {@link #REGISTRY_CLASSES}
      */
     public static Map<String, Class<? extends MeshNode>> annotationRegistryClasses() {
-        Map<String, Supplier<? extends MeshNode>> map = MeshNodeRegistry_MeshNodes.MAP;
-        Map<String, Class<? extends MeshNode>> out = new HashMap<>();
-        for (Map.Entry<String, Supplier<? extends MeshNode>> e : map.entrySet()) {
-            MeshNode probe = e.getValue().get();
-            out.put(e.getKey(), probe.getClass());
-        }
-        return Collections.unmodifiableMap(out);
+        return REGISTRY_CLASSES;
     }
 
     /**
@@ -122,6 +133,22 @@ public class NodeGraphRuntime {
         for (Map.Entry<String, Class<? extends MeshNode>> e : annotationRegistryClasses().entrySet()) {
             registerNode(e.getKey(), e.getValue());
         }
+    }
+
+    /**
+     * Parses DSL source into statements and a runtime holding every registered node and the
+     * program's own function definitions.
+     *
+     * @param source DSL program text
+     * @return the parsed statements paired with a runtime ready to execute them
+     */
+    public static ParsedGraph fromSource(String source) {
+        PythonParser parser = new PythonParser(new PythonLexer(source));
+        List<PythonParser.ParsedNode> statements = parser.parseGraph();
+        NodeGraphRuntime runtime = new NodeGraphRuntime();
+        runtime.registerAllFromAnnotationRegistry();
+        runtime.registerFunctionDefs(parser.functionDefs());
+        return new ParsedGraph(runtime, statements);
     }
 
     /**
@@ -474,5 +501,14 @@ public class NodeGraphRuntime {
             return g.mesh();
         }
         return null;
+    }
+
+    /**
+     * A parsed DSL program together with the runtime prepared to execute it.
+     *
+     * @param runtime    runtime with the annotation registry and the program's functions loaded
+     * @param statements top-level statements in source order
+     */
+    public record ParsedGraph(NodeGraphRuntime runtime, List<PythonParser.ParsedNode> statements) {
     }
 }

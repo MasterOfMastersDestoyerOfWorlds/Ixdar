@@ -8,6 +8,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
@@ -20,10 +21,7 @@ import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.menu.SceneModelMenu;
 import ixdar.platform.Platforms;
-import ixdar.platform.gl.Platform;
-import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.Scene;
@@ -102,15 +100,22 @@ public abstract class ModelScene extends Scene {
 
     public OrbitCameraKeyGuy keyGuy;
 
-    private ModelChoice currentChoice;
-
     /**
      * Model path requested by the ESC menu or {@code model} command, applied on the
      * render thread.
      */
-    private volatile String pendingModelPath;
+    public volatile String pendingModelPath;
 
-    private final Vector3f meshCenter = new Vector3f();
+    /** Center of the loaded mesh, used as the orbit target. */
+    public final Vector3f meshCenter = new Vector3f();
+
+    /** Azimuth the camera returns to when a model is framed. Scenes with a preferred view set it. */
+    public float orbitAzimuth = CAMERA_AZIMUTH;
+
+    /** Elevation the camera returns to when a model is framed. Scenes with a preferred view set it. */
+    public float orbitElevation = CAMERA_ELEVATION;
+
+    private ModelChoice currentChoice;
 
     @Override
     public void initGL() {
@@ -137,7 +142,7 @@ public abstract class ModelScene extends Scene {
         keys = keyGuy;
         mouse = orbitMouse;
         orbitMouse.setTarget(meshCenter);
-        orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE_DEFAULT);
+        orbitMouse.setOrbit(orbitAzimuth, orbitElevation, CAMERA_DISTANCE_DEFAULT);
         bindAutomationIfAvailable(Platforms.get(), keys, mouse);
         bindInputDirect(Platforms.get(), keys, mouse);
     }
@@ -331,14 +336,33 @@ public abstract class ModelScene extends Scene {
     public void frameLoadedModel() {
         runtime.setSolidColor(ColorRGB.BLUE_GRAY.toVector4f());
         runtime.frameCamera(camera);
-        meshCenter.set(halfEdgeMesh.center(new Vector3f()));
-        float meshRadius = halfEdgeMesh.radius();
-        float minZoom = Math.max(ZOOM_MIN_FLOOR, meshRadius * ZOOM_MIN_RADIUS_FRACTION);
-        float maxZoom = Math.max(CAMERA_DISTANCE_MIN, meshRadius * ZOOM_MAX_RADIUS_MUL);
-        orbitMouse.setDistanceBounds(minZoom, maxZoom);
-        float orbitDist = Math.max(CAMERA_DISTANCE_MIN, meshRadius * CAMERA_DISTANCE_RADIUS_MUL);
+        frameMesh(halfEdgeMesh);
+    }
+
+    /**
+     * Centres the orbit on a mesh and pulls the camera back far enough to frame it, also setting
+     * the zoom bounds. A null mesh resets the target to the origin and the default distance.
+     *
+     * @param target mesh to frame, or {@code null} to reset to the origin
+     */
+    public void frameMesh(MeshTopology target) {
+        if (target != null) {
+            meshCenter.set(target.center(new Vector3f()));
+        } else {
+            meshCenter.set(0f, 0f, 0f);
+        }
+        if (orbitMouse == null) {
+            return;
+        }
         orbitMouse.setTarget(meshCenter);
-        orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, orbitDist);
+        float meshRadius = target != null ? target.radius() : 0f;
+        orbitMouse.setDistanceBounds(
+                Math.max(ZOOM_MIN_FLOOR, meshRadius * ZOOM_MIN_RADIUS_FRACTION),
+                Math.max(CAMERA_DISTANCE_MIN, meshRadius * ZOOM_MAX_RADIUS_MUL));
+        float orbitDist = target != null
+                ? Math.max(CAMERA_DISTANCE_MIN, meshRadius * CAMERA_DISTANCE_RADIUS_MUL)
+                : CAMERA_DISTANCE_DEFAULT;
+        orbitMouse.setOrbit(orbitAzimuth, orbitElevation, orbitDist);
     }
 
     /**
@@ -368,7 +392,7 @@ public abstract class ModelScene extends Scene {
         orbitMouse.setTarget(centroid);
         orbitMouse.setDistanceBounds(radius * FOCUS_ORBIT_MIN_MUL,
                 Math.max(CAMERA_DISTANCE_MIN, halfEdgeMesh.radius() * CAMERA_DISTANCE_RADIUS_MUL));
-        orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, radius * FOCUS_ORBIT_RADIUS_MUL);
+        orbitMouse.setOrbit(orbitAzimuth, orbitElevation, radius * FOCUS_ORBIT_RADIUS_MUL);
         return radius;
     }
 
@@ -460,23 +484,6 @@ public abstract class ModelScene extends Scene {
         controls.add(
                 new ControlHint(Keys.ESCAPE, "escape", "toggle the model scene menu", () -> sceneModelMenu.toggle()));
         super.setControls();
-    }
-
-    /**
-     * Route raw platform input to the scene's key and mouse handlers.
-     *
-     * @param platform  active platform
-     * @param keyGuy    key handler
-     * @param mouseTrap mouse handler
-     */
-    private static void bindInputDirect(Platform platform, KeyGuy keyGuy, MouseTrap mouseTrap) {
-        platform.setCursorPosCallback(
-                (window, x, y) -> mouseTrap.moveOrDrag(window, (float) x, (float) y));
-        platform.setMouseButtonCallback(
-                (button, action, mods) -> mouseTrap.mouseButton(button, action, mods));
-        platform.setScrollCallback((xoff, yoff) -> mouseTrap.scrollCallback(yoff));
-        platform.setKeyCallback(
-                (key, scancode, action, mods) -> keyGuy.keyCallback(0L, key, scancode, action, mods));
     }
 
     @Override

@@ -1164,15 +1164,10 @@
       <artifactId>humble-video-all</artifactId>
       <version>0.3.0</version>
     </dependency>
-    <!--
-      Manifold CSG (JavaCPP bindings), for exact triangle-mesh booleans. Pinned to 3.0.7: from 3.2 on
-      the bindings compile with preview features enabled, whose class files only load on the exact
-      JDK that produced them. Natives ride inside the jar, so there is no classifier.
-    -->
     <dependency>
       <groupId>com.github.madhephaestus</groupId>
       <artifactId>manifold3d</artifactId>
-      <version>3.0.7</version>
+      <version>v3.5.1-4</version>
     </dependency>
 
     <!--

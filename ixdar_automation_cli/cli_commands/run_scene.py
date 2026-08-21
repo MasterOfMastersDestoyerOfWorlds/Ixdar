@@ -36,7 +36,7 @@ DEFAULT_PROFILE_PATH = os.path.join(REPO_DIR, "profile.html")
 DEFAULT_COVERAGE_PATH = os.path.join(REPO_DIR, "jacoco.exec")
 COVERAGE_XML_PATH = os.path.join(REPO_DIR, "target", "jacoco", "coverage.xml")
 COVERAGE_HTML_DIR = os.path.join(REPO_DIR, "target", "jacoco", "html")
-ASYNC_PROFILER_LIB = "/usr/lib/libasyncProfiler.so"
+ASYNC_PROFILER_LIB = os.path.join(REPO_DIR, ".profiler", "libasyncProfiler")
 AUTOMATION_PORT = 47832
 
 SCENE_OFF_PROPERTIES = {

@@ -4,8 +4,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.joml.Vector3f;
-
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.csg.MeshBooleanResult;
 import ixdar.geometry.mesh.data.GeometryBundle;
@@ -15,16 +13,12 @@ import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.geometry.MeshBooleanNode;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
-import ixdar.gui.ui.menu.MenuBox;
-import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.OrbitCameraKeyGuy;
-import ixdar.platform.input.OrbitMouseTrap;
-import ixdar.platform.input.SceneInputFrameUpdater;
-import ixdar.scenes.Scene;
 import ixdar.scenes.model.ControlHint;
+import ixdar.scenes.model.ModelChoice;
+import ixdar.scenes.model.ModelScene;
 
 /**
  * Booleans two unit cubes placed with one cube's corner on the other's centre, tinting the result
@@ -33,7 +27,7 @@ import ixdar.scenes.model.ControlHint;
  * <p>See also: NHE*19 Section 3.1
  */
 @SceneAnnotation(id = "mesh-boolean")
-public class MeshBooleanScene extends Scene {
+public class MeshBooleanScene extends ModelScene {
 
     /** Resource folder holding the DSL graphs. */
     public static final String DSL_FOLDER = "dsl";
@@ -56,20 +50,8 @@ public class MeshBooleanScene extends Scene {
     /** Tag for faces the boolean created along the intersection curve. */
     public static final String TAG_INTERSECTION = "intersection";
 
-    /**
-     * Orbit azimuth. Deliberately across the cubes' shared diagonal rather than along it: at 45° the
-     * view direction nearly matches the (1, 1, 1) offset, so the second cube hides behind the first.
-     */
-    private static final float CAMERA_AZIMUTH = (float) Math.toRadians(135.0);
-
-    /** Orbit elevation, high enough to show the notch the boolean cuts. */
-    private static final float CAMERA_ELEVATION = (float) Math.toRadians(20.0);
-
-    /** Orbit distance used until a mesh's own radius supplies one. */
-    private static final float CAMERA_DISTANCE = 3.5f;
-
-    /** Framing distance as a multiple of the mesh radius. */
-    private static final float RADIUS_TO_DISTANCE = 2.5f;
+    /** Log prefix for this scene's messages. */
+    public static final String LOG_PREFIX = "[mesh-boolean] ";
 
     /** DSL source, held so an operation change can re-run the graph without re-reading it. */
     public String dslSource;
@@ -77,17 +59,47 @@ public class MeshBooleanScene extends Scene {
     /** Operation the graph runs, as the {@code mesh_boolean} node's mode token. */
     public String operation = MeshBooleanNode.UNION;
 
-    private HalfEdgeMeshRuntime meshRuntime;
-    private OrbitMouseTrap orbitMouse;
+    /**
+     * Views the cubes across their shared diagonal rather than along it: at the default 45° the
+     * view direction nearly matches the (1, 1, 1) offset, so the second cube hides behind the
+     * first. The elevation is high enough to show the notch the boolean cuts.
+     */
+    public MeshBooleanScene() {
+        orbitAzimuth = (float) Math.toRadians(135.0);
+        orbitElevation = (float) Math.toRadians(20.0);
+    }
 
     @Override
-    public void initGL() {
-        super.initGL();
-        initCameraControls();
+    public HalfEdgeMeshRuntime createRuntime() {
+        HalfEdgeMeshRuntime created = new HalfEdgeMeshRuntime();
+        created.setWireframe(true);
+        return created;
+    }
+
+    /** Creates the runtime, then loads and runs the graph once the DSL source arrives. */
+    @Override
+    public void initModel() {
+        runtime = createRuntime();
         Platforms.get().loadSourceAsync(DSL_FOLDER, DSL_NAME, Platforms.gl().getPlatformID(), source -> {
             dslSource = source;
             rebuild();
         });
+    }
+
+    /**
+     * No file models: this scene renders one fixed graph, so the ESC menu offers nothing to load.
+     *
+     * @return an empty list
+     */
+    @Override
+    public List<ModelChoice> availableModels() {
+        return List.of();
+    }
+
+    @Override
+    public void renderScene() {
+        camera.resetView();
+        runtime.render(camera);
     }
 
     @Override
@@ -113,8 +125,8 @@ public class MeshBooleanScene extends Scene {
 
     /** Toggle the wireframe overlay that shows how the intersection curve split the faces. */
     void toggleWireframe() {
-        if (meshRuntime != null) {
-            meshRuntime.setWireframe(!meshRuntime.isWireframe());
+        if (runtime != null) {
+            runtime.setWireframe(!runtime.isWireframe());
         }
     }
 
@@ -128,38 +140,33 @@ public class MeshBooleanScene extends Scene {
         if (dslSource == null) {
             return;
         }
-        PythonParser parser = new PythonParser(new PythonLexer(dslSource));
-        List<PythonParser.ParsedNode> ast = parser.parseGraph();
-        NodeGraphRuntime runtime = new NodeGraphRuntime();
-        runtime.registerAllFromAnnotationRegistry();
-        runtime.registerFunctionDefs(parser.functionDefs());
+        NodeGraphRuntime.ParsedGraph parsedGraph = NodeGraphRuntime.fromSource(dslSource);
+        List<PythonParser.ParsedNode> ast = parsedGraph.statements();
+        NodeGraphRuntime graphRuntime = parsedGraph.runtime();
 
         Object result;
         try {
-            result = runtime.executeGraphResult(ast, BOOLEAN_STATEMENT, GEOMETRY_PORT,
+            result = graphRuntime.executeGraphResult(ast, BOOLEAN_STATEMENT, GEOMETRY_PORT,
                     Map.of(BOOLEAN_STATEMENT + "." + MeshBooleanNode.OPERATION_2, operation));
         } catch (Exception failure) {
-            Platforms.get().log("[mesh-boolean] " + DSL_NAME + " failed: " + failure.getMessage());
+            Platforms.get().log(LOG_PREFIX + DSL_NAME + " failed: " + failure.getMessage());
             return;
         }
 
         GeometryBundle bundle = GeometryBundles.bundlePart(result);
         if (bundle == null || bundle.mesh() == null) {
-            Platforms.get().log("[mesh-boolean] " + DSL_NAME + " produced no mesh");
+            Platforms.get().log(LOG_PREFIX + DSL_NAME + " produced no mesh");
             return;
         }
         MeshTopology mesh = bundle.mesh();
-        if (meshRuntime == null) {
-            meshRuntime = new HalfEdgeMeshRuntime();
-            meshRuntime.setWireframe(true);
+        if (runtime == null) {
+            runtime = createRuntime();
         }
-        meshRuntime.upload(mesh);
-        orbitMouse.setTarget(mesh.center(new Vector3f()));
-        orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION,
-                Math.max(CAMERA_DISTANCE, mesh.radius() * RADIUS_TO_DISTANCE));
+        runtime.upload(mesh);
+        frameMesh(mesh);
         applyProvenanceTags(bundle, mesh.faceCount());
 
-        Platforms.get().log("[mesh-boolean] " + operation + " V=" + mesh.vertexCount()
+        Platforms.get().log(LOG_PREFIX + operation + " V=" + mesh.vertexCount()
                 + " F=" + mesh.faceCount());
     }
 
@@ -173,7 +180,7 @@ public class MeshBooleanScene extends Scene {
     private void applyProvenanceTags(GeometryBundle bundle, int faceCount) {
         Object origins = bundle.slots().get(MeshBooleanNode.FACE_ORIGIN_SLOT);
         if (!(origins instanceof int[] faceOrigin) || faceOrigin.length != faceCount) {
-            meshRuntime.clearTags();
+            runtime.clearTags();
             return;
         }
         boolean[] fromA = new boolean[faceCount];
@@ -194,51 +201,10 @@ public class MeshBooleanScene extends Scene {
         tags.put(TAG_FROM_A, fromA);
         tags.put(TAG_FROM_B, fromB);
         tags.put(TAG_INTERSECTION, intersection);
-        meshRuntime.setTags(tags);
-        meshRuntime.setTagColor(TAG_FROM_A, Color.BLUE_WHITE.toVector4f());
-        meshRuntime.setTagColor(TAG_FROM_B, Color.LIGHT_PURPLE.toVector4f());
-        meshRuntime.setTagColor(TAG_INTERSECTION, Color.YELLOW.toVector4f());
-        Platforms.get().log("[mesh-boolean] faces new=" + newFaces + "/" + faceCount);
-    }
-
-    @Override
-    public void drawScene() {
-        updateCameraControls();
-        if (meshRuntime == null) {
-            return;
-        }
-        camera.resetView();
-        meshRuntime.render(camera);
-    }
-
-    @Override
-    public void activate(boolean state) {
-        super.activate(state);
-        if (!state) {
-            meshRuntime = null;
-        }
-    }
-
-    @Override
-    public void shutdown() {
-        meshRuntime = null;
-        super.shutdown();
-    }
-
-    private void initCameraControls() {
-        MenuBox.menuVisible = false;
-        orbitMouse = new OrbitMouseTrap(camera, this);
-        orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);
-        mouse = orbitMouse;
-        keys = new OrbitCameraKeyGuy(orbitMouse, camera, this, controls);
-        bindAutomationIfAvailable(Platforms.get(), keys, mouse);
-    }
-
-    /**
-     * Pump input for the frame. The view itself is not recomputed here: the orbit trap writes the
-     * camera whenever the orbit changes, and a first-person update would overwrite that every frame.
-     */
-    private void updateCameraControls() {
-        SceneInputFrameUpdater.update(keys, mouse);
+        runtime.setTags(tags);
+        runtime.setTagColor(TAG_FROM_A, Color.BLUE_WHITE.toVector4f());
+        runtime.setTagColor(TAG_FROM_B, Color.LIGHT_PURPLE.toVector4f());
+        runtime.setTagColor(TAG_INTERSECTION, Color.YELLOW.toVector4f());
+        Platforms.get().log(LOG_PREFIX + "faces new=" + newFaces + "/" + faceCount);
     }
 }

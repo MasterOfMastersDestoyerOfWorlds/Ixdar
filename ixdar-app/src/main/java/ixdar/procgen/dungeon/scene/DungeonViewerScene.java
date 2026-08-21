@@ -13,12 +13,9 @@ import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
-import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.Platform;
-import ixdar.platform.input.KeyGuy;
-import ixdar.platform.input.MouseTrap;
 import ixdar.procgen.dungeon.camera.ThirdPersonCamera;
 import ixdar.procgen.dungeon.player.PlayerController;
 import ixdar.procgen.dungeon.player.PlayerSpawner;
@@ -127,13 +124,9 @@ public class DungeonViewerScene extends Scene {
     }
 
     private void executeDsl(String dslCode) {
-        PythonLexer lexer = new PythonLexer(dslCode);
-        PythonParser parser = new PythonParser(lexer);
-        List<PythonParser.ParsedNode> ast = parser.parseGraph();
-
-        NodeGraphRuntime runtime = new NodeGraphRuntime();
-        runtime.registerAllFromAnnotationRegistry();
-        runtime.registerFunctionDefs(parser.functionDefs());
+        NodeGraphRuntime.ParsedGraph parsedGraph = NodeGraphRuntime.fromSource(dslCode);
+        List<PythonParser.ParsedNode> ast = parsedGraph.statements();
+        NodeGraphRuntime runtime = parsedGraph.runtime();
 
         String finalId = ast.get(ast.size() - 1).id;
         Object result;
@@ -388,18 +381,6 @@ public class DungeonViewerScene extends Scene {
     public boolean isPlayerMode() {
         return playerMode;
     }
-
-    /**
-     * Wires platform keyboard/mouse callbacks into our KeyGuy + FlyCamMouseTrap. Mirrors
-     * {@code MeshNodeViewerScene.bindInputDirect} — each viewer scene needs to repeat this
-     * because the platform callback slots are per-window and can only hold one listener.
-     */
-    private static void bindInputDirect(Platform platform, KeyGuy keys, MouseTrap mouse) {
-        platform.setCursorPosCallback((window, x, y) -> mouse.moveOrDrag(window, (float) x, (float) y));
-        platform.setMouseButtonCallback((button, action, mods) -> mouse.mouseButton(button, action, mods));
-        platform.setScrollCallback((xoff, yoff) -> mouse.scrollCallback(yoff));
-        platform.setKeyCallback((key, scancode, action, mods) -> keys.keyCallback(0L, key, scancode, action, mods));
-    } // default to player walking per ticket DoD
 
     public enum ViewMode { FIRST_PERSON, THIRD_PERSON }
 }

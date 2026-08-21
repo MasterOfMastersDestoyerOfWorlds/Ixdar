@@ -35,17 +35,10 @@ import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
-import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.input.OrbitMouseTrap;
-
-import ixdar.platform.input.MouseTrap;
-
-import ixdar.platform.input.KeyGuy;
-
-import ixdar.platform.gl.Platform;
 import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.model.ModelChoice;
 import ixdar.scenes.model.ModelScene;
@@ -60,8 +53,6 @@ public class MeshNodeViewerScene extends ModelScene {
     public static final String FACES = " faces=";
     public static final String STR_2 = ")";
     public static final float NUM_0 = 0f;
-    public static final float NUM_1_5 = 1.5f;
-    public static final float NUM_2_5 = 2.5f;
     public static final int NUM_3 = 3;
     public static final float NUM_0_6 = 0.6f;
     public static final float NUM_0_2 = 0.2f;
@@ -83,9 +74,6 @@ public class MeshNodeViewerScene extends ModelScene {
     private static final String DEFAULT_DSL_FINAL_PORT = "geometry";
 
     private static final float HALF_EXTENT = 0.5f;
-    private static final float CAMERA_AZIMUTH = (float) Math.toRadians(45.0);
-    private static final float CAMERA_ELEVATION = (float) Math.toRadians(24.0);
-    private static final float CAMERA_DISTANCE = 3.5f;
 
     private final String dslResource;
     private final String dslFinalNode;
@@ -94,8 +82,6 @@ public class MeshNodeViewerScene extends ModelScene {
     /** When non-null, load this OBJ file instead of executing a DSL graph. */
     private final String objResource;
 
-    private final Vector3f meshCenter = new Vector3f();
-
     private MeshTopology mesh;
     private volatile HalfEdgeMeshRuntime meshRuntime;
     private HalfEdgeMeshRuntime overlayRuntime;
@@ -103,11 +89,9 @@ public class MeshNodeViewerScene extends ModelScene {
 
     // VIEW-7: catalog + per-mesh decomposition cache + overlay state
     private ModelCatalog viewerCatalog;
-    private String currentModelKey;  // absolutePath for staging-dir entries, or "" for initial load
+    private String currentModelKey; // absolutePath for staging-dir entries, or "" for initial load
     private String currentModelDisplayName = "(initial)";
 
-    /** Model path requested by the ESC menu or {@code model} command, applied on the render thread. */
-    private volatile String pendingModelPath;
     private SemanticPatchDecomposer.DecompositionDiagnostics cachedDiagnostics;
     private String cachedDiagnosticsKey;
     private boolean patchOverlayEnabled = false;
@@ -115,9 +99,8 @@ public class MeshNodeViewerScene extends ModelScene {
     private DecomposerKind activeDecomposer = DecomposerKind.SEMANTIC;
 
     /**
-     * Default constructor: pick the DSL resource, final node, and port
-     * from the {@code ixdar.mesh.*} system properties, falling back to
-     * built-in defaults.
+     * Default constructor: pick the DSL resource, final node, and port from the
+     * {@code ixdar.mesh.*} system properties, falling back to built-in defaults.
      */
     public MeshNodeViewerScene() {
         this(
@@ -127,10 +110,9 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Construct a viewer that will execute a DSL graph and display its
-     * mesh output.
+     * Construct a viewer that will execute a DSL graph and display its mesh output.
      *
-     * @param dslResource DSL filename (with or without {@code .dsl} suffix)
+     * @param dslResource  DSL filename (with or without {@code .dsl} suffix)
      * @param dslFinalNode output node id, or empty for the last node in the graph
      * @param dslFinalPort output port name on the final node
      */
@@ -151,9 +133,10 @@ public class MeshNodeViewerScene extends ModelScene {
     /**
      * Log a full state string to the terminal whenever the viewer state changes.
      *
-     * <p>State must not be surfaced through the window title instead: macOS rejects
-     * {@code glfwSetWindowTitle} off the OS main thread, and {@code drawScene} runs off-thread
-     * in this platform wiring.
+     * <p>
+     * State must not be surfaced through the window title instead: macOS rejects
+     * {@code glfwSetWindowTitle} off the OS main thread, and {@code drawScene} runs
+     * off-thread in this platform wiring.
      */
     private void logState() {
         StringBuilder sb = new StringBuilder("[mesh-viewer] STATE ");
@@ -168,13 +151,14 @@ public class MeshNodeViewerScene extends ModelScene {
         }
         if (viewerCatalog != null && !viewerCatalog.entries().isEmpty()) {
             sb.append("  [").append(viewerCatalog.currentIndex() + 1)
-              .append('/').append(viewerCatalog.entries().size()).append(']');
+                    .append('/').append(viewerCatalog.entries().size()).append(']');
         }
         Platforms.get().log(sb.toString());
     }
 
     /**
-     * Returns the NodeGraphRuntime from the most recent DSL execution (for timing data).
+     * Returns the NodeGraphRuntime from the most recent DSL execution (for timing
+     * data).
      *
      * @return last runtime, or {@code null} if no DSL has been executed yet
      */
@@ -207,12 +191,12 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Wire input handlers, scan the model catalog, and asynchronously
-     * load the configured DSL graph (or OBJ file) into a
-     * {@link HalfEdgeMeshRuntime}, then frame the orbit camera around
-     * the resulting mesh.
+     * Wire input handlers, scan the model catalog, and asynchronously load the
+     * configured DSL graph (or OBJ file) into a {@link HalfEdgeMeshRuntime}, then
+     * frame the orbit camera around the resulting mesh.
      *
-     * @throws IllegalStateException if mesh runtime construction or DSL execution fails
+     * @throws IllegalStateException if mesh runtime construction or DSL execution
+     *                               fails
      */
     @Override
     public String windowTitle() {
@@ -224,7 +208,9 @@ public class MeshNodeViewerScene extends ModelScene {
         return viewerCatalog.root().toString();
     }
 
-    /** Scan the staging directory for selectable models and log the catalog state. */
+    /**
+     * Scan the staging directory for selectable models and log the catalog state.
+     */
     @Override
     public void createCatalog() {
         viewerCatalog = new ModelCatalog();
@@ -247,7 +233,7 @@ public class MeshNodeViewerScene extends ModelScene {
         orbitMouse = new OrbitMouseTrap(camera, this);
         keys = new MeshViewerKeyGuy(this, orbitMouse, camera, this);
         orbitMouse.setTarget(meshCenter);
-        orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);
+        orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE_DEFAULT);
         mouse = orbitMouse;
         bindAutomationIfAvailable(Platforms.get(), keys, mouse);
         // Fallback: if reflection-based binding failed (TeaVM), wire callbacks directly
@@ -265,8 +251,9 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Asynchronously load the configured DSL graph (or OBJ file). The mesh runtime holds a
-     * placeholder until the async load completes so the chrome renders meanwhile.
+     * Asynchronously load the configured DSL graph (or OBJ file). The mesh runtime
+     * holds a placeholder until the async load completes so the chrome renders
+     * meanwhile.
      */
     @Override
     public void initModel() {
@@ -277,13 +264,9 @@ public class MeshNodeViewerScene extends ModelScene {
         }
         try {
             Platforms.get().loadSourceAsync(DSL_FOLDER, dslResource, Platforms.gl().getPlatformID(), dslCode -> {
-                PythonLexer lexer = new PythonLexer(dslCode);
-                PythonParser parser = new PythonParser(lexer);
-                List<PythonParser.ParsedNode> ast = parser.parseGraph();
-
-                NodeGraphRuntime graphRuntime = new NodeGraphRuntime();
-                graphRuntime.registerAllFromAnnotationRegistry();
-                graphRuntime.registerFunctionDefs(parser.functionDefs());
+                NodeGraphRuntime.ParsedGraph parsedGraph = NodeGraphRuntime.fromSource(dslCode);
+                List<PythonParser.ParsedNode> ast = parsedGraph.statements();
+                NodeGraphRuntime graphRuntime = parsedGraph.runtime();
                 lastGraphRuntime = graphRuntime;
                 // If no final node specified, use the last node in the graph
                 String resolvedNode = (dslFinalNode != null && !dslFinalNode.isEmpty())
@@ -315,16 +298,7 @@ public class MeshNodeViewerScene extends ModelScene {
                 } else {
                     Platforms.get().log("[mesh-viewer] mesh is null for " + dslResource);
                 }
-                if (mesh != null) {
-                    meshCenter.set(mesh.center(new Vector3f()));
-                } else {
-                    meshCenter.set(NUM_0, NUM_0, NUM_0);
-                }
-                if (orbitMouse != null) {
-                    orbitMouse.setTarget(meshCenter);
-                    float orbitDist = mesh != null ? Math.max(NUM_1_5, mesh.radius() * NUM_2_5) : CAMERA_DISTANCE;
-                    orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, orbitDist);
-                }
+                frameMesh(mesh);
             });
 
         } catch (Exception e) {
@@ -345,15 +319,7 @@ public class MeshNodeViewerScene extends ModelScene {
                 meshRuntime.frameCamera(camera);
                 Platforms.get().log("[mesh-viewer] OBJ loaded: " + objResource
                         + VERTS + arrayMesh.vertexCount() + FACES + arrayMesh.faceCount());
-                if (arrayMesh.vertexCount() > 0) {
-                    meshCenter.set(arrayMesh.center(new Vector3f()));
-                } else {
-                    meshCenter.set(NUM_0, NUM_0, NUM_0);
-                }
-                if (orbitMouse != null) {
-                    orbitMouse.setTarget(meshCenter);
-                    orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE);
-                }
+                frameMesh(arrayMesh.vertexCount() > 0 ? arrayMesh : null);
             });
         } catch (Exception e) {
             throw new IllegalStateException("Failed to load OBJ: " + objResource, e);
@@ -361,9 +327,9 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Per-frame render: reset the camera view, draw the main mesh, then
-     * draw any reference overlay with alpha blending and depth-write
-     * disabled so the underlying surface remains visible.
+     * Per-frame render: reset the camera view, draw the main mesh, then draw any
+     * reference overlay with alpha blending and depth-write disabled so the
+     * underlying surface remains visible.
      */
     @Override
     public void renderScene() {
@@ -403,8 +369,8 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Toggle scene activation. Disposes the mesh runtime when the scene
-     * is being deactivated so GL resources are released.
+     * Toggle scene activation. Disposes the mesh runtime when the scene is being
+     * deactivated so GL resources are released.
      *
      * @param state true to activate, false to deactivate
      */
@@ -417,8 +383,8 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Release the mesh runtime and any overlay before chaining to the
-     * base shutdown.
+     * Release the mesh runtime and any overlay before chaining to the base
+     * shutdown.
      */
     @Override
     public void shutdown() {
@@ -438,7 +404,8 @@ public class MeshNodeViewerScene extends ModelScene {
                 slow++;
             }
         }
-        if (slow == 0) sb.append(" (all nodes <1ms)");
+        if (slow == 0)
+            sb.append(" (all nodes <1ms)");
         Platforms.get().log(sb.toString());
     }
 
@@ -470,8 +437,7 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Number of edges on the mesh boundary (i.e. with only one
-     * incident face).
+     * Number of edges on the mesh boundary (i.e. with only one incident face).
      *
      * @return boundary-edge count, or 0 if no mesh is loaded
      */
@@ -507,8 +473,8 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Count faces that have fewer than three vertices or whose first
-     * triangle has zero cross-product area (collinear/duplicate verts).
+     * Count faces that have fewer than three vertices or whose first triangle has
+     * zero cross-product area (collinear/duplicate verts).
      *
      * @return degenerate-face count, or 0 if no mesh is loaded
      */
@@ -555,7 +521,8 @@ public class MeshNodeViewerScene extends ModelScene {
     /**
      * Centroid of the current mesh.
      *
-     * @return a fresh {@link Vector3f} at the centroid, or origin if no mesh is loaded
+     * @return a fresh {@link Vector3f} at the centroid, or origin if no mesh is
+     *         loaded
      */
     public Vector3f getMeshCenter() {
         return mesh == null ? new Vector3f() : mesh.center(new Vector3f());
@@ -564,7 +531,8 @@ public class MeshNodeViewerScene extends ModelScene {
     /**
      * Minimum corner of the current mesh's axis-aligned bounding box.
      *
-     * @return min corner, or {@code (-HALF_EXTENT, -HALF_EXTENT, -HALF_EXTENT)} if no mesh is loaded
+     * @return min corner, or {@code (-HALF_EXTENT, -HALF_EXTENT, -HALF_EXTENT)} if
+     *         no mesh is loaded
      */
     public Vector3f getBoundingBoxMin() {
         return mesh == null ? new Vector3f(-HALF_EXTENT, -HALF_EXTENT, -HALF_EXTENT) : mesh.boundsMin(new Vector3f());
@@ -573,7 +541,8 @@ public class MeshNodeViewerScene extends ModelScene {
     /**
      * Maximum corner of the current mesh's axis-aligned bounding box.
      *
-     * @return max corner, or {@code (HALF_EXTENT, HALF_EXTENT, HALF_EXTENT)} if no mesh is loaded
+     * @return max corner, or {@code (HALF_EXTENT, HALF_EXTENT, HALF_EXTENT)} if no
+     *         mesh is loaded
      */
     public Vector3f getBoundingBoxMax() {
         return mesh == null ? new Vector3f(HALF_EXTENT, HALF_EXTENT, HALF_EXTENT) : mesh.boundsMax(new Vector3f());
@@ -613,14 +582,16 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Reload the viewer with a different DSL file at runtime.
-     * Disposes existing mesh, parses and executes the new DSL, uploads to GPU.
-     * Must be called on the render thread (via AutomationRuntime.runOnMainThread).
+     * Reload the viewer with a different DSL file at runtime. Disposes existing
+     * mesh, parses and executes the new DSL, uploads to GPU. Must be called on the
+     * render thread (via AutomationRuntime.runOnMainThread).
      *
-     * @param dslName DSL filename without path (e.g. "test_finger.dsl" or "test_finger")
+     * @param dslName   DSL filename without path (e.g. "test_finger.dsl" or
+     *                  "test_finger")
      * @param finalNode output node ID, or empty for last node in graph
      * @param finalPort output port name, or empty for "geometry"
-     * @throws IllegalStateException if mesh runtime construction or DSL execution fails
+     * @throws IllegalStateException if mesh runtime construction or DSL execution
+     *                               fails
      */
     public void loadDsl(String dslName, String finalNode, String finalPort) {
         // Normalize: append .dsl if missing
@@ -636,13 +607,9 @@ public class MeshNodeViewerScene extends ModelScene {
         String resolvedPort = finalPort;
         String resolvedDslName = dslName;
         Platforms.get().loadSourceAsync(DSL_FOLDER, resolvedDslName, Platforms.gl().getPlatformID(), dslCode -> {
-            PythonLexer lexer = new PythonLexer(dslCode);
-            PythonParser parser = new PythonParser(lexer);
-            List<PythonParser.ParsedNode> ast = parser.parseGraph();
-
-            NodeGraphRuntime runtime = new NodeGraphRuntime();
-            runtime.registerAllFromAnnotationRegistry();
-            runtime.registerFunctionDefs(parser.functionDefs());
+            NodeGraphRuntime.ParsedGraph parsedGraph = NodeGraphRuntime.fromSource(dslCode);
+            List<PythonParser.ParsedNode> ast = parsedGraph.statements();
+            NodeGraphRuntime runtime = parsedGraph.runtime();
             lastGraphRuntime = runtime;
 
             String resolvedNode = (finalNode != null && !finalNode.isEmpty())
@@ -668,16 +635,10 @@ public class MeshNodeViewerScene extends ModelScene {
                 Platforms.get().log(
                         "[mesh-viewer] dsl reloaded: " + resolvedDslName + VERTS + mesh.vertexCount()
                                 + FACES + mesh.faceCount());
-                meshCenter.set(mesh.center(new Vector3f()));
             } else {
                 Platforms.get().log("[mesh-viewer] dsl reload produced null mesh: " + resolvedDslName);
-                meshCenter.set(NUM_0, NUM_0, NUM_0);
             }
-            if (orbitMouse != null) {
-                orbitMouse.setTarget(meshCenter);
-                float orbitDist = mesh != null ? Math.max(NUM_1_5, mesh.radius() * NUM_2_5) : CAMERA_DISTANCE;
-                orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, orbitDist);
-            }
+            frameMesh(mesh);
         });
     }
 
@@ -690,7 +651,8 @@ public class MeshNodeViewerScene extends ModelScene {
         return mesh;
     }
 
-    // ==================== VIEW-7 model switching + patch overlay ====================
+    // ==================== VIEW-7 model switching + patch overlay
+    // ====================
 
     @Override
     public List<ModelChoice> availableModels() {
@@ -737,37 +699,40 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Advance the catalog cursor and load the next model. No-op if the
-     * catalog is empty.
+     * Advance the catalog cursor and load the next model. No-op if the catalog is
+     * empty.
      */
     public void nextModel() {
-        if (viewerCatalog == null || viewerCatalog.entries().isEmpty()) return;
+        if (viewerCatalog == null || viewerCatalog.entries().isEmpty())
+            return;
         loadModelEntry(viewerCatalog.next());
     }
 
     /**
-     * Step the catalog cursor back and load the previous model. No-op
-     * if the catalog is empty.
+     * Step the catalog cursor back and load the previous model. No-op if the
+     * catalog is empty.
      */
     public void prevModel() {
-        if (viewerCatalog == null || viewerCatalog.entries().isEmpty()) return;
+        if (viewerCatalog == null || viewerCatalog.entries().isEmpty())
+            return;
         loadModelEntry(viewerCatalog.prev());
     }
 
     /**
-     * Load a specific catalog entry while preserving the current orbit
-     * camera, invalidating any cached patch decomposition, and turning
-     * off the patch overlay.
+     * Load a specific catalog entry while preserving the current orbit camera,
+     * invalidating any cached patch decomposition, and turning off the patch
+     * overlay.
      *
      * @param entry catalog entry to load (ignored if null)
      */
     public void loadModelEntry(ModelCatalog.ModelEntry entry) {
-        if (entry == null) return;
+        if (entry == null)
+            return;
         // Preserve current orbit across the reload so the user doesn't get
         // yanked back to the default camera on every switch.
         float savedAz = orbitMouse != null ? orbitMouse.getAzimuth() : CAMERA_AZIMUTH;
         float savedEl = orbitMouse != null ? orbitMouse.getElevation() : CAMERA_ELEVATION;
-        float savedDist = orbitMouse != null ? orbitMouse.getDistance() : CAMERA_DISTANCE;
+        float savedDist = orbitMouse != null ? orbitMouse.getDistance() : CAMERA_DISTANCE_DEFAULT;
         // Invalidate any cached decomposition — the mesh is changing.
         cachedDiagnostics = null;
         cachedDiagnosticsKey = null;
@@ -776,8 +741,8 @@ public class MeshNodeViewerScene extends ModelScene {
         currentModelDisplayName = entry.displayName();
         Platforms.get().log("[mesh-viewer] loading " + entry.displayName());
         switch (entry.type()) {
-            case DSL -> loadDslFromAbsolutePath(entry.absolutePath().toString(), savedAz, savedEl, savedDist);
-            case OBJ -> loadObjFromAbsolutePath(entry.absolutePath().toString(), savedAz, savedEl, savedDist);
+        case DSL -> loadDslFromAbsolutePath(entry.absolutePath().toString(), savedAz, savedEl, savedDist);
+        case OBJ -> loadObjFromAbsolutePath(entry.absolutePath().toString(), savedAz, savedEl, savedDist);
         }
         logState();
     }
@@ -788,12 +753,9 @@ public class MeshNodeViewerScene extends ModelScene {
         try {
             String dslCode = new String(Files.readAllBytes(Path.of(absolutePath)));
             disposeMeshRuntime();
-            PythonLexer lexer = new PythonLexer(dslCode);
-            PythonParser parser = new PythonParser(lexer);
-            List<PythonParser.ParsedNode> ast = parser.parseGraph();
-            NodeGraphRuntime runtime = new NodeGraphRuntime();
-            runtime.registerAllFromAnnotationRegistry();
-            runtime.registerFunctionDefs(parser.functionDefs());
+            NodeGraphRuntime.ParsedGraph parsedGraph = NodeGraphRuntime.fromSource(dslCode);
+            List<PythonParser.ParsedNode> ast = parsedGraph.statements();
+            NodeGraphRuntime runtime = parsedGraph.runtime();
             lastGraphRuntime = runtime;
             String resolvedNode = ast.get(ast.size() - 1).id;
             mesh = runtime.executeGraphToMesh(ast, resolvedNode, DEFAULT_DSL_FINAL_PORT);
@@ -837,9 +799,9 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Toggle the patch overlay. When turning on, lazily compute or
-     * reuse the cached decomposition, install patch tags / feature edges
-     * / scalar fields. When turning off, clear all overlay GL state.
+     * Toggle the patch overlay. When turning on, lazily compute or reuse the cached
+     * decomposition, install patch tags / feature edges / scalar fields. When
+     * turning off, clear all overlay GL state.
      */
     public void togglePatchOverlay() {
         if (meshRuntime == null || mesh == null) {
@@ -871,10 +833,9 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * PATCH-26: cycle the active decomposer. Invalidates the cache so
-     * the next overlay-on triggers a recompute via the new decomposer;
-     * if patches are already on, recompute eagerly so the user sees the
-     * swap immediately.
+     * PATCH-26: cycle the active decomposer. Invalidates the cache so the next
+     * overlay-on triggers a recompute via the new decomposer; if patches are
+     * already on, recompute eagerly so the user sees the swap immediately.
      */
     public void toggleDecomposer() {
         DecomposerKind[] cycle = DecomposerKind.values();
@@ -892,9 +853,8 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Cycle through {@link HalfEdgeMeshRuntime.ShaderMode}, push the
-     * new mode to the runtime, and re-derive any overlay state that
-     * depends on the active mode.
+     * Cycle through {@link HalfEdgeMeshRuntime.ShaderMode}, push the new mode to
+     * the runtime, and re-derive any overlay state that depends on the active mode.
      */
     public void toggleShaderMode() {
         HalfEdgeMeshRuntime.ShaderMode[] cycle = HalfEdgeMeshRuntime.ShaderMode.values();
@@ -903,23 +863,23 @@ public class MeshNodeViewerScene extends ModelScene {
             meshRuntime.setShaderMode(shaderMode);
         }
         if (patchOverlayEnabled && cachedDiagnostics != null) {
-            applyCurrentOverlay();  // rebuild tag colours for new mode
-            applyFeatureEdgeOverlay();  // (re)install overlay edges if needed
-            applyScalarOverlay();  // upload coonsError when entering SCALAR mode
+            applyCurrentOverlay(); // rebuild tag colours for new mode
+            applyFeatureEdgeOverlay(); // (re)install overlay edges if needed
+            applyScalarOverlay(); // upload coonsError when entering SCALAR mode
         }
         Platforms.get().log("[mesh-viewer] shader mode: " + shaderMode);
         logState();
     }
 
     /**
-     * Feed the per-vertex Coons reconstruction error (PATCH-16) into the
-     * SCALAR shader pipeline (PATCH-15) when the user cycles into SCALAR
-     * mode. Ramp is scaled so the pass/fail threshold reads as the middle
-     * of the thermal gradient — dark ≤ threshold (Coons-fit OK), bright
-     * > threshold (Coons-fit failing).
+     * Feed the per-vertex Coons reconstruction error (PATCH-16) into the SCALAR
+     * shader pipeline (PATCH-15) when the user cycles into SCALAR mode. Ramp is
+     * scaled so the pass/fail threshold reads as the middle of the thermal gradient
+     * — dark ≤ threshold (Coons-fit OK), bright > threshold (Coons-fit failing).
      */
     private void applyScalarOverlay() {
-        if (meshRuntime == null || cachedDiagnostics == null) return;
+        if (meshRuntime == null || cachedDiagnostics == null)
+            return;
         if (shaderMode != HalfEdgeMeshRuntime.ShaderMode.SCALAR) {
             meshRuntime.clearPerVertexScalar();
             return;
@@ -934,13 +894,14 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Compute the feature-edge categories appropriate for the current shader
-     * mode and push them to the runtime. Category assignment mirrors
-     * {@code PatchRenderer.drawFeatureEdgeOverlay} so the on-screen colors
-     * match the offline PNG diagnostic — the two paths must stay in lockstep.
+     * Compute the feature-edge categories appropriate for the current shader mode
+     * and push them to the runtime. Category assignment mirrors
+     * {@code PatchRenderer.drawFeatureEdgeOverlay} so the on-screen colors match
+     * the offline PNG diagnostic — the two paths must stay in lockstep.
      */
     private void applyFeatureEdgeOverlay() {
-        if (meshRuntime == null || cachedDiagnostics == null) return;
+        if (meshRuntime == null || cachedDiagnostics == null)
+            return;
         if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.STAGES) {
             Set<Long> dih = cachedDiagnostics.dihedralFeatureEdges();
             Set<Long> prin = cachedDiagnostics.principalFeatureEdges();
@@ -962,10 +923,14 @@ public class MeshNodeViewerScene extends ModelScene {
                 boolean c = crest.contains(key);
                 boolean s = saddle.contains(key);
                 int sourceCount = (d ? 1 : 0) + (p ? 1 : 0) + (c ? 1 : 0) + (s ? 1 : 0);
-                if (sourceCount >= 2) multi.add(key);
-                else if (d) dihOnly.add(key);
-                else if (p) prinOnly.add(key);
-                else if (c) crestOnly.add(key);
+                if (sourceCount >= 2)
+                    multi.add(key);
+                else if (d)
+                    dihOnly.add(key);
+                else if (p)
+                    prinOnly.add(key);
+                else if (c)
+                    crestOnly.add(key);
                 // saddle-only not drawn here; saddle drawn as a last pass below for emphasis.
             }
             List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new ArrayList<>();
@@ -986,9 +951,12 @@ public class MeshNodeViewerScene extends ModelScene {
             for (long key : union) {
                 boolean c = crest.contains(key);
                 boolean b = boundary.contains(key);
-                if (c && b) aligned.add(key);
-                else if (b) boundaryOnly.add(key);
-                else if (c) crestIgnored.add(key);
+                if (c && b)
+                    aligned.add(key);
+                else if (b)
+                    boundaryOnly.add(key);
+                else if (c)
+                    crestIgnored.add(key);
             }
             List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new ArrayList<>();
             cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.BOUNDARY_ONLY, boundaryOnly));
@@ -1027,9 +995,11 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     private void ensureDecomposition() {
-        if (mesh == null) return;
+        if (mesh == null)
+            return;
         String key = currentModelKey != null ? currentModelKey : DSL_FOLDER;
-        if (cachedDiagnostics != null && key.equals(cachedDiagnosticsKey)) return;
+        if (cachedDiagnostics != null && key.equals(cachedDiagnosticsKey))
+            return;
         // TEMPORARY (MESH-49): until the node ecosystem canonicalizes output
         // to ArrayMesh, convert on the fly here so patch overlay works on
         // DSL-produced HalfEdgeMesh too. Once MESH-49 lands we can drop this
@@ -1063,7 +1033,8 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     private void applyCurrentOverlay() {
-        if (meshRuntime == null || cachedDiagnostics == null) return;
+        if (meshRuntime == null || cachedDiagnostics == null)
+            return;
         int vertexCount = mesh.vertexCount();
         Map<String, boolean[]> tags = new HashMap<>();
         meshRuntime.clearTagColors();
@@ -1071,7 +1042,8 @@ public class MeshNodeViewerScene extends ModelScene {
             String name = "patch_" + p.id();
             boolean[] mask = new boolean[vertexCount];
             for (int v : p.vertexIndices()) {
-                if (v >= 0 && v < vertexCount) mask[v] = true;
+                if (v >= 0 && v < vertexCount)
+                    mask[v] = true;
             }
             tags.put(name, mask);
             Vector4f color;
@@ -1108,14 +1080,15 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Switch the camera projection between perspective and orthographic
-     * on the mesh runtime.
+     * Switch the camera projection between perspective and orthographic on the mesh
+     * runtime.
      *
      * @param ortho true for orthographic, false for perspective
      */
     public void setOrthographic(boolean ortho) {
         HalfEdgeMeshRuntime rt = meshRuntime;
-        if (rt == null) return;
+        if (rt == null)
+            return;
         rt.setOrthographic(ortho);
     }
 
@@ -1139,36 +1112,12 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Direct input binding that doesn't rely on reflection (works in TeaVM).
-     * bindAutomationIfAvailable uses Class.forName which silently fails in
-     * TeaVM, leaving all input callbacks null. This method wires them directly.
-     *
-     * @param platform platform whose cursor/button/scroll/key callbacks are set
-     * @param keys keyboard handler invoked from the key callback
-     * @param mouse mouse handler invoked from the cursor/button/scroll callbacks
+     * PATCH-26: which decomposer's output drives the patch overlay. Both pipelines
+     * coexist; D toggles. SEMANTIC defaults — the decomposer the project shipped
+     * before MSC.
      */
-    private static void bindInputDirect(Platform platform,
-                                         KeyGuy keys,
-                                         MouseTrap mouse) {
-        platform.setCursorPosCallback((window, x, y) -> {
-            mouse.moveOrDrag(window, (float) x, (float) y);
-        });
-        platform.setMouseButtonCallback((button, action, mods) -> {
-            mouse.mouseButton(button, action, mods);
-        });
-        platform.setScrollCallback((xoff, yoff) -> {
-            mouse.scrollCallback(yoff);
-        });
-        platform.setKeyCallback((key, scancode, action, mods) -> {
-            keys.keyCallback(0L, key, scancode, action, mods);
-        });
+    public enum DecomposerKind {
+        SEMANTIC, MORSE_SMALE
     }
-
-    /**
-     * PATCH-26: which decomposer's output drives the patch overlay. Both
-     * pipelines coexist; D toggles. SEMANTIC defaults — the decomposer
-     * the project shipped before MSC.
-     */
-    public enum DecomposerKind { SEMANTIC, MORSE_SMALE }
 
 }

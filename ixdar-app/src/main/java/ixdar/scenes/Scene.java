@@ -155,4 +155,22 @@ public abstract class Scene extends Canvas3D {
         } catch (Throwable ignored) {
         }
     }
+
+    /**
+     * Route raw platform input to the scene's key and mouse handlers, bypassing the reflective
+     * automation binding that silently fails under TeaVM and leaves every callback null.
+     *
+     * @param platform  active platform
+     * @param keyGuy    key handler
+     * @param mouseTrap mouse handler
+     */
+    public static void bindInputDirect(Platform platform, KeyGuy keyGuy, MouseTrap mouseTrap) {
+        platform.setCursorPosCallback(
+                (window, x, y) -> mouseTrap.moveOrDrag(window, (float) x, (float) y));
+        platform.setMouseButtonCallback(
+                (button, action, mods) -> mouseTrap.mouseButton(button, action, mods));
+        platform.setScrollCallback((xoff, yoff) -> mouseTrap.scrollCallback(yoff));
+        platform.setKeyCallback(
+                (key, scancode, action, mods) -> keyGuy.keyCallback(0L, key, scancode, action, mods));
+    }
 }
