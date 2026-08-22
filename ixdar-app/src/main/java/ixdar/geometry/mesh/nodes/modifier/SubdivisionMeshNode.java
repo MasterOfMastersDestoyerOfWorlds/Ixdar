@@ -13,6 +13,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
 import ixdar.annotations.meshnode.OutputPort;
 import ixdar.annotations.meshnode.PortType;
+import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
@@ -95,13 +96,9 @@ public class SubdivisionMeshNode implements MeshNode {
         }
 
         // Extract crease weights from bundle if available
-        float[] creaseWeights = null;
-        if (bundle != null) {
-            Object cw = bundle.slots().get(MarkCreaseNode.CREASE_WEIGHTS_SLOT);
-            if (cw instanceof float[] weights) {
-                creaseWeights = weights;
-            }
-        }
+        float[] creaseWeights = bundle != null
+                ? EdgeMarks.floats(bundle, MarkEdgesNode.CREASE_LABEL)
+                : null;
 
         float[] positions;
         int[] quadIndices;
@@ -143,7 +140,7 @@ public class SubdivisionMeshNode implements MeshNode {
         ctx.setOutput(MESH, out);
         GeometryBundle outBundle = GeometryBundle.ofMesh(out);
         if (creaseWeights != null) {
-            outBundle = outBundle.withSlot(MarkCreaseNode.CREASE_WEIGHTS_SLOT, creaseWeights);
+            outBundle = EdgeMarks.with(outBundle, MarkEdgesNode.CREASE_LABEL, creaseWeights);
         }
         ctx.setOutput(GEOMETRY, outBundle);
     }

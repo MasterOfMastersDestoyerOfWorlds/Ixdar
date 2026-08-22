@@ -145,9 +145,9 @@ ext_a4 = extrude_mesh(geometry=ext_a3.geometry, offset=forearm_4.result, selecti
 # Must be AFTER all topology changes, BEFORE subdivision
 # ══════════════════════════════════════════════════════════════════════
 
-crease_k = mark_crease(geometry=ext_a4.geometry, weight=crease_knuckle.result, selection=finger_sel.value, face_boundary=true)
-crease_w = mark_crease(geometry=crease_k.geometry, weight=crease_wrist.result, selection=forearm_sel.value, face_boundary=true)
-crease_t = mark_crease(geometry=crease_w.geometry, weight=crease_thumb.result, selection=sel_thumb.value, face_boundary=true)
+crease_k = mark_edges(geometry=ext_a4.geometry, label="crease", type="FLOAT", value_float=crease_knuckle.result, selection=finger_sel.value, face_boundary=true)
+crease_w = mark_edges(geometry=crease_k.geometry, label="crease", type="FLOAT", value_float=crease_wrist.result, selection=forearm_sel.value, face_boundary=true)
+crease_t = mark_edges(geometry=crease_w.geometry, label="crease", type="FLOAT", value_float=crease_thumb.result, selection=sel_thumb.value, face_boundary=true)
 
 # ══════════════════════════════════════════════════════════════════════
 # BONE WEIGHTS — reuse existing face selections

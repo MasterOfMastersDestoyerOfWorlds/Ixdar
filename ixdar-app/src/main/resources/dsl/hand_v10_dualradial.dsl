@@ -285,7 +285,7 @@ join_all = join_geometry(a=ext_a4.geometry, b=join_5digits.geometry)
 # CREASE + SUBDIVISION
 # ══════════════════════════════════════════════════════════════════════
 
-crease_w = mark_crease(geometry=join_all.geometry, weight=crease_wrist.result, selection=forearm_sel.value, face_boundary=true)
+crease_w = mark_edges(geometry=join_all.geometry, label="crease", type="FLOAT", value_float=crease_wrist.result, selection=forearm_sel.value, face_boundary=true)
 smooth = subdivision_surface(geometry=crease_w.geometry, levels=2)
 
 # ══════════════════════════════════════════════════════════════════════

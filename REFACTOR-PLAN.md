@@ -81,9 +81,13 @@ is in the working tree behind it.
 
 ## 3. Later ruling groups
 
-- [ ] 3.1 Fixtures: 2,073 lines of `LayoutFixture` in `src/main/java`, plus 418 lines of cloned
-      `buildGrid()` across 15 test files that use a different plane, origin and diagonal from
-      `GridMeshNode`. Blocked behind generalising `MarkCreaseNode` to edge labels
+- [~] 3.1 Fixtures. Done: `mark_edges` node (typed marks: FLOAT/INT/BOOL by mode, per the
+      random_value precedent) writing `EdgeMarks.SLOT` (`Map<String, boolean[]|int[]|float[]>` by
+      edge id), `EdgeMarks` accessor as the consumer contract, crease converted to the "crease"
+      float label, `MarkCreaseNode` and `_crease_weights` deleted, all 6 mark_crease .dsl call
+      sites rewritten and validated, registry test green. Remaining: F3(b) migrate the 15 cloned
+      `buildGrid()` tests onto `GridMeshNode` and fix expectations; fixture-to-DSL conversion
+      itself deferred until after the quad-layout migration (7.2) per ruling F2
 - [ ] 3.2 Runtime overlays: `QuadLayoutRuntime`'s 8 stage-typed setters and 10 GPU buffer sets,
       ~1,400 lines duplicating `setTags` / `setPerVertexScalar` / `setFeatureEdgeOverlay` on its parent
 - [ ] 3.3 Mesh data: `ArrayMesh` vs `HalfEdgeMesh` conventions, `GeometryBundle` slot naming, face

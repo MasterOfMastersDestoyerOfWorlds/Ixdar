@@ -2454,7 +2454,7 @@
       "description": "Remaps a float value from one range to another using LINEAR or SMOOTH_STEP interpolation, with optional clamping."
     },
     {
-      "id": "mark_crease",
+      "id": "mark_edges",
       "category": "Modifiers",
       "scopes": [
         "mesh",
@@ -2464,36 +2464,67 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Input/output. Output carries the crease weights in a slot read by subdivision_surface.",
+          "description": "Input/output. Output carries the marks in the edge-marks slot, merged with any existing labels.",
           "defaultValue": null
+        },
+        {
+          "name": "label",
+          "portType": "STRING",
+          "description": "Name downstream consumers look the marks up by, e.g. \"crease\".",
+          "defaultValue": "crease"
+        },
+        {
+          "name": "type",
+          "portType": "STRING",
+          "description": "Which value input is written: FLOAT, INT or BOOL. Existing marks under the label are merged float-by-max, int-by-write, bool-by-or.",
+          "defaultValue": "FLOAT",
+          "canonicalModes": [
+            "FLOAT",
+            "INT",
+            "BOOL"
+          ],
+          "aliases": {},
+          "defaultMode": "FLOAT"
         },
         {
           "name": "selection",
           "portType": "BOOLEAN",
-          "description": "Per-face OR per-edge BOOLEAN mask. Determines which edges receive the crease weight.",
+          "description": "Per-face OR per-edge BOOLEAN mask choosing which edges are marked.",
           "defaultValue": true
-        },
-        {
-          "name": "weight",
-          "portType": "FLOAT",
-          "description": "Crease weight 0..infinity. 0 \u003d no crease (fully smooth); higher \u003d sharper; +infinity \u003d perfectly sharp.",
-          "defaultValue": 1.0
         },
         {
           "name": "face_boundary",
           "portType": "BOOLEAN",
-          "description": "If true, interpret `selection` as per-face and crease only the BOUNDARY edges of selected regions. If false, interpret `selection` as per-edge directly.",
+          "description": "If true, interpret `selection` as per-face and mark only the boundary edges of selected regions; if false, per-edge directly.",
           "defaultValue": false
+        },
+        {
+          "name": "value_float",
+          "portType": "FLOAT",
+          "description": "Value written when type is FLOAT, e.g. a crease weight where 0 is smooth and higher stays sharp for more subdivision levels.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "value_int",
+          "portType": "INT",
+          "description": "Value written when type is INT, e.g. a quantized arc length.",
+          "defaultValue": 1
+        },
+        {
+          "name": "value_bool",
+          "portType": "BOOLEAN",
+          "description": "Value written when type is BOOL, e.g. a plain arc mark.",
+          "defaultValue": true
         }
       ],
       "outputs": [
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Input/output. Output carries the crease weights in a slot read by subdivision_surface."
+          "description": "Input/output. Output carries the marks in the edge-marks slot, merged with any existing labels."
         }
       ],
-      "description": "Assigns crease weights to edges for controlling sharpness during Catmull-Clark subdivision, where higher weights preserve hard edges for more subdivision levels."
+      "description": "Marks selected edges with a named, typed value (float, int or boolean) that downstream nodes read by label, such as crease weights for subdivision or arc marks for T-meshes."
     },
     {
       "id": "merge_by_distance",
@@ -3055,11 +3086,11 @@
       ],
       "description": "Generates a deterministic random value from a seed. Modes FLOAT, INT, VECTOR select the output type within a min/max range.",
       "outputActivationByMode": {
-        "VECTOR": [
-          "vector"
-        ],
         "FLOAT": [
           "float_out"
+        ],
+        "VECTOR": [
+          "vector"
         ],
         "INT": [
           "int_out"

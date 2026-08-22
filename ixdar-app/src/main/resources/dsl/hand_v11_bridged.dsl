@@ -297,7 +297,7 @@ bridge_th = adaptive_bridge_loops(geometry=bridge_ix.geometry, loop_a_tag="th_ba
 # CREASE + SUBDIVISION
 # ══════════════════════════════════════════════════════════════════════
 
-crease_w = mark_crease(geometry=bridge_th.geometry, weight=crease_wrist.result, selection=forearm_sel.value, face_boundary=true)
+crease_w = mark_edges(geometry=bridge_th.geometry, label="crease", type="FLOAT", value_float=crease_wrist.result, selection=forearm_sel.value, face_boundary=true)
 smooth = subdivision_surface(geometry=crease_w.geometry, levels=2)
 
 # ══════════════════════════════════════════════════════════════════════
