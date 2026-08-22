@@ -238,6 +238,14 @@ is in the working tree behind it.
       `./src/shell/terminal/help/<name>.help` while the files live at `ixdar/gui/terminal/help/`,
       and the pom's resource includes omit `**/*.help`, so Maven never copies them to the
       classpath either. `manifoldtest.help` has no matching command. Surfaced by the 1.2 survey
+- [ ] 6.12 `QuadLayoutEngine` never conforms: the `conforming` flag is declared and
+      `buildContractedTMesh`'s javadoc claims stages 9-10 "contract ... then extend every
+      surviving T-junction", but no engine method calls `tmesh.conform()` or sets the flag -
+      only tests (`PatchGridSeamTest`, `QuadMeshExtractionTest`, `TJunctionExtensionTest`) and
+      `EmbeddedTMeshScene` conform manually. The production pipeline builds patch maps on a
+      contracted but non-conforming T-mesh. Surfaced by `QuadPipelineSeamTest` (7.2 batch 1),
+      which pins the current behavior. Decide during the `tmesh_contract` node work whether the
+      pipeline should conform (the ruled node includes conform) and fix flag or javadoc either way
 
 ## 7. Decisions still owed
 
@@ -247,7 +255,82 @@ is in the working tree behind it.
       hard to get right so its bee na while but should be integrated into the common system", and it
       "will need a lot of testing". Related: the pipeline is really a mesh-to-DSL generator, which only
       makes sense as DSL once a load-mesh node exists. TODO when executed: update `ARCHITECTURE.md`
-      (the overlay pattern and the quad-layout entries in the system map and package map)
+      (the overlay pattern and the quad-layout entries in the system map and package map).
+      Enumeration (surveyed 2026-08-22), awaiting rulings Q1-Q6:
+      - Consumers: exactly 5 scenes drive `QuadLayoutEngine`; each pulls stage products off the
+        engine and pushes them into `QuadLayoutRuntime` via 10 stage-typed setters. Stopping
+        points: `CrossFieldExaminationScene` stage 2, `ParametrizationExaminationScene` stage 3,
+        `MotorcycleGraphExaminationScene` stage 4, `EmbeddedTMeshScene` stage 8 (then drives
+        contraction interactively via `contractStep`/`conform`/`collapseArc.*` by hand),
+        `QuadLayoutScene` stage 14. The 8 build* methods between `buildQuantization` and
+        `buildQuadGrid` are never called from outside the package; `targetEdgeLength` is never
+        set by any consumer. Input mesh is always OFF files via `MeshLoader` (`ModelScene`) or
+        hand-authored `LayoutFixture`s; no loader node exists.
+      - Tests: embedding/carve and contract ops are the heavily covered stages (~40 classes).
+        Zero direct coverage: cross field, seamless parametrization, quantization ILP,
+        `LayoutExtraction`, `LayoutPatchSurfaces`. Layout fixtures hand-author quantized lengths,
+        deliberately bypassing stages 1-5.
+      - Node system fit: `NodeGraphRuntime` has no cross-evaluation caching (full re-run per
+        evaluate; scenes already full-rebuild on alpha change, so parity). `PortType` is a closed
+        enum; dungeon nodes set the precedent for `Object.class`-backed constants; slots are the
+        other channel. Multi-output nodes with mixed port types are fully supported. Evaluation
+        is synchronous on the render thread; quad stages take seconds, `mesh_boolean`'s
+        `desktopOnly` registry is the precedent for keeping ojAlgo/Cholesky nodes out of the
+        web build (WebPlatform refuses both backends).
+      - Q1 RULED (author, 2026-08-22): the driver is QuadMixer (Nuvoli et al. 2019, layout
+        preserving blending of quad meshes; see also the Mesh Booleans note in obsidian:
+        Manifold library for the boolean, Apache 2, Java bindings, arbitrary per-triangle data
+        surviving ops). QuadMixer reuses motorcycle graphs standalone (patch decomposition of an
+        existing quad mesh, no quantization), a cross field + tracing on just the blend region,
+        an ILP over patch-side subdivisions, and per-patch quadrangulation - so the stages must
+        be independently invokable nodes, not one fused pipeline. Ruled node list, desktop-only:
+        `load_mesh`, `cross_field` (stages 1-2), `seamless_uv` (stage 3), `motorcycle_graph`
+        (stage 4, explicitly separate from embedding - "motorcycle graphs are a common usecase
+        for geometry processing"), `layout_embedding` (embedding/carve through contract+conform),
+        `integer_grid_map` (patch maps + IntegerGridMap + GlobalGridMap up to the initial
+        uv/DOF state), `newton_solver` (GridMapOptimizer over the DOF system; the seam already
+        exists inside GlobalGridMap.build() at the gridOptimizer call, GlobalGridMap.java:139-142),
+        and coons patch conversion (PatchGridExtraction + LayoutPatchSurfaces; relate to the
+        existing `coons_patch` node). Further ruled (author): QEx as its own node - "a general
+        capability that takes uvs and produces a quad mesh"; note the current QuadMeshExtraction
+        takes GlobalGridMap + LayoutPatchMaps + EmbeddedTMesh + copy mesh (patch-chart
+        iso-tracing), so the generic mesh+UV input form is a redesign of its input side, its own
+        line item. Zero-arc collapse node RULED (author): the EMBEDDED collapse. Final cut:
+        `layout_embedding` (carve + T-mesh assembly) then `tmesh_contract` (embedded ops 1/2/3
+        collapse + conform) as separate nodes; the abstract stage-6 LayoutExtraction (cluster
+        nodes across zero-quantized arcs, positive arcs = separatrix skeleton) folds into the
+        `arc_quantization` node's output. Settled node list: `load_mesh`, `cross_field`,
+        `seamless_uv`, `motorcycle_graph`, `arc_quantization`, `layout_embedding`,
+        `tmesh_contract`, `integer_grid_map`, `newton_solver`, `quad_extract` (QEx),
+        coons/surfaces conversion. QuadMixer scope (author): not replicating QuadMixer
+        entirely - mostly its first stage (motorcycle patch decomposition of two quad meshes) and
+        last stage (per-patch quadrangulation), with the quad layout pipeline replacing the
+        middle patch/subdivision machinery; exact scheme still open (see Mesh Booleans note:
+        Manifold for the boolean, patch dirtying, boundary re-layout schemes).
+      - Q2 seam types: new `PortType` constants (validated, DSL-visible) vs decomposing stage
+        products into mesh + generic per-element slots (theta/periodJump per face, u/v per
+        corner). Recommend PortType constants first; decomposition only where a consumer needs it.
+      - Q3 caching: accept full re-run per evaluation initially (matches current scene UX);
+        graph-level memoization is separate runtime work if ever needed.
+      - Q4 scenes: migrate `QuadLayoutScene` to a DSL graph first; keep `EmbeddedTMeshScene`
+        driving the engine directly (it is an interactive debugger, not a pipeline consumer);
+        decide exam scenes' fate after.
+      - Q5 characterization tests BEFORE restructuring, at the proposed node seams, on the OFF
+        fixtures: singularity count, flipped-triangle count == 0 + injectivity, tmesh validate +
+        Euler, quad count == quantized count. Covers the zero-coverage stages 1-5.
+      - Q6 `load_mesh` input: plain STRING path via `MeshLoader` (recommend) vs `ModelCatalog`
+        key. Also unlocks 7.1 (loaded models as boolean operands).
+      - [x] Batch 1 (2026-08-22): `LoadMeshNode` (`load_mesh`, desktopOnly, STRING path via
+        `MeshLoader`, outputs a GEOMETRY_BUNDLE; empty path yields an empty bundle, missing file
+        throws UncheckedIOException) + `LoadMeshNodeTest` (3 tests, port-interface evaluation) +
+        `QuadPipelineSeamTest` characterizing the previously-uncovered seams on
+        `sphere_base_in_tri.off`: Poincare-Hopf singularity index sum == 4x Euler, seamless
+        injective with 0 flipped triangles, contraction leaves 0 live zero arcs (and pins that
+        the engine does NOT conform - 6.12), Newton relaxation monotone in energy with 0 flipped
+        faces, relaxation preserves the extracted quad count, extracted quad mesh Euler matches
+        the surface, one patch surface per live patch. Verified: full suite 145 tests, only the
+        3 known 6.8 classes failing (5 tests), 3 skipped; registry test green; catalog diff is
+        exactly the new load_mesh entry (+25 lines)
 - [ ] 7.3 Whether always-on profiling should fail fast when `.profiler/libasyncProfiler` is missing,
       as it does now, or degrade
 

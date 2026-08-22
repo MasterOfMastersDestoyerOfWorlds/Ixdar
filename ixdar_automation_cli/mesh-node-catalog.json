@@ -2341,6 +2341,31 @@
       "description": "Combines two geometry inputs into one mesh, merging tags and bone weights. Optionally welds nearby vertices within merge_distance."
     },
     {
+      "id": "load_mesh",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "path",
+          "portType": "STRING",
+          "description": "File path to load; .obj, .ply and .off are supported.",
+          "defaultValue": ""
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "The loaded mesh as a geometry bundle."
+        }
+      ],
+      "description": "Loads a mesh from an OBJ, PLY or OFF file, resolving relative paths against the working directory and the ixdar-app module directory."
+    },
+    {
       "id": "loop_cut",
       "category": "Modifiers",
       "scopes": [
