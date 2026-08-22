@@ -969,4 +969,34 @@ public class HalfEdgeMeshRuntime {
      * earlier ones where they share edges.
      */
     public record FeatureEdgeCategory(int colorRgb, Collection<Long> edgeKeys) {}
+
+    /**
+     * Centre and reach of flat-xyz point clouds: fills {@code centroidDest} with the mean point and
+     * returns the farthest point's distance from it, 0 for empty clouds.
+     *
+     * @param clouds flat-xyz position arrays measured together
+     * @param centroidDest scratch vector filled with the centroid
+     * @return radius around the centroid containing every point
+     */
+    public static float cloudRadius(List<float[]> clouds, Vector3f centroidDest) {
+        centroidDest.set(0f, 0f, 0f);
+        int pointCount = 0;
+        for (float[] cloud : clouds) {
+            for (int base = 0; base < cloud.length; base += 3) {
+                centroidDest.add(cloud[base], cloud[base + 1], cloud[base + 2]);
+                pointCount++;
+            }
+        }
+        centroidDest.div(Math.max(1, pointCount));
+        float radius = 0f;
+        for (float[] cloud : clouds) {
+            for (int base = 0; base < cloud.length; base += 3) {
+                float dx = cloud[base] - centroidDest.x;
+                float dy = cloud[base + 1] - centroidDest.y;
+                float dz = cloud[base + 2] - centroidDest.z;
+                radius = Math.max(radius, (float) Math.sqrt(dx * dx + dy * dy + dz * dz));
+            }
+        }
+        return radius;
+    }
 }

@@ -63,11 +63,20 @@ is in the working tree behind it.
 - [x] 2.8 R4 `ModelScene.preserveOrbit(BooleanSupplier)` restoring orientation and zoom. Collapses
       `EmbeddedTMeshScene.applyRewind` (6 values) and `MeshNodeViewerScene.loadModelEntry` (3), and
       deletes the camera parameters threaded through the load methods
-- [ ] 2.9 R6 icosphere cluster: delete `standalone/Icosphere` and `IcosphereRuntime`, rebuild the
-      scene on `IcosphereMeshNode`, point `QuadLayoutRuntime`'s hardcoded table at the same source.
-      ~470 lines. Decide whether `IcosphereSavePointScene` survives
-- [ ] 2.10 R1 leftover: centroid-and-radius duplication between `ModelScene.focusOrbitOn` and
-      `QuadLayoutRuntime.setDiagnostic`
+- [x] 2.9 R6, narrowed after the audit's premise fell apart: `standalone/Icosphere` is the
+      save-point animation model (per-face local vertices, ideal quaternions, band selection) and
+      `IcosphereRuntime` renders per-face expansion animation `HalfEdgeMeshRuntime` cannot; deleting
+      them would delete a feature, not duplication. The real duplicate was the hand-transcribed phi
+      table: it now lives once as `Icosphere.VERTICES`/`TRIANGLES`, consumed by both the animation
+      model and `QuadLayoutRuntime`'s singularity spheres. `IcosphereMeshNode`'s differing ring-based
+      vertex set stays, documented, since changing it would silently alter every `icosphere()` DSL.
+      Then, on the author's ruling that the save-point prototype is no longer wanted: the whole
+      island deleted — `IcosphereSavePointScene`, `Icosphere`, `IcosphereRuntime`, `Face`,
+      `FaceState`, the launch config, and the pom profile (~990 lines). The phi table lives on as
+      `QuadLayoutRuntime`'s private `ICO_VERTICES`/`ICO_TRIANGLES`, its sole remaining consumer.
+      `IcosphereMeshNode` untouched
+- [x] 2.10 R1 leftover: both centroid-and-radius loops collapsed into
+      `HalfEdgeMeshRuntime.cloudRadius(clouds, centroidDest)`, the parent both callers already know
 - [-] 2.11 R5 `DungeonViewerScene` restructuring
 
 ## 3. Later ruling groups

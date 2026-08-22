@@ -148,7 +148,6 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     /** Uniform name for the iso-line half-width. */
     public static final String LINE_HALF_WIDTH = "lineHalfWidth";
     /** Golden ratio φ = (1 + √5) / 2 for the icosahedron vertex coordinates. */
-    public static final float PHI = (1f + ((float) Math.sqrt(5))) / 2f;
 
     /** Depth bias lifting layout boundary curves over the surface fill. */
     public static final float LAYOUT_DEPTH_BIAS = 0.0003f;
@@ -247,13 +246,17 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     /** Line width restored after drawing layout boundary curves. */
     private static final float DEFAULT_GL_LINE_WIDTH = 1f;
 
-    /** 12 unit-icosahedron vertices in xyz layout (flat). */
+    /** Golden ratio, the icosahedron's construction constant. */
+    private static final float PHI = (1f + (float) Math.sqrt(5f)) * 0.5f;
+
+    /** The 12 golden-ratio icosahedron vertices for the singularity spheres, flat xyz, unnormalized. */
     private static final float[] ICO_VERTICES = {
             -1, PHI, 0, 1, PHI, 0, -1, -PHI, 0, 1, -PHI, 0,
             0, -1, PHI, 0, 1, PHI, 0, -1, -PHI, 0, 1, -PHI,
             PHI, 0, -1, PHI, 0, 1, -PHI, 0, -1, -PHI, 0, 1
     };
-    /** 20 icosahedron triangles, ccw. */
+
+    /** The 20 icosahedron triangles over {@link #ICO_VERTICES}, flat, counter-clockwise. */
     private static final int[] ICO_TRIANGLES = {
             0, 11, 5, 0, 5, 1, 0, 1, 7, 0, 7, 10, 0, 10, 11,
             1, 5, 9, 5, 11, 4, 11, 10, 2, 10, 7, 6, 7, 1, 8,
@@ -1913,24 +1916,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             diagnosticLineVertexCounts[index] = Math.max(0, path.size() - 1) * 2;
             regionClouds.add(lineVertices);
         }
-        Vector3f centroid = new Vector3f();
-        Vector3f point = new Vector3f();
-        int pointCount = 0;
-        for (float[] cloud : regionClouds) {
-            for (int base = 0; base < cloud.length; base += VEC3_SIZE) {
-                centroid.add(cloud[base], cloud[base + 1], cloud[base + 2]);
-                pointCount++;
-            }
-        }
-        centroid.div(Math.max(1, pointCount));
-        diagnosticRegionRadius = 0f;
-        for (float[] cloud : regionClouds) {
-            for (int base = 0; base < cloud.length; base += VEC3_SIZE) {
-                point.set(cloud[base], cloud[base + 1], cloud[base + 2]);
-                diagnosticRegionRadius = Math.max(diagnosticRegionRadius,
-                        centroid.distance(point));
-            }
-        }
+        diagnosticRegionRadius = cloudRadius(regionClouds, new Vector3f());
         if (singularityVao == 0) {
             buildIcosphereBuffers();
         }

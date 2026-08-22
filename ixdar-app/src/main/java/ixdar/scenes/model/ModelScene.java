@@ -82,8 +82,6 @@ public abstract class ModelScene extends Scene {
     public static final float FOCUS_ORBIT_MIN_MUL = 0.5f;
 
     /** Floats per point in a flat-xyz position array. */
-    private static final int VEC3_COMPONENTS = 3;
-
     /** ESC menu of this scene's models. */
     public SceneModelMenu sceneModelMenu;
 
@@ -396,22 +394,7 @@ public abstract class ModelScene extends Scene {
      */
     public float focusOrbitOn(List<float[]> clouds) {
         Vector3f centroid = new Vector3f();
-        Vector3f point = new Vector3f();
-        int pointCount = 0;
-        for (float[] cloud : clouds) {
-            for (int base = 0; base < cloud.length; base += VEC3_COMPONENTS) {
-                centroid.add(cloud[base], cloud[base + 1], cloud[base + 2]);
-                pointCount++;
-            }
-        }
-        centroid.div(Math.max(1, pointCount));
-        float radius = 0f;
-        for (float[] cloud : clouds) {
-            for (int base = 0; base < cloud.length; base += VEC3_COMPONENTS) {
-                point.set(cloud[base], cloud[base + 1], cloud[base + 2]);
-                radius = Math.max(radius, centroid.distance(point));
-            }
-        }
+        float radius = HalfEdgeMeshRuntime.cloudRadius(clouds, centroid);
         orbitMouse.setTarget(centroid);
         orbitMouse.setDistanceBounds(radius * FOCUS_ORBIT_MIN_MUL,
                 Math.max(CAMERA_DISTANCE_MIN, halfEdgeMesh.radius() * CAMERA_DISTANCE_RADIUS_MUL));

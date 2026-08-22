@@ -326,38 +326,6 @@
       </build>
     </profile>
     <profile>
-      <id>icosphere-save-point-scene</id>
-      <properties>
-        <maven.test.skip>true</maven.test.skip>
-      </properties>
-      <build>
-        <defaultGoal>compile exec:exec</defaultGoal>
-        <plugins>
-          <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <version>3.6.2</version>
-            <configuration>
-              <executable>java</executable>
-              <workingDirectory>${project.basedir}</workingDirectory>
-              <arguments>
-                <argument>-enableassertions</argument>
-                <argument>-XX:+IgnoreUnrecognizedVMOptions</argument>
-                <argument>-XstartOnFirstThread</argument>
-                <argument>-Dsun.awt.noerasebackground=true</argument>
-                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
-                <argument>-XX:ErrorFile=target/hs_err_pid%p.log</argument>
-                <argument>-classpath</argument>
-                <classpath />
-                <argument>ixdar.canvas.IxdarWindow</argument>
-                <argument>icosphere-save-point-canvas</argument>
-              </arguments>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-    <profile>
       <id>arrow-line-scene</id>
       <properties>
         <maven.test.skip>true</maven.test.skip>
