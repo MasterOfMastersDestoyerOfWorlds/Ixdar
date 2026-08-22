@@ -3055,14 +3055,14 @@
       ],
       "description": "Generates a deterministic random value from a seed. Modes FLOAT, INT, VECTOR select the output type within a min/max range.",
       "outputActivationByMode": {
+        "VECTOR": [
+          "vector"
+        ],
         "FLOAT": [
           "float_out"
         ],
         "INT": [
           "int_out"
-        ],
-        "VECTOR": [
-          "vector"
         ]
       }
     },

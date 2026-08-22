@@ -932,13 +932,7 @@
           <version>${lwjgl.version}</version>
           <scope>provided</scope>
         </dependency>
-        <dependency>
-          <groupId>io.humble</groupId>
-          <artifactId>humble-video-all</artifactId>
-          <version>0.3.0</version>
-          <scope>provided</scope>
-        </dependency>
-        <dependency>
+    <dependency>
           <groupId>com.google.code.gson</groupId>
           <artifactId>gson</artifactId>
           <version>2.10.1</version>
@@ -1115,11 +1109,6 @@
     </dependency>
 
     <dependency>
-      <groupId>io.humble</groupId>
-      <artifactId>humble-video-all</artifactId>
-      <version>0.3.0</version>
-    </dependency>
-    <dependency>
       <groupId>com.github.madhephaestus</groupId>
       <artifactId>manifold3d</artifactId>
       <version>v3.5.1-4</version>
@@ -1147,24 +1136,6 @@
       <artifactId>ojalgo</artifactId>
       <version>56.2.1</version>
     </dependency>
-
-    <dependency>
-      <groupId>com.googlecode.matrix-toolkits-java</groupId>
-      <artifactId>mtj</artifactId>
-      <version>1.0.4</version>
-      <exclusions>
-        <!--
-          netlib:all is pom-packaged, so Maven puts the .pom itself on the classpath and TeaVM's
-          classpath scan fails on it with "zip END header not found". Excluding it drops only the
-          native BLAS aggregator; MTJ keeps its pure-Java F2J fallback.
-        -->
-        <exclusion>
-          <groupId>com.github.fommil.netlib</groupId>
-          <artifactId>all</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
     <dependency>
       <groupId>org.lwjgl</groupId>
       <artifactId>lwjgl</artifactId>

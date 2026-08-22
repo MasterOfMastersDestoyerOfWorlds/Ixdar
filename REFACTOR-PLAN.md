@@ -121,7 +121,7 @@ is in the working tree behind it.
 - [x] 5.2 Always-on profiling on every platform: `.profiler/libasyncProfiler` symlink,
       `tools/link-profiler.sh`, settings and `run_scene.py` pointed at it
 - [x] 5.3 `Mesh Boolean` launch config gains `-XstartOnFirstThread` and `-Xmx4g`
-- [ ] 5.4 Delete `io.humble:humble-video-all` (AGPL) and `mtj` (LGPL). Both unused in source, both
+- [x] 5.4 Deleted `io.humble:humble-video-all` (AGPL) and `mtj` (LGPL). Both were unused, both
       compile scope, both in the fat jar. Contradicts the commercial-use licensing intent
 - [x] 5.5 `CP` moved to `ixdar-app/target/CP`, already-ignored ground, so no `.gitignore` entry is
       needed. Root file deleted; commit the deletion to untrack it
