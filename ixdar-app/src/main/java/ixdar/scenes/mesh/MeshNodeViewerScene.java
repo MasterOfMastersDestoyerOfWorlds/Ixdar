@@ -40,6 +40,7 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.model.ControlHint;
+import ixdar.scenes.model.ModelCatalog;
 import ixdar.scenes.model.ModelChoice;
 import ixdar.scenes.model.ModelScene;
 
@@ -88,7 +89,6 @@ public class MeshNodeViewerScene extends ModelScene {
     private NodeGraphRuntime lastGraphRuntime;
 
     // VIEW-7: catalog + per-mesh decomposition cache + overlay state
-    private ModelCatalog viewerCatalog;
     private String currentModelKey; // absolutePath for staging-dir entries, or "" for initial load
     private String currentModelDisplayName = "(initial)";
 
@@ -149,9 +149,9 @@ public class MeshNodeViewerScene extends ModelScene {
                 sb.append(PATCHES).append(cachedDiagnostics.decomposition().patches().size());
             }
         }
-        if (viewerCatalog != null && !viewerCatalog.entries().isEmpty()) {
-            sb.append("  [").append(viewerCatalog.currentIndex() + 1)
-                    .append('/').append(viewerCatalog.entries().size()).append(']');
+        if (modelCatalog != null && !modelCatalog.choices.isEmpty()) {
+            sb.append("  [").append(modelCatalog.index() + 1)
+                    .append('/').append(modelCatalog.choices.size()).append(']');
         }
         Platforms.get().log(sb.toString());
     }
@@ -205,7 +205,7 @@ public class MeshNodeViewerScene extends ModelScene {
 
     @Override
     public String terminalRoot() {
-        return viewerCatalog.root().toString();
+        return modelCatalog.root.toString();
     }
 
     /**
@@ -213,10 +213,10 @@ public class MeshNodeViewerScene extends ModelScene {
      */
     @Override
     public void createCatalog() {
-        viewerCatalog = new ModelCatalog();
-        int catalogSize = viewerCatalog.entries().size();
+        modelCatalog = ModelCatalog.staging(ModelCatalog.stagingRoot());
+        int catalogSize = modelCatalog.choices.size();
         Platforms.get().log(
-                "[mesh-viewer] model catalog: " + catalogSize + " entries in " + viewerCatalog.root()
+                "[mesh-viewer] model catalog: " + catalogSize + " entries in " + modelCatalog.root
                         + " (populate via 'uv run sync-models')");
         if (catalogSize > 0) {
             Platforms.get().log("[mesh-viewer] cycle models with [ and ]; P = patch overlay; "
@@ -357,12 +357,12 @@ public class MeshNodeViewerScene extends ModelScene {
         }
         String path = pendingModelPath;
         pendingModelPath = null;
-        if (viewerCatalog == null) {
+        if (modelCatalog == null) {
             return;
         }
-        int index = viewerCatalog.indexOfPath(path);
+        int index = modelCatalog.indexOfPath(path);
         if (index >= 0) {
-            loadModelEntry(viewerCatalog.select(index));
+            loadModelEntry(modelCatalog.select(index));
         } else {
             Platforms.get().log("[mesh-viewer] no catalog entry for " + path);
         }
@@ -655,17 +655,6 @@ public class MeshNodeViewerScene extends ModelScene {
     // ====================
 
     @Override
-    public List<ModelChoice> availableModels() {
-        List<ModelChoice> out = new ArrayList<>();
-        if (viewerCatalog != null) {
-            for (ModelCatalog.ModelEntry entry : viewerCatalog.entries()) {
-                out.add(new ModelChoice(entry.displayName(), entry.absolutePath().toString()));
-            }
-        }
-        return out;
-    }
-
-    @Override
     public ModelChoice currentModel() {
         if (currentModelKey == null || currentModelKey.isEmpty()) {
             return null;
@@ -690,22 +679,13 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Catalog of selectable models scanned from the staging directory.
-     *
-     * @return the catalog, or {@code null} before {@link #initGL()} runs
-     */
-    public ModelCatalog getModelCatalog() {
-        return viewerCatalog;
-    }
-
-    /**
      * Advance the catalog cursor and load the next model. No-op if the catalog is
      * empty.
      */
     public void nextModel() {
-        if (viewerCatalog == null || viewerCatalog.entries().isEmpty())
+        if (modelCatalog == null || modelCatalog.choices.isEmpty())
             return;
-        loadModelEntry(viewerCatalog.next());
+        loadModelEntry(modelCatalog.next());
     }
 
     /**
@@ -713,9 +693,9 @@ public class MeshNodeViewerScene extends ModelScene {
      * catalog is empty.
      */
     public void prevModel() {
-        if (viewerCatalog == null || viewerCatalog.entries().isEmpty())
+        if (modelCatalog == null || modelCatalog.choices.isEmpty())
             return;
-        loadModelEntry(viewerCatalog.prev());
+        loadModelEntry(modelCatalog.prev());
     }
 
     /**
@@ -725,20 +705,20 @@ public class MeshNodeViewerScene extends ModelScene {
      *
      * @param entry catalog entry to load (ignored if null)
      */
-    public void loadModelEntry(ModelCatalog.ModelEntry entry) {
+    public void loadModelEntry(ModelChoice entry) {
         if (entry == null)
             return;
         // Invalidate any cached decomposition — the mesh is changing.
         cachedDiagnostics = null;
         cachedDiagnosticsKey = null;
         patchOverlayEnabled = false;
-        currentModelKey = entry.absolutePath().toString();
-        currentModelDisplayName = entry.displayName();
-        Platforms.get().log("[mesh-viewer] loading " + entry.displayName());
+        currentModelKey = entry.path;
+        currentModelDisplayName = entry.displayName;
+        Platforms.get().log("[mesh-viewer] loading " + entry.displayName);
         preserveOrbit(() -> {
-            switch (entry.type()) {
-                case DSL -> loadDslFromAbsolutePath(entry.absolutePath().toString());
-                case OBJ -> loadObjFromAbsolutePath(entry.absolutePath().toString());
+            switch (entry.kind) {
+                case DSL -> loadDslFromAbsolutePath(entry.path);
+                case MESH_FILE -> loadObjFromAbsolutePath(entry.path);
             }
             return true;
         });

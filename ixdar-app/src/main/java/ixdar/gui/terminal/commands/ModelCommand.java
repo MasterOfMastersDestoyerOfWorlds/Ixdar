@@ -3,6 +3,7 @@ package ixdar.gui.terminal.commands;
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
+import ixdar.scenes.model.ModelCatalog;
 import ixdar.scenes.model.ModelChoice;
 import ixdar.scenes.model.ModelScene;
 
@@ -87,7 +88,7 @@ public class ModelCommand extends TerminalCommand {
             return null;
         }
         String token = args[startIdx];
-        ModelChoice match = resolve(scene, token);
+        ModelChoice match = ModelCatalog.resolve(scene.availableModels(), token);
         if (match == null) {
             terminal.error("no model matching: " + token);
             return null;
@@ -97,19 +98,4 @@ public class ModelCommand extends TerminalCommand {
         return null;
     }
 
-    private static ModelChoice resolve(ModelScene scene, String token) {
-        for (ModelChoice choice : scene.availableModels()) {
-            if (choice.displayName.equalsIgnoreCase(token)) {
-                return choice;
-            }
-        }
-        String lower = token.toLowerCase();
-        for (ModelChoice choice : scene.availableModels()) {
-            if (choice.displayName.toLowerCase().contains(lower)
-                    || choice.path.toLowerCase().contains(lower)) {
-                return choice;
-            }
-        }
-        return null;
-    }
 }

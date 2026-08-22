@@ -90,16 +90,18 @@ def _ensure_build(skip_build: bool) -> None:
     installed ``annotations`` jar, and a stale one surfaces as a ``NoSuchMethodError`` in the scene
     that reads like a code bug.
 
-    :param skip_build: Skip both steps and use whatever is on disk.
+    :param skip_build: Skip compiling and use whatever classes are on disk. The classpath file is
+        still resolved when absent, since the scene cannot launch without one.
     """
     if skip_build:
         print("Skipping build (--skip-build).", file=sys.stderr)
-        return
-    _run_maven(["clean", "compile", "-pl", "annotations,ixdar-app"], "Building", pom=PARENT_POM)
-    _run_maven(
-        ["dependency:build-classpath", f"-Dmdep.outputFile={CLASSPATH_FILE}"],
-        "Refreshing classpath (CP)",
-    )
+    else:
+        _run_maven(["clean", "compile", "-pl", "annotations,ixdar-app"], "Building", pom=PARENT_POM)
+    if not os.path.exists(CLASSPATH_FILE):
+        _run_maven(
+            ["dependency:build-classpath", f"-Dmdep.outputFile={CLASSPATH_FILE}"],
+            "Refreshing classpath (CP)",
+        )
 
 
 def _java_command(

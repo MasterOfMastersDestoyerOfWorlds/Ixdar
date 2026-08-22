@@ -31,6 +31,9 @@ precedes restructuring.
 
 `[x]` done and verified · `[~]` in progress · `[ ]` not started · `[-]` deferred
 
+Landed so far: `7ad51c71` covers 2.1-2.6, 5.1-5.3. The R4 and run-scene work (2.8, 5.5, 6.1-6.3)
+is in the working tree behind it.
+
 ---
 
 ## 1. The deliverable
@@ -52,9 +55,11 @@ precedes restructuring.
 - [x] 2.4 R1 `frameMesh(MeshTopology)` extracted; `frameLoadedModel()` delegates; 3 viewer copies collapsed
 - [x] 2.5 R8 `orbitAzimuth` / `orbitElevation` as public fields so a scene can keep its own view
 - [x] 2.6 R7 `MeshBooleanScene extends ModelScene`, 241 lines to 210, verified running
-- [ ] 2.7 R2 merge `LayoutModelCatalog` (103 lines) and `ModelCatalog` (182 lines) into one catalog:
-      list of source roots with per-root extension filters, one item type with an absolute path, the
-      navigation cursor split out. Unblocks removing the viewer's four bridging overrides
+- [x] 2.7 R2 catalogs merged into `ixdar.scenes.model.ModelCatalog` with `quadLayout` and `staging`
+      factories, `ModelChoice` gaining a `Kind`, and the cursor kept on the catalog itself.
+      `LayoutModelCatalog` and `ixdar.scenes.mesh.ModelCatalog` deleted, along with the viewer's
+      `availableModels` bridge, a dead `getModelCatalog`, and the third copy of the resolve algorithm
+      in `ModelCommand`
 - [x] 2.8 R4 `ModelScene.preserveOrbit(BooleanSupplier)` restoring orientation and zoom. Collapses
       `EmbeddedTMeshScene.applyRewind` (6 values) and `MeshNodeViewerScene.loadModelEntry` (3), and
       deletes the camera parameters threaded through the load methods

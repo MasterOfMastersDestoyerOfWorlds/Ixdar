@@ -1,6 +1,7 @@
 package ixdar.scenes.model;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -89,7 +90,7 @@ public abstract class ModelScene extends Scene {
     /** Fixtures registered for the model menu, in registration order. */
     public final List<LayoutFixture> fixtures = new ArrayList<>();
 
-    public LayoutModelCatalog modelCatalog;
+    public ModelCatalog modelCatalog;
 
     public String offPath;
 
@@ -233,7 +234,7 @@ public abstract class ModelScene extends Scene {
      * unused.
      */
     public void createCatalog() {
-        modelCatalog = new LayoutModelCatalog();
+        modelCatalog = ModelCatalog.quadLayout(Path.of(ModelCatalog.QUADLAYOUT_DIR));
     }
 
     /**
@@ -242,7 +243,7 @@ public abstract class ModelScene extends Scene {
      * @return the terminal root path
      */
     public String terminalRoot() {
-        return LayoutModelCatalog.QUADLAYOUT_DIR;
+        return ModelCatalog.QUADLAYOUT_DIR;
     }
 
     /**
@@ -458,7 +459,7 @@ public abstract class ModelScene extends Scene {
      * @return the model list (never {@code null}; may be empty)
      */
     public List<ModelChoice> availableModels() {
-        List<ModelChoice> choices = new ArrayList<>(modelCatalog.choices());
+        List<ModelChoice> choices = new ArrayList<>(modelCatalog.choices);
         for (LayoutFixture fixture : fixtures) {
             choices.add(new ModelChoice(fixture.displayName(),
                     FIXTURE_PREFIX + fixture.displayName()));
