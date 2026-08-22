@@ -23,34 +23,26 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "curve_deform")
 public class CurveDeformNode implements MeshNode {
-    public static final String CURVE_2 = "curve";
-    public static final String CLOSURE_2 = "closure";
-    public static final String SOURCE_AXIS_2 = "source_axis";
     public static final String Y = "Y";
     public static final String X = "X";
     public static final String Z = "Z";
-    public static final String TARGET_AXIS_2 = "target_axis";
-    public static final String FROM_MIN_2 = "from_min";
-    public static final String FROM_MAX_2 = "from_max";
-    public static final String AMPLITUDE_2 = "amplitude";
-    public static final String GEOMETRY_2 = "geometry";
     public static final String CURVE_3 = "_curve";
     public static final float NUM_0 = 0f;
     public static final float NUM_1 = 1f;
     public static final float NUM_1e_10 = 1e-10f;
     public static final int NUM_3 = 3;
 
-    private static final InputPort CURVE = new InputPort(CURVE_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort CLOSURE = new InputPort(CLOSURE_2, PortType.CLOSURE, null);
-    private static final InputPort SOURCE_AXIS = new InputPort(SOURCE_AXIS_2, PortType.STRING, Y,
+    public static final InputPort CURVE = new InputPort("curve", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort CLOSURE = new InputPort("closure", PortType.CLOSURE, null);
+    public static final InputPort SOURCE_AXIS = new InputPort("source_axis", PortType.STRING, Y,
             new ModeConstraint(Y, List.of(X, Y, Z), Map.of()));
-    private static final InputPort TARGET_AXIS = new InputPort(TARGET_AXIS_2, PortType.STRING, Z,
+    public static final InputPort TARGET_AXIS = new InputPort("target_axis", PortType.STRING, Z,
             new ModeConstraint(Z, List.of(X, Y, Z), Map.of()));
-    private static final InputPort FROM_MIN = new InputPort(FROM_MIN_2, PortType.FLOAT, 0f, -100f, 100f);
-    private static final InputPort FROM_MAX = new InputPort(FROM_MAX_2, PortType.FLOAT, 1f, -100f, 100f);
-    private static final InputPort AMPLITUDE = new InputPort(AMPLITUDE_2, PortType.FLOAT, 1f, -100f, 100f);
+    public static final InputPort FROM_MIN = new InputPort("from_min", PortType.FLOAT, 0f, -100f, 100f);
+    public static final InputPort FROM_MAX = new InputPort("from_max", PortType.FLOAT, 1f, -100f, 100f);
+    public static final InputPort AMPLITUDE = new InputPort("amplitude", PortType.FLOAT, 1f, -100f, 100f);
 
-    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -60,14 +52,14 @@ public class CurveDeformNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                CURVE_2, "Input curve to deform.",
-                CLOSURE_2, "Float closure mapping source coordinate to displacement.",
-                SOURCE_AXIS_2, "Axis whose coordinate is fed into `closure`: X, Y, or Z.",
-                TARGET_AXIS_2, "Axis where the closure's output is added: X, Y, or Z.",
-                FROM_MIN_2, "Low end of the source axis range remapped to closure input 0.",
-                FROM_MAX_2, "High end of the source axis range remapped to closure input 1.",
-                AMPLITUDE_2, "Multiplier on the closure's output before adding to the target axis.",
-                GEOMETRY_2, "Deformed curve."
+                CURVE.name, "Input curve to deform.",
+                CLOSURE.name, "Float closure mapping source coordinate to displacement.",
+                SOURCE_AXIS.name, "Axis whose coordinate is fed into `closure`: X, Y, or Z.",
+                TARGET_AXIS.name, "Axis where the closure's output is added: X, Y, or Z.",
+                FROM_MIN.name, "Low end of the source axis range remapped to closure input 0.",
+                FROM_MAX.name, "High end of the source axis range remapped to closure input 1.",
+                AMPLITUDE.name, "Multiplier on the closure's output before adding to the target axis.",
+                GEOMETRY.name, "Deformed curve."
         );
     }
 
@@ -83,29 +75,29 @@ public class CurveDeformNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(CURVE_2, Object.class));
-        Object closureObj = ctx.getInput(CLOSURE_2, Object.class);
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(CURVE.name, Object.class));
+        Object closureObj = ctx.getInput(CLOSURE.name, Object.class);
 
         if (!(closureObj instanceof FloatCurveKernel kernel)) {
-            ctx.setOutput(GEOMETRY_2, base);
+            ctx.setOutput(GEOMETRY.name, base);
             return;
         }
 
         Object curveObj = base.slots().get(CURVE_3);
         if (!(curveObj instanceof CurveGeometry cg) || cg.pointCount() == 0) {
-            ctx.setOutput(GEOMETRY_2, base);
+            ctx.setOutput(GEOMETRY.name, base);
             return;
         }
 
-        int srcIdx = axisIndex(FieldBroadcast.getInputOrDefault(ctx, SOURCE_AXIS_2, SOURCE_AXIS.defaultValue()));
-        int tgtIdx = axisIndex(FieldBroadcast.getInputOrDefault(ctx, TARGET_AXIS_2, TARGET_AXIS.defaultValue()));
+        int srcIdx = axisIndex(FieldBroadcast.getInputOrDefault(ctx, SOURCE_AXIS.name, SOURCE_AXIS.defaultValue));
+        int tgtIdx = axisIndex(FieldBroadcast.getInputOrDefault(ctx, TARGET_AXIS.name, TARGET_AXIS.defaultValue));
 
         float fromMin = FieldBroadcast.floatAt(
-                FieldBroadcast.getInputOrDefault(ctx, FROM_MIN_2, FROM_MIN.defaultValue()), 0, NUM_0);
+                FieldBroadcast.getInputOrDefault(ctx, FROM_MIN.name, FROM_MIN.defaultValue), 0, NUM_0);
         float fromMax = FieldBroadcast.floatAt(
-                FieldBroadcast.getInputOrDefault(ctx, FROM_MAX_2, FROM_MAX.defaultValue()), 0, NUM_1);
+                FieldBroadcast.getInputOrDefault(ctx, FROM_MAX.name, FROM_MAX.defaultValue), 0, NUM_1);
         float amplitude = FieldBroadcast.floatAt(
-                FieldBroadcast.getInputOrDefault(ctx, AMPLITUDE_2, AMPLITUDE.defaultValue()), 0, NUM_1);
+                FieldBroadcast.getInputOrDefault(ctx, AMPLITUDE.name, AMPLITUDE.defaultValue), 0, NUM_1);
 
         float range = fromMax - fromMin;
         if (Math.abs(range) < NUM_1e_10) range = NUM_1;
@@ -124,7 +116,7 @@ public class CurveDeformNode implements MeshNode {
         }
 
         CurveGeometry deformed = new CurveGeometry(dstPos, cg.curveOffsets());
-        ctx.setOutput(GEOMETRY_2, base.withSlot(CURVE_3, deformed));
+        ctx.setOutput(GEOMETRY.name, base.withSlot(CURVE_3, deformed));
     }
 
     private static int axisIndex(Object axisObj) {

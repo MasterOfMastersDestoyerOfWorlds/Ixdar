@@ -28,8 +28,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "assign_bezier_handles")
 public class AssignBezierHandlesNode implements MeshNode {
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String WEIGHT_2 = "weight";
     public static final int NUM_3 = 3;
     public static final float NUM_1e_20 = 1e-20f;
     public static final float NUM_1 = 1f;
@@ -51,9 +49,9 @@ public class AssignBezierHandlesNode implements MeshNode {
      */
     public static final String SLOT_WEIGHT = "_bezier_handle_weight";
 
-    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort WEIGHT = new InputPort(WEIGHT_2, PortType.FLOAT, 1.0f, 0f, 10f);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort WEIGHT = new InputPort("weight", PortType.FLOAT, 1.0f, 0f, 10f);
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -63,8 +61,8 @@ public class AssignBezierHandlesNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                GEOMETRY_2, "Input cage / output bundle with _bezier_handles_start, _bezier_handles_end, _bezier_handle_weight slots populated.",
-                WEIGHT_2, "Multiplier on the default quarter-circle tangent magnitude. 0 = straight edges (no rounding); 0.33 ≈ gentle; 1.0 ≈ bulging. Stored in the _bezier_handle_weight slot so downstream topology ops (loop_cut, inset, extrude) can rebuild handles consistently."
+                GEOMETRY.name, "Input cage / output bundle with _bezier_handles_start, _bezier_handles_end, _bezier_handle_weight slots populated.",
+                WEIGHT.name, "Multiplier on the default quarter-circle tangent magnitude. 0 = straight edges (no rounding); 0.33 ≈ gentle; 1.0 ≈ bulging. Stored in the _bezier_handle_weight slot so downstream topology ops (loop_cut, inset, extrude) can rebuild handles consistently."
         );
     }
 
@@ -80,10 +78,10 @@ public class AssignBezierHandlesNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
-        Object w = FieldBroadcast.getInputOrDefault(ctx, WEIGHT_2, WEIGHT.defaultValue());
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
+        Object w = FieldBroadcast.getInputOrDefault(ctx, WEIGHT.name, WEIGHT.defaultValue);
         float weight = FieldBroadcast.floatScalarOrDefault(w, 1.0f);
-        ctx.setOutput(GEOMETRY_2, computeHandles(base, weight));
+        ctx.setOutput(GEOMETRY.name, computeHandles(base, weight));
     }
 
     /**

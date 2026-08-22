@@ -31,17 +31,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "attach_to_surface")
 public class AttachToSurfaceNode implements MeshNode {
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String THETA_2 = "theta";
-    public static final String PHI_2 = "phi";
-    public static final String RADIUS_2 = "radius";
-    public static final String INSET_2 = "inset";
-    public static final String TWIST_2 = "twist";
-    public static final String TAG_2 = "tag";
     public static final String ATTACH = "attach";
-    public static final String ATTACH_POSITION = "attach_position";
-    public static final String ATTACH_NORMAL = "attach_normal";
-    public static final String ATTACH_ROTATION = "attach_rotation";
     public static final float NUM_0 = 0f;
     public static final float NUM_1_5707963 = 1.5707963f;
     public static final float NUM_0_01 = 0.01f;
@@ -52,18 +42,18 @@ public class AttachToSurfaceNode implements MeshNode {
     public static final float NUM_1e_8 = 1e-8f;
     public static final float NUM_1e_6 = 1e-6f;
 
-    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort THETA = new InputPort(THETA_2, PortType.FLOAT, 0.0f, -6.2832f, 6.2832f);
-    private static final InputPort PHI = new InputPort(PHI_2, PortType.FLOAT, 1.5707963f, 0f, 3.1416f);
-    private static final InputPort RADIUS = new InputPort(RADIUS_2, PortType.FLOAT, 0.0f, 0f, 10f);
-    private static final InputPort INSET = new InputPort(INSET_2, PortType.FLOAT, 0.12f, 0f, 1f);
-    private static final InputPort TWIST = new InputPort(TWIST_2, PortType.FLOAT, 0.0f, -6.2832f, 6.2832f);
-    private static final InputPort TAG = new InputPort(TAG_2, PortType.STRING, ATTACH);
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort THETA = new InputPort("theta", PortType.FLOAT, 0.0f, -6.2832f, 6.2832f);
+    public static final InputPort PHI = new InputPort("phi", PortType.FLOAT, 1.5707963f, 0f, 3.1416f);
+    public static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.0f, 0f, 10f);
+    public static final InputPort INSET = new InputPort("inset", PortType.FLOAT, 0.12f, 0f, 1f);
+    public static final InputPort TWIST = new InputPort("twist", PortType.FLOAT, 0.0f, -6.2832f, 6.2832f);
+    public static final InputPort TAG = new InputPort("tag", PortType.STRING, ATTACH);
 
-    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
-    private static final OutputPort POSITION_OUT = new OutputPort(ATTACH_POSITION, PortType.VECTOR3);
-    private static final OutputPort NORMAL_OUT = new OutputPort(ATTACH_NORMAL, PortType.VECTOR3);
-    private static final OutputPort ROTATION_OUT = new OutputPort(ATTACH_ROTATION, PortType.VECTOR3);
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
+    public static final OutputPort POSITION_OUT = new OutputPort("attach_position", PortType.VECTOR3);
+    public static final OutputPort NORMAL_OUT = new OutputPort("attach_normal", PortType.VECTOR3);
+    public static final OutputPort ROTATION_OUT = new OutputPort("attach_rotation", PortType.VECTOR3);
 
     @Override
     public List<InputPort> inputs() {
@@ -83,34 +73,34 @@ public class AttachToSurfaceNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.ofEntries(
-                Map.entry(GEOMETRY_2, "Input/output. A hole is cut at the attachment point on the parent surface; the opening boundary is tagged for bridge_edge_loops."),
-                Map.entry(THETA_2, "Azimuthal angle (radians, around Y axis). 0 = +X, π/2 = +Z."),
-                Map.entry(PHI_2, "Polar angle (radians, from +Y). 0 = top pole, π/2 = equator, π = bottom pole."),
-                Map.entry(RADIUS_2, "Hole radius around the attachment point in world units."),
-                Map.entry(INSET_2, "Inset distance from the cut boundary to the attachment ring. 0 = flush; positive = recessed."),
-                Map.entry(TWIST_2, "Roll angle (radians) around the attachment normal. Rotates the attached child around its axis."),
-                Map.entry(TAG_2, "String tag applied to the new boundary ring so downstream bridge_edge_loops / adaptive_bridge_loops can find it."),
-                Map.entry(ATTACH_POSITION, "World-space position of the attachment point on the surface."),
-                Map.entry(ATTACH_NORMAL, "Unit outward normal at the attachment point."),
-                Map.entry(ATTACH_ROTATION, "Euler rotation (radians) that aligns +Y to the attach normal, plus twist.")
+                Map.entry(GEOMETRY.name, "Input/output. A hole is cut at the attachment point on the parent surface; the opening boundary is tagged for bridge_edge_loops."),
+                Map.entry(THETA.name, "Azimuthal angle (radians, around Y axis). 0 = +X, π/2 = +Z."),
+                Map.entry(PHI.name, "Polar angle (radians, from +Y). 0 = top pole, π/2 = equator, π = bottom pole."),
+                Map.entry(RADIUS.name, "Hole radius around the attachment point in world units."),
+                Map.entry(INSET.name, "Inset distance from the cut boundary to the attachment ring. 0 = flush; positive = recessed."),
+                Map.entry(TWIST.name, "Roll angle (radians) around the attachment normal. Rotates the attached child around its axis."),
+                Map.entry(TAG.name, "String tag applied to the new boundary ring so downstream bridge_edge_loops / adaptive_bridge_loops can find it."),
+                Map.entry(POSITION_OUT.name, "World-space position of the attachment point on the surface."),
+                Map.entry(NORMAL_OUT.name, "Unit outward normal at the attachment point."),
+                Map.entry(ROTATION_OUT.name, "Euler rotation (radians) that aligns +Y to the attach normal, plus twist.")
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.vertexCount() == 0) {
             setDefaults(ctx, base);
             return;
         }
 
-        float theta = floatIn(ctx, THETA_2, NUM_0);
-        float phi = floatIn(ctx, PHI_2, NUM_1_5707963);
-        float radius = floatIn(ctx, RADIUS_2, NUM_0);
-        float inset = Math.max(NUM_0_01, Math.min(floatIn(ctx, INSET_2, NUM_0_12), NUM_0_99));
-        float twist = floatIn(ctx, TWIST_2, NUM_0);
-        String tag = stringIn(ctx, TAG_2, ATTACH);
+        float theta = floatIn(ctx, THETA.name, NUM_0);
+        float phi = floatIn(ctx, PHI.name, NUM_1_5707963);
+        float radius = floatIn(ctx, RADIUS.name, NUM_0);
+        float inset = Math.max(NUM_0_01, Math.min(floatIn(ctx, INSET.name, NUM_0_12), NUM_0_99));
+        float twist = floatIn(ctx, TWIST.name, NUM_0);
+        String tag = stringIn(ctx, TAG.name, ATTACH);
 
         int vertCount = mesh.vertexCount();
         int faceCount = mesh.faceCount();
@@ -252,10 +242,10 @@ public class AttachToSurfaceNode implements MeshNode {
         // Compute rotation: align +Y to surface normal, with twist
         Vector3f rotation = alignRotation(attachNormal, twist);
 
-        ctx.setOutput(GEOMETRY_2, result);
-        ctx.setOutput(ATTACH_POSITION, new Vector3Value(attachPos.x, attachPos.y, attachPos.z));
-        ctx.setOutput(ATTACH_NORMAL, new Vector3Value(attachNormal.x, attachNormal.y, attachNormal.z));
-        ctx.setOutput(ATTACH_ROTATION, new Vector3Value(rotation.x, rotation.y, rotation.z));
+        ctx.setOutput(GEOMETRY.name, result);
+        ctx.setOutput(POSITION_OUT.name, new Vector3Value(attachPos.x, attachPos.y, attachPos.z));
+        ctx.setOutput(NORMAL_OUT.name, new Vector3Value(attachNormal.x, attachNormal.y, attachNormal.z));
+        ctx.setOutput(ROTATION_OUT.name, new Vector3Value(rotation.x, rotation.y, rotation.z));
     }
 
     private static Vector3f faceNormal(MeshTopology mesh, int fid) {
@@ -281,10 +271,10 @@ public class AttachToSurfaceNode implements MeshNode {
     }
 
     private void setDefaults(NodeContext ctx, GeometryBundle base) {
-        ctx.setOutput(GEOMETRY_2, base);
-        ctx.setOutput(ATTACH_POSITION, new Vector3Value(0, 0, 0));
-        ctx.setOutput(ATTACH_NORMAL, new Vector3Value(0, 1, 0));
-        ctx.setOutput(ATTACH_ROTATION, new Vector3Value(0, 0, 0));
+        ctx.setOutput(GEOMETRY.name, base);
+        ctx.setOutput(POSITION_OUT.name, new Vector3Value(0, 0, 0));
+        ctx.setOutput(NORMAL_OUT.name, new Vector3Value(0, 1, 0));
+        ctx.setOutput(ROTATION_OUT.name, new Vector3Value(0, 0, 0));
     }
 
     private static float floatIn(NodeContext ctx, String name, float def) {

@@ -313,7 +313,7 @@ public final class GraphAnalyzer {
             MeshNodeSchema schema = instance.schema();
             List<String> types = new ArrayList<>();
             for (OutputPort op : schema.outputs()) {
-                types.add(op.type().name());
+                types.add(op.type.name());
             }
             return types;
         } catch (ReflectiveOperationException e) {

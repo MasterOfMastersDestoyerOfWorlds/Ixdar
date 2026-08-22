@@ -28,10 +28,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  */
 @MeshNodeAnnotation(id = "coons_loop_cut")
 public class CoonsLoopCutNode implements MeshNode {
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String AXIS_2 = "axis";
     public static final String X = "X";
-    public static final String CUTS_2 = "cuts";
     public static final float NUM_1e_8 = 1e-8f;
     public static final float NUM_1 = 1f;
     public static final float NUM_0_5 = 0.5f;
@@ -40,10 +37,10 @@ public class CoonsLoopCutNode implements MeshNode {
     public static final float NUM_2 = 2f;
     public static final float NUM_3_2 = 3f;
 
-    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort AXIS = new InputPort(AXIS_2, PortType.STRING, X);
-    private static final InputPort CUTS = new InputPort(CUTS_2, PortType.INT, 1, 1f, 8f);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort AXIS = new InputPort("axis", PortType.STRING, X);
+    public static final InputPort CUTS = new InputPort("cuts", PortType.INT, 1, 1f, 8f);
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -53,9 +50,9 @@ public class CoonsLoopCutNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                GEOMETRY_2, "Input/output bundle; MUST carry bezier handle slots from assign_bezier_handles. Unhandled input passes through with a warning.",
-                AXIS_2, "Cuts are placed PERPENDICULAR to this axis. Accepted: X, Y, Z.",
-                CUTS_2, "Number of new edge loops to insert (1..8)."
+                GEOMETRY.name, "Input/output bundle; MUST carry bezier handle slots from assign_bezier_handles. Unhandled input passes through with a warning.",
+                AXIS.name, "Cuts are placed PERPENDICULAR to this axis. Accepted: X, Y, Z.",
+                CUTS.name, "Number of new edge loops to insert (1..8)."
         );
     }
 
@@ -71,17 +68,17 @@ public class CoonsLoopCutNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
         if (!CoonsHandleBuilder.hasHandles(base)) {
             System.err.println("[coons_loop_cut] WARNING: input lacks bezier handles; passing through unchanged. Use assign_bezier_handles upstream, or use loop_cut for straight midpoint cuts.");
-            ctx.setOutput(GEOMETRY_2, base);
+            ctx.setOutput(GEOMETRY.name, base);
             return;
         }
-        String axis = ctx.getInput(AXIS_2, String.class);
+        String axis = ctx.getInput(AXIS.name, String.class);
         if (axis == null) axis = X;
-        Number cutsNum = ctx.getInput(CUTS_2, Number.class);
+        Number cutsNum = ctx.getInput(CUTS.name, Number.class);
         int cuts = cutsNum == null ? 1 : Math.max(1, cutsNum.intValue());
-        ctx.setOutput(GEOMETRY_2, loopCut(base, axis, cuts));
+        ctx.setOutput(GEOMETRY.name, loopCut(base, axis, cuts));
     }
 
     /**

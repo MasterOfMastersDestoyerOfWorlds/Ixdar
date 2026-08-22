@@ -28,25 +28,20 @@ import ixdar.platform.Platforms;
  */
 @MeshNodeAnnotation(id = "mesh_boolean", desktopOnly = true)
 public class MeshBooleanNode implements MeshNode {
-    public static final String MESH_A_2 = "mesh_a";
-    public static final String MESH_B_2 = "mesh_b";
-    public static final String OPERATION_2 = "operation";
     public static final String DIFFERENCE = "DIFFERENCE";
     public static final String UNION = "UNION";
     public static final String INTERSECT = "INTERSECT";
-    public static final String GEOMETRY_2 = "geometry";
-
     /** Bundle slot holding the operand each output face came from, one entry per face. */
     public static final String FACE_ORIGIN_SLOT = "boolean_face_origin";
 
     /** Bundle slot holding the source face id per output face, {@code -1} where the face is new. */
     public static final String FACE_SOURCE_QUAD_SLOT = "boolean_face_source_quad";
 
-    private static final InputPort MESH_A = new InputPort(MESH_A_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort MESH_B = new InputPort(MESH_B_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort OPERATION = new InputPort(OPERATION_2, PortType.STRING, DIFFERENCE,
+    public static final InputPort MESH_A = new InputPort("mesh_a", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort MESH_B = new InputPort("mesh_b", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort OPERATION = new InputPort("operation", PortType.STRING, DIFFERENCE,
             new ModeConstraint(DIFFERENCE, List.of(UNION, DIFFERENCE, INTERSECT), Map.of()));
-    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -67,29 +62,29 @@ public class MeshBooleanNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                MESH_A_2, "First operand (typically the base mesh).",
-                MESH_B_2, "Second operand (typically the tool mesh).",
-                OPERATION_2, "CSG op: UNION (A ∪ B), DIFFERENCE (A − B), INTERSECT (A ∩ B).",
-                GEOMETRY_2, "Result as a geometry bundle, with per-face provenance in the"
+                MESH_A.name, "First operand (typically the base mesh).",
+                MESH_B.name, "Second operand (typically the tool mesh).",
+                OPERATION.name, "CSG op: UNION (A ∪ B), DIFFERENCE (A − B), INTERSECT (A ∩ B).",
+                GEOMETRY.name, "Result as a geometry bundle, with per-face provenance in the"
                         + " boolean_face_origin and boolean_face_source_quad slots."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle bundleA = GeometryBundles.bundlePart(ctx.getInput(MESH_A_2, Object.class));
-        GeometryBundle bundleB = GeometryBundles.bundlePart(ctx.getInput(MESH_B_2, Object.class));
+        GeometryBundle bundleA = GeometryBundles.bundlePart(ctx.getInput(MESH_A.name, Object.class));
+        GeometryBundle bundleB = GeometryBundles.bundlePart(ctx.getInput(MESH_B.name, Object.class));
 
         if (bundleA == null || bundleA.mesh() == null || bundleA.mesh().vertexCount() == 0) {
-            ctx.setOutput(GEOMETRY_2, bundleB != null ? bundleB : GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, bundleB != null ? bundleB : GeometryBundle.empty());
             return;
         }
         if (bundleB == null || bundleB.mesh() == null || bundleB.mesh().vertexCount() == 0) {
-            ctx.setOutput(GEOMETRY_2, bundleA);
+            ctx.setOutput(GEOMETRY.name, bundleA);
             return;
         }
 
-        Object modeInput = FieldBroadcast.getInputOrDefault(ctx, OPERATION_2, OPERATION.defaultValue());
+        Object modeInput = FieldBroadcast.getInputOrDefault(ctx, OPERATION.name, OPERATION.defaultValue);
         String mode = modeInput instanceof String text ? text.toUpperCase() : DIFFERENCE;
         BooleanOperation operation = switch (mode) {
             case UNION -> BooleanOperation.UNION;
@@ -102,7 +97,7 @@ public class MeshBooleanNode implements MeshNode {
                 new QuadTriangulation(bundleB.mesh()).build(),
                 operation);
 
-        ctx.setOutput(GEOMETRY_2, bundleA.withMesh(result.mesh)
+        ctx.setOutput(GEOMETRY.name, bundleA.withMesh(result.mesh)
                 .withSlot(FACE_ORIGIN_SLOT, result.faceOrigin)
                 .withSlot(FACE_SOURCE_QUAD_SLOT, result.faceSourceQuad));
     }

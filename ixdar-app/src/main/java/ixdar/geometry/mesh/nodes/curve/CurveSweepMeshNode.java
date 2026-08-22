@@ -27,10 +27,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "curve_sweep")
 public class CurveSweepMeshNode implements MeshNode {
-    public static final String CURVE_2 = "curve";
-    public static final String PROFILE_2 = "profile";
-    public static final String CAPS_2 = "caps";
-    public static final String GEOMETRY_2 = "geometry";
     public static final int NUM_3 = 3;
     public static final float NUM_1e_5 = 1e-5f;
     public static final float NUM_1e_4 = 1e-4f;
@@ -43,10 +39,10 @@ public class CurveSweepMeshNode implements MeshNode {
     public static final float NUM_1e_10 = 1e-10f;
     public static final float NUM_1e_12 = 1e-12f;
 
-    private static final InputPort CURVE = new InputPort(CURVE_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort PROFILE = new InputPort(PROFILE_2, PortType.MESH, null);
-    private static final InputPort CAPS = new InputPort(CAPS_2, PortType.BOOLEAN, true);
-    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort CURVE = new InputPort("curve", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort PROFILE = new InputPort("profile", PortType.MESH, null);
+    public static final InputPort CAPS = new InputPort("caps", PortType.BOOLEAN, true);
+    public static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -56,10 +52,10 @@ public class CurveSweepMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                CURVE_2, "Path curve to sweep along.",
-                PROFILE_2, "Mesh whose first face is swept along the curve. Vertex count determines segment resolution.",
-                CAPS_2, "If true, cap the two ends of the sweep with the profile face; if false, leave the tube open.",
-                GEOMETRY_2, "Swept surface as a geometry bundle."
+                CURVE.name, "Path curve to sweep along.",
+                PROFILE.name, "Mesh whose first face is swept along the curve. Vertex count determines segment resolution.",
+                CAPS.name, "If true, cap the two ends of the sweep with the profile face; if false, leave the tube open.",
+                GEOMETRY.name, "Swept surface as a geometry bundle."
         );
     }
 
@@ -75,18 +71,18 @@ public class CurveSweepMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle curveGb = GeometryBundles.bundlePart(ctx.getInput(CURVE_2, Object.class));
-        MeshTopology prof = ctx.getInput(PROFILE_2, MeshTopology.class);
-        Object capObj = FieldBroadcast.getInputOrDefault(ctx, CAPS_2, CAPS.defaultValue());
+        GeometryBundle curveGb = GeometryBundles.bundlePart(ctx.getInput(CURVE.name, Object.class));
+        MeshTopology prof = ctx.getInput(PROFILE.name, MeshTopology.class);
+        Object capObj = FieldBroadcast.getInputOrDefault(ctx, CAPS.name, CAPS.defaultValue);
         boolean addCaps = capObj instanceof Boolean ? (Boolean) capObj : true;
 
         if (curveGb == null || prof == null || prof.faceCount() == 0) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
         Object rawCurve = curveGb.slots().get("_curve");
         if (!(rawCurve instanceof CurveGeometry cg) || cg.curveCount() == 0) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
 
@@ -94,7 +90,7 @@ public class CurveSweepMeshNode implements MeshNode {
         int off1 = cg.curveOffsets()[1];
         int ptTotal = (off1 - off0);
         if (ptTotal < 2) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
 
@@ -108,7 +104,7 @@ public class CurveSweepMeshNode implements MeshNode {
             float y = pos[b + 1];
             float z = pos[b + 2];
             if (!Float.isFinite(x) || !Float.isFinite(y) || !Float.isFinite(z)) {
-                ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+                ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
                 return;
             }
             pts[i] = new Vector3f(x, y, z);
@@ -125,7 +121,7 @@ public class CurveSweepMeshNode implements MeshNode {
 
         int nSamples = closedCurve ? ptTotal - 1 : ptTotal;
         if (nSamples < 2) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
 
@@ -137,7 +133,7 @@ public class CurveSweepMeshNode implements MeshNode {
         int fid = prof.faceIdAt(0);
         int m = prof.faceVertexCount(fid);
         if (m < NUM_3) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
         int[] ring = new int[m];
@@ -155,7 +151,7 @@ public class CurveSweepMeshNode implements MeshNode {
 
         Vector3f nFace = prof.faceNormal(fid, new Vector3f());
         if (nFace.lengthSquared() < NUM_1e_20) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
         nFace.normalize();
@@ -167,13 +163,13 @@ public class CurveSweepMeshNode implements MeshNode {
         Vector3f uMesh = new Vector3f(b).sub(a);
         uMesh.fma(-nFace.dot(uMesh), nFace);
         if (uMesh.lengthSquared() < NUM_1e_20) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
         uMesh.normalize();
         Vector3f vMesh = nFace.cross(uMesh, new Vector3f());
         if (vMesh.lengthSquared() < NUM_1e_20 || !Float.isFinite(vMesh.lengthSquared())) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
         vMesh.normalize();
@@ -189,7 +185,7 @@ public class CurveSweepMeshNode implements MeshNode {
 
         Vector3f w0 = curveTangent(samplePts, 0, closedCurve);
         if (w0.lengthSquared() < NUM_1e_20) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
         w0.normalize();
@@ -204,7 +200,7 @@ public class CurveSweepMeshNode implements MeshNode {
         for (int i = 0; i < nSamples; i++) {
             Vector3f w = curveTangent(samplePts, i, closedCurve);
             if (w.lengthSquared() < NUM_1e_20 || !Float.isFinite(w.lengthSquared())) {
-                ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+                ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
                 return;
             }
             w.normalize();
@@ -236,7 +232,7 @@ public class CurveSweepMeshNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput(GEOMETRY_2, curveGb.withMesh(mesh));
+        ctx.setOutput(GEOMETRY.name, curveGb.withMesh(mesh));
     }
 
     /**

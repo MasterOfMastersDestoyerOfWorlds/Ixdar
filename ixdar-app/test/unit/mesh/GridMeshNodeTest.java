@@ -71,11 +71,11 @@ class GridMeshNodeTest {
     private static HalfEdgeMesh grid(boolean triangulate) {
         GridMeshNode node = new GridMeshNode();
         MapNodeContext context = new MapNodeContext(node);
-        context.setInput(GridMeshNode.U_TILES_2, U_TILES);
-        context.setInput(GridMeshNode.V_TILES_2, V_TILES);
-        context.setInput(GridMeshNode.TRIANGULATE_2, triangulate);
+        context.setInput(GridMeshNode.U_TILES.name, U_TILES);
+        context.setInput(GridMeshNode.V_TILES.name, V_TILES);
+        context.setInput(GridMeshNode.TRIANGULATE.name, triangulate);
         node.evaluate(context);
-        return context.getOutput(GridMeshNode.MESH_2, HalfEdgeMesh.class);
+        return context.getOutput(GridMeshNode.MESH.name, HalfEdgeMesh.class);
     }
 
     /**

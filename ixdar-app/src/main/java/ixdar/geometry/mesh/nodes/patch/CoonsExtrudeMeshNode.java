@@ -33,12 +33,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "coons_extrude_mesh")
 public class CoonsExtrudeMeshNode implements MeshNode {
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String OFFSET_2 = "offset";
-    public static final String SELECTION_2 = "selection";
-    public static final String REGION_2 = "region";
-    public static final String MESH = "mesh";
-    public static final String GENERATED = "generated";
     public static final float NUM_0_1 = 0.1f;
     public static final int NUM_4 = 4;
     public static final float NUM_0 = 0f;
@@ -48,13 +42,13 @@ public class CoonsExtrudeMeshNode implements MeshNode {
     public static final int NUM_32 = 32;
     public static final long NUM_0xFFFFFFFF = 0xFFFFFFFFL;
 
-    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort OFFSET = new InputPort(OFFSET_2, PortType.FLOAT, 0.1f, -10f, 10f);
-    private static final InputPort SELECTION = new InputPort(SELECTION_2, PortType.BOOLEAN, true);
-    private static final InputPort REGION = new InputPort(REGION_2, PortType.BOOLEAN, false);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
-    private static final OutputPort MESH_OUT = new OutputPort(MESH, PortType.MESH);
-    private static final OutputPort GENERATED_OUT = new OutputPort(GENERATED, PortType.BOOLEAN);
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort OFFSET = new InputPort("offset", PortType.FLOAT, 0.1f, -10f, 10f);
+    public static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
+    public static final InputPort REGION = new InputPort("region", PortType.BOOLEAN, false);
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
+    public static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
+    public static final OutputPort GENERATED_OUT = new OutputPort("generated", PortType.BOOLEAN);
 
     @Override
     public List<InputPort> inputs() {
@@ -74,37 +68,37 @@ public class CoonsExtrudeMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                GEOMETRY_2, "Input/output bundle; MUST carry bezier handle slots from assign_bezier_handles upstream. Unhandled input passes through unchanged with a warning.",
-                OFFSET_2, "Signed distance to push extruded corners along the Coons surface normal. Positive = outward protrusion; negative = inward depression (e.g. eye socket).",
-                SELECTION_2, "Per-face BOOLEAN mask. Selected QUADS (non-quads pass through) get extruded.",
-                REGION_2, "If true, each connected component of the selection (by face-face edge adjacency) extrudes as its own region — adjacent selected faces within the component share extruded vertices and average their surface normals at shared corners. Disconnected clusters in the same mask produce independent, correctly-formed regions (no cross-cluster averaging). If false (default), each face extrudes independently, producing a separate protrusion per face.",
-                MESH, "Topology-only output.",
-                GENERATED, "Per-output-face BOOLEAN: true for the newly-created top face of each extrusion. Thread into the next op's selection to chain features (e.g. another coons_extrude inward for deeper recesses)."
+                GEOMETRY.name, "Input/output bundle; MUST carry bezier handle slots from assign_bezier_handles upstream. Unhandled input passes through unchanged with a warning.",
+                OFFSET.name, "Signed distance to push extruded corners along the Coons surface normal. Positive = outward protrusion; negative = inward depression (e.g. eye socket).",
+                SELECTION.name, "Per-face BOOLEAN mask. Selected QUADS (non-quads pass through) get extruded.",
+                REGION.name, "If true, each connected component of the selection (by face-face edge adjacency) extrudes as its own region — adjacent selected faces within the component share extruded vertices and average their surface normals at shared corners. Disconnected clusters in the same mask produce independent, correctly-formed regions (no cross-cluster averaging). If false (default), each face extrudes independently, producing a separate protrusion per face.",
+                MESH_OUT.name, "Topology-only output.",
+                GENERATED_OUT.name, "Per-output-face BOOLEAN: true for the newly-created top face of each extrusion. Thread into the next op's selection to chain features (e.g. another coons_extrude inward for deeper recesses)."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
         MeshTopology in = base.mesh();
         if (in == null || in.vertexCount() == 0) {
-            ctx.setOutput(MESH, null);
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
-            ctx.setOutput(GENERATED, new BoolField(new boolean[0]));
+            ctx.setOutput(MESH_OUT.name, null);
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
+            ctx.setOutput(GENERATED_OUT.name, new BoolField(new boolean[0]));
             return;
         }
         if (!CoonsHandleBuilder.hasHandles(base)) {
             System.err.println("[coons_extrude_mesh] WARNING: input lacks bezier handles; passing through unchanged. Use assign_bezier_handles upstream, or use plain extrude_mesh for topology-only extrudes.");
-            ctx.setOutput(MESH, in);
-            ctx.setOutput(GEOMETRY_2, base);
-            ctx.setOutput(GENERATED, new BoolField(new boolean[in.faceCount()]));
+            ctx.setOutput(MESH_OUT.name, in);
+            ctx.setOutput(GEOMETRY.name, base);
+            ctx.setOutput(GENERATED_OUT.name, new BoolField(new boolean[in.faceCount()]));
             return;
         }
 
-        Object offObj = FieldBroadcast.getInputOrDefault(ctx, OFFSET_2, OFFSET.defaultValue());
+        Object offObj = FieldBroadcast.getInputOrDefault(ctx, OFFSET.name, OFFSET.defaultValue);
         float offset = FieldBroadcast.floatScalarOrDefault(offObj, NUM_0_1);
-        Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION_2, SELECTION.defaultValue());
-        Object regObj = FieldBroadcast.getInputOrDefault(ctx, REGION_2, REGION.defaultValue());
+        Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION.name, SELECTION.defaultValue);
+        Object regObj = FieldBroadcast.getInputOrDefault(ctx, REGION.name, REGION.defaultValue);
         boolean region = FieldBroadcast.boolAt(regObj, 0, false);
 
         float[] hStart = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_START, in);
@@ -119,9 +113,9 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         outSlots.put(AssignBezierHandlesNode.SLOT_HANDLES_END, r.handles[1]);
         GeometryBundle outBundle = new GeometryBundle(r.outMesh, Map.copyOf(outSlots));
 
-        ctx.setOutput(MESH, r.outMesh);
-        ctx.setOutput(GEOMETRY_2, outBundle);
-        ctx.setOutput(GENERATED, new BoolField(r.generated));
+        ctx.setOutput(MESH_OUT.name, r.outMesh);
+        ctx.setOutput(GEOMETRY.name, outBundle);
+        ctx.setOutput(GENERATED_OUT.name, new BoolField(r.generated));
     }
 
     // ----------------------------------------------------------------------

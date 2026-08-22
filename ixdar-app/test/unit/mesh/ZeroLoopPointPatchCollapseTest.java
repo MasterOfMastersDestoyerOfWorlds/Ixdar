@@ -7,42 +7,55 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * Collapsing a zero loop must retire the patch it pinches even when that patch keeps more than one
- * arc afterwards.
+ * Collapsing a zero loop must retire the patch it pinches even when that patch
+ * keeps more than one arc afterwards.
  *
- * <p>{@link ZeroLoopBigonCollapseTest} covers the patch left holding a single arc. This is the
- * general shape, and it is the one the fertility contraction stops on: a patch whose whole boundary
- * is zero arcs — here an arc into the loop's node, the loop itself, and an arc back out — so that
- * removing the loop still leaves two arcs behind. LCBK19 §6.1 classifies patches by their
- * <em>non-zero</em> arcs, not by how many arcs remain: a zero-patch <em>"without any non-zero arc,
- * one that is supposed to be embedded onto a single point rather than a curve, is already handled by
- * the zero-arc collapse"</em>. Such a patch is destined for a point whatever its arc count, so the
- * collapse owes it a retirement, and without one the surface gains a face it no longer has.
+ * <p>
+ * {@link ZeroLoopBigonCollapseTest} covers the patch left holding a single arc.
+ * This is the general shape, and it is the one the fertility contraction stops
+ * on: a patch whose whole boundary is zero arcs — here an arc into the loop's
+ * node, the loop itself, and an arc back out — so that removing the loop still
+ * leaves two arcs behind. LCBK19 §6.1 classifies patches by their
+ * <em>non-zero</em> arcs, not by how many arcs remain: a zero-patch
+ * <em>"without any non-zero arc, one that is supposed to be embedded onto a
+ * single point rather than a curve, is already handled by the zero-arc
+ * collapse"</em>. Such a patch is destined for a point whatever its arc count,
+ * so the collapse owes it a retirement, and without one the surface gains a
+ * face it no longer has.
  *
- * <p>Figure 9(e)-(g) shows this is not a malformed intermediate state to be avoided: the zero-patch
- * there passes through plainly non-rectangular shapes, and the figure marks the merged corners with
- * red double-corner arcs as it goes.
+ * <p>
+ * Figure 9(e)-(g) shows this is not a malformed intermediate state to be
+ * avoided: the zero-patch there passes through plainly non-rectangular shapes,
+ * and the figure marks the merged corners with red double-corner arcs as it
+ * goes.
  *
- * <p>The pinched patch's boundary cycle below is the one fertility reported verbatim —
- * {@code leftSides=3604z/2834Lz/-/3605z} — an arc in, the loop, nothing, an arc back out.
+ * <p>
+ * The pinched patch's boundary cycle below is the one fertility reported
+ * verbatim — {@code leftSides=3604z/2834Lz/-/3605z} — an arc in, the loop,
+ * nothing, an arc back out.
  *
- * <p>The far patch is a surviving quad with two non-zero arcs, as fertility's is
- * ({@code rightSides=2599/2834Lz/2829/2835z}), so neither patch is emptied and neither is left
- * holding a single arc — the two shapes the collapse already knew how to retire.
+ * <p>
+ * The far patch is a surviving quad with two non-zero arcs, as fertility's is
+ * ({@code rightSides=2599/2834Lz/2829/2835z}), so neither patch is emptied and
+ * neither is left holding a single arc — the two shapes the collapse already
+ * knew how to retire.
  *
- * <p>The loop's two patch ids are assigned by hand because {@link EmbeddedTMesh#addPatch} cannot
- * express them. It decides which side of an arc a patch lies on from the direction the boundary walk
- * traverses it, and a loop is traversed forwards from both sides, so both patches claim
- * {@code leftPatchId} and the second overwrites the first. Fertility never trips over this: its
- * loops are ordinary two-node arcs when their patches are built and only become loops later, when a
- * collapse merges their endpoints, by which time both sides are recorded. Building a loop as a loop
- * is what this fixture does, so it has to restore what the walk cannot see.
+ * <p>
+ * The loop's two patch ids are assigned by hand because
+ * {@link EmbeddedTMesh#addPatch} cannot express them. It decides which side of
+ * an arc a patch lies on from the direction the boundary walk traverses it, and
+ * a loop is traversed forwards from both sides, so both patches claim
+ * {@code leftPatchId} and the second overwrites the first. Fertility never
+ * trips over this: its loops are ordinary two-node arcs when their patches are
+ * built and only become loops later, when a collapse merges their endpoints, by
+ * which time both sides are recorded. Building a loop as a loop is what this
+ * fixture does, so it has to restore what the walk cannot see.
  */
 class ZeroLoopPointPatchCollapseTest {
 
@@ -109,35 +122,13 @@ class ZeroLoopPointPatchCollapseTest {
     }
 
     /**
-     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid on the z = 0 plane.
+     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid via the shared
+     * {@link Grids} fixture, so the tests run on {@code mesh_grid}'s real output.
      *
      * @return the grid as a half-edge mesh
      */
     private HalfEdgeMesh buildGrid() {
-        float[] positions = new float[COLUMNS * ROWS * 3];
-        for (int row = 0; row < ROWS; row++) {
-            for (int column = 0; column < COLUMNS; column++) {
-                int base = (row * COLUMNS + column) * 3;
-                positions[base] = column;
-                positions[base + 1] = row;
-                positions[base + 2] = 0f;
-            }
-        }
-        int[] faces = new int[(COLUMNS - 1) * (ROWS - 1) * 2 * 3];
-        int cursor = 0;
-        for (int row = 0; row < ROWS - 1; row++) {
-            for (int column = 0; column < COLUMNS - 1; column++) {
-                int lowerLeft = row * COLUMNS + column;
-                int upperLeft = lowerLeft + COLUMNS;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = lowerLeft + 1;
-                faces[cursor++] = upperLeft + 1;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = upperLeft + 1;
-                faces[cursor++] = upperLeft;
-            }
-        }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return GridMeshNode.triangulated(COLUMNS, ROWS);
     }
 
     /**
@@ -149,6 +140,6 @@ class ZeroLoopPointPatchCollapseTest {
      * @return the copy vertex there
      */
     private int vertex(EmbeddedMeshTopology topology, int column, int row) {
-        return topology.copyVertexForSourceVertexId(row * COLUMNS + column);
+        return topology.copyVertexForSourceVertexId(GridMeshNode.vertexId(ROWS, column, row));
     }
 }

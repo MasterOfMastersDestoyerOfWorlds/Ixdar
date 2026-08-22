@@ -13,18 +13,14 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "uv_sphere")
 public class UVSphereMeshNode implements MeshNode {
-    public static final String RADIUS_2 = "radius";
-    public static final String SEGMENTS_2 = "segments";
-    public static final String RINGS_2 = "rings";
-    public static final String MESH_2 = "mesh";
     public static final int NUM_32 = 32;
     public static final int NUM_16 = 16;
     public static final int NUM_3 = 3;
     public static final float NUM_2_0 = 2.0f;
-    private static final InputPort RADIUS = new InputPort(RADIUS_2, PortType.FLOAT, 1.0f, 0.001f, 100f);
-    private static final InputPort SEGMENTS = new InputPort(SEGMENTS_2, PortType.INT, 32, (float) 3, (float) 128);
-    private static final InputPort RINGS = new InputPort(RINGS_2, PortType.INT, 16, (float) 1, (float) 64);
-    private static final OutputPort MESH = new OutputPort(MESH_2, PortType.MESH);
+    public static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 1.0f, 0.001f, 100f);
+    public static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 32, (float) 3, (float) 128);
+    public static final InputPort RINGS = new InputPort("rings", PortType.INT, 16, (float) 1, (float) 64);
+    public static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
@@ -44,18 +40,18 @@ public class UVSphereMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                RADIUS_2, "Distance from center to surface. uv_sphere(radius=r) has extent 2r on each axis (vertices at ±r). For a reference of extent <X,Y,Z>, start with radius=1 and apply transform_geometry(scale=<X/2, Y/2, Z/2>).",
-                SEGMENTS_2, "Longitudinal divisions (meridians). Higher = smoother around the equator. Default 32.",
-                RINGS_2, "Latitudinal bands between the two poles. Higher = smoother pole-to-pole. Default 16.",
-                MESH_2, "Quad-banded sphere with triangle-fan poles, centered at origin."
+                RADIUS.name, "Distance from center to surface. uv_sphere(radius=r) has extent 2r on each axis (vertices at ±r). For a reference of extent <X,Y,Z>, start with radius=1 and apply transform_geometry(scale=<X/2, Y/2, Z/2>).",
+                SEGMENTS.name, "Longitudinal divisions (meridians). Higher = smoother around the equator. Default 32.",
+                RINGS.name, "Latitudinal bands between the two poles. Higher = smoother pole-to-pole. Default 16.",
+                MESH.name, "Quad-banded sphere with triangle-fan poles, centered at origin."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        float radius = ctx.getInput(RADIUS_2, Number.class) != null ? ctx.getInput(RADIUS_2, Number.class).floatValue() : 1.0f;
-        int segments = ctx.getInput(SEGMENTS_2, Number.class) != null ? ctx.getInput(SEGMENTS_2, Number.class).intValue() : NUM_32;
-        int rings = ctx.getInput(RINGS_2, Number.class) != null ? ctx.getInput(RINGS_2, Number.class).intValue() : NUM_16;
+        float radius = ctx.getInput(RADIUS.name, Number.class) != null ? ctx.getInput(RADIUS.name, Number.class).floatValue() : 1.0f;
+        int segments = ctx.getInput(SEGMENTS.name, Number.class) != null ? ctx.getInput(SEGMENTS.name, Number.class).intValue() : NUM_32;
+        int rings = ctx.getInput(RINGS.name, Number.class) != null ? ctx.getInput(RINGS.name, Number.class).intValue() : NUM_16;
 
         // Ensure minimum viable geometry
         segments = Math.max(NUM_3, segments);
@@ -112,6 +108,6 @@ public class UVSphereMeshNode implements MeshNode {
             mesh.addFace(bottomPole, ringVertices[rings - 2][nextJ], ringVertices[rings - 2][j]);
         }
         mesh.computeNormals();
-        ctx.setOutput(MESH_2, mesh);
+        ctx.setOutput(MESH.name, mesh);
     }
 }

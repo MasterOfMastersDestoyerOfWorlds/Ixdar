@@ -19,18 +19,14 @@ import ixdar.annotations.meshnode.PortType;
 public class FloatToIntNode implements MeshNode {
     public static final String ROUND = "ROUND";
     public static final String TRUNCATE = "TRUNCATE";
-    public static final String VALUE_2 = "value";
-    public static final String MODE_2 = "mode";
-    public static final String RESULT_2 = "result";
-
     public static final ModeConstraint MODE_CONSTRAINT = new ModeConstraint(
             ROUND,
             List.of(ROUND, "FLOOR", "CEIL", TRUNCATE),
             Map.of("TRUNC", TRUNCATE));
 
-    private static final InputPort VALUE = new InputPort(VALUE_2, PortType.FLOAT, 0.0f, -1000f, 1000f);
-    private static final InputPort MODE = new InputPort(MODE_2, PortType.STRING, ROUND, MODE_CONSTRAINT);
-    private static final OutputPort RESULT = new OutputPort(RESULT_2, PortType.INT);
+    public static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.0f, -1000f, 1000f);
+    public static final InputPort MODE = new InputPort("mode", PortType.STRING, ROUND, MODE_CONSTRAINT);
+    public static final OutputPort RESULT = new OutputPort("result", PortType.INT);
 
     /** {@inheritDoc}. */
     @Override
@@ -42,9 +38,9 @@ public class FloatToIntNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                VALUE_2, "Float input to convert.",
-                MODE_2, "Rounding rule: ROUND (nearest, half away from zero), FLOOR (toward -∞), CEIL (toward +∞), TRUNCATE (toward 0).",
-                RESULT_2, "Integer output."
+                VALUE.name, "Float input to convert.",
+                MODE.name, "Rounding rule: ROUND (nearest, half away from zero), FLOOR (toward -∞), CEIL (toward +∞), TRUNCATE (toward 0).",
+                RESULT.name, "Integer output."
         );
     }
 
@@ -63,8 +59,8 @@ public class FloatToIntNode implements MeshNode {
     /** {@inheritDoc}. */
     @Override
     public void evaluate(NodeContext ctx) {
-        Number valueNum = ctx.getInput(VALUE_2, Number.class);
-        String modeStr = ctx.getInput(MODE_2, String.class);
+        Number valueNum = ctx.getInput(VALUE.name, Number.class);
+        String modeStr = ctx.getInput(MODE.name, String.class);
         float v = valueNum == null ? 0f : valueNum.floatValue();
         Mode mode = Mode.parse(modeStr);
 
@@ -74,7 +70,7 @@ public class FloatToIntNode implements MeshNode {
             case CEIL -> (int) Math.ceil(v);
             case TRUNCATE -> (int) v;
         };
-        ctx.setOutput(RESULT_2, out);
+        ctx.setOutput(RESULT.name, out);
     }
 
     public enum Mode {

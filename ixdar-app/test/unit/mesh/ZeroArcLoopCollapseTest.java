@@ -8,24 +8,28 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * A zero-arc collapse must leave the Euler characteristic alone, including when it disposes of a
- * whole degenerate bigon at once.
+ * A zero-arc collapse must leave the Euler characteristic alone, including when
+ * it disposes of a whole degenerate bigon at once.
  *
- * <p>Two zero arcs running between the same pair of nodes bound a degenerate bigon. Collapsing the
- * first merges one node into the other; the second arc's far node is then the survivor, so the drag
- * embeds it onto a point and the collapse retires it and the bigon together — one node, two arcs
- * and one patch gone in a single operator, which balances.
+ * <p>
+ * Two zero arcs running between the same pair of nodes bound a degenerate
+ * bigon. Collapsing the first merges one node into the other; the second arc's
+ * far node is then the survivor, so the drag embeds it onto a point and the
+ * collapse retires it and the bigon together — one node, two arcs and one patch
+ * gone in a single operator, which balances.
  *
- * <p>LCBK19 covers this: §6.1 states that a zero-patch without any non-zero arc, <em>"one that is
- * supposed to be embedded onto a single point rather than a curve, is already handled by the
- * zero-arc collapse"</em>. Handling it means the collapse disposes of the degenerate patch too;
- * otherwise the surface keeps a face it no longer has.
+ * <p>
+ * LCBK19 covers this: §6.1 states that a zero-patch without any non-zero arc,
+ * <em>"one that is supposed to be embedded onto a single point rather than a
+ * curve, is already handled by the zero-arc collapse"</em>. Handling it means
+ * the collapse disposes of the degenerate patch too; otherwise the surface
+ * keeps a face it no longer has.
  */
 class ZeroArcLoopCollapseTest {
 
@@ -75,37 +79,13 @@ class ZeroArcLoopCollapseTest {
     }
 
     /**
-     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid on the z = 0 plane.
+     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid via the shared
+     * {@link Grids} fixture, so the tests run on {@code mesh_grid}'s real output.
      *
      * @return the grid as a half-edge mesh
      */
     private HalfEdgeMesh buildGrid() {
-        float[] positions = new float[COLUMNS * ROWS * 3];
-        for (int row = 0; row < ROWS; row++) {
-            for (int column = 0; column < COLUMNS; column++) {
-                int base = (row * COLUMNS + column) * 3;
-                positions[base] = column;
-                positions[base + 1] = row;
-                positions[base + 2] = 0f;
-            }
-        }
-        int[] faces = new int[(COLUMNS - 1) * (ROWS - 1) * 2 * 3];
-        int cursor = 0;
-        for (int row = 0; row < ROWS - 1; row++) {
-            for (int column = 0; column < COLUMNS - 1; column++) {
-                int lowerLeft = row * COLUMNS + column;
-                int lowerRight = lowerLeft + 1;
-                int upperLeft = lowerLeft + COLUMNS;
-                int upperRight = upperLeft + 1;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = lowerRight;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = upperLeft;
-            }
-        }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return GridMeshNode.triangulated(COLUMNS, ROWS);
     }
 
     /**
@@ -117,6 +97,6 @@ class ZeroArcLoopCollapseTest {
      * @return the copy vertex there
      */
     private int vertex(EmbeddedMeshTopology topology, int column, int row) {
-        return topology.copyVertexForSourceVertexId(row * COLUMNS + column);
+        return topology.copyVertexForSourceVertexId(GridMeshNode.vertexId(ROWS, column, row));
     }
 }

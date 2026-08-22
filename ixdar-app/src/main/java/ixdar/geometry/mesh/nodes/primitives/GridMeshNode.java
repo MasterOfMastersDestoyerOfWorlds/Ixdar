@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.InputPort;
+import ixdar.annotations.meshnode.MapNodeContext;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeContext;
@@ -13,27 +14,25 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "mesh_grid")
 public class GridMeshNode implements MeshNode {
-    public static final String U_TILES_2 = "u_tiles";
-    public static final String V_TILES_2 = "v_tiles";
-    public static final String U_TILE_SIZE_2 = "u_tile_size";
-    public static final String V_TILE_SIZE_2 = "v_tile_size";
-    public static final String U_TOTAL_SIZE_2 = "u_total_size";
-    public static final String V_TOTAL_SIZE_2 = "v_total_size";
-    public static final String TRIANGULATE_2 = "triangulate";
-    public static final String MESH_2 = "mesh";
     public static final float NUM_1e_6 = 1e-6f;
     public static final float NUM_0_5 = 0.5f;
     public static final float NUM_0 = 0f;
-    private static final InputPort U_TILES = new InputPort(U_TILES_2, PortType.INT, 10, (float) 1, (float) 1000);
-    private static final InputPort V_TILES = new InputPort(V_TILES_2, PortType.INT, 10, (float) 1, (float) 1000);
-    private static final InputPort U_TILE_SIZE = new InputPort(U_TILE_SIZE_2, PortType.FLOAT, 1.0f, 0.001f, 100f);
-    private static final InputPort V_TILE_SIZE = new InputPort(V_TILE_SIZE_2, PortType.FLOAT, 1.0f, 0.001f, 100f);
-    /** When positive, per-tile U size is {@code u_total_size / u_tiles} and overrides {@code u_tile_size}. */
-    private static final InputPort U_TOTAL_SIZE = new InputPort(U_TOTAL_SIZE_2, PortType.FLOAT, 0.0f, 0f, 1000f);
-    /** When positive, per-tile V size is {@code v_total_size / v_tiles} and overrides {@code v_tile_size}. */
-    private static final InputPort V_TOTAL_SIZE = new InputPort(V_TOTAL_SIZE_2, PortType.FLOAT, 0.0f, 0f, 1000f);
-    private static final InputPort TRIANGULATE = new InputPort(TRIANGULATE_2, PortType.BOOLEAN, false);
-    private static final OutputPort MESH = new OutputPort(MESH_2, PortType.MESH);
+    public static final InputPort U_TILES = new InputPort("u_tiles", PortType.INT, 10, (float) 1, (float) 1000);
+    public static final InputPort V_TILES = new InputPort("v_tiles", PortType.INT, 10, (float) 1, (float) 1000);
+    public static final InputPort U_TILE_SIZE = new InputPort("u_tile_size", PortType.FLOAT, 1.0f, 0.001f, 100f);
+    public static final InputPort V_TILE_SIZE = new InputPort("v_tile_size", PortType.FLOAT, 1.0f, 0.001f, 100f);
+    /**
+     * When positive, per-tile U size is {@code u_total_size / u_tiles} and
+     * overrides {@code u_tile_size}.
+     */
+    public static final InputPort U_TOTAL_SIZE = new InputPort("u_total_size", PortType.FLOAT, 0.0f, 0f, 1000f);
+    /**
+     * When positive, per-tile V size is {@code v_total_size / v_tiles} and
+     * overrides {@code v_tile_size}.
+     */
+    public static final InputPort V_TOTAL_SIZE = new InputPort("v_total_size", PortType.FLOAT, 0.0f, 0f, 1000f);
+    public static final InputPort TRIANGULATE = new InputPort("triangulate", PortType.BOOLEAN, false);
+    public static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
@@ -54,38 +53,45 @@ public class GridMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                U_TILES_2, "Number of quads along the U (X) axis.",
-                V_TILES_2, "Number of quads along the V (Z) axis.",
-                U_TILE_SIZE_2, "Per-tile edge length along U. Grid extent along X = u_tiles × u_tile_size, vertices at ±extent/2. Ignored when u_total_size > 0.",
-                V_TILE_SIZE_2, "Per-tile edge length along V. Grid extent along Z = v_tiles × v_tile_size, vertices at ±extent/2. Ignored when v_total_size > 0.",
-                U_TOTAL_SIZE_2, "Total extent along U. When > 0, per-tile U size becomes u_total_size / u_tiles (overrides u_tile_size).",
-                V_TOTAL_SIZE_2, "Total extent along V. When > 0, per-tile V size becomes v_total_size / v_tiles (overrides v_tile_size).",
-                TRIANGULATE_2, "Split each quad into two triangles along the v00-v11 diagonal."
+                U_TILES.name, "Number of quads along the U (X) axis.",
+                V_TILES.name, "Number of quads along the V (Z) axis.",
+                U_TILE_SIZE.name,
+                "Per-tile edge length along U. Grid extent along X = u_tiles × u_tile_size, vertices at ±extent/2. Ignored when u_total_size > 0.",
+                V_TILE_SIZE.name,
+                "Per-tile edge length along V. Grid extent along Z = v_tiles × v_tile_size, vertices at ±extent/2. Ignored when v_total_size > 0.",
+                U_TOTAL_SIZE.name,
+                "Total extent along U. When > 0, per-tile U size becomes u_total_size / u_tiles (overrides u_tile_size).",
+                V_TOTAL_SIZE.name,
+                "Total extent along V. When > 0, per-tile V size becomes v_total_size / v_tiles (overrides v_tile_size).",
+                TRIANGULATE.name, "Split each quad into two triangles along the v00-v11 diagonal."
                         + " Needed by the quad-layout pipeline, which consumes triangle meshes."
                         + " Default false.",
-                MESH_2, "Flat grid on XZ plane, centered at origin, Y=0; quads, or triangles when"
-                        + " triangulate is set."
-        );
+                MESH.name, "Flat grid on XZ plane, centered at origin, Y=0; quads, or triangles when"
+                        + " triangulate is set.");
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        int uTiles = ctx.getInput(U_TILES_2, Number.class) != null ? ctx.getInput(U_TILES_2, Number.class).intValue() : 1;
-        int vTiles = ctx.getInput(V_TILES_2, Number.class) != null ? ctx.getInput(V_TILES_2, Number.class).intValue() : 1;
-        float uTileSize = ctx.getInput(U_TILE_SIZE_2, Number.class) != null
-                ? ctx.getInput(U_TILE_SIZE_2, Number.class).floatValue()
+        int uTiles = ctx.getInput(U_TILES.name, Number.class) != null
+                ? ctx.getInput(U_TILES.name, Number.class).intValue()
+                : 1;
+        int vTiles = ctx.getInput(V_TILES.name, Number.class) != null
+                ? ctx.getInput(V_TILES.name, Number.class).intValue()
+                : 1;
+        float uTileSize = ctx.getInput(U_TILE_SIZE.name, Number.class) != null
+                ? ctx.getInput(U_TILE_SIZE.name, Number.class).floatValue()
                 : 1.0f;
-        float vTileSize = ctx.getInput(V_TILE_SIZE_2, Number.class) != null
-                ? ctx.getInput(V_TILE_SIZE_2, Number.class).floatValue()
+        float vTileSize = ctx.getInput(V_TILE_SIZE.name, Number.class) != null
+                ? ctx.getInput(V_TILE_SIZE.name, Number.class).floatValue()
                 : 1.0f;
 
         uTiles = Math.max(1, uTiles);
         vTiles = Math.max(1, vTiles);
-        Boolean triangulateInput = ctx.getInput(TRIANGULATE_2, Boolean.class);
+        Boolean triangulateInput = ctx.getInput(TRIANGULATE.name, Boolean.class);
         boolean triangulate = triangulateInput != null && triangulateInput;
 
-        Number uTotalNum = ctx.getInput(U_TOTAL_SIZE_2, Number.class);
-        Number vTotalNum = ctx.getInput(V_TOTAL_SIZE_2, Number.class);
+        Number uTotalNum = ctx.getInput(U_TOTAL_SIZE.name, Number.class);
+        Number vTotalNum = ctx.getInput(V_TOTAL_SIZE.name, Number.class);
         float uTotal = uTotalNum != null ? uTotalNum.floatValue() : 0.0f;
         float vTotal = vTotalNum != null ? vTotalNum.floatValue() : 0.0f;
         if (uTotal > NUM_1e_6) {
@@ -133,6 +139,49 @@ public class GridMeshNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput(MESH_2, mesh);
+        ctx.setOutput(MESH.name, mesh);
+    }
+
+    /**
+     * A unit-spaced triangulated grid with the given vertex counts, on the XZ plane
+     * centered at the origin, split along the v00-v11 diagonal.
+     *
+     * @param columns vertex count along U
+     * @param rows    vertex count along V
+     * @return the generated mesh
+     */
+    public static HalfEdgeMesh triangulated(int columns, int rows) {
+        GridMeshNode node = new GridMeshNode();
+        MapNodeContext context = new MapNodeContext(node);
+        context.setInput(GridMeshNode.U_TILES.name, columns - 1);
+        context.setInput(GridMeshNode.V_TILES.name, rows - 1);
+        context.setInput(GridMeshNode.TRIANGULATE.name, true);
+        node.evaluate(context);
+        return context.getOutput(GridMeshNode.MESH.name, HalfEdgeMesh.class);
+    }
+
+    /**
+     * The source vertex id at a grid position, under the node's U-major id
+     * ordering.
+     *
+     * @param rows   vertex count along V
+     * @param column grid column, the U index
+     * @param row    grid row, the V index
+     * @return the source vertex id there
+     */
+    public static int vertexId(int rows, int column, int row) {
+        return column * rows + row;
+    }
+
+    /**
+     * The world Z coordinate of a grid row, under the node's origin-centered
+     * placement.
+     *
+     * @param rows vertex count along V
+     * @param row  grid row, the V index
+     * @return the Z coordinate of that row's vertices
+     */
+    public static float rowCoordinate(int rows, int row) {
+        return row - (rows - 1) * 0.5f;
     }
 }

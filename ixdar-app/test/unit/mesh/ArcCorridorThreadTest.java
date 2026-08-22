@@ -15,27 +15,34 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * Reproduces the operator-(1) re-route failure that stalled the sphere at arc 18: a region the face
- * flood says is threadable, which the vertex search could not enter.
+ * Reproduces the operator-(1) re-route failure that stalled the sphere at arc
+ * 18: a region the face flood says is threadable, which the vertex search could
+ * not enter.
  *
- * <p>The obstruction is not a wall. A face path to the survivor exists that crosses no claimed arc
- * <em>edge</em>, so the region is threadable and LCBK19's <em>"resolved by refinement with a few edge
- * splits"</em> should open it. What blocks the vertex search is a crossing edge whose <em>both</em>
+ * <p>
+ * The obstruction is not a wall. A face path to the survivor exists that
+ * crosses no claimed arc <em>edge</em>, so the region is threadable and
+ * LCBK19's <em>"resolved by refinement with a few edge splits"</em> should open
+ * it. What blocks the vertex search is a crossing edge whose <em>both</em>
  * endpoints are claimed — it can stand on neither end.
  *
- * <p>The wall's length is the only variable here, and the outcome must not depend on it. A policy
- * that refines a bounded number of edges chosen without regard to where the route runs succeeds on a
- * short wall and fails on a long one from identical geometry; {@link ArcRerouter} instead names the
- * blocking edge from the corridor it is about to walk, so length is irrelevant.
+ * <p>
+ * The wall's length is the only variable here, and the outcome must not depend
+ * on it. A policy that refines a bounded number of edges chosen without regard
+ * to where the route runs succeeds on a short wall and fails on a long one from
+ * identical geometry; {@link ArcRerouter} instead names the blocking edge from
+ * the corridor it is about to walk, so length is irrelevant.
  *
- * <p>The wall is a single claimed column whose vertical edges are all claimed except one, so the sole
- * crossing is that free edge; both of its endpoints and both opposite face corners are claimed, which
- * makes it a gate the search can only pass once refinement splits it.
+ * <p>
+ * The wall is a single claimed column whose vertical edges are all claimed
+ * except one, so the sole crossing is that free edge; both of its endpoints and
+ * both opposite face corners are claimed, which makes it a gate the search can
+ * only pass once refinement splits it.
  */
 class ArcCorridorThreadTest {
 
@@ -84,9 +91,9 @@ class ArcCorridorThreadTest {
     }
 
     /**
-     * Whether a face walk crossing only unclaimed edges connects two vertices — the same
-     * arrangement-face test the failure diagnostic uses, computed here without touching the class
-     * under test.
+     * Whether a face walk crossing only unclaimed edges connects two vertices — the
+     * same arrangement-face test the failure diagnostic uses, computed here without
+     * touching the class under test.
      *
      * @param topology     working copy carrying the claim arrays
      * @param startVertex  walk source vertex
@@ -130,7 +137,8 @@ class ArcCorridorThreadTest {
     }
 
     /**
-     * Every copy vertex owned by neither a node nor an arc — the corridor a re-route is allowed.
+     * Every copy vertex owned by neither a node nor an arc — the corridor a
+     * re-route is allowed.
      *
      * @param topology working copy carrying the claim arrays
      * @return the unclaimed copy vertices
@@ -147,37 +155,13 @@ class ArcCorridorThreadTest {
     }
 
     /**
-     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid on the z = 0 plane.
+     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid via the shared
+     * {@link Grids} fixture, so the tests run on {@code mesh_grid}'s real output.
      *
      * @return the grid as a half-edge mesh
      */
     private HalfEdgeMesh buildGrid() {
-        float[] positions = new float[COLUMNS * ROWS * 3];
-        for (int row = 0; row < ROWS; row++) {
-            for (int column = 0; column < COLUMNS; column++) {
-                int base = (row * COLUMNS + column) * 3;
-                positions[base] = column;
-                positions[base + 1] = row;
-                positions[base + 2] = 0f;
-            }
-        }
-        int[] faces = new int[(COLUMNS - 1) * (ROWS - 1) * 2 * 3];
-        int cursor = 0;
-        for (int row = 0; row < ROWS - 1; row++) {
-            for (int column = 0; column < COLUMNS - 1; column++) {
-                int lowerLeft = row * COLUMNS + column;
-                int lowerRight = lowerLeft + 1;
-                int upperLeft = lowerLeft + COLUMNS;
-                int upperRight = upperLeft + 1;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = lowerRight;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = upperLeft;
-            }
-        }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return GridMeshNode.triangulated(COLUMNS, ROWS);
     }
 
     /**
@@ -189,6 +173,6 @@ class ArcCorridorThreadTest {
      * @return the copy vertex there
      */
     private int vertex(EmbeddedMeshTopology topology, int column, int row) {
-        return topology.copyVertexForSourceVertexId(row * COLUMNS + column);
+        return topology.copyVertexForSourceVertexId(GridMeshNode.vertexId(ROWS, column, row));
     }
 }

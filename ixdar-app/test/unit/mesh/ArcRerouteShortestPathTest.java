@@ -10,23 +10,28 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * A dragged arc re-embeds by the paper's method: LCBK19 §6.1 routes the pulled arc with Dijkstra's
- * shortest path between its two vertices, restricted to not cross or touch other arcs.
+ * A dragged arc re-embeds by the paper's method: LCBK19 §6.1 routes the pulled
+ * arc with Dijkstra's shortest path between its two vertices, restricted to not
+ * cross or touch other arcs.
  *
- * <p>An earlier "keep the old excursion" reading was disproven against the real target: on fertility
- * shortest-path yields ~8000x fewer folded triangles than keeping the long lane, and leaves the
- * regions untorn. So the short continuation is correct, not a tear.
+ * <p>
+ * An earlier "keep the old excursion" reading was disproven against the real
+ * target: on fertility shortest-path yields ~8000x fewer folded triangles than
+ * keeping the long lane, and leaves the regions untorn. So the short
+ * continuation is correct, not a tear.
  *
- * <p>This pins that the drag produces a valid embedding. The arc below runs the long way around
- * three sides of a grid; its node is dragged one step. The re-embedded arc must be re-anchored from
- * its far node to the survivor, be simple, lie on claimed copy edges, and be shorter than the old
- * detour — the reroute straightens it.
+ * <p>
+ * This pins that the drag produces a valid embedding. The arc below runs the
+ * long way around three sides of a grid; its node is dragged one step. The
+ * re-embedded arc must be re-anchored from its far node to the survivor, be
+ * simple, lie on claimed copy edges, and be shorter than the old detour — the
+ * reroute straightens it.
  */
 class ArcRerouteShortestPathTest {
 
@@ -69,14 +74,14 @@ class ArcRerouteShortestPathTest {
                 "shortest-path reroute straightens the arc, so it is shorter than the old detour");
         assertEquals(routed.size(), new HashSet<>(routed).size(), "the routed path is simple");
         for (int index = 1; index < routed.size(); index++) {
-            assertTrue(topology.edgeBetween(routed.get(index - 1), routed.get(index))
-                    != EmbeddedMeshTopology.UNCLAIMED,
+            assertTrue(topology.edgeBetween(routed.get(index - 1), routed.get(index)) != EmbeddedMeshTopology.UNCLAIMED,
                     "consecutive routed vertices must share a copy edge");
         }
     }
 
     /**
-     * The long way round: up the left edge, across the top, and back down to the pivot.
+     * The long way round: up the left edge, across the top, and back down to the
+     * pivot.
      *
      * @param topology working copy over the grid
      * @return the detour's copy vertices in walking order
@@ -96,37 +101,13 @@ class ArcRerouteShortestPathTest {
     }
 
     /**
-     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid on the z = 0 plane.
+     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid via the shared
+     * {@link Grids} fixture, so the tests run on {@code mesh_grid}'s real output.
      *
      * @return the grid as a half-edge mesh
      */
     private HalfEdgeMesh buildGrid() {
-        float[] positions = new float[COLUMNS * ROWS * 3];
-        for (int row = 0; row < ROWS; row++) {
-            for (int column = 0; column < COLUMNS; column++) {
-                int base = (row * COLUMNS + column) * 3;
-                positions[base] = column;
-                positions[base + 1] = row;
-                positions[base + 2] = 0f;
-            }
-        }
-        int[] faces = new int[(COLUMNS - 1) * (ROWS - 1) * 2 * 3];
-        int cursor = 0;
-        for (int row = 0; row < ROWS - 1; row++) {
-            for (int column = 0; column < COLUMNS - 1; column++) {
-                int lowerLeft = row * COLUMNS + column;
-                int lowerRight = lowerLeft + 1;
-                int upperLeft = lowerLeft + COLUMNS;
-                int upperRight = upperLeft + 1;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = lowerRight;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = upperLeft;
-            }
-        }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return GridMeshNode.triangulated(COLUMNS, ROWS);
     }
 
     /**
@@ -138,6 +119,6 @@ class ArcRerouteShortestPathTest {
      * @return the copy vertex there
      */
     private int vertex(EmbeddedMeshTopology topology, int column, int row) {
-        return topology.copyVertexForSourceVertexId(row * COLUMNS + column);
+        return topology.copyVertexForSourceVertexId(GridMeshNode.vertexId(ROWS, column, row));
     }
 }

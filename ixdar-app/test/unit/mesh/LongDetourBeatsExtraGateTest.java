@@ -10,24 +10,28 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * A re-route must take the fewest gates, not the shortest line. Refinement is not a cost to be
- * traded against distance: LCBK19 §6.1 splits only where the claims leave no edge path at all, so a
- * detour across the whole surface still beats one avoidable split.
+ * A re-route must take the fewest gates, not the shortest line. Refinement is
+ * not a cost to be traded against distance: LCBK19 §6.1 splits only where the
+ * claims leave no edge path at all, so a detour across the whole surface still
+ * beats one avoidable split.
  *
- * <p>Two chord walls span this grid. The near wall must be crossed by splitting one of its rungs
- * wherever it is met. The far wall stops short of the last columns, leaving a free doorway, so
- * exactly one split suffices — at the price of walking out to that doorway and back. Crossing both
- * walls beside the start is far shorter and costs two splits.
+ * <p>
+ * Two chord walls span this grid. The near wall must be crossed by splitting
+ * one of its rungs wherever it is met. The far wall stops short of the last
+ * columns, leaving a free doorway, so exactly one split suffices — at the price
+ * of walking out to that doorway and back. Crossing both walls beside the start
+ * is far shorter and costs two splits.
  *
- * <p>A search that prices a split as a fixed detour allowance takes the near crossing, mints a
- * midpoint it never needed, and grows the working mesh for good. The splits a contraction leaves
- * behind are permanent, so a route that pays one to save a hundred edges of walking is the defect
- * this pins.
+ * <p>
+ * A search that prices a split as a fixed detour allowance takes the near
+ * crossing, mints a midpoint it never needed, and grows the working mesh for
+ * good. The splits a contraction leaves behind are permanent, so a route that
+ * pays one to save a hundred edges of walking is the defect this pins.
  */
 class LongDetourBeatsExtraGateTest {
 
@@ -37,7 +41,9 @@ class LongDetourBeatsExtraGateTest {
     /** Row the route starts on, below both walls. */
     private static final int START_ROW = 0;
 
-    /** Row of the wall spanning every column: crossing it always costs one split. */
+    /**
+     * Row of the wall spanning every column: crossing it always costs one split.
+     */
     private static final int NEAR_WALL_ROW = 1;
 
     /** Row of the wall that stops short, leaving a free doorway. */
@@ -46,10 +52,16 @@ class LongDetourBeatsExtraGateTest {
     /** Row the route ends on, above both walls. */
     private static final int TARGET_ROW = 4;
 
-    /** First column at which the far wall's vertices are unclaimed — the free doorway. */
+    /**
+     * First column at which the far wall's vertices are unclaimed — the free
+     * doorway.
+     */
     private static final int DOORWAY_COLUMN = 54;
 
-    /** The fewest splits any route from start to target can use: one, at the near wall. */
+    /**
+     * The fewest splits any route from start to target can use: one, at the near
+     * wall.
+     */
     private static final int FEWEST_GATES = 1;
 
     private static final int NEAR_WALL_ARC = 7;
@@ -103,7 +115,8 @@ class LongDetourBeatsExtraGateTest {
     }
 
     /**
-     * The number of consecutive claimed vertices a wall row covers from column zero.
+     * The number of consecutive claimed vertices a wall row covers from column
+     * zero.
      *
      * @param topology working copy carrying the claim arrays
      * @param row      grid row of the wall
@@ -111,15 +124,16 @@ class LongDetourBeatsExtraGateTest {
      */
     private int claimedRunLength(EmbeddedMeshTopology topology, int row) {
         int claimed = 0;
-        while (claimed < COLUMNS && topology.ownerArcByCopyVertex[vertex(topology, claimed, row)]
-                != EmbeddedMeshTopology.UNCLAIMED) {
+        while (claimed < COLUMNS
+                && topology.ownerArcByCopyVertex[vertex(topology, claimed, row)] != EmbeddedMeshTopology.UNCLAIMED) {
             claimed++;
         }
         return claimed;
     }
 
     /**
-     * Every copy vertex owned by neither a node nor an arc — the corridor a re-route is allowed.
+     * Every copy vertex owned by neither a node nor an arc — the corridor a
+     * re-route is allowed.
      *
      * @param topology working copy carrying the claim arrays
      * @return the unclaimed copy vertices
@@ -136,37 +150,13 @@ class LongDetourBeatsExtraGateTest {
     }
 
     /**
-     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid on the z = 0 plane.
+     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid via the shared
+     * {@link Grids} fixture, so the tests run on {@code mesh_grid}'s real output.
      *
      * @return the grid as a half-edge mesh
      */
     private HalfEdgeMesh buildGrid() {
-        float[] positions = new float[COLUMNS * ROWS * 3];
-        for (int row = 0; row < ROWS; row++) {
-            for (int column = 0; column < COLUMNS; column++) {
-                int base = (row * COLUMNS + column) * 3;
-                positions[base] = column;
-                positions[base + 1] = row;
-                positions[base + 2] = 0f;
-            }
-        }
-        int[] faces = new int[(COLUMNS - 1) * (ROWS - 1) * 2 * 3];
-        int cursor = 0;
-        for (int row = 0; row < ROWS - 1; row++) {
-            for (int column = 0; column < COLUMNS - 1; column++) {
-                int lowerLeft = row * COLUMNS + column;
-                int lowerRight = lowerLeft + 1;
-                int upperLeft = lowerLeft + COLUMNS;
-                int upperRight = upperLeft + 1;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = lowerRight;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = upperLeft;
-            }
-        }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return GridMeshNode.triangulated(COLUMNS, ROWS);
     }
 
     /**
@@ -178,6 +168,6 @@ class LongDetourBeatsExtraGateTest {
      * @return the copy vertex there
      */
     private int vertex(EmbeddedMeshTopology topology, int column, int row) {
-        return topology.copyVertexForSourceVertexId(row * COLUMNS + column);
+        return topology.copyVertexForSourceVertexId(GridMeshNode.vertexId(ROWS, column, row));
     }
 }

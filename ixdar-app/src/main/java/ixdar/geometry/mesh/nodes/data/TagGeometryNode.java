@@ -22,14 +22,11 @@ import ixdar.geometry.mesh.data.GeometryBundles;
  */
 @MeshNodeAnnotation(id = "tag_geometry")
 public class TagGeometryNode implements MeshNode {
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String TAGS_2 = "tags";
-
     public static final String TAGS_SLOT = "__tags";
 
-    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort TAGS = new InputPort(TAGS_2, PortType.STRING, "");
-    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort TAGS = new InputPort("tags", PortType.STRING, "");
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -39,8 +36,8 @@ public class TagGeometryNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                GEOMETRY_2, "Input/output bundle. Every vertex is labeled with each tag; slots are keyed by tag name.",
-                TAGS_2, "Comma-separated tag labels (e.g. 'skull,cranium,face'). Downstream consumers read per-tag boolean masks from geometry slots."
+                GEOMETRY.name, "Input/output bundle. Every vertex is labeled with each tag; slots are keyed by tag name.",
+                TAGS.name, "Comma-separated tag labels (e.g. 'skull,cranium,face'). Downstream consumers read per-tag boolean masks from geometry slots."
         );
     }
 
@@ -56,11 +53,11 @@ public class TagGeometryNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
-        String tagsStr = ctx.getInput(TAGS_2, String.class);
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
+        String tagsStr = ctx.getInput(TAGS.name, String.class);
 
         if (tagsStr == null || tagsStr.isBlank()) {
-            ctx.setOutput(GEOMETRY_2, base);
+            ctx.setOutput(GEOMETRY.name, base);
             return;
         }
 
@@ -94,7 +91,7 @@ public class TagGeometryNode implements MeshNode {
             }
         }
 
-        ctx.setOutput(GEOMETRY_2, base.withSlot(TAGS_SLOT, merged));
+        ctx.setOutput(GEOMETRY.name, base.withSlot(TAGS_SLOT, merged));
     }
 
     private static boolean[] allTrue(int length) {

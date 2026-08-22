@@ -23,31 +23,23 @@ public class RandomValueNode implements MeshNode {
     public static final String FLOAT = "FLOAT";
     public static final String INT = "INT";
     public static final String VECTOR = "VECTOR";
-    public static final String FLOAT_OUT = "float_out";
-    public static final String INT_OUT = "int_out";
-    public static final String VECTOR_2 = "vector";
-    public static final String SEED_2 = "seed";
-    public static final String MIN_2 = "min";
-    public static final String MAX_2 = "max";
-    public static final String MODE_2 = "mode";
-
     public static final ModeConstraint MODE_CONSTRAINT = new ModeConstraint(
             FLOAT,
             List.of(FLOAT, INT, VECTOR),
             Map.of());
 
-    public static final Map<String, List<String>> OUTPUT_ACTIVATION_BY_MODE = Map.of(
-            FLOAT, List.of(FLOAT_OUT),
-            INT, List.of(INT_OUT),
-            VECTOR, List.of(VECTOR_2));
+    public static final InputPort SEED = new InputPort("seed", PortType.INT, 0, 0f, 1000000f);
+    public static final InputPort MIN = new InputPort("min", PortType.FLOAT, 0.0f, -1000f, 1000f);
+    public static final InputPort MAX = new InputPort("max", PortType.FLOAT, 1.0f, -1000f, 1000f);
+    public static final InputPort MODE = new InputPort("mode", PortType.STRING, FLOAT, MODE_CONSTRAINT);
+    public static final OutputPort OUT_FLOAT = new OutputPort("float_out", PortType.FLOAT);
+    public static final OutputPort OUT_INT = new OutputPort("int_out", PortType.INT);
+    public static final OutputPort OUT_VECTOR = new OutputPort("vector", PortType.VECTOR3);
 
-    private static final InputPort SEED = new InputPort(SEED_2, PortType.INT, 0, 0f, 1000000f);
-    private static final InputPort MIN = new InputPort(MIN_2, PortType.FLOAT, 0.0f, -1000f, 1000f);
-    private static final InputPort MAX = new InputPort(MAX_2, PortType.FLOAT, 1.0f, -1000f, 1000f);
-    private static final InputPort MODE = new InputPort(MODE_2, PortType.STRING, FLOAT, MODE_CONSTRAINT);
-    private static final OutputPort OUT_FLOAT = new OutputPort(FLOAT_OUT, PortType.FLOAT);
-    private static final OutputPort OUT_INT = new OutputPort(INT_OUT, PortType.INT);
-    private static final OutputPort OUT_VECTOR = new OutputPort(VECTOR_2, PortType.VECTOR3);
+    public static final Map<String, List<String>> OUTPUT_ACTIVATION_BY_MODE = Map.of(
+            FLOAT, List.of(OUT_FLOAT.name),
+            INT, List.of(OUT_INT.name),
+            VECTOR, List.of(OUT_VECTOR.name));
 
     /** {@inheritDoc}. */
     @Override
@@ -59,13 +51,13 @@ public class RandomValueNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                SEED_2, "Deterministic PRNG seed. Same seed = same output.",
-                MIN_2, "Range minimum (per-component for VECTOR).",
-                MAX_2, "Range maximum.",
-                MODE_2, "Output selector: FLOAT, INT, or VECTOR. Only the matching *_out port is active; the others are null.",
-                FLOAT_OUT, "Active when mode=FLOAT; null otherwise.",
-                INT_OUT, "Active when mode=INT; null otherwise.",
-                VECTOR_2, "Active when mode=VECTOR; null otherwise."
+                SEED.name, "Deterministic PRNG seed. Same seed = same output.",
+                MIN.name, "Range minimum (per-component for VECTOR).",
+                MAX.name, "Range maximum.",
+                MODE.name, "Output selector: FLOAT, INT, or VECTOR. Only the matching *_out port is active; the others are null.",
+                OUT_FLOAT.name, "Active when mode=FLOAT; null otherwise.",
+                OUT_INT.name, "Active when mode=INT; null otherwise.",
+                OUT_VECTOR.name, "Active when mode=VECTOR; null otherwise."
         );
     }
 
@@ -84,10 +76,10 @@ public class RandomValueNode implements MeshNode {
     /** {@inheritDoc}. */
     @Override
     public void evaluate(NodeContext ctx) {
-        Number seedNum = ctx.getInput(SEED_2, Number.class);
-        Number minNum = ctx.getInput(MIN_2, Number.class);
-        Number maxNum = ctx.getInput(MAX_2, Number.class);
-        String modeStr = ctx.getInput(MODE_2, String.class);
+        Number seedNum = ctx.getInput(SEED.name, Number.class);
+        Number minNum = ctx.getInput(MIN.name, Number.class);
+        Number maxNum = ctx.getInput(MAX.name, Number.class);
+        String modeStr = ctx.getInput(MODE.name, String.class);
         long seed = seedNum == null ? 0L : seedNum.longValue();
         float min = minNum == null ? 0f : minNum.floatValue();
         float max = maxNum == null ? 1f : maxNum.floatValue();
@@ -98,14 +90,14 @@ public class RandomValueNode implements MeshNode {
         float lo = Math.min(min, max);
         float hi = Math.max(min, max);
 
-        ctx.setOutput(FLOAT_OUT, null);
-        ctx.setOutput(INT_OUT, null);
-        ctx.setOutput(VECTOR_2, null);
+        ctx.setOutput(OUT_FLOAT.name, null);
+        ctx.setOutput(OUT_INT.name, null);
+        ctx.setOutput(OUT_VECTOR.name, null);
 
         switch (mode) {
             case FLOAT -> {
                 float f = lo + rnd.nextFloat() * (hi - lo);
-                ctx.setOutput(FLOAT_OUT, f);
+                ctx.setOutput(OUT_FLOAT.name, f);
             }
             case INT -> {
                 int ilo = (int) Math.floor(lo);
@@ -117,13 +109,13 @@ public class RandomValueNode implements MeshNode {
                 }
                 int span = ihi - ilo + 1;
                 int k = span > 0 ? ilo + rnd.nextInt(span) : ilo;
-                ctx.setOutput(INT_OUT, k);
+                ctx.setOutput(OUT_INT.name, k);
             }
             case VECTOR -> {
                 float x = lo + rnd.nextFloat() * (hi - lo);
                 float y = lo + rnd.nextFloat() * (hi - lo);
                 float z = lo + rnd.nextFloat() * (hi - lo);
-                ctx.setOutput(VECTOR_2, new Vector3Value(x, y, z));
+                ctx.setOutput(OUT_VECTOR.name, new Vector3Value(x, y, z));
             }
         }
     }

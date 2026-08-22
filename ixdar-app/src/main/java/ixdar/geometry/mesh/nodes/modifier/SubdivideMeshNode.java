@@ -26,9 +26,6 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  */
 @MeshNodeAnnotation(id = "subdivide_mesh")
 public class SubdivideMeshNode implements MeshNode {
-    public static final String MESH = "mesh";
-    public static final String LEVELS_2 = "levels";
-    public static final String GEOMETRY_2 = "geometry";
     public static final int NUM_4 = 4;
     public static final int NUM_600_000 = 600_000;
     public static final int NUM_3 = 3;
@@ -38,10 +35,10 @@ public class SubdivideMeshNode implements MeshNode {
     public static final int NUM_32 = 32;
     public static final long NUM_0xffffffff = 0xffffffffL;
 
-    private static final InputPort MESH_IN = new InputPort(MESH, PortType.MESH, null);
-    private static final InputPort LEVELS = new InputPort(LEVELS_2, PortType.INT, 1, 0f, 6f);
-    private static final OutputPort MESH_OUT = new OutputPort(MESH, PortType.MESH);
-    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort MESH_IN = new InputPort("mesh", PortType.MESH, null);
+    public static final InputPort LEVELS = new InputPort("levels", PortType.INT, 1, 0f, 6f);
+    public static final OutputPort MESH_OUT = new OutputPort(MESH_IN.name, PortType.MESH);
+    public static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -61,9 +58,9 @@ public class SubdivideMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                MESH, "Input topology to subdivide. Each face becomes 4^levels faces.",
-                LEVELS_2, "Subdivision iterations, 0..N. Each level quadruples face count. DESTRUCTIVE: consumes bezier handle slots — use BEFORE assign_bezier_handles.",
-                GEOMETRY_2, "Output geometry bundle wrapping the subdivided mesh (slots dropped per destructive contract)."
+                MESH_IN.name, "Input topology to subdivide. Each face becomes 4^levels faces.",
+                LEVELS.name, "Subdivision iterations, 0..N. Each level quadruples face count. DESTRUCTIVE: consumes bezier handle slots — use BEFORE assign_bezier_handles.",
+                GEOMETRY.name, "Output geometry bundle wrapping the subdivided mesh (slots dropped per destructive contract)."
         );
     }
 
@@ -81,13 +78,13 @@ public class SubdivideMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        MeshTopology mesh = ctx.getInput(MESH, MeshTopology.class);
-        Number levelsInput = ctx.getInput(LEVELS_2, Number.class);
+        MeshTopology mesh = ctx.getInput(MESH_IN.name, MeshTopology.class);
+        Number levelsInput = ctx.getInput(LEVELS.name, Number.class);
         int levels = levelsInput == null ? 1 : Math.max(0, levelsInput.intValue());
 
         if (mesh == null) {
-            ctx.setOutput(MESH, null);
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(MESH_IN.name, null);
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
 
@@ -110,8 +107,8 @@ public class SubdivideMeshNode implements MeshNode {
         }
 
         if (levels == 0) {
-            ctx.setOutput(MESH, mesh);
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.ofMesh(mesh));
+            ctx.setOutput(MESH_IN.name, mesh);
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.ofMesh(mesh));
             return;
         }
 
@@ -120,8 +117,8 @@ public class SubdivideMeshNode implements MeshNode {
             for (int l = 0; l < levels; l++) {
                 am = ArrayMeshEngine.subdivideQuadsOnce(am);
             }
-            ctx.setOutput(MESH, am);
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.ofMesh(am));
+            ctx.setOutput(MESH_IN.name, am);
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.ofMesh(am));
             return;
         }
 
@@ -130,8 +127,8 @@ public class SubdivideMeshNode implements MeshNode {
             current = subdivideOnce(current);
         }
         ((HalfEdgeMesh) current).computeNormals();
-        ctx.setOutput(MESH, current);
-        ctx.setOutput(GEOMETRY_2, GeometryBundle.ofMesh(current));
+        ctx.setOutput(MESH_IN.name, current);
+        ctx.setOutput(GEOMETRY.name, GeometryBundle.ofMesh(current));
     }
 
     private static HalfEdgeMesh subdivideOnce(MeshTopology src) {

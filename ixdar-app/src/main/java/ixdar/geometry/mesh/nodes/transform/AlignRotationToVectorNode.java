@@ -20,18 +20,16 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "align_rotation_to_vector")
 public class AlignRotationToVectorNode implements MeshNode {
-    public static final String VECTOR_2 = "vector";
-    public static final String ROTATION_2 = "rotation";
     public static final int NUM_4 = 4;
     public static final float NUM_1e_20 = 1e-20f;
     public static final float NUM_0 = 0f;
     public static final float NUM_1 = 1f;
     public static final int NUM_3 = 3;
 
-    private static final Vector3f UP = new Vector3f(0f, 1f, 0f);
+    public static final Vector3f UP = new Vector3f(0f, 1f, 0f);
 
-    private static final InputPort VECTOR = new InputPort(VECTOR_2, PortType.VECTOR3, new Vector3Value(0f, 1f, 0f));
-    private static final OutputPort ROTATION = new OutputPort(ROTATION_2, PortType.ROTATION);
+    public static final InputPort VECTOR = new InputPort("vector", PortType.VECTOR3, new Vector3Value(0f, 1f, 0f));
+    public static final OutputPort ROTATION = new OutputPort("rotation", PortType.ROTATION);
 
     @Override
     public List<InputPort> inputs() {
@@ -51,14 +49,14 @@ public class AlignRotationToVectorNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                VECTOR_2, "Target direction. The resulting rotation maps +Y (<0,1,0>) onto this vector. Zero vectors are treated as +Y (identity rotation).",
-                ROTATION_2, "Quaternion that rotates +Y onto the input vector."
+                VECTOR.name, "Target direction. The resulting rotation maps +Y (<0,1,0>) onto this vector. Zero vectors are treated as +Y (identity rotation).",
+                ROTATION.name, "Quaternion that rotates +Y onto the input vector."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Object vo = FieldBroadcast.getInputOrDefault(ctx, VECTOR_2, VECTOR.defaultValue());
+        Object vo = FieldBroadcast.getInputOrDefault(ctx, VECTOR.name, VECTOR.defaultValue);
         if (vo instanceof Vector3Field vf) {
             int n = vf.length();
             float[] d = new float[n * NUM_4];
@@ -77,7 +75,7 @@ public class AlignRotationToVectorNode implements MeshNode {
                 d[NUM_4 * i + 2] = q.z;
                 d[NUM_4 * i + NUM_3] = q.w;
             }
-            ctx.setOutput(ROTATION_2, new RotationField(d));
+            ctx.setOutput(ROTATION.name, new RotationField(d));
             return;
         }
         Vector3Value vv = FieldBroadcast.vector3ValueOrDefault(vo, new Vector3Value(NUM_0, NUM_1, NUM_0));
@@ -89,6 +87,6 @@ public class AlignRotationToVectorNode implements MeshNode {
         }
         Quaternionf q = new Quaternionf();
         q.rotationTo(UP, dir);
-        ctx.setOutput(ROTATION_2, new RotationValue(q.x, q.y, q.z, q.w));
+        ctx.setOutput(ROTATION.name, new RotationValue(q.x, q.y, q.z, q.w));
     }
 }

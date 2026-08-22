@@ -20,17 +20,14 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "resample_curve")
 public class ResampleCurveNode implements MeshNode {
-    public static final String CURVE_2 = "curve";
-    public static final String LENGTH_2 = "length";
-    public static final String GEOMETRY = "geometry";
     public static final String CURVE_3 = "_curve";
     public static final float NUM_0_1 = 0.1f;
     public static final float NUM_1e_20 = 1e-20f;
     public static final int NUM_3 = 3;
 
-    private static final InputPort CURVE = new InputPort(CURVE_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort LENGTH = new InputPort(LENGTH_2, PortType.FLOAT, 0.1f, 0.001f, 100f);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort CURVE = new InputPort("curve", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort LENGTH = new InputPort("length", PortType.FLOAT, 0.1f, 0.001f, 100f);
+    public static final OutputPort GEOMETRY_OUT = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -40,9 +37,9 @@ public class ResampleCurveNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                CURVE_2, "Input curve polyline.",
-                LENGTH_2, "Target segment length (world units). Smaller = more points, smoother sweeps. Ignored when the curve is already shorter than `length`.",
-                GEOMETRY, "Resampled curve polyline (same curves, uniform segment lengths)."
+                CURVE.name, "Input curve polyline.",
+                LENGTH.name, "Target segment length (world units). Smaller = more points, smoother sweeps. Ignored when the curve is already shorter than `length`.",
+                GEOMETRY_OUT.name, "Resampled curve polyline (same curves, uniform segment lengths)."
         );
     }
 
@@ -58,22 +55,22 @@ public class ResampleCurveNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput(CURVE_2, Object.class));
+        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput(CURVE.name, Object.class));
         if (gb == null) {
-            ctx.setOutput(GEOMETRY,GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY_OUT.name,GeometryBundle.empty());
             return;
         }
         float segLen = FieldBroadcast.floatScalarOrDefault(
-                FieldBroadcast.getInputOrDefault(ctx, LENGTH_2, LENGTH.defaultValue()),
+                FieldBroadcast.getInputOrDefault(ctx, LENGTH.name, LENGTH.defaultValue),
                 NUM_0_1);
         if (segLen <= NUM_1e_20) {
-            ctx.setOutput(GEOMETRY,gb);
+            ctx.setOutput(GEOMETRY_OUT.name,gb);
             return;
         }
 
         Object raw = gb.slots().get(CURVE_3);
         if (!(raw instanceof CurveGeometry cg)) {
-            ctx.setOutput(GEOMETRY,gb);
+            ctx.setOutput(GEOMETRY_OUT.name,gb);
             return;
         }
 
@@ -105,7 +102,7 @@ public class ResampleCurveNode implements MeshNode {
         }
 
         if (out.isEmpty()) {
-            ctx.setOutput(GEOMETRY,gb.withSlot(CURVE_3, CurveGeometry.singlePolyline(new float[0])));
+            ctx.setOutput(GEOMETRY_OUT.name,gb.withSlot(CURVE_3, CurveGeometry.singlePolyline(new float[0])));
             return;
         }
 
@@ -117,7 +114,7 @@ public class ResampleCurveNode implements MeshNode {
         for (int i = 0; i < newOff.size(); i++) {
             ofa[i] = newOff.get(i);
         }
-        ctx.setOutput(GEOMETRY,gb.withSlot(CURVE_3, new CurveGeometry(np, ofa)));
+        ctx.setOutput(GEOMETRY_OUT.name,gb.withSlot(CURVE_3, new CurveGeometry(np, ofa)));
     }
 
     private static void appendResampled(Vector3f a, Vector3f b, float segLen, ArrayList<Float> out, boolean firstOfCurve) {

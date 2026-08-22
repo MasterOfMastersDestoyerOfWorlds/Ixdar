@@ -22,23 +22,11 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 public class TorusMeshNode implements MeshNode {
 
     /** Port name: distance from the origin to the centre of the tube. */
-    public static final String MAJOR_RADIUS_2 = "major_radius";
-
     /** Port name: radius of the tube itself. */
-    public static final String MINOR_RADIUS_2 = "minor_radius";
-
     /** Port name: face divisions the long way around. */
-    public static final String MAJOR_SEGMENTS_2 = "major_segments";
-
     /** Port name: face divisions around the tube. */
-    public static final String MINOR_SEGMENTS_2 = "minor_segments";
-
     /** Port name: whether to split each quad into two triangles. */
-    public static final String TRIANGULATE_2 = "triangulate";
-
     /** Port name: the generated mesh. */
-    public static final String MESH_2 = "mesh";
-
     /** Default distance from the origin to the tube's centre. */
     public static final float DEFAULT_MAJOR_RADIUS = 1.0f;
 
@@ -57,17 +45,17 @@ public class TorusMeshNode implements MeshNode {
     /** A full turn, for stepping the two angles. */
     public static final double FULL_TURN = 2.0 * Math.PI;
 
-    private static final InputPort MAJOR_RADIUS =
-            new InputPort(MAJOR_RADIUS_2, PortType.FLOAT, DEFAULT_MAJOR_RADIUS, 0.001f, 100f);
-    private static final InputPort MINOR_RADIUS =
-            new InputPort(MINOR_RADIUS_2, PortType.FLOAT, DEFAULT_MINOR_RADIUS, 0.001f, 100f);
-    private static final InputPort MAJOR_SEGMENTS =
-            new InputPort(MAJOR_SEGMENTS_2, PortType.INT, DEFAULT_MAJOR_SEGMENTS, (float) 3, (float) 256);
-    private static final InputPort MINOR_SEGMENTS =
-            new InputPort(MINOR_SEGMENTS_2, PortType.INT, DEFAULT_MINOR_SEGMENTS, (float) 3, (float) 256);
-    private static final InputPort TRIANGULATE =
-            new InputPort(TRIANGULATE_2, PortType.BOOLEAN, false);
-    private static final OutputPort MESH = new OutputPort(MESH_2, PortType.MESH);
+    public static final InputPort MAJOR_RADIUS =
+            new InputPort("major_radius", PortType.FLOAT, DEFAULT_MAJOR_RADIUS, 0.001f, 100f);
+    public static final InputPort MINOR_RADIUS =
+            new InputPort("minor_radius", PortType.FLOAT, DEFAULT_MINOR_RADIUS, 0.001f, 100f);
+    public static final InputPort MAJOR_SEGMENTS =
+            new InputPort("major_segments", PortType.INT, DEFAULT_MAJOR_SEGMENTS, (float) 3, (float) 256);
+    public static final InputPort MINOR_SEGMENTS =
+            new InputPort("minor_segments", PortType.INT, DEFAULT_MINOR_SEGMENTS, (float) 3, (float) 256);
+    public static final InputPort TRIANGULATE =
+            new InputPort("triangulate", PortType.BOOLEAN, false);
+    public static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
@@ -88,40 +76,40 @@ public class TorusMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                MAJOR_RADIUS_2, "Distance from the origin to the centre of the tube. The torus"
+                MAJOR_RADIUS.name, "Distance from the origin to the centre of the tube. The torus"
                         + " spans major_radius + minor_radius on the X and Z axes.",
-                MINOR_RADIUS_2, "Radius of the tube. Must be smaller than major_radius for the"
+                MINOR_RADIUS.name, "Radius of the tube. Must be smaller than major_radius for the"
                         + " surface to stay embedded; equal or larger values self-intersect.",
-                MAJOR_SEGMENTS_2, "Face divisions the long way around, about the Y axis. Default 24.",
-                MINOR_SEGMENTS_2, "Face divisions around the tube. Default 12.",
-                TRIANGULATE_2, "Split each quad into two triangles along a diagonal. Needed by the"
+                MAJOR_SEGMENTS.name, "Face divisions the long way around, about the Y axis. Default 24.",
+                MINOR_SEGMENTS.name, "Face divisions around the tube. Default 12.",
+                TRIANGULATE.name, "Split each quad into two triangles along a diagonal. Needed by the"
                         + " quad-layout pipeline, which consumes triangle meshes. Default false.",
-                MESH_2, "Torus centred at the origin, tube encircling the Y axis. Closed, genus 1,"
+                MESH.name, "Torus centred at the origin, tube encircling the Y axis. Closed, genus 1,"
                         + " so V - E + F = 0."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Number majorRadiusInput = ctx.getInput(MAJOR_RADIUS_2, Number.class);
+        Number majorRadiusInput = ctx.getInput(MAJOR_RADIUS.name, Number.class);
         float majorRadius = majorRadiusInput == null
                 ? DEFAULT_MAJOR_RADIUS : majorRadiusInput.floatValue();
-        Number minorRadiusInput = ctx.getInput(MINOR_RADIUS_2, Number.class);
+        Number minorRadiusInput = ctx.getInput(MINOR_RADIUS.name, Number.class);
         float minorRadius = minorRadiusInput == null
                 ? DEFAULT_MINOR_RADIUS : minorRadiusInput.floatValue();
-        Number majorSegmentsInput = ctx.getInput(MAJOR_SEGMENTS_2, Number.class);
+        Number majorSegmentsInput = ctx.getInput(MAJOR_SEGMENTS.name, Number.class);
         int majorSegments = Math.max(MINIMUM_SEGMENTS, majorSegmentsInput == null
                 ? DEFAULT_MAJOR_SEGMENTS : majorSegmentsInput.intValue());
-        Number minorSegmentsInput = ctx.getInput(MINOR_SEGMENTS_2, Number.class);
+        Number minorSegmentsInput = ctx.getInput(MINOR_SEGMENTS.name, Number.class);
         int minorSegments = Math.max(MINIMUM_SEGMENTS, minorSegmentsInput == null
                 ? DEFAULT_MINOR_SEGMENTS : minorSegmentsInput.intValue());
-        Boolean triangulateInput = ctx.getInput(TRIANGULATE_2, Boolean.class);
+        Boolean triangulateInput = ctx.getInput(TRIANGULATE.name, Boolean.class);
         boolean triangulate = triangulateInput != null && triangulateInput;
 
         HalfEdgeMesh mesh = build(majorRadius, minorRadius, majorSegments, minorSegments,
                 triangulate);
         mesh.computeNormals();
-        ctx.setOutput(MESH_2, mesh);
+        ctx.setOutput(MESH.name, mesh);
     }
 
     /**

@@ -23,18 +23,14 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "join_curves")
 public class JoinCurvesNode implements MeshNode {
-    public static final String CURVE_A_2 = "curve_a";
-    public static final String CURVE_B_2 = "curve_b";
-    public static final String DEDUPLICATE_2 = "deduplicate";
-    public static final String GEOMETRY_2 = "geometry";
     public static final String CURVE = "_curve";
     public static final int NUM_3 = 3;
     public static final float NUM_1e_10 = 1e-10f;
 
-    private static final InputPort CURVE_A = new InputPort(CURVE_A_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort CURVE_B = new InputPort(CURVE_B_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort DEDUPLICATE = new InputPort(DEDUPLICATE_2, PortType.BOOLEAN, true);
-    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort CURVE_A = new InputPort("curve_a", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort CURVE_B = new InputPort("curve_b", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort DEDUPLICATE = new InputPort("deduplicate", PortType.BOOLEAN, true);
+    public static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -44,10 +40,10 @@ public class JoinCurvesNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                CURVE_A_2, "First curve polyline.",
-                CURVE_B_2, "Second curve polyline, appended after a's end.",
-                DEDUPLICATE_2, "If true (default), drop b's start vertex when it coincides with a's end, keeping the join clean.",
-                GEOMETRY_2, "Combined curve."
+                CURVE_A.name, "First curve polyline.",
+                CURVE_B.name, "Second curve polyline, appended after a's end.",
+                DEDUPLICATE.name, "If true (default), drop b's start vertex when it coincides with a's end, keeping the join clean.",
+                GEOMETRY.name, "Combined curve."
         );
     }
 
@@ -63,27 +59,27 @@ public class JoinCurvesNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle gbA = GeometryBundles.bundlePart(ctx.getInput(CURVE_A_2, Object.class));
-        GeometryBundle gbB = GeometryBundles.bundlePart(ctx.getInput(CURVE_B_2, Object.class));
+        GeometryBundle gbA = GeometryBundles.bundlePart(ctx.getInput(CURVE_A.name, Object.class));
+        GeometryBundle gbB = GeometryBundles.bundlePart(ctx.getInput(CURVE_B.name, Object.class));
 
         CurveGeometry cgA = extractCurve(gbA);
         CurveGeometry cgB = extractCurve(gbB);
 
         if (cgA == null && cgB == null) {
-            ctx.setOutput(GEOMETRY_2,GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name,GeometryBundle.empty());
             return;
         }
         if (cgA == null) {
-            ctx.setOutput(GEOMETRY_2,GeometryBundle.empty().withSlot(CURVE, cgB));
+            ctx.setOutput(GEOMETRY.name,GeometryBundle.empty().withSlot(CURVE, cgB));
             return;
         }
         if (cgB == null) {
-            ctx.setOutput(GEOMETRY_2,GeometryBundle.empty().withSlot(CURVE, cgA));
+            ctx.setOutput(GEOMETRY.name,GeometryBundle.empty().withSlot(CURVE, cgA));
             return;
         }
 
         boolean dedup = true;
-        Object dedupObj = FieldBroadcast.getInputOrDefault(ctx, DEDUPLICATE_2, DEDUPLICATE.defaultValue());
+        Object dedupObj = FieldBroadcast.getInputOrDefault(ctx, DEDUPLICATE.name, DEDUPLICATE.defaultValue);
         if (dedupObj instanceof Boolean b) dedup = b;
 
         // Extract first polyline from each
@@ -123,7 +119,7 @@ public class JoinCurvesNode implements MeshNode {
         System.arraycopy(posB, srcOffset, combined, dstOffset, copyCount);
 
         CurveGeometry joined = CurveGeometry.singlePolyline(combined);
-        ctx.setOutput(GEOMETRY_2,GeometryBundle.empty().withSlot(CURVE, joined));
+        ctx.setOutput(GEOMETRY.name,GeometryBundle.empty().withSlot(CURVE, joined));
     }
 
     private static CurveGeometry extractCurve(GeometryBundle gb) {

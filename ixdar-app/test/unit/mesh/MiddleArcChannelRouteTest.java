@@ -10,7 +10,7 @@ import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
@@ -87,8 +87,9 @@ class MiddleArcChannelRouteTest {
         Vector3f position = new Vector3f();
         for (int index = 1; index < routed.size() - 1; index++) {
             topology.copy.vertexPosition(routed.get(index), position);
-            assertTrue(position.y >= LOWER_LANE_ROW && position.y <= UPPER_LANE_ROW,
-                    "routed vertex " + routed.get(index) + " at y=" + position.y
+            assertTrue(position.z >= GridMeshNode.rowCoordinate(ROWS, LOWER_LANE_ROW)
+                    && position.z <= GridMeshNode.rowCoordinate(ROWS, UPPER_LANE_ROW),
+                    "routed vertex " + routed.get(index) + " at z=" + position.z
                             + " left the channel between the bounding lanes");
         }
     }
@@ -96,8 +97,8 @@ class MiddleArcChannelRouteTest {
     /**
      * A foreign lane ending at a node on the restriction boundary severs the
      * channel: neither its claimed edge nor its boundary-pinned endpoints can be
-     * passed or rounded without leaving the restricted band, so the route
-     * correctly reports failure instead of looping.
+     * passed or rounded without leaving the restricted band, so the route correctly
+     * reports failure instead of looping.
      */
     @Test
     void transversalLaneEndingOnRestrictionBoundarySealsTheChannel() {
@@ -126,8 +127,8 @@ class MiddleArcChannelRouteTest {
     }
 
     /**
-     * Claim a lane's edges and interior vertices for an arc, leaving the shared
-     * end nodes owned by their nodes only.
+     * Claim a lane's edges and interior vertices for an arc, leaving the shared end
+     * nodes owned by their nodes only.
      *
      * @param topology working copy holding the claims
      * @param lane     lane vertices in order, nodes at both ends
@@ -155,51 +156,27 @@ class MiddleArcChannelRouteTest {
         Vector3f cornerPosition = new Vector3f();
         for (int activeFace = 0; activeFace < grid.faceCount(); activeFace++) {
             int faceId = grid.faceIdAt(activeFace);
-            float centroidY = 0f;
+            float centroidV = 0f;
             for (int corner = 0; corner < CORNERS; corner++) {
                 grid.vertexPosition(grid.faceVertexAt(faceId, corner), cornerPosition);
-                centroidY += cornerPosition.y;
+                centroidV += cornerPosition.z;
             }
-            centroidY /= CORNERS;
-            if (centroidY > LOWER_LANE_ROW && centroidY < UPPER_LANE_ROW) {
+            centroidV /= CORNERS;
+            if (centroidV > GridMeshNode.rowCoordinate(ROWS, LOWER_LANE_ROW)
+                    && centroidV < GridMeshNode.rowCoordinate(ROWS, UPPER_LANE_ROW)) {
                 rerouter.sourceFaceStampBySourceFace[activeFace] = rerouter.sourceFaceStamp;
             }
         }
     }
 
     /**
-     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid on the z = 0
-     * plane, each cell split along its lower-left to upper-right diagonal.
+     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid via the shared
+     * {@link Grids} fixture, so the tests run on {@code mesh_grid}'s real output.
      *
      * @return the grid as a half-edge mesh
      */
     private HalfEdgeMesh buildGrid() {
-        float[] positions = new float[COLUMNS * ROWS * CORNERS];
-        for (int row = 0; row < ROWS; row++) {
-            for (int column = 0; column < COLUMNS; column++) {
-                int base = (row * COLUMNS + column) * CORNERS;
-                positions[base] = column;
-                positions[base + 1] = row;
-                positions[base + 2] = 0f;
-            }
-        }
-        int[] faces = new int[(COLUMNS - 1) * (ROWS - 1) * 2 * CORNERS];
-        int cursor = 0;
-        for (int row = 0; row < ROWS - 1; row++) {
-            for (int column = 0; column < COLUMNS - 1; column++) {
-                int lowerLeft = row * COLUMNS + column;
-                int lowerRight = lowerLeft + 1;
-                int upperLeft = lowerLeft + COLUMNS;
-                int upperRight = upperLeft + 1;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = lowerRight;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = upperLeft;
-            }
-        }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return GridMeshNode.triangulated(COLUMNS, ROWS);
     }
 
     /**
@@ -211,6 +188,6 @@ class MiddleArcChannelRouteTest {
      * @return the copy vertex there
      */
     private int vertex(EmbeddedMeshTopology topology, int column, int row) {
-        return topology.copyVertexForSourceVertexId(row * COLUMNS + column);
+        return topology.copyVertexForSourceVertexId(GridMeshNode.vertexId(ROWS, column, row));
     }
 }

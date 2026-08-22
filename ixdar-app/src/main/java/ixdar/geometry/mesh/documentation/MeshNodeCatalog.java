@@ -100,7 +100,7 @@ public final class MeshNodeCatalog {
                 entry.put("consumes", schema.consumes());
             }
             if (n instanceof RandomValueNode) {
-                entry.put("outputActivationByMode", RandomValueNode.OUTPUT_ACTIVATION_BY_MODE);
+                entry.put("outputActivationByMode", new TreeMap<>(RandomValueNode.OUTPUT_ACTIVATION_BY_MODE));
             }
             nodes.add(entry);
         }
@@ -148,17 +148,17 @@ public final class MeshNodeCatalog {
         List<Map<String, Object>> out = new ArrayList<>();
         for (InputPort p : inputs) {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put(NAME, p.name());
-            m.put(PORTTYPE, p.type().name());
-            String doc = socketDocs.get(p.name());
+            m.put(NAME, p.name);
+            m.put(PORTTYPE, p.type.name());
+            String doc = socketDocs.get(p.name);
             if (doc != null && !doc.isEmpty()) {
                 m.put(DESCRIPTION, doc);
             }
-            m.put("defaultValue", p.defaultValue());
-            ModeConstraint mc = p.modes();
+            m.put("defaultValue", p.defaultValue);
+            ModeConstraint mc = p.modes;
             if (mc != null) {
                 m.put("canonicalModes", mc.canonicalIds());
-                m.put("aliases", mc.aliasToCanonical());
+                m.put("aliases", new TreeMap<>(mc.aliasToCanonical()));
                 m.put("defaultMode", mc.defaultCanonicalId());
             }
             out.add(m);
@@ -171,9 +171,9 @@ public final class MeshNodeCatalog {
         List<Map<String, Object>> out = new ArrayList<>();
         for (OutputPort p : outputs) {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put(NAME, p.name());
-            m.put(PORTTYPE, p.type().name());
-            String doc = socketDocs.get(p.name());
+            m.put(NAME, p.name);
+            m.put(PORTTYPE, p.type.name());
+            String doc = socketDocs.get(p.name);
             if (doc != null && !doc.isEmpty()) {
                 m.put(DESCRIPTION, doc);
             }

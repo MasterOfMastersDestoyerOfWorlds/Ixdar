@@ -11,26 +11,32 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * A re-route whose only passage is a long run of gates must still be found. This is the wall that
- * stops the sphere and fertility contractions: two arcs running adjacent leave a channel between
- * them whose every rung is an unclaimed edge with <em>both</em> endpoints claimed, so the vertex
- * search can stand on neither end and must be let through by refinement.
+ * A re-route whose only passage is a long run of gates must still be found.
+ * This is the wall that stops the sphere and fertility contractions: two arcs
+ * running adjacent leave a channel between them whose every rung is an
+ * unclaimed edge with <em>both</em> endpoints claimed, so the vertex search can
+ * stand on neither end and must be let through by refinement.
  *
- * <p>LCBK19 §6.1 says such a blockage is <em>"easily resolved by refinement with a few edge
- * splits"</em>, and the number of splits it needs is not a matter of judgement: the face flood that
- * finds the passage also names every edge on it, and the ones needing a split are exactly those with
- * both endpoints claimed. Splitting them in passage order is enough, because consecutive crossed
- * edges share a face and the retriangulation joins each new midpoint to the previous one.
+ * <p>
+ * LCBK19 §6.1 says such a blockage is <em>"easily resolved by refinement with a
+ * few edge splits"</em>, and the number of splits it needs is not a matter of
+ * judgement: the face flood that finds the passage also names every edge on it,
+ * and the ones needing a split are exactly those with both endpoints claimed.
+ * Splitting them in passage order is enough, because consecutive crossed edges
+ * share a face and the retriangulation joins each new midpoint to the previous
+ * one.
  *
- * <p>The channel below is deliberately longer than any fixed split allowance. That is the whole
- * point: a re-route must succeed because the passage is open, not because the passage happened to be
- * short enough. A capped refinement gives up here with the passage still visibly threadable, which
- * is what the sphere's {@code bothClaimed=189} and fertility's {@code bothClaimed=107} diagnostics
+ * <p>
+ * The channel below is deliberately longer than any fixed split allowance. That
+ * is the whole point: a re-route must succeed because the passage is open, not
+ * because the passage happened to be short enough. A capped refinement gives up
+ * here with the passage still visibly threadable, which is what the sphere's
+ * {@code bothClaimed=189} and fertility's {@code bothClaimed=107} diagnostics
  * were reporting.
  */
 class ArcGateRunRefinementTest {
@@ -43,7 +49,10 @@ class ArcGateRunRefinementTest {
     private static final int UPPER_ARC = 8;
     private static final int ROUTED_ARC = 9;
 
-    /** A gate run at least this long outruns any single-pass split allowance a refinement might cap at. */
+    /**
+     * A gate run at least this long outruns any single-pass split allowance a
+     * refinement might cap at.
+     */
     private static final int LONG_GATE_RUN = 128;
 
     @Test
@@ -87,8 +96,9 @@ class ArcGateRunRefinementTest {
     }
 
     /**
-     * The number of rungs across the channel — unclaimed edges joining the two claimed rows, each of
-     * which the vertex search can cross only once refinement splits it.
+     * The number of rungs across the channel — unclaimed edges joining the two
+     * claimed rows, each of which the vertex search can cross only once refinement
+     * splits it.
      *
      * @param topology working copy carrying the claim arrays
      * @return the count of gate edges between the two claimed rows
@@ -112,7 +122,8 @@ class ArcGateRunRefinementTest {
     }
 
     /**
-     * Every copy vertex owned by neither a node nor an arc — the corridor a re-route is allowed.
+     * Every copy vertex owned by neither a node nor an arc — the corridor a
+     * re-route is allowed.
      *
      * @param topology working copy carrying the claim arrays
      * @return the unclaimed copy vertices
@@ -129,37 +140,13 @@ class ArcGateRunRefinementTest {
     }
 
     /**
-     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid on the z = 0 plane.
+     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid via the shared
+     * {@link Grids} fixture, so the tests run on {@code mesh_grid}'s real output.
      *
      * @return the grid as a half-edge mesh
      */
     private HalfEdgeMesh buildGrid() {
-        float[] positions = new float[COLUMNS * ROWS * 3];
-        for (int row = 0; row < ROWS; row++) {
-            for (int column = 0; column < COLUMNS; column++) {
-                int base = (row * COLUMNS + column) * 3;
-                positions[base] = column;
-                positions[base + 1] = row;
-                positions[base + 2] = 0f;
-            }
-        }
-        int[] faces = new int[(COLUMNS - 1) * (ROWS - 1) * 2 * 3];
-        int cursor = 0;
-        for (int row = 0; row < ROWS - 1; row++) {
-            for (int column = 0; column < COLUMNS - 1; column++) {
-                int lowerLeft = row * COLUMNS + column;
-                int lowerRight = lowerLeft + 1;
-                int upperLeft = lowerLeft + COLUMNS;
-                int upperRight = upperLeft + 1;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = lowerRight;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = upperLeft;
-            }
-        }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return GridMeshNode.triangulated(COLUMNS, ROWS);
     }
 
     /**
@@ -171,6 +158,6 @@ class ArcGateRunRefinementTest {
      * @return the copy vertex there
      */
     private int vertex(EmbeddedMeshTopology topology, int column, int row) {
-        return topology.copyVertexForSourceVertexId(row * COLUMNS + column);
+        return topology.copyVertexForSourceVertexId(GridMeshNode.vertexId(ROWS, column, row));
     }
 }

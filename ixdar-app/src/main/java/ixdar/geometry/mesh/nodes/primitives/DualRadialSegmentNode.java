@@ -25,18 +25,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "dual_radial_segment")
 public class DualRadialSegmentNode implements MeshNode {
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String START_RX_2 = "start_rx";
-    public static final String START_TX_2 = "start_tx";
-    public static final String END_RX_2 = "end_rx";
-    public static final String END_TX_2 = "end_tx";
-    public static final String START_RY_2 = "start_ry";
-    public static final String START_TY_2 = "start_ty";
-    public static final String END_RY_2 = "end_ry";
-    public static final String END_TY_2 = "end_ty";
-    public static final String LENGTH_2 = "length";
-    public static final String RINGS_2 = "rings";
-    public static final String SEGMENTS_2 = "segments";
     public static final float NUM_0_5 = 0.5f;
     public static final float NUM_0_4 = 0.4f;
     public static final int NUM_8 = 8;
@@ -49,33 +37,33 @@ public class DualRadialSegmentNode implements MeshNode {
     public static final int NUM__2 = -2;
 
     // Geometry input (optional — for chaining geometry between segments)
-    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
 
     // Hermite boundary conditions for X-axis radius
-    private static final InputPort START_RX = new InputPort(START_RX_2, PortType.FLOAT, 0.5f, 0.001f, 10f);
-    private static final InputPort START_TX = new InputPort(START_TX_2, PortType.FLOAT, 0.0f, -10f, 10f);
-    private static final InputPort END_RX = new InputPort(END_RX_2, PortType.FLOAT, 0.4f, 0.001f, 10f);
-    private static final InputPort END_TX = new InputPort(END_TX_2, PortType.FLOAT, 0.0f, -10f, 10f);
+    public static final InputPort START_RX = new InputPort("start_rx", PortType.FLOAT, 0.5f, 0.001f, 10f);
+    public static final InputPort START_TX = new InputPort("start_tx", PortType.FLOAT, 0.0f, -10f, 10f);
+    public static final InputPort END_RX = new InputPort("end_rx", PortType.FLOAT, 0.4f, 0.001f, 10f);
+    public static final InputPort END_TX = new InputPort("end_tx", PortType.FLOAT, 0.0f, -10f, 10f);
 
     // Hermite boundary conditions for Y-axis radius
-    private static final InputPort START_RY = new InputPort(START_RY_2, PortType.FLOAT, 0.5f, 0.001f, 10f);
-    private static final InputPort START_TY = new InputPort(START_TY_2, PortType.FLOAT, 0.0f, -10f, 10f);
-    private static final InputPort END_RY = new InputPort(END_RY_2, PortType.FLOAT, 0.4f, 0.001f, 10f);
-    private static final InputPort END_TY = new InputPort(END_TY_2, PortType.FLOAT, 0.0f, -10f, 10f);
+    public static final InputPort START_RY = new InputPort("start_ry", PortType.FLOAT, 0.5f, 0.001f, 10f);
+    public static final InputPort START_TY = new InputPort("start_ty", PortType.FLOAT, 0.0f, -10f, 10f);
+    public static final InputPort END_RY = new InputPort("end_ry", PortType.FLOAT, 0.4f, 0.001f, 10f);
+    public static final InputPort END_TY = new InputPort("end_ty", PortType.FLOAT, 0.0f, -10f, 10f);
 
     // Segment geometry parameters
-    private static final InputPort LENGTH = new InputPort(LENGTH_2, PortType.FLOAT, 1.0f, 0.001f, 100f);
-    private static final InputPort RINGS = new InputPort(RINGS_2, PortType.INT, 8, (float) 1, (float) 64);
-    private static final InputPort SEGMENTS = new InputPort(SEGMENTS_2, PortType.INT, 12, (float) 3, (float) 128);
+    public static final InputPort LENGTH = new InputPort("length", PortType.FLOAT, 1.0f, 0.001f, 100f);
+    public static final InputPort RINGS = new InputPort("rings", PortType.INT, 8, (float) 1, (float) 64);
+    public static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 12, (float) 3, (float) 128);
 
     // Geometry output
-    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
 
     // Pass-through outputs for chaining — next segment reads these as start conditions
-    private static final OutputPort OUT_END_RX = new OutputPort(END_RX_2, PortType.FLOAT);
-    private static final OutputPort OUT_END_RY = new OutputPort(END_RY_2, PortType.FLOAT);
-    private static final OutputPort OUT_END_TX = new OutputPort(END_TX_2, PortType.FLOAT);
-    private static final OutputPort OUT_END_TY = new OutputPort(END_TY_2, PortType.FLOAT);
+    public static final OutputPort OUT_END_RX = new OutputPort(END_RX.name, PortType.FLOAT);
+    public static final OutputPort OUT_END_RY = new OutputPort(END_RY.name, PortType.FLOAT);
+    public static final OutputPort OUT_END_TX = new OutputPort(END_TX.name, PortType.FLOAT);
+    public static final OutputPort OUT_END_TY = new OutputPort(END_TY.name, PortType.FLOAT);
 
     @Override
     public String description() {
@@ -85,18 +73,18 @@ public class DualRadialSegmentNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.ofEntries(
-                Map.entry(GEOMETRY_2, "Optional upstream GeometryBundle to append to; on the output, the tube mesh (appended if input provided). If input is null, a fresh mesh is created."),
-                Map.entry(START_RX_2, "X-axis radius at t=0. Ellipse half-width at the segment start. Default 0.5."),
-                Map.entry(START_TX_2, "X-axis radius tangent at t=0 (∂Rx/∂y). Zero = flat at the start; positive = expanding."),
-                Map.entry(END_RX_2, "X-axis radius at t=1 on the input side; pass-through value on the output side for G1 chaining into the next segment's start_rx."),
-                Map.entry(END_TX_2, "X-axis radius tangent at t=1 (∂Rx/∂y) on the input side; pass-through for chaining on the output side."),
-                Map.entry(START_RY_2, "Y-axis radius at t=0. Paired with start_rx for elliptical cross-sections."),
-                Map.entry(START_TY_2, "Y-axis radius tangent at t=0 (∂Ry/∂y)."),
-                Map.entry(END_RY_2, "Y-axis radius at t=1 on input; pass-through for chaining on output."),
-                Map.entry(END_TY_2, "Y-axis radius tangent at t=1 on input; pass-through for chaining on output."),
-                Map.entry(LENGTH_2, "Extent along +Y. Segment spans y=0 to y=length."),
-                Map.entry(RINGS_2, "Number of cross-section slices along the length. Default 8."),
-                Map.entry(SEGMENTS_2, "Vertices per cross-section ring. Higher = smoother. Default 12.")
+                Map.entry(GEOMETRY.name, "Optional upstream GeometryBundle to append to; on the output, the tube mesh (appended if input provided). If input is null, a fresh mesh is created."),
+                Map.entry(START_RX.name, "X-axis radius at t=0. Ellipse half-width at the segment start. Default 0.5."),
+                Map.entry(START_TX.name, "X-axis radius tangent at t=0 (∂Rx/∂y). Zero = flat at the start; positive = expanding."),
+                Map.entry(END_RX.name, "X-axis radius at t=1 on the input side; pass-through value on the output side for G1 chaining into the next segment's start_rx."),
+                Map.entry(END_TX.name, "X-axis radius tangent at t=1 (∂Rx/∂y) on the input side; pass-through for chaining on the output side."),
+                Map.entry(START_RY.name, "Y-axis radius at t=0. Paired with start_rx for elliptical cross-sections."),
+                Map.entry(START_TY.name, "Y-axis radius tangent at t=0 (∂Ry/∂y)."),
+                Map.entry(END_RY.name, "Y-axis radius at t=1 on input; pass-through for chaining on output."),
+                Map.entry(END_TY.name, "Y-axis radius tangent at t=1 on input; pass-through for chaining on output."),
+                Map.entry(LENGTH.name, "Extent along +Y. Segment spans y=0 to y=length."),
+                Map.entry(RINGS.name, "Number of cross-section slices along the length. Default 8."),
+                Map.entry(SEGMENTS.name, "Vertices per cross-section ring. Higher = smoother. Default 12.")
         );
     }
 
@@ -114,22 +102,22 @@ public class DualRadialSegmentNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         // Read Hermite boundary conditions
-        float srx = floatInput(ctx, START_RX_2, NUM_0_5);
-        float stx = floatInput(ctx, START_TX_2, 0.0f);
-        float erx = floatInput(ctx, END_RX_2, NUM_0_4);
-        float etx = floatInput(ctx, END_TX_2, 0.0f);
+        float srx = floatInput(ctx, START_RX.name, NUM_0_5);
+        float stx = floatInput(ctx, START_TX.name, 0.0f);
+        float erx = floatInput(ctx, END_RX.name, NUM_0_4);
+        float etx = floatInput(ctx, END_TX.name, 0.0f);
 
-        float sry = floatInput(ctx, START_RY_2, NUM_0_5);
-        float sty = floatInput(ctx, START_TY_2, 0.0f);
-        float ery = floatInput(ctx, END_RY_2, NUM_0_4);
-        float ety = floatInput(ctx, END_TY_2, 0.0f);
+        float sry = floatInput(ctx, START_RY.name, NUM_0_5);
+        float sty = floatInput(ctx, START_TY.name, 0.0f);
+        float ery = floatInput(ctx, END_RY.name, NUM_0_4);
+        float ety = floatInput(ctx, END_TY.name, 0.0f);
 
-        float length = floatInput(ctx, LENGTH_2, 1.0f);
-        int rings = Math.max(2, intInput(ctx, RINGS_2, NUM_8));
-        int segments = Math.max(NUM_3, intInput(ctx, SEGMENTS_2, NUM_12));
+        float length = floatInput(ctx, LENGTH.name, 1.0f);
+        int rings = Math.max(2, intInput(ctx, RINGS.name, NUM_8));
+        int segments = Math.max(NUM_3, intInput(ctx, SEGMENTS.name, NUM_12));
 
         // Determine chaining context from input geometry
-        Object geoIn = ctx.getInput(GEOMETRY_2, Object.class);
+        Object geoIn = ctx.getInput(GEOMETRY.name, Object.class);
         GeometryBundle base = null;
         HalfEdgeMesh mesh = null;
         float yOffset = NUM_0;
@@ -164,13 +152,13 @@ public class DualRadialSegmentNode implements MeshNode {
         mesh.computeNormals();
 
         GeometryBundle result = base != null ? base.withMesh(mesh) : GeometryBundle.ofMesh(mesh);
-        ctx.setOutput(GEOMETRY_2, result);
+        ctx.setOutput(GEOMETRY.name, result);
 
         // Pass through end conditions for chaining
-        ctx.setOutput(END_RX_2, erx);
-        ctx.setOutput(END_RY_2, ery);
-        ctx.setOutput(END_TX_2, etx);
-        ctx.setOutput(END_TY_2, ety);
+        ctx.setOutput(END_RX.name, erx);
+        ctx.setOutput(END_RY.name, ery);
+        ctx.setOutput(END_TX.name, etx);
+        ctx.setOutput(END_TY.name, ety);
     }
 
     /**

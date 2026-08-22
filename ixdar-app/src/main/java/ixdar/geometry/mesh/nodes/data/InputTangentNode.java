@@ -19,13 +19,12 @@ import org.joml.Vector3f;
 
 @MeshNodeAnnotation(id = "input_tangent")
 public class InputTangentNode implements MeshNode {
-    public static final String VECTOR_2 = "vector";
     public static final float NUM_1 = 1f;
     public static final float NUM_0 = 0f;
     public static final int NUM_3 = 3;
     public static final float NUM_1e_20 = 1e-20f;
 
-    private static final OutputPort VECTOR = new OutputPort(VECTOR_2, PortType.VECTOR3);
+    public static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
 
     @Override
     public String description() {
@@ -35,7 +34,7 @@ public class InputTangentNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                VECTOR_2, "Per-vertex Vector3field of unit tangents (direction along the first outgoing half-edge)."
+                VECTOR.name, "Per-vertex Vector3field of unit tangents (direction along the first outgoing half-edge)."
         );
     }
 
@@ -53,12 +52,12 @@ public class InputTangentNode implements MeshNode {
     public void evaluate(NodeContext ctx) {
         var fc = ctx.fieldContext();
         if (fc == null || !(fc instanceof MeshFieldContext mfc)) {
-            ctx.setOutput(VECTOR_2,new Vector3Value(NUM_1, NUM_0, NUM_0));
+            ctx.setOutput(VECTOR.name,new Vector3Value(NUM_1, NUM_0, NUM_0));
             return;
         }
         MeshTopology mesh = mfc.mesh();
         if (mesh == null || mesh.vertexCount() == 0) {
-            ctx.setOutput(VECTOR_2,new Vector3Value(NUM_1, NUM_0, NUM_0));
+            ctx.setOutput(VECTOR.name,new Vector3Value(NUM_1, NUM_0, NUM_0));
             return;
         }
         int n = mesh.vertexCount();
@@ -83,6 +82,6 @@ public class InputTangentNode implements MeshNode {
             d[NUM_3 * vi + 1] = tan.y;
             d[NUM_3 * vi + 2] = tan.z;
         }
-        ctx.setOutput(VECTOR_2,new Vector3Field(d));
+        ctx.setOutput(VECTOR.name,new Vector3Field(d));
     }
 }

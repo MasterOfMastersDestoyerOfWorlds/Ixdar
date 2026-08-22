@@ -26,13 +26,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "curve_to_mesh")
 public class CurveToMeshNode implements MeshNode {
-    public static final String CURVE_2 = "curve";
-    public static final String PROFILE_CURVE_2 = "profile_curve";
-    public static final String RADIUS_2 = "radius";
-    public static final String RESOLUTION_2 = "resolution";
-    public static final String FILL_CAPS_2 = "fill_caps";
-    public static final String RADIUS_CLOSURE_2 = "radius_closure";
-    public static final String GEOMETRY_2 = "geometry";
     public static final String CURVE_3 = "_curve";
     public static final float NUM_0_1 = 0.1f;
     public static final int NUM_12 = 12;
@@ -48,13 +41,13 @@ public class CurveToMeshNode implements MeshNode {
     public static final float NUM_1e_10 = 1e-10f;
     public static final float NUM_1 = 1f;
 
-    private static final InputPort CURVE = new InputPort(CURVE_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort PROFILE_CURVE = new InputPort(PROFILE_CURVE_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort RADIUS = new InputPort(RADIUS_2, PortType.FLOAT, 0.1f, 0.001f, 100f);
-    private static final InputPort RESOLUTION = new InputPort(RESOLUTION_2, PortType.INT, 12, 3f, 128f);
-    private static final InputPort FILL_CAPS = new InputPort(FILL_CAPS_2, PortType.BOOLEAN, true);
-    private static final InputPort RADIUS_CLOSURE = new InputPort(RADIUS_CLOSURE_2, PortType.CLOSURE, null);
-    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort CURVE = new InputPort("curve", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort PROFILE_CURVE = new InputPort("profile_curve", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.1f, 0.001f, 100f);
+    public static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 12, 3f, 128f);
+    public static final InputPort FILL_CAPS = new InputPort("fill_caps", PortType.BOOLEAN, true);
+    public static final InputPort RADIUS_CLOSURE = new InputPort("radius_closure", PortType.CLOSURE, null);
+    public static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -64,13 +57,13 @@ public class CurveToMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                CURVE_2, "Path curve to sweep along.",
-                PROFILE_CURVE_2, "Optional custom cross-section curve. If null, a circle of `radius` and `resolution` is used.",
-                RADIUS_2, "Tube radius (ignored when profile_curve is set).",
-                RESOLUTION_2, "Vertices around the circular cross-section (ignored when profile_curve is set).",
-                FILL_CAPS_2, "If true, close the two ends of the tube with a disc; if false, leave open.",
-                RADIUS_CLOSURE_2, "Optional float closure mapping t∈[0,1] along the path to a per-station radius multiplier. null = uniform.",
-                GEOMETRY_2, "Tube mesh as a geometry bundle."
+                CURVE.name, "Path curve to sweep along.",
+                PROFILE_CURVE.name, "Optional custom cross-section curve. If null, a circle of `radius` and `resolution` is used.",
+                RADIUS.name, "Tube radius (ignored when profile_curve is set).",
+                RESOLUTION.name, "Vertices around the circular cross-section (ignored when profile_curve is set).",
+                FILL_CAPS.name, "If true, close the two ends of the tube with a disc; if false, leave open.",
+                RADIUS_CLOSURE.name, "Optional float closure mapping t∈[0,1] along the path to a per-station radius multiplier. null = uniform.",
+                GEOMETRY.name, "Tube mesh as a geometry bundle."
         );
     }
 
@@ -86,32 +79,32 @@ public class CurveToMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle curveGb = GeometryBundles.bundlePart(ctx.getInput(CURVE_2, Object.class));
+        GeometryBundle curveGb = GeometryBundles.bundlePart(ctx.getInput(CURVE.name, Object.class));
         if (curveGb == null) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
         Object rawCurve = curveGb.slots().get(CURVE_3);
         if (!(rawCurve instanceof CurveGeometry cg) || cg.curveCount() == 0) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
 
         float radius = FieldBroadcast.floatScalarOrDefault(
-                FieldBroadcast.getInputOrDefault(ctx, RADIUS_2, RADIUS.defaultValue()), NUM_0_1);
+                FieldBroadcast.getInputOrDefault(ctx, RADIUS.name, RADIUS.defaultValue), NUM_0_1);
         int resolution = FieldBroadcast.intAt(
-                FieldBroadcast.getInputOrDefault(ctx, RESOLUTION_2, RESOLUTION.defaultValue()), 0, NUM_12);
+                FieldBroadcast.getInputOrDefault(ctx, RESOLUTION.name, RESOLUTION.defaultValue), 0, NUM_12);
         resolution = Math.max(NUM_3, Math.min(NUM_128, resolution));
         boolean fillCaps = FieldBroadcast.boolAt(
-                FieldBroadcast.getInputOrDefault(ctx, FILL_CAPS_2, FILL_CAPS.defaultValue()), 0, true);
+                FieldBroadcast.getInputOrDefault(ctx, FILL_CAPS.name, FILL_CAPS.defaultValue), 0, true);
 
-        Object closureObj = ctx.getInput(RADIUS_CLOSURE_2, Object.class);
+        Object closureObj = ctx.getInput(RADIUS_CLOSURE.name, Object.class);
         FloatCurveKernel radiusClosure = (closureObj instanceof FloatCurveKernel k) ? k : null;
 
         // Determine cross-section: use profile curve if provided, otherwise circle
         float[] profileU;
         float[] profileV;
-        GeometryBundle profileGb = GeometryBundles.bundlePart(ctx.getInput(PROFILE_CURVE_2, Object.class));
+        GeometryBundle profileGb = GeometryBundles.bundlePart(ctx.getInput(PROFILE_CURVE.name, Object.class));
         if (profileGb != null) {
             Object rawProfile = profileGb.slots().get(CURVE_3);
             if (rawProfile instanceof CurveGeometry profileCg && profileCg.pointCount() >= NUM_3) {
@@ -164,7 +157,7 @@ public class CurveToMeshNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput(GEOMETRY_2, curveGb.withMesh(mesh));
+        ctx.setOutput(GEOMETRY.name, curveGb.withMesh(mesh));
     }
 
     private static float[] circleU(int n, float radius) {

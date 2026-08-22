@@ -147,7 +147,7 @@ public class MeshBooleanScene extends ModelScene {
         Object result;
         try {
             result = graphRuntime.executeGraphResult(ast, BOOLEAN_STATEMENT, GEOMETRY_PORT,
-                    Map.of(BOOLEAN_STATEMENT + "." + MeshBooleanNode.OPERATION_2, operation));
+                    Map.of(BOOLEAN_STATEMENT + "." + MeshBooleanNode.OPERATION.name, operation));
         } catch (Exception failure) {
             Platforms.get().log(LOG_PREFIX + DSL_NAME + " failed: " + failure.getMessage());
             return;

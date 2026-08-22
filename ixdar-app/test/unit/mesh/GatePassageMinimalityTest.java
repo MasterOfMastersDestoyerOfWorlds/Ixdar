@@ -10,23 +10,27 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * Gate refinement must not split speculatively: every midpoint it mints has to be one the route
- * then stands on.
+ * Gate refinement must not split speculatively: every midpoint it mints has to
+ * be one the route then stands on.
  *
- * <p>Two claimed rows form a channel whose every rung is a gate — an unclaimed edge with both
- * endpoints claimed. Threading the channel needs one minted midpoint per rung crossed, so the
- * splits are stepping stones rather than waste, and their count must equal the number of minted
- * vertices on the resulting path.
+ * <p>
+ * Two claimed rows form a channel whose every rung is a gate — an unclaimed
+ * edge with both endpoints claimed. Threading the channel needs one minted
+ * midpoint per rung crossed, so the splits are stepping stones rather than
+ * waste, and their count must equal the number of minted vertices on the
+ * resulting path.
  *
- * <p>Refinement that split a passage the route then ignored would grow the working mesh permanently
- * for nothing, and the working mesh never shrinks again.
+ * <p>
+ * Refinement that split a passage the route then ignored would grow the working
+ * mesh permanently for nothing, and the working mesh never shrinks again.
  *
- * <p>See also: LCBK19 Section 6.1
+ * <p>
+ * See also: LCBK19 Section 6.1
  */
 class GatePassageMinimalityTest {
 
@@ -82,7 +86,8 @@ class GatePassageMinimalityTest {
     }
 
     /**
-     * Every copy vertex owned by neither a node nor an arc — the corridor a re-route is allowed.
+     * Every copy vertex owned by neither a node nor an arc — the corridor a
+     * re-route is allowed.
      *
      * @param topology working copy carrying the claim arrays
      * @return the unclaimed copy vertices
@@ -99,37 +104,13 @@ class GatePassageMinimalityTest {
     }
 
     /**
-     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid on the z = 0 plane.
+     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid via the shared
+     * {@link Grids} fixture, so the tests run on {@code mesh_grid}'s real output.
      *
      * @return the grid as a half-edge mesh
      */
     private HalfEdgeMesh buildGrid() {
-        float[] positions = new float[COLUMNS * ROWS * 3];
-        for (int row = 0; row < ROWS; row++) {
-            for (int column = 0; column < COLUMNS; column++) {
-                int base = (row * COLUMNS + column) * 3;
-                positions[base] = column;
-                positions[base + 1] = row;
-                positions[base + 2] = 0f;
-            }
-        }
-        int[] faces = new int[(COLUMNS - 1) * (ROWS - 1) * 2 * 3];
-        int cursor = 0;
-        for (int row = 0; row < ROWS - 1; row++) {
-            for (int column = 0; column < COLUMNS - 1; column++) {
-                int lowerLeft = row * COLUMNS + column;
-                int lowerRight = lowerLeft + 1;
-                int upperLeft = lowerLeft + COLUMNS;
-                int upperRight = upperLeft + 1;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = lowerRight;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = upperLeft;
-            }
-        }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return GridMeshNode.triangulated(COLUMNS, ROWS);
     }
 
     /**
@@ -141,6 +122,6 @@ class GatePassageMinimalityTest {
      * @return the copy vertex there
      */
     private int vertex(EmbeddedMeshTopology topology, int column, int row) {
-        return topology.copyVertexForSourceVertexId(row * COLUMNS + column);
+        return topology.copyVertexForSourceVertexId(GridMeshNode.vertexId(ROWS, column, row));
     }
 }

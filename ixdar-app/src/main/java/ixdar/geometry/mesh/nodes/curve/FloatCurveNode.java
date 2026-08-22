@@ -21,12 +21,9 @@ import ixdar.geometry.mesh.curve.FloatCurveKernel;
  */
 @MeshNodeAnnotation(id = "float_curve")
 public class FloatCurveNode implements MeshNode {
-    public static final String POINTS_2 = "points";
     public static final String STR_0_0_1_1 = "0,0,1,1";
-    public static final String CLOSURE_2 = "closure";
-
-    private static final InputPort POINTS = new InputPort(POINTS_2, PortType.STRING, STR_0_0_1_1);
-    private static final OutputPort CLOSURE = new OutputPort(CLOSURE_2, PortType.CLOSURE);
+    public static final InputPort POINTS = new InputPort("points", PortType.STRING, STR_0_0_1_1);
+    public static final OutputPort CLOSURE = new OutputPort("closure", PortType.CLOSURE);
 
     @Override
     public String description() {
@@ -36,8 +33,8 @@ public class FloatCurveNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                POINTS_2, "Comma-separated x,y pairs: 'x0,y0,x1,y1,...'. Linear interpolation between points; clamped outside.",
-                CLOSURE_2, "Float closure that can be sampled by evaluate_closure at any input x."
+                POINTS.name, "Comma-separated x,y pairs: 'x0,y0,x1,y1,...'. Linear interpolation between points; clamped outside.",
+                CLOSURE.name, "Float closure that can be sampled by evaluate_closure at any input x."
         );
     }
 
@@ -53,11 +50,11 @@ public class FloatCurveNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        String raw = ctx.getInput(POINTS_2, String.class);
+        String raw = ctx.getInput(POINTS.name, String.class);
         if (raw == null || raw.isBlank()) {
             raw = STR_0_0_1_1;
         }
         FloatCurveKernel kernel = FloatCurveKernel.fromCommaSeparatedPairs(raw);
-        ctx.setOutput(CLOSURE_2, kernel);
+        ctx.setOutput(CLOSURE.name, kernel);
     }
 }

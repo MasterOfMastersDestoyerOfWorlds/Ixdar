@@ -34,10 +34,10 @@ class MeshNodeRegistryTest {
             }
             Map<String, String> docs = node.socketDocs();
             for (InputPort port : node.inputs()) {
-                checkDoc(violations, docs, id, "input", port.name());
+                checkDoc(violations, docs, id, "input", port.name);
             }
             for (OutputPort port : node.outputs()) {
-                checkDoc(violations, docs, id, "output", port.name());
+                checkDoc(violations, docs, id, "output", port.name);
             }
         });
         assertTrue(violations.isEmpty(), () -> report("undocumented ports", violations));
@@ -49,13 +49,13 @@ class MeshNodeRegistryTest {
         forEachNode((id, node) -> {
             Map<PortType, List<OutputPort>> byType = new HashMap<>();
             for (OutputPort port : node.outputs()) {
-                byType.computeIfAbsent(port.type(), unused -> new ArrayList<>()).add(port);
+                byType.computeIfAbsent(port.type, unused -> new ArrayList<>()).add(port);
             }
             for (Map.Entry<PortType, List<OutputPort>> group : byType.entrySet()) {
                 if (group.getValue().size() != 1) {
                     continue;
                 }
-                String name = group.getValue().get(0).name();
+                String name = group.getValue().get(0).name;
                 if (hasCanonical(group.getKey()) && !CanonicalPortNames.isAllowed(group.getKey(), name)) {
                     violations.add(id + ": single " + group.getKey() + " output named '" + name
                             + "', expected '" + CanonicalPortNames.canonicalFor(group.getKey())
@@ -65,8 +65,8 @@ class MeshNodeRegistryTest {
             for (InputPort port : node.inputs()) {
                 CanonicalPortNames.roleOf(id, port).ifPresent(role -> {
                     String expected = CanonicalPortNames.canonicalForRole(role);
-                    if (!expected.equals(port.name())) {
-                        violations.add(id + ": " + role + " input named '" + port.name()
+                    if (!expected.equals(port.name)) {
+                        violations.add(id + ": " + role + " input named '" + port.name
                                 + "', expected '" + expected + "'");
                     }
                 });

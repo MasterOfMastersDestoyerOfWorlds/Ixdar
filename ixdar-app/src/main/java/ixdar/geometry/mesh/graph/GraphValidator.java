@@ -96,7 +96,7 @@ public final class GraphValidator {
                 Object val = arg.getValue();
                 InputPort ip = findInput(schema, portName);
                 if (ip == null) {
-                    List<String> validInputs = schema.inputs().stream().map(InputPort::name).toList();
+                    List<String> validInputs = schema.inputs().stream().map(p -> p.name).toList();
                     errors.add(LINE + n.line + NODE + n.id + "' has unknown input port '" + portName
                             + "'. Valid inputs: " + String.join(STR_3, validInputs));
                     continue;
@@ -168,14 +168,14 @@ public final class GraphValidator {
         }
         OutputPort out = findOutput(sourceInstance.schema(), ref.portName);
         if (out == null) {
-            List<String> validOutputs = sourceInstance.schema().outputs().stream().map(OutputPort::name).toList();
+            List<String> validOutputs = sourceInstance.schema().outputs().stream().map(p -> p.name).toList();
             errors.add(LINE + consumerLine + NODE + ref.nodeId + "' has no output port '" + ref.portName + "' (used from '"
                     + consumerId + "'). Valid outputs: " + String.join(STR_3, validOutputs));
             return;
         }
-        if (!portTypesCompatible(out.type(), targetInput.type())) {
-            errors.add(LINE + consumerLine + ": Type mismatch " + ref.nodeId + STR_4 + ref.portName + STR_5 + out.type() + ") -> "
-                    + consumerId + STR_4 + targetInput.name() + STR_5 + targetInput.type() + ")");
+        if (!portTypesCompatible(out.type, targetInput.type)) {
+            errors.add(LINE + consumerLine + ": Type mismatch " + ref.nodeId + STR_4 + ref.portName + STR_5 + out.type + ") -> "
+                    + consumerId + STR_4 + targetInput.name + STR_5 + targetInput.type + ")");
         }
     }
 
@@ -201,7 +201,7 @@ public final class GraphValidator {
 
     private static InputPort findInput(MeshNodeSchema schema, String name) {
         for (InputPort p : schema.inputs()) {
-            if (p.name().equals(name)) {
+            if (p.name.equals(name)) {
                 return p;
             }
         }
@@ -210,7 +210,7 @@ public final class GraphValidator {
 
     private static OutputPort findOutput(MeshNodeSchema schema, String name) {
         for (OutputPort p : schema.outputs()) {
-            if (p.name().equals(name)) {
+            if (p.name.equals(name)) {
                 return p;
             }
         }

@@ -15,9 +15,6 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "icosphere")
 public class IcosphereMeshNode implements MeshNode {
-    public static final String RADIUS_2 = "radius";
-    public static final String SUBDIVISIONS_2 = "subdivisions";
-    public static final String MESH_2 = "mesh";
     public static final int NUM_36 = 36;
     public static final int NUM_3 = 3;
     public static final int NUM_180 = 180;
@@ -36,9 +33,9 @@ public class IcosphereMeshNode implements MeshNode {
     public static final int NUM_32 = 32;
     public static final long NUM_0xffffffff = 0xffffffffL;
     public static final float NUM_0_5 = 0.5f;
-    private static final InputPort RADIUS = new InputPort(RADIUS_2, PortType.FLOAT, 1.0f, 0.001f, 100f);
-    private static final InputPort SUBDIVISIONS = new InputPort(SUBDIVISIONS_2, PortType.INT, 0, (float) 0, (float) 6);
-    private static final OutputPort MESH = new OutputPort(MESH_2, PortType.MESH);
+    public static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 1.0f, 0.001f, 100f);
+    public static final InputPort SUBDIVISIONS = new InputPort("subdivisions", PortType.INT, 0, (float) 0, (float) 6);
+    public static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
@@ -58,18 +55,18 @@ public class IcosphereMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                RADIUS_2, "Distance from center to surface. icosphere(radius=r) has extent 2r on each axis (vertices at ±r). For a reference of extent <X,Y,Z>, start with radius=1 and apply transform_geometry(scale=<X/2, Y/2, Z/2>).",
-                SUBDIVISIONS_2, "Number of recursive quadrisections. 0 = 20 triangle faces; each level quadruples face count. Caps at 6.",
-                MESH_2, "Triangle-based sphere, manifold, centered at origin."
+                RADIUS.name, "Distance from center to surface. icosphere(radius=r) has extent 2r on each axis (vertices at ±r). For a reference of extent <X,Y,Z>, start with radius=1 and apply transform_geometry(scale=<X/2, Y/2, Z/2>).",
+                SUBDIVISIONS.name, "Number of recursive quadrisections. 0 = 20 triangle faces; each level quadruples face count. Caps at 6.",
+                MESH.name, "Triangle-based sphere, manifold, centered at origin."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        float radius = ctx.getInput(RADIUS_2, Number.class) != null ? ctx.getInput(RADIUS_2, Number.class).floatValue()
+        float radius = ctx.getInput(RADIUS.name, Number.class) != null ? ctx.getInput(RADIUS.name, Number.class).floatValue()
                 : 1.0f;
 
-        Number subInput = ctx.getInput(SUBDIVISIONS_2, Number.class);
+        Number subInput = ctx.getInput(SUBDIVISIONS.name, Number.class);
         int subdivisions = subInput == null ? 0 : subInput.intValue();
 
         ArrayList<Float> positions = new ArrayList<>(NUM_36);
@@ -90,7 +87,7 @@ public class IcosphereMeshNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput(MESH_2, mesh);
+        ctx.setOutput(MESH.name, mesh);
     }
 
     private static void appendIcosahedronVertices(float radius, ArrayList<Float> out) {

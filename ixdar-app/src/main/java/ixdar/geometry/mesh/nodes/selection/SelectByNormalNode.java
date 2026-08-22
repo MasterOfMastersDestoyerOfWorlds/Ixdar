@@ -26,20 +26,16 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "select_by_normal")
 public class SelectByNormalNode implements MeshNode {
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String DIRECTION_2 = "direction";
-    public static final String THRESHOLD_2 = "threshold";
-    public static final String SELECTION_2 = "selection";
     public static final float NUM_0 = 0f;
     public static final float NUM_1 = 1f;
     public static final float NUM_0_7 = 0.7f;
     public static final float NUM_1e_8 = 1e-8f;
     public static final int NUM_3 = 3;
 
-    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort DIRECTION = new InputPort(DIRECTION_2, PortType.VECTOR3, new Vector3Value(0f, 1f, 0f));
-    private static final InputPort THRESHOLD = new InputPort(THRESHOLD_2, PortType.FLOAT, 0.7f, -1f, 1f);
-    private static final OutputPort SELECTION = new OutputPort(SELECTION_2, PortType.BOOLEAN);
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort DIRECTION = new InputPort("direction", PortType.VECTOR3, new Vector3Value(0f, 1f, 0f));
+    public static final InputPort THRESHOLD = new InputPort("threshold", PortType.FLOAT, 0.7f, -1f, 1f);
+    public static final OutputPort SELECTION = new OutputPort("selection", PortType.BOOLEAN);
 
     @Override
     public List<InputPort> inputs() {
@@ -59,32 +55,32 @@ public class SelectByNormalNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                GEOMETRY_2, "Geometry bundle to test.",
-                DIRECTION_2, "Reference direction (need not be unit; normalized internally).",
-                THRESHOLD_2, "Minimum dot product. 1 = exact alignment; 0.7 ≈ within 45°; 0 ≈ same hemisphere; -1 = always true.",
-                SELECTION_2, "Per-face BOOLEAN mask."
+                GEOMETRY.name, "Geometry bundle to test.",
+                DIRECTION.name, "Reference direction (need not be unit; normalized internally).",
+                THRESHOLD.name, "Minimum dot product. 1 = exact alignment; 0.7 ≈ within 45°; 0 ≈ same hemisphere; -1 = always true.",
+                SELECTION.name, "Per-face BOOLEAN mask."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
         Vector3Value dir = FieldBroadcast.vector3ValueOrDefault(
-                FieldBroadcast.getInputOrDefault(ctx, DIRECTION_2, DIRECTION.defaultValue()),
+                FieldBroadcast.getInputOrDefault(ctx, DIRECTION.name, DIRECTION.defaultValue),
                 new Vector3Value(NUM_0, NUM_1, NUM_0));
         float threshold = FieldBroadcast.floatScalarOrDefault(
-                FieldBroadcast.getInputOrDefault(ctx, THRESHOLD_2, THRESHOLD.defaultValue()), NUM_0_7);
+                FieldBroadcast.getInputOrDefault(ctx, THRESHOLD.name, THRESHOLD.defaultValue), NUM_0_7);
 
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.faceCount() == 0) {
-            ctx.setOutput(SELECTION_2, new BoolField(new boolean[0]));
+            ctx.setOutput(SELECTION.name, new BoolField(new boolean[0]));
             return;
         }
 
         Vector3f d = new Vector3f(dir.x(), dir.y(), dir.z());
         float dLen = d.length();
         if (dLen < NUM_1e_8) {
-            ctx.setOutput(SELECTION_2, new BoolField(new boolean[mesh.faceCount()]));
+            ctx.setOutput(SELECTION.name, new BoolField(new boolean[mesh.faceCount()]));
             return;
         }
         d.mul(NUM_1 / dLen);
@@ -107,6 +103,6 @@ public class SelectByNormalNode implements MeshNode {
             n.mul(NUM_1 / nLen);
             sel[fi] = n.dot(d) >= threshold;
         }
-        ctx.setOutput(SELECTION_2, new BoolField(sel));
+        ctx.setOutput(SELECTION.name, new BoolField(sel));
     }
 }

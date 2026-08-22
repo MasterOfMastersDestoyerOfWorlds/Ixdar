@@ -22,10 +22,10 @@ public class MapNodeContext implements NodeContext {
         this.outputs = new HashMap<>();
 
         for (InputPort inputPort : node.inputs()) {
-            inputPorts.put(inputPort.name(), inputPort);
+            inputPorts.put(inputPort.name, inputPort);
         }
         for (OutputPort outputPort : node.outputs()) {
-            outputPorts.put(outputPort.name(), outputPort);
+            outputPorts.put(outputPort.name, outputPort);
         }
     }
 
@@ -38,10 +38,10 @@ public class MapNodeContext implements NodeContext {
      */
     public void setInput(String name, Object value) {
         InputPort inputPort = requireInputPort(name);
-        inputPort.type().validate(name, value);
+        inputPort.type.validate(name, value);
         Object stored = value;
-        if (inputPort.modes() != null && value instanceof String s) {
-            stored = inputPort.modes().normalize(s);
+        if (inputPort.modes != null && value instanceof String s) {
+            stored = inputPort.modes.normalize(s);
         }
         inputs.put(name, stored);
     }
@@ -56,7 +56,7 @@ public class MapNodeContext implements NodeContext {
     @Override
     public <T> T getInput(String name, Class<T> type) {
         InputPort inputPort = requireInputPort(name);
-        Object value = inputs.containsKey(name) ? inputs.get(name) : inputPort.defaultValue();
+        Object value = inputs.containsKey(name) ? inputs.get(name) : inputPort.defaultValue;
         return castValue(name, value, type);
     }
 
@@ -69,7 +69,7 @@ public class MapNodeContext implements NodeContext {
     @Override
     public Object getInputValue(String name) {
         InputPort inputPort = requireInputPort(name);
-        return inputs.containsKey(name) ? inputs.get(name) : inputPort.defaultValue();
+        return inputs.containsKey(name) ? inputs.get(name) : inputPort.defaultValue;
     }
 
     /**
@@ -94,7 +94,7 @@ public class MapNodeContext implements NodeContext {
     @Override
     public void setOutput(String name, Object value) {
         OutputPort outputPort = requireOutputPort(name);
-        outputPort.type().validate(name, value);
+        outputPort.type.validate(name, value);
         outputs.put(name, value);
     }
 

@@ -28,8 +28,6 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
  */
 @MeshNodeAnnotation(id = "coons_patch")
 public class CoonsPatchNode implements MeshNode {
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String SUBDIVISIONS_2 = "subdivisions";
     public static final int NUM_4 = 4;
     public static final int NUM_6 = 6;
     public static final int NUM_600_000 = 600_000;
@@ -44,9 +42,9 @@ public class CoonsPatchNode implements MeshNode {
     public static final float NUM_0_5 = 0.5f;
     public static final float NUM_3_2 = 3f;
 
-    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort SUBDIVISIONS = new InputPort(SUBDIVISIONS_2, PortType.INT, 4, 1f, 6f);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort SUBDIVISIONS = new InputPort("subdivisions", PortType.INT, 4, 1f, 6f);
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -56,8 +54,8 @@ public class CoonsPatchNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                GEOMETRY_2, "Input cage (must carry bezier handle slots from assign_bezier_handles) / output smooth high-poly surface mesh. DESTRUCTIVE: consumes the handle slots. Always follow with merge_by_distance(distance=0.0001) to weld duplicated seam vertices.",
-                SUBDIVISIONS_2, "n×n samples per quad face. 4 = 16 quads per face (cheap); 8 = 64 (smooth). Capped internally so total output faces stay under 600k."
+                GEOMETRY.name, "Input cage (must carry bezier handle slots from assign_bezier_handles) / output smooth high-poly surface mesh. DESTRUCTIVE: consumes the handle slots. Always follow with merge_by_distance(distance=0.0001) to weld duplicated seam vertices.",
+                SUBDIVISIONS.name, "n×n samples per quad face. 4 = 16 quads per face (cheap); 8 = 64 (smooth). Capped internally so total output faces stay under 600k."
         );
     }
 
@@ -85,13 +83,13 @@ public class CoonsPatchNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
-        Number subNum = ctx.getInput(SUBDIVISIONS_2, Number.class);
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
+        Number subNum = ctx.getInput(SUBDIVISIONS.name, Number.class);
         int n = subNum == null ? NUM_4 : Math.max(1, Math.min(NUM_6, subNum.intValue()));
 
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.faceCount() == 0) {
-            ctx.setOutput(GEOMETRY_2, base);
+            ctx.setOutput(GEOMETRY.name, base);
             return;
         }
 
@@ -211,7 +209,7 @@ public class CoonsPatchNode implements MeshNode {
 
         int vertCount = vertCountBox[0];
         if (vertCount == 0) {
-            ctx.setOutput(GEOMETRY_2, base);
+            ctx.setOutput(GEOMETRY.name, base);
             return;
         }
 
@@ -244,7 +242,7 @@ public class CoonsPatchNode implements MeshNode {
         nextSlots.remove(AssignBezierHandlesNode.SLOT_HANDLES_START);
         nextSlots.remove(AssignBezierHandlesNode.SLOT_HANDLES_END);
         GeometryBundle outBundle = new GeometryBundle(outMesh, Map.copyOf(nextSlots));
-        ctx.setOutput(GEOMETRY_2, outBundle);
+        ctx.setOutput(GEOMETRY.name, outBundle);
     }
 
     private static float[] slotFloat3(GeometryBundle base, String name, MeshTopology mesh) {

@@ -35,11 +35,6 @@ import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
  */
 @MeshNodeAnnotation(id = "inset_faces")
 public class InsetFacesNode implements MeshNode {
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String INSET_2 = "inset";
-    public static final String SELECTION_2 = "selection";
-    public static final String MESH = "mesh";
-    public static final String GENERATED = "generated";
     public static final float NUM_0_1 = 0.1f;
     public static final int NUM_3 = 3;
     public static final int NUM_4 = 4;
@@ -49,12 +44,12 @@ public class InsetFacesNode implements MeshNode {
     public static final long NUM_0xFFFFFFFF = 0xFFFFFFFFL;
     public static final float NUM_1 = 1f;
 
-    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort INSET = new InputPort(INSET_2, PortType.FLOAT, 0.1f, 0f, 1f);
-    private static final InputPort SELECTION = new InputPort(SELECTION_2, PortType.BOOLEAN, true);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
-    private static final OutputPort MESH_OUT = new OutputPort(MESH, PortType.MESH);
-    private static final OutputPort GENERATED_OUT = new OutputPort(GENERATED, PortType.BOOLEAN);
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort INSET = new InputPort("inset", PortType.FLOAT, 0.1f, 0f, 1f);
+    public static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
+    public static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
+    public static final OutputPort GENERATED_OUT = new OutputPort("generated", PortType.BOOLEAN);
 
     @Override
     public List<InputPort> inputs() {
@@ -74,29 +69,29 @@ public class InsetFacesNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                GEOMETRY_2, "Input/output cage. Preserves bezier handle slots via rebuild when _bezier_handle_weight is set.",
-                INSET_2, "Inset amount in [0, 1] — fraction of the way from each corner toward the face centroid. 0 = no inset; 0.5 = halfway.",
-                SELECTION_2, "Per-face BOOLEAN mask. True = face gets inset (replaced by inner quad + 4 side quads).",
-                MESH, "Topology-only output.",
-                GENERATED, "Per-output-face BOOLEAN: true for the newly-created inner face of each inset; false for pass-through and side quads. Thread into the selection of the next op to chain features."
+                GEOMETRY.name, "Input/output cage. Preserves bezier handle slots via rebuild when _bezier_handle_weight is set.",
+                INSET.name, "Inset amount in [0, 1] — fraction of the way from each corner toward the face centroid. 0 = no inset; 0.5 = halfway.",
+                SELECTION.name, "Per-face BOOLEAN mask. True = face gets inset (replaced by inner quad + 4 side quads).",
+                MESH_OUT.name, "Topology-only output.",
+                GENERATED_OUT.name, "Per-output-face BOOLEAN: true for the newly-created inner face of each inset; false for pass-through and side quads. Thread into the selection of the next op to chain features."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
         MeshTopology in = base.mesh();
         if (in == null || in.vertexCount() == 0) {
-            ctx.setOutput(MESH, null);
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
-            ctx.setOutput(GENERATED, new BoolField(new boolean[0]));
+            ctx.setOutput(MESH_OUT.name, null);
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
+            ctx.setOutput(GENERATED_OUT.name, new BoolField(new boolean[0]));
             return;
         }
 
-        Object insetObj = FieldBroadcast.getInputOrDefault(ctx, INSET_2, INSET.defaultValue());
+        Object insetObj = FieldBroadcast.getInputOrDefault(ctx, INSET.name, INSET.defaultValue);
         float inset = FieldBroadcast.floatScalarOrDefault(insetObj, NUM_0_1);
 
-        Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION_2, SELECTION.defaultValue());
+        Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION.name, SELECTION.defaultValue);
 
         ArrayMesh am = in instanceof ArrayMesh m ? m : ArrayMeshEngine.fromUniformMeshTopology(in);
 
@@ -134,9 +129,9 @@ public class InsetFacesNode implements MeshNode {
             }
         }
 
-        ctx.setOutput(MESH, out);
-        ctx.setOutput(GEOMETRY_2, outBundle);
-        ctx.setOutput(GENERATED, new BoolField(genMask));
+        ctx.setOutput(MESH_OUT.name, out);
+        ctx.setOutput(GEOMETRY.name, outBundle);
+        ctx.setOutput(GENERATED_OUT.name, new BoolField(genMask));
     }
 
     /**
@@ -267,7 +262,7 @@ public class InsetFacesNode implements MeshNode {
         }
 
         // Per (face, corner): two cyan dots that replace the single face-local
-        // inner vert when the corner sits at a 3+ cage vertex (MESH-48).
+        // inner vert when the corner sits at a 3+ cage vertex (MESH_OUT.name-48).
         int[][][] cyanAt3Plus = new int[faceCount][][];
 
         // Central n-sided fill face per 3+ cage vertex — list of cyan dot
@@ -304,7 +299,7 @@ public class InsetFacesNode implements MeshNode {
             int n = atV.size();
 
             if (n == NUM_3) {
-                // MESH-47/48: cube-corner 3-face emission (triangle fill).
+                // MESH_OUT.name-47/48: cube-corner 3-face emission (triangle fill).
                 // N=4+ falls through to face-local — current fan walk produces
                 // non-manifold output on subdivided-cage interior corners.
                 boolean ok = allocate3PlusCornerFlat(topology, denseVid, atV,
@@ -657,7 +652,7 @@ public class InsetFacesNode implements MeshNode {
         }
 
         // Fast path: uniform quad input. Same cage-vertex-keyed merge scheme
-        // as CoonsInsetFacesNode (MESH-45) but using straight-line lerps along
+        // as CoonsInsetFacesNode (MESH_OUT.name-45) but using straight-line lerps along
         // the shared cage edge rather than Coons surface evaluations, since
         // plain inset_faces is flat-lerp by design.
         if (vpf == NUM_4) {

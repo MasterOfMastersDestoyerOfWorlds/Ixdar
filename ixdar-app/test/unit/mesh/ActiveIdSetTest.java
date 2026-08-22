@@ -13,19 +13,22 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 
 /**
- * The dense live-id set underneath {@code vertexCount()}/{@code faceIdAt()} and friends, exercised
- * through a real {@link HalfEdgeMesh} because that is the only way it is reachable — it is package
- * private, and deliberately so.
+ * The dense live-id set underneath {@code vertexCount()}/{@code faceIdAt()} and
+ * friends, exercised through a real {@link HalfEdgeMesh} because that is the
+ * only way it is reachable — it is package private, and deliberately so.
  *
- * <p>The property that matters is not the order of the dense walk but its <em>contents</em>: after
- * any sequence of additions and removals, walking {@code [0, count())} must enumerate exactly the
- * live ids, each once. Removal fills the vacated slot with the last id rather than shifting the
- * tail down, so positions move and the walk is no longer ascending in id; these tests are written
- * against the contract {@code MeshTopology} actually makes — a stable <em>id</em> at a dense
- * position — and would fail if anything reintroduced an ordering assumption.
+ * <p>
+ * The property that matters is not the order of the dense walk but its
+ * <em>contents</em>: after any sequence of additions and removals, walking
+ * {@code [0, count())} must enumerate exactly the live ids, each once. Removal
+ * fills the vacated slot with the last id rather than shifting the tail down,
+ * so positions move and the walk is no longer ascending in id; these tests are
+ * written against the contract {@code MeshTopology} actually makes — a stable
+ * <em>id</em> at a dense position — and would fail if anything reintroduced an
+ * ordering assumption.
  */
 class ActiveIdSetTest {
 
@@ -111,36 +114,11 @@ class ActiveIdSetTest {
     }
 
     /**
-     * Builds a small triangulated grid on the z = 0 plane.
+     * Builds a small triangulated grid via the shared {@link Grids} fixture.
      *
      * @return the grid as a half-edge mesh
      */
     private HalfEdgeMesh buildGrid() {
-        float[] positions = new float[GRID * GRID * 3];
-        for (int row = 0; row < GRID; row++) {
-            for (int column = 0; column < GRID; column++) {
-                int base = (row * GRID + column) * 3;
-                positions[base] = column;
-                positions[base + 1] = row;
-                positions[base + 2] = 0f;
-            }
-        }
-        int[] faces = new int[(GRID - 1) * (GRID - 1) * 2 * 3];
-        int cursor = 0;
-        for (int row = 0; row < GRID - 1; row++) {
-            for (int column = 0; column < GRID - 1; column++) {
-                int lowerLeft = row * GRID + column;
-                int lowerRight = lowerLeft + 1;
-                int upperLeft = lowerLeft + GRID;
-                int upperRight = upperLeft + 1;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = lowerRight;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = upperLeft;
-            }
-        }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return GridMeshNode.triangulated(GRID, GRID);
     }
 }

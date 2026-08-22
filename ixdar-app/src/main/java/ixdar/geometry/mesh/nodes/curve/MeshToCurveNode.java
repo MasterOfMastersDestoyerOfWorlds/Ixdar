@@ -20,8 +20,6 @@ import ixdar.geometry.mesh.data.MeshTopology;
 
 @MeshNodeAnnotation(id = "mesh_to_curve")
 public class MeshToCurveNode implements MeshNode {
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String SOURCE_2 = "source";
     public static final String ALL_EDGES = "ALL_EDGES";
     public static final String CURVE = "_curve";
     public static final int NUM_6 = 6;
@@ -29,9 +27,9 @@ public class MeshToCurveNode implements MeshNode {
     public static final int NUM_16 = 16;
     public static final int NUM_3 = 3;
 
-    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort SOURCE = new InputPort(SOURCE_2, PortType.STRING, ALL_EDGES);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort SOURCE = new InputPort("source", PortType.STRING, ALL_EDGES);
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -42,8 +40,8 @@ public class MeshToCurveNode implements MeshNode {
     public Map<String, String> socketDocs() {
         return Map.of(
                 // Shared input+output key — input is the source mesh, output is the extracted curve bundle.
-                GEOMETRY_2, "Input: source mesh to extract curves from. Output: extracted curve geometry bundle (polylines).",
-                SOURCE_2, "Extraction mode: ALL_EDGES (every mesh edge as a 2-point segment) or BOUNDARY (ordered polyline around each open boundary)."
+                GEOMETRY.name, "Input: source mesh to extract curves from. Output: extracted curve geometry bundle (polylines).",
+                SOURCE.name, "Extraction mode: ALL_EDGES (every mesh edge as a 2-point segment) or BOUNDARY (ordered polyline around each open boundary)."
         );
     }
 
@@ -59,25 +57,25 @@ public class MeshToCurveNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput(GEOMETRY_2, Object.class));
+        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput(GEOMETRY.name, Object.class));
         if (gb == null) {
-            ctx.setOutput(GEOMETRY_2,GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name,GeometryBundle.empty());
             return;
         }
         MeshTopology mesh = gb.mesh();
         if (mesh == null || mesh.edgeCount() == 0) {
-            ctx.setOutput(GEOMETRY_2,gb.withSlot(CURVE, CurveGeometry.singlePolyline(new float[0])));
+            ctx.setOutput(GEOMETRY.name,gb.withSlot(CURVE, CurveGeometry.singlePolyline(new float[0])));
             return;
         }
 
-        String source = ctx.getInput(SOURCE_2, String.class);
+        String source = ctx.getInput(SOURCE.name, String.class);
         if (source == null) {
             source = ALL_EDGES;
         }
         if ("BOUNDARY".equalsIgnoreCase(source.trim())) {
             CurveGeometry boundary = boundaryPolyline(mesh);
             if (boundary != null && boundary.pointCount() >= 2) {
-                ctx.setOutput(GEOMETRY_2,gb.withSlot(CURVE, boundary));
+                ctx.setOutput(GEOMETRY.name,gb.withSlot(CURVE, boundary));
                 return;
             }
         }
@@ -109,7 +107,7 @@ public class MeshToCurveNode implements MeshNode {
             off[i] = 2 * i;
         }
         CurveGeometry curve = new CurveGeometry(pos, off);
-        ctx.setOutput(GEOMETRY_2,gb.withSlot(CURVE, curve));
+        ctx.setOutput(GEOMETRY.name,gb.withSlot(CURVE, curve));
     }
 
     /**

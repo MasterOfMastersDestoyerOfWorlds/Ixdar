@@ -81,18 +81,38 @@ is in the working tree behind it.
 
 ## 3. Later ruling groups
 
-- [~] 3.1 Fixtures. Done: `mark_edges` node (typed marks: FLOAT/INT/BOOL by mode, per the
+- [x] 3.1 Fixtures. `mark_edges` node (typed marks: FLOAT/INT/BOOL by mode, per the
       random_value precedent) writing `EdgeMarks.SLOT` (`Map<String, boolean[]|int[]|float[]>` by
       edge id), `EdgeMarks` accessor as the consumer contract, crease converted to the "crease"
       float label, `MarkCreaseNode` and `_crease_weights` deleted, all 6 mark_crease .dsl call
-      sites rewritten and validated, registry test green. Remaining: F3(b) migrate the 15 cloned
-      `buildGrid()` tests onto `GridMeshNode` and fix expectations; fixture-to-DSL conversion
-      itself deferred until after the quad-layout migration (7.2) per ruling F2
+      sites rewritten and validated, registry test green. F3(b): the 15 cloned `buildGrid()`
+      helpers in `ixdar-app/test/unit/mesh/` replaced by a shared `Grids` fixture that evaluates
+      `GridMeshNode` through its port interface (440 cloned lines deleted); expectations follow
+      the node's U-major vertex ids via `GridMeshNode.vertexId`, and `MiddleArcChannelRouteTest`'s two
+      position checks moved from Y-row values to centered Z via `Grids.rowCoordinate`. All 15
+      classes plus `GridMeshNodeTest` green (22 tests). Note: `PlaneLayoutFixture.copyVertex`
+      still uses the row-major formula — self-consistent on its square grid (a transpose), but
+      its prose diagram is mirrored relative to the mesh. Fixture-to-DSL conversion itself
+      deferred until after the quad-layout migration (7.2) per ruling F2
 - [ ] 3.2 Runtime overlays: `QuadLayoutRuntime`'s 8 stage-typed setters and 10 GPU buffer sets,
       ~1,400 lines duplicating `setTags` / `setPerVertexScalar` / `setFeatureEdgeOverlay` on its parent
 - [ ] 3.3 Mesh data: `ArrayMesh` vs `HalfEdgeMesh` conventions, `GeometryBundle` slot naming, face
       adjacency built three ways, edge-key packing inlined at ~35 sites with no `EdgeKey`
 - [ ] 3.4 Nodes: 95 registered, 3 tests
+- [x] 3.5 Port name plumbing (author's ruling): `InputPort`/`OutputPort` converted from records to
+      plain final classes with public final fields, so `port.name` is field access — a record cannot
+      expose a component as a field, only through its accessor method. All 84 node classes now follow
+      the `GridMeshNode` shape: ports as public static constants with the name literal inline, the
+      string-name constants (`U_TILES_2` style) deleted, and every socketDocs key / getInput /
+      setOutput going through `PORT.name`. Where a node's input and output share a name the second
+      port references the first (`new OutputPort(GEOMETRY.name, ...)`), which also satisfies the
+      duplicate-literal check. The 9 torus/disk layout fixtures and 4 node tests that referenced
+      deleted constants were rewritten to `PORT.name`; `PlaneLayoutFixture` now builds its grid via
+      `GridMeshNode.triangulated`. Fallout fixed in passing: the catalog exporter serialized two
+      `Map.of` maps unsorted (`aliases`, `outputActivationByMode`) — `Map.of` iteration order is
+      salted per JVM run, so those keys could flap between builds; both now export through `TreeMap`
+      and the catalog is verified byte-identical across rebuilds. Verified: full suite green except
+      the 3 known 6.8 classes, mesh-boolean scene evaluates and unions
 
 ## 4. Enforcement in code, not prose
 

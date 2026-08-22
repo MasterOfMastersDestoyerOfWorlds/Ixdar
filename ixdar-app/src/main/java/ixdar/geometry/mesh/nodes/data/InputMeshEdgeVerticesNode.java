@@ -16,11 +16,8 @@ import ixdar.geometry.mesh.graph.MeshFieldContext;
 
 @MeshNodeAnnotation(id = "input_mesh_edge_vertices")
 public class InputMeshEdgeVerticesNode implements MeshNode {
-    public static final String VERTEX_A_2 = "vertex_a";
-    public static final String VERTEX_B_2 = "vertex_b";
-
-    private static final OutputPort VERTEX_A = new OutputPort(VERTEX_A_2, PortType.INT);
-    private static final OutputPort VERTEX_B = new OutputPort(VERTEX_B_2, PortType.INT);
+    public static final OutputPort VERTEX_A = new OutputPort("vertex_a", PortType.INT);
+    public static final OutputPort VERTEX_B = new OutputPort("vertex_b", PortType.INT);
 
     @Override
     public String description() {
@@ -30,8 +27,8 @@ public class InputMeshEdgeVerticesNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                VERTEX_A_2, "Per-edge IntField: the start vertex index of each edge.",
-                VERTEX_B_2, "Per-edge IntField: the end vertex index of each edge."
+                VERTEX_A.name, "Per-edge IntField: the start vertex index of each edge.",
+                VERTEX_B.name, "Per-edge IntField: the end vertex index of each edge."
         );
     }
 
@@ -49,14 +46,14 @@ public class InputMeshEdgeVerticesNode implements MeshNode {
     public void evaluate(NodeContext ctx) {
         var fc = ctx.fieldContext();
         if (fc == null || !(fc instanceof MeshFieldContext mfc)) {
-            ctx.setOutput(VERTEX_A_2, 0);
-            ctx.setOutput(VERTEX_B_2, 0);
+            ctx.setOutput(VERTEX_A.name, 0);
+            ctx.setOutput(VERTEX_B.name, 0);
             return;
         }
         MeshTopology mesh = mfc.mesh();
         if (mesh == null || mesh.edgeCount() == 0) {
-            ctx.setOutput(VERTEX_A_2, 0);
-            ctx.setOutput(VERTEX_B_2, 0);
+            ctx.setOutput(VERTEX_A.name, 0);
+            ctx.setOutput(VERTEX_B.name, 0);
             return;
         }
         int ne = mesh.edgeCount();
@@ -68,7 +65,7 @@ public class InputMeshEdgeVerticesNode implements MeshNode {
             a[ei] = mesh.halfEdgeVertex(he);
             b[ei] = mesh.halfEdgeEndVertex(he);
         }
-        ctx.setOutput(VERTEX_A_2, new IntField(a));
-        ctx.setOutput(VERTEX_B_2, new IntField(b));
+        ctx.setOutput(VERTEX_A.name, new IntField(a));
+        ctx.setOutput(VERTEX_B.name, new IntField(b));
     }
 }

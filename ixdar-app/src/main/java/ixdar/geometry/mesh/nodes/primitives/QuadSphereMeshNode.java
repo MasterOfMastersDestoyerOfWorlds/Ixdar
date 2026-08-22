@@ -12,17 +12,14 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "sphere")
 public class QuadSphereMeshNode implements MeshNode {
-    public static final String SIZE_2 = "size";
-    public static final String RESOLUTION_2 = "resolution";
-    public static final String MESH_2 = "mesh";
     public static final float NUM_0_5 = 0.5f;
     public static final int NUM_16 = 16;
     public static final int NUM_4 = 4;
     public static final float NUM_2_0 = 2.0f;
-    private static final InputPort SIZE = new InputPort(SIZE_2, PortType.FLOAT, 1.0f, 0.001f, 100f);
+    public static final InputPort SIZE = new InputPort("size", PortType.FLOAT, 1.0f, 0.001f, 100f);
     // Defines how many quads make up the circumference of the sphere
-    private static final InputPort RESOLUTION = new InputPort(RESOLUTION_2, PortType.INT, 16, (float) 3, (float) 128);
-    private static final OutputPort MESH = new OutputPort(MESH_2, PortType.MESH);
+    public static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 16, (float) 3, (float) 128);
+    public static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
@@ -42,18 +39,18 @@ public class QuadSphereMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                SIZE_2, "Diameter. sphere(size=s) has extent s on each axis (vertices at ±s/2). Note: this is diameter, NOT radius — unlike icosphere/uv_sphere which use radius.",
-                RESOLUTION_2, "Quads around the circumference (equator). Higher = smoother. Default 16.",
-                MESH_2, "All-quad sphere, centered at origin."
+                SIZE.name, "Diameter. sphere(size=s) has extent s on each axis (vertices at ±s/2). Note: this is diameter, NOT radius — unlike icosphere/uv_sphere which use radius.",
+                RESOLUTION.name, "Quads around the circumference (equator). Higher = smoother. Default 16.",
+                MESH.name, "All-quad sphere, centered at origin."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Number sizeInput = ctx.getInput(SIZE_2, Number.class);
+        Number sizeInput = ctx.getInput(SIZE.name, Number.class);
         float radius = (sizeInput == null ? 1.0f : sizeInput.floatValue()) * NUM_0_5;
 
-        Number resInput = ctx.getInput(RESOLUTION_2, Number.class);
+        Number resInput = ctx.getInput(RESOLUTION.name, Number.class);
         int resolution = resInput == null ? NUM_16 : resInput.intValue();
 
         // Since 4 cube faces wrap around the sphere's great circle,
@@ -95,7 +92,7 @@ public class QuadSphereMeshNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput(MESH_2, mesh);
+        ctx.setOutput(MESH.name, mesh);
     }
 
     private int addVertex(float[] n, float[] r, float[] u, float uCoord, float vCoord, float radius, HalfEdgeMesh mesh) {

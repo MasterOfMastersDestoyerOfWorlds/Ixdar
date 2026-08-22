@@ -8,17 +8,18 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * Minimal reproduction of the zero-arc-collapse pivot wall on a hand-built 5×3 grid — no cross
- * field, no quantization, no carve. A vertical line of arcs through the centre vertex n0 (up to
- * the top edge, down to the bottom edge) fully separates the grid's left half from its right half,
- * because a horizontal crossing would have to pass through one of the centre column's three
- * vertices, all of which are claimed as nodes.
+ * Minimal reproduction of the zero-arc-collapse pivot wall on a hand-built 5×3
+ * grid — no cross field, no quantization, no carve. A vertical line of arcs
+ * through the centre vertex n0 (up to the top edge, down to the bottom edge)
+ * fully separates the grid's left half from its right half, because a
+ * horizontal crossing would have to pass through one of the centre column's
+ * three vertices, all of which are claimed as nodes.
  *
  * <pre>
  *   row 0   .    .    top   .    .
@@ -27,13 +28,15 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
  *         col 0  1    2     3    4
  * </pre>
  *
- * <p>The zero arc a = n0→n1 is collapsed: n0 is dragged onto n1, pulling incident arc b = m→n0
- * with it, so b must re-embed from m to n1. m is in the left region and n1 in the right, and the
- * two regions touch only at the pivot n0. The collapse first frees the channel (arc a's edges),
- * then the re-route follows the arc to its new home by transiting the pivot: b becomes m→n0→n1.
- * This is what "pulling its incident arcs with it" means — the arc follows the collapsing node
- * through where the zero arc was, rather than searching for a way to n1 that never passes the
- * pivot (which the wall makes impossible).
+ * <p>
+ * The zero arc a = n0→n1 is collapsed: n0 is dragged onto n1, pulling incident
+ * arc b = m→n0 with it, so b must re-embed from m to n1. m is in the left
+ * region and n1 in the right, and the two regions touch only at the pivot n0.
+ * The collapse first frees the channel (arc a's edges), then the re-route
+ * follows the arc to its new home by transiting the pivot: b becomes m→n0→n1.
+ * This is what "pulling its incident arcs with it" means — the arc follows the
+ * collapsing node through where the zero arc was, rather than searching for a
+ * way to n1 that never passes the pivot (which the wall makes impossible).
  */
 class PivotRerouteTest {
 
@@ -81,37 +84,13 @@ class PivotRerouteTest {
     }
 
     /**
-     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid on the z = 0 plane.
+     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid via the shared
+     * {@link Grids} fixture, so the tests run on {@code mesh_grid}'s real output.
      *
      * @return the grid as a half-edge mesh
      */
     private HalfEdgeMesh buildGrid() {
-        float[] positions = new float[COLUMNS * ROWS * 3];
-        for (int row = 0; row < ROWS; row++) {
-            for (int column = 0; column < COLUMNS; column++) {
-                int base = (row * COLUMNS + column) * 3;
-                positions[base] = column;
-                positions[base + 1] = row;
-                positions[base + 2] = 0f;
-            }
-        }
-        int[] faces = new int[(COLUMNS - 1) * (ROWS - 1) * 2 * 3];
-        int cursor = 0;
-        for (int row = 0; row < ROWS - 1; row++) {
-            for (int column = 0; column < COLUMNS - 1; column++) {
-                int lowerLeft = row * COLUMNS + column;
-                int lowerRight = lowerLeft + 1;
-                int upperLeft = lowerLeft + COLUMNS;
-                int upperRight = upperLeft + 1;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = lowerRight;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = upperLeft;
-            }
-        }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return GridMeshNode.triangulated(COLUMNS, ROWS);
     }
 
     /**
@@ -123,6 +102,6 @@ class PivotRerouteTest {
      * @return the copy vertex there
      */
     private int vertex(EmbeddedMeshTopology topology, int column, int row) {
-        return topology.copyVertexForSourceVertexId(row * COLUMNS + column);
+        return topology.copyVertexForSourceVertexId(GridMeshNode.vertexId(ROWS, column, row));
     }
 }

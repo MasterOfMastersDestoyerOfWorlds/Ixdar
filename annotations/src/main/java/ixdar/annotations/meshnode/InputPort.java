@@ -1,13 +1,28 @@
 package ixdar.annotations.meshnode;
 
-public record InputPort(String name, PortType type, Object defaultValue, ModeConstraint modes,
-                         Float minValue, Float maxValue) {
+public final class InputPort {
+    public final String name;
+    public final PortType type;
+    public final Object defaultValue;
+    public final ModeConstraint modes;
+    public final Float minValue;
+    public final Float maxValue;
+
     /**
-     * Validate the port declaration: name is non-blank, type is non-null, mode constraints
+     * Validates the port declaration: name is non-blank, type is non-null, mode constraints
      * apply only to {@link PortType#STRING} ports and require a valid default, and the
      * default value is type-compatible with {@code type}.
+     *
+     * @param name         port name (non-blank)
+     * @param type         port type
+     * @param defaultValue default value, must be type-compatible with {@code type} (may be null)
+     * @param modes        allowed canonical modes / aliases, or null for an unconstrained port
+     * @param minValue     advisory lower bound, or null for unbounded
+     * @param maxValue     advisory upper bound, or null for unbounded
+     * @throws IllegalArgumentException when the declaration violates any of the rules above
      */
-    public InputPort {
+    public InputPort(String name, PortType type, Object defaultValue, ModeConstraint modes,
+            Float minValue, Float maxValue) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Input port name must not be blank");
         }
@@ -24,6 +39,12 @@ public record InputPort(String name, PortType type, Object defaultValue, ModeCon
             modes.validateDefault(defaultValue);
         }
         type.validate(name, defaultValue);
+        this.name = name;
+        this.type = type;
+        this.defaultValue = defaultValue;
+        this.modes = modes;
+        this.minValue = minValue;
+        this.maxValue = maxValue;
     }
 
     /**

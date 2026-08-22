@@ -122,8 +122,8 @@ public final class CanonicalPortNames {
             return Optional.empty();
         }
         if (nodeId.endsWith("_math")
-                && port.type() == PortType.STRING
-                && port.modes() != null) {
+                && port.type == PortType.STRING
+                && port.modes != null) {
             return Optional.of(InputRole.OPERATION_SELECTOR);
         }
         return Optional.empty();

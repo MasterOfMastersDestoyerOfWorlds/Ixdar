@@ -20,20 +20,10 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 public class DiskMeshNode implements MeshNode {
 
     /** Port name: concentric vertex rings around the center. */
-    public static final String RINGS_2 = "rings";
-
     /** Port name: vertices per ring, and the center vertex's valence. */
-    public static final String ANGULAR_SEGMENTS_2 = "angular_segments";
-
     /** Port name: radius of the outermost ring. */
-    public static final String RADIUS_2 = "radius";
-
     /** Port name: whether to split each annulus quad into two triangles. */
-    public static final String TRIANGULATE_2 = "triangulate";
-
     /** Port name: the generated mesh. */
-    public static final String MESH_2 = "mesh";
-
     /** Default concentric rings. */
     public static final int DEFAULT_RINGS = 4;
 
@@ -49,15 +39,15 @@ public class DiskMeshNode implements MeshNode {
     /** A full turn, for stepping the angle. */
     public static final double FULL_TURN = 2.0 * Math.PI;
 
-    private static final InputPort RINGS =
-            new InputPort(RINGS_2, PortType.INT, DEFAULT_RINGS, (float) 1, (float) 256);
-    private static final InputPort ANGULAR_SEGMENTS = new InputPort(ANGULAR_SEGMENTS_2,
+    public static final InputPort RINGS =
+            new InputPort("rings", PortType.INT, DEFAULT_RINGS, (float) 1, (float) 256);
+    public static final InputPort ANGULAR_SEGMENTS = new InputPort("angular_segments",
             PortType.INT, DEFAULT_ANGULAR_SEGMENTS, (float) 3, (float) 256);
-    private static final InputPort RADIUS =
-            new InputPort(RADIUS_2, PortType.FLOAT, DEFAULT_RADIUS, 0.001f, 100f);
-    private static final InputPort TRIANGULATE =
-            new InputPort(TRIANGULATE_2, PortType.BOOLEAN, false);
-    private static final OutputPort MESH = new OutputPort(MESH_2, PortType.MESH);
+    public static final InputPort RADIUS =
+            new InputPort("radius", PortType.FLOAT, DEFAULT_RADIUS, 0.001f, 100f);
+    public static final InputPort TRIANGULATE =
+            new InputPort("triangulate", PortType.BOOLEAN, false);
+    public static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
@@ -79,15 +69,15 @@ public class DiskMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                RINGS_2, "Concentric vertex rings around the center; ring k sits at radius"
+                RINGS.name, "Concentric vertex rings around the center; ring k sits at radius"
                         + " k * radius / rings. Default 4.",
-                ANGULAR_SEGMENTS_2, "Vertices per ring, which is also the center vertex's"
+                ANGULAR_SEGMENTS.name, "Vertices per ring, which is also the center vertex's"
                         + " valence. Default 24.",
-                RADIUS_2, "Radius of the outermost ring. Default 1.",
-                TRIANGULATE_2, "Split each annulus quad into two triangles; the center fan is"
+                RADIUS.name, "Radius of the outermost ring. Default 1.",
+                TRIANGULATE.name, "Split each annulus quad into two triangles; the center fan is"
                         + " always triangles. Needed by the quad-layout pipeline, which consumes"
                         + " triangle meshes. Default false.",
-                MESH_2, "Flat disk on the XZ plane, centered at the origin, Y=0. Center vertex is"
+                MESH.name, "Flat disk on the XZ plane, centered at the origin, Y=0. Center vertex is"
                         + " id 0, then ring-major/angular-minor ids with angular 0 at twelve"
                         + " o'clock running clockwise. Disk topology, so V - E + F = 1."
         );
@@ -95,19 +85,19 @@ public class DiskMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Number ringsInput = ctx.getInput(RINGS_2, Number.class);
+        Number ringsInput = ctx.getInput(RINGS.name, Number.class);
         int rings = Math.max(1, ringsInput == null ? DEFAULT_RINGS : ringsInput.intValue());
-        Number angularInput = ctx.getInput(ANGULAR_SEGMENTS_2, Number.class);
+        Number angularInput = ctx.getInput(ANGULAR_SEGMENTS.name, Number.class);
         int angularSegments = Math.max(MINIMUM_SEGMENTS,
                 angularInput == null ? DEFAULT_ANGULAR_SEGMENTS : angularInput.intValue());
-        Number radiusInput = ctx.getInput(RADIUS_2, Number.class);
+        Number radiusInput = ctx.getInput(RADIUS.name, Number.class);
         float radius = radiusInput == null ? DEFAULT_RADIUS : radiusInput.floatValue();
-        Boolean triangulateInput = ctx.getInput(TRIANGULATE_2, Boolean.class);
+        Boolean triangulateInput = ctx.getInput(TRIANGULATE.name, Boolean.class);
         boolean triangulate = triangulateInput != null && triangulateInput;
 
         HalfEdgeMesh mesh = build(rings, angularSegments, radius, triangulate);
         mesh.computeNormals();
-        ctx.setOutput(MESH_2, mesh);
+        ctx.setOutput(MESH.name, mesh);
     }
 
     /**

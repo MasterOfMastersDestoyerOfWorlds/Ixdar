@@ -24,9 +24,7 @@ import ixdar.geometry.mesh.graph.MeshFieldContext;
  */
 @MeshNodeAnnotation(id = "input_vertex_index")
 public class InputVertexIndexNode implements MeshNode {
-    public static final String RESULT_2 = "result";
-
-    private static final OutputPort RESULT = new OutputPort(RESULT_2, PortType.FLOAT);
+    public static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 
     @Override
     public String description() {
@@ -36,7 +34,7 @@ public class InputVertexIndexNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                RESULT_2, "Per-vertex FloatField where result[i] = i. Feed into compare + boolean_math to build per-vertex selection masks."
+                RESULT.name, "Per-vertex FloatField where result[i] = i. Feed into compare + boolean_math to build per-vertex selection masks."
         );
     }
 
@@ -61,13 +59,13 @@ public class InputVertexIndexNode implements MeshNode {
             n = fc.elementCount();
         }
         if (n == 0) {
-            ctx.setOutput(RESULT_2,0.0f);
+            ctx.setOutput(RESULT.name,0.0f);
             return;
         }
         float[] data = new float[n];
         for (int i = 0; i < n; i++) {
             data[i] = i;
         }
-        ctx.setOutput(RESULT_2,new FloatField(data));
+        ctx.setOutput(RESULT.name,new FloatField(data));
     }
 }

@@ -30,20 +30,16 @@ import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
  */
 @MeshNodeAnnotation(id = "transform_geometry")
 public class TransformGeometryNode implements MeshNode {
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String TRANSLATION_2 = "translation";
-    public static final String ROTATION_2 = "rotation";
-    public static final String SCALE_2 = "scale";
     public static final String CURVE = "_curve";
     public static final float NUM_0 = 0f;
     public static final float NUM_1 = 1f;
     public static final int NUM_3 = 3;
 
-    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort TRANSLATION = new InputPort(TRANSLATION_2, PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
-    private static final InputPort ROTATION = new InputPort(ROTATION_2, PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
-    private static final InputPort SCALE = new InputPort(SCALE_2, PortType.VECTOR3, new Vector3Value(1f, 1f, 1f));
-    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort TRANSLATION = new InputPort("translation", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
+    public static final InputPort ROTATION = new InputPort("rotation", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
+    public static final InputPort SCALE = new InputPort("scale", PortType.VECTOR3, new Vector3Value(1f, 1f, 1f));
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -63,24 +59,24 @@ public class TransformGeometryNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                GEOMETRY_2, "Input/output geometry bundle. Vertex positions and curve control points are transformed; bezier handle slots are scaled and rotated in place.",
-                TRANSLATION_2, "World-space offset added after scale+rotate. translation=<X,Y,Z> shifts every vertex by those units.",
-                ROTATION_2, "Euler XYZ in RADIANS (not degrees). Applied after scale, before translate. <0,0,0> = identity.",
-                SCALE_2, "Per-axis multiplier applied first. scale=<X,Y,Z> stretches extent by those factors componentwise: output extent = input extent × scale. Pass 1.0 to leave an axis untouched, not 0.5. To map a unit cube (extent 1) onto a reference with extent <Ex,Ey,Ez>, use scale=<Ex,Ey,Ez>."
+                GEOMETRY.name, "Input/output geometry bundle. Vertex positions and curve control points are transformed; bezier handle slots are scaled and rotated in place.",
+                TRANSLATION.name, "World-space offset added after scale+rotate. translation=<X,Y,Z> shifts every vertex by those units.",
+                ROTATION.name, "Euler XYZ in RADIANS (not degrees). Applied after scale, before translate. <0,0,0> = identity.",
+                SCALE.name, "Per-axis multiplier applied first. scale=<X,Y,Z> stretches extent by those factors componentwise: output extent = input extent × scale. Pass 1.0 to leave an axis untouched, not 0.5. To map a unit cube (extent 1) onto a reference with extent <Ex,Ey,Ez>, use scale=<Ex,Ey,Ez>."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
         Vector3Value trans = FieldBroadcast.vector3ValueOrDefault(
-                FieldBroadcast.getInputOrDefault(ctx, TRANSLATION_2, TRANSLATION.defaultValue()),
+                FieldBroadcast.getInputOrDefault(ctx, TRANSLATION.name, TRANSLATION.defaultValue),
                 new Vector3Value(NUM_0, NUM_0, NUM_0));
         Vector3Value rot = FieldBroadcast.vector3ValueOrDefault(
-                FieldBroadcast.getInputOrDefault(ctx, ROTATION_2, ROTATION.defaultValue()),
+                FieldBroadcast.getInputOrDefault(ctx, ROTATION.name, ROTATION.defaultValue),
                 new Vector3Value(NUM_0, NUM_0, NUM_0));
         Vector3Value sc = FieldBroadcast.vector3ValueOrDefault(
-                FieldBroadcast.getInputOrDefault(ctx, SCALE_2, SCALE.defaultValue()),
+                FieldBroadcast.getInputOrDefault(ctx, SCALE.name, SCALE.defaultValue),
                 new Vector3Value(NUM_1, NUM_1, NUM_1));
 
         boolean hasTranslation = trans.x() != NUM_0 || trans.y() != NUM_0 || trans.z() != NUM_0;
@@ -88,7 +84,7 @@ public class TransformGeometryNode implements MeshNode {
         boolean hasScale = sc.x() != NUM_1 || sc.y() != NUM_1 || sc.z() != NUM_1;
 
         if (!hasTranslation && !hasRotation && !hasScale) {
-            ctx.setOutput(GEOMETRY_2, base);
+            ctx.setOutput(GEOMETRY.name, base);
             return;
         }
 
@@ -209,7 +205,7 @@ public class TransformGeometryNode implements MeshNode {
             result = result.withSlot(CURVE, new CurveGeometry(dstPos, cg.curveOffsets()));
         }
 
-        ctx.setOutput(GEOMETRY_2, result);
+        ctx.setOutput(GEOMETRY.name, result);
     }
 
     /**

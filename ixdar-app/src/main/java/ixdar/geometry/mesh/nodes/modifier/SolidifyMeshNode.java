@@ -19,15 +19,12 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "solidify_mesh")
 public class SolidifyMeshNode implements MeshNode {
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String THICKNESS_2 = "thickness";
-    public static final String MESH = "mesh";
     public static final float NUM_0_01 = 0.01f;
 
-    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort THICKNESS = new InputPort(THICKNESS_2, PortType.FLOAT, 0.01f, 0.001f, 10f);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
-    private static final OutputPort MESH_OUT = new OutputPort(MESH, PortType.MESH);
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort THICKNESS = new InputPort("thickness", PortType.FLOAT, 0.01f, 0.001f, 10f);
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
+    public static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
@@ -47,29 +44,29 @@ public class SolidifyMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                GEOMETRY_2, "Input/output. Flat (or near-flat) quad surface becomes a closed shell wrapped in a GeometryBundle.",
-                THICKNESS_2, "Offset distance along the averaged vertex normal. 0 = no thickness; positive = outward shell.",
-                MESH, "Solid mesh topology (alternative accessor to `geometry.mesh`)."
+                GEOMETRY.name, "Input/output. Flat (or near-flat) quad surface becomes a closed shell wrapped in a GeometryBundle.",
+                THICKNESS.name, "Offset distance along the averaged vertex normal. 0 = no thickness; positive = outward shell.",
+                MESH_OUT.name, "Solid mesh topology (alternative accessor to `geometry.mesh`)."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
         MeshTopology in = base.mesh();
         if (in == null || in.vertexCount() == 0) {
-            ctx.setOutput(MESH, null);
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(MESH_OUT.name, null);
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
-        Object to = FieldBroadcast.getInputOrDefault(ctx, THICKNESS_2, THICKNESS.defaultValue());
+        Object to = FieldBroadcast.getInputOrDefault(ctx, THICKNESS.name, THICKNESS.defaultValue);
         float t = FieldBroadcast.floatScalarOrDefault(to, NUM_0_01);
         ArrayMesh am = in instanceof ArrayMesh m ? m : ArrayMeshEngine.fromUniformMeshTopology(in);
         if (!ArrayMeshEngine.isUniformQuads(am)) {
             throw new IllegalStateException("solidify_mesh requires uniform quad meshes");
         }
         ArrayMesh out = ArrayMeshEngine.solidifyUniformQuads(am, t);
-        ctx.setOutput(MESH, out);
-        ctx.setOutput(GEOMETRY_2, base.withMesh(out));
+        ctx.setOutput(MESH_OUT.name, out);
+        ctx.setOutput(GEOMETRY.name, base.withMesh(out));
     }
 }

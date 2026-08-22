@@ -78,9 +78,9 @@ public final class AutoTagHook {
         boolean hasGenerated = false;
         boolean hasGeometry = false;
         for (OutputPort p : node.outputs()) {
-            if (p.type() == PortType.BOOLEAN && GENERATED.equals(p.name())) {
+            if (p.type == PortType.BOOLEAN && GENERATED.equals(p.name)) {
                 hasGenerated = true;
-            } else if (p.type() == PortType.GEOMETRY_BUNDLE && GEOMETRY.equals(p.name())) {
+            } else if (p.type == PortType.GEOMETRY_BUNDLE && GEOMETRY.equals(p.name)) {
                 hasGeometry = true;
             }
         }

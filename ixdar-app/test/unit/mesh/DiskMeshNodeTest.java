@@ -72,11 +72,11 @@ class DiskMeshNodeTest {
     private static HalfEdgeMesh disk(boolean triangulate) {
         DiskMeshNode node = new DiskMeshNode();
         MapNodeContext context = new MapNodeContext(node);
-        context.setInput(DiskMeshNode.RINGS_2, RINGS);
-        context.setInput(DiskMeshNode.ANGULAR_SEGMENTS_2, ANGULAR_SEGMENTS);
-        context.setInput(DiskMeshNode.TRIANGULATE_2, triangulate);
+        context.setInput(DiskMeshNode.RINGS.name, RINGS);
+        context.setInput(DiskMeshNode.ANGULAR_SEGMENTS.name, ANGULAR_SEGMENTS);
+        context.setInput(DiskMeshNode.TRIANGULATE.name, triangulate);
         node.evaluate(context);
-        return context.getOutput(DiskMeshNode.MESH_2, HalfEdgeMesh.class);
+        return context.getOutput(DiskMeshNode.MESH.name, HalfEdgeMesh.class);
     }
 
     /**

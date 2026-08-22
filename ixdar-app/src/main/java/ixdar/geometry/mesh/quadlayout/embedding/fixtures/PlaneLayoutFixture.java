@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import ixdar.annotations.meshnode.MapNodeContext;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
@@ -78,13 +77,7 @@ public final class PlaneLayoutFixture implements LayoutFixture {
 
     @Override
     public EmbeddedTMesh build() {
-        GridMeshNode node = new GridMeshNode();
-        MapNodeContext context = new MapNodeContext(node);
-        context.setInput(GridMeshNode.U_TILES_2, TILES);
-        context.setInput(GridMeshNode.V_TILES_2, TILES);
-        context.setInput(GridMeshNode.TRIANGULATE_2, true);
-        node.evaluate(context);
-        this.plane = context.getOutput(GridMeshNode.MESH_2, HalfEdgeMesh.class);
+        this.plane = GridMeshNode.triangulated(TILES + 1, TILES + 1);
         this.topology = new EmbeddedMeshTopology(plane);
         this.tmesh = new EmbeddedTMesh(topology);
         nodeAt.clear();

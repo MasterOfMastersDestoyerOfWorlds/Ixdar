@@ -9,19 +9,21 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * Reproduces the sphere's arc-376 stall: the re-route refinement aims at a corridor from the arc's
- * body straight to the survivor, but no such corridor exists — the passage runs <em>through</em> the
- * collapsing node.
+ * Reproduces the sphere's arc-376 stall: the re-route refinement aims at a
+ * corridor from the arc's body straight to the survivor, but no such corridor
+ * exists — the passage runs <em>through</em> the collapsing node.
  *
- * <p>The collapsing node is a cut vertex. Claimed arc edges radiating from it divide its fan into
- * sectors that meet only at the vertex itself and never across an edge, so a face walk cannot get
- * from one sector to another. The arc's body lies in one sector and the survivor in another. The
- * sphere's failure diagnostic shows exactly this shape, and it looks like a violation of
+ * <p>
+ * The collapsing node is a cut vertex. Claimed arc edges radiating from it
+ * divide its fan into sectors that meet only at the vertex itself and never
+ * across an edge, so a face walk cannot get from one sector to another. The
+ * arc's body lies in one sector and the survivor in another. The sphere's
+ * failure diagnostic shows exactly this shape, and it looks like a violation of
  * transitivity until the cut vertex is accounted for:
  *
  * <pre>
@@ -30,17 +32,21 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
  *   body  -&gt; target : none                                (sealed)
  * </pre>
  *
- * <p>A <em>vertex</em> path may still pass through the node, because the arc being dragged is
- * incident to it — that is what {@code passThrough} permits, and it is LCBK19's <em>"pulling its
- * incident arcs with it"</em>. So the passage is two legs, body→pivot then pivot→target, and the
- * blocking gates all live on the second leg. Asking for a single body→target corridor finds nothing,
- * so the targeted refinement does nothing and the search falls back to splitting arbitrary edges,
- * which cannot open the gates.
+ * <p>
+ * A <em>vertex</em> path may still pass through the node, because the arc being
+ * dragged is incident to it — that is what {@code passThrough} permits, and it
+ * is LCBK19's <em>"pulling its incident arcs with it"</em>. So the passage is
+ * two legs, body→pivot then pivot→target, and the blocking gates all live on
+ * the second leg. Asking for a single body→target corridor finds nothing, so
+ * the targeted refinement does nothing and the search falls back to splitting
+ * arbitrary edges, which cannot open the gates.
  *
- * <p>The fixture below builds that shape in the small: a sealing wall of claimed edges that no face
- * walk may cross, with the pivot sitting on it so its fan spans both sides, and a second gated wall
- * between the pivot and the target whose crossings have both endpoints claimed and so need
- * refinement. Routing start→target while allowed to transit the pivot must succeed.
+ * <p>
+ * The fixture below builds that shape in the small: a sealing wall of claimed
+ * edges that no face walk may cross, with the pivot sitting on it so its fan
+ * spans both sides, and a second gated wall between the pivot and the target
+ * whose crossings have both endpoints claimed and so need refinement. Routing
+ * start→target while allowed to transit the pivot must succeed.
  */
 class ArcPivotTransitCorridorTest {
 
@@ -88,10 +94,12 @@ class ArcPivotTransitCorridorTest {
     }
 
     /**
-     * Both legs of a pivot transit must route. The search over unclaimed vertices is unconfined (the
-     * corridor gates only where refinement splits edges, per LCBK19 §6.1), so the near body-to-pivot
-     * leg — which needs no splits — must still be walked after the far pivot-to-target leg is refined.
-     * This reproduces the sphere's arc 429, where the near leg is fully free yet the drag must reach it.
+     * Both legs of a pivot transit must route. The search over unclaimed vertices
+     * is unconfined (the corridor gates only where refinement splits edges, per
+     * LCBK19 §6.1), so the near body-to-pivot leg — which needs no splits — must
+     * still be walked after the far pivot-to-target leg is refined. This reproduces
+     * the sphere's arc 429, where the near leg is fully free yet the drag must
+     * reach it.
      */
     @Test
     void reRouteAdmitsThePassageItRefinedIntoTheCorridor() {
@@ -137,7 +145,8 @@ class ArcPivotTransitCorridorTest {
     }
 
     /**
-     * Every copy vertex owned by neither a node nor an arc — the corridor a re-route is allowed.
+     * Every copy vertex owned by neither a node nor an arc — the corridor a
+     * re-route is allowed.
      *
      * @param topology working copy carrying the claim arrays
      * @return the unclaimed copy vertices
@@ -154,37 +163,13 @@ class ArcPivotTransitCorridorTest {
     }
 
     /**
-     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid on the z = 0 plane.
+     * Builds a {@link #COLUMNS}×{@link #ROWS} triangulated grid via the shared
+     * {@link Grids} fixture, so the tests run on {@code mesh_grid}'s real output.
      *
      * @return the grid as a half-edge mesh
      */
     private HalfEdgeMesh buildGrid() {
-        float[] positions = new float[COLUMNS * ROWS * 3];
-        for (int row = 0; row < ROWS; row++) {
-            for (int column = 0; column < COLUMNS; column++) {
-                int base = (row * COLUMNS + column) * 3;
-                positions[base] = column;
-                positions[base + 1] = row;
-                positions[base + 2] = 0f;
-            }
-        }
-        int[] faces = new int[(COLUMNS - 1) * (ROWS - 1) * 2 * 3];
-        int cursor = 0;
-        for (int row = 0; row < ROWS - 1; row++) {
-            for (int column = 0; column < COLUMNS - 1; column++) {
-                int lowerLeft = row * COLUMNS + column;
-                int lowerRight = lowerLeft + 1;
-                int upperLeft = lowerLeft + COLUMNS;
-                int upperRight = upperLeft + 1;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = lowerRight;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = lowerLeft;
-                faces[cursor++] = upperRight;
-                faces[cursor++] = upperLeft;
-            }
-        }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return GridMeshNode.triangulated(COLUMNS, ROWS);
     }
 
     /**
@@ -196,6 +181,6 @@ class ArcPivotTransitCorridorTest {
      * @return the copy vertex there
      */
     private int vertex(EmbeddedMeshTopology topology, int column, int row) {
-        return topology.copyVertexForSourceVertexId(row * COLUMNS + column);
+        return topology.copyVertexForSourceVertexId(GridMeshNode.vertexId(ROWS, column, row));
     }
 }

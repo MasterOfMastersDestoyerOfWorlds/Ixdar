@@ -13,12 +13,9 @@ import ixdar.annotations.meshnode.PortType;
 
 @MeshNodeAnnotation(id = "input_boolean")
 public class InputBooleanNode implements MeshNode {
-    public static final String NAME_2 = "name";
-    public static final String DEFAULT_2 = "default";
-    public static final String VALUE_2 = "value";
-    private static final InputPort NAME = new InputPort(NAME_2, PortType.STRING, "");
-    private static final InputPort DEFAULT = new InputPort(DEFAULT_2, PortType.BOOLEAN, false);
-    private static final OutputPort VALUE = new OutputPort(VALUE_2, PortType.BOOLEAN);
+    public static final InputPort NAME = new InputPort("name", PortType.STRING, "");
+    public static final InputPort DEFAULT = new InputPort("default", PortType.BOOLEAN, false);
+    public static final OutputPort VALUE = new OutputPort("value", PortType.BOOLEAN);
 
     @Override
     public String description() {
@@ -28,9 +25,9 @@ public class InputBooleanNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                NAME_2, "Parameter name (shown in the UI, referenced by param_sweep / overrides).",
-                DEFAULT_2, "Initial value when not overridden.",
-                VALUE_2, "The (possibly-overridden) boolean value."
+                NAME.name, "Parameter name (shown in the UI, referenced by param_sweep / overrides).",
+                DEFAULT.name, "Initial value when not overridden.",
+                VALUE.name, "The (possibly-overridden) boolean value."
         );
     }
 
@@ -46,7 +43,7 @@ public class InputBooleanNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Object raw = ctx.getInputValue(DEFAULT_2);
+        Object raw = ctx.getInputValue(DEFAULT.name);
         boolean b;
         if (raw instanceof Boolean) {
             b = (Boolean) raw;
@@ -55,6 +52,6 @@ public class InputBooleanNode implements MeshNode {
         } else {
             b = false;
         }
-        ctx.setOutput(VALUE_2,b);
+        ctx.setOutput(VALUE.name,b);
     }
 }

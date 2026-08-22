@@ -26,19 +26,15 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "instance_on_points")
 public class InstanceOnPointsNode implements MeshNode {
-    public static final String POINTS_2 = "points";
-    public static final String INSTANCE_2 = "instance";
-    public static final String ROTATION_2 = "rotation";
-    public static final String GEOMETRY_2 = "geometry";
     public static final String INSTANCE_MESH = "instance_mesh";
     public static final int NUM_3 = 3;
     public static final float NUM_0 = 0f;
     public static final float NUM_1 = 1f;
 
-    private static final InputPort POINTS = new InputPort(POINTS_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort INSTANCE = new InputPort(INSTANCE_2, PortType.MESH, null);
-    private static final InputPort ROTATION = new InputPort(ROTATION_2, PortType.ROTATION, new RotationValue(0f, 0f, 0f, 1f));
-    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort POINTS = new InputPort("points", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort INSTANCE = new InputPort("instance", PortType.MESH, null);
+    public static final InputPort ROTATION = new InputPort("rotation", PortType.ROTATION, new RotationValue(0f, 0f, 0f, 1f));
+    public static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -58,26 +54,26 @@ public class InstanceOnPointsNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                POINTS_2, "Geometry bundle or curve whose vertex positions act as placement locations for the instances.",
-                INSTANCE_2, "Source mesh to be copied at each point.",
-                ROTATION_2, "Per-point Euler rotation (radians) applied to each instance. Accepts a single Vector3 or a rotation field.",
-                GEOMETRY_2, "Output bundle containing all instances. Call realize_instances to flatten to a single mesh."
+                POINTS.name, "Geometry bundle or curve whose vertex positions act as placement locations for the instances.",
+                INSTANCE.name, "Source mesh to be copied at each point.",
+                ROTATION.name, "Per-point Euler rotation (radians) applied to each instance. Accepts a single Vector3 or a rotation field.",
+                GEOMETRY.name, "Output bundle containing all instances. Call realize_instances to flatten to a single mesh."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle pts = GeometryBundles.bundlePart(ctx.getInput(POINTS_2, Object.class));
-        MeshTopology inst = ctx.getInput(INSTANCE_2, MeshTopology.class);
-        Object rotObj = FieldBroadcast.getInputOrDefault(ctx, ROTATION_2, ROTATION.defaultValue());
+        GeometryBundle pts = GeometryBundles.bundlePart(ctx.getInput(POINTS.name, Object.class));
+        MeshTopology inst = ctx.getInput(INSTANCE.name, MeshTopology.class);
+        Object rotObj = FieldBroadcast.getInputOrDefault(ctx, ROTATION.name, ROTATION.defaultValue);
         if (pts == null || inst == null || inst.vertexCount() == 0) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
 
         float[] positions = positionsFromBundle(pts);
         if (positions.length < NUM_3) {
-            ctx.setOutput(GEOMETRY_2, pts.withSlot(INSTANCE_MESH, inst));
+            ctx.setOutput(GEOMETRY.name, pts.withSlot(INSTANCE_MESH, inst));
             return;
         }
 
@@ -97,7 +93,7 @@ public class InstanceOnPointsNode implements MeshNode {
             MeshAppend.append(out, inst, mat);
         }
         out.computeNormals();
-        ctx.setOutput(GEOMETRY_2, pts.withMesh(out).withSlot(INSTANCE_MESH, inst));
+        ctx.setOutput(GEOMETRY.name, pts.withMesh(out).withSlot(INSTANCE_MESH, inst));
     }
 
     private static float[] positionsFromBundle(GeometryBundle gb) {

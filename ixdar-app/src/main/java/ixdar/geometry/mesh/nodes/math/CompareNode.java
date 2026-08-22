@@ -23,11 +23,6 @@ public class CompareNode implements MeshNode {
     public static final String EQUAL = "EQUAL";
     public static final String LESS = "LESS";
     public static final String GREATER = "GREATER";
-    public static final String A_2 = "a";
-    public static final String B_2 = "b";
-    public static final String EPSILON_2 = "epsilon";
-    public static final String MODE_2 = "mode";
-    public static final String VALUE_2 = "value";
     public static final float NUM_0 = 0f;
     public static final float NUM_1e_6 = 1e-6f;
 
@@ -41,11 +36,11 @@ public class CompareNode implements MeshNode {
                     "LESS_THAN", LESS,
                     "GREATER_THAN", GREATER));
 
-    private static final InputPort A = new InputPort(A_2, PortType.FLOAT, 0.0f, -1000f, 1000f);
-    private static final InputPort B = new InputPort(B_2, PortType.FLOAT, 0.0f, -1000f, 1000f);
-    private static final InputPort EPSILON = new InputPort(EPSILON_2, PortType.FLOAT, 1e-6f, 1e-8f, 1f);
-    private static final InputPort MODE = new InputPort(MODE_2, PortType.STRING, EQUAL, MODE_CONSTRAINT);
-    private static final OutputPort VALUE = new OutputPort(VALUE_2, PortType.BOOLEAN);
+    public static final InputPort A = new InputPort("a", PortType.FLOAT, 0.0f, -1000f, 1000f);
+    public static final InputPort B = new InputPort("b", PortType.FLOAT, 0.0f, -1000f, 1000f);
+    public static final InputPort EPSILON = new InputPort("epsilon", PortType.FLOAT, 1e-6f, 1e-8f, 1f);
+    public static final InputPort MODE = new InputPort("mode", PortType.STRING, EQUAL, MODE_CONSTRAINT);
+    public static final OutputPort VALUE = new OutputPort("value", PortType.BOOLEAN);
 
     /** {@inheritDoc}. */
     @Override
@@ -57,11 +52,11 @@ public class CompareNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                A_2, "Left operand (scalar or per-vertex FloatField).",
-                B_2, "Right operand.",
-                EPSILON_2, "Tolerance for EQUAL mode. EQUAL is |a - b| < epsilon; LESS/GREATER are strict when epsilon=0, otherwise include a tolerance band.",
-                MODE_2, "Comparison: EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL, NOT_EQUAL.",
-                VALUE_2, "Per-element BOOLEAN."
+                A.name, "Left operand (scalar or per-vertex FloatField).",
+                B.name, "Right operand.",
+                EPSILON.name, "Tolerance for EQUAL mode. EQUAL is |a - b| < epsilon; LESS/GREATER are strict when epsilon=0, otherwise include a tolerance band.",
+                MODE.name, "Comparison: EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL, NOT_EQUAL.",
+                VALUE.name, "Per-element BOOLEAN."
         );
     }
 
@@ -80,10 +75,10 @@ public class CompareNode implements MeshNode {
     /** {@inheritDoc}. */
     @Override
     public void evaluate(NodeContext ctx) {
-        Object ao = FieldBroadcast.getInputOrDefault(ctx, A_2, A.defaultValue());
-        Object bo = FieldBroadcast.getInputOrDefault(ctx, B_2, B.defaultValue());
-        Object eo = FieldBroadcast.getInputOrDefault(ctx, EPSILON_2, EPSILON.defaultValue());
-        String modeStr = ctx.getInput(MODE_2, String.class);
+        Object ao = FieldBroadcast.getInputOrDefault(ctx, A.name, A.defaultValue);
+        Object bo = FieldBroadcast.getInputOrDefault(ctx, B.name, B.defaultValue);
+        Object eo = FieldBroadcast.getInputOrDefault(ctx, EPSILON.name, EPSILON.defaultValue);
+        String modeStr = ctx.getInput(MODE.name, String.class);
         Mode mode = Mode.parse(modeStr);
 
         if (ao instanceof FloatField || bo instanceof FloatField || eo instanceof FloatField) {
@@ -98,14 +93,14 @@ public class CompareNode implements MeshNode {
                 float epsilon = Math.abs(FieldBroadcast.floatAt(eo, i, NUM_1e_6));
                 out[i] = evalMode(mode, a, b, epsilon);
             }
-            ctx.setOutput(VALUE_2,new BoolField(out));
+            ctx.setOutput(VALUE.name,new BoolField(out));
             return;
         }
 
         float a = FieldBroadcast.floatScalarOrDefault(ao, NUM_0);
         float b = FieldBroadcast.floatScalarOrDefault(bo, NUM_0);
         float epsilon = Math.abs(FieldBroadcast.floatScalarOrDefault(eo, NUM_1e_6));
-        ctx.setOutput(VALUE_2,evalMode(mode, a, b, epsilon));
+        ctx.setOutput(VALUE.name,evalMode(mode, a, b, epsilon));
     }
 
     private static boolean evalMode(Mode mode, float a, float b, float epsilon) {

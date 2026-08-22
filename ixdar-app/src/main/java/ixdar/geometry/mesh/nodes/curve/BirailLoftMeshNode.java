@@ -26,11 +26,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "birail_loft")
 public class BirailLoftMeshNode implements MeshNode {
-    public static final String RAIL_A_2 = "rail_a";
-    public static final String RAIL_B_2 = "rail_b";
-    public static final String U_SEGMENTS_2 = "u_segments";
-    public static final String V_SEGMENTS_2 = "v_segments";
-    public static final String GEOMETRY_2 = "geometry";
     public static final String CURVE = "_curve";
     public static final int NUM_16 = 16;
     public static final int NUM_8 = 8;
@@ -41,11 +36,11 @@ public class BirailLoftMeshNode implements MeshNode {
     public static final float NUM_1e_20 = 1e-20f;
     public static final float NUM_1e_8 = 1e-8f;
 
-    private static final InputPort RAIL_A = new InputPort(RAIL_A_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort RAIL_B = new InputPort(RAIL_B_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort U_SEGMENTS = new InputPort(U_SEGMENTS_2, PortType.INT, 16, 2f, 512f);
-    private static final InputPort V_SEGMENTS = new InputPort(V_SEGMENTS_2, PortType.INT, 8, 2f, 512f);
-    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort RAIL_A = new InputPort("rail_a", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort RAIL_B = new InputPort("rail_b", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort U_SEGMENTS = new InputPort("u_segments", PortType.INT, 16, 2f, 512f);
+    public static final InputPort V_SEGMENTS = new InputPort("v_segments", PortType.INT, 8, 2f, 512f);
+    public static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -55,11 +50,11 @@ public class BirailLoftMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                RAIL_A_2, "First rail curve defining one surface boundary.",
-                RAIL_B_2, "Second rail curve defining the opposing boundary.",
-                U_SEGMENTS_2, "Samples along the rails. Higher = smoother sweep.",
-                V_SEGMENTS_2, "Samples across (from rail_a to rail_b). Higher = smoother cross-section.",
-                GEOMETRY_2, "Ruled surface as a geometry bundle."
+                RAIL_A.name, "First rail curve defining one surface boundary.",
+                RAIL_B.name, "Second rail curve defining the opposing boundary.",
+                U_SEGMENTS.name, "Samples along the rails. Higher = smoother sweep.",
+                V_SEGMENTS.name, "Samples across (from rail_a to rail_b). Higher = smoother cross-section.",
+                GEOMETRY.name, "Ruled surface as a geometry bundle."
         );
     }
 
@@ -75,39 +70,39 @@ public class BirailLoftMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle ga = GeometryBundles.bundlePart(ctx.getInput(RAIL_A_2, Object.class));
-        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput(RAIL_B_2, Object.class));
+        GeometryBundle ga = GeometryBundles.bundlePart(ctx.getInput(RAIL_A.name, Object.class));
+        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput(RAIL_B.name, Object.class));
         if (ga == null || gb == null) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
         Object ca = ga.slots().get(CURVE);
         Object cb = gb.slots().get(CURVE);
         if (!(ca instanceof CurveGeometry cga) || !(cb instanceof CurveGeometry cgb)) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
 
-        int uSeg = readInt(ctx, U_SEGMENTS_2, NUM_16);
-        int vSeg = readInt(ctx, V_SEGMENTS_2, NUM_8);
+        int uSeg = readInt(ctx, U_SEGMENTS.name, NUM_16);
+        int vSeg = readInt(ctx, V_SEGMENTS.name, NUM_8);
         uSeg = Math.max(2, uSeg);
         vSeg = Math.max(2, vSeg);
 
         Polyline pa = extractPolyline(cga);
         Polyline pb = extractPolyline(cgb);
         if (pa == null || pb == null) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
         if (pa.closed != pb.closed) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
 
         Vector3f[] aRes = resampleArcLength(pa.points, pa.closed, uSeg);
         Vector3f[] bRes = resampleArcLength(pb.points, pb.closed, uSeg);
         if (aRes == null || bRes == null) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
 
@@ -141,7 +136,7 @@ public class BirailLoftMeshNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput(GEOMETRY_2, ga.withMesh(mesh));
+        ctx.setOutput(GEOMETRY.name, ga.withMesh(mesh));
     }
 
     private static int readInt(NodeContext ctx, String name, int fallback) {

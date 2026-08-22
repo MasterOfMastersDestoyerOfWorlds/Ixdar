@@ -588,9 +588,9 @@ public final class SkeletonSensitivityAnalyzer {
                         MeshNodeSchema.from(instance);
                 List<String> names = new ArrayList<>();
                 for (var op : schema.outputs()) {
-                    if (op.type() == PortType.MESH
-                            || op.type() == PortType.GEOMETRY_BUNDLE) {
-                        names.add(op.name());
+                    if (op.type == PortType.MESH
+                            || op.type == PortType.GEOMETRY_BUNDLE) {
+                        names.add(op.name);
                     }
                 }
                 if (!names.isEmpty()) return names;

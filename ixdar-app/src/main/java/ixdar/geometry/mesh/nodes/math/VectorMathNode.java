@@ -21,13 +21,7 @@ import ixdar.annotations.meshnode.Vector3Value;
  */
 @MeshNodeAnnotation(id = "vector_math")
 public class VectorMathNode implements MeshNode {
-    public static final String OPERATION_2 = "operation";
     public static final String ADD = "ADD";
-    public static final String A_2 = "a";
-    public static final String B_2 = "b";
-    public static final String SCALE_2 = "scale";
-    public static final String VECTOR_2 = "vector";
-    public static final String RESULT_2 = "result";
     public static final String DOT_PRODUCT = "DOT_PRODUCT";
     public static final String DOT = "DOT";
     public static final String SUBTRACT = "SUBTRACT";
@@ -41,14 +35,14 @@ public class VectorMathNode implements MeshNode {
     public static final float NUM_1e_20 = 1e-20f;
     public static final float NUM_0 = 0f;
 
-    private static final Vector3Value ZERO = new Vector3Value(0f, 0f, 0f);
+    public static final Vector3Value ZERO = new Vector3Value(0f, 0f, 0f);
 
-    private static final InputPort OPERATION = new InputPort(OPERATION_2, PortType.STRING, ADD);
-    private static final InputPort A = new InputPort(A_2, PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
-    private static final InputPort B = new InputPort(B_2, PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
-    private static final InputPort SCALE = new InputPort(SCALE_2, PortType.FLOAT, 1.0f, -1000f, 1000f);
-    private static final OutputPort VECTOR = new OutputPort(VECTOR_2, PortType.VECTOR3);
-    private static final OutputPort RESULT = new OutputPort(RESULT_2, PortType.FLOAT);
+    public static final InputPort OPERATION = new InputPort("operation", PortType.STRING, ADD);
+    public static final InputPort A = new InputPort("a", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
+    public static final InputPort B = new InputPort("b", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
+    public static final InputPort SCALE = new InputPort("scale", PortType.FLOAT, 1.0f, -1000f, 1000f);
+    public static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
+    public static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 
     @Override
     public String description() {
@@ -58,12 +52,12 @@ public class VectorMathNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                OPERATION_2, "Op: ADD, SUBTRACT, MULTIPLY, SCALE (by `scale`), NORMALIZE (of a), CROSS, DOT (scalar result).",
-                A_2, "Left vector operand.",
-                B_2, "Right vector operand. Ignored for NORMALIZE and SCALE.",
-                SCALE_2, "Scalar multiplier for SCALE mode. Ignored otherwise.",
-                VECTOR_2, "Vector result (for vector-valued ops). For DOT mode, this is (0, 0, 0).",
-                RESULT_2, "Scalar result: length of `vector` for vector-valued ops, dot product for DOT."
+                OPERATION.name, "Op: ADD, SUBTRACT, MULTIPLY, SCALE (by `scale`), NORMALIZE (of a), CROSS, DOT (scalar result).",
+                A.name, "Left vector operand.",
+                B.name, "Right vector operand. Ignored for NORMALIZE and SCALE.",
+                SCALE.name, "Scalar multiplier for SCALE mode. Ignored otherwise.",
+                VECTOR.name, "Vector result (for vector-valued ops). For DOT mode, this is (0, 0, 0).",
+                RESULT.name, "Scalar result: length of `vector` for vector-valued ops, dot product for DOT."
         );
     }
 
@@ -79,15 +73,15 @@ public class VectorMathNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        String op = ctx.getInput(OPERATION_2, String.class);
+        String op = ctx.getInput(OPERATION.name, String.class);
         if (op == null) {
             op = ADD;
         } else {
             op = op.trim().toUpperCase();
         }
-        Object av = FieldBroadcast.getInputOrDefault(ctx, A_2, A.defaultValue());
-        Object bv = FieldBroadcast.getInputOrDefault(ctx, B_2, B.defaultValue());
-        Object sv = FieldBroadcast.getInputOrDefault(ctx, SCALE_2, SCALE.defaultValue());
+        Object av = FieldBroadcast.getInputOrDefault(ctx, A.name, A.defaultValue);
+        Object bv = FieldBroadcast.getInputOrDefault(ctx, B.name, B.defaultValue);
+        Object sv = FieldBroadcast.getInputOrDefault(ctx, SCALE.name, SCALE.defaultValue);
 
         int n = FieldBroadcast.vec3Length(av, bv);
         if (sv instanceof FloatField sf) {
@@ -103,20 +97,20 @@ public class VectorMathNode implements MeshNode {
             if (DOT_PRODUCT.equals(op) || DOT.equals(op)) {
                 float[] dots = new float[n];
                 for (int i = 0; i < n; i++) {
-                    FieldBroadcast.vec3At(av, i, (Vector3Value) A.defaultValue(), a);
-                    FieldBroadcast.vec3At(bv, i, (Vector3Value) B.defaultValue(), b);
+                    FieldBroadcast.vec3At(av, i, (Vector3Value) A.defaultValue, a);
+                    FieldBroadcast.vec3At(bv, i, (Vector3Value) B.defaultValue, b);
                     dots[i] = a.dot(b);
                 }
-                ctx.setOutput(VECTOR_2, ZERO);
-                ctx.setOutput(RESULT_2,new FloatField(dots));
+                ctx.setOutput(VECTOR.name, ZERO);
+                ctx.setOutput(RESULT.name,new FloatField(dots));
                 return;
             }
 
             float[] out = new float[n * NUM_3];
             float[] lengths = new float[n];
             for (int i = 0; i < n; i++) {
-                FieldBroadcast.vec3At(av, i, (Vector3Value) A.defaultValue(), a);
-                FieldBroadcast.vec3At(bv, i, (Vector3Value) B.defaultValue(), b);
+                FieldBroadcast.vec3At(av, i, (Vector3Value) A.defaultValue, a);
+                FieldBroadcast.vec3At(bv, i, (Vector3Value) B.defaultValue, b);
                 float s = FieldBroadcast.floatAt(sv, i, NUM_1);
 
                 switch (op) {
@@ -139,21 +133,21 @@ public class VectorMathNode implements MeshNode {
                 out[NUM_3 * i + 2] = outVec.z;
                 lengths[i] = outVec.length();
             }
-            ctx.setOutput(VECTOR_2, new Vector3Field(out));
-            ctx.setOutput(RESULT_2,new FloatField(lengths));
+            ctx.setOutput(VECTOR.name, new Vector3Field(out));
+            ctx.setOutput(RESULT.name,new FloatField(lengths));
             return;
         }
 
-        Vector3f a = toVec(FieldBroadcast.vector3ValueOrDefault(av, (Vector3Value) A.defaultValue()));
-        Vector3f b = toVec(FieldBroadcast.vector3ValueOrDefault(bv, (Vector3Value) B.defaultValue()));
+        Vector3f a = toVec(FieldBroadcast.vector3ValueOrDefault(av, (Vector3Value) A.defaultValue));
+        Vector3f b = toVec(FieldBroadcast.vector3ValueOrDefault(bv, (Vector3Value) B.defaultValue));
         float s = FieldBroadcast.floatScalarOrDefault(sv, NUM_1);
 
         Vector3f outVec = new Vector3f();
 
         if (DOT_PRODUCT.equals(op) || DOT.equals(op)) {
             float dot = a.dot(b);
-            ctx.setOutput(VECTOR_2, ZERO);
-            ctx.setOutput(RESULT_2,dot);
+            ctx.setOutput(VECTOR.name, ZERO);
+            ctx.setOutput(RESULT.name,dot);
             return;
         }
 
@@ -173,8 +167,8 @@ public class VectorMathNode implements MeshNode {
             default -> outVec.set(a).add(b);
         }
 
-        ctx.setOutput(VECTOR_2, new Vector3Value(outVec.x, outVec.y, outVec.z));
-        ctx.setOutput(RESULT_2,outVec.length());
+        ctx.setOutput(VECTOR.name, new Vector3Value(outVec.x, outVec.y, outVec.z));
+        ctx.setOutput(RESULT.name,outVec.length());
     }
 
     private static Vector3f toVec(Vector3Value v) {

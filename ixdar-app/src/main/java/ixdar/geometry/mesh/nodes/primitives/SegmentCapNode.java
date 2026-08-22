@@ -25,18 +25,15 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  */
 @MeshNodeAnnotation(id = "segment_cap")
 public class SegmentCapNode implements MeshNode {
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String SEGMENTS_2 = "segments";
-    public static final String CAP_RINGS_2 = "cap_rings";
     public static final int NUM_3 = 3;
     public static final int NUM_12 = 12;
     public static final float NUM_0_001 = 0.001f;
     public static final float NUM_0_05 = 0.05f;
 
-    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort SEGMENTS = new InputPort(SEGMENTS_2, PortType.INT, 12, (float) 3, (float) 128);
-    private static final InputPort CAP_RINGS = new InputPort(CAP_RINGS_2, PortType.INT, 2, (float) 0, (float) 16);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 12, (float) 3, (float) 128);
+    public static final InputPort CAP_RINGS = new InputPort("cap_rings", PortType.INT, 2, (float) 0, (float) 16);
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -46,9 +43,9 @@ public class SegmentCapNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                GEOMETRY_2, "Input/output geometry bundle. The cap is added at the maximum-Y boundary ring of the input; output contains the capped mesh.",
-                SEGMENTS_2, "Number of vertices in the boundary ring (must match upstream segment's segments). Default 12.",
-                CAP_RINGS_2, "Concentric quad rings spiraling inward from the boundary. Higher = smoother cap after subdivision. Default 2."
+                GEOMETRY.name, "Input/output geometry bundle. The cap is added at the maximum-Y boundary ring of the input; output contains the capped mesh.",
+                SEGMENTS.name, "Number of vertices in the boundary ring (must match upstream segment's segments). Default 12.",
+                CAP_RINGS.name, "Concentric quad rings spiraling inward from the boundary. Higher = smoother cap after subdivision. Default 2."
         );
     }
 
@@ -64,19 +61,19 @@ public class SegmentCapNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
         HalfEdgeMesh mesh = base.mesh() instanceof HalfEdgeMesh h ? h : null;
         if (mesh == null || mesh.vertexCount() == 0) {
-            ctx.setOutput(GEOMETRY_2, base);
+            ctx.setOutput(GEOMETRY.name, base);
             return;
         }
 
-        int segments = Math.max(NUM_3, intInput(ctx, SEGMENTS_2, NUM_12));
-        int capRings = Math.max(1, intInput(ctx, CAP_RINGS_2, 2));
+        int segments = Math.max(NUM_3, intInput(ctx, SEGMENTS.name, NUM_12));
+        int capRings = Math.max(1, intInput(ctx, CAP_RINGS.name, 2));
 
         int totalVerts = mesh.vertexCount();
         if (totalVerts < segments) {
-            ctx.setOutput(GEOMETRY_2, base);
+            ctx.setOutput(GEOMETRY.name, base);
             return;
         }
 
@@ -102,7 +99,7 @@ public class SegmentCapNode implements MeshNode {
         }
 
         if (found < NUM_3) {
-            ctx.setOutput(GEOMETRY_2, base);
+            ctx.setOutput(GEOMETRY.name, base);
             return;
         }
 
@@ -167,7 +164,7 @@ public class SegmentCapNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput(GEOMETRY_2, base.withMesh(mesh));
+        ctx.setOutput(GEOMETRY.name, base.withMesh(mesh));
     }
 
     private static void sortByAngle(int[] ids, float[] angles, int count) {

@@ -249,10 +249,10 @@ public final class ValidateDsl {
                 List<String> bundlePorts = new ArrayList<>();
                 List<String> meshPorts = new ArrayList<>();
                 for (OutputPort op : schema.outputs()) {
-                    if (op.type() == PortType.GEOMETRY_BUNDLE) {
-                        bundlePorts.add(op.name());
-                    } else if (op.type() == PortType.MESH) {
-                        meshPorts.add(op.name());
+                    if (op.type == PortType.GEOMETRY_BUNDLE) {
+                        bundlePorts.add(op.name);
+                    } else if (op.type == PortType.MESH) {
+                        meshPorts.add(op.name);
                     }
                 }
                 List<String> names = new ArrayList<>();

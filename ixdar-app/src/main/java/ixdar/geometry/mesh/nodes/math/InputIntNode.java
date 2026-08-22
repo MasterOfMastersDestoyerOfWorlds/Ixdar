@@ -13,16 +13,11 @@ import ixdar.annotations.meshnode.PortType;
 
 @MeshNodeAnnotation(id = "input_int")
 public class InputIntNode implements MeshNode {
-    public static final String NAME_2 = "name";
-    public static final String DEFAULT_2 = "default";
-    public static final String MIN_2 = "min";
-    public static final String MAX_2 = "max";
-    public static final String RESULT_2 = "result";
-    private static final InputPort NAME = new InputPort(NAME_2, PortType.STRING, "");
-    private static final InputPort DEFAULT = new InputPort(DEFAULT_2, PortType.INT, 0);
-    private static final InputPort MIN = new InputPort(MIN_2, PortType.INT, null);
-    private static final InputPort MAX = new InputPort(MAX_2, PortType.INT, null);
-    private static final OutputPort RESULT = new OutputPort(RESULT_2, PortType.INT);
+    public static final InputPort NAME = new InputPort("name", PortType.STRING, "");
+    public static final InputPort DEFAULT = new InputPort("default", PortType.INT, 0);
+    public static final InputPort MIN = new InputPort("min", PortType.INT, null);
+    public static final InputPort MAX = new InputPort("max", PortType.INT, null);
+    public static final OutputPort RESULT = new OutputPort("result", PortType.INT);
 
     @Override
     public String description() {
@@ -32,11 +27,11 @@ public class InputIntNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                NAME_2, "Parameter name (shown in UI, referenced by param_sweep / overrides).",
-                DEFAULT_2, "Initial value when not overridden.",
-                MIN_2, "Lower bound (optional). When null, unbounded below.",
-                MAX_2, "Upper bound (optional). When null, unbounded above.",
-                RESULT_2, "The (possibly-overridden) integer value."
+                NAME.name, "Parameter name (shown in UI, referenced by param_sweep / overrides).",
+                DEFAULT.name, "Initial value when not overridden.",
+                MIN.name, "Lower bound (optional). When null, unbounded below.",
+                MAX.name, "Upper bound (optional). When null, unbounded above.",
+                RESULT.name, "The (possibly-overridden) integer value."
         );
     }
 
@@ -52,10 +47,10 @@ public class InputIntNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Number valueNum = ctx.getInput(DEFAULT_2, Number.class);
+        Number valueNum = ctx.getInput(DEFAULT.name, Number.class);
         int v = valueNum == null ? 0 : valueNum.intValue();
-        Number minNum = ctx.getInput(MIN_2, Number.class);
-        Number maxNum = ctx.getInput(MAX_2, Number.class);
+        Number minNum = ctx.getInput(MIN.name, Number.class);
+        Number maxNum = ctx.getInput(MAX.name, Number.class);
         int min = minNum == null ? Integer.MIN_VALUE : minNum.intValue();
         int max = maxNum == null ? Integer.MAX_VALUE : maxNum.intValue();
         if (v < min) {
@@ -64,6 +59,6 @@ public class InputIntNode implements MeshNode {
         if (v > max) {
             v = max;
         }
-        ctx.setOutput(RESULT_2, v);
+        ctx.setOutput(RESULT.name, v);
     }
 }

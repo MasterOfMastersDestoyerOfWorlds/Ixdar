@@ -17,13 +17,11 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "spherize")
 public class SpherizeMeshNode implements MeshNode {
-    public static final String MESH = "mesh";
-    public static final String FACTOR_2 = "factor";
     public static final float NUM_0 = 0f;
     public static final float NUM_0_00001 = 0.00001f;
-    private static final InputPort MESH_IN = new InputPort(MESH, PortType.MESH, null);
-    private static final InputPort FACTOR = new InputPort(FACTOR_2, PortType.FLOAT, 1.0f, 0f, 1f);
-    private static final OutputPort MESH_OUT = new OutputPort(MESH, PortType.MESH);
+    public static final InputPort MESH_IN = new InputPort("mesh", PortType.MESH, null);
+    public static final InputPort FACTOR = new InputPort("factor", PortType.FLOAT, 1.0f, 0f, 1f);
+    public static final OutputPort MESH_OUT = new OutputPort(MESH_IN.name, PortType.MESH);
 
     @Override
     public List<InputPort> inputs() {
@@ -43,21 +41,21 @@ public class SpherizeMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                MESH, "Input/output mesh. Each vertex is lerped from its position toward a point on a sphere of the bounding radius centered at the centroid.",
-                FACTOR_2, "Blend amount in [0, 1]. 0 = no change; 1 = vertices fully projected onto the sphere."
+                MESH_IN.name, "Input/output mesh. Each vertex is lerped from its position toward a point on a sphere of the bounding radius centered at the centroid.",
+                FACTOR.name, "Blend amount in [0, 1]. 0 = no change; 1 = vertices fully projected onto the sphere."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        MeshTopology inputMesh = ctx.getInput(MESH, MeshTopology.class);
-        Number factorInput = ctx.getInput(FACTOR_2, Number.class);
+        MeshTopology inputMesh = ctx.getInput(MESH_IN.name, MeshTopology.class);
+        Number factorInput = ctx.getInput(FACTOR.name, Number.class);
 
         // Clamp the factor strictly between 0.0 and 1.0
         float factor = factorInput == null ? 1.0f : Math.max(0.0f, Math.min(1.0f, factorInput.floatValue()));
 
         if (inputMesh == null || inputMesh.vertexCount() == 0) {
-            ctx.setOutput(MESH, null);
+            ctx.setOutput(MESH_IN.name, null);
             return;
         }
 
@@ -116,6 +114,6 @@ public class SpherizeMeshNode implements MeshNode {
         }
 
         newMesh.computeNormals();
-        ctx.setOutput(MESH, newMesh);
+        ctx.setOutput(MESH_IN.name, newMesh);
     }
 }

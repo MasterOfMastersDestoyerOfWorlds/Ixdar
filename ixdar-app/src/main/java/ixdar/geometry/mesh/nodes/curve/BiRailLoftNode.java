@@ -29,20 +29,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "bi_rail_loft")
 public class BiRailLoftNode implements MeshNode {
-    public static final String RAIL_A_2 = "rail_a";
-    public static final String RAIL_B_2 = "rail_b";
-    public static final String PROFILE_2 = "profile";
-    public static final String PROFILE_B_2 = "profile_b";
-    public static final String X_RESOLUTION_2 = "x_resolution";
-    public static final String Y_RESOLUTION_2 = "y_resolution";
-    public static final String BLEND_CLOSURE_2 = "blend_closure";
-    public static final String DEPTH_SCALE_2 = "depth_scale";
-    public static final String ISO_CURVE_T_2 = "iso_curve_t";
-    public static final String THICKNESS_2 = "thickness";
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String ISO_CURVE_2 = "iso_curve";
-    public static final String BOUNDARY_A_2 = "boundary_a";
-    public static final String BOUNDARY_B_2 = "boundary_b";
     public static final String CURVE = "_curve";
     public static final int NUM_32 = 32;
     public static final int NUM_16 = 16;
@@ -57,20 +43,20 @@ public class BiRailLoftNode implements MeshNode {
     public static final float NUM_1e_5 = 1e-5f;
     public static final float NUM_1e_8 = 1e-8f;
 
-    private static final InputPort RAIL_A = new InputPort(RAIL_A_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort RAIL_B = new InputPort(RAIL_B_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort PROFILE = new InputPort(PROFILE_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort PROFILE_B = new InputPort(PROFILE_B_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort X_RESOLUTION = new InputPort(X_RESOLUTION_2, PortType.INT, 32, 2f, 512f);
-    private static final InputPort Y_RESOLUTION = new InputPort(Y_RESOLUTION_2, PortType.INT, 16, 2f, 512f);
-    private static final InputPort BLEND_CLOSURE = new InputPort(BLEND_CLOSURE_2, PortType.CLOSURE, null);
-    private static final InputPort DEPTH_SCALE = new InputPort(DEPTH_SCALE_2, PortType.FLOAT, 1f, -100f, 100f);
-    private static final InputPort ISO_CURVE_T = new InputPort(ISO_CURVE_T_2, PortType.FLOAT, -1f, -1f, 1f);
-    private static final InputPort THICKNESS = new InputPort(THICKNESS_2, PortType.FLOAT, 0.001f, 0f, 10f);
-    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
-    private static final OutputPort ISO_CURVE = new OutputPort(ISO_CURVE_2, PortType.GEOMETRY_BUNDLE);
-    private static final OutputPort BOUNDARY_A = new OutputPort(BOUNDARY_A_2, PortType.GEOMETRY_BUNDLE);
-    private static final OutputPort BOUNDARY_B = new OutputPort(BOUNDARY_B_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort RAIL_A = new InputPort("rail_a", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort RAIL_B = new InputPort("rail_b", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort PROFILE = new InputPort("profile", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort PROFILE_B = new InputPort("profile_b", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort X_RESOLUTION = new InputPort("x_resolution", PortType.INT, 32, 2f, 512f);
+    public static final InputPort Y_RESOLUTION = new InputPort("y_resolution", PortType.INT, 16, 2f, 512f);
+    public static final InputPort BLEND_CLOSURE = new InputPort("blend_closure", PortType.CLOSURE, null);
+    public static final InputPort DEPTH_SCALE = new InputPort("depth_scale", PortType.FLOAT, 1f, -100f, 100f);
+    public static final InputPort ISO_CURVE_T = new InputPort("iso_curve_t", PortType.FLOAT, -1f, -1f, 1f);
+    public static final InputPort THICKNESS = new InputPort("thickness", PortType.FLOAT, 0.001f, 0f, 10f);
+    public static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
+    public static final OutputPort ISO_CURVE = new OutputPort("iso_curve", PortType.GEOMETRY_BUNDLE);
+    public static final OutputPort BOUNDARY_A = new OutputPort("boundary_a", PortType.GEOMETRY_BUNDLE);
+    public static final OutputPort BOUNDARY_B = new OutputPort("boundary_b", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -80,20 +66,20 @@ public class BiRailLoftNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.ofEntries(
-                Map.entry(RAIL_A_2, "First rail curve defining the surface boundary along one side."),
-                Map.entry(RAIL_B_2, "Second rail curve defining the opposing boundary."),
-                Map.entry(PROFILE_2, "Primary cross-section curve swept between rails."),
-                Map.entry(PROFILE_B_2, "Optional second cross-section. When set, the surface blends from `profile` at V=0 to `profile_b` at V=1."),
-                Map.entry(X_RESOLUTION_2, "Samples along the U direction (along the rails). Higher = smoother sweep."),
-                Map.entry(Y_RESOLUTION_2, "Samples along the V direction (across the profile). Higher = smoother cross-section."),
-                Map.entry(BLEND_CLOSURE_2, "Optional float closure controlling profile-to-profile_b blend as a function of V."),
-                Map.entry(DEPTH_SCALE_2, "Multiplier on profile depth. 1 = as-authored; 0 = flat sheet."),
-                Map.entry(ISO_CURVE_T_2, "If ≥ 0, also output an iso-curve at this U parameter. -1 = disabled."),
-                Map.entry(THICKNESS_2, "Solidify thickness for closed shells. 0 = open surface. Typical 0.001."),
-                Map.entry(GEOMETRY_2, "Generated surface (possibly solidified)."),
-                Map.entry(ISO_CURVE_2, "U-isocurve at iso_curve_t (empty if disabled)."),
-                Map.entry(BOUNDARY_A_2, "Ordered boundary curve on the rail_a side of the surface (for bridging)."),
-                Map.entry(BOUNDARY_B_2, "Ordered boundary curve on the rail_b side.")
+                Map.entry(RAIL_A.name, "First rail curve defining the surface boundary along one side."),
+                Map.entry(RAIL_B.name, "Second rail curve defining the opposing boundary."),
+                Map.entry(PROFILE.name, "Primary cross-section curve swept between rails."),
+                Map.entry(PROFILE_B.name, "Optional second cross-section. When set, the surface blends from `profile` at V=0 to `profile_b` at V=1."),
+                Map.entry(X_RESOLUTION.name, "Samples along the U direction (along the rails). Higher = smoother sweep."),
+                Map.entry(Y_RESOLUTION.name, "Samples along the V direction (across the profile). Higher = smoother cross-section."),
+                Map.entry(BLEND_CLOSURE.name, "Optional float closure controlling profile-to-profile_b blend as a function of V."),
+                Map.entry(DEPTH_SCALE.name, "Multiplier on profile depth. 1 = as-authored; 0 = flat sheet."),
+                Map.entry(ISO_CURVE_T.name, "If ≥ 0, also output an iso-curve at this U parameter. -1 = disabled."),
+                Map.entry(THICKNESS.name, "Solidify thickness for closed shells. 0 = open surface. Typical 0.001."),
+                Map.entry(GEOMETRY.name, "Generated surface (possibly solidified)."),
+                Map.entry(ISO_CURVE.name, "U-isocurve at iso_curve_t (empty if disabled)."),
+                Map.entry(BOUNDARY_A.name, "Ordered boundary curve on the rail_a side of the surface (for bridging)."),
+                Map.entry(BOUNDARY_B.name, "Ordered boundary curve on the rail_b side.")
         );
     }
 
@@ -109,13 +95,13 @@ public class BiRailLoftNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle railAGb = GeometryBundles.bundlePart(ctx.getInput(RAIL_A_2, Object.class));
-        GeometryBundle railBGb = GeometryBundles.bundlePart(ctx.getInput(RAIL_B_2, Object.class));
-        GeometryBundle profileGb = GeometryBundles.bundlePart(ctx.getInput(PROFILE_2, Object.class));
-        GeometryBundle profileBGb = GeometryBundles.bundlePart(ctx.getInput(PROFILE_B_2, Object.class));
+        GeometryBundle railAGb = GeometryBundles.bundlePart(ctx.getInput(RAIL_A.name, Object.class));
+        GeometryBundle railBGb = GeometryBundles.bundlePart(ctx.getInput(RAIL_B.name, Object.class));
+        GeometryBundle profileGb = GeometryBundles.bundlePart(ctx.getInput(PROFILE.name, Object.class));
+        GeometryBundle profileBGb = GeometryBundles.bundlePart(ctx.getInput(PROFILE_B.name, Object.class));
 
         if (railAGb == null || railBGb == null || profileGb == null) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
 
@@ -124,7 +110,7 @@ public class BiRailLoftNode implements MeshNode {
         CurveGeometry profileCg = extractCurve(profileGb);
 
         if (railACg == null || railBCg == null || profileCg == null) {
-            ctx.setOutput(GEOMETRY_2, GeometryBundle.empty());
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
 
@@ -132,9 +118,9 @@ public class BiRailLoftNode implements MeshNode {
         CurveGeometry profileBCg = (profileBGb != null) ? extractCurve(profileBGb) : null;
 
         int xRes = FieldBroadcast.intAt(
-                FieldBroadcast.getInputOrDefault(ctx, X_RESOLUTION_2, X_RESOLUTION.defaultValue()), 0, NUM_32);
+                FieldBroadcast.getInputOrDefault(ctx, X_RESOLUTION.name, X_RESOLUTION.defaultValue), 0, NUM_32);
         int yRes = FieldBroadcast.intAt(
-                FieldBroadcast.getInputOrDefault(ctx, Y_RESOLUTION_2, Y_RESOLUTION.defaultValue()), 0, NUM_16);
+                FieldBroadcast.getInputOrDefault(ctx, Y_RESOLUTION.name, Y_RESOLUTION.defaultValue), 0, NUM_16);
         xRes = Math.max(2, Math.min(NUM_512, xRes));
         yRes = Math.max(2, Math.min(NUM_512, yRes));
 
@@ -170,14 +156,14 @@ public class BiRailLoftNode implements MeshNode {
         }
 
         // Optional blend closure for per-station blending along the rail
-        Object closureObj = ctx.getInput(BLEND_CLOSURE_2, Object.class);
+        Object closureObj = ctx.getInput(BLEND_CLOSURE.name, Object.class);
         FloatCurveKernel blendKernel = (closureObj instanceof FloatCurveKernel k) ? k : null;
 
         float depthScale = FieldBroadcast.floatAt(
-                FieldBroadcast.getInputOrDefault(ctx, DEPTH_SCALE_2, DEPTH_SCALE.defaultValue()), 0, NUM_1);
+                FieldBroadcast.getInputOrDefault(ctx, DEPTH_SCALE.name, DEPTH_SCALE.defaultValue), 0, NUM_1);
 
         float isoCurveT = FieldBroadcast.floatAt(
-                FieldBroadcast.getInputOrDefault(ctx, ISO_CURVE_T_2, ISO_CURVE_T.defaultValue()), 0, -NUM_1);
+                FieldBroadcast.getInputOrDefault(ctx, ISO_CURVE_T.name, ISO_CURVE_T.defaultValue), 0, -NUM_1);
 
         // Build loft mesh with two-profile blending
         // If iso_curve_t >= 0, also extract the iso-parameter curve at that profile fraction
@@ -189,7 +175,7 @@ public class BiRailLoftNode implements MeshNode {
         float[] boundaryBPositions = new float[xRes * NUM_3];
 
         float thickness = FieldBroadcast.floatAt(
-                FieldBroadcast.getInputOrDefault(ctx, THICKNESS_2, THICKNESS.defaultValue()), 0, NUM_0_001);
+                FieldBroadcast.getInputOrDefault(ctx, THICKNESS.name, THICKNESS.defaultValue), 0, NUM_0_001);
 
         HalfEdgeMesh mesh = buildLoftMesh(railA, railB, xRes,
                 profileAU, profileAV, profileBU, profileBV, yRes, blendKernel, depthScale,
@@ -205,18 +191,18 @@ public class BiRailLoftNode implements MeshNode {
         }
 
         GeometryBundle outBundle = GeometryBundle.empty().withMesh(finalMesh);
-        ctx.setOutput(GEOMETRY_2, outBundle);
+        ctx.setOutput(GEOMETRY.name, outBundle);
 
         // Output iso-curve if requested
         if (isoCurvePositions != null) {
-            ctx.setOutput(ISO_CURVE_2, makeClosedCurveBundle(isoCurvePositions));
+            ctx.setOutput(ISO_CURVE.name, makeClosedCurveBundle(isoCurvePositions));
         } else {
-            ctx.setOutput(ISO_CURVE_2, GeometryBundle.empty());
+            ctx.setOutput(ISO_CURVE.name, GeometryBundle.empty());
         }
 
         // Output boundary curves (always available — these are the actual surface edges)
-        ctx.setOutput(BOUNDARY_A_2, makeClosedCurveBundle(boundaryAPositions));
-        ctx.setOutput(BOUNDARY_B_2, makeClosedCurveBundle(boundaryBPositions));
+        ctx.setOutput(BOUNDARY_A.name, makeClosedCurveBundle(boundaryAPositions));
+        ctx.setOutput(BOUNDARY_B.name, makeClosedCurveBundle(boundaryBPositions));
     }
 
     /** Close a polyline loop and wrap in a GeometryBundle with _curve slot. */

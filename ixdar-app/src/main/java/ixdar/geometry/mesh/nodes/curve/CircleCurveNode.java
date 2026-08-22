@@ -22,19 +22,15 @@ import ixdar.geometry.mesh.data.GeometryBundle;
  */
 @MeshNodeAnnotation(id = "circle_curve")
 public class CircleCurveNode implements MeshNode {
-    public static final String RADIUS_2 = "radius";
-    public static final String RESOLUTION_2 = "resolution";
-    public static final String CENTER_2 = "center";
-    public static final String GEOMETRY_2 = "geometry";
     public static final float NUM_0_1 = 0.1f;
     public static final int NUM_32 = 32;
     public static final int NUM_3 = 3;
     public static final float NUM_2_0 = 2.0f;
 
-    private static final InputPort RADIUS = new InputPort(RADIUS_2, PortType.FLOAT, 0.1f, 0.001f, 100f);
-    private static final InputPort RESOLUTION = new InputPort(RESOLUTION_2, PortType.INT, 32, 2f, 256f);
-    private static final InputPort CENTER = new InputPort(CENTER_2, PortType.VECTOR3, new Vector3Value(0.0f, 0.0f, 0.0f));
-    private static final OutputPort GEOMETRY = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.1f, 0.001f, 100f);
+    public static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 32, 2f, 256f);
+    public static final InputPort CENTER = new InputPort("center", PortType.VECTOR3, new Vector3Value(0.0f, 0.0f, 0.0f));
+    public static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public String description() {
@@ -44,10 +40,10 @@ public class CircleCurveNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                RADIUS_2, "Distance from center to each polyline vertex. The circle has diameter 2r in the XZ plane (extent 2r on those axes).",
-                RESOLUTION_2, "Number of segments. 3 = triangle; 32 = near-circle; 128 = very smooth.",
-                CENTER_2, "World-space position of the circle's center.",
-                GEOMETRY_2, "Closed curve geometry bundle (polyline in XZ plane)."
+                RADIUS.name, "Distance from center to each polyline vertex. The circle has diameter 2r in the XZ plane (extent 2r on those axes).",
+                RESOLUTION.name, "Number of segments. 3 = triangle; 32 = near-circle; 128 = very smooth.",
+                CENTER.name, "World-space position of the circle's center.",
+                GEOMETRY.name, "Closed curve geometry bundle (polyline in XZ plane)."
         );
     }
 
@@ -63,9 +59,9 @@ public class CircleCurveNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Number radiusInput = ctx.getInput(RADIUS_2, Number.class);
-        Number resolutionInput = ctx.getInput(RESOLUTION_2, Number.class);
-        Object centerInput = ctx.getInput(CENTER_2, Object.class);
+        Number radiusInput = ctx.getInput(RADIUS.name, Number.class);
+        Number resolutionInput = ctx.getInput(RESOLUTION.name, Number.class);
+        Object centerInput = ctx.getInput(CENTER.name, Object.class);
 
         float radius = radiusInput == null ? NUM_0_1 : radiusInput.floatValue();
         int resolution = resolutionInput == null ? NUM_32 : Math.max(NUM_3, resolutionInput.intValue());
@@ -101,6 +97,6 @@ public class CircleCurveNode implements MeshNode {
         CurveGeometry curve = CurveGeometry.singlePolyline(closedPositions);
         GeometryBundle curveBundle = GeometryBundle.empty().withSlot("_curve", curve);
 
-        ctx.setOutput(GEOMETRY_2, curveBundle);
+        ctx.setOutput(GEOMETRY.name, curveBundle);
     }
 }

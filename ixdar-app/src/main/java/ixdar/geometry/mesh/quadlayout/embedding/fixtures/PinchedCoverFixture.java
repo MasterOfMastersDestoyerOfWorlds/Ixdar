@@ -96,12 +96,12 @@ public final class PinchedCoverFixture implements LayoutFixture {
     public EmbeddedTMesh build() {
         DiskMeshNode node = new DiskMeshNode();
         MapNodeContext context = new MapNodeContext(node);
-        context.setInput(DiskMeshNode.RINGS_2, RING_COUNT);
-        context.setInput(DiskMeshNode.ANGULAR_SEGMENTS_2, ANGULAR_STEPS);
-        context.setInput(DiskMeshNode.RADIUS_2, (float) RING_COUNT);
-        context.setInput(DiskMeshNode.TRIANGULATE_2, true);
+        context.setInput(DiskMeshNode.RINGS.name, RING_COUNT);
+        context.setInput(DiskMeshNode.ANGULAR_SEGMENTS.name, ANGULAR_STEPS);
+        context.setInput(DiskMeshNode.RADIUS.name, (float) RING_COUNT);
+        context.setInput(DiskMeshNode.TRIANGULATE.name, true);
         node.evaluate(context);
-        this.disk = context.getOutput(DiskMeshNode.MESH_2, HalfEdgeMesh.class);
+        this.disk = context.getOutput(DiskMeshNode.MESH.name, HalfEdgeMesh.class);
         this.topology = new EmbeddedMeshTopology(disk);
         this.tmesh = new EmbeddedTMesh(topology);
         layOutTMesh();

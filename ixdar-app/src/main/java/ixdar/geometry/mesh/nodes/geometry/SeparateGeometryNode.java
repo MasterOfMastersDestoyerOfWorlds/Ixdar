@@ -26,15 +26,10 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "separate_geometry")
 public class SeparateGeometryNode implements MeshNode {
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String SELECTION_2 = "selection";
-    public static final String SELECTED_2 = "selected";
-    public static final String INVERTED_2 = "inverted";
-
-    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort SELECTION = new InputPort(SELECTION_2, PortType.BOOLEAN, true);
-    private static final OutputPort SELECTED = new OutputPort(SELECTED_2, PortType.GEOMETRY_BUNDLE);
-    private static final OutputPort INVERTED = new OutputPort(INVERTED_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
+    public static final OutputPort SELECTED = new OutputPort("selected", PortType.GEOMETRY_BUNDLE);
+    public static final OutputPort INVERTED = new OutputPort("inverted", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -54,24 +49,24 @@ public class SeparateGeometryNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                GEOMETRY_2, "Input bundle to split.",
-                SELECTION_2, "Per-face BOOLEAN mask.",
-                SELECTED_2, "Bundle containing only the selected faces (and their vertices).",
-                INVERTED_2, "Bundle containing the non-selected faces."
+                GEOMETRY.name, "Input bundle to split.",
+                SELECTION.name, "Per-face BOOLEAN mask.",
+                SELECTED.name, "Bundle containing only the selected faces (and their vertices).",
+                INVERTED.name, "Bundle containing the non-selected faces."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
         MeshTopology in = base.mesh();
         if (in == null || in.vertexCount() == 0) {
-            ctx.setOutput(SELECTED_2, GeometryBundle.empty());
-            ctx.setOutput(INVERTED_2, GeometryBundle.empty());
+            ctx.setOutput(SELECTED.name, GeometryBundle.empty());
+            ctx.setOutput(INVERTED.name, GeometryBundle.empty());
             return;
         }
 
-        Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION_2, SELECTION.defaultValue());
+        Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION.name, SELECTION.defaultValue);
 
         int faceCount = in.faceCount();
         boolean[] faceSelected = new boolean[faceCount];
@@ -83,21 +78,21 @@ public class SeparateGeometryNode implements MeshNode {
         }
 
         if (selCount == 0) {
-            ctx.setOutput(SELECTED_2, GeometryBundle.empty());
-            ctx.setOutput(INVERTED_2, base);
+            ctx.setOutput(SELECTED.name, GeometryBundle.empty());
+            ctx.setOutput(INVERTED.name, base);
             return;
         }
         if (selCount == faceCount) {
-            ctx.setOutput(SELECTED_2, base);
-            ctx.setOutput(INVERTED_2, GeometryBundle.empty());
+            ctx.setOutput(SELECTED.name, base);
+            ctx.setOutput(INVERTED.name, GeometryBundle.empty());
             return;
         }
 
         HalfEdgeMesh selMesh = extractFaces(in, faceSelected, true);
         HalfEdgeMesh invMesh = extractFaces(in, faceSelected, false);
 
-        ctx.setOutput(SELECTED_2, base.withMesh(selMesh));
-        ctx.setOutput(INVERTED_2, base.withMesh(invMesh));
+        ctx.setOutput(SELECTED.name, base.withMesh(selMesh));
+        ctx.setOutput(INVERTED.name, base.withMesh(invMesh));
     }
 
     private static HalfEdgeMesh extractFaces(MeshTopology src, boolean[] faceSelected, boolean extractSelected) {

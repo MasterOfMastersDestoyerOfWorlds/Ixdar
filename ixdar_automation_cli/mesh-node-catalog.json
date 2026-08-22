@@ -760,11 +760,11 @@
             "GREATER"
           ],
           "aliases": {
-            "GREATER_THAN": "GREATER",
-            "LT": "LESS",
-            "LESS_THAN": "LESS",
             "EQ": "EQUAL",
-            "GT": "GREATER"
+            "GREATER_THAN": "GREATER",
+            "GT": "GREATER",
+            "LESS_THAN": "LESS",
+            "LT": "LESS"
           },
           "defaultMode": "EQUAL"
         }
@@ -2251,10 +2251,10 @@
           ],
           "aliases": {
             "DIV": "DIVIDE",
-            "SUB": "SUBTRACT",
             "MOD": "MODULO",
             "MUL": "MULTIPLY",
-            "POW": "POWER"
+            "POW": "POWER",
+            "SUB": "SUBTRACT"
           },
           "defaultMode": "ADD"
         }
@@ -3089,11 +3089,11 @@
         "FLOAT": [
           "float_out"
         ],
-        "VECTOR": [
-          "vector"
-        ],
         "INT": [
           "int_out"
+        ],
+        "VECTOR": [
+          "vector"
         ]
       }
     },

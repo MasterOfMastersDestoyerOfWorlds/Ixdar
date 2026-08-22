@@ -19,18 +19,14 @@ import org.joml.Vector3f;
 
 @MeshNodeAnnotation(id = "switch_vector")
 public class SwitchVectorNode implements MeshNode {
-    public static final String SWITCH_2 = "switch";
-    public static final String FALSE = "false";
-    public static final String TRUE = "true";
-    public static final String VECTOR_2 = "vector";
     public static final int NUM_3 = 3;
 
-    private static final Vector3Value ZERO = new Vector3Value(0f, 0f, 0f);
+    public static final Vector3Value ZERO = new Vector3Value(0f, 0f, 0f);
 
-    private static final InputPort SWITCH = new InputPort(SWITCH_2, PortType.BOOLEAN, false);
-    private static final InputPort FALSE_VAL = new InputPort(FALSE, PortType.VECTOR3, ZERO);
-    private static final InputPort TRUE_VAL = new InputPort(TRUE, PortType.VECTOR3, ZERO);
-    private static final OutputPort VECTOR = new OutputPort(VECTOR_2, PortType.VECTOR3);
+    public static final InputPort SWITCH = new InputPort("switch", PortType.BOOLEAN, false);
+    public static final InputPort FALSE_VAL = new InputPort("false", PortType.VECTOR3, ZERO);
+    public static final InputPort TRUE_VAL = new InputPort("true", PortType.VECTOR3, ZERO);
+    public static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
 
     @Override
     public List<InputPort> inputs() {
@@ -50,18 +46,18 @@ public class SwitchVectorNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                SWITCH_2, "Per-element BOOLEAN selector.",
-                FALSE, "Vector used where switch is false.",
-                TRUE, "Vector used where switch is true.",
-                VECTOR_2, "Per-element Vector3: switch ? true : false."
+                SWITCH.name, "Per-element BOOLEAN selector.",
+                FALSE_VAL.name, "Vector used where switch is false.",
+                TRUE_VAL.name, "Vector used where switch is true.",
+                VECTOR.name, "Per-element Vector3: switch ? true : false."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        Object so = FieldBroadcast.getInputOrDefault(ctx, SWITCH_2, SWITCH.defaultValue());
-        Object fa = FieldBroadcast.getInputOrDefault(ctx, FALSE, FALSE_VAL.defaultValue());
-        Object tr = FieldBroadcast.getInputOrDefault(ctx, TRUE, TRUE_VAL.defaultValue());
+        Object so = FieldBroadcast.getInputOrDefault(ctx, SWITCH.name, SWITCH.defaultValue);
+        Object fa = FieldBroadcast.getInputOrDefault(ctx, FALSE_VAL.name, FALSE_VAL.defaultValue);
+        Object tr = FieldBroadcast.getInputOrDefault(ctx, TRUE_VAL.name, TRUE_VAL.defaultValue);
 
         if (so instanceof BoolField || fa instanceof Vector3Field || tr instanceof Vector3Field) {
             int n = 0;
@@ -86,13 +82,13 @@ public class SwitchVectorNode implements MeshNode {
                 out[NUM_3 * i + 1] = pick.y;
                 out[NUM_3 * i + 2] = pick.z;
             }
-            ctx.setOutput(VECTOR_2,new Vector3Field(out));
+            ctx.setOutput(VECTOR.name,new Vector3Field(out));
             return;
         }
 
         Vector3Value fvv = FieldBroadcast.vector3ValueOrDefault(fa, ZERO);
         Vector3Value tvv = FieldBroadcast.vector3ValueOrDefault(tr, ZERO);
         boolean on = so instanceof Boolean bb && bb;
-        ctx.setOutput(VECTOR_2,on ? tvv : fvv);
+        ctx.setOutput(VECTOR.name,on ? tvv : fvv);
     }
 }

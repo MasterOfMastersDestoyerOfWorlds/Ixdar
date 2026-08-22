@@ -24,15 +24,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "mark_edges")
 public class MarkEdgesNode implements MeshNode {
-    public static final String GEOMETRY_2 = "geometry";
-    public static final String LABEL_2 = "label";
-    public static final String TYPE_2 = "type";
-    public static final String SELECTION_2 = "selection";
-    public static final String FACE_BOUNDARY_2 = "face_boundary";
-    public static final String VALUE_FLOAT_2 = "value_float";
-    public static final String VALUE_INT_2 = "value_int";
-    public static final String VALUE_BOOL_2 = "value_bool";
-
     public static final String TYPE_FLOAT = "FLOAT";
     public static final String TYPE_INT = "INT";
     public static final String TYPE_BOOL = "BOOL";
@@ -40,16 +31,16 @@ public class MarkEdgesNode implements MeshNode {
     /** Label {@code subdivision_surface} reads its crease weights from. */
     public static final String CREASE_LABEL = "crease";
 
-    private static final InputPort GEOMETRY = new InputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort LABEL = new InputPort(LABEL_2, PortType.STRING, CREASE_LABEL);
-    private static final InputPort TYPE = new InputPort(TYPE_2, PortType.STRING, TYPE_FLOAT,
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort LABEL = new InputPort("label", PortType.STRING, CREASE_LABEL);
+    public static final InputPort TYPE = new InputPort("type", PortType.STRING, TYPE_FLOAT,
             new ModeConstraint(TYPE_FLOAT, List.of(TYPE_FLOAT, TYPE_INT, TYPE_BOOL), Map.of()));
-    private static final InputPort SELECTION = new InputPort(SELECTION_2, PortType.BOOLEAN, true);
-    private static final InputPort FACE_BOUNDARY = new InputPort(FACE_BOUNDARY_2, PortType.BOOLEAN, false);
-    private static final InputPort VALUE_FLOAT = new InputPort(VALUE_FLOAT_2, PortType.FLOAT, 1.0f);
-    private static final InputPort VALUE_INT = new InputPort(VALUE_INT_2, PortType.INT, 1);
-    private static final InputPort VALUE_BOOL = new InputPort(VALUE_BOOL_2, PortType.BOOLEAN, true);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_2, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
+    public static final InputPort FACE_BOUNDARY = new InputPort("face_boundary", PortType.BOOLEAN, false);
+    public static final InputPort VALUE_FLOAT = new InputPort("value_float", PortType.FLOAT, 1.0f);
+    public static final InputPort VALUE_INT = new InputPort("value_int", PortType.INT, 1);
+    public static final InputPort VALUE_BOOL = new InputPort("value_bool", PortType.BOOLEAN, true);
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -69,30 +60,30 @@ public class MarkEdgesNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                GEOMETRY_2, "Input/output. Output carries the marks in the edge-marks slot, merged with any existing labels.",
-                LABEL_2, "Name downstream consumers look the marks up by, e.g. \"crease\".",
-                TYPE_2, "Which value input is written: FLOAT, INT or BOOL. Existing marks under the label are merged float-by-max, int-by-write, bool-by-or.",
-                SELECTION_2, "Per-face OR per-edge BOOLEAN mask choosing which edges are marked.",
-                FACE_BOUNDARY_2, "If true, interpret `selection` as per-face and mark only the boundary edges of selected regions; if false, per-edge directly.",
-                VALUE_FLOAT_2, "Value written when type is FLOAT, e.g. a crease weight where 0 is smooth and higher stays sharp for more subdivision levels.",
-                VALUE_INT_2, "Value written when type is INT, e.g. a quantized arc length.",
-                VALUE_BOOL_2, "Value written when type is BOOL, e.g. a plain arc mark."
+                GEOMETRY.name, "Input/output. Output carries the marks in the edge-marks slot, merged with any existing labels.",
+                LABEL.name, "Name downstream consumers look the marks up by, e.g. \"crease\".",
+                TYPE.name, "Which value input is written: FLOAT, INT or BOOL. Existing marks under the label are merged float-by-max, int-by-write, bool-by-or.",
+                SELECTION.name, "Per-face OR per-edge BOOLEAN mask choosing which edges are marked.",
+                FACE_BOUNDARY.name, "If true, interpret `selection` as per-face and mark only the boundary edges of selected regions; if false, per-edge directly.",
+                VALUE_FLOAT.name, "Value written when type is FLOAT, e.g. a crease weight where 0 is smooth and higher stays sharp for more subdivision levels.",
+                VALUE_INT.name, "Value written when type is INT, e.g. a quantized arc length.",
+                VALUE_BOOL.name, "Value written when type is BOOL, e.g. a plain arc mark."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY_2, Object.class));
+        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.edgeCount() == 0) {
-            ctx.setOutput(GEOMETRY_2, base);
+            ctx.setOutput(GEOMETRY.name, base);
             return;
         }
 
-        String label = stringInput(ctx, LABEL_2, CREASE_LABEL);
-        String type = stringInput(ctx, TYPE_2, TYPE_FLOAT).toUpperCase();
-        Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION_2, SELECTION.defaultValue());
-        Object fbObj = FieldBroadcast.getInputOrDefault(ctx, FACE_BOUNDARY_2, FACE_BOUNDARY.defaultValue());
+        String label = stringInput(ctx, LABEL.name, CREASE_LABEL);
+        String type = stringInput(ctx, TYPE.name, TYPE_FLOAT).toUpperCase();
+        Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION.name, SELECTION.defaultValue);
+        Object fbObj = FieldBroadcast.getInputOrDefault(ctx, FACE_BOUNDARY.name, FACE_BOUNDARY.defaultValue);
         boolean faceBoundary = fbObj instanceof Boolean b && b;
 
         int maxEdgeId = 0;
@@ -129,12 +120,12 @@ public class MarkEdgesNode implements MeshNode {
             case TYPE_BOOL -> markBools(base, label, selected);
             default -> markFloats(ctx, base, label, selected);
         };
-        ctx.setOutput(GEOMETRY_2, EdgeMarks.with(base, label, marks));
+        ctx.setOutput(GEOMETRY.name, EdgeMarks.with(base, label, marks));
     }
 
     private static float[] markFloats(NodeContext ctx, GeometryBundle base, String label, boolean[] selected) {
         float value = FieldBroadcast.floatScalarOrDefault(
-                FieldBroadcast.getInputOrDefault(ctx, VALUE_FLOAT_2, VALUE_FLOAT.defaultValue()), 1.0f);
+                FieldBroadcast.getInputOrDefault(ctx, VALUE_FLOAT.name, VALUE_FLOAT.defaultValue), 1.0f);
         float[] marks = new float[selected.length];
         float[] existing = EdgeMarks.floats(base, label);
         if (existing != null) {
@@ -149,7 +140,7 @@ public class MarkEdgesNode implements MeshNode {
     }
 
     private static int[] markInts(NodeContext ctx, GeometryBundle base, String label, boolean[] selected) {
-        Object raw = FieldBroadcast.getInputOrDefault(ctx, VALUE_INT_2, VALUE_INT.defaultValue());
+        Object raw = FieldBroadcast.getInputOrDefault(ctx, VALUE_INT.name, VALUE_INT.defaultValue);
         int value = raw instanceof Number n ? n.intValue() : 1;
         int[] marks = new int[selected.length];
         int[] existing = EdgeMarks.ints(base, label);

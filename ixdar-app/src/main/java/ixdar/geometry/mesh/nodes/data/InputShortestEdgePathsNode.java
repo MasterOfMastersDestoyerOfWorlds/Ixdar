@@ -21,10 +21,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "input_shortest_edge_paths")
 public class InputShortestEdgePathsNode implements MeshNode {
-    public static final String END_2 = "end";
-    public static final String EDGE_COST_2 = "edge_cost";
-    public static final String NEXT_VERTEX_2 = "next_vertex";
-    public static final String TOTAL_COST_2 = "total_cost";
     public static final float NUM_0 = 0f;
     public static final float NUM_1e_20 = 1e-20f;
     public static final float NUM_0_5 = 0.5f;
@@ -32,10 +28,10 @@ public class InputShortestEdgePathsNode implements MeshNode {
     public static final int NUM_4 = 4;
     public static final int NUM_1024 = 1024;
 
-    private static final InputPort END = new InputPort(END_2, PortType.BOOLEAN, false);
-    private static final InputPort EDGE_COST = new InputPort(EDGE_COST_2, PortType.FLOAT, 1.0f, 0.001f, 1000f);
-    private static final OutputPort NEXT_VERTEX = new OutputPort(NEXT_VERTEX_2, PortType.INT);
-    private static final OutputPort TOTAL_COST = new OutputPort(TOTAL_COST_2, PortType.FLOAT);
+    public static final InputPort END = new InputPort("end", PortType.BOOLEAN, false);
+    public static final InputPort EDGE_COST = new InputPort("edge_cost", PortType.FLOAT, 1.0f, 0.001f, 1000f);
+    public static final OutputPort NEXT_VERTEX = new OutputPort("next_vertex", PortType.INT);
+    public static final OutputPort TOTAL_COST = new OutputPort("total_cost", PortType.FLOAT);
 
     @Override
     public String description() {
@@ -45,10 +41,10 @@ public class InputShortestEdgePathsNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                END_2, "Per-vertex BoolField marking source (start) vertices. Paths are computed FROM these TO every other vertex.",
-                EDGE_COST_2, "Per-edge FloatField of edge traversal costs. Scalar = uniform graph distance.",
-                NEXT_VERTEX_2, "Per-vertex IntField: the next hop toward the nearest source.",
-                TOTAL_COST_2, "Per-vertex FloatField: accumulated path cost to the nearest source."
+                END.name, "Per-vertex BoolField marking source (start) vertices. Paths are computed FROM these TO every other vertex.",
+                EDGE_COST.name, "Per-edge FloatField of edge traversal costs. Scalar = uniform graph distance.",
+                NEXT_VERTEX.name, "Per-vertex IntField: the next hop toward the nearest source.",
+                TOTAL_COST.name, "Per-vertex FloatField: accumulated path cost to the nearest source."
         );
     }
 
@@ -66,19 +62,19 @@ public class InputShortestEdgePathsNode implements MeshNode {
     public void evaluate(NodeContext ctx) {
         var fc = ctx.fieldContext();
         if (fc == null || !(fc instanceof MeshFieldContext mfc)) {
-            ctx.setOutput(NEXT_VERTEX_2, 0);
-            ctx.setOutput(TOTAL_COST_2, NUM_0);
+            ctx.setOutput(NEXT_VERTEX.name, 0);
+            ctx.setOutput(TOTAL_COST.name, NUM_0);
             return;
         }
         MeshTopology mesh = mfc.mesh();
         if (mesh == null || mesh.vertexCount() == 0) {
-            ctx.setOutput(NEXT_VERTEX_2, 0);
-            ctx.setOutput(TOTAL_COST_2, NUM_0);
+            ctx.setOutput(NEXT_VERTEX.name, 0);
+            ctx.setOutput(TOTAL_COST.name, NUM_0);
             return;
         }
 
-        Object endObj = FieldBroadcast.getInputOrDefault(ctx, END_2, END.defaultValue());
-        Object costObj = FieldBroadcast.getInputOrDefault(ctx, EDGE_COST_2, EDGE_COST.defaultValue());
+        Object endObj = FieldBroadcast.getInputOrDefault(ctx, END.name, END.defaultValue);
+        Object costObj = FieldBroadcast.getInputOrDefault(ctx, EDGE_COST.name, EDGE_COST.defaultValue);
 
         int n = mesh.vertexCount();
         float[] dist = new float[n];
@@ -123,8 +119,8 @@ public class InputShortestEdgePathsNode implements MeshNode {
             tot[i] = Float.isFinite(dist[i]) ? dist[i] : NUM_0;
             nextIdx[i] = parent[i] < 0 ? 0 : parent[i];
         }
-        ctx.setOutput(NEXT_VERTEX_2, new IntField(nextIdx));
-        ctx.setOutput(TOTAL_COST_2, new FloatField(tot));
+        ctx.setOutput(NEXT_VERTEX.name, new IntField(nextIdx));
+        ctx.setOutput(TOTAL_COST.name, new FloatField(tot));
     }
 
     private static void seedSources(MeshTopology mesh, Object endObj, int n,

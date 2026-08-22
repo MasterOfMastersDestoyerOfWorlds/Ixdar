@@ -68,15 +68,15 @@ public record LiteralParameterDescriptor(
                 String blockKey = n.type + STR + argName;
                 if (BLOCKLISTED_PORTS.contains(blockKey)) continue;
 
-                if (port.type() == PortType.FLOAT && value instanceof Number num) {
+                if (port.type == PortType.FLOAT && value instanceof Number num) {
                     out.add(new LiteralParameterDescriptor(
                             n.id, n.type, argName,
                             n.id + STR + argName,
                             num.floatValue(),
-                            port.minValue(), port.maxValue()));
-                } else if (port.type() == PortType.VECTOR3 && value instanceof Vector3Value v3) {
-                    Float min = port.minValue();
-                    Float max = port.maxValue();
+                            port.minValue, port.maxValue));
+                } else if (port.type == PortType.VECTOR3 && value instanceof Vector3Value v3) {
+                    Float min = port.minValue;
+                    Float max = port.maxValue;
                     out.add(new LiteralParameterDescriptor(
                             n.id, n.type, argName,
                             n.id + STR + argName + ".x",
@@ -104,7 +104,7 @@ public record LiteralParameterDescriptor(
             List<InputPort> inputs = node.inputs();
             Map<String, InputPort> map = new HashMap<>(inputs.size());
             for (InputPort ip : inputs) {
-                map.put(ip.name(), ip);
+                map.put(ip.name, ip);
             }
             return map;
         } catch (Exception e) {

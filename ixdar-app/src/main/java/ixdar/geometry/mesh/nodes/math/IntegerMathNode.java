@@ -23,11 +23,6 @@ public class IntegerMathNode implements MeshNode {
     public static final String DIVIDE = "DIVIDE";
     public static final String MODULO = "MODULO";
     public static final String POWER = "POWER";
-    public static final String A_2 = "a";
-    public static final String B_2 = "b";
-    public static final String OPERATION_2 = "operation";
-    public static final String RESULT_2 = "result";
-
     public static final ModeConstraint MODE_CONSTRAINT = new ModeConstraint(
             ADD,
             List.of(ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, POWER, "MIN", "MAX"),
@@ -38,10 +33,10 @@ public class IntegerMathNode implements MeshNode {
                     "MOD", MODULO,
                     "POW", POWER));
 
-    private static final InputPort A = new InputPort(A_2, PortType.INT, 0, -1000f, 1000f);
-    private static final InputPort B = new InputPort(B_2, PortType.INT, 0, -1000f, 1000f);
-    private static final InputPort OPERATION = new InputPort(OPERATION_2, PortType.STRING, ADD, MODE_CONSTRAINT);
-    private static final OutputPort RESULT = new OutputPort(RESULT_2, PortType.INT);
+    public static final InputPort A = new InputPort("a", PortType.INT, 0, -1000f, 1000f);
+    public static final InputPort B = new InputPort("b", PortType.INT, 0, -1000f, 1000f);
+    public static final InputPort OPERATION = new InputPort("operation", PortType.STRING, ADD, MODE_CONSTRAINT);
+    public static final OutputPort RESULT = new OutputPort("result", PortType.INT);
 
     /** {@inheritDoc}. */
     @Override
@@ -53,10 +48,10 @@ public class IntegerMathNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                A_2, "Left integer operand.",
-                B_2, "Right integer operand.",
-                OPERATION_2, "Operation: ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, POWER, MIN, MAX.",
-                RESULT_2, "Integer result."
+                A.name, "Left integer operand.",
+                B.name, "Right integer operand.",
+                OPERATION.name, "Operation: ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, POWER, MIN, MAX.",
+                RESULT.name, "Integer result."
         );
     }
 
@@ -75,9 +70,9 @@ public class IntegerMathNode implements MeshNode {
     /** {@inheritDoc}. */
     @Override
     public void evaluate(NodeContext ctx) {
-        Number aNum = ctx.getInput(A_2, Number.class);
-        Number bNum = ctx.getInput(B_2, Number.class);
-        String modeStr = ctx.getInput(OPERATION_2, String.class);
+        Number aNum = ctx.getInput(A.name, Number.class);
+        Number bNum = ctx.getInput(B.name, Number.class);
+        String modeStr = ctx.getInput(OPERATION.name, String.class);
         int a = aNum == null ? 0 : aNum.intValue();
         int b = bNum == null ? 0 : bNum.intValue();
         Mode mode = Mode.parse(modeStr);
@@ -92,7 +87,7 @@ public class IntegerMathNode implements MeshNode {
             case MIN -> Math.min(a, b);
             case MAX -> Math.max(a, b);
         };
-        ctx.setOutput(RESULT_2, out);
+        ctx.setOutput(RESULT.name, out);
     }
 
     public enum Mode {

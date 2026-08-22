@@ -23,9 +23,6 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "subdivision_surface")
 public class SubdivisionMeshNode implements MeshNode {
-    public static final String MESH = "mesh";
-    public static final String GEOMETRY = "geometry";
-    public static final String LEVELS_2 = "levels";
     public static final int NUM_3 = 3;
     public static final int NUM_4 = 4;
     public static final float NUM_0 = 0f;
@@ -36,11 +33,11 @@ public class SubdivisionMeshNode implements MeshNode {
     public static final float NUM_0_125 = 0.125f;
     public static final float NUM_1 = 1f;
 
-    private static final InputPort MESH_IN = new InputPort(MESH, PortType.MESH, null);
-    private static final InputPort GEOMETRY_IN = new InputPort(GEOMETRY, PortType.GEOMETRY_BUNDLE, null);
-    private static final InputPort LEVELS = new InputPort(LEVELS_2, PortType.INT, 1, 0f, 6f);
-    private static final OutputPort MESH_OUT = new OutputPort(MESH, PortType.MESH);
-    private static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY, PortType.GEOMETRY_BUNDLE);
+    public static final InputPort MESH_IN = new InputPort("mesh", PortType.MESH, null);
+    public static final InputPort GEOMETRY_IN = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort LEVELS = new InputPort("levels", PortType.INT, 1, 0f, 6f);
+    public static final OutputPort MESH_OUT = new OutputPort(MESH_IN.name, PortType.MESH);
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_IN.name, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -60,9 +57,9 @@ public class SubdivisionMeshNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                MESH, "Plain topology input (alternative to geometry). Used when no crease weights need to be read.",
-                GEOMETRY, "Input/output geometry bundle. Carries crease weights written by mark_crease so semi-sharp edges subdivide smoothly.",
-                LEVELS_2, "Catmull-Clark iterations. Each level quadruples face count AND smooths toward the limit surface."
+                MESH_IN.name, "Plain topology input (alternative to geometry). Used when no crease weights need to be read.",
+                GEOMETRY_IN.name, "Input/output geometry bundle. Carries crease weights written by mark_crease so semi-sharp edges subdivide smoothly.",
+                LEVELS.name, "Catmull-Clark iterations. Each level quadruples face count AND smooths toward the limit surface."
         );
     }
 
@@ -71,27 +68,27 @@ public class SubdivisionMeshNode implements MeshNode {
         // Accept geometry bundle (with crease weights) or plain mesh
         GeometryBundle bundle = null;
         MeshTopology mesh = null;
-        Object geoObj = ctx.getInputValue(GEOMETRY);
+        Object geoObj = ctx.getInputValue(GEOMETRY_IN.name);
         if (geoObj != null) {
             bundle = GeometryBundles.requireBundle(geoObj);
             mesh = bundle.mesh();
         }
         if (mesh == null) {
-            mesh = ctx.getInput(MESH, MeshTopology.class);
+            mesh = ctx.getInput(MESH_IN.name, MeshTopology.class);
         }
 
-        Number levelsInput = ctx.getInput(LEVELS_2, Number.class);
+        Number levelsInput = ctx.getInput(LEVELS.name, Number.class);
         int levels = levelsInput == null ? 1 : Math.max(0, levelsInput.intValue());
 
         if (mesh == null) {
-            ctx.setOutput(MESH, null);
-            ctx.setOutput(GEOMETRY, GeometryBundle.empty());
+            ctx.setOutput(MESH_IN.name, null);
+            ctx.setOutput(GEOMETRY_IN.name, GeometryBundle.empty());
             return;
         }
 
         if (levels == 0) {
-            ctx.setOutput(MESH, mesh);
-            ctx.setOutput(GEOMETRY, bundle != null ? bundle : GeometryBundle.ofMesh(mesh));
+            ctx.setOutput(MESH_IN.name, mesh);
+            ctx.setOutput(GEOMETRY_IN.name, bundle != null ? bundle : GeometryBundle.ofMesh(mesh));
             return;
         }
 
@@ -137,12 +134,12 @@ public class SubdivisionMeshNode implements MeshNode {
         ArrayMesh out = ArrayMesh.fromQuads(positions, quadIndices);
         out.computeNormals();
 
-        ctx.setOutput(MESH, out);
+        ctx.setOutput(MESH_IN.name, out);
         GeometryBundle outBundle = GeometryBundle.ofMesh(out);
         if (creaseWeights != null) {
             outBundle = EdgeMarks.with(outBundle, MarkEdgesNode.CREASE_LABEL, creaseWeights);
         }
-        ctx.setOutput(GEOMETRY, outBundle);
+        ctx.setOutput(GEOMETRY_IN.name, outBundle);
     }
 
     private static DenseQuadMesh extractDenseQuadMesh(MeshTopology mesh) {

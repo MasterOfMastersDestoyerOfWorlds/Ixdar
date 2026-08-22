@@ -86,11 +86,11 @@ public final class TorusLayoutFixture implements LayoutFixture {
     public EmbeddedTMesh build() {
         TorusMeshNode node = new TorusMeshNode();
         MapNodeContext context = new MapNodeContext(node);
-        context.setInput(TorusMeshNode.MAJOR_SEGMENTS_2, MAJOR_SEGMENTS);
-        context.setInput(TorusMeshNode.MINOR_SEGMENTS_2, MINOR_SEGMENTS);
-        context.setInput(TorusMeshNode.TRIANGULATE_2, true);
+        context.setInput(TorusMeshNode.MAJOR_SEGMENTS.name, MAJOR_SEGMENTS);
+        context.setInput(TorusMeshNode.MINOR_SEGMENTS.name, MINOR_SEGMENTS);
+        context.setInput(TorusMeshNode.TRIANGULATE.name, true);
         node.evaluate(context);
-        this.torus = context.getOutput(TorusMeshNode.MESH_2, HalfEdgeMesh.class);
+        this.torus = context.getOutput(TorusMeshNode.MESH.name, HalfEdgeMesh.class);
         this.topology = new EmbeddedMeshTopology(torus);
         this.tmesh = new EmbeddedTMesh(topology);
         nodeAt.clear();
