@@ -38,9 +38,19 @@ is in the working tree behind it.
 
 ## 1. The deliverable
 
-- [ ] 1.1 Write `ARCHITECTURE.md`: system map, task-indexed patterns, constraints section
-- [ ] 1.2 Write `package-info.java` files (purpose / entry points / what does not belong here)
-- [ ] 1.3 Build the splice generator: `compile` phase, marker-delimited, fails loudly if markers absent
+- [x] 1.1 `ARCHITECTURE.md` written: system map (pipeline diagram, two modules, platform story),
+      task-indexed patterns (add a node, evaluate without a graph, slots, edge keys, representations,
+      scenes, overlays, verification), generated package map, constraints ported from this plan's
+      constraints section, forward-looking material fenced in its own final section
+- [x] 1.2 111 `package-info.java` files across both modules — purpose, entry points, and the
+      load-bearing constraint where one exists. Unfamiliar corners surveyed by four read-only
+      agents (gui/parsing, procgen/game/audio/canvas, platform/graphics, legacy geometry +
+      annotations); all final text hand-written from that evidence
+- [x] 1.3 `ixdar.documentation.SpliceArchitectureDoc`, bound as a third exec-maven execution in
+      the `compile` phase: parses every `package-info.java` javadoc, splices a sorted bullet map
+      between `package-map` markers, exits 1 (failing the build) when markers are missing.
+      Verified: 111 packages spliced, byte-identical across two consecutive clean builds, and the
+      missing-marker path exits non-zero
 - [ ] 1.4 Rewrite `README.md` as a short overview: what Ixdar is, how to build,
       `IXDAR_ASSET_REPO_ROOT`, pointer to `ARCHITECTURE.md`. No TSP link; that material is preserved
       verbatim in `KriegEterna/web/content/essays/tsp-adventures.md`
@@ -105,7 +115,9 @@ is in the working tree behind it.
       sphere-instance loop 6×, (D5) ranged color draws as parallel arrays where the parent has
       `FeatureEdgeRange`, (D6) the 6-line shader preamble 12×, (D7) `setupOverlayProjection`
       re-deriving the parent's private projection. Sketched fix: `LineSet` + `SphereCloud` helpers,
-      `FeatureEdgeRange` reuse, `bindOverlayShader`, projection exposed (~500-600 lines)
+      `FeatureEdgeRange` reuse, `bindOverlayShader`, projection exposed (~500-600 lines).
+      TODO when executed: update `ARCHITECTURE.md`'s "Draw overlays on a mesh" pattern, which
+      currently names `QuadLayoutRuntime` as the cautionary tale
 - [x] 3.3 Mesh data conventions. `EdgeKey` (`ixdar.geometry.mesh.data`) is now the one place edge
       keys are packed: `undirected(a, b)` (min in high 32 bits), `directed(from, to)`,
       `minVertex`/`maxVertex` accessors. Migrated 6 private `edgeKey` clones, ~10 inline ternaries,
@@ -180,6 +192,18 @@ is in the working tree behind it.
       `MultipleStringLiterals` but the config now emits `MeaningfulDuplicateStringLiteralsCheck`, and
       `MagicNumberRecipe` is keyed to a rule that is commented out. Also find where
       `InlineGlueStringConstantsRecipe` is invoked; it is in neither `RECIPE_ORDER` nor `InlineHelpers`
+- [ ] 5.8 Replace the EJML fallback on macOS with Apple's native solver (the Accelerate
+      framework's LAPACK/BLAS) so the Cholesky path is fast on both platforms instead of
+      silently degraded off-MKL
+- [x] 5.9 Everything on 25. The author bumped `annotations` to `--release 25`; the Run button
+      then failed with "Unable to load annotation processor factory" plus a null
+      `CanvasSceneMap.MAP`, proving the language server was still on the extension's bundled JRE
+      21 (no `java.jdt.ls.java.home` was actually set anywhere). Resolution: the 25-built jar
+      reinstalled to `~/.m2` (major version 69 verified), and `java.jdt.ls.java.home` pinned to
+      Homebrew JDK 25 (`/opt/homebrew/opt/openjdk`, the stable symlink) in USER settings, never the git-tracked workspace file (absolute mac
+      path would break Linux; each machine pins its own). Constraint rewritten in
+      `ARCHITECTURE.md`. Awaiting the author's confirmation that the Run button works after a
+      window reload
 
 ## 6. Bugs found, needing tickets
 
@@ -195,7 +219,9 @@ is in the working tree behind it.
       `Files.readAllBytes` and `MeshLoader`, both `java.nio.file`. That path throws in a browser
 - [ ] 6.6 `HalfEdgeMeshRuntime`, `QuadLayoutRuntime`, `IcosphereRuntime` and `AssimpModelRuntime`
       import `org.lwjgl.BufferUtils` directly instead of `IxBuffer`. LWJGL's buffer functions are
-      emitted into the shipped JavaScript as a result
+      emitted into the shipped JavaScript as a result. Also `SDFUnion` static-imports
+      `org.lwjgl.opengl.GL13` texture constants — the one GL-abstraction violation in `graphics`
+      outside `render/model` (surfaced by the 1.2 survey)
 - [ ] 6.7 `PatchRenderer` stays out of the web build only by method-level dead-code elimination. One
       call to `renderMultiview` from web-reachable code pulls `Graphics2D` in
 - [ ] 6.8 Three quad-layout test classes fail on the committed tree, surfaced by this session's
@@ -208,6 +234,10 @@ is in the working tree behind it.
 - [ ] 6.10 `instance_on_points` writes the `_instance_mesh` slot but nothing reads it —
       `RealizeInstancesNode` never looks at the slot, so instances placed on 0 or 1 points are
       silently dropped instead of realized. Surfaced by the 3.3 slot audit
+- [ ] 6.11 Terminal `.help` files can never load: `TerminalCommand` builds the stale path
+      `./src/shell/terminal/help/<name>.help` while the files live at `ixdar/gui/terminal/help/`,
+      and the pom's resource includes omit `**/*.help`, so Maven never copies them to the
+      classpath either. `manifoldtest.help` has no matching command. Surfaced by the 1.2 survey
 
 ## 7. Decisions still owed
 
@@ -216,7 +246,8 @@ is in the working tree behind it.
 - [ ] 7.2 Quad layout stages to mesh nodes. Author's words: quad layout "was a long divergance and was
       hard to get right so its bee na while but should be integrated into the common system", and it
       "will need a lot of testing". Related: the pipeline is really a mesh-to-DSL generator, which only
-      makes sense as DSL once a load-mesh node exists
+      makes sense as DSL once a load-mesh node exists. TODO when executed: update `ARCHITECTURE.md`
+      (the overlay pattern and the quad-layout entries in the system map and package map)
 - [ ] 7.3 Whether always-on profiling should fail fast when `.profiler/libasyncProfiler` is missing,
       as it does now, or degrade
 

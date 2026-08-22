@@ -162,6 +162,22 @@
               </arguments>
             </configuration>
           </execution>
+          <execution>
+            <id>splice-architecture-doc</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>java</goal>
+            </goals>
+            <configuration>
+              <classpathScope>compile</classpathScope>
+              <mainClass>ixdar.documentation.SpliceArchitectureDoc</mainClass>
+              <arguments>
+                <argument>${project.basedir}/../ARCHITECTURE.md</argument>
+                <argument>${project.basedir}/src/main/java</argument>
+                <argument>${project.basedir}/../annotations/src/main/java</argument>
+              </arguments>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
     </plugins>
