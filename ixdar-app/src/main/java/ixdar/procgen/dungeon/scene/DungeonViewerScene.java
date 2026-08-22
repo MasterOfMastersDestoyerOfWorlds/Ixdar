@@ -132,6 +132,7 @@ public class DungeonViewerScene extends Scene {
         Object result;
         try {
             result = runtime.executeGraphResult(ast, finalId, "mesh");
+            runtime.logTimings("[dungeon]");
         } catch (Exception e) {
             Platforms.get().log("[dungeon-viewer] DSL execution failed: " + e.getMessage());
             throw new IllegalStateException("Failed to execute DSL: " + dslResource, e);

@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.function.Supplier;
 
 import com.google.gson.GsonBuilder;
@@ -16,6 +17,7 @@ import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
 import ixdar.annotations.meshnode.MeshNodeSchema;
 import ixdar.annotations.meshnode.ModeConstraint;
 import ixdar.annotations.meshnode.OutputPort;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.math.RandomValueNode;
 
 public final class MeshNodeCatalog {
@@ -33,7 +35,7 @@ public final class MeshNodeCatalog {
      * @return JSON document with a top-level {@code "nodes"} array
      */
     public static String toJsonFromAnnotationRegistry() {
-        return toJson(MeshNodeRegistry_MeshNodes.MAP, null);
+        return toJsonFromAnnotationRegistry(null);
     }
 
     /**
@@ -45,7 +47,9 @@ public final class MeshNodeCatalog {
      * @return JSON document with a top-level {@code "nodes"} array
      */
     public static String toJsonFromAnnotationRegistry(String scope) {
-        return toJson(MeshNodeRegistry_MeshNodes.MAP, scope);
+        Map<String, Supplier<? extends MeshNode>> all = new TreeMap<>(MeshNodeRegistry_MeshNodes.MAP);
+        all.putAll(NodeGraphRuntime.DESKTOP_SUPPLIERS);
+        return toJson(all, scope);
     }
 
     /**
@@ -70,7 +74,7 @@ public final class MeshNodeCatalog {
      */
     public static String toJson(Map<String, Supplier<? extends MeshNode>> registry, String scope) {
         List<Map<String, Object>> nodes = new ArrayList<>();
-        for (Map.Entry<String, Supplier<? extends MeshNode>> e : registry.entrySet()) {
+        for (Map.Entry<String, Supplier<? extends MeshNode>> e : new TreeMap<>(registry).entrySet()) {
             MeshNode n = e.getValue().get();
             String[] scopes = scopesOf(n.getClass());
             if (scope != null && !containsScope(scopes, scope)) {
@@ -81,6 +85,10 @@ public final class MeshNodeCatalog {
             entry.put("id", e.getKey());
             entry.put("category", categoryFromClass(n.getClass()));
             entry.put("scopes", Arrays.asList(scopes));
+            MeshNodeAnnotation ann = n.getClass().getAnnotation(MeshNodeAnnotation.class);
+            if (ann != null && ann.desktopOnly()) {
+                entry.put("desktopOnly", true);
+            }
             entry.put("inputs", serializeInputs(schema.inputs(), schema.socketDocs()));
             entry.put("outputs", serializeOutputs(schema.outputs(), schema.socketDocs()));
             String desc = n.description();

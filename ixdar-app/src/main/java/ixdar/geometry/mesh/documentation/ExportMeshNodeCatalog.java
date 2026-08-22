@@ -24,9 +24,9 @@ public final class ExportMeshNodeCatalog {
             System.exit(1);
         }
         Path out = Path.of(args[0]);
-        Files.createDirectories(out.getParent());
+        Files.createDirectories(out.toAbsolutePath().getParent());
         String json = MeshNodeCatalog.toJsonFromAnnotationRegistry();
-        Files.writeString(out, json);
+        Files.writeString(out, json + "\n");
         System.out.println("Exported mesh node catalog to " + out.toAbsolutePath());
     }
 }

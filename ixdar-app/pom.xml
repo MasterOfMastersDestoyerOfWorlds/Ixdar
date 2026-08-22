@@ -131,6 +131,20 @@
         <version>3.6.2</version>
         <executions>
           <execution>
+            <id>export-mesh-node-catalog</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>java</goal>
+            </goals>
+            <configuration>
+              <classpathScope>compile</classpathScope>
+              <mainClass>ixdar.geometry.mesh.documentation.ExportMeshNodeCatalog</mainClass>
+              <arguments>
+                <argument>${project.basedir}/../ixdar_automation_cli/mesh-node-catalog.json</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
             <id>export-automation-routes</id>
             <phase>compile</phase>
             <goals>
@@ -679,33 +693,6 @@
                 <classpath />
                 <argument>ixdar.canvas.IxdarWindow</argument>
                 <argument>dungeon-viewer</argument>
-              </arguments>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-    <profile>
-      <id>export-mesh-catalog</id>
-      <properties>
-        <maven.test.skip>true</maven.test.skip>
-      </properties>
-      <build>
-        <defaultGoal>compile exec:exec</defaultGoal>
-        <plugins>
-          <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <version>3.6.2</version>
-            <configuration>
-              <executable>java</executable>
-              <workingDirectory>${project.basedir}</workingDirectory>
-              <arguments>
-                <argument>-XX:ErrorFile=target/hs_err_pid%p.log</argument>
-                <argument>-classpath</argument>
-                <classpath />
-                <argument>ixdar.geometry.mesh.documentation.ExportMeshNodeCatalog</argument>
-                <argument>${project.build.directory}/mesh-node-catalog.json</argument>
               </arguments>
             </configuration>
           </plugin>

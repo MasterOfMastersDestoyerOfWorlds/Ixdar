@@ -74,6 +74,9 @@ public class MeshNodeViewerScene extends ModelScene {
     private static final String DEFAULT_DSL_FINAL_NODE = "";
     private static final String DEFAULT_DSL_FINAL_PORT = "geometry";
 
+    /** Log prefix for this scene's timing lines. */
+    private static final String TIMING_PREFIX = "[mesh-viewer]";
+
     private static final float HALF_EXTENT = 0.5f;
 
     private final String dslResource;
@@ -274,6 +277,7 @@ public class MeshNodeViewerScene extends ModelScene {
                         : ast.get(ast.size() - 1).id;
                 try {
                     mesh = graphRuntime.executeGraphToMesh(ast, resolvedNode, dslFinalPort);
+                    graphRuntime.logTimings(TIMING_PREFIX);
                 } catch (Exception e) {
                     for (Throwable t = e; t != null; t = t.getCause()) {
                         Platforms.get().log("[mesh-viewer] " + t.getClass().getName() + STR + t.getMessage());
@@ -618,6 +622,7 @@ public class MeshNodeViewerScene extends ModelScene {
 
             try {
                 mesh = runtime.executeGraphToMesh(ast, resolvedNode, resolvedPort);
+                runtime.logTimings(TIMING_PREFIX);
             } catch (Exception e) {
                 Platforms.get().log("[mesh-viewer] DSL reload failed: " + e.getMessage());
                 throw new IllegalStateException("Failed to execute DSL: " + resolvedDslName, e);
@@ -737,6 +742,7 @@ public class MeshNodeViewerScene extends ModelScene {
             lastGraphRuntime = runtime;
             String resolvedNode = ast.get(ast.size() - 1).id;
             mesh = runtime.executeGraphToMesh(ast, resolvedNode, DEFAULT_DSL_FINAL_PORT);
+            runtime.logTimings(TIMING_PREFIX);
             meshRuntime = new HalfEdgeMeshRuntime();
             meshRuntime.upload(mesh);
             meshRuntime.frameCamera(camera);

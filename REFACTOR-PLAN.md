@@ -107,10 +107,12 @@ is in the working tree behind it.
 - [x] 4.3 `missingNodeMessage` names the cause ("desktop-only and unavailable in this build")
       when the id is in `DESKTOP_ONLY_IDS`, and the scenes' existing failure logging carries it to
       the terminal - observed live when a bug briefly gave desktop the web registry
-- [ ] 4.4 Surface the per-node timings `NodeGraphRuntime` already records in `lastTimingMs`
-- [ ] 4.5 `GridMapOptimizer.timeBudgetMilliseconds` 500s to 60s
-- [ ] 4.6 `desktopOnly` in the node catalog export, and move catalog regeneration off the opt-in
-      profile onto `compile` so it stops drifting (it was 2 nodes and 3 months stale)
+- [x] 4.4 `NodeGraphRuntime.logTimings(prefix)` logs graph total plus any node at 100ms or more,
+      called after every scene DSL execution (verified: `[mesh-boolean] graph 8ms`)
+- [x] 4.5 `GridMapOptimizer.timeBudgetMilliseconds` 500s to 60s
+- [x] 4.6 Catalog regenerates every compile into checked-in
+      `ixdar_automation_cli/mesh-node-catalog.json` (sorted, so no-op builds are byte-identical);
+      entries carry `desktopOnly`; the opt-in profile is gone and Daud reads the checked-in file
 
 ## 5. Cleanups
 

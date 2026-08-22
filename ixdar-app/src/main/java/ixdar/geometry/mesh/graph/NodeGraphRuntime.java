@@ -17,6 +17,7 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
+import ixdar.platform.Platforms;
 
 /**
  * Executes parsed DSL graphs by dispatching each statement to a registered
@@ -37,6 +38,9 @@ public class NodeGraphRuntime {
     public static final String FUNCTION = "Function '";
     public static final String IN_FUNCTION = "In function '";
     public static final int NUM_1_000_000 = 1_000_000;
+
+    /** Per-node wall time at or above which {@link #logTimings} names the node. */
+    public static final long SLOW_NODE_MS = 100;
 
     /**
      * Id-to-class view of the generated node registry, built once at class load. Building it
@@ -141,6 +145,23 @@ public class NodeGraphRuntime {
         } catch (Throwable unavailable) {
             return Map.of();
         }
+    }
+
+    /**
+     * Log the last execution's total wall time, plus every node that took 100ms or more. The
+     * project's rule of thumb: most steps take under a second, and anything slow usually means a
+     * planning or correctness problem, so slowness must be visible without extra machinery.
+     *
+     * @param prefix log prefix naming the caller, e.g. {@code "[mesh-viewer]"}
+     */
+    public void logTimings(String prefix) {
+        StringBuilder line = new StringBuilder(prefix).append(" graph ").append(lastTotalMs).append("ms");
+        for (Map.Entry<String, Long> timing : lastTimingMs.entrySet()) {
+            if (timing.getValue() >= SLOW_NODE_MS) {
+                line.append("  ").append(timing.getKey()).append('=').append(timing.getValue()).append("ms");
+            }
+        }
+        Platforms.log(line.toString());
     }
 
     /**

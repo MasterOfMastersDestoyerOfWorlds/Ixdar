@@ -121,7 +121,7 @@ public final class GridMapOptimizer {
      * Wall-clock budget for the whole relaxation, the cap that fits the scene's run
      * budget.
      */
-    public long timeBudgetMilliseconds = 500_000;
+    public long timeBudgetMilliseconds = 60_000;
 
     /**
      * Whether every iteration logs a progress line; off, only every

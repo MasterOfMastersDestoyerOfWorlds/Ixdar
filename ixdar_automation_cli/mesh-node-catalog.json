@@ -1,0 +1,3904 @@
+{
+  "nodes": [
+    {
+      "id": "adaptive_bridge_loops",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. The two tagged loops are bridged with quad faces; unequal vertex counts are handled via a fan transition.",
+          "defaultValue": null
+        },
+        {
+          "name": "loop_a_tag",
+          "portType": "STRING",
+          "description": "Tag string identifying the first boundary loop (set upstream by attach_to_surface or tag_geometry).",
+          "defaultValue": ""
+        },
+        {
+          "name": "loop_b_tag",
+          "portType": "STRING",
+          "description": "Tag string identifying the second boundary loop. If empty, the nearest untagged loop is auto-discovered.",
+          "defaultValue": ""
+        },
+        {
+          "name": "segments",
+          "portType": "INT",
+          "description": "Number of intermediate interpolation rings between the two loops. 0 \u003d direct bridge; higher \u003d smoother transition.",
+          "defaultValue": 1
+        },
+        {
+          "name": "twist",
+          "portType": "INT",
+          "description": "Rotation offset (radians) applied to the loop_b side when pairing vertices. Use to un-twist a natural misalignment.",
+          "defaultValue": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. The two tagged loops are bridged with quad faces; unequal vertex counts are handled via a fan transition."
+        }
+      ],
+      "description": "Bridges two boundary edge loops that may have different vertex counts, using a fan transition with quads and optional intermediate rings. Auto-discovers the nearest untagged loop if only one tag is provided."
+    },
+    {
+      "id": "align_rotation_to_vector",
+      "category": "Transform",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "vector",
+          "portType": "VECTOR3",
+          "description": "Target direction. The resulting rotation maps +Y (\u003c0,1,0\u003e) onto this vector. Zero vectors are treated as +Y (identity rotation).",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 1.0,
+            "z": 0.0
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "rotation",
+          "portType": "ROTATION",
+          "description": "Quaternion that rotates +Y onto the input vector."
+        }
+      ],
+      "description": "Computes a rotation quaternion that aligns the Y-up axis to the given direction vector."
+    },
+    {
+      "id": "apply_bone",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Vertices with nonzero weight for `bone_name` are rotated around `pivot`.",
+          "defaultValue": null
+        },
+        {
+          "name": "bone_name",
+          "portType": "STRING",
+          "description": "Name of the bone whose weights were written upstream by set_bone_weight.",
+          "defaultValue": "bone"
+        },
+        {
+          "name": "rotation",
+          "portType": "VECTOR3",
+          "description": "Euler rotation (radians) applied around the pivot.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "name": "pivot",
+          "portType": "VECTOR3",
+          "description": "World-space point around which rotation is applied. Typically the bone\u0027s joint position.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Vertices with nonzero weight for `bone_name` are rotated around `pivot`."
+        }
+      ],
+      "description": "Rotates weighted vertices around a pivot point for forward-kinematics posing, using bone weights from set_bone_weight. Chain tip-to-root for multi-bone rigs."
+    },
+    {
+      "id": "assign_bezier_handles",
+      "category": "Patch \u0026 Surface",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input cage / output bundle with _bezier_handles_start, _bezier_handles_end, _bezier_handle_weight slots populated.",
+          "defaultValue": null
+        },
+        {
+          "name": "weight",
+          "portType": "FLOAT",
+          "description": "Multiplier on the default quarter-circle tangent magnitude. 0 \u003d straight edges (no rounding); 0.33 ≈ gentle; 1.0 ≈ bulging. Stored in the _bezier_handle_weight slot so downstream topology ops (loop_cut, inset, extrude) can rebuild handles consistently.",
+          "defaultValue": 1.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input cage / output bundle with _bezier_handles_start, _bezier_handles_end, _bezier_handle_weight slots populated."
+        }
+      ],
+      "description": "Computes and stores per-edge cubic Bezier handle offsets on a mesh, with handle directions derived from adjacent edge geometry and magnitude scaled by weight."
+    },
+    {
+      "id": "astar_corridors",
+      "category": "Other",
+      "scopes": [
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "rooms",
+          "portType": "ROOM_LIST",
+          "description": "Room list used to paint ROOM cells in the grid and anchor corridor endpoints.",
+          "defaultValue": null
+        },
+        {
+          "name": "edges",
+          "portType": "EDGE_GRAPH",
+          "description": "MST (+ extras) edges to carve as corridors.",
+          "defaultValue": null
+        },
+        {
+          "name": "grid_w",
+          "portType": "INT",
+          "description": "Grid width in cells.",
+          "defaultValue": 30
+        },
+        {
+          "name": "grid_h",
+          "portType": "INT",
+          "description": "Grid height in cells.",
+          "defaultValue": 30
+        },
+        {
+          "name": "reuse_cost",
+          "portType": "FLOAT",
+          "description": "Per-cell cost to step through an existing HALLWAY (cheap).",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "empty_cost",
+          "portType": "FLOAT",
+          "description": "Per-cell cost to cut a new corridor through EMPTY space (moderate).",
+          "defaultValue": 5.0
+        },
+        {
+          "name": "room_cost",
+          "portType": "FLOAT",
+          "description": "Per-cell cost to path through a ROOM interior (steep to force go-around).",
+          "defaultValue": 50.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "tiles",
+          "portType": "TILE_GRID",
+          "description": "Fully-populated grid of CellType (EMPTY/ROOM/HALLWAY)."
+        }
+      ],
+      "description": "Carves HALLWAY cells between room pairs via grid A*. Cost weights favor reusing existing hallway cells over empty over passing through rooms. Stage 4 of the dungeon pipeline."
+    },
+    {
+      "id": "astar_corridors_3d",
+      "category": "Other",
+      "scopes": [
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "rooms",
+          "portType": "ROOM_LIST_3D",
+          "description": "3D rooms.",
+          "defaultValue": null
+        },
+        {
+          "name": "edges",
+          "portType": "EDGE_GRAPH",
+          "description": "MST + extras edges to carve.",
+          "defaultValue": null
+        },
+        {
+          "name": "grid_w",
+          "portType": "INT",
+          "description": "Grid width (X).",
+          "defaultValue": 30
+        },
+        {
+          "name": "grid_h",
+          "portType": "INT",
+          "description": "Grid height (Y) in floors.",
+          "defaultValue": 5
+        },
+        {
+          "name": "grid_d",
+          "portType": "INT",
+          "description": "Grid depth (Z).",
+          "defaultValue": 30
+        },
+        {
+          "name": "reuse_cost",
+          "portType": "FLOAT",
+          "description": "Cost to step through an existing HALLWAY/STAIR cell.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "empty_cost",
+          "portType": "FLOAT",
+          "description": "Cost to cut through EMPTY space.",
+          "defaultValue": 5.0
+        },
+        {
+          "name": "room_cost",
+          "portType": "FLOAT",
+          "description": "Cost to path through a ROOM interior.",
+          "defaultValue": 50.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "tiles",
+          "portType": "TILE_GRID_3D",
+          "description": "Populated 3D grid of CellType."
+        }
+      ],
+      "description": "3D corridor carving via A* with stair transitions between floors. Stage 4 of the 3D pipeline."
+    },
+    {
+      "id": "attach_to_surface",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. A hole is cut at the attachment point on the parent surface; the opening boundary is tagged for bridge_edge_loops.",
+          "defaultValue": null
+        },
+        {
+          "name": "theta",
+          "portType": "FLOAT",
+          "description": "Azimuthal angle (radians, around Y axis). 0 \u003d +X, π/2 \u003d +Z.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "phi",
+          "portType": "FLOAT",
+          "description": "Polar angle (radians, from +Y). 0 \u003d top pole, π/2 \u003d equator, π \u003d bottom pole.",
+          "defaultValue": 1.5707963
+        },
+        {
+          "name": "radius",
+          "portType": "FLOAT",
+          "description": "Hole radius around the attachment point in world units.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "inset",
+          "portType": "FLOAT",
+          "description": "Inset distance from the cut boundary to the attachment ring. 0 \u003d flush; positive \u003d recessed.",
+          "defaultValue": 0.12
+        },
+        {
+          "name": "twist",
+          "portType": "FLOAT",
+          "description": "Roll angle (radians) around the attachment normal. Rotates the attached child around its axis.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "tag",
+          "portType": "STRING",
+          "description": "String tag applied to the new boundary ring so downstream bridge_edge_loops / adaptive_bridge_loops can find it.",
+          "defaultValue": "attach"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. A hole is cut at the attachment point on the parent surface; the opening boundary is tagged for bridge_edge_loops."
+        },
+        {
+          "name": "attach_position",
+          "portType": "VECTOR3",
+          "description": "World-space position of the attachment point on the surface."
+        },
+        {
+          "name": "attach_normal",
+          "portType": "VECTOR3",
+          "description": "Unit outward normal at the attachment point."
+        },
+        {
+          "name": "attach_rotation",
+          "portType": "VECTOR3",
+          "description": "Euler rotation (radians) that aligns +Y to the attach normal, plus twist."
+        }
+      ],
+      "description": "Creates an attachment hole on a mesh surface at a spherical coordinate direction (theta, phi), outputting the position, normal, and rotation for aligning child geometry like limbs or tubes."
+    },
+    {
+      "id": "bi_rail_loft",
+      "category": "Curve Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "rail_a",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "First rail curve defining the surface boundary along one side.",
+          "defaultValue": null
+        },
+        {
+          "name": "rail_b",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Second rail curve defining the opposing boundary.",
+          "defaultValue": null
+        },
+        {
+          "name": "profile",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Primary cross-section curve swept between rails.",
+          "defaultValue": null
+        },
+        {
+          "name": "profile_b",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Optional second cross-section. When set, the surface blends from `profile` at V\u003d0 to `profile_b` at V\u003d1.",
+          "defaultValue": null
+        },
+        {
+          "name": "x_resolution",
+          "portType": "INT",
+          "description": "Samples along the U direction (along the rails). Higher \u003d smoother sweep.",
+          "defaultValue": 32
+        },
+        {
+          "name": "y_resolution",
+          "portType": "INT",
+          "description": "Samples along the V direction (across the profile). Higher \u003d smoother cross-section.",
+          "defaultValue": 16
+        },
+        {
+          "name": "blend_closure",
+          "portType": "CLOSURE",
+          "description": "Optional float closure controlling profile-to-profile_b blend as a function of V.",
+          "defaultValue": null
+        },
+        {
+          "name": "depth_scale",
+          "portType": "FLOAT",
+          "description": "Multiplier on profile depth. 1 \u003d as-authored; 0 \u003d flat sheet.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "iso_curve_t",
+          "portType": "FLOAT",
+          "description": "If ≥ 0, also output an iso-curve at this U parameter. -1 \u003d disabled.",
+          "defaultValue": -1.0
+        },
+        {
+          "name": "thickness",
+          "portType": "FLOAT",
+          "description": "Solidify thickness for closed shells. 0 \u003d open surface. Typical 0.001.",
+          "defaultValue": 0.001
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Generated surface (possibly solidified)."
+        },
+        {
+          "name": "iso_curve",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "U-isocurve at iso_curve_t (empty if disabled)."
+        },
+        {
+          "name": "boundary_a",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Ordered boundary curve on the rail_a side of the surface (for bridging)."
+        },
+        {
+          "name": "boundary_b",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Ordered boundary curve on the rail_b side."
+        }
+      ],
+      "description": "Generates a surface by sweeping profile curves between two rail curves with optional profile blending, depth scaling, and solidification via thickness."
+    },
+    {
+      "id": "birail_loft",
+      "category": "Curve Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "rail_a",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "First rail curve defining one surface boundary.",
+          "defaultValue": null
+        },
+        {
+          "name": "rail_b",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Second rail curve defining the opposing boundary.",
+          "defaultValue": null
+        },
+        {
+          "name": "u_segments",
+          "portType": "INT",
+          "description": "Samples along the rails. Higher \u003d smoother sweep.",
+          "defaultValue": 16
+        },
+        {
+          "name": "v_segments",
+          "portType": "INT",
+          "description": "Samples across (from rail_a to rail_b). Higher \u003d smoother cross-section.",
+          "defaultValue": 8
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Ruled surface as a geometry bundle."
+        }
+      ],
+      "description": "Creates a ruled surface by linearly interpolating between two rail curves resampled by arc length, with configurable U and V segment counts."
+    },
+    {
+      "id": "boolean_math",
+      "category": "Math \u0026 Logic",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          "portType": "BOOLEAN",
+          "description": "Left operand (scalar bool or per-element BoolField).",
+          "defaultValue": false
+        },
+        {
+          "name": "b",
+          "portType": "BOOLEAN",
+          "description": "Right operand. Ignored for operation\u003dNOT.",
+          "defaultValue": false
+        },
+        {
+          "name": "operation",
+          "portType": "STRING",
+          "description": "Operation: AND, OR, NOT (of a), XOR.",
+          "defaultValue": "AND",
+          "canonicalModes": [
+            "AND",
+            "OR",
+            "NOT",
+            "XOR"
+          ],
+          "aliases": {},
+          "defaultMode": "AND"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "value",
+          "portType": "BOOLEAN",
+          "description": "Boolean result with broadcast shape of a/b."
+        }
+      ],
+      "description": "Per-element boolean logic with modes AND, OR, NOT, XOR."
+    },
+    {
+      "id": "bound_box",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input geometry bundle to measure.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "min",
+          "portType": "VECTOR3",
+          "description": "Lower corner: \u003cmin_x, min_y, min_z\u003e."
+        },
+        {
+          "name": "max",
+          "portType": "VECTOR3",
+          "description": "Upper corner: \u003cmax_x, max_y, max_z\u003e. Extent \u003d max - min."
+        }
+      ],
+      "description": "Computes the axis-aligned bounding box of a geometry, outputting its min and max corner vectors."
+    },
+    {
+      "id": "bridge_edge_loops",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Two tagged boundary loops of EQUAL vertex count are bridged with quads. For unequal counts use adaptive_bridge_loops.",
+          "defaultValue": null
+        },
+        {
+          "name": "loop_a_tag",
+          "portType": "STRING",
+          "description": "Tag identifying the first boundary loop.",
+          "defaultValue": ""
+        },
+        {
+          "name": "loop_b_tag",
+          "portType": "STRING",
+          "description": "Tag identifying the second boundary loop.",
+          "defaultValue": ""
+        },
+        {
+          "name": "segments",
+          "portType": "INT",
+          "description": "Number of intermediate interpolation rings. 0 \u003d direct bridge; higher \u003d smoother.",
+          "defaultValue": 1
+        },
+        {
+          "name": "twist",
+          "portType": "INT",
+          "description": "Rotation offset (radians) around the bridge axis when pairing vertices.",
+          "defaultValue": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Two tagged boundary loops of EQUAL vertex count are bridged with quads. For unequal counts use adaptive_bridge_loops."
+        }
+      ],
+      "description": "Connects two tagged boundary edge loops of equal vertex count with quad faces, with optional intermediate interpolation rings for smoother transitions."
+    },
+    {
+      "id": "capture_attribute",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle. The output carries a new slot named `name` holding `value`.",
+          "defaultValue": null
+        },
+        {
+          "name": "name",
+          "portType": "STRING",
+          "description": "Slot key (string) under which to store the attribute.",
+          "defaultValue": "attr"
+        },
+        {
+          "name": "value",
+          "portType": "FLOAT",
+          "description": "Float scalar or FloatField to store. Downstream nodes read via this same name.",
+          "defaultValue": 0.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle. The output carries a new slot named `name` holding `value`."
+        }
+      ],
+      "description": "Stores a float value or FloatField as a named attribute slot on a geometry bundle for downstream retrieval."
+    },
+    {
+      "id": "circle_curve",
+      "category": "Curve Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "radius",
+          "portType": "FLOAT",
+          "description": "Distance from center to each polyline vertex. The circle has diameter 2r in the XZ plane (extent 2r on those axes).",
+          "defaultValue": 0.1
+        },
+        {
+          "name": "resolution",
+          "portType": "INT",
+          "description": "Number of segments. 3 \u003d triangle; 32 \u003d near-circle; 128 \u003d very smooth.",
+          "defaultValue": 32
+        },
+        {
+          "name": "center",
+          "portType": "VECTOR3",
+          "description": "World-space position of the circle\u0027s center.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Closed curve geometry bundle (polyline in XZ plane)."
+        }
+      ],
+      "description": "Generates a closed circular polyline in the XZ plane with configurable radius, resolution, and center position."
+    },
+    {
+      "id": "combine_xyz",
+      "category": "Math \u0026 Logic",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          "portType": "FLOAT",
+          "description": "X component (scalar float or per-vertex FloatField).",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "y",
+          "portType": "FLOAT",
+          "description": "Y component.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "z",
+          "portType": "FLOAT",
+          "description": "Z component.",
+          "defaultValue": 0.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "vector",
+          "portType": "VECTOR3",
+          "description": "Combined Vector3 or Vector3field (if any input is a field)."
+        }
+      ],
+      "description": "Combines X, Y, Z float values (scalars or per-vertex fields) into a single vector or Vector3field."
+    },
+    {
+      "id": "compare",
+      "category": "Math \u0026 Logic",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          "portType": "FLOAT",
+          "description": "Left operand (scalar or per-vertex FloatField).",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "b",
+          "portType": "FLOAT",
+          "description": "Right operand.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "epsilon",
+          "portType": "FLOAT",
+          "description": "Tolerance for EQUAL mode. EQUAL is |a - b| \u003c epsilon; LESS/GREATER are strict when epsilon\u003d0, otherwise include a tolerance band.",
+          "defaultValue": 1.0E-6
+        },
+        {
+          "name": "mode",
+          "portType": "STRING",
+          "description": "Comparison: EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL, NOT_EQUAL.",
+          "defaultValue": "EQUAL",
+          "canonicalModes": [
+            "EQUAL",
+            "LESS",
+            "GREATER"
+          ],
+          "aliases": {
+            "GREATER_THAN": "GREATER",
+            "LT": "LESS",
+            "LESS_THAN": "LESS",
+            "EQ": "EQUAL",
+            "GT": "GREATER"
+          },
+          "defaultMode": "EQUAL"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "value",
+          "portType": "BOOLEAN",
+          "description": "Per-element BOOLEAN."
+        }
+      ],
+      "description": "Compares two float values with an epsilon tolerance using modes EQUAL, LESS, GREATER."
+    },
+    {
+      "id": "cone",
+      "category": "Primitives",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "radius",
+          "portType": "FLOAT",
+          "description": "Base circle radius. cone(radius\u003dr) base spans ±r in X and Z (extent 2r at the base).",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "height",
+          "portType": "FLOAT",
+          "description": "Total Y-axis extent from base to apex. cone(height\u003dh) base at y\u003d-h/2, apex at y\u003d+h/2.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "segments",
+          "portType": "INT",
+          "description": "Number of divisions around the base circumference. Higher \u003d smoother cone. Default 16.",
+          "defaultValue": 16
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Cone aligned with Y-axis (apex up), centered at origin."
+        }
+      ],
+      "description": "Generates a cone with a circular base and a single apex point, controlled by radius, height, and segment count."
+    },
+    {
+      "id": "coons_extrude_mesh",
+      "category": "Patch \u0026 Surface",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle; MUST carry bezier handle slots from assign_bezier_handles upstream. Unhandled input passes through unchanged with a warning.",
+          "defaultValue": null
+        },
+        {
+          "name": "offset",
+          "portType": "FLOAT",
+          "description": "Signed distance to push extruded corners along the Coons surface normal. Positive \u003d outward protrusion; negative \u003d inward depression (e.g. eye socket).",
+          "defaultValue": 0.1
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-face BOOLEAN mask. Selected QUADS (non-quads pass through) get extruded.",
+          "defaultValue": true
+        },
+        {
+          "name": "region",
+          "portType": "BOOLEAN",
+          "description": "If true, each connected component of the selection (by face-face edge adjacency) extrudes as its own region — adjacent selected faces within the component share extruded vertices and average their surface normals at shared corners. Disconnected clusters in the same mask produce independent, correctly-formed regions (no cross-cluster averaging). If false (default), each face extrudes independently, producing a separate protrusion per face.",
+          "defaultValue": false
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Topology-only output."
+        },
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle; MUST carry bezier handle slots from assign_bezier_handles upstream. Unhandled input passes through unchanged with a warning."
+        },
+        {
+          "name": "generated",
+          "portType": "BOOLEAN",
+          "description": "Per-output-face BOOLEAN: true for the newly-created top face of each extrusion. Thread into the next op\u0027s selection to chain features (e.g. another coons_extrude inward for deeper recesses)."
+        }
+      ],
+      "description": "Curve-preserving extrude on a bezier-handled cage: top-face corners are offset along Coons surface normals (not flat cage face normals) and top-face edges copy their handles from the bottom. Pairs with coons_inset_faces for the cage-first workflow."
+    },
+    {
+      "id": "coons_inset_faces",
+      "category": "Patch \u0026 Surface",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle; MUST carry bezier handle slots from assign_bezier_handles upstream. Unhandled input passes through unchanged with a warning.",
+          "defaultValue": null
+        },
+        {
+          "name": "inset",
+          "portType": "FLOAT",
+          "description": "Inset amount t in [0, 0.5]. Inner corners are placed at Coons surface parameters (t, t), (1-t, t), (1-t, 1-t), (t, 1-t) on each selected face. 0 \u003d no-op; 0.5 \u003d inner quad collapses to face center.",
+          "defaultValue": 0.2
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-face BOOLEAN mask. Selected quads are inset; others pass through.",
+          "defaultValue": true
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Topology-only output."
+        },
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle; MUST carry bezier handle slots from assign_bezier_handles upstream. Unhandled input passes through unchanged with a warning."
+        },
+        {
+          "name": "generated",
+          "portType": "BOOLEAN",
+          "description": "Per-output-face BOOLEAN: true for the newly-created inner face of each inset. Thread into the next op\u0027s selection to chain features (e.g. extrude_mesh for recessed features like eye sockets)."
+        }
+      ],
+      "description": "Curve-preserving inset on a bezier-handled cage: inner corners land on the Coons surface (not on the flat cage), and new edges carry sub-curve handles so coons_patch produces a clean depression without the cheese-grater artifact from plain inset_faces."
+    },
+    {
+      "id": "coons_loop_cut",
+      "category": "Patch \u0026 Surface",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle; MUST carry bezier handle slots from assign_bezier_handles. Unhandled input passes through with a warning.",
+          "defaultValue": null
+        },
+        {
+          "name": "axis",
+          "portType": "STRING",
+          "description": "Cuts are placed PERPENDICULAR to this axis. Accepted: X, Y, Z.",
+          "defaultValue": "X"
+        },
+        {
+          "name": "cuts",
+          "portType": "INT",
+          "description": "Number of new edge loops to insert (1..8).",
+          "defaultValue": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle; MUST carry bezier handle slots from assign_bezier_handles. Unhandled input passes through with a warning."
+        }
+      ],
+      "description": "Inserts geometry-preserving loop cuts along an axis using exact de Casteljau subdivision, so new vertices land on the original Bezier curves. Input MUST carry bezier handle slots (use assign_bezier_handles upstream); for unhandled cages use loop_cut instead."
+    },
+    {
+      "id": "coons_patch",
+      "category": "Patch \u0026 Surface",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input cage (must carry bezier handle slots from assign_bezier_handles) / output smooth high-poly surface mesh. DESTRUCTIVE: consumes the handle slots. Always follow with merge_by_distance(distance\u003d0.0001) to weld duplicated seam vertices.",
+          "defaultValue": null
+        },
+        {
+          "name": "subdivisions",
+          "portType": "INT",
+          "description": "n×n samples per quad face. 4 \u003d 16 quads per face (cheap); 8 \u003d 64 (smooth). Capped internally so total output faces stay under 600k.",
+          "defaultValue": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input cage (must carry bezier handle slots from assign_bezier_handles) / output smooth high-poly surface mesh. DESTRUCTIVE: consumes the handle slots. Always follow with merge_by_distance(distance\u003d0.0001) to weld duplicated seam vertices."
+        }
+      ],
+      "description": "Subdivides each face into a smooth surface patch using cubic bezier edge boundaries. Quad faces use a bilinearly blended Coons patch; 3-sided and 5+-sided faces use a Charrot-Gregory patch (n-sided generalization of the C0 Coons patch). Controlled by a subdivisions parameter.",
+      "destructive": true,
+      "consumes": [
+        "_bezier_handles_start",
+        "_bezier_handles_end"
+      ]
+    },
+    {
+      "id": "cube",
+      "category": "Primitives",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "size",
+          "portType": "FLOAT",
+          "description": "Edge length. cube(size\u003ds) has vertices at ±s/2 and extent \u003d s on each axis. To match a reference with bounding-box extent \u003cX,Y,Z\u003e from a unit cube, use transform_geometry(scale\u003d\u003cX,Y,Z\u003e).",
+          "defaultValue": 1.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Axis-aligned cube mesh (8 verts, 6 quad faces), centered at origin."
+        }
+      ],
+      "description": "Generates an axis-aligned cube mesh centered at the origin."
+    },
+    {
+      "id": "curve_bezier",
+      "category": "Curve Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "resolution",
+          "portType": "INT",
+          "description": "Number of polyline segments. Higher \u003d smoother curve.",
+          "defaultValue": 16
+        },
+        {
+          "name": "start",
+          "portType": "VECTOR3",
+          "description": "Curve start point (world-space).",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "name": "handle_start",
+          "portType": "VECTOR3",
+          "description": "First control handle. For CUBIC, this is the start\u0027s outgoing tangent endpoint. For QUADRATIC, the single control point.",
+          "defaultValue": {
+            "x": 0.33,
+            "y": 0.33,
+            "z": 0.0
+          }
+        },
+        {
+          "name": "handle_end",
+          "portType": "VECTOR3",
+          "description": "Second control handle. For CUBIC, this is the end\u0027s incoming tangent endpoint. Ignored for QUADRATIC.",
+          "defaultValue": {
+            "x": 0.66,
+            "y": 0.33,
+            "z": 0.0
+          }
+        },
+        {
+          "name": "end",
+          "portType": "VECTOR3",
+          "description": "Curve end point.",
+          "defaultValue": {
+            "x": 1.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "name": "mode",
+          "portType": "STRING",
+          "description": "CUBIC (4 control points: start, handle_start, handle_end, end) or QUADRATIC (3 control points: start, handle_start, end).",
+          "defaultValue": "CUBIC",
+          "canonicalModes": [
+            "CUBIC",
+            "QUADRATIC"
+          ],
+          "aliases": {},
+          "defaultMode": "CUBIC"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Bezier polyline as a geometry bundle."
+        }
+      ],
+      "description": "Creates a cubic or quadratic Bezier curve segment as a polyline from control points, with configurable resolution."
+    },
+    {
+      "id": "curve_deform",
+      "category": "Curve Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "curve",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input curve to deform.",
+          "defaultValue": null
+        },
+        {
+          "name": "closure",
+          "portType": "CLOSURE",
+          "description": "Float closure mapping source coordinate to displacement.",
+          "defaultValue": null
+        },
+        {
+          "name": "source_axis",
+          "portType": "STRING",
+          "description": "Axis whose coordinate is fed into `closure`: X, Y, or Z.",
+          "defaultValue": "Y",
+          "canonicalModes": [
+            "X",
+            "Y",
+            "Z"
+          ],
+          "aliases": {},
+          "defaultMode": "Y"
+        },
+        {
+          "name": "target_axis",
+          "portType": "STRING",
+          "description": "Axis where the closure\u0027s output is added: X, Y, or Z.",
+          "defaultValue": "Z",
+          "canonicalModes": [
+            "X",
+            "Y",
+            "Z"
+          ],
+          "aliases": {},
+          "defaultMode": "Z"
+        },
+        {
+          "name": "from_min",
+          "portType": "FLOAT",
+          "description": "Low end of the source axis range remapped to closure input 0.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "from_max",
+          "portType": "FLOAT",
+          "description": "High end of the source axis range remapped to closure input 1.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "amplitude",
+          "portType": "FLOAT",
+          "description": "Multiplier on the closure\u0027s output before adding to the target axis.",
+          "defaultValue": 1.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Deformed curve."
+        }
+      ],
+      "description": "Deforms curve points by mapping a source axis coordinate through a float curve closure and adding the scaled result to a target axis."
+    },
+    {
+      "id": "curve_sweep",
+      "category": "Curve Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "curve",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Path curve to sweep along.",
+          "defaultValue": null
+        },
+        {
+          "name": "profile",
+          "portType": "MESH",
+          "description": "Mesh whose first face is swept along the curve. Vertex count determines segment resolution.",
+          "defaultValue": null
+        },
+        {
+          "name": "caps",
+          "portType": "BOOLEAN",
+          "description": "If true, cap the two ends of the sweep with the profile face; if false, leave the tube open.",
+          "defaultValue": true
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Swept surface as a geometry bundle."
+        }
+      ],
+      "description": "Sweeps a profile mesh face along a curve path using parallel-transported frames to create tubular or extruded geometry, with optional end caps."
+    },
+    {
+      "id": "curve_to_mesh",
+      "category": "Curve Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "curve",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Path curve to sweep along.",
+          "defaultValue": null
+        },
+        {
+          "name": "profile_curve",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Optional custom cross-section curve. If null, a circle of `radius` and `resolution` is used.",
+          "defaultValue": null
+        },
+        {
+          "name": "radius",
+          "portType": "FLOAT",
+          "description": "Tube radius (ignored when profile_curve is set).",
+          "defaultValue": 0.1
+        },
+        {
+          "name": "resolution",
+          "portType": "INT",
+          "description": "Vertices around the circular cross-section (ignored when profile_curve is set).",
+          "defaultValue": 12
+        },
+        {
+          "name": "fill_caps",
+          "portType": "BOOLEAN",
+          "description": "If true, close the two ends of the tube with a disc; if false, leave open.",
+          "defaultValue": true
+        },
+        {
+          "name": "radius_closure",
+          "portType": "CLOSURE",
+          "description": "Optional float closure mapping t∈[0,1] along the path to a per-station radius multiplier. null \u003d uniform.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Tube mesh as a geometry bundle."
+        }
+      ],
+      "description": "Converts a curve into a tube mesh by sweeping a circular or custom profile cross-section along the path, with optional radius closure for per-station scaling and cap filling."
+    },
+    {
+      "id": "cylinder",
+      "category": "Primitives",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "radius",
+          "portType": "FLOAT",
+          "description": "Distance from the central Y-axis to the side surface. cylinder(radius\u003dr) spans ±r in X and Z (extent 2r on those axes).",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "height",
+          "portType": "FLOAT",
+          "description": "Total Y-axis extent. cylinder(height\u003dh) spans from y\u003d-h/2 to y\u003d+h/2 (extent \u003d h, vertices at ±h/2).",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "segments",
+          "portType": "INT",
+          "description": "Number of divisions around the circumference. Higher \u003d smoother cylinder. Default 16.",
+          "defaultValue": 16
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Capped cylinder aligned with Y-axis, centered at origin."
+        }
+      ],
+      "description": "Generates a capped cylinder with triangle-fan caps, controlled by radius, height, and segment count around the circumference."
+    },
+    {
+      "id": "delaunay_graph",
+      "category": "Other",
+      "scopes": [
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "rooms",
+          "portType": "ROOM_LIST",
+          "description": "Room list from random_rooms (or any ROOM_LIST producer).",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "edges",
+          "portType": "EDGE_GRAPH",
+          "description": "Delaunay edges between room indices, sorted by (min, max) for determinism."
+        }
+      ],
+      "description": "Delaunay triangulation over room centers via Bowyer-Watson. Stage 2 of the dungeon pipeline — produces the candidate edge set the MST stage filters."
+    },
+    {
+      "id": "delaunay_graph_3d",
+      "category": "Other",
+      "scopes": [
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "rooms",
+          "portType": "ROOM_LIST_3D",
+          "description": "3D room list.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "edges",
+          "portType": "EDGE_GRAPH",
+          "description": "Edges between room indices, deterministic order."
+        }
+      ],
+      "description": "3D Delaunay tetrahedralization (Bowyer-Watson) over room centers. Stage 2 of the 3D pipeline."
+    },
+    {
+      "id": "delete_geometry",
+      "category": "Geometry Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle. Elements matching `selection` in the chosen `domain` are deleted along with their incident geometry.",
+          "defaultValue": null
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "BOOLEAN mask. Interpretation depends on `domain`.",
+          "defaultValue": false
+        },
+        {
+          "name": "domain",
+          "portType": "STRING",
+          "description": "Selection domain: POINT (delete vertices + incident edges/faces), EDGE (delete edges + dependent faces), FACE (delete faces).",
+          "defaultValue": "POINT"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle. Elements matching `selection` in the chosen `domain` are deleted along with their incident geometry."
+        }
+      ],
+      "description": "Removes selected vertices or edges from the mesh based on a boolean selection mask and domain."
+    },
+    {
+      "id": "dual_radial_segment",
+      "category": "Primitives",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Optional upstream GeometryBundle to append to; on the output, the tube mesh (appended if input provided). If input is null, a fresh mesh is created.",
+          "defaultValue": null
+        },
+        {
+          "name": "start_rx",
+          "portType": "FLOAT",
+          "description": "X-axis radius at t\u003d0. Ellipse half-width at the segment start. Default 0.5.",
+          "defaultValue": 0.5
+        },
+        {
+          "name": "start_tx",
+          "portType": "FLOAT",
+          "description": "X-axis radius tangent at t\u003d0 (∂Rx/∂y). Zero \u003d flat at the start; positive \u003d expanding.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "end_rx",
+          "portType": "FLOAT",
+          "description": "X-axis radius at t\u003d1 on the input side; pass-through value on the output side for G1 chaining into the next segment\u0027s start_rx.",
+          "defaultValue": 0.4
+        },
+        {
+          "name": "end_tx",
+          "portType": "FLOAT",
+          "description": "X-axis radius tangent at t\u003d1 (∂Rx/∂y) on the input side; pass-through for chaining on the output side.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "start_ry",
+          "portType": "FLOAT",
+          "description": "Y-axis radius at t\u003d0. Paired with start_rx for elliptical cross-sections.",
+          "defaultValue": 0.5
+        },
+        {
+          "name": "start_ty",
+          "portType": "FLOAT",
+          "description": "Y-axis radius tangent at t\u003d0 (∂Ry/∂y).",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "end_ry",
+          "portType": "FLOAT",
+          "description": "Y-axis radius at t\u003d1 on input; pass-through for chaining on output.",
+          "defaultValue": 0.4
+        },
+        {
+          "name": "end_ty",
+          "portType": "FLOAT",
+          "description": "Y-axis radius tangent at t\u003d1 on input; pass-through for chaining on output.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "length",
+          "portType": "FLOAT",
+          "description": "Extent along +Y. Segment spans y\u003d0 to y\u003dlength.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "rings",
+          "portType": "INT",
+          "description": "Number of cross-section slices along the length. Default 8.",
+          "defaultValue": 8
+        },
+        {
+          "name": "segments",
+          "portType": "INT",
+          "description": "Vertices per cross-section ring. Higher \u003d smoother. Default 12.",
+          "defaultValue": 12
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Optional upstream GeometryBundle to append to; on the output, the tube mesh (appended if input provided). If input is null, a fresh mesh is created."
+        },
+        {
+          "name": "end_rx",
+          "portType": "FLOAT",
+          "description": "X-axis radius at t\u003d1 on the input side; pass-through value on the output side for G1 chaining into the next segment\u0027s start_rx."
+        },
+        {
+          "name": "end_ry",
+          "portType": "FLOAT",
+          "description": "Y-axis radius at t\u003d1 on input; pass-through for chaining on output."
+        },
+        {
+          "name": "end_tx",
+          "portType": "FLOAT",
+          "description": "X-axis radius tangent at t\u003d1 (∂Rx/∂y) on the input side; pass-through for chaining on the output side."
+        },
+        {
+          "name": "end_ty",
+          "portType": "FLOAT",
+          "description": "Y-axis radius tangent at t\u003d1 on input; pass-through for chaining on output."
+        }
+      ],
+      "description": "Generates a parametric tube segment with independent X/Y elliptical radius profiles interpolated via cubic Hermite curves, supporting G1-continuous chaining through geometry and end tangent outputs."
+    },
+    {
+      "id": "dungeon_grid_to_mesh",
+      "category": "Other",
+      "scopes": [
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "tiles",
+          "portType": "TILE_GRID",
+          "description": "Tile grid from astar_corridors.",
+          "defaultValue": null
+        },
+        {
+          "name": "cell_size",
+          "portType": "FLOAT",
+          "description": "Edge length of one cell in world units.",
+          "defaultValue": 1.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "ArrayMesh with 6 quads per non-empty cell. Winding matches cube(), normals computed."
+        }
+      ],
+      "description": "Emits an axis-aligned boxed mesh from a TileGrid — one box per non-empty cell, HALLWAY cells shorter than ROOM cells for visual distinction. Stage 5 (final) of the dungeon pipeline."
+    },
+    {
+      "id": "dungeon_grid_to_mesh_3d",
+      "category": "Other",
+      "scopes": [
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "tiles",
+          "portType": "TILE_GRID_3D",
+          "description": "3D tile grid from astar_corridors_3d.",
+          "defaultValue": null
+        },
+        {
+          "name": "cell_size",
+          "portType": "FLOAT",
+          "description": "Edge length of one cell in world units.",
+          "defaultValue": 1.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "ArrayMesh centered at world origin."
+        }
+      ],
+      "description": "Emits a 3D boxed mesh from a TileGrid3D. Multi-floor dungeon with stair cells rendered as mid-height slabs. Stage 5 (final) of the 3D dungeon pipeline."
+    },
+    {
+      "id": "edge_paths_to_selection",
+      "category": "Selection",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "start",
+          "portType": "BOOLEAN",
+          "description": "Per-vertex BoolField marking path start vertices.",
+          "defaultValue": false
+        },
+        {
+          "name": "next_vertex",
+          "portType": "INT",
+          "description": "Per-vertex IntField: next-hop vertex index for each vertex (from input_shortest_edge_paths).",
+          "defaultValue": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-edge BoolField: true for edges that lie on any traced path."
+        }
+      ],
+      "description": "Converts vertex path chains (defined by next_vertex indices) into an edge selection mask."
+    },
+    {
+      "id": "evaluate_closure",
+      "category": "Closure",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "closure",
+          "portType": "CLOSURE",
+          "description": "Float closure to sample (from float_curve or function_curve).",
+          "defaultValue": null
+        },
+        {
+          "name": "value",
+          "portType": "FLOAT",
+          "description": "Input X (scalar or per-vertex FloatField). Typically in [0, 1] for float_curve; arbitrary for function_curve.",
+          "defaultValue": 0.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "portType": "FLOAT",
+          "description": "Sampled Y value(s)."
+        }
+      ],
+      "description": "Evaluates a float curve closure at a scalar or per-vertex field value, returning the mapped result."
+    },
+    {
+      "id": "extrude_mesh",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output cage. Preserves bezier handle slots via rebuild when _bezier_handle_weight is set.",
+          "defaultValue": null
+        },
+        {
+          "name": "offset",
+          "portType": "FLOAT",
+          "description": "Distance to push extruded faces along the (averaged) face normal. Positive \u003d outward, negative \u003d inward.",
+          "defaultValue": 0.1
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-face BOOLEAN mask (or scalar). True \u003d face gets extruded.",
+          "defaultValue": true
+        },
+        {
+          "name": "region",
+          "portType": "BOOLEAN",
+          "description": "If true, adjacent selected faces share extruded vertices — single extruded region. If false (default), each face extrudes independently (cheese-grater).",
+          "defaultValue": false
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Topology-only output."
+        },
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output cage. Preserves bezier handle slots via rebuild when _bezier_handle_weight is set."
+        },
+        {
+          "name": "generated",
+          "portType": "BOOLEAN",
+          "description": "Per-output-face BOOLEAN: true for the newly-created top face of each extrusion; false for pass-through and side walls. Thread into the selection of the next op to chain features."
+        }
+      ],
+      "description": "Extrudes selected faces along their normals by an offset distance, with individual or region mode for controlling whether adjacent faces share extruded vertices."
+    },
+    {
+      "id": "field_at_index",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "value",
+          "portType": "FLOAT",
+          "description": "Per-element FloatField to sample from.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "index",
+          "portType": "INT",
+          "description": "Indices into the field. Scalar or IntField.",
+          "defaultValue": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "portType": "FLOAT",
+          "description": "Sampled float(s) at the requested index/indices."
+        }
+      ],
+      "description": "Samples a float field at a given index or indices, enabling indirect/gather-style lookups into per-vertex data."
+    },
+    {
+      "id": "float_curve",
+      "category": "Curve Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "points",
+          "portType": "STRING",
+          "description": "Comma-separated x,y pairs: \u0027x0,y0,x1,y1,...\u0027. Linear interpolation between points; clamped outside.",
+          "defaultValue": "0,0,1,1"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "closure",
+          "portType": "CLOSURE",
+          "description": "Float closure that can be sampled by evaluate_closure at any input x."
+        }
+      ],
+      "description": "Builds a float curve closure from comma-separated x,y control point pairs for use as an editable input parameter."
+    },
+    {
+      "id": "float_math",
+      "category": "Math \u0026 Logic",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "operation",
+          "portType": "STRING",
+          "description": "Op name: ADD, SUBTRACT, MULTIPLY, DIVIDE, POWER, MINIMUM, MAXIMUM, ABSOLUTE, FRACT, SIN, COS, SQRT, NEGATE, MODULO, ATAN2.",
+          "defaultValue": "ADD"
+        },
+        {
+          "name": "a",
+          "portType": "FLOAT",
+          "description": "Left operand (scalar or per-vertex FloatField).",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "b",
+          "portType": "FLOAT",
+          "description": "Right operand. Ignored for single-operand ops (ABSOLUTE, FRACT, SIN, COS, SQRT, NEGATE).",
+          "defaultValue": 0.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "portType": "FLOAT",
+          "description": "Per-element float."
+        }
+      ],
+      "description": "Per-element float math with operations ADD, SUBTRACT, MULTIPLY, DIVIDE, POWER, MIN, MAX, ABS, FRACT, SIN, COS, SQRT, NEGATE."
+    },
+    {
+      "id": "float_to_int",
+      "category": "Math \u0026 Logic",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "value",
+          "portType": "FLOAT",
+          "description": "Float input to convert.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "mode",
+          "portType": "STRING",
+          "description": "Rounding rule: ROUND (nearest, half away from zero), FLOOR (toward -∞), CEIL (toward +∞), TRUNCATE (toward 0).",
+          "defaultValue": "ROUND",
+          "canonicalModes": [
+            "ROUND",
+            "FLOOR",
+            "CEIL",
+            "TRUNCATE"
+          ],
+          "aliases": {
+            "TRUNC": "TRUNCATE"
+          },
+          "defaultMode": "ROUND"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "portType": "INT",
+          "description": "Integer output."
+        }
+      ],
+      "description": "Converts a float to an integer using modes ROUND, FLOOR, CEIL, TRUNCATE."
+    },
+    {
+      "id": "function_curve",
+      "category": "Curve Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "expression",
+          "portType": "STRING",
+          "description": "Math expression in variable `x`. Supports trig, exp/log, clamp, smoothstep, ease_*, smin, pingpong, and more (see node description for the full list).",
+          "defaultValue": "sin(x * pi)"
+        },
+        {
+          "name": "resolution",
+          "portType": "INT",
+          "description": "Number of samples taken over x∈[0,1] when rendering the curve for display; does NOT limit evaluation precision at runtime.",
+          "defaultValue": 32
+        }
+      ],
+      "outputs": [
+        {
+          "name": "closure",
+          "portType": "CLOSURE",
+          "description": "Float closure wrapping the compiled expression. Sample at any x via evaluate_closure."
+        }
+      ],
+      "description": "Evaluates a math expression over x in [0,1] to produce a float curve closure. Variable: x. Constants: pi, e, tau. Operators: + - * / ^ (power). Trig: sin cos tan asin acos atan atan2(y,x) sinh cosh tanh. Rounding: floor ceil round sign abs fract. Exp: exp log log2 log10 sqrt pow(x,n). Range: min max clamp(x,lo,hi) step(edge,x) mod(x,y). Interpolation: lerp(a,b,t) inverselerp(a,b,x) remap(x,inLo,inHi,outLo,outHi). Easing: smoothstep(e0,e1,x) smootherstep(e0,e1,x) ease_in(x) ease_out(x) ease_in_out(x). Organic: smin(a,b,k) pingpong(x,len). Use function_curve for math formulas, float_curve for hand-tuned control points."
+    },
+    {
+      "id": "icosphere",
+      "category": "Primitives",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "radius",
+          "portType": "FLOAT",
+          "description": "Distance from center to surface. icosphere(radius\u003dr) has extent 2r on each axis (vertices at ±r). For a reference of extent \u003cX,Y,Z\u003e, start with radius\u003d1 and apply transform_geometry(scale\u003d\u003cX/2, Y/2, Z/2\u003e).",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "subdivisions",
+          "portType": "INT",
+          "description": "Number of recursive quadrisections. 0 \u003d 20 triangle faces; each level quadruples face count. Caps at 6.",
+          "defaultValue": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Triangle-based sphere, manifold, centered at origin."
+        }
+      ],
+      "description": "Generates a triangle-based sphere by subdividing an icosahedron, controlled by radius and subdivision level (0 \u003d 20-face icosahedron, each level quadruples face count)."
+    },
+    {
+      "id": "input_boolean",
+      "category": "Math \u0026 Logic",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "name",
+          "portType": "STRING",
+          "description": "Parameter name (shown in the UI, referenced by param_sweep / overrides).",
+          "defaultValue": ""
+        },
+        {
+          "name": "default",
+          "portType": "BOOLEAN",
+          "description": "Initial value when not overridden.",
+          "defaultValue": false
+        }
+      ],
+      "outputs": [
+        {
+          "name": "value",
+          "portType": "BOOLEAN",
+          "description": "The (possibly-overridden) boolean value."
+        }
+      ],
+      "description": "Declares a named boolean parameter for the graph with a default value."
+    },
+    {
+      "id": "input_face_index",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "result",
+          "portType": "FLOAT",
+          "description": "Per-face FloatField where result[i] \u003d i. Feed into compare + boolean_math to build per-face selection masks."
+        }
+      ],
+      "description": "Outputs a per-element identity index field (data[i] \u003d i) for face-domain selection and filtering."
+    },
+    {
+      "id": "input_float",
+      "category": "Math \u0026 Logic",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "name",
+          "portType": "STRING",
+          "description": "Parameter name (shown in UI, referenced by param_sweep / overrides).",
+          "defaultValue": ""
+        },
+        {
+          "name": "default",
+          "portType": "FLOAT",
+          "description": "Initial value when not overridden.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "min",
+          "portType": "FLOAT",
+          "description": "Lower bound (optional). When null, unbounded below.",
+          "defaultValue": null
+        },
+        {
+          "name": "max",
+          "portType": "FLOAT",
+          "description": "Upper bound (optional). When null, unbounded above.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "portType": "FLOAT",
+          "description": "The (possibly-overridden) float value."
+        }
+      ],
+      "description": "Declares a named float parameter for the graph with a default value and optional min/max bounds."
+    },
+    {
+      "id": "input_int",
+      "category": "Math \u0026 Logic",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "name",
+          "portType": "STRING",
+          "description": "Parameter name (shown in UI, referenced by param_sweep / overrides).",
+          "defaultValue": ""
+        },
+        {
+          "name": "default",
+          "portType": "INT",
+          "description": "Initial value when not overridden.",
+          "defaultValue": 0
+        },
+        {
+          "name": "min",
+          "portType": "INT",
+          "description": "Lower bound (optional). When null, unbounded below.",
+          "defaultValue": null
+        },
+        {
+          "name": "max",
+          "portType": "INT",
+          "description": "Upper bound (optional). When null, unbounded above.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "portType": "INT",
+          "description": "The (possibly-overridden) integer value."
+        }
+      ],
+      "description": "Declares a named integer parameter for the graph with a default value and optional min/max bounds."
+    },
+    {
+      "id": "input_mesh_edge_vertices",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "vertex_a",
+          "portType": "INT",
+          "description": "Per-edge IntField: the start vertex index of each edge."
+        },
+        {
+          "name": "vertex_b",
+          "portType": "INT",
+          "description": "Per-edge IntField: the end vertex index of each edge."
+        }
+      ],
+      "description": "Outputs per-edge IntFields containing the start and end vertex indices for every edge in the mesh."
+    },
+    {
+      "id": "input_normal",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "vector",
+          "portType": "VECTOR3",
+          "description": "Per-vertex Vector3field of unit outward normals. Requires a mesh field context."
+        }
+      ],
+      "description": "Provides the per-vertex normal vectors from the current mesh field context."
+    },
+    {
+      "id": "input_position",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "vector",
+          "portType": "VECTOR3",
+          "description": "Per-vertex Vector3field of world-space positions. Requires a mesh field context."
+        }
+      ],
+      "description": "Provides the per-vertex position vectors from the current mesh field context."
+    },
+    {
+      "id": "input_shortest_edge_paths",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "end",
+          "portType": "BOOLEAN",
+          "description": "Per-vertex BoolField marking source (start) vertices. Paths are computed FROM these TO every other vertex.",
+          "defaultValue": false
+        },
+        {
+          "name": "edge_cost",
+          "portType": "FLOAT",
+          "description": "Per-edge FloatField of edge traversal costs. Scalar \u003d uniform graph distance.",
+          "defaultValue": 1.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "next_vertex",
+          "portType": "INT",
+          "description": "Per-vertex IntField: the next hop toward the nearest source."
+        },
+        {
+          "name": "total_cost",
+          "portType": "FLOAT",
+          "description": "Per-vertex FloatField: accumulated path cost to the nearest source."
+        }
+      ],
+      "description": "Computes shortest paths from source vertices across mesh edges using Dijkstra. Outputs per-vertex next-hop index and total cost fields."
+    },
+    {
+      "id": "input_tangent",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "vector",
+          "portType": "VECTOR3",
+          "description": "Per-vertex Vector3field of unit tangents (direction along the first outgoing half-edge)."
+        }
+      ],
+      "description": "Outputs a per-vertex tangent vector derived from the first outgoing half-edge of each vertex."
+    },
+    {
+      "id": "input_vector",
+      "category": "Math \u0026 Logic",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          "portType": "FLOAT",
+          "description": "X component.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "y",
+          "portType": "FLOAT",
+          "description": "Y component.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "z",
+          "portType": "FLOAT",
+          "description": "Z component.",
+          "defaultValue": 0.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "vector",
+          "portType": "VECTOR3",
+          "description": "Vector3 formed from \u003cx, y, z\u003e."
+        }
+      ],
+      "description": "Constructs a Vector3 from individual X, Y, Z float inputs."
+    },
+    {
+      "id": "input_vertex_index",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "result",
+          "portType": "FLOAT",
+          "description": "Per-vertex FloatField where result[i] \u003d i. Feed into compare + boolean_math to build per-vertex selection masks."
+        }
+      ],
+      "description": "Outputs a per-element identity index field (data[i] \u003d i) for vertex-domain selection and filtering."
+    },
+    {
+      "id": "inset_faces",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output cage. Preserves bezier handle slots via rebuild when _bezier_handle_weight is set.",
+          "defaultValue": null
+        },
+        {
+          "name": "inset",
+          "portType": "FLOAT",
+          "description": "Inset amount in [0, 1] — fraction of the way from each corner toward the face centroid. 0 \u003d no inset; 0.5 \u003d halfway.",
+          "defaultValue": 0.1
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-face BOOLEAN mask. True \u003d face gets inset (replaced by inner quad + 4 side quads).",
+          "defaultValue": true
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Topology-only output."
+        },
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output cage. Preserves bezier handle slots via rebuild when _bezier_handle_weight is set."
+        },
+        {
+          "name": "generated",
+          "portType": "BOOLEAN",
+          "description": "Per-output-face BOOLEAN: true for the newly-created inner face of each inset; false for pass-through and side quads. Thread into the selection of the next op to chain features."
+        }
+      ],
+      "description": "Insets selected faces by creating a smaller inner face connected to the original boundary by side quads, useful for preparing faces for extrusion."
+    },
+    {
+      "id": "instance_on_points",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "points",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Geometry bundle or curve whose vertex positions act as placement locations for the instances.",
+          "defaultValue": null
+        },
+        {
+          "name": "instance",
+          "portType": "MESH",
+          "description": "Source mesh to be copied at each point.",
+          "defaultValue": null
+        },
+        {
+          "name": "rotation",
+          "portType": "ROTATION",
+          "description": "Per-point Euler rotation (radians) applied to each instance. Accepts a single Vector3 or a rotation field.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "w": 1.0
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Output bundle containing all instances. Call realize_instances to flatten to a single mesh."
+        }
+      ],
+      "description": "Places a copy of an instance mesh at each point in a geometry bundle or curve, with optional per-point rotation for scatter or array patterns."
+    },
+    {
+      "id": "integer_math",
+      "category": "Math \u0026 Logic",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          "portType": "INT",
+          "description": "Left integer operand.",
+          "defaultValue": 0
+        },
+        {
+          "name": "b",
+          "portType": "INT",
+          "description": "Right integer operand.",
+          "defaultValue": 0
+        },
+        {
+          "name": "operation",
+          "portType": "STRING",
+          "description": "Operation: ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, POWER, MIN, MAX.",
+          "defaultValue": "ADD",
+          "canonicalModes": [
+            "ADD",
+            "SUBTRACT",
+            "MULTIPLY",
+            "DIVIDE",
+            "MODULO",
+            "POWER",
+            "MIN",
+            "MAX"
+          ],
+          "aliases": {
+            "DIV": "DIVIDE",
+            "SUB": "SUBTRACT",
+            "MOD": "MODULO",
+            "MUL": "MULTIPLY",
+            "POW": "POWER"
+          },
+          "defaultMode": "ADD"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "portType": "INT",
+          "description": "Integer result."
+        }
+      ],
+      "description": "Integer arithmetic with modes ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, POWER, MIN, MAX."
+    },
+    {
+      "id": "join_curves",
+      "category": "Curve Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "curve_a",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "First curve polyline.",
+          "defaultValue": null
+        },
+        {
+          "name": "curve_b",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Second curve polyline, appended after a\u0027s end.",
+          "defaultValue": null
+        },
+        {
+          "name": "deduplicate",
+          "portType": "BOOLEAN",
+          "description": "If true (default), drop b\u0027s start vertex when it coincides with a\u0027s end, keeping the join clean.",
+          "defaultValue": true
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Combined curve."
+        }
+      ],
+      "description": "Concatenates two curve polylines into a single continuous curve, optionally deduplicating the shared endpoint at the join."
+    },
+    {
+      "id": "join_geometry",
+      "category": "Geometry Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "First geometry bundle. Tags/weights from both are preserved in the output.",
+          "defaultValue": null
+        },
+        {
+          "name": "b",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Second geometry bundle.",
+          "defaultValue": null
+        },
+        {
+          "name": "merge_distance",
+          "portType": "FLOAT",
+          "description": "Weld threshold for seam vertices. 0 \u003d no weld (a and b remain disjoint); typical 0.001 for light seam cleanup.",
+          "defaultValue": 0.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Combined bundle."
+        }
+      ],
+      "description": "Combines two geometry inputs into one mesh, merging tags and bone weights. Optionally welds nearby vertices within merge_distance."
+    },
+    {
+      "id": "loop_cut",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Topology-only input (alternative to geometry). Used when no bundle slots need preservation.",
+          "defaultValue": null
+        },
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Geometry bundle input/output. If it carries bezier handles, de Casteljau subdivision is used and handles survive the cut.",
+          "defaultValue": null
+        },
+        {
+          "name": "cuts",
+          "portType": "INT",
+          "description": "Number of new edge loops to insert, 1..32. Each cut subdivides aligned edges.",
+          "defaultValue": 1
+        },
+        {
+          "name": "axis",
+          "portType": "STRING",
+          "description": "World-space axis the new loops run PERPENDICULAR to — i.e. cuts\u003d1, axis\u003dX inserts one loop across the X direction. Accepted: X, Y, Z.",
+          "defaultValue": "Z"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Topology-only input (alternative to geometry). Used when no bundle slots need preservation."
+        },
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Geometry bundle input/output. If it carries bezier handles, de Casteljau subdivision is used and handles survive the cut."
+        }
+      ],
+      "description": "Inserts edge loops along a world-space axis (X, Y, or Z), splitting aligned quad faces to add resolution where needed."
+    },
+    {
+      "id": "map_range",
+      "category": "Math \u0026 Logic",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "value",
+          "portType": "FLOAT",
+          "description": "Input value to remap.",
+          "defaultValue": 0.5
+        },
+        {
+          "name": "from_min",
+          "portType": "FLOAT",
+          "description": "Input range low end.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "from_max",
+          "portType": "FLOAT",
+          "description": "Input range high end.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "to_min",
+          "portType": "FLOAT",
+          "description": "Output range low end.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "to_max",
+          "portType": "FLOAT",
+          "description": "Output range high end.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "clamp",
+          "portType": "BOOLEAN",
+          "description": "If true (default), clamp output to [to_min, to_max]; if false, extrapolate beyond.",
+          "defaultValue": true
+        },
+        {
+          "name": "mode",
+          "portType": "STRING",
+          "description": "Interpolation curve: LINEAR or SMOOTH_STEP.",
+          "defaultValue": "LINEAR",
+          "canonicalModes": [
+            "LINEAR",
+            "SMOOTH_STEP"
+          ],
+          "aliases": {},
+          "defaultMode": "LINEAR"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "portType": "FLOAT",
+          "description": "Remapped float."
+        }
+      ],
+      "description": "Remaps a float value from one range to another using LINEAR or SMOOTH_STEP interpolation, with optional clamping."
+    },
+    {
+      "id": "mark_crease",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Output carries the crease weights in a slot read by subdivision_surface.",
+          "defaultValue": null
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-face OR per-edge BOOLEAN mask. Determines which edges receive the crease weight.",
+          "defaultValue": true
+        },
+        {
+          "name": "weight",
+          "portType": "FLOAT",
+          "description": "Crease weight 0..infinity. 0 \u003d no crease (fully smooth); higher \u003d sharper; +infinity \u003d perfectly sharp.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "face_boundary",
+          "portType": "BOOLEAN",
+          "description": "If true, interpret `selection` as per-face and crease only the BOUNDARY edges of selected regions. If false, interpret `selection` as per-edge directly.",
+          "defaultValue": false
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Output carries the crease weights in a slot read by subdivision_surface."
+        }
+      ],
+      "description": "Assigns crease weights to edges for controlling sharpness during Catmull-Clark subdivision, where higher weights preserve hard edges for more subdivision levels."
+    },
+    {
+      "id": "merge_by_distance",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Vertices within `distance` are collapsed into one at the centroid. Bezier handle slots are rebuilt against the welded mesh.",
+          "defaultValue": null
+        },
+        {
+          "name": "distance",
+          "portType": "FLOAT",
+          "description": "Weld threshold in world units (1e-6..1). Use 0.0001 after coons_patch to close its seam duplicates; use larger values to merge post-mirror seams.",
+          "defaultValue": 0.001
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Vertices within `distance` are collapsed into one at the centroid. Bezier handle slots are rebuilt against the welded mesh."
+        }
+      ],
+      "description": "Welds vertices closer than a threshold distance into single vertices, useful for cleaning seams after joins or mirrors."
+    },
+    {
+      "id": "mesh_boolean",
+      "category": "Geometry Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "mesh_a",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "First operand (typically the base mesh).",
+          "defaultValue": null
+        },
+        {
+          "name": "mesh_b",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Second operand (typically the tool mesh).",
+          "defaultValue": null
+        },
+        {
+          "name": "operation",
+          "portType": "STRING",
+          "description": "CSG op: UNION (A ∪ B), DIFFERENCE (A − B), INTERSECT (A ∩ B).",
+          "defaultValue": "DIFFERENCE",
+          "canonicalModes": [
+            "UNION",
+            "DIFFERENCE",
+            "INTERSECT"
+          ],
+          "aliases": {},
+          "defaultMode": "DIFFERENCE"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Result as a geometry bundle, with per-face provenance in the boolean_face_origin and boolean_face_source_quad slots."
+        }
+      ],
+      "description": "Exact CSG boolean (union, difference, or intersect) of two meshes, splitting faces at the intersection curve and recording where each output face came from."
+    },
+    {
+      "id": "mesh_disk",
+      "category": "Primitives",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "rings",
+          "portType": "INT",
+          "description": "Concentric vertex rings around the center; ring k sits at radius k * radius / rings. Default 4.",
+          "defaultValue": 4
+        },
+        {
+          "name": "angular_segments",
+          "portType": "INT",
+          "description": "Vertices per ring, which is also the center vertex\u0027s valence. Default 24.",
+          "defaultValue": 24
+        },
+        {
+          "name": "radius",
+          "portType": "FLOAT",
+          "description": "Radius of the outermost ring. Default 1.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "triangulate",
+          "portType": "BOOLEAN",
+          "description": "Split each annulus quad into two triangles; the center fan is always triangles. Needed by the quad-layout pipeline, which consumes triangle meshes. Default false.",
+          "defaultValue": false
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Flat disk on the XZ plane, centered at the origin, Y\u003d0. Center vertex is id 0, then ring-major/angular-minor ids with angular 0 at twelve o\u0027clock running clockwise. Disk topology, so V - E + F \u003d 1."
+        }
+      ],
+      "description": "Generates a flat polar disk on the XZ plane: a central vertex of valence angular_segments, concentric rings, a triangle fan to ring one and annulus cells outward, optionally triangulated."
+    },
+    {
+      "id": "mesh_grid",
+      "category": "Primitives",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "u_tiles",
+          "portType": "INT",
+          "description": "Number of quads along the U (X) axis.",
+          "defaultValue": 10
+        },
+        {
+          "name": "v_tiles",
+          "portType": "INT",
+          "description": "Number of quads along the V (Z) axis.",
+          "defaultValue": 10
+        },
+        {
+          "name": "u_tile_size",
+          "portType": "FLOAT",
+          "description": "Per-tile edge length along U. Grid extent along X \u003d u_tiles × u_tile_size, vertices at ±extent/2. Ignored when u_total_size \u003e 0.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "v_tile_size",
+          "portType": "FLOAT",
+          "description": "Per-tile edge length along V. Grid extent along Z \u003d v_tiles × v_tile_size, vertices at ±extent/2. Ignored when v_total_size \u003e 0.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "u_total_size",
+          "portType": "FLOAT",
+          "description": "Total extent along U. When \u003e 0, per-tile U size becomes u_total_size / u_tiles (overrides u_tile_size).",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "v_total_size",
+          "portType": "FLOAT",
+          "description": "Total extent along V. When \u003e 0, per-tile V size becomes v_total_size / v_tiles (overrides v_tile_size).",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "triangulate",
+          "portType": "BOOLEAN",
+          "description": "Split each quad into two triangles along the v00-v11 diagonal. Needed by the quad-layout pipeline, which consumes triangle meshes. Default false.",
+          "defaultValue": false
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Flat grid on XZ plane, centered at origin, Y\u003d0; quads, or triangles when triangulate is set."
+        }
+      ],
+      "description": "Generates a flat quad grid on the XZ plane centered at the origin, with configurable tile counts and sizes in U/V directions; u_total_size/v_total_size override per-tile sizes when positive."
+    },
+    {
+      "id": "mesh_to_curve",
+      "category": "Curve Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: source mesh to extract curves from. Output: extracted curve geometry bundle (polylines).",
+          "defaultValue": null
+        },
+        {
+          "name": "source",
+          "portType": "STRING",
+          "description": "Extraction mode: ALL_EDGES (every mesh edge as a 2-point segment) or BOUNDARY (ordered polyline around each open boundary).",
+          "defaultValue": "ALL_EDGES"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: source mesh to extract curves from. Output: extracted curve geometry bundle (polylines)."
+        }
+      ],
+      "description": "Extracts curve geometry from a mesh, either as individual edge segments (ALL_EDGES) or as an ordered boundary loop (BOUNDARY)."
+    },
+    {
+      "id": "minimum_spanning_tree",
+      "category": "Other",
+      "scopes": [
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "edges",
+          "portType": "EDGE_GRAPH",
+          "description": "Candidate edges (typically from delaunay_graph).",
+          "defaultValue": null
+        },
+        {
+          "name": "rooms",
+          "portType": "ROOM_LIST",
+          "description": "Room list used to weight edges by center-to-center distance.",
+          "defaultValue": null
+        },
+        {
+          "name": "extra_edge_prob",
+          "portType": "FLOAT",
+          "description": "Probability [0,1] of keeping each non-MST edge as a loop (default 0.125 per vazgriz).",
+          "defaultValue": 0.125
+        },
+        {
+          "name": "seed",
+          "portType": "INT",
+          "description": "Seed for the extra-edge RNG stream (separate from upstream room placement).",
+          "defaultValue": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "edges",
+          "portType": "EDGE_GRAPH",
+          "description": "Candidate edges (typically from delaunay_graph)."
+        }
+      ],
+      "description": "Minimum spanning tree over input edges (Prim\u0027s, weighted by Euclidean distance between room centers), plus a probabilistic extra-edge pass on a separate RNG stream. Stage 3 of the dungeon pipeline."
+    },
+    {
+      "id": "minimum_spanning_tree_3d",
+      "category": "Other",
+      "scopes": [
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "edges",
+          "portType": "EDGE_GRAPH",
+          "description": "Candidate edges (typically delaunay_graph_3d output).",
+          "defaultValue": null
+        },
+        {
+          "name": "rooms",
+          "portType": "ROOM_LIST_3D",
+          "description": "3D rooms used for distance weighting.",
+          "defaultValue": null
+        },
+        {
+          "name": "extra_edge_prob",
+          "portType": "FLOAT",
+          "description": "Probability per non-MST edge to keep as a loop (default 0.125).",
+          "defaultValue": 0.125
+        },
+        {
+          "name": "seed",
+          "portType": "INT",
+          "description": "Seed for the extra-edge RNG stream.",
+          "defaultValue": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "edges",
+          "portType": "EDGE_GRAPH",
+          "description": "Candidate edges (typically delaunay_graph_3d output)."
+        }
+      ],
+      "description": "3D MST over input edges weighted by Euclidean distance between 3D room centers, plus a probabilistic extra-edge pass. Stage 3 of the 3D dungeon pipeline."
+    },
+    {
+      "id": "mirror_geometry",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Output contains original + mirrored copy. Bezier handles are reflected across the mirror plane.",
+          "defaultValue": null
+        },
+        {
+          "name": "axis",
+          "portType": "STRING",
+          "description": "Symmetry plane: X (mirror across YZ plane), Y (across XZ), Z (across XY). Default X.",
+          "defaultValue": "X"
+        },
+        {
+          "name": "merge_distance",
+          "portType": "FLOAT",
+          "description": "Weld threshold for seam vertices on the symmetry plane. 0 \u003d no weld (two disjoint halves); typical 0.0001.",
+          "defaultValue": 1.0E-4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Output contains original + mirrored copy. Bezier handles are reflected across the mirror plane."
+        }
+      ],
+      "description": "Mirrors geometry across a symmetry plane (X, Y, or Z axis), reverses face winding on the copy, and welds seam vertices for bilateral symmetry."
+    },
+    {
+      "id": "quad_cylinder",
+      "category": "Primitives",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "radius",
+          "portType": "FLOAT",
+          "description": "Distance from the central Y-axis to the side surface. Default 0.5 (diameter 1).",
+          "defaultValue": 0.5
+        },
+        {
+          "name": "height",
+          "portType": "FLOAT",
+          "description": "Total Y-axis extent. quad_cylinder(height\u003dh) spans y\u003d±h/2.",
+          "defaultValue": 2.0
+        },
+        {
+          "name": "segments",
+          "portType": "INT",
+          "description": "Divisions around the circumference. Higher \u003d smoother barrel. Default 8.",
+          "defaultValue": 8
+        },
+        {
+          "name": "rings",
+          "portType": "INT",
+          "description": "Number of quad rings along the barrel length (between the two caps). Default 1.",
+          "defaultValue": 1
+        },
+        {
+          "name": "cap_rings",
+          "portType": "INT",
+          "description": "Concentric quad rings per cap (converging toward the pole). 0 leaves the cap open; higher values give cleaner subdivision at the cap. Default 2.",
+          "defaultValue": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "All-quad cylinder, Y-aligned, centered at origin."
+        },
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Same mesh as a GeometryBundle (slot-carrying)."
+        }
+      ],
+      "description": "Generates an all-quad cylinder with concentric quad-ring caps suitable for Catmull-Clark subdivision, controlled by radius, height, barrel segments/rings, and cap_rings for cap density."
+    },
+    {
+      "id": "random_rooms",
+      "category": "Other",
+      "scopes": [
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "seed",
+          "portType": "INT",
+          "description": "PRNG seed; same seed + same parameters -\u003e same placement.",
+          "defaultValue": 0
+        },
+        {
+          "name": "grid_w",
+          "portType": "INT",
+          "description": "Grid width in cells. Rooms fit inside [0, grid_w].",
+          "defaultValue": 30
+        },
+        {
+          "name": "grid_h",
+          "portType": "INT",
+          "description": "Grid height in cells.",
+          "defaultValue": 30
+        },
+        {
+          "name": "count",
+          "portType": "INT",
+          "description": "Target number of rooms to place.",
+          "defaultValue": 15
+        },
+        {
+          "name": "min_size",
+          "portType": "INT",
+          "description": "Minimum room edge length in cells (inclusive).",
+          "defaultValue": 3
+        },
+        {
+          "name": "max_size",
+          "portType": "INT",
+          "description": "Maximum room edge length in cells (inclusive).",
+          "defaultValue": 8
+        },
+        {
+          "name": "max_attempts",
+          "portType": "INT",
+          "description": "Cap on total placement attempts. Result may contain fewer than \u0027count\u0027 rooms if exceeded.",
+          "defaultValue": 2000
+        }
+      ],
+      "outputs": [
+        {
+          "name": "rooms",
+          "portType": "ROOM_LIST",
+          "description": "List of placed rooms with ids, centers, and half-extents."
+        }
+      ],
+      "description": "Places non-overlapping axis-aligned rooms on an integer grid with a 1-unit buffer. Deterministic for a given seed. Stage 1 of the dungeon pipeline."
+    },
+    {
+      "id": "random_rooms_3d",
+      "category": "Other",
+      "scopes": [
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "seed",
+          "portType": "INT",
+          "description": "PRNG seed.",
+          "defaultValue": 0
+        },
+        {
+          "name": "grid_w",
+          "portType": "INT",
+          "description": "Grid width (X) in cells.",
+          "defaultValue": 30
+        },
+        {
+          "name": "grid_h",
+          "portType": "INT",
+          "description": "Grid height (Y) in floors. Default 5 per vazgriz.",
+          "defaultValue": 5
+        },
+        {
+          "name": "grid_d",
+          "portType": "INT",
+          "description": "Grid depth (Z) in cells.",
+          "defaultValue": 30
+        },
+        {
+          "name": "count",
+          "portType": "INT",
+          "description": "Target room count.",
+          "defaultValue": 15
+        },
+        {
+          "name": "min_size",
+          "portType": "INT",
+          "description": "Minimum horizontal edge length in cells.",
+          "defaultValue": 3
+        },
+        {
+          "name": "max_size",
+          "portType": "INT",
+          "description": "Maximum horizontal edge length in cells.",
+          "defaultValue": 8
+        },
+        {
+          "name": "max_attempts",
+          "portType": "INT",
+          "description": "Cap on placement attempts; result may be smaller than count if exceeded.",
+          "defaultValue": 2000
+        }
+      ],
+      "outputs": [
+        {
+          "name": "rooms",
+          "portType": "ROOM_LIST_3D",
+          "description": "List of 3D rooms with ids, centers, and half-extents."
+        }
+      ],
+      "description": "Places non-overlapping 3D rooms across multiple floors with a 1-unit buffer. Stage 1 of the 3D dungeon pipeline."
+    },
+    {
+      "id": "random_value",
+      "category": "Math \u0026 Logic",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "seed",
+          "portType": "INT",
+          "description": "Deterministic PRNG seed. Same seed \u003d same output.",
+          "defaultValue": 0
+        },
+        {
+          "name": "min",
+          "portType": "FLOAT",
+          "description": "Range minimum (per-component for VECTOR).",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "max",
+          "portType": "FLOAT",
+          "description": "Range maximum.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "mode",
+          "portType": "STRING",
+          "description": "Output selector: FLOAT, INT, or VECTOR. Only the matching *_out port is active; the others are null.",
+          "defaultValue": "FLOAT",
+          "canonicalModes": [
+            "FLOAT",
+            "INT",
+            "VECTOR"
+          ],
+          "aliases": {},
+          "defaultMode": "FLOAT"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "float_out",
+          "portType": "FLOAT",
+          "description": "Active when mode\u003dFLOAT; null otherwise."
+        },
+        {
+          "name": "int_out",
+          "portType": "INT",
+          "description": "Active when mode\u003dINT; null otherwise."
+        },
+        {
+          "name": "vector",
+          "portType": "VECTOR3",
+          "description": "Active when mode\u003dVECTOR; null otherwise."
+        }
+      ],
+      "description": "Generates a deterministic random value from a seed. Modes FLOAT, INT, VECTOR select the output type within a min/max range.",
+      "outputActivationByMode": {
+        "FLOAT": [
+          "float_out"
+        ],
+        "INT": [
+          "int_out"
+        ],
+        "VECTOR": [
+          "vector"
+        ]
+      }
+    },
+    {
+      "id": "realize_instances",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input bundle (possibly with instances) to flatten into a single concrete mesh.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Concrete mesh with all instances materialized into real vertices and faces."
+        }
+      ],
+      "description": "Extracts the concrete mesh from a geometry bundle, converting instanced or bundled geometry into a plain mesh output."
+    },
+    {
+      "id": "resample_curve",
+      "category": "Curve Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "curve",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input curve polyline.",
+          "defaultValue": null
+        },
+        {
+          "name": "length",
+          "portType": "FLOAT",
+          "description": "Target segment length (world units). Smaller \u003d more points, smoother sweeps. Ignored when the curve is already shorter than `length`.",
+          "defaultValue": 0.1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Resampled curve polyline (same curves, uniform segment lengths)."
+        }
+      ],
+      "description": "Resamples curve polylines to uniform segment lengths, controlled by the length parameter."
+    },
+    {
+      "id": "segment_cap",
+      "category": "Primitives",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output geometry bundle. The cap is added at the maximum-Y boundary ring of the input; output contains the capped mesh.",
+          "defaultValue": null
+        },
+        {
+          "name": "segments",
+          "portType": "INT",
+          "description": "Number of vertices in the boundary ring (must match upstream segment\u0027s segments). Default 12.",
+          "defaultValue": 12
+        },
+        {
+          "name": "cap_rings",
+          "portType": "INT",
+          "description": "Concentric quad rings spiraling inward from the boundary. Higher \u003d smoother cap after subdivision. Default 2.",
+          "defaultValue": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output geometry bundle. The cap is added at the maximum-Y boundary ring of the input; output contains the capped mesh."
+        }
+      ],
+      "description": "Closes the open top end of a tube segment with an all-quad concentric cap, taking a geometry bundle as input; typically the terminal node in a dual_radial_segment chain."
+    },
+    {
+      "id": "select_by_distance",
+      "category": "Selection",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Geometry bundle to test. Face centroids are computed from the current vertex positions.",
+          "defaultValue": null
+        },
+        {
+          "name": "point",
+          "portType": "VECTOR3",
+          "description": "World-space center of the test sphere.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "name": "radius",
+          "portType": "FLOAT",
+          "description": "Selection radius. Faces with centroid distance ≤ radius from `point` are selected. Tune with care — too large overlaps adjacent features after topology modifications.",
+          "defaultValue": 0.1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-face BOOLEAN mask. Feed into inset_faces / extrude_mesh selection."
+        }
+      ],
+      "description": "Produces a per-face boolean selection: true for faces whose centroid lies within radius of point."
+    },
+    {
+      "id": "select_by_normal",
+      "category": "Selection",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Geometry bundle to test.",
+          "defaultValue": null
+        },
+        {
+          "name": "direction",
+          "portType": "VECTOR3",
+          "description": "Reference direction (need not be unit; normalized internally).",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 1.0,
+            "z": 0.0
+          }
+        },
+        {
+          "name": "threshold",
+          "portType": "FLOAT",
+          "description": "Minimum dot product. 1 \u003d exact alignment; 0.7 ≈ within 45°; 0 ≈ same hemisphere; -1 \u003d always true.",
+          "defaultValue": 0.7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-face BOOLEAN mask."
+        }
+      ],
+      "description": "Produces a per-face boolean selection: true for faces whose normal dotted with a direction exceeds threshold (default 0.7)."
+    },
+    {
+      "id": "separate_geometry",
+      "category": "Geometry Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input bundle to split.",
+          "defaultValue": null
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-face BOOLEAN mask.",
+          "defaultValue": true
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selected",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Bundle containing only the selected faces (and their vertices)."
+        },
+        {
+          "name": "inverted",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Bundle containing the non-selected faces."
+        }
+      ],
+      "description": "Splits geometry into two outputs based on a per-face boolean selection. Selected faces go to one output, the rest to the other."
+    },
+    {
+      "id": "separate_xyz",
+      "category": "Math \u0026 Logic",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "vector",
+          "portType": "VECTOR3",
+          "description": "Input Vector3 or Vector3field.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "x",
+          "portType": "FLOAT",
+          "description": "X component (per-element)."
+        },
+        {
+          "name": "y",
+          "portType": "FLOAT",
+          "description": "Y component."
+        },
+        {
+          "name": "z",
+          "portType": "FLOAT",
+          "description": "Z component."
+        }
+      ],
+      "description": "Splits a vector into its X, Y, Z float components."
+    },
+    {
+      "id": "set_bone_weight",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Per-vertex bone weights are written into a slot keyed by `bone_name`.",
+          "defaultValue": null
+        },
+        {
+          "name": "bone_name",
+          "portType": "STRING",
+          "description": "Name of the bone whose weight is being written. Match this in a downstream apply_bone.",
+          "defaultValue": "bone"
+        },
+        {
+          "name": "weight",
+          "portType": "FLOAT",
+          "description": "Weight value in [0, 1]. 0 \u003d vertex unaffected; 1 \u003d fully driven by the bone.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-face BOOLEAN mask. All vertices of selected faces receive the weight; other vertices keep their prior weight for this bone.",
+          "defaultValue": true
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Per-vertex bone weights are written into a slot keyed by `bone_name`."
+        }
+      ],
+      "description": "Assigns a bone weight to vertices of selected faces for skeletal animation, stored per-vertex in the geometry bundle for use with apply_bone."
+    },
+    {
+      "id": "set_position",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Every vertex position is shifted by `offset`.",
+          "defaultValue": null
+        },
+        {
+          "name": "offset",
+          "portType": "VECTOR3",
+          "description": "World-space translation added to every vertex. \u003c0,0,0\u003e \u003d identity. For selective displacement, use a Vector3field.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Every vertex position is shifted by `offset`."
+        }
+      ],
+      "description": "Translates all vertices of a geometry by a vector offset, useful for repositioning meshes in world space."
+    },
+    {
+      "id": "solidify_mesh",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Flat (or near-flat) quad surface becomes a closed shell wrapped in a GeometryBundle.",
+          "defaultValue": null
+        },
+        {
+          "name": "thickness",
+          "portType": "FLOAT",
+          "description": "Offset distance along the averaged vertex normal. 0 \u003d no thickness; positive \u003d outward shell.",
+          "defaultValue": 0.01
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Solid mesh topology (alternative accessor to `geometry.mesh`)."
+        },
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Flat (or near-flat) quad surface becomes a closed shell wrapped in a GeometryBundle."
+        }
+      ],
+      "description": "Gives thickness to a flat uniform-quad mesh by duplicating and offsetting it along normals, creating a watertight shell."
+    },
+    {
+      "id": "sphere",
+      "category": "Primitives",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "size",
+          "portType": "FLOAT",
+          "description": "Diameter. sphere(size\u003ds) has extent s on each axis (vertices at ±s/2). Note: this is diameter, NOT radius — unlike icosphere/uv_sphere which use radius.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "resolution",
+          "portType": "INT",
+          "description": "Quads around the circumference (equator). Higher \u003d smoother. Default 16.",
+          "defaultValue": 16
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "All-quad sphere, centered at origin."
+        }
+      ],
+      "description": "Generates an all-quad sphere by projecting a subdivided cube onto a sphere surface, controlled by size and resolution (quads around the circumference); ideal for Catmull-Clark subdivision."
+    },
+    {
+      "id": "spherize",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Input/output mesh. Each vertex is lerped from its position toward a point on a sphere of the bounding radius centered at the centroid.",
+          "defaultValue": null
+        },
+        {
+          "name": "factor",
+          "portType": "FLOAT",
+          "description": "Blend amount in [0, 1]. 0 \u003d no change; 1 \u003d vertices fully projected onto the sphere.",
+          "defaultValue": 1.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Input/output mesh. Each vertex is lerped from its position toward a point on a sphere of the bounding radius centered at the centroid."
+        }
+      ],
+      "description": "Blends vertex positions toward a sphere centered at the mesh centroid, controlled by a 0-to-1 factor for partial or full spherization."
+    },
+    {
+      "id": "subdivide_mesh",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Input topology to subdivide. Each face becomes 4^levels faces.",
+          "defaultValue": null
+        },
+        {
+          "name": "levels",
+          "portType": "INT",
+          "description": "Subdivision iterations, 0..N. Each level quadruples face count. DESTRUCTIVE: consumes bezier handle slots — use BEFORE assign_bezier_handles.",
+          "defaultValue": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Input topology to subdivide. Each face becomes 4^levels faces."
+        },
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Output geometry bundle wrapping the subdivided mesh (slots dropped per destructive contract)."
+        }
+      ],
+      "description": "Linearly subdivides each face by inserting edge midpoints and face centroids without smoothing, increasing mesh resolution while preserving the original shape.",
+      "destructive": true,
+      "consumes": [
+        "_bezier_handles_start",
+        "_bezier_handles_end"
+      ]
+    },
+    {
+      "id": "subdivision_surface",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Plain topology input (alternative to geometry). Used when no crease weights need to be read.",
+          "defaultValue": null
+        },
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output geometry bundle. Carries crease weights written by mark_crease so semi-sharp edges subdivide smoothly.",
+          "defaultValue": null
+        },
+        {
+          "name": "levels",
+          "portType": "INT",
+          "description": "Catmull-Clark iterations. Each level quadruples face count AND smooths toward the limit surface.",
+          "defaultValue": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Plain topology input (alternative to geometry). Used when no crease weights need to be read."
+        },
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output geometry bundle. Carries crease weights written by mark_crease so semi-sharp edges subdivide smoothly."
+        }
+      ],
+      "description": "Applies Catmull-Clark subdivision surface smoothing, supporting crease weights for semi-sharp edges. Handles mixed tri/quad input."
+    },
+    {
+      "id": "switch_float",
+      "category": "Control Flow",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "switch",
+          "portType": "BOOLEAN",
+          "description": "Per-element BOOLEAN selector.",
+          "defaultValue": false
+        },
+        {
+          "name": "false",
+          "portType": "FLOAT",
+          "description": "Value used where switch is false.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "true",
+          "portType": "FLOAT",
+          "description": "Value used where switch is true.",
+          "defaultValue": 0.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "portType": "FLOAT",
+          "description": "Per-element float: switch ? true : false."
+        }
+      ],
+      "description": "Outputs one of two float values based on a boolean switch. Supports per-element field evaluation."
+    },
+    {
+      "id": "switch_geometry",
+      "category": "Control Flow",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "switch",
+          "portType": "BOOLEAN",
+          "description": "Scalar BOOLEAN selector.",
+          "defaultValue": false
+        },
+        {
+          "name": "false",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Geometry used when switch is false.",
+          "defaultValue": null
+        },
+        {
+          "name": "true",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Geometry used when switch is true.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Selected geometry bundle."
+        }
+      ],
+      "description": "Outputs one of two geometry inputs based on a boolean switch."
+    },
+    {
+      "id": "switch_vector",
+      "category": "Control Flow",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "switch",
+          "portType": "BOOLEAN",
+          "description": "Per-element BOOLEAN selector.",
+          "defaultValue": false
+        },
+        {
+          "name": "false",
+          "portType": "VECTOR3",
+          "description": "Vector used where switch is false.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "name": "true",
+          "portType": "VECTOR3",
+          "description": "Vector used where switch is true.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "vector",
+          "portType": "VECTOR3",
+          "description": "Per-element Vector3: switch ? true : false."
+        }
+      ],
+      "description": "Outputs one of two vector values based on a boolean switch. Supports per-element field evaluation."
+    },
+    {
+      "id": "tag_geometry",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle. Every vertex is labeled with each tag; slots are keyed by tag name.",
+          "defaultValue": null
+        },
+        {
+          "name": "tags",
+          "portType": "STRING",
+          "description": "Comma-separated tag labels (e.g. \u0027skull,cranium,face\u0027). Downstream consumers read per-tag boolean masks from geometry slots.",
+          "defaultValue": ""
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle. Every vertex is labeled with each tag; slots are keyed by tag name."
+        }
+      ],
+      "description": "Annotates all vertices in a geometry with one or more comma-separated tag labels, stored as per-vertex boolean masks."
+    },
+    {
+      "id": "torus",
+      "category": "Primitives",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "major_radius",
+          "portType": "FLOAT",
+          "description": "Distance from the origin to the centre of the tube. The torus spans major_radius + minor_radius on the X and Z axes.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "minor_radius",
+          "portType": "FLOAT",
+          "description": "Radius of the tube. Must be smaller than major_radius for the surface to stay embedded; equal or larger values self-intersect.",
+          "defaultValue": 0.35
+        },
+        {
+          "name": "major_segments",
+          "portType": "INT",
+          "description": "Face divisions the long way around, about the Y axis. Default 24.",
+          "defaultValue": 24
+        },
+        {
+          "name": "minor_segments",
+          "portType": "INT",
+          "description": "Face divisions around the tube. Default 12.",
+          "defaultValue": 12
+        },
+        {
+          "name": "triangulate",
+          "portType": "BOOLEAN",
+          "description": "Split each quad into two triangles along a diagonal. Needed by the quad-layout pipeline, which consumes triangle meshes. Default false.",
+          "defaultValue": false
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Torus centred at the origin, tube encircling the Y axis. Closed, genus 1, so V - E + F \u003d 0."
+        }
+      ],
+      "description": "Generates a torus: a closed genus-1 surface with a fully regular face grid, no poles and no boundary, optionally triangulated."
+    },
+    {
+      "id": "transform_geometry",
+      "category": "Transform",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output geometry bundle. Vertex positions and curve control points are transformed; bezier handle slots are scaled and rotated in place.",
+          "defaultValue": null
+        },
+        {
+          "name": "translation",
+          "portType": "VECTOR3",
+          "description": "World-space offset added after scale+rotate. translation\u003d\u003cX,Y,Z\u003e shifts every vertex by those units.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "name": "rotation",
+          "portType": "VECTOR3",
+          "description": "Euler XYZ in RADIANS (not degrees). Applied after scale, before translate. \u003c0,0,0\u003e \u003d identity.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "name": "scale",
+          "portType": "VECTOR3",
+          "description": "Per-axis multiplier applied first. scale\u003d\u003cX,Y,Z\u003e stretches extent by those factors componentwise: output extent \u003d input extent × scale. Pass 1.0 to leave an axis untouched, not 0.5. To map a unit cube (extent 1) onto a reference with extent \u003cEx,Ey,Ez\u003e, use scale\u003d\u003cEx,Ey,Ez\u003e.",
+          "defaultValue": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output geometry bundle. Vertex positions and curve control points are transformed; bezier handle slots are scaled and rotated in place."
+        }
+      ],
+      "description": "Applies translation, rotation, and scale to mesh vertices and curve geometry using standard SRT order."
+    },
+    {
+      "id": "uv_sphere",
+      "category": "Primitives",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "radius",
+          "portType": "FLOAT",
+          "description": "Distance from center to surface. uv_sphere(radius\u003dr) has extent 2r on each axis (vertices at ±r). For a reference of extent \u003cX,Y,Z\u003e, start with radius\u003d1 and apply transform_geometry(scale\u003d\u003cX/2, Y/2, Z/2\u003e).",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "segments",
+          "portType": "INT",
+          "description": "Longitudinal divisions (meridians). Higher \u003d smoother around the equator. Default 32.",
+          "defaultValue": 32
+        },
+        {
+          "name": "rings",
+          "portType": "INT",
+          "description": "Latitudinal bands between the two poles. Higher \u003d smoother pole-to-pole. Default 16.",
+          "defaultValue": 16
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mesh",
+          "portType": "MESH",
+          "description": "Quad-banded sphere with triangle-fan poles, centered at origin."
+        }
+      ],
+      "description": "Generates a latitude/longitude sphere with quad bands and triangle-fan poles, controlled by radius, segments (longitude), and rings (latitude)."
+    },
+    {
+      "id": "vector_math",
+      "category": "Math \u0026 Logic",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "operation",
+          "portType": "STRING",
+          "description": "Op: ADD, SUBTRACT, MULTIPLY, SCALE (by `scale`), NORMALIZE (of a), CROSS, DOT (scalar result).",
+          "defaultValue": "ADD"
+        },
+        {
+          "name": "a",
+          "portType": "VECTOR3",
+          "description": "Left vector operand.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "name": "b",
+          "portType": "VECTOR3",
+          "description": "Right vector operand. Ignored for NORMALIZE and SCALE.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "name": "scale",
+          "portType": "FLOAT",
+          "description": "Scalar multiplier for SCALE mode. Ignored otherwise.",
+          "defaultValue": 1.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "vector",
+          "portType": "VECTOR3",
+          "description": "Vector result (for vector-valued ops). For DOT mode, this is (0, 0, 0)."
+        },
+        {
+          "name": "result",
+          "portType": "FLOAT",
+          "description": "Scalar result: length of `vector` for vector-valued ops, dot product for DOT."
+        }
+      ],
+      "description": "Per-element vector math with operations ADD, SUBTRACT, MULTIPLY, SCALE, NORMALIZE, CROSS, DOT. Outputs both the result vector and its length."
+    }
+  ]
+}

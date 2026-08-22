@@ -152,6 +152,7 @@ public class MeshBooleanScene extends ModelScene {
             Platforms.get().log(LOG_PREFIX + DSL_NAME + " failed: " + failure.getMessage());
             return;
         }
+        graphRuntime.logTimings("[mesh-boolean]");
 
         GeometryBundle bundle = GeometryBundles.bundlePart(result);
         if (bundle == null || bundle.mesh() == null) {
