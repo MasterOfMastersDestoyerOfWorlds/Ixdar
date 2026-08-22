@@ -20,7 +20,13 @@ public enum PortType {
     /** 3D dungeon-generation room list (see ixdar.procgen.dungeon.values.RoomListValue3D). */
     ROOM_LIST_3D(Object.class),
     /** 3D dungeon-generation tile grid (see ixdar.procgen.dungeon.values.TileGridValue3D). */
-    TILE_GRID_3D(Object.class);
+    TILE_GRID_3D(Object.class),
+    /** Cross field over a mesh. */
+    CROSS_FIELD(Object.class),
+    /** Per-corner UV assignment over a mesh. */
+    UV_FIELD(Object.class),
+    /** Node-arc-patch network on a surface. */
+    ARC_NETWORK(Object.class);
 
     private final Class<?> valueType;
 

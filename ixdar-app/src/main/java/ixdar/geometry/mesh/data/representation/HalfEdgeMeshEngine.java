@@ -384,6 +384,25 @@ public class HalfEdgeMeshEngine {
     }
 
     /**
+     * The half-edge form of any mesh representation, the counterpart of
+     * {@link ArrayMeshEngine#fromUniformMeshTopology}.
+     *
+     * @param mesh mesh in either representation
+     * @throws IllegalArgumentException if {@code mesh} is null or an unknown representation
+     * @return the mesh itself when already half-edge, otherwise a converted copy
+     */
+    public static HalfEdgeMesh fromMeshTopology(MeshTopology mesh) {
+        if (mesh instanceof HalfEdgeMesh halfEdgeMesh) {
+            return halfEdgeMesh;
+        }
+        if (mesh instanceof ArrayMesh arrayMesh) {
+            return arrayMesh.toHalfEdgeMesh();
+        }
+        throw new IllegalArgumentException("No half-edge conversion for "
+                + (mesh == null ? "null" : mesh.getClass().getSimpleName()));
+    }
+
+    /**
      * Builds a triangle {@link HalfEdgeMesh} from packed positions and a flat triangle
      * index buffer, computing normals.
      *

@@ -331,6 +331,38 @@ is in the working tree behind it.
         the surface, one patch surface per live patch. Verified: full suite 145 tests, only the
         3 known 6.8 classes failing (5 tests), 3 skipped; registry test green; catalog diff is
         exactly the new load_mesh entry (+25 lines)
+      - [x] Batch 2 (2026-08-22): PortType gained CROSS_FIELD, SEAMLESS_UV, MOTORCYCLE_GRAPH
+        (Object.class-backed, dungeon precedent; same-type edges already validator-compatible).
+        New package `ixdar.geometry.mesh.nodes.quadlayout`: `CrossFieldNode` (`cross_field`:
+        geometry -> field + singularity_count), `SeamlessUvNode` (`seamless_uv`: field -> uv +
+        flipped_triangles + injective), `MotorcycleGraphNode` (`motorcycle_graph`: uv +
+        alpha_degrees(15) -> graph + node/arc/patch counts; javadoc names the planned quad-mesh
+        tracing input mode for QuadMixer). Coercion lives on the engine per the 3.3 convention:
+        `HalfEdgeMeshEngine.fromMeshTopology` (counterpart of
+        `ArrayMeshEngine.fromUniformMeshTopology`; pass-through, ArrayMesh.toHalfEdgeMesh, else
+        throw) - the one-method `QuadLayoutNodes` holder was deleted per author. All desktopOnly.
+        Diagnostic port names (singularity_count, flipped_triangles, injective) registered as
+        role alternates in `CanonicalPortNames` with rationale. `QuadLayoutNodeChainTest` chains
+        all four nodes through MapNodeContext on the sphere OFF and re-checks the
+        injectivity/cell-complex invariants. Verified: full suite 146 tests, only the 3 known
+        6.8 classes failing, 3 skipped; catalog diff +111 lines = exactly the three new node
+        entries; ARCHITECTURE.md package map regenerated with the new package
+      - Naming RULED (author): node ids name algorithms, port TYPES name data structures - the
+        QuadLayoutRuntime stage-typed-setter disease must not recur in the type system. Renamed
+        SEAMLESS_UV -> UV_FIELD (per-corner UVs; seamless stage, Newton relaxation, QEx input,
+        and QuadMixer blend-region parametrization all produce/consume the same structure) and
+        MOTORCYCLE_GRAPH -> ARC_NETWORK (node-arc-patch network on a surface; motorcycle tracing
+        and the planned QuadMixer quad-mesh decomposition both produce it). CROSS_FIELD stays -
+        it already names the data structure. The network does NOT split into ARC/NODE port
+        types: connectivity is the value (arcs end at nodes by id, patches bound by arcs), and
+        splitting follows the MESH precedent - projection nodes, not component types. Planned
+        batch: `network_arcs(network) -> CurveGeometry` bundle and `network_nodes(network) ->`
+        vertex-only bundle, so instance_on_points + curve_sweep render arrangements through
+        general capabilities (converges with 3.2; also the ArrangementDiagnostic render path).
+        The network is NOT carried as a bundle slot: slots annotate per-element data on their
+        geometry, the arrangement is a sibling structure and the node's primary product. Common
+        Java interfaces at the seams (UvField etc.) are deferred until the second producer of
+        each type lands, so two real users shape them
 - [ ] 7.3 Whether always-on profiling should fail fast when `.profiler/libasyncProfiler` is missing,
       as it does now, or degrade
 

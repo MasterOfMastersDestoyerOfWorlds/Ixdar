@@ -984,6 +984,36 @@
       ]
     },
     {
+      "id": "cross_field",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Triangle mesh to build the field on; manifold, possibly with boundary.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "field",
+          "portType": "CROSS_FIELD",
+          "description": "The cross field with per-face frames and singularities."
+        },
+        {
+          "name": "singularity_count",
+          "portType": "INT",
+          "description": "Number of extracted singularities."
+        }
+      ],
+      "description": "Builds the quad-layout cross field (curvature-aligned n-direction field) over a triangle mesh and extracts its singularities."
+    },
+    {
       "id": "cube",
       "category": "Primitives",
       "scopes": [
@@ -2876,6 +2906,52 @@
       "description": "Mirrors geometry across a symmetry plane (X, Y, or Z axis), reverses face winding on the copy, and welds seam vertices for bilateral symmetry."
     },
     {
+      "id": "motorcycle_graph",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "uv",
+          "portType": "UV_FIELD",
+          "description": "Seamless parametrization to trace, from a seamless_uv node.",
+          "defaultValue": null
+        },
+        {
+          "name": "alpha_degrees",
+          "portType": "FLOAT",
+          "description": "Maximum separatrix deviation in degrees, the quality knob.",
+          "defaultValue": 15.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "graph",
+          "portType": "ARC_NETWORK",
+          "description": "The T-mesh arrangement: nodes, arcs, traces, and patches."
+        },
+        {
+          "name": "node_count",
+          "portType": "INT",
+          "description": "Number of T-mesh nodes in the arrangement."
+        },
+        {
+          "name": "arc_count",
+          "portType": "INT",
+          "description": "Number of T-mesh arcs in the arrangement."
+        },
+        {
+          "name": "patch_count",
+          "portType": "INT",
+          "description": "Number of T-mesh patches (arrangement cells)."
+        }
+      ],
+      "description": "Traces the motorcycle-graph T-mesh over a seamless parametrization: the separatrix arrangement whose cells are the layout\u0027s patches."
+    },
+    {
       "id": "quad_cylinder",
       "category": "Primitives",
       "scopes": [
@@ -3175,6 +3251,41 @@
         }
       ],
       "description": "Resamples curve polylines to uniform segment lengths, controlled by the length parameter."
+    },
+    {
+      "id": "seamless_uv",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "field",
+          "portType": "CROSS_FIELD",
+          "description": "Cross field to parametrize, from a cross_field node.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "uv",
+          "portType": "UV_FIELD",
+          "description": "The seamless parametrization with per-corner UVs."
+        },
+        {
+          "name": "flipped_triangles",
+          "portType": "INT",
+          "description": "Number of UV triangles with negative signed area."
+        },
+        {
+          "name": "injective",
+          "portType": "BOOLEAN",
+          "description": "Whether the parametrization is injective."
+        }
+      ],
+      "description": "Builds the seamless parametrization over a cross field, reporting whether the result is injective and how many UV triangles flipped."
     },
     {
       "id": "segment_cap",
