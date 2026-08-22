@@ -32,8 +32,14 @@ public final class CanonicalPortNames {
         // Role-specific exceptions — legitimate semantic alternates to the
         // canonical name. Added here instead of a generic "allow anything"
         // escape so the allowlist stays visible in one place.
+        //
+        // float_out/int_out: random_value's mode-switched outputs coexist, so
+        // neither can take the shared canonical "result".
+        // total_cost/next_vertex: input_shortest_edge_paths' per-vertex fields,
+        // consumed by name downstream (edge_paths_to_selection reads next_vertex).
         ROLE_NAMES.put(PortType.BOOLEAN, Set.of("selection", "generated"));
-        ROLE_NAMES.put(PortType.INT, Set.of("index"));
+        ROLE_NAMES.put(PortType.FLOAT, Set.of("float_out", "total_cost"));
+        ROLE_NAMES.put(PortType.INT, Set.of("index", "int_out", "next_vertex"));
     }
 
     static {

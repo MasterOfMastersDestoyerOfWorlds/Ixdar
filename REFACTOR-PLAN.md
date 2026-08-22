@@ -92,13 +92,21 @@ is in the working tree behind it.
 
 ## 4. Enforcement in code, not prose
 
-- [ ] 4.1 `MeshNodeRegistry` processor error for undocumented ports, making the existing
-      `MeshNode.socketDocs()` Javadoc claim true. Wire `CanonicalPortNames.isAllowed` at the same
-      point; it is fully implemented with zero callers today
-- [ ] 4.2 `desktopOnly` on `@MeshNodeAnnotation`, default false. `RegistryProcessor` emits two maps
-      so the web registration path never references the heavy classes. A single map would let TeaVM
-      reach them all and the flag would buy nothing
-- [ ] 4.3 Error to the mesh scene terminal when a web build meets a desktop-only node
+- [x] 4.1 Done as `MeshNodeRegistryTest`, not a processor error: the processor sees the type
+      model and cannot evaluate `inputs()`/`socketDocs()`, so the exact check lives in the registry
+      test the Javadoc always named. All 95 nodes pass documentation; `CanonicalPortNames` is now
+      live, with four surveyed exceptions added to its own allowlist (`float_out`/`int_out` on
+      `random_value`, `total_cost`/`next_vertex` on `input_shortest_edge_paths`) - renaming those
+      would break .dsl files that reference them
+- [x] 4.2 `desktopOnly` on `@MeshNodeAnnotation`; `RegistryProcessor` partitions into
+      `MeshNodeRegistry_MeshNodes` (web-safe, plus a string-only `DESKTOP_ONLY_IDS`) and
+      `..._MeshNodesDesktop`, reached only via `NodeGraphRuntime`'s `Class.forName` firewall.
+      `mesh_boolean` is the first flagged node. Generated registries are now sorted, so builds are
+      byte-stable. Verified both ways: the desktop scene runs the boolean; a registry without the
+      desktop map produces the 4.3 message
+- [x] 4.3 `missingNodeMessage` names the cause ("desktop-only and unavailable in this build")
+      when the id is in `DESKTOP_ONLY_IDS`, and the scenes' existing failure logging carries it to
+      the terminal - observed live when a bug briefly gave desktop the web registry
 - [ ] 4.4 Surface the per-node timings `NodeGraphRuntime` already records in `lastTimingMs`
 - [ ] 4.5 `GridMapOptimizer.timeBudgetMilliseconds` 500s to 60s
 - [ ] 4.6 `desktopOnly` in the node catalog export, and move catalog regeneration off the opt-in
@@ -129,7 +137,8 @@ is in the working tree behind it.
       edit, so every verification here needs a clean build; the root cause is untouched
 - [x] 6.3 `run-scene` builds both modules and puts `annotations/target/classes` ahead of the
       installed jar on the classpath
-- [ ] 6.4 Recover `runOriginalID` from the MeshGL64 segment to restore boolean provenance tinting.
+- [ ] 6.4 (half-armed: `MeshBooleanProvenanceTest`'s provenance test is `@Disabled` pointing here;
+      its geometry test runs green through the FFM backend) Recover `runOriginalID` from the MeshGL64 segment to restore boolean provenance tinting.
       Answer why the old backend reported `faces new=0/36` and never flagged an intersection face
 - [ ] 6.5 `MeshNodeViewerScene` is the scene `WebLauncher` instantiates, and it calls
       `Files.readAllBytes` and `MeshLoader`, both `java.nio.file`. That path throws in a browser
@@ -138,7 +147,12 @@ is in the working tree behind it.
       emitted into the shipped JavaScript as a result
 - [ ] 6.7 `PatchRenderer` stays out of the web build only by method-level dead-code elimination. One
       call to `renderMultiview` from web-reachable code pulls `Graphics2D` in
-- [ ] 6.8 `IX-6` exists in both `content/IX/` and `done/IX/` with contradictory statuses; `BOARD.md`
+- [ ] 6.8 Three quad-layout test classes fail on the committed tree, surfaced by this session's
+      first full-suite run and untouched by any change here: `DenseMeshFewSplitsTest` (refining 8x
+      raises edge splits 9 to 37), `QuadMeshExtractionTest` (ring orientation undecidable on the
+      unrelaxed torus), `TJunctionExtensionTest` (contracted torus loses the stub T-junction).
+      All deep pipeline behaviour, consistent with the notes' known instability
+- [ ] 6.9 `IX-6` exists in both `content/IX/` and `done/IX/` with contradictory statuses; `BOARD.md`
       is stale and omits the DSL epic
 
 ## 7. Decisions still owed
@@ -153,6 +167,29 @@ is in the working tree behind it.
       as it does now, or degrade
 
 ## Constraints to carry into `ARCHITECTURE.md`
+
+### IDE toolchain facts (hard-won 2026-08-22, all load-bearing)
+
+- VS Code's Java autobuild compiles into `target-ide/` (the `m2e-ide-build` profile in the parent
+  pom), never Maven's `target/` - sharing one tree corrupted class files mid-build
+  (`ClassFormatError: extra bytes`) and broke `mvn clean` while a build raced.
+- The language server runs on the extension's own JRE 21, so anything it must LOAD - annotation
+  processors above all - must be built at `--release 21`. That is why the `annotations` module is
+  21 while everything else is 25. JDT APT found the 25-built processors and failed all five with
+  "Unable to load annotation processor factory".
+- Even with a loadable jar, JDT APT never produced the registries here; the fix that works is
+  `ixdar-app/.classpath:44` pointing the IDE at Maven's `target/generated-sources/annotations`,
+  so F5 compiles whatever the last `mvn compile` generated. After `mvn clean` the IDE shows
+  registry errors until the next compile. If an import rewrites that line back to `target-ide/`,
+  restore it.
+- A class whose static initializer fails to COMPILE still runs under JDT: the field silently stays
+  null (`CanvasSceneMap.MAP`) instead of throwing - IDE-side nulls of static finals mean "look at
+  the Problems panel", not "runtime bug".
+- Standalone `mvn` in `ixdar-app/` resolves `IXDAR:annotations` from `~/.m2`; reinstall it after
+  any annotations change or stale-jar errors surface as `NoSuchMethodError`/missing packages.
+  Reactor builds from the repo root never hit this.
+- `mvn install` on `ixdar-app` runs the test phase, which the three 6.8 failures currently fail;
+  use `-DskipTests` until they are fixed.
 
 Platform abstraction, and the fact that there is no exclusion list: the whole source tree compiles for
 web, and desktop code is kept out by `WebPlatform` factory methods that refuse, by `Class.forName` used

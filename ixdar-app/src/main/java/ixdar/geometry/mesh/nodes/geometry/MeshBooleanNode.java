@@ -26,7 +26,7 @@ import ixdar.platform.Platforms;
  *
  * <p>See also: NHE*19 Section 3.1
  */
-@MeshNodeAnnotation(id = "mesh_boolean")
+@MeshNodeAnnotation(id = "mesh_boolean", desktopOnly = true)
 public class MeshBooleanNode implements MeshNode {
     public static final String MESH_A_2 = "mesh_a";
     public static final String MESH_B_2 = "mesh_b";

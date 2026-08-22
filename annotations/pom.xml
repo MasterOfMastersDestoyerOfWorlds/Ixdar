@@ -44,7 +44,9 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
         <configuration>
-          <release>25</release>
+          <!-- 21, not 25: the language server's JRE runs these processors and is a 21; a 25-built
+             jar makes every IDE annotation-processing pass fail with unloadable factories. -->
+        <release>21</release>
           <annotationProcessorPaths>
             <path>
               <groupId>com.google.auto.service</groupId>

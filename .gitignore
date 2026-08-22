@@ -41,3 +41,12 @@ jacoco.exec
 
 # Per-platform symlink made by tools/link-profiler.sh.
 .profiler/
+
+# IDE (m2e / VS Code Java) build tree, split from Maven's target/ to avoid write races.
+**/target-ide/
+
+# Eclipse project metadata; the language server keeps its copy outside the repo.
+.project
+.classpath
+.settings/
+.factorypath

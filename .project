@@ -1,15 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>ShellTheory</name>
+	<name>IXDAR-parent</name>
 	<comment></comment>
 	<projects>
 	</projects>
 	<buildSpec>
-		<buildCommand>
-			<name>org.eclipse.jdt.core.javabuilder</name>
-			<arguments>
-			</arguments>
-		</buildCommand>
 		<buildCommand>
 			<name>org.eclipse.m2e.core.maven2Builder</name>
 			<arguments>
@@ -17,19 +12,11 @@
 		</buildCommand>
 	</buildSpec>
 	<natures>
-		<nature>org.eclipse.jdt.core.javanature</nature>
 		<nature>org.eclipse.m2e.core.maven2Nature</nature>
 	</natures>
-	<linkedResources>
-		<link>
-			<name>Extensions</name>
-			<type>2</type>
-			<location>c:/Users/awollac/Library/Java/Extensions</location>
-		</link>
-	</linkedResources>
 	<filteredResources>
 		<filter>
-			<id>1672510909730</id>
+			<id>1787420692209</id>
 			<name></name>
 			<type>30</type>
 			<matcher>

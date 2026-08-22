@@ -1,14 +1,15 @@
 package unit.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.lang.foreign.MemorySegment;
 
 import org.junit.jupiter.api.Test;
 
-import manifold3d.Manifold;
-import manifold3d.linalg.DoubleVec3;
-import manifold3d.manifold.MeshGL;
+import com.cadoodlecad.manifold.ManifoldBindings;
+
+import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
 
 /**
  * Proves the Manifold CSG natives load and boolean the QuadMixer target configuration: two unit
@@ -30,29 +31,29 @@ public class ManifoldNativesTest {
     /**
      * Union, difference and intersection of the corner-at-centre cube pair all produce closed,
      * genus-zero solids with the volumes exact set arithmetic predicts.
+     *
+     * @throws Throwable if a native call fails
      */
     @Test
-    public void cornerAtCentreCubesBooleanToTheExpectedVolumes() {
-        Manifold cubeA = Manifold.Cube(new DoubleVec3(UNIT, UNIT, UNIT), false);
-        Manifold cubeB = Manifold.Cube(new DoubleVec3(UNIT, UNIT, UNIT), false)
-                .translate(HALF, HALF, HALF);
+    public void cornerAtCentreCubesBooleanToTheExpectedVolumes() throws Throwable {
+        ManifoldBindings bindings = ManifoldMeshBooleanBackend.BINDINGS;
+        MemorySegment cubeA = bindings.cube(UNIT, UNIT, UNIT, false);
+        MemorySegment cubeB = bindings.translate(bindings.cube(UNIT, UNIT, UNIT, false),
+                HALF, HALF, HALF);
 
-        Manifold union = cubeA.add(cubeB);
-        Manifold difference = cubeA.subtract(cubeB);
-        Manifold intersection = cubeA.intersect(cubeB);
+        MemorySegment union = bindings.union(cubeA, cubeB);
+        MemorySegment difference = bindings.difference(cubeA, cubeB);
+        MemorySegment intersection = bindings.intersection(cubeA, cubeB);
 
-        assertEquals(2 * UNIT - OVERLAP_VOLUME, union.volume(), VOLUME_TOLERANCE,
+        assertEquals(2 * UNIT - OVERLAP_VOLUME, bindings.volume(union), VOLUME_TOLERANCE,
                 "union is both cubes less their shared octant");
-        assertEquals(UNIT - OVERLAP_VOLUME, difference.volume(), VOLUME_TOLERANCE,
+        assertEquals(UNIT - OVERLAP_VOLUME, bindings.volume(difference), VOLUME_TOLERANCE,
                 "difference is cube A less the shared octant");
-        assertEquals(OVERLAP_VOLUME, intersection.volume(), VOLUME_TOLERANCE,
+        assertEquals(OVERLAP_VOLUME, bindings.volume(intersection), VOLUME_TOLERANCE,
                 "intersection is exactly the shared octant");
 
-        assertEquals(0, union.genus(), "the union is a ball, not a torus");
-        assertFalse(union.isEmpty(), "the union has geometry");
-
-        MeshGL mesh = union.getMeshGL();
-        assertTrue(mesh.NumTri() > 0, "the union produced triangles");
-        assertTrue(mesh.NumVert() > 0, "the union produced vertices");
+        assertEquals(0, bindings.genus(union), "the union is a ball, not a torus");
+        assertTrue(bindings.numTri(union) > 0, "the union produced triangles");
+        assertTrue(bindings.numVert(union) > 0, "the union produced vertices");
     }
 }

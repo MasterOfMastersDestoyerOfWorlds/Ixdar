@@ -26,7 +26,8 @@ public class MeshNodeRegistry extends RegistryProcessor {
         super(
                 MeshNodeAnnotation.class,
                 MeshNode.class,
-                "MeshNodes");
+                "MeshNodes",
+                true);
     }
 
     /**

@@ -41,12 +41,20 @@ public class NodeGraphRuntime {
     /**
      * Id-to-class view of the generated node registry, built once at class load. Building it
      * instantiates one probe per registered node, so it is cached rather than rebuilt per graph.
+     * Desktop-only nodes merge in through {@link #desktopRegistryMap()}'s reflective firewall.
      */
     public static final Map<String, Class<? extends MeshNode>> REGISTRY_CLASSES;
+
+    /** Desktop-only suppliers, empty in builds where their registry class cannot load. */
+    public static final Map<String, Supplier<? extends MeshNode>> DESKTOP_SUPPLIERS = desktopRegistryMap();
 
     static {
         Map<String, Class<? extends MeshNode>> out = new HashMap<>();
         for (Map.Entry<String, Supplier<? extends MeshNode>> e : MeshNodeRegistry_MeshNodes.MAP.entrySet()) {
+            MeshNode probe = e.getValue().get();
+            out.put(e.getKey(), probe.getClass());
+        }
+        for (Map.Entry<String, Supplier<? extends MeshNode>> e : DESKTOP_SUPPLIERS.entrySet()) {
             MeshNode probe = e.getValue().get();
             out.put(e.getKey(), probe.getClass());
         }
@@ -114,6 +122,50 @@ public class NodeGraphRuntime {
      */
     public void registerFunctionDefs(Map<String, PythonParser.FunctionDef> defs) {
         functionDefs.putAll(defs);
+    }
+
+    /**
+     * The desktop-only registry, reached through {@code Class.forName} so the class name never
+     * appears as a reference TeaVM can walk; in the browser the lookup fails and the map is empty.
+     * The same firewall idiom keeps {@code AudioSystem} out of the web build.
+     *
+     * @return desktop-only node suppliers by id; empty when the class cannot load
+     */
+    @SuppressWarnings("unchecked")
+    public static Map<String, Supplier<? extends MeshNode>> desktopRegistryMap() {
+        try {
+            Class<?> desktop = Class.forName(String.join(STR,
+                    MeshNodeRegistry_MeshNodes.class.getPackageName(),
+                    MeshNodeRegistry_MeshNodes.class.getSimpleName() + "Desktop"));
+            return (Map<String, Supplier<? extends MeshNode>>) desktop.getField("MAP").get(null);
+        } catch (Throwable unavailable) {
+            return Map.of();
+        }
+    }
+
+    /**
+     * The supplier for a node id, whichever registry holds it.
+     *
+     * @param type node id to look up
+     * @return the supplier, or {@code null} when neither registry has it
+     */
+    public static Supplier<? extends MeshNode> supplierFor(String type) {
+        Supplier<? extends MeshNode> supplier = MeshNodeRegistry_MeshNodes.MAP.get(type);
+        return supplier != null ? supplier : DESKTOP_SUPPLIERS.get(type);
+    }
+
+    /**
+     * Error text for a node id absent from this runtime's registry, naming the real cause when the
+     * id exists but only in the desktop registry this build cannot load.
+     *
+     * @param type the unresolvable node id
+     * @return message for the thrown {@code IllegalStateException}
+     */
+    public static String missingNodeMessage(String type) {
+        if (MeshNodeRegistry_MeshNodes.DESKTOP_ONLY_IDS.contains(type)) {
+            return "Mesh node '" + type + "' is desktop-only and unavailable in this build";
+        }
+        return NO_MESH_NODE_SUPPLIER_FOR_TYPE + type;
     }
 
     /**
@@ -271,10 +323,9 @@ public class NodeGraphRuntime {
                 if (nodeRegistry.get(parsedData.type) == null) {
                     throw new IllegalArgumentException("Unknown node type: " + parsedData.type);
                 }
-                Supplier<? extends MeshNode> supplier =
-                        MeshNodeRegistry_MeshNodes.MAP.get(parsedData.type);
+                Supplier<? extends MeshNode> supplier = supplierFor(parsedData.type);
                 if (supplier == null) {
-                    throw new IllegalStateException(NO_MESH_NODE_SUPPLIER_FOR_TYPE + parsedData.type);
+                    throw new IllegalStateException(missingNodeMessage(parsedData.type));
                 }
                 MeshNode activeNode = supplier.get();
 
@@ -414,9 +465,9 @@ public class NodeGraphRuntime {
                             + "': unknown node type: " + bodyNode.type);
                 }
                 Supplier<? extends MeshNode> supplier =
-                        MeshNodeRegistry_MeshNodes.MAP.get(bodyNode.type);
+                        supplierFor(bodyNode.type);
                 if (supplier == null) {
-                    throw new IllegalStateException(NO_MESH_NODE_SUPPLIER_FOR_TYPE + bodyNode.type);
+                    throw new IllegalStateException(missingNodeMessage(bodyNode.type));
                 }
                 MeshNode activeNode = supplier.get();
 

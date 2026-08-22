@@ -19,6 +19,15 @@ public @interface MeshNodeAnnotation {
     String id();
 
     /**
+     * Marks a node whose evaluation needs desktop-only machinery (native solvers, CSG kernels).
+     * The processor emits it into a separate registry class the web build never references, so
+     * TeaVM's reachability analysis cannot walk into the heavy classes behind it.
+     *
+     * @return {@code true} to keep this node out of the browser registry
+     */
+    boolean desktopOnly() default false;
+
+    /**
      * Editor scopes in which this node is offered (e.g. {@code "mesh"} for
      * Daud's mesh-modeling editor, {@code "dungeon"} for procgen dungeons).
      *

@@ -5,6 +5,7 @@ import java.lang.annotation.Annotation;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
@@ -18,6 +19,9 @@ import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
 public abstract class RegistryProcessor extends AbstractProcessor {
+    /** Simple-name suffix of the desktop-only registry class. */
+    public static final String DESKTOP_SUFFIX = "Desktop";
+
     private static final String STR = "_";
 
     private boolean generated;
@@ -25,6 +29,7 @@ public abstract class RegistryProcessor extends AbstractProcessor {
     private Class<? extends Annotation> annotationClass;
     private Class<?> typeClass;
     private String collectionName;
+    private boolean partitionDesktopOnly;
 
     /**
      * Configure the processor to scan for {@code annotationClass} and emit a
@@ -44,10 +49,25 @@ public abstract class RegistryProcessor extends AbstractProcessor {
      */
     public RegistryProcessor(Class<? extends Annotation> annotationClass, Class<?> typeClass,
             String collectionName) {
+        this(annotationClass, typeClass, collectionName, false);
+    }
+
+    /**
+     * Configure the processor as above, optionally splitting {@code desktopOnly} entries into a
+     * second {@code ..._<collection>Desktop} class so a web build never references them.
+     *
+     * @param annotationClass marker annotation whose {@code @interface} declares an {@code id}
+     * @param typeClass common supertype of the registered classes
+     * @param collectionName suffix forming the generated registry's simple name
+     * @param partitionDesktopOnly whether to honour a boolean {@code desktopOnly} element
+     */
+    public RegistryProcessor(Class<? extends Annotation> annotationClass, Class<?> typeClass,
+            String collectionName, boolean partitionDesktopOnly) {
         this.fqcn = this.getClass().getCanonicalName();
         this.annotationClass = annotationClass;
         this.typeClass = typeClass;
         this.collectionName = collectionName;
+        this.partitionDesktopOnly = partitionDesktopOnly;
     }
 
     /**
@@ -67,55 +87,95 @@ public abstract class RegistryProcessor extends AbstractProcessor {
             return false;
         }
         try {
-            String fqcn = this.fqcn + STR + this.collectionName;
-            String genClassName = this.getClass().getSimpleName() + STR + this.collectionName;
-            JavaFileObject file = processingEnv.getFiler().createSourceFile(fqcn);
-            try (Writer out = file.openWriter()) {
-                out.write("package " + this.getClass().getPackageName() + ";\n\n");
-                out.write("import java.util.*;\n");
-                out.write("import " + typeClass.getCanonicalName() + ";\n");
-                out.write("import java.util.function.Supplier;\n\n");
-                out.write("public final class " + genClassName + " {\n");
-                out.write("\tpublic static final Map<String, Supplier<? extends " + typeClass.getName()
-                        + ">> MAP = new HashMap<>();\n\n");
-                out.write("\tstatic {\n");
-                Map<String, String> seenIds = new HashMap<>();
-                for (Element element : roundEnv.getElementsAnnotatedWith(annotationClass)) {
-                    if (element.getKind() == ElementKind.CLASS) {
-                        String fqClassName = ((TypeElement) element).getQualifiedName().toString();
-                        String id = element.getSimpleName().toString();
-                        String annotationName = annotationClass.getName();
-                        for (AnnotationMirror mirror : element.getAnnotationMirrors()) {
-                            if (mirror.getAnnotationType().toString().equals(annotationName)) {
-                                for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry : mirror
-                                        .getElementValues().entrySet()) {
-                                    String key = entry.getKey().getSimpleName().toString();
-                                    if (key.equals("id")) {
-                                        Object val = entry.getValue().getValue();
-                                        if (val != null && !val.toString().isBlank()) {
-                                            id = val.toString();
-                                        }
-                                    }
-                                }
+            Map<String, String> mainEntries = new TreeMap<>();
+            Map<String, String> desktopEntries = new TreeMap<>();
+            Map<String, String> seenIds = new HashMap<>();
+            for (Element element : roundEnv.getElementsAnnotatedWith(annotationClass)) {
+                if (element.getKind() != ElementKind.CLASS) {
+                    continue;
+                }
+                String fqClassName = ((TypeElement) element).getQualifiedName().toString();
+                String id = element.getSimpleName().toString();
+                boolean desktopOnly = false;
+                String annotationName = annotationClass.getName();
+                for (AnnotationMirror mirror : element.getAnnotationMirrors()) {
+                    if (mirror.getAnnotationType().toString().equals(annotationName)) {
+                        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry : mirror
+                                .getElementValues().entrySet()) {
+                            String key = entry.getKey().getSimpleName().toString();
+                            Object val = entry.getValue().getValue();
+                            if (key.equals("id") && val != null && !val.toString().isBlank()) {
+                                id = val.toString();
+                            }
+                            if (key.equals("desktopOnly") && Boolean.TRUE.equals(val)) {
+                                desktopOnly = true;
                             }
                         }
-                        String previous = seenIds.put(id, fqClassName);
-                        if (previous != null) {
-                            processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-                                    "Duplicate registry id \"" + id + "\" on " + fqClassName + " and " + previous
-                                            + "; set a distinct id() on the annotation so neither is silently dropped.",
-                                    element);
-                        }
-                        out.write("\t\tMAP.put(\"" + id + "\", " + fqClassName + "::new);\n");
                     }
                 }
-                out.write("\t}\n");
-                out.write("}\n");
+                String previous = seenIds.put(id, fqClassName);
+                if (previous != null) {
+                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                            "Duplicate registry id \"" + id + "\" on " + fqClassName + " and " + previous
+                                    + "; set a distinct id() on the annotation so neither is silently dropped.",
+                            element);
+                }
+                if (partitionDesktopOnly && desktopOnly) {
+                    desktopEntries.put(id, fqClassName);
+                } else {
+                    mainEntries.put(id, fqClassName);
+                }
+            }
+            String genClassName = this.getClass().getSimpleName() + STR + this.collectionName;
+            writeRegistryClass(genClassName, mainEntries,
+                    partitionDesktopOnly ? desktopEntries.keySet() : null);
+            if (partitionDesktopOnly) {
+                writeRegistryClass(genClassName + DESKTOP_SUFFIX, desktopEntries, null);
             }
             generated = true;
         } catch (Exception e) {
             e.printStackTrace();
         }
         return true;
+    }
+
+    /**
+     * Emit one registry source file mapping id to constructor reference, optionally listing the ids
+     * routed to the desktop-only sibling as a plain string set safe for web reachability.
+     *
+     * @param genClassName simple name of the generated class
+     * @param entries id-to-class entries the class's {@code MAP} holds
+     * @param desktopOnlyIds ids emitted as {@code DESKTOP_ONLY_IDS}, or null to omit the set
+     * @throws Exception if the source file cannot be written
+     */
+    private void writeRegistryClass(String genClassName, Map<String, String> entries,
+            Set<String> desktopOnlyIds) throws Exception {
+        JavaFileObject file = processingEnv.getFiler()
+                .createSourceFile(this.getClass().getPackageName() + "." + genClassName);
+        try (Writer out = file.openWriter()) {
+            out.write("package " + this.getClass().getPackageName() + ";\n\n");
+            out.write("import java.util.*;\n");
+            out.write("import " + typeClass.getCanonicalName() + ";\n");
+            out.write("import java.util.function.Supplier;\n\n");
+            out.write("public final class " + genClassName + " {\n");
+            out.write("\tpublic static final Map<String, Supplier<? extends " + typeClass.getName()
+                    + ">> MAP = new HashMap<>();\n\n");
+            if (desktopOnlyIds != null) {
+                StringBuilder ids = new StringBuilder();
+                for (String id : desktopOnlyIds) {
+                    if (ids.length() > 0) {
+                        ids.append(", ");
+                    }
+                    ids.append('"').append(id).append('"');
+                }
+                out.write("\tpublic static final Set<String> DESKTOP_ONLY_IDS = Set.of(" + ids + ");\n\n");
+            }
+            out.write("\tstatic {\n");
+            for (Map.Entry<String, String> entry : entries.entrySet()) {
+                out.write("\t\tMAP.put(\"" + entry.getKey() + "\", " + entry.getValue() + "::new);\n");
+            }
+            out.write("\t}\n");
+            out.write("}\n");
+        }
     }
 }
