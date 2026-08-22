@@ -29,7 +29,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "bi_rail_loft")
 public class BiRailLoftNode implements MeshNode {
-    public static final String CURVE = "_curve";
     public static final int NUM_32 = 32;
     public static final int NUM_16 = 16;
     public static final int NUM_512 = 512;
@@ -213,11 +212,11 @@ public class BiRailLoftNode implements MeshNode {
         closed[closed.length - 2] = positions[1];
         closed[closed.length - 1] = positions[2];
         CurveGeometry curve = CurveGeometry.singlePolyline(closed);
-        return GeometryBundle.empty().withSlot(CURVE, curve);
+        return GeometryBundle.empty().withSlot(CurveGeometry.SLOT, curve);
     }
 
     private static CurveGeometry extractCurve(GeometryBundle gb) {
-        Object raw = gb.slots().get(CURVE);
+        Object raw = gb.slots().get(CurveGeometry.SLOT);
         if (raw instanceof CurveGeometry cg && cg.pointCount() >= 2) {
             return cg;
         }

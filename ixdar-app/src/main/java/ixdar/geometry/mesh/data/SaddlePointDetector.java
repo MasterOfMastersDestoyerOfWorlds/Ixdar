@@ -22,8 +22,6 @@ public final class SaddlePointDetector {
     public static final int NUM_3 = 3;
     public static final float NUM_1e_12 = 1e-12f;
     public static final float NUM_0 = 0f;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
 
     // Only fire at saddles whose magnitudes exceed these adaptive percentiles
     // of the per-vertex κ distributions. Keeps incidental skull saddles
@@ -134,7 +132,7 @@ public final class SaddlePointDetector {
                 }
             }
             if (best < 0) break;
-            out.add(( v < best ? ((long) v << NUM_32) | (best & NUM_0xffffffff) : ((long) best << NUM_32) | (v & NUM_0xffffffff)));
+            out.add(( EdgeKey.undirected(v, best)));
             float ex = positions[best * NUM_3]     - positions[v * NUM_3];
             float ey = positions[best * NUM_3 + 1] - positions[v * NUM_3 + 1];
             float ez = positions[best * NUM_3 + 2] - positions[v * NUM_3 + 2];
@@ -163,8 +161,8 @@ public final class SaddlePointDetector {
         for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(STEPS_PER_SIDE));
         for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
             long key = e.getKey();
-            int u = (int) (key >> NUM_32);
-            int v = (int) (key & NUM_0xffffffff);
+            int u = EdgeKey.minVertex(key);
+            int v = EdgeKey.maxVertex(key);
             tmp.get(u).add(v);
             tmp.get(v).add(u);
         }

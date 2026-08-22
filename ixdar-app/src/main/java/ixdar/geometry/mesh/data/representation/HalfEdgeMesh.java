@@ -472,6 +472,19 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return halfEdgeFace[firstHalfEdge] == NONE || halfEdgeFace[secondHalfEdge] == NONE;
     }
 
+    /**
+     * The face on the far side of one of {@code faceId}'s edges.
+     *
+     * @param faceId face the edge belongs to
+     * @param edgeId edge to cross
+     * @return the neighbouring face id, or {@link MeshTopology#NONE} at a boundary
+     */
+    public int faceAcrossEdge(int faceId, int edgeId) {
+        int halfEdge = edgeHalfEdge[edgeId];
+        int face = halfEdgeFace[halfEdge];
+        return face != faceId ? face : halfEdgeFace[halfEdgeTwin[halfEdge]];
+    }
+
     /** {@inheritDoc}. */
     @Override
     public int faceHalfEdge(int faceId) {

@@ -12,6 +12,7 @@ import org.joml.Vector3f;
 
 import java.util.Set;
 
+import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.annotations.meshnode.BoolField;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
@@ -476,7 +477,7 @@ public class ExtrudeMeshNode implements MeshNode {
             for (int k = 0; k < vpf; k++) {
                 int va = srcFaces[fi * vpf + k];
                 int vb = srcFaces[fi * vpf + ((k + 1) % vpf)];
-                long key = edgeKey(va, vb, vertCount);
+                long key = EdgeKey.undirected(va, vb);
                 edgeFaces.computeIfAbsent(key, x -> new ArrayList<>()).add(fi);
             }
         }
@@ -487,7 +488,7 @@ public class ExtrudeMeshNode implements MeshNode {
             for (int k = 0; k < vpf; k++) {
                 int va = srcFaces[fi * vpf + k];
                 int vb = srcFaces[fi * vpf + ((k + 1) % vpf)];
-                long key = edgeKey(va, vb, vertCount);
+                long key = EdgeKey.undirected(va, vb);
                 if (edgeSeen.contains(key)) continue;
 
                 List<Integer> faces = edgeFaces.get(key);
@@ -554,12 +555,6 @@ public class ExtrudeMeshNode implements MeshNode {
 
         out.computeNormals();
         return new ExtrusionResult(out, selected, newToOrig);
-    }
-
-    private static long edgeKey(int va, int vb, int vertCount) {
-        int a = Math.min(va, vb);
-        int b = Math.max(va, vb);
-        return (long) a * vertCount + b;
     }
 
     /** Result of an extrusion: mesh + metadata used for handle preservation and generated output. */

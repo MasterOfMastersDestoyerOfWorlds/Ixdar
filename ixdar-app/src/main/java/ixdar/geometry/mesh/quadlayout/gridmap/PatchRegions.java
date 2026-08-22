@@ -161,29 +161,11 @@ public final class PatchRegions {
                     boundaryArcs.add(owner);
                     continue;
                 }
-                int neighbor = neighborFace(faceId, edgeId);
+                int neighbor = topology.copy.faceAcrossEdge(faceId, edgeId);
                 if (neighbor != EmbeddedMeshTopology.UNCLAIMED && visited.add(neighbor)) {
                     frontier.add(neighbor);
                 }
             }
         }
-    }
-
-    /**
-     * The face on the far side of one of a face's edges.
-     *
-     * @param faceId face the edge belongs to
-     * @param edgeId edge to cross
-     * @return the neighbouring face, or {@link EmbeddedMeshTopology#UNCLAIMED} at a boundary
-     */
-    private int neighborFace(int faceId, int edgeId) {
-        EmbeddedMeshTopology topology = tmesh.topology;
-        int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-        int face = topology.copy.halfEdgeFace(halfEdge);
-        if (face != faceId) {
-            return face < 0 ? EmbeddedMeshTopology.UNCLAIMED : face;
-        }
-        int twinFace = topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge));
-        return twinFace < 0 ? EmbeddedMeshTopology.UNCLAIMED : twinFace;
     }
 }

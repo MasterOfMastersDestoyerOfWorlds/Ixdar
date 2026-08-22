@@ -22,7 +22,7 @@ import ixdar.geometry.mesh.data.GeometryBundles;
  */
 @MeshNodeAnnotation(id = "tag_geometry")
 public class TagGeometryNode implements MeshNode {
-    public static final String TAGS_SLOT = "__tags";
+    public static final String TAGS_SLOT = "_tags";
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort TAGS = new InputPort("tags", PortType.STRING, "");
@@ -107,7 +107,7 @@ public class TagGeometryNode implements MeshNode {
      *
      * @param bundle bundle to inspect; may be {@code null}
      * @return tag-name to per-vertex boolean mask map, or {@code null} if the
-     *         bundle is null or has no {@code __tags} slot of the expected type
+     *         bundle is null or has no {@code _tags} slot of the expected type
      */
     @SuppressWarnings("unchecked")
     public static Map<String, boolean[]> getTags(GeometryBundle bundle) {

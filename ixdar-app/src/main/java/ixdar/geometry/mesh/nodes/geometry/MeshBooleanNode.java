@@ -32,10 +32,10 @@ public class MeshBooleanNode implements MeshNode {
     public static final String UNION = "UNION";
     public static final String INTERSECT = "INTERSECT";
     /** Bundle slot holding the operand each output face came from, one entry per face. */
-    public static final String FACE_ORIGIN_SLOT = "boolean_face_origin";
+    public static final String FACE_ORIGIN_SLOT = "_boolean_face_origin";
 
     /** Bundle slot holding the source face id per output face, {@code -1} where the face is new. */
-    public static final String FACE_SOURCE_QUAD_SLOT = "boolean_face_source_quad";
+    public static final String FACE_SOURCE_QUAD_SLOT = "_boolean_face_source_quad";
 
     public static final InputPort MESH_A = new InputPort("mesh_a", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort MESH_B = new InputPort("mesh_b", PortType.GEOMETRY_BUNDLE, null);
@@ -66,7 +66,7 @@ public class MeshBooleanNode implements MeshNode {
                 MESH_B.name, "Second operand (typically the tool mesh).",
                 OPERATION.name, "CSG op: UNION (A ∪ B), DIFFERENCE (A − B), INTERSECT (A ∩ B).",
                 GEOMETRY.name, "Result as a geometry bundle, with per-face provenance in the"
-                        + " boolean_face_origin and boolean_face_source_quad slots."
+                        + " _boolean_face_origin and _boolean_face_source_quad slots."
         );
     }
 

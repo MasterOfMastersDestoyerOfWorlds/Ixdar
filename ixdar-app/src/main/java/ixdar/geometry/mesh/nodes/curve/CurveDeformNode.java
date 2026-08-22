@@ -26,7 +26,6 @@ public class CurveDeformNode implements MeshNode {
     public static final String Y = "Y";
     public static final String X = "X";
     public static final String Z = "Z";
-    public static final String CURVE_3 = "_curve";
     public static final float NUM_0 = 0f;
     public static final float NUM_1 = 1f;
     public static final float NUM_1e_10 = 1e-10f;
@@ -83,7 +82,7 @@ public class CurveDeformNode implements MeshNode {
             return;
         }
 
-        Object curveObj = base.slots().get(CURVE_3);
+        Object curveObj = base.slots().get(CurveGeometry.SLOT);
         if (!(curveObj instanceof CurveGeometry cg) || cg.pointCount() == 0) {
             ctx.setOutput(GEOMETRY.name, base);
             return;
@@ -116,7 +115,7 @@ public class CurveDeformNode implements MeshNode {
         }
 
         CurveGeometry deformed = new CurveGeometry(dstPos, cg.curveOffsets());
-        ctx.setOutput(GEOMETRY.name, base.withSlot(CURVE_3, deformed));
+        ctx.setOutput(GEOMETRY.name, base.withSlot(CurveGeometry.SLOT, deformed));
     }
 
     private static int axisIndex(Object axisObj) {

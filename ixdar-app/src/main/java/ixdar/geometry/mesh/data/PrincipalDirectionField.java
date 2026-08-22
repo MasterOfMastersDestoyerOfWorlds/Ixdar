@@ -23,8 +23,6 @@ public final class PrincipalDirectionField {
     public static final float NUM_1 = 1f;
     public static final float NUM_0 = 0f;
     public static final int NUM_6 = 6;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
 
     private final float[] kappaMax;
     private final float[] kappaMin;
@@ -285,8 +283,8 @@ public final class PrincipalDirectionField {
         for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(NUM_6));
         for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
             long key = e.getKey();
-            int u = (int) (key >> NUM_32);
-            int v = (int) (key & NUM_0xffffffff);
+            int u = EdgeKey.minVertex(key);
+            int v = EdgeKey.maxVertex(key);
             tmp.get(u).add(v);
             tmp.get(v).add(u);
         }

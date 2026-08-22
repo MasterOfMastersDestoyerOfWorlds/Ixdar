@@ -30,7 +30,6 @@ import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
  */
 @MeshNodeAnnotation(id = "transform_geometry")
 public class TransformGeometryNode implements MeshNode {
-    public static final String CURVE = "_curve";
     public static final float NUM_0 = 0f;
     public static final float NUM_1 = 1f;
     public static final int NUM_3 = 3;
@@ -191,7 +190,7 @@ public class TransformGeometryNode implements MeshNode {
         }
 
         // Transform curve geometry if present in slots
-        Object curveObj = base.slots().get(CURVE);
+        Object curveObj = base.slots().get(CurveGeometry.SLOT);
         if (curveObj instanceof CurveGeometry cg) {
             float[] srcPos = cg.positions();
             float[] dstPos = new float[srcPos.length];
@@ -202,7 +201,7 @@ public class TransformGeometryNode implements MeshNode {
                 dstPos[ci * NUM_3 + 1] = tmp.y;
                 dstPos[ci * NUM_3 + 2] = tmp.z;
             }
-            result = result.withSlot(CURVE, new CurveGeometry(dstPos, cg.curveOffsets()));
+            result = result.withSlot(CurveGeometry.SLOT, new CurveGeometry(dstPos, cg.curveOffsets()));
         }
 
         ctx.setOutput(GEOMETRY.name, result);

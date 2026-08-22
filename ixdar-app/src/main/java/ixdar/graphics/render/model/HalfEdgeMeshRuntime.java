@@ -13,6 +13,7 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
 
+import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -52,8 +53,6 @@ public class HalfEdgeMeshRuntime {
     public static final float NUM_0_001 = 0.001f;
     public static final float NUM_0_08 = 0.08f;
     public static final float NUM_0_16 = 0.16f;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
     public static final int NUM_16 = 16;
     public static final int NUM_0xf = 0xff;
     public static final float NUM_255 = 255f;
@@ -421,8 +420,8 @@ public class HalfEdgeMeshRuntime {
         for (FeatureEdgeCategory cat : categories) {
             int start = cursor;
             for (long key : cat.edgeKeys()) {
-                int u = (int) (key >> NUM_32);
-                int v = (int) (key & NUM_0xffffffff);
+                int u = EdgeKey.minVertex(key);
+                int v = EdgeKey.maxVertex(key);
                 indices[cursor++] = u;
                 indices[cursor++] = v;
             }

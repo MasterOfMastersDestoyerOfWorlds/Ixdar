@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.annotations.meshnode.InputPort;
 import ixdar.annotations.meshnode.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
@@ -30,8 +31,6 @@ public class IcosphereMeshNode implements MeshNode {
     public static final int NUM_9 = 9;
     public static final int NUM_10 = 10;
     public static final int NUM_60 = 60;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
     public static final float NUM_0_5 = 0.5f;
     public static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 1.0f, 0.001f, 100f);
     public static final InputPort SUBDIVISIONS = new InputPort("subdivisions", PortType.INT, 0, (float) 0, (float) 6);
@@ -180,15 +179,10 @@ public class IcosphereMeshNode implements MeshNode {
         return out;
     }
 
-    private static long edgeKey(int a, int b) {
-        int lo = Math.min(a, b);
-        int hi = Math.max(a, b);
-        return ((long) lo << NUM_32) | (hi & NUM_0xffffffff);
-    }
 
     private static int midpointOnSphere(int a, int b, ArrayList<Float> positions, float radius,
             Map<Long, Integer> edgeMidpoint) {
-        long key = edgeKey(a, b);
+        long key = EdgeKey.undirected(a, b);
         Integer existing = edgeMidpoint.get(key);
         if (existing != null) {
             return existing;

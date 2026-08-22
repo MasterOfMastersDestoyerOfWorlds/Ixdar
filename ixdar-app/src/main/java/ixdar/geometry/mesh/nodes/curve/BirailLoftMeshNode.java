@@ -26,7 +26,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "birail_loft")
 public class BirailLoftMeshNode implements MeshNode {
-    public static final String CURVE = "_curve";
     public static final int NUM_16 = 16;
     public static final int NUM_8 = 8;
     public static final int NUM_3 = 3;
@@ -76,8 +75,8 @@ public class BirailLoftMeshNode implements MeshNode {
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
-        Object ca = ga.slots().get(CURVE);
-        Object cb = gb.slots().get(CURVE);
+        Object ca = ga.slots().get(CurveGeometry.SLOT);
+        Object cb = gb.slots().get(CurveGeometry.SLOT);
         if (!(ca instanceof CurveGeometry cga) || !(cb instanceof CurveGeometry cgb)) {
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;

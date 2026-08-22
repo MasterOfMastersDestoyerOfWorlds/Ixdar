@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
 
 import java.util.Map;
@@ -32,8 +33,6 @@ public class SubdivideMeshNode implements MeshNode {
     public static final float NUM_0_5 = 0.5f;
     public static final float NUM_0 = 0f;
     public static final float NUM_1 = 1f;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
 
     public static final InputPort MESH_IN = new InputPort("mesh", PortType.MESH, null);
     public static final InputPort LEVELS = new InputPort("levels", PortType.INT, 1, 0f, 6f);
@@ -162,7 +161,7 @@ public class SubdivideMeshNode implements MeshNode {
             src.vertexPosition(vb, q);
             p.add(q).mul(NUM_0_5);
             int mid = out.addVertex(p);
-            long key = edgeKey(va, vb);
+            long key = EdgeKey.undirected(va, vb);
             edgeMidMap.put(key, mid);
         }
 
@@ -184,17 +183,12 @@ public class SubdivideMeshNode implements MeshNode {
                 int vb = faceVerts[(k + 1) % fc];
                 int vc = faceVerts[(k + fc - 1) % fc];
                 int nva = vertMap.get(va);
-                int midAB = edgeMidMap.get(edgeKey(va, vb));
-                int midCA = edgeMidMap.get(edgeKey(vc, va));
+                int midAB = edgeMidMap.get(EdgeKey.undirected(va, vb));
+                int midCA = edgeMidMap.get(EdgeKey.undirected(vc, va));
                 out.addFace(nva, midAB, centroid, midCA);
             }
         }
         return out;
     }
 
-    private static long edgeKey(int a, int b) {
-        int lo = Math.min(a, b);
-        int hi = Math.max(a, b);
-        return ((long) lo << NUM_32) | (hi & NUM_0xffffffff);
-    }
 }

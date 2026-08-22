@@ -130,6 +130,6 @@ public class CurvePrimitiveBezierNode implements MeshNode {
         }
 
         CurveGeometry curve = CurveGeometry.singlePolyline(positions);
-        ctx.setOutput(GEOMETRY.name, GeometryBundle.empty().withSlot("_curve", curve));
+        ctx.setOutput(GEOMETRY.name, GeometryBundle.empty().withSlot(CurveGeometry.SLOT, curve));
     }
 }

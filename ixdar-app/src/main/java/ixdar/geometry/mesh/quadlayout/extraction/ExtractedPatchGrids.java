@@ -10,6 +10,7 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
@@ -151,7 +152,7 @@ public final class ExtractedPatchGrids {
                 int from = quadMesh.quadCorner[quad * ExtractedQuadMesh.QUAD_CORNERS + corner];
                 int to = quadMesh.quadCorner[quad * ExtractedQuadMesh.QUAD_CORNERS
                         + (corner + 1) % ExtractedQuadMesh.QUAD_CORNERS];
-                quadByDirectedEdge.put(directedEdgeKey(from, to), quad);
+                quadByDirectedEdge.put(EdgeKey.directed(from, to), quad);
             }
         }
         for (EmbeddedArc arc : tmesh.arcs) {
@@ -167,17 +168,6 @@ public final class ExtractedPatchGrids {
         Arrays.fill(quadVertexByNodeId, ExtractedQuadMesh.NONE);
         patchIdByQuad = new int[quadMesh.quadCount];
         Arrays.fill(patchIdByQuad, EmbeddedTMesh.NONE);
-    }
-
-    /**
-     * The packed key of a directed quad corner pair.
-     *
-     * @param from corner walked from
-     * @param to   corner walked to
-     * @return the packed key
-     */
-    private long directedEdgeKey(int from, int to) {
-        return (long) from * quadMesh.quadVertexCount + to;
     }
 
     /**
@@ -787,14 +777,14 @@ public final class ExtractedPatchGrids {
             vertexGrid[(rows - 1 - row) * columns] = left[row];
         }
         boolean forwardStrips = quadByDirectedEdge
-                .containsKey(directedEdgeKey(vertexGrid[0], vertexGrid[1]))
+                .containsKey(EdgeKey.directed(vertexGrid[0], vertexGrid[1]))
                 && stripMatches(vertexGrid, 0, columns, true);
         for (int row = 0; row < height; row++) {
             for (int column = 0; column < width; column++) {
                 int from = vertexGrid[row * columns + column];
                 int to = vertexGrid[row * columns + column + 1];
-                Integer quad = quadByDirectedEdge.get(forwardStrips ? directedEdgeKey(from, to)
-                        : directedEdgeKey(to, from));
+                Integer quad = quadByDirectedEdge.get(forwardStrips ? EdgeKey.directed(from, to)
+                        : EdgeKey.directed(to, from));
                 if (quad == null) {
                     throw new IllegalStateException("patch " + patch.patchId + " row " + row
                             + " column " + column + " has no quad over its edge");
@@ -837,8 +827,8 @@ public final class ExtractedPatchGrids {
     private boolean stripMatches(int[] vertexGrid, int row, int columns, boolean forward) {
         int from = vertexGrid[row * columns];
         int to = vertexGrid[row * columns + 1];
-        Integer quad = quadByDirectedEdge.get(forward ? directedEdgeKey(from, to)
-                : directedEdgeKey(to, from));
+        Integer quad = quadByDirectedEdge.get(forward ? EdgeKey.directed(from, to)
+                : EdgeKey.directed(to, from));
         if (quad == null) {
             return false;
         }

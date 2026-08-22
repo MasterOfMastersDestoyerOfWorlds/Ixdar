@@ -6,6 +6,7 @@ import java.util.HashSet;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 
@@ -20,8 +21,6 @@ public final class ArrayMeshEngine {
     public static final float NUM_0_25 = 0.25f;
     public static final float NUM_1 = 1f;
     public static final float NUM_1e_9 = 1e-9f;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
 
     private static final int FP = 3;
 
@@ -149,7 +148,7 @@ public final class ArrayMeshEngine {
             positions[o] = p.x;
             positions[o + 1] = p.y;
             positions[o + 2] = p.z;
-            edgeMidMap.put(edgeKey(va, vb), midIdx);
+            edgeMidMap.put(EdgeKey.undirected(va, vb), midIdx);
         }
 
         for (int fi = 0; fi < srcF; fi++) {
@@ -190,8 +189,8 @@ public final class ArrayMeshEngine {
                 int vb = faceVerts[(k + 1) % NUM_4];
                 int vc = faceVerts[(k + FP) % NUM_4];
                 int nva = va;
-                Integer midAB = edgeMidMap.get(edgeKey(va, vb));
-                Integer midCA = edgeMidMap.get(edgeKey(vc, va));
+                Integer midAB = edgeMidMap.get(EdgeKey.undirected(va, vb));
+                Integer midCA = edgeMidMap.get(EdgeKey.undirected(vc, va));
                 if (midAB == null || midCA == null) {
                     throw new IllegalStateException("missing edge midpoint");
                 }
@@ -596,7 +595,7 @@ public final class ArrayMeshEngine {
 
             float alignment = Math.abs(dir.x * ax + dir.y * ay + dir.z * az);
             if (alignment > NUM_0_5) {
-                long key = edgeKey(va, vb);
+                long key = EdgeKey.undirected(va, vb);
                 if (!splitMap.containsKey(key)) {
                     int[] mids = new int[cuts];
                     for (int c = 0; c < cuts; c++) {
@@ -619,8 +618,8 @@ public final class ArrayMeshEngine {
         for (var entry : splitMap.entrySet()) {
             long key = entry.getKey();
             int[] mids = entry.getValue();
-            int lo = (int) (key >>> NUM_32);
-            int hi = (int) (key & NUM_0xffffffff);
+            int lo = EdgeKey.minVertex(key);
+            int hi = EdgeKey.maxVertex(key);
             float x0 = srcPos[lo * FP], y0 = srcPos[lo * FP + 1], z0 = srcPos[lo * FP + 2];
             float x1 = srcPos[hi * FP], y1 = srcPos[hi * FP + 1], z1 = srcPos[hi * FP + 2];
             for (int c = 0; c < cuts; c++) {
@@ -638,10 +637,10 @@ public final class ArrayMeshEngine {
         for (int fi = 0; fi < srcF; fi++) {
             int b = fi * NUM_4;
             int v0 = srcFaces[b], v1 = srcFaces[b + 1], v2 = srcFaces[b + 2], v3 = srcFaces[b + FP];
-            boolean e0 = splitMap.containsKey(edgeKey(v0, v1));
-            boolean e1 = splitMap.containsKey(edgeKey(v1, v2));
-            boolean e2 = splitMap.containsKey(edgeKey(v2, v3));
-            boolean e3 = splitMap.containsKey(edgeKey(v3, v0));
+            boolean e0 = splitMap.containsKey(EdgeKey.undirected(v0, v1));
+            boolean e1 = splitMap.containsKey(EdgeKey.undirected(v1, v2));
+            boolean e2 = splitMap.containsKey(EdgeKey.undirected(v2, v3));
+            boolean e3 = splitMap.containsKey(EdgeKey.undirected(v3, v0));
             outF += ((e0 && e2) || (e1 && e3)) ? cuts + 1 : 1;
         }
 
@@ -651,10 +650,10 @@ public final class ArrayMeshEngine {
         for (int fi = 0; fi < srcF; fi++) {
             int b = fi * NUM_4;
             int v0 = srcFaces[b], v1 = srcFaces[b + 1], v2 = srcFaces[b + 2], v3 = srcFaces[b + FP];
-            boolean e0 = splitMap.containsKey(edgeKey(v0, v1));
-            boolean e1 = splitMap.containsKey(edgeKey(v1, v2));
-            boolean e2 = splitMap.containsKey(edgeKey(v2, v3));
-            boolean e3 = splitMap.containsKey(edgeKey(v3, v0));
+            boolean e0 = splitMap.containsKey(EdgeKey.undirected(v0, v1));
+            boolean e1 = splitMap.containsKey(EdgeKey.undirected(v1, v2));
+            boolean e2 = splitMap.containsKey(EdgeKey.undirected(v2, v3));
+            boolean e3 = splitMap.containsKey(EdgeKey.undirected(v3, v0));
 
             if (e0 && e2) {
                 // Split pair A: edges v0→v1 and v2→v3
@@ -699,7 +698,7 @@ public final class ArrayMeshEngine {
      * @return midpoint indices ordered from {@code va} toward {@code vb}, or {@code null} if the edge was not split
      */
     private static int[] directedMids(HashMap<Long, int[]> splitMap, int va, int vb) {
-        int[] mids = splitMap.get(edgeKey(va, vb));
+        int[] mids = splitMap.get(EdgeKey.undirected(va, vb));
         if (mids == null) return null;
         if (va <= vb) return mids;
         // Reverse: splitMap stores lo→hi, but we need hi→lo
@@ -708,9 +707,4 @@ public final class ArrayMeshEngine {
         return rev;
     }
 
-    private static long edgeKey(int a, int b) {
-        int lo = Math.min(a, b);
-        int hi = Math.max(a, b);
-        return ((long) lo << NUM_32) | (hi & NUM_0xffffffff);
-    }
 }

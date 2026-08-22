@@ -21,8 +21,6 @@ public final class MscCellAssembly {
     public static final int NUM_3 = 3;
     public static final int NUM_0xFFFFF = 0xFFFFFF;
     public static final float NUM_0 = 0f;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
     public static final int NUM_6 = 6;
 
     private static final int MAX_WALK_STEPS = 256;
@@ -193,9 +191,7 @@ public final class MscCellAssembly {
             float bestCrossVal = scalar[cur];
             for (int u : ring[cur]) {
                 if (scalar[u] <= scalar[cur]) continue;
-                long key = u < cur
-                        ? ((long) u << NUM_32) | (cur & NUM_0xffffffff)
-                        : ((long) cur << NUM_32) | (u & NUM_0xffffffff);
+                long key = EdgeKey.undirected(u, cur);
                 boolean crossing = highConfidenceEdges.contains(key);
                 if (crossing) {
                     if (scalar[u] > bestCrossVal) { bestCrossVal = scalar[u]; bestCross = u; }

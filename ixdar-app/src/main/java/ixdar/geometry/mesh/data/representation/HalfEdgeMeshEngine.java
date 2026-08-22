@@ -5,6 +5,7 @@ import java.util.HashMap;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.common.exceptions.InvalidMeshTopologyException;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
@@ -24,8 +25,6 @@ public class HalfEdgeMeshEngine {
     public static final int NUM_4 = 4;
     public static final float NUM_0_5 = 0.5f;
     public static final float NUM_0_25 = 0.25f;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
     public static final int NUM_8 = 8;
     public static final int NUM_5 = 5;
     public static final int NUM_6 = 6;
@@ -551,7 +550,7 @@ public class HalfEdgeMeshEngine {
             Vector3f mid = new Vector3f().add(p0).add(p1).mul(NUM_0_5);
             int midIdx = srcV + ei;
             out.createVertexSlot(mid.x, mid.y, mid.z);
-            edgeMidMap.put(edgeKey(va, vb), midIdx);
+            edgeMidMap.put(EdgeKey.undirected(va, vb), midIdx);
         }
 
         // Create face centroids
@@ -580,8 +579,8 @@ public class HalfEdgeMeshEngine {
                 int vb = faceVerts[(k + 1) % NUM_4];
                 int vc = faceVerts[(k + NUM_3) % NUM_4];
                 int nva = va;
-                Integer midAB = edgeMidMap.get(edgeKey(va, vb));
-                Integer midCA = edgeMidMap.get(edgeKey(vc, va));
+                Integer midAB = edgeMidMap.get(EdgeKey.undirected(va, vb));
+                Integer midCA = edgeMidMap.get(EdgeKey.undirected(vc, va));
                 if (midAB == null || midCA == null) {
                     throw new IllegalStateException("missing edge midpoint");
                 }
@@ -593,11 +592,6 @@ public class HalfEdgeMeshEngine {
         return out;
     }
 
-    private static long edgeKey(int a, int b) {
-        int lo = Math.min(a, b);
-        int hi = Math.max(a, b);
-        return ((long) lo << NUM_32) | (hi & NUM_0xffffffff);
-    }
 
     /**
      * Builds GPU-ready interleaved vertex data and a triangulated index buffer

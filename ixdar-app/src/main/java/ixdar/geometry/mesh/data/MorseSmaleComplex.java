@@ -27,8 +27,6 @@ public final class MorseSmaleComplex {
     public static final int NUM_3 = 3;
     public static final float NUM_0_5 = 0.5f;
     public static final int NUM_6 = 6;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
 
     private static final int MAX_TRACE_STEPS = 512;
 
@@ -650,8 +648,7 @@ public final class MorseSmaleComplex {
                     firstNeighbour = leftV;
                 }
                 ringList.add(rightV);
-                long key = v < rightV ? ((long) v << NUM_32) | (rightV & NUM_0xffffffff)
-                     : ((long) rightV << NUM_32) | (v & NUM_0xffffffff);
+                long key = EdgeKey.undirected(v, rightV);
                 int[] adj = edgeFaces.get(key);
                 if (adj == null) { out[v] = null; break; }
                 int nextFace = (adj[0] == curFace) ? adj[1] : adj[0];
@@ -692,8 +689,8 @@ public final class MorseSmaleComplex {
         for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(NUM_6));
         for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
             long key = e.getKey();
-            int u = (int) (key >> NUM_32);
-            int v = (int) (key & NUM_0xffffffff);
+            int u = EdgeKey.minVertex(key);
+            int v = EdgeKey.maxVertex(key);
             tmp.get(u).add(v);
             tmp.get(v).add(u);
         }

@@ -22,8 +22,6 @@ public final class MorseSmaleDecomposer {
     public static final int NUM_3 = 3;
     public static final int NUM_8 = 8;
     public static final int NUM_6 = 6;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
 
     // PATCH-26 B4c: same threshold as PATCH-16's SemanticPatchDecomposer
     // for consistency. Expressed as fraction of mesh bounding-sphere
@@ -275,9 +273,7 @@ public final class MorseSmaleDecomposer {
             for (int e = 0; e < NUM_3; e++) {
                 int u = faceIdx[f * NUM_3 + e];
                 int v = faceIdx[f * NUM_3 + (e + 1) % NUM_3];
-                long key = u < v
-                        ? ((long) u << NUM_32) | (v & NUM_0xffffffff)
-                        : ((long) v << NUM_32) | (u & NUM_0xffffffff);
+                long key = EdgeKey.undirected(u, v);
                 int[] arr = edgeFaces.get(key);
                 if (arr == null) {
                     edgeFaces.put(key, new int[]{f, -1});
@@ -291,9 +287,7 @@ public final class MorseSmaleDecomposer {
             for (int e = 0; e < NUM_3; e++) {
                 int u = faceIdx[f * NUM_3 + e];
                 int v = faceIdx[f * NUM_3 + (e + 1) % NUM_3];
-                long key = u < v
-                        ? ((long) u << NUM_32) | (v & NUM_0xffffffff)
-                        : ((long) v << NUM_32) | (u & NUM_0xffffffff);
+                long key = EdgeKey.undirected(u, v);
                 int[] pair = edgeFaces.get(key);
                 int other = -1;
                 if (pair != null) other = (pair[0] == f) ? pair[1] : pair[0];
@@ -310,9 +304,7 @@ public final class MorseSmaleDecomposer {
             for (int e = 0; e < NUM_3; e++) {
                 int u = faceIdx[f * NUM_3 + e];
                 int v = faceIdx[f * NUM_3 + (e + 1) % NUM_3];
-                long key = u < v
-                        ? ((long) u << NUM_32) | (v & NUM_0xffffffff)
-                        : ((long) v << NUM_32) | (u & NUM_0xffffffff);
+                long key = EdgeKey.undirected(u, v);
                 int[] arr = edgeFaces.get(key);
                 if (arr == null) edgeFaces.put(key, new int[]{f, -1});
                 else if (arr[1] == -1) arr[1] = f;

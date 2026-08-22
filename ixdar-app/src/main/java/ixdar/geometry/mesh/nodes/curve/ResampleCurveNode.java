@@ -20,7 +20,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "resample_curve")
 public class ResampleCurveNode implements MeshNode {
-    public static final String CURVE_3 = "_curve";
     public static final float NUM_0_1 = 0.1f;
     public static final float NUM_1e_20 = 1e-20f;
     public static final int NUM_3 = 3;
@@ -68,7 +67,7 @@ public class ResampleCurveNode implements MeshNode {
             return;
         }
 
-        Object raw = gb.slots().get(CURVE_3);
+        Object raw = gb.slots().get(CurveGeometry.SLOT);
         if (!(raw instanceof CurveGeometry cg)) {
             ctx.setOutput(GEOMETRY_OUT.name,gb);
             return;
@@ -102,7 +101,7 @@ public class ResampleCurveNode implements MeshNode {
         }
 
         if (out.isEmpty()) {
-            ctx.setOutput(GEOMETRY_OUT.name,gb.withSlot(CURVE_3, CurveGeometry.singlePolyline(new float[0])));
+            ctx.setOutput(GEOMETRY_OUT.name,gb.withSlot(CurveGeometry.SLOT, CurveGeometry.singlePolyline(new float[0])));
             return;
         }
 
@@ -114,7 +113,7 @@ public class ResampleCurveNode implements MeshNode {
         for (int i = 0; i < newOff.size(); i++) {
             ofa[i] = newOff.get(i);
         }
-        ctx.setOutput(GEOMETRY_OUT.name,gb.withSlot(CURVE_3, new CurveGeometry(np, ofa)));
+        ctx.setOutput(GEOMETRY_OUT.name,gb.withSlot(CurveGeometry.SLOT, new CurveGeometry(np, ofa)));
     }
 
     private static void appendResampled(Vector3f a, Vector3f b, float segLen, ArrayList<Float> out, boolean firstOfCurve) {

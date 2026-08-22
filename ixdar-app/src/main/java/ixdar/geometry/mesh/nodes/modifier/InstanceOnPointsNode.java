@@ -26,7 +26,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "instance_on_points")
 public class InstanceOnPointsNode implements MeshNode {
-    public static final String INSTANCE_MESH = "instance_mesh";
+    public static final String INSTANCE_MESH = "_instance_mesh";
     public static final int NUM_3 = 3;
     public static final float NUM_0 = 0f;
     public static final float NUM_1 = 1f;
@@ -97,7 +97,7 @@ public class InstanceOnPointsNode implements MeshNode {
     }
 
     private static float[] positionsFromBundle(GeometryBundle gb) {
-        Object c = gb.slots().get("_curve");
+        Object c = gb.slots().get(CurveGeometry.SLOT);
         if (c instanceof CurveGeometry cg) {
             return cg.positions();
         }

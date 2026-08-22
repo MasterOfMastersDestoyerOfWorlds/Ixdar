@@ -23,7 +23,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "join_curves")
 public class JoinCurvesNode implements MeshNode {
-    public static final String CURVE = "_curve";
     public static final int NUM_3 = 3;
     public static final float NUM_1e_10 = 1e-10f;
 
@@ -70,11 +69,11 @@ public class JoinCurvesNode implements MeshNode {
             return;
         }
         if (cgA == null) {
-            ctx.setOutput(GEOMETRY.name,GeometryBundle.empty().withSlot(CURVE, cgB));
+            ctx.setOutput(GEOMETRY.name,GeometryBundle.empty().withSlot(CurveGeometry.SLOT, cgB));
             return;
         }
         if (cgB == null) {
-            ctx.setOutput(GEOMETRY.name,GeometryBundle.empty().withSlot(CURVE, cgA));
+            ctx.setOutput(GEOMETRY.name,GeometryBundle.empty().withSlot(CurveGeometry.SLOT, cgA));
             return;
         }
 
@@ -119,12 +118,12 @@ public class JoinCurvesNode implements MeshNode {
         System.arraycopy(posB, srcOffset, combined, dstOffset, copyCount);
 
         CurveGeometry joined = CurveGeometry.singlePolyline(combined);
-        ctx.setOutput(GEOMETRY.name,GeometryBundle.empty().withSlot(CURVE, joined));
+        ctx.setOutput(GEOMETRY.name,GeometryBundle.empty().withSlot(CurveGeometry.SLOT, joined));
     }
 
     private static CurveGeometry extractCurve(GeometryBundle gb) {
         if (gb == null) return null;
-        Object raw = gb.slots().get(CURVE);
+        Object raw = gb.slots().get(CurveGeometry.SLOT);
         if (raw instanceof CurveGeometry cg && cg.pointCount() >= 1) {
             return cg;
         }

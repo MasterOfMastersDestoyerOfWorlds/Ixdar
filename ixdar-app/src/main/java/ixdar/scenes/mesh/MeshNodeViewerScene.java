@@ -18,6 +18,7 @@ import org.joml.Vector3f;
 import java.util.Set;
 import org.joml.Vector4f;
 
+import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.FeatureEdgeColors;
 import ixdar.geometry.mesh.data.MeshTopology;
@@ -60,8 +61,6 @@ public class MeshNodeViewerScene extends ModelScene {
     public static final float NUM_0_35 = 0.35f;
     public static final float NUM_2 = 2f;
     public static final float NUM_1e_6 = 1e-6f;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
     public static final int NUM_0x000000 = 0x000000;
     public static final int NUM_128 = 128;
     public static final int NUM_16 = 16;
@@ -951,9 +950,7 @@ public class MeshNodeViewerScene extends ModelScene {
                     for (int i = 0; i + 1 < verts.length; i++) {
                         int u = verts[i];
                         int v = verts[i + 1];
-                        long key = u < v
-                                ? ((long) u << NUM_32) | (v & NUM_0xffffffff)
-                                : ((long) v << NUM_32) | (u & NUM_0xffffffff);
+                        long key = EdgeKey.undirected(u, v);
                         arcEdges.add(key);
                     }
                 }

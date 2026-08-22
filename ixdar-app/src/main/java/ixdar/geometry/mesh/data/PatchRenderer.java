@@ -51,8 +51,6 @@ public final class PatchRenderer {
     public static final float NUM_0_1 = 0.1f;
     public static final float NUM_0_2 = 0.2f;
     public static final int NUM_9 = 9;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
     public static final int NUM_10 = 10;
     public static final int NUM_14 = 14;
     public static final int NUM_20 = 20;
@@ -519,8 +517,8 @@ public final class PatchRenderer {
     private static void drawEdge(Graphics2D g, long edgeKey, int rgb,
                                  float[] vx, float[] vy, float[] vertexNormals,
                                  float fwdX, float fwdY, float fwdZ) {
-        int u = (int) (edgeKey >> NUM_32);
-        int v = (int) (edgeKey & NUM_0xffffffff);
+        int u = EdgeKey.minVertex(edgeKey);
+        int v = EdgeKey.maxVertex(edgeKey);
         float nu = vertexNormals[u * NUM_3_2] * fwdX + vertexNormals[u * NUM_3_2 + 1] * fwdY + vertexNormals[u * NUM_3_2 + 2] * fwdZ;
         float nv = vertexNormals[v * NUM_3_2] * fwdX + vertexNormals[v * NUM_3_2 + 1] * fwdY + vertexNormals[v * NUM_3_2 + 2] * fwdZ;
         if (nu > NUM_0_1 && nv > NUM_0_1) return;

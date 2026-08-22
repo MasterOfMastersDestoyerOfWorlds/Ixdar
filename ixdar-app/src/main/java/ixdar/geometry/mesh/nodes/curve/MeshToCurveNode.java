@@ -21,7 +21,6 @@ import ixdar.geometry.mesh.data.MeshTopology;
 @MeshNodeAnnotation(id = "mesh_to_curve")
 public class MeshToCurveNode implements MeshNode {
     public static final String ALL_EDGES = "ALL_EDGES";
-    public static final String CURVE = "_curve";
     public static final int NUM_6 = 6;
     public static final int NUM_8 = 8;
     public static final int NUM_16 = 16;
@@ -64,7 +63,7 @@ public class MeshToCurveNode implements MeshNode {
         }
         MeshTopology mesh = gb.mesh();
         if (mesh == null || mesh.edgeCount() == 0) {
-            ctx.setOutput(GEOMETRY.name,gb.withSlot(CURVE, CurveGeometry.singlePolyline(new float[0])));
+            ctx.setOutput(GEOMETRY.name,gb.withSlot(CurveGeometry.SLOT, CurveGeometry.singlePolyline(new float[0])));
             return;
         }
 
@@ -75,7 +74,7 @@ public class MeshToCurveNode implements MeshNode {
         if ("BOUNDARY".equalsIgnoreCase(source.trim())) {
             CurveGeometry boundary = boundaryPolyline(mesh);
             if (boundary != null && boundary.pointCount() >= 2) {
-                ctx.setOutput(GEOMETRY.name,gb.withSlot(CURVE, boundary));
+                ctx.setOutput(GEOMETRY.name,gb.withSlot(CurveGeometry.SLOT, boundary));
                 return;
             }
         }
@@ -107,7 +106,7 @@ public class MeshToCurveNode implements MeshNode {
             off[i] = 2 * i;
         }
         CurveGeometry curve = new CurveGeometry(pos, off);
-        ctx.setOutput(GEOMETRY.name,gb.withSlot(CURVE, curve));
+        ctx.setOutput(GEOMETRY.name,gb.withSlot(CurveGeometry.SLOT, curve));
     }
 
     /**

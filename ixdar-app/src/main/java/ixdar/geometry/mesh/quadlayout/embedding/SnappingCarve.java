@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
@@ -662,7 +663,7 @@ public final class SnappingCarve {
      * @return the packed key
      */
     static long edgeKey(int[] endpoints) {
-        return (long) endpoints[0] << Integer.SIZE | endpoints[1] & 0xFFFFFFFFL;
+        return EdgeKey.undirected(endpoints[0], endpoints[1]);
     }
 
     /**

@@ -80,7 +80,7 @@ public class CurveSweepMeshNode implements MeshNode {
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
-        Object rawCurve = curveGb.slots().get("_curve");
+        Object rawCurve = curveGb.slots().get(CurveGeometry.SLOT);
         if (!(rawCurve instanceof CurveGeometry cg) || cg.curveCount() == 0) {
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;

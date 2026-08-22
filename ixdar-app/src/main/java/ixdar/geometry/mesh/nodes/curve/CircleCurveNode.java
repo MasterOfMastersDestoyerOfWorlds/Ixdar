@@ -95,7 +95,7 @@ public class CircleCurveNode implements MeshNode {
         closedPositions[resolution * NUM_3 + 2] = positions[2];
 
         CurveGeometry curve = CurveGeometry.singlePolyline(closedPositions);
-        GeometryBundle curveBundle = GeometryBundle.empty().withSlot("_curve", curve);
+        GeometryBundle curveBundle = GeometryBundle.empty().withSlot(CurveGeometry.SLOT, curve);
 
         ctx.setOutput(GEOMETRY.name, curveBundle);
     }

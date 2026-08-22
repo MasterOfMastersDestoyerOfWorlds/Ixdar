@@ -9,6 +9,7 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
@@ -26,8 +27,6 @@ import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
  * See also: Tutte 1963; MPZ14 Section 7.3; LCK21a Section 6
  */
 public final class PatchRectangleMap {
-
-    private static final int KEY_ROW_SHIFT = 32;
 
     public final Vector3f[] positions;
     public final int[][] triangles;
@@ -246,8 +245,8 @@ public final class PatchRectangleMap {
         for (Map.Entry<Long, Double> edge : weightByEdge.entrySet()) {
             long key = edge.getKey();
             double weight = edge.getValue();
-            diagonal[(int) (key >>> KEY_ROW_SHIFT)] += weight;
-            diagonal[(int) key] += weight;
+            diagonal[EdgeKey.minVertex(key)] += weight;
+            diagonal[EdgeKey.maxVertex(key)] += weight;
             upper.put(key, -weight);
         }
         double[] rightHandSide = new double[n];
@@ -283,9 +282,7 @@ public final class PatchRectangleMap {
                 toSecond.set(positions[second]).sub(apex);
                 double twiceArea = toFirst.cross(toSecond, perpendicular).length();
                 double cotangent = twiceArea == 0.0 ? 0.0 : toFirst.dot(toSecond) / twiceArea;
-                int low = Math.min(first, second);
-                int high = Math.max(first, second);
-                weightByEdge.merge(((long) low << KEY_ROW_SHIFT) | high, cotangent, Double::sum);
+                weightByEdge.merge(EdgeKey.undirected(first, second), cotangent, Double::sum);
             }
         }
         return weightByEdge;
@@ -303,9 +300,7 @@ public final class PatchRectangleMap {
             for (int corner = 0; corner < triangle.length; corner++) {
                 int first = triangle[(corner + 1) % triangle.length];
                 int second = triangle[(corner + 2) % triangle.length];
-                int low = Math.min(first, second);
-                int high = Math.max(first, second);
-                weightByEdge.put(((long) low << KEY_ROW_SHIFT) | high, 1.0);
+                weightByEdge.put(EdgeKey.undirected(first, second), 1.0);
             }
         }
         return weightByEdge;

@@ -26,7 +26,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "curve_to_mesh")
 public class CurveToMeshNode implements MeshNode {
-    public static final String CURVE_3 = "_curve";
     public static final float NUM_0_1 = 0.1f;
     public static final int NUM_12 = 12;
     public static final int NUM_3 = 3;
@@ -84,7 +83,7 @@ public class CurveToMeshNode implements MeshNode {
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
-        Object rawCurve = curveGb.slots().get(CURVE_3);
+        Object rawCurve = curveGb.slots().get(CurveGeometry.SLOT);
         if (!(rawCurve instanceof CurveGeometry cg) || cg.curveCount() == 0) {
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
@@ -106,7 +105,7 @@ public class CurveToMeshNode implements MeshNode {
         float[] profileV;
         GeometryBundle profileGb = GeometryBundles.bundlePart(ctx.getInput(PROFILE_CURVE.name, Object.class));
         if (profileGb != null) {
-            Object rawProfile = profileGb.slots().get(CURVE_3);
+            Object rawProfile = profileGb.slots().get(CurveGeometry.SLOT);
             if (rawProfile instanceof CurveGeometry profileCg && profileCg.pointCount() >= NUM_3) {
                 int pn = profileCg.pointCount();
                 float[] ppos = profileCg.positions();

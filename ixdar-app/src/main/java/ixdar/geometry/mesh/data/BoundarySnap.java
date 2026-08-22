@@ -159,8 +159,8 @@ public final class BoundarySnap {
                                             int labelA, int labelB) {
         Map<Integer, List<Integer>> sub = new HashMap<>();
         for (long ek : pairEdges) {
-            int u = (int)(ek >>> NUM_32);
-            int v = (int)(ek & NUM_0xffffffff);
+            int u = EdgeKey.minVertex(ek);
+            int v = EdgeKey.maxVertex(ek);
             sub.computeIfAbsent(u, k -> new ArrayList<>()).add(v);
             sub.computeIfAbsent(v, k -> new ArrayList<>()).add(u);
         }
@@ -440,8 +440,7 @@ public final class BoundarySnap {
     }
 
     private static long edgeKey(int u, int v) {
-        return u < v ? ((long) u << NUM_32) | (v & NUM_0xffffffff)
-                     : ((long) v << NUM_32) | (u & NUM_0xffffffff);
+        return EdgeKey.undirected(u, v);
     }
 
     private static boolean pathEquals(List<Integer> a, List<Integer> b) {

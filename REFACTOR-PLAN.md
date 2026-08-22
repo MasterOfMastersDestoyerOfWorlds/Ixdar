@@ -94,10 +94,35 @@ is in the working tree behind it.
       still uses the row-major formula — self-consistent on its square grid (a transpose), but
       its prose diagram is mirrored relative to the mesh. Fixture-to-DSL conversion itself
       deferred until after the quad-layout migration (7.2) per ruling F2
-- [ ] 3.2 Runtime overlays: `QuadLayoutRuntime`'s 8 stage-typed setters and 10 GPU buffer sets,
-      ~1,400 lines duplicating `setTags` / `setPerVertexScalar` / `setFeatureEdgeOverlay` on its parent
-- [ ] 3.3 Mesh data: `ArrayMesh` vs `HalfEdgeMesh` conventions, `GeometryBundle` slot naming, face
-      adjacency built three ways, edge-key packing inlined at ~35 sites with no `EdgeKey`
+- [-] 3.2 Runtime overlays, deferred behind 7.2 by the author's ruling: generalizing
+      `QuadLayoutRuntime` only makes sense after the quad-layout pipeline is restructured into mesh
+      nodes with common data structures at the seams; the goal then is a runtime exposing general
+      capabilities, not stage-typed setters. The enumeration survives for that day: the child never
+      calls the parent's `setTags`/`setPerVertexScalar`/`setFeatureEdgeOverlay` (its overlays draw
+      other geometry), and the real duplication is (D1) ~30 raw int handle fields with ~25 hand-rolled
+      delete blocks where the parent uses `VertexArrayObject`/`VertexBufferObject`, (D2) the
+      position-only GL_LINES upload block 5×, (D3) the colored line draw pass 5×, (D4) the
+      sphere-instance loop 6×, (D5) ranged color draws as parallel arrays where the parent has
+      `FeatureEdgeRange`, (D6) the 6-line shader preamble 12×, (D7) `setupOverlayProjection`
+      re-deriving the parent's private projection. Sketched fix: `LineSet` + `SphereCloud` helpers,
+      `FeatureEdgeRange` reuse, `bindOverlayShader`, projection exposed (~500-600 lines)
+- [x] 3.3 Mesh data conventions. `EdgeKey` (`ixdar.geometry.mesh.data`) is now the one place edge
+      keys are packed: `undirected(a, b)` (min in high 32 bits), `directed(from, to)`,
+      `minVertex`/`maxVertex` accessors. Migrated 6 private `edgeKey` clones, ~10 inline ternaries,
+      ~14 unpack sites, `CoonsHandleBuilder.dirPack` (kept as the domain name, now delegating),
+      `ExtractedPatchGrids.directedEdgeKey` and `ExtrudeMeshNode`'s `vertCount`-multiply scheme
+      (both were incompatible third layouts, map-internal so safe to converge), and
+      `PatchRectangleMap`'s `KEY_ROW_SHIFT`. Left alone on purpose: label pairs (`BoundarySnap:89`),
+      MSC cell pairs, trace/node and matrix keys — same math, different semantics.
+      `HalfEdgeMesh.faceAcrossEdge(faceId, edgeId)` added; the two identical `neighborFace` clones
+      (`QuadMeshExtraction`, `PatchRegions`) deleted; `CurvatureConstraints`' CSR cache and
+      `PatchBoundaryBuilder`'s active-index route are legitimately different and stay. Slot naming
+      unified on leading-underscore names owned by one constant: `CurveGeometry.SLOT` replaces 8
+      per-file `"_curve"` constants + 4 raw literals, `"__tags"` → `"_tags"`, the two boolean
+      provenance slots and `"instance_mesh"` gained the prefix. Empty-mesh spelling unified on
+      `ArrayMeshEngine.emptyQuads()` (2 raw constructions in `MeshMergeByDistance`). Verified: full
+      suite 141 tests, only the 5 known 6.8 failures; registry test green; mesh-boolean scene runs
+      (`graph 7ms`, `UNION V=20 F=36`); catalog diff is exactly the one edited description string
 - [ ] 3.4 Nodes: 95 registered, 3 tests
 - [x] 3.5 Port name plumbing (author's ruling): `InputPort`/`OutputPort` converted from records to
       plain final classes with public final fields, so `port.name` is field access — a record cannot
@@ -180,6 +205,9 @@ is in the working tree behind it.
       All deep pipeline behaviour, consistent with the notes' known instability
 - [ ] 6.9 `IX-6` exists in both `content/IX/` and `done/IX/` with contradictory statuses; `BOARD.md`
       is stale and omits the DSL epic
+- [ ] 6.10 `instance_on_points` writes the `_instance_mesh` slot but nothing reads it —
+      `RealizeInstancesNode` never looks at the slot, so instances placed on 0 or 1 points are
+      silently dropped instead of realized. Surfaced by the 3.3 slot audit
 
 ## 7. Decisions still owed
 
@@ -193,6 +221,22 @@ is in the working tree behind it.
       as it does now, or degrade
 
 ## Constraints to carry into `ARCHITECTURE.md`
+
+### Mesh data conventions (established by 3.3)
+
+- Edge keys pack through `EdgeKey` only: `undirected(a, b)` puts the smaller vertex id in the high
+  32 bits; `directed(from, to)` keeps `from` high. Never inline the shift/mask again. Packed pairs
+  that are not vertex edges (region labels, MSC cells, matrix row/col) stay local to their file.
+- "Which face is across this edge" is `HalfEdgeMesh.faceAcrossEdge(faceId, edgeId)`, returning
+  `MeshTopology.NONE` at a boundary.
+- `GeometryBundle` slot names start with a single underscore and are owned by exactly one constant,
+  on the value type when one exists (`CurveGeometry.SLOT`, `EdgeMarks.SLOT`) or on the producing
+  node otherwise (`TagGeometryNode.TAGS_SLOT`, `MeshBooleanNode.FACE_ORIGIN_SLOT`). No raw slot
+  string literals at use sites.
+- `ArrayMesh` vs `HalfEdgeMesh`: modifier nodes that need dense arrays coerce with
+  `ArrayMeshEngine.fromUniformMeshTopology(mesh)`; type-preserving ops branch on `instanceof` and
+  return the input's kind. The empty mesh is `ArrayMeshEngine.emptyQuads()` or
+  `new HalfEdgeMesh()` — never a raw `new ArrayMesh(...)` with empty arrays.
 
 ### IDE toolchain facts (hard-won 2026-08-22, all load-bearing)
 

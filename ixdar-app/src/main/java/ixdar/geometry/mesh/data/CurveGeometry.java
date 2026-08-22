@@ -8,6 +8,9 @@ import ixdar.annotations.meshnode.GeometryBundleValue;
  * One or more 3D polylines: packed xyz positions and curve start offsets (length = numCurves + 1).
  */
 public final class CurveGeometry implements GeometryBundleValue {
+
+    /** Bundle slot every curve node reads and writes its {@link CurveGeometry} through. */
+    public static final String SLOT = "_curve";
     public static final int NUM_3 = 3;
 
     private final float[] positions;

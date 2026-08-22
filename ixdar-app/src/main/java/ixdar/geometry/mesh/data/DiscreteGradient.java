@@ -22,8 +22,6 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
  */
 public final class DiscreteGradient {
     public static final int NUM_3 = 3;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
 
     private DiscreteGradient() {}
 
@@ -56,16 +54,14 @@ public final class DiscreteGradient {
             for (int e = 0; e < NUM_3; e++) {
                 int u = verts[e];
                 int v = verts[(e + 1) % NUM_3];
-                long key = u < v
-                        ? ((long) u << NUM_32) | (v & NUM_0xffffffff)
-                        : ((long) v << NUM_32) | (u & NUM_0xffffffff);
+                long key = EdgeKey.undirected(u, v);
                 Integer eid = edgeIdByKey.get(key);
                 if (eid == null) {
                     eid = edgeEndpointsList.size();
                     edgeIdByKey.put(key, eid);
                     edgeEndpointsList.add(new int[]{
-                            (int)(key >>> NUM_32),
-                            (int)(key & NUM_0xffffffff)
+                            EdgeKey.minVertex(key),
+                            EdgeKey.maxVertex(key)
                     });
                     trianglesByEdgeList.add(new ArrayList<>(2));
                 }

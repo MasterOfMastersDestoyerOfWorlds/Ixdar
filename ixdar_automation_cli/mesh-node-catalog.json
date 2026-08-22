@@ -2595,7 +2595,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Result as a geometry bundle, with per-face provenance in the boolean_face_origin and boolean_face_source_quad slots."
+          "description": "Result as a geometry bundle, with per-face provenance in the _boolean_face_origin and _boolean_face_source_quad slots."
         }
       ],
       "description": "Exact CSG boolean (union, difference, or intersect) of two meshes, splitting faces at the intersection curve and recording where each output face came from."

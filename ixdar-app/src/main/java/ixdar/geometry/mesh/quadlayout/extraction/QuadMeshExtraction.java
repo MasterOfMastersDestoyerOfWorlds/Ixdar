@@ -626,7 +626,7 @@ public final class QuadMeshExtraction {
                     cornerU[clockwiseCorner], cornerV[clockwiseCorner],
                     cornerU[counterClockwiseCorner], cornerV[counterClockwiseCorner]);
             int crossEdge = chartEdgeCopyEdge(faceId, chartCorner, counterClockwise);
-            faceId = neighborFace(faceId, crossEdge);
+            faceId = copy.faceAcrossEdge(faceId, crossEdge);
             if (faceId < 0) {
                 throw new IllegalStateException("copy vertex " + copyVertex + " sits on a mesh"
                         + " boundary, which the extraction does not support");
@@ -739,19 +739,6 @@ public final class QuadMeshExtraction {
     }
 
     /**
-     * The face across a copy edge, or a negative id at a mesh boundary.
-     *
-     * @param faceId face being left
-     * @param edgeId copy edge crossed
-     * @return the neighbouring face id
-     */
-    private int neighborFace(int faceId, int edgeId) {
-        int halfEdge = copy.edgeHalfEdge(edgeId);
-        int face = copy.halfEdgeFace(halfEdge);
-        return face != faceId ? face : copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge));
-    }
-
-    /**
      * EBC13 Algorithm 5: traces every untraced port's unit iso-segment to the
      * opposite port and connects the pair.
      */
@@ -816,7 +803,7 @@ public final class QuadMeshExtraction {
                     segmentEnd, cornerU, cornerV, first, second, third);
             boolean counterClockwise = verification.counterClockwiseByPatch[patchId];
             int crossedEdgeId = chartEdgeCopyEdge(faceId, exitChartEdge, counterClockwise);
-            int nextFace = neighborFace(faceId, crossedEdgeId);
+            int nextFace = copy.faceAcrossEdge(faceId, crossedEdgeId);
             if (nextFace < 0) {
                 throw new IllegalStateException("port " + port + " traced into a mesh boundary"
                         + " at copy edge " + crossedEdgeId);
@@ -961,7 +948,7 @@ public final class QuadMeshExtraction {
         int opposite = findPort(arrivalVertex, faceId, reverseTurns);
         if (opposite == ExtractedQuadMesh.NONE) {
             for (int candidateEdge : arrivalIncidentEdges(faceId, zeroMask, counterClockwise)) {
-                int neighbor = neighborFace(faceId, candidateEdge);
+                int neighbor = copy.faceAcrossEdge(faceId, candidateEdge);
                 if (neighbor < 0) {
                     continue;
                 }

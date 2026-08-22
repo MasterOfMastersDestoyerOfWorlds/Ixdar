@@ -45,8 +45,6 @@ public final class SemanticPatchDecomposer {
     public static final float NUM_0_10 = 0.10f;
     public static final float NUM_1e_4 = 1e-4f;
     public static final float NUM_1e_20 = 1e-20f;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
     public static final float NUM_3_2 = 3f;
     public static final float NUM_1e_12 = 1e-12f;
     public static final float NUM_2 = 2f;
@@ -730,8 +728,8 @@ public final class SemanticPatchDecomposer {
         int[] count = new int[vertexCount];
         for (Map.Entry<Long, Float> e : ed.dihedralByEdge().entrySet()) {
             long key = e.getKey();
-            int u = (int) (key >> NUM_32);
-            int v = (int) (key & NUM_0xffffffff);
+            int u = EdgeKey.minVertex(key);
+            int v = EdgeKey.maxVertex(key);
             float d = e.getValue();
             accum[u] += d;
             accum[v] += d;
@@ -1030,8 +1028,8 @@ public final class SemanticPatchDecomposer {
         Set<Long> out = new HashSet<>();
         for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
             long key = e.getKey();
-            int u = (int) (key >> NUM_32);
-            int v = (int) (key & NUM_0xffffffff);
+            int u = EdgeKey.minVertex(key);
+            int v = EdgeKey.maxVertex(key);
             boolean ridge = kappa1[u] > ridgeThreshold && kappa1[v] > ridgeThreshold;
             boolean valley = kappa2[u] < -valleyThreshold && kappa2[v] < -valleyThreshold;
             if (ridge || valley) out.add(key);
@@ -1224,8 +1222,8 @@ public final class SemanticPatchDecomposer {
             int[] pair = e.getValue();
             if (pair[1] == -1) continue;
             long key = e.getKey();
-            int u = (int) (key >> NUM_32);
-            int v = (int) (key & NUM_0xffffffff);
+            int u = EdgeKey.minVertex(key);
+            int v = EdgeKey.maxVertex(key);
             attachNeighbour(adj, faceIdx, pair[0], pair[1], u, v);
             attachNeighbour(adj, faceIdx, pair[1], pair[0], u, v);
         }
@@ -1284,7 +1282,7 @@ public final class SemanticPatchDecomposer {
     // ---------- shared helpers ----------
 
     static long edgeKey(int u, int v) {
-        return u < v ? ((long) u << NUM_32) | (v & NUM_0xffffffff) : ((long) v << NUM_32) | (u & NUM_0xffffffff);
+        return EdgeKey.undirected(u, v);
     }
 
     private static int faceBranch(int f, int[] faceIdx, int[] vertexBranchId) {

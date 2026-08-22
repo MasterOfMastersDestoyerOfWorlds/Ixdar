@@ -5,6 +5,7 @@ import java.util.HashMap;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 
@@ -43,7 +44,7 @@ public final class CoonsHandleBuilder {
      * @return packed {@code long} key suitable for use in a {@link Map}
      */
     public static long dirPack(int from, int to) {
-        return ((long) from << NUM_32) | (to & NUM_0xffffffff);
+        return EdgeKey.directed(from, to);
     }
 
     /**
