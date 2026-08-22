@@ -127,6 +127,37 @@
       "description": "Rotates weighted vertices around a pivot point for forward-kinematics posing, using bone weights from set_bone_weight. Chain tip-to-root for multi-bone rigs."
     },
     {
+      "id": "arc_quantization",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "graph",
+          "portType": "ARC_NETWORK",
+          "description": "Arc network to quantize, from a motorcycle_graph node.",
+          "defaultValue": null
+        },
+        {
+          "name": "alpha_degrees",
+          "portType": "FLOAT",
+          "description": "Maximum separatrix deviation in degrees, bounding the ILP.",
+          "defaultValue": 15.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "skeleton",
+          "portType": "ARC_NETWORK",
+          "description": "The quantized skeleton: collapse clusters plus positive arcs."
+        }
+      ],
+      "description": "Solves the quantization ILP over an arc network (one integer length per arc) and collapses zero-quantized arcs into the layout\u0027s separatrix skeleton."
+    },
+    {
       "id": "assign_bezier_handles",
       "category": "Patch \u0026 Surface",
       "scopes": [
@@ -2371,6 +2402,31 @@
       "description": "Combines two geometry inputs into one mesh, merging tags and bone weights. Optionally welds nearby vertices within merge_distance."
     },
     {
+      "id": "layout_embedding",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "skeleton",
+          "portType": "ARC_NETWORK",
+          "description": "Quantized skeleton to embed, from an arc_quantization node.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "tmesh",
+          "portType": "ARC_NETWORK",
+          "description": "The embedded T-mesh, uncontracted; zero arcs and patches remain."
+        }
+      ],
+      "description": "Carves a quantized skeleton onto a working copy of the mesh and assembles the embedded T-mesh, validated as a cell decomposition of the surface."
+    },
+    {
       "id": "load_mesh",
       "category": "Field \u0026 Data",
       "scopes": [
@@ -3873,6 +3929,37 @@
         }
       ],
       "description": "Annotates all vertices in a geometry with one or more comma-separated tag labels, stored as per-vertex boolean masks."
+    },
+    {
+      "id": "tmesh_contract",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "tmesh",
+          "portType": "ARC_NETWORK",
+          "description": "Embedded T-mesh in (from layout_embedding, mutated in place) and the contracted, by default conforming, T-mesh out.",
+          "defaultValue": null
+        },
+        {
+          "name": "conform",
+          "portType": "BOOLEAN",
+          "description": "Whether to extend T-junctions after contraction so every patch conforms.",
+          "defaultValue": true
+        }
+      ],
+      "outputs": [
+        {
+          "name": "tmesh",
+          "portType": "ARC_NETWORK",
+          "description": "Embedded T-mesh in (from layout_embedding, mutated in place) and the contracted, by default conforming, T-mesh out."
+        }
+      ],
+      "description": "Contracts an embedded T-mesh until no zero arc or patch remains, then optionally extends surviving T-junctions so the layout conforms."
     },
     {
       "id": "torus",

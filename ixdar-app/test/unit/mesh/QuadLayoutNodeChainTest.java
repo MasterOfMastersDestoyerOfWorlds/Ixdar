@@ -8,11 +8,16 @@ import org.junit.jupiter.api.Test;
 import ixdar.annotations.meshnode.MapNodeContext;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.nodes.data.LoadMeshNode;
+import ixdar.geometry.mesh.nodes.quadlayout.ArcQuantizationNode;
 import ixdar.geometry.mesh.nodes.quadlayout.CrossFieldNode;
+import ixdar.geometry.mesh.nodes.quadlayout.LayoutEmbeddingNode;
 import ixdar.geometry.mesh.nodes.quadlayout.MotorcycleGraphNode;
 import ixdar.geometry.mesh.nodes.quadlayout.SeamlessUvNode;
+import ixdar.geometry.mesh.nodes.quadlayout.TmeshContractNode;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
+import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 
 /**
@@ -70,5 +75,40 @@ class QuadLayoutNodeChainTest {
                 graphCtx.getOutput(MotorcycleGraphNode.PATCH_COUNT.name, Integer.class),
                 "the patch count output matches the graph");
         assertTrue(graph.patches.size() > 0, "the arrangement has patches");
+
+        ArcQuantizationNode quantize = new ArcQuantizationNode();
+        MapNodeContext skeletonCtx = new MapNodeContext(quantize);
+        skeletonCtx.setInput(ArcQuantizationNode.GRAPH.name, graph);
+        quantize.evaluate(skeletonCtx);
+        LayoutExtraction skeleton =
+                skeletonCtx.getOutput(ArcQuantizationNode.SKELETON.name, LayoutExtraction.class);
+        assertTrue(skeleton.layoutArcs.size() > 0, "the skeleton keeps positive arcs");
+
+        LayoutEmbeddingNode embed = new LayoutEmbeddingNode();
+        MapNodeContext tmeshCtx = new MapNodeContext(embed);
+        tmeshCtx.setInput(LayoutEmbeddingNode.SKELETON.name, skeleton);
+        embed.evaluate(tmeshCtx);
+        EmbeddedTMesh tmesh =
+                tmeshCtx.getOutput(LayoutEmbeddingNode.TMESH.name, EmbeddedTMesh.class);
+        assertEquals(graph.patches.size(), tmesh.patches.size(),
+                "every arrangement patch becomes one embedded patch");
+
+        TmeshContractNode contract = new TmeshContractNode();
+        MapNodeContext contractedCtx = new MapNodeContext(contract);
+        contractedCtx.setInput(TmeshContractNode.TMESH.name, tmesh);
+        contract.evaluate(contractedCtx);
+        EmbeddedTMesh contracted =
+                contractedCtx.getOutput(TmeshContractNode.TMESH_OUT.name, EmbeddedTMesh.class);
+        assertEquals(0, liveZeroArcs(contracted), "contraction leaves no live zero arc");
+    }
+
+    private int liveZeroArcs(EmbeddedTMesh tmesh) {
+        int zero = 0;
+        for (int arcId = 0; arcId < tmesh.arcs.size(); arcId++) {
+            if (tmesh.arcs.get(arcId).alive && tmesh.arcs.get(arcId).quantizedLength == 0) {
+                zero++;
+            }
+        }
+        return zero;
     }
 }

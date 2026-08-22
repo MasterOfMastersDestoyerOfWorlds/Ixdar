@@ -363,6 +363,19 @@ is in the working tree behind it.
         geometry, the arrangement is a sibling structure and the node's primary product. Common
         Java interfaces at the seams (UvField etc.) are deferred until the second producer of
         each type lands, so two real users shape them
+      - [x] Batch 3 (2026-08-22): `ArcQuantizationNode` (`arc_quantization`: graph +
+        alpha_degrees -> skeleton; QuantizedMeshGrid ILP + the stage-6 LayoutExtraction folded
+        into the output per ruling), `LayoutEmbeddingNode` (`layout_embedding`: skeleton ->
+        tmesh; carve + EmbeddedTMesh assembly + validate), `TmeshContractNode` (`tmesh_contract`:
+        tmesh + conform(default TRUE) -> tmesh; contract to fixed point, then conform unless
+        disabled - the node defaults to conforming even though the engine never does (6.12);
+        input mutated in place, output port shares the input's name per the 3.5 convention).
+        All ARC_NETWORK seams (MotorcycleGraph, LayoutExtraction, EmbeddedTMesh are all
+        node-arc-patch structures; common interface still deferred). `QuadLayoutNodeChainTest`
+        extended through all seven nodes: skeleton keeps positive arcs, every arrangement patch
+        becomes an embedded patch, contraction+conform leaves no live zero arc - conform=true
+        WORKS on sphere pipeline data, evidence for the 6.12 decision. Fallout: catalog exporter
+        rejects duplicate socketDocs keys, so shared input/output names document once.
 - [ ] 7.3 Whether always-on profiling should fail fast when `.profiler/libasyncProfiler` is missing,
       as it does now, or degrade
 
