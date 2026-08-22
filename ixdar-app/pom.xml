@@ -64,6 +64,15 @@
         <version>3.13.0</version>
         <configuration>
           <release>25</release>
+          <!--
+            Pinned to target/ (not ${project.build.directory}) so the m2e-ide-build profile's
+            target-ide redirect never moves it. m2e-apt derives the .classpath generated-sources
+            entry from this parameter; without the pin every pom-triggered re-import rewrites that
+            entry to the empty target-ide/generated-sources/annotations and JDT compiles against
+            missing registries (null CanvasSceneMap.MAP at run time). JDT APT is disabled - Maven
+            is the only writer, so the IDE only reads this folder.
+          -->
+          <generatedSourcesDirectory>${project.basedir}/target/generated-sources/annotations</generatedSourcesDirectory>
           <annotationProcessorPaths>
             <path>
               <groupId>IXDAR</groupId>

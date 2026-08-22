@@ -274,15 +274,19 @@ is in the working tree behind it.
 - VS Code's Java autobuild compiles into `target-ide/` (the `m2e-ide-build` profile in the parent
   pom), never Maven's `target/` - sharing one tree corrupted class files mid-build
   (`ClassFormatError: extra bytes`) and broke `mvn clean` while a build raced.
-- The language server runs on the extension's own JRE 21, so anything it must LOAD - annotation
-  processors above all - must be built at `--release 21`. That is why the `annotations` module is
-  21 while everything else is 25. JDT APT found the 25-built processors and failed all five with
-  "Unable to load annotation processor factory".
+- The language server runs on the extension's bundled JRE (21) unless `java.jdt.ls.java.home`
+  in USER settings (machine-specific, never tracked) points at a newer JDK. Anything the LS must
+  LOAD - annotation processors above all - must be built at or below its release level, so the
+  pin must stay >= the `annotations` release (25). On this machine it points at
+  `/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home`. Symptom of a mismatch:
+  "Unable to load annotation processor factory", then null generated-map statics at run time.
 - Even with a loadable jar, JDT APT never produced the registries here; the fix that works is
   `ixdar-app/.classpath:44` pointing the IDE at Maven's `target/generated-sources/annotations`,
   so F5 compiles whatever the last `mvn compile` generated. After `mvn clean` the IDE shows
-  registry errors until the next compile. If an import rewrites that line back to `target-ide/`,
-  restore it.
+  registry errors until the next compile. `generatedSourcesDirectory` is pinned to
+  `${project.basedir}/target/generated-sources/annotations` in ixdar-app's compiler config so
+  m2e re-imports keep writing that entry correctly instead of rewriting it to the empty
+  `target-ide/` path.
 - A class whose static initializer fails to COMPILE still runs under JDT: the field silently stays
   null (`CanvasSceneMap.MAP`) instead of throwing - IDE-side nulls of static finals mean "look at
   the Problems panel", not "runtime bug".
