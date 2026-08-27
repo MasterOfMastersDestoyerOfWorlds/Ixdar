@@ -1,10 +1,12 @@
 package ixdar.geometry.mesh.quadlayout.gridmap;
 
+import ixdar.geometry.mesh.nodes.api.UvField;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
@@ -22,7 +24,7 @@ import ixdar.platform.Platforms;
  * <p>
  * See also: LCBK19 Section 6.2
  */
-public final class GlobalGridMap {
+public final class GlobalGridMap implements UvField {
 
     /** Coordinates of a grid position. */
     public static final int GRID_COORDINATES = 2;
@@ -66,6 +68,12 @@ public final class GlobalGridMap {
     /** Largest distance from an integer over every layout node's coordinates. */
     public double worstNodeIntegerDeviation;
 
+    /**
+     * Patch charts and arc transitions: framed values at first, refined in place
+     * by {@link GridMapVerification}, whose storage it is.
+     */
+    public final ChartAtlas atlas;
+
     public GridMapDofSystem gridDofs;
 
     public PatchGridExtraction quadGridInitial;
@@ -96,16 +104,63 @@ public final class GlobalGridMap {
         this.frames = frames;
         this.tmesh = patchMaps.tmesh;
         this.seamless = seamless;
+        this.atlas = buildAtlas();
     }
 
     /**
-     * Carries every patch's rectangle coordinates through its frame, then checks
-     * the layout's nodes landed on integers.
+     * The full map: initial framing, Newton relaxation, and quad extraction.
      *
      * @return this, populated
      */
-    @SuppressWarnings("unchecked")
     public GlobalGridMap build() {
+        buildInitialMap();
+        gridDofs.relax();
+        extractQuads();
+        return this;
+    }
+
+    /**
+     * Per-corner u over the working copy, from the latest baked iso surface.
+     *
+     * @param faceId copy face id
+     * @param corner corner index in {@code [0, 3)}
+     * @return u-coordinate at the given corner
+     */
+    @Override
+    public double u(int faceId, int corner) {
+        return currentIsoSurface().u(faceId, corner);
+    }
+
+    /**
+     * Per-corner v over the working copy, from the latest baked iso surface.
+     *
+     * @param faceId copy face id
+     * @param corner corner index in {@code [0, 3)}
+     * @return v-coordinate at the given corner
+     */
+    @Override
+    public double v(int faceId, int corner) {
+        return currentIsoSurface().v(faceId, corner);
+    }
+
+    /**
+     * The latest baked iso surface: relaxed when the relaxation has run.
+     *
+     * @return the iso surface backing the per-corner accessors
+     */
+    public GridMapIsoSurface currentIsoSurface() {
+        return isoSurfaceRelaxed != null ? isoSurfaceRelaxed : isoSurfaceInitial;
+    }
+
+    /**
+     * Carries every patch's rectangle coordinates through its frame, checks the
+     * layout's nodes landed on integers, and assembles the DOF system plus the
+     * pre-relaxation extraction and iso surface.
+     *
+     * @return this, framed but unrelaxed
+     */
+    @SuppressWarnings("unchecked")
+    public GlobalGridMap buildInitialMap() {
         uvByPatchId = new double[tmesh.patches.size()][];
         denseByCopyVertexByPatchId = new HashMap[tmesh.patches.size()];
         double[] grid = new double[GRID_COORDINATES];
@@ -137,16 +192,48 @@ public final class GlobalGridMap {
         quadGridInitial.optimizedGrid = this;
         quadGridInitial = quadGridInitial.build();
         isoSurfaceInitial = new GridMapIsoSurface(patchMaps, this.uvByPatchId).build();
-        gridOptimizer = new GridMapOptimizer(gridDofs, seamless);
-        gridOptimizer.build();
-        isoSurfaceRelaxed = new GridMapIsoSurface(patchMaps, this.uvByPatchId).build();
+        return this;
+    }
+
+    /**
+     * Fills the atlas: one chart per patch over the copy faces, one boundary per
+     * arc directed right patch to left, transitions from the frames until the
+     * verification refines them in place.
+     *
+     * @return the filled atlas
+     */
+    private ChartAtlas buildAtlas() {
+        ChartAtlas built = new ChartAtlas(tmesh.patches.size(),
+                tmesh.topology.sourceFaceByCopyFace.length, tmesh.arcs.size(), true);
+        for (EmbeddedPatch patch : tmesh.patches) {
+            if (!patch.alive) {
+                continue;
+            }
+            for (int copyFace : patchMaps.regions.copyFacesByPatch.get(patch.patchId)) {
+                built.chartOfFace[copyFace] = patch.patchId;
+            }
+        }
+        for (EmbeddedArc arc : tmesh.arcs) {
+            built.chartA[arc.arcId] = arc.rightPatchId;
+            built.chartB[arc.arcId] = arc.leftPatchId;
+            built.quarterTurns[arc.arcId] = frames.transitionQuarterTurnsByArcId[arc.arcId];
+            built.translationU[arc.arcId] = frames.transitionTranslationUByArcId[arc.arcId];
+            built.translationV[arc.arcId] = frames.transitionTranslationVByArcId[arc.arcId];
+        }
+        return built;
+    }
+
+    /**
+     * Verifies the map and extracts its quad mesh and per-patch grids.
+     *
+     * @return this, with {@link #quadMesh} and {@link #extractedGrids} populated
+     */
+    public GlobalGridMap extractQuads() {
         gridVerification = new GridMapVerification(this).build();
         QuadMeshExtraction extraction = new QuadMeshExtraction(this, gridVerification);
         extraction.expectedQuadCount = quadGridInitial.quadCount;
         quadMesh = extraction.build();
         extractedGrids = new ExtractedPatchGrids(quadMesh, this).build();
-        Platforms.log("[global-grid] relax %.2e→%.2e it=%d%n", gridOptimizer.energyBefore,
-                gridOptimizer.energyAfter, gridOptimizer.iterationCount);
         return this;
     }
 
@@ -199,7 +286,6 @@ public final class GlobalGridMap {
      */
     public List<int[]> chartNeighbourhood(int patchId) {
         List<int[]> reached = new ArrayList<>();
-        double[] rotated = new double[GRID_COORDINATES];
         reached.add(new int[] { patchId, 0, 0, 0 });
         int frontierStart = 0;
         for (int depth = 0; depth < NEIGHBOUR_DEPTH; depth++) {
@@ -212,26 +298,17 @@ public final class GlobalGridMap {
                         EmbeddedArc arc = tmesh.arcs.get(arcId);
                         int other = arc.leftPatchId == patch.patchId ? arc.rightPatchId
                                 : arc.leftPatchId;
-                        int turns = frames.transitionQuarterTurnsByArcId[arcId];
                         if (other == EmbeddedTMesh.NONE || other == patch.patchId
-                                || turns == IntegerGridMap.NOT_PLACED
+                                || !atlas.hasTransition(arcId)
                                 || !tmesh.patches.get(other).alive) {
                             continue;
                         }
-                        int mapTurns = turns;
-                        int mapU = frames.transitionTranslationUByArcId[arcId];
-                        int mapV = frames.transitionTranslationVByArcId[arcId];
-                        if (patch.patchId == arc.rightPatchId) {
-                            mapTurns = (IntegerGridMap.QUARTER_TURNS - turns)
-                                    % IntegerGridMap.QUARTER_TURNS;
-                            IntegerGridMap.rotate(mapTurns, mapU, mapV, rotated);
-                            mapU = -(int) Math.round(rotated[0]);
-                            mapV = -(int) Math.round(rotated[1]);
-                        }
-                        int composedTurns = (entry[1] + mapTurns) % IntegerGridMap.QUARTER_TURNS;
-                        IntegerGridMap.rotate(entry[1], mapU, mapV, rotated);
-                        int composedU = entry[2] + (int) Math.round(rotated[0]);
-                        int composedV = entry[3] + (int) Math.round(rotated[1]);
+                        double[] composed = ChartAtlas.compose(
+                                new double[] { entry[1], entry[2], entry[3] },
+                                atlas.transition(arcId, other));
+                        int composedTurns = (int) composed[0];
+                        int composedU = (int) Math.round(composed[1]);
+                        int composedV = (int) Math.round(composed[2]);
                         boolean seen = false;
                         for (int[] existing : reached) {
                             if (existing[0] == other && existing[1] == composedTurns

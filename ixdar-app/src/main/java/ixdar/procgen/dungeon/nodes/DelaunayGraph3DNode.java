@@ -15,11 +15,8 @@ import ixdar.procgen.dungeon.values.RoomListValue3D;
 
 @MeshNodeAnnotation(id = "delaunay_graph_3d", scopes = { "dungeon" })
 public class DelaunayGraph3DNode implements MeshNode {
-    public static final String ROOMS_2 = "rooms";
-    public static final String EDGES_2 = "edges";
-
-    private static final InputPort ROOMS = new InputPort(ROOMS_2, PortType.ROOM_LIST_3D, null);
-    private static final OutputPort EDGES = new OutputPort(EDGES_2, PortType.EDGE_GRAPH);
+    public static final InputPort ROOMS = new InputPort("rooms", PortType.ROOM_LIST_3D, null);
+    public static final OutputPort EDGES = new OutputPort("edges", PortType.EDGE_GRAPH);
 
     @Override
     public List<InputPort> inputs() {
@@ -39,15 +36,15 @@ public class DelaunayGraph3DNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                ROOMS_2, "3D room list.",
-                EDGES_2, "Edges between room indices, deterministic order.");
+                ROOMS.name, "3D room list.",
+                EDGES.name, "Edges between room indices, deterministic order.");
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        RoomListValue3D rooms = ctx.getInput(ROOMS_2, RoomListValue3D.class);
+        RoomListValue3D rooms = ctx.getInput(ROOMS.name, RoomListValue3D.class);
         if (rooms == null) throw new IllegalArgumentException("delaunay_graph_3d: missing 'rooms'");
         EdgeGraphValue edges = DelaunayTriangulation3D.triangulate(rooms);
-        ctx.setOutput(EDGES_2, edges);
+        ctx.setOutput(EDGES.name, edges);
     }
 }

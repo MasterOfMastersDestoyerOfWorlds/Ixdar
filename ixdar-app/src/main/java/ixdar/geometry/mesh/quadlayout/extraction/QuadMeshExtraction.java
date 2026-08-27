@@ -11,9 +11,9 @@ import java.util.Set;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
@@ -46,6 +46,9 @@ public final class QuadMeshExtraction {
 
     public final GlobalGridMap gridMap;
     public final GridMapVerification verification;
+
+    /** The map's charts and arc transitions, as the verification resolved them. */
+    public final ChartAtlas atlas;
     public final EmbeddedTMesh tmesh;
     public final LayoutPatchMaps patchMaps;
     public final HalfEdgeMesh copy;
@@ -130,6 +133,7 @@ public final class QuadMeshExtraction {
     public QuadMeshExtraction(GlobalGridMap gridMap, GridMapVerification verification) {
         this.gridMap = gridMap;
         this.verification = verification;
+        this.atlas = gridMap.atlas;
         this.tmesh = gridMap.tmesh;
         this.patchMaps = gridMap.patchMaps;
         this.copy = tmesh.topology.copy;
@@ -445,65 +449,6 @@ public final class QuadMeshExtraction {
     }
 
     /**
-     * The patch on the other side of an arc.
-     *
-     * @param arcId     arc crossed
-     * @param fromPatch patch being left
-     * @return the opposite patch id
-     */
-    private int otherPatchAcross(int arcId, int fromPatch) {
-        EmbeddedArc arc = tmesh.arcs.get(arcId);
-        if (arc.leftPatchId == fromPatch) {
-            return arc.rightPatchId;
-        }
-        if (arc.rightPatchId == fromPatch) {
-            return arc.leftPatchId;
-        }
-        throw new IllegalStateException("arc " + arcId + " does not bound patch " + fromPatch);
-    }
-
-    /**
-     * Maps a chart point across an arc's transition, exactly, in place.
-     *
-     * @param arcId     arc crossed
-     * @param fromPatch patch the point is currently expressed in
-     * @param pointUv   the point, replaced by its image in the opposite chart
-     */
-    private void mapPointAcrossArc(int arcId, int fromPatch, double[] pointUv) {
-        EmbeddedArc arc = tmesh.arcs.get(arcId);
-        int turns = verification.transitionTurnsByArcId[arcId];
-        int translationU = verification.transitionTranslationUByArcId[arcId];
-        int translationV = verification.transitionTranslationVByArcId[arcId];
-        if (arc.rightPatchId == fromPatch) {
-            IntegerGridMap.rotate(turns, pointUv[0], pointUv[1], pointUv);
-            pointUv[0] += translationU;
-            pointUv[1] += translationV;
-        } else {
-            IntegerGridMap.rotate((IntegerGridMap.QUARTER_TURNS - turns)
-                    % IntegerGridMap.QUARTER_TURNS,
-                    pointUv[0] - translationU, pointUv[1] - translationV, pointUv);
-        }
-    }
-
-    /**
-     * Maps a direction's quarter turns across an arc's transition.
-     *
-     * @param arcId     arc crossed
-     * @param fromPatch patch the direction is currently expressed in
-     * @param turns     direction as quarter turns
-     * @return the direction's quarter turns in the opposite chart
-     */
-    private int mapTurnsAcrossArc(int arcId, int fromPatch, int turns) {
-        EmbeddedArc arc = tmesh.arcs.get(arcId);
-        int transition = verification.transitionTurnsByArcId[arcId];
-        if (arc.rightPatchId == fromPatch) {
-            return (turns + transition) % IntegerGridMap.QUARTER_TURNS;
-        }
-        return (turns + IntegerGridMap.QUARTER_TURNS - transition)
-                % IntegerGridMap.QUARTER_TURNS;
-    }
-
-    /**
      * EBC13 Algorithm 4: enumerates each quad vertex's outgoing iso-line directions
      * clockwise, checking the count against the T-mesh valence.
      *
@@ -580,7 +525,7 @@ public final class QuadMeshExtraction {
             apex[0] = chartU[quadVertex];
             apex[1] = chartV[quadVertex];
             if (patchId != chartPatchId[quadVertex]) {
-                mapPointAcrossArc(tmesh.topology.ownerArcByCopyEdge[edgeId],
+                atlas.mapPoint(tmesh.topology.ownerArcByCopyEdge[edgeId],
                         chartPatchId[quadVertex], apex);
             }
             boolean counterClockwise = verification.counterClockwiseByPatch[patchId];
@@ -810,21 +755,20 @@ public final class QuadMeshExtraction {
             }
             int ownerArc = tmesh.topology.ownerArcByCopyEdge[crossedEdgeId];
             if (ownerArc != EmbeddedMeshTopology.UNCLAIMED) {
-                int transition = verification.transitionTurnsByArcId[ownerArc];
-                if (transition == IntegerGridMap.NOT_PLACED) {
+                if (!atlas.hasTransition(ownerArc)) {
                     throw new IllegalStateException("port " + port + " crossed arc " + ownerArc
                             + " which has no resolved transition");
                 }
-                mapPointAcrossArc(ownerArc, patchId, segmentStart);
-                mapPointAcrossArc(ownerArc, patchId, segmentEnd);
-                int mappedTurns = mapTurnsAcrossArc(ownerArc, patchId, turns);
+                atlas.mapPoint(ownerArc, patchId, segmentStart);
+                atlas.mapPoint(ownerArc, patchId, segmentEnd);
+                int mappedTurns = atlas.mapTurns(ownerArc, patchId, turns);
                 accumulatedTurns = composeCrossing(ownerArc, patchId, accumulatedTurns);
                 int[] translation = crossingTranslation(ownerArc, patchId, accumulatedU,
                         accumulatedV);
                 accumulatedU = translation[0];
                 accumulatedV = translation[1];
                 turns = mappedTurns;
-                patchId = otherPatchAcross(ownerArc, patchId);
+                patchId = atlas.chartAcross(ownerArc, patchId);
             } else if (!patchByCopyFace.get(nextFace).equals(patchId)) {
                 throw new IllegalStateException("port " + port + " crossed unclaimed copy edge "
                         + crossedEdgeId + " into a different patch");
@@ -845,7 +789,7 @@ public final class QuadMeshExtraction {
      * @return the composed quarter turns
      */
     private int composeCrossing(int arcId, int fromPatch, int accumulatedTurns) {
-        return mapTurnsAcrossArc(arcId, fromPatch, accumulatedTurns);
+        return atlas.mapTurns(arcId, fromPatch, accumulatedTurns);
     }
 
     /**
@@ -861,7 +805,7 @@ public final class QuadMeshExtraction {
     private int[] crossingTranslation(int arcId, int fromPatch, int accumulatedU,
             int accumulatedV) {
         double[] mapped = { accumulatedU, accumulatedV };
-        mapPointAcrossArc(arcId, fromPatch, mapped);
+        atlas.mapPoint(arcId, fromPatch, mapped);
         return new int[] { (int) mapped[0], (int) mapped[1] };
     }
 
@@ -955,12 +899,12 @@ public final class QuadMeshExtraction {
                 int ownerArc = tmesh.topology.ownerArcByCopyEdge[candidateEdge];
                 int neighborTurns = reverseTurns;
                 if (ownerArc != EmbeddedMeshTopology.UNCLAIMED) {
-                    neighborTurns = mapTurnsAcrossArc(ownerArc, patchId, reverseTurns);
+                    neighborTurns = atlas.mapTurns(ownerArc, patchId, reverseTurns);
                 }
                 opposite = findPort(arrivalVertex, neighbor, neighborTurns);
                 if (opposite != ExtractedQuadMesh.NONE) {
                     if (ownerArc != EmbeddedMeshTopology.UNCLAIMED) {
-                        mapPointAcrossArc(ownerArc, patchId, segmentEnd);
+                        atlas.mapPoint(ownerArc, patchId, segmentEnd);
                         accumulatedTurns = composeCrossing(ownerArc, patchId, accumulatedTurns);
                         int[] translation = crossingTranslation(ownerArc, patchId, accumulatedU,
                                 accumulatedV);
@@ -1046,7 +990,7 @@ public final class QuadMeshExtraction {
                     mapped[0] = chartU[candidate];
                     mapped[1] = chartV[candidate];
                     if (chartPatchId[candidate] != patchId) {
-                        mapPointAcrossArc(tmesh.topology.ownerArcByCopyEdge[edgeId],
+                        atlas.mapPoint(tmesh.topology.ownerArcByCopyEdge[edgeId],
                                 chartPatchId[candidate], mapped);
                     }
                     if (mapped[0] == segmentEnd[0] && mapped[1] == segmentEnd[1]) {

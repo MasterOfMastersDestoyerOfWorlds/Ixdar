@@ -15,17 +15,12 @@ import ixdar.procgen.dungeon.values.RoomListValue3D;
 
 @MeshNodeAnnotation(id = "minimum_spanning_tree_3d", scopes = { "dungeon" })
 public class MinimumSpanningTree3DNode implements MeshNode {
-    public static final String EDGES = "edges";
-    public static final String ROOMS_2 = "rooms";
-    public static final String EXTRA_EDGE_PROB_2 = "extra_edge_prob";
-    public static final String SEED_2 = "seed";
-
-    private static final InputPort EDGES_IN = new InputPort(EDGES, PortType.EDGE_GRAPH, null);
-    private static final InputPort ROOMS = new InputPort(ROOMS_2, PortType.ROOM_LIST_3D, null);
-    private static final InputPort EXTRA_EDGE_PROB = new InputPort(
-            EXTRA_EDGE_PROB_2, PortType.FLOAT, (float) PrimMinimumSpanningTree.DEFAULT_EXTRA_EDGE_PROB, 0f, 1f);
-    private static final InputPort SEED = new InputPort(SEED_2, PortType.INT, 0, 0f, 1_000_000f);
-    private static final OutputPort EDGES_OUT = new OutputPort(EDGES, PortType.EDGE_GRAPH);
+    public static final InputPort EDGES_IN = new InputPort("edges", PortType.EDGE_GRAPH, null);
+    public static final InputPort ROOMS = new InputPort("rooms", PortType.ROOM_LIST_3D, null);
+    public static final InputPort EXTRA_EDGE_PROB = new InputPort(
+            "extra_edge_prob", PortType.FLOAT, (float) PrimMinimumSpanningTree.DEFAULT_EXTRA_EDGE_PROB, 0f, 1f);
+    public static final InputPort SEED = new InputPort("seed", PortType.INT, 0, 0f, 1_000_000f);
+    public static final OutputPort EDGES_OUT = new OutputPort(EDGES_IN.name, PortType.EDGE_GRAPH);
 
     @Override
     public List<InputPort> inputs() {
@@ -46,23 +41,23 @@ public class MinimumSpanningTree3DNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                EDGES, "Candidate edges (typically delaunay_graph_3d output).",
-                ROOMS_2, "3D rooms used for distance weighting.",
-                EXTRA_EDGE_PROB_2, "Probability per non-MST edge to keep as a loop (default 0.125).",
-                SEED_2, "Seed for the extra-edge RNG stream.");
+                EDGES_IN.name, "Candidate edges (typically delaunay_graph_3d output).",
+                ROOMS.name, "3D rooms used for distance weighting.",
+                EXTRA_EDGE_PROB.name, "Probability per non-MST edge to keep as a loop (default 0.125).",
+                SEED.name, "Seed for the extra-edge RNG stream.");
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        EdgeGraphValue edges = ctx.getInput(EDGES, EdgeGraphValue.class);
-        RoomListValue3D rooms = ctx.getInput(ROOMS_2, RoomListValue3D.class);
-        Number extraProb = ctx.getInput(EXTRA_EDGE_PROB_2, Number.class);
-        Number seed = ctx.getInput(SEED_2, Number.class);
+        EdgeGraphValue edges = ctx.getInput(EDGES_IN.name, EdgeGraphValue.class);
+        RoomListValue3D rooms = ctx.getInput(ROOMS.name, RoomListValue3D.class);
+        Number extraProb = ctx.getInput(EXTRA_EDGE_PROB.name, Number.class);
+        Number seed = ctx.getInput(SEED.name, Number.class);
         if (edges == null) throw new IllegalArgumentException("minimum_spanning_tree_3d: missing 'edges'");
         if (rooms == null) throw new IllegalArgumentException("minimum_spanning_tree_3d: missing 'rooms'");
         double prob = extraProb == null ? PrimMinimumSpanningTree.DEFAULT_EXTRA_EDGE_PROB : extraProb.doubleValue();
         long seedLong = seed == null ? 0L : seed.longValue();
         EdgeGraphValue result = PrimMinimumSpanningTree.build3D(edges, rooms, prob, seedLong);
-        ctx.setOutput(EDGES, result);
+        ctx.setOutput(EDGES_OUT.name, result);
     }
 }

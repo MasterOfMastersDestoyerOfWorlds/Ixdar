@@ -5,17 +5,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.annotations.meshnode.MapNodeContext;
+import ixdar.geometry.mesh.nodes.api.MapNodeContext;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.nodes.data.LoadMeshNode;
 import ixdar.geometry.mesh.nodes.quadlayout.ArcQuantizationNode;
 import ixdar.geometry.mesh.nodes.quadlayout.CrossFieldNode;
+import ixdar.geometry.mesh.nodes.quadlayout.IntegerGridMapNode;
 import ixdar.geometry.mesh.nodes.quadlayout.LayoutEmbeddingNode;
 import ixdar.geometry.mesh.nodes.quadlayout.MotorcycleGraphNode;
+import ixdar.geometry.mesh.nodes.quadlayout.NewtonSolverNode;
+import ixdar.geometry.mesh.nodes.quadlayout.QuadExtractNode;
 import ixdar.geometry.mesh.nodes.quadlayout.SeamlessUvNode;
 import ixdar.geometry.mesh.nodes.quadlayout.TmeshContractNode;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
@@ -100,6 +104,37 @@ class QuadLayoutNodeChainTest {
         EmbeddedTMesh contracted =
                 contractedCtx.getOutput(TmeshContractNode.TMESH_OUT.name, EmbeddedTMesh.class);
         assertEquals(0, liveZeroArcs(contracted), "contraction leaves no live zero arc");
+
+        IntegerGridMapNode gridMapNode = new IntegerGridMapNode();
+        MapNodeContext gridCtx = new MapNodeContext(gridMapNode);
+        gridCtx.setInput(IntegerGridMapNode.TMESH.name, contracted);
+        gridCtx.setInput(IntegerGridMapNode.UV.name, seamless);
+        gridMapNode.evaluate(gridCtx);
+        GlobalGridMap gridMap =
+                gridCtx.getOutput(IntegerGridMapNode.UV_OUT.name, GlobalGridMap.class);
+        assertEquals(0, gridMap.offGridNodeCount, "every layout node lands on an integer");
+
+        NewtonSolverNode newton = new NewtonSolverNode();
+        MapNodeContext relaxCtx = new MapNodeContext(newton);
+        relaxCtx.setInput(NewtonSolverNode.UV.name, gridMap);
+        relaxCtx.setInput(NewtonSolverNode.DOFS.name,
+                gridCtx.getOutput(IntegerGridMapNode.DOFS.name, Object.class));
+        newton.evaluate(relaxCtx);
+        assertTrue(gridMap.gridOptimizer.energyAfter <= gridMap.gridOptimizer.energyBefore,
+                "the relaxation does not raise the energy");
+        assertEquals(0, gridMap.isoSurfaceRelaxed.flippedFaceCount,
+                "the relaxed map flips no face");
+
+        QuadExtractNode extract = new QuadExtractNode();
+        MapNodeContext quadCtx = new MapNodeContext(extract);
+        quadCtx.setInput(QuadExtractNode.UV.name, gridMap);
+        extract.evaluate(quadCtx);
+        GeometryBundle quadBundle =
+                quadCtx.getOutput(QuadExtractNode.GEOMETRY.name, GeometryBundle.class);
+        assertEquals(gridMap.quadGridInitial.quadCount, quadBundle.mesh().faceCount(),
+                "the extracted quad mesh carries the quantized quad count");
+        assertEquals(meshEuler, gridMap.quadMesh.eulerCharacteristic(),
+                "the extracted quad mesh closes to the surface's Euler characteristic");
     }
 
     private int liveZeroArcs(EmbeddedTMesh tmesh) {

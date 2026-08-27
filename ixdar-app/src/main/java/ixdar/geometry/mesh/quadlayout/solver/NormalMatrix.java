@@ -697,6 +697,21 @@ public final class NormalMatrix {
         w.println();
     }
 
+    /**
+     * The quadratic energy 0.5 x'Ax - b'x of this system at x, the objective a
+     * linear solve minimizes.
+     *
+     * @param x candidate solution, length {@link #variableCount}
+     * @return the quadratic energy at x
+     */
+    public double quadraticEnergy(double[] x) {
+        double energy = 0.0;
+        for (int row = 0; row < variableCount; row++) {
+            energy += x[row] * (HALF * rowDot(row, x) - rightHandSide[row]);
+        }
+        return energy;
+    }
+
     public record CompressedSparseColumnArrays(int[] colPtr, int[] rowIdx, double[] values) {
     }
 }

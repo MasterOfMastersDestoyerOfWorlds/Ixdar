@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
@@ -37,17 +38,11 @@ public final class GridMapVerification {
     public final LayoutPatchMaps patchMaps;
 
     /**
-     * Quarter turns of the resolved transition per arc, carrying the right patch's
-     * chart onto the left's; {@link IntegerGridMap#NOT_PLACED} for an arc the
-     * tracer may not cross.
+     * The grid map's chart atlas, whose transitions this pass resolves in place:
+     * frames values re-derived, loop arcs recovered from their paths, and every
+     * arc the tracer may not cross cleared to {@link ChartAtlas#NONE}.
      */
-    public int[] transitionTurnsByArcId;
-
-    /** Grid u translation of the resolved transition, paired with the turns. */
-    public int[] transitionTranslationUByArcId;
-
-    /** Grid v translation of the resolved transition, paired with the turns. */
-    public int[] transitionTranslationVByArcId;
+    public final ChartAtlas atlas;
 
     /**
      * Whether each live patch's chart winds counter-clockwise in stored corner
@@ -80,6 +75,7 @@ public final class GridMapVerification {
         this.tmesh = gridMap.tmesh;
         this.frames = gridMap.frames;
         this.patchMaps = gridMap.patchMaps;
+        this.atlas = gridMap.atlas;
     }
 
     /**
@@ -126,11 +122,9 @@ public final class GridMapVerification {
      *                               cannot be derived unambiguously
      */
     private void resolveTransitions() {
-        int arcCount = tmesh.arcs.size();
-        transitionTurnsByArcId = new int[arcCount];
-        transitionTranslationUByArcId = new int[arcCount];
-        transitionTranslationVByArcId = new int[arcCount];
-        Arrays.fill(transitionTurnsByArcId, IntegerGridMap.NOT_PLACED);
+        Arrays.fill(atlas.quarterTurns, ChartAtlas.NONE);
+        Arrays.fill(atlas.translationU, 0.0);
+        Arrays.fill(atlas.translationV, 0.0);
         for (EmbeddedArc arc : tmesh.arcs) {
             if (!crossable(arc)) {
                 continue;
@@ -140,9 +134,9 @@ public final class GridMapVerification {
                         + arc.leftPatchId + ", which the region boundary walk forbids");
             }
             if (frames.transitionQuarterTurnsByArcId[arc.arcId] != IntegerGridMap.NOT_PLACED) {
-                transitionTurnsByArcId[arc.arcId] = frames.transitionQuarterTurnsByArcId[arc.arcId];
-                transitionTranslationUByArcId[arc.arcId] = frames.transitionTranslationUByArcId[arc.arcId];
-                transitionTranslationVByArcId[arc.arcId] = frames.transitionTranslationVByArcId[arc.arcId];
+                atlas.quarterTurns[arc.arcId] = frames.transitionQuarterTurnsByArcId[arc.arcId];
+                atlas.translationU[arc.arcId] = frames.transitionTranslationUByArcId[arc.arcId];
+                atlas.translationV[arc.arcId] = frames.transitionTranslationVByArcId[arc.arcId];
                 continue;
             }
             recoverTransition(arc);
@@ -190,9 +184,9 @@ public final class GridMapVerification {
                             + "; its path cannot disambiguate them");
                 }
                 chosenTurns = turns;
-                transitionTurnsByArcId[arc.arcId] = turns;
-                transitionTranslationUByArcId[arc.arcId] = (int) Math.rint(translationU);
-                transitionTranslationVByArcId[arc.arcId] = (int) Math.rint(translationV);
+                atlas.quarterTurns[arc.arcId] = turns;
+                atlas.translationU[arc.arcId] = Math.rint(translationU);
+                atlas.translationV[arc.arcId] = Math.rint(translationV);
             }
         }
         if (chosenTurns == IntegerGridMap.NOT_PLACED) {
@@ -267,33 +261,29 @@ public final class GridMapVerification {
      * bitwise from here on.
      */
     private void canonicalizeArcInteriors() {
-        double[] rotated = new double[GlobalGridMap.GRID_COORDINATES];
+        double[] mapped = new double[GlobalGridMap.GRID_COORDINATES];
         for (EmbeddedArc arc : tmesh.arcs) {
-            if (!crossable(arc)
-                    || transitionTurnsByArcId[arc.arcId] == IntegerGridMap.NOT_PLACED) {
+            if (!crossable(arc) || !atlas.hasTransition(arc.arcId)) {
                 continue;
             }
-            int turns = transitionTurnsByArcId[arc.arcId];
-            int inverseTurns = (IntegerGridMap.QUARTER_TURNS - turns)
-                    % IntegerGridMap.QUARTER_TURNS;
-            int translationU = transitionTranslationUByArcId[arc.arcId];
-            int translationV = transitionTranslationVByArcId[arc.arcId];
             List<Integer> path = arc.path.copyVertexPath;
             for (int step = 1; step < path.size() - 1; step++) {
                 int copyVertex = path.get(step);
                 double leftU = chartCoordinate(arc.leftPatchId, copyVertex, 0);
                 double leftV = chartCoordinate(arc.leftPatchId, copyVertex, 1);
-                IntegerGridMap.rotate(inverseTurns, leftU - translationU, leftV - translationV,
-                        rotated);
+                mapped[0] = leftU;
+                mapped[1] = leftV;
+                atlas.mapPoint(arc.arcId, arc.leftPatchId, mapped);
                 double magnitude = Math.max(Math.max(Math.abs(leftU), Math.abs(leftV)),
-                        Math.max(Math.abs(rotated[0]), Math.abs(rotated[1])));
+                        Math.max(Math.abs(mapped[0]), Math.abs(mapped[1])));
                 double delta = truncationDelta(magnitude);
                 leftU = truncate(leftU, delta);
                 leftV = truncate(leftV, delta);
                 writeChartCopy(arc.leftPatchId, copyVertex, leftU, leftV);
-                IntegerGridMap.rotate(inverseTurns, leftU - translationU, leftV - translationV,
-                        rotated);
-                writeChartCopy(arc.rightPatchId, copyVertex, rotated[0], rotated[1]);
+                mapped[0] = leftU;
+                mapped[1] = leftV;
+                atlas.mapPoint(arc.arcId, arc.leftPatchId, mapped);
+                writeChartCopy(arc.rightPatchId, copyVertex, mapped[0], mapped[1]);
                 truncatedVertexCount++;
             }
         }
@@ -317,8 +307,7 @@ public final class GridMapVerification {
             Set<Integer> fanPatches = new LinkedHashSet<>();
             for (int arcId : tmesh.arcEndsByNode.get(node.nodeId)) {
                 EmbeddedArc arc = tmesh.arcs.get(arcId);
-                if (crossable(arc)
-                        && transitionTurnsByArcId[arc.arcId] != IntegerGridMap.NOT_PLACED
+                if (crossable(arc) && atlas.hasTransition(arc.arcId)
                         && !fanArcs.contains(arc)) {
                     fanArcs.add(arc);
                     fanPatches.add(arc.leftPatchId);
@@ -377,27 +366,15 @@ public final class GridMapVerification {
             int patchId = frontier.get(cursor);
             double[] here = valueByPatch.get(patchId);
             for (EmbeddedArc arc : fanArcs) {
-                int other;
-                double otherU;
-                double otherV;
-                int turns = transitionTurnsByArcId[arc.arcId];
-                int translationU = transitionTranslationUByArcId[arc.arcId];
-                int translationV = transitionTranslationVByArcId[arc.arcId];
-                if (arc.leftPatchId == patchId) {
-                    other = arc.rightPatchId;
-                    IntegerGridMap.rotate((IntegerGridMap.QUARTER_TURNS - turns)
-                            % IntegerGridMap.QUARTER_TURNS,
-                            here[0] - translationU, here[1] - translationV, rotated);
-                    otherU = rotated[0];
-                    otherV = rotated[1];
-                } else if (arc.rightPatchId == patchId) {
-                    other = arc.leftPatchId;
-                    IntegerGridMap.rotate(turns, here[0], here[1], rotated);
-                    otherU = rotated[0] + translationU;
-                    otherV = rotated[1] + translationV;
-                } else {
+                if (arc.leftPatchId != patchId && arc.rightPatchId != patchId) {
                     continue;
                 }
+                int other = atlas.chartAcross(arc.arcId, patchId);
+                rotated[0] = here[0];
+                rotated[1] = here[1];
+                atlas.mapPoint(arc.arcId, patchId, rotated);
+                double otherU = rotated[0];
+                double otherV = rotated[1];
                 double[] existing = valueByPatch.get(other);
                 if (existing != null) {
                     if (existing[0] != otherU || existing[1] != otherV) {
@@ -468,18 +445,17 @@ public final class GridMapVerification {
      * @throws IllegalStateException when any chart copy pair disagrees
      */
     private void requireArcConsistency() {
-        double[] rotated = new double[GlobalGridMap.GRID_COORDINATES];
+        double[] mapped = new double[GlobalGridMap.GRID_COORDINATES];
         for (EmbeddedArc arc : tmesh.arcs) {
-            if (!crossable(arc)
-                    || transitionTurnsByArcId[arc.arcId] == IntegerGridMap.NOT_PLACED) {
+            if (!crossable(arc) || !atlas.hasTransition(arc.arcId)) {
                 continue;
             }
-            int turns = transitionTurnsByArcId[arc.arcId];
             for (int copyVertex : arc.path.copyVertexPath) {
-                IntegerGridMap.rotate(turns, chartCoordinate(arc.rightPatchId, copyVertex, 0),
-                        chartCoordinate(arc.rightPatchId, copyVertex, 1), rotated);
-                double mappedU = rotated[0] + transitionTranslationUByArcId[arc.arcId];
-                double mappedV = rotated[1] + transitionTranslationVByArcId[arc.arcId];
+                mapped[0] = chartCoordinate(arc.rightPatchId, copyVertex, 0);
+                mapped[1] = chartCoordinate(arc.rightPatchId, copyVertex, 1);
+                atlas.mapPoint(arc.arcId, arc.rightPatchId, mapped);
+                double mappedU = mapped[0];
+                double mappedV = mapped[1];
                 if (mappedU != chartCoordinate(arc.leftPatchId, copyVertex, 0)
                         || mappedV != chartCoordinate(arc.leftPatchId, copyVertex, 1)) {
                     throw new IllegalStateException("arc " + arc.arcId + " chart copies of copy"

@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.quadlayout.seamless;
 
+import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -92,6 +93,12 @@ public final class SeamlessDofSystem {
      */
     public final int[] alignmentEdgeIsoAxis;
 
+    /**
+     * The canonical solve state; its solution array is the one the whole
+     * seamless build reads and writes.
+     */
+    public final DofSystem system;
+
     /** True after greedy rounding has snapped final-DOF i. */
     public final boolean[] dofPinned;
     /**
@@ -148,6 +155,12 @@ public final class SeamlessDofSystem {
         this.dofIsInteger = new boolean[dofCount];
         this.dofPinned = new boolean[dofCount];
         this.dofPinnedValue = new double[dofCount];
+        this.system = new DofSystem(dofCount);
+        this.system.assembler = x -> {
+            NormalMatrix assembled = assembleWeighted(this.seamless.faceWeight);
+            applyIntegerPinPenalty(assembled);
+            return assembled;
+        };
     }
 
     /**
@@ -159,7 +172,7 @@ public final class SeamlessDofSystem {
      * @return the assembled SPD matrix (without integer-pin diagonal penalty —
      *         apply with {@link #applyIntegerPinPenalty})
      */
-    public NormalMatrix assemble(double[] faceWeight) {
+    public NormalMatrix assembleWeighted(double[] faceWeight) {
         if (assemblyPlan == null) {
             this.assemblyPlan = new AssemblyPlanBuilder(seamless.faceCount);
             this.assemblyPlan.build(seamless, chartVertexFinalDofs, chartVertexFinalCoefs, cutGraph, dofCount);
@@ -517,4 +530,5 @@ public final class SeamlessDofSystem {
         int finalDof = rawDofToFinal[rawDof];
         finalAccum.merge(finalDof, coef, Double::sum);
     }
+
 }

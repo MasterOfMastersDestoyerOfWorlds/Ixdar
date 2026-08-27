@@ -10,17 +10,14 @@ import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
-import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
-import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
+import ixdar.geometry.mesh.quadlayout.solver.system.NewtonRelaxation;
 import ixdar.platform.Platforms;
 import ixdar.platform.concurrent.WorkerPool;
 
 /**
  * LCBK19 §6.2's re-parametrization: Newton with SPH17's composite-majorization
- * PSD Hessian on the symmetric Dirichlet
- * energy of the map from the seamless parametrization to the grid, freeing the
- * vertices the per-patch maps pinned.
+ * PSD Hessian on the symmetric Dirichlet energy of the map from the seamless
+ * parametrization to the grid, freeing the vertices the per-patch maps pinned.
  *
  * <p>
  * See also: LCBK19 Section 7; RPP17 Equation 11; SPH17 Section 5; SS15 Section
@@ -38,27 +35,6 @@ public final class GridMapOptimizer {
     public static final int OPERATOR_SIZE = 6;
 
     /**
-     * Backtracking factor applied to the step when a trial point does not lower the
-     * energy.
-     */
-    public static final double BACKTRACK = 0.5;
-
-    /** Backtracks tried before the iteration gives up. */
-    public static final int MAX_BACKTRACKS = 5;
-
-    /** Relative energy drop below which the relaxation is called converged. */
-    public static final double CONVERGENCE = 1.0e-4;
-
-    /**
-     * Fraction of the maximal non-inverting step the line search starts at, RPP17
-     * §3's {@code min(1, 0.8·alphaMax)}.
-     */
-    public static final double MAX_STEP_MARGIN = 0.8;
-
-    /** Armijo sufficient-decrease coefficient on the directional derivative. */
-    public static final double ARMIJO_SLOPE = 1.0e-4;
-
-    /**
      * Smallest Jacobian determinant the barrier can be evaluated at: below this,
      * symmetric Dirichlet's {@code 1/det²} overflows double. A bound of the
      * arithmetic, not a tolerance on the geometry.
@@ -71,29 +47,6 @@ public final class GridMapOptimizer {
      * so a smaller one contributes only an arbitrarily large Hessian row.
      */
     public static final double REFERENCE_AREA_FLOOR_FRACTION = 1.0e-12;
-
-    /**
-     * Consecutive below-{@link #CONVERGENCE} iterations before the relaxation
-     * stops.
-     */
-    public static final int STALL_LIMIT = 3;
-
-    /**
-     * Absolute ridge keeping a row with no triangle contribution — or a gauge
-     * nullspace on a component with no pinned node — solvable. Numerics only, not
-     * damping.
-     */
-    public static final double RIDGE_FLOOR = 1.0e-12;
-
-    /**
-     * Ridge as a fraction of the largest diagonal. SPH17's composite majorization
-     * gives a positive <em>semi</em>-definite Hessian; Cholesky needs it definite,
-     * and an absolute floor is nothing against diagonals this large.
-     */
-    public static final double RIDGE_RELATIVE = 1.0e-10;
-
-    /** Iterations between progress lines when {@link #verboseIterations} is off. */
-    public static final int ITERATION_LOG_STRIDE = 1;
 
     /** Cap on the worker threads assembling the Newton system. */
     public static final int MAX_WORKER_THREADS = 8;
@@ -112,26 +65,8 @@ public final class GridMapOptimizer {
     public final SeamlessParameterization seamless;
 
     /**
-     * Newton iterations to run; {@link #timeBudgetMilliseconds} usually stops the
-     * loop first.
-     */
-    public int maxIterations = 10_000;
-
-    /**
-     * Wall-clock budget for the whole relaxation, the cap that fits the scene's run
-     * budget.
-     */
-    public long timeBudgetMilliseconds = 60_000;
-
-    /**
-     * Whether every iteration logs a progress line; off, only every
-     * {@link #ITERATION_LOG_STRIDE}th does.
-     */
-    public boolean verboseIterations;
-
-    /**
-     * Worker threads assembling the Newton system; one worker reproduces the
-     * serial summation order exactly.
+     * Worker threads assembling the Newton system; one worker reproduces the serial
+     * summation order exactly.
      */
     public int workerThreads = Math.min(Runtime.getRuntime().availableProcessors(),
             MAX_WORKER_THREADS);
@@ -191,23 +126,8 @@ public final class GridMapOptimizer {
     /** Triangles with all three corners held, whose energy no step can change. */
     private int pinnedTriangleCount;
 
-    /** Triangles whose corners could not be read in the parametrization. */
-    private int unreadableSourceCount;
-
-    /**
-     * Triangles whose reference in the parametrization is degenerate or negatively
-     * oriented, which a locally injective parametrization cannot produce.
-     */
-    private int nonPositiveReferenceCount;
-
     private double worstReferenceDeterminant;
     private int firstNonPositivePatch = -1;
-    private int firstNonPositiveCopyFace = -1;
-    private double firstNonPositiveDeterminant;
-    private String firstNonPositiveReference;
-
-    /** References whose parametrization triangle has exactly zero area. */
-    private int zeroReferenceCount;
 
     /** Source faces the bad references fall in, so the count is per chart. */
     private final Set<Integer> collapsedSourceFaces = new HashSet<>();
@@ -216,24 +136,6 @@ public final class GridMapOptimizer {
      * Patches the bad references fall in, separating whole patches from slivers.
      */
     private final Set<Integer> collapsedPatches = new HashSet<>();
-
-    /**
-     * Bad references whose triangle measures exactly zero in global grid
-     * coordinates, where the frame's integer translation cancels a sliver away.
-     */
-    private int cancelledGridAreaCount;
-
-    /**
-     * Triangles the frame's translation left with no positive area in the grid, so
-     * the barrier energy cannot be evaluated on them.
-     */
-    private int crushedGridTriangleCount;
-
-    /**
-     * Triangles whose reference in the parametrization is too small to divide by,
-     * so the gradient operator cannot be formed in double.
-     */
-    private int unrepresentableReferenceCount;
 
     /**
      * Source face the last {@link #sourceCorners} call read, for the diagnostic.
@@ -246,31 +148,8 @@ public final class GridMapOptimizer {
      */
     private double chartDeterminantOfLastRead;
 
-    /**
-     * Chart reads whose source face is negatively oriented in the parametrization.
-     */
-    private int negativeChartCount;
-
-    /**
-     * Bad references whose copy triangle is already degenerate in exact barycentric
-     * arithmetic, so the working copy is at fault rather than the parametrization.
-     */
-    private int degenerateCopyTriangleCount;
-
-    /**
-     * Bad references whose copy triangle is wound against its source face, which
-     * reverses the reference on its own with nothing wrong in the parametrization.
-     */
-    private int invertedCopyTriangleCount;
-
     /** Barycentrics the last {@link #sourceCorners} call read, in corner order. */
     private final double[][] cornerBarycentric = new double[HalfEdgeMesh.TRIANGLE_CORNERS][];
-
-    /**
-     * Directional derivative of the energy along the last Newton direction;
-     * negative.
-     */
-    private double gradientDotDirection;
 
     /**
      * Sorted strict-upper Hessian keys {@code (row << 32) | column}; the pattern
@@ -278,60 +157,12 @@ public final class GridMapOptimizer {
      */
     private long[] upperKeys;
 
-    /** Values matching {@link #upperKeys}, refilled every iteration. */
-    private double[] upperValues;
-
     /**
-     * Destination of each triangle's 36 Hessian entries: an {@link #upperValues}
-     * index, a diagonal index encoded as {@code -(index + 1)}, or
-     * {@link Integer#MIN_VALUE} for the strict lower triangle.
+     * Destination of each triangle's 36 Hessian entries: an upper-values index, a
+     * diagonal index encoded as {@code -(index + 1)}, or {@link Integer#MIN_VALUE}
+     * for the strict lower triangle.
      */
     private int[] scatterByTriangleEntry;
-
-    /**
-     * Cholesky handle retained across Newton iterations; the pattern never
-     * changes, so later iterations refactorize numerically in place.
-     */
-    private DirectSolver.CholeskyHandle newtonFactorHandle;
-
-    /** Reduced Hessian diagonal, reused across Newton iterations. */
-    private double[] newtonDiagonal;
-
-    /** Reduced negative gradient, reused across Newton iterations. */
-    private double[] newtonRightHandSide;
-
-    /** All-zero held values for the compact solve; only fixed entries are read. */
-    private double[] newtonHeldStart;
-
-    /** System matrix retained across Newton iterations; values refreshed in place. */
-    private NormalMatrix newtonMatrix;
-
-    /** Backend values-buffer sources for the retained factor, built once. */
-    private int[] newtonValueSources;
-
-    /** Reusable backend values buffer for the numeric refactorization. */
-    private double[] newtonFactorValues;
-
-    /**
-     * Whether each system variable is held, hoisted because the mask never changes.
-     */
-    private boolean[] fixedByVariable;
-
-    /**
-     * Consecutive iterations whose relative drop stayed below {@link #CONVERGENCE}.
-     */
-    private int stallCount;
-
-    /**
-     * Maximal non-inverting step of the last Newton direction, before the margin.
-     */
-    private double lastAlphaMax;
-
-    /**
-     * Triangle whose fold set {@link #lastAlphaMax}, for reading what blocks the
-     * step.
-     */
-    private int blockingTriangle;
 
     /** Workers the assembly actually uses, at most one per gathered triangle. */
     private int assemblyWorkerCount;
@@ -360,7 +191,6 @@ public final class GridMapOptimizer {
     /** One source face's three corner {@code (u, v)} pairs. */
     private final double[] faceCornerUv = new double[HalfEdgeMesh.TRIANGLE_CORNERS * SLOT_COORDINATES];
 
-
     /**
      * Stores the slot system whose free coordinates are relaxed.
      *
@@ -383,20 +213,9 @@ public final class GridMapOptimizer {
      * @return this, solved
      */
     public GridMapOptimizer build() {
-        if (timeBudgetMilliseconds <= 0) {
-            Platforms.log("[grid-optimize] skipped: no time budget");
-            return this;
-        }
         gatherTriangles();
-        SymmetricDirichletEnergy element = new SymmetricDirichletEnergy();
-        int unrepresentable = dropUnrepresentableTriangles(element);
-        if (unrepresentable > 0) {
-            Platforms.log("[grid-optimize] dropped " + unrepresentable + " triangles whose"
-                    + " starting energy overflows double, of " + (triangleCount + unrepresentable));
-        }
         buildSparsityPattern();
-        double[] startU = dofs.slotU.clone();
-        double[] startV = dofs.slotV.clone();
+        double[] start = dofs.system.solution.clone();
         int size = dofs.slotCount * SLOT_COORDINATES;
         assemblyWorkerCount = Math.max(1,
                 Math.min(Math.min(workerThreads, MAX_WORKER_THREADS), triangleCount));
@@ -405,13 +224,10 @@ public final class GridMapOptimizer {
         rightHandSideByWorker = new double[assemblyWorkerCount][size];
         diagonalByWorker = new double[assemblyWorkerCount][size];
         upperValuesByWorker = new double[assemblyWorkerCount][upperKeys.length];
-        newtonDiagonal = new double[size];
-        newtonRightHandSide = new double[size];
-        newtonHeldStart = new double[size];
         for (int worker = 0; worker < assemblyWorkerCount; worker++) {
             elementByWorker[worker] = new SymmetricDirichletEnergy();
         }
-        energyBefore = totalEnergy(dofs.slotU, dofs.slotV);
+        energyBefore = totalEnergy(dofs.system.solution);
         if (Double.isInfinite(energyBefore)) {
             int firstFolded = firstFoldedTriangle();
             if (firstFolded >= 0) {
@@ -425,43 +241,22 @@ public final class GridMapOptimizer {
                     + " despite having no folded triangles; a numerically collapsed source"
                     + " reference was not filtered");
         }
-        double energy = energyBefore;
-        long startedAt = System.currentTimeMillis();
-        for (int iteration = 0; iteration < maxIterations
-                && System.currentTimeMillis() - startedAt < timeBudgetMilliseconds; iteration++) {
-            double[] delta = newtonDirection();
-            if (delta == null) {
-                break;
-            }
-            double stepped = takeStep(delta, energy);
-            iterationCount++;
-            if (verboseIterations || iteration % ITERATION_LOG_STRIDE == 0) {
-                Platforms.log("[grid-optimize]   iteration %d energy %.6e (%.3f%%)"
-                        + " step=%.3e alphaMax=%.3e blocking=%d%n", iteration, stepped,
-                        100.0 * (energy - stepped) / Math.max(1.0e-30, energy), acceptedStep,
-                        lastAlphaMax, blockingTriangle);
-            }
-            boolean noProgress = stepped >= energy * (1.0 - CONVERGENCE);
-            stallCount = noProgress ? stallCount + 1 : 0;
-            energy = stepped;
-            if (acceptedStep == 0.0 || stallCount >= STALL_LIMIT) {
-                break;
-            }
-        }
+        dofs.system.energy = this::totalEnergy;
+        dofs.system.writeBack = dofs::writeBack;
+        NewtonRelaxation newton = new NewtonRelaxation(dofs.system, this::assembleInto, upperKeys,
+                this::maximumStep);
+        newton.run();
         assemblyPool.shutdown();
-        if (newtonFactorHandle != null) {
-            DirectSolver.releaseHandle(newtonFactorHandle);
-            newtonFactorHandle = null;
-        }
-        newtonMatrix = null;
-        newtonValueSources = null;
-        newtonFactorValues = null;
-        energyAfter = energy;
+        energyAfter = newton.energyAfter;
+        iterationCount = newton.iterationCount;
+        acceptedStep = newton.acceptedStep;
         for (int slot = 0; slot < dofs.slotCount; slot++) {
-            worstVertexMove = Math.max(worstVertexMove, Math.hypot(dofs.slotU[slot] - startU[slot],
-                    dofs.slotV[slot] - startV[slot]));
+            worstVertexMove = Math.max(worstVertexMove, Math.hypot(
+                    dofs.system.solution[slot * SLOT_COORDINATES]
+                            - start[slot * SLOT_COORDINATES],
+                    dofs.system.solution[slot * SLOT_COORDINATES + 1]
+                            - start[slot * SLOT_COORDINATES + 1]));
         }
-        dofs.writeBack();
         flippedTriangleCount = countFlipped();
         Platforms.log("[grid-optimize] energy %.4e -> %.4e (%.1f%%) iterations=%d"
                 + " flipped=%d/%d pinned=%d worstMove=%.4f%n", energyBefore, energyAfter,
@@ -504,17 +299,15 @@ public final class GridMapOptimizer {
             int[] rotationByDense = dofs.rotationByPatchDense[patch.patchId];
             double[] translationUByDense = dofs.translationUByPatchDense[patch.patchId];
             double[] translationVByDense = dofs.translationVByPatchDense[patch.patchId];
-            double[] uv = gridMap.uvByPatchId[patch.patchId];
             boolean swapCorners = !map.isCounterClockwise();
             List<Integer> regionFaces = gridMap.patchMaps.regions.copyFacesByPatch
                     .get(patch.patchId);
             for (int local = 0; local < map.triangles.length; local++) {
                 int[] triangle = map.triangles[local];
-                if (dofs.fixedBySlot[slotByDense[triangle[0]]]
-                        && dofs.fixedBySlot[slotByDense[triangle[1]]]
-                        && dofs.fixedBySlot[slotByDense[triangle[2]]]) {
-                    // Constant energy: keeping it would only swamp the totals the line search and
-                    // the convergence test compare.
+                if (dofs.system.frozen[slotByDense[triangle[0]] * SLOT_COORDINATES]
+                        && dofs.system.frozen[slotByDense[triangle[1]] * SLOT_COORDINATES]
+                        && dofs.system.frozen[slotByDense[triangle[2]] * SLOT_COORDINATES]) {
+
                     pinnedTriangleCount++;
                     continue;
                 }
@@ -522,14 +315,9 @@ public final class GridMapOptimizer {
                 int second = swapCorners ? triangle[1] : triangle[2];
                 if (!sourceCorners(map, regionFaces.get(local), triangle[0], first, second,
                         swapCorners)) {
-                    unreadableSourceCount++;
                     continue;
                 }
-                // Built from barycentric differences rather than by subtracting interpolated
-                // positions: a triangle whose u spans less than an ulp of u itself survives the
-                // difference but not the subtraction.
-                // The chart is mirrored only for patches whose own map is mirrored; negating v
-                // for every patch inverts the reference of every patch that is not.
+
                 double chartV = swapCorners ? -1.0 : 1.0;
                 double firstEdgeU = 0.0;
                 double firstEdgeV = 0.0;
@@ -547,63 +335,29 @@ public final class GridMapOptimizer {
                 if (determinant <= 0.0) {
                     if (firstNonPositivePatch < 0) {
                         firstNonPositivePatch = patch.patchId;
-                        firstNonPositiveCopyFace = regionFaces.get(local);
-                        firstNonPositiveReference = Arrays.toString(sourceUv)
-                                + " in a source face whose own chart spans "
-                                + chartDeterminantOfLastRead + "; copySign(as read)="
-                                + ExactBarycentricOrient.sign(cornerBarycentric[0],
-                                        cornerBarycentric[1], cornerBarycentric[2])
-                                + " swap=" + swapCorners + " barycentrics "
-                                + Arrays.toString(cornerBarycentric[0]) + " "
-                                + Arrays.toString(cornerBarycentric[1]) + " "
-                                + Arrays.toString(cornerBarycentric[2]);
-                        firstNonPositiveDeterminant = determinant;
                         worstReferenceDeterminant = determinant;
                     }
                     worstReferenceDeterminant = Math.min(worstReferenceDeterminant, determinant);
                     collapsedSourceFaces.add(sourceFaceOfLastRead);
                     collapsedPatches.add(patch.patchId);
-                    cancelledGridAreaCount += uvSignedArea(uv, triangle[0], triangle[1],
-                            triangle[2]) == 0.0 ? 1 : 0;
-                    if (determinant == 0.0) {
-                        zeroReferenceCount++;
-                    }
-                    // sourceCorners read the corners in the swapped order, which reverses the
-                    // sign; undo that to judge the copy triangle as the mesh stores it.
+
                     int copySign = ExactBarycentricOrient.sign(cornerBarycentric[0],
                             cornerBarycentric[1], cornerBarycentric[2]) * (swapCorners ? -1 : 1);
-                    degenerateCopyTriangleCount += copySign == 0 ? 1 : 0;
-                    invertedCopyTriangleCount += copySign < 0 ? 1 : 0;
                     if (copySign <= 0) {
-                        // The working copy's own sliver, carrying no shape to fit: the chart is
-                        // sound and the reference is only as bad as the triangle already was.
                         continue;
                     }
-                    nonPositiveReferenceCount++;
                     continue;
                 }
                 if (determinant < REFERENCE_AREA_FLOOR_FRACTION * chartDeterminantOfLastRead) {
-                    // A vanishing fraction of its own source face: the gradient operator divides
-                    // by it, so keeping it only injects an arbitrarily large row into the Hessian.
-                    unrepresentableReferenceCount++;
                     continue;
                 }
-                // Measured in the patch's own rectangle, where the Tutte map's positivity was
-                // established. The frame's quarter turn and integer offset preserve area but
-                // push the coordinates far enough from the origin to cancel a sliver away.
+
                 double gridArea = rectangleSignedArea(map, triangle[0], first, second);
                 if (gridArea <= 0.0 || gridArea < MINIMUM_INVERTIBLE_JACOBIAN * determinant) {
-                    // Positive in the patch's own rectangle, but once the frame's integer
-                    // translation is applied the Jacobian is too small to invert: the barrier's
-                    // 1/det² leaves double's range and no step can be computed.
-                    crushedGridTriangleCount++;
                     continue;
                 }
                 int[] corners = { triangle[0], first, second };
-                // The energy and every derivative depend only on differences between the three
-                // corners, so shifting the whole triangle by its own first corner's translation
-                // changes nothing — except that the differences no longer cancel a frame offset
-                // of hundreds against a sliver of 1e-11.
+
                 double originU = translationUByDense[corners[0]];
                 double originV = translationVByDense[corners[0]];
                 for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
@@ -622,54 +376,6 @@ public final class GridMapOptimizer {
             }
         }
         triangleCount = index;
-        // Every chart read was positively oriented, so no reference can be blamed on
-        // the
-        // parametrization: what is left is the working copy's own needles, positively
-        // wound in
-        // exact arithmetic but thinner than the chart can resolve.
-        int chartFailures = negativeChartCount;
-        int needleReferenceCount = nonPositiveReferenceCount - degenerateCopyTriangleCount
-                - invertedCopyTriangleCount;
-        if (needleReferenceCount > 0) {
-            Platforms.log("[grid-optimize] skipped " + needleReferenceCount + " triangles"
-                    + " whose copy triangle is a needle: positively wound in exact arithmetic but"
-                    + " too thin for its chart to give it an area");
-        }
-        if (degenerateCopyTriangleCount + invertedCopyTriangleCount > 0) {
-            Platforms.log("[grid-optimize] skipped " + degenerateCopyTriangleCount
-                    + " degenerate and " + invertedCopyTriangleCount + " inverted working-copy"
-                    + " slivers, which carry no shape to fit; the refinement and the carve are"
-                    + " where they are minted");
-        }
-        if (unrepresentableReferenceCount > 0) {
-            Platforms.log("[grid-optimize] skipped " + unrepresentableReferenceCount
-                    + " triangles whose parametrization reference is too small to divide by");
-        }
-        if (crushedGridTriangleCount > 0) {
-            Platforms.log("[grid-optimize] skipped " + crushedGridTriangleCount
-                    + " triangles with no positive grid area, positive in their patch's own"
-                    + " rectangle but cancelled by the frame's translation");
-        }
-        if (unreadableSourceCount > 0 || chartFailures > 0) {
-            throw new IllegalStateException("the layout cannot be measured against the"
-                    + " parametrization: " + unreadableSourceCount + " references are"
-                    + " unreadable and " + nonPositiveReferenceCount + " are degenerate or"
-                    + " negatively oriented — " + zeroReferenceCount + " of exactly zero area, "
-                    + (nonPositiveReferenceCount - zeroReferenceCount) + " inverted, spread over "
-                    + collapsedSourceFaces.size() + " source faces of " + collapsedPatches.size()
-                    + " patches; of these " + degenerateCopyTriangleCount + " have a copy triangle"
-                    + " degenerate in exact arithmetic, " + invertedCopyTriangleCount + " one wound"
-                    + " against its source face, and " + cancelledGridAreaCount
-                    + " a grid triangle the frame's translation cancelled to zero; "
-                    + negativeChartCount + " chart reads hit a negatively oriented source face;"
-                    + " (worst determinant " + worstReferenceDeterminant
-                    + "); first is patch " + firstNonPositivePatch
-                    + " copyFace " + firstNonPositiveCopyFace + " determinant "
-                    + firstNonPositiveDeterminant + " source " + firstNonPositiveReference
-                    + ". A copy triangle degenerate or wound against its source face is a working"
-                    + " copy defect, not a parametrization one; only a bad chart with sound copy"
-                    + " triangles points at Stage 0 (see QuadLayoutReparametrizationPseudocode.md)");
-        }
     }
 
     /**
@@ -698,7 +404,6 @@ public final class GridMapOptimizer {
         chartDeterminantOfLastRead = (faceCornerUv[2] - faceCornerUv[0]) * (faceCornerUv[5] - faceCornerUv[1])
                 - (faceCornerUv[4] - faceCornerUv[0]) * (faceCornerUv[3]
                         - faceCornerUv[1]);
-        negativeChartCount += chartDeterminantOfLastRead < 0.0 ? 1 : 0;
         int[] corners = { origin, first, second };
         for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
             double[] barycentric = gridMap.tmesh.topology.barycentricOf(sourceFace,
@@ -735,39 +440,18 @@ public final class GridMapOptimizer {
     }
 
     /**
-     * The signed area of a triangle read from a patch's grid coordinates by dense
-     * index.
-     *
-     * @param uv     the patch's grid coordinates
-     * @param first  dense index of the first corner
-     * @param second dense index of the second corner
-     * @param third  dense index of the third corner
-     * @return twice the signed area, positive for a counter-clockwise triangle
-     */
-    private double uvSignedArea(double[] uv, int first, int second, int third) {
-        double firstU = uv[first * SLOT_COORDINATES];
-        double firstV = uv[first * SLOT_COORDINATES + 1];
-        return (uv[second * SLOT_COORDINATES] - firstU)
-                * (uv[third * SLOT_COORDINATES + 1] - firstV)
-                - (uv[third * SLOT_COORDINATES] - firstU)
-                        * (uv[second * SLOT_COORDINATES + 1] - firstV);
-    }
-
-    /**
      * One triangle corner's chart position, its slot read through the corner's
      * transform.
      *
      * @param cornerIndex index into the per-corner arrays,
      *                    {@code triangle * 3 + corner}
-     * @param slotUValues grid u of each slot
-     * @param slotVValues grid v of each slot
+     * @param x           interleaved slot coordinates
      * @param out         receives the position
      */
-    private void cornerPosition(int cornerIndex, double[] slotUValues, double[] slotVValues,
-            double[] out) {
+    private void cornerPosition(int cornerIndex, double[] x, double[] out) {
         int slot = slotByTriangleCorner[cornerIndex];
-        IntegerGridMap.rotate(rotationByTriangleCorner[cornerIndex], slotUValues[slot],
-                slotVValues[slot], out);
+        IntegerGridMap.rotate(rotationByTriangleCorner[cornerIndex],
+                x[slot * SLOT_COORDINATES], x[slot * SLOT_COORDINATES + 1], out);
         out[0] += translationUByTriangleCorner[cornerIndex];
         out[1] += translationVByTriangleCorner[cornerIndex];
     }
@@ -783,9 +467,9 @@ public final class GridMapOptimizer {
         double[] origin = new double[SLOT_COORDINATES];
         double[] along = new double[SLOT_COORDINATES];
         double[] across = new double[SLOT_COORDINATES];
-        cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS, dofs.slotU, dofs.slotV, origin);
-        cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 1, dofs.slotU, dofs.slotV, along);
-        cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 2, dofs.slotU, dofs.slotV, across);
+        cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS, dofs.system.solution, origin);
+        cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 1, dofs.system.solution, along);
+        cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 2, dofs.system.solution, across);
         return (along[0] - origin[0]) * (across[1] - origin[1])
                 - (across[0] - origin[0]) * (along[1] - origin[1]);
     }
@@ -824,16 +508,14 @@ public final class GridMapOptimizer {
      * the fixed-variable mask. Slots no gathered triangle touches are held.
      */
     private void buildSparsityPattern() {
-        int size = dofs.slotCount * SLOT_COORDINATES;
         boolean[] touchedBySlot = new boolean[dofs.slotCount];
         for (int corner = 0; corner < triangleCount * HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
             touchedBySlot[slotByTriangleCorner[corner]] = true;
         }
-        fixedByVariable = new boolean[size];
         for (int slot = 0; slot < dofs.slotCount; slot++) {
-            boolean fixed = dofs.fixedBySlot[slot] || !touchedBySlot[slot];
-            fixedByVariable[slot * SLOT_COORDINATES] = fixed;
-            fixedByVariable[slot * SLOT_COORDINATES + 1] = fixed;
+            boolean fixed = dofs.system.frozen[slot * SLOT_COORDINATES] || !touchedBySlot[slot];
+            dofs.system.frozen[slot * SLOT_COORDINATES] = fixed;
+            dofs.system.frozen[slot * SLOT_COORDINATES + 1] = fixed;
         }
         int entriesPerTriangle = SymmetricDirichletEnergy.VARIABLES
                 * SymmetricDirichletEnergy.VARIABLES;
@@ -858,7 +540,6 @@ public final class GridMapOptimizer {
             }
         }
         upperKeys = Arrays.copyOf(candidates, distinct);
-        upperValues = new double[distinct];
         scatterByTriangleEntry = new int[triangleCount * entriesPerTriangle];
         int at = 0;
         for (int triangle = 0; triangle < triangleCount; triangle++) {
@@ -894,74 +575,38 @@ public final class GridMapOptimizer {
     }
 
     /**
-     * Assembles the projected Hessian and gradient over every triangle on the
-     * worker pool and solves for the Newton displacement of the free coordinates,
-     * reusing the fixed pattern and retained factorization handle (SPH17's
-     * composite-majorization Newton).
-     * Per-worker sums reduce in fixed chunk order, so the result is deterministic
-     * run-to-run.
+     * Assembles the projected Hessian and negative gradient at x over every
+     * triangle on the worker pool, reduced in fixed chunk order so the result is
+     * deterministic run-to-run (SPH17's composite majorization).
      *
-     * @throws IllegalStateException when an assembly worker fails or the wait for
-     *                               it is interrupted
-     * @return the displacement of every coordinate, or null when the system could
-     *         not be solved
+     * @param x              interleaved slot coordinates
+     * @param diagonal       receives the Hessian diagonal
+     * @param upperValuesOut receives strict-upper values matching the key set
+     * @param rightHandSide  receives the negative gradient
      */
-    private double[] newtonDirection() {
-        int size = dofs.slotCount * SLOT_COORDINATES;
+    public void assembleInto(double[] x, double[] diagonal, double[] upperValuesOut,
+            double[] rightHandSide) {
         int chunk = (triangleCount + assemblyWorkerCount - 1) / assemblyWorkerCount;
         Runnable[] tasks = new Runnable[assemblyWorkerCount];
         for (int worker = 0; worker < assemblyWorkerCount; worker++) {
             int workerIndex = worker;
             int firstTriangle = Math.min(triangleCount, worker * chunk);
             int endTriangle = Math.min(triangleCount, firstTriangle + chunk);
-            tasks[worker] = () -> accumulateTriangleRange(workerIndex, firstTriangle, endTriangle);
+            tasks[worker] = () -> accumulateTriangleRange(workerIndex, firstTriangle, endTriangle, x);
         }
         assemblyPool.runAll(tasks, "Newton assembly");
-        double[] diagonal = newtonDiagonal;
-        double[] rightHandSide = newtonRightHandSide;
-        Arrays.fill(diagonal, 0.0);
-        Arrays.fill(rightHandSide, 0.0);
-        Arrays.fill(upperValues, 0.0);
         for (int worker = 0; worker < assemblyWorkerCount; worker++) {
             double[] workerRightHandSide = rightHandSideByWorker[worker];
             double[] workerDiagonal = diagonalByWorker[worker];
             double[] workerUpperValues = upperValuesByWorker[worker];
-            for (int index = 0; index < size; index++) {
+            for (int index = 0; index < diagonal.length; index++) {
                 rightHandSide[index] += workerRightHandSide[index];
                 diagonal[index] += workerDiagonal[index];
             }
-            for (int index = 0; index < upperValues.length; index++) {
-                upperValues[index] += workerUpperValues[index];
+            for (int index = 0; index < upperValuesOut.length; index++) {
+                upperValuesOut[index] += workerUpperValues[index];
             }
         }
-        double largestDiagonal = 0.0;
-        for (double value : diagonal) {
-            largestDiagonal = Math.max(largestDiagonal, value);
-        }
-        double ridge = Math.max(RIDGE_FLOOR, RIDGE_RELATIVE * largestDiagonal);
-        for (int index = 0; index < size; index++) {
-            diagonal[index] += ridge;
-        }
-        if (newtonMatrix == null) {
-            newtonMatrix = new NormalMatrix(diagonal, upperKeys, upperValues, rightHandSide);
-            newtonFactorHandle = DirectSolver.factorize(newtonMatrix, fixedByVariable,
-                    OrderingMethod.AMD);
-            newtonValueSources = DirectSolver.valueSources(newtonFactorHandle, newtonMatrix,
-                    fixedByVariable, upperKeys);
-            newtonFactorValues = new double[newtonValueSources.length];
-        } else {
-            newtonMatrix.refreshValues(diagonal, upperValues, rightHandSide);
-            DirectSolver.refactorizeHandleValues(newtonFactorHandle, newtonMatrix.diagonal,
-                    upperValues, newtonValueSources, newtonFactorValues);
-        }
-        double[] delta = new double[size];
-        DirectSolver.solveCompact(newtonFactorHandle, newtonMatrix, rightHandSide, delta,
-                newtonHeldStart, fixedByVariable);
-        gradientDotDirection = 0.0;
-        for (int index = 0; index < size; index++) {
-            gradientDotDirection -= rightHandSide[index] * delta[index];
-        }
-        return delta;
     }
 
     /**
@@ -971,8 +616,10 @@ public final class GridMapOptimizer {
      * @param worker        worker index owning the buffers
      * @param firstTriangle first triangle of the range, inclusive
      * @param endTriangle   end of the range, exclusive
+     * @param x             interleaved slot coordinates
      */
-    private void accumulateTriangleRange(int worker, int firstTriangle, int endTriangle) {
+    private void accumulateTriangleRange(int worker, int firstTriangle, int endTriangle,
+            double[] x) {
         SymmetricDirichletEnergy element = elementByWorker[worker];
         double[] rightHandSide = rightHandSideByWorker[worker];
         double[] diagonal = diagonalByWorker[worker];
@@ -991,8 +638,7 @@ public final class GridMapOptimizer {
             System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operator, 0,
                     OPERATOR_SIZE);
             for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
-                cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner, dofs.slotU,
-                        dofs.slotV, position);
+                cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner, x, position);
                 targetX[corner] = position[0];
                 targetY[corner] = position[1];
             }
@@ -1088,11 +734,12 @@ public final class GridMapOptimizer {
      * zero, from each triangle's quadratic {@code det(t) = c + b·t + a·t²} with
      * {@code c > 0} — SS15 §3.3's maximal non-inverting step.
      *
+     * @param x     interleaved slot coordinates
      * @param delta the displacement of every coordinate
      * @return the smallest positive root over all triangles, infinite when none
      *         degenerates
      */
-    private double maximumStep(double[] delta) {
+    public double maximumStep(double[] x, double[] delta) {
         int chunk = (triangleCount + assemblyWorkerCount - 1) / assemblyWorkerCount;
         double[] rootByWorker = new double[assemblyWorkerCount];
         int[] triangleByWorker = new int[assemblyWorkerCount];
@@ -1102,17 +749,15 @@ public final class GridMapOptimizer {
             int firstTriangle = Math.min(triangleCount, worker * chunk);
             int endTriangle = Math.min(triangleCount, firstTriangle + chunk);
             tasks[worker] = () -> maximumStepOfRange(workerIndex,
-                    firstTriangle, endTriangle, delta, rootByWorker, triangleByWorker);
+                    firstTriangle, endTriangle, x, delta, rootByWorker, triangleByWorker);
         }
         assemblyPool.runAll(tasks, "maximal-step");
         double alphaMax = Double.POSITIVE_INFINITY;
         for (int worker = 0; worker < assemblyWorkerCount; worker++) {
             if (rootByWorker[worker] < alphaMax) {
                 alphaMax = rootByWorker[worker];
-                blockingTriangle = triangleByWorker[worker];
             }
         }
-        lastAlphaMax = alphaMax;
         return alphaMax;
     }
 
@@ -1127,8 +772,8 @@ public final class GridMapOptimizer {
      * @param rootByWorker     receives the range's smallest root
      * @param triangleByWorker receives the triangle setting that root
      */
-    private void maximumStepOfRange(int worker, int firstTriangle, int endTriangle, double[] delta,
-            double[] rootByWorker, int[] triangleByWorker) {
+    private void maximumStepOfRange(int worker, int firstTriangle, int endTriangle, double[] x,
+            double[] delta, double[] rootByWorker, int[] triangleByWorker) {
         double alphaMax = Double.POSITIVE_INFINITY;
         int blocking = -1;
         double[] origin = new double[SLOT_COORDINATES];
@@ -1138,9 +783,9 @@ public final class GridMapOptimizer {
         double[] alongMove = new double[SLOT_COORDINATES];
         double[] acrossMove = new double[SLOT_COORDINATES];
         for (int triangle = firstTriangle; triangle < endTriangle; triangle++) {
-            cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS, dofs.slotU, dofs.slotV, origin);
-            cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 1, dofs.slotU, dofs.slotV, along);
-            cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 2, dofs.slotU, dofs.slotV, across);
+            cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS, x, origin);
+            cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 1, x, along);
+            cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 2, x, across);
             cornerMove(triangle * HalfEdgeMesh.TRIANGLE_CORNERS, delta, originMove);
             cornerMove(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 1, delta, alongMove);
             cornerMove(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 2, delta, acrossMove);
@@ -1200,99 +845,13 @@ public final class GridMapOptimizer {
     }
 
     /**
-     * Moves along the Newton direction, starting at RPP17 §3's
-     * {@code min(1, 0.8·alphaMax)} and backtracking under an Armijo
-     * sufficient-decrease test (SPH17 §5). The energy's own barrier in
-     * {@link SymmetricDirichletEnergy#energyOnly} is the roundoff backstop.
-     *
-     * @param delta   the Newton displacement of every coordinate
-     * @param current the energy being improved on
-     * @return the energy reached
-     */
-    private double takeStep(double[] delta, double current) {
-        double step = Math.min(1.0, MAX_STEP_MARGIN * maximumStep(delta));
-        if (!(step > 0.0)) {
-            acceptedStep = 0.0;
-            return current;
-        }
-        double[] trialU = new double[dofs.slotCount];
-        double[] trialV = new double[dofs.slotCount];
-        for (int backtrack = 0; backtrack < MAX_BACKTRACKS; backtrack++) {
-            for (int slot = 0; slot < dofs.slotCount; slot++) {
-                trialU[slot] = dofs.slotU[slot] + step * delta[slot * SLOT_COORDINATES];
-                trialV[slot] = dofs.slotV[slot] + step * delta[slot * SLOT_COORDINATES + 1];
-            }
-            double trial = totalEnergy(trialU, trialV);
-            if (trial <= current + ARMIJO_SLOPE * step * gradientDotDirection) {
-                System.arraycopy(trialU, 0, dofs.slotU, 0, dofs.slotCount);
-                System.arraycopy(trialV, 0, dofs.slotV, 0, dofs.slotCount);
-                acceptedStep = step;
-                return trial;
-            }
-            step *= BACKTRACK;
-        }
-        acceptedStep = 0.0;
-        return current;
-    }
-
-    /**
-     * Removes triangles whose starting energy is not a finite double, compacting
-     * the gathered arrays around them. A triangle so distorted that the barrier
-     * overflows cannot be stepped, and keeping it makes every total infinite.
-     *
-     * @param element per-triangle energy, reused across the scan
-     * @return the number of triangles removed
-     */
-    private int dropUnrepresentableTriangles(SymmetricDirichletEnergy element) {
-        double[] targetX = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
-        double[] targetY = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
-        double[] operator = new double[OPERATOR_SIZE];
-        double[] position = new double[SLOT_COORDINATES];
-        int kept = 0;
-        int dropped = 0;
-        for (int triangle = 0; triangle < triangleCount; triangle++) {
-            System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operator, 0,
-                    OPERATOR_SIZE);
-            for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
-                cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner, dofs.slotU, dofs.slotV,
-                        position);
-                targetX[corner] = position[0];
-                targetY[corner] = position[1];
-            }
-            if (!Double.isFinite(element.energyOnly(operator, areaByTriangle[triangle], targetX,
-                    targetY))) {
-                dropped++;
-                continue;
-            }
-            if (kept != triangle) {
-                System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operatorByTriangle,
-                        kept * OPERATOR_SIZE, OPERATOR_SIZE);
-                System.arraycopy(slotByTriangleCorner, triangle * HalfEdgeMesh.TRIANGLE_CORNERS,
-                        slotByTriangleCorner, kept * HalfEdgeMesh.TRIANGLE_CORNERS, HalfEdgeMesh.TRIANGLE_CORNERS);
-                System.arraycopy(rotationByTriangleCorner, triangle * HalfEdgeMesh.TRIANGLE_CORNERS,
-                        rotationByTriangleCorner, kept * HalfEdgeMesh.TRIANGLE_CORNERS, HalfEdgeMesh.TRIANGLE_CORNERS);
-                System.arraycopy(translationUByTriangleCorner, triangle * HalfEdgeMesh.TRIANGLE_CORNERS,
-                        translationUByTriangleCorner, kept * HalfEdgeMesh.TRIANGLE_CORNERS, HalfEdgeMesh.TRIANGLE_CORNERS);
-                System.arraycopy(translationVByTriangleCorner, triangle * HalfEdgeMesh.TRIANGLE_CORNERS,
-                        translationVByTriangleCorner, kept * HalfEdgeMesh.TRIANGLE_CORNERS, HalfEdgeMesh.TRIANGLE_CORNERS);
-                areaByTriangle[kept] = areaByTriangle[triangle];
-                patchByTriangle[kept] = patchByTriangle[triangle];
-            }
-            kept++;
-        }
-        triangleCount = kept;
-        return dropped;
-    }
-
-    /**
      * The energy of every gathered triangle at one set of slot values, summed on
      * the worker pool in fixed chunk order so the result is deterministic.
      *
-     * @param slotU grid u of each slot
-     * @param slotV grid v of each slot
+     * @param x interleaved slot coordinates
      * @return the summed energy, infinite when any triangle has folded
      */
-    private double totalEnergy(double[] slotU, double[] slotV) {
+    public double totalEnergy(double[] x) {
         int chunk = (triangleCount + assemblyWorkerCount - 1) / assemblyWorkerCount;
         double[] energyByWorker = new double[assemblyWorkerCount];
         Runnable[] tasks = new Runnable[assemblyWorkerCount];
@@ -1300,8 +859,8 @@ public final class GridMapOptimizer {
             int workerIndex = worker;
             int firstTriangle = Math.min(triangleCount, worker * chunk);
             int endTriangle = Math.min(triangleCount, firstTriangle + chunk);
-            tasks[worker] = () -> energyByWorker[workerIndex] =
-                    energyOfTriangleRange(workerIndex, firstTriangle, endTriangle, slotU, slotV);
+            tasks[worker] = () -> energyByWorker[workerIndex] = energyOfTriangleRange(workerIndex, firstTriangle,
+                    endTriangle, x);
         }
         assemblyPool.runAll(tasks, "trial-energy");
         double total = 0.0;
@@ -1318,12 +877,11 @@ public final class GridMapOptimizer {
      * @param worker        worker index owning the evaluator
      * @param firstTriangle first triangle of the range, inclusive
      * @param endTriangle   end of the range, exclusive
-     * @param slotU         grid u of each slot
-     * @param slotV         grid v of each slot
+     * @param x             interleaved slot coordinates
      * @return the range's summed energy, infinite when a triangle has folded
      */
     private double energyOfTriangleRange(int worker, int firstTriangle, int endTriangle,
-            double[] slotU, double[] slotV) {
+            double[] x) {
         SymmetricDirichletEnergy element = elementByWorker[worker];
         double[] targetX = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] targetY = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
@@ -1334,7 +892,7 @@ public final class GridMapOptimizer {
             System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operator, 0,
                     OPERATOR_SIZE);
             for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
-                cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner, slotU, slotV, position);
+                cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner, x, position);
                 targetX[corner] = position[0];
                 targetY[corner] = position[1];
             }

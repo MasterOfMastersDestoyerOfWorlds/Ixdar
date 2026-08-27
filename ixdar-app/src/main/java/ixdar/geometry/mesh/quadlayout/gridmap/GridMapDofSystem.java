@@ -8,10 +8,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
+import ixdar.platform.Platforms;
 
 /**
  * Which grid coordinates the re-parametrization may move, as solver slots: one shared slot per free
@@ -70,14 +73,11 @@ public final class GridMapDofSystem {
     /** Seam arcs whose vertices were freed through their transition. */
     public int coupledSeamArcCount;
 
-    /** Whether each slot is held rather than solved for. */
-    public boolean[] fixedBySlot;
-
-    /** Grid u of each slot; the value held, for a fixed slot. */
-    public double[] slotU;
-
-    /** Grid v of each slot; the value held, for a fixed slot. */
-    public double[] slotV;
+    /**
+     * The canonical solve state: interleaved {@code (u, v)} per slot in
+     * {@code solution}, both scalars of a fixed slot frozen.
+     */
+    public DofSystem system;
 
     /** Slots in the system, free and fixed together. */
     public int slotCount;
@@ -112,7 +112,7 @@ public final class GridMapDofSystem {
      * @return this, built
      */
     public GridMapDofSystem build() {
-        Map<Integer, Map<Integer, int[]>> freedFans = freedNodeFans();
+        Map<Integer, Map<Integer, double[]>> freedFans = freedNodeFans();
         Set<Integer> pinned = pinnedCopyVertices(freedFans);
         Map<Integer, Integer> seamArcByCopyVertex = coupledSeamVertices();
         slotByPatchDense = new int[tmesh.patches.size()][];
@@ -152,24 +152,22 @@ public final class GridMapDofSystem {
                 // A slot stores one chart: a freed node's primary patch chart, or a coupled
                 // seam's left patch chart. Other copies carry the value there and read it back
                 // through the inverse transform.
-                Map<Integer, int[]> fan = freedFans.get(copyVertex);
+                Map<Integer, double[]> fan = freedFans.get(copyVertex);
                 Integer seamArcId = fan != null ? null : seamArcByCopyVertex.get(copyVertex);
-                int[] toSlotChart = null;
+                double[] toSlotChart = null;
                 if (fan != null) {
                     toSlotChart = fan.get(patch.patchId);
                 } else if (seamArcId != null
                         && patch.patchId == tmesh.arcs.get(seamArcId).rightPatchId) {
-                    toSlotChart = new int[] {frames.transitionQuarterTurnsByArcId[seamArcId],
-                            frames.transitionTranslationUByArcId[seamArcId],
-                            frames.transitionTranslationVByArcId[seamArcId]};
+                    toSlotChart = gridMap.atlas.transition(seamArcId, patch.patchId);
                 }
                 if (toSlotChart != null
                         && (toSlotChart[0] != 0 || toSlotChart[1] != 0 || toSlotChart[2] != 0)) {
-                    IntegerGridMap.rotate(toSlotChart[0], here, there, rotated);
+                    IntegerGridMap.rotate((int) toSlotChart[0], here, there, rotated);
                     here = rotated[0] + toSlotChart[1];
                     there = rotated[1] + toSlotChart[2];
-                    int[] inverse = invertTransform(toSlotChart);
-                    rotationByDense[dense] = inverse[0];
+                    double[] inverse = ChartAtlas.invert(toSlotChart);
+                    rotationByDense[dense] = (int) inverse[0];
                     translationUByDense[dense] = inverse[1];
                     translationVByDense[dense] = inverse[2];
                 }
@@ -199,15 +197,15 @@ public final class GridMapDofSystem {
             }
         }
         slotCount = fixedSlots.size();
-        fixedBySlot = new boolean[slotCount];
-        slotU = new double[slotCount];
-        slotV = new double[slotCount];
+        system = new DofSystem(slotCount * GlobalGridMap.GRID_COORDINATES);
+        system.solve = this::relax;
         for (int slot = 0; slot < slotCount; slot++) {
-            fixedBySlot[slot] = fixedSlots.get(slot);
-            slotU[slot] = valuesU.get(slot);
-            slotV[slot] = valuesV.get(slot);
+            system.solution[slot * GlobalGridMap.GRID_COORDINATES] = valuesU.get(slot);
+            system.solution[slot * GlobalGridMap.GRID_COORDINATES + 1] = valuesV.get(slot);
+            system.frozen[slot * GlobalGridMap.GRID_COORDINATES] = fixedSlots.get(slot);
+            system.frozen[slot * GlobalGridMap.GRID_COORDINATES + 1] = fixedSlots.get(slot);
         }
-        System.out.println("[grid-dof] slots=" + slotCount + " free=" + freeSlotCount
+        Platforms.log("[grid-dof] slots=" + slotCount + " free=" + freeSlotCount
                 + " pinnedVertices=" + pinned.size() + " coupledSeamArcs=" + coupledSeamArcCount
                 + " freedNodes=" + freedNodeCount + " fanFailed=" + fanFailedNodeCount
                 + " holonomyPinned=" + holonomyPinnedNodeCount
@@ -251,7 +249,7 @@ public final class GridMapDofSystem {
         return arc.alive && frames.seamByArcId[arc.arcId]
                 && arc.leftPatchId != EmbeddedTMesh.NONE && arc.rightPatchId != EmbeddedTMesh.NONE
                 && arc.leftPatchId != arc.rightPatchId
-                && frames.transitionQuarterTurnsByArcId[arc.arcId] != IntegerGridMap.NOT_PLACED;
+                && gridMap.atlas.hasTransition(arc.arcId);
     }
 
     /**
@@ -261,8 +259,8 @@ public final class GridMapDofSystem {
      *
      * @return per freed node copy vertex, the transform {@code {turns, u, v}} by patch id
      */
-    private Map<Integer, Map<Integer, int[]>> freedNodeFans() {
-        Map<Integer, Map<Integer, int[]>> fans = new HashMap<>();
+    private Map<Integer, Map<Integer, double[]>> freedNodeFans() {
+        Map<Integer, Map<Integer, double[]>> fans = new HashMap<>();
         if (nodeFreedomPinned == true) {
             return fans;
         }
@@ -298,30 +296,25 @@ public final class GridMapDofSystem {
                 fanFailedNodeCount++;
                 continue;
             }
-            Map<Integer, int[]> fan = new HashMap<>();
+            Map<Integer, double[]> fan = new HashMap<>();
             List<Integer> frontier = new ArrayList<>();
             int primary = Collections.min(patches);
-            fan.put(primary, new int[] {0, 0, 0});
+            fan.put(primary, new double[] {0, 0, 0});
             frontier.add(primary);
             for (int cursor = 0; cursor < frontier.size(); cursor++) {
                 int patchId = frontier.get(cursor);
-                int[] toPrimary = fan.get(patchId);
+                double[] toPrimary = fan.get(patchId);
                 for (int arcId : incidentArcs) {
                     EmbeddedArc arc = tmesh.arcs.get(arcId);
                     int other = arc.leftPatchId == patchId ? arc.rightPatchId
                             : arc.rightPatchId == patchId ? arc.leftPatchId : EmbeddedTMesh.NONE;
                     if (other == EmbeddedTMesh.NONE || other == patchId || fan.containsKey(other)
                             || !patches.contains(other)
-                            || frames.transitionQuarterTurnsByArcId[arcId]
-                                    == IntegerGridMap.NOT_PLACED) {
+                            || !gridMap.atlas.hasTransition(arcId)) {
                         continue;
                     }
-                    int[] transition = {frames.transitionQuarterTurnsByArcId[arcId],
-                            frames.transitionTranslationUByArcId[arcId],
-                            frames.transitionTranslationVByArcId[arcId]};
-                    int[] otherToPatch = patchId == arc.leftPatchId ? transition
-                            : invertTransform(transition);
-                    fan.put(other, composeTransform(toPrimary, otherToPatch));
+                    fan.put(other, ChartAtlas.compose(toPrimary,
+                            gridMap.atlas.transition(arcId, other)));
                     frontier.add(other);
                 }
             }
@@ -347,52 +340,23 @@ public final class GridMapDofSystem {
      * @param incidentArcs arcs meeting at the node
      * @return whether the transitions compose to the identity around the fan
      */
-    private boolean fanHolonomyTrivial(Map<Integer, int[]> fan, List<Integer> incidentArcs) {
+    private boolean fanHolonomyTrivial(Map<Integer, double[]> fan, List<Integer> incidentArcs) {
         for (int arcId : incidentArcs) {
             EmbeddedArc arc = tmesh.arcs.get(arcId);
-            int[] leftToPrimary = fan.get(arc.leftPatchId);
-            int[] rightToPrimary = fan.get(arc.rightPatchId);
+            double[] leftToPrimary = fan.get(arc.leftPatchId);
+            double[] rightToPrimary = fan.get(arc.rightPatchId);
             if (leftToPrimary == null || rightToPrimary == null
-                    || frames.transitionQuarterTurnsByArcId[arcId] == IntegerGridMap.NOT_PLACED) {
+                    || !gridMap.atlas.hasTransition(arcId)) {
                 continue;
             }
-            int[] expected = composeTransform(leftToPrimary,
-                    new int[] {frames.transitionQuarterTurnsByArcId[arcId],
-                            frames.transitionTranslationUByArcId[arcId],
-                            frames.transitionTranslationVByArcId[arcId]});
+            double[] expected = ChartAtlas.compose(leftToPrimary,
+                    gridMap.atlas.transition(arcId, arc.rightPatchId));
             if (expected[0] != rightToPrimary[0] || expected[1] != rightToPrimary[1]
                     || expected[2] != rightToPrimary[2]) {
                 return false;
             }
         }
         return true;
-    }
-
-    /**
-     * The inverse of a grid automorphism given as quarter turns and an integer translation.
-     *
-     * @param transform the automorphism {@code {turns, u, v}}
-     * @return its inverse in the same encoding
-     */
-    private int[] invertTransform(int[] transform) {
-        int turns = (IntegerGridMap.QUARTER_TURNS - transform[0]) % IntegerGridMap.QUARTER_TURNS;
-        double[] rotated = new double[GlobalGridMap.GRID_COORDINATES];
-        IntegerGridMap.rotate(turns, transform[1], transform[2], rotated);
-        return new int[] {turns, -(int) Math.round(rotated[0]), -(int) Math.round(rotated[1])};
-    }
-
-    /**
-     * The composition applying the inner automorphism first, then the outer.
-     *
-     * @param outer the automorphism applied second
-     * @param inner the automorphism applied first
-     * @return the composed automorphism {@code {turns, u, v}}
-     */
-    private int[] composeTransform(int[] outer, int[] inner) {
-        double[] rotated = new double[GlobalGridMap.GRID_COORDINATES];
-        IntegerGridMap.rotate(outer[0], inner[1], inner[2], rotated);
-        return new int[] {(outer[0] + inner[0]) % IntegerGridMap.QUARTER_TURNS,
-                outer[1] + (int) Math.round(rotated[0]), outer[2] + (int) Math.round(rotated[1])};
     }
 
     /**
@@ -403,7 +367,7 @@ public final class GridMapDofSystem {
      * @param freedFans the nodes freed with fan transforms, exempt from pinning
      * @return the pinned copy vertex ids
      */
-    private Set<Integer> pinnedCopyVertices(Map<Integer, Map<Integer, int[]>> freedFans) {
+    private Set<Integer> pinnedCopyVertices(Map<Integer, Map<Integer, double[]>> freedFans) {
         Set<Integer> pinned = new HashSet<>();
         for (EmbeddedPatch patch : tmesh.patches) {
             if (!patch.alive) {
@@ -448,13 +412,37 @@ public final class GridMapDofSystem {
             double[] translationVByDense = translationVByPatchDense[patch.patchId];
             double[] uv = gridMap.uvByPatchId[patch.patchId];
             for (int dense = 0; dense < slotByDense.length; dense++) {
-                IntegerGridMap.rotate(rotationByDense[dense], slotU[slotByDense[dense]],
-                        slotV[slotByDense[dense]], rotated);
+                IntegerGridMap.rotate(rotationByDense[dense],
+                        system.solution[slotByDense[dense] * GlobalGridMap.GRID_COORDINATES],
+                        system.solution[slotByDense[dense] * GlobalGridMap.GRID_COORDINATES + 1],
+                        rotated);
                 uv[dense * GlobalGridMap.GRID_COORDINATES] =
                         rotated[0] + translationUByDense[dense];
                 uv[dense * GlobalGridMap.GRID_COORDINATES + 1] =
                         rotated[1] + translationVByDense[dense];
             }
         }
+    }
+
+    /**
+     * The number of slots, free and fixed together.
+     *
+     * @return slot count
+     */
+    public int dofCount() {
+        return slotCount * GlobalGridMap.GRID_COORDINATES;
+    }
+
+    /**
+     * Newton-relaxes the slots in place and rebuilds the grid map's iso surface
+     * from the relaxed coordinates.
+     */
+    public void relax() {
+        gridMap.gridOptimizer = new GridMapOptimizer(this, gridMap.seamless);
+        gridMap.gridOptimizer.build();
+        gridMap.isoSurfaceRelaxed =
+                new GridMapIsoSurface(gridMap.patchMaps, gridMap.uvByPatchId).build();
+        Platforms.log("[global-grid] relax %.2e→%.2e it=%d%n", gridMap.gridOptimizer.energyBefore,
+                gridMap.gridOptimizer.energyAfter, gridMap.gridOptimizer.iterationCount);
     }
 }

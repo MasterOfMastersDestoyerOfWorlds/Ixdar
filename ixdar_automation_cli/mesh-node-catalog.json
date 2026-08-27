@@ -1040,6 +1040,11 @@
           "name": "singularity_count",
           "portType": "INT",
           "description": "Number of extracted singularities."
+        },
+        {
+          "name": "dofs",
+          "portType": "DOF_SYSTEM",
+          "description": "The smoothing solve\u0027s system, for solver-composing graphs."
         }
       ],
       "description": "Builds the quad-layout cross field (curvature-aligned n-direction field) over a triangle mesh and extracts its singularities."
@@ -2276,6 +2281,53 @@
       "description": "Places a copy of an instance mesh at each point in a geometry bundle or curve, with optional per-point rotation for scatter or array patterns."
     },
     {
+      "id": "integer_grid_map",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "tmesh",
+          "portType": "ARC_NETWORK",
+          "description": "Contracted, conforming T-mesh, from a tmesh_contract node.",
+          "defaultValue": null
+        },
+        {
+          "name": "uv",
+          "portType": "UV_FIELD",
+          "description": "Seamless UV field in (constrains the map); the framed integer grid map UV field out.",
+          "defaultValue": null
+        },
+        {
+          "name": "target_edge_length",
+          "portType": "FLOAT",
+          "description": "Parametric length one quad edge spans.",
+          "defaultValue": 1.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "uv",
+          "portType": "UV_FIELD",
+          "description": "Seamless UV field in (constrains the map); the framed integer grid map UV field out."
+        },
+        {
+          "name": "dofs",
+          "portType": "DOF_SYSTEM",
+          "description": "The map\u0027s DOF system, what a newton_solver node relaxes."
+        },
+        {
+          "name": "charts",
+          "portType": "CHART_ATLAS",
+          "description": "The map\u0027s patch charts and the arc transitions between them."
+        }
+      ],
+      "description": "Maps every layout patch onto its quantized rectangle and frames the patches in one common integer grid, the UV field the relaxation optimizes."
+    },
+    {
       "id": "integer_math",
       "category": "Math \u0026 Logic",
       "scopes": [
@@ -3008,6 +3060,42 @@
       "description": "Traces the motorcycle-graph T-mesh over a seamless parametrization: the separatrix arrangement whose cells are the layout\u0027s patches."
     },
     {
+      "id": "newton_solver",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "uv",
+          "portType": "UV_FIELD",
+          "description": "UV field in (relaxed in place) and the relaxed UV field out.",
+          "defaultValue": null
+        },
+        {
+          "name": "dofs",
+          "portType": "DOF_SYSTEM",
+          "description": "The DOF system coupling the field\u0027s coordinates, from the same node that produced the field.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "uv",
+          "portType": "UV_FIELD",
+          "description": "UV field in (relaxed in place) and the relaxed UV field out."
+        },
+        {
+          "name": "dofs",
+          "portType": "DOF_SYSTEM",
+          "description": "The DOF system coupling the field\u0027s coordinates, from the same node that produced the field."
+        }
+      ],
+      "description": "Newton-relaxes an integer grid map\u0027s UV field in place, minimizing symmetric Dirichlet energy while keeping the map flip-free."
+    },
+    {
       "id": "quad_cylinder",
       "category": "Primitives",
       "scopes": [
@@ -3059,6 +3147,31 @@
         }
       ],
       "description": "Generates an all-quad cylinder with concentric quad-ring caps suitable for Catmull-Clark subdivision, controlled by radius, height, barrel segments/rings, and cap_rings for cap density."
+    },
+    {
+      "id": "quad_extract",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "uv",
+          "portType": "UV_FIELD",
+          "description": "UV field to extract from, typically relaxed by a newton_solver node.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "The extracted quad mesh as a geometry bundle."
+        }
+      ],
+      "description": "Extracts the pure quad mesh of a UV field: vertices at integer grid point preimages, connectivity by tracing unit iso-segments (QEx)."
     },
     {
       "id": "random_rooms",
@@ -3339,6 +3452,16 @@
           "name": "injective",
           "portType": "BOOLEAN",
           "description": "Whether the parametrization is injective."
+        },
+        {
+          "name": "dofs",
+          "portType": "DOF_SYSTEM",
+          "description": "The parametrization solve\u0027s DOF system."
+        },
+        {
+          "name": "charts",
+          "portType": "CHART_ATLAS",
+          "description": "The per-face charts and the cut transitions between them."
         }
       ],
       "description": "Builds the seamless parametrization over a cross field, reporting whether the result is injective and how many UV triangles flipped."

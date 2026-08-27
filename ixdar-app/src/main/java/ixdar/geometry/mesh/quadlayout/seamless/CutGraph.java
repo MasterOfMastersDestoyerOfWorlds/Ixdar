@@ -11,6 +11,7 @@ import java.util.Set;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 
@@ -116,6 +117,12 @@ public class CutGraph {
     public int vertexCount;
 
     /**
+     * Per-face charts and the cut transitions between them; translations are
+     * written by each seamless solution write-back.
+     */
+    public ChartAtlas atlas;
+
+    /**
      * Constructor.
      *
      * @param mesh                     the mesh
@@ -141,6 +148,7 @@ public class CutGraph {
         buildChartVertices();
         buildDenseIndices();
         classifyChartVerticesForSubstitution();
+        buildAtlas();
     }
 
     /**
@@ -621,6 +629,27 @@ public class CutGraph {
         primaryChartCount = nextPrimary;
         leftoverConstraints = leftover.toArray(new int[0][]);
     }
+
+    /**
+     * Fills the atlas: one chart per active face, one boundary per active edge,
+     * the cut rotations as transitions directed {@code edgeFaceA} to
+     * {@code edgeFaceB}; translations arrive with each solution write-back.
+     */
+    private void buildAtlas() {
+        atlas = new ChartAtlas(seamless.faceCount, seamless.faceCount, seamless.edgeCount, false);
+        for (int activeFace = 0; activeFace < seamless.faceCount; activeFace++) {
+            atlas.chartOfFace[activeFace] = activeFace;
+        }
+        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
+            int activeFaceA = seamless.edgeFaceA[activeEdge];
+            int activeFaceB = seamless.edgeFaceB[activeEdge];
+            atlas.chartA[activeEdge] = activeFaceA;
+            atlas.chartB[activeEdge] = activeFaceB;
+            if (activeFaceA >= 0 && activeFaceB >= 0) {
+                atlas.quarterTurns[activeEdge] = cutRotation[activeEdge];
+            }
+        }
+    }
     
     private void bindOrDefer(int activeEdge, int chartA, int chartB,
             boolean[] onASide, ArrayList<int[]> leftover) {
@@ -633,4 +662,5 @@ public class CutGraph {
         secondaryEdge[chartB] = activeEdge;
         secondaryPartner[chartB] = chartA;
     }
+
 }

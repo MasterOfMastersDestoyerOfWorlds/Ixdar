@@ -7,14 +7,14 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
+import ixdar.geometry.mesh.nodes.api.UvField;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.SeamlessProjector;
-import ixdar.geometry.mesh.quadlayout.solver.AMDOrdering;
-import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
-import ixdar.geometry.mesh.quadlayout.solver.IncrementalCholeskySolver;
 import ixdar.geometry.mesh.quadlayout.solver.InteriorPointQp;
 import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.system.GreedyRounding;
+import ixdar.geometry.mesh.quadlayout.solver.system.LazyConstraints;
 import ixdar.platform.Platforms;
 
 /**
@@ -31,7 +31,7 @@ import ixdar.platform.Platforms;
  *
  * @see CrossField
  */
-public final class SeamlessParameterization {
+public final class SeamlessParameterization implements UvField {
 
     /** Triangle corner count. */
     public static final int CORNERS_PER_FACE = 3;
@@ -59,10 +59,12 @@ public final class SeamlessParameterization {
 
     /**
      * Cut transition translation s<sub>e</sub>; only valid for INTERIOR cut edges.
+     * Aliases the cut-graph atlas's u translations.
      */
     public double[] cutTranslationS;
     /**
      * Cut transition translation t<sub>e</sub>; only valid for INTERIOR cut edges.
+     * Aliases the cut-graph atlas's v translations.
      */
     public double[] cutTranslationT;
 
@@ -231,6 +233,8 @@ public final class SeamlessParameterization {
         System.out.println("[seamless] Mesh setup done, building cut graph");
 
         cutGraph.buildCutGraph();
+        this.cutTranslationS = cutGraph.atlas.translationU;
+        this.cutTranslationT = cutGraph.atlas.translationV;
 
         System.out.println("[seamless] Cut graph built, precomputing per-face geometry and targets");
         precomputePerFaceGeometryAndTargets();
@@ -242,8 +246,25 @@ public final class SeamlessParameterization {
 
         long dofSystemStart = System.nanoTime();
         this.dofSystem = new SeamlessDofSystem(this, cutGraph);
+        this.solution = dofSystem.system.solution;
+        this.dofSystem.system.writeBack = this::writeChartVerticesFromSolution;
+        this.dofSystem.system.solve = () -> resolve();
         Platforms.log("[seamless timing] dof system %.3fs%n",
                 (System.nanoTime() - dofSystemStart) / 1.0e9);
+        return resolve();
+    }
+
+    /**
+     * Solves the parametrization over the already-built DOF system: greedy
+     * integer rounding, the injectivity-constraint loop, chart-vertex write-back
+     * and optional exact-seam projection. Clears pin state on entry so a
+     * re-solve never replays stale pins into a fresh factor.
+     *
+     * @return the {@link ParameterizationMetrics} computed from the final
+     *         parametrization
+     */
+    public ParameterizationMetrics resolve() {
+        Arrays.fill(dofSystem.dofPinned, false);
 
         System.out.println("[seamless] Running greedy integer rounding");
         long roundingStart = System.nanoTime();
@@ -280,87 +301,11 @@ public final class SeamlessParameterization {
      * See also: BZK09 Section 5
      */
     private void runGreedyIntegerRounding() {
-
-        // Cold-factor the base system once; each pin then becomes a rank-1
-        // update of L instead of a full re-factor. Davis ch. 4.10.
-        long assembleStart = System.nanoTime();
-        NormalMatrix baseMatrix = dofSystem.assemble(faceWeight);
-        long amdStart = System.nanoTime();
-        AMDOrdering ordering = new AMDOrdering();
-        ordering.order(baseMatrix);
-        int[] perm = ordering.permutation;
-        long amdEnd = System.nanoTime();
-        this.solution = new double[dofSystem.dofCount];
-
-        boolean anyUnpinnedInteger = false;
-        for (int i = 0; i < dofSystem.dofCount; i++) {
-            if (dofSystem.dofIsInteger[i] && !dofSystem.dofPinned[i]) {
-                anyUnpinnedInteger = true;
-                break;
-            }
-        }
-        if (!anyUnpinnedInteger && CholeskyBackend.pardisoAvailable()) {
-            long nativeFactorStart = System.nanoTime();
-            boolean[] noneFixed = new boolean[dofSystem.dofCount];
-            baseFactorHandle = DirectSolver.factorizeWithPerm(baseMatrix, noneFixed, perm);
-            baseFactorMatrix = baseMatrix;
-            DirectSolver.solveCompact(baseFactorHandle, baseMatrix,
-                    baseMatrix.rightHandSide, solution, solution, noneFixed);
-            Platforms.log(
-                    "[seamless timing] rounding assemble %.3fs, amd %.3fs, native factor+solve %.3fs"
-                            + " (n=%d, 0 integer DOFs to pin)%n",
-                    (amdStart - assembleStart) / 1.0e9,
-                    (amdEnd - amdStart) / 1.0e9,
-                    (System.nanoTime() - nativeFactorStart) / 1.0e9,
-                    dofSystem.dofCount);
-            return;
-        }
-
-        long coldFactorStart = System.nanoTime();
-        IncrementalCholeskySolver incremental = new IncrementalCholeskySolver();
-        if (!incremental.setAWithPerm(baseMatrix, perm)) {
-            throw new IllegalStateException(
-                    "IGM rounding: cold Cholesky factor of the base system failed");
-        }
-        long pinLoopStart = System.nanoTime();
-        Platforms.log("[seamless timing] rounding assemble %.3fs, amd %.3fs, cold factor %.3fs (n=%d)%n",
-                (amdStart - assembleStart) / 1.0e9,
-                (coldFactorStart - amdStart) / 1.0e9,
-                (pinLoopStart - coldFactorStart) / 1.0e9,
-                dofSystem.dofCount);
-        incremental.solve(baseMatrix.rightHandSide, solution);
-        double[] runningRhs = baseMatrix.rightHandSide.clone();
-
-        int pinCount = 0;
-        while (true) {
-            int bestIdx = -1;
-            double bestDist = Double.POSITIVE_INFINITY;
-            double bestValue = 0;
-            for (int i = 0; i < dofSystem.dofCount; i++) {
-                if (!dofSystem.dofIsInteger[i] || dofSystem.dofPinned[i])
-                    continue;
-                double x = solution[i];
-                double rounded01 = Math.rint(x);
-                double dist = Math.abs(x - rounded01);
-                if (dist < bestDist) {
-                    bestDist = dist;
-                    bestIdx = i;
-                    bestValue = rounded01;
-                }
-            }
-            if (bestIdx < 0)
-                break;
-            dofSystem.pinDof(bestIdx, bestValue);
-            if (!incremental.pinDof(bestIdx, integerPinWeight)) {
-                throw new IllegalStateException(
-                        "IGM rounding: rank-1 update failed at DOF " + bestIdx);
-            }
-            runningRhs[bestIdx] += integerPinWeight * bestValue;
-            incremental.solve(runningRhs, solution);
-            pinCount++;
-        }
-        Platforms.log("[seamless timing] rounding pin+solve loop %.3fs (%d pins)%n",
-                (System.nanoTime() - pinLoopStart) / 1.0e9, pinCount);
+        GreedyRounding rounding = new GreedyRounding(dofSystem.system, dofSystem.dofIsInteger,
+                dofSystem.dofPinned, integerPinWeight, dofSystem::pinDof);
+        rounding.run();
+        baseFactorHandle = rounding.retainedHandle;
+        baseFactorMatrix = rounding.retainedMatrix;
     }
 
     /**
@@ -465,58 +410,13 @@ public final class SeamlessParameterization {
             baseFactorMatrix = null;
         }
         InjectivityConstraints constraints = new InjectivityConstraints(this).build();
-        double[] values = new double[constraints.constraintCount];
-        boolean[] constraintActive = new boolean[constraints.constraintCount];
-        int activeCount = 0;
-        NormalMatrix baseMatrix = dofSystem.assemble(faceWeight);
+        NormalMatrix baseMatrix = dofSystem.assembleWeighted(faceWeight);
         dofSystem.applyIntegerPinPenalty(baseMatrix);
-        int violated = -1;
-        for (int round = 0; round <= maxConstraintRounds; round++) {
-            constraints.evaluateNormalized(solution, values);
-            violated = 0;
-            double worst = Double.POSITIVE_INFINITY;
-            for (int constraint = 0; constraint < constraints.constraintCount; constraint++) {
-                worst = Math.min(worst, values[constraint]);
-                violated += values[constraint] < 0.0 ? 1 : 0;
-            }
-            Platforms.log("[injectivity] round %d violated=%d active=%d worst=%.4f%n",
-                    round, violated, activeCount, worst);
-            if (violated == 0 || round == maxConstraintRounds) {
-                break;
-            }
-            long roundStart = System.nanoTime();
-            for (int constraint = 0; constraint < constraints.constraintCount; constraint++) {
-                if (!constraintActive[constraint]
-                        && values[constraint] < InjectivityConstraints.ACTIVATION_THRESHOLD) {
-                    constraintActive[constraint] = true;
-                    activeCount++;
-                }
-            }
-            int[][] activeDofs = new int[activeCount][];
-            double[][] activeCoefs = new double[activeCount][];
-            double[] activeBound = new double[activeCount];
-            int activeCursor = 0;
-            for (int constraint = 0; constraint < constraints.constraintCount; constraint++) {
-                if (!constraintActive[constraint]) {
-                    continue;
-                }
-                activeDofs[activeCursor] = constraints.gradientDofs(constraint);
-                activeCoefs[activeCursor] = constraints.gradientCoefs(constraint);
-                // The normalized constraint a·x − δε ≥ 0 becomes a·x ≥ δε.
-                activeBound[activeCursor] = constraints.normalizer[constraint]
-                        * constraints.rawThreshold[constraint];
-                activeCursor++;
-            }
-            InteriorPointQp qp = new InteriorPointQp(baseMatrix, activeDofs, activeCoefs,
-                    activeBound);
-            qp.solve(solution);
-            Platforms.log(
-                    "[seamless timing] injectivity round %d %.3fs (ipIterations=%d, factorizations=%d, converged=%b)%n",
-                    round, (System.nanoTime() - roundStart) / 1.0e9, qp.iterationCount,
-                    qp.factorizationCount, qp.converged);
-        }
-        injective = violated == 0;
-        Platforms.log("[injectivity] done violated=%d flippedTriangles=%d%n", violated,
+        LazyConstraints loop = new LazyConstraints(dofSystem.system, baseMatrix, constraints,
+                maxConstraintRounds);
+        loop.run();
+        injective = loop.violated == 0;
+        Platforms.log("[injectivity] done violated=%d flippedTriangles=%d%n", loop.violated,
                 countFlippedTrianglesFromSolution());
     }
 
@@ -524,7 +424,7 @@ public final class SeamlessParameterization {
      * Materialise per-corner {@code uCorner} / {@code vCorner} from the current
      * {@link #solution} via each chart vertex's final-DOF expansion.
      */
-    private void writeChartVerticesFromSolution() {
+    public void writeChartVerticesFromSolution() {
         int totalCorners = faceCount * CORNERS_PER_FACE;
         uCorner = new double[totalCorners];
         vCorner = new double[totalCorners];
@@ -533,8 +433,8 @@ public final class SeamlessParameterization {
             uCorner[corner] = dofSystem.evaluateChartComponent(chartVertex, 0, solution);
             vCorner[corner] = dofSystem.evaluateChartComponent(chartVertex, 1, solution);
         }
-        cutTranslationS = new double[edgeCount];
-        cutTranslationT = new double[edgeCount];
+        Arrays.fill(cutTranslationS, 0.0);
+        Arrays.fill(cutTranslationT, 0.0);
         for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
             if (dofSystem.cutEdgeSDof[activeEdge] < 0) {
                 continue;

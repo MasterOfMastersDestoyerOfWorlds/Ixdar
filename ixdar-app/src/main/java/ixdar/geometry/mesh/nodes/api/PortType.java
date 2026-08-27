@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.nodes.api;
 
+import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
 
 public enum PortType {
@@ -32,7 +33,7 @@ public enum PortType {
     /** A solve's degrees of freedom and their couplings. */
     DOF_SYSTEM(DofSystem.class),
     /** Atlas of charts covering a surface. */
-    CHART_ATLAS(ChartAtlasValue.class);
+    CHART_ATLAS(ChartAtlas.class);
 
     private final Class<?> valueType;
 

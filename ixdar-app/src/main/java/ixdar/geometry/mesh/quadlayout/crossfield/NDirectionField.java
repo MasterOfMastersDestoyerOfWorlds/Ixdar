@@ -7,7 +7,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 
 import org.joml.Vector3f;
@@ -16,10 +15,10 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
-import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
 import ixdar.geometry.mesh.quadlayout.solver.Preconditioner;
+import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
+import ixdar.geometry.mesh.quadlayout.solver.system.PowerIteration;
 import ixdar.platform.Platforms;
 
 public class NDirectionField extends CrossField {
@@ -57,6 +56,9 @@ public class NDirectionField extends CrossField {
     public Vector3f[] vertexY;
 
     // Solution: per-vertex n-th power coefficient u = uRe + i*uIm.
+    /** The canonical solve state: the raw DOF vector of the last field solve. */
+    public final DofSystem system;
+
     public double[] uReal;
     public double[] uImaginary;
     /** Representative direction angle in the vertex frame: arg(u)/n. */
@@ -106,6 +108,13 @@ public class NDirectionField extends CrossField {
         super(mesh);
         this.mesh = mesh;
         this.vertexCount = mesh.vertexCount();
+        this.system = new DofSystem(2 * vertexCount);
+        this.system.assembler = x -> useCurvatureAlignment || !alignmentEdgeIds.isEmpty()
+                ? massSystemMatrix
+                : energyMatrix;
+        this.system.energy = x -> energyMatrix.quadraticEnergy(x);
+        this.system.solve = this::solveField;
+        this.system.writeBack = this::populate;
         this.vertexIdOf = new int[vertexCount];
         for (int v = 0; v < vertexCount; v++) {
             int vId = mesh.vertexIdAt(v);
@@ -132,7 +141,17 @@ public class NDirectionField extends CrossField {
         assemble();
         Platforms.log("[cross-field timing] assemble %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
-        sectionStart = System.nanoTime();
+        solveField();
+        return this;
+    }
+
+    /**
+     * Runs the field solve over the assembled system: the aligned PCG path when
+     * curvature or feature alignment is active, the smoothest power iteration
+     * otherwise, then populates the field. Re-solving skips frames and assembly.
+     */
+    public void solveField() {
+        long sectionStart = System.nanoTime();
         boolean hasAlignmentEdges = !alignmentEdgeIds.isEmpty();
         if (useCurvatureAlignment || hasAlignmentEdges) {
             if (useCurvatureAlignment) {
@@ -164,7 +183,6 @@ public class NDirectionField extends CrossField {
         populate();
         Platforms.log("[cross-field timing] populate %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
-        return this;
     }
 
     private void buildLoadVector() {
@@ -614,38 +632,15 @@ public class NDirectionField extends CrossField {
      * on the generalized eigenproblem {@code A u = lambda M u} (KCP13 Algorithm 2).
      */
     public void solveSmoothest() {
-        int N = 2 * vertexCount;
-
-        boolean[] fixed = new boolean[N];
-        DirectSolver.CholeskyHandle handle = DirectSolver.factorize(energyMatrix, fixed, OrderingMethod.AMD);
-        if (handle.factor() == null) {
-            uReal = new double[vertexCount];
-            uImaginary = new double[vertexCount];
-            return;
-        }
-
-        double[] u = new double[N];
-        Random rng = new Random(12345L);
-        for (int i = 0; i < N; i++) {
-            u[i] = rng.nextDouble() * 2.0 - 1.0;
-        }
-        massNormalize(u, massSystemMatrix);
-
-        double[] rhs = new double[N];
-        double[] x = new double[N];
-        double[] start = new double[N];
-        for (int it = 0; it < DEFAULT_POWER_ITERATIONS; it++) {
-            for (int i = 0; i < N; i++) {
-                rhs[i] = massSystemMatrix.rowDot(i, u); // rhs = M * u
-            }
-            DirectSolver.solveCompact(handle, energyMatrix, rhs, x, start, fixed);
-            System.arraycopy(x, 0, u, 0, N);
-            massNormalize(u, massSystemMatrix);
-        }
-        DirectSolver.releaseHandle(handle);
-
+        PowerIteration iteration = new PowerIteration(system, energyMatrix, massSystemMatrix,
+                DEFAULT_POWER_ITERATIONS);
+        iteration.run();
         uReal = new double[vertexCount];
         uImaginary = new double[vertexCount];
+        if (!iteration.factored) {
+            return;
+        }
+        double[] u = system.solution;
         for (int v = 0; v < vertexCount; v++) {
             uReal[v] = u[v];
             uImaginary[v] = u[vertexCount + v];
@@ -675,7 +670,8 @@ public class NDirectionField extends CrossField {
             }
         }
 
-        double[] x = new double[N]; // warm start 0; mutated in place into u
+        double[] x = system.solution; // warm start 0; mutated in place into u
+        Arrays.fill(x, 0.0);
         AdaptiveSolver.PcgResult result = AdaptiveSolver.preconditionedConjugateGradient(
                 shifted,
                 x,

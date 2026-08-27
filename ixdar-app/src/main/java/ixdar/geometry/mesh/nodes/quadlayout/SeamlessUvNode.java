@@ -3,12 +3,12 @@ package ixdar.geometry.mesh.nodes.quadlayout;
 import java.util.List;
 import java.util.Map;
 
-import ixdar.annotations.meshnode.InputPort;
-import ixdar.annotations.meshnode.MeshNode;
+import ixdar.geometry.mesh.nodes.api.InputPort;
+import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
-import ixdar.annotations.meshnode.NodeContext;
-import ixdar.annotations.meshnode.OutputPort;
-import ixdar.annotations.meshnode.PortType;
+import ixdar.geometry.mesh.nodes.api.NodeContext;
+import ixdar.geometry.mesh.nodes.api.OutputPort;
+import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
@@ -26,6 +26,8 @@ public class SeamlessUvNode implements MeshNode {
     public static final OutputPort UV = new OutputPort("uv", PortType.UV_FIELD);
     public static final OutputPort FLIPPED_TRIANGLES = new OutputPort("flipped_triangles", PortType.INT);
     public static final OutputPort INJECTIVE = new OutputPort("injective", PortType.BOOLEAN);
+    public static final OutputPort DOFS = new OutputPort("dofs", PortType.DOF_SYSTEM);
+    public static final OutputPort CHARTS = new OutputPort("charts", PortType.CHART_ATLAS);
 
     @Override
     public List<InputPort> inputs() {
@@ -34,7 +36,7 @@ public class SeamlessUvNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(UV, FLIPPED_TRIANGLES, INJECTIVE);
+        return List.of(UV, FLIPPED_TRIANGLES, INJECTIVE, DOFS, CHARTS);
     }
 
     @Override
@@ -49,7 +51,9 @@ public class SeamlessUvNode implements MeshNode {
                 FIELD.name, "Cross field to parametrize, from a cross_field node.",
                 UV.name, "The seamless parametrization with per-corner UVs.",
                 FLIPPED_TRIANGLES.name, "Number of UV triangles with negative signed area.",
-                INJECTIVE.name, "Whether the parametrization is injective."
+                INJECTIVE.name, "Whether the parametrization is injective.",
+                DOFS.name, "The parametrization solve's DOF system.",
+                CHARTS.name, "The per-face charts and the cut transitions between them."
         );
     }
 
@@ -61,5 +65,7 @@ public class SeamlessUvNode implements MeshNode {
         ctx.setOutput(UV.name, seamless);
         ctx.setOutput(FLIPPED_TRIANGLES.name, metrics.flippedTriangleCount);
         ctx.setOutput(INJECTIVE.name, seamless.injective);
+        ctx.setOutput(DOFS.name, seamless.dofSystem.system);
+        ctx.setOutput(CHARTS.name, seamless.cutGraph.atlas);
     }
 }

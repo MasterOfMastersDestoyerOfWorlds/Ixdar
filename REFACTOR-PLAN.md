@@ -376,6 +376,119 @@ is in the working tree behind it.
         becomes an embedded patch, contraction+conform leaves no live zero arc - conform=true
         WORKS on sphere pipeline data, evidence for the 6.12 decision. Fallout: catalog exporter
         rejects duplicate socketDocs keys, so shared input/output names document once.
+      - [x] Batch 4 (2026-08-22): `GlobalGridMap.build()` split into three public phases -
+        `buildInitialMap()` (framing + DOF system + pre-relaxation extraction/iso surface),
+        `relax()` (GridMapOptimizer + relaxed iso surface), `extractQuads()` (verification +
+        QuadMeshExtraction + ExtractedPatchGrids) - with `build()` delegating to all three, so
+        the engine's behavior is unchanged (QuadPipelineSeamTest guards parity). Three nodes on
+        those phases: `IntegerGridMapNode` (`integer_grid_map`: tmesh + uv + target_edge_length
+        -> uv; LayoutPatchMaps + IntegerGridMap + buildInitialMap; first DSL exposure of
+        target_edge_length, which no scene ever set), `NewtonSolverNode` (`newton_solver`: uv ->
+        uv + energy_before/energy_after; relaxes in place - the second producer of UV_FIELD, as
+        the author predicted when renaming the type), `QuadExtractNode` (`quad_extract`: uv ->
+        geometry; QEx extraction converted to a real quad ArrayMesh via ArrayMesh.fromQuads, so
+        downstream mesh nodes can consume it; generic mesh+UV input form still a planned line
+        item). Chain test now runs all ten nodes load_mesh -> quad_extract and adds: 0 off-grid
+        nodes, energy monotone, 0 flipped faces relaxed, extracted quad count == quantized,
+        quad-mesh Euler == surface Euler - all downstream of conform=true, which the engine path
+        never exercised. Verified: full suite green except the 3 known 6.8 classes; catalog
+        gains exactly the three new entries
+      - Decomposition RULED (author, after probing the seamless.uv -> newton_solver mis-wiring):
+        no INTEGER_GRID_MAP type and no diagnostic-error path - solver state decomposes into
+        common types instead. New PortTypes DOF_SYSTEM ("a solve's degrees of freedom and their
+        couplings") and CHART_ATLAS ("atlas of charts covering a surface"), each with multiple
+        producers immediately: cross_field outputs dofs (NDirectionField.massSystemMatrix, now
+        surfaced), seamless_uv outputs dofs (SeamlessDofSystem) + charts (CutGraph),
+        integer_grid_map outputs uv + dofs (GridMapDofSystem) + charts (LayoutPatchMaps).
+        newton_solver takes uv + dofs (GlobalGridMap.relax now takes the DOF system as a
+        parameter). Common Java interfaces per type still deferred to the convergence pass.
+        ARC_NETWORK ruling (author): do NOT error on mismatched concrete classes - unify the
+        underlying structures. Record-family merge survey (TMeshNode/TraceArc/TMeshPatch vs
+        EmbeddedNode/EmbeddedArc/EmbeddedPatch vs LayoutExtraction clusters) commissioned;
+        enumeration pending before any merge work
+      - Interfaces RULED (author): "we need a common interface object that UV always maps to and
+        similar for DOF and Chart Atlas" - the deferral is over. Annotations module gained
+        `UvFieldValue` (u/v per face corner - SeamlessParameterization already had exactly those
+        methods; GlobalGridMap implements by delegating to its latest baked GridMapIsoSurface,
+        which grew id-keyed u/v accessors), `DofSystemValue` (dofCount + relax(), default relax
+        throws UnsupportedOperation until a stage implements it; GridMapDofSystem.relax is the
+        real Newton path - the relaxation logic moved OUT of GlobalGridMap into the DOF system;
+        SeamlessDofSystem and the new CrossFieldDofSystem wrapper implement dofCount only),
+        `ChartAtlasValue` (chartCount - CutGraph and LayoutPatchMaps implement), and
+        `RelaxOutcome`. PortType UV_FIELD/DOF_SYSTEM/CHART_ATLAS now back onto these interfaces,
+        so MapNodeContext.setInput validates values at wire time. newton_solver now reads
+        `UvFieldValue`/`DofSystemValue` and calls `dofs.relax()` - zero concrete casts.
+        REMAINING CAST: quad_extract still casts uv to GlobalGridMap - its chart-walking
+        extraction cannot run on a bare per-corner UV field; the honest decomposition IS the
+        planned generic QEx (mesh + per-corner UVs) input mode, undecided whether to pull forward
+      - [x] SUPERSEDED by the approved solver.system plan (author rejected the marker-thin
+        interfaces twice; final design: one concrete DofSystem class, strategies as their own
+        classes decoupled from the stacks, node SPI moved out of annotations). Executed
+        2026-08-23, batches 0-3 all verified (146-test baseline, TeaVM build, quad-layout scene
+        on fertility: 44 singularities with indexSum4 == 4*chi == -24, 46 Newton iterations):
+        (0) node SPI moved to `ixdar.geometry.mesh.nodes.api` (22 files, 151 import sites);
+        RegistryProcessor gained a String-FQN supertype constructor so the processor no longer
+        anchors the SPI; `UvFieldValue` renamed `UvField`.
+        (1) `solver.system` package: concrete `DofSystem` (canonical interleaved solution +
+        frozen, assembler/energy/writeBack/solve hooks, relax() = stage pipeline or SingleSolve),
+        `SingleSolve`, `NewtonRelaxation` (the damped-Newton driver extracted from
+        GridMapOptimizer - retained-factor refresh, non-inversion step cap, Armijo - generic over
+        any DofSystem; quadratic = one step). `NormalMatrix.quadraticEnergy`. GridMapDofSystem
+        storage unified: slotU/slotV/fixedBySlot REPLACED by system.solution/frozen interleaved;
+        GridMapOptimizer became the hook provider (assembleInto, totalEnergy, maximumStep).
+        (2) seamless: `GreedyRounding` (nearest-integer pin loop, rank-1 penalty updates,
+        native fast path with retained factor) and `LazyConstraints` (activation loop over
+        InteriorPointQp) extracted as strategies; SeamlessParameterization.build() split into
+        setup + public resolve() (clears pins on entry, never rebuilds the DOF system);
+        `assemble` renamed `assembleWeighted`; seamless solution is now the DofSystem's array.
+        (3) crossfield: `PowerIteration` strategy extracted from solveSmoothest (kept its
+        original unpack layout verbatim); `solveField()` split out of build() so re-solves skip
+        frames/assembly; NDirectionField carries the canonical system, aligned PCG writes into it.
+        `DofSystemValue` DELETED; PortType DOF_SYSTEM backs onto the concrete DofSystem; all
+        three stage nodes output the same type, so newton_solver accepts any of them.
+        DEVIATION, needs ruling: `SmoothEnergySystem.solveGreedyMIP` (crossfield BZK09 MIP) was
+        NOT dissolved into GreedyRounding - it is batch-based (candidate ordering, patch-marked
+        batch selection, batched hard freezes, warm AdaptiveSolver ladder re-solves), has zero
+        test coverage, and is only reachable via the non-default BommesCrossField builder;
+        forcing it into the one-at-a-time strategy would change behavior or reduce the shared
+        loop to a hook-only skeleton. Left intact; options: leave (its loop is honestly a
+        different strategy, batch rounding), or extract a `BatchRounding` strategy later.
+        Remaining from the approved plan: ChartAtlas/ChartTransition + CutGraph/GlobalGridMap
+        implementers + consumer migrations (QuadMeshExtraction transforms, GridMapDofSystem fans)
+    - [x] ChartAtlas batch executed 2026-08-26, RULING amendments: no interface and NO separate
+        ChartTransition class - `quadlayout.ChartAtlas` is one CONCRETE data class (chartCount,
+        chartOfFace, per-boundary chartA/chartB, quarterTurns/translationU/translationV arrays,
+        integral flag; NONE=-1 sentinel shared with EmbeddedTMesh.NONE and NOT_PLACED), with the
+        algebra as methods: chartAcross/hasTransition/mapPoint/mapTurns/transition(boundary,
+        fromChart) hiding the side test, static invert/compose on `{turns,u,v}` double triples.
+        Stored transition maps chartA into chartB: gridmap chartA=rightPatch (right-to-left, per
+        GridMapVerification), cutgraph chartA=edgeFaceA (SeamlessProjector:458 direction).
+        ChartAtlasValue DELETED (buggy chartCount overrides on CutGraph/LayoutPatchMaps gone);
+        PortType CHART_ATLAS(ChartAtlas.class). STORAGE UNIFIED both sides: GlobalGridMap builds
+        its atlas in the CONSTRUCTOR from frames (GridMapOptimizerParallelTest skips
+        buildInitialMap, so ctor it is); GridMapVerification's three transition arrays DELETED -
+        the atlas IS its storage, resolveTransitions refines it in place (frames values re-copied,
+        loop arcs recovered, uncrossable cleared) so pre-verification readers (GridMapDofSystem
+        seam coupling + node fans, chartNeighbourhood) see framed values and post-verification
+        readers (QuadMeshExtraction) see resolved ones, same as before. CutGraph builds its atlas
+        at the end of buildCutGraph; seamless cutTranslationS/T now ALIAS atlas.translationU/V
+        (writeChartVerticesFromSolution fills in place; SeamlessProjector writes the same arrays).
+        Consumer dedup: QuadMeshExtraction otherPatchAcross/mapPointAcrossArc/mapTurnsAcrossArc
+        DELETED (atlas calls); GridMapDofSystem invertTransform/composeTransform DELETED (fans are
+        double[] triples via atlas.transition + ChartAtlas.compose/invert); GlobalGridMap
+        chartNeighbourhood inline algebra replaced (third dup). GridMapVerification
+        propagateNodeFan/requireArcConsistency/canonicalizeArcInteriors now go through mapPoint.
+        Also: InjectivityConstraints implements LazyConstraints.ConstraintSet directly (30-line
+        anonymous adapter at SeamlessParameterization deleted); stray System.out in
+        InjectivityConstraints.build, GridMapDofSystem.build moved to Platforms.log (seamless
+        setup prints remain, separate sweep owed). Verified: 146 tests, exactly the 3 known
+        failing classes (QuadMeshExtractionTest still exactly 2), 3 skipped; TeaVM green
+        (PortType now reaches ChartAtlas); quad-layout scene identical: 46 newton iterations,
+        3.73e+06 -> 3.97e+04, 0/38238 flipped, verify truncated=4703 integerNodes=44,
+        extract quads=13490. Follow-ups flagged, not done: ChartWalker still reconstructs the
+        seamless transition numerically instead of reading CutGraph.atlas; GridMapVerification
+        recoverTransition writes the atlas directly (fine, it owns it); remaining System.out
+        sweep in seamless/embedding.
 - [ ] 7.3 Whether always-on profiling should fail fast when `.profiler/libasyncProfiler` is missing,
       as it does now, or degrade
 

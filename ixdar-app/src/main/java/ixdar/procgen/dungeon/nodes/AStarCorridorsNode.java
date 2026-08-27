@@ -17,29 +17,21 @@ import ixdar.procgen.dungeon.values.TileGridValue;
 
 @MeshNodeAnnotation(id = "astar_corridors", scopes = { "dungeon" })
 public class AStarCorridorsNode implements MeshNode {
-    public static final String ROOMS_2 = "rooms";
-    public static final String EDGES_2 = "edges";
-    public static final String GRID_W_2 = "grid_w";
-    public static final String GRID_H_2 = "grid_h";
-    public static final String REUSE_COST_2 = "reuse_cost";
-    public static final String EMPTY_COST_2 = "empty_cost";
-    public static final String ROOM_COST_2 = "room_cost";
-    public static final String TILES_2 = "tiles";
     public static final int NUM_30 = 30;
 
-    private static final CostWeights D = AStarCorridorPathfinder2D.DEFAULT_WEIGHTS;
+    public static final InputPort ROOMS = new InputPort("rooms", PortType.ROOM_LIST, null);
+    public static final InputPort EDGES = new InputPort("edges", PortType.EDGE_GRAPH, null);
+    public static final InputPort GRID_W = new InputPort("grid_w", PortType.INT, 30, 1f, 1000f);
+    public static final InputPort GRID_H = new InputPort("grid_h", PortType.INT, 30, 1f, 1000f);
+    public static final InputPort REUSE_COST = new InputPort("reuse_cost", PortType.FLOAT,
+            (float) AStarCorridorPathfinder2D.DEFAULT_WEIGHTS.hallwayReuseCost(), 0.001f, 100_000f);
+    public static final InputPort EMPTY_COST = new InputPort("empty_cost", PortType.FLOAT,
+            (float) AStarCorridorPathfinder2D.DEFAULT_WEIGHTS.emptyCellCost(), 0.001f, 100_000f);
+    public static final InputPort ROOM_COST = new InputPort("room_cost", PortType.FLOAT,
+            (float) AStarCorridorPathfinder2D.DEFAULT_WEIGHTS.throughRoomCost(), 0.001f, 1_000_000f);
+    public static final OutputPort TILES = new OutputPort("tiles", PortType.TILE_GRID);
 
-    private static final InputPort ROOMS = new InputPort(ROOMS_2, PortType.ROOM_LIST, null);
-    private static final InputPort EDGES = new InputPort(EDGES_2, PortType.EDGE_GRAPH, null);
-    private static final InputPort GRID_W = new InputPort(GRID_W_2, PortType.INT, 30, 1f, 1000f);
-    private static final InputPort GRID_H = new InputPort(GRID_H_2, PortType.INT, 30, 1f, 1000f);
-    private static final InputPort REUSE_COST = new InputPort(
-            REUSE_COST_2, PortType.FLOAT, (float) D.hallwayReuseCost(), 0.001f, 100_000f);
-    private static final InputPort EMPTY_COST = new InputPort(
-            EMPTY_COST_2, PortType.FLOAT, (float) D.emptyCellCost(), 0.001f, 100_000f);
-    private static final InputPort ROOM_COST = new InputPort(
-            ROOM_COST_2, PortType.FLOAT, (float) D.throughRoomCost(), 0.001f, 1_000_000f);
-    private static final OutputPort TILES = new OutputPort(TILES_2, PortType.TILE_GRID);
+    private static final CostWeights D = AStarCorridorPathfinder2D.DEFAULT_WEIGHTS;
 
     @Override
     public List<InputPort> inputs() {
@@ -61,25 +53,25 @@ public class AStarCorridorsNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                ROOMS_2, "Room list used to paint ROOM cells in the grid and anchor corridor endpoints.",
-                EDGES_2, "MST (+ extras) edges to carve as corridors.",
-                GRID_W_2, "Grid width in cells.",
-                GRID_H_2, "Grid height in cells.",
-                REUSE_COST_2, "Per-cell cost to step through an existing HALLWAY (cheap).",
-                EMPTY_COST_2, "Per-cell cost to cut a new corridor through EMPTY space (moderate).",
-                ROOM_COST_2, "Per-cell cost to path through a ROOM interior (steep to force go-around).",
-                TILES_2, "Fully-populated grid of CellType (EMPTY/ROOM/HALLWAY).");
+                ROOMS.name, "Room list used to paint ROOM cells in the grid and anchor corridor endpoints.",
+                EDGES.name, "MST (+ extras) edges to carve as corridors.",
+                GRID_W.name, "Grid width in cells.",
+                GRID_H.name, "Grid height in cells.",
+                REUSE_COST.name, "Per-cell cost to step through an existing HALLWAY (cheap).",
+                EMPTY_COST.name, "Per-cell cost to cut a new corridor through EMPTY space (moderate).",
+                ROOM_COST.name, "Per-cell cost to path through a ROOM interior (steep to force go-around).",
+                TILES.name, "Fully-populated grid of CellType (EMPTY/ROOM/HALLWAY).");
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        RoomListValue rooms = ctx.getInput(ROOMS_2, RoomListValue.class);
-        EdgeGraphValue edges = ctx.getInput(EDGES_2, EdgeGraphValue.class);
-        Number gw = ctx.getInput(GRID_W_2, Number.class);
-        Number gh = ctx.getInput(GRID_H_2, Number.class);
-        Number rc = ctx.getInput(REUSE_COST_2, Number.class);
-        Number ec = ctx.getInput(EMPTY_COST_2, Number.class);
-        Number roomC = ctx.getInput(ROOM_COST_2, Number.class);
+        RoomListValue rooms = ctx.getInput(ROOMS.name, RoomListValue.class);
+        EdgeGraphValue edges = ctx.getInput(EDGES.name, EdgeGraphValue.class);
+        Number gw = ctx.getInput(GRID_W.name, Number.class);
+        Number gh = ctx.getInput(GRID_H.name, Number.class);
+        Number rc = ctx.getInput(REUSE_COST.name, Number.class);
+        Number ec = ctx.getInput(EMPTY_COST.name, Number.class);
+        Number roomC = ctx.getInput(ROOM_COST.name, Number.class);
         if (rooms == null) throw new IllegalArgumentException("astar_corridors: missing 'rooms'");
         if (edges == null) throw new IllegalArgumentException("astar_corridors: missing 'edges'");
         int gridW = gw == null ? NUM_30 : gw.intValue();
@@ -89,6 +81,6 @@ public class AStarCorridorsNode implements MeshNode {
                 ec == null ? D.emptyCellCost() : ec.doubleValue(),
                 roomC == null ? D.throughRoomCost() : roomC.doubleValue());
         TileGridValue tiles = AStarCorridorPathfinder2D.carve(gridW, gridH, rooms, edges, weights);
-        ctx.setOutput(TILES_2, tiles);
+        ctx.setOutput(TILES.name, tiles);
     }
 }

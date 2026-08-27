@@ -5,6 +5,9 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.quadlayout.solver.system.LazyConstraints;
+import ixdar.platform.Platforms;
+
 /**
  * BCE13 §3.1's convex consistent-orientation constraints: per reference
  * triangle, six linear inequalities keeping each mapped corner inside its
@@ -13,7 +16,7 @@ import org.joml.Vector3f;
  * <p>
  * See also: BCE13 Section 3.1, Equation 4, Figure 4
  */
-public final class InjectivityConstraints {
+public final class InjectivityConstraints implements LazyConstraints.ConstraintSet {
 
     /** Constraint margin as a fraction of the smallest reference edge (BCE13 §3.1). */
     public static final double EPSILON_EDGE_FRACTION = 0.01;
@@ -45,9 +48,6 @@ public final class InjectivityConstraints {
 
     public final SeamlessParameterization seamless;
 
-    /** Constraints built, in face order. */
-    public int constraintCount;
-
     /** Owning active face of each constraint. */
     public int[] faceByConstraint;
 
@@ -62,6 +62,9 @@ public final class InjectivityConstraints {
 
     /** Normalizer δ of each constraint, making its reference value one. */
     public double[] normalizer;
+
+    /** Constraints built, in face order. */
+    private int constraintCount;
 
     /** Final-DOF indices of each constraint's expanded gradient, built lazily. */
     private int[][] gradientDofs;
@@ -142,9 +145,14 @@ public final class InjectivityConstraints {
         constraintCount = cursor;
         gradientDofs = new int[constraintCount][];
         gradientCoefs = new double[constraintCount][];
-        System.out.println("[injectivity] constraints=" + constraintCount + " over "
-                + seamless.faceCount + " faces");
+        Platforms.log("[injectivity] constraints=%d over %d faces%n", constraintCount,
+                seamless.faceCount);
         return this;
+    }
+
+    @Override
+    public int constraintCount() {
+        return constraintCount;
     }
 
     /**
@@ -154,7 +162,8 @@ public final class InjectivityConstraints {
      * @param solution current final-DOF solution
      * @param out      receives one value per constraint
      */
-    public void evaluateNormalized(double[] solution, double[] out) {
+    @Override
+    public void evaluate(double[] solution, double[] out) {
         double[] cornerU = new double[CORNERS];
         double[] cornerV = new double[CORNERS];
         int loadedFace = -1;
@@ -188,6 +197,7 @@ public final class InjectivityConstraints {
      * @param constraint constraint index
      * @return the gradient's final-DOF indices
      */
+    @Override
     public int[] gradientDofs(int constraint) {
         expandGradient(constraint);
         return gradientDofs[constraint];
@@ -200,9 +210,20 @@ public final class InjectivityConstraints {
      * @param constraint constraint index
      * @return the gradient's coefficients
      */
+    @Override
     public double[] gradientCoefs(int constraint) {
         expandGradient(constraint);
         return gradientCoefs[constraint];
+    }
+
+    @Override
+    public double bound(int constraint) {
+        return normalizer[constraint] * rawThreshold[constraint];
+    }
+
+    @Override
+    public double activationThreshold() {
+        return ACTIVATION_THRESHOLD;
     }
 
     /**

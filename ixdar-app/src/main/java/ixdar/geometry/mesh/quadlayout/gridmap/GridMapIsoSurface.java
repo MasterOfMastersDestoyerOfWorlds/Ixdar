@@ -31,6 +31,9 @@ public final class GridMapIsoSurface {
     /** Faces folding against their patch map's orientation; a healthy map has none. */
     public int flippedFaceCount;
 
+    /** Active face index by copy face id, for the per-corner accessors. */
+    public Map<Integer, Integer> activeByFaceId;
+
     /**
      * Stores the patch maps and the map state to bake.
      *
@@ -54,7 +57,7 @@ public final class GridMapIsoSurface {
         cornerU = new double[faceCount * HalfEdgeMesh.TRIANGLE_CORNERS];
         cornerV = new double[faceCount * HalfEdgeMesh.TRIANGLE_CORNERS];
         faceFlipped = new boolean[faceCount];
-        Map<Integer, Integer> activeByFaceId = new HashMap<>(faceCount * 2);
+        activeByFaceId = new HashMap<>(faceCount * 2);
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
             activeByFaceId.put(copy.faceIdAt(activeFace), activeFace);
         }
@@ -86,5 +89,27 @@ public final class GridMapIsoSurface {
             }
         }
         return this;
+    }
+
+    /**
+     * Per-corner u accessor over the working copy.
+     *
+     * @param faceId copy face id
+     * @param corner corner index in {@code [0, 3)}
+     * @return u-coordinate at the given corner
+     */
+    public double u(int faceId, int corner) {
+        return cornerU[activeByFaceId.get(faceId) * HalfEdgeMesh.TRIANGLE_CORNERS + corner];
+    }
+
+    /**
+     * Per-corner v accessor over the working copy.
+     *
+     * @param faceId copy face id
+     * @param corner corner index in {@code [0, 3)}
+     * @return v-coordinate at the given corner
+     */
+    public double v(int faceId, int corner) {
+        return cornerV[activeByFaceId.get(faceId) * HalfEdgeMesh.TRIANGLE_CORNERS + corner];
     }
 }
