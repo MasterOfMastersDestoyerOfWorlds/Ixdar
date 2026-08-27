@@ -1,4 +1,4 @@
-package ixdar.annotations.meshnode;
+package ixdar.geometry.mesh.nodes.api;
 
 public final class InputPort {
     public final String name;

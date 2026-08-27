@@ -4,10 +4,8 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
-import ixdar.annotations.meshnode.MeshValue;
-import ixdar.common.exceptions.InvalidMeshTopologyException;
+import ixdar.geometry.mesh.nodes.api.MeshValue;
 import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.QuadMeshTopologyHelper;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
 /**

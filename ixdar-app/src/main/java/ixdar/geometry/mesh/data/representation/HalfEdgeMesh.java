@@ -5,7 +5,7 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
-import ixdar.annotations.meshnode.MeshValue;
+import ixdar.geometry.mesh.nodes.api.MeshValue;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 

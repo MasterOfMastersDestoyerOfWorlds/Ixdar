@@ -7,11 +7,11 @@ import java.util.List;
 import java.util.Map;
 import ixdar.geometry.mesh.data.MeshSkeletonComparator.DetailedBranchMatch;
 
-import ixdar.annotations.meshnode.PortType;
+import ixdar.geometry.mesh.nodes.api.PortType;
 
-import ixdar.annotations.meshnode.MeshNodeSchema;
+import ixdar.geometry.mesh.nodes.api.MeshNodeSchema;
 
-import ixdar.annotations.meshnode.MeshNode;
+import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.geometry.mesh.data.MeshSkeletonComparator.DetailedComparisonResult;
 import ixdar.geometry.mesh.data.MeshSkeletonComparator.JointDelta;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonResult;

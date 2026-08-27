@@ -2,7 +2,7 @@ package ixdar.geometry.mesh.data;
 
 import java.util.Arrays;
 
-import ixdar.annotations.meshnode.GeometryBundleValue;
+import ixdar.geometry.mesh.nodes.api.GeometryBundleValue;
 
 /**
  * One or more 3D polylines: packed xyz positions and curve start offsets (length = numCurves + 1).

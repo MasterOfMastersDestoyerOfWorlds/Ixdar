@@ -2,7 +2,7 @@ package ixdar.geometry.mesh.quadlayout.embedding.fixtures;
 
 import java.util.List;
 
-import ixdar.annotations.meshnode.MapNodeContext;
+import ixdar.geometry.mesh.nodes.api.MapNodeContext;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.DiskMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;

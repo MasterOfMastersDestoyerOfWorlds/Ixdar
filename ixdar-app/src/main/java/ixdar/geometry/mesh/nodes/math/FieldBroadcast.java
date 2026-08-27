@@ -2,12 +2,12 @@ package ixdar.geometry.mesh.nodes.math;
 
 import org.joml.Vector3f;
 
-import ixdar.annotations.meshnode.BoolField;
-import ixdar.annotations.meshnode.FloatField;
-import ixdar.annotations.meshnode.IntField;
-import ixdar.annotations.meshnode.NodeContext;
-import ixdar.annotations.meshnode.Vector3Field;
-import ixdar.annotations.meshnode.Vector3Value;
+import ixdar.geometry.mesh.nodes.api.BoolField;
+import ixdar.geometry.mesh.nodes.api.FloatField;
+import ixdar.geometry.mesh.nodes.api.IntField;
+import ixdar.geometry.mesh.nodes.api.NodeContext;
+import ixdar.geometry.mesh.nodes.api.Vector3Field;
+import ixdar.geometry.mesh.nodes.api.Vector3Value;
 
 /**
  * Scalar vs {@link FloatField} / {@link Vector3Field} broadcasting for geometry-node math.

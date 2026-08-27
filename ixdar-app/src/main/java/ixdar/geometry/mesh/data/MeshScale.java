@@ -2,10 +2,10 @@ package ixdar.geometry.mesh.data;
 
 import org.joml.Vector3f;
 
-import ixdar.annotations.meshnode.Vector3Field;
+import ixdar.geometry.mesh.nodes.api.Vector3Field;
 
 import java.util.HashMap;
-import ixdar.annotations.meshnode.Vector3Value;
+import ixdar.geometry.mesh.nodes.api.Vector3Value;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**

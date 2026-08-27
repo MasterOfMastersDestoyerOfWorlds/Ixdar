@@ -10,12 +10,12 @@ import java.util.function.Supplier;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.annotations.meshnode.CanonicalPortNames;
-import ixdar.annotations.meshnode.InputPort;
-import ixdar.annotations.meshnode.MeshNode;
+import ixdar.geometry.mesh.nodes.api.CanonicalPortNames;
+import ixdar.geometry.mesh.nodes.api.InputPort;
+import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
-import ixdar.annotations.meshnode.OutputPort;
-import ixdar.annotations.meshnode.PortType;
+import ixdar.geometry.mesh.nodes.api.OutputPort;
+import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 
 /**

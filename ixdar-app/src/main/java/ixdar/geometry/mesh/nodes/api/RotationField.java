@@ -1,4 +1,4 @@
-package ixdar.annotations.meshnode;
+package ixdar.geometry.mesh.nodes.api;
 
 /**
  * Per-element quaternions (packed xyzw per element).

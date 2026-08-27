@@ -2,8 +2,7 @@ package ixdar.geometry.mesh.graph;
 
 import org.joml.Vector3f;
 
-import ixdar.annotations.meshnode.FieldContext;
-import ixdar.annotations.meshnode.Vector3Field;
+import ixdar.geometry.mesh.nodes.api.Vector3Field;
 import ixdar.geometry.mesh.data.MeshTopology;
 
 /**

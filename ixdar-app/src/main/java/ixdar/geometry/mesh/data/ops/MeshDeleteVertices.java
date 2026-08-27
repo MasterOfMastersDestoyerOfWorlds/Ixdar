@@ -2,11 +2,11 @@ package ixdar.geometry.mesh.data.ops;
 
 import org.joml.Vector3f;
 
-import ixdar.annotations.meshnode.BoolField;
+import ixdar.geometry.mesh.nodes.api.BoolField;
 
 import java.util.HashMap;
 
-import ixdar.annotations.meshnode.Vector3Value;
+import ixdar.geometry.mesh.nodes.api.Vector3Value;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;

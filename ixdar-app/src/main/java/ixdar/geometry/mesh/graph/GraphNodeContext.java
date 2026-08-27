@@ -4,8 +4,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import ixdar.annotations.meshnode.FieldContext;
-import ixdar.annotations.meshnode.NodeContext;
+import ixdar.geometry.mesh.nodes.api.FieldContext;
+import ixdar.geometry.mesh.nodes.api.NodeContext;
 
 /**
  * Per-node {@link NodeContext} the runtime hands to {@code MeshNode.evaluate}.

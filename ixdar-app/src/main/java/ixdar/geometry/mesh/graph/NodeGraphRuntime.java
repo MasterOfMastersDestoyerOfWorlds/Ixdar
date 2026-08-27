@@ -7,12 +7,12 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import ixdar.annotations.meshnode.FieldContext;
+import ixdar.geometry.mesh.nodes.api.FieldContext;
 
 import java.util.function.Supplier;
-import ixdar.annotations.meshnode.MeshNode;
+import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
-import ixdar.annotations.meshnode.Vector3Value;
+import ixdar.geometry.mesh.nodes.api.Vector3Value;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.parsing.python.PythonLexer;

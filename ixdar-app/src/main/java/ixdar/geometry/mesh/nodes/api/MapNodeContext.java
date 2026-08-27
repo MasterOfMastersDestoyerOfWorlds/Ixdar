@@ -1,4 +1,4 @@
-package ixdar.annotations.meshnode;
+package ixdar.geometry.mesh.nodes.api;
 
 import java.util.HashMap;
 import java.util.Map;

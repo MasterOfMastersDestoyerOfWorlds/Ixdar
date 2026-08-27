@@ -6,13 +6,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import ixdar.annotations.meshnode.InputPort;
+import ixdar.geometry.mesh.nodes.api.InputPort;
 
 import java.util.Set;
-import ixdar.annotations.meshnode.MeshNode;
-import ixdar.annotations.meshnode.MeshNodeSchema;
-import ixdar.annotations.meshnode.OutputPort;
-import ixdar.annotations.meshnode.PortType;
+import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.geometry.mesh.nodes.api.MeshNodeSchema;
+import ixdar.geometry.mesh.nodes.api.OutputPort;
+import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.parsing.python.PythonParser;
 
 /**

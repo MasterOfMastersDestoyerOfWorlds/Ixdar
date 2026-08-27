@@ -18,11 +18,11 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import ixdar.annotations.meshnode.MeshNode;
-import ixdar.annotations.meshnode.MeshNodeSchema;
+import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.geometry.mesh.nodes.api.MeshNodeSchema;
 import ixdar.geometry.mesh.data.GeometryBundle;
 
-import ixdar.annotations.meshnode.PortType;
+import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.MeshDistance;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.SkeletonSensitivityAnalyzer;

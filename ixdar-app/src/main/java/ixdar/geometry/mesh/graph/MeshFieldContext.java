@@ -1,6 +1,6 @@
 package ixdar.geometry.mesh.graph;
 
-import ixdar.annotations.meshnode.FieldContext;
+import ixdar.geometry.mesh.nodes.api.FieldContext;
 import ixdar.geometry.mesh.data.MeshTopology;
 
 /**

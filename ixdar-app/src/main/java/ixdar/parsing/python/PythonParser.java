@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import ixdar.annotations.meshnode.Vector3Value;
+import ixdar.geometry.mesh.nodes.api.Vector3Value;
 import ixdar.parsing.python.PythonLexer.Token;
 import ixdar.parsing.python.PythonLexer.TokenType;
 

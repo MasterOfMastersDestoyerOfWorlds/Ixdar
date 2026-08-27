@@ -1,4 +1,4 @@
-package ixdar.annotations.meshnode;
+package ixdar.geometry.mesh.nodes.api;
 
 /**
  * Per-element 3D vectors (packed xyz per element: {@code data.length == 3 * elementCount}).

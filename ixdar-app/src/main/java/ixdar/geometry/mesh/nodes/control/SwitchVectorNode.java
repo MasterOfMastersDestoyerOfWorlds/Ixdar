@@ -2,17 +2,17 @@ package ixdar.geometry.mesh.nodes.control;
 
 import java.util.List;
 
-import ixdar.annotations.meshnode.BoolField;
+import ixdar.geometry.mesh.nodes.api.BoolField;
 
 import java.util.Map;
-import ixdar.annotations.meshnode.InputPort;
-import ixdar.annotations.meshnode.MeshNode;
+import ixdar.geometry.mesh.nodes.api.InputPort;
+import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
-import ixdar.annotations.meshnode.NodeContext;
-import ixdar.annotations.meshnode.OutputPort;
-import ixdar.annotations.meshnode.PortType;
-import ixdar.annotations.meshnode.Vector3Field;
-import ixdar.annotations.meshnode.Vector3Value;
+import ixdar.geometry.mesh.nodes.api.NodeContext;
+import ixdar.geometry.mesh.nodes.api.OutputPort;
+import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.geometry.mesh.nodes.api.Vector3Field;
+import ixdar.geometry.mesh.nodes.api.Vector3Value;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 import org.joml.Vector3f;

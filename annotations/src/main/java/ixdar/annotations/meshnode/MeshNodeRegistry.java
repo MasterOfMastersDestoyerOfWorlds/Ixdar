@@ -20,12 +20,13 @@ public class MeshNodeRegistry extends RegistryProcessor {
 
     /**
      * Wire the processor to discover {@link MeshNodeAnnotation}-tagged classes and emit
-     * {@code MeshNodeRegistry_MeshNodes}, a map of node id to a {@link MeshNode} supplier.
+     * {@code MeshNodeRegistry_MeshNodes}, a map of node id to a {@code MeshNode} supplier.
+     * The supertype is named by FQN because the node SPI lives in ixdar-app.
      */
     public MeshNodeRegistry() {
         super(
                 MeshNodeAnnotation.class,
-                MeshNode.class,
+                "ixdar.geometry.mesh.nodes.api.MeshNode",
                 "MeshNodes",
                 true);
     }

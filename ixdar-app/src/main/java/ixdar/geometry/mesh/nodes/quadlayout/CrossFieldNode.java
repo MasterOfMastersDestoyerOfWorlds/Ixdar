@@ -3,12 +3,12 @@ package ixdar.geometry.mesh.nodes.quadlayout;
 import java.util.List;
 import java.util.Map;
 
-import ixdar.annotations.meshnode.InputPort;
-import ixdar.annotations.meshnode.MeshNode;
+import ixdar.geometry.mesh.nodes.api.InputPort;
+import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
-import ixdar.annotations.meshnode.NodeContext;
-import ixdar.annotations.meshnode.OutputPort;
-import ixdar.annotations.meshnode.PortType;
+import ixdar.geometry.mesh.nodes.api.NodeContext;
+import ixdar.geometry.mesh.nodes.api.OutputPort;
+import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
@@ -28,6 +28,7 @@ public class CrossFieldNode implements MeshNode {
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final OutputPort FIELD = new OutputPort("field", PortType.CROSS_FIELD);
     public static final OutputPort SINGULARITY_COUNT = new OutputPort("singularity_count", PortType.INT);
+    public static final OutputPort DOFS = new OutputPort("dofs", PortType.DOF_SYSTEM);
 
     @Override
     public List<InputPort> inputs() {
@@ -36,7 +37,7 @@ public class CrossFieldNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(FIELD, SINGULARITY_COUNT);
+        return List.of(FIELD, SINGULARITY_COUNT, DOFS);
     }
 
     @Override
@@ -50,15 +51,18 @@ public class CrossFieldNode implements MeshNode {
         return Map.of(
                 GEOMETRY.name, "Triangle mesh to build the field on; manifold, possibly with boundary.",
                 FIELD.name, "The cross field with per-face frames and singularities.",
-                SINGULARITY_COUNT.name, "Number of extracted singularities."
+                SINGULARITY_COUNT.name, "Number of extracted singularities.",
+                DOFS.name, "The smoothing solve's system, for solver-composing graphs."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle bundle = GeometryBundles.bundlePart(ctx.getInput(GEOMETRY.name, Object.class));
-        CrossField field = new NDirectionField(HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh())).build();
+        NDirectionField builder = new NDirectionField(HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh()));
+        CrossField field = builder.build();
         ctx.setOutput(FIELD.name, field);
         ctx.setOutput(SINGULARITY_COUNT.name, field.singularities.size());
+        ctx.setOutput(DOFS.name, builder.system);
     }
 }

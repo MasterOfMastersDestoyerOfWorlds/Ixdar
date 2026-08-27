@@ -1,4 +1,6 @@
-package ixdar.annotations.meshnode;
+package ixdar.geometry.mesh.nodes.api;
+
+import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
 
 public enum PortType {
     MESH(MeshValue.class),
@@ -24,9 +26,13 @@ public enum PortType {
     /** Cross field over a mesh. */
     CROSS_FIELD(Object.class),
     /** Per-corner UV assignment over a mesh. */
-    UV_FIELD(Object.class),
+    UV_FIELD(UvField.class),
     /** Node-arc-patch network on a surface. */
-    ARC_NETWORK(Object.class);
+    ARC_NETWORK(Object.class),
+    /** A solve's degrees of freedom and their couplings. */
+    DOF_SYSTEM(DofSystem.class),
+    /** Atlas of charts covering a surface. */
+    CHART_ATLAS(ChartAtlasValue.class);
 
     private final Class<?> valueType;
 

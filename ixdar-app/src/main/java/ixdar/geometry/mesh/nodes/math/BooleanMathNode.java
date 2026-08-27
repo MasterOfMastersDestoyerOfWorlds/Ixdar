@@ -3,14 +3,14 @@ package ixdar.geometry.mesh.nodes.math;
 import java.util.List;
 import java.util.Map;
 
-import ixdar.annotations.meshnode.BoolField;
-import ixdar.annotations.meshnode.InputPort;
-import ixdar.annotations.meshnode.MeshNode;
+import ixdar.geometry.mesh.nodes.api.BoolField;
+import ixdar.geometry.mesh.nodes.api.InputPort;
+import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
-import ixdar.annotations.meshnode.ModeConstraint;
-import ixdar.annotations.meshnode.NodeContext;
-import ixdar.annotations.meshnode.OutputPort;
-import ixdar.annotations.meshnode.PortType;
+import ixdar.geometry.mesh.nodes.api.ModeConstraint;
+import ixdar.geometry.mesh.nodes.api.NodeContext;
+import ixdar.geometry.mesh.nodes.api.OutputPort;
+import ixdar.geometry.mesh.nodes.api.PortType;
 
 /**
  * MeshNode that performs per-element boolean logic (AND, OR, NOT, XOR) on

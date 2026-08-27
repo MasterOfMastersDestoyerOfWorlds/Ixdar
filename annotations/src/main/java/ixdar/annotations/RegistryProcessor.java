@@ -27,7 +27,7 @@ public abstract class RegistryProcessor extends AbstractProcessor {
     private boolean generated;
     private String fqcn;
     private Class<? extends Annotation> annotationClass;
-    private Class<?> typeClass;
+    private String typeFqcn;
     private String collectionName;
     private boolean partitionDesktopOnly;
 
@@ -63,9 +63,24 @@ public abstract class RegistryProcessor extends AbstractProcessor {
      */
     public RegistryProcessor(Class<? extends Annotation> annotationClass, Class<?> typeClass,
             String collectionName, boolean partitionDesktopOnly) {
+        this(annotationClass, typeClass.getCanonicalName(), collectionName, partitionDesktopOnly);
+    }
+
+    /**
+     * Configure the processor with the registered supertype named by fully
+     * qualified name, for supertypes living outside this module (the processor
+     * only ever emits the name into generated source).
+     *
+     * @param annotationClass marker annotation whose {@code @interface} declares an {@code id}
+     * @param typeFqcn fully qualified name of the registered classes' common supertype
+     * @param collectionName suffix forming the generated registry's simple name
+     * @param partitionDesktopOnly whether to honour a boolean {@code desktopOnly} element
+     */
+    public RegistryProcessor(Class<? extends Annotation> annotationClass, String typeFqcn,
+            String collectionName, boolean partitionDesktopOnly) {
         this.fqcn = this.getClass().getCanonicalName();
         this.annotationClass = annotationClass;
-        this.typeClass = typeClass;
+        this.typeFqcn = typeFqcn;
         this.collectionName = collectionName;
         this.partitionDesktopOnly = partitionDesktopOnly;
     }
@@ -155,10 +170,10 @@ public abstract class RegistryProcessor extends AbstractProcessor {
         try (Writer out = file.openWriter()) {
             out.write("package " + this.getClass().getPackageName() + ";\n\n");
             out.write("import java.util.*;\n");
-            out.write("import " + typeClass.getCanonicalName() + ";\n");
+            out.write("import " + typeFqcn + ";\n");
             out.write("import java.util.function.Supplier;\n\n");
             out.write("public final class " + genClassName + " {\n");
-            out.write("\tpublic static final Map<String, Supplier<? extends " + typeClass.getName()
+            out.write("\tpublic static final Map<String, Supplier<? extends " + typeFqcn
                     + ">> MAP = new HashMap<>();\n\n");
             if (desktopOnlyIds != null) {
                 StringBuilder ids = new StringBuilder();

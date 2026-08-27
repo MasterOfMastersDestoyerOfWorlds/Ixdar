@@ -1,14 +1,14 @@
-package ixdar.annotations.meshnode;
+package ixdar.geometry.mesh.nodes.api;
 
 /**
- * Per-element float values (packed {@code float[]}, one element per domain index).
+ * Per-element int values (one index per domain element).
  */
-public record FloatField(float[] data) {
+public record IntField(int[] data) {
 
     /**
      * Validate that the backing array is non-null.
      */
-    public FloatField {
+    public IntField {
         if (data == null) {
             throw new IllegalArgumentException("data");
         }
@@ -29,7 +29,7 @@ public record FloatField(float[] data) {
      * @param i element index, must satisfy {@code 0 <= i < length()}
      * @return stored value at {@code data[i]}
      */
-    public float get(int i) {
+    public int get(int i) {
         return data[i];
     }
 
@@ -40,23 +40,23 @@ public record FloatField(float[] data) {
      * @param len element count, must be non-negative
      * @return new field of length {@code len}
      */
-    public static FloatField constant(float v, int len) {
-        float[] d = new float[len];
+    public static IntField constant(int v, int len) {
+        int[] d = new int[len];
         for (int i = 0; i < len; i++) {
             d[i] = v;
         }
-        return new FloatField(d);
+        return new IntField(d);
     }
 
     /**
-     * Defensive copy from a float array.
+     * Defensive copy from an int array.
      *
      * @param src source array
      * @return new field that does not share storage with {@code src}
      */
-    public static FloatField copyOf(float[] src) {
-        float[] d = new float[src.length];
+    public static IntField copyOf(int[] src) {
+        int[] d = new int[src.length];
         System.arraycopy(src, 0, d, 0, src.length);
-        return new FloatField(d);
+        return new IntField(d);
     }
 }

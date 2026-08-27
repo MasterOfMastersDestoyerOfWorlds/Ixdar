@@ -2,15 +2,15 @@ package ixdar.geometry.mesh.nodes.data;
 
 import java.util.List;
 
-import ixdar.annotations.meshnode.InputPort;
+import ixdar.geometry.mesh.nodes.api.InputPort;
 
 import java.util.Map;
-import ixdar.annotations.meshnode.IntField;
-import ixdar.annotations.meshnode.MeshNode;
+import ixdar.geometry.mesh.nodes.api.IntField;
+import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
-import ixdar.annotations.meshnode.NodeContext;
-import ixdar.annotations.meshnode.OutputPort;
-import ixdar.annotations.meshnode.PortType;
+import ixdar.geometry.mesh.nodes.api.NodeContext;
+import ixdar.geometry.mesh.nodes.api.OutputPort;
+import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.graph.MeshFieldContext;
 

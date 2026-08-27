@@ -1,4 +1,4 @@
-package ixdar.annotations.meshnode;
+package ixdar.geometry.mesh.nodes.api;
 
 /**
  * Implicit geometry domain for field input nodes (vertex positions/normals for the current mesh).
