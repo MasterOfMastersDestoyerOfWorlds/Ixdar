@@ -82,6 +82,20 @@ public final class ActiveIdSet {
     }
 
     /**
+     * The dense position of an id, the inverse of {@link #get}. Valid only until
+     * the next removal, which moves the last id into the hole.
+     *
+     * @param id id to look up
+     * @return the id's dense position, or -1 when the id is not in the set
+     */
+    public int indexOf(int id) {
+        if (id < 0 || id >= indexById.length) {
+            return ABSENT;
+        }
+        return indexById[id];
+    }
+
+    /**
      * Adds an id, growing the backing arrays as needed. Adding an id the set already holds does
      * nothing, so the dense array never lists an id twice.
      *

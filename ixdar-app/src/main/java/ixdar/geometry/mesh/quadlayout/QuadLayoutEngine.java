@@ -8,6 +8,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
 import ixdar.geometry.mesh.quadlayout.extraction.LayoutPatchSurfaces;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
+import ixdar.geometry.mesh.quadlayout.gridmap.GridMapAssembly;
 import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
 import ixdar.geometry.mesh.quadlayout.gridmap.LayoutPatchMaps;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
@@ -15,7 +16,9 @@ import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
 import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
 import ixdar.platform.Platforms;
 
 /**
@@ -58,8 +61,11 @@ public final class QuadLayoutEngine {
     public double targetEdgeLength = DEFAULT_TARGET_EDGE_LENGTH;
 
     public CrossField crossField;
-    public SeamlessParameterization seamless;
+    public SeamlessUv seamless;
     public ParameterizationMetrics seamlessMetrics;
+
+    /** The seamless solve's DOF system, kept for benchmarks and inspection. */
+    public DofSystem seamlessSystem;
     public MotorcycleGraph motorcycleGraph;
     public QuantizedMeshGrid quantization;
     public LayoutExtraction layout;
@@ -143,7 +149,7 @@ public final class QuadLayoutEngine {
     public CrossField buildCrossField() {
         if (crossField == null) {
             long startNanos = System.nanoTime();
-            crossField = new NDirectionField(mesh).build();
+            crossField = new NDirectionField().build(mesh);
             System.out.println("[quad-layout] singularities: " + crossField.singularities.size());
             logStageTime("cross field", startNanos);
         }
@@ -156,12 +162,14 @@ public final class QuadLayoutEngine {
      *
      * @return the cached seamless parametrization
      */
-    public SeamlessParameterization buildSeamless() {
+    public SeamlessUv buildSeamless() {
         if (seamless == null) {
             buildCrossField();
             long startNanos = System.nanoTime();
-            seamless = new SeamlessParameterization(crossField);
-            seamlessMetrics = seamless.build();
+            SeamlessParameterization stage = new SeamlessParameterization();
+            seamless = stage.build(crossField);
+            seamlessMetrics = stage.metrics;
+            seamlessSystem = stage.dofSystem.system;
             logStageTime("seamless", startNanos);
         }
         return seamless;
@@ -177,7 +185,8 @@ public final class QuadLayoutEngine {
         if (motorcycleGraph == null) {
             buildSeamless();
             long startNanos = System.nanoTime();
-            motorcycleGraph = new MotorcycleGraph(seamless, alphaRadians);
+            motorcycleGraph = new MotorcycleGraph(mesh, seamless, crossField.singularities,
+                    crossField.alignmentEdgeIds, alphaRadians);
             motorcycleGraph.build();
             logStageTime("motorcycle graph", startNanos);
         }
@@ -193,7 +202,7 @@ public final class QuadLayoutEngine {
         if (quantization == null) {
             buildMotorcycleGraph();
             long startNanos = System.nanoTime();
-            quantization = new QuantizedMeshGrid(motorcycleGraph, alphaRadians).build();
+            quantization = new QuantizedMeshGrid(motorcycleGraph.network, alphaRadians).build();
             logStageTime("quantization", startNanos);
         }
         return quantization;
@@ -225,7 +234,8 @@ public final class QuadLayoutEngine {
         if (embedding == null) {
             buildLayout();
             long startNanos = System.nanoTime();
-            embedding = new LayoutEmbedding(layout).build();
+            embedding = new LayoutEmbedding();
+            tmesh = embedding.build(motorcycleGraph.network, seamless);
             logStageTime("carve", startNanos);
         }
         return embedding;
@@ -240,10 +250,6 @@ public final class QuadLayoutEngine {
     public EmbeddedTMesh buildTMesh() {
         if (tmesh == null) {
             buildLayoutEmbedding();
-            long startNanos = System.nanoTime();
-            tmesh = new EmbeddedTMesh(embedding.topology).build(embedding);
-            tmesh.validate();
-            logStageTime("tmesh assembly", startNanos);
         }
         return tmesh;
     }
@@ -295,7 +301,9 @@ public final class QuadLayoutEngine {
         if (globalGrid == null) {
             buildPatchMaps();
             long startNanos = System.nanoTime();
-            globalGrid = new GlobalGridMap(patchMaps, integerGrid, seamless).build();
+            globalGrid = new GridMapAssembly().assemble(patchMaps, integerGrid, seamless);
+            globalGrid.gridDofs.relax();
+            GridMapAssembly.extractQuads(globalGrid);
             logStageTime("global grid map", startNanos);
         }
         return globalGrid;

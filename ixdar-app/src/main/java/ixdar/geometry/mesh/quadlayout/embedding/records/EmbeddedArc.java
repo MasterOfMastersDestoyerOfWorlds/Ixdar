@@ -52,6 +52,12 @@ public final class EmbeddedArc {
     /** Patch on the arc's right, walking from start node to end node. */
     public int rightPatchId;
 
+    /** Owning motorcycle trace, or -1 for operator-minted arcs. */
+    public int traceId = -1;
+
+    /** Chart-space length from the arrangement phase. */
+    public double parametricLength;
+
     /**
      * Creates a live arc between two nodes.
      *
@@ -74,6 +80,28 @@ public final class EmbeddedArc {
         this.path = path;
         this.leftPatchId = EmbeddedTMesh.NONE;
         this.rightPatchId = EmbeddedTMesh.NONE;
+        this.alive = true;
+    }
+
+    /**
+     * Creates an arrangement-phase arc between two nodes along a trace; the
+     * working-copy path is filled in by the layout-embedding assembly.
+     *
+     * @param arcId            unique arc id
+     * @param traceId          owning trace id
+     * @param startNodeId      start node id
+     * @param endNodeId        end node id
+     * @param parametricLength chart-space length
+     */
+    public EmbeddedArc(int arcId, int traceId, int startNodeId, int endNodeId,
+            double parametricLength) {
+        this.arcId = arcId;
+        this.sourceArcId = arcId;
+        this.traceId = traceId;
+        this.startNodeId = startNodeId;
+        this.endNodeId = endNodeId;
+        this.parametricLength = parametricLength;
+        this.quantizedLength = 0;
         this.alive = true;
     }
 

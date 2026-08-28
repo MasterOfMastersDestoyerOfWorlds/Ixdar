@@ -12,20 +12,19 @@ import java.util.TreeMap;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.MetOtherTraceEntry;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.PatchPort;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceAxis;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
-import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.platform.Platforms;
 
 /**
  * Assembles the T-mesh patches as faces of the trace arrangement: every arc
  * gives two directed sides, each node orders its arc-ends cyclically, and
  * walking "arrive, leave through the next port" enumerates each face once as a
- * {@link TMeshPatch}, cornered where travel turns.
+ * {@link EmbeddedPatch}, cornered where travel turns.
  *
  * <p>
  * See also: Lyon 2021 Section 4
@@ -35,7 +34,6 @@ public final class PatchBoundaryBuilder {
     /** Full turn used to wrap negative within-wedge angles into [0, 2π). */
     public static final double TWO_PI = Math.PI * 2.0;
 
-    private static final int CORNERS = SeamlessParameterization.CORNERS_PER_FACE;
     /** Tolerance for port directions lying exactly on a wedge's opening edge. */
     private static final double WEDGE_ANGLE_EPS = 1.0e-9;
     private static final int INVALID_CYCLE_SAMPLE_LIMIT = 4;
@@ -111,7 +109,7 @@ public final class PatchBoundaryBuilder {
      */
     public PatchBoundaryBuilder(MotorcycleGraph graph) {
         this.graph = graph;
-        this.mesh = graph.seamless.mesh;
+        this.mesh = graph.mesh;
     }
 
     /**
@@ -142,7 +140,7 @@ public final class PatchBoundaryBuilder {
                     int currentArcId = directed / 2;
                     boolean forward = directed % 2 == 0;
                     cycleArcIds.add(currentArcId);
-                    TraceArc arc = graph.arcs.get(currentArcId);
+                    EmbeddedArc arc = graph.arcs.get(currentArcId);
                     int headNodeId = forward ? arc.endNodeId : arc.startNodeId;
                     List<PatchPort> nodePorts = portsByNode.get(headNodeId);
                     int arrivalIndex = indexOfPort(nodePorts, currentArcId, !forward);
@@ -189,8 +187,7 @@ public final class PatchBoundaryBuilder {
                     directed = nextDirected;
                 }
 
-                TMeshPatch patch = new TMeshPatch(graph.patches.size());
-                patch.boundingArcIds.addAll(cycleArcIds);
+                EmbeddedPatch patch = new EmbeddedPatch(graph.patches.size(), graph.patches.size());
                 List<Integer> cornerPositions = new ArrayList<>();
                 for (int hop = 0; hop < hopIsCorner.size(); hop++) {
                     if (hopIsCorner.get(hop)) {
@@ -248,13 +245,13 @@ public final class PatchBoundaryBuilder {
         StringBuilder hops = new StringBuilder();
         for (int hop = 0; hop < cycleArcIds.size() && hop < INVALID_CYCLE_HOP_DUMP_LIMIT; hop++) {
             int arcId = cycleArcIds.get(hop);
-            TraceArc arc = graph.arcs.get(arcId);
+            EmbeddedArc arc = graph.arcs.get(arcId);
             int endNodeId = arc.endNodeId;
-            TMeshNode endNode = graph.nodes.get(endNodeId);
+            EmbeddedNode endNode = graph.nodes.get(endNodeId);
             List<PatchPort> ports = portsByNode.get(endNodeId);
-            hops.append(String.format(" (arc=%d trace=%d node=%d type=%s vtx=%d ports=%d)",
-                    arcId, arc.traceId, endNodeId, endNode.type, endNode.vertexId,
-                    ports == null ? 0 : ports.size()));
+            hops.append(String.format(" (arc=%d trace=%d node=%d critical=%b border=%b vtx=%d ports=%d)",
+                    arcId, arc.traceId, endNodeId, endNode.critical, endNode.border,
+                    endNode.vertexId, ports == null ? 0 : ports.size()));
         }
         Platforms.log(
                 "[patch-diag] invalid cycle: hops=%d corners=%d resolved=%b foldBack=%b%s%n",
@@ -264,7 +261,7 @@ public final class PatchBoundaryBuilder {
         }
         Set<Integer> dumpedNodes = new HashSet<>();
         for (int arcId : cycleArcIds) {
-            TraceArc arc = graph.arcs.get(arcId);
+            EmbeddedArc arc = graph.arcs.get(arcId);
             for (int nodeId : new int[] { arc.startNodeId, arc.endNodeId }) {
                 if (!dumpedNodes.add(nodeId)) {
                     continue;
@@ -383,7 +380,7 @@ public final class PatchBoundaryBuilder {
      */
     private void sortPorts() {
         for (Map.Entry<Integer, List<PatchPort>> entry : portsByNode.entrySet()) {
-            TMeshNode node = graph.nodes.get(entry.getKey());
+            EmbeddedNode node = graph.nodes.get(entry.getKey());
             Map<Integer, double[]> fanFrames = node.vertexId >= 0
                     ? unrolledFanFrames(node.vertexId)
                     : null;
@@ -437,15 +434,15 @@ public final class PatchBoundaryBuilder {
                 continue;
             }
             printed++;
-            TMeshNode node = graph.nodes.get(entry.getKey());
+            EmbeddedNode node = graph.nodes.get(entry.getKey());
             StringBuilder portDump = new StringBuilder();
             for (PatchPort port : ports) {
                 portDump.append(String.format(" (arc=%d out=%b dir=%d,%d face=%d key=%.4f)",
                         port.arcId, port.outgoing, port.directionU, port.directionV,
                         port.activeFace, port.sortKey));
             }
-            Platforms.log("[patch-diag] ambiguous ports node=%d type=%s vertex=%d:%s%n",
-                    entry.getKey(), node.type, node.vertexId, portDump);
+            Platforms.log("[patch-diag] ambiguous ports node=%d critical=%b border=%b vertex=%d:%s%n",
+                    entry.getKey(), node.critical, node.border, node.vertexId, portDump);
         }
         if (ambiguousNodes > 0) {
             Platforms.log("[patch-diag] nodes with ambiguous port order: %d%n", ambiguousNodes);
@@ -467,8 +464,7 @@ public final class PatchBoundaryBuilder {
         if (fanCount == 0) {
             return frameByActiveFace;
         }
-        int startActiveFace = graph.seamless.crossField.faceIdToActive
-                .get(mesh.vertexFaceAt(vertexId, 0));
+        int startActiveFace = mesh.activeFaceIndexOf(mesh.vertexFaceAt(vertexId, 0));
         int currentActiveFace = startActiveFace;
         for (int step = 0; step < fanCount; step++) {
             int clockwiseNeighbor = fanNeighbor(currentActiveFace, vertexId, false);
@@ -483,9 +479,9 @@ public final class PatchBoundaryBuilder {
         for (int step = 0; step < fanCount; step++) {
             int faceId = mesh.faceIdAt(currentActiveFace);
             int corner = cornerOfVertexInFace(faceId, vertexId);
-            graph.seamless.faceCornerUv(currentActiveFace, cornerUv);
-            int openingCorner = (corner + 1) % CORNERS;
-            int closingCorner = (corner + 2) % CORNERS;
+            graph.uv.faceCornerUv(faceId, cornerUv);
+            int openingCorner = (corner + 1) % HalfEdgeMesh.TRIANGLE_CORNERS;
+            int closingCorner = (corner + 2) % HalfEdgeMesh.TRIANGLE_CORNERS;
             double openingU = cornerUv[openingCorner * 2] - cornerUv[corner * 2];
             double openingV = cornerUv[openingCorner * 2 + 1] - cornerUv[corner * 2 + 1];
             double closingU = cornerUv[closingCorner * 2] - cornerUv[corner * 2];
@@ -518,10 +514,10 @@ public final class PatchBoundaryBuilder {
     private int fanNeighbor(int activeFace, int vertexId, boolean counterClockwise) {
         int faceId = mesh.faceIdAt(activeFace);
         int corner = cornerOfVertexInFace(faceId, vertexId);
-        int localEdge = counterClockwise ? (corner + 2) % CORNERS : corner;
+        int localEdge = counterClockwise ? (corner + 2) % HalfEdgeMesh.TRIANGLE_CORNERS : corner;
         int edgeId = mesh.faceEdgeAt(faceId, localEdge);
-        Integer activeEdge = graph.seamless.crossField.edgeIdToActive.get(edgeId);
-        if (activeEdge == null) {
+        int activeEdge = mesh.activeEdgeIndexOf(edgeId);
+        if (activeEdge < 0) {
             return -1;
         }
         HalfEdgeMesh.EdgeFaceIds edgeFaces = mesh.edgeFaceIds(activeEdge);
@@ -529,11 +525,11 @@ public final class PatchBoundaryBuilder {
         if (neighborFaceId < 0) {
             return -1;
         }
-        return graph.seamless.crossField.faceIdToActive.get(neighborFaceId);
+        return mesh.activeFaceIndexOf(neighborFaceId);
     }
 
     private int cornerOfVertexInFace(int faceId, int vertexId) {
-        for (int corner = 0; corner < CORNERS; corner++) {
+        for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
             if (mesh.faceVertexAt(faceId, corner) == vertexId) {
                 return corner;
             }
@@ -558,7 +554,7 @@ public final class PatchBoundaryBuilder {
      * Split the cycle at its four corners into sides; side {@code j} runs from just
      * after corner {@code j} through corner {@code j + 1}.
      */
-    private void splitSides(TMeshPatch patch, List<Integer> arcCycle, List<Integer> cornerPositions) {
+    private void splitSides(EmbeddedPatch patch, List<Integer> arcCycle, List<Integer> cornerPositions) {
         int cycleLength = arcCycle.size();
         for (int j = 0; j < cornerPositions.size(); j++) {
             int from = (cornerPositions.get(j) + 1) % cycleLength;
@@ -572,7 +568,7 @@ public final class PatchBoundaryBuilder {
                 }
                 position = (position + 1) % cycleLength;
             }
-            patch.sides.add(side);
+            patch.sideArcIds.get(j).addAll(side);
         }
         measureRectangularity(patch);
     }
@@ -588,10 +584,10 @@ public final class PatchBoundaryBuilder {
      *
      * @param patch patch whose four sides have just been filled
      */
-    private void measureRectangularity(TMeshPatch patch) {
+    private void measureRectangularity(EmbeddedPatch patch) {
         double[] sideLength = new double[SIDES];
         for (int side = 0; side < SIDES; side++) {
-            for (int arcId : patch.sides.get(side)) {
+            for (int arcId : patch.sideArcIds.get(side)) {
                 sideLength[side] += graph.arcs.get(arcId).parametricLength;
             }
         }

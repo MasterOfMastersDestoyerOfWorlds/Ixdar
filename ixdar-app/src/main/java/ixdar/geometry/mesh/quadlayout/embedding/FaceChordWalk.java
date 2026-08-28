@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 
 /**
  * Exact chord walk inside one source face: connects a path head to a target point,
@@ -48,7 +48,7 @@ public final class FaceChordWalk {
      * places nodes rather than carving. An arc conflict is only readable once you can see
      * which trace and which nodes each claimed lane belongs to.
      */
-    public List<TraceArc> arcsById;
+    public List<EmbeddedArc> arcsById;
 
     /** Carve points that reused an existing free vertex (LCBK19's snap). */
     public int snappedCrossingCount;
@@ -403,7 +403,7 @@ public final class FaceChordWalk {
                 || arcId >= arcsById.size()) {
             return "";
         }
-        TraceArc arc = arcsById.get(arcId);
+        EmbeddedArc arc = arcsById.get(arcId);
         return "/t" + arc.traceId + ":" + arc.startNodeId + "-" + arc.endNodeId;
     }
 

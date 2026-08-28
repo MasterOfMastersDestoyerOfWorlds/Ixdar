@@ -123,15 +123,15 @@ public final class SeamlessDofSystem {
     public SeamlessDofSystem(SeamlessParameterization seamless, CutGraph cutGraph) {
         this.seamless = seamless;
         this.cutGraph = cutGraph;
-        this.cutEdgeSDof = new int[seamless.edgeCount];
-        this.cutEdgeTDof = new int[seamless.edgeCount];
+        this.cutEdgeSDof = new int[seamless.uv.edgeCount];
+        this.cutEdgeTDof = new int[seamless.uv.edgeCount];
         this.mesh = seamless.mesh;
-        this.crossField = seamless.crossField;
+        this.crossField = seamless.field;
         Arrays.fill(cutEdgeSDof, -1);
         Arrays.fill(cutEdgeTDof, -1);
         int sBase = 2 * cutGraph.primaryChartCount;
         int tBase = sBase + cutGraph.interiorCutEdgeCount;
-        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
+        for (int activeEdge = 0; activeEdge < seamless.uv.edgeCount; activeEdge++) {
             int dense = cutGraph.cutEdgeDenseIdx[activeEdge];
             if (dense < 0) {
                 continue;
@@ -174,13 +174,13 @@ public final class SeamlessDofSystem {
      */
     public NormalMatrix assembleWeighted(double[] faceWeight) {
         if (assemblyPlan == null) {
-            this.assemblyPlan = new AssemblyPlanBuilder(seamless.faceCount);
+            this.assemblyPlan = new AssemblyPlanBuilder(seamless.uv.faceCount);
             this.assemblyPlan.build(seamless, chartVertexFinalDofs, chartVertexFinalCoefs, cutGraph, dofCount);
         }
         double[] diag = assemblyPlan.planStaticDiagonal.clone();
         double[] upper = assemblyPlan.planStaticUpperValues.clone();
         double[] rhs = new double[dofCount];
-        for (int f = 0; f < seamless.faceCount; f++) {
+        for (int f = 0; f < seamless.uv.faceCount; f++) {
             double w = faceWeight[f];
             if (w == 0.0) {
                 continue;
@@ -284,18 +284,18 @@ public final class SeamlessDofSystem {
      *         {@link #NOT_ALIGNMENT}
      */
     private int[] computeAlignmentEdgeIsoAxes() {
-        int[] axis = new int[seamless.edgeCount];
+        int[] axis = new int[seamless.uv.edgeCount];
         Arrays.fill(axis, NOT_ALIGNMENT);
         Vector3f startPos = new Vector3f();
         Vector3f endPos = new Vector3f();
         Vector3f edgeDir = new Vector3f();
-        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
-            int edgeId = seamless.mesh.edgeIdAt(activeEdge);
-            if (!seamless.crossField.alignmentEdgeIds.contains(edgeId)) {
+        for (int activeEdge = 0; activeEdge < seamless.uv.edgeCount; activeEdge++) {
+            int edgeId = mesh.edgeIdAt(activeEdge);
+            if (!crossField.alignmentEdgeIds.contains(edgeId)) {
                 continue;
             }
-            int faceA = seamless.edgeFaceA[activeEdge];
-            int faceB = seamless.edgeFaceB[activeEdge];
+            int faceA = seamless.uv.edgeFaceA[activeEdge];
+            int faceB = seamless.uv.edgeFaceB[activeEdge];
             if (faceA < 0) {
                 continue;
             }
@@ -384,12 +384,12 @@ public final class SeamlessDofSystem {
      *             method appends to it in place
      */
     private void addAlignmentEqualityRows(ArrayList<HashMap<Integer, Double>> rows) {
-        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
+        for (int activeEdge = 0; activeEdge < seamless.uv.edgeCount; activeEdge++) {
             int axis = alignmentEdgeIsoAxis[activeEdge];
             if (axis == NOT_ALIGNMENT) {
                 continue;
             }
-            int faceA = seamless.edgeFaceA[activeEdge];
+            int faceA = seamless.uv.edgeFaceA[activeEdge];
             int cornerStartA = -1;
             int cornerEndA = -1;
             int edgeId = mesh.edgeIdAt(activeEdge);

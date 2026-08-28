@@ -24,4 +24,17 @@ public interface UvField {
      * @return v-coordinate at the given corner
      */
     double v(int faceId, int corner);
+
+    /**
+     * All three corner UVs of one face in one read.
+     *
+     * @param faceId mesh face id
+     * @param out    length-6 buffer receiving {@code [u0,v0,u1,v1,u2,v2]}
+     */
+    default void faceCornerUv(int faceId, double[] out) {
+        for (int corner = 0; corner < 3; corner++) {
+            out[corner * 2] = u(faceId, corner);
+            out[corner * 2 + 1] = v(faceId, corner);
+        }
+    }
 }

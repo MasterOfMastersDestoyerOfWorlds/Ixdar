@@ -1,16 +1,21 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.geometry.mesh.nodes.api.InputPort;
+import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.geometry.mesh.nodes.api.NodeContext;
+import ixdar.geometry.mesh.nodes.api.OutputPort;
+import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
-import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
-import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
-import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
+import ixdar.geometry.mesh.nodes.api.UvField;
 import ixdar.platform.Platforms;
 
 /**
@@ -22,14 +27,21 @@ import ixdar.platform.Platforms;
  * <p>
  * See also: LCBK19 Section 6.1
  */
-public final class LayoutEmbedding {
+@MeshNodeAnnotation(id = "layout_embedding", desktopOnly = true)
+public final class LayoutEmbedding implements MeshNode {
+
+    public static final InputPort SKELETON = new InputPort("skeleton", PortType.ARC_NETWORK, null);
+    public static final InputPort UV = new InputPort("uv", PortType.UV_FIELD, null);
+    public static final OutputPort TMESH = new OutputPort("tmesh", PortType.ARC_NETWORK);
 
     /** Nanoseconds per second, for the timing log. */
     private static final double NANOS_PER_SECOND = 1.0e9;
 
-    public final LayoutExtraction layout;
-    public final MotorcycleGraph motorcycleGraph;
-    public final QuantizedMeshGrid quantization;
+    /** The arrangement being embedded. */
+    public EmbeddedTMesh network;
+
+    /** The parametrization the carve reads chart coordinates from. */
+    public UvField uv;
 
     /** Working copy with provenance and claims. */
     public EmbeddedMeshTopology topology;
@@ -62,27 +74,53 @@ public final class LayoutEmbedding {
     /** T-mesh nodes that claimed an existing mesh vertex outright. */
     public int nodesOnMeshVertexCount;
 
-    /**
-     * Stores inputs for the re-embedding construction.
-     *
-     * @param layout quantized layout whose T-mesh is embedded
-     */
-    public LayoutEmbedding(LayoutExtraction layout) {
-        this.layout = layout;
-        this.motorcycleGraph = layout.motorcycleGraph;
-        this.quantization = layout.quantization;
+    @Override
+    public List<InputPort> inputs() {
+        return List.of(SKELETON, UV);
+    }
+
+    @Override
+    public List<OutputPort> outputs() {
+        return List.of(TMESH);
+    }
+
+    @Override
+    public String description() {
+        return "Carves a quantized skeleton onto a working copy of the mesh and assembles the"
+                + " embedded T-mesh, validated as a cell decomposition of the surface.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                SKELETON.name, "Quantized skeleton to embed, from an arc_quantization node.",
+                UV.name, "Seamless UV field the carve reads chart coordinates from.",
+                TMESH.name, "The embedded T-mesh, uncontracted; zero arcs and patches remain."
+        );
+    }
+
+    @Override
+    public void evaluate(NodeContext ctx) {
+        EmbeddedTMesh skeleton = (EmbeddedTMesh) ctx.getInput(SKELETON.name, Object.class);
+        UvField field = (UvField) ctx.getInput(UV.name, Object.class);
+        ctx.setOutput(TMESH.name, new LayoutEmbedding().build(skeleton, field));
     }
 
     /**
-     * Copy the mesh, place nodes, carve every trace, and check the result really is
-     * a subcomplex; logs the {@code [embed]} summary.
+     * Copy the mesh, place nodes, carve every trace, check the result really is a
+     * subcomplex, and assemble the T-mesh in place; logs the {@code [embed]}
+     * summary.
      *
-     * @return this, with all public products populated
+     * @param builtNetwork quantized arrangement to embed
+     * @param seamlessUv   parametrization the carve reads chart coordinates from
+     * @return the network, embedded and assembled
      */
-    public LayoutEmbedding build() {
+    public EmbeddedTMesh build(EmbeddedTMesh builtNetwork, UvField seamlessUv) {
+        this.network = builtNetwork;
+        this.uv = seamlessUv;
         long startNanos = System.nanoTime();
         markCriticality();
-        snapping = new SnappingCarve(motorcycleGraph).placeNodes().sliceArcs()
+        snapping = new SnappingCarve(network, uv).placeNodes().sliceArcs()
                 .tagSourceEdges().carve();
         topology = snapping.topology;
         pathByArc = snapping.pathByArc;
@@ -94,33 +132,32 @@ public final class LayoutEmbedding {
         assertSubcomplex();
         long checkDoneNanos = System.nanoTime();
         Platforms.log("[embed] arcs=%d copy V=%d E=%d F=%d %.2fs (carve %.2f check %.2f)%n",
-                motorcycleGraph.arcs.size(), topology.copy.vertexCount(),
+                network.arcs.size(), topology.copy.vertexCount(),
                 topology.copy.edgeCount(), topology.copy.faceCount(),
                 (checkDoneNanos - startNanos) / NANOS_PER_SECOND,
                 (carveDoneNanos - startNanos) / NANOS_PER_SECOND,
                 (checkDoneNanos - carveDoneNanos) / NANOS_PER_SECOND);
-        return this;
+        network.assemble(this);
+        return network;
     }
 
     /**
-     * Mark LCBK19 Def 6.2 criticality: singularity and feature nodes are critical
-     * (their integer positions are prescribed by the quantization), and
-     * feature-trace arcs are critical curves. Trace-crossing intersection nodes
-     * stay non-critical until a contraction collapse lands them on a critical
-     * point.
+     * Mark LCBK19 Def 6.2 criticality: singularity nodes are critical (their
+     * integer positions are prescribed by the quantization), and feature-trace
+     * arcs are critical curves. Trace-crossing intersection nodes stay
+     * non-critical until a contraction collapse lands them on a critical point.
      */
     private void markCriticality() {
-        criticalByNode = new boolean[motorcycleGraph.nodes.size()];
-        for (TMeshNode node : motorcycleGraph.nodes) {
-            criticalByNode[node.nodeId] = node.type == TMeshNode.Type.SINGULARITY
-                    || node.type == TMeshNode.Type.FEATURE;
+        criticalByNode = new boolean[network.nodes.size()];
+        for (EmbeddedNode node : network.nodes) {
+            criticalByNode[node.nodeId] = node.critical;
         }
-        featureByArc = new boolean[motorcycleGraph.arcs.size()];
+        featureByArc = new boolean[network.arcs.size()];
         Map<Integer, Trace> traceById = new HashMap<>();
-        for (Trace trace : motorcycleGraph.traces) {
+        for (Trace trace : network.traces) {
             traceById.put(trace.traceId, trace);
         }
-        for (TraceArc arc : motorcycleGraph.arcs) {
+        for (EmbeddedArc arc : network.arcs) {
             featureByArc[arc.arcId] = traceById.get(arc.traceId).featureTrace;
         }
     }
@@ -132,7 +169,7 @@ public final class LayoutEmbedding {
      * rather than being papered over.
      */
     private void assertSubcomplex() {
-        for (TraceArc arc : motorcycleGraph.arcs) {
+        for (EmbeddedArc arc : network.arcs) {
             ArcEdgePath path = pathByArc[arc.arcId];
             if (path == null) {
                 throw new IllegalStateException("arc " + arc.arcId + " was never carved");

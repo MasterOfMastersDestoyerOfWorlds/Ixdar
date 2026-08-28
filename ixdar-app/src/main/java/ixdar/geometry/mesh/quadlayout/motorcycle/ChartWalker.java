@@ -1,8 +1,11 @@
 package ixdar.geometry.mesh.quadlayout.motorcycle;
 
+import java.util.List;
+
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.nodes.api.UvField;
+import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceAxis;
-import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 
 /**
  * QEx-style chart walker: advance a parametric iso-line one triangle at a time,
@@ -12,19 +15,26 @@ public final class ChartWalker {
 
     /** Doubles per face corner UV buffer {@code [u0,v0,u1,v1,u2,v2]}. */
     public static final int CORNER_UV_FLOATS = 6;
-    public static final int CORNERS = SeamlessParameterization.CORNERS_PER_FACE;
+    public static final int CORNERS = HalfEdgeMesh.TRIANGLE_CORNERS;
 
-    public final SeamlessParameterization seamless;
+    public final UvField uv;
+
+    /** The field's cone points; a fan walk stops at them. */
+    public final List<Singularity> singularities;
+
     private final HalfEdgeMesh mesh;
 
     /**
      * Binds the walker to a built seamless parametrization.
      *
-     * @param seamless built seamless parametrization with UV corners and cut graph
+     * @param mesh          the parametrized mesh
+     * @param uv            built seamless per-corner UV field over the mesh
+     * @param singularities the field's cone points
      */
-    public ChartWalker(SeamlessParameterization seamless) {
-        this.seamless = seamless;
-        this.mesh = seamless.mesh;
+    public ChartWalker(HalfEdgeMesh mesh, UvField uv, List<Singularity> singularities) {
+        this.uv = uv;
+        this.singularities = singularities;
+        this.mesh = mesh;
     }
 
     /**
@@ -44,7 +54,7 @@ public final class ChartWalker {
      */
     public EdgeHit nextEdgeHit(State state) {
         double[] cornerUv = new double[CORNER_UV_FLOATS];
-        seamless.faceCornerUv(state.activeFace, cornerUv);
+        uv.faceCornerUv(mesh.faceIdAt(state.activeFace), cornerUv);
         boolean holdsU = state.axis.holdsUConstant();
         double level = holdsU ? state.u : state.v;
         double currentAlong = holdsU ? state.v : state.u;
@@ -135,7 +145,7 @@ public final class ChartWalker {
         int faceId = mesh.faceIdAt(state.activeFace);
         int vertexId = mesh.faceVertexAt(faceId, edgeHit.cornerLocalIndex);
         boolean isSingularity = false;
-        for (var s : seamless.crossField.singularities) {
+        for (var s : singularities) {
             if (s.vertexId() == vertexId) {
                 isSingularity = true;
                 break;
@@ -206,14 +216,14 @@ public final class ChartWalker {
             if (cornerInNext < 0) {
                 return CrossVertexResult.HIT_BOUNDARY;
             }
-            double[] uv = new double[CORNER_UV_FLOATS];
-            seamless.faceCornerUv(next.activeFace, uv);
+            double[] cornerUv = new double[CORNER_UV_FLOATS];
+            faceCornerUvOfActive(next.activeFace, cornerUv);
             int aIdx = (cornerInNext + 1) % CORNERS;
             int bIdx = (cornerInNext + CORNERS - 1) % CORNERS;
-            double aDirX = uv[aIdx * 2] - next.u;
-            double aDirY = uv[aIdx * 2 + 1] - next.v;
-            double bDirX = uv[bIdx * 2] - next.u;
-            double bDirY = uv[bIdx * 2 + 1] - next.v;
+            double aDirX = cornerUv[aIdx * 2] - next.u;
+            double aDirY = cornerUv[aIdx * 2 + 1] - next.v;
+            double bDirX = cornerUv[bIdx * 2] - next.u;
+            double bDirY = cornerUv[bIdx * 2 + 1] - next.v;
             double[] dir = next.axis.direction(next.sign);
             double wedgeSign = aDirX * bDirY - aDirY * bDirX;
             double crossA = aDirX * dir[1] - aDirY * dir[0];
@@ -235,6 +245,16 @@ public final class ChartWalker {
             crossEdge = nextCross;
         }
         return CrossVertexResult.HIT_SINGULARITY_GAP;
+    }
+
+    /**
+     * Reads one active face's corner UVs through the face-id interface.
+     *
+     * @param activeFace active face index
+     * @param out        length-6 buffer receiving {@code [u0,v0,u1,v1,u2,v2]}
+     */
+    private void faceCornerUvOfActive(int activeFace, double[] out) {
+        uv.faceCornerUv(mesh.faceIdAt(activeFace), out);
     }
 
     private int cornerOfVertex(int faceId, int vertexId) {
@@ -266,7 +286,7 @@ public final class ChartWalker {
         }
         int faceId = mesh.faceIdAt(state.activeFace);
         int edgeId = mesh.faceEdgeAt(faceId, edgeHit.localEdgeIndex);
-        int activeEdge = seamless.crossField.edgeIdToActive.get(edgeId);
+        int activeEdge = mesh.activeEdgeIndexOf(edgeId);
         HalfEdgeMesh.EdgeFaceIds edgeFaces = mesh.edgeFaceIds(activeEdge);
         int nextFaceId = edgeFaces.faceA == faceId ? edgeFaces.faceB : edgeFaces.faceA;
         if (nextFaceId < 0) {
@@ -275,7 +295,7 @@ public final class ChartWalker {
             out.activeFace = state.activeFace;
             return false;
         }
-        int nextActiveFace = seamless.crossField.faceIdToActive.get(nextFaceId);
+        int nextActiveFace = mesh.activeFaceIndexOf(nextFaceId);
         int incomingInNext = -1;
         for (int edge = 0; edge < CORNERS; edge++) {
             if (mesh.faceEdgeAt(nextFaceId, edge) == edgeId) {
@@ -294,8 +314,8 @@ public final class ChartWalker {
 
         double[] oldUv = new double[CORNER_UV_FLOATS];
         double[] newUv = new double[CORNER_UV_FLOATS];
-        seamless.faceCornerUv(state.activeFace, oldUv);
-        seamless.faceCornerUv(nextActiveFace, newUv);
+        faceCornerUvOfActive(state.activeFace, oldUv);
+        faceCornerUvOfActive(nextActiveFace, newUv);
         double oldAx = oldUv[oldCornerA * 2];
         double oldAy = oldUv[oldCornerA * 2 + 1];
         double oldBx = oldUv[oldCornerB * 2];

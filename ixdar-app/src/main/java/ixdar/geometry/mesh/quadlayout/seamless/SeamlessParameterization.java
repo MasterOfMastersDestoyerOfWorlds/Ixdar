@@ -7,7 +7,15 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
-import ixdar.geometry.mesh.nodes.api.UvField;
+import java.util.List;
+import java.util.Map;
+
+import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.geometry.mesh.nodes.api.InputPort;
+import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.geometry.mesh.nodes.api.NodeContext;
+import ixdar.geometry.mesh.nodes.api.OutputPort;
+import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.SeamlessProjector;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
@@ -31,12 +39,16 @@ import ixdar.platform.Platforms;
  *
  * @see CrossField
  */
-public final class SeamlessParameterization implements UvField {
+@MeshNodeAnnotation(id = "seamless_uv", desktopOnly = true)
+public final class SeamlessParameterization implements MeshNode {
 
-    /** Triangle corner count. */
-    public static final int CORNERS_PER_FACE = 3;
-    /** Number of cross-field branches (a 4-RoSy field has 4). */
-    public static final int BRANCH_COUNT = 4;
+    public static final InputPort FIELD = new InputPort("field", PortType.CROSS_FIELD, null);
+    public static final OutputPort UV = new OutputPort("uv", PortType.UV_FIELD);
+    public static final OutputPort FLIPPED_TRIANGLES = new OutputPort("flipped_triangles", PortType.INT);
+    public static final OutputPort INJECTIVE = new OutputPort("injective", PortType.BOOLEAN);
+    public static final OutputPort DOFS = new OutputPort("dofs", PortType.DOF_SYSTEM);
+    public static final OutputPort CHARTS = new OutputPort("charts", PortType.CHART_ATLAS);
+
     static final float HALF_PI = (float) (Math.PI / 2.0);
     private static final float HALF = 0.5f;
     private static final double HALF_D = 0.5;
@@ -49,27 +61,17 @@ public final class SeamlessParameterization implements UvField {
      */
     private static final double DEGENERATE_UV_AREA_FRACTION = 1.0e-6;
 
-    public final HalfEdgeMesh mesh;
-    public final CrossField crossField;
+    /** The parametrization being built; every durable product lands here. */
+    public SeamlessUv uv;
 
-    /** Per-corner u, length {@code 3 * faceCount} (active-face order). */
-    public double[] uCorner;
-    /** Per-corner v, length {@code 3 * faceCount}. */
-    public double[] vCorner;
+    /** The mesh being parametrized; build scratch. */
+    public HalfEdgeMesh mesh;
 
-    /**
-     * Cut transition translation s<sub>e</sub>; only valid for INTERIOR cut edges.
-     * Aliases the cut-graph atlas's u translations.
-     */
-    public double[] cutTranslationS;
-    /**
-     * Cut transition translation t<sub>e</sub>; only valid for INTERIOR cut edges.
-     * Aliases the cut-graph atlas's v translations.
-     */
-    public double[] cutTranslationT;
+    /** The cross field being parametrized; build scratch. */
+    public CrossField field;
 
-    /** True iff every triangle has positive UV signed area. */
-    public boolean injective;
+    /** Validation metrics of the last {@link #resolve()}. */
+    public ParameterizationMetrics metrics;
 
     /** Hard cap on lazy-constraint rounds (BCE13 §3.4's outer iterations). */
     public int maxConstraintRounds = 60;
@@ -81,33 +83,6 @@ public final class SeamlessParameterization implements UvField {
      * the BCE13 ε margin absorbs the projection's adjustment (MC19 §7).
      */
     public boolean exactSeams = true;
-
-    /** Cut graph. */
-    public CutGraph cutGraph;
-
-    /** Metrics summary populated by {@link #build()}. */
-    public ParameterizationMetrics metrics;
-
-    public int faceCount;
-    public int edgeCount;
-
-    /**
-     * Active-edge → active-face index on the "A" side; -1 if that side is boundary.
-     */
-    public int[] edgeFaceA;
-    /**
-     * Active-edge → active-face index on the "B" side; -1 if that side is boundary.
-     */
-    public int[] edgeFaceB;
-
-    /**
-     * Active-edge → corner index of {@code halfEdgeVertex(edgeHalfEdge)} in face A.
-     */
-    public int[] edgeCornerInA;
-    /**
-     * Active-edge → corner index of {@code halfEdgeVertex(edgeHalfEdge)} in face B.
-     */
-    public int[] edgeCornerInB;
 
     /** §5.4 IRLS weights, initialized to 1. */
     public double[] faceWeight;
@@ -157,38 +132,49 @@ public final class SeamlessParameterization implements UvField {
      */
     public float targetEdgeLengthFractionOfBounds = 0.01f;
 
-    /**
-     * Target quad edge length.
-     */
-    public float targetQuadEdgeLength;
 
     /** Last solver output (size {@code dofSystem.dofCount}). */
     private double[] solution;
 
-    /**
-     * Adopts a built {@link CrossField}. Caller must invoke {@link #build()} to
-     * actually compute the parametrization.
-     *
-     * @param crossField a CrossField that has already had {@code build()} called
-     */
-    public SeamlessParameterization(CrossField crossField) {
-        this.crossField = crossField;
-        this.mesh = crossField.mesh;
-        this.faceCount = mesh.faceCount();
-        this.edgeCount = mesh.edgeCount();
 
-        this.targetQuadEdgeLength = targetEdgeLengthFractionOfBounds * mesh.computeBoundingBoxDiagonal();
+    @Override
+    public List<InputPort> inputs() {
+        return List.of(FIELD);
+    }
 
-        edgeFaceA = new int[edgeCount];
-        edgeFaceB = new int[edgeCount];
-        edgeCornerInA = new int[edgeCount];
-        edgeCornerInB = new int[edgeCount];
-        Arrays.fill(edgeFaceA, -1);
-        Arrays.fill(edgeFaceB, -1);
-        Arrays.fill(edgeCornerInA, -1);
-        Arrays.fill(edgeCornerInB, -1);
+    @Override
+    public List<OutputPort> outputs() {
+        return List.of(UV, FLIPPED_TRIANGLES, INJECTIVE, DOFS, CHARTS);
+    }
 
-        cutGraph = new CutGraph(mesh, crossField, this);
+    @Override
+    public String description() {
+        return "Builds the seamless parametrization over a cross field, reporting whether the"
+                + " result is injective and how many UV triangles flipped.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                FIELD.name, "Cross field to parametrize, from a cross_field node.",
+                UV.name, "The seamless parametrization with per-corner UVs.",
+                FLIPPED_TRIANGLES.name, "Number of UV triangles with negative signed area.",
+                INJECTIVE.name, "Whether the parametrization is injective.",
+                DOFS.name, "The parametrization solve's DOF system.",
+                CHARTS.name, "The per-face charts and the cut transitions between them."
+        );
+    }
+
+    @Override
+    public void evaluate(NodeContext ctx) {
+        CrossField inputField = (CrossField) ctx.getInput(FIELD.name, Object.class);
+        SeamlessParameterization stage = new SeamlessParameterization();
+        SeamlessUv built = stage.build(inputField);
+        ctx.setOutput(UV.name, built);
+        ctx.setOutput(FLIPPED_TRIANGLES.name, stage.metrics.flippedTriangleCount);
+        ctx.setOutput(INJECTIVE.name, built.injective);
+        ctx.setOutput(DOFS.name, stage.dofSystem.system);
+        ctx.setOutput(CHARTS.name, built.cutGraph.atlas);
     }
 
     /**
@@ -197,61 +183,70 @@ public final class SeamlessParameterization implements UvField {
      * @throws IllegalStateException if the projected parametrization still contains
      *                               flipped triangles after MC19 §5.4 repair;
      *                               downstream motorcycle / ILP stages require an
-     *                               injective parametrization
-     * @return the {@link ParameterizationMetrics} computed from the final
-     *         parametrization
+     *                               uv.injective parametrization
+     * @param field built cross field to parametrize
+     * @return the seamless parametrization data
      */
-    public ParameterizationMetrics build() {
+    public SeamlessUv build(CrossField field) {
+        this.field = field;
+        this.mesh = field.mesh;
+        this.uv = new SeamlessUv(mesh.faceCount(), mesh.edgeCount());
+        uv.faceIdToActive = field.faceIdToActive;
+        uv.edgeIdToActive = field.edgeIdToActive;
+        uv.targetQuadEdgeLength = targetEdgeLengthFractionOfBounds
+                * mesh.computeBoundingBoxDiagonal();
+        uv.cutGraph = new CutGraph(mesh, field, uv);
         System.out.println("[seamless] Building seamless parameterization");
-        for (int ae2 = 0; ae2 < edgeCount; ae2++) {
+        for (int ae2 = 0; ae2 < uv.edgeCount; ae2++) {
             EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(ae2);
 
             if (edgeFaceIds.faceA != MeshTopology.NONE) {
-                edgeFaceA[ae2] = crossField.faceIdToActive.get(edgeFaceIds.faceA);
+                uv.edgeFaceA[ae2] = field.faceIdToActive.get(edgeFaceIds.faceA);
                 int corner = -1;
-                for (int c1 = 0; c1 < CORNERS_PER_FACE; c1++) {
+                for (int c1 = 0; c1 < SeamlessUv.CORNERS_PER_FACE; c1++) {
                     if (mesh.faceVertexAt(edgeFaceIds.faceA, c1) == edgeFaceIds.edgeStartVertex) {
                         corner = c1;
                         break;
                     }
                 }
-                edgeCornerInA[ae2] = corner;
+                uv.edgeCornerInA[ae2] = corner;
             }
             if (edgeFaceIds.faceB != MeshTopology.NONE) {
-                edgeFaceB[ae2] = crossField.faceIdToActive.get(edgeFaceIds.faceB);
+                uv.edgeFaceB[ae2] = field.faceIdToActive.get(edgeFaceIds.faceB);
                 int corner1 = -1;
-                for (int c2 = 0; c2 < CORNERS_PER_FACE; c2++) {
+                for (int c2 = 0; c2 < SeamlessUv.CORNERS_PER_FACE; c2++) {
                     if (mesh.faceVertexAt(edgeFaceIds.faceB, c2) == edgeFaceIds.edgeStartVertex) {
                         corner1 = c2;
                         break;
                     }
                 }
-                edgeCornerInB[ae2] = corner1;
+                uv.edgeCornerInB[ae2] = corner1;
             }
         }
 
         System.out.println("[seamless] Mesh setup done, building cut graph");
 
-        cutGraph.buildCutGraph();
-        this.cutTranslationS = cutGraph.atlas.translationU;
-        this.cutTranslationT = cutGraph.atlas.translationV;
+        uv.cutGraph.buildCutGraph();
+        uv.cutTranslationS = uv.cutGraph.atlas.translationU;
+        uv.cutTranslationT = uv.cutGraph.atlas.translationV;
 
         System.out.println("[seamless] Cut graph built, precomputing per-face geometry and targets");
         precomputePerFaceGeometryAndTargets();
 
         System.out.println("[seamless] Per-face geometry and targets precomputed, assigning cut edge translation DOFs");
 
-        this.faceWeight = new double[faceCount];
+        this.faceWeight = new double[uv.faceCount];
         Arrays.fill(faceWeight, 1.0);
 
         long dofSystemStart = System.nanoTime();
-        this.dofSystem = new SeamlessDofSystem(this, cutGraph);
+        this.dofSystem = new SeamlessDofSystem(this, uv.cutGraph);
         this.solution = dofSystem.system.solution;
         this.dofSystem.system.writeBack = this::writeChartVerticesFromSolution;
         this.dofSystem.system.solve = () -> resolve();
         Platforms.log("[seamless timing] dof system %.3fs%n",
                 (System.nanoTime() - dofSystemStart) / 1.0e9);
-        return resolve();
+        resolve();
+        return uv;
     }
 
     /**
@@ -286,10 +281,10 @@ public final class SeamlessParameterization implements UvField {
             System.out.println("[seamless] Projecting onto exact-seam parameterization");
             new SeamlessProjector(this).project();
         }
-        this.metrics = new ParameterizationMetrics(this, mesh);
+        metrics = new ParameterizationMetrics(this, mesh);
         System.out.println("[seamless] Metrics computed, returning");
-        System.out.println("[seamless] Metrics: " + this.metrics);
-        return this.metrics;
+        System.out.println("[seamless] Metrics: " + metrics);
+        return metrics;
     }
 
     /**
@@ -308,49 +303,27 @@ public final class SeamlessParameterization implements UvField {
         baseFactorMatrix = rounding.retainedMatrix;
     }
 
-    /**
-     * Per-corner u accessor.
-     *
-     * @param faceId    mesh face id
-     * @param cornerIdx corner index in {@code [0, 3)}
-     * @return u-coordinate at the given corner
-     */
-    public double u(int faceId, int cornerIdx) {
-        int activeFace = crossField.faceIdToActive.get(faceId);
-        return uCorner[activeFace * CORNERS_PER_FACE + cornerIdx];
-    }
 
-    /**
-     * Per-corner v accessor.
-     *
-     * @param faceId    mesh face id
-     * @param cornerIdx corner index in {@code [0, 3)}
-     * @return v-coordinate at the given corner
-     */
-    public double v(int faceId, int cornerIdx) {
-        int activeFace = crossField.faceIdToActive.get(faceId);
-        return vCorner[activeFace * CORNERS_PER_FACE + cornerIdx];
-    }
 
     // =====================================================================
     // C4 prep. per-face shape gradients + branch-rotated cross targets.
     // =====================================================================
 
     private void precomputePerFaceGeometryAndTargets() {
-        faceArea = new double[faceCount];
-        faceShapeB = new double[faceCount * CORNERS_PER_FACE];
-        faceShapeC = new double[faceCount * CORNERS_PER_FACE];
-        faceUtxLocal = new double[faceCount];
-        faceUtyLocal = new double[faceCount];
-        faceVtxLocal = new double[faceCount];
-        faceVtyLocal = new double[faceCount];
+        faceArea = new double[uv.faceCount];
+        faceShapeB = new double[uv.faceCount * SeamlessUv.CORNERS_PER_FACE];
+        faceShapeC = new double[uv.faceCount * SeamlessUv.CORNERS_PER_FACE];
+        faceUtxLocal = new double[uv.faceCount];
+        faceUtyLocal = new double[uv.faceCount];
+        faceVtxLocal = new double[uv.faceCount];
+        faceVtyLocal = new double[uv.faceCount];
 
         Vector3f p0 = new Vector3f();
         Vector3f p1 = new Vector3f();
         Vector3f p2 = new Vector3f();
         Vector3f rel = new Vector3f();
 
-        for (int af = 0; af < faceCount; af++) {
+        for (int af = 0; af < uv.faceCount; af++) {
             int fId = mesh.faceIdAt(af);
             int v0 = mesh.faceVertexAt(fId, 0);
             int v1 = mesh.faceVertexAt(fId, 1);
@@ -359,8 +332,8 @@ public final class SeamlessParameterization implements UvField {
             mesh.vertexPosition(v1, p1);
             mesh.vertexPosition(v2, p2);
 
-            Vector3f xAxis = crossField.faceX[af];
-            Vector3f yAxis = crossField.faceY[af];
+            Vector3f xAxis = field.faceX[af];
+            Vector3f yAxis = field.faceY[af];
 
             // Project (p_i - p_0) into local frame.
             double x0 = 0, y0 = 0;
@@ -377,7 +350,7 @@ public final class SeamlessParameterization implements UvField {
             }
             faceArea[af] = HALF_D * Math.abs(twoArea);
 
-            int o = af * CORNERS_PER_FACE;
+            int o = af * SeamlessUv.CORNERS_PER_FACE;
             // ∇φ = (Σ b_i φ_i, Σ c_i φ_i) for linear φ on a 2D triangle.
             faceShapeB[o] = (y1 - y2) / twoArea;
             faceShapeB[o + 1] = (y2 - y0) / twoArea;
@@ -387,7 +360,7 @@ public final class SeamlessParameterization implements UvField {
             faceShapeC[o + 2] = (x1 - x0) / twoArea;
 
             // Branch-rotated cross targets.
-            double theta = crossField.theta[af] + cutGraph.faceBranch[af] * HALF_PI;
+            double theta = field.theta[af] + uv.cutGraph.faceBranch[af] * HALF_PI;
             double cu = Math.cos(theta), su = Math.sin(theta);
             faceUtxLocal[af] = cu;
             faceUtyLocal[af] = su;
@@ -415,41 +388,41 @@ public final class SeamlessParameterization implements UvField {
         LazyConstraints loop = new LazyConstraints(dofSystem.system, baseMatrix, constraints,
                 maxConstraintRounds);
         loop.run();
-        injective = loop.violated == 0;
+        uv.injective = loop.violated == 0;
         Platforms.log("[injectivity] done violated=%d flippedTriangles=%d%n", loop.violated,
                 countFlippedTrianglesFromSolution());
     }
 
     /**
-     * Materialise per-corner {@code uCorner} / {@code vCorner} from the current
+     * Materialise per-corner {@code uv.uCorner} / {@code uv.vCorner} from the current
      * {@link #solution} via each chart vertex's final-DOF expansion.
      */
     public void writeChartVerticesFromSolution() {
-        int totalCorners = faceCount * CORNERS_PER_FACE;
-        uCorner = new double[totalCorners];
-        vCorner = new double[totalCorners];
+        int totalCorners = uv.faceCount * SeamlessUv.CORNERS_PER_FACE;
+        uv.uCorner = new double[totalCorners];
+        uv.vCorner = new double[totalCorners];
         for (int corner = 0; corner < totalCorners; corner++) {
-            int chartVertex = cutGraph.cornerToChartVertex[corner];
-            uCorner[corner] = dofSystem.evaluateChartComponent(chartVertex, 0, solution);
-            vCorner[corner] = dofSystem.evaluateChartComponent(chartVertex, 1, solution);
+            int chartVertex = uv.cutGraph.cornerToChartVertex[corner];
+            uv.uCorner[corner] = dofSystem.evaluateChartComponent(chartVertex, 0, solution);
+            uv.vCorner[corner] = dofSystem.evaluateChartComponent(chartVertex, 1, solution);
         }
-        Arrays.fill(cutTranslationS, 0.0);
-        Arrays.fill(cutTranslationT, 0.0);
-        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+        Arrays.fill(uv.cutTranslationS, 0.0);
+        Arrays.fill(uv.cutTranslationT, 0.0);
+        for (int activeEdge = 0; activeEdge < uv.edgeCount; activeEdge++) {
             if (dofSystem.cutEdgeSDof[activeEdge] < 0) {
                 continue;
             }
-            cutTranslationS[activeEdge] = dofSystem.evaluateRawDof(
+            uv.cutTranslationS[activeEdge] = dofSystem.evaluateRawDof(
                     dofSystem.cutEdgeSDof[activeEdge], solution);
-            cutTranslationT[activeEdge] = dofSystem.evaluateRawDof(
+            uv.cutTranslationT[activeEdge] = dofSystem.evaluateRawDof(
                     dofSystem.cutEdgeTDof[activeEdge], solution);
         }
         boolean inj = true;
-        for (int af = 0; af < faceCount; af++) {
-            int o = af * CORNERS_PER_FACE;
-            double u0 = uCorner[o], v0p = vCorner[o];
-            double u1 = uCorner[o + 1], v1 = vCorner[o + 1];
-            double u2 = uCorner[o + 2], v2 = vCorner[o + 2];
+        for (int af = 0; af < uv.faceCount; af++) {
+            int o = af * SeamlessUv.CORNERS_PER_FACE;
+            double u0 = uv.uCorner[o], v0p = uv.vCorner[o];
+            double u1 = uv.uCorner[o + 1], v1 = uv.vCorner[o + 1];
+            double u2 = uv.uCorner[o + 2], v2 = uv.vCorner[o + 2];
             double sa = HALF * ((u1 - u0) * (v2 - v0p) - (u2 - u0) * (v1 - v0p));
             if (sa <= 0f) {
                 inj = false;
@@ -457,7 +430,7 @@ public final class SeamlessParameterization implements UvField {
             }
         }
 
-        this.injective = inj && this.injective;
+        uv.injective = inj && uv.injective;
     }
 
     /**
@@ -470,14 +443,14 @@ public final class SeamlessParameterization implements UvField {
      */
     private int countFlippedTrianglesFromSolution() {
         int flipped = 0;
-        double inverseTargetAreaScale = 1.0 / (targetQuadEdgeLength * targetQuadEdgeLength);
-        for (int af = 0; af < faceCount; af++) {
+        double inverseTargetAreaScale = 1.0 / (uv.targetQuadEdgeLength * uv.targetQuadEdgeLength);
+        for (int af = 0; af < uv.faceCount; af++) {
             if (faceArea[af] <= 0)
                 continue;
-            int o = af * CORNERS_PER_FACE;
-            int cv0 = cutGraph.cornerToChartVertex[o];
-            int cv1 = cutGraph.cornerToChartVertex[o + 1];
-            int cv2 = cutGraph.cornerToChartVertex[o + 2];
+            int o = af * SeamlessUv.CORNERS_PER_FACE;
+            int cv0 = uv.cutGraph.cornerToChartVertex[o];
+            int cv1 = uv.cutGraph.cornerToChartVertex[o + 1];
+            int cv2 = uv.cutGraph.cornerToChartVertex[o + 2];
             double u0 = dofSystem.evaluateChartComponent(cv0, 0, solution);
             double v0 = dofSystem.evaluateChartComponent(cv0, 1, solution);
             double u1 = dofSystem.evaluateChartComponent(cv1, 0, solution);
@@ -492,57 +465,6 @@ public final class SeamlessParameterization implements UvField {
         return flipped;
     }
 
-    /**
-     * Signed UV area of a face; positive iff orientation is preserved.
-     *
-     * @param faceId mesh face id
-     * @return signed UV-space triangle area
-     */
-    public double uvSignedArea(int faceId) {
-        int activeFace = crossField.faceIdToActive.get(faceId);
-        int o = activeFace * CORNERS_PER_FACE;
-        double u0 = uCorner[o], v0 = vCorner[o];
-        double u1 = uCorner[o + 1], v1 = vCorner[o + 1];
-        double u2 = uCorner[o + 2], v2 = vCorner[o + 2];
-        return HALF * ((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
-    }
 
-    /**
-     * Returns [u_p, v_p, u_q, v_q] for face's corners at vStart and vEnd.
-     *
-     * @param faceId the face id
-     * @param vStart the start vertex id
-     * @param vEnd   the end vertex id
-     * @return the corners coordinates
-     */
-    public double[] lookupCorners(int faceId, int vStart, int vEnd) {
-        int cStart = -1, cEnd = -1;
-        for (int c = 0; c < SeamlessParameterization.CORNERS_PER_FACE; c++) {
-            int v = mesh.faceVertexAt(faceId, c);
-            if (v == vStart)
-                cStart = c;
-            else if (v == vEnd)
-                cEnd = c;
-        }
-        return new double[] {
-                u(faceId, cStart), v(faceId, cStart),
-                u(faceId, cEnd), v(faceId, cEnd),
-        };
-    }
 
-    /**
-     * Corner UV coordinates for an active face.
-     *
-     * @param activeFace active face index
-     * @param out        length-6 buffer receiving {@code [u0,v0,u1,v1,u2,v2]}
-     */
-    public void faceCornerUv(int activeFace, double[] out) {
-        int base = activeFace * CORNERS_PER_FACE;
-        out[0] = uCorner[base];
-        out[1] = vCorner[base];
-        out[2] = uCorner[base + 1];
-        out[3] = vCorner[base + 1];
-        out[4] = uCorner[base + 2];
-        out[5] = vCorner[base + 2];
-    }
 }

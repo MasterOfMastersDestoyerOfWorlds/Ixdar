@@ -1,5 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.embedding.records;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 
 /**
@@ -29,8 +31,32 @@ public final class EmbeddedNode {
     /** LCBK19 Def 6.1: the node is embedded in the surface boundary. */
     public boolean border;
 
+    /** The end of a trace that died without meeting anything; diagnostic. */
+    public boolean truncated;
+
     /** The vertex of the working copy that this node sits on. */
     public int copyVertex;
+
+    /** Source-mesh vertex the node sits on, or -1 for face/edge-interior nodes. */
+    public int vertexId = -1;
+
+    /**
+     * Active face whose chart hosts the node's (u, v) for face-interior nodes, or
+     * -1 for nodes pinned to a mesh vertex.
+     */
+    public int activeFace = -1;
+
+    /** Singularity index times four, or 0. */
+    public int singularityIndex4;
+
+    /** Chart u at the node, from the arrangement phase. */
+    public double u;
+
+    /** Chart v at the node, from the arrangement phase. */
+    public double v;
+
+    /** Embedded 3D position from the arrangement phase; null after operators mint. */
+    public Vector3f position;
 
     /**
      * Creates a live node on a copy vertex.
@@ -48,6 +74,35 @@ public final class EmbeddedNode {
         this.copyVertex = copyVertex;
         this.critical = critical;
         this.border = border;
+        this.alive = true;
+    }
+
+    /**
+     * Creates an arrangement-phase node with chart and surface coordinates; the
+     * working-copy embedding is filled in by the layout-embedding assembly. The
+     * minting site sets {@link #critical}, {@link #border}, or {@link #truncated}
+     * when they apply.
+     *
+     * @param nodeId            unique node id
+     * @param vertexId          source-mesh vertex the node sits on, or -1
+     * @param activeFace        active face hosting (u, v), or -1 when pinned to a
+     *                          mesh vertex
+     * @param singularityIndex4 singularity index times four, or 0
+     * @param u                 chart u at the node
+     * @param v                 chart v at the node
+     * @param position          embedded 3D position
+     */
+    public EmbeddedNode(int nodeId, int vertexId, int activeFace,
+            int singularityIndex4, double u, double v, Vector3f position) {
+        this.nodeId = nodeId;
+        this.sourceNodeId = nodeId;
+        this.vertexId = vertexId;
+        this.activeFace = activeFace;
+        this.singularityIndex4 = singularityIndex4;
+        this.u = u;
+        this.v = v;
+        this.position = position;
+        this.copyVertex = -1;
         this.alive = true;
     }
 }

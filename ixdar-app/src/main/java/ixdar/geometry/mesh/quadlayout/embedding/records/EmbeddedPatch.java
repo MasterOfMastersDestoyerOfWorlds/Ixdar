@@ -41,6 +41,13 @@ public final class EmbeddedPatch {
     public boolean alive;
 
     /**
+     * Whether the arrangement boundary resolved to exactly one cycle with exactly
+     * four corners; false patches are excluded from quantization constraints and
+     * rejected by the embedding assembly.
+     */
+    public boolean validRectangle;
+
+    /**
      * Creates a live patch with four empty sides, to be filled by the caller.
      *
      * @param patchId       index of this patch in the T-mesh's patch list

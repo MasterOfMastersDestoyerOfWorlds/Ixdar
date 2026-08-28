@@ -346,6 +346,26 @@ public class HalfEdgeMesh implements MeshTopology, MeshValue {
         return activeHalfEdgeIds.get(activeIndex);
     }
 
+    /**
+     * The active-face index of a face id, the inverse of {@link #faceIdAt}.
+     *
+     * @param faceId face id to look up
+     * @return the face's active index, or -1 when the face is not active
+     */
+    public int activeFaceIndexOf(int faceId) {
+        return activeFaceIds.indexOf(faceId);
+    }
+
+    /**
+     * The active-edge index of an edge id, the inverse of {@link #edgeIdAt}.
+     *
+     * @param edgeId edge id to look up
+     * @return the edge's active index, or -1 when the edge is not active
+     */
+    public int activeEdgeIndexOf(int edgeId) {
+        return activeEdgeIds.indexOf(edgeId);
+    }
+
     /** {@inheritDoc}. */
     @Override
     public boolean hasVertex(int vertexId) {

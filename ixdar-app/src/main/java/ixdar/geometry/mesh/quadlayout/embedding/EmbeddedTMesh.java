@@ -8,6 +8,7 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.joml.Vector3f;
@@ -21,10 +22,8 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
-import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.FeatureEdgeSpan;
+import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
 import ixdar.platform.Platforms;
 
 /**
@@ -79,7 +78,19 @@ public class EmbeddedTMesh {
     /** First allocation of {@link #changedPatches}. */
     private static final int CHANGED_PATCH_INITIAL_CAPACITY = 16;
 
-    public final EmbeddedMeshTopology topology;
+    public EmbeddedMeshTopology topology;
+
+    /** The source triangle mesh the layout covers. */
+    public final HalfEdgeMesh sourceMesh;
+
+    /** Motorcycle traces, arrangement-phase data carried for quantization. */
+    public List<Trace> traces;
+
+    /**
+     * Feature-chain span per alignment/boundary edge id, arrangement-phase data
+     * carried for quantization diagnostics.
+     */
+    public Map<Integer, FeatureEdgeSpan> featureSpanByEdgeId;
 
     /**
      * Whether a patch lies left of the direction {@link #addPatch} walks its
@@ -226,12 +237,13 @@ public class EmbeddedTMesh {
      */
     public EmbeddedTMesh(EmbeddedMeshTopology topology) {
         this.topology = topology;
+        this.sourceMesh = topology.sourceMesh;
         this.nodes = new ArrayList<>();
         this.arcs = new ArrayList<>();
         this.patches = new ArrayList<>();
         this.arcEndsByNode = new ArrayList<>();
-        HalfEdgeMesh source = topology.sourceMesh;
-        this.expectedEulerCharacteristic = source.vertexCount() - source.edgeCount() + source.faceCount();
+        this.expectedEulerCharacteristic = sourceMesh.vertexCount() - sourceMesh.edgeCount()
+                + sourceMesh.faceCount();
         this.collapseArc = new ZeroArcCollapseOperator(this);
         this.splitPatch = new ZeroPatchSplitOperator(this);
         this.collapsePatch = new ZeroPatchCollapseOperator(this);
@@ -239,86 +251,144 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * Assembles the T-mesh from a finished carve and validates it against the
-     * surface's Euler characteristic.
+     * Creates an arrangement-phase T-mesh over the source mesh, with no working
+     * copy yet: the motorcycle stage mints nodes, arcs and patches into it, and
+     * the layout-embedding assembly later fills {@link #topology} and the paths.
      *
-     * @param embedding construction-half embedding whose motorcycle graph,
-     *                  quantization and carved paths are assembled; its working
-     *                  copy must be this T-mesh's {@link #topology}
+     * @param sourceMesh source triangle mesh the layout covers
+     */
+    public EmbeddedTMesh(HalfEdgeMesh sourceMesh) {
+        this.topology = null;
+        this.sourceMesh = sourceMesh;
+        this.nodes = new ArrayList<>();
+        this.arcs = new ArrayList<>();
+        this.patches = new ArrayList<>();
+        this.arcEndsByNode = new ArrayList<>();
+        this.expectedEulerCharacteristic = sourceMesh.vertexCount() - sourceMesh.edgeCount()
+                + sourceMesh.faceCount();
+        this.collapseArc = new ZeroArcCollapseOperator(this);
+        this.splitPatch = new ZeroPatchSplitOperator(this);
+        this.collapsePatch = new ZeroPatchCollapseOperator(this);
+        this.extendTJunction = new TJunctionExtension(this);
+    }
+
+
+
+    /**
+     * Assembles the T-mesh in place from a finished carve: every record keeps its
+     * arrangement id; nodes gain their copy vertices, arcs their carved paths, and
+     * patches their node chains, while arrangement leftovers that bound no patch
+     * are retired. Validates against the surface's Euler characteristic.
+     *
+     * @param embedding construction-half embedding whose carve is assembled; its
+     *                  working copy becomes this T-mesh's {@link #topology}
      * @throws IllegalStateException when a patch is not a valid rectangle, an arc
      *                               in a patch was not carved, a node in an arc was
      *                               not placed, or the assembled complex is not a
      *                               cell decomposition of the surface
-     * @return the assembled, validated {@link EmbeddedTMesh}
+     * @return this, assembled and validated
      */
-    public EmbeddedTMesh build(LayoutEmbedding embedding) {
-        MotorcycleGraph motorcycleGraph = embedding.motorcycleGraph;
-        int[] embeddedNodeBySource = new int[motorcycleGraph.nodes.size()];
-        int[] embeddedArcBySource = new int[motorcycleGraph.arcs.size()];
-        Arrays.fill(embeddedNodeBySource, EmbeddedTMesh.NONE);
-        Arrays.fill(embeddedArcBySource, EmbeddedTMesh.NONE);
-        for (TMeshPatch patch : motorcycleGraph.patches) {
-            if (!patch.validRectangle || patch.sides.size() != EmbeddedPatch.SIDES) {
-                throw new IllegalStateException("patch " + patch.patchId + " is not a valid rectangle:"
-                        + " validRectangle=" + patch.validRectangle + " sides=" + patch.sides.size());
+    public EmbeddedTMesh assemble(LayoutEmbedding embedding) {
+        this.topology = embedding.topology;
+        this.collapseArc = new ZeroArcCollapseOperator(this);
+        this.splitPatch = new ZeroPatchSplitOperator(this);
+        this.collapsePatch = new ZeroPatchCollapseOperator(this);
+        this.extendTJunction = new TJunctionExtension(this);
+        arcEndsByNode.clear();
+        for (int node = 0; node < nodes.size(); node++) {
+            arcEndsByNode.add(new ArrayList<>());
+        }
+        for (EmbeddedNode node : nodes) {
+            node.alive = false;
+        }
+        for (EmbeddedArc arc : arcs) {
+            arc.alive = false;
+        }
+        for (EmbeddedPatch patch : patches) {
+            if (!patch.validRectangle) {
+                throw new IllegalStateException("patch " + patch.patchId + " is not a valid"
+                        + " rectangle");
             }
-            for (List<Integer> side : patch.sides) {
-                for (int sourceArcId : side) {
-                    if (embeddedArcBySource[sourceArcId] != EmbeddedTMesh.NONE) {
+            for (List<Integer> side : patch.sideArcIds) {
+                for (int arcId : side) {
+                    EmbeddedArc arc = arcs.get(arcId);
+                    if (arc.alive) {
                         continue;
                     }
-                    TraceArc arc = motorcycleGraph.arcs.get(sourceArcId);
-                    int startNode = ensureNode(embedding, embeddedNodeBySource, arc.startNodeId);
-                    int endNode = ensureNode(embedding, embeddedNodeBySource, arc.endNodeId);
-                    ArcEdgePath carved = embedding.pathByArc[sourceArcId];
+                    reviveNode(embedding, arc.startNodeId);
+                    reviveNode(embedding, arc.endNodeId);
+                    ArcEdgePath carved = embedding.pathByArc[arcId];
                     if (carved == null) {
-                        throw new IllegalStateException("arc " + sourceArcId + " bounds a patch but was never"
-                                + " carved; the carve and the patch structure disagree");
+                        throw new IllegalStateException("arc " + arcId + " bounds a patch but was"
+                                + " never carved; the carve and the patch structure disagree");
                     }
                     int startVertex = embedding.vertexIdByNode[arc.startNodeId];
                     int endVertex = embedding.vertexIdByNode[arc.endNodeId];
                     List<Integer> path = carved.copyVertexPath;
                     int first = path.get(0);
                     int last = path.get(path.size() - 1);
-                    List<Integer> vertexPath = null;
+                    List<Integer> vertexPath;
                     if (first == startVertex && last == endVertex) {
-                        vertexPath = path;
+                        vertexPath = new ArrayList<>(path);
                     } else if (first == endVertex && last == startVertex) {
-                        List<Integer> reversed = new ArrayList<>(path);
-                        Collections.reverse(reversed);
-                        vertexPath = reversed;
+                        vertexPath = new ArrayList<>(path);
+                        Collections.reverse(vertexPath);
                     } else {
-                        throw new IllegalStateException("arc " + sourceArcId + " carved path runs " + first + ".."
-                                + last + " but its nodes sit on vertices " + startVertex + " and " + endVertex);
+                        throw new IllegalStateException("arc " + arcId + " carved path runs "
+                                + first + ".." + last + " but its nodes sit on vertices "
+                                + startVertex + " and " + endVertex);
                     }
-                    int quantizedLength = embedding.quantization.quantizedLengthByArc[sourceArcId];
-                    boolean feature = embedding.featureByArc[sourceArcId];
-                    int embeddedArcId = addArc(sourceArcId, startNode, endNode, quantizedLength, feature,
-                            vertexPath);
-                    embeddedArcBySource[sourceArcId] = embeddedArcId;
+                    List<Integer> edges = new ArrayList<>(vertexPath.size() - 1);
+                    for (int index = 1; index < vertexPath.size(); index++) {
+                        edges.add(requireEdge(arcId, vertexPath.get(index - 1),
+                                vertexPath.get(index)));
+                    }
+                    arc.path = new ArcEdgePath(arcId, vertexPath, edges);
+                    arc.feature = embedding.featureByArc[arcId];
+                    arc.alive = true;
+                    arcEndsByNode.get(arc.startNodeId).add(arcId);
+                    arcEndsByNode.get(arc.endNodeId).add(arcId);
+                    topology.claimPath(arcId, arc.path);
                 }
             }
         }
-        for (TMeshPatch patch : motorcycleGraph.patches) {
-            List<List<Integer>> sideArcIds = new ArrayList<>(EmbeddedPatch.SIDES);
-            for (List<Integer> side : patch.sides) {
-                List<Integer> embeddedSide = new ArrayList<>(side.size());
-                for (int sourceArcId : side) {
-                    embeddedSide.add(embeddedArcBySource[sourceArcId]);
-                }
-                sideArcIds.add(embeddedSide);
-            }
-            int firstSideFirstArc = embeddedArcBySource[patch.sides.get(0).get(0)];
-            List<Integer> lastSide = patch.sides.get(EmbeddedPatch.SIDES - 1);
-            int lastSideLastArc = embeddedArcBySource[lastSide.get(lastSide.size() - 1)];
-            EmbeddedArc entering = arcs.get(firstSideFirstArc);
-            EmbeddedArc leaving = arcs.get(lastSideLastArc);
+        for (EmbeddedPatch patch : patches) {
+            List<Integer> firstSide = patch.sideArcIds.get(0);
+            List<Integer> lastSide = patch.sideArcIds.get(EmbeddedPatch.SIDES - 1);
+            EmbeddedArc entering = arcs.get(firstSide.get(0));
+            EmbeddedArc leaving = arcs.get(lastSide.get(lastSide.size() - 1));
             int firstCorner = entering.endNodeId;
             if (entering.startNodeId == leaving.startNodeId
                     || entering.startNodeId == leaving.endNodeId) {
                 firstCorner = entering.startNodeId;
             }
-            addPatch(patch.patchId, sideArcIds, firstCorner);
+            int walkNode = firstCorner;
+            for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
+                List<Integer> sideNodes = patch.sideNodeIds.get(side);
+                sideNodes.clear();
+                sideNodes.add(walkNode);
+                for (int arcId : patch.sideArcIds.get(side)) {
+                    EmbeddedArc arc = arcs.get(arcId);
+                    if (arc.startNodeId != walkNode && arc.endNodeId != walkNode) {
+                        throw new IllegalStateException("patch " + patch.patchId + " side " + side
+                                + ": arc " + arcId + " does not touch node " + walkNode);
+                    }
+                    if ((arc.startNodeId == walkNode) == interiorLeftOfWalk) {
+                        arc.leftPatchId = patch.patchId;
+                    } else {
+                        arc.rightPatchId = patch.patchId;
+                    }
+                    walkNode = arc.otherNode(walkNode);
+                    sideNodes.add(walkNode);
+                }
+            }
+            if (walkNode != firstCorner) {
+                throw new IllegalStateException("patch " + patch.patchId
+                        + " boundary does not close: walked back to node " + walkNode
+                        + " instead of " + firstCorner);
+            }
+            patch.alive = true;
+            markPatchChanged(patch.patchId);
         }
         resolveWalkOrientation();
         validate();
@@ -326,31 +396,27 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * Adds a node if not already added.
+     * Revives one arrangement node into the assembled T-mesh, giving it its copy
+     * vertex, criticality and border flag.
      *
-     * @param embedding            construction-half embedding being assembled
-     * @param embeddedNodeBySource embedded node id per source node id, updated in
-     *                             place
-     * @param sourceNodeId         source node id to add
+     * @param embedding construction-half embedding being assembled
+     * @param nodeId    node to revive
      * @throws IllegalStateException when the node was never placed on a copy vertex
-     * @return the embedded node id
      */
-    private int ensureNode(LayoutEmbedding embedding, int[] embeddedNodeBySource,
-            int sourceNodeId) {
-        if (embeddedNodeBySource[sourceNodeId] != EmbeddedTMesh.NONE) {
-            return embeddedNodeBySource[sourceNodeId];
+    private void reviveNode(LayoutEmbedding embedding, int nodeId) {
+        EmbeddedNode node = nodes.get(nodeId);
+        if (node.alive) {
+            return;
         }
-        int copyVertex = embedding.vertexIdByNode[sourceNodeId];
+        int copyVertex = embedding.vertexIdByNode[nodeId];
         if (copyVertex < 0) {
-            throw new IllegalStateException("node " + sourceNodeId + " bounds an arc but was never"
+            throw new IllegalStateException("node " + nodeId + " bounds an arc but was never"
                     + " placed on a copy vertex");
         }
-        TMeshNode node = embedding.motorcycleGraph.nodes.get(sourceNodeId);
-        boolean critical = embedding.criticalByNode[sourceNodeId];
-        boolean border = node.type == TMeshNode.Type.BOUNDARY;
-        int embeddedNodeId = addNode(sourceNodeId, copyVertex, critical, border);
-        embeddedNodeBySource[sourceNodeId] = embeddedNodeId;
-        return embeddedNodeId;
+        node.copyVertex = copyVertex;
+        node.critical = embedding.criticalByNode[nodeId];
+        node.alive = true;
+        topology.ownerNodeByCopyVertex[copyVertex] = nodeId;
     }
 
     /**

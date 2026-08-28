@@ -97,7 +97,7 @@ public final class InjectivityConstraints implements LazyConstraints.ConstraintS
      * @return this, built
      */
     public InjectivityConstraints build() {
-        int capacity = seamless.faceCount * CONSTRAINTS_PER_TRIANGLE * 2;
+        int capacity = seamless.uv.faceCount * CONSTRAINTS_PER_TRIANGLE * 2;
         faceByConstraint = new int[capacity];
         cornerCoefficients = new double[capacity * COEFFICIENTS_PER_CONSTRAINT];
         rawThreshold = new double[capacity];
@@ -107,7 +107,7 @@ public final class InjectivityConstraints implements LazyConstraints.ConstraintS
         Vector3f p1 = new Vector3f();
         Vector3f p2 = new Vector3f();
         Vector3f rel = new Vector3f();
-        for (int activeFace = 0; activeFace < seamless.faceCount; activeFace++) {
+        for (int activeFace = 0; activeFace < seamless.uv.faceCount; activeFace++) {
             if (seamless.faceArea[activeFace] <= 0.0) {
                 continue;
             }
@@ -115,8 +115,8 @@ public final class InjectivityConstraints implements LazyConstraints.ConstraintS
             seamless.mesh.vertexPosition(seamless.mesh.faceVertexAt(faceId, 0), p0);
             seamless.mesh.vertexPosition(seamless.mesh.faceVertexAt(faceId, 1), p1);
             seamless.mesh.vertexPosition(seamless.mesh.faceVertexAt(faceId, 2), p2);
-            Vector3f xAxis = seamless.crossField.faceX[activeFace];
-            Vector3f yAxis = seamless.crossField.faceY[activeFace];
+            Vector3f xAxis = seamless.field.faceX[activeFace];
+            Vector3f yAxis = seamless.field.faceY[activeFace];
             double[] localX = new double[CORNERS];
             double[] localY = new double[CORNERS];
             rel.set(p1).sub(p0);
@@ -125,7 +125,7 @@ public final class InjectivityConstraints implements LazyConstraints.ConstraintS
             rel.set(p2).sub(p0);
             localX[2] = rel.dot(xAxis);
             localY[2] = rel.dot(yAxis);
-            double scale = 1.0 / seamless.targetQuadEdgeLength;
+            double scale = 1.0 / seamless.uv.targetQuadEdgeLength;
             double targetUx = seamless.faceUtxLocal[activeFace];
             double targetUy = seamless.faceUtyLocal[activeFace];
             double targetVx = seamless.faceVtxLocal[activeFace];
@@ -146,7 +146,7 @@ public final class InjectivityConstraints implements LazyConstraints.ConstraintS
         gradientDofs = new int[constraintCount][];
         gradientCoefs = new double[constraintCount][];
         Platforms.log("[injectivity] constraints=%d over %d faces%n", constraintCount,
-                seamless.faceCount);
+                seamless.uv.faceCount);
         return this;
     }
 
@@ -171,7 +171,7 @@ public final class InjectivityConstraints implements LazyConstraints.ConstraintS
             int face = faceByConstraint[constraint];
             if (face != loadedFace) {
                 for (int corner = 0; corner < CORNERS; corner++) {
-                    int chartVertex = seamless.cutGraph
+                    int chartVertex = seamless.uv.cutGraph
                             .cornerToChartVertex[face * CORNERS + corner];
                     cornerU[corner] = seamless.dofSystem
                             .evaluateChartComponent(chartVertex, 0, solution);
@@ -423,7 +423,7 @@ public final class InjectivityConstraints implements LazyConstraints.ConstraintS
         int face = faceByConstraint[constraint];
         int at = constraint * COEFFICIENTS_PER_CONSTRAINT;
         for (int corner = 0; corner < CORNERS; corner++) {
-            int chartVertex = seamless.cutGraph.cornerToChartVertex[face * CORNERS + corner];
+            int chartVertex = seamless.uv.cutGraph.cornerToChartVertex[face * CORNERS + corner];
             for (int component = 0; component < 2; component++) {
                 double coefficient = normalizer[constraint]
                         * cornerCoefficients[at + component * CORNERS + corner];

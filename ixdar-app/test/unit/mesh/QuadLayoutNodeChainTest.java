@@ -8,21 +8,19 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.nodes.data.LoadMeshNode;
-import ixdar.geometry.mesh.nodes.quadlayout.ArcQuantizationNode;
-import ixdar.geometry.mesh.nodes.quadlayout.CrossFieldNode;
-import ixdar.geometry.mesh.nodes.quadlayout.IntegerGridMapNode;
-import ixdar.geometry.mesh.nodes.quadlayout.LayoutEmbeddingNode;
-import ixdar.geometry.mesh.nodes.quadlayout.MotorcycleGraphNode;
 import ixdar.geometry.mesh.nodes.quadlayout.NewtonSolverNode;
 import ixdar.geometry.mesh.nodes.quadlayout.QuadExtractNode;
-import ixdar.geometry.mesh.nodes.quadlayout.SeamlessUvNode;
 import ixdar.geometry.mesh.nodes.quadlayout.TmeshContractNode;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
+import ixdar.geometry.mesh.quadlayout.gridmap.GridMapAssembly;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.quantization.LayoutExtraction;
+import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
+import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 
 /**
  * Chains the quad-layout stage nodes through their port interfaces,
@@ -44,56 +42,64 @@ class QuadLayoutNodeChainTest {
         load.evaluate(loadCtx);
         GeometryBundle bundle = loadCtx.getOutput(LoadMeshNode.GEOMETRY.name, GeometryBundle.class);
 
-        CrossFieldNode crossField = new CrossFieldNode();
+        NDirectionField crossField = new NDirectionField();
         MapNodeContext fieldCtx = new MapNodeContext(crossField);
-        fieldCtx.setInput(CrossFieldNode.GEOMETRY.name, bundle);
+        fieldCtx.setInput(NDirectionField.GEOMETRY.name, bundle);
         crossField.evaluate(fieldCtx);
-        CrossField field = fieldCtx.getOutput(CrossFieldNode.FIELD.name, CrossField.class);
+        CrossField field = fieldCtx.getOutput(NDirectionField.FIELD.name, CrossField.class);
         assertEquals(field.singularities.size(),
-                fieldCtx.getOutput(CrossFieldNode.SINGULARITY_COUNT.name, Integer.class),
+                fieldCtx.getOutput(NDirectionField.SINGULARITY_COUNT.name, Integer.class),
                 "the count output matches the field");
 
-        SeamlessUvNode seamlessUv = new SeamlessUvNode();
+        SeamlessParameterization seamlessUv = new SeamlessParameterization();
         MapNodeContext uvCtx = new MapNodeContext(seamlessUv);
-        uvCtx.setInput(SeamlessUvNode.FIELD.name, field);
+        uvCtx.setInput(SeamlessParameterization.FIELD.name, field);
         seamlessUv.evaluate(uvCtx);
-        SeamlessParameterization seamless =
-                uvCtx.getOutput(SeamlessUvNode.UV.name, SeamlessParameterization.class);
-        assertEquals(0, uvCtx.getOutput(SeamlessUvNode.FLIPPED_TRIANGLES.name, Integer.class),
+        SeamlessUv seamless =
+                uvCtx.getOutput(SeamlessParameterization.UV.name, SeamlessUv.class);
+        assertEquals(0, uvCtx.getOutput(SeamlessParameterization.FLIPPED_TRIANGLES.name, Integer.class),
                 "the parametrization flips no triangle");
-        assertTrue(uvCtx.getOutput(SeamlessUvNode.INJECTIVE.name, Boolean.class),
+        assertTrue(uvCtx.getOutput(SeamlessParameterization.INJECTIVE.name, Boolean.class),
                 "the parametrization is injective");
 
-        MotorcycleGraphNode motorcycle = new MotorcycleGraphNode();
+        MotorcycleGraph motorcycle = new MotorcycleGraph();
         MapNodeContext graphCtx = new MapNodeContext(motorcycle);
-        graphCtx.setInput(MotorcycleGraphNode.UV.name, seamless);
+        graphCtx.setInput(MotorcycleGraph.GEOMETRY.name, bundle);
+        graphCtx.setInput(MotorcycleGraph.UV.name, seamless);
+        graphCtx.setInput(MotorcycleGraph.SINGULARITIES.name,
+                fieldCtx.getOutput(NDirectionField.SINGULARITIES.name, Object.class));
+        graphCtx.setInput(MotorcycleGraph.FEATURE_EDGES.name,
+                fieldCtx.getOutput(NDirectionField.FEATURE_EDGES.name, Object.class));
         motorcycle.evaluate(graphCtx);
-        MotorcycleGraph graph =
-                graphCtx.getOutput(MotorcycleGraphNode.GRAPH.name, MotorcycleGraph.class);
+        EmbeddedTMesh graph =
+                graphCtx.getOutput(MotorcycleGraph.GRAPH.name, EmbeddedTMesh.class);
 
-        int meshEuler = seamless.mesh.vertexCount() - seamless.mesh.edgeCount()
-                + seamless.mesh.faceCount();
+        int meshEuler = graph.sourceMesh.vertexCount() - graph.sourceMesh.edgeCount()
+                + graph.sourceMesh.faceCount();
         assertEquals(meshEuler, graph.nodes.size() - graph.arcs.size() + graph.patches.size(),
                 "the arrangement is a cell complex of the surface");
         assertEquals(graph.patches.size(),
-                graphCtx.getOutput(MotorcycleGraphNode.PATCH_COUNT.name, Integer.class),
+                graphCtx.getOutput(MotorcycleGraph.PATCH_COUNT.name, Integer.class),
                 "the patch count output matches the graph");
         assertTrue(graph.patches.size() > 0, "the arrangement has patches");
 
-        ArcQuantizationNode quantize = new ArcQuantizationNode();
+        QuantizedMeshGrid quantize = new QuantizedMeshGrid();
         MapNodeContext skeletonCtx = new MapNodeContext(quantize);
-        skeletonCtx.setInput(ArcQuantizationNode.GRAPH.name, graph);
+        skeletonCtx.setInput(QuantizedMeshGrid.GRAPH.name, graph);
         quantize.evaluate(skeletonCtx);
-        LayoutExtraction skeleton =
-                skeletonCtx.getOutput(ArcQuantizationNode.SKELETON.name, LayoutExtraction.class);
-        assertTrue(skeleton.layoutArcs.size() > 0, "the skeleton keeps positive arcs");
+        EmbeddedTMesh skeleton =
+                skeletonCtx.getOutput(QuantizedMeshGrid.SKELETON.name, EmbeddedTMesh.class);
+        long positiveArcs = skeleton.arcs.stream()
+                .filter(arc -> arc.quantizedLength > 0).count();
+        assertTrue(positiveArcs > 0, "the skeleton keeps positive arcs");
 
-        LayoutEmbeddingNode embed = new LayoutEmbeddingNode();
+        LayoutEmbedding embed = new LayoutEmbedding();
         MapNodeContext tmeshCtx = new MapNodeContext(embed);
-        tmeshCtx.setInput(LayoutEmbeddingNode.SKELETON.name, skeleton);
+        tmeshCtx.setInput(LayoutEmbedding.SKELETON.name, skeleton);
+        tmeshCtx.setInput(LayoutEmbedding.UV.name, seamless);
         embed.evaluate(tmeshCtx);
         EmbeddedTMesh tmesh =
-                tmeshCtx.getOutput(LayoutEmbeddingNode.TMESH.name, EmbeddedTMesh.class);
+                tmeshCtx.getOutput(LayoutEmbedding.TMESH.name, EmbeddedTMesh.class);
         assertEquals(graph.patches.size(), tmesh.patches.size(),
                 "every arrangement patch becomes one embedded patch");
 
@@ -105,20 +111,20 @@ class QuadLayoutNodeChainTest {
                 contractedCtx.getOutput(TmeshContractNode.TMESH_OUT.name, EmbeddedTMesh.class);
         assertEquals(0, liveZeroArcs(contracted), "contraction leaves no live zero arc");
 
-        IntegerGridMapNode gridMapNode = new IntegerGridMapNode();
+        GridMapAssembly gridMapNode = new GridMapAssembly();
         MapNodeContext gridCtx = new MapNodeContext(gridMapNode);
-        gridCtx.setInput(IntegerGridMapNode.TMESH.name, contracted);
-        gridCtx.setInput(IntegerGridMapNode.UV.name, seamless);
+        gridCtx.setInput(GridMapAssembly.TMESH.name, contracted);
+        gridCtx.setInput(GridMapAssembly.UV.name, seamless);
         gridMapNode.evaluate(gridCtx);
         GlobalGridMap gridMap =
-                gridCtx.getOutput(IntegerGridMapNode.UV_OUT.name, GlobalGridMap.class);
+                gridCtx.getOutput(GridMapAssembly.UV_OUT.name, GlobalGridMap.class);
         assertEquals(0, gridMap.offGridNodeCount, "every layout node lands on an integer");
 
         NewtonSolverNode newton = new NewtonSolverNode();
         MapNodeContext relaxCtx = new MapNodeContext(newton);
         relaxCtx.setInput(NewtonSolverNode.UV.name, gridMap);
         relaxCtx.setInput(NewtonSolverNode.DOFS.name,
-                gridCtx.getOutput(IntegerGridMapNode.DOFS.name, Object.class));
+                gridCtx.getOutput(GridMapAssembly.DOFS.name, Object.class));
         newton.evaluate(relaxCtx);
         assertTrue(gridMap.gridOptimizer.energyAfter <= gridMap.gridOptimizer.energyBefore,
                 "the relaxation does not raise the energy");

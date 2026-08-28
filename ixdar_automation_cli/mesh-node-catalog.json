@@ -1042,6 +1042,16 @@
           "description": "Number of extracted singularities."
         },
         {
+          "name": "singularities",
+          "portType": "SINGULARITY_LIST",
+          "description": "The field\u0027s singular points, for tracing stages."
+        },
+        {
+          "name": "feature_edges",
+          "portType": "EDGE_ID_SET",
+          "description": "Mesh edge ids of sharp feature and boundary edges."
+        },
+        {
           "name": "dofs",
           "portType": "DOF_SYSTEM",
           "description": "The smoothing solve\u0027s system, for solver-composing graphs."
@@ -2467,6 +2477,12 @@
           "portType": "ARC_NETWORK",
           "description": "Quantized skeleton to embed, from an arc_quantization node.",
           "defaultValue": null
+        },
+        {
+          "name": "uv",
+          "portType": "UV_FIELD",
+          "description": "Seamless UV field the carve reads chart coordinates from.",
+          "defaultValue": null
         }
       ],
       "outputs": [
@@ -3023,9 +3039,27 @@
       "desktopOnly": true,
       "inputs": [
         {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Geometry carrying the parametrized triangle mesh.",
+          "defaultValue": null
+        },
+        {
           "name": "uv",
           "portType": "UV_FIELD",
-          "description": "Seamless parametrization to trace, from a seamless_uv node.",
+          "description": "Seamless per-corner UV field to trace, from a seamless_uv node.",
+          "defaultValue": null
+        },
+        {
+          "name": "singularities",
+          "portType": "SINGULARITY_LIST",
+          "description": "Cone points the separatrices spawn from, from a cross_field node.",
+          "defaultValue": null
+        },
+        {
+          "name": "feature_edges",
+          "portType": "EDGE_ID_SET",
+          "description": "Mesh edge ids of feature and boundary curves, from a cross_field node.",
           "defaultValue": null
         },
         {

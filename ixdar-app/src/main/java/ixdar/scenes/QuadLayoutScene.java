@@ -109,7 +109,8 @@ public class QuadLayoutScene extends ModelScene {
         float alphaRadians = (float) Math.toRadians(alphaDegrees);
         QuadLayoutEngine engine = new QuadLayoutEngine(halfEdgeMesh, alphaRadians);
         engine.buildPatchSurfaces();
-        quadRuntime.setSeamlessParametrization(engine.seamless);
+        quadRuntime.setSeamlessParametrization(engine.seamless, engine.mesh);
+        quadRuntime.captureSingularities(engine.crossField.singularities, engine.mesh);
         quadRuntime.setMotorcycleGraph(engine.motorcycleGraph);
         quadRuntime.setEmbeddedTMesh(engine.tmesh);
         this.engine = engine;
@@ -170,7 +171,7 @@ public class QuadLayoutScene extends ModelScene {
         }
         if (gridMapView == GRID_MAP_VIEW_OFF) {
             quadRuntime.showFullIsoGrid = false;
-            quadRuntime.setSeamlessParametrization(engine.seamless);
+            quadRuntime.setSeamlessParametrization(engine.seamless, engine.mesh);
             Platforms.get().log("[quad-layout] grid map paint off");
             return;
         }

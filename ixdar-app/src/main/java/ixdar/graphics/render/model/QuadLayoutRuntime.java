@@ -24,8 +24,7 @@ import ixdar.geometry.mesh.quadlayout.extraction.LayoutPatchSurfaces;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
-import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorRGB;
@@ -167,7 +166,6 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private static final Color COLOR_V_ARM = Color.CYAN;
     private static final Color COLOR_INTERSECTION_NODE = Color.WHITE;
     private static final Color COLOR_BOUNDARY_NODE = Color.YELLOW;
-    private static final Color COLOR_FEATURE_NODE = Color.MAGENTA;
     private static final Color COLOR_TRUNCATED_NODE = Color.ORANGE;
     private static final String FLIPPED_COLOR_UNIFORM = "flippedColor";
     private static final String DRAW_FULL_ISO_GRID_UNIFORM = "drawFullIsoGrid";
@@ -351,7 +349,10 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     public float[] patchCloudDotRadii = new float[0];
 
     public MotorcycleGraph motorcycleGraph;
-    public SeamlessParameterization seamlessParametrization;
+    public SeamlessUv seamlessParametrization;
+
+    /** The mesh the seamless parametrization covers; set with it. */
+    public HalfEdgeMesh seamlessMesh;
 
     /** VAO of the layout boundary GL_LINES buffer. */
     public int layoutLineVao;
@@ -430,7 +431,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
 
     /**
      * Build the runtime; defers parametrization upload to
-     * {@link #setSeamlessParametrization(SeamlessParameterization)}.
+     * {@link #setSeamlessParametrization(SeamlessUv)}.
      *
      * @throws Exception if the inherited {@link HalfEdgeMeshRuntime} or the
      *                   {@code MeshUv} shader fails to initialise
@@ -450,22 +451,19 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
      * Upload (or replace) the iso-line surface and singularity-sphere buffers from
      * {@code seamless}. Safe to call repeatedly — frees the previous buffers before
      * re-uploading. The seamless parametrization must have had
-     * {@link SeamlessParameterization#build()} run so {@code uCorner},
+     * {@link SeamlessUv#build()} run so {@code uCorner},
      * {@code vCorner}, and the cross-field's singularity list are populated.
      *
      * @param seamless the built parametrization whose iso-lines to render
+     * @param mesh     the mesh the parametrization covers
      */
-    public void setSeamlessParametrization(SeamlessParameterization seamless) {
+    public void setSeamlessParametrization(SeamlessUv seamless, HalfEdgeMesh mesh) {
         this.seamlessParametrization = seamless;
+        this.seamlessMesh = mesh;
         if (seamless == null || seamless.uCorner == null || seamless.vCorner == null) {
             return;
         }
         uploadSeamlessSurface(seamless, motorcycleGraph);
-        if (singularityVao == 0) {
-            buildIcosphereBuffers();
-        }
-        updateSphereRadius();
-        captureSingularities(seamless.crossField, seamless.mesh);
     }
 
     /**
@@ -493,11 +491,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         if (field == null || field.mesh == null) {
             return;
         }
-        if (singularityVao == 0) {
-            buildIcosphereBuffers();
-        }
-        updateSphereRadius();
-        captureSingularities(field, field.mesh);
+        captureSingularities(field.singularities, field.mesh);
     }
 
     /**
@@ -601,16 +595,20 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
      * Capture singularity vertex positions and their {@code index4} values so
      * {@link #renderOverlays(Camera3D)} can draw a coloured sphere at each.
      *
-     * @param crossField cross field whose singularities to render
-     * @param mesh       the underlying triangle mesh
+     * @param singularities singular vertices to render
+     * @param mesh          the underlying triangle mesh
      */
-    protected void captureSingularities(CrossField crossField, HalfEdgeMesh mesh) {
-        int n = crossField.singularities.size();
+    public void captureSingularities(List<Singularity> singularities, HalfEdgeMesh mesh) {
+        if (singularityVao == 0) {
+            buildIcosphereBuffers();
+        }
+        updateSphereRadius();
+        int n = singularities.size();
         singularityPositions = new float[FLOATS_PER_SPHERE_VERTEX * n];
         singularityIndex4 = new int[n];
         Vector3f position = new Vector3f();
         for (int i = 0; i < n; i++) {
-            Singularity singularity = crossField.singularities.get(i);
+            Singularity singularity = singularities.get(i);
             mesh.vertexPosition(singularity.vertexId(), position);
             int posBase = FLOATS_PER_SPHERE_VERTEX * i;
             singularityPositions[posBase] = position.x;
@@ -621,7 +619,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Whether {@link #setSeamlessParametrization(SeamlessParameterization)} has
+     * Whether {@link #setSeamlessParametrization(SeamlessUv)} has
      * populated the GPU buffers and there's something to render.
      *
      * @return {@code true} when iso-surface geometry has been uploaded
@@ -984,8 +982,8 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         return new int[] { vao, vbo, ebo };
     }
 
-    private void uploadSeamlessSurface(SeamlessParameterization seamless, MotorcycleGraph graph) {
-        HalfEdgeMesh mesh = seamless.mesh;
+    private void uploadSeamlessSurface(SeamlessUv seamless, MotorcycleGraph graph) {
+        HalfEdgeMesh mesh = seamlessMesh;
         int faceCount = mesh.faceCount();
         float[] interleaved = new float[faceCount * CORNERS_PER_FACE * FLOATS_PER_CORNER_WITH_TRACES];
         int[] indices = new int[faceCount * CORNERS_PER_FACE];
@@ -1139,33 +1137,39 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     private void captureGraphNodes(MotorcycleGraph graph) {
-        graphNodeCount = graph.nodes.size();
+        graphNodeCount = 0;
+        for (EmbeddedNode node : graph.nodes) {
+            graphNodeCount += node.position != null ? 1 : 0;
+        }
         graphNodePositions = new float[FLOATS_PER_SPHERE_VERTEX * graphNodeCount];
         graphNodeColors = new Color[graphNodeCount];
-        for (int i = 0; i < graphNodeCount; i++) {
-            TMeshNode node = graph.nodes.get(i);
-            int posBase = FLOATS_PER_SPHERE_VERTEX * i;
+        int at = 0;
+        for (EmbeddedNode node : graph.nodes) {
+            // Operator-minted nodes carry no arrangement position; the overlay
+            // shows the traced arrangement only.
+            if (node.position == null) {
+                continue;
+            }
+            int posBase = FLOATS_PER_SPHERE_VERTEX * at;
             graphNodePositions[posBase] = node.position.x;
             graphNodePositions[posBase + COMPONENT_Y] = node.position.y;
             graphNodePositions[posBase + COMPONENT_Z] = node.position.z;
-            graphNodeColors[i] = nodeColor(node);
+            graphNodeColors[at] = nodeColor(node);
+            at++;
         }
     }
 
-    private static Color nodeColor(TMeshNode node) {
-        if (node.type == TMeshNode.Type.SINGULARITY) {
+    private static Color nodeColor(EmbeddedNode node) {
+        if (node.critical) {
             return node.singularityIndex4 > 0 ? COLOR_POSITIVE_INDEX : COLOR_NEGATIVE_INDEX;
         }
-        if (node.type == TMeshNode.Type.INTERSECTION) {
-            return COLOR_INTERSECTION_NODE;
+        if (node.border) {
+            return COLOR_BOUNDARY_NODE;
         }
-        if (node.type == TMeshNode.Type.FEATURE) {
-            return COLOR_FEATURE_NODE;
-        }
-        if (node.type == TMeshNode.Type.TRUNCATED) {
+        if (node.truncated) {
             return COLOR_TRUNCATED_NODE;
         }
-        return COLOR_BOUNDARY_NODE;
+        return COLOR_INTERSECTION_NODE;
     }
 
     private void renderTraceSurface(Camera3D camera) {

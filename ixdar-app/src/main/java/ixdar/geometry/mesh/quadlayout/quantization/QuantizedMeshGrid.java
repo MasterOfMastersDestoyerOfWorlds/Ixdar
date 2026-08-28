@@ -6,12 +6,22 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import java.util.Map;
+
+import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.geometry.mesh.nodes.api.InputPort;
+import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.geometry.mesh.nodes.api.NodeContext;
+import ixdar.geometry.mesh.nodes.api.OutputPort;
+import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.MetOtherTraceEntry;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 import ixdar.platform.Platforms;
 
 /**
@@ -23,7 +33,13 @@ import ixdar.platform.Platforms;
  * <p>
  * See also: Lyon 2021 Sections 4 and 5
  */
-public class QuantizedMeshGrid {
+@MeshNodeAnnotation(id = "arc_quantization", desktopOnly = true)
+public class QuantizedMeshGrid implements MeshNode {
+
+    public static final InputPort GRAPH = new InputPort("graph", PortType.ARC_NETWORK, null);
+    public static final InputPort ALPHA_DEGREES = new InputPort("alpha_degrees", PortType.FLOAT,
+            MotorcycleGraph.DEFAULT_ALPHA_DEGREES);
+    public static final OutputPort SKELETON = new OutputPort("skeleton", PortType.ARC_NETWORK);
 
     /** Cap on solve→collapse→cut rounds of the CBK15-style separation loop. */
     private static final int MAX_SEPARATION_ROUNDS = 50;
@@ -31,11 +47,14 @@ public class QuantizedMeshGrid {
     /** Cap on packed cut paths generated per separation round. */
     private static final int MAX_CUTS_PER_ROUND = 500;
 
-    public final MotorcycleGraph motorcycleGraph;
+    public final EmbeddedTMesh network;
     public final float alphaRadians;
 
     /** Solved non-negative integer per arc id; filled by {@link #build()}. */
     public int[] quantizedLengthByArc;
+
+    /** Diagnostics and render products of the collapse half, off the port flow. */
+    public LayoutExtraction layout;
 
     /** Variable-class index per arc id after the §5.2 merge. */
     public int[] variableClassByArc;
@@ -69,15 +88,58 @@ public class QuantizedMeshGrid {
     /** Per-trace constraint logging, on only for the first separation round. */
     private boolean constraintLoggingEnabled = true;
 
+    /** Inert node-registry instance; evaluation builds a fresh quantization. */
+    public QuantizedMeshGrid() {
+        this.network = null;
+        this.alphaRadians = 0f;
+    }
+
     /**
      * Stores inputs for a Lyon §4–§5 quantization solve.
      *
-     * @param motorcycleGraph built T-mesh with subdivided arcs and patch sides
+     * @param network built T-mesh arrangement with subdivided arcs and patch sides
      * @param alphaRadians    Lyon's maximum separatrix deviation α in radians
      */
-    public QuantizedMeshGrid(MotorcycleGraph motorcycleGraph, float alphaRadians) {
-        this.motorcycleGraph = motorcycleGraph;
+    public QuantizedMeshGrid(EmbeddedTMesh network, float alphaRadians) {
+        this.network = network;
         this.alphaRadians = alphaRadians;
+    }
+
+    @Override
+    public List<InputPort> inputs() {
+        return List.of(GRAPH, ALPHA_DEGREES);
+    }
+
+    @Override
+    public List<OutputPort> outputs() {
+        return List.of(SKELETON);
+    }
+
+    @Override
+    public String description() {
+        return "Solves the quantization ILP over an arc network (one integer length per arc) and"
+                + " collapses zero-quantized arcs into the layout's separatrix skeleton.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                GRAPH.name, "Arc network to quantize, from a motorcycle_graph node.",
+                ALPHA_DEGREES.name, "Maximum separatrix deviation in degrees, bounding the ILP.",
+                SKELETON.name, "The quantized skeleton: collapse clusters plus positive arcs."
+        );
+    }
+
+    @Override
+    public void evaluate(NodeContext ctx) {
+        EmbeddedTMesh graph = (EmbeddedTMesh) ctx.getInput(GRAPH.name, Object.class);
+        float alphaDegrees = FieldBroadcast.floatScalarOrDefault(
+                FieldBroadcast.getInputOrDefault(ctx, ALPHA_DEGREES.name, ALPHA_DEGREES.defaultValue),
+                MotorcycleGraph.DEFAULT_ALPHA_DEGREES);
+        QuantizedMeshGrid quantization =
+                new QuantizedMeshGrid(graph, (float) Math.toRadians(alphaDegrees)).build();
+        quantization.layout = new LayoutExtraction(quantization).build();
+        ctx.setOutput(SKELETON.name, graph);
     }
 
     /**
@@ -91,20 +153,20 @@ public class QuantizedMeshGrid {
      * @return this, with {@link #quantizedLengthByArc} populated
      */
     public QuantizedMeshGrid build() {
-        List<TraceArc> arcs = motorcycleGraph.arcs;
+        List<EmbeddedArc> arcs = network.arcs;
         int arcCount = arcs.size();
 
         int[] parent = new int[arcCount];
         for (int arcId = 0; arcId < arcCount; arcId++) {
             parent[arcId] = arcId;
         }
-        for (TMeshPatch patch : motorcycleGraph.patches) {
+        for (EmbeddedPatch patch : network.patches) {
             if (!patch.validRectangle) {
                 continue;
             }
             for (int sideIndex = 0; sideIndex < 2; sideIndex++) {
-                List<Integer> side = patch.sides.get(sideIndex);
-                List<Integer> oppositeSide = patch.sides.get(sideIndex + 2);
+                List<Integer> side = patch.sideArcIds.get(sideIndex);
+                List<Integer> oppositeSide = patch.sideArcIds.get(sideIndex + 2);
                 if (side.size() == 1 && oppositeSide.size() == 1) {
                     union(parent, side.get(0), oppositeSide.get(0));
                 }
@@ -183,7 +245,7 @@ public class QuantizedMeshGrid {
                     "[quantize] state=%s objective=%.3f zeroArcs=%d/%d violations=%d round=%d%n",
                     result.state, objectiveValue, zeroArcs, arcCount, violations, round);
 
-            collapse = new ZeroArcCollapse(motorcycleGraph, quantizedLengthByArc).build();
+            collapse = new ZeroArcCollapse(network, quantizedLengthByArc).build();
             if (collapse.mergedSingularityVertexIdsByCluster.isEmpty()) {
                 break;
             }
@@ -202,6 +264,9 @@ public class QuantizedMeshGrid {
         for (List<Integer> merged : collapse.mergedSingularityVertexIdsByCluster) {
             Platforms.log("[quantize] VALIDITY VIOLATION merged singularity vertices=%s%n", merged);
         }
+        for (EmbeddedArc arc : network.arcs) {
+            arc.quantizedLength = quantizedLengthByArc[arc.arcId];
+        }
         return this;
     }
 
@@ -218,11 +283,11 @@ public class QuantizedMeshGrid {
      * @return number of new cut paths collected
      */
     private int collectSeparationCuts(ZeroArcCollapse collapse, List<List<Integer>> cutPaths) {
-        List<List<TraceArc>> zeroArcsByNode = new ArrayList<>(motorcycleGraph.nodes.size());
-        for (int nodeId = 0; nodeId < motorcycleGraph.nodes.size(); nodeId++) {
+        List<List<EmbeddedArc>> zeroArcsByNode = new ArrayList<>(network.nodes.size());
+        for (int nodeId = 0; nodeId < network.nodes.size(); nodeId++) {
             zeroArcsByNode.add(new ArrayList<>());
         }
-        for (TraceArc arc : motorcycleGraph.arcs) {
+        for (EmbeddedArc arc : network.arcs) {
             if (quantizedLengthByArc[arc.arcId] == 0) {
                 zeroArcsByNode.get(arc.startNodeId).add(arc);
                 zeroArcsByNode.get(arc.endNodeId).add(arc);
@@ -234,7 +299,7 @@ public class QuantizedMeshGrid {
             // their arcs until the cluster's singularities disconnect, so one
             // round covers the full braid width of the corridor instead of one
             // strand per solve.
-            boolean[] blockedArc = new boolean[motorcycleGraph.arcs.size()];
+            boolean[] blockedArc = new boolean[network.arcs.size()];
             for (int startVertexIndex = 0; startVertexIndex < mergedVertexIds.size(); startVertexIndex++) {
                 while (added < MAX_CUTS_PER_ROUND) {
                     List<Integer> pathArcIds = zeroPathBetweenSingularities(
@@ -267,12 +332,12 @@ public class QuantizedMeshGrid {
      * @return arc ids of one connecting path, or {@code null} if none found
      */
     private List<Integer> zeroPathBetweenSingularities(int startVertexId,
-            List<Integer> mergedVertexIds, List<List<TraceArc>> zeroArcsByNode,
+            List<Integer> mergedVertexIds, List<List<EmbeddedArc>> zeroArcsByNode,
             boolean[] blockedArc) {
         int startNodeId = -1;
         Set<Integer> goalNodeIds = new HashSet<>();
-        for (TMeshNode node : motorcycleGraph.nodes) {
-            if (node.type != TMeshNode.Type.SINGULARITY || node.vertexId < 0
+        for (EmbeddedNode node : network.nodes) {
+            if (!node.critical || node.vertexId < 0
                     || !mergedVertexIds.contains(node.vertexId)) {
                 continue;
             }
@@ -285,13 +350,13 @@ public class QuantizedMeshGrid {
         if (startNodeId < 0 || goalNodeIds.isEmpty()) {
             return null;
         }
-        int[] arcIntoNode = new int[motorcycleGraph.nodes.size()];
-        int[] cameFromNode = new int[motorcycleGraph.nodes.size()];
+        int[] arcIntoNode = new int[network.nodes.size()];
+        int[] cameFromNode = new int[network.nodes.size()];
         Arrays.fill(arcIntoNode, -1);
         Arrays.fill(cameFromNode, -1);
         List<Integer> frontier = new ArrayList<>();
         frontier.add(startNodeId);
-        boolean[] visited = new boolean[motorcycleGraph.nodes.size()];
+        boolean[] visited = new boolean[network.nodes.size()];
         visited[startNodeId] = true;
         int head = 0;
         while (head < frontier.size()) {
@@ -305,7 +370,7 @@ public class QuantizedMeshGrid {
                 }
                 return pathArcIds;
             }
-            for (TraceArc arc : zeroArcsByNode.get(nodeId)) {
+            for (EmbeddedArc arc : zeroArcsByNode.get(nodeId)) {
                 if (blockedArc[arc.arcId]) {
                     continue;
                 }
@@ -327,15 +392,15 @@ public class QuantizedMeshGrid {
      * to every arc on the side pair it measures across, accumulated per class. Arcs
      * bounded only by invalid cycles keep weight zero.
      */
-    private void accumulatePerpendicularWeights(List<TraceArc> arcs, double[] classWeight) {
-        for (TMeshPatch patch : motorcycleGraph.patches) {
+    private void accumulatePerpendicularWeights(List<EmbeddedArc> arcs, double[] classWeight) {
+        for (EmbeddedPatch patch : network.patches) {
             if (!patch.validRectangle) {
                 continue;
             }
             double[] sideLengths = new double[4];
             for (int sideIndex = 0; sideIndex < 4; sideIndex++) {
                 double total = 0.0;
-                for (int arcId : patch.sides.get(sideIndex)) {
+                for (int arcId : patch.sideArcIds.get(sideIndex)) {
                     total += arcs.get(arcId).parametricLength;
                 }
                 sideLengths[sideIndex] = total;
@@ -343,7 +408,7 @@ public class QuantizedMeshGrid {
             for (int sideIndex = 0; sideIndex < 4; sideIndex++) {
                 double perpendicularExtent = 0.5 * (sideLengths[(sideIndex + 1) % 4]
                         + sideLengths[(sideIndex + 3) % 4]);
-                for (int arcId : patch.sides.get(sideIndex)) {
+                for (int arcId : patch.sideArcIds.get(sideIndex)) {
                     classWeight[variableClassByArc[arcId]] += 0.5 * perpendicularExtent;
                 }
             }
@@ -357,17 +422,17 @@ public class QuantizedMeshGrid {
      */
     private void addConsistencyConstraints(IntegerProgram model) {
         int patchIndex = 0;
-        for (TMeshPatch patch : motorcycleGraph.patches) {
+        for (EmbeddedPatch patch : network.patches) {
             patchIndex++;
             if (!patch.validRectangle) {
                 continue;
             }
             for (int sideIndex = 0; sideIndex < 2; sideIndex++) {
                 double[] coefficientByClass = new double[variableCount];
-                for (int arcId : patch.sides.get(sideIndex)) {
+                for (int arcId : patch.sideArcIds.get(sideIndex)) {
                     coefficientByClass[variableClassByArc[arcId]] += 1.0;
                 }
-                for (int arcId : patch.sides.get(sideIndex + 2)) {
+                for (int arcId : patch.sideArcIds.get(sideIndex + 2)) {
                     coefficientByClass[variableClassByArc[arcId]] -= 1.0;
                 }
                 boolean nonTrivial = false;
@@ -402,7 +467,7 @@ public class QuantizedMeshGrid {
      * See also: Lyon 2021 Section 4
      */
     private void addValidityConstraints(IntegerProgram model) {
-        for (Trace trace : motorcycleGraph.traces) {
+        for (Trace trace : network.traces) {
             if (trace.chainArcIds.isEmpty()) {
                 continue;
             }
@@ -429,11 +494,12 @@ public class QuantizedMeshGrid {
                 if (constraintLoggingEnabled) {
                     int terminalNodeId = trace.arcNodeIds.get(trace.arcNodeIds.size() - 1);
                     Platforms.log(
-                            "[quantize] validity fallback trace=%d reason=%s terminalType=%s"
-                                    + " chainArcs=%d meetings=%d%n",
+                            "[quantize] validity fallback trace=%d reason=%s terminalCritical=%b"
+                                    + " terminalBorder=%b chainArcs=%d meetings=%d%n",
                             trace.traceId,
                             firstSector == null ? "noSectorMeeting" : "sectorMeetingWithoutNode",
-                            motorcycleGraph.nodes.get(terminalNodeId).type.name(),
+                            network.nodes.get(terminalNodeId).critical,
+                            network.nodes.get(terminalNodeId).border,
                             trace.chainArcIds.size(), trace.metOtherTraces.size());
                 }
                 prefix = trace.chainArcIds;
@@ -464,7 +530,7 @@ public class QuantizedMeshGrid {
     private void addLayoutConstraints(IntegerProgram model) {
         double tanAlpha = Math.tan(alphaRadians);
         Set<Long> emitted = new HashSet<>();
-        for (Trace trace : motorcycleGraph.traces) {
+        for (Trace trace : network.traces) {
             for (MetOtherTraceEntry meeting : trace.metOtherTraces) {
                 if (meeting.intersectionNodeId < 0) {
                     continue;
@@ -485,7 +551,7 @@ public class QuantizedMeshGrid {
                 if (!triggered) {
                     continue;
                 }
-                Trace other = motorcycleGraph.traces.get(meeting.otherTraceId);
+                Trace other = network.traces.get(meeting.otherTraceId);
                 if (other.featureTrace || other.chainArcIds.isEmpty()) {
                     continue;
                 }
@@ -555,17 +621,17 @@ public class QuantizedMeshGrid {
      */
     private int verifySolution() {
         int violations = 0;
-        for (TMeshPatch patch : motorcycleGraph.patches) {
+        for (EmbeddedPatch patch : network.patches) {
             if (!patch.validRectangle) {
                 continue;
             }
             for (int sideIndex = 0; sideIndex < 2; sideIndex++) {
                 int sideSum = 0;
-                for (int arcId : patch.sides.get(sideIndex)) {
+                for (int arcId : patch.sideArcIds.get(sideIndex)) {
                     sideSum += quantizedLengthByArc[arcId];
                 }
                 int oppositeSum = 0;
-                for (int arcId : patch.sides.get(sideIndex + 2)) {
+                for (int arcId : patch.sideArcIds.get(sideIndex + 2)) {
                     oppositeSum += quantizedLengthByArc[arcId];
                 }
                 if (sideSum != oppositeSum) {

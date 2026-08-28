@@ -17,7 +17,7 @@ import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
 import ixdar.geometry.mesh.quadlayout.gridmap.LayoutPatchMaps;
 import ixdar.geometry.mesh.quadlayout.gridmap.LayoutResolution;
 import ixdar.geometry.mesh.quadlayout.gridmap.PatchRectangleMap;
-import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 
 /**
  * The Newton relaxation on the torus layout must stay flip-free and land on the
@@ -67,7 +67,7 @@ class GridMapOptimizerParallelTest {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
         fixture.tmesh.contract();
         fixture.tmesh.conform();
-        SeamlessParameterization seamless = new QuadLayoutEngine(fixture.torus, 0f)
+        SeamlessUv seamless = new QuadLayoutEngine(fixture.torus, 0f)
                 .buildSeamless();
         double targetEdgeLength = shortestArcLength(fixture.tmesh, seamless)
                 / QUADS_ON_SHORTEST_ARC;
@@ -109,7 +109,7 @@ class GridMapOptimizerParallelTest {
      * @param seamless the parametrization to measure in
      * @return the shortest arc's parametric length
      */
-    private double shortestArcLength(EmbeddedTMesh tmesh, SeamlessParameterization seamless) {
+    private double shortestArcLength(EmbeddedTMesh tmesh, SeamlessUv seamless) {
         LayoutResolution measured = new LayoutResolution(tmesh, seamless, 1.0).build();
         double shortest = Double.MAX_VALUE;
         for (EmbeddedArc arc : tmesh.arcs) {

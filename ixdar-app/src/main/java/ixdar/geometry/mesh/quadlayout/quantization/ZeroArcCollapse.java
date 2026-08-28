@@ -6,9 +6,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 
 /**
  * Union-find collapse of T-mesh nodes connected by zero-quantized arcs: a path of
@@ -19,7 +19,7 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
  */
 public final class ZeroArcCollapse {
 
-    public final MotorcycleGraph motorcycleGraph;
+    public final EmbeddedTMesh network;
     public final int[] quantizedLengthByArc;
 
     /** Collapse-cluster index per T-mesh node id. */
@@ -40,11 +40,11 @@ public final class ZeroArcCollapse {
     /**
      * Stores inputs for a zero-arc collapse.
      *
-     * @param motorcycleGraph      built T-mesh whose nodes get clustered
+     * @param network      built T-mesh whose nodes get clustered
      * @param quantizedLengthByArc solved quantization, one integer per arc id
      */
-    public ZeroArcCollapse(MotorcycleGraph motorcycleGraph, int[] quantizedLengthByArc) {
-        this.motorcycleGraph = motorcycleGraph;
+    public ZeroArcCollapse(EmbeddedTMesh network, int[] quantizedLengthByArc) {
+        this.network = network;
         this.quantizedLengthByArc = quantizedLengthByArc;
     }
 
@@ -54,12 +54,12 @@ public final class ZeroArcCollapse {
      * @return this, with all public products populated
      */
     public ZeroArcCollapse build() {
-        int nodeCount = motorcycleGraph.nodes.size();
+        int nodeCount = network.nodes.size();
         int[] parent = new int[nodeCount];
         for (int nodeId = 0; nodeId < nodeCount; nodeId++) {
             parent[nodeId] = nodeId;
         }
-        for (TraceArc arc : motorcycleGraph.arcs) {
+        for (EmbeddedArc arc : network.arcs) {
             if (quantizedLengthByArc[arc.arcId] == 0) {
                 union(parent, arc.startNodeId, arc.endNodeId);
             }
@@ -80,8 +80,8 @@ public final class ZeroArcCollapse {
         for (int cluster = 0; cluster < clusterCount; cluster++) {
             singularityVertexIdsByCluster.add(new LinkedHashSet<>());
         }
-        for (TMeshNode node : motorcycleGraph.nodes) {
-            if (node.type == TMeshNode.Type.SINGULARITY && node.vertexId >= 0) {
+        for (EmbeddedNode node : network.nodes) {
+            if (node.critical && node.vertexId >= 0) {
                 singularityVertexIdsByCluster.get(clusterByNode[node.nodeId])
                         .add(node.vertexId);
             }

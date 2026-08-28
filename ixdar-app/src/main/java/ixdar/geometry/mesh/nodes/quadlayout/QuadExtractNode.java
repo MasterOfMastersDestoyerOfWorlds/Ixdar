@@ -14,6 +14,7 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedQuadMesh;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
+import ixdar.geometry.mesh.quadlayout.gridmap.GridMapAssembly;
 
 /**
  * QEx extraction: vertices at the preimages of integer grid points,
@@ -56,7 +57,7 @@ public class QuadExtractNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         GlobalGridMap gridMap = (GlobalGridMap) ctx.getInput(UV.name, Object.class);
-        gridMap.extractQuads();
+        GridMapAssembly.extractQuads(gridMap);
         ExtractedQuadMesh quads = gridMap.quadMesh;
         ArrayMesh mesh = ArrayMesh.fromQuads(
                 Arrays.copyOf(quads.positions, quads.quadVertexCount * ExtractedQuadMesh.POSITION_FLOATS),

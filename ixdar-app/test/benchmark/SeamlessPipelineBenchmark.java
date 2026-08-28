@@ -53,9 +53,6 @@ public final class SeamlessPipelineBenchmark {
                 + " flipped=" + engine.seamlessMetrics.flippedTriangleCount
                 + " injective=" + engine.seamless.injective);
         System.out.println("[benchmark] leftoverConstraints=" + engine.seamless.cutGraph.leftoverConstraints.length
-                + " rawDofCount=" + engine.seamless.dofSystem.rawDofCount
-                + " dofCount=" + engine.seamless.dofSystem.dofCount
-                + " (pivoted out " + (engine.seamless.dofSystem.rawDofCount - engine.seamless.dofSystem.dofCount)
-                + ")");
+                + " dofCount=" + engine.seamlessSystem.dofCount);
     }
 }

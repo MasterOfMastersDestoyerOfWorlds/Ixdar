@@ -7,7 +7,7 @@ import ixdar.geometry.mesh.data.load.CrossFieldLoader;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
-import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
 import ixdar.platform.Platforms;
@@ -82,12 +82,13 @@ public class ParametrizationExaminationScene extends ModelScene {
                         + cfPath + ": " + ex.getMessage());
             }
         }
-        SeamlessParameterization seamless = engine.buildSeamless();
+        SeamlessUv seamless = engine.buildSeamless();
         ParameterizationMetrics metrics = engine.seamlessMetrics;
 
         quadRuntime.showIsoLines = true;
         quadRuntime.showSingularities = true;
-        quadRuntime.setSeamlessParametrization(seamless);
+        quadRuntime.setSeamlessParametrization(seamless, halfEdgeMesh);
+        quadRuntime.captureSingularities(crossField.singularities, halfEdgeMesh);
 
         Platforms.get().log("[param-exam] " + offPath
                 + (cfPath == null ? "" : " cf=" + cfPath)

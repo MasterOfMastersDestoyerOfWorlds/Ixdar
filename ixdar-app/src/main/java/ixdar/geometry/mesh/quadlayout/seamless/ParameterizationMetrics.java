@@ -11,7 +11,7 @@ public class ParameterizationMetrics {
     public static final float SVD_DET_FACTOR = 4.0f;
     /**
      * Indices into the 4-element {@code [u_p, v_p, u_q, v_q]} array returned by
-     * {@link SeamlessParameterization#lookupCorners(int, int, int)}.
+     * {@link SeamlessUv#lookupCorners}.
      */
     public static final int IDX_UQ = 2;
     /** {@link #IDX_UQ} sibling. */
@@ -58,7 +58,7 @@ public class ParameterizationMetrics {
         int flipped = 0;
         for (int af = 0; af < faceCount; af++) {
             int faceId = mesh.faceIdAt(af);
-            if (seamless.uvSignedArea(faceId) <= 0.0f) {
+            if (seamless.uv.uvSignedArea(faceId) <= 0.0f) {
                 flipped++;
             }
         }
@@ -73,7 +73,7 @@ public class ParameterizationMetrics {
     public double computeMaxTransitionResidual() {
         double worst = 0.0;
         for (int ae = 0; ae < edgeCount; ae++) {
-            if (!seamless.cutGraph.isCutEdge[ae])
+            if (!seamless.uv.cutGraph.isCutEdge[ae])
                 continue;
             int eId = mesh.edgeIdAt(ae);
             if (mesh.isBoundaryEdge(eId))
@@ -86,14 +86,14 @@ public class ParameterizationMetrics {
             int vStart = mesh.halfEdgeVertex(hCanon);
             int vEnd = mesh.halfEdgeEndVertex(hCanon);
 
-            double[] coordsA = seamless.lookupCorners(faceA, vStart, vEnd);
-            double[] coordsB = seamless.lookupCorners(faceB, vStart, vEnd);
+            double[] coordsA = seamless.uv.lookupCorners(mesh, faceA, vStart, vEnd);
+            double[] coordsB = seamless.uv.lookupCorners(mesh, faceB, vStart, vEnd);
 
-            int r = seamless.cutGraph.cutRotation[ae];
+            int r = seamless.uv.cutGraph.cutRotation[ae];
             float cr = ExactArithmetic.integerCosine(r);
             float sr = ExactArithmetic.integerSine(r);
-            double s = seamless.cutTranslationS[ae];
-            double t = seamless.cutTranslationT[ae];
+            double s = seamless.uv.cutTranslationS[ae];
+            double t = seamless.uv.cutTranslationT[ae];
 
             double upGexpected = cr * coordsA[0] - sr * coordsA[1] + s;
             double vpGexpected = sr * coordsA[0] + cr * coordsA[1] + t;
@@ -120,7 +120,7 @@ public class ParameterizationMetrics {
         double sum = 0.0;
         int componentCount = 0;
         for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
-            if (!seamless.cutGraph.isCutEdge[activeEdge])
+            if (!seamless.uv.cutGraph.isCutEdge[activeEdge])
                 continue;
             int edgeId = mesh.edgeIdAt(activeEdge);
             if (mesh.isBoundaryEdge(edgeId))
@@ -133,14 +133,14 @@ public class ParameterizationMetrics {
             int vStart = mesh.halfEdgeVertex(halfEdge);
             int vEnd = mesh.halfEdgeEndVertex(halfEdge);
 
-            double[] coordsA = seamless.lookupCorners(faceA, vStart, vEnd);
-            double[] coordsB = seamless.lookupCorners(faceB, vStart, vEnd);
+            double[] coordsA = seamless.uv.lookupCorners(mesh, faceA, vStart, vEnd);
+            double[] coordsB = seamless.uv.lookupCorners(mesh, faceB, vStart, vEnd);
 
-            int rotation = seamless.cutGraph.cutRotation[activeEdge];
+            int rotation = seamless.uv.cutGraph.cutRotation[activeEdge];
             int cosR = ExactArithmetic.integerCosine(rotation);
             int sinR = ExactArithmetic.integerSine(rotation);
-            double translationS = seamless.cutTranslationS[activeEdge];
-            double translationT = seamless.cutTranslationT[activeEdge];
+            double translationS = seamless.uv.cutTranslationS[activeEdge];
+            double translationT = seamless.uv.cutTranslationT[activeEdge];
 
             double expectedUp = cosR * coordsA[0] - sinR * coordsA[1] + translationS;
             double expectedVp = sinR * coordsA[0] + cosR * coordsA[1] + translationT;
@@ -167,7 +167,7 @@ public class ParameterizationMetrics {
     public double computeMeanDistortion() {
         double sum = 0.0;
         int counted = 0;
-        float targetScale = seamless.targetQuadEdgeLength;
+        float targetScale = seamless.uv.targetQuadEdgeLength;
         Vector3f position0 = new Vector3f();
         Vector3f position1 = new Vector3f();
         Vector3f position2 = new Vector3f();
@@ -188,13 +188,13 @@ public class ParameterizationMetrics {
                 continue;
             float y2 = (float) Math.sqrt(y2Squared);
 
-            int cornerBase = activeFace * SeamlessParameterization.CORNERS_PER_FACE;
-            double u0 = seamless.uCorner[cornerBase];
-            double v0 = seamless.vCorner[cornerBase];
-            double u1 = seamless.uCorner[cornerBase + 1];
-            double v1 = seamless.vCorner[cornerBase + 1];
-            double u2 = seamless.uCorner[cornerBase + 2];
-            double v2 = seamless.vCorner[cornerBase + 2];
+            int cornerBase = activeFace * SeamlessUv.CORNERS_PER_FACE;
+            double u0 = seamless.uv.uCorner[cornerBase];
+            double v0 = seamless.uv.vCorner[cornerBase];
+            double u1 = seamless.uv.uCorner[cornerBase + 1];
+            double v1 = seamless.uv.vCorner[cornerBase + 1];
+            double u2 = seamless.uv.uCorner[cornerBase + 2];
+            double v2 = seamless.uv.vCorner[cornerBase + 2];
 
             double duDx = (u1 - u0) / length01;
             double duDy = (u2 - u0 - duDx * x2) / y2;
@@ -231,10 +231,10 @@ public class ParameterizationMetrics {
         for (int i = 0; i < faceCount; i++)
             parent[i] = i;
         for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
-            if (seamless.cutGraph.isCutEdge[activeEdge])
+            if (seamless.uv.cutGraph.isCutEdge[activeEdge])
                 continue;
-            int faceA = seamless.edgeFaceA[activeEdge];
-            int faceB = seamless.edgeFaceB[activeEdge];
+            int faceA = seamless.uv.edgeFaceA[activeEdge];
+            int faceB = seamless.uv.edgeFaceB[activeEdge];
             if (faceA < 0 || faceB < 0)
                 continue;
             int rootA = findRoot(parent, faceA);
@@ -277,14 +277,14 @@ public class ParameterizationMetrics {
      */
     public int branchConsistencyViolations() {
         int violations = 0;
-        int branchMask = SeamlessParameterization.BRANCH_COUNT - 1;
-        int[] faceBranch = seamless.cutGraph.faceBranch;
-        int[] cutRotation = seamless.cutGraph.cutRotation;
-        boolean[] isCutEdge = seamless.cutGraph.isCutEdge;
-        int[] periodJump = seamless.crossField.periodJump;
+        int branchMask = SeamlessUv.BRANCH_COUNT - 1;
+        int[] faceBranch = seamless.uv.cutGraph.faceBranch;
+        int[] cutRotation = seamless.uv.cutGraph.cutRotation;
+        boolean[] isCutEdge = seamless.uv.cutGraph.isCutEdge;
+        int[] periodJump = seamless.field.periodJump;
         for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
-            int faceA = seamless.edgeFaceA[activeEdge];
-            int faceB = seamless.edgeFaceB[activeEdge];
+            int faceA = seamless.uv.edgeFaceA[activeEdge];
+            int faceB = seamless.uv.edgeFaceB[activeEdge];
             if (faceA < 0 || faceB < 0)
                 continue;
             int relation = (faceBranch[faceA] - faceBranch[faceB] - periodJump[activeEdge]) & branchMask;

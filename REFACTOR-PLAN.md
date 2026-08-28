@@ -453,6 +453,17 @@ is in the working tree behind it.
         forcing it into the one-at-a-time strategy would change behavior or reduce the shared
         loop to a hook-only skeleton. Left intact; options: leave (its loop is honestly a
         different strategy, batch rounding), or extract a `BatchRounding` strategy later.
+        RESOLVED 2026-08-26 by deletion: the author ruled "remove bommes cross field and smooth
+        energy system, we have them in git history if needed". DELETED: BommesCrossField,
+        SmoothEnergySystem, VornoiForest (only Bommes/SmoothEnergy used it), and the now-dead
+        constraint classes BoundaryConstraints + FeatureEdgeConstraints (only BommesCrossField
+        invoked them; ConstraintSource enum constants BOUNDARY/FEATURE kept, QuadLayoutRuntime's
+        draw order references them and feature alignment work may re-populate them). KEPT:
+        DijkstraNode (BoundarySnap, CurvatureConstraints), SectionIntegrals (NDirectionField),
+        CurvatureConstraints (CrossField), ConstraintSource. If batch rounding (BZK09 batched MIP
+        with two-hop-patch-disjoint batches + warm AdaptiveSolver ladder) is ever wanted again,
+        recover from git history and build it as a solver.system BatchRounding strategy.
+        Verified: 146 tests, exactly the 3 known-failing classes, 3 skipped.
         Remaining from the approved plan: ChartAtlas/ChartTransition + CutGraph/GlobalGridMap
         implementers + consumer migrations (QuadMeshExtraction transforms, GridMapDofSystem fans)
     - [x] ChartAtlas batch executed 2026-08-26, RULING amendments: no interface and NO separate
@@ -489,6 +500,180 @@ is in the working tree behind it.
         seamless transition numerically instead of reading CutGraph.atlas; GridMapVerification
         recoverTransition writes the atlas directly (fine, it owns it); remaining System.out
         sweep in seamless/embedding.
+- [ ] 7.4 Quad-layout endgame surveys DELIVERED 2026-08-26 (three parallel surveys: record-family
+      merge, cross-stage coupling, node/stage-merge feasibility). Condensed findings, full detail
+      in the session transcripts:
+    - ARC_NETWORK families: "family 3" (LayoutExtraction) is NOT a family - it is MotorcycleGraph
+      + quantizedLengthByArc[] + clusterByNode[] + a render buffer; LayoutEmbedding reads ONLY
+      the graph and the int[]. TMeshPatch.sides and EmbeddedPatch.sideArcIds are structurally
+      identical; type<->{critical,border} and vertexId<->copyVertex are renamed concepts. Dead
+      fields: TraceArc.oppositeArcId (never read), TraceArc.axis (unread outside record),
+      TMeshPatch.boundingArcIds (write-only). Recommended merge = survey option C: ONE concrete
+      Node/Arc/Patch family + ArcNetwork container (new quadlayout/network package);
+      arc_quantization writes quantizedLength onto arcs IN PLACE (same convention as
+      tmesh_contract); LayoutExtraction demoted to diagnostics/render product off the topology
+      port; PortType.ARC_NETWORK(ArcNetwork.class); kills all 4 unchecked casts and
+      EmbeddedTMesh.build()'s id-remap tables (sourceNodeId/sourceArcId/sourcePatchId become
+      identity). Open design calls: EmbeddedTMeshRecarve depends on renumbering (becomes an
+      explicit compact op or dies); merged records carry pre-embedding chart fields
+      (u/v/activeFace/position, exactly one consumer each) that go stale after embedding.
+    - Coupling: seamless->gridmap needs ONLY faceCornerUv (UvField data modulo active-index vs
+      face-id convention) - faceArea/targetQuadEdgeLength/weights are NEVER read cross-stage.
+      DofSystem and ChartAtlas boundaries already clean; newton_solver fully decoupled.
+      Real gaps: CROSS_FIELD is Object.class (honest contract: mesh, faceIdToActive,
+      edgeIdToActive, theta, periodJump, faceX/faceY, alignmentEdgeIds, singularities,
+      faceCount - all already on the concrete CrossField class, so binding the port to
+      CrossField.class is cheap); motorcycle_graph has an UNDECLARED second input (reaches
+      seamless.crossField through the UV value); layout_embedding reaches through 4 levels
+      (layout->quantization->motorcycleGraph->seamless->crossField); quad_extract's honest
+      contract is the gridmap stage's whole internal state (atlas covered; GridMapIsoSurface is
+      the natural bakeable UV_FIELD payload but does not implement UvField yet). Invisible
+      identity edges: the source HalfEdgeMesh and topology.copy flow outside all ports;
+      LayoutResolution WRITES BACK EmbeddedArc.quadCount across the port boundary. Backward
+      package dep: embedding imports gridmap.PatchRegions (EmbeddedTMesh:1644, Recarve).
+      Engine/nodes disagree at GlobalGridMap.build() (engine fuses build+relax+extract; nodes
+      split); engine stages 13-14 (PatchGridExtraction rerun, LayoutPatchSurfaces) have no node.
+    - Node/stage merge (author leaning 1a "no two ways"): registry contract is no-arg ctor
+      (::new in generated registry + 3 reflective sites) AND a probe instance of EVERY node at
+      NodeGraphRuntime class-load static init; ALL 105 registered nodes have ZERO instance
+      fields (verified via javap) - both fat-node (static methods) and thin-wrapper (static
+      entry) precedents exist, but no per-run-object node exists. Four quad nodes have NO host
+      stage class (newton_solver, quad_extract, tmesh_contract, load_mesh - their "stage" is a
+      port VALUE type or static helper); three are multi-stage orchestrators (arc_quantization,
+      layout_embedding, integer_grid_map). desktopOnly does NOT firewall the numerics from
+      TeaVM (scenes reach QuadLayoutEngine, which constructs every stage; the real firewall is
+      WebPlatform returning null/throwing for native backends); annotating stages as nodes would
+      pull evaluate-body deps (GeometryBundles, FieldBroadcast, MeshLoader) into web reachability.
+      The duplication is THREE-way: engine / node wrapper / stage. PENDING RULING with evidence:
+      recommend killing the ENGINE copy (7.2-final phase: engine executes the node graph) rather
+      than merging wrappers into stages.
+    - RULED (author, overriding the recommendation): "remove the separate mesh node classes and
+      make the stages stateless for the quad layout pipeline". EXECUTED 2026-08-27, verified
+      (146-test baseline, TeaVM green, scene identical: 44 singularities, 46 newton iterations,
+      energy 3.73e+06 -> 3.97e+04, 0/38238 flipped, 13490 quads). Five wrappers DELETED, stage
+      classes are now the registered nodes, two patterns:
+      (1) builder-scratch stage: NDirectionField is the stateless cross_field node; ALL its
+      per-run solver state moved into a private nested `Solve extends CrossField` that evaluate
+      constructs fresh; the escaping products are the CrossField data and solve.system (whose
+      hooks keep the Solve alive for newton re-solves). Static entry `buildField(mesh)` for the
+      engine. CrossFieldNode deleted.
+      (2) builder-is-product stages: the stage class implements MeshNode alongside its data
+      role; the registry/probe instance is INERT (new no-arg ctor nulls the finals, evaluate
+      never touches `this` - it builds a fresh fully-parameterized instance and outputs it).
+      seamless_uv -> SeamlessParameterization, motorcycle_graph -> MotorcycleGraph,
+      arc_quantization -> QuantizedMeshGrid (evaluate also runs LayoutExtraction),
+      layout_embedding -> LayoutEmbedding (evaluate also runs EmbeddedTMesh build+validate),
+      integer_grid_map -> GlobalGridMap (evaluate also runs LayoutPatchMaps + IntegerGridMap).
+      SeamlessUvNode/MotorcycleGraphNode/ArcQuantizationNode/LayoutEmbeddingNode/
+      IntegerGridMapNode deleted; QuadLayoutNodeChainTest re-pointed; catalog regenerated with
+      the same ten ids. REMAINING in nodes/quadlayout: TmeshContractNode, NewtonSolverNode,
+      QuadExtractNode - each is the SOLE class for its stage (they operate on input data:
+      EmbeddedTMesh.contract, DofSystem.relax, GlobalGridMap.extractQuads), so no duplication;
+      pending author preference whether to rehome them (e.g. tmesh_contract onto EmbeddedTMesh).
+      DeclarationOrder convention: statics, instance fields, ctors (inert no-arg first), node
+      methods after ctors.
+    - RULED (author) data/algorithm separation + no nested classes (now in CLAUDE.md): stages may
+      keep SCRATCH instance fields but no fields that propagate; every durable product lands on a
+      data class flowing on ports. EXECUTED 2026-08-27 as five batches in one uncommitted pass:
+      (A) NDirectionField no longer extends CrossField: stateless-per-run stage producing a
+      CrossField (which gained `system` and lost build()/detectAlignmentEdges()/
+      extractSingularities() - all moved into the stage); ComplexUpper extracted top-level.
+      (B) NEW `SeamlessUv` data class (implements UvField): mesh, crossField, counts, edge
+      tables, uCorner/vCorner, cutTranslationS/T (alias atlas), injective, cutGraph, system,
+      metrics, targetQuadEdgeLength, faceCornerUv/u/v/uvSignedArea/lookupCorners.
+      SeamlessParameterization is the stage (scratch: faceArea/faceShape*/faceWeight/dofSystem/
+      solution/baseFactor*) building into `uv`; CutGraph retyped to SeamlessUv; every downstream
+      consumer (motorcycle, gridmap, runtime, engine, scenes, tests) retyped to SeamlessUv.
+      (C) RECORD-FAMILY MERGE (survey option C, amended): TMeshNode/TraceArc/TMeshPatch DELETED;
+      EmbeddedNode gained kind(NodeKind enum, new top-level)/vertexId/activeFace/u/v/position/
+      singularityIndex4 + arrangement ctor, EmbeddedArc gained traceId/parametricLength + ctor,
+      EmbeddedPatch gained validRectangle. ONE container end-to-end: EmbeddedTMesh gained an
+      arrangement ctor (sourceMesh field, topology now mutable/null pre-embedding, traces +
+      featureSpanByEdgeId carried), MotorcycleGraph mints into it, QuantizedMeshGrid writes
+      arc.quantizedLength IN PLACE (int[] kept as diagnostics; LayoutExtraction demoted to
+      stage diagnostics `quantization.layout`, off the port), layout_embedding gained an
+      explicit UV input (the hidden crossField reach-through is gone), and
+      EmbeddedTMesh.build(embedding) was REPLACED by in-place `assemble(embedding)`: stable ids,
+      dead arrangement leftovers alive=false, operators re-created once topology exists.
+      KNOWN COMBINATORIAL DRIFT, verified equivalent: contraction now iterates
+      arrangement-numbered ids (old ids were remapped dense at assembly), so tie-breaking
+      changes the final layout on fertility: quads 13490 -> 13853, energy start 3.73e+06 ->
+      5.55e+07, relaxed 3.97e+04 -> 4.02e+04, iterations 46 -> 49; all invariants hold
+      (singularities 44 indexSum4=-24=4chi, 0/38446 flipped, seam+chain+extraction tests green).
+      (E) gridmap: NEW `GridMapAssembly` stage (id integer_grid_map) holding
+      assemble()/assembleInitial()/measureNodes()/static extractQuads(); GlobalGridMap is pure
+      data again (UvField + atlas + queries; node role, build(), buildInitialMap(),
+      extractQuads() removed); QuadExtractNode and the engine call GridMapAssembly.extractQuads.
+      PORT TYPES NOW ALL CONCRETE: CROSS_FIELD(CrossField), ARC_NETWORK(EmbeddedTMesh),
+      UV_FIELD(UvField), DOF_SYSTEM(DofSystem), CHART_ATLAS(ChartAtlas) - zero Object.class
+      quad ports, zero unchecked casts to mismatched families.
+      VERIFIED: 146 tests, exactly the 3 known-failing classes, 3 skipped; TeaVM green;
+      quad-layout scene ready and pipeline-complete. Flagged follow-ups: rename EmbeddedTMesh ->
+      ArcNetwork + record renames (pure sweep, pending author taste); EmbeddedTMesh still mixes
+      data with contraction operators (contract()/conform() + mutation API - the ruled-open
+      operator extraction); QuadLayoutRuntime motorcycle overlay now shows only
+      arrangement-positioned nodes (operator-minted nodes have no position); engine still
+      duplicates the stage sequence (bullet-3 engine->graph migration still owed).
+    - RULED (author, 2026-08-27) decoupling pass, EXECUTED same day, uncommitted:
+      (1) SeamlessUv no longer encapsulates mesh, crossField, metrics, or system. Evidence
+      first: downstream of the seamless build NOTHING reads the cross field proper (faceX/
+      faceY/theta/periodJump have zero consumers outside crossfield/seamless; the exam scene's
+      theta/periodJump writes are producer-side reference-field swaps). What downstream pulled
+      through `uv.crossField` was parametrization data, so SeamlessUv now carries it itself as
+      aliases: faceIdToActive/edgeIdToActive (its own arrays are unreadable without them),
+      singularities (the cone points), alignmentEdgeIds (feature edges). CrossField flows on
+      exactly one edge of the graph: cross_field -> seamless_uv, matching the literature (a
+      rotation per face). Ctor is now SeamlessUv(faceCount, edgeCount); lookupCorners takes the
+      mesh as a parameter. metrics + dofSystem.system live on the SeamlessParameterization
+      stage (new scratch fields mesh/field/metrics); the node ports and the engine
+      (seamlessMetrics + new seamlessSystem field, benchmark retargeted) read them there.
+      MotorcycleGraph(mesh, uv, alpha) + node gained a GEOMETRY input (mesh rebuilt via
+      fromMeshTopology, deterministic ids); ChartWalker(mesh, uv); PatchBoundaryBuilder reads
+      graph.mesh; SnappingCarve topology from network.sourceMesh, indexes from uv;
+      QuadLayoutRuntime.setSeamlessParametrization(uv, mesh) + captureSingularities(list, mesh)
+      (protected dropped); scenes pass their mesh.
+      (2) NodeKind DELETED. The enum was redundant with data the node already carries:
+      critical/border are now set AT MINT (SINGULARITY->critical, BOUNDARY->border,
+      non-boundary termination->critical), one new boolean `truncated` for dead-end traces,
+      INTERSECTION is the default. Quantization checks kind==SINGULARITY&&vertexId>=0 became
+      critical&&vertexId>=0 (equivalent: critical<->SINGULARITY at arrangement time, border
+      excludes boundary-vertex nodes); assemble no longer derives border; markCriticality
+      copies node.critical; runtime colors read critical/border/truncated (dead FEATURE branch
+      and COLOR_FEATURE_NODE removed); diagnostics log the booleans instead of kind.name().
+      (3) ComplexUpper DELETED - it was a 2-use argument bundle; realify(diag, upRe, upIm)
+      takes the three directly.
+      VERIFIED: 146 tests / 5 failing testcases in exactly the 3 known classes / 3 skipped;
+      TeaVM green; quad-layout scene ready with numbers identical to the prior verified run
+      (13853 quads, 5.55e+07 -> 4.02e+04, 49 iterations, 0/38446 flipped, euler=-6) - this
+      pass is behavior-preserving.
+    - RULED (author, 2026-08-27) downstream stages know UvField, not SeamlessUv; singularities
+      flow as their own data so the renderer can draw them as points independent of any UV
+      field. EXECUTED same day, uncommitted:
+      (1) UvField gained `faceCornerUv(faceId, out)` (default via u/v; SeamlessUv overrides
+      with the direct array read). This FIXED a latent bug: LayoutResolution and
+      GridMapOptimizer were passing source FACE IDS to the old activeFace-indexed accessor,
+      correct only while ids coincide with active indices.
+      (2) The id->active-index inverse moved to the mesh where it belongs: ActiveIdSet.indexOf
+      (the `indexById` array already existed) exposed as
+      HalfEdgeMesh.activeFaceIndexOf/activeEdgeIndexOf, unboxed. Downstream stages use these
+      instead of uv.faceIdToActive/edgeIdToActive; SeamlessUv keeps its two maps only as the
+      internal indexing of its own arrays.
+      (3) SeamlessUv dropped `singularities`/`alignmentEdgeIds` (added one batch earlier -
+      superseded). New PortTypes SINGULARITY_LIST(List) and EDGE_ID_SET(Set); cross_field node
+      outputs `singularities` + `feature_edges`; motorcycle_graph node inputs them.
+      MotorcycleGraph(mesh, UvField, List<Singularity>, Set<Integer>, alpha);
+      ChartWalker(mesh, UvField, singularities); PatchBoundaryBuilder reads graph.uv + mesh
+      lookups; SnappingCarve/LayoutEmbedding/LayoutPatchMaps/LayoutResolution/
+      GridMapOptimizer/GridMapAssembly/GlobalGridMap all retyped to UvField.
+      (4) Renderer: captureSingularities(List<Singularity>, mesh) is self-sufficient
+      (icosphere + radius guards moved inside); setSeamlessParametrization no longer captures
+      singularities - the three scenes call captureSingularities(engine.crossField
+      .singularities, mesh) explicitly, the first step of the ruled renderer simplification.
+      SeamlessUv now appears ONLY in: the seamless package, the engine product field, the two
+      exam scenes, the renderer (raw uCorner upload - renderer simplification still owed), and
+      tests. Field renames: MotorcycleGraph.seamless -> uv; shadowing locals in
+      spawnFromSingularities renamed (au/av/bu/bv/cu/cv); CORNERS constants now
+      HalfEdgeMesh.TRIANGLE_CORNERS.
 - [ ] 7.3 Whether always-on profiling should fail fast when `.profiler/libasyncProfiler` is missing,
       as it does now, or degrade
 

@@ -10,10 +10,10 @@ import java.util.Map;
 import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
-import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
+import ixdar.geometry.mesh.nodes.api.UvField;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
 import ixdar.platform.Platforms;
 
@@ -39,7 +39,10 @@ public final class SnappingCarve {
      * Traced graph the routes come from, or {@code null} when the caller supplied
      * the routes itself — the re-carve reads them off a contracted layout instead.
      */
-    public final MotorcycleGraph motorcycleGraph;
+    public final EmbeddedTMesh network;
+
+    /** The parametrization chart coordinates are read from. */
+    public final UvField uv;
 
     /** Working copy the arcs are embedded into. */
     public final EmbeddedMeshTopology topology;
@@ -141,18 +144,18 @@ public final class SnappingCarve {
      */
     public int facesBeforeChords;
 
-    /** Cross-field active index per source edge id, for tagging fragments. */
-    public Map<Integer, Integer> activeEdgeBySourceEdge;
 
     /**
      * Stores the traced graph and builds the working copy the arcs are embedded
      * into.
      *
-     * @param motorcycleGraph traced T-mesh whose arcs are embedded
+     * @param network traced T-mesh arrangement whose arcs are embedded
+     * @param uv      parametrization the carve reads chart coordinates from
      */
-    public SnappingCarve(MotorcycleGraph motorcycleGraph) {
-        this.motorcycleGraph = motorcycleGraph;
-        this.topology = new EmbeddedMeshTopology(motorcycleGraph.seamless.mesh);
+    public SnappingCarve(EmbeddedTMesh network, UvField uv) {
+        this.network = network;
+        this.uv = uv;
+        this.topology = new EmbeddedMeshTopology(network.sourceMesh);
     }
 
     /**
@@ -162,7 +165,8 @@ public final class SnappingCarve {
      * @param topology working copy, standing as the constraint mesh
      */
     public SnappingCarve(EmbeddedMeshTopology topology) {
-        this.motorcycleGraph = null;
+        this.network = null;
+        this.uv = null;
         this.topology = topology;
     }
 
@@ -175,10 +179,10 @@ public final class SnappingCarve {
      * @return this, with the nodes placed
      */
     public SnappingCarve placeNodes() {
-        nodeCount = motorcycleGraph.nodes.size();
-        vertexIdByNode = new int[motorcycleGraph.nodes.size()];
+        nodeCount = network.nodes.size();
+        vertexIdByNode = new int[network.nodes.size()];
         Arrays.fill(vertexIdByNode, EmbeddedMeshTopology.UNCLAIMED);
-        for (TMeshNode node : motorcycleGraph.nodes) {
+        for (EmbeddedNode node : network.nodes) {
             int copyVertex = node.vertexId >= 0
                     ? claimSourceVertex(node)
                     : mintInside(node, chartBarycentric(node));
@@ -205,20 +209,20 @@ public final class SnappingCarve {
      * @return this, with {@link #stripByArc} filled
      */
     public SnappingCarve sliceArcs() {
-        stripByArc = new ArrayList<>(motorcycleGraph.arcs.size());
-        startNodeByArc = new int[motorcycleGraph.arcs.size()];
-        endNodeByArc = new int[motorcycleGraph.arcs.size()];
-        for (int arc = 0; arc < motorcycleGraph.arcs.size(); arc++) {
+        stripByArc = new ArrayList<>(network.arcs.size());
+        startNodeByArc = new int[network.arcs.size()];
+        endNodeByArc = new int[network.arcs.size()];
+        for (int arc = 0; arc < network.arcs.size(); arc++) {
             stripByArc.add(new FaceStripPath(topology, arc));
-            startNodeByArc[arc] = motorcycleGraph.arcs.get(arc).startNodeId;
-            endNodeByArc[arc] = motorcycleGraph.arcs.get(arc).endNodeId;
+            startNodeByArc[arc] = network.arcs.get(arc).startNodeId;
+            endNodeByArc[arc] = network.arcs.get(arc).endNodeId;
         }
-        for (Trace trace : motorcycleGraph.traces) {
+        for (Trace trace : network.traces) {
             for (int step = 0; step < trace.chainArcIds.size(); step++) {
                 sliceArc(trace, step);
             }
         }
-        passageCountBySourceFace = new int[motorcycleGraph.seamless.crossField.faceCount];
+        passageCountBySourceFace = new int[topology.sourceMesh.faceCount()];
         for (FaceStripPath strip : stripByArc) {
             for (int sourceFace : strip.passageSourceFaces) {
                 passageCountBySourceFace[sourceFace]++;
@@ -252,7 +256,7 @@ public final class SnappingCarve {
         if (crossed.isEmpty()) {
             return;
         }
-        TraceArc arc = motorcycleGraph.arcs.get(arcId);
+        EmbeddedArc arc = network.arcs.get(arcId);
         FaceStripPath strip = stripByArc.get(arcId);
         double[] entryPoint = nodeBarycentric(arc.startNodeId, crossed.get(0).activeFace);
         for (int index = 0; index < crossed.size(); index++) {
@@ -326,16 +330,16 @@ public final class SnappingCarve {
      * @return this, tagged
      */
     public SnappingCarve tagSourceEdges() {
-        activeEdgeBySourceEdge = motorcycleGraph.seamless.crossField.edgeIdToActive;
-        for (Map.Entry<Integer, Integer> entry : activeEdgeBySourceEdge.entrySet()) {
-            int halfEdge = topology.sourceMesh.edgeHalfEdge(entry.getKey());
+        for (int activeEdge = 0; activeEdge < topology.sourceMesh.edgeCount(); activeEdge++) {
+            int edgeId = topology.sourceMesh.edgeIdAt(activeEdge);
+            int halfEdge = topology.sourceMesh.edgeHalfEdge(edgeId);
             int copyA = topology.copyVertexForSourceVertexId(
                     topology.sourceMesh.halfEdgeVertex(halfEdge));
             int copyB = topology.copyVertexForSourceVertexId(
                     topology.sourceMesh.halfEdgeEndVertex(halfEdge));
             int copyEdge = topology.edgeBetween(copyA, copyB);
             if (copyEdge != EmbeddedMeshTopology.UNCLAIMED) {
-                topology.sourceEdgeByCopyEdge[copyEdge] = entry.getValue();
+                topology.sourceEdgeByCopyEdge[copyEdge] = activeEdge;
             }
         }
         return this;
@@ -673,7 +677,7 @@ public final class SnappingCarve {
      * @throws IllegalStateException when the source vertex has no copy
      * @return its copy vertex
      */
-    private int claimSourceVertex(TMeshNode node) {
+    private int claimSourceVertex(EmbeddedNode node) {
         int copyVertex = topology.copyVertexForSourceVertexId(node.vertexId);
         if (copyVertex == EmbeddedMeshTopology.UNCLAIMED) {
             throw new IllegalStateException("T-mesh node " + node.nodeId
@@ -693,7 +697,7 @@ public final class SnappingCarve {
      * @throws IllegalStateException when no child face of the source face holds it
      * @return the minted or reused copy vertex
      */
-    private int mintInside(TMeshNode node, double[] barycentric) {
+    private int mintInside(EmbeddedNode node, double[] barycentric) {
         for (int childFace : topology.copyFacesBySourceFace.get(node.activeFace)) {
             double[][] corner = childCorners(node.activeFace, childFace);
             boolean inside = true;
@@ -797,9 +801,9 @@ public final class SnappingCarve {
      * @throws IllegalStateException when that face's chart is degenerate
      * @return its barycentric there
      */
-    private double[] chartBarycentric(TMeshNode node) {
+    private double[] chartBarycentric(EmbeddedNode node) {
         double[] cornerUv = new double[2 * CORNERS];
-        motorcycleGraph.seamless.faceCornerUv(node.activeFace, cornerUv);
+        uv.faceCornerUv(topology.sourceMesh.faceIdAt(node.activeFace), cornerUv);
         double firstU = cornerUv[2] - cornerUv[0];
         double firstV = cornerUv[3] - cornerUv[1];
         double secondU = cornerUv[4] - cornerUv[0];

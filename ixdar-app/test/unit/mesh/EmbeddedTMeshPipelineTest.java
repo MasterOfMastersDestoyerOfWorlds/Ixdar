@@ -13,8 +13,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
 /**
  * Drives the real pipeline into the embedded T-mesh: load a mesh, run
@@ -53,8 +53,7 @@ class EmbeddedTMeshPipelineTest {
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, (float) ALPHA_RADIANS);
         engine.buildLayoutEmbedding();
 
-        EmbeddedTMesh tmesh = new EmbeddedTMesh(engine.embedding.topology)
-                .build(engine.embedding);
+        EmbeddedTMesh tmesh = engine.tmesh;
 
         System.out.printf(
                 "[tmesh-pipeline] %s | nodes=%d arcs=%d (zero=%d) patches=%d | euler=%d%n",
@@ -91,11 +90,11 @@ class EmbeddedTMeshPipelineTest {
         int arrangementEuler = graph.nodes.size() - graph.arcs.size() + graph.patches.size();
         assertEquals(meshEuler, arrangementEuler, "the arrangement is a cell complex");
 
-        for (TMeshPatch patch : graph.patches) {
+        for (EmbeddedPatch patch : graph.patches) {
             assertTrue(patch.validRectangle, "patch " + patch.patchId + " is a valid rectangle");
         }
-        for (TMeshNode node : graph.nodes) {
-            assertFalse(node.type == TMeshNode.Type.TRUNCATED,
+        for (EmbeddedNode node : graph.nodes) {
+            assertFalse(node.truncated,
                     "node " + node.nodeId + " is a truncated trace");
         }
         assertEquals(0, graph.aliveAtQueueEndCount, "no motorcycle left alive at the queue end");

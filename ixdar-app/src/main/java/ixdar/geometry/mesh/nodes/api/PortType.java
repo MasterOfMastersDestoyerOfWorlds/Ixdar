@@ -1,6 +1,11 @@
 package ixdar.geometry.mesh.nodes.api;
 
+import java.util.List;
+import java.util.Set;
+
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
+import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
 
 public enum PortType {
@@ -25,15 +30,19 @@ public enum PortType {
     /** 3D dungeon-generation tile grid (see ixdar.procgen.dungeon.values.TileGridValue3D). */
     TILE_GRID_3D(Object.class),
     /** Cross field over a mesh. */
-    CROSS_FIELD(Object.class),
+    CROSS_FIELD(CrossField.class),
     /** Per-corner UV assignment over a mesh. */
     UV_FIELD(UvField.class),
     /** Node-arc-patch network on a surface. */
-    ARC_NETWORK(Object.class),
+    ARC_NETWORK(EmbeddedTMesh.class),
     /** A solve's degrees of freedom and their couplings. */
     DOF_SYSTEM(DofSystem.class),
     /** Atlas of charts covering a surface. */
-    CHART_ATLAS(ChartAtlas.class);
+    CHART_ATLAS(ChartAtlas.class),
+    /** Singular points of a field: {@code List} of {@code Singularity}. */
+    SINGULARITY_LIST(List.class),
+    /** Set of mesh edge ids, e.g. feature and boundary edges. */
+    EDGE_ID_SET(Set.class);
 
     private final Class<?> valueType;
 

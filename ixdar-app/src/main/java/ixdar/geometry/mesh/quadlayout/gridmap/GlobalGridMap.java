@@ -1,11 +1,10 @@
 package ixdar.geometry.mesh.quadlayout.gridmap;
 
-import ixdar.geometry.mesh.nodes.api.UvField;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import ixdar.geometry.mesh.nodes.api.UvField;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
@@ -13,9 +12,6 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedPatchGrids;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedQuadMesh;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;
-import ixdar.geometry.mesh.quadlayout.extraction.QuadMeshExtraction;
-import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
-import ixdar.platform.Platforms;
 
 /**
  * Every patch's map carried into one common grid, which is LCBK19 Figure 10(d)
@@ -90,7 +86,7 @@ public final class GlobalGridMap implements UvField {
 
     public ExtractedPatchGrids extractedGrids;
 
-    public SeamlessParameterization seamless;
+    public UvField seamless;
 
     /**
      * Stores the per-patch maps and the frames that place them in one grid.
@@ -99,24 +95,12 @@ public final class GlobalGridMap implements UvField {
      * @param frames    the patches' quarter turns and integer origins
      * @param seamless the seamless parameterization to constrain the global grid map against
      */
-    public GlobalGridMap(LayoutPatchMaps patchMaps, IntegerGridMap frames, SeamlessParameterization seamless) {
+    public GlobalGridMap(LayoutPatchMaps patchMaps, IntegerGridMap frames, UvField seamless) {
         this.patchMaps = patchMaps;
         this.frames = frames;
         this.tmesh = patchMaps.tmesh;
         this.seamless = seamless;
         this.atlas = buildAtlas();
-    }
-
-    /**
-     * The full map: initial framing, Newton relaxation, and quad extraction.
-     *
-     * @return this, populated
-     */
-    public GlobalGridMap build() {
-        buildInitialMap();
-        gridDofs.relax();
-        extractQuads();
-        return this;
     }
 
     /**
@@ -153,49 +137,6 @@ public final class GlobalGridMap implements UvField {
     }
 
     /**
-     * Carries every patch's rectangle coordinates through its frame, checks the
-     * layout's nodes landed on integers, and assembles the DOF system plus the
-     * pre-relaxation extraction and iso surface.
-     *
-     * @return this, framed but unrelaxed
-     */
-    @SuppressWarnings("unchecked")
-    public GlobalGridMap buildInitialMap() {
-        uvByPatchId = new double[tmesh.patches.size()][];
-        denseByCopyVertexByPatchId = new HashMap[tmesh.patches.size()];
-        double[] grid = new double[GRID_COORDINATES];
-        for (EmbeddedPatch patch : tmesh.patches) {
-            if (!patch.alive) {
-                continue;
-            }
-            PatchRectangleMap map = patchMaps.mapByPatchId[patch.patchId];
-            double[] uv = new double[map.positions.length * GRID_COORDINATES];
-            Map<Integer, Integer> denseByCopyVertex = new HashMap<>();
-            for (int dense = 0; dense < map.positions.length; dense++) {
-                frames.toGrid(patch.patchId, map.rectangleU[dense], map.rectangleV[dense], grid);
-                uv[dense * GRID_COORDINATES] = grid[0];
-                uv[dense * GRID_COORDINATES + 1] = grid[1];
-                denseByCopyVertex.put(map.vertexLabel[dense], dense);
-            }
-            uvByPatchId[patch.patchId] = uv;
-            denseByCopyVertexByPatchId[patch.patchId] = denseByCopyVertex;
-        }
-        measureNodes();
-        Platforms.log("[global-grid] patches=%d offGridNodes=%d worstNodeDeviation=%.3e%n",
-                frames.placedPatchCount, offGridNodeCount, worstNodeIntegerDeviation);
-
-        gridDofs = new GridMapDofSystem(this);
-        gridDofs.seamCouplingPinned = false;
-        gridDofs.nodeFreedomPinned = false;
-        gridDofs.build();
-        quadGridInitial = new PatchGridExtraction(patchMaps);
-        quadGridInitial.optimizedGrid = this;
-        quadGridInitial = quadGridInitial.build();
-        isoSurfaceInitial = new GridMapIsoSurface(patchMaps, this.uvByPatchId).build();
-        return this;
-    }
-
-    /**
      * Fills the atlas: one chart per patch over the copy faces, one boundary per
      * arc directed right patch to left, transitions from the frames until the
      * verification refines them in place.
@@ -221,57 +162,6 @@ public final class GlobalGridMap implements UvField {
             built.translationV[arc.arcId] = frames.transitionTranslationVByArcId[arc.arcId];
         }
         return built;
-    }
-
-    /**
-     * Verifies the map and extracts its quad mesh and per-patch grids.
-     *
-     * @return this, with {@link #quadMesh} and {@link #extractedGrids} populated
-     */
-    public GlobalGridMap extractQuads() {
-        gridVerification = new GridMapVerification(this).build();
-        QuadMeshExtraction extraction = new QuadMeshExtraction(this, gridVerification);
-        extraction.expectedQuadCount = quadGridInitial.quadCount;
-        quadMesh = extraction.build();
-        extractedGrids = new ExtractedPatchGrids(quadMesh, this).build();
-        return this;
-    }
-
-    /**
-     * Checks every layout node sits on an integer of the common grid, which is what
-     * makes the quantization's assigned lengths meaningful in the map.
-     */
-    private void measureNodes() {
-        int samplesPrinted = 0;
-        for (EmbeddedPatch patch : tmesh.patches) {
-            if (!patch.alive) {
-                continue;
-            }
-            for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
-                List<Integer> sideNodes = patch.sideNodeIds.get(side);
-                for (int nodeId : sideNodes) {
-                    double[] position = nodePosition(patch.patchId, nodeId);
-                    if (position == null) {
-                        continue;
-                    }
-                    boolean offGrid = false;
-                    for (int axis = 0; axis < GRID_COORDINATES; axis++) {
-                        double deviation = Math.abs(position[axis] - Math.round(position[axis]));
-                        worstNodeIntegerDeviation = Math.max(worstNodeIntegerDeviation, deviation);
-                        offGrid |= deviation > INTEGER_TOLERANCE;
-                        offGridNodeCount += deviation > INTEGER_TOLERANCE ? 1 : 0;
-                    }
-                    if (offGrid && samplesPrinted < OFF_GRID_SAMPLES_LISTED) {
-                        samplesPrinted++;
-                        Platforms.log(
-                                "[global-grid]   off-grid node=%d patch=%d side=%d sideArcs=%d"
-                                        + " sideNodes=%d at (%.4f, %.4f)%n",
-                                nodeId, patch.patchId, side, patch.sideArcIds.get(side).size(),
-                                sideNodes.size(), position[0], position[1]);
-                    }
-                }
-            }
-        }
     }
 
     /**

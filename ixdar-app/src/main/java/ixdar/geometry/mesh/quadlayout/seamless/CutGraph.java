@@ -111,7 +111,7 @@ public class CutGraph {
     public final CrossField crossField;
 
     /** The seamless parameterization owning this cut graph. */
-    public SeamlessParameterization seamless;
+    public SeamlessUv seamless;
 
     /** Number of active vertices. */
     public int vertexCount;
@@ -127,12 +127,12 @@ public class CutGraph {
      *
      * @param mesh                     the mesh
      * @param crossField               the cross field
-     * @param seamlessParameterization the seamless parameterization
+     * @param seamlessUv the seamless parametrization data
      */
-    public CutGraph(HalfEdgeMesh mesh, CrossField crossField, SeamlessParameterization seamlessParameterization) {
+    public CutGraph(HalfEdgeMesh mesh, CrossField crossField, SeamlessUv seamlessUv) {
         this.mesh = mesh;
         this.crossField = crossField;
-        this.seamless = seamlessParameterization;
+        this.seamless = seamlessUv;
         this.vertexCount = mesh.vertexCount();
     }
 
@@ -194,7 +194,7 @@ public class CutGraph {
                 continue;
             }
             int faceId = mesh.faceIdAt(activeFace);
-            for (int corner = 0; corner < SeamlessParameterization.CORNERS_PER_FACE; corner++) {
+            for (int corner = 0; corner < SeamlessUv.CORNERS_PER_FACE; corner++) {
                 int edgeId = mesh.faceEdgeAt(faceId, corner);
                 int activeEdge = crossField.edgeIdToActive.get(edgeId);
                 int otherActiveFace = (seamless.edgeFaceA[activeEdge] == activeFace)
@@ -397,7 +397,7 @@ public class CutGraph {
             while (!faceQueue.isEmpty()) {
                 int activeFace = faceQueue.poll();
                 int faceId = mesh.faceIdAt(activeFace);
-                for (int corner = 0; corner < SeamlessParameterization.CORNERS_PER_FACE; corner++) {
+                for (int corner = 0; corner < SeamlessUv.CORNERS_PER_FACE; corner++) {
                     int activeEdge = crossField.edgeIdToActive.get(mesh.faceEdgeAt(faceId, corner));
                     if (isCutEdge[activeEdge])
                         continue;
@@ -409,7 +409,7 @@ public class CutGraph {
                     if (faceBranch[otherActiveFace] != -1)
                         continue;
                     int periodJump = crossField.periodJump[activeEdge];
-                    int branchMask = SeamlessParameterization.BRANCH_COUNT - 1;
+                    int branchMask = SeamlessUv.BRANCH_COUNT - 1;
                     faceBranch[otherActiveFace] = (activeFaceA == activeFace)
                             ? (faceBranch[activeFace] - periodJump) & branchMask
                             : (faceBranch[activeFace] + periodJump) & branchMask;
@@ -436,7 +436,7 @@ public class CutGraph {
             }
             int periodJump = crossField.periodJump[activeEdge];
             cutRotation[activeEdge] = (faceBranch[activeFaceA] - faceBranch[activeFaceB] - periodJump)
-                    & (SeamlessParameterization.BRANCH_COUNT - 1);
+                    & (SeamlessUv.BRANCH_COUNT - 1);
         }
     }
 
@@ -448,7 +448,7 @@ public class CutGraph {
      * {@code start−1}.
      */
     private void buildChartVertices() {
-        final int cornersPerFace = SeamlessParameterization.CORNERS_PER_FACE;
+        final int cornersPerFace = SeamlessUv.CORNERS_PER_FACE;
         int totalCorners = seamless.faceCount * cornersPerFace;
         int[] parent = new int[totalCorners];
         int[] rank = new int[totalCorners];
@@ -570,7 +570,7 @@ public class CutGraph {
      * substitution, and further such edges produce leftover records.
      */
     private void classifyChartVerticesForSubstitution() {
-        final int cornersPerFace = SeamlessParameterization.CORNERS_PER_FACE;
+        final int cornersPerFace = SeamlessUv.CORNERS_PER_FACE;
         chartVertexIsPrimary = new boolean[chartVertexCount];
         secondaryEdge = new int[chartVertexCount];
         secondaryPartner = new int[chartVertexCount];

@@ -16,7 +16,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;
 import ixdar.geometry.mesh.quadlayout.gridmap.LayoutPatchMaps;
 import ixdar.geometry.mesh.quadlayout.gridmap.LayoutResolution;
-import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 
 /**
  * The property LCBK19 §6.2 names when it says the union of the per-patch maps
@@ -48,7 +48,7 @@ class PatchGridSeamTest {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
         fixture.tmesh.contract();
         fixture.tmesh.conform();
-        SeamlessParameterization seamless = new QuadLayoutEngine(fixture.torus, 0f).buildSeamless();
+        SeamlessUv seamless = new QuadLayoutEngine(fixture.torus, 0f).buildSeamless();
         double targetEdgeLength =
                 shortestArcLength(fixture.tmesh, seamless) / QUADS_ON_SHORTEST_ARC;
         PatchGridExtraction grid = new PatchGridExtraction(
@@ -89,7 +89,7 @@ class PatchGridSeamTest {
      * @param seamless the parametrization to measure in
      * @return the shortest arc's parametric length
      */
-    private double shortestArcLength(EmbeddedTMesh tmesh, SeamlessParameterization seamless) {
+    private double shortestArcLength(EmbeddedTMesh tmesh, SeamlessUv seamless) {
         LayoutResolution measured = new LayoutResolution(tmesh, seamless, 1.0).build();
         double shortest = Double.MAX_VALUE;
         for (EmbeddedArc arc : tmesh.arcs) {

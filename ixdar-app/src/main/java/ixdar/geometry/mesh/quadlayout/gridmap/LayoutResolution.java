@@ -9,7 +9,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
-import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.geometry.mesh.nodes.api.UvField;
 import ixdar.platform.Platforms;
 
 /**
@@ -36,7 +36,7 @@ public final class LayoutResolution {
     public final EmbeddedTMesh tmesh;
 
     /** The parametrization the arcs' extents are measured in. */
-    public final SeamlessParameterization seamless;
+    public final UvField seamless;
 
     /** Parametric length one quad edge should span. */
     public final double targetEdgeLength;
@@ -73,7 +73,7 @@ public final class LayoutResolution {
      * @param seamless         the parametrization the arcs' extents are measured in
      * @param targetEdgeLength parametric length one quad edge should span
      */
-    public LayoutResolution(EmbeddedTMesh tmesh, SeamlessParameterization seamless,
+    public LayoutResolution(EmbeddedTMesh tmesh, UvField seamless,
             double targetEdgeLength) {
         this.tmesh = tmesh;
         this.seamless = seamless;

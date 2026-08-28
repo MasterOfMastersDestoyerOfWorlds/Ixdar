@@ -10,29 +10,59 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
+import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.nodes.api.InputPort;
+import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.geometry.mesh.nodes.api.NodeContext;
+import ixdar.geometry.mesh.nodes.api.OutputPort;
+import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.geometry.mesh.nodes.api.UvField;
+import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 import ixdar.geometry.mesh.quadlayout.Singularity;
-import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.EdgeCrossing;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.FaceSegmentIndex;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.FeatureEdgeSpan;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.MetOtherTraceEntry;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshNode;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TMeshPatch;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceAxis;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceEvent;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TracePort;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
-import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.platform.Platforms;
 
 /**
  * Lyon 2021 §3 modified motorcycle graph T-mesh: traces, nodes, arcs, and
- * patches built from a seamless parametrization.
+ * patches built from a seamless parametrization. As the registered
+ * {@code motorcycle_graph} node, the registry instance is inert and evaluation
+ * builds a fresh graph.
+ *
+ * <p>See also: Lyon 2021 Section 3, Eppstein 2008
  */
-public final class MotorcycleGraph {
+@MeshNodeAnnotation(id = "motorcycle_graph", desktopOnly = true)
+public final class MotorcycleGraph implements MeshNode {
+
+    public static final float DEFAULT_ALPHA_DEGREES = 15.0f;
+
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort UV = new InputPort("uv", PortType.UV_FIELD, null);
+    public static final InputPort SINGULARITIES = new InputPort("singularities",
+            PortType.SINGULARITY_LIST, null);
+    public static final InputPort FEATURE_EDGES = new InputPort("feature_edges",
+            PortType.EDGE_ID_SET, null);
+    public static final InputPort ALPHA_DEGREES = new InputPort("alpha_degrees", PortType.FLOAT,
+            DEFAULT_ALPHA_DEGREES);
+    public static final OutputPort GRAPH = new OutputPort("graph", PortType.ARC_NETWORK);
+    public static final OutputPort NODE_COUNT = new OutputPort("node_count", PortType.INT);
+    public static final OutputPort ARC_COUNT = new OutputPort("arc_count", PortType.INT);
+    public static final OutputPort PATCH_COUNT = new OutputPort("patch_count", PortType.INT);
 
     public static final int MAX_TRACE_RECORDS_PER_FACE = 4;
     /**
@@ -40,7 +70,8 @@ public final class MotorcycleGraph {
      * in one feature chain.
      */
     static final double CHAIN_TURN_COS = Math.cos(Math.PI / 4.0);
-    private static final int CORNERS = SeamlessParameterization.CORNERS_PER_FACE;
+    /** Number of cross-field branches (a 4-RoSy field has 4). */
+    private static final int BRANCH_COUNT = 4;
     private static final int DIE_SAMPLE_LIMIT = 12;
     private static final int PROGRESS_BAR_WIDTH = 30;
     private static final int PROGRESS_LOG_EVERY_EVENTS = 5000;
@@ -60,12 +91,22 @@ public final class MotorcycleGraph {
     /** Nanoseconds per second, for the backstop message. */
     private static final double NANOS_PER_SECOND = 1.0e9;
 
-    public final SeamlessParameterization seamless;
+    public final UvField uv;
+
+    /** Cone points the separatrices spawn from and terminate at. */
+    public final List<Singularity> singularities;
+
+    /** Mesh edge ids of feature and boundary curves the layout must respect. */
+    public final Set<Integer> featureEdgeIds;
+
     public final float alphaRadians;
 
-    public List<TMeshNode> nodes;
-    public List<TraceArc> arcs;
-    public List<TMeshPatch> patches;
+    /** The arrangement being built; every durable product lands here. */
+    public EmbeddedTMesh network;
+
+    public List<EmbeddedNode> nodes;
+    public List<EmbeddedArc> arcs;
+    public List<EmbeddedPatch> patches;
     public List<Trace> traces;
 
     public float[][] traceRecordsByFace;
@@ -135,36 +176,102 @@ public final class MotorcycleGraph {
      * this map so a vertex never owns two nodes (two nodes on one vertex leave
      * degree-1 dead ends in the arrangement walk).
      */
-    private final Map<Integer, TMeshNode> nodeByVertexId = new HashMap<>();
+    private final Map<Integer, EmbeddedNode> nodeByVertexId = new HashMap<>();
 
     private int nextNodeId;
     private int nextArcId;
     private int nextTraceId;
 
     private int faceCount;
-    private CrossField crossField;
     private FaceSegmentIndex segmentIndex;
+
+    /** Inert node-registry instance; evaluation builds a fresh graph. */
+    public MotorcycleGraph() {
+        this.uv = null;
+        this.singularities = null;
+        this.featureEdgeIds = null;
+        this.alphaRadians = 0f;
+    }
 
     /**
      * Stores inputs for a Lyon §3 motorcycle graph build.
      *
-     * @param seamless     built seamless parametrization
-     * @param alphaRadians Lyon stopping bound α in radians
+     * @param mesh           the parametrized mesh
+     * @param uv             built seamless per-corner UV field over the mesh
+     * @param singularities  the field's cone points
+     * @param featureEdgeIds mesh edge ids of feature and boundary curves
+     * @param alphaRadians   Lyon stopping bound α in radians
      */
-    public MotorcycleGraph(SeamlessParameterization seamless, float alphaRadians) {
-        this.seamless = seamless;
+    public MotorcycleGraph(HalfEdgeMesh mesh, UvField uv, List<Singularity> singularities,
+            Set<Integer> featureEdgeIds, float alphaRadians) {
+        this.uv = uv;
+        this.singularities = singularities;
+        this.featureEdgeIds = featureEdgeIds;
         this.alphaRadians = alphaRadians;
 
-        this.mesh = seamless.mesh;
-        this.crossField = seamless.crossField;
-        this.faceCount = this.mesh.faceCount();
-        this.walker = new ChartWalker(seamless);
+        this.mesh = mesh;
+        this.faceCount = mesh.faceCount();
+        this.walker = new ChartWalker(mesh, uv, singularities);
         this.segmentIndex = new FaceSegmentIndex(faceCount);
 
-        this.nodes = new ArrayList<>();
-        this.arcs = new ArrayList<>();
-        this.patches = new ArrayList<>();
+        this.network = new EmbeddedTMesh(mesh);
+        this.nodes = network.nodes;
+        this.arcs = network.arcs;
+        this.patches = network.patches;
         this.traces = new ArrayList<>();
+        network.traces = traces;
+        network.featureSpanByEdgeId = featureSpanByEdgeId;
+    }
+
+    @Override
+    public List<InputPort> inputs() {
+        return List.of(GEOMETRY, UV, SINGULARITIES, FEATURE_EDGES, ALPHA_DEGREES);
+    }
+
+    @Override
+    public List<OutputPort> outputs() {
+        return List.of(GRAPH, NODE_COUNT, ARC_COUNT, PATCH_COUNT);
+    }
+
+    @Override
+    public String description() {
+        return "Traces the motorcycle-graph T-mesh over a seamless parametrization: the"
+                + " separatrix arrangement whose cells are the layout's patches.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                GEOMETRY.name, "Geometry carrying the parametrized triangle mesh.",
+                UV.name, "Seamless per-corner UV field to trace, from a seamless_uv node.",
+                SINGULARITIES.name, "Cone points the separatrices spawn from, from a cross_field node.",
+                FEATURE_EDGES.name, "Mesh edge ids of feature and boundary curves, from a cross_field node.",
+                ALPHA_DEGREES.name, "Maximum separatrix deviation in degrees, the quality knob.",
+                GRAPH.name, "The T-mesh arrangement: nodes, arcs, traces, and patches.",
+                NODE_COUNT.name, "Number of T-mesh nodes in the arrangement.",
+                ARC_COUNT.name, "Number of T-mesh arcs in the arrangement.",
+                PATCH_COUNT.name, "Number of T-mesh patches (arrangement cells)."
+        );
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public void evaluate(NodeContext ctx) {
+        GeometryBundle bundle = GeometryBundles.bundlePart(ctx.getInput(GEOMETRY.name, Object.class));
+        UvField inputUv = (UvField) ctx.getInput(UV.name, Object.class);
+        List<Singularity> cones = (List<Singularity>) ctx.getInput(SINGULARITIES.name, Object.class);
+        Set<Integer> features = (Set<Integer>) ctx.getInput(FEATURE_EDGES.name, Object.class);
+        float alphaDegrees = FieldBroadcast.floatScalarOrDefault(
+                FieldBroadcast.getInputOrDefault(ctx, ALPHA_DEGREES.name, ALPHA_DEGREES.defaultValue),
+                DEFAULT_ALPHA_DEGREES);
+        HalfEdgeMesh inputMesh = HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh());
+        MotorcycleGraph graph = new MotorcycleGraph(inputMesh, inputUv, cones, features,
+                (float) Math.toRadians(alphaDegrees));
+        graph.build();
+        ctx.setOutput(GRAPH.name, graph.network);
+        ctx.setOutput(NODE_COUNT.name, graph.network.nodes.size());
+        ctx.setOutput(ARC_COUNT.name, graph.network.arcs.size());
+        ctx.setOutput(PATCH_COUNT.name, graph.network.patches.size());
     }
 
     /**
@@ -177,10 +284,11 @@ public final class MotorcycleGraph {
         long buildStartNanos = System.nanoTime();
 
         System.out.println("[motorcycle] seeding singularity nodes and feature traces");
-        for (Singularity singularity : crossField.singularities) {
+        for (Singularity singularity : singularities) {
             Vector3f position = mesh.vertexPosition(singularity.vertexId());
-            TMeshNode node = new TMeshNode(nextNodeId++, TMeshNode.Type.SINGULARITY,
+            EmbeddedNode node = new EmbeddedNode(nextNodeId++,
                     singularity.vertexId(), -1, singularity.index4(), 0f, 0f, position);
+            node.critical = true;
             nodes.add(node);
             nodeByVertexId.put(singularity.vertexId(), node);
         }
@@ -189,17 +297,18 @@ public final class MotorcycleGraph {
         List<TracePort> ports = spawnFromSingularities();
         for (TracePort port : ports) {
             double[] cornerUv = new double[ChartWalker.CORNER_UV_FLOATS];
-            seamless.faceCornerUv(port.activeFace, cornerUv);
+            uv.faceCornerUv(mesh.faceIdAt(port.activeFace), cornerUv);
             double startU = cornerUv[port.cornerIndex * 2];
             double startV = cornerUv[port.cornerIndex * 2 + 1];
 
-            TMeshNode origin = nodeByVertexId.get(port.singularityVertexId);
+            EmbeddedNode origin = nodeByVertexId.get(port.singularityVertexId);
             if (origin == null) {
                 Vector3f position = new Vector3f();
-                int faceId = seamless.mesh.faceIdAt(port.activeFace);
-                seamless.mesh.vertexPosition(seamless.mesh.faceVertexAt(faceId, port.cornerIndex), position);
-                origin = new TMeshNode(nextNodeId++, TMeshNode.Type.SINGULARITY,
+                int faceId = mesh.faceIdAt(port.activeFace);
+                mesh.vertexPosition(mesh.faceVertexAt(faceId, port.cornerIndex), position);
+                origin = new EmbeddedNode(nextNodeId++,
                         port.singularityVertexId, -1, 0, startU, startV, position);
+                origin.critical = true;
                 nodes.add(origin);
                 nodeByVertexId.put(port.singularityVertexId, origin);
             }
@@ -423,8 +532,8 @@ public final class MotorcycleGraph {
                 : Math.abs(event.v - otherSegment.entryV);
         double theirLength = otherSegment.parametricLengthAtEntry + distanceAlongSegment;
 
-        TMeshNode intersectionNode = null;
-        intersectionNode = new TMeshNode(nextNodeId++, TMeshNode.Type.INTERSECTION,
+        EmbeddedNode intersectionNode = null;
+        intersectionNode = new EmbeddedNode(nextNodeId++,
                 -1, event.activeFace, 0, event.u, event.v,
                 liftToPosition(mesh, walker, event.activeFace, event.u, event.v));
         nodes.add(intersectionNode);
@@ -508,12 +617,16 @@ public final class MotorcycleGraph {
         trace.segments.add(segment);
         registerSegment(trace, segment);
         trace.parametricLengthSoFar = event.parametricLength;
-        TMeshNode endNode = terminalVertexId >= 0 ? nodeByVertexId.get(terminalVertexId) : null;
+        EmbeddedNode endNode = terminalVertexId >= 0 ? nodeByVertexId.get(terminalVertexId) : null;
         if (endNode == null) {
-            endNode = new TMeshNode(nextNodeId++,
-                    event.type == TraceEvent.TYPE_BOUNDARY ? TMeshNode.Type.BOUNDARY : TMeshNode.Type.SINGULARITY,
+            endNode = new EmbeddedNode(nextNodeId++,
                     terminalVertexId, terminalVertexId >= 0 ? -1 : event.activeFace, 0,
                     event.u, event.v, liftToPosition(mesh, walker, event.activeFace, event.u, event.v));
+            if (event.type == TraceEvent.TYPE_BOUNDARY) {
+                endNode.border = true;
+            } else {
+                endNode.critical = true;
+            }
             nodes.add(endNode);
             if (terminalVertexId >= 0) {
                 nodeByVertexId.put(terminalVertexId, endNode);
@@ -534,7 +647,7 @@ public final class MotorcycleGraph {
      * node — the boundary side of a patch must break exactly where separatrices end
      * on it.
      */
-    private void attachTerminationToFeatureChain(Trace trace, TraceEvent event, TMeshNode endNode) {
+    private void attachTerminationToFeatureChain(Trace trace, TraceEvent event, EmbeddedNode endNode) {
         for (TraceSegment candidate : segmentIndex.segmentsOnFace(event.activeFace)) {
             Trace owner = traces.get(candidate.traceId);
             if (!owner.featureTrace) {
@@ -574,9 +687,10 @@ public final class MotorcycleGraph {
                             + " meetings=%d lastFace=%d%n",
                     trace.traceId, trace.alive, trace.segments.size(), trace.parametricLengthSoFar,
                     trace.metOtherTraces.size(), last.activeFace);
-            TMeshNode endNode = new TMeshNode(nextNodeId++, TMeshNode.Type.TRUNCATED,
+            EmbeddedNode endNode = new EmbeddedNode(nextNodeId++,
                     -1, last.activeFace, 0, last.exitU, last.exitV,
                     liftToPosition(mesh, walker, last.activeFace, last.exitU, last.exitV));
+            endNode.truncated = true;
             nodes.add(endNode);
             addArc(trace, endNode.nodeId, last.parametricLength());
             trace.currentNodeId = endNode.nodeId;
@@ -590,8 +704,8 @@ public final class MotorcycleGraph {
     }
 
     private void addArc(Trace trace, int endNodeId, double parametricLength) {
-        TraceArc arc = new TraceArc(nextArcId++, trace.traceId, trace.currentNodeId, endNodeId,
-                trace.state.axis, parametricLength);
+        EmbeddedArc arc = new EmbeddedArc(nextArcId++, trace.traceId, trace.currentNodeId,
+                endNodeId, parametricLength);
         arcs.add(arc);
     }
 
@@ -638,7 +752,7 @@ public final class MotorcycleGraph {
                     ? Math.abs(hit.intersectionU - hit.otherSegment.entryU)
                     : Math.abs(hit.intersectionV - hit.otherSegment.entryV);
             double theirLength = hit.otherSegment.parametricLengthAtEntry + distanceAlongOther;
-            TMeshNode node = new TMeshNode(nextNodeId++, TMeshNode.Type.INTERSECTION, -1,
+            EmbeddedNode node = new EmbeddedNode(nextNodeId++, -1,
                     segment.activeFace, 0, hit.intersectionU, hit.intersectionV,
                     liftToPosition(mesh, walker, segment.activeFace, hit.intersectionU, hit.intersectionV));
             nodes.add(node);
@@ -671,7 +785,7 @@ public final class MotorcycleGraph {
      * See also: Lyon 2021 Section 5.1
      */
     private void subdivideArcsAtMeetings() {
-        List<TraceArc> rebuilt = new ArrayList<>();
+        List<EmbeddedArc> rebuilt = new ArrayList<>();
         int nextId = 0;
         for (Trace trace : traces) {
             if (trace.arcNodeIds.size() < 2) {
@@ -773,9 +887,8 @@ public final class MotorcycleGraph {
             trace.chainNodeLengths.addAll(chainLengths);
             for (int k = 0; k < chainNodes.size() - 1; k++) {
                 double length = chainLengths.get(k + 1) - chainLengths.get(k);
-                TraceArc arc = new TraceArc(nextId++, trace.traceId,
-                        chainNodes.get(k), chainNodes.get(k + 1),
-                        trace.spawnAxis, length);
+                EmbeddedArc arc = new EmbeddedArc(nextId++, trace.traceId,
+                        chainNodes.get(k), chainNodes.get(k + 1), length);
                 rebuilt.add(arc);
                 trace.chainArcIds.add(arc.arcId);
             }
@@ -787,7 +900,7 @@ public final class MotorcycleGraph {
 
     private void assemblePatches() {
 
-        int edgeCount = seamless.edgeCount;
+        int edgeCount = mesh.edgeCount();
         boolean[] traceCrossesActiveEdge = new boolean[edgeCount];
         crossingsByActiveEdge = new ArrayList<>(edgeCount);
         for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
@@ -805,12 +918,12 @@ public final class MotorcycleGraph {
                     continue;
                 }
                 int sharedEdge = -1;
-                int faceIdA = seamless.mesh.faceIdAt(fromFace);
-                int faceIdB = seamless.mesh.faceIdAt(toFace);
-                for (int edge = 0; edge < CORNERS; edge++) {
-                    int edgeId = seamless.mesh.faceEdgeAt(faceIdA, edge);
-                    int activeEdge = seamless.crossField.edgeIdToActive.get(edgeId);
-                    HalfEdgeMesh.EdgeFaceIds edgeFaces = seamless.mesh.edgeFaceIds(activeEdge);
+                int faceIdA = mesh.faceIdAt(fromFace);
+                int faceIdB = mesh.faceIdAt(toFace);
+                for (int edge = 0; edge < HalfEdgeMesh.TRIANGLE_CORNERS; edge++) {
+                    int edgeId = mesh.faceEdgeAt(faceIdA, edge);
+                    int activeEdge = mesh.activeEdgeIndexOf(edgeId);
+                    HalfEdgeMesh.EdgeFaceIds edgeFaces = mesh.edgeFaceIds(activeEdge);
                     int other = edgeFaces.faceA == faceIdA ? edgeFaces.faceB : edgeFaces.faceA;
                     if (other == faceIdB) {
                         sharedEdge = activeEdge;
@@ -824,9 +937,9 @@ public final class MotorcycleGraph {
                 }
             }
         }
-        for (int alignmentEdgeId : seamless.crossField.alignmentEdgeIds) {
-            Integer activeEdge = seamless.crossField.edgeIdToActive.get(alignmentEdgeId);
-            if (activeEdge != null) {
+        for (int featureEdgeId : featureEdgeIds) {
+            int activeEdge = mesh.activeEdgeIndexOf(featureEdgeId);
+            if (activeEdge >= 0) {
                 traceCrossesActiveEdge[activeEdge] = true;
             }
         }
@@ -865,9 +978,9 @@ public final class MotorcycleGraph {
      *         triangle is degenerate
      */
     public static Vector3f liftToPosition(HalfEdgeMesh mesh, ChartWalker walker, int activeFace, double u, double v) {
-        double[] cornerUv = new double[ChartWalker.CORNER_UV_FLOATS];
-        walker.seamless.faceCornerUv(activeFace, cornerUv);
         int faceId = mesh.faceIdAt(activeFace);
+        double[] cornerUv = new double[ChartWalker.CORNER_UV_FLOATS];
+        walker.uv.faceCornerUv(faceId, cornerUv);
         Vector3f position0 = new Vector3f();
         Vector3f position1 = new Vector3f();
         Vector3f position2 = new Vector3f();
@@ -897,26 +1010,26 @@ public final class MotorcycleGraph {
      */
     public List<TracePort> spawnFromSingularities() {
         List<TracePort> ports = new ArrayList<>();
-        for (Singularity singularity : crossField.singularities) {
+        for (Singularity singularity : singularities) {
             int vertexId = singularity.vertexId();
             int faceCount = mesh.vertexFaceCount(vertexId);
             for (int fanIndex = 0; fanIndex < faceCount; fanIndex++) {
                 int faceId = mesh.vertexFaceAt(vertexId, fanIndex);
-                int activeFace = crossField.faceIdToActive.get(faceId);
+                int activeFace = mesh.activeFaceIndexOf(faceId);
                 int cornerIndex = cornerOfVertex(mesh, faceId, vertexId);
                 double[] cornerUv = new double[ChartWalker.CORNER_UV_FLOATS];
-                seamless.faceCornerUv(activeFace, cornerUv);
-                int nextCorner = (cornerIndex + 1) % SeamlessParameterization.CORNERS_PER_FACE;
-                int thirdCorner = (cornerIndex + 2) % SeamlessParameterization.CORNERS_PER_FACE;
-                double uu = cornerUv[cornerIndex * 2];
-                double uv = cornerUv[cornerIndex * 2 + 1];
-                double vu = cornerUv[nextCorner * 2];
-                double vv = cornerUv[nextCorner * 2 + 1];
-                double wu = cornerUv[thirdCorner * 2];
-                double wv = cornerUv[thirdCorner * 2 + 1];
-                double orientation = orient2d(uu, uv, vu, vv, wu, wv);
+                uv.faceCornerUv(faceId, cornerUv);
+                int nextCorner = (cornerIndex + 1) % HalfEdgeMesh.TRIANGLE_CORNERS;
+                int thirdCorner = (cornerIndex + 2) % HalfEdgeMesh.TRIANGLE_CORNERS;
+                double au = cornerUv[cornerIndex * 2];
+                double av = cornerUv[cornerIndex * 2 + 1];
+                double bu = cornerUv[nextCorner * 2];
+                double bv = cornerUv[nextCorner * 2 + 1];
+                double cu = cornerUv[thirdCorner * 2];
+                double cv = cornerUv[thirdCorner * 2 + 1];
+                double orientation = orient2d(au, av, bu, bv, cu, cv);
                 if (orientation > 0.0) {
-                    for (int r = 0; r < SeamlessParameterization.BRANCH_COUNT; r++) {
+                    for (int r = 0; r < BRANCH_COUNT; r++) {
                         double[] dir = switch (((r % 4) + 4) % 4) {
                         case 0 -> new double[] { 1.0, 0.0 };
                         case 1 -> new double[] { 0.0, 1.0 };
@@ -925,10 +1038,10 @@ public final class MotorcycleGraph {
                         };
                         boolean acceptCandidate = false;
 
-                        double edgeU = vu - uu;
-                        double edgeV = vv - uv;
-                        if (orient2d(uu, uv, vu, vv, uu + dir[0], uv + dir[1]) > 0
-                                && orient2d(uu, uv, uu + dir[0], uv + dir[1], wu, wv) > 0) {
+                        double edgeU = bu - au;
+                        double edgeV = bv - av;
+                        if (orient2d(au, av, bu, bv, au + dir[0], av + dir[1]) > 0
+                                && orient2d(au, av, au + dir[0], av + dir[1], cu, cv) > 0) {
                             acceptCandidate = true;
                         } else if (!(Math.abs(orient2d(0.0, 0.0, edgeU, edgeV, dir[0], dir[1])) <= 0)) {
                             acceptCandidate = false;
@@ -948,7 +1061,7 @@ public final class MotorcycleGraph {
     }
 
     private static int cornerOfVertex(HalfEdgeMesh mesh, int faceId, int vertexId) {
-        for (int corner = 0; corner < SeamlessParameterization.CORNERS_PER_FACE; corner++) {
+        for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
             if (mesh.faceVertexAt(faceId, corner) == vertexId) {
                 return corner;
             }

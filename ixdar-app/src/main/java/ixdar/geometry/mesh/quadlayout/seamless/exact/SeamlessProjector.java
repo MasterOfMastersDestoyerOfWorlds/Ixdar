@@ -13,6 +13,7 @@ import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.CutGraph;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.platform.Platforms;
 
 /**
@@ -27,7 +28,7 @@ import ixdar.platform.Platforms;
  */
 public final class SeamlessProjector {
 
-    private static final int CORNERS_PER_FACE = SeamlessParameterization.CORNERS_PER_FACE;
+    private static final int CORNERS_PER_FACE = SeamlessUv.CORNERS_PER_FACE;
     private static final int COMPONENTS_PER_CHART_VERTEX = 2;
     private static final int U_COMPONENT = 0;
     private static final int V_COMPONENT = 1;
@@ -58,8 +59,8 @@ public final class SeamlessProjector {
 
     /**
      * Bind this projector to a built {@link SeamlessParameterization}. The
-     * projector mutates {@code seamless.uCorner}, {@code seamless.vCorner},
-     * {@code seamless.cutTranslationS}, and {@code seamless.cutTranslationT} when
+     * projector mutates {@code seamless.uv.uCorner}, {@code seamless.uv.vCorner},
+     * {@code seamless.uv.cutTranslationS}, and {@code seamless.uv.cutTranslationT} when
      * {@link #project()} is called.
      *
      * @param seamless the parametrization to project onto the exact-constraint
@@ -68,15 +69,15 @@ public final class SeamlessProjector {
      */
     public SeamlessProjector(SeamlessParameterization seamless) {
         this.seamless = seamless;
-        this.cutGraph = seamless.cutGraph;
-        this.crossField = seamless.crossField;
+        this.cutGraph = seamless.uv.cutGraph;
+        this.crossField = seamless.field;
         this.mesh = seamless.mesh;
     }
 
     /**
-     * Run the MC19 §5.3.1 projection. Mutates {@code seamless.uCorner},
-     * {@code seamless.vCorner}, {@code seamless.cutTranslationS}, and
-     * {@code seamless.cutTranslationT}.
+     * Run the MC19 §5.3.1 projection. Mutates {@code seamless.uv.uCorner},
+     * {@code seamless.uv.vCorner}, {@code seamless.uv.cutTranslationS}, and
+     * {@code seamless.uv.cutTranslationT}.
      *
      * @throws ArithmeticException if any projected value lands outside the chosen
      *                             F_d range {@code (-d, +d)}, breaking the
@@ -90,11 +91,11 @@ public final class SeamlessProjector {
         // the BZK09 solve.
         double[] chartU = new double[chartVertexCount];
         double[] chartV = new double[chartVertexCount];
-        int totalCorners = seamless.faceCount * CORNERS_PER_FACE;
+        int totalCorners = seamless.uv.faceCount * CORNERS_PER_FACE;
         for (int cornerIdx = 0; cornerIdx < totalCorners; cornerIdx++) {
             int chartVertex = cutGraph.cornerToChartVertex[cornerIdx];
-            chartU[chartVertex] = seamless.uCorner[cornerIdx];
-            chartV[chartVertex] = seamless.vCorner[cornerIdx];
+            chartU[chartVertex] = seamless.uv.uCorner[cornerIdx];
+            chartV[chartVertex] = seamless.uv.vCorner[cornerIdx];
         }
         double[] chartUInitial = chartU.clone();
         double[] chartVInitial = chartV.clone();
@@ -105,15 +106,15 @@ public final class SeamlessProjector {
         for (Singularity s : crossField.singularities) {
             singularityVertexIds.add(s.vertexId());
         }
-        boolean[] walkedCutEdge = new boolean[seamless.edgeCount];
+        boolean[] walkedCutEdge = new boolean[seamless.uv.edgeCount];
         List<int[]> branchPlusChart = new ArrayList<>();
         List<int[]> branchMinusChart = new ArrayList<>();
         List<Integer> branchRotation = new ArrayList<>();
-        for (int seedEdge = 0; seedEdge < seamless.edgeCount; seedEdge++) {
+        for (int seedEdge = 0; seedEdge < seamless.uv.edgeCount; seedEdge++) {
             if (!cutGraph.isCutEdge[seedEdge] || walkedCutEdge[seedEdge]) {
                 continue;
             }
-            if (seamless.edgeFaceA[seedEdge] < 0 || seamless.edgeFaceB[seedEdge] < 0) {
+            if (seamless.uv.edgeFaceA[seedEdge] < 0 || seamless.uv.edgeFaceB[seedEdge] < 0) {
                 continue;
             }
             walkBranchFromSeed(seedEdge, singularityVertexIds, walkedCutEdge,
@@ -203,8 +204,8 @@ public final class SeamlessProjector {
         // Phase 9: writeback to per-corner arrays and recompute (s, t) translations.
         for (int cornerIdx = 0; cornerIdx < totalCorners; cornerIdx++) {
             int chartVertex = cutGraph.cornerToChartVertex[cornerIdx];
-            seamless.uCorner[cornerIdx] = chartU[chartVertex];
-            seamless.vCorner[cornerIdx] = chartV[chartVertex];
+            seamless.uv.uCorner[cornerIdx] = chartU[chartVertex];
+            seamless.uv.vCorner[cornerIdx] = chartV[chartVertex];
         }
         recomputeCutTranslations();
     }
@@ -253,8 +254,8 @@ public final class SeamlessProjector {
         // Walk forward from the start node along the first edge, recording chain.
         int currentActiveVertex = startNodeActiveVertex;
         int currentActiveEdge = firstActiveEdge;
-        int currentPlusActiveFace = seamless.edgeFaceA[firstActiveEdge];
-        int currentMinusActiveFace = seamless.edgeFaceB[firstActiveEdge];
+        int currentPlusActiveFace = seamless.uv.edgeFaceA[firstActiveEdge];
+        int currentMinusActiveFace = seamless.uv.edgeFaceB[firstActiveEdge];
 
         List<Integer> chainPlus = new ArrayList<>();
         List<Integer> chainMinus = new ArrayList<>();
@@ -315,7 +316,7 @@ public final class SeamlessProjector {
      */
     private int effectivePlusToMinusRotation(int activeEdge, int plusActiveFace) {
         int edgeRotation = cutGraph.cutRotation[activeEdge];
-        if (plusActiveFace == seamless.edgeFaceA[activeEdge]) {
+        if (plusActiveFace == seamless.uv.edgeFaceA[activeEdge]) {
             return edgeRotation;
         }
         return (ROSY_ROTATION_COUNT - edgeRotation) % ROSY_ROTATION_COUNT;
@@ -437,26 +438,26 @@ public final class SeamlessProjector {
      * {@code t_AB(v) = f_B(v) − R_r · f_A(v)}. Picks the edge's start vertex.
      */
     private void recomputeCutTranslations() {
-        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
+        for (int activeEdge = 0; activeEdge < seamless.uv.edgeCount; activeEdge++) {
             if (!cutGraph.isCutEdge[activeEdge]) {
                 continue;
             }
-            int faceA = seamless.edgeFaceA[activeEdge];
-            int faceB = seamless.edgeFaceB[activeEdge];
+            int faceA = seamless.uv.edgeFaceA[activeEdge];
+            int faceB = seamless.uv.edgeFaceB[activeEdge];
             if (faceA < 0 || faceB < 0) {
                 continue;
             }
-            int cornerAStart = seamless.edgeCornerInA[activeEdge];
-            int cornerBStart = seamless.edgeCornerInB[activeEdge];
+            int cornerAStart = seamless.uv.edgeCornerInA[activeEdge];
+            int cornerBStart = seamless.uv.edgeCornerInB[activeEdge];
             int rotation = cutGraph.cutRotation[activeEdge];
             int cos = ExactArithmetic.integerCosine(rotation);
             int sin = ExactArithmetic.integerSine(rotation);
-            double uA = seamless.uCorner[faceA * CORNERS_PER_FACE + cornerAStart];
-            double vA = seamless.vCorner[faceA * CORNERS_PER_FACE + cornerAStart];
-            double uB = seamless.uCorner[faceB * CORNERS_PER_FACE + cornerBStart];
-            double vB = seamless.vCorner[faceB * CORNERS_PER_FACE + cornerBStart];
-            seamless.cutTranslationS[activeEdge] = uB - (cos * uA - sin * vA);
-            seamless.cutTranslationT[activeEdge] = vB - (sin * uA + cos * vA);
+            double uA = seamless.uv.uCorner[faceA * CORNERS_PER_FACE + cornerAStart];
+            double vA = seamless.uv.vCorner[faceA * CORNERS_PER_FACE + cornerAStart];
+            double uB = seamless.uv.uCorner[faceB * CORNERS_PER_FACE + cornerBStart];
+            double vB = seamless.uv.vCorner[faceB * CORNERS_PER_FACE + cornerBStart];
+            seamless.uv.cutTranslationS[activeEdge] = uB - (cos * uA - sin * vA);
+            seamless.uv.cutTranslationT[activeEdge] = vB - (sin * uA + cos * vA);
         }
     }
 
@@ -540,7 +541,7 @@ public final class SeamlessProjector {
             if (!cutGraph.isCutEdge[activeEdge]) {
                 continue;
             }
-            if (seamless.edgeFaceA[activeEdge] < 0 || seamless.edgeFaceB[activeEdge] < 0) {
+            if (seamless.uv.edgeFaceA[activeEdge] < 0 || seamless.uv.edgeFaceB[activeEdge] < 0) {
                 continue;
             }
             return activeEdge;
@@ -577,8 +578,8 @@ public final class SeamlessProjector {
      * @return length-2 array {@code [plusFace, minusFace]} (active face indices)
      */
     private int[] facesPlusMinusForEdgeAtVertex(int activeEdge, int activeVertex, int plusChartAtVertex) {
-        int faceA = seamless.edgeFaceA[activeEdge];
-        int faceB = seamless.edgeFaceB[activeEdge];
+        int faceA = seamless.uv.edgeFaceA[activeEdge];
+        int faceB = seamless.uv.edgeFaceB[activeEdge];
         int chartA = chartVertexOfFaceAtActiveVertex(faceA, activeVertex);
         if (chartA == plusChartAtVertex) {
             return new int[] { faceA, faceB };
@@ -688,7 +689,7 @@ public final class SeamlessProjector {
      */
     private List<Integer> findFlippedFaces(double[] chartU, double[] chartV) {
         List<Integer> out = new ArrayList<>();
-        for (int activeFace = 0; activeFace < seamless.faceCount; activeFace++) {
+        for (int activeFace = 0; activeFace < seamless.uv.faceCount; activeFace++) {
             if (isFaceFlippedOrDegenerate(activeFace, chartU, chartV)) {
                 out.add(activeFace);
             }

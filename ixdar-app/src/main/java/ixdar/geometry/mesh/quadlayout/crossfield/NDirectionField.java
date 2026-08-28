@@ -11,8 +11,17 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
+import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.nodes.api.InputPort;
+import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.geometry.mesh.nodes.api.NodeContext;
+import ixdar.geometry.mesh.nodes.api.OutputPort;
+import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
 import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
@@ -21,7 +30,26 @@ import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
 import ixdar.geometry.mesh.quadlayout.solver.system.PowerIteration;
 import ixdar.platform.Platforms;
 
-public class NDirectionField extends CrossField {
+/**
+ * Builds the quad-layout cross field over a triangle mesh: the Knöppel
+ * n-direction field with curvature alignment and soft feature/boundary
+ * guidance, with its cf.singularities extracted. As the registered
+ * {@code cross_field} node, the registry instance is inert and evaluation
+ * builds a fresh field.
+ *
+ * <p>See also: Lyon 2021 stages 1-2
+ */
+@MeshNodeAnnotation(id = "cross_field", desktopOnly = true)
+public class NDirectionField implements MeshNode {
+
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final OutputPort FIELD = new OutputPort("field", PortType.CROSS_FIELD);
+    public static final OutputPort SINGULARITY_COUNT = new OutputPort("singularity_count", PortType.INT);
+    public static final OutputPort SINGULARITIES = new OutputPort("singularities",
+            PortType.SINGULARITY_LIST);
+    public static final OutputPort FEATURE_EDGES = new OutputPort("feature_edges",
+            PortType.EDGE_ID_SET);
+    public static final OutputPort DOFS = new OutputPort("dofs", PortType.DOF_SYSTEM);
 
     /**
      * Diagonal regularizer A <- A + shift*M so the closed-surface system is SPD
@@ -31,21 +59,23 @@ public class NDirectionField extends CrossField {
     /** Fixed power-iteration count; the paper uses 20 for all examples (Sec. 7). */
     public static final int DEFAULT_POWER_ITERATIONS = 20;
 
+    public static final double NANOS_PER_SECOND = 1.0e9;
+
     public static final float HALF_PI = (float) (Math.PI / 2.0);
     public static final double EPS = 1e-12;
 
     /** Shared suffix of the PCG diagnostics lines printed by the two solves. */
     public static final String PCG_CONVERGED_SUFFIX = " converged=";
 
-    public final HalfEdgeMesh mesh;
+    public HalfEdgeMesh mesh;
 
-    public final int vertexCount;
+    public int vertexCount;
 
     /** The degree of the direction field. */
     public final int n = 4;
 
     /**
-     * Smoothness parameter of where to put singularities in [-1, 1]; 0 = Dirichlet.
+     * Smoothness parameter of where to put cf.singularities in [-1, 1]; 0 = Dirichlet.
      * -1 = holomorphic (at points of high Gaussian curvature), 1 = anti-holomorphic
      * (at points of low Gaussian curvature).
      */
@@ -57,7 +87,7 @@ public class NDirectionField extends CrossField {
 
     // Solution: per-vertex n-th power coefficient u = uRe + i*uIm.
     /** The canonical solve state: the raw DOF vector of the last field solve. */
-    public final DofSystem system;
+    public DofSystem system;
 
     public double[] uReal;
     public double[] uImaginary;
@@ -86,7 +116,10 @@ public class NDirectionField extends CrossField {
 
     public boolean useCurvatureAlignment = true;
 
-    private final int[] vertexIdOf; // active index -> vertex id
+    /** The field being built; every durable product lands here. */
+    private CrossField cf;
+
+    private int[] vertexIdOf; // active index -> vertex id
     private final Map<Integer, Integer> activeOfVertexId = new HashMap<>();
 
     // angleInFrame[ packVH(vertexId, halfEdge) ] = rescaled angle of that outgoing
@@ -98,18 +131,21 @@ public class NDirectionField extends CrossField {
     private double[] angleDefect;
 
     /**
+     * Builds the cross field over a mesh: local frames and transport angles,
+     * alignment edges, the connection Laplacian solve, and the field conversion
+     * with singularity extraction. All durable products land on the returned
+     * {@link CrossField}; this stage instance holds only scratch.
      *
-     * Cross field construction.
-     *
-     * @param mesh half-edge mesh providing geometry, topology, and active-id
-     *             mapping
+     * @param buildMesh half-edge mesh providing geometry, topology, and
+     *                  active-id mapping
+     * @return the built cross field
      */
-    public NDirectionField(HalfEdgeMesh mesh) {
-        super(mesh);
-        this.mesh = mesh;
-        this.vertexCount = mesh.vertexCount();
+    public CrossField build(HalfEdgeMesh buildMesh) {
+        this.mesh = buildMesh;
+        this.cf = new CrossField(buildMesh);
+        this.vertexCount = buildMesh.vertexCount();
         this.system = new DofSystem(2 * vertexCount);
-        this.system.assembler = x -> useCurvatureAlignment || !alignmentEdgeIds.isEmpty()
+        this.system.assembler = x -> useCurvatureAlignment || !cf.alignmentEdgeIds.isEmpty()
                 ? massSystemMatrix
                 : energyMatrix;
         this.system.energy = x -> energyMatrix.quadraticEnergy(x);
@@ -117,17 +153,14 @@ public class NDirectionField extends CrossField {
         this.system.writeBack = this::populate;
         this.vertexIdOf = new int[vertexCount];
         for (int v = 0; v < vertexCount; v++) {
-            int vId = mesh.vertexIdAt(v);
+            int vId = buildMesh.vertexIdAt(v);
             vertexIdOf[v] = vId;
             activeOfVertexId.put(vId, v);
         }
         this.loadVector = new double[2 * vertexCount];
         this.crossFieldGuidance = new double[2 * vertexCount];
-    }
-
-    @Override
-    public NDirectionField build() {
-        super.build();
+        buildFramesAndTransport();
+        cf.system = system;
 
         long sectionStart = System.nanoTime();
         computeVertexFrames();
@@ -142,7 +175,173 @@ public class NDirectionField extends CrossField {
         Platforms.log("[cross-field timing] assemble %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         solveField();
-        return this;
+        return cf;
+    }
+
+    /**
+     * BZK09 stages: active-id maps, local face frames, edge transport angles
+     * cf.kappa, and alignment-edge detection, all written onto the field.
+     */
+    private void buildFramesAndTransport() {
+        long sectionStart = System.nanoTime();
+
+        cf.faceIdToActive = new HashMap<>(mesh.faceCount() * 2);
+        for (int i = 0; i < mesh.faceCount(); i++) {
+            cf.faceIdToActive.put(mesh.faceIdAt(i), i);
+        }
+        cf.edgeIdToActive = new HashMap<>(mesh.edgeCount() * 2);
+        for (int i = 0; i < mesh.edgeCount(); i++) {
+            cf.edgeIdToActive.put(mesh.edgeIdAt(i), i);
+        }
+        Platforms.log("[cross-field timing] active-id maps %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        sectionStart = System.nanoTime();
+        /*
+         * Local face frames. Convention: x_f = first half-edge of f, projected onto the
+         * tangent plane. y_f = n_f × x_f. Right-handed.
+         */
+
+        for (int faceIndex = 0; faceIndex < mesh.faceCount(); faceIndex++) {
+            int faceId = mesh.faceIdAt(faceIndex);
+            int halfEdge = mesh.faceHalfEdge(faceId);
+            int v0 = mesh.halfEdgeVertex(halfEdge);
+            int v1 = mesh.halfEdgeEndVertex(halfEdge);
+
+            Vector3f position1 = mesh.vertexPosition(v0);
+            Vector3f position2 = mesh.vertexPosition(v1);
+            Vector3f xAxis = new Vector3f(position2).sub(position1);
+
+            Vector3f normal = mesh.faceNormal(faceId);
+
+            float xDotN = xAxis.dot(normal);
+            xAxis.x -= xDotN * normal.x;
+            xAxis.y -= xDotN * normal.y;
+            xAxis.z -= xDotN * normal.z;
+            float xLen = xAxis.length();
+            if (xLen < CrossField.EPSILON) {
+                CrossField.arbitraryTangent(normal, xAxis);
+            } else {
+                xAxis.div(xLen);
+            }
+            Vector3f yAxis = new Vector3f();
+            normal.cross(xAxis, yAxis).normalize();
+
+            cf.faceX[faceIndex] = xAxis;
+            cf.faceY[faceIndex] = yAxis;
+        }
+        Platforms.log("[cross-field timing] local face frames %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        sectionStart = System.nanoTime();
+
+        /*
+         * Edge transport angles κ_ij. Rotate face-i's x-axis about the shared edge by
+         * the dihedral angle so it lies in face-j's tangent plane. Express the rotated
+         * vector in face-j's frame (cf.faceX[j], cf.faceY[j]): κ_ij = atan2(y-component,
+         * x-component).
+         */
+
+        for (int i = 0; i < mesh.edgeCount(); i++) {
+            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(i);
+            if (mesh.isBoundaryEdge(edgeFaceIds.edgeId)) {
+                cf.kappa[i] = 0f;
+                continue;
+            }
+            Vector3f position1 = mesh.vertexPosition(edgeFaceIds.edgeStartVertex);
+            Vector3f position2 = mesh.vertexPosition(edgeFaceIds.edgeEndVertex);
+            Vector3f edgeDir = new Vector3f(position2).sub(position1);
+            float edgeLen = edgeDir.length();
+            if (edgeLen < CrossField.EPSILON) {
+                cf.kappa[i] = 0f;
+                continue;
+            }
+            edgeDir.div(edgeLen);
+
+            Vector3f faceNormalU = mesh.faceNormal(edgeFaceIds.faceA);
+            Vector3f faceNormalV = mesh.faceNormal(edgeFaceIds.faceB);
+
+            Vector3f cross = new Vector3f(faceNormalU).cross(faceNormalV);
+            float dihedral = (float) Math.atan2(cross.dot(edgeDir),
+                    Math.max(-1f, Math.min(1f, faceNormalU.dot(faceNormalV))));
+            float dihedralCos = (float) Math.cos(dihedral);
+            float dihedralSin = (float) Math.sin(dihedral);
+            Vector3f xiTransported = new Vector3f(cf.faceX[edgeFaceIds.faceA]);
+            Vector3f kCrossV = new Vector3f(edgeDir).cross(xiTransported);
+            float kDotV = edgeDir.dot(xiTransported);
+            float oneMinusC = 1f - dihedralCos;
+            xiTransported.x = xiTransported.x * dihedralCos + kCrossV.x * dihedralSin + edgeDir.x * kDotV * oneMinusC;
+            xiTransported.y = xiTransported.y * dihedralCos + kCrossV.y * dihedralSin + edgeDir.y * kDotV * oneMinusC;
+            xiTransported.z = xiTransported.z * dihedralCos + kCrossV.z * dihedralSin + edgeDir.z * kDotV * oneMinusC;
+            float crossDirX = xiTransported.dot(cf.faceX[edgeFaceIds.faceB]);
+            float crossDirY = xiTransported.dot(cf.faceY[edgeFaceIds.faceB]);
+            cf.kappa[i] = (float) Math.atan2(crossDirY, crossDirX);
+        }
+        Platforms.log("[cross-field timing] edge transport angles kappa %.3fs%n",
+                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        sectionStart = System.nanoTime();
+
+        detectAlignmentEdges();
+    }
+
+    private void detectAlignmentEdges() {
+        for (int activeEdge = 0; activeEdge < cf.edgeCount; activeEdge++) {
+            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(activeEdge);
+            if (mesh.isBoundaryEdge(edgeFaceIds.edgeId)) {
+                cf.alignmentEdgeIds.add(edgeFaceIds.edgeId);
+                continue;
+            }
+            Vector3f faceANormal = mesh.faceNormal(edgeFaceIds.faceA);
+            Vector3f faceBNormal = mesh.faceNormal(edgeFaceIds.faceB);
+            if (faceANormal.dot(faceBNormal) < cf.featureDihedralCos) {
+                cf.alignmentEdgeIds.add(edgeFaceIds.edgeId);
+            }
+        }
+    }
+
+    /**
+     * BZK09/Ray08 per-vertex singularity index from the angle defect plus signed
+     * cf.kappa- and period-walks around the 1-ring; fills the field's singularity
+     * list, excluding boundary and zero-index vertices.
+     */
+    private void extractSingularities() {
+        int count = mesh.vertexCount();
+        cf.singularities.clear();
+        Vector3f a = new Vector3f();
+        Vector3f b = new Vector3f();
+
+        for (int vAi = 0; vAi < count; vAi++) {
+            int vId = mesh.vertexIdAt(vAi);
+            if (mesh.isBoundaryVertex(vId))
+                continue;
+            Vector3f vPos = mesh.vertexPosition(vId);
+
+            float angleSum = 0f;
+            int faces = mesh.vertexFaceCount(vId);
+            for (int i = 0; i < faces; i++) {
+                int fId = mesh.vertexFaceAt(vId, i);
+                angleSum += mesh.interiorAngleAtVertex(fId, vId, vPos, a, b);
+            }
+            float defect = (float) (2.0 * Math.PI) - angleSum;
+
+            float signedKappaSum = 0f;
+            int signedPeriodSum = 0;
+            int outCount = mesh.vertexOutgoingHalfEdgeCount(vId);
+            for (int i = 0; i < outCount; i++) {
+                int he = mesh.vertexOutgoingHalfEdgeAt(vId, i);
+                int eId = mesh.halfEdgeEdge(he);
+                if (mesh.isBoundaryEdge(eId))
+                    continue;
+                int eAi = cf.edgeIdToActive.get(eId);
+                int sign = (he == mesh.edgeHalfEdge(eId)) ? 1 : -1;
+                signedKappaSum += sign * cf.kappa[eAi];
+                signedPeriodSum += sign * cf.periodJump[eAi];
+            }
+
+            float iTimes4 = (float) (((defect + signedKappaSum) * 2.0) / Math.PI) + signedPeriodSum;
+            int iQuarter = Math.round(iTimes4);
+            if (iQuarter != 0) {
+                cf.singularities.add(new Singularity(vId, iQuarter));
+            }
+        }
     }
 
     /**
@@ -152,7 +351,7 @@ public class NDirectionField extends CrossField {
      */
     public void solveField() {
         long sectionStart = System.nanoTime();
-        boolean hasAlignmentEdges = !alignmentEdgeIds.isEmpty();
+        boolean hasAlignmentEdges = !cf.alignmentEdgeIds.isEmpty();
         if (useCurvatureAlignment || hasAlignmentEdges) {
             if (useCurvatureAlignment) {
                 buildLoadVector();
@@ -188,7 +387,7 @@ public class NDirectionField extends CrossField {
     private void buildLoadVector() {
         Vector3f start = new Vector3f();
         Vector3f end = new Vector3f();
-        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+        for (int activeEdge = 0; activeEdge < cf.edgeCount; activeEdge++) {
             EdgeFaceIds edge = mesh.edgeFaceIds(activeEdge);
             int edgeId = edge.edgeId;
             int startVertexId = edge.edgeStartVertex;
@@ -240,7 +439,7 @@ public class NDirectionField extends CrossField {
      */
     private void buildFeatureAlignmentLoad() {
         featureAlignmentLoad = new double[2 * vertexCount];
-        List<Integer> sortedAlignmentEdgeIds = new ArrayList<>(alignmentEdgeIds);
+        List<Integer> sortedAlignmentEdgeIds = new ArrayList<>(cf.alignmentEdgeIds);
         Collections.sort(sortedAlignmentEdgeIds);
         Vector3f start = new Vector3f();
         Vector3f end = new Vector3f();
@@ -587,11 +786,8 @@ public class NDirectionField extends CrossField {
         for (int v = 0; v < vertexCount; v++) {
             diag[v] += DEFAULT_SHIFT * diagMass[v];
         }
-        ComplexUpper energyMatrixComplex = new ComplexUpper(diag, upRe, upIm);
-        ComplexUpper massSystemMatrixComplex = new ComplexUpper(diagMass, massUpRe, massUpIm);
-
-        this.energyMatrix = realify(energyMatrixComplex);
-        this.massSystemMatrix = realify(massSystemMatrixComplex);
+        this.energyMatrix = realify(diag, upRe, upIm);
+        this.massSystemMatrix = realify(diagMass, massUpRe, massUpIm);
     }
 
     private static void accum(Map<Long, Double> re, Map<Long, Double> im, int i, int j, double a, double b) {
@@ -600,21 +796,22 @@ public class NDirectionField extends CrossField {
         im.merge(k, b, Double::sum);
     }
 
-    private NormalMatrix realify(ComplexUpper sys) {
+    private NormalMatrix realify(double[] complexDiag, Map<Long, Double> upRe,
+            Map<Long, Double> upIm) {
         int V = vertexCount;
         int N = 2 * V;
         double[] diag2 = new double[N];
         for (int v = 0; v < V; v++) {
-            diag2[2 * v] = sys.diag()[v]; // real DOF
-            diag2[2 * v + 1] = sys.diag()[v]; // imaginary DOF
+            diag2[2 * v] = complexDiag[v]; // real DOF
+            diag2[2 * v + 1] = complexDiag[v]; // imaginary DOF
         }
         Map<Long, Double> upper = new HashMap<>();
-        for (Map.Entry<Long, Double> en : sys.upRe().entrySet()) {
+        for (Map.Entry<Long, Double> en : upRe.entrySet()) {
             long k = en.getKey();
             int i = (int) (k >>> 32);
             int j = (int) (k & 0xFFFFFFFFL); // i < j
             double a = en.getValue();
-            double b = sys.upIm().getOrDefault(k, 0.0);
+            double b = upIm.getOrDefault(k, 0.0);
 
             int ri = 2 * i, ii = 2 * i + 1; // real / imag DOFs of vertex i
             int rj = 2 * j, ij = 2 * j + 1;
@@ -712,9 +909,9 @@ public class NDirectionField extends CrossField {
      * @return the index in {-1,0,1} for each face (in {@code faceIdAt} order).
      */
     public int[] computeTriangleIndices() {
-        int faceCount = mesh.faceCount();
-        int[] index = new int[faceCount];
-        for (int f = 0; f < faceCount; f++) {
+        int count = mesh.faceCount();
+        int[] index = new int[count];
+        for (int f = 0; f < count; f++) {
             int fId = mesh.faceIdAt(f);
             int[] hes = orderedFaceHalfEdges(fId);
             double sumOmega = 0.0; // sum of edge rotation angles
@@ -824,13 +1021,13 @@ public class NDirectionField extends CrossField {
         // singular triangle it cancels and its atan2 is arbitrary, which used
         // to let the rounded period jumps split that face's ±1 winding into a
         // phantom dipole among the face's own vertices. Singular faces (by the
-        // raw triangle index, KCP13 §6.1.3) therefore get their theta re-set
+        // raw triangle index, KCP13 §6.1.3) therefore get their cf.theta re-set
         // below by exact transport from their most reliable neighbor.
-        double[] faceMeanMagnitude = new double[faceCount];
-        for (int fAi = 0; fAi < faceCount; fAi++) {
+        double[] faceMeanMagnitude = new double[cf.faceCount];
+        for (int fAi = 0; fAi < cf.faceCount; fAi++) {
             int fId = mesh.faceIdAt(fAi);
-            Vector3f fx = faceX[fAi];
-            Vector3f fy = faceY[fAi];
+            Vector3f fx = cf.faceX[fAi];
+            Vector3f fy = cf.faceY[fAi];
 
             double accRe = 0.0;
             double accIm = 0.0;
@@ -850,40 +1047,40 @@ public class NDirectionField extends CrossField {
                 accRe += Math.cos(n * alpha); // collapse n-fold symmetry
                 accIm += Math.sin(n * alpha);
             }
-            theta[fAi] = (float) (Math.atan2(accIm, accRe) / n);
+            cf.theta[fAi] = (float) (Math.atan2(accIm, accRe) / n);
             faceMeanMagnitude[fAi] = Math.hypot(accRe, accIm);
         }
         concentrateSingularFaceWindings(faceMeanMagnitude);
-        for (int eAi = 0; eAi < edgeCount; eAi++) {
+        for (int eAi = 0; eAi < cf.edgeCount; eAi++) {
             int eId = mesh.edgeIdAt(eAi);
             if (mesh.isBoundaryEdge(eId)) {
-                periodJump[eAi] = 0;
+                cf.periodJump[eAi] = 0;
                 continue;
             }
             int he = mesh.edgeHalfEdge(eId);
             int twin = mesh.halfEdgeTwin(he);
-            int i = faceIdToActive.get(mesh.halfEdgeFace(he));
-            int j = faceIdToActive.get(mesh.halfEdgeFace(twin));
+            int i = cf.faceIdToActive.get(mesh.halfEdgeFace(he));
+            int j = cf.faceIdToActive.get(mesh.halfEdgeFace(twin));
 
-            double resid = theta[j] - theta[i] - kappa[eAi];
-            periodJump[eAi] = Math.round((float) (resid / HALF_PI));
+            double resid = cf.theta[j] - cf.theta[i] - cf.kappa[eAi];
+            cf.periodJump[eAi] = Math.round((float) (resid / HALF_PI));
         }
         extractSingularities();
 
         int indexSum4 = 0;
-        for (Singularity singularity : singularities) {
+        for (Singularity singularity : cf.singularities) {
             indexSum4 += singularity.index4();
         }
-        int eulerCharacteristic = vertexCount - edgeCount + faceCount;
+        int eulerCharacteristic = vertexCount - cf.edgeCount + cf.faceCount;
         // Discrete Poincaré–Hopf (KCP13 App. B): on a closed mesh the quarter
         // indices must sum to 4χ; boundary vertices are excluded from the walk,
         // so meshes with boundary will legitimately differ.
         Platforms.log("[n-field] singularities=%d indexSum4=%d fourChi=%d%n",
-                singularities.size(), indexSum4, 4 * eulerCharacteristic);
+                cf.singularities.size(), indexSum4, 4 * eulerCharacteristic);
 
         // KCP13 §6.1.3 ground truth: the raw field's per-triangle indices. The
-        // converted theta/periodJump representation must reproduce them; a
-        // count mismatch means the conversion minted or lost singularities.
+        // converted cf.theta/cf.periodJump representation must reproduce them; a
+        // count mismatch means the conversion minted or lost cf.singularities.
         int[] triangleIndex = computeTriangleIndices();
         int triangleNonzero = 0;
         int triangleSum = 0;
@@ -895,10 +1092,10 @@ public class NDirectionField extends CrossField {
         }
         Platforms.log("[n-field] raw triangle indices: nonzero=%d sum=%d%n",
                 triangleNonzero, triangleSum);
-        if (triangleNonzero != singularities.size()) {
+        if (triangleNonzero != cf.singularities.size()) {
             Platforms.log("[n-field] WARNING conversion mismatch: raw field has %d singular"
                     + " triangles but extraction found %d vertex singularities%n",
-                    triangleNonzero, singularities.size());
+                    triangleNonzero, cf.singularities.size());
             Set<Integer> rawSingularCornerVertices = new HashSet<>();
             for (int face = 0; face < triangleIndex.length; face++) {
                 if (triangleIndex[face] == 0) {
@@ -909,7 +1106,7 @@ public class NDirectionField extends CrossField {
                     rawSingularCornerVertices.add(mesh.faceVertexAt(faceId, corner));
                 }
             }
-            for (Singularity singularity : singularities) {
+            for (Singularity singularity : cf.singularities) {
                 if (!rawSingularCornerVertices.contains(singularity.vertexId())) {
                     Platforms.log("[n-field]   phantom singularity vertex=%d index4=%d"
                             + " (no raw singular triangle touches it)%n",
@@ -920,7 +1117,7 @@ public class NDirectionField extends CrossField {
     }
 
     /**
-     * Re-sets the theta of every face with non-zero triangle index by exact
+     * Re-sets the cf.theta of every face with non-zero triangle index by exact
      * transport from its most reliable non-singular neighbor, zeroing the period
      * jump across that shared edge and concentrating the face's winding at the
      * vertex opposite it.
@@ -929,11 +1126,11 @@ public class NDirectionField extends CrossField {
      * See also: KCP*13 Section 6.1.3
      *
      * @param faceMeanMagnitude per-face magnitude of the corner-direction complex
-     *                          mean (reliability of that face's theta)
+     *                          mean (reliability of that face's cf.theta)
      */
     private void concentrateSingularFaceWindings(double[] faceMeanMagnitude) {
         int[] triangleIndex = computeTriangleIndices();
-        for (int fAi = 0; fAi < faceCount; fAi++) {
+        for (int fAi = 0; fAi < cf.faceCount; fAi++) {
             if (triangleIndex[fAi] == 0) {
                 continue;
             }
@@ -954,29 +1151,65 @@ public class NDirectionField extends CrossField {
                 if (otherFaceId < 0) {
                     continue;
                 }
-                int otherActive = faceIdToActive.get(otherFaceId);
+                int otherActive = cf.faceIdToActive.get(otherFaceId);
                 if (triangleIndex[otherActive] != 0
                         || faceMeanMagnitude[otherActive] <= bestMagnitude) {
                     continue;
                 }
                 bestMagnitude = faceMeanMagnitude[otherActive];
                 bestNeighbor = otherActive;
-                bestEdgeActive = edgeIdToActive.get(eId);
+                bestEdgeActive = cf.edgeIdToActive.get(eId);
                 bestCanonicalIntoFace = canonicalFaceId != fId;
             }
             if (bestNeighbor < 0) {
                 continue;
             }
-            // periodJump rounds theta[j] − theta[i] − kappa with i the
+            // cf.periodJump rounds cf.theta[j] − cf.theta[i] − cf.kappa with i the
             // canonical half-edge's face; zero-jump transport solves for this
-            // face's theta accordingly.
-            theta[fAi] = (float) (bestCanonicalIntoFace
-                    ? theta[bestNeighbor] + kappa[bestEdgeActive]
-                    : theta[bestNeighbor] - kappa[bestEdgeActive]);
+            // face's cf.theta accordingly.
+            cf.theta[fAi] = (float) (bestCanonicalIntoFace
+                    ? cf.theta[bestNeighbor] + cf.kappa[bestEdgeActive]
+                    : cf.theta[bestNeighbor] - cf.kappa[bestEdgeActive]);
         }
     }
 
-    /** Upper-triangle complex matrix in coordinate form (real diagonal). */
-    private record ComplexUpper(double[] diag, Map<Long, Double> upRe, Map<Long, Double> upIm) {
+    @Override
+    public List<InputPort> inputs() {
+        return List.of(GEOMETRY);
+    }
+
+    @Override
+    public List<OutputPort> outputs() {
+        return List.of(FIELD, SINGULARITY_COUNT, SINGULARITIES, FEATURE_EDGES, DOFS);
+    }
+
+    @Override
+    public String description() {
+        return "Builds the quad-layout cross field (curvature-aligned n-direction field) over a"
+                + " triangle mesh and extracts its singularities.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                GEOMETRY.name, "Triangle mesh to build the field on; manifold, possibly with boundary.",
+                FIELD.name, "The cross field with per-face frames and singularities.",
+                SINGULARITY_COUNT.name, "Number of extracted singularities.",
+                SINGULARITIES.name, "The field's singular points, for tracing stages.",
+                FEATURE_EDGES.name, "Mesh edge ids of sharp feature and boundary edges.",
+                DOFS.name, "The smoothing solve's system, for solver-composing graphs."
+        );
+    }
+
+    @Override
+    public void evaluate(NodeContext ctx) {
+        GeometryBundle bundle = GeometryBundles.bundlePart(ctx.getInput(GEOMETRY.name, Object.class));
+        CrossField field = new NDirectionField()
+                .build(HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh()));
+        ctx.setOutput(FIELD.name, field);
+        ctx.setOutput(SINGULARITY_COUNT.name, field.singularities.size());
+        ctx.setOutput(SINGULARITIES.name, field.singularities);
+        ctx.setOutput(FEATURE_EDGES.name, field.alignmentEdgeIds);
+        ctx.setOutput(DOFS.name, field.system);
     }
 }

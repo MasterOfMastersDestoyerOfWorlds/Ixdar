@@ -5,7 +5,7 @@ import java.io.IOException;
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
 import ixdar.platform.Platforms;
@@ -20,7 +20,7 @@ import ixdar.scenes.model.ModelScene;
 @SceneAnnotation(id = "mcg-exam")
 public class MotorcycleGraphExaminationScene extends ModelScene {
     private QuadLayoutRuntime quadRuntime;
-    private SeamlessParameterization seamless;
+    private SeamlessUv seamless;
     private float alphaDegrees = 15f;
 
     /**
@@ -67,7 +67,8 @@ public class MotorcycleGraphExaminationScene extends ModelScene {
         QuadLayoutEngine engine = new QuadLayoutEngine(halfEdgeMesh, alphaRadians);
         MotorcycleGraph graph = engine.buildMotorcycleGraph();
         seamless = engine.seamless;
-        quadRuntime.setSeamlessParametrization(seamless);
+        quadRuntime.setSeamlessParametrization(seamless, halfEdgeMesh);
+        quadRuntime.captureSingularities(engine.crossField.singularities, halfEdgeMesh);
         quadRuntime.setMotorcycleGraph(graph);
         quadRuntime.showTraces = true;
         quadRuntime.showNodes = true;

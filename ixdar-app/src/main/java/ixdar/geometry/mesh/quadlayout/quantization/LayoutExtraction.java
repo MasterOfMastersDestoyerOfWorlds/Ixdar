@@ -5,10 +5,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.FeatureEdgeSpan;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
 import ixdar.platform.Platforms;
 
@@ -28,7 +29,7 @@ public final class LayoutExtraction {
 
     public static final int FLOATS_PER_RECORD = 4;
 
-    public final MotorcycleGraph motorcycleGraph;
+    public final EmbeddedTMesh network;
     public final QuantizedMeshGrid quantization;
 
     /** Collapse-cluster index per T-mesh node id. */
@@ -41,7 +42,7 @@ public final class LayoutExtraction {
     public int singularClusterCount;
 
     /** Positive-quantized arcs, the layout's separatrix skeleton edges. */
-    public List<TraceArc> layoutArcs;
+    public List<EmbeddedArc> layoutArcs;
 
     /** Clusters with exactly three incident positive arc-ends. */
     public int remainingTJunctionCount;
@@ -61,7 +62,7 @@ public final class LayoutExtraction {
      */
     public LayoutExtraction(QuantizedMeshGrid quantization) {
         this.quantization = quantization;
-        this.motorcycleGraph = quantization.motorcycleGraph;
+        this.network = quantization.network;
     }
 
     /**
@@ -72,14 +73,14 @@ public final class LayoutExtraction {
      */
     public LayoutExtraction build() {
         ZeroArcCollapse collapse = new ZeroArcCollapse(
-                motorcycleGraph, quantization.quantizedLengthByArc).build();
+                network, quantization.quantizedLengthByArc).build();
         clusterByNode = collapse.clusterByNode;
         clusterCount = collapse.clusterCount;
         singularClusterCount = collapse.singularClusterCount;
 
         layoutArcs = new ArrayList<>();
         int[] positiveEndsByCluster = new int[clusterCount];
-        for (TraceArc arc : motorcycleGraph.arcs) {
+        for (EmbeddedArc arc : network.arcs) {
             if (quantization.quantizedLengthByArc[arc.arcId] > 0) {
                 layoutArcs.add(arc);
                 positiveEndsByCluster[clusterByNode[arc.startNodeId]]++;
@@ -109,12 +110,9 @@ public final class LayoutExtraction {
      */
     private void countOpenFeatureEdges() {
         featureEdgesOpenCount = 0;
-        for (Map.Entry<Integer, FeatureEdgeSpan> entry : motorcycleGraph.featureSpanByEdgeId.entrySet()) {
-            if (!motorcycleGraph.seamless.crossField.edgeIdToActive.containsKey(entry.getKey())) {
-                continue;
-            }
+        for (Map.Entry<Integer, FeatureEdgeSpan> entry : network.featureSpanByEdgeId.entrySet()) {
             FeatureEdgeSpan span = entry.getValue();
-            Trace trace = motorcycleGraph.traces.get(span.traceId);
+            Trace trace = network.traces.get(span.traceId);
             int arcId = trace.arcAtParametricLength(0.5 * (span.entryLength + span.exitLength));
             if (arcId < 0 || quantization.quantizedLengthByArc[arcId] == 0) {
                 featureEdgesOpenCount++;
@@ -128,12 +126,12 @@ public final class LayoutExtraction {
      * renderer's records-per-face limit.
      */
     private void buildLayoutRecords() {
-        int faceCount = motorcycleGraph.seamless.mesh.faceCount();
+        int faceCount = network.sourceMesh.faceCount();
         layoutRecordsByFace = new float[faceCount][MotorcycleGraph.MAX_TRACE_RECORDS_PER_FACE
                 * FLOATS_PER_RECORD];
         Map<Integer, List<double[]>> positiveRangesByTrace = new HashMap<>();
-        for (TraceArc arc : layoutArcs) {
-            Trace trace = motorcycleGraph.traces.get(arc.traceId);
+        for (EmbeddedArc arc : layoutArcs) {
+            Trace trace = network.traces.get(arc.traceId);
             int chainPosition = trace.chainArcIds.indexOf(arc.arcId);
             if (chainPosition < 0) {
                 continue;
@@ -146,7 +144,7 @@ public final class LayoutExtraction {
 
         int[] recordCountByFace = new int[faceCount];
         for (Map.Entry<Integer, List<double[]>> entry : positiveRangesByTrace.entrySet()) {
-            Trace trace = motorcycleGraph.traces.get(entry.getKey());
+            Trace trace = network.traces.get(entry.getKey());
             for (TraceSegment segment : trace.segments) {
                 double segmentStart = segment.parametricLengthAtEntry;
                 double segmentEnd = segmentStart + segment.parametricLength();

@@ -19,7 +19,7 @@ import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceArc;
+import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 
 /**
  * Pins LCBK19 §6.1's stated goal for the carve: <em>"a one-to-one mapping between T-mesh and
@@ -93,7 +93,7 @@ class CarveOneToOneTest {
 
         Map<Integer, Integer> arcByEdge = new HashMap<>();
         Map<Integer, Integer> arcByInteriorVertex = new HashMap<>();
-        for (TraceArc arc : engine.motorcycleGraph.arcs) {
+        for (EmbeddedArc arc : engine.motorcycleGraph.arcs) {
             ArcEdgePath path = embedding.pathByArc[arc.arcId];
             List<Integer> vertices = path.copyVertexPath;
             assertEquals(vertices.size(), new HashSet<>(vertices).size(),

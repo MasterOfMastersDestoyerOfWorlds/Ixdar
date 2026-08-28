@@ -9,7 +9,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
-import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
+import ixdar.geometry.mesh.nodes.api.UvField;
 import ixdar.geometry.mesh.quadlayout.solver.system.NewtonRelaxation;
 import ixdar.platform.Platforms;
 import ixdar.platform.concurrent.WorkerPool;
@@ -62,7 +62,7 @@ public final class GridMapOptimizer {
      * map that reproduces it up to rotation (LCBK19 §7's "difference between output
      * integer grid map and input parametrization").
      */
-    public final SeamlessParameterization seamless;
+    public final UvField seamless;
 
     /**
      * Worker threads assembling the Newton system; one worker reproduces the serial
@@ -197,7 +197,7 @@ public final class GridMapOptimizer {
      * @param dofs     which grid coordinates may move
      * @param seamless the parametrization the relaxed map is fitted to
      */
-    public GridMapOptimizer(GridMapDofSystem dofs, SeamlessParameterization seamless) {
+    public GridMapOptimizer(GridMapDofSystem dofs, UvField seamless) {
         this.dofs = dofs;
         this.gridMap = dofs.gridMap;
         this.seamless = seamless;

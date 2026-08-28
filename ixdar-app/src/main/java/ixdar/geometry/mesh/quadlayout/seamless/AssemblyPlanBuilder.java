@@ -324,13 +324,13 @@ public final class AssemblyPlanBuilder {
      * @param dofCount              final-DOF count sizing the static diagonal
      */
     public void build(SeamlessParameterization seamless, int[][][] chartVertexFinalDofs, double[][][] chartVertexFinalCoefs, CutGraph cutGraph, int dofCount) {
-        double edgeLengthSquared = (double) seamless.targetQuadEdgeLength * seamless.targetQuadEdgeLength;
+        double edgeLengthSquared = (double) seamless.uv.targetQuadEdgeLength * seamless.uv.targetQuadEdgeLength;
 
         double[] shapeGradX = new double[CORNERS_PER_FACE];
         double[] shapeGradY = new double[CORNERS_PER_FACE];
         int[] cornerChartVertex = new int[CORNERS_PER_FACE];
 
-        for (int f = 0; f < seamless.faceCount; f++) {
+        for (int f = 0; f < seamless.uv.faceCount; f++) {
             beginFace();
             double area = seamless.faceArea[f];
             if (area <= 0) {
@@ -370,9 +370,9 @@ public final class AssemblyPlanBuilder {
             }
 
             for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
-                double uRhsConstant = area * seamless.targetQuadEdgeLength
+                double uRhsConstant = area * seamless.uv.targetQuadEdgeLength
                         * (shapeGradX[corner] * targetUx + shapeGradY[corner] * targetUy);
-                double vRhsConstant = area * seamless.targetQuadEdgeLength
+                double vRhsConstant = area * seamless.uv.targetQuadEdgeLength
                         * (shapeGradX[corner] * targetVx + shapeGradY[corner] * targetVy);
                 addRhsExpansion(
                         chartVertexFinalDofs[cornerChartVertex[corner]][0],
