@@ -7,13 +7,13 @@ import java.util.Random;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
-import ixdar.geometry.mesh.quadlayout.solver.EjmlCholeskyFactor;
 import ixdar.geometry.mesh.quadlayout.solver.FactorizedSystem;
-import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
-import ixdar.geometry.mesh.quadlayout.solver.PardisoCholesky;
-import ixdar.geometry.mesh.quadlayout.solver.SolverPermutation;
+import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.chol.EjmlCholeskyFactor;
+import ixdar.geometry.mesh.quadlayout.solver.chol.paradiso.PardisoCholesky;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.SolverPermutation;
 import ixdar.platform.Platforms;
 
 /**
@@ -82,22 +82,24 @@ public final class BackendSolveMicroBenchmark {
                 (ejmlSolvesEnd - ejmlFactorEnd) / 1.0e9,
                 (ejmlSolvesEnd - ejmlFactorEnd) / 1.0e6 / SOLVE_REPETITIONS);
 
-        Assumptions.assumeTrue(CholeskyBackend.pardisoAvailable(), "PARDISO not loadable");
-        long pardisoFactorStart = System.nanoTime();
-        FactorizedSystem pardiso = new PardisoCholesky(
+        Assumptions.assumeTrue(CholeskyBackend.pardisoAvailable(), "no native backend loadable");
+        long nativeFactorStart = System.nanoTime();
+        FactorizedSystem nativeFactor = CholeskyBackend.nativeBackend().factorUpper(
                 matrix.toPermutedUpperCompressedSparseRow(n, fixed, identity, identity, perm, invPerm), n);
-        long pardisoFactorEnd = System.nanoTime();
+        long nativeFactorEnd = System.nanoTime();
         for (int rep = 0; rep < SOLVE_REPETITIONS; rep++) {
-            pardiso.solve(permutedRhs, solution);
+            nativeFactor.solve(permutedRhs, solution);
         }
-        long pardisoSolvesEnd = System.nanoTime();
-        Platforms.log("[micro] pardiso n=%d factor %.3fs, %d solves %.3fs (%.1fms each)%n",
-                n, (pardisoFactorEnd - pardisoFactorStart) / 1.0e9, SOLVE_REPETITIONS,
-                (pardisoSolvesEnd - pardisoFactorEnd) / 1.0e9,
-                (pardisoSolvesEnd - pardisoFactorEnd) / 1.0e6 / SOLVE_REPETITIONS);
-        System.out.println("[micro] pardiso refinement steps performed (iparm[6]) = "
-                + ((PardisoCholesky) pardiso).iparmNative.get(6)
-                + ", nnz(L) (iparm[17]) = " + ((PardisoCholesky) pardiso).iparmNative.get(17));
-        pardiso.release();
+        long nativeSolvesEnd = System.nanoTime();
+        Platforms.log("[micro] native  n=%d factor %.3fs, %d solves %.3fs (%.1fms each)%n",
+                n, (nativeFactorEnd - nativeFactorStart) / 1.0e9, SOLVE_REPETITIONS,
+                (nativeSolvesEnd - nativeFactorEnd) / 1.0e9,
+                (nativeSolvesEnd - nativeFactorEnd) / 1.0e6 / SOLVE_REPETITIONS);
+        if (nativeFactor instanceof PardisoCholesky pardisoFactor) {
+            System.out.println("[micro] pardiso refinement steps performed (iparm[6]) = "
+                    + pardisoFactor.iparmNative.get(6)
+                    + ", nnz(L) (iparm[17]) = " + pardisoFactor.iparmNative.get(17));
+        }
+        nativeFactor.release();
     }
 }

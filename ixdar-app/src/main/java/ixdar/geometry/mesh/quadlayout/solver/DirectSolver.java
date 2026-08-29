@@ -2,6 +2,12 @@ package ixdar.geometry.mesh.quadlayout.solver;
 
 import java.util.Arrays;
 
+import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.CompressedSparseRowArrays;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.SolverPermutation;
+
 public final class DirectSolver {
 
     /**

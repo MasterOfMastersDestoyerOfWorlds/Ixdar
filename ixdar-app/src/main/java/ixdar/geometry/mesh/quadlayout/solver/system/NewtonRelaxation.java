@@ -3,8 +3,8 @@ package ixdar.geometry.mesh.quadlayout.solver.system;
 import java.util.Arrays;
 
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
-import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
 import ixdar.platform.Platforms;
 
 /**

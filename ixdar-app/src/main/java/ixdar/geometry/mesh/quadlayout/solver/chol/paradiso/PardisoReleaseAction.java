@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.solver;
+package ixdar.geometry.mesh.quadlayout.solver.chol.paradiso;
 
 import org.bytedeco.javacpp.DoublePointer;
 import org.bytedeco.javacpp.IntPointer;

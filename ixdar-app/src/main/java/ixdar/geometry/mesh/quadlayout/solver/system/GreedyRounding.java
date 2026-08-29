@@ -1,10 +1,10 @@
 package ixdar.geometry.mesh.quadlayout.solver.system;
 
-import ixdar.geometry.mesh.quadlayout.solver.AMDOrdering;
-import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.IncrementalCholeskySolver;
-import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.AMDOrdering;
 import ixdar.platform.Platforms;
 
 /**

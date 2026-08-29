@@ -1,8 +1,11 @@
-package ixdar.geometry.mesh.quadlayout.solver;
+package ixdar.geometry.mesh.quadlayout.solver.chol.paradiso;
 
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.mkl.global.mkl_rt;
 
+import ixdar.geometry.mesh.quadlayout.solver.FactorizedSystem;
+import ixdar.geometry.mesh.quadlayout.solver.chol.NativeCholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.CompressedSparseRowArrays;
 import ixdar.platform.Platforms;
 
 /**

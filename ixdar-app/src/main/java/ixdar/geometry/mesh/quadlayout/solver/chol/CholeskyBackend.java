@@ -1,13 +1,23 @@
-package ixdar.geometry.mesh.quadlayout.solver;
+package ixdar.geometry.mesh.quadlayout.solver.chol;
 
+import ixdar.geometry.mesh.quadlayout.solver.FactorizedSystem;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
 import ixdar.platform.Platforms;
 
 /**
- * Cholesky backend selection by native-library availability. There is no flag
- * or property: every factorization uses the fastest backend that loads, falling
- * back to {@link EjmlCholeskyFactor} when the natives are unavailable.
+ * Cholesky backend selection by native-library availability. Every
+ * factorization uses the fastest backend that loads — PARDISO (MKL), then
+ * Accelerate on macOS — falling back to {@link EjmlCholeskyFactor} when no
+ * natives are available.
  */
 public final class CholeskyBackend {
+
+    /**
+     * When true, {@link #nativeBackend()} reports no native backend, forcing the
+     * pure-Java {@link EjmlCholeskyFactor} path. Set by benchmarks to measure the
+     * EJML baseline on machines where a native backend loads.
+     */
+    public static boolean forceEjml;
 
     private CholeskyBackend() {
     }
@@ -52,8 +62,9 @@ public final class CholeskyBackend {
     }
 
     /**
-     * Whether factorizations will take the native path, which also decides the storage callers must
-     * hand to {@link FactorizedSystem#refactorize}: row-major for native, column-major for EJML.
+     * Whether factorizations will take a native path (PARDISO or Accelerate), which also decides the
+     * storage callers must hand to {@link FactorizedSystem#refactorize}: row-major for native,
+     * column-major for EJML.
      *
      * @return true iff the platform supplies a native backend whose libraries loaded
      */
@@ -67,6 +78,9 @@ public final class CholeskyBackend {
      * @return usable native backend, or {@code null} to use the pure-Java path
      */
     public static NativeCholeskyBackend nativeBackend() {
+        if (forceEjml) {
+            return null;
+        }
         NativeCholeskyBackend backend = Platforms.get().nativeCholeskyBackend();
         return backend != null && backend.available() ? backend : null;
     }

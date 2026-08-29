@@ -1,6 +1,6 @@
 package ixdar.geometry.mesh.quadlayout.solver.system;
 
-import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
 
 /**
  * The canonical solve state every strategy operates on: one solution vector,

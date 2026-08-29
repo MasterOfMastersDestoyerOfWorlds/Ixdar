@@ -10,6 +10,9 @@ import org.ejml.interfaces.linsol.LinearSolverSparse;
 import org.ejml.sparse.FillReducing;
 import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
 
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
+
 /**
  * Adaptive solver ladder for mixed-integer systems: a local Gauss-Seidel update
  * around the rounded variable, escalating to warm-started conjugate gradient and

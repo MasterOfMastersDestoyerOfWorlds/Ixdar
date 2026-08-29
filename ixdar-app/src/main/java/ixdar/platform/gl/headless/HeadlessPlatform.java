@@ -30,8 +30,8 @@ import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
 import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
 import ixdar.geometry.mesh.quadlayout.quantization.OjAlgoIntegerProgram;
-import ixdar.geometry.mesh.quadlayout.solver.NativeCholeskyBackend;
-import ixdar.geometry.mesh.quadlayout.solver.PardisoBackend;
+import ixdar.geometry.mesh.quadlayout.solver.chol.DesktopCholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.chol.NativeCholeskyBackend;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.model.AssimpModelRuntime;
 import ixdar.graphics.render.model.ModelRuntime;
@@ -59,7 +59,7 @@ public class HeadlessPlatform implements Platform {
     public static final int NUM_16 = 16;
     public static final int NUM_8 = 8;
 
-    private final PardisoBackend pardisoBackend = new PardisoBackend();
+    private final DesktopCholeskyBackend choleskyBackend = new DesktopCholeskyBackend();
     private final ManifoldMeshBooleanBackend manifoldBooleanBackend = new ManifoldMeshBooleanBackend();
     private int platformId;
     private float startTime;
@@ -272,7 +272,7 @@ public class HeadlessPlatform implements Platform {
      */
     @Override
     public NativeCholeskyBackend nativeCholeskyBackend() {
-        return pardisoBackend;
+        return choleskyBackend;
     }
 
     /**

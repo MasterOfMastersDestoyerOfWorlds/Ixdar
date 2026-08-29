@@ -4,8 +4,8 @@ import java.util.Arrays;
 import java.util.Random;
 
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
-import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
 
 /**
  * Inverse power iteration on the generalized eigenproblem

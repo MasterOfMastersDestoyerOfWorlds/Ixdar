@@ -1,10 +1,13 @@
-package ixdar.geometry.mesh.quadlayout.solver;
+package ixdar.geometry.mesh.quadlayout.solver.chol;
 
 import org.ejml.data.DMatrixRMaj;
 import org.ejml.data.DMatrixSparseCSC;
 import org.ejml.interfaces.linsol.LinearSolverSparse;
 import org.ejml.sparse.FillReducing;
 import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
+
+import ixdar.geometry.mesh.quadlayout.solver.FactorizedSystem;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
 
 /**
  * Pure-Java {@link FactorizedSystem} backed by EJML's simplicial up-looking

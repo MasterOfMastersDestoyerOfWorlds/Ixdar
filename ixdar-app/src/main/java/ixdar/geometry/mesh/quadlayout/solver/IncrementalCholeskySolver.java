@@ -4,6 +4,10 @@ import org.ejml.data.DMatrixSparseCSC;
 import org.ejml.sparse.csc.decomposition.chol.CholeskyUpdate_DSCC;
 import org.ejml.sparse.csc.misc.TriangularSolver_DSCC;
 
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.SolverPermutation;
+
 /**
  * Sparse Cholesky solver supporting per-DOF rank-1 diagonal updates of the L
  * factor in place, for greedy mixed-integer rounding. The permutation is held

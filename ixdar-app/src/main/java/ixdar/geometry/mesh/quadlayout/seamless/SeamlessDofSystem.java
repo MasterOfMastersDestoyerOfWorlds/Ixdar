@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.quadlayout.seamless;
 
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -11,7 +12,6 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.ExactArithmetic;
-import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
 
 /**
  * DOF state plus cached SPD assembly plan for one seamless build.

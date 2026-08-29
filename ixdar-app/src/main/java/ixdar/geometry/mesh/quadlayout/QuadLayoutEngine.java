@@ -18,7 +18,7 @@ import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
 import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
-import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
 import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
 import ixdar.platform.Platforms;
 

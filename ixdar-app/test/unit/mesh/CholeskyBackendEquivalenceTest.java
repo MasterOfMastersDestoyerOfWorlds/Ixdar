@@ -10,20 +10,20 @@ import java.util.Random;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
-import ixdar.geometry.mesh.quadlayout.solver.EjmlCholeskyFactor;
 import ixdar.geometry.mesh.quadlayout.solver.FactorizedSystem;
-import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.PardisoCholesky;
-import ixdar.geometry.mesh.quadlayout.solver.SolverPermutation;
-import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
+import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.chol.EjmlCholeskyFactor;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.SolverPermutation;
 
 /**
- * Backend-equivalence test for the Cholesky seam: the PARDISO native backend
- * must reproduce the EJML reference backend's solutions on the same SPD
- * system to tight tolerance, and both must actually solve the system
- * (small residual). Constructs both backends directly — no flags — so the
- * pure-Java path is exercised even on machines where the natives load.
+ * Backend-equivalence test for the Cholesky seam: the native backend (PARDISO
+ * or Accelerate, whichever the ladder selects) must reproduce the EJML
+ * reference backend's solutions on the same SPD system to tight tolerance, and
+ * both must actually solve the system (small residual). Constructs the EJML
+ * backend directly, so the pure-Java path is exercised even on machines where
+ * the natives load.
  */
 public final class CholeskyBackendEquivalenceTest {
 
@@ -96,7 +96,7 @@ public final class CholeskyBackendEquivalenceTest {
     }
 
     @Test
-    public void pardisoMatchesEjmlOnSpdSystem() {
+    public void nativeBackendMatchesEjmlOnSpdSystem() {
         NormalMatrix matrix = buildGridLaplacian();
         int n = matrix.size();
         boolean[] fixed = new boolean[n];
@@ -124,17 +124,17 @@ public final class CholeskyBackendEquivalenceTest {
         assertResidualSmall(matrix, ejmlSolution, perm, fullOf, "ejml");
 
         Assumptions.assumeTrue(CholeskyBackend.pardisoAvailable(),
-                "PARDISO natives not loadable on this platform; EJML path verified");
+                "no native backend loadable on this platform; EJML path verified");
 
-        FactorizedSystem pardiso = new PardisoCholesky(
+        FactorizedSystem nativeFactor = CholeskyBackend.nativeBackend().factorUpper(
                 matrix.toPermutedUpperCompressedSparseRow(n, fixed, compactOf, fullOf, perm, invPerm), n);
-        double[] pardisoSolution = new double[n];
-        pardiso.solve(permutedRhs, pardisoSolution);
-        assertResidualSmall(matrix, pardisoSolution, perm, fullOf, "pardiso");
-        pardiso.release();
+        double[] nativeSolution = new double[n];
+        nativeFactor.solve(permutedRhs, nativeSolution);
+        assertResidualSmall(matrix, nativeSolution, perm, fullOf, "native");
+        nativeFactor.release();
 
         for (int i = 0; i < n; i++) {
-            assertEquals(ejmlSolution[i], pardisoSolution[i], SOLUTION_AGREEMENT_TOLERANCE,
+            assertEquals(ejmlSolution[i], nativeSolution[i], SOLUTION_AGREEMENT_TOLERANCE,
                     "solution mismatch at permuted index " + i);
         }
     }

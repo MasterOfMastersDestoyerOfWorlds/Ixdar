@@ -2,6 +2,14 @@ package ixdar.geometry.mesh.quadlayout.solver;
 
 import java.util.Arrays;
 
+import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.chol.EjmlCholeskyFactor;
+import ixdar.geometry.mesh.quadlayout.solver.chol.NativeCholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.CompressedSparseRowArrays;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.SolverPermutation;
+
 /**
  * Infeasible-start primal-dual interior-point solver for the convex QP
  * {@code min ½x'Hx − b'x subject to Ax ≥ c}. One instance per constraint set;

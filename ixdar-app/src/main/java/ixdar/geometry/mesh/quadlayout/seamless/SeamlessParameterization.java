@@ -20,7 +20,7 @@ import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.SeamlessProjector;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.InteriorPointQp;
-import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.system.GreedyRounding;
 import ixdar.geometry.mesh.quadlayout.solver.system.LazyConstraints;
 import ixdar.platform.Platforms;

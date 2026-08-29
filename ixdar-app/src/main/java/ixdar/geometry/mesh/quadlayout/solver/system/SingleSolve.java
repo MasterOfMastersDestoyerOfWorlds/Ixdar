@@ -1,8 +1,8 @@
 package ixdar.geometry.mesh.quadlayout.solver.system;
 
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
-import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
 
 /**
  * One direct linear solve of a {@link DofSystem}: assemble, factorize with the

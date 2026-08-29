@@ -46,8 +46,8 @@ import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
 import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
 import ixdar.geometry.mesh.quadlayout.quantization.OjAlgoIntegerProgram;
-import ixdar.geometry.mesh.quadlayout.solver.NativeCholeskyBackend;
-import ixdar.geometry.mesh.quadlayout.solver.PardisoBackend;
+import ixdar.geometry.mesh.quadlayout.solver.chol.DesktopCholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.chol.NativeCholeskyBackend;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.model.AssimpModelRuntime;
 import ixdar.graphics.render.model.ModelRuntime;
@@ -68,7 +68,7 @@ public class LwjglPlatform implements Platform {
     private static final ConcurrentLinkedQueue<Runnable> inputQueue = new ConcurrentLinkedQueue<>();
 
     private final long window;
-    private final PardisoBackend pardisoBackend = new PardisoBackend();
+    private final DesktopCholeskyBackend choleskyBackend = new DesktopCholeskyBackend();
     private final ManifoldMeshBooleanBackend manifoldBooleanBackend = new ManifoldMeshBooleanBackend();
     private float frameBufferSizeX;
     private float frameBufferSizeY;
@@ -248,7 +248,7 @@ public class LwjglPlatform implements Platform {
     /** {@inheritDoc}. */
     @Override
     public NativeCholeskyBackend nativeCholeskyBackend() {
-        return pardisoBackend;
+        return choleskyBackend;
     }
 
     /** {@inheritDoc}. */

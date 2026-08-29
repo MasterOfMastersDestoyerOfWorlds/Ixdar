@@ -1,7 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.solver.system;
 
 import ixdar.geometry.mesh.quadlayout.solver.InteriorPointQp;
-import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
 import ixdar.platform.Platforms;
 
 /**

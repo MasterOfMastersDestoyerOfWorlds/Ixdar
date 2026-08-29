@@ -9,6 +9,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
 import ixdar.platform.Platforms;
 
 /**
@@ -23,16 +24,18 @@ import ixdar.platform.Platforms;
  * Stage wall times come from the {@code [seamless timing]} /
  * {@code [cross-field timing]} console lines; this harness adds the totals and
  * the final metrics line for regression comparison. Add
- * {@code -Dorg.bytedeco.javacpp.platform=none} to force the PARDISO probe to
- * fail and measure the pure-Java EJML baseline on the same code.
+ * {@code -Dbenchmark.forceEjml=true} to skip every native backend (PARDISO and
+ * Accelerate) and measure the pure-Java EJML baseline on the same code.
  */
 public final class SeamlessPipelineBenchmark {
 
     private static final String OFF_PROPERTY = "benchmark.off";
+    private static final String FORCE_EJML_PROPERTY = "benchmark.forceEjml";
     private static final String DEFAULT_OFF = "test/resources/quadlayout/figure_8/fertility_in_tri.off";
 
     @Test
     public void buildSeamless() throws IOException {
+        CholeskyBackend.forceEjml = Boolean.getBoolean(FORCE_EJML_PROPERTY);
         String offPath = System.getProperty(OFF_PROPERTY, DEFAULT_OFF);
         ArrayMesh arrayMesh = MeshLoader.load(offPath);
         HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(

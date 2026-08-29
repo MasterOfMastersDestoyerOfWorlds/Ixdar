@@ -1,9 +1,13 @@
-package ixdar.geometry.mesh.quadlayout.solver;
+package ixdar.geometry.mesh.quadlayout.solver.ordering;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+
+import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
+import ixdar.geometry.mesh.quadlayout.solver.IncrementalCholeskySolver;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
 
 /**
  * Fill-reducing permutations for the SPD systems factored by

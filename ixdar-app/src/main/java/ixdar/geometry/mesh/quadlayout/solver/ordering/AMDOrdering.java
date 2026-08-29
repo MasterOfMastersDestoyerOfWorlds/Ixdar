@@ -1,7 +1,9 @@
-package ixdar.geometry.mesh.quadlayout.solver;
+package ixdar.geometry.mesh.quadlayout.solver.ordering;
 
 import java.util.Arrays;
 import java.util.HashSet;
+
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
 
 /*
  * AMD/Source/amd_1: construct input matrix and then order with amd_2 AMD,

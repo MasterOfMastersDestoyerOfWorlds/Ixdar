@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.solver;
+package ixdar.geometry.mesh.quadlayout.solver.ordering;
 
 /**
  * Fill-reducing column ordering for sparse Cholesky factorization. The choice

@@ -10,13 +10,12 @@ import java.util.Random;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.solver.CholeskyBackend;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
-import ixdar.geometry.mesh.quadlayout.solver.EjmlCholeskyFactor;
 import ixdar.geometry.mesh.quadlayout.solver.FactorizedSystem;
-import ixdar.geometry.mesh.quadlayout.solver.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.OrderingMethod;
-import ixdar.geometry.mesh.quadlayout.solver.PardisoCholesky;
+import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.chol.EjmlCholeskyFactor;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
 
 /**
  * Numeric-only refactorization test: after
@@ -125,15 +124,15 @@ public final class CholeskyRefactorizeTest {
     }
 
     @Test
-    public void pardisoRefactorizeMatchesFreshFactor() {
+    public void nativeRefactorizeMatchesFreshFactor() {
         Assumptions.assumeTrue(CholeskyBackend.pardisoAvailable(),
-                "PARDISO natives not loadable on this platform");
+                "no native backend loadable on this platform");
         NormalMatrix first = buildGridLaplacian(FIRST_EDGE_WEIGHT);
         NormalMatrix second = buildGridLaplacian(SECOND_EDGE_WEIGHT);
         int n = first.size();
         boolean[] fixed = new boolean[n];
         int[] identity = identity(n);
-        FactorizedSystem factor = new PardisoCholesky(
+        FactorizedSystem factor = CholeskyBackend.nativeBackend().factorUpper(
                 first.toPermutedUpperCompressedSparseRow(n, fixed, identity, identity,
                         identity, identity),
                 n);
@@ -146,7 +145,7 @@ public final class CholeskyRefactorizeTest {
         factor.solve(second.rightHandSide, refactorizedSolution);
         factor.release();
 
-        FactorizedSystem fresh = new PardisoCholesky(
+        FactorizedSystem fresh = CholeskyBackend.nativeBackend().factorUpper(
                 second.toPermutedUpperCompressedSparseRow(n, fixed, identity, identity,
                         identity, identity),
                 n);
@@ -155,7 +154,7 @@ public final class CholeskyRefactorizeTest {
         fresh.release();
         for (int i = 0; i < n; i++) {
             assertEquals(freshSolution[i], refactorizedSolution[i], TOLERANCE,
-                    "pardiso refactorized solution mismatch at index " + i);
+                    "native refactorized solution mismatch at index " + i);
         }
     }
 

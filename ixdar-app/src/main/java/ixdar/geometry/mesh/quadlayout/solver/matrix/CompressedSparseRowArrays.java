@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.solver;
+package ixdar.geometry.mesh.quadlayout.solver.matrix;
 
 /**
  * Raw Compressed Sparse Row arrays for one triangle of a symmetric matrix:

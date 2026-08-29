@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.quadlayout.solver;
+package ixdar.geometry.mesh.quadlayout.solver.chol.paradiso;
 
 import java.lang.ref.Cleaner;
 
@@ -7,6 +7,9 @@ import org.bytedeco.javacpp.IntPointer;
 import org.bytedeco.javacpp.LongPointer;
 import org.bytedeco.mkl.global.mkl_rt;
 import org.bytedeco.mkl.global.mkl_rt._MKL_DSS_HANDLE_t;
+
+import ixdar.geometry.mesh.quadlayout.solver.FactorizedSystem;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.CompressedSparseRowArrays;
 
 /**
  * Native supernodal {@link FactorizedSystem} backed by Intel MKL's PARDISO,

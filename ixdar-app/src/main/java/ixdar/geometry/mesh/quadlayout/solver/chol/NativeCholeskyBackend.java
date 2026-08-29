@@ -1,4 +1,7 @@
-package ixdar.geometry.mesh.quadlayout.solver;
+package ixdar.geometry.mesh.quadlayout.solver.chol;
+
+import ixdar.geometry.mesh.quadlayout.solver.FactorizedSystem;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.CompressedSparseRowArrays;
 
 /**
  * Native Cholesky acceleration, supplied by the platform rather than referenced directly.

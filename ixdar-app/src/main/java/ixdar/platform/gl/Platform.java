@@ -5,7 +5,7 @@ import java.util.function.Consumer;
 
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
 import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
-import ixdar.geometry.mesh.quadlayout.solver.NativeCholeskyBackend;
+import ixdar.geometry.mesh.quadlayout.solver.chol.NativeCholeskyBackend;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.model.ModelRuntime;
 import ixdar.graphics.render.text.FontAtlasDTO;
