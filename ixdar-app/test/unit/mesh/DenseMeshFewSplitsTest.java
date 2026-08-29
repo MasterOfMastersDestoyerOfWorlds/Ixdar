@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.ScaledTorusLayoutFixture;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 
 
 /**
@@ -59,7 +60,7 @@ class DenseMeshFewSplitsTest {
         ScaledTorusLayoutFixture fixture = new ScaledTorusLayoutFixture(scale);
         int verticesBefore = fixture.topology.copy.vertexCount();
         long liveArcs = fixture.tmesh.arcs.stream().filter(arc -> arc.alive).count();
-        fixture.tmesh.contract();
+        new NetworkContraction(fixture.tmesh).contract();
 
         int splits = fixture.topology.copy.vertexCount() - verticesBefore;
         if (requireMuchDenser) {

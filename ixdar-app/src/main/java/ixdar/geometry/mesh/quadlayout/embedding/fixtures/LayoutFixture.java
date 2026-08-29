@@ -1,6 +1,6 @@
 package ixdar.geometry.mesh.quadlayout.embedding.fixtures;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 
 /**
  * A hand-authored T-mesh layout a model scene can load from its model menu the way it loads a
@@ -21,5 +21,5 @@ public interface LayoutFixture {
      *
      * @return the freshly built T-mesh; its carrier surface is {@code tmesh.topology.copy}
      */
-    EmbeddedTMesh build();
+    ArcNetwork build();
 }

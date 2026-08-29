@@ -13,7 +13,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.LayoutFixture;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.render.color.Color;
@@ -309,8 +309,8 @@ public abstract class ModelScene extends Scene {
      * @param fixture registered fixture to build and show
      * @return the freshly built T-mesh, for the override to consume
      */
-    public EmbeddedTMesh loadFixture(LayoutFixture fixture) {
-        EmbeddedTMesh built = fixture.build();
+    public ArcNetwork loadFixture(LayoutFixture fixture) {
+        ArcNetwork built = fixture.build();
         offPath = FIXTURE_PREFIX + fixture.displayName();
         halfEdgeMesh = built.topology.copy;
         runtime.upload(halfEdgeMesh);

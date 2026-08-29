@@ -19,7 +19,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
  */
 public final class ZeroPatchCollapseOperator {
 
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
 
     public int collapsedCount;
 
@@ -34,33 +34,33 @@ public final class ZeroPatchCollapseOperator {
      *
      * @param tmesh embedded T-mesh to operate on
      */
-    public ZeroPatchCollapseOperator(EmbeddedTMesh tmesh) {
+    public ZeroPatchCollapseOperator(ArcNetwork tmesh) {
         this.tmesh = tmesh;
     }
 
     /**
      * The lowest-id live bigon of two non-zero arcs between the same two nodes, or
-     * {@link EmbeddedTMesh#NONE} when none remains. Only
-     * {@link EmbeddedTMesh#changedPatches} is tested, since an untouched patch
+     * {@link ArcNetwork#NONE} when none remains. Only
+     * {@link ArcNetwork#changedPatches} is tested, since an untouched patch
      * cannot have newly become one; ready patches keep their stamp, so repeating
      * the query repeats the answer.
      *
      * @throws IllegalStateException when
-     *                               {@link EmbeddedTMesh#VALIDATE_EVERY_COLLAPSE}
+     *                               {@link NetworkContraction#VALIDATE_EVERY_COLLAPSE}
      *                               is set and a full scan disagrees, meaning some
      *                               mutator does not call
-     *                               {@link EmbeddedTMesh#markPatchChanged}
-     * @return a collapsible simple zero-patch id, or {@link EmbeddedTMesh#NONE}
+     *                               {@link ArcNetwork#markPatchChanged}
+     * @return a collapsible simple zero-patch id, or {@link ArcNetwork#NONE}
      */
     public int nextSimpleZeroPatch() {
-        int found = EmbeddedTMesh.NONE;
+        int found = ArcNetwork.NONE;
         int keep = 0;
         for (int index = 0; index < tmesh.changedPatchCount; index++) {
             int patchId = tmesh.changedPatches[index];
             EmbeddedPatch patch = tmesh.patches.get(patchId);
             if (patch.alive && isReadyBigon(patch)) {
                 tmesh.changedPatches[keep++] = patchId;
-                if (found == EmbeddedTMesh.NONE || patchId < found) {
+                if (found == ArcNetwork.NONE || patchId < found) {
                     found = patchId;
                 }
             } else {
@@ -68,8 +68,8 @@ public final class ZeroPatchCollapseOperator {
             }
         }
         tmesh.changedPatchCount = keep;
-        if (EmbeddedTMesh.VALIDATE_EVERY_COLLAPSE) {
-            int scanned = EmbeddedTMesh.NONE;
+        if (NetworkContraction.VALIDATE_EVERY_COLLAPSE) {
+            int scanned = ArcNetwork.NONE;
             for (EmbeddedPatch patch : tmesh.patches) {
                 if (patch.alive && isReadyBigon(patch)) {
                     scanned = patch.patchId;
@@ -105,9 +105,9 @@ public final class ZeroPatchCollapseOperator {
         int dyingArc = survivorArc == boundaryArcs.get(0) ? boundaryArcs.get(1) : boundaryArcs.get(0);
 
         int farPatch = otherPatchOf(dyingArc, patchId);
-        int resolvedFarPatch = farPatch == EmbeddedTMesh.NONE ? EmbeddedTMesh.NONE
+        int resolvedFarPatch = farPatch == ArcNetwork.NONE ? ArcNetwork.NONE
                 : tmesh.topology.resolvePatch(farPatch);
-        if (resolvedFarPatch != EmbeddedTMesh.NONE && resolvedFarPatch != patchId
+        if (resolvedFarPatch != ArcNetwork.NONE && resolvedFarPatch != patchId
                 && tmesh.patches.get(resolvedFarPatch).alive) {
             tmesh.replaceArcInPatch(resolvedFarPatch, dyingArc, survivorArc);
             tmesh.topology.aliasPatchInto(patchId, resolvedFarPatch, tmesh.patches.size());
@@ -202,18 +202,18 @@ public final class ZeroPatchCollapseOperator {
      *
      * @param arcId   arc whose two patches are known
      * @param notThis the patch to exclude
-     * @return the arc's other patch, or {@link EmbeddedTMesh#NONE} when it has none
+     * @return the arc's other patch, or {@link ArcNetwork#NONE} when it has none
      */
     private int otherPatchOf(int arcId, int notThis) {
         EmbeddedArc arc = tmesh.arcs.get(arcId);
-        if (arc.leftPatchId != notThis && arc.leftPatchId != EmbeddedTMesh.NONE
+        if (arc.leftPatchId != notThis && arc.leftPatchId != ArcNetwork.NONE
                 && tmesh.patches.get(arc.leftPatchId).alive) {
             return arc.leftPatchId;
         }
-        if (arc.rightPatchId != notThis && arc.rightPatchId != EmbeddedTMesh.NONE
+        if (arc.rightPatchId != notThis && arc.rightPatchId != ArcNetwork.NONE
                 && tmesh.patches.get(arc.rightPatchId).alive) {
             return arc.rightPatchId;
         }
-        return EmbeddedTMesh.NONE;
+        return ArcNetwork.NONE;
     }
 }

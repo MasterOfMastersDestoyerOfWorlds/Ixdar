@@ -14,7 +14,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnosticException;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
@@ -54,16 +55,17 @@ public final class TwinFloodProbe {
         HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, QuadLayoutEngine.DEFAULT_ALPHA_RADIANS);
-        EmbeddedTMesh tmesh = engine.buildTMesh();
+        ArcNetwork tmesh = engine.buildTMesh();
+        NetworkContraction contraction = new NetworkContraction(tmesh);
         tmesh.labelPatchCovers();
         for (int op = 1; op <= REPLAYED_OPS; op++) {
-            String applied = tmesh.contractStep();
+            String applied = contraction.contractStep();
             Platforms.log("[probe] op %d: %s%n", op, applied);
             reportFloodIdentity(tmesh, op);
             reportStaleFlanks(tmesh, op);
         }
 
-        ZeroArcCollapseOperator collapseArc = tmesh.collapseArc;
+        ZeroArcCollapseOperator collapseArc = contraction.collapseArc;
         int collapsingArcId = collapseArc.mostContendedArc();
         collapseArc.beginCollapse(collapsingArcId);
         Platforms.log("[probe] failing collapse of arc %d: moved node %d (vertex %d) ->"
@@ -92,7 +94,7 @@ public final class TwinFloodProbe {
      * @param tmesh T-mesh being probed
      * @param op    operator ordinal just applied, for the caption
      */
-    private void reportFloodIdentity(EmbeddedTMesh tmesh, int op) {
+    private void reportFloodIdentity(ArcNetwork tmesh, int op) {
         Set<Integer>[] floods = floodSets(tmesh);
         for (int index = 0; index < PROBED_PATCHES.length; index++) {
             for (int other = index + 1; other < PROBED_PATCHES.length; other++) {
@@ -113,15 +115,15 @@ public final class TwinFloodProbe {
      * @return one flood set per entry of {@link #PROBED_PATCHES}
      */
     @SuppressWarnings("unchecked")
-    private Set<Integer>[] floodSets(EmbeddedTMesh tmesh) {
+    private Set<Integer>[] floodSets(ArcNetwork tmesh) {
         Set<Integer>[] floods = new Set[PROBED_PATCHES.length];
         for (int index = 0; index < PROBED_PATCHES.length; index++) {
             int resolved = tmesh.topology.resolvePatch(PROBED_PATCHES[index]);
             if (resolved != PROBED_PATCHES[index] || !tmesh.patches.get(resolved).alive
-                    || !tmesh.splitPatch.corridor.hasSeedableBoundary(resolved)) {
+                    || !tmesh.corridor.hasSeedableBoundary(resolved)) {
                 continue;
             }
-            IntIdList faces = tmesh.splitPatch.corridor.patchFaces(resolved);
+            IntIdList faces = tmesh.corridor.patchFaces(resolved);
             floods[index] = new HashSet<>();
             for (int cursor = 0; cursor < faces.size(); cursor++) {
                 floods[index].add(faces.get(cursor));
@@ -137,7 +139,7 @@ public final class TwinFloodProbe {
      * @param tmesh T-mesh being probed
      * @param op    operator ordinal just applied, for the caption
      */
-    private void reportStaleFlanks(EmbeddedTMesh tmesh, int op) {
+    private void reportStaleFlanks(ArcNetwork tmesh, int op) {
         for (int arcId : PROBED_ARCS) {
             EmbeddedArc arc = tmesh.arcs.get(arcId);
             if (!arc.alive) {
@@ -171,7 +173,7 @@ public final class TwinFloodProbe {
      * @param vertexId copy vertex whose ring is walked
      * @param moment   caption for when the ring was read
      */
-    private void describeRing(EmbeddedTMesh tmesh, int vertexId, String moment) {
+    private void describeRing(ArcNetwork tmesh, int vertexId, String moment) {
         HalfEdgeMesh copy = tmesh.topology.copy;
         int firstEdge = copy.vertexEdgeAt(vertexId, 0);
         int halfEdge = copy.edgeHalfEdge(firstEdge);
@@ -203,7 +205,7 @@ public final class TwinFloodProbe {
      * @param tmesh T-mesh being probed
      * @param arcId arc whose hops are labelled
      */
-    private void describeHops(EmbeddedTMesh tmesh, int arcId) {
+    private void describeHops(ArcNetwork tmesh, int arcId) {
         HalfEdgeMesh copy = tmesh.topology.copy;
         List<Integer> path = tmesh.arcs.get(arcId).path.copyVertexPath;
         StringBuilder hops = new StringBuilder();

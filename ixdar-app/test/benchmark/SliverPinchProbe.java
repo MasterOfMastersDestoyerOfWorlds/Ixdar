@@ -12,7 +12,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnosticException;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
@@ -52,13 +53,14 @@ public final class SliverPinchProbe {
         HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, QuadLayoutEngine.DEFAULT_ALPHA_RADIANS);
-        EmbeddedTMesh tmesh = engine.buildTMesh();
+        ArcNetwork tmesh = engine.buildTMesh();
+        NetworkContraction contraction = new NetworkContraction(tmesh);
         tmesh.labelPatchCovers();
         for (int op = 0; op < REPLAYED_OPS; op++) {
-            tmesh.contractStep();
+            contraction.contractStep();
         }
 
-        ZeroArcCollapseOperator collapseArc = tmesh.collapseArc;
+        ZeroArcCollapseOperator collapseArc = contraction.collapseArc;
         int collapsingArcId = collapseArc.mostContendedArc();
         collapseArc.beginCollapse(collapsingArcId);
         Platforms.log("[probe] collapsing arc %d: moved node %d (vertex %d) -> surviving"
@@ -103,15 +105,15 @@ public final class SliverPinchProbe {
      * @param patchId      patch to describe
      * @param targetVertex the surviving node's copy vertex
      */
-    private void describePatch(EmbeddedTMesh tmesh, int patchId, int targetVertex) {
+    private void describePatch(ArcNetwork tmesh, int patchId, int targetVertex) {
         EmbeddedPatch patch = tmesh.patches.get(tmesh.topology.resolvePatch(patchId));
         StringBuilder sides = new StringBuilder();
         for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
             sides.append(side == 0 ? "" : " | ").append(patch.sideArcIds.get(side))
                     .append("=").append(tmesh.sideQuantizedLength(patch.patchId, side));
         }
-        IntIdList cover = tmesh.splitPatch.corridor.hasSeedableBoundary(patch.patchId)
-                ? tmesh.splitPatch.corridor.patchFaces(patch.patchId)
+        IntIdList cover = tmesh.corridor.hasSeedableBoundary(patch.patchId)
+                ? tmesh.corridor.patchFaces(patch.patchId)
                 : new IntIdList(0);
         boolean coverAtTarget = false;
         HalfEdgeMesh copy = tmesh.topology.copy;
@@ -134,7 +136,7 @@ public final class SliverPinchProbe {
      * @param arcId        arc to describe
      * @param targetVertex the surviving node's copy vertex
      */
-    private void describeArc(EmbeddedTMesh tmesh, int arcId, int targetVertex) {
+    private void describeArc(ArcNetwork tmesh, int arcId, int targetVertex) {
         EmbeddedArc arc = tmesh.arcs.get(arcId);
         List<Integer> path = arc.path.copyVertexPath;
         Platforms.log("[probe] arc %d (alive %b): q=%d nodes %d->%d flanks %d|%d"
@@ -153,7 +155,7 @@ public final class SliverPinchProbe {
      * @param vertexId copy vertex whose ring is walked
      * @param moment   caption for when the ring was read
      */
-    private void describeRing(EmbeddedTMesh tmesh, int vertexId, String moment) {
+    private void describeRing(ArcNetwork tmesh, int vertexId, String moment) {
         HalfEdgeMesh copy = tmesh.topology.copy;
         int firstEdge = copy.vertexEdgeAt(vertexId, 0);
         int halfEdge = copy.edgeHalfEdge(firstEdge);
@@ -185,7 +187,7 @@ public final class SliverPinchProbe {
      * @param tmesh T-mesh being probed
      * @param arcId arc whose hops are labelled
      */
-    private void describeHops(EmbeddedTMesh tmesh, int arcId) {
+    private void describeHops(ArcNetwork tmesh, int arcId) {
         HalfEdgeMesh copy = tmesh.topology.copy;
         List<Integer> path = tmesh.arcs.get(arcId).path.copyVertexPath;
         StringBuilder hops = new StringBuilder();

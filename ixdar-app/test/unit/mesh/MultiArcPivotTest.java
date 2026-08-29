@@ -9,7 +9,9 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
+import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
@@ -45,22 +47,22 @@ class MultiArcPivotTest {
     void bothArcsThroughAOneWideChannelReachTheSurvivor() {
         HalfEdgeMesh grid = buildGrid();
         EmbeddedMeshTopology topology = new EmbeddedMeshTopology(grid);
-        EmbeddedTMesh tmesh = new EmbeddedTMesh(topology);
+        ArcNetwork tmesh = new ArcNetwork(topology);
 
-        int m1 = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 2, 1), false, false);
-        int m2 = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 2, 0), false, false);
-        int pivot = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 3, 1), false, false);
-        int survivor = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 5, 1), false, false);
-        tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 3, 0), false, false);
-        tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 3, 2), false, false);
-        tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 4, 0), false, false);
-        tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 4, 2), false, false);
+        int m1 = tmesh.addNode(ArcNetwork.NONE, vertex(topology, 2, 1), false, false);
+        int m2 = tmesh.addNode(ArcNetwork.NONE, vertex(topology, 2, 0), false, false);
+        int pivot = tmesh.addNode(ArcNetwork.NONE, vertex(topology, 3, 1), false, false);
+        int survivor = tmesh.addNode(ArcNetwork.NONE, vertex(topology, 5, 1), false, false);
+        tmesh.addNode(ArcNetwork.NONE, vertex(topology, 3, 0), false, false);
+        tmesh.addNode(ArcNetwork.NONE, vertex(topology, 3, 2), false, false);
+        tmesh.addNode(ArcNetwork.NONE, vertex(topology, 4, 0), false, false);
+        tmesh.addNode(ArcNetwork.NONE, vertex(topology, 4, 2), false, false);
 
-        int arcB1 = tmesh.addArc(EmbeddedTMesh.NONE, m1, pivot, 1, false,
+        int arcB1 = tmesh.addArc(ArcNetwork.NONE, m1, pivot, 1, false,
                 List.of(vertex(topology, 2, 1), vertex(topology, 3, 1)));
-        int arcB2 = tmesh.addArc(EmbeddedTMesh.NONE, m2, pivot, 1, false,
+        int arcB2 = tmesh.addArc(ArcNetwork.NONE, m2, pivot, 1, false,
                 List.of(vertex(topology, 2, 0), vertex(topology, 3, 1)));
-        int arcA = tmesh.addArc(EmbeddedTMesh.NONE, pivot, survivor, 0, false,
+        int arcA = tmesh.addArc(ArcNetwork.NONE, pivot, survivor, 0, false,
                 List.of(vertex(topology, 3, 1), vertex(topology, 4, 1), vertex(topology, 5, 1)));
 
         ArcRerouter rerouter = new ArcRerouter(topology);
@@ -69,9 +71,10 @@ class MultiArcPivotTest {
         List<Integer> channel = List.copyOf(tmesh.arcs.get(arcA).path.copyVertexPath);
         tmesh.setPath(arcA, List.of(survivorVertex));
 
-        tmesh.collapseArc.dragArcEndOntoVertex(arcB1, pivotVertex, survivorVertex, rerouter,
+        ZeroArcCollapseOperator collapseOperator = new NetworkContraction(tmesh).collapseArc;
+        collapseOperator.dragArcEndOntoVertex(arcB1, pivotVertex, survivorVertex, rerouter,
                 channel, true, false);
-        tmesh.collapseArc.dragArcEndOntoVertex(arcB2, pivotVertex, survivorVertex, rerouter,
+        collapseOperator.dragArcEndOntoVertex(arcB2, pivotVertex, survivorVertex, rerouter,
                 channel, true, false);
 
         assertEquals(survivorVertex, lastVertexOf(tmesh, arcB1), "b1 reaches the survivor");
@@ -85,7 +88,7 @@ class MultiArcPivotTest {
      * @param arcId arc to read
      * @return its path's final vertex
      */
-    private int lastVertexOf(EmbeddedTMesh tmesh, int arcId) {
+    private int lastVertexOf(ArcNetwork tmesh, int arcId) {
         List<Integer> path = tmesh.arcs.get(arcId).path.copyVertexPath;
         return path.get(path.size() - 1);
     }

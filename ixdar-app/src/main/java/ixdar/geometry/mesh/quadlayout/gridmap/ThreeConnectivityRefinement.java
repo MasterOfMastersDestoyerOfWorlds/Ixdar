@@ -3,7 +3,7 @@ package ixdar.geometry.mesh.quadlayout.gridmap;
 import java.util.ArrayList;
 import java.util.List;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
@@ -19,7 +19,7 @@ public final class ThreeConnectivityRefinement {
     /** Split position of a subdivided chord; MPZ14 subdivides, and the midpoint is the neutral choice. */
     private static final double EDGE_MIDPOINT = 0.5;
 
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
 
     /** Chords subdivided by {@link #refine}. */
     public int subdividedChordCount;
@@ -29,7 +29,7 @@ public final class ThreeConnectivityRefinement {
      *
      * @param tmesh embedded T-mesh whose copy mesh is made 3-connected per patch
      */
-    public ThreeConnectivityRefinement(EmbeddedTMesh tmesh) {
+    public ThreeConnectivityRefinement(ArcNetwork tmesh) {
         this.tmesh = tmesh;
     }
 

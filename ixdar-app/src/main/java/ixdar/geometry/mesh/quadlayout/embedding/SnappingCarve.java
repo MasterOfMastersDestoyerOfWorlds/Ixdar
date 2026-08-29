@@ -39,7 +39,7 @@ public final class SnappingCarve {
      * Traced graph the routes come from, or {@code null} when the caller supplied
      * the routes itself — the re-carve reads them off a contracted layout instead.
      */
-    public final EmbeddedTMesh network;
+    public final ArcNetwork network;
 
     /** The parametrization chart coordinates are read from. */
     public final UvField uv;
@@ -152,7 +152,7 @@ public final class SnappingCarve {
      * @param network traced T-mesh arrangement whose arcs are embedded
      * @param uv      parametrization the carve reads chart coordinates from
      */
-    public SnappingCarve(EmbeddedTMesh network, UvField uv) {
+    public SnappingCarve(ArcNetwork network, UvField uv) {
         this.network = network;
         this.uv = uv;
         this.topology = new EmbeddedMeshTopology(network.sourceMesh);

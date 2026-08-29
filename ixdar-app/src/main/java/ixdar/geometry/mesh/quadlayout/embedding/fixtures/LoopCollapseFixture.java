@@ -5,7 +5,7 @@ import java.util.List;
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.DiskMeshNode;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
@@ -24,7 +24,7 @@ public final class LoopCollapseFixture implements LayoutFixture {
 
     public HalfEdgeMesh disk;
     public EmbeddedMeshTopology topology;
-    public EmbeddedTMesh tmesh;
+    public ArcNetwork tmesh;
 
     /** Movable node on ring two at twelve o'clock; the loop leaves and returns here. */
     public int loopNodeId;
@@ -69,7 +69,7 @@ public final class LoopCollapseFixture implements LayoutFixture {
     }
 
     @Override
-    public EmbeddedTMesh build() {
+    public ArcNetwork build() {
         DiskMeshNode node = new DiskMeshNode();
         MapNodeContext context = new MapNodeContext(node);
         context.setInput(DiskMeshNode.RINGS.name, RING_COUNT);
@@ -79,7 +79,7 @@ public final class LoopCollapseFixture implements LayoutFixture {
         node.evaluate(context);
         this.disk = context.getOutput(DiskMeshNode.MESH.name, HalfEdgeMesh.class);
         this.topology = new EmbeddedMeshTopology(disk);
-        this.tmesh = new EmbeddedTMesh(topology);
+        this.tmesh = new ArcNetwork(topology);
         layOutTMesh();
         return tmesh;
     }
@@ -89,32 +89,32 @@ public final class LoopCollapseFixture implements LayoutFixture {
      * inside, and the outside flank keeps non-zero boundary so it absorbs, never splices.
      */
     private void layOutTMesh() {
-        loopNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(2, 0), false, false);
-        eastFarNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(3, 3), true, false);
-        westFarNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(3, 9), true, false);
+        loopNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(2, 0), false, false);
+        eastFarNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(3, 3), true, false);
+        westFarNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(3, 9), true, false);
 
-        loopArcId = tmesh.addArc(EmbeddedTMesh.NONE, loopNodeId, loopNodeId, 0, false,
+        loopArcId = tmesh.addArc(ArcNetwork.NONE, loopNodeId, loopNodeId, 0, false,
                 List.of(copyVertex(2, 0), copyVertex(2, 1), copyVertex(1, 0), copyVertex(2, 0)));
-        eastArcId = tmesh.addArc(EmbeddedTMesh.NONE, loopNodeId, eastFarNodeId, 1, false,
+        eastArcId = tmesh.addArc(ArcNetwork.NONE, loopNodeId, eastFarNodeId, 1, false,
                 List.of(copyVertex(2, 0), copyVertex(3, 1), copyVertex(3, 2), copyVertex(3, 3)));
-        westArcId = tmesh.addArc(EmbeddedTMesh.NONE, loopNodeId, westFarNodeId, 1, false,
+        westArcId = tmesh.addArc(ArcNetwork.NONE, loopNodeId, westFarNodeId, 1, false,
                 List.of(copyVertex(2, 0), copyVertex(3, 0), copyVertex(3, 11), copyVertex(3, 10),
                         copyVertex(3, 9)));
-        outerSealArcId = tmesh.addArc(EmbeddedTMesh.NONE, eastFarNodeId, westFarNodeId, 0, false,
+        outerSealArcId = tmesh.addArc(ArcNetwork.NONE, eastFarNodeId, westFarNodeId, 0, false,
                 List.of(copyVertex(3, 3), copyVertex(3, 4), copyVertex(3, 5), copyVertex(3, 6),
                         copyVertex(3, 7), copyVertex(3, 8), copyVertex(3, 9)));
 
-        insidePatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        insidePatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(loopArcId),
                 List.of(),
                 List.of(),
                 List.of()), loopNodeId);
-        rimPatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        rimPatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(eastArcId),
                 List.of(outerSealArcId),
                 List.of(westArcId),
                 List.of()), loopNodeId);
-        outsidePatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        outsidePatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(loopArcId),
                 List.of(westArcId),
                 List.of(outerSealArcId),

@@ -10,7 +10,9 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
+import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
@@ -47,21 +49,21 @@ class PivotRerouteTest {
     void draggingAnArcFollowsTheCollapsingNodeThroughTheChannel() {
         HalfEdgeMesh grid = buildGrid();
         EmbeddedMeshTopology topology = new EmbeddedMeshTopology(grid);
-        EmbeddedTMesh tmesh = new EmbeddedTMesh(topology);
+        ArcNetwork tmesh = new ArcNetwork(topology);
 
-        int mNode = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 1, 1), false, false);
-        int pivotNode = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 2, 1), false, false);
-        int survivorNode = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 3, 1), false, false);
-        int topNode = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 2, 0), false, false);
-        int bottomNode = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 2, 2), false, false);
+        int mNode = tmesh.addNode(ArcNetwork.NONE, vertex(topology, 1, 1), false, false);
+        int pivotNode = tmesh.addNode(ArcNetwork.NONE, vertex(topology, 2, 1), false, false);
+        int survivorNode = tmesh.addNode(ArcNetwork.NONE, vertex(topology, 3, 1), false, false);
+        int topNode = tmesh.addNode(ArcNetwork.NONE, vertex(topology, 2, 0), false, false);
+        int bottomNode = tmesh.addNode(ArcNetwork.NONE, vertex(topology, 2, 2), false, false);
 
-        int arcB = tmesh.addArc(EmbeddedTMesh.NONE, mNode, pivotNode, 1, false,
+        int arcB = tmesh.addArc(ArcNetwork.NONE, mNode, pivotNode, 1, false,
                 List.of(vertex(topology, 1, 1), vertex(topology, 2, 1)));
-        int arcA = tmesh.addArc(EmbeddedTMesh.NONE, pivotNode, survivorNode, 0, false,
+        int arcA = tmesh.addArc(ArcNetwork.NONE, pivotNode, survivorNode, 0, false,
                 List.of(vertex(topology, 2, 1), vertex(topology, 3, 1)));
-        tmesh.addArc(EmbeddedTMesh.NONE, pivotNode, topNode, 1, false,
+        tmesh.addArc(ArcNetwork.NONE, pivotNode, topNode, 1, false,
                 List.of(vertex(topology, 2, 1), vertex(topology, 2, 0)));
-        tmesh.addArc(EmbeddedTMesh.NONE, pivotNode, bottomNode, 1, false,
+        tmesh.addArc(ArcNetwork.NONE, pivotNode, bottomNode, 1, false,
                 List.of(vertex(topology, 2, 1), vertex(topology, 2, 2)));
 
         ArcRerouter rerouter = new ArcRerouter(topology);
@@ -70,7 +72,8 @@ class PivotRerouteTest {
         List<Integer> channel = List.copyOf(tmesh.arcs.get(arcA).path.copyVertexPath);
 
         tmesh.setPath(arcA, List.of(survivorVertex));
-        tmesh.collapseArc.dragArcEndOntoVertex(arcB, pivotVertex, survivorVertex, rerouter,
+        ZeroArcCollapseOperator collapseOperator = new NetworkContraction(tmesh).collapseArc;
+        collapseOperator.dragArcEndOntoVertex(arcB, pivotVertex, survivorVertex, rerouter,
                 channel, true, false);
 
         List<Integer> path = tmesh.arcs.get(arcB).path.copyVertexPath;

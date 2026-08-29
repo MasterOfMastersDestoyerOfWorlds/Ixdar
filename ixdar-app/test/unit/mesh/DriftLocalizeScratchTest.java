@@ -5,7 +5,8 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.StackedZeroRowTorusFixture;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.records.PatchCorridor;
@@ -24,7 +25,7 @@ class DriftLocalizeScratchTest {
      * @param arcId arc about to be, or just, collapsed
      * @param when  "before" or "after"
      */
-    private static void describe(EmbeddedTMesh tmesh, int arcId, String when) {
+    private static void describe(ArcNetwork tmesh, int arcId, String when) {
         EmbeddedMeshTopology topology = tmesh.topology;
         HalfEdgeMesh copy = topology.copy;
         System.out.printf("[watch %s] arc %d start=%d end=%d left=%d right=%d path=%s%n",
@@ -58,20 +59,21 @@ class DriftLocalizeScratchTest {
     @Test
     void localize() {
         StackedZeroRowTorusFixture fixture = new StackedZeroRowTorusFixture();
-        EmbeddedTMesh tmesh = fixture.tmesh;
+        ArcNetwork tmesh = fixture.tmesh;
+        NetworkContraction contraction = new NetworkContraction(tmesh);
         tmesh.labelPatchCovers();
         report(tmesh, "start");
         while (true) {
             boolean applied = true;
             while (applied) {
-                int simple = tmesh.collapsePatch.nextSimpleZeroPatch();
-                if (simple != EmbeddedTMesh.NONE) {
-                    tmesh.collapsePatch.collapse(simple);
+                int simple = contraction.collapsePatch.nextSimpleZeroPatch();
+                if (simple != ArcNetwork.NONE) {
+                    contraction.collapsePatch.collapse(simple);
                     report(tmesh, "patchCollapse " + simple);
                     continue;
                 }
-                int arc = tmesh.collapseArc.mostContendedArc();
-                if (arc != EmbeddedTMesh.NONE) {
+                int arc = contraction.collapseArc.mostContendedArc();
+                if (arc != ArcNetwork.NONE) {
                     java.util.Map<Integer, String> before = new java.util.HashMap<>();
                     if (arc == WATCHED_ARC) {
                         describe(tmesh, arc, "before");
@@ -82,7 +84,7 @@ class DriftLocalizeScratchTest {
                             }
                         }
                     }
-                    tmesh.collapseArc.collapse(arc);
+                    contraction.collapseArc.collapse(arc);
                     if (arc == WATCHED_ARC) {
                         describe(tmesh, arc, "after");
                         for (int id = 0; id < tmesh.arcs.size(); id++) {
@@ -103,14 +105,14 @@ class DriftLocalizeScratchTest {
                 }
                 applied = false;
             }
-            int nonSimple = tmesh.splitPatch.nextNonSimpleZeroPatch();
-            if (nonSimple == EmbeddedTMesh.NONE) {
+            int nonSimple = contraction.splitPatch.nextNonSimpleZeroPatch();
+            if (nonSimple == ArcNetwork.NONE) {
                 break;
             }
-            tmesh.splitPatch.split(nonSimple);
+            contraction.splitPatch.split(nonSimple);
             report(tmesh, "patchSplit " + nonSimple);
         }
-        tmesh.conform();
+        contraction.conform();
         report(tmesh, "conform");
     }
 
@@ -120,7 +122,7 @@ class DriftLocalizeScratchTest {
      * @param tmesh T-mesh to check
      * @param step  description of the operator just applied
      */
-    private static void report(EmbeddedTMesh tmesh, String step) {
+    private static void report(ArcNetwork tmesh, String step) {
         EmbeddedMeshTopology topology = tmesh.topology;
         HalfEdgeMesh copy = topology.copy;
         PatchCorridor corridor = new PatchCorridor(tmesh);

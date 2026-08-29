@@ -6,7 +6,7 @@ import java.util.List;
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.DiskMeshNode;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
@@ -34,7 +34,7 @@ public final class FanCollapseFixture implements LayoutFixture {
 
     public HalfEdgeMesh disk;
     public EmbeddedMeshTopology topology;
-    public EmbeddedTMesh tmesh;
+    public ArcNetwork tmesh;
 
     /** Node on the central vertex, the moving end of the collapse. */
     public int centerNodeId;
@@ -64,7 +64,7 @@ public final class FanCollapseFixture implements LayoutFixture {
     }
 
     @Override
-    public EmbeddedTMesh build() {
+    public ArcNetwork build() {
         DiskMeshNode node = new DiskMeshNode();
         MapNodeContext context = new MapNodeContext(node);
         context.setInput(DiskMeshNode.RINGS.name, RING_COUNT);
@@ -74,7 +74,7 @@ public final class FanCollapseFixture implements LayoutFixture {
         node.evaluate(context);
         this.disk = context.getOutput(DiskMeshNode.MESH.name, HalfEdgeMesh.class);
         this.topology = new EmbeddedMeshTopology(disk);
-        this.tmesh = new EmbeddedTMesh(topology);
+        this.tmesh = new ArcNetwork(topology);
         layOutTMesh();
         return tmesh;
     }
@@ -85,10 +85,10 @@ public final class FanCollapseFixture implements LayoutFixture {
      * face carries a label and no re-route can escape around the box.
      */
     private void layOutTMesh() {
-        centerNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(0, 0), false, false);
+        centerNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(0, 0), false, false);
         boxNodeIdByHour = new int[CLOCK_POSITIONS];
         for (int hour = 0; hour < CLOCK_POSITIONS; hour++) {
-            boxNodeIdByHour[hour] = tmesh.addNode(EmbeddedTMesh.NONE,
+            boxNodeIdByHour[hour] = tmesh.addNode(ArcNetwork.NONE,
                     copyVertex(BOX_RING, hour * STEPS_PER_HOUR), hour == 0, false);
         }
         spokeArcIdByHour = new int[CLOCK_POSITIONS];
@@ -98,7 +98,7 @@ public final class FanCollapseFixture implements LayoutFixture {
             for (int ring = 1; ring <= BOX_RING; ring++) {
                 path.add(copyVertex(ring, hour * STEPS_PER_HOUR));
             }
-            spokeArcIdByHour[hour] = tmesh.addArc(EmbeddedTMesh.NONE, centerNodeId,
+            spokeArcIdByHour[hour] = tmesh.addArc(ArcNetwork.NONE, centerNodeId,
                     boxNodeIdByHour[hour], hour == 0 ? 0 : 1, false, path);
         }
         zeroSpokeArcId = spokeArcIdByHour[0];
@@ -108,12 +108,12 @@ public final class FanCollapseFixture implements LayoutFixture {
             List<Integer> path = List.of(copyVertex(BOX_RING, startAngular),
                     copyVertex(BOX_RING, startAngular + 1),
                     copyVertex(BOX_RING, startAngular + STEPS_PER_HOUR));
-            boxArcIdByHour[hour] = tmesh.addArc(EmbeddedTMesh.NONE, boxNodeIdByHour[hour],
+            boxArcIdByHour[hour] = tmesh.addArc(ArcNetwork.NONE, boxNodeIdByHour[hour],
                     boxNodeIdByHour[(hour + 1) % CLOCK_POSITIONS], 1, false, path);
         }
         for (int hour = 0; hour < CLOCK_POSITIONS; hour++) {
             int nextHour = (hour + 1) % CLOCK_POSITIONS;
-            tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+            tmesh.addPatch(ArcNetwork.NONE, List.of(
                     List.of(spokeArcIdByHour[nextHour]),
                     List.of(boxArcIdByHour[hour]),
                     List.of(spokeArcIdByHour[hour]),
@@ -123,7 +123,7 @@ public final class FanCollapseFixture implements LayoutFixture {
         for (int hour = 0; hour < CLOCK_POSITIONS; hour++) {
             boxLoop.add(boxArcIdByHour[hour]);
         }
-        tmesh.addPatch(EmbeddedTMesh.NONE,
+        tmesh.addPatch(ArcNetwork.NONE,
                 List.of(boxLoop, List.of(), List.of(), List.of()), boxNodeIdByHour[0]);
     }
 

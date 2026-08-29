@@ -23,7 +23,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.nodes.api.UvField;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 import ixdar.geometry.mesh.quadlayout.Singularity;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
@@ -102,7 +102,7 @@ public final class MotorcycleGraph implements MeshNode {
     public final float alphaRadians;
 
     /** The arrangement being built; every durable product lands here. */
-    public EmbeddedTMesh network;
+    public ArcNetwork network;
 
     public List<EmbeddedNode> nodes;
     public List<EmbeddedArc> arcs;
@@ -214,7 +214,7 @@ public final class MotorcycleGraph implements MeshNode {
         this.walker = new ChartWalker(mesh, uv, singularities);
         this.segmentIndex = new FaceSegmentIndex(faceCount);
 
-        this.network = new EmbeddedTMesh(mesh);
+        this.network = new ArcNetwork(mesh);
         this.nodes = network.nodes;
         this.arcs = network.arcs;
         this.patches = network.patches;

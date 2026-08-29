@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
@@ -33,7 +33,7 @@ public final class IntegerGridMap {
     /** Sine of each quarter turn, paired with {@link #QUARTER_TURN_COSINE}. */
     private static final int[] QUARTER_TURN_SINE = {0, 1, 0, -1};
 
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
 
     /** Quarter turns the patch's rectangle is rotated by, indexed by patch id. */
     public int[] quarterTurnsByPatchId;
@@ -92,7 +92,7 @@ public final class IntegerGridMap {
      *
      * @param tmesh conforming embedded T-mesh
      */
-    public IntegerGridMap(EmbeddedTMesh tmesh) {
+    public IntegerGridMap(ArcNetwork tmesh) {
         this.tmesh = tmesh;
     }
 
@@ -133,7 +133,7 @@ public final class IntegerGridMap {
                         classifiedArc[arcId] = true;
                         continue;
                     }
-                    if (neighbour == EmbeddedTMesh.NONE || !tmesh.patches.get(neighbour).alive) {
+                    if (neighbour == ArcNetwork.NONE || !tmesh.patches.get(neighbour).alive) {
                         continue;
                     }
                     if (!arcLocalCoordinates(patchId, arcId, hereStart, hereEnd)
@@ -183,8 +183,8 @@ public final class IntegerGridMap {
         int[] rightEnd = new int[GRID_COORDINATES];
         int[] rotated = new int[GRID_COORDINATES];
         for (EmbeddedArc arc : tmesh.arcs) {
-            if (!arc.alive || arc.leftPatchId == EmbeddedTMesh.NONE
-                    || arc.rightPatchId == EmbeddedTMesh.NONE
+            if (!arc.alive || arc.leftPatchId == ArcNetwork.NONE
+                    || arc.rightPatchId == ArcNetwork.NONE
                     || arc.leftPatchId == arc.rightPatchId
                     || quarterTurnsByPatchId[arc.leftPatchId] == NOT_PLACED
                     || quarterTurnsByPatchId[arc.rightPatchId] == NOT_PLACED

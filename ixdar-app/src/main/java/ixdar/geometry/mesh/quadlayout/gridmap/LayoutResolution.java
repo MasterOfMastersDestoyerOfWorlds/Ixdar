@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
@@ -33,7 +33,7 @@ public final class LayoutResolution {
     /** Guard against dividing by a strip whose arcs all measured zero. */
     private static final double MINIMUM_MEAN_LENGTH = 1.0e-9;
 
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
 
     /** The parametrization the arcs' extents are measured in. */
     public final UvField seamless;
@@ -73,7 +73,7 @@ public final class LayoutResolution {
      * @param seamless         the parametrization the arcs' extents are measured in
      * @param targetEdgeLength parametric length one quad edge should span
      */
-    public LayoutResolution(EmbeddedTMesh tmesh, UvField seamless,
+    public LayoutResolution(ArcNetwork tmesh, UvField seamless,
             double targetEdgeLength) {
         this.tmesh = tmesh;
         this.seamless = seamless;
@@ -347,7 +347,7 @@ public final class LayoutResolution {
         for (int cursor = 0; cursor < frontier.size(); cursor++) {
             EmbeddedArc arc = tmesh.arcs.get(frontier.get(cursor));
             for (int patchId : new int[] { arc.leftPatchId, arc.rightPatchId }) {
-                if (patchId == EmbeddedTMesh.NONE || !tmesh.patches.get(patchId).alive) {
+                if (patchId == ArcNetwork.NONE || !tmesh.patches.get(patchId).alive) {
                     continue;
                 }
                 EmbeddedPatch patch = tmesh.patches.get(patchId);

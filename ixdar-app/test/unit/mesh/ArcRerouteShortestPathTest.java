@@ -12,7 +12,9 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
+import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
@@ -45,17 +47,17 @@ class ArcRerouteShortestPathTest {
     void dragReRoutesTheArcByShortestPathAndStraightensIt() {
         HalfEdgeMesh grid = buildGrid();
         EmbeddedMeshTopology topology = new EmbeddedMeshTopology(grid);
-        EmbeddedTMesh tmesh = new EmbeddedTMesh(topology);
+        ArcNetwork tmesh = new ArcNetwork(topology);
 
-        int farNode = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 0, 0), false, false);
-        int pivotNode = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, PIVOT_COLUMN, 0),
+        int farNode = tmesh.addNode(ArcNetwork.NONE, vertex(topology, 0, 0), false, false);
+        int pivotNode = tmesh.addNode(ArcNetwork.NONE, vertex(topology, PIVOT_COLUMN, 0),
                 false, false);
-        int survivorNode = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, SURVIVOR_COLUMN, 0),
+        int survivorNode = tmesh.addNode(ArcNetwork.NONE, vertex(topology, SURVIVOR_COLUMN, 0),
                 false, false);
 
-        int detourArc = tmesh.addArc(EmbeddedTMesh.NONE, farNode, pivotNode, 1, false,
+        int detourArc = tmesh.addArc(ArcNetwork.NONE, farNode, pivotNode, 1, false,
                 detourPath(topology));
-        int collapsingArc = tmesh.addArc(EmbeddedTMesh.NONE, pivotNode, survivorNode, 0, false,
+        int collapsingArc = tmesh.addArc(ArcNetwork.NONE, pivotNode, survivorNode, 0, false,
                 List.of(vertex(topology, PIVOT_COLUMN, 0), vertex(topology, SURVIVOR_COLUMN, 0)));
 
         int pivotVertex = vertex(topology, PIVOT_COLUMN, 0);
@@ -63,7 +65,8 @@ class ArcRerouteShortestPathTest {
         List<Integer> channel = List.copyOf(tmesh.arcs.get(collapsingArc).path.copyVertexPath);
 
         tmesh.setPath(collapsingArc, List.of(survivorVertex));
-        tmesh.collapseArc.dragArcEndOntoVertex(detourArc, pivotVertex, survivorVertex,
+        ZeroArcCollapseOperator collapseOperator = new NetworkContraction(tmesh).collapseArc;
+        collapseOperator.dragArcEndOntoVertex(detourArc, pivotVertex, survivorVertex,
                 new ArcRerouter(topology), channel, true, false);
 
         List<Integer> routed = tmesh.arcs.get(detourArc).path.copyVertexPath;

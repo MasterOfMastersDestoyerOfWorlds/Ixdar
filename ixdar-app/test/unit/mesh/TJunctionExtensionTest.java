@@ -8,7 +8,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
 /**
@@ -31,10 +32,11 @@ class TJunctionExtensionTest {
     @Test
     void conformingLeavesNoTJunction() {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
-        fixture.tmesh.contract();
+        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        contraction.contract();
         int tjunctionsBefore = tjunctionCount(fixture.tmesh);
 
-        fixture.tmesh.conform();
+        contraction.conform();
 
         assertTrue(tjunctionsBefore > 0,
                 "the contracted torus should still carry the stub vertical's T-junction");
@@ -52,12 +54,13 @@ class TJunctionExtensionTest {
     @Test
     void extensionCountMatchesThePatchesGained() {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
-        fixture.tmesh.contract();
+        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        contraction.contract();
         int patchesBefore = livePatchCount(fixture.tmesh);
 
-        fixture.tmesh.conform();
+        contraction.conform();
 
-        assertEquals(patchesBefore + fixture.tmesh.extendTJunction.extensionCount,
+        assertEquals(patchesBefore + contraction.extendTJunction.extensionCount,
                 livePatchCount(fixture.tmesh),
                 "each extension arc cuts exactly one patch in two");
         assertTrue(livePatchCount(fixture.tmesh) <= quantizedArea(fixture.tmesh),
@@ -71,7 +74,7 @@ class TJunctionExtensionTest {
      * @param tmesh T-mesh to scan
      * @return the count of T-junctions
      */
-    private int tjunctionCount(EmbeddedTMesh tmesh) {
+    private int tjunctionCount(ArcNetwork tmesh) {
         int count = 0;
         for (EmbeddedPatch patch : tmesh.patches) {
             if (!patch.alive) {
@@ -95,7 +98,7 @@ class TJunctionExtensionTest {
      * @param tmesh T-mesh to measure
      * @return the Euler characteristic
      */
-    private int eulerCharacteristic(EmbeddedTMesh tmesh) {
+    private int eulerCharacteristic(ArcNetwork tmesh) {
         int nodes = 0;
         for (int nodeId = 0; nodeId < tmesh.nodes.size(); nodeId++) {
             nodes += tmesh.nodes.get(nodeId).alive ? 1 : 0;
@@ -113,7 +116,7 @@ class TJunctionExtensionTest {
      * @param tmesh T-mesh to measure
      * @return the live patch count
      */
-    private int livePatchCount(EmbeddedTMesh tmesh) {
+    private int livePatchCount(ArcNetwork tmesh) {
         int live = 0;
         for (EmbeddedPatch patch : tmesh.patches) {
             live += patch.alive ? 1 : 0;
@@ -128,7 +131,7 @@ class TJunctionExtensionTest {
      * @param tmesh T-mesh to measure
      * @return the number of quads the quantization prescribes
      */
-    private int quantizedArea(EmbeddedTMesh tmesh) {
+    private int quantizedArea(ArcNetwork tmesh) {
         int area = 0;
         for (EmbeddedPatch patch : tmesh.patches) {
             if (patch.alive) {

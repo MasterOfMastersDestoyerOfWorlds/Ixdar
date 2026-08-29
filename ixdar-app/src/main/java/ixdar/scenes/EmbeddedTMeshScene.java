@@ -11,7 +11,8 @@ import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnosticException;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.FanCollapseFixture;
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.LayoutFixture;
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.MergedCellSlotFixture;
@@ -76,12 +77,15 @@ public class EmbeddedTMeshScene extends ModelScene {
 
     /**
      * Operator count at the last displayed failure, so B can replay to just before
-     * it; {@link EmbeddedTMesh#NONE} before any failure.
+     * it; {@link ArcNetwork#NONE} before any failure.
      */
-    public int failedContractOps = EmbeddedTMesh.NONE;
+    public int failedContractOps = ArcNetwork.NONE;
 
     private QuadLayoutRuntime quadRuntime;
-    private EmbeddedTMesh tmesh;
+    private ArcNetwork tmesh;
+
+    /** Contraction operators bound to {@link #tmesh}; rebound whenever it is replaced. */
+    private NetworkContraction contraction;
 
     /**
      * Registers the hand-authored layout fixtures alongside the mesh catalog.
@@ -135,8 +139,9 @@ public class EmbeddedTMeshScene extends ModelScene {
      * @return the freshly built T-mesh
      */
     @Override
-    public EmbeddedTMesh loadFixture(LayoutFixture fixture) {
+    public ArcNetwork loadFixture(LayoutFixture fixture) {
         tmesh = super.loadFixture(fixture);
+        contraction = new NetworkContraction(tmesh);
         contractOpsSinceLoad = 0;
         quadRuntime.setEmbeddedTMesh(tmesh);
         quadRuntime.clearDiagnostic();
@@ -156,6 +161,7 @@ public class EmbeddedTMeshScene extends ModelScene {
         QuadLayoutEngine engine = new QuadLayoutEngine(
                 halfEdgeMesh, (float) Math.toRadians(alphaDegrees));
         tmesh = engine.buildTMesh();
+        contraction = new NetworkContraction(tmesh);
         quadRuntime.setEmbeddedTMesh(tmesh);
         quadRuntime.clearDiagnostic();
         quadRuntime.setPatchClouds(List.of(), new float[0]);
@@ -245,18 +251,19 @@ public class EmbeddedTMeshScene extends ModelScene {
      * re-derived.
      */
     private void applyContract() {
-        if (tmesh.collapseArc.collapsingArcId != EmbeddedTMesh.NONE) {
+        if (contraction.collapseArc.collapsingArcId != ArcNetwork.NONE) {
             Platforms.get().log("[contract] skipped: a collapse is mid-drag; finish it with D"
                     + " or reset with Z");
             return;
         }
         try {
             tmesh.labelPatchCovers();
-            while (tmesh.contractStep() != null) {
+            while (contraction.contractStep() != null) {
                 contractOpsSinceLoad++;
             }
-            tmesh.conform();
-            tmesh = tmesh.recarve(halfEdgeMesh);
+            contraction.conform();
+            tmesh = contraction.recarve(halfEdgeMesh);
+            contraction = new NetworkContraction(tmesh);
             quadRuntime.setEmbeddedTMesh(tmesh);
         } catch (ArrangementDiagnosticException failure) {
             quadRuntime.setEmbeddedTMesh(tmesh);
@@ -271,19 +278,19 @@ public class EmbeddedTMeshScene extends ModelScene {
      * Applies one contraction operator and shows the covers of the patches it touched.
      */
     private void applyContractStep() {
-        if (tmesh.collapseArc.collapsingArcId != EmbeddedTMesh.NONE) {
+        if (contraction.collapseArc.collapsingArcId != ArcNetwork.NONE) {
             Platforms.get().log("[step] skipped: a collapse is mid-drag; finish it with D"
                     + " or reset with Z");
             return;
         }
-        int arcCollapsesBefore = tmesh.arcCollapseCount;
+        int arcCollapsesBefore = contraction.arcCollapseCount;
         try {
-            String applied = tmesh.contractStep();
+            String applied = contraction.contractStep();
             if (applied != null) {
                 contractOpsSinceLoad++;
             }
             quadRuntime.setEmbeddedTMesh(tmesh);
-            List<Integer> updated = tmesh.stepUpdatedPatches(arcCollapsesBefore);
+            List<Integer> updated = contraction.stepUpdatedPatches(arcCollapsesBefore);
             quadRuntime.showPatchCovers(tmesh, updated);
             Platforms.get().log("[step] " + (applied == null ? "fixed point reached" : applied)
                     + " | updated patches " + updated
@@ -304,35 +311,35 @@ public class EmbeddedTMeshScene extends ModelScene {
      */
     private void applyDragStep() {
         try {
-            if (tmesh.collapseArc.collapsingArcId == EmbeddedTMesh.NONE) {
+            if (contraction.collapseArc.collapsingArcId == ArcNetwork.NONE) {
                 if (tmesh.topology.patchByCopyFace.length == 0) {
                     tmesh.labelPatchCovers();
                 }
-                int arcId = tmesh.collapseArc.mostContendedArc();
-                if (arcId == EmbeddedTMesh.NONE) {
+                int arcId = contraction.collapseArc.mostContendedArc();
+                if (arcId == ArcNetwork.NONE) {
                     Platforms.get().log("[drag] no collapsible zero arc remains");
                     return;
                 }
-                tmesh.collapseArc.beginCollapse(arcId);
+                contraction.collapseArc.beginCollapse(arcId);
                 Platforms.get().log("[drag] began collapse of arc " + arcId + "; fan of "
-                        + tmesh.collapseArc.fan.size() + " arcs waits on node "
-                        + tmesh.collapseArc.movedNodeId);
-                quadRuntime.setDiagnostic(tmesh.topology.copy, tmesh.collapseArc.stepDiagnostic());
+                        + contraction.collapseArc.fan.size() + " arcs waits on node "
+                        + contraction.collapseArc.movedNodeId);
+                quadRuntime.setDiagnostic(tmesh.topology.copy, contraction.collapseArc.stepDiagnostic());
                 quadRuntime.capDiagnosticRegion(quadRuntime.diagnosticRegionRadius);
-            } else if (tmesh.collapseArc.dragNextArc()) {
+            } else if (contraction.collapseArc.dragNextArc()) {
                 quadRuntime.setEmbeddedTMesh(tmesh);
-                quadRuntime.setDiagnostic(tmesh.topology.copy, tmesh.collapseArc.stepDiagnostic());
+                quadRuntime.setDiagnostic(tmesh.topology.copy, contraction.collapseArc.stepDiagnostic());
                 quadRuntime.capDiagnosticRegion(quadRuntime.diagnosticRegionRadius);
-                Platforms.get().log("[drag] dragged arc " + tmesh.collapseArc.lastDraggedArcId
-                        + " onto vertex " + tmesh.collapseArc.targetVertex);
+                Platforms.get().log("[drag] dragged arc " + contraction.collapseArc.lastDraggedArcId
+                        + " onto vertex " + contraction.collapseArc.targetVertex);
             } else {
-                int collapsedArcId = tmesh.collapseArc.collapsingArcId;
-                tmesh.collapseArc.finishCollapse();
-                tmesh.arcCollapseCount++;
+                int collapsedArcId = contraction.collapseArc.collapsingArcId;
+                contraction.collapseArc.finishCollapse();
+                contraction.arcCollapseCount++;
                 contractOpsSinceLoad++;
                 quadRuntime.setEmbeddedTMesh(tmesh);
                 quadRuntime.clearDiagnostic();
-                Platforms.get().log("[drag] collapse finished; " + tmesh.arcCollapseCount
+                Platforms.get().log("[drag] collapse finished; " + contraction.arcCollapseCount
                         + " arc collapses so far");
                 // Stepping is the debug path: the same check contractStep runs — without it a
                 // stepped collapse sails silently past the tear the C run failed on.
@@ -376,7 +383,7 @@ public class EmbeddedTMeshScene extends ModelScene {
      * the recorded count survives the rewind, and so does the camera pose.
      */
     private void applyRewind() {
-        if (failedContractOps == EmbeddedTMesh.NONE) {
+        if (failedContractOps == ArcNetwork.NONE) {
             Platforms.get().log("[rewind] no recorded failure; press C first");
             return;
         }
@@ -394,7 +401,7 @@ public class EmbeddedTMeshScene extends ModelScene {
         }
         tmesh.labelPatchCovers();
         for (int op = 0; op < failedContractOps; op++) {
-            tmesh.contractStep();
+            contraction.contractStep();
         }
         contractOpsSinceLoad = failedContractOps;
         quadRuntime.setEmbeddedTMesh(tmesh);

@@ -10,7 +10,8 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;
@@ -46,8 +47,9 @@ class PatchGridSeamTest {
     @Test
     void adjacentPatchesShareTheirSeamPoints() {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
-        fixture.tmesh.contract();
-        fixture.tmesh.conform();
+        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        contraction.contract();
+        contraction.conform();
         SeamlessUv seamless = new QuadLayoutEngine(fixture.torus, 0f).buildSeamless();
         double targetEdgeLength =
                 shortestArcLength(fixture.tmesh, seamless) / QUADS_ON_SHORTEST_ARC;
@@ -57,8 +59,8 @@ class PatchGridSeamTest {
         int checkedArcs = 0;
         int checkedInteriorPoints = 0;
         for (EmbeddedArc arc : fixture.tmesh.arcs) {
-            if (!arc.alive || arc.leftPatchId == EmbeddedTMesh.NONE
-                    || arc.rightPatchId == EmbeddedTMesh.NONE) {
+            if (!arc.alive || arc.leftPatchId == ArcNetwork.NONE
+                    || arc.rightPatchId == ArcNetwork.NONE) {
                 continue;
             }
             Vector3f[] fromLeft = seamPoints(fixture.tmesh, grid, arc, arc.leftPatchId);
@@ -89,7 +91,7 @@ class PatchGridSeamTest {
      * @param seamless the parametrization to measure in
      * @return the shortest arc's parametric length
      */
-    private double shortestArcLength(EmbeddedTMesh tmesh, SeamlessUv seamless) {
+    private double shortestArcLength(ArcNetwork tmesh, SeamlessUv seamless) {
         LayoutResolution measured = new LayoutResolution(tmesh, seamless, 1.0).build();
         double shortest = Double.MAX_VALUE;
         for (EmbeddedArc arc : tmesh.arcs) {
@@ -111,7 +113,7 @@ class PatchGridSeamTest {
      * @throws IllegalStateException when the arc is not on any side of the patch
      * @return the arc's grid points, one per quantized step plus the two ends
      */
-    private Vector3f[] seamPoints(EmbeddedTMesh tmesh, PatchGridExtraction grid, EmbeddedArc arc,
+    private Vector3f[] seamPoints(ArcNetwork tmesh, PatchGridExtraction grid, EmbeddedArc arc,
             int patchId) {
         EmbeddedPatch patch = tmesh.patches.get(patchId);
         int columns = grid.gridColumns(patchId);

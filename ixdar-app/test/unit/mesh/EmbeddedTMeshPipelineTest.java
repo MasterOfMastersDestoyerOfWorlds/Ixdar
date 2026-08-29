@@ -11,14 +11,14 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
 /**
  * Drives the real pipeline into the embedded T-mesh: load a mesh, run
- * {@link QuadLayoutEngine} through the carve, and assemble an {@link EmbeddedTMesh} with
+ * {@link QuadLayoutEngine} through the carve, and assemble an {@link ArcNetwork} with
  * {@link EmbeddedTMeshBuilder}. The assembly is the checkpoint — its {@code build()} validates the
  * result against the surface's Euler characteristic — so this proves the pipeline-derived nodes,
  * arcs, quantized lengths, carved paths, and four-sided patches form a cell decomposition, on real
@@ -53,7 +53,7 @@ class EmbeddedTMeshPipelineTest {
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, (float) ALPHA_RADIANS);
         engine.buildLayoutEmbedding();
 
-        EmbeddedTMesh tmesh = engine.tmesh;
+        ArcNetwork tmesh = engine.tmesh;
 
         System.out.printf(
                 "[tmesh-pipeline] %s | nodes=%d arcs=%d (zero=%d) patches=%d | euler=%d%n",
@@ -154,7 +154,7 @@ class EmbeddedTMeshPipelineTest {
      * @param tmesh T-mesh to scan
      * @return count of live arcs whose quantized length is zero
      */
-    private int countZeroArcs(EmbeddedTMesh tmesh) {
+    private int countZeroArcs(ArcNetwork tmesh) {
         int zero = 0;
         for (int arcId = 0; arcId < tmesh.arcs.size(); arcId++) {
             if (tmesh.arcs.get(arcId).alive && tmesh.arcs.get(arcId).quantizedLength == 0) {

@@ -14,7 +14,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnosticException;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
@@ -70,15 +71,16 @@ public final class TwinCellProbe {
         HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, QuadLayoutEngine.DEFAULT_ALPHA_RADIANS);
-        EmbeddedTMesh tmesh = engine.buildTMesh();
+        ArcNetwork tmesh = engine.buildTMesh();
+        NetworkContraction contraction = new NetworkContraction(tmesh);
         tmesh.labelPatchCovers();
         for (int op = 1; op <= REPLAYED_OPS; op++) {
-            String applied = tmesh.contractStep();
+            String applied = contraction.contractStep();
             reportProbedChanges(tmesh, op, applied);
             reportTwinFlood(tmesh, op);
         }
 
-        ZeroArcCollapseOperator collapseArc = tmesh.collapseArc;
+        ZeroArcCollapseOperator collapseArc = contraction.collapseArc;
         int collapsingArcId = collapseArc.mostContendedArc();
         collapseArc.beginCollapse(collapsingArcId);
         Platforms.log("[probe] failing collapse of arc %d: moved node %d (vertex %d) ->"
@@ -125,7 +127,7 @@ public final class TwinCellProbe {
      * @param applied one-line description of the operator, from
      *                {@code contractStep}
      */
-    private void reportProbedChanges(EmbeddedTMesh tmesh, int op, String applied) {
+    private void reportProbedChanges(ArcNetwork tmesh, int op, String applied) {
         for (int index = 0; index < PROBED_ARCS.length; index++) {
             String signature = arcSignature(tmesh, PROBED_ARCS[index]);
             if (!signature.equals(arcSignatures[index])) {
@@ -151,7 +153,7 @@ public final class TwinCellProbe {
      * @param tmesh T-mesh being probed
      * @param op    operator ordinal just applied, for the caption
      */
-    private void reportTwinFlood(EmbeddedTMesh tmesh, int op) {
+    private void reportTwinFlood(ArcNetwork tmesh, int op) {
         if (twinFloodReported) {
             return;
         }
@@ -159,10 +161,10 @@ public final class TwinCellProbe {
         for (int patchId : TWIN_PATCHES) {
             int resolved = tmesh.topology.resolvePatch(patchId);
             if (resolved != patchId || !tmesh.patches.get(resolved).alive
-                    || !tmesh.splitPatch.corridor.hasSeedableBoundary(resolved)) {
+                    || !tmesh.corridor.hasSeedableBoundary(resolved)) {
                 return;
             }
-            IntIdList faces = tmesh.splitPatch.corridor.patchFaces(resolved);
+            IntIdList faces = tmesh.corridor.patchFaces(resolved);
             Set<Integer> flood = new HashSet<>();
             for (int cursor = 0; cursor < faces.size(); cursor++) {
                 flood.add(faces.get(cursor));
@@ -185,7 +187,7 @@ public final class TwinCellProbe {
      * @param arcId arc to sign
      * @return a line that changes exactly when the arc's tear-relevant state does
      */
-    private String arcSignature(EmbeddedTMesh tmesh, int arcId) {
+    private String arcSignature(ArcNetwork tmesh, int arcId) {
         if (arcId >= tmesh.arcs.size()) {
             return "absent";
         }
@@ -212,7 +214,7 @@ public final class TwinCellProbe {
      * @return a line that changes exactly when the patch's identity or boundary
      *         does
      */
-    private String patchSignature(EmbeddedTMesh tmesh, int patchId) {
+    private String patchSignature(ArcNetwork tmesh, int patchId) {
         if (patchId >= tmesh.patches.size()) {
             return "absent";
         }
@@ -232,7 +234,7 @@ public final class TwinCellProbe {
      * @param tmesh T-mesh being probed
      * @param arcId arc whose path is walked
      */
-    private void describeArcCovers(EmbeddedTMesh tmesh, int arcId) {
+    private void describeArcCovers(ArcNetwork tmesh, int arcId) {
         EmbeddedArc arc = tmesh.arcs.get(arcId);
         if (!arc.alive || arc.path.copyVertexPath.size() < 2) {
             return;
@@ -278,7 +280,7 @@ public final class TwinCellProbe {
      * @param vertexId copy vertex whose ring is walked
      * @param moment   caption for when the ring was read
      */
-    private void describeRing(EmbeddedTMesh tmesh, int vertexId, String moment) {
+    private void describeRing(ArcNetwork tmesh, int vertexId, String moment) {
         HalfEdgeMesh copy = tmesh.topology.copy;
         int firstEdge = copy.vertexEdgeAt(vertexId, 0);
         int halfEdge = copy.edgeHalfEdge(firstEdge);
@@ -311,16 +313,16 @@ public final class TwinCellProbe {
      * @param tmesh   T-mesh being probed
      * @param patchId patch to flood
      */
-    private void describeFlood(EmbeddedTMesh tmesh, int patchId) {
+    private void describeFlood(ArcNetwork tmesh, int patchId) {
         int resolved = tmesh.topology.resolvePatch(patchId);
         if (resolved != patchId || !tmesh.patches.get(resolved).alive
-                || !tmesh.splitPatch.corridor.hasSeedableBoundary(resolved)) {
+                || !tmesh.corridor.hasSeedableBoundary(resolved)) {
             Platforms.log("[probe] patch %d flood: unavailable (resolved %d)%n", patchId,
                     resolved);
             return;
         }
-        IntIdList faces = tmesh.splitPatch.corridor.patchFaces(resolved);
+        IntIdList faces = tmesh.corridor.patchFaces(resolved);
         Platforms.log("[probe] patch %d floods %d faces, bounded by arcs %s%n", patchId,
-                faces.size(), tmesh.splitPatch.corridor.boundingArcsOfLastFlood());
+                faces.size(), tmesh.corridor.boundingArcsOfLastFlood());
     }
 }

@@ -22,7 +22,7 @@ import ixdar.platform.Platforms;
  * T-mesh re-embedding, construction half: builds a working copy of the input
  * mesh, gives every T-mesh node a copy vertex, and carves every traced arc into
  * the copy as an edge path. Zero-quantized arcs are carved too;
- * {@link EmbeddedTMesh#contract} consumes them.
+ * {@link ArcNetwork#contract} consumes them.
  *
  * <p>
  * See also: LCBK19 Section 6.1
@@ -38,7 +38,7 @@ public final class LayoutEmbedding implements MeshNode {
     private static final double NANOS_PER_SECOND = 1.0e9;
 
     /** The arrangement being embedded. */
-    public EmbeddedTMesh network;
+    public ArcNetwork network;
 
     /** The parametrization the carve reads chart coordinates from. */
     public UvField uv;
@@ -101,7 +101,7 @@ public final class LayoutEmbedding implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        EmbeddedTMesh skeleton = (EmbeddedTMesh) ctx.getInput(SKELETON.name, Object.class);
+        ArcNetwork skeleton = (ArcNetwork) ctx.getInput(SKELETON.name, Object.class);
         UvField field = (UvField) ctx.getInput(UV.name, Object.class);
         ctx.setOutput(TMESH.name, new LayoutEmbedding().build(skeleton, field));
     }
@@ -115,7 +115,7 @@ public final class LayoutEmbedding implements MeshNode {
      * @param seamlessUv   parametrization the carve reads chart coordinates from
      * @return the network, embedded and assembled
      */
-    public EmbeddedTMesh build(EmbeddedTMesh builtNetwork, UvField seamlessUv) {
+    public ArcNetwork build(ArcNetwork builtNetwork, UvField seamlessUv) {
         this.network = builtNetwork;
         this.uv = seamlessUv;
         long startNanos = System.nanoTime();

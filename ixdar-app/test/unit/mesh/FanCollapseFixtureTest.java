@@ -9,7 +9,8 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.FanCollapseFixture;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
@@ -62,7 +63,7 @@ class FanCollapseFixtureTest {
     @Test
     void centerMovesOntoTheCriticalBoxNode() {
         FanCollapseFixture fixture = new FanCollapseFixture();
-        ZeroArcCollapseOperator collapseArc = fixture.tmesh.collapseArc;
+        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixture.tmesh).collapseArc;
 
         assertEquals(fixture.zeroSpokeArcId, collapseArc.mostContendedArc(),
                 "the zero spoke is the only collapse candidate");
@@ -82,7 +83,7 @@ class FanCollapseFixtureTest {
     void steppedCollapseDragsElevenSpokesOntoTheSurvivor() {
         FanCollapseFixture fixture = new FanCollapseFixture();
         fixture.tmesh.labelPatchCovers();
-        ZeroArcCollapseOperator collapseArc = fixture.tmesh.collapseArc;
+        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixture.tmesh).collapseArc;
 
         collapseArc.beginCollapse(fixture.zeroSpokeArcId);
         int drags = 0;
@@ -115,15 +116,16 @@ class FanCollapseFixtureTest {
     void oneShotCollapseMatchesTheSteppedCollapse() {
         FanCollapseFixture stepped = new FanCollapseFixture();
         stepped.tmesh.labelPatchCovers();
-        stepped.tmesh.collapseArc.beginCollapse(stepped.zeroSpokeArcId);
-        while (stepped.tmesh.collapseArc.dragNextArc()) {
+        ZeroArcCollapseOperator steppedCollapse = new NetworkContraction(stepped.tmesh).collapseArc;
+        steppedCollapse.beginCollapse(stepped.zeroSpokeArcId);
+        while (steppedCollapse.dragNextArc()) {
             continue;
         }
-        stepped.tmesh.collapseArc.finishCollapse();
+        steppedCollapse.finishCollapse();
 
         FanCollapseFixture oneShot = new FanCollapseFixture();
         oneShot.tmesh.labelPatchCovers();
-        oneShot.tmesh.collapseArc.collapse(oneShot.zeroSpokeArcId);
+        new NetworkContraction(oneShot.tmesh).collapseArc.collapse(oneShot.zeroSpokeArcId);
 
         assertEquals(liveCounts(oneShot.tmesh), liveCounts(stepped.tmesh),
                 "stepping the collapse must leave the same live element counts as one shot");
@@ -135,7 +137,7 @@ class FanCollapseFixtureTest {
      * @param tmesh T-mesh to count
      * @return {@code nodes/arcs/patches} counts
      */
-    private static String liveCounts(EmbeddedTMesh tmesh) {
+    private static String liveCounts(ArcNetwork tmesh) {
         int nodes = 0;
         for (int nodeId = 0; nodeId < tmesh.nodes.size(); nodeId++) {
             nodes += tmesh.nodes.get(nodeId).alive ? 1 : 0;

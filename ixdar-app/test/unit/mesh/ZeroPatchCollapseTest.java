@@ -6,7 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
@@ -23,7 +24,7 @@ class ZeroPatchCollapseTest {
     void drivingAllThreeOperatorsClearsEveryZeroElement() {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
 
-        fixture.tmesh.contract();
+        new NetworkContraction(fixture.tmesh).contract();
 
         for (int arcId = 0; arcId < fixture.tmesh.arcs.size(); arcId++) {
             var arc = fixture.tmesh.arcs.get(arcId);
@@ -54,13 +55,13 @@ class ZeroPatchCollapseTest {
         ZeroPatchCollapseOperator collapsePatch = new ZeroPatchCollapseOperator(fixture.tmesh);
 
         int guard = 0;
-        while (collapsePatch.nextSimpleZeroPatch() == EmbeddedTMesh.NONE) {
+        while (collapsePatch.nextSimpleZeroPatch() == ArcNetwork.NONE) {
             int arc = collapseArc.mostContendedArc();
-            if (arc != EmbeddedTMesh.NONE) {
+            if (arc != ArcNetwork.NONE) {
                 collapseArc.collapse(arc);
             } else {
                 int nonSimple = splitPatch.nextNonSimpleZeroPatch();
-                assertNotEquals(EmbeddedTMesh.NONE, nonSimple, "a bigon should become reachable");
+                assertNotEquals(ArcNetwork.NONE, nonSimple, "a bigon should become reachable");
                 splitPatch.split(nonSimple);
             }
             fixture.tmesh.validate();
@@ -90,7 +91,7 @@ class ZeroPatchCollapseTest {
      * @param arcs  true to count arcs, false to count patches
      * @return count of live elements
      */
-    private static int countLive(int count, EmbeddedTMesh tmesh, boolean arcs) {
+    private static int countLive(int count, ArcNetwork tmesh, boolean arcs) {
         int live = 0;
         for (int id = 0; id < count; id++) {
             if (arcs ? tmesh.arcs.get(id).alive : tmesh.patches.get(id).alive) {

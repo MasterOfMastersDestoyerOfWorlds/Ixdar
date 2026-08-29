@@ -8,7 +8,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
@@ -62,7 +62,7 @@ public final class ScaledTorusLayoutFixture implements LayoutFixture {
     public final int minorSegments;
     public HalfEdgeMesh torus;
     public EmbeddedMeshTopology topology;
-    public EmbeddedTMesh tmesh;
+    public ArcNetwork tmesh;
 
     /** Node id at each (major, minor) grid position that carries one. */
     private final Map<Long, Integer> nodeAt = new HashMap<>();
@@ -85,7 +85,7 @@ public final class ScaledTorusLayoutFixture implements LayoutFixture {
     }
 
     @Override
-    public EmbeddedTMesh build() {
+    public ArcNetwork build() {
         TorusMeshNode node = new TorusMeshNode();
         MapNodeContext context = new MapNodeContext(node);
         context.setInput(TorusMeshNode.MAJOR_SEGMENTS.name, majorSegments);
@@ -94,7 +94,7 @@ public final class ScaledTorusLayoutFixture implements LayoutFixture {
         node.evaluate(context);
         this.torus = context.getOutput(TorusMeshNode.MESH.name, HalfEdgeMesh.class);
         this.topology = new EmbeddedMeshTopology(torus);
-        this.tmesh = new EmbeddedTMesh(topology);
+        this.tmesh = new ArcNetwork(topology);
         nodeAt.clear();
         layOutTMesh();
         return tmesh;
@@ -169,7 +169,7 @@ public final class ScaledTorusLayoutFixture implements LayoutFixture {
      * @param minor base minor grid coordinate
      */
     private void addNode(int major, int minor) {
-        int nodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(major, minor), false, false);
+        int nodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(major, minor), false, false);
         nodeAt.put(key(major, minor), nodeId);
     }
 
@@ -192,7 +192,7 @@ public final class ScaledTorusLayoutFixture implements LayoutFixture {
             major = (major + 1) % majorSegments;
             path.add(scaledVertex(major, minor * scale));
         }
-        return tmesh.addArc(EmbeddedTMesh.NONE, nodeAt.get(key(fromMajor, minor)),
+        return tmesh.addArc(ArcNetwork.NONE, nodeAt.get(key(fromMajor, minor)),
                 nodeAt.get(key(toMajor, minor)), quantizedLength, false, path);
     }
 
@@ -214,7 +214,7 @@ public final class ScaledTorusLayoutFixture implements LayoutFixture {
             minor = (minor + 1) % minorSegments;
             path.add(scaledVertex(major * scale, minor));
         }
-        return tmesh.addArc(EmbeddedTMesh.NONE, nodeAt.get(key(major, fromMinor)),
+        return tmesh.addArc(ArcNetwork.NONE, nodeAt.get(key(major, fromMinor)),
                 nodeAt.get(key(major, toMinor)), quantizedLength, false, path);
     }
 
@@ -230,7 +230,7 @@ public final class ScaledTorusLayoutFixture implements LayoutFixture {
      */
     private void addPatch(int cornerMajor, int cornerMinor, List<Integer> bottom,
             List<Integer> right, List<Integer> top, List<Integer> left) {
-        tmesh.addPatch(EmbeddedTMesh.NONE, List.of(bottom, right, top, left),
+        tmesh.addPatch(ArcNetwork.NONE, List.of(bottom, right, top, left),
                 nodeAt.get(key(cornerMajor, cornerMinor)));
     }
 

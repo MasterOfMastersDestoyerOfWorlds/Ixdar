@@ -7,7 +7,7 @@ import java.util.Map;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
@@ -58,7 +58,7 @@ public final class PlaneLayoutFixture implements LayoutFixture {
 
     public HalfEdgeMesh plane;
     public EmbeddedMeshTopology topology;
-    public EmbeddedTMesh tmesh;
+    public ArcNetwork tmesh;
 
     /** Node id by packed grid position. */
     private final Map<Long, Integer> nodeAt = new HashMap<>();
@@ -76,10 +76,10 @@ public final class PlaneLayoutFixture implements LayoutFixture {
     }
 
     @Override
-    public EmbeddedTMesh build() {
+    public ArcNetwork build() {
         this.plane = GridMeshNode.triangulated(TILES + 1, TILES + 1);
         this.topology = new EmbeddedMeshTopology(plane);
-        this.tmesh = new EmbeddedTMesh(topology);
+        this.tmesh = new ArcNetwork(topology);
         nodeAt.clear();
         layOutTMesh();
         return tmesh;
@@ -135,7 +135,7 @@ public final class PlaneLayoutFixture implements LayoutFixture {
      * @param row    grid row
      */
     private void addNode(int column, int row) {
-        int nodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(column, row), false, false);
+        int nodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(column, row), false, false);
         nodeAt.put(key(column, row), nodeId);
     }
 
@@ -153,7 +153,7 @@ public final class PlaneLayoutFixture implements LayoutFixture {
         for (int column = fromColumn; column <= toColumn; column++) {
             path.add(copyVertex(column, row));
         }
-        return tmesh.addArc(EmbeddedTMesh.NONE, nodeIdAt(fromColumn, row), nodeIdAt(toColumn, row),
+        return tmesh.addArc(ArcNetwork.NONE, nodeIdAt(fromColumn, row), nodeIdAt(toColumn, row),
                 quantizedLength, false, path);
     }
 
@@ -171,7 +171,7 @@ public final class PlaneLayoutFixture implements LayoutFixture {
         for (int row = fromRow; row <= toRow; row++) {
             path.add(copyVertex(column, row));
         }
-        return tmesh.addArc(EmbeddedTMesh.NONE, nodeIdAt(column, fromRow), nodeIdAt(column, toRow),
+        return tmesh.addArc(ArcNetwork.NONE, nodeIdAt(column, fromRow), nodeIdAt(column, toRow),
                 quantizedLength, false, path);
     }
 
@@ -187,7 +187,7 @@ public final class PlaneLayoutFixture implements LayoutFixture {
      */
     private void addPatch(int column, int row, List<Integer> bottom, List<Integer> right,
             List<Integer> top, List<Integer> left) {
-        tmesh.addPatch(EmbeddedTMesh.NONE, List.of(bottom, right, top, left), nodeIdAt(column, row));
+        tmesh.addPatch(ArcNetwork.NONE, List.of(bottom, right, top, left), nodeIdAt(column, row));
     }
 
     /**

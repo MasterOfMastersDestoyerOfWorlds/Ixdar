@@ -1,6 +1,6 @@
 package ixdar.geometry.mesh.quadlayout.embedding.records;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.gridmap.LayoutResolution;
 
 /**
@@ -12,11 +12,11 @@ import ixdar.geometry.mesh.quadlayout.gridmap.LayoutResolution;
  */
 public final class EmbeddedArc {
 
-    /** Index of this arc in {@link EmbeddedTMesh#arcs}; stable for the object's life. */
+    /** Index of this arc in {@link ArcNetwork#arcs}; stable for the object's life. */
     public final int arcId;
 
     /**
-     * Id of the {@code TraceArc} this came from, or {@link EmbeddedTMesh#NONE} for an arc
+     * Id of the {@code TraceArc} this came from, or {@link ArcNetwork#NONE} for an arc
      * minted by an operator — a zero arc inserted across a non-simple zero-patch, or an
      * arc extending a T-junction.
      */
@@ -62,7 +62,7 @@ public final class EmbeddedArc {
      * Creates a live arc between two nodes.
      *
      * @param arcId           index of this arc in the T-mesh's arc list
-     * @param sourceArcId     originating {@code TraceArc} id, or {@link EmbeddedTMesh#NONE}
+     * @param sourceArcId     originating {@code TraceArc} id, or {@link ArcNetwork#NONE}
      * @param startNodeId     node the arc runs from
      * @param endNodeId       node the arc runs to
      * @param quantizedLength prescribed parametric length, never negative
@@ -78,8 +78,8 @@ public final class EmbeddedArc {
         this.quantizedLength = quantizedLength;
         this.feature = feature;
         this.path = path;
-        this.leftPatchId = EmbeddedTMesh.NONE;
-        this.rightPatchId = EmbeddedTMesh.NONE;
+        this.leftPatchId = ArcNetwork.NONE;
+        this.rightPatchId = ArcNetwork.NONE;
         this.alive = true;
     }
 

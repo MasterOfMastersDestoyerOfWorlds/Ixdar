@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.FeatureEdgeSpan;
@@ -29,7 +29,7 @@ public final class LayoutExtraction {
 
     public static final int FLOATS_PER_RECORD = 4;
 
-    public final EmbeddedTMesh network;
+    public final ArcNetwork network;
     public final QuantizedMeshGrid quantization;
 
     /** Collapse-cluster index per T-mesh node id. */

@@ -6,7 +6,7 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.CoonsEvaluator;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
 /**
@@ -22,7 +22,7 @@ public final class LayoutPatchSurfaces {
     public static final int VECTOR_COMPONENTS = 3;
 
     public final PatchGridExtraction quadGrid;
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
 
     /** One record per live patch, in patch id order. */
     public final List<LayoutPatchCurves> patches = new ArrayList<>();

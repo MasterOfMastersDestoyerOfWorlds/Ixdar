@@ -17,7 +17,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.MetOtherTraceEntry;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
@@ -47,7 +47,7 @@ public class QuantizedMeshGrid implements MeshNode {
     /** Cap on packed cut paths generated per separation round. */
     private static final int MAX_CUTS_PER_ROUND = 500;
 
-    public final EmbeddedTMesh network;
+    public final ArcNetwork network;
     public final float alphaRadians;
 
     /** Solved non-negative integer per arc id; filled by {@link #build()}. */
@@ -100,7 +100,7 @@ public class QuantizedMeshGrid implements MeshNode {
      * @param network built T-mesh arrangement with subdivided arcs and patch sides
      * @param alphaRadians    Lyon's maximum separatrix deviation α in radians
      */
-    public QuantizedMeshGrid(EmbeddedTMesh network, float alphaRadians) {
+    public QuantizedMeshGrid(ArcNetwork network, float alphaRadians) {
         this.network = network;
         this.alphaRadians = alphaRadians;
     }
@@ -132,7 +132,7 @@ public class QuantizedMeshGrid implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        EmbeddedTMesh graph = (EmbeddedTMesh) ctx.getInput(GRAPH.name, Object.class);
+        ArcNetwork graph = (ArcNetwork) ctx.getInput(GRAPH.name, Object.class);
         float alphaDegrees = FieldBroadcast.floatScalarOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, ALPHA_DEGREES.name, ALPHA_DEGREES.defaultValue),
                 MotorcycleGraph.DEFAULT_ALPHA_DEGREES);

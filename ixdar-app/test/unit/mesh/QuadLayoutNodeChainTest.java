@@ -10,10 +10,10 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.nodes.data.LoadMeshNode;
 import ixdar.geometry.mesh.nodes.quadlayout.NewtonSolverNode;
 import ixdar.geometry.mesh.nodes.quadlayout.QuadExtractNode;
-import ixdar.geometry.mesh.nodes.quadlayout.TmeshContractNode;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
 import ixdar.geometry.mesh.quadlayout.gridmap.GridMapAssembly;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
@@ -71,8 +71,8 @@ class QuadLayoutNodeChainTest {
         graphCtx.setInput(MotorcycleGraph.FEATURE_EDGES.name,
                 fieldCtx.getOutput(NDirectionField.FEATURE_EDGES.name, Object.class));
         motorcycle.evaluate(graphCtx);
-        EmbeddedTMesh graph =
-                graphCtx.getOutput(MotorcycleGraph.GRAPH.name, EmbeddedTMesh.class);
+        ArcNetwork graph =
+                graphCtx.getOutput(MotorcycleGraph.GRAPH.name, ArcNetwork.class);
 
         int meshEuler = graph.sourceMesh.vertexCount() - graph.sourceMesh.edgeCount()
                 + graph.sourceMesh.faceCount();
@@ -87,8 +87,8 @@ class QuadLayoutNodeChainTest {
         MapNodeContext skeletonCtx = new MapNodeContext(quantize);
         skeletonCtx.setInput(QuantizedMeshGrid.GRAPH.name, graph);
         quantize.evaluate(skeletonCtx);
-        EmbeddedTMesh skeleton =
-                skeletonCtx.getOutput(QuantizedMeshGrid.SKELETON.name, EmbeddedTMesh.class);
+        ArcNetwork skeleton =
+                skeletonCtx.getOutput(QuantizedMeshGrid.SKELETON.name, ArcNetwork.class);
         long positiveArcs = skeleton.arcs.stream()
                 .filter(arc -> arc.quantizedLength > 0).count();
         assertTrue(positiveArcs > 0, "the skeleton keeps positive arcs");
@@ -98,17 +98,17 @@ class QuadLayoutNodeChainTest {
         tmeshCtx.setInput(LayoutEmbedding.SKELETON.name, skeleton);
         tmeshCtx.setInput(LayoutEmbedding.UV.name, seamless);
         embed.evaluate(tmeshCtx);
-        EmbeddedTMesh tmesh =
-                tmeshCtx.getOutput(LayoutEmbedding.TMESH.name, EmbeddedTMesh.class);
+        ArcNetwork tmesh =
+                tmeshCtx.getOutput(LayoutEmbedding.TMESH.name, ArcNetwork.class);
         assertEquals(graph.patches.size(), tmesh.patches.size(),
                 "every arrangement patch becomes one embedded patch");
 
-        TmeshContractNode contract = new TmeshContractNode();
+        NetworkContraction contract = new NetworkContraction();
         MapNodeContext contractedCtx = new MapNodeContext(contract);
-        contractedCtx.setInput(TmeshContractNode.TMESH.name, tmesh);
+        contractedCtx.setInput(NetworkContraction.TMESH.name, tmesh);
         contract.evaluate(contractedCtx);
-        EmbeddedTMesh contracted =
-                contractedCtx.getOutput(TmeshContractNode.TMESH_OUT.name, EmbeddedTMesh.class);
+        ArcNetwork contracted =
+                contractedCtx.getOutput(NetworkContraction.TMESH_OUT.name, ArcNetwork.class);
         assertEquals(0, liveZeroArcs(contracted), "contraction leaves no live zero arc");
 
         GridMapAssembly gridMapNode = new GridMapAssembly();
@@ -143,7 +143,7 @@ class QuadLayoutNodeChainTest {
                 "the extracted quad mesh closes to the surface's Euler characteristic");
     }
 
-    private int liveZeroArcs(EmbeddedTMesh tmesh) {
+    private int liveZeroArcs(ArcNetwork tmesh) {
         int zero = 0;
         for (int arcId = 0; arcId < tmesh.arcs.size(); arcId++) {
             if (tmesh.arcs.get(arcId).alive && tmesh.arcs.get(arcId).quantizedLength == 0) {

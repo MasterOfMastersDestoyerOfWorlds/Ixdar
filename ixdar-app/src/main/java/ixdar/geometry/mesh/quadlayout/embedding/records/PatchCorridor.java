@@ -8,7 +8,7 @@ import java.util.TreeSet;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
 
 /**
@@ -20,7 +20,7 @@ import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
  */
 public final class PatchCorridor {
 
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
 
     /** Faces of the patch flooded last, refilled per call; see {@link #patchFaces}. */
     public final IntIdList faceScratch = new IntIdList(0);
@@ -36,7 +36,7 @@ public final class PatchCorridor {
      *
      * @param tmesh embedded T-mesh the patches belong to
      */
-    public PatchCorridor(EmbeddedTMesh tmesh) {
+    public PatchCorridor(ArcNetwork tmesh) {
         this.tmesh = tmesh;
     }
 
@@ -78,7 +78,7 @@ public final class PatchCorridor {
      * patch either side separates nothing and is skipped.
      *
      * @param patchId patch that was flooded
-     * @return the arc the flood ran around, or {@link EmbeddedTMesh#NONE} when it stayed inside
+     * @return the arc the flood ran around, or {@link ArcNetwork#NONE} when it stayed inside
      */
     public int foreignArcOnLastFlood(int patchId) {
         HalfEdgeMesh copy = tmesh.topology.copy;
@@ -98,7 +98,7 @@ public final class PatchCorridor {
                 }
             }
         }
-        return EmbeddedTMesh.NONE;
+        return ArcNetwork.NONE;
     }
 
     /**

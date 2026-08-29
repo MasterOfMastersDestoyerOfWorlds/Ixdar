@@ -9,7 +9,8 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.LoopCollapseFixture;
 
@@ -30,7 +31,7 @@ class LoopCollapseFixtureTest {
                 "the patch walks must agree with the disk's winding, or the covers are dropped"
                         + " as overlapping and the drags run unrestricted");
         for (int face = 0; face < fixture.tmesh.topology.patchByCopyFace.length; face++) {
-            assertTrue(fixture.tmesh.topology.patchByCopyFace[face] != EmbeddedTMesh.NONE,
+            assertTrue(fixture.tmesh.topology.patchByCopyFace[face] != ArcNetwork.NONE,
                     "face " + face + " carries a label");
         }
     }
@@ -45,7 +46,7 @@ class LoopCollapseFixtureTest {
         fixture.tmesh.labelPatchCovers();
         assertNull(fixture.tmesh.flankTearFailure("authored loop"),
                 "the hand-set loop flanks agree with the covers before anything collapses");
-        ZeroArcCollapseOperator collapseArc = fixture.tmesh.collapseArc;
+        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixture.tmesh).collapseArc;
         List<Integer> eastPathBefore = List.copyOf(
                 fixture.tmesh.arcs.get(fixture.eastArcId).path.copyVertexPath);
         List<Integer> westPathBefore = List.copyOf(

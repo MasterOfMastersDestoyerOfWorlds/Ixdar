@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
+import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
@@ -21,21 +23,23 @@ class ZeroArcCollapseSteppingTest {
     void steppedCollapseMatchesOneShotAndValidates() {
         TorusLayoutFixture stepped = new TorusLayoutFixture();
         stepped.tmesh.labelPatchCovers();
-        int steppedArcId = stepped.tmesh.collapseArc.mostContendedArc();
-        assertNotEquals(EmbeddedTMesh.NONE, steppedArcId,
+        ZeroArcCollapseOperator steppedCollapse = new NetworkContraction(stepped.tmesh).collapseArc;
+        int steppedArcId = steppedCollapse.mostContendedArc();
+        assertNotEquals(ArcNetwork.NONE, steppedArcId,
                 "the zero row must offer a collapsible arc");
-        stepped.tmesh.collapseArc.beginCollapse(steppedArcId);
-        while (stepped.tmesh.collapseArc.dragNextArc()) {
+        steppedCollapse.beginCollapse(steppedArcId);
+        while (steppedCollapse.dragNextArc()) {
             continue;
         }
-        stepped.tmesh.collapseArc.finishCollapse();
+        steppedCollapse.finishCollapse();
         stepped.tmesh.validate();
 
         TorusLayoutFixture oneShot = new TorusLayoutFixture();
         oneShot.tmesh.labelPatchCovers();
-        int oneShotArcId = oneShot.tmesh.collapseArc.mostContendedArc();
+        ZeroArcCollapseOperator oneShotCollapse = new NetworkContraction(oneShot.tmesh).collapseArc;
+        int oneShotArcId = oneShotCollapse.mostContendedArc();
         assertEquals(steppedArcId, oneShotArcId, "both runs must pick the same arc");
-        oneShot.tmesh.collapseArc.collapse(oneShotArcId);
+        oneShotCollapse.collapse(oneShotArcId);
         oneShot.tmesh.validate();
 
         assertEquals(liveCounts(oneShot.tmesh), liveCounts(stepped.tmesh),
@@ -48,7 +52,7 @@ class ZeroArcCollapseSteppingTest {
      * @param tmesh T-mesh to count
      * @return {@code nodes/arcs/patches} counts
      */
-    private static String liveCounts(EmbeddedTMesh tmesh) {
+    private static String liveCounts(ArcNetwork tmesh) {
         int nodes = 0;
         for (int nodeId = 0; nodeId < tmesh.nodes.size(); nodeId++) {
             nodes += tmesh.nodes.get(nodeId).alive ? 1 : 0;

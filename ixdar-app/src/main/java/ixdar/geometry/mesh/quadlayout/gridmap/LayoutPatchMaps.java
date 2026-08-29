@@ -6,7 +6,7 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.nodes.api.UvField;
 import ixdar.platform.Platforms;
@@ -24,7 +24,7 @@ public final class LayoutPatchMaps {
     /** Largest patch regions named individually in the balance report. */
     public static final int LARGEST_REGIONS_LISTED = 5;
 
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
 
     /** The parametrization the patches' extents are measured in. */
     public final UvField seamless;
@@ -75,7 +75,7 @@ public final class LayoutPatchMaps {
      *                         in
      * @param targetEdgeLength parametric length one quad edge should span
      */
-    public LayoutPatchMaps(EmbeddedTMesh tmesh, UvField seamless,
+    public LayoutPatchMaps(ArcNetwork tmesh, UvField seamless,
             double targetEdgeLength) {
         this.tmesh = tmesh;
         this.seamless = seamless;

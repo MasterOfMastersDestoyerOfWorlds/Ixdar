@@ -7,7 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.StackedZeroRowTorusFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
@@ -46,7 +47,7 @@ class StackedZeroPatchSplitMeasureTest {
      *
      * @return the count of live zero arcs plus live zero patches
      */
-    public long terminationMeasure(EmbeddedTMesh tmesh) {
+    public long terminationMeasure(ArcNetwork tmesh) {
         long zeroPatches = 0;
         for (EmbeddedPatch patch : tmesh.patches) {
             if (patch.alive && tmesh.isZeroPatch(patch.patchId)) {
@@ -64,8 +65,9 @@ class StackedZeroPatchSplitMeasureTest {
 
     @Test
     void aSplitMayRaiseTheMeasureButTheRoundAroundItMustLowerIt() {
-        StackedZeroRowTorusFixture fixture = new StackedZeroRowTorusFixture(); 
-        ZeroPatchSplitOperator splitter = fixture.tmesh.splitPatch;
+        StackedZeroRowTorusFixture fixture = new StackedZeroRowTorusFixture();
+        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        ZeroPatchSplitOperator splitter = contraction.splitPatch;
 
         assertEquals(fixture.nonSimplePatchId, splitter.nextNonSimpleZeroPatch(),
                 "the lower zero row's major 0 to 4 patch is the fixture's only non-simple one");
@@ -77,12 +79,12 @@ class StackedZeroPatchSplitMeasureTest {
         assertTrue(terminationMeasure(fixture.tmesh) > before,
                 "the split mints a zero-arc and a zero-patch, so it raises the measure on its own —"
                         + " measuring progress per operator asserts more than Appendix A.3 does");
-        assertNotEquals(EmbeddedTMesh.NONE, splitter.nextNonSimpleZeroPatch(),
+        assertNotEquals(ArcNetwork.NONE, splitter.nextNonSimpleZeroPatch(),
                 "splitting the shared arc hands the T-joint to the patch stacked above, which is"
                         + " why the excess does not simply go away on this step");
 
         int guard = 0;
-        while (collapseOneArcOrPatch(fixture.tmesh)) {
+        while (collapseOneArcOrPatch(contraction)) {
             fixture.tmesh.validate();
             if (++guard > fixture.tmesh.arcs.size() + fixture.tmesh.patches.size()) {
                 throw new AssertionError("operators 1 and 3 did not reach a fixed point");
@@ -104,7 +106,7 @@ class StackedZeroPatchSplitMeasureTest {
     void theDriverContractsTheStackedFixtureWithoutAbortingOnTheMeasure() {
         StackedZeroRowTorusFixture fixture = new StackedZeroRowTorusFixture();
 
-        fixture.tmesh.contract();
+        new NetworkContraction(fixture.tmesh).contract();
 
         for (int arcId = 0; arcId < fixture.tmesh.arcs.size(); arcId++) {
             assertTrue(!fixture.tmesh.arcs.get(arcId).alive
@@ -122,14 +124,14 @@ class StackedZeroPatchSplitMeasureTest {
      * @param contraction contraction whose operators are driven
      * @return true when one of the two operators applied
      */
-    private boolean collapseOneArcOrPatch(EmbeddedTMesh contraction) {
+    private boolean collapseOneArcOrPatch(NetworkContraction contraction) {
         int arcId = contraction.collapseArc.mostContendedArc();
-        if (arcId != EmbeddedTMesh.NONE) {
+        if (arcId != ArcNetwork.NONE) {
             contraction.collapseArc.collapse(arcId);
             return true;
         }
         int patchId = contraction.collapsePatch.nextSimpleZeroPatch();
-        if (patchId != EmbeddedTMesh.NONE) {
+        if (patchId != ArcNetwork.NONE) {
             contraction.collapsePatch.collapse(patchId);
             return true;
         }

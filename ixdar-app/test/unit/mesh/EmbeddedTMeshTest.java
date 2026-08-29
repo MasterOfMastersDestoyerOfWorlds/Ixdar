@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
@@ -99,7 +99,7 @@ class EmbeddedTMeshTest {
     private static final int EXPECTED_PATCHES = 10;
 
     private EmbeddedMeshTopology topology;
-    private EmbeddedTMesh tmesh;
+    private ArcNetwork tmesh;
 
     /** Node id at each (major, minor) grid position that carries one. */
     private final Map<Long, Integer> nodeAt = new HashMap<>();
@@ -424,7 +424,7 @@ class EmbeddedTMeshTest {
         HalfEdgeMesh torus = context.getOutput(TorusMeshNode.MESH.name, HalfEdgeMesh.class);
 
         topology = new EmbeddedMeshTopology(torus);
-        tmesh = new EmbeddedTMesh(topology);
+        tmesh = new ArcNetwork(topology);
 
         for (int major : new int[] { 0, 2, 4, 8 }) {
             addNode(major, LOOP_BOTTOM);
@@ -493,7 +493,7 @@ class EmbeddedTMeshTest {
      * @param minor minor grid coordinate
      */
     private void addNode(int major, int minor) {
-        int nodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(major, minor), false, false);
+        int nodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(major, minor), false, false);
         nodeAt.put(key(major, minor), nodeId);
     }
 
@@ -514,7 +514,7 @@ class EmbeddedTMeshTest {
             major = (major + 1) % MAJOR_SEGMENTS;
             path.add(copyVertex(major, minor));
         }
-        return tmesh.addArc(EmbeddedTMesh.NONE, nodeAt.get(key(fromMajor, minor)),
+        return tmesh.addArc(ArcNetwork.NONE, nodeAt.get(key(fromMajor, minor)),
                 nodeAt.get(key(toMajor, minor)), quantizedLength, false, path);
     }
 
@@ -535,7 +535,7 @@ class EmbeddedTMeshTest {
             minor = (minor + 1) % MINOR_SEGMENTS;
             path.add(copyVertex(major, minor));
         }
-        return tmesh.addArc(EmbeddedTMesh.NONE, nodeAt.get(key(major, fromMinor)),
+        return tmesh.addArc(ArcNetwork.NONE, nodeAt.get(key(major, fromMinor)),
                 nodeAt.get(key(major, toMinor)), quantizedLength, false, path);
     }
 
@@ -551,7 +551,7 @@ class EmbeddedTMeshTest {
      */
     private void addPatch(int cornerMajor, int cornerMinor, List<Integer> bottom,
             List<Integer> right, List<Integer> top, List<Integer> left) {
-        tmesh.addPatch(EmbeddedTMesh.NONE, List.of(bottom, right, top, left),
+        tmesh.addPatch(ArcNetwork.NONE, List.of(bottom, right, top, left),
                 nodeAt.get(key(cornerMajor, cornerMinor)));
     }
 

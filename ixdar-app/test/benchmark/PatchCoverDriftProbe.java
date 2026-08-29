@@ -15,7 +15,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.records.PatchCorridor;
@@ -56,14 +57,15 @@ public final class PatchCoverDriftProbe {
         HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, QuadLayoutEngine.DEFAULT_ALPHA_RADIANS);
-        EmbeddedTMesh tmesh = engine.buildTMesh();
-        tmesh.contract();
+        ArcNetwork tmesh = engine.buildTMesh();
+        NetworkContraction contraction = new NetworkContraction(tmesh);
+        contraction.contract();
 
         EmbeddedMeshTopology topology = tmesh.topology;
         HalfEdgeMesh copy = topology.copy;
         Platforms.log("[drift] %s blocked=%d unrestrictedExtensions=%d%n", offPath,
-                tmesh.collapseArc.blockedDragCount,
-                tmesh.extendTJunction.unrestrictedExtensionCount);
+                contraction.collapseArc.blockedDragCount,
+                contraction.extendTJunction.unrestrictedExtensionCount);
 
         int unlabeled = 0;
         int orphaned = 0;

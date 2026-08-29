@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
@@ -33,7 +33,7 @@ public final class GridMapVerification {
     public static final double TRANSITION_TOLERANCE = 1.0e-6;
 
     public final GlobalGridMap gridMap;
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
     public final IntegerGridMap frames;
     public final LayoutPatchMaps patchMaps;
 
@@ -108,8 +108,8 @@ public final class GridMapVerification {
      * @return whether a transition must exist for it
      */
     private boolean crossable(EmbeddedArc arc) {
-        return arc.alive && arc.leftPatchId != EmbeddedTMesh.NONE
-                && arc.rightPatchId != EmbeddedTMesh.NONE
+        return arc.alive && arc.leftPatchId != ArcNetwork.NONE
+                && arc.rightPatchId != ArcNetwork.NONE
                 && tmesh.patches.get(arc.leftPatchId).alive
                 && tmesh.patches.get(arc.rightPatchId).alive;
     }

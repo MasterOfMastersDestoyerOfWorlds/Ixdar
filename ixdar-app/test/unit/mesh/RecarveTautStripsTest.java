@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMeshRecarve;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetworkRecarve;
 import ixdar.geometry.mesh.quadlayout.embedding.FaceStripPath;
 import ixdar.geometry.mesh.quadlayout.embedding.SnappingCarve;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
@@ -113,7 +113,7 @@ class RecarveTautStripsTest {
         assertEquals(CORNERS, inner.crossedEdges.size(), "inner route's crossings");
         assertEquals(2, outer.crossedEdges.size(), "outer route's crossings");
 
-        EmbeddedTMeshRecarve recarve = pullTaut(topology, snapping);
+        ArcNetworkRecarve recarve = pullTaut(topology, snapping);
         snapping.carve();
 
         assertEquals(0, topology.claimConflictCount,
@@ -158,7 +158,7 @@ class RecarveTautStripsTest {
         assertEquals(2, fan.crossedEdges.size(), "fan route's crossings");
         assertEquals(CORNERS, dipper.crossedEdges.size(), "dipper route's crossings");
 
-        EmbeddedTMeshRecarve recarve = pullTaut(topology, snapping);
+        ArcNetworkRecarve recarve = pullTaut(topology, snapping);
         snapping.carve();
 
         assertEquals(0, topology.claimConflictCount,
@@ -177,9 +177,9 @@ class RecarveTautStripsTest {
      * @param snapping carve holding the strips and node placements
      * @return the re-carve wrapper, for its removal counters
      */
-    private EmbeddedTMeshRecarve pullTaut(EmbeddedMeshTopology topology,
+    private ArcNetworkRecarve pullTaut(EmbeddedMeshTopology topology,
             SnappingCarve snapping) {
-        EmbeddedTMeshRecarve recarve = new EmbeddedTMeshRecarve(null, topology.sourceMesh);
+        ArcNetworkRecarve recarve = new ArcNetworkRecarve(null, topology.sourceMesh);
         recarve.snapping = snapping;
         recarve.pullStripsTaut();
         return recarve;

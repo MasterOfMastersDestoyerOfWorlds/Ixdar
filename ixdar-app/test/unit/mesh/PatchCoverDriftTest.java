@@ -10,7 +10,8 @@ import ixdar.geometry.mesh.quadlayout.embedding.fixtures.StackedZeroRowTorusFixt
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.records.PatchCorridor;
@@ -34,10 +35,11 @@ class PatchCoverDriftTest {
     void collapsingOneZeroArcKeepsEveryCoverLabelTrue() {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
         fixture.tmesh.labelPatchCovers();
+        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
 
-        int arcId = fixture.tmesh.collapseArc.mostContendedArc();
-        assertNotEquals(EmbeddedTMesh.NONE, arcId, "the zero row must offer a collapsible arc");
-        fixture.tmesh.collapseArc.collapse(arcId);
+        int arcId = contraction.collapseArc.mostContendedArc();
+        assertNotEquals(ArcNetwork.NONE, arcId, "the zero row must offer a collapsible arc");
+        contraction.collapseArc.collapse(arcId);
 
         assertEquals("", coverDrift(fixture.tmesh),
                 "one operator-(1) collapse already left the cover labels disagreeing with the"
@@ -47,9 +49,10 @@ class PatchCoverDriftTest {
     @Test
     void contractingTheTorusKeepsEveryCoverLabelTrue() {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
-        fixture.tmesh.contract();
+        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        contraction.contract();
 
-        assertEquals(0, fixture.tmesh.collapseArc.blockedDragCount,
+        assertEquals(0, contraction.collapseArc.blockedDragCount,
                 "drags found no route inside the patches their arc separates");
         assertEquals("", coverDrift(fixture.tmesh),
                 "the contracted layout's cover labels disagree with the patches they name");
@@ -58,9 +61,10 @@ class PatchCoverDriftTest {
     @Test
     void contractingTheStackedZeroRowTorusKeepsEveryCoverLabelTrue() {
         StackedZeroRowTorusFixture fixture = new StackedZeroRowTorusFixture();
-        fixture.tmesh.contract();
+        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        contraction.contract();
 
-        assertEquals(0, fixture.tmesh.collapseArc.blockedDragCount,
+        assertEquals(0, contraction.collapseArc.blockedDragCount,
                 "drags found no route inside the patches their arc separates");
         assertEquals("", coverDrift(fixture.tmesh),
                 "the contracted layout's cover labels disagree with the patches they name");
@@ -69,9 +73,10 @@ class PatchCoverDriftTest {
     @Test
     void contractingADenseTorusKeepsEveryCoverLabelTrue() {
         ScaledTorusLayoutFixture fixture = new ScaledTorusLayoutFixture(DENSE_SCALE);
-        fixture.tmesh.contract();
+        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        contraction.contract();
 
-        assertEquals(0, fixture.tmesh.collapseArc.blockedDragCount,
+        assertEquals(0, contraction.collapseArc.blockedDragCount,
                 "drags found no route inside the patches their arc separates");
         assertEquals("", coverDrift(fixture.tmesh),
                 "the contracted layout's cover labels disagree with the patches they name");
@@ -85,7 +90,7 @@ class PatchCoverDriftTest {
      * @return an empty string when every label is true, else a description of the worst
      *         disagreement and how widespread it is
      */
-    private static String coverDrift(EmbeddedTMesh tmesh) {
+    private static String coverDrift(ArcNetwork tmesh) {
         EmbeddedMeshTopology topology = tmesh.topology;
         HalfEdgeMesh copy = topology.copy;
         int orphaned = 0;
@@ -97,10 +102,10 @@ class PatchCoverDriftTest {
         }
 
         PatchCorridor corridor = new PatchCorridor(tmesh);
-        int worstPatchId = EmbeddedTMesh.NONE;
+        int worstPatchId = ArcNetwork.NONE;
         int worstStolen = 0;
         int worstTrueFaces = 0;
-        int worstThief = EmbeddedTMesh.NONE;
+        int worstThief = ArcNetwork.NONE;
         int driftingPatches = 0;
         int stolenTotal = 0;
         for (EmbeddedPatch patch : tmesh.patches) {
@@ -109,7 +114,7 @@ class PatchCoverDriftTest {
             }
             IntIdList trueFaces = corridor.patchFaces(patch.patchId);
             int stolen = 0;
-            int thief = EmbeddedTMesh.NONE;
+            int thief = ArcNetwork.NONE;
             for (int index = 0; index < trueFaces.size(); index++) {
                 int label = topology.resolvePatch(topology.patchLabelOf(trueFaces.get(index)));
                 if (label != patch.patchId) {

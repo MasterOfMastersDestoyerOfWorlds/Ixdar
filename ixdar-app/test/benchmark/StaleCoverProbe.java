@@ -12,7 +12,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnosticException;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
@@ -61,14 +62,15 @@ public final class StaleCoverProbe {
         HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, QuadLayoutEngine.DEFAULT_ALPHA_RADIANS);
-        EmbeddedTMesh tmesh = engine.buildTMesh();
+        ArcNetwork tmesh = engine.buildTMesh();
+        NetworkContraction contraction = new NetworkContraction(tmesh);
         tmesh.labelPatchCovers();
         for (int op = 1; op <= REPLAYED_OPS; op++) {
-            tmesh.contractStep();
+            contraction.contractStep();
             reportProbedChanges(tmesh, op);
         }
 
-        ZeroArcCollapseOperator collapseArc = tmesh.collapseArc;
+        ZeroArcCollapseOperator collapseArc = contraction.collapseArc;
         int collapsingArcId = collapseArc.mostContendedArc();
         collapseArc.beginCollapse(collapsingArcId);
         Platforms.log("[probe] failing collapse of arc %d: moved node %d (vertex %d) ->"
@@ -126,7 +128,7 @@ public final class StaleCoverProbe {
      * @param tmesh T-mesh being probed
      * @param op    operator ordinal just applied, for the caption
      */
-    private void reportProbedChanges(EmbeddedTMesh tmesh, int op) {
+    private void reportProbedChanges(ArcNetwork tmesh, int op) {
         for (int index = 0; index < PROBED_ARCS.length; index++) {
             String signature = arcSignature(tmesh, PROBED_ARCS[index]);
             if (!signature.equals(arcSignatures[index])) {
@@ -152,7 +154,7 @@ public final class StaleCoverProbe {
      * @param arcId arc to sign
      * @return a line that changes exactly when the arc's tear-relevant state does
      */
-    private String arcSignature(EmbeddedTMesh tmesh, int arcId) {
+    private String arcSignature(ArcNetwork tmesh, int arcId) {
         if (arcId >= tmesh.arcs.size()) {
             return "absent";
         }
@@ -173,7 +175,7 @@ public final class StaleCoverProbe {
      * @param patchId patch to sign
      * @return a line that changes exactly when the patch's identity does
      */
-    private String patchSignature(EmbeddedTMesh tmesh, int patchId) {
+    private String patchSignature(ArcNetwork tmesh, int patchId) {
         if (patchId >= tmesh.patches.size()) {
             return "absent";
         }
@@ -190,7 +192,7 @@ public final class StaleCoverProbe {
      * @param collapseArc operator holding the touched union
      * @return text listing raw ids and their resolutions
      */
-    private String touchedPatchText(EmbeddedTMesh tmesh, ZeroArcCollapseOperator collapseArc) {
+    private String touchedPatchText(ArcNetwork tmesh, ZeroArcCollapseOperator collapseArc) {
         StringBuilder text = new StringBuilder();
         for (int index = 0; index < collapseArc.touchedPatchCount; index++) {
             int patchId = collapseArc.touchedPatches[index];
@@ -207,15 +209,15 @@ public final class StaleCoverProbe {
      * @param tmesh   T-mesh being probed
      * @param patchId patch to flood
      */
-    private void describeFlood(EmbeddedTMesh tmesh, int patchId) {
+    private void describeFlood(ArcNetwork tmesh, int patchId) {
         int resolved = tmesh.topology.resolvePatch(patchId);
         if (resolved != patchId || !tmesh.patches.get(resolved).alive
-                || !tmesh.splitPatch.corridor.hasSeedableBoundary(resolved)) {
+                || !tmesh.corridor.hasSeedableBoundary(resolved)) {
             Platforms.log("[probe] patch %d flood: unavailable (resolved %d, alive %s)%n",
                     patchId, resolved, tmesh.patches.get(resolved).alive);
             return;
         }
-        IntIdList faces = tmesh.splitPatch.corridor.patchFaces(resolved);
+        IntIdList faces = tmesh.corridor.patchFaces(resolved);
         StringBuilder text = new StringBuilder();
         for (int cursor = 0; cursor < faces.size(); cursor++) {
             text.append(" ").append(faces.get(cursor));
@@ -233,7 +235,7 @@ public final class StaleCoverProbe {
      * @param arcId       arc to scan
      * @param collapseArc operator holding the finished collapse's touched union
      */
-    private void describeTornHop(EmbeddedTMesh tmesh, int arcId,
+    private void describeTornHop(ArcNetwork tmesh, int arcId,
             ZeroArcCollapseOperator collapseArc) {
         if (arcId >= tmesh.arcs.size() || !tmesh.arcs.get(arcId).alive) {
             return;
@@ -278,7 +280,7 @@ public final class StaleCoverProbe {
      * @param resolved    resolved patch id to look for
      * @return true when some touched entry resolves to it
      */
-    private boolean touchedHoldsLabel(EmbeddedTMesh tmesh, ZeroArcCollapseOperator collapseArc,
+    private boolean touchedHoldsLabel(ArcNetwork tmesh, ZeroArcCollapseOperator collapseArc,
             int resolved) {
         for (int index = 0; index < collapseArc.touchedPatchCount; index++) {
             if (tmesh.topology.resolvePatch(collapseArc.touchedPatches[index]) == resolved) {
@@ -296,15 +298,15 @@ public final class StaleCoverProbe {
      * @param faceId copy face to locate
      * @return text listing the owning patch ids, or {@code none}
      */
-    private String floodsHoldingFace(EmbeddedTMesh tmesh, int faceId) {
+    private String floodsHoldingFace(ArcNetwork tmesh, int faceId) {
         StringBuilder owners = new StringBuilder();
         for (int patchId = 0; patchId < tmesh.patches.size(); patchId++) {
             if (tmesh.topology.resolvePatch(patchId) != patchId
                     || !tmesh.patches.get(patchId).alive
-                    || !tmesh.splitPatch.corridor.hasSeedableBoundary(patchId)) {
+                    || !tmesh.corridor.hasSeedableBoundary(patchId)) {
                 continue;
             }
-            IntIdList faces = tmesh.splitPatch.corridor.patchFaces(patchId);
+            IntIdList faces = tmesh.corridor.patchFaces(patchId);
             for (int cursor = 0; cursor < faces.size(); cursor++) {
                 if (faces.get(cursor) == faceId) {
                     owners.append(" ").append(patchId);
@@ -323,7 +325,7 @@ public final class StaleCoverProbe {
      * @param arcId  arc whose hops are labelled
      * @param moment caption for when the hops were read
      */
-    private void describeHops(EmbeddedTMesh tmesh, int arcId, String moment) {
+    private void describeHops(ArcNetwork tmesh, int arcId, String moment) {
         if (arcId >= tmesh.arcs.size() || !tmesh.arcs.get(arcId).alive) {
             Platforms.log("[probe] arc %d %s: dead or absent%n", arcId, moment);
             return;
@@ -338,7 +340,7 @@ public final class StaleCoverProbe {
      * @param arcId arc whose hops are labelled
      * @return one {@code from-(left|right)-to} token per hop
      */
-    private String hopText(EmbeddedTMesh tmesh, int arcId) {
+    private String hopText(ArcNetwork tmesh, int arcId) {
         HalfEdgeMesh copy = tmesh.topology.copy;
         List<Integer> path = tmesh.arcs.get(arcId).path.copyVertexPath;
         StringBuilder hops = new StringBuilder();
@@ -366,7 +368,7 @@ public final class StaleCoverProbe {
      * @param vertexId copy vertex whose ring is walked
      * @param moment   caption for when the ring was read
      */
-    private void describeRing(EmbeddedTMesh tmesh, int vertexId, String moment) {
+    private void describeRing(ArcNetwork tmesh, int vertexId, String moment) {
         HalfEdgeMesh copy = tmesh.topology.copy;
         int firstEdge = copy.vertexEdgeAt(vertexId, 0);
         int halfEdge = copy.edgeHalfEdge(firstEdge);

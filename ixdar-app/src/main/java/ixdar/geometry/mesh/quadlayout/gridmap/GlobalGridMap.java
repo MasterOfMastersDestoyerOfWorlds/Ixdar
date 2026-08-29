@@ -6,7 +6,7 @@ import java.util.Map;
 
 import ixdar.geometry.mesh.nodes.api.UvField;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedPatchGrids;
@@ -43,7 +43,7 @@ public final class GlobalGridMap implements UvField {
      */
     public static final int OFF_GRID_SAMPLES_LISTED = 4;
 
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
     public final LayoutPatchMaps patchMaps;
     public final IntegerGridMap frames;
 
@@ -188,7 +188,7 @@ public final class GlobalGridMap implements UvField {
                         EmbeddedArc arc = tmesh.arcs.get(arcId);
                         int other = arc.leftPatchId == patch.patchId ? arc.rightPatchId
                                 : arc.leftPatchId;
-                        if (other == EmbeddedTMesh.NONE || other == patch.patchId
+                        if (other == ArcNetwork.NONE || other == patch.patchId
                                 || !atlas.hasTransition(arcId)
                                 || !tmesh.patches.get(other).alive) {
                             continue;

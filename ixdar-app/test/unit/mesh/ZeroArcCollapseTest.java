@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 
@@ -30,7 +30,7 @@ class ZeroArcCollapseTest {
 
         int liveArcsBefore = countLive(fixture.tmesh);
         int arcId = operator.mostContendedArc();
-        assertNotEquals(EmbeddedTMesh.NONE, arcId, "the zero row must offer a collapsible arc");
+        assertNotEquals(ArcNetwork.NONE, arcId, "the zero row must offer a collapsible arc");
         assertEquals(0, fixture.tmesh.arcs.get(arcId).quantizedLength, "it must be a zero arc");
 
         operator.collapse(arcId);
@@ -54,7 +54,7 @@ class ZeroArcCollapseTest {
         ZeroArcCollapseOperator operator = new ZeroArcCollapseOperator(fixture.tmesh);
 
         int guard = 0;
-        for (int arcId = operator.mostContendedArc(); arcId != EmbeddedTMesh.NONE;
+        for (int arcId = operator.mostContendedArc(); arcId != ArcNetwork.NONE;
                 arcId = operator.mostContendedArc()) {
             operator.collapse(arcId);
             fixture.tmesh.validate();
@@ -80,7 +80,7 @@ class ZeroArcCollapseTest {
      * @param tmesh T-mesh to count
      * @return count of arcs still part of the layout
      */
-    private static int countLive(EmbeddedTMesh tmesh) {
+    private static int countLive(ArcNetwork tmesh) {
         int count = 0;
         for (EmbeddedArc arc : tmesh.arcs) {
             if (arc.alive) {

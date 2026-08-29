@@ -5,7 +5,7 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
@@ -33,7 +33,7 @@ public final class PatchGridExtraction {
     public static final double BARYCENTRIC_TOLERANCE = 1.0e-9;
 
     public final LayoutPatchMaps patchMaps;
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
 
     /**
      * The relaxed grid map to read instead of the patches' rectangles. When set,

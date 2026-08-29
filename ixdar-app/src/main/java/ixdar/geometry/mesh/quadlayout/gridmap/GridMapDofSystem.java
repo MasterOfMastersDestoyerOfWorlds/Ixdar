@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
@@ -28,7 +28,7 @@ public final class GridMapDofSystem {
     public static final double AGREEMENT_TOLERANCE = 1.0e-9;
 
     public final GlobalGridMap gridMap;
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
     public final IntegerGridMap frames;
 
     /** How seam-arc vertices enter the system; {@link SeamCoupling#PINNED} holds them in place. */
@@ -247,7 +247,7 @@ public final class GridMapDofSystem {
      */
     private boolean couplable(EmbeddedArc arc) {
         return arc.alive && frames.seamByArcId[arc.arcId]
-                && arc.leftPatchId != EmbeddedTMesh.NONE && arc.rightPatchId != EmbeddedTMesh.NONE
+                && arc.leftPatchId != ArcNetwork.NONE && arc.rightPatchId != ArcNetwork.NONE
                 && arc.leftPatchId != arc.rightPatchId
                 && gridMap.atlas.hasTransition(arc.arcId);
     }
@@ -307,8 +307,8 @@ public final class GridMapDofSystem {
                 for (int arcId : incidentArcs) {
                     EmbeddedArc arc = tmesh.arcs.get(arcId);
                     int other = arc.leftPatchId == patchId ? arc.rightPatchId
-                            : arc.rightPatchId == patchId ? arc.leftPatchId : EmbeddedTMesh.NONE;
-                    if (other == EmbeddedTMesh.NONE || other == patchId || fan.containsKey(other)
+                            : arc.rightPatchId == patchId ? arc.leftPatchId : ArcNetwork.NONE;
+                    if (other == ArcNetwork.NONE || other == patchId || fan.containsKey(other)
                             || !patches.contains(other)
                             || !gridMap.atlas.hasTransition(arcId)) {
                         continue;
@@ -383,8 +383,8 @@ public final class GridMapDofSystem {
             }
         }
         for (EmbeddedArc arc : tmesh.arcs) {
-            boolean oneSided = arc.leftPatchId == EmbeddedTMesh.NONE
-                    || arc.rightPatchId == EmbeddedTMesh.NONE;
+            boolean oneSided = arc.leftPatchId == ArcNetwork.NONE
+                    || arc.rightPatchId == ArcNetwork.NONE;
             if (!arc.alive || !(frames.seamByArcId[arc.arcId] || oneSided)) {
                 continue;
             }

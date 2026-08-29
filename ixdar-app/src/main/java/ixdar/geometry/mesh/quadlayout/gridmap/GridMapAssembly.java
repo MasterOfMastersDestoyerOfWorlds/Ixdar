@@ -11,7 +11,7 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedPatchGrids;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;
@@ -71,7 +71,7 @@ public final class GridMapAssembly implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        EmbeddedTMesh contracted = (EmbeddedTMesh) ctx.getInput(TMESH.name, Object.class);
+        ArcNetwork contracted = (ArcNetwork) ctx.getInput(TMESH.name, Object.class);
         UvField constraint = (UvField) ctx.getInput(UV.name, Object.class);
         float targetEdgeLength = FieldBroadcast.floatScalarOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, TARGET_EDGE_LENGTH.name,
@@ -91,7 +91,7 @@ public final class GridMapAssembly implements MeshNode {
      * @param targetEdgeLength parametric length one quad edge spans
      * @return the assembled, unrelaxed map
      */
-    public GlobalGridMap assemble(EmbeddedTMesh tmesh, UvField uv, double targetEdgeLength) {
+    public GlobalGridMap assemble(ArcNetwork tmesh, UvField uv, double targetEdgeLength) {
         LayoutPatchMaps maps = new LayoutPatchMaps(tmesh, uv, targetEdgeLength);
         maps.build();
         IntegerGridMap framing = new IntegerGridMap(tmesh).build();

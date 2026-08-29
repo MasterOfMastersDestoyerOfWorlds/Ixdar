@@ -43,7 +43,7 @@ public final class ZeroArcCollapseOperator {
     /** First allocation of {@link #touchedPatches}. */
     private static final int TOUCHED_PATCH_INITIAL_CAPACITY = 8;
 
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
     public final ArcRerouter rerouter;
 
     public int collapsedCount;
@@ -93,10 +93,10 @@ public final class ZeroArcCollapseOperator {
     public int dirtyPatchCount;
 
     /**
-     * Arc the in-flight collapse is collapsing, or {@link EmbeddedTMesh#NONE} when
+     * Arc the in-flight collapse is collapsing, or {@link ArcNetwork#NONE} when
      * no collapse is between {@link #beginCollapse} and {@link #finishCollapse}.
      */
-    public int collapsingArcId = EmbeddedTMesh.NONE;
+    public int collapsingArcId = ArcNetwork.NONE;
 
     /** The in-flight collapse's moving node. */
     public int movedNodeId;
@@ -126,10 +126,10 @@ public final class ZeroArcCollapseOperator {
     public int deferredAttemptsSinceProgress;
 
     /**
-     * Arc the last {@link #dragNextArc} dragged, or {@link EmbeddedTMesh#NONE}
+     * Arc the last {@link #dragNextArc} dragged, or {@link ArcNetwork#NONE}
      * before the first drag.
      */
-    public int lastDraggedArcId = EmbeddedTMesh.NONE;
+    public int lastDraggedArcId = ArcNetwork.NONE;
 
     /** The last dragged arc's path before its drag, for the step view. */
     public final List<Integer> lastDraggedPreviousPath = new ArrayList<>();
@@ -159,7 +159,7 @@ public final class ZeroArcCollapseOperator {
      *
      * @param tmesh embedded T-mesh whose zero arcs are collapsed
      */
-    public ZeroArcCollapseOperator(EmbeddedTMesh tmesh) {
+    public ZeroArcCollapseOperator(ArcNetwork tmesh) {
         this.tmesh = tmesh;
         this.rerouter = new ArcRerouter(tmesh.topology);
     }
@@ -172,7 +172,7 @@ public final class ZeroArcCollapseOperator {
      * Only zero arcs qualify and {@code alive} never returns, so candidates are
      * appended once per new arc and compacted as arcs die.
      *
-     * @return the chosen zero arc id, or {@link EmbeddedTMesh#NONE} when none
+     * @return the chosen zero arc id, or {@link ArcNetwork#NONE} when none
      *         remains
      */
     public int mostContendedArc() {
@@ -188,7 +188,7 @@ public final class ZeroArcCollapseOperator {
         }
         scannedArcBound = tmesh.arcs.size();
 
-        int found = EmbeddedTMesh.NONE;
+        int found = ArcNetwork.NONE;
         int bestValence = 0;
         int keep = 0;
         for (int index = 0; index < zeroArcCandidateCount; index++) {
@@ -199,11 +199,11 @@ public final class ZeroArcCollapseOperator {
             }
             zeroArcCandidates[keep++] = arcId;
             int movedNodeId = movingEndpoint(arc);
-            if (movedNodeId == EmbeddedTMesh.NONE) {
+            if (movedNodeId == ArcNetwork.NONE) {
                 continue;
             }
             int valence = tmesh.arcEndsByNode.get(movedNodeId).size();
-            if (found == EmbeddedTMesh.NONE || valence > bestValence) {
+            if (found == ArcNetwork.NONE || valence > bestValence) {
                 found = arcId;
                 bestValence = valence;
             }
@@ -240,12 +240,12 @@ public final class ZeroArcCollapseOperator {
     public void beginCollapse(int arcId) {
         EmbeddedArc arc = tmesh.arcs.get(arcId);
         if (!arc.alive || arc.quantizedLength != 0) {
-            throw new IllegalStateException(EmbeddedTMesh.NONE == arcId ? "no arc"
+            throw new IllegalStateException(ArcNetwork.NONE == arcId ? "no arc"
                     : "arc " + arcId
                             + " is not a live zero arc");
         }
         movedNodeId = movingEndpoint(arc);
-        if (movedNodeId == EmbeddedTMesh.NONE) {
+        if (movedNodeId == ArcNetwork.NONE) {
             throw new IllegalStateException("zero arc " + arcId + " is not collapsible: both of its"
                     + " nodes " + arc.startNodeId + " and " + arc.endNodeId + " are critical, so the"
                     + " quantization has placed two prescribed points at zero distance");
@@ -255,7 +255,7 @@ public final class ZeroArcCollapseOperator {
         targetVertex = tmesh.nodes.get(survivingNodeId).copyVertex;
         channel.clear();
         channel.addAll(arc.path.copyVertexPath);
-        int channelNeighbor = channel.size() < 2 ? EmbeddedTMesh.NONE
+        int channelNeighbor = channel.size() < 2 ? ArcNetwork.NONE
                 : channel.get(channel.size() - 1) == movedVertex
                         ? channel.get(channel.size() - 2)
                         : channel.get(1);
@@ -264,7 +264,7 @@ public final class ZeroArcCollapseOperator {
         fanCursor = 0;
         deferredArcIds.clear();
         deferredAttemptsSinceProgress = 0;
-        lastDraggedArcId = EmbeddedTMesh.NONE;
+        lastDraggedArcId = ArcNetwork.NONE;
         lastDraggedPreviousPath.clear();
         touchedPatchCount = 0;
         dirtyPatchCount = 0;
@@ -373,7 +373,7 @@ public final class ZeroArcCollapseOperator {
             tmesh.relabelPatchCover(dirtyPatches[index]);
         }
         collapsedCount++;
-        collapsingArcId = EmbeddedTMesh.NONE;
+        collapsingArcId = ArcNetwork.NONE;
     }
 
     /**
@@ -386,7 +386,7 @@ public final class ZeroArcCollapseOperator {
     public ArrangementDiagnostic stepDiagnostic() {
         ArrangementDiagnostic diagnostic = new ArrangementDiagnostic();
         diagnostic.addPathGroup(GROUP_CHANNEL, List.copyOf(channel));
-        if (lastDraggedArcId != EmbeddedTMesh.NONE) {
+        if (lastDraggedArcId != ArcNetwork.NONE) {
             diagnostic.addPathGroup("dragged arc previous path",
                     List.copyOf(lastDraggedPreviousPath));
             diagnostic.addPathGroup("dragged arc new path",
@@ -402,11 +402,11 @@ public final class ZeroArcCollapseOperator {
      * cover aliases and skipped when retired.
      *
      * @param patchId flanking patch of the released arc, or
-     *                {@link EmbeddedTMesh#NONE}
+     *                {@link ArcNetwork#NONE}
      */
     private void admitAlivePatch(int patchId) {
         int resolved = tmesh.topology.resolvePatch(patchId);
-        if (resolved != EmbeddedTMesh.NONE && tmesh.patches.get(resolved).alive) {
+        if (resolved != ArcNetwork.NONE && tmesh.patches.get(resolved).alive) {
             rerouter.admitPatch(resolved);
         }
     }
@@ -416,10 +416,10 @@ public final class ZeroArcCollapseOperator {
      * follows it.
      *
      * @param patchId flanking patch of the collapsing arc or of one it drags, or
-     *                {@link EmbeddedTMesh#NONE}
+     *                {@link ArcNetwork#NONE}
      */
     private void rememberTouchedPatch(int patchId) {
-        if (patchId == EmbeddedTMesh.NONE) {
+        if (patchId == ArcNetwork.NONE) {
             return;
         }
         for (int index = 0; index < touchedPatchCount; index++) {
@@ -438,10 +438,10 @@ public final class ZeroArcCollapseOperator {
      * Records a patch whose faces a routed drag moved, for the relabel that follows
      * the collapse.
      *
-     * @param patchId flanking patch of the rerouted arc, or {@link EmbeddedTMesh#NONE}
+     * @param patchId flanking patch of the rerouted arc, or {@link ArcNetwork#NONE}
      */
     private void rememberDirtyPatch(int patchId) {
-        if (patchId == EmbeddedTMesh.NONE) {
+        if (patchId == ArcNetwork.NONE) {
             return;
         }
         for (int index = 0; index < dirtyPatchCount; index++) {
@@ -524,7 +524,7 @@ public final class ZeroArcCollapseOperator {
         // Mid-collapse the labels are a pre-collapse snapshot — drags never relabel, because
         // the transient merged cells fit no single label — so a drag must be admitted to the
         // whole neighbourhood the collapse touches, not only its own two flanks.
-        if (collapsingArcId != EmbeddedTMesh.NONE) {
+        if (collapsingArcId != ArcNetwork.NONE) {
             for (int index = 0; index < touchedPatchCount; index++) {
                 admitAlivePatch(touchedPatches[index]);
             }
@@ -544,7 +544,7 @@ public final class ZeroArcCollapseOperator {
         // The pre-bans above read the channel lane as the exempt witness of the collapsing
         // arc's flanks, so the channel is freed only now: the last drag searches the
         // vacated corridor instead of splicing it.
-        if (allowMovedVertexTransit && collapsingArcId != EmbeddedTMesh.NONE) {
+        if (allowMovedVertexTransit && collapsingArcId != ArcNetwork.NONE) {
             tmesh.setPath(collapsingArcId, List.of(targetVertex));
         }
         boolean routed;
@@ -649,9 +649,9 @@ public final class ZeroArcCollapseOperator {
         int arcLeft = tmesh.topology.resolvePatch(arc.leftPatchId);
         int arcRight = tmesh.topology.resolvePatch(arc.rightPatchId);
         int allowed = 0;
-        int wedgeStart = EmbeddedTMesh.NONE;
+        int wedgeStart = ArcNetwork.NONE;
         for (int index = 0; index < walked; index++) {
-            if (spokeOwners[index] != EmbeddedMeshTopology.UNCLAIMED && wedgeStart == EmbeddedTMesh.NONE) {
+            if (spokeOwners[index] != EmbeddedMeshTopology.UNCLAIMED && wedgeStart == ArcNetwork.NONE) {
                 wedgeStart = index;
             }
         }
@@ -764,21 +764,21 @@ public final class ZeroArcCollapseOperator {
         if (halfEdge != start || ownSpoke == EmbeddedMeshTopology.UNCLAIMED) {
             return true;
         }
-        int after = EmbeddedTMesh.NONE;
-        for (int step = 1; step < walked && after == EmbeddedTMesh.NONE; step++) {
+        int after = ArcNetwork.NONE;
+        for (int step = 1; step < walked && after == ArcNetwork.NONE; step++) {
             int index = (ownSpoke + step) % walked;
-            after = spokeOwners[index] == EmbeddedMeshTopology.UNCLAIMED ? EmbeddedTMesh.NONE : index;
+            after = spokeOwners[index] == EmbeddedMeshTopology.UNCLAIMED ? ArcNetwork.NONE : index;
         }
-        int before = EmbeddedTMesh.NONE;
-        for (int step = 1; step < walked && before == EmbeddedTMesh.NONE; step++) {
+        int before = ArcNetwork.NONE;
+        for (int step = 1; step < walked && before == ArcNetwork.NONE; step++) {
             int index = (ownSpoke - step + walked) % walked;
-            before = spokeOwners[index] == EmbeddedMeshTopology.UNCLAIMED ? EmbeddedTMesh.NONE : index;
+            before = spokeOwners[index] == EmbeddedMeshTopology.UNCLAIMED ? ArcNetwork.NONE : index;
         }
-        boolean afterConsistent = after == EmbeddedTMesh.NONE
+        boolean afterConsistent = after == ArcNetwork.NONE
                 || spokeOwners[after] == collapsingArcId
                 || facingFlank(spokeOwners[after], spokeHalfEdges[after], false)
                         == facingFlank(arcId, spokeHalfEdges[ownSpoke], true);
-        boolean beforeConsistent = before == EmbeddedTMesh.NONE
+        boolean beforeConsistent = before == ArcNetwork.NONE
                 || spokeOwners[before] == collapsingArcId
                 || facingFlank(spokeOwners[before], spokeHalfEdges[before], true)
                         == facingFlank(arcId, spokeHalfEdges[ownSpoke], false);
@@ -790,16 +790,16 @@ public final class ZeroArcCollapseOperator {
      * group, or empty when the patch is retired or has nothing to flood from.
      *
      * @param patchId flanking patch of the blocked arc, or
-     *                {@link EmbeddedTMesh#NONE}
+     *                {@link ArcNetwork#NONE}
      * @return the copy face ids its cover holds
      */
     private int[] coverFaces(int patchId) {
         int resolved = tmesh.topology.resolvePatch(patchId);
-        if (resolved == EmbeddedTMesh.NONE || !tmesh.patches.get(resolved).alive
-                || !tmesh.splitPatch.corridor.hasSeedableBoundary(resolved)) {
+        if (resolved == ArcNetwork.NONE || !tmesh.patches.get(resolved).alive
+                || !tmesh.corridor.hasSeedableBoundary(resolved)) {
             return new int[0];
         }
-        IntIdList faces = tmesh.splitPatch.corridor.patchFaces(resolved);
+        IntIdList faces = tmesh.corridor.patchFaces(resolved);
         int[] faceIds = new int[faces.size()];
         for (int index = 0; index < faceIds.length; index++) {
             faceIds[index] = faces.get(index);
@@ -1064,7 +1064,7 @@ public final class ZeroArcCollapseOperator {
 
     /**
      * The endpoint of a zero arc that LCBK19 Def 6.2 permits to move, or
-     * {@link EmbeddedTMesh#NONE} when neither may.
+     * {@link ArcNetwork#NONE} when neither may.
      *
      * <p>
      * A loop is always collapsible: both ends already sit on one point, so nothing
@@ -1074,7 +1074,7 @@ public final class ZeroArcCollapseOperator {
      * @param arc zero arc to test
      * @return the movable node's id, preferring the one with fewer incident arcs
      *         and the lower id, the single node when the arc is a loop, or
-     *         {@link EmbeddedTMesh#NONE} when both endpoints are fixed
+     *         {@link ArcNetwork#NONE} when both endpoints are fixed
      */
     private int movingEndpoint(EmbeddedArc arc) {
         if (arc.isLoop()) {
@@ -1083,7 +1083,7 @@ public final class ZeroArcCollapseOperator {
         boolean startMovable = isCollapsibleFrom(arc, arc.startNodeId);
         boolean endMovable = isCollapsibleFrom(arc, arc.endNodeId);
         if (!startMovable && !endMovable) {
-            return EmbeddedTMesh.NONE;
+            return ArcNetwork.NONE;
         }
         if (startMovable != endMovable) {
             return startMovable ? arc.startNodeId : arc.endNodeId;

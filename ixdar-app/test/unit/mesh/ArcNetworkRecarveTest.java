@@ -7,7 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
@@ -16,12 +17,13 @@ import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
  * Re-carving a contracted T-mesh onto a clean copy of the original surface must
  * preserve live layout combinatorics while reducing working-copy density.
  */
-class EmbeddedTMeshRecarveTest {
+class ArcNetworkRecarveTest {
 
     @Test
     void recarvePreservesLiveLayoutAndReducesMeshDensity() {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
-        fixture.tmesh.contract();
+        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        contraction.contract();
 
         int liveNodesBefore = countLiveNodes(fixture.tmesh);
         int liveArcsBefore = countLiveArcs(fixture.tmesh);
@@ -29,7 +31,7 @@ class EmbeddedTMeshRecarveTest {
         int verticesBefore = fixture.topology.copy.vertexCount();
         int facesBefore = fixture.topology.copy.faceCount();
 
-        EmbeddedTMesh rebuilt = fixture.tmesh.recarve(fixture.torus);
+        ArcNetwork rebuilt = contraction.recarve(fixture.torus);
         rebuilt.validate();
         new PatchRegions(rebuilt).build();
 
@@ -65,7 +67,7 @@ class EmbeddedTMeshRecarveTest {
      * @param tmesh T-mesh to scan
      * @return count of live nodes
      */
-    private static int countLiveNodes(EmbeddedTMesh tmesh) {
+    private static int countLiveNodes(ArcNetwork tmesh) {
         int live = 0;
         for (int nodeId = 0; nodeId < tmesh.nodes.size(); nodeId++) {
             if (tmesh.nodes.get(nodeId).alive) {
@@ -81,7 +83,7 @@ class EmbeddedTMeshRecarveTest {
      * @param tmesh T-mesh to scan
      * @return count of live arcs
      */
-    private static int countLiveArcs(EmbeddedTMesh tmesh) {
+    private static int countLiveArcs(ArcNetwork tmesh) {
         int live = 0;
         for (int arcId = 0; arcId < tmesh.arcs.size(); arcId++) {
             if (tmesh.arcs.get(arcId).alive) {
@@ -97,7 +99,7 @@ class EmbeddedTMeshRecarveTest {
      * @param tmesh T-mesh to scan
      * @return count of live patches
      */
-    private static int countLivePatches(EmbeddedTMesh tmesh) {
+    private static int countLivePatches(ArcNetwork tmesh) {
         int live = 0;
         for (int patchId = 0; patchId < tmesh.patches.size(); patchId++) {
             if (tmesh.patches.get(patchId).alive) {

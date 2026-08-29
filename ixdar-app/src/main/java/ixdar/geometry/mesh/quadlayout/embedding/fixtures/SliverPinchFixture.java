@@ -5,7 +5,7 @@ import java.util.List;
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.DiskMeshNode;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
@@ -24,7 +24,7 @@ public final class SliverPinchFixture implements LayoutFixture {
 
     public HalfEdgeMesh disk;
     public EmbeddedMeshTopology topology;
-    public EmbeddedTMesh tmesh;
+    public ArcNetwork tmesh;
 
     /** Critical node on the central vertex; the collapse merges the moved node onto it. */
     public int survivorNodeId;
@@ -90,7 +90,7 @@ public final class SliverPinchFixture implements LayoutFixture {
     }
 
     @Override
-    public EmbeddedTMesh build() {
+    public ArcNetwork build() {
         DiskMeshNode node = new DiskMeshNode();
         MapNodeContext context = new MapNodeContext(node);
         context.setInput(DiskMeshNode.RINGS.name, RING_COUNT);
@@ -100,7 +100,7 @@ public final class SliverPinchFixture implements LayoutFixture {
         node.evaluate(context);
         this.disk = context.getOutput(DiskMeshNode.MESH.name, HalfEdgeMesh.class);
         this.topology = new EmbeddedMeshTopology(disk);
-        this.tmesh = new EmbeddedTMesh(topology);
+        this.tmesh = new ArcNetwork(topology);
         layOutTMesh();
         return tmesh;
     }
@@ -111,66 +111,66 @@ public final class SliverPinchFixture implements LayoutFixture {
      * fan's far side closed over hours 0-1 outward and 10-11 rimward.
      */
     private void layOutTMesh() {
-        survivorNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(0, 0), true, false);
-        pinchNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(1, 0), false, false);
-        movedNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(2, 0), false, false);
-        int farNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(2, 1), false, false);
-        int sliverFarNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(2, 2), false, false);
-        int farLinkNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(3, 1), false, false);
-        int tailNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(3, 0), false, false);
-        int rimNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(2, 10), false, false);
+        survivorNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(0, 0), true, false);
+        pinchNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(1, 0), false, false);
+        movedNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(2, 0), false, false);
+        int farNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(2, 1), false, false);
+        int sliverFarNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(2, 2), false, false);
+        int farLinkNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(3, 1), false, false);
+        int tailNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(3, 0), false, false);
+        int rimNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(2, 10), false, false);
 
-        channelArcId = tmesh.addArc(EmbeddedTMesh.NONE, movedNodeId, survivorNodeId, 0, false,
+        channelArcId = tmesh.addArc(ArcNetwork.NONE, movedNodeId, survivorNodeId, 0, false,
                 List.of(copyVertex(2, 0), copyVertex(1, 11), copyVertex(0, 0)));
-        pinchArcId = tmesh.addArc(EmbeddedTMesh.NONE, pinchNodeId, movedNodeId, 0, false,
+        pinchArcId = tmesh.addArc(ArcNetwork.NONE, pinchNodeId, movedNodeId, 0, false,
                 List.of(copyVertex(1, 0), copyVertex(2, 0)));
-        directArcId = tmesh.addArc(EmbeddedTMesh.NONE, survivorNodeId, pinchNodeId, 0, false,
+        directArcId = tmesh.addArc(ArcNetwork.NONE, survivorNodeId, pinchNodeId, 0, false,
                 List.of(copyVertex(0, 0), copyVertex(1, 0)));
-        sliverOutArcId = tmesh.addArc(EmbeddedTMesh.NONE, pinchNodeId, farNodeId, 1, false,
+        sliverOutArcId = tmesh.addArc(ArcNetwork.NONE, pinchNodeId, farNodeId, 1, false,
                 List.of(copyVertex(1, 0), copyVertex(2, 1)));
-        sliverFarArcId = tmesh.addArc(EmbeddedTMesh.NONE, farNodeId, sliverFarNodeId, 0, false,
+        sliverFarArcId = tmesh.addArc(ArcNetwork.NONE, farNodeId, sliverFarNodeId, 0, false,
                 List.of(copyVertex(2, 1), copyVertex(2, 2)));
-        sliverBackArcId = tmesh.addArc(EmbeddedTMesh.NONE, sliverFarNodeId, survivorNodeId, 1,
+        sliverBackArcId = tmesh.addArc(ArcNetwork.NONE, sliverFarNodeId, survivorNodeId, 1,
                 false, List.of(copyVertex(2, 2), copyVertex(1, 2), copyVertex(0, 0)));
-        farLinkArcId = tmesh.addArc(EmbeddedTMesh.NONE, farNodeId, farLinkNodeId, 0, false,
+        farLinkArcId = tmesh.addArc(ArcNetwork.NONE, farNodeId, farLinkNodeId, 0, false,
                 List.of(copyVertex(2, 1), copyVertex(3, 1)));
-        farFlankArcId = tmesh.addArc(EmbeddedTMesh.NONE, farLinkNodeId, movedNodeId, 1, false,
+        farFlankArcId = tmesh.addArc(ArcNetwork.NONE, farLinkNodeId, movedNodeId, 1, false,
                 List.of(copyVertex(3, 1), copyVertex(2, 0)));
-        fanTailArcId = tmesh.addArc(EmbeddedTMesh.NONE, movedNodeId, tailNodeId, 1, false,
+        fanTailArcId = tmesh.addArc(ArcNetwork.NONE, movedNodeId, tailNodeId, 1, false,
                 List.of(copyVertex(2, 0), copyVertex(3, 0)));
-        rimArcId = tmesh.addArc(EmbeddedTMesh.NONE, survivorNodeId, rimNodeId, 1, false,
+        rimArcId = tmesh.addArc(ArcNetwork.NONE, survivorNodeId, rimNodeId, 1, false,
                 List.of(copyVertex(0, 0), copyVertex(1, 10), copyVertex(2, 10)));
-        rimLinkArcId = tmesh.addArc(EmbeddedTMesh.NONE, tailNodeId, rimNodeId, 1, false,
+        rimLinkArcId = tmesh.addArc(ArcNetwork.NONE, tailNodeId, rimNodeId, 1, false,
                 List.of(copyVertex(3, 0), copyVertex(2, 11), copyVertex(2, 10)));
-        tailLinkArcId = tmesh.addArc(EmbeddedTMesh.NONE, tailNodeId, farLinkNodeId, 1, false,
+        tailLinkArcId = tmesh.addArc(ArcNetwork.NONE, tailNodeId, farLinkNodeId, 1, false,
                 List.of(copyVertex(3, 0), copyVertex(3, 1)));
 
-        zeroTrianglePatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        zeroTrianglePatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(channelArcId),
                 List.of(directArcId, pinchArcId),
                 List.of(),
                 List.of()), movedNodeId);
-        sliverPatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        sliverPatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(sliverBackArcId),
                 List.of(sliverFarArcId),
                 List.of(sliverOutArcId),
                 List.of(directArcId)), survivorNodeId);
-        farPatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        farPatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(pinchArcId),
                 List.of(sliverOutArcId),
                 List.of(farLinkArcId),
                 List.of(farFlankArcId)), movedNodeId);
-        channelFlankPatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        channelFlankPatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(channelArcId),
                 List.of(fanTailArcId),
                 List.of(rimLinkArcId),
                 List.of(rimArcId)), survivorNodeId);
-        tailPatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        tailPatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(farFlankArcId),
                 List.of(tailLinkArcId),
                 List.of(fanTailArcId),
                 List.of()), movedNodeId);
-        outerPatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        outerPatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(rimArcId),
                 List.of(rimLinkArcId),
                 List.of(tailLinkArcId, farLinkArcId),

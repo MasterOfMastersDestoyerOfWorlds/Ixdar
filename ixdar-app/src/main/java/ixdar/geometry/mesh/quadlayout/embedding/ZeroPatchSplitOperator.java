@@ -21,7 +21,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.PatchCorridor;
  */
 public final class ZeroPatchSplitOperator {
 
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
     public final ArcRerouter rerouter;
     public final PatchCorridor corridor;
 
@@ -32,17 +32,17 @@ public final class ZeroPatchSplitOperator {
      *
      * @param tmesh embedded T-mesh whose non-simple zero-patches are split
      */
-    public ZeroPatchSplitOperator(EmbeddedTMesh tmesh) {
+    public ZeroPatchSplitOperator(ArcNetwork tmesh) {
         this.tmesh = tmesh;
         this.rerouter = new ArcRerouter(tmesh.topology);
         this.corridor = new PatchCorridor(tmesh);
     }
 
     /**
-     * The id of a live non-simple zero-patch, or {@link EmbeddedTMesh#NONE} when none remains
+     * The id of a live non-simple zero-patch, or {@link ArcNetwork#NONE} when none remains
      * — the driver's "is operator (2) applicable" test.
      *
-     * @return a non-simple zero-patch id, or {@link EmbeddedTMesh#NONE}
+     * @return a non-simple zero-patch id, or {@link ArcNetwork#NONE}
      */
     public int nextNonSimpleZeroPatch() {
         for (EmbeddedPatch patch : tmesh.patches) {
@@ -51,7 +51,7 @@ public final class ZeroPatchSplitOperator {
                 return patch.patchId;
             }
         }
-        return EmbeddedTMesh.NONE;
+        return ArcNetwork.NONE;
     }
 
     /**
@@ -110,12 +110,12 @@ public final class ZeroPatchSplitOperator {
         int endVertex = tmesh.nodes.get(oppositeNodeId).copyVertex;
 
         List<Integer> routed = new ArrayList<>();
-        if (!rerouter.tryRoute(EmbeddedTMesh.NONE, routed, startVertex, endVertex, searchCorridor,
+        if (!rerouter.tryRoute(ArcNetwork.NONE, routed, startVertex, endVertex, searchCorridor,
                 EmbeddedMeshTopology.UNCLAIMED)) {
             throw new IllegalStateException("could not route a zero-arc across patch " + patchId
                     + " from node " + tjointNodeId + " to node " + oppositeNodeId);
         }
-        int newArc = tmesh.addArc(EmbeddedTMesh.NONE, tjointNodeId, oppositeNodeId, 0, false, routed);
+        int newArc = tmesh.addArc(ArcNetwork.NONE, tjointNodeId, oppositeNodeId, 0, false, routed);
         int[] halves = tmesh.splitPatchByArc(patchId, newArc);
         splitCount++;
         return halves;

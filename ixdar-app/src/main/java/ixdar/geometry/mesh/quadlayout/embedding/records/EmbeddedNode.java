@@ -2,7 +2,7 @@ package ixdar.geometry.mesh.quadlayout.embedding.records;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 
 /**
  * One T-mesh node, sitting on one vertex of the working copy.
@@ -13,11 +13,11 @@ import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
  */
 public final class EmbeddedNode {
 
-    /** Index of this node in {@link EmbeddedTMesh#nodes}; stable for the object's life. */
+    /** Index of this node in {@link ArcNetwork#nodes}; stable for the object's life. */
     public final int nodeId;
 
     /**
-     * Id of the {@code TMeshNode} this came from, or {@link EmbeddedTMesh#NONE} for a
+     * Id of the {@code TMeshNode} this came from, or {@link ArcNetwork#NONE} for a
      * node minted by an operator — by splitting an arc, or by extending a T-junction.
      */
     public final int sourceNodeId;
@@ -62,7 +62,7 @@ public final class EmbeddedNode {
      * Creates a live node on a copy vertex.
      *
      * @param nodeId       index of this node in the T-mesh's node list
-     * @param sourceNodeId originating {@code TMeshNode} id, or {@link EmbeddedTMesh#NONE}
+     * @param sourceNodeId originating {@code TMeshNode} id, or {@link ArcNetwork#NONE}
      * @param copyVertex   vertex of the working copy the node sits on
      * @param critical     whether the node's position is prescribed (LCBK19 Def 6.2)
      * @param border       whether the node lies in the surface boundary (LCBK19 Def 6.1)

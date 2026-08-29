@@ -12,7 +12,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
@@ -49,7 +49,7 @@ public final class QuadMeshExtraction {
 
     /** The map's charts and arc transitions, as the verification resolved them. */
     public final ChartAtlas atlas;
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
     public final LayoutPatchMaps patchMaps;
     public final HalfEdgeMesh copy;
 

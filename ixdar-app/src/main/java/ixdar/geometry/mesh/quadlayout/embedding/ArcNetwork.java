@@ -6,7 +6,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -16,6 +15,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
+import ixdar.geometry.mesh.quadlayout.embedding.records.PatchCorridor;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
@@ -38,34 +38,10 @@ import ixdar.platform.Platforms;
  * <p>
  * See also: LCBK19 Section 6
  */
-public class EmbeddedTMesh {
+public class ArcNetwork {
 
     /** Absent id, for elements with no source and for unset patch references. */
     public static final int NONE = -1;
-
-    /**
-     * Debug switch: when true, {@link #contract} runs the full {@link #validate}
-     * sweep after every collapse and enables the operators' scan cross-checks. Flip
-     * by hand when localizing a contraction bug; the sweep is O(elements) per
-     * collapse and dominates contraction time.
-     */
-    public static final boolean VALIDATE_EVERY_COLLAPSE = false;
-
-    /**
-     * Debug switch: when true, every collapse checks the arcs still cut the copy
-     * into exactly the live patches, so a torn arrangement names the collapse that
-     * tore it instead of surfacing in the re-carve.
-     */
-    public static final boolean VALIDATE_PARTITION_EVERY_COLLAPSE = false;
-
-    /** Collapses between [contract] progress log lines. */
-    private static final int CONTRACT_PROGRESS_INTERVAL = 500;
-
-    /**
-     * Longest quiet stretch between [contract] lines, so a grinding collapse stays
-     * visible.
-     */
-    private static final long CONTRACT_PROGRESS_NANOS = 2_000_000_000L;
 
     /**
      * Divisor turning elapsed nanoseconds into the seconds the log lines report.
@@ -141,16 +117,8 @@ public class EmbeddedTMesh {
      */
     public ActiveIdSet diagnosticCorridor;
 
-    public ZeroPatchSplitOperator splitPatch;
-
-    public ZeroArcCollapseOperator collapseArc;
-
-    public ZeroPatchCollapseOperator collapsePatch;
-
-    public TJunctionExtension extendTJunction;
-
-    public int arcCollapseCount;
-    public int patchSplitCount;
+    /** Flood query answering which copy faces a live patch covers. */
+    public final PatchCorridor corridor = new PatchCorridor(this);
 
     /** Cover refloods {@link #relabelPatchCover} performed, counting only calls that flooded. */
     public int relabelCallCount;
@@ -160,15 +128,6 @@ public class EmbeddedTMesh {
 
     /** Wall nanos spent inside {@link #relabelPatchCover} floods. */
     public long relabelNanos;
-
-    /**
-     * Timestamp of the last [contract] progress line, for the time-based fallback.
-     */
-    public long lastContractProgressNanos;
-    public int patchCollapseCount;
-
-    /** The last operator {@link #applyCollapse} applied, naming it in stepped diagnostics. */
-    public String lastOperatorDescription = "";
 
     /**
      * Working-copy vertices the carve and the operators minted, filled by
@@ -235,7 +194,7 @@ public class EmbeddedTMesh {
      *
      * @param topology working copy the T-mesh is embedded in
      */
-    public EmbeddedTMesh(EmbeddedMeshTopology topology) {
+    public ArcNetwork(EmbeddedMeshTopology topology) {
         this.topology = topology;
         this.sourceMesh = topology.sourceMesh;
         this.nodes = new ArrayList<>();
@@ -244,10 +203,6 @@ public class EmbeddedTMesh {
         this.arcEndsByNode = new ArrayList<>();
         this.expectedEulerCharacteristic = sourceMesh.vertexCount() - sourceMesh.edgeCount()
                 + sourceMesh.faceCount();
-        this.collapseArc = new ZeroArcCollapseOperator(this);
-        this.splitPatch = new ZeroPatchSplitOperator(this);
-        this.collapsePatch = new ZeroPatchCollapseOperator(this);
-        this.extendTJunction = new TJunctionExtension(this);
     }
 
     /**
@@ -257,7 +212,7 @@ public class EmbeddedTMesh {
      *
      * @param sourceMesh source triangle mesh the layout covers
      */
-    public EmbeddedTMesh(HalfEdgeMesh sourceMesh) {
+    public ArcNetwork(HalfEdgeMesh sourceMesh) {
         this.topology = null;
         this.sourceMesh = sourceMesh;
         this.nodes = new ArrayList<>();
@@ -266,10 +221,6 @@ public class EmbeddedTMesh {
         this.arcEndsByNode = new ArrayList<>();
         this.expectedEulerCharacteristic = sourceMesh.vertexCount() - sourceMesh.edgeCount()
                 + sourceMesh.faceCount();
-        this.collapseArc = new ZeroArcCollapseOperator(this);
-        this.splitPatch = new ZeroPatchSplitOperator(this);
-        this.collapsePatch = new ZeroPatchCollapseOperator(this);
-        this.extendTJunction = new TJunctionExtension(this);
     }
 
 
@@ -288,12 +239,8 @@ public class EmbeddedTMesh {
      *                               cell decomposition of the surface
      * @return this, assembled and validated
      */
-    public EmbeddedTMesh assemble(LayoutEmbedding embedding) {
+    public ArcNetwork assemble(LayoutEmbedding embedding) {
         this.topology = embedding.topology;
-        this.collapseArc = new ZeroArcCollapseOperator(this);
-        this.splitPatch = new ZeroPatchSplitOperator(this);
-        this.collapsePatch = new ZeroPatchCollapseOperator(this);
-        this.extendTJunction = new TJunctionExtension(this);
         arcEndsByNode.clear();
         for (int node = 0; node < nodes.size(); node++) {
             arcEndsByNode.add(new ArrayList<>());
@@ -696,14 +643,14 @@ public class EmbeddedTMesh {
      * a retiring arc always leaves it.
      *
      * @param nodeId node to measure
-     * @throws IllegalStateException under {@link #VALIDATE_EVERY_COLLAPSE} when a
+     * @throws IllegalStateException under {@link NetworkContraction#VALIDATE_EVERY_COLLAPSE} when a
      *                               dead arc is still in the fan, which would
      *                               overstate the degree
      * @return the node's degree, a loop counting twice
      */
     public int degree(int nodeId) {
         List<Integer> ends = arcEndsByNode.get(nodeId);
-        if (VALIDATE_EVERY_COLLAPSE) {
+        if (NetworkContraction.VALIDATE_EVERY_COLLAPSE) {
             int live = 0;
             for (int index = 0; index < ends.size(); index++) {
                 if (arcs.get(ends.get(index)).alive) {
@@ -890,7 +837,7 @@ public class EmbeddedTMesh {
                 }
             }
         }
-        if (VALIDATE_EVERY_COLLAPSE) {
+        if (NetworkContraction.VALIDATE_EVERY_COLLAPSE) {
             for (EmbeddedPatch patch : patches) {
                 if (!patch.alive) {
                     continue;
@@ -1434,7 +1381,7 @@ public class EmbeddedTMesh {
         int secondPatch = addPatch(patch.sourcePatchId, secondSides, divider.endNodeId);
         topology.aliasPatchInto(patchId, firstPatch, patches.size());
         if (topology.patchByCopyFace.length > 0) {
-            IntIdList secondFaces = splitPatch.corridor.patchFaces(secondPatch);
+            IntIdList secondFaces = corridor.patchFaces(secondPatch);
             for (int index = 0; index < secondFaces.size(); index++) {
                 topology.patchByCopyFace[secondFaces.get(index)] = secondPatch;
             }
@@ -1705,13 +1652,12 @@ public class EmbeddedTMesh {
      * @param operator description of the operator just applied
      * @throws IllegalStateException when a region matches no live patch
      */
-    private void requireArrangementMatchesPatches(String operator) {
+    public void requireArrangementMatchesPatches(String operator) {
         Set<Integer> boundaryArcs = new HashSet<>();
         List<Integer> unmatched = new PatchRegions(this).findFirstUnmatchedRegion(boundaryArcs);
         if (!unmatched.isEmpty()) {
-            throw new IllegalStateException("after " + operator + " (collapse "
-                    + arcCollapseCount + ", patchCollapse " + patchCollapseCount
-                    + ", split " + patchSplitCount + ") the arrangement leaves a region of "
+            throw new IllegalStateException("after " + operator
+                    + " the arrangement leaves a region of "
                     + unmatched.size() + " faces bounded by arcs " + boundaryArcs
                     + " that matches no live patch");
         }
@@ -1726,7 +1672,7 @@ public class EmbeddedTMesh {
      * @throws ArrangementDiagnosticException when an arc's flanks disagree with the covers
      *                                        beside it
      */
-    private void requireArcFlanksMatchCovers(String operator) {
+    public void requireArcFlanksMatchCovers(String operator) {
         ArrangementDiagnosticException tear = flankTearFailure(operator);
         if (tear != null) {
             throw tear;
@@ -1794,9 +1740,7 @@ public class EmbeddedTMesh {
                 new int[] { arc.path.copyVertexPath.get(0) });
         diagnostic.addMarkerGroup("torn arc end",
                 new int[] { arc.path.copyVertexPath.get(arc.path.copyVertexPath.size() - 1) });
-        return new ArrangementDiagnosticException("after " + operator + " (collapse "
-                + arcCollapseCount + ", patchCollapse " + patchCollapseCount
-                + ", split " + patchSplitCount + ") arc " + arc.arcId
+        return new ArrangementDiagnosticException("after " + operator + " arc " + arc.arcId
                 + " says it separates patches " + left + "|" + right
                 + " but the covers beside hop " + hop + " of "
                 + (arc.path.copyVertexPath.size() - 1) + " are " + coverLeft + "|"
@@ -1830,10 +1774,10 @@ public class EmbeddedTMesh {
      */
     private int[] patchCoverFaces(int patchId) {
         if (patchId == NONE || !patches.get(patchId).alive
-                || !splitPatch.corridor.hasSeedableBoundary(patchId)) {
+                || !corridor.hasSeedableBoundary(patchId)) {
             return new int[0];
         }
-        IntIdList faces = splitPatch.corridor.patchFaces(patchId);
+        IntIdList faces = corridor.patchFaces(patchId);
         int[] faceIds = new int[faces.size()];
         for (int index = 0; index < faceIds.length; index++) {
             faceIds[index] = faces.get(index);
@@ -1893,15 +1837,15 @@ public class EmbeddedTMesh {
      */
     private String floodReport(int patchId, int faceId) {
         if (patchId == NONE || !patches.get(patchId).alive
-                || !splitPatch.corridor.hasSeedableBoundary(patchId)) {
+                || !corridor.hasSeedableBoundary(patchId)) {
             return "; patch " + patchId + " floods nothing";
         }
-        IntIdList faces = splitPatch.corridor.patchFaces(patchId);
+        IntIdList faces = corridor.patchFaces(patchId);
         boolean holdsFace = false;
         for (int index = 0; index < faces.size(); index++) {
             holdsFace |= faces.get(index) == faceId;
         }
-        int foreignArcId = splitPatch.corridor.foreignArcOnLastFlood(patchId);
+        int foreignArcId = corridor.foreignArcOnLastFlood(patchId);
         String leak = "";
         if (foreignArcId != NONE) {
             EmbeddedArc foreignArc = arcs.get(foreignArcId);
@@ -1910,7 +1854,7 @@ public class EmbeddedTMesh {
                     + foreignArc.path.copyVertexPath.size() + ", alive=" + foreignArc.alive + ")";
         }
         return "; patch " + patchId + " floods " + faces.size() + " faces, holds " + faceId + "="
-                + holdsFace + ", bounded by arcs " + splitPatch.corridor.boundingArcsOfLastFlood()
+                + holdsFace + ", bounded by arcs " + corridor.boundingArcsOfLastFlood()
                 + leak;
     }
 
@@ -1967,7 +1911,7 @@ public class EmbeddedTMesh {
             if (!patch.alive) {
                 continue;
             }
-            IntIdList faces = splitPatch.corridor.patchFaces(patch.patchId);
+            IntIdList faces = corridor.patchFaces(patch.patchId);
             for (int index = 0; index < faces.size(); index++) {
                 int copyFace = faces.get(index);
                 overlapCount += labels[copyFace] == NONE ? 0 : 1;
@@ -2008,12 +1952,12 @@ public class EmbeddedTMesh {
         }
         // A patch pinched until every side is a point encloses nothing to read; one whose
         // sides still run along edges must enclose exactly what its boundary walls in.
-        if (!splitPatch.corridor.hasSeedableBoundary(resolved)) {
+        if (!corridor.hasSeedableBoundary(resolved)) {
             return;
         }
         long startNanos = System.nanoTime();
-        IntIdList faces = splitPatch.corridor.patchFaces(resolved);
-        int foreignArc = splitPatch.corridor.foreignArcOnLastFlood(resolved);
+        IntIdList faces = corridor.patchFaces(resolved);
+        int foreignArc = corridor.foreignArcOnLastFlood(resolved);
         if (foreignArc != NONE) {
             throw new IllegalStateException("the " + faces.size() + " faces flooded for patch "
                     + resolved + " are not its cover: the flood runs round its side " + foreignArc
@@ -2052,112 +1996,12 @@ public class EmbeddedTMesh {
     }
 
     /**
-     * Contracts the T-mesh, validating every round — every step when
-     * {@link #VALIDATE_EVERY_COLLAPSE} is set.
-     *
-     * <p>
-     * A round is what LCBK19 Appendix A.3 measures: one operator (2) split, then
-     * operators (1) and (3) to exhaustion. Operator (2) raises the measure; the
-     * other two lower it.
-     *
-     * @return this, contracted
-     */
-    public EmbeddedTMesh contract() {
-        labelPatchCovers();
-        while (true) {
-            while (applyCollapse()) {
-                if (VALIDATE_EVERY_COLLAPSE) {
-                    validate();
-                }
-            }
-            validate();
-            requireArcFlanksMatchCovers("collapse round");
-            int nonSimple = splitPatch.nextNonSimpleZeroPatch();
-            if (nonSimple == NONE) {
-                break;
-            }
-            splitPatch.split(nonSimple);
-            patchSplitCount++;
-            validate();
-            requireArcFlanksMatchCovers("patch split " + nonSimple);
-            if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
-                requireArrangementMatchesPatches("patch split " + nonSimple);
-            }
-        }
-        Platforms.log("[contract] relabel floods=%d faces=%d | %.3fs%n",
-                relabelCallCount, relabelFacesFlooded, relabelNanos / NANOS_PER_SECOND);
-        conform();
-        if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
-            requireArrangementMatchesPatches("conform");
-        }
-        EmbeddedTMesh recarved = recarve(topology.sourceMesh);
-        return recarved;
-    }
-
-    /**
-     * Extends every surviving T-junction across its patch, leaving a conforming
-     * layout, and validates the result.
-     *
-     * <p>
-     * Run on a contracted T-mesh: an extension arc carries the patch's orthogonal
-     * extent, which is only meaningful once no patch has a zero side.
-     *
-     * <p>
-     * See also: LCK21a Section 6
-     *
-     * @return this, conforming
-     */
-    public EmbeddedTMesh conform() {
-        extendTJunction.extendAll();
-        validate();
-        requireNoTJunction();
-        return this;
-    }
-
-    /**
-     * Replays this T-mesh's live arrangement on a clean copy of the original
-     * surface mesh, preserving patch combinatorics and surface curves while
-     * discarding contraction triangulation debris.
-     *
-     * @param originalMesh source triangle mesh to rebuild the working copy from
-     * @return a fresh T-mesh with the same live layout over a less dense working
-     *         copy
-     */
-    public EmbeddedTMesh recarve(HalfEdgeMesh originalMesh) {
-        return new EmbeddedTMeshRecarve(this, originalMesh).build();
-    }
-
-    /**
-     * Checks no live patch still carries a T-junction, the post-condition
-     * {@link TJunctionExtension} exists to establish.
-     *
-     * @throws IllegalStateException when an interior side node still carries a
-     *                               third arc
-     */
-    private void requireNoTJunction() {
-        for (EmbeddedPatch patch : patches) {
-            if (!patch.alive) {
-                continue;
-            }
-            for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
-                List<Integer> sideNodes = patch.sideNodeIds.get(side);
-                for (int index = 1; index < sideNodes.size() - 1; index++) {
-                    if (degree(sideNodes.get(index)) > 2) {
-                        throw new IllegalStateException("patch " + patch.patchId + " side " + side
-                                + " still carries a T-junction at node " + sideNodes.get(index));
-                    }
-                }
-            }
-        }
-    }
-
-    /**
      * Counts how far the working copy has drifted from the source mesh and who owns
      * the difference.
      *
      * @return this, with the density counters filled
      */
-    public EmbeddedTMesh measureDensity() {
+    public ArcNetwork measureDensity() {
         mintedVertexCount = 0;
         nodeMintedVertexCount = 0;
         arcMintedVertexCount = 0;
@@ -2215,7 +2059,7 @@ public class EmbeddedTMesh {
      * @param stage pipeline stage the measurement was taken at
      * @return this, measured
      */
-    public EmbeddedTMesh reportDensity(String stage) {
+    public ArcNetwork reportDensity(String stage) {
         measureDensity();
         Platforms.log("[density] %s: V=%d (source %d, minted %d = %.1f%%) F=%d (source %d,"
                 + " +%d) | minted by node=%d arc=%d debris=%d%n",
@@ -2233,7 +2077,7 @@ public class EmbeddedTMesh {
      *
      * @return this, with the contention counters filled
      */
-    public EmbeddedTMesh measureFaceContention() {
+    public ArcNetwork measureFaceContention() {
         int sourceFaceCount = topology.sourceMesh.faceCount();
         int[] arcCountBySourceFace = new int[sourceFaceCount];
         int[] lastArcSeenBySourceFace = new int[sourceFaceCount];
@@ -2313,7 +2157,7 @@ public class EmbeddedTMesh {
      * @param stage pipeline stage the measurement was taken at
      * @return this, measured
      */
-    public EmbeddedTMesh reportFaceContention(String stage) {
+    public ArcNetwork reportFaceContention(String stage) {
         measureFaceContention();
         Platforms.log("[contention] %s: of %d source faces, %d carry no live arc, %d carry"
                 + " one, %d carry two, %d carry three or more (worst face %d with %d)"
@@ -2325,140 +2169,4 @@ public class EmbeddedTMesh {
         return this;
     }
 
-    /**
-     * The live, floodable patches the last {@link #contractStep} touched, in first-touch order:
-     * every {@code markPatchChanged} call it made, plus the whole touched set of an arc collapse.
-     *
-     * @param arcCollapsesBefore the arc-collapse count before the step, which says whether the
-     *                           step was an arc collapse
-     * @return the resolved patch ids, deduplicated
-     */
-    public List<Integer> stepUpdatedPatches(int arcCollapsesBefore) {
-        Set<Integer> resolved = new LinkedHashSet<>();
-        for (int index = 0; index < stepPatchLog.size(); index++) {
-            resolved.add(topology.resolvePatch(stepPatchLog.get(index)));
-        }
-        if (arcCollapseCount > arcCollapsesBefore) {
-            for (int index = 0; index < collapseArc.touchedPatchCount; index++) {
-                resolved.add(topology.resolvePatch(collapseArc.touchedPatches[index]));
-            }
-        }
-        List<Integer> updated = new ArrayList<>();
-        for (int patchId : resolved) {
-            if (patchId != NONE && patches.get(patchId).alive
-                    && splitPatch.corridor.hasSeedableBoundary(patchId)) {
-                updated.add(patchId);
-            }
-        }
-        return updated;
-    }
-
-    /**
-     * Applies exactly one operator and stops, for stepping the contraction by hand.
-     * Prefers the two measure-lowering operators and falls back to a patch split.
-     *
-     * @return a one-line description of what applied, or {@code null} at the fixed
-     *         point
-     */
-    public String contractStep() {
-        stepPatchLog.clear();
-        int verticesBefore = topology.copy.vertexCount();
-        int splitsBefore = collapseArc.rerouter.refinedEdgeSplitCount
-                + splitPatch.rerouter.refinedEdgeSplitCount;
-        String operator;
-        if (applyCollapse()) {
-            operator = lastOperatorDescription;
-        } else {
-            int nonSimple = splitPatch.nextNonSimpleZeroPatch();
-            if (nonSimple == NONE) {
-                return null;
-            }
-            splitPatch.split(nonSimple);
-            patchSplitCount++;
-            operator = "patchSplit " + nonSimple;
-        }
-        validate();
-        // Stepping is the debug path: unlike contract()'s per-round check, a stepped tear
-        // names the exact operator that tore the covers.
-        requireArcFlanksMatchCovers(operator);
-        return String.format("%s collapses=%d patchSplits=%d edgeSplits=+%d V=%d(+%d) F=%d",
-                operator, arcCollapseCount, patchSplitCount,
-                collapseArc.rerouter.refinedEdgeSplitCount
-                        + splitPatch.rerouter.refinedEdgeSplitCount - splitsBefore,
-                topology.copy.vertexCount(), topology.copy.vertexCount() - verticesBefore,
-                topology.copy.faceCount());
-    }
-
-    /**
-     * Applies one simple zero-patch collapse, or a zero-arc collapse when no patch
-     * is ready.
-     *
-     * <p>
-     * Operator (3) goes first because it alone hands mesh back, and a standing
-     * bigon is a chord channel every later re-route pays to cross. See also: LCBK19
-     * Figure 9g
-     *
-     * @return true when one of the two applied
-     */
-    private boolean applyCollapse() {
-        int simple = collapsePatch.nextSimpleZeroPatch();
-        if (simple != NONE) {
-            collapsePatch.collapse(simple);
-            patchCollapseCount++;
-            lastOperatorDescription = "patch collapse " + simple;
-            if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
-                requireArrangementMatchesPatches(lastOperatorDescription);
-            }
-            return true;
-        }
-        int arc = collapseArc.mostContendedArc();
-        if (arc != NONE) {
-            collapseArc.collapse(arc);
-            arcCollapseCount++;
-            lastOperatorDescription = "arc collapse " + arc;
-            if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
-                requireArrangementMatchesPatches(lastOperatorDescription);
-            }
-            long now = System.nanoTime();
-            if (arcCollapseCount % CONTRACT_PROGRESS_INTERVAL == 0
-                    || now - lastContractProgressNanos > CONTRACT_PROGRESS_NANOS) {
-                lastContractProgressNanos = now;
-                Platforms.log(
-                        "[contract] collapses=%d exactSigns=%d splits=%d worstRoute=%d"
-                                + " V=%d F=%d | routes=%d gates=%d gateExpand=%d(virtual=%d)"
-                                + " freeSettle=%d(failed=%d) refinedSettle=%d"
-                                + " freeRoutes=%d freeFails=%d blocked=%d"
-                                + " relabels=%d(faces=%d %.2fs)\n",
-                        arcCollapseCount,
-                        ExactBarycentricOrient.exactSignCallCount,
-                        collapseArc.rerouter.refinedEdgeSplitCount
-                                + splitPatch.rerouter.refinedEdgeSplitCount,
-                        Math.max(collapseArc.rerouter.mostSplitsInOneRoute,
-                                splitPatch.rerouter.mostSplitsInOneRoute),
-                        topology.copy.vertexCount(),
-                        topology.copy.faceCount(),
-                        collapseArc.rerouter.routeAttemptCount
-                                + splitPatch.rerouter.routeAttemptCount,
-                        collapseArc.rerouter.gatePassCount + splitPatch.rerouter.gatePassCount,
-                        collapseArc.rerouter.gateExpansionCount
-                                + splitPatch.rerouter.gateExpansionCount,
-                        collapseArc.rerouter.gateVirtualExpansionCount
-                                + splitPatch.rerouter.gateVirtualExpansionCount,
-                        collapseArc.rerouter.freeSettleCount + splitPatch.rerouter.freeSettleCount,
-                        collapseArc.rerouter.freeSettleOnFailureCount
-                                + splitPatch.rerouter.freeSettleOnFailureCount,
-                        collapseArc.rerouter.refinedSettleCount
-                                + splitPatch.rerouter.refinedSettleCount,
-                        collapseArc.rerouter.freePassRouteCount
-                                + splitPatch.rerouter.freePassRouteCount,
-                        collapseArc.rerouter.freePassFailureCount
-                                + splitPatch.rerouter.freePassFailureCount,
-                        collapseArc.blockedDragCount,
-                        relabelCallCount, relabelFacesFlooded,
-                        relabelNanos / NANOS_PER_SECOND);
-            }
-            return true;
-        }
-        return false;
-    }
 }

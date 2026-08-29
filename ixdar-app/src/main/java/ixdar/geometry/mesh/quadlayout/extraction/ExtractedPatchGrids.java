@@ -11,7 +11,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.EdgeKey;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
@@ -32,7 +32,7 @@ public final class ExtractedPatchGrids {
 
     public final ExtractedQuadMesh quadMesh;
     public final GlobalGridMap gridMap;
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
     public final IntegerGridMap frames;
     public final LayoutPatchMaps patchMaps;
 
@@ -167,7 +167,7 @@ public final class ExtractedPatchGrids {
         quadVertexByNodeId = new int[tmesh.nodes.size()];
         Arrays.fill(quadVertexByNodeId, ExtractedQuadMesh.NONE);
         patchIdByQuad = new int[quadMesh.quadCount];
-        Arrays.fill(patchIdByQuad, EmbeddedTMesh.NONE);
+        Arrays.fill(patchIdByQuad, ArcNetwork.NONE);
     }
 
     /**
@@ -208,7 +208,7 @@ public final class ExtractedPatchGrids {
                 }
                 for (int side = 0; side < 2; side++) {
                     int patchId = side == 0 ? arc.leftPatchId : arc.rightPatchId;
-                    if (patchId == EmbeddedTMesh.NONE || !tmesh.patches.get(patchId).alive
+                    if (patchId == ArcNetwork.NONE || !tmesh.patches.get(patchId).alive
                             || !frames.arcLocalCoordinates(patchId, arcId, localStart,
                                     localEnd)) {
                         continue;
@@ -536,7 +536,7 @@ public final class ExtractedPatchGrids {
      */
     private void completeNode(int nodeId) {
         List<Integer> fan = tmesh.arcEndsByNode.get(nodeId);
-        int anchorArcId = EmbeddedTMesh.NONE;
+        int anchorArcId = ArcNetwork.NONE;
         boolean anchorAtStart = false;
         int liveEnds = 0;
         for (int arcId : fan) {
@@ -546,13 +546,13 @@ public final class ExtractedPatchGrids {
             }
             liveEnds++;
             boolean atStart = arc.startNodeId == nodeId;
-            if (anchorArcId == EmbeddedTMesh.NONE
+            if (anchorArcId == ArcNetwork.NONE
                     && portByArcEnd[arcEndIndex(arcId, atStart)] != ExtractedQuadMesh.NONE) {
                 anchorArcId = arcId;
                 anchorAtStart = atStart;
             }
         }
-        if (anchorArcId == EmbeddedTMesh.NONE) {
+        if (anchorArcId == ArcNetwork.NONE) {
             throw new IllegalStateException("node " + nodeId + " has no anchored arc end to"
                     + " walk its ring from");
         }
@@ -707,7 +707,7 @@ public final class ExtractedPatchGrids {
             fillPatchGrid(patch);
         }
         for (int quad = 0; quad < quadMesh.quadCount; quad++) {
-            if (patchIdByQuad[quad] == EmbeddedTMesh.NONE) {
+            if (patchIdByQuad[quad] == ArcNetwork.NONE) {
                 throw new IllegalStateException("quad " + quad + " belongs to no patch");
             }
         }
@@ -789,7 +789,7 @@ public final class ExtractedPatchGrids {
                     throw new IllegalStateException("patch " + patch.patchId + " row " + row
                             + " column " + column + " has no quad over its edge");
                 }
-                if (patchIdByQuad[quad] != EmbeddedTMesh.NONE
+                if (patchIdByQuad[quad] != ArcNetwork.NONE
                         && patchIdByQuad[quad] != patch.patchId) {
                     throw new IllegalStateException("quad " + quad + " is claimed by patches "
                             + patchIdByQuad[quad] + " and " + patch.patchId);

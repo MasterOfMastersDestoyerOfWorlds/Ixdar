@@ -7,7 +7,8 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
@@ -65,8 +66,9 @@ class GridMapOptimizerParallelTest {
      */
     private GridMapOptimizer relaxTorus(int workerThreads) {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
-        fixture.tmesh.contract();
-        fixture.tmesh.conform();
+        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        contraction.contract();
+        contraction.conform();
         SeamlessUv seamless = new QuadLayoutEngine(fixture.torus, 0f)
                 .buildSeamless();
         double targetEdgeLength = shortestArcLength(fixture.tmesh, seamless)
@@ -109,7 +111,7 @@ class GridMapOptimizerParallelTest {
      * @param seamless the parametrization to measure in
      * @return the shortest arc's parametric length
      */
-    private double shortestArcLength(EmbeddedTMesh tmesh, SeamlessUv seamless) {
+    private double shortestArcLength(ArcNetwork tmesh, SeamlessUv seamless) {
         LayoutResolution measured = new LayoutResolution(tmesh, seamless, 1.0).build();
         double shortest = Double.MAX_VALUE;
         for (EmbeddedArc arc : tmesh.arcs) {

@@ -5,7 +5,7 @@ import java.util.List;
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.DiskMeshNode;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
@@ -24,7 +24,7 @@ public final class MergedCellSlotFixture implements LayoutFixture {
 
     public HalfEdgeMesh disk;
     public EmbeddedMeshTopology topology;
-    public EmbeddedTMesh tmesh;
+    public ArcNetwork tmesh;
 
     /** Critical node on the central vertex; the collapse merges the moved node onto it. */
     public int survivorNodeId;
@@ -82,7 +82,7 @@ public final class MergedCellSlotFixture implements LayoutFixture {
     }
 
     @Override
-    public EmbeddedTMesh build() {
+    public ArcNetwork build() {
         DiskMeshNode node = new DiskMeshNode();
         MapNodeContext context = new MapNodeContext(node);
         context.setInput(DiskMeshNode.RINGS.name, RING_COUNT);
@@ -92,7 +92,7 @@ public final class MergedCellSlotFixture implements LayoutFixture {
         node.evaluate(context);
         this.disk = context.getOutput(DiskMeshNode.MESH.name, HalfEdgeMesh.class);
         this.topology = new EmbeddedMeshTopology(disk);
-        this.tmesh = new EmbeddedTMesh(topology);
+        this.tmesh = new ArcNetwork(topology);
         layOutTMesh();
         return tmesh;
     }
@@ -103,49 +103,49 @@ public final class MergedCellSlotFixture implements LayoutFixture {
      * to that wedge is free once ring three is left unclaimed.
      */
     private void layOutTMesh() {
-        survivorNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(0, 0), true, false);
-        movedNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(2, 0), false, false);
-        baitFixedNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(2, 3), false, false);
-        int bufferFarNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(2, 4), false, false);
-        int farSealNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(2, 6), false, false);
-        int tailNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(4, 0), false, false);
+        survivorNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(0, 0), true, false);
+        movedNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(2, 0), false, false);
+        baitFixedNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(2, 3), false, false);
+        int bufferFarNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(2, 4), false, false);
+        int farSealNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(2, 6), false, false);
+        int tailNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(4, 0), false, false);
 
-        channelArcId = tmesh.addArc(EmbeddedTMesh.NONE, movedNodeId, survivorNodeId, 0, false,
+        channelArcId = tmesh.addArc(ArcNetwork.NONE, movedNodeId, survivorNodeId, 0, false,
                 List.of(copyVertex(2, 0), copyVertex(1, 0), copyVertex(0, 0)));
-        baitArcId = tmesh.addArc(EmbeddedTMesh.NONE, movedNodeId, baitFixedNodeId, 1, false,
+        baitArcId = tmesh.addArc(ArcNetwork.NONE, movedNodeId, baitFixedNodeId, 1, false,
                 List.of(copyVertex(2, 0), copyVertex(2, 1), copyVertex(2, 2), copyVertex(2, 3)));
-        nearSealArcId = tmesh.addArc(EmbeddedTMesh.NONE, baitFixedNodeId, survivorNodeId, 1,
+        nearSealArcId = tmesh.addArc(ArcNetwork.NONE, baitFixedNodeId, survivorNodeId, 1,
                 false, List.of(copyVertex(2, 3), copyVertex(1, 2), copyVertex(1, 1),
                         copyVertex(0, 0)));
-        bufferFarArcId = tmesh.addArc(EmbeddedTMesh.NONE, baitFixedNodeId, bufferFarNodeId, 1,
+        bufferFarArcId = tmesh.addArc(ArcNetwork.NONE, baitFixedNodeId, bufferFarNodeId, 1,
                 false, List.of(copyVertex(2, 3), copyVertex(2, 4)));
-        bufferSealArcId = tmesh.addArc(EmbeddedTMesh.NONE, bufferFarNodeId, survivorNodeId, 1,
+        bufferSealArcId = tmesh.addArc(ArcNetwork.NONE, bufferFarNodeId, survivorNodeId, 1,
                 false, List.of(copyVertex(2, 4), copyVertex(1, 3), copyVertex(0, 0)));
-        farSealArcId = tmesh.addArc(EmbeddedTMesh.NONE, farSealNodeId, survivorNodeId, 1, false,
+        farSealArcId = tmesh.addArc(ArcNetwork.NONE, farSealNodeId, survivorNodeId, 1, false,
                 List.of(copyVertex(2, 6), copyVertex(1, 6), copyVertex(0, 0)));
-        bandBackArcId = tmesh.addArc(EmbeddedTMesh.NONE, farSealNodeId, tailNodeId, 1, false,
+        bandBackArcId = tmesh.addArc(ArcNetwork.NONE, farSealNodeId, tailNodeId, 1, false,
                 List.of(copyVertex(2, 6), copyVertex(3, 6), copyVertex(4, 6), copyVertex(4, 5),
                         copyVertex(4, 4), copyVertex(4, 3), copyVertex(4, 2), copyVertex(4, 1),
                         copyVertex(4, 0)));
-        tailArcId = tmesh.addArc(EmbeddedTMesh.NONE, movedNodeId, tailNodeId, 1, false,
+        tailArcId = tmesh.addArc(ArcNetwork.NONE, movedNodeId, tailNodeId, 1, false,
                 List.of(copyVertex(2, 0), copyVertex(3, 0), copyVertex(4, 0)));
 
-        nearPatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        nearPatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(channelArcId),
                 List.of(nearSealArcId),
                 List.of(baitArcId),
                 List.of()), movedNodeId);
-        bufferPatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        bufferPatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(bufferSealArcId),
                 List.of(bufferFarArcId),
                 List.of(nearSealArcId),
                 List.of()), survivorNodeId);
-        farPatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        farPatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(baitArcId),
                 List.of(bufferFarArcId, bufferSealArcId),
                 List.of(farSealArcId),
                 List.of(bandBackArcId, tailArcId)), movedNodeId);
-        outerPatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        outerPatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(channelArcId),
                 List.of(tailArcId),
                 List.of(bandBackArcId),

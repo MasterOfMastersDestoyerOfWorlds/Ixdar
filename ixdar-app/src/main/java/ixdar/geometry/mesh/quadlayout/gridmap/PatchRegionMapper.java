@@ -8,7 +8,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
@@ -23,7 +23,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
  */
 public final class PatchRegionMapper {
 
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
     public final PatchRegions regions;
 
     /**
@@ -32,7 +32,7 @@ public final class PatchRegionMapper {
      * @param tmesh   embedded T-mesh whose patches are mapped
      * @param regions the patch regions, already built
      */
-    public PatchRegionMapper(EmbeddedTMesh tmesh, PatchRegions regions) {
+    public PatchRegionMapper(ArcNetwork tmesh, PatchRegions regions) {
         this.tmesh = tmesh;
         this.regions = regions;
     }

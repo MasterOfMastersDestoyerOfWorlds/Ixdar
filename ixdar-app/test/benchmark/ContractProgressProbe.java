@@ -9,7 +9,8 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.platform.Platforms;
 
 /**
@@ -38,11 +39,12 @@ public final class ContractProgressProbe {
         HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, QuadLayoutEngine.DEFAULT_ALPHA_RADIANS);
-        EmbeddedTMesh tmesh = engine.buildTMesh();
+        ArcNetwork tmesh = engine.buildTMesh();
+        NetworkContraction contraction = new NetworkContraction(tmesh);
         tmesh.labelPatchCovers();
         int op = 0;
         try {
-            while (tmesh.contractStep() != null) {
+            while (contraction.contractStep() != null) {
                 op++;
                 if (op % PROGRESS_INTERVAL == 0) {
                     Platforms.log("[probe] %d operators applied%n", op);
@@ -50,7 +52,7 @@ public final class ContractProgressProbe {
             }
             Platforms.log("[probe] contraction reached its fixed point after %d operators"
                     + " (collapses=%d patchCollapses=%d patchSplits=%d)%n", op,
-                    tmesh.arcCollapseCount, tmesh.patchCollapseCount, tmesh.patchSplitCount);
+                    contraction.arcCollapseCount, contraction.patchCollapseCount, contraction.patchSplitCount);
         } catch (RuntimeException failure) {
             Platforms.log("[probe] failed after %d operators: %s%n", op,
                     failure.getMessage());

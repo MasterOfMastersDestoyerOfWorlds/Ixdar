@@ -6,7 +6,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 
@@ -19,7 +19,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
  */
 public final class ZeroArcCollapse {
 
-    public final EmbeddedTMesh network;
+    public final ArcNetwork network;
     public final int[] quantizedLengthByArc;
 
     /** Collapse-cluster index per T-mesh node id. */
@@ -43,7 +43,7 @@ public final class ZeroArcCollapse {
      * @param network      built T-mesh whose nodes get clustered
      * @param quantizedLengthByArc solved quantization, one integer per arc id
      */
-    public ZeroArcCollapse(EmbeddedTMesh network, int[] quantizedLengthByArc) {
+    public ZeroArcCollapse(ArcNetwork network, int[] quantizedLengthByArc) {
         this.network = network;
         this.quantizedLengthByArc = quantizedLengthByArc;
     }

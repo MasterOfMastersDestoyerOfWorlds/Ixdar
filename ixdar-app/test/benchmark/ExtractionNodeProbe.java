@@ -11,7 +11,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
@@ -51,7 +51,7 @@ public final class ExtractionNodeProbe {
         } catch (RuntimeException failure) {
             Platforms.log("[probe] extraction failed: %s%n", failure.getMessage());
         }
-        EmbeddedTMesh tmesh = engine.buildPatchMaps().tmesh;
+        ArcNetwork tmesh = engine.buildPatchMaps().tmesh;
         EmbeddedNode node = tmesh.nodes.get(PROBED_NODE);
         Platforms.log("[probe] node %d alive=%b critical=%b border=%b copyVertex=%d%n",
                 PROBED_NODE, node.alive, node.critical, node.border, node.copyVertex);
@@ -65,7 +65,7 @@ public final class ExtractionNodeProbe {
                     tmesh.topology.resolvePatch(arc.rightPatchId),
                     arc.path.copyVertexPath.size());
             for (int patchId : new int[] { arc.leftPatchId, arc.rightPatchId }) {
-                if (patchId != EmbeddedTMesh.NONE && !incidentPatches.contains(patchId)) {
+                if (patchId != ArcNetwork.NONE && !incidentPatches.contains(patchId)) {
                     incidentPatches.add(patchId);
                 }
             }

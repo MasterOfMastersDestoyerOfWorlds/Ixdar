@@ -25,12 +25,12 @@ import ixdar.platform.Platforms;
  * <p>
  * See also: LCBK19 Section 6.1
  */
-public final class EmbeddedTMeshRecarve {
+public final class ArcNetworkRecarve {
 
     /** Nanoseconds per second, for the timing log. */
     private static final double NANOS_PER_SECOND = 1.0e9;
 
-    public final EmbeddedTMesh source;
+    public final ArcNetwork source;
     public final HalfEdgeMesh originalMesh;
 
     /** Clean working copy of the original mesh the layout is rebuilt on. */
@@ -40,10 +40,10 @@ public final class EmbeddedTMeshRecarve {
     public SnappingCarve snapping;
 
     /** The re-carved T-mesh over the clean copy. */
-    public EmbeddedTMesh freshTmesh;
+    public ArcNetwork freshTmesh;
 
     /**
-     * Dense node id per old node id, or {@link EmbeddedTMesh#NONE} for a retired
+     * Dense node id per old node id, or {@link ArcNetwork#NONE} for a retired
      * node.
      */
     public int[] denseNodeIdByOldId;
@@ -52,7 +52,7 @@ public final class EmbeddedTMeshRecarve {
     public int[] oldNodeIdByDenseId;
 
     /**
-     * Dense arc id per old arc id, or {@link EmbeddedTMesh#NONE} for a retired arc.
+     * Dense arc id per old arc id, or {@link ArcNetwork#NONE} for a retired arc.
      */
     public int[] denseArcIdByOldId;
 
@@ -111,7 +111,7 @@ public final class EmbeddedTMeshRecarve {
      * @param source       contracted live T-mesh whose arrangement is re-carved
      * @param originalMesh source triangle mesh the working copy is rebuilt from
      */
-    public EmbeddedTMeshRecarve(EmbeddedTMesh source, HalfEdgeMesh originalMesh) {
+    public ArcNetworkRecarve(ArcNetwork source, HalfEdgeMesh originalMesh) {
         this.source = source;
         this.originalMesh = originalMesh;
     }
@@ -122,7 +122,7 @@ public final class EmbeddedTMeshRecarve {
      * @throws IllegalStateException when the rebuild is not the same arrangement
      * @return the rebuilt T-mesh
      */
-    public EmbeddedTMesh build() {
+    public ArcNetwork build() {
         long startNanos = System.nanoTime();
         if (source.topology.sourceMesh != originalMesh) {
             throw new IllegalStateException("the contracted T-mesh was carved from a different"
@@ -142,7 +142,7 @@ public final class EmbeddedTMeshRecarve {
         snapping.carve();
 
         fresh.copy.computeNormals();
-        freshTmesh = new EmbeddedTMesh(fresh);
+        freshTmesh = new ArcNetwork(fresh);
         addLiveNodes();
         addLiveArcs();
         addLivePatches();
@@ -177,14 +177,14 @@ public final class EmbeddedTMeshRecarve {
         List<Integer> liveNodes = new ArrayList<>();
         List<Integer> liveArcs = new ArrayList<>();
         for (EmbeddedNode node : source.nodes) {
-            denseNodeIdByOldId[node.nodeId] = EmbeddedTMesh.NONE;
+            denseNodeIdByOldId[node.nodeId] = ArcNetwork.NONE;
             if (node.alive) {
                 denseNodeIdByOldId[node.nodeId] = liveNodes.size();
                 liveNodes.add(node.nodeId);
             }
         }
         for (EmbeddedArc arc : source.arcs) {
-            denseArcIdByOldId[arc.arcId] = EmbeddedTMesh.NONE;
+            denseArcIdByOldId[arc.arcId] = ArcNetwork.NONE;
             if (arc.alive) {
                 denseArcIdByOldId[arc.arcId] = liveArcs.size();
                 liveArcs.add(arc.arcId);

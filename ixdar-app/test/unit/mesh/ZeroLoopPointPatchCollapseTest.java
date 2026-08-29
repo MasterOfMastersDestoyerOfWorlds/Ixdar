@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
@@ -48,7 +48,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
  *
  * <p>
  * The loop's two patch ids are assigned by hand because
- * {@link EmbeddedTMesh#addPatch} cannot express them. It decides which side of
+ * {@link ArcNetwork#addPatch} cannot express them. It decides which side of
  * an arc a patch lies on from the direction the boundary walk traverses it, and
  * a loop is traversed forwards from both sides, so both patches claim
  * {@code leftPatchId} and the second overwrites the first. Fertility never
@@ -66,33 +66,33 @@ class ZeroLoopPointPatchCollapseTest {
     void collapsingAZeroLoopRetiresThePointPatchEvenWhenTwoArcsRemain() {
         HalfEdgeMesh grid = buildGrid();
         EmbeddedMeshTopology topology = new EmbeddedMeshTopology(grid);
-        EmbeddedTMesh tmesh = new EmbeddedTMesh(topology);
+        ArcNetwork tmesh = new ArcNetwork(topology);
 
-        int loopNode = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 4, 4), false, false);
-        int farNode = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 1, 4), false, false);
-        int quadNode = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 5, 4), false, false);
+        int loopNode = tmesh.addNode(ArcNetwork.NONE, vertex(topology, 4, 4), false, false);
+        int farNode = tmesh.addNode(ArcNetwork.NONE, vertex(topology, 1, 4), false, false);
+        int quadNode = tmesh.addNode(ArcNetwork.NONE, vertex(topology, 5, 4), false, false);
 
-        int loop = tmesh.addArc(EmbeddedTMesh.NONE, loopNode, loopNode, 0, false,
+        int loop = tmesh.addArc(ArcNetwork.NONE, loopNode, loopNode, 0, false,
                 List.of(vertex(topology, 4, 4), vertex(topology, 4, 5), vertex(topology, 4, 6),
                         vertex(topology, 5, 6), vertex(topology, 6, 6), vertex(topology, 6, 5),
                         vertex(topology, 6, 4), vertex(topology, 6, 3), vertex(topology, 6, 2),
                         vertex(topology, 5, 2), vertex(topology, 4, 2), vertex(topology, 4, 3),
                         vertex(topology, 4, 4)));
-        int inbound = tmesh.addArc(EmbeddedTMesh.NONE, farNode, loopNode, 0, false,
+        int inbound = tmesh.addArc(ArcNetwork.NONE, farNode, loopNode, 0, false,
                 List.of(vertex(topology, 1, 4), vertex(topology, 2, 4), vertex(topology, 3, 4),
                         vertex(topology, 4, 4)));
-        int outbound = tmesh.addArc(EmbeddedTMesh.NONE, loopNode, farNode, 0, false,
+        int outbound = tmesh.addArc(ArcNetwork.NONE, loopNode, farNode, 0, false,
                 List.of(vertex(topology, 4, 4), vertex(topology, 3, 3), vertex(topology, 2, 3),
                         vertex(topology, 1, 3), vertex(topology, 1, 4)));
 
-        int quadOut = tmesh.addArc(EmbeddedTMesh.NONE, loopNode, quadNode, 2, false,
+        int quadOut = tmesh.addArc(ArcNetwork.NONE, loopNode, quadNode, 2, false,
                 List.of(vertex(topology, 4, 4), vertex(topology, 5, 4)));
-        int quadBack = tmesh.addArc(EmbeddedTMesh.NONE, quadNode, loopNode, 2, false,
+        int quadBack = tmesh.addArc(ArcNetwork.NONE, quadNode, loopNode, 2, false,
                 List.of(vertex(topology, 5, 4), vertex(topology, 5, 5), vertex(topology, 4, 4)));
 
-        int pinchedPatch = tmesh.addPatch(EmbeddedTMesh.NONE,
+        int pinchedPatch = tmesh.addPatch(ArcNetwork.NONE,
                 List.of(List.of(inbound), List.of(loop), List.of(), List.of(outbound)), farNode);
-        int farPatch = tmesh.addPatch(EmbeddedTMesh.NONE,
+        int farPatch = tmesh.addPatch(ArcNetwork.NONE,
                 List.of(List.of(loop), List.of(quadOut), List.of(), List.of(quadBack)), loopNode);
 
         tmesh.arcs.get(loop).leftPatchId = pinchedPatch;
@@ -114,7 +114,7 @@ class ZeroLoopPointPatchCollapseTest {
      * @param tmesh embedded T-mesh to measure
      * @return live nodes minus live arcs plus live patches
      */
-    private int eulerCharacteristic(EmbeddedTMesh tmesh) {
+    private int eulerCharacteristic(ArcNetwork tmesh) {
         int liveNodes = (int) tmesh.nodes.stream().filter(node -> node.alive).count();
         int liveArcs = (int) tmesh.arcs.stream().filter(arc -> arc.alive).count();
         int livePatches = (int) tmesh.patches.stream().filter(patch -> patch.alive).count();

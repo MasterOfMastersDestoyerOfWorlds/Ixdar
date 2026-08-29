@@ -5,7 +5,7 @@ import java.util.Set;
 
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
 
 public enum PortType {
@@ -34,7 +34,7 @@ public enum PortType {
     /** Per-corner UV assignment over a mesh. */
     UV_FIELD(UvField.class),
     /** Node-arc-patch network on a surface. */
-    ARC_NETWORK(EmbeddedTMesh.class),
+    ARC_NETWORK(ArcNetwork.class),
     /** A solve's degrees of freedom and their couplings. */
     DOF_SYSTEM(DofSystem.class),
     /** Atlas of charts covering a surface. */

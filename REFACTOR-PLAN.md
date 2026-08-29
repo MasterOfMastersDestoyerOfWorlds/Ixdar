@@ -1,4 +1,8 @@
-# Architecture documentation and reuse plan
+# Architecture documentation and reuse plan (archive)
+
+ARCHIVED 2026-08-27: the live plan is `REFACTOR-PLAN-2.md`, which carries only the open items.
+This file remains as the record of rulings and executed batches; read it for history, not for
+what to do next.
 
 Working document for the effort that produces `ARCHITECTURE.md`. Delete it when the objectives below
 are done. Not the deliverable itself.

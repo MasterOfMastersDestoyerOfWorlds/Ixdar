@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.PlaneLayoutFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
 
 /**
@@ -39,7 +39,7 @@ class ZeroPatchSplitCorridorTest {
         ZeroPatchSplitOperator operator = new ZeroPatchSplitOperator(fixture.tmesh);
 
         int nonSimple = operator.nextNonSimpleZeroPatch();
-        assertNotEquals(EmbeddedTMesh.NONE, nonSimple,
+        assertNotEquals(ArcNetwork.NONE, nonSimple,
                 "the fixture carries Figure 9's non-simple zero-patch");
         assertTrue(fixture.tmesh.nonZeroArcCount(nonSimple) > 2,
                 "non-simple means more than two non-zero arcs are involved");

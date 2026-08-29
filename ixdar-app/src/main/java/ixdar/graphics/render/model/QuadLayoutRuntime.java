@@ -13,7 +13,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnostic;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
@@ -1593,7 +1593,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
      *
      * @param tmesh embedded T-mesh to draw; retired elements are skipped
      */
-    public void setEmbeddedTMesh(EmbeddedTMesh tmesh) {
+    public void setEmbeddedTMesh(ArcNetwork tmesh) {
         GL gl = Platforms.gl();
         deleteEmbeddedBuffers(gl);
         HalfEdgeMesh copy = tmesh.topology.copy;
@@ -1959,14 +1959,14 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
      * @param tmesh    embedded T-mesh whose covers are flooded
      * @param patchIds live patches to show, coloured in palette order
      */
-    public void showPatchCovers(EmbeddedTMesh tmesh, List<Integer> patchIds) {
+    public void showPatchCovers(ArcNetwork tmesh, List<Integer> patchIds) {
         HalfEdgeMesh copy = tmesh.topology.copy;
         List<float[]> clouds = new ArrayList<>();
         float[] dotRadii = new float[patchIds.size()];
         Vector3f cornerStart = new Vector3f();
         Vector3f cornerEnd = new Vector3f();
         for (int index = 0; index < patchIds.size(); index++) {
-            IntIdList faces = tmesh.splitPatch.corridor.patchFaces(patchIds.get(index));
+            IntIdList faces = tmesh.corridor.patchFaces(patchIds.get(index));
             int[] faceIds = new int[faces.size()];
             for (int cursor = 0; cursor < faceIds.length; cursor++) {
                 faceIds[cursor] = faces.get(cursor);

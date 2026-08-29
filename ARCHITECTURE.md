@@ -170,7 +170,7 @@ commas between test names, never `+`.
 - **ixdar.geometry.mesh.quadlayout.crossfield.constraint**: Constraint sources pinning cross-field directions: boundary edges, sharp creases, principal curvature, and the gauge anchor.
 - **ixdar.geometry.mesh.quadlayout.embedding**: Re-embedding of the quantized layout on a refined working copy of the mesh: arc routing, rerouting, carving, collapse operators, and arrangement diagnostics.
 - **ixdar.geometry.mesh.quadlayout.embedding.fixtures**: Hand-built embedded T-mesh fixtures (torus, plane, pinch cases) used by the embedding unit tests. Fixture-to-DSL conversion is deferred until the pipeline is nodes.
-- **ixdar.geometry.mesh.quadlayout.embedding.records**: Value types for the embedding: `EmbeddedTMesh`, arcs, nodes, patches, topology with owner-arc claims per copy edge.
+- **ixdar.geometry.mesh.quadlayout.embedding.records**: Value types for the embedding: `ArcNetwork`, arcs, nodes, patches, topology with owner-arc claims per copy edge.
 - **ixdar.geometry.mesh.quadlayout.extraction**: Extraction of the final quad mesh and per-patch grids from the embedded layout, plus Coons surfaces for rendering.
 - **ixdar.geometry.mesh.quadlayout.gridmap**: Per-patch integer grid maps: rectangle parametrizations (Tutte-style), patch regions, and the grid-map optimizer (60s time budget).
 - **ixdar.geometry.mesh.quadlayout.motorcycle**: Motorcycle graph tracing over the parametrization: iso-line traces from singularities partition the surface into a T-mesh.

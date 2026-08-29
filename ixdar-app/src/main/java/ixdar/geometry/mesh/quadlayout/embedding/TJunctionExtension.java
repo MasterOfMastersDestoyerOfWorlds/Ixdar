@@ -19,7 +19,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.PatchCorridor;
  */
 public final class TJunctionExtension {
 
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
     public final ArcRerouter rerouter;
     public final PatchCorridor corridor;
 
@@ -40,7 +40,7 @@ public final class TJunctionExtension {
      *
      * @param tmesh embedded T-mesh whose T-junctions are extended
      */
-    public TJunctionExtension(EmbeddedTMesh tmesh) {
+    public TJunctionExtension(ArcNetwork tmesh) {
         this.tmesh = tmesh;
         this.rerouter = new ArcRerouter(tmesh.topology);
         this.corridor = new PatchCorridor(tmesh);
@@ -149,7 +149,7 @@ public final class TJunctionExtension {
         rerouter.admitPatch(tmesh.topology.resolvePatch(patchId));
         boolean reached;
         try {
-            reached = rerouter.tryRoute(EmbeddedTMesh.NONE, routed, startVertex, endVertex,
+            reached = rerouter.tryRoute(ArcNetwork.NONE, routed, startVertex, endVertex,
                     searchCorridor, EmbeddedMeshTopology.UNCLAIMED);
         } finally {
             rerouter.clearPatchRestriction();
@@ -157,14 +157,14 @@ public final class TJunctionExtension {
         if (!reached) {
             unrestrictedExtensionCount++;
             routed.clear();
-            reached = rerouter.tryRoute(EmbeddedTMesh.NONE, routed, startVertex, endVertex,
+            reached = rerouter.tryRoute(ArcNetwork.NONE, routed, startVertex, endVertex,
                     rerouter.freshCorridor(), EmbeddedMeshTopology.UNCLAIMED);
         }
         if (!reached) {
             throw new IllegalStateException("could not route a T-junction extension across patch "
                     + patchId + " from node " + tjunctionNodeId + " to node " + oppositeNodeId);
         }
-        int newArc = tmesh.addArc(EmbeddedTMesh.NONE, tjunctionNodeId, oppositeNodeId,
+        int newArc = tmesh.addArc(ArcNetwork.NONE, tjunctionNodeId, oppositeNodeId,
                 crossingLength, false, routed);
         int[] halves = tmesh.splitPatchByArc(patchId, newArc);
         extensionCount++;
@@ -188,10 +188,10 @@ public final class TJunctionExtension {
      * Appends a patch id to a work list when it names a live patch.
      *
      * @param touched work list to extend
-     * @param patchId candidate patch id, possibly {@link EmbeddedTMesh#NONE}
+     * @param patchId candidate patch id, possibly {@link ArcNetwork#NONE}
      */
     private void addLivePatch(List<Integer> touched, int patchId) {
-        if (patchId != EmbeddedTMesh.NONE && tmesh.patches.get(patchId).alive) {
+        if (patchId != ArcNetwork.NONE && tmesh.patches.get(patchId).alive) {
             touched.add(patchId);
         }
     }

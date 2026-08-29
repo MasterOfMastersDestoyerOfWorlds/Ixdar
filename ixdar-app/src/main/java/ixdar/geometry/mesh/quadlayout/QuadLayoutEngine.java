@@ -3,8 +3,9 @@ package ixdar.geometry.mesh.quadlayout;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.extraction.LayoutPatchSurfaces;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
@@ -72,7 +73,7 @@ public final class QuadLayoutEngine {
     public LayoutEmbedding embedding;
 
     /** The embedded T-mesh, contracted and conforming: the pipeline's output. */
-    public EmbeddedTMesh tmesh;
+    public ArcNetwork tmesh;
 
     public LayoutPatchMaps patchMaps;
 
@@ -247,7 +248,7 @@ public final class QuadLayoutEngine {
      *
      * @return the cached embedded T-mesh, uncontracted
      */
-    public EmbeddedTMesh buildTMesh() {
+    public ArcNetwork buildTMesh() {
         if (tmesh == null) {
             buildLayoutEmbedding();
         }
@@ -261,11 +262,11 @@ public final class QuadLayoutEngine {
      *
      * @return the cached T-mesh, contracted and conforming
      */
-    public EmbeddedTMesh buildContractedTMesh() {
+    public ArcNetwork buildContractedTMesh() {
         if (!contracted) {
             buildTMesh();
             long startNanos = System.nanoTime();
-            tmesh = tmesh.contract();
+            tmesh = new NetworkContraction(tmesh).contract();
             contracted = true;
             logStageTime("contract", startNanos);
         }

@@ -22,6 +22,7 @@ import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
 import ixdar.geometry.mesh.quadlayout.gridmap.LayoutPatchMaps;
 import ixdar.geometry.mesh.quadlayout.gridmap.LayoutResolution;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 
 /**
  * QEx-style extraction of the torus layout's integer grid map. The unrelaxed
@@ -62,8 +63,9 @@ class QuadMeshExtractionTest {
      */
     private void extractAndCheck(boolean relax) {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
-        fixture.tmesh.contract();
-        fixture.tmesh.conform();
+        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        contraction.contract();
+        contraction.conform();
         SeamlessUv seamless = new QuadLayoutEngine(fixture.torus, 0f)
                 .buildSeamless();
         double targetEdgeLength = shortestArcLength(fixture, seamless) / QUADS_ON_SHORTEST_ARC;

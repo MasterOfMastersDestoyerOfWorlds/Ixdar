@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
@@ -21,7 +21,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
  */
 public final class PatchRegions {
 
-    public final EmbeddedTMesh tmesh;
+    public final ArcNetwork tmesh;
 
     /** Patch id owning each copy face, keyed by copy face id. */
     public final Map<Integer, Integer> patchIdByCopyFace;
@@ -34,7 +34,7 @@ public final class PatchRegions {
      *
      * @param tmesh embedded T-mesh whose patches to enclose
      */
-    public PatchRegions(EmbeddedTMesh tmesh) {
+    public PatchRegions(ArcNetwork tmesh) {
         this.tmesh = tmesh;
         this.patchIdByCopyFace = new HashMap<>();
         this.copyFacesByPatch = new HashMap<>();

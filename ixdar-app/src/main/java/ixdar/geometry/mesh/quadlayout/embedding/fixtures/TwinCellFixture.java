@@ -5,7 +5,7 @@ import java.util.List;
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.DiskMeshNode;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
@@ -23,7 +23,7 @@ public final class TwinCellFixture implements LayoutFixture {
 
     public HalfEdgeMesh disk;
     public EmbeddedMeshTopology topology;
-    public EmbeddedTMesh tmesh;
+    public ArcNetwork tmesh;
 
     /** Critical node on the central vertex; the collapse merges the moved node onto it. */
     public int survivorNodeId;
@@ -92,7 +92,7 @@ public final class TwinCellFixture implements LayoutFixture {
     }
 
     @Override
-    public EmbeddedTMesh build() {
+    public ArcNetwork build() {
         DiskMeshNode node = new DiskMeshNode();
         MapNodeContext context = new MapNodeContext(node);
         context.setInput(DiskMeshNode.RINGS.name, RING_COUNT);
@@ -102,7 +102,7 @@ public final class TwinCellFixture implements LayoutFixture {
         node.evaluate(context);
         this.disk = context.getOutput(DiskMeshNode.MESH.name, HalfEdgeMesh.class);
         this.topology = new EmbeddedMeshTopology(disk);
-        this.tmesh = new EmbeddedTMesh(topology);
+        this.tmesh = new ArcNetwork(topology);
         layOutTMesh();
         return tmesh;
     }
@@ -113,52 +113,52 @@ public final class TwinCellFixture implements LayoutFixture {
      * cell after the wall is gone.
      */
     private void layOutTMesh() {
-        survivorNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(0, 0), true, false);
-        movedNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(2, 0), false, false);
-        islandNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(1, 10), false, false);
-        eastFanNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(2, 1), false, false);
-        outerFanNodeId = tmesh.addNode(EmbeddedTMesh.NONE, copyVertex(3, 1), false, false);
+        survivorNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(0, 0), true, false);
+        movedNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(2, 0), false, false);
+        islandNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(1, 10), false, false);
+        eastFanNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(2, 1), false, false);
+        outerFanNodeId = tmesh.addNode(ArcNetwork.NONE, copyVertex(3, 1), false, false);
 
-        channelArcId = tmesh.addArc(EmbeddedTMesh.NONE, movedNodeId, survivorNodeId, 0, false,
+        channelArcId = tmesh.addArc(ArcNetwork.NONE, movedNodeId, survivorNodeId, 0, false,
                 List.of(copyVertex(2, 0), copyVertex(1, 0), copyVertex(0, 0)));
-        parallelArcId = tmesh.addArc(EmbeddedTMesh.NONE, movedNodeId, survivorNodeId, 0, false,
+        parallelArcId = tmesh.addArc(ArcNetwork.NONE, movedNodeId, survivorNodeId, 0, false,
                 List.of(copyVertex(2, 0), copyVertex(2, 11), copyVertex(2, 10), copyVertex(2, 9),
                         copyVertex(1, 9), copyVertex(0, 0)));
-        inArcId = tmesh.addArc(EmbeddedTMesh.NONE, survivorNodeId, islandNodeId, 0, false,
+        inArcId = tmesh.addArc(ArcNetwork.NONE, survivorNodeId, islandNodeId, 0, false,
                 List.of(copyVertex(0, 0), copyVertex(1, 10)));
-        tornArcId = tmesh.addArc(EmbeddedTMesh.NONE, islandNodeId, survivorNodeId, 0, false,
+        tornArcId = tmesh.addArc(ArcNetwork.NONE, islandNodeId, survivorNodeId, 0, false,
                 List.of(copyVertex(1, 10), copyVertex(1, 11), copyVertex(0, 0)));
-        eastFanArcId = tmesh.addArc(EmbeddedTMesh.NONE, movedNodeId, eastFanNodeId, 0, false,
+        eastFanArcId = tmesh.addArc(ArcNetwork.NONE, movedNodeId, eastFanNodeId, 0, false,
                 List.of(copyVertex(2, 0), copyVertex(2, 1)));
-        eastSealArcId = tmesh.addArc(EmbeddedTMesh.NONE, eastFanNodeId, survivorNodeId, 0,
+        eastSealArcId = tmesh.addArc(ArcNetwork.NONE, eastFanNodeId, survivorNodeId, 0,
                 false, List.of(copyVertex(2, 1), copyVertex(1, 1), copyVertex(0, 0)));
-        outerFanArcId = tmesh.addArc(EmbeddedTMesh.NONE, movedNodeId, outerFanNodeId, 0, false,
+        outerFanArcId = tmesh.addArc(ArcNetwork.NONE, movedNodeId, outerFanNodeId, 0, false,
                 List.of(copyVertex(2, 0), copyVertex(3, 1)));
-        outerSealArcId = tmesh.addArc(EmbeddedTMesh.NONE, outerFanNodeId, survivorNodeId, 0,
+        outerSealArcId = tmesh.addArc(ArcNetwork.NONE, outerFanNodeId, survivorNodeId, 0,
                 false, List.of(copyVertex(3, 1), copyVertex(3, 2), copyVertex(2, 2),
                         copyVertex(1, 2), copyVertex(0, 0)));
 
-        westCellPatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        westCellPatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(parallelArcId),
                 List.of(inArcId),
                 List.of(tornArcId),
                 List.of(channelArcId)), movedNodeId);
-        islandPatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        islandPatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(tornArcId),
                 List.of(inArcId),
                 List.of(),
                 List.of()), survivorNodeId);
-        eastInnerPatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        eastInnerPatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(channelArcId),
                 List.of(eastSealArcId),
                 List.of(eastFanArcId),
                 List.of()), movedNodeId);
-        eastOuterPatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        eastOuterPatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(eastFanArcId),
                 List.of(eastSealArcId),
                 List.of(outerSealArcId),
                 List.of(outerFanArcId)), movedNodeId);
-        southCellPatchId = tmesh.addPatch(EmbeddedTMesh.NONE, List.of(
+        southCellPatchId = tmesh.addPatch(ArcNetwork.NONE, List.of(
                 List.of(outerFanArcId),
                 List.of(outerSealArcId),
                 List.of(parallelArcId),

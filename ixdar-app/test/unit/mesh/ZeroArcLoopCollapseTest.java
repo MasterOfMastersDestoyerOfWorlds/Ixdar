@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
@@ -40,17 +40,17 @@ class ZeroArcLoopCollapseTest {
     void collapsingALoopZeroArcKeepsTheComplexEulerNeutral() {
         HalfEdgeMesh grid = buildGrid();
         EmbeddedMeshTopology topology = new EmbeddedMeshTopology(grid);
-        EmbeddedTMesh tmesh = new EmbeddedTMesh(topology);
+        ArcNetwork tmesh = new ArcNetwork(topology);
 
-        int startNode = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 1, 1), false, false);
-        int endNode = tmesh.addNode(EmbeddedTMesh.NONE, vertex(topology, 3, 1), false, false);
+        int startNode = tmesh.addNode(ArcNetwork.NONE, vertex(topology, 1, 1), false, false);
+        int endNode = tmesh.addNode(ArcNetwork.NONE, vertex(topology, 3, 1), false, false);
 
-        int straightArc = tmesh.addArc(EmbeddedTMesh.NONE, startNode, endNode, 0, false,
+        int straightArc = tmesh.addArc(ArcNetwork.NONE, startNode, endNode, 0, false,
                 List.of(vertex(topology, 1, 1), vertex(topology, 2, 1), vertex(topology, 3, 1)));
-        int detourArc = tmesh.addArc(EmbeddedTMesh.NONE, startNode, endNode, 0, false,
+        int detourArc = tmesh.addArc(ArcNetwork.NONE, startNode, endNode, 0, false,
                 List.of(vertex(topology, 1, 1), vertex(topology, 2, 2), vertex(topology, 3, 2),
                         vertex(topology, 3, 1)));
-        tmesh.addPatch(EmbeddedTMesh.NONE,
+        tmesh.addPatch(ArcNetwork.NONE,
                 List.of(List.of(straightArc), List.of(), List.of(detourArc), List.of()), startNode);
 
         ZeroArcCollapseOperator operator = new ZeroArcCollapseOperator(tmesh);
@@ -71,7 +71,7 @@ class ZeroArcLoopCollapseTest {
      * @param tmesh embedded T-mesh to measure
      * @return live nodes minus live arcs plus live patches
      */
-    private int eulerCharacteristic(EmbeddedTMesh tmesh) {
+    private int eulerCharacteristic(ArcNetwork tmesh) {
         int liveNodes = (int) tmesh.nodes.stream().filter(node -> node.alive).count();
         int liveArcs = (int) tmesh.arcs.stream().filter(arc -> arc.alive).count();
         int livePatches = (int) tmesh.patches.stream().filter(patch -> patch.alive).count();

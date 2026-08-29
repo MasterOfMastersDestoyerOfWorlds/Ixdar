@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.EmbeddedTMesh;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
 
 /**
@@ -28,14 +28,14 @@ class ZeroPatchSplitTest {
         ZeroPatchSplitOperator operator = new ZeroPatchSplitOperator(fixture.tmesh);
 
         int patchId = operator.nextNonSimpleZeroPatch();
-        assertNotEquals(EmbeddedTMesh.NONE, patchId, "the fixture has one non-simple zero-patch");
+        assertNotEquals(ArcNetwork.NONE, patchId, "the fixture has one non-simple zero-patch");
         int liveArcsBefore = countLiveArcs(fixture.tmesh);
         int livePatchesBefore = countLivePatches(fixture.tmesh);
 
         operator.split(patchId);
 
         fixture.tmesh.validate();
-        assertEquals(EmbeddedTMesh.NONE, operator.nextNonSimpleZeroPatch(),
+        assertEquals(ArcNetwork.NONE, operator.nextNonSimpleZeroPatch(),
                 "the two halves must both be simple zero-patches");
         assertEquals(liveArcsBefore + 2, countLiveArcs(fixture.tmesh),
                 "the opposite arc splits in two and a new zero-arc is added");
@@ -59,7 +59,7 @@ class ZeroPatchSplitTest {
         boolean foundNewZeroArc = false;
         for (int arcId = 0; arcId < fixture.tmesh.arcs.size(); arcId++) {
             var arc = fixture.tmesh.arcs.get(arcId);
-            if (arc.alive && arc.quantizedLength == 0 && arc.sourceArcId == EmbeddedTMesh.NONE
+            if (arc.alive && arc.quantizedLength == 0 && arc.sourceArcId == ArcNetwork.NONE
                     && arc.path.copyEdgePath.size() >= 1) {
                 foundNewZeroArc = true;
             }
@@ -87,7 +87,7 @@ class ZeroPatchSplitTest {
     void splitThenCollapseClearsEveryZeroArc() {
         TorusLayoutFixture fixture = new TorusLayoutFixture();
         ZeroPatchSplitOperator splitter = new ZeroPatchSplitOperator(fixture.tmesh);
-        for (int patchId = splitter.nextNonSimpleZeroPatch(); patchId != EmbeddedTMesh.NONE;
+        for (int patchId = splitter.nextNonSimpleZeroPatch(); patchId != ArcNetwork.NONE;
                 patchId = splitter.nextNonSimpleZeroPatch()) {
             splitter.split(patchId);
             fixture.tmesh.validate();
@@ -96,7 +96,7 @@ class ZeroPatchSplitTest {
         var collapser = new ixdar.geometry.mesh.quadlayout.embedding
                 .ZeroArcCollapseOperator(fixture.tmesh);
         int guard = 0;
-        for (int arcId = collapser.mostContendedArc(); arcId != EmbeddedTMesh.NONE;
+        for (int arcId = collapser.mostContendedArc(); arcId != ArcNetwork.NONE;
                 arcId = collapser.mostContendedArc()) {
             collapser.collapse(arcId);
             fixture.tmesh.validate();
@@ -120,7 +120,7 @@ class ZeroPatchSplitTest {
      * @param tmesh T-mesh to count
      * @return count of live arcs
      */
-    private static int countLiveArcs(EmbeddedTMesh tmesh) {
+    private static int countLiveArcs(ArcNetwork tmesh) {
         int count = 0;
         for (int id = 0; id < tmesh.arcs.size(); id++) {
             if (tmesh.arcs.get(id).alive) {
@@ -136,7 +136,7 @@ class ZeroPatchSplitTest {
      * @param tmesh T-mesh to count
      * @return count of live patches
      */
-    private static int countLivePatches(EmbeddedTMesh tmesh) {
+    private static int countLivePatches(ArcNetwork tmesh) {
         int count = 0;
         for (int id = 0; id < tmesh.patches.size(); id++) {
             if (tmesh.patches.get(id).alive) {
