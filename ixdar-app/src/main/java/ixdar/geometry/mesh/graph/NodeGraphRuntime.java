@@ -1,5 +1,10 @@
 package ixdar.geometry.mesh.graph;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -28,6 +33,7 @@ import ixdar.platform.Platforms;
  */
 public class NodeGraphRuntime {
     public static final String MESH = "mesh";
+    public static final String ID = "id";
     public static final String STR = ".";
     public static final String WAS_REFERENCED_BEFORE_IT_WAS_EVALUATED = "' was referenced before it was evaluated!";
     public static final String STR_2 = " (";
@@ -65,14 +71,34 @@ public class NodeGraphRuntime {
         REGISTRY_CLASSES = Collections.unmodifiableMap(out);
     }
 
+    /** Top-level statements of the program this runtime was parsed from, in source order. */
+    public final List<PythonParser.ParsedNode> statements;
+
     private final Map<String, Class<? extends MeshNode>> nodeRegistry = new HashMap<>();
     private final Map<String, PythonParser.FunctionDef> functionDefs = new HashMap<>();
 
     private final Map<String, GraphNodeContext> evaluatedNodes = new HashMap<>();
 
+    /** Id of the final top-level statement of the most recent execution. */
+    private String lastStatementId;
+
     /** Per-node timing from last graph execution. Entries: "id (type) → ms". */
     private final LinkedHashMap<String, Long> lastTimingMs = new LinkedHashMap<>();
     private long lastTotalMs;
+
+    /** A runtime with no program of its own; callers hand statements to the execute methods. */
+    public NodeGraphRuntime() {
+        this(List.of());
+    }
+
+    /**
+     * A runtime bound to a parsed program.
+     *
+     * @param statements top-level statements in source order
+     */
+    public NodeGraphRuntime(List<PythonParser.ParsedNode> statements) {
+        this.statements = statements;
+    }
 
     /**
      * Returns per-node timing from the most recent {@code executeGraphResult} call.
@@ -95,9 +121,9 @@ public class NodeGraphRuntime {
 
     /**
      * Returns the output value of a previously-executed node, or {@code null} if the node never
-     * ran or the port doesn't exist. Used by viewer scenes that need to grab intermediate
-     * values from the DSL graph (e.g. the dungeon viewer wiring the {@code TileGrid} produced
-     * by {@code astar_corridors_3d} into the player controller's collision world).
+     * ran or the port doesn't exist. Used by viewer scenes that grab intermediate values from
+     * the DSL graph (e.g. the dungeon viewer wiring {@code astar_corridors_3d}'s tile-lattice
+     * geometry into the player controller's collision world).
      *
      * @param nodeId id of the previously-executed graph node
      * @param outputPortName name of the output port to read
@@ -107,6 +133,80 @@ public class NodeGraphRuntime {
         GraphNodeContext ctx = evaluatedNodes.get(nodeId);
         if (ctx == null) return null;
         return ctx.getOutput(outputPortName);
+    }
+
+    /**
+     * The output a port of the final top-level statement produced in the most
+     * recent execution.
+     *
+     * @param outputPortName name of the output port to read
+     * @return the port's value, or {@code null} when nothing ran or the port is
+     *         missing
+     */
+    public Object lastOutput(String outputPortName) {
+        return lastStatementId == null ? null : getNodeOutput(lastStatementId, outputPortName);
+    }
+
+    /**
+     * The int a previously-executed statement published on its {@code id}
+     * output port, the convention id-producing nodes share.
+     *
+     * @param nodeId id of the previously-executed graph node
+     * @throws IllegalArgumentException when no statement of that name produced
+     *                                  an int {@code id} output
+     * @return the statement's id output
+     */
+    public int intOutput(String nodeId) {
+        Object value = getNodeOutput(nodeId, ID);
+        if (!(value instanceof Integer intValue)) {
+            throw new IllegalArgumentException("no statement named " + nodeId
+                    + " with an int id output");
+        }
+        return intValue;
+    }
+
+    /**
+     * Parses and executes a graph resource and returns the executed runtime,
+     * every statement's outputs readable through {@link #getNodeOutput},
+     * {@link #intOutput} and {@link #lastOutput}.
+     *
+     * @param dslPath   classpath resource or file path of the graph
+     * @param overrides per-node literal overrides; see
+     *                  {@link #executeGraphResult(List, String, String, Map)}
+     *                  for the key format
+     * @throws IllegalStateException when parsing or execution fails
+     * @return the executed runtime
+     */
+    public static NodeGraphRuntime executeResource(String dslPath, Map<String, Object> overrides) {
+        try {
+            NodeGraphRuntime runtime = fromSource(readText(dslPath));
+            String last = runtime.statements.get(runtime.statements.size() - 1).id;
+            runtime.executeGraphResult(runtime.statements, last, RESULT, overrides);
+            return runtime;
+        } catch (Exception failure) {
+            throw new IllegalStateException("graph " + dslPath + " failed", failure);
+        }
+    }
+
+    /**
+     * Reads a graph source, trying the classpath before the filesystem.
+     *
+     * @param path resource path (e.g. {@code dsl/fixtures/x.dsl}) or file path
+     * @throws IllegalArgumentException when neither location has the file
+     * @return the file's text
+     */
+    private static String readText(String path) {
+        try {
+            InputStream stream = NodeGraphRuntime.class.getClassLoader().getResourceAsStream(path);
+            if (stream != null) {
+                try (stream) {
+                    return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+                }
+            }
+            return new String(Files.readAllBytes(Path.of(path)), StandardCharsets.UTF_8);
+        } catch (IOException failure) {
+            throw new IllegalArgumentException("cannot read graph " + path, failure);
+        }
     }
 
     /**
@@ -138,9 +238,8 @@ public class NodeGraphRuntime {
     @SuppressWarnings("unchecked")
     public static Map<String, Supplier<? extends MeshNode>> desktopRegistryMap() {
         try {
-            Class<?> desktop = Class.forName(String.join(STR,
-                    MeshNodeRegistry_MeshNodes.class.getPackageName(),
-                    MeshNodeRegistry_MeshNodes.class.getSimpleName() + "Desktop"));
+            Class<?> desktop = Class.forName(
+                    MeshNodeRegistry_MeshNodes.class.getName() + "Desktop");
             return (Map<String, Supplier<? extends MeshNode>>) desktop.getField("MAP").get(null);
         } catch (Throwable unavailable) {
             return Map.of();
@@ -209,19 +308,18 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * Parses DSL source into statements and a runtime holding every registered node and the
-     * program's own function definitions.
+     * Parses DSL source into a runtime holding the parsed {@link #statements}, every
+     * registered node and the program's own function definitions.
      *
      * @param source DSL program text
-     * @return the parsed statements paired with a runtime ready to execute them
+     * @return a runtime ready to execute its statements
      */
-    public static ParsedGraph fromSource(String source) {
+    public static NodeGraphRuntime fromSource(String source) {
         PythonParser parser = new PythonParser(new PythonLexer(source));
-        List<PythonParser.ParsedNode> statements = parser.parseGraph();
-        NodeGraphRuntime runtime = new NodeGraphRuntime();
+        NodeGraphRuntime runtime = new NodeGraphRuntime(parser.parseGraph());
         runtime.registerAllFromAnnotationRegistry();
         runtime.registerFunctionDefs(parser.functionDefs());
-        return new ParsedGraph(runtime, statements);
+        return runtime;
     }
 
     /**
@@ -283,6 +381,8 @@ public class NodeGraphRuntime {
             String outputPortName, Map<String, Object> overridesByNodeId) throws Exception {
         evaluatedNodes.clear();
         lastTimingMs.clear();
+        lastStatementId = parsedStatements.isEmpty() ? null
+                : parsedStatements.get(parsedStatements.size() - 1).id;
         long graphStart = System.nanoTime();
 
         FieldContext currentFieldContext = null;
@@ -435,9 +535,7 @@ public class NodeGraphRuntime {
             // Parameter nodes expose their value on a "result" port and also
             // on the conventional port name for their type (mesh, geometry, etc.)
             paramCtx.setOutput(RESULT, value);
-            if (value instanceof MeshTopology) {
-                paramCtx.setOutput(MESH, value);
-            } else if (value instanceof GeometryBundle) {
+            if (value instanceof GeometryBundle) {
                 paramCtx.setOutput(GEOMETRY, value);
                 paramCtx.setOutput(MESH, value);
             }
@@ -529,13 +627,7 @@ public class NodeGraphRuntime {
     }
 
     private static MeshTopology meshFromValue(Object v) {
-        if (v instanceof MeshTopology m) {
-            return m;
-        }
-        if (v instanceof GeometryBundle g) {
-            return g.mesh();
-        }
-        return null;
+        return v instanceof GeometryBundle g ? g.mesh() : null;
     }
 
     /**
@@ -565,22 +657,7 @@ public class NodeGraphRuntime {
      */
     public MeshTopology executeGraphToMesh(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
             String outputPortName, Map<String, Object> overridesByNodeId) throws Exception {
-        Object result = executeGraphResult(parsedStatements, finalOutputId, outputPortName, overridesByNodeId);
-        if (result instanceof MeshTopology m) {
-            return m;
-        }
-        if (result instanceof GeometryBundle g) {
-            return g.mesh();
-        }
-        return null;
+        return meshFromValue(executeGraphResult(parsedStatements, finalOutputId, outputPortName, overridesByNodeId));
     }
 
-    /**
-     * A parsed DSL program together with the runtime prepared to execute it.
-     *
-     * @param runtime    runtime with the annotation registry and the program's functions loaded
-     * @param statements top-level statements in source order
-     */
-    public record ParsedGraph(NodeGraphRuntime runtime, List<PythonParser.ParsedNode> statements) {
-    }
 }

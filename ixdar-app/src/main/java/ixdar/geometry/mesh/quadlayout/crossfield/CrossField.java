@@ -1,18 +1,15 @@
 package ixdar.geometry.mesh.quadlayout.crossfield;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
-import ixdar.geometry.mesh.quadlayout.Singularity;
+import ixdar.geometry.mesh.nodes.api.BoolField;
+import ixdar.geometry.mesh.nodes.api.IntField;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.CurvatureConstraints;
 import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
@@ -64,10 +61,11 @@ public class CrossField {
     public float[] kappa;
 
     /**
-     * All of the vertices in the cross field that have more or less than 4 edges
-     * incident to them.
+     * Per-vertex singularity index times four, in dense active-vertex order
+     * ({@code mesh.vertexIdAt}); 0 everywhere non-singular. The singular
+     * vertex selection is the nonzero entries; Poincare-Hopf is the field sum.
      */
-    public List<Singularity> singularities = new ArrayList<>();
+    public final IntField singularityIndex4;
 
     /**
      * Sharp-feature threshold, stored as the cosine of the angle between the two
@@ -88,11 +86,12 @@ public class CrossField {
     public Map<Integer, Integer> edgeIdToActive;
 
     /**
-     * Raw mesh edge ids that should become quad edges: sharp feature edges and
+     * Per-edge selection of the edges that should become quad edges, in dense
+     * active-edge order ({@code mesh.edgeIdAt}): sharp feature edges and
      * boundary edges. The seamless stage uses them to keep cuts away from these
      * edges and to pin the matching parameter coordinate to an integer iso-line.
      */
-    public Set<Integer> alignmentEdgeIds = new HashSet<>();
+    public final BoolField alignmentEdges;
 
     public boolean[] faceConstrained;
     public float[] faceConstraintAngle;
@@ -144,7 +143,8 @@ public class CrossField {
         this.faceX = new Vector3f[faceCount];
         this.faceY = new Vector3f[faceCount];
 
-        this.alignmentEdgeIds = new HashSet<>();
+        this.singularityIndex4 = new IntField(new int[vertexCount]);
+        this.alignmentEdges = new BoolField(new boolean[edgeCount]);
 
         this.interiorRowCount = 0;
         for (int i = 0; i < edgeCount; i++) {
@@ -158,6 +158,52 @@ public class CrossField {
         this.rowOfEdge = new int[edgeCount];
         Arrays.fill(rowOfEdge, -1);
         this.curvatureConstraints = new CurvatureConstraints(mesh, this);
+    }
+
+    /**
+     * Number of singular vertices: the nonzero entries of
+     * {@link #singularityIndex4}.
+     *
+     * @return singular vertex count
+     */
+    public int singularityCount() {
+        int count = 0;
+        for (int v = 0; v < singularityIndex4.length(); v++) {
+            if (singularityIndex4.get(v) != 0) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Mesh vertex ids of the singular vertices, derived from the nonzero
+     * entries of {@link #singularityIndex4}.
+     *
+     * @return set of singular mesh vertex ids
+     */
+    public Set<Integer> singularVertexIds() {
+        Set<Integer> ids = new LinkedHashSet<>();
+        for (int v = 0; v < singularityIndex4.length(); v++) {
+            if (singularityIndex4.get(v) != 0) {
+                ids.add(mesh.vertexIdAt(v));
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * Whether any edge is selected in {@link #alignmentEdges}.
+     *
+     * @return true when at least one alignment edge exists
+     */
+    public boolean hasAlignmentEdges() {
+        for (int e = 0; e < alignmentEdges.length(); e++) {
+            if (alignmentEdges.get(e)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

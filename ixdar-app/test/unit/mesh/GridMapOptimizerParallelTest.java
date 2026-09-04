@@ -3,10 +3,12 @@ package unit.mesh;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
@@ -65,21 +67,22 @@ class GridMapOptimizerParallelTest {
      * @return the solved optimizer, for its result fields
      */
     private GridMapOptimizer relaxTorus(int workerThreads) {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        NetworkContraction contraction = new NetworkContraction(fixtureNet);
         contraction.contract();
         contraction.conform();
-        SeamlessUv seamless = new QuadLayoutEngine(fixture.torus, 0f)
+        SeamlessUv seamless = new QuadLayoutEngine(fixtureNet.topology.sourceMesh, 0f)
                 .buildSeamless();
-        double targetEdgeLength = shortestArcLength(fixture.tmesh, seamless)
+        double targetEdgeLength = shortestArcLength(fixtureNet, seamless)
                 / QUADS_ON_SHORTEST_ARC;
-        LayoutPatchMaps patchMaps = new LayoutPatchMaps(fixture.tmesh, seamless,
+        LayoutPatchMaps patchMaps = new LayoutPatchMaps(fixtureNet, seamless,
                 targetEdgeLength).build();
-        IntegerGridMap frames = new IntegerGridMap(fixture.tmesh).build();
+        IntegerGridMap frames = new IntegerGridMap(fixtureNet).build();
         GlobalGridMap gridMap = new GlobalGridMap(patchMaps, frames, seamless);
-        gridMap.uvByPatchId = new double[fixture.tmesh.patches.size()][];
+        gridMap.uvByPatchId = new double[fixtureNet.patches.size()][];
         double[] grid = new double[GlobalGridMap.GRID_COORDINATES];
-        for (EmbeddedPatch patch : fixture.tmesh.patches) {
+        for (EmbeddedPatch patch : fixtureNet.patches) {
             if (!patch.alive) {
                 continue;
             }

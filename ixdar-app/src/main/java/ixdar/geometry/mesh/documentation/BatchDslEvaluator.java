@@ -228,7 +228,6 @@ public final class BatchDslEvaluator {
                 for (String port : ports) {
                     Object raw = runtime.executeGraphResult(parsed, last.id, port, overrides);
                     if (raw instanceof GeometryBundle gb) mesh = gb.mesh();
-                    else if (raw instanceof MeshTopology mt) mesh = mt;
                     if (mesh != null && mesh.vertexCount() > 0) break;
                 }
 
@@ -469,8 +468,7 @@ public final class BatchDslEvaluator {
                 MeshNodeSchema schema = MeshNodeSchema.from(instance);
                 List<String> names = new ArrayList<>();
                 for (var op : schema.outputs()) {
-                    if (op.type == PortType.MESH
-                            || op.type == PortType.GEOMETRY_BUNDLE) {
+                    if (op.type == PortType.GEOMETRY_BUNDLE) {
                         names.add(op.name);
                     }
                 }

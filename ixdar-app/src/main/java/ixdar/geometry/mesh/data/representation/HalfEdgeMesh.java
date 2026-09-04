@@ -5,7 +5,6 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.nodes.api.MeshValue;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
@@ -15,7 +14,7 @@ import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
  * {@link IntIdList} adjacency. Editing methods delegate to
  * {@link HalfEdgeMeshEngine}.
  */
-public class HalfEdgeMesh implements MeshTopology, MeshValue {
+public class HalfEdgeMesh implements MeshTopology {
     public static final String IS_NOT_ACTIVE = " is not active";
     public static final int NUM_4 = 4;
     public static final int NUM_8 = 8;

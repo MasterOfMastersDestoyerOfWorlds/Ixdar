@@ -195,7 +195,7 @@ public final class GraphAnalyzer {
      * @param idom            immediate dominator map
      * @param registry        node type registry (for output port type checks)
      * @param minSubgraphSize minimum subtree size to qualify
-     * @return seam nodes whose subtrees produce MESH or GEOMETRY_BUNDLE outputs
+     * @return seam nodes whose subtrees produce GEOMETRY_BUNDLE outputs
      */
     private static List<SeamNode> findSeams(List<PythonParser.ParsedNode> parsed,
             List<String> nodeIds, Map<String, Integer> idToIndex,
@@ -245,11 +245,11 @@ public final class GraphAnalyzer {
 
             if (!isSeam) continue;
 
-            // Check that seam produces MESH or GEOMETRY_BUNDLE
+            // Check that seam produces geometry
             PythonParser.ParsedNode seamParsed = byId.get(candidateId);
             List<String> outputTypes = getOutputPortTypes(seamParsed.type, registry);
             boolean producesMesh = outputTypes.stream().anyMatch(
-                    t -> "MESH".equals(t) || "GEOMETRY_BUNDLE".equals(t));
+                    "GEOMETRY_BUNDLE"::equals);
             if (!producesMesh) continue;
 
             // Collect external inputs (edges into subtree from outside)

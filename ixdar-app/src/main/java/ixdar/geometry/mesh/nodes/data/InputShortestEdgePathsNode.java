@@ -1,8 +1,8 @@
 package ixdar.geometry.mesh.nodes.data;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.PriorityQueue;
 
 import java.util.Map;
 
@@ -16,6 +16,8 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.paths.Dijkstra;
+import ixdar.geometry.mesh.data.paths.ShortestPathForest;
 import ixdar.geometry.mesh.graph.MeshFieldContext;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
@@ -77,91 +79,81 @@ public class InputShortestEdgePathsNode implements MeshNode {
         Object costObj = FieldBroadcast.getInputOrDefault(ctx, EDGE_COST.name, EDGE_COST.defaultValue);
 
         int n = mesh.vertexCount();
-        float[] dist = new float[n];
-        int[] parent = new int[n];
-        Arrays.fill(dist, Float.POSITIVE_INFINITY);
-        Arrays.fill(parent, -1);
-
-        PriorityQueue<Node> pq = new PriorityQueue<>();
-
-        seedSources(mesh, endObj, n, dist, parent, pq);
-
+        int[] sources = seedSources(mesh, endObj, n);
         int[] vertIdToIdx = buildVertexIdIndex(mesh, n);
-
-        while (!pq.isEmpty()) {
-            Node cur = pq.poll();
-            int u = cur.vertex;
-            if (cur.dist > dist[u]) {
-                continue;
-            }
-            int uid = mesh.vertexIdAt(u);
-            int outCount = mesh.vertexOutgoingHalfEdgeCount(uid);
-            for (int k = 0; k < outCount; k++) {
-                int he = mesh.vertexOutgoingHalfEdgeAt(uid, k);
-                int vid = mesh.halfEdgeEndVertex(he);
-                int v = vertIdToIdx != null ? vertIdToIdx[vid] : indexOfVertexId(mesh, vid);
-                if (v < 0) {
-                    continue;
-                }
-                float ec = edgeCostBetween(costObj, u, v);
-                float nd = dist[u] + ec;
-                if (nd < dist[v]) {
-                    dist[v] = nd;
-                    parent[v] = u;
-                    pq.add(new Node(v, nd));
-                }
-            }
+        int[] sourceIds = new int[sources.length];
+        for (int i = 0; i < sources.length; i++) {
+            sourceIds[i] = mesh.vertexIdAt(sources[i]);
         }
+
+        ShortestPathForest forest = Dijkstra.forest(mesh, sourceIds, edgeCosts(mesh, vertIdToIdx, costObj));
 
         int[] nextIdx = new int[n];
         float[] tot = new float[n];
         for (int i = 0; i < n; i++) {
-            tot[i] = Float.isFinite(dist[i]) ? dist[i] : NUM_0;
-            nextIdx[i] = parent[i] < 0 ? 0 : parent[i];
+            int vid = mesh.vertexIdAt(i);
+            float dist = (float) forest.distance[vid];
+            tot[i] = Float.isFinite(dist) ? dist : NUM_0;
+            int parentId = forest.parent[vid];
+            nextIdx[i] = parentId < 0 ? 0 : denseIndex(mesh, vertIdToIdx, parentId);
         }
         ctx.setOutput(NEXT_VERTEX.name, new IntField(nextIdx));
         ctx.setOutput(TOTAL_COST.name, new FloatField(tot));
     }
 
-    private static void seedSources(MeshTopology mesh, Object endObj, int n,
-            float[] dist, int[] parent, PriorityQueue<Node> pq) {
+    /**
+     * The traversal cost of every live edge, indexed by edge id: the endpoint
+     * average of the per-vertex cost field, or the scalar cost.
+     */
+    private static double[] edgeCosts(MeshTopology mesh, int[] vertIdToIdx, Object costObj) {
+        int bound = 0;
+        for (int i = 0; i < mesh.edgeCount(); i++) {
+            bound = Math.max(bound, mesh.edgeIdAt(i) + 1);
+        }
+        double[] cost = new double[bound];
+        for (int i = 0; i < mesh.edgeCount(); i++) {
+            int edgeId = mesh.edgeIdAt(i);
+            int he = mesh.edgeHalfEdge(edgeId);
+            int u = denseIndex(mesh, vertIdToIdx, mesh.halfEdgeVertex(he));
+            int v = denseIndex(mesh, vertIdToIdx, mesh.halfEdgeEndVertex(he));
+            cost[edgeId] = edgeCostBetween(costObj, u, v);
+        }
+        return cost;
+    }
+
+    private static int denseIndex(MeshTopology mesh, int[] vertIdToIdx, int vid) {
+        return vertIdToIdx != null ? vertIdToIdx[vid] : indexOfVertexId(mesh, vid);
+    }
+
+    /**
+     * The source vertex indices Dijkstra seeds, in ascending index order: the
+     * BoolField's marked vertices, or every boundary vertex when {@code end} is
+     * the scalar true, falling back to vertex 0 when nothing matches.
+     */
+    private static int[] seedSources(MeshTopology mesh, Object endObj, int n) {
+        List<Integer> sources = new ArrayList<>();
         if (endObj instanceof BoolField bf) {
-            boolean any = false;
             int len = Math.min(bf.length(), n);
             for (int i = 0; i < len; i++) {
                 if (bf.get(i)) {
-                    any = true;
-                    dist[i] = NUM_0;
-                    parent[i] = i;
-                    pq.add(new Node(i, NUM_0));
+                    sources.add(i);
                 }
-            }
-            if (!any) {
-                dist[0] = NUM_0;
-                parent[0] = 0;
-                pq.add(new Node(0, NUM_0));
             }
         } else if (Boolean.TRUE.equals(endObj)) {
-            boolean anyBoundary = false;
             for (int i = 0; i < n; i++) {
-                int vid = mesh.vertexIdAt(i);
-                if (mesh.isBoundaryVertex(vid)) {
-                    anyBoundary = true;
-                    dist[i] = NUM_0;
-                    parent[i] = i;
-                    pq.add(new Node(i, NUM_0));
+                if (mesh.isBoundaryVertex(mesh.vertexIdAt(i))) {
+                    sources.add(i);
                 }
             }
-            if (!anyBoundary) {
-                dist[0] = NUM_0;
-                parent[0] = 0;
-                pq.add(new Node(0, NUM_0));
-            }
-        } else {
-            dist[0] = NUM_0;
-            parent[0] = 0;
-            pq.add(new Node(0, NUM_0));
         }
+        if (sources.isEmpty()) {
+            sources.add(0);
+        }
+        int[] out = new int[sources.size()];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = sources.get(i);
+        }
+        return out;
     }
 
     /**
@@ -204,12 +196,5 @@ public class InputShortestEdgePathsNode implements MeshNode {
             idx[mesh.vertexIdAt(i)] = i;
         }
         return idx;
-    }
-
-    private record Node(int vertex, float dist) implements Comparable<Node> {
-        @Override
-        public int compareTo(Node o) {
-            return Float.compare(dist, o.dist);
-        }
     }
 }

@@ -8,6 +8,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "sphere")
@@ -19,7 +20,7 @@ public class QuadSphereMeshNode implements MeshNode {
     public static final InputPort SIZE = new InputPort("size", PortType.FLOAT, 1.0f, 0.001f, 100f);
     // Defines how many quads make up the circumference of the sphere
     public static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 16, (float) 3, (float) 128);
-    public static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
+    public static final OutputPort MESH = new OutputPort("mesh", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -92,7 +93,7 @@ public class QuadSphereMeshNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput(MESH.name, mesh);
+        ctx.setOutput(MESH.name, GeometryBundle.ofMesh(mesh));
     }
 
     private int addVertex(float[] n, float[] r, float[] u, float uCoord, float vCoord, float radius, HalfEdgeMesh mesh) {

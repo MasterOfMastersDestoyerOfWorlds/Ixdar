@@ -146,11 +146,11 @@ public final class ArcNetworkRecarve {
         addLiveNodes();
         addLiveArcs();
         addLivePatches();
-        freshTmesh.resolveWalkOrientation();
+        freshTmesh.validateWalkOrientation();
         freshTmesh.validate();
 
         if (foreignNodeOnPathCount > 0) {
-            System.out.println("[recarve] " + foreignNodeOnPathCount + " contracted path vertices"
+            Platforms.log("[recarve] " + foreignNodeOnPathCount + " contracted path vertices"
                     + " are held by a foreign node; first: " + firstForeignNodeOnPath);
         }
         snapping.report();

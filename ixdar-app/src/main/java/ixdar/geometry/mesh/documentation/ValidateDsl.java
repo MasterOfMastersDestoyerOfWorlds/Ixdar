@@ -242,21 +242,12 @@ public final class ValidateDsl {
                     .getDeclaredConstructor()
                     .newInstance();
                 MeshNodeSchema schema = MeshNodeSchema.from(instance);
-                // Prefer GEOMETRY_BUNDLE ports over MESH so the export sees the
-                // bundle's slots (bezier handles, auto-tags, etc.) — a plain
-                // MeshTopology output strips that metadata.
-                List<String> bundlePorts = new ArrayList<>();
-                List<String> meshPorts = new ArrayList<>();
+                List<String> names = new ArrayList<>();
                 for (OutputPort op : schema.outputs()) {
                     if (op.type == PortType.GEOMETRY_BUNDLE) {
-                        bundlePorts.add(op.name);
-                    } else if (op.type == PortType.MESH) {
-                        meshPorts.add(op.name);
+                        names.add(op.name);
                     }
                 }
-                List<String> names = new ArrayList<>();
-                names.addAll(bundlePorts);
-                names.addAll(meshPorts);
                 if (!names.isEmpty()) {
                     return names;
                 }
@@ -441,8 +432,6 @@ public final class ValidateDsl {
                 if (raw instanceof GeometryBundle gb) {
                     mesh = gb.mesh();
                     tags = TagGeometryNode.getTags(gb);
-                } else if (raw instanceof MeshTopology mt) {
-                    mesh = mt;
                 }
                 if (mesh != null && mesh.vertexCount() > 0) {
                     return new ExportResult(mesh, tags);

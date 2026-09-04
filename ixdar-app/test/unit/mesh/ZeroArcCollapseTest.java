@@ -4,9 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
@@ -25,20 +27,21 @@ class ZeroArcCollapseTest {
 
     @Test
     void collapsingOneZeroArcRemovesItAndKeepsTheDecomposition() {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        ZeroArcCollapseOperator operator = new ZeroArcCollapseOperator(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        ZeroArcCollapseOperator operator = new ZeroArcCollapseOperator(fixtureNet);
 
-        int liveArcsBefore = countLive(fixture.tmesh);
+        int liveArcsBefore = countLive(fixtureNet);
         int arcId = operator.mostContendedArc();
         assertNotEquals(ArcNetwork.NONE, arcId, "the zero row must offer a collapsible arc");
-        assertEquals(0, fixture.tmesh.arcs.get(arcId).quantizedLength, "it must be a zero arc");
+        assertEquals(0, fixtureNet.arcs.get(arcId).quantizedLength, "it must be a zero arc");
 
         operator.collapse(arcId);
 
-        fixture.tmesh.validate();
-        assertTrue(fixture.tmesh.arcs.get(arcId).alive == false,
+        fixtureNet.validate();
+        assertTrue(fixtureNet.arcs.get(arcId).alive == false,
                 "the collapsed arc is retired");
-        assertEquals(liveArcsBefore - 1, countLive(fixture.tmesh),
+        assertEquals(liveArcsBefore - 1, countLive(fixtureNet),
                 "exactly one arc leaves the T-mesh");
     }
 
@@ -50,20 +53,21 @@ class ZeroArcCollapseTest {
      */
     @Test
     void collapsingUntilNoneLeavesNoZeroArcsAndHoldsEuler() {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        ZeroArcCollapseOperator operator = new ZeroArcCollapseOperator(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        ZeroArcCollapseOperator operator = new ZeroArcCollapseOperator(fixtureNet);
 
         int guard = 0;
         for (int arcId = operator.mostContendedArc(); arcId != ArcNetwork.NONE;
                 arcId = operator.mostContendedArc()) {
             operator.collapse(arcId);
-            fixture.tmesh.validate();
-            if (++guard > fixture.tmesh.arcs.size()) {
+            fixtureNet.validate();
+            if (++guard > fixtureNet.arcs.size()) {
                 throw new AssertionError("collapse did not terminate");
             }
         }
 
-        for (EmbeddedArc arc : fixture.tmesh.arcs) {
+        for (EmbeddedArc arc : fixtureNet.arcs) {
             if (arc.alive) {
                 assertNotEquals(0, arc.quantizedLength,
                         "arc " + arc.arcId + " is a zero arc that should have collapsed");

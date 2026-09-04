@@ -7,7 +7,6 @@ import java.util.Map;
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.csg.MeshBooleanResult;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.geometry.MeshBooleanNode;
@@ -140,9 +139,8 @@ public class MeshBooleanScene extends ModelScene {
         if (dslSource == null) {
             return;
         }
-        NodeGraphRuntime.ParsedGraph parsedGraph = NodeGraphRuntime.fromSource(dslSource);
-        List<PythonParser.ParsedNode> ast = parsedGraph.statements();
-        NodeGraphRuntime graphRuntime = parsedGraph.runtime();
+        NodeGraphRuntime graphRuntime = NodeGraphRuntime.fromSource(dslSource);
+        List<PythonParser.ParsedNode> ast = graphRuntime.statements;
 
         Object result;
         try {
@@ -154,8 +152,7 @@ public class MeshBooleanScene extends ModelScene {
         }
         graphRuntime.logTimings("[mesh-boolean]");
 
-        GeometryBundle bundle = GeometryBundles.bundlePart(result);
-        if (bundle == null || bundle.mesh() == null) {
+        if (!(result instanceof GeometryBundle bundle) || bundle.mesh() == null) {
             Platforms.get().log(LOG_PREFIX + DSL_NAME + " produced no mesh");
             return;
         }

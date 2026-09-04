@@ -10,6 +10,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "mesh_grid")
@@ -32,7 +33,7 @@ public class GridMeshNode implements MeshNode {
      */
     public static final InputPort V_TOTAL_SIZE = new InputPort("v_total_size", PortType.FLOAT, 0.0f, 0f, 1000f);
     public static final InputPort TRIANGULATE = new InputPort("triangulate", PortType.BOOLEAN, false);
-    public static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
+    public static final OutputPort MESH = new OutputPort("mesh", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -139,7 +140,7 @@ public class GridMeshNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput(MESH.name, mesh);
+        ctx.setOutput(MESH.name, GeometryBundle.ofMesh(mesh));
     }
 
     /**
@@ -157,7 +158,7 @@ public class GridMeshNode implements MeshNode {
         context.setInput(GridMeshNode.V_TILES.name, rows - 1);
         context.setInput(GridMeshNode.TRIANGULATE.name, true);
         node.evaluate(context);
-        return context.getOutput(GridMeshNode.MESH.name, HalfEdgeMesh.class);
+        return (HalfEdgeMesh) context.getOutput(GridMeshNode.MESH.name, GeometryBundle.class).mesh();
     }
 
     /**

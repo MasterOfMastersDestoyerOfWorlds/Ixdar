@@ -4,9 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
@@ -21,17 +23,18 @@ class ArcNetworkRecarveTest {
 
     @Test
     void recarvePreservesLiveLayoutAndReducesMeshDensity() {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        NetworkContraction contraction = new NetworkContraction(fixtureNet);
         contraction.contract();
 
-        int liveNodesBefore = countLiveNodes(fixture.tmesh);
-        int liveArcsBefore = countLiveArcs(fixture.tmesh);
-        int livePatchesBefore = countLivePatches(fixture.tmesh);
-        int verticesBefore = fixture.topology.copy.vertexCount();
-        int facesBefore = fixture.topology.copy.faceCount();
+        int liveNodesBefore = countLiveNodes(fixtureNet);
+        int liveArcsBefore = countLiveArcs(fixtureNet);
+        int livePatchesBefore = countLivePatches(fixtureNet);
+        int verticesBefore = fixtureNet.topology.copy.vertexCount();
+        int facesBefore = fixtureNet.topology.copy.faceCount();
 
-        ArcNetwork rebuilt = contraction.recarve(fixture.torus);
+        ArcNetwork rebuilt = contraction.recarve(fixtureNet.topology.sourceMesh);
         rebuilt.validate();
         new PatchRegions(rebuilt).build();
 

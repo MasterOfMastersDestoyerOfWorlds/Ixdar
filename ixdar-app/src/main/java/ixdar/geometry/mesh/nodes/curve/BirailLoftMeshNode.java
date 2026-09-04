@@ -14,7 +14,6 @@ import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
@@ -69,8 +68,8 @@ public class BirailLoftMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle ga = GeometryBundles.bundlePart(ctx.getInput(RAIL_A.name, Object.class));
-        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput(RAIL_B.name, Object.class));
+        GeometryBundle ga = ctx.getInput(RAIL_A.name, GeometryBundle.class);
+        GeometryBundle gb = ctx.getInput(RAIL_B.name, GeometryBundle.class);
         if (ga == null || gb == null) {
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;

@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.nodes.selection;
 
+import java.util.Objects;
 import java.util.List;
 
 import org.joml.Vector3f;
@@ -15,7 +16,6 @@ import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.nodes.api.Vector3Value;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
@@ -65,7 +65,7 @@ public class SelectByDistanceNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
+        GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         Vector3Value pt = FieldBroadcast.vector3ValueOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, POINT.name, POINT.defaultValue),
                 new Vector3Value(NUM_0, NUM_0, NUM_0));

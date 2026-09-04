@@ -13,6 +13,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
@@ -421,7 +422,7 @@ class EmbeddedTMeshTest {
         context.setInput(TorusMeshNode.MINOR_SEGMENTS.name, MINOR_SEGMENTS);
         context.setInput(TorusMeshNode.TRIANGULATE.name, true);
         node.evaluate(context);
-        HalfEdgeMesh torus = context.getOutput(TorusMeshNode.MESH.name, HalfEdgeMesh.class);
+        HalfEdgeMesh torus = (HalfEdgeMesh) context.getOutput(TorusMeshNode.MESH.name, GeometryBundle.class).mesh();
 
         topology = new EmbeddedMeshTopology(torus);
         tmesh = new ArcNetwork(topology);
@@ -461,29 +462,29 @@ class EmbeddedTMeshTest {
         int topRow4 = verticalArc(4, LOOP_TOP, LOOP_BOTTOM, TOP_ROW_HEIGHT);
         int topRow8 = verticalArc(8, LOOP_TOP, LOOP_BOTTOM, TOP_ROW_HEIGHT);
 
-        addPatch(0, LOOP_BOTTOM, List.of(bottom02), List.of(bottomRow2), List.of(middle02),
-                List.of(bottomRow0));
-        addPatch(2, LOOP_BOTTOM, List.of(bottom24), List.of(bottomRow4), List.of(middle24),
+        addPatch(2, LOOP_BOTTOM, List.of(bottom02), List.of(bottomRow0), List.of(middle02),
                 List.of(bottomRow2));
-        addPatch(4, LOOP_BOTTOM, List.of(bottom48), List.of(bottomRow8), List.of(middle48),
+        addPatch(4, LOOP_BOTTOM, List.of(bottom24), List.of(bottomRow2), List.of(middle24),
                 List.of(bottomRow4));
-        addPatch(8, LOOP_BOTTOM, List.of(bottom80), List.of(bottomRow0), List.of(middle80),
+        addPatch(8, LOOP_BOTTOM, List.of(bottom48), List.of(bottomRow4), List.of(middle48),
                 List.of(bottomRow8));
+        addPatch(0, LOOP_BOTTOM, List.of(bottom80), List.of(bottomRow8), List.of(middle80),
+                List.of(bottomRow0));
 
         // The non-simple zero-patch: two arcs along its bottom, one along its top.
-        addPatch(0, LOOP_MIDDLE, List.of(middle02, middle24), List.of(zeroRow4), List.of(top04),
-                List.of(zeroRow0));
-        addPatch(4, LOOP_MIDDLE, List.of(middle48), List.of(zeroRow8), List.of(top48),
+        addPatch(4, LOOP_MIDDLE, List.of(middle24, middle02), List.of(zeroRow0), List.of(top04),
                 List.of(zeroRow4));
-        addPatch(8, LOOP_MIDDLE, List.of(middle80), List.of(zeroRow0), List.of(top80),
+        addPatch(8, LOOP_MIDDLE, List.of(middle48), List.of(zeroRow4), List.of(top48),
                 List.of(zeroRow8));
+        addPatch(0, LOOP_MIDDLE, List.of(middle80), List.of(zeroRow8), List.of(top80),
+                List.of(zeroRow0));
 
-        addPatch(0, LOOP_TOP, List.of(top04), List.of(topRow4), List.of(bottom24, bottom02),
-                List.of(topRow0));
-        addPatch(4, LOOP_TOP, List.of(top48), List.of(topRow8), List.of(bottom48),
+        addPatch(4, LOOP_TOP, List.of(top04), List.of(topRow0), List.of(bottom02, bottom24),
                 List.of(topRow4));
-        addPatch(8, LOOP_TOP, List.of(top80), List.of(topRow0), List.of(bottom80),
+        addPatch(8, LOOP_TOP, List.of(top48), List.of(topRow4), List.of(bottom48),
                 List.of(topRow8));
+        addPatch(0, LOOP_TOP, List.of(top80), List.of(topRow8), List.of(bottom80),
+                List.of(topRow0));
     }
 
     /**
@@ -540,18 +541,20 @@ class EmbeddedTMeshTest {
     }
 
     /**
-     * Adds a patch, given its four sides walked counter-clockwise from a corner.
+     * Adds a patch, given its four sides walked counter-clockwise seen from outside,
+     * interior on the left, from its bottom-right corner: bottom walked major-down, then
+     * left, top and right.
      *
      * @param cornerMajor major coordinate of the corner the walk starts at
      * @param cornerMinor minor coordinate of the corner the walk starts at
      * @param bottom      arcs of the side walked first
-     * @param right       arcs of the side walked second
+     * @param left        arcs of the side walked second
      * @param top         arcs of the side walked third
-     * @param left        arcs of the side walked fourth
+     * @param right       arcs of the side walked fourth
      */
     private void addPatch(int cornerMajor, int cornerMinor, List<Integer> bottom,
-            List<Integer> right, List<Integer> top, List<Integer> left) {
-        tmesh.addPatch(ArcNetwork.NONE, List.of(bottom, right, top, left),
+            List<Integer> left, List<Integer> top, List<Integer> right) {
+        tmesh.addPatch(ArcNetwork.NONE, List.of(bottom, left, top, right),
                 nodeAt.get(key(cornerMajor, cornerMinor)));
     }
 

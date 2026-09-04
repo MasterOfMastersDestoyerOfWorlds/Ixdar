@@ -1,4 +1,5 @@
 package ixdar.geometry.mesh.nodes.modifier;
+import java.util.Objects;
 import java.util.Arrays;
 
 import java.util.ArrayList;
@@ -21,7 +22,6 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
@@ -53,8 +53,10 @@ public class ExtrudeMeshNode implements MeshNode {
     public static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
     public static final InputPort REGION = new InputPort("region", PortType.BOOLEAN, false);
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
-    public static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
     public static final OutputPort GENERATED_OUT = new OutputPort("generated", PortType.BOOLEAN);
+
+    private boolean[] extrudedFaces;
+    private int[] extrudedFromVertex;
 
     @Override
     public List<InputPort> inputs() {
@@ -63,7 +65,7 @@ public class ExtrudeMeshNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(MESH_OUT, GEOMETRY_OUT, GENERATED_OUT);
+        return List.of(GEOMETRY_OUT, GENERATED_OUT);
     }
 
     @Override
@@ -78,17 +80,15 @@ public class ExtrudeMeshNode implements MeshNode {
                 OFFSET.name, "Distance to push extruded faces along the (averaged) face normal. Positive = outward, negative = inward.",
                 SELECTION.name, "Per-face BOOLEAN mask (or scalar). True = face gets extruded.",
                 REGION.name, "If true, adjacent selected faces share extruded vertices — single extruded region. If false (default), each face extrudes independently (cheese-grater).",
-                MESH_OUT.name, "Topology-only output.",
                 GENERATED_OUT.name, "Per-output-face BOOLEAN: true for the newly-created top face of each extrusion; false for pass-through and side walls. Thread into the selection of the next op to chain features."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
+        GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         MeshTopology in = base.mesh();
         if (in == null || in.vertexCount() == 0) {
-            ctx.setOutput(MESH_OUT.name, null);
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             ctx.setOutput(GENERATED_OUT.name, new BoolField(new boolean[0]));
             return;
@@ -103,49 +103,26 @@ public class ExtrudeMeshNode implements MeshNode {
 
         ArrayMesh am = in instanceof ArrayMesh m ? m : ArrayMeshEngine.fromUniformMeshTopology(in);
         am.computeNormals();
-
-        // ExtrusionResult carries the output mesh, the new→original vertex-id
-        // map (for handle preservation and 'generated' classification), and the
-        // per-output-face selection mask of which faces were replaced (= top
-        // faces, = "generated" faces). 'selected' has length am.faceCount()
-        // since top faces occupy those indices; side walls follow after.
-        ExtrusionResult er = region
+        MeshTopology out = region
                 ? extrudeRegion(am, offset, selObj)
                 : extrudeFacesIndividual(am, offset, selObj);
-        MeshTopology out = er.mesh;
-
-        // Build 'generated' per-output-face mask: selected faces at indices
-        // 0..faceCount-1 (now the top faces) are generated; everything beyond
-        // is side walls (not generated).
         int outFaceCount = out == null ? 0 : out.faceCount();
         boolean[] genMask = new boolean[outFaceCount];
         int origFaceCount = am.faceCount();
         for (int fi = 0; fi < Math.min(origFaceCount, outFaceCount); fi++) {
-            genMask[fi] = er.selected[fi];
+            genMask[fi] = extrudedFaces[fi];
         }
 
         GeometryBundle outBundle = base.withMesh(out);
-
-        // Handle preservation — two paths:
-        //   1. If the input carries the _bezier_handle_weight slot (stored by
-        //      assign_bezier_handles), rebuild handles for every output edge
-        //      via AssignBezierHandlesNode.computeHandles. This gives globally
-        //      consistent handles: adjacent cage faces share an edge with
-        //      identical handle data, so coons_patch produces a seamless
-        //      surface across chained inset/extrude operations.
-        //   2. Legacy fallback: copy handles edge-by-edge. Only used if the
-        //      input has handles but no weight slot (e.g. handles written by
-        //      hand or by a not-yet-updated upstream node).
         if (out != null && CoonsHandleBuilder.hasHandles(base)) {
             Object w = base.slots().get(AssignBezierHandlesNode.SLOT_WEIGHT);
             if (w instanceof Number num) {
                 outBundle = AssignBezierHandlesNode.computeHandles(outBundle, num.floatValue());
-            } else if (er.newToOrig != null) {
-                outBundle = preserveHandles(base, in, out, er.newToOrig, outBundle);
+            } else if (extrudedFromVertex != null) {
+                outBundle = preserveHandles(base, in, out, extrudedFromVertex, outBundle);
             }
         }
 
-        ctx.setOutput(MESH_OUT.name, out);
         ctx.setOutput(GEOMETRY.name, outBundle);
         ctx.setOutput(GENERATED_OUT.name, new BoolField(genMask));
     }
@@ -161,7 +138,6 @@ public class ExtrudeMeshNode implements MeshNode {
         float[] inHE = CoonsHandleBuilder.readHandleSlot(base,
                 AssignBezierHandlesNode.SLOT_HANDLES_END, inMesh);
 
-        // Index input edges by directed vertex pair → directed handle offset.
         Map<Long, float[]> inEdgeToStart = new HashMap<>();
         Map<Long, float[]> inEdgeToEnd = new HashMap<>();
         for (int ei = 0; ei < inMesh.edgeCount(); ei++) {
@@ -184,33 +160,28 @@ public class ExtrudeMeshNode implements MeshNode {
             int a = outMesh.halfEdgeVertex(he);
             int b = outMesh.halfEdgeEndVertex(he);
 
-            // Classify endpoints.
             boolean aNew = a >= origVc;
             boolean bNew = b >= origVc;
             int origA = aNew ? newToOrig[a - origVc] : a;
             int origB = bNew ? newToOrig[b - origVc] : b;
             if (origA < 0 || origB < 0 || origA == origB) {
-                continue; // vertical wall or degenerate — leave zero handles
+                continue; 
             }
             if (aNew != bNew) {
-                continue; // mixed: vertical wall, zero handles
+                continue; 
             }
 
-            // Look up the input edge corresponding to this pair.
             long keyAB = CoonsHandleBuilder.dirPack(origA, origB);
             long keyBA = CoonsHandleBuilder.dirPack(origB, origA);
             float[] startAB = inEdgeToStart.get(keyAB);
             float[] endAB = inEdgeToEnd.get(keyAB);
             if (startAB == null) {
-                // Try reverse canonical direction.
                 startAB = inEdgeToEnd.get(keyBA);
                 endAB = inEdgeToStart.get(keyBA);
             }
             if (startAB == null) {
                 continue; // no ancestor edge — shouldn't happen for quads
             }
-            // The output edge goes a→b; its start-handle is at endpoint a
-            // (corresponding to origA) and its end-handle at b (origB).
             dh.put(CoonsHandleBuilder.dirPack(a, b),
                     new float[]{startAB[0], startAB[1], startAB[2]});
             dh.put(CoonsHandleBuilder.dirPack(b, a),
@@ -223,9 +194,8 @@ public class ExtrudeMeshNode implements MeshNode {
                 .withSlot(AssignBezierHandlesNode.SLOT_HANDLES_END, handles[1]);
     }
 
-    // ── Individual mode (original behavior) ──────────────────────────────
 
-    private static ExtrusionResult extrudeFacesIndividual(ArrayMesh mesh, float offset, Object selection) {
+    private MeshTopology extrudeFacesIndividual(ArrayMesh mesh, float offset, Object selection) {
         int vpf = mesh.getVertsPerFace();
         int vertCount = mesh.vertexCount();
         int faceCount = mesh.faceCount();
@@ -239,18 +209,19 @@ public class ExtrudeMeshNode implements MeshNode {
             selected[fi] = sel;
             if (sel) selectedCount++;
         }
+        extrudedFaces = selected;
 
         if (selectedCount == 0 || offset == NUM_0) {
-            return new ExtrusionResult(new ArrayMesh(srcPos, null, srcFaces, vpf), selected, new int[0]);
+            extrudedFromVertex = new int[0];
+            return new ArrayMesh(srcPos, null, srcFaces, vpf);
         }
 
         int newVertCount = selectedCount * vpf;
         int sideFaceCount = selectedCount * vpf;
 
-        // newToOrig[newVid - vertCount] = origVid that this new vertex was extruded from
         int[] newToOrig = new int[newVertCount];
+        extrudedFromVertex = newToOrig;
 
-        // Fast path: quads only — output ArrayMesh with primitive arrays, no boxing.
         if (vpf == NUM_4) {
             int outV = vertCount + newVertCount;
             int outF = faceCount + sideFaceCount;
@@ -318,10 +289,9 @@ public class ExtrudeMeshNode implements MeshNode {
 
             ArrayMesh out = new ArrayMesh(outPos, null, outFaces, NUM_4);
             out.computeNormals();
-            return new ExtrusionResult(out, selected, newToOrig);
+            return out;
         }
 
-        // Fallback for non-quad input (sides would be quads breaking uniformity)
         HalfEdgeMesh out = new HalfEdgeMesh(
                 vertCount + newVertCount, 0,
                 faceCount + sideFaceCount,
@@ -378,15 +348,10 @@ public class ExtrudeMeshNode implements MeshNode {
         }
 
         out.computeNormals();
-        return new ExtrusionResult(out, selected, newToOrig);
+        return out;
     }
 
-    // ── Region mode ──────────────────────────────────────────────────────
-    // Adjacent selected faces share extruded vertices. Side walls are only
-    // created on edges where a selected face borders an unselected face
-    // (or a mesh boundary).
-
-    private static ExtrusionResult extrudeRegion(ArrayMesh mesh, float offset, Object selection) {
+    private MeshTopology extrudeRegion(ArrayMesh mesh, float offset, Object selection) {
         int vpf = mesh.getVertsPerFace();
         int vertCount = mesh.vertexCount();
         int faceCount = mesh.faceCount();
@@ -400,12 +365,13 @@ public class ExtrudeMeshNode implements MeshNode {
             selected[fi] = sel;
             if (sel) selectedCount++;
         }
+        extrudedFaces = selected;
 
         if (selectedCount == 0 || offset == NUM_0) {
-            return new ExtrusionResult(new ArrayMesh(srcPos, null, srcFaces, vpf), selected, new int[0]);
+            extrudedFromVertex = new int[0];
+            return new ArrayMesh(srcPos, null, srcFaces, vpf);
         }
 
-        // Identify which original vertices are used by selected faces
         boolean[] vertUsedBySelected = new boolean[vertCount];
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
@@ -414,8 +380,6 @@ public class ExtrudeMeshNode implements MeshNode {
             }
         }
 
-        // Compute average normal of selected faces sharing each vertex
-        // for smooth offset direction
         Vector3f faceNormal = new Vector3f();
         float[] vertNormals = new float[vertCount * NUM_3]; // accumulated
         int[] vertNormalCount = new int[vertCount];
@@ -432,7 +396,6 @@ public class ExtrudeMeshNode implements MeshNode {
             }
         }
 
-        // Normalize vertex normals
         for (int vi = 0; vi < vertCount; vi++) {
             if (vertNormalCount[vi] == 0) continue;
             float nx = vertNormals[vi * NUM_3];
@@ -446,7 +409,6 @@ public class ExtrudeMeshNode implements MeshNode {
             }
         }
 
-        // Create new vertex IDs: one new vertex for each original vertex used by selected faces
         int[] vertNewId = new int[vertCount];
         Arrays.fill(vertNewId, -1);
         int newVertTotal = 0;
@@ -456,22 +418,18 @@ public class ExtrudeMeshNode implements MeshNode {
                 newVertTotal++;
             }
         }
-        // newToOrig[newVid - vertCount] = origVid that this extruded vertex came from
         int[] newToOrig = new int[newVertTotal];
+        extrudedFromVertex = newToOrig;
         for (int vi = 0; vi < vertCount; vi++) {
             if (vertNewId[vi] >= 0) {
                 newToOrig[vertNewId[vi] - vertCount] = vi;
             }
         }
 
-        // Collect boundary edges of the selection region.
-        // A boundary edge is one where a selected face meets an unselected face or the mesh boundary.
-        // We store the edge as (va, vb) in the winding order of the SELECTED face.
-        record BoundaryEdge(int va, int vb) {}
-        List<BoundaryEdge> boundaryEdges = new ArrayList<>();
+        long[] boundaryEdges = new long[faceCount * vpf];
+        int boundaryEdgeCount = 0;
         Set<Long> edgeSeen = new HashSet<>();
 
-        // Build edge-to-faces map for adjacency lookup
         Map<Long, List<Integer>> edgeFaces = new HashMap<>();
         for (int fi = 0; fi < faceCount; fi++) {
             for (int k = 0; k < vpf; k++) {
@@ -482,7 +440,6 @@ public class ExtrudeMeshNode implements MeshNode {
             }
         }
 
-        // Find boundary edges from the perspective of selected faces
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
             for (int k = 0; k < vpf; k++) {
@@ -496,29 +453,22 @@ public class ExtrudeMeshNode implements MeshNode {
                 for (int f : faces) {
                     if (!selected[f]) { allSelected = false; break; }
                 }
-                // Boundary: not all adjacent faces are selected, or mesh boundary (1 face)
                 if (!allSelected || faces.size() == 1) {
                     edgeSeen.add(key);
-                    // Store with winding from the selected face
-                    boundaryEdges.add(new BoundaryEdge(va, vb));
+                    boundaryEdges[boundaryEdgeCount++] = EdgeKey.directed(va, vb);
                 }
             }
         }
 
-        int sideQuadCount = boundaryEdges.size();
+        int sideQuadCount = boundaryEdgeCount;
         int totalFaces = faceCount + sideQuadCount;
 
         HalfEdgeMesh out = new HalfEdgeMesh(
                 vertCount + newVertTotal, 0,
                 totalFaces, totalFaces * vpf * 2);
-
-        // Copy all original vertices
         for (int vi = 0; vi < vertCount; vi++) {
             out.addVertex(srcPos[vi * NUM_3], srcPos[vi * NUM_3 + 1], srcPos[vi * NUM_3 + 2]);
         }
-
-        // Add new (extruded) vertices — offset along averaged normal
-        // Negate normal for Ixdar's inward-facing normal convention
         for (int vi = 0; vi < vertCount; vi++) {
             if (!vertUsedBySelected[vi]) continue;
             float nx = srcPos[vi * NUM_3] - vertNormals[vi * NUM_3] * offset;
@@ -527,7 +477,6 @@ public class ExtrudeMeshNode implements MeshNode {
             out.addVertex(nx, ny, nz);
         }
 
-        // Add faces: selected faces use new vertex IDs, unselected use original
         for (int fi = 0; fi < faceCount; fi++) {
             int[] vids = new int[vpf];
             for (int k = 0; k < vpf; k++) {
@@ -536,27 +485,16 @@ public class ExtrudeMeshNode implements MeshNode {
             }
             out.addFace(vids);
         }
-
-        // Add side quads on boundary edges of the selection region.
-        // The selected face originally had edge va→vb but now uses newA→newB.
-        // The unselected neighbor (or mesh boundary) still has edge vb→va.
-        // Side quad winding: va → vb → newB → newA
-        // This creates half-edges:
-        //   va→vb (twin of unselected face's vb→va)
-        //   vb→newB (new wall edge)
-        //   newB→newA (twin of selected face's newA→newB)
-        //   newA→va (new wall edge)
-        for (BoundaryEdge be : boundaryEdges) {
-            int newA = vertNewId[be.va];
-            int newB = vertNewId[be.vb];
+        for (int i = 0; i < boundaryEdgeCount; i++) {
+            int va = EdgeKey.minVertex(boundaryEdges[i]);
+            int vb = EdgeKey.maxVertex(boundaryEdges[i]);
+            int newA = vertNewId[va];
+            int newB = vertNewId[vb];
             if (newA < 0 || newB < 0) continue;
-            out.addFace(be.va, be.vb, newB, newA);
+            out.addFace(va, vb, newB, newA);
         }
 
         out.computeNormals();
-        return new ExtrusionResult(out, selected, newToOrig);
+        return out;
     }
-
-    /** Result of an extrusion: mesh + metadata used for handle preservation and generated output. */
-    private record ExtrusionResult(MeshTopology mesh, boolean[] selected, int[] newToOrig) {}
 }

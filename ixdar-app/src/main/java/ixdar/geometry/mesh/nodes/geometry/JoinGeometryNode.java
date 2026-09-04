@@ -11,7 +11,6 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshAppend;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
@@ -53,8 +52,8 @@ public class JoinGeometryNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle ga = GeometryBundles.bundlePart(ctx.getInput(A.name, Object.class));
-        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput(B.name, Object.class));
+        GeometryBundle ga = ctx.getInput(A.name, GeometryBundle.class);
+        GeometryBundle gb = ctx.getInput(B.name, GeometryBundle.class);
         MeshTopology ma = ga == null ? null : ga.mesh();
         MeshTopology mb = gb == null ? null : gb.mesh();
         if (ma == null || ma.vertexCount() == 0) {

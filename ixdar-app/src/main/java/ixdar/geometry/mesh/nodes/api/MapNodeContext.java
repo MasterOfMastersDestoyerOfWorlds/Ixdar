@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class MapNodeContext implements NodeContext {
+    private final MeshNode node;
     private final Map<String, InputPort> inputPorts;
     private final Map<String, OutputPort> outputPorts;
     private final Map<String, Object> inputs;
@@ -16,6 +17,7 @@ public class MapNodeContext implements NodeContext {
      * @param node node whose port shape defines which names this context will accept
      */
     public MapNodeContext(MeshNode node) {
+        this.node = node;
         this.inputPorts = new HashMap<>();
         this.outputPorts = new HashMap<>();
         this.inputs = new HashMap<>();
@@ -27,6 +29,40 @@ public class MapNodeContext implements NodeContext {
         for (OutputPort outputPort : node.outputs()) {
             outputPorts.put(outputPort.name, outputPort);
         }
+    }
+
+    /**
+     * Stage a value on a declared input port, chaining so a node call reads as one expression.
+     *
+     * @param port  input port constant declared by the node
+     * @param value value to bind; must satisfy the port's type contract
+     * @return this context
+     */
+    public MapNodeContext with(InputPort port, Object value) {
+        setInput(port.name, value);
+        return this;
+    }
+
+    /**
+     * Evaluates the node this context was built for, populating the outputs.
+     *
+     * @return this context, outputs set
+     */
+    public MapNodeContext eval() {
+        node.evaluate(this);
+        return this;
+    }
+
+    /**
+     * Read back a published output through its declared port constant.
+     *
+     * @param <T>  requested output type; the held value must be assignable to it
+     * @param port output port constant declared by the node
+     * @param type expected runtime type of the stored value
+     * @return the output value cast to {@code T}, or {@code null} if not yet set
+     */
+    public <T> T output(OutputPort port, Class<T> type) {
+        return getOutput(port.name, type);
     }
 
     /**

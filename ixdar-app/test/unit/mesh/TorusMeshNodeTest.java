@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
 
@@ -88,7 +89,7 @@ class TorusMeshNodeTest {
         context.setInput(TorusMeshNode.MINOR_SEGMENTS.name, MINOR_SEGMENTS);
         context.setInput(TorusMeshNode.TRIANGULATE.name, triangulate);
         node.evaluate(context);
-        return context.getOutput(TorusMeshNode.MESH.name, HalfEdgeMesh.class);
+        return (HalfEdgeMesh) context.getOutput(TorusMeshNode.MESH.name, GeometryBundle.class).mesh();
     }
 
     /**

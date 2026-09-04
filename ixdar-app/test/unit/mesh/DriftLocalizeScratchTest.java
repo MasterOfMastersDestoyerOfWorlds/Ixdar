@@ -1,10 +1,12 @@
 package unit.mesh;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.StackedZeroRowTorusFixture;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
@@ -58,8 +60,9 @@ class DriftLocalizeScratchTest {
 
     @Test
     void localize() {
-        StackedZeroRowTorusFixture fixture = new StackedZeroRowTorusFixture();
-        ArcNetwork tmesh = fixture.tmesh;
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/stacked_zero_row_torus.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        ArcNetwork tmesh = fixtureNet;
         NetworkContraction contraction = new NetworkContraction(tmesh);
         tmesh.labelPatchCovers();
         report(tmesh, "start");

@@ -32,7 +32,7 @@ public class InstanceOnPointsNode implements MeshNode {
     public static final float NUM_1 = 1f;
 
     public static final InputPort POINTS = new InputPort("points", PortType.GEOMETRY_BUNDLE, null);
-    public static final InputPort INSTANCE = new InputPort("instance", PortType.MESH, null);
+    public static final InputPort INSTANCE = new InputPort("instance", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort ROTATION = new InputPort("rotation", PortType.ROTATION, new RotationValue(0f, 0f, 0f, 1f));
     public static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
@@ -63,8 +63,8 @@ public class InstanceOnPointsNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle pts = GeometryBundles.bundlePart(ctx.getInput(POINTS.name, Object.class));
-        MeshTopology inst = ctx.getInput(INSTANCE.name, MeshTopology.class);
+        GeometryBundle pts = ctx.getInput(POINTS.name, GeometryBundle.class);
+        MeshTopology inst = GeometryBundles.meshPart(ctx.getInput(INSTANCE.name, GeometryBundle.class));
         Object rotObj = FieldBroadcast.getInputOrDefault(ctx, ROTATION.name, ROTATION.defaultValue);
         if (pts == null || inst == null || inst.vertexCount() == 0) {
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());

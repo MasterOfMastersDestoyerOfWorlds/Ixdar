@@ -266,9 +266,8 @@ public class MeshNodeViewerScene extends ModelScene {
         }
         try {
             Platforms.get().loadSourceAsync(DSL_FOLDER, dslResource, Platforms.gl().getPlatformID(), dslCode -> {
-                NodeGraphRuntime.ParsedGraph parsedGraph = NodeGraphRuntime.fromSource(dslCode);
-                List<PythonParser.ParsedNode> ast = parsedGraph.statements();
-                NodeGraphRuntime graphRuntime = parsedGraph.runtime();
+                NodeGraphRuntime graphRuntime = NodeGraphRuntime.fromSource(dslCode);
+                List<PythonParser.ParsedNode> ast = graphRuntime.statements;
                 lastGraphRuntime = graphRuntime;
                 // If no final node specified, use the last node in the graph
                 String resolvedNode = (dslFinalNode != null && !dslFinalNode.isEmpty())
@@ -610,9 +609,8 @@ public class MeshNodeViewerScene extends ModelScene {
         String resolvedPort = finalPort;
         String resolvedDslName = dslName;
         Platforms.get().loadSourceAsync(DSL_FOLDER, resolvedDslName, Platforms.gl().getPlatformID(), dslCode -> {
-            NodeGraphRuntime.ParsedGraph parsedGraph = NodeGraphRuntime.fromSource(dslCode);
-            List<PythonParser.ParsedNode> ast = parsedGraph.statements();
-            NodeGraphRuntime runtime = parsedGraph.runtime();
+            NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(dslCode);
+            List<PythonParser.ParsedNode> ast = runtime.statements;
             lastGraphRuntime = runtime;
 
             String resolvedNode = (finalNode != null && !finalNode.isEmpty())
@@ -735,9 +733,8 @@ public class MeshNodeViewerScene extends ModelScene {
         try {
             String dslCode = new String(Files.readAllBytes(Path.of(absolutePath)));
             disposeMeshRuntime();
-            NodeGraphRuntime.ParsedGraph parsedGraph = NodeGraphRuntime.fromSource(dslCode);
-            List<PythonParser.ParsedNode> ast = parsedGraph.statements();
-            NodeGraphRuntime runtime = parsedGraph.runtime();
+            NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(dslCode);
+            List<PythonParser.ParsedNode> ast = runtime.statements;
             lastGraphRuntime = runtime;
             String resolvedNode = ast.get(ast.size() - 1).id;
             mesh = runtime.executeGraphToMesh(ast, resolvedNode, DEFAULT_DSL_FINAL_PORT);

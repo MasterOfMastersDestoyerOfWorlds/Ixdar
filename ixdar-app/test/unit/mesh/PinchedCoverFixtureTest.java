@@ -5,12 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.PinchedCoverFixture;
 
 /**
  * The pinched-cover fixture carries botijo's operator-755 shape: a bait drag that once rode
@@ -23,32 +25,34 @@ class PinchedCoverFixtureTest {
 
     @Test
     void coversLabelEveryFaceWithoutOverlap() {
-        PinchedCoverFixture fixture = new PinchedCoverFixture();
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/pinched_cover.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
 
-        fixture.tmesh.labelPatchCovers();
+        fixtureNet.labelPatchCovers();
 
-        assertTrue(fixture.tmesh.topology.patchByCopyFace.length > 0,
+        assertTrue(fixtureNet.topology.patchByCopyFace.length > 0,
                 "the patch walks must agree with the disk's winding, or the covers are dropped"
                         + " as overlapping and the drags run unrestricted");
-        for (int face = 0; face < fixture.tmesh.topology.patchByCopyFace.length; face++) {
-            assertTrue(fixture.tmesh.topology.patchByCopyFace[face] != ArcNetwork.NONE,
+        for (int face = 0; face < fixtureNet.topology.patchByCopyFace.length; face++) {
+            assertTrue(fixtureNet.topology.patchByCopyFace[face] != ArcNetwork.NONE,
                     "face " + face + " carries a label");
         }
     }
 
     @Test
     void theFanHoldsThreeArcsAndTheAbsorberDragsLast() {
-        PinchedCoverFixture fixture = new PinchedCoverFixture();
-        fixture.tmesh.labelPatchCovers();
-        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixture.tmesh).collapseArc;
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/pinched_cover.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        fixtureNet.labelPatchCovers();
+        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixtureNet).collapseArc;
 
-        collapseArc.beginCollapse(fixture.channelArcId);
+        collapseArc.beginCollapse(fixture.intOutput("channelArcId"));
 
-        assertEquals(fixture.movedNodeId, collapseArc.movedNodeId,
+        assertEquals(fixture.intOutput("movedNodeId"), collapseArc.movedNodeId,
                 "the survivor is critical, so the moved node moves");
         assertEquals(3, collapseArc.fan.size(), "bait, absorber and filler fill the fan");
-        assertTrue(collapseArc.fan.contains(fixture.baitArcId), "the bait rides the fan");
-        assertEquals(fixture.absorberArcId,
+        assertTrue(collapseArc.fan.contains(fixture.intOutput("baitArcId")), "the bait rides the fan");
+        assertEquals(fixture.intOutput("absorberArcId"),
                 collapseArc.fan.get(1), "the absorber sits mid-fan, so oscillating order"
                         + " drags it last, the only drag allowed to transit the moved vertex");
     }
@@ -60,21 +64,22 @@ class PinchedCoverFixtureTest {
      */
     @Test
     void baitPeelsOffBeforeTheMovedVertexAndTheCoversHold() {
-        PinchedCoverFixture fixture = new PinchedCoverFixture();
-        fixture.tmesh.labelPatchCovers();
-        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixture.tmesh).collapseArc;
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/pinched_cover.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        fixtureNet.labelPatchCovers();
+        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixtureNet).collapseArc;
 
-        collapseArc.beginCollapse(fixture.channelArcId);
+        collapseArc.beginCollapse(fixture.intOutput("channelArcId"));
         while (collapseArc.dragNextArc()) {
             continue;
         }
         collapseArc.finishCollapse();
 
         assertEquals(0, collapseArc.blockedDragCount, "no drag blocks");
-        assertFalse(fixture.tmesh.arcs.get(fixture.baitArcId).path.copyVertexPath
+        assertFalse(fixtureNet.arcs.get(fixture.intOutput("baitArcId")).path.copyVertexPath
                 .contains(collapseArc.movedVertex),
                 "the bait peels off before the moved vertex; transit is the last drag's alone");
-        assertNull(fixture.tmesh.flankTearFailure("pinched cover"),
+        assertNull(fixtureNet.flankTearFailure("pinched cover"),
                 "every arc still lies between the patches it names once the covers are re-read");
     }
 }

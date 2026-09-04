@@ -1,15 +1,18 @@
 package ixdar.geometry.mesh.quadlayout.motorcycle;
 
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.nodes.api.IntField;
 import ixdar.geometry.mesh.nodes.api.UvField;
-import ixdar.geometry.mesh.quadlayout.Singularity;
+import ixdar.geometry.mesh.quadlayout.ChartAtlas;
+import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceAxis;
 
 /**
  * QEx-style chart walker: advance a parametric iso-line one triangle at a time,
- * composing cut transitions on seam edges.
+ * applying the atlas's cut transitions on seam edges.
  */
 public final class ChartWalker {
 
@@ -19,22 +22,33 @@ public final class ChartWalker {
 
     public final UvField uv;
 
-    /** The field's cone points; a fan walk stops at them. */
-    public final List<Singularity> singularities;
+    /** Mesh vertex ids of the field's cone points; a fan walk stops at them. */
+    public final Set<Integer> singularVertexIds;
+
+    /** Per-face charts and the cut transitions between them. */
+    public final ChartAtlas charts;
 
     private final HalfEdgeMesh mesh;
 
     /**
      * Binds the walker to a built seamless parametrization.
      *
-     * @param mesh          the parametrized mesh
-     * @param uv            built seamless per-corner UV field over the mesh
-     * @param singularities the field's cone points
+     * @param mesh              the parametrized mesh
+     * @param uv                built seamless per-corner UV field over the mesh
+     * @param charts            the parametrization's charts and cut transitions
+     * @param singularityIndex4 the field's per-vertex cone-point index4 attribute
      */
-    public ChartWalker(HalfEdgeMesh mesh, UvField uv, List<Singularity> singularities) {
+    public ChartWalker(HalfEdgeMesh mesh, UvField uv, ChartAtlas charts,
+            IntField singularityIndex4) {
         this.uv = uv;
-        this.singularities = singularities;
+        this.charts = charts;
         this.mesh = mesh;
+        this.singularVertexIds = new HashSet<>();
+        for (int v = 0; v < singularityIndex4.length(); v++) {
+            if (singularityIndex4.get(v) != 0) {
+                singularVertexIds.add(mesh.vertexIdAt(v));
+            }
+        }
     }
 
     /**
@@ -144,14 +158,7 @@ public final class ChartWalker {
     public CrossVertexResult crossVertex(State state, EdgeHit edgeHit, State out) {
         int faceId = mesh.faceIdAt(state.activeFace);
         int vertexId = mesh.faceVertexAt(faceId, edgeHit.cornerLocalIndex);
-        boolean isSingularity = false;
-        for (var s : singularities) {
-            if (s.vertexId() == vertexId) {
-                isSingularity = true;
-                break;
-            }
-        }
-        if (isSingularity) {
+        if (singularVertexIds.contains(vertexId)) {
             out.activeFace = state.activeFace;
             out.u = edgeHit.exitU;
             out.v = edgeHit.exitV;
@@ -303,47 +310,17 @@ public final class ChartWalker {
                 break;
             }
         }
-        int oldCornerA = edgeHit.localEdgeIndex;
-        int oldCornerB = (oldCornerA + 1) % CORNERS;
-        int newCornerP = incomingInNext;
-        int newCornerQ = (incomingInNext + 1) % CORNERS;
-        int vertexA = mesh.faceVertexAt(faceId, oldCornerA);
-        int newVertexP = mesh.faceVertexAt(nextFaceId, newCornerP);
-        int newCornerA = vertexA == newVertexP ? newCornerP : newCornerQ;
-        int newCornerB = newCornerA == newCornerP ? newCornerQ : newCornerP;
 
-        double[] oldUv = new double[CORNER_UV_FLOATS];
-        double[] newUv = new double[CORNER_UV_FLOATS];
-        faceCornerUvOfActive(state.activeFace, oldUv);
-        faceCornerUvOfActive(nextActiveFace, newUv);
-        double oldAx = oldUv[oldCornerA * 2];
-        double oldAy = oldUv[oldCornerA * 2 + 1];
-        double oldBx = oldUv[oldCornerB * 2];
-        double oldBy = oldUv[oldCornerB * 2 + 1];
-        double newAx = newUv[newCornerA * 2];
-        double newAy = newUv[newCornerA * 2 + 1];
-        double newBx = newUv[newCornerB * 2];
-        double newBy = newUv[newCornerB * 2 + 1];
-
-        double oldDx = oldBx - oldAx;
-        double oldDy = oldBy - oldAy;
-        double newDx = newBx - newAx;
-        double newDy = newBy - newAy;
-        double oldLenSq = oldDx * oldDx + oldDy * oldDy;
-        double oldNewDot = oldDx * newDx + oldDy * newDy;
-        double oldNewCross = oldDx * newDy - oldDy * newDx;
-        double rotCos = oldNewDot / oldLenSq;
-        double rotSin = oldNewCross / oldLenSq;
-        double snappedCos = rotCos > 0.5 ? 1.0 : (rotCos < -0.5 ? -1.0 : 0.0);
-        double snappedSin = rotSin > 0.5 ? 1.0 : (rotSin < -0.5 ? -1.0 : 0.0);
-        double tx = newAx - (snappedCos * oldAx - snappedSin * oldAy);
-        double ty = newAy - (snappedSin * oldAx + snappedCos * oldAy);
-
-        double newExitU = snappedCos * edgeHit.exitU - snappedSin * edgeHit.exitV + tx;
-        double newExitV = snappedSin * edgeHit.exitU + snappedCos * edgeHit.exitV + ty;
+        double[] transition = charts.transition(activeEdge, state.activeFace);
+        int turns = (int) transition[0];
+        double[] rotated = new double[IntegerGridMap.GRID_COORDINATES];
+        IntegerGridMap.rotate(turns, edgeHit.exitU, edgeHit.exitV, rotated);
+        double newExitU = rotated[0] + transition[1];
+        double newExitV = rotated[1] + transition[2];
         double[] dirOld = state.axis.direction(state.sign);
-        double newDirX = snappedCos * dirOld[0] - snappedSin * dirOld[1];
-        double newDirY = snappedSin * dirOld[0] + snappedCos * dirOld[1];
+        IntegerGridMap.rotate(turns, dirOld[0], dirOld[1], rotated);
+        double newDirX = rotated[0];
+        double newDirY = rotated[1];
 
         out.u = newExitU;
         out.v = newExitV;

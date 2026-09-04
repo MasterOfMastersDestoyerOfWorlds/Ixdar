@@ -1,0 +1,13 @@
+# Loop collapse: a zero loop bounding an empty one-sided cell, live fan arcs outside.
+carrier = mesh_disk(rings=4, angular_segments=12, radius=4.0, triangulate=true)
+network = arc_network(mesh=carrier.mesh)
+loopNodeId = network_node(net=network.net, point=<0.0, 0.0, 2.0>)
+eastFarNodeId = network_node(net=network.net, point=<3.0, 0.0, 0.0>, critical=true)
+westFarNodeId = network_node(net=network.net, point=<-3.0, 0.0, 0.0>, critical=true)
+loopArcId = network_arc(net=network.net, from=loopNodeId.id, to=loopNodeId.id, via1=<1.0, 0.0, 1.7320508>, via2=<0.0, 0.0, 1.0>)
+eastArcId = network_arc(net=network.net, from=loopNodeId.id, to=eastFarNodeId.id, length=1, via1=<1.5, 0.0, 2.598076>, via2=<2.598076, 0.0, 1.5>)
+westArcId = network_arc(net=network.net, from=loopNodeId.id, to=westFarNodeId.id, length=1, via1=<0.0, 0.0, 3.0>, via2=<-1.5, 0.0, 2.598076>, via3=<-2.598076, 0.0, 1.5>)
+outerSealArcId = network_arc(net=network.net, from=eastFarNodeId.id, to=westFarNodeId.id, via1=<0.0, 0.0, -3.0>)
+insidePatchId = network_patch(net=network.net, a=loopNodeId.id, b=loopNodeId.id, c=loopNodeId.id, d=loopNodeId.id, first_side=1, second_side=0, third_side=0, fourth_side=0)
+rimPatchId = network_patch(net=network.net, a=loopNodeId.id, b=eastFarNodeId.id, c=westFarNodeId.id, d=loopNodeId.id)
+outsidePatchId = network_patch(net=network.net, a=loopNodeId.id, b=loopNodeId.id, c=westFarNodeId.id, d=eastFarNodeId.id, first_side=1, second_side=1, third_side=1, fourth_side=1)

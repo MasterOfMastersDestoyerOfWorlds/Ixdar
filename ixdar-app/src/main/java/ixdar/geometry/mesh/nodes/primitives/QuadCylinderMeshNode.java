@@ -33,7 +33,6 @@ public class QuadCylinderMeshNode implements MeshNode {
     public static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 8, (float) 3, (float) 128);
     public static final InputPort RINGS = new InputPort("rings", PortType.INT, 1, (float) 1, (float) 64);
     public static final InputPort CAP_RINGS = new InputPort("cap_rings", PortType.INT, 2, (float) 0, (float) 16);
-    public static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
     public static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
@@ -43,7 +42,7 @@ public class QuadCylinderMeshNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(MESH, GEOMETRY);
+        return List.of(GEOMETRY);
     }
 
     @Override
@@ -59,8 +58,7 @@ public class QuadCylinderMeshNode implements MeshNode {
                 SEGMENTS.name, "Divisions around the circumference. Higher = smoother barrel. Default 8.",
                 RINGS.name, "Number of quad rings along the barrel length (between the two caps). Default 1.",
                 CAP_RINGS.name, "Concentric quad rings per cap (converging toward the pole). 0 leaves the cap open; higher values give cleaner subdivision at the cap. Default 2.",
-                MESH.name, "All-quad cylinder, Y-aligned, centered at origin.",
-                GEOMETRY.name, "Same mesh as a GeometryBundle (slot-carrying)."
+                GEOMETRY.name, "All-quad cylinder, Y-aligned, centered at origin."
         );
     }
 
@@ -83,7 +81,6 @@ public class QuadCylinderMeshNode implements MeshNode {
 
         HalfEdgeMesh mesh = buildQuadCylinder(radius, height, segments, rings, capRings);
         mesh.computeNormals();
-        ctx.setOutput(MESH.name, mesh);
         ctx.setOutput(GEOMETRY.name, GeometryBundle.ofMesh(mesh));
     }
 

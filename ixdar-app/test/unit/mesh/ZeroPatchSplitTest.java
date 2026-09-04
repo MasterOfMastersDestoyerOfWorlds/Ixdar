@@ -4,9 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
 
@@ -24,22 +26,23 @@ class ZeroPatchSplitTest {
 
     @Test
     void splittingTheNonSimpleZeroPatchYieldsTwoSimpleOnes() {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        ZeroPatchSplitOperator operator = new ZeroPatchSplitOperator(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        ZeroPatchSplitOperator operator = new ZeroPatchSplitOperator(fixtureNet);
 
         int patchId = operator.nextNonSimpleZeroPatch();
         assertNotEquals(ArcNetwork.NONE, patchId, "the fixture has one non-simple zero-patch");
-        int liveArcsBefore = countLiveArcs(fixture.tmesh);
-        int livePatchesBefore = countLivePatches(fixture.tmesh);
+        int liveArcsBefore = countLiveArcs(fixtureNet);
+        int livePatchesBefore = countLivePatches(fixtureNet);
 
         operator.split(patchId);
 
-        fixture.tmesh.validate();
+        fixtureNet.validate();
         assertEquals(ArcNetwork.NONE, operator.nextNonSimpleZeroPatch(),
                 "the two halves must both be simple zero-patches");
-        assertEquals(liveArcsBefore + 2, countLiveArcs(fixture.tmesh),
+        assertEquals(liveArcsBefore + 2, countLiveArcs(fixtureNet),
                 "the opposite arc splits in two and a new zero-arc is added");
-        assertEquals(livePatchesBefore + 1, countLivePatches(fixture.tmesh),
+        assertEquals(livePatchesBefore + 1, countLivePatches(fixtureNet),
                 "the patch is cut into two");
     }
 
@@ -50,15 +53,16 @@ class ZeroPatchSplitTest {
      */
     @Test
     void theInsertedArcIsAZeroArcAndBothHalvesAreSimpleZeroPatches() {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        ZeroPatchSplitOperator operator = new ZeroPatchSplitOperator(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        ZeroPatchSplitOperator operator = new ZeroPatchSplitOperator(fixtureNet);
         int patchId = operator.nextNonSimpleZeroPatch();
 
         operator.split(patchId);
 
         boolean foundNewZeroArc = false;
-        for (int arcId = 0; arcId < fixture.tmesh.arcs.size(); arcId++) {
-            var arc = fixture.tmesh.arcs.get(arcId);
+        for (int arcId = 0; arcId < fixtureNet.arcs.size(); arcId++) {
+            var arc = fixtureNet.arcs.get(arcId);
             if (arc.alive && arc.quantizedLength == 0 && arc.sourceArcId == ArcNetwork.NONE
                     && arc.path.copyEdgePath.size() >= 1) {
                 foundNewZeroArc = true;
@@ -67,9 +71,9 @@ class ZeroPatchSplitTest {
         assertTrue(foundNewZeroArc, "a minted zero-arc with a real edge path must exist");
 
         int simpleZeroPatches = 0;
-        for (int id = 0; id < fixture.tmesh.patches.size(); id++) {
-            if (fixture.tmesh.patches.get(id).alive && fixture.tmesh.isZeroPatch(id)
-                    && fixture.tmesh.nonZeroArcCount(id) == 2) {
+        for (int id = 0; id < fixtureNet.patches.size(); id++) {
+            if (fixtureNet.patches.get(id).alive && fixtureNet.isZeroPatch(id)
+                    && fixtureNet.nonZeroArcCount(id) == 2) {
                 simpleZeroPatches++;
             }
         }
@@ -85,28 +89,29 @@ class ZeroPatchSplitTest {
      */
     @Test
     void splitThenCollapseClearsEveryZeroArc() {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        ZeroPatchSplitOperator splitter = new ZeroPatchSplitOperator(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        ZeroPatchSplitOperator splitter = new ZeroPatchSplitOperator(fixtureNet);
         for (int patchId = splitter.nextNonSimpleZeroPatch(); patchId != ArcNetwork.NONE;
                 patchId = splitter.nextNonSimpleZeroPatch()) {
             splitter.split(patchId);
-            fixture.tmesh.validate();
+            fixtureNet.validate();
         }
 
         var collapser = new ixdar.geometry.mesh.quadlayout.embedding
-                .ZeroArcCollapseOperator(fixture.tmesh);
+                .ZeroArcCollapseOperator(fixtureNet);
         int guard = 0;
         for (int arcId = collapser.mostContendedArc(); arcId != ArcNetwork.NONE;
                 arcId = collapser.mostContendedArc()) {
             collapser.collapse(arcId);
-            fixture.tmesh.validate();
-            if (++guard > fixture.tmesh.arcs.size()) {
+            fixtureNet.validate();
+            if (++guard > fixtureNet.arcs.size()) {
                 throw new AssertionError("collapse did not terminate");
             }
         }
 
-        for (int arcId = 0; arcId < fixture.tmesh.arcs.size(); arcId++) {
-            var arc = fixture.tmesh.arcs.get(arcId);
+        for (int arcId = 0; arcId < fixtureNet.arcs.size(); arcId++) {
+            var arc = fixtureNet.arcs.get(arcId);
             if (arc.alive) {
                 assertNotEquals(0, arc.quantizedLength,
                         "arc " + arcId + " is a zero arc that should have collapsed");

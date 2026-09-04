@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.nodes.data;
 
+import java.util.Objects;
 import java.util.List;
 
 import ixdar.geometry.mesh.nodes.api.FloatField;
@@ -12,7 +13,6 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "capture_attribute")
@@ -49,7 +49,7 @@ public class CaptureAttributeNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
+        GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         String name = ctx.getInput(NAME.name, String.class);
         if (name == null || name.isBlank()) {
             name = ATTR;

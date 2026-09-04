@@ -6,7 +6,6 @@ import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.load.CrossFieldLoader;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
-import ixdar.geometry.mesh.quadlayout.seamless.ParameterizationMetrics;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
@@ -28,8 +27,7 @@ public class ParametrizationExaminationScene extends ModelScene {
      * Optional system property naming an .ndf reference cross field. When set,
      * {@link #loadModel} still runs {@link CrossField#build()} for the per-face
      * frames and active-index maps, then overwrites {@code theta},
-     * {@code periodJump}, {@code singularityIndexQuarter} and {@code singularities}
-     * from the NDF.
+     * {@code periodJump} and {@code singularityIndex4} from the NDF.
      */
     public static final String CROSS_FIELD_PROPERTY = "parametrization.scene.cf";
     public String cfPath = System.getProperty(CROSS_FIELD_PROPERTY);
@@ -64,7 +62,7 @@ public class ParametrizationExaminationScene extends ModelScene {
         super.loadModel(path);
         QuadLayoutEngine engine = new QuadLayoutEngine(halfEdgeMesh, QuadLayoutEngine.DEFAULT_ALPHA_RADIANS);
         CrossField crossField = engine.buildCrossField();
-        int ourSingCount = crossField.singularities.size();
+        int ourSingCount = crossField.singularityCount();
         if (cfPath != null) {
             try {
                 CrossField reference = CrossFieldLoader.load(cfPath, halfEdgeMesh);
@@ -72,30 +70,30 @@ public class ParametrizationExaminationScene extends ModelScene {
                 CrossFieldLoader.convertBceak13ThetaToQuadAxes(reference);
                 crossField.theta = reference.theta;
                 crossField.periodJump = reference.periodJump;
-                crossField.singularities.clear();
-                crossField.singularities.addAll(reference.singularities);
+                System.arraycopy(reference.singularityIndex4.data(), 0,
+                        crossField.singularityIndex4.data(), 0,
+                        crossField.singularityIndex4.length());
                 Platforms.get().log("[param-exam] using reference cross field from "
                         + cfPath + " (our solver produced " + ourSingCount
-                        + " singularities, reference has " + reference.singularities.size() + ")");
+                        + " singularities, reference has " + reference.singularityCount() + ")");
             } catch (Exception ex) {
                 Platforms.get().log("[param-exam] failed to apply reference cross field "
                         + cfPath + ": " + ex.getMessage());
             }
         }
         SeamlessUv seamless = engine.buildSeamless();
-        ParameterizationMetrics metrics = engine.seamlessMetrics;
 
         quadRuntime.showIsoLines = true;
         quadRuntime.showSingularities = true;
         quadRuntime.setSeamlessParametrization(seamless, halfEdgeMesh);
-        quadRuntime.captureSingularities(crossField.singularities, halfEdgeMesh);
+        quadRuntime.setSingularities(crossField.singularityIndex4, halfEdgeMesh);
 
         Platforms.get().log("[param-exam] " + offPath
                 + (cfPath == null ? "" : " cf=" + cfPath)
                 + " V=" + halfEdgeMesh.vertexCount()
                 + " F=" + halfEdgeMesh.faceCount()
-                + " singularities=" + crossField.singularities.size()
-                + " flipped=" + metrics.flippedTriangleCount
+                + " singularities=" + crossField.singularityCount()
+                + " flipped=" + engine.seamlessFlippedTriangles
                 + " injective=" + seamless.injective);
     }
 

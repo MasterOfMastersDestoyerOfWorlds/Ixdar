@@ -4,12 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Map;
 
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
@@ -46,25 +47,26 @@ class PatchGridSeamTest {
      */
     @Test
     void adjacentPatchesShareTheirSeamPoints() {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        NetworkContraction contraction = new NetworkContraction(fixtureNet);
         contraction.contract();
         contraction.conform();
-        SeamlessUv seamless = new QuadLayoutEngine(fixture.torus, 0f).buildSeamless();
+        SeamlessUv seamless = new QuadLayoutEngine(fixtureNet.topology.sourceMesh, 0f).buildSeamless();
         double targetEdgeLength =
-                shortestArcLength(fixture.tmesh, seamless) / QUADS_ON_SHORTEST_ARC;
+                shortestArcLength(fixtureNet, seamless) / QUADS_ON_SHORTEST_ARC;
         PatchGridExtraction grid = new PatchGridExtraction(
-                new LayoutPatchMaps(fixture.tmesh, seamless, targetEdgeLength).build()).build();
+                new LayoutPatchMaps(fixtureNet, seamless, targetEdgeLength).build()).build();
 
         int checkedArcs = 0;
         int checkedInteriorPoints = 0;
-        for (EmbeddedArc arc : fixture.tmesh.arcs) {
+        for (EmbeddedArc arc : fixtureNet.arcs) {
             if (!arc.alive || arc.leftPatchId == ArcNetwork.NONE
                     || arc.rightPatchId == ArcNetwork.NONE) {
                 continue;
             }
-            Vector3f[] fromLeft = seamPoints(fixture.tmesh, grid, arc, arc.leftPatchId);
-            Vector3f[] fromRight = seamPoints(fixture.tmesh, grid, arc, arc.rightPatchId);
+            Vector3f[] fromLeft = seamPoints(fixtureNet, grid, arc, arc.leftPatchId);
+            Vector3f[] fromRight = seamPoints(fixtureNet, grid, arc, arc.rightPatchId);
             assertEquals(fromLeft.length, fromRight.length,
                     "arc " + arc.arcId + " has a different number of grid points in its two"
                             + " patches");

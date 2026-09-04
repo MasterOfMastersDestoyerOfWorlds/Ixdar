@@ -40,20 +40,17 @@ public final class GridMapPipelineBenchmark {
         long seamlessEnd = System.nanoTime();
         engine.buildContractedTMesh();
         long contractedEnd = System.nanoTime();
-        engine.buildPatchMaps();
-        long patchMapsEnd = System.nanoTime();
         engine.buildGlobalGridMap();
         long gridMapEnd = System.nanoTime();
 
         Platforms.log("[benchmark] %s V=%d F=%d%n", offPath, mesh.vertexCount(),
                 mesh.faceCount());
         Platforms.log(
-                "[benchmark] cross field+seamless %.3fs, contract %.3fs, patch maps %.3fs,"
+                "[benchmark] cross field+seamless %.3fs, contract %.3fs,"
                         + " grid map %.3fs, total %.3fs%n",
                 (seamlessEnd - start) / NANOS_PER_SECOND,
                 (contractedEnd - seamlessEnd) / NANOS_PER_SECOND,
-                (patchMapsEnd - contractedEnd) / NANOS_PER_SECOND,
-                (gridMapEnd - patchMapsEnd) / NANOS_PER_SECOND,
+                (gridMapEnd - contractedEnd) / NANOS_PER_SECOND,
                 (gridMapEnd - start) / NANOS_PER_SECOND);
         Platforms.log("[benchmark] grid-optimize energy %.6e -> %.6e iterations=%d"
                 + " flipped=%d%n",

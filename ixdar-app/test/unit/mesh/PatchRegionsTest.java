@@ -4,9 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
 
 /**
@@ -18,12 +21,13 @@ class PatchRegionsTest {
 
     @Test
     void everyPatchEnclosesOneRegionAndEveryFaceIsAssigned() {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        PatchRegions regions = new PatchRegions(fixture.tmesh).build();
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        PatchRegions regions = new PatchRegions(fixtureNet).build();
 
-        assertEquals(fixture.tmesh.patches.size(), regions.copyFacesByPatch.size(),
+        assertEquals(fixtureNet.patches.size(), regions.copyFacesByPatch.size(),
                 "one region per live patch");
-        assertEquals(fixture.torus.faceCount(), regions.patchIdByCopyFace.size(),
+        assertEquals(fixtureNet.topology.sourceMesh.faceCount(), regions.patchIdByCopyFace.size(),
                 "every copy face is assigned to exactly one patch");
 
         int totalFaces = 0;
@@ -31,7 +35,7 @@ class PatchRegionsTest {
             assertTrue(faces.size() > 0, "no patch region is empty");
             totalFaces += faces.size();
         }
-        assertEquals(fixture.torus.faceCount(), totalFaces,
+        assertEquals(fixtureNet.topology.sourceMesh.faceCount(), totalFaces,
                 "the regions cover the surface without overlap");
     }
 
@@ -42,14 +46,15 @@ class PatchRegionsTest {
      */
     @Test
     void buildRejectsATornLayout() {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        int arcId = fixture.tmesh.arcs.get(0).arcId;
-        for (int edgeId : fixture.tmesh.arcs.get(arcId).path.copyEdgePath) {
-            fixture.tmesh.topology.ownerArcByCopyEdge[edgeId] =
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        int arcId = fixtureNet.arcs.get(0).arcId;
+        for (int edgeId : fixtureNet.arcs.get(arcId).path.copyEdgePath) {
+            fixtureNet.topology.ownerArcByCopyEdge[edgeId] =
                     ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology.UNCLAIMED;
         }
 
-        assertThrows(IllegalStateException.class, () -> new PatchRegions(fixture.tmesh).build(),
+        assertThrows(IllegalStateException.class, () -> new PatchRegions(fixtureNet).build(),
                 "a gap in a patch boundary must be caught");
     }
 }

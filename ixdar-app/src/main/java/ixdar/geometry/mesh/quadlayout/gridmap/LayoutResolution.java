@@ -121,7 +121,7 @@ public final class LayoutResolution {
                     quadWidth, quadHeight });
         }
         byMismatch.sort((first, second) -> Double.compare(second[0], first[0]));
-        System.out.println("[grid-sizing] worst aspect mismatches:");
+        Platforms.log("[grid-sizing] worst aspect mismatches:");
         for (int index = 0; index < Math.min(WORST_PATCHES_LISTED, byMismatch.size()); index++) {
             double[] entry = byMismatch.get(index);
             Platforms.log("[grid-sizing]   patch %d: measured %.2fx%.2f -> rectangle %dx%d"

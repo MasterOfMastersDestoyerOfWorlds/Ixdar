@@ -14,7 +14,6 @@ import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.curve.FloatCurveKernel;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
@@ -78,7 +77,7 @@ public class CurveToMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle curveGb = GeometryBundles.bundlePart(ctx.getInput(CURVE.name, Object.class));
+        GeometryBundle curveGb = ctx.getInput(CURVE.name, GeometryBundle.class);
         if (curveGb == null) {
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
@@ -97,13 +96,12 @@ public class CurveToMeshNode implements MeshNode {
         boolean fillCaps = FieldBroadcast.boolAt(
                 FieldBroadcast.getInputOrDefault(ctx, FILL_CAPS.name, FILL_CAPS.defaultValue), 0, true);
 
-        Object closureObj = ctx.getInput(RADIUS_CLOSURE.name, Object.class);
-        FloatCurveKernel radiusClosure = (closureObj instanceof FloatCurveKernel k) ? k : null;
+        FloatCurveKernel radiusClosure = ctx.getInput(RADIUS_CLOSURE.name, FloatCurveKernel.class);
 
         // Determine cross-section: use profile curve if provided, otherwise circle
         float[] profileU;
         float[] profileV;
-        GeometryBundle profileGb = GeometryBundles.bundlePart(ctx.getInput(PROFILE_CURVE.name, Object.class));
+        GeometryBundle profileGb = ctx.getInput(PROFILE_CURVE.name, GeometryBundle.class);
         if (profileGb != null) {
             Object rawProfile = profileGb.slots().get(CurveGeometry.SLOT);
             if (rawProfile instanceof CurveGeometry profileCg && profileCg.pointCount() >= NUM_3) {

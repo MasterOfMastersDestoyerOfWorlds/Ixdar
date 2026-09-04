@@ -3,7 +3,10 @@ package ixdar.scenes;
 import java.io.IOException;
 
 import ixdar.annotations.scene.SceneAnnotation;
+import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.nodes.api.BoolField;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.quadlayout.extraction.PatchSurfaceGeometry;
 import ixdar.geometry.mesh.quadlayout.gridmap.GridMapIsoSurface;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
@@ -53,6 +56,15 @@ public class QuadLayoutScene extends ModelScene {
      * rebuilding.
      */
     private QuadLayoutEngine engine;
+
+    /**
+     * Surface-grid geometry of the pre-relaxation extraction, built on first
+     * toggle for the comparison view.
+     */
+    private GeometryBundle patchSurfacesInitial;
+
+    /** Coons-blend variant of {@link #patchSurfacesInitial}, built with it. */
+    private GeometryBundle patchCoonsInitial;
 
     /**
      * Default constructor wired by the scene annotation processor.
@@ -110,10 +122,12 @@ public class QuadLayoutScene extends ModelScene {
         QuadLayoutEngine engine = new QuadLayoutEngine(halfEdgeMesh, alphaRadians);
         engine.buildPatchSurfaces();
         quadRuntime.setSeamlessParametrization(engine.seamless, engine.mesh);
-        quadRuntime.captureSingularities(engine.crossField.singularities, engine.mesh);
-        quadRuntime.setMotorcycleGraph(engine.motorcycleGraph);
+        quadRuntime.setSingularities(engine.crossField.singularityIndex4, engine.mesh);
+        quadRuntime.setMotorcycleGraph(engine.arrangement);
         quadRuntime.setEmbeddedTMesh(engine.tmesh);
         this.engine = engine;
+        this.patchSurfacesInitial = null;
+        this.patchCoonsInitial = null;
         uploadSurfaces();
         quadRuntime.showTraces = false;
         quadRuntime.showNodes = false;
@@ -126,13 +140,22 @@ public class QuadLayoutScene extends ModelScene {
     }
 
     /**
-     * Uploads the selected map's render products: the grid extraction and the arc
-     * isolines, from the relaxed map or the pre-relaxation one when the comparison
-     * toggle holds it, with the current fill mode.
+     * Uploads the selected map's patch-grid geometry: from the relaxed extraction
+     * or the pre-relaxation one when the comparison toggle holds it, with the
+     * current fill mode picking the surface or Coons bundle. The pre-relaxation
+     * bundles are built on first use and cached until the next rebuild.
      */
     private void uploadSurfaces() {
-        quadRuntime.setLayoutPatchSurfaces(
-                showInitialGrid ? engine.patchSurfacesInitial : engine.patchSurfaces, coonsFill);
+        if (showInitialGrid && patchSurfacesInitial == null) {
+            patchSurfacesInitial =
+                    PatchSurfaceGeometry.surfaceBundle(engine.globalGrid.quadGridInitial);
+            patchCoonsInitial =
+                    PatchSurfaceGeometry.coonsBundle(engine.globalGrid.quadGridInitial);
+        }
+        GeometryBundle chosen = showInitialGrid
+                ? (coonsFill ? patchCoonsInitial : patchSurfacesInitial)
+                : (coonsFill ? engine.patchCoons : engine.patchSurfaces);
+        quadRuntime.setLayoutPatchSurfaces(chosen);
     }
 
     /**
@@ -178,8 +201,8 @@ public class QuadLayoutScene extends ModelScene {
         GridMapIsoSurface isoSurface = gridMapView == GRID_MAP_VIEW_INITIAL
                 ? engine.globalGrid.isoSurfaceInitial
                 : engine.globalGrid.isoSurfaceRelaxed;
-        quadRuntime.uploadPatchParametrization(engine.tmesh.topology.copy,
-                isoSurface.cornerU, isoSurface.cornerV, isoSurface.faceFlipped);
+        quadRuntime.setGridMapParametrization(isoSurface, engine.tmesh.topology.copy,
+                new BoolField(isoSurface.faceFlipped));
         quadRuntime.showFullIsoGrid = true;
         Platforms.get().log("[quad-layout] grid map paint: "
                 + (gridMapView == GRID_MAP_VIEW_INITIAL ? "INITIAL" : "RELAXED")

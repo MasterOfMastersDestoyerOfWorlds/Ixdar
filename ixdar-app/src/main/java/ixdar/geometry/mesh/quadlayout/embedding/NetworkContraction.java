@@ -29,6 +29,7 @@ public final class NetworkContraction implements MeshNode {
 
     public static final InputPort TMESH = new InputPort("tmesh", PortType.ARC_NETWORK, null);
     public static final InputPort CONFORM = new InputPort("conform", PortType.BOOLEAN, Boolean.TRUE);
+    public static final InputPort RECARVE = new InputPort("recarve", PortType.BOOLEAN, Boolean.TRUE);
     public static final OutputPort TMESH_OUT = new OutputPort(TMESH.name, PortType.ARC_NETWORK);
 
     /**
@@ -102,7 +103,7 @@ public final class NetworkContraction implements MeshNode {
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(TMESH, CONFORM);
+        return List.of(TMESH, CONFORM, RECARVE);
     }
 
     @Override
@@ -121,7 +122,9 @@ public final class NetworkContraction implements MeshNode {
         return Map.of(
                 TMESH.name, "Embedded T-mesh in (from layout_embedding, mutated in place) and the"
                         + " contracted, by default conforming, T-mesh out.",
-                CONFORM.name, "Whether to extend T-junctions after contraction so every patch conforms."
+                CONFORM.name, "Whether to extend T-junctions after contraction so every patch conforms.",
+                RECARVE.name, "Whether to conform and replay the contracted layout onto a fresh working"
+                        + " copy; off, the rounds run in place and surviving T-junctions remain."
         );
     }
 
@@ -129,26 +132,41 @@ public final class NetworkContraction implements MeshNode {
     public void evaluate(NodeContext ctx) {
         ArcNetwork input = (ArcNetwork) ctx.getInput(TMESH.name, Object.class);
         Boolean conformInput = ctx.getInput(CONFORM.name, Boolean.class);
+        Boolean recarveInput = ctx.getInput(RECARVE.name, Boolean.class);
         boolean conformRequested = conformInput == null || conformInput;
-        ArcNetwork contracted = new NetworkContraction(input).contract();
+        boolean recarveRequested = recarveInput == null || recarveInput;
+        NetworkContraction contraction = new NetworkContraction(input);
+        ArcNetwork result = recarveRequested ? contraction.contract() : contraction.contractRounds();
         if (conformRequested) {
-            contracted = new NetworkContraction(contracted).conform();
+            result = new NetworkContraction(result).conform();
         }
-        ctx.setOutput(TMESH_OUT.name, contracted);
+        ctx.setOutput(TMESH_OUT.name, result);
     }
 
     /**
-     * Contracts the T-mesh, validating every round — every step when
-     * {@link #VALIDATE_EVERY_COLLAPSE} is set.
-     *
-     * <p>
-     * A round is what LCBK19 Appendix A.3 measures: one operator (2) split, then
-     * operators (1) and (3) to exhaustion. Operator (2) raises the measure; the
-     * other two lower it.
+     * Contracts the T-mesh to its fixed point, conforms it, and re-carves it onto
+     * a fresh working copy: the pipeline's composition of the three stages.
      *
      * @return the contracted layout, re-carved onto a fresh working copy
      */
     public ArcNetwork contract() {
+        contractRounds();
+        conform();
+        if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
+            network.requireArrangementMatchesPatches(progress(CONFORM.name));
+        }
+        return recarve(network.topology.sourceMesh);
+    }
+
+    /**
+     * Runs the contraction rounds to their fixed point in place; the result may
+     * still carry T-junctions, which {@link #conform()} extends. A round (LCBK19
+     * Appendix A.3) is one operator (2) split, then operators (1) and (3) to
+     * exhaustion.
+     *
+     * @return the network, contracted in place
+     */
+    private ArcNetwork contractRounds() {
         network.labelPatchCovers();
         while (true) {
             while (applyCollapse()) {
@@ -173,11 +191,7 @@ public final class NetworkContraction implements MeshNode {
         Platforms.log("[contract] relabel floods=%d faces=%d | %.3fs%n",
                 network.relabelCallCount, network.relabelFacesFlooded,
                 network.relabelNanos / NANOS_PER_SECOND);
-        conform();
-        if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
-            network.requireArrangementMatchesPatches(progress(CONFORM.name));
-        }
-        return recarve(network.topology.sourceMesh);
+        return network;
     }
 
     /**

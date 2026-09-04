@@ -78,6 +78,22 @@ public final class PatchGridExtraction {
     }
 
     /**
+     * The relaxed map's extraction, regrouped per patch: the grids the QEx pass
+     * already placed on the surface, wrapped without re-extracting.
+     *
+     * @param gridMap relaxed grid map with extracted grids and quad mesh
+     * @return the per-patch grids of the relaxed map
+     */
+    public static PatchGridExtraction fromRelaxedMap(GlobalGridMap gridMap) {
+        PatchGridExtraction grids = new PatchGridExtraction(gridMap.patchMaps);
+        grids.gridByPatchId = gridMap.extractedGrids.gridByPatchId;
+        grids.widthByPatchId = gridMap.extractedGrids.widthByPatchId;
+        grids.heightByPatchId = gridMap.extractedGrids.heightByPatchId;
+        grids.quadCount = gridMap.quadMesh.quadCount;
+        return grids;
+    }
+
+    /**
      * The number of grid columns of a patch, one more than its quad width.
      *
      * @param patchId live patch to measure

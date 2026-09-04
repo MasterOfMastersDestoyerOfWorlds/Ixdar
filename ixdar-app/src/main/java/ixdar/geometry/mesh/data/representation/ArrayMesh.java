@@ -4,7 +4,6 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.nodes.api.MeshValue;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
@@ -13,7 +12,7 @@ import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
  * {@link MeshTopology} without HashMap-based construction; half-edge
  * connectivity is derived from face indices with lazy twin/edge CSR data.
  */
-public final class ArrayMesh implements MeshTopology, MeshValue {
+public final class ArrayMesh implements MeshTopology {
     public static final String IS_NOT_VALID = " is not valid";
     public static final int NUM_4 = 4;
     public static final int NUM_8 = 8;

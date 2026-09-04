@@ -90,7 +90,6 @@ public record LiteralParameterDescriptor(
                             n.id + STR + argName + ".z",
                             v3.z(), min, max));
                 }
-                // Skip INT, STRING, BOOLEAN, MESH, GEOMETRY_BUNDLE, CLOSURE, ROTATION
             }
         }
         return out;

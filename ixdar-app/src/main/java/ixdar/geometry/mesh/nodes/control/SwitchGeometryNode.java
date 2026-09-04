@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.nodes.control;
 
+import java.util.Objects;
 import java.util.List;
 
 import ixdar.geometry.mesh.nodes.api.InputPort;
@@ -11,7 +12,6 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 
 @MeshNodeAnnotation(id = "switch_geometry")
 public class SwitchGeometryNode implements MeshNode {
@@ -48,14 +48,9 @@ public class SwitchGeometryNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         Boolean sw = ctx.getInput(SWITCH.name, Boolean.class);
-        Object fa = ctx.getInput(FALSE_VAL.name, Object.class);
-        Object tr = ctx.getInput(TRUE_VAL.name, Object.class);
+        GeometryBundle fa = ctx.getInput(FALSE_VAL.name, GeometryBundle.class);
+        GeometryBundle tr = ctx.getInput(TRUE_VAL.name, GeometryBundle.class);
         boolean on = sw != null && sw;
-        Object pick = on ? tr : fa;
-        GeometryBundle b = GeometryBundles.bundlePart(pick);
-        if (b == null) {
-            b = GeometryBundle.empty();
-        }
-        ctx.setOutput(GEOMETRY.name, b);
+        ctx.setOutput(GEOMETRY.name, Objects.requireNonNullElse(on ? tr : fa, GeometryBundle.empty()));
     }
 }

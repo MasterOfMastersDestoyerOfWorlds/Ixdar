@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.nodes.geometry;
 
+import java.util.Objects;
 import java.util.List;
 
 import ixdar.geometry.mesh.nodes.api.InputPort;
@@ -11,7 +12,6 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.ops.MeshDeleteEdges;
 import ixdar.geometry.mesh.data.ops.MeshDeleteVertices;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
@@ -51,7 +51,7 @@ public class DeleteGeometryNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
+        GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         Object sel = FieldBroadcast.getInputOrDefault(ctx, SELECTION.name, SELECTION.defaultValue);
         String domain = ctx.getInput(DOMAIN.name, String.class);
         if (domain == null) {

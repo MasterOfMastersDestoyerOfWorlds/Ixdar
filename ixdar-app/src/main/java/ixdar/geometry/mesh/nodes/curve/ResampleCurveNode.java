@@ -15,7 +15,6 @@ import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "resample_curve")
@@ -54,7 +53,7 @@ public class ResampleCurveNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput(CURVE.name, Object.class));
+        GeometryBundle gb = ctx.getInput(CURVE.name, GeometryBundle.class);
         if (gb == null) {
             ctx.setOutput(GEOMETRY_OUT.name,GeometryBundle.empty());
             return;

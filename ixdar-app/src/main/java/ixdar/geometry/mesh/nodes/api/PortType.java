@@ -1,34 +1,23 @@
 package ixdar.geometry.mesh.nodes.api;
 
-import java.util.List;
-import java.util.Set;
-
+import ixdar.geometry.mesh.curve.FloatCurveKernel;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
 
 public enum PortType {
-    MESH(MeshValue.class),
-    GEOMETRY_BUNDLE(GeometryBundleValue.class),
+    /** Mesh plus named attribute slots: the one geometry type. */
+    GEOMETRY_BUNDLE(GeometryBundle.class),
     FLOAT(Number.class),
     INT(Integer.class),
     BOOLEAN(Boolean.class),
     VECTOR3(Vector3Value.class),
     STRING(String.class),
     ROTATION(RotationValue.class),
-    /** Float curve / closure payload (runtime object, e.g. FloatCurveKernel). */
-    CLOSURE(Object.class),
-    /** Dungeon-generation room list (see ixdar.procgen.dungeon.values.RoomListValue). */
-    ROOM_LIST(Object.class),
-    /** Dungeon-generation edge graph (see ixdar.procgen.dungeon.values.EdgeGraphValue). */
-    EDGE_GRAPH(Object.class),
-    /** Dungeon-generation tile grid (see ixdar.procgen.dungeon.values.TileGridValue). */
-    TILE_GRID(Object.class),
-    /** 3D dungeon-generation room list (see ixdar.procgen.dungeon.values.RoomListValue3D). */
-    ROOM_LIST_3D(Object.class),
-    /** 3D dungeon-generation tile grid (see ixdar.procgen.dungeon.values.TileGridValue3D). */
-    TILE_GRID_3D(Object.class),
+    /** Sampled float curve produced by float_curve / function_curve. */
+    CLOSURE(FloatCurveKernel.class),
     /** Cross field over a mesh. */
     CROSS_FIELD(CrossField.class),
     /** Per-corner UV assignment over a mesh. */
@@ -38,11 +27,7 @@ public enum PortType {
     /** A solve's degrees of freedom and their couplings. */
     DOF_SYSTEM(DofSystem.class),
     /** Atlas of charts covering a surface. */
-    CHART_ATLAS(ChartAtlas.class),
-    /** Singular points of a field: {@code List} of {@code Singularity}. */
-    SINGULARITY_LIST(List.class),
-    /** Set of mesh edge ids, e.g. feature and boundary edges. */
-    EDGE_ID_SET(Set.class);
+    CHART_ATLAS(ChartAtlas.class);
 
     private final Class<?> valueType;
 

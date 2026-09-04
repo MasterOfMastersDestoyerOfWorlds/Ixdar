@@ -5,12 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TwinCellFixture;
 
 /**
  * The twin-cell fixture carries botijo's operator-830 shape: the parallel wall's far node is
@@ -22,33 +24,35 @@ class TwinCellFixtureTest {
 
     @Test
     void coversLabelEveryFaceWithoutOverlap() {
-        TwinCellFixture fixture = new TwinCellFixture();
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/twin_cell.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
 
-        fixture.tmesh.labelPatchCovers();
+        fixtureNet.labelPatchCovers();
 
-        assertTrue(fixture.tmesh.topology.patchByCopyFace.length > 0,
+        assertTrue(fixtureNet.topology.patchByCopyFace.length > 0,
                 "the patch walks must agree with the disk's winding, or the covers are dropped"
                         + " as overlapping and the drags run unrestricted");
-        for (int face = 0; face < fixture.tmesh.topology.patchByCopyFace.length; face++) {
-            assertTrue(fixture.tmesh.topology.patchByCopyFace[face] != ArcNetwork.NONE,
+        for (int face = 0; face < fixtureNet.topology.patchByCopyFace.length; face++) {
+            assertTrue(fixtureNet.topology.patchByCopyFace[face] != ArcNetwork.NONE,
                     "face " + face + " carries a label");
         }
     }
 
     @Test
     void theFanHoldsThreeArcsAndTheOuterFanAbsorbs() {
-        TwinCellFixture fixture = new TwinCellFixture();
-        fixture.tmesh.labelPatchCovers();
-        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixture.tmesh).collapseArc;
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/twin_cell.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        fixtureNet.labelPatchCovers();
+        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixtureNet).collapseArc;
 
-        collapseArc.beginCollapse(fixture.channelArcId);
+        collapseArc.beginCollapse(fixture.intOutput("channelArcId"));
 
-        assertEquals(fixture.movedNodeId, collapseArc.movedNodeId,
+        assertEquals(fixture.intOutput("movedNodeId"), collapseArc.movedNodeId,
                 "the survivor is critical, so the moved node moves");
         assertEquals(3, collapseArc.fan.size(), "wall and both east arcs fill the fan");
-        assertTrue(collapseArc.fan.contains(fixture.parallelArcId),
+        assertTrue(collapseArc.fan.contains(fixture.intOutput("parallelArcId")),
                 "the parallel wall rides the fan");
-        assertEquals(fixture.outerFanArcId, collapseArc.fan.get(1),
+        assertEquals(fixture.intOutput("outerFanArcId"), collapseArc.fan.get(1),
                 "the outer fan arc sits mid-fan, so oscillating order drags it last and it"
                         + " absorbs the channel; the wall is searched instead");
     }
@@ -59,23 +63,24 @@ class TwinCellFixtureTest {
      */
     @Test
     void parallelWallIsRetiredAndItsTwinFlanksMergeOnPointing() {
-        TwinCellFixture fixture = new TwinCellFixture();
-        fixture.tmesh.labelPatchCovers();
-        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixture.tmesh).collapseArc;
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/twin_cell.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        fixtureNet.labelPatchCovers();
+        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixtureNet).collapseArc;
 
-        collapseArc.beginCollapse(fixture.channelArcId);
+        collapseArc.beginCollapse(fixture.intOutput("channelArcId"));
         while (collapseArc.dragNextArc()) {
             continue;
         }
         collapseArc.finishCollapse();
 
         assertEquals(0, collapseArc.blockedDragCount, "no drag blocks");
-        assertFalse(fixture.tmesh.arcs.get(fixture.parallelArcId).alive,
+        assertFalse(fixtureNet.arcs.get(fixture.intOutput("parallelArcId")).alive,
                 "the wall degenerated to a point, so it is retired: a point separates nothing");
-        assertEquals(fixture.tmesh.topology.resolvePatch(fixture.westCellPatchId),
-                fixture.tmesh.topology.resolvePatch(fixture.southCellPatchId),
+        assertEquals(fixtureNet.topology.resolvePatch(fixture.intOutput("westCellPatchId")),
+                fixtureNet.topology.resolvePatch(fixture.intOutput("southCellPatchId")),
                 "the wall's twin flanks resolve to one merged patch");
-        assertNull(fixture.tmesh.flankTearFailure("twin cell"),
+        assertNull(fixtureNet.flankTearFailure("twin cell"),
                 "every arc still lies between the patches it names once the covers are re-read");
     }
 }

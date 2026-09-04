@@ -196,7 +196,7 @@ public final class SeamlessParameterization implements MeshNode {
         uv.targetQuadEdgeLength = targetEdgeLengthFractionOfBounds
                 * mesh.computeBoundingBoxDiagonal();
         uv.cutGraph = new CutGraph(mesh, field, uv);
-        System.out.println("[seamless] Building seamless parameterization");
+        Platforms.log("[seamless] Building seamless parameterization");
         for (int ae2 = 0; ae2 < uv.edgeCount; ae2++) {
             EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(ae2);
 
@@ -224,16 +224,16 @@ public final class SeamlessParameterization implements MeshNode {
             }
         }
 
-        System.out.println("[seamless] Mesh setup done, building cut graph");
+        Platforms.log("[seamless] Mesh setup done, building cut graph");
 
         uv.cutGraph.buildCutGraph();
         uv.cutTranslationS = uv.cutGraph.atlas.translationU;
         uv.cutTranslationT = uv.cutGraph.atlas.translationV;
 
-        System.out.println("[seamless] Cut graph built, precomputing per-face geometry and targets");
+        Platforms.log("[seamless] Cut graph built, precomputing per-face geometry and targets");
         precomputePerFaceGeometryAndTargets();
 
-        System.out.println("[seamless] Per-face geometry and targets precomputed, assigning cut edge translation DOFs");
+        Platforms.log("[seamless] Per-face geometry and targets precomputed, assigning cut edge translation DOFs");
 
         this.faceWeight = new double[uv.faceCount];
         Arrays.fill(faceWeight, 1.0);
@@ -261,29 +261,29 @@ public final class SeamlessParameterization implements MeshNode {
     public ParameterizationMetrics resolve() {
         Arrays.fill(dofSystem.dofPinned, false);
 
-        System.out.println("[seamless] Running greedy integer rounding");
+        Platforms.log("[seamless] Running greedy integer rounding");
         long roundingStart = System.nanoTime();
         runGreedyIntegerRounding();
         Platforms.log("[seamless timing] greedy integer rounding %.3fs%n",
                 (System.nanoTime() - roundingStart) / 1.0e9);
 
-        System.out.println("[seamless] Running BCE13 injectivity-constraint loop");
+        Platforms.log("[seamless] Running BCE13 injectivity-constraint loop");
         long constraintStart = System.nanoTime();
         runInjectivityConstraintLoop();
         Platforms.log("[seamless timing] injectivity loop %.3fs%n",
                 (System.nanoTime() - constraintStart) / 1.0e9);
 
-        System.out.println("[seamless] Writing chart vertices from solution");
+        Platforms.log("[seamless] Writing chart vertices from solution");
         writeChartVerticesFromSolution();
 
         if (exactSeams) {
 
-            System.out.println("[seamless] Projecting onto exact-seam parameterization");
+            Platforms.log("[seamless] Projecting onto exact-seam parameterization");
             new SeamlessProjector(this).project();
         }
         metrics = new ParameterizationMetrics(this, mesh);
-        System.out.println("[seamless] Metrics computed, returning");
-        System.out.println("[seamless] Metrics: " + metrics);
+        Platforms.log("[seamless] Metrics computed, returning");
+        Platforms.log("[seamless] Metrics: " + metrics);
         return metrics;
     }
 

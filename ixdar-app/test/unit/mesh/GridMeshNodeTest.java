@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 
@@ -75,7 +76,7 @@ class GridMeshNodeTest {
         context.setInput(GridMeshNode.V_TILES.name, V_TILES);
         context.setInput(GridMeshNode.TRIANGULATE.name, triangulate);
         node.evaluate(context);
-        return context.getOutput(GridMeshNode.MESH.name, HalfEdgeMesh.class);
+        return (HalfEdgeMesh) context.getOutput(GridMeshNode.MESH.name, GeometryBundle.class).mesh();
     }
 
     /**

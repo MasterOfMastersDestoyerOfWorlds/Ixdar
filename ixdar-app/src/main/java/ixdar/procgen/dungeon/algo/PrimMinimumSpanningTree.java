@@ -1,155 +1,117 @@
 package ixdar.procgen.dungeon.algo;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Random;
 import java.util.Set;
 
-import ixdar.procgen.dungeon.values.EdgeGraphValue;
-import ixdar.procgen.dungeon.values.RoomListValue;
-import ixdar.procgen.dungeon.values.RoomListValue.Room;
-import ixdar.procgen.dungeon.values.RoomListValue3D;
+import org.joml.Vector3f;
+
+import ixdar.geometry.mesh.data.MeshTopology;
 
 /**
- * Minimum spanning tree over Delaunay edges weighted by distance between room centers, plus a
- * probabilistic pass reintroducing non-MST edges as loops.
- *
- * <p>The MST step is deterministic in the input edge order; the extra-edge pass draws from its
- * own RNG stream, unaffected by upstream consumers.
+ * Minimum spanning tree over a graph mesh's edges, weighted by Euclidean distance between
+ * endpoint positions, plus a probabilistic pass reintroducing non-MST edges as loops. Emits a
+ * per-edge selection in dense edge order; the extra-edge pass draws from its own RNG stream.
  */
 public final class PrimMinimumSpanningTree {
     public static final long NUM_0x9E3779B97F4A7C15 = 0x9E3779B97F4A7C15L;
 
-    /** Default probability per non-MST Delaunay edge of being kept as an extra loop (vazgriz). */
+    /** Default probability per non-MST edge of being kept as an extra loop (vazgriz). */
     public static final double DEFAULT_EXTRA_EDGE_PROB = 0.125;
 
     private PrimMinimumSpanningTree() {
     }
 
     /**
-     * Run Prim's MST on Delaunay edges weighted by 2D Euclidean distance between room centers,
-     * then probabilistically reintroduce non-MST Delaunay edges to add loops.
+     * Run Prim's MST on the mesh's edges weighted by Euclidean distance between endpoint
+     * positions, then probabilistically reintroduce non-MST edges to add loops.
      *
-     * @param delaunayEdges edges from {@link DelaunayTriangulation2D} (candidate set)
-     * @param rooms         source rooms used to compute edge weights
+     * @param mesh          graph mesh whose wire edges are the candidate set
      * @param extraEdgeProb probability [0, 1] of keeping each non-MST edge as a loop
      * @param seed          seed for the extra-edge RNG stream
-     * @return MST edges plus the kept extras, in original Delaunay index order
+     * @return per-edge kept flags in dense edge order
      */
-    public static EdgeGraphValue build(EdgeGraphValue delaunayEdges,
-                                       RoomListValue rooms,
-                                       double extraEdgeProb,
-                                       long seed) {
-        double[] weights = new double[delaunayEdges.edgeCount()];
-        for (int i = 0; i < delaunayEdges.edgeCount(); i++) {
-            int[] e = delaunayEdges.edge(i);
-            weights[i] = distance(rooms.get(e[0]), rooms.get(e[1]));
-        }
-        return buildWithWeights(delaunayEdges, weights, extraEdgeProb, seed);
-    }
-
-    /**
-     * 3D analog: weights are 3D Euclidean distances between {@link RoomListValue3D.Room} centers.
-     *
-     * @param delaunayEdges edges from {@link DelaunayTriangulation3D} (candidate set)
-     * @param rooms         source 3D rooms used to compute edge weights
-     * @param extraEdgeProb probability [0, 1] of keeping each non-MST edge as a loop
-     * @param seed          seed for the extra-edge RNG stream
-     * @return MST edges plus the kept extras, in original Delaunay index order
-     */
-    public static EdgeGraphValue build3D(EdgeGraphValue delaunayEdges,
-                                         RoomListValue3D rooms,
-                                         double extraEdgeProb,
-                                         long seed) {
-        double[] weights = new double[delaunayEdges.edgeCount()];
-        for (int i = 0; i < delaunayEdges.edgeCount(); i++) {
-            int[] e = delaunayEdges.edge(i);
-            weights[i] = distance3D(rooms.get(e[0]), rooms.get(e[1]));
-        }
-        return buildWithWeights(delaunayEdges, weights, extraEdgeProb, seed);
-    }
-
-    private static EdgeGraphValue buildWithWeights(EdgeGraphValue delaunayEdges,
-                                                   double[] weights,
-                                                   double extraEdgeProb,
-                                                   long seed) {
-        int n = delaunayEdges.nodeCount();
-        if (n <= 1) return new EdgeGraphValue(n, new int[0][]);
-
-        // Build weighted adjacency indexed by node. adj.get(v) is in original Delaunay order.
-        List<List<WeightedEdge>> adj = new ArrayList<>(n);
-        for (int i = 0; i < n; i++) adj.add(new ArrayList<>());
-        for (int i = 0; i < delaunayEdges.edgeCount(); i++) {
-            int[] e = delaunayEdges.edge(i);
-            double w = weights[i];
-            adj.get(e[0]).add(new WeightedEdge(e[1], w, i));
-            adj.get(e[1]).add(new WeightedEdge(e[0], w, i));
+    public static boolean[] build(MeshTopology mesh, double extraEdgeProb, long seed) {
+        int n = mesh.vertexCount();
+        int e = mesh.edgeCount();
+        if (n <= 1 || e == 0) {
+            return new boolean[e];
         }
 
-        // Prim's starting from node 0.
+        int[] pairs = DungeonGrids.selectedEdgePairs(mesh, null);
+        double[] weights = new double[e];
+        Vector3f pa = new Vector3f();
+        Vector3f pb = new Vector3f();
+        for (int i = 0; i < e; i++) {
+            mesh.vertexPosition(mesh.vertexIdAt(pairs[i * 2]), pa);
+            mesh.vertexPosition(mesh.vertexIdAt(pairs[i * 2 + 1]), pb);
+            weights[i] = pa.distance(pb);
+        }
+
+        // Adjacency in CSR form indexed by dense vertex, each vertex's incident edges in dense
+        // edge order; a candidate's weight is weights[edgeIdx].
+        int[] adjOffsets = new int[n + 1];
+        for (int i = 0; i < e; i++) {
+            adjOffsets[pairs[i * 2] + 1]++;
+            adjOffsets[pairs[i * 2 + 1] + 1]++;
+        }
+        for (int i = 1; i <= n; i++) {
+            adjOffsets[i] += adjOffsets[i - 1];
+        }
+        int[] adjEdge = new int[adjOffsets[n]];
+        int[] adjNeighbor = new int[adjOffsets[n]];
+        int[] fill = Arrays.copyOf(adjOffsets, n);
+        for (int i = 0; i < e; i++) {
+            int a = pairs[i * 2];
+            int b = pairs[i * 2 + 1];
+            adjEdge[fill[a]] = i;
+            adjNeighbor[fill[a]++] = b;
+            adjEdge[fill[b]] = i;
+            adjNeighbor[fill[b]++] = a;
+        }
+
+        // Prim's starting from dense vertex 0. The queue holds candidate edge indices ordered
+        // by weight, tie-broken by edge index so the order is fully deterministic; an edge is
+        // queued from the endpoint already in the tree, so its far endpoint is the one not yet
+        // in the tree when it is polled.
         boolean[] inTree = new boolean[n];
         Set<Integer> mstEdgeIndices = new LinkedHashSet<>();
-        PriorityQueue<PrimEdge> pq = new PriorityQueue<>();
+        PriorityQueue<Integer> pq = new PriorityQueue<>((left, right) -> {
+            int c = Double.compare(weights[left], weights[right]);
+            return c != 0 ? c : Integer.compare(left, right);
+        });
         inTree[0] = true;
-        for (WeightedEdge w : adj.get(0)) {
-            pq.add(new PrimEdge(w.edgeIdx, w.neighbor, w.weight));
+        for (int j = adjOffsets[0]; j < adjOffsets[1]; j++) {
+            pq.add(adjEdge[j]);
         }
         while (!pq.isEmpty()) {
-            PrimEdge top = pq.poll();
-            if (inTree[top.to]) continue;
-            inTree[top.to] = true;
-            mstEdgeIndices.add(top.edgeIdx);
-            for (WeightedEdge w : adj.get(top.to)) {
-                if (!inTree[w.neighbor]) {
-                    pq.add(new PrimEdge(w.edgeIdx, w.neighbor, w.weight));
+            int edge = pq.poll();
+            int a = pairs[edge * 2];
+            int to = inTree[a] ? pairs[edge * 2 + 1] : a;
+            if (inTree[to]) continue;
+            inTree[to] = true;
+            mstEdgeIndices.add(edge);
+            for (int j = adjOffsets[to]; j < adjOffsets[to + 1]; j++) {
+                if (!inTree[adjNeighbor[j]]) {
+                    pq.add(adjEdge[j]);
                 }
             }
         }
 
         // Extra-edge pass on its own RNG stream.
         Random extraRng = new Random(seed ^ NUM_0x9E3779B97F4A7C15);
-        Set<Integer> finalEdges = new LinkedHashSet<>(mstEdgeIndices);
-        for (int i = 0; i < delaunayEdges.edgeCount(); i++) {
-            if (mstEdgeIndices.contains(i)) continue;
+        boolean[] selection = new boolean[e];
+        for (int i : mstEdgeIndices) {
+            selection[i] = true;
+        }
+        for (int i = 0; i < e; i++) {
+            if (selection[i]) continue;
             if (extraRng.nextDouble() < extraEdgeProb) {
-                finalEdges.add(i);
+                selection[i] = true;
             }
         }
-
-        // Emit edges in original Delaunay index order for deterministic output.
-        List<Integer> sortedIndices = new ArrayList<>(finalEdges);
-        sortedIndices.sort(Integer::compareTo);
-        int[][] out = new int[sortedIndices.size()][];
-        for (int i = 0; i < sortedIndices.size(); i++) {
-            out[i] = delaunayEdges.edge(sortedIndices.get(i));
-        }
-        return new EdgeGraphValue(n, out);
-    }
-
-    private static double distance(Room a, Room b) {
-        double dx = a.centerX() - b.centerX();
-        double dy = a.centerY() - b.centerY();
-        return Math.sqrt(dx * dx + dy * dy);
-    }
-
-    private static double distance3D(RoomListValue3D.Room a, RoomListValue3D.Room b) {
-        double dx = a.centerX() - b.centerX();
-        double dy = a.centerY() - b.centerY();
-        double dz = a.centerZ() - b.centerZ();
-        return Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
-    private record WeightedEdge(int neighbor, double weight, int edgeIdx) { }
-
-    private record PrimEdge(int edgeIdx, int to, double weight) implements Comparable<PrimEdge> {
-        @Override
-        public int compareTo(PrimEdge o) {
-            int c = Double.compare(weight, o.weight);
-            if (c != 0) return c;
-            // Tie-break by edge index so the PriorityQueue is fully deterministic.
-            return Integer.compare(edgeIdx, o.edgeIdx);
-        }
+        return selection;
     }
 }

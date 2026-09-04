@@ -2,9 +2,12 @@ package unit.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.ScaledTorusLayoutFixture;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 
 
@@ -57,12 +60,14 @@ class DenseMeshFewSplitsTest {
      * @return the edge-split count
      */
     private int contractAndCountSplits(int scale, boolean requireMuchDenser) {
-        ScaledTorusLayoutFixture fixture = new ScaledTorusLayoutFixture(scale);
-        int verticesBefore = fixture.topology.copy.vertexCount();
-        long liveArcs = fixture.tmesh.arcs.stream().filter(arc -> arc.alive).count();
-        new NetworkContraction(fixture.tmesh).contract();
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/scaled_torus.dsl", Map.of(
+                "carrier.major_segments", 12 * scale, "carrier.minor_segments", 8 * scale));
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        int verticesBefore = fixtureNet.topology.copy.vertexCount();
+        long liveArcs = fixtureNet.arcs.stream().filter(arc -> arc.alive).count();
+        new NetworkContraction(fixtureNet).contract();
 
-        int splits = fixture.topology.copy.vertexCount() - verticesBefore;
+        int splits = fixtureNet.topology.copy.vertexCount() - verticesBefore;
         if (requireMuchDenser) {
             assertTrue(verticesBefore > liveArcs * DENSITY_FACTOR,
                     "the fixture at scale " + scale + " has " + verticesBefore + " vertices for "

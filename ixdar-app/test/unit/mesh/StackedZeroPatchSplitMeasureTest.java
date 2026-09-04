@@ -4,9 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.StackedZeroRowTorusFixture;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
@@ -65,18 +67,19 @@ class StackedZeroPatchSplitMeasureTest {
 
     @Test
     void aSplitMayRaiseTheMeasureButTheRoundAroundItMustLowerIt() {
-        StackedZeroRowTorusFixture fixture = new StackedZeroRowTorusFixture();
-        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/stacked_zero_row_torus.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        NetworkContraction contraction = new NetworkContraction(fixtureNet);
         ZeroPatchSplitOperator splitter = contraction.splitPatch;
 
-        assertEquals(fixture.nonSimplePatchId, splitter.nextNonSimpleZeroPatch(),
+        assertEquals(fixture.intOutput("nonSimplePatchId"), splitter.nextNonSimpleZeroPatch(),
                 "the lower zero row's major 0 to 4 patch is the fixture's only non-simple one");
-        long before = terminationMeasure(fixture.tmesh);
+        long before = terminationMeasure(fixtureNet);
 
-        splitter.split(fixture.nonSimplePatchId);
-        fixture.tmesh.validate();
+        splitter.split(fixture.intOutput("nonSimplePatchId"));
+        fixtureNet.validate();
 
-        assertTrue(terminationMeasure(fixture.tmesh) > before,
+        assertTrue(terminationMeasure(fixtureNet) > before,
                 "the split mints a zero-arc and a zero-patch, so it raises the measure on its own —"
                         + " measuring progress per operator asserts more than Appendix A.3 does");
         assertNotEquals(ArcNetwork.NONE, splitter.nextNonSimpleZeroPatch(),
@@ -85,13 +88,13 @@ class StackedZeroPatchSplitMeasureTest {
 
         int guard = 0;
         while (collapseOneArcOrPatch(contraction)) {
-            fixture.tmesh.validate();
-            if (++guard > fixture.tmesh.arcs.size() + fixture.tmesh.patches.size()) {
+            fixtureNet.validate();
+            if (++guard > fixtureNet.arcs.size() + fixtureNet.patches.size()) {
                 throw new AssertionError("operators 1 and 3 did not reach a fixed point");
             }
         }
 
-        assertTrue(terminationMeasure(fixture.tmesh) < before,
+        assertTrue(terminationMeasure(fixtureNet) < before,
                 "after operators 1 and 3 have collapsed what the split minted, the measure must be"
                         + " strictly below where it was before the split — that is the invariant"
                         + " Appendix A.3 actually proves, and it is what the driver should check");
@@ -104,13 +107,14 @@ class StackedZeroPatchSplitMeasureTest {
      */
     @Test
     void theDriverContractsTheStackedFixtureWithoutAbortingOnTheMeasure() {
-        StackedZeroRowTorusFixture fixture = new StackedZeroRowTorusFixture();
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/stacked_zero_row_torus.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
 
-        new NetworkContraction(fixture.tmesh).contract();
+        new NetworkContraction(fixtureNet).contract();
 
-        for (int arcId = 0; arcId < fixture.tmesh.arcs.size(); arcId++) {
-            assertTrue(!fixture.tmesh.arcs.get(arcId).alive
-                            || fixture.tmesh.arcs.get(arcId).quantizedLength != 0,
+        for (int arcId = 0; arcId < fixtureNet.arcs.size(); arcId++) {
+            assertTrue(!fixtureNet.arcs.get(arcId).alive
+                            || fixtureNet.arcs.get(arcId).quantizedLength != 0,
                     "arc " + arcId + " is a zero arc left behind at the fixed point");
         }
     }

@@ -15,6 +15,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;
 import ixdar.platform.Platforms;
 
 /**
@@ -46,12 +47,12 @@ public final class ExtractionNodeProbe {
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh,
                 QuadLayoutEngine.DEFAULT_ALPHA_RADIANS);
         try {
-            engine.buildQuadGrid();
+            PatchGridExtraction.fromRelaxedMap(engine.buildGlobalGridMap());
             System.out.println("[probe] extraction completed clean");
         } catch (RuntimeException failure) {
             Platforms.log("[probe] extraction failed: %s%n", failure.getMessage());
         }
-        ArcNetwork tmesh = engine.buildPatchMaps().tmesh;
+        ArcNetwork tmesh = engine.buildContractedTMesh();
         EmbeddedNode node = tmesh.nodes.get(PROBED_NODE);
         Platforms.log("[probe] node %d alive=%b critical=%b border=%b copyVertex=%d%n",
                 PROBED_NODE, node.alive, node.critical, node.border, node.copyVertex);

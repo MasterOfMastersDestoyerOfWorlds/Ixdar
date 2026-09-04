@@ -5,30 +5,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.joml.Vector3f;
-
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnostic;
 import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnosticException;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.FanCollapseFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.LayoutFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.MergedCellSlotFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.LoopCollapseFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.PinchedCoverFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TwinCellFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.PlaneLayoutFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.ScaledTorusLayoutFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.SliverPinchFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.StackedZeroRowTorusFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.model.ControlHint;
+import ixdar.scenes.model.GraphChoice;
 import ixdar.scenes.model.ModelScene;
 
 /**
@@ -92,16 +82,28 @@ public class EmbeddedTMeshScene extends ModelScene {
      */
     public EmbeddedTMeshScene() {
         super();
-        registerFixture(new FanCollapseFixture());
-        registerFixture(new SliverPinchFixture());
-        registerFixture(new MergedCellSlotFixture());
-        registerFixture(new PinchedCoverFixture());
-        registerFixture(new TwinCellFixture());
-        registerFixture(new LoopCollapseFixture());
-        registerFixture(new TorusLayoutFixture());
-        registerFixture(new StackedZeroRowTorusFixture());
-        registerFixture(new ScaledTorusLayoutFixture(DENSE_FIXTURE_SCALE));
-        registerFixture(new PlaneLayoutFixture());
+        registerGraph(new GraphChoice("Fan collapse",
+                "dsl/fixtures/fan_collapse.dsl", Map.of()));
+        registerGraph(new GraphChoice("Sliver pinch",
+                "dsl/fixtures/sliver_pinch.dsl", Map.of()));
+        registerGraph(new GraphChoice("Merged-cell slot",
+                "dsl/fixtures/merged_cell_slot.dsl", Map.of()));
+        registerGraph(new GraphChoice("Pinched cover",
+                "dsl/fixtures/pinched_cover.dsl", Map.of()));
+        registerGraph(new GraphChoice("Twin cell",
+                "dsl/fixtures/twin_cell.dsl", Map.of()));
+        registerGraph(new GraphChoice("Loop collapse",
+                "dsl/fixtures/loop_collapse.dsl", Map.of()));
+        registerGraph(new GraphChoice("Torus layout",
+                "dsl/fixtures/torus_layout.dsl", Map.of()));
+        registerGraph(new GraphChoice("Stacked zero row torus",
+                "dsl/fixtures/stacked_zero_row_torus.dsl", Map.of()));
+        registerGraph(new GraphChoice("Scaled torus x" + DENSE_FIXTURE_SCALE,
+                "dsl/fixtures/scaled_torus.dsl", Map.of(
+                        "carrier.major_segments", 12 * DENSE_FIXTURE_SCALE,
+                        "carrier.minor_segments", 8 * DENSE_FIXTURE_SCALE)));
+        registerGraph(new GraphChoice("Plane layout",
+                "dsl/fixtures/plane_layout.dsl", Map.of()));
     }
 
     @Override
@@ -133,14 +135,21 @@ public class EmbeddedTMeshScene extends ModelScene {
     }
 
     /**
-     * Load a fixture's hand-authored T-mesh directly, skipping the pipeline.
+     * Load a fixture graph's hand-authored T-mesh directly, skipping the pipeline: the
+     * network is the executed graph's final {@code net} output, and its working copy is
+     * the surface shown.
      *
-     * @param fixture registered fixture to build and show
-     * @return the freshly built T-mesh
+     * @param choice registered fixture graph to build and show
+     * @return the executed runtime
      */
     @Override
-    public ArcNetwork loadFixture(LayoutFixture fixture) {
-        tmesh = super.loadFixture(fixture);
+    public NodeGraphRuntime loadGraph(GraphChoice choice) {
+        NodeGraphRuntime graph = super.loadGraph(choice);
+        tmesh = (ArcNetwork) graph.lastOutput("net");
+        halfEdgeMesh = tmesh.topology.copy;
+        runtime.upload(halfEdgeMesh);
+        frameLoadedModel();
+        updateCurrentChoice();
         contraction = new NetworkContraction(tmesh);
         contractOpsSinceLoad = 0;
         quadRuntime.setEmbeddedTMesh(tmesh);
@@ -148,9 +157,9 @@ public class EmbeddedTMeshScene extends ModelScene {
         quadRuntime.setPatchClouds(List.of(), new float[0]);
         Platforms.get().log(String.format(
                 "[embedded-tmesh] fixture=%s nodes=%d arcs=%d patches=%d",
-                fixture.displayName(), tmesh.nodes.size(), tmesh.arcs.size(),
+                choice.displayName, tmesh.nodes.size(), tmesh.arcs.size(),
                 tmesh.patches.size()));
-        return tmesh;
+        return graph;
     }
 
     /**
@@ -324,11 +333,11 @@ public class EmbeddedTMeshScene extends ModelScene {
                 Platforms.get().log("[drag] began collapse of arc " + arcId + "; fan of "
                         + contraction.collapseArc.fan.size() + " arcs waits on node "
                         + contraction.collapseArc.movedNodeId);
-                quadRuntime.setDiagnostic(tmesh.topology.copy, contraction.collapseArc.stepDiagnostic());
+                showStepDiagnostic(contraction.collapseArc.stepDiagnostic());
                 quadRuntime.capDiagnosticRegion(quadRuntime.diagnosticRegionRadius);
             } else if (contraction.collapseArc.dragNextArc()) {
                 quadRuntime.setEmbeddedTMesh(tmesh);
-                quadRuntime.setDiagnostic(tmesh.topology.copy, contraction.collapseArc.stepDiagnostic());
+                showStepDiagnostic(contraction.collapseArc.stepDiagnostic());
                 quadRuntime.capDiagnosticRegion(quadRuntime.diagnosticRegionRadius);
                 Platforms.get().log("[drag] dragged arc " + contraction.collapseArc.lastDraggedArcId
                         + " onto vertex " + contraction.collapseArc.targetVertex);
@@ -360,6 +369,21 @@ public class EmbeddedTMeshScene extends ModelScene {
     }
 
     /**
+     * Resolves one diagnostic's id-space groups against the working copy and hands the
+     * world-space clouds and polylines to the runtime.
+     *
+     * @param diagnostic groups to show
+     * @return the face-group centre clouds, for framing
+     */
+    private List<float[]> showStepDiagnostic(ArrangementDiagnostic diagnostic) {
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        List<float[]> faceGroupCenters = diagnostic.faceGroupCenters(copy);
+        quadRuntime.setDiagnostic(faceGroupCenters, diagnostic.markerGroupPositions(copy),
+                diagnostic.pathPolylines(copy));
+        return faceGroupCenters;
+    }
+
+    /**
      * Shows a failure's geometry groups: uploads them, spotlights the orbit on the face groups,
      * and logs the message with the group-to-colour key.
      *
@@ -367,8 +391,7 @@ public class EmbeddedTMeshScene extends ModelScene {
      */
     private void displayDiagnostic(ArrangementDiagnosticException failure) {
         failedContractOps = contractOpsSinceLoad;
-        quadRuntime.setDiagnostic(tmesh.topology.copy, failure.diagnostic);
-        float regionRadius = focusOrbitOn(quadRuntime.diagnosticFaceGroupCenters);
+        float regionRadius = focusOrbitOn(showStepDiagnostic(failure.diagnostic));
         quadRuntime.capDiagnosticRegion(regionRadius);
         Platforms.get().log("[diagnostic] " + failure.getMessage());
         Platforms.get().log("[diagnostic] " + failure.diagnostic.describeGroups()
@@ -389,7 +412,7 @@ public class EmbeddedTMeshScene extends ModelScene {
         }
         boolean reloaded = preserveOrbit(() -> {
             try {
-                loadModelOrFixture(currentModel().path);
+                loadModelOrGraph(currentModel().path);
                 return true;
             } catch (IOException failure) {
                 Platforms.get().log("[rewind] reload failed: " + failure.getMessage());

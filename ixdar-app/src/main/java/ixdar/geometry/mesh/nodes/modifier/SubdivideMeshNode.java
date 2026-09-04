@@ -16,6 +16,7 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
@@ -34,9 +35,8 @@ public class SubdivideMeshNode implements MeshNode {
     public static final float NUM_0 = 0f;
     public static final float NUM_1 = 1f;
 
-    public static final InputPort MESH_IN = new InputPort("mesh", PortType.MESH, null);
+    public static final InputPort MESH_IN = new InputPort("mesh", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort LEVELS = new InputPort("levels", PortType.INT, 1, 0f, 6f);
-    public static final OutputPort MESH_OUT = new OutputPort(MESH_IN.name, PortType.MESH);
     public static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
     @Override
@@ -46,7 +46,7 @@ public class SubdivideMeshNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(MESH_OUT, GEOMETRY);
+        return List.of(GEOMETRY);
     }
 
     @Override
@@ -77,12 +77,11 @@ public class SubdivideMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        MeshTopology mesh = ctx.getInput(MESH_IN.name, MeshTopology.class);
+        MeshTopology mesh = GeometryBundles.meshPart(ctx.getInput(MESH_IN.name, GeometryBundle.class));
         Number levelsInput = ctx.getInput(LEVELS.name, Number.class);
         int levels = levelsInput == null ? 1 : Math.max(0, levelsInput.intValue());
 
         if (mesh == null) {
-            ctx.setOutput(MESH_IN.name, null);
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
@@ -106,7 +105,6 @@ public class SubdivideMeshNode implements MeshNode {
         }
 
         if (levels == 0) {
-            ctx.setOutput(MESH_IN.name, mesh);
             ctx.setOutput(GEOMETRY.name, GeometryBundle.ofMesh(mesh));
             return;
         }
@@ -116,7 +114,6 @@ public class SubdivideMeshNode implements MeshNode {
             for (int l = 0; l < levels; l++) {
                 am = ArrayMeshEngine.subdivideQuadsOnce(am);
             }
-            ctx.setOutput(MESH_IN.name, am);
             ctx.setOutput(GEOMETRY.name, GeometryBundle.ofMesh(am));
             return;
         }
@@ -126,7 +123,6 @@ public class SubdivideMeshNode implements MeshNode {
             current = subdivideOnce(current);
         }
         ((HalfEdgeMesh) current).computeNormals();
-        ctx.setOutput(MESH_IN.name, current);
         ctx.setOutput(GEOMETRY.name, GeometryBundle.ofMesh(current));
     }
 

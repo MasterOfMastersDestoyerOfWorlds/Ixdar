@@ -13,6 +13,7 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.nodes.api.Vector3Value;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 
@@ -48,7 +49,7 @@ public class BoundBoxNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        MeshTopology mesh = GeometryBundles.meshPart(ctx.getInput(GEOMETRY.name, Object.class));
+        MeshTopology mesh = GeometryBundles.meshPart(ctx.getInput(GEOMETRY.name, GeometryBundle.class));
         if (mesh == null || mesh.vertexCount() == 0) {
             ctx.setOutput(MIN.name, new Vector3Value(0f, 0f, 0f));
             ctx.setOutput(MAX.name, new Vector3Value(0f, 0f, 0f));

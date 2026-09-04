@@ -3,13 +3,11 @@ package ixdar.geometry.mesh.quadlayout.seamless.exact;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.CutGraph;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
@@ -102,10 +100,7 @@ public final class SeamlessProjector {
 
         // Phase 1: walk every branch, collecting (edges, plus-chartVertex sequence,
         // minus-chartVertex sequence, rotation, start/end nodes).
-        Set<Integer> singularityVertexIds = new HashSet<>();
-        for (Singularity s : crossField.singularities) {
-            singularityVertexIds.add(s.vertexId());
-        }
+        Set<Integer> singularityVertexIds = crossField.singularVertexIds();
         boolean[] walkedCutEdge = new boolean[seamless.uv.edgeCount];
         List<int[]> branchPlusChart = new ArrayList<>();
         List<int[]> branchMinusChart = new ArrayList<>();

@@ -4,7 +4,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.PriorityQueue;
 import java.util.Set;
 
@@ -12,7 +11,6 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
-import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 
 /**
@@ -153,7 +151,7 @@ public class CutGraph {
 
     /**
      * Choose the seam edge set: complement of a min-cost dual spanning tree biased
-     * to absorb {@link CrossField#alignmentEdgeIds}, then trim dangling whiskers,
+     * to absorb {@link CrossField#alignmentEdges}, then trim dangling whiskers,
      * then route every interior singularity onto the cut at cut-degree one.
      */
     private void selectCutEdges() {
@@ -203,7 +201,7 @@ public class CutGraph {
                 if (otherActiveFace < 0) {
                     continue;
                 }
-                double newDistance = distHere + (crossField.alignmentEdgeIds.contains(edgeId) ? 0.0 : 1.0);
+                double newDistance = distHere + (crossField.alignmentEdges.get(activeEdge) ? 0.0 : 1.0);
                 if (newDistance < distance[otherActiveFace]) {
                     distance[otherActiveFace] = newDistance;
                     parentEdge[otherActiveFace] = activeEdge;
@@ -242,9 +240,7 @@ public class CutGraph {
      * left by the spanning-tree complement. Boundary edges are never removed.
      */
     private void trimDanglingBranches() {
-        Set<Integer> singularityVertexIds = new HashSet<>();
-        for (Singularity singularity : crossField.singularities)
-            singularityVertexIds.add(singularity.vertexId());
+        Set<Integer> singularityVertexIds = crossField.singularVertexIds();
 
         ArrayDeque<Integer> trimQueue = new ArrayDeque<>();
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
@@ -293,8 +289,12 @@ public class CutGraph {
      * the shortest mesh-edge path.
      */
     private void connectDetachedSingularities() {
-        for (Singularity singularity : crossField.singularities) {
-            int vertexId = singularity.vertexId();
+        for (int singularVertex = 0; singularVertex < crossField.singularityIndex4.length();
+                singularVertex++) {
+            if (crossField.singularityIndex4.get(singularVertex) == 0) {
+                continue;
+            }
+            int vertexId = mesh.vertexIdAt(singularVertex);
             if (cutDegree[activeVertexIndex(vertexId)] > 0 || mesh.isBoundaryVertex(vertexId)) {
                 continue;
             }
@@ -341,7 +341,7 @@ public class CutGraph {
                     int otherActiveVertex = activeVertexIndex(otherVertexId);
                     mesh.vertexPosition(otherVertexId, posOther);
                     double edgeLength = posHere.distance(posOther);
-                    double edgeCost = crossField.alignmentEdgeIds.contains(edgeId)
+                    double edgeCost = crossField.alignmentEdges.get(activeEdge)
                             ? edgeLength * ALIGNMENT_PATH_PENALTY
                             : edgeLength;
                     double newDistance = distHere + edgeCost;

@@ -1,9 +1,14 @@
 package ixdar.geometry.mesh.quadlayout.extraction;
 
+import java.util.Arrays;
+
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+
 /**
  * The quad mesh extracted from the relaxed integer grid map: one vertex per
  * integer grid point preimage, connected by traced unit iso-segments. Ports are
- * kept clockwise per vertex so the layout regrouping can navigate the mesh.
+ * kept in surface clockwise order per vertex, so one CSR step is always the
+ * same rotational ring step for the layout regrouping.
  *
  * <p>
  * See also: EBC13
@@ -40,15 +45,6 @@ public final class ExtractedQuadMesh {
     /** The copy vertex, edge, or face id the vertex's preimage sits on. */
     public int[] anchorEntityId;
 
-    /** Patch whose chart {@link #chartU}/{@link #chartV} are stored in. */
-    public int[] chartPatchId;
-
-    /** Integer grid u of each vertex in its stored chart. */
-    public double[] chartU;
-
-    /** Integer grid v of each vertex in its stored chart. */
-    public double[] chartV;
-
     /** Ports over all vertices; each is one outgoing iso-line direction. */
     public int portCount;
 
@@ -64,23 +60,8 @@ public final class ExtractedQuadMesh {
     /** Direction as quarter turns from {@code +u} in the port face's chart. */
     public int[] portDirectionTurns;
 
-    /** The owner vertex's grid u in the port face's chart. */
-    public double[] portChartU;
-
-    /** The owner vertex's grid v in the port face's chart. */
-    public double[] portChartV;
-
     /** Opposite port reached by tracing, {@link #NONE} until connected. */
     public int[] portConnection;
-
-    /** Quarter turns of the automorphism from this port's chart to its opposite's. */
-    public int[] connectionTurns;
-
-    /** Grid u translation of that automorphism. */
-    public int[] connectionTranslationU;
-
-    /** Grid v translation of that automorphism. */
-    public int[] connectionTranslationV;
 
     /** Extracted quads. */
     public int quadCount;
@@ -91,12 +72,6 @@ public final class ExtractedQuadMesh {
     /** Unique undirected quad edges. */
     public int quadEdgeCount;
 
-    /** First vertex of each quad edge. */
-    public int[] quadEdgeVertexA;
-
-    /** Second vertex of each quad edge. */
-    public int[] quadEdgeVertexB;
-
     /**
      * The mesh's Euler characteristic, which must match the surface it covers.
      *
@@ -104,5 +79,17 @@ public final class ExtractedQuadMesh {
      */
     public int eulerCharacteristic() {
         return quadVertexCount - quadEdgeCount + quadCount;
+    }
+
+    /**
+     * The extracted quads as a dense mesh, positions and corner indices trimmed
+     * to the emitted counts.
+     *
+     * @return the packed quad mesh
+     */
+    public ArrayMesh toArrayMesh() {
+        return ArrayMesh.fromQuads(
+                Arrays.copyOf(positions, quadVertexCount * POSITION_FLOATS),
+                Arrays.copyOf(quadCorner, quadCount * QUAD_CORNERS));
     }
 }

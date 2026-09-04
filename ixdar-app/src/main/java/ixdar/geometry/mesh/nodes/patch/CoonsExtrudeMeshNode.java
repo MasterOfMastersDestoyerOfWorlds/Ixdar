@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.nodes.patch;
 
+import java.util.Objects;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,7 +19,6 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
@@ -47,8 +47,10 @@ public class CoonsExtrudeMeshNode implements MeshNode {
     public static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
     public static final InputPort REGION = new InputPort("region", PortType.BOOLEAN, false);
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
-    public static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
     public static final OutputPort GENERATED_OUT = new OutputPort("generated", PortType.BOOLEAN);
+
+    private float[][] outHandles;
+    private boolean[] outGenerated;
 
     @Override
     public List<InputPort> inputs() {
@@ -57,7 +59,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(MESH_OUT, GEOMETRY_OUT, GENERATED_OUT);
+        return List.of(GEOMETRY_OUT, GENERATED_OUT);
     }
 
     @Override
@@ -72,24 +74,21 @@ public class CoonsExtrudeMeshNode implements MeshNode {
                 OFFSET.name, "Signed distance to push extruded corners along the Coons surface normal. Positive = outward protrusion; negative = inward depression (e.g. eye socket).",
                 SELECTION.name, "Per-face BOOLEAN mask. Selected QUADS (non-quads pass through) get extruded.",
                 REGION.name, "If true, each connected component of the selection (by face-face edge adjacency) extrudes as its own region — adjacent selected faces within the component share extruded vertices and average their surface normals at shared corners. Disconnected clusters in the same mask produce independent, correctly-formed regions (no cross-cluster averaging). If false (default), each face extrudes independently, producing a separate protrusion per face.",
-                MESH_OUT.name, "Topology-only output.",
                 GENERATED_OUT.name, "Per-output-face BOOLEAN: true for the newly-created top face of each extrusion. Thread into the next op's selection to chain features (e.g. another coons_extrude inward for deeper recesses)."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
+        GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         MeshTopology in = base.mesh();
         if (in == null || in.vertexCount() == 0) {
-            ctx.setOutput(MESH_OUT.name, null);
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             ctx.setOutput(GENERATED_OUT.name, new BoolField(new boolean[0]));
             return;
         }
         if (!CoonsHandleBuilder.hasHandles(base)) {
             System.err.println("[coons_extrude_mesh] WARNING: input lacks bezier handles; passing through unchanged. Use assign_bezier_handles upstream, or use plain extrude_mesh for topology-only extrudes.");
-            ctx.setOutput(MESH_OUT.name, in);
             ctx.setOutput(GEOMETRY.name, base);
             ctx.setOutput(GENERATED_OUT.name, new BoolField(new boolean[in.faceCount()]));
             return;
@@ -104,18 +103,17 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         float[] hStart = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_START, in);
         float[] hEnd = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_END, in);
 
-        ExtrudeResult r = region
+        HalfEdgeMesh outMesh = region
                 ? doExtrudeRegion(in, hStart, hEnd, offset, selObj)
                 : doExtrudeIndividual(in, hStart, hEnd, offset, selObj);
 
         Map<String, Object> outSlots = new HashMap<>(base.slots());
-        outSlots.put(AssignBezierHandlesNode.SLOT_HANDLES_START, r.handles[0]);
-        outSlots.put(AssignBezierHandlesNode.SLOT_HANDLES_END, r.handles[1]);
-        GeometryBundle outBundle = new GeometryBundle(r.outMesh, Map.copyOf(outSlots));
+        outSlots.put(AssignBezierHandlesNode.SLOT_HANDLES_START, outHandles[0]);
+        outSlots.put(AssignBezierHandlesNode.SLOT_HANDLES_END, outHandles[1]);
+        GeometryBundle outBundle = new GeometryBundle(outMesh, Map.copyOf(outSlots));
 
-        ctx.setOutput(MESH_OUT.name, r.outMesh);
         ctx.setOutput(GEOMETRY.name, outBundle);
-        ctx.setOutput(GENERATED_OUT.name, new BoolField(r.generated));
+        ctx.setOutput(GENERATED_OUT.name, new BoolField(outGenerated));
     }
 
     // ----------------------------------------------------------------------
@@ -124,7 +122,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
     // vertex offset by the face-local surface normal.
     // ----------------------------------------------------------------------
 
-    private static ExtrudeResult doExtrudeIndividual(
+    private HalfEdgeMesh doExtrudeIndividual(
             MeshTopology in, float[] hStart, float[] hEnd, float offset, Object selection) {
         int origFaceCount = in.faceCount();
         int origVertCount = in.vertexCount();
@@ -252,7 +250,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
     // tops of brow + maxilla + chin simultaneously).
     // ----------------------------------------------------------------------
 
-    private static ExtrudeResult doExtrudeRegion(
+    private HalfEdgeMesh doExtrudeRegion(
             MeshTopology in, float[] hStart, float[] hEnd, float offset, Object selection) {
         int origFaceCount = in.faceCount();
         int origVertCount = in.vertexCount();
@@ -451,7 +449,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
     // ----------------------------------------------------------------------
 
     /** Passes topology through unchanged. Used for selection=empty / offset=0. */
-    private static ExtrudeResult passThrough(MeshTopology in, float[] hStart, float[] hEnd) {
+    private HalfEdgeMesh passThrough(MeshTopology in, float[] hStart, float[] hEnd) {
         int vn = in.vertexCount();
         float[] positions = new float[vn * NUM_3];
         Vector3f tmp = new Vector3f();
@@ -482,8 +480,9 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         out.computeNormals();
         Map<Long, float[]> dh = new HashMap<>();
         seedOriginalEdgeHandles(in, hStart, hEnd, oldToDense, dh);
-        float[][] handles = CoonsHandleBuilder.flushDirectedHandles(out, dh);
-        return new ExtrudeResult(out, handles, new boolean[fn]);
+        outHandles = CoonsHandleBuilder.flushDirectedHandles(out, dh);
+        outGenerated = new boolean[fn];
+        return out;
     }
 
     private static void seedOriginalEdgeHandles(
@@ -529,7 +528,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
     }
 
     /** Builds the output mesh for INDIVIDUAL mode. */
-    private static ExtrudeResult buildOutput(
+    private HalfEdgeMesh buildOutput(
             MeshTopology in, int origVertCount, float[] origPos, ArrayList<Float> extraPos,
             boolean[] selected, int[][] topVids,
             Map<Long, float[]> dh, Map<Integer, Integer> oldToDense) {
@@ -584,10 +583,10 @@ public class CoonsExtrudeMeshNode implements MeshNode {
 
         HalfEdgeMesh out = finalizeMixedMesh(positions, faceIdxList, faceVpfList);
         out.computeNormals();
-        float[][] handles = CoonsHandleBuilder.flushDirectedHandles(out, dh);
-        boolean[] generated = new boolean[generatedList.size()];
-        for (int i = 0; i < generatedList.size(); i++) generated[i] = generatedList.get(i);
-        return new ExtrudeResult(out, handles, generated);
+        outHandles = CoonsHandleBuilder.flushDirectedHandles(out, dh);
+        outGenerated = new boolean[generatedList.size()];
+        for (int i = 0; i < generatedList.size(); i++) outGenerated[i] = generatedList.get(i);
+        return out;
     }
 
     private static HalfEdgeMesh finalizeMixedMesh(float[] positions,
@@ -606,7 +605,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
     }
 
     /** Builds the output mesh for REGION mode: side walls only on boundary edges. */
-    private static ExtrudeResult buildOutputRegion(
+    private HalfEdgeMesh buildOutputRegion(
             MeshTopology in, int origVertCount, float[] origPos, ArrayList<Float> extraPos,
             boolean[] selected, int[][] topVids,
             int[] componentId,
@@ -627,8 +626,8 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         int[] boundarySideCount = new int[1];
         boolean[] sideEmitted = new boolean[in.edgeCount()];
 
-        record SideEdge(int origA, int origB, int topA, int topB) {}
-        ArrayList<SideEdge> sides = new ArrayList<>();
+        // Side walls as int[4] rows: original edge (dense a, b) and its lifted top edge (a, b).
+        ArrayList<int[]> sides = new ArrayList<>();
         for (int fi = 0; fi < origFaceCount; fi++) {
             if (!selected[fi]) continue;
             int comp = componentId[fi];
@@ -645,7 +644,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
                 int denseB = oldToDense.get(origB);
                 int topA = topVidByVidComp.get(packVidComp(origA, comp));
                 int topB = topVidByVidComp.get(packVidComp(origB, comp));
-                sides.add(new SideEdge(denseA, denseB, topA, topB));
+                sides.add(new int[] { denseA, denseB, topA, topB });
                 boundarySideCount[0]++;
             }
         }
@@ -674,19 +673,19 @@ public class CoonsExtrudeMeshNode implements MeshNode {
                 generatedList.add(false);
             }
         }
-        for (SideEdge se : sides) {
-            faceIdxList.add(se.origA); faceIdxList.add(se.origB);
-            faceIdxList.add(se.topB); faceIdxList.add(se.topA);
+        for (int[] se : sides) {
+            faceIdxList.add(se[0]); faceIdxList.add(se[1]);
+            faceIdxList.add(se[NUM_3]); faceIdxList.add(se[2]);
             faceVpfList.add(NUM_4);
             generatedList.add(false);
         }
 
         HalfEdgeMesh out = finalizeMixedMesh(positions, faceIdxList, faceVpfList);
         out.computeNormals();
-        float[][] handles = CoonsHandleBuilder.flushDirectedHandles(out, dh);
-        boolean[] generated = new boolean[generatedList.size()];
-        for (int i = 0; i < generatedList.size(); i++) generated[i] = generatedList.get(i);
-        return new ExtrudeResult(out, handles, generated);
+        outHandles = CoonsHandleBuilder.flushDirectedHandles(out, dh);
+        outGenerated = new boolean[generatedList.size()];
+        for (int i = 0; i < generatedList.size(); i++) outGenerated[i] = generatedList.get(i);
+        return out;
     }
 
     /**
@@ -724,7 +723,5 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         }
         return -1;
     }
-
-    private record ExtrudeResult(HalfEdgeMesh outMesh, float[][] handles, boolean[] generated) {}
 
 }

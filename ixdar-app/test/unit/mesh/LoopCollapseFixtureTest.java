@@ -6,13 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.LoopCollapseFixture;
 
 /**
  * The loop-collapse fixture carries botijo's operator-756 shape: a zero loop bounding an
@@ -23,15 +24,16 @@ class LoopCollapseFixtureTest {
 
     @Test
     void coversLabelEveryFaceWithoutOverlap() {
-        LoopCollapseFixture fixture = new LoopCollapseFixture();
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/loop_collapse.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
 
-        fixture.tmesh.labelPatchCovers();
+        fixtureNet.labelPatchCovers();
 
-        assertTrue(fixture.tmesh.topology.patchByCopyFace.length > 0,
+        assertTrue(fixtureNet.topology.patchByCopyFace.length > 0,
                 "the patch walks must agree with the disk's winding, or the covers are dropped"
                         + " as overlapping and the drags run unrestricted");
-        for (int face = 0; face < fixture.tmesh.topology.patchByCopyFace.length; face++) {
-            assertTrue(fixture.tmesh.topology.patchByCopyFace[face] != ArcNetwork.NONE,
+        for (int face = 0; face < fixtureNet.topology.patchByCopyFace.length; face++) {
+            assertTrue(fixtureNet.topology.patchByCopyFace[face] != ArcNetwork.NONE,
                     "face " + face + " carries a label");
         }
     }
@@ -42,17 +44,18 @@ class LoopCollapseFixtureTest {
      */
     @Test
     void loopContractsInPlaceAndItsInsideCellResolvesIntoTheOutsideFlank() {
-        LoopCollapseFixture fixture = new LoopCollapseFixture();
-        fixture.tmesh.labelPatchCovers();
-        assertNull(fixture.tmesh.flankTearFailure("authored loop"),
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/loop_collapse.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        fixtureNet.labelPatchCovers();
+        assertNull(fixtureNet.flankTearFailure("authored loop"),
                 "the hand-set loop flanks agree with the covers before anything collapses");
-        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixture.tmesh).collapseArc;
+        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixtureNet).collapseArc;
         List<Integer> eastPathBefore = List.copyOf(
-                fixture.tmesh.arcs.get(fixture.eastArcId).path.copyVertexPath);
+                fixtureNet.arcs.get(fixture.intOutput("eastArcId")).path.copyVertexPath);
         List<Integer> westPathBefore = List.copyOf(
-                fixture.tmesh.arcs.get(fixture.westArcId).path.copyVertexPath);
+                fixtureNet.arcs.get(fixture.intOutput("westArcId")).path.copyVertexPath);
 
-        collapseArc.beginCollapse(fixture.loopArcId);
+        collapseArc.beginCollapse(fixture.intOutput("loopArcId"));
         int dragCount = 0;
         while (collapseArc.dragNextArc()) {
             dragCount++;
@@ -62,17 +65,17 @@ class LoopCollapseFixtureTest {
         assertEquals(collapseArc.movedNodeId, collapseArc.survivingNodeId,
                 "the loop's node survives where it stands");
         assertEquals(0, dragCount, "a contracting loop moves nothing");
-        assertEquals(eastPathBefore, fixture.tmesh.arcs.get(fixture.eastArcId).path.copyVertexPath,
+        assertEquals(eastPathBefore, fixtureNet.arcs.get(fixture.intOutput("eastArcId")).path.copyVertexPath,
                 "the east fan arc keeps its path");
-        assertEquals(westPathBefore, fixture.tmesh.arcs.get(fixture.westArcId).path.copyVertexPath,
+        assertEquals(westPathBefore, fixtureNet.arcs.get(fixture.intOutput("westArcId")).path.copyVertexPath,
                 "the west fan arc keeps its path");
-        assertFalse(fixture.tmesh.arcs.get(fixture.loopArcId).alive, "the loop is retired");
-        assertFalse(fixture.tmesh.patches.get(fixture.insidePatchId).alive,
+        assertFalse(fixtureNet.arcs.get(fixture.intOutput("loopArcId")).alive, "the loop is retired");
+        assertFalse(fixtureNet.patches.get(fixture.intOutput("insidePatchId")).alive,
                 "the one-sided inside cell is retired with its boundary");
-        assertEquals(fixture.outsidePatchId,
-                fixture.tmesh.topology.resolvePatch(fixture.insidePatchId),
+        assertEquals(fixture.intOutput("outsidePatchId"),
+                fixtureNet.topology.resolvePatch(fixture.intOutput("insidePatchId")),
                 "the inside cell aliases into the outside flank, which absorbs its cover");
-        assertNull(fixture.tmesh.flankTearFailure("loop collapse"),
+        assertNull(fixtureNet.flankTearFailure("loop collapse"),
                 "every arc still lies between the patches it names once the covers are re-read");
     }
 }

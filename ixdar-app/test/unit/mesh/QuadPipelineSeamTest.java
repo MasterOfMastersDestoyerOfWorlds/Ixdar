@@ -1,8 +1,10 @@
 package unit.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.HashSet;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -10,8 +12,9 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.nodes.api.IntField;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
-import ixdar.geometry.mesh.quadlayout.Singularity;
+import ixdar.geometry.mesh.quadlayout.extraction.PatchSurfaceGeometry;
 
 /**
  * Characterization of the quad-layout pipeline at the seams the 7.2 node
@@ -44,20 +47,17 @@ class QuadPipelineSeamTest {
         engine.buildPatchSurfaces();
 
         int indexSum = 0;
-        for (Singularity singularity : engine.crossField.singularities) {
-            indexSum += singularity.index4();
+        for (int v = 0; v < engine.crossField.singularityIndex4.length(); v++) {
+            indexSum += engine.crossField.singularityIndex4.get(v);
         }
         assertEquals(QUARTER_INDICES_PER_EULER * meshEuler, indexSum,
                 "cross-field singularity indices sum to the Euler characteristic");
 
-        assertEquals(0, engine.seamlessMetrics.flippedTriangleCount,
+        assertEquals(0, engine.seamlessFlippedTriangles,
                 "the seamless parametrization flips no triangle");
         assertTrue(engine.seamless.injective, "the seamless parametrization is injective");
 
         assertTrue(engine.contracted, "the surfaces build ran the contraction");
-        assertFalse(engine.conforming,
-                "characterized: the engine never conforms; only tests and the scene call"
-                        + " conform() (see REFACTOR-PLAN 6.12)");
         assertEquals(0, countZeroArcs(engine), "contraction left no live zero arc");
 
         assertTrue(engine.globalGrid.gridOptimizer.energyAfter
@@ -78,9 +78,14 @@ class QuadPipelineSeamTest {
                 livePatches++;
             }
         }
-        assertEquals(livePatches, engine.patchSurfaces.patches.size(),
-                "one patch surface per live patch");
-        assertTrue(engine.patchSurfaces.patches.size() > 0, "the layout has patch surfaces");
+        IntField patchIds = PatchSurfaceGeometry.patchIds(engine.patchSurfaces);
+        Set<Integer> surfacePatchIds = new HashSet<>();
+        for (int face = 0; face < patchIds.length(); face++) {
+            surfacePatchIds.add(patchIds.get(face));
+        }
+        assertEquals(livePatches, surfacePatchIds.size(),
+                "one patch-surface grid per live patch");
+        assertTrue(surfacePatchIds.size() > 0, "the layout has patch surfaces");
     }
 
     /**

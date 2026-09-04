@@ -152,10 +152,6 @@ public final class PatchCorridor {
     /**
      * A copy face lying inside a patch, taken from the interior side of one of its boundary arcs.
      *
-     * <p>The interior side comes from {@code leftPatchId}, which records the direction
-     * {@code addPatch} walked rather than a fact about the surface, so a layout walked the other
-     * way seeds outside. See {@code PatchInteriorSeedTest}.
-     *
      * @param patchId patch to seed a flood inside
      * @throws IllegalStateException when the patch has no live boundary arc to take a side from
      * @return a copy face it covers

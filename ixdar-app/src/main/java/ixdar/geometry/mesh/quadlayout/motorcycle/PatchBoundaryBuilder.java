@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.motorcycle;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -551,11 +552,13 @@ public final class PatchBoundaryBuilder {
     }
 
     /**
-     * Split the cycle at its four corners into sides; side {@code j} runs from just
-     * after corner {@code j} through corner {@code j + 1}.
+     * Split the cycle at its four corners into sides, then rewind them interior-left:
+     * the arrangement walk circles a face interior-right, so each side is reversed
+     * and sides 1 and 3 trade places, keeping side 0 the width side.
      */
     private void splitSides(EmbeddedPatch patch, List<Integer> arcCycle, List<Integer> cornerPositions) {
         int cycleLength = arcCycle.size();
+        List<List<Integer>> walkedSides = new ArrayList<>(SIDES);
         for (int j = 0; j < cornerPositions.size(); j++) {
             int from = (cornerPositions.get(j) + 1) % cycleLength;
             int to = cornerPositions.get((j + 1) % cornerPositions.size());
@@ -568,6 +571,11 @@ public final class PatchBoundaryBuilder {
                 }
                 position = (position + 1) % cycleLength;
             }
+            walkedSides.add(side);
+        }
+        for (int j = 0; j < SIDES; j++) {
+            List<Integer> side = walkedSides.get((SIDES - j) % SIDES);
+            Collections.reverse(side);
             patch.sideArcIds.get(j).addAll(side);
         }
         measureRectangularity(patch);

@@ -3,13 +3,13 @@ package unit.mesh;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.ScaledTorusLayoutFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.StackedZeroRowTorusFixture;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
@@ -33,52 +33,57 @@ class PatchCoverDriftTest {
 
     @Test
     void collapsingOneZeroArcKeepsEveryCoverLabelTrue() {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        fixture.tmesh.labelPatchCovers();
-        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        fixtureNet.labelPatchCovers();
+        NetworkContraction contraction = new NetworkContraction(fixtureNet);
 
         int arcId = contraction.collapseArc.mostContendedArc();
         assertNotEquals(ArcNetwork.NONE, arcId, "the zero row must offer a collapsible arc");
         contraction.collapseArc.collapse(arcId);
 
-        assertEquals("", coverDrift(fixture.tmesh),
+        assertEquals("", coverDrift(fixtureNet),
                 "one operator-(1) collapse already left the cover labels disagreeing with the"
                         + " patches they name");
     }
 
     @Test
     void contractingTheTorusKeepsEveryCoverLabelTrue() {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        NetworkContraction contraction = new NetworkContraction(fixtureNet);
         contraction.contract();
 
         assertEquals(0, contraction.collapseArc.blockedDragCount,
                 "drags found no route inside the patches their arc separates");
-        assertEquals("", coverDrift(fixture.tmesh),
+        assertEquals("", coverDrift(fixtureNet),
                 "the contracted layout's cover labels disagree with the patches they name");
     }
 
     @Test
     void contractingTheStackedZeroRowTorusKeepsEveryCoverLabelTrue() {
-        StackedZeroRowTorusFixture fixture = new StackedZeroRowTorusFixture();
-        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/stacked_zero_row_torus.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        NetworkContraction contraction = new NetworkContraction(fixtureNet);
         contraction.contract();
 
         assertEquals(0, contraction.collapseArc.blockedDragCount,
                 "drags found no route inside the patches their arc separates");
-        assertEquals("", coverDrift(fixture.tmesh),
+        assertEquals("", coverDrift(fixtureNet),
                 "the contracted layout's cover labels disagree with the patches they name");
     }
 
     @Test
     void contractingADenseTorusKeepsEveryCoverLabelTrue() {
-        ScaledTorusLayoutFixture fixture = new ScaledTorusLayoutFixture(DENSE_SCALE);
-        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/scaled_torus.dsl", Map.of(
+                "carrier.major_segments", 12 * DENSE_SCALE, "carrier.minor_segments", 8 * DENSE_SCALE));
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        NetworkContraction contraction = new NetworkContraction(fixtureNet);
         contraction.contract();
 
         assertEquals(0, contraction.collapseArc.blockedDragCount,
                 "drags found no route inside the patches their arc separates");
-        assertEquals("", coverDrift(fixture.tmesh),
+        assertEquals("", coverDrift(fixtureNet),
                 "the contracted layout's cover labels disagree with the patches they name");
     }
 

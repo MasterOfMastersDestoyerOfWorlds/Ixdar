@@ -33,11 +33,15 @@ public class SubdivisionMeshNode implements MeshNode {
     public static final float NUM_0_125 = 0.125f;
     public static final float NUM_1 = 1f;
 
-    public static final InputPort MESH_IN = new InputPort("mesh", PortType.MESH, null);
+    public static final InputPort MESH_IN = new InputPort("mesh", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort GEOMETRY_IN = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort LEVELS = new InputPort("levels", PortType.INT, 1, 0f, 6f);
-    public static final OutputPort MESH_OUT = new OutputPort(MESH_IN.name, PortType.MESH);
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_IN.name, PortType.GEOMETRY_BUNDLE);
+
+    private float[] levelCreaseWeights;
+    private float[] densePositions;
+    private int[] denseFaceIndices;
+    private int[] denseFaceOffsets;
 
     @Override
     public List<InputPort> inputs() {
@@ -46,7 +50,7 @@ public class SubdivisionMeshNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(MESH_OUT, GEOMETRY_OUT);
+        return List.of(GEOMETRY_OUT);
     }
 
     @Override
@@ -66,28 +70,21 @@ public class SubdivisionMeshNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         // Accept geometry bundle (with crease weights) or plain mesh
-        GeometryBundle bundle = null;
-        MeshTopology mesh = null;
-        Object geoObj = ctx.getInputValue(GEOMETRY_IN.name);
-        if (geoObj != null) {
-            bundle = GeometryBundles.requireBundle(geoObj);
-            mesh = bundle.mesh();
-        }
+        GeometryBundle bundle = ctx.getInput(GEOMETRY_IN.name, GeometryBundle.class);
+        MeshTopology mesh = GeometryBundles.meshPart(bundle);
         if (mesh == null) {
-            mesh = ctx.getInput(MESH_IN.name, MeshTopology.class);
+            mesh = GeometryBundles.meshPart(ctx.getInput(MESH_IN.name, GeometryBundle.class));
         }
 
         Number levelsInput = ctx.getInput(LEVELS.name, Number.class);
         int levels = levelsInput == null ? 1 : Math.max(0, levelsInput.intValue());
 
         if (mesh == null) {
-            ctx.setOutput(MESH_IN.name, null);
             ctx.setOutput(GEOMETRY_IN.name, GeometryBundle.empty());
             return;
         }
 
         if (levels == 0) {
-            ctx.setOutput(MESH_IN.name, mesh);
             ctx.setOutput(GEOMETRY_IN.name, bundle != null ? bundle : GeometryBundle.ofMesh(mesh));
             return;
         }
@@ -97,44 +94,30 @@ public class SubdivisionMeshNode implements MeshNode {
                 ? EdgeMarks.floats(bundle, MarkEdgesNode.CREASE_LABEL)
                 : null;
 
-        float[] positions;
-        int[] quadIndices;
-        int nv;
+        ArrayMesh quads;
         int remainingLevels = levels;
 
         // If mesh has non-quad faces (e.g. triangles from cap closure), the first CC
         // level uses a generalized N-gon algorithm. After one CC step all faces become
-        // quads, so subsequent levels use the fast quad-only path.
+        // quads, so subsequent levels use the fast quad-only path. Each level leaves
+        // the next level's crease weights in levelCreaseWeights.
         if (mesh instanceof HalfEdgeMesh hem && hasNonQuadFaces(hem)) {
-            DensePolyMesh poly = extractDensePolyMesh(hem);
-            CatmullClarkResult first = applyMixedCatmullClarkLevel(
-                    poly.positions, poly.faceIndices, poly.faceOffsets,
-                    poly.vertexCount, poly.faceCount, creaseWeights);
-            positions = first.positions;
-            quadIndices = first.quadIndices;
-            creaseWeights = first.creaseWeights;
-            nv = positions.length / NUM_3;
+            extractDensePolyMesh(hem);
+            quads = applyMixedCatmullClarkLevel(hem.vertexCount(), hem.faceCount(), creaseWeights);
+            creaseWeights = levelCreaseWeights;
             remainingLevels--;
         } else {
-            DenseQuadMesh dq = extractDenseQuadMesh(mesh);
-            positions = dq.positions;
-            quadIndices = dq.quadIndices;
-            nv = dq.vertexCount;
+            quads = extractDenseQuadMesh(mesh);
         }
 
         for (int i = 0; i < remainingLevels; i++) {
-            int nf = quadIndices.length / NUM_4;
-            CatmullClarkResult step = applyCatmullClarkLevel(positions, quadIndices, nv, nf, creaseWeights);
-            positions = step.positions;
-            quadIndices = step.quadIndices;
-            creaseWeights = step.creaseWeights;
-            nv = positions.length / NUM_3;
+            quads = applyCatmullClarkLevel(quads, creaseWeights);
+            creaseWeights = levelCreaseWeights;
         }
 
-        ArrayMesh out = ArrayMesh.fromQuads(positions, quadIndices);
+        ArrayMesh out = quads;
         out.computeNormals();
 
-        ctx.setOutput(MESH_IN.name, out);
         GeometryBundle outBundle = GeometryBundle.ofMesh(out);
         if (creaseWeights != null) {
             outBundle = EdgeMarks.with(outBundle, MarkEdgesNode.CREASE_LABEL, creaseWeights);
@@ -142,12 +125,12 @@ public class SubdivisionMeshNode implements MeshNode {
         ctx.setOutput(GEOMETRY_IN.name, outBundle);
     }
 
-    private static DenseQuadMesh extractDenseQuadMesh(MeshTopology mesh) {
+    private static ArrayMesh extractDenseQuadMesh(MeshTopology mesh) {
         if (mesh instanceof ArrayMesh am) {
             if (am.getVertsPerFace() != NUM_4) {
                 throw new IllegalArgumentException("subdivision_surface: ArrayMesh must be all quads");
             }
-            return new DenseQuadMesh(am.copyPositions(), am.copyFaceIndices(), am.vertexCount());
+            return am;
         }
         if (mesh instanceof HalfEdgeMesh hem) {
             return extractDenseQuads(hem);
@@ -155,7 +138,7 @@ public class SubdivisionMeshNode implements MeshNode {
         throw new IllegalArgumentException("subdivision_surface: unsupported mesh type " + mesh.getClass().getName());
     }
 
-    private static DenseQuadMesh extractDenseQuads(HalfEdgeMesh mesh) {
+    private static ArrayMesh extractDenseQuads(HalfEdgeMesh mesh) {
         int nv = mesh.vertexCount();
         int maxVid = 0;
         for (int i = 0; i < nv; i++) {
@@ -182,7 +165,7 @@ public class SubdivisionMeshNode implements MeshNode {
             }
             for (int k = 0; k < NUM_4; k++) quads[fi * NUM_4 + k] = oldToDense[mesh.faceVertexAt(f, k)];
         }
-        return new DenseQuadMesh(pos, quads, nv);
+        return ArrayMesh.fromQuads(pos, quads);
     }
 
     private static int nextVertex(int[] quads, int he) {
@@ -196,8 +179,11 @@ public class SubdivisionMeshNode implements MeshNode {
         return creaseWeights[edgeIndex];
     }
 
-    private static CatmullClarkResult applyCatmullClarkLevel(float[] positions, int[] quadIndices,
-                                                              int nv, int nf, float[] creaseWeights) {
+    private ArrayMesh applyCatmullClarkLevel(ArrayMesh quads, float[] creaseWeights) {
+        float[] positions = quads.copyPositions();
+        int[] quadIndices = quads.copyFaceIndices();
+        int nv = quads.vertexCount();
+        int nf = quads.faceCount();
         QuadMeshTopologyHelper topo = QuadMeshTopologyHelper.build(quadIndices, NUM_4, nv, nf);
         int ne = topo.edgeCount;
 
@@ -477,7 +463,8 @@ public class SubdivisionMeshNode implements MeshNode {
             }
         }
 
-        return new CatmullClarkResult(newPositions, newQuads, newCreaseWeights);
+        levelCreaseWeights = newCreaseWeights;
+        return ArrayMesh.fromQuads(newPositions, newQuads);
     }
 
     private static void parallelRange(int n, IntConsumer body) {
@@ -495,7 +482,12 @@ public class SubdivisionMeshNode implements MeshNode {
         return false;
     }
 
-    private static DensePolyMesh extractDensePolyMesh(HalfEdgeMesh mesh) {
+    /**
+     * Flattens a ragged-face mesh into the dense scratch arrays the mixed
+     * Catmull-Clark level reads: packed positions, face vertex indices, and
+     * faceOffsets[i] = start of face i (length faceCount + 1).
+     */
+    private void extractDensePolyMesh(HalfEdgeMesh mesh) {
         int nv = mesh.vertexCount();
         int nf = mesh.faceCount();
         int maxVid = 0;
@@ -533,7 +525,9 @@ public class SubdivisionMeshNode implements MeshNode {
                 faceIndices[offset + k] = oldToDense[mesh.faceVertexAt(f, k)];
             }
         }
-        return new DensePolyMesh(pos, faceIndices, faceOffsets, nv, nf);
+        densePositions = pos;
+        denseFaceIndices = faceIndices;
+        denseFaceOffsets = faceOffsets;
     }
 
     /**
@@ -541,9 +535,10 @@ public class SubdivisionMeshNode implements MeshNode {
      * After one step, all output faces are quads — subsequent levels use the fast quad-only path.
      * Each N-gon face produces N sub-quads: (vertex_point, edge_point_out, face_point, edge_point_in).
      */
-    private static CatmullClarkResult applyMixedCatmullClarkLevel(
-            float[] positions, int[] faceIndices, int[] faceOffsets,
-            int nv, int nf, float[] creaseWeights) {
+    private ArrayMesh applyMixedCatmullClarkLevel(int nv, int nf, float[] creaseWeights) {
+        float[] positions = densePositions;
+        int[] faceIndices = denseFaceIndices;
+        int[] faceOffsets = denseFaceOffsets;
 
         int HE = faceOffsets[nf];
 
@@ -852,47 +847,7 @@ public class SubdivisionMeshNode implements MeshNode {
             if (!hasCreases) newCreaseWeights = null;
         }
 
-        return new CatmullClarkResult(newPositions, newQuads, newCreaseWeights);
-    }
-
-    private static final class CatmullClarkResult {
-        final float[] positions;
-        final int[] quadIndices;
-        final float[] creaseWeights;
-
-        CatmullClarkResult(float[] positions, int[] quadIndices, float[] creaseWeights) {
-            this.positions = positions;
-            this.quadIndices = quadIndices;
-            this.creaseWeights = creaseWeights;
-        }
-    }
-
-    private static final class DenseQuadMesh {
-        final float[] positions;
-        final int[] quadIndices;
-        final int vertexCount;
-
-        DenseQuadMesh(float[] positions, int[] quadIndices, int vertexCount) {
-            this.positions = positions;
-            this.quadIndices = quadIndices;
-            this.vertexCount = vertexCount;
-        }
-    }
-
-    private static final class DensePolyMesh {
-        final float[] positions;
-        final int[] faceIndices;
-        final int[] faceOffsets; // faceOffsets[i] = start of face i; length = faceCount + 1
-        final int vertexCount;
-        final int faceCount;
-
-        DensePolyMesh(float[] positions, int[] faceIndices, int[] faceOffsets,
-                      int vertexCount, int faceCount) {
-            this.positions = positions;
-            this.faceIndices = faceIndices;
-            this.faceOffsets = faceOffsets;
-            this.vertexCount = vertexCount;
-            this.faceCount = faceCount;
-        }
+        levelCreaseWeights = newCreaseWeights;
+        return ArrayMesh.fromQuads(newPositions, newQuads);
     }
 }

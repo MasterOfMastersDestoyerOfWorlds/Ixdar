@@ -1,4 +1,5 @@
 package ixdar.geometry.mesh.nodes.transform;
+import java.util.Objects;
 import java.util.List;
 
 import java.util.HashMap;
@@ -17,7 +18,6 @@ import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.nodes.api.Vector3Value;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -67,7 +67,7 @@ public class TransformGeometryNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
+        GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         Vector3Value trans = FieldBroadcast.vector3ValueOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, TRANSLATION.name, TRANSLATION.defaultValue),
                 new Vector3Value(NUM_0, NUM_0, NUM_0));

@@ -63,13 +63,11 @@ class MeshNodeRegistryTest {
                 }
             }
             for (InputPort port : node.inputs()) {
-                CanonicalPortNames.roleOf(id, port).ifPresent(role -> {
-                    String expected = CanonicalPortNames.canonicalForRole(role);
-                    if (!expected.equals(port.name)) {
-                        violations.add(id + ": " + role + " input named '" + port.name
-                                + "', expected '" + expected + "'");
-                    }
-                });
+                if (CanonicalPortNames.isOperationSelector(id, port)
+                        && !CanonicalPortNames.OPERATION_SELECTOR.equals(port.name)) {
+                    violations.add(id + ": operation selector input named '" + port.name
+                            + "', expected '" + CanonicalPortNames.OPERATION_SELECTOR + "'");
+                }
             }
         });
         assertTrue(violations.isEmpty(), () -> report("non-canonical port names", violations));

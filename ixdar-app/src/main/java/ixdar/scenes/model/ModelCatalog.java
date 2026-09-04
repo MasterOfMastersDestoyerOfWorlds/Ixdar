@@ -112,7 +112,7 @@ public final class ModelCatalog {
      * Resolve a user-typed token: an exact display-name match first, then a case-insensitive
      * substring of the display name or path.
      *
-     * @param choices list to search, which may hold fixtures the catalog itself never scanned
+     * @param choices list to search, which may hold graphs the catalog itself never scanned
      * @param token text typed at the terminal, e.g. {@code "fertility"}
      * @return the matching choice, or {@code null} when none matches
      */

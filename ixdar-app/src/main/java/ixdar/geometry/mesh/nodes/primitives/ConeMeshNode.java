@@ -9,6 +9,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "cone")
@@ -19,7 +20,7 @@ public class ConeMeshNode implements MeshNode {
     public static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 1.0f, 0.001f, 100f);
     public static final InputPort HEIGHT = new InputPort("height", PortType.FLOAT, 1.0f, 0.001f, 100f);
     public static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 16, (float) 3, (float) 128);
-    public static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
+    public static final OutputPort MESH = new OutputPort("mesh", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -81,6 +82,6 @@ public class ConeMeshNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput(MESH.name, mesh);
+        ctx.setOutput(MESH.name, GeometryBundle.ofMesh(mesh));
     }
 }

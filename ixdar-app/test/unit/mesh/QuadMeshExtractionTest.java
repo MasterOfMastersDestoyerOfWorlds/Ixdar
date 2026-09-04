@@ -4,10 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedPatchGrids;
@@ -16,6 +19,7 @@ import ixdar.geometry.mesh.quadlayout.extraction.QuadMeshExtraction;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
 import ixdar.geometry.mesh.quadlayout.gridmap.GridMapAssembly;
 import ixdar.geometry.mesh.quadlayout.gridmap.GridMapDofSystem;
+import ixdar.geometry.mesh.quadlayout.gridmap.GridMapIsoSurface;
 import ixdar.geometry.mesh.quadlayout.gridmap.GridMapOptimizer;
 import ixdar.geometry.mesh.quadlayout.gridmap.GridMapVerification;
 import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
@@ -31,6 +35,9 @@ import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
  * position case with the layout's nodes held pinned.
  */
 class QuadMeshExtractionTest {
+
+    /** A torus is genus 1, so V - E + F is zero for any cell decomposition of it. */
+    private static final int TORUS_EULER_CHARACTERISTIC = 0;
 
     /** Quads the shortest arc is sized to, so arcs carry interior grid points. */
     private static final int QUADS_ON_SHORTEST_ARC = 3;
@@ -62,39 +69,42 @@ class QuadMeshExtractionTest {
      * @param relax whether to run the Newton relaxation before extracting
      */
     private void extractAndCheck(boolean relax) {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        NetworkContraction contraction = new NetworkContraction(fixtureNet);
         contraction.contract();
         contraction.conform();
-        SeamlessUv seamless = new QuadLayoutEngine(fixture.torus, 0f)
+        SeamlessUv seamless = new QuadLayoutEngine(fixtureNet.topology.sourceMesh, 0f)
                 .buildSeamless();
-        double targetEdgeLength = shortestArcLength(fixture, seamless) / QUADS_ON_SHORTEST_ARC;
-        LayoutPatchMaps patchMaps = new LayoutPatchMaps(fixture.tmesh, seamless,
+        double targetEdgeLength = shortestArcLength(fixtureNet, seamless) / QUADS_ON_SHORTEST_ARC;
+        LayoutPatchMaps patchMaps = new LayoutPatchMaps(fixtureNet, seamless,
                 targetEdgeLength).build();
-        IntegerGridMap frames = new IntegerGridMap(fixture.tmesh).build();
+        IntegerGridMap frames = new IntegerGridMap(fixtureNet).build();
         GlobalGridMap gridMap = new GridMapAssembly().assemble(patchMaps, frames, seamless);
-        gridMap.gridDofs.relax();
         GridMapAssembly.extractQuads(gridMap);
         if (relax) {
             GridMapDofSystem dofs = new GridMapDofSystem(gridMap);
             dofs.build();
             new GridMapOptimizer(dofs, seamless).build();
         }
-        GridMapVerification verification = new GridMapVerification(gridMap).build();
-        QuadMeshExtraction extraction = new QuadMeshExtraction(gridMap, verification);
-        extraction.expectedQuadCount = quantizedQuadCount(fixture);
+        new GridMapVerification(gridMap).build();
+        GridMapIsoSurface uvField = new GridMapIsoSurface(patchMaps, gridMap.uvByPatchId)
+                .build();
+        QuadMeshExtraction extraction = new QuadMeshExtraction(
+                fixtureNet.topology.copy, uvField, fixtureNet);
+        extraction.expectedQuadCount = quantizedQuadCount(fixtureNet);
         ExtractedQuadMesh quadMesh = extraction.build();
-        assertEquals(quantizedQuadCount(fixture), quadMesh.quadCount,
+        assertEquals(quantizedQuadCount(fixtureNet), quadMesh.quadCount,
                 "the extraction must produce exactly the quantization's quads");
-        assertEquals(TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC,
+        assertEquals(TORUS_EULER_CHARACTERISTIC,
                 quadMesh.eulerCharacteristic(), "the quad mesh must close over the torus");
         ExtractedPatchGrids grids = new ExtractedPatchGrids(quadMesh, gridMap).build();
-        for (EmbeddedPatch patch : fixture.tmesh.patches) {
+        for (EmbeddedPatch patch : fixtureNet.patches) {
             if (!patch.alive) {
                 continue;
             }
-            int columns = fixture.tmesh.sideQuadCount(patch.patchId, 0) + 1;
-            int rows = fixture.tmesh.sideQuadCount(patch.patchId, 1) + 1;
+            int columns = fixtureNet.sideQuadCount(patch.patchId, 0) + 1;
+            int rows = fixtureNet.sideQuadCount(patch.patchId, 1) + 1;
             assertNotNull(grids.gridByPatchId[patch.patchId],
                     "patch " + patch.patchId + " has no grid");
             assertEquals(columns * rows, grids.gridByPatchId[patch.patchId].length,
@@ -109,15 +119,15 @@ class QuadMeshExtractionTest {
     /**
      * The quad count the quantization prescribes, summed over the live patches.
      *
-     * @param fixture the torus layout
+     * @param fixtureNet the torus layout
      * @return quads over all live patches
      */
-    private int quantizedQuadCount(TorusLayoutFixture fixture) {
+    private int quantizedQuadCount(ArcNetwork fixtureNet) {
         int total = 0;
-        for (EmbeddedPatch patch : fixture.tmesh.patches) {
+        for (EmbeddedPatch patch : fixtureNet.patches) {
             if (patch.alive) {
-                total += fixture.tmesh.sideQuadCount(patch.patchId, 0)
-                        * fixture.tmesh.sideQuadCount(patch.patchId, 1);
+                total += fixtureNet.sideQuadCount(patch.patchId, 0)
+                        * fixtureNet.sideQuadCount(patch.patchId, 1);
             }
         }
         return total;
@@ -127,15 +137,15 @@ class QuadMeshExtractionTest {
      * The shortest live arc's parametric length, which sets a target edge length
      * no arc can round below one quad.
      *
-     * @param fixture  the torus layout
+     * @param fixtureNet the torus layout
      * @param seamless the parametrization to measure in
      * @return the shortest arc's parametric length
      */
-    private double shortestArcLength(TorusLayoutFixture fixture,
+    private double shortestArcLength(ArcNetwork fixtureNet,
             SeamlessUv seamless) {
-        LayoutResolution measured = new LayoutResolution(fixture.tmesh, seamless, 1.0).build();
+        LayoutResolution measured = new LayoutResolution(fixtureNet, seamless, 1.0).build();
         double shortest = Double.MAX_VALUE;
-        for (EmbeddedArc arc : fixture.tmesh.arcs) {
+        for (EmbeddedArc arc : fixtureNet.arcs) {
             if (arc.alive) {
                 shortest = Math.min(shortest, measured.parametricLengthByArc[arc.arcId]);
             }

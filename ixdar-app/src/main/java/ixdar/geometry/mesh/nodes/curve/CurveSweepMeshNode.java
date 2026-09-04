@@ -40,7 +40,7 @@ public class CurveSweepMeshNode implements MeshNode {
     public static final float NUM_1e_12 = 1e-12f;
 
     public static final InputPort CURVE = new InputPort("curve", PortType.GEOMETRY_BUNDLE, null);
-    public static final InputPort PROFILE = new InputPort("profile", PortType.MESH, null);
+    public static final InputPort PROFILE = new InputPort("profile", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort CAPS = new InputPort("caps", PortType.BOOLEAN, true);
     public static final OutputPort GEOMETRY = new OutputPort("geometry", PortType.GEOMETRY_BUNDLE);
 
@@ -71,8 +71,8 @@ public class CurveSweepMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle curveGb = GeometryBundles.bundlePart(ctx.getInput(CURVE.name, Object.class));
-        MeshTopology prof = ctx.getInput(PROFILE.name, MeshTopology.class);
+        GeometryBundle curveGb = ctx.getInput(CURVE.name, GeometryBundle.class);
+        MeshTopology prof = GeometryBundles.meshPart(ctx.getInput(PROFILE.name, GeometryBundle.class));
         Object capObj = FieldBroadcast.getInputOrDefault(ctx, CAPS.name, CAPS.defaultValue);
         boolean addCaps = capObj instanceof Boolean ? (Boolean) capObj : true;
 

@@ -9,6 +9,7 @@ import java.util.List;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.platform.Platforms;
 
 /**
  * The frame of every layout patch in one common integer grid, which turns the separate per-patch
@@ -158,7 +159,7 @@ public final class IntegerGridMap {
             }
         }
         computeTransitions();
-        System.out.println("[integer-grid] placed=" + placedPatchCount + " components="
+        Platforms.log("[integer-grid] placed=" + placedPatchCount + " components="
                 + componentCount + " interiorArcs=" + interiorArcCount + " seamArcs=" + seamArcCount
                 + " brokenArcs=" + brokenArcCount + " selfAdjacentArcs=" + selfAdjacentArcCount
                 + " transitions=" + transitionArcCount);

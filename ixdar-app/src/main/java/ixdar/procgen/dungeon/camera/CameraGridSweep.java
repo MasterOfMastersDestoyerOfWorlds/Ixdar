@@ -6,13 +6,11 @@ import ixdar.procgen.dungeon.physics.AabbBox;
 import ixdar.procgen.dungeon.physics.CapsuleAabbTest;
 import ixdar.procgen.dungeon.physics.CapsuleShape;
 import ixdar.procgen.dungeon.values.CellType;
-import ixdar.procgen.dungeon.values.TileGridValue3D;
 
 /**
  * Casts a sphere of {@code cameraRadius} from {@code pivot} toward {@code desired}, stopping at
- * the first obstacle cell and backing off by {@code padding}.
- *
- * <p>The sweep hard-stops rather than sliding, so the result always lies on the
+ * the first obstacle cell of a dense grid indexed {@code x + gridW * (z + gridD * y)} and
+ * backing off by {@code padding}. The sweep hard-stops, so the result lies on the
  * pivot-to-desired line.
  */
 public final class CameraGridSweep {
@@ -34,14 +32,18 @@ public final class CameraGridSweep {
      * @param pivot        ray origin (typically the player's head)
      * @param desired      unobstructed target position
      * @param cameraRadius sphere radius used for the sweep
-     * @param grid         3D tile grid; EMPTY cells and out-of-bounds count as obstacles
+     * @param cells        3D cell grid; EMPTY cells and out-of-bounds count as obstacles
+     * @param gridW        grid width in cells (X)
+     * @param gridH        grid height in floors (Y)
+     * @param gridD        grid depth in cells (Z)
      * @param cellSize     world-space size of a grid cell (must be &gt; 0)
      * @param padding      world-space pull-back distance applied after a hit
      * @throws IllegalArgumentException if {@code cellSize} is not strictly positive
      * @return the clipped endpoint, or {@code desired} when the sweep is fully clear
      */
     public static Vector3f sweep(Vector3f pivot, Vector3f desired, float cameraRadius,
-                              TileGridValue3D grid, float cellSize, float padding) {
+                              CellType[] cells, int gridW, int gridH, int gridD,
+                              float cellSize, float padding) {
         if (cellSize <= NUM_0) {
             throw new IllegalArgumentException("cellSize must be > 0, got " + cellSize);
         }
@@ -56,7 +58,7 @@ public final class CameraGridSweep {
             Vector3f p = new Vector3f(pivot.x() + dir.x() * t,
                                 pivot.y() + dir.y() * t,
                                 pivot.z() + dir.z() * t);
-            if (overlapsObstacle(p, cameraRadius, grid, cellSize)) {
+            if (overlapsObstacle(p, cameraRadius, cells, gridW, gridH, gridD, cellSize)) {
                 float clipped = Math.max(NUM_0, lastClear - padding);
                 return new Vector3f(pivot.x() + dir.x() * clipped,
                                  pivot.y() + dir.y() * clipped,
@@ -65,7 +67,7 @@ public final class CameraGridSweep {
             lastClear = t;
         }
         // Final endpoint check (loop may stop just short of dist due to step granularity).
-        if (overlapsObstacle(desired, cameraRadius, grid, cellSize)) {
+        if (overlapsObstacle(desired, cameraRadius, cells, gridW, gridH, gridD, cellSize)) {
             float clipped = Math.max(NUM_0, lastClear - padding);
             return new Vector3f(pivot.x() + dir.x() * clipped,
                              pivot.y() + dir.y() * clipped,
@@ -75,10 +77,11 @@ public final class CameraGridSweep {
     }
 
     private static boolean overlapsObstacle(Vector3f center, float radius,
-                                            TileGridValue3D grid, float cellSize) {
-        float offsetX = -grid.width() * cellSize * NUM_0_5;
-        float offsetY = -grid.height() * cellSize * NUM_0_5;
-        float offsetZ = -grid.depth() * cellSize * NUM_0_5;
+                                            CellType[] cells, int gridW, int gridH, int gridD,
+                                            float cellSize) {
+        float offsetX = -gridW * cellSize * NUM_0_5;
+        float offsetY = -gridH * cellSize * NUM_0_5;
+        float offsetZ = -gridD * cellSize * NUM_0_5;
         CapsuleShape sphere = new CapsuleShape(center.x(), center.y(), center.z(), NUM_0, radius);
         int xLo = (int) Math.floor((center.x() - radius - offsetX) / cellSize);
         int xHi = (int) Math.floor((center.x() + radius - offsetX) / cellSize);
@@ -89,7 +92,7 @@ public final class CameraGridSweep {
         for (int gy = yLo; gy <= yHi; gy++) {
             for (int gz = zLo; gz <= zHi; gz++) {
                 for (int gx = xLo; gx <= xHi; gx++) {
-                    if (!isObstacle(grid, gx, gy, gz)) continue;
+                    if (!isObstacle(cells, gridW, gridH, gridD, gx, gy, gz)) continue;
                     AabbBox cell = new AabbBox(
                             offsetX + gx * cellSize,
                             offsetY + gy * cellSize,
@@ -104,10 +107,11 @@ public final class CameraGridSweep {
         return false;
     }
 
-    private static boolean isObstacle(TileGridValue3D grid, int x, int y, int z) {
-        if (x < 0 || x >= grid.width()) return true;
-        if (y < 0 || y >= grid.height()) return true;
-        if (z < 0 || z >= grid.depth()) return true;
-        return grid.at(x, y, z) == CellType.EMPTY;
+    private static boolean isObstacle(CellType[] cells, int gridW, int gridH, int gridD,
+                                      int x, int y, int z) {
+        if (x < 0 || x >= gridW) return true;
+        if (y < 0 || y >= gridH) return true;
+        if (z < 0 || z >= gridD) return true;
+        return cells[x + gridW * (z + gridD * y)] == CellType.EMPTY;
     }
 }

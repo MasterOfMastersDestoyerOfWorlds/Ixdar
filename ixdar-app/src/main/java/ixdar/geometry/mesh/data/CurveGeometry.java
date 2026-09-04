@@ -2,12 +2,11 @@ package ixdar.geometry.mesh.data;
 
 import java.util.Arrays;
 
-import ixdar.geometry.mesh.nodes.api.GeometryBundleValue;
 
 /**
  * One or more 3D polylines: packed xyz positions and curve start offsets (length = numCurves + 1).
  */
-public final class CurveGeometry implements GeometryBundleValue {
+public final class CurveGeometry {
 
     /** Bundle slot every curve node reads and writes its {@link CurveGeometry} through. */
     public static final String SLOT = "_curve";

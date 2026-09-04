@@ -1,25 +1,21 @@
 package ixdar.procgen.dungeon.algo;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 
-import ixdar.procgen.dungeon.values.RoomListValue3D;
-import ixdar.procgen.dungeon.values.RoomListValue3D.Room;
+import ixdar.geometry.mesh.data.GeometryBundle;
 
 /**
- * 3D analog of {@link RoomPlacer}. Places non-overlapping axis-aligned 3D rooms on an integer
- * grid with a 1-unit buffer between rooms. Rooms are 1 cell tall by default and sit at integer
- * floor levels [0, gridH).
- *
- * <p>The result may contain fewer than {@code roomCount} rooms when {@code maxAttempts} is
- * exhausted.
+ * 3D analog of {@link RoomPlacer}: non-overlapping 1-cell-tall rooms at integer floor levels
+ * [0, gridH) with a 1-unit buffer, flowing as points with half extents in the
+ * {@link DungeonGrids#HALF_EXTENT} attribute. Exhausting {@code maxAttempts} may leave fewer
+ * than {@code roomCount}.
  */
 public final class RoomPlacer3D {
     public static final String X = "x";
     public static final int NUM_4 = 4;
     public static final float NUM_2 = 2f;
     public static final float NUM_0_5 = 0.5f;
+    public static final int NUM_3 = 3;
 
     private RoomPlacer3D() {
     }
@@ -43,10 +39,9 @@ public final class RoomPlacer3D {
      *                                  horizontal extent is smaller than
      *                                  {@code maxSize}, or {@code gridH} is less
      *                                  than 1
-     * @return the placed rooms (size may be less than {@code roomCount} on attempt
-     *         exhaustion)
+     * @return rooms as a point bundle (vertex count may be less than {@code roomCount})
      */
-    public static RoomListValue3D place(long seed,
+    public static GeometryBundle place(long seed,
             int gridW, int gridH, int gridD,
             int roomCount,
             int minSize, int maxSize,
@@ -62,7 +57,10 @@ public final class RoomPlacer3D {
             throw new IllegalArgumentException("gridH must be at least 1");
         }
 
-        List<Room> placed = new ArrayList<>(roomCount);
+        float[] centers = new float[roomCount * NUM_3];
+        float[] halfExtents = new float[roomCount * NUM_3];
+        int placed = 0;
+
         int startSize = Math.max(minSize, Math.min(maxSize, NUM_4));
         if (startSize % 2 != 0) {
             startSize = Math.max(minSize, startSize - 1);
@@ -73,42 +71,68 @@ public final class RoomPlacer3D {
         int startX = Math.max(0, gridW / 2 - startSize / 2);
         int startZ = Math.max(0, gridD / 2 - startSize / 2);
         int startFloor = gridH / 2;
-        placed.add(new Room(
-                0,
-                startX + startSize / NUM_2, startFloor + NUM_0_5, startZ + startSize / NUM_2,
-                startSize / NUM_2, NUM_0_5, startSize / NUM_2));
+        centers[0] = startX + startSize / NUM_2;
+        centers[1] = startFloor + NUM_0_5;
+        centers[2] = startZ + startSize / NUM_2;
+        halfExtents[0] = startSize / NUM_2;
+        halfExtents[1] = NUM_0_5;
+        halfExtents[2] = startSize / NUM_2;
+        placed = 1;
 
         Random rng = new Random(seed);
         int attempts = 0;
-        while (placed.size() < roomCount && attempts < maxAttempts) {
+        while (placed < roomCount && attempts < maxAttempts) {
             attempts++;
             int w = minSize + rng.nextInt(maxSize - minSize + 1);
             int d = minSize + rng.nextInt(maxSize - minSize + 1);
             int x = rng.nextInt(gridW - w + 1);
             int floor = rng.nextInt(gridH);
             int z = rng.nextInt(gridD - d + 1);
-            Room candidate = new Room(
-                    placed.size(),
-                    x + w / NUM_2, floor + NUM_0_5, z + d / NUM_2,
-                    w / NUM_2, NUM_0_5, d / NUM_2);
-            boolean collidesAny = false;
-            for (Room r : placed) {
-                float buf = NUM_0_5;
-                boolean collides = r.minX() - buf < candidate.maxX() + buf
-                        && r.maxX() + buf > candidate.minX() - buf
-                        && r.minY() - buf < candidate.maxY() + buf
-                        && r.maxY() + buf > candidate.minY() - buf
-                        && r.minZ() - buf < candidate.maxZ() + buf
-                        && r.maxZ() + buf > candidate.minZ() - buf;
-                if (collides) {
-                    collidesAny = true;
-                    break;
-                }
-            }
-            if (!collidesAny) {
-                placed.add(candidate);
+            float cx = x + w / NUM_2;
+            float cy = floor + NUM_0_5;
+            float cz = z + d / NUM_2;
+            float hx = w / NUM_2;
+            float hy = NUM_0_5;
+            float hz = d / NUM_2;
+            if (!collidesAny(centers, halfExtents, placed, cx, cy, cz, hx, hy, hz)) {
+                centers[placed * NUM_3] = cx;
+                centers[placed * NUM_3 + 1] = cy;
+                centers[placed * NUM_3 + 2] = cz;
+                halfExtents[placed * NUM_3] = hx;
+                halfExtents[placed * NUM_3 + 1] = hy;
+                halfExtents[placed * NUM_3 + 2] = hz;
+                placed++;
             }
         }
-        return new RoomListValue3D(placed);
+        int len = placed * NUM_3;
+        float[] c = new float[len];
+        float[] he = new float[len];
+        System.arraycopy(centers, 0, c, 0, len);
+        System.arraycopy(halfExtents, 0, he, 0, len);
+        return DungeonGrids.pointBundle(c, he);
+    }
+
+    private static boolean collidesAny(float[] centers, float[] halfExtents, int placed,
+                                       float cx, float cy, float cz,
+                                       float hx, float hy, float hz) {
+        float buf = NUM_0_5;
+        for (int i = 0; i < placed; i++) {
+            float ox = centers[i * NUM_3];
+            float oy = centers[i * NUM_3 + 1];
+            float oz = centers[i * NUM_3 + 2];
+            float ohx = halfExtents[i * NUM_3];
+            float ohy = halfExtents[i * NUM_3 + 1];
+            float ohz = halfExtents[i * NUM_3 + 2];
+            boolean collides = ox - ohx - buf < cx + hx + buf
+                    && ox + ohx + buf > cx - hx - buf
+                    && oy - ohy - buf < cy + hy + buf
+                    && oy + ohy + buf > cy - hy - buf
+                    && oz - ohz - buf < cz + hz + buf
+                    && oz + ohz + buf > cz - hz - buf;
+            if (collides) {
+                return true;
+            }
+        }
+        return false;
     }
 }

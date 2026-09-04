@@ -14,7 +14,6 @@ import ixdar.geometry.mesh.csg.BooleanOperation;
 import ixdar.geometry.mesh.csg.MeshBooleanResult;
 import ixdar.geometry.mesh.csg.QuadTriangulation;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 import ixdar.platform.Platforms;
 
@@ -72,8 +71,8 @@ public class MeshBooleanNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle bundleA = GeometryBundles.bundlePart(ctx.getInput(MESH_A.name, Object.class));
-        GeometryBundle bundleB = GeometryBundles.bundlePart(ctx.getInput(MESH_B.name, Object.class));
+        GeometryBundle bundleA = ctx.getInput(MESH_A.name, GeometryBundle.class);
+        GeometryBundle bundleB = ctx.getInput(MESH_B.name, GeometryBundle.class);
 
         if (bundleA == null || bundleA.mesh() == null || bundleA.mesh().vertexCount() == 0) {
             ctx.setOutput(GEOMETRY.name, bundleB != null ? bundleB : GeometryBundle.empty());

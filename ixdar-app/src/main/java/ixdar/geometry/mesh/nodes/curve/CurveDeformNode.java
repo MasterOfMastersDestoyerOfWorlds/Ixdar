@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.nodes.curve;
 
+import java.util.Objects;
 import java.util.List;
 import java.util.Map;
 
@@ -13,7 +14,6 @@ import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.curve.FloatCurveKernel;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
@@ -74,10 +74,9 @@ public class CurveDeformNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(CURVE.name, Object.class));
-        Object closureObj = ctx.getInput(CLOSURE.name, Object.class);
-
-        if (!(closureObj instanceof FloatCurveKernel kernel)) {
+        GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(CURVE.name, GeometryBundle.class), GeometryBundle.empty());
+        FloatCurveKernel kernel = ctx.getInput(CLOSURE.name, FloatCurveKernel.class);
+        if (kernel == null) {
             ctx.setOutput(GEOMETRY.name, base);
             return;
         }

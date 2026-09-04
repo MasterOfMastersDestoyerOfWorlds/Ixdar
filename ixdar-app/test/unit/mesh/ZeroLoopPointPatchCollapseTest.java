@@ -95,8 +95,8 @@ class ZeroLoopPointPatchCollapseTest {
         int farPatch = tmesh.addPatch(ArcNetwork.NONE,
                 List.of(List.of(loop), List.of(quadOut), List.of(), List.of(quadBack)), loopNode);
 
-        tmesh.arcs.get(loop).leftPatchId = pinchedPatch;
-        tmesh.arcs.get(loop).rightPatchId = farPatch;
+        tmesh.arcs.get(loop).leftPatchId = farPatch;
+        tmesh.arcs.get(loop).rightPatchId = pinchedPatch;
 
         int eulerBefore = eulerCharacteristic(tmesh);
 

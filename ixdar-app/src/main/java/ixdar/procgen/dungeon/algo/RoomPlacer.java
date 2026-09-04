@@ -1,22 +1,19 @@
 package ixdar.procgen.dungeon.algo;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 
-import ixdar.procgen.dungeon.values.RoomListValue;
-import ixdar.procgen.dungeon.values.RoomListValue.Room;
+import ixdar.geometry.mesh.data.GeometryBundle;
 
 /**
- * Deterministic seeded random placement of non-overlapping rooms on an integer grid, with a
- * 1-unit buffer between rooms to prevent adjacency.
- *
- * <p>The result may contain fewer rooms than {@code roomCount} when {@code maxAttempts} is
- * exhausted, so callers must check the returned list size.
+ * Deterministic seeded random placement of non-overlapping rooms on an integer grid with a
+ * 1-unit buffer. Rooms flow as points at {@code (centerX, centerY, 0)} with half extents in
+ * the {@link DungeonGrids#HALF_EXTENT} attribute; exhausting {@code maxAttempts} may leave
+ * fewer than {@code roomCount}.
  */
 public final class RoomPlacer {
     public static final float NUM_2 = 2f;
     public static final float NUM_0_5 = 0.5f;
+    public static final int NUM_3 = 3;
 
     private RoomPlacer() {
     }
@@ -33,11 +30,11 @@ public final class RoomPlacer {
      * @param maxSize       maximum room edge length in units (inclusive)
      * @param maxAttempts   cap on total placement attempts; each attempt consumes RNG draws
      * @throws IllegalArgumentException if the size range is invalid or the grid is smaller than {@code maxSize}
-     * @return the placed rooms (size may be less than {@code roomCount} on attempt exhaustion)
+     * @return rooms as a point bundle (vertex count may be less than {@code roomCount})
      */
-    public static RoomListValue place(long seed, int gridW, int gridH,
-                                      int roomCount, int minSize, int maxSize,
-                                      int maxAttempts) {
+    public static GeometryBundle place(long seed, int gridW, int gridH,
+                                       int roomCount, int minSize, int maxSize,
+                                       int maxAttempts) {
         if (minSize <= 0 || maxSize < minSize) {
             throw new IllegalArgumentException("invalid size range: [" + minSize + "," + maxSize + "]");
         }
@@ -47,43 +44,51 @@ public final class RoomPlacer {
         }
 
         Random rng = new Random(seed);
-        List<Room> placed = new ArrayList<>(roomCount);
+        float[] centers = new float[roomCount * NUM_3];
+        float[] halfExtents = new float[roomCount * NUM_3];
+        int placed = 0;
         int attempts = 0;
-        while (placed.size() < roomCount && attempts < maxAttempts) {
+        while (placed < roomCount && attempts < maxAttempts) {
             attempts++;
             int w = minSize + rng.nextInt(maxSize - minSize + 1);
             int h = minSize + rng.nextInt(maxSize - minSize + 1);
             int x = rng.nextInt(gridW - w + 1);
             int y = rng.nextInt(gridH - h + 1);
-            Room candidate = new Room(
-                    placed.size(),
-                    x + w / NUM_2, y + h / NUM_2,
-                    w / NUM_2, h / NUM_2);
-            if (!collidesAny(candidate, placed)) {
-                placed.add(candidate);
+            float cx = x + w / NUM_2;
+            float cy = y + h / NUM_2;
+            float hx = w / NUM_2;
+            float hy = h / NUM_2;
+            if (!collidesAny(centers, halfExtents, placed, cx, cy, hx, hy)) {
+                centers[placed * NUM_3] = cx;
+                centers[placed * NUM_3 + 1] = cy;
+                halfExtents[placed * NUM_3] = hx;
+                halfExtents[placed * NUM_3 + 1] = hy;
+                placed++;
             }
         }
-        return new RoomListValue(placed);
+        int len = placed * NUM_3;
+        float[] c = new float[len];
+        float[] he = new float[len];
+        System.arraycopy(centers, 0, c, 0, len);
+        System.arraycopy(halfExtents, 0, he, 0, len);
+        return DungeonGrids.pointBundle(c, he);
     }
 
-    /**
-     * Two rooms collide if their AABBs (inflated by 0.5 units on each side) overlap.
-     *
-     * @param a first room
-     * @param b second room
-     * @return {@code true} when the buffered AABBs overlap on both axes
-     */
-    static boolean collidesWithBuffer(Room a, Room b) {
+    private static boolean collidesAny(float[] centers, float[] halfExtents, int placed,
+                                       float cx, float cy, float hx, float hy) {
         float buf = NUM_0_5;
-        return a.minX() - buf < b.maxX() + buf
-                && a.maxX() + buf > b.minX() - buf
-                && a.minY() - buf < b.maxY() + buf
-                && a.maxY() + buf > b.minY() - buf;
-    }
-
-    private static boolean collidesAny(Room candidate, List<Room> placed) {
-        for (Room r : placed) {
-            if (collidesWithBuffer(r, candidate)) return true;
+        for (int i = 0; i < placed; i++) {
+            float ox = centers[i * NUM_3];
+            float oy = centers[i * NUM_3 + 1];
+            float ohx = halfExtents[i * NUM_3];
+            float ohy = halfExtents[i * NUM_3 + 1];
+            boolean collides = ox - ohx - buf < cx + hx + buf
+                    && ox + ohx + buf > cx - hx - buf
+                    && oy - ohy - buf < cy + hy + buf
+                    && oy + ohy + buf > cy - hy - buf;
+            if (collides) {
+                return true;
+            }
         }
         return false;
     }

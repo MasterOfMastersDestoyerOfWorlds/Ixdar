@@ -4,12 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.SliverPinchFixture;
 
 /**
  * The sliver-pinch fixture carries botijo's arc-collapse-3 shape: a drag whose direct edge to
@@ -20,32 +22,34 @@ class SliverPinchFixtureTest {
 
     @Test
     void coversLabelEveryFaceWithoutOverlap() {
-        SliverPinchFixture fixture = new SliverPinchFixture();
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/sliver_pinch.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
 
-        fixture.tmesh.labelPatchCovers();
+        fixtureNet.labelPatchCovers();
 
-        assertTrue(fixture.tmesh.topology.patchByCopyFace.length > 0,
+        assertTrue(fixtureNet.topology.patchByCopyFace.length > 0,
                 "the patch walks must agree with the disk's winding, or the covers are dropped"
                         + " as overlapping and the drags run unrestricted");
-        for (int face = 0; face < fixture.tmesh.topology.patchByCopyFace.length; face++) {
-            assertTrue(fixture.tmesh.topology.patchByCopyFace[face] != ArcNetwork.NONE,
+        for (int face = 0; face < fixtureNet.topology.patchByCopyFace.length; face++) {
+            assertTrue(fixtureNet.topology.patchByCopyFace[face] != ArcNetwork.NONE,
                     "face " + face + " carries a label");
         }
     }
 
     @Test
     void centerCollapseMovesTheMovedNodeOntoTheSurvivor() {
-        SliverPinchFixture fixture = new SliverPinchFixture();
-        fixture.tmesh.labelPatchCovers();
-        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixture.tmesh).collapseArc;
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/sliver_pinch.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        fixtureNet.labelPatchCovers();
+        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixtureNet).collapseArc;
 
-        collapseArc.beginCollapse(fixture.channelArcId);
+        collapseArc.beginCollapse(fixture.intOutput("channelArcId"));
 
-        assertEquals(fixture.movedNodeId, collapseArc.movedNodeId,
+        assertEquals(fixture.intOutput("movedNodeId"), collapseArc.movedNodeId,
                 "the survivor is critical, so the moved node moves");
-        assertEquals(fixture.survivorNodeId, collapseArc.survivingNodeId,
+        assertEquals(fixture.intOutput("survivorNodeId"), collapseArc.survivingNodeId,
                 "the centre node survives");
-        assertTrue(collapseArc.fan.contains(fixture.pinchArcId),
+        assertTrue(collapseArc.fan.contains(fixture.intOutput("pinchArcId")),
                 "the pinch arc rides the fan");
     }
 
@@ -56,21 +60,22 @@ class SliverPinchFixtureTest {
      */
     @Test
     void pinchArcThreadsThePinchAndTheCoversHold() {
-        SliverPinchFixture fixture = new SliverPinchFixture();
-        fixture.tmesh.labelPatchCovers();
-        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixture.tmesh).collapseArc;
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/sliver_pinch.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        fixtureNet.labelPatchCovers();
+        ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixtureNet).collapseArc;
 
-        collapseArc.beginCollapse(fixture.channelArcId);
+        collapseArc.beginCollapse(fixture.intOutput("channelArcId"));
         while (collapseArc.dragNextArc()) {
             continue;
         }
         collapseArc.finishCollapse();
 
         assertEquals(0, collapseArc.blockedDragCount, "no drag blocks");
-        assertTrue(fixture.tmesh.arcs.get(fixture.pinchArcId).path.copyVertexPath
-                .contains(fixture.tmesh.nodes.get(fixture.survivorNodeId).copyVertex),
+        assertTrue(fixtureNet.arcs.get(fixture.intOutput("pinchArcId")).path.copyVertexPath
+                .contains(fixtureNet.nodes.get(fixture.intOutput("survivorNodeId")).copyVertex),
                 "the pinch arc ends on the survivor");
-        assertNull(fixture.tmesh.flankTearFailure("sliver pinch"),
+        assertNull(fixtureNet.flankTearFailure("sliver pinch"),
                 "every arc still lies between the patches it names once the covers are re-read");
     }
 }

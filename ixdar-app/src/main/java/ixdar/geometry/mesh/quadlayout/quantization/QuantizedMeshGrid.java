@@ -40,6 +40,10 @@ public class QuantizedMeshGrid implements MeshNode {
     public static final InputPort ALPHA_DEGREES = new InputPort("alpha_degrees", PortType.FLOAT,
             MotorcycleGraph.DEFAULT_ALPHA_DEGREES);
     public static final OutputPort SKELETON = new OutputPort("skeleton", PortType.ARC_NETWORK);
+    public static final OutputPort SEPARATION_CUTS = new OutputPort("separation_cuts", PortType.INT);
+    public static final OutputPort SEPARATION_VIOLATED = new OutputPort("separation_violated",
+            PortType.BOOLEAN);
+    public static final OutputPort VARIABLES = new OutputPort("variables", PortType.INT);
 
     /** Cap on solve→collapse→cut rounds of the CBK15-style separation loop. */
     private static final int MAX_SEPARATION_ROUNDS = 50;
@@ -112,7 +116,7 @@ public class QuantizedMeshGrid implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(SKELETON);
+        return List.of(SKELETON, SEPARATION_CUTS, SEPARATION_VIOLATED, VARIABLES);
     }
 
     @Override
@@ -126,7 +130,10 @@ public class QuantizedMeshGrid implements MeshNode {
         return Map.of(
                 GRAPH.name, "Arc network to quantize, from a motorcycle_graph node.",
                 ALPHA_DEGREES.name, "Maximum separatrix deviation in degrees, bounding the ILP.",
-                SKELETON.name, "The quantized skeleton: collapse clusters plus positive arcs."
+                SKELETON.name, "The quantized skeleton: collapse clusters plus positive arcs.",
+                SEPARATION_CUTS.name, "Separation cuts added beyond Lemma 1 (0 expected).",
+                SEPARATION_VIOLATED.name, "Whether the solve merged two distinct singularities.",
+                VARIABLES.name, "Variables in the quantization ILP after the class merge."
         );
     }
 
@@ -140,6 +147,9 @@ public class QuantizedMeshGrid implements MeshNode {
                 new QuantizedMeshGrid(graph, (float) Math.toRadians(alphaDegrees)).build();
         quantization.layout = new LayoutExtraction(quantization).build();
         ctx.setOutput(SKELETON.name, graph);
+        ctx.setOutput(SEPARATION_CUTS.name, quantization.separationCutCount);
+        ctx.setOutput(SEPARATION_VIOLATED.name, quantization.singularitySeparationViolated);
+        ctx.setOutput(VARIABLES.name, quantization.variableCount);
     }
 
     /**

@@ -7,22 +7,24 @@ import org.joml.Vector3f;
 import java.util.function.IntConsumer;
 
 import ixdar.annotations.scene.SceneAnnotation;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.nodes.api.Vector3Field;
 import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.Platform;
+import ixdar.procgen.dungeon.algo.DungeonGrids;
 import ixdar.procgen.dungeon.camera.ThirdPersonCamera;
 import ixdar.procgen.dungeon.player.PlayerController;
 import ixdar.procgen.dungeon.player.PlayerSpawner;
 import ixdar.procgen.dungeon.player.SpawnPoint;
 import ixdar.procgen.dungeon.render.DebugCapsuleRuntime;
-import ixdar.procgen.dungeon.values.RoomListValue3D;
-import ixdar.procgen.dungeon.values.TileGridValue3D;
+import ixdar.procgen.dungeon.values.CellType;
 import ixdar.scenes.Scene;
 
 /**
@@ -60,8 +62,12 @@ public class DungeonViewerScene extends Scene {
     private volatile HalfEdgeMeshRuntime meshRuntime;
 
     // Player mode state — populated once the DSL output is ready and we have a 3D grid.
-    private TileGridValue3D playerGrid;
-    private RoomListValue3D playerRooms;
+    private CellType[] playerCells;
+    private int playerGridW;
+    private int playerGridH;
+    private int playerGridD;
+    private MeshTopology playerRooms;
+    private Vector3Field playerRoomHalfExtents;
     private float playerCellSize = 1.0f;
     private PlayerController player;
     private boolean playerMode = true;
@@ -124,14 +130,13 @@ public class DungeonViewerScene extends Scene {
     }
 
     private void executeDsl(String dslCode) {
-        NodeGraphRuntime.ParsedGraph parsedGraph = NodeGraphRuntime.fromSource(dslCode);
-        List<PythonParser.ParsedNode> ast = parsedGraph.statements();
-        NodeGraphRuntime runtime = parsedGraph.runtime();
+        NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(dslCode);
+        List<PythonParser.ParsedNode> ast = runtime.statements;
 
         String finalId = ast.get(ast.size() - 1).id;
-        Object result;
+        MeshTopology result;
         try {
-            result = runtime.executeGraphResult(ast, finalId, "mesh");
+            result = runtime.executeGraphToMesh(ast, finalId, "mesh");
             runtime.logTimings("[dungeon]");
         } catch (Exception e) {
             Platforms.get().log("[dungeon-viewer] DSL execution failed: " + e.getMessage());
@@ -142,7 +147,7 @@ public class DungeonViewerScene extends Scene {
                     "dungeon DSL final output should be ArrayMesh, got "
                             + (result == null ? "null" : result.getClass().getSimpleName()));
         }
-        this.mesh = (MeshTopology) result;
+        this.mesh = result;
         try {
             meshRuntime = new HalfEdgeMeshRuntime();
         } catch (Exception e) {
@@ -166,16 +171,20 @@ public class DungeonViewerScene extends Scene {
     }
 
     /**
-     * Looks for a {@code TileGridValue3D} produced by an {@code astar_corridors_3d} node so the
-     * player has a collision world. 2D dungeons leave {@link #playerGrid} null and the scene
+     * Looks for the tile-lattice geometry produced by an {@code astar_corridors_3d} node so the
+     * player has a collision world. 2D dungeons leave {@link #playerCells} null and the scene
      * falls back to fly-cam mode.
      */
     private void bindPlayerGridFromDsl(List<PythonParser.ParsedNode> ast, NodeGraphRuntime runtime) {
         for (PythonParser.ParsedNode n : ast) {
             if ("astar_corridors_3d".equals(n.type)) {
-                Object tiles = runtime.getNodeOutput(n.id, "tiles");
-                if (tiles instanceof TileGridValue3D grid) {
-                    this.playerGrid = grid;
+                Object tiles = runtime.getNodeOutput(n.id, NodeGraphRuntime.GEOMETRY);
+                if (tiles instanceof GeometryBundle lattice) {
+                    int[] dims = DungeonGrids.latticeDims(lattice);
+                    this.playerGridW = dims[0];
+                    this.playerGridH = dims[1];
+                    this.playerGridD = dims[2];
+                    this.playerCells = DungeonGrids.latticeCells(lattice, dims[0], dims[1], dims[2]);
                     // Find the cell_size from the dungeon_grid_to_mesh_3d node downstream.
                     for (PythonParser.ParsedNode m : ast) {
                         if ("dungeon_grid_to_mesh_3d".equals(m.type)) {
@@ -186,12 +195,13 @@ public class DungeonViewerScene extends Scene {
                             break;
                         }
                     }
-                    // Find the rooms produced by random_rooms_3d so PlayerSpawner has them.
+                    // Find the rooms produced by random_rooms so PlayerSpawner has them.
                     for (PythonParser.ParsedNode m : ast) {
-                        if ("random_rooms_3d".equals(m.type)) {
-                            Object rooms = runtime.getNodeOutput(m.id, "rooms");
-                            if (rooms instanceof RoomListValue3D rl) {
-                                this.playerRooms = rl;
+                        if ("random_rooms".equals(m.type)) {
+                            Object rooms = runtime.getNodeOutput(m.id, NodeGraphRuntime.GEOMETRY);
+                            if (rooms instanceof GeometryBundle rb) {
+                                this.playerRooms = rb.mesh();
+                                this.playerRoomHalfExtents = DungeonGrids.halfExtents(rb);
                             }
                             break;
                         }
@@ -200,7 +210,8 @@ public class DungeonViewerScene extends Scene {
                     float r  = playerCellSize * CAPSULE_RADIUS_FRAC;
                     float jump = JUMP_SPEED_PER_CELL * playerCellSize;
                     float walk = WALK_SPEED_PER_CELL * playerCellSize;
-                    this.player = new PlayerController(grid, playerCellSize, new Vector3f(0f, 0f, 0f),
+                    this.player = new PlayerController(playerCells, playerGridW, playerGridH, playerGridD,
+                            playerCellSize, new Vector3f(0f, 0f, 0f),
                             hh, r, PlayerController.DEFAULT_GRAVITY, jump, walk);
                     return;
                 }
@@ -228,10 +239,10 @@ public class DungeonViewerScene extends Scene {
      * something to walk toward instead of a blank wall.
      */
     private void spawnPlayerAtRoomZero() {
-        if (player == null || playerRooms == null || playerGrid == null) return;
+        if (player == null || playerRooms == null || playerCells == null) return;
         SpawnPoint sp = PlayerSpawner.pick(
-                playerRooms, playerCellSize,
-                playerGrid.width(), playerGrid.height(), playerGrid.depth(),
+                playerRooms, playerRoomHalfExtents, playerCellSize,
+                playerGridW, playerGridH, playerGridD,
                 player.halfHeight(), player.radius());
         player.teleport(sp.position());
         camera.position.set(sp.position().x(),
@@ -295,7 +306,8 @@ public class DungeonViewerScene extends Scene {
             if (viewMode == ViewMode.THIRD_PERSON && thirdPersonCamera != null) {
                 // Update camera FIRST so player.update sees the new yaw and WASD direction
                 // remains screen-relative.
-                thirdPersonCamera.update(player, playerGrid, playerCellSize, camera);
+                thirdPersonCamera.update(player, playerCells,
+                        playerGridW, playerGridH, playerGridD, playerCellSize, camera);
                 player.update(dt, keys.pressedKeys, camera.yaw);
             } else {
                 player.update(dt, keys.pressedKeys, camera.yaw);

@@ -1,8 +1,7 @@
 package ixdar.geometry.mesh.data;
 
 /**
- * Helpers for unwrapping mesh-node graph values that may be either a raw
- * {@link MeshTopology} or a {@link GeometryBundle} carrying one.
+ * The one unwrap from a geometry port value to its topology.
  */
 public final class GeometryBundles {
 
@@ -10,48 +9,12 @@ public final class GeometryBundles {
     }
 
     /**
-     * Extract the mesh component, accepting either a raw mesh or a bundle.
+     * Topology carried by a geometry port value.
      *
-     * @param o value of unknown shape
-     * @return underlying topology, or {@code null} if {@code o} is neither
+     * @param bundle value read from a {@code GEOMETRY_BUNDLE} port; null when the port is unset
+     * @return the bundle's mesh, or {@code null} when {@code bundle} is null
      */
-    public static MeshTopology meshPart(Object o) {
-        if (o instanceof MeshTopology m) {
-            return m;
-        }
-        if (o instanceof GeometryBundle b) {
-            return b.mesh();
-        }
-        return null;
-    }
-
-    /**
-     * Coerce a raw mesh or existing bundle into a {@link GeometryBundle}.
-     *
-     * @param o value of unknown shape
-     * @return bundle view, or {@code null} if {@code o} is neither a bundle nor a mesh
-     */
-    public static GeometryBundle bundlePart(Object o) {
-        if (o instanceof GeometryBundle b) {
-            return b;
-        }
-        if (o instanceof MeshTopology m) {
-            return GeometryBundle.ofMesh(m);
-        }
-        return null;
-    }
-
-    /**
-     * Like {@link #bundlePart} but substitutes {@link GeometryBundle#empty()} for null.
-     *
-     * @param o value of unknown shape
-     * @return bundle view, never {@code null}
-     */
-    public static GeometryBundle requireBundle(Object o) {
-        GeometryBundle b = bundlePart(o);
-        if (b != null) {
-            return b;
-        }
-        return GeometryBundle.empty();
+    public static MeshTopology meshPart(GeometryBundle bundle) {
+        return bundle == null ? null : bundle.mesh();
     }
 }

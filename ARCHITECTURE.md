@@ -26,8 +26,9 @@ The core pipeline:
 Around it: `platform` abstracts GL/file/input behind interfaces with LWJGL, WebGL, and headless
 implementations; an HTTP automation server (port 47832) drives headless runs, screenshots, and
 mesh fingerprints via `ixdar-cli`; the quad-layout subsystem (`geometry/mesh/quadlayout`) is a
-research-grade pipeline from cross fields to quantized quad layouts, desktop-only, pending
-integration into the node system.
+research-grade pipeline from cross fields to quantized quad layouts, desktop-only. Every stage is
+a registered mesh node, `QuadLayoutEngine` is itself the `quad_layout` node, and its `build*`
+methods drive the stages through their ports.
 
 ## Task-indexed patterns
 
@@ -70,8 +71,11 @@ setup has too many variables for it to be reliable; treat it as a starting point
 
 **Draw overlays on a mesh.** `HalfEdgeMeshRuntime` already has tag-partitioned coloring
 (`setTags`), scalar heat maps (`setPerVertexScalar`), and colored edge-line overlays
-(`setFeatureEdgeOverlay`). Check those before writing new GL plumbing; `QuadLayoutRuntime` shows
-the cost of not doing so and is slated for generalization after the quad-layout node migration.
+(`setFeatureEdgeOverlay`). Check those before writing new GL plumbing. `QuadLayoutRuntime` now
+takes only port-typed values (mesh, `UvField`, `ArcNetwork`, `CrossField`, patch surfaces, point
+clouds and polylines), converts each into a `LineSet`, a `PointSet`, or a corner array, and
+uploads through `VertexBuffer` per `VertexLayout`; decoupling overlay draw order from the runtime
+is still open.
 
 **Verify a change.** Build with `mvn -q clean compile -pl annotations,ixdar-app`. Plain
 `compile` without `clean` is unreliable after edits and prunes generated registries. Run a scene
@@ -104,18 +108,18 @@ commas between test names, never `+`.
 ### Known traps
 
 - The resource extension whitelist is duplicated in two pom locations.
-- MKL is absent on macOS, so the solver silently falls back to EJML.
+- MKL is absent on macOS; the desktop Cholesky ladder is PARDISO, then Accelerate (macOS), then
+  EJML.
 - `Map.of`/`Set.of` iteration order is salted per JVM run, so anything serialized to a checked-in
   file must sort first (the catalog exporter wraps in `TreeMap`).
-- `mvn install` on `ixdar-app` runs tests; three quad-layout test classes currently fail on the
-  committed tree (`DenseMeshFewSplitsTest`, `QuadMeshExtractionTest`, `TJunctionExtensionTest`);
-  use `-DskipTests` until they are fixed.
+- `mvn install` on `ixdar-app` runs tests; quad-layout test classes with known failures on the
+  committed tree are listed in `REFACTOR-PLAN-2.md`'s verification baseline; use `-DskipTests`
+  until they are fixed.
 
 ## Forward-looking (not current state)
 
-- Quad-layout stages become mesh nodes with common data structures at the seams; after that,
-  `QuadLayoutRuntime` is rebuilt around general overlay capabilities instead of stage-typed
-  setters.
+- `QuadLayoutRuntime` overlay draw order moves out of the runtime so scenes decide what draws
+  over what.
 - Boolean provenance (`runOriginalID` from the MeshGL64 segment) is to be recovered so result
   faces can be tinted by origin.
 - Asset mechanism (separating data from code) is deliberately unresolved; `IXDAR_ASSET_REPO_ROOT`
@@ -160,6 +164,7 @@ commas between test names, never `+`.
 - **ixdar.geometry.mesh.nodes.geometry**: Geometry-level operations: mesh boolean (desktop-only, Manifold FFM backend; owns the provenance slots), join, transform-level ops on whole bundles.
 - **ixdar.geometry.mesh.nodes.math**: Scalar, vector, and field math nodes plus `FieldBroadcast`, which resolves an input that may be a constant or a per-element field.
 - **ixdar.geometry.mesh.nodes.modifier**: Mesh modifiers: subdivide, extrude, inset, solidify, mirror, loop cut, bridge loops, instance-on- points, mark_edges. Nodes needing dense arrays coerce via `ArrayMeshEngine.fromUniformMeshTopology`.
+- **ixdar.geometry.mesh.nodes.network**: Network authoring nodes: an arc network over a carrier mesh, its nodes, arcs and patches selected geometrically, traced interior left of walk.
 - **ixdar.geometry.mesh.nodes.patch**: Coons-patch machinery: patch fill, extrude and inset with bezier handle preservation (`CoonsHandleBuilder`, handle slots owned by `AssignBezierHandlesNode`).
 - **ixdar.geometry.mesh.nodes.primitives**: Primitive generators: cube, grid, icosphere, UV sphere, cylinder, cone, disk, torus, segments. `GridMeshNode` is the reference node shape and exposes static helpers (`triangulated`, `vertexId`, `rowCoordinate`) that tests build fixture geometry with.
 - **ixdar.geometry.mesh.nodes.quadlayout**: Graph nodes exposing the quad-layout pipeline stages as independent capabilities: cross field, seamless parametrization, and motorcycle-graph tracing, with more stages to follow per the 7.2 migration. All desktop-only; the stages lean on native solver backends the web platform refuses.
@@ -169,7 +174,6 @@ commas between test names, never `+`.
 - **ixdar.geometry.mesh.quadlayout.crossfield**: Cross-field computation: per-face 4-direction fields, singularity detection, `NDirectionField` smoothing.
 - **ixdar.geometry.mesh.quadlayout.crossfield.constraint**: Constraint sources pinning cross-field directions: boundary edges, sharp creases, principal curvature, and the gauge anchor.
 - **ixdar.geometry.mesh.quadlayout.embedding**: Re-embedding of the quantized layout on a refined working copy of the mesh: arc routing, rerouting, carving, collapse operators, and arrangement diagnostics.
-- **ixdar.geometry.mesh.quadlayout.embedding.fixtures**: Hand-built embedded T-mesh fixtures (torus, plane, pinch cases) used by the embedding unit tests. Fixture-to-DSL conversion is deferred until the pipeline is nodes.
 - **ixdar.geometry.mesh.quadlayout.embedding.records**: Value types for the embedding: `ArcNetwork`, arcs, nodes, patches, topology with owner-arc claims per copy edge.
 - **ixdar.geometry.mesh.quadlayout.extraction**: Extraction of the final quad mesh and per-patch grids from the embedded layout, plus Coons surfaces for rendering.
 - **ixdar.geometry.mesh.quadlayout.gridmap**: Per-patch integer grid maps: rectangle parametrizations (Tutte-style), patch regions, and the grid-map optimizer (60s time budget).
@@ -187,7 +191,7 @@ commas between test names, never `+`.
 - **ixdar.graphics.render**: Shared render primitives: `Clock` (process-global static time, frame deltas, oscillation; the animation driver for shaders) and `Texture` (supports a deferred placeholder mode filled in by async platform loading).
 - **ixdar.graphics.render.color**: `Color` interface with the named palette, `ColorRGB`, and animated lerps driven by the static `Clock`. `PatchColorHash` mirrors the GLSL `patchColor()` hash; but surface fill and layout overlay hash different id spaces, so a shared palette does not mean matching colors.
 - **ixdar.graphics.render.lights**: Directional, point, and spot lights that push uniforms into a bound shader. Point and spot share a public attenuation lookup table.
-- **ixdar.graphics.render.model**: Mesh rendering runtimes. `HalfEdgeMeshRuntime` uploads compiled meshes and draws them with tag partitioning, scalar heat maps, feature-edge overlays, and wireframe. `QuadLayoutRuntime` extends it with quad-layout inspection overlays. `AssimpModelRuntime` renders loaded models.
+- **ixdar.graphics.render.model**: Mesh rendering runtimes. `HalfEdgeMeshRuntime` uploads compiled meshes and draws them with tag partitioning, scalar heat maps, feature-edge overlays, and wireframe. `QuadLayoutRuntime` extends it with quad-layout overlays: port-typed values become a `LineSet`, a `PointSet`, or a corner array, uploaded through `VertexBuffer` per `VertexLayout`. `AssimpModelRuntime` renders loaded models.
 - **ixdar.graphics.render.sdf**: Signed-distance-field drawables, the editor's 2D drawing vocabulary: `ShaderDrawable` base, `SDFLine` variants, circles, textures (MSDF). `SDFUnion` imports LWJGL directly; the one GL- abstraction violation in `graphics` outside `render/model`.
 - **ixdar.graphics.render.shaders**: Shader compilation and GL object wrappers. `ShaderProgram.ShaderType` is the central registry mapping every logical shader to its class and `.vs`/`.fs` pair; subclasses differ mainly in vertex stride and attribute layout. Sources pass through `GlslSource` for the dialect rewrite.
 - **ixdar.graphics.render.text**: MSDF font atlas loading and `HyperString`, the colored, wrappable, hoverable, clickable rich-text model used for all editor UI text. Each glyph is an SDF drawable. Private-Use-Area code points carry non-font glyphs.
@@ -224,14 +228,14 @@ commas between test names, never `+`.
 - **ixdar.platform.teavm**: TeaVM bytecode transformers registered in the `web-teavm` profile: `WebMathTransformer` supplies the missing `Math.fma` (true fused multiply-add via BigDecimal; two roundings would break the exact orientation predicates), `JomlUnsafeTransformer` drops JOML's `sun.misc.Unsafe` path.
 - **ixdar.procgen**: Namespace root for procedural content generation; all code lives under `dungeon`.
 - **ixdar.procgen.dungeon**: Vazgriz-style dungeon pipeline in 2D and 3D: place rooms, Delaunay-triangulate, MST plus loop edges, A* corridors, tile grid to mesh; exposed as DSL nodes; plus the runtime to walk the result (capsule physics, player controller, cameras, viewer scene).
-- **ixdar.procgen.dungeon.algo**: Headless generation algorithms, no rendering or scene dependencies: room placers (may return fewer rooms than asked), Bowyer-Watson Delaunay, Prim MST with probabilistic loop edges, A* corridors (3D adds single-floor stair moves), grid-to-mesh with inward-wound hollow rooms.
+- **ixdar.procgen.dungeon.algo**: Headless generation algorithms, no rendering or scene dependencies: room placers (may return fewer rooms than asked), Bowyer-Watson Delaunay, Prim MST with probabilistic loop edges, A* corridors (3D adds single-floor stair moves), grid-to-mesh with inward-wound hollow rooms, and `DungeonGrids`, the builders/readers for the pipeline's geometry-plus-attribute shapes.
 - **ixdar.procgen.dungeon.camera**: `ThirdPersonCamera` (orbit above the player, writes back into the shared `Camera3D`) and `CameraGridSweep` (sphere-cast that hard-stops at the first obstacle cell).
-- **ixdar.procgen.dungeon.nodes**: Thin `MeshNode` adapters wrapping each algorithm stage for the DSL, all in the `dungeon` scope: 2D and 3D variants of rooms, Delaunay, MST, corridors, and grid-to-mesh.
+- **ixdar.procgen.dungeon.nodes**: Thin `MeshNode` adapters wrapping each algorithm stage for the DSL, all in the `dungeon` scope. Rooms, Delaunay, and MST are dimension-neutral single nodes over point geometry; corridors and grid-to-mesh keep 2D/3D ids because stairs and vertical adjacency have no 2D analog.
 - **ixdar.procgen.dungeon.physics**: Minimal dungeon collision: `CapsuleShape`, `AabbBox`, MTV separation, and `CapsuleMover` (sub- stepped move-and-slide over the tile grid). Must agree with `GridToMesh3D` on cell size and the origin-centered convention; `EMPTY` and out-of-grid are the obstacles.
 - **ixdar.procgen.dungeon.player**: `PlayerController` (WASD, gravity, yaw-relative motion; mouse-look belongs to the mouse handler), `PlayerSpawner` (relies on room[0] being the start room), `SpawnPoint`.
 - **ixdar.procgen.dungeon.render**: `DebugCapsuleRuntime`: builds the player capsule mesh once, writes only a model matrix per frame into a wrapped `HalfEdgeMeshRuntime`.
 - **ixdar.procgen.dungeon.scene**: Viewer wiring: `DungeonViewerScene` (F toggles fly-cam vs player-walk, V toggles person view; only 3D dungeons support player mode since the DSL mesh feeds both renderer and collision), `DungeonKeyGuy`, `FlyCamMouseTrap`.
-- **ixdar.procgen.dungeon.values**: Immutable value types passed between stages: `CellType`, room lists, edge graphs, tile grids in 2D and 3D. Defensively copied on construction.
+- **ixdar.procgen.dungeon.values**: `CellType`, the named constants behind the per-cell `cell_type` int attribute the corridor and grid-to-mesh stages share. Dungeon data itself flows as geometry bundles with attributes.
 - **ixdar.scenes**: Scene layer root. `Scene` extends `Canvas3D`; `ModelScene` adds mesh viewing (framing, orbit preservation, model catalog, direct input binding). Scenes register via `@SceneAnnotation` into the generated scene registry.
 - **ixdar.scenes.anatomy**: Anatomy visualization scenes built on the point/knot lineage.
 - **ixdar.scenes.main**: `MainScene`: the 2D TSP editor scene; knots, shells, terminal, tools. The legacy lineage's user surface.

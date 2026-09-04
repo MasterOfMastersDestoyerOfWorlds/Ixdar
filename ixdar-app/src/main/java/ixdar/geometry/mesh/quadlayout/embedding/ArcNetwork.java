@@ -69,15 +69,11 @@ public class ArcNetwork {
     public Map<Integer, FeatureEdgeSpan> featureSpanByEdgeId;
 
     /**
-     * Whether a patch lies left of the direction {@link #addPatch} walks its
-     * boundary.
-     *
-     * <p>
-     * Which way the walk runs is the caller's side ordering, not a property of the
-     * surface, so {@link #resolveWalkOrientation} measures it rather than assuming
-     * it.
+     * Trace overlay records per active source face, four floats per record (axis,
+     * iso value, span start, span end), arrangement-phase data carried for
+     * rendering.
      */
-    public boolean interiorLeftOfWalk = true;
+    public float[][] traceRecordsByFace;
 
     /** Every node ever created, including those since merged away. */
     public final List<EmbeddedNode> nodes;
@@ -320,7 +316,7 @@ public class ArcNetwork {
                         throw new IllegalStateException("patch " + patch.patchId + " side " + side
                                 + ": arc " + arcId + " does not touch node " + walkNode);
                     }
-                    if ((arc.startNodeId == walkNode) == interiorLeftOfWalk) {
+                    if (arc.startNodeId == walkNode) {
                         arc.leftPatchId = patch.patchId;
                     } else {
                         arc.rightPatchId = patch.patchId;
@@ -337,7 +333,7 @@ public class ArcNetwork {
             patch.alive = true;
             markPatchChanged(patch.patchId);
         }
-        resolveWalkOrientation();
+        validateWalkOrientation();
         validate();
         return this;
     }
@@ -422,10 +418,10 @@ public class ArcNetwork {
     }
 
     /**
-     * Adds a patch whose sides are given as chains of arcs, walking the boundary in
-     * one consistent cyclic direction. The node chain of each side is derived from
-     * the arcs, so the caller does not state it twice and cannot state it
-     * inconsistently.
+     * Adds a patch whose sides are given as chains of arcs, walking the boundary
+     * counter-clockwise seen from outside, interior on the left: an arc traversed
+     * start-to-end carries the patch on its left flank, end-to-start on its right.
+     * Each side's node chain is derived from the arcs.
      *
      * @param sourcePatchId originating {@code TMeshPatch} id, or {@link #NONE}
      * @param sideArcIds    four sides, each a list of arc ids in the side's walking
@@ -451,7 +447,7 @@ public class ArcNetwork {
                     throw new IllegalStateException("patch " + patchId + " side " + side
                             + ": arc " + arcId + " does not touch node " + walkNode);
                 }
-                if ((arc.startNodeId == walkNode) == interiorLeftOfWalk) {
+                if (arc.startNodeId == walkNode) {
                     arc.leftPatchId = patchId;
                 } else {
                     arc.rightPatchId = patchId;
@@ -497,59 +493,21 @@ public class ArcNetwork {
     }
 
     /**
-     * Measures which side of a boundary walk the patches lie on, and restates every
-     * arc's left and right patch in those terms.
+     * Checks that every live patch lies left of its boundary walk, the winding
+     * {@link #addPatch} flanks the arcs by.
      *
      * <p>
      * Call once the layout is complete: the test needs each patch bounded by its
      * own arcs alone, true of a fresh arrangement but not of one mid-contraction.
      *
-     * @throws IllegalStateException when patches disagree, since the walk is one
-     *                               convention
+     * @throws IllegalStateException naming the first patch wound the other way
      */
-    public void resolveWalkOrientation() {
-        boolean decided = false;
-        boolean leftIsInterior = true;
-        int decidedBy = NONE;
+    public void validateWalkOrientation() {
         for (EmbeddedPatch patch : patches) {
-            if (!patch.alive) {
-                continue;
-            }
-            boolean vote = interiorLiesLeftOfWalk(patch.patchId);
-            if (!decided) {
-                leftIsInterior = vote;
-                decidedBy = patch.patchId;
-                decided = true;
-            } else if (vote != leftIsInterior) {
-                throw new IllegalStateException("patch " + patch.patchId + " lies on the "
-                        + (vote ? "left" : "right") + " of its boundary walk but patch " + decidedBy
-                        + " lies on the other side: the layout's patch sides are not all ordered the"
-                        + " same way round, so no single convention describes them");
-            }
-        }
-        if (!decided) {
-            return;
-        }
-        interiorLeftOfWalk = leftIsInterior;
-        for (EmbeddedArc arc : arcs) {
-            arc.leftPatchId = NONE;
-            arc.rightPatchId = NONE;
-        }
-        for (EmbeddedPatch patch : patches) {
-            if (!patch.alive) {
-                continue;
-            }
-            for (int side = 0; side < EmbeddedPatch.SIDES; side++) {
-                List<Integer> sideArcs = patch.sideArcIds.get(side);
-                List<Integer> sideNodes = patch.sideNodeIds.get(side);
-                for (int index = 0; index < sideArcs.size(); index++) {
-                    EmbeddedArc arc = arcs.get(sideArcs.get(index));
-                    if ((arc.startNodeId == sideNodes.get(index)) == interiorLeftOfWalk) {
-                        arc.leftPatchId = patch.patchId;
-                    } else {
-                        arc.rightPatchId = patch.patchId;
-                    }
-                }
+            if (patch.alive && !interiorLiesLeftOfWalk(patch.patchId)) {
+                throw new IllegalStateException("patch " + patch.patchId
+                        + " is wound backwards: boundary walks must run counter-clockwise seen"
+                        + " from outside, interior on the left");
             }
         }
     }

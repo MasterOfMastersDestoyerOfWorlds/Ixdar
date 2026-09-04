@@ -91,10 +91,10 @@ public class CrossFieldExaminationScene extends ModelScene {
         quadRuntime.showCrossField = true;
         quadRuntime.showSingularities = true;
         quadRuntime.setCrossField(oursField, CROSS_SCALE);
-        quadRuntime.uploadConstraints(oursField, CROSS_SCALE);
+        quadRuntime.setConstraints(oursField, CROSS_SCALE);
 
         Platforms.get().log("[cross-field-exam] " + offPath + " V=" + halfEdgeMesh.vertexCount()
-                + " F=" + halfEdgeMesh.faceCount() + " singularities=" + oursField.singularities.size());
+                + " F=" + halfEdgeMesh.faceCount() + " singularities=" + oursField.singularityCount());
     }
 
     @Override
@@ -132,7 +132,7 @@ public class CrossFieldExaminationScene extends ModelScene {
         showingReference = !showingReference;
         CrossField active = showingReference ? referenceField : oursField;
         quadRuntime.setCrossField(active, CROSS_SCALE);
-        quadRuntime.uploadConstraints(active, CROSS_SCALE);
+        quadRuntime.setConstraints(active, CROSS_SCALE);
     }
 
     /**

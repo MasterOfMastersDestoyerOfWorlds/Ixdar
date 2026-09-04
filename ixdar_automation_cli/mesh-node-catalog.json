@@ -127,6 +127,31 @@
       "description": "Rotates weighted vertices around a pivot point for forward-kinematics posing, using bone weights from set_bone_weight. Chain tip-to-root for multi-bone rigs."
     },
     {
+      "id": "arc_network",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "mesh",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Carrier triangle mesh the network is embedded in.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "net",
+          "portType": "ARC_NETWORK",
+          "description": "The empty network, threaded linearly through the authoring nodes."
+        }
+      ],
+      "description": "Starts an authored network: an empty node-arc-patch network over a fresh working copy of the carrier mesh, interior left of every walk."
+    },
+    {
       "id": "arc_quantization",
       "category": "Other",
       "scopes": [
@@ -153,6 +178,21 @@
           "name": "skeleton",
           "portType": "ARC_NETWORK",
           "description": "The quantized skeleton: collapse clusters plus positive arcs."
+        },
+        {
+          "name": "separation_cuts",
+          "portType": "INT",
+          "description": "Separation cuts added beyond Lemma 1 (0 expected)."
+        },
+        {
+          "name": "separation_violated",
+          "portType": "BOOLEAN",
+          "description": "Whether the solve merged two distinct singularities."
+        },
+        {
+          "name": "variables",
+          "portType": "INT",
+          "description": "Variables in the quantization ILP after the class merge."
         }
       ],
       "description": "Solves the quantization ILP over an arc network (one integer length per arc) and collapses zero-quantized arcs into the layout\u0027s separatrix skeleton."
@@ -195,15 +235,15 @@
       ],
       "inputs": [
         {
-          "name": "rooms",
-          "portType": "ROOM_LIST",
-          "description": "Room list used to paint ROOM cells in the grid and anchor corridor endpoints.",
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle. In: rooms graph (delaunay_graph output) with \u0027half_extent\u0027 points and wire edges as corridor candidates. Out: quad grid over [0,grid_w]x[0,grid_h] on the XZ plane, one face per cell, with the per-face \u0027cell_type\u0027 IntField of CellType ordinals (EMPTY/ROOM/HALLWAY).",
           "defaultValue": null
         },
         {
-          "name": "edges",
-          "portType": "EDGE_GRAPH",
-          "description": "MST (+ extras) edges to carve as corridors.",
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-edge BOOLEAN mask of edges to carve (typically minimum_spanning_tree output). Missing selects every edge.",
           "defaultValue": null
         },
         {
@@ -239,12 +279,12 @@
       ],
       "outputs": [
         {
-          "name": "tiles",
-          "portType": "TILE_GRID",
-          "description": "Fully-populated grid of CellType (EMPTY/ROOM/HALLWAY)."
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle. In: rooms graph (delaunay_graph output) with \u0027half_extent\u0027 points and wire edges as corridor candidates. Out: quad grid over [0,grid_w]x[0,grid_h] on the XZ plane, one face per cell, with the per-face \u0027cell_type\u0027 IntField of CellType ordinals (EMPTY/ROOM/HALLWAY)."
         }
       ],
-      "description": "Carves HALLWAY cells between room pairs via grid A*. Cost weights favor reusing existing hallway cells over empty over passing through rooms. Stage 4 of the dungeon pipeline."
+      "description": "Carves HALLWAY cells between room pairs via grid A* over the selected edges of the rooms graph. Cost weights favor reusing existing hallway cells over empty over passing through rooms. Emits the tile grid as quad-grid geometry with a per-face \u0027cell_type\u0027 int attribute. Stage 4 of the dungeon pipeline."
     },
     {
       "id": "astar_corridors_3d",
@@ -254,15 +294,15 @@
       ],
       "inputs": [
         {
-          "name": "rooms",
-          "portType": "ROOM_LIST_3D",
-          "description": "3D rooms.",
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle. In: rooms graph (delaunay_graph output) with 3D \u0027half_extent\u0027 points and wire edges as corridor candidates. Out: point lattice with one vertex per cell center (x+0.5, y+0.5, z+0.5) and the per-vertex \u0027cell_type\u0027 IntField of CellType ordinals (EMPTY/ROOM/HALLWAY/STAIR_*).",
           "defaultValue": null
         },
         {
-          "name": "edges",
-          "portType": "EDGE_GRAPH",
-          "description": "MST + extras edges to carve.",
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-edge BOOLEAN mask of edges to carve (typically minimum_spanning_tree output). Missing selects every edge.",
           "defaultValue": null
         },
         {
@@ -304,12 +344,12 @@
       ],
       "outputs": [
         {
-          "name": "tiles",
-          "portType": "TILE_GRID_3D",
-          "description": "Populated 3D grid of CellType."
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle. In: rooms graph (delaunay_graph output) with 3D \u0027half_extent\u0027 points and wire edges as corridor candidates. Out: point lattice with one vertex per cell center (x+0.5, y+0.5, z+0.5) and the per-vertex \u0027cell_type\u0027 IntField of CellType ordinals (EMPTY/ROOM/HALLWAY/STAIR_*)."
         }
       ],
-      "description": "3D corridor carving via A* with stair transitions between floors. Stage 4 of the 3D pipeline."
+      "description": "3D corridor carving via A* with stair transitions between floors, over the selected edges of the rooms graph. Emits the tile grid as a point lattice (one vertex per cell center) with a per-vertex \u0027cell_type\u0027 int attribute. Kept separate from astar_corridors because the stair move set has no 2D analog. Stage 4 of the 3D pipeline."
     },
     {
       "id": "attach_to_surface",
@@ -839,7 +879,7 @@
       "outputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Cone aligned with Y-axis (apex up), centered at origin."
         }
       ],
@@ -879,11 +919,6 @@
         }
       ],
       "outputs": [
-        {
-          "name": "mesh",
-          "portType": "MESH",
-          "description": "Topology-only output."
-        },
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
@@ -925,11 +960,6 @@
         }
       ],
       "outputs": [
-        {
-          "name": "mesh",
-          "portType": "MESH",
-          "description": "Topology-only output."
-        },
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
@@ -1043,13 +1073,13 @@
         },
         {
           "name": "singularities",
-          "portType": "SINGULARITY_LIST",
-          "description": "The field\u0027s singular points, for tracing stages."
+          "portType": "INT",
+          "description": "Per-vertex singularity index4 attribute (0 \u003d not singular), for tracing stages."
         },
         {
           "name": "feature_edges",
-          "portType": "EDGE_ID_SET",
-          "description": "Mesh edge ids of sharp feature and boundary edges."
+          "portType": "BOOLEAN",
+          "description": "Per-edge selection of sharp feature and boundary edges."
         },
         {
           "name": "dofs",
@@ -1077,7 +1107,7 @@
       "outputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Axis-aligned cube mesh (8 verts, 6 quad faces), centered at origin."
         }
       ],
@@ -1249,7 +1279,7 @@
         },
         {
           "name": "profile",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Mesh whose first face is swept along the curve. Vertex count determines segment resolution.",
           "defaultValue": null
         },
@@ -1353,7 +1383,7 @@
       "outputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Capped cylinder aligned with Y-axis, centered at origin."
         }
       ],
@@ -1367,43 +1397,20 @@
       ],
       "inputs": [
         {
-          "name": "rooms",
-          "portType": "ROOM_LIST",
-          "description": "Room list from random_rooms (or any ROOM_LIST producer).",
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle. In: point cloud of sites (typically random_rooms output). Out: the same vertices plus one wire edge per Delaunay edge, sorted by (min, max) vertex index for determinism.",
           "defaultValue": null
         }
       ],
       "outputs": [
         {
-          "name": "edges",
-          "portType": "EDGE_GRAPH",
-          "description": "Delaunay edges between room indices, sorted by (min, max) for determinism."
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output bundle. In: point cloud of sites (typically random_rooms output). Out: the same vertices plus one wire edge per Delaunay edge, sorted by (min, max) vertex index for determinism."
         }
       ],
-      "description": "Delaunay triangulation over room centers via Bowyer-Watson. Stage 2 of the dungeon pipeline — produces the candidate edge set the MST stage filters."
-    },
-    {
-      "id": "delaunay_graph_3d",
-      "category": "Other",
-      "scopes": [
-        "dungeon"
-      ],
-      "inputs": [
-        {
-          "name": "rooms",
-          "portType": "ROOM_LIST_3D",
-          "description": "3D room list.",
-          "defaultValue": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "edges",
-          "portType": "EDGE_GRAPH",
-          "description": "Edges between room indices, deterministic order."
-        }
-      ],
-      "description": "3D Delaunay tetrahedralization (Bowyer-Watson) over room centers. Stage 2 of the 3D pipeline."
+      "description": "Delaunay triangulation over a point cloud via Bowyer-Watson, emitting a mesh over the same vertices whose wire edges ARE the graph. Coplanar input (any constant coordinate, e.g. planar rooms at z \u003d 0) dispatches to the planar algorithm; otherwise the 3D tetrahedralization runs. Attribute slots (e.g. \u0027half_extent\u0027) carry through. Stage 2 of the dungeon pipeline — produces the candidate edge set the MST stage selects from."
     },
     {
       "id": "delete_geometry",
@@ -1559,9 +1566,9 @@
       ],
       "inputs": [
         {
-          "name": "tiles",
-          "portType": "TILE_GRID",
-          "description": "Tile grid from astar_corridors.",
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Tile grid from astar_corridors: quad-grid geometry with the per-face \u0027cell_type\u0027 IntField.",
           "defaultValue": null
         },
         {
@@ -1574,11 +1581,11 @@
       "outputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
-          "description": "ArrayMesh with 6 quads per non-empty cell. Winding matches cube(), normals computed."
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Origin-centered ArrayMesh with double-sided quads and computed normals."
         }
       ],
-      "description": "Emits an axis-aligned boxed mesh from a TileGrid — one box per non-empty cell, HALLWAY cells shorter than ROOM cells for visual distinction. Stage 5 (final) of the dungeon pipeline."
+      "description": "Emits an axis-aligned hollow-room mesh from 2D tile-grid geometry (quad grid with a per-face \u0027cell_type\u0027 attribute): floor, ceiling, and EMPTY-bordering walls per non-empty cell. Stage 5 (final) of the dungeon pipeline."
     },
     {
       "id": "dungeon_grid_to_mesh_3d",
@@ -1588,9 +1595,9 @@
       ],
       "inputs": [
         {
-          "name": "tiles",
-          "portType": "TILE_GRID_3D",
-          "description": "3D tile grid from astar_corridors_3d.",
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Tile lattice from astar_corridors_3d: one vertex per cell center with the per-vertex \u0027cell_type\u0027 IntField.",
           "defaultValue": null
         },
         {
@@ -1603,11 +1610,11 @@
       "outputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
-          "description": "ArrayMesh centered at world origin."
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Origin-centered ArrayMesh with double-sided quads and computed normals."
         }
       ],
-      "description": "Emits a 3D boxed mesh from a TileGrid3D. Multi-floor dungeon with stair cells rendered as mid-height slabs. Stage 5 (final) of the 3D dungeon pipeline."
+      "description": "Emits a multi-floor hollow mesh from 3D tile-lattice geometry (point lattice with a per-vertex \u0027cell_type\u0027 attribute), leaving stair openings passable. Kept separate from dungeon_grid_to_mesh because vertical adjacency and stair cells have no 2D analog. Stage 5 (final) of the 3D dungeon pipeline."
     },
     {
       "id": "edge_paths_to_selection",
@@ -1703,11 +1710,6 @@
         }
       ],
       "outputs": [
-        {
-          "name": "mesh",
-          "portType": "MESH",
-          "description": "Topology-only output."
-        },
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
@@ -1905,7 +1907,7 @@
       "outputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Triangle-based sphere, manifold, centered at origin."
         }
       ],
@@ -2232,11 +2234,6 @@
       ],
       "outputs": [
         {
-          "name": "mesh",
-          "portType": "MESH",
-          "description": "Topology-only output."
-        },
-        {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
           "description": "Input/output cage. Preserves bezier handle slots via rebuild when _bezier_handle_weight is set."
@@ -2265,7 +2262,7 @@
         },
         {
           "name": "instance",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Source mesh to be copied at each point.",
           "defaultValue": null
         },
@@ -2529,7 +2526,7 @@
       "inputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Topology-only input (alternative to geometry). Used when no bundle slots need preservation.",
           "defaultValue": null
         },
@@ -2553,11 +2550,6 @@
         }
       ],
       "outputs": [
-        {
-          "name": "mesh",
-          "portType": "MESH",
-          "description": "Topology-only input (alternative to geometry). Used when no bundle slots need preservation."
-        },
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
@@ -2815,7 +2807,7 @@
       "outputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Flat disk on the XZ plane, centered at the origin, Y\u003d0. Center vertex is id 0, then ring-major/angular-minor ids with angular 0 at twelve o\u0027clock running clockwise. Disk topology, so V - E + F \u003d 1."
         }
       ],
@@ -2875,7 +2867,7 @@
       "outputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Flat grid on XZ plane, centered at origin, Y\u003d0; quads, or triangles when triangulate is set."
         }
       ],
@@ -2919,15 +2911,9 @@
       ],
       "inputs": [
         {
-          "name": "edges",
-          "portType": "EDGE_GRAPH",
-          "description": "Candidate edges (typically from delaunay_graph).",
-          "defaultValue": null
-        },
-        {
-          "name": "rooms",
-          "portType": "ROOM_LIST",
-          "description": "Room list used to weight edges by center-to-center distance.",
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Graph mesh whose wire edges are the candidate set (typically delaunay_graph output).",
           "defaultValue": null
         },
         {
@@ -2945,53 +2931,12 @@
       ],
       "outputs": [
         {
-          "name": "edges",
-          "portType": "EDGE_GRAPH",
-          "description": "Candidate edges (typically from delaunay_graph)."
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-edge BOOLEAN mask in dense edge order: true for MST edges and kept extras."
         }
       ],
-      "description": "Minimum spanning tree over input edges (Prim\u0027s, weighted by Euclidean distance between room centers), plus a probabilistic extra-edge pass on a separate RNG stream. Stage 3 of the dungeon pipeline."
-    },
-    {
-      "id": "minimum_spanning_tree_3d",
-      "category": "Other",
-      "scopes": [
-        "dungeon"
-      ],
-      "inputs": [
-        {
-          "name": "edges",
-          "portType": "EDGE_GRAPH",
-          "description": "Candidate edges (typically delaunay_graph_3d output).",
-          "defaultValue": null
-        },
-        {
-          "name": "rooms",
-          "portType": "ROOM_LIST_3D",
-          "description": "3D rooms used for distance weighting.",
-          "defaultValue": null
-        },
-        {
-          "name": "extra_edge_prob",
-          "portType": "FLOAT",
-          "description": "Probability per non-MST edge to keep as a loop (default 0.125).",
-          "defaultValue": 0.125
-        },
-        {
-          "name": "seed",
-          "portType": "INT",
-          "description": "Seed for the extra-edge RNG stream.",
-          "defaultValue": 0
-        }
-      ],
-      "outputs": [
-        {
-          "name": "edges",
-          "portType": "EDGE_GRAPH",
-          "description": "Candidate edges (typically delaunay_graph_3d output)."
-        }
-      ],
-      "description": "3D MST over input edges weighted by Euclidean distance between 3D room centers, plus a probabilistic extra-edge pass. Stage 3 of the 3D dungeon pipeline."
+      "description": "Minimum spanning tree over the input mesh\u0027s edges (Prim\u0027s, weighted by Euclidean distance between endpoint positions), plus a probabilistic extra-edge pass on a separate RNG stream. Emits a per-edge BOOLEAN selection over the input geometry. Stage 3 of the dungeon pipeline."
     },
     {
       "id": "mirror_geometry",
@@ -3051,15 +2996,21 @@
           "defaultValue": null
         },
         {
+          "name": "charts",
+          "portType": "CHART_ATLAS",
+          "description": "The parametrization\u0027s charts and cut transitions, from a seamless_uv node.",
+          "defaultValue": null
+        },
+        {
           "name": "singularities",
-          "portType": "SINGULARITY_LIST",
-          "description": "Cone points the separatrices spawn from, from a cross_field node.",
+          "portType": "INT",
+          "description": "Per-vertex index4 of the cone points the separatrices spawn from (0 \u003d not singular), from a cross_field node.",
           "defaultValue": null
         },
         {
           "name": "feature_edges",
-          "portType": "EDGE_ID_SET",
-          "description": "Mesh edge ids of feature and boundary curves, from a cross_field node.",
+          "portType": "BOOLEAN",
+          "description": "Per-edge selection of feature and boundary curves, from a cross_field node.",
           "defaultValue": null
         },
         {
@@ -3089,9 +3040,286 @@
           "name": "patch_count",
           "portType": "INT",
           "description": "Number of T-mesh patches (arrangement cells)."
+        },
+        {
+          "name": "orphaned_traces",
+          "portType": "INT",
+          "description": "Traces still alive when the event queue drained (0 expected)."
+        },
+        {
+          "name": "repeated_chain_nodes",
+          "portType": "INT",
+          "description": "Trace chains containing one node twice (0 expected)."
         }
       ],
       "description": "Traces the motorcycle-graph T-mesh over a seamless parametrization: the separatrix arrangement whose cells are the layout\u0027s patches."
+    },
+    {
+      "id": "nearest_vertex",
+      "category": "Selection",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Geometry bundle whose vertices are scanned.",
+          "defaultValue": null
+        },
+        {
+          "name": "point",
+          "portType": "VECTOR3",
+          "description": "World-space point resolved to its nearest vertex.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-vertex BOOLEAN mask with exactly the nearest vertex true."
+        },
+        {
+          "name": "index",
+          "portType": "INT",
+          "description": "Index of the selected vertex, matching the selection field."
+        }
+      ],
+      "description": "Selects the one vertex nearest a point: a per-vertex boolean selection with exactly one true entry, plus that vertex\u0027s index; a near-tie between the two closest vertices throws."
+    },
+    {
+      "id": "network_arc",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "net",
+          "portType": "ARC_NETWORK",
+          "description": "Network being authored, threaded from the previous statement and passed on with the arc added.",
+          "defaultValue": null
+        },
+        {
+          "name": "from",
+          "portType": "INT",
+          "description": "Node id the arc runs from.",
+          "defaultValue": null
+        },
+        {
+          "name": "to",
+          "portType": "INT",
+          "description": "Node id the arc runs to.",
+          "defaultValue": null
+        },
+        {
+          "name": "length",
+          "portType": "INT",
+          "description": "Prescribed quantized length, never negative.",
+          "defaultValue": 0
+        },
+        {
+          "name": "feature",
+          "portType": "BOOLEAN",
+          "description": "Whether the arc lies on a feature or boundary curve.",
+          "defaultValue": false
+        },
+        {
+          "name": "via1",
+          "portType": "VECTOR3",
+          "description": "Optional waypoint 1, resolved to its nearest copy vertex; unset vias are skipped.",
+          "defaultValue": null
+        },
+        {
+          "name": "via2",
+          "portType": "VECTOR3",
+          "description": "Optional waypoint 2, resolved to its nearest copy vertex; unset vias are skipped.",
+          "defaultValue": null
+        },
+        {
+          "name": "via3",
+          "portType": "VECTOR3",
+          "description": "Optional waypoint 3, resolved to its nearest copy vertex; unset vias are skipped.",
+          "defaultValue": null
+        },
+        {
+          "name": "via4",
+          "portType": "VECTOR3",
+          "description": "Optional waypoint 4, resolved to its nearest copy vertex; unset vias are skipped.",
+          "defaultValue": null
+        },
+        {
+          "name": "via5",
+          "portType": "VECTOR3",
+          "description": "Optional waypoint 5, resolved to its nearest copy vertex; unset vias are skipped.",
+          "defaultValue": null
+        },
+        {
+          "name": "via6",
+          "portType": "VECTOR3",
+          "description": "Optional waypoint 6, resolved to its nearest copy vertex; unset vias are skipped.",
+          "defaultValue": null
+        },
+        {
+          "name": "via7",
+          "portType": "VECTOR3",
+          "description": "Optional waypoint 7, resolved to its nearest copy vertex; unset vias are skipped.",
+          "defaultValue": null
+        },
+        {
+          "name": "via8",
+          "portType": "VECTOR3",
+          "description": "Optional waypoint 8, resolved to its nearest copy vertex; unset vias are skipped.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "net",
+          "portType": "ARC_NETWORK",
+          "description": "Network being authored, threaded from the previous statement and passed on with the arc added."
+        },
+        {
+          "name": "id",
+          "portType": "INT",
+          "description": "The new arc\u0027s id, for patches to reference."
+        }
+      ],
+      "description": "Authors one network arc as the unique shortest edge path between two authored nodes, through optional via waypoints; tied paths throw."
+    },
+    {
+      "id": "network_node",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "net",
+          "portType": "ARC_NETWORK",
+          "description": "Network being authored, threaded from the previous statement and passed on with the node added.",
+          "defaultValue": null
+        },
+        {
+          "name": "point",
+          "portType": "VECTOR3",
+          "description": "Authored position; resolved to the nearest copy vertex.",
+          "defaultValue": null
+        },
+        {
+          "name": "critical",
+          "portType": "BOOLEAN",
+          "description": "Whether the node\u0027s position is prescribed (LCBK19 Def 6.2).",
+          "defaultValue": false
+        },
+        {
+          "name": "border",
+          "portType": "BOOLEAN",
+          "description": "Whether the node lies in the surface boundary (LCBK19 Def 6.1).",
+          "defaultValue": false
+        }
+      ],
+      "outputs": [
+        {
+          "name": "net",
+          "portType": "ARC_NETWORK",
+          "description": "Network being authored, threaded from the previous statement and passed on with the node added."
+        },
+        {
+          "name": "id",
+          "portType": "INT",
+          "description": "The new node\u0027s id, for arcs and patches to reference."
+        }
+      ],
+      "description": "Authors one network node on the copy vertex nearest the given point; a near-tie between the two closest vertices throws."
+    },
+    {
+      "id": "network_patch",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "net",
+          "portType": "ARC_NETWORK",
+          "description": "Network being authored, threaded from the previous statement and passed on with the patch added.",
+          "defaultValue": null
+        },
+        {
+          "name": "a",
+          "portType": "INT",
+          "description": "First corner node id, where the first side starts.",
+          "defaultValue": null
+        },
+        {
+          "name": "b",
+          "portType": "INT",
+          "description": "Second corner node id; corners may repeat.",
+          "defaultValue": null
+        },
+        {
+          "name": "c",
+          "portType": "INT",
+          "description": "Third corner node id; corners may repeat.",
+          "defaultValue": null
+        },
+        {
+          "name": "d",
+          "portType": "INT",
+          "description": "Fourth corner node id; corners may repeat.",
+          "defaultValue": null
+        },
+        {
+          "name": "first_side",
+          "portType": "INT",
+          "description": "Arc count of the first side, or -1 for unconstrained.",
+          "defaultValue": -1
+        },
+        {
+          "name": "second_side",
+          "portType": "INT",
+          "description": "Arc count of the second side, or -1 for unconstrained.",
+          "defaultValue": -1
+        },
+        {
+          "name": "third_side",
+          "portType": "INT",
+          "description": "Arc count of the third side, or -1 for unconstrained.",
+          "defaultValue": -1
+        },
+        {
+          "name": "fourth_side",
+          "portType": "INT",
+          "description": "Arc count of the fourth side, or -1 for unconstrained.",
+          "defaultValue": -1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "net",
+          "portType": "ARC_NETWORK",
+          "description": "Network being authored, threaded from the previous statement and passed on with the patch added."
+        },
+        {
+          "name": "id",
+          "portType": "INT",
+          "description": "The new patch\u0027s id."
+        }
+      ],
+      "description": "Authors one network patch by tracing the arc graph\u0027s faces and splitting the one face matching the four corner nodes and any given side counts."
     },
     {
       "id": "newton_solver",
@@ -3170,14 +3398,9 @@
       ],
       "outputs": [
         {
-          "name": "mesh",
-          "portType": "MESH",
-          "description": "All-quad cylinder, Y-aligned, centered at origin."
-        },
-        {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Same mesh as a GeometryBundle (slot-carrying)."
+          "description": "All-quad cylinder, Y-aligned, centered at origin."
         }
       ],
       "description": "Generates an all-quad cylinder with concentric quad-ring caps suitable for Catmull-Clark subdivision, controlled by radius, height, barrel segments/rings, and cap_rings for cap density."
@@ -3196,16 +3419,85 @@
           "portType": "UV_FIELD",
           "description": "UV field to extract from, typically relaxed by a newton_solver node.",
           "defaultValue": null
+        },
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "The mesh the UV field\u0027s per-corner coordinates are read over in; the extracted quad mesh as a geometry bundle out.",
+          "defaultValue": null
+        },
+        {
+          "name": "tmesh",
+          "portType": "ARC_NETWORK",
+          "description": "The layout network, read for node valences at layout vertices.",
+          "defaultValue": null
         }
       ],
       "outputs": [
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "The extracted quad mesh as a geometry bundle."
+          "description": "The mesh the UV field\u0027s per-corner coordinates are read over in; the extracted quad mesh as a geometry bundle out."
         }
       ],
       "description": "Extracts the pure quad mesh of a UV field: vertices at integer grid point preimages, connectivity by tracing unit iso-segments (QEx)."
+    },
+    {
+      "id": "quad_layout",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Triangle mesh in; the extracted pure quad mesh out.",
+          "defaultValue": null
+        },
+        {
+          "name": "alpha_degrees",
+          "portType": "FLOAT",
+          "description": "Maximum separatrix deviation in degrees, the quality knob.",
+          "defaultValue": 15.0
+        },
+        {
+          "name": "target_edge_length",
+          "portType": "FLOAT",
+          "description": "Parametric length one quad edge spans.",
+          "defaultValue": 1.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Triangle mesh in; the extracted pure quad mesh out."
+        },
+        {
+          "name": "uv",
+          "portType": "UV_FIELD",
+          "description": "The relaxed integer grid map the quads were extracted from."
+        },
+        {
+          "name": "tmesh",
+          "portType": "ARC_NETWORK",
+          "description": "The contracted embedded T-mesh, one patch per quad grid."
+        },
+        {
+          "name": "field",
+          "portType": "CROSS_FIELD",
+          "description": "The cross field the layout follows."
+        },
+        {
+          "name": "singularities",
+          "portType": "INT",
+          "description": "Per-vertex index4 of the field\u0027s cone points (0 \u003d not singular)."
+        }
+      ],
+      "description": "Runs the whole quad-layout pipeline over a triangle mesh: cross field, seamless parametrization, motorcycle T-mesh, quantization, contraction, grid-map relaxation, and quad extraction."
     },
     {
       "id": "random_rooms",
@@ -3223,14 +3515,20 @@
         {
           "name": "grid_w",
           "portType": "INT",
-          "description": "Grid width in cells. Rooms fit inside [0, grid_w].",
+          "description": "Grid width (X) in cells. Rooms fit inside [0, grid_w].",
           "defaultValue": 30
         },
         {
           "name": "grid_h",
           "portType": "INT",
-          "description": "Grid height in cells.",
+          "description": "Grid height in cells: the second planar axis when grid_d \u003d 0, the floor count (Y) when grid_d \u003e 0.",
           "defaultValue": 30
+        },
+        {
+          "name": "grid_d",
+          "portType": "INT",
+          "description": "Grid depth (Z) in cells. 0 (default) selects planar z \u003d 0 placement.",
+          "defaultValue": 0
         },
         {
           "name": "count",
@@ -3259,77 +3557,12 @@
       ],
       "outputs": [
         {
-          "name": "rooms",
-          "portType": "ROOM_LIST",
-          "description": "List of placed rooms with ids, centers, and half-extents."
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Point cloud of room centers with the per-vertex \u0027half_extent\u0027 Vector3Field slot."
         }
       ],
-      "description": "Places non-overlapping axis-aligned rooms on an integer grid with a 1-unit buffer. Deterministic for a given seed. Stage 1 of the dungeon pipeline."
-    },
-    {
-      "id": "random_rooms_3d",
-      "category": "Other",
-      "scopes": [
-        "dungeon"
-      ],
-      "inputs": [
-        {
-          "name": "seed",
-          "portType": "INT",
-          "description": "PRNG seed.",
-          "defaultValue": 0
-        },
-        {
-          "name": "grid_w",
-          "portType": "INT",
-          "description": "Grid width (X) in cells.",
-          "defaultValue": 30
-        },
-        {
-          "name": "grid_h",
-          "portType": "INT",
-          "description": "Grid height (Y) in floors. Default 5 per vazgriz.",
-          "defaultValue": 5
-        },
-        {
-          "name": "grid_d",
-          "portType": "INT",
-          "description": "Grid depth (Z) in cells.",
-          "defaultValue": 30
-        },
-        {
-          "name": "count",
-          "portType": "INT",
-          "description": "Target room count.",
-          "defaultValue": 15
-        },
-        {
-          "name": "min_size",
-          "portType": "INT",
-          "description": "Minimum horizontal edge length in cells.",
-          "defaultValue": 3
-        },
-        {
-          "name": "max_size",
-          "portType": "INT",
-          "description": "Maximum horizontal edge length in cells.",
-          "defaultValue": 8
-        },
-        {
-          "name": "max_attempts",
-          "portType": "INT",
-          "description": "Cap on placement attempts; result may be smaller than count if exceeded.",
-          "defaultValue": 2000
-        }
-      ],
-      "outputs": [
-        {
-          "name": "rooms",
-          "portType": "ROOM_LIST_3D",
-          "description": "List of 3D rooms with ids, centers, and half-extents."
-        }
-      ],
-      "description": "Places non-overlapping 3D rooms across multiple floors with a 1-unit buffer. Stage 1 of the 3D dungeon pipeline."
+      "description": "Places non-overlapping axis-aligned rooms on an integer grid with a 1-unit buffer, emitting one point per room center with a per-vertex \u0027half_extent\u0027 attribute. grid_d \u003d 0 places planar rooms in the XY plane at z \u003d 0; grid_d \u003e 0 places 3D rooms across grid_h floors (Y axis, 1 cell tall) with a guaranteed start room at the grid center. Deterministic for a given seed. Stage 1 of the dungeon pipeline."
     },
     {
       "id": "random_value",
@@ -3419,7 +3652,7 @@
       "outputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Concrete mesh with all instances materialized into real vertices and faces."
         }
       ],
@@ -3788,11 +4021,6 @@
       ],
       "outputs": [
         {
-          "name": "mesh",
-          "portType": "MESH",
-          "description": "Solid mesh topology (alternative accessor to `geometry.mesh`)."
-        },
-        {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
           "description": "Input/output. Flat (or near-flat) quad surface becomes a closed shell wrapped in a GeometryBundle."
@@ -3824,7 +4052,7 @@
       "outputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "All-quad sphere, centered at origin."
         }
       ],
@@ -3840,7 +4068,7 @@
       "inputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Input/output mesh. Each vertex is lerped from its position toward a point on a sphere of the bounding radius centered at the centroid.",
           "defaultValue": null
         },
@@ -3854,7 +4082,7 @@
       "outputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Input/output mesh. Each vertex is lerped from its position toward a point on a sphere of the bounding radius centered at the centroid."
         }
       ],
@@ -3870,7 +4098,7 @@
       "inputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Input topology to subdivide. Each face becomes 4^levels faces.",
           "defaultValue": null
         },
@@ -3882,11 +4110,6 @@
         }
       ],
       "outputs": [
-        {
-          "name": "mesh",
-          "portType": "MESH",
-          "description": "Input topology to subdivide. Each face becomes 4^levels faces."
-        },
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
@@ -3910,7 +4133,7 @@
       "inputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Plain topology input (alternative to geometry). Used when no crease weights need to be read.",
           "defaultValue": null
         },
@@ -3928,11 +4151,6 @@
         }
       ],
       "outputs": [
-        {
-          "name": "mesh",
-          "portType": "MESH",
-          "description": "Plain topology input (alternative to geometry). Used when no crease weights need to be read."
-        },
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
@@ -4107,6 +4325,12 @@
           "portType": "BOOLEAN",
           "description": "Whether to extend T-junctions after contraction so every patch conforms.",
           "defaultValue": true
+        },
+        {
+          "name": "recarve",
+          "portType": "BOOLEAN",
+          "description": "Whether to conform and replay the contracted layout onto a fresh working copy; off, the rounds run in place and surviving T-junctions remain.",
+          "defaultValue": true
         }
       ],
       "outputs": [
@@ -4160,7 +4384,7 @@
       "outputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Torus centred at the origin, tube encircling the Y axis. Closed, genus 1, so V - E + F \u003d 0."
         }
       ],
@@ -4250,7 +4474,7 @@
       "outputs": [
         {
           "name": "mesh",
-          "portType": "MESH",
+          "portType": "GEOMETRY_BUNDLE",
           "description": "Quad-banded sphere with triangle-fan poles, centered at origin."
         }
       ],

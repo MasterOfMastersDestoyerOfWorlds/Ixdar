@@ -50,8 +50,9 @@ class CarveOneToOneTest {
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
 
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, (float) ALPHA_RADIANS);
-        engine.buildLayoutEmbedding();
-        LayoutEmbedding embedding = engine.embedding;
+        engine.buildQuantization();
+        LayoutEmbedding embedding = new LayoutEmbedding();
+        embedding.build(engine.arrangement, engine.seamless);
         EmbeddedMeshTopology topology = embedding.topology;
 
         int claimedSourceVertices = 0;
@@ -72,7 +73,7 @@ class CarveOneToOneTest {
                         + " | nodes=%d arcs=%d | source vertices claimed=%d free=%d%n",
                 offPath, mesh.vertexCount(), topology.copy.vertexCount(),
                 topology.copy.vertexCount() / (double) mesh.vertexCount(),
-                engine.motorcycleGraph.nodes.size(), engine.motorcycleGraph.arcs.size(),
+                engine.arrangement.nodes.size(), engine.arrangement.arcs.size(),
                 claimedSourceVertices, freeSourceVertices);
 
         assertEquals(0, topology.claimConflictCount,
@@ -93,7 +94,7 @@ class CarveOneToOneTest {
 
         Map<Integer, Integer> arcByEdge = new HashMap<>();
         Map<Integer, Integer> arcByInteriorVertex = new HashMap<>();
-        for (EmbeddedArc arc : engine.motorcycleGraph.arcs) {
+        for (EmbeddedArc arc : engine.arrangement.arcs) {
             ArcEdgePath path = embedding.pathByArc[arc.arcId];
             List<Integer> vertices = path.copyVertexPath;
             assertEquals(vertices.size(), new HashSet<>(vertices).size(),
@@ -123,7 +124,7 @@ class CarveOneToOneTest {
             }
         }
 
-        assertTrue(arcByEdge.size() >= engine.motorcycleGraph.arcs.size(),
+        assertTrue(arcByEdge.size() >= engine.arrangement.arcs.size(),
                 "every arc contributes at least one edge to the mapping");
     }
 }

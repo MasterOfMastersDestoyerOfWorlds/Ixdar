@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.nodes.patch;
 
+import java.util.Objects;
 import java.util.List;
 
 import org.joml.Vector3f;
@@ -13,7 +14,6 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
@@ -78,7 +78,7 @@ public class AssignBezierHandlesNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
+        GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         Object w = FieldBroadcast.getInputOrDefault(ctx, WEIGHT.name, WEIGHT.defaultValue);
         float weight = FieldBroadcast.floatScalarOrDefault(w, 1.0f);
         ctx.setOutput(GEOMETRY.name, computeHandles(base, weight));

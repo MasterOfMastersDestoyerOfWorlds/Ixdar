@@ -10,13 +10,12 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
-import ixdar.geometry.mesh.data.GeometryBundles;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.GeometryBundle;
 
 @MeshNodeAnnotation(id = "realize_instances")
 public class RealizeInstancesNode implements MeshNode {
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
-    public static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
+    public static final OutputPort MESH = new OutputPort("mesh", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -43,7 +42,7 @@ public class RealizeInstancesNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        MeshTopology m = GeometryBundles.meshPart(ctx.getInput(GEOMETRY.name, Object.class));
-        ctx.setOutput(MESH.name, m);
+        GeometryBundle in = ctx.getInput(GEOMETRY.name, GeometryBundle.class);
+        ctx.setOutput(MESH.name, in == null ? null : GeometryBundle.ofMesh(in.mesh()));
     }
 }

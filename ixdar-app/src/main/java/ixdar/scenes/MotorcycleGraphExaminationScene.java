@@ -4,7 +4,7 @@ import java.io.IOException;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
-import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.QuadLayoutRuntime;
@@ -53,10 +53,6 @@ public class MotorcycleGraphExaminationScene extends ModelScene {
                 () -> quadRuntime.showTraces = !quadRuntime.showTraces));
         controls.add(new ControlHint(Keys.N, "N", "toggle nodes",
                 () -> quadRuntime.showNodes = !quadRuntime.showNodes));
-        controls.add(new ControlHint(Keys.W, "W", "toggle witnesses",
-                () -> quadRuntime.showWitnesses = !quadRuntime.showWitnesses));
-        controls.add(new ControlHint(Keys.E, "E", "toggle Eppstein markers",
-                () -> quadRuntime.showEppsteinMarkers = !quadRuntime.showEppsteinMarkers));
         controls.add(new ControlHint(Keys.COMMA, ",", "decrease alpha", () -> stepAlpha(-1f)));
         controls.add(new ControlHint(Keys.PERIOD, ".", "increase alpha", () -> stepAlpha(1f)));
         super.setControls();
@@ -65,10 +61,10 @@ public class MotorcycleGraphExaminationScene extends ModelScene {
     private void rebuildMotorcycleGraph() {
         float alphaRadians = (float) Math.toRadians(alphaDegrees);
         QuadLayoutEngine engine = new QuadLayoutEngine(halfEdgeMesh, alphaRadians);
-        MotorcycleGraph graph = engine.buildMotorcycleGraph();
+        ArcNetwork graph = engine.buildMotorcycleGraph();
         seamless = engine.seamless;
         quadRuntime.setSeamlessParametrization(seamless, halfEdgeMesh);
-        quadRuntime.captureSingularities(engine.crossField.singularities, halfEdgeMesh);
+        quadRuntime.setSingularities(engine.crossField.singularityIndex4, halfEdgeMesh);
         quadRuntime.setMotorcycleGraph(graph);
         quadRuntime.showTraces = true;
         quadRuntime.showNodes = true;

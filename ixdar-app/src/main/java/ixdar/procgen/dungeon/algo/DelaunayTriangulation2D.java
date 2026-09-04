@@ -1,21 +1,20 @@
 package ixdar.procgen.dungeon.algo;
 
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import ixdar.procgen.dungeon.values.EdgeGraphValue;
-import ixdar.procgen.dungeon.values.RoomListValue;
+import ixdar.geometry.mesh.data.EdgeKey;
 
 /**
- * Delaunay triangulation over 2D room centers via Bowyer-Watson incremental insertion,
- * producing the candidate edge set the MST stage filters.
+ * Delaunay triangulation over planar sites via Bowyer-Watson incremental insertion, producing
+ * the candidate edge set the MST stage filters.
  *
- * <p>Output edges are sorted lexicographically by (min-idx, max-idx). At least three rooms are
+ * <p>Output edges are sorted lexicographically by (min-idx, max-idx). At least three sites are
  * needed for a meaningful triangulation; fewer degenerate to a trivial edge set. Insertion is
  * O(N^2).
  */
@@ -27,24 +26,26 @@ public final class DelaunayTriangulation2D {
     }
 
     /**
-     * Bowyer-Watson incremental insertion over the room centers, then strip super-triangles and
-     * emit the unique edges sorted lexicographically.
+     * Bowyer-Watson incremental insertion over the sites, then strip super-triangles and emit
+     * the unique edges sorted lexicographically.
      *
-     * @param rooms input rooms whose centers act as Delaunay sites
-     * @return edge graph indexed by room id; empty for &lt; 2 rooms, a single edge for 2 rooms
+     * @param us first planar coordinate per site
+     * @param vs second planar coordinate per site (same length as {@code us})
+     * @return flat pairs of site indices; empty for &lt; 2 sites, a single pair for 2 sites
      */
-    public static EdgeGraphValue triangulate(RoomListValue rooms) {
-        int n = rooms.size();
-        if (n == 0) return new EdgeGraphValue(0, new int[0][]);
-        if (n == 1) return new EdgeGraphValue(1, new int[0][]);
-        if (n == 2) return new EdgeGraphValue(2, new int[][] { { 0, 1 } });
+    public static int[] triangulate(double[] us, double[] vs) {
+        int n = us.length;
+        if (n < 2) {
+            return new int[0];
+        }
+        if (n == 2) {
+            return new int[] { 0, 1 };
+        }
 
         double[] xs = new double[n + NUM_3];
         double[] ys = new double[n + NUM_3];
-        for (int i = 0; i < n; i++) {
-            xs[i] = rooms.get(i).centerX();
-            ys[i] = rooms.get(i).centerY();
-        }
+        System.arraycopy(us, 0, xs, 0, n);
+        System.arraycopy(vs, 0, ys, 0, n);
 
         double minX = xs[0], maxX = xs[0], minY = ys[0], maxY = ys[0];
         for (int i = 1; i < n; i++) {
@@ -64,58 +65,75 @@ public final class DelaunayTriangulation2D {
         xs[n + 1] = midX + NUM_20 * dmax; ys[n + 1] = midY - dmax;
         xs[n + 2] = midX;             ys[n + 2] = midY + NUM_20 * dmax;
 
-        List<Triangle> tris = new ArrayList<>();
+        // Triangles are int[3] rows of site indices in CCW order; edges are EdgeKey-packed
+        // longs (smaller index in the high word), so sorting them as longs is lexicographic.
+        List<int[]> tris = new ArrayList<>();
         tris.add(ccwTriangle(n, n + 1, n + 2, xs, ys));
 
         for (int p = 0; p < n; p++) {
-            List<Triangle> bad = new ArrayList<>();
-            for (Triangle t : tris) {
+            List<int[]> bad = new ArrayList<>();
+            for (int[] t : tris) {
                 if (inCircumcircle(
-                        xs[t.a], ys[t.a],
-                        xs[t.b], ys[t.b],
-                        xs[t.c], ys[t.c],
+                        xs[t[0]], ys[t[0]],
+                        xs[t[1]], ys[t[1]],
+                        xs[t[2]], ys[t[2]],
                         xs[p], ys[p])) {
                     bad.add(t);
                 }
             }
             // Boundary of the polygon hole: edges that appear in exactly one bad triangle.
-            Map<Edge, Integer> edgeCount = new LinkedHashMap<>();
-            for (Triangle t : bad) {
-                edgeCount.merge(new Edge(t.a, t.b), 1, Integer::sum);
-                edgeCount.merge(new Edge(t.b, t.c), 1, Integer::sum);
-                edgeCount.merge(new Edge(t.c, t.a), 1, Integer::sum);
+            Map<Long, Integer> edgeCount = new LinkedHashMap<>();
+            for (int[] t : bad) {
+                edgeCount.merge(EdgeKey.undirected(t[0], t[1]), 1, Integer::sum);
+                edgeCount.merge(EdgeKey.undirected(t[1], t[2]), 1, Integer::sum);
+                edgeCount.merge(EdgeKey.undirected(t[2], t[0]), 1, Integer::sum);
             }
             tris.removeAll(bad);
-            for (Map.Entry<Edge, Integer> e : edgeCount.entrySet()) {
+            for (Map.Entry<Long, Integer> e : edgeCount.entrySet()) {
                 if (e.getValue() == 1) {
-                    Edge edge = e.getKey();
-                    tris.add(ccwTriangle(edge.a, edge.b, p, xs, ys));
+                    long edge = e.getKey();
+                    tris.add(ccwTriangle(EdgeKey.minVertex(edge), EdgeKey.maxVertex(edge), p, xs, ys));
                 }
             }
         }
 
-        Set<Edge> edges = new LinkedHashSet<>();
-        for (Triangle t : tris) {
-            if (t.a >= n || t.b >= n || t.c >= n) continue;
-            edges.add(new Edge(t.a, t.b));
-            edges.add(new Edge(t.b, t.c));
-            edges.add(new Edge(t.c, t.a));
+        Set<Long> edges = new LinkedHashSet<>();
+        for (int[] t : tris) {
+            if (t[0] >= n || t[1] >= n || t[2] >= n) continue;
+            edges.add(EdgeKey.undirected(t[0], t[1]));
+            edges.add(EdgeKey.undirected(t[1], t[2]));
+            edges.add(EdgeKey.undirected(t[2], t[0]));
         }
-        List<Edge> sortedEdges = new ArrayList<>(edges);
-        sortedEdges.sort(Edge.COMPARATOR);
-        int[][] out = new int[sortedEdges.size()][];
-        for (int i = 0; i < sortedEdges.size(); i++) {
-            Edge e = sortedEdges.get(i);
-            out[i] = new int[] { e.a, e.b };
+        return sortedPairs(edges);
+    }
+
+    /**
+     * Unpacks a set of EdgeKey-packed edges into flat index pairs sorted lexicographically by
+     * (min-idx, max-idx).
+     *
+     * @param edges undirected packed edge keys
+     * @return flat pairs of site indices, smaller index first
+     */
+    static int[] sortedPairs(Set<Long> edges) {
+        long[] sorted = new long[edges.size()];
+        int count = 0;
+        for (long edge : edges) {
+            sorted[count++] = edge;
         }
-        return new EdgeGraphValue(n, out);
+        Arrays.sort(sorted);
+        int[] out = new int[sorted.length * 2];
+        for (int i = 0; i < sorted.length; i++) {
+            out[i * 2] = EdgeKey.minVertex(sorted[i]);
+            out[i * 2 + 1] = EdgeKey.maxVertex(sorted[i]);
+        }
+        return out;
     }
 
     /** Returns a triangle with CCW vertex order (positive signed area). */
-    private static Triangle ccwTriangle(int a, int b, int c, double[] xs, double[] ys) {
+    private static int[] ccwTriangle(int a, int b, int c, double[] xs, double[] ys) {
         double signed = (xs[b] - xs[a]) * (ys[c] - ys[a]) - (xs[c] - xs[a]) * (ys[b] - ys[a]);
-        if (signed < 0) return new Triangle(a, c, b);
-        return new Triangle(a, b, c);
+        if (signed < 0) return new int[] { a, c, b };
+        return new int[] { a, b, c };
     }
 
     /**
@@ -137,19 +155,5 @@ public final class DelaunayTriangulation2D {
         double blift = bdx * bdx + bdy * bdy;
         double clift = cdx * cdx + cdy * cdy;
         return alift * bcdet + blift * cadet + clift * abdet > 0;
-    }
-
-    record Triangle(int a, int b, int c) { }
-
-    record Edge(int a, int b) {
-        static final Comparator<Edge> COMPARATOR =
-                Comparator.comparingInt(Edge::a).thenComparingInt(Edge::b);
-        Edge {
-            if (a > b) {
-                int tmp = a;
-                a = b;
-                b = tmp;
-            }
-        }
     }
 }

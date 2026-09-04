@@ -15,7 +15,6 @@ import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -94,10 +93,10 @@ public class BiRailLoftNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle railAGb = GeometryBundles.bundlePart(ctx.getInput(RAIL_A.name, Object.class));
-        GeometryBundle railBGb = GeometryBundles.bundlePart(ctx.getInput(RAIL_B.name, Object.class));
-        GeometryBundle profileGb = GeometryBundles.bundlePart(ctx.getInput(PROFILE.name, Object.class));
-        GeometryBundle profileBGb = GeometryBundles.bundlePart(ctx.getInput(PROFILE_B.name, Object.class));
+        GeometryBundle railAGb = ctx.getInput(RAIL_A.name, GeometryBundle.class);
+        GeometryBundle railBGb = ctx.getInput(RAIL_B.name, GeometryBundle.class);
+        GeometryBundle profileGb = ctx.getInput(PROFILE.name, GeometryBundle.class);
+        GeometryBundle profileBGb = ctx.getInput(PROFILE_B.name, GeometryBundle.class);
 
         if (railAGb == null || railBGb == null || profileGb == null) {
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
@@ -155,8 +154,7 @@ public class BiRailLoftNode implements MeshNode {
         }
 
         // Optional blend closure for per-station blending along the rail
-        Object closureObj = ctx.getInput(BLEND_CLOSURE.name, Object.class);
-        FloatCurveKernel blendKernel = (closureObj instanceof FloatCurveKernel k) ? k : null;
+        FloatCurveKernel blendKernel = ctx.getInput(BLEND_CLOSURE.name, FloatCurveKernel.class);
 
         float depthScale = FieldBroadcast.floatAt(
                 FieldBroadcast.getInputOrDefault(ctx, DEPTH_SCALE.name, DEPTH_SCALE.defaultValue), 0, NUM_1);

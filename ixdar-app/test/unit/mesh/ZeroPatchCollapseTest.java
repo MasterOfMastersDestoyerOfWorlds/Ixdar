@@ -3,9 +3,11 @@ package unit.mesh;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
@@ -22,20 +24,21 @@ class ZeroPatchCollapseTest {
 
     @Test
     void drivingAllThreeOperatorsClearsEveryZeroElement() {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
 
-        new NetworkContraction(fixture.tmesh).contract();
+        new NetworkContraction(fixtureNet).contract();
 
-        for (int arcId = 0; arcId < fixture.tmesh.arcs.size(); arcId++) {
-            var arc = fixture.tmesh.arcs.get(arcId);
+        for (int arcId = 0; arcId < fixtureNet.arcs.size(); arcId++) {
+            var arc = fixtureNet.arcs.get(arcId);
             if (arc.alive) {
                 assertNotEquals(0, arc.quantizedLength,
                         "arc " + arcId + " is a zero arc that survived contraction");
             }
         }
-        for (int patchId = 0; patchId < fixture.tmesh.patches.size(); patchId++) {
-            if (fixture.tmesh.patches.get(patchId).alive) {
-                assertEquals(false, fixture.tmesh.isZeroPatch(patchId),
+        for (int patchId = 0; patchId < fixtureNet.patches.size(); patchId++) {
+            if (fixtureNet.patches.get(patchId).alive) {
+                assertEquals(false, fixtureNet.isZeroPatch(patchId),
                         "patch " + patchId + " is a zero patch that survived contraction");
             }
         }
@@ -49,10 +52,11 @@ class ZeroPatchCollapseTest {
      */
     @Test
     void collapsingOneBigonRemovesOneArcAndOnePatch() {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        ZeroArcCollapseOperator collapseArc = new ZeroArcCollapseOperator(fixture.tmesh);
-        ZeroPatchSplitOperator splitPatch = new ZeroPatchSplitOperator(fixture.tmesh);
-        ZeroPatchCollapseOperator collapsePatch = new ZeroPatchCollapseOperator(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        ZeroArcCollapseOperator collapseArc = new ZeroArcCollapseOperator(fixtureNet);
+        ZeroPatchSplitOperator splitPatch = new ZeroPatchSplitOperator(fixtureNet);
+        ZeroPatchCollapseOperator collapsePatch = new ZeroPatchCollapseOperator(fixtureNet);
 
         int guard = 0;
         while (collapsePatch.nextSimpleZeroPatch() == ArcNetwork.NONE) {
@@ -64,22 +68,22 @@ class ZeroPatchCollapseTest {
                 assertNotEquals(ArcNetwork.NONE, nonSimple, "a bigon should become reachable");
                 splitPatch.split(nonSimple);
             }
-            fixture.tmesh.validate();
+            fixtureNet.validate();
             if (++guard > 100) {
                 throw new AssertionError("never reached a bigon");
             }
         }
 
-        int liveArcsBefore = countLive(fixture.tmesh.arcs.size(), fixture.tmesh, true);
-        int livePatchesBefore = countLive(fixture.tmesh.patches.size(), fixture.tmesh, false);
+        int liveArcsBefore = countLive(fixtureNet.arcs.size(), fixtureNet, true);
+        int livePatchesBefore = countLive(fixtureNet.patches.size(), fixtureNet, false);
 
         collapsePatch.collapse(collapsePatch.nextSimpleZeroPatch());
 
-        fixture.tmesh.validate();
-        assertEquals(liveArcsBefore - 1, countLive(fixture.tmesh.arcs.size(), fixture.tmesh, true),
+        fixtureNet.validate();
+        assertEquals(liveArcsBefore - 1, countLive(fixtureNet.arcs.size(), fixtureNet, true),
                 "operator (3) discards exactly one arc");
         assertEquals(livePatchesBefore - 1,
-                countLive(fixture.tmesh.patches.size(), fixture.tmesh, false),
+                countLive(fixtureNet.patches.size(), fixtureNet, false),
                 "operator (3) removes exactly one patch");
     }
 

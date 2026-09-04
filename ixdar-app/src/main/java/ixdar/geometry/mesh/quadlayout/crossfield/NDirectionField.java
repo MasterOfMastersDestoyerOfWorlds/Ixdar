@@ -13,7 +13,6 @@ import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
@@ -22,7 +21,6 @@ import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
-import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
 import ixdar.geometry.mesh.quadlayout.solver.Preconditioner;
 import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
@@ -46,9 +44,9 @@ public class NDirectionField implements MeshNode {
     public static final OutputPort FIELD = new OutputPort("field", PortType.CROSS_FIELD);
     public static final OutputPort SINGULARITY_COUNT = new OutputPort("singularity_count", PortType.INT);
     public static final OutputPort SINGULARITIES = new OutputPort("singularities",
-            PortType.SINGULARITY_LIST);
+            PortType.INT);
     public static final OutputPort FEATURE_EDGES = new OutputPort("feature_edges",
-            PortType.EDGE_ID_SET);
+            PortType.BOOLEAN);
     public static final OutputPort DOFS = new OutputPort("dofs", PortType.DOF_SYSTEM);
 
     /**
@@ -145,7 +143,7 @@ public class NDirectionField implements MeshNode {
         this.cf = new CrossField(buildMesh);
         this.vertexCount = buildMesh.vertexCount();
         this.system = new DofSystem(2 * vertexCount);
-        this.system.assembler = x -> useCurvatureAlignment || !cf.alignmentEdgeIds.isEmpty()
+        this.system.assembler = x -> useCurvatureAlignment || cf.hasAlignmentEdges()
                 ? massSystemMatrix
                 : energyMatrix;
         this.system.energy = x -> energyMatrix.quadraticEnergy(x);
@@ -286,25 +284,25 @@ public class NDirectionField implements MeshNode {
         for (int activeEdge = 0; activeEdge < cf.edgeCount; activeEdge++) {
             EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(activeEdge);
             if (mesh.isBoundaryEdge(edgeFaceIds.edgeId)) {
-                cf.alignmentEdgeIds.add(edgeFaceIds.edgeId);
+                cf.alignmentEdges.data()[activeEdge] = true;
                 continue;
             }
             Vector3f faceANormal = mesh.faceNormal(edgeFaceIds.faceA);
             Vector3f faceBNormal = mesh.faceNormal(edgeFaceIds.faceB);
             if (faceANormal.dot(faceBNormal) < cf.featureDihedralCos) {
-                cf.alignmentEdgeIds.add(edgeFaceIds.edgeId);
+                cf.alignmentEdges.data()[activeEdge] = true;
             }
         }
     }
 
     /**
      * BZK09/Ray08 per-vertex singularity index from the angle defect plus signed
-     * cf.kappa- and period-walks around the 1-ring; fills the field's singularity
-     * list, excluding boundary and zero-index vertices.
+     * cf.kappa- and period-walks around the 1-ring; fills the field's per-vertex
+     * index4 attribute, leaving boundary and zero-index vertices at 0.
      */
     private void extractSingularities() {
         int count = mesh.vertexCount();
-        cf.singularities.clear();
+        Arrays.fill(cf.singularityIndex4.data(), 0);
         Vector3f a = new Vector3f();
         Vector3f b = new Vector3f();
 
@@ -339,7 +337,7 @@ public class NDirectionField implements MeshNode {
             float iTimes4 = (float) (((defect + signedKappaSum) * 2.0) / Math.PI) + signedPeriodSum;
             int iQuarter = Math.round(iTimes4);
             if (iQuarter != 0) {
-                cf.singularities.add(new Singularity(vId, iQuarter));
+                cf.singularityIndex4.data()[vAi] = iQuarter;
             }
         }
     }
@@ -351,7 +349,7 @@ public class NDirectionField implements MeshNode {
      */
     public void solveField() {
         long sectionStart = System.nanoTime();
-        boolean hasAlignmentEdges = !cf.alignmentEdgeIds.isEmpty();
+        boolean hasAlignmentEdges = cf.hasAlignmentEdges();
         if (useCurvatureAlignment || hasAlignmentEdges) {
             if (useCurvatureAlignment) {
                 buildLoadVector();
@@ -431,15 +429,20 @@ public class NDirectionField implements MeshNode {
     /**
      * Soft alignment load for feature and boundary edges, contributing
      * {@code featureAlignmentWeight · |e| · e^{i·n·θ}} at both endpoints of each
-     * edge in {@link CrossField#alignmentEdgeIds}. The result is dual-form, so it
-     * adds straight onto the aligned solve's right-hand side.
+     * edge selected in {@link CrossField#alignmentEdges}. The result is dual-form,
+     * so it adds straight onto the aligned solve's right-hand side.
      *
      * <p>
      * See also: KCP*13 Section 5
      */
     private void buildFeatureAlignmentLoad() {
         featureAlignmentLoad = new double[2 * vertexCount];
-        List<Integer> sortedAlignmentEdgeIds = new ArrayList<>(cf.alignmentEdgeIds);
+        List<Integer> sortedAlignmentEdgeIds = new ArrayList<>();
+        for (int activeEdge = 0; activeEdge < cf.alignmentEdges.length(); activeEdge++) {
+            if (cf.alignmentEdges.get(activeEdge)) {
+                sortedAlignmentEdgeIds.add(mesh.edgeIdAt(activeEdge));
+            }
+        }
         Collections.sort(sortedAlignmentEdgeIds);
         Vector3f start = new Vector3f();
         Vector3f end = new Vector3f();
@@ -1003,9 +1006,9 @@ public class NDirectionField implements MeshNode {
     }
 
     /**
-     * Fill {@code cf.theta}, {@code cf.periodJump}, and {@code cf.singularities}
-     * from {@code field}. The field's degree {@code n} should match the cross
-     * field's symmetry (4 for a cross field).
+     * Fill {@code cf.theta}, {@code cf.periodJump}, and
+     * {@code cf.singularityIndex4} from {@code field}. The field's degree
+     * {@code n} should match the cross field's symmetry (4 for a cross field).
      */
     public void populate() {
         // vertex id -> NDirectionField active vertex index. NDirectionField numbers
@@ -1068,15 +1071,16 @@ public class NDirectionField implements MeshNode {
         extractSingularities();
 
         int indexSum4 = 0;
-        for (Singularity singularity : cf.singularities) {
-            indexSum4 += singularity.index4();
+        for (int v = 0; v < cf.singularityIndex4.length(); v++) {
+            indexSum4 += cf.singularityIndex4.get(v);
         }
+        int singularityCount = cf.singularityCount();
         int eulerCharacteristic = vertexCount - cf.edgeCount + cf.faceCount;
         // Discrete Poincaré–Hopf (KCP13 App. B): on a closed mesh the quarter
         // indices must sum to 4χ; boundary vertices are excluded from the walk,
         // so meshes with boundary will legitimately differ.
         Platforms.log("[n-field] singularities=%d indexSum4=%d fourChi=%d%n",
-                cf.singularities.size(), indexSum4, 4 * eulerCharacteristic);
+                singularityCount, indexSum4, 4 * eulerCharacteristic);
 
         // KCP13 §6.1.3 ground truth: the raw field's per-triangle indices. The
         // converted cf.theta/cf.periodJump representation must reproduce them; a
@@ -1092,10 +1096,10 @@ public class NDirectionField implements MeshNode {
         }
         Platforms.log("[n-field] raw triangle indices: nonzero=%d sum=%d%n",
                 triangleNonzero, triangleSum);
-        if (triangleNonzero != cf.singularities.size()) {
+        if (triangleNonzero != singularityCount) {
             Platforms.log("[n-field] WARNING conversion mismatch: raw field has %d singular"
                     + " triangles but extraction found %d vertex singularities%n",
-                    triangleNonzero, cf.singularities.size());
+                    triangleNonzero, singularityCount);
             Set<Integer> rawSingularCornerVertices = new HashSet<>();
             for (int face = 0; face < triangleIndex.length; face++) {
                 if (triangleIndex[face] == 0) {
@@ -1106,11 +1110,12 @@ public class NDirectionField implements MeshNode {
                     rawSingularCornerVertices.add(mesh.faceVertexAt(faceId, corner));
                 }
             }
-            for (Singularity singularity : cf.singularities) {
-                if (!rawSingularCornerVertices.contains(singularity.vertexId())) {
+            for (int v = 0; v < cf.singularityIndex4.length(); v++) {
+                int iQuarter = cf.singularityIndex4.get(v);
+                if (iQuarter != 0 && !rawSingularCornerVertices.contains(mesh.vertexIdAt(v))) {
                     Platforms.log("[n-field]   phantom singularity vertex=%d index4=%d"
                             + " (no raw singular triangle touches it)%n",
-                            singularity.vertexId(), singularity.index4());
+                            mesh.vertexIdAt(v), iQuarter);
                 }
             }
         }
@@ -1195,21 +1200,22 @@ public class NDirectionField implements MeshNode {
                 GEOMETRY.name, "Triangle mesh to build the field on; manifold, possibly with boundary.",
                 FIELD.name, "The cross field with per-face frames and singularities.",
                 SINGULARITY_COUNT.name, "Number of extracted singularities.",
-                SINGULARITIES.name, "The field's singular points, for tracing stages.",
-                FEATURE_EDGES.name, "Mesh edge ids of sharp feature and boundary edges.",
+                SINGULARITIES.name, "Per-vertex singularity index4 attribute (0 = not singular),"
+                        + " for tracing stages.",
+                FEATURE_EDGES.name, "Per-edge selection of sharp feature and boundary edges.",
                 DOFS.name, "The smoothing solve's system, for solver-composing graphs."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle bundle = GeometryBundles.bundlePart(ctx.getInput(GEOMETRY.name, Object.class));
+        GeometryBundle bundle = ctx.getInput(GEOMETRY.name, GeometryBundle.class);
         CrossField field = new NDirectionField()
                 .build(HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh()));
         ctx.setOutput(FIELD.name, field);
-        ctx.setOutput(SINGULARITY_COUNT.name, field.singularities.size());
-        ctx.setOutput(SINGULARITIES.name, field.singularities);
-        ctx.setOutput(FEATURE_EDGES.name, field.alignmentEdgeIds);
+        ctx.setOutput(SINGULARITY_COUNT.name, field.singularityCount());
+        ctx.setOutput(SINGULARITIES.name, field.singularityIndex4);
+        ctx.setOutput(FEATURE_EDGES.name, field.alignmentEdges);
         ctx.setOutput(DOFS.name, field.system);
     }
 }

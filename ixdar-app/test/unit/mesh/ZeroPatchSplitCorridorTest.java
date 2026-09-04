@@ -4,9 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.PlaneLayoutFixture;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
 
@@ -27,7 +29,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
  * because the sphere's contraction reports {@code 0 split(s)} — the operator has never once run
  * there — and fertility dies the moment it first needs it.
  *
- * <p>{@link PlaneLayoutFixture} is the smallest thing that makes the operator fire: Figure 9(a)'s
+ * <p>The plane-layout fixture is the smallest thing that makes the operator fire: Figure 9(a)'s
  * blue patch, whose two vertical sides are quantized zero and whose horizontal sides carry three
  * non-zero arcs between them, so the T-joint makes it non-simple.
  */
@@ -35,22 +37,23 @@ class ZeroPatchSplitCorridorTest {
 
     @Test
     void aNonSimpleZeroPatchSplitsWhileTheContractionIsStillUnfinished() {
-        PlaneLayoutFixture fixture = new PlaneLayoutFixture();
-        ZeroPatchSplitOperator operator = new ZeroPatchSplitOperator(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/plane_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        ZeroPatchSplitOperator operator = new ZeroPatchSplitOperator(fixtureNet);
 
         int nonSimple = operator.nextNonSimpleZeroPatch();
         assertNotEquals(ArcNetwork.NONE, nonSimple,
                 "the fixture carries Figure 9's non-simple zero-patch");
-        assertTrue(fixture.tmesh.nonZeroArcCount(nonSimple) > 2,
+        assertTrue(fixtureNet.nonZeroArcCount(nonSimple) > 2,
                 "non-simple means more than two non-zero arcs are involved");
 
-        long patchesBefore = fixture.tmesh.patches.stream().filter(patch -> patch.alive).count();
+        long patchesBefore = fixtureNet.patches.stream().filter(patch -> patch.alive).count();
 
         operator.split(nonSimple);
 
-        fixture.tmesh.validate();
+        fixtureNet.validate();
         assertEquals(patchesBefore + 1,
-                fixture.tmesh.patches.stream().filter(patch -> patch.alive).count(),
+                fixtureNet.patches.stream().filter(patch -> patch.alive).count(),
                 "extending the T-joint across the patch cuts it in two");
         assertEquals(1, operator.splitCount, "the operator records the split it made");
     }

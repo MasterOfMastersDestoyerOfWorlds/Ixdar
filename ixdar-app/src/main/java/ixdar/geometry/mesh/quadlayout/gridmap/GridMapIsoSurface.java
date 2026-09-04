@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.nodes.api.UvField;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
 /**
@@ -12,7 +13,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
  * packed for the iso-grid surface shader. Built once per map state, so the
  * initial and relaxed maps can be painted on the surface and compared directly.
  */
-public final class GridMapIsoSurface {
+public final class GridMapIsoSurface implements UvField {
 
     public final LayoutPatchMaps patchMaps;
 
@@ -98,6 +99,7 @@ public final class GridMapIsoSurface {
      * @param corner corner index in {@code [0, 3)}
      * @return u-coordinate at the given corner
      */
+    @Override
     public double u(int faceId, int corner) {
         return cornerU[activeByFaceId.get(faceId) * HalfEdgeMesh.TRIANGLE_CORNERS + corner];
     }
@@ -109,6 +111,7 @@ public final class GridMapIsoSurface {
      * @param corner corner index in {@code [0, 3)}
      * @return v-coordinate at the given corner
      */
+    @Override
     public double v(int faceId, int corner) {
         return cornerV[activeByFaceId.get(faceId) * HalfEdgeMesh.TRIANGLE_CORNERS + corner];
     }

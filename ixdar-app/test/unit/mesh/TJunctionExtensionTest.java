@@ -4,10 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.nodes.api.MapNodeContext;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
@@ -24,6 +26,9 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
  */
 class TJunctionExtensionTest {
 
+    /** A torus is genus 1, so V - E + F is zero for any cell decomposition of it. */
+    private static final int TORUS_EULER_CHARACTERISTIC = 0;
+
     /**
      * Conforming the contracted torus leaves no patch with a T-junction, keeps the T-mesh a cell
      * decomposition, and leaves every patch a rectangle — the three post-conditions the rest of
@@ -31,19 +36,19 @@ class TJunctionExtensionTest {
      */
     @Test
     void conformingLeavesNoTJunction() {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
-        contraction.contract();
-        int tjunctionsBefore = tjunctionCount(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        contractRoundsOnly(fixtureNet);
+        int tjunctionsBefore = tjunctionCount(fixtureNet);
 
-        contraction.conform();
+        new NetworkContraction(fixtureNet).conform();
 
         assertTrue(tjunctionsBefore > 0,
                 "the contracted torus should still carry the stub vertical's T-junction");
-        assertEquals(0, tjunctionCount(fixture.tmesh),
+        assertEquals(0, tjunctionCount(fixtureNet),
                 "conforming must extend every T-junction across its patch");
-        assertEquals(TorusLayoutFixture.TORUS_EULER_CHARACTERISTIC,
-                eulerCharacteristic(fixture.tmesh),
+        assertEquals(TORUS_EULER_CHARACTERISTIC,
+                eulerCharacteristic(fixtureNet),
                 "an extension adds one node, two arcs and one patch, so V - E + F is unchanged");
     }
 
@@ -53,19 +58,35 @@ class TJunctionExtensionTest {
      */
     @Test
     void extensionCountMatchesThePatchesGained() {
-        TorusLayoutFixture fixture = new TorusLayoutFixture();
-        NetworkContraction contraction = new NetworkContraction(fixture.tmesh);
-        contraction.contract();
-        int patchesBefore = livePatchCount(fixture.tmesh);
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        contractRoundsOnly(fixtureNet);
+        int patchesBefore = livePatchCount(fixtureNet);
 
+        NetworkContraction contraction = new NetworkContraction(fixtureNet);
         contraction.conform();
 
         assertEquals(patchesBefore + contraction.extendTJunction.extensionCount,
-                livePatchCount(fixture.tmesh),
+                livePatchCount(fixtureNet),
                 "each extension arc cuts exactly one patch in two");
-        assertTrue(livePatchCount(fixture.tmesh) <= quantizedArea(fixture.tmesh),
+        assertTrue(livePatchCount(fixtureNet) <= quantizedArea(fixtureNet),
                 "a conforming patch covers at least one quad, so the layout cannot have more"
                         + " patches than the quantization has quads");
+    }
+
+    /**
+     * Runs the {@code tmesh_contract} node's contraction rounds in place, with neither the recarve
+     * nor the T-junction extension, so the stub's T-junction survives for {@code conform()} to
+     * consume.
+     *
+     * @param tmesh T-mesh to contract in place
+     */
+    private void contractRoundsOnly(ArcNetwork tmesh) {
+        new MapNodeContext(new NetworkContraction())
+                .with(NetworkContraction.TMESH, tmesh)
+                .with(NetworkContraction.CONFORM, Boolean.FALSE)
+                .with(NetworkContraction.RECARVE, Boolean.FALSE)
+                .eval();
     }
 
     /**

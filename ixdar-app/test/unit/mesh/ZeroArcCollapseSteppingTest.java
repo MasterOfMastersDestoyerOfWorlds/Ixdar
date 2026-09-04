@@ -3,12 +3,14 @@ package unit.mesh;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.TorusLayoutFixture;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
@@ -21,9 +23,10 @@ class ZeroArcCollapseSteppingTest {
 
     @Test
     void steppedCollapseMatchesOneShotAndValidates() {
-        TorusLayoutFixture stepped = new TorusLayoutFixture();
-        stepped.tmesh.labelPatchCovers();
-        ZeroArcCollapseOperator steppedCollapse = new NetworkContraction(stepped.tmesh).collapseArc;
+        NodeGraphRuntime stepped = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork steppedNet = (ArcNetwork) stepped.lastOutput("net");
+        steppedNet.labelPatchCovers();
+        ZeroArcCollapseOperator steppedCollapse = new NetworkContraction(steppedNet).collapseArc;
         int steppedArcId = steppedCollapse.mostContendedArc();
         assertNotEquals(ArcNetwork.NONE, steppedArcId,
                 "the zero row must offer a collapsible arc");
@@ -32,17 +35,18 @@ class ZeroArcCollapseSteppingTest {
             continue;
         }
         steppedCollapse.finishCollapse();
-        stepped.tmesh.validate();
+        steppedNet.validate();
 
-        TorusLayoutFixture oneShot = new TorusLayoutFixture();
-        oneShot.tmesh.labelPatchCovers();
-        ZeroArcCollapseOperator oneShotCollapse = new NetworkContraction(oneShot.tmesh).collapseArc;
+        NodeGraphRuntime oneShot = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
+        ArcNetwork oneShotNet = (ArcNetwork) oneShot.lastOutput("net");
+        oneShotNet.labelPatchCovers();
+        ZeroArcCollapseOperator oneShotCollapse = new NetworkContraction(oneShotNet).collapseArc;
         int oneShotArcId = oneShotCollapse.mostContendedArc();
         assertEquals(steppedArcId, oneShotArcId, "both runs must pick the same arc");
         oneShotCollapse.collapse(oneShotArcId);
-        oneShot.tmesh.validate();
+        oneShotNet.validate();
 
-        assertEquals(liveCounts(oneShot.tmesh), liveCounts(stepped.tmesh),
+        assertEquals(liveCounts(oneShotNet), liveCounts(steppedNet),
                 "stepping the collapse must leave the same live element counts as one shot");
     }
 

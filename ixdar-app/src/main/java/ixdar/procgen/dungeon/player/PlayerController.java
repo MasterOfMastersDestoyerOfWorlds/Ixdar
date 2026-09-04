@@ -7,7 +7,7 @@ import org.joml.Vector3f;
 import ixdar.platform.input.Keys;
 import ixdar.procgen.dungeon.physics.CapsuleMover;
 import ixdar.procgen.dungeon.physics.CapsuleShape;
-import ixdar.procgen.dungeon.values.TileGridValue3D;
+import ixdar.procgen.dungeon.values.CellType;
 
 /**
  * Walkable first-person character driven by WASD, Space, and camera yaw. Each {@link #update}
@@ -30,7 +30,10 @@ public class PlayerController {
     /** Maximum angular speed when rotating to face the movement direction (Dark Souls feel). */
     private static final float TURN_RATE_DEG_PER_SEC = 720f;
 
-    private final TileGridValue3D grid;
+    private final CellType[] cells;
+    private final int gridW;
+    private final int gridH;
+    private final int gridD;
     private final float cellSize;
     private final float halfHeight;
     private final float radius;
@@ -46,7 +49,11 @@ public class PlayerController {
     /**
      * Builds a controller positioned at {@code spawnCenter}, at rest and not grounded.
      *
-     * @param grid        static obstacle grid the capsule collides against
+     * @param cells       static obstacle grid the capsule collides against, indexed
+     *                    {@code x + gridW * (z + gridD * y)}
+     * @param gridW       grid width in cells (X)
+     * @param gridH       grid height in floors (Y)
+     * @param gridD       grid depth in cells (Z)
      * @param cellSize    world units per grid cell (matches {@code GridToMesh3D}'s cellSize)
      * @param spawnCenter initial capsule-center position in world units
      * @param halfHeight  capsule body half-height (cylinder portion)
@@ -55,10 +62,14 @@ public class PlayerController {
      * @param jumpSpeed   instantaneous upward velocity applied on jump (world-units / sec)
      * @param moveSpeed   horizontal walk speed (world-units / sec)
      */
-    public PlayerController(TileGridValue3D grid, float cellSize, Vector3f spawnCenter,
+    public PlayerController(CellType[] cells, int gridW, int gridH, int gridD,
+                            float cellSize, Vector3f spawnCenter,
                             float halfHeight, float radius,
                             float gravity, float jumpSpeed, float moveSpeed) {
-        this.grid = grid;
+        this.cells = cells;
+        this.gridW = gridW;
+        this.gridH = gridH;
+        this.gridD = gridD;
         this.cellSize = cellSize;
         this.halfHeight = halfHeight;
         this.radius = radius;
@@ -152,7 +163,7 @@ public class PlayerController {
         Vector3f delta = velocity.mul(dt);
         CapsuleShape capsule = new CapsuleShape(
                 position.x(), position.y(), position.z(), halfHeight, radius);
-        Vector3f newPos = CapsuleMover.moveAndSlide(capsule, delta, grid, cellSize);
+        Vector3f newPos = CapsuleMover.moveAndSlide(capsule, delta, cells, gridW, gridH, gridD, cellSize);
 
         // Grounded detection: we wanted to fall (delta.y < 0) but actually moved up relative to
         // the requested motion -> the floor pushed us. Threshold accounts for sub-step rounding.

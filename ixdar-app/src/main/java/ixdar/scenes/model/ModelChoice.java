@@ -40,7 +40,7 @@ public final class ModelChoice {
 
     /** How a scene should load a choice's path. */
     public enum Kind {
-        /** A mesh file for {@code MeshLoader}, or a {@code fixture:} token. */
+        /** A mesh file for {@code MeshLoader}, or a {@code graph:} token. */
         MESH_FILE,
         /** A DSL graph to parse and execute. */
         DSL

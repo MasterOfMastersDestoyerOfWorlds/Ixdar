@@ -1,5 +1,5 @@
 /**
- * Immutable value types passed between stages: `CellType`, room lists, edge graphs, tile grids in
- * 2D and 3D. Defensively copied on construction.
+ * `CellType`, the named constants behind the per-cell `cell_type` int attribute the corridor and
+ * grid-to-mesh stages share. Dungeon data itself flows as geometry bundles with attributes.
  */
 package ixdar.procgen.dungeon.values;

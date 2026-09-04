@@ -12,7 +12,6 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
-import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
@@ -51,7 +50,7 @@ class EmbeddedTMeshPipelineTest {
         HalfEdgeMesh mesh = loadMesh(offPath);
 
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, (float) ALPHA_RADIANS);
-        engine.buildLayoutEmbedding();
+        engine.buildTMesh();
 
         ArcNetwork tmesh = engine.tmesh;
 
@@ -60,7 +59,7 @@ class EmbeddedTMeshPipelineTest {
                 offPath, tmesh.nodes.size(), tmesh.arcs.size(), countZeroArcs(tmesh),
                 tmesh.patches.size(), tmesh.expectedEulerCharacteristic);
 
-        assertEquals(engine.motorcycleGraph.patches.size(), tmesh.patches.size(),
+        assertEquals(engine.arrangement.patches.size(), tmesh.patches.size(),
                 "every motorcycle-graph patch should become one embedded patch");
         assertTrue(tmesh.arcs.size() > 0, "the layout should have arcs");
         assertTrue(tmesh.nodes.size() > 0, "the layout should have nodes");
@@ -84,8 +83,8 @@ class EmbeddedTMeshPipelineTest {
         int meshEuler = mesh.vertexCount() - mesh.edgeCount() + mesh.faceCount();
 
         QuadLayoutEngine engine = new QuadLayoutEngine(mesh, (float) ALPHA_RADIANS);
-        engine.buildLayoutEmbedding();
-        MotorcycleGraph graph = engine.motorcycleGraph;
+        engine.buildTMesh();
+        ArcNetwork graph = engine.arrangement;
 
         int arrangementEuler = graph.nodes.size() - graph.arcs.size() + graph.patches.size();
         assertEquals(meshEuler, arrangementEuler, "the arrangement is a cell complex");
@@ -97,16 +96,16 @@ class EmbeddedTMeshPipelineTest {
             assertFalse(node.truncated,
                     "node " + node.nodeId + " is a truncated trace");
         }
-        assertEquals(0, graph.aliveAtQueueEndCount, "no motorcycle left alive at the queue end");
-        assertEquals(0, graph.repeatedChainNodeCount, "no arc chain repeats a node");
+        assertEquals(0, engine.orphanedTraceCount, "no motorcycle left alive at the queue end");
+        assertEquals(0, engine.repeatedChainNodeCount, "no arc chain repeats a node");
 
-        assertEquals(0, engine.quantization.separationCutCount,
+        assertEquals(0, engine.separationCutCount,
                 "Lemma 1 suffices: the quantization needs no separation cuts");
-        assertFalse(engine.quantization.singularitySeparationViolated,
+        assertFalse(engine.separationViolated,
                 "no singularity separation is violated");
-        assertTrue(engine.quantization.variableCount
+        assertTrue(engine.quantizationVariableCount
                         <= VARIABLES_PER_TRACE_BOUND * graph.traces.size(),
-                "variables=" + engine.quantization.variableCount + " stays within 1.5x traces");
+                "variables=" + engine.quantizationVariableCount + " stays within 1.5x traces");
 
         assertEquals(0, degenerateUvFaceCount(engine, mesh), "no degenerate UV triangle");
     }

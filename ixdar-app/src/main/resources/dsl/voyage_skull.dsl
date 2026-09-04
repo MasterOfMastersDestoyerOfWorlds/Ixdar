@@ -17,9 +17,9 @@ base_cube = cube(size=1.0)
 
 palm_cut_z = loop_cut(mesh=base_cube.mesh, axis=Z, cuts=4)
 
-palm_cut_x = loop_cut(mesh=palm_cut_z.mesh, axis=X, cuts=4)
+palm_cut_x = loop_cut(mesh=palm_cut_z.geometry, axis=X, cuts=4)
 
-palm_cut_y = loop_cut(mesh=palm_cut_x.mesh, axis=Y, cuts=3)
+palm_cut_y = loop_cut(mesh=palm_cut_x.geometry, axis=Y, cuts=3)
 
 
 with_handles = assign_bezier_handles(geometry=palm_cut_y.geometry, weight=handle_weight.result)

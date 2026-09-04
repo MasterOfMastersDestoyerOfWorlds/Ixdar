@@ -86,7 +86,7 @@ public final class SeamlessDofSystem {
      * Alignment iso-axis per active edge: {@link #ALIGN_AXIS_V} if the cross-field
      * u-axis runs along this edge and v is the iso-coordinate to pin,
      * {@link #ALIGN_AXIS_U} for the reverse, {@link #NOT_ALIGNMENT} if the edge is
-     * not in {@link CrossField#alignmentEdgeIds} or is an interior cut edge.
+     * not selected in {@link CrossField#alignmentEdges} or is an interior cut edge.
      *
      * <p>
      * See also: BZK09 Section 5.2
@@ -272,7 +272,7 @@ public final class SeamlessDofSystem {
     }
 
     /**
-     * Decide, for every edge in {@link CrossField#alignmentEdgeIds}, whether the
+     * Decide, per edge selected in {@link CrossField#alignmentEdges}, whether the
      * cross field's u-axis or v-axis runs along it; the orthogonal coordinate is
      * the iso to pin. Interior cut edges are marked {@link #NOT_ALIGNMENT}, since
      * {@code v_p = v_q} cannot hold on both sides of a rotated cut.
@@ -291,7 +291,7 @@ public final class SeamlessDofSystem {
         Vector3f edgeDir = new Vector3f();
         for (int activeEdge = 0; activeEdge < seamless.uv.edgeCount; activeEdge++) {
             int edgeId = mesh.edgeIdAt(activeEdge);
-            if (!crossField.alignmentEdgeIds.contains(edgeId)) {
+            if (!crossField.alignmentEdges.get(activeEdge)) {
                 continue;
             }
             int faceA = seamless.uv.edgeFaceA[activeEdge];

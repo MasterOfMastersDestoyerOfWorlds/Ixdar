@@ -12,7 +12,6 @@ import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
@@ -58,8 +57,8 @@ public class JoinCurvesNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle gbA = GeometryBundles.bundlePart(ctx.getInput(CURVE_A.name, Object.class));
-        GeometryBundle gbB = GeometryBundles.bundlePart(ctx.getInput(CURVE_B.name, Object.class));
+        GeometryBundle gbA = ctx.getInput(CURVE_A.name, GeometryBundle.class);
+        GeometryBundle gbB = ctx.getInput(CURVE_B.name, GeometryBundle.class);
 
         CurveGeometry cgA = extractCurve(gbA);
         CurveGeometry cgB = extractCurve(gbB);

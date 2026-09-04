@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 
 /**
@@ -116,11 +115,8 @@ public final class CrossFieldLoader {
             CrossField cf = new CrossField(mesh);
             cf.theta = theta;
             cf.periodJump = pjumps;
-            cf.singularities.clear();
             for (int i = 0; i < singIndices.length; i++) {
-                int vAi = singIndices[i];
-                int iQuarter = singValues[i];
-                cf.singularities.add(new Singularity(mesh.vertexIdAt(vAi), iQuarter));
+                cf.singularityIndex4.data()[singIndices[i]] = singValues[i];
             }
             return cf;
         }

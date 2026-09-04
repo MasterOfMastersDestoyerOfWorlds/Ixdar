@@ -30,6 +30,12 @@ public final class ExtractedPatchGrids {
     /** Ports around a regular quad vertex. */
     private static final int REGULAR_VALENCE = 4;
 
+    /**
+     * Port list rotation per clockwise ring step. Constant because the extraction
+     * emits every vertex's ports in a fixed surface rotational order.
+     */
+    private static final int RING_STEP_CLOCKWISE = -1;
+
     public final ExtractedQuadMesh quadMesh;
     public final GlobalGridMap gridMap;
     public final ArcNetwork tmesh;
@@ -71,9 +77,6 @@ public final class ExtractedPatchGrids {
      */
     public int rejectedMatchCount;
 
-    /** Port list rotation per clockwise ring step, {@code +1} or {@code -1}. */
-    private int ringStepClockwise;
-
     /** Port of each arc end, indexed {@code 2 * arcId} at the start node end. */
     private int[] portByArcEnd;
 
@@ -112,7 +115,6 @@ public final class ExtractedPatchGrids {
     public ExtractedPatchGrids build() {
         indexQuadMesh();
         anchorNodes();
-        determineRingStep();
         completeAnchoredNodes();
         walkArcs();
         fillPatchGrids();
@@ -406,99 +408,6 @@ public final class ExtractedPatchGrids {
     }
 
     /**
-     * Determines whether one ring step advances the clockwise port list by one or
-     * minus one, from any anchored node with two directly matched ring-adjacent arc
-     * ends.
-     *
-     * @throws IllegalStateException when no pair decides it or two pairs disagree
-     */
-    private void determineRingStep() {
-        for (EmbeddedNode node : tmesh.nodes) {
-            if (!node.alive || quadVertexByNodeId[node.nodeId] == ExtractedQuadMesh.NONE) {
-                continue;
-            }
-            for (int arcId : tmesh.arcEndsByNode.get(node.nodeId)) {
-                EmbeddedArc arc = tmesh.arcs.get(arcId);
-                if (!arc.alive) {
-                    continue;
-                }
-                boolean atStart = arc.startNodeId == node.nodeId;
-                int port = portByArcEnd[arcEndIndex(arcId, atStart)];
-                if (port == ExtractedQuadMesh.NONE) {
-                    continue;
-                }
-                int neighborEnd = ringNextArcEnd(node.nodeId, arcId, atStart);
-                int neighborPort = portByArcEnd[neighborEnd];
-                if (neighborPort == ExtractedQuadMesh.NONE) {
-                    continue;
-                }
-                int owner = quadMesh.portOwner[port];
-                int span = quadMesh.portStart[owner + 1] - quadMesh.portStart[owner];
-                int offset = Math.floorMod(neighborPort - port, span);
-                int step = offset == 1 ? 1 : offset == span - 1 ? -1 : 0;
-                if (step == 0) {
-                    throw new IllegalStateException("ring-adjacent ports " + port + " and "
-                            + neighborPort + " at node " + node.nodeId + " are " + offset
-                            + " apart, not adjacent; arc " + arcId + " holds " + port
-                            + ", ring-next arc " + neighborEnd / 2 + " holds " + neighborPort
-                            + portRingReport(owner) + arcEndPortReport(node.nodeId));
-                }
-                if (ringStepClockwise == 0) {
-                    ringStepClockwise = step;
-                } else if (ringStepClockwise != step) {
-                    throw new IllegalStateException("ring orientation disagrees at node "
-                            + node.nodeId + ": " + step + " vs " + ringStepClockwise);
-                }
-            }
-        }
-        if (ringStepClockwise == 0) {
-            throw new IllegalStateException("no anchored node has two directly matched"
-                    + " ring-adjacent arc ends; the ring orientation is undecidable");
-        }
-    }
-
-    /**
-     * One line per port of a quad vertex: its face's region patch and its
-     * direction, the evidence a ring-step mismatch needs.
-     *
-     * @param quadVertex quad vertex whose port ring is reported
-     * @return the report, starting with a newline
-     */
-    private String portRingReport(int quadVertex) {
-        StringBuilder report = new StringBuilder("\n port ring of quad vertex " + quadVertex
-                + ":");
-        for (int port = quadMesh.portStart[quadVertex]; port < quadMesh.portStart[quadVertex + 1]; port++) {
-            Integer facePatch = patchMaps.regions.patchIdByCopyFace
-                    .get(quadMesh.portFace[port]);
-            report.append(" p").append(port).append("(face ").append(quadMesh.portFace[port])
-                    .append(" patch ").append(facePatch).append(" turns ")
-                    .append(quadMesh.portDirectionTurns[port]).append(')');
-        }
-        return report.toString();
-    }
-
-    /**
-     * One line per live arc end at a node: the port it holds, or NONE, so a wrong
-     * direct match is visible beside the port ring.
-     *
-     * @param nodeId node whose arc ends are reported
-     * @return the report, starting with a newline
-     */
-    private String arcEndPortReport(int nodeId) {
-        StringBuilder report = new StringBuilder("\n arc ends at node " + nodeId + ":");
-        for (int arcId : tmesh.arcEndsByNode.get(nodeId)) {
-            EmbeddedArc arc = tmesh.arcs.get(arcId);
-            if (!arc.alive) {
-                continue;
-            }
-            report.append(" arc ").append(arcId).append("(").append(arc.leftPatchId)
-                    .append('|').append(arc.rightPatchId).append(")->port ")
-                    .append(portByArcEnd[arcEndIndex(arcId, arc.startNodeId == nodeId)]);
-        }
-        return report.toString();
-    }
-
-    /**
      * Completes every anchored node's remaining arc ends by walking its ring from
      * an assigned end, stepping the clockwise port list by the ring orientation.
      */
@@ -568,7 +477,7 @@ public final class ExtractedPatchGrids {
         for (int step = 0; step < liveEnds; step++) {
             int nextEnd = ringNextArcEnd(nodeId, arcId, atStart);
             int base = quadMesh.portStart[quadVertex];
-            port = base + Math.floorMod(port - base + ringStepClockwise, span);
+            port = base + Math.floorMod(port - base + RING_STEP_CLOCKWISE, span);
             if (portByArcEnd[nextEnd] == ExtractedQuadMesh.NONE) {
                 assignPort(nextEnd, port);
                 ringCompletedCount++;

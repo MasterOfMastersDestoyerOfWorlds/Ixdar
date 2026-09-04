@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.nodes.patch;
 
+import java.util.Objects;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -17,7 +18,6 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
@@ -51,8 +51,10 @@ public class CoonsInsetFacesNode implements MeshNode {
     public static final InputPort INSET = new InputPort("inset", PortType.FLOAT, 0.2f, 0f, 0.5f);
     public static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
-    public static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
     public static final OutputPort GENERATED_OUT = new OutputPort("generated", PortType.BOOLEAN);
+
+    private float[][] outHandles;
+    private boolean[] outGenerated;
 
     @Override
     public List<InputPort> inputs() {
@@ -61,7 +63,7 @@ public class CoonsInsetFacesNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(MESH_OUT, GEOMETRY_OUT, GENERATED_OUT);
+        return List.of(GEOMETRY_OUT, GENERATED_OUT);
     }
 
     @Override
@@ -75,24 +77,21 @@ public class CoonsInsetFacesNode implements MeshNode {
                 GEOMETRY.name, "Input/output bundle; MUST carry bezier handle slots from assign_bezier_handles upstream. Unhandled input passes through unchanged with a warning.",
                 INSET.name, "Inset amount t in [0, 0.5]. Inner corners are placed at Coons surface parameters (t, t), (1-t, t), (1-t, 1-t), (t, 1-t) on each selected face. 0 = no-op; 0.5 = inner quad collapses to face center.",
                 SELECTION.name, "Per-face BOOLEAN mask. Selected quads are inset; others pass through.",
-                MESH_OUT.name, "Topology-only output.",
                 GENERATED_OUT.name, "Per-output-face BOOLEAN: true for the newly-created inner face of each inset. Thread into the next op's selection to chain features (e.g. extrude_mesh for recessed features like eye sockets)."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
+        GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         MeshTopology in = base.mesh();
         if (in == null || in.vertexCount() == 0) {
-            ctx.setOutput(MESH_OUT.name, null);
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             ctx.setOutput(GENERATED_OUT.name, new BoolField(new boolean[0]));
             return;
         }
         if (!CoonsHandleBuilder.hasHandles(base)) {
             System.err.println("[coons_inset_faces] WARNING: input lacks bezier handles; passing through unchanged. Use assign_bezier_handles upstream, or use plain inset_faces for topology-only insets.");
-            ctx.setOutput(MESH_OUT.name, in);
             ctx.setOutput(GEOMETRY.name, base);
             ctx.setOutput(GENERATED_OUT.name, new BoolField(new boolean[in.faceCount()]));
             return;
@@ -105,12 +104,11 @@ public class CoonsInsetFacesNode implements MeshNode {
         float[] hStart = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_START, in);
         float[] hEnd = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_END, in);
 
-        InsetResult r = doInset(in, hStart, hEnd, t, selObj);
+        HalfEdgeMesh outMesh = doInset(in, hStart, hEnd, t, selObj);
 
-        GeometryBundle outBundle = new GeometryBundle(r.outMesh, copySlotsWithHandles(base.slots(), r.handles));
-        ctx.setOutput(MESH_OUT.name, r.outMesh);
+        GeometryBundle outBundle = new GeometryBundle(outMesh, copySlotsWithHandles(base.slots(), outHandles));
         ctx.setOutput(GEOMETRY.name, outBundle);
-        ctx.setOutput(GENERATED_OUT.name, new BoolField(r.generated));
+        ctx.setOutput(GENERATED_OUT.name, new BoolField(outGenerated));
     }
 
     private static Map<String, Object> copySlotsWithHandles(Map<String, Object> src, float[][] handles) {
@@ -120,7 +118,7 @@ public class CoonsInsetFacesNode implements MeshNode {
         return Map.copyOf(out);
     }
 
-    private static InsetResult doInset(
+    private HalfEdgeMesh doInset(
             MeshTopology in, float[] hStart, float[] hEnd, float t, Object selection) {
         int origFaceCount = in.faceCount();
         int origVertCount = in.vertexCount();
@@ -139,8 +137,9 @@ public class CoonsInsetFacesNode implements MeshNode {
 
         if (selectedCount == 0 || t <= NUM_0) {
             HalfEdgeMesh passThrough = copyMesh(in);
-            float[][] passHandles = copyHandles(in, passThrough, hStart, hEnd);
-            return new InsetResult(passThrough, passHandles, new boolean[passThrough.faceCount()]);
+            outHandles = copyHandles(in, passThrough, hStart, hEnd);
+            outGenerated = new boolean[passThrough.faceCount()];
+            return passThrough;
         }
 
         float[] origPos = new float[origVertCount * NUM_3];
@@ -257,7 +256,7 @@ public class CoonsInsetFacesNode implements MeshNode {
             boolean merged = false;
 
             if (n == NUM_3) {
-                // MESH_OUT.name-47: cube-style 3-corner cyan dot + central triangle fill.
+                // MESH-47: cube-style 3-corner cyan dot + central triangle fill.
                 // N=4+ (interior of subdivided cube faces) produces non-manifold
                 // topology in the current fan walk; those corners fall through
                 // to face-local emission.
@@ -415,7 +414,7 @@ public class CoonsInsetFacesNode implements MeshNode {
         // Variable-vpf emission because 3+ cage-corner faces produce
         // pentagons/hexagons/... inner regions plus central n-gon fills.
         // coons_patch downstream routes n-gons through the Charrot-Gregory
-        // evaluator for smooth subdivision (MESH_OUT.name-47 phase A+B).
+        // evaluator for smooth subdivision (MESH-47 phase A+B).
         ArrayList<Integer> faceIdxList = new ArrayList<>();
         ArrayList<Integer> faceVpfList = new ArrayList<>();
         ArrayList<Boolean> generatedList = new ArrayList<>();
@@ -498,10 +497,10 @@ public class CoonsInsetFacesNode implements MeshNode {
                 : HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceVpfArr, faceIdxFlat);
         outMesh.computeNormals();
 
-        boolean[] generated = new boolean[generatedList.size()];
-        for (int i = 0; i < generatedList.size(); i++) generated[i] = generatedList.get(i);
-        float[][] handles = CoonsHandleBuilder.flushDirectedHandles(outMesh, dh);
-        return new InsetResult(outMesh, handles, generated);
+        outGenerated = new boolean[generatedList.size()];
+        for (int i = 0; i < generatedList.size(); i++) outGenerated[i] = generatedList.get(i);
+        outHandles = CoonsHandleBuilder.flushDirectedHandles(outMesh, dh);
+        return outMesh;
     }
 
     /** Linear lookup of a face's sequence index by its face id. */
@@ -887,6 +886,4 @@ public class CoonsInsetFacesNode implements MeshNode {
         }
         return CoonsHandleBuilder.flushDirectedHandles(out, dh);
     }
-
-    private record InsetResult(HalfEdgeMesh outMesh, float[][] handles, boolean[] generated) {}
 }

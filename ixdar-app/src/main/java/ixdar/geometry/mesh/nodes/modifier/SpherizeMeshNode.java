@@ -12,6 +12,8 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
@@ -19,9 +21,9 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 public class SpherizeMeshNode implements MeshNode {
     public static final float NUM_0 = 0f;
     public static final float NUM_0_00001 = 0.00001f;
-    public static final InputPort MESH_IN = new InputPort("mesh", PortType.MESH, null);
+    public static final InputPort MESH_IN = new InputPort("mesh", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort FACTOR = new InputPort("factor", PortType.FLOAT, 1.0f, 0f, 1f);
-    public static final OutputPort MESH_OUT = new OutputPort(MESH_IN.name, PortType.MESH);
+    public static final OutputPort MESH_OUT = new OutputPort(MESH_IN.name, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -48,7 +50,8 @@ public class SpherizeMeshNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        MeshTopology inputMesh = ctx.getInput(MESH_IN.name, MeshTopology.class);
+        GeometryBundle input = ctx.getInput(MESH_IN.name, GeometryBundle.class);
+        MeshTopology inputMesh = GeometryBundles.meshPart(input);
         Number factorInput = ctx.getInput(FACTOR.name, Number.class);
 
         // Clamp the factor strictly between 0.0 and 1.0
@@ -114,6 +117,6 @@ public class SpherizeMeshNode implements MeshNode {
         }
 
         newMesh.computeNormals();
-        ctx.setOutput(MESH_IN.name, newMesh);
+        ctx.setOutput(MESH_IN.name, input.withMesh(newMesh));
     }
 }

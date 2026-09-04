@@ -2,7 +2,6 @@ package ixdar.procgen.dungeon.algo;
 
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.procgen.dungeon.values.CellType;
-import ixdar.procgen.dungeon.values.TileGridValue3D;
 
 /**
  * 3D analog of {@link GridToMesh2D}: each non-empty cell gets an INWARD-wound face on every
@@ -27,27 +26,30 @@ public final class GridToMesh3D {
      * Sweep the 3D grid and emit a double-sided face on every side of every non-empty cell that
      * borders an EMPTY cell or grid edge, centered on the world origin.
      *
-     * @param grid     populated 3D tile grid
+     * @param width    grid width in cells (X)
+     * @param height   grid height in floors (Y)
+     * @param depth    grid depth in cells (Z)
+     * @param cells    cell types indexed {@code x + width * (z + depth * y)}
      * @param cellSize world-space size of a single grid cell
      * @return a fresh {@link ArrayMesh} with positions, quad indices, and computed normals
      */
-    public static ArrayMesh emit(TileGridValue3D grid, float cellSize) {
+    public static ArrayMesh emit(int width, int height, int depth, CellType[] cells, float cellSize) {
         // Each visible boundary emits TWO quads (inward + outward) — see GridToMesh2D for why.
-        int faces = countFaces(grid) * 2;
+        int faces = countFaces(width, height, depth, cells) * 2;
         float[] positions = new float[faces * NUM_4 * NUM_3];
         int[] quads = new int[faces * NUM_4];
-        float offsetX = -grid.width() * cellSize * NUM_0_5;
-        float offsetY = -grid.height() * cellSize * NUM_0_5;
-        float offsetZ = -grid.depth() * cellSize * NUM_0_5;
+        float offsetX = -width * cellSize * NUM_0_5;
+        float offsetY = -height * cellSize * NUM_0_5;
+        float offsetZ = -depth * cellSize * NUM_0_5;
 
         int vIdx = 0;
         int qIdx = 0;
         int writeFloats = 0;
 
-        for (int y = 0; y < grid.height(); y++) {
-            for (int z = 0; z < grid.depth(); z++) {
-                for (int x = 0; x < grid.width(); x++) {
-                    CellType c = grid.at(x, y, z);
+        for (int y = 0; y < height; y++) {
+            for (int z = 0; z < depth; z++) {
+                for (int x = 0; x < width; x++) {
+                    CellType c = cells[idx(x, y, z, width, depth)];
                     if (c == CellType.EMPTY) continue;
                     float minX = offsetX + x * cellSize;
                     float maxX = minX + cellSize;
@@ -57,37 +59,37 @@ public final class GridToMesh3D {
                     float maxZ = minZ + cellSize;
 
                     // -Y floor (omit if cell below is non-empty)
-                    if (y == 0 || grid.at(x, y - 1, z) == CellType.EMPTY) {
+                    if (y == 0 || cells[idx(x, y - 1, z, width, depth)] == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 minX, minY, maxZ,  maxX, minY, maxZ,  maxX, minY, minZ,  minX, minY, minZ);
                         vIdx += NUM_8; qIdx += NUM_8;
                     }
                     // +Y ceiling (omit if cell above is non-empty)
-                    if (y == grid.height() - 1 || grid.at(x, y + 1, z) == CellType.EMPTY) {
+                    if (y == height - 1 || cells[idx(x, y + 1, z, width, depth)] == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 maxX, maxY, minZ,  maxX, maxY, maxZ,  minX, maxY, maxZ,  minX, maxY, minZ);
                         vIdx += NUM_8; qIdx += NUM_8;
                     }
                     // -X wall
-                    if (x == 0 || grid.at(x - 1, y, z) == CellType.EMPTY) {
+                    if (x == 0 || cells[idx(x - 1, y, z, width, depth)] == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 minX, maxY, minZ,  minX, maxY, maxZ,  minX, minY, maxZ,  minX, minY, minZ);
                         vIdx += NUM_8; qIdx += NUM_8;
                     }
                     // +X wall
-                    if (x == grid.width() - 1 || grid.at(x + 1, y, z) == CellType.EMPTY) {
+                    if (x == width - 1 || cells[idx(x + 1, y, z, width, depth)] == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 maxX, minY, maxZ,  maxX, maxY, maxZ,  maxX, maxY, minZ,  maxX, minY, minZ);
                         vIdx += NUM_8; qIdx += NUM_8;
                     }
                     // -Z wall
-                    if (z == 0 || grid.at(x, y, z - 1) == CellType.EMPTY) {
+                    if (z == 0 || cells[idx(x, y, z - 1, width, depth)] == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 maxX, minY, minZ,  maxX, maxY, minZ,  minX, maxY, minZ,  minX, minY, minZ);
                         vIdx += NUM_8; qIdx += NUM_8;
                     }
                     // +Z wall
-                    if (z == grid.depth() - 1 || grid.at(x, y, z + 1) == CellType.EMPTY) {
+                    if (z == depth - 1 || cells[idx(x, y, z + 1, width, depth)] == CellType.EMPTY) {
                         writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                                 minX, maxY, maxZ,  maxX, maxY, maxZ,  maxX, minY, maxZ,  minX, minY, maxZ);
                         vIdx += NUM_8; qIdx += NUM_8;
@@ -100,19 +102,23 @@ public final class GridToMesh3D {
         return mesh;
     }
 
-    private static int countFaces(TileGridValue3D grid) {
+    private static int idx(int x, int y, int z, int width, int depth) {
+        return x + width * (z + depth * y);
+    }
+
+    private static int countFaces(int width, int height, int depth, CellType[] cells) {
         int count = 0;
-        for (int y = 0; y < grid.height(); y++) {
-            for (int z = 0; z < grid.depth(); z++) {
-                for (int x = 0; x < grid.width(); x++) {
-                    CellType c = grid.at(x, y, z);
+        for (int y = 0; y < height; y++) {
+            for (int z = 0; z < depth; z++) {
+                for (int x = 0; x < width; x++) {
+                    CellType c = cells[idx(x, y, z, width, depth)];
                     if (c == CellType.EMPTY) continue;
-                    if (y == 0 || grid.at(x, y - 1, z) == CellType.EMPTY) count++;
-                    if (y == grid.height() - 1 || grid.at(x, y + 1, z) == CellType.EMPTY) count++;
-                    if (x == 0 || grid.at(x - 1, y, z) == CellType.EMPTY) count++;
-                    if (x == grid.width() - 1 || grid.at(x + 1, y, z) == CellType.EMPTY) count++;
-                    if (z == 0 || grid.at(x, y, z - 1) == CellType.EMPTY) count++;
-                    if (z == grid.depth() - 1 || grid.at(x, y, z + 1) == CellType.EMPTY) count++;
+                    if (y == 0 || cells[idx(x, y - 1, z, width, depth)] == CellType.EMPTY) count++;
+                    if (y == height - 1 || cells[idx(x, y + 1, z, width, depth)] == CellType.EMPTY) count++;
+                    if (x == 0 || cells[idx(x - 1, y, z, width, depth)] == CellType.EMPTY) count++;
+                    if (x == width - 1 || cells[idx(x + 1, y, z, width, depth)] == CellType.EMPTY) count++;
+                    if (z == 0 || cells[idx(x, y, z - 1, width, depth)] == CellType.EMPTY) count++;
+                    if (z == depth - 1 || cells[idx(x, y, z + 1, width, depth)] == CellType.EMPTY) count++;
                 }
             }
         }

@@ -9,6 +9,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
@@ -55,7 +56,7 @@ public class TorusMeshNode implements MeshNode {
             new InputPort("minor_segments", PortType.INT, DEFAULT_MINOR_SEGMENTS, (float) 3, (float) 256);
     public static final InputPort TRIANGULATE =
             new InputPort("triangulate", PortType.BOOLEAN, false);
-    public static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
+    public static final OutputPort MESH = new OutputPort("mesh", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -109,7 +110,7 @@ public class TorusMeshNode implements MeshNode {
         HalfEdgeMesh mesh = build(majorRadius, minorRadius, majorSegments, minorSegments,
                 triangulate);
         mesh.computeNormals();
-        ctx.setOutput(MESH.name, mesh);
+        ctx.setOutput(MESH.name, GeometryBundle.ofMesh(mesh));
     }
 
     /**

@@ -19,7 +19,7 @@ import ixdar.parsing.python.PythonParser;
  * Static validation pass over a parsed DSL graph: duplicate ids, unknown node types
  * and input ports, unknown edge sources, and edge type mismatches.
  *
- * <p>Type compatibility is permissive: FLOAT⇄INT and MESH⇄GEOMETRY_BUNDLE are legal.
+ * <p>Type compatibility is permissive only for FLOAT⇄INT.
  */
 public final class GraphValidator {
     public static final String LINE = "Line ";
@@ -185,15 +185,6 @@ public final class GraphValidator {
         }
         if ((from == PortType.FLOAT && to == PortType.INT)
                 || (from == PortType.INT && to == PortType.FLOAT)) {
-            return true;
-        }
-        if (from == PortType.MESH && to == PortType.GEOMETRY_BUNDLE) {
-            return true;
-        }
-        if (from == PortType.GEOMETRY_BUNDLE && to == PortType.MESH) {
-            return true;
-        }
-        if (from == PortType.CLOSURE && to == PortType.CLOSURE) {
             return true;
         }
         return false;

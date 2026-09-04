@@ -4,7 +4,7 @@ import org.joml.Vector3f;
 
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.procgen.dungeon.player.PlayerController;
-import ixdar.procgen.dungeon.values.TileGridValue3D;
+import ixdar.procgen.dungeon.values.CellType;
 
 /**
  * Orbits the camera around a pivot above the player's body: mouse deltas drive azimuth and
@@ -88,11 +88,15 @@ public final class ThirdPersonCamera {
      * Call BEFORE {@code player.update(...)} so the controller reads the up-to-date yaw.
      *
      * @param player   player whose head position acts as the orbit pivot
-     * @param grid     3D tile grid for the {@link CameraGridSweep} obstruction test
+     * @param cells    3D cell grid for the {@link CameraGridSweep} obstruction test
+     * @param gridW    grid width in cells (X)
+     * @param gridH    grid height in floors (Y)
+     * @param gridD    grid depth in cells (Z)
      * @param cellSize world-space size of a grid cell
      * @param camera   shared {@link Camera3D} whose position and orientation are written
      */
-    public void update(PlayerController player, TileGridValue3D grid, float cellSize, Camera3D camera) {
+    public void update(PlayerController player, CellType[] cells, int gridW, int gridH, int gridD,
+                       float cellSize, Camera3D camera) {
         Vector3f playerPos = player.position();
         Vector3f pivot = new Vector3f(playerPos.x(), playerPos.y() + player.halfHeight(), playerPos.z());
 
@@ -112,7 +116,8 @@ public final class ThirdPersonCamera {
 
         float radius = CAMERA_RADIUS_FRAC * cellSize;
         float padding = CAMERA_PADDING_FRAC * cellSize;
-        Vector3f cam = CameraGridSweep.sweep(pivot, desired, radius, grid, cellSize, padding);
+        Vector3f cam = CameraGridSweep.sweep(pivot, desired, radius, cells, gridW, gridH, gridD,
+                cellSize, padding);
 
         camera.position.set(cam.x(), cam.y(), cam.z());
         camera.setOrientation((float) Math.toDegrees(azimuth), (float) Math.toDegrees(elevation));

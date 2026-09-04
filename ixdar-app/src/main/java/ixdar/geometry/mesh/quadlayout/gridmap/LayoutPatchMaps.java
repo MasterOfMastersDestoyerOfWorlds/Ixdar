@@ -105,7 +105,7 @@ public final class LayoutPatchMaps {
             PatchRectangleMap map = mapper.mapPatch(patch.patchId);
             int cotangentFoldCount = map.flippedTriangleCount();
             if (cotangentFoldCount > 0) {
-                System.out.println("[patch-maps] patch=" + patch.patchId + " cotangentFolds="
+                Platforms.log("[patch-maps] patch=" + patch.patchId + " cotangentFolds="
                         + cotangentFoldCount + "; retrying with uniform weights");
                 uniformFallbackPatchCount++;
                 map.solveUniform();
@@ -114,13 +114,13 @@ public final class LayoutPatchMaps {
                 map.assertFoldFree();
             } catch (IllegalStateException stillFolded) {
                 foldedPatchCount++;
-                System.out.println("[patch-maps] patch=" + patch.patchId + ": "
+                Platforms.log("[patch-maps] patch=" + patch.patchId + ": "
                         + stillFolded.getMessage());
             }
             mapByPatchId[patch.patchId] = map;
             mappedPatchCount++;
         }
-        System.out.println("[patch-maps] patches=" + mappedPatchCount + " subdividedChords="
+        Platforms.log("[patch-maps] patches=" + mappedPatchCount + " subdividedChords="
                 + subdividedChordCount + " uniformFallbacks=" + uniformFallbackPatchCount
                 + " stillFolded=" + foldedPatchCount);
         return this;

@@ -13,8 +13,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
-import ixdar.geometry.mesh.quadlayout.embedding.fixtures.LayoutFixture;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
@@ -47,10 +46,10 @@ public abstract class ModelScene extends Scene {
     public static final String DEFAULT_OFF = "test/resources/quadlayout/figure_8/fertility_in_tri.off";
 
     /**
-     * Prefix marking a {@link ModelChoice#path} as a registered fixture's display name rather
+     * Prefix marking a {@link ModelChoice#path} as a registered graph's display name rather
      * than a mesh file path.
      */
-    public static final String FIXTURE_PREFIX = "fixture:";
+    public static final String GRAPH_PREFIX = "graph:";
 
     /** Named view for the right-side ESC menu strip. */
     public static final String VIEW_SCENE_MENU = "SCENE_MENU";
@@ -85,8 +84,8 @@ public abstract class ModelScene extends Scene {
     /** ESC menu of this scene's models. */
     public SceneModelMenu sceneModelMenu;
 
-    /** Fixtures registered for the model menu, in registration order. */
-    public final List<LayoutFixture> fixtures = new ArrayList<>();
+    /** Authored graphs registered for the model menu, in registration order. */
+    public final List<GraphChoice> graphs = new ArrayList<>();
 
     public ModelCatalog modelCatalog;
 
@@ -157,7 +156,7 @@ public abstract class ModelScene extends Scene {
         runtime = createRuntime();
         offPath = resolveInitialModel();
         try {
-            loadModelOrFixture(offPath);
+            loadModelOrGraph(offPath);
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to load initial model " + offPath, ex);
         }
@@ -279,59 +278,56 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Dispatch a loader token: a {@link #FIXTURE_PREFIX} token loads the registered fixture of
-     * that display name through {@link #loadFixture}, anything else goes through
-     * {@link #loadModel}. A fixture token must never enter a scene's file pipeline, which is why
+     * Dispatch a loader token: a {@link #GRAPH_PREFIX} token loads the registered graph of
+     * that display name through {@link #loadGraph}, anything else goes through
+     * {@link #loadModel}. A graph token must never enter a scene's file pipeline, which is why
      * the split happens here and not inside {@code loadModel} overrides.
      *
-     * @param path loader token: a mesh file path or {@code fixture:<display name>}
-     * @throws IOException if a mesh file cannot be read or no fixture matches the token
+     * @param path loader token: a mesh file path or {@code graph:<display name>}
+     * @throws IOException if a mesh file cannot be read or no graph matches the token
      */
-    public void loadModelOrFixture(String path) throws IOException {
-        if (path != null && path.startsWith(FIXTURE_PREFIX)) {
-            String displayName = path.substring(FIXTURE_PREFIX.length());
-            for (LayoutFixture fixture : fixtures) {
-                if (fixture.displayName().equals(displayName)) {
-                    loadFixture(fixture);
+    public void loadModelOrGraph(String path) throws IOException {
+        if (path != null && path.startsWith(GRAPH_PREFIX)) {
+            String displayName = path.substring(GRAPH_PREFIX.length());
+            for (GraphChoice choice : graphs) {
+                if (choice.displayName.equals(displayName)) {
+                    loadGraph(choice);
                     return;
                 }
             }
-            throw new IOException("no registered fixture named " + displayName);
+            throw new IOException("no registered graph named " + displayName);
         }
         loadModel(path);
     }
 
     /**
-     * Load a registered fixture to its pre-state the way {@link #loadModel} loads a file: build
-     * it fresh, upload its carrier surface, and frame the camera. Scenes override to hand the
-     * built T-mesh to their runtime (calling {@code super.loadFixture} first).
+     * Load a registered graph the way {@link #loadModel} loads a file: execute its .dsl fresh,
+     * so reloading is resetting. The base knows only the choice's path and overrides; scenes
+     * that show a graph's product override this, call {@code super.loadGraph} first, and hand
+     * the outputs they understand to their runtime.
      *
-     * @param fixture registered fixture to build and show
-     * @return the freshly built T-mesh, for the override to consume
+     * @param choice registered graph to execute
+     * @return the executed runtime, for the override to read outputs from
      */
-    public ArcNetwork loadFixture(LayoutFixture fixture) {
-        ArcNetwork built = fixture.build();
-        offPath = FIXTURE_PREFIX + fixture.displayName();
-        halfEdgeMesh = built.topology.copy;
-        runtime.upload(halfEdgeMesh);
-        frameLoadedModel();
-        updateCurrentChoice();
-        return built;
+    public NodeGraphRuntime loadGraph(GraphChoice choice) {
+        NodeGraphRuntime graph = NodeGraphRuntime.executeResource(choice.dslPath, choice.overrides);
+        offPath = GRAPH_PREFIX + choice.displayName;
+        return graph;
     }
 
     /**
-     * Registers a fixture for the model menu; subclasses call this from their constructor the
-     * way they add {@code ControlHint} rows.
+     * Registers an authored graph for the model menu; subclasses call this from their
+     * constructor the way they add {@code ControlHint} rows.
      *
-     * @param fixture fixture to list and load by display name
+     * @param choice graph to list and load by display name
      */
-    public void registerFixture(LayoutFixture fixture) {
-        fixtures.add(fixture);
+    public void registerGraph(GraphChoice choice) {
+        graphs.add(choice);
     }
 
     /**
      * Frame the orbit camera and zoom bounds around {@link #halfEdgeMesh}, shared by the file
-     * and fixture load paths.
+     * and graph load paths.
      */
     public void frameLoadedModel() {
         runtime.setSolidColor(ColorRGB.BLUE_GRAY.toVector4f());
@@ -412,7 +408,7 @@ public abstract class ModelScene extends Scene {
         String path = pendingModelPath;
         pendingModelPath = null;
         try {
-            loadModelOrFixture(path);
+            loadModelOrGraph(path);
             Platforms.get().log(" loaded " + path);
         } catch (Exception ex) {
             Platforms.get().log(" failed to load " + path + ": " + ex.getMessage());
@@ -420,7 +416,7 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Match {@link #offPath} against the models list, fixtures included, to set the highlighted
+     * Match {@link #offPath} against the models list, graphs included, to set the highlighted
      * current model. Scenes that track the current model differently override
      * {@link #currentModel()} instead.
      */
@@ -437,15 +433,15 @@ public abstract class ModelScene extends Scene {
 
     /**
      * Models this scene can switch between, in display order: the catalog's files followed by
-     * the registered fixtures.
+     * the registered graphs.
      *
      * @return the model list (never {@code null}; may be empty)
      */
     public List<ModelChoice> availableModels() {
         List<ModelChoice> choices = new ArrayList<>(modelCatalog.choices);
-        for (LayoutFixture fixture : fixtures) {
-            choices.add(new ModelChoice(fixture.displayName(),
-                    FIXTURE_PREFIX + fixture.displayName()));
+        for (GraphChoice choice : graphs) {
+            choices.add(new ModelChoice(choice.displayName,
+                    GRAPH_PREFIX + choice.displayName));
         }
         return choices;
     }

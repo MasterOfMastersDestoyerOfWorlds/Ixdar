@@ -3,20 +3,17 @@ package ixdar.procgen.dungeon.algo;
 import java.util.Arrays;
 import java.util.PriorityQueue;
 
-import ixdar.procgen.dungeon.algo.AStarCorridorPathfinder2D.CostWeights;
+import org.joml.Vector3f;
+
+import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.nodes.api.Vector3Field;
 import ixdar.procgen.dungeon.values.CellType;
-import ixdar.procgen.dungeon.values.EdgeGraphValue;
-import ixdar.procgen.dungeon.values.RoomListValue3D;
-import ixdar.procgen.dungeon.values.RoomListValue3D.Room;
-import ixdar.procgen.dungeon.values.TileGridValue3D;
 
 /**
  * 3D corridor carving: {@link AStarCorridorPathfinder2D} movement per floor plus a stair move
- * that changes floor by exactly one.
- *
- * <p>A stair runs from {@code (x, y, z)} to {@code (x + 2*dx, y±1, z + 2*dz)}; both intermediate
- * cells must be EMPTY, and on commit become {@link CellType#STAIR_UP} and
- * {@link CellType#STAIR_DOWN}.
+ * changing floor by one (Y is the floor axis). A stair runs from {@code (x, y, z)} to
+ * {@code (x + 2*dx, y±1, z + 2*dz)}; its two intermediate cells must be EMPTY and become
+ * STAIR_UP / STAIR_DOWN on commit.
  */
 public final class AStarCorridorPathfinder3D {
     public static final int NUM_4 = 4;
@@ -35,31 +32,40 @@ public final class AStarCorridorPathfinder3D {
     }
 
     /**
-     * Paint rooms into a fresh 3D grid then carve a corridor for every input edge with 3D A*,
+     * Paint rooms into a fresh 3D grid then carve a corridor for every edge pair with 3D A*,
      * marking traversed cells as {@link CellType#HALLWAY} and inserting STAIR_UP/STAIR_DOWN
      * pairs wherever the path changes floor.
      *
-     * @param gridW    grid width in cells (X)
-     * @param gridH    grid height in floors (Y)
-     * @param gridD    grid depth in cells (Z)
-     * @param rooms    placed rooms (cells inside each room AABB are marked {@link CellType#ROOM})
-     * @param mstEdges MST (+ extras) edges to carve into corridors
-     * @param weights  per-cell-type entry costs
-     * @return a new tile grid with rooms, hallways, and stairs
+     * @param gridW       grid width in cells (X)
+     * @param gridH       grid height in floors (Y)
+     * @param gridD       grid depth in cells (Z)
+     * @param rooms       room points (cells inside each room AABB are marked {@link CellType#ROOM})
+     * @param halfExtents per-vertex room half extents in dense vertex order
+     * @param edgePairs         flat pairs of dense vertex indices to carve as corridors
+     * @param hallwayReuseCost  entry cost of an existing HALLWAY or STAIR cell
+     * @param emptyCellCost     entry cost of an EMPTY cell
+     * @param throughRoomCost   entry cost of a ROOM cell
+     * @return cell types indexed {@code x + gridW * (z + gridD * y)}, with rooms, hallways, and stairs
      */
-    public static TileGridValue3D carve(int gridW, int gridH, int gridD,
-                                        RoomListValue3D rooms,
-                                        EdgeGraphValue mstEdges,
-                                        CostWeights weights) {
+    public static CellType[] carve(int gridW, int gridH, int gridD,
+                                   MeshTopology rooms,
+                                   Vector3Field halfExtents,
+                                   int[] edgePairs,
+                                   double hallwayReuseCost, double emptyCellCost, double throughRoomCost) {
         int total = gridW * gridH * gridD;
         CellType[] cells = new CellType[total];
         Arrays.fill(cells, CellType.EMPTY);
         // Paint rooms.
-        for (int i = 0; i < rooms.size(); i++) {
-            Room r = rooms.get(i);
-            int x0 = (int) Math.floor(r.minX()), x1 = (int) Math.ceil(r.maxX());
-            int y0 = (int) Math.floor(r.minY()), y1 = (int) Math.ceil(r.maxY());
-            int z0 = (int) Math.floor(r.minZ()), z1 = (int) Math.ceil(r.maxZ());
+        int n = rooms.vertexCount();
+        Vector3f p = new Vector3f();
+        for (int i = 0; i < n; i++) {
+            rooms.vertexPosition(rooms.vertexIdAt(i), p);
+            int x0 = (int) Math.floor(p.x - halfExtents.getX(i));
+            int x1 = (int) Math.ceil(p.x + halfExtents.getX(i));
+            int y0 = (int) Math.floor(p.y - halfExtents.getY(i));
+            int y1 = (int) Math.ceil(p.y + halfExtents.getY(i));
+            int z0 = (int) Math.floor(p.z - halfExtents.getZ(i));
+            int z1 = (int) Math.ceil(p.z + halfExtents.getZ(i));
             for (int y = Math.max(0, y0); y < Math.min(gridH, y1); y++) {
                 for (int z = Math.max(0, z0); z < Math.min(gridD, z1); z++) {
                     for (int x = Math.max(0, x0); x < Math.min(gridW, x1); x++) {
@@ -68,22 +74,24 @@ public final class AStarCorridorPathfinder3D {
                 }
             }
         }
-        // Carve corridors per MST edge.
-        for (int i = 0; i < mstEdges.edgeCount(); i++) {
-            int[] e = mstEdges.edge(i);
-            Room a = rooms.get(e[0]);
-            Room b = rooms.get(e[1]);
-            int sx = clamp((int) Math.floor(a.centerX()), 0, gridW - 1);
-            int sy = clamp((int) Math.floor(a.centerY()), 0, gridH - 1);
-            int sz = clamp((int) Math.floor(a.centerZ()), 0, gridD - 1);
-            int tx = clamp((int) Math.floor(b.centerX()), 0, gridW - 1);
-            int ty = clamp((int) Math.floor(b.centerY()), 0, gridH - 1);
-            int tz = clamp((int) Math.floor(b.centerZ()), 0, gridD - 1);
-            int[][] path = aStar(cells, gridW, gridH, gridD, sx, sy, sz, tx, ty, tz, weights);
+        // Carve corridors per edge.
+        Vector3f pa = new Vector3f();
+        Vector3f pb = new Vector3f();
+        for (int i = 0; i < edgePairs.length; i += 2) {
+            rooms.vertexPosition(rooms.vertexIdAt(edgePairs[i]), pa);
+            rooms.vertexPosition(rooms.vertexIdAt(edgePairs[i + 1]), pb);
+            int sx = clamp((int) Math.floor(pa.x), 0, gridW - 1);
+            int sy = clamp((int) Math.floor(pa.y), 0, gridH - 1);
+            int sz = clamp((int) Math.floor(pa.z), 0, gridD - 1);
+            int tx = clamp((int) Math.floor(pb.x), 0, gridW - 1);
+            int ty = clamp((int) Math.floor(pb.y), 0, gridH - 1);
+            int tz = clamp((int) Math.floor(pb.z), 0, gridD - 1);
+            int[][] path = aStar(cells, gridW, gridH, gridD, sx, sy, sz, tx, ty, tz,
+                    hallwayReuseCost, emptyCellCost, throughRoomCost);
             if (path == null) continue;
             applyPath(cells, gridW, gridD, path);
         }
-        return new TileGridValue3D(gridW, gridH, gridD, cells);
+        return cells;
     }
 
     private static int idx(int x, int y, int z, int gridW, int gridD) {
@@ -97,26 +105,30 @@ public final class AStarCorridorPathfinder3D {
      */
     static int[][] aStar(CellType[] cells, int gridW, int gridH, int gridD,
                          int sx, int sy, int sz, int tx, int ty, int tz,
-                         CostWeights weights) {
+                         double hallwayReuseCost, double emptyCellCost, double throughRoomCost) {
         int total = gridW * gridH * gridD;
         double[] g = new double[total];
+        double[] f = new double[total];
         int[] parent = new int[total];
         int[] kindIn = new int[total];
+        boolean[] queued = new boolean[total];
         Arrays.fill(g, Double.POSITIVE_INFINITY);
+        Arrays.fill(f, Double.POSITIVE_INFINITY);
         Arrays.fill(parent, -1);
         int start = idx(sx, sy, sz, gridW, gridD);
         int target = idx(tx, ty, tz, gridW, gridD);
         g[start] = 0;
-        double hUnit = Math.min(weights.hallwayReuseCost(),
-                Math.min(weights.emptyCellCost(), weights.throughRoomCost()));
-        PriorityQueue<Entry> open = new PriorityQueue<>();
-        open.add(new Entry(start, 0.0, heuristic(sx, sy, sz, tx, ty, tz, hUnit)));
+        double hUnit = Math.min(hallwayReuseCost, Math.min(emptyCellCost, throughRoomCost));
+        f[start] = heuristic(sx, sy, sz, tx, ty, tz, hUnit);
+        PriorityQueue<Integer> open = new PriorityQueue<>(AStarCorridorPathfinder2D.cellOrder(f, g));
+        open.add(start);
+        queued[start] = true;
         while (!open.isEmpty()) {
-            Entry cur = open.poll();
-            if (cur.idx == target) break;
-            if (cur.gScore > g[cur.idx]) continue;
-            int cx = cur.idx % gridW;
-            int rest = cur.idx / gridW;
+            int cur = open.poll();
+            queued[cur] = false;
+            if (cur == target) break;
+            int cx = cur % gridW;
+            int rest = cur / gridW;
             int cz = rest % gridD;
             int cy = rest / gridD;
             // Horizontal cardinal moves.
@@ -125,18 +137,20 @@ public final class AStarCorridorPathfinder3D {
                 int nz = cz + DZ[d];
                 if (nx < 0 || nx >= gridW || nz < 0 || nz >= gridD) continue;
                 int nIdx = idx(nx, cy, nz, gridW, gridD);
-                double step = enterCost(cells[nIdx], weights);
-                relax(open, g, parent, kindIn, cur, nIdx, step, 0,
+                double step = enterCost(cells[nIdx], hallwayReuseCost, emptyCellCost, throughRoomCost);
+                relax(open, queued, g, f, parent, kindIn, cur, nIdx, step, 0,
                         nx, cy, nz, tx, ty, tz, hUnit);
             }
             // Stair moves: up one floor, two cells horizontal.
             for (int d = 0; d < NUM_4; d++) {
                 int dx = DX[d], dz = DZ[d];
                 if (cy + 1 < gridH) trySairStep(cells, gridW, gridH, gridD,
-                        open, g, parent, kindIn, cur, weights,
+                        open, queued, g, f, parent, kindIn, cur,
+                        hallwayReuseCost, emptyCellCost, throughRoomCost,
                         cx, cy, cz, dx, dz, +1, tx, ty, tz, hUnit);
                 if (cy - 1 >= 0)    trySairStep(cells, gridW, gridH, gridD,
-                        open, g, parent, kindIn, cur, weights,
+                        open, queued, g, f, parent, kindIn, cur,
+                        hallwayReuseCost, emptyCellCost, throughRoomCost,
                         cx, cy, cz, dx, dz, -1, tx, ty, tz, hUnit);
             }
         }
@@ -161,8 +175,9 @@ public final class AStarCorridorPathfinder3D {
 
     private static void trySairStep(
             CellType[] cells, int gridW, int gridH, int gridD,
-            PriorityQueue<Entry> open, double[] g, int[] parent, int[] kindIn,
-            Entry cur, CostWeights weights,
+            PriorityQueue<Integer> open, boolean[] queued, double[] g, double[] f,
+            int[] parent, int[] kindIn, int cur,
+            double hallwayReuseCost, double emptyCellCost, double throughRoomCost,
             int cx, int cy, int cz, int dx, int dz, int dy,
             int tx, int ty, int tz, double hUnit) {
         // Intermediate cells: lower at (cx+dx, cy, cz+dz), upper at (cx+dx, cy+dy, cz+dz).
@@ -177,11 +192,11 @@ public final class AStarCorridorPathfinder3D {
         if (!stairBuildable(cells[lowerIdx]) || !stairBuildable(cells[upperIdx])) return;
         int destIdx = idx(destX, destY, destZ, gridW, gridD);
         // Cost: sum of entering both intermediates + dest + premium.
-        double step = enterCost(cells[lowerIdx], weights)
-                    + enterCost(cells[upperIdx], weights)
-                    + enterCost(cells[destIdx], weights)
+        double step = enterCost(cells[lowerIdx], hallwayReuseCost, emptyCellCost, throughRoomCost)
+                    + enterCost(cells[upperIdx], hallwayReuseCost, emptyCellCost, throughRoomCost)
+                    + enterCost(cells[destIdx], hallwayReuseCost, emptyCellCost, throughRoomCost)
                     + STAIR_BUILD_PREMIUM;
-        relax(open, g, parent, kindIn, cur, destIdx, step, 1,
+        relax(open, queued, g, f, parent, kindIn, cur, destIdx, step, 1,
                 destX, destY, destZ, tx, ty, tz, hUnit);
     }
 
@@ -189,15 +204,18 @@ public final class AStarCorridorPathfinder3D {
         return c == CellType.EMPTY || c == CellType.STAIR_UP || c == CellType.STAIR_DOWN;
     }
 
-    private static void relax(PriorityQueue<Entry> open, double[] g, int[] parent, int[] kindIn,
-                              Entry cur, int nIdx, double step, int kind,
+    private static void relax(PriorityQueue<Integer> open, boolean[] queued, double[] g, double[] f,
+                              int[] parent, int[] kindIn, int cur, int nIdx, double step, int kind,
                               int nx, int ny, int nz, int tx, int ty, int tz, double hUnit) {
-        double ng = cur.gScore + step;
+        double ng = g[cur] + step;
         if (ng < g[nIdx]) {
+            if (queued[nIdx]) open.remove(Integer.valueOf(nIdx));
             g[nIdx] = ng;
-            parent[nIdx] = cur.idx;
+            f[nIdx] = ng + heuristic(nx, ny, nz, tx, ty, tz, hUnit);
+            parent[nIdx] = cur;
             kindIn[nIdx] = kind;
-            open.add(new Entry(nIdx, ng, ng + heuristic(nx, ny, nz, tx, ty, tz, hUnit)));
+            open.add(nIdx);
+            queued[nIdx] = true;
         }
     }
 
@@ -220,11 +238,12 @@ public final class AStarCorridorPathfinder3D {
         }
     }
 
-    private static double enterCost(CellType cell, CostWeights w) {
+    private static double enterCost(CellType cell,
+            double hallwayReuseCost, double emptyCellCost, double throughRoomCost) {
         return switch (cell) {
-            case HALLWAY, STAIR_UP, STAIR_DOWN -> w.hallwayReuseCost();
-            case EMPTY -> w.emptyCellCost();
-            case ROOM  -> w.throughRoomCost();
+            case HALLWAY, STAIR_UP, STAIR_DOWN -> hallwayReuseCost;
+            case EMPTY -> emptyCellCost;
+            case ROOM  -> throughRoomCost;
         };
     }
 
@@ -238,22 +257,5 @@ public final class AStarCorridorPathfinder3D {
         if (v < lo) return lo;
         if (v > hi) return hi;
         return v;
-    }
-
-    private record Entry(int idx, double gScore, double f) implements Comparable<Entry> {
-        /**
-         * Order by f, then g, then idx so the priority queue is fully deterministic.
-         *
-         * @param o other entry to compare against
-         * @return negative / zero / positive per {@link Comparable}
-         */
-        @Override
-        public int compareTo(Entry o) {
-            int c = Double.compare(f, o.f);
-            if (c != 0) return c;
-            int c2 = Double.compare(gScore, o.gScore);
-            if (c2 != 0) return c2;
-            return Integer.compare(idx, o.idx);
-        }
     }
 }

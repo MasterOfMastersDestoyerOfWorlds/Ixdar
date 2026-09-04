@@ -51,7 +51,7 @@ class ZeroArcLoopCollapseTest {
                 List.of(vertex(topology, 1, 1), vertex(topology, 2, 2), vertex(topology, 3, 2),
                         vertex(topology, 3, 1)));
         tmesh.addPatch(ArcNetwork.NONE,
-                List.of(List.of(straightArc), List.of(), List.of(detourArc), List.of()), startNode);
+                List.of(List.of(straightArc), List.of(), List.of(detourArc), List.of()), endNode);
 
         ZeroArcCollapseOperator operator = new ZeroArcCollapseOperator(tmesh);
         int eulerBefore = eulerCharacteristic(tmesh);

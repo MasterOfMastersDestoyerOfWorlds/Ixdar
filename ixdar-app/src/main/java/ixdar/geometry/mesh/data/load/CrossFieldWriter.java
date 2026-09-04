@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.util.Locale;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.Singularity;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 
 /**
@@ -64,7 +63,7 @@ public final class CrossFieldWriter {
             w.write("Faces=" + mesh.faceCount() + NL);
             w.write("Genus=0" + NL);
             w.write("Boundaries=" + countBoundaryLoops(mesh) + NL);
-            w.write("Singularities=" + field.singularities.size() + NL);
+            w.write("Singularities=" + field.singularityCount() + NL);
             w.write(NL);
 
             w.write("[Pjumps]" + NL);
@@ -85,33 +84,25 @@ public final class CrossFieldWriter {
 
             w.write("[Singularities]" + NL);
             w.write("indices=\"");
-            for (Singularity s : field.singularities) {
-                int vAi = activeIndexOfVertex(mesh, s.vertexId());
+            for (int vAi = 0; vAi < field.singularityIndex4.length(); vAi++) {
+                if (field.singularityIndex4.get(vAi) == 0) {
+                    continue;
+                }
                 w.write(Integer.toString(vAi));
                 w.write(VALUE_DELIMITER);
             }
             w.write(QUOTE_NL);
             w.write("singularities=\"");
-            for (Singularity s : field.singularities) {
-                w.write(Integer.toString(s.index4()));
+            for (int vAi = 0; vAi < field.singularityIndex4.length(); vAi++) {
+                int iQuarter = field.singularityIndex4.get(vAi);
+                if (iQuarter == 0) {
+                    continue;
+                }
+                w.write(Integer.toString(iQuarter));
                 w.write(VALUE_DELIMITER);
             }
             w.write(QUOTE_NL);
         }
-    }
-
-    /**
-     * Look up the active index of a vertex by its id (linear scan; O(V) per
-     * call but only invoked once per singularity which is sparse).
-     */
-    private static int activeIndexOfVertex(HalfEdgeMesh mesh, int vId) {
-        int n = mesh.vertexCount();
-        for (int vAi = 0; vAi < n; vAi++) {
-            if (mesh.vertexIdAt(vAi) == vId) {
-                return vAi;
-            }
-        }
-        return -1;
     }
 
     /**

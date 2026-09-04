@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.nodes.data;
 
+import java.util.Objects;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +12,6 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 
 /**
  * Tags all vertices with one or more comma-separated labels, stored in {@link #TAGS_SLOT} as one
@@ -53,7 +53,7 @@ public class TagGeometryNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
+        GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         String tagsStr = ctx.getInput(TAGS.name, String.class);
 
         if (tagsStr == null || tagsStr.isBlank()) {

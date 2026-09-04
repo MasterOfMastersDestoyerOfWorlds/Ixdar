@@ -9,6 +9,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
@@ -47,7 +48,7 @@ public class DiskMeshNode implements MeshNode {
             new InputPort("radius", PortType.FLOAT, DEFAULT_RADIUS, 0.001f, 100f);
     public static final InputPort TRIANGULATE =
             new InputPort("triangulate", PortType.BOOLEAN, false);
-    public static final OutputPort MESH = new OutputPort("mesh", PortType.MESH);
+    public static final OutputPort MESH = new OutputPort("mesh", PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
@@ -97,7 +98,7 @@ public class DiskMeshNode implements MeshNode {
 
         HalfEdgeMesh mesh = build(rings, angularSegments, radius, triangulate);
         mesh.computeNormals();
-        ctx.setOutput(MESH.name, mesh);
+        ctx.setOutput(MESH.name, GeometryBundle.ofMesh(mesh));
     }
 
     /**

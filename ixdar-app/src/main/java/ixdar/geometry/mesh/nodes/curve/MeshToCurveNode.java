@@ -15,7 +15,6 @@ import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 
 @MeshNodeAnnotation(id = "mesh_to_curve")
@@ -56,7 +55,7 @@ public class MeshToCurveNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle gb = GeometryBundles.bundlePart(ctx.getInput(GEOMETRY.name, Object.class));
+        GeometryBundle gb = ctx.getInput(GEOMETRY.name, GeometryBundle.class);
         if (gb == null) {
             ctx.setOutput(GEOMETRY.name,GeometryBundle.empty());
             return;

@@ -2,7 +2,6 @@ package ixdar.geometry.mesh.nodes.api;
 
 import java.util.EnumMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -11,15 +10,20 @@ import java.util.Set;
  */
 public final class CanonicalPortNames {
 
+    /**
+     * Canonical (required) name of an operation-selector input: a
+     * mode-constrained string choosing the operation to perform (e.g.
+     * {@code ADD}, {@code AND}).
+     */
+    public static final String OPERATION_SELECTOR = "operation";
+
     private static final Map<PortType, String> CANONICAL = new EnumMap<>(PortType.class);
     private static final Map<PortType, Set<String>> ROLE_NAMES = new EnumMap<>(PortType.class);
 
-    private static final Map<InputRole, String> INPUT_CANONICAL = new EnumMap<>(InputRole.class);
     private static final String VALUE = "value";
     private static final String RESULT = "result";
 
     static {
-        CANONICAL.put(PortType.MESH, "mesh");
         CANONICAL.put(PortType.GEOMETRY_BUNDLE, "geometry");
         CANONICAL.put(PortType.BOOLEAN, VALUE);
         CANONICAL.put(PortType.FLOAT, RESULT);
@@ -28,14 +32,14 @@ public final class CanonicalPortNames {
         CANONICAL.put(PortType.ROTATION, "rotation");
         CANONICAL.put(PortType.CLOSURE, "closure");
         CANONICAL.put(PortType.STRING, VALUE);
-        ROLE_NAMES.put(PortType.BOOLEAN, Set.of("selection", "generated", "injective"));
+        ROLE_NAMES.put(PortType.GEOMETRY_BUNDLE, Set.of("mesh"));
+        ROLE_NAMES.put(PortType.BOOLEAN,
+                Set.of("selection", "generated", "injective", "separation_violated",
+                        "feature_edges"));
         ROLE_NAMES.put(PortType.FLOAT, Set.of("float_out", "total_cost"));
         ROLE_NAMES.put(PortType.INT,
-                Set.of("index", "int_out", "next_vertex", "singularity_count", "flipped_triangles"));
-    }
-
-    static {
-        INPUT_CANONICAL.put(InputRole.OPERATION_SELECTOR, "operation");
+                Set.of("index", "int_out", "next_vertex", "singularity_count",
+                        "flipped_triangles", "id", "singularities"));
     }
 
     private CanonicalPortNames() {
@@ -84,53 +88,18 @@ public final class CanonicalPortNames {
     }
 
     /**
-     * Canonical (required) input port name for the given role.
-     *
-     * @param role semantic input role to look up
-     * @throws IllegalArgumentException if no canonical name is defined for
-     *                                  {@code role}
-     * @return canonical name registered for {@code role}
-     */
-    public static String canonicalForRole(InputRole role) {
-        String n = INPUT_CANONICAL.get(role);
-        if (n == null) {
-            throw new IllegalArgumentException("No canonical input name defined for role " + role);
-        }
-        return n;
-    }
-
-    /**
-     * Classifies known input-role signatures. A mode-constrained string on a
-     * {@code *_math} node is an operation selector; unrelated modes retain their
-     * natural names.
+     * True when the input is an operation selector: a mode-constrained string
+     * on a {@code *_math} node, which must be named {@link #OPERATION_SELECTOR}.
+     * Unrelated modes retain their natural names.
      *
      * @param nodeId id of the owning mesh node (e.g. {@code "integer_math"})
      * @param port   input port to classify
-     * @return matched role, or empty if {@code port} does not match any known role
-     *         signature
+     * @return true if {@code port} is the node's operation selector
      */
-    public static Optional<InputRole> roleOf(String nodeId, InputPort port) {
-        if (port == null || nodeId == null) {
-            return Optional.empty();
-        }
-        if (nodeId.endsWith("_math")
+    public static boolean isOperationSelector(String nodeId, InputPort port) {
+        return port != null && nodeId != null
+                && nodeId.endsWith("_math")
                 && port.type == PortType.STRING
-                && port.modes != null) {
-            return Optional.of(InputRole.OPERATION_SELECTOR);
-        }
-        return Optional.empty();
-    }
-
-    /**
-     * Semantic input roles whose canonical names can be derived from declared port
-     * shape.
-     */
-    public enum InputRole {
-        /**
-         * A {@link PortType#STRING} input with a {@link ModeConstraint} selecting the
-         * operation to perform (e.g. {@code ADD}, {@code AND}). Canonical name:
-         * {@code "operation"}.
-         */
-        OPERATION_SELECTOR
+                && port.modes != null;
     }
 }

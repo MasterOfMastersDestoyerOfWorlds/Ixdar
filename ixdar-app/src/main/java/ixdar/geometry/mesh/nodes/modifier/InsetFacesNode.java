@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.nodes.modifier;
 
+import java.util.Objects;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -17,7 +18,6 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
@@ -48,7 +48,6 @@ public class InsetFacesNode implements MeshNode {
     public static final InputPort INSET = new InputPort("inset", PortType.FLOAT, 0.1f, 0f, 1f);
     public static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
-    public static final OutputPort MESH_OUT = new OutputPort("mesh", PortType.MESH);
     public static final OutputPort GENERATED_OUT = new OutputPort("generated", PortType.BOOLEAN);
 
     @Override
@@ -58,7 +57,7 @@ public class InsetFacesNode implements MeshNode {
 
     @Override
     public List<OutputPort> outputs() {
-        return List.of(MESH_OUT, GEOMETRY_OUT, GENERATED_OUT);
+        return List.of(GEOMETRY_OUT, GENERATED_OUT);
     }
 
     @Override
@@ -72,17 +71,15 @@ public class InsetFacesNode implements MeshNode {
                 GEOMETRY.name, "Input/output cage. Preserves bezier handle slots via rebuild when _bezier_handle_weight is set.",
                 INSET.name, "Inset amount in [0, 1] — fraction of the way from each corner toward the face centroid. 0 = no inset; 0.5 = halfway.",
                 SELECTION.name, "Per-face BOOLEAN mask. True = face gets inset (replaced by inner quad + 4 side quads).",
-                MESH_OUT.name, "Topology-only output.",
                 GENERATED_OUT.name, "Per-output-face BOOLEAN: true for the newly-created inner face of each inset; false for pass-through and side quads. Thread into the selection of the next op to chain features."
         );
     }
 
     @Override
     public void evaluate(NodeContext ctx) {
-        GeometryBundle base = GeometryBundles.requireBundle(ctx.getInput(GEOMETRY.name, Object.class));
+        GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         MeshTopology in = base.mesh();
         if (in == null || in.vertexCount() == 0) {
-            ctx.setOutput(MESH_OUT.name, null);
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             ctx.setOutput(GENERATED_OUT.name, new BoolField(new boolean[0]));
             return;
@@ -95,7 +92,6 @@ public class InsetFacesNode implements MeshNode {
 
         ArrayMesh am = in instanceof ArrayMesh m ? m : ArrayMeshEngine.fromUniformMeshTopology(in);
 
-        // Compute selection mask before we lose it (insetFaces takes selObj directly).
         int origFaceCount = am.faceCount();
         boolean[] selected = new boolean[origFaceCount];
         for (int fi = 0; fi < origFaceCount; fi++) {
@@ -104,8 +100,6 @@ public class InsetFacesNode implements MeshNode {
 
         MeshTopology out = insetFaces(in, am, inset, selObj);
 
-        // Generated mask: the inner face (replacing the selected face) lives at
-        // the original face's index; side walls appear after origFaceCount.
         int outFaceCount = out == null ? 0 : out.faceCount();
         boolean[] genMask = new boolean[outFaceCount];
         for (int fi = 0; fi < Math.min(origFaceCount, outFaceCount); fi++) {
@@ -113,13 +107,6 @@ public class InsetFacesNode implements MeshNode {
         }
 
         GeometryBundle outBundle = base.withMesh(out);
-
-        // Handle preservation — prefer the globally-consistent rebuild path
-        // (via the _bezier_handle_weight slot stashed by assign_bezier_handles)
-        // so every output edge gets handles computed by the same algorithm.
-        // This fixes coons_patch surface divergence at shared cage edges when
-        // multiple inset/extrude operations chain. Falls back to edge-by-edge
-        // copying only if handles exist without a weight slot.
         if (out != null && CoonsHandleBuilder.hasHandles(base)) {
             Object w = base.slots().get(AssignBezierHandlesNode.SLOT_WEIGHT);
             if (w instanceof Number num) {
@@ -129,7 +116,6 @@ public class InsetFacesNode implements MeshNode {
             }
         }
 
-        ctx.setOutput(MESH_OUT.name, out);
         ctx.setOutput(GEOMETRY.name, outBundle);
         ctx.setOutput(GENERATED_OUT.name, new BoolField(genMask));
     }
@@ -219,7 +205,6 @@ public class InsetFacesNode implements MeshNode {
             }
         }
 
-        // (dense vid → list of (fi, corner k)) — dense = ArrayMesh packed index.
         Map<Integer, List<int[]>> facesAtVertex = new HashMap<>();
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
@@ -230,13 +215,6 @@ public class InsetFacesNode implements MeshNode {
             }
         }
 
-        // Dry-run the 3+ fan walks first to determine which 3+ corners will
-        // successfully allocate cyan dots (complete pairwise-shared cycle
-        // around the vertex). 2-face merges are then restricted to shared
-        // edges where BOTH endpoints are allocated (n==2 corner OR succeeded
-        // 3+ fan); this prevents partial merges (one end merged, the other
-        // kept face-local on a failed 3+ fan) from producing duplicate-edge
-        // non-manifold output.
         Set<Integer> succeeded3PlusVids = new HashSet<>();
         for (Map.Entry<Integer, List<int[]>> entry : facesAtVertex.entrySet()) {
             if (entry.getValue().size() == NUM_3
@@ -261,22 +239,12 @@ public class InsetFacesNode implements MeshNode {
             if (selected[fi]) innerVerts[fi] = new int[NUM_4];
         }
 
-        // Per (face, corner): two cyan dots that replace the single face-local
-        // inner vert when the corner sits at a 3+ cage vertex (MESH_OUT.name-48).
         int[][][] cyanAt3Plus = new int[faceCount][][];
-
-        // Central n-sided fill face per 3+ cage vertex — list of cyan dot
-        // dense vids in CCW order around the vertex (opposite of the face fan
-        // direction for manifold correctness).
         Map<Integer, int[]> centralFillPerVertex = new HashMap<>();
 
-        // New inner-vert positions; growable because merges + 3+ corner cyan
-        // dots change the final count from the naive 4*selectedCount.
         ArrayList<Float> extraPos = new ArrayList<>();
         int[] nextVidBox = {vertCount};
         Set<Long> mergedEndpoint = new HashSet<>();
-
-        // Per-face centroid cache — for face-local lerp at 1-face and 3+ corners.
         float[] centroids = new float[faceCount * NUM_3];
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
@@ -299,15 +267,10 @@ public class InsetFacesNode implements MeshNode {
             int n = atV.size();
 
             if (n == NUM_3) {
-                // MESH_OUT.name-47/48: cube-corner 3-face emission (triangle fill).
-                // N=4+ falls through to face-local — current fan walk produces
-                // non-manifold output on subdivided-cage interior corners.
                 boolean ok = allocate3PlusCornerFlat(topology, denseVid, atV,
                         sharedEdgeIds, srcPos, t, extraPos,
                         cyanAt3Plus, centralFillPerVertex, mergedEndpoint, nextVidBox);
                 if (ok) continue;
-                // Fall through to face-local if the fan didn't form a clean
-                // cycle (non-manifold-ish configuration).
             }
 
             boolean merged = false;
@@ -371,9 +334,6 @@ public class InsetFacesNode implements MeshNode {
             }
         }
 
-        // Shared cage edges with BOTH endpoints merged (2-face merge OR 3+
-        // cyan dot) → drop their 2 side quads. Inner polygons become
-        // edge-adjacent through the shared endpoint verts.
         Set<Integer> droppedSharedEdges = new HashSet<>();
         for (int eid : sharedEdgeIds) {
             int he = topology.edgeHalfEdge(eid);
@@ -392,9 +352,6 @@ public class InsetFacesNode implements MeshNode {
             outPos[vertCount * NUM_3 + i] = extraPos.get(i);
         }
 
-        // Variable-vpf output. Inner polygons may be pentagons / hexagons /
-        // octagons when one or more corners are 3+, and per-3+-corner central
-        // fill faces are n-sided.
         ArrayList<Integer> faceIdxList = new ArrayList<>();
         ArrayList<Integer> faceVpfList = new ArrayList<>();
 
@@ -421,8 +378,6 @@ public class InsetFacesNode implements MeshNode {
                 faceVpfList.add(NUM_4);
             }
         }
-
-        // Side quads: one per non-dropped cage edge of each selected face.
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
             int fid = topology.faceIdAt(fi);
@@ -434,10 +389,10 @@ public class InsetFacesNode implements MeshNode {
                 if (droppedSharedEdges.contains(eid)) continue;
                 int kNext = (k + 1) & NUM_3;
                 int leftInner = (cyanPerCorner != null && cyanPerCorner[k] != null)
-                        ? cyanPerCorner[k][1]  // fwd-cyan at corner k
+                        ? cyanPerCorner[k][1] 
                         : iv[k];
                 int rightInner = (cyanPerCorner != null && cyanPerCorner[kNext] != null)
-                        ? cyanPerCorner[kNext][0]  // back-cyan at corner k+1
+                        ? cyanPerCorner[kNext][0] 
                         : iv[kNext];
                 faceIdxList.add(srcFaces[fb + k]);
                 faceIdxList.add(srcFaces[fb + kNext]);
@@ -447,7 +402,6 @@ public class InsetFacesNode implements MeshNode {
             }
         }
 
-        // Central fill faces: one n-sided face per 3+ cage corner.
         for (Map.Entry<Integer, int[]> e : centralFillPerVertex.entrySet()) {
             int[] fill = e.getValue();
             for (int v : fill) faceIdxList.add(v);
@@ -557,7 +511,6 @@ public class InsetFacesNode implements MeshNode {
                 if (fanLen != n) return false;
                 break;
             }
-            // Find the corner of neighFi that sits at denseVid.
             int neighK = -1;
             int nfvc = topology.faceVertexCount(neighFid);
             for (int k = 0; k < nfvc; k++) {
@@ -576,8 +529,6 @@ public class InsetFacesNode implements MeshNode {
         }
         if (fanLen != n) return false;
 
-        // Allocate N cyan dots — straight-line lerp along each shared edge
-        // at fraction t from the 3+ corner toward the other endpoint.
         int[] cyanVids = new int[n];
         for (int i = 0; i < n; i++) {
             int eid = sharedEdgeOrder[i];
@@ -592,10 +543,6 @@ public class InsetFacesNode implements MeshNode {
             extraPos.add(px); extraPos.add(py); extraPos.add(pz);
             cyanVids[i] = newVid;
         }
-
-        // Attach (backCyan, fwdCyan) to each face's corner-at-v. fwd = cyan
-        // on its fwd edge (sharedEdgeOrder[i]); back = cyan on its back edge
-        // (sharedEdgeOrder[(i-1+n) % n]).
         for (int i = 0; i < n; i++) {
             int fi = fiOrder[i];
             int k = kOrder[i];
@@ -611,8 +558,6 @@ public class InsetFacesNode implements MeshNode {
             mergedEndpoint.add(packEdgeVertex(backEid, denseVid));
         }
 
-        // Central fill CCW — traversed opposite of the face fan so each edge
-        // opposes its neighbor pentagon's traversal (manifold).
         int[] fillCCW = new int[n];
         for (int i = 0; i < n; i++) fillCCW[i] = cyanVids[n - 1 - i];
         centralFillPerVertex.put(denseVid, fillCCW);
@@ -651,20 +596,14 @@ public class InsetFacesNode implements MeshNode {
             return new ArrayMesh(srcPos, null, srcFaces, vpf);
         }
 
-        // Fast path: uniform quad input. Same cage-vertex-keyed merge scheme
-        // as CoonsInsetFacesNode (MESH_OUT.name-45) but using straight-line lerps along
-        // the shared cage edge rather than Coons surface evaluations, since
-        // plain inset_faces is flat-lerp by design.
         if (vpf == NUM_4) {
             return insetFacesQuadWithSharedEdgeMerge(topology, srcPos, srcFaces,
                     vertCount, faceCount, selected, Math.min(inset, NUM_1));
         }
 
-        // Each selected face: vpf new inner vertices + vpf side quads
         int newVertCount = selectedCount * vpf;
         int sideFaceCount = selectedCount * vpf;
 
-        // Fallback for non-quad input (triangles etc): sides would be quads breaking uniformity
         HalfEdgeMesh out = new HalfEdgeMesh(
                 vertCount + newVertCount,
                 0,

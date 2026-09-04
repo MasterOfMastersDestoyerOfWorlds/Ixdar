@@ -156,13 +156,19 @@ public final class GridMapAssembly implements MeshNode {
     }
 
     /**
-     * Verifies the map and extracts its quad mesh and per-patch grids.
+     * Verifies the map, extracts its quad mesh face-locally, and regroups the
+     * result onto the layout's per-patch grids, the one step needing the grid
+     * map itself. The UV field is baked fresh from the map's coordinates after
+     * verification, so the extraction never reads a stale iso surface.
      *
      * @param gridMap the assembled, relaxed map
      */
     public static void extractQuads(GlobalGridMap gridMap) {
         gridMap.gridVerification = new GridMapVerification(gridMap).build();
-        QuadMeshExtraction extraction = new QuadMeshExtraction(gridMap, gridMap.gridVerification);
+        GridMapIsoSurface uvField = new GridMapIsoSurface(gridMap.patchMaps,
+                gridMap.uvByPatchId).build();
+        QuadMeshExtraction extraction = new QuadMeshExtraction(
+                gridMap.tmesh.topology.copy, uvField, gridMap.tmesh);
         extraction.expectedQuadCount = gridMap.quadGridInitial.quadCount;
         gridMap.quadMesh = extraction.build();
         gridMap.extractedGrids = new ExtractedPatchGrids(gridMap.quadMesh, gridMap).build();

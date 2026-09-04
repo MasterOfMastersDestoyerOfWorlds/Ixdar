@@ -16,6 +16,7 @@ import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
 import ixdar.geometry.mesh.quadlayout.gridmap.GridMapAssembly;
+import ixdar.geometry.mesh.quadlayout.gridmap.GridMapIsoSurface;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
@@ -47,7 +48,7 @@ class QuadLayoutNodeChainTest {
         fieldCtx.setInput(NDirectionField.GEOMETRY.name, bundle);
         crossField.evaluate(fieldCtx);
         CrossField field = fieldCtx.getOutput(NDirectionField.FIELD.name, CrossField.class);
-        assertEquals(field.singularities.size(),
+        assertEquals(field.singularityCount(),
                 fieldCtx.getOutput(NDirectionField.SINGULARITY_COUNT.name, Integer.class),
                 "the count output matches the field");
 
@@ -66,6 +67,8 @@ class QuadLayoutNodeChainTest {
         MapNodeContext graphCtx = new MapNodeContext(motorcycle);
         graphCtx.setInput(MotorcycleGraph.GEOMETRY.name, bundle);
         graphCtx.setInput(MotorcycleGraph.UV.name, seamless);
+        graphCtx.setInput(MotorcycleGraph.CHARTS.name,
+                uvCtx.getOutput(SeamlessParameterization.CHARTS.name, Object.class));
         graphCtx.setInput(MotorcycleGraph.SINGULARITIES.name,
                 fieldCtx.getOutput(NDirectionField.SINGULARITIES.name, Object.class));
         graphCtx.setInput(MotorcycleGraph.FEATURE_EDGES.name,
@@ -131,16 +134,22 @@ class QuadLayoutNodeChainTest {
         assertEquals(0, gridMap.isoSurfaceRelaxed.flippedFaceCount,
                 "the relaxed map flips no face");
 
-        QuadExtractNode extract = new QuadExtractNode();
-        MapNodeContext quadCtx = new MapNodeContext(extract);
-        quadCtx.setInput(QuadExtractNode.UV.name, gridMap);
-        extract.evaluate(quadCtx);
-        GeometryBundle quadBundle =
-                quadCtx.getOutput(QuadExtractNode.GEOMETRY.name, GeometryBundle.class);
-        assertEquals(gridMap.quadGridInitial.quadCount, quadBundle.mesh().faceCount(),
-                "the extracted quad mesh carries the quantized quad count");
+        GridMapAssembly.extractQuads(gridMap);
         assertEquals(meshEuler, gridMap.quadMesh.eulerCharacteristic(),
                 "the extracted quad mesh closes to the surface's Euler characteristic");
+
+        QuadExtractNode extract = new QuadExtractNode();
+        MapNodeContext quadCtx = new MapNodeContext(extract);
+        quadCtx.setInput(QuadExtractNode.UV.name,
+                new GridMapIsoSurface(gridMap.patchMaps, gridMap.uvByPatchId).build());
+        quadCtx.setInput(QuadExtractNode.GEOMETRY.name,
+                GeometryBundle.ofMesh(contracted.topology.copy));
+        quadCtx.setInput(QuadExtractNode.TMESH.name, contracted);
+        extract.evaluate(quadCtx);
+        GeometryBundle quadBundle =
+                quadCtx.getOutput(QuadExtractNode.GEOMETRY_OUT.name, GeometryBundle.class);
+        assertEquals(gridMap.quadGridInitial.quadCount, quadBundle.mesh().faceCount(),
+                "the extracted quad mesh carries the quantized quad count");
     }
 
     private int liveZeroArcs(ArcNetwork tmesh) {
