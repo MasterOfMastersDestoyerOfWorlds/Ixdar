@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from ixdar_automation_cli import collection_manifest
 from ixdar_automation_cli import ixdar_cli
 from ixdar_automation_cli import quilt_mesh_fingerprint
 from ixdar_automation_cli.cli_commands import new_scene
@@ -365,6 +366,59 @@ class CliTest(unittest.TestCase):
             def invalid_command(count: int) -> dict:
                 """Invalid command."""
                 return {"ok": True}
+
+    def test_collection_manifest_round_trips_members_and_keep_flags(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for stem in ("charlie", "alpha", "bravo"):
+                with open(os.path.join(directory, stem + ".gltf"), "w", encoding="utf-8") as handle:
+                    handle.write("{}")
+            collection = collection_manifest.scan_directory(directory)
+            self.assertEqual(["alpha", "bravo", "charlie"],
+                             [member["name"] for member in collection["members"]])
+            self.assertTrue(all(member["keep"] for member in collection["members"]))
+
+            collection_manifest.set_keep(directory, "bravo", False)
+            reloaded = collection_manifest.read_manifest(collection["manifest"])
+            self.assertEqual(["alpha", "bravo", "charlie"],
+                             [member["name"] for member in reloaded["members"]])
+            self.assertEqual([True, False, True],
+                             [member["keep"] for member in reloaded["members"]])
+
+            rescanned = collection_manifest.scan_directory(directory)
+            self.assertFalse(rescanned["members"][1]["keep"])
+
+    def test_collection_manifest_rewrite_is_byte_stable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for stem in ("alpha", "bravo"):
+                with open(os.path.join(directory, stem + ".gltf"), "w", encoding="utf-8") as handle:
+                    handle.write("{}")
+            first = collection_manifest.render(collection_manifest.scan_directory(directory))
+            collection_manifest.write_manifest(collection_manifest.scan_directory(directory))
+            second = collection_manifest.render(collection_manifest.scan_directory(directory))
+            self.assertEqual(first, second)
+            self.assertIn('keep_alpha = input_boolean(name="keep:alpha", default=true)', first)
+            self.assertTrue(first.rstrip().endswith('bravo.gltf")'),
+                            "the last statement loads a mesh so the graph output is geometry")
+
+    def test_collection_commands_are_registered_and_set_keep_flags(self):
+        registry = get_registry()
+        for command_name in ("collection-list", "collection-keep", "collection-reject"):
+            self.assertIn(command_name, registry)
+        with tempfile.TemporaryDirectory() as directory:
+            for stem in ("alpha", "bravo"):
+                with open(os.path.join(directory, stem + ".gltf"), "w", encoding="utf-8") as handle:
+                    handle.write("{}")
+            self.assertEqual(0, ixdar_cli.main(
+                ["collection-reject", "--directory", directory, "--member", "alpha"]))
+            flags = collection_manifest.read_keep_flags(
+                os.path.join(directory, collection_manifest.MANIFEST_NAME))
+            self.assertEqual({"alpha": False, "bravo": True}, flags)
+            self.assertEqual(0, ixdar_cli.main(
+                ["collection-keep", "--directory", directory, "--member", "alpha"]))
+            flags = collection_manifest.read_keep_flags(
+                os.path.join(directory, collection_manifest.MANIFEST_NAME))
+            self.assertEqual({"alpha": True, "bravo": True}, flags)
+            self.assertEqual(0, ixdar_cli.main(["collection-list", "--directory", directory]))
 
 
 if __name__ == "__main__":

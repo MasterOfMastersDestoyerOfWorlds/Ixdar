@@ -81,6 +81,10 @@ def _gltf_counts(path: str) -> tuple[int, int]:
     Only the JSON is read, so a 40 MB scan costs a few hundred kilobytes of I/O; a primitive without
     indices contributes its vertex count divided by three.
 
+    These are the file's own accessor counts. ``GltfMeshParser`` welds bitwise-identical positions on
+    import — glTF splits them only to give one position several UVs — so the loaded mesh has fewer
+    vertices than this reports (IMG_4109: 622,652 in the file, 468,350 loaded) and the same faces.
+
     :param path: Path to a ``.glb`` or ``.gltf`` file.
     :return: ``(vertices, faces)``; zeros when the document cannot be read.
     """

@@ -67,6 +67,9 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`audio-log`](#audio-log) | Return recent audio log events. |
 | [`audio-state`](#audio-state) | Extract the audio state from the UI snapshot. |
 | [`click-scan`](#click-scan) | Click through a grid until the scene leaves the menu. |
+| [`collection-keep`](#collection-keep) | Mark one collection member as kept and rewrite its manifest. |
+| [`collection-list`](#collection-list) | List model collections and their members with keep flags. |
+| [`collection-reject`](#collection-reject) | Mark one collection member as rejected and rewrite its manifest. |
 | [`coverage-report`](#coverage-report) | Merge JaCoCo exec files and report the code they never executed. |
 | [`dsl-optimize`](#dsl-optimize) | Batch-optimize mesh DSL parameters against a reference OBJ. |
 | [`duplication-report`](#duplication-report) | Report duplicated code ranked by how much repetition factoring it out would remove. |
@@ -513,7 +516,7 @@ Synthesize character events on the active key handler, one per character of the 
 Snapshot the full UI state: window, scene, trade, mesh, text, menu, and audio.
 
 - **Route:** `GET /ui/state`
-- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, textElements, menuItems, audio}`
+- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, collection?, textElements, menuItems, audio}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/ui/state`
 
 ## CLI commands
@@ -553,6 +556,32 @@ Click through a grid until the scene leaves the menu.
 - `--y-end` — Exclusive ending y coordinate for the scan.
 - `--y-step` — Y increment between scan attempts.
 - `--button` — Mouse button index to press.
+
+### `collection-keep`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/collection.py#L62)
+
+Mark one collection member as kept and rewrite its manifest.
+
+- `--directory` — Scan directory holding the member.
+- `--member` — Member name, i.e. the mesh file's stem.
+
+### `collection-list`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/collection.py#L40)
+
+List model collections and their members with keep flags.
+
+- `--directory` — Scan directory to read; omit to discover collections from the mesh roots.
+
+### `collection-reject`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/collection.py#L78)
+
+Mark one collection member as rejected and rewrite its manifest.
+
+- `--directory` — Scan directory holding the member.
+- `--member` — Member name, i.e. the mesh file's stem.
 
 ### `coverage-report`
 
@@ -607,7 +636,7 @@ Install a global ixdar-cli wrapper into ~/.local/bin.
 
 ### `list-meshes`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/list_meshes.py#L19)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/list_meshes.py#L20)
 
 List mesh files a scene can load, with the short names run-scene resolves.
 
@@ -665,7 +694,7 @@ Launch the mesh viewer, optionally overlay a reference OBJ, and screenshot.
 
 ### `new-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/new_scene.py#L270)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/new_scene.py#L272)
 
 Scaffold a new Scene class, launch.json entry, and optional Maven profile.
 
@@ -713,7 +742,7 @@ Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB over
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L460)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L470)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 

@@ -1,7 +1,6 @@
 package ixdar.geometry.mesh.data.load;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -9,7 +8,7 @@ import java.nio.file.Paths;
 import java.util.List;
 
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.nodes.api.Vector3Field;
+import ixdar.geometry.mesh.data.CornerUvField;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
@@ -47,19 +46,6 @@ public final class MeshLoader {
     public static final List<String> MESH_EXTENSIONS = List.of(
             OBJ_EXTENSION, PLY_EXTENSION, OFF_EXTENSION, GLB_EXTENSION, GLTF_EXTENSION);
 
-    /**
-     * Simple name of the glTF parser. {@link #loadGltf} joins it to this class's package at run
-     * time; a constant fully qualified name would let TeaVM resolve {@code Class.forName} at
-     * compile time and pull Assimp into the browser build.
-     */
-    public static final String GLTF_PARSER_SIMPLE_NAME = "GltfMeshParser";
-
-    /**
-     * Per-vertex {@code TEXCOORD_0} slot written by the glTF parser: a {@link Vector3Field} of
-     * {@code (u, v, 0)}, one element per vertex, bottom-left origin (OpenGL convention).
-     */
-    public static final String UV_SLOT = "_uv";
-
     private MeshLoader() {
     }
 
@@ -78,8 +64,8 @@ public final class MeshLoader {
     }
 
     /**
-     * Load a mesh file together with the per-vertex attributes the format carries: glTF texture
-     * coordinates ride {@link #UV_SLOT}; the text formats contribute no slots.
+     * Load a mesh file together with the attributes the format carries: glTF texture coordinates
+     * ride {@link CornerUvField#SLOT} per face corner; the text formats contribute no slots.
      *
      * @param path File path, absolute or relative to either the working directory or
      *             {@link #MODULE_DIRECTORY}
@@ -141,33 +127,17 @@ public final class MeshLoader {
     }
 
     /**
-     * Reach {@link GltfMeshParser} through {@code Class.forName} so the Assimp-backed class is
-     * linked only on desktop; in the browser the lookup fails and the load is refused.
+     * Read a glTF container through {@link GltfMeshParser}. The parser is plain Java over the
+     * platform's JSON reader, so this path works in the browser build too.
      *
      * @param file resolved path of the glTF file
-     * @throws IOException if the file is missing, Assimp rejects it, or the platform has no Assimp
+     * @throws IOException if the file is missing or the parser rejects it
      * @return the parser's bundle
      */
     private static GeometryBundle loadGltf(Path file) throws IOException {
         if (!Files.exists(file)) {
             throw new IOException("No such glTF file: " + file);
         }
-        try {
-            String loaderName = MeshLoader.class.getName();
-            String packagePrefix = loaderName.substring(0, loaderName.lastIndexOf('.') + 1);
-            Class<?> parser = Class.forName(packagePrefix + GLTF_PARSER_SIMPLE_NAME);
-            return (GeometryBundle) parser.getMethod("load", String.class).invoke(null, file.toString());
-        } catch (InvocationTargetException failed) {
-            Throwable cause = failed.getCause();
-            if (cause instanceof IOException ioFailure) {
-                throw ioFailure;
-            }
-            if (cause instanceof RuntimeException runtimeFailure) {
-                throw runtimeFailure;
-            }
-            throw new IOException("glTF import failed for " + file, cause);
-        } catch (ReflectiveOperationException | LinkageError unavailable) {
-            throw new IOException("glTF loading is desktop-only (Assimp unavailable): " + file, unavailable);
-        }
+        return GltfMeshParser.load(file.toString());
     }
 }

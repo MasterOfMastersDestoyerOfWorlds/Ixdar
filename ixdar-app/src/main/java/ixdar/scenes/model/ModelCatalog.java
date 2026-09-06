@@ -6,14 +6,16 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.platform.json.JsonValue;
 
 /**
- * A scene's list of selectable models, scanned from a directory. Three scans exist: the quad-layout
- * input meshes checked into the repo, the staging directory the {@code sync-models} CLI fills, and
- * a plain directory of mesh files such as the crawfish scans.
+ * A scene's list of selectable models, scanned from a directory: the quad-layout input meshes
+ * checked into the repo, the staging directory the {@code sync-models} CLI fills, a plain directory
+ * of mesh files, or a directory of scans read as a {@link ModelCollection}.
  */
 public final class ModelCatalog {
 
@@ -128,6 +130,66 @@ public final class ModelCatalog {
             }
         }
         return new ModelCatalog(root, sorted(found));
+    }
+
+    /**
+     * Scan a directory of scans as one named collection: every mesh file directly inside it becomes
+     * a member named by its file stem, sorted, carrying the settings of its {@code *.settings.json}
+     * sidecar. Keep flags come from the directory's manifest when one exists; a member the manifest
+     * never mentioned starts out kept.
+     *
+     * @param directory directory of scans
+     * @return the collection, with no members when the directory is absent or unreadable
+     */
+    public static ModelCollection collection(Path directory) {
+        Path absolute = directory.toAbsolutePath();
+        List<Path> files = new ArrayList<>();
+        if (Files.isDirectory(absolute)) {
+            try (Stream<Path> stream = Files.list(absolute)) {
+                stream.filter(Files::isRegularFile)
+                    .filter(path -> MeshLoader.isSupported(path.getFileName().toString()))
+                    .forEach(files::add);
+            } catch (IOException ignored) {
+                files.clear();
+            }
+        }
+        files.sort(Comparator.comparing(CollectionManifest::stemOf));
+        String[] names = new String[files.size()];
+        String[] paths = new String[files.size()];
+        JsonValue[] settings = new JsonValue[files.size()];
+        for (int member = 0; member < files.size(); member++) {
+            Path file = files.get(member);
+            names[member] = CollectionManifest.stemOf(file);
+            paths[member] = file.toAbsolutePath().toString();
+            settings[member] = CollectionManifest.settingsBesideMember(file);
+        }
+        Path manifest = ModelCollection.manifestFor(absolute);
+        Path fileName = absolute.getFileName();
+        String name = fileName == null ? ModelCollection.MANIFEST_FALLBACK_DIR : fileName.toString();
+        ModelCollection collection =
+                new ModelCollection(name, absolute, manifest, names, paths, settings);
+        Map<String, Boolean> flags = CollectionManifest.keepFlags(manifest);
+        for (int member = 0; member < collection.memberCount(); member++) {
+            Boolean keep = flags.get(collection.memberNames[member]);
+            collection.memberKeep[member] = keep == null || keep;
+        }
+        return collection;
+    }
+
+    /**
+     * View a collection as a model catalog, so the ESC menu, the {@code model} command and the
+     * {@code [} / {@code ]} keys reach its members the way they reach any other model list.
+     *
+     * @param collection collection whose members become the catalog's choices
+     * @return a catalog rooted at the collection's directory
+     */
+    public static ModelCatalog ofCollection(ModelCollection collection) {
+        List<ModelChoice> found = new ArrayList<>();
+        for (int member = 0; member < collection.memberCount(); member++) {
+            found.add(new ModelChoice(collection.memberNames[member],
+                    collection.memberPaths[member]));
+        }
+        return new ModelCatalog(collection.directory, sorted(found));
     }
 
     /**

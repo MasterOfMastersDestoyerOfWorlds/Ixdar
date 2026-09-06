@@ -24,6 +24,8 @@ import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.scenes.anatomy.IrregularGridScene;
 import ixdar.scenes.main.MainScene;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
+import ixdar.scenes.model.ModelCollection;
+import ixdar.scenes.model.ModelScene;
 import ixdar.scenes.trade.TradeScene;
 
 @AutomationRouteAnnotation(path = "ui/state", method = APIMethod.GET)
@@ -35,6 +37,8 @@ public class State extends AutomationEndpoint implements AutomationRoute {
     public static final String EDGECOUNT = "edgeCount";
     public static final String TOOLTIP = "TOOLTIP";
     public static final String LABEL = "label";
+    public static final String NAME = "name";
+    public static final String VERTEXCOUNT = "vertexCount";
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject root = new JsonObject();
@@ -122,7 +126,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                     TradeScene.camera != null) {
                 for (City city : TradeScene.instance.network.cities) {
                     JsonObject cityJson = new JsonObject();
-                    cityJson.addProperty("name", city.name);
+                    cityJson.addProperty(NAME, city.name);
                     cityJson.addProperty("xWorld", city.getX());
                     cityJson.addProperty("yWorld", city.getY());
                     cityJson.addProperty(
@@ -172,7 +176,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         if (runtime.canvas instanceof MeshNodeViewerScene) {
             MeshNodeViewerScene meshScene = (MeshNodeViewerScene) runtime.canvas;
             JsonObject mesh = new JsonObject();
-            mesh.addProperty("vertexCount", meshScene.getMeshVertexCount());
+            mesh.addProperty(VERTEXCOUNT, meshScene.getMeshVertexCount());
             mesh.addProperty(EDGECOUNT, meshScene.getMeshEdgeCount());
             mesh.addProperty("faceCount", meshScene.getMeshFaceCount());
             mesh.addProperty(
@@ -194,6 +198,35 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                     "boundingBoxMax",
                     runtime.vector3Array(meshScene.getBoundingBoxMax()));
             root.add("mesh", mesh);
+        }
+
+        if (runtime.canvas instanceof ModelScene modelScene && modelScene.modelCollection != null) {
+            ModelCollection modelCollection = modelScene.modelCollection;
+            JsonObject collection = new JsonObject();
+            collection.addProperty(NAME, modelCollection.name);
+            collection.addProperty("directory", modelCollection.directory.toString());
+            collection.addProperty("manifest", modelCollection.manifestPath.toString());
+            collection.addProperty("memberCount", modelCollection.memberCount());
+            collection.addProperty("keptCount", modelCollection.keptCount());
+            collection.addProperty("memberIndex", modelCollection.index());
+            int currentMember = modelCollection.index();
+            collection.addProperty("member",
+                    currentMember < 0 ? "" : modelCollection.memberNames[currentMember]);
+            JsonArray collectionMembers = new JsonArray();
+            for (int member = 0; member < modelCollection.memberCount(); member++) {
+                JsonObject memberJson = new JsonObject();
+                memberJson.addProperty(NAME, modelCollection.memberNames[member]);
+                memberJson.addProperty("path", modelCollection.memberPaths[member]);
+                memberJson.addProperty("keep", modelCollection.memberKeep[member]);
+                memberJson.addProperty(VERTEXCOUNT, modelCollection.memberVertexCount[member]);
+                memberJson.addProperty("triangleCount",
+                        modelCollection.memberTriangleCount[member]);
+                memberJson.addProperty("settings",
+                        ModelCollection.settingsSummary(modelCollection.memberSettings[member]));
+                collectionMembers.add(memberJson);
+            }
+            collection.add("members", collectionMembers);
+            root.add("collection", collection);
         }
 
         JsonArray textElements = new JsonArray();
@@ -279,7 +312,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 .description("Snapshot the full UI state: window, scene, trade, mesh, text, menu, and audio.")
                 .responseHint("{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, "
                         + "menuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, "
-                        + "textElements, menuItems, audio}")
+                        + "collection?, textElements, menuItems, audio}")
                 .build();
     }
 }

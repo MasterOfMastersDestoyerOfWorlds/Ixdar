@@ -41,6 +41,9 @@ import org.lwjgl.system.MemoryStack;
 
 import com.google.gson.Gson;
 
+import ixdar.platform.json.GsonJsonTree;
+import ixdar.platform.json.JsonValue;
+
 import ixdar.canvas.IxdarWindow;
 import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
@@ -181,6 +184,12 @@ public class LwjglPlatform implements Platform {
     @Override
     public FontAtlasDTO parseFontAtlas(String json) {
         return new Gson().fromJson(json, FontAtlasDTO.class);
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public JsonValue parseJson(String json) {
+        return GsonJsonTree.parse(json);
     }
 
     /** {@inheritDoc}. */

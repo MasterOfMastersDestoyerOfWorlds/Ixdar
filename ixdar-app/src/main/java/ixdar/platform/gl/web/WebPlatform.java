@@ -33,6 +33,7 @@ import ixdar.platform.file.TextFile;
 import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.Keys;
+import ixdar.platform.json.JsonValue;
 
 public class WebPlatform implements Platform {
     public static final String SRC_MAIN_RESOURCES = "src/main/resources/";
@@ -287,6 +288,12 @@ public class WebPlatform implements Platform {
 
     @JSBody(params = { "json" }, script = "try { return JSON.parse(json); } catch (e) { return null; }")
     private static native JsRoot parseJsonRoot(String json);
+
+    /** {@inheritDoc}. */
+    @Override
+    public JsonValue parseJson(String json) {
+        return WebJsonTree.parse(json);
+    }
 
     /**
      * {@inheritDoc}.

@@ -157,6 +157,15 @@
     },
     {
       "type": "java",
+      "name": "CRAW-12: Mesh Viewer (crawfish collection)",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "mesh-viewer",
+      "vmArgs": "-enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Xmx4g -Dixdar.model=/home/acw/crawfish -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -XX:ErrorFile=target/hs_err_pid%p.log",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
       "name": "Cross Field Examination",
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",

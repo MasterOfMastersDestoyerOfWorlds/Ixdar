@@ -2511,7 +2511,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "The loaded mesh as a geometry bundle; glTF files add the per-vertex _uv slot holding TEXCOORD_0 as (u, v, 0)."
+          "description": "The loaded mesh as a geometry bundle; glTF files weld duplicate positions and add the _uv slot holding TEXCOORD_0 as a per-corner UvField."
         }
       ],
       "description": "Loads a mesh from an OBJ, PLY, OFF or glTF (.glb/.gltf) file, resolving relative paths against the working directory and the ixdar-app module directory."

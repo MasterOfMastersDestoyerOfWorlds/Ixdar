@@ -16,7 +16,8 @@ public class MeshViewerKeyGuy extends OrbitCameraKeyGuy {
 
     /**
      * Wrap the shared {@link OrbitCameraKeyGuy} with mesh-viewer-specific shortcuts
-     * (Z, P, Shift+P, [, ], D) that operate on {@code meshScene}.
+     * (Z, P, Shift+P, [, ], K, D) that operate on {@code meshScene}, over the scene's own
+     * control bindings.
      *
      * @param meshScene  the scene whose toggles/cycles this handler drives
      * @param orbitMouse orbit controller whose centre {@code Ctrl+R} resets
@@ -25,15 +26,15 @@ public class MeshViewerKeyGuy extends OrbitCameraKeyGuy {
      */
     public MeshViewerKeyGuy(MeshNodeViewerScene meshScene, OrbitMouseTrap orbitMouse,
             Camera camera, Canvas3D canvas) {
-        super(orbitMouse, camera, canvas);
+        super(orbitMouse, camera, canvas, meshScene.controls);
         this.meshScene = meshScene;
     }
 
     /**
-     * Handle mesh-viewer key presses on key-down: Z toggles wireframe,
-     * P toggles the patch overlay (Shift+P cycles shader mode instead),
-     * [ / ] step backward/forward through the model catalog, and D
-     * cycles the active patch decomposer.
+     * Handle the mesh-viewer shortcuts on key-down: Z wireframe, P patch overlay
+     * (Shift+P shader mode), [ / ] model, K keep/reject, D decomposer. Every other
+     * key falls through to the scene's own control bindings, which is what reaches
+     * ESC and {@code ~}.
      *
      * @param key  GLFW key code
      * @param mods GLFW modifier bitmask (Shift is read here)
@@ -52,8 +53,9 @@ public class MeshViewerKeyGuy extends OrbitCameraKeyGuy {
             }
             case Keys.LEFT_BRACKET -> meshScene.prevModel();
             case Keys.RIGHT_BRACKET -> meshScene.nextModel();
+            case Keys.K -> meshScene.toggleKeepCurrentMember();
             case Keys.D -> meshScene.toggleDecomposer();
-            default -> { }
+            default -> super.handleSceneKeys(key, mods);
         }
     }
 }

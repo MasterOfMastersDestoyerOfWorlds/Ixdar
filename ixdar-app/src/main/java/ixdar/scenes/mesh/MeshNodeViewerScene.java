@@ -155,6 +155,16 @@ public class MeshNodeViewerScene extends ModelScene {
             sb.append("  [").append(modelCatalog.index() + 1)
                     .append('/').append(modelCatalog.choices.size()).append(']');
         }
+        if (modelCollection != null) {
+            sb.append("  collection=").append(modelCollection.name)
+                    .append(" kept=").append(modelCollection.keptCount())
+                    .append('/').append(modelCollection.memberCount());
+            int member = currentMemberIndex();
+            if (member >= 0) {
+                sb.append("  member=").append(modelCollection.memberNames[member])
+                        .append(modelCollection.memberKeep[member] ? " KEEP" : " REJECT");
+            }
+        }
         Platforms.get().log(sb.toString());
     }
 
@@ -314,8 +324,9 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * The model named by {@code -Dixdar.model}: a catalog token when one matches, otherwise the
-     * property taken as a mesh file path (the crawfish scans live outside any catalog).
+     * The model named by {@code -Dixdar.model}: a directory opens as a collection, a catalog token
+     * resolves through the catalog, and anything else is taken as a mesh file path (the crawfish
+     * scans live outside any catalog).
      *
      * @return the choice to load instead of the DSL graph, or {@code null} when the property is unset
      */
@@ -323,6 +334,12 @@ public class MeshNodeViewerScene extends ModelScene {
         String common = System.getProperty(COMMON_MODEL_PROPERTY);
         if (common == null || common.isBlank()) {
             return null;
+        }
+        Path directory = Path.of(common);
+        if (Files.isDirectory(directory)) {
+            Path absolute = directory.toAbsolutePath();
+            return new ModelChoice(absolute.getFileName().toString(), absolute.toString(),
+                    ModelChoice.Kind.COLLECTION);
         }
         ModelChoice match = modelCatalog == null ? null : modelCatalog.resolve(common);
         if (match != null) {
@@ -700,6 +717,8 @@ public class MeshNodeViewerScene extends ModelScene {
     public void setControls() {
         controls.add(new ControlHint("[", "previous model", this::prevModel));
         controls.add(new ControlHint("]", "next model", this::nextModel));
+        controls.add(new ControlHint("K", "keep / reject collection member",
+                this::toggleKeepCurrentMember));
         controls.add(new ControlHint("Z", "toggle wireframe", this::toggleMeshWireframe));
         controls.add(new ControlHint("P", "toggle patch overlay", this::togglePatchOverlay));
         controls.add(new ControlHint("Shift+P", "cycle shader mode", this::toggleShaderMode));
@@ -737,6 +756,14 @@ public class MeshNodeViewerScene extends ModelScene {
     public void loadModelEntry(ModelChoice entry) {
         if (entry == null)
             return;
+        if (entry.kind == ModelChoice.Kind.COLLECTION) {
+            openCollection(Path.of(entry.path));
+            Platforms.get().log("[mesh-viewer] collection " + modelCollection.name + STR
+                    + modelCollection.memberCount() + " members, " + modelCollection.keptCount()
+                    + " kept, manifest " + modelCollection.manifestPath);
+            loadModelEntry(modelCatalog.select(0));
+            return;
+        }
         // Invalidate any cached decomposition — the mesh is changing.
         cachedDiagnostics = null;
         cachedDiagnosticsKey = null;
@@ -748,6 +775,7 @@ public class MeshNodeViewerScene extends ModelScene {
             switch (entry.kind) {
                 case DSL -> loadDslFromAbsolutePath(entry.path);
                 case MESH_FILE -> loadMeshFileFromAbsolutePath(entry.path);
+                default -> { }
             }
             return true;
         });
@@ -781,14 +809,19 @@ public class MeshNodeViewerScene extends ModelScene {
 
     private void loadMeshFileFromAbsolutePath(String absolutePath) {
         try {
-            ArrayMesh arrayMesh = MeshLoader.load(absolutePath);
+            boolean cached = modelCollection != null && modelCollection.isMeshCached(absolutePath);
+            ArrayMesh arrayMesh = modelCollection == null
+                    ? MeshLoader.load(absolutePath)
+                    : modelCollection.loadMesh(absolutePath);
             disposeMeshRuntime();
             mesh = arrayMesh;
             meshRuntime = new HalfEdgeMeshRuntime();
             meshRuntime.upload(arrayMesh);
             meshRuntime.frameCamera(camera);
+            noteMemberLoaded(absolutePath, arrayMesh.vertexCount(), arrayMesh.faceCount());
             Platforms.get().log("[mesh-viewer] mesh loaded: " + absolutePath
-                    + VERTS + arrayMesh.vertexCount() + FACES + arrayMesh.faceCount());
+                    + VERTS + arrayMesh.vertexCount() + FACES + arrayMesh.faceCount()
+                    + (cached ? " (cached)" : ""));
             frameMesh(arrayMesh);
         } catch (Exception e) {
             Platforms.get().log("[mesh-viewer] mesh load failed for " + absolutePath + STR + e.getMessage());

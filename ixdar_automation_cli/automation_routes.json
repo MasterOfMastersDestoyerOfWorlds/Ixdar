@@ -894,7 +894,7 @@
       "sourceClass": "ixdar.platform.automation.endpoints.ui.State",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/State.java",
       "params": [],
-      "responseHint": "{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, textElements, menuItems, audio}"
+      "responseHint": "{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, collection?, textElements, menuItems, audio}"
     }
   ]
 }

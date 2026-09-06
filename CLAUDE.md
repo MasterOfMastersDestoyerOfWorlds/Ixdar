@@ -205,6 +205,9 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli audio-log` — Return recent audio log events.
 - `ixdar-cli audio-state` — Extract the audio state from the UI snapshot.
 - `ixdar-cli click-scan` — Click through a grid until the scene leaves the menu.
+- `ixdar-cli collection-keep` — Mark one collection member as kept and rewrite its manifest.
+- `ixdar-cli collection-list` — List model collections and their members with keep flags.
+- `ixdar-cli collection-reject` — Mark one collection member as rejected and rewrite its manifest.
 - `ixdar-cli coverage-report` — Merge JaCoCo exec files and report the code they never executed.
 - `ixdar-cli dsl-optimize` — Batch-optimize mesh DSL parameters against a reference OBJ.
 - `ixdar-cli duplication-report` — Report duplicated code ranked by how much repetition factoring it out would remove.

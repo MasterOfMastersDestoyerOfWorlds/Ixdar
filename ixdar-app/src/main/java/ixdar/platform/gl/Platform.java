@@ -11,6 +11,7 @@ import ixdar.graphics.render.model.ModelRuntime;
 import ixdar.graphics.render.text.FontAtlasDTO;
 import ixdar.platform.concurrent.WorkerPool;
 import ixdar.platform.file.TextFile;
+import ixdar.platform.json.JsonValue;
 
 /**
  * Windowing / OS abstraction sibling of {@link GL}. Implementations: {@code LwjglPlatform}
@@ -109,6 +110,16 @@ public interface Platform {
      * @return parsed DTO
      */
     FontAtlasDTO parseFontAtlas(String json);
+
+    /**
+     * Parse any JSON document into the neutral {@link JsonValue} tree. Desktop and headless build
+     * it from Gson, web from the browser's {@code JSON.parse}, so callers such as the glTF reader
+     * and the scan-settings sidecar reader compile for every target.
+     *
+     * @param json JSON document text
+     * @return the parsed tree; a null node for empty or malformed input
+     */
+    JsonValue parseJson(String json);
 
     /**
      * Terminate the process (or no-op on web / tests).

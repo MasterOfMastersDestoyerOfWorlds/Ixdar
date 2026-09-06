@@ -30,7 +30,7 @@ public final class ModelChoice {
      *
      * @param displayName label shown to the viewer
      * @param path loader argument passed to the scene when this choice is picked
-     * @param kind whether the path names a mesh file or a DSL graph
+     * @param kind whether the path names a mesh file, a DSL graph or a collection directory
      */
     public ModelChoice(String displayName, String path, Kind kind) {
         this.displayName = displayName;
@@ -43,6 +43,8 @@ public final class ModelChoice {
         /** A mesh file for {@code MeshLoader}, or a {@code graph:} token. */
         MESH_FILE,
         /** A DSL graph to parse and execute. */
-        DSL
+        DSL,
+        /** A directory of scans to open as a {@link ModelCollection}. */
+        COLLECTION
     }
 }

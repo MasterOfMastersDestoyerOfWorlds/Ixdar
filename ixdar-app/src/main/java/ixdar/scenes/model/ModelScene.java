@@ -89,6 +89,9 @@ public abstract class ModelScene extends Scene {
 
     public ModelCatalog modelCatalog;
 
+    /** Open collection when the scene was pointed at a directory of scans, else {@code null}. */
+    public ModelCollection modelCollection;
+
     public String offPath;
 
     public HalfEdgeMesh halfEdgeMesh;
@@ -464,6 +467,101 @@ public abstract class ModelScene extends Scene {
      */
     public void requestModelLoad(String path) {
         pendingModelPath = path;
+    }
+
+    /**
+     * Open a directory of scans as the scene's collection: its members replace the model catalog
+     * and its manifest is (re)written, so membership is recorded before anything is merged.
+     *
+     * @param directory directory of scans
+     */
+    public void openCollection(Path directory) {
+        modelCollection = ModelCatalog.collection(directory);
+        modelCatalog = ModelCatalog.ofCollection(modelCollection);
+        writeCollectionManifest();
+    }
+
+    /**
+     * Persist the open collection's membership and keep flags. A write failure is logged rather
+     * than thrown: a read-only scan directory must not take the scene down mid-frame.
+     */
+    public void writeCollectionManifest() {
+        if (modelCollection == null) {
+            return;
+        }
+        try {
+            CollectionManifest.write(modelCollection);
+        } catch (IOException ex) {
+            Platforms.get().log(" collection manifest write failed for "
+                    + modelCollection.manifestPath + ": " + ex.getMessage());
+        }
+    }
+
+    /**
+     * The collection member under the cursor.
+     *
+     * @return the current member index, or {@code -1} when no collection is open or it is empty
+     */
+    public int currentMemberIndex() {
+        return modelCollection == null ? -1 : modelCollection.index();
+    }
+
+    /**
+     * Move the collection cursor onto the member that was just loaded and record its size, so the
+     * menu can show counts without re-parsing.
+     *
+     * @param memberPath absolute path of the mesh that was loaded
+     * @param vertexCount vertices of the parsed mesh
+     * @param triangleCount triangles of the parsed mesh
+     */
+    public void noteMemberLoaded(String memberPath, int vertexCount, int triangleCount) {
+        if (modelCollection == null) {
+            return;
+        }
+        int member = modelCollection.selectPath(memberPath);
+        if (member >= 0) {
+            modelCollection.memberVertexCount[member] = vertexCount;
+            modelCollection.memberTriangleCount[member] = triangleCount;
+        }
+    }
+
+    /**
+     * Step the collection cursor forward and request that member.
+     */
+    public void nextMember() {
+        loadMember(modelCollection == null ? -1 : modelCollection.next());
+    }
+
+    /**
+     * Step the collection cursor back and request that member.
+     */
+    public void prevMember() {
+        loadMember(modelCollection == null ? -1 : modelCollection.prev());
+    }
+
+    /**
+     * Flip the current member between kept and rejected and rewrite the manifest.
+     */
+    public void toggleKeepCurrentMember() {
+        int member = currentMemberIndex();
+        if (member < 0) {
+            return;
+        }
+        modelCollection.memberKeep[member] = !modelCollection.memberKeep[member];
+        writeCollectionManifest();
+        Platforms.get().log(" " + modelCollection.memberNames[member]
+                + (modelCollection.memberKeep[member] ? " kept" : " rejected"));
+    }
+
+    /**
+     * Request a collection member, ignoring {@code -1} so callers need no empty-collection check.
+     *
+     * @param member member index to load, or {@code -1} to do nothing
+     */
+    public void loadMember(int member) {
+        if (member >= 0 && modelCollection != null) {
+            requestModelLoad(modelCollection.memberPaths[member]);
+        }
     }
 
     /**

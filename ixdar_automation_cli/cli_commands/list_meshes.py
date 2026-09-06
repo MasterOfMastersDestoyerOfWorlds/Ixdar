@@ -11,6 +11,7 @@ Usage:
 """
 
 from ..cli_registry import CliCommandResult, cli_command
+from ..collection_manifest import discover_collections, settings_summary
 from ..mesh_catalog import discover_meshes
 
 BYTES_PER_MEGABYTE = 1024 * 1024
@@ -24,6 +25,8 @@ def list_meshes(
     """List mesh files a scene can load, with the short names run-scene resolves.
 
     Sorted by face count, so the smallest mesh that still shows a behaviour is the first row.
+    Directories with a ``collection.dsl`` are listed after the meshes, members and keep flags
+    included.
 
     :param all: Include the ``_out_quad`` results and unloadable binary files, not just the inputs.
     :param name: Substring filter over the mesh name.
@@ -63,9 +66,27 @@ def list_meshes(
         listing.append(
             f"{row['name']:<18} V={row['vertices']:<7} F={row['faces']:<7} "
             f"{row['megabytes']:>6}MB  {row['relPath']}{extra}")
+    collections = discover_collections()
+    if name:
+        needle = name.strip().lower()
+        collections = [collection for collection in collections
+                       if needle in collection["name"].lower()
+                       or any(needle in member["name"].lower()
+                              for member in collection["members"])]
+    for collection in collections:
+        kept = sum(1 for member in collection["members"] if member["keep"])
+        listing.append(f"collection {collection['name']}  {len(collection['members'])} members, "
+                       f"{kept} kept  {collection['manifest']}")
+        for member in collection["members"]:
+            flag = "[x]" if member["keep"] else "[ ]"
+            summary = settings_summary(member["settings"])
+            listing.append(f"  {flag} {member['name']:<16} {member['path']}"
+                           + (f"  {summary}" if summary else ""))
+
     return CliCommandResult(payload={
         "count": len(rows),
         "unloadable": unloadable,
         "meshes": rows,
+        "collections": collections,
         "listing": listing,
     })

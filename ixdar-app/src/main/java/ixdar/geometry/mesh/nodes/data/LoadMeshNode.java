@@ -12,12 +12,14 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.CornerUvField;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
  * Loads a mesh from an OBJ, PLY, OFF or glTF ({@code .glb}/{@code .gltf}) file into the graph;
- * glTF texture coordinates ride the bundle as {@link MeshLoader#UV_SLOT}. Paths resolve
+ * glTF texture coordinates ride the bundle's {@link CornerUvField#SLOT} slot as a per-corner
+ * {@code UvField}. Paths resolve
  * absolute, or relative to the working directory with an {@code ixdar-app/} retry.
  */
 @MeshNodeAnnotation(id = "load_mesh", desktopOnly = true)
@@ -46,8 +48,9 @@ public class LoadMeshNode implements MeshNode {
     public Map<String, String> socketDocs() {
         return Map.of(
                 PATH.name, "File path to load; .obj, .ply, .off, .glb and .gltf are supported.",
-                GEOMETRY.name, "The loaded mesh as a geometry bundle; glTF files add the per-vertex "
-                        + MeshLoader.UV_SLOT + " slot holding TEXCOORD_0 as (u, v, 0)."
+                GEOMETRY.name, "The loaded mesh as a geometry bundle; glTF files weld duplicate "
+                        + "positions and add the " + CornerUvField.SLOT
+                        + " slot holding TEXCOORD_0 as a per-corner UvField."
         );
     }
 

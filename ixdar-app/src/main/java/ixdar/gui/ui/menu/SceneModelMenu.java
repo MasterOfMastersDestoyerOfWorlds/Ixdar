@@ -11,10 +11,9 @@ import ixdar.scenes.model.ModelChoice;
 import ixdar.scenes.model.ModelScene;
 
 /**
- * The right-side ESC menu shared by every {@link ModelScene}: a clickable model dropdown with a
- * Recompute action and a Controls section for the scene's key bindings. The {@link HyperString}
- * is rebuilt every frame so the current-model highlight stays live and drawing re-registers its
- * clickable words for that frame's mouse dispatch.
+ * The right-side ESC menu shared by every {@link ModelScene}: a {@link SceneCollectionMenu} section
+ * when a collection is open, otherwise a model dropdown, then Recompute and Controls. The
+ * {@link HyperString} is rebuilt every frame so drawing re-registers its clickable words.
  */
 public final class SceneModelMenu {
 
@@ -38,6 +37,8 @@ public final class SceneModelMenu {
 
     private final ModelScene scene;
 
+    private final SceneCollectionMenu collectionSection;
+
     private boolean visible;
 
     /**
@@ -47,6 +48,7 @@ public final class SceneModelMenu {
      */
     public SceneModelMenu(ModelScene scene) {
         this.scene = scene;
+        this.collectionSection = new SceneCollectionMenu(scene);
     }
 
     /**
@@ -78,21 +80,9 @@ public final class SceneModelMenu {
 
     private HyperString build() {
         HyperString hyper = new HyperString();
-        hyper.addLine(MODELS_HEADER, Color.AMBER);
-
-        ModelChoice current = scene.currentModel();
-        String currentPath = current == null ? null : current.path;
-        List<ModelChoice> models = scene.availableModels();
-        if (models.isEmpty()) {
-            hyper.addLine("(no models found)", Color.LIGHT_GRAY);
-        }
-        for (ModelChoice choice : models) {
-            boolean isCurrent = currentPath != null && currentPath.equals(choice.path);
-            String marker = isCurrent ? CURRENT_MARKER : OTHER_MARKER;
-            Color color = isCurrent ? Color.BRIGHT_GREEN : Color.COMMAND;
-            hyper.addWordClick(marker + choice.displayName, color,
-                    () -> scene.requestModelLoad(choice.path));
-            hyper.newLine();
+        collectionSection.append(hyper);
+        if (scene.modelCollection == null) {
+            appendModels(hyper);
         }
 
         hyper.newLine();
@@ -116,5 +106,29 @@ public final class SceneModelMenu {
             hyper.newLine();
         }
         return hyper;
+    }
+
+    /**
+     * Append the MODELS section: every model the scene can switch to, the loaded one highlighted.
+     * A scene with a collection open shows its members in the COLLECTION section instead.
+     *
+     * @param hyper menu text being built this frame
+     */
+    private void appendModels(HyperString hyper) {
+        hyper.addLine(MODELS_HEADER, Color.AMBER);
+        ModelChoice current = scene.currentModel();
+        String currentPath = current == null ? null : current.path;
+        List<ModelChoice> models = scene.availableModels();
+        if (models.isEmpty()) {
+            hyper.addLine("(no models found)", Color.LIGHT_GRAY);
+        }
+        for (ModelChoice choice : models) {
+            boolean isCurrent = currentPath != null && currentPath.equals(choice.path);
+            String marker = isCurrent ? CURRENT_MARKER : OTHER_MARKER;
+            Color color = isCurrent ? Color.BRIGHT_GREEN : Color.COMMAND;
+            hyper.addWordClick(marker + choice.displayName, color,
+                    () -> scene.requestModelLoad(choice.path));
+            hyper.newLine();
+        }
     }
 }
