@@ -14,6 +14,7 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshAppend;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
+import ixdar.geometry.mesh.data.ops.SlotCarry;
 import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 
 import ixdar.geometry.mesh.nodes.modifier.SetBoneWeightNode;
@@ -71,11 +72,14 @@ public class JoinGeometryNode implements MeshNode {
         Number mergeDist = ctx.getInput(MERGE_DISTANCE.name, Number.class);
         float md = mergeDist == null ? 0f : mergeDist.floatValue();
 
-        MeshTopology joined = MeshAppend.join(ma, mb);
+        MeshTopology appended = MeshAppend.join(ma, mb);
+        GeometryBundle result = SlotCarry.join(ga, gb, GeometryBundle.ofMesh(appended));
+        MeshTopology joined = appended;
         if (md > 0f) {
-            joined = MeshMergeByDistance.merge(joined, md);
+            MeshMergeByDistance welder = new MeshMergeByDistance();
+            joined = welder.weld(appended, md);
+            result = SlotCarry.weldCornerUv(result, result.withMesh(joined), welder.sourceFace);
         }
-        GeometryBundle result = GeometryBundle.ofMesh(joined);
 
         int countA = ma.vertexCount();
         int countB = mb.vertexCount();

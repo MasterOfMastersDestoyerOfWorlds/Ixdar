@@ -20,6 +20,7 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshAppend;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
+import ixdar.geometry.mesh.data.ops.SlotCarry;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
 import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
@@ -122,10 +123,11 @@ public class MirrorGeometryNode implements MeshNode {
         MeshAppend.append(combined, mesh, identity);
         MeshAppend.append(combined, mirrored, identity);
 
-        // Weld seam vertices
+        // Weld seam vertices, recording how the faces moved so the corner UVs can follow.
+        MeshMergeByDistance welder = new MeshMergeByDistance();
         MeshTopology result;
         if (md > NUM_0) {
-            result = MeshMergeByDistance.merge(combined, md);
+            result = welder.weld(combined, md);
         } else {
             result = combined;
         }
@@ -148,7 +150,11 @@ public class MirrorGeometryNode implements MeshNode {
             }
         }
 
-        ctx.setOutput(GEOMETRY.name, new GeometryBundle(result, Map.copyOf(nextSlots)));
+        GeometryBundle doubled = SlotCarry.mirror(base, new GeometryBundle(combined, Map.copyOf(nextSlots)));
+        GeometryBundle out = md > NUM_0
+                ? SlotCarry.weldCornerUv(doubled, doubled.withMesh(result), welder.sourceFace)
+                : doubled;
+        ctx.setOutput(GEOMETRY.name, out);
     }
 
     /**

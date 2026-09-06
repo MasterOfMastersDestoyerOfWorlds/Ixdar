@@ -9,8 +9,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.load.MeshLoader;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.platform.json.JsonValue;
 
 /**
@@ -65,8 +65,9 @@ public final class ModelCollection {
     /**
      * Members parsed so far, keyed by mesh path, least recently used first. Bounded by
      * {@link #meshCacheCapacity}, so stepping back and forth costs no parse and no unbounded heap.
+     * Whole bundles, not bare meshes, so a member's UV and material slots survive the cache.
      */
-    public final Map<String, ArrayMesh> parsedMeshes = new LinkedHashMap<>();
+    public final Map<String, GeometryBundle> parsedBundles = new LinkedHashMap<>();
 
     private int index;
 
@@ -210,46 +211,46 @@ public final class ModelCollection {
     }
 
     /**
-     * The parsed mesh for a member path, reading and caching it on a miss.
+     * The parsed bundle for a member path, reading and caching it on a miss.
      *
      * @param memberPath absolute mesh file path of a member
-     * @return the parsed mesh
+     * @return the parsed bundle, carrying whatever slots the file's format supplies
      * @throws IOException if the mesh file cannot be read
      */
-    public ArrayMesh loadMesh(String memberPath) throws IOException {
-        ArrayMesh cached = parsedMeshes.remove(memberPath);
+    public GeometryBundle loadBundle(String memberPath) throws IOException {
+        GeometryBundle cached = parsedBundles.remove(memberPath);
         if (cached != null) {
-            parsedMeshes.put(memberPath, cached);
+            parsedBundles.put(memberPath, cached);
             return cached;
         }
-        ArrayMesh parsed = MeshLoader.load(memberPath);
-        cacheMesh(memberPath, parsed);
+        GeometryBundle parsed = MeshLoader.loadBundle(memberPath);
+        cacheBundle(memberPath, parsed);
         return parsed;
     }
 
     /**
-     * Put a parsed mesh at the head of the cache, evicting least-recently-used entries past
+     * Put a parsed bundle at the head of the cache, evicting least-recently-used entries past
      * {@link #meshCacheCapacity}.
      *
      * @param memberPath absolute mesh file path of a member
-     * @param parsed mesh to cache
+     * @param parsed bundle to cache
      */
-    public void cacheMesh(String memberPath, ArrayMesh parsed) {
-        parsedMeshes.remove(memberPath);
-        parsedMeshes.put(memberPath, parsed);
-        while (parsedMeshes.size() > meshCacheCapacity()) {
-            parsedMeshes.remove(parsedMeshes.keySet().iterator().next());
+    public void cacheBundle(String memberPath, GeometryBundle parsed) {
+        parsedBundles.remove(memberPath);
+        parsedBundles.put(memberPath, parsed);
+        while (parsedBundles.size() > meshCacheCapacity()) {
+            parsedBundles.remove(parsedBundles.keySet().iterator().next());
         }
     }
 
     /**
-     * Whether a member's mesh is already parsed and would come back without touching disk.
+     * Whether a member's bundle is already parsed and would come back without touching disk.
      *
      * @param memberPath absolute mesh file path of a member
-     * @return {@code true} when the mesh is cached
+     * @return {@code true} when the bundle is cached
      */
-    public boolean isMeshCached(String memberPath) {
-        return parsedMeshes.containsKey(memberPath);
+    public boolean isBundleCached(String memberPath) {
+        return parsedBundles.containsKey(memberPath);
     }
 
     /**

@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
 
 // removed duplicate IntBuffer import
 import org.lwjgl.BufferUtils;
-import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
 
 import com.google.gson.Gson;
@@ -60,12 +59,17 @@ import ixdar.platform.concurrent.ThreadWorkerPool;
 import ixdar.platform.concurrent.WorkerPool;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.TextFile;
+import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.gl.Platform;
 
 public class LwjglPlatform implements Platform {
     public static final String STR = "/";
     public static final String SRC = "src/";
+
+    /** Working-directory-relative folder the desktop platform reads texture files from. */
+    public static final String RESOURCE_DIRECTORY = "src/main/resources/res/";
+
     public static final double NUM_1e9 = 1e9;
     public static final int NUM_4 = 4;
     private static final ConcurrentLinkedQueue<Runnable> inputQueue = new ConcurrentLinkedQueue<>();
@@ -192,24 +196,37 @@ public class LwjglPlatform implements Platform {
         return GsonJsonTree.parse(json);
     }
 
-    /** {@inheritDoc}. */
+    /**
+     * Read {@code src/main/resources/res/<resourceName>} from disk and decode it through
+     * {@link #decodeImage}, so the desktop and headless platforms share one stb call site. GL
+     * upload is deferred to {@link Texture#initGL()}.
+     *
+     * @param resourceName texture file under {@code res/}
+     * @param platformId   platform id the created texture binds to
+     * @param callback     receiver of the loaded texture
+     */
     @Override
     public void loadTexture(String resourceName, int platformId, Consumer<Texture> callback) {
-        STBImage.stbi_set_flip_vertically_on_load(true);
-        IntBuffer w = BufferUtils.createIntBuffer(1);
-        IntBuffer h = BufferUtils.createIntBuffer(1);
-        IntBuffer channels = BufferUtils.createIntBuffer(1);
-        File file = new File("src/main/resources/res/" + resourceName);
-        String filePath = file.getAbsolutePath();
-        ByteBuffer image = STBImage.stbi_load(filePath, w, h, channels, NUM_4);
-        if (image == null) {
-            System.out.println("Can't load file " + resourceName + " " + STBImage.stbi_failure_reason());
+        byte[] encoded;
+        try {
+            encoded = Files.readAllBytes(new File(RESOURCE_DIRECTORY + resourceName).toPath());
+        } catch (IOException unreadable) {
+            System.out.println("Can't load file " + resourceName + " " + unreadable.getMessage());
+            return;
         }
-        int width = w.get(0);
-        int height = h.get(0);
-        // Defer GL upload to Texture.initGL()
+        DecodedImage image = decodeImage(encoded);
+        if (image == null) {
+            System.out.println("Can't load file " + resourceName);
+            return;
+        }
         Platforms.init(platformId);
-        callback.accept(new Texture(resourceName, image, width, height));
+        callback.accept(new Texture(resourceName, image));
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public DecodedImage decodeImage(byte[] encoded) {
+        return StbImageDecoder.decode(encoded);
     }
 
     /** {@inheritDoc}. */

@@ -65,6 +65,16 @@ public final class Platforms {
     }
 
     /**
+     * Whether a platform adapter is registered, so callers that can degrade gracefully (mesh
+     * loading outside a window, for one) can ask instead of catching {@link #get()}'s failure.
+     *
+     * @return true once {@link #init(Platform, GL)} has run
+     */
+    public static boolean isInitialized() {
+        return instance != null;
+    }
+
+    /**
      * Logs one message through the active platform adapter, or standard out before
      * any platform is initialized (headless tests, early boot).
      *

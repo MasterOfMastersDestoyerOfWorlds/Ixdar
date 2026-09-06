@@ -190,6 +190,9 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                     meshScene.getMeshEulerCharacteristic());
             mesh.addProperty("closed", meshScene.isMeshClosed());
             mesh.addProperty("radius", meshScene.getMeshRadius());
+            mesh.addProperty("shaderMode", meshScene.getShaderModeName());
+            mesh.addProperty("texturedDraw", meshScene.hasTexturedDraw());
+            mesh.addProperty("slots", meshScene.bundleSlotNames());
             mesh.add("center", runtime.vector3Array(meshScene.getMeshCenter()));
             mesh.add(
                     "boundingBoxMin",

@@ -13,6 +13,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
+import ixdar.geometry.mesh.data.ops.SlotCarry;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
 import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
@@ -54,8 +55,9 @@ public class MergeByDistanceNode implements MeshNode {
         Object d = FieldBroadcast.getInputOrDefault(ctx, DISTANCE.name, DISTANCE.defaultValue);
         float dist = FieldBroadcast.floatScalarOrDefault(d, NUM_0_001);
         MeshTopology inMesh = base.mesh();
-        var outMesh = MeshMergeByDistance.merge(inMesh, dist);
-        GeometryBundle out = base.withMesh(outMesh);
+        MeshMergeByDistance welder = new MeshMergeByDistance();
+        var outMesh = welder.weld(inMesh, dist);
+        GeometryBundle out = SlotCarry.weld(base, base.withMesh(outMesh), welder);
 
         // If the input carried bezier handle slots, those arrays are indexed by
         // input edge IDs — welding invalidates them. Rebuild by mapping each

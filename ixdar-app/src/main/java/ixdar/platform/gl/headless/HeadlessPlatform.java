@@ -22,7 +22,6 @@ import java.util.stream.Collectors;
 import javax.imageio.ImageIO;
 
 import org.lwjgl.BufferUtils;
-import org.lwjgl.stb.STBImage;
 
 import com.google.gson.Gson;
 
@@ -44,8 +43,10 @@ import ixdar.platform.concurrent.ThreadWorkerPool;
 import ixdar.platform.concurrent.WorkerPool;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.TextFile;
+import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.gl.Platform;
+import ixdar.platform.gl.lwjgl.StbImageDecoder;
 
 /**
  * Headless platform for offscreen rendering using LWJGL GLFW. Creates an
@@ -203,19 +204,19 @@ public class HeadlessPlatform implements Platform {
             System.out.println("Can't load file " + resourceName + " " + ex.getMessage());
             return;
         }
-        ByteBuffer encodedBuffer = BufferUtils.createByteBuffer(encoded.length);
-        encodedBuffer.put(encoded).flip();
-        STBImage.stbi_set_flip_vertically_on_load(true);
-        IntBuffer width = BufferUtils.createIntBuffer(1);
-        IntBuffer height = BufferUtils.createIntBuffer(1);
-        IntBuffer channels = BufferUtils.createIntBuffer(1);
-        ByteBuffer image = STBImage.stbi_load_from_memory(encodedBuffer, width, height, channels, NUM_4);
+        DecodedImage image = decodeImage(encoded);
         if (image == null) {
-            System.out.println("Can't load file " + resourceName + " " + STBImage.stbi_failure_reason());
+            System.out.println("Can't load file " + resourceName);
             return;
         }
         Platforms.init(platformId);
-        callback.accept(new Texture(resourceName, image, width.get(0), height.get(0)));
+        callback.accept(new Texture(resourceName, image));
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public DecodedImage decodeImage(byte[] encoded) {
+        return StbImageDecoder.decode(encoded);
     }
 
     /** {@inheritDoc}. */

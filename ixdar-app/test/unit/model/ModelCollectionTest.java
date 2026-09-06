@@ -16,6 +16,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.platform.Platforms;
 import ixdar.platform.json.JsonValue;
@@ -164,7 +165,7 @@ class ModelCollectionTest {
     }
 
     @Test
-    void theParsedMeshCacheIsBoundedAndEvictsLeastRecentlyUsed(@TempDir Path directory)
+    void theParsedBundleCacheIsBoundedAndEvictsLeastRecentlyUsed(@TempDir Path directory)
             throws IOException {
         for (String stem : new String[] {"alpha", "bravo", "charlie", "delta", "echo", "foxtrot"}) {
             writeMember(directory, stem);
@@ -174,18 +175,18 @@ class ModelCollectionTest {
                 "a collection larger than the bound caches only the bound");
 
         for (String path : collection.memberPaths) {
-            collection.cacheMesh(path, triangle());
+            collection.cacheBundle(path, triangle());
         }
-        assertEquals(ModelCollection.MAX_CACHED_MEMBERS, collection.parsedMeshes.size(),
+        assertEquals(ModelCollection.MAX_CACHED_MEMBERS, collection.parsedBundles.size(),
                 "the cache never grows past the bound");
-        assertFalse(collection.isMeshCached(collection.memberPaths[0]),
+        assertFalse(collection.isBundleCached(collection.memberPaths[0]),
                 "the oldest member was evicted");
-        assertTrue(collection.isMeshCached(collection.memberPaths[5]),
+        assertTrue(collection.isBundleCached(collection.memberPaths[5]),
                 "the newest member is cached");
 
-        collection.cacheMesh(collection.memberPaths[2], triangle());
-        collection.cacheMesh(collection.memberPaths[1], triangle());
-        assertTrue(collection.isMeshCached(collection.memberPaths[2]),
+        collection.cacheBundle(collection.memberPaths[2], triangle());
+        collection.cacheBundle(collection.memberPaths[1], triangle());
+        assertTrue(collection.isBundleCached(collection.memberPaths[2]),
                 "re-caching a member moves it back to the head instead of evicting it");
     }
 
@@ -197,9 +198,9 @@ class ModelCollectionTest {
 
         assertEquals(2, collection.meshCacheCapacity(), "the bound is the member count when smaller");
         for (String path : collection.memberPaths) {
-            collection.cacheMesh(path, triangle());
+            collection.cacheBundle(path, triangle());
         }
-        assertEquals(2, collection.parsedMeshes.size(), "both members stay cached");
+        assertEquals(2, collection.parsedBundles.size(), "both members stay cached");
     }
 
     @Test
@@ -218,11 +219,11 @@ class ModelCollectionTest {
      *
      * @return a fresh triangle
      */
-    private static ArrayMesh triangle() {
-        return new ArrayMesh(
+    private static GeometryBundle triangle() {
+        return GeometryBundle.ofMesh(new ArrayMesh(
                 new float[] {0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f},
                 new float[] {0f, 0f, 1f, 0f, 0f, 1f, 0f, 0f, 1f},
-                new int[] {0, 1, 2}, 3);
+                new int[] {0, 1, 2}, 3));
     }
 
     /**

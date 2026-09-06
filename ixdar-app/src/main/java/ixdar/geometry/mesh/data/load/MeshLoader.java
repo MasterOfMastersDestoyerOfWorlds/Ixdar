@@ -9,6 +9,7 @@ import java.util.List;
 
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.CornerUvField;
+import ixdar.geometry.mesh.data.MaterialData;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
@@ -60,12 +61,17 @@ public final class MeshLoader {
      * @return ArrayMesh containing the loaded geometry
      */
     public static ArrayMesh load(String path) throws IOException {
+        String lower = path == null ? "" : path.toLowerCase();
+        if (isGltf(lower)) {
+            return (ArrayMesh) loadGltfGeometry(resolve(path)).mesh();
+        }
         return (ArrayMesh) loadBundle(path).mesh();
     }
 
     /**
      * Load a mesh file together with the attributes the format carries: glTF texture coordinates
-     * ride {@link CornerUvField#SLOT} per face corner; the text formats contribute no slots.
+     * ride {@link CornerUvField#SLOT} per face corner and the PBR material rides
+     * {@link MaterialData#SLOT}; the text formats contribute no slots.
      *
      * @param path File path, absolute or relative to either the working directory or
      *             {@link #MODULE_DIRECTORY}
@@ -84,10 +90,7 @@ public final class MeshLoader {
                             + " are supported");
         }
         String lower = path.toLowerCase();
-        Path file = Paths.get(path);
-        if (!Files.exists(file) && Files.exists(Paths.get(MODULE_DIRECTORY, path))) {
-            file = Paths.get(MODULE_DIRECTORY, path);
-        }
+        Path file = resolve(path);
         if (isGltf(lower)) {
             return loadGltf(file);
         }
@@ -98,6 +101,21 @@ public final class MeshLoader {
             return GeometryBundle.ofMesh(PlyMeshParser.load(content));
         }
         return GeometryBundle.ofMesh(OffMeshParser.load(content));
+    }
+
+    /**
+     * Resolve a path against the working directory, retrying under {@link #MODULE_DIRECTORY} so a
+     * launcher started at the repository root still finds a scene's relative default.
+     *
+     * @param path file name or path as the caller wrote it
+     * @return the path that exists, or the working-directory one when neither does
+     */
+    public static Path resolve(String path) {
+        Path file = Paths.get(path);
+        if (!Files.exists(file) && Files.exists(Paths.get(MODULE_DIRECTORY, path))) {
+            return Paths.get(MODULE_DIRECTORY, path);
+        }
+        return file;
     }
 
     /**
@@ -127,14 +145,29 @@ public final class MeshLoader {
     }
 
     /**
-     * Read a glTF container through {@link GltfMeshParser}. The parser is plain Java over the
-     * platform's JSON reader, so this path works in the browser build too.
+     * Read a glTF container through {@link GltfMeshParser}, adding the material slot. The parser is
+     * plain Java over the platform's JSON reader, so this path works in the browser build too.
      *
      * @param file resolved path of the glTF file
      * @throws IOException if the file is missing or the parser rejects it
-     * @return the parser's bundle
+     * @return the parsed bundle carrying the file's UV and material slots
      */
     private static GeometryBundle loadGltf(Path file) throws IOException {
+        if (!Files.exists(file)) {
+            throw new IOException("No such glTF file: " + file);
+        }
+        return GltfMaterialReader.loadBundle(file.toString());
+    }
+
+    /**
+     * Read a glTF container's geometry alone, leaving its images unread. {@link #load} takes this
+     * path so a scan's textures are not decoded for a caller that only wants the mesh.
+     *
+     * @param file resolved path of the glTF file
+     * @throws IOException if the file is missing or the parser rejects it
+     * @return the parser's geometry-only bundle
+     */
+    private static GeometryBundle loadGltfGeometry(Path file) throws IOException {
         if (!Files.exists(file)) {
             throw new IOException("No such glTF file: " + file);
         }

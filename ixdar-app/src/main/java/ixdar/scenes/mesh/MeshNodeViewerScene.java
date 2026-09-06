@@ -16,6 +16,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.joml.Vector4f;
 
 import ixdar.geometry.mesh.data.EdgeKey;
@@ -50,6 +51,8 @@ import ixdar.scenes.model.ModelScene;
 @SceneAnnotation(id = "mesh-viewer")
 public class MeshNodeViewerScene extends ModelScene {
     public static final String PATCHES = "  patches=";
+    public static final String ON = "ON";
+    public static final String OFF = "OFF";
     public static final String DSL = ".dsl";
     public static final String STR = ": ";
     public static final String FAILED_TO_CREATE_MESH_GL_RUNTIME = "Failed to create mesh GL runtime";
@@ -94,6 +97,7 @@ public class MeshNodeViewerScene extends ModelScene {
     private final String objResource;
 
     private MeshTopology mesh;
+    private GeometryBundle meshBundle;
     private volatile HalfEdgeMeshRuntime meshRuntime;
     private HalfEdgeMeshRuntime overlayRuntime;
     private NodeGraphRuntime lastGraphRuntime;
@@ -151,7 +155,10 @@ public class MeshNodeViewerScene extends ModelScene {
     private void logState() {
         StringBuilder sb = new StringBuilder("[mesh-viewer] STATE ");
         sb.append("model=").append(currentModelDisplayName);
-        sb.append(PATCHES).append(patchOverlayEnabled ? "ON" : "OFF");
+        sb.append(PATCHES).append(patchOverlayEnabled ? ON : OFF);
+        sb.append("  shader=").append(shaderMode.name());
+        sb.append("  texture=").append(hasTexturedDraw() ? ON : OFF);
+        sb.append("  slots=").append(bundleSlotNames());
         if (patchOverlayEnabled) {
             sb.append("  mode=").append(shaderMode.name());
             sb.append("  decomposer=").append(activeDecomposer.name());
@@ -848,6 +855,7 @@ public class MeshNodeViewerScene extends ModelScene {
         try {
             String dslCode = new String(Files.readAllBytes(Path.of(absolutePath)));
             disposeMeshRuntime();
+            meshBundle = null;
             NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(dslCode);
             List<PythonParser.ParsedNode> ast = runtime.statements;
             lastGraphRuntime = runtime;
@@ -867,25 +875,68 @@ public class MeshNodeViewerScene extends ModelScene {
         }
     }
 
+    /**
+     * Load a mesh file with the attributes its format carries (glTF texture coordinates and
+     * material), upload the whole bundle, and switch to {@link HalfEdgeMeshRuntime.ShaderMode#TEXTURED}
+     * when a base-colour texture came with it.
+     *
+     * @param absolutePath resolved path of the mesh file
+     */
     private void loadMeshFileFromAbsolutePath(String absolutePath) {
         try {
-            boolean cached = modelCollection != null && modelCollection.isMeshCached(absolutePath);
-            ArrayMesh arrayMesh = modelCollection == null
-                    ? MeshLoader.load(absolutePath)
-                    : modelCollection.loadMesh(absolutePath);
+            boolean cached = modelCollection != null && modelCollection.isBundleCached(absolutePath);
+            GeometryBundle bundle = modelCollection == null
+                    ? MeshLoader.loadBundle(absolutePath)
+                    : modelCollection.loadBundle(absolutePath);
             disposeMeshRuntime();
-            mesh = arrayMesh;
+            meshBundle = bundle;
+            mesh = bundle.mesh();
             meshRuntime = new HalfEdgeMeshRuntime();
-            meshRuntime.upload(arrayMesh);
+            meshRuntime.uploadBundle(bundle);
+            if (meshRuntime.hasTexturedDraw()) {
+                shaderMode = HalfEdgeMeshRuntime.ShaderMode.TEXTURED;
+            }
+            meshRuntime.setShaderMode(shaderMode);
             meshRuntime.frameCamera(camera);
-            noteMemberLoaded(absolutePath, arrayMesh.vertexCount(), arrayMesh.faceCount());
+            noteMemberLoaded(absolutePath, mesh.vertexCount(), mesh.faceCount());
             Platforms.get().log("[mesh-viewer] mesh loaded: " + absolutePath
-                    + VERTS + arrayMesh.vertexCount() + FACES + arrayMesh.faceCount()
+                    + VERTS + mesh.vertexCount() + FACES + mesh.faceCount()
+                    + "  slots=" + bundleSlotNames()
                     + (cached ? " (cached)" : ""));
-            frameMesh(arrayMesh);
+            frameMesh(mesh);
         } catch (Exception e) {
             Platforms.get().log("[mesh-viewer] mesh load failed for " + absolutePath + STR + e.getMessage());
         }
+    }
+
+    /**
+     * Slot names on the loaded bundle, sorted so the automation snapshot is byte-stable.
+     *
+     * @return comma-separated slot names, empty when no bundle is loaded or it has no slots
+     */
+    public String bundleSlotNames() {
+        if (meshBundle == null) {
+            return "";
+        }
+        return meshBundle.slots().keySet().stream().sorted().collect(Collectors.joining(","));
+    }
+
+    /**
+     * Name of the active shading mode, for the automation state snapshot.
+     *
+     * @return the {@link HalfEdgeMeshRuntime.ShaderMode} the viewer is drawing with
+     */
+    public String getShaderModeName() {
+        return shaderMode.name();
+    }
+
+    /**
+     * Whether the runtime can draw the mesh textured: a material and a UV field both uploaded.
+     *
+     * @return true once TEXTURED mode would sample the file's own texture
+     */
+    public boolean hasTexturedDraw() {
+        return meshRuntime != null && meshRuntime.hasTexturedDraw();
     }
 
     /**

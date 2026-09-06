@@ -1,6 +1,5 @@
 package ixdar.graphics.render.model;
 
-import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 
 import org.joml.Matrix4f;
@@ -14,6 +13,7 @@ import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.graphics.render.shaders.VertexArrayObject;
 import ixdar.graphics.render.shaders.VertexBufferObject;
 import ixdar.platform.Platforms;
+import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.file.FileManagement;
 
 public class AssimpModelRuntime implements ModelRuntime {
@@ -177,19 +177,19 @@ public class AssimpModelRuntime implements ModelRuntime {
     }
 
     private Texture createCheckerTexture(int width, int height, int cellSize) {
-        ByteBuffer buf = ByteBuffer.allocateDirect(width * height * NUM_4);
+        byte[] rgba = new byte[width * height * NUM_4];
+        int cursor = 0;
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 boolean dark = (((x / cellSize) + (y / cellSize)) & 1) == 0;
-                int c = dark ? NUM_35 : NUM_220;
-                buf.put((byte) c);
-                buf.put((byte) c);
-                buf.put((byte) c);
-                buf.put((byte) NUM_255);
+                byte c = (byte) (dark ? NUM_35 : NUM_220);
+                rgba[cursor++] = c;
+                rgba[cursor++] = c;
+                rgba[cursor++] = c;
+                rgba[cursor++] = (byte) NUM_255;
             }
         }
-        buf.flip();
-        Texture t = new Texture("generated-checker", buf, width, height);
+        Texture t = new Texture("generated-checker", new DecodedImage(rgba, width, height));
         t.initGL();
         return t;
     }

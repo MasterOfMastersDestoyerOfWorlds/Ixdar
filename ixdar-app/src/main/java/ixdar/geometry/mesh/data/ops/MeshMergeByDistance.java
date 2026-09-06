@@ -16,7 +16,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
  * Welds vertices within {@code distance} (same cluster). {@link ArrayMesh} inputs use a dense path;
- * other topologies still emit {@link HalfEdgeMesh}.
+ * other topologies still emit {@link HalfEdgeMesh}. An instance also records how the weld moved
+ * elements, so per-vertex and per-face attributes can follow it.
  */
 public final class MeshMergeByDistance {
     public static final int NUM_4 = 4;
@@ -31,7 +32,48 @@ public final class MeshMergeByDistance {
     public static final int NUM_21 = 21;
     public static final int NUM_42 = 42;
 
-    private MeshMergeByDistance() {
+    /**
+     * Output vertex each input vertex ended up in, indexed by the input's dense vertex index.
+     * Filled by every {@link #weld} call; empty before the first.
+     */
+    public int[] weldedVertex = new int[0];
+
+    /**
+     * Input face each surviving output face came from, indexed by output face. Shorter than the
+     * input's face count when the weld dropped degenerate faces.
+     */
+    public int[] sourceFace = new int[0];
+
+    /**
+     * Build a recording welder; {@link #weld} fills its maps.
+     */
+    public MeshMergeByDistance() {
+    }
+
+    /**
+     * Weld vertices that lie within {@code distance} of one another, recording {@link #weldedVertex}
+     * and {@link #sourceFace} so the caller can carry attributes across.
+     *
+     * @param mesh source mesh; treated read-only
+     * @param distance maximum Euclidean distance for two vertices to merge; values &lt;= 0 keep every
+     *     vertex but still fill the maps
+     * @return welded mesh — an {@link ArrayMesh} when the input is one, otherwise a {@link HalfEdgeMesh}
+     */
+    public MeshTopology weld(MeshTopology mesh, float distance) {
+        if (mesh == null || mesh.vertexCount() == 0) {
+            weldedVertex = new int[0];
+            sourceFace = new int[0];
+            return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
+        }
+        weldedVertex = new int[mesh.vertexCount()];
+        sourceFace = new int[mesh.faceCount()];
+        for (int index = 0; index < weldedVertex.length; index++) {
+            weldedVertex[index] = index;
+        }
+        for (int face = 0; face < sourceFace.length; face++) {
+            sourceFace[face] = face;
+        }
+        return merge(mesh, distance, this);
     }
 
     /**
@@ -43,6 +85,18 @@ public final class MeshMergeByDistance {
      * @return welded mesh — an {@link ArrayMesh} when the input is one, otherwise a {@link HalfEdgeMesh}
      */
     public static MeshTopology merge(MeshTopology mesh, float distance) {
+        return merge(mesh, distance, null);
+    }
+
+    /**
+     * The body of {@link #merge}, optionally recording the element maps into {@code record}.
+     *
+     * @param mesh source mesh; treated read-only
+     * @param distance maximum Euclidean distance for two vertices to merge
+     * @param record instance whose maps to fill, or null to weld without recording
+     * @return welded mesh
+     */
+    private static MeshTopology merge(MeshTopology mesh, float distance, MeshMergeByDistance record) {
         if (mesh == null || mesh.vertexCount() == 0) {
             return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
         }
@@ -50,7 +104,7 @@ public final class MeshMergeByDistance {
             return MeshVertexOffset.apply(mesh, new Vector3Value(NUM_0, NUM_0, NUM_0));
         }
         if (mesh instanceof ArrayMesh am) {
-            return mergeToArrayMesh(am, distance);
+            return mergeToArrayMesh(am, distance, record);
         }
 
         int n = mesh.vertexCount();
@@ -125,8 +179,12 @@ public final class MeshMergeByDistance {
             int vid = mesh.vertexIdAt(i);
             int r = rootOf[i];
             meshVidToOutVid.put(vid, outVidByRoot.get(r));
+            if (record != null) {
+                record.weldedVertex[i] = outVidByRoot.get(r);
+            }
         }
 
+        int keptFaces = 0;
         for (int fi = 0; fi < mesh.faceCount(); fi++) {
             int fid = mesh.faceIdAt(fi);
             int fc = mesh.faceVertexCount(fid);
@@ -146,7 +204,14 @@ public final class MeshMergeByDistance {
             }
             if (!dup) {
                 out.addFace(nv);
+                if (record != null) {
+                    record.sourceFace[keptFaces] = fi;
+                }
+                keptFaces++;
             }
+        }
+        if (record != null) {
+            record.sourceFace = Arrays.copyOf(record.sourceFace, keptFaces);
         }
         out.computeNormals();
         return out;
@@ -162,6 +227,21 @@ public final class MeshMergeByDistance {
      * @return welded {@link ArrayMesh} with averaged positions and deduplicated faces
      */
     public static ArrayMesh mergeToArrayMesh(MeshTopology mesh, float distance) {
+        return mergeToArrayMesh(mesh, distance, null);
+    }
+
+    /**
+     * The body of {@link #mergeToArrayMesh}, optionally recording the element maps into
+     * {@code record}.
+     *
+     * @param mesh source mesh; faces must all share a common vertex count
+     * @param distance maximum Euclidean distance for two vertices to merge
+     * @param record instance whose maps to fill, or null to weld without recording
+     * @throws IllegalArgumentException if {@code mesh} contains faces of differing sizes
+     * @return welded {@link ArrayMesh}
+     */
+    private static ArrayMesh mergeToArrayMesh(MeshTopology mesh, float distance,
+            MeshMergeByDistance record) {
         if (mesh == null || mesh.vertexCount() == 0) {
             return ArrayMeshEngine.emptyQuads();
         }
@@ -291,6 +371,9 @@ public final class MeshMergeByDistance {
             sumY[o] += vy[i];
             sumZ[o] += vz[i];
             count[o]++;
+            if (record != null) {
+                record.weldedVertex[i] = o;
+            }
         }
 
         float[] positions = new float[outV * NUM_3];
@@ -332,8 +415,14 @@ public final class MeshMergeByDistance {
             }
             if (!dup) {
                 System.arraycopy(nv, 0, faceIdx, outF * vpf, vpf);
+                if (record != null) {
+                    record.sourceFace[outF] = fi;
+                }
                 outF++;
             }
+        }
+        if (record != null) {
+            record.sourceFace = Arrays.copyOf(record.sourceFace, outF);
         }
         ArrayMesh out = new ArrayMesh(positions, null, Arrays.copyOf(faceIdx, outF * vpf), vpf);
         out.computeNormals();

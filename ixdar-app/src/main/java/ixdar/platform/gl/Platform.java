@@ -138,6 +138,15 @@ public interface Platform {
     void loadTexture(String resourceName, int platformId, Consumer<Texture> callback);
 
     /**
+     * Decode already-in-memory image bytes (PNG, JPEG) to RGBA8, flipped to the OpenGL bottom-left
+     * origin. Desktop decodes with stb; the browser has no synchronous decoder and returns null.
+     *
+     * @param encoded compressed image bytes, e.g. a glTF embedded texture
+     * @return decoded pixels, or {@code null} when the platform cannot decode them
+     */
+    DecodedImage decodeImage(byte[] encoded);
+
+    /**
      * Asynchronously load a text resource (e.g. shader, JSON).
      *
      * @param resourceFolder folder under {@code res/} (or web root)

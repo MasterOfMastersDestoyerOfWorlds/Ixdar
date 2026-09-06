@@ -13,16 +13,22 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
 
+import ixdar.geometry.mesh.data.CornerUvField;
+import ixdar.geometry.mesh.data.CornerUvSplit;
 import ixdar.geometry.mesh.data.EdgeKey;
+import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.MaterialData;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.graphics.cameras.Camera3D;
+import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.graphics.render.shaders.VertexArrayObject;
 import ixdar.graphics.render.shaders.VertexBufferObject;
 import ixdar.platform.Platforms;
+import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.gl.GL;
 
 public class HalfEdgeMeshRuntime {
@@ -57,7 +63,11 @@ public class HalfEdgeMeshRuntime {
     public static final int NUM_0xf = 0xff;
     public static final float NUM_255 = 255f;
     public static final int NUM_8 = 8;
+    public static final int NUM_7 = 7;
     public static final int NUM_3 = 3;
+
+    /** Descriptive name the base-color {@link Texture} carries; nothing looks it up. */
+    public static final String BASE_COLOR_TEXTURE_NAME = "mesh_base_color";
     public static final float NUM_0_0003 = 0.0003f;
     public static final float NUM_2_0_2 = 2.0f;
     public static final double NUM_0_6180339887498949 = 0.6180339887498949;
@@ -108,6 +118,11 @@ public class HalfEdgeMeshRuntime {
     private final Map<String, Vector4f> tagColorOverrides = new HashMap<>();
     private List<TagRange> tagRanges = List.of();
     private ShaderMode shaderMode = ShaderMode.LAMBERT;
+    private Texture baseColorTexture;
+    private final VertexArrayObject texturedVao;
+    private final VertexBufferObject texturedVbo;
+    private int texturedEbo;
+    private int texturedIndexCount;
 
     /**
      * Build the runtime: allocate the three mesh shader programs (lit,
@@ -128,6 +143,9 @@ public class HalfEdgeMeshRuntime {
         this.edgeEbo = Platforms.gl().genBuffers();
         this.featureEdgeEbo = Platforms.gl().genBuffers();
         this.scalarVbo = Platforms.gl().genBuffers();
+        this.texturedVao = new VertexArrayObject();
+        this.texturedVbo = new VertexBufferObject();
+        this.texturedEbo = Platforms.gl().genBuffers();
     }
 
     /**
@@ -138,6 +156,7 @@ public class HalfEdgeMeshRuntime {
      * @param mesh source mesh, or {@code null} to clear
      */
     public void upload(MeshTopology mesh) {
+        clearTexturedDraw();
         if (mesh == null) {
             compiledMesh = null;
             edgeCount = 0;
@@ -153,12 +172,136 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
+     * Upload a whole bundle: the mesh as {@link #upload(MeshTopology)} does, plus a second set of
+     * buffers for the textured draw and the base-color texture, when the bundle carries both. An
+     * absent slot leaves {@link ShaderMode#TEXTURED} in its solid-colour fallback.
+     *
+     * @param bundle source bundle, or {@code null} to clear
+     */
+    public void uploadBundle(GeometryBundle bundle) {
+        clearTexturedDraw();
+        if (bundle == null) {
+            upload(null);
+            return;
+        }
+        compiledMesh = compileSurface(bundle.mesh());
+        tagRanges = List.of();
+        scalarUploaded = false;
+        uploadCompiledMesh(Platforms.gl().STATIC_DRAW());
+        uploadEdgeData(bundle.mesh());
+        uploadBaseColorTexture(MaterialData.of(bundle));
+        uploadTexturedGeometry(bundle);
+    }
+
+    /**
+     * Build the textured draw's own vertex buffers. UVs are per corner, so {@link CornerUvSplit}
+     * gives every distinct corner UV its own GPU vertex, uploaded beside the welded buffers the
+     * other modes keep drawing from.
+     *
+     * @param bundle source bundle, whose mesh must be a triangle {@link ArrayMesh} to be split
+     */
+    private void uploadTexturedGeometry(GeometryBundle bundle) {
+        if (!(bundle.mesh() instanceof ArrayMesh mesh)
+                || mesh.getVertsPerFace() != CornerUvField.CORNERS_PER_FACE
+                || !(bundle.slots().get(CornerUvField.SLOT) instanceof CornerUvField uv)
+                || uv.faceCount() != mesh.faceCount()) {
+            return;
+        }
+        float[] splitUv = new float[CornerUvSplit.maxSplitUvLength(mesh)];
+        ArrayMesh split = CornerUvSplit.split(mesh, uv, splitUv);
+        float[] positions = split.copyPositions();
+        float[] normals = split.copyNormals();
+        int[] indices = split.copyFaceIndices();
+        float[] interleaved = new float[split.vertexCount() * NUM_8];
+        for (int vertex = 0; vertex < split.vertexCount(); vertex++) {
+            int target = vertex * NUM_8;
+            int source = vertex * NUM_3;
+            interleaved[target] = positions[source];
+            interleaved[target + 1] = positions[source + 1];
+            interleaved[target + 2] = positions[source + 2];
+            interleaved[target + NUM_3] = normals[source];
+            interleaved[target + NUM_3 + 1] = normals[source + 1];
+            interleaved[target + NUM_3 + 2] = normals[source + 2];
+            interleaved[target + NUM_6_2] = splitUv[vertex * CornerUvSplit.COMPONENTS_PER_VERTEX];
+            interleaved[target + NUM_7] = splitUv[vertex * CornerUvSplit.COMPONENTS_PER_VERTEX + 1];
+        }
+
+        GL gl = Platforms.gl();
+        texturedVao.bind();
+        texturedVbo.bind(gl.ARRAY_BUFFER());
+        texturedVbo.uploadData(gl.ARRAY_BUFFER(), interleaved, gl.STATIC_DRAW());
+        gl.vertexAttribPointer(0, NUM_3, gl.FLOAT(), false, NUM_8 * Float.BYTES, 0);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(1, NUM_3, gl.FLOAT(), false, NUM_8 * Float.BYTES, NUM_3 * Float.BYTES);
+        gl.enableVertexAttribArray(1);
+        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, NUM_8 * Float.BYTES, NUM_6_2 * Float.BYTES);
+        gl.enableVertexAttribArray(2);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), texturedEbo);
+        IntBuffer uploadBuffer = BufferUtils.createIntBuffer(indices.length);
+        uploadBuffer.put(indices).flip();
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), uploadBuffer, gl.STATIC_DRAW());
+        texturedIndexCount = indices.length;
+        meshVao.bind();
+    }
+
+    /**
+     * Upload the material's base-color image as the texture {@link ShaderMode#TEXTURED} samples.
+     *
+     * @param material bundle material, or {@code null} when the bundle carries none
+     */
+    private void uploadBaseColorTexture(MaterialData material) {
+        if (material == null || !material.hasBaseColorTexture()) {
+            return;
+        }
+        Texture texture = new Texture(BASE_COLOR_TEXTURE_NAME, new DecodedImage(
+                material.baseColorRgba, material.baseColorWidth, material.baseColorHeight));
+        texture.initGL();
+        if (!texture.initialized) {
+            Platforms.log("[mesh] base-colour texture upload failed");
+            return;
+        }
+        baseColorTexture = texture;
+    }
+
+    /** Release the base-color texture and the split geometry the textured draw uses. */
+    public void clearTexturedDraw() {
+        if (baseColorTexture != null) {
+            baseColorTexture.delete();
+            baseColorTexture = null;
+        }
+        texturedIndexCount = 0;
+    }
+
+    /**
+     * Whether a draw in {@code mode} samples the base-color texture. The one place the TEXTURED
+     * fallback is decided, so it can be checked without a GPU.
+     *
+     * @param mode requested shading mode
+     * @param texturedDrawReady whether both the texture and the split geometry are resident
+     * @return true only for {@link ShaderMode#TEXTURED} with something to sample
+     */
+    public static boolean samplesTexture(ShaderMode mode, boolean texturedDrawReady) {
+        return mode == ShaderMode.TEXTURED && texturedDrawReady;
+    }
+
+    /**
+     * Whether the textured draw is ready: a base-color texture and the UV-split geometry both
+     * uploaded.
+     *
+     * @return true once {@link #uploadBundle(GeometryBundle)} found a material and a UV field
+     */
+    public boolean hasTexturedDraw() {
+        return baseColorTexture != null && texturedIndexCount > 0;
+    }
+
+    /**
      * Like {@link #upload(MeshTopology)} but flagged as dynamic GPU usage,
      * for meshes whose geometry changes frame-to-frame.
      *
      * @param mesh source mesh, or {@code null} to clear
      */
     public void reupload(MeshTopology mesh) {
+        clearTexturedDraw();
         if (mesh == null) {
             compiledMesh = null;
             edgeCount = 0;
@@ -290,7 +433,9 @@ public class HalfEdgeMeshRuntime {
         // overlay pass in renderFeatureEdgeOverlay sets a positive bias.
         active.setFloat(DEPTHBIAS, NUM_0);
 
-        if (shaderMode == ShaderMode.LAMBERT || shaderMode == ShaderMode.STAGES) {
+        boolean sampleTexture = samplesTexture(shaderMode, hasTexturedDraw());
+        if (shaderMode == ShaderMode.LAMBERT || shaderMode == ShaderMode.STAGES
+                || shaderMode == ShaderMode.TEXTURED) {
             // Light follows camera so visible faces are always lit.
             // lightDir convention: points INTO scene (shader uses -lightDir for surface→light)
             float dx = camera.target.x - camera.position.x;
@@ -301,10 +446,29 @@ public class HalfEdgeMeshRuntime {
                 lightDir.set(dx / len, dy / len, dz / len);
             }
             active.setVec3("lightDir", lightDir);
-            active.setBool("useTexture", false);
+            active.setBool("useTexture", sampleTexture);
             active.setVec3("emissiveColor", emissiveColor);
             active.setFloat("emissiveStrength", NUM_0_08);
             active.setFloat("rimStrength", NUM_0_16);
+        }
+        if (sampleTexture) {
+            active.setTexture("albedoTex", baseColorTexture, Platforms.gl().TEXTURE0(), 0);
+        }
+
+        if (sampleTexture) {
+            // The textured draw has its own UV-split vertices, so it ignores the welded mesh's tag
+            // ranges: the texture is what colours the surface.
+            texturedVao.bind();
+            Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), texturedEbo);
+            Platforms.gl().drawElements(
+                    Platforms.gl().TRIANGLES(),
+                    texturedIndexCount,
+                    Platforms.gl().UNSIGNED_INT(),
+                    0);
+            if (wireframe) {
+                renderEdges(camera);
+            }
+            return;
         }
 
         meshVao.bind();
@@ -361,6 +525,13 @@ public class HalfEdgeMeshRuntime {
             Platforms.gl().deleteBuffers(scalarVbo);
             scalarVbo = 0;
         }
+        clearTexturedDraw();
+        if (texturedEbo != 0) {
+            Platforms.gl().deleteBuffers(texturedEbo);
+            texturedEbo = 0;
+        }
+        texturedVbo.delete();
+        texturedVao.delete();
         meshVbo.delete();
         meshVao.delete();
     }
@@ -943,14 +1114,15 @@ public class HalfEdgeMeshRuntime {
      * Shading mode for the main mesh draw.
      * <ul>
      *   <li>{@link #LAMBERT} — default lit look.</li>
-     *   <li>{@link #FLAT} — unlit, each fragment writing its tag's exact color.</li>
-     *   <li>{@link #STAGES} — LAMBERT plus the feature-edge overlay.</li>
-     *   <li>{@link #CREST_VS_BOUNDARY} — FLAT plus boundaries against crests.</li>
+     *   <li>{@link #FLAT} — unlit, each tag's exact color.</li>
+     *   <li>{@link #STAGES} — LAMBERT plus feature edges.</li>
+     *   <li>{@link #CREST_VS_BOUNDARY} — FLAT plus boundaries.</li>
      *   <li>{@link #SCALAR} — ramp over {@link #setPerVertexScalar(float[])}.</li>
-     *   <li>{@link #MSC} — Morse-Smale arcs; critical points stay CPU-only.</li>
+     *   <li>{@link #MSC} — Morse-Smale arcs.</li>
+     *   <li>{@link #TEXTURED} — LAMBERT sampling the base-color texture.</li>
      * </ul>
      */
-    public enum ShaderMode { LAMBERT, FLAT, STAGES, CREST_VS_BOUNDARY, SCALAR, MSC }
+    public enum ShaderMode { LAMBERT, FLAT, STAGES, CREST_VS_BOUNDARY, SCALAR, MSC, TEXTURED }
 
     /**
      * A contiguous range inside the current EBO that all belongs to one tag.

@@ -30,6 +30,7 @@ import ixdar.platform.Platforms;
 import ixdar.platform.concurrent.InlineWorkerPool;
 import ixdar.platform.concurrent.WorkerPool;
 import ixdar.platform.file.TextFile;
+import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.Keys;
@@ -383,14 +384,25 @@ public class WebPlatform implements Platform {
     @Override
     public void loadTexture(String resourceName, int platformId, Consumer<Texture> callback) {
         loadImagePixels("/ixdar/res/" + resourceName, (w, h, data) -> {
-            ByteBuffer bb = ByteBuffer.allocate(data.getLength());
+            byte[] rgba = new byte[data.getLength()];
             for (int i = 0; i < data.getLength(); i++) {
-                bb.put((byte) data.get(i));
+                rgba[i] = (byte) data.get(i);
             }
-            bb.flip();
             Platforms.init(platformId);
-            callback.accept(new Texture(resourceName, bb, w, h));
+            callback.accept(new Texture(resourceName, new DecodedImage(rgba, w, h)));
         });
+    }
+
+    /**
+     * Always null: the browser decodes images asynchronously through the DOM, and the mesh
+     * pipeline's embedded-texture path is desktop-only.
+     *
+     * @param encoded compressed image bytes, ignored
+     * @return {@code null}
+     */
+    @Override
+    public DecodedImage decodeImage(byte[] encoded) {
+        return null;
     }
 
     /**

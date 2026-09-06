@@ -2,8 +2,10 @@
 package ixdar.graphics.render;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 import ixdar.platform.Platforms;
+import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.gl.GL;
 
 public class Texture {
@@ -63,6 +65,17 @@ public class Texture {
     }
 
     /**
+     * Stage a platform-decoded image for a later GL upload via {@link #initGL()}. The one caller of
+     * the {@link ByteBuffer} constructor, so decoded pixels reach GL by exactly one route.
+     *
+     * @param resourceName resource path (purely descriptive)
+     * @param decoded RGBA8 pixels with their dimensions
+     */
+    public Texture(String resourceName, DecodedImage decoded) {
+        this(resourceName, nativeCopy(decoded.rgba), decoded.width, decoded.height);
+    }
+
+    /**
      * Build an uninitialized texture with known dimensions but no pixels yet.
      *
      * @param resourceName resource path (purely descriptive)
@@ -74,6 +87,18 @@ public class Texture {
         this.initialized = false;
         this.width = width;
         this.height = height;
+    }
+
+    /**
+     * Copy heap pixels into the native-order direct buffer the GL backends upload from.
+     *
+     * @param rgba RGBA8 bytes to copy
+     * @return a buffer positioned at 0 and limited to {@code rgba.length}
+     */
+    private static ByteBuffer nativeCopy(byte[] rgba) {
+        ByteBuffer buffer = ByteBuffer.allocateDirect(rgba.length).order(ByteOrder.nativeOrder());
+        buffer.put(rgba).flip();
+        return buffer;
     }
 
     /**
