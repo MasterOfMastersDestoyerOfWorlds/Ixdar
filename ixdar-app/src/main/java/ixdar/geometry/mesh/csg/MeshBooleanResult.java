@@ -10,34 +10,49 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  */
 public final class MeshBooleanResult {
 
-    /** {@link #faceOrigin} value for a face carried over from the first operand. */
+    /** Origin value for the first operand. */
     public static final int ORIGIN_A = 0;
 
-    /** {@link #faceOrigin} value for a face carried over from the second operand. */
+    /** Origin value for the second operand. */
     public static final int ORIGIN_B = 1;
 
-    /** {@link #faceOrigin} value for a face the boolean created along the intersection. */
+    /** {@link #faceOrigin} value for a face the intersection curve cut out of an input face. */
     public static final int ORIGIN_NEW = -1;
 
     /** The boolean's output, all triangles. */
     public final HalfEdgeMesh mesh;
 
-    /** Which operand each face came from: {@link #ORIGIN_A}, {@link #ORIGIN_B} or {@link #ORIGIN_NEW}. */
+    /**
+     * Per face in active-face order: {@link #ORIGIN_A} or {@link #ORIGIN_B} when the face is an
+     * untouched copy of an input triangle, {@link #ORIGIN_NEW} when the boolean split it.
+     */
     public final int[] faceOrigin;
 
-    /** Face id in the originating operand, or {@code -1} for faces the boolean created. */
+    /**
+     * Per face: the operand whose surface the face lies on, {@link #ORIGIN_A} or {@link #ORIGIN_B},
+     * for new faces as well as untouched ones.
+     */
+    public final int[] faceSourceOperand;
+
+    /**
+     * Per face: the face id in {@link #faceSourceOperand}'s mesh the face was copied or cut from,
+     * or {@code -1} where the kernel gave nothing to trace it by.
+     */
     public final int[] faceSourceQuad;
 
     /**
      * Store a boolean's output and its provenance.
      *
      * @param mesh the triangle mesh the boolean produced
-     * @param faceOrigin operand each face came from, one entry per face in active-face order
-     * @param faceSourceQuad source face id per face, {@code -1} where the face is new
+     * @param faceOrigin operand per untouched face, {@link #ORIGIN_NEW} per split face
+     * @param faceSourceOperand operand whose surface each face lies on
+     * @param faceSourceQuad source face id per face, {@code -1} where untraceable
      */
-    public MeshBooleanResult(HalfEdgeMesh mesh, int[] faceOrigin, int[] faceSourceQuad) {
+    public MeshBooleanResult(HalfEdgeMesh mesh, int[] faceOrigin, int[] faceSourceOperand,
+            int[] faceSourceQuad) {
         this.mesh = mesh;
         this.faceOrigin = faceOrigin;
+        this.faceSourceOperand = faceSourceOperand;
         this.faceSourceQuad = faceSourceQuad;
     }
 }

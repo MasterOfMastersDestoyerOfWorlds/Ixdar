@@ -4,11 +4,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.joml.Vector3f;
+
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.csg.MeshBooleanResult;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.nodes.api.IntField;
 import ixdar.geometry.mesh.nodes.geometry.MeshBooleanNode;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
@@ -21,7 +25,7 @@ import ixdar.scenes.model.ModelScene;
 
 /**
  * Booleans two unit cubes placed with one cube's corner on the other's centre, tinting the result
- * by which cube each face came from and which faces the intersection curve created.
+ * by which cube each face is an untouched copy from and which faces the intersection curve cut.
  *
  * <p>See also: NHE*19 Section 3.1
  */
@@ -51,6 +55,9 @@ public class MeshBooleanScene extends ModelScene {
 
     /** Log prefix for this scene's messages. */
     public static final String LOG_PREFIX = "[mesh-boolean] ";
+
+    /** Corners per triangle, and equally coordinates per display vertex. */
+    public static final int CORNERS_PER_TRIANGLE = 3;
 
     /** DSL source, held so an operation change can re-run the graph without re-reading it. */
     public String dslSource;
@@ -160,49 +167,67 @@ public class MeshBooleanScene extends ModelScene {
         if (runtime == null) {
             runtime = createRuntime();
         }
-        runtime.upload(mesh);
         frameMesh(mesh);
-        applyProvenanceTags(bundle, mesh.faceCount());
+        applyProvenanceTags(bundle, mesh);
 
         Platforms.get().log(LOG_PREFIX + operation + " V=" + mesh.vertexCount()
                 + " F=" + mesh.faceCount());
     }
 
     /**
-     * Tint faces by the operand they came from, leaving the intersection-region faces their own
-     * colour so the seam the boolean cut is visible at a glance.
+     * Upload the mesh tinted by provenance: untouched faces in their operand's colour, cut faces
+     * in a third. Tags are per vertex, so the display copy gives every face its own corners.
      *
      * @param bundle boolean output carrying the provenance slots
-     * @param faceCount number of faces in the uploaded mesh
+     * @param mesh the boolean's mesh
      */
-    private void applyProvenanceTags(GeometryBundle bundle, int faceCount) {
+    private void applyProvenanceTags(GeometryBundle bundle, MeshTopology mesh) {
+        int faceCount = mesh.faceCount();
         Object origins = bundle.slots().get(MeshBooleanNode.FACE_ORIGIN_SLOT);
-        if (!(origins instanceof int[] faceOrigin) || faceOrigin.length != faceCount) {
+        if (!(origins instanceof IntField faceOrigin) || faceOrigin.length() != faceCount) {
+            runtime.upload(mesh);
             runtime.clearTags();
             return;
         }
-        boolean[] fromA = new boolean[faceCount];
-        boolean[] fromB = new boolean[faceCount];
-        boolean[] intersection = new boolean[faceCount];
+        int cornerCount = faceCount * CORNERS_PER_TRIANGLE;
+        float[] positions = new float[cornerCount * CORNERS_PER_TRIANGLE];
+        int[] triangles = new int[cornerCount];
+        boolean[] fromA = new boolean[cornerCount];
+        boolean[] fromB = new boolean[cornerCount];
+        boolean[] intersection = new boolean[cornerCount];
+        Vector3f position = new Vector3f();
         int newFaces = 0;
-        for (int face = 0; face < faceCount; face++) {
-            switch (faceOrigin[face]) {
-                case MeshBooleanResult.ORIGIN_A -> fromA[face] = true;
-                case MeshBooleanResult.ORIGIN_B -> fromB[face] = true;
-                default -> {
-                    intersection[face] = true;
-                    newFaces++;
-                }
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            int faceId = mesh.faceIdAt(activeFace);
+            int origin = faceOrigin.get(activeFace);
+            if (origin == MeshBooleanResult.ORIGIN_NEW) {
+                newFaces++;
+            }
+            for (int corner = 0; corner < CORNERS_PER_TRIANGLE; corner++) {
+                int displayVertex = activeFace * CORNERS_PER_TRIANGLE + corner;
+                mesh.vertexPosition(mesh.faceVertexAt(faceId, corner), position);
+                positions[displayVertex * CORNERS_PER_TRIANGLE] = position.x;
+                positions[displayVertex * CORNERS_PER_TRIANGLE + 1] = position.y;
+                positions[displayVertex * CORNERS_PER_TRIANGLE + 2] = position.z;
+                triangles[displayVertex] = displayVertex;
+                fromA[displayVertex] = origin == MeshBooleanResult.ORIGIN_A;
+                fromB[displayVertex] = origin == MeshBooleanResult.ORIGIN_B;
+                intersection[displayVertex] = origin == MeshBooleanResult.ORIGIN_NEW;
             }
         }
+        HalfEdgeMesh display = HalfEdgeMesh.bulkAllocate(positions, triangles,
+                CORNERS_PER_TRIANGLE);
+        display.computeNormals();
+        runtime.upload(display);
+
         Map<String, boolean[]> tags = new HashMap<>();
         tags.put(TAG_FROM_A, fromA);
         tags.put(TAG_FROM_B, fromB);
         tags.put(TAG_INTERSECTION, intersection);
-        runtime.setTags(tags);
         runtime.setTagColor(TAG_FROM_A, Color.BLUE_WHITE.toVector4f());
-        runtime.setTagColor(TAG_FROM_B, Color.LIGHT_PURPLE.toVector4f());
-        runtime.setTagColor(TAG_INTERSECTION, Color.YELLOW.toVector4f());
+        runtime.setTagColor(TAG_FROM_B, Color.BRIGHT_ORANGE.toVector4f());
+        runtime.setTagColor(TAG_INTERSECTION, Color.BRIGHT_GREEN.toVector4f());
+        runtime.setTags(tags);
         Platforms.get().log(LOG_PREFIX + "faces new=" + newFaces + "/" + faceCount);
     }
 }

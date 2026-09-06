@@ -16,6 +16,8 @@ import ixdar.platform.Platforms;
 /**
  * Booleans two quad cubes placed as QuadMixer's blending case demands — one cube's corner on the
  * other's centre — and checks both the geometry and the per-face provenance the later stages need.
+ *
+ * <p>The two-cube fixture is built from arrays, never loaded from a file.
  */
 public class MeshBooleanProvenanceTest {
 
@@ -28,8 +30,18 @@ public class MeshBooleanProvenanceTest {
     /** Volume tolerance, loose enough for float positions round-tripping through the kernel. */
     private static final double VOLUME_TOLERANCE = 1e-5;
 
+    /**
+     * Untouched triangles per cube in the union: the three quads facing away from the other cube,
+     * two triangles each.
+     */
+    private static final int UNTOUCHED_TRIANGLES_PER_CUBE = 6;
+
+    /** Tolerance for a centroid lying on an axis-aligned quad's plane after float round trips. */
+    private static final double PLANE_TOLERANCE = 1e-6;
+
     private static final float HALF = 0.5f;
     private static final int THREE = 3;
+    private static final int QUAD_CORNERS = 4;
     private static final int SIX = 6;
 
     /**
@@ -61,49 +73,165 @@ public class MeshBooleanProvenanceTest {
     }
 
     /**
-     * The union's faces must each be attributable, and some must be new: a boolean that only
-     * relabelled whole input faces without splitting any at the intersection curve would leave no
-     * new faces at all, which is exactly the failure the centroid-classifier approach has.
+     * Union: the three quads of each cube facing away from the other survive untouched, everything
+     * else was cut by the intersection curve, and every face traces to the quad it lies on.
      */
     @Test
-    @org.junit.jupiter.api.Disabled("provenance dropped in the manifold3d v3.5 FFM migration; restore by"
-            + " reading MeshGL64 run tables off the MemorySegment - REFACTOR-PLAN.md 6.4")
     public void unionFacesCarryTheirOriginatingCubeAndQuad() {
-        QuadTriangulation cubeA = new QuadTriangulation(unitCube(0f)).build();
-        QuadTriangulation cubeB = new QuadTriangulation(unitCube(HALF)).build();
+        ArrayMesh meshA = unitCube(0f);
+        ArrayMesh meshB = unitCube(HALF);
+        QuadTriangulation cubeA = new QuadTriangulation(meshA).build();
+        QuadTriangulation cubeB = new QuadTriangulation(meshB).build();
         MeshBooleanResult union = boolean3d(cubeA, cubeB, BooleanOperation.UNION);
 
-        assertEquals(union.mesh.faceCount(), union.faceOrigin.length,
-                "one provenance entry per output face");
-        assertEquals(union.mesh.faceCount(), union.faceSourceQuad.length,
-                "one source-face entry per output face");
-
-        int fromA = 0;
-        int fromB = 0;
-        int resolvedSourceQuads = 0;
-        for (int face = 0; face < union.faceOrigin.length; face++) {
-            int origin = union.faceOrigin[face];
-            assertTrue(origin == MeshBooleanResult.ORIGIN_A || origin == MeshBooleanResult.ORIGIN_B
-                    || origin == MeshBooleanResult.ORIGIN_NEW, "every face is attributable");
-            if (origin == MeshBooleanResult.ORIGIN_A) {
-                fromA++;
-            } else if (origin == MeshBooleanResult.ORIGIN_B) {
-                fromB++;
-            }
-            if (origin != MeshBooleanResult.ORIGIN_NEW && union.faceSourceQuad[face] >= 0) {
-                assertTrue(union.faceSourceQuad[face] < CUBE_FACE_COUNT,
-                        "a source face id must name one of the cube's quads");
-                resolvedSourceQuads++;
-            }
-        }
-        assertTrue(fromA > 0, "the union keeps faces from cube A");
-        assertTrue(fromB > 0, "the union keeps faces from cube B");
-        assertEquals(union.faceOrigin.length, resolvedSourceQuads,
-                "every kept face traces back to a quad of the cube it came from; an all -1 map would"
-                        + " mean the kernel's face ids never reached us");
+        assertProvenanceShape(union);
+        assertEquals(UNTOUCHED_TRIANGLES_PER_CUBE, countOrigin(union, MeshBooleanResult.ORIGIN_A),
+                "three quads of cube A face away from cube B and survive untouched");
+        assertEquals(UNTOUCHED_TRIANGLES_PER_CUBE, countOrigin(union, MeshBooleanResult.ORIGIN_B),
+                "three quads of cube B face away from cube A and survive untouched");
+        assertEquals(union.mesh.faceCount() - 2 * UNTOUCHED_TRIANGLES_PER_CUBE,
+                countOrigin(union, MeshBooleanResult.ORIGIN_NEW),
+                "every other face is a piece the intersection curve cut");
         assertTrue(union.mesh.faceCount() > cubeA.triangleSourceFace.length
                 + cubeB.triangleSourceFace.length,
                 "the intersection curve split faces rather than merely relabelling them");
+        assertFacesLieOnTheirSourceQuads(union, meshA, meshB);
+    }
+
+    /**
+     * Difference keeps cube A's three far quads untouched and only cut pieces of cube B, while
+     * the intersection, the shared octant, is bounded entirely by cut pieces.
+     */
+    @Test
+    public void differenceAndIntersectionReportConsistentOrigins() {
+        ArrayMesh meshA = unitCube(0f);
+        ArrayMesh meshB = unitCube(HALF);
+        QuadTriangulation cubeA = new QuadTriangulation(meshA).build();
+        QuadTriangulation cubeB = new QuadTriangulation(meshB).build();
+
+        MeshBooleanResult difference = boolean3d(cubeA, cubeB, BooleanOperation.DIFFERENCE);
+        assertProvenanceShape(difference);
+        assertEquals(UNTOUCHED_TRIANGLES_PER_CUBE,
+                countOrigin(difference, MeshBooleanResult.ORIGIN_A),
+                "cube A's three far quads survive the difference untouched");
+        assertEquals(0, countOrigin(difference, MeshBooleanResult.ORIGIN_B),
+                "no whole quad of cube B lies inside cube A");
+        assertTrue(countSourceOperand(difference, MeshBooleanResult.ORIGIN_B) > 0,
+                "the notch the difference cuts is bounded by pieces of cube B's quads");
+        assertFacesLieOnTheirSourceQuads(difference, meshA, meshB);
+
+        MeshBooleanResult intersection = boolean3d(cubeA, cubeB, BooleanOperation.INTERSECTION);
+        assertProvenanceShape(intersection);
+        assertEquals(intersection.mesh.faceCount(),
+                countOrigin(intersection, MeshBooleanResult.ORIGIN_NEW),
+                "the shared octant has no whole input quad on its boundary");
+        assertTrue(countSourceOperand(intersection, MeshBooleanResult.ORIGIN_A) > 0,
+                "three of the octant's sides are pieces of cube A");
+        assertTrue(countSourceOperand(intersection, MeshBooleanResult.ORIGIN_B) > 0,
+                "three of the octant's sides are pieces of cube B");
+        assertFacesLieOnTheirSourceQuads(intersection, meshA, meshB);
+    }
+
+    /**
+     * One entry per face in every provenance array, each holding a legal value.
+     *
+     * @param result boolean output to check
+     */
+    private static void assertProvenanceShape(MeshBooleanResult result) {
+        int faceCount = result.mesh.faceCount();
+        assertEquals(faceCount, result.faceOrigin.length, "one origin per output face");
+        assertEquals(faceCount, result.faceSourceOperand.length, "one source operand per face");
+        assertEquals(faceCount, result.faceSourceQuad.length, "one source face per output face");
+        for (int face = 0; face < faceCount; face++) {
+            int origin = result.faceOrigin[face];
+            assertTrue(origin == MeshBooleanResult.ORIGIN_A || origin == MeshBooleanResult.ORIGIN_B
+                    || origin == MeshBooleanResult.ORIGIN_NEW, "every face is attributable");
+            int operand = result.faceSourceOperand[face];
+            assertTrue(operand == MeshBooleanResult.ORIGIN_A
+                    || operand == MeshBooleanResult.ORIGIN_B,
+                    "every face lies on one operand's surface");
+            if (origin != MeshBooleanResult.ORIGIN_NEW) {
+                assertEquals(origin, operand, "an untouched face lies on the operand it copies");
+            }
+            assertTrue(result.faceSourceQuad[face] >= 0
+                    && result.faceSourceQuad[face] < CUBE_FACE_COUNT,
+                    "every face traces to one of its cube's six quads");
+        }
+    }
+
+    /**
+     * Each output face's centroid lies in the plane of the quad it claims as its source, for cut
+     * pieces as much as untouched copies.
+     *
+     * @param result boolean output to check
+     * @param meshA first operand's quad mesh
+     * @param meshB second operand's quad mesh
+     */
+    private static void assertFacesLieOnTheirSourceQuads(MeshBooleanResult result, ArrayMesh meshA,
+            ArrayMesh meshB) {
+        Vector3f corner = new Vector3f();
+        Vector3f centroid = new Vector3f();
+        Vector3f quadCorner = new Vector3f();
+        Vector3f quadOther = new Vector3f();
+        for (int activeFace = 0; activeFace < result.mesh.faceCount(); activeFace++) {
+            int faceId = result.mesh.faceIdAt(activeFace);
+            centroid.zero();
+            for (int index = 0; index < THREE; index++) {
+                result.mesh.vertexPosition(result.mesh.faceVertexAt(faceId, index), corner);
+                centroid.add(corner);
+            }
+            centroid.div(THREE);
+
+            ArrayMesh source = result.faceSourceOperand[activeFace] == MeshBooleanResult.ORIGIN_A
+                    ? meshA : meshB;
+            int quadId = source.faceIdAt(result.faceSourceQuad[activeFace]);
+            source.vertexPosition(source.faceVertexAt(quadId, 0), quadCorner);
+            for (int axis = 0; axis < THREE; axis++) {
+                boolean constantAxis = true;
+                for (int index = 1; index < QUAD_CORNERS; index++) {
+                    source.vertexPosition(source.faceVertexAt(quadId, index), quadOther);
+                    constantAxis &= quadOther.get(axis) == quadCorner.get(axis);
+                }
+                if (constantAxis) {
+                    assertEquals(quadCorner.get(axis), centroid.get(axis), PLANE_TOLERANCE,
+                            "face " + activeFace + " lies on its source quad's plane");
+                }
+            }
+        }
+    }
+
+    /**
+     * Faces whose origin is a given value.
+     *
+     * @param result boolean output to count over
+     * @param origin origin value to count
+     * @return number of faces with that origin
+     */
+    private static int countOrigin(MeshBooleanResult result, int origin) {
+        int count = 0;
+        for (int value : result.faceOrigin) {
+            if (value == origin) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Faces lying on a given operand's surface, untouched or cut.
+     *
+     * @param result boolean output to count over
+     * @param operand operand value to count
+     * @return number of faces on that operand
+     */
+    private static int countSourceOperand(MeshBooleanResult result, int operand) {
+        int count = 0;
+        for (int value : result.faceSourceOperand) {
+            if (value == operand) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**

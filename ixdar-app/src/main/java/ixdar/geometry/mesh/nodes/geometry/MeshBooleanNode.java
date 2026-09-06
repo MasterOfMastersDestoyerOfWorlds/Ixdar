@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.geometry.mesh.nodes.api.InputPort;
+import ixdar.geometry.mesh.nodes.api.IntField;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.geometry.mesh.nodes.api.ModeConstraint;
@@ -20,8 +21,9 @@ import ixdar.platform.Platforms;
 /**
  * Exact boolean (CSG) union, difference or intersect of two meshes.
  *
- * <p>Quads are split along their shorter diagonal before the solve, and the output bundle carries
- * per-face provenance so a later stage can keep the untouched quads of both inputs.
+ * <p>Quads are split along their shorter diagonal before the solve; the output bundle carries
+ * per-face provenance as {@link IntField} slots: untouched-copy operand or new, source operand,
+ * and source face.
  *
  * <p>See also: NHE*19 Section 3.1
  */
@@ -30,10 +32,16 @@ public class MeshBooleanNode implements MeshNode {
     public static final String DIFFERENCE = "DIFFERENCE";
     public static final String UNION = "UNION";
     public static final String INTERSECT = "INTERSECT";
-    /** Bundle slot holding the operand each output face came from, one entry per face. */
+    /**
+     * Bundle slot, an {@link IntField} per face: the operand the face is an untouched copy of, or
+     * {@link MeshBooleanResult#ORIGIN_NEW} where the intersection curve split it.
+     */
     public static final String FACE_ORIGIN_SLOT = "_boolean_face_origin";
 
-    /** Bundle slot holding the source face id per output face, {@code -1} where the face is new. */
+    /** Bundle slot, an {@link IntField} per face: the operand whose surface the face lies on. */
+    public static final String FACE_SOURCE_OPERAND_SLOT = "_boolean_face_source_operand";
+
+    /** Bundle slot, an {@link IntField} per face: source face id, {@code -1} where untraceable. */
     public static final String FACE_SOURCE_QUAD_SLOT = "_boolean_face_source_quad";
 
     public static final InputPort MESH_A = new InputPort("mesh_a", PortType.GEOMETRY_BUNDLE, null);
@@ -65,7 +73,8 @@ public class MeshBooleanNode implements MeshNode {
                 MESH_B.name, "Second operand (typically the tool mesh).",
                 OPERATION.name, "CSG op: UNION (A ∪ B), DIFFERENCE (A − B), INTERSECT (A ∩ B).",
                 GEOMETRY.name, "Result as a geometry bundle, with per-face provenance in the"
-                        + " _boolean_face_origin and _boolean_face_source_quad slots."
+                        + " _boolean_face_origin, _boolean_face_source_operand and"
+                        + " _boolean_face_source_quad slots."
         );
     }
 
@@ -97,7 +106,8 @@ public class MeshBooleanNode implements MeshNode {
                 operation);
 
         ctx.setOutput(GEOMETRY.name, bundleA.withMesh(result.mesh)
-                .withSlot(FACE_ORIGIN_SLOT, result.faceOrigin)
-                .withSlot(FACE_SOURCE_QUAD_SLOT, result.faceSourceQuad));
+                .withSlot(FACE_ORIGIN_SLOT, new IntField(result.faceOrigin))
+                .withSlot(FACE_SOURCE_OPERAND_SLOT, new IntField(result.faceSourceOperand))
+                .withSlot(FACE_SOURCE_QUAD_SLOT, new IntField(result.faceSourceQuad)));
     }
 }
