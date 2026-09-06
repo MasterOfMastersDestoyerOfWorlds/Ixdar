@@ -11,8 +11,9 @@ import java.util.stream.Stream;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 
 /**
- * A scene's list of selectable models, scanned from a directory. Two corpora exist: the quad-layout
- * input meshes checked into the repo, and the staging directory the {@code sync-models} CLI fills.
+ * A scene's list of selectable models, scanned from a directory. Three scans exist: the quad-layout
+ * input meshes checked into the repo, the staging directory the {@code sync-models} CLI fills, and
+ * a plain directory of mesh files such as the crawfish scans.
  */
 public final class ModelCatalog {
 
@@ -30,6 +31,12 @@ public final class ModelCatalog {
 
     /** Extension of the OBJ corpora in the staging directory. */
     public static final String OBJ_EXTENSION = ".obj";
+
+    /** Staging subdirectory holding DSL graphs. */
+    public static final String DSL_DIR = "dsl";
+
+    /** Display-name prefix of glTF scans found anywhere under the staging directory. */
+    public static final String GLTF_PREFIX = "glTF";
 
     /** Directory the catalog was scanned from. */
     public final Path root;
@@ -78,20 +85,48 @@ public final class ModelCatalog {
     }
 
     /**
-     * Scan the staging directory: DSL graphs under {@code dsl/}, voyage OBJs under
-     * {@code obj/voyage/} and user blends under {@code obj/blends/}. Nothing here discovers models
-     * from their original sources; the {@code sync-models} CLI populates the directory.
+     * Scan the staging directory: DSL graphs under {@code dsl/}, OBJs under {@code obj/voyage/}
+     * and {@code obj/blends/}, glTF scans anywhere below the root. A root with neither
+     * {@code dsl/} nor {@code obj/} is scanned as a plain {@link #directory} instead.
      *
      * @param root staging directory to scan
      * @return the catalog, empty when the directory is absent
      */
     public static ModelCatalog staging(Path root) {
+        if (!Files.isDirectory(root.resolve(DSL_DIR)) && !Files.isDirectory(root.resolve(OBJ_DIR))) {
+            return directory(root);
+        }
         List<ModelChoice> found = new ArrayList<>();
-        collect(root.resolve("dsl"), ".dsl", ModelChoice.Kind.DSL, "DSL", found);
+        collect(root.resolve(DSL_DIR), ".dsl", ModelChoice.Kind.DSL, "DSL", found);
         collect(root.resolve(OBJ_DIR).resolve(VOYAGE_DIR), OBJ_EXTENSION, ModelChoice.Kind.MESH_FILE,
                 "OBJ voyage", found);
         collect(root.resolve(OBJ_DIR).resolve("blends"), OBJ_EXTENSION, ModelChoice.Kind.MESH_FILE,
                 "OBJ", found);
+        collect(root, MeshLoader.GLB_EXTENSION, ModelChoice.Kind.MESH_FILE, GLTF_PREFIX, found);
+        collect(root, MeshLoader.GLTF_EXTENSION, ModelChoice.Kind.MESH_FILE, GLTF_PREFIX, found);
+        return new ModelCatalog(root, sorted(found));
+    }
+
+    /**
+     * Scan a plain directory for every file {@link MeshLoader} can read, recursively. Display names
+     * are the paths relative to {@code root}; loader paths are absolute.
+     *
+     * @param root directory to walk
+     * @return the catalog, empty when the directory is absent or unreadable
+     */
+    public static ModelCatalog directory(Path root) {
+        List<ModelChoice> found = new ArrayList<>();
+        if (Files.isDirectory(root)) {
+            try (Stream<Path> stream = Files.walk(root)) {
+                stream.filter(Files::isRegularFile)
+                    .filter(path -> MeshLoader.isSupported(path.getFileName().toString()))
+                    .forEach(path -> found.add(new ModelChoice(
+                            root.relativize(path).toString().replace('\\', '/'),
+                            path.toAbsolutePath().toString())));
+            } catch (IOException ignored) {
+                found.clear();
+            }
+        }
         return new ModelCatalog(root, sorted(found));
     }
 

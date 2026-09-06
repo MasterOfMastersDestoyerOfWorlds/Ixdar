@@ -1,16 +1,20 @@
 package ixdar.geometry.mesh.data.load;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
+import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.nodes.api.Vector3Field;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
- * Loads OBJ and PLY mesh files into ArrayMesh format.
- * Supports vertex positions and optional normals.
+ * Loads OBJ, PLY, OFF and glTF mesh files into ArrayMesh format.
+ * Supports vertex positions and optional normals; glTF also carries texture coordinates.
  */
 public final class MeshLoader {
     public static final String STR = "#";
@@ -33,11 +37,34 @@ public final class MeshLoader {
      */
     public static final String MODULE_DIRECTORY = "ixdar-app";
 
+    public static final String OBJ_EXTENSION = ".obj";
+    public static final String PLY_EXTENSION = ".ply";
+    public static final String OFF_EXTENSION = ".off";
+    public static final String GLB_EXTENSION = ".glb";
+    public static final String GLTF_EXTENSION = ".gltf";
+
+    /** Every extension {@link #load} accepts, lower case and dot-prefixed. */
+    public static final List<String> MESH_EXTENSIONS = List.of(
+            OBJ_EXTENSION, PLY_EXTENSION, OFF_EXTENSION, GLB_EXTENSION, GLTF_EXTENSION);
+
+    /**
+     * Simple name of the glTF parser. {@link #loadGltf} joins it to this class's package at run
+     * time; a constant fully qualified name would let TeaVM resolve {@code Class.forName} at
+     * compile time and pull Assimp into the browser build.
+     */
+    public static final String GLTF_PARSER_SIMPLE_NAME = "GltfMeshParser";
+
+    /**
+     * Per-vertex {@code TEXCOORD_0} slot written by the glTF parser: a {@link Vector3Field} of
+     * {@code (u, v, 0)}, one element per vertex, bottom-left origin (OpenGL convention).
+     */
+    public static final String UV_SLOT = "_uv";
+
     private MeshLoader() {
     }
 
     /**
-     * Load a mesh from OBJ, PLY or OFF file. Auto-detects format by extension.
+     * Load a mesh from an OBJ, PLY, OFF or glTF file. Auto-detects format by extension.
      *
      * @param path File path, absolute or relative to either the working directory or
      *             {@link #MODULE_DIRECTORY}
@@ -47,24 +74,100 @@ public final class MeshLoader {
      * @return ArrayMesh containing the loaded geometry
      */
     public static ArrayMesh load(String path) throws IOException {
+        return (ArrayMesh) loadBundle(path).mesh();
+    }
+
+    /**
+     * Load a mesh file together with the per-vertex attributes the format carries: glTF texture
+     * coordinates ride {@link #UV_SLOT}; the text formats contribute no slots.
+     *
+     * @param path File path, absolute or relative to either the working directory or
+     *             {@link #MODULE_DIRECTORY}
+     * @throws IOException              if file cannot be read or parsed
+     * @throws IllegalArgumentException if {@code path} is null/empty or has an
+     *                                  unsupported extension
+     * @return bundle wrapping the loaded {@link ArrayMesh}
+     */
+    public static GeometryBundle loadBundle(String path) throws IOException {
         if (path == null || path.isEmpty()) {
             throw new IllegalArgumentException("File path cannot be empty");
+        }
+        if (!isSupported(path)) {
+            throw new IllegalArgumentException(
+                    "Unsupported file format: " + path + ". Only " + String.join(", ", MESH_EXTENSIONS)
+                            + " are supported");
         }
         String lower = path.toLowerCase();
         Path file = Paths.get(path);
         if (!Files.exists(file) && Files.exists(Paths.get(MODULE_DIRECTORY, path))) {
             file = Paths.get(MODULE_DIRECTORY, path);
         }
+        if (isGltf(lower)) {
+            return loadGltf(file);
+        }
         String content = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
-        if (lower.endsWith(".obj")) {
-            return ObjMeshParser.load(content);
-        } else if (lower.endsWith(".ply")) {
-            return PlyMeshParser.load(content);
-        } else if (lower.endsWith(".off")) {
-            return OffMeshParser.load(content);
-        } else {
-            throw new IllegalArgumentException(
-                    "Unsupported file format: " + path + ". Only .obj, .ply and .off are supported");
+        if (lower.endsWith(OBJ_EXTENSION)) {
+            return GeometryBundle.ofMesh(ObjMeshParser.load(content));
+        } else if (lower.endsWith(PLY_EXTENSION)) {
+            return GeometryBundle.ofMesh(PlyMeshParser.load(content));
+        }
+        return GeometryBundle.ofMesh(OffMeshParser.load(content));
+    }
+
+    /**
+     * Whether {@code path} names a file {@link #load} can read, judged by extension alone.
+     *
+     * @param path file name or path, any case
+     * @return {@code true} when the extension is one of {@link #MESH_EXTENSIONS}
+     */
+    public static boolean isSupported(String path) {
+        String lower = path.toLowerCase();
+        for (String extension : MESH_EXTENSIONS) {
+            if (lower.endsWith(extension)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether {@code lowerCasePath} names a glTF container, binary or JSON.
+     *
+     * @param lowerCasePath already lower-cased file name or path
+     * @return {@code true} for {@code .glb} and {@code .gltf}
+     */
+    public static boolean isGltf(String lowerCasePath) {
+        return lowerCasePath.endsWith(GLB_EXTENSION) || lowerCasePath.endsWith(GLTF_EXTENSION);
+    }
+
+    /**
+     * Reach {@link GltfMeshParser} through {@code Class.forName} so the Assimp-backed class is
+     * linked only on desktop; in the browser the lookup fails and the load is refused.
+     *
+     * @param file resolved path of the glTF file
+     * @throws IOException if the file is missing, Assimp rejects it, or the platform has no Assimp
+     * @return the parser's bundle
+     */
+    private static GeometryBundle loadGltf(Path file) throws IOException {
+        if (!Files.exists(file)) {
+            throw new IOException("No such glTF file: " + file);
+        }
+        try {
+            String loaderName = MeshLoader.class.getName();
+            String packagePrefix = loaderName.substring(0, loaderName.lastIndexOf('.') + 1);
+            Class<?> parser = Class.forName(packagePrefix + GLTF_PARSER_SIMPLE_NAME);
+            return (GeometryBundle) parser.getMethod("load", String.class).invoke(null, file.toString());
+        } catch (InvocationTargetException failed) {
+            Throwable cause = failed.getCause();
+            if (cause instanceof IOException ioFailure) {
+                throw ioFailure;
+            }
+            if (cause instanceof RuntimeException runtimeFailure) {
+                throw runtimeFailure;
+            }
+            throw new IOException("glTF import failed for " + file, cause);
+        } catch (ReflectiveOperationException | LinkageError unavailable) {
+            throw new IOException("glTF loading is desktop-only (Assimp unavailable): " + file, unavailable);
         }
     }
 }

@@ -10,15 +10,22 @@ Names resolve in three widening steps: an existing path is passed through untouc
 file stem (``fertility_in_tri``), then a short alias (``fertility``). Short aliases are minted only
 from the ``_in_tri`` inputs, because those are the triangle meshes the pipeline actually consumes —
 the ``_out_quad`` files are its published results, and aliasing both would make every name ambiguous.
+
+Besides the checked-in quad-layout corpus, the directory named by ``IXDAR_MODEL_DIR`` is scanned
+when set, so pointing it at a folder of glTF scans lists them next to the repo meshes.
 """
 
+import json
 import os
+import struct
 
 REPO_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 
-MESH_ROOTS = [os.path.join(REPO_DIR, "ixdar-app", "test", "resources", "quadlayout")]
+MODEL_DIR_VARIABLE = "IXDAR_MODEL_DIR"
 
-MESH_EXTENSIONS = (".off", ".obj")
+MESH_EXTENSIONS = (".off", ".obj", ".ply", ".glb", ".gltf")
+
+GLTF_EXTENSIONS = (".glb", ".gltf")
 
 INPUT_SUFFIX = "_in_tri"
 
@@ -26,12 +33,80 @@ OFF_MAGIC = "OFF"
 
 BINARY_MARKER = "BINARY"
 
+GLB_HEADER_BYTES = 12
+
+GLB_CHUNK_HEADER_BYTES = 8
+
+GLB_MAGIC = b"glTF"
+
+VERTICES_PER_TRIANGLE = 3
+
+
+def mesh_roots() -> list[str]:
+    """The directories ``discover_meshes`` walks: the repo corpus plus ``IXDAR_MODEL_DIR`` when set.
+
+    :return: Existing directories, the repo corpus first.
+    """
+    roots = [os.path.join(REPO_DIR, "ixdar-app", "test", "resources", "quadlayout")]
+    model_dir = os.environ.get(MODEL_DIR_VARIABLE, "").strip()
+    if model_dir:
+        expanded = os.path.abspath(os.path.expanduser(model_dir))
+        if os.path.isdir(expanded) and expanded not in roots:
+            roots.append(expanded)
+    return roots
+
+
+def _gltf_document(path: str) -> dict:
+    """Read the JSON document of a ``.gltf`` file or the JSON chunk of a ``.glb`` container.
+
+    :param path: Path to a glTF file.
+    :return: The parsed document, or ``{}`` when the file is not readable glTF.
+    """
+    try:
+        with open(path, "rb") as handle:
+            if path.lower().endswith(".gltf"):
+                return json.load(handle)
+            header = handle.read(GLB_HEADER_BYTES)
+            if len(header) < GLB_HEADER_BYTES or header[:4] != GLB_MAGIC:
+                return {}
+            chunk_length, _chunk_type = struct.unpack("<II", handle.read(GLB_CHUNK_HEADER_BYTES))
+            return json.loads(handle.read(chunk_length))
+    except (OSError, ValueError, struct.error):
+        return {}
+
+
+def _gltf_counts(path: str) -> tuple[int, int]:
+    """Sum vertex and triangle counts over every primitive of a glTF file from its accessors.
+
+    Only the JSON is read, so a 40 MB scan costs a few hundred kilobytes of I/O; a primitive without
+    indices contributes its vertex count divided by three.
+
+    :param path: Path to a ``.glb`` or ``.gltf`` file.
+    :return: ``(vertices, faces)``; zeros when the document cannot be read.
+    """
+    document = _gltf_document(path)
+    accessors = document.get("accessors", [])
+    vertices = 0
+    faces = 0
+    for mesh in document.get("meshes", []):
+        for primitive in mesh.get("primitives", []):
+            position = primitive.get("attributes", {}).get("POSITION")
+            count = accessors[position]["count"] if position is not None and position < len(accessors) else 0
+            vertices += count
+            indices = primitive.get("indices")
+            if indices is not None and indices < len(accessors):
+                faces += accessors[indices]["count"] // VERTICES_PER_TRIANGLE
+            else:
+                faces += count // VERTICES_PER_TRIANGLE
+    return vertices, faces
+
 
 def _off_header(path: str) -> tuple[int, int, bool]:
     """Read an OFF file's vertex and face counts, and whether it is the binary variant.
 
-    ``MeshLoader`` reads every format through ``Files.readString``, so a binary OFF cannot be loaded
-    at all — detecting it here is what keeps an unusable mesh out of the runnable list.
+    ``MeshLoader`` reads the text formats through ``Files.readAllBytes`` as UTF-8, so a binary OFF
+    cannot be loaded at all — detecting it here is what keeps an unusable mesh out of the runnable
+    list.
 
     :param path: Path to an ``.off`` file.
     :return: ``(vertices, faces, isBinary)``; counts are zero when the header cannot be read.
@@ -55,27 +130,34 @@ def _off_header(path: str) -> tuple[int, int, bool]:
 
 
 def discover_meshes() -> list[dict]:
-    """Find every mesh under the repository's mesh roots.
+    """Find every mesh under the repository's mesh roots and ``IXDAR_MODEL_DIR``.
+
+    glTF scans count as inputs (they are whole models, never pipeline output) and are addressed by
+    their file stem, e.g. ``IMG_4109``.
 
     :return: One entry per file with ``name``, ``alias``, ``path``, ``relPath``, ``group``,
         ``bytes``, ``vertices``, ``faces``, ``isInput`` and ``loadable``, sorted by group then name.
     """
     meshes: list[dict] = []
-    for root in MESH_ROOTS:
+    for root in mesh_roots():
         for directory, _subdirectories, files in os.walk(root):
             for filename in sorted(files):
                 stem, extension = os.path.splitext(filename)
                 if extension.lower() not in MESH_EXTENSIONS:
                     continue
                 path = os.path.join(directory, filename)
-                is_input = stem.endswith(INPUT_SUFFIX)
-                vertices, faces, is_binary = (
-                    _off_header(path) if extension.lower() == ".off" else (0, 0, False))
+                is_input = stem.endswith(INPUT_SUFFIX) or extension.lower() in GLTF_EXTENSIONS
+                if extension.lower() == ".off":
+                    vertices, faces, is_binary = _off_header(path)
+                elif extension.lower() in GLTF_EXTENSIONS:
+                    (vertices, faces), is_binary = _gltf_counts(path), False
+                else:
+                    vertices, faces, is_binary = 0, 0, False
                 meshes.append({
                     "name": stem,
-                    "alias": stem[:-len(INPUT_SUFFIX)] if is_input else "",
+                    "alias": stem[:-len(INPUT_SUFFIX)] if stem.endswith(INPUT_SUFFIX) else "",
                     "path": path,
-                    "relPath": os.path.relpath(path, REPO_DIR),
+                    "relPath": os.path.relpath(path, REPO_DIR) if path.startswith(REPO_DIR) else path,
                     "group": os.path.relpath(directory, root),
                     "bytes": os.path.getsize(path),
                     "vertices": vertices,
@@ -127,8 +209,8 @@ def resolve_mesh(name: str) -> str:
             + ", ".join(inputs))
     if not any(mesh["loadable"] for mesh in matches):
         raise ValueError(
-            f"mesh {name!r} is a binary OFF file, which MeshLoader cannot read — it loads every "
-            "format through Files.readString")
+            f"mesh {name!r} is a binary OFF file, which MeshLoader cannot read — it loads the text "
+            "formats as UTF-8")
     loadable = [mesh for mesh in matches if mesh["loadable"]]
     if len({mesh["bytes"] for mesh in loadable}) > 1:
         candidates = ", ".join(mesh["relPath"] for mesh in loadable)

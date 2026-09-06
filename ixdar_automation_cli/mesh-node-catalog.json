@@ -2503,7 +2503,7 @@
         {
           "name": "path",
           "portType": "STRING",
-          "description": "File path to load; .obj, .ply and .off are supported.",
+          "description": "File path to load; .obj, .ply, .off, .glb and .gltf are supported.",
           "defaultValue": ""
         }
       ],
@@ -2511,10 +2511,10 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "The loaded mesh as a geometry bundle."
+          "description": "The loaded mesh as a geometry bundle; glTF files add the per-vertex _uv slot holding TEXCOORD_0 as (u, v, 0)."
         }
       ],
-      "description": "Loads a mesh from an OBJ, PLY or OFF file, resolving relative paths against the working directory and the ixdar-app module directory."
+      "description": "Loads a mesh from an OBJ, PLY, OFF or glTF (.glb/.gltf) file, resolving relative paths against the working directory and the ixdar-app module directory."
     },
     {
       "id": "loop_cut",

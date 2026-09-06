@@ -264,6 +264,11 @@ public class MeshNodeViewerScene extends ModelScene {
             initObjViewer();
             return;
         }
+        ModelChoice requested = requestedModel();
+        if (requested != null) {
+            loadModelEntry(requested);
+            return;
+        }
         try {
             Platforms.get().loadSourceAsync(DSL_FOLDER, dslResource, Platforms.gl().getPlatformID(), dslCode -> {
                 NodeGraphRuntime graphRuntime = NodeGraphRuntime.fromSource(dslCode);
@@ -306,6 +311,28 @@ public class MeshNodeViewerScene extends ModelScene {
         } catch (Exception e) {
             throw new IllegalStateException("Failed to initialize mesh viewer runtime", e);
         }
+    }
+
+    /**
+     * The model named by {@code -Dixdar.model}: a catalog token when one matches, otherwise the
+     * property taken as a mesh file path (the crawfish scans live outside any catalog).
+     *
+     * @return the choice to load instead of the DSL graph, or {@code null} when the property is unset
+     */
+    private ModelChoice requestedModel() {
+        String common = System.getProperty(COMMON_MODEL_PROPERTY);
+        if (common == null || common.isBlank()) {
+            return null;
+        }
+        ModelChoice match = modelCatalog == null ? null : modelCatalog.resolve(common);
+        if (match != null) {
+            return match;
+        }
+        Path file = Path.of(common);
+        if (!Files.exists(file) && Files.exists(Path.of(MeshLoader.MODULE_DIRECTORY, common))) {
+            file = Path.of(MeshLoader.MODULE_DIRECTORY, common);
+        }
+        return new ModelChoice(file.getFileName().toString(), file.toAbsolutePath().toString());
     }
 
     private void initObjViewer() {
@@ -720,7 +747,7 @@ public class MeshNodeViewerScene extends ModelScene {
         preserveOrbit(() -> {
             switch (entry.kind) {
                 case DSL -> loadDslFromAbsolutePath(entry.path);
-                case MESH_FILE -> loadObjFromAbsolutePath(entry.path);
+                case MESH_FILE -> loadMeshFileFromAbsolutePath(entry.path);
             }
             return true;
         });
@@ -752,7 +779,7 @@ public class MeshNodeViewerScene extends ModelScene {
         }
     }
 
-    private void loadObjFromAbsolutePath(String absolutePath) {
+    private void loadMeshFileFromAbsolutePath(String absolutePath) {
         try {
             ArrayMesh arrayMesh = MeshLoader.load(absolutePath);
             disposeMeshRuntime();
@@ -760,11 +787,11 @@ public class MeshNodeViewerScene extends ModelScene {
             meshRuntime = new HalfEdgeMeshRuntime();
             meshRuntime.upload(arrayMesh);
             meshRuntime.frameCamera(camera);
-            Platforms.get().log("[mesh-viewer] obj loaded: " + absolutePath
+            Platforms.get().log("[mesh-viewer] mesh loaded: " + absolutePath
                     + VERTS + arrayMesh.vertexCount() + FACES + arrayMesh.faceCount());
             frameMesh(arrayMesh);
         } catch (Exception e) {
-            Platforms.get().log("[mesh-viewer] OBJ load failed for " + absolutePath + STR + e.getMessage());
+            Platforms.get().log("[mesh-viewer] mesh load failed for " + absolutePath + STR + e.getMessage());
         }
     }
 

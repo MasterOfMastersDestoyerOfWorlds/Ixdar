@@ -16,11 +16,9 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /**
- * Loads a mesh from an OBJ, PLY or OFF file into the graph.
- *
- * <p>The path resolves like every scene resource: absolute, or relative to the
- * working directory with an {@code ixdar-app/} retry, so DSL graphs can name
- * the same {@code test/resources/...} paths the model scenes use.
+ * Loads a mesh from an OBJ, PLY, OFF or glTF ({@code .glb}/{@code .gltf}) file into the graph;
+ * glTF texture coordinates ride the bundle as {@link MeshLoader#UV_SLOT}. Paths resolve
+ * absolute, or relative to the working directory with an {@code ixdar-app/} retry.
  */
 @MeshNodeAnnotation(id = "load_mesh", desktopOnly = true)
 public class LoadMeshNode implements MeshNode {
@@ -40,15 +38,16 @@ public class LoadMeshNode implements MeshNode {
 
     @Override
     public String description() {
-        return "Loads a mesh from an OBJ, PLY or OFF file, resolving relative paths against the"
-                + " working directory and the ixdar-app module directory.";
+        return "Loads a mesh from an OBJ, PLY, OFF or glTF (.glb/.gltf) file, resolving relative paths"
+                + " against the working directory and the ixdar-app module directory.";
     }
 
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                PATH.name, "File path to load; .obj, .ply and .off are supported.",
-                GEOMETRY.name, "The loaded mesh as a geometry bundle."
+                PATH.name, "File path to load; .obj, .ply, .off, .glb and .gltf are supported.",
+                GEOMETRY.name, "The loaded mesh as a geometry bundle; glTF files add the per-vertex "
+                        + MeshLoader.UV_SLOT + " slot holding TEXCOORD_0 as (u, v, 0)."
         );
     }
 
@@ -61,7 +60,7 @@ public class LoadMeshNode implements MeshNode {
             return;
         }
         try {
-            ctx.setOutput(GEOMETRY.name, GeometryBundle.ofMesh(MeshLoader.load(path)));
+            ctx.setOutput(GEOMETRY.name, MeshLoader.loadBundle(path));
         } catch (IOException e) {
             throw new UncheckedIOException("load_mesh failed for " + path, e);
         }
