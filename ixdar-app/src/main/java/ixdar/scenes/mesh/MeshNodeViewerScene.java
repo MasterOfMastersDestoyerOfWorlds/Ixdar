@@ -19,6 +19,8 @@ import java.util.Set;
 import org.joml.Vector4f;
 
 import ixdar.geometry.mesh.data.EdgeKey;
+import ixdar.geometry.mesh.data.EdgeMarks;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.FeatureEdgeColors;
 import ixdar.geometry.mesh.data.MeshTopology;
@@ -72,6 +74,12 @@ public class MeshNodeViewerScene extends ModelScene {
     private static final String DEFAULT_DSL_RESOURCE = "skull.dsl";
     private static final String DEFAULT_DSL_FINAL_NODE = "";
     private static final String DEFAULT_DSL_FINAL_PORT = "geometry";
+
+    /**
+     * Overlay colours handed to edge-mark labels in sorted label order: warm amber for the first,
+     * cool cyan for the second, magenta for a third.
+     */
+    private static final int[] EDGE_MARK_COLORS = { 0xFFA000, 0x00C8FF, 0xFF00C8 };
 
     /** Log prefix for this scene's timing lines. */
     private static final String TIMING_PREFIX = "[mesh-viewer]";
@@ -315,6 +323,7 @@ public class MeshNodeViewerScene extends ModelScene {
                 } else {
                     Platforms.get().log("[mesh-viewer] mesh is null for " + dslResource);
                 }
+                applyEdgeMarkOverlay(graphRuntime);
                 frameMesh(mesh);
             });
 
@@ -684,8 +693,59 @@ public class MeshNodeViewerScene extends ModelScene {
             } else {
                 Platforms.get().log("[mesh-viewer] dsl reload produced null mesh: " + resolvedDslName);
             }
+            applyEdgeMarkOverlay(runtime);
             frameMesh(mesh);
         });
+    }
+
+    /**
+     * Draws every boolean edge-marks label the graph left on its output bundle as its own colored
+     * overlay, so a seed loop and the geodesic it tightens to are told apart on screen.
+     *
+     * @param runtime the graph that just ran; its last {@code geometry} output carries the marks
+     */
+    private void applyEdgeMarkOverlay(NodeGraphRuntime runtime) {
+        if (meshRuntime == null || mesh == null
+                || !(runtime.lastOutput(DEFAULT_DSL_FINAL_PORT) instanceof GeometryBundle bundle)
+                || !(bundle.slots().get(EdgeMarks.SLOT) instanceof Map<?, ?> marks)) {
+            return;
+        }
+        List<String> labels = new ArrayList<>();
+        for (Map.Entry<?, ?> entry : marks.entrySet()) {
+            if (entry.getValue() instanceof boolean[]) {
+                labels.add(String.valueOf(entry.getKey()));
+            }
+        }
+        if (labels.isEmpty()) {
+            return;
+        }
+        labels.sort(String::compareTo);
+        Map<Integer, Integer> denseVertexIndex = new HashMap<>();
+        for (int index = 0; index < mesh.vertexCount(); index++) {
+            denseVertexIndex.put(mesh.vertexIdAt(index), index);
+        }
+        List<HalfEdgeMeshRuntime.FeatureEdgeCategory> categories = new ArrayList<>();
+        for (int slot = 0; slot < labels.size(); slot++) {
+            boolean[] flags = (boolean[]) marks.get(labels.get(slot));
+            List<Long> edgeKeys = new ArrayList<>();
+            for (int index = 0; index < mesh.edgeCount(); index++) {
+                int edgeId = mesh.edgeIdAt(index);
+                if (edgeId >= flags.length || !flags[edgeId]) {
+                    continue;
+                }
+                int halfEdge = mesh.edgeHalfEdge(edgeId);
+                Integer tail = denseVertexIndex.get(mesh.halfEdgeVertex(halfEdge));
+                Integer head = denseVertexIndex.get(mesh.halfEdgeEndVertex(halfEdge));
+                if (tail != null && head != null) {
+                    edgeKeys.add(EdgeKey.undirected(tail, head));
+                }
+            }
+            categories.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(
+                    EDGE_MARK_COLORS[slot % EDGE_MARK_COLORS.length], edgeKeys));
+        }
+        meshRuntime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.STAGES);
+        meshRuntime.setFeatureEdgeOverlay(categories);
+        Platforms.get().log("[mesh-viewer] edge-mark overlay: " + labels);
     }
 
     /**

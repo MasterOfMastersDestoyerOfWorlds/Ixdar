@@ -4306,6 +4306,59 @@
       "description": "Annotates all vertices in a geometry with one or more comma-separated tag labels, stored as per-vertex boolean masks."
     },
     {
+      "id": "tighten_path",
+      "category": "Selection",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the triangle mesh to tighten on. Output: the same bundle carrying the tightened geodesic as curve geometry and the snapped edge cycle in the edge-marks slot under `label`.",
+          "defaultValue": null
+        },
+        {
+          "name": "path",
+          "portType": "STRING",
+          "description": "Surface waypoints as \"x,y,z; x,y,z; ...\". Each snaps to its nearest vertex and consecutive waypoints are joined by a shortest edge walk to make the seed; two waypoints suffice for an open path, three for a loop.",
+          "defaultValue": ""
+        },
+        {
+          "name": "closed",
+          "portType": "BOOLEAN",
+          "description": "If true the seed walks back from the last waypoint to the first and tightens as a loop with no fixed endpoints; if false the two end waypoints are pinned and only the interior straightens.",
+          "defaultValue": false
+        },
+        {
+          "name": "iterations",
+          "portType": "INT",
+          "description": "Cap on wedge straightenings: -1 runs until every wedge is straight, 0 emits the untightened seed walk, and a positive value stops part-way so the tightening can be watched.",
+          "defaultValue": -1
+        },
+        {
+          "name": "label",
+          "portType": "STRING",
+          "description": "Name the snapped edge cycle is stored under in the edge-marks slot, so a seed run and a tightened run of this node can both be kept on one bundle.",
+          "defaultValue": "tightened_path"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the triangle mesh to tighten on. Output: the same bundle carrying the tightened geodesic as curve geometry and the snapped edge cycle in the edge-marks slot under `label`."
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-edge BoolField, true on every edge of the conforming cycle nearest the tightened geodesic."
+        }
+      ],
+      "description": "Tightens a rough path or loop through authored surface points into a locally shortest geodesic by flipping intrinsic edges (Sharp \u0026 Crane 2020 FlipOut), producing the geodesic polyline and the mesh edges nearest it."
+    },
+    {
       "id": "tmesh_contract",
       "category": "Other",
       "scopes": [
