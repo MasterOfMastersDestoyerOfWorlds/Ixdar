@@ -41,15 +41,14 @@ public final class MeshSegmenter {
     public static Map<String, int[]> segmentComponents(ArrayMesh mesh) {
         int nv = mesh.vertexCount();
         int[] faceIdx = mesh.copyFaceIndices();
-        int[] parent = new int[nv];
-        for (int i = 0; i < nv; i++) parent[i] = i;
+        int[] parent = UnionFind.singletons(nv);
         for (int i = 0; i < faceIdx.length; i += NUM_3) {
-            union(parent, faceIdx[i], faceIdx[i + 1]);
-            union(parent, faceIdx[i + 1], faceIdx[i + 2]);
+            UnionFind.union(parent, faceIdx[i], faceIdx[i + 1]);
+            UnionFind.union(parent, faceIdx[i + 1], faceIdx[i + 2]);
         }
         Map<Integer, List<Integer>> byRoot = new HashMap<>();
         for (int v = 0; v < nv; v++) {
-            byRoot.computeIfAbsent(find(parent, v), k -> new ArrayList<>()).add(v);
+            byRoot.computeIfAbsent(UnionFind.find(parent, v), k -> new ArrayList<>()).add(v);
         }
         Map<String, int[]> out = new LinkedHashMap<>();
         int i = 0;
@@ -250,17 +249,4 @@ public final class MeshSegmenter {
         return out;
     }
 
-    private static int find(int[] parent, int i) {
-        while (parent[i] != i) {
-            parent[i] = parent[parent[i]];
-            i = parent[i];
-        }
-        return i;
-    }
-
-    private static void union(int[] parent, int a, int b) {
-        int ra = find(parent, a);
-        int rb = find(parent, b);
-        if (ra != rb) parent[ra] = rb;
-    }
 }

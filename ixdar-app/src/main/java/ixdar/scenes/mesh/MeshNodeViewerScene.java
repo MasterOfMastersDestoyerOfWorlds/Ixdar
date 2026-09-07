@@ -25,6 +25,7 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.FeatureEdgeColors;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.Patch;
 
 import ixdar.geometry.mesh.data.MorseSmaleDecomposer;
@@ -523,6 +524,22 @@ public class MeshNodeViewerScene extends ModelScene {
      */
     public int getMeshEulerCharacteristic() {
         return mesh == null ? 0 : mesh.vertexCount() - mesh.edgeCount() + mesh.faceCount();
+    }
+
+    /**
+     * The {@code repair_mesh} report of the graph that last ran, which names every defect class it
+     * found and every shell and hole it left behind.
+     *
+     * @return the report text, or an empty string when the graph carries no repair node
+     */
+    public String getMeshRepairReport() {
+        if (lastGraphRuntime == null
+                || !(lastGraphRuntime.lastOutput(DEFAULT_DSL_FINAL_PORT)
+                        instanceof GeometryBundle bundle)
+                || !(bundle.slots().get(MeshRepairReport.SLOT) instanceof MeshRepairReport report)) {
+            return "";
+        }
+        return report.toText();
     }
 
     /**

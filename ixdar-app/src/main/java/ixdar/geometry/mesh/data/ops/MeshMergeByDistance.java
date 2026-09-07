@@ -8,6 +8,7 @@ import java.util.List;
 import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.UnionFind;
 
 import ixdar.geometry.mesh.nodes.api.Vector3Value;
 import ixdar.geometry.mesh.data.MeshVertexOffset;
@@ -121,10 +122,7 @@ public final class MeshMergeByDistance {
             grid.computeIfAbsent(key, k -> new ArrayList<>()).add(i);
         }
 
-        int[] parent = new int[n];
-        for (int i = 0; i < n; i++) {
-            parent[i] = i;
-        }
+        int[] parent = UnionFind.singletons(n);
 
         for (int i = 0; i < n; i++) {
             int gx = (int) Math.floor(pos[i].x / cell);
@@ -143,7 +141,7 @@ public final class MeshMergeByDistance {
                                 continue;
                             }
                             if (pos[i].distance(pos[j]) < distance) {
-                                union(parent, i, j);
+                                UnionFind.union(parent, i, j);
                             }
                         }
                     }
@@ -153,7 +151,7 @@ public final class MeshMergeByDistance {
 
         int[] rootOf = new int[n];
         for (int i = 0; i < n; i++) {
-            rootOf[i] = find(parent, i);
+            rootOf[i] = UnionFind.find(parent, i);
         }
 
         HashMap<Integer, Vector3f> sumByRoot = new HashMap<>();
@@ -310,10 +308,7 @@ public final class MeshMergeByDistance {
             gridHead[slot] = i;
         }
 
-        int[] parent = new int[n];
-        for (int i = 0; i < n; i++) {
-            parent[i] = i;
-        }
+        int[] parent = UnionFind.singletons(n);
 
         float distSq = distance * distance;
         for (int i = 0; i < n; i++) {
@@ -338,7 +333,7 @@ public final class MeshMergeByDistance {
                                 float ey = vy[i] - vy[j];
                                 float ez = vz[i] - vz[j];
                                 if (ex * ex + ey * ey + ez * ez < distSq) {
-                                    union(parent, i, j);
+                                    UnionFind.union(parent, i, j);
                                 }
                             }
                             j = nextInBucket[j];
@@ -350,7 +345,7 @@ public final class MeshMergeByDistance {
 
         int[] rootOf = new int[n];
         for (int i = 0; i < n; i++) {
-            rootOf[i] = find(parent, i);
+            rootOf[i] = UnionFind.find(parent, i);
         }
 
         // Assign dense output IDs per root. rootToOut[root] = new index, or -1 if unassigned.
@@ -449,18 +444,4 @@ public final class MeshMergeByDistance {
         return ((long) gx & NUM_0x1ffff) | (((long) gy & NUM_0x1ffff) << NUM_21) | (((long) gz & NUM_0x1ffff) << NUM_42);
     }
 
-    private static int find(int[] parent, int i) {
-        if (parent[i] != i) {
-            parent[i] = find(parent, parent[i]);
-        }
-        return parent[i];
-    }
-
-    private static void union(int[] parent, int a, int b) {
-        int ra = find(parent, a);
-        int rb = find(parent, b);
-        if (ra != rb) {
-            parent[rb] = ra;
-        }
-    }
 }

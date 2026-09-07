@@ -189,6 +189,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                     "eulerCharacteristic",
                     meshScene.getMeshEulerCharacteristic());
             mesh.addProperty("closed", meshScene.isMeshClosed());
+            mesh.addProperty("repairReport", meshScene.getMeshRepairReport());
             mesh.addProperty("radius", meshScene.getMeshRadius());
             mesh.addProperty("shaderMode", meshScene.getShaderModeName());
             mesh.addProperty("texturedDraw", meshScene.hasTexturedDraw());

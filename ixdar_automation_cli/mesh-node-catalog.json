@@ -3659,6 +3659,58 @@
       "description": "Extracts the concrete mesh from a geometry bundle, converting instanced or bundled geometry into a plain mesh output."
     },
     {
+      "id": "repair_mesh",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. The output carries the repaired mesh as a half-edge mesh, which is what the repair exists to produce, plus the per-corner _uv field, the _repair_report report and edge marks labelled \u0027open_boundary\u0027 on the loops the repair left open. Per-edge marks on the input are indexed by the input\u0027s edge ids and are dropped.",
+          "defaultValue": null
+        },
+        {
+          "name": "weld_epsilon",
+          "portType": "FLOAT",
+          "description": "Distance below which two vertices fuse, in world units. Zero (the default) skips the weld: the glTF loader already welds bitwise-identical positions on import, so this is only for genuinely near-coincident vertices.",
+          "defaultValue": 0.0
+        },
+        {
+          "name": "max_hole_edges",
+          "portType": "INT",
+          "description": "Safety cap on the boundary loops to fill, in edges. Every loop at or under it is filled and faired; larger ones stay open and are reported with their edge counts. The triangulation is cubic in the loop length and quadratic in memory, which is what the cap guards; the ceiling is 4096.",
+          "defaultValue": 4096
+        },
+        {
+          "name": "min_shell_faces",
+          "portType": "INT",
+          "description": "Shells with fewer faces than this are debris and are dropped, as are shells fully enclosed by another. The largest shell is always kept; everything else is reported either way.",
+          "defaultValue": 100
+        },
+        {
+          "name": "strict",
+          "portType": "BOOLEAN",
+          "description": "When true, evaluation fails with the full report if a boundary loop was left open or an orientation contradiction survived the split. Debris and bubble shells are a deliberate drop, not a tear, so they do not fail it.",
+          "defaultValue": false
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. The output carries the repaired mesh as a half-edge mesh, which is what the repair exists to produce, plus the per-corner _uv field, the _repair_report report and edge marks labelled \u0027open_boundary\u0027 on the loops the repair left open. Per-edge marks on the input are indexed by the input\u0027s edge ids and are dropped."
+        }
+      ],
+      "description": "Repairs mesh topology in place of a rebuild: welds near-coincident vertices, makes the winding consistent, splits non-manifold edges apart, resolves degenerate faces, drops only debris and enclosed shells, and fills small boundary loops.",
+      "destructive": true,
+      "consumes": [
+        "_edge_marks"
+      ]
+    },
+    {
       "id": "resample_curve",
       "category": "Curve Operations",
       "scopes": [
