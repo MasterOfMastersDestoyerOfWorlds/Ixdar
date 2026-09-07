@@ -39,7 +39,36 @@ DEFAULT_COVERAGE_PATH = os.path.join(REPO_DIR, "jacoco.exec")
 COVERAGE_XML_PATH = os.path.join(REPO_DIR, "target", "jacoco", "coverage.xml")
 COVERAGE_HTML_DIR = os.path.join(REPO_DIR, "target", "jacoco", "html")
 ASYNC_PROFILER_LIB = os.path.join(REPO_DIR, ".profiler", "libasyncProfiler")
+# Where a system install of async-profiler puts its agent library, per platform. Checked after the
+# ASYNC_PROFILER_LIB environment variable and the per-checkout .profiler symlink, so a fresh
+# worktree profiles without running tools/link-profiler.sh first.
+ASYNC_PROFILER_CANDIDATES = (
+    "/opt/homebrew/lib/libasyncProfiler.dylib",
+    "/usr/local/lib/libasyncProfiler.dylib",
+    "/usr/lib/libasyncProfiler.so",
+    "/usr/local/lib/libasyncProfiler.so",
+    "/opt/async-profiler/lib/libasyncProfiler.so",
+)
 AUTOMATION_PORT = 47832
+
+
+def async_profiler_library() -> str:
+    """Resolve the async-profiler agent library.
+
+    Order: the ``ASYNC_PROFILER_LIB`` environment variable, the checkout's ``.profiler`` symlink,
+    then the platform install locations in :data:`ASYNC_PROFILER_CANDIDATES`.
+
+    :return: Path to the agent library.
+    :raises FileNotFoundError: When no candidate exists, with the install hint in the message.
+    """
+    from_env = os.environ.get("ASYNC_PROFILER_LIB", "")
+    for candidate in (from_env, ASYNC_PROFILER_LIB, *ASYNC_PROFILER_CANDIDATES):
+        if candidate and os.path.exists(candidate):
+            return candidate
+    raise FileNotFoundError(
+        "async-profiler library not found; set ASYNC_PROFILER_LIB, or install it "
+        "(macOS: brew install async-profiler; Linux: place libasyncProfiler.so in /usr/lib)"
+    )
 
 SCENE_OFF_PROPERTIES = {
     "embedded-tmesh": "embeddedTMesh.off",
@@ -135,7 +164,7 @@ def _java_command(
     command.extend(f"-D{prop}" for prop in properties)
     if profile_path:
         command.append(
-            f"-agentpath:{ASYNC_PROFILER_LIB}=start,event={profile_event},file={profile_path}"
+            f"-agentpath:{async_profiler_library()}=start,event={profile_event},file={profile_path}"
         )
     if coverage_path:
         command.append(agent_argument(coverage_path))

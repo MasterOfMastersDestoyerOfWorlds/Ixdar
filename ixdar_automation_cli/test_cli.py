@@ -9,6 +9,7 @@ from ixdar_automation_cli import collection_manifest
 from ixdar_automation_cli import ixdar_cli
 from ixdar_automation_cli import quilt_mesh_fingerprint
 from ixdar_automation_cli.cli_commands import new_scene
+from ixdar_automation_cli.cli_commands import run_scene
 from ixdar_automation_cli.cli_registry import cli_command, get_registry
 
 
@@ -27,6 +28,26 @@ class FakeResponse:
 
 
 class CliTest(unittest.TestCase):
+    def test_async_profiler_library_prefers_environment_override(self):
+        with tempfile.NamedTemporaryFile(suffix=".so") as fake_library:
+            with patch.dict(os.environ, {"ASYNC_PROFILER_LIB": fake_library.name}):
+                self.assertEqual(fake_library.name, run_scene.async_profiler_library())
+
+    def test_async_profiler_library_falls_back_to_platform_install(self):
+        with tempfile.NamedTemporaryFile(suffix=".so") as fake_library:
+            with patch.dict(os.environ, {"ASYNC_PROFILER_LIB": ""}), \
+                    patch.object(run_scene, "ASYNC_PROFILER_LIB", "/nonexistent/.profiler/lib"), \
+                    patch.object(run_scene, "ASYNC_PROFILER_CANDIDATES", (fake_library.name,)):
+                self.assertEqual(fake_library.name, run_scene.async_profiler_library())
+
+    def test_async_profiler_library_missing_names_the_install_step(self):
+        with patch.dict(os.environ, {"ASYNC_PROFILER_LIB": ""}), \
+                patch.object(run_scene, "ASYNC_PROFILER_LIB", "/nonexistent/.profiler/lib"), \
+                patch.object(run_scene, "ASYNC_PROFILER_CANDIDATES", ("/nonexistent/lib.so",)):
+            with self.assertRaises(FileNotFoundError) as failure:
+                run_scene.async_profiler_library()
+            self.assertIn("ASYNC_PROFILER_LIB", str(failure.exception))
+
     def test_build_parser_registers_decorated_commands(self):
         ixdar_cli._build_parser()
         registry = get_registry()
