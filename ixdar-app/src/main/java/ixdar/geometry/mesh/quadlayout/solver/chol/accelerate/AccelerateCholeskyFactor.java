@@ -7,6 +7,7 @@ import java.lang.foreign.ValueLayout;
 import java.lang.ref.Cleaner;
 
 import ixdar.geometry.mesh.quadlayout.solver.FactorizedSystem;
+import ixdar.geometry.mesh.quadlayout.solver.SingularSystemException;
 import ixdar.geometry.mesh.quadlayout.solver.matrix.CompressedSparseRowArrays;
 
 /**
@@ -22,6 +23,9 @@ public final class AccelerateCholeskyFactor implements FactorizedSystem {
 
     /** Byte alignment for Accelerate workspace and value buffers. */
     public static final long NATIVE_ALIGNMENT = 16;
+
+    /** Backend name carried by the singular-system failures this factor raises. */
+    public static final String BACKEND_NAME = "Accelerate";
 
     private static final Cleaner CLEANER = Cleaner.create();
 
@@ -46,7 +50,8 @@ public final class AccelerateCholeskyFactor implements FactorizedSystem {
      * @param upperCsr  upper triangle (col ≥ row, ascending columns per row)
      *                  of the SPD system in the factored index space
      * @param dimension number of rows/columns of the factored system
-     * @throws IllegalStateException if Accelerate reports a non-OK status
+     * @throws SingularSystemException if Accelerate's factorization returns a non-OK status
+     * @throws IllegalStateException   if the Accelerate call itself fails
      */
     public AccelerateCholeskyFactor(CompressedSparseRowArrays upperCsr, int dimension) {
         this.dimension = dimension;
@@ -76,8 +81,8 @@ public final class AccelerateCholeskyFactor implements FactorizedSystem {
                 AccelerateSparseLibrary.FACTORIZATION_STATUS_OFFSET);
         if (status != AccelerateSparseLibrary.SPARSE_STATUS_OK) {
             new AccelerateReleaseAction(arena, factorization).run();
-            throw new IllegalStateException(
-                    "Accelerate Cholesky factorization failed with status " + status);
+            throw new SingularSystemException(BACKEND_NAME, SingularSystemException.UNKNOWN_PIVOT,
+                    "Cholesky factorization returned status " + status);
         }
 
         long refactorBytes = factorization.get(ValueLayout.JAVA_LONG,

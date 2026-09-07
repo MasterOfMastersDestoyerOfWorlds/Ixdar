@@ -177,6 +177,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli mesh-patches-decompose --path [--resolution]` — Hybrid skeleton and curvature patch decomposition of a reference mesh.
 - `ixdar-cli mesh-patches-render-flat-multiview --path [--resolution] [--out-path]` — Decompose a mesh into semantic patches and render a flat-shaded multiview composite PNG.
 - `ixdar-cli mesh-patches-render-multiview --path [--resolution] [--out-path]` — Decompose a mesh into semantic patches and render a shaded multiview composite PNG.
+- `ixdar-cli mesh-seamless-diagnosis [--highlight]` — Report the seamless solver's singular-system diagnosis: how the singularity was classified, the null vector's support and the mesh vertices it sits on.
 - `ixdar-cli mesh-segmentation --path [--method] [--n-clusters]` — Segment a mesh into labeled vertex groups by connected components, curvature, or spatial clustering.
 - `ixdar-cli mesh-skeleton-compare --generated --reference [--resolution]` — Compare TEASAR skeletons of two meshes and recommend parameter fixes.
 - `ixdar-cli mesh-skeleton-compare-detailed --generated --reference [--resolution]` — Detailed skeleton comparison returning per-joint 3D position deltas.

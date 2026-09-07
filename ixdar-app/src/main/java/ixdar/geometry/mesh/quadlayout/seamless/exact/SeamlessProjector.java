@@ -529,7 +529,7 @@ public final class SeamlessProjector {
             if (mesh.isBoundaryEdge(edgeId)) {
                 continue;
             }
-            int activeEdge = crossField.edgeIdToActive.get(edgeId);
+            int activeEdge = crossField.edgeIdToActive[edgeId];
             if (activeEdge == currentActiveEdge) {
                 continue;
             }
@@ -804,7 +804,7 @@ public final class SeamlessProjector {
         int[] linkBChart = new int[faceCount];
         for (int i = 0; i < faceCount; i++) {
             int faceId = mesh.vertexFaceAt(vertexId, i);
-            int activeFace = crossField.faceIdToActive.get(faceId);
+            int activeFace = crossField.faceIdToActive[faceId];
             int base = activeFace * CORNERS_PER_FACE;
             int cornerCv = -1;
             for (int c = 0; c < CORNERS_PER_FACE; c++) {

@@ -1,16 +1,19 @@
 package ixdar.geometry.mesh.quadlayout.solver.chol;
 
 import ixdar.geometry.mesh.quadlayout.solver.FactorizedSystem;
+import ixdar.geometry.mesh.quadlayout.solver.SingularSystemException;
+import ixdar.geometry.mesh.quadlayout.solver.matrix.CompressedSparseRowArrays;
 import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
 import ixdar.platform.Platforms;
 
 /**
- * Cholesky backend selection by native-library availability. Every
- * factorization uses the fastest backend that loads — PARDISO (MKL), then
- * Accelerate on macOS — falling back to {@link EjmlCholeskyFactor} when no
- * natives are available.
+ * Cholesky backend selection: PARDISO (MKL), Accelerate on macOS, then {@link EjmlCholeskyFactor}.
+ * A singular rung is retried once on a diagonally shifted copy before the next rung is tried.
  */
 public final class CholeskyBackend {
+
+    /** Fraction of the largest free diagonal entry used as the shift on a singular retry. */
+    public static final double SINGULAR_DIAGONAL_SHIFT_FRACTION = 1.0e-10;
 
     /**
      * When true, {@link #nativeBackend()} reports no native backend, forcing the
@@ -44,21 +47,79 @@ public final class CholeskyBackend {
      * @param fullOf    compact-index → full-index, length {@code freeCount}
      * @param perm      permuted-index → old compact-index, length {@code freeCount}
      * @param invPerm   old compact-index → permuted-index, length {@code freeCount}
+     * @throws SingularSystemException when every rung refuses the system, shifted and unshifted
      * @return the factorized system operating in permuted compact index space
      */
     public static FactorizedSystem factor(NormalMatrix matrix, int freeCount, boolean[] fixed,
             int[] compactOf, int[] fullOf, int[] perm, int[] invPerm) {
+        double shift = diagonalShiftFor(matrix.diagonal, fixed);
         NativeCholeskyBackend backend = nativeBackend();
         if (backend != null) {
-            return backend.factorUpper(
-                    matrix.toPermutedUpperCompressedSparseRow(
-                            freeCount, fixed, compactOf, fullOf, perm, invPerm),
-                    freeCount);
+            CompressedSparseRowArrays upperCsr = matrix.toPermutedUpperCompressedSparseRow(
+                    freeCount, fixed, compactOf, fullOf, perm, invPerm);
+            try {
+                return backend.factorUpper(upperCsr, freeCount);
+            } catch (SingularSystemException singular) {
+                recordSingular(matrix, singular, shift);
+                for (int row = 0; row < freeCount; row++) {
+                    upperCsr.values[upperCsr.rowPtr[row]] += shift;
+                }
+                try {
+                    return backend.factorUpper(upperCsr, freeCount);
+                } catch (SingularSystemException stillSingular) {
+                    Platforms.log("[solver] shifted native factor still singular (%s);"
+                            + " falling to the EJML backend%n", stillSingular.getMessage());
+                }
+            }
         }
-        return new EjmlCholeskyFactor(
+        NormalMatrix.CompressedSparseColumnArrays upperCsc =
                 matrix.toPermutedUpperCompressedSparseColumn(
-                        freeCount, fixed, compactOf, fullOf, perm, invPerm),
-                freeCount);
+                        freeCount, fixed, compactOf, fullOf, perm, invPerm);
+        try {
+            return new EjmlCholeskyFactor(upperCsc, freeCount);
+        } catch (SingularSystemException singular) {
+            recordSingular(matrix, singular, shift);
+            for (int column = 0; column < freeCount; column++) {
+                upperCsc.values()[upperCsc.colPtr()[column]] += shift;
+            }
+            return new EjmlCholeskyFactor(upperCsc, freeCount);
+        }
+    }
+
+    /**
+     * The regularizing shift for a system: {@link #SINGULAR_DIAGONAL_SHIFT_FRACTION} of its
+     * largest finite free diagonal entry. Non-finite entries are skipped rather than propagated,
+     * so a broken assembly still gets a usable shift and a readable log line.
+     *
+     * @param diagonal full-size diagonal of the system
+     * @param fixed    full-size fixed-variable mask
+     * @return the shift to add to every free diagonal entry
+     */
+    public static double diagonalShiftFor(double[] diagonal, boolean[] fixed) {
+        double largest = 0.0;
+        for (int variable = 0; variable < diagonal.length; variable++) {
+            double value = Math.abs(diagonal[variable]);
+            if (!fixed[variable] && Double.isFinite(value) && value > largest) {
+                largest = value;
+            }
+        }
+        return SINGULAR_DIAGONAL_SHIFT_FRACTION * Math.max(largest, 1.0);
+    }
+
+    /**
+     * Log the fall-through and stamp the failing pivot and shift on the matrix, so the stage that
+     * assembled it can diagnose the singularity against its own DOF maps.
+     *
+     * @param matrix   the matrix the backend refused
+     * @param singular the refusal, carrying the backend's pivot index
+     * @param shift    diagonal shift the retry will add
+     */
+    private static void recordSingular(NormalMatrix matrix, SingularSystemException singular,
+            double shift) {
+        matrix.singularPivotIndex = singular.pivotIndex;
+        matrix.appliedDiagonalShift = shift;
+        Platforms.log("[solver] singular system (%s); retrying with diagonal shift %.6e%n",
+                singular.getMessage(), shift);
     }
 
     /**

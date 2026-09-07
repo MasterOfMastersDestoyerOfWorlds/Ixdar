@@ -585,11 +585,13 @@ public class HalfEdgeMesh implements MeshTopology {
         return halfEdgeVertex[halfEdgeId];
     }
 
-    /** {@inheritDoc} Reads the start vertex of {@code halfEdgeNext}. */
+    /**
+     * {@inheritDoc} Reads the twin's start vertex rather than {@code halfEdgeNext}'s, so a
+     * boundary half-edge — which carries no face and therefore no {@code next} — still answers.
+     */
     @Override
     public int halfEdgeEndVertex(int halfEdgeId) {
-        int next = halfEdgeNext[halfEdgeId];
-        return halfEdgeVertex[next];
+        return halfEdgeVertex[halfEdgeTwin[halfEdgeId]];
     }
 
     /** {@inheritDoc}. */

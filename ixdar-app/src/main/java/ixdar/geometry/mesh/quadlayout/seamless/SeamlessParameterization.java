@@ -20,6 +20,7 @@ import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.SeamlessProjector;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.InteriorPointQp;
+import ixdar.geometry.mesh.quadlayout.solver.SingularSystemDiagnoser;
 import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.system.GreedyRounding;
 import ixdar.geometry.mesh.quadlayout.solver.system.LazyConstraints;
@@ -53,6 +54,9 @@ public final class SeamlessParameterization implements MeshNode {
     private static final float HALF = 0.5f;
     private static final double HALF_D = 0.5;
     private static final double DEGENERATE_AREA_EPSILON = 1.0e-30;
+
+    /** Coordinates per vertex position in the flat arrays handed to the diagnoser. */
+    private static final int VECTOR_COMPONENTS = 3;
 
     /**
      * A parametric triangle below this fraction of its expected area
@@ -201,7 +205,7 @@ public final class SeamlessParameterization implements MeshNode {
             EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(ae2);
 
             if (edgeFaceIds.faceA != MeshTopology.NONE) {
-                uv.edgeFaceA[ae2] = field.faceIdToActive.get(edgeFaceIds.faceA);
+                uv.edgeFaceA[ae2] = field.faceIdToActive[edgeFaceIds.faceA];
                 int corner = -1;
                 for (int c1 = 0; c1 < SeamlessUv.CORNERS_PER_FACE; c1++) {
                     if (mesh.faceVertexAt(edgeFaceIds.faceA, c1) == edgeFaceIds.edgeStartVertex) {
@@ -212,7 +216,7 @@ public final class SeamlessParameterization implements MeshNode {
                 uv.edgeCornerInA[ae2] = corner;
             }
             if (edgeFaceIds.faceB != MeshTopology.NONE) {
-                uv.edgeFaceB[ae2] = field.faceIdToActive.get(edgeFaceIds.faceB);
+                uv.edgeFaceB[ae2] = field.faceIdToActive[edgeFaceIds.faceB];
                 int corner1 = -1;
                 for (int c2 = 0; c2 < SeamlessUv.CORNERS_PER_FACE; c2++) {
                     if (mesh.faceVertexAt(edgeFaceIds.faceB, c2) == edgeFaceIds.edgeStartVertex) {
@@ -266,6 +270,7 @@ public final class SeamlessParameterization implements MeshNode {
         runGreedyIntegerRounding();
         Platforms.log("[seamless timing] greedy integer rounding %.3fs%n",
                 (System.nanoTime() - roundingStart) / 1.0e9);
+        diagnoseSingularSystem();
 
         Platforms.log("[seamless] Running BCE13 injectivity-constraint loop");
         long constraintStart = System.nanoTime();
@@ -301,6 +306,52 @@ public final class SeamlessParameterization implements MeshNode {
         rounding.run();
         baseFactorHandle = rounding.retainedHandle;
         baseFactorMatrix = rounding.retainedMatrix;
+    }
+
+    /**
+     * Diagnose the system when the backend ladder had to shift it: recover the null vector, name
+     * the cause, and log where the offending vertices sit. No-op on a healthy factorization.
+     *
+     * <p>See also: {@link SingularSystemDiagnoser}
+     */
+    private void diagnoseSingularSystem() {
+        NormalMatrix matrix = dofSystem.lastAssembledMatrix;
+        if (matrix == null || matrix.appliedDiagonalShift <= 0.0) {
+            return;
+        }
+        dofSystem.buildDofGeometryMaps();
+        int maxVertexId = 0;
+        for (int vertexId : dofSystem.dofVertexId) {
+            maxVertexId = Math.max(maxVertexId, vertexId);
+        }
+        double[] vertexPositionXyz = new double[(maxVertexId + 1) * VECTOR_COMPONENTS];
+        boolean[] vertexIsDegenerate = new boolean[maxVertexId + 1];
+        Vector3f position = new Vector3f();
+        for (int vertexId : dofSystem.dofVertexId) {
+            if (vertexId < 0) {
+                continue;
+            }
+            mesh.vertexPosition(vertexId, position);
+            vertexPositionXyz[vertexId * VECTOR_COMPONENTS] = position.x;
+            vertexPositionXyz[vertexId * VECTOR_COMPONENTS + 1] = position.y;
+            vertexPositionXyz[vertexId * VECTOR_COMPONENTS + 2] = position.z;
+        }
+        for (int activeFace = 0; activeFace < uv.faceCount; activeFace++) {
+            if (faceArea[activeFace] > 0.0) {
+                continue;
+            }
+            int faceId = mesh.faceIdAt(activeFace);
+            for (int corner = 0; corner < SeamlessUv.CORNERS_PER_FACE; corner++) {
+                int vertexId = mesh.faceVertexAt(faceId, corner);
+                if (vertexId <= maxVertexId) {
+                    vertexIsDegenerate[vertexId] = true;
+                }
+            }
+        }
+        uv.singularDiagnosis = SingularSystemDiagnoser.diagnose(matrix, dofSystem.system.frozen,
+                matrix.singularPivotIndex, matrix.appliedDiagonalShift, dofSystem.dofChartId,
+                dofSystem.dofVertexId, vertexPositionXyz, vertexIsDegenerate);
+        Platforms.log("%s%n", uv.singularDiagnosis.logLine());
     }
 
 

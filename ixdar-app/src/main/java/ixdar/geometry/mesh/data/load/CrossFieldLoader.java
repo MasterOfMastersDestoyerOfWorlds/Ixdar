@@ -140,8 +140,8 @@ public final class CrossFieldLoader {
                 continue;
             }
             HalfEdgeMesh.EdgeFaceIds edgeFaces = mesh.edgeFaceIds(activeEdge);
-            int faceA = frameField.faceIdToActive.get(edgeFaces.faceA);
-            int faceB = frameField.faceIdToActive.get(edgeFaces.faceB);
+            int faceA = frameField.faceIdToActive[edgeFaces.faceA];
+            int faceB = frameField.faceIdToActive[edgeFaces.faceB];
             int period = loadedField.periodJump[activeEdge];
             double targetPeriod = (loadedField.theta[faceB] - loadedField.theta[faceA]
                     - frameField.kappa[activeEdge]) / HALF_PI;

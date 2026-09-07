@@ -1,10 +1,10 @@
 package ixdar.geometry.mesh.quadlayout.seamless;
 
 import java.util.Arrays;
-import java.util.Map;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.api.UvField;
+import ixdar.geometry.mesh.quadlayout.solver.SingularSystemDiagnosis;
 
 /**
  * The seamless parametrization's data: per-corner (u, v) over the active faces,
@@ -53,11 +53,17 @@ public final class SeamlessUv implements UvField {
      */
     public final int[] edgeCornerInB;
 
+    /**
+     * Why the backend ladder found the last solve's system singular, or null when every
+     * factorization was clean. What the {@code /mesh/seamless/diagnosis} route serves.
+     */
+    public SingularSystemDiagnosis singularDiagnosis;
+
     /** Face id to active-face index; the key to reading the per-corner arrays. */
-    public Map<Integer, Integer> faceIdToActive;
+    public int[] faceIdToActive;
 
     /** Edge id to active-edge index; the key to reading the per-edge tables. */
-    public Map<Integer, Integer> edgeIdToActive;
+    public int[] edgeIdToActive;
 
     /** Per-corner u, length {@code 3 * faceCount} (active-face order). */
     public double[] uCorner;
@@ -114,7 +120,7 @@ public final class SeamlessUv implements UvField {
      */
     @Override
     public double u(int faceId, int cornerIdx) {
-        int activeFace = faceIdToActive.get(faceId);
+        int activeFace = faceIdToActive[faceId];
         return uCorner[activeFace * CORNERS_PER_FACE + cornerIdx];
     }
 
@@ -127,7 +133,7 @@ public final class SeamlessUv implements UvField {
      */
     @Override
     public double v(int faceId, int cornerIdx) {
-        int activeFace = faceIdToActive.get(faceId);
+        int activeFace = faceIdToActive[faceId];
         return vCorner[activeFace * CORNERS_PER_FACE + cornerIdx];
     }
 
@@ -139,7 +145,7 @@ public final class SeamlessUv implements UvField {
      */
     @Override
     public void faceCornerUv(int faceId, double[] out) {
-        int base = faceIdToActive.get(faceId) * CORNERS_PER_FACE;
+        int base = faceIdToActive[faceId] * CORNERS_PER_FACE;
         out[0] = uCorner[base];
         out[1] = vCorner[base];
         out[2] = uCorner[base + 1];
@@ -155,7 +161,7 @@ public final class SeamlessUv implements UvField {
      * @return signed UV-space triangle area
      */
     public double uvSignedArea(int faceId) {
-        int activeFace = faceIdToActive.get(faceId);
+        int activeFace = faceIdToActive[faceId];
         int o = activeFace * CORNERS_PER_FACE;
         double u0 = uCorner[o];
         double v0 = vCorner[o];

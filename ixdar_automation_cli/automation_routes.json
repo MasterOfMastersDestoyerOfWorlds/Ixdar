@@ -431,6 +431,26 @@
       "responseHint": "{ok, path, width, height, patch_count}"
     },
     {
+      "commandName": "mesh-seamless-diagnosis",
+      "path": "/mesh/seamless/diagnosis",
+      "method": "POST",
+      "description": "Report the seamless solver\u0027s singular-system diagnosis: how the singularity was classified, the null vector\u0027s support and the mesh vertices it sits on.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.SeamlessDiagnosis",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/SeamlessDiagnosis.java",
+      "params": [
+        {
+          "name": "highlight",
+          "cliName": "highlight",
+          "type": "bool",
+          "required": false,
+          "default": "false",
+          "help": "Also mark the offending vertices in the quad-layout scene.",
+          "example": "true"
+        }
+      ],
+      "responseHint": "{ok, singular, classification, classificationCode, pivotIndex, dimension, appliedDiagonalShift, nullVectorEnergy, supportSize, distinctChartCount, degenerateVertexCount, logLine, support[], highlighted}"
+    },
+    {
       "commandName": "mesh-segmentation",
       "path": "/mesh/segmentation",
       "method": "POST",

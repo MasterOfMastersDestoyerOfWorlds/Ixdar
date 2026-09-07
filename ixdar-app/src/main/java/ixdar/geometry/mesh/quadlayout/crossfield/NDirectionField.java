@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.IntUnaryOperator;
 
 import org.joml.Vector3f;
 
@@ -118,11 +119,14 @@ public class NDirectionField implements MeshNode {
     private CrossField cf;
 
     private int[] vertexIdOf; // active index -> vertex id
-    private final Map<Integer, Integer> activeOfVertexId = new HashMap<>();
+    private int[] activeOfVertexId;
 
-    // angleInFrame[ packVH(vertexId, halfEdge) ] = rescaled angle of that outgoing
-    // half-edge in the vertex's flattened tangent frame (paper Eq. 11/12).
-    private final Map<Long, Double> angleInFrame = new HashMap<>();
+    /**
+     * Rescaled angle of each half-edge in its own start vertex's flattened tangent frame
+     * (paper Eq. 11/12), indexed by half-edge id and NaN where none was assigned. The
+     * half-edge already names its vertex, so no composite key is needed.
+     */
+    private double[] angleInFrame;
 
     private Vector3f[] vertexNormal;
 
@@ -151,10 +155,11 @@ public class NDirectionField implements MeshNode {
         this.system.writeBack = this::populate;
         this.vertexIdOf = new int[vertexCount];
         for (int v = 0; v < vertexCount; v++) {
-            int vId = buildMesh.vertexIdAt(v);
-            vertexIdOf[v] = vId;
-            activeOfVertexId.put(vId, v);
+            vertexIdOf[v] = buildMesh.vertexIdAt(v);
         }
+        this.activeOfVertexId = activeIndexById(vertexCount, buildMesh::vertexIdAt);
+        this.angleInFrame = new double[idSpace(buildMesh.halfEdgeCount(), buildMesh::halfEdgeIdAt)];
+        Arrays.fill(this.angleInFrame, Double.NaN);
         this.loadVector = new double[2 * vertexCount];
         this.crossFieldGuidance = new double[2 * vertexCount];
         buildFramesAndTransport();
@@ -183,14 +188,8 @@ public class NDirectionField implements MeshNode {
     private void buildFramesAndTransport() {
         long sectionStart = System.nanoTime();
 
-        cf.faceIdToActive = new HashMap<>(mesh.faceCount() * 2);
-        for (int i = 0; i < mesh.faceCount(); i++) {
-            cf.faceIdToActive.put(mesh.faceIdAt(i), i);
-        }
-        cf.edgeIdToActive = new HashMap<>(mesh.edgeCount() * 2);
-        for (int i = 0; i < mesh.edgeCount(); i++) {
-            cf.edgeIdToActive.put(mesh.edgeIdAt(i), i);
-        }
+        cf.faceIdToActive = activeIndexById(mesh.faceCount(), mesh::faceIdAt);
+        cf.edgeIdToActive = activeIndexById(mesh.edgeCount(), mesh::edgeIdAt);
         Platforms.log("[cross-field timing] active-id maps %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
@@ -280,6 +279,39 @@ public class NDirectionField implements MeshNode {
         detectAlignmentEdges();
     }
 
+    /**
+     * Inverse of a dense active-index → id accessor as a flat id-indexed table, so the
+     * downstream stages read an id's active index out of an array rather than out of a boxing
+     * {@code HashMap<Integer, Integer>}.
+     *
+     * @param activeCount number of live elements
+     * @param idAt        the mesh's active-index → id accessor
+     * @return active index per id, -1 where no live element carries that id
+     */
+    private static int[] activeIndexById(int activeCount, IntUnaryOperator idAt) {
+        int[] activeById = new int[idSpace(activeCount, idAt)];
+        Arrays.fill(activeById, -1);
+        for (int activeIndex = 0; activeIndex < activeCount; activeIndex++) {
+            activeById[idAt.applyAsInt(activeIndex)] = activeIndex;
+        }
+        return activeById;
+    }
+
+    /**
+     * Size an id-indexed table must have to hold every live element: one past the largest id.
+     *
+     * @param activeCount number of live elements
+     * @param idAt        the mesh's active-index → id accessor
+     * @return one past the largest live id, or 0 when nothing is live
+     */
+    private static int idSpace(int activeCount, IntUnaryOperator idAt) {
+        int maxId = -1;
+        for (int activeIndex = 0; activeIndex < activeCount; activeIndex++) {
+            maxId = Math.max(maxId, idAt.applyAsInt(activeIndex));
+        }
+        return maxId + 1;
+    }
+
     private void detectAlignmentEdges() {
         for (int activeEdge = 0; activeEdge < cf.edgeCount; activeEdge++) {
             EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(activeEdge);
@@ -328,7 +360,7 @@ public class NDirectionField implements MeshNode {
                 int eId = mesh.halfEdgeEdge(he);
                 if (mesh.isBoundaryEdge(eId))
                     continue;
-                int eAi = cf.edgeIdToActive.get(eId);
+                int eAi = cf.edgeIdToActive[eId];
                 int sign = (he == mesh.edgeHalfEdge(eId)) ? 1 : -1;
                 signedKappaSum += sign * cf.kappa[eAi];
                 signedPeriodSum += sign * cf.periodJump[eAi];
@@ -414,8 +446,8 @@ public class NDirectionField implements MeshNode {
             double phase = 2.0 * getAngle(edge.edgeStartVertex, edge.halfEdge);
             double cosPhase = Math.cos(phase);
             double sinPhase = Math.sin(phase);
-            int activeStartVertex = activeOfVertexId.get(startVertexId);
-            int activeEndVertex = activeOfVertexId.get(endVertexId);
+            int activeStartVertex = activeOfVertexId[startVertexId];
+            int activeEndVertex = activeOfVertexId[endVertexId];
             loadVector[2 * activeStartVertex] += edgeWeight * cosPhase;
             loadVector[2 * activeStartVertex + 1] += edgeWeight * sinPhase;
             phase = 2.0 * getAngle(edge.edgeEndVertex, edge.twin);
@@ -462,11 +494,11 @@ public class NDirectionField implements MeshNode {
             }
             double contribution = featureAlignmentWeight * edgeLength;
             double phase = n * angleOfEdgeAtVertex(startVertexId, halfEdge, edgeId);
-            int activeStartVertex = activeOfVertexId.get(startVertexId);
+            int activeStartVertex = activeOfVertexId[startVertexId];
             featureAlignmentLoad[2 * activeStartVertex] += contribution * Math.cos(phase);
             featureAlignmentLoad[2 * activeStartVertex + 1] += contribution * Math.sin(phase);
             phase = n * angleOfEdgeAtVertex(endVertexId, twin, edgeId);
-            int activeEndVertex = activeOfVertexId.get(endVertexId);
+            int activeEndVertex = activeOfVertexId[endVertexId];
             featureAlignmentLoad[2 * activeEndVertex] += contribution * Math.cos(phase);
             featureAlignmentLoad[2 * activeEndVertex + 1] += contribution * Math.sin(phase);
         }
@@ -490,9 +522,9 @@ public class NDirectionField implements MeshNode {
      * @return rescaled angle in radians, or 0 if the edge is not incident
      */
     private double angleOfEdgeAtVertex(int vertexId, int preferredHalfEdge, int edgeId) {
-        Double cached = angleInFrame.get((((long) vertexId) << 32) | (preferredHalfEdge & 0xFFFFFFFFL));
-        if (cached != null) {
-            return cached;
+        if (mesh.halfEdgeVertex(preferredHalfEdge) == vertexId
+                && !Double.isNaN(angleInFrame[preferredHalfEdge])) {
+            return angleInFrame[preferredHalfEdge];
         }
         int outgoingCount = mesh.vertexOutgoingHalfEdgeCount(vertexId);
         for (int i = 0; i < outgoingCount; i++) {
@@ -713,7 +745,7 @@ public class NDirectionField implements MeshNode {
             Vector3f[] position = new Vector3f[3];
             for (int corner = 0; corner < 3; corner++) {
                 vertexId[corner] = mesh.halfEdgeVertex(halfEdge[corner]);
-                active[corner] = activeOfVertexId.get(vertexId[corner]);
+                active[corner] = activeOfVertexId[vertexId[corner]];
                 position[corner] = mesh.vertexPosition(vertexId[corner]);
             }
 
@@ -925,8 +957,8 @@ public class NDirectionField implements MeshNode {
                 int twin = mesh.halfEdgeTwin(he);
                 int aId = mesh.halfEdgeVertex(he);
                 int bId = mesh.halfEdgeEndVertex(he);
-                int a = activeOfVertexId.get(aId);
-                int b = activeOfVertexId.get(bId);
+                int a = activeOfVertexId[aId];
+                int b = activeOfVertexId[bId];
                 double rho = n * (getAngle(bId, twin) - getAngle(aId, he));
                 rhoProd += rho;
                 // omega_ab : u_b = e^{i omega} r_ab u_a -> omega = arg(u_b / (r_ab u_a))
@@ -998,11 +1030,12 @@ public class NDirectionField implements MeshNode {
     }
 
     private void putAngle(int vId, int he, double angle) {
-        angleInFrame.put((((long) vId) << 32) | (he & 0xFFFFFFFFL), angle);
+        angleInFrame[he] = angle;
     }
 
     private double getAngle(int vId, int he) {
-        return angleInFrame.getOrDefault((((long) vId) << 32) | (he & 0xFFFFFFFFL), 0.0);
+        double angle = angleInFrame[he];
+        return mesh.halfEdgeVertex(he) == vId && !Double.isNaN(angle) ? angle : 0.0;
     }
 
     /**
@@ -1013,10 +1046,7 @@ public class NDirectionField implements MeshNode {
     public void populate() {
         // vertex id -> NDirectionField active vertex index. NDirectionField numbers
         // vertices by mesh.vertexIdAt order, so this inverse matches its indexing.
-        Map<Integer, Integer> vIdToActive = new HashMap<>(mesh.vertexCount() * 2);
-        for (int v = 0; v < mesh.vertexCount(); v++) {
-            vIdToActive.put(mesh.vertexIdAt(v), v);
-        }
+        int[] vIdToActive = activeIndexById(mesh.vertexCount(), mesh::vertexIdAt);
 
         // Per-face angle as the complex mean of the corners' n-power
         // directions in the face frame (KCP13's u interpolated to the face).
@@ -1037,8 +1067,8 @@ public class NDirectionField implements MeshNode {
             int corners = mesh.faceHalfEdgeCount(fId);
             for (int c = 0; c < corners; c++) {
                 int he = mesh.faceHalfEdgeAt(fId, c);
-                Integer va = vIdToActive.get(mesh.halfEdgeVertex(he));
-                if (va == null) {
+                int va = vIdToActive[mesh.halfEdgeVertex(he)];
+                if (va < 0) {
                     continue;
                 }
 
@@ -1062,8 +1092,8 @@ public class NDirectionField implements MeshNode {
             }
             int he = mesh.edgeHalfEdge(eId);
             int twin = mesh.halfEdgeTwin(he);
-            int i = cf.faceIdToActive.get(mesh.halfEdgeFace(he));
-            int j = cf.faceIdToActive.get(mesh.halfEdgeFace(twin));
+            int i = cf.faceIdToActive[mesh.halfEdgeFace(he)];
+            int j = cf.faceIdToActive[mesh.halfEdgeFace(twin)];
 
             double resid = cf.theta[j] - cf.theta[i] - cf.kappa[eAi];
             cf.periodJump[eAi] = Math.round((float) (resid / HALF_PI));
@@ -1156,14 +1186,14 @@ public class NDirectionField implements MeshNode {
                 if (otherFaceId < 0) {
                     continue;
                 }
-                int otherActive = cf.faceIdToActive.get(otherFaceId);
+                int otherActive = cf.faceIdToActive[otherFaceId];
                 if (triangleIndex[otherActive] != 0
                         || faceMeanMagnitude[otherActive] <= bestMagnitude) {
                     continue;
                 }
                 bestMagnitude = faceMeanMagnitude[otherActive];
                 bestNeighbor = otherActive;
-                bestEdgeActive = cf.edgeIdToActive.get(eId);
+                bestEdgeActive = cf.edgeIdToActive[eId];
                 bestCanonicalIntoFace = canonicalFaceId != fId;
             }
             if (bestNeighbor < 0) {

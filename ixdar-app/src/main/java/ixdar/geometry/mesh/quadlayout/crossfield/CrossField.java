@@ -2,7 +2,6 @@ package ixdar.geometry.mesh.quadlayout.crossfield;
 
 import java.util.Arrays;
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.Set;
 
 import org.joml.Vector3f;
@@ -76,14 +75,16 @@ public class CrossField {
     public float featureDihedralCos = 0.2f;
 
     /**
-     * Map from face id to active index.
+     * Face id to active-face index, indexed by face id and -1 where no face of that id was
+     * active when the field was built.
      */
-    public Map<Integer, Integer> faceIdToActive;
+    public int[] faceIdToActive;
 
     /**
-     * Map from edge id to active index.
+     * Edge id to active-edge index, indexed by edge id and -1 where no edge of that id was
+     * active when the field was built.
      */
-    public Map<Integer, Integer> edgeIdToActive;
+    public int[] edgeIdToActive;
 
     /**
      * Per-edge selection of the edges that should become quad edges, in dense

@@ -12,6 +12,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.ExactArithmetic;
+import ixdar.platform.Platforms;
 
 /**
  * DOF state plus cached SPD assembly plan for one seamless build.
@@ -107,6 +108,21 @@ public final class SeamlessDofSystem {
      */
     public final double[] dofPinnedValue;
 
+    /**
+     * Per final DOF: the cut-open chart whose vertices expand into it, or -1. Null until
+     * {@link #buildDofGeometryMaps()} runs, which only a singularity diagnosis asks for.
+     */
+    public int[] dofChartId;
+
+    /** Sibling of {@link #dofChartId} holding one mesh vertex per final DOF, or -1. */
+    public int[] dofVertexId;
+
+    /**
+     * The matrix the last {@link DofSystem#assemble()} produced, kept so the stage can read the
+     * backend ladder's singularity report off it once the solve returns.
+     */
+    public NormalMatrix lastAssembledMatrix;
+
     private SeamlessParameterization seamless;
     private CutGraph cutGraph;
     private HalfEdgeMesh mesh;
@@ -159,8 +175,90 @@ public final class SeamlessDofSystem {
         this.system.assembler = x -> {
             NormalMatrix assembled = assembleWeighted(this.seamless.faceWeight);
             applyIntegerPinPenalty(assembled);
+            this.lastAssembledMatrix = assembled;
             return assembled;
         };
+    }
+
+    /**
+     * Fill {@link #dofChartId} and {@link #dofVertexId}, walking corners in face order so each DOF
+     * keeps the first chart and vertex that expands into it. Only a diagnosis needs these.
+     */
+    public void buildDofGeometryMaps() {
+        if (dofChartId != null) {
+            return;
+        }
+        int[] chartOfFace = cutOpenChartOfFace();
+        dofChartId = new int[dofCount];
+        dofVertexId = new int[dofCount];
+        Arrays.fill(dofChartId, -1);
+        Arrays.fill(dofVertexId, -1);
+        for (int activeFace = 0; activeFace < seamless.uv.faceCount; activeFace++) {
+            int faceId = mesh.faceIdAt(activeFace);
+            for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
+                int chartVertex = cutGraph.cornerToChartVertex[activeFace * CORNERS_PER_FACE
+                        + corner];
+                if (chartVertex < 0) {
+                    continue;
+                }
+                int vertexId = mesh.faceVertexAt(faceId, corner);
+                for (int component = 0; component < COMPONENTS_PER_CHART_VERTEX; component++) {
+                    for (int dof : chartVertexFinalDofs[chartVertex][component]) {
+                        if (dofVertexId[dof] < 0) {
+                            dofVertexId[dof] = vertexId;
+                            dofChartId[dof] = chartOfFace[activeFace];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Label the connected components of the surface cut open along the seam: faces joined by
+     * non-cut interior edges share one chart, whose translation the constraint rows must tie down.
+     *
+     * @return per active face, its cut-open chart index
+     */
+    private int[] cutOpenChartOfFace() {
+        int faceCount = seamless.uv.faceCount;
+        int[] chartOfFace = new int[faceCount];
+        Arrays.fill(chartOfFace, -1);
+        int[] frontier = new int[faceCount];
+        int chartCount = 0;
+        for (int seedFace = 0; seedFace < faceCount; seedFace++) {
+            if (chartOfFace[seedFace] >= 0) {
+                continue;
+            }
+            chartOfFace[seedFace] = chartCount;
+            int frontierSize = 1;
+            frontier[0] = seedFace;
+            while (frontierSize > 0) {
+                frontierSize--;
+                int activeFace = frontier[frontierSize];
+                int faceId = mesh.faceIdAt(activeFace);
+                for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
+                    int activeEdge = crossField.edgeIdToActive[mesh.faceEdgeAt(faceId, corner)];
+                    if (cutGraph.isCutEdge[activeEdge]) {
+                        continue;
+                    }
+                    int activeFaceA = seamless.uv.edgeFaceA[activeEdge];
+                    int activeFaceB = seamless.uv.edgeFaceB[activeEdge];
+                    if (activeFaceA < 0 || activeFaceB < 0) {
+                        continue;
+                    }
+                    int otherActiveFace = activeFaceA == activeFace ? activeFaceB : activeFaceA;
+                    if (chartOfFace[otherActiveFace] >= 0) {
+                        continue;
+                    }
+                    chartOfFace[otherActiveFace] = chartCount;
+                    frontier[frontierSize] = otherActiveFace;
+                    frontierSize++;
+                }
+            }
+            chartCount++;
+        }
+        return chartOfFace;
     }
 
     /**
@@ -332,7 +430,8 @@ public final class SeamlessDofSystem {
      * @return number of final DOFs after pivot elimination
      */
     private int reduceLeftoverConstraints() {
-        ArrayList<HashMap<Integer, Double>> rows = new ArrayList<>();
+        SparseConstraintRows rows = new SparseConstraintRows(
+                2 * cutGraph.leftoverConstraints.length);
         for (int[] record : cutGraph.leftoverConstraints) {
             int activeEdge = record[0];
             int chartA = record[1];
@@ -340,22 +439,24 @@ public final class SeamlessDofSystem {
             int rotation = cutGraph.cutRotation[activeEdge];
             int cos = ExactArithmetic.integerCosine(rotation);
             int sin = ExactArithmetic.integerSine(rotation);
-            int sDof = cutEdgeSDof[activeEdge];
-            int tDof = cutEdgeTDof[activeEdge];
-            HashMap<Integer, Double> rowU = new HashMap<>();
-            addRawExpansionTo(rowU, chartB, 0, 1.0);
-            addRawExpansionTo(rowU, chartA, 0, -cos);
-            addRawExpansionTo(rowU, chartA, 1, sin);
-            rowU.merge(sDof, -1.0, Double::sum);
-            rows.add(rowU);
-            HashMap<Integer, Double> rowV = new HashMap<>();
-            addRawExpansionTo(rowV, chartB, 1, 1.0);
-            addRawExpansionTo(rowV, chartA, 0, -sin);
-            addRawExpansionTo(rowV, chartA, 1, -cos);
-            rowV.merge(tDof, -1.0, Double::sum);
-            rows.add(rowV);
+            rows.beginRow();
+            addRawExpansionTo(rows, chartB, 0, 1.0);
+            addRawExpansionTo(rows, chartA, 0, -cos);
+            addRawExpansionTo(rows, chartA, 1, sin);
+            rows.add(cutEdgeSDof[activeEdge], -1.0);
+            rows.endRow();
+            rows.beginRow();
+            addRawExpansionTo(rows, chartB, 1, 1.0);
+            addRawExpansionTo(rows, chartA, 0, -sin);
+            addRawExpansionTo(rows, chartA, 1, -cos);
+            rows.add(cutEdgeTDof[activeEdge], -1.0);
+            rows.endRow();
         }
+        int cutRotationRowCount = rows.rowCount;
         addAlignmentEqualityRows(rows);
+        Platforms.log("[seamless] leftover rows %d (cut %d, alignment %d) nnz %d over %d raw DOFs%n",
+                rows.rowCount, cutRotationRowCount, rows.rowCount - cutRotationRowCount,
+                rows.entryCount, rawDofCount);
 
         LeftoverConstraintEliminator eliminator = new LeftoverConstraintEliminator(rows, rawDofCount);
         int nextFinal = 0;
@@ -383,7 +484,7 @@ public final class SeamlessDofSystem {
      * @param rows the accumulator already holding the cut-rotation rows; this
      *             method appends to it in place
      */
-    private void addAlignmentEqualityRows(ArrayList<HashMap<Integer, Double>> rows) {
+    private void addAlignmentEqualityRows(SparseConstraintRows rows) {
         for (int activeEdge = 0; activeEdge < seamless.uv.edgeCount; activeEdge++) {
             int axis = alignmentEdgeIsoAxis[activeEdge];
             if (axis == NOT_ALIGNMENT) {
@@ -408,10 +509,10 @@ public final class SeamlessDofSystem {
             int chartStart = cutGraph.cornerToChartVertex[faceA * CORNERS_PER_FACE + cornerStartA];
             int chartEnd = cutGraph.cornerToChartVertex[faceA * CORNERS_PER_FACE + cornerEndA];
             int component = axis == ALIGN_AXIS_V ? 1 : 0;
-            HashMap<Integer, Double> row = new HashMap<>();
-            addRawExpansionTo(row, chartStart, component, 1.0);
-            addRawExpansionTo(row, chartEnd, component, -1.0);
-            rows.add(row);
+            rows.beginRow();
+            addRawExpansionTo(rows, chartStart, component, 1.0);
+            addRawExpansionTo(rows, chartEnd, component, -1.0);
+            rows.endRow();
         }
     }
 
@@ -489,14 +590,14 @@ public final class SeamlessDofSystem {
 
     /**
      * Scatter {@code outerCoef · (raw-DOF expansion of chartVertex's
-     * component)} into {@code accumulator}.
+     * component)} into the open row.
      *
-     * @param accumulator raw-DOF → coefficient accumulator
+     * @param rows        constraint rows whose open row receives the terms
      * @param chartVertex chart vertex whose component to expand
      * @param component   0 for u, 1 for v
      * @param outerCoef   multiplier applied to every term in the expansion
      */
-    private void addRawExpansionTo(HashMap<Integer, Double> accumulator,
+    private void addRawExpansionTo(SparseConstraintRows rows,
             int chartVertex, int component, double outerCoef) {
         if (outerCoef == 0.0) {
             return;
@@ -504,7 +605,7 @@ public final class SeamlessDofSystem {
         int[] dofs = rawExpansionDofs(chartVertex, component);
         double[] coefs = rawExpansionCoefs(chartVertex, component);
         for (int i = 0; i < dofs.length; i++) {
-            accumulator.merge(dofs[i], outerCoef * coefs[i], Double::sum);
+            rows.add(dofs[i], outerCoef * coefs[i]);
         }
     }
 

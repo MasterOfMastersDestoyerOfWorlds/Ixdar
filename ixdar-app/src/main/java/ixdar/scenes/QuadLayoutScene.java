@@ -36,7 +36,15 @@ public class QuadLayoutScene extends ModelScene {
     /** States the grid-map paint toggle cycles through. */
     private static final int GRID_MAP_VIEW_COUNT = 3;
 
-    private QuadLayoutRuntime quadRuntime;
+    /** Render runtime of this scene; the diagnosis route highlights through it. */
+    public QuadLayoutRuntime quadRuntime;
+
+    /**
+     * The engine of the last build, held so the fill can be swapped without
+     * rebuilding.
+     */
+    public QuadLayoutEngine engine;
+
     private float alphaDegrees = 15f;
     private boolean coonsFill;
 
@@ -50,12 +58,6 @@ public class QuadLayoutScene extends ModelScene {
      * Which integer grid map is painted on the surface, one of the view constants.
      */
     private int gridMapView;
-
-    /**
-     * The engine of the last build, held so the fill can be swapped without
-     * rebuilding.
-     */
-    private QuadLayoutEngine engine;
 
     /**
      * Surface-grid geometry of the pre-relaxation extraction, built on first

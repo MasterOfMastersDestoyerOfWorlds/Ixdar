@@ -12,6 +12,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.platform.Platforms;
 
 /**
  * The combinatorial layout induced by cutting the surface open along a seam:
@@ -147,6 +148,16 @@ public class CutGraph {
         buildDenseIndices();
         classifyChartVerticesForSubstitution();
         buildAtlas();
+        int cutEdgeCount = 0;
+        for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
+            if (isCutEdge[activeEdge]) {
+                cutEdgeCount++;
+            }
+        }
+        Platforms.log("[cut-graph] cut edges %d of %d, interior %d, chart vertices %d"
+                + " (primary %d) of %d corners%n", cutEdgeCount, seamless.edgeCount,
+                interiorCutEdgeCount, chartVertexCount, primaryChartCount,
+                SeamlessUv.CORNERS_PER_FACE * seamless.faceCount);
     }
 
     /**
@@ -162,10 +173,9 @@ public class CutGraph {
     }
 
     /**
-     * Initialize the seam set to the complement of a min-cost dual spanning tree.
-     * Alignment edges cost zero so they end up non-cut wherever topology allows: a
-     * feature edge on the cut with rotation {@code r ≠ 0} would collapse to a point.
-     * Boundary edges stay cut.
+     * Initialize the seam set to the complement of a min-cost dual spanning forest, one tree per
+     * connected component. Alignment edges cost zero so they end up non-cut wherever topology
+     * allows; boundary edges stay cut.
      *
      * <p>See also: BZK09 Section 5.2
      */
@@ -180,10 +190,32 @@ public class CutGraph {
 
         PriorityQueue<double[]> frontier = new PriorityQueue<>((a, b) -> Double.compare(
                 a[0], b[0]));
-        if (seamless.faceCount > 0) {
-            distance[0] = 0.0;
-            frontier.add(new double[] { 0.0, 0 });
+        for (int seedFace = 0; seedFace < seamless.faceCount; seedFace++) {
+            if (distance[seedFace] != Double.POSITIVE_INFINITY) {
+                continue;
+            }
+            distance[seedFace] = 0.0;
+            frontier.add(new double[] { 0.0, seedFace });
+            growSpanningTree(frontier, distance, parentEdge);
         }
+        for (int activeFace = 0; activeFace < seamless.faceCount; activeFace++) {
+            int treeEdge = parentEdge[activeFace];
+            if (treeEdge >= 0) {
+                isCutEdge[treeEdge] = false;
+            }
+        }
+    }
+
+    /**
+     * Drain the frontier, relaxing dual edges into {@code distance} and {@code parentEdge}, so
+     * one call grows the tree of whichever component the seeded faces belong to.
+     *
+     * @param frontier   seeded priority queue of {@code {distance, activeFace}} pairs
+     * @param distance   per-active-face best dual distance so far, updated in place
+     * @param parentEdge per-active-face tree edge, updated in place
+     */
+    private void growSpanningTree(PriorityQueue<double[]> frontier, double[] distance,
+            int[] parentEdge) {
         while (!frontier.isEmpty()) {
             double[] top = frontier.poll();
             double distHere = top[0];
@@ -194,7 +226,7 @@ public class CutGraph {
             int faceId = mesh.faceIdAt(activeFace);
             for (int corner = 0; corner < SeamlessUv.CORNERS_PER_FACE; corner++) {
                 int edgeId = mesh.faceEdgeAt(faceId, corner);
-                int activeEdge = crossField.edgeIdToActive.get(edgeId);
+                int activeEdge = crossField.edgeIdToActive[edgeId];
                 int otherActiveFace = (seamless.edgeFaceA[activeEdge] == activeFace)
                         ? seamless.edgeFaceB[activeEdge]
                         : seamless.edgeFaceA[activeEdge];
@@ -207,12 +239,6 @@ public class CutGraph {
                     parentEdge[otherActiveFace] = activeEdge;
                     frontier.add(new double[] { newDistance, otherActiveFace });
                 }
-            }
-        }
-        for (int activeFace = 0; activeFace < seamless.faceCount; activeFace++) {
-            int treeEdge = parentEdge[activeFace];
-            if (treeEdge >= 0) {
-                isCutEdge[treeEdge] = false;
             }
         }
     }
@@ -262,7 +288,7 @@ public class CutGraph {
             int incidentEdgeCount = mesh.vertexEdgeCount(vertexId);
             for (int i = 0; i < incidentEdgeCount; i++) {
                 int edgeId = mesh.vertexEdgeAt(vertexId, i);
-                int activeEdge = crossField.edgeIdToActive.get(edgeId);
+                int activeEdge = crossField.edgeIdToActive[edgeId];
                 if (!isCutEdge[activeEdge] || mesh.isBoundaryEdge(edgeId)) {
                     continue;
                 }
@@ -330,7 +356,7 @@ public class CutGraph {
                 int incidentEdgeCount = mesh.vertexEdgeCount(activeVertexId);
                 for (int i = 0; i < incidentEdgeCount; i++) {
                     int edgeId = mesh.vertexEdgeAt(activeVertexId, i);
-                    int activeEdge = crossField.edgeIdToActive.get(edgeId);
+                    int activeEdge = crossField.edgeIdToActive[edgeId];
                     if (activeVertex == startActiveVertex) {
                         continue;
                     }
@@ -398,7 +424,7 @@ public class CutGraph {
                 int activeFace = faceQueue.poll();
                 int faceId = mesh.faceIdAt(activeFace);
                 for (int corner = 0; corner < SeamlessUv.CORNERS_PER_FACE; corner++) {
-                    int activeEdge = crossField.edgeIdToActive.get(mesh.faceEdgeAt(faceId, corner));
+                    int activeEdge = crossField.edgeIdToActive[mesh.faceEdgeAt(faceId, corner)];
                     if (isCutEdge[activeEdge])
                         continue;
                     int activeFaceA = seamless.edgeFaceA[activeEdge];

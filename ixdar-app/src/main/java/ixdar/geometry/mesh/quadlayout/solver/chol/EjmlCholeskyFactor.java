@@ -7,6 +7,7 @@ import org.ejml.sparse.FillReducing;
 import org.ejml.sparse.csc.factory.LinearSolverFactory_DSCC;
 
 import ixdar.geometry.mesh.quadlayout.solver.FactorizedSystem;
+import ixdar.geometry.mesh.quadlayout.solver.SingularSystemException;
 import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
 
 /**
@@ -16,6 +17,9 @@ import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
  * native backends are validated against.
  */
 public final class EjmlCholeskyFactor implements FactorizedSystem {
+
+    /** Backend name carried by the singular-system failures this factor raises. */
+    public static final String BACKEND_NAME = "EJML";
 
     public final LinearSolverSparse<DMatrixSparseCSC, DMatrixRMaj> solver;
     public final DMatrixSparseCSC systemMatrix;
@@ -30,8 +34,8 @@ public final class EjmlCholeskyFactor implements FactorizedSystem {
      * @param upperCsc  upper triangle (col ≥ row) of the SPD system in the
      *                  factored index space
      * @param dimension number of rows/columns of the factored system
-     * @throws IllegalStateException if EJML rejects the factorization (matrix
-     *                               not positive definite)
+     * @throws SingularSystemException if EJML rejects the factorization (matrix
+     *                                 not positive definite)
      */
     public EjmlCholeskyFactor(NormalMatrix.CompressedSparseColumnArrays upperCsc, int dimension) {
         this.systemMatrix = new DMatrixSparseCSC(dimension, dimension, upperCsc.values().length);
@@ -41,7 +45,8 @@ public final class EjmlCholeskyFactor implements FactorizedSystem {
         systemMatrix.nz_length = upperCsc.values().length;
         this.solver = LinearSolverFactory_DSCC.cholesky(FillReducing.NONE);
         if (!this.solver.setA(systemMatrix)) {
-            throw new IllegalStateException("EJML Cholesky factorization failed (matrix not SPD?)");
+            throw new SingularSystemException(BACKEND_NAME, SingularSystemException.UNKNOWN_PIVOT,
+                    "up-looking Cholesky hit a non-positive pivot");
         }
         this.rhsBuffer = new DMatrixRMaj(dimension, 1);
         this.solutionBuffer = new DMatrixRMaj(dimension, 1);
@@ -58,7 +63,8 @@ public final class EjmlCholeskyFactor implements FactorizedSystem {
     public void refactorize(double[] values) {
         System.arraycopy(values, 0, systemMatrix.nz_values, 0, values.length);
         if (!solver.setA(systemMatrix)) {
-            throw new IllegalStateException("EJML Cholesky refactorization failed (matrix not SPD?)");
+            throw new SingularSystemException(BACKEND_NAME, SingularSystemException.UNKNOWN_PIVOT,
+                    "refactorization hit a non-positive pivot");
         }
     }
 

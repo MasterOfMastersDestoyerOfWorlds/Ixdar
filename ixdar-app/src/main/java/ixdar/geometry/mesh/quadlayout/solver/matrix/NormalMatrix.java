@@ -29,6 +29,15 @@ public final class NormalMatrix {
     public int[] rowValuePositionBySlot;
 
     /**
+     * Row a Cholesky backend last stopped on while factorizing this matrix, or -1 when no backend
+     * has ever called it singular. The stage that assembled the matrix reads it to diagnose.
+     */
+    public int singularPivotIndex = -1;
+
+    /** Diagonal shift the backend ladder added to get this matrix factorized; 0 when none. */
+    public double appliedDiagonalShift;
+
+    /**
      * Constructor with chord-based rows.
      *
      * @param faceCount   number of faces

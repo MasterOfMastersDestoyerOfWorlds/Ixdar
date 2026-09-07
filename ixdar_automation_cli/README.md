@@ -36,6 +36,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`mesh-patches-decompose`](#mesh-patches-decompose) | Hybrid skeleton and curvature patch decomposition of a reference mesh. |
 | [`mesh-patches-render-flat-multiview`](#mesh-patches-render-flat-multiview) | Decompose a mesh into semantic patches and render a flat-shaded multiview composite PNG. |
 | [`mesh-patches-render-multiview`](#mesh-patches-render-multiview) | Decompose a mesh into semantic patches and render a shaded multiview composite PNG. |
+| [`mesh-seamless-diagnosis`](#mesh-seamless-diagnosis) | Report the seamless solver's singular-system diagnosis: how the singularity was classified, the null vector's support and the mesh vertices it sits on. |
 | [`mesh-segmentation`](#mesh-segmentation) | Segment a mesh into labeled vertex groups by connected components, curvature, or spatial clustering. |
 | [`mesh-skeleton-compare`](#mesh-skeleton-compare) | Compare TEASAR skeletons of two meshes and recommend parameter fixes. |
 | [`mesh-skeleton-compare-detailed`](#mesh-skeleton-compare-detailed) | Detailed skeleton comparison returning per-joint 3D position deltas. |
@@ -260,6 +261,18 @@ Decompose a mesh into semantic patches and render a shaded multiview composite P
   - `--out-path` (string, default ``) — Destination PNG path; defaults to a timestamped file under screenshots/automation., e.g. `~/out/patches.png`
 - **Response:** `{ok, path, width, height, patch_count}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/patches/render-multiview -d '{"path": "~/Blends/Hand/Hand.obj", "resolution": 128, "out_path": "~/out/patches.png"}'`
+
+### `mesh-seamless-diagnosis`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/SeamlessDiagnosis.java)
+
+Report the seamless solver's singular-system diagnosis: how the singularity was classified, the null vector's support and the mesh vertices it sits on.
+
+- **Route:** `POST /mesh/seamless/diagnosis`
+- **Flags:**
+  - `--highlight` (bool, default `false`) — Also mark the offending vertices in the quad-layout scene., e.g. `true`
+- **Response:** `{ok, singular, classification, classificationCode, pivotIndex, dimension, appliedDiagonalShift, nullVectorEnergy, supportSize, distinctChartCount, degenerateVertexCount, logLine, support[], highlighted}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/seamless/diagnosis -d '{"highlight": true}'`
 
 ### `mesh-segmentation`
 

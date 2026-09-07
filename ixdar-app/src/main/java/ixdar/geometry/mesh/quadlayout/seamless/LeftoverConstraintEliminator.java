@@ -1,9 +1,6 @@
 package ixdar.geometry.mesh.quadlayout.seamless;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Sparse Gauss-Jordan elimination of the leftover seam-constraint rows
@@ -39,19 +36,17 @@ public final class LeftoverConstraintEliminator {
     private final int[] dofRowCount;
 
     /**
-     * Convert the built constraint rows to primitive sparse vectors and run
-     * the elimination.
+     * Copy the built constraint rows into per-row sparse vectors and run the
+     * elimination.
      *
-     * @param builtRows   constraint rows as DOF → coefficient maps, as
-     *                    assembled by
+     * @param builtRows   constraint rows in flat sparse form, as assembled by
      *                    {@code SeamlessDofSystem.reduceLeftoverConstraints}
      * @param rawDofCount raw-DOF space size (row entries index into it)
      */
-    public LeftoverConstraintEliminator(ArrayList<HashMap<Integer, Double>> builtRows,
-            int rawDofCount) {
+    public LeftoverConstraintEliminator(SparseConstraintRows builtRows, int rawDofCount) {
         this.pivotDofs = new int[rawDofCount][];
         this.pivotCoefs = new double[rawDofCount][];
-        int totalRows = builtRows.size();
+        int totalRows = builtRows.rowCount;
         this.rowDofs = new int[totalRows][];
         this.rowCoefs = new double[totalRows][];
         this.rowSize = new int[totalRows];
@@ -59,16 +54,17 @@ public final class LeftoverConstraintEliminator {
         this.dofRowCount = new int[rawDofCount];
 
         for (int rowIdx = 0; rowIdx < totalRows; rowIdx++) {
-            HashMap<Integer, Double> built = builtRows.get(rowIdx);
-            int[] dofs = new int[Math.max(1, built.size())];
+            int entryStart = builtRows.rowStart[rowIdx];
+            int entryEnd = builtRows.rowStart[rowIdx + 1];
+            int[] dofs = new int[Math.max(1, entryEnd - entryStart)];
             double[] coefs = new double[dofs.length];
             int size = 0;
-            for (Map.Entry<Integer, Double> entry : built.entrySet()) {
-                if (Math.abs(entry.getValue()) < LEFTOVER_REDUCE_TOLERANCE) {
+            for (int entry = entryStart; entry < entryEnd; entry++) {
+                if (Math.abs(builtRows.entryCoef[entry]) < LEFTOVER_REDUCE_TOLERANCE) {
                     continue;
                 }
-                dofs[size] = entry.getKey();
-                coefs[size] = entry.getValue();
+                dofs[size] = builtRows.entryDof[entry];
+                coefs[size] = builtRows.entryCoef[entry];
                 size++;
             }
             rowDofs[rowIdx] = dofs;

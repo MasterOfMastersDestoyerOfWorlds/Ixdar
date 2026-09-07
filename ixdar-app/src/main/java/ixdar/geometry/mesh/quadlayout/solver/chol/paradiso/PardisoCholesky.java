@@ -9,6 +9,7 @@ import org.bytedeco.mkl.global.mkl_rt;
 import org.bytedeco.mkl.global.mkl_rt._MKL_DSS_HANDLE_t;
 
 import ixdar.geometry.mesh.quadlayout.solver.FactorizedSystem;
+import ixdar.geometry.mesh.quadlayout.solver.SingularSystemException;
 import ixdar.geometry.mesh.quadlayout.solver.matrix.CompressedSparseRowArrays;
 
 /**
@@ -47,6 +48,19 @@ public final class PardisoCholesky implements FactorizedSystem {
      */
     public static final int IPARM_INDEX_MAX_REFINEMENT_STEPS = 7;
 
+    /**
+     * iparm index (0-based) of the equation where PARDISO detected a zero or negative pivot,
+     * documented as {@code iparm(30)}. MKL calls it an equation number in the factored ordering,
+     * not an array index, so the reported value is passed through unadjusted.
+     */
+    public static final int IPARM_INDEX_ZERO_PIVOT_EQUATION = 29;
+
+    /** PARDISO error code for a zero pivot: the matrix is singular, not merely ill-conditioned. */
+    public static final int ERROR_ZERO_PIVOT = -4;
+
+    /** Backend name carried by the singular-system failures this factor raises. */
+    public static final String BACKEND_NAME = "PARDISO";
+
     private static final Cleaner CLEANER = Cleaner.create();
 
     public final int dimension;
@@ -76,7 +90,8 @@ public final class PardisoCholesky implements FactorizedSystem {
      * @param upperCsr  upper triangle (col ≥ row, ascending columns per row)
      *                  of the SPD system in the factored index space
      * @param dimension number of rows/columns of the factored system
-     * @throws IllegalStateException if PARDISO reports a non-zero error code
+     * @throws SingularSystemException if PARDISO stopped on a zero pivot
+     * @throws IllegalStateException   if PARDISO reports any other non-zero error code
      */
     public PardisoCholesky(CompressedSparseRowArrays upperCsr, int dimension) {
         this.dimension = dimension;
@@ -112,7 +127,13 @@ public final class PardisoCholesky implements FactorizedSystem {
         this.solutionNative = new DoublePointer(dimension);
 
         phaseNative.put(0, PHASE_ANALYZE_AND_FACTOR);
-        callPardiso();
+        try {
+            callPardiso();
+        } catch (SingularSystemException singular) {
+            new PardisoReleaseAction(handleSlots, dimension, rowPtrNative, colIdxNative,
+                    valuesNative, permNative, iparmNative, rhsNative, solutionNative).run();
+            throw singular;
+        }
         this.cleanable = CLEANER.register(this, new PardisoReleaseAction(
                 handleSlots, dimension, rowPtrNative, colIdxNative, valuesNative,
                 permNative, iparmNative, rhsNative, solutionNative));
@@ -142,13 +163,20 @@ public final class PardisoCholesky implements FactorizedSystem {
      * Invoke PARDISO with the current {@code phaseNative} and this factor's
      * stored arguments.
      *
-     * @throws IllegalStateException if PARDISO reports a non-zero error code
+     * @throws SingularSystemException if PARDISO stopped on a zero pivot
+     * @throws IllegalStateException   if PARDISO reports any other non-zero error code
      */
     private void callPardiso() {
         mkl_rt.pardiso(handle, maxfctNative, mnumNative, mtypeNative, phaseNative, nNative,
                 valuesNative, rowPtrNative, colIdxNative, permNative, nrhsNative,
                 iparmNative, msglvlNative, rhsNative, solutionNative, errorNative);
         int error = errorNative.get(0);
+        if (error == ERROR_ZERO_PIVOT) {
+            throw new SingularSystemException(BACKEND_NAME,
+                    iparmNative.get(IPARM_INDEX_ZERO_PIVOT_EQUATION),
+                    "phase " + phaseNative.get(0) + " zero pivot (error " + error + ") in "
+                            + dimension + " equations");
+        }
         if (error != 0) {
             throw new IllegalStateException(
                     "PARDISO phase " + phaseNative.get(0) + " failed with error " + error);
