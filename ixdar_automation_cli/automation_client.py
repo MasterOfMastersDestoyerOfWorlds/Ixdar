@@ -1,4 +1,5 @@
 import json
+import os
 import time
 import urllib.request
 
@@ -6,6 +7,82 @@ import urllib.request
 DEFAULT_BASE_URL = "http://127.0.0.1:47832"
 DEFAULT_RETRIES = 3
 DEFAULT_RETRY_DELAY = 1.0
+
+PACKAGE_REPO_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+PORT_FILE_RELATIVE = os.path.join("tmp", "automation.port")
+MODULE_DIRECTORY = "ixdar-app"
+POM_FILE = "pom.xml"
+
+
+def checkout_root() -> str:
+    """The Ixdar checkout this call belongs to, so parallel worktrees never share a scene.
+
+    The working directory wins over the installed package, which is what makes a globally
+    installed CLI still talk to the worktree it is invoked from.
+
+    :return: Absolute path to the checkout root.
+    """
+    for candidate in _ancestors(os.getcwd()):
+        if (os.path.isfile(os.path.join(candidate, POM_FILE))
+                and os.path.isdir(os.path.join(candidate, MODULE_DIRECTORY))):
+            return candidate
+    return PACKAGE_REPO_DIR
+
+
+def _ancestors(directory: str) -> list[str]:
+    """The directory and each of its parents, nearest first.
+
+    :param directory: Starting directory.
+    :return: Absolute paths from ``directory`` up to the filesystem root.
+    """
+    current = os.path.abspath(directory)
+    chain = [current]
+    while True:
+        parent = os.path.dirname(current)
+        if parent == current:
+            return chain
+        current = parent
+        chain.append(current)
+
+
+def port_file_path() -> str:
+    """Where this checkout's scene advertises its automation port.
+
+    :return: Absolute path to ``tmp/automation.port``.
+    """
+    return os.path.join(checkout_root(), PORT_FILE_RELATIVE)
+
+
+def read_port_file(path: str = "") -> dict:
+    """Read the port file a running scene wrote, tolerating a bare number.
+
+    :param path: Port file to read; empty uses :func:`port_file_path`.
+    :return: ``{"port": int, "pid": int}`` with whichever fields were present, or ``{}``.
+    """
+    try:
+        with open(path or port_file_path(), encoding="utf-8") as handle:
+            text = handle.read().strip()
+    except OSError:
+        return {}
+    if not text:
+        return {}
+    try:
+        parsed = json.loads(text)
+    except ValueError:
+        return {}
+    if isinstance(parsed, int):
+        return {"port": parsed}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def discover_base_url() -> str:
+    """Resolve the automation base URL without anyone naming a port.
+
+    :return: The URL of this checkout's scene, or :data:`DEFAULT_BASE_URL` when no scene
+        has published a port file.
+    """
+    port = read_port_file().get("port")
+    return f"http://127.0.0.1:{port}" if port else DEFAULT_BASE_URL
 
 KEY_ENTER = 257
 KEY_G = 71

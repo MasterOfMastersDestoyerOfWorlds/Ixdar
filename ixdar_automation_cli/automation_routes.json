@@ -261,7 +261,7 @@
       "commandName": "mesh-dsl-validate",
       "path": "/mesh/dsl/validate",
       "method": "POST",
-      "description": "Validate DSL source text against the skill schema, optionally probing and exporting its output mesh.",
+      "description": "Validate DSL source text, or the contents of a .dsl file path, against the skill schema.",
       "sourceClass": "ixdar.platform.automation.endpoints.mesh.dsl.Validate",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/Validate.java",
       "params": [
@@ -271,8 +271,8 @@
           "type": "string",
           "required": true,
           "default": "",
-          "help": "DSL source text to validate.",
-          "example": "node loadMesh { path: \"a.obj\" }"
+          "help": "DSL source text, or a path to a .dsl file; relative paths resolve against the scene\u0027s working directory.",
+          "example": "ixdar-app/src/main/resources/dsl/skull.dsl"
         },
         {
           "name": "export",
@@ -284,7 +284,7 @@
           "example": "~/probe.obj"
         }
       ],
-      "responseHint": "{valid, nodeCount, errors:[...], warnings:[...], meshProbe:{...}}"
+      "responseHint": "{valid, nodeCount, errors:[...], warnings:[...], meshProbe:{...}, dslPath?}"
     },
     {
       "commandName": "mesh-fingerprint",

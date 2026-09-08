@@ -24,7 +24,8 @@ The core pipeline:
 ```
 
 Around it: `platform` abstracts GL/file/input behind interfaces with LWJGL, WebGL, and headless
-implementations; an HTTP automation server (port 47832) drives headless runs, screenshots, and
+implementations; an HTTP automation server (a free loopback port, published to
+`tmp/automation.port`) drives headless runs, screenshots, and
 mesh fingerprints via `ixdar-cli`; the quad-layout subsystem (`geometry/mesh/quadlayout`) is a
 research-grade pipeline from cross fields to quantized quad layouts, desktop-only. Every stage is
 a registered mesh node, `QuadLayoutEngine` is itself the `quad_layout` node, and its `build*`
@@ -207,7 +208,7 @@ commas between test names, never `+`.
 - **ixdar.parsing.glsl**: GLSL tokenizer/interpreter feeding the live shader editor; uniforms, declarations, branches, built-in constants. An interpreter for the debug UI, not a compiler; depends on the color and text render packages.
 - **ixdar.parsing.python**: Lexer and recursive-descent parser for the Python-flavored mesh DSL, producing the AST `NodeGraphRuntime` executes. Deliberately lenient: unknown characters are skipped so LLM- generated DSL stays parseable; malformed input degrades silently.
 - **ixdar.platform**: Portability root: `Platforms` is the process-global registry (`init`, `get()`, `gl()`, `switchTo` for multi-canvas web). `Toggle` is the app-wide feature-flag enum, here only because everything reaches for it.
-- **ixdar.platform.automation**: The in-process HTTP automation server (127.0.0.1:47832, `ixdar.automation.port` to override) that lets `ixdar-cli` and agents drive the editor. Routes come from the annotation-generated registry. Desktop-only (`com.sun.net.httpserver`, `javax.imageio`). `AutomationInputBinder` tees platform input callbacks into the recorder.
+- **ixdar.platform.automation**: The in-process HTTP automation server (loopback; a free port, published to `tmp/automation.port` under the launching checkout) that lets `ixdar-cli` and agents drive the editor. Routes come from the annotation-generated registry. Desktop-only (`com.sun.net.httpserver`, `javax.imageio`). `AutomationInputBinder` tees platform input callbacks into the recorder.
 - **ixdar.platform.automation.documentation**: `ExportAutomationRoutes` writes the route manifest JSON every compile; the checked-in `automation_routes.json` is generated output and the single source of truth for the Python CLI.
 - **ixdar.platform.automation.endpoints**: `AutomationRuntime`: the singleton owning the canvas, recorder, replay engine, and the render- thread marshalling every endpoint uses (anything touching GL goes through its callable queue). Plus `/health` and `/shutdown`.
 - **ixdar.platform.automation.endpoints.input**: Synthesized input routes (`/input/click`, `/input/key`, `/input/type`, scroll, hover) that feed the active `MouseTrap`/`KeyGuy` directly, bypassing the OS event source.

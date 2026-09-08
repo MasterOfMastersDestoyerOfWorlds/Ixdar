@@ -15,6 +15,7 @@ class CliOption:
 
     choices: tuple[Any, ...] | None = None
     multiple: bool = False
+    positional: bool = False
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,7 @@ class CliParameter:
     cli_flag: str
     choices: tuple[Any, ...] | None = None
     multiple: bool = False
+    positional: bool = False
 
 
 @dataclass(frozen=True)
@@ -166,9 +168,11 @@ def cli_command(
                     has_default=has_default,
                     default=default,
                     help_text=help_text,
-                    cli_flag=f"--{parameter.name.replace('_', '-')}",
+                    cli_flag=(parameter.name if option.positional
+                              else f"--{parameter.name.replace('_', '-')}"),
                     choices=choices,
                     multiple=multiple,
+                    positional=option.positional,
                 )
             )
 

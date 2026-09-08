@@ -222,18 +222,70 @@ def resolve_mesh(name: str) -> str:
     return loadable[0]["path"]
 
 
-def resolve_off_properties(properties: list[str]) -> list[str]:
-    """Rewrite any ``*.off`` system property whose value is a mesh name into a full path.
+def mesh_size(name: str) -> tuple[int, int]:
+    """Vertex and face counts of a catalogued mesh, from its file header.
+
+    The scene only reports its own counts when it is the mesh viewer, so this is what lets a run
+    of any other scene still say which mesh it was given and how big it is.
+
+    :param name: A mesh name, alias or path.
+    :return: ``(vertices, faces)``, or ``(0, 0)`` when the name resolves to nothing catalogued.
+    """
+    try:
+        path = resolve_mesh(name)
+    except ValueError:
+        return 0, 0
+    for mesh in discover_meshes():
+        if mesh["path"] == path:
+            return mesh["vertices"], mesh["faces"]
+    return 0, 0
+
+
+MODEL_PROPERTY = "ixdar.model"
+
+OFF_SUFFIX = ".off"
+
+SAVE_SUFFIX = ".save"
+
+MODULE_RESOURCES_DIR = os.path.join(REPO_DIR, "ixdar-app", "src", "main", "resources")
+
+
+def resolve_scene_properties(properties: list[str]) -> list[str]:
+    """Rewrite the system properties whose values are paths a caller should not have to spell.
+
+    A ``*.off`` or ``ixdar.model`` value that names a catalogued mesh becomes its full path;
+    an ``ixdar.model`` value that names nothing is left alone, since the scene also accepts
+    catalog tokens, collection directories and ``graph:`` names. A relative ``*.save`` value
+    resolves against the module resources directory rather than wherever the JVM was started,
+    which is what stops a save writing a stray ``src/`` tree at the checkout root.
 
     :param properties: ``key=value`` system properties as given on the command line.
-    :return: The same list with mesh-valued properties resolved.
-    :raises ValueError: When a named mesh cannot be resolved.
+    :return: The same list with path-valued properties resolved.
+    :raises ValueError: When a ``*.off`` property names a mesh that cannot be resolved.
     """
     resolved = []
     for entry in properties:
         key, separator, value = entry.partition("=")
-        if separator and key.lower().endswith(".off") and value:
+        if not separator or not value:
+            resolved.append(entry)
+        elif key.lower().endswith(OFF_SUFFIX):
             resolved.append(f"{key}={resolve_mesh(value)}")
+        elif key == MODEL_PROPERTY:
+            resolved.append(f"{key}={_resolve_model_value(value)}")
+        elif key.lower().endswith(SAVE_SUFFIX) and not os.path.isabs(value):
+            resolved.append(f"{key}={os.path.normpath(os.path.join(MODULE_RESOURCES_DIR, value))}")
         else:
             resolved.append(entry)
     return resolved
+
+
+def _resolve_model_value(value: str) -> str:
+    """Resolve an ``ixdar.model`` value through the mesh catalog, leaving other tokens alone.
+
+    :param value: The property value as given.
+    :return: An absolute mesh path, or ``value`` unchanged when it names no mesh file.
+    """
+    try:
+        return resolve_mesh(value)
+    except ValueError:
+        return value

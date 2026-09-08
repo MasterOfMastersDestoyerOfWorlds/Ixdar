@@ -15,6 +15,7 @@ import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.Platforms;
 import ixdar.platform.automation.AutomationEndpoint;
+import ixdar.platform.automation.AutomationPortFile;
 
 @AutomationRouteAnnotation(path = "/ui/screenshot", method = APIMethod.POST)
 public class Screenshot extends AutomationEndpoint implements AutomationRoute {
@@ -50,14 +51,15 @@ public class Screenshot extends AutomationEndpoint implements AutomationRoute {
                     image.setRGB(x, y, pixels[srcIndex]);
                 }
             }
+            File checkout = AutomationPortFile.checkoutRoot().toFile();
             File out;
             if (outputPath == null || outputPath.isBlank()) {
                 String filename = "screenshot-" + System.currentTimeMillis() + ".png";
-                out = new File("screenshots/automation", filename);
+                out = new File(new File(checkout, "screenshots/automation"), filename);
             } else {
                 out = new File(outputPath);
                 if (!out.isAbsolute()) {
-                    out = new File(System.getProperty("user.dir"), outputPath);
+                    out = new File(checkout, outputPath);
                 }
             }
             File parent = out.getParentFile();

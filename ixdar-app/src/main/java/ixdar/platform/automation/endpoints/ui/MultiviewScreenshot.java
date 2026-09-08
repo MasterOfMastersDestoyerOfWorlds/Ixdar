@@ -17,6 +17,7 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.Font;
 import ixdar.platform.Platforms;
 import ixdar.platform.automation.AutomationEndpoint;
+import ixdar.platform.automation.AutomationPortFile;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 
@@ -156,15 +157,16 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                     BufferedImage.TYPE_INT_RGB);
 
             // Write to disk
+            File checkout = AutomationPortFile.checkoutRoot().toFile();
             File out;
             if (outputPath == null || outputPath.isBlank()) {
                 out = new File(
-                        "screenshots/automation",
+                        new File(checkout, "screenshots/automation"),
                         "multiview-" + System.currentTimeMillis() + ".png");
             } else {
                 out = new File(outputPath);
                 if (!out.isAbsolute()) {
-                    out = new File(System.getProperty("user.dir"), outputPath);
+                    out = new File(checkout, outputPath);
                 }
             }
             File parent = out.getParentFile();

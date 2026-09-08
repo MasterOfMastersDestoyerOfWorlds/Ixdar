@@ -26,6 +26,7 @@ import ixdar.gui.ui.menu.MenuItem;
 import ixdar.gui.ui.tools.RoutePlanningTool;
 import ixdar.platform.Platforms;
 import ixdar.platform.automation.AutomationApiServer;
+import ixdar.platform.automation.AutomationPortFile;
 import ixdar.platform.automation.AutomationRecorder;
 import ixdar.platform.automation.AutomationReplayEngine;
 import ixdar.platform.automation.AutomationReplayEngine.ReplayMode;
@@ -101,10 +102,9 @@ public class AutomationRuntime {
     }
 
     /**
-     * Bind the runtime to a live render canvas and start the HTTP automation server
-     * on the port given by the {@code ixdar.automation.port} system property
-     * (default {@value #NUM_47832}). Idempotent: subsequent calls only refresh the
-     * canvas reference.
+     * Bind the runtime to a live render canvas and start the HTTP automation server,
+     * publishing the bound port to this checkout's {@code tmp/automation.port}.
+     * Idempotent: subsequent calls only refresh the canvas reference.
      *
      * @param canvas3D the active render canvas; held so endpoints can drive scenes
      */
@@ -116,12 +116,14 @@ public class AutomationRuntime {
             return;
         }
         this.canvas = canvas3D;
-        int port = Integer.getInteger("ixdar.automation.port", NUM_47832);
+        int requestedPort = Integer.getInteger("ixdar.automation.port", NUM_47832);
         try {
-            server = new AutomationApiServer(this, port);
+            server = new AutomationApiServer(this, requestedPort);
             server.start();
             started = true;
-            String message = "[Automation] Listening on http://127.0.0.1:" + port;
+            AutomationPortFile.write(server.port());
+            String message = "[Automation] Listening on http://127.0.0.1:" + server.port()
+                    + " (" + AutomationPortFile.location() + ")";
             Platforms.get().log(message);
         } catch (IOException e) {
             Platforms.get().log(
@@ -142,6 +144,7 @@ public class AutomationRuntime {
             server.stop();
             server = null;
         }
+        AutomationPortFile.delete();
         started = false;
         canvas = null;
         renderThreadId = -1;

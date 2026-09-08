@@ -164,6 +164,17 @@ uv run ixdar-cli run-scene --scene <scene-id> [--property key=value ...] [--mesh
 
 It **always runs headless** — an off-screen GL context, never a window on the desktop, so it can't interrupt whatever you're doing. The headless platform loads textures and fonts, so screenshots render text (terminal, ESC menu) just like the desktop window. Pick the model with `--property ixdar.model=<token>` or `--mesh <name>`. Run `uv run ixdar-cli run-scene --help` for the flags — output path, `--timeout`, `--profile` (see Profiling), and how to keep the scene alive (`--keep-alive`) when you need to inject input (`ixdar-cli key`/`type`/`click`/`screenshot` against the running server) rather than a one-shot capture.
 
+**Never pass a port, and never sleep waiting for a scene.** The scene binds a free port and writes it to `tmp/automation.port` under the checkout it was launched from; every `ixdar-cli` command reads that file when no `--base-url` is given, so two worktrees can each run a scene with no flags at all. `--keep-alive` returns only once `sceneReady` is true — there is nothing left to wait for — and `ixdar-cli shutdown` returns only once the JVM process is gone, so no `pgrep`/`pkill` follow-up is needed (and `pkill -f IxdarWindow` would kill your own shell). `run-scene` prints its `port` and `baseUrl`, a one-line `summary`, and, when the scene throws, the exception class and first stack frame inline as `error`. `--skip-build` copies anything newer under `src/main/resources` into `target/classes` first, so a DSL fixture you just edited is the one the scene loads.
+
+To run a scene the way **F5** runs it — windowed, with the entry's own `vmArgs` and `cwd` — use the launch entry rather than a hand-written `java`:
+
+```
+uv run ixdar-cli launch "Mesh Node Viewer" --screenshot tmp/shot.png
+uv run ixdar-cli launch --list-entries
+```
+
+`mesh-dsl-validate --dsl` takes either DSL source text or a path to a `.dsl` file (relative paths resolve against the scene's working directory — `ixdar-app` — and then the checkout root). `ixdar-cli list-meshes --names` prints just the mesh names.
+
 Then `Read` the PNG. **Do not write a per-scene headless renderer** (`RenderEmbeddedTMesh` and the like were a wrong turn); feed the scene's own `QuadLayoutRuntime`/overlays and screenshot it. `ixdar-cli multiview <png>` composites an 8-angle grid under the image limit.
 
 Do not hand-roll a bespoke visualizer (an SVG unwrap, a custom exporter): the runtime already draws meshes, arcs, and node markers on the surface.
@@ -187,7 +198,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli mesh-compare --reference [--distance-type] [--scale] [--normalize]` — Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics.
 - `ixdar-cli mesh-dsl --name [--node] [--port]` — Load and execute a named DSL skill graph, making its output geometry the active mesh.
 - `ixdar-cli mesh-dsl-timing` — Report per-node execution times from the most recent DSL graph run.
-- `ixdar-cli mesh-dsl-validate --dsl [--export]` — Validate DSL source text against the skill schema, optionally probing and exporting its output mesh.
+- `ixdar-cli mesh-dsl-validate --dsl [--export]` — Validate DSL source text, or the contents of a .dsl file path, against the skill schema.
 - `ixdar-cli mesh-fingerprint` — Compute the canonical SHA-256 fingerprint of the active viewer mesh.
 - `ixdar-cli mesh-patches-decompose --path [--resolution]` — Hybrid skeleton and curvature patch decomposition of a reference mesh.
 - `ixdar-cli mesh-patches-render-flat-multiview --path [--resolution] [--out-path]` — Decompose a mesh into semantic patches and render a flat-shaded multiview composite PNG.
@@ -212,7 +223,6 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli replay-status` — Snapshot of the replay engine: running flag, status, current file, paused flag.
 - `ixdar-cli screenshot [--out] [--inline]` — Capture a PNG screenshot of the current framebuffer to a file.
 - `ixdar-cli scroll [--delta]` — Deliver a synthesized scroll event to the active mouse handler.
-- `ixdar-cli shutdown` — Acknowledge, then asynchronously close the canvas and exit the process.
 - `ixdar-cli type [--text]` — Synthesize character events on the active key handler, one per character of the text.
 - `ixdar-cli ui-state` — Snapshot the full UI state: window, scene, trade, mesh, text, menu, and audio.
 
@@ -229,6 +239,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli duplication-report` — Report duplicated code ranked by how much repetition factoring it out would remove.
 - `ixdar-cli gen-docs` — Regenerate the CLAUDE.md command list and the CLI README from the manifest and registry.
 - `ixdar-cli install-alias` — Install a global ixdar-cli wrapper into ~/.local/bin.
+- `ixdar-cli launch` — Run a .vscode/launch.json entry non-headless, then report its first log lines and a screenshot.
 - `ixdar-cli list-meshes` — List mesh files a scene can load, with the short names run-scene resolves.
 - `ixdar-cli mesh-overlay` — Load a reference OBJ as a semi-transparent overlay, or clear it.
 - `ixdar-cli mesh-probe` — Capture the mesh-focused automation probe bundle.
@@ -241,6 +252,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli quilt-mesh-compare` — Compare mesh viewer canonical fingerprint to a reference OBJ (same algorithm as Java).
 - `ixdar-cli rebuild-krieg-web` — Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB overrides path).
 - `ixdar-cli run-scene` — Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
+- `ixdar-cli shutdown` — Ask the scene to exit and return only once its process is gone.
 - `ixdar-cli start-new-game` — Leave the menu by clicking Start New Game.
 - `ixdar-cli trade-hover-scan` — Scan trade cities until the requested toolbar tooltip appears.
 - `ixdar-cli validate-route-ops` — Validate trade route operations against the running app.

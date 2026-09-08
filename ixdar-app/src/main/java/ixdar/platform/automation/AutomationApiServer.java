@@ -14,6 +14,7 @@ import ixdar.platform.automation.endpoints.AutomationRuntime;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -28,6 +29,8 @@ public class AutomationApiServer {
 
     /** Leading separator required by {@code HttpServer.createContext} on every route path. */
     public static final String PATH_SEPARATOR = "/";
+    /** The only interface the automation server is ever exposed on. */
+    public static final String LOOPBACK_HOST = "127.0.0.1";
     public static final int NUM_405 = 405;
     public static final int NUM_500 = 500;
     public static final int NUM_200 = 200;
@@ -38,20 +41,25 @@ public class AutomationApiServer {
     private final ExecutorService executor;
 
     /**
-     * Bind a new HTTP server to {@code 127.0.0.1:port}, install a cached-thread
-     * executor, and register every route discovered via {@link AutomationRouteMap}.
+     * Bind a new HTTP server on loopback and register every route discovered via
+     * {@link AutomationRouteMap}. A taken port falls back to a free one, so a second
+     * scene never fails to start; {@link #port()} reports what was bound.
      *
      * @param runtime shared editor state passed to each route handler
-     * @param port loopback TCP port to listen on
-     * @throws IOException if the socket cannot be bound
+     * @param requestedPort preferred loopback TCP port, or 0 to let the OS choose
+     * @throws IOException if no socket can be bound at all
      */
-    public AutomationApiServer(AutomationRuntime runtime, int port)
+    public AutomationApiServer(AutomationRuntime runtime, int requestedPort)
             throws IOException {
         this.runtime = runtime;
-        this.port = port;
-        this.server = HttpServer.create(
-                new InetSocketAddress("127.0.0.1", port),
-                0);
+        HttpServer bound;
+        try {
+            bound = HttpServer.create(new InetSocketAddress(LOOPBACK_HOST, requestedPort), 0);
+        } catch (BindException portTaken) {
+            bound = HttpServer.create(new InetSocketAddress(LOOPBACK_HOST, 0), 0);
+        }
+        this.server = bound;
+        this.port = bound.getAddress().getPort();
         this.executor = Executors.newCachedThreadPool(AutomationApiServer::newDaemonThread);
         this.server.setExecutor(executor);
         registerAll(server, runtime);

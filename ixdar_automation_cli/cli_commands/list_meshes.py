@@ -21,6 +21,7 @@ BYTES_PER_MEGABYTE = 1024 * 1024
 def list_meshes(
     all: bool = False,
     name: str = "",
+    names: bool = False,
 ) -> CliCommandResult:
     """List mesh files a scene can load, with the short names run-scene resolves.
 
@@ -30,6 +31,7 @@ def list_meshes(
 
     :param all: Include the ``_out_quad`` results and unloadable binary files, not just the inputs.
     :param name: Substring filter over the mesh name.
+    :param names: Report only the names, for picking one without reading a table.
     """
     meshes = discover_meshes()
     unloadable = sorted({mesh["relPath"] for mesh in meshes if not mesh["loadable"]})
@@ -60,8 +62,15 @@ def list_meshes(
         seen[key] = row
         rows.append(row)
 
+    ordered = sorted(rows, key=lambda entry: (entry["faces"] or 1 << 30, entry["name"]))
+    if names:
+        return CliCommandResult(payload={
+            "count": len(ordered),
+            "names": [row["name"] for row in ordered],
+        })
+
     listing = []
-    for row in sorted(rows, key=lambda entry: (entry["faces"] or 1 << 30, entry["name"])):
+    for row in ordered:
         extra = f"  (+{len(row['copies'])} identical copy)" if row["copies"] else ""
         listing.append(
             f"{row['name']:<18} V={row['vertices']:<7} F={row['faces']:<7} "

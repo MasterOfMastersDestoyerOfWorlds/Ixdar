@@ -1,15 +1,20 @@
 import io
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
 
+from ixdar_automation_cli import automation_client
 from ixdar_automation_cli import collection_manifest
 from ixdar_automation_cli import ixdar_cli
+from ixdar_automation_cli import mesh_catalog
 from ixdar_automation_cli import quilt_mesh_fingerprint
+from ixdar_automation_cli.cli_commands import launch_entry
 from ixdar_automation_cli.cli_commands import new_scene
 from ixdar_automation_cli.cli_commands import run_scene
+from ixdar_automation_cli.cli_commands import shutdown_scene
 from ixdar_automation_cli.cli_registry import cli_command, get_registry
 
 
@@ -25,6 +30,317 @@ class FakeResponse:
 
     def read(self):
         return json.dumps(self._payload).encode("utf-8")
+
+
+class FakeProcess:
+    """Stands in for the launched JVM: alive until told otherwise, with a pid."""
+
+    def __init__(self, exit_code=None):
+        self.exit_code = exit_code
+        self.pid = 4242
+
+    def poll(self):
+        return self.exit_code
+
+    def wait(self, timeout=0):
+        return self.exit_code or 0
+
+
+class FakeHealthClient:
+    """An automation client whose health flips to ready after a set number of polls."""
+
+    def __init__(self, ready_after):
+        self.ready_after = ready_after
+        self.polls = 0
+        self.base_url = "http://127.0.0.1:47999"
+
+    def health(self):
+        self.polls += 1
+        return {"status": "ok", "sceneReady": self.polls > self.ready_after}
+
+
+class SceneLifecycleTest(unittest.TestCase):
+    def test_checkout_root_is_the_working_directory_s_checkout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = os.path.realpath(directory)
+            os.makedirs(os.path.join(root, "ixdar-app", "src"))
+            with open(os.path.join(root, "pom.xml"), "w", encoding="utf-8") as handle:
+                handle.write("<project/>")
+            previous = os.getcwd()
+            try:
+                os.chdir(os.path.join(root, "ixdar-app", "src"))
+                self.assertEqual(root, automation_client.checkout_root())
+            finally:
+                os.chdir(previous)
+
+    def test_read_port_file_accepts_json_and_a_bare_number(self):
+        with tempfile.TemporaryDirectory() as directory:
+            json_file = os.path.join(directory, "automation.port")
+            with open(json_file, "w", encoding="utf-8") as handle:
+                handle.write('{"port": 47901, "pid": 1234}\n')
+            self.assertEqual({"port": 47901, "pid": 1234},
+                             automation_client.read_port_file(json_file))
+            with open(json_file, "w", encoding="utf-8") as handle:
+                handle.write("47902\n")
+            self.assertEqual({"port": 47902}, automation_client.read_port_file(json_file))
+            self.assertEqual({}, automation_client.read_port_file(
+                os.path.join(directory, "absent.port")))
+
+    def test_discover_base_url_prefers_the_published_port(self):
+        with patch.object(automation_client, "read_port_file", return_value={"port": 47903}):
+            self.assertEqual("http://127.0.0.1:47903", automation_client.discover_base_url())
+        with patch.object(automation_client, "read_port_file", return_value={}):
+            self.assertEqual(automation_client.DEFAULT_BASE_URL,
+                             automation_client.discover_base_url())
+
+    def test_await_scene_keeps_waiting_until_the_scene_is_ready(self):
+        # A log line matching --await-log used to end the wait on its own, handing back a scene
+        # too young to screenshot; readiness is now required as well.
+        client = FakeHealthClient(ready_after=2)
+        with tempfile.TemporaryDirectory() as directory:
+            log_path = os.path.join(directory, "scene.log")
+            with open(log_path, "w", encoding="utf-8") as handle:
+                handle.write("layout committed\nlayout committed again\n")
+            with patch("time.sleep"):
+                status = run_scene._await_scene(
+                    client, FakeProcess(), log_path, "layout committed", timeout=30.0)
+        self.assertTrue(status["ready"])
+        self.assertEqual(2, len(status["matched"]))
+        self.assertEqual(3, client.polls)
+
+    def test_await_scene_reports_a_crash_without_waiting_out_the_timeout(self):
+        client = FakeHealthClient(ready_after=1000)
+        with tempfile.TemporaryDirectory() as directory:
+            log_path = os.path.join(directory, "scene.log")
+            with open(log_path, "w", encoding="utf-8") as handle:
+                handle.write('Exception in thread "main" java.lang.IllegalStateException: no layout\n'
+                             "\tat ixdar.scenes.QuadLayoutScene.initGL(QuadLayoutScene.java:88)\n")
+            with patch("time.sleep"):
+                status = run_scene._await_scene(client, FakeProcess(), log_path, "", timeout=30.0)
+        self.assertFalse(status["ready"])
+        self.assertIn("IllegalStateException", status["crash"][0])
+
+    def test_await_scene_follows_the_port_the_scene_actually_bound(self):
+        # The picked port is only a request; if the JVM had to fall back, the port file is the
+        # authority and its pid is what proves the file belongs to this scene.
+        client = FakeHealthClient(ready_after=1)
+        client.base_url = "http://127.0.0.1:47910"
+        process = FakeProcess()
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(run_scene, "read_port_file",
+                             return_value={"port": 47911, "pid": process.pid}), \
+                patch("time.sleep"):
+            status = run_scene._await_scene(
+                client, process, os.path.join(directory, "scene.log"), "", timeout=30.0)
+        self.assertTrue(status["ready"])
+        self.assertEqual("http://127.0.0.1:47911", client.base_url)
+
+    def test_await_scene_ignores_a_port_file_left_by_another_scene(self):
+        client = FakeHealthClient(ready_after=0)
+        client.base_url = "http://127.0.0.1:47912"
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(run_scene, "read_port_file",
+                             return_value={"port": 47913, "pid": 1}), \
+                patch("time.sleep"):
+            run_scene._await_scene(
+                client, FakeProcess(), os.path.join(directory, "scene.log"), "", timeout=30.0)
+        self.assertEqual("http://127.0.0.1:47912", client.base_url)
+
+    def test_crash_headline_names_the_exception_and_its_first_frame(self):
+        headline = run_scene.crash_headline([
+            'Exception in thread "main" java.lang.IllegalStateException: no layout',
+            "\tat ixdar.scenes.QuadLayoutScene.initGL(QuadLayoutScene.java:88)",
+            "\tat ixdar.canvas.Canvas3D.run(Canvas3D.java:210)",
+        ])
+        self.assertEqual(
+            "java.lang.IllegalStateException: no layout "
+            "(at ixdar.scenes.QuadLayoutScene.initGL(QuadLayoutScene.java:88))",
+            headline)
+        self.assertEqual("", run_scene.crash_headline([]))
+
+    def test_summary_line_carries_outcome_scene_mesh_port_and_screenshot(self):
+        line = run_scene.summary_line({
+            "ok": True,
+            "scene": "quad-layout",
+            "port": 47904,
+            "mesh": {"name": "rockerarm", "vertices": 10044, "faces": 20088},
+            "screenshot": {"path": "/tmp/shot.png"},
+        })
+        self.assertEqual(
+            "ok scene=quad-layout mesh=rockerarm V=10044 F=20088 port=47904 "
+            "screenshot=/tmp/shot.png",
+            line)
+
+    def test_sync_resources_copies_only_the_files_newer_than_their_class_copy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            resources = os.path.join(directory, "resources", "dsl")
+            classes = os.path.join(directory, "classes", "dsl")
+            os.makedirs(resources)
+            os.makedirs(classes)
+            for stem in ("fresh", "stale"):
+                with open(os.path.join(resources, stem + ".dsl"), "w", encoding="utf-8") as handle:
+                    handle.write("node loadMesh {}")
+            with open(os.path.join(classes, "stale.dsl"), "w", encoding="utf-8") as handle:
+                handle.write("node loadMesh {}")
+            os.utime(os.path.join(classes, "stale.dsl"), (2 ** 31, 2 ** 31))
+            with patch.object(run_scene, "RESOURCES_DIR", os.path.dirname(resources)), \
+                    patch.object(run_scene, "CLASSES_DIR", os.path.dirname(classes)):
+                copied = run_scene.sync_resources()
+            self.assertEqual([os.path.join("dsl", "fresh.dsl")], copied)
+            self.assertTrue(os.path.exists(os.path.join(classes, "fresh.dsl")))
+
+    def test_run_scene_puts_the_crash_inline_and_reports_its_port(self):
+        crash = ['Exception in thread "main" java.lang.IllegalStateException: no layout',
+                 "\tat ixdar.scenes.QuadLayoutScene.initGL(QuadLayoutScene.java:88)"]
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(run_scene, "_ensure_build", return_value=[]), \
+                patch.object(run_scene, "_java_command", return_value=["java", "-version"]), \
+                patch.object(run_scene, "free_port", return_value=47905), \
+                patch.object(run_scene, "_terminate"), \
+                patch.object(subprocess, "Popen", return_value=FakeProcess()), \
+                patch.object(run_scene, "_await_scene", return_value={
+                    "ready": False, "exited": False, "matched": [], "crash": crash, "waited": 3.0}):
+            result = run_scene.run(scene="quad-layout",
+                                   log=os.path.join(directory, "scene.log"))
+        self.assertFalse(result["ok"])
+        self.assertEqual(47905, result["port"])
+        self.assertEqual("http://127.0.0.1:47905", result["baseUrl"])
+        self.assertIn("IllegalStateException", result["error"])
+        self.assertIn("QuadLayoutScene.java:88", result["error"])
+        self.assertIn("FAILED", result["summary"])
+
+    def test_run_scene_mesh_sets_the_common_model_property_for_every_scene(self):
+        captured: list[list[str]] = []
+
+        def capture(scene, properties, profile_path, profile_event, coverage_path):
+            captured.append(properties)
+            return ["java", "-version"]
+
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(run_scene, "_ensure_build", return_value=[]), \
+                patch.object(run_scene, "_java_command", side_effect=capture), \
+                patch.object(run_scene, "free_port", return_value=47906), \
+                patch.object(run_scene, "_terminate"), \
+                patch.object(subprocess, "Popen", return_value=FakeProcess()), \
+                patch.object(run_scene, "_await_scene", return_value={
+                    "ready": False, "exited": True, "matched": [], "crash": [], "waited": 1.0}):
+            run_scene.run(scene="cross-field-exam", mesh="fertility",
+                          log=os.path.join(directory, "scene.log"))
+        model = [entry for entry in captured[0] if entry.startswith("ixdar.model=")]
+        self.assertEqual(1, len(model))
+        self.assertTrue(model[0].endswith("fertility_in_tri.off"), model[0])
+        self.assertIn("ixdar.automation.port=47906", captured[0])
+
+    def test_relative_save_property_resolves_against_the_module_resources(self):
+        resolved = mesh_catalog.resolve_scene_properties(["quadLayout.save=quadlayout/probe.qlay"])
+        self.assertEqual(
+            ["quadLayout.save="
+             + os.path.join(mesh_catalog.MODULE_RESOURCES_DIR, "quadlayout", "probe.qlay")],
+            resolved)
+
+    def test_model_property_resolves_a_mesh_name_and_leaves_other_tokens_alone(self):
+        resolved = mesh_catalog.resolve_scene_properties(
+            ["ixdar.model=fertility", "ixdar.model=graph:Skull"])
+        self.assertTrue(resolved[0].endswith("fertility_in_tri.off"), resolved[0])
+        self.assertEqual("ixdar.model=graph:Skull", resolved[1])
+
+    def test_shutdown_returns_only_after_the_process_is_gone(self):
+        alive = [True, True, False]
+        with patch.object(shutdown_scene, "read_port_file",
+                          return_value={"port": 47907, "pid": 9911}), \
+                patch.object(shutdown_scene, "process_alive", side_effect=lambda pid: alive.pop(0)), \
+                patch("time.sleep"), \
+                patch("urllib.request.urlopen",
+                      return_value=FakeResponse({"ok": True, "accepted": True})):
+            exit_code = ixdar_cli.main(["shutdown"])
+        self.assertEqual(0, exit_code)
+        self.assertEqual([], alive)
+
+    def test_shutdown_fails_when_the_process_outlives_the_timeout(self):
+        with patch.object(shutdown_scene, "read_port_file",
+                          return_value={"port": 47908, "pid": 9912}), \
+                patch.object(shutdown_scene, "process_alive", return_value=True), \
+                patch("time.sleep"), \
+                patch("urllib.request.urlopen",
+                      return_value=FakeResponse({"ok": True, "accepted": True})):
+            exit_code = ixdar_cli.main(["shutdown", "--timeout", "0.01"])
+        self.assertEqual(1, exit_code)
+
+    def test_shutdown_replaces_the_generated_server_command(self):
+        self.assertIn("shutdown", get_registry())
+        self.assertNotIn("shutdown", ixdar_cli._server_commands())
+
+
+class LaunchEntryTest(unittest.TestCase):
+    LAUNCH_JSON = """{
+  // A launch entry, with a comment.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Mesh Node Viewer",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "mesh-viewer",
+      "vmArgs": ["${config:java.profiler.args}", "-Xmx4g"],
+      "cwd": "${workspaceFolder}/ixdar-app",
+    },
+    {
+      "name": "Quad Layout",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "quad-layout",
+      "vmArgs": "-enableassertions -Xmx4g"
+    }
+  ]
+}"""
+
+    def _checkout(self, directory: str) -> str:
+        os.makedirs(os.path.join(directory, ".vscode"))
+        with open(os.path.join(directory, ".vscode", "launch.json"), "w", encoding="utf-8") as handle:
+            handle.write(self.LAUNCH_JSON)
+        with open(os.path.join(directory, ".vscode", "settings.json"), "w", encoding="utf-8") as handle:
+            handle.write('{\n  // profiler\n  "java.profiler.args": "-agentpath:/usr/lib/lib.so",\n}')
+        return directory
+
+    def test_strip_jsonc_removes_comments_and_trailing_commas(self):
+        parsed = json.loads(launch_entry.strip_jsonc(self.LAUNCH_JSON))
+        self.assertEqual(2, len(parsed["configurations"]))
+        self.assertEqual("Mesh Node Viewer", parsed["configurations"][0]["name"])
+
+    def test_a_url_inside_a_string_survives_comment_stripping(self):
+        parsed = json.loads(launch_entry.strip_jsonc('{"doc": "https://example.com/a"}'))
+        self.assertEqual("https://example.com/a", parsed["doc"])
+
+    def test_find_configuration_matches_exactly_then_by_substring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            configurations = launch_entry.read_configurations(self._checkout(directory))
+        self.assertEqual("Quad Layout",
+                         launch_entry.find_configuration(configurations, "Quad Layout")["name"])
+        self.assertEqual("Mesh Node Viewer",
+                         launch_entry.find_configuration(configurations, "node viewer")["name"])
+        with self.assertRaisesRegex(ValueError, "no launch entry matches"):
+            launch_entry.find_configuration(configurations, "Nonexistent")
+
+    def test_launch_command_keeps_the_entry_s_vm_args_and_adds_the_port(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._checkout(directory)
+            classpath_file = os.path.join(directory, "CP")
+            with open(classpath_file, "w", encoding="utf-8") as handle:
+                handle.write("/lib/gson.jar\n")
+            configurations = launch_entry.read_configurations(root)
+            configuration = launch_entry.find_configuration(configurations, "Mesh Node Viewer")
+            with patch.object(launch_entry, "CLASSPATH_FILE", classpath_file):
+                command = launch_entry.launch_command(configuration, root, 47909)
+            self.assertEqual(os.path.join(root, "ixdar-app"),
+                             launch_entry.working_directory(configuration, root))
+        self.assertIn("-agentpath:/usr/lib/lib.so", command)
+        self.assertIn("-Xmx4g", command)
+        self.assertIn("-Dixdar.automation.port=47909", command)
+        self.assertNotIn("-Dixdar.headless=true", command)
+        self.assertEqual("mesh-viewer", command[-1])
+        self.assertEqual("ixdar.canvas.IxdarWindow", command[-2])
+
+    def test_launch_takes_its_entry_as_a_positional_argument(self):
+        parsed = ixdar_cli._build_parser().parse_args(["launch", "Mesh Node Viewer"])
+        self.assertEqual("Mesh Node Viewer", parsed.entry)
 
 
 class CliTest(unittest.TestCase):
@@ -194,7 +510,9 @@ class CliTest(unittest.TestCase):
     @patch("urllib.request.urlopen")
     def test_shutdown_command_posts_request(self, urlopen):
         urlopen.return_value = FakeResponse({"ok": True, "accepted": True})
-        exit_code = ixdar_cli.main(["shutdown"])
+        # No port file means no pid to wait on, so the command reports the acknowledgement alone.
+        with patch.object(shutdown_scene, "read_port_file", return_value={}):
+            exit_code = ixdar_cli.main(["shutdown"])
         self.assertEqual(0, exit_code)
 
     @patch("urllib.request.urlopen")

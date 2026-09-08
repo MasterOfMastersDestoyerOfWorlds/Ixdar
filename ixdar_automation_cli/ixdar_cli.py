@@ -5,11 +5,11 @@ import sys
 import urllib.error
 
 try:
-    from .automation_client import DEFAULT_BASE_URL, AutomationClient
+    from .automation_client import AutomationClient, discover_base_url
     from .cli_registry import CliCommand, CliCommandResult, CliParameter, get_registry
     from .server_routes import add_server_parsers, dispatch_server_command, load_manifest, server_command_map
 except ImportError:
-    from automation_client import DEFAULT_BASE_URL, AutomationClient
+    from automation_client import AutomationClient, discover_base_url
     from cli_registry import CliCommand, CliCommandResult, CliParameter, get_registry
     from server_routes import add_server_parsers, dispatch_server_command, load_manifest, server_command_map
 
@@ -25,7 +25,11 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="ixdar",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
+    parser.add_argument(
+        "--base-url",
+        default="",
+        help="Automation server URL; the default reads tmp/automation.port under this checkout.",
+    )
     subparsers = parser.add_subparsers(dest="command_name", required=True)
 
     for command_name, command in sorted(get_registry().items()):
@@ -63,6 +67,14 @@ def _add_command_argument(command_parser: argparse.ArgumentParser, parameter: Cl
     if parameter.choices is not None:
         kwargs["choices"] = parameter.choices
 
+    if parameter.positional:
+        kwargs["type"] = parameter.annotation
+        if parameter.has_default:
+            kwargs["nargs"] = "?"
+            kwargs["default"] = parameter.default
+        command_parser.add_argument(parameter.name, **kwargs)
+        return
+
     if parameter.annotation is bool:
         default = parameter.default if parameter.has_default else False
         kwargs["default"] = default
@@ -98,7 +110,7 @@ def _execute_registry_command(command: CliCommand, args: argparse.Namespace, cli
 def main(argv: list[str]) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    client = AutomationClient(args.base_url)
+    client = AutomationClient(args.base_url or discover_base_url())
 
     try:
         registry = get_registry()
