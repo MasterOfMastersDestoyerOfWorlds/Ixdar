@@ -12,7 +12,9 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
+import ixdar.graphics.render.Clock;
 import ixdar.platform.automation.AutomationEndpoint;
+import ixdar.platform.automation.InputSettle;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.TradeMouseTrap;
 
@@ -22,21 +24,24 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
     public static final String Y = "y";
     public static final String NORMALIZED = "normalized";
     public static final String BUTTON = "button";
+    public static final String SETTLE = "settle";
+    public static final String SETTLED = "settled";
     public static final String OK = "ok";
     public static final String ERROR = "error";
     public static final String COMMAND = "click";
 
     /**
-     * {@code POST /input/click}: move the cursor to a target position then issue a
-     * press/release pair on the active mouse handler. Recorded as an abstract
+     * {@code POST /input/click}: move the cursor to a target position, issue a press/release pair
+     * on the active mouse handler, then wait for the click to be drawn. Recorded as an abstract
      * {@code "click"} action.
      *
      * @param body JSON body with {@code x}, {@code y} (floats, default 0),
      *             {@code normalized} (boolean; when true, {@code x}/{@code y} are
-     *             treated as fractions of window size), and {@code button}
-     *             (GLFW button code, default 0)
+     *             treated as fractions of window size), {@code button}
+     *             (GLFW button code, default 0) and {@code settle} (frames to wait
+     *             for after the click; default 2)
      * @throws IOException never thrown directly; declared to satisfy the route contract
-     * @return {@code {"ok": true, "event": {xPx, yPx, xNorm, yNorm, button}}} on
+     * @return {@code {"ok": true, "settled": true, "event": {xPx, yPx, xNorm, yNorm, button}}} on
      *         success, or an error object when no mouse handler is active
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
@@ -44,15 +49,20 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
         float y = body.has(Y) ? body.get(Y).getAsFloat() : 0f;
         boolean normalized = body.has(NORMALIZED) && body.get(NORMALIZED).getAsBoolean();
         int button = body.has(BUTTON) ? body.get(BUTTON).getAsInt() : 0;
+        int settleFrames = body.has(SETTLE)
+                ? body.get(SETTLE).getAsInt()
+                : InputSettle.DEFAULT_FRAMES;
+        long[] appliedDuringFrame = new long[1];
         try {
-            return runtime.runOnMainThread(() -> {
+            JsonObject result = runtime.runOnMainThread(() -> {
                 MouseTrap mouse = runtime.activeMouse();
-                JsonObject result = new JsonObject();
+                JsonObject applied = new JsonObject();
                 if (mouse == null) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, "No active mouse handler");
-                    return result;
+                    applied.addProperty(OK, false);
+                    applied.addProperty(ERROR, "No active mouse handler");
+                    return applied;
                 }
+                appliedDuringFrame[0] = Clock.framesRendered();
                 float xPos = normalized ? denormalizeX(x) : x;
                 float yPos = normalized ? denormalizeY(y) : y;
                 if (mouse instanceof TradeMouseTrap) {
@@ -74,10 +84,15 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
                 payload.addProperty("yNorm", normalizeY(yPos));
                 payload.addProperty(BUTTON, button);
                 runtime.recordAbstractAction(COMMAND, payload);
-                result.addProperty(OK, true);
-                result.add("event", payload);
-                return result;
+                applied.addProperty(OK, true);
+                applied.add("event", payload);
+                return applied;
             });
+            if (result.has(OK) && result.get(OK).getAsBoolean()) {
+                result.addProperty(SETTLED,
+                        InputSettle.awaitFrames(appliedDuringFrame[0], settleFrames));
+            }
+            return result;
         } catch (Exception e) {
             JsonObject error = new JsonObject();
             error.addProperty(OK, false);
@@ -90,7 +105,7 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
     public RouteDoc describe() {
         return RouteDoc.builder()
                 .commandName(COMMAND)
-                .description("Move the cursor to a point then issue a press/release click on the active mouse handler.")
+                .description("Click at a point on the active mouse handler, then wait for the click to be drawn.")
                 .param(X, RouteParamType.FLOAT, false, String.valueOf(0),
                         "Target X coordinate.", "0.5")
                 .param(Y, RouteParamType.FLOAT, false, String.valueOf(0),
@@ -99,7 +114,9 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
                         "Treat X/Y as fractions of window size rather than pixels.", "true")
                 .param(BUTTON, RouteParamType.INT, false, String.valueOf(0),
                         "GLFW mouse button code.", "1")
-                .responseHint("{ok, event:{xPx, yPx, xNorm, yNorm, button}}")
+                .param(SETTLE, RouteParamType.INT, false, String.valueOf(InputSettle.DEFAULT_FRAMES),
+                        "Frames to wait for after the click, so a screenshot needs no sleep; 0 returns at once.", "0")
+                .responseHint("{ok, settled, event:{xPx, yPx, xNorm, yNorm, button}}")
                 .build();
     }
 }

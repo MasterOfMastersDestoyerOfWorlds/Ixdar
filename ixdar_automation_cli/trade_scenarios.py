@@ -1,7 +1,7 @@
 try:
-    from .automation_client import KEY_ENTER, AutomationClient, opengl_to_click_y
+    from .automation_client import AutomationClient, opengl_to_click_y
 except ImportError:
-    from automation_client import KEY_ENTER, AutomationClient, opengl_to_click_y
+    from automation_client import AutomationClient, opengl_to_click_y
 
 
 def require(condition: bool, message: str) -> None:
@@ -122,7 +122,7 @@ def create_initial_pipe(client: AutomationClient, city_a: dict, city_b: dict, wi
     click_y_b = opengl_to_click_y(window_height, float(city_b["yPx"]))
     client.click(float(city_a["xPx"]), click_y_a, normalized=False, button=0)
     client.click(float(city_b["xPx"]), click_y_b, normalized=False, button=0)
-    client.key(KEY_ENTER)
+    client.key("ENTER")
     post = client.ui_state()
     return {
         "ok": bool(post.get("trade", {}).get("hasRoute", False)),

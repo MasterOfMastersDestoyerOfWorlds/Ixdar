@@ -20,6 +20,12 @@ public class Clock {
 
     public static Long lastFrameDouble2 = 0L;
 
+    /**
+     * Frames completed since startup, never wrapped. Automation waits on this to know a
+     * synthesized input has actually been drawn.
+     */
+    public static volatile long framesRendered;
+
     static int frameNum;
 
     static float lastFullSecond;
@@ -126,6 +132,16 @@ public class Clock {
         lastFrameDouble2 = lastFrameDouble;
         lastFrameDouble = System.nanoTime();
         frameNum = (frameNum + 1) % NUM_60;
+        framesRendered++;
+    }
+
+    /**
+     * Frames drawn since startup, monotonic and never wrapped.
+     *
+     * @return the running count of completed {@link #frameRendered()} calls
+     */
+    public static long framesRendered() {
+        return framesRendered;
     }
 
     /**

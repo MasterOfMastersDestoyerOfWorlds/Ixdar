@@ -759,6 +759,32 @@ class CliTest(unittest.TestCase):
             self.assertEqual({"alpha": True, "bravo": True}, flags)
             self.assertEqual(0, ixdar_cli.main(["collection-list", "--directory", directory]))
 
+    @patch("urllib.request.urlopen")
+    def test_key_command_sends_a_name_and_reports_consumed(self, urlopen):
+        urlopen.return_value = FakeResponse({"ok": True, "consumed": True})
+        self.assertEqual(0, ixdar_cli.main(["key", "--key", "SHIFT+P"]))
+        body = json.loads(urlopen.call_args[0][0].data.decode("utf-8"))
+        self.assertEqual({"key": "SHIFT+P", "action": "tap", "settle": 2}, body)
+
+    @patch("urllib.request.urlopen")
+    def test_terminal_command_takes_the_line_positionally(self, urlopen):
+        urlopen.return_value = FakeResponse({"ok": True, "response": ["ring 0: 12 edges"]})
+        self.assertEqual(0, ixdar_cli.main(["terminal", "rings list"]))
+        request = urlopen.call_args[0][0]
+        self.assertTrue(request.full_url.endswith("/input/terminal"))
+        self.assertEqual({"line": "rings list", "settle": 2},
+                         json.loads(request.data.decode("utf-8")))
+
+    @patch("urllib.request.urlopen")
+    def test_click_and_hover_settle_by_default(self, urlopen):
+        for command, path in (("click", "/input/click"), ("hover", "/input/hover")):
+            with self.subTest(command=command):
+                urlopen.return_value = FakeResponse({"ok": True, "settled": True})
+                self.assertEqual(0, ixdar_cli.main([command, "--x", "10", "--y", "20"]))
+                request = urlopen.call_args[0][0]
+                self.assertTrue(request.full_url.endswith(path))
+                self.assertEqual(2, json.loads(request.data.decode("utf-8"))["settle"])
+
 
 if __name__ == "__main__":
     unittest.main()

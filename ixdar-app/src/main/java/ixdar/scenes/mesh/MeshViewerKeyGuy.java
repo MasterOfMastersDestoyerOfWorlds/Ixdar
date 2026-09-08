@@ -34,7 +34,7 @@ public class MeshViewerKeyGuy extends OrbitCameraKeyGuy {
      * Handle the mesh-viewer shortcuts on key-down: Z wireframe, P patch overlay
      * (Shift+P shader mode), [ / ] model, K keep/reject, D decomposer. Every other
      * key falls through to the scene's own control bindings, which is what reaches
-     * ESC and {@code ~}.
+     * ESCAPE and GRAVE.
      *
      * @param key  GLFW key code
      * @param mods GLFW modifier bitmask (Shift is read here)
@@ -55,7 +55,11 @@ public class MeshViewerKeyGuy extends OrbitCameraKeyGuy {
             case Keys.RIGHT_BRACKET -> meshScene.nextModel();
             case Keys.K -> meshScene.toggleKeepCurrentMember();
             case Keys.D -> meshScene.toggleDecomposer();
-            default -> super.handleSceneKeys(key, mods);
+            default -> {
+                super.handleSceneKeys(key, mods);
+                return;
+            }
         }
+        markKeyConsumed();
     }
 }

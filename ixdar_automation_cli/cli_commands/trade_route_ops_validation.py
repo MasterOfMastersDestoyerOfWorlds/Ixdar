@@ -3,7 +3,7 @@
 import time
 import urllib.error
 
-from ..automation_client import KEY_G, AutomationClient, collect_trade_tooltip_lines, toolbar_button_center
+from ..automation_client import AutomationClient, collect_trade_tooltip_lines, toolbar_button_center
 from ..cli_registry import CliCommandResult, cli_command
 from ..trade_scenarios import create_initial_pipe, ensure_trade_scene, place_headquarters, require
 
@@ -59,7 +59,7 @@ def run_validation(base_url: str) -> tuple[int, dict]:
 
         # Grow route with a third city (G mode -> route city -> singleton city -> Enter).
         third_city = cities[2]
-        client.key(KEY_G)
+        client.key("G")
         create_initial_pipe(client, hq_city, third_city, window_height)
         time.sleep(0.15)
         state = client.ui_state()

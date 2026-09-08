@@ -11,6 +11,7 @@ Usage:
         --property embeddedTMesh.off=path/to/mesh.off --property embeddedTMesh.contractFail=true
     uv run ixdar-cli run-scene --scene embedded-tmesh --coverage \
         --key "C=contracted to fixed point" --key "M=flip-surface uploaded|cannot show flips"
+    uv run ixdar-cli run-scene --scene mesh-viewer --key ESCAPE --key SHIFT+P --screenshot out.png
 """
 
 import os
@@ -89,17 +90,9 @@ def async_profiler_library() -> str:
         "(macOS: brew install async-profiler; Linux: place libasyncProfiler.so in /usr/lib)"
     )
 
-NAMED_KEYS = {
-    "SPACE": 32, "PERIOD": 46, "COMMA": 44, "MINUS": 45, "EQUAL": 61,
-    "ESCAPE": 256, "ENTER": 257, "TAB": 258, "BACKSPACE": 259,
-    "UP": 265, "DOWN": 264, "LEFT": 263, "RIGHT": 262,
-}
-
-ACTION_PRESS = 1
-
-ACTION_RELEASE = 0
-
-DEFAULT_KEY_SETTLE_SECONDS = 3.0
+# The /input/key route settles on rendered frames before it answers, so a key with no regex needs
+# no extra pause at all; this stays as an escape hatch for work the scene neither logs nor renders.
+DEFAULT_KEY_SETTLE_SECONDS = 0.0
 
 
 def _run_maven(args: list[str], description: str, pom: str = POM_PATH) -> None:
@@ -318,27 +311,6 @@ def _adopt_published_port(client: AutomationClient, process: subprocess.Popen) -
         client.base_url = base_url
 
 
-def _key_code(name: str) -> int:
-    """Resolve a key name to its GLFW code, matching ``ixdar.platform.input.Keys``.
-
-    Letters and digits are their ASCII uppercase codes, which is how GLFW numbers them, so only the
-    non-printing keys need a table.
-
-    :param name: A key name (``C``, ``SPACE``), a single character, or a raw integer code.
-    :return: The GLFW key code.
-    :raises ValueError: When the name is not a known key.
-    """
-    token = name.strip().upper()
-    if token.isdigit():
-        return int(token)
-    if token in NAMED_KEYS:
-        return NAMED_KEYS[token]
-    if len(token) == 1 and token.isalnum():
-        return ord(token)
-    raise ValueError(f"unknown key {name!r}; use a letter, a digit, a code, or one of "
-                     + ", ".join(sorted(NAMED_KEYS)))
-
-
 def _await_log_beyond(log_path: str, pattern: re.Pattern, offset: int,
                       process: subprocess.Popen, timeout: float) -> tuple[str, int]:
     """Wait for a regex to appear in the scene log past a byte offset.
@@ -376,29 +348,31 @@ def _drive_keys(client: AutomationClient, process: subprocess.Popen, log_path: s
                 key_specs: list[str], settle: float, timeout: float) -> list[dict]:
     """Send keypresses to the ready scene, waiting for each one's work to land.
 
-    A scene applies keypress-requested edits on its render thread, so the press returns long before
-    the work finishes — a contraction on a real mesh runs for a minute. Each spec may therefore carry
-    a regex the scene logs when that key's work is done; without one the command can only wait a
-    fixed settle time, which on a big mesh will under-wait.
+    The route already waits for the key to be drawn, so a plain key needs no pause. What it cannot
+    wait for is work the render thread starts and finishes later — a contraction on a real mesh runs
+    for a minute — so a spec may carry a regex the scene logs when that key's work is done.
 
     :param client: Automation client used to synthesize the key events.
     :param process: The launched JVM.
     :param log_path: Path the JVM's output is being written to.
-    :param key_specs: ``NAME`` or ``NAME=REGEX`` entries, applied in order.
-    :param settle: Seconds to pause after a key that carries no regex.
+    :param key_specs: ``KEY`` or ``KEY=REGEX`` entries, applied in order; ``KEY`` is a name with
+        optional modifiers, such as ``ESCAPE``, ``P`` or ``SHIFT+P``.
+    :param settle: Extra seconds to pause after a key that carries no regex.
     :param timeout: Seconds to wait for a key's regex before moving on.
-    :return: One result dict per key, with what was matched or why it was not.
+    :return: One result dict per key, with whether a handler consumed it and what was matched.
     """
     results: list[dict] = []
     offset = os.path.getsize(log_path) if os.path.exists(log_path) else 0
     for spec in key_specs:
         name, separator, expression = spec.partition("=")
-        code = _key_code(name)
-        print(f"  key {name.strip().upper()}"
-              + (f" → awaiting /{expression}/" if separator else ""), file=sys.stderr)
-        client.key(code, action=ACTION_PRESS)
-        client.key(code, action=ACTION_RELEASE)
-        entry: dict = {"key": name.strip().upper()}
+        key = name.strip().upper()
+        print(f"  key {key}" + (f" → awaiting /{expression}/" if separator else ""), file=sys.stderr)
+        response = client.key(key)
+        entry: dict = {"key": key, "consumed": response.get("consumed")}
+        if not response.get("ok", False):
+            entry["error"] = response.get("error", "the key route refused the key")
+            results.append(entry)
+            break
         if separator and expression:
             matched, offset = _await_log_beyond(
                 log_path, re.compile(expression), offset, process, timeout)
@@ -406,7 +380,8 @@ def _drive_keys(client: AutomationClient, process: subprocess.Popen, log_path: s
             if not matched:
                 entry["error"] = "regex never appeared; the key's work may be unfinished"
         else:
-            time.sleep(settle)
+            if settle > 0:
+                time.sleep(settle)
             offset = os.path.getsize(log_path) if os.path.exists(log_path) else offset
         results.append(entry)
         if process.poll() is not None:
@@ -548,8 +523,6 @@ def run(
     if mesh:
         properties.append(f"{MODEL_PROPERTY}={resolve_mesh(mesh)}")
     key_specs = list(key or [])
-    for spec in key_specs:
-        _key_code(spec.partition("=")[0])
     resolved_profile = (profile_path or DEFAULT_PROFILE_PATH) if (profile or profile_path) else ""
     resolved_coverage = ((coverage_path or DEFAULT_COVERAGE_PATH)
                          if (coverage or coverage_path) else "")
@@ -677,11 +650,14 @@ def run_scene(
     :param coverage: Record JaCoCo line coverage and report which code the run never executed.
     :param coverage_path: Coverage exec output path (default: jacoco.exec at the repo root).
     :param coverage_filter: Dotted package prefix the coverage summary is restricted to.
-    :param key: Repeatable ``NAME`` or ``NAME=REGEX`` keypress to send once the scene is ready; the
-        regex is awaited in the scene log before the next key, since a key's work runs on the render
-        thread long after the press returns.
-    :param key_settle: Seconds to pause after a key that carries no regex.
-    :param await_log: Regex the scene log must show before the run returns, on top of readiness.
+    :param key: Repeatable ``KEY`` or ``KEY=REGEX`` keypress to send once the scene is ready. ``KEY``
+        is a name with optional modifiers — ``ESCAPE``, ``GRAVE``, ``RIGHT_BRACKET``, ``P``,
+        ``SHIFT+P``, ``CTRL+SHIFT+S``; raw GLFW codes are rejected. The regex is awaited in the scene
+        log before the next key, since a key's work can run on the render thread long after the
+        press returns.
+    :param key_settle: Extra seconds to pause after a key that carries no regex; the route already
+        waits for the key to be drawn, so this is only for work the scene neither logs nor renders.
+    :param await_log: Regex to wait for in the scene log, in addition to readiness.
     :param timeout: Seconds to wait for the scene to become ready.
     :param screenshot: Capture a screenshot to this path once ready.
     :param multiview: Capture an 8-angle multiview composite to this path once ready.

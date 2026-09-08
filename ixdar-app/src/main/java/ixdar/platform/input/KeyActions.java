@@ -65,6 +65,20 @@ public enum KeyActions {
      * @return true if the binding is satisfied this frame
      */
     public boolean keyPressed(Set<Integer> pressedKeys) {
+        boolean satisfied = matches(pressedKeys);
+        if (satisfied && this != ControlMask && this != ShiftMask) {
+            KeyGuy.markKeyConsumed();
+        }
+        return satisfied;
+    }
+
+    /**
+     * The binding test behind {@link #keyPressed(Set)}, without the consumption bookkeeping.
+     *
+     * @param pressedKeys live set of pressed key codes
+     * @return true if the binding is satisfied this frame
+     */
+    private boolean matches(Set<Integer> pressedKeys) {
         if (controlMask) {
             if (KeyActions.ControlMask.keyPressed(pressedKeys)) {
                 boolean flag = false;

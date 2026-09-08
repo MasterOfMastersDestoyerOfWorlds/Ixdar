@@ -89,6 +89,7 @@ KEY_G = 71
 KEY_P = 80
 KEY_Z = 90
 MOD_CTRL = 2
+DEFAULT_SETTLE_FRAMES = 2
 
 TOOLBAR_BUTTON_OFFSETS_X = {
     "pipe": -70.0,
@@ -217,11 +218,24 @@ class AutomationClient:
     def clear_hover(self) -> dict:
         return self.request_json("/input/hover/clear", {})
 
-    def key(self, key_code: int, action: int = 1, mods: int = 0, scancode: int = 0) -> dict:
-        return self.request_json(
-            "/input/key",
-            {"key": key_code, "action": action, "mods": mods, "scancode": scancode},
-        )
+    def key(self, key: str, action: str = "tap", settle: int = DEFAULT_SETTLE_FRAMES) -> dict:
+        """Deliver a named key event, e.g. ``ESCAPE``, ``GRAVE`` or ``SHIFT+P``.
+
+        :param key: Key name with optional modifiers; raw GLFW codes are rejected by the server.
+        :param action: ``tap``, ``press``, ``release`` or ``repeat``.
+        :param settle: Frames to wait for after the key, so no sleep is needed before a screenshot.
+        :return: The server response, carrying ``consumed`` — whether any handler took the key.
+        """
+        return self.request_json("/input/key", {"key": key, "action": action, "settle": settle})
+
+    def terminal(self, line: str, settle: int = DEFAULT_SETTLE_FRAMES) -> dict:
+        """Run one line in the scene terminal and return the history lines it produced.
+
+        :param line: Command line to type and enter, arguments included.
+        :param settle: Frames to wait for after the command runs.
+        :return: The server response, carrying the terminal's ``response`` lines.
+        """
+        return self.request_json("/input/terminal", {"line": line, "settle": settle})
 
     def set_projection(self, orthographic: bool = True) -> dict:
         """Set projection mode: orthographic or perspective."""
@@ -233,7 +247,7 @@ class AutomationClient:
 
     def toggle_wireframe(self) -> dict:
         """Toggle wireframe mode by injecting a Z key press."""
-        return self.key(KEY_Z, action=1, mods=0)
+        return self.key("Z")
 
     def mesh_skeleton(self, path: str, resolution: int = 128) -> dict:
         """Extract skeleton from mesh OBJ via TEASAR algorithm."""

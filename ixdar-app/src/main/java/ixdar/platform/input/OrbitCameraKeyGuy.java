@@ -66,6 +66,7 @@ public class OrbitCameraKeyGuy extends KeyGuy {
         if (active && action == ACTION_PRESS) {
             if (key == Keys.R && (mods & MOD_CONTROL) != 0) {
                 orbitMouse.resetTarget();
+                markKeyConsumed();
             } else {
                 handleSceneKeys(key, mods);
             }
@@ -87,6 +88,7 @@ public class OrbitCameraKeyGuy extends KeyGuy {
         for (ControlHint hint : controls) {
             if (hint.keyCode == key && hint.keyCode != ControlHint.NO_KEY && hint.action != null) {
                 hint.action.perform();
+                markKeyConsumed();
                 return;
             }
         }

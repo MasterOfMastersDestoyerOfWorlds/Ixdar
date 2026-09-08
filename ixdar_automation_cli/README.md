@@ -23,11 +23,11 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 
 | Command | Description |
 | --- | --- |
-| [`click`](#click) | Move the cursor to a point then issue a press/release click on the active mouse handler. |
+| [`click`](#click) | Click at a point on the active mouse handler, then wait for the click to be drawn. |
 | [`health`](#health) | Liveness probe reporting server status, recording/replaying flags, and port. |
-| [`hover`](#hover) | Move the cursor without clicking, optionally installing a persistent hover lock. |
+| [`hover`](#hover) | Move the cursor without clicking, then wait for the hover to be drawn. |
 | [`hover-clear`](#hover-clear) | Release the persistent automation hover lock on the active trade mouse handler. |
-| [`key`](#key) | Synthesize a single GLFW key event on the active key handler. |
+| [`key`](#key) | Deliver a named key event to the active key handler and report whether it was consumed. |
 | [`mesh-compare`](#mesh-compare) | Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics. |
 | [`mesh-dsl`](#mesh-dsl) | Load and execute a named DSL skill graph, making its output geometry the active mesh. |
 | [`mesh-dsl-timing`](#mesh-dsl-timing) | Report per-node execution times from the most recent DSL graph run. |
@@ -57,7 +57,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`screenshot`](#screenshot) | Capture a PNG screenshot of the current framebuffer to a file. |
 | [`scroll`](#scroll) | Deliver a synthesized scroll event to the active mouse handler. |
 | [`type`](#type) | Synthesize character events on the active key handler, one per character of the text. |
-| [`ui-state`](#ui-state) | Snapshot the full UI state: window, scene, trade, mesh, text, menu, and audio. |
+| [`ui-state`](#ui-state) | Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio. |
 
 **CLI commands**
 
@@ -90,6 +90,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`run-scene`](#run-scene) | Build, launch, wait for, optionally profile and screenshot, then shut down a scene. |
 | [`shutdown`](#shutdown) | Ask the scene to exit and return only once its process is gone. |
 | [`start-new-game`](#start-new-game) | Leave the menu by clicking Start New Game. |
+| [`terminal`](#terminal) | Type a line into the scene terminal, press enter, and return the terminal's response. |
 | [`trade-hover-scan`](#trade-hover-scan) | Scan trade cities until the requested toolbar tooltip appears. |
 | [`validate-route-ops`](#validate-route-ops) | Validate trade route operations against the running app. |
 
@@ -99,7 +100,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectClick.java)
 
-Move the cursor to a point then issue a press/release click on the active mouse handler.
+Click at a point on the active mouse handler, then wait for the click to be drawn.
 
 - **Route:** `POST /input/click`
 - **Flags:**
@@ -107,8 +108,9 @@ Move the cursor to a point then issue a press/release click on the active mouse 
   - `--y` (float, default `0`) — Target Y coordinate., e.g. `0.25`
   - `--normalized` (bool, default `false`) — Treat X/Y as fractions of window size rather than pixels., e.g. `true`
   - `--button` (int, default `0`) — GLFW mouse button code., e.g. `1`
-- **Response:** `{ok, event:{xPx, yPx, xNorm, yNorm, button}}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/click -d '{"x": 0.5, "y": 0.25, "normalized": true, "button": 1}'`
+  - `--settle` (int, default `2`) — Frames to wait for after the click, so a screenshot needs no sleep; 0 returns at once., e.g. `0`
+- **Response:** `{ok, settled, event:{xPx, yPx, xNorm, yNorm, button}}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/click -d '{"x": 0.5, "y": 0.25, "normalized": true, "button": 1, "settle": 0}'`
 
 ### `health`
 
@@ -124,7 +126,7 @@ Liveness probe reporting server status, recording/replaying flags, and port.
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectHover.java)
 
-Move the cursor without clicking, optionally installing a persistent hover lock.
+Move the cursor without clicking, then wait for the hover to be drawn.
 
 - **Route:** `POST /input/hover`
 - **Flags:**
@@ -132,8 +134,9 @@ Move the cursor without clicking, optionally installing a persistent hover lock.
   - `--y` (float, default `0`) — Target Y coordinate., e.g. `0.25`
   - `--normalized` (bool, default `false`) — Treat X/Y as fractions of window size rather than pixels., e.g. `true`
   - `--persistent` (bool, default `true`) — Hold the hover lock so real mouse motion cannot dislodge it; false clears it., e.g. `false`
-- **Response:** `{ok, event:{xPx, yPx, xNorm, yNorm, persistent}}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/hover -d '{"x": 0.5, "y": 0.25, "normalized": true, "persistent": false}'`
+  - `--settle` (int, default `2`) — Frames to wait for after the hover, so a screenshot needs no sleep; 0 returns at once., e.g. `0`
+- **Response:** `{ok, settled, event:{xPx, yPx, xNorm, yNorm, persistent}}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/hover -d '{"x": 0.5, "y": 0.25, "normalized": true, "persistent": false, "settle": 0}'`
 
 ### `hover-clear`
 
@@ -149,16 +152,15 @@ Release the persistent automation hover lock on the active trade mouse handler.
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectKey.java)
 
-Synthesize a single GLFW key event on the active key handler.
+Deliver a named key event to the active key handler and report whether it was consumed.
 
 - **Route:** `POST /input/key`
 - **Flags:**
-  - `--key` (int, default `0`) — GLFW key code., e.g. `65`
-  - `--action` (int, default `1`) — Event action: 1 press, 0 release, 2 repeat., e.g. `0`
-  - `--mods` (int, default `0`) — Modifier-key bitmask., e.g. `8`
-  - `--scancode` (int, default `0`) — Platform scancode., e.g. `24`
-- **Response:** `{ok}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/key -d '{"key": 65, "action": 0, "mods": 8, "scancode": 24}'`
+  - `--key` (string, required) — Key name, with optional modifiers: ESCAPE, GRAVE, RIGHT_BRACKET, P, SHIFT+P, CTRL+SHIFT+S. Raw GLFW codes are rejected., e.g. `SHIFT+P`
+  - `--action` (string, default `tap`) — Event action: tap (press then release), press, release or repeat., e.g. `press`
+  - `--settle` (int, default `2`) — Frames to wait for after the key, so a screenshot needs no sleep; 0 returns at once., e.g. `0`
+- **Response:** `{ok, key, keyCode, mods, action, consumed, settled}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/key -d '{"key": "SHIFT+P", "action": "press", "settle": 0}'`
 
 ### `mesh-compare`
 
@@ -517,10 +519,10 @@ Synthesize character events on the active key handler, one per character of the 
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/State.java)
 
-Snapshot the full UI state: window, scene, trade, mesh, text, menu, and audio.
+Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.
 
 - **Route:** `GET /ui/state`
-- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, collection?, textElements, menuItems, audio}`
+- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, collection?, textElements, menuItems, controls, audio}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/ui/state`
 
 ## CLI commands
@@ -762,7 +764,7 @@ Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB over
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L641)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L617)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 
@@ -775,9 +777,9 @@ Build, launch, wait for, optionally profile and screenshot, then shut down a sce
 - `--coverage` — Record JaCoCo line coverage and report which code the run never executed.
 - `--coverage-path` — Coverage exec output path (default: jacoco.exec at the repo root).
 - `--coverage-filter` — Dotted package prefix the coverage summary is restricted to.
-- `--key` — Repeatable ``NAME`` or ``NAME=REGEX`` keypress to send once the scene is ready; the
-- `--key-settle` — Seconds to pause after a key that carries no regex.
-- `--await-log` — Regex the scene log must show before the run returns, on top of readiness.
+- `--key` — Repeatable ``KEY`` or ``KEY=REGEX`` keypress to send once the scene is ready. ``KEY``
+- `--key-settle` — Extra seconds to pause after a key that carries no regex; the route already
+- `--await-log` — Regex to wait for in the scene log, in addition to readiness.
 - `--timeout` — Seconds to wait for the scene to become ready.
 - `--screenshot` — Capture a screenshot to this path once ready.
 - `--multiview` — Capture an 8-angle multiview composite to this path once ready.
@@ -802,6 +804,15 @@ Leave the menu by clicking Start New Game.
 
 - `--button` — Mouse button index to press.
 - `--no-fallback-scan` — Disable the fallback click scan when menu bounds are missing.
+
+### `terminal`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/terminal.py#L9)
+
+Type a line into the scene terminal, press enter, and return the terminal's response.
+
+- `line` — Command line to run, arguments included, e.g. "rings list".
+- `--settle` — Frames to wait for after the command runs, so no sleep is needed.
 
 ### `trade-hover-scan`
 

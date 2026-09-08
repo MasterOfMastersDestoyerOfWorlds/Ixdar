@@ -202,11 +202,11 @@ _Do not edit by hand; see [ixdar_automation_cli/README.md](ixdar_automation_cli/
 Run any command with `ixdar-cli <command> --help`. Install the global alias with `ixdar-cli install-alias` (or `bash tools/install-cli.sh`).
 
 **Server-backed commands** (generated from the automation routes manifest):
-- `ixdar-cli click [--x] [--y] [--normalized] [--button]` — Move the cursor to a point then issue a press/release click on the active mouse handler.
+- `ixdar-cli click [--x] [--y] [--normalized] [--button] [--settle]` — Click at a point on the active mouse handler, then wait for the click to be drawn.
 - `ixdar-cli health` — Liveness probe reporting server status, recording/replaying flags, and port.
-- `ixdar-cli hover [--x] [--y] [--normalized] [--persistent]` — Move the cursor without clicking, optionally installing a persistent hover lock.
+- `ixdar-cli hover [--x] [--y] [--normalized] [--persistent] [--settle]` — Move the cursor without clicking, then wait for the hover to be drawn.
 - `ixdar-cli hover-clear` — Release the persistent automation hover lock on the active trade mouse handler.
-- `ixdar-cli key [--key] [--action] [--mods] [--scancode]` — Synthesize a single GLFW key event on the active key handler.
+- `ixdar-cli key --key [--action] [--settle]` — Deliver a named key event to the active key handler and report whether it was consumed.
 - `ixdar-cli mesh-compare --reference [--distance-type] [--scale] [--normalize]` — Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics.
 - `ixdar-cli mesh-dsl --name [--node] [--port]` — Load and execute a named DSL skill graph, making its output geometry the active mesh.
 - `ixdar-cli mesh-dsl-timing` — Report per-node execution times from the most recent DSL graph run.
@@ -236,7 +236,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli screenshot [--out] [--inline]` — Capture a PNG screenshot of the current framebuffer to a file.
 - `ixdar-cli scroll [--delta]` — Deliver a synthesized scroll event to the active mouse handler.
 - `ixdar-cli type [--text]` — Synthesize character events on the active key handler, one per character of the text.
-- `ixdar-cli ui-state` — Snapshot the full UI state: window, scene, trade, mesh, text, menu, and audio.
+- `ixdar-cli ui-state` — Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.
 
 **CLI commands** (client-side scenarios, tools, and utilities):
 - `ixdar-cli assert-tooltip` — Assert that the visible tooltip text contains the requested strings.
@@ -266,6 +266,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli run-scene` — Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 - `ixdar-cli shutdown` — Ask the scene to exit and return only once its process is gone.
 - `ixdar-cli start-new-game` — Leave the menu by clicking Start New Game.
+- `ixdar-cli terminal` — Type a line into the scene terminal, press enter, and return the terminal's response.
 - `ixdar-cli trade-hover-scan` — Scan trade cities until the requested toolbar tooltip appears.
 - `ixdar-cli validate-route-ops` — Validate trade route operations against the running app.
 <!-- END-GENERATED: automation-cli -->

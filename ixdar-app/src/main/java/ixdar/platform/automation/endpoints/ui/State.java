@@ -15,15 +15,19 @@ import ixdar.audio.AudioSystem;
 import ixdar.canvas.IxdarWindow;
 import ixdar.game.City;
 import ixdar.geometry.point.IrregularQuadGrid;
+import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.menu.MenuItem;
 import ixdar.gui.ui.tools.RoutePlanningTool;
 import ixdar.platform.Platforms;
+import ixdar.platform.Toggle;
 import ixdar.platform.automation.AutomationEndpoint;
+import ixdar.scenes.Scene;
 import ixdar.scenes.anatomy.IrregularGridScene;
 import ixdar.scenes.main.MainScene;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
+import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.model.ModelCollection;
 import ixdar.scenes.model.ModelScene;
 import ixdar.scenes.trade.TradeScene;
@@ -39,6 +43,8 @@ public class State extends AutomationEndpoint implements AutomationRoute {
     public static final String LABEL = "label";
     public static final String NAME = "name";
     public static final String VERTEXCOUNT = "vertexCount";
+    public static final String KEY = "key";
+    public static final String REGION_BOTTOM = "BOTTOM";
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject root = new JsonObject();
@@ -52,6 +58,12 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 "framebufferHeight",
                 Platforms.get().getFrameBufferHeight());
         root.addProperty("menuVisible", MenuBox.menuVisible);
+        root.addProperty("framesRendered", Clock.framesRendered());
+        root.addProperty("terminalFocused", Toggle.IsTerminalFocused.value);
+        root.addProperty("sceneMenuVisible",
+                runtime.canvas instanceof ModelScene menuScene
+                        && menuScene.sceneModelMenu != null
+                        && menuScene.sceneModelMenu.isVisible());
         String sceneId = IxdarWindow.getCanvasId();
         root.addProperty("sceneId", sceneId == null ? "" : sceneId);
         root.addProperty(
@@ -234,11 +246,19 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         }
 
         JsonArray textElements = new JsonArray();
+        if (runtime.canvas instanceof Scene scene && scene.sceneTerminal != null) {
+            textElements.add(
+                    runtime.hyperStringElement(
+                            "scene_terminal",
+                            REGION_BOTTOM,
+                            scene.sceneTerminal.history,
+                            scene.sceneTerminal.scrollOffsetY));
+        }
         if (MainScene.terminal != null) {
             textElements.add(
                     runtime.hyperStringElement(
                             "terminal",
-                            "BOTTOM",
+                            REGION_BOTTOM,
                             MainScene.terminal.getCachedInfo(),
                             MainScene.terminal.scrollOffsetY));
         }
@@ -286,6 +306,18 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         }
         root.add("menuItems", menuItems);
 
+        JsonArray controls = new JsonArray();
+        if (runtime.canvas instanceof Scene controlScene) {
+            for (ControlHint hint : controlScene.controls) {
+                JsonObject control = new JsonObject();
+                control.addProperty(KEY, hint.key);
+                control.addProperty("description", hint.description);
+                control.addProperty("keyCode", hint.keyCode);
+                controls.add(control);
+            }
+        }
+        root.add("controls", controls);
+
         JsonObject audio = new JsonObject();
         AudioSystem audioSystem = AudioSystem.get();
         audio.addProperty("available", audioSystem.isAvailable());
@@ -313,10 +345,11 @@ public class State extends AutomationEndpoint implements AutomationRoute {
     @Override
     public RouteDoc describe() {
         return RouteDoc.builder()
-                .description("Snapshot the full UI state: window, scene, trade, mesh, text, menu, and audio.")
+                .description("Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.")
                 .responseHint("{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, "
-                        + "menuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, "
-                        + "collection?, textElements, menuItems, audio}")
+                        + "menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, "
+                        + "mode, trade, irregularGrid?, mesh?, collection?, textElements, menuItems, controls, "
+                        + "audio}")
                 .build();
     }
 }

@@ -28,8 +28,14 @@ import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
 import ixdar.scenes.main.MainScene;
 
-public class KeyGuy extends Camera2DInputController{
+public class KeyGuy extends Camera2DInputController {
     public static final String KEY = "key";
+
+    /**
+     * Running count of key events some binding matched. Automation samples it
+     * around an injected key to report whether anything consumed that key.
+     */
+    public static int keysConsumed;
 
     private static Object automationRuntime;
     private static boolean automationChecked;
@@ -47,8 +53,8 @@ public class KeyGuy extends Camera2DInputController{
     long lastPressTime;
 
     /**
-     * Lightweight constructor used by scenes that don't have a {@code MainScene} (e.g.
-     * {@code TradeScene}, dungeon viewer).
+     * Lightweight constructor used by scenes that don't have a {@code MainScene}
+     * (e.g. {@code TradeScene}, dungeon viewer).
      *
      * @param camera camera the controller drives
      * @param canvas owning canvas (for platform-id resolution)
@@ -59,13 +65,14 @@ public class KeyGuy extends Camera2DInputController{
     }
 
     /**
-     * Constructor used by {@code MainScene} so the handler can dispatch tool / terminal
-     * shortcuts.
+     * Constructor used by {@code MainScene} so the handler can dispatch tool /
+     * terminal shortcuts.
      *
-     * @param main owning main scene
-     * @param fileName scene-loaded file name (currently unused but retained for symmetry)
-     * @param camera camera the controller drives
-     * @param canvas2 owning canvas
+     * @param main     owning main scene
+     * @param fileName scene-loaded file name (currently unused but retained for
+     *                 symmetry)
+     * @param camera   camera the controller drives
+     * @param canvas2  owning canvas
      */
     public KeyGuy(MainScene main, String fileName, Camera camera, Canvas3D canvas2) {
         this.main = main;
@@ -80,21 +87,33 @@ public class KeyGuy extends Camera2DInputController{
                 Class<?> cls = Class.forName(
                         String.join(".", "ixdar", "platform", "automation", "endpoints", "AutomationRuntime"));
                 automationRuntime = cls.getMethod("get").invoke(null);
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
         }
         return automationRuntime;
     }
 
     static void recordAbstractAction(String action, Object... keyValues) {
         Object rt = getAutomationRuntime();
-        if (rt == null) return;
+        if (rt == null)
+            return;
         try {
             Map<String, Object> payload = new HashMap<>();
             for (int i = 0; i < keyValues.length; i += 2) {
                 payload.put((String) keyValues[i], keyValues[i + 1]);
             }
             rt.getClass().getMethod("recordAbstractActionMap", String.class, Map.class).invoke(rt, action, payload);
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /**
+     * Record that the key event being dispatched matched a binding. Called only
+     * from the dispatch primitives ({@link KeyActions#keyPressed}, a control hint,
+     * the terminal), never per binding.
+     */
+    public static void markKeyConsumed() {
+        keysConsumed++;
     }
 
     private void keyPressed(int key, int mods, boolean repeated) {
@@ -170,6 +189,7 @@ public class KeyGuy extends Camera2DInputController{
         }
         if (Toggle.IsTerminalFocused.value && Terminal.current != null) {
             Terminal.current.keyPress(key, mods, controlMask);
+            markKeyConsumed();
         }
         if (KeyActions.Back.keyPressed(pressedKeys) && MainScene.active) {
             Terminal.runNoArgs(ExitCommand.class);
@@ -177,10 +197,11 @@ public class KeyGuy extends Camera2DInputController{
     }
 
     /**
-     * Handle a key-up: fire menu / camera shortcuts when a non-main scene is active, clear the
-     * control-mask flag on left-control release, then drop {@code key} from {@link #pressedKeys}.
+     * Handle a key-up: fire menu / camera shortcuts when a non-main scene is
+     * active, clear the control-mask flag on left-control release, then drop
+     * {@code key} from {@link #pressedKeys}.
      *
-     * @param key key code that was released
+     * @param key  key code that was released
      * @param mask modifier-key bitmask
      */
     public void keyReleased(int key, int mask) {
@@ -205,9 +226,10 @@ public class KeyGuy extends Camera2DInputController{
     }
 
     /**
-     * Per-frame: skip while terminal is focused (so typing into terminal doesn't move the
-     * camera), forward camera movement keys to {@link Camera2DInputController#apply}, then
-     * cycle the active tool on left/right with debouncing.
+     * Per-frame: skip while terminal is focused (so typing into terminal doesn't
+     * move the camera), forward camera movement keys to
+     * {@link Camera2DInputController#apply}, then cycle the active tool on
+     * left/right with debouncing.
      *
      * @param SHIFT_MOD speed multiplier (typically 1 or 2)
      */
@@ -232,15 +254,16 @@ public class KeyGuy extends Camera2DInputController{
     }
 
     /**
-     * Platform key-event entry point: rebinds {@link Platforms} to the owning canvas, then
-     * dispatches to {@code keyPressed} (with {@code repeated = true} for {@code ACTION_REPEAT})
-     * or {@link #keyReleased}.
+     * Platform key-event entry point: rebinds {@link Platforms} to the owning
+     * canvas, then dispatches to {@code keyPressed} (with {@code repeated = true}
+     * for {@code ACTION_REPEAT}) or {@link #keyReleased}.
      *
-     * @param window platform window handle
-     * @param key key code (see {@code Keys})
+     * @param window   platform window handle
+     * @param key      key code (see {@code Keys})
      * @param scancode raw scancode (GLFW; 0 on web)
-     * @param action {@code ACTION_PRESS} / {@code ACTION_REPEAT} / {@code ACTION_RELEASE}
-     * @param mods modifier-key bitmask
+     * @param action   {@code ACTION_PRESS} / {@code ACTION_REPEAT} /
+     *                 {@code ACTION_RELEASE}
+     * @param mods     modifier-key bitmask
      */
     public void keyCallback(long window, int key, int scancode, int action, int mods) {
         Platforms.init(canvas.platform.getPlatformID());
@@ -260,10 +283,10 @@ public class KeyGuy extends Camera2DInputController{
     }
 
     /**
-     * Platform char-event entry point: when terminal focus is on, forwards typed characters
-     * into {@code MainScene.terminal}.
+     * Platform char-event entry point: when terminal focus is on, forwards typed
+     * characters into {@code MainScene.terminal}.
      *
-     * @param window platform window handle
+     * @param window    platform window handle
      * @param codepoint Unicode code point of typed character
      */
     public void charCallback(long window, int codepoint) {

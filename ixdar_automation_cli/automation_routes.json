@@ -5,7 +5,7 @@
       "commandName": "click",
       "path": "/input/click",
       "method": "POST",
-      "description": "Move the cursor to a point then issue a press/release click on the active mouse handler.",
+      "description": "Click at a point on the active mouse handler, then wait for the click to be drawn.",
       "sourceClass": "ixdar.platform.automation.endpoints.input.InjectClick",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectClick.java",
       "params": [
@@ -44,9 +44,18 @@
           "default": "0",
           "help": "GLFW mouse button code.",
           "example": "1"
+        },
+        {
+          "name": "settle",
+          "cliName": "settle",
+          "type": "int",
+          "required": false,
+          "default": "2",
+          "help": "Frames to wait for after the click, so a screenshot needs no sleep; 0 returns at once.",
+          "example": "0"
         }
       ],
-      "responseHint": "{ok, event:{xPx, yPx, xNorm, yNorm, button}}"
+      "responseHint": "{ok, settled, event:{xPx, yPx, xNorm, yNorm, button}}"
     },
     {
       "commandName": "health",
@@ -62,7 +71,7 @@
       "commandName": "hover",
       "path": "/input/hover",
       "method": "POST",
-      "description": "Move the cursor without clicking, optionally installing a persistent hover lock.",
+      "description": "Move the cursor without clicking, then wait for the hover to be drawn.",
       "sourceClass": "ixdar.platform.automation.endpoints.input.InjectHover",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectHover.java",
       "params": [
@@ -101,9 +110,18 @@
           "default": "true",
           "help": "Hold the hover lock so real mouse motion cannot dislodge it; false clears it.",
           "example": "false"
+        },
+        {
+          "name": "settle",
+          "cliName": "settle",
+          "type": "int",
+          "required": false,
+          "default": "2",
+          "help": "Frames to wait for after the hover, so a screenshot needs no sleep; 0 returns at once.",
+          "example": "0"
         }
       ],
-      "responseHint": "{ok, event:{xPx, yPx, xNorm, yNorm, persistent}}"
+      "responseHint": "{ok, settled, event:{xPx, yPx, xNorm, yNorm, persistent}}"
     },
     {
       "commandName": "hover-clear",
@@ -119,48 +137,39 @@
       "commandName": "key",
       "path": "/input/key",
       "method": "POST",
-      "description": "Synthesize a single GLFW key event on the active key handler.",
+      "description": "Deliver a named key event to the active key handler and report whether it was consumed.",
       "sourceClass": "ixdar.platform.automation.endpoints.input.InjectKey",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectKey.java",
       "params": [
         {
           "name": "key",
           "cliName": "key",
-          "type": "int",
-          "required": false,
-          "default": "0",
-          "help": "GLFW key code.",
-          "example": "65"
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Key name, with optional modifiers: ESCAPE, GRAVE, RIGHT_BRACKET, P, SHIFT+P, CTRL+SHIFT+S. Raw GLFW codes are rejected.",
+          "example": "SHIFT+P"
         },
         {
           "name": "action",
           "cliName": "action",
+          "type": "string",
+          "required": false,
+          "default": "tap",
+          "help": "Event action: tap (press then release), press, release or repeat.",
+          "example": "press"
+        },
+        {
+          "name": "settle",
+          "cliName": "settle",
           "type": "int",
           "required": false,
-          "default": "1",
-          "help": "Event action: 1 press, 0 release, 2 repeat.",
+          "default": "2",
+          "help": "Frames to wait for after the key, so a screenshot needs no sleep; 0 returns at once.",
           "example": "0"
-        },
-        {
-          "name": "mods",
-          "cliName": "mods",
-          "type": "int",
-          "required": false,
-          "default": "0",
-          "help": "Modifier-key bitmask.",
-          "example": "8"
-        },
-        {
-          "name": "scancode",
-          "cliName": "scancode",
-          "type": "int",
-          "required": false,
-          "default": "0",
-          "help": "Platform scancode.",
-          "example": "24"
         }
       ],
-      "responseHint": "{ok}"
+      "responseHint": "{ok, key, keyCode, mods, action, consumed, settled}"
     },
     {
       "commandName": "mesh-compare",
@@ -887,6 +896,35 @@
       "responseHint": "{ok, accepted}"
     },
     {
+      "commandName": "terminal",
+      "path": "/input/terminal",
+      "method": "POST",
+      "description": "Run one line in the scene terminal and return the history lines it produced.",
+      "sourceClass": "ixdar.platform.automation.endpoints.input.RunTerminalLine",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/RunTerminalLine.java",
+      "params": [
+        {
+          "name": "line",
+          "cliName": "line",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Command line to type and enter, arguments included.",
+          "example": "rings list"
+        },
+        {
+          "name": "settle",
+          "cliName": "settle",
+          "type": "int",
+          "required": false,
+          "default": "2",
+          "help": "Frames to wait for after the command runs; 0 returns at once.",
+          "example": "0"
+        }
+      ],
+      "responseHint": "{ok, line, response, settled}"
+    },
+    {
       "commandName": "type",
       "path": "/input/type",
       "method": "POST",
@@ -910,11 +948,11 @@
       "commandName": "ui-state",
       "path": "/ui/state",
       "method": "GET",
-      "description": "Snapshot the full UI state: window, scene, trade, mesh, text, menu, and audio.",
+      "description": "Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.",
       "sourceClass": "ixdar.platform.automation.endpoints.ui.State",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/State.java",
       "params": [],
-      "responseHint": "{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, collection?, textElements, menuItems, audio}"
+      "responseHint": "{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, collection?, textElements, menuItems, controls, audio}"
     }
   ]
 }
