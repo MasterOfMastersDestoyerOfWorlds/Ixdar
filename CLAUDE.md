@@ -181,6 +181,18 @@ Do not hand-roll a bespoke visualizer (an SVG unwrap, a custom exporter): the ru
 
 > The automation server had four latent bugs (it had never actually served a request): the `Canvas3D`/`MenuBox`/`KeyGuy`/`MouseTrap` reflection pointed at the pre-move package (missing `endpoints`), `@AutomationRouteAnnotation` was `@Retention(CLASS)` instead of `RUNTIME`, `AutomationApiServer.registerAll` didn't prefix paths with `/` or group GET+POST on one path, and route `runtime` was never injected. All fixed. If automation breaks again, suspect one of these.
 
+# Web build (TeaVM)
+
+`./tools/teavm-build.sh` packages the browser bundle into `ixdar-app/target/teavm/ixdar/`. It installs `IXDAR:annotations` into `~/.m2` first — `annotationProcessorPaths` resolves that jar from the repository and never from the reactor, so without the install a fresh worktree silently compiles against whatever processor jar happened to be installed last — then reprints every `[ERROR]` line after the Maven output where a `tail` finds it, and ends with one summary line: verdict, `classes.js` size, `[ERROR]` count, seconds. TeaVM runs with `stopOnErrors=false`, so when it meets a method it cannot compile it writes a ~36-byte `classes.js` stub and lets Maven exit 0; the script's minimum-size check is what actually fails the build. Full output is kept at `ixdar-app/target/teavm-build.log`.
+
+Everything reachable from `ixdar.canvas.WebLauncher` has to stay inside TeaVM's class library, which is a subset of the JDK's. The traps met so far, and what to write instead:
+
+- **`Files.readString` / `Files.writeString`** — they reach `BufferedReader.transferTo`, which the classlib does not implement, and the `[ERROR] Method java.io.BufferedReader.transferTo ... was not found` line is the only warning you get. Use `new String(Files.readAllBytes(file), StandardCharsets.UTF_8)` and `Files.write(file, text.getBytes(StandardCharsets.UTF_8))`; `CollectionManifest.readUtf8` is the pattern to copy.
+- **`java.util.Arrays.compare` on `int[]`** — missing. Write the lexicographic comparison as a loop over the shared prefix followed by a length comparison. (`Arrays.equals`, `sort`, `fill` and `copyOf` are fine.)
+- **Gson** — reflection-based, so it cannot work in the browser and the profile declares it `provided`. Parse with `Platforms.get().parseJson(text)`, which returns the neutral `JsonValue` tree (browser `JSON.parse` on web, Gson on desktop and headless); `Platform.parseFontAtlas` is the same trick for the font atlas. The rule generalizes: any reflective lookup compiles but comes up empty on web, which is why `Scene` wires its automation callbacks directly instead of by reflection.
+
+When the build fails, the `[ERROR] ... was not found` lines name the exact missing method; the class you have to change is usually one step up the call graph from it, not the one you just edited.
+
 # Automation
 
 <!-- BEGIN-GENERATED: automation-cli -->
