@@ -8,6 +8,21 @@ Do not route around the denial. `git show HEAD:path > path`, `cp` from a scratch
 
 Sequence the work so the tree never sits broken across the handoff: land whatever rewrite removes the dependency on the code being reverted **first**, so that by the time the list reaches me, applying it leaves the build green. If that is not possible, say plainly that the build will be red between the revert and the follow-up.
 
+# Worktrees and git: `wt` is the one door
+
+Agent work happens in a linked worktree at `.claude/worktrees/<ticket>` on a branch of the same name, and **the worktree's uncommitted diff is the proposed change**. Leave it uncommitted: the branch pointer sits on `master`, so `git diff` shows exactly what would land.
+
+`git add`, `commit`, `merge`, `branch`, `checkout`, `switch`, `restore`, `reset`, `stash`, `rebase`, `apply`, `push` and the rest of the write verbs are denied everywhere, in every worktree. **A denial is about the git verb itself** — not about the `cd &&` in front of it, not about the pipe after it, not about the quoting. Don't retry the same verb a different way and don't diagnose the harness; reach for `wt`, which is allow-listed:
+
+- `wt new <ticket> [--repo Ixdar]` — create the worktree and branch off `master`, seed the Python environment, and print the brief (paths, ticket, commands).
+- `wt status <ticket>` — **the first command to run in a worktree**, and the whole of a resume: branch, distance from `master`, changed files, and the last note of the agent that worked here.
+- `wt sync <ticket>` — replay your uncommitted diff onto the current `master`. Run it when you start and whenever you need newer `master`. On a conflict it stops and names the files; fix the markers and run `wt continue <ticket>`, or `wt abort <ticket>` to go back.
+- `wt launch add <ticket> --scene <id> [--property k=v]` — add the `.vscode/launch.json` entry the user verifies with F5. It edits the file as JSONC, so the comments survive and the diff is only the added entry. Never hand-edit `launch.json`.
+- `wt done <ticket>` — sync, build, run that launch entry once with its screenshot kept under `tmp/`, confirm `tmp/` holds a screenshot, then mark the ticket REVIEW. It refuses with a reason on any failed step, and it never lands.
+- `wt commit <ticket> -m "..."` — one squashed commit on top of `master`, only when asked; the default is to leave the work uncommitted.
+
+Read-only git is fine: `git status`, `git diff`, `git log`, `git show`, `git worktree list`. Merging to `master` is `land`, which is the user's alone and is on the deny list — never run it and never suggest a way around it.
+
 # Conventions
 
 ## Naming
