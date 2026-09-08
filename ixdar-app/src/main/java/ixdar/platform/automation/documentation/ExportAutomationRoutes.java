@@ -29,8 +29,11 @@ public final class ExportAutomationRoutes {
         }
         Path out = Path.of(args[0]);
         Files.createDirectories(out.toAbsolutePath().getParent());
-        String json = AutomationRouteCatalog.toJsonFromAnnotationRegistry();
-        Files.writeString(out, json + System.lineSeparator());
+        String json = AutomationRouteCatalog.toJsonFromAnnotationRegistry() + System.lineSeparator();
+        if (Files.exists(out) && Files.readString(out).equals(json)) {
+            return;
+        }
+        Files.writeString(out, json);
         System.out.println("Exported automation routes manifest to " + out.toAbsolutePath());
     }
 }

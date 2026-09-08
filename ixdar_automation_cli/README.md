@@ -764,14 +764,14 @@ Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB over
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L617)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L643)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 
 - `--scene` — Scene id passed to IxdarWindow (see @SceneAnnotation ids).
 - `--property` — Repeatable ``key=value`` JVM system property; a ``*.off`` or ``ixdar.model``
 - `--mesh` — Mesh name, alias or path to load as ``ixdar.model`` (see list-meshes).
-- `--profile` — Capture an async-profiler flame graph.
+- `--profile` — Capture an async-profiler flame graph and end the output with the same
 - `--profile-path` — Profile output path (default: profile.html at the repo root).
 - `--profile-event` — async-profiler event: ``cpu`` for time, ``alloc`` to attribute GC pressure
 - `--coverage` — Record JaCoCo line coverage and report which code the run never executed.
@@ -786,7 +786,7 @@ Build, launch, wait for, optionally profile and screenshot, then shut down a sce
 - `--log` — Path for the scene's stdout/stderr (default: /tmp/ixdar-scene-<scene>.log).
 - `--skip-build` — Do not compile first; copy any resources newer than target/classes and run
 - `--keep-alive` — Leave the scene running, returning only once it reports ready.
-- `--top` — How many hot methods or partly-covered classes to report.
+- `--top` — How many profile-report hot methods or partly-covered classes to report.
 
 ### `shutdown`
 

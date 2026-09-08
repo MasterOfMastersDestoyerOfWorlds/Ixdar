@@ -1,5 +1,7 @@
 package ixdar.geometry.mesh.csg;
 
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 
@@ -26,11 +28,18 @@ public final class ManifoldMeshBooleanBackend implements MeshBooleanBackend {
     public static final ManifoldProvenanceBindings PROVENANCE;
 
     static {
+        // The vendored loader announces each library it extracts and then prints its entire symbol
+        // table to System.out, which lands in every build and test log. Discard it for the duration
+        // of the load only; the restore is in the finally, so a load failure still reports normally.
+        PrintStream console = System.out;
+        System.setOut(new PrintStream(OutputStream.nullOutputStream()));
         try {
             BINDINGS = new ManifoldBindings();
             PROVENANCE = new ManifoldProvenanceBindings(BINDINGS);
         } catch (Throwable failure) {
             throw new IllegalStateException("Manifold natives failed to load", failure);
+        } finally {
+            System.setOut(console);
         }
     }
 

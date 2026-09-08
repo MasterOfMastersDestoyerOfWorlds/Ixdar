@@ -6,13 +6,12 @@
   <version>0.0.1</version>
   <packaging>pom</packaging>
   <properties>
-    <!--
-      Tells m2e-apt (inside VS Code's Java language server) to run the annotation processors during
-      IDE builds. Without it the IDE's target-ide tree lacks the generated registries
-      (SceneRegistry_Scenes, MeshNodeRegistry_MeshNodes, ...), and IDE-launched scenes die with
-      a null CanvasSceneMap.MAP. Plain Maven ignores the property.
-    -->
     <m2e.apt.activation>jdt_apt</m2e.apt.activation>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <ixdar.test.heap>-Xmx4g</ixdar.test.heap>
+    <ixdar.test.timeout>300s</ixdar.test.timeout>
+    <surefire.failIfNoSpecifiedTests>false</surefire.failIfNoSpecifiedTests>
   </properties>
 
   <modules>
@@ -51,6 +50,21 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
+        <configuration>
+          <argLine>${ixdar.test.heap} --enable-native-access=ALL-UNNAMED -XX:ErrorFile=${project.build.directory}/hs_err_pid%p.log -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=${project.build.directory}</argLine>
+          <forkedProcessExitTimeoutInSeconds>60</forkedProcessExitTimeoutInSeconds>
+          <properties>
+            <configurationParameters>
+              junit.jupiter.execution.timeout.default = ${ixdar.test.timeout}
+              junit.jupiter.execution.timeout.thread.mode.default = SEPARATE_THREAD
+            </configurationParameters>
+          </properties>
+        </configuration>
       </plugin>
     </plugins>
   </build>

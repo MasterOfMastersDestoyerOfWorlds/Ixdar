@@ -9,6 +9,7 @@ import java.util.TreeMap;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
+import javax.lang.model.SourceVersion;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
@@ -83,6 +84,17 @@ public abstract class RegistryProcessor extends AbstractProcessor {
         this.typeFqcn = typeFqcn;
         this.collectionName = collectionName;
         this.partitionDesktopOnly = partitionDesktopOnly;
+    }
+
+    /**
+     * Track the compiler's own source level, so raising {@code <release>} in the poms never
+     * leaves the processors warning that they only support an older one.
+     *
+     * @return the newest source version this compiler supports
+     */
+    @Override
+    public SourceVersion getSupportedSourceVersion() {
+        return SourceVersion.latestSupported();
     }
 
     /**

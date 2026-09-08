@@ -106,6 +106,36 @@ The existing `ixdar.model` / `tmeshPipeline.off` / `benchmark.off` properties ar
 - **Duplicated string literals:** a repeated string that *carries meaning* — a map key, a format string, a system-property name, a file path — should be a constant. A repeated string that is only **string-assembly glue** — an operand of `+`, or an `append(...)` argument — stays inline, however often it repeats. `ARC = "arc "`, `AND = " and "`, `CLOSE_PAREN = ")"` name nothing; they are punctuation wearing a constant's clothes, and they push the declarations a reader actually needs off the top of the file. Usage decides this, not length: `KEY_FACES = "Faces"` is real and `" and "` is glue at the same character count. `MeaningfulDuplicateStringLiteralsCheck` enforces exactly this, and `InlineGlueStringConstantsRecipe` inlines glue constants back automatically.
 - **No inline fully-qualified class names:** write `Collectors.toSet()` with an import, not `java.util.stream.Collectors.toSet()`. The only exception is genuine simple-name collisions across packages.
 
+# Building and testing
+
+Plain maven, from the repo root. The pom carries the flags, so nothing needs `-pl`, a heap
+argument, or a `grep` filter:
+
+```sh
+mvn -q compile                                        # both modules, checkstyle included
+mvn test -Dtest=SurfaceSplineTest                     # one class (or a comma-separated list)
+mvn test                                              # the whole unit suite
+mvn test -Dtest=CrawfishQuadLayoutBenchmark -Dbenchmark.stage=seamless
+```
+
+- **`mvn -q compile` prints nothing when it succeeds.** Anything it does print is a real problem, so
+  do not pipe it through a filter. Checkstyle runs in `process-sources`, so this is where violations
+  surface; never skip it, and the ruleset is `~/Code/autofix/src/main/resources/checkstyle.xml`.
+- **`mvn test` ends with surefire's own `Tests run: N, Failures: N, Errors: N, Skipped: N`.** Read
+  the last lines of maven's output; failures are named directly above that line. `-Dtest=` naming a
+  class this module does not have is not an error (`surefire.failIfNoSpecifiedTests` is false in
+  the pom), so a stale class name shows up as `Tests run: 0`, not a build failure.
+- **If you pipe maven anywhere, read `${PIPESTATUS[0]}`, never `$?`** — `$?` after a pipe is the
+  exit status of `tail`, which is a silent green when maven was red.
+- Each test gets a **300 s timeout** (`ixdar.test.timeout`, JUnit's per-test default in
+  `SEPARATE_THREAD` mode), so a hung test fails in minutes rather than eating the whole agent
+  budget. Raise it for one run with `-Dixdar.test.timeout=1200s`.
+- The test JVM gets **`-Xmx4g`** (`ixdar.test.heap`), benchmarks included. A benchmark that needs
+  more heap than that is a problem in the code under test; `-Dixdar.test.heap=-Xmx8g` is for
+  measuring how much more, not for making the run pass.
+- A JVM abort leaves evidence under `ixdar-app/target/`: `hs_err_pid*.log`, `*.hprof` on an
+  out-of-memory, and surefire's `*.dumpstream` in `target/surefire-reports/`.
+
 # Unit tests
 
 **A `unit.mesh.*Test` never loads a mesh file and never runs the pipeline.** No `.off`, no `.obj`, no `QuadLayoutEngine` run — a unit test must be far faster than a pipeline stage. The reproducer is a hand-authored fixture in `ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/embedding/fixtures/` (`TorusLayoutFixture`, `StackedZeroRowTorusFixture`, `ScaledTorusLayoutFixture`, `PlaneLayoutFixture` are the pattern — src/main so scenes can register them in the model menu, tests stay in `test/unit/mesh/`): an explicit grid of nodes, arcs, quantized lengths and four-sided patches, implementing `LayoutFixture` so `build()` returns fresh state. If no fixture reproduces the bug, **write one** — that is part of the work, not a reason to reach for a mesh.
@@ -145,7 +175,7 @@ Do not argue about *which* thing to optimize. When I point at a specific method 
 
 # Scenes and visual debugging
 
-Interactive 3D views are **scenes**: a class `extends Scene` (or `Canvas3D`) annotated `@SceneAnnotation(id = "...")`, auto-registered by an annotation processor (no registry list to edit — like the `@MeshNodeAnnotation` primitives). The window entry point is `ixdar.canvas.IxdarWindow`, and the scene id is `args[0]`, so `IxdarWindow embedded-tmesh` runs the scene with that id. Every scene id also has (or should have) a `.vscode/launch.json` entry — `mainClass: ixdar.canvas.IxdarWindow`, `args: <id>` — and can be run from the CLI with `mvn -q -f ixdar-app/pom.xml exec:java -Dexec.mainClass=ixdar.canvas.IxdarWindow -Dexec.args=<id>`.
+Interactive 3D views are **scenes**: a class `extends Scene` (or `Canvas3D`) annotated `@SceneAnnotation(id = "...")`, auto-registered by an annotation processor (no registry list to edit — like the `@MeshNodeAnnotation` primitives). The window entry point is `ixdar.canvas.IxdarWindow`, and the scene id is `args[0]`, so `IxdarWindow embedded-tmesh` runs the scene with that id. Every scene id also has (or should have) a `.vscode/launch.json` entry — `mainClass: ixdar.canvas.IxdarWindow`, `args: <id>` — for the user's F5. From the CLI a scene is run only with `ixdar-cli run-scene --scene <id>`, never `mvn exec:java` — see "Seeing a render yourself" below for why.
 
 **Don't hand-write a new scene's boilerplate** — scaffold it. This creates the Scene `.java`, the launch.json entry, and (optionally) a Maven profile in one shot:
 

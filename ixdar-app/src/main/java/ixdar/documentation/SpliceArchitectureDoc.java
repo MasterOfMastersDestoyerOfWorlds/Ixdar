@@ -61,8 +61,8 @@ public final class SpliceArchitectureDoc {
                 + text.substring(text.indexOf(END_MARKER));
         if (!updated.equals(text)) {
             Files.writeString(doc, updated);
+            System.out.println("Package map: " + descriptions.size() + " packages spliced into " + doc);
         }
-        System.out.println("Package map: " + descriptions.size() + " packages spliced into " + doc);
     }
 
     private static void collect(Path root, Map<String, String> descriptions) throws IOException {

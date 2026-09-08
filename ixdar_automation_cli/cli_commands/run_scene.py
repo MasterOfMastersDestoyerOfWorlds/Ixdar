@@ -23,11 +23,11 @@ import subprocess
 import sys
 import time
 
-from ..async_profile import format_hot_methods
 from ..automation_client import AutomationClient, read_port_file
 from ..cli_registry import CliCommandResult, cli_command
 from ..jacoco_coverage import DEFAULT_PACKAGE_FILTER, agent_argument, build_report, format_coverage
 from ..mesh_catalog import MODEL_PROPERTY, mesh_size, resolve_mesh, resolve_scene_properties
+from .profile_report import profile_report
 
 REPO_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
 IXDAR_APP_DIR = os.path.join(REPO_DIR, "ixdar-app")
@@ -591,7 +591,9 @@ def run(
     if resolved_profile and not keep_alive:
         result["profile"] = resolved_profile
         if os.path.exists(resolved_profile):
-            result["hotMethods"] = format_hot_methods(resolved_profile, top=top)
+            # The profile-report command, not its parsing library: one code path means a profiled run
+            # and a re-read of the same capture can never print different numbers.
+            result["hotMethods"] = profile_report(path=resolved_profile, top=top).payload["report"]
         else:
             result["profileError"] = "async-profiler wrote no file (was the JVM shut down cleanly?)"
 
@@ -643,7 +645,8 @@ def run_scene(
         value may be a mesh name such as ``fertility``, and a relative ``*.save`` value resolves
         against the module resources directory.
     :param mesh: Mesh name, alias or path to load as ``ixdar.model`` (see list-meshes).
-    :param profile: Capture an async-profiler flame graph.
+    :param profile: Capture an async-profiler flame graph and end the output with the same
+        self-time top-N table the profile-report command prints; no second command is needed.
     :param profile_path: Profile output path (default: profile.html at the repo root).
     :param profile_event: async-profiler event: ``cpu`` for time, ``alloc`` to attribute GC pressure
         to allocation sites.
@@ -665,7 +668,7 @@ def run_scene(
     :param skip_build: Do not compile first; copy any resources newer than target/classes and run
         whatever classes are on disk.
     :param keep_alive: Leave the scene running, returning only once it reports ready.
-    :param top: How many hot methods or partly-covered classes to report.
+    :param top: How many profile-report hot methods or partly-covered classes to report.
     """
     payload = run(
         scene=scene,
