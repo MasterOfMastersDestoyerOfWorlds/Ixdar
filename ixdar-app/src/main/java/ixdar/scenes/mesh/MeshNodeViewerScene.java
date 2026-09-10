@@ -534,13 +534,23 @@ public class MeshNodeViewerScene extends ModelScene {
      * @return the report text, or an empty string when the graph carries no repair node
      */
     public String getMeshRepairReport() {
+        MeshRepairReport report = getLastRepairReport();
+        return report == null ? "" : report.toText();
+    }
+
+    /**
+     * The {@code repair_mesh} report object the graph that last ran parked on its output bundle.
+     *
+     * @return the report, or null when the graph carries no repair node
+     */
+    public MeshRepairReport getLastRepairReport() {
         if (lastGraphRuntime == null
                 || !(lastGraphRuntime.lastOutput(DEFAULT_DSL_FINAL_PORT)
                         instanceof GeometryBundle bundle)
                 || !(bundle.slots().get(MeshRepairReport.SLOT) instanceof MeshRepairReport report)) {
-            return "";
+            return null;
         }
-        return report.toText();
+        return report;
     }
 
     /**

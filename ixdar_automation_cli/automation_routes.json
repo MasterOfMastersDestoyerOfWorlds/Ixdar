@@ -316,11 +316,11 @@
       "commandName": "mesh-dsl-timing",
       "path": "/mesh/dsl/timing",
       "method": "GET",
-      "description": "Report per-node execution times from the most recent DSL graph run.",
+      "description": "Report per-node execution times and peak heap from the most recent DSL graph run.",
       "sourceClass": "ixdar.platform.automation.endpoints.mesh.dsl.Timing",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/Timing.java",
       "params": [],
-      "responseHint": "{ok, total_ms, nodes:[{node, ms}, ...]}"
+      "responseHint": "{ok, total_ms, peak_heap_mib, nodes:[{node, ms, peak_heap_mib}, ...]}"
     },
     {
       "commandName": "mesh-dsl-validate",
@@ -360,6 +360,26 @@
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Fingerprint.java",
       "params": [],
       "responseHint": "{algorithm, ok, sha256, vertexCount, faceCount, triangleCount}"
+    },
+    {
+      "commandName": "mesh-holes",
+      "path": "/mesh/holes",
+      "method": "POST",
+      "description": "List every boundary loop of the mesh with its edge count, perimeter and area estimate, plus the loops repair_mesh filled and the triangles it used.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Holes",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Holes.java",
+      "params": [
+        {
+          "name": "path",
+          "cliName": "path",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Mesh file to analyse; empty analyses the active viewer mesh.",
+          "example": "/home/acw/crawfish/IMG_4109.glb"
+        }
+      ],
+      "responseHint": "{ok, source, open_loop_count, open_perimeter_total, loops:[{edges, perimeter, area, shell}, ...], repair_hole_count, repair_filled_count, repair_fill_face_count, repair_holes:[{edges, perimeter, filled, fill_faces}, ...]}"
     },
     {
       "commandName": "mesh-overlay",
@@ -599,6 +619,35 @@
         }
       ],
       "responseHint": "{ok, dsl, reference, resolution, baselineScore, projectedScore, parameterCount, jointCount, suggestedDeltas, suggestedValues, unstableParams?}"
+    },
+    {
+      "commandName": "mesh-topology",
+      "path": "/mesh/topology",
+      "method": "POST",
+      "description": "Report mesh topology: element counts, shells with their Euler characteristic, boundary loops, non-manifold edges and duplicate-position vertices.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Topology",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Topology.java",
+      "params": [
+        {
+          "name": "path",
+          "cliName": "path",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Mesh file to analyse; empty analyses the active viewer mesh.",
+          "example": "/home/acw/crawfish/IMG_4109.glb"
+        },
+        {
+          "name": "duplicate_tolerance",
+          "cliName": "duplicate_tolerance",
+          "type": "float",
+          "required": false,
+          "default": "1.0E-6",
+          "help": "Distance below which two vertices count as one position; 0 skips the scan.",
+          "example": "1e-6"
+        }
+      ],
+      "responseHint": "{ok, source, vertex_count, edge_count, face_count, face_side_count, triangle_count, euler_characteristic, boundary_edge_count, non_manifold_edge_count, unoriented_edge_count, isolated_vertex_count, non_manifold_boundary_vertex_count, unwalked_boundary_edge_count, duplicate_position_vertex_count, distinct_position_count, shell_count, boundary_loop_count, shells:[{faces, vertices, edges, boundary_edges, boundary_loops, euler}, ...], text}"
     },
     {
       "commandName": "multiview",

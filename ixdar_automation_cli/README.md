@@ -31,15 +31,17 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`key`](#key) | Deliver a named key event to the active key handler and report whether it was consumed. |
 | [`mesh-compare`](#mesh-compare) | Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics. |
 | [`mesh-dsl`](#mesh-dsl) | Load and execute a named DSL skill graph, making its output geometry the active mesh. |
-| [`mesh-dsl-timing`](#mesh-dsl-timing) | Report per-node execution times from the most recent DSL graph run. |
+| [`mesh-dsl-timing`](#mesh-dsl-timing) | Report per-node execution times and peak heap from the most recent DSL graph run. |
 | [`mesh-dsl-validate`](#mesh-dsl-validate) | Validate DSL source text, or the contents of a .dsl file path, against the skill schema. |
 | [`mesh-fingerprint`](#mesh-fingerprint) | Compute the canonical SHA-256 fingerprint of the active viewer mesh. |
+| [`mesh-holes`](#mesh-holes) | List every boundary loop of the mesh with its edge count, perimeter and area estimate, plus the loops repair_mesh filled and the triangles it used. |
 | [`mesh-patches-decompose`](#mesh-patches-decompose) | Hybrid skeleton and curvature patch decomposition of a reference mesh. |
 | [`mesh-seamless-diagnosis`](#mesh-seamless-diagnosis) | Report the seamless solver's singular-system diagnosis: how the singularity was classified, the null vector's support and the mesh vertices it sits on. |
 | [`mesh-segmentation`](#mesh-segmentation) | Segment a mesh into labeled vertex groups by connected components, curvature, or spatial clustering. |
 | [`mesh-skeleton-compare`](#mesh-skeleton-compare) | Compare TEASAR skeletons of two meshes and recommend parameter fixes. |
 | [`mesh-skeleton-compare-detailed`](#mesh-skeleton-compare-detailed) | Detailed skeleton comparison returning per-joint 3D position deltas. |
 | [`mesh-skeleton-sensitivity`](#mesh-skeleton-sensitivity) | Compute the Jacobian of skeleton joints w.r.t. DSL parameters. |
+| [`mesh-topology`](#mesh-topology) | Report mesh topology: element counts, shells with their Euler characteristic, boundary loops, non-manifold edges and duplicate-position vertices. |
 | [`multiview`](#multiview) | Capture 8 orbit viewpoints and composite them into a 4x2 grid PNG. |
 | [`orbit-get`](#orbit-get) | Report the active mesh viewer's current camera orbit and mesh radius. |
 | [`orbit-set`](#orbit-set) | Set the active mesh viewer's camera orbit (azimuth, elevation, distance). |
@@ -212,10 +214,10 @@ Load and execute a named DSL skill graph, making its output geometry the active 
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/Timing.java)
 
-Report per-node execution times from the most recent DSL graph run.
+Report per-node execution times and peak heap from the most recent DSL graph run.
 
 - **Route:** `GET /mesh/dsl/timing`
-- **Response:** `{ok, total_ms, nodes:[{node, ms}, ...]}`
+- **Response:** `{ok, total_ms, peak_heap_mib, nodes:[{node, ms, peak_heap_mib}, ...]}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/mesh/dsl/timing`
 
 ### `mesh-dsl-validate`
@@ -240,6 +242,18 @@ Compute the canonical SHA-256 fingerprint of the active viewer mesh.
 - **Route:** `GET /mesh/fingerprint`
 - **Response:** `{algorithm, ok, sha256, vertexCount, faceCount, triangleCount}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/mesh/fingerprint`
+
+### `mesh-holes`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Holes.java)
+
+List every boundary loop of the mesh with its edge count, perimeter and area estimate, plus the loops repair_mesh filled and the triangles it used.
+
+- **Route:** `POST /mesh/holes`
+- **Flags:**
+  - `--path` (string, default ``) — Mesh file to analyse; empty analyses the active viewer mesh., e.g. `/home/acw/crawfish/IMG_4109.glb`
+- **Response:** `{ok, source, open_loop_count, open_perimeter_total, loops:[{edges, perimeter, area, shell}, ...], repair_hole_count, repair_filled_count, repair_fill_face_count, repair_holes:[{edges, perimeter, filled, fill_faces}, ...]}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/holes -d '{"path": "/home/acw/crawfish/IMG_4109.glb"}'`
 
 ### `mesh-patches-decompose`
 
@@ -322,6 +336,19 @@ Compute the Jacobian of skeleton joints w.r.t. DSL parameters.
   - `--epsilon` (float, default `0.0`) — Finite-difference step; 0 lets the analyzer pick per parameter., e.g. `0.01`
 - **Response:** `{ok, dsl, reference, resolution, baselineScore, projectedScore, parameterCount, jointCount, suggestedDeltas, suggestedValues, unstableParams?}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/skeleton/sensitivity -d '{"dsl": "octopus", "reference": "meshes/target.obj", "resolution": 256, "epsilon": 0.01}'`
+
+### `mesh-topology`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Topology.java)
+
+Report mesh topology: element counts, shells with their Euler characteristic, boundary loops, non-manifold edges and duplicate-position vertices.
+
+- **Route:** `POST /mesh/topology`
+- **Flags:**
+  - `--path` (string, default ``) — Mesh file to analyse; empty analyses the active viewer mesh., e.g. `/home/acw/crawfish/IMG_4109.glb`
+  - `--duplicate-tolerance` (float, default `1.0E-6`) — Distance below which two vertices count as one position; 0 skips the scan., e.g. `1e-6`
+- **Response:** `{ok, source, vertex_count, edge_count, face_count, face_side_count, triangle_count, euler_characteristic, boundary_edge_count, non_manifold_edge_count, unoriented_edge_count, isolated_vertex_count, non_manifold_boundary_vertex_count, unwalked_boundary_edge_count, duplicate_position_vertex_count, distinct_position_count, shell_count, boundary_loop_count, shells:[{faces, vertices, edges, boundary_edges, boundary_loops, euler}, ...], text}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/topology -d '{"path": "/home/acw/crawfish/IMG_4109.glb", "duplicate_tolerance": 1e-6}'`
 
 ### `multiview`
 

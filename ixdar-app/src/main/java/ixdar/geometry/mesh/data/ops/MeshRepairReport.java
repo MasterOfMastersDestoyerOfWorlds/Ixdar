@@ -110,6 +110,12 @@ public final class MeshRepairReport {
     /** Whether each loop of {@link #holeEdgeCounts} was filled. */
     public boolean[] holeFilled = new boolean[0];
 
+    /** Summed edge length of each loop of {@link #holeEdgeCounts}, measured before any filling. */
+    public double[] holePerimeters = new double[0];
+
+    /** Triangles the filling added to each loop of {@link #holeEdgeCounts}; zero where unfilled. */
+    public int[] holeFillFaceCounts = new int[0];
+
     /**
      * Whether the repaired surface is still torn: a boundary loop the filling could not close, or
      * an orientation contradiction that survived the split. Debris and bubble shells are a
@@ -189,6 +195,8 @@ public final class MeshRepairReport {
             text.append("  hole ").append(hole)
                     .append(" edges=").append(holeEdgeCounts[hole])
                     .append(" filled=").append(holeFilled[hole])
+                    .append(" perimeter=").append((float) holePerimeters[hole])
+                    .append(" fillFaces=").append(holeFillFaceCounts[hole])
                     .append('\n');
         }
         return text.toString();

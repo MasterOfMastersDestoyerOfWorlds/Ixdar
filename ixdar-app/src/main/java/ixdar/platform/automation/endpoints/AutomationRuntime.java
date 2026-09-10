@@ -1,6 +1,5 @@
 package ixdar.platform.automation.endpoints;
 
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -25,6 +24,7 @@ import ixdar.geometry.mesh.data.MeshDistance;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.graph.HeapSampler;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.graphics.render.text.HyperWord;
 import ixdar.platform.Platforms;
@@ -33,6 +33,7 @@ import ixdar.platform.automation.AutomationInputBinder;
 import ixdar.platform.automation.AutomationPortFile;
 import ixdar.platform.automation.AutomationRecorder;
 import ixdar.platform.automation.AutomationReplayEngine;
+import ixdar.platform.automation.endpoints.mesh.dsl.Timing;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
 import ixdar.scenes.main.MainScene;
@@ -85,9 +86,10 @@ public class AutomationRuntime {
     }
 
     /**
-     * Bind the runtime to a live render canvas and start the HTTP automation server,
-     * publishing the bound port to this checkout's {@code tmp/automation.port}.
-     * Idempotent: subsequent calls only refresh the canvas reference.
+     * Bind the runtime to a live render canvas and start the HTTP automation
+     * server, publishing the bound port to this checkout's
+     * {@code tmp/automation.port}. Idempotent: subsequent calls only refresh the
+     * canvas reference.
      *
      * @param canvas3D the active render canvas; held so endpoints can drive scenes
      */
@@ -152,12 +154,13 @@ public class AutomationRuntime {
     }
 
     /**
-     * Forward a GLFW-style key callback to the recorder as a raw {@code "key"} event.
+     * Forward a GLFW-style key callback to the recorder as a raw {@code "key"}
+     * event.
      *
-     * @param key GLFW key code
+     * @param key      GLFW key code
      * @param scancode platform scancode
-     * @param action GLFW press/release/repeat code
-     * @param mods bitmask of held modifier keys
+     * @param action   GLFW press/release/repeat code
+     * @param mods     bitmask of held modifier keys
      */
     public void recordRawKey(int key, int scancode, int action, int mods) {
         JsonObject payload = new JsonObject();
@@ -182,13 +185,14 @@ public class AutomationRuntime {
 
     /**
      * Forward a GLFW-style mouse-button callback to the recorder as a raw
-     * {@code "mouse_button"} event annotated with the cursor position at click time.
+     * {@code "mouse_button"} event annotated with the cursor position at click
+     * time.
      *
      * @param button GLFW mouse button code
      * @param action GLFW press/release code
-     * @param mods bitmask of held modifier keys
-     * @param x cursor x in pixels
-     * @param y cursor y in pixels
+     * @param mods   bitmask of held modifier keys
+     * @param x      cursor x in pixels
+     * @param y      cursor y in pixels
      */
     public void recordRawMouseButton(
             int button,
@@ -237,7 +241,7 @@ public class AutomationRuntime {
     /**
      * Forward a high-level action to the recorder's abstract-action log.
      *
-     * @param type action type tag (e.g. {@code "click"}, {@code "hover"})
+     * @param type    action type tag (e.g. {@code "click"}, {@code "hover"})
      * @param payload action-specific fields
      */
     public void recordAbstractAction(String type, JsonObject payload) {
@@ -248,7 +252,7 @@ public class AutomationRuntime {
      * Map-based variant for callers that can't reference Gson directly (e.g.
      * TeaVM-compiled code).
      *
-     * @param type action type tag
+     * @param type    action type tag
      * @param payload action-specific fields; values are coerced to JSON numbers,
      *                booleans, or strings based on their runtime type
      */
@@ -273,8 +277,8 @@ public class AutomationRuntime {
      * Centers a mesh to the origin and scales it so its bounding box diagonal is
      * 1.0. Modifies vertex positions in place.
      *
-     * @param mesh mesh whose vertex positions are translated and uniformly scaled in
-     *             place
+     * @param mesh mesh whose vertex positions are translated and uniformly scaled
+     *             in place
      */
     public static void normalizeMeshPositions(
             ArrayMesh mesh) {
@@ -324,9 +328,10 @@ public class AutomationRuntime {
      * onto {@code result}. Only nodes with a recorded duration of at least 1ms are
      * included. No-op when no graph has executed yet.
      *
-     * @param mvs scene whose last graph runtime is queried
+     * @param mvs    scene whose last graph runtime is queried
      * @param result response payload that gains a {@code timing.total_ms} property
-     *               and a {@code timing.nodes} array of {@code {node, ms}} entries
+     *               and a {@code timing.nodes} array of
+     *               {@code {node, ms, peak_heap_mib}} entries
      */
     public static void appendTiming(
             MeshNodeViewerScene mvs,
@@ -342,13 +347,16 @@ public class AutomationRuntime {
                 JsonObject n = new JsonObject();
                 n.addProperty("node", entry.getKey());
                 n.addProperty("ms", entry.getValue());
+                Long peakBytes = runtime.lastPeakHeapBytes().get(entry.getKey());
+                if (peakBytes != null) {
+                    n.addProperty(Timing.PEAK_HEAP_MIB, peakBytes / HeapSampler.BYTES_PER_MIB);
+                }
                 nodes.add(n);
             }
         }
         timing.add("nodes", nodes);
         result.add("timing", timing);
     }
-
 
     /**
      * Parse a {@link MeshDistance.DistanceType} name (case-insensitive), defaulting
@@ -368,18 +376,18 @@ public class AutomationRuntime {
         }
     }
 
-    
-
     /**
      * Extract skeleton from a mesh OBJ file via TEASAR algorithm. Pure CPU — no GL
      * context needed.
      *
-     * @param meshPath OBJ file path; relative paths resolve against {@code user.dir}
+     * @param meshPath   OBJ file path; relative paths resolve against
+     *                   {@code user.dir}
      * @param resolution voxel resolution passed to {@link MeshSkeletonExtractor}
      * @throws IOException if the mesh file cannot be loaded
-     * @return JSON serialization of the {@link MeshSkeletonExtractor.SkeletonResult},
-     *         or an object with an {@code error} field when {@code meshPath} is
-     *         missing or the file does not exist
+     * @return JSON serialization of the
+     *         {@link MeshSkeletonExtractor.SkeletonResult}, or an object with an
+     *         {@code error} field when {@code meshPath} is missing or the file does
+     *         not exist
      */
     public JsonObject meshSkeleton(String meshPath, int resolution)
             throws IOException {
@@ -413,12 +421,13 @@ public class AutomationRuntime {
      * endpoints: a {@code lines} array of plain strings plus a {@code words} array
      * carrying per-word screen offsets and dimensions.
      *
-     * @param type element type tag for the response
-     * @param region named layout region containing the text
-     * @param value rendered hyper-string; may be {@code null} (yields empty arrays)
+     * @param type          element type tag for the response
+     * @param region        named layout region containing the text
+     * @param value         rendered hyper-string; may be {@code null} (yields empty
+     *                      arrays)
      * @param scrollOffsetY current vertical scroll offset of the containing region
-     * @return JSON element with {@code type}, {@code region}, {@code scrollOffsetY},
-     *         {@code lines}, and {@code words}
+     * @return JSON element with {@code type}, {@code region},
+     *         {@code scrollOffsetY}, {@code lines}, and {@code words}
      */
     public JsonObject hyperStringElement(
             String type,
@@ -496,8 +505,8 @@ public class AutomationRuntime {
      * forwarded verbatim; abstract events are currently no-ops pending re-injection
      * via the {@code input/*} endpoints.
      *
-     * @param mode replay mode driving the event
-     * @param type event type tag from the recording
+     * @param mode    replay mode driving the event
+     * @param type    event type tag from the recording
      * @param payload event-specific fields from the recording
      */
     public void executeReplayEvent(
@@ -549,10 +558,10 @@ public class AutomationRuntime {
             // injectScroll(payload.get("delta").getAsDouble());
         } else if (KEY.equals(type)) {
             // InjectKey.endpointHandler(
-            //         payload.get("key").getAsInt(),
-            //         payload.get("action").getAsInt(),
-            //         payload.get("mods").getAsInt(),
-            //         payload.get("scancode").getAsInt());
+            // payload.get("key").getAsInt(),
+            // payload.get("action").getAsInt(),
+            // payload.get("mods").getAsInt(),
+            // payload.get("scancode").getAsInt());
         }
     }
 
@@ -613,11 +622,11 @@ public class AutomationRuntime {
 
     /**
      * Marshal {@code action} onto the render thread and block until it completes.
-     * If the calling thread is already the render thread, {@code action} runs inline
-     * to avoid deadlock.
+     * If the calling thread is already the render thread, {@code action} runs
+     * inline to avoid deadlock.
      *
      * @param action work that must execute on the render thread
-     * @throws Exception any exception thrown by {@code action}
+     * @throws Exception             any exception thrown by {@code action}
      * @throws IllegalStateException if the action does not run within
      *                               {@value #MAIN_THREAD_WAIT_MS}ms
      * @return the JSON value returned by {@code action}, or an empty object if

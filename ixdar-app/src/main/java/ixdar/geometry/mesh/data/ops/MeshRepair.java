@@ -901,6 +901,8 @@ public final class MeshRepair {
         int[] loop = new int[boundaryVertexCount];
         int[] holeEdgeCounts = new int[boundaryVertexCount];
         boolean[] holeFilled = new boolean[boundaryVertexCount];
+        double[] holePerimeters = new double[boundaryVertexCount];
+        int[] holeFillFaceCounts = new int[boundaryVertexCount];
         int holes = 0;
         for (int start = 0; start < boundaryVertexCount; start++) {
             if (holeNext[start] < 0 || walked[start]) {
@@ -922,6 +924,7 @@ public final class MeshRepair {
                 clean = false;
             }
             holeEdgeCounts[holes] = length;
+            holePerimeters[holes] = loopPerimeter(loop, length);
             boolean withinCap = clean && length <= maxHoleEdges;
             if (withinCap) {
                 if (neighbourStart.length == 0) {
@@ -929,7 +932,9 @@ public final class MeshRepair {
                     neighbours = buildVertexNeighbours(neighbourStart, boundaryVertexCount,
                             onBoundary);
                 }
+                int fillFacesBefore = report.fillFaceCount;
                 holeFilled[holes] = fillLoop(loop, length, vertexSigma, neighbourStart, neighbours);
+                holeFillFaceCounts[holes] = report.fillFaceCount - fillFacesBefore;
             }
             if (holeFilled[holes]) {
                 report.filledHoleCount++;
@@ -944,7 +949,27 @@ public final class MeshRepair {
             holes++;
         }
         report.holeCount = holes;
-        recordHoles(holeEdgeCounts, holeFilled, holes);
+        recordHoles(holeEdgeCounts, holeFilled, holePerimeters, holeFillFaceCounts, holes);
+    }
+
+    /**
+     * Perimeter of one boundary loop, summed over its edges in traversal order.
+     *
+     * @param loop loop vertices in hole-traversal order
+     * @param length vertices in the loop
+     * @return summed edge length of the loop
+     */
+    private double loopPerimeter(int[] loop, int length) {
+        double perimeter = 0;
+        for (int index = 0; index < length; index++) {
+            int here = loop[index] * TRIANGLE_CORNERS;
+            int next = loop[(index + 1) % length] * TRIANGLE_CORNERS;
+            double deltaX = positions[here] - positions[next];
+            double deltaY = positions[here + 1] - positions[next + 1];
+            double deltaZ = positions[here + 2] - positions[next + 2];
+            perimeter += Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+        }
+        return perimeter;
     }
 
     /**
@@ -952,9 +977,12 @@ public final class MeshRepair {
      *
      * @param holeEdgeCounts edge count of each loop in discovery order
      * @param holeFilled whether each loop was filled, in discovery order
+     * @param holePerimeters perimeter of each loop, in discovery order
+     * @param holeFillFaceCounts triangles added to each loop, in discovery order
      * @param holes loops found
      */
-    private void recordHoles(int[] holeEdgeCounts, boolean[] holeFilled, int holes) {
+    private void recordHoles(int[] holeEdgeCounts, boolean[] holeFilled, double[] holePerimeters,
+            int[] holeFillFaceCounts, int holes) {
         long[] order = new long[holes];
         for (int hole = 0; hole < holes; hole++) {
             order[hole] = ((long) (Integer.MAX_VALUE - holeEdgeCounts[hole]) << KEY_SHIFT) | hole;
@@ -962,10 +990,14 @@ public final class MeshRepair {
         Arrays.sort(order);
         report.holeEdgeCounts = new int[holes];
         report.holeFilled = new boolean[holes];
+        report.holePerimeters = new double[holes];
+        report.holeFillFaceCounts = new int[holes];
         for (int index = 0; index < holes; index++) {
             int hole = (int) (order[index] & KEY_MASK);
             report.holeEdgeCounts[index] = holeEdgeCounts[hole];
             report.holeFilled[index] = holeFilled[hole];
+            report.holePerimeters[index] = holePerimeters[hole];
+            report.holeFillFaceCounts[index] = holeFillFaceCounts[hole];
         }
     }
 

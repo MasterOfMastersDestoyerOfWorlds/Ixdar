@@ -131,7 +131,7 @@ public final class MeshMergeByDistance {
             for (int dx = -1; dx <= 1; dx++) {
                 for (int dy = -1; dy <= 1; dy++) {
                     for (int dz = -1; dz <= 1; dz++) {
-                        long nk = pack(gx + dx, gy + dy, gz + dz);
+                        long nk = packCell(gx + dx, gy + dy, gz + dz);
                         List<Integer> bucket = grid.get(nk);
                         if (bucket == null) {
                             continue;
@@ -296,8 +296,8 @@ public final class MeshMergeByDistance {
         int[] nextInBucket = new int[n];
 
         for (int i = 0; i < n; i++) {
-            long pk = pack(cellGx[i], cellGy[i], cellGz[i]);
-            int slot = (int) (mix(pk) & gridMask);
+            long pk = packCell(cellGx[i], cellGy[i], cellGz[i]);
+            int slot = (int) (mixKey(pk) & gridMask);
             while (gridKeys[slot] != Long.MIN_VALUE && gridKeys[slot] != pk) {
                 slot = (slot + 1) & gridMask;
             }
@@ -318,8 +318,8 @@ public final class MeshMergeByDistance {
             for (int dx = -1; dx <= 1; dx++) {
                 for (int dy = -1; dy <= 1; dy++) {
                     for (int dz = -1; dz <= 1; dz++) {
-                        long nk = pack(gx + dx, gy + dy, gz + dz);
-                        int slot = (int) (mix(nk) & gridMask);
+                        long nk = packCell(gx + dx, gy + dy, gz + dz);
+                        int slot = (int) (mixKey(nk) & gridMask);
                         while (gridKeys[slot] != Long.MIN_VALUE && gridKeys[slot] != nk) {
                             slot = (slot + 1) & gridMask;
                         }
@@ -424,7 +424,15 @@ public final class MeshMergeByDistance {
         return out;
     }
 
-    private static long mix(long x) {
+    /**
+     * Avalanche mixer that spreads a packed cell key over the whole word, so neighbouring cells
+     * do not land in neighbouring hash slots.
+     *
+     * @param key packed cell key from {@link #packCell}
+     * @return well-distributed hash of the key
+     */
+    public static long mixKey(long key) {
+        long x = key;
         x ^= (x >>> NUM_33);
         x *= NUM_0xff51afd7ed558ccd;
         x ^= (x >>> NUM_33);
@@ -433,15 +441,25 @@ public final class MeshMergeByDistance {
         return x;
     }
 
+    /**
+     * Packs one grid cell's integer coordinates into a single key, 21 bits per axis.
+     *
+     * @param gridX cell index along x
+     * @param gridY cell index along y
+     * @param gridZ cell index along z
+     * @return the three coordinates packed into one long
+     */
+    public static long packCell(int gridX, int gridY, int gridZ) {
+        return ((long) gridX & NUM_0x1ffff)
+                | (((long) gridY & NUM_0x1ffff) << NUM_21)
+                | (((long) gridZ & NUM_0x1ffff) << NUM_42);
+    }
+
     private static long key(Vector3f p, float cell) {
         int gx = (int) Math.floor(p.x / cell);
         int gy = (int) Math.floor(p.y / cell);
         int gz = (int) Math.floor(p.z / cell);
-        return pack(gx, gy, gz);
-    }
-
-    private static long pack(int gx, int gy, int gz) {
-        return ((long) gx & NUM_0x1ffff) | (((long) gy & NUM_0x1ffff) << NUM_21) | (((long) gz & NUM_0x1ffff) << NUM_42);
+        return packCell(gx, gy, gz);
     }
 
 }

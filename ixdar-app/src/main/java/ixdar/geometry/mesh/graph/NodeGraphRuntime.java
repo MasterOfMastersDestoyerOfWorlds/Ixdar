@@ -84,6 +84,13 @@ public class NodeGraphRuntime {
 
     /** Per-node timing from last graph execution. Entries: "id (type) → ms". */
     private final LinkedHashMap<String, Long> lastTimingMs = new LinkedHashMap<>();
+
+    /** Per-node peak used heap from the last graph execution, keyed like {@link #lastTimingMs}. */
+    private final LinkedHashMap<String, Long> lastPeakHeapBytes = new LinkedHashMap<>();
+
+    /** Samples used heap while a node runs, so the peak can be attributed to that node. */
+    private final HeapSampler heapSampler = new HeapSampler();
+
     private long lastTotalMs;
 
     /** A runtime with no program of its own; callers hand statements to the execute methods. */
@@ -117,6 +124,16 @@ public class NodeGraphRuntime {
      */
     public long lastTotalMs() {
         return lastTotalMs;
+    }
+
+    /**
+     * Peak used heap observed while each node of the most recent execution ran, keyed exactly like
+     * {@link #lastTimingMs}. Process-wide, so it includes whatever earlier nodes still hold.
+     *
+     * @return insertion-ordered map keyed by {@code "id (type)"} with peak used heap in bytes
+     */
+    public LinkedHashMap<String, Long> lastPeakHeapBytes() {
+        return lastPeakHeapBytes;
     }
 
     /**
@@ -247,9 +264,9 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * Log the last execution's total wall time, plus every node that took 100ms or more. The
-     * project's rule of thumb: most steps take under a second, and anything slow usually means a
-     * planning or correctness problem, so slowness must be visible without extra machinery.
+     * Log the last execution's total wall time, plus the time and peak heap of every node that
+     * took 100ms or more. The project's rule of thumb: most steps take under a second, and
+     * anything slow usually means a planning or correctness problem, so it must be visible.
      *
      * @param prefix log prefix naming the caller, e.g. {@code "[mesh-viewer]"}
      */
@@ -258,6 +275,12 @@ public class NodeGraphRuntime {
         for (Map.Entry<String, Long> timing : lastTimingMs.entrySet()) {
             if (timing.getValue() >= SLOW_NODE_MS) {
                 line.append("  ").append(timing.getKey()).append('=').append(timing.getValue()).append("ms");
+                Long peakBytes = lastPeakHeapBytes.get(timing.getKey());
+                if (peakBytes != null) {
+                    line.append('/')
+                            .append(Math.round(peakBytes / HeapSampler.BYTES_PER_MIB))
+                            .append("MiB");
+                }
             }
         }
         Platforms.log(line.toString());
@@ -381,6 +404,7 @@ public class NodeGraphRuntime {
             String outputPortName, Map<String, Object> overridesByNodeId) throws Exception {
         evaluatedNodes.clear();
         lastTimingMs.clear();
+        lastPeakHeapBytes.clear();
         lastStatementId = parsedStatements.isEmpty() ? null
                 : parsedStatements.get(parsedStatements.size() - 1).id;
         long graphStart = System.nanoTime();
@@ -388,92 +412,103 @@ public class NodeGraphRuntime {
         FieldContext currentFieldContext = null;
         Map<String, Object> overrides = overridesByNodeId == null ? Map.of() : overridesByNodeId;
 
-        for (PythonParser.ParsedNode parsedData : parsedStatements) {
-            // Resolve argument values (shared between node and function calls)
-            Map<String, Object> resolvedArgs = new HashMap<>();
-            for (Map.Entry<String, Object> arg : parsedData.arguments.entrySet()) {
-                String portName = arg.getKey();
-                Object rawValue = arg.getValue();
+        heapSampler.start();
+        try {
+            for (PythonParser.ParsedNode parsedData : parsedStatements) {
+                // Resolve argument values (shared between node and function calls)
+                Map<String, Object> resolvedArgs = new HashMap<>();
+                for (Map.Entry<String, Object> arg : parsedData.arguments.entrySet()) {
+                    String portName = arg.getKey();
+                    Object rawValue = arg.getValue();
 
-                // Check for dot-notation literal override (e.g. "thumb_attach.theta")
-                String literalKey = parsedData.id + STR + portName;
-                if (overrides.containsKey(literalKey)) {
-                    resolvedArgs.put(portName, overrides.get(literalKey));
-                } else if (rawValue instanceof PythonParser.NodeReference ref) {
-                    GraphNodeContext sourceContext = evaluatedNodes.get(ref.nodeId);
-                    if (sourceContext == null) {
-                        throw new RuntimeException("Node '" + ref.nodeId + WAS_REFERENCED_BEFORE_IT_WAS_EVALUATED);
+                    // Check for dot-notation literal override (e.g. "thumb_attach.theta")
+                    String literalKey = parsedData.id + STR + portName;
+                    if (overrides.containsKey(literalKey)) {
+                        resolvedArgs.put(portName, overrides.get(literalKey));
+                    } else if (rawValue instanceof PythonParser.NodeReference ref) {
+                        GraphNodeContext sourceContext = evaluatedNodes.get(ref.nodeId);
+                        if (sourceContext == null) {
+                            throw new RuntimeException("Node '" + ref.nodeId + WAS_REFERENCED_BEFORE_IT_WAS_EVALUATED);
+                        }
+                        resolvedArgs.put(portName, sourceContext.getOutput(ref.portName));
+                    } else {
+                        resolvedArgs.put(portName, rawValue);
                     }
-                    resolvedArgs.put(portName, sourceContext.getOutput(ref.portName));
+                }
+
+                // Vec3 component overrides (e.g. "node.translation.x")
+                for (Map.Entry<String, Object> arg : parsedData.arguments.entrySet()) {
+                    String portName = arg.getKey();
+                    if (!(arg.getValue() instanceof Vector3Value v3)) continue;
+                    String base = parsedData.id + STR + portName;
+                    Object oxObj = overrides.get(base + ".x");
+                    Object oyObj = overrides.get(base + ".y");
+                    Object ozObj = overrides.get(base + ".z");
+                    if (oxObj != null || oyObj != null || ozObj != null) {
+                        float x = oxObj instanceof Number n ? n.floatValue() : v3.x();
+                        float y = oyObj instanceof Number n ? n.floatValue() : v3.y();
+                        float z = ozObj instanceof Number n ? n.floatValue() : v3.z();
+                        resolvedArgs.put(portName, new Vector3Value(x, y, z));
+                    }
+                }
+
+                PythonParser.FunctionDef funcDef = functionDefs.get(parsedData.type);
+                if (funcDef != null) {
+                    // Function call: execute body with parameter binding
+                    long nodeStart = System.nanoTime();
+                    heapSampler.resetPeak();
+                    GraphNodeContext resultCtx = executeFunctionCall(funcDef, resolvedArgs, currentFieldContext, overrides);
+                    long nodeMs = (System.nanoTime() - nodeStart) / NUM_1_000_000;
+                    String timingKey = parsedData.id + STR_2 + parsedData.type + STR_3;
+                    lastTimingMs.put(timingKey, nodeMs);
+                    lastPeakHeapBytes.put(timingKey, heapSampler.peakBytes());
+
+                    MeshTopology meshOut = meshFromNodeOutputs(resultCtx);
+                    if (meshOut != null && meshOut.vertexCount() > 0) {
+                        currentFieldContext = new FieldContextImpl(meshOut);
+                    }
+                    evaluatedNodes.put(parsedData.id, resultCtx);
                 } else {
-                    resolvedArgs.put(portName, rawValue);
+                    // Regular node call
+                    if (nodeRegistry.get(parsedData.type) == null) {
+                        throw new IllegalArgumentException("Unknown node type: " + parsedData.type);
+                    }
+                    Supplier<? extends MeshNode> supplier = supplierFor(parsedData.type);
+                    if (supplier == null) {
+                        throw new IllegalStateException(missingNodeMessage(parsedData.type));
+                    }
+                    MeshNode activeNode = supplier.get();
+
+                    GraphNodeContext context = new GraphNodeContext();
+                    context.setFieldContext(currentFieldContext);
+                    context.setNodeAssignmentId(parsedData.id);
+
+                    for (Map.Entry<String, Object> resolved : resolvedArgs.entrySet()) {
+                        context.setInputValue(resolved.getKey(), resolved.getValue());
+                    }
+
+                    if (overrides.containsKey(parsedData.id) && ( "input_float".equals(parsedData.type) || "input_int".equals(parsedData.type) || "input_boolean".equals(parsedData.type))) {
+                        context.setInputValue("default", overrides.get(parsedData.id));
+                    }
+
+                    long nodeStart = System.nanoTime();
+                    heapSampler.resetPeak();
+                    activeNode.evaluate(context);
+                    AutoTagHook.applyIfApplicable(activeNode, context, parsedData.id);
+                    long nodeMs = (System.nanoTime() - nodeStart) / NUM_1_000_000;
+                    String timingKey = parsedData.id + STR_2 + parsedData.type + STR_3;
+                    lastTimingMs.put(timingKey, nodeMs);
+                    lastPeakHeapBytes.put(timingKey, heapSampler.peakBytes());
+
+                    MeshTopology meshOut = meshFromNodeOutputs(context);
+                    if (meshOut != null && meshOut.vertexCount() > 0) {
+                        currentFieldContext = new FieldContextImpl(meshOut);
+                    }
+                    evaluatedNodes.put(parsedData.id, context);
                 }
             }
-
-            // Vec3 component overrides (e.g. "node.translation.x")
-            for (Map.Entry<String, Object> arg : parsedData.arguments.entrySet()) {
-                String portName = arg.getKey();
-                if (!(arg.getValue() instanceof Vector3Value v3)) continue;
-                String base = parsedData.id + STR + portName;
-                Object oxObj = overrides.get(base + ".x");
-                Object oyObj = overrides.get(base + ".y");
-                Object ozObj = overrides.get(base + ".z");
-                if (oxObj != null || oyObj != null || ozObj != null) {
-                    float x = oxObj instanceof Number n ? n.floatValue() : v3.x();
-                    float y = oyObj instanceof Number n ? n.floatValue() : v3.y();
-                    float z = ozObj instanceof Number n ? n.floatValue() : v3.z();
-                    resolvedArgs.put(portName, new Vector3Value(x, y, z));
-                }
-            }
-
-            PythonParser.FunctionDef funcDef = functionDefs.get(parsedData.type);
-            if (funcDef != null) {
-                // Function call: execute body with parameter binding
-                long nodeStart = System.nanoTime();
-                GraphNodeContext resultCtx = executeFunctionCall(funcDef, resolvedArgs, currentFieldContext, overrides);
-                long nodeMs = (System.nanoTime() - nodeStart) / NUM_1_000_000;
-                lastTimingMs.put(parsedData.id + STR_2 + parsedData.type + STR_3, nodeMs);
-
-                MeshTopology meshOut = meshFromNodeOutputs(resultCtx);
-                if (meshOut != null && meshOut.vertexCount() > 0) {
-                    currentFieldContext = new FieldContextImpl(meshOut);
-                }
-                evaluatedNodes.put(parsedData.id, resultCtx);
-            } else {
-                // Regular node call
-                if (nodeRegistry.get(parsedData.type) == null) {
-                    throw new IllegalArgumentException("Unknown node type: " + parsedData.type);
-                }
-                Supplier<? extends MeshNode> supplier = supplierFor(parsedData.type);
-                if (supplier == null) {
-                    throw new IllegalStateException(missingNodeMessage(parsedData.type));
-                }
-                MeshNode activeNode = supplier.get();
-
-                GraphNodeContext context = new GraphNodeContext();
-                context.setFieldContext(currentFieldContext);
-                context.setNodeAssignmentId(parsedData.id);
-
-                for (Map.Entry<String, Object> resolved : resolvedArgs.entrySet()) {
-                    context.setInputValue(resolved.getKey(), resolved.getValue());
-                }
-
-                if (overrides.containsKey(parsedData.id) && ( "input_float".equals(parsedData.type) || "input_int".equals(parsedData.type) || "input_boolean".equals(parsedData.type))) {
-                    context.setInputValue("default", overrides.get(parsedData.id));
-                }
-
-                long nodeStart = System.nanoTime();
-                activeNode.evaluate(context);
-                AutoTagHook.applyIfApplicable(activeNode, context, parsedData.id);
-                long nodeMs = (System.nanoTime() - nodeStart) / NUM_1_000_000;
-                lastTimingMs.put(parsedData.id + STR_2 + parsedData.type + STR_3, nodeMs);
-
-                MeshTopology meshOut = meshFromNodeOutputs(context);
-                if (meshOut != null && meshOut.vertexCount() > 0) {
-                    currentFieldContext = new FieldContextImpl(meshOut);
-                }
-                evaluatedNodes.put(parsedData.id, context);
-            }
+        } finally {
+            heapSampler.stop();
         }
 
         lastTotalMs = (System.nanoTime() - graphStart) / NUM_1_000_000;

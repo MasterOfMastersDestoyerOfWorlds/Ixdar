@@ -145,6 +145,14 @@ Reproducing a bug **on** a real mesh is the right way to find out what the fixtu
 
 Mesh-backed checks belong in `ixdar-app/test/benchmark/`, which is run deliberately with `-Dtest=...`, never in the unit suite.
 
+## No untracked scratch Java
+
+**Never write a throwaway `.java` file to get a number.** No `Probe.java`, no `DiagTest`, no `javac` against a hand-assembled classpath, no `Main` in `/tmp`. Those files answer one question, then rot outside the build: nobody else can rerun them, checkstyle never sees them, and the next agent writes the same file again.
+
+The number you want comes from a **tracked automation route** — `mesh-topology`, `mesh-holes`, `mesh-dsl-timing`, `mesh-fingerprint` and the rest of the command list under **Automation** below. If no route reports it, **add one** (or extend the report class behind one): that is the work, not a detour around it. A route is reusable, documented by `gen-docs`, and callable from the CLI.
+
+When the question is genuinely a one-off that a route cannot answer, it is a **test under `ixdar-app/test/`** — `test/unit/` for a hand-authored fixture, `test/benchmark/` for anything mesh-backed — written to survive the merge like any other file in the diff. A diagnostic either lands there or is deleted before the ticket is marked REVIEW. Every `.java` file left in the worktree at handover is part of the proposed change, so `Probe.java`, `DiagTest.java`, `TempScanDiagnostic.java` and friends must be gone by then.
+
 # Profiling
 
 We profile with [async-profiler](https://github.com/async-profiler/async-profiler) (CPU, `event=cpu`), attached as an agent and dumping a flame-graph HTML. We **always** want the flame graph, so keep the capture as `.html`:
@@ -249,15 +257,17 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli key --key [--action] [--settle]` — Deliver a named key event to the active key handler and report whether it was consumed.
 - `ixdar-cli mesh-compare --reference [--distance-type] [--scale] [--normalize]` — Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics.
 - `ixdar-cli mesh-dsl --name [--node] [--port]` — Load and execute a named DSL skill graph, making its output geometry the active mesh.
-- `ixdar-cli mesh-dsl-timing` — Report per-node execution times from the most recent DSL graph run.
+- `ixdar-cli mesh-dsl-timing` — Report per-node execution times and peak heap from the most recent DSL graph run.
 - `ixdar-cli mesh-dsl-validate --dsl [--export]` — Validate DSL source text, or the contents of a .dsl file path, against the skill schema.
 - `ixdar-cli mesh-fingerprint` — Compute the canonical SHA-256 fingerprint of the active viewer mesh.
+- `ixdar-cli mesh-holes [--path]` — List every boundary loop of the mesh with its edge count, perimeter and area estimate, plus the loops repair_mesh filled and the triangles it used.
 - `ixdar-cli mesh-patches-decompose --path [--resolution]` — Hybrid skeleton and curvature patch decomposition of a reference mesh.
 - `ixdar-cli mesh-seamless-diagnosis [--highlight]` — Report the seamless solver's singular-system diagnosis: how the singularity was classified, the null vector's support and the mesh vertices it sits on.
 - `ixdar-cli mesh-segmentation --path [--method] [--n-clusters]` — Segment a mesh into labeled vertex groups by connected components, curvature, or spatial clustering.
 - `ixdar-cli mesh-skeleton-compare --generated --reference [--resolution]` — Compare TEASAR skeletons of two meshes and recommend parameter fixes.
 - `ixdar-cli mesh-skeleton-compare-detailed --generated --reference [--resolution]` — Detailed skeleton comparison returning per-joint 3D position deltas.
 - `ixdar-cli mesh-skeleton-sensitivity --dsl --reference [--resolution] [--epsilon]` — Compute the Jacobian of skeleton joints w.r.t. DSL parameters.
+- `ixdar-cli mesh-topology [--path] [--duplicate-tolerance]` — Report mesh topology: element counts, shells with their Euler characteristic, boundary loops, non-manifold edges and duplicate-position vertices.
 - `ixdar-cli multiview [--out] [--inline]` — Capture 8 orbit viewpoints and composite them into a 4x2 grid PNG.
 - `ixdar-cli orbit-get` — Report the active mesh viewer's current camera orbit and mesh radius.
 - `ixdar-cli orbit-set [--azimuth] [--elevation] [--distance] [--target]` — Set the active mesh viewer's camera orbit (azimuth, elevation, distance).
